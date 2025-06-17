@@ -1,0 +1,615 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Catalyst Core Character Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&amp;display=swap" rel="stylesheet"/>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  color: #00bfff;
+  background: url('https://www.transparenttextures.com/patterns/stardust.png') repeat, #1e1e1e;
+  margin: 0;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+h1, h2 {
+  text-align: center;
+  margin-top: 1rem;
+  color: #00bfff;
+  font-weight: normal;
+}
+
+main {
+  padding: 1rem;
+  max-width: 100%;
+  margin: auto;
+}
+
+section {
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 2px solid #00bfff;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  overflow-wrap: break-word;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  margin: 0.5rem 0;
+}
+
+input, select, textarea {
+  margin-top: 0.3rem;
+  padding: 0.6rem;
+  border: none;
+  border-radius: 5px;
+  background-color: #2e2e2e;
+  color: #00bfff;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.grid-block {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.toggle-button {
+  background-color: #00bfff;
+  color: #1e1e1e;
+  border: none;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  font-weight: normal;
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 5px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 1rem;
+  }
+
+  label, input, select, textarea {
+    font-size: 1rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+  }
+}
+</style>
+</head>
+<body>
+<main><h1>Catalyst Core: Character Tracker</h1><section>
+<h2>Identity</h2>
+<div class="grid-block" style="display: grid; grid-template-columns: 1fr; gap: 1rem;"><div style="width: 100%;"><label>Secret Identity: <input name="secretIdentity" style="width: 100%;" type="text"/></label></div><div style="width: 100%;"><label>Vigilante Name: <input name="vigilanteName" style="width: 100%;" type="text"/></label></div><div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;"><label>Public Identity:
+      <select name="publicIdentity">
+<option>Pick One</option>
+<option>Known</option>
+<option>Unknown</option>
+</select>
+</label><label>Classification:
+      <select name="classification">
+<option>Pick One</option>
+<option>Mutant – Reroll one failed saving throw per long rest.</option>
+<option>Enhanced Human – Advantage on all Technology-related checks.</option>
+<option>Magic User – Cast a minor magical effect (prestidigitation) per long rest.</option>
+<option>Alien/Extraterrestrial – Immune to environmental hazards and no penalty in rough terrain.</option>
+<option>Mystical Being – +2 to Persuasion or Intimidation checks.</option>
+</select>
+</label></div></div>
+</section><section>
+<h2>Origin Story</h2>
+<div class="grid-block" style="grid-template-columns: 1fr;">
+<label>Origin Story:
+      <select name="originStory">
+<option>Pick One</option>
+<option>The Accident – Resistance to one damage type.</option>
+<option>The Experiment – Reroll a failed CON or INT save once per long rest.</option>
+<option>The Legacy – Use powers of someone you know once per long rest.</option>
+<option>The Awakening – +5 to hit/+10 damage when below ½ HP.</option>
+<option>The Pact – Auto-succeed a save or +10 to any roll once per long rest.</option>
+<option>The Lost Time – Skill Move: free use +1d6 bonus on DC 17 power roll.</option>
+<option>The Exposure – +5 elemental damage once per round.</option>
+<option>The Rebirth – Stand at 1 HP if KO’d; resist all damage for 1 round.</option>
+<option>The Vigil – Shield all allies from damage for one turn per combat.</option>
+<option>The Redemption – Take damage for ally; they heal, you gain save advantage.</option>
+</select>
+</label>
+</div>
+</section><section><h2>Power Styles</h2>
+<div class="grid-block">
+<label>Primary Power Style:
+        <select id="primaryPowerStyle" onchange="updatePrimaryPerk()">
+<option>Pick One</option>
+<option value="Physical Powerhouse">Physical Powerhouse – Cut one attack by half once per combat.</option>
+<option value="Energy Manipulator">Energy Manipulator – Reroll 1s once per turn.</option>
+<option value="Speedster">Speedster – +10 ft movement, +1 AC if moving 20+ ft.</option>
+<option value="Telekinetic/Psychic">Telekinetic/Psychic – Force rerolls of 17+ once per rest.</option>
+<option value="Illusionist">Illusionist – Create a 1-min decoy illusion once per combat.</option>
+<option value="Shape-shifter">Shape-shifter – Advantage on Deception; disguise freely.</option>
+<option value="Elemental Controller">Elemental Controller – +2 to hit and +5 damage with elemental powers.</option>
+</select>
+</label>
+<label>Primary Power Perk: <input id="primaryPerk" readonly="" type="text"/></label>
+<label>Secondary Power Style:
+        <select id="secondaryPowerStyle">
+<option>Pick One</option>
+<option value="Physical Powerhouse">Physical Powerhouse</option>
+<option value="Energy Manipulator">Energy Manipulator</option>
+<option value="Speedster">Speedster</option>
+<option value="Telekinetic/Psychic">Telekinetic/Psychic</option>
+<option value="Illusionist">Illusionist</option>
+<option value="Shape-shifter">Shape-shifter</option>
+<option value="Elemental Controller">Elemental Controller</option>
+</select>
+</label>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Ability Scores</button>
+<div class="toggle-section">
+<h2>Ability Scores</h2>
+<div class="grid-block" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+<div><label>STR</label><select onchange="updateModifier(this, 'modSTR')">
+<option value="">Pick One</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option></select><div>Modifier: <span id="modSTR">—</span></div></div>
+<div><label>DEX</label><select onchange="updateModifier(this, 'modDEX')">
+<option value="">Pick One</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option></select><div>Modifier: <span id="modDEX">—</span></div></div>
+<div><label>CON</label><select onchange="updateModifier(this, 'modCON')">
+<option value="">Pick One</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option></select><div>Modifier: <span id="modCON">—</span></div></div>
+<div><label>INT</label><select onchange="updateModifier(this, 'modINT')">
+<option value="">Pick One</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option></select><div>Modifier: <span id="modINT">—</span></div></div>
+<div><label>WIS</label><select onchange="updateModifier(this, 'modWIS')">
+<option value="">Pick One</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option></select><div>Modifier: <span id="modWIS">—</span></div></div>
+<div><label>CHA</label><select onchange="updateModifier(this, 'modCHA')">
+<option value="">Pick One</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option></select><div>Modifier: <span id="modCHA">—</span></div></div>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Combat Stats</button>
+<div class="toggle-section">
+<h2>Combat Stats</h2>
+<div class="grid-block">
+<label>Initiative: <input name="initiative" type="text"/></label>
+<label>Speed (ft): <input name="speed" type="number"/></label>
+<label>Passive Perception: <input name="passivePerception" type="number"/></label>
+<label>Max SP: <input name="maxSP" type="number"/></label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Alignment</button>
+<div class="toggle-section">
+<h2>Alignment</h2>
+<div class="grid-block">
+<label>Moral Axis:
+        <select id="moralAxis" name="moralAxis" onchange="updateAlignment()">
+<option value="">Pick One</option>
+<option value="Light">Light</option>
+<option value="Neutral">Neutral</option>
+<option value="Shadow">Shadow</option>
+</select>
+</label>
+<label>Discipline Axis:
+        <select id="disciplineAxis" name="disciplineAxis" onchange="updateAlignment()">
+<option value="">Pick One</option>
+<option value="Lawful">Lawful</option>
+<option value="Neutral">Neutral</option>
+<option value="Chaotic">Chaotic</option>
+</select>
+</label>
+<label>Alignment: <div id="alignmentDisplay" style="padding: 0.5rem;">—</div></label>
+<label>Alignment Perk: <div id="perkDisplay" style="padding: 0.5rem;">—</div></label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Custom Powers</button>
+<div class="toggle-section">
+<h2>Custom Powers</h2>
+<div style="border: 3px solid #00bfff; padding: 1rem; margin-bottom: 1rem;">
+<h3>Power 1</h3>
+<label>Name: <input name="power1Name" type="text"/></label>
+<label>Effect: <input name="power1Effect" type="text"/></label>
+<label>Range: <input name="power1Range" type="text"/></label>
+<label>SP Cost:
+      <select name="power1SP">
+<option>Pick One</option>
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+</select>
+</label>
+<label>Save: <input name="power1Save" type="text"/></label>
+<label>Duration: <input name="power1Duration" type="text"/></label>
+</div>
+<div style="border: 3px solid #00bfff; padding: 1rem; margin-bottom: 1rem;">
+<h3>Power 2</h3>
+<label>Name: <input name="power2Name" type="text"/></label>
+<label>Effect: <input name="power2Effect" type="text"/></label>
+<label>Range: <input name="power2Range" type="text"/></label>
+<label>SP Cost:
+      <select name="power2SP">
+<option>Pick One</option>
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+</select>
+</label>
+<label>Save: <input name="power2Save" type="text"/></label>
+<label>Duration: <input name="power2Duration" type="text"/></label>
+</div>
+<div style="border: 3px solid #00bfff; padding: 1rem; margin-bottom: 1rem;">
+<h3>Power 3</h3>
+<label>Name: <input name="power3Name" type="text"/></label>
+<label>Effect: <input name="power3Effect" type="text"/></label>
+<label>Range: <input name="power3Range" type="text"/></label>
+<label>SP Cost:
+      <select name="power3SP">
+<option>Pick One</option>
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+</select>
+</label>
+<label>Save: <input name="power3Save" type="text"/></label>
+<label>Duration: <input name="power3Duration" type="text"/></label>
+</div>
+<div style="border: 3px solid #00bfff; padding: 1rem; margin-bottom: 1rem;">
+<h3>Power 4</h3>
+<label>Name: <input name="power4Name" type="text"/></label>
+<label>Effect: <input name="power4Effect" type="text"/></label>
+<label>Range: <input name="power4Range" type="text"/></label>
+<label>SP Cost:
+      <select name="power4SP">
+<option>Pick One</option>
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+</select>
+</label>
+<label>Save: <input name="power4Save" type="text"/></label>
+<label>Duration: <input name="power4Duration" type="text"/></label>
+</div>
+<div style="border: 3px solid #00bfff; padding: 1rem; margin-bottom: 1rem;">
+<h3>Power 5</h3>
+<label>Name: <input name="power5Name" type="text"/></label>
+<label>Effect: <input name="power5Effect" type="text"/></label>
+<label>Range: <input name="power5Range" type="text"/></label>
+<label>SP Cost:
+      <select name="power5SP">
+<option>Pick One</option>
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+</select>
+</label>
+<label>Save: <input name="power5Save" type="text"/></label>
+<label>Duration: <input name="power5Duration" type="text"/></label>
+</div>
+<div style="border: 3px solid #00bfff; padding: 1rem; margin-top: 2rem;">
+<h3>Signature Move</h3>
+<label>Name: <input name="signatureMoveName" type="text"/></label>
+<label>Description: <textarea name="signatureMoveDescription"></textarea></label>
+<label>SP Cost:
+        <select name="signatureSP">
+<option>Pick One</option>
+<option>1</option>
+<option>2</option>
+<option>3</option>
+<option>4</option>
+<option>5</option>
+</select>
+</label>
+<label>Save: <input name="signatureSave" type="text"/></label>
+<label>Special Rule: <input name="signatureSpecial" type="text"/></label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Cinematic Action Point</button>
+<div class="toggle-section">
+<h2>Cinematic Action Point</h2>
+<div class="grid-block">
+<label>Usage Status: <select name="cinematicPointUsed">
+<option>Unused</option>
+<option>Used</option>
+</select></label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Faction Reputation</button>
+<div class="toggle-section">
+<h2>Faction Reputation</h2>
+<div class="grid-block">
+<label>O.M.N.I. Tier:
+      <select name="o.m.n.i.Tier">
+<option>Neutral Standing</option>
+<option>Tier 1 – Basic recognition, minor resources available</option>
+<option>Tier 2 – Moderate backing, safe house access</option>
+<option>Tier 3 – Influential agent, call in favors</option>
+<option>Tier 4 – Operative clearance, strategic support</option>
+<option>Tier 5 – Elite status, command-level authority</option>
+</select>
+</label>
+<label>PFV Tier:
+      <select name="pfvTier">
+<option>Neutral Standing</option>
+<option>Tier 1 – Basic recognition, minor resources available</option>
+<option>Tier 2 – Moderate backing, safe house access</option>
+<option>Tier 3 – Influential agent, call in favors</option>
+<option>Tier 4 – Operative clearance, strategic support</option>
+<option>Tier 5 – Elite status, command-level authority</option>
+</select>
+</label>
+<label>Cosmic Conclave Tier:
+      <select name="cosmicconclaveTier">
+<option>Neutral Standing</option>
+<option>Tier 1 – Basic recognition, minor resources available</option>
+<option>Tier 2 – Moderate backing, safe house access</option>
+<option>Tier 3 – Influential agent, call in favors</option>
+<option>Tier 4 – Operative clearance, strategic support</option>
+<option>Tier 5 – Elite status, command-level authority</option>
+</select>
+</label>
+<label>Greyline Mercenaries Tier:
+      <select name="greylinemercenariesTier">
+<option>Neutral Standing</option>
+<option>Tier 1 – Basic recognition, minor resources available</option>
+<option>Tier 2 – Moderate backing, safe house access</option>
+<option>Tier 3 – Influential agent, call in favors</option>
+<option>Tier 4 – Operative clearance, strategic support</option>
+<option>Tier 5 – Elite status, command-level authority</option>
+</select>
+</label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Downtime Tracker</button>
+<div class="toggle-section">
+<h2>Downtime Tracker</h2>
+<div class="grid-block" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+<label>Media Control (CHA): <input name="mediaControl" type="text"/></label>
+<label>Research (INT/WIS): <input name="research" type="text"/></label>
+<label>Train or Tinker (STR/INT): <input name="trainTinker" type="text"/></label>
+<label>Gather Intel (CHA/WIS): <input name="gatherIntel" type="text"/></label>
+<label>Personal Time (WIS/CHA): <input name="personalTime" type="text"/></label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Equipment &amp; Notes</button>
+<div class="toggle-section">
+<h2>Equipment &amp; Notes</h2>
+<div class="grid-block">
+<label>Equipment: <textarea name="equipment" rows="6" style="height: 150px;"></textarea></label>
+<label>General Notes: <textarea name="notes" rows="6" style="height: 150px;"></textarea></label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Expanded Roleplay Questions</button>
+<div class="toggle-section">
+<h2>Expanded Roleplay Questions</h2>
+<label>Greatest Fear: <textarea name="greatestFear"></textarea></label>
+<label>What do your powers say about you? <textarea name="powerMeaning"></textarea></label>
+<label>What moment changed your life forever? <textarea name="lifeMoment"></textarea></label>
+<label>Who do you trust most on the team? <textarea name="trustedAlly"></textarea></label>
+<div class="grid-block">
+<label>What does justice mean to you? <textarea name="justiceMeaning"></textarea></label>
+<label>What is your biggest fear or unresolved trauma? <textarea name="fearTrauma"></textarea></label>
+<label>What legacy do you want to leave behind? <textarea name="legacy"></textarea></label>
+<label>What moment first defined your sense of power? <textarea name="powerMoment"></textarea></label>
+<label>What does your Origin Story mean to you now? <textarea name="originReflection"></textarea></label>
+<label>What was your life like before powers? <textarea name="prePowerLife"></textarea></label>
+<label>What about your powers scares you? <textarea name="powerFear"></textarea></label>
+<label>What is your signature move and what does it reflect? <textarea name="signatureMeaning"></textarea></label>
+<label>What happens when you are emotionally compromised? <textarea name="emotionalCompromise"></textarea></label>
+<label>What line would you never cross? <textarea name="moralLine"></textarea></label>
+<label>Which alignment do you fear becoming? <textarea name="fearedAlignment"></textarea></label>
+<label>Whose opinion matters most and why? <textarea name="opinionImportance"></textarea></label>
+<label>What drives you to fight? <textarea name="drivingForce"></textarea></label>
+<label>What would make you walk away for good? <textarea name="walkAway"></textarea></label>
+<label>What major secret are you keeping? <textarea name="secret"></textarea></label>
+<label>What leaves you vulnerable? <textarea name="vulnerability"></textarea></label>
+<label>Who do you admire most on your team and why? <textarea name="teamAdmire"></textarea></label>
+<label>If you lost your powers tomorrow, who would you still be? <textarea name="identityWithoutPowers"></textarea></label>
+</div>
+</div>
+</section><section>
+<button class="toggle-button" onclick="toggleSection(this)">Toggle Manual Save &amp; Load</button>
+<div class="toggle-section">
+<h2>Manual Save &amp; Load</h2>
+<div class="grid-block">
+<button onclick="manualSave()">Download Save File</button>
+<input accept=".json" id="fileInput" onchange="loadFromFile(event)" type="file"/>
+</div>
+</div>
+<div style="margin-top: 1rem;">
+<label for="pasteJSON">📋 Paste JSON to Load Character:</label>
+<textarea id="pasteJSON" placeholder="Paste your saved character JSON here..." style="width:100%; height:150px;"></textarea>
+<button class="toggle-button" onclick="loadFromPastedJSON()" style="margin-top:0.5rem;">📥 Load from Pasted JSON</button>
+</div>
+
+<button class="toggle-button" onclick="clearLocalSave()" style="margin-top: 1rem; background: #ff4444;">
+      ❌ Clear Saved Character
+    </button>
+</section></main>
+<script>
+    function toggleSection(button) {
+      const section = button.nextElementSibling;
+      if (section.style.display === "none") {
+        section.style.display = "block";
+        button.textContent = "Hide Section";
+      } else {
+        section.style.display = "none";
+        button.textContent = "Show Section";
+      }
+    }
+
+    // Set default toggle state
+    document.querySelectorAll('.toggle-section').forEach(sec => sec.style.display = 'block');
+  </script>
+<script>
+  const alignmentMap = {
+    "Lawful_Light": ["Paragon", "Auto-succeed a Charisma check with civilians or allies (once per session)"],
+    "Neutral_Light": ["Guardian", "Restore 1d6 HP or 1 SP to an ally as a bonus action (once per session)"],
+    "Chaotic_Light": ["Vigilante", "Ignore opportunity attacks when moving toward a threat or hostage"],
+    "Lawful_Neutral": ["Sentinel", "+1 to all saving throws when acting on orders or directives"],
+    "Neutral_Neutral": ["Outsider", "Reroll any roll or remove one condition from yourself (once per session)"],
+    "Chaotic_Neutral": ["Wildcard", "Advantage on Initiative and Deception once per combat"],
+    "Lawful_Shadow": ["Inquisitor", "Deal max damage to 'criminals' once per session"],
+    "Neutral_Shadow": ["Anti-Hero", "Heal 1d6 HP when defeating an enemy with no allies within 10 ft"],
+    "Chaotic_Shadow": ["Renegade", "+1d6 damage when attacking from stealth or surprise (once per combat)"]
+  };
+
+  function updateAlignment() {
+    const moral = document.getElementById("moralAxis").value;
+    const discipline = document.getElementById("disciplineAxis").value;
+    const key = `${discipline}_${moral}`;
+    const display = alignmentMap[key];
+
+    if (display) {
+      document.getElementById("alignmentDisplay").textContent = display[0];
+      document.getElementById("perkDisplay").textContent = display[1];
+    } else {
+      document.getElementById("alignmentDisplay").textContent = "—";
+      document.getElementById("perkDisplay").textContent = "—";
+    }
+  }
+</script>
+<script>
+  const alignmentMap = {
+    "Lawful_Light": ["Paragon", "Auto-succeed a Charisma check with civilians or allies (once per session)"],
+    "Neutral_Light": ["Guardian", "Restore 1d6 HP or 1 SP to an ally as a bonus action (once per session)"],
+    "Chaotic_Light": ["Vigilante", "Ignore opportunity attacks when moving toward a threat or hostage"],
+    "Lawful_Neutral": ["Sentinel", "+1 to all saving throws when acting on orders or directives"],
+    "Neutral_Neutral": ["Outsider", "Reroll any roll or remove one condition from yourself (once per session)"],
+    "Chaotic_Neutral": ["Wildcard", "Advantage on Initiative and Deception once per combat"],
+    "Lawful_Shadow": ["Inquisitor", "Deal max damage to 'criminals' once per session"],
+    "Neutral_Shadow": ["Anti-Hero", "Heal 1d6 HP when defeating an enemy with no allies within 10 ft"],
+    "Chaotic_Shadow": ["Renegade", "+1d6 damage when attacking from stealth or surprise (once per combat)"]
+  };
+
+  function updateAlignment() {
+    const moral = document.getElementById("moralAxis").value;
+    const discipline = document.getElementById("disciplineAxis").value;
+    const key = `${discipline}_${moral}`;
+    const result = alignmentMap[key];
+    const alignmentBox = document.getElementById("alignmentDisplay");
+    const perkBox = document.getElementById("perkDisplay");
+
+    if (result) {
+      alignmentBox.textContent = result[0];
+      perkBox.textContent = result[1];
+    } else {
+      alignmentBox.textContent = "—";
+      perkBox.textContent = "—";
+    }
+  }
+</script>
+
+
+
+      \`);
+    } else {
+      alert("Popup blocked! Please allow popups for this site.");
+    }
+  }
+
+  function loadFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const data = JSON.parse(e.target.result);
+      for (const key in data) {
+        const element = document.querySelector(`[name="\${key}"]`);
+        if (element) {
+          if (element.type === "checkbox") {
+            element.checked = data[key];
+          } else {
+            element.value = data[key];
+          }
+        }
+      }
+    };
+    reader.readAsText(file);
+  }
+
+
+
+
+
+
+<script>
+  const STORAGE_KEY = "catalystCharacterData";
+
+  // Auto-save on input change
+  window.addEventListener("DOMContentLoaded", function () {
+    const elements = document.querySelectorAll("input, select, textarea");
+
+    // Load existing data
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        elements.forEach(el => {
+          if (el.name && data[el.name] !== undefined) {
+            if (el.type === "checkbox") {
+              el.checked = data[el.name];
+            } else {
+              el.value = data[el.name];
+            }
+          }
+        });
+      } catch (e) {
+        console.warn("Failed to load saved character data:", e);
+      }
+    }
+
+    // Auto-save on any change
+    elements.forEach(el => {
+      el.addEventListener("input", () => {
+        const data = {};
+        elements.forEach(i => {
+          if (i.name) {
+            data[i.name] = i.type === "checkbox" ? i.checked : i.value;
+          }
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      });
+    });
+  });
+
+  function clearLocalSave() {
+    if (confirm("Are you sure you want to clear your saved character data?")) {
+      localStorage.removeItem(STORAGE_KEY);
+      location.reload();
+    }
+  }
+</script>
+</body>
+</html>
