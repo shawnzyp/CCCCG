@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hero Dossier</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1115;--panel:#171a21;--text:#e6e9ef;--sub:#a9b0bb;--accent:#3cc6ff;--hover:#24a9e0;--shadow:0 10px 30px rgba(0,0,0,.35)}
+*{box-sizing:border-box}
+html{height:100%;-webkit-text-size-adjust:100%}
+body{margin:0;height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:'Roboto',system-ui,-apple-system,Segoe UI,Arial,sans-serif;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-overflow-scrolling:touch}
+header{position:sticky;top:0;z-index:20;background:var(--panel);padding:calc(14px + env(safe-area-inset-top)) 16px 10px;box-shadow:var(--shadow)}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{margin:0;font-size:1.25rem;color:var(--accent);font-weight:700}
+.actions{display:flex;gap:8px}
+.icon-btn{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--accent);background:#0b0d12;border-radius:10px;color:var(--accent)}
+.icon-btn:active{transform:translateY(1px)}
+.icon-tiny{width:32px;height:32px;border-radius:8px}
+.tabs{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.tab{flex:1 0 120px;text-align:center;border:1px solid var(--accent);background:#0b0d12;color:var(--text);border-radius:10px;padding:10px 12px;font-weight:700}
+.tab.active{background:var(--accent);color:#041019}
+main{max-width:980px;width:min(100%,980px);margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
+section{background:var(--panel);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
+section h2{margin:0 0 10px;font-size:1.05rem;color:var(--accent)}
+.grid{display:grid;gap:12px}
+.grid-1{grid-template-columns:1fr}
+.grid-2{grid-template-columns:1fr}
+.grid-3{grid-template-columns:1fr}
+@media(min-width:820px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(3,1fr)}}
+label{display:block;font-size:.95rem;font-weight:700;margin-bottom:6px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.inline>*{min-width:0}
+input,select,textarea,button{width:100%;border:1px solid var(--accent);background:#0b0d12;color:var(--text);border-radius:12px;padding:12px;font-size:16px;line-height:1.2}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--hover)}
+button{background:var(--accent);color:#041019;border:none;font-weight:700;min-height:44px;touch-action:manipulation}
+button:active{transform:translateY(1px)}
+.btn-sm{padding:8px 10px;border-radius:10px;min-height:36px}
+textarea{min-height:100px}
+.compact input,.compact select{min-height:44px}
+.btns>button{flex:1 0 110px;white-space:nowrap}
+.pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
+.perk{font-size:.95rem;color:var(--accent)}
+.muted{color:var(--sub)}
+progress{width:100%;height:18px;-webkit-appearance:none;appearance:none;border:none;border-radius:999px;overflow:hidden;background:#0b0d12}
+progress::-webkit-progress-bar{background:#0b0d12}
+progress::-webkit-progress-value{background:var(--accent)}
+.two{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+.cols-2{display:grid;grid-template-columns:1fr;gap:8px}
+@media(min-width:820px){.cols-2{grid-template-columns:1fr 1fr}}
+.check{display:inline-flex;align-items:center;gap:6px}
+.checkbox{width:auto;margin:0}
+.death-saves{margin-top:12px}
+.hp-top{order:-1}
+.hidden{display:none}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}
+.overlay.hidden{display:none!important}
+.modal-card{background:var(--panel);border:1px solid var(--accent);border-radius:16px;max-width:800px;width:100%;padding:16px;box-shadow:var(--shadow)}
+.modal-card h3{margin:0 0 8px;color:var(--accent);font-size:1.05rem}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--accent);padding:10px 12px;border-radius:12px;opacity:0;transform:translateY(10px);transition:opacity .2s, transform .2s;z-index:2000}
+.toast.show{opacity:1;transform:translateY(0)}
+.card{border:1px solid rgba(60,198,255,.25);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.subhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.small{font-size:.9rem}
+.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.conditions{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent);padding:6px 10px;border-radius:999px}
+.sticky-combat{position:sticky;top:calc(64px + env(safe-area-inset-top));z-index:9}
+.catalog-list{max-height:360px;overflow:auto;border:1px solid rgba(60,198,255,.25);border-radius:12px;padding:8px}
+.catalog-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px;border-bottom:1px solid rgba(60,198,255,.15)}
+.catalog-item:last-child{border-bottom:none}
+.catalog-filter{display:flex;gap:8px;align-items:center;margin:8px 0}
+.badge{display:inline-block;border:1px solid rgba(60,198,255,.5);padding:2px 6px;border-radius:999px;font-size:.8rem;margin-left:6px}
+.compact-btn{padding:8px 10px;border-radius:10px}
+.preview{font-size:.9rem;color:var(--sub)}
+.perk-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.bar-wrap{position:relative;width:100%}
+.bar-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;pointer-events:none}
+.bar-overlay.hidden{display:none}
+@media print{header,.tabs,.actions,#tools,.sticky-combat .btns,.icon-btn,.modal-card,.overlay{display:none!important} body{background:#fff;color:#000} section{box-shadow:none;border:1px solid #ccc} .pill{border-color:#000;color:#000}}
+.sheet{display:none}
+.sheet-cs{page-break-inside:avoid;background:#fff;color:#000;border:1px solid #000;border-radius:8px;padding:16px}
+.cs-title{font-weight:700}
+.cs-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cs-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cs-kv{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #000;padding:6px 0}
+.cs-box{border:1px solid #000;padding:10px;border-radius:8px}
+@media print{main{display:none!important} #ccsheet{display:block!important} body{background:#fff!important;color:#000!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <h1>Hero Dossier</h1>
+    <div class="actions">
+      <button id="icon-encounter" class="icon-btn" aria-label="Encounter Tracker" title="Encounter Tracker">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 6h13M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button id="icon-export" class="icon-btn" aria-label="Export / Print" title="Export / Print">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 9V3h12v6M6 14h12v7H6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 14V9h8v5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+      <button id="icon-load" class="icon-btn" aria-label="Load Save" title="Load Save">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19 18a3 3 0 0 0 0-6h-1.26A8 8 0 1 0 4 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 7v10m0 0l-3-3m3 3l3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="icon-save" class="icon-btn" aria-label="Save" title="Save">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M19 18a3 3 0 0 0 0-6h-1.26A8 8 0 1 0 4 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 17V7m0 0l-3 3m3-3l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="icon-log" class="icon-btn" aria-label="Open Activity Log" title="Open Activity Log">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v6l4 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-go="combat">Combat</button>
+    <button class="tab" data-go="abilities">Abilities</button>
+    <button class="tab" data-go="powers">Powers</button>
+    <button class="tab" data-go="gear">Gear</button>
+    <button class="tab" data-go="story">Story</button>
+  </div>
+</header>
+<main>
+  <section id="tools" data-tab="combat">
+    <h2>Tools</h2>
+    <div class="grid grid-2">
+      <div>
+        <label>Dice Roller</label>
+        <div class="row compact">
+          <select id="dice-type"><option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20">d20</option><option value="100">d100</option></select>
+          <input id="dice-count" type="number" inputmode="numeric" class="num" value="1" min="1">
+          <button id="roll-dice">Roll</button>
+        </div>
+        <div id="dice-result" class="muted"></div>
+      </div>
+      <div>
+        <label>Coin Flip</label>
+        <div class="inline compact"><button id="flip-coin">Flip</button><span id="coin-result" class="pill"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="resources" data-tab="combat" class="sticky-combat">
+    <h2>Combat Stats</h2>
+    <div class="grid grid-1">
+      <div>
+        <div class="cols-2">
+          <div class="card">
+            <label>HP</label>
+            <div class="two hp-top">
+              <div class="bar-wrap">
+                <progress id="hp-bar" value="0" max="0"></progress>
+                <span id="hp-skull" class="bar-overlay hidden" aria-hidden="true">💀</span>
+              </div>
+              <span id="hp-total" class="pill">0/0</span>
+            </div>
+            <div class="row"><input id="hp-roll" type="number" inputmode="numeric" placeholder="Tier Roll"><input id="hp-bonus" type="number" inputmode="numeric" placeholder="Bonus HP"><input id="hp-temp" type="number" inputmode="numeric" placeholder="Temp HP"></div>
+            <div class="row btns"><input id="hp-dmg" type="number" inputmode="numeric" placeholder="Amount"><button data-d="-1" class="hp-step">-1</button><button data-d="-5" class="hp-step">-5</button><button data-d="-10" class="hp-step">-10</button><button id="hp-take">Damage</button><button id="hp-heal">Heal</button><button id="hp-reset">Reset HP</button></div>
+            <div class="inline death-saves">
+              <span class="muted" style="min-width:max-content">Death Saves:</span>
+              <label class="check" for="ds1"><input id="ds1" type="checkbox" class="checkbox" aria-label="Death Save 1"><span>1</span></label>
+              <label class="check" for="ds2"><input id="ds2" type="checkbox" class="checkbox" aria-label="Death Save 2"><span>2</span></label>
+              <label class="check" for="ds3"><input id="ds3" type="checkbox" class="checkbox" aria-label="Death Save 3"><span>3</span></label>
+            </div>
+          </div>
+          <div class="card">
+            <label>SP</label>
+            <div class="two"><progress id="sp-bar" value="0" max="0"></progress><span id="sp-total" class="pill">0/0</span></div>
+            <div class="row"><select id="sp-rule"><option value="regen">Regen 1/round</option><option value="rest">Only on rest</option></select><input id="sp-temp" type="number" inputmode="numeric" placeholder="Temp SP"></div>
+            <div class="row btns"><input id="sp-cost" type="number" inputmode="numeric" placeholder="Amount"><button data-d="-1" class="sp-step">Light -1</button><button data-d="-2" class="sp-step">Power -2</button><button data-d="-3" class="sp-step">Signature -3</button><button data-d="-5" class="sp-step">Ultimate -5</button><button id="sp-spend">Spend</button><button id="sp-reset">Reset SP</button><button id="long-rest" class="btn-sm">Long Rest</button></div>
+            <label class="check" for="cinematic-AP"><input id="cinematic-AP" type="checkbox" class="checkbox"><span>Cinematic AP</span></label>
+          </div>
+        </div>
+      </div>
+      <div class="cols-2">
+        <div class="card">
+          <label>Initiative</label>
+          <input id="initiative" type="number" inputmode="numeric" placeholder="e.g., 17">
+          <label>Speed (ft)</label>
+          <input id="speed" type="number" inputmode="numeric" placeholder="30">
+        </div>
+        <div class="card">
+          <label>Passive Perception</label>
+          <input id="passive-perception" type="number" readonly>
+          <label>Armor/Shield Bonus (Auto)</label>
+          <input id="armor-bonus" type="number" readonly>
+          <label>Power/Origin Bonus</label>
+          <input id="origin-bonus" type="number" inputmode="numeric" placeholder="0">
+          <label>TC</label>
+          <input id="tc" type="number" readonly>
+        </div>
+      </div>
+      <div class="card">
+        <label>Conditions</label>
+        <div class="conditions" id="conditions">
+          <label class="chip"><input type="checkbox" id="cond-stunned" class="checkbox">Stunned</label>
+          <label class="chip"><input type="checkbox" id="cond-prone" class="checkbox">Prone</label>
+          <label class="chip"><input type="checkbox" id="cond-exhausted" class="checkbox">Exhausted</label>
+          <label class="chip"><input type="checkbox" id="cond-blinded" class="checkbox">Blinded</label>
+          <label class="chip"><input type="checkbox" id="cond-charmed" class="checkbox">Charmed</label>
+          <label class="chip"><input type="checkbox" id="cond-frightened" class="checkbox">Frightened</label>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <button id="reset-uses-combat" class="btn-sm">Reset Per-Combat Uses</button>
+          <button id="reset-uses-rest" class="btn-sm">Reset Long-Rest Uses</button>
+          <button id="reset-uses-session" class="btn-sm">Reset Per-Session Uses</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stats" data-tab="abilities">
+    <h2>Ability Scores</h2>
+    <div class="grid grid-3">
+      <div class="card"><label>STR</label><div class="inline"><select id="str"></select><span id="str-mod" class="pill">+0</span></div></div>
+      <div class="card"><label>DEX</label><div class="inline"><select id="dex"></select><span id="dex-mod" class="pill">+0</span></div></div>
+      <div class="card"><label>CON</label><div class="inline"><select id="con"></select><span id="con-mod" class="pill">+0</span></div></div>
+      <div class="card"><label>INT</label><div class="inline"><select id="int"></select><span id="int-mod" class="pill">+0</span></div></div>
+      <div class="card"><label>WIS</label><div class="inline"><select id="wis"></select><span id="wis-mod" class="pill">+0</span></div></div>
+      <div class="card"><label>CHA</label><div class="inline"><select id="cha"></select><span id="cha-mod" class="pill">+0</span></div></div>
+    </div>
+  </section>
+
+  <section id="skills" data-tab="abilities">
+    <h2>Skills & Proficiency</h2>
+    <div class="card">
+      <div class="row">
+        <div style="flex:1"><label>Proficiency Bonus</label><input id="prof-bonus" type="number" inputmode="numeric" value="2"></div>
+        <div style="flex:1"><label>Power Save Ability (opt)</label><select id="power-save-ability"><option value="str">STR</option><option value="dex">DEX</option><option value="con">CON</option><option value="int">INT</option><option value="wis">WIS</option><option value="cha">CHA</option></select></div>
+        <div style="flex:1"><label>Power Save DC</label><input id="power-save-dc" type="number" readonly></div>
+      </div>
+    </div>
+    <div class="card"><h3 class="small" style="margin:0 0 6px;color:var(--accent)">Skills</h3><div id="skills-container" class="grid grid-1"></div></div>
+    <div class="card"><h3 class="small" style="margin:0 0 6px;color:var(--accent)">Saving Throws</h3><div id="saves-container" class="grid grid-1"></div></div>
+  </section>
+
+  <section id="powers" data-tab="powers">
+    <div class="subhead">
+      <h2>Powers & Special Moves</h2>
+      <button id="add-power" style="max-width:200px">Add Power</button>
+    </div>
+    <div id="powers-container" class="grid grid-2"></div>
+  </section>
+
+  <section id="equipment" data-tab="gear">
+    <h2>Equipment & Inventory</h2>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="subhead"><label>Weapons</label><button id="add-weapon" style="max-width:160px">Add Weapon</button></div>
+        <div id="weapons-container" class="grid grid-1"></div>
+      </div>
+      <div class="card">
+        <div class="subhead"><label>Armor & Protection</label><button id="add-armor" style="max-width:160px">Add Armor</button></div>
+        <div id="armor-container" class="grid grid-1"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <div class="subhead"><label>Gear & Items</label><button id="add-item" style="max-width:160px">Add Item</button></div>
+        <div id="items-container" class="grid grid-1"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label>Notes</label>
+      <textarea id="inventory-list" rows="4" placeholder="General inventory notes..."></textarea>
+    </div>
+  </section>
+
+  <section id="story" data-tab="story">
+    <h2>Character & Story</h2>
+    <div class="grid grid-2">
+      <div class="card"><label>Superhero Identity</label><input id="superhero-identity" placeholder="Night Guardian"></div>
+      <div class="card"><label>Secret Identity</label><input id="secret-identity" placeholder="Jane Doe"></div>
+      <div class="card"><label>Tier</label><select id="char-tier"><option>Tier 5 – Rookie</option><option>Tier 4 – Emerging Vigilante</option><option>Tier 3 – Field-Tested Operative</option><option>Tier 2 – Respected Force</option><option>Tier 1 – Heroic Figure</option><option>Tier 0 – Transcendent</option></select></div>
+      <div class="card"><label>Public Identity</label><select id="publicIdentity"><option value="Public">Public</option><option value="Secret">Secret</option></select><input id="vigilanteName" type="hidden"></div>
+      <div class="card"><label>Alignment</label><div class="inline"><select id="alignment"><option data-perk="Once per session, auto-succeed a Charisma check with civilians or allies">Paragon (Lawful Light)</option><option data-perk="Once per session, restore 1d6 HP or 1 SP to an ally as a bonus action">Guardian (Neutral Light)</option><option data-perk="Ignore opportunity attacks when moving toward a threat or hostage">Vigilante (Chaotic Light)</option><option data-perk="+1 to all saving throws when acting on orders or directives">Sentinel (Lawful Neutral)</option><option data-perk="Once per session, reroll any roll OR remove one condition from yourself">Outsider (True Neutral)</option><option data-perk="Advantage on Initiative and Deception once per combat">Wildcard (Chaotic Neutral)</option><option data-perk="Once per session, deal maximum damage to enemies labeled 'criminal' by GM">Inquisitor (Lawful Shadow)</option><option data-perk="Heal 1d6 HP when defeating an enemy while no allies are within 10 ft">Anti-Hero (Neutral Shadow)</option><option data-perk="Once per combat, add +1d6 damage when attacking from stealth or surprise">Renegade (Chaotic Shadow)</option></select><span id="alignment-perk" class="perk"></span></div><div class="perk-tools"><select id="perk-alignment-mode"><option value="session">Per Session</option><option value="combat">Per Combat</option><option value="rest">Per Long Rest</option></select><button id="perk-alignment-use" class="btn-sm">Mark Used</button><button id="perk-alignment-reset" class="btn-sm">Reset</button><span id="perk-alignment-state" class="pill">Ready</span></div></div>
+      <div class="card"><label>Classification</label><div class="inline"><select id="classification"><option data-perk="Reroll one failed saving throw per long rest">Mutant</option><option data-perk="Advantage on all Technology-related checks">Enhanced Human</option><option data-perk="Cast one minor magical effect per long rest">Magic User</option><option data-perk="Immune to environmental hazards; no penalty in rough terrain">Alien/Extraterrestrial</option><option data-perk="+2 to Persuasion or Intimidation checks">Mystical Being</option></select><span id="classification-perk" class="perk"></span></div><div class="perk-tools"><select id="perk-classification-mode"><option value="session">Per Session</option><option value="combat">Per Combat</option><option value="rest">Per Long Rest</option></select><button id="perk-classification-use" class="btn-sm">Mark Used</button><button id="perk-classification-reset" class="btn-sm">Reset</button><span id="perk-classification-state" class="pill">Ready</span></div></div>
+      <div class="card"><label>Primary Power Style</label><div class="inline"><select id="primary-power-style"><option data-perk="Cut one attack by half once per combat encounter">Physical Powerhouse</option><option data-perk="Reroll 1s once per turn">Energy Manipulator</option><option data-perk="+10 ft movement and +1 AC while moving 20+ ft">Speedster</option><option data-perk="For one turn force enemies to reroll all rolls above a 17 once per rest">Telekinetic/Psychic</option><option data-perk="Create a 1‑min decoy illusion once per combat encounter">Illusionist</option><option data-perk="Advantage on Deception; disguise freely">Shape‑shifter</option><option data-perk="+2 to hit and +5 to damage once per turn when using elemental powers">Elemental Controller</option></select><span id="primary-power-style-perk" class="perk"></span></div><div class="perk-tools"><select id="perk-primary-mode"><option value="combat">Per Combat</option><option value="session">Per Session</option><option value="rest">Per Long Rest</option></select><button id="perk-primary-use" class="btn-sm">Mark Used</button><button id="perk-primary-reset" class="btn-sm">Reset</button><span id="perk-primary-state" class="pill">Ready</span></div><input id="primaryPerk" type="hidden"></div>
+      <div class="card"><label>Secondary Power Style</label><select id="secondary-power-style"><option>Physical Powerhouse</option><option>Energy Manipulator</option><option>Speedster</option><option>Telekinetic/Psychic</option><option>Illusionist</option><option>Shape-shifter</option><option>Elemental Controller</option></select></div>
+      <div class="card"><label>Origin Story</label><div class="inline"><select id="origin-story"><option data-perk="Resistance to one damage type">The Accident</option><option data-perk="Reroll a failed CON or INT save once per long rest">The Experiment</option><option data-perk="Use the powers of one other character you've met or are related to once per long rest">The Legacy</option><option data-perk="+5 to hit and +10 to damage when below 1/2 HP">The Awakening</option><option data-perk="Auto-success on one save or +10 to any roll once per long rest">The Pact</option><option data-perk="Once per combat, declare a Skill Move on DC 17 to use a power for free with +1d6 bonus">The Lost Time</option><option data-perk="+5 elemental damage once per round">The Exposure</option><option data-perk="If knocked out, stand with 1 HP and resistance to all damage for 1 round">The Rebirth</option><option data-perk="Create a shield once per combat reducing incoming damage to zero for one turn">The Vigil</option><option data-perk="Once per day take damage for an ally; they heal 1d6 HP and you gain advantage on saves after combat till dawn">The Redemption</option></select><span id="origin-story-perk" class="perk"></span></div><div class="perk-tools"><select id="perk-origin-mode"><option value="rest">Per Long Rest</option><option value="combat">Per Combat</option><option value="session">Per Session</option></select><button id="perk-origin-use" class="btn-sm">Mark Used</button><button id="perk-origin-reset" class="btn-sm">Reset</button><span id="perk-origin-state" class="pill">Ready</span></div></div>
+      <div class="card" style="grid-column:1/-1"><label>Signature Move</label><div class="grid grid-2"><input id="signatureMoveName" placeholder="Name"><input id="signatureSP" placeholder="SP Cost"><input id="signatureSave" placeholder="Saving Throw"><input id="signatureSpecial" placeholder="Special"></div><textarea id="signatureMoveDescription" rows="4" placeholder="Describe the move"></textarea><textarea id="signatureMeaning" rows="3" placeholder="Why this move matters"></textarea></div>
+      <div class="card" style="grid-column:1/-1"><label>Backstory</label><div class="grid grid-2"><textarea id="prePowerLife" rows="3" placeholder="Life Before Powers"></textarea><textarea id="powerMoment" rows="3" placeholder="Moment of Awakening"></textarea><textarea id="powerMeaning" rows="3" placeholder="Meaning of Power"></textarea><textarea id="powerFear" rows="3" placeholder="Greatest Fear"></textarea><textarea id="walkAway" rows="3" placeholder="What Would Make You Walk Away?"></textarea><textarea id="vulnerability" rows="3" placeholder="Vulnerability"></textarea><textarea id="secret" rows="3" placeholder="Secret"></textarea></div></div>
+      <div class="card"><label>Allies & Contacts</label><div class="grid grid-2"><input id="trustedAlly" placeholder="Trusted Ally"><input id="teamAdmire" placeholder="Team You Admire"></div></div>
+      <div class="card"><label>Training & Research</label><div class="grid grid-2"><textarea id="research" rows="3" placeholder="Research"></textarea><textarea id="trainTinker" rows="3" placeholder="Train or Tinker"></textarea></div></div>
+    </div>
+  </section>
+</main>
+<section id="ccsheet" class="sheet" aria-hidden="true">
+  <div class="sheet-cs">
+    <h2>CCCG Character Sheet</h2>
+    <div class="cs-row">
+      <div class="cs-box">
+        <div class="cs-kv"><span class="cs-title">Hero</span><span id="cs-hero"></span></div>
+        <div class="cs-kv"><span class="cs-title">Secret ID</span><span id="cs-secret"></span></div>
+        <div class="cs-kv"><span class="cs-title">Tier</span><span id="cs-tier"></span></div>
+        <div class="cs-kv"><span class="cs-title">Alignment</span><span id="cs-align"></span></div>
+        <div class="cs-kv"><span class="cs-title">Alignment Perk</span><span id="cs-align-perk"></span></div>
+        <div class="cs-kv"><span class="cs-title">Classification</span><span id="cs-class"></span></div>
+        <div class="cs-kv"><span class="cs-title">Classification Perk</span><span id="cs-class-perk"></span></div>
+        <div class="cs-kv"><span class="cs-title">Primary Power</span><span id="cs-ppower"></span></div>
+        <div class="cs-kv"><span class="cs-title">Primary Perk</span><span id="cs-ppower-perk"></span></div>
+        <div class="cs-kv"><span class="cs-title">Secondary Power</span><span id="cs-spower"></span></div>
+        <div class="cs-kv"><span class="cs-title">Origin</span><span id="cs-origin"></span></div>
+        <div class="cs-kv"><span class="cs-title">Origin Perk</span><span id="cs-origin-perk"></span></div>
+      </div>
+      <div class="cs-box">
+        <div class="cs-kv"><span class="cs-title">HP</span><span id="cs-hp"></span></div>
+        <div class="cs-kv"><span class="cs-title">SP</span><span id="cs-sp"></span></div>
+        <div class="cs-kv"><span class="cs-title">TC</span><span id="cs-tc"></span></div>
+        <div class="cs-kv"><span class="cs-title">Initiative</span><span id="cs-init"></span></div>
+        <div class="cs-kv"><span class="cs-title">Speed</span><span id="cs-speed"></span></div>
+        <div class="cs-kv"><span class="cs-title">Passive Perception</span><span id="cs-pp"></span></div>
+        <div class="cs-kv"><span class="cs-title">Death Saves</span><span id="cs-ds"></span></div>
+        <div class="cs-kv"><span class="cs-title">Conditions</span><span id="cs-conds"></span></div>
+      </div>
+    </div>
+    <div class="cs-box" style="margin-top:8px">
+      <div class="cs-title">Ability Scores</div>
+      <div class="cs-grid-3" id="cs-abilities"></div>
+    </div>
+    <div class="cs-row" style="margin-top:8px">
+      <div class="cs-box">
+        <div class="cs-title">Powers</div>
+        <div id="cs-powers"></div>
+      </div>
+      <div class="cs-box">
+        <div class="cs-title">Weapons & Armor</div>
+        <div id="cs-gear"></div>
+      </div>
+    </div>
+    <div class="cs-box" style="margin-top:8px">
+      <div class="cs-title">Items</div>
+      <div id="cs-items"></div>
+    </div>
+    <div class="cs-box" style="margin-top:8px">
+      <div class="cs-title">Signature Move</div>
+      <div id="cs-signature"></div>
+    </div>
+    <div class="cs-box" style="margin-top:8px">
+      <div class="cs-title">Notes & Backstory</div>
+      <div id="cs-backstory"></div>
+    </div>
+  </div>
+</section>
+
+
+<div id="id-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="id-modal-title">
+  <div class="modal-card">
+    <h3 id="id-modal-title">Cloud</h3>
+    <input id="modal-doc-id" placeholder="Character name (e.g., Shawn) or full path">
+    <div class="modal-actions">
+      <button id="modal-cancel">Cancel</button>
+      <button id="modal-confirm">OK</button>
+    </div>
+  </div>
+</div>
+
+<div id="log-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="log-title">
+  <div class="modal-card">
+    <h3 id="log-title">Recent Log</h3>
+    <div class="grid grid-2">
+      <div>
+        <label>Dice Rolls</label>
+        <div id="log-dice" class="log"></div>
+      </div>
+      <div>
+        <label>Coin Flips</label>
+        <div id="log-coin" class="log"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button id="log-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="modal-card">
+    <h3 id="confirm-title">Confirm Delete</h3>
+    <div id="confirm-msg" class="muted" style="margin-top:6px"></div>
+    <div class="modal-actions">
+      <button id="confirm-cancel">Cancel</button>
+      <button id="confirm-ok">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="encounter-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="encounter-title">
+  <div class="modal-card">
+    <h3 id="encounter-title">Encounter Tracker</h3>
+    <div class="row"><div class="pill" id="round-pill">Round 1</div><button id="next-round" class="btn-sm">Next Round</button><button id="reset-encounter" class="btn-sm">Reset</button></div>
+    <div class="row-3" style="margin-top:8px">
+      <input id="enc-name" placeholder="Name">
+      <input id="enc-init" type="number" placeholder="Init">
+      <button id="enc-add" class="btn-sm">Add</button>
+    </div>
+    <div id="enc-list" class="catalog-list" style="margin-top:8px"></div>
+    <div class="modal-actions"><button id="enc-close">Close</button></div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('DOMContentLoaded',()=>{
+  const $=id=>document.getElementById(id);
+  const abilities=['str','dex','con','int','wis','cha'];
+  abilities.forEach(id=>{const sel=$(id); if(sel){for(let v=10;v<=24;v++) sel.add(new Option(v,v)); if(!sel.value) sel.value='10';}});
+  const mod=v=>Math.floor((v-10)/2);
+  const clamp=(v,min,max)=>Math.max(min,Math.min(v,max));
+  const num=el=>{const n=Number(el?.value);return Number.isFinite(n)?n:NaN};
+  let hpZero=false, spZero=false, initTouched=false, booting=true, pendingDeleteEl=null, round=Number(localStorage.getItem('enc-round')||'1');
+  function setTab(name){document.querySelectorAll('[data-tab]').forEach(s=>{s.style.display=(s.getAttribute('data-tab')===name)?'block':'none'}); document.querySelectorAll('.tab').forEach(b=>{b.classList.toggle('active', b.getAttribute('data-go')===name)});} 
+  document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setTab(b.getAttribute('data-go'))));
+  setTab('combat');
+  const diceHistory=JSON.parse(localStorage.getItem('dice-history')||'[]');
+  const coinHistory=JSON.parse(localStorage.getItem('coin-history')||'[]');
+  const fmt=ts=>new Date(ts).toLocaleTimeString();
+  function renderLogs(){const dl=$('log-dice'), cl=$('log-coin'); if(dl) dl.innerHTML=diceHistory.slice(-10).map(e=>`<div class="log-item"><span>${fmt(e.t)}</span> <b>${e.text}</b></div>`).reverse().join(''); if(cl) cl.innerHTML=coinHistory.slice(-10).map(e=>`<div class="log-item"><span>${fmt(e.t)}</span> <b>${e.text}</b></div>`).reverse().join('');}
+  function addDiceLog(text){diceHistory.push({t:Date.now(),text}); if(diceHistory.length>30) diceHistory.splice(0,diceHistory.length-30); localStorage.setItem('dice-history',JSON.stringify(diceHistory));}
+  function addCoinLog(text){coinHistory.push({t:Date.now(),text}); if(coinHistory.length>30) coinHistory.splice(0,coinHistory.length-30); localStorage.setItem('coin-history',JSON.stringify(coinHistory));}
+  const conditionText={"cond-stunned":"Stunned: You can\'t move and can speak only falteringly. Attacks against you have advantage.","cond-prone":"Prone: You are on the ground; attacks from 5 ft have advantage; your ranged attacks have disadvantage.","cond-exhausted":"Exhausted: Disadvantage on ability checks.","cond-blinded":"Blinded: You can\'t see; attacks against you have advantage; your attacks have disadvantage.","cond-charmed":"Charmed: You can\'t attack the charmer; they have advantage on social checks.","cond-frightened":"Frightened: Disadvantage while the source is in sight; you can\'t move closer."};
+  function anyConditions(){return Array.from(document.querySelectorAll('#conditions input[type="checkbox"]')).some(c=>c.checked)}
+  function remindConditions(){if(anyConditions()) alert('Reminder: Active conditions — '+Array.from(document.querySelectorAll('#conditions input:checked')).map(c=>c.parentElement.textContent.trim()).join(', '))}
+  function perkFor(id){const s=$(id), out=$(id+'-perk'); if(!s||!out) return; out.textContent=s.selectedOptions[0]?.dataset?.perk||''; if(id==='primary-power-style'){const p=$('primaryPerk'); if(p) p.value=out.textContent;}}
+  function updatePerks(){['alignment','classification','primary-power-style','origin-story'].forEach(perkFor)}
+  function computeArmorAuto(){let body=[],head=[],shield=0,misc=0; document.querySelectorAll("[data-kind='armor']").forEach(card=>{const eq=card.querySelector("input[type='checkbox'][data-field='equipped']"); const bonus=Number(card.querySelector("input[data-field='bonus']")?.value)||0; const slot=card.querySelector("select[data-field='slot']")?.value||'Body'; if(eq && eq.checked){if(slot==='Body') body.push(bonus); else if(slot==='Head') head.push(bonus); else if(slot==='Shield') shield+=bonus; else misc+=bonus;}}); const bodyMax=body.length?Math.max(...body):0; const headMax=head.length?Math.max(...head):0; return bodyMax+headMax+shield+misc}
+  function updateAbilityMods(){abilities.forEach(id=>{const v=num($(id)); const m=mod(Number.isNaN(v)?10:v); const b=$(id+'-mod'); if(b) b.textContent=(m>=0?'+':'')+m}); const pp=$('passive-perception'); if(pp) pp.value=10+mod(num($('wis'))||10); const armorAuto=computeArmorAuto(); const ab=$('armor-bonus'); if(ab) ab.value=armorAuto; const tc=$('tc'); if(tc) tc.value=10+mod(num($('dex'))||10)+armorAuto+(num($('origin-bonus'))||0); const init=$('initiative'); if(init && !initTouched){ init.value=mod(num($('dex'))||10); } const dc=$('power-save-dc'); if(dc){ const abl=$('power-save-ability').value; const m=mod(num($(abl))||10); const pb=num($('prof-bonus'))||0; dc.value=8+pb+m; }}
+  function updateHP(){const hb=$('hp-bar'); if(!hb) return; const base=30+mod(num($('con'))||10); const total=base+(num($('hp-roll'))||0)+(num($('hp-bonus'))||0); const prevVal=Number(hb.value); const prevMax=Number(hb.max); const isFresh=(prevMax===0 && hb.dataset.init!=='1'); hb.max=total; if(isFresh){ hb.value=total; hb.dataset.init='1'; } else { hb.value=clamp(Number.isFinite(prevVal)?prevVal:total,0,total); } const temp=Number($('hp-temp')?.value)||0; const hpt=$('hp-total'); if(hpt) hpt.textContent=`${hb.value}/${total}`+(temp?` (+${temp})`:``); const skull=$('hp-skull'); if(skull) skull.classList.toggle('hidden', hb.value>0); if(hb.value<=0 && !hpZero && !booting){ alert('You are in Last Stand!'); hpZero=true; } else if(hb.value>0 && hpZero){ hpZero=false; }}
+  function updateSP(){const sb=$('sp-bar'); if(!sb) return; const base=5+mod(num($('con'))||10); const prevVal=Number(sb.value); const prevMax=Number(sb.max); const isFresh=(prevMax===0 && sb.dataset.init!=='1'); sb.max=base; if(isFresh){ sb.value=base; sb.dataset.init='1'; } else { sb.value=clamp(Number.isFinite(prevVal)?prevVal:base,0,base); } const temp=Number($('sp-temp')?.value)||0; const spt=$('sp-total'); if(spt) spt.textContent=`${sb.value}/${base}`+(temp?` (+${temp})`:``); if(sb.value<=0 && !spZero && !booting){ alert('You have run out of SP.'); spZero=true; } else if(sb.value>0 && spZero){ spZero=false; }}
+  function setHP(v){const hb=$('hp-bar'); if(!hb) return; hb.value=clamp(v,0,Number(hb.max)||0); updateHP()}
+  function setSP(v){const sb=$('sp-bar'); if(!sb) return; sb.value=clamp(v,0,Number(sb.max)||0); updateSP()}
+  function roll(n,s){return Array.from({length:n},()=>1+Math.floor(Math.random()*s))}
+  $('roll-dice').addEventListener('click',()=>{const s=Number($('dice-type').value||6), c=Number($('dice-count').value||1); const r=roll(c,s); const sum=r.reduce((a,b)=>a+b,0); $('dice-result').textContent=`Rolls: ${r.join(', ')} (Sum: ${sum})`; addDiceLog(`${c}×d${s}: ${r.join(', ')} = ${sum}`); remindConditions()});
+  $('flip-coin').addEventListener('click',()=>{const v=Math.random()<.5?'Heads':'Tails'; $('coin-result').textContent=v; addCoinLog(v); remindConditions()});
+  $('icon-log').addEventListener('click',()=>{renderLogs(); $('log-overlay').classList.remove('hidden')}); $('log-close').addEventListener('click',()=>$('log-overlay').classList.add('hidden'));
+  document.querySelectorAll('#conditions input[type="checkbox"]').forEach(c=>c.addEventListener('change',e=>{if(e.target.checked){const t=conditionText[e.target.id]||'Condition active.'; alert(t)}}));
+  function computeSkillTotal(modA, prof, exp){const pb=num($('prof-bonus'))||0; if(exp) return modA+pb*2; if(prof) return modA+pb; return modA}
+  const skillDefs=[{id:'acrobatics',name:'Acrobatics',ability:'dex'},{id:'athletics',name:'Athletics',ability:'str'},{id:'stealth',name:'Stealth',ability:'dex'},{id:'perception',name:'Perception',ability:'wis'},{id:'insight',name:'Insight',ability:'wis'},{id:'investigation',name:'Investigation',ability:'int'},{id:'history',name:'History',ability:'int'},{id:'arcana',name:'Arcana',ability:'int'},{id:'survival',name:'Survival',ability:'wis'},{id:'medicine',name:'Medicine',ability:'wis'},{id:'nature',name:'Nature',ability:'int'},{id:'animal',name:'Animal Handling',ability:'wis'},{id:'deception',name:'Deception',ability:'cha'},{id:'intimidation',name:'Intimidation',ability:'cha'},{id:'persuasion',name:'Persuasion',ability:'cha'},{id:'performance',name:'Performance',ability:'cha'},{id:'religion',name:'Religion',ability:'int'},{id:'sleight',name:'Sleight of Hand',ability:'dex'}];
+  function buildSkillsUI(){const cont=$('skills-container'); if(!cont) return; cont.innerHTML=''; skillDefs.forEach(sk=>{const row=document.createElement('div'); row.className='row'; row.innerHTML=`<div style="flex:1 1 180px"><label>${sk.name}</label></div><div style="flex:0 0 90px"><span class="pill">${sk.ability.toUpperCase()}</span></div><label class="check"><input id="${sk.id}-prof" type="checkbox" class="checkbox">Proficient</label><label class="check"><input id="${sk.id}-exp" type="checkbox" class="checkbox">Expertise</label><div style="flex:0 0 90px"><input id="${sk.id}-total" type="number" readonly></div>`; cont.appendChild(row); row.querySelector(`#${sk.id}-prof`).addEventListener('change',updateAll); row.querySelector(`#${sk.id}-exp`).addEventListener('change',updateAll);});}
+  function buildSavesUI(){const cont=$('saves-container'); if(!cont) return; cont.innerHTML=''; ['str','dex','con','int','wis','cha'].forEach(a=>{const name=a.toUpperCase(); const row=document.createElement('div'); row.className='row'; row.innerHTML=`<div style="flex:1 1 160px"><label>${name} Save</label></div><label class="check"><input id="save-${a}-prof" type="checkbox" class="checkbox">Proficient</label><div style="flex:0 0 90px"><input id="save-${a}-total" type="number" readonly></div>`; cont.appendChild(row); row.querySelector(`#save-${a}-prof`).addEventListener('change',updateAll);});}
+  function updateSkills(){skillDefs.forEach(sk=>{const m=mod(num($(sk.ability))||10); const prof=$(`${sk.id}-prof`)?.checked; const exp=$(`${sk.id}-exp`)?.checked; const tot=$(`${sk.id}-total`); if(tot) tot.value=computeSkillTotal(m,prof,exp)}); ['str','dex','con','int','wis','cha'].forEach(a=>{const m=mod(num($(a))||10); const prof=$(`save-${a}-prof`)?.checked; const out=$(`save-${a}-total`); if(out){ const pb=num($('prof-bonus'))||0; out.value=m+(prof?pb:0); }});}
+  function updateAll(){updateAbilityMods(); updateHP(); updateSP(); updatePerks(); updateSkills();}
+  function hpAdjust(delta){const hb=$('hp-bar'); if(!hb) return; const temp=$('hp-temp'); let d=delta; let tv=Number(temp?.value)||0; if(d<0 && tv>0){const use=Math.min(tv,Math.abs(d)); tv-=use; temp.value=tv; d+=use;} setHP(Number(hb.value)+d);}
+  function spAdjust(delta){const sb=$('sp-bar'); if(!sb) return; const temp=$('sp-temp'); let d=delta; let tv=Number(temp?.value)||0; if(d<0 && tv>0){const use=Math.min(tv,Math.abs(d)); tv-=use; temp.value=tv; d+=use;} setSP(Number(sb.value)+d); if(sb.value<=0 && !spZero){spZero=true; if(!booting) alert('You have run out of SP.')} if(sb.value>0) spZero=false}
+  $('hp-take').addEventListener('click',()=>{const a=Number($('hp-dmg').value||0); if(a) hpAdjust(-Math.abs(a)); remindConditions()});
+  $('hp-heal').addEventListener('click',()=>{const a=Number($('hp-dmg').value||0); if(a) hpAdjust(Math.abs(a));});
+  $('hp-reset').addEventListener('click',()=>{const hb=$('hp-bar'); setHP(Number(hb.max)||0)});
+  document.querySelectorAll('.hp-step').forEach(b=>b.addEventListener('click',()=>{const d=Number(b.dataset.d||0); if(d) hpAdjust(d); remindConditions()}));
+  $('sp-spend').addEventListener('click',()=>{const a=Number($('sp-cost').value||0); if(a) spAdjust(-Math.abs(a)); remindConditions()});
+  document.querySelectorAll('.sp-step').forEach(b=>b.addEventListener('click',()=>{const d=Number(b.dataset.d||0); if(d) spAdjust(d); remindConditions()}));
+  $('sp-reset').addEventListener('click',()=>{const sb=$('sp-bar'); setSP(Number(sb.max)||0)});
+  $('long-rest').addEventListener('click',()=>{setHP(Number($('hp-bar').max)||0); setSP(Number($('sp-bar').max)||0)});
+  ['ds1','ds2','ds3'].forEach(id=>$(id).addEventListener('change',()=>{const c=['ds1','ds2','ds3'].filter(i=>$(i).checked).length; if(c===3 && !booting) alert('You Have Fallen, Your Sacrifice Will Be Remembered')}));
+  ['alignment','classification','primary-power-style','origin-story'].forEach(id=>$(id).addEventListener('change',updatePerks));
+  abilities.forEach(id=>$(id).addEventListener('change',()=>{if(id==='dex') initTouched=true; updateAll()}));
+  ;['hp-roll','hp-bonus','hp-temp','sp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=>$(id).addEventListener('input',updateAll));
+  function openModal(id){$(id).classList.remove('hidden')} function closeModal(id){$(id).classList.add('hidden')}
+  $('icon-log').addEventListener('click',()=>{renderLogs(); openModal('log-overlay')}); $('log-close').addEventListener('click',()=>closeModal('log-overlay'));
+  let saveMode=null; $('icon-save').addEventListener('click',()=>{saveMode='save'; $('id-modal-title').textContent='Save'; $('modal-doc-id').value=$('superhero-identity').value||''; openModal('id-overlay')}); $('icon-load').addEventListener('click',()=>{saveMode='load'; $('id-modal-title').textContent='Load'; $('modal-doc-id').value=''; openModal('id-overlay')}); $('modal-cancel').addEventListener('click',()=>closeModal('id-overlay'));
+  $('modal-confirm').addEventListener('click',()=>{const key=($('modal-doc-id').value||'').trim(); if(!key){closeModal('id-overlay'); return;} if(saveMode==='save'){const data=serialize(); localStorage.setItem('save:'+key, JSON.stringify(data)); closeModal('id-overlay'); toast('Saved as '+key);} else {const raw=localStorage.getItem('save:'+key); if(!raw){alert('No save named '+key); return} booting=true; deserialize(JSON.parse(raw)); updateAll(); setTimeout(()=>{booting=false},0); closeModal('id-overlay'); toast('Loaded '+key); }});
+  $('icon-export').addEventListener('click',()=>{buildPrintSheet(); setTimeout(()=>window.print(),0)});
+  function addPower(pref){const idx=Date.now()+Math.floor(Math.random()*1000); const wrap=document.createElement('div'); wrap.className='card'; wrap.dataset.kind='power'; wrap.dataset.idx=idx; wrap.innerHTML=`<div class="row"><input data-field="name" placeholder="Name" value="${pref?.name||''}"><input data-field="sp" placeholder="SP"><input data-field="save" placeholder="Save"><input data-field="range" placeholder="Range"></div><textarea data-field="effect" rows="3" placeholder="Effect">${pref?.effect||''}</textarea><div class="row"><button class="btn-sm" data-act="del">Delete</button></div>`; $('powers-container').appendChild(wrap); wrap.querySelector('[data-act="del"]').addEventListener('click',()=>confirmDelete(wrap,'Delete this power?'))}
+  function addWeapon(pref){const idx=Date.now()+Math.floor(Math.random()*1000); const wrap=document.createElement('div'); wrap.className='card'; wrap.dataset.kind='weapon'; wrap.dataset.idx=idx; wrap.innerHTML=`<div class="row"><input data-field="name" placeholder="Name" value="${pref?.name||''}"><input data-field="damage" placeholder="Damage"><input data-field="range" placeholder="Range"></div><div class="row"><button class="btn-sm" data-act="del">Delete</button></div>`; $('weapons-container').appendChild(wrap); wrap.querySelector('[data-act="del"]').addEventListener('click',()=>confirmDelete(wrap,'Delete this weapon?'))}
+  function addArmor(pref){const idx=Date.now()+Math.floor(Math.random()*1000); const wrap=document.createElement('div'); wrap.className='card'; wrap.dataset.kind='armor'; wrap.dataset.idx=idx; wrap.innerHTML=`<div class="row"><input data-field="name" placeholder="Name" value="${pref?.name||''}"><select data-field="slot"><option>Body</option><option>Head</option><option>Shield</option><option>Misc</option></select><input data-field="bonus" type="number" inputmode="numeric" placeholder="Bonus" value="${pref?.bonus||0}"><label class="check"><input type="checkbox" data-field="equipped">Equipped</label></div><div class="row"><button class="btn-sm" data-act="del">Delete</button></div>`; $('armor-container').appendChild(wrap); wrap.querySelector('[data-field="slot"]').value=pref?.slot||'Body'; if(pref?.equipped) wrap.querySelector('[data-field="equipped"]').checked=true; wrap.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{updateAbilityMods()})); wrap.querySelector('[data-act="del"]').addEventListener('click',()=>confirmDelete(wrap,'Delete this armor?'))}
+  function addItem(pref){const idx=Date.now()+Math.floor(Math.random()*1000); const wrap=document.createElement('div'); wrap.className='card'; wrap.dataset.kind='item'; wrap.dataset.idx=idx; wrap.innerHTML=`<div class="row"><input data-field="name" placeholder="Name" value="${pref?.name||''}"><input data-field="qty" type="number" inputmode="numeric" placeholder="Qty" value="${pref?.qty||1}"><input data-field="notes" placeholder="Notes" value="${pref?.notes||''}"></div><div class="row"><button class="btn-sm" data-act="del">Delete</button></div>`; $('items-container').appendChild(wrap); wrap.querySelector('[data-act="del"]').addEventListener('click',()=>confirmDelete(wrap,'Delete this item?'))}
+  function confirmDelete(node,msg){$('confirm-msg').textContent=msg; pendingDeleteEl=node; $('confirm-overlay').classList.remove('hidden')}
+  $('confirm-cancel').addEventListener('click',()=>{$('confirm-overlay').classList.add('hidden'); pendingDeleteEl=null}); $('confirm-ok').addEventListener('click',()=>{if(pendingDeleteEl){pendingDeleteEl.remove(); pendingDeleteEl=null; updateAbilityMods()} $('confirm-overlay').classList.add('hidden')});
+  $('add-power').addEventListener('click',()=>addPower()); $('add-weapon').addEventListener('click',()=>addWeapon()); $('add-armor').addEventListener('click',()=>addArmor()); $('add-item').addEventListener('click',()=>addItem());
+  function buildPrintSheet(){const text=(id,val)=>{const el=$(id); if(el) el.textContent=val==null?'':String(val)}; const hb=$('hp-bar'), sb=$('sp-bar'); text('cs-hero',$('superhero-identity')?.value||''); text('cs-secret',$('secret-identity')?.value||''); text('cs-tier',$('char-tier')?.value||$('char-tier')?.selectedOptions?.[0]?.text||''); text('cs-align',$('alignment')?.selectedOptions?.[0]?.text||''); text('cs-align-perk',$('alignment-perk')?.textContent||''); text('cs-class',$('classification')?.selectedOptions?.[0]?.text||''); text('cs-class-perk',$('classification-perk')?.textContent||''); text('cs-ppower',$('primary-power-style')?.selectedOptions?.[0]?.text||''); text('cs-ppower-perk',$('primary-power-style-perk')?.textContent||$('primaryPerk')?.value||''); text('cs-spower',$('secondary-power-style')?.value||''); text('cs-origin',$('origin-story')?.selectedOptions?.[0]?.text||''); text('cs-origin-perk',$('origin-story-perk')?.textContent||''); text('cs-hp',`${hb?.value||0}/${hb?.max||0}`); text('cs-sp',`${sb?.value||0}/${sb?.max||0}`); text('cs-tc',$('tc')?.value||''); text('cs-init',$('initiative')?.value||''); text('cs-speed',$('speed')?.value||''); text('cs-pp',$('passive-perception')?.value||''); const ds=['ds1','ds2','ds3'].filter(id=>$(id)?.checked).length; text('cs-ds',`${ds}/3`); const conds=Array.from(document.querySelectorAll('#conditions input:checked')).map(i=>i.parentElement.textContent.trim()).join(', '); text('cs-conds',conds||'None'); const ab=$('cs-abilities'); if(ab){ ab.innerHTML=''; abilities.forEach(id=>{ const score=$(id)?.value||'10'; const m=document.getElementById(id+'-mod')?.textContent||'+0'; const d=document.createElement('div'); d.className='cs-kv'; d.innerHTML=`<span class="cs-title">${id.toUpperCase()}</span><span>${score} (${m})</span>`; ab.appendChild(d); }); } const pp=$('cs-powers'); if(pp){ pp.innerHTML=''; document.querySelectorAll("[data-kind='power']").forEach(card=>{ const name=card.querySelector("[data-field='name']")?.value||'Power'; const sp=card.querySelector("[data-field='sp']")?.value||''; const save=card.querySelector("[data-field='save']")?.value||''; const range=card.querySelector("[data-field='range']")?.value||''; const effect=card.querySelector("[data-field='effect']")?.value||''; const row=document.createElement('div'); row.className='cs-kv'; row.innerHTML=`<span>${name}${sp?` [SP ${sp}]`:''}${save?` [Save ${save}]`:''}${range?` [${range}]`:''}</span><span>${effect}</span>`; pp.appendChild(row); }); } const cg=$('cs-gear'); if(cg){ cg.innerHTML=''; document.querySelectorAll("[data-kind='weapon']").forEach(card=>{ const name=card.querySelector("[data-field='name']")?.value||'Weapon'; const dmg=card.querySelector("[data-field='damage']")?.value||''; const rng=card.querySelector("[data-field='range']")?.value||''; const row=document.createElement('div'); row.className='cs-kv'; row.innerHTML=`<span>${name}</span><span>${dmg}${rng?` (${rng})`:''}</span>`; cg.appendChild(row); }); document.querySelectorAll("[data-kind='armor']").forEach(card=>{ const name=card.querySelector("[data-field='name']")?.value||'Armor'; const slot=card.querySelector("[data-field='slot']")?.value||''; const bonus=card.querySelector("[data-field='bonus']")?.value||0; const eq=card.querySelector("[data-field='equipped']")?.checked?'★ ':''; const row=document.createElement('div'); row.className='cs-kv'; row.innerHTML=`<span>${eq}${name} (${slot})</span><span>+${bonus}</span>`; cg.appendChild(row); }); } const ci=$('cs-items'); if(ci){ ci.innerHTML=''; document.querySelectorAll("[data-kind='item']").forEach(card=>{ const name=card.querySelector("[data-field='name']")?.value||'Item'; const qty=card.querySelector("[data-field='qty']")?.value||1; const notes=card.querySelector("[data-field='notes']")?.value||''; const row=document.createElement('div'); row.className='cs-kv'; row.innerHTML=`<span>${name}</span><span>×${qty}${notes?` — ${notes}`:''}</span>`; ci.appendChild(row); }); } const sig=$('cs-signature'); if(sig){ const name=$('signatureMoveName')?.value||''; const sp=$('signatureSP')?.value||''; const save=$('signatureSave')?.value||''; const spec=$('signatureSpecial')?.value||''; const desc=$('signatureMoveDescription')?.value||''; sig.innerHTML=`<div class="cs-kv"><span>${name}</span><span>${sp?`SP ${sp}`:''}</span></div><div>${desc||''}</div><div>${save||''} ${spec||''}</div>`; } const bs=$('cs-backstory'); if(bs){ const fields=['prePowerLife','powerMoment','powerMeaning','powerFear','walkAway','vulnerability','secret','trustedAlly','teamAdmire','research','trainTinker']; bs.innerHTML=''; fields.forEach(k=>{ const val=$(k)?.value; if(val){ const row=document.createElement('div'); row.className='cs-kv'; row.innerHTML=`<span class="cs-title">${k.replace(/([A-Z])/g,' $1')}</span><span>${val}</span>`; bs.appendChild(row); } }); }}
+  function serialize(){const data={}; document.querySelectorAll('input,select,textarea').forEach(el=>{if(el.type==='checkbox') data[el.id||el.dataset.field]=el.checked; else data[el.id||el.dataset.field]=el.value}); data.powers=[]; document.querySelectorAll("[data-kind='power']").forEach(card=>{data.powers.push({name:card.querySelector("[data-field='name']")?.value||'',sp:card.querySelector("[data-field='sp']")?.value||'',save:card.querySelector("[data-field='save']")?.value||'',range:card.querySelector("[data-field='range']")?.value||'',effect:card.querySelector("[data-field='effect']")?.value||''})}); data.weapons=[]; document.querySelectorAll("[data-kind='weapon']").forEach(card=>{data.weapons.push({name:card.querySelector("[data-field='name']")?.value||'',damage:card.querySelector("[data-field='damage']")?.value||'',range:card.querySelector("[data-field='range']")?.value||''})}); data.armor=[]; document.querySelectorAll("[data-kind='armor']").forEach(card=>{data.armor.push({name:card.querySelector("[data-field='name']")?.value||'',slot:card.querySelector("[data-field='slot']")?.value||'Body',bonus:Number(card.querySelector("[data-field='bonus']")?.value)||0,equipped:card.querySelector("[data-field='equipped']")?.checked||false})}); data.items=[]; document.querySelectorAll("[data-kind='item']").forEach(card=>{data.items.push({name:card.querySelector("[data-field='name']")?.value||'',qty:Number(card.querySelector("[data-field='qty']")?.value)||1,notes:card.querySelector("[data-field='notes']")?.value||''})}); return data}
+  function deserialize(data){document.querySelectorAll("#powers-container>* , #weapons-container>* , #armor-container>* , #items-container>*").forEach(n=>n.remove()); Object.entries(data||{}).forEach(([k,v])=>{const el=$(k); if(el){ if(el.type==='checkbox') el.checked=!!v; else el.value=v; }}); (data.powers||[]).forEach(p=>addPower(p)); (data.weapons||[]).forEach(w=>addWeapon(w)); (data.armor||[]).forEach(a=>addArmor(a)); (data.items||[]).forEach(i=>addItem(i));}
+  function toast(text){let t=document.querySelector('.toast'); if(!t){t=document.createElement('div'); t.className='toast'; document.body.appendChild(t);} t.textContent=text; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1200)}
+  $('icon-encounter').addEventListener('click',()=>{$('round-pill').textContent='Round '+round; $('encounter-overlay').classList.remove('hidden')}); $('enc-close').addEventListener('click',()=>$('encounter-overlay').classList.add('hidden')); $('next-round').addEventListener('click',()=>{round+=1; localStorage.setItem('enc-round',String(round)); $('round-pill').textContent='Round '+round; if($('sp-rule').value==='regen') spAdjust(+1)}); $('reset-encounter').addEventListener('click',()=>{round=1; localStorage.setItem('enc-round','1'); $('round-pill').textContent='Round 1'});
+  buildSkillsUI(); buildSavesUI(); updateAll(); setTimeout(()=>{booting=false},0);
+});
+</script>
+
+<!-- BEGIN: Catalyst Core UI Patch (Aug 10, 2025) -->
+<script>
+(function(){
+  // Basic $ helper if not already defined
+  if (typeof window.$ !== 'function') {
+    window.$ = function(id){ return document.getElementById(id); };
+  }
+
+  function ensureListenersForSpStep(container){
+    try {
+      // If the app already attaches listeners globally, skip rebinding
+      // Otherwise, bind minimal listeners here for our new buttons
+      container.querySelectorAll('.sp-step').forEach(function(b){
+        if (b.dataset.bound) return;
+        b.addEventListener('click', function(){
+          var d = Number(b.dataset.d || 0);
+          if (!d) return;
+          if (typeof window.spAdjust === 'function') {
+            window.spAdjust(d);
+          } else {
+            // Fallback adjustment if spAdjust isn't available (should be available in the app)
+            var bar = $('sp-bar');
+            var total = Number((bar && bar.getAttribute('max')) || 0);
+            var current = Number((bar && bar.value) || 0);
+            var next = Math.max(0, Math.min(total, current + d));
+            if (bar) bar.value = next;
+            var pill = $('sp-total');
+            if (pill) pill.textContent = next + '/' + total;
+            try { localStorage.setItem('sp-current', String(next)); } catch(e){}
+          }
+        });
+        b.dataset.bound = '1';
+      });
+    } catch(e){ /* silent */ }
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+
+    // 1) Remove reset-uses card (Per-Combat / Long-Rest / Per-Session)
+    ['reset-uses-combat','reset-uses-rest','reset-uses-session'].forEach(function(id){
+      var el = $(id);
+      if (el) {
+        var card = el.closest('.card');
+        (card || el).remove();
+      }
+    });
+
+    // 2) Remove the SP regen/rest selector entirely
+    var spRule = $('sp-rule');
+    if (spRule) spRule.remove();
+
+    // 3) Move Signature Move from Story to Powers
+    var sigName = $('signatureMoveName');
+    if (sigName) {
+      var sigCard = sigName.closest('.card');
+      var powers = $('powers');
+      if (sigCard && powers) {
+        powers.appendChild(sigCard);
+      }
+    }
+
+    // 4) Move Tier Roll and Bonus HP to Story
+    var hpRoll = $('hp-roll');
+    var hpBonus = $('hp-bonus');
+    var story = $('story');
+    if ((hpRoll || hpBonus) && story) {
+      // create a tidy card to host these controls
+      var card = document.createElement('div');
+      card.className = 'card';
+      var label = document.createElement('label');
+      label.textContent = 'Tier Roll & Bonus HP';
+      card.appendChild(label);
+      [hpRoll, hpBonus].forEach(function(inp){
+        if (!inp) return;
+        var row = inp.closest('.row') || inp.parentElement;
+        if (row) card.appendChild(row);
+      });
+      story.appendChild(card);
+    }
+
+    // 5) Align Heal & Damage buttons (put Heal into the same row as Damage)
+    var healBtn = $('hp-heal');
+    var dmgInput = $('hp-dmg');
+    if (healBtn && dmgInput) {
+      var dmgRow = dmgInput.closest('.inline') || dmgInput.parentElement;
+      if (dmgRow) {
+        dmgRow.appendChild(healBtn);
+      }
+    }
+
+    // 6) In SP section, remove Spend button and add -1, -4, -5
+    var spendBtn = $('sp-spend');
+    if (spendBtn) spendBtn.remove();
+
+    var spReset = $('sp-reset');
+    if (spReset) {
+      var row = spReset.closest('.row') || spReset.parentElement;
+      if (row) {
+        function mk(n){
+          var b = document.createElement('button');
+          b.className = 'btn-sm sp-step';
+          b.setAttribute('data-d', String(-n));
+          b.textContent = '-' + n + ' SP';
+          return b;
+        }
+        // Insert before Reset SP for a predictable position
+        row.insertBefore(mk(1), spReset);
+        row.insertBefore(mk(4), spReset);
+        row.insertBefore(mk(5), spReset);
+        ensureListenersForSpStep(row);
+      }
+    }
+
+    // 7) Move Cinematic Action Point into its own card under Combat and add Use/Reset
+    var capCheckbox = $('cinematic-AP');
+    if (capCheckbox) {
+      var capLabel = capCheckbox.closest('label');
+      if (capLabel) capLabel.remove();
+    }
+
+    var tools = $('tools'); // the primary Combat section container
+    if (tools) {
+      var capCard = document.createElement('div');
+      capCard.className = 'card';
+      capCard.id = 'cinematic-card';
+
+      var h = document.createElement('label');
+      h.textContent = 'Cinematic Action Point';
+      capCard.appendChild(h);
+
+      var p = document.createElement('p');
+      p.className = 'preview';
+      p.id = 'cap-desc';
+      p.textContent = 'Spend this once per session to fuel a dramatic, rule-bending stunt: turn a near-miss into a hit, pull off an extraordinary maneuver, or introduce a bold narrative effect. Your GM has final say on outcomes. Resets at session end.';
+      capCard.appendChild(p);
+
+      var stateRow = document.createElement('div');
+      stateRow.className = 'row';
+      var pill = document.createElement('span');
+      pill.id = 'cap-state';
+      pill.className = 'pill';
+      pill.textContent = 'Ready';
+      stateRow.appendChild(pill);
+      capCard.appendChild(stateRow);
+
+      var btnRow = document.createElement('div');
+      btnRow.className = 'row btns';
+
+      var useBtn = document.createElement('button');
+      useBtn.id = 'cap-use';
+      useBtn.className = 'btn-sm';
+      useBtn.textContent = 'Use';
+      btnRow.appendChild(useBtn);
+
+      var resetBtn = document.createElement('button');
+      resetBtn.id = 'cap-reset';
+      resetBtn.className = 'btn-sm';
+      resetBtn.textContent = 'Reset';
+      btnRow.appendChild(resetBtn);
+
+      capCard.appendChild(btnRow);
+      tools.appendChild(capCard);
+
+      function setCapUsed(v){
+        var pill = $('cap-state');
+        if (pill) {
+          pill.textContent = v ? 'Used' : 'Ready';
+          pill.classList.toggle('pill-used', !!v);
+        }
+        try { localStorage.setItem('cap-used', v ? '1' : '0'); } catch(e){}
+      }
+      // restore state
+      try {
+        var saved = localStorage.getItem('cap-used');
+        setCapUsed(saved === '1');
+      } catch(e){}
+
+      $('cap-use').addEventListener('click', function(e){ e.preventDefault && e.preventDefault(); setCapUsed(true); });
+      $('cap-reset').addEventListener('click', function(e){ e.preventDefault && e.preventDefault(); setCapUsed(false); });
+    }
+
+  });
+})();
+</script>
+<!-- END: Catalyst Core UI Patch (Aug 10, 2025) -->
+
+</body>
+</html>
