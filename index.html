@@ -99,7 +99,13 @@ progress::-webkit-progress-value{background:var(--accent)}
 
 </style>
 </head>
-<body>
+\1
+<!-- Safety shim to avoid null refs if legacy scripts expect these -->
+<div style="display:none">
+  <button id="sp-spend" tabindex="-1" aria-hidden="true"></button>
+  <input id="sp-cost" value="0" tabindex="-1" aria-hidden="true">
+</div>
+
 <header>
   <div class="topbar">
     <h1>Hero Dossier</h1>
