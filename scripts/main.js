@@ -300,12 +300,16 @@ $('xp-submit').addEventListener('click', ()=>{
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
+  const prev = num(elHPBar.value);
   elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+  if(prev > 0 && num(elHPBar.value) === 0) alert('Player is down');
 }
 function setSP(v){
+  const prev = num(elSPBar.value);
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
+  if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
 }
 $('hp-dmg').addEventListener('click', ()=>{ let d=num($('hp-amt').value); if(!d) return; let tv=num(elHPTemp.value); if(d>0 && tv>0){ const use=Math.min(tv,d); tv-=use; elHPTemp.value=tv; d-=use; } setHP(num(elHPBar.value)-d); });
 $('hp-heal').addEventListener('click', ()=>{ const d=num($('hp-amt').value)||0; setHP(num(elHPBar.value)+d); });
