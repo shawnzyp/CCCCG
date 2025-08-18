@@ -146,6 +146,9 @@ const elPowerSaveDC = $('power-save-dc');
 const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
+const elTier = $('tier');
+
+const XP_TIERS = [0, 2000, 6000, 18000, 54000, 162000];
 
 /* ========= derived helpers ========= */
 function updateSP(){
@@ -163,11 +166,26 @@ function updateHP(){
 }
 
 function updateXP(){
-  const next = 100;
-  const val = Math.max(0, num(elXP.value)) % next;
-  elXPBar.max = next;
-  elXPBar.value = val;
-  elXPPill.textContent = `${val}/${next}`;
+  const xp = Math.max(0, num(elXP.value));
+  let idx = 0;
+  for(let i=XP_TIERS.length-1;i>=0;i--){
+    if(xp >= XP_TIERS[i]){ idx = i; break; }
+  }
+  if(elTier) elTier.selectedIndex = idx;
+  const nextXP = XP_TIERS[idx+1];
+  const prevXP = XP_TIERS[idx];
+  if(nextXP){
+    const val = xp - prevXP;
+    const diff = nextXP - prevXP;
+    elXPBar.max = diff;
+    elXPBar.value = val;
+    elXPPill.textContent = `${val}/${diff}`;
+  }else{
+    const val = xp - prevXP;
+    elXPBar.max = 1;
+    elXPBar.value = 1;
+    elXPPill.textContent = `${val}+`;
+  }
 }
 
 function updateDerived(){
@@ -195,6 +213,13 @@ ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 elXP?.addEventListener('input', updateXP);
+
+function setXP(v){
+  elXP.value = Math.max(0, v);
+  updateXP();
+}
+$('xp-add').addEventListener('click', ()=>{ const d=num($('xp-amt').value)||0; if(d) setXP(num(elXP.value)+d); });
+$('xp-remove').addEventListener('click', ()=>{ const d=num($('xp-amt').value)||0; if(d) setXP(num(elXP.value)-d); });
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
