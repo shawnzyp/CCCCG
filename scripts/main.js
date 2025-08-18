@@ -392,7 +392,6 @@ $('add-sig').addEventListener('click', () => { $('sigs').appendChild(createCard(
 $('add-weapon').addEventListener('click', () => { $('weapons').appendChild(createCard('weapon')); pushHistory(); });
 $('add-armor').addEventListener('click', () => { $('armors').appendChild(createCard('armor')); pushHistory(); });
 $('add-item').addEventListener('click', () => { $('items').appendChild(createCard('item')); pushHistory(); });
-$('btn-pdf').addEventListener('click', () => window.print());
 
 /* ========= Drag & Drop ========= */
 function enableDragReorder(id){
@@ -532,31 +531,64 @@ $('open-catalog').addEventListener('click', ()=>{ renderCatalog(); show('modal-c
 
 /* ========= Encounter / Initiative ========= */
 let round = Number(localStorage.getItem('enc-round')||'1')||1;
+let turn = Number(localStorage.getItem('enc-turn')||'0')||0;
 const roster = JSON.parse(localStorage.getItem('enc-roster')||'[]');
-function saveEnc(){ localStorage.setItem('enc-roster', JSON.stringify(roster)); localStorage.setItem('enc-round', String(round)); }
+function saveEnc(){
+  localStorage.setItem('enc-roster', JSON.stringify(roster));
+  localStorage.setItem('enc-round', String(round));
+  localStorage.setItem('enc-turn', String(turn));
+}
 function renderEnc(){
   $('round-pill').textContent='Round '+round;
   const list=$('enc-list'); list.innerHTML='';
-  roster.sort((a,b)=>(b.init||0)-(a.init||0) || String(a.name).localeCompare(String(b.name)));
   roster.forEach((r,idx)=>{
-    const row=document.createElement('div'); row.className='catalog-item';
-    row.innerHTML = `<div class="pill">${r.init}</div><div><b>${r.name}</b></div>
-      <div class="inline" style="gap:6px">
-        <button class="btn-sm" data-up="${idx}">▲</button>
-        <button class="btn-sm" data-down="${idx}">▼</button>
-        <button class="btn-sm" data-del="${idx}">Delete</button>
-      </div>`;
+    const row=document.createElement('div');
+    row.className='catalog-item'+(idx===turn?' active':'');
+    row.innerHTML = `<div class="pill">${r.init}</div><div><b>${r.name}</b></div><div><button class="btn-sm" data-del="${idx}">Delete</button></div>`;
     list.appendChild(row);
   });
-  qsa('[data-del]', $('enc-list')).forEach(b=> b.addEventListener('click', ()=>{ roster.splice(Number(b.dataset.del),1); renderEnc(); saveEnc(); }));
-  qsa('[data-up]', $('enc-list')).forEach(b=> b.addEventListener('click', ()=>{ const i=Number(b.dataset.up); if(i>0){ const t=roster[i-1]; roster[i-1]=roster[i]; roster[i]=t; renderEnc(); saveEnc(); }}));
-  qsa('[data-down]', $('enc-list')).forEach(b=> b.addEventListener('click', ()=>{ const i=Number(b.dataset.down); if(i<roster.length-1){ const t=roster[i+1]; roster[i+1]=roster[i]; roster[i]=t; renderEnc(); saveEnc(); }}));
+  const turnName = roster[turn]?.name || '';
+  const turnEl = $('turn-pill');
+  if(turnEl){
+    turnEl.textContent = turnName ? `Turn: ${turnName}` : '';
+    turnEl.style.display = turnName ? '' : 'none';
+  }
+  qsa('[data-del]', list).forEach(b=> b.addEventListener('click', ()=>{
+    const i=Number(b.dataset.del);
+    roster.splice(i,1);
+    if(turn>=roster.length) turn=0;
+    renderEnc();
+    saveEnc();
+  }));
 }
 $('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
-$('enc-add').addEventListener('click', ()=>{ const name=$('enc-name').value.trim(); const init=Number($('enc-init').value||0);
-  if(!name) return toast('Enter a name','error'); roster.push({name, init}); $('enc-name').value=''; $('enc-init').value=''; renderEnc(); saveEnc(); });
-$('enc-next').addEventListener('click', ()=>{ round+=1; renderEnc(); saveEnc(); });
-$('enc-reset').addEventListener('click', ()=>{ if(!confirm('Reset encounter and round?')) return; round=1; roster.length=0; renderEnc(); saveEnc(); });
+$('enc-add').addEventListener('click', ()=>{
+  const name=$('enc-name').value.trim();
+  const init=Number($('enc-init').value||0);
+  if(!name) return toast('Enter a name','error');
+  roster.push({name, init});
+  roster.sort((a,b)=>(b.init||0)-(a.init||0) || String(a.name).localeCompare(String(b.name)));
+  $('enc-name').value='';
+  $('enc-init').value='';
+  turn=0;
+  renderEnc();
+  saveEnc();
+});
+$('enc-next').addEventListener('click', ()=>{
+  if(!roster.length) return;
+  turn = (turn + 1) % roster.length;
+  if(turn===0) round+=1;
+  renderEnc();
+  saveEnc();
+});
+$('enc-reset').addEventListener('click', ()=>{
+  if(!confirm('Reset encounter and round?')) return;
+  round=1;
+  turn=0;
+  roster.length=0;
+  renderEnc();
+  saveEnc();
+});
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
 /* ========= Save / Load (cloud-first, silent local mirror) ========= */
@@ -757,7 +789,7 @@ $('do-load').addEventListener('click', async ()=>{
 });
 
 /* ========= Rules ========= */
-$('btn-rules').addEventListener('click', ()=> show('modal-rules'));
+$('btn-rules')?.addEventListener('click', ()=> show('modal-rules'));
 
 /* ========= Close + click-outside ========= */
 $('btn-log').addEventListener('click', ()=> show('modal-log'));

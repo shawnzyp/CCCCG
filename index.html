@@ -40,11 +40,6 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
         </svg>
       </button>
-      <button id="btn-pdf" class="icon" aria-label="Export PDF" title="Export PDF">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75V3h-10.5v3.75m10.5 0h1.5a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-1.5m0-12H6.75m10.5 0v12m-10.5-12h-1.5A2.25 2.25 0 0 0 3 9v7.5A2.25 2.25 0 0 0 5.25 18.75h1.5m0 0V21h10.5v-2.25m-10.5 0h10.5"/>
-        </svg>
-      </button>
       <button id="btn-theme" class="icon" aria-label="Toggle Theme" title="Toggle Theme">
         <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3V5.25M18.364 5.63604L16.773 7.22703M21 12H18.75M18.364 18.364L16.773 16.773M12 18.75V21M7.22703 16.773L5.63604 18.364M5.25 12H3M7.22703 7.22703L5.63604 5.63604M15.75 12C15.75 14.0711 14.0711 15.75 12 15.75C9.92893 15.75 8.25 14.0711 8.25 12C8.25 9.92893 9.92893 8.25 12 8.25C14.0711 8.25 15.75 9.92893 15.75 12Z"/>
@@ -373,7 +368,7 @@
       </svg>
     </button>
     <h3>Encounter Tracker</h3>
-    <div class="inline" style="margin-bottom:6px"><span class="pill" id="round-pill">Round 1</span></div>
+    <div class="inline" style="margin-bottom:6px"><span class="pill" id="round-pill">Round 1</span><span class="pill" id="turn-pill"></span></div>
     <fieldset class="inline">
       <legend class="sr-only">Add Combatant</legend>
       <label for="enc-name" class="sr-only">Name</label>
@@ -384,7 +379,7 @@
     </fieldset>
     <div id="enc-list" class="catalog" style="margin-top:8px"></div>
     <div class="actions">
-      <button id="enc-next" class="btn-sm">Next Round</button>
+      <button id="enc-next" class="btn-sm">Next Turn</button>
       <button id="enc-reset" class="btn-sm">Reset</button>
     </div>
   </div>
