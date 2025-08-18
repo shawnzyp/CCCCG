@@ -713,7 +713,12 @@ qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide
 let firebaseCfgPromise;
 async function loadFirebaseConfig(){
   if(!firebaseCfgPromise){
-    const url = window.FIREBASE_CONFIG_URL || '../firebase-config.json';
+    // Fetch config from the same directory as the main page.
+    // Using "../firebase-config.json" attempted to go one level above the
+    // application root when the page is served from "/", resulting in a 404 and
+    // preventing cloud save/load from functioning. The correct relative path is
+    // simply "firebase-config.json".
+    const url = window.FIREBASE_CONFIG_URL || 'firebase-config.json';
     firebaseCfgPromise = fetch(url).then(r=>r.ok?r.json():null).catch(()=>null);
   }
   let cfg = await firebaseCfgPromise;
