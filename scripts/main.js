@@ -93,9 +93,12 @@ setTab('combat');
 const ABILS = ['str','dex','con','int','wis','cha'];
 const abilGrid = $('abil-grid');
 abilGrid.innerHTML = ABILS.map(a=>`
-  <div class="card">
+  <div class="ability-box">
     <label>${a.toUpperCase()}</label>
-    <div class="inline"><select id="${a}"></select><span class="pill" id="${a}-mod">+0</span></div>
+    <div class="score">
+      <select id="${a}"></select>
+      <span class="mod" id="${a}-mod">+0</span>
+    </div>
   </div>`).join('');
 ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
@@ -272,7 +275,9 @@ function updateDerived(){
   const pb = num(elProfBonus.value)||2;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
   ABILS.forEach(a=>{
-    const val = mod($(a).value) + ($('save-'+a+'-prof')?.checked ? pb : 0);
+    const m = mod($(a).value);
+    $(a+'-mod').textContent = (m>=0?'+':'') + m;
+    const val = m + ($('save-'+a+'-prof')?.checked ? pb : 0);
     $('save-'+a).textContent = (val>=0?'+':'') + val;
   });
   SKILLS.forEach((s,i)=>{

@@ -66,3 +66,44 @@ button:active{transform:translateY(0)}
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.success{border-color:#16a34a;color:#16a34a}
 .toast.error{border-color:#dc2626;color:#dc2626}
+
+/* ability grid */
+.ability-grid{grid-template-columns:repeat(2,1fr)}
+
+.ability-box{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:6px;
+}
+
+.ability-box label{
+  margin-bottom:0;
+}
+
+.ability-box .score{
+  position:relative;
+  width:100%;
+}
+
+.ability-box select{
+  width:100%;
+  height:72px;
+  font-size:1.8rem;
+  text-align:center;
+}
+
+.ability-box .mod{
+  position:absolute;
+  bottom:4px;
+  right:4px;
+  padding:4px 6px;
+  border:1px solid var(--accent);
+  border-radius:var(--radius);
+  background:var(--surface-2);
+  color:var(--accent);
+  font-size:.85rem;
+}
