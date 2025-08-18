@@ -1,0 +1,11 @@
+{
+  "name": "ccccg",
+  "version": "1.0.0",
+  "description": "Catalyst Core Character Tracker tests",
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  },
+  "scripts": {
+    "test": "node tests/roundtrip.test.js"
+  }
+}

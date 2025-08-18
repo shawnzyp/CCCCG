@@ -668,6 +668,23 @@ async function getRTDB(){
   const db=getDatabase(app);
   return { db, ref, get, set };
 }
+/*
+  Serialize current character sheet to a plain object.
+  Schema:
+  {
+    <input id>: value,
+    powers:      [{ name, sp, save, range, effect }],
+    signatures:  [{ name, sp, save, special, desc }],
+    weapons:     [{ name, damage, range }],
+    armor:       [{ name, slot, bonus, equipped }],
+    items:       [{ name, qty, notes }]
+  }
+  DOM expectations:
+  - All simple fields are standard inputs with unique ids.
+  - Repeating sections (powers, signatures, weapons, armor, items)
+    consist of cards marked with a `data-kind` attribute and
+    inputs within them labeled by `data-f` for each field.
+*/
 function serialize(){
   const data={};
   qsa('input,select,textarea').forEach(el=>{
@@ -706,6 +723,13 @@ function serialize(){
   }));
   return data;
 }
+/*
+  Populate the DOM from a serialized character object following the
+  schema described above. Expects container elements with ids
+  `powers`, `sigs`, `weapons`, `armors`, and `items` to hold the
+  repeating card entries. Each card is rebuilt using the corresponding
+  `card*` helper and simple fields are matched by element id.
+*/
 function deserialize(data){
   $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
   Object.entries(data||{}).forEach(([k,v])=>{ const el=$(k); if (!el) return; if (el.type==='checkbox') el.checked=!!v; else el.value=v; });
