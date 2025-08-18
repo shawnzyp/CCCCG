@@ -6,7 +6,29 @@ const num = (v)=>{ const n=Number(v); return Number.isFinite(n)?n:0; };
 const mod = (score)=>Math.floor((num(score)-10)/2);
 function show(id){ $(id).classList.remove('hidden'); }
 function hide(id){ $(id).classList.add('hidden'); }
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1200); }
+function playTone(type){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = type==='error'?220:880;
+    gain.gain.value = 0.1;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+    osc.onended = ()=>ctx.close();
+  }catch(e){ /* noop */ }
+}
+function toast(msg, type='info'){
+  const t=$('toast');
+  t.textContent=msg;
+  t.className=`toast ${type}`;
+  t.classList.add('show');
+  playTone(type);
+  setTimeout(()=>t.classList.remove('show'),1200);
+}
 
 /* ========= tabs ========= */
 function setTab(name){
@@ -302,7 +324,7 @@ function renderCatalog(){
       } else {
         $('items').appendChild(createCard('item', {name:it.name, notes:`${it.rarity} — ${it.tc}${it.notes?(' — '+it.notes):''}`}));
       }
-      updateDerived(); toast('Added to sheet');
+      updateDerived(); toast('Added to sheet','success');
     }));
 }
 $('open-catalog').addEventListener('click', ()=>{ renderCatalog(); show('modal-catalog'); });
@@ -332,7 +354,7 @@ function renderEnc(){
 }
 $('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
 $('enc-add').addEventListener('click', ()=>{ const name=$('enc-name').value.trim(); const init=Number($('enc-init').value||0);
-  if(!name) return alert('Enter a name'); roster.push({name, init}); $('enc-name').value=''; $('enc-init').value=''; renderEnc(); saveEnc(); });
+  if(!name) return toast('Enter a name','error'); roster.push({name, init}); $('enc-name').value=''; $('enc-init').value=''; renderEnc(); saveEnc(); });
 $('enc-next').addEventListener('click', ()=>{ round+=1; renderEnc(); saveEnc(); });
 $('enc-reset').addEventListener('click', ()=>{ if(!confirm('Reset encounter and round?')) return; round=1; roster.length=0; renderEnc(); saveEnc(); });
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
@@ -423,13 +445,13 @@ async function saveCloud(name, payload){
         break;
       }catch(e){
         console.error('Firebase set failed', e);
-        if (!tries){ toast('Cloud save failed. Data saved locally.'); }
+        if (!tries){ toast('Cloud save failed. Data saved locally.','error'); }
         else{ await new Promise(res=>setTimeout(res,1000)); }
       }
     }
   } else {
-    if (!navigator.onLine) toast('Offline: saved locally only');
-    else toast('Cloud unavailable; saved locally');
+    if (!navigator.onLine) toast('Offline: saved locally only','error');
+    else toast('Cloud unavailable; saved locally','error');
   }
   try{ localStorage.setItem('save:'+name, JSON.stringify(payload)); localStorage.setItem('last-save', name);}catch(e){ console.error('Local save failed', e); }
 }
@@ -445,7 +467,7 @@ async function loadCloud(name){
         break;
       }catch(e){
         console.error('Firebase get failed', e);
-        if (!tries){ toast('Cloud load failed. Trying local save.'); }
+        if (!tries){ toast('Cloud load failed. Trying local save.','error'); }
         else{ await new Promise(res=>setTimeout(res,1000)); }
       }
     }
@@ -454,8 +476,8 @@ async function loadCloud(name){
       return v?.data || v?.character || v?.sheet || v;
     }
   } else {
-    if (!navigator.onLine) toast('Offline: using local save');
-    else toast('Cloud unavailable; using local save');
+    if (!navigator.onLine) toast('Offline: using local save','error');
+    else toast('Cloud unavailable; using local save','error');
   }
   try{ const raw=localStorage.getItem('save:'+name); if(raw) return JSON.parse(raw); }catch(e){ console.error('Local load failed', e); }
   throw new Error('No save found');
@@ -463,12 +485,12 @@ async function loadCloud(name){
 $('btn-save').addEventListener('click', ()=>{ $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || ''; show('modal-save'); });
 $('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
 $('do-save').addEventListener('click', async ()=>{
-  const name = $('save-key').value.trim(); if(!name) return alert('Enter a name');
-  await saveCloud(name, serialize()); hide('modal-save'); toast('Saved');
+  const name = $('save-key').value.trim(); if(!name) return toast('Enter a name','error');
+  await saveCloud(name, serialize()); hide('modal-save'); toast('Saved','success');
 });
 $('do-load').addEventListener('click', async ()=>{
-  const name = $('load-key').value.trim(); if(!name) return alert('Enter a name');
-  try{ const data = await loadCloud(name); deserialize(data); hide('modal-load'); toast('Loaded'); } catch(e){ console.error('Load failed', e); toast('Could not load: '+(e?.message||'')); }
+  const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
+  try{ const data = await loadCloud(name); deserialize(data); hide('modal-load'); toast('Loaded','success'); } catch(e){ console.error('Load failed', e); toast('Could not load: '+(e?.message||''),'error'); }
 });
 
 /* ========= Rules ========= */
