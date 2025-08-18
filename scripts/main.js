@@ -86,7 +86,7 @@ function updateDerived(){
   const sb = $('sp-bar'); sb.max = spMax; if (!num(sb.value)) sb.value = spMax; $('sp-pill').textContent = `${num(sb.value)}/${spMax}`;
   const hb = $('hp-bar');
   const total = 30 + mod($('con').value) + num($('hp-roll').value||0) + num($('hp-bonus').value||0);
-  hb.max = Math.max(0,total); if (!num(hb.value)) hb.value = hb.max; $('hp-pill').textContent = `${num(hb.value)}/${num(hb.max)}` + (num($('hp-temp').value)?` (+${num($('hp-temp').value)})`:``);
+  hb.max = Math.max(0,total); if (!num(hb.value)) hb.value = hb.max; $('hp-pill').textContent = `${num(hb.value)}/${hb.max}` + (num($('hp-temp').value)?` (+${num($('hp-temp').value)})`:``);
   $('initiative').value = mod($('dex').value);
   const pb = num($('prof-bonus').value)||2;
   $('power-save-dc').value = 8 + pb + mod($( $('power-save-ability').value ).value);
