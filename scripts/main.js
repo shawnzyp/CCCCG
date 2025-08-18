@@ -371,12 +371,36 @@ $('flip').addEventListener('click', ()=>{
   $('flip-out').textContent = v;
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
 });
-$('death-save').addEventListener('click', ()=>{
-  const roll = 1 + Math.floor(Math.random()*20);
-  const result = roll >= 10 ? 'Success' : 'Failure';
-  $('death-out').textContent = `${roll} (${result})`;
-  pushLog(deathLog, {t:Date.now(), text:`${roll} (${result})`}, 'death-log');
+const deathBoxes = ['death-save-1','death-save-2','death-save-3'].map(id => $(id));
+const deathSaveKey = 'death-saves';
+function saveDeathSaves(){
+  localStorage.setItem(deathSaveKey, JSON.stringify(deathBoxes.map(b=>b.checked)));
+}
+function loadDeathSaves(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(deathSaveKey)||'[]');
+    deathBoxes.forEach((b,i)=>{ if(b) b.checked=!!saved[i]; });
+  }catch(e){ /* noop */ }
+}
+function resetDeathSaves(){
+  deathBoxes.forEach(b=>{ if(b) b.checked=false; });
+  saveDeathSaves();
+}
+loadDeathSaves();
+deathBoxes.forEach((box, idx) => {
+  if(!box) return;
+  box.addEventListener('change', () => {
+    saveDeathSaves();
+    if (box.checked) {
+      pushLog(deathLog, {t: Date.now(), text: `Failure ${idx + 1}`}, 'death-log');
+    }
+    if (deathBoxes.every(b => b && b.checked)) {
+      alert('Your character has fallen and their sacrifice will be remembered.');
+    }
+  });
 });
+$('hp-full').addEventListener('click', resetDeathSaves);
+$('long-rest').addEventListener('click', resetDeathSaves);
 const btnCampaignAdd = $('campaign-add');
 if (btnCampaignAdd) {
   btnCampaignAdd.addEventListener('click', ()=>{
