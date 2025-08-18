@@ -185,18 +185,14 @@ function updateXP(){
   }
   if(elTier) elTier.value = XP_TIERS[idx].label;
   const nextTier = XP_TIERS[idx+1];
-  const prevXP = XP_TIERS[idx].xp;
   if(nextTier){
-    const val = xp - prevXP;
-    const diff = nextTier.xp - prevXP;
-    elXPBar.max = diff;
-    elXPBar.value = val;
-    elXPPill.textContent = `${val}/${diff}`;
+    elXPBar.max = nextTier.xp;
+    elXPBar.value = xp;
+    elXPPill.textContent = `${xp}/${nextTier.xp}`;
   }else{
-    const val = xp - prevXP;
     elXPBar.max = 1;
     elXPBar.value = 1;
-    elXPPill.textContent = `${val}+`;
+    elXPPill.textContent = `${xp}+`;
   }
 }
 
