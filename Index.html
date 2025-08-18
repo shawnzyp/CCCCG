@@ -384,20 +384,21 @@ button:active{transform:translateY(1px)}
 
 <script type="module">
 /* ========= helpers ========= */
-const $ = (id)=>document.getElementById(id);
-const qs = (s, r=document)=>r.querySelector(s);
-const qsa = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const num = (v)=>{ const n=Number(v); return Number.isFinite(n)?n:0; };
-const mod = (score)=>Math.floor((num(score)-10)/2);
-function show(id){ $(id).classList.remove('hidden'); }
-function hide(id){ $(id).classList.add('hidden'); }
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1200); }
+const $ = (id)=>document.getElementById(id); // shortcut for document.getElementById
+const qs = (s, r=document)=>r.querySelector(s); // select first matching element
+const qsa = (s, r=document)=>Array.from(r.querySelectorAll(s)); // array of all matches
+const num = (v)=>{ const n=Number(v); return Number.isFinite(n)?n:0; }; // numeric parse with fallback to 0
+const mod = (score)=>Math.floor((num(score)-10)/2); // ability modifier calculation
+function show(id){ $(id).classList.remove('hidden'); } // unhide element by removing .hidden
+function hide(id){ $(id).classList.add('hidden'); } // hide element by adding .hidden
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1200); } // brief toast notification
 
 /* ========= tabs ========= */
 function setTab(name){
   qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
   qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
 }
+// Clicking a tab activates its corresponding section
 qsa('.tab').forEach(b=> b.addEventListener('click', ()=> setTab(b.getAttribute('data-go'))));
 setTab('combat');
 
@@ -443,11 +444,17 @@ ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 /* ========= HP/SP controls ========= */
 function setHP(v){ const hb=$('hp-bar'); hb.value = Math.max(0, Math.min(num(hb.max), v)); $('hp-pill').textContent = `${num(hb.value)}/${num(hb.max)}` + (num($('hp-temp').value)?` (+${num($('hp-temp').value)})`:``); }
 function setSP(v){ const sb=$('sp-bar'); sb.value = Math.max(0, Math.min(num(sb.max), v)); $('sp-pill').textContent = `${num(sb.value)}/${num(sb.max)}`; }
+// Apply damage using amount field, consuming temp HP first
 $('hp-dmg').addEventListener('click', ()=>{ let d=num($('hp-amt').value); if(!d) return; let tv=num($('hp-temp').value); if(d>0 && tv>0){ const use=Math.min(tv,d); tv-=use; $('hp-temp').value=tv; d-=use; } setHP(num($('hp-bar').value)-d); });
+// Heal by entered amount
 $('hp-heal').addEventListener('click', ()=>{ const d=num($('hp-amt').value)||0; setHP(num($('hp-bar').value)+d); });
+// Restore HP to maximum
 $('hp-full').addEventListener('click', ()=> setHP(num($('hp-bar').max)));
+// Restore SP to maximum
 $('sp-full').addEventListener('click', ()=> setSP(num($('sp-bar').max)));
+// Modify SP by button-specified amount
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num($('sp-bar').value) + num(b.dataset.sp)||0) ));
+// Long rest refills HP and SP
 $('long-rest').addEventListener('click', ()=>{ setHP(num($('hp-bar').max)); setSP(num($('sp-bar').max)); });
 
 /* ========= Dice/Coin + Logs ========= */
@@ -459,6 +466,7 @@ function renderLogs(){
   $('log-dice').innerHTML = diceLog.slice(-10).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
   $('log-coin').innerHTML = coinLog.slice(-10).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
 }
+// Roll selected dice and log the result
 $('roll-dice').addEventListener('click', ()=>{
   const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
   const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
@@ -466,12 +474,15 @@ $('roll-dice').addEventListener('click', ()=>{
   $('dice-out').textContent = `Rolls: ${rolls.join(', ')} (Sum: ${sum})`;
   pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
 });
+// Flip a coin and log the outcome
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
   $('flip-out').textContent = v;
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
 });
+// Show roll/flip log modal
 $('btn-log').addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
+// Close any overlay when a [data-close] element is clicked
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=> b.closest('.overlay')?.classList.add('hidden') ));
 
 /* ========= Powers & Signature Moves ========= */
@@ -640,15 +651,23 @@ function renderEnc(){
       </div>`;
     list.appendChild(row);
   });
+  // Delete a combatant from the roster
   qsa('[data-del]', $('enc-list')).forEach(b=> b.addEventListener('click', ()=>{ roster.splice(Number(b.dataset.del),1); renderEnc(); saveEnc(); }));
+  // Move combatant up in initiative order
   qsa('[data-up]', $('enc-list')).forEach(b=> b.addEventListener('click', ()=>{ const i=Number(b.dataset.up); if(i>0){ const t=roster[i-1]; roster[i-1]=roster[i]; roster[i]=t; renderEnc(); saveEnc(); }}));
+  // Move combatant down in initiative order
   qsa('[data-down]', $('enc-list')).forEach(b=> b.addEventListener('click', ()=>{ const i=Number(b.dataset.down); if(i<roster.length-1){ const t=roster[i+1]; roster[i+1]=roster[i]; roster[i]=t; renderEnc(); saveEnc(); }}));
 }
+// Open encounter modal from header button
 $('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
+// Add a combatant using name and initiative fields
 $('enc-add').addEventListener('click', ()=>{ const name=$('enc-name').value.trim(); const init=Number($('enc-init').value||0);
   if(!name) return alert('Enter a name'); roster.push({name, init}); $('enc-name').value=''; $('enc-init').value=''; renderEnc(); saveEnc(); });
+// Advance to next round
 $('enc-next').addEventListener('click', ()=>{ round+=1; renderEnc(); saveEnc(); });
+// Reset encounter and round counter
 $('enc-reset').addEventListener('click', ()=>{ if(!confirm('Reset encounter and round?')) return; round=1; roster.length=0; renderEnc(); saveEnc(); });
+// Close encounter modal when any close button is clicked
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
 /* ========= Save / Load (cloud-first, silent local mirror) ========= */
