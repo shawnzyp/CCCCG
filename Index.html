@@ -52,19 +52,7 @@ button:active{transform:translateY(1px)}
 </head>
 <body>
 
-<!-- Firebase config -->
-<script id="firebase-config" type="application/json">
-{
-  "apiKey": "AIzaSyAYENVrM2komgm2Nteg388YewLiVuUOlIw",
-  "authDomain": "catalyst-core-e458c.firebaseapp.com",
-  "databaseURL": "https://catalyst-core-e458c-default-rtdb.firebaseio.com",
-  "projectId": "catalyst-core-e458c",
-  "storageBucket": "catalyst-core-e458c.firebasestorage.app",
-  "messagingSenderId": "494771671712",
-  "appId": "1:494771671712:web:0587e669cd5f7d3be92fc5",
-  "measurementId": "G-R3JS5GWKFM"
-}
-</script>
+<!-- Firebase config is loaded from firebase-config.json -->
 
 <header>
   <div class="top">
@@ -652,9 +640,18 @@ $('enc-reset').addEventListener('click', ()=>{ if(!confirm('Reset encounter and 
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
 /* ========= Save / Load (cloud-first, silent local mirror) ========= */
+let firebaseCfgPromise;
+async function loadFirebaseConfig(){
+  if(!firebaseCfgPromise){
+    const url = window.FIREBASE_CONFIG_URL || 'firebase-config.json';
+    firebaseCfgPromise = fetch(url).then(r=>r.ok?r.json():null).catch(()=>null);
+  }
+  let cfg = await firebaseCfgPromise;
+  if(window.FIREBASE_CONFIG) cfg = Object.assign({}, cfg, window.FIREBASE_CONFIG);
+  return cfg;
+}
 async function getRTDB(){
-  const cfgEl = $('firebase-config'); if(!cfgEl) return null;
-  let cfg=null; try{ cfg=JSON.parse(cfgEl.textContent) }catch(e){}
+  const cfg = await loadFirebaseConfig();
   if (!cfg || !cfg.apiKey || !cfg.databaseURL) return null;
   const [{ initializeApp }, { getAuth, signInAnonymously, onAuthStateChanged }, { getDatabase, ref, get, set }] = await Promise.all([
     import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js'),
