@@ -290,9 +290,25 @@ $('campaign-add')?.addEventListener('click', ()=>{
   pushHistory();
 });
 function renderCampaignLog(){
-  $('campaign-log').innerHTML = campaignLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
+  $('campaign-log').innerHTML = campaignLog
+    .slice()
+    .reverse()
+    .map((e,i)=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div><div><button class="btn-sm" data-del="${i}">Delete</button></div></div>`)
+    .join('');
 }
 renderCampaignLog();
+$('campaign-log').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-del]');
+  if(!btn) return;
+  const idx = Number(btn.dataset.del);
+  if(!Number.isFinite(idx)) return;
+  if(confirm('Delete this entry?')){
+    campaignLog.splice(campaignLog.length-1-idx,1);
+    localStorage.setItem('campaign-log', JSON.stringify(campaignLog));
+    renderCampaignLog();
+    pushHistory();
+  }
+});
 $('btn-log').addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
