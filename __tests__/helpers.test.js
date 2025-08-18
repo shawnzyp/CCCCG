@@ -1,4 +1,4 @@
-import { num, mod, calculateArmorBonus } from '../scripts/helpers.js';
+import { num, mod, calculateArmorBonus, proficiencyBonus } from '../scripts/helpers.js';
 
 describe('num', () => {
   test('converts strings to numbers and defaults to 0', () => {
@@ -11,6 +11,14 @@ describe('mod', () => {
   test('calculates ability modifiers', () => {
     expect(mod(10)).toBe(0);
     expect(mod(15)).toBe(2);
+  });
+});
+
+describe('proficiencyBonus', () => {
+  test('computes proficiency bonus from level', () => {
+    expect(proficiencyBonus(1)).toBe(2);
+    expect(proficiencyBonus(5)).toBe(3);
+    expect(proficiencyBonus('12')).toBe(4);
   });
 });
 
