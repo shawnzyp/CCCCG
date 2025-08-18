@@ -413,9 +413,10 @@
       <div><h4 style="margin:0">Coins</h4><div id="log-coin" class="catalog"></div></div>
       <div><h4 style="margin:0">Death Saves</h4><div id="log-death" class="catalog"></div></div>
     </div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    <div class="actions"><button id="log-full" class="btn-sm">Full Log</button><button class="btn-sm" data-close>Close</button></div>
+  </div>
 </div>
-</div>
+
 
 <div class="overlay hidden" id="modal-campaign" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
@@ -431,6 +432,23 @@
       <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
     </div>
     <div id="campaign-log" class="catalog"></div>
+    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-log-full" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Full Log</h3>
+    <div class="grid grid-3">
+      <div><h4 style="margin:0">Dice</h4><div id="full-log-dice" class="catalog"></div></div>
+      <div><h4 style="margin:0">Coins</h4><div id="full-log-coin" class="catalog"></div></div>
+      <div><h4 style="margin:0">Death Saves</h4><div id="full-log-death" class="catalog"></div></div>
+    </div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
