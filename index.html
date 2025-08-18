@@ -245,14 +245,7 @@
       </div>
       <div class="card">
         <label for="tier">Tier</label>
-        <select id="tier">
-          <option>Tier 5 – Rookie</option>
-          <option>Tier 4 – Emerging Vigilante</option>
-          <option>Tier 3 – Field-Tested Operative</option>
-          <option>Tier 2 – Respected Force</option>
-          <option>Tier 1 – Heroic Figure</option>
-          <option>Tier 0 – Transcendent / Legendary</option>
-        </select>
+        <select id="tier"></select>
       </div>
       <div class="card" style="grid-column:1/-1">
         <label for="xp">Experience</label>
@@ -264,8 +257,11 @@
         <div class="inline">
           <label for="xp-amt" class="sr-only">Amount</label>
           <input id="xp-amt" type="number" inputmode="numeric" placeholder="Amount"/>
-          <button id="xp-add" class="btn-sm">Add XP</button>
-          <button id="xp-remove" class="btn-sm">Remove XP</button>
+          <select id="xp-mode" style="max-width:160px">
+            <option value="add">Add XP</option>
+            <option value="remove">Remove XP</option>
+          </select>
+          <button id="xp-submit" class="btn-sm">Submit</button>
         </div>
       </div>
       <div class="card">
