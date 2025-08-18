@@ -40,6 +40,11 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
         </svg>
       </button>
+      <button id="btn-campaign" class="icon" aria-label="Campaign Log" title="Campaign Log">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6-3h6m-6-3h6M9 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+        </svg>
+      </button>
       <button id="btn-theme" class="icon" aria-label="Toggle Theme" title="Toggle Theme">
         <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3V5.25M18.364 5.63604L16.773 7.22703M21 12H18.75M18.364 18.364L16.773 16.773M12 18.75V21M7.22703 16.773L5.63604 18.364M5.25 12H3M7.22703 7.22703L5.63604 5.63604M15.75 12C15.75 14.0711 14.0711 15.75 12 15.75C9.92893 15.75 8.25 14.0711 8.25 12C8.25 9.92893 9.92893 8.25 12 8.25C14.0711 8.25 15.75 9.92893 15.75 12Z"/>
@@ -320,14 +325,6 @@
       <label for="story-notes">Backstory / Notes</label>
       <textarea id="story-notes" rows="6" placeholder="Key events, allies, vulnerabilities, research/training notes, etc."></textarea>
     </div>
-    <div class="card">
-      <label for="campaign-entry">Campaign Log</label>
-      <textarea id="campaign-entry" rows="2" placeholder="Session notes..."></textarea>
-      <div class="actions">
-        <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
-      </div>
-      <div id="campaign-log" class="catalog"></div>
-    </div>
     <h3>Character Questions</h3>
     <div class="grid grid-1">
       <div class="card"><label for="q-mask">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
@@ -400,6 +397,24 @@
       <div><h4 style="margin:0">Dice</h4><div id="log-dice" class="catalog"></div></div>
       <div><h4 style="margin:0">Coins</h4><div id="log-coin" class="catalog"></div></div>
     </div>
+    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+</div>
+</div>
+
+<div class="overlay hidden" id="modal-campaign" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Campaign Log</h3>
+    <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
+    <textarea id="campaign-entry" rows="2" placeholder="Session notes..."></textarea>
+    <div class="actions">
+      <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
+    </div>
+    <div id="campaign-log" class="catalog"></div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>

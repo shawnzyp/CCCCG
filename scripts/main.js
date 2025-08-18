@@ -310,6 +310,7 @@ $('campaign-log').addEventListener('click', e=>{
   }
 });
 $('btn-log').addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
+$('btn-campaign').addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
 /* ========= Card Helper ========= */
