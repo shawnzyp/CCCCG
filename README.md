@@ -2,6 +2,12 @@
 
 Hosted version of the mobile-optimized character sheet for GitHub Pages.
 
+## Recent Updates
+
+- Removed the legacy print/PDF export controls.
+- Added a tier-based experience tracker with add/remove controls.
+- Streamlined the encounter tracker with turn highlighting and round persistence.
+
 ## Firebase Configuration
 
 Firebase settings are now stored in a standalone `firebase-config.json` file. The
