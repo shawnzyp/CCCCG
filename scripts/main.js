@@ -157,9 +157,9 @@ const XP_TIERS = [
   { xp: 162000, label: 'Tier 0 – Transcendent / Legendary' }
 ];
 
-// populate tier options
+// set initial tier display
 if(elTier){
-  elTier.innerHTML = XP_TIERS.map(t=>`<option>${t.label}</option>`).join('');
+  elTier.value = XP_TIERS[0].label;
 }
 
 /* ========= derived helpers ========= */
@@ -183,20 +183,16 @@ function updateXP(){
   for(let i=XP_TIERS.length-1;i>=0;i--){
     if(xp >= XP_TIERS[i].xp){ idx = i; break; }
   }
-  if(elTier) elTier.selectedIndex = idx;
+  if(elTier) elTier.value = XP_TIERS[idx].label;
   const nextTier = XP_TIERS[idx+1];
-  const prevXP = XP_TIERS[idx].xp;
   if(nextTier){
-    const val = xp - prevXP;
-    const diff = nextTier.xp - prevXP;
-    elXPBar.max = diff;
-    elXPBar.value = val;
-    elXPPill.textContent = `${val}/${diff}`;
+    elXPBar.max = nextTier.xp;
+    elXPBar.value = xp;
+    elXPPill.textContent = `${xp}/${nextTier.xp}`;
   }else{
-    const val = xp - prevXP;
     elXPBar.max = 1;
     elXPBar.value = 1;
-    elXPPill.textContent = `${val}+`;
+    elXPPill.textContent = `${xp}+`;
   }
 }
 

@@ -245,14 +245,14 @@
       </div>
       <div class="card">
         <label for="tier">Tier</label>
-        <select id="tier"></select>
+        <input id="tier" type="text" readonly/>
       </div>
       <div class="card" style="grid-column:1/-1">
         <label for="xp">Experience</label>
         <div class="inline">
-          <input id="xp" type="number" inputmode="numeric" value="0" min="0" style="max-width:120px"/>
-          <progress id="xp-bar" max="100" value="0" style="flex:1"></progress>
-          <span id="xp-pill" class="pill">0/100</span>
+          <input id="xp" type="number" inputmode="numeric" value="0" min="0" style="max-width:120px" readonly/>
+          <progress id="xp-bar" max="2000" value="0" style="flex:1"></progress>
+          <span id="xp-pill" class="pill">0/2000</span>
         </div>
         <div class="inline">
           <label for="xp-amt" class="sr-only">Amount</label>
