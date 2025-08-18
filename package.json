@@ -1,0 +1,19 @@
+{
+  "name": "ccccg",
+  "version": "1.0.0",
+  "description": "Hosted version of the mobile-optimized character sheet for GitHub Pages.",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha tests",
+    "lint": "eslint scripts/app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "jsdom": "^26.1.0",
+    "mocha": "^11.7.1"
+  }
+}
