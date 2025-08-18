@@ -428,7 +428,7 @@ function updateDerived(){
   const armorAuto = (body.length?Math.max(...body):0) + (head.length?Math.max(...head):0) + shield + misc;
   $('armor-bonus').value = armorAuto;
   $('tc').value = 10 + mod($('dex').value) + armorAuto + num($('origin-bonus').value||0);
-  const spMax = 5 + mod($('con').value);
+  const spMax = Math.max(0, 5 + mod($('con').value));
   const sb = $('sp-bar'); sb.max = spMax; if (!num(sb.value)) sb.value = spMax; $('sp-pill').textContent = `${num(sb.value)}/${spMax}`;
   const hb = $('hp-bar');
   const total = 30 + mod($('con').value) + num($('hp-roll').value||0) + num($('hp-bonus').value||0);
