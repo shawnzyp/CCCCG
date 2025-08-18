@@ -27,12 +27,6 @@ function toast(msg, type='info'){
   setTimeout(()=>t.classList.remove('show'),1200);
 }
 
-// limit how frequently a function runs; used to throttle autosave and state history updates
-function debounce(fn, ms=300){
-  let t;
-  return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
-}
-
 // prevent negative numbers in numeric inputs
 document.addEventListener('input', e=>{
   const el = e.target;
