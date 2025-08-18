@@ -385,11 +385,19 @@ async function loadFirebaseConfig(){
   }
   let cfg = await firebaseCfgPromise;
   if(window.FIREBASE_CONFIG) cfg = Object.assign({}, cfg, window.FIREBASE_CONFIG);
+  if(!cfg || !cfg.apiKey || !cfg.databaseURL){
+    console.warn('Cloud config missing required fields', cfg);
+    toast('Cloud config missing.','error');
+    return null;
+  }
   return cfg;
 }
 async function getRTDB(){
   const cfg = await loadFirebaseConfig();
-  if (!cfg || !cfg.apiKey || !cfg.databaseURL) return null;
+  if (!cfg){
+    console.warn('RTDB init skipped: no cloud config');
+    return null;
+  }
   try{
     const [{ initializeApp }, { getAuth, signInAnonymously, onAuthStateChanged }, { getDatabase, ref, get, set }] = await Promise.all([
       import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js'),
