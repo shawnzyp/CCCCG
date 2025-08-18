@@ -59,3 +59,30 @@ export async function loadCloud(name, { getRTDB, toast } = {}) {
   }
   throw new Error('No save found');
 }
+
+export async function deleteSave(name, { getRTDB, toast } = {}) {
+  const r = getRTDB ? await getRTDB().catch(err => { console.error('RTDB init failed', err); return null; }) : null;
+  if (r) {
+    const { db, ref, remove } = r;
+    let tries = 2;
+    while (tries--) {
+      try {
+        await remove(ref(db, '/saves/' + ENCODE(name)));
+        break;
+      } catch (e) {
+        console.error('Firebase delete failed', e);
+        if (!tries) toast?.('Cloud delete failed. Local save removed.', 'error');
+        else await new Promise(res => setTimeout(res, 1000));
+      }
+    }
+  } else {
+    if (!navigator.onLine) toast?.('Offline: deleted local save only', 'error');
+    else toast?.('Cloud unavailable; deleted local save only', 'error');
+  }
+  try {
+    localStorage.removeItem('save:' + name);
+    if (localStorage.getItem('last-save') === name) localStorage.removeItem('last-save');
+  } catch (e) {
+    console.error('Local delete failed', e);
+  }
+}
