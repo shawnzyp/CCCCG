@@ -40,14 +40,24 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
         </svg>
       </button>
+      <button id="btn-pdf" class="icon" aria-label="Export PDF" title="Export PDF">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75V3h-10.5v3.75m10.5 0h1.5a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-1.5m0-12H6.75m10.5 0v12m-10.5-12h-1.5A2.25 2.25 0 0 0 3 9v7.5A2.25 2.25 0 0 0 5.25 18.75h1.5m0 0V21h10.5v-2.25m-10.5 0h10.5"/>
+        </svg>
+      </button>
       <button id="btn-theme" class="icon" aria-label="Toggle Theme" title="Toggle Theme">
         <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3V5.25M18.364 5.63604L16.773 7.22703M21 12H18.75M18.364 18.364L16.773 16.773M12 18.75V21M7.22703 16.773L5.63604 18.364M5.25 12H3M7.22703 7.22703L5.63604 5.63604M15.75 12C15.75 14.0711 14.0711 15.75 12 15.75C9.92893 15.75 8.25 14.0711 8.25 12C8.25 9.92893 9.92893 8.25 12 8.25C14.0711 8.25 15.75 9.92893 15.75 12Z"/>
+        </svg>
+        <svg id="icon-contrast" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="display:none">
+          <circle cx="12" cy="12" r="9"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18"/>
         </svg>
         <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="display:none">
           <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>
         </svg>
       </button>
+      <input id="search" placeholder="Search..." style="max-width:160px"/>
     </div>
   </div>
   <div class="tabs">
@@ -62,7 +72,7 @@
 <main>
   <!-- COMBAT -->
   <section data-tab="combat">
-    <h2>Tools</h2>
+    <h2 data-rule="8">Tools</h2>
     <div class="grid grid-2">
       <fieldset class="card">
         <legend>Dice Roller</legend>
@@ -86,7 +96,7 @@
   </section>
 
   <section data-tab="combat">
-    <h2>Combat Stats</h2>
+    <h2 data-rule="12">Combat Stats</h2>
     <div class="grid grid-2">
       <fieldset class="card">
         <legend>HP</legend>
@@ -187,13 +197,13 @@
   <!-- POWERS -->
   <section data-tab="powers">
     <div class="inline" style="justify-content:space-between">
-      <h2>Powers</h2>
+      <h2 data-rule="30">Powers</h2>
       <button id="add-power" style="max-width:180px">Add Power</button>
     </div>
     <div class="grid grid-2" id="powers"></div>
 
     <div class="inline" style="justify-content:space-between;margin-top:8px">
-      <h2>Signature Moves</h2>
+      <h2 data-rule="34">Signature Moves</h2>
       <button id="add-sig" style="max-width:200px">Add Signature Move</button>
     </div>
     <div class="grid grid-2" id="sigs"></div>
@@ -201,7 +211,7 @@
 
   <!-- GEAR -->
   <section data-tab="gear">
-    <h2>Gear</h2>
+    <h2 data-rule="50">Gear</h2>
     <div class="grid grid-2">
       <div class="card">
         <div class="inline" style="justify-content:space-between">
@@ -248,6 +258,14 @@
           <option>Tier 1 – Heroic Figure</option>
           <option>Tier 0 – Transcendent</option>
         </select>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <label for="xp">Experience</label>
+        <div class="inline">
+          <input id="xp" type="number" inputmode="numeric" value="0" min="0" style="max-width:120px"/>
+          <progress id="xp-bar" max="100" value="0" style="flex:1"></progress>
+          <span id="xp-pill" class="pill">0/100</span>
+        </div>
       </div>
       <div class="card">
         <label for="alignment">Alignment</label>
@@ -305,6 +323,14 @@
       <label for="story-notes">Backstory / Notes</label>
       <textarea id="story-notes" rows="6" placeholder="Key events, allies, vulnerabilities, research/training notes, etc."></textarea>
     </div>
+    <div class="card">
+      <label for="campaign-entry">Campaign Log</label>
+      <textarea id="campaign-entry" rows="2" placeholder="Session notes..."></textarea>
+      <div class="actions">
+        <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
+      </div>
+      <div id="campaign-log" class="catalog"></div>
+    </div>
     <h3>Character Questions</h3>
     <div class="grid grid-1">
       <div class="card"><label for="q-mask">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
@@ -329,9 +355,18 @@
   </section>
 </main>
 
+<!-- ONBOARDING MODAL -->
+<div class="overlay hidden" id="modal-tour" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <h3>Welcome to the Tracker</h3>
+    <p>Use the tabs to navigate your sheet. Changes save automatically and work offline.</p>
+    <div class="actions"><button id="tour-ok">Get Started</button></div>
+  </div>
+</div>
+
 <!-- INITIATIVE MODAL -->
-<div class="overlay hidden" id="modal-enc">
-  <div class="modal">
+<div class="overlay hidden" id="modal-enc" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -356,8 +391,8 @@
 </div>
 
 <!-- LOG MODAL -->
-<div class="overlay hidden" id="modal-log">
-  <div class="modal">
+<div class="overlay hidden" id="modal-log" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -373,8 +408,8 @@
 </div>
 
 <!-- SAVE / LOAD -->
-<div class="overlay hidden" id="modal-save">
-  <div class="modal">
+<div class="overlay hidden" id="modal-save" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -386,8 +421,8 @@
     <div class="actions"><button id="do-save">Save</button></div>
   </div>
 </div>
-<div class="overlay hidden" id="modal-load">
-  <div class="modal">
+<div class="overlay hidden" id="modal-load" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -401,8 +436,8 @@
 </div>
 
 <!-- GEAR CATALOG -->
-<div class="overlay hidden" id="modal-catalog">
-  <div class="modal" style="max-width:900px">
+<div class="overlay hidden" id="modal-catalog" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1" style="max-width:900px">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -425,8 +460,8 @@
 </div>
 
 <!-- RULES (CCCG PDF) -->
-<div class="overlay hidden" id="modal-rules">
-  <div class="modal" style="max-width:960px;height:80vh">
+<div class="overlay hidden" id="modal-rules" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1" style="max-width:960px;height:80vh">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
