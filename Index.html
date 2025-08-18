@@ -718,22 +718,51 @@ function deserialize(data){
 }
 const ENCODE = (s)=>encodeURIComponent(String(s||''));
 async function saveCloud(name, payload){
-  const r = await getRTDB().catch(()=>null);
-  if (r){ const { db, ref, set } = r; await set(ref(db, '/saves/'+ENCODE(name)), { updatedAt: Date.now(), data: payload }); }
-  try{ localStorage.setItem('save:'+name, JSON.stringify(payload)); localStorage.setItem('last-save', name);}catch(e){}
+  const r = await getRTDB().catch(err=>{ console.error('RTDB init failed', err); return null; });
+  if (r){
+    const { db, ref, set } = r;
+    let tries = 2;
+    while(tries--){
+      try{
+        await set(ref(db, '/saves/'+ENCODE(name)), { updatedAt: Date.now(), data: payload });
+        break;
+      }catch(e){
+        console.error('Firebase set failed', e);
+        if (!tries){ toast('Cloud save failed. Data saved locally.'); }
+        else{ await new Promise(res=>setTimeout(res,1000)); }
+      }
+    }
+  } else {
+    if (!navigator.onLine) toast('Offline: saved locally only');
+    else toast('Cloud unavailable; saved locally');
+  }
+  try{ localStorage.setItem('save:'+name, JSON.stringify(payload)); localStorage.setItem('last-save', name);}catch(e){ console.error('Local save failed', e); }
 }
 async function loadCloud(name){
-  const r = await getRTDB().catch(()=>null);
+  const r = await getRTDB().catch(err=>{ console.error('RTDB init failed', err); return null; });
   if (r){
     const { db, ref, get } = r;
-    let snap = await get(ref(db, '/saves/'+ENCODE(name)));
-    if (!snap.exists()) snap = await get(ref(db, '/saves/'+name));
-    if (snap.exists()){
+    let snap=null, tries=2;
+    while(tries--){
+      try{
+        snap = await get(ref(db, '/saves/'+ENCODE(name)));
+        if (!snap.exists()) snap = await get(ref(db, '/saves/'+name));
+        break;
+      }catch(e){
+        console.error('Firebase get failed', e);
+        if (!tries){ toast('Cloud load failed. Trying local save.'); }
+        else{ await new Promise(res=>setTimeout(res,1000)); }
+      }
+    }
+    if (snap && snap.exists()){
       const v = snap.val();
       return v?.data || v?.character || v?.sheet || v;
     }
+  } else {
+    if (!navigator.onLine) toast('Offline: using local save');
+    else toast('Cloud unavailable; using local save');
   }
-  try{ const raw=localStorage.getItem('save:'+name); if(raw) return JSON.parse(raw); }catch(e){}
+  try{ const raw=localStorage.getItem('save:'+name); if(raw) return JSON.parse(raw); }catch(e){ console.error('Local load failed', e); }
   throw new Error('No save found');
 }
 $('btn-save').addEventListener('click', ()=>{ $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || ''; show('modal-save'); });
@@ -744,7 +773,7 @@ $('do-save').addEventListener('click', async ()=>{
 });
 $('do-load').addEventListener('click', async ()=>{
   const name = $('load-key').value.trim(); if(!name) return alert('Enter a name');
-  try{ const data = await loadCloud(name); deserialize(data); hide('modal-load'); toast('Loaded'); } catch(e){ alert('Could not load: '+(e?.message||'')); }
+  try{ const data = await loadCloud(name); deserialize(data); hide('modal-load'); toast('Loaded'); } catch(e){ console.error('Load failed', e); toast('Could not load: '+(e?.message||'')); }
 });
 
 /* ========= Rules ========= */
