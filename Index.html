@@ -462,66 +462,137 @@ $('flip').addEventListener('click', ()=>{
 $('btn-log').addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=> b.closest('.overlay')?.classList.add('hidden') ));
 
-/* ========= Powers & Signature Moves ========= */
-function cardPower(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='power';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Power Name" value="${pref.name||''}"/>
-      <input data-f="sp" placeholder="SP" style="max-width:100px" value="${pref.sp||''}"/>
-      <input data-f="save" placeholder="Save" style="max-width:160px" value="${pref.save||''}"/>
-      <input data-f="range" placeholder="Range" style="max-width:160px" value="${pref.range||''}"/>
-    </div>
-    <textarea data-f="effect" rows="3" placeholder="Effect">${pref.effect||''}</textarea>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
-function cardSig(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='sig';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Signature Name" value="${pref.name||''}"/>
-      <input data-f="sp" placeholder="SP" style="max-width:100px" value="${pref.sp||''}"/>
-      <input data-f="save" placeholder="Save" style="max-width:160px" value="${pref.save||''}"/>
-      <input data-f="special" placeholder="Special" style="max-width:200px" value="${pref.special||''}"/>
-    </div>
-    <textarea data-f="desc" rows="3" placeholder="Effect / Visual Description">${pref.desc||''}</textarea>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
-$('add-power').addEventListener('click', ()=> $('powers').appendChild(cardPower()));
-$('add-sig').addEventListener('click', ()=> $('sigs').appendChild(cardSig()));
+/* ========= Card Helper ========= */
+const CARD_CONFIG = {
+  power: {
+    rows: [
+      { class: 'inline', fields: [
+        { f: 'name', placeholder: 'Power Name' },
+        { f: 'sp', placeholder: 'SP', style: 'max-width:100px' },
+        { f: 'save', placeholder: 'Save', style: 'max-width:160px' },
+        { f: 'range', placeholder: 'Range', style: 'max-width:160px' }
+      ]},
+      { tag: 'textarea', f: 'effect', placeholder: 'Effect', rows: 3 }
+    ]
+  },
+  sig: {
+    rows: [
+      { class: 'inline', fields: [
+        { f: 'name', placeholder: 'Signature Name' },
+        { f: 'sp', placeholder: 'SP', style: 'max-width:100px' },
+        { f: 'save', placeholder: 'Save', style: 'max-width:160px' },
+        { f: 'special', placeholder: 'Special', style: 'max-width:200px' }
+      ]},
+      { tag: 'textarea', f: 'desc', placeholder: 'Effect / Visual Description', rows: 3 }
+    ]
+  },
+  weapon: {
+    rows: [
+      { class: 'inline', fields: [
+        { f: 'name', placeholder: 'Name' },
+        { f: 'damage', placeholder: 'Damage', style: 'max-width:140px' },
+        { f: 'range', placeholder: 'Range', style: 'max-width:160px' }
+      ]}
+    ]
+  },
+  armor: {
+    rows: [
+      { class: 'inline', fields: [
+        { f: 'name', placeholder: 'Name' },
+        { tag: 'select', f: 'slot', style: 'max-width:140px', options: ['Body','Head','Shield','Misc'], default: 'Body' },
+        { f: 'bonus', placeholder: 'Bonus', style: 'max-width:120px', type: 'number', inputmode: 'numeric', default: 0 },
+        { tag: 'checkbox', f: 'equipped', label: 'Equipped', style: 'gap:6px' }
+      ]}
+    ],
+    onChange: updateDerived,
+    onDelete: updateDerived
+  },
+  item: {
+    rows: [
+      { class: 'inline', fields: [
+        { f: 'name', placeholder: 'Name' },
+        { f: 'qty', placeholder: 'Qty', style: 'max-width:100px', type: 'number', inputmode: 'numeric', default: 1 },
+        { f: 'notes', placeholder: 'Notes' }
+      ]}
+    ]
+  }
+};
+
+function createCard(kind, pref = {}) {
+  const cfg = CARD_CONFIG[kind];
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.kind = kind;
+  if (!cfg) return card;
+  (cfg.rows || []).forEach(row => {
+    if (row.fields) {
+      const wrap = document.createElement('div');
+      if (row.class) wrap.className = row.class;
+      row.fields.forEach(f => {
+        if (f.tag === 'select') {
+          const sel = document.createElement('select');
+          sel.dataset.f = f.f;
+          (f.options || []).forEach(opt => sel.add(new Option(opt, opt)));
+          sel.value = pref[f.f] || f.default || '';
+          if (f.style) sel.style.cssText = f.style;
+          wrap.appendChild(sel);
+        } else if (f.tag === 'checkbox') {
+          const label = document.createElement('label');
+          label.className = 'inline';
+          if (f.style) label.style.cssText = f.style;
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.dataset.f = f.f;
+          chk.checked = !!pref[f.f];
+          label.appendChild(chk);
+          label.append(f.label || '');
+          wrap.appendChild(label);
+        } else {
+          const inp = document.createElement('input');
+          inp.dataset.f = f.f;
+          inp.placeholder = f.placeholder || '';
+          if (f.type) inp.type = f.type;
+          if (f.inputmode) inp.setAttribute('inputmode', f.inputmode);
+          if (f.style) inp.style.cssText = f.style;
+          inp.value = pref[f.f] ?? f.default ?? '';
+          wrap.appendChild(inp);
+        }
+      });
+      card.appendChild(wrap);
+    } else if (row.tag === 'textarea') {
+      const ta = document.createElement('textarea');
+      ta.dataset.f = row.f;
+      ta.rows = row.rows || 3;
+      ta.placeholder = row.placeholder || '';
+      ta.value = pref[row.f] || '';
+      card.appendChild(ta);
+    }
+  });
+  const delWrap = document.createElement('div');
+  delWrap.className = 'inline';
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn-sm';
+  delBtn.dataset.act = 'del';
+  delBtn.textContent = 'Delete';
+  delBtn.addEventListener('click', () => {
+    card.remove();
+    if (cfg.onDelete) cfg.onDelete();
+  });
+  delWrap.appendChild(delBtn);
+  card.appendChild(delWrap);
+  if (cfg.onChange) {
+    qsa('input,select', card).forEach(el => el.addEventListener('input', cfg.onChange));
+  }
+  return card;
+}
+
+$('add-power').addEventListener('click', () => $('powers').appendChild(createCard('power')));
+$('add-sig').addEventListener('click', () => $('sigs').appendChild(createCard('sig')));
 
 /* ========= Gear ========= */
-function cardWeapon(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='weapon';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Name" value="${pref.name||''}"/>
-      <input data-f="damage" placeholder="Damage" style="max-width:140px" value="${pref.damage||''}"/>
-      <input data-f="range" placeholder="Range" style="max-width:160px" value="${pref.range||''}"/>
-    </div>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
-function cardArmor(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='armor';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Name" value="${pref.name||''}"/>
-      <select data-f="slot" style="max-width:140px"><option>Body</option><option>Head</option><option>Shield</option><option>Misc</option></select>
-      <input data-f="bonus" type="number" inputmode="numeric" placeholder="Bonus" style="max-width:120px" value="${pref.bonus||0}"/>
-      <label class="inline" style="gap:6px"><input type="checkbox" data-f="equipped" ${pref.equipped?'checked':''}/> Equipped</label>
-    </div>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-f="slot"]').value = pref.slot || 'Body';
-  d.querySelectorAll('input,select').forEach(el=> el.addEventListener('input', updateDerived));
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=>{ d.remove(); updateDerived(); });
-  return d;}
-function cardItem(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='item';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Name" value="${pref.name||''}"/>
-      <input data-f="qty" type="number" inputmode="numeric" placeholder="Qty" style="max-width:100px" value="${pref.qty||1}"/>
-      <input data-f="notes" placeholder="Notes" value="${pref.notes||''}"/>
-    </div>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
-$('add-weapon').addEventListener('click', ()=> $('weapons').appendChild(cardWeapon()));
-$('add-armor').addEventListener('click', ()=> $('armors').appendChild(cardArmor()));
-$('add-item').addEventListener('click', ()=> $('items').appendChild(cardItem()));
+$('add-weapon').addEventListener('click', () => $('weapons').appendChild(createCard('weapon')));
+$('add-armor').addEventListener('click', () => $('armors').appendChild(createCard('armor')));
+$('add-item').addEventListener('click', () => $('items').appendChild(createCard('item')));
 
 /* ========= Gear Catalog (seeded; extend as needed) ========= */
 const CATALOG = (()=>{ const mk=(style,type,rarity,name,tc,notes)=>({style,type,rarity,name,tc,notes}); const out=[];
@@ -596,16 +667,16 @@ function renderCatalog(){
       <div><b>${g.name}</b> <span class="small">— ${g.type} — ${g.tc}${g.notes?` — ${g.notes}`:''}</span></div>
       <div><button class="btn-sm" data-add="${i}">Add</button></div>
     </div>`).join('');
-  qsa('[data-add]').forEach(btn => btn.addEventListener('click', ()=>{
-    const it = rows[Number(btn.dataset.add)];
-    if (it.type==='Armor' || it.type==='Shield'){
-      const slot = it.type==='Shield' ? 'Shield' : 'Body';
-      $('armors').appendChild(cardArmor({name:it.name, slot, bonus: Number((it.tc.match(/\+(\d+)/)||[,0])[1]), equipped:true}));
-    } else {
-      $('items').appendChild(cardItem({name:it.name, notes:`${it.rarity} — ${it.tc}${it.notes?(' — '+it.notes):''}`}));
-    }
-    updateDerived(); toast('Added to sheet');
-  }));
+    qsa('[data-add]').forEach(btn => btn.addEventListener('click', ()=>{
+      const it = rows[Number(btn.dataset.add)];
+      if (it.type==='Armor' || it.type==='Shield'){
+        const slot = it.type==='Shield' ? 'Shield' : 'Body';
+        $('armors').appendChild(createCard('armor', {name:it.name, slot, bonus: Number((it.tc.match(/\+(\d+)/)||[,0])[1]), equipped:true}));
+      } else {
+        $('items').appendChild(createCard('item', {name:it.name, notes:`${it.rarity} — ${it.tc}${it.notes?(' — '+it.notes):''}`}));
+      }
+      updateDerived(); toast('Added to sheet');
+    }));
 }
 $('open-catalog').addEventListener('click', ()=>{ renderCatalog(); show('modal-catalog'); });
 ['catalog-filter-style','catalog-filter-type','catalog-filter-rarity','catalog-search'].forEach(id=> $(id).addEventListener('input', renderCatalog));
@@ -706,11 +777,11 @@ function serialize(){
 function deserialize(data){
   $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
   Object.entries(data||{}).forEach(([k,v])=>{ const el=$(k); if (!el) return; if (el.type==='checkbox') el.checked=!!v; else el.value=v; });
-  (data?.powers||[]).forEach(p=> $('powers').appendChild(cardPower(p)));
-  (data?.signatures||[]).forEach(s=> $('sigs').appendChild(cardSig(s)));
-  (data?.weapons||[]).forEach(w=> $('weapons').appendChild(cardWeapon(w)));
-  (data?.armor||[]).forEach(a=> $('armors').appendChild(cardArmor(a)));
-  (data?.items||[]).forEach(i=> $('items').appendChild(cardItem(i)));
+  (data?.powers||[]).forEach(p=> $('powers').appendChild(createCard('power', p)));
+  (data?.signatures||[]).forEach(s=> $('sigs').appendChild(createCard('sig', s)));
+  (data?.weapons||[]).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
+  (data?.armor||[]).forEach(a=> $('armors').appendChild(createCard('armor', a)));
+  (data?.items||[]).forEach(i=> $('items').appendChild(createCard('item', i)));
   updateDerived();
 }
 const ENCODE = (s)=>encodeURIComponent(String(s||''));
