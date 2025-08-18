@@ -6,6 +6,7 @@ Hosted version of the mobile-optimized character sheet for GitHub Pages.
 
 - Auto-fills classification perks along with matching resistances and vulnerabilities
 - Offers origin story options and extensive character questions for backstory building
+- Provides skill proficiency tracking with auto-calculated modifiers
 - Tracks cinematic points and energy resistances in the combat tab
 - Logs downtime activities like Research, Training, and Media Control for campaign bookkeeping
 

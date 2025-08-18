@@ -62,6 +62,33 @@ abilGrid.innerHTML = ABILS.map(a=>`
   </div>`).join('');
 ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
+const SKILLS = [
+  { id: 'acrobatics', ab: 'dex', label: 'Acrobatics' },
+  { id: 'animal', ab: 'wis', label: 'Animal Handling' },
+  { id: 'arcana', ab: 'int', label: 'Arcana' },
+  { id: 'athletics', ab: 'str', label: 'Athletics' },
+  { id: 'deception', ab: 'cha', label: 'Deception' },
+  { id: 'history', ab: 'int', label: 'History' },
+  { id: 'insight', ab: 'wis', label: 'Insight' },
+  { id: 'intimidation', ab: 'cha', label: 'Intimidation' },
+  { id: 'investigation', ab: 'int', label: 'Investigation' },
+  { id: 'medicine', ab: 'wis', label: 'Medicine' },
+  { id: 'nature', ab: 'int', label: 'Nature' },
+  { id: 'perception', ab: 'wis', label: 'Perception' },
+  { id: 'performance', ab: 'cha', label: 'Performance' },
+  { id: 'persuasion', ab: 'cha', label: 'Persuasion' },
+  { id: 'religion', ab: 'int', label: 'Religion' },
+  { id: 'sleight', ab: 'dex', label: 'Sleight of Hand' },
+  { id: 'stealth', ab: 'dex', label: 'Stealth' },
+  { id: 'survival', ab: 'wis', label: 'Survival' }
+];
+const skillsGrid = $('skills-grid');
+skillsGrid.innerHTML = SKILLS.map(s=>`
+  <div class="card">
+    <label><input type="checkbox" id="${s.id}-prof"> ${s.label}</label>
+    <span class="pill" id="${s.id}-mod">+0</span>
+  </div>`).join('');
+
 /* ========= cached elements ========= */
 const elPP = $('pp');
 const elTC = $('tc');
@@ -88,6 +115,14 @@ const elVuln = $('vuln');
 const elCPBar = $('cp-bar');
 const elCPPill = $('cp-pill');
 
+function updateSkills(){
+  const pb = num(elProfBonus.value)||2;
+  SKILLS.forEach(s=>{
+    const val = mod($(s.ab).value) + ($(s.id+'-prof').checked ? pb : 0);
+    $(s.id+'-mod').textContent = val >= 0 ? `+${val}` : val;
+  });
+}
+
 /* ========= derived helpers ========= */
 function updateSP(){
   const spMax = 5 + mod(elCon.value);
@@ -113,9 +148,12 @@ function updateDerived(){
   elInitiative.value = mod(elDex.value);
   const pb = num(elProfBonus.value)||2;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
+  updateSkills();
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
+SKILLS.forEach(s=> $(s.id+'-prof').addEventListener('change', updateSkills));
+updateSkills();
 
 const CLASS_DATA = {
   'Mutant': { perk: 'Reroll one failed saving throw per long rest.', res: 'Radiation, Psychic', vuln: 'Necrotic, Force' },
