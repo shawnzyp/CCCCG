@@ -62,6 +62,40 @@ abilGrid.innerHTML = ABILS.map(a=>`
   </div>`).join('');
 ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
+const saveGrid = $('saves');
+saveGrid.innerHTML = ABILS.map(a=>`
+  <div class="card">
+    <label>${a.toUpperCase()}</label>
+    <div class="inline"><input type="checkbox" id="save-${a}-prof"/><span class="pill" id="save-${a}">+0</span></div>
+  </div>`).join('');
+
+const SKILLS = [
+  { name: 'Acrobatics', abil: 'dex' },
+  { name: 'Animal Handling', abil: 'wis' },
+  { name: 'Arcana', abil: 'int' },
+  { name: 'Athletics', abil: 'str' },
+  { name: 'Deception', abil: 'cha' },
+  { name: 'History', abil: 'int' },
+  { name: 'Insight', abil: 'wis' },
+  { name: 'Intimidation', abil: 'cha' },
+  { name: 'Investigation', abil: 'int' },
+  { name: 'Medicine', abil: 'wis' },
+  { name: 'Nature', abil: 'int' },
+  { name: 'Perception', abil: 'wis' },
+  { name: 'Performance', abil: 'cha' },
+  { name: 'Persuasion', abil: 'cha' },
+  { name: 'Religion', abil: 'int' },
+  { name: 'Sleight of Hand', abil: 'dex' },
+  { name: 'Stealth', abil: 'dex' },
+  { name: 'Survival', abil: 'wis' }
+];
+const skillGrid = $('skills');
+skillGrid.innerHTML = SKILLS.map((s,i)=>`
+  <div class="card">
+    <label>${s.name}</label>
+    <div class="inline"><input type="checkbox" id="skill-${i}-prof"/><span class="pill" id="skill-${i}">+0</span></div>
+  </div>`).join('');
+
 /* ========= cached elements ========= */
 const elPP = $('pp');
 const elTC = $('tc');
@@ -107,9 +141,19 @@ function updateDerived(){
   elInitiative.value = mod(elDex.value);
   const pb = num(elProfBonus.value)||2;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
+  ABILS.forEach(a=>{
+    const val = mod($(a).value) + ($('save-'+a+'-prof')?.checked ? pb : 0);
+    $('save-'+a).textContent = (val>=0?'+':'') + val;
+  });
+  SKILLS.forEach((s,i)=>{
+    const val = mod($(s.abil).value) + ($('skill-'+i+'-prof')?.checked ? pb : 0);
+    $('skill-'+i).textContent = (val>=0?'+':'') + val;
+  });
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
+ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
+SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
