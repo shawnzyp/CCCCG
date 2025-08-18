@@ -11,13 +11,13 @@ export async function saveCloud(name, payload, { getRTDB, toast } = {}) {
         break;
       } catch (e) {
         console.error('Firebase set failed', e);
-        if (!tries) toast?.('Cloud save failed. Data saved locally.', 'error');
+        if (!tries && typeof toast === 'function') { toast('Cloud save failed. Data saved locally.', 'error'); }
         else await new Promise(res => setTimeout(res, 1000));
       }
     }
   } else {
-    if (!navigator.onLine) toast?.('Offline: saved locally only', 'error');
-    else toast?.('Cloud unavailable; saved locally', 'error');
+    if (!navigator.onLine) { if (typeof toast === 'function') toast('Offline: saved locally only', 'error'); }
+    else { if (typeof toast === 'function') toast('Cloud unavailable; saved locally', 'error'); }
   }
   try {
     localStorage.setItem('save:' + name, JSON.stringify(payload));
@@ -39,17 +39,17 @@ export async function loadCloud(name, { getRTDB, toast } = {}) {
         break;
       } catch (e) {
         console.error('Firebase get failed', e);
-        if (!tries) toast?.('Cloud load failed. Trying local save.', 'error');
+        if (!tries && typeof toast === 'function') { toast('Cloud load failed. Trying local save.', 'error'); }
         else await new Promise(res => setTimeout(res, 1000));
       }
     }
     if (snap && snap.exists()) {
       const v = snap.val();
-      return v?.data || v?.character || v?.sheet || v;
+      return (v && v.data) || (v && v.character) || (v && v.sheet) || v;
     }
   } else {
-    if (!navigator.onLine) toast?.('Offline: using local save', 'error');
-    else toast?.('Cloud unavailable; using local save', 'error');
+    if (!navigator.onLine) { if (typeof toast === 'function') toast('Offline: using local save', 'error'); }
+    else { if (typeof toast === 'function') toast('Cloud unavailable; using local save', 'error'); }
   }
   try {
     const raw = localStorage.getItem('save:' + name);
@@ -71,13 +71,13 @@ export async function deleteSave(name, { getRTDB, toast } = {}) {
         break;
       } catch (e) {
         console.error('Firebase delete failed', e);
-        if (!tries) toast?.('Cloud delete failed. Local save removed.', 'error');
+        if (!tries && typeof toast === 'function') { toast('Cloud delete failed. Local save removed.', 'error'); }
         else await new Promise(res => setTimeout(res, 1000));
       }
     }
   } else {
-    if (!navigator.onLine) toast?.('Offline: deleted local save only', 'error');
-    else toast?.('Cloud unavailable; deleted local save only', 'error');
+    if (!navigator.onLine) { if (typeof toast === 'function') toast('Offline: deleted local save only', 'error'); }
+    else { if (typeof toast === 'function') toast('Cloud unavailable; deleted local save only', 'error'); }
   }
   try {
     localStorage.removeItem('save:' + name);

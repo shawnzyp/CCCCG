@@ -8,8 +8,10 @@ export function calculateArmorBonus(){
   let body=[], head=[], shield=0, misc=0;
   qsa("[data-kind='armor']").forEach(card=>{
     const eq = qs("input[type='checkbox'][data-f='equipped']", card);
-    const bonus = num(qs("input[data-f='bonus']", card)?.value||0);
-    const slot = qs("select[data-f='slot']", card)?.value||'Body';
+    const bonusEl = qs("input[data-f='bonus']", card);
+    const bonus = num(bonusEl ? bonusEl.value : 0);
+    const slotEl = qs("select[data-f='slot']", card);
+    const slot = slotEl ? slotEl.value : 'Body';
     if (eq && eq.checked){
       if (slot==='Body') body.push(bonus);
       else if (slot==='Head') head.push(bonus);
