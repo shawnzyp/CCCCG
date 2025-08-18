@@ -30,6 +30,23 @@ function toast(msg, type='info'){
   setTimeout(()=>t.classList.remove('show'),1200);
 }
 
+/* ========= theme ========= */
+const root = document.documentElement;
+const btnTheme = $('btn-theme');
+function applyTheme(t){
+  root.classList.toggle('theme-light', t==='light');
+  if(btnTheme){
+    qs('#icon-sun', btnTheme).style.display = t==='light' ? 'none' : 'block';
+    qs('#icon-moon', btnTheme).style.display = t==='light' ? 'block' : 'none';
+  }
+}
+applyTheme(localStorage.getItem('theme')==='light'?'light':'dark');
+btnTheme?.addEventListener('click', ()=>{
+  const next = root.classList.contains('theme-light') ? 'dark' : 'light';
+  localStorage.setItem('theme', next);
+  applyTheme(next);
+});
+
 /* ========= tabs ========= */
 function setTab(name){
   qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
