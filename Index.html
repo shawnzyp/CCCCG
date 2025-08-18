@@ -15,11 +15,31 @@
   <div class="top">
     <h1>Catalyst Core: Character Tracker</h1>
     <div class="actions">
-      <button id="btn-enc" class="icon" title="Encounter / Initiative">≡</button>
-      <button id="btn-load" class="icon" title="Load">⤓</button>
-      <button id="btn-save" class="icon" title="Save">⤒</button>
-      <button id="btn-log"  class="icon" title="Roll/Flip Log">☰</button>
-      <button id="btn-rules" class="icon" title="Open Rules (CCCG)">📖</button>
+      <button id="btn-enc" class="icon" aria-label="Encounter / Initiative" title="Encounter / Initiative">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+        </svg>
+      </button>
+      <button id="btn-load" class="icon" aria-label="Load" title="Load">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+      </button>
+      <button id="btn-save" class="icon" aria-label="Save" title="Save">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+        </svg>
+      </button>
+      <button id="btn-log"  class="icon" aria-label="Roll/Flip Log" title="Roll/Flip Log">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"/>
+        </svg>
+      </button>
+      <button id="btn-rules" class="icon" aria-label="Open Rules (CCCG)" title="Open Rules (CCCG)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
+        </svg>
+      </button>
     </div>
   </div>
   <div class="tabs">
@@ -250,7 +270,11 @@
 <!-- INITIATIVE MODAL -->
 <div class="overlay hidden" id="modal-enc">
   <div class="modal">
-    <button class="x" data-close>×</button>
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>Encounter Tracker</h3>
     <div class="inline" style="margin-bottom:6px"><span class="pill" id="round-pill">Round 1</span></div>
     <div class="inline">
@@ -269,7 +293,11 @@
 <!-- LOG MODAL -->
 <div class="overlay hidden" id="modal-log">
   <div class="modal">
-    <button class="x" data-close>×</button>
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>Recent Log</h3>
     <div class="grid grid-2">
       <div><label>Dice</label><div id="log-dice" class="catalog"></div></div>
@@ -282,7 +310,11 @@
 <!-- SAVE / LOAD -->
 <div class="overlay hidden" id="modal-save">
   <div class="modal">
-    <button class="x" data-close>×</button>
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>Save Character</h3>
     <label>Save name</label>
     <input id="save-key" placeholder="e.g., Shawn"/>
@@ -291,7 +323,11 @@
 </div>
 <div class="overlay hidden" id="modal-load">
   <div class="modal">
-    <button class="x" data-close>×</button>
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>Load Character</h3>
     <label>Save name</label>
     <input id="load-key" placeholder="Enter save name"/>
@@ -302,7 +338,11 @@
 <!-- GEAR CATALOG -->
 <div class="overlay hidden" id="modal-catalog">
   <div class="modal" style="max-width:900px">
-    <button class="x" data-close>×</button>
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>Gear Catalog</h3>
     <div class="inline" style="margin:6px 0">
       <select id="catalog-filter-style" style="max-width:260px"></select>
@@ -317,7 +357,11 @@
 <!-- RULES (CCCG PDF) -->
 <div class="overlay hidden" id="modal-rules">
   <div class="modal" style="max-width:960px;height:80vh">
-    <button class="x" data-close>×</button>
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>CCCG — Character Creation Guide</h3>
     <div style="height:calc(100% - 40px)">
       <iframe src="./CCCCG - Catalyst Core Character Creation Guide.pdf" title="CCCG PDF" style="width:100%;height:100%;border:1px solid var(--line);border-radius:8px"></iframe>
