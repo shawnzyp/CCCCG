@@ -9,17 +9,25 @@ function show(id){
   el.classList.remove('hidden');
   el.setAttribute('aria-hidden','false');
   const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
-  focusEl?.focus();
+  if (focusEl && typeof focusEl.focus === 'function') {
+    focusEl.focus();
+  }
 }
 function hide(id){
   const el = $(id);
   if(!el) return;
   el.classList.add('hidden');
   el.setAttribute('aria-hidden','true');
-  lastFocus?.focus();
+  if (lastFocus && typeof lastFocus.focus === 'function') {
+    lastFocus.focus();
+  }
 }
 let audioCtx = null;
-window.addEventListener('unload', () => audioCtx?.close());
+window.addEventListener('unload', () => {
+  if (audioCtx && typeof audioCtx.close === 'function') {
+    audioCtx.close();
+  }
+});
 function playTone(type){
   try{
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
@@ -73,13 +81,15 @@ function applyTheme(t){
   }
 }
 applyTheme(localStorage.getItem('theme') || 'dark');
-btnTheme?.addEventListener('click', ()=>{
-  const themes=['dark','light','high'];
-  const curr=localStorage.getItem('theme')||'dark';
-  const next=themes[(themes.indexOf(curr)+1)%themes.length];
-  localStorage.setItem('theme', next);
-  applyTheme(next);
-});
+if (btnTheme) {
+  btnTheme.addEventListener('click', ()=>{
+    const themes=['dark','light','high'];
+    const curr=localStorage.getItem('theme')||'dark';
+    const next=themes[(themes.indexOf(curr)+1)%themes.length];
+    localStorage.setItem('theme', next);
+    applyTheme(next);
+  });
+}
 
 /* ========= tabs ========= */
 function setTab(name){
@@ -277,11 +287,13 @@ function updateDerived(){
   ABILS.forEach(a=>{
     const m = mod($(a).value);
     $(a+'-mod').textContent = (m>=0?'+':'') + m;
-    const val = m + ($('save-'+a+'-prof')?.checked ? pb : 0);
+    const saveEl = $('save-'+a+'-prof');
+    const val = m + (saveEl && saveEl.checked ? pb : 0);
     $('save-'+a).textContent = (val>=0?'+':'') + val;
   });
   SKILLS.forEach((s,i)=>{
-    const val = mod($(s.abil).value) + ($('skill-'+i+'-prof')?.checked ? pb : 0);
+    const skillEl = $('skill-'+i+'-prof');
+    const val = mod($(s.abil).value) + (skillEl && skillEl.checked ? pb : 0);
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
   });
   updateXP();
@@ -290,7 +302,9 @@ ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
-elXP?.addEventListener('input', updateXP);
+if (elXP) {
+  elXP.addEventListener('input', updateXP);
+}
 
 function setXP(v){
   elXP.value = Math.max(0, v);
@@ -363,14 +377,17 @@ $('death-save').addEventListener('click', ()=>{
   $('death-out').textContent = `${roll} (${result})`;
   pushLog(deathLog, {t:Date.now(), text:`${roll} (${result})`}, 'death-log');
 });
-$('campaign-add')?.addEventListener('click', ()=>{
-  const text = $('campaign-entry').value.trim();
-  if(!text) return;
-  pushLog(campaignLog, {t:Date.now(), text}, 'campaign-log');
-  $('campaign-entry').value='';
-  renderCampaignLog();
-  pushHistory();
-});
+const btnCampaignAdd = $('campaign-add');
+if (btnCampaignAdd) {
+  btnCampaignAdd.addEventListener('click', ()=>{
+    const text = $('campaign-entry').value.trim();
+    if(!text) return;
+    pushLog(campaignLog, {t:Date.now(), text}, 'campaign-log');
+    $('campaign-entry').value='';
+    renderCampaignLog();
+    pushHistory();
+  });
+}
 function renderCampaignLog(){
   $('campaign-log').innerHTML = campaignLog
     .slice()
@@ -391,8 +408,14 @@ $('campaign-log').addEventListener('click', e=>{
     pushHistory();
   }
 });
-$('btn-log')?.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
-$('btn-campaign')?.addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
+const btnLog = $('btn-log');
+if (btnLog) {
+  btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
+}
+const btnCampaign = $('btn-campaign');
+if (btnCampaign) {
+  btnCampaign.addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
+}
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
 /* ========= Card Helper ========= */
@@ -540,7 +563,9 @@ function enableDragReorder(id){
     card.classList.add('dragging');
   });
   list.addEventListener('dragend', ()=>{
-    list._drag?.classList.remove('dragging');
+    if (list._drag && list._drag.classList) {
+      list._drag.classList.remove('dragging');
+    }
     list._drag = null;
   });
   list.addEventListener('dragover', e=>{
@@ -663,7 +688,8 @@ function saveEnc(){
   localStorage.setItem('enc-round', String(round));
   localStorage.setItem('enc-turn', String(turn));
   // mirror encounter data to the cloud
-  const name = localStorage.getItem('last-save') || $('superhero')?.value?.trim();
+  const heroEl = $('superhero');
+  const name = localStorage.getItem('last-save') || (heroEl && heroEl.value ? heroEl.value.trim() : '');
   if(name){
     // fire-and-forget; ignore toast to keep backups silent
     saveCloud(name + '-enc', { roster, round, turn }, { getRTDB }).catch(()=>{});
@@ -678,7 +704,7 @@ function renderEnc(){
     row.innerHTML = `<div class="pill">${r.init}</div><div><b>${r.name}</b></div><div><button class="btn-sm" data-del="${idx}">Delete</button></div>`;
     list.appendChild(row);
   });
-  const turnName = roster[turn]?.name || '';
+  const turnName = roster[turn] && roster[turn].name ? roster[turn].name : '';
   const turnEl = $('turn-pill');
   if(turnEl){
     turnEl.textContent = turnName ? `Turn: ${turnName}` : '';
@@ -778,39 +804,41 @@ async function getRTDB(){
 }
 function serialize(){
   const data={};
+  function getVal(sel, root){ const el = qs(sel, root); return el ? el.value : ''; }
+  function getChecked(sel, root){ const el = qs(sel, root); return el ? el.checked : false; }
   qsa('input,select,textarea').forEach(el=>{
     const id = el.id; if (!id) return;
     if (el.type==='checkbox') data[id] = !!el.checked; else data[id] = el.value;
   });
   data.powers = qsa("[data-kind='power']").map(card => ({
-    name: qs("[data-f='name']", card)?.value || '',
-    sp: qs("[data-f='sp']", card)?.value || '',
-    save: qs("[data-f='save']", card)?.value || '',
-    range: qs("[data-f='range']", card)?.value || '',
-    effect: qs("[data-f='effect']", card)?.value || ''
+    name: getVal("[data-f='name']", card) || '',
+    sp: getVal("[data-f='sp']", card) || '',
+    save: getVal("[data-f='save']", card) || '',
+    range: getVal("[data-f='range']", card) || '',
+    effect: getVal("[data-f='effect']", card) || ''
   }));
   data.signatures = qsa("[data-kind='sig']").map(card => ({
-    name: qs("[data-f='name']", card)?.value || '',
-    sp: qs("[data-f='sp']", card)?.value || '',
-    save: qs("[data-f='save']", card)?.value || '',
-    special: qs("[data-f='special']", card)?.value || '',
-    desc: qs("[data-f='desc']", card)?.value || ''
+    name: getVal("[data-f='name']", card) || '',
+    sp: getVal("[data-f='sp']", card) || '',
+    save: getVal("[data-f='save']", card) || '',
+    special: getVal("[data-f='special']", card) || '',
+    desc: getVal("[data-f='desc']", card) || ''
   }));
   data.weapons = qsa("[data-kind='weapon']").map(card => ({
-    name: qs("[data-f='name']", card)?.value || '',
-    damage: qs("[data-f='damage']", card)?.value || '',
-    range: qs("[data-f='range']", card)?.value || ''
+    name: getVal("[data-f='name']", card) || '',
+    damage: getVal("[data-f='damage']", card) || '',
+    range: getVal("[data-f='range']", card) || ''
   }));
   data.armor = qsa("[data-kind='armor']").map(card => ({
-    name: qs("[data-f='name']", card)?.value || '',
-    slot: qs("[data-f='slot']", card)?.value || 'Body',
-    bonus: Number(qs("[data-f='bonus']", card)?.value || 0),
-    equipped: !!qs("[data-f='equipped']", card)?.checked
+    name: getVal("[data-f='name']", card) || '',
+    slot: getVal("[data-f='slot']", card) || 'Body',
+    bonus: Number(getVal("[data-f='bonus']", card) || 0),
+    equipped: !!getChecked("[data-f='equipped']", card)
   }));
   data.items = qsa("[data-kind='item']").map(card => ({
-    name: qs("[data-f='name']", card)?.value || '',
-    qty: Number(qs("[data-f='qty']", card)?.value || 1),
-    notes: qs("[data-f='notes']", card)?.value || ''
+    name: getVal("[data-f='name']", card) || '',
+    qty: Number(getVal("[data-f='qty']", card) || 1),
+    notes: getVal("[data-f='notes']", card) || ''
   }));
   data.campaignLog = campaignLog;
   return data;
@@ -818,12 +846,12 @@ function serialize(){
 function deserialize(data){
   $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
   Object.entries(data||{}).forEach(([k,v])=>{ const el=$(k); if (!el) return; if (el.type==='checkbox') el.checked=!!v; else el.value=v; });
-  (data?.powers||[]).forEach(p=> $('powers').appendChild(createCard('power', p)));
-  (data?.signatures||[]).forEach(s=> $('sigs').appendChild(createCard('sig', s)));
-  (data?.weapons||[]).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
-  (data?.armor||[]).forEach(a=> $('armors').appendChild(createCard('armor', a)));
-  (data?.items||[]).forEach(i=> $('items').appendChild(createCard('item', i)));
-  campaignLog.length=0; (data?.campaignLog||[]).forEach(e=>campaignLog.push(e));
+  (data && data.powers ? data.powers : []).forEach(p=> $('powers').appendChild(createCard('power', p)));
+  (data && data.signatures ? data.signatures : []).forEach(s=> $('sigs').appendChild(createCard('sig', s)));
+  (data && data.weapons ? data.weapons : []).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
+  (data && data.armor ? data.armor : []).forEach(a=> $('armors').appendChild(createCard('armor', a)));
+  (data && data.items ? data.items : []).forEach(i=> $('items').appendChild(createCard('item', i)));
+  campaignLog.length=0; (data && data.campaignLog ? data.campaignLog : []).forEach(e=>campaignLog.push(e));
   localStorage.setItem('campaign-log', JSON.stringify(campaignLog));
   renderCampaignLog();
   updateDerived();
@@ -872,12 +900,14 @@ $('do-save').addEventListener('click', async ()=>{
 });
 $('do-load').addEventListener('click', async ()=>{
   const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
-  try{ const data = await loadCloud(name, { getRTDB, toast }); deserialize(data); hide('modal-load'); toast('Loaded','success'); } catch(e){ console.error('Load failed', e); toast('Could not load: '+(e?.message||''),'error'); }
+  try{ const data = await loadCloud(name, { getRTDB, toast }); deserialize(data); hide('modal-load'); toast('Loaded','success'); }
+  catch(e){ console.error('Load failed', e); toast('Could not load: '+(e && e.message ? e.message : ''),'error'); }
 });
 
 // periodic cloud backup every 10 minutes
 setInterval(async ()=>{
-  const name = localStorage.getItem('last-save') || $('superhero')?.value?.trim();
+  const heroEl = $('superhero');
+  const name = localStorage.getItem('last-save') || (heroEl && heroEl.value ? heroEl.value.trim() : '');
   if(name){
     try{ await saveCloud(name, serialize(), { getRTDB }); }
     catch(e){ console.error('Periodic cloud save failed', e); }
@@ -885,11 +915,17 @@ setInterval(async ()=>{
 }, 10 * 60 * 1000);
 
 /* ========= Rules ========= */
-$('btn-rules')?.addEventListener('click', ()=> show('modal-rules'));
+const btnRules = $('btn-rules');
+if (btnRules) {
+  btnRules.addEventListener('click', ()=> show('modal-rules'));
+}
 
 /* ========= Close + click-outside ========= */
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
-$('tour-ok')?.addEventListener('click', ()=>{ hide('modal-tour'); localStorage.setItem('tour-done','1'); });
+const tourOk = $('tour-ok');
+if (tourOk) {
+  tourOk.addEventListener('click', ()=>{ hide('modal-tour'); localStorage.setItem('tour-done','1'); });
+}
 if(!localStorage.getItem('tour-done')) show('modal-tour');
 
 /* ========= boot ========= */
