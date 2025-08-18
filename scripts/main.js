@@ -124,6 +124,62 @@ skillGrid.innerHTML = SKILLS.map((s,i)=>`
     <div class="inline"><input type="checkbox" id="skill-${i}-prof"/><span class="pill" id="skill-${i}">+0</span></div>
   </div>`).join('');
 
+const ALIGNMENT_PERKS = {
+  'Paragon (Lawful Light)': ['Inspire allies with unwavering justice.'],
+  'Guardian (Neutral Light)': ['Protect an ally once per encounter.'],
+  'Vigilante (Chaotic Light)': ['Advantage on stealth checks in urban areas.'],
+  'Sentinel (Lawful Neutral)': ['+1 to saves against coercion.'],
+  'Outsider (True Neutral)': ['Reroll one failed check per day.'],
+  'Wildcard (Chaotic Neutral)': ['Add your Wisdom modifier to initiative.'],
+  'Inquisitor (Lawful Shadow)': ['Bonus to Insight checks to detect lies.'],
+  'Anti-Hero (Neutral Shadow)': ['Gain temporary hit points when you drop a foe.'],
+  'Renegade (Chaotic Shadow)': ['Once per encounter, add +2 damage to a hit.']
+};
+
+const CLASSIFICATION_PERKS = {
+  'Mutant': ['Begin with an extra minor power related to your mutation.'],
+  'Enhanced Human': ['Increase one ability score by 1.'],
+  'Magic User': ['Learn a basic spell from any school.'],
+  'Alien/Extraterrestrial': ['Gain resistance to one damage type of your choice.'],
+  'Mystical Being': ['Communicate with spirits for guidance.']
+};
+
+const POWER_STYLE_PERKS = {
+  'Physical Powerhouse': ['Melee attacks deal +1 damage.'],
+  'Energy Manipulator': ['Gain a ranged energy attack.'],
+  'Speedster': ['Dash as a bonus action.'],
+  'Telekinetic/Psychic': ['Move small objects with your mind.'],
+  'Illusionist': ['Create minor illusions at will.'],
+  'Shape-shifter': ['Alter your appearance slightly.'],
+  'Elemental Controller': ['Resist environmental hazards of your element.']
+};
+
+const ORIGIN_PERKS = {
+  'The Accident': ['Resistance to the damage type that created you.'],
+  'The Experiment': ['Reroll a failed save once per long rest.'],
+  'The Legacy': ['Start with an heirloom item.'],
+  'The Awakening': ['Gain proficiency in one skill.'],
+  'The Pact': ['Call upon your patron for minor aid.'],
+  'The Lost Time': ['Possess knowledge from a bygone era.'],
+  'The Exposure': ['Sense the presence of similar energies.'],
+  'The Rebirth': ['+1 to death saving throws.'],
+  'The Vigil': ['Remain alert without sleep for 24 hours.'],
+  'The Redemption': ['Advantage on persuasion checks for second chances.']
+};
+
+function setupPerkSelect(selId, perkId, data){
+  const sel = $(selId);
+  const perkEl = $(perkId);
+  if(!sel || !perkEl) return;
+  function render(){
+    const perks = data[sel.value] || [];
+    perkEl.innerHTML = perks.map(p=>`<li>${p}</li>`).join('');
+    perkEl.style.display = perks.length ? 'block' : 'none';
+  }
+  sel.addEventListener('change', render);
+  render();
+}
+
 /* ========= cached elements ========= */
 const elPP = $('pp');
 const elTC = $('tc');
@@ -852,6 +908,10 @@ $('tour-ok')?.addEventListener('click', ()=>{ hide('modal-tour'); localStorage.s
 if(!localStorage.getItem('tour-done')) show('modal-tour');
 
 /* ========= boot ========= */
+setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
+setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
+setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
+setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
 updateDerived();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(e=>console.error('SW reg failed', e));
