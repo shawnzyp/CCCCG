@@ -275,6 +275,7 @@ function createCard(kind, pref = {}) {
   const cfg = CARD_CONFIG[kind];
   const card = document.createElement('div');
   card.className = 'card';
+  card.draggable = true;
   card.dataset.kind = kind;
   if (!cfg) return card;
   (cfg.rows || []).forEach(row => {
@@ -330,6 +331,7 @@ function createCard(kind, pref = {}) {
   delBtn.addEventListener('click', () => {
     card.remove();
     if (cfg.onDelete) cfg.onDelete();
+    pushHistory();
   });
   delWrap.appendChild(delBtn);
   card.appendChild(delWrap);
@@ -339,13 +341,63 @@ function createCard(kind, pref = {}) {
   return card;
 }
 
-$('add-power').addEventListener('click', () => $('powers').appendChild(createCard('power')));
-$('add-sig').addEventListener('click', () => $('sigs').appendChild(createCard('sig')));
+$('add-power').addEventListener('click', () => { $('powers').appendChild(createCard('power')); pushHistory(); });
+$('add-sig').addEventListener('click', () => { $('sigs').appendChild(createCard('sig')); pushHistory(); });
 
 /* ========= Gear ========= */
-$('add-weapon').addEventListener('click', () => $('weapons').appendChild(createCard('weapon')));
-$('add-armor').addEventListener('click', () => $('armors').appendChild(createCard('armor')));
-$('add-item').addEventListener('click', () => $('items').appendChild(createCard('item')));
+$('add-weapon').addEventListener('click', () => { $('weapons').appendChild(createCard('weapon')); pushHistory(); });
+$('add-armor').addEventListener('click', () => { $('armors').appendChild(createCard('armor')); pushHistory(); });
+$('add-item').addEventListener('click', () => { $('items').appendChild(createCard('item')); pushHistory(); });
+$('btn-pdf').addEventListener('click', () => window.print());
+
+/* ========= Drag & Drop ========= */
+function enableDragReorder(id){
+  const list = $(id);
+  if(!list) return;
+  list.addEventListener('dragstart', e=>{
+    const card = e.target.closest('.card');
+    if(!card) return;
+    list._drag = card;
+    card.classList.add('dragging');
+  });
+  list.addEventListener('dragend', ()=>{
+    list._drag?.classList.remove('dragging');
+    list._drag = null;
+  });
+  list.addEventListener('dragover', e=>{
+    e.preventDefault();
+    const card = list._drag;
+    const tgt = e.target.closest('.card');
+    if(!card || !tgt || tgt===card) return;
+    const rect = tgt.getBoundingClientRect();
+    const next = (e.clientY - rect.top) / rect.height > 0.5;
+    list.insertBefore(card, next? tgt.nextSibling : tgt);
+  });
+  list.addEventListener('drop', e=>{ e.preventDefault(); pushHistory(); });
+}
+['powers','sigs','weapons','armors','items'].forEach(enableDragReorder);
+
+/* ========= Search Filter ========= */
+const search = $('search');
+search?.addEventListener('input', ()=>{
+  const term = search.value.toLowerCase();
+  ['powers','sigs','weapons','armors','items'].forEach(id=>{
+    qsa('#'+id+' .card').forEach(c=>{
+      c.style.display = c.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+  });
+});
+
+/* ========= Rule Tooltips ========= */
+qsa('[data-rule]').forEach(el=>{
+  const page = el.dataset.rule;
+  el.title = `See CCCCG p.${page}`;
+  el.addEventListener('click', ()=>{
+    const frame = qs('#modal-rules iframe');
+    if(frame) frame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${page}`;
+    show('modal-rules');
+  });
+});
 
 /* ========= Gear Catalog (seeded; extend as needed) ========= */
 const CATALOG = (()=>{ const mk=(style,type,rarity,name,tc,notes)=>({style,type,rarity,name,tc,notes}); const out=[];
@@ -560,6 +612,44 @@ function deserialize(data){
   (data?.items||[]).forEach(i=> $('items').appendChild(createCard('item', i)));
   updateDerived();
 }
+
+/* ========= autosave + history ========= */
+const AUTO_KEY = 'autosave';
+let history = [];
+let histIdx = -1;
+const pushHistory = debounce(()=>{
+  const snap = serialize();
+  history = history.slice(0, histIdx + 1);
+  history.push(snap);
+  if(history.length > 20){ history.shift(); }
+  histIdx = history.length - 1;
+  try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
+}, 500);
+
+document.addEventListener('input', pushHistory);
+document.addEventListener('change', pushHistory);
+
+function undo(){
+  if(histIdx > 0){ histIdx--; deserialize(history[histIdx]); }
+}
+function redo(){
+  if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.ctrlKey && e.key==='z'){ e.preventDefault(); undo(); }
+  else if(e.ctrlKey && (e.key==='y' || (e.shiftKey && e.key==='Z'))){ e.preventDefault(); redo(); }
+  else if(e.ctrlKey && e.key==='s'){ e.preventDefault(); $('btn-save')?.click(); }
+});
+
+(function(){
+  const raw = localStorage.getItem(AUTO_KEY);
+  if(raw){
+    try{ const data = JSON.parse(raw); deserialize(data); history=[data]; histIdx=0; }
+    catch(e){ console.error('Auto-load failed', e); }
+  }
+  pushHistory();
+})();
 const ENCODE = (s)=>encodeURIComponent(String(s||''));
 async function saveCloud(name, payload){
   const r = await getRTDB().catch(err=>{ console.error('RTDB init failed', err); return null; });
@@ -629,3 +719,6 @@ qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===
 
 /* ========= boot ========= */
 updateDerived();
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(e=>console.error('SW reg failed', e));
+}
