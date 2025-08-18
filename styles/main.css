@@ -1,7 +1,9 @@
 :root{--bg:#0e1117;--surface:#151a23;--surface-2:#0b0f16;--text:#e5e7eb;--muted:#9aa3af;--accent:#3cc6ff;--accent-2:#2563eb;--line:rgba(255,255,255,.12);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#041319;--radius:12px;--transition:all .2s ease}
 :root.theme-light{--bg:#f9fafb;--surface:#fff;--surface-2:#f3f4f6;--text:#111827;--muted:#6b7280;--accent:#2563eb;--accent-2:#1e3a8a;--line:rgba(0,0,0,.1);--shadow:0 8px 28px rgba(0,0,0,.2);--text-on-accent:#fff}
 :root.theme-high{--bg:#000;--surface:#000;--surface-2:#000;--text:#fff;--muted:#fff;--accent:#ff0;--accent-2:#0ff;--line:#fff;--shadow:none;--text-on-accent:#000}
-*{box-sizing:border-box}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
+body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:16px}
 header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(12px + env(safe-area-inset-top)) 14px 12px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
@@ -31,7 +33,7 @@ section h2{margin:0 0 10px;color:var(--accent);font-size:1.05rem}
 .grid-3{grid-template-columns:1fr}
 @media(min-width:820px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(3,1fr)}}
 label{display:block;font-weight:700;margin-bottom:6px}
-input,select,textarea,button{width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
+input,select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
 button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer}
 button:hover{filter:brightness(1.1);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
