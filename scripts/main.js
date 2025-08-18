@@ -114,6 +114,12 @@ const elResist = $('resist');
 const elVuln = $('vuln');
 const elCPBar = $('cp-bar');
 const elCPPill = $('cp-pill');
+const elStyle = $('power-style');
+const elStyle2 = $('power-style-2');
+const elStylePerk = $('style-perk');
+const elStyle2Perk = $('style2-perk');
+const elOrigin = $('origin');
+const elOriginPerk = $('origin-perk');
 
 function updateSkills(){
   const pb = num(elProfBonus.value)||2;
@@ -162,6 +168,29 @@ const CLASS_DATA = {
   'Alien/Extraterrestrial': { perk: 'Immune to environmental hazard and no penalty to movement in rough terrain.', res: 'Cold, Acid, Lightning', vuln: 'Radiant, Emotion' },
   'Mystical Being': { perk: '+2 to Persuasion or Intimidation checks.', res: 'Corruption, Radiation', vuln: 'Radiant, Psychic' }
 };
+
+const STYLE_DATA = {
+  'Physical Powerhouse': 'Cut one attack by half once per combat encounter.',
+  'Energy Manipulator': 'Reroll 1s once per turn.',
+  'Speedster': '+10 ft movement and +1 AC while moving 20+ ft.',
+  'Telekinetic/Psychic': 'Force enemies to reroll all rolls above a 17 once per rest.',
+  'Illusionist': 'Create a 1-min decoy illusion once per combat encounter.',
+  'Shape-shifter': 'Advantage on Deception, disguise freely.',
+  'Elemental Controller': '+2 to hit and +5 to damage once per turn when using elemental powers.'
+};
+
+const ORIGIN_DATA = {
+  'The Accident': 'Resistance to one damage type.',
+  'The Experiment': 'Reroll a failed CON or INT save once per long rest.',
+  'The Legacy': 'Use the powers of one other character you’ve met or are related to once per long rest.',
+  'The Awakening': '+5 to hit and +10 to damage when below ½ HP.',
+  'The Pact': 'Auto-success on one save or +10 to any roll once per long rest.',
+  'The Lost Time': 'Once per combat when using a power, roll a d20 (DC17); on success it costs no SP and gains +1d6 bonus.',
+  'The Exposure': '+5 elemental damage once per round.',
+  'The Rebirth': 'If knocked out, stand up with 1 HP and resistance to all damage for 1 round.',
+  'The Vigil': 'Create a shield once per combat reducing ally damage to 0 for one turn.',
+  'The Redemption': 'Once per day take damage for an ally to heal them 1d6 and give advantage; after combat you gain advantage on all saves till dawn.'
+};
 function updateClassDetails(){
   const d = CLASS_DATA[elClass.value] || {};
   elClassPerk.value = d.perk || '';
@@ -170,6 +199,20 @@ function updateClassDetails(){
 }
 elClass.addEventListener('change', updateClassDetails);
 updateClassDetails();
+
+function updateStyleDetails(){
+  elStylePerk.value = STYLE_DATA[elStyle.value] || '';
+  elStyle2Perk.value = STYLE_DATA[elStyle2.value] || '';
+}
+elStyle.addEventListener('change', updateStyleDetails);
+elStyle2.addEventListener('change', updateStyleDetails);
+updateStyleDetails();
+
+function updateOriginDetails(){
+  elOriginPerk.value = ORIGIN_DATA[elOrigin.value] || '';
+}
+elOrigin.addEventListener('change', updateOriginDetails);
+updateOriginDetails();
 
 /* ========= HP/SP controls ========= */
 function setHP(v){

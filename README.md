@@ -4,10 +4,10 @@ Hosted version of the mobile-optimized character sheet for GitHub Pages.
 
 ## CCCCG Features
 
-- Auto-fills classification perks along with matching resistances and vulnerabilities
+- Auto-fills classification perks along with matching resistances and vulnerabilities and displays power-style and origin perks
 - Offers origin story options and extensive character questions for backstory building
 - Provides skill proficiency tracking with auto-calculated modifiers
-- Tracks cinematic points and energy resistances in the combat tab
+- Tracks cinematic points and resistances in the combat tab
 - Logs downtime activities like Research, Training, and Media Control for campaign bookkeeping
 
 ## Firebase Configuration
