@@ -373,17 +373,32 @@ async function loadFirebaseConfig(){
 async function getRTDB(){
   const cfg = await loadFirebaseConfig();
   if (!cfg || !cfg.apiKey || !cfg.databaseURL) return null;
-  const [{ initializeApp }, { getAuth, signInAnonymously, onAuthStateChanged }, { getDatabase, ref, get, set }] = await Promise.all([
-    import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js'),
-    import('https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js'),
-    import('https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js')
-  ]);
-  let app; try{ app = window.firebaseApp || initializeApp(cfg); window.firebaseApp = app; } catch(e){ app = window.firebaseApp; }
-  const auth = getAuth(app);
-  await new Promise(res => onAuthStateChanged(auth, ()=>res(), ()=>res()));
-  if(!auth.currentUser){ try{ await signInAnonymously(auth) }catch(e){} }
-  const db=getDatabase(app);
-  return { db, ref, get, set };
+  try{
+    const [{ initializeApp }, { getAuth, signInAnonymously, onAuthStateChanged }, { getDatabase, ref, get, set }] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js'),
+      import('https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js')
+    ]);
+    let app; try{ app = window.firebaseApp || initializeApp(cfg); window.firebaseApp = app; } catch(e){ app = window.firebaseApp; }
+    const auth = getAuth(app);
+    await new Promise(res => onAuthStateChanged(auth, ()=>res(), ()=>res()));
+    if(!auth.currentUser){
+      try{ await signInAnonymously(auth); }
+      catch(e){
+        console.error('Anonymous sign-in failed', e);
+        if (!navigator.onLine) toast('Offline: unable to authenticate','error');
+        else toast('Authentication failed. Check connectivity','error');
+        return null;
+      }
+    }
+    const db=getDatabase(app);
+    return { db, ref, get, set };
+  }catch(e){
+    console.error('RTDB init failed', e);
+    if (!navigator.onLine) toast('Offline: cloud unavailable','error');
+    else toast('Cloud unavailable; check connectivity','error');
+    return null;
+  }
 }
 function serialize(){
   const data={};
