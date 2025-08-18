@@ -6,19 +6,20 @@ const num = (v)=>{ const n=Number(v); return Number.isFinite(n)?n:0; };
 const mod = (score)=>Math.floor((num(score)-10)/2);
 function show(id){ $(id).classList.remove('hidden'); }
 function hide(id){ $(id).classList.add('hidden'); }
+let audioCtx = null;
+window.addEventListener('unload', () => audioCtx?.close());
 function playTone(type){
   try{
-    const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
     osc.type = 'sine';
     osc.frequency.value = type==='error'?220:880;
     gain.gain.value = 0.1;
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(audioCtx.destination);
     osc.start();
-    osc.stop(ctx.currentTime + 0.15);
-    osc.onended = ()=>ctx.close();
+    osc.stop(audioCtx.currentTime + 0.15);
   }catch(e){ /* noop */ }
 }
 function toast(msg, type='info'){
