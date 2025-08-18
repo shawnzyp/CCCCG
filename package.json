@@ -1,0 +1,16 @@
+{
+  "name": "ccccg",
+  "version": "1.0.0",
+  "description": "Hosted version of the mobile-optimized character sheet for GitHub Pages.",
+  "main": "updateDerived.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}
