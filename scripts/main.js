@@ -66,8 +66,28 @@ abilGrid.innerHTML = ABILS.map(a=>`
   </div>`).join('');
 ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
-function updateDerived(){
-  $('pp').value = 10 + mod($( 'wis').value);
+/* ========= cached elements ========= */
+const elPP = $('pp');
+const elTC = $('tc');
+const elArmorBonus = $('armor-bonus');
+const elOriginBonus = $('origin-bonus');
+const elDex = $('dex');
+const elCon = $('con');
+const elWis = $('wis');
+const elSPBar = $('sp-bar');
+const elSPPill = $('sp-pill');
+const elHPBar = $('hp-bar');
+const elHPPill = $('hp-pill');
+const elHPRoll = $('hp-roll');
+const elHPBonus = $('hp-bonus');
+const elHPTemp = $('hp-temp');
+const elInitiative = $('initiative');
+const elProfBonus = $('prof-bonus');
+const elPowerSaveAbility = $('power-save-ability');
+const elPowerSaveDC = $('power-save-dc');
+
+/* ========= derived helpers ========= */
+function calculateArmorBonus(){
   let body=[], head=[], shield=0, misc=0;
   qsa("[data-kind='armor']").forEach(card=>{
     const eq = qs("input[type='checkbox'][data-f='equipped']", card);
@@ -80,30 +100,52 @@ function updateDerived(){
       else misc += bonus;
     }
   });
-  const armorAuto = (body.length?Math.max(...body):0) + (head.length?Math.max(...head):0) + shield + misc;
-  $('armor-bonus').value = armorAuto;
-  $('tc').value = 10 + mod($('dex').value) + armorAuto + num($('origin-bonus').value||0);
-  const spMax = 5 + mod($('con').value);
-  const sb = $('sp-bar'); sb.max = spMax; if (!num(sb.value)) sb.value = spMax; $('sp-pill').textContent = `${num(sb.value)}/${spMax}`;
-  const hb = $('hp-bar');
-  const total = 30 + mod($('con').value) + num($('hp-roll').value||0) + num($('hp-bonus').value||0);
-  hb.max = Math.max(0,total); if (!num(hb.value)) hb.value = hb.max; $('hp-pill').textContent = `${num(hb.value)}/${num(hb.max)}` + (num($('hp-temp').value)?` (+${num($('hp-temp').value)})`:``);
-  $('initiative').value = mod($('dex').value);
-  const pb = num($('prof-bonus').value)||2;
-  $('power-save-dc').value = 8 + pb + mod($( $('power-save-ability').value ).value);
+  return (body.length?Math.max(...body):0) + (head.length?Math.max(...head):0) + shield + misc;
+}
+
+function updateSP(){
+  const spMax = 5 + mod(elCon.value);
+  elSPBar.max = spMax;
+  if (!num(elSPBar.value)) elSPBar.value = spMax;
+  elSPPill.textContent = `${num(elSPBar.value)}/${spMax}`;
+}
+
+function updateHP(){
+  const total = 30 + mod(elCon.value) + num(elHPRoll.value||0) + num(elHPBonus.value||0);
+  elHPBar.max = Math.max(0, total);
+  if (!num(elHPBar.value)) elHPBar.value = elHPBar.max;
+  elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+}
+
+function updateDerived(){
+  elPP.value = 10 + mod(elWis.value);
+  const armorAuto = calculateArmorBonus();
+  elArmorBonus.value = armorAuto;
+  elTC.value = 10 + mod(elDex.value) + armorAuto + num(elOriginBonus.value||0);
+  updateSP();
+  updateHP();
+  elInitiative.value = mod(elDex.value);
+  const pb = num(elProfBonus.value)||2;
+  elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 
 /* ========= HP/SP controls ========= */
-function setHP(v){ const hb=$('hp-bar'); hb.value = Math.max(0, Math.min(num(hb.max), v)); $('hp-pill').textContent = `${num(hb.value)}/${num(hb.max)}` + (num($('hp-temp').value)?` (+${num($('hp-temp').value)})`:``); }
-function setSP(v){ const sb=$('sp-bar'); sb.value = Math.max(0, Math.min(num(sb.max), v)); $('sp-pill').textContent = `${num(sb.value)}/${num(sb.max)}`; }
-$('hp-dmg').addEventListener('click', ()=>{ let d=num($('hp-amt').value); if(!d) return; let tv=num($('hp-temp').value); if(d>0 && tv>0){ const use=Math.min(tv,d); tv-=use; $('hp-temp').value=tv; d-=use; } setHP(num($('hp-bar').value)-d); });
-$('hp-heal').addEventListener('click', ()=>{ const d=num($('hp-amt').value)||0; setHP(num($('hp-bar').value)+d); });
-$('hp-full').addEventListener('click', ()=> setHP(num($('hp-bar').max)));
-$('sp-full').addEventListener('click', ()=> setSP(num($('sp-bar').max)));
-qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num($('sp-bar').value) + num(b.dataset.sp)||0) ));
-$('long-rest').addEventListener('click', ()=>{ setHP(num($('hp-bar').max)); setSP(num($('sp-bar').max)); });
+function setHP(v){
+  elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
+  elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+}
+function setSP(v){
+  elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
+  elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
+}
+$('hp-dmg').addEventListener('click', ()=>{ let d=num($('hp-amt').value); if(!d) return; let tv=num(elHPTemp.value); if(d>0 && tv>0){ const use=Math.min(tv,d); tv-=use; elHPTemp.value=tv; d-=use; } setHP(num(elHPBar.value)-d); });
+$('hp-heal').addEventListener('click', ()=>{ const d=num($('hp-amt').value)||0; setHP(num(elHPBar.value)+d); });
+$('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
+$('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
+qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
+$('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
 
 /* ========= Dice/Coin + Logs ========= */
 const diceLog = JSON.parse(localStorage.getItem('dice-log')||'[]');
