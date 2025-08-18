@@ -42,6 +42,14 @@ function toast(msg, type='info'){
   setTimeout(()=>t.classList.remove('show'),1200);
 }
 
+function debounce(fn, delay){
+  let t;
+  return (...args)=>{
+    clearTimeout(t);
+    t = setTimeout(()=>fn(...args), delay);
+  };
+}
+
 // prevent negative numbers in numeric inputs
 document.addEventListener('input', e=>{
   const el = e.target;
