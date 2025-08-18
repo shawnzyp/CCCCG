@@ -148,7 +148,19 @@ const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const elTier = $('tier');
 
-const XP_TIERS = [0, 2000, 6000, 18000, 54000, 162000];
+const XP_TIERS = [
+  { xp: 0, label: 'Tier 5 – Rookie' },
+  { xp: 2000, label: 'Tier 4 – Emerging Vigilante' },
+  { xp: 6000, label: 'Tier 3 – Field-Tested Operative' },
+  { xp: 18000, label: 'Tier 2 – Respected Force' },
+  { xp: 54000, label: 'Tier 1 – Heroic Figure' },
+  { xp: 162000, label: 'Tier 0 – Transcendent / Legendary' }
+];
+
+// populate tier options
+if(elTier){
+  elTier.innerHTML = XP_TIERS.map(t=>`<option>${t.label}</option>`).join('');
+}
 
 /* ========= derived helpers ========= */
 function updateSP(){
@@ -169,14 +181,14 @@ function updateXP(){
   const xp = Math.max(0, num(elXP.value));
   let idx = 0;
   for(let i=XP_TIERS.length-1;i>=0;i--){
-    if(xp >= XP_TIERS[i]){ idx = i; break; }
+    if(xp >= XP_TIERS[i].xp){ idx = i; break; }
   }
   if(elTier) elTier.selectedIndex = idx;
-  const nextXP = XP_TIERS[idx+1];
-  const prevXP = XP_TIERS[idx];
-  if(nextXP){
+  const nextTier = XP_TIERS[idx+1];
+  const prevXP = XP_TIERS[idx].xp;
+  if(nextTier){
     const val = xp - prevXP;
-    const diff = nextXP - prevXP;
+    const diff = nextTier.xp - prevXP;
     elXPBar.max = diff;
     elXPBar.value = val;
     elXPPill.textContent = `${val}/${diff}`;
@@ -218,8 +230,12 @@ function setXP(v){
   elXP.value = Math.max(0, v);
   updateXP();
 }
-$('xp-add').addEventListener('click', ()=>{ const d=num($('xp-amt').value)||0; if(d) setXP(num(elXP.value)+d); });
-$('xp-remove').addEventListener('click', ()=>{ const d=num($('xp-amt').value)||0; if(d) setXP(num(elXP.value)-d); });
+$('xp-submit').addEventListener('click', ()=>{
+  const amt = num($('xp-amt').value)||0;
+  if(!amt) return;
+  const mode = $('xp-mode').value;
+  setXP(num(elXP.value) + (mode==='add'? amt : -amt));
+});
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
