@@ -371,11 +371,16 @@ $('flip').addEventListener('click', ()=>{
   $('flip-out').textContent = v;
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
 });
-$('death-save').addEventListener('click', ()=>{
-  const roll = 1 + Math.floor(Math.random()*20);
-  const result = roll >= 10 ? 'Success' : 'Failure';
-  $('death-out').textContent = `${roll} (${result})`;
-  pushLog(deathLog, {t:Date.now(), text:`${roll} (${result})`}, 'death-log');
+const deathBoxes = ['death-save-1','death-save-2','death-save-3'].map(id => $(id));
+deathBoxes.forEach((box, idx) => {
+  box.addEventListener('change', () => {
+    if (box.checked) {
+      pushLog(deathLog, {t: Date.now(), text: `Failure ${idx + 1}`}, 'death-log');
+    }
+    if (deathBoxes.every(b => b.checked)) {
+      alert('Your character has fallen and their sacrifice will be remembered.');
+    }
+  });
 });
 const btnCampaignAdd = $('campaign-add');
 if (btnCampaignAdd) {
