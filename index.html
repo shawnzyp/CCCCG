@@ -99,7 +99,7 @@
     <h2 data-rule="12">Combat Stats</h2>
     <div class="grid grid-2">
       <fieldset class="card">
-        <legend>HP</legend>
+        <legend data-rule="3">HP</legend>
         <div class="inline">
           <progress id="hp-bar" max="10" value="10" style="width:100%"></progress>
           <span class="pill" id="hp-pill">10/10</span>
@@ -121,7 +121,7 @@
         </div>
       </fieldset>
       <fieldset class="card">
-        <legend>SP</legend>
+        <legend data-rule="7">SP</legend>
         <div class="inline">
           <progress id="sp-bar" max="5" value="5" style="width:100%"></progress>
           <span class="pill" id="sp-pill">5/5</span>
@@ -147,7 +147,7 @@
         <input id="speed" type="number" inputmode="numeric" placeholder="30"/>
       </fieldset>
       <fieldset class="card">
-        <legend>Defense Stats</legend>
+        <legend data-rule="2">Defense Stats</legend>
         <label for="pp">Passive Perception</label>
         <input id="pp" type="number" readonly/>
         <label for="armor-bonus">Armor/Shield Bonus (auto)</label>
@@ -162,7 +162,7 @@
 
   <!-- ABILITIES -->
   <section data-tab="abilities">
-    <h2>Ability Scores</h2>
+    <h2 data-rule="2">Ability Scores</h2>
     <div class="grid grid-3" id="abil-grid"></div>
     <fieldset class="card">
       <legend>Proficiency &amp; Power</legend>
@@ -240,7 +240,7 @@
 
   <!-- STORY -->
   <section data-tab="story">
-    <h2>Character & Story</h2>
+    <h2 data-rule="9">Character & Story</h2>
     <div class="grid grid-2">
       <div class="card"><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigil name"/></div>
       <div class="card"><label for="secret">Secret Identity</label><input id="secret" placeholder="Real name"/></div>
@@ -270,7 +270,7 @@
         </div>
       </div>
       <div class="card">
-        <label for="alignment">Alignment</label>
+        <label for="alignment" data-rule="8">Alignment</label>
         <select id="alignment">
           <option value="">Select one</option>
           <option>Paragon (Lawful Light)</option>
@@ -286,14 +286,14 @@
         <ul id="alignment-perks" class="perk-list"></ul>
       </div>
       <div class="card">
-        <label for="classification">Classification</label>
+        <label for="classification" data-rule="1">Classification</label>
         <select id="classification">
           <option value="">Select one</option><option>Mutant</option><option>Enhanced Human</option><option>Magic User</option><option>Alien/Extraterrestrial</option><option>Mystical Being</option>
         </select>
         <ul id="classification-perks" class="perk-list"></ul>
       </div>
       <div class="card">
-        <label for="power-style">Primary Power Style</label>
+        <label for="power-style" data-rule="1">Primary Power Style</label>
         <select id="power-style">
           <option value="">Select one</option><option>Physical Powerhouse</option><option>Energy Manipulator</option><option>Speedster</option>
           <option>Telekinetic/Psychic</option><option>Illusionist</option><option>Shape-shifter</option><option>Elemental Controller</option>
@@ -301,7 +301,7 @@
         <ul id="power-style-perks" class="perk-list"></ul>
       </div>
       <div class="card">
-        <label for="power-style-2">Secondary Power Style</label>
+        <label for="power-style-2" data-rule="1">Secondary Power Style</label>
         <select id="power-style-2">
           <option value="">Select one</option>
           <option>None</option>
@@ -310,7 +310,7 @@
         </select>
       </div>
       <div class="card">
-        <label for="origin">Origin Story</label>
+        <label for="origin" data-rule="2">Origin Story</label>
         <select id="origin">
           <option value="">Select one</option>
           <option>The Accident</option>
@@ -332,26 +332,26 @@
       <label for="story-notes">Backstory / Notes</label>
       <textarea id="story-notes" rows="6" placeholder="Key events, allies, vulnerabilities, research/training notes, etc."></textarea>
     </div>
-    <h3>Character Questions</h3>
+    <h3 data-rule="10">Character Questions</h3>
     <div class="grid grid-1">
-      <div class="card"><label for="q-mask">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
-      <div class="card"><label for="q-justice">What does justice mean to you?</label><textarea id="q-justice" rows="2"></textarea></div>
-      <div class="card"><label for="q-fear">What is your biggest fear or unresolved trauma?</label><textarea id="q-fear" rows="2"></textarea></div>
-      <div class="card"><label for="q-first-power">What moment first defined your sense of power—was it thrilling, terrifying, or tragic?</label><textarea id="q-first-power" rows="2"></textarea></div>
-      <div class="card"><label for="q-origin-meaning">What does your Origin Story mean to you now?</label><textarea id="q-origin-meaning" rows="2"></textarea></div>
-      <div class="card"><label for="q-before-powers">What was your life like before you had powers or before you remembered having them?</label><textarea id="q-before-powers" rows="2"></textarea></div>
-      <div class="card"><label for="q-power-scare">What is one way your powers scare even you?</label><textarea id="q-power-scare" rows="2"></textarea></div>
-      <div class="card"><label for="q-signature-move">What is your signature move or ability, and how does it reflect who you are?</label><textarea id="q-signature-move" rows="2"></textarea></div>
-      <div class="card"><label for="q-emotional">What happens to your powers when you are emotionally compromised?</label><textarea id="q-emotional" rows="2"></textarea></div>
-      <div class="card"><label for="q-no-line">What line will you never cross even if the world burns around you?</label><textarea id="q-no-line" rows="2"></textarea></div>
-      <div class="card"><label for="q-alignment-fear">Which Alignment do you identify with, and which do you fear becoming?</label><textarea id="q-alignment-fear" rows="2"></textarea></div>
-      <div class="card"><label for="q-opinion">Whose opinion matters more to you—civilians, teammates, or your faction superiors? Why?</label><textarea id="q-opinion" rows="2"></textarea></div>
-      <div class="card"><label for="q-drive">What drives you to fight—justice, guilt, revenge, legacy, redemption, or something else?</label><textarea id="q-drive" rows="2"></textarea></div>
-      <div class="card"><label for="q-walk-away">What would make you walk away from this life for good?</label><textarea id="q-walk-away" rows="2"></textarea></div>
-      <div class="card"><label for="q-secret">What is one major secret you are keeping from the rest of the team?</label><textarea id="q-secret" rows="2"></textarea></div>
-      <div class="card"><label for="q-vulnerable">What situation leaves you the most vulnerable—physically, emotionally, or strategically?</label><textarea id="q-vulnerable" rows="2"></textarea></div>
-      <div class="card"><label for="q-admire">Which teammate do you admire the most and what do they have that you lack?</label><textarea id="q-admire" rows="2"></textarea></div>
-      <div class="card"><label for="q-if-lost">If you lost your powers tomorrow, who would you still be?</label><textarea id="q-if-lost" rows="2"></textarea></div>
+      <div class="card"><label for="q-mask" data-rule="10">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
+      <div class="card"><label for="q-justice" data-rule="10">What does justice mean to you?</label><textarea id="q-justice" rows="2"></textarea></div>
+      <div class="card"><label for="q-fear" data-rule="10">What is your biggest fear or unresolved trauma?</label><textarea id="q-fear" rows="2"></textarea></div>
+      <div class="card"><label for="q-first-power" data-rule="10">What moment first defined your sense of power—was it thrilling, terrifying, or tragic?</label><textarea id="q-first-power" rows="2"></textarea></div>
+      <div class="card"><label for="q-origin-meaning" data-rule="10">What does your Origin Story mean to you now?</label><textarea id="q-origin-meaning" rows="2"></textarea></div>
+      <div class="card"><label for="q-before-powers" data-rule="10">What was your life like before you had powers or before you remembered having them?</label><textarea id="q-before-powers" rows="2"></textarea></div>
+      <div class="card"><label for="q-power-scare" data-rule="10">What is one way your powers scare even you?</label><textarea id="q-power-scare" rows="2"></textarea></div>
+      <div class="card"><label for="q-signature-move" data-rule="10">What is your signature move or ability, and how does it reflect who you are?</label><textarea id="q-signature-move" rows="2"></textarea></div>
+      <div class="card"><label for="q-emotional" data-rule="10">What happens to your powers when you are emotionally compromised?</label><textarea id="q-emotional" rows="2"></textarea></div>
+      <div class="card"><label for="q-no-line" data-rule="10">What line will you never cross even if the world burns around you?</label><textarea id="q-no-line" rows="2"></textarea></div>
+      <div class="card"><label for="q-alignment-fear" data-rule="10">Which Alignment do you identify with, and which do you fear becoming?</label><textarea id="q-alignment-fear" rows="2"></textarea></div>
+      <div class="card"><label for="q-opinion" data-rule="10">Whose opinion matters more to you—civilians, teammates, or your faction superiors? Why?</label><textarea id="q-opinion" rows="2"></textarea></div>
+      <div class="card"><label for="q-drive" data-rule="10">What drives you to fight—justice, guilt, revenge, legacy, redemption, or something else?</label><textarea id="q-drive" rows="2"></textarea></div>
+      <div class="card"><label for="q-walk-away" data-rule="10">What would make you walk away from this life for good?</label><textarea id="q-walk-away" rows="2"></textarea></div>
+      <div class="card"><label for="q-secret" data-rule="10">What is one major secret you are keeping from the rest of the team?</label><textarea id="q-secret" rows="2"></textarea></div>
+      <div class="card"><label for="q-vulnerable" data-rule="10">What situation leaves you the most vulnerable—physically, emotionally, or strategically?</label><textarea id="q-vulnerable" rows="2"></textarea></div>
+      <div class="card"><label for="q-admire" data-rule="10">Which teammate do you admire the most and what do they have that you lack?</label><textarea id="q-admire" rows="2"></textarea></div>
+      <div class="card"><label for="q-if-lost" data-rule="10">If you lost your powers tomorrow, who would you still be?</label><textarea id="q-if-lost" rows="2"></textarea></div>
     </div>
   </section>
 </main>
