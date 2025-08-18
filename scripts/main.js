@@ -367,7 +367,7 @@ $('roll-dice').addEventListener('click', ()=>{
   out.classList.remove('rolling');
   const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
   const sum = rolls.reduce((a,b)=>a+b,0);
-  out.textContent = `Rolls: ${rolls.join(', ')} (Sum: ${sum})`;
+  out.textContent = sum;
   void out.offsetWidth; out.classList.add('rolling');
   pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
 });
