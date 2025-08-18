@@ -365,8 +365,8 @@ $('campaign-log').addEventListener('click', e=>{
     pushHistory();
   }
 });
-$('btn-log').addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
-$('btn-campaign').addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
+$('btn-log')?.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
+$('btn-campaign')?.addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
 /* ========= Card Helper ========= */
@@ -902,7 +902,6 @@ $('do-load').addEventListener('click', async ()=>{
 $('btn-rules')?.addEventListener('click', ()=> show('modal-rules'));
 
 /* ========= Close + click-outside ========= */
-$('btn-log').addEventListener('click', ()=> show('modal-log'));
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
 $('tour-ok')?.addEventListener('click', ()=>{ hide('modal-tour'); localStorage.setItem('tour-done','1'); });
 if(!localStorage.getItem('tour-done')) show('modal-tour');
