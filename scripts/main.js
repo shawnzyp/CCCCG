@@ -556,17 +556,6 @@ function enableDragReorder(id){
 }
 ['powers','sigs','weapons','armors','items'].forEach(enableDragReorder);
 
-/* ========= Search Filter ========= */
-const search = $('search');
-search?.addEventListener('input', ()=>{
-  const term = search.value.toLowerCase();
-  ['powers','sigs','weapons','armors','items'].forEach(id=>{
-    qsa('#'+id+' .card').forEach(c=>{
-      c.style.display = c.textContent.toLowerCase().includes(term) ? '' : 'none';
-    });
-  });
-});
-
 /* ========= Rule Tooltips ========= */
 qsa('[data-rule]').forEach(el=>{
   const page = el.dataset.rule;
