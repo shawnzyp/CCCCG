@@ -1,9 +1,5 @@
 /* ========= helpers ========= */
-const $ = (id)=>document.getElementById(id);
-const qs = (s, r=document)=>r.querySelector(s);
-const qsa = (s, r=document)=>Array.from(r.querySelectorAll(s));
-const num = (v)=>{ const n=Number(v); return Number.isFinite(n)?n:0; };
-const mod = (score)=>Math.floor((num(score)-10)/2);
+import { $, qs, qsa, num, mod, calculateArmorBonus } from './helpers.js';
 function show(id){ $(id).classList.remove('hidden'); }
 function hide(id){ $(id).classList.add('hidden'); }
 let audioCtx = null;
@@ -87,22 +83,6 @@ const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
 
 /* ========= derived helpers ========= */
-function calculateArmorBonus(){
-  let body=[], head=[], shield=0, misc=0;
-  qsa("[data-kind='armor']").forEach(card=>{
-    const eq = qs("input[type='checkbox'][data-f='equipped']", card);
-    const bonus = num(qs("input[data-f='bonus']", card)?.value||0);
-    const slot = qs("select[data-f='slot']", card)?.value||'Body';
-    if (eq && eq.checked){
-      if (slot==='Body') body.push(bonus);
-      else if (slot==='Head') head.push(bonus);
-      else if (slot==='Shield') shield += bonus;
-      else misc += bonus;
-    }
-  });
-  return (body.length?Math.max(...body):0) + (head.length?Math.max(...head):0) + shield + misc;
-}
-
 function updateSP(){
   const spMax = 5 + mod(elCon.value);
   elSPBar.max = spMax;
