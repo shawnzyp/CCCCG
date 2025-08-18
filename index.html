@@ -75,7 +75,7 @@
   <!-- COMBAT -->
   <section data-tab="combat">
     <h2 data-rule="8">Tools</h2>
-    <div class="grid grid-2">
+    <div class="grid grid-3">
       <fieldset class="card">
         <legend>Dice Roller</legend>
         <div class="inline">
@@ -92,6 +92,13 @@
         <div class="inline">
           <button id="flip">Flip</button>
           <span class="pill" id="flip-out"></span>
+        </div>
+      </fieldset>
+      <fieldset class="card">
+        <legend>Death Save</legend>
+        <div class="inline">
+          <button id="death-save">Roll</button>
+          <span class="pill" id="death-out"></span>
         </div>
       </fieldset>
     </div>
@@ -402,9 +409,10 @@
       </svg>
     </button>
     <h3>Recent Log</h3>
-    <div class="grid grid-2">
+    <div class="grid grid-3">
       <div><h4 style="margin:0">Dice</h4><div id="log-dice" class="catalog"></div></div>
       <div><h4 style="margin:0">Coins</h4><div id="log-coin" class="catalog"></div></div>
+      <div><h4 style="margin:0">Death Saves</h4><div id="log-death" class="catalog"></div></div>
     </div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
 </div>
