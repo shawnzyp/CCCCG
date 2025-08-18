@@ -1,7 +1,22 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus } from './helpers.js';
-function show(id){ $(id).classList.remove('hidden'); }
-function hide(id){ $(id).classList.add('hidden'); }
+let lastFocus = null;
+function show(id){
+  const el = $(id);
+  if(!el) return;
+  lastFocus = document.activeElement;
+  el.classList.remove('hidden');
+  el.setAttribute('aria-hidden','false');
+  const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
+  focusEl?.focus();
+}
+function hide(id){
+  const el = $(id);
+  if(!el) return;
+  el.classList.add('hidden');
+  el.setAttribute('aria-hidden','true');
+  lastFocus?.focus();
+}
 let audioCtx = null;
 window.addEventListener('unload', () => audioCtx?.close());
 function playTone(type){
@@ -128,6 +143,9 @@ const elInitiative = $('initiative');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
+const elXP = $('xp');
+const elXPBar = $('xp-bar');
+const elXPPill = $('xp-pill');
 
 /* ========= derived helpers ========= */
 function updateSP(){
@@ -142,6 +160,14 @@ function updateHP(){
   elHPBar.max = Math.max(0, total);
   if (!num(elHPBar.value)) elHPBar.value = elHPBar.max;
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+}
+
+function updateXP(){
+  const next = 100;
+  const val = Math.max(0, num(elXP.value)) % next;
+  elXPBar.max = next;
+  elXPBar.value = val;
+  elXPPill.textContent = `${val}/${next}`;
 }
 
 function updateDerived(){
@@ -162,11 +188,13 @@ function updateDerived(){
     const val = mod($(s.abil).value) + ($('skill-'+i+'-prof')?.checked ? pb : 0);
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
   });
+  updateXP();
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
+elXP?.addEventListener('input', updateXP);
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
@@ -194,6 +222,7 @@ function safeParse(key){
 }
 const diceLog = safeParse('dice-log');
 const coinLog = safeParse('coin-log');
+const campaignLog = safeParse('campaign-log');
 const fmt = (ts)=>new Date(ts).toLocaleTimeString();
 function pushLog(arr, entry, key){ arr.push(entry); if (arr.length>30) arr.splice(0, arr.length-30); localStorage.setItem(key, JSON.stringify(arr)); }
 function renderLogs(){
@@ -202,9 +231,12 @@ function renderLogs(){
 }
 $('roll-dice').addEventListener('click', ()=>{
   const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
+  const out = $('dice-out');
+  out.classList.remove('rolling');
   const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
   const sum = rolls.reduce((a,b)=>a+b,0);
-  $('dice-out').textContent = `Rolls: ${rolls.join(', ')} (Sum: ${sum})`;
+  out.textContent = `Rolls: ${rolls.join(', ')} (Sum: ${sum})`;
+  void out.offsetWidth; out.classList.add('rolling');
   pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
 });
 $('flip').addEventListener('click', ()=>{
@@ -212,8 +244,20 @@ $('flip').addEventListener('click', ()=>{
   $('flip-out').textContent = v;
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
 });
+$('campaign-add')?.addEventListener('click', ()=>{
+  const text = $('campaign-entry').value.trim();
+  if(!text) return;
+  pushLog(campaignLog, {t:Date.now(), text}, 'campaign-log');
+  $('campaign-entry').value='';
+  renderCampaignLog();
+  pushHistory();
+});
+function renderCampaignLog(){
+  $('campaign-log').innerHTML = campaignLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
+}
+renderCampaignLog();
 $('btn-log').addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
-qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=> b.closest('.overlay')?.classList.add('hidden') ));
+qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
 /* ========= Card Helper ========= */
 const CARD_CONFIG = {
@@ -600,6 +644,7 @@ function serialize(){
     qty: Number(qs("[data-f='qty']", card)?.value || 1),
     notes: qs("[data-f='notes']", card)?.value || ''
   }));
+  data.campaignLog = campaignLog;
   return data;
 }
 function deserialize(data){
@@ -610,6 +655,9 @@ function deserialize(data){
   (data?.weapons||[]).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
   (data?.armor||[]).forEach(a=> $('armors').appendChild(createCard('armor', a)));
   (data?.items||[]).forEach(i=> $('items').appendChild(createCard('item', i)));
+  campaignLog.length=0; (data?.campaignLog||[]).forEach(e=>campaignLog.push(e));
+  localStorage.setItem('campaign-log', JSON.stringify(campaignLog));
+  renderCampaignLog();
   updateDerived();
 }
 
@@ -637,9 +685,7 @@ function redo(){
 }
 
 document.addEventListener('keydown', e=>{
-  if(e.ctrlKey && e.key==='z'){ e.preventDefault(); undo(); }
-  else if(e.ctrlKey && (e.key==='y' || (e.shiftKey && e.key==='Z'))){ e.preventDefault(); redo(); }
-  else if(e.ctrlKey && e.key==='s'){ e.preventDefault(); $('btn-save')?.click(); }
+
 });
 
 (function(){
@@ -715,7 +761,9 @@ $('btn-rules').addEventListener('click', ()=> show('modal-rules'));
 
 /* ========= Close + click-outside ========= */
 $('btn-log').addEventListener('click', ()=> show('modal-log'));
-qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) ov.classList.add('hidden'); }));
+qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
+$('tour-ok')?.addEventListener('click', ()=>{ hide('modal-tour'); localStorage.setItem('tour-done','1'); });
+if(!localStorage.getItem('tour-done')) show('modal-tour');
 
 /* ========= boot ========= */
 updateDerived();
