@@ -475,62 +475,91 @@ $('btn-log').addEventListener('click', ()=>{ renderLogs(); show('modal-log'); })
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=> b.closest('.overlay')?.classList.add('hidden') ));
 
 /* ========= Powers & Signature Moves ========= */
-function cardPower(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='power';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Power Name" value="${pref.name||''}"/>
-      <input data-f="sp" placeholder="SP" style="max-width:100px" value="${pref.sp||''}"/>
-      <input data-f="save" placeholder="Save" style="max-width:160px" value="${pref.save||''}"/>
-      <input data-f="range" placeholder="Range" style="max-width:160px" value="${pref.range||''}"/>
-    </div>
-    <textarea data-f="effect" rows="3" placeholder="Effect">${pref.effect||''}</textarea>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
-function cardSig(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='sig';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Signature Name" value="${pref.name||''}"/>
-      <input data-f="sp" placeholder="SP" style="max-width:100px" value="${pref.sp||''}"/>
-      <input data-f="save" placeholder="Save" style="max-width:160px" value="${pref.save||''}"/>
-      <input data-f="special" placeholder="Special" style="max-width:200px" value="${pref.special||''}"/>
-    </div>
-    <textarea data-f="desc" rows="3" placeholder="Effect / Visual Description">${pref.desc||''}</textarea>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
+function sanitize(v){ return typeof v==='string'? v : String(v??''); }
+function cardPower(pref={}){
+  const d=document.createElement('div'); d.className='card'; d.dataset.kind='power';
+  const top=document.createElement('div'); top.className='inline';
+  const name=document.createElement('input'); name.dataset.f='name'; name.placeholder='Power Name'; name.value=sanitize(pref.name);
+  const sp=document.createElement('input'); sp.dataset.f='sp'; sp.placeholder='SP'; sp.style.maxWidth='100px'; sp.value=sanitize(pref.sp);
+  const save=document.createElement('input'); save.dataset.f='save'; save.placeholder='Save'; save.style.maxWidth='160px'; save.value=sanitize(pref.save);
+  const range=document.createElement('input'); range.dataset.f='range'; range.placeholder='Range'; range.style.maxWidth='160px'; range.value=sanitize(pref.range);
+  top.append(name, sp, save, range);
+  const effect=document.createElement('textarea'); effect.dataset.f='effect'; effect.rows=3; effect.placeholder='Effect'; effect.value=sanitize(pref.effect);
+  const actions=document.createElement('div'); actions.className='inline';
+  const del=document.createElement('button'); del.className='btn-sm'; del.dataset.act='del'; del.textContent='Delete';
+  actions.appendChild(del);
+  del.addEventListener('click', ()=> d.remove());
+  d.append(top, effect, actions);
+  return d;
+}
+function cardSig(pref={}){
+  const d=document.createElement('div'); d.className='card'; d.dataset.kind='sig';
+  const top=document.createElement('div'); top.className='inline';
+  const name=document.createElement('input'); name.dataset.f='name'; name.placeholder='Signature Name'; name.value=sanitize(pref.name);
+  const sp=document.createElement('input'); sp.dataset.f='sp'; sp.placeholder='SP'; sp.style.maxWidth='100px'; sp.value=sanitize(pref.sp);
+  const save=document.createElement('input'); save.dataset.f='save'; save.placeholder='Save'; save.style.maxWidth='160px'; save.value=sanitize(pref.save);
+  const special=document.createElement('input'); special.dataset.f='special'; special.placeholder='Special'; special.style.maxWidth='200px'; special.value=sanitize(pref.special);
+  top.append(name, sp, save, special);
+  const desc=document.createElement('textarea'); desc.dataset.f='desc'; desc.rows=3; desc.placeholder='Effect / Visual Description'; desc.value=sanitize(pref.desc);
+  const actions=document.createElement('div'); actions.className='inline';
+  const del=document.createElement('button'); del.className='btn-sm'; del.dataset.act='del'; del.textContent='Delete';
+  actions.appendChild(del);
+  del.addEventListener('click', ()=> d.remove());
+  d.append(top, desc, actions);
+  return d;
+}
 $('add-power').addEventListener('click', ()=> $('powers').appendChild(cardPower()));
 $('add-sig').addEventListener('click', ()=> $('sigs').appendChild(cardSig()));
 
 /* ========= Gear ========= */
-function cardWeapon(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='weapon';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Name" value="${pref.name||''}"/>
-      <input data-f="damage" placeholder="Damage" style="max-width:140px" value="${pref.damage||''}"/>
-      <input data-f="range" placeholder="Range" style="max-width:160px" value="${pref.range||''}"/>
-    </div>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
-function cardArmor(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='armor';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Name" value="${pref.name||''}"/>
-      <select data-f="slot" style="max-width:140px"><option>Body</option><option>Head</option><option>Shield</option><option>Misc</option></select>
-      <input data-f="bonus" type="number" inputmode="numeric" placeholder="Bonus" style="max-width:120px" value="${pref.bonus||0}"/>
-      <label class="inline" style="gap:6px"><input type="checkbox" data-f="equipped" ${pref.equipped?'checked':''}/> Equipped</label>
-    </div>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-f="slot"]').value = pref.slot || 'Body';
-  d.querySelectorAll('input,select').forEach(el=> el.addEventListener('input', updateDerived));
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=>{ d.remove(); updateDerived(); });
-  return d;}
-function cardItem(pref={}){ const d=document.createElement('div'); d.className='card'; d.dataset.kind='item';
-  d.innerHTML=`<div class="inline">
-      <input data-f="name" placeholder="Name" value="${pref.name||''}"/>
-      <input data-f="qty" type="number" inputmode="numeric" placeholder="Qty" style="max-width:100px" value="${pref.qty||1}"/>
-      <input data-f="notes" placeholder="Notes" value="${pref.notes||''}"/>
-    </div>
-    <div class="inline"><button class="btn-sm" data-act="del">Delete</button></div>`;
-  d.querySelector('[data-act="del"]').addEventListener('click', ()=> d.remove());
-  return d;}
+function cardWeapon(pref={}){
+  const d=document.createElement('div'); d.className='card'; d.dataset.kind='weapon';
+  const top=document.createElement('div'); top.className='inline';
+  const name=document.createElement('input'); name.dataset.f='name'; name.placeholder='Name'; name.value=sanitize(pref.name);
+  const dmg=document.createElement('input'); dmg.dataset.f='damage'; dmg.placeholder='Damage'; dmg.style.maxWidth='140px'; dmg.value=sanitize(pref.damage);
+  const range=document.createElement('input'); range.dataset.f='range'; range.placeholder='Range'; range.style.maxWidth='160px'; range.value=sanitize(pref.range);
+  top.append(name, dmg, range);
+  const actions=document.createElement('div'); actions.className='inline';
+  const del=document.createElement('button'); del.className='btn-sm'; del.dataset.act='del'; del.textContent='Delete';
+  actions.appendChild(del);
+  del.addEventListener('click', ()=> d.remove());
+  d.append(top, actions);
+  return d;
+}
+function cardArmor(pref={}){
+  const d=document.createElement('div'); d.className='card'; d.dataset.kind='armor';
+  const top=document.createElement('div'); top.className='inline';
+  const name=document.createElement('input'); name.dataset.f='name'; name.placeholder='Name'; name.value=sanitize(pref.name);
+  const slot=document.createElement('select'); slot.dataset.f='slot'; slot.style.maxWidth='140px';
+  ['Body','Head','Shield','Misc'].forEach(optTxt=>{ const opt=document.createElement('option'); opt.textContent=optTxt; slot.appendChild(opt); });
+  slot.value=sanitize(pref.slot || 'Body');
+  const bonus=document.createElement('input'); bonus.dataset.f='bonus'; bonus.type='number'; bonus.inputMode='numeric'; bonus.placeholder='Bonus'; bonus.style.maxWidth='120px'; bonus.value=sanitize(pref.bonus??0);
+  const lbl=document.createElement('label'); lbl.className='inline'; lbl.style.gap='6px';
+  const equipped=document.createElement('input'); equipped.type='checkbox'; equipped.dataset.f='equipped'; equipped.checked=!!pref.equipped;
+  lbl.append(equipped, document.createTextNode(' Equipped'));
+  top.append(name, slot, bonus, lbl);
+  const actions=document.createElement('div'); actions.className='inline';
+  const del=document.createElement('button'); del.className='btn-sm'; del.dataset.act='del'; del.textContent='Delete';
+  actions.appendChild(del);
+  [name, slot, bonus, equipped].forEach(el=> el.addEventListener('input', updateDerived));
+  del.addEventListener('click', ()=>{ d.remove(); updateDerived(); });
+  d.append(top, actions);
+  return d;
+}
+function cardItem(pref={}){
+  const d=document.createElement('div'); d.className='card'; d.dataset.kind='item';
+  const top=document.createElement('div'); top.className='inline';
+  const name=document.createElement('input'); name.dataset.f='name'; name.placeholder='Name'; name.value=sanitize(pref.name);
+  const qty=document.createElement('input'); qty.dataset.f='qty'; qty.type='number'; qty.inputMode='numeric'; qty.placeholder='Qty'; qty.style.maxWidth='100px'; qty.value=sanitize(pref.qty??1);
+  const notes=document.createElement('input'); notes.dataset.f='notes'; notes.placeholder='Notes'; notes.value=sanitize(pref.notes);
+  top.append(name, qty, notes);
+  const actions=document.createElement('div'); actions.className='inline';
+  const del=document.createElement('button'); del.className='btn-sm'; del.dataset.act='del'; del.textContent='Delete';
+  actions.appendChild(del);
+  del.addEventListener('click', ()=> d.remove());
+  d.append(top, actions);
+  return d;
+}
 $('add-weapon').addEventListener('click', ()=> $('weapons').appendChild(cardWeapon()));
 $('add-armor').addEventListener('click', ()=> $('armors').appendChild(cardArmor()));
 $('add-item').addEventListener('click', ()=> $('items').appendChild(cardItem()));
