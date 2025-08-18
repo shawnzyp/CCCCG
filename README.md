@@ -2,6 +2,13 @@
 
 Hosted version of the mobile-optimized character sheet for GitHub Pages.
 
+## CCCCG Features
+
+- Auto-fills classification perks along with matching resistances and vulnerabilities
+- Offers origin story options and extensive character questions for backstory building
+- Tracks cinematic points and energy resistances in the combat tab
+- Logs downtime activities like Research, Training, and Media Control for campaign bookkeeping
+
 ## Firebase Configuration
 
 Firebase settings are now stored in a standalone `firebase-config.json` file. The

@@ -81,6 +81,12 @@ const elInitiative = $('initiative');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
+const elClass = $('classification');
+const elClassPerk = $('class-perk');
+const elResist = $('resist');
+const elVuln = $('vuln');
+const elCPBar = $('cp-bar');
+const elCPPill = $('cp-pill');
 
 /* ========= derived helpers ========= */
 function updateSP(){
@@ -111,6 +117,22 @@ function updateDerived(){
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 
+const CLASS_DATA = {
+  'Mutant': { perk: 'Reroll one failed saving throw per long rest.', res: 'Radiation, Psychic', vuln: 'Necrotic, Force' },
+  'Enhanced Human': { perk: 'Advantage on all Technology-related checks.', res: 'Piercing, Fire', vuln: 'Psychic, Radiation' },
+  'Magic User': { perk: 'Cast one minor magical effect (prestidigitation) per long rest.', res: 'Force, Necrotic', vuln: 'Confusion, Radiation' },
+  'Alien/Extraterrestrial': { perk: 'Immune to environmental hazard and no penalty to movement in rough terrain.', res: 'Cold, Acid, Lightning', vuln: 'Radiant, Emotion' },
+  'Mystical Being': { perk: '+2 to Persuasion or Intimidation checks.', res: 'Corruption, Radiation', vuln: 'Radiant, Psychic' }
+};
+function updateClassDetails(){
+  const d = CLASS_DATA[elClass.value] || {};
+  elClassPerk.value = d.perk || '';
+  elResist.value = d.res || '';
+  elVuln.value = d.vuln || '';
+}
+elClass.addEventListener('change', updateClassDetails);
+updateClassDetails();
+
 /* ========= HP/SP controls ========= */
 function setHP(v){
   elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
@@ -126,6 +148,14 @@ $('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
+
+function setCP(v){
+  elCPBar.value = Math.max(0, Math.min(num(elCPBar.max), v));
+  elCPPill.textContent = `${num(elCPBar.value)}/${num(elCPBar.max)}`;
+}
+$('cp-use').addEventListener('click', ()=>{ const d=num($('cp-amt').value)||0; setCP(num(elCPBar.value)-d); });
+$('cp-reset').addEventListener('click', ()=> setCP(num(elCPBar.max)));
+setCP(num(elCPBar.value)||num(elCPBar.max));
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
