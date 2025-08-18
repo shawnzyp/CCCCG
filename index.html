@@ -74,23 +74,20 @@
   <!-- COMBAT -->
   <section data-tab="combat">
     <h2 data-rule="8">Tools</h2>
-    <div class="grid grid-3">
+    <div class="grid grid-2">
       <fieldset class="card">
-        <legend>Dice Roller</legend>
-        <div class="inline">
+        <legend>Roll &amp; Flip</legend>
+        <div class="inline roll-flip">
           <label for="dice-sides" class="sr-only">Sides</label>
-          <select id="dice-sides"><option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option selected>20</option><option>100</option></select>
+          <select id="dice-sides">
+            <option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option selected>20</option><option>100</option>
+          </select>
           <label for="dice-count" class="sr-only">Count</label>
-          <input id="dice-count" type="number" inputmode="numeric" min="1" value="1" style="max-width:120px"/>
-          <button id="roll-dice" style="max-width:160px">Roll</button>
-        </div>
-        <div class="small" id="dice-out"></div>
-      </fieldset>
-      <fieldset class="card">
-        <legend>Coin Flip</legend>
-        <div class="inline">
-          <button id="flip">Flip</button>
-          <span class="pill" id="flip-out"></span>
+          <input id="dice-count" type="number" inputmode="numeric" min="1" value="1"/>
+          <button id="roll-dice" class="btn-sm">Roll</button>
+          <span class="pill result" id="dice-out"></span>
+          <button id="flip" class="btn-sm">Flip</button>
+          <span class="pill result" id="flip-out"></span>
         </div>
       </fieldset>
       <fieldset class="card">
