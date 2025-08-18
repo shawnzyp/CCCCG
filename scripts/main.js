@@ -1,5 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus } from './helpers.js';
+import { saveCloud, loadCloud } from './storage.js';
 let lastFocus = null;
 function show(id){
   const el = $(id);
@@ -851,64 +852,15 @@ document.addEventListener('keydown', e=>{
   }
   pushHistory();
 })();
-const ENCODE = (s)=>encodeURIComponent(String(s||''));
-async function saveCloud(name, payload){
-  const r = await getRTDB().catch(err=>{ console.error('RTDB init failed', err); return null; });
-  if (r){
-    const { db, ref, set } = r;
-    let tries = 2;
-    while(tries--){
-      try{
-        await set(ref(db, '/saves/'+ENCODE(name)), { updatedAt: Date.now(), data: payload });
-        break;
-      }catch(e){
-        console.error('Firebase set failed', e);
-        if (!tries){ toast('Cloud save failed. Data saved locally.','error'); }
-        else{ await new Promise(res=>setTimeout(res,1000)); }
-      }
-    }
-  } else {
-    if (!navigator.onLine) toast('Offline: saved locally only','error');
-    else toast('Cloud unavailable; saved locally','error');
-  }
-  try{ localStorage.setItem('save:'+name, JSON.stringify(payload)); localStorage.setItem('last-save', name);}catch(e){ console.error('Local save failed', e); }
-}
-async function loadCloud(name){
-  const r = await getRTDB().catch(err=>{ console.error('RTDB init failed', err); return null; });
-  if (r){
-    const { db, ref, get } = r;
-    let snap=null, tries=2;
-    while(tries--){
-      try{
-        snap = await get(ref(db, '/saves/'+ENCODE(name)));
-        if (!snap.exists()) snap = await get(ref(db, '/saves/'+name));
-        break;
-      }catch(e){
-        console.error('Firebase get failed', e);
-        if (!tries){ toast('Cloud load failed. Trying local save.','error'); }
-        else{ await new Promise(res=>setTimeout(res,1000)); }
-      }
-    }
-    if (snap && snap.exists()){
-      const v = snap.val();
-      return v?.data || v?.character || v?.sheet || v;
-    }
-  } else {
-    if (!navigator.onLine) toast('Offline: using local save','error');
-    else toast('Cloud unavailable; using local save','error');
-  }
-  try{ const raw=localStorage.getItem('save:'+name); if(raw) return JSON.parse(raw); }catch(e){ console.error('Local load failed', e); }
-  throw new Error('No save found');
-}
 $('btn-save').addEventListener('click', ()=>{ $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || ''; show('modal-save'); });
 $('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
 $('do-save').addEventListener('click', async ()=>{
   const name = $('save-key').value.trim(); if(!name) return toast('Enter a name','error');
-  await saveCloud(name, serialize()); hide('modal-save'); toast('Saved','success');
+  await saveCloud(name, serialize(), { getRTDB, toast }); hide('modal-save'); toast('Saved','success');
 });
 $('do-load').addEventListener('click', async ()=>{
   const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
-  try{ const data = await loadCloud(name); deserialize(data); hide('modal-load'); toast('Loaded','success'); } catch(e){ console.error('Load failed', e); toast('Could not load: '+(e?.message||''),'error'); }
+  try{ const data = await loadCloud(name, { getRTDB, toast }); deserialize(data); hide('modal-load'); toast('Loaded','success'); } catch(e){ console.error('Load failed', e); toast('Could not load: '+(e?.message||''),'error'); }
 });
 
 /* ========= Rules ========= */
