@@ -383,6 +383,7 @@ button:active{transform:translateY(1px)}
 <div class="toast" id="toast"></div>
 
 <script type="module">
+import { saveCloud, loadCloud } from './firebase.js';
 /* ========= helpers ========= */
 const $ = (id)=>document.getElementById(id);
 const qs = (s, r=document)=>r.querySelector(s);
@@ -652,22 +653,6 @@ $('enc-reset').addEventListener('click', ()=>{ if(!confirm('Reset encounter and 
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
 /* ========= Save / Load (cloud-first, silent local mirror) ========= */
-async function getRTDB(){
-  const cfgEl = $('firebase-config'); if(!cfgEl) return null;
-  let cfg=null; try{ cfg=JSON.parse(cfgEl.textContent) }catch(e){}
-  if (!cfg || !cfg.apiKey || !cfg.databaseURL) return null;
-  const [{ initializeApp }, { getAuth, signInAnonymously, onAuthStateChanged }, { getDatabase, ref, get, set }] = await Promise.all([
-    import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js'),
-    import('https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js'),
-    import('https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js')
-  ]);
-  let app; try{ app = window.firebaseApp || initializeApp(cfg); window.firebaseApp = app; } catch(e){ app = window.firebaseApp; }
-  const auth = getAuth(app);
-  await new Promise(res => onAuthStateChanged(auth, ()=>res(), ()=>res()));
-  if(!auth.currentUser){ try{ await signInAnonymously(auth) }catch(e){} }
-  const db=getDatabase(app);
-  return { db, ref, get, set };
-}
 function serialize(){
   const data={};
   qsa('input,select,textarea').forEach(el=>{
@@ -716,26 +701,7 @@ function deserialize(data){
   (data?.items||[]).forEach(i=> $('items').appendChild(cardItem(i)));
   updateDerived();
 }
-const ENCODE = (s)=>encodeURIComponent(String(s||''));
-async function saveCloud(name, payload){
-  const r = await getRTDB().catch(()=>null);
-  if (r){ const { db, ref, set } = r; await set(ref(db, '/saves/'+ENCODE(name)), { updatedAt: Date.now(), data: payload }); }
-  try{ localStorage.setItem('save:'+name, JSON.stringify(payload)); localStorage.setItem('last-save', name);}catch(e){}
-}
-async function loadCloud(name){
-  const r = await getRTDB().catch(()=>null);
-  if (r){
-    const { db, ref, get } = r;
-    let snap = await get(ref(db, '/saves/'+ENCODE(name)));
-    if (!snap.exists()) snap = await get(ref(db, '/saves/'+name));
-    if (snap.exists()){
-      const v = snap.val();
-      return v?.data || v?.character || v?.sheet || v;
-    }
-  }
-  try{ const raw=localStorage.getItem('save:'+name); if(raw) return JSON.parse(raw); }catch(e){}
-  throw new Error('No save found');
-}
+// Firebase interactions are handled in firebase.js
 $('btn-save').addEventListener('click', ()=>{ $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || ''; show('modal-save'); });
 $('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
 $('do-save').addEventListener('click', async ()=>{
