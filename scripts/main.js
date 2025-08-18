@@ -105,8 +105,15 @@ qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num($('sp-ba
 $('long-rest').addEventListener('click', ()=>{ setHP(num($('hp-bar').max)); setSP(num($('sp-bar').max)); });
 
 /* ========= Dice/Coin + Logs ========= */
-const diceLog = JSON.parse(localStorage.getItem('dice-log')||'[]');
-const coinLog = JSON.parse(localStorage.getItem('coin-log')||'[]');
+function safeParse(key){
+  try{
+    return JSON.parse(localStorage.getItem(key)||'[]');
+  }catch(e){
+    return [];
+  }
+}
+const diceLog = safeParse('dice-log');
+const coinLog = safeParse('coin-log');
 const fmt = (ts)=>new Date(ts).toLocaleTimeString();
 function pushLog(arr, entry, key){ arr.push(entry); if (arr.length>30) arr.splice(0, arr.length-30); localStorage.setItem(key, JSON.stringify(arr)); }
 function renderLogs(){
