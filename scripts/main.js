@@ -95,8 +95,18 @@ ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 
 /* ========= HP/SP controls ========= */
-function setHP(v){ const hb=$('hp-bar'); hb.value = Math.max(0, Math.min(num(hb.max), v)); $('hp-pill').textContent = `${num(hb.value)}/${num(hb.max)}` + (num($('hp-temp').value)?` (+${num($('hp-temp').value)})`:``); }
-function setSP(v){ const sb=$('sp-bar'); sb.value = Math.max(0, Math.min(num(sb.max), v)); $('sp-pill').textContent = `${num(sb.value)}/${num(sb.max)}`; }
+function setHP(v){
+  const hb = $('hp-bar');
+  const max = num(hb.max);
+  hb.value = Math.max(0, Math.min(max, v));
+  $('hp-pill').textContent = `${num(hb.value)}/${max}` + (num($('hp-temp').value)?` (+${num($('hp-temp').value)})`:``);
+}
+function setSP(v){
+  const sb = $('sp-bar');
+  const max = num(sb.max);
+  sb.value = Math.max(0, Math.min(max, v));
+  $('sp-pill').textContent = `${num(sb.value)}/${max}`;
+}
 $('hp-dmg').addEventListener('click', ()=>{ let d=num($('hp-amt').value); if(!d) return; let tv=num($('hp-temp').value); if(d>0 && tv>0){ const use=Math.min(tv,d); tv-=use; $('hp-temp').value=tv; d-=use; } setHP(num($('hp-bar').value)-d); });
 $('hp-heal').addEventListener('click', ()=>{ const d=num($('hp-amt').value)||0; setHP(num($('hp-bar').value)+d); });
 $('hp-full').addEventListener('click', ()=> setHP(num($('hp-bar').max)));
