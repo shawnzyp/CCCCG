@@ -93,17 +93,24 @@ setTab('combat');
 const ABILS = ['str','dex','con','int','wis','cha'];
 const abilGrid = $('abil-grid');
 abilGrid.innerHTML = ABILS.map(a=>`
-  <div class="card">
+  <div class="ability-box">
     <label>${a.toUpperCase()}</label>
-    <div class="inline"><select id="${a}"></select><span class="pill" id="${a}-mod">+0</span></div>
+    <div class="score">
+      <select id="${a}"></select>
+      <span class="mod" id="${a}-mod">+0</span>
+    </div>
   </div>`).join('');
 ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
-  <div class="card">
+  <div class="ability-box">
     <label>${a.toUpperCase()}</label>
-    <div class="inline"><input type="checkbox" id="save-${a}-prof"/><span class="pill" id="save-${a}">+0</span></div>
+    <div class="score">
+      <span class="value" id="save-${a}">+0</span>
+      <span class="mod" id="save-${a}-base">+0</span>
+      <input type="checkbox" id="save-${a}-prof" class="prof"/>
+    </div>
   </div>`).join('');
 
 const SKILLS = [
@@ -128,9 +135,13 @@ const SKILLS = [
 ];
 const skillGrid = $('skills');
 skillGrid.innerHTML = SKILLS.map((s,i)=>`
-  <div class="card">
+  <div class="ability-box">
     <label>${s.name}</label>
-    <div class="inline"><input type="checkbox" id="skill-${i}-prof"/><span class="pill" id="skill-${i}">+0</span></div>
+    <div class="score">
+      <span class="value" id="skill-${i}">+0</span>
+      <span class="mod" id="skill-${i}-base">+0</span>
+      <input type="checkbox" id="skill-${i}-prof" class="prof"/>
+    </div>
   </div>`).join('');
 
 const ALIGNMENT_PERKS = {
@@ -272,12 +283,19 @@ function updateDerived(){
   const pb = num(elProfBonus.value)||2;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
   ABILS.forEach(a=>{
-    const val = mod($(a).value) + ($('save-'+a+'-prof')?.checked ? pb : 0);
+    const m = mod($(a).value);
+    $(a+'-mod').textContent = (m>=0?'+':'') + m;
+    const prof = $('save-'+a+'-prof')?.checked ? pb : 0;
+    const val = m + prof;
     $('save-'+a).textContent = (val>=0?'+':'') + val;
+    $('save-'+a+'-base').textContent = (m>=0?'+':'') + m;
   });
   SKILLS.forEach((s,i)=>{
-    const val = mod($(s.abil).value) + ($('skill-'+i+'-prof')?.checked ? pb : 0);
+    const m = mod($(s.abil).value);
+    const prof = $('skill-'+i+'-prof')?.checked ? pb : 0;
+    const val = m + prof;
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
+    $('skill-'+i+'-base').textContent = (m>=0?'+':'') + m;
   });
   updateXP();
 }
