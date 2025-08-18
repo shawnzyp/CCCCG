@@ -62,6 +62,40 @@ abilGrid.innerHTML = ABILS.map(a=>`
   </div>`).join('');
 ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
+const saveGrid = $('saves');
+saveGrid.innerHTML = ABILS.map(a=>`
+  <div class="card">
+    <label>${a.toUpperCase()}</label>
+    <div class="inline"><input type="checkbox" id="save-${a}-prof"/><span class="pill" id="save-${a}">+0</span></div>
+  </div>`).join('');
+
+const SKILLS = [
+  { name: 'Acrobatics', abil: 'dex' },
+  { name: 'Animal Handling', abil: 'wis' },
+  { name: 'Arcana', abil: 'int' },
+  { name: 'Athletics', abil: 'str' },
+  { name: 'Deception', abil: 'cha' },
+  { name: 'History', abil: 'int' },
+  { name: 'Insight', abil: 'wis' },
+  { name: 'Intimidation', abil: 'cha' },
+  { name: 'Investigation', abil: 'int' },
+  { name: 'Medicine', abil: 'wis' },
+  { name: 'Nature', abil: 'int' },
+  { name: 'Perception', abil: 'wis' },
+  { name: 'Performance', abil: 'cha' },
+  { name: 'Persuasion', abil: 'cha' },
+  { name: 'Religion', abil: 'int' },
+  { name: 'Sleight of Hand', abil: 'dex' },
+  { name: 'Stealth', abil: 'dex' },
+  { name: 'Survival', abil: 'wis' }
+];
+const skillGrid = $('skills');
+skillGrid.innerHTML = SKILLS.map((s,i)=>`
+  <div class="card">
+    <label>${s.name}</label>
+    <div class="inline"><input type="checkbox" id="skill-${i}-prof"/><span class="pill" id="skill-${i}">+0</span></div>
+  </div>`).join('');
+
 /* ========= cached elements ========= */
 const elPP = $('pp');
 const elTC = $('tc');
@@ -81,6 +115,18 @@ const elInitiative = $('initiative');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
+const elClass = $('classification');
+const elClassPerk = $('class-perk');
+const elResist = $('resist');
+const elVuln = $('vuln');
+const elCPBar = $('cp-bar');
+const elCPPill = $('cp-pill');
+const elStyle = $('power-style');
+const elStyle2 = $('power-style-2');
+const elStylePerk = $('style-perk');
+const elStyle2Perk = $('style2-perk');
+const elOrigin = $('origin');
+const elOriginPerk = $('origin-perk');
 
 /* ========= derived helpers ========= */
 function updateSP(){
@@ -107,9 +153,72 @@ function updateDerived(){
   elInitiative.value = mod(elDex.value);
   const pb = num(elProfBonus.value)||2;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
+  ABILS.forEach(a=>{
+    const val = mod($(a).value) + ($('save-'+a+'-prof')?.checked ? pb : 0);
+    $('save-'+a).textContent = (val>=0?'+':'') + val;
+  });
+  SKILLS.forEach((s,i)=>{
+    const val = mod($(s.abil).value) + ($('skill-'+i+'-prof')?.checked ? pb : 0);
+    $('skill-'+i).textContent = (val>=0?'+':'') + val;
+  });
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
+ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
+SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
+
+const CLASS_DATA = {
+  'Mutant': { perk: 'Reroll one failed saving throw per long rest.', res: 'Radiation, Psychic', vuln: 'Necrotic, Force' },
+  'Enhanced Human': { perk: 'Advantage on all Technology-related checks.', res: 'Piercing, Fire', vuln: 'Psychic, Radiation' },
+  'Magic User': { perk: 'Cast one minor magical effect (prestidigitation) per long rest.', res: 'Force, Necrotic', vuln: 'Confusion, Radiation' },
+  'Alien/Extraterrestrial': { perk: 'Immune to environmental hazard and no penalty to movement in rough terrain.', res: 'Cold, Acid, Lightning', vuln: 'Radiant, Emotion' },
+  'Mystical Being': { perk: '+2 to Persuasion or Intimidation checks.', res: 'Corruption, Radiation', vuln: 'Radiant, Psychic' }
+};
+
+const STYLE_DATA = {
+  'Physical Powerhouse': 'Cut one attack by half once per combat encounter.',
+  'Energy Manipulator': 'Reroll 1s once per turn.',
+  'Speedster': '+10 ft movement and +1 AC while moving 20+ ft.',
+  'Telekinetic/Psychic': 'Force enemies to reroll all rolls above a 17 once per rest.',
+  'Illusionist': 'Create a 1-min decoy illusion once per combat encounter.',
+  'Shape-shifter': 'Advantage on Deception, disguise freely.',
+  'Elemental Controller': '+2 to hit and +5 to damage once per turn when using elemental powers.'
+};
+
+const ORIGIN_DATA = {
+  'The Accident': 'Resistance to one damage type.',
+  'The Experiment': 'Reroll a failed CON or INT save once per long rest.',
+  'The Legacy': 'Use the powers of one other character you’ve met or are related to once per long rest.',
+  'The Awakening': '+5 to hit and +10 to damage when below ½ HP.',
+  'The Pact': 'Auto-success on one save or +10 to any roll once per long rest.',
+  'The Lost Time': 'Once per combat when using a power, roll a d20 (DC17); on success it costs no SP and gains +1d6 bonus.',
+  'The Exposure': '+5 elemental damage once per round.',
+  'The Rebirth': 'If knocked out, stand up with 1 HP and resistance to all damage for 1 round.',
+  'The Vigil': 'Create a shield once per combat reducing ally damage to 0 for one turn.',
+  'The Redemption': 'Once per day take damage for an ally to heal them 1d6 and give advantage; after combat you gain advantage on all saves till dawn.'
+};
+function updateClassDetails(){
+  const d = CLASS_DATA[elClass.value] || {};
+  elClassPerk.value = d.perk || '';
+  elResist.value = d.res || '';
+  elVuln.value = d.vuln || '';
+}
+elClass.addEventListener('change', updateClassDetails);
+updateClassDetails();
+
+function updateStyleDetails(){
+  elStylePerk.value = STYLE_DATA[elStyle.value] || '';
+  elStyle2Perk.value = STYLE_DATA[elStyle2.value] || '';
+}
+elStyle.addEventListener('change', updateStyleDetails);
+elStyle2.addEventListener('change', updateStyleDetails);
+updateStyleDetails();
+
+function updateOriginDetails(){
+  elOriginPerk.value = ORIGIN_DATA[elOrigin.value] || '';
+}
+elOrigin.addEventListener('change', updateOriginDetails);
+updateOriginDetails();
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
@@ -126,6 +235,14 @@ $('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
+
+function setCP(v){
+  elCPBar.value = Math.max(0, Math.min(num(elCPBar.max), v));
+  elCPPill.textContent = `${num(elCPBar.value)}/${num(elCPBar.max)}`;
+}
+$('cp-use').addEventListener('click', ()=>{ const d=num($('cp-amt').value)||0; setCP(num(elCPBar.value)-d); });
+$('cp-reset').addEventListener('click', ()=> setCP(num(elCPBar.max)));
+setCP(num(elCPBar.value)||num(elCPBar.max));
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
@@ -567,7 +684,6 @@ $('do-load').addEventListener('click', async ()=>{
 $('btn-rules').addEventListener('click', ()=> show('modal-rules'));
 
 /* ========= Close + click-outside ========= */
-$('btn-log').addEventListener('click', ()=> show('modal-log'));
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) ov.classList.add('hidden'); }));
 
 /* ========= boot ========= */
