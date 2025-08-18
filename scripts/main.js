@@ -27,19 +27,32 @@ function toast(msg, type='info'){
   setTimeout(()=>t.classList.remove('show'),1200);
 }
 
+// prevent negative numbers in numeric inputs
+document.addEventListener('input', e=>{
+  const el = e.target;
+  if(el.matches('input[type="number"]') && el.value !== '' && Number(el.value) < 0){
+    el.value = 0;
+  }
+});
+
 /* ========= theme ========= */
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
 function applyTheme(t){
-  root.classList.toggle('theme-light', t==='light');
+  root.classList.remove('theme-light','theme-high');
+  if(t==='light') root.classList.add('theme-light');
+  if(t==='high') root.classList.add('theme-high');
   if(btnTheme){
-    qs('#icon-sun', btnTheme).style.display = t==='light' ? 'none' : 'block';
-    qs('#icon-moon', btnTheme).style.display = t==='light' ? 'block' : 'none';
+    qs('#icon-sun', btnTheme).style.display = t==='dark' ? 'block' : 'none';
+    qs('#icon-contrast', btnTheme).style.display = t==='light' ? 'block' : 'none';
+    qs('#icon-moon', btnTheme).style.display = t==='high' ? 'block' : 'none';
   }
 }
-applyTheme(localStorage.getItem('theme')==='light'?'light':'dark');
+applyTheme(localStorage.getItem('theme') || 'dark');
 btnTheme?.addEventListener('click', ()=>{
-  const next = root.classList.contains('theme-light') ? 'dark' : 'light';
+  const themes=['dark','light','high'];
+  const curr=localStorage.getItem('theme')||'dark';
+  const next=themes[(themes.indexOf(curr)+1)%themes.length];
   localStorage.setItem('theme', next);
   applyTheme(next);
 });
