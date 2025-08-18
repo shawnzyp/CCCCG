@@ -2,6 +2,15 @@
 
 Hosted version of the mobile-optimized character sheet for GitHub Pages.
 
+## CCCCG Features
+
+- Auto-fills classification perks with matching resistances and vulnerabilities and surfaces primary/secondary power-style and origin perks, including the secondary style perk
+- Offers origin story options and extensive character questions for backstory building
+- Provides skill proficiency tracking with auto-calculated modifiers
+- Tracks cinematic points alongside resistances and vulnerabilities in the combat tab
+- Logs downtime activities like Research, Training, and Media Control for campaign bookkeeping
+- Captures all CCCCG ability, skill, and narrative inputs across the Combat, Abilities, Powers, Gear, and Story tabs
+
 ## Firebase Configuration
 
 Firebase settings are now stored in a standalone `firebase-config.json` file. The
