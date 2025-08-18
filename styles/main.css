@@ -40,6 +40,8 @@ button:active{transform:translateY(1px)}
 .catalog{max-height:360px;overflow:auto;border:1px dashed var(--line);border-radius:10px;padding:6px}
 .catalog-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px;border-bottom:1px solid var(--line)}
 .catalog-item:last-child{border-bottom:none}
+.catalog-item.active{background:var(--accent);color:var(--text-on-accent)}
+.catalog-item.active .pill{border-color:var(--text-on-accent);color:var(--text-on-accent)}
 .small{font-size:.9rem;color:var(--muted)}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1000;padding:16px}
 .overlay.hidden{display:none!important}
@@ -51,4 +53,3 @@ button:active{transform:translateY(1px)}
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.success{border-color:#16a34a;color:#16a34a}
 .toast.error{border-color:#dc2626;color:#dc2626}
-@media print{header,.tabs,.actions,.overlay{display:none!important} body{background:#fff;color:#000} section{box-shadow:none;border:1px solid #ccc} .pill{border-color:#000;color:#000}}
