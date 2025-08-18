@@ -148,6 +148,29 @@
         <input id="tc" type="number" readonly/>
       </fieldset>
     </div>
+
+    <div class="grid grid-2">
+      <fieldset class="card">
+        <legend>Cinematic Points</legend>
+        <div class="inline">
+          <progress id="cp-bar" max="1" value="1" style="width:100%"></progress>
+          <span class="pill" id="cp-pill">1/1</span>
+        </div>
+        <div class="inline">
+          <label for="cp-amt" class="sr-only">Amount</label>
+          <input id="cp-amt" type="number" inputmode="numeric" placeholder="Amount"/>
+          <button id="cp-use" class="btn-sm">Use</button>
+          <button id="cp-reset" class="btn-sm">Reset</button>
+        </div>
+      </fieldset>
+      <fieldset class="card">
+        <legend>Resistances &amp; Vulnerabilities</legend>
+        <label for="resist">Resistances</label>
+        <input id="resist" placeholder="e.g., Fire, Psychic"/>
+        <label for="vuln">Vulnerabilities</label>
+        <input id="vuln" placeholder="e.g., Cold, Force"/>
+      </fieldset>
+    </div>
   </section>
 
   <!-- ABILITIES -->
@@ -173,6 +196,14 @@
           <input id="power-save-dc" type="number" readonly/>
         </div>
       </div>
+    </fieldset>
+    <fieldset class="card">
+      <legend>Saving Throws</legend>
+      <div class="grid grid-3" id="saves"></div>
+    </fieldset>
+    <fieldset class="card">
+      <legend>Skills</legend>
+      <div class="grid grid-3" id="skills"></div>
     </fieldset>
   </section>
 
@@ -261,6 +292,7 @@
           <option>Mutant</option><option>Enhanced Human</option><option>Magic User</option><option>Alien/Extraterrestrial</option><option>Mystical Being</option>
         </select>
       </div>
+      <div class="card"><label for="class-perk">Classification Perk</label><input id="class-perk" readonly placeholder="Perk"/></div>
       <div class="card">
         <label for="power-style">Primary Power Style</label>
         <select id="power-style">
@@ -268,6 +300,7 @@
           <option>Telekinetic/Psychic</option><option>Illusionist</option><option>Shape-shifter</option><option>Elemental Controller</option>
         </select>
       </div>
+      <div class="card"><label for="style-perk">Primary Style Perk</label><input id="style-perk" readonly placeholder="Perk"/></div>
       <div class="card">
         <label for="power-style-2">Secondary Power Style</label>
         <select id="power-style-2">
@@ -276,11 +309,57 @@
           <option>Telekinetic/Psychic</option><option>Illusionist</option><option>Shape-shifter</option><option>Elemental Controller</option>
         </select>
       </div>
+      <div class="card"><label for="style2-perk">Secondary Style Perk</label><input id="style2-perk" readonly placeholder="Perk"/></div>
+      <div class="card">
+        <label for="origin">Origin Story</label>
+        <select id="origin">
+          <option>The Accident</option>
+          <option>The Experiment</option>
+          <option>The Legacy</option>
+          <option>The Awakening</option>
+          <option>The Pact</option>
+          <option>The Lost Time</option>
+          <option>The Exposure</option>
+          <option>The Rebirth</option>
+          <option>The Vigil</option>
+          <option>The Redemption</option>
+        </select>
+      </div>
+      <div class="card"><label for="origin-perk">Origin Perk</label><input id="origin-perk" readonly placeholder="Perk"/></div>
     </div>
 
     <div class="card">
       <label for="story-notes">Backstory / Notes</label>
       <textarea id="story-notes" rows="6" placeholder="Key events, allies, vulnerabilities, research/training notes, etc."></textarea>
+    </div>
+    <h3>Character Questions</h3>
+    <div class="grid grid-1">
+      <div class="card"><label for="q-mask">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
+      <div class="card"><label for="q-justice">What does justice mean to you?</label><textarea id="q-justice" rows="2"></textarea></div>
+      <div class="card"><label for="q-fear">What is your biggest fear or unresolved trauma?</label><textarea id="q-fear" rows="2"></textarea></div>
+      <div class="card"><label for="q-first-power">What moment first defined your sense of power—was it thrilling, terrifying, or tragic?</label><textarea id="q-first-power" rows="2"></textarea></div>
+      <div class="card"><label for="q-origin-meaning">What does your Origin Story mean to you now?</label><textarea id="q-origin-meaning" rows="2"></textarea></div>
+      <div class="card"><label for="q-before-powers">What was your life like before you had powers or before you remembered having them?</label><textarea id="q-before-powers" rows="2"></textarea></div>
+      <div class="card"><label for="q-power-scare">What is one way your powers scare even you?</label><textarea id="q-power-scare" rows="2"></textarea></div>
+      <div class="card"><label for="q-signature-move">What is your signature move or ability, and how does it reflect who you are?</label><textarea id="q-signature-move" rows="2"></textarea></div>
+      <div class="card"><label for="q-emotional">What happens to your powers when you are emotionally compromised?</label><textarea id="q-emotional" rows="2"></textarea></div>
+      <div class="card"><label for="q-no-line">What line will you never cross even if the world burns around you?</label><textarea id="q-no-line" rows="2"></textarea></div>
+      <div class="card"><label for="q-alignment-fear">Which Alignment do you identify with, and which do you fear becoming?</label><textarea id="q-alignment-fear" rows="2"></textarea></div>
+      <div class="card"><label for="q-opinion">Whose opinion matters more to you—civilians, teammates, or your faction superiors? Why?</label><textarea id="q-opinion" rows="2"></textarea></div>
+      <div class="card"><label for="q-drive">What drives you to fight—justice, guilt, revenge, legacy, redemption, or something else?</label><textarea id="q-drive" rows="2"></textarea></div>
+      <div class="card"><label for="q-walk-away">What would make you walk away from this life for good?</label><textarea id="q-walk-away" rows="2"></textarea></div>
+      <div class="card"><label for="q-secret">What is one major secret you are keeping from the rest of the team?</label><textarea id="q-secret" rows="2"></textarea></div>
+      <div class="card"><label for="q-vulnerable">What situation leaves you the most vulnerable—physically, emotionally, or strategically?</label><textarea id="q-vulnerable" rows="2"></textarea></div>
+      <div class="card"><label for="q-admire">Which teammate do you admire the most and what do they have that you lack?</label><textarea id="q-admire" rows="2"></textarea></div>
+      <div class="card"><label for="q-if-lost">If you lost your powers tomorrow, who would you still be?</label><textarea id="q-if-lost" rows="2"></textarea></div>
+    </div>
+    <h3>Downtime Activities</h3>
+    <div class="grid grid-1">
+      <div class="card"><label for="dt-media">Media Control</label><textarea id="dt-media" rows="2"></textarea></div>
+      <div class="card"><label for="dt-research">Research</label><textarea id="dt-research" rows="2"></textarea></div>
+      <div class="card"><label for="dt-train">Train or Tinker</label><textarea id="dt-train" rows="2"></textarea></div>
+      <div class="card"><label for="dt-intel">Gather Intel</label><textarea id="dt-intel" rows="2"></textarea></div>
+      <div class="card"><label for="dt-personal">Personal Time</label><textarea id="dt-personal" rows="2"></textarea></div>
     </div>
   </section>
 </main>
