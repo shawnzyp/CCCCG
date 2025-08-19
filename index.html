@@ -76,32 +76,37 @@
     <h2 data-rule="8">Tools</h2>
     <div class="grid grid-2">
       <fieldset class="card">
-        <legend>Roll &amp; Flip</legend>
-        <div class="inline roll-flip">
+        <legend>Dice Roll</legend>
+        <div class="inline">
           <label for="dice-sides" class="sr-only">Sides</label>
           <select id="dice-sides">
-            <option>4</option><option>6</option><option>8</option><option>10</option><option>12</option><option selected>20</option><option>100</option>
+            <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
           </select>
           <label for="dice-count" class="sr-only">Count</label>
           <input id="dice-count" type="number" inputmode="numeric" min="1" value="1"/>
           <button id="roll-dice" class="btn-sm">Roll</button>
-          <span class="pill result" id="dice-out"></span>
-          <button id="flip" class="btn-sm">Flip</button>
-          <span class="pill result" id="flip-out"></span>
         </div>
+        <span class="pill result" id="dice-out"></span>
       </fieldset>
       <fieldset class="card">
-        <legend>Death Saves</legend>
-        <div class="death-saves">
-          <label for="death-save-1" class="sr-only">Death Save 1</label>
-          <input type="checkbox" id="death-save-1"/>
-          <label for="death-save-2" class="sr-only">Death Save 2</label>
-          <input type="checkbox" id="death-save-2"/>
-          <label for="death-save-3" class="sr-only">Death Save 3</label>
-          <input type="checkbox" id="death-save-3"/>
+        <legend>Coin Flip</legend>
+        <div class="inline">
+          <button id="flip" class="btn-sm">Flip</button>
         </div>
+        <span class="pill result" id="flip-out"></span>
       </fieldset>
     </div>
+    <fieldset class="card">
+      <legend>Death Saves</legend>
+      <div class="death-saves">
+        <label for="death-save-1" class="sr-only">Death Save 1</label>
+        <input type="checkbox" id="death-save-1"/>
+        <label for="death-save-2" class="sr-only">Death Save 2</label>
+        <input type="checkbox" id="death-save-2"/>
+        <label for="death-save-3" class="sr-only">Death Save 3</label>
+        <input type="checkbox" id="death-save-3"/>
+      </div>
+    </fieldset>
   </section>
 
   <section data-tab="combat">
