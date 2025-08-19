@@ -1,6 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
-import { saveLocal, loadLocal, saveCloud, loadCloud } from './storage.js';
+import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer } from './users.js';
 let lastFocus = null;
 let cccgPage = 1;
@@ -255,7 +255,6 @@ document.addEventListener('click', e => {
       !e.target.closest('header .tabs') &&
       !e.target.closest('#statuses') &&
       !e.target.closest('#modal-enc') &&
-      !e.target.closest('#modal-load') &&
       !e.target.closest('#modal-log') &&
       !e.target.closest('#modal-log-full') &&
       !e.target.closest('#modal-rules') &&
@@ -1153,28 +1152,6 @@ $('btn-save').addEventListener('click', async () => {
     btn.classList.remove('loading'); btn.disabled = false;
   }
 });
-$('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
-$('do-load').addEventListener('click', async ()=>{
-  const btn = $('do-load');
-  const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
-  btn.classList.add('loading'); btn.disabled = true;
-  try{
-    let data;
-    try { data = await loadCloud(name); }
-    catch(e){
-      console.error('Cloud load failed', e);
-      data = await loadLocal(name);
-    }
-    deserialize(data); hide('modal-load'); toast('Loaded','success');
-  }
-  catch(e){
-    console.error('Load failed', e); toast('Could not load: '+(e && e.message ? e.message : ''),'error');
-  }
-  finally{
-    btn.classList.remove('loading'); btn.disabled = false;
-  }
-});
-
 
 
 /* ========= Character Creation Wizard ========= */
