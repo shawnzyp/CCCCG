@@ -36,6 +36,11 @@ describe('user management', () => {
     expect(data.hp).toBe(20);
   });
 
+  test('handles corrupted player storage gracefully', () => {
+    localStorage.setItem('players', '{not valid json');
+    expect(getPlayers()).toEqual([]);
+  });
+
   test('save fails without login', async () => {
     registerPlayer('Bob', 'pw2');
     await expect(savePlayerCharacter('Bob', {})).rejects.toThrow('Not authorized');
