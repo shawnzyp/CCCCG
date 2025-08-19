@@ -320,6 +320,7 @@ const elHPRoll = $('hp-roll');
 const elHPTemp = $('hp-temp');
 const elHPRollAdd = $('hp-roll-add');
 const elHPRollInput = $('hp-roll-input');
+const elHPRollList = $('hp-roll-list');
 const elInitiative = $('initiative');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
@@ -328,6 +329,12 @@ const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const elTier = $('tier');
+
+let hpRolls = [];
+if (elHPRoll) {
+  const initial = num(elHPRoll.value);
+  if (initial) hpRolls = [initial];
+}
 
 const XP_TIERS = [
   { xp: 0, label: 'Tier 5 – Rookie' },
@@ -442,16 +449,40 @@ $('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
+function renderHPRollList(){
+  if(!elHPRollList) return;
+  elHPRollList.innerHTML='';
+  hpRolls.forEach((val,idx)=>{
+    const li=document.createElement('li');
+    li.textContent = `+${val}`;
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='btn-sm';
+    btn.textContent='Delete';
+    btn.addEventListener('click', ()=>{
+      hpRolls.splice(idx,1);
+      elHPRoll.value = hpRolls.reduce((a,b)=>a+b,0);
+      updateHP();
+      renderHPRollList();
+    });
+    li.appendChild(btn);
+    elHPRollList.appendChild(li);
+  });
+  elHPRollList.style.display = hpRolls.length ? 'block' : 'none';
+}
 if (elHPRollAdd) {
   elHPRollAdd.addEventListener('click', ()=>{
     elHPRollInput.value='';
+    renderHPRollList();
     show('modal-hp-roll');
   });
   $('hp-roll-save').addEventListener('click', ()=>{
     const v=num(elHPRollInput.value);
     if(!v) return hide('modal-hp-roll');
-    elHPRoll.value = num(elHPRoll.value)+v;
+    hpRolls.push(v);
+    elHPRoll.value = hpRolls.reduce((a,b)=>a+b,0);
     updateHP();
+    renderHPRollList();
     hide('modal-hp-roll');
   });
   qsa('#modal-hp-roll [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-hp-roll')));
