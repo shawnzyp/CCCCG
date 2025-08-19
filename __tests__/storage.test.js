@@ -26,4 +26,23 @@ describe('saveCloud/loadCloud', () => {
     expect(localStorage.getItem('save:remove')).toBeNull();
     expect(localStorage.getItem('last-save')).toBeNull();
   });
+
+  test('uses provided RTDB helpers when available', async () => {
+    const store = {};
+    const mockRemote = {
+      db: {},
+      ref: (db, path) => path,
+      set: async (path, data) => { store[path] = data; },
+      get: async (path) => ({ exists: () => path in store, val: () => store[path] }),
+      remove: async (path) => { delete store[path]; }
+    };
+    const mockGetRTDB = async () => mockRemote;
+
+    await saveCloud('remote', { zap: 1 }, { getRTDB: mockGetRTDB });
+    expect(store['/saves/remote']).toBeTruthy();
+    const loaded = await loadCloud('remote', { getRTDB: mockGetRTDB });
+    expect(loaded).toEqual({ zap: 1 });
+    await deleteSave('remote', { getRTDB: mockGetRTDB });
+    await expect(loadCloud('remote', { getRTDB: mockGetRTDB })).rejects.toThrow('No save found');
+  });
 });
