@@ -19,6 +19,9 @@ describe('proficiencyBonus', () => {
     expect(proficiencyBonus(1)).toBe(2);
     expect(proficiencyBonus(5)).toBe(3);
     expect(proficiencyBonus('12')).toBe(4);
+    expect(proficiencyBonus(0)).toBe(2);
+    expect(proficiencyBonus(-3)).toBe(2);
+    expect(proficiencyBonus('abc')).toBe(2);
   });
 });
 

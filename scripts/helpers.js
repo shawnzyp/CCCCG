@@ -3,7 +3,15 @@ export const qs = (s, r=document) => r.querySelector(s);
 export const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
 export const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 export const mod = (score) => Math.floor((num(score) - 10) / 2);
-export const proficiencyBonus = (level) => Math.floor((num(level) - 1) / 4) + 2;
+// Proficiency bonuses in 5e are based on character level and always assume a
+// minimum level of 1. The previous implementation allowed invalid or
+// non-numeric values to fall through as level 0 which produced an incorrect
+// bonus of 1. Clamp the provided level to at least 1 so that malformed input
+// still yields the baseline +2 bonus.
+export const proficiencyBonus = (level) => {
+  const lvl = Math.max(1, num(level));
+  return Math.floor((lvl - 1) / 4) + 2;
+};
 export const wizardProgress = (i, total) => {
   const curr = Math.max(1, Math.min(num(i) + 1, num(total)));
   const max = Math.max(num(total), curr);
