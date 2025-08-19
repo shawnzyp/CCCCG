@@ -467,20 +467,18 @@ function safeParse(key){
 }
 const diceLog = safeParse('dice-log');
 const coinLog = safeParse('coin-log');
-const deathLog = safeParse('death-log');
 const campaignLog = safeParse('campaign-log');
 const fmt = (ts)=>new Date(ts).toLocaleTimeString();
 function pushLog(arr, entry, key){ arr.push(entry); if (arr.length>30) arr.splice(0, arr.length-30); localStorage.setItem(key, JSON.stringify(arr)); }
 function renderLogs(){
   $('log-dice').innerHTML = diceLog.slice(-5).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
   $('log-coin').innerHTML = coinLog.slice(-5).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
-  $('log-death').innerHTML = deathLog.slice(-5).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
 }
 function renderFullLogs(){
   $('full-log-dice').innerHTML = diceLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
   $('full-log-coin').innerHTML = coinLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
-  $('full-log-death').innerHTML = deathLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
 }
+renderLogs();
 $('roll-dice').addEventListener('click', ()=>{
   const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
   const out = $('dice-out');
@@ -490,18 +488,19 @@ $('roll-dice').addEventListener('click', ()=>{
   out.textContent = sum;
   void out.offsetWidth; out.classList.add('rolling');
   pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
+  renderLogs();
+  renderFullLogs();
 });
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
   $('flip-out').textContent = v;
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
+  renderLogs();
+  renderFullLogs();
 });
 const deathBoxes = ['death-save-1','death-save-2','death-save-3'].map(id => $(id));
-deathBoxes.forEach((box, idx) => {
+deathBoxes.forEach((box) => {
   box.addEventListener('change', () => {
-    if (box.checked) {
-      pushLog(deathLog, {t: Date.now(), text: `Failure ${idx + 1}`}, 'death-log');
-    }
     if (deathBoxes.every(b => b.checked)) {
       alert('You have fallen, your sacrifice will be remembered.');
     }
