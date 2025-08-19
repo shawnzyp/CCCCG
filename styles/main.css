@@ -35,7 +35,7 @@ section h2{margin:0 0 10px;color:var(--accent);font-size:1.05rem}
 #statuses{grid-template-columns:repeat(2,1fr)}
 label{display:block;font-weight:700;margin-bottom:6px}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
-input[type="checkbox"]{width:auto;height:auto;-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:checkbox;flex:0 0 auto;padding:0;margin:0 4px 0 0;}
+input[type="checkbox"]{width:25px;height:25px;max-width:25px;max-height:25px;-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:checkbox;flex:0 0 auto;padding:0;margin:0 4px 0 0;}
 button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer}
 button:hover{filter:brightness(1.1);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
@@ -60,7 +60,7 @@ button:active{transform:translateY(0)}
 .pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
 .pill.result{font-size:1rem;font-weight:700;}
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
-.death-saves input[type="checkbox"]{width:25px;height:25px;max-width:25px;max-height:25px;margin:0;}
+.death-saves input[type="checkbox"]{margin:0;}
 .sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1;}
 .sp-grid .btn-sm{width:100%;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .2s ease,transform .2s ease}
