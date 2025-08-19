@@ -110,12 +110,12 @@
       <fieldset class="card">
         <legend data-rule="3">HP</legend>
         <div class="inline">
-          <progress id="hp-bar" max="10" value="10" style="width:100%"></progress>
-          <span class="pill" id="hp-pill">10/10</span>
+          <progress id="hp-bar" max="30" value="30" style="width:100%"></progress>
+          <span class="pill" id="hp-pill">30/30</span>
         </div>
         <div class="inline">
-          <label for="hp-roll" class="sr-only">Tier Roll</label>
-          <input id="hp-roll" type="number" inputmode="numeric" placeholder="Tier Roll"/>
+          <input id="hp-roll" type="hidden" value="0"/>
+          <button id="hp-roll-add" class="btn-sm">Add Tier HP</button>
           <label for="hp-bonus" class="sr-only">Bonus HP</label>
           <input id="hp-bonus" type="number" inputmode="numeric" placeholder="Bonus HP"/>
         </div>
@@ -404,6 +404,23 @@
     <div class="actions">
       <button id="enc-next" class="btn-sm">Next Turn</button>
       <button id="enc-reset" class="btn-sm">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-hp-roll" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Add Tier HP</h3>
+    <label for="hp-roll-input" class="sr-only">Tier HP Bonus</label>
+    <input id="hp-roll-input" type="number" inputmode="numeric" placeholder="Tier HP Bonus"/>
+    <div class="actions">
+      <button id="hp-roll-save" class="btn-sm">Add</button>
+      <button class="btn-sm" data-close>Cancel</button>
     </div>
   </div>
 </div>
