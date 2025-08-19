@@ -1,7 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
-import { saveCloud, loadCloud } from './storage.js';
-import { loadFirebaseConfig } from './firebase.js';
+import { saveLocal, loadLocal } from './storage.js';
 let lastFocus = null;
 let cccgPage = 1;
 const ruleFrame = qs('#modal-rules iframe');
@@ -939,13 +938,6 @@ function saveEnc(){
   localStorage.setItem('enc-roster', JSON.stringify(roster));
   localStorage.setItem('enc-round', String(round));
   localStorage.setItem('enc-turn', String(turn));
-  // mirror encounter data to the cloud
-  const heroEl = $('superhero');
-  const name = localStorage.getItem('last-save') || (heroEl && heroEl.value ? heroEl.value.trim() : '');
-  if(name){
-    // fire-and-forget; ignore toast to keep backups silent
-    saveCloud(name + '-enc', { roster, round, turn }, { getRTDB }).catch(()=>{});
-  }
 }
 function renderEnc(){
   $('round-pill').textContent='Round '+round;
@@ -1008,47 +1000,7 @@ $('enc-reset').addEventListener('click', ()=>{
 });
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
-/* ========= Save / Load (cloud-first, silent local mirror) ========= */
-
-async function getRTDB(){
-  const cfg = await loadFirebaseConfig();
-  if (!cfg || !cfg.apiKey || !cfg.databaseURL){
-    console.warn('RTDB init skipped: no cloud config');
-    toast('Cloud config missing.','error');
-    return null;
-  }
-  try{
-    const [
-      { initializeApp },
-      { getAuth, signInAnonymously, onAuthStateChanged },
-      { getDatabase, ref, get, set, remove }
-    ] = await Promise.all([
-      import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js'),
-      import('https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js')
-    ]);
-    let app; try{ app = window.firebaseApp || initializeApp(cfg); window.firebaseApp = app; } catch(e){ app = window.firebaseApp; }
-    const auth = getAuth(app);
-    await new Promise(res => onAuthStateChanged(auth, ()=>res(), ()=>res()));
-    if(!auth.currentUser){
-      try{ await signInAnonymously(auth); }
-      catch(e){
-        console.error('Anonymous sign-in failed', e);
-        if (!navigator.onLine) toast('Offline: unable to authenticate','error');
-        else toast('Authentication failed. Check connectivity','error');
-        return null;
-      }
-    }
-    const db=getDatabase(app);
-    // include remove to support delete operations
-    return { db, ref, get, set, remove };
-  }catch(e){
-    console.error('RTDB init failed', e);
-    if (!navigator.onLine) toast('Offline: cloud unavailable','error');
-    else toast('Cloud unavailable; check connectivity','error');
-    return null;
-  }
-}
+/* ========= Save / Load ========= */
 function serialize(){
   const data={};
   function getVal(sel, root){ const el = qs(sel, root); return el ? el.value : ''; }
@@ -1161,7 +1113,7 @@ $('do-save').addEventListener('click', async ()=>{
   const name = $('save-key').value.trim(); if(!name) return toast('Enter a name','error');
   btn.classList.add('loading'); btn.disabled = true;
   try{
-    await saveCloud(name, serialize(), { getRTDB, toast });
+    await saveLocal(name, serialize());
     hide('modal-save'); toast('Saved','success');
   }
   finally{
@@ -1173,7 +1125,7 @@ $('do-load').addEventListener('click', async ()=>{
   const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
   btn.classList.add('loading'); btn.disabled = true;
   try{
-    const data = await loadCloud(name, { getRTDB, toast });
+    const data = await loadLocal(name);
     deserialize(data); hide('modal-load'); toast('Loaded','success');
   }
   catch(e){
@@ -1184,15 +1136,7 @@ $('do-load').addEventListener('click', async ()=>{
   }
 });
 
-// periodic cloud backup every 10 minutes
-setInterval(async ()=>{
-  const heroEl = $('superhero');
-  const name = localStorage.getItem('last-save') || (heroEl && heroEl.value ? heroEl.value.trim() : '');
-  if(name){
-    try{ await saveCloud(name, serialize(), { getRTDB }); }
-    catch(e){ console.error('Periodic cloud save failed', e); }
-  }
-}, 10 * 60 * 1000);
+
 
 /* ========= Character Creation Wizard ========= */
 const btnWizard = $('btn-wizard');
