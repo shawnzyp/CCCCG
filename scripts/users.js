@@ -99,9 +99,17 @@ function updatePlayerButton() {
   }
 }
 
+function updateDMButton() {
+  const btn = $('btn-dm');
+  if (btn) {
+    btn.classList.toggle('hidden', !isDM());
+  }
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     updatePlayerButton();
+    updateDMButton();
 
     const regBtn = $('register-player');
     if (regBtn) {
@@ -125,6 +133,22 @@ if (typeof document !== 'undefined') {
         if (loginPlayer(name, pass)) {
           toast(`Logged in as ${name}`,'success');
           updatePlayerButton();
+          updateDMButton();
+          hideModal();
+        } else {
+          toast('Invalid credentials','error');
+        }
+      });
+    }
+
+    const dmBtn = $('login-dm');
+    if (dmBtn) {
+      dmBtn.addEventListener('click', () => {
+        const pass = $('dm-password').value;
+        if (loginDM(pass)) {
+          toast('DM logged in','success');
+          $('dm-password').value = '';
+          updateDMButton();
           hideModal();
         } else {
           toast('Invalid credentials','error');
