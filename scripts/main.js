@@ -450,7 +450,15 @@ $('hp-heal').addEventListener('click', ()=>{ const d=num($('hp-amt').value)||0; 
 $('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
-$('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
+$('long-rest').addEventListener('click', ()=>{
+  setHP(num(elHPBar.max));
+  setSP(num(elSPBar.max));
+  elHPTemp.value='';
+  const spTemp=$('sp-temp'); if(spTemp) spTemp.value='';
+  qsa('#death-save-1,#death-save-2,#death-save-3').forEach(cb=> cb.checked=false);
+  qsa('#statuses input[type="checkbox"]').forEach(cb=> cb.checked=false);
+  activeStatuses.clear();
+});
 function renderHPRollList(){
   if(!elHPRollList) return;
   elHPRollList.innerHTML='';
