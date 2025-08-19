@@ -259,7 +259,6 @@ const elSPPill = $('sp-pill');
 const elHPBar = $('hp-bar');
 const elHPPill = $('hp-pill');
 const elHPRoll = $('hp-roll');
-const elHPBonus = $('hp-bonus');
 const elHPTemp = $('hp-temp');
 const elInitiative = $('initiative');
 const elProfBonus = $('prof-bonus');
@@ -292,8 +291,8 @@ function updateSP(){
   elSPPill.textContent = `${num(elSPBar.value)}/${spMax}`;
 }
 
-function updateHP(){
-  const total = 30 + mod(elCon.value) + num(elHPRoll.value||0) + num(elHPBonus.value||0);
+  function updateHP(){
+    const total = 30 + mod(elCon.value) + num(elHPRoll.value||0);
   elHPBar.max = Math.max(0, total);
   if (!num(elHPBar.value)) elHPBar.value = elHPBar.max;
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
@@ -343,7 +342,7 @@ function updateDerived(){
   updateXP();
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
-['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
+  ['hp-roll','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 if (elXP) {
