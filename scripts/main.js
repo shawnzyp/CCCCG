@@ -1,6 +1,7 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
 import { saveLocal, loadLocal, saveCloud, loadCloud } from './storage.js';
+import { currentPlayer } from './users.js';
 let lastFocus = null;
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
@@ -1127,7 +1128,22 @@ document.addEventListener('keydown', e=>{
   }
   pushHistory();
 })();
-$('btn-save').addEventListener('click', ()=>{ $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || ''; show('modal-save'); });
+$('btn-save').addEventListener('click', async ()=>{
+  const player = currentPlayer();
+  if (player) {
+    const data = serialize();
+    const localRes = await saveLocal('player:' + player, data);
+    const cloudRes = await saveCloud('player:' + player, data);
+    let msg = '';
+    msg += localRes.success ? 'Local save succeeded' : `Local save failed: ${localRes.error}`;
+    msg += '\n';
+    msg += cloudRes.success ? 'Cloud save succeeded' : `Cloud save failed: ${cloudRes.error}`;
+    alert(msg);
+  } else {
+    $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || '';
+    show('modal-save');
+  }
+});
 $('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
 $('do-save').addEventListener('click', async ()=>{
   const btn = $('do-save');

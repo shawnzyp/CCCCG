@@ -68,6 +68,34 @@
 </header>
 
 <main>
+  <!-- USER ADMIN -->
+  <section id="user-admin">
+    <h2>User Admin</h2>
+    <fieldset class="card">
+      <legend>Player Account</legend>
+      <div class="inline">
+        <input id="player-name" placeholder="Player name"/>
+        <input id="player-pass" type="password" placeholder="Password"/>
+        <button id="player-register" class="btn-sm">Register</button>
+        <button id="player-login" class="btn-sm">Login</button>
+      </div>
+    </fieldset>
+    <fieldset class="card">
+      <legend>DM Account</legend>
+      <div class="inline">
+        <input id="dm-password" type="password" placeholder="Password"/>
+        <button id="dm-register" class="btn-sm">Register DM</button>
+        <button id="dm-login" class="btn-sm">Login DM</button>
+      </div>
+    </fieldset>
+    <fieldset class="card" id="dm-tools" style="display:none">
+      <legend>Edit Player</legend>
+      <div class="inline">
+        <select id="player-select"></select>
+        <button id="load-player" class="btn-sm">Load</button>
+      </div>
+    </fieldset>
+  </section>
   <!-- COMBAT -->
   <section data-tab="combat">
     <h2 data-rule="8">Tools</h2>
@@ -678,6 +706,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script type="module" src="scripts/users.js"></script>
 <script type="module" src="scripts/main.js"></script>
 </body>
 </html>

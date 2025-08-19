@@ -2,8 +2,10 @@ export async function saveLocal(name, payload) {
   try {
     localStorage.setItem('save:' + name, JSON.stringify(payload));
     localStorage.setItem('last-save', name);
+    return { success: true };
   } catch (e) {
     console.error('Local save failed', e);
+    return { success: false, error: e.message };
   }
 }
 
@@ -70,8 +72,10 @@ export async function saveCloud(name, payload) {
     const { ref, set } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
     await set(ref(db, 'saves/' + name), payload);
     localStorage.setItem('last-save', name);
+    return { success: true };
   } catch (e) {
     console.error('Cloud save failed', e);
+    return { success: false, error: e.message };
   }
 }
 
