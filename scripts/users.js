@@ -8,7 +8,16 @@ const DM_PASSWORD = 'Dragons22!';
 
 function getPlayersRaw() {
   const raw = localStorage.getItem(PLAYERS_KEY);
-  return raw ? JSON.parse(raw) : {};
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    // If the stored data is corrupted or invalid JSON, discard it so the
+    // application can continue operating with a clean slate instead of
+    // throwing a runtime error that breaks the page.
+    console.error('Failed to parse players from localStorage', e);
+    return {};
+  }
 }
 
 export function getPlayers() {
