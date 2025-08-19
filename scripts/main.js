@@ -1266,30 +1266,6 @@ if (btnWizard && modalWizard) {
     }
   });
 
-  const tcField = $('wiz-tc');
-  if (tcField && elTC) {
-    tcField.addEventListener('input', () => {
-      elTC.value = tcField.value;
-      elTC.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  }
-
-  const hpField = $('wiz-hp');
-  if (hpField && elHPBar) {
-    hpField.addEventListener('input', () => {
-      elHPBar.max = hpField.value || 0;
-      setHP(hpField.value);
-    });
-  }
-
-  const spField = $('wiz-sp-max');
-  if (spField && elSPBar) {
-    spField.addEventListener('input', () => {
-      elSPBar.max = spField.value || 0;
-      setSP(spField.value);
-    });
-  }
-
   const storyFields = [
     ['wiz-superhero', 'superhero'],
     ['wiz-secret', 'secret'],
@@ -1339,9 +1315,6 @@ if (btnWizard && modalWizard) {
       const b = $(baseId);
       if (w && b) w.value = b.value;
     });
-    if (tcField && elTC) tcField.value = elTC.value;
-    if (hpField && elHPBar) hpField.value = elHPBar.max;
-    if (spField && elSPBar) spField.value = elSPBar.max;
     storyFields.forEach(([wizId, baseId]) => {
       const w = $(wizId);
       const b = $(baseId);
