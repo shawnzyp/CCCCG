@@ -88,6 +88,9 @@ document.addEventListener('input', e=>{
 /* ========= theme ========= */
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
+const btnMenu = $('btn-menu');
+const menuActions = $('menu-actions');
+const crumbCurrent = $('crumb-current');
 function applyTheme(t){
   root.classList.remove('theme-light','theme-high');
   if(t==='light') root.classList.add('theme-light');
@@ -109,10 +112,27 @@ if (btnTheme) {
   });
 }
 
+if (btnMenu && menuActions) {
+  btnMenu.addEventListener('click', e => {
+    e.stopPropagation();
+    menuActions.classList.toggle('show');
+  });
+  menuActions.addEventListener('click', () => menuActions.classList.remove('show'));
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.dropdown')) {
+      menuActions.classList.remove('show');
+    }
+  });
+}
+
 /* ========= tabs ========= */
 function setTab(name){
   qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
   qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
+  if(crumbCurrent){
+    const tabBtn = qs(`.tab[data-go="${name}"]`);
+    crumbCurrent.textContent = tabBtn ? tabBtn.textContent : name;
+  }
 }
 qsa('.tab').forEach(b=> b.addEventListener('click', ()=> setTab(b.getAttribute('data-go'))));
 setTab('combat');
