@@ -46,3 +46,41 @@ describe('saveCloud/loadCloud', () => {
     await expect(loadCloud('remote', { getRTDB: mockGetRTDB })).rejects.toThrow('No save found');
   });
 });
+
+describe('cloud backend integration', () => {
+  const store = new Map();
+  const mockToast = jest.fn();
+  const mockGetRTDB = async () => ({
+    db: {},
+    ref: (_db, path) => path,
+    set: async (path, value) => { store.set(path, value); },
+    get: async (path) => ({
+      exists: () => store.has(path),
+      val: () => store.get(path),
+    }),
+    remove: async (path) => { store.delete(path); },
+  });
+
+  beforeEach(() => {
+    localStorage.clear();
+    store.clear();
+    mockToast.mockClear();
+    Object.defineProperty(global.navigator, 'onLine', { value: true, configurable: true });
+  });
+
+  test('saves to cloud and loads from it', async () => {
+    const payload = { foo: 'bar', num: 7 };
+    await saveCloud('cloud', payload, { getRTDB: mockGetRTDB, toast: mockToast });
+    expect(store.get('/saves/cloud').data).toEqual(payload);
+    const loaded = await loadCloud('cloud', { getRTDB: mockGetRTDB, toast: mockToast });
+    expect(loaded).toEqual(payload);
+  });
+
+  test('deletes cloud data', async () => {
+    const payload = { foo: 'baz' };
+    await saveCloud('cloudremove', payload, { getRTDB: mockGetRTDB, toast: mockToast });
+    await deleteSave('cloudremove', { getRTDB: mockGetRTDB, toast: mockToast });
+    await expect(loadCloud('cloudremove', { getRTDB: mockGetRTDB, toast: mockToast })).rejects.toThrow('No save found');
+    expect(store.has('/saves/cloudremove')).toBe(false);
+  });
+});
