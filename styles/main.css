@@ -75,6 +75,8 @@ button:active{transform:translateY(0)}
 .catalog-item.active .pill{border-color:var(--text-on-accent);color:var(--text-on-accent)}
 .small{font-size:.9rem;color:var(--muted)}
 #modal-rules .pdf-controls{position:absolute;bottom:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:1}
+#modal-rules .pdf-controls .icon{flex-direction:column;height:auto;width:40px;padding:4px}
+#modal-rules .pdf-controls .btn-label{font-size:.75rem;margin-top:2px;color:var(--text)}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1000;padding:16px}
 .overlay.hidden{display:none!important}
 .modal{background:var(--surface);border:1px solid var(--accent);border-radius:16px;max-width:720px;width:100%;padding:16px;box-shadow:var(--shadow);position:relative;max-height:calc(100vh - 32px);overflow:auto}
