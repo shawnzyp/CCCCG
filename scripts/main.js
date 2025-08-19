@@ -85,6 +85,23 @@ document.addEventListener('input', e=>{
   }
 });
 
+/* ========= menu ========= */
+const btnMenu = $('btn-menu');
+const menuDropdown = $('menu-dropdown');
+if (btnMenu && menuDropdown) {
+  btnMenu.addEventListener('click', e => {
+    e.stopPropagation();
+    const show = menuDropdown.classList.toggle('show');
+    btnMenu.setAttribute('aria-expanded', show);
+  });
+  document.addEventListener('click', e => {
+    if (!menuDropdown.contains(e.target) && !btnMenu.contains(e.target)) {
+      menuDropdown.classList.remove('show');
+      btnMenu.setAttribute('aria-expanded','false');
+    }
+  });
+}
+
 /* ========= theme ========= */
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
@@ -110,9 +127,14 @@ if (btnTheme) {
 }
 
 /* ========= tabs ========= */
+const crumbCurrent = $('crumb-current');
 function setTab(name){
   qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
-  qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
+  qsa('.tab').forEach(b=> {
+    const active = b.getAttribute('data-go')===name;
+    b.classList.toggle('active', active);
+    if (active && crumbCurrent) crumbCurrent.textContent = b.textContent;
+  });
 }
 qsa('.tab').forEach(b=> b.addEventListener('click', ()=> setTab(b.getAttribute('data-go'))));
 setTab('combat');

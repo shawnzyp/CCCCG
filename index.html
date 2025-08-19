@@ -16,7 +16,7 @@
 <header>
   <div class="top">
     <h1>Catalyst Core: Character Tracker</h1>
-    <div class="actions">
+    <nav class="actions" aria-label="Primary actions">
       <button id="btn-enc" class="icon" aria-label="Encounter / Initiative" title="Encounter / Initiative" data-tip="Encounter / Initiative">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
@@ -32,42 +32,43 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
         </svg>
       </button>
-      <button id="btn-log"  class="icon" aria-label="Roll/Flip Log" title="Roll/Flip Log" data-tip="Roll/Flip log">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"/>
-        </svg>
-      </button>
-      <button id="btn-rules" class="icon" aria-label="Open Rules (CCCG)" title="Open Rules (CCCG)" data-tip="Open rules">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/>
-        </svg>
-      </button>
-      <button id="btn-campaign" class="icon" aria-label="Campaign Log" title="Campaign Log" data-tip="Campaign log">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6-3h6m-6-3h6M9 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
-        </svg>
-      </button>
-      <button id="btn-theme" class="icon" aria-label="Toggle Theme" title="Toggle Theme" data-tip="Toggle theme">
-        <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3V5.25M18.364 5.63604L16.773 7.22703M21 12H18.75M18.364 18.364L16.773 16.773M12 18.75V21M7.22703 16.773L5.63604 18.364M5.25 12H3M7.22703 7.22703L5.63604 5.63604M15.75 12C15.75 14.0711 14.0711 15.75 12 15.75C9.92893 15.75 8.25 14.0711 8.25 12C8.25 9.92893 9.92893 8.25 12 8.25C14.0711 8.25 15.75 9.92893 15.75 12Z"/>
-        </svg>
-        <svg id="icon-contrast" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="display:none">
-          <circle cx="12" cy="12" r="9"/>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18"/>
-        </svg>
-        <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="display:none">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>
-        </svg>
-      </button>
-    </div>
+      <div class="menu">
+        <button id="btn-menu" class="icon" aria-label="More actions" aria-haspopup="true" aria-expanded="false">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6h.01M12 12h.01M12 18h.01"/>
+          </svg>
+        </button>
+        <div id="menu-dropdown" class="dropdown" role="menu">
+          <button id="btn-log" role="menuitem">Roll/Flip Log</button>
+          <button id="btn-rules" role="menuitem">Rules</button>
+          <button id="btn-campaign" role="menuitem">Campaign Log</button>
+          <button id="btn-theme" role="menuitem" aria-label="Toggle Theme">
+            <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3V5.25M18.364 5.63604L16.773 7.22703M21 12H18.75M18.364 18.364L16.773 16.773M12 18.75V21M7.22703 16.773L5.63604 18.364M5.25 12H3M7.22703 7.22703L5.63604 5.63604M15.75 12C15.75 14.0711 14.0711 15.75 12 15.75C9.92893 15.75 8.25 14.0711 8.25 12C8.25 9.92893 9.92893 8.25 12 8.25C14.0711 8.25 15.75 9.92893 15.75 12Z"/>
+            </svg>
+            <svg id="icon-contrast" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="display:none">
+              <circle cx="12" cy="12" r="9"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18"/>
+            </svg>
+            <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" style="display:none">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </nav>
   </div>
-  <div class="tabs">
+  <nav class="breadcrumbs" aria-label="Breadcrumb">
+    <span>Home</span>
+    <span id="crumb-current">Combat</span>
+  </nav>
+  <nav class="tabs" aria-label="Sections">
     <button class="tab active" data-go="combat">Combat</button>
     <button class="tab" data-go="abilities">Abilities</button>
     <button class="tab" data-go="powers">Powers</button>
     <button class="tab" data-go="gear">Gear</button>
     <button class="tab" data-go="story">Story</button>
-  </div>
+  </nav>
 </header>
 
 <main>
