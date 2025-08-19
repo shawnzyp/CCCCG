@@ -15,7 +15,7 @@ export function calculateArmorBonus(){
   qsa("[data-kind='armor']").forEach(card=>{
     const eq = qs("input[type='checkbox'][data-f='equipped']", card);
     const bonusEl = qs("input[data-f='bonus']", card);
-    const bonus = num(bonusEl ? bonusEl.value : 0);
+    const bonus = Math.max(0, num(bonusEl ? bonusEl.value : 0));
     const slotEl = qs("select[data-f='slot']", card);
     const slot = slotEl ? slotEl.value : 'Body';
     if (eq && eq.checked){
