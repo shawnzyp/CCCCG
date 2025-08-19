@@ -456,8 +456,7 @@ $('long-rest').addEventListener('click', ()=>{
   setSP(num(elSPBar.max));
   elHPTemp.value='';
   const spTemp=$('sp-temp'); if(spTemp) spTemp.value='';
-  qsa('#death-save-1,#death-save-2,#death-save-3').forEach(cb=> cb.checked=false);
-  qsa('#statuses input[type="checkbox"]').forEach(cb=> cb.checked=false);
+  qsa('input[type="checkbox"]').forEach(cb=> cb.checked=false);
   activeStatuses.clear();
 });
 function renderHPRollList(){
