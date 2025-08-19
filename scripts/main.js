@@ -1,6 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
-import { saveLocal, loadLocal } from './storage.js';
+import { saveLocal, loadLocal, saveCloud, loadCloud } from './storage.js';
 let lastFocus = null;
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
@@ -1134,7 +1134,9 @@ $('do-save').addEventListener('click', async ()=>{
   const name = $('save-key').value.trim(); if(!name) return toast('Enter a name','error');
   btn.classList.add('loading'); btn.disabled = true;
   try{
-    await saveLocal(name, serialize());
+    const data = serialize();
+    await saveLocal(name, data);
+    try { await saveCloud(name, data); } catch(e) { console.error(e); }
     hide('modal-save'); toast('Saved','success');
   }
   finally{
@@ -1146,7 +1148,12 @@ $('do-load').addEventListener('click', async ()=>{
   const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
   btn.classList.add('loading'); btn.disabled = true;
   try{
-    const data = await loadLocal(name);
+    let data;
+    try { data = await loadCloud(name); }
+    catch(e){
+      console.error('Cloud load failed', e);
+      data = await loadLocal(name);
+    }
     deserialize(data); hide('modal-load'); toast('Loaded','success');
   }
   catch(e){
