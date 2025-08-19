@@ -5,6 +5,16 @@ let lastFocus = null;
 let cccgPage = 1;
 const ruleFrame = qs('#modal-rules iframe');
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
+
+function applyDeleteIcon(btn){
+  if(!btn) return;
+  btn.innerHTML = ICON_TRASH;
+  btn.setAttribute('aria-label','Delete');
+}
+
+function applyDeleteIcons(root=document){
+  qsa('button[data-del], button[data-act="del"]', root).forEach(applyDeleteIcon);
+}
 function show(id){
   const el = $(id);
   if(!el) return;
@@ -491,8 +501,7 @@ function renderHPRollList(){
     const btn=document.createElement('button');
     btn.type='button';
     btn.className='btn-sm';
-    btn.innerHTML = ICON_TRASH;
-    btn.setAttribute('aria-label','Delete');
+    applyDeleteIcon(btn);
     btn.addEventListener('click', ()=>{
       hpRolls.splice(idx,1);
       elHPRoll.value = hpRolls.reduce((a,b)=>a+b,0);
@@ -582,14 +591,15 @@ if (btnCampaignAdd) {
     pushHistory();
   });
 }
-function renderCampaignLog(){
-  $('campaign-log').innerHTML = campaignLog
-    .slice()
-    .reverse()
-    .map((e,i)=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div><div><button class="btn-sm" data-del="${i}" aria-label="Delete">${ICON_TRASH}</button></div></div>`)
-    .join('');
-}
-renderCampaignLog();
+  function renderCampaignLog(){
+    $('campaign-log').innerHTML = campaignLog
+      .slice()
+      .reverse()
+      .map((e,i)=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div><div><button class="btn-sm" data-del="${i}"></button></div></div>`)
+      .join('');
+    applyDeleteIcons($('campaign-log'));
+  }
+  renderCampaignLog();
 $('campaign-log').addEventListener('click', e=>{
   const btn = e.target.closest('button[data-del]');
   if(!btn) return;
@@ -728,8 +738,7 @@ function createCard(kind, pref = {}) {
   const delBtn = document.createElement('button');
   delBtn.className = 'btn-sm';
   delBtn.dataset.act = 'del';
-  delBtn.innerHTML = ICON_TRASH;
-  delBtn.setAttribute('aria-label','Delete');
+  applyDeleteIcon(delBtn);
   delBtn.addEventListener('click', () => {
     card.remove();
     if (cfg.onDelete) cfg.onDelete();
@@ -897,14 +906,15 @@ function saveEnc(){
 function renderEnc(){
   $('round-pill').textContent='Round '+round;
   const list=$('enc-list'); list.innerHTML='';
-  roster.forEach((r,idx)=>{
-    const row=document.createElement('div');
-    row.className='catalog-item'+(idx===turn?' active':'');
-    row.innerHTML = `<div class="pill">${r.init}</div><div><b>${r.name}</b></div><div><button class="btn-sm" data-del="${idx}" aria-label="Delete">${ICON_TRASH}</button></div>`;
-    list.appendChild(row);
-  });
-  const turnName = roster[turn] && roster[turn].name ? roster[turn].name : '';
-  const turnEl = $('turn-pill');
+    roster.forEach((r,idx)=>{
+      const row=document.createElement('div');
+      row.className='catalog-item'+(idx===turn?' active':'');
+      row.innerHTML = `<div class="pill">${r.init}</div><div><b>${r.name}</b></div><div><button class="btn-sm" data-del="${idx}"></button></div>`;
+      list.appendChild(row);
+    });
+    applyDeleteIcons(list);
+    const turnName = roster[turn] && roster[turn].name ? roster[turn].name : '';
+    const turnEl = $('turn-pill');
   if(turnEl){
     turnEl.textContent = turnName ? `Turn: ${turnName}` : '';
     turnEl.style.display = turnName ? '' : 'none';
@@ -1157,6 +1167,7 @@ setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
 setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
 setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
 updateDerived();
+applyDeleteIcons();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(e=>console.error('SW reg failed', e));
 }
