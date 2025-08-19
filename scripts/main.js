@@ -261,6 +261,8 @@ const elHPPill = $('hp-pill');
 const elHPRoll = $('hp-roll');
 const elHPBonus = $('hp-bonus');
 const elHPTemp = $('hp-temp');
+const elHPRollAdd = $('hp-roll-add');
+const elHPRollInput = $('hp-roll-input');
 const elInitiative = $('initiative');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
@@ -293,9 +295,12 @@ function updateSP(){
 }
 
 function updateHP(){
-  const total = 30 + mod(elCon.value) + num(elHPRoll.value||0) + num(elHPBonus.value||0);
+  const base = 30;
+  const conMod = elCon.value === '' ? 0 : mod(elCon.value);
+  const total = base + conMod + num(elHPRoll.value||0) + num(elHPBonus.value||0);
+  const prevMax = num(elHPBar.max);
   elHPBar.max = Math.max(0, total);
-  if (!num(elHPBar.value)) elHPBar.value = elHPBar.max;
+  if (!num(elHPBar.value) || num(elHPBar.value) === prevMax) elHPBar.value = elHPBar.max;
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
 }
 
@@ -343,7 +348,7 @@ function updateDerived(){
   updateXP();
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
-['hp-roll','hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
+['hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 if (elXP) {
@@ -380,6 +385,9 @@ $('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
+elHPRollAdd.addEventListener('click', ()=>{ elHPRollInput.value=''; show('modal-hp-roll'); });
+$('hp-roll-save').addEventListener('click', ()=>{ const v=num(elHPRollInput.value); if(!v) return hide('modal-hp-roll'); elHPRoll.value = num(elHPRoll.value)+v; updateHP(); hide('modal-hp-roll'); });
+qsa('#modal-hp-roll [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-hp-roll')));
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
