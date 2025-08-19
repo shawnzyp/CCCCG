@@ -1,6 +1,7 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
 import { saveCloud, loadCloud } from './storage.js';
+import { loadFirebaseConfig } from './firebase.js';
 let lastFocus = null;
 let cccgPage = 1;
 const ruleFrame = qs('#modal-rules iframe');
@@ -1008,30 +1009,12 @@ $('enc-reset').addEventListener('click', ()=>{
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
 /* ========= Save / Load (cloud-first, silent local mirror) ========= */
-let firebaseCfgPromise;
-async function loadFirebaseConfig(){
-  if(!firebaseCfgPromise){
-    // Fetch config from the same directory as the main page.
-    // Using "../firebase-config.json" attempted to go one level above the
-    // application root when the page is served from "/", resulting in a 404 and
-    // preventing cloud save/load from functioning. The correct relative path is
-    // simply "firebase-config.json".
-    const url = window.FIREBASE_CONFIG_URL || 'firebase-config.json';
-    firebaseCfgPromise = fetch(url).then(r=>r.ok?r.json():null).catch(()=>null);
-  }
-  let cfg = await firebaseCfgPromise;
-  if(window.FIREBASE_CONFIG) cfg = Object.assign({}, cfg, window.FIREBASE_CONFIG);
-  if(!cfg || !cfg.apiKey || !cfg.databaseURL){
-    console.warn('Cloud config missing required fields', cfg);
-    toast('Cloud config missing.','error');
-    return null;
-  }
-  return cfg;
-}
+
 async function getRTDB(){
   const cfg = await loadFirebaseConfig();
-  if (!cfg){
+  if (!cfg || !cfg.apiKey || !cfg.databaseURL){
     console.warn('RTDB init skipped: no cloud config');
+    toast('Cloud config missing.','error');
     return null;
   }
   try{
