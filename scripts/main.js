@@ -233,13 +233,69 @@ const ORIGIN_PERKS = {
   'The Redemption': ['Advantage on persuasion checks for second chances.']
 };
 
+// handle special perk behavior (stat boosts, initiative mods, etc.)
+const ACTION_HINTS = [
+  'once per',
+  'per encounter',
+  'per day',
+  'per long rest',
+  'reroll',
+  'call upon',
+  'protect an ally',
+  'gain temporary hit points',
+  'dash as a bonus action',
+  'add +'
+];
+
+let addWisToInitiative = false;
+
+function handlePerkEffects(text){
+  const lower = text.toLowerCase();
+  if(/increase one ability score by 1/.test(lower)){
+    const choice = prompt('Choose an ability score to increase by 1 (STR, DEX, CON, INT, WIS, CHA):');
+    const key = choice ? choice.trim().slice(0,3).toLowerCase() : '';
+    if(ABILS.includes(key)){
+      const el = $(key);
+      el.value = Number(el.value) + 1;
+      updateDerived();
+    }
+  }else if(/gain proficiency in one skill/.test(lower)){
+    const choice = prompt('Choose a skill to gain proficiency in (' + SKILLS.map(s=>s.name).join(', ') + '):');
+    const idx = SKILLS.findIndex(s=> s.name.toLowerCase() === (choice||'').trim().toLowerCase());
+    if(idx >= 0){
+      $('skill-'+idx+'-prof').checked = true;
+      updateDerived();
+    }
+  }else if(/add your wisdom modifier to initiative/.test(lower)){
+    addWisToInitiative = true;
+    updateDerived();
+  }
+}
+
 function setupPerkSelect(selId, perkId, data){
   const sel = $(selId);
   const perkEl = $(perkId);
   if(!sel || !perkEl) return;
   function render(){
     const perks = data[sel.value] || [];
-    perkEl.innerHTML = perks.map(p=>`<li>${p}</li>`).join('');
+    perkEl.innerHTML = '';
+    if(selId==='alignment') addWisToInitiative = false;
+    perks.forEach((p,i)=>{
+      const text = typeof p === 'string' ? p : String(p);
+      const lower = text.toLowerCase();
+      const isAction = ACTION_HINTS.some(k=> lower.includes(k));
+      let li;
+      if(isAction){
+        const id = `${selId}-perk-${i}`;
+        li = document.createElement('li');
+        li.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
+      }else{
+        li = document.createElement('li');
+        li.textContent = text;
+      }
+      perkEl.appendChild(li);
+      handlePerkEffects(text);
+    });
     perkEl.style.display = perks.length ? 'block' : 'none';
   }
   sel.addEventListener('change', render);
@@ -330,7 +386,7 @@ function updateDerived(){
   elTC.value = 10 + mod(elDex.value) + armorAuto + num(elOriginBonus.value||0);
   updateSP();
   updateHP();
-  elInitiative.value = mod(elDex.value);
+  elInitiative.value = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
   const pb = num(elProfBonus.value)||2;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
   ABILS.forEach(a=>{
