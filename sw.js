@@ -1,10 +1,11 @@
-const CACHE = 'cccg-cache-v2';
+const CACHE = 'cccg-cache-v3';
 const ASSETS = [
   './',
   './index.html',
   './styles/main.css',
   './scripts/main.js',
-  './scripts/helpers.js'
+  './scripts/helpers.js',
+  './ccccg.pdf'
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();
