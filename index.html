@@ -35,13 +35,13 @@
           </svg>
         </button>
         <div id="menu-actions" class="menu">
-          <button id="btn-save" title="Save">Save</button>
-          <button id="btn-log" title="Roll/Flip log">Roll/Flip Log</button>
-          <button id="btn-rules" title="Open rules">Rules</button>
-          <button id="btn-campaign" title="Campaign log">Campaign</button>
-          <button id="btn-help" title="Help">Help</button>
-          <button id="btn-player" title="Player Account">Log In</button>
-          <button id="btn-dm" title="Manage Players" hidden>Players</button>
+          <button id="btn-save" title="Save" data-tip="Save your sheet">Save</button>
+          <button id="btn-log" title="Roll/Flip log" data-tip="View roll and flip history">Roll/Flip Log</button>
+          <button id="btn-rules" title="Open rules" data-tip="Open the rules reference">Rules</button>
+          <button id="btn-campaign" title="Campaign log" data-tip="Review your campaign log">Campaign</button>
+          <button id="btn-help" title="Help" data-tip="Learn about all features">Help</button>
+          <button id="btn-player" title="Player Account" data-tip="Log in to your player account">Log In</button>
+          <button id="btn-dm" title="Manage Players" data-tip="Manage connected players" hidden>Players</button>
         </div>
       </div>
       <button id="btn-theme" class="icon" aria-label="Toggle Theme" title="Toggle Theme" data-tip="Toggle theme">
@@ -439,6 +439,13 @@
     </button>
     <h3>Welcome to the Tracker</h3>
     <p>Use the tabs to navigate your sheet. Changes save automatically and work offline.</p>
+    <ul class="feature-list">
+      <li data-tip="Roll any die or flip a coin quickly">Dice rolling and coin flips</li>
+      <li data-tip="Track HP, SP, and conditions">Combat statistics and status effects</li>
+      <li data-tip="Keep notes and history for your adventures">Campaign and roll logs</li>
+      <li data-tip="Works even without an internet connection">Offline auto-saving</li>
+      <li data-tip="Switch between light and dark modes">Theme toggling</li>
+    </ul>
     <div class="actions"><button id="tour-ok">Get Started</button></div>
   </div>
 </div>
