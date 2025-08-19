@@ -218,3 +218,9 @@ select[required]:valid{
   padding-right:64px;
 }
 
+/* wizard */
+.wizard-step{display:none}
+.wizard-step.active{display:block}
+.wizard-nav{display:flex;align-items:center;justify-content:space-between;margin-top:16px}
+#wizard-progress{flex:1;text-align:center}
+
