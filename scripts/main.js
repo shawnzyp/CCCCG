@@ -254,23 +254,46 @@ const ACTION_HINTS = [
 
 let addWisToInitiative = false;
 
-function handlePerkEffects(text){
+function handlePerkEffects(li, text){
   const lower = text.toLowerCase();
   if(/increase one ability score by 1/.test(lower)){
-    const choice = prompt('Choose an ability score to increase by 1 (STR, DEX, CON, INT, WIS, CHA):');
-    const key = choice ? choice.trim().slice(0,3).toLowerCase() : '';
-    if(ABILS.includes(key)){
-      const el = $(key);
-      el.value = Number(el.value) + 1;
-      updateDerived();
-    }
+    const select = document.createElement('select');
+    select.innerHTML = `<option value="">Choose ability</option>` +
+      ABILS.map(a=>`<option value="${a}">${a.toUpperCase()}</option>`).join('');
+    select.addEventListener('change', ()=>{
+      const prev = select.dataset.prev;
+      if(prev){
+        const elPrev = $(prev);
+        elPrev.value = Number(elPrev.value) - 1;
+      }
+      const key = select.value;
+      if(ABILS.includes(key)){
+        const el = $(key);
+        el.value = Number(el.value) + 1;
+        select.dataset.prev = key;
+        updateDerived();
+      }
+    });
+    li.appendChild(document.createTextNode(' '));
+    li.appendChild(select);
   }else if(/gain proficiency in one skill/.test(lower)){
-    const choice = prompt('Choose a skill to gain proficiency in (' + SKILLS.map(s=>s.name).join(', ') + '):');
-    const idx = SKILLS.findIndex(s=> s.name.toLowerCase() === (choice||'').trim().toLowerCase());
-    if(idx >= 0){
-      $('skill-'+idx+'-prof').checked = true;
-      updateDerived();
-    }
+    const select = document.createElement('select');
+    select.innerHTML = `<option value="">Choose skill</option>` +
+      SKILLS.map((s,i)=>`<option value="${i}">${s.name}</option>`).join('');
+    select.addEventListener('change', ()=>{
+      const prev = select.dataset.prev;
+      if(prev !== undefined){
+        $('skill-'+prev+'-prof').checked = false;
+      }
+      const idx = select.value;
+      if(idx !== ''){
+        $('skill-'+idx+'-prof').checked = true;
+        select.dataset.prev = idx;
+        updateDerived();
+      }
+    });
+    li.appendChild(document.createTextNode(' '));
+    li.appendChild(select);
   }else if(/add your wisdom modifier to initiative/.test(lower)){
     addWisToInitiative = true;
     updateDerived();
@@ -299,7 +322,7 @@ function setupPerkSelect(selId, perkId, data){
         li.textContent = text;
       }
       perkEl.appendChild(li);
-      handlePerkEffects(text);
+      handlePerkEffects(li, text);
     });
     perkEl.style.display = perks.length ? 'block' : 'none';
   }
