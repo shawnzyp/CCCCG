@@ -35,7 +35,7 @@ section h2{margin:0 0 10px;color:var(--accent);font-size:1.05rem}
 #statuses{grid-template-columns:repeat(2,1fr)}
 label{display:block;font-weight:700;margin-bottom:6px}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
-input[type="checkbox"]{width:25px;height:25px;max-width:25px;max-height:25px;-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:checkbox;flex:0 0 auto;padding:0;margin:0 4px 0 0;}
+input[type="checkbox"]{width:15px;height:15px;max-width:15px;max-height:15px;-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:checkbox;flex:0 0 auto;padding:0;margin:0 4px 0 0;}
 button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer}
 button:hover{filter:brightness(1.1);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
