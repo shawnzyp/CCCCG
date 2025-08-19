@@ -61,6 +61,8 @@ button:active{transform:translateY(0)}
 .pill.result{font-size:1rem;font-weight:700;}
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
 .death-saves input[type="checkbox"]{width:25px;height:25px;max-width:25px;max-height:25px;margin:0;}
+.sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1;}
+.sp-grid .btn-sm{width:100%;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .2s ease,transform .2s ease}
 .card:hover{box-shadow:0 12px 28px rgba(0,0,0,.45);transform:translateY(-2px)}
 .card.dragging{opacity:.5}
