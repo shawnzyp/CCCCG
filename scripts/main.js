@@ -1,13 +1,14 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
 import { saveLocal, saveCloud } from './storage.js';
-import { currentPlayer } from './users.js';
+import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
 let lastFocus = null;
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
 const cccgCtx = cccgCanvas ? cccgCanvas.getContext('2d') : null;
 const CCCCG_SRC = './ccccg.pdf';
 let cccgDoc = null;
+let dmPlayer = null;
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
@@ -695,6 +696,30 @@ const btnPlayer = $('btn-player');
 if (btnPlayer) {
   btnPlayer.addEventListener('click', ()=>{ show('modal-player'); });
 }
+const btnDM = $('btn-dm');
+if (btnDM) {
+  btnDM.addEventListener('click', ()=>{ renderDMList(); show('modal-dm'); });
+}
+function renderDMList(){
+  const list = $('dm-player-list');
+  if(!list) return;
+  const players = getPlayers();
+  list.innerHTML = players.map(p=>`<div class="catalog-item"><div>${p}</div><div><button class="btn-sm" data-player="${p}">Load</button></div></div>`).join('');
+}
+const dmList = $('dm-player-list');
+if(dmList){
+  dmList.addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-player]');
+    if(!btn) return;
+    const player = btn.dataset.player;
+    loadPlayerCharacter(player).then(data=>{
+      deserialize(data);
+      dmPlayer = player;
+      hide('modal-dm');
+      toast(`Loaded ${player}`,'success');
+    }).catch(()=> toast('Load failed','error'));
+  });
+}
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
 /* ========= Card Helper ========= */
@@ -1132,7 +1157,7 @@ document.addEventListener('keydown', e=>{
 })();
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
-  const player = currentPlayer();
+  const player = currentPlayer() || (isDM() ? dmPlayer : null);
   if (!player) return toast('Login required', 'error');
   btn.classList.add('loading'); btn.disabled = true;
   try {
