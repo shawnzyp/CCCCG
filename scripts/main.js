@@ -699,15 +699,13 @@ if (btnPlayer) {
 const btnDM = $('btn-dm');
 if (btnDM) {
   btnDM.addEventListener('click', ()=>{
-    if (isDM()) {
-      renderDMList();
-      show('modal-dm');
-    } else {
-      show('modal-player');
-    }
+    if (!isDM()) return;
+    renderDMList();
+    show('modal-dm');
   });
 }
 function renderDMList(){
+  if(!isDM()) return;
   const list = $('dm-player-list');
   if(!list) return;
   const players = getPlayers();

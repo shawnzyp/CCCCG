@@ -111,8 +111,7 @@ function updatePlayerButton() {
 function updateDMButton() {
   const btn = $('btn-dm');
   if (btn) {
-    // DM players button should remain visible even when not logged in
-    btn.classList.remove('hidden');
+    btn.hidden = !isDM();
   }
 }
 
