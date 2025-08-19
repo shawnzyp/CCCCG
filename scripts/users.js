@@ -158,6 +158,8 @@ if (typeof document !== 'undefined') {
           toast('DM logged in','success');
           $('dm-password').value = '';
           updateDMButton();
+          const box = $('dm-login');
+          if (box) box.hidden = true;
           hideModal();
         } else {
           toast('Invalid credentials','error');
