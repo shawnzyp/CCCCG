@@ -10,6 +10,11 @@ header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var
 .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 h1{margin:0;font-size:1.1rem;color:var(--accent);font-weight:700}
 .actions{display:flex;gap:8px}
+.dropdown{position:relative}
+.dropdown-content{display:none;position:absolute;right:0;top:100%;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);padding:8px;flex-direction:column;gap:8px;min-width:160px;z-index:10}
+.dropdown-content.show{display:flex}
+.dropdown-content button{background:var(--surface);color:var(--text);border:1px solid var(--accent);border-radius:var(--radius);min-height:unset;padding:8px 10px;text-align:left}
+.dropdown-content button:hover{background:var(--accent);color:var(--text-on-accent)}
 @media(max-width:600px){
   .top{flex-direction:column;align-items:center;text-align:center}
   .actions{flex-wrap:wrap;justify-content:center}
@@ -24,6 +29,7 @@ h1{margin:0;font-size:1.1rem;color:var(--accent);font-weight:700}
 .tab{flex:1 0 110px;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);font-weight:700;text-align:center;transition:var(--transition)}
 .tab:hover{background:var(--accent);color:var(--text-on-accent)}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
+.breadcrumbs{margin-top:8px;font-size:.9rem;color:var(--muted)}
 main{max-width:980px;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
 section{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
 section h2{margin:0 0 10px;color:var(--accent);font-size:1.05rem}

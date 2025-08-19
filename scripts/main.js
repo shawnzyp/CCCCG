@@ -109,10 +109,27 @@ if (btnTheme) {
   });
 }
 
+/* ========= header menu ========= */
+const btnMenu = $('btn-menu');
+const menuActions = $('menu-actions');
+if (btnMenu && menuActions) {
+  btnMenu.addEventListener('click', e => {
+    e.stopPropagation();
+    menuActions.classList.toggle('show');
+  });
+  document.addEventListener('click', e => {
+    if (!menuActions.contains(e.target) && e.target !== btnMenu) {
+      menuActions.classList.remove('show');
+    }
+  });
+}
+
 /* ========= tabs ========= */
 function setTab(name){
   qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
   qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
+  const bc = $('breadcrumbs');
+  if (bc) bc.textContent = `Home / ${name.charAt(0).toUpperCase()+name.slice(1)}`;
 }
 qsa('.tab').forEach(b=> b.addEventListener('click', ()=> setTab(b.getAttribute('data-go'))));
 setTab('combat');
