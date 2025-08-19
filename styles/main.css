@@ -32,6 +32,7 @@ section h2{margin:0 0 10px;color:var(--accent);font-size:1.05rem}
 .grid-2{grid-template-columns:1fr}
 .grid-3{grid-template-columns:1fr}
 @media(min-width:820px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(3,1fr)}}
+#statuses{grid-template-columns:repeat(2,1fr)}
 label{display:block;font-weight:700;margin-bottom:6px}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
 input[type="checkbox"]{width:auto;height:auto;-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:checkbox;flex:0 0 auto;padding:0;margin:0 4px 0 0;}
