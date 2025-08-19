@@ -509,6 +509,7 @@ function renderFullLogs(){
   $('full-log-dice').innerHTML = diceLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
   $('full-log-coin').innerHTML = coinLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
 }
+renderLogs();
 $('roll-dice').addEventListener('click', ()=>{
   const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
   const out = $('dice-out');
@@ -518,11 +519,15 @@ $('roll-dice').addEventListener('click', ()=>{
   out.textContent = sum;
   void out.offsetWidth; out.classList.add('rolling');
   pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
+  renderLogs();
+  renderFullLogs();
 });
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
   $('flip-out').textContent = v;
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
+  renderLogs();
+  renderFullLogs();
 });
 const deathBoxes = ['death-save-1','death-save-2','death-save-3'].map(id => $(id));
 deathBoxes.forEach((box) => {
