@@ -146,6 +146,50 @@ skillGrid.innerHTML = SKILLS.map((s,i)=>`
     <div class="inline"><input type="checkbox" id="skill-${i}-prof"/><span class="pill" id="skill-${i}">+0</span></div>
   </div>`).join('');
 
+const STATUS_EFFECTS = [
+  { id: 'blinded', name: 'Blinded', desc: 'A blinded creature cannot see and automatically fails any ability check that requires sight. Attack rolls against the creature have advantage, and the creature’s attack rolls have disadvantage.' },
+  { id: 'charmed', name: 'Charmed', desc: 'A charmed creature can’t attack the charmer or target the charmer with harmful abilities or magical effects.' },
+  { id: 'deafened', name: 'Deafened', desc: 'A deafened creature can’t hear and automatically fails any ability check that requires hearing.' },
+  { id: 'frightened', name: 'Frightened', desc: 'A frightened creature has disadvantage on ability checks and attack rolls while the source of its fear is within line of sight.' },
+  { id: 'grappled', name: 'Grappled', desc: 'A grappled creature’s speed becomes 0, and it can’t benefit from any bonus to its speed.' },
+  { id: 'incapacitated', name: 'Incapacitated', desc: 'An incapacitated creature can’t take actions or reactions.' },
+  { id: 'invisible', name: 'Invisible', desc: 'An invisible creature is impossible to see without the aid of magic or a special sense.' },
+  { id: 'paralyzed', name: 'Paralyzed', desc: 'A paralyzed creature is incapacitated and can’t move or speak.' },
+  { id: 'petrified', name: 'Petrified', desc: 'A petrified creature is transformed, along with any nonmagical object it is wearing or carrying, into a solid inanimate substance.' },
+  { id: 'poisoned', name: 'Poisoned', desc: 'A poisoned creature has disadvantage on attack rolls and ability checks.' },
+  { id: 'prone', name: 'Prone', desc: 'A prone creature’s only movement option is to crawl unless it stands up.' },
+  { id: 'restrained', name: 'Restrained', desc: 'A restrained creature’s speed becomes 0, and it can’t benefit from any bonus to its speed.' },
+  { id: 'stunned', name: 'Stunned', desc: 'A stunned creature is incapacitated, can’t move, and can speak only falteringly.' },
+  { id: 'unconscious', name: 'Unconscious', desc: 'An unconscious creature is incapacitated, can’t move or speak, and is unaware of its surroundings.' }
+];
+
+const statusGrid = $('statuses');
+const activeStatuses = new Set();
+if (statusGrid) {
+  statusGrid.innerHTML = STATUS_EFFECTS.map(s => `
+    <label class="inline"><input type="checkbox" id="status-${s.id}"/> ${s.name}</label>
+  `).join('');
+  STATUS_EFFECTS.forEach(s => {
+    const cb = $('status-' + s.id);
+    if (cb) {
+      cb.addEventListener('change', () => {
+        if (cb.checked) {
+          activeStatuses.add(s.name);
+          alert(`${s.name}: ${s.desc}`);
+        } else {
+          activeStatuses.delete(s.name);
+        }
+      });
+    }
+  });
+}
+
+document.addEventListener('click', e => {
+  if (activeStatuses.size && !e.target.closest('header .top')) {
+    alert('Afflicted by: ' + Array.from(activeStatuses).join(', '));
+  }
+}, true);
+
 const ALIGNMENT_PERKS = {
   'Paragon (Lawful Light)': ['Inspire allies with unwavering justice.'],
   'Guardian (Neutral Light)': ['Protect an ally once per encounter.'],
