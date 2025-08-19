@@ -442,9 +442,20 @@ $('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
-elHPRollAdd.addEventListener('click', ()=>{ elHPRollInput.value=''; show('modal-hp-roll'); });
-$('hp-roll-save').addEventListener('click', ()=>{ const v=num(elHPRollInput.value); if(!v) return hide('modal-hp-roll'); elHPRoll.value = num(elHPRoll.value)+v; updateHP(); hide('modal-hp-roll'); });
-qsa('#modal-hp-roll [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-hp-roll')));
+if (elHPRollAdd) {
+  elHPRollAdd.addEventListener('click', ()=>{
+    elHPRollInput.value='';
+    show('modal-hp-roll');
+  });
+  $('hp-roll-save').addEventListener('click', ()=>{
+    const v=num(elHPRollInput.value);
+    if(!v) return hide('modal-hp-roll');
+    elHPRoll.value = num(elHPRoll.value)+v;
+    updateHP();
+    hide('modal-hp-roll');
+  });
+  qsa('#modal-hp-roll [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-hp-roll')));
+}
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
