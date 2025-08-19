@@ -125,3 +125,18 @@ button:active{transform:translateY(0)}
   color:var(--accent);
   font-size:.85rem;
 }
+
+#hp-roll-list{
+  margin:8px 0 0;
+  padding:0;
+  list-style:none;
+}
+#hp-roll-list li{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-top:4px;
+}
+#hp-roll-list li button{
+  flex:0 0 auto;
+}
