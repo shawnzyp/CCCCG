@@ -255,7 +255,6 @@ document.addEventListener('click', e => {
       !e.target.closest('#statuses') &&
       !e.target.closest('#modal-enc') &&
       !e.target.closest('#modal-load') &&
-      !e.target.closest('#modal-save') &&
       !e.target.closest('#modal-log') &&
       !e.target.closest('#modal-log-full') &&
       !e.target.closest('#modal-rules') &&
@@ -1127,22 +1126,22 @@ document.addEventListener('keydown', e=>{
   }
   pushHistory();
 })();
-$('btn-save').addEventListener('click', ()=>{ $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || ''; show('modal-save'); });
-$('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
-$('do-save').addEventListener('click', async ()=>{
-  const btn = $('do-save');
-  const name = $('save-key').value.trim(); if(!name) return toast('Enter a name','error');
+$('btn-save').addEventListener('click', async ()=>{
+  const btn = $('btn-save');
+  const name = $('superhero').value.trim() || localStorage.getItem('last-save');
+  if(!name) return toast('Enter a name','error');
   btn.classList.add('loading'); btn.disabled = true;
   try{
     const data = serialize();
     await saveLocal(name, data);
     try { await saveCloud(name, data); } catch(e) { console.error(e); }
-    hide('modal-save'); toast('Saved','success');
+    toast('Saved','success');
   }
   finally{
     btn.classList.remove('loading'); btn.disabled = false;
   }
 });
+$('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
 $('do-load').addEventListener('click', async ()=>{
   const btn = $('do-load');
   const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
