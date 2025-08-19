@@ -3,8 +3,8 @@ import { $ } from './helpers.js';
 
 const PLAYERS_KEY = 'players';
 const PLAYER_SESSION = 'player-session';
-const DM_KEY = 'dm-account';
 const DM_SESSION = 'dm-session';
+const DM_PASSWORD = 'Dragons22!';
 
 function getPlayersRaw() {
   const raw = localStorage.getItem(PLAYERS_KEY);
@@ -42,14 +42,8 @@ export function logoutPlayer() {
   localStorage.removeItem(PLAYER_SESSION);
 }
 
-export function registerDM(password) {
-  if (localStorage.getItem(DM_KEY)) throw new Error('DM already registered');
-  localStorage.setItem(DM_KEY, JSON.stringify({ password }));
-}
-
 export function loginDM(password) {
-  const dm = JSON.parse(localStorage.getItem(DM_KEY) || '{}');
-  if (dm.password === password) {
+  if (password === DM_PASSWORD) {
     localStorage.setItem(DM_SESSION, '1');
     return true;
   }
@@ -116,37 +110,37 @@ if (typeof document !== 'undefined') {
       });
     }
 
-    const dmRegBtn = $('dm-register');
-    if (dmRegBtn) {
-      dmRegBtn.addEventListener('click', () => {
-        const pass = $('dm-password').value;
-        try {
-          registerDM(pass);
-          console.log('DM registered');
-        } catch (e) {
-          console.error('DM already registered');
-        }
-      });
+    function showDMUI() {
+      const btn = $('btn-dm-edit');
+      if (btn) btn.style.display = 'inline-flex';
     }
 
-    const dmLoginBtn = $('dm-login');
-    if (dmLoginBtn) {
-      dmLoginBtn.addEventListener('click', () => {
-        const pass = $('dm-password').value;
+    const secret = $('dm-secret');
+    if (secret) {
+      secret.addEventListener('click', () => {
+        const pass = prompt('DM Password');
         if (loginDM(pass)) {
-          const tools = $('dm-tools');
-          if (tools) tools.style.display = 'block';
-          updatePlayerList();
+          showDMUI();
         } else {
           console.error('Invalid password');
         }
       });
     }
 
+    const dmEditBtn = $('btn-dm-edit');
+    if (dmEditBtn) {
+      dmEditBtn.addEventListener('click', () => {
+        const tools = $('dm-tools');
+        if (tools) {
+          const show = tools.style.display === 'none' || tools.style.display === '';
+          tools.style.display = show ? 'block' : 'none';
+          if (show) updatePlayerList();
+        }
+      });
+    }
+
     if (isDM()) {
-      const tools = $('dm-tools');
-      if (tools) tools.style.display = 'block';
-      updatePlayerList();
+      showDMUI();
     }
 
     const loadBtn = $('load-player');

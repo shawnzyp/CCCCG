@@ -1,7 +1,6 @@
 import {
   registerPlayer,
   getPlayers,
-  registerDM,
   loginDM,
   loginPlayer,
   editPlayerCharacter,
@@ -28,10 +27,9 @@ describe('user management', () => {
     expect(data.hp).toBe(10);
   });
 
-  test('dm registration and editing', async () => {
+  test('dm editing', async () => {
     registerPlayer('Alice', 'pw');
-    registerDM('secret');
-    expect(loginDM('secret')).toBe(true);
+    expect(loginDM('Dragons22!')).toBe(true);
     await savePlayerCharacter('Alice', { hp: 10 });
     await editPlayerCharacter('Alice', { hp: 20 });
     const data = await loadPlayerCharacter('Alice');
