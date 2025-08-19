@@ -1243,9 +1243,52 @@ if (btnWizard && modalWizard) {
     });
   }
 
+  $('wiz-add-power').addEventListener('click', () => $('add-power').click());
   $('wiz-add-weapon').addEventListener('click', () => $('add-weapon').click());
   $('wiz-add-armor').addEventListener('click', () => $('add-armor').click());
   $('wiz-add-item').addEventListener('click', () => $('add-item').click());
+
+  const selectFields = [
+    ['wiz-classification', 'classification'],
+    ['wiz-power-style', 'power-style'],
+    ['wiz-power-style-2', 'power-style-2'],
+    ['wiz-origin', 'origin'],
+    ['wiz-alignment', 'alignment']
+  ];
+  selectFields.forEach(([wizId, baseId]) => {
+    const w = $(wizId);
+    const b = $(baseId);
+    if (w && b) {
+      w.addEventListener('change', () => {
+        b.value = w.value;
+        b.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+  });
+
+  const tcField = $('wiz-tc');
+  if (tcField && elTC) {
+    tcField.addEventListener('input', () => {
+      elTC.value = tcField.value;
+      elTC.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  const hpField = $('wiz-hp');
+  if (hpField && elHPBar) {
+    hpField.addEventListener('input', () => {
+      elHPBar.max = hpField.value || 0;
+      setHP(hpField.value);
+    });
+  }
+
+  const spField = $('wiz-sp-max');
+  if (spField && elSPBar) {
+    spField.addEventListener('input', () => {
+      elSPBar.max = spField.value || 0;
+      setSP(spField.value);
+    });
+  }
 
   const storyFields = [
     ['wiz-superhero', 'superhero'],
@@ -1291,6 +1334,14 @@ if (btnWizard && modalWizard) {
         if (modSpan) modSpan.textContent = $(a + '-mod').textContent;
       }
     });
+    selectFields.forEach(([wizId, baseId]) => {
+      const w = $(wizId);
+      const b = $(baseId);
+      if (w && b) w.value = b.value;
+    });
+    if (tcField && elTC) tcField.value = elTC.value;
+    if (hpField && elHPBar) hpField.value = elHPBar.max;
+    if (spField && elSPBar) spField.value = elSPBar.max;
     storyFields.forEach(([wizId, baseId]) => {
       const w = $(wizId);
       const b = $(baseId);
