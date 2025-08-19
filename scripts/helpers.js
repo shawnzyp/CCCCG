@@ -7,7 +7,8 @@ export const proficiencyBonus = (level) => Math.floor((num(level) - 1) / 4) + 2;
 export const wizardProgress = (i, total) => {
   const curr = Math.max(1, Math.min(num(i) + 1, num(total)));
   const max = Math.max(num(total), curr);
-  return `Step ${curr} of ${max}`;
+  const pct = Math.round((curr / max) * 100);
+  return `Step ${curr} of ${max} (${pct}%)`;
 };
 export function calculateArmorBonus(){
   let body=[], head=[], shield=0, misc=0;
