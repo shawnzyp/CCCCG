@@ -693,8 +693,9 @@
 
 <!-- Firebase RTDB integration -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+import { saveCloud, loadCloud } from "./scripts/storage.js";
 
 // 1) REPLACE with your Firebase config
 const firebaseConfig = {
@@ -710,6 +711,8 @@ const firebaseConfig = {
 // 2) Init
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
+const rtdbHelpers = { db, ref, set, get, remove };
+const getRTDB = async () => rtdbHelpers;
 
 // -------- Page <-> JSON serializer --------
 function getKeyFor(el) {
@@ -852,12 +855,11 @@ function safeKey(name) { return name.trim().replace(/[.#$/\[\]]/g, "_"); }
 async function saveToCloud(raw) {
   const key = safeKey(raw || "");
   if (!key) throw new Error("Please enter a save name.");
-  const path = `saves/${key}`;
 
   const payload = serializePage();
-  payload.meta = { ...(payload.meta || {}), saveName: key, updatedAt: Date.now(), sheetVersion: "cc-tracker-v2" };
+  payload.meta = { ...(payload.meta || {}), saveName: key, sheetVersion: "cc-tracker-v2" };
 
-  await set(ref(db, path), payload);
+  await saveCloud(key, payload, { getRTDB });
   localStorage.setItem("cc:lastSaveName", key);
   return key;
 }
@@ -865,16 +867,15 @@ async function saveToCloud(raw) {
 async function loadFromCloud(raw) {
   const key = safeKey(raw || "");
   if (!key) throw new Error("Please enter a save name to load.");
-  const path = `saves/${key}`;
 
-  const snap = await get(ref(db, path));
-  if (!snap.exists()) throw new Error(`No save found: "${key}".`);
-  applyPageData(snap.val());
+  const data = await loadCloud(key, { getRTDB });
+  applyPageData(data);
   localStorage.setItem("cc:lastSaveName", key);
   return key;
 }
 
 async function listSaves() {
+  const { db, ref, get } = await getRTDB();
   const snap = await get(ref(db, "saves"));
   if (!snap.exists()) return [];
   return Object.keys(snap.val() || {}).sort();
