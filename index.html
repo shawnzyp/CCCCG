@@ -66,12 +66,6 @@
     <button class="tab" data-go="gear">Gear</button>
     <button class="tab" data-go="story">Story</button>
   </div>
-  <div id="dm-login" hidden>
-    <div class="inline">
-      <input id="dm-password" type="password" placeholder="DM password"/>
-      <button id="login-dm" class="btn-sm" type="button">Login DM</button>
-    </div>
-  </div>
 </header>
 
 <main>
@@ -405,6 +399,24 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="modal-dm-login" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>DM Login</h3>
+    <fieldset class="card">
+      <legend>DM Access</legend>
+      <div class="inline">
+        <input id="dm-password" type="password" placeholder="DM password"/>
+        <button id="login-dm" class="btn-sm" type="button">Login</button>
+      </div>
+    </fieldset>
+  </div>
+</div>
+
 <div class="overlay hidden" id="modal-dm" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
@@ -692,6 +704,7 @@
 <footer>
   <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
   <p>Product of MorVox industries ® 2025</p>
+  <p><a href="#" id="dm-login-link">DM Login</a></p>
 </footer>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
