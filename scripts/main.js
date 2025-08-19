@@ -2,6 +2,8 @@
 import { $, qs, qsa, num, mod, calculateArmorBonus } from './helpers.js';
 import { saveCloud, loadCloud } from './storage.js';
 let lastFocus = null;
+let cccgPage = 1;
+const ruleFrame = qs('#modal-rules iframe');
 function show(id){
   const el = $(id);
   if(!el) return;
@@ -747,11 +749,11 @@ function enableDragReorder(id){
 
 /* ========= Rule Tooltips ========= */
 qsa('[data-rule]').forEach(el=>{
-  const page = el.dataset.rule;
+  const page = Number(el.dataset.rule);
   el.title = `See CCCCG p.${page}`;
   el.addEventListener('click', ()=>{
-    const frame = qs('#modal-rules iframe');
-    if(frame) frame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${page}`;
+    cccgPage = page;
+    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
     show('modal-rules');
   });
 });
@@ -1087,8 +1089,25 @@ setInterval(async ()=>{
 
 /* ========= Rules ========= */
 const btnRules = $('btn-rules');
+const btnPageUp = $('cccg-page-up');
+const btnPageDown = $('cccg-page-down');
 if (btnRules) {
-  btnRules.addEventListener('click', ()=> show('modal-rules'));
+  btnRules.addEventListener('click', ()=>{
+    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+    show('modal-rules');
+  });
+}
+if (btnPageUp) {
+  btnPageUp.addEventListener('click', ()=>{
+    if(cccgPage>1) cccgPage--;
+    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+  });
+}
+if (btnPageDown) {
+  btnPageDown.addEventListener('click', ()=>{
+    cccgPage++;
+    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+  });
 }
 
 /* ========= Close + click-outside ========= */
