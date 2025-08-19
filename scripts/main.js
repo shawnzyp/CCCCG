@@ -1129,13 +1129,31 @@ document.addEventListener('keydown', e=>{
 $('btn-save').addEventListener('click', ()=>{ $('save-key').value = localStorage.getItem('last-save') || $('superhero').value || ''; show('modal-save'); });
 $('btn-load').addEventListener('click', ()=>{ $('load-key').value = ''; show('modal-load'); });
 $('do-save').addEventListener('click', async ()=>{
+  const btn = $('do-save');
   const name = $('save-key').value.trim(); if(!name) return toast('Enter a name','error');
-  await saveCloud(name, serialize(), { getRTDB, toast }); hide('modal-save'); toast('Saved','success');
+  btn.classList.add('loading'); btn.disabled = true;
+  try{
+    await saveCloud(name, serialize(), { getRTDB, toast });
+    hide('modal-save'); toast('Saved','success');
+  }
+  finally{
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
 });
 $('do-load').addEventListener('click', async ()=>{
+  const btn = $('do-load');
   const name = $('load-key').value.trim(); if(!name) return toast('Enter a name','error');
-  try{ const data = await loadCloud(name, { getRTDB, toast }); deserialize(data); hide('modal-load'); toast('Loaded','success'); }
-  catch(e){ console.error('Load failed', e); toast('Could not load: '+(e && e.message ? e.message : ''),'error'); }
+  btn.classList.add('loading'); btn.disabled = true;
+  try{
+    const data = await loadCloud(name, { getRTDB, toast });
+    deserialize(data); hide('modal-load'); toast('Loaded','success');
+  }
+  catch(e){
+    console.error('Load failed', e); toast('Could not load: '+(e && e.message ? e.message : ''),'error');
+  }
+  finally{
+    btn.classList.remove('loading'); btn.disabled = false;
+  }
 });
 
 // periodic cloud backup every 10 minutes
