@@ -185,7 +185,9 @@ if (statusGrid) {
 }
 
 document.addEventListener('click', e => {
-  if (activeStatuses.size && !e.target.closest('header .top')) {
+  if (activeStatuses.size &&
+      !e.target.closest('header .top') &&
+      !e.target.closest('#statuses')) {
     alert('Afflicted by: ' + Array.from(activeStatuses).join(', '));
   }
 }, true);
