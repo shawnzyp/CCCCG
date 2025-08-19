@@ -34,6 +34,7 @@
           <button id="btn-log" title="Roll/Flip log">Roll/Flip Log</button>
           <button id="btn-rules" title="Open rules">Rules</button>
           <button id="btn-campaign" title="Campaign log">Campaign</button>
+          <button id="btn-wizard" title="Character creation wizard">Wizard</button>
           <button id="btn-help" title="Help">Help</button>
         </div>
       </div>
@@ -531,6 +532,44 @@
       <input id="catalog-search" placeholder="Search..."/>
     </fieldset>
     <div id="catalog-list" class="catalog"></div>
+</div>
+</div>
+
+<!-- CHARACTER CREATION WIZARD -->
+<div class="overlay hidden" id="modal-wizard" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Character Creation Wizard" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div id="wizard-steps">
+      <div class="wizard-step">
+        <h3>Ability Scores</h3>
+        <div id="wizard-abil-grid" class="grid ability-grid"></div>
+      </div>
+      <div class="wizard-step">
+        <h3>Gear</h3>
+        <p>Use the buttons below to add starting gear.</p>
+        <div class="actions" style="justify-content:center">
+          <button id="wiz-add-weapon">Add Weapon</button>
+          <button id="wiz-add-armor">Add Armor</button>
+          <button id="wiz-add-item">Add Item</button>
+        </div>
+      </div>
+      <div class="wizard-step">
+        <h3>Story</h3>
+        <div class="grid grid-1">
+          <div class="card"><label for="wiz-superhero">Superhero Identity</label><input id="wiz-superhero"/></div>
+          <div class="card"><label for="wiz-secret">Secret Identity</label><input id="wiz-secret"/></div>
+          <div class="card"><label for="wiz-public">Public Identity</label><select id="wiz-public"><option value="Public">Public</option><option value="Secret">Secret</option></select></div>
+        </div>
+      </div>
+    </div>
+    <div class="wizard-nav">
+      <button id="wizard-prev">Back</button>
+      <button id="wizard-next">Next</button>
+    </div>
   </div>
 </div>
 
