@@ -64,6 +64,8 @@ button:active{transform:translateY(0)}
 @media(max-width:480px){
   .roll-flip{flex-direction:row;}
 }
+.death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
+.death-saves input[type="checkbox"]{width:32px;height:32px;margin:0;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .2s ease,transform .2s ease}
 .card:hover{box-shadow:0 12px 28px rgba(0,0,0,.45);transform:translateY(-2px)}
 .card.dragging{opacity:.5}
