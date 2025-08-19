@@ -1,6 +1,7 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
 import { saveLocal, loadLocal, saveCloud, loadCloud } from './storage.js';
+import { currentPlayer } from './users.js';
 let lastFocus = null;
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
@@ -1126,18 +1127,29 @@ document.addEventListener('keydown', e=>{
   }
   pushHistory();
 })();
-$('btn-save').addEventListener('click', async ()=>{
+$('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
-  const name = $('superhero').value.trim() || localStorage.getItem('last-save');
-  if(!name) return toast('Enter a name','error');
+  const player = currentPlayer();
+  if (!player) return toast('Login required', 'error');
   btn.classList.add('loading'); btn.disabled = true;
-  try{
+  try {
     const data = serialize();
-    await saveLocal(name, data);
-    try { await saveCloud(name, data); } catch(e) { console.error(e); }
-    toast('Saved','success');
-  }
-  finally{
+    const results = [];
+    try {
+      await saveLocal('player:' + player, data);
+      results.push('Local save successful');
+    } catch (e) {
+      results.push('Local save failed: ' + e.message);
+    }
+    try {
+      await saveCloud('player:' + player, data);
+      results.push('Cloud save successful');
+    } catch (e) {
+      results.push('Cloud save failed: ' + e.message);
+    }
+    const isErr = results.some(r => r.includes('failed'));
+    toast(results.join(' | '), isErr ? 'error' : 'success');
+  } finally {
     btn.classList.remove('loading'); btn.disabled = false;
   }
 });
