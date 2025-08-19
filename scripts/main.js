@@ -315,7 +315,6 @@ const elSPPill = $('sp-pill');
 const elHPBar = $('hp-bar');
 const elHPPill = $('hp-pill');
 const elHPRoll = $('hp-roll');
-const elHPBonus = $('hp-bonus');
 const elHPTemp = $('hp-temp');
 const elHPRollAdd = $('hp-roll-add');
 const elHPRollInput = $('hp-roll-input');
@@ -353,7 +352,7 @@ function updateSP(){
 function updateHP(){
   const base = 30;
   const conMod = elCon.value === '' ? 0 : mod(elCon.value);
-  const total = base + conMod + num(elHPRoll.value||0) + num(elHPBonus.value||0);
+  const total = base + conMod + num(elHPRoll.value||0);
   const prevMax = num(elHPBar.max);
   elHPBar.max = Math.max(0, total);
   if (!num(elHPBar.value) || num(elHPBar.value) === prevMax) elHPBar.value = elHPBar.max;
@@ -404,7 +403,7 @@ function updateDerived(){
   updateXP();
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
-['hp-bonus','hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
+['hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 if (elXP) {
