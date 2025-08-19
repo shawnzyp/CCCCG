@@ -475,6 +475,10 @@ function setHP(v){
 }
 function setSP(v){
   const prev = num(elSPBar.value);
+  if (num(v) < 0) {
+    alert("You don't have enough SP for that.");
+    return;
+  }
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
   if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
