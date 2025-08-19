@@ -4,6 +4,7 @@ import { saveCloud, loadCloud } from './storage.js';
 let lastFocus = null;
 let cccgPage = 1;
 const ruleFrame = qs('#modal-rules iframe');
+const CCCCG_SRC = './ccccg.pdf';
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
 
 function applyDeleteIcon(btn){
@@ -837,7 +838,7 @@ qsa('[data-rule]').forEach(el=>{
   el.title = `See CCCCG p.${page}`;
   el.addEventListener('click', ()=>{
     cccgPage = page;
-    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+    if(ruleFrame) ruleFrame.src = `${CCCCG_SRC}#page=${cccgPage}`;
     show('modal-rules');
   });
 });
@@ -1145,13 +1146,13 @@ document.addEventListener('keydown', e=>{
       e.preventDefault();
       cccgPage++;
       if (ruleFrame) {
-        ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+        ruleFrame.src = `${CCCCG_SRC}#page=${cccgPage}`;
       }
     } else if (e.key === 'PageUp') {
       e.preventDefault();
       if (cccgPage > 1) cccgPage--;
       if (ruleFrame) {
-        ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+        ruleFrame.src = `${CCCCG_SRC}#page=${cccgPage}`;
       }
     }
   }
@@ -1306,20 +1307,20 @@ const btnPageUp = $('cccg-page-up');
 const btnPageDown = $('cccg-page-down');
 if (btnRules) {
   btnRules.addEventListener('click', ()=>{
-    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+    if(ruleFrame) ruleFrame.src = `${CCCCG_SRC}#page=${cccgPage}`;
     show('modal-rules');
   });
 }
 if (btnPageUp) {
   btnPageUp.addEventListener('click', ()=>{
     if(cccgPage>1) cccgPage--;
-    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+    if(ruleFrame) ruleFrame.src = `${CCCCG_SRC}#page=${cccgPage}`;
   });
 }
 if (btnPageDown) {
   btnPageDown.addEventListener('click', ()=>{
     cccgPage++;
-    if(ruleFrame) ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+    if(ruleFrame) ruleFrame.src = `${CCCCG_SRC}#page=${cccgPage}`;
   });
 }
 
