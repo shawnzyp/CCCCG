@@ -61,6 +61,17 @@ describe('calculateArmorBonus', () => {
     `;
     expect(calculateArmorBonus()).toBe(10);
   });
+
+  test('ignores negative armor bonuses', () => {
+    document.body.innerHTML = `
+      <div data-kind="armor">
+        <input type="checkbox" data-f="equipped" checked>
+        <input data-f="bonus" value="-5">
+        <select data-f="slot"><option>Head</option></select>
+      </div>
+    `;
+    expect(calculateArmorBonus()).toBe(0);
+  });
 });
 
 describe('wizardProgress', () => {
