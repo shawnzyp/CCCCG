@@ -61,8 +61,17 @@ describe('calculateArmorBonus', () => {
 });
 
 describe('wizardProgress', () => {
-  test('formats current step out of total', () => {
-    expect(wizardProgress(0, 3)).toBe('Step 1 of 3');
-    expect(wizardProgress(2, 3)).toBe('Step 3 of 3');
+  test('formats current step out of total with percentage', () => {
+    expect(wizardProgress(0, 3)).toBe('Step 1 of 3 (33%)');
+    expect(wizardProgress(2, 3)).toBe('Step 3 of 3 (100%)');
+  });
+
+  test('clamps step index within range', () => {
+    expect(wizardProgress(-1, 3)).toBe('Step 1 of 3 (33%)');
+    expect(wizardProgress(5, 3)).toBe('Step 3 of 3 (100%)');
+  });
+
+  test('handles non-positive totals', () => {
+    expect(wizardProgress(0, 0)).toBe('Step 1 of 1 (100%)');
   });
 });
