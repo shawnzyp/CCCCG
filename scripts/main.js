@@ -691,6 +691,10 @@ const btnHelp = $('btn-help');
 if (btnHelp) {
   btnHelp.addEventListener('click', ()=>{ show('modal-tour'); });
 }
+const btnPlayer = $('btn-player');
+if (btnPlayer) {
+  btnPlayer.addEventListener('click', ()=>{ show('modal-player'); });
+}
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
 /* ========= Card Helper ========= */
