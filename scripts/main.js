@@ -320,6 +320,7 @@ const elHPRoll = $('hp-roll');
 const elHPTemp = $('hp-temp');
 const elHPRollAdd = $('hp-roll-add');
 const elHPRollInput = $('hp-roll-input');
+const elHPRolls = $('hp-rolls');
 const elInitiative = $('initiative');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
@@ -328,6 +329,7 @@ const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const elTier = $('tier');
+const hpRolls = elHPRoll && num(elHPRoll.value) ? [num(elHPRoll.value)] : [];
 
 const XP_TIERS = [
   { xp: 0, label: 'Tier 5 – Rookie' },
@@ -442,9 +444,34 @@ $('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{ setHP(num(elHPBar.max)); setSP(num(elSPBar.max)); });
-elHPRollAdd.addEventListener('click', ()=>{ elHPRollInput.value=''; show('modal-hp-roll'); });
-$('hp-roll-save').addEventListener('click', ()=>{ const v=num(elHPRollInput.value); if(!v) return hide('modal-hp-roll'); elHPRoll.value = num(elHPRoll.value)+v; updateHP(); hide('modal-hp-roll'); });
-qsa('#modal-hp-roll [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-hp-roll')));
+if (elHPRollAdd) {
+  function renderHPRolls(){
+    if(!elHPRolls) return;
+    elHPRolls.innerHTML = hpRolls.map((v,i)=>`<span class="pill">+${v}</span><button type="button" class="btn-sm hp-roll-del" data-idx="${i}">×</button>`).join('');
+    qsa('#hp-rolls .hp-roll-del').forEach(b=> b.addEventListener('click', ()=>{
+      const idx=num(b.dataset.idx);
+      hpRolls.splice(idx,1);
+      elHPRoll.value = hpRolls.reduce((s,v)=>s+v,0);
+      updateHP();
+      renderHPRolls();
+    }));
+  }
+  renderHPRolls();
+  elHPRollAdd.addEventListener('click', ()=>{
+    elHPRollInput.value='';
+    show('modal-hp-roll');
+  });
+  $('hp-roll-save').addEventListener('click', ()=>{
+    const v=num(elHPRollInput.value);
+    if(!v) return hide('modal-hp-roll');
+    hpRolls.push(v);
+    elHPRoll.value = hpRolls.reduce((s,v)=>s+v,0);
+    updateHP();
+    renderHPRolls();
+    hide('modal-hp-roll');
+  });
+  qsa('#modal-hp-roll [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-hp-roll')));
+}
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
