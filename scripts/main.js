@@ -1139,7 +1139,22 @@ function redo(){
 }
 
 document.addEventListener('keydown', e=>{
-
+  const modal = $('modal-rules');
+  if (modal && !modal.classList.contains('hidden')) {
+    if (e.key === 'PageDown') {
+      e.preventDefault();
+      cccgPage++;
+      if (ruleFrame) {
+        ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+      }
+    } else if (e.key === 'PageUp') {
+      e.preventDefault();
+      if (cccgPage > 1) cccgPage--;
+      if (ruleFrame) {
+        ruleFrame.src = `./CCCCG - Catalyst Core Character Creation Guide.pdf#page=${cccgPage}`;
+      }
+    }
+  }
 });
 
 (function(){
