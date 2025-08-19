@@ -42,6 +42,7 @@
           <button id="btn-help" title="Help">Help</button>
         </div>
       </div>
+      <button id="btn-player" class="btn-sm" title="Player Account">Log In</button>
       <button id="btn-dm-edit" class="icon" aria-label="Edit Player" title="Edit Player" style="display:none">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0zM4.5 20.25a7.5 7.5 0 0 1 15 0v.75H4.5v-.75z"/>
@@ -72,26 +73,6 @@
 </header>
 
 <main>
-  <!-- USER ADMIN -->
-  <section id="user-admin">
-    <h2>User Admin</h2>
-    <fieldset class="card">
-      <legend>Player Account</legend>
-      <div class="inline">
-        <input id="player-name" placeholder="Player name"/>
-        <input id="player-password" type="password" placeholder="Password"/>
-        <button id="register-player" class="btn-sm" type="button">Register</button>
-        <button id="login-player" class="btn-sm" type="button">Login</button>
-      </div>
-    </fieldset>
-    <fieldset class="card" id="dm-tools" style="display:none">
-      <legend>Edit Player</legend>
-      <div class="inline">
-        <select id="player-select"></select>
-        <button id="load-player" class="btn-sm" type="button">Load</button>
-      </div>
-    </fieldset>
-  </section>
   <!-- COMBAT -->
   <section data-tab="combat">
     <h2 data-rule="8">Tools</h2>
@@ -400,6 +381,34 @@
     </div>
   </section>
 </main>
+
+<!-- PLAYER ACCOUNT MODAL -->
+<div class="overlay hidden" id="modal-player" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>User Account</h3>
+    <fieldset class="card">
+      <legend>Player Account</legend>
+      <div class="inline">
+        <input id="player-name" placeholder="Player name"/>
+        <input id="player-password" type="password" placeholder="Password"/>
+        <button id="register-player" class="btn-sm" type="button">Register</button>
+        <button id="login-player" class="btn-sm" type="button">Login</button>
+      </div>
+    </fieldset>
+    <fieldset class="card" id="dm-tools" style="display:none">
+      <legend>Edit Player</legend>
+      <div class="inline">
+        <select id="player-select"></select>
+        <button id="load-player" class="btn-sm" type="button">Load</button>
+      </div>
+    </fieldset>
+  </div>
+</div>
 
 <!-- ONBOARDING MODAL -->
 <div class="overlay hidden" id="modal-tour" aria-hidden="true">

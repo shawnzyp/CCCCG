@@ -81,9 +81,35 @@ function updatePlayerList() {
   sel.innerHTML = players.map(p => `<option value="${p}">${p}</option>`).join('');
 }
 
+function toast(msg, type = 'info') {
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.className = `toast ${type}`;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1200);
+}
+
+function hideModal() {
+  const m = $('modal-player');
+  if (m) {
+    m.classList.add('hidden');
+    m.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function updatePlayerButton() {
+  const btn = $('btn-player');
+  if (btn) {
+    const p = currentPlayer();
+    btn.textContent = p ? p : 'Log In';
+  }
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     updatePlayerList();
+    updatePlayerButton();
 
     const regBtn = $('register-player');
     if (regBtn) {
@@ -96,6 +122,7 @@ if (typeof document !== 'undefined') {
         nameInput.value = '';
         passInput.value = '';
         updatePlayerList();
+        toast('Player registered','success');
       });
     }
 
@@ -104,8 +131,12 @@ if (typeof document !== 'undefined') {
       loginBtn.addEventListener('click', () => {
         const name = $('player-name').value.trim();
         const pass = $('player-password').value;
-        if (!loginPlayer(name, pass)) {
-          console.error('Invalid credentials');
+        if (loginPlayer(name, pass)) {
+          toast(`Logged in as ${name}`,'success');
+          updatePlayerButton();
+          hideModal();
+        } else {
+          toast('Invalid credentials','error');
         }
       });
     }
@@ -130,11 +161,15 @@ if (typeof document !== 'undefined') {
     const dmEditBtn = $('btn-dm-edit');
     if (dmEditBtn) {
       dmEditBtn.addEventListener('click', () => {
+        const modal = $('modal-player');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.setAttribute('aria-hidden','false');
+        }
         const tools = $('dm-tools');
         if (tools) {
-          const show = tools.style.display === 'none' || tools.style.display === '';
-          tools.style.display = show ? 'block' : 'none';
-          if (show) updatePlayerList();
+          tools.style.display = 'block';
+          updatePlayerList();
         }
       });
     }
