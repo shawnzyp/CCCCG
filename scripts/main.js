@@ -696,6 +696,13 @@ const btnPlayer = $('btn-player');
 if (btnPlayer) {
   btnPlayer.addEventListener('click', ()=>{ show('modal-player'); });
 }
+const dmLoginLink = $('dm-login-link');
+if (dmLoginLink) {
+  dmLoginLink.addEventListener('click', (e)=>{
+    e.preventDefault();
+    show('modal-dm-login');
+  });
+}
 const btnDM = $('btn-dm');
 if (btnDM) {
   btnDM.addEventListener('click', ()=>{
