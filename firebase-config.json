@@ -1,10 +1,10 @@
 {
-  "apiKey": "AIzaSyAYENVrM2komgm2Nteg388YewLiVuUOlIw",
-  "authDomain": "catalyst-core-e458c.firebaseapp.com",
-  "databaseURL": "https://catalyst-core-e458c-default-rtdb.firebaseio.com",
-  "projectId": "catalyst-core-e458c",
-  "storageBucket": "catalyst-core-e458c.firebasestorage.app",
-  "messagingSenderId": "494771671712",
-  "appId": "1:494771671712:web:0587e669cd5f7d3be92fc5",
-  "measurementId": "G-R3JS5GWKFM"
+  "apiKey": "REPLACE_WITH_API_KEY",
+  "authDomain": "ccccg-7d6b6.firebaseapp.com",
+  "databaseURL": "https://ccccg-7d6b6-default-rtdb.firebaseio.com",
+  "projectId": "ccccg-7d6b6",
+  "storageBucket": "ccccg-7d6b6.appspot.com",
+  "messagingSenderId": "705656976850",
+  "appId": "1:705656976850:web:REPLACE_WITH_APP_ID",
+  "measurementId": "G-REPLACE_MEASUREMENT_ID"
 }
