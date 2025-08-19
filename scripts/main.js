@@ -806,7 +806,7 @@ $('open-catalog').addEventListener('click', ()=>{ renderCatalog(); show('modal-c
 /* ========= Encounter / Initiative ========= */
 let round = Number(localStorage.getItem('enc-round')||'1')||1;
 let turn = Number(localStorage.getItem('enc-turn')||'0')||0;
-const roster = JSON.parse(localStorage.getItem('enc-roster')||'[]');
+const roster = safeParse('enc-roster');
 function saveEnc(){
   localStorage.setItem('enc-roster', JSON.stringify(roster));
   localStorage.setItem('enc-round', String(round));
@@ -859,6 +859,13 @@ $('enc-next').addEventListener('click', ()=>{
   if(!roster.length) return;
   turn = (turn + 1) % roster.length;
   if(turn===0) round+=1;
+  renderEnc();
+  saveEnc();
+});
+$('enc-prev').addEventListener('click', ()=>{
+  if(!roster.length) return;
+  turn = (turn - 1 + roster.length) % roster.length;
+  if(turn===roster.length-1 && round>1) round-=1;
   renderEnc();
   saveEnc();
 });
