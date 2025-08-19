@@ -1,5 +1,5 @@
 /* ========= helpers ========= */
-import { $, qs, qsa, num, mod, calculateArmorBonus } from './helpers.js';
+import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
 import { saveCloud, loadCloud } from './storage.js';
 let lastFocus = null;
 let cccgPage = 1;
@@ -1212,6 +1212,7 @@ if (btnWizard && modalWizard) {
   const steps = qsa('#wizard-steps .wizard-step');
   const prevBtn = $('wizard-prev');
   const nextBtn = $('wizard-next');
+  const progressEl = $('wizard-progress');
   let stepIndex = 0;
 
   const abilGrid = $('wizard-abil-grid');
@@ -1265,6 +1266,9 @@ if (btnWizard && modalWizard) {
     steps.forEach((s, idx) => s.classList.toggle('active', idx === i));
     prevBtn.disabled = i === 0;
     nextBtn.textContent = i === steps.length - 1 ? 'Finish' : 'Next';
+    if (progressEl) {
+      progressEl.textContent = wizardProgress(i, steps.length);
+    }
     stepIndex = i;
   }
 

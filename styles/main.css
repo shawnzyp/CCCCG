@@ -221,5 +221,6 @@ select[required]:valid{
 /* wizard */
 .wizard-step{display:none}
 .wizard-step.active{display:block}
-.wizard-nav{display:flex;justify-content:space-between;margin-top:16px}
+.wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+#wizard-progress{flex:1;text-align:center}
 

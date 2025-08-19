@@ -1,4 +1,4 @@
-import { num, mod, calculateArmorBonus, proficiencyBonus } from '../scripts/helpers.js';
+import { num, mod, calculateArmorBonus, proficiencyBonus, wizardProgress } from '../scripts/helpers.js';
 
 describe('num', () => {
   test('converts strings to numbers and defaults to 0', () => {
@@ -57,5 +57,12 @@ describe('calculateArmorBonus', () => {
       </div>
     `;
     expect(calculateArmorBonus()).toBe(10);
+  });
+});
+
+describe('wizardProgress', () => {
+  test('formats current step out of total', () => {
+    expect(wizardProgress(0, 3)).toBe('Step 1 of 3');
+    expect(wizardProgress(2, 3)).toBe('Step 3 of 3');
   });
 });
