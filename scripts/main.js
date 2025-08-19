@@ -383,7 +383,7 @@ deathBoxes.forEach((box, idx) => {
       pushLog(deathLog, {t: Date.now(), text: `Failure ${idx + 1}`}, 'death-log');
     }
     if (deathBoxes.every(b => b.checked)) {
-      alert('Your character has fallen and their sacrifice will be remembered.');
+      alert('You have fallen, your sacrifice will be remembered.');
     }
   });
 });
