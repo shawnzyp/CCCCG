@@ -47,6 +47,12 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6-3h6m-6-3h6M9 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
         </svg>
       </button>
+      <button id="btn-help" class="icon" aria-label="Help" title="Help" data-tip="Help">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 9a3.375 3.375 0 0 1 6.75 0c0 1.966-1.682 3.375-3.375 3.375S8.625 10.966 8.625 9zm3.375 7.5h.007v.007H12v-.007z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6.75 6.75 0 1 0 0-13.5 6.75 6.75 0 0 0 0 13.5z"/>
+        </svg>
+      </button>
       <button id="btn-theme" class="icon" aria-label="Toggle Theme" title="Toggle Theme" data-tip="Toggle theme">
         <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3V5.25M18.364 5.63604L16.773 7.22703M21 12H18.75M18.364 18.364L16.773 16.773M12 18.75V21M7.22703 16.773L5.63604 18.364M5.25 12H3M7.22703 7.22703L5.63604 5.63604M15.75 12C15.75 14.0711 14.0711 15.75 12 15.75C9.92893 15.75 8.25 14.0711 8.25 12C8.25 9.92893 9.92893 8.25 12 8.25C14.0711 8.25 15.75 9.92893 15.75 12Z"/>
@@ -383,6 +389,11 @@
 <!-- ONBOARDING MODAL -->
 <div class="overlay hidden" id="modal-tour" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>Welcome to the Tracker</h3>
     <p>Use the tabs to navigate your sheet. Changes save automatically and work offline.</p>
     <div class="actions"><button id="tour-ok">Get Started</button></div>
