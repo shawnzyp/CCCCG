@@ -1035,7 +1035,11 @@ async function getRTDB(){
     return null;
   }
   try{
-    const [{ initializeApp }, { getAuth, signInAnonymously, onAuthStateChanged }, { getDatabase, ref, get, set }] = await Promise.all([
+    const [
+      { initializeApp },
+      { getAuth, signInAnonymously, onAuthStateChanged },
+      { getDatabase, ref, get, set, remove }
+    ] = await Promise.all([
       import('https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js'),
       import('https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js'),
       import('https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js')
@@ -1053,7 +1057,8 @@ async function getRTDB(){
       }
     }
     const db=getDatabase(app);
-    return { db, ref, get, set };
+    // include remove to support delete operations
+    return { db, ref, get, set, remove };
   }catch(e){
     console.error('RTDB init failed', e);
     if (!navigator.onLine) toast('Offline: cloud unavailable','error');
