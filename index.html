@@ -551,17 +551,102 @@
     </button>
     <div id="wizard-steps">
       <div class="wizard-step">
+        <h3>Classification</h3>
+        <select id="wiz-classification">
+          <option value="">Select one</option>
+          <option>Mutant</option>
+          <option>Enhanced Human</option>
+          <option>Magic User</option>
+          <option>Alien/Extraterrestrial</option>
+          <option>Mystical Being</option>
+        </select>
+      </div>
+      <div class="wizard-step">
+        <h3>Power Style</h3>
+        <div class="grid grid-2">
+          <div class="card"><label for="wiz-power-style">Primary Style</label>
+            <select id="wiz-power-style">
+              <option value="">Select one</option>
+              <option>Physical Powerhouse</option>
+              <option>Energy Manipulator</option>
+              <option>Speedster</option>
+              <option>Telekinetic/Psychic</option>
+              <option>Illusionist</option>
+              <option>Shape-shifter</option>
+              <option>Elemental Controller</option>
+            </select>
+          </div>
+          <div class="card"><label for="wiz-power-style-2">Secondary Style</label>
+            <select id="wiz-power-style-2">
+              <option value="">Select one</option>
+              <option>None</option>
+              <option>Physical Powerhouse</option>
+              <option>Energy Manipulator</option>
+              <option>Speedster</option>
+              <option>Telekinetic/Psychic</option>
+              <option>Illusionist</option>
+              <option>Shape-shifter</option>
+              <option>Elemental Controller</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="wizard-step">
+        <h3>Origin Story</h3>
+        <select id="wiz-origin">
+          <option value="">Select one</option>
+          <option>The Accident</option>
+          <option>The Experiment</option>
+          <option>The Legacy</option>
+          <option>The Awakening</option>
+          <option>The Pact</option>
+          <option>The Lost Time</option>
+          <option>The Exposure</option>
+          <option>The Rebirth</option>
+          <option>The Vigil</option>
+          <option>The Redemption</option>
+        </select>
+      </div>
+      <div class="wizard-step">
         <h3>Ability Scores</h3>
         <div id="wizard-abil-grid" class="grid ability-grid"></div>
       </div>
       <div class="wizard-step">
-        <h3>Gear</h3>
-        <p>Use the buttons below to add starting gear.</p>
+        <h3>Toughness Class (TC)</h3>
+        <input id="wiz-tc" type="number" inputmode="numeric"/>
+      </div>
+      <div class="wizard-step">
+        <h3>Hit Points (HP)</h3>
+        <input id="wiz-hp" type="number" inputmode="numeric"/>
+      </div>
+      <div class="wizard-step">
+        <h3>Customize Powers &amp; Gear</h3>
+        <p>Use the buttons below to add starting powers and gear.</p>
         <div class="actions" style="justify-content:center">
+          <button id="wiz-add-power">Add Power</button>
           <button id="wiz-add-weapon">Add Weapon</button>
           <button id="wiz-add-armor">Add Armor</button>
           <button id="wiz-add-item">Add Item</button>
         </div>
+      </div>
+      <div class="wizard-step">
+        <h3>Stamina Points (SP)</h3>
+        <input id="wiz-sp-max" type="number" inputmode="numeric"/>
+      </div>
+      <div class="wizard-step">
+        <h3>Alignment</h3>
+        <select id="wiz-alignment">
+          <option value="">Select one</option>
+          <option>Paragon (Lawful Light)</option>
+          <option>Guardian (Neutral Light)</option>
+          <option>Vigilante (Chaotic Light)</option>
+          <option>Sentinel (Lawful Neutral)</option>
+          <option>Outsider (True Neutral)</option>
+          <option>Wildcard (Chaotic Neutral)</option>
+          <option>Inquisitor (Lawful Shadow)</option>
+          <option>Anti-Hero (Neutral Shadow)</option>
+          <option>Renegade (Chaotic Shadow)</option>
+        </select>
       </div>
       <div class="wizard-step">
         <h3>Story</h3>
