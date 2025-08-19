@@ -58,12 +58,6 @@ button:active{transform:translateY(0)}
 }
 .pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
 .pill.result{font-size:1rem;font-weight:700;}
-.roll-flip>*{flex:0;}
-.roll-flip select{width:80px;}
-.roll-flip input{width:60px;}
-@media(max-width:480px){
-  .roll-flip{flex-direction:row;}
-}
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
 .death-saves input[type="checkbox"]{width:50px;height:50px;max-width:50px;max-height:50px;margin:0;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .2s ease,transform .2s ease}
