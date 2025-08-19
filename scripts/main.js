@@ -1190,6 +1190,97 @@ setInterval(async ()=>{
   }
 }, 10 * 60 * 1000);
 
+/* ========= Character Creation Wizard ========= */
+const btnWizard = $('btn-wizard');
+const modalWizard = $('modal-wizard');
+if (btnWizard && modalWizard) {
+  const steps = qsa('#wizard-steps .wizard-step');
+  const prevBtn = $('wizard-prev');
+  const nextBtn = $('wizard-next');
+  let stepIndex = 0;
+
+  const abilGrid = $('wizard-abil-grid');
+  if (abilGrid) {
+    abilGrid.innerHTML = ABILS.map(a => `
+      <div class="ability-box">
+        <label for="wiz-${a}">${a.toUpperCase()}</label>
+        <div class="score">
+          <select id="wiz-${a}"></select>
+          <span class="mod" id="wiz-${a}-mod">+0</span>
+        </div>
+      </div>`).join('');
+    ABILS.forEach(a => {
+      const sel = $('wiz-' + a);
+      const orig = $(a);
+      const modSpan = $('wiz-' + a + '-mod');
+      for (let v = 10; v <= 24; v++) sel.add(new Option(v, v));
+      if (orig) sel.value = orig.value;
+      const sync = () => {
+        if (orig) {
+          orig.value = sel.value;
+          orig.dispatchEvent(new Event('change', { bubbles: true }));
+          if (modSpan) modSpan.textContent = $(a + '-mod').textContent;
+        }
+      };
+      sel.addEventListener('change', sync);
+    });
+  }
+
+  $('wiz-add-weapon').addEventListener('click', () => $('add-weapon').click());
+  $('wiz-add-armor').addEventListener('click', () => $('add-armor').click());
+  $('wiz-add-item').addEventListener('click', () => $('add-item').click());
+
+  const storyFields = [
+    ['wiz-superhero', 'superhero'],
+    ['wiz-secret', 'secret'],
+    ['wiz-public', 'publicIdentity']
+  ];
+  storyFields.forEach(([wizId, baseId]) => {
+    const w = $(wizId);
+    const b = $(baseId);
+    if (w && b) {
+      w.addEventListener('input', () => {
+        b.value = w.value;
+        b.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+  });
+
+  function showWizardStep(i) {
+    steps.forEach((s, idx) => s.classList.toggle('active', idx === i));
+    prevBtn.disabled = i === 0;
+    nextBtn.textContent = i === steps.length - 1 ? 'Finish' : 'Next';
+    stepIndex = i;
+  }
+
+  prevBtn.addEventListener('click', () => {
+    if (stepIndex > 0) showWizardStep(stepIndex - 1);
+  });
+  nextBtn.addEventListener('click', () => {
+    if (stepIndex < steps.length - 1) showWizardStep(stepIndex + 1);
+    else hide('modal-wizard');
+  });
+
+  btnWizard.addEventListener('click', () => {
+    ABILS.forEach(a => {
+      const sel = $('wiz-' + a);
+      const orig = $(a);
+      const modSpan = $('wiz-' + a + '-mod');
+      if (sel && orig) {
+        sel.value = orig.value;
+        if (modSpan) modSpan.textContent = $(a + '-mod').textContent;
+      }
+    });
+    storyFields.forEach(([wizId, baseId]) => {
+      const w = $(wizId);
+      const b = $(baseId);
+      if (w && b) w.value = b.value;
+    });
+    show('modal-wizard');
+    showWizardStep(0);
+  });
+}
+
 /* ========= Rules ========= */
 const btnRules = $('btn-rules');
 const btnPageUp = $('cccg-page-up');
