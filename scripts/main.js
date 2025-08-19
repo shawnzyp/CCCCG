@@ -205,6 +205,7 @@ if (statusGrid) {
 document.addEventListener('click', e => {
   if (activeStatuses.size &&
       !e.target.closest('header .top') &&
+      !e.target.closest('header .tabs') &&
       !e.target.closest('#statuses')) {
     alert('Afflicted by: ' + Array.from(activeStatuses).join(', '));
   }
