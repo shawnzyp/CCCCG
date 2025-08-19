@@ -2,21 +2,44 @@ import { saveLocal, loadLocal } from './storage.js';
 import { $ } from './helpers.js';
 
 const PLAYERS_KEY = 'players';
+const PLAYER_SESSION = 'player-session';
 const DM_KEY = 'dm-account';
 const DM_SESSION = 'dm-session';
 
-export function getPlayers() {
+function getPlayersRaw() {
   const raw = localStorage.getItem(PLAYERS_KEY);
-  return raw ? JSON.parse(raw) : [];
+  return raw ? JSON.parse(raw) : {};
 }
 
-export function registerPlayer(name) {
-  const players = getPlayers();
-  if (name && !players.includes(name)) {
-    players.push(name);
+export function getPlayers() {
+  return Object.keys(getPlayersRaw());
+}
+
+export function registerPlayer(name, password) {
+  const players = getPlayersRaw();
+  if (name && password && !players[name]) {
+    players[name] = { password };
     localStorage.setItem(PLAYERS_KEY, JSON.stringify(players));
   }
-  return players;
+  return Object.keys(players);
+}
+
+export function loginPlayer(name, password) {
+  const players = getPlayersRaw();
+  const p = players[name];
+  if (p && p.password === password) {
+    localStorage.setItem(PLAYER_SESSION, name);
+    return true;
+  }
+  return false;
+}
+
+export function currentPlayer() {
+  return localStorage.getItem(PLAYER_SESSION);
+}
+
+export function logoutPlayer() {
+  localStorage.removeItem(PLAYER_SESSION);
 }
 
 export function registerDM(password) {
@@ -41,11 +64,13 @@ export function logoutDM() {
   localStorage.removeItem(DM_SESSION);
 }
 
-export function savePlayerCharacter(player, data) {
+export async function savePlayerCharacter(player, data) {
+  if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
   return saveLocal('player:' + player, data);
 }
 
-export function loadPlayerCharacter(player) {
+export async function loadPlayerCharacter(player) {
+  if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
   return loadLocal('player:' + player);
 }
 
@@ -70,10 +95,24 @@ if (typeof document !== 'undefined') {
     if (regBtn) {
       regBtn.addEventListener('click', () => {
         const nameInput = $('player-name');
+        const passInput = $('player-password');
         const name = nameInput.value.trim();
-        registerPlayer(name);
+        const pass = passInput.value;
+        registerPlayer(name, pass);
         nameInput.value = '';
+        passInput.value = '';
         updatePlayerList();
+      });
+    }
+
+    const loginBtn = $('login-player');
+    if (loginBtn) {
+      loginBtn.addEventListener('click', () => {
+        const name = $('player-name').value.trim();
+        const pass = $('player-password').value;
+        if (!loginPlayer(name, pass)) {
+          console.error('Invalid credentials');
+        }
       });
     }
 

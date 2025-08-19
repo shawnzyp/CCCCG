@@ -3,6 +3,7 @@ import {
   getPlayers,
   registerDM,
   loginDM,
+  loginPlayer,
   editPlayerCharacter,
   savePlayerCharacter,
   loadPlayerCharacter,
@@ -14,13 +15,21 @@ describe('user management', () => {
   });
 
   test('registers players and lists them', () => {
-    registerPlayer('Alice');
-    registerPlayer('Bob');
+    registerPlayer('Alice', 'a');
+    registerPlayer('Bob', 'b');
     expect(getPlayers()).toEqual(['Alice', 'Bob']);
   });
 
+  test('player login and save', async () => {
+    registerPlayer('Alice', 'pass');
+    expect(loginPlayer('Alice', 'pass')).toBe(true);
+    await savePlayerCharacter('Alice', { hp: 10 });
+    const data = await loadPlayerCharacter('Alice');
+    expect(data.hp).toBe(10);
+  });
+
   test('dm registration and editing', async () => {
-    registerPlayer('Alice');
+    registerPlayer('Alice', 'pw');
     registerDM('secret');
     expect(loginDM('secret')).toBe(true);
     await savePlayerCharacter('Alice', { hp: 10 });
@@ -29,8 +38,9 @@ describe('user management', () => {
     expect(data.hp).toBe(20);
   });
 
-  test('edit fails without dm', () => {
-    expect(() => editPlayerCharacter('Bob', {})).toThrow('Not authorized');
+  test('save fails without login', async () => {
+    registerPlayer('Bob', 'pw2');
+    await expect(savePlayerCharacter('Bob', {})).rejects.toThrow('Not authorized');
   });
 });
 

@@ -4,6 +4,7 @@ export async function saveLocal(name, payload) {
     localStorage.setItem('last-save', name);
   } catch (e) {
     console.error('Local save failed', e);
+    throw e;
   }
 }
 
@@ -72,6 +73,7 @@ export async function saveCloud(name, payload) {
     localStorage.setItem('last-save', name);
   } catch (e) {
     console.error('Cloud save failed', e);
+    throw e;
   }
 }
 
