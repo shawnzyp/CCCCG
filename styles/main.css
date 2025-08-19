@@ -33,14 +33,15 @@ section h2{margin:0 0 10px;color:var(--accent);font-size:1.05rem}
 .grid-3{grid-template-columns:1fr}
 @media(min-width:820px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(3,1fr)}}
 label{display:block;font-weight:700;margin-bottom:6px}
-input,select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
+input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
+input[type="checkbox"]{width:auto;height:auto;-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:checkbox;flex:0 0 auto;padding:0;margin:0 4px 0 0;}
 button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer}
 button:hover{filter:brightness(1.1);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
 .btn-sm{min-height:36px;padding:8px 10px;border-radius:var(--radius)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.inline>input,
+.inline>input:not([type="checkbox"]),
 .inline>select,
 .inline>textarea,
 .inline>button,
@@ -49,7 +50,7 @@ button:active{transform:translateY(0)}
 .inline>.sr-only{flex:0;width:auto}
 @media(max-width:480px){
   .inline{flex-direction:column;align-items:stretch}
-  .inline>input,
+  .inline>input:not([type="checkbox"]),
   .inline>select,
   .inline>textarea,
   .inline>button,
@@ -63,6 +64,8 @@ button:active{transform:translateY(0)}
 @media(max-width:480px){
   .roll-flip{flex-direction:row;}
 }
+.death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
+.death-saves input[type="checkbox"]{width:96px;height:96px;margin:0;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .2s ease,transform .2s ease}
 .card:hover{box-shadow:0 12px 28px rgba(0,0,0,.45);transform:translateY(-2px)}
 .card.dragging{opacity:.5}
