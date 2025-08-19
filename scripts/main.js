@@ -206,7 +206,15 @@ document.addEventListener('click', e => {
   if (activeStatuses.size &&
       !e.target.closest('header .top') &&
       !e.target.closest('header .tabs') &&
-      !e.target.closest('#statuses')) {
+      !e.target.closest('#statuses') &&
+      !e.target.closest('#modal-enc') &&
+      !e.target.closest('#modal-load') &&
+      !e.target.closest('#modal-save') &&
+      !e.target.closest('#modal-log') &&
+      !e.target.closest('#modal-log-full') &&
+      !e.target.closest('#modal-rules') &&
+      !e.target.closest('#modal-campaign') &&
+      !e.target.closest('#btn-theme')) {
     alert('Afflicted by: ' + Array.from(activeStatuses).join(', '));
   }
 }, true);
