@@ -1,4 +1,4 @@
-import { saveLocal, loadLocal } from './storage.js';
+import { saveLocal, loadLocal, loadCloud } from './storage.js';
 import { $ } from './helpers.js';
 
 const PLAYERS_KEY = 'players';
@@ -74,7 +74,15 @@ export async function savePlayerCharacter(player, data) {
 
 export async function loadPlayerCharacter(player) {
   if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
-  return loadLocal('player:' + player);
+  try {
+    return await loadLocal('player:' + player);
+  } catch (e) {
+    // If the character isn't saved locally (e.g. attempting to view a player's
+    // sheet from another device), fall back to the cloud save. This allows the
+    // DM to load any player's character as long as it exists in the shared
+    // database.
+    return await loadCloud('player:' + player);
+  }
 }
 
 export function editPlayerCharacter(player, data) {
