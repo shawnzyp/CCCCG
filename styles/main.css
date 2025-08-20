@@ -11,7 +11,11 @@ h1{font-size:2rem;font-weight:700;color:var(--accent)}
 header h1{font-size:1rem}
 h2{font-size:1.5rem;font-weight:600;color:var(--accent)}
 h3{font-size:1.25rem;font-weight:600}
-header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(8px + env(safe-area-inset-top)) 10px 8px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(8px + env(safe-area-inset-top)) 10px 8px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column}
+header.compact{flex-direction:row;align-items:center;padding:4px 10px}
+header.compact .title-group,header.compact #btn-dm{display:none}
+header.compact .top{margin-right:8px;flex:0 0 auto}
+header.compact .tabs{margin-top:0;flex:1;justify-content:flex-start}
 .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .title-group{display:flex;align-items:center;gap:6px}
 .actions{display:flex;gap:6px}

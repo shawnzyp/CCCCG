@@ -150,6 +150,15 @@ if (btnMenu && menuActions) {
   });
 }
 
+/* ========= header scroll ========= */
+const headerEl = qs('header');
+if (headerEl) {
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 0) headerEl.classList.add('compact');
+    else headerEl.classList.remove('compact');
+  }, { passive: true });
+}
+
 /* ========= tabs ========= */
 function setTab(name){
   qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
