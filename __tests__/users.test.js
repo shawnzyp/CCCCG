@@ -3,6 +3,8 @@ import {
   getPlayers,
   loginDM,
   loginPlayer,
+  logoutPlayer,
+  currentPlayer,
   editPlayerCharacter,
   savePlayerCharacter,
   loadPlayerCharacter,
@@ -19,12 +21,25 @@ describe('user management', () => {
     expect(getPlayers()).toEqual(['Alice', 'Bob']);
   });
 
+  test('registration requires name and password', () => {
+    registerPlayer('', 'pw');
+    registerPlayer('Charlie', '');
+    expect(getPlayers()).toEqual([]);
+  });
+
   test('player login and save', async () => {
     registerPlayer('Alice', 'pass');
     expect(loginPlayer('Alice', 'pass')).toBe(true);
     await savePlayerCharacter('Alice', { hp: 10 });
     const data = await loadPlayerCharacter('Alice');
     expect(data.hp).toBe(10);
+  });
+
+  test('player logout clears session', () => {
+    registerPlayer('Dana', 'pw');
+    expect(loginPlayer('Dana', 'pw')).toBe(true);
+    logoutPlayer();
+    expect(currentPlayer()).toBeNull();
   });
 
   test('dm editing', async () => {

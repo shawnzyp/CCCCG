@@ -102,9 +102,13 @@ function hideModal() {
 
 function updatePlayerButton() {
   const btn = $('btn-player');
+  const logoutBtn = $('logout-player');
+  const p = currentPlayer();
   if (btn) {
-    const p = currentPlayer();
     btn.textContent = p ? p : 'Log In';
+  }
+  if (logoutBtn) {
+    logoutBtn.hidden = !p;
   }
 }
 
@@ -127,6 +131,18 @@ if (typeof document !== 'undefined') {
         const passInput = $('player-password');
         const name = nameInput.value.trim();
         const pass = passInput.value;
+        if (!name && !pass) {
+          toast('Player name and password required','error');
+          return;
+        }
+        if (!name) {
+          toast('Player name required','error');
+          return;
+        }
+        if (!pass) {
+          toast('Password required','error');
+          return;
+        }
         registerPlayer(name, pass);
         nameInput.value = '';
         passInput.value = '';
@@ -147,6 +163,16 @@ if (typeof document !== 'undefined') {
         } else {
           toast('Invalid credentials','error');
         }
+      });
+    }
+
+    const logoutBtn = $('logout-player');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+        logoutPlayer();
+        toast('Logged out','info');
+        updatePlayerButton();
+        hideModal();
       });
     }
 
