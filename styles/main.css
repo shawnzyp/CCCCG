@@ -147,6 +147,17 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
   text-align:center;
 }
 
+.ability-box .score-val{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  height:72px;
+  font-size:1.8rem;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+}
+
 .ability-box .mod{
   position:absolute;
   bottom:4px;
