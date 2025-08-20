@@ -215,8 +215,8 @@ saveGrid.innerHTML = ABILS.map(a=>`
 
 const SKILLS = [
   { name: 'Acrobatics', abil: 'dex' },
-  { name: 'Animal Handling', abil: 'wis' },
-  { name: 'Arcana', abil: 'int' },
+  { name: 'Biocontrol', abil: 'wis' },
+  { name: 'Technology', abil: 'int' },
   { name: 'Athletics', abil: 'str' },
   { name: 'Deception', abil: 'cha' },
   { name: 'History', abil: 'int' },
