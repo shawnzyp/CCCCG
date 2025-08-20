@@ -209,7 +209,7 @@ saveGrid.innerHTML = ABILS.map(a=>`
     <div class="score"><span class="score-val" id="save-${a}">+0</span></div>
     <label class="inline"><input type="checkbox" id="save-${a}-prof"/> Proficient</label>
     <button class="btn-sm" data-roll-save="${a}">Roll</button>
-    <span class="pill result" id="save-${a}-res"></span>
+    <span class="pill result" id="save-${a}-res" data-placeholder="000"></span>
   </div>
 `).join('');
 
@@ -240,7 +240,7 @@ skillGrid.innerHTML = SKILLS.map((s,i)=>`
     <div class="score"><span class="score-val" id="skill-${i}">+0</span></div>
     <label class="inline"><input type="checkbox" id="skill-${i}-prof"/> Proficient</label>
     <button class="btn-sm" data-roll-skill="${i}">Roll</button>
-    <span class="pill result" id="skill-${i}-res"></span>
+    <span class="pill result" id="skill-${i}-res" data-placeholder="000"></span>
   </div>
 `).join('');
 
@@ -911,6 +911,7 @@ function createCard(kind, pref = {}) {
     hitBtn.textContent = 'Roll to Hit';
     const out = document.createElement('span');
     out.className = 'pill result';
+    out.dataset.placeholder = '000';
     hitBtn.addEventListener('click', () => {
       const pb = num(elProfBonus.value)||2;
       const rangeVal = qs("[data-f='range']", card)?.value || '';
