@@ -87,6 +87,12 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 .pill-sm{padding:2px 6px;font-size:.75rem}
 .pill.result{font-size:1rem;font-weight:700;}
 .pill.result:empty::before{content:attr(data-placeholder);visibility:hidden;}
+.pill.result.rolling{animation:dicePop .6s ease;}
+@keyframes dicePop{
+  0%{transform:scale(0);opacity:0;}
+  50%{transform:scale(1.2);opacity:1;}
+  100%{transform:scale(1);opacity:1;}
+}
 .roll-flip-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
 .roll-flip-grid .inline{flex-wrap:nowrap;gap:4px;}
 .roll-flip-grid select,
@@ -184,6 +190,26 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
   0%{transform:scale(0) rotate(-180deg);opacity:0;}
   30%{transform:scale(1.2) rotate(0deg);opacity:1;}
   100%{transform:scale(1) rotate(0deg);opacity:0;}
+}
+#coin-animation{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:6rem;
+  color:var(--accent);
+  pointer-events:none;
+  opacity:0;
+  z-index:3000;
+}
+#coin-animation.show{
+  animation:coinFlip 1s ease forwards;
+}
+@keyframes coinFlip{
+  0%{transform:scale(0) rotateY(0);opacity:0;}
+  50%{transform:scale(1.2) rotateY(180deg);opacity:1;}
+  100%{transform:scale(1) rotateY(360deg);opacity:0;}
 }
 .sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1;}
 .sp-grid .btn-sm{width:100%;}
