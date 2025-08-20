@@ -19,6 +19,7 @@ header #btn-theme,header h1,header #btn-dm{transition:opacity .3s ease,max-width
 header.compact #btn-theme,header.compact h1,header.compact #btn-dm{opacity:0;max-width:0;margin:0;padding:0;pointer-events:none}
 header.compact .top{margin-left:8px;margin-right:0;flex:0 0 auto;order:2}
 header.compact .tabs{margin-top:0;flex:1;order:1;justify-content:space-evenly}
+header.hide-tabs .tabs{opacity:0;pointer-events:none}
 .top{display:flex;align-items:center;justify-content:center;gap:8px;transition:var(--transition)}
 .title-group{display:flex;align-items:center;gap:6px}
 .actions{display:flex;gap:6px}

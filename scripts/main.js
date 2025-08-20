@@ -182,7 +182,24 @@ function setTab(name){
     localStorage.setItem('active-tab', name);
   } catch (e) {}
 }
-qsa('.tab').forEach(b=> b.addEventListener('click', ()=> setTab(b.getAttribute('data-go'))));
+
+const switchTab = name => {
+  if (headerEl && headerEl.classList.contains('compact')) {
+    headerEl.classList.add('hide-tabs');
+    const onScroll = () => {
+      if (window.scrollY === 0) {
+        headerEl.classList.remove('hide-tabs');
+        setTab(name);
+        window.removeEventListener('scroll', onScroll);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    setTab(name);
+  }
+};
+qsa('.tab').forEach(b=> b.addEventListener('click', ()=> switchTab(b.getAttribute('data-go'))));
 let initialTab = 'combat';
 try {
   const storedTab = localStorage.getItem('active-tab');
