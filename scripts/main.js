@@ -615,9 +615,29 @@ function setSP(v){
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
   if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
 }
-$('hp-dmg').addEventListener('click', ()=>{ let d=num($('hp-amt').value); if(!d) return; let tv=num(elHPTemp.value); if(d>0 && tv>0){ const use=Math.min(tv,d); tv-=use; elHPTemp.value=tv; d-=use; } setHP(num(elHPBar.value)-d); });
-$('hp-heal').addEventListener('click', ()=>{ const d=num($('hp-amt').value)||0; setHP(num(elHPBar.value)+d); });
-$('hp-full').addEventListener('click', ()=> setHP(num(elHPBar.max)));
+$('hp-dmg').addEventListener('click', ()=>{
+  let d=num($('hp-amt').value);
+  if(!d) return;
+  let tv=num(elHPTemp.value);
+  if(d>0 && tv>0){
+    const use=Math.min(tv,d);
+    tv-=use;
+    elHPTemp.value=tv;
+    d-=use;
+  }
+  setHP(num(elHPBar.value)-d);
+  playDamageAnimation(d);
+});
+$('hp-heal').addEventListener('click', ()=>{
+  const d=num($('hp-amt').value)||0;
+  setHP(num(elHPBar.value)+d);
+  if(d>0) playHealAnimation(d);
+});
+$('hp-full').addEventListener('click', ()=>{
+  const diff = num(elHPBar.max) - num(elHPBar.value);
+  if(diff>0) playHealAnimation(diff);
+  setHP(num(elHPBar.max));
+});
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{
@@ -738,6 +758,35 @@ function playDamageAnimation(amount){
 
 function playDeathAnimation(){
   const anim = $('death-animation');
+  if(!anim) return Promise.resolve();
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
+
+function playHealAnimation(amount){
+  const anim=$('heal-animation');
+  if(!anim) return Promise.resolve();
+  anim.textContent=`+${amount}`;
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
+
+function playSaveAnimation(){
+  const anim=$('save-animation');
   if(!anim) return Promise.resolve();
   return new Promise(res=>{
     anim.classList.add('show');
@@ -1306,6 +1355,7 @@ $('btn-save').addEventListener('click', async () => {
     }
     const isErr = results.some(r => r.includes('failed'));
     toast(results.join(' | '), isErr ? 'error' : 'success');
+    if(!isErr) playSaveAnimation();
   } finally {
     btn.classList.remove('loading'); btn.disabled = false;
   }
