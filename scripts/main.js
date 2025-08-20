@@ -116,7 +116,6 @@ document.addEventListener('input', e=>{
 /* ========= theme ========= */
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
-const crumbCurrent = $('crumb-current');
 function applyTheme(t){
   root.classList.remove('theme-light','theme-high');
   if(t==='light') root.classList.add('theme-light');
@@ -155,10 +154,6 @@ if (btnMenu && menuActions) {
 function setTab(name){
   qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
   qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
-  if(crumbCurrent){
-    const tabBtn = qs(`.tab[data-go="${name}"]`);
-    crumbCurrent.textContent = tabBtn ? (tabBtn.getAttribute('aria-label') || name) : name;
-  }
 }
 qsa('.tab').forEach(b=> b.addEventListener('click', ()=> setTab(b.getAttribute('data-go'))));
 setTab('combat');
