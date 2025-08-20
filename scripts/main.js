@@ -717,12 +717,30 @@ $('flip').addEventListener('click', ()=>{
   $('flip-out').textContent = v;
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
   renderLogs();
-  renderFullLogs();
+renderFullLogs();
 });
+
+function playDeathAnimation(){
+  const anim = $('death-animation');
+  if(!anim) return Promise.resolve();
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
+
 const deathBoxes = ['death-save-1','death-save-2','death-save-3'].map(id => $(id));
+let deathHandled=false;
 deathBoxes.forEach((box) => {
-  box.addEventListener('change', () => {
-    if (deathBoxes.every(b => b.checked)) {
+  box.addEventListener('change', async () => {
+    if (!deathHandled && deathBoxes.every(b => b.checked)) {
+      deathHandled=true;
+      await playDeathAnimation();
       alert('You have fallen, your sacrifice will be remembered.');
     }
   });
