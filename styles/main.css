@@ -87,6 +87,20 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 .pill-sm{padding:2px 6px;font-size:.75rem}
 .pill.result{font-size:1rem;font-weight:700;}
 .pill.result:empty::before{content:attr(data-placeholder);visibility:hidden;}
+.roll-flip-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
+.roll-flip-grid .inline{flex-wrap:nowrap;gap:4px;}
+.roll-flip-grid select,
+.roll-flip-grid input,
+.roll-flip-grid button,
+.roll-flip-grid .pill{padding:4px 6px;min-height:28px;}
+.roll-flip-grid .pill.result{font-size:.85rem;}
+@media(max-width:600px){
+  .roll-flip-grid{grid-template-columns:repeat(2,1fr);}
+  .roll-flip-grid .inline{flex-direction:row;}
+  .roll-flip-grid .inline>input:not([type="checkbox"]),
+  .roll-flip-grid .inline>select{flex:1;width:auto;}
+  .roll-flip-grid .inline>button{flex:0 0 auto;width:auto;}
+}
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
 .death-saves input[type="checkbox"]{margin:0;}
 .sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1;}
