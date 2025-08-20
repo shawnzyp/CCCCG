@@ -498,32 +498,48 @@
   </div>
 </div>
 
-<!-- ONBOARDING MODAL -->
-<div class="overlay hidden" id="modal-tour" aria-hidden="true">
+<!-- WELCOME MODAL -->
+<div class="overlay hidden" id="modal-welcome" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-      <h3>Welcome to the Tracker</h3>
-      <p>Use the tabs to navigate your sheet. Changes save automatically and work offline.</p>
-      <ul class="feature-list">
-        <li><b>Character creation wizard:</b> Use the wand icon to build a new character step by step.</li>
-        <li><b>Encounter tracker:</b> Open the three-line icon to manage encounters and turn order.</li>
-        <li><b>Dice rolling &amp; coin flips:</b> Use Roll/Flip Log from the menu to roll dice or flip coins and review results.</li>
-        <li><b>Combat stats &amp; status effects:</b> Adjust HP, SP, and conditions directly on the Combat tab.</li>
-        <li><b>Campaign &amp; roll logs:</b> Keep adventure notes and history via Campaign in the menu.</li>
-        <li><b>Gear catalog:</b> Browse equipment from the Gear tab with “Open Gear Catalog.”</li>
-        <li><b>Rules reference:</b> Open Rules in the menu to read the Character Creation Guide.</li>
-        <li><b>Player &amp; DM login:</b> Use Log In or the DM Login link to access shared tools.</li>
-        <li><b>Save characters:</b> After logging in, use Save in the menu to store your character locally and in the cloud.</li>
-        <li><b>Offline auto-saving:</b> Your changes save automatically in the browser.</li>
-        <li><b>Theme toggling:</b> Switch between multiple visual themes with the theme icon.</li>
-      </ul>
-      <div class="actions"><button id="tour-ok">Get Started</button></div>
+    <h3>Welcome to the Tracker</h3>
+    <p>Use the tabs to navigate your sheet. Changes save automatically and work offline.</p>
+    <p>If you're new here, register to save your character and access cloud features.</p>
+    <div class="actions">
+      <button id="welcome-register" class="btn-sm" type="button">Register</button>
+      <button id="welcome-ok" type="button">Get Started</button>
     </div>
   </div>
+</div>
+
+<!-- HELP MODAL -->
+<div class="overlay hidden" id="modal-help" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>How to Use the Tracker</h3>
+    <ul class="feature-list">
+      <li><b>Character creation wizard:</b> Click the wand icon to build a new character step by step.</li>
+      <li><b>Encounter tracker:</b> Use the three-line icon to manage encounters and turn order.</li>
+      <li><b>Dice rolling &amp; coin flips:</b> Open Roll/Flip Log from the menu to roll dice or flip coins and review results.</li>
+      <li><b>Combat stats &amp; status effects:</b> Adjust HP, SP, and conditions directly on the Combat tab.</li>
+      <li><b>Campaign &amp; roll logs:</b> Keep adventure notes and history via Campaign in the menu.</li>
+      <li><b>Gear catalog:</b> Browse equipment from the Gear tab with “Open Gear Catalog.”</li>
+      <li><b>Rules reference:</b> Open Rules in the menu to read the Character Creation Guide.</li>
+      <li><b>Player &amp; DM login:</b> Use Log In or the DM Login link to access shared tools.</li>
+      <li><b>Save characters:</b> After logging in, use Save in the menu to store your character locally and in the cloud.</li>
+      <li><b>Offline auto-saving:</b> Your changes save automatically in the browser.</li>
+      <li><b>Theme toggling:</b> Switch between multiple visual themes with the theme icon.</li>
+    </ul>
+  </div>
+</div>
 
 <!-- INITIATIVE MODAL -->
 <div class="overlay hidden" id="modal-enc" aria-hidden="true">

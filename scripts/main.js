@@ -700,7 +700,7 @@ if (btnCampaign) {
 }
 const btnHelp = $('btn-help');
 if (btnHelp) {
-  btnHelp.addEventListener('click', ()=>{ show('modal-tour'); });
+  btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
 }
 const btnPlayer = $('btn-player');
 if (btnPlayer) {
@@ -1331,11 +1331,15 @@ if (btnPageDown) {
 
 /* ========= Close + click-outside ========= */
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
-const tourOk = $('tour-ok');
-if (tourOk) {
-  tourOk.addEventListener('click', ()=>{ hide('modal-tour'); localStorage.setItem('tour-done','1'); });
+const welcomeOk = $('welcome-ok');
+if (welcomeOk) {
+  welcomeOk.addEventListener('click', ()=>{ hide('modal-welcome'); localStorage.setItem('welcome-done','1'); });
 }
-if(!localStorage.getItem('tour-done')) show('modal-tour');
+const welcomeRegister = $('welcome-register');
+if (welcomeRegister) {
+  welcomeRegister.addEventListener('click', ()=>{ hide('modal-welcome'); localStorage.setItem('welcome-done','1'); show('modal-register'); });
+}
+if(!localStorage.getItem('welcome-done')) show('modal-welcome');
 
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
