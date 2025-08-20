@@ -2,6 +2,7 @@
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
 import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
+import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
 let lastFocus = null;
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
@@ -492,6 +493,22 @@ const XP_TIERS = [
   { xp: 162000, label: 'Tier 0 – Transcendent / Legendary' }
 ];
 
+let currentTierIdx = 0;
+if (elXP) {
+  const initXP = Math.max(0, num(elXP.value));
+  for (let i = XP_TIERS.length - 1; i >= 0; i--) {
+    if (initXP >= XP_TIERS[i].xp) { currentTierIdx = i; break; }
+  }
+}
+
+function launchConfetti(){
+  confetti({
+    particleCount: 100,
+    spread: 70,
+    origin: { y: 0 }
+  });
+}
+
 // set initial tier display
 if(elTier){
   elTier.value = XP_TIERS[0].label;
@@ -521,6 +538,10 @@ function updateXP(){
   for(let i=XP_TIERS.length-1;i>=0;i--){
     if(xp >= XP_TIERS[i].xp){ idx = i; break; }
   }
+  if (idx > currentTierIdx) {
+    launchConfetti();
+  }
+  currentTierIdx = idx;
   if(elTier) elTier.value = XP_TIERS[idx].label;
   const nextTier = XP_TIERS[idx+1];
   if(nextTier){
