@@ -88,7 +88,6 @@
 <main>
   <!-- COMBAT -->
   <section data-tab="combat">
-    <h2>Tools</h2>
     <div class="grid grid-2">
       <fieldset class="card">
         <legend>Dice Roll</legend>
@@ -125,10 +124,9 @@
   </section>
 
   <section data-tab="combat">
-    <h2 data-rule="12">Combat Stats</h2>
     <div class="grid grid-2">
       <fieldset class="card">
-        <legend data-rule="3">HP</legend>
+        <legend>HP</legend>
         <div class="inline">
           <progress id="hp-bar" max="30" value="30" style="width:100%"></progress>
           <span class="pill" id="hp-pill">30/30</span>
@@ -148,7 +146,7 @@
         </div>
       </fieldset>
       <fieldset class="card">
-        <legend data-rule="7">SP</legend>
+        <legend>SP</legend>
         <div class="inline">
           <progress id="sp-bar" max="5" value="5" style="width:100%"></progress>
           <span class="pill" id="sp-pill">5/5</span>
@@ -178,7 +176,7 @@
         <input id="speed" type="number" inputmode="numeric" placeholder="30"/>
       </fieldset>
       <fieldset class="card">
-        <legend data-rule="2">Defense Stats</legend>
+        <legend>Defense Stats</legend>
         <label for="pp">Passive Perception</label>
         <input id="pp" type="number" readonly/>
         <label for="armor-bonus">Armor/Shield Bonus (auto)</label>
@@ -192,7 +190,6 @@
   </section>
 
   <section data-tab="combat">
-    <h2>Status Effects</h2>
     <fieldset class="card">
       <legend>Status Effects</legend>
       <div id="statuses" class="grid grid-2"></div>
@@ -201,7 +198,7 @@
 
   <!-- ABILITIES -->
   <section data-tab="abilities">
-    <h2 data-rule="2">Ability Scores</h2>
+    <h2>Ability Scores</h2>
     <div id="abil-grid" class="grid ability-grid"></div>
     <fieldset class="card">
       <legend>Proficiency &amp; Power</legend>
@@ -235,14 +232,14 @@
 
   <!-- POWERS -->
   <section data-tab="powers">
-    <div class="inline" style="justify-content:space-between">
-      <h2 data-rule="30">Powers</h2>
+      <div class="inline" style="justify-content:space-between">
+        <h2>Powers</h2>
       <button id="add-power" style="max-width:180px">Add Power</button>
     </div>
     <div class="grid grid-2" id="powers"></div>
 
-    <div class="inline" style="justify-content:space-between;margin-top:8px">
-      <h2 data-rule="34">Signature Moves</h2>
+      <div class="inline" style="justify-content:space-between;margin-top:8px">
+        <h2>Signature Moves</h2>
       <button id="add-sig" style="max-width:200px">Add Signature Move</button>
     </div>
     <div class="grid grid-2" id="sigs"></div>
@@ -250,7 +247,7 @@
 
   <!-- GEAR -->
   <section data-tab="gear">
-    <h2 data-rule="50">Gear</h2>
+    <h2>Gear</h2>
     <div class="grid grid-2">
       <div class="card">
         <div class="inline" style="justify-content:space-between">
@@ -279,7 +276,7 @@
 
   <!-- STORY -->
   <section data-tab="story">
-    <h2 data-rule="9">Character & Story</h2>
+    <h2>Character & Story</h2>
     <div class="grid grid-2">
       <div class="card"><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigilante Name"/></div>
       <div class="card"><label for="secret">Secret Identity</label><input id="secret" placeholder="Real name"/></div>
@@ -309,7 +306,7 @@
         </div>
       </div>
       <div class="card">
-        <label for="alignment" data-rule="8">Alignment</label>
+        <label for="alignment">Alignment</label>
         <select id="alignment">
           <option value="">Select one</option>
           <option>Paragon (Lawful Light)</option>
@@ -325,14 +322,14 @@
         <ul id="alignment-perks" class="perk-list"></ul>
       </div>
       <div class="card">
-        <label for="classification" data-rule="1">Classification</label>
+        <label for="classification">Classification</label>
         <select id="classification">
           <option value="">Select one</option><option>Mutant</option><option>Enhanced Human</option><option>Magic User</option><option>Alien/Extraterrestrial</option><option>Mystical Being</option>
         </select>
         <ul id="classification-perks" class="perk-list"></ul>
       </div>
       <div class="card">
-        <label for="power-style" data-rule="1">Primary Power Style</label>
+        <label for="power-style">Primary Power Style</label>
         <select id="power-style">
           <option value="">Select one</option><option>Physical Powerhouse</option><option>Energy Manipulator</option><option>Speedster</option>
           <option>Telekinetic/Psychic</option><option>Illusionist</option><option>Shape-shifter</option><option>Elemental Controller</option>
@@ -340,7 +337,7 @@
         <ul id="power-style-perks" class="perk-list"></ul>
       </div>
       <div class="card">
-        <label for="power-style-2" data-rule="1">Secondary Power Style</label>
+        <label for="power-style-2">Secondary Power Style</label>
         <select id="power-style-2">
           <option value="">Select one</option>
           <option>None</option>
@@ -349,7 +346,7 @@
         </select>
       </div>
       <div class="card">
-        <label for="origin" data-rule="2">Origin Story</label>
+        <label for="origin">Origin Story</label>
         <select id="origin">
           <option value="">Select one</option>
           <option>The Accident</option>
@@ -371,7 +368,7 @@
       <label for="story-notes">Backstory / Notes</label>
       <textarea id="story-notes" rows="6" placeholder="Key events, allies, vulnerabilities, research/training notes, etc."></textarea>
     </div>
-    <h3 data-rule="9">Character Questions</h3>
+      <h3>Character Questions</h3>
     <div class="grid grid-1">
       <div class="card"><label for="q-mask">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
       <div class="card"><label for="q-justice">What does justice mean to you?</label><textarea id="q-justice" rows="2"></textarea></div>

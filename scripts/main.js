@@ -895,17 +895,6 @@ function enableDragReorder(id){
 }
 ['powers','sigs','weapons','armors','items'].forEach(enableDragReorder);
 
-/* ========= Rule Tooltips ========= */
-qsa('[data-rule]').forEach(el=>{
-  const page = Number(el.dataset.rule);
-  el.title = `See CCCCG p.${page}`;
-  el.addEventListener('click', ()=>{
-    cccgPage = page;
-    renderCCCG();
-    show('modal-rules');
-  });
-});
-
 /* ========= Gear Catalog (seeded; extend as needed) ========= */
 const CATALOG = (()=>{ const mk=(style,type,rarity,name,tc,notes)=>({style,type,rarity,name,tc,notes}); const out=[];
   out.push(
