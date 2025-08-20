@@ -54,6 +54,7 @@ describe('user management', () => {
   test('handles corrupted player storage gracefully', () => {
     localStorage.setItem('players', '{not valid json');
     expect(getPlayers()).toEqual([]);
+    expect(localStorage.getItem('players')).toBeNull();
   });
 
   test('save fails without login', async () => {
