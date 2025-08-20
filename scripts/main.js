@@ -603,9 +603,9 @@ function setHP(v){
   const prev = num(elHPBar.value);
   elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
-  if(prev > 0 && num(elHPBar.value) === 0) alert('Player is down');
+  return prev > 0 && num(elHPBar.value) === 0;
 }
-function setSP(v){
+async function setSP(v){
   const prev = num(elSPBar.value);
   if (num(v) < 0) {
     alert("You don't have enough SP for that.");
@@ -614,10 +614,10 @@ function setSP(v){
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
   const diff = num(elSPBar.value) - prev;
-  if(diff !== 0) playSPAnimation(diff);
+  if(diff !== 0) await playSPAnimation(diff);
   if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
 }
-$('hp-dmg').addEventListener('click', ()=>{
+$('hp-dmg').addEventListener('click', async ()=>{
   let d=num($('hp-amt').value);
   if(!d) return;
   let tv=num(elHPTemp.value);
@@ -627,17 +627,18 @@ $('hp-dmg').addEventListener('click', ()=>{
     elHPTemp.value=tv;
     d-=use;
   }
-  setHP(num(elHPBar.value)-d);
-  playDamageAnimation(-d);
+  const down = setHP(num(elHPBar.value)-d);
+  await playDamageAnimation(-d);
+  if(down) alert('Player is down');
 });
-$('hp-heal').addEventListener('click', ()=>{
+$('hp-heal').addEventListener('click', async ()=>{
   const d=num($('hp-amt').value)||0;
   setHP(num(elHPBar.value)+d);
-  if(d>0) playHealAnimation(d);
+  if(d>0) await playHealAnimation(d);
 });
-$('hp-full').addEventListener('click', ()=>{
+$('hp-full').addEventListener('click', async ()=>{
   const diff = num(elHPBar.max) - num(elHPBar.value);
-  if(diff>0) playHealAnimation(diff);
+  if(diff>0) await playHealAnimation(diff);
   setHP(num(elHPBar.max));
 });
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
