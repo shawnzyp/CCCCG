@@ -33,8 +33,9 @@ header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var
 [data-tip]:hover::after,[data-tip]:focus::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface-2);color:var(--text);padding:4px 8px;border-radius:var(--radius);box-shadow:var(--shadow);white-space:nowrap;font-size:.75rem;z-index:1500}
 .breadcrumbs{margin-top:4px;font-size:.875rem;color:var(--muted)}
 .breadcrumbs span+span::before{content:"/";margin:0 4px}
-.tabs{margin-top:6px;display:flex;gap:8px;flex-wrap:wrap}
-.tab{flex:1 0 110px;padding:6px 10px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);font-weight:700;text-align:center;transition:var(--transition)}
+.tabs{margin-top:6px;display:flex;gap:8px;flex-wrap:nowrap;justify-content:center}
+.tab{width:32px;height:32px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
+.tab svg{width:20px;height:20px}
 .tab:hover{background:var(--accent);color:var(--text-on-accent)}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
