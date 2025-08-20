@@ -708,6 +708,7 @@ $('roll-dice').addEventListener('click', ()=>{
   const sum = rolls.reduce((a,b)=>a+b,0);
   out.textContent = sum;
   void out.offsetWidth; out.classList.add('rolling');
+  playDamageAnimation(sum);
   pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
   renderLogs();
   renderFullLogs();
@@ -719,6 +720,21 @@ $('flip').addEventListener('click', ()=>{
   renderLogs();
 renderFullLogs();
 });
+
+function playDamageAnimation(amount){
+  const anim=$('damage-animation');
+  if(!anim) return Promise.resolve();
+  anim.textContent=`-${amount}`;
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
 
 function playDeathAnimation(){
   const anim = $('death-animation');
