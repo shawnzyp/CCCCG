@@ -93,7 +93,8 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 .roll-flip-grid input,
 .roll-flip-grid button,
 .roll-flip-grid .pill{padding:4px 6px;min-height:28px;}
-.roll-flip-grid .pill.result{font-size:.85rem;}
+.roll-flip-grid .pill.result{font-size:.85rem;min-width:40px;}
+#dice-count{flex:0 0 30px;width:30px;}
 @media(max-width:600px){
   .roll-flip-grid{grid-template-columns:repeat(2,1fr);}
   .roll-flip-grid .inline{flex-direction:row;}
