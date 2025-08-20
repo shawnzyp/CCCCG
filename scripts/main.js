@@ -992,7 +992,6 @@ function saveEnc(){
   localStorage.setItem('enc-turn', String(turn));
 }
 function renderEnc(){
-  $('round-pill').textContent='Round '+round;
   const list=$('enc-list'); list.innerHTML='';
     roster.forEach((r,idx)=>{
       const row=document.createElement('div');
@@ -1001,12 +1000,6 @@ function renderEnc(){
       list.appendChild(row);
     });
     applyDeleteIcons(list);
-    const turnName = roster[turn] && roster[turn].name ? roster[turn].name : '';
-    const turnEl = $('turn-pill');
-  if(turnEl){
-    turnEl.textContent = turnName ? `Turn: ${turnName}` : '';
-    turnEl.style.display = turnName ? '' : 'none';
-  }
   qsa('[data-del]', list).forEach(b=> b.addEventListener('click', ()=>{
     const i=Number(b.dataset.del);
     roster.splice(i,1);
