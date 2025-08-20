@@ -86,6 +86,7 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 .pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
 .pill-sm{padding:2px 6px;font-size:.75rem}
 .pill.result{font-size:1rem;font-weight:700;}
+.pill.result:empty::before{content:attr(data-placeholder);visibility:hidden;}
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
 .death-saves input[type="checkbox"]{margin:0;}
 .sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1;}
