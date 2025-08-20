@@ -26,6 +26,7 @@ header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var
 }
 .icon{width:30px;height:30px;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
 .icon svg{width:18px;height:18px}.modal .x svg{width:20px;height:20px}
+.top .icon svg{width:24px;height:24px}
 .icon:hover{background:var(--accent);color:var(--text-on-accent)}
 .icon:active{transform:translateY(1px)}
 .icon:focus-visible,.modal .x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -35,7 +36,7 @@ header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var
 .breadcrumbs span+span::before{content:"/";margin:0 4px}
 .tabs{margin-top:6px;display:flex;gap:8px;flex-wrap:nowrap;justify-content:center}
 .tab{width:30px;height:30px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
-.tab svg{width:18px;height:18px}
+.tab svg{width:24px;height:24px}
 .tab:hover{background:var(--accent);color:var(--text-on-accent)}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
