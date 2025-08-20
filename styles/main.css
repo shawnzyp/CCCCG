@@ -24,20 +24,17 @@ header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var
   .actions{flex-wrap:wrap;justify-content:center}
   .tabs{justify-content:center}
 }
-.icon{width:44px;height:44px;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
-.icon svg{width:80%;height:80%}.modal .x svg{width:20px;height:20px}
-.top .icon svg{width:90%;height:90%}
-.icon:hover{background:var(--accent);color:var(--text-on-accent)}
+.icon,.tab{padding:2px;width:auto;height:auto;aspect-ratio:1/1;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
+.icon svg,.tab svg{width:40px;height:40px}
+.modal .x svg{width:20px;height:20px}
+.icon:hover,.tab:hover{background:var(--accent);color:var(--text-on-accent)}
 .icon:active{transform:translateY(1px)}
-.icon:focus-visible,.modal .x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.icon:focus-visible,.tab:focus-visible,.modal .x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 [data-tip]{position:relative;cursor:help}
 [data-tip]:hover::after,[data-tip]:focus::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface-2);color:var(--text);padding:4px 8px;border-radius:var(--radius);box-shadow:var(--shadow);white-space:nowrap;font-size:.75rem;z-index:1500}
 .breadcrumbs{margin-top:4px;font-size:.875rem;color:var(--muted)}
 .breadcrumbs span+span::before{content:"/";margin:0 4px}
 .tabs{margin-top:6px;display:flex;gap:8px;flex-wrap:nowrap;justify-content:center}
-.tab{width:88px;height:44px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
-.tab svg{height:90%;width:auto}
-.tab:hover{background:var(--accent);color:var(--text-on-accent)}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
 section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
