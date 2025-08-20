@@ -138,7 +138,18 @@ if (btnTheme) {
   });
 }
 
-// menu actions are always visible; no toggle needed
+const btnMenu = $('btn-menu');
+const menuActions = $('menu-actions');
+if (btnMenu && menuActions) {
+  btnMenu.addEventListener('click', () => {
+    menuActions.classList.toggle('show');
+  });
+  document.addEventListener('click', e => {
+    if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) {
+      menuActions.classList.remove('show');
+    }
+  });
+}
 
 /* ========= tabs ========= */
 function setTab(name){

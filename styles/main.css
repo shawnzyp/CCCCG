@@ -15,8 +15,6 @@ header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var
 .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .title-group{display:flex;align-items:center;gap:6px}
 .actions{display:flex;gap:6px}
-#menu-actions{flex-wrap:wrap}
-#menu-actions button{width:auto}
 .dropdown{position:relative}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:none;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50}
 .menu.show{display:flex}
