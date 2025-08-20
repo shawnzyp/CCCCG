@@ -626,7 +626,7 @@ $('hp-dmg').addEventListener('click', ()=>{
     d-=use;
   }
   setHP(num(elHPBar.value)-d);
-  playDamageAnimation(d);
+  playDamageAnimation(-d);
 });
 $('hp-heal').addEventListener('click', ()=>{
   const d=num($('hp-amt').value)||0;
@@ -745,7 +745,7 @@ $('flip').addEventListener('click', ()=>{
 function playDamageAnimation(amount){
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
-  anim.textContent=`-${amount}`;
+  anim.textContent=`${amount}`;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
