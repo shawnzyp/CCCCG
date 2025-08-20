@@ -16,6 +16,7 @@ function getPlayersRaw() {
     // application can continue operating with a clean slate instead of
     // throwing a runtime error that breaks the page.
     console.error('Failed to parse players from localStorage', e);
+    localStorage.removeItem(PLAYERS_KEY);
     return {};
   }
 }
