@@ -52,6 +52,9 @@ export function loginPlayer(name, password) {
   const p = players[name];
   if (p && p.password === password) {
     localStorage.setItem(PLAYER_SESSION, name);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('playerChanged'));
+    }
     return true;
   }
   return false;
@@ -63,6 +66,9 @@ export function currentPlayer() {
 
 export function logoutPlayer() {
   localStorage.removeItem(PLAYER_SESSION);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('playerChanged'));
+  }
 }
 
 export function loginDM(password) {

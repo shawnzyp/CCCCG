@@ -128,16 +128,26 @@ function applyTheme(t){
     qs('#icon-moon', btnTheme).style.display = t==='high' ? 'block' : 'none';
   }
 }
-applyTheme(localStorage.getItem('theme') || 'dark');
+function loadTheme(){
+  const player=currentPlayer();
+  const key=player?`theme:${player}`:'theme';
+  const theme=localStorage.getItem(key)||localStorage.getItem('theme')||'dark';
+  applyTheme(theme);
+}
+loadTheme();
 if (btnTheme) {
   btnTheme.addEventListener('click', ()=>{
     const themes=['dark','light','high','forest','ocean'];
-    const curr=localStorage.getItem('theme')||'dark';
+    const player=currentPlayer();
+    const key=player?`theme:${player}`:'theme';
+    const curr=localStorage.getItem(key)||'dark';
     const next=themes[(themes.indexOf(curr)+1)%themes.length];
-    localStorage.setItem('theme', next);
+    localStorage.setItem(key, next);
+    if(player) localStorage.setItem('theme', next);
     applyTheme(next);
   });
 }
+window.addEventListener('playerChanged', loadTheme);
 
 const btnMenu = $('btn-menu');
 const menuActions = $('menu-actions');
