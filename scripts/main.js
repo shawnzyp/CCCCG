@@ -613,6 +613,8 @@ function setSP(v){
   }
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
+  const diff = num(elSPBar.value) - prev;
+  if(diff !== 0) playSPAnimation(diff);
   if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
 }
 $('hp-dmg').addEventListener('click', ()=>{
@@ -804,6 +806,21 @@ function playCoinAnimation(result){
   const anim=$('coin-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=result;
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
+
+function playSPAnimation(amount){
+  const anim = $('sp-animation');
+  if(!anim) return Promise.resolve();
+  anim.textContent = `${amount>0?'+':''}${amount}`;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
