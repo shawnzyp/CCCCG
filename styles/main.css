@@ -83,6 +83,7 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
   .inline>progress{flex:none;width:100%}
 }
 .pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
+.pill-sm{padding:2px 6px;font-size:.75rem}
 .pill.result{font-size:1rem;font-weight:700;}
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;}
 .death-saves input[type="checkbox"]{margin:0;}
