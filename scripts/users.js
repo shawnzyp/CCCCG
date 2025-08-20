@@ -25,13 +25,26 @@ export function getPlayers() {
   return Object.keys(getPlayersRaw());
 }
 
-export function registerPlayer(name, password) {
+export function registerPlayer(name, password, question, answer) {
   const players = getPlayersRaw();
-  if (name && password && !players[name]) {
-    players[name] = { password };
+  if (name && password && question && answer && !players[name]) {
+    players[name] = { password, question, answer };
     localStorage.setItem(PLAYERS_KEY, JSON.stringify(players));
   }
   return Object.keys(players);
+}
+
+export function getPlayerQuestion(name) {
+  const p = getPlayersRaw()[name];
+  return p ? p.question : null;
+}
+
+export function recoverPlayerPassword(name, answer) {
+  const p = getPlayersRaw()[name];
+  if (p && p.answer === answer) {
+    return p.password;
+  }
+  return null;
 }
 
 export function loginPlayer(name, password) {
@@ -138,10 +151,14 @@ if (typeof document !== 'undefined') {
       regBtn.addEventListener('click', () => {
         const nameInput = $('player-name');
         const passInput = $('player-password');
+        const questionInput = $('player-question');
+        const answerInput = $('player-answer');
         const name = nameInput.value.trim();
         const pass = passInput.value;
-        if (!name && !pass) {
-          toast('Player name and password required','error');
+        const question = questionInput.value.trim();
+        const answer = answerInput.value;
+        if (!name && !pass && !question && !answer) {
+          toast('Player name, password, question, and answer required','error');
           return;
         }
         if (!name) {
@@ -152,9 +169,19 @@ if (typeof document !== 'undefined') {
           toast('Password required','error');
           return;
         }
-        registerPlayer(name, pass);
+        if (!question) {
+          toast('Security question required','error');
+          return;
+        }
+        if (!answer) {
+          toast('Security answer required','error');
+          return;
+        }
+        registerPlayer(name, pass, question, answer);
         nameInput.value = '';
         passInput.value = '';
+        questionInput.value = '';
+        answerInput.value = '';
         toast('Player registered','success');
       });
     }
@@ -171,6 +198,25 @@ if (typeof document !== 'undefined') {
           hideModal();
         } else {
           toast('Invalid credentials','error');
+        }
+      });
+    }
+
+    const recoverBtn = $('recover-player');
+    if (recoverBtn) {
+      recoverBtn.addEventListener('click', () => {
+        const name = $('player-name').value.trim();
+        const question = getPlayerQuestion(name);
+        if (!question) {
+          toast('Player not found','error');
+          return;
+        }
+        const answer = prompt(question);
+        const pass = recoverPlayerPassword(name, answer);
+        if (pass) {
+          toast(`Password: ${pass}`,'info');
+        } else {
+          toast('Incorrect answer','error');
         }
       });
     }
