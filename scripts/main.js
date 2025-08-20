@@ -855,7 +855,7 @@ function createCard(kind, pref = {}) {
   });
   const delWrap = document.createElement('div');
   delWrap.className = 'inline';
-  if (kind === 'weapon' || kind === 'sig') {
+  if (kind === 'weapon' || kind === 'sig' || kind === 'power') {
     const hitBtn = document.createElement('button');
     hitBtn.className = 'btn-sm';
     hitBtn.textContent = 'Roll to Hit';
@@ -864,7 +864,7 @@ function createCard(kind, pref = {}) {
     hitBtn.addEventListener('click', () => {
       const roll = 1 + Math.floor(Math.random() * 20);
       out.textContent = roll;
-      const name = qs("[data-f='name']", card)?.value || (kind === 'sig' ? 'Signature Move' : 'Attack');
+      const name = qs("[data-f='name']", card)?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
       pushLog(diceLog, { t: Date.now(), text: `${name} attack roll: ${roll}` }, 'dice-log');
     });
     delWrap.appendChild(hitBtn);
