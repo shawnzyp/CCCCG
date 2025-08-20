@@ -19,8 +19,6 @@ header.compact .tabs{margin-top:0;flex:1;justify-content:flex-start}
 .top{display:flex;align-items:center;justify-content:center;gap:8px}
 .title-group{display:flex;align-items:center;gap:6px}
 .actions{display:flex;gap:6px}
-header .top .icon{width:1rem;height:1rem;padding:0}
-header .top .icon svg{width:1rem;height:1rem}
 .dropdown{position:relative}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:none;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50}
 .menu.show{display:flex}
