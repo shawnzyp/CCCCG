@@ -116,8 +116,6 @@ document.addEventListener('input', e=>{
 /* ========= theme ========= */
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
-const btnMenu = $('btn-menu');
-const menuActions = $('menu-actions');
 const crumbCurrent = $('crumb-current');
 function applyTheme(t){
   root.classList.remove('theme-light','theme-high');
@@ -140,18 +138,7 @@ if (btnTheme) {
   });
 }
 
-if (btnMenu && menuActions) {
-  btnMenu.addEventListener('click', e => {
-    e.stopPropagation();
-    menuActions.classList.toggle('show');
-  });
-  menuActions.addEventListener('click', () => menuActions.classList.remove('show'));
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.dropdown')) {
-      menuActions.classList.remove('show');
-    }
-  });
-}
+// menu actions are always visible; no toggle needed
 
 /* ========= tabs ========= */
 function setTab(name){
