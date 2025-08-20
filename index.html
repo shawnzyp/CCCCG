@@ -29,19 +29,19 @@
         </svg>
       </button>
       <div class="dropdown">
-        <button id="btn-menu" class="icon" aria-label="More" title="More" data-tip="More">
+          <button id="btn-menu" class="icon" aria-label="More">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zm0 6a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zm0 6a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/>
           </svg>
         </button>
         <div id="menu-actions" class="menu">
-          <button id="btn-save" title="Save">Save</button>
-          <button id="btn-log" title="Roll/Flip log">Roll/Flip Log</button>
-          <button id="btn-rules" title="Open rules">Rules</button>
-          <button id="btn-campaign" title="Campaign log">Campaign</button>
-          <button id="btn-help" title="Help">Help</button>
-          <button id="btn-player" title="Player Account">Log In</button>
-          <button id="btn-dm" title="Manage Players" hidden>Players</button>
+            <button id="btn-save">Save</button>
+            <button id="btn-log">Roll/Flip Log</button>
+            <button id="btn-rules">Rules</button>
+            <button id="btn-campaign">Campaign</button>
+            <button id="btn-help">Help</button>
+            <button id="btn-player">Log In</button>
+            <button id="btn-dm" hidden>Players</button>
         </div>
       </div>
       <button id="btn-theme" class="icon" aria-label="Toggle Theme" title="Toggle Theme" data-tip="Toggle theme">
@@ -439,6 +439,13 @@
     </button>
     <h3>Welcome to the Tracker</h3>
     <p>Use the tabs to navigate your sheet. Changes save automatically and work offline.</p>
+    <ul class="feature-list">
+      <li data-tip="Roll any die or flip a coin quickly">Dice rolling and coin flips</li>
+      <li data-tip="Track HP, SP, and conditions">Combat statistics and status effects</li>
+      <li data-tip="Keep notes and history for your adventures">Campaign and roll logs</li>
+      <li data-tip="Works even without an internet connection">Offline auto-saving</li>
+      <li data-tip="Switch between light and dark modes">Theme toggling</li>
+    </ul>
     <div class="actions"><button id="tour-ok">Get Started</button></div>
   </div>
 </div>
