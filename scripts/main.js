@@ -855,6 +855,21 @@ function createCard(kind, pref = {}) {
   });
   const delWrap = document.createElement('div');
   delWrap.className = 'inline';
+  if (kind === 'weapon' || kind === 'sig') {
+    const hitBtn = document.createElement('button');
+    hitBtn.className = 'btn-sm';
+    hitBtn.textContent = 'Roll to Hit';
+    const out = document.createElement('span');
+    out.className = 'pill result';
+    hitBtn.addEventListener('click', () => {
+      const roll = 1 + Math.floor(Math.random() * 20);
+      out.textContent = roll;
+      const name = qs("[data-f='name']", card)?.value || (kind === 'sig' ? 'Signature Move' : 'Attack');
+      pushLog(diceLog, { t: Date.now(), text: `${name} attack roll: ${roll}` }, 'dice-log');
+    });
+    delWrap.appendChild(hitBtn);
+    delWrap.appendChild(out);
+  }
   const delBtn = document.createElement('button');
   delBtn.className = 'btn-sm';
   delBtn.dataset.act = 'del';
