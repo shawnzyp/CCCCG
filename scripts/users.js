@@ -114,8 +114,16 @@ function toast(msg, type = 'info') {
   setTimeout(() => t.classList.remove('show'), 1200);
 }
 
-function hideModal() {
-  const m = $('modal-player');
+function showModal(id) {
+  const m = $(id);
+  if (m) {
+    m.classList.remove('hidden');
+    m.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function hideModal(id) {
+  const m = $(id);
   if (m) {
     m.classList.add('hidden');
     m.setAttribute('aria-hidden', 'true');
@@ -149,10 +157,10 @@ if (typeof document !== 'undefined') {
     const regBtn = $('register-player');
     if (regBtn) {
       regBtn.addEventListener('click', () => {
-        const nameInput = $('player-name');
-        const passInput = $('player-password');
-        const questionInput = $('player-question');
-        const answerInput = $('player-answer');
+        const nameInput = $('register-player-name');
+        const passInput = $('register-player-password');
+        const questionInput = $('register-player-question');
+        const answerInput = $('register-player-answer');
         const name = nameInput.value.trim();
         const pass = passInput.value;
         const question = questionInput.value.trim();
@@ -183,38 +191,60 @@ if (typeof document !== 'undefined') {
         questionInput.value = '';
         answerInput.value = '';
         toast('Player registered','success');
+        hideModal('modal-register');
       });
     }
 
     const loginBtn = $('login-player');
     if (loginBtn) {
       loginBtn.addEventListener('click', () => {
-        const name = $('player-name').value.trim();
-        const pass = $('player-password').value;
+        const name = $('login-player-name').value.trim();
+        const pass = $('login-player-password').value;
         if (loginPlayer(name, pass)) {
           toast(`Logged in as ${name}`,'success');
           updatePlayerButton();
           updateDMButton();
-          hideModal();
+          hideModal('modal-player');
         } else {
           toast('Invalid credentials','error');
         }
       });
     }
 
+    const regLink = $('open-register');
+    if (regLink) {
+      regLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showModal('modal-register');
+      });
+    }
+
+    const recoverLink = $('open-recover');
+    if (recoverLink) {
+      recoverLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        showModal('modal-recover');
+      });
+    }
+
+    const recoverName = $('recover-name');
+    if (recoverName) {
+      recoverName.addEventListener('input', () => {
+        const q = getPlayerQuestion(recoverName.value.trim());
+        const qEl = $('recover-question');
+        if (qEl) qEl.textContent = q || '';
+      });
+    }
+
     const recoverBtn = $('recover-player');
     if (recoverBtn) {
       recoverBtn.addEventListener('click', () => {
-        const name = $('player-name').value.trim();
-        const question = getPlayerQuestion(name);
-        if (!question) {
-          toast('Player not found','error');
-          return;
-        }
-        const answer = prompt(question);
+        const name = $('recover-name').value.trim();
+        const answer = $('recover-answer').value;
         const pass = recoverPlayerPassword(name, answer);
         if (pass) {
           toast(`Password: ${pass}`,'info');
+          hideModal('modal-recover');
         } else {
           toast('Incorrect answer','error');
         }
@@ -227,7 +257,7 @@ if (typeof document !== 'undefined') {
         logoutPlayer();
         toast('Logged out','info');
         updatePlayerButton();
-        hideModal();
+        hideModal('modal-player');
       });
     }
 

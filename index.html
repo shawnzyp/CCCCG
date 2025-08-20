@@ -400,18 +400,65 @@
     <fieldset class="card">
       <legend>Player Account</legend>
       <div class="inline">
-        <input id="player-name" placeholder="Player name"/>
-        <input id="player-password" type="password" placeholder="Password"/>
+        <input id="login-player-name" placeholder="Player name"/>
+        <input id="login-player-password" type="password" placeholder="Password"/>
       </div>
       <div class="inline">
-        <input id="player-question" placeholder="Security question"/>
-        <input id="player-answer" type="password" placeholder="Security answer"/>
+        <button id="login-player" class="btn-sm" type="button">Login</button>
+        <a id="open-register" href="#">Register</a>
+        <a id="open-recover" href="#">Recover</a>
+        <button id="logout-player" class="btn-sm" type="button" hidden>Logout</button>
+      </div>
+    </fieldset>
+  </div>
+</div>
+
+<!-- PLAYER REGISTRATION MODAL -->
+<div class="overlay hidden" id="modal-register" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Register Player</h3>
+    <fieldset class="card">
+      <legend>Player Account</legend>
+      <div class="inline">
+        <input id="register-player-name" placeholder="Player name"/>
+        <input id="register-player-password" type="password" placeholder="Password"/>
+      </div>
+      <div class="inline">
+        <input id="register-player-question" placeholder="Security question"/>
+        <input id="register-player-answer" type="password" placeholder="Security answer"/>
       </div>
       <div class="inline">
         <button id="register-player" class="btn-sm" type="button">Register</button>
-        <button id="login-player" class="btn-sm" type="button">Login</button>
+      </div>
+    </fieldset>
+  </div>
+</div>
+
+<!-- PASSWORD RECOVERY MODAL -->
+<div class="overlay hidden" id="modal-recover" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Recover Password</h3>
+    <fieldset class="card">
+      <legend>Password Recovery</legend>
+      <div class="inline">
+        <input id="recover-name" placeholder="Player name"/>
+      </div>
+      <div class="inline">
+        <p id="recover-question"></p>
+      </div>
+      <div class="inline">
+        <input id="recover-answer" type="password" placeholder="Security answer"/>
         <button id="recover-player" class="btn-sm" type="button">Recover</button>
-        <button id="logout-player" class="btn-sm" type="button" hidden>Logout</button>
       </div>
     </fieldset>
   </div>
