@@ -117,11 +117,13 @@ document.addEventListener('input', e=>{
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
 function applyTheme(t){
-  root.classList.remove('theme-light','theme-high');
+  root.classList.remove('theme-light','theme-high','theme-forest','theme-ocean');
   if(t==='light') root.classList.add('theme-light');
   if(t==='high') root.classList.add('theme-high');
+  if(t==='forest') root.classList.add('theme-forest');
+  if(t==='ocean') root.classList.add('theme-ocean');
   if(btnTheme){
-    qs('#icon-sun', btnTheme).style.display = t==='dark' ? 'block' : 'none';
+    qs('#icon-sun', btnTheme).style.display = ['dark','forest','ocean'].includes(t) ? 'block' : 'none';
     qs('#icon-contrast', btnTheme).style.display = t==='light' ? 'block' : 'none';
     qs('#icon-moon', btnTheme).style.display = t==='high' ? 'block' : 'none';
   }
@@ -129,7 +131,7 @@ function applyTheme(t){
 applyTheme(localStorage.getItem('theme') || 'dark');
 if (btnTheme) {
   btnTheme.addEventListener('click', ()=>{
-    const themes=['dark','light','high'];
+    const themes=['dark','light','high','forest','ocean'];
     const curr=localStorage.getItem('theme')||'dark';
     const next=themes[(themes.indexOf(curr)+1)%themes.length];
     localStorage.setItem('theme', next);
