@@ -182,10 +182,8 @@ ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
-  <div class="card">
-    <label>${a.toUpperCase()}</label>
-    <div class="inline"><input type="checkbox" id="save-${a}-prof"/><span class="pill" id="save-${a}">+0</span></div>
-  </div>`).join('');
+  <label class="inline"><input type="checkbox" id="save-${a}-prof"/> ${a.toUpperCase()} <span class="pill pill-sm" id="save-${a}">+0</span></label>
+`).join('');
 
 const SKILLS = [
   { name: 'Acrobatics', abil: 'dex' },
@@ -209,10 +207,8 @@ const SKILLS = [
 ];
 const skillGrid = $('skills');
 skillGrid.innerHTML = SKILLS.map((s,i)=>`
-  <div class="card">
-    <label>${s.name}</label>
-    <div class="inline"><input type="checkbox" id="skill-${i}-prof"/><span class="pill" id="skill-${i}">+0</span></div>
-  </div>`).join('');
+  <label class="inline"><input type="checkbox" id="skill-${i}-prof"/> ${s.name} <span class="pill pill-sm" id="skill-${i}">+0</span></label>
+`).join('');
 
 const STATUS_EFFECTS = [
   { id: 'blinded', name: 'Blinded', desc: 'A blinded creature cannot see and automatically fails any ability check that requires sight. Attack rolls against the creature have advantage, and the creature’s attack rolls have disadvantage.' },
