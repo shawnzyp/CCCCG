@@ -159,7 +159,7 @@ function setTab(name){
   qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
   if(crumbCurrent){
     const tabBtn = qs(`.tab[data-go="${name}"]`);
-    crumbCurrent.textContent = tabBtn ? tabBtn.textContent : name;
+    crumbCurrent.textContent = tabBtn ? (tabBtn.getAttribute('aria-label') || name) : name;
   }
 }
 qsa('.tab').forEach(b=> b.addEventListener('click', ()=> setTab(b.getAttribute('data-go'))));
