@@ -165,10 +165,12 @@ if (btnMenu && menuActions) {
 /* ========= header scroll ========= */
 const headerEl = qs('header');
 if (headerEl) {
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 0) headerEl.classList.add('compact');
+  const updateHeader = () => {
+    if (window.scrollY > 10) headerEl.classList.add('compact');
     else headerEl.classList.remove('compact');
-  }, { passive: true });
+  };
+  window.addEventListener('scroll', () => requestAnimationFrame(updateHeader), { passive: true });
+  updateHeader();
 }
 
 /* ========= tabs ========= */
