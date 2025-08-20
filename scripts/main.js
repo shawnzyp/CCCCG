@@ -196,7 +196,11 @@ ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
-  <label class="inline"><input type="checkbox" id="save-${a}-prof"/> ${a.toUpperCase()} <span class="pill pill-sm" id="save-${a}">+0</span></label>
+  <div class="inline">
+    <label class="inline"><input type="checkbox" id="save-${a}-prof"/> ${a.toUpperCase()} <span class="pill pill-sm" id="save-${a}">+0</span></label>
+    <button class="btn-sm" data-roll-save="${a}">Roll</button>
+    <span class="pill result" id="save-${a}-res"></span>
+  </div>
 `).join('');
 
 const SKILLS = [
@@ -221,8 +225,30 @@ const SKILLS = [
 ];
 const skillGrid = $('skills');
 skillGrid.innerHTML = SKILLS.map((s,i)=>`
-  <label class="inline"><input type="checkbox" id="skill-${i}-prof"/> ${s.name} <span class="pill pill-sm" id="skill-${i}">+0</span></label>
+  <div class="inline">
+    <label class="inline"><input type="checkbox" id="skill-${i}-prof"/> ${s.name} <span class="pill pill-sm" id="skill-${i}">+0</span></label>
+    <button class="btn-sm" data-roll-skill="${i}">Roll</button>
+    <span class="pill result" id="skill-${i}-res"></span>
+  </div>
 `).join('');
+
+qsa('[data-roll-save]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const a = btn.dataset.rollSave;
+    const pb = num(elProfBonus.value)||2;
+    const bonus = mod($(a).value) + ($('save-'+a+'-prof').checked ? pb : 0);
+    rollWithBonus(`${a.toUpperCase()} save`, bonus, $('save-'+a+'-res'));
+  });
+});
+qsa('[data-roll-skill]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const i = num(btn.dataset.rollSkill);
+    const s = SKILLS[i];
+    const pb = num(elProfBonus.value)||2;
+    const bonus = mod($(s.abil).value) + ($('skill-'+i+'-prof').checked ? pb : 0);
+    rollWithBonus(`${s.name} check`, bonus, $('skill-'+i+'-res'));
+  });
+});
 
 const STATUS_EFFECTS = [
   { id: 'blinded', name: 'Blinded', desc: 'A blinded creature cannot see and automatically fails any ability check that requires sight. Attack rolls against the creature have advantage, and the creature’s attack rolls have disadvantage.' },
@@ -417,6 +443,7 @@ const elPP = $('pp');
 const elTC = $('tc');
 const elArmorBonus = $('armor-bonus');
 const elOriginBonus = $('origin-bonus');
+const elStr = $('str');
 const elDex = $('dex');
 const elCon = $('con');
 const elWis = $('wis');
@@ -627,6 +654,17 @@ function renderLogs(){
 function renderFullLogs(){
   $('full-log-dice').innerHTML = diceLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
   $('full-log-coin').innerHTML = coinLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
+}
+
+function rollWithBonus(name, bonus, out){
+  const roll = 1 + Math.floor(Math.random() * 20);
+  const total = roll + bonus;
+  if(out) out.textContent = total;
+  const sign = bonus >= 0 ? '+' : '';
+  pushLog(diceLog, { t: Date.now(), text: `${name}: ${roll}${sign}${bonus} = ${total}` }, 'dice-log');
+  renderLogs();
+  renderFullLogs();
+  return total;
 }
 renderLogs();
 $('roll-dice').addEventListener('click', ()=>{
@@ -862,10 +900,12 @@ function createCard(kind, pref = {}) {
     const out = document.createElement('span');
     out.className = 'pill result';
     hitBtn.addEventListener('click', () => {
-      const roll = 1 + Math.floor(Math.random() * 20);
-      out.textContent = roll;
+      const pb = num(elProfBonus.value)||2;
+      const rangeVal = qs("[data-f='range']", card)?.value || '';
+      const abil = rangeVal ? elDex.value : elStr.value;
+      const bonus = mod(abil) + pb;
       const name = qs("[data-f='name']", card)?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
-      pushLog(diceLog, { t: Date.now(), text: `${name} attack roll: ${roll}` }, 'dice-log');
+      rollWithBonus(`${name} attack roll`, bonus, out);
     });
     delWrap.appendChild(hitBtn);
     delWrap.appendChild(out);
