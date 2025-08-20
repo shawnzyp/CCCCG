@@ -736,9 +736,10 @@ $('roll-dice').addEventListener('click', ()=>{
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
   $('flip-out').textContent = v;
+  playCoinAnimation(v);
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
   renderLogs();
-renderFullLogs();
+  renderFullLogs();
 });
 
 function playDamageAnimation(amount){
@@ -788,6 +789,21 @@ function playHealAnimation(amount){
 function playSaveAnimation(){
   const anim=$('save-animation');
   if(!anim) return Promise.resolve();
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
+
+function playCoinAnimation(result){
+  const anim=$('coin-animation');
+  if(!anim) return Promise.resolve();
+  anim.textContent=result;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
