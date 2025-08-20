@@ -196,8 +196,10 @@ ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
-  <div class="inline">
-    <label class="inline"><input type="checkbox" id="save-${a}-prof"/> ${a.toUpperCase()} <span class="pill pill-sm" id="save-${a}">+0</span></label>
+  <div class="ability-box">
+    <label>${a.toUpperCase()}</label>
+    <div class="score"><span class="score-val" id="save-${a}">+0</span></div>
+    <label class="inline"><input type="checkbox" id="save-${a}-prof"/> Proficient</label>
     <button class="btn-sm" data-roll-save="${a}">Roll</button>
     <span class="pill result" id="save-${a}-res"></span>
   </div>
@@ -225,8 +227,10 @@ const SKILLS = [
 ];
 const skillGrid = $('skills');
 skillGrid.innerHTML = SKILLS.map((s,i)=>`
-  <div class="inline">
-    <label class="inline"><input type="checkbox" id="skill-${i}-prof"/> ${s.name} <span class="pill pill-sm" id="skill-${i}">+0</span></label>
+  <div class="ability-box">
+    <label>${s.name}</label>
+    <div class="score"><span class="score-val" id="skill-${i}">+0</span></div>
+    <label class="inline"><input type="checkbox" id="skill-${i}-prof"/> Proficient</label>
     <button class="btn-sm" data-roll-skill="${i}">Roll</button>
     <span class="pill result" id="skill-${i}-res"></span>
   </div>
