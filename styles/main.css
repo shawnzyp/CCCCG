@@ -29,8 +29,8 @@ header.compact .tabs{margin-top:0;flex:1;justify-content:flex-start}
   .actions{flex-wrap:wrap;justify-content:center}
   .tabs{justify-content:center}
 }
-.icon,.tab{padding:2px;width:auto;height:auto;aspect-ratio:1/1;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
-.icon svg,.tab svg{width:40px;height:40px}
+.icon,.tab{padding:2px;width:27px;height:27px;min-height:27px;aspect-ratio:1/1;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
+.icon svg,.tab svg{width:27px;height:27px}
 .modal .x svg{width:20px;height:20px}
 .icon:hover,.tab:hover{background:var(--accent);color:var(--text-on-accent)}
 .icon:active{transform:translateY(1px)}
