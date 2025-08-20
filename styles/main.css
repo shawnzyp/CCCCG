@@ -104,6 +104,27 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 }
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:8px;justify-content:center;}
 .death-saves input[type="checkbox"]{margin:0;}
+#death-animation{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:10rem;
+  color:var(--text);
+  pointer-events:none;
+  opacity:0;
+  z-index:3000;
+}
+#death-animation.show{
+  animation:deathFade 2s ease forwards;
+}
+@keyframes deathFade{
+  0%{opacity:0;}
+  20%{opacity:1;}
+  80%{opacity:1;}
+  100%{opacity:0;}
+}
 .sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1;}
 .sp-grid .btn-sm{width:100%;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .2s ease,transform .2s ease}
