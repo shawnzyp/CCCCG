@@ -510,12 +510,17 @@ const XP_TIERS = [
   { xp: 162000, label: 'Tier 0 – Transcendent / Legendary' }
 ];
 
+function getTierIndex(xp){
+  for(let i=XP_TIERS.length-1;i>=0;i--){
+    if(xp >= XP_TIERS[i].xp) return i;
+  }
+  return 0;
+}
+
 let currentTierIdx = 0;
 if (elXP) {
   const initXP = Math.max(0, num(elXP.value));
-  for (let i = XP_TIERS.length - 1; i >= 0; i--) {
-    if (initXP >= XP_TIERS[i].xp) { currentTierIdx = i; break; }
-  }
+  currentTierIdx = getTierIndex(initXP);
 }
 
 function launchConfetti(){
@@ -551,10 +556,7 @@ function updateHP(){
 
 function updateXP(){
   const xp = Math.max(0, num(elXP.value));
-  let idx = 0;
-  for(let i=XP_TIERS.length-1;i>=0;i--){
-    if(xp >= XP_TIERS[i].xp){ idx = i; break; }
-  }
+  const idx = getTierIndex(xp);
   if (idx > currentTierIdx) {
     launchConfetti();
   }
@@ -1335,6 +1337,10 @@ function deserialize(data){
   campaignLog.length=0; (data && data.campaignLog ? data.campaignLog : []).forEach(e=>campaignLog.push(e));
   localStorage.setItem('campaign-log', JSON.stringify(campaignLog));
   renderCampaignLog();
+  if (elXP) {
+    const xp = Math.max(0, num(elXP.value));
+    currentTierIdx = getTierIndex(xp);
+  }
   updateDerived();
 }
 
