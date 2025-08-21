@@ -265,7 +265,7 @@ progress::-moz-progress-bar{
 .small{font-size:.9rem;color:var(--muted)}
 #modal-rules .pdf-controls{position:absolute;bottom:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:1}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);z-index:1000;padding:16px;opacity:1;pointer-events:auto;transition:opacity .2s ease}
-.overlay.hidden{opacity:0;pointer-events:none}
+.overlay.hidden{opacity:0;pointer-events:none;display:none}
 .modal{background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius);max-width:720px;width:100%;padding:16px;box-shadow:var(--shadow);position:relative;max-height:calc(100vh - 32px);overflow:auto;transform:scale(1);opacity:1;transition:transform .2s ease,opacity .2s ease}
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
 body.modal-open{overflow:hidden}
