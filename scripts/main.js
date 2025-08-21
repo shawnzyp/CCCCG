@@ -425,6 +425,7 @@ const ACTION_HINTS = [
 ];
 
 let addWisToInitiative = false;
+let enhancedAbility = '';
 
 function handlePerkEffects(li, text){
   const lower = text.toLowerCase();
@@ -433,18 +434,24 @@ function handlePerkEffects(li, text){
     select.innerHTML = `<option value="">Choose ability</option>` +
       ABILS.map(a=>`<option value="${a}">${a.toUpperCase()}</option>`).join('');
     select.addEventListener('change', ()=>{
-      const prev = select.dataset.prev;
-      if(prev){
-        const elPrev = $(prev);
-        elPrev.value = Number(elPrev.value) - 1;
-      }
       const key = select.value;
+      if(enhancedAbility && enhancedAbility !== key){
+        const elPrev = $(enhancedAbility);
+        if(elPrev){
+          const reverted = Math.max(10, Number(elPrev.value) - 1);
+          elPrev.value = reverted;
+        }
+      }
       if(ABILS.includes(key)){
         const el = $(key);
-        el.value = Number(el.value) + 1;
-        select.dataset.prev = key;
-        updateDerived();
+        if(el){
+          el.value = Number(el.value) + 1;
+          enhancedAbility = key;
+        }
+      }else{
+        enhancedAbility = '';
       }
+      updateDerived();
     });
     li.appendChild(document.createTextNode(' '));
     li.appendChild(select);
@@ -477,6 +484,14 @@ function setupPerkSelect(selId, perkId, data){
   const perkEl = $(perkId);
   if(!sel || !perkEl) return;
   function render(){
+    if(selId==='classification' && enhancedAbility){
+      const elPrev = $(enhancedAbility);
+      if(elPrev){
+        elPrev.value = Math.max(10, Number(elPrev.value) - 1);
+      }
+      enhancedAbility = '';
+      updateDerived();
+    }
     const perks = data[sel.value] || [];
     perkEl.innerHTML = '';
     if(selId==='alignment') addWisToInitiative = false;
