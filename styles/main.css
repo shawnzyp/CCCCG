@@ -73,7 +73,7 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 .inline>select,
 .inline>textarea,
 .inline>button,
-.inline>progress{flex:1;width:auto}
+.inline>progress{flex:1;width:auto;height:36px}
 .inline>.pill,
 .inline>.sr-only{flex:0;width:auto}
 @media(max-width:600px){
@@ -82,9 +82,10 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
   .inline>select,
   .inline>textarea,
   .inline>button,
-  .inline>progress{flex:none;width:100%}
+  .inline>progress{flex:none;width:100%;height:36px}
 }
 .pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
+#hp-pill,#sp-pill{height:36px;padding:0 10px;display:inline-flex;align-items:center}
 .pill-sm{padding:2px 6px;font-size:.75rem}
 .pill.result{font-size:1rem;font-weight:700;}
 .pill.result:empty::before{content:attr(data-placeholder);visibility:hidden;}
