@@ -438,5 +438,6 @@ select[required]:valid{
 .chat-pane{border:1px solid var(--line);border-radius:var(--radius);padding:8px;max-height:200px;overflow-y:auto;margin-bottom:8px}
 .chat-pane:not(.active){display:none}
 .chat-msg{margin-bottom:4px;font-size:.9rem}
+.chat-reply-btn{margin-left:4px}
 .chat-input input{flex:1}
 .chat-select{margin-left:4px}
