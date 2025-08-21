@@ -429,15 +429,3 @@ select[required]:valid{
 .wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
 #wizard-progress{flex:1;text-align:center}
 
-/* chat */
-.tab{position:relative}
-.badge{position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:var(--error)}
-.chat-modal{max-width:400px;margin:0 auto}
-.chat-tabs{display:flex;gap:4px;margin-bottom:8px}
-.chat-tabs button{flex:1}
-.chat-pane{border:1px solid var(--line);border-radius:var(--radius);padding:8px;max-height:200px;overflow-y:auto;margin-bottom:8px}
-.chat-pane:not(.active){display:none}
-.chat-msg{margin-bottom:4px;font-size:.9rem}
-.chat-reply-btn{margin-left:4px}
-.chat-input input{flex:1}
-.chat-select{margin-left:4px}

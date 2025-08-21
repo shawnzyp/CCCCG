@@ -102,12 +102,6 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.04168C10.4077 4.61656 8.30506 3.75 6 3.75C4.94809 3.75 3.93834 3.93046 3 4.26212V18.5121C3.93834 18.1805 4.94809 18 6 18C8.30506 18 10.4077 18.8666 12 20.2917M12 6.04168C13.5923 4.61656 15.6949 3.75 18 3.75C19.0519 3.75 20.0617 3.93046 21 4.26212V18.5121C20.0617 18.1805 19.0519 18 18 18C15.6949 18 13.5923 18.8666 12 20.2917M12 6.04168V20.2917"/>
       </svg>
     </button>
-    <button class="tab" id="btn-chat" data-go="chat" aria-label="Messages" title="Messages">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12.75h6.75m-6.75-3h6.75m-6.75 6h6.75M21 12c0 4.556-4.03 8.25-9 8.25-.71 0-1.403-.074-2.069-.214L3 21l1.463-4.39C3.535 15.225 3 13.678 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
-      </svg>
-      <span id="chat-badge" class="badge" hidden></span>
-    </button>
   </div>
 </header>
 
@@ -417,21 +411,6 @@
     </div>
   </section>
 
-  <section data-tab="chat">
-    <div class="chat-modal">
-      <div class="chat-tabs">
-        <button class="chat-tab active" data-tab="global">Global</button>
-        <button class="chat-tab" data-tab="dm">DM</button>
-        <select id="dm-select" class="chat-select" style="display:none"></select>
-      </div>
-      <div id="chat-global" class="chat-pane active"></div>
-      <div id="chat-dm" class="chat-pane"></div>
-      <div class="chat-input inline">
-        <input id="chat-text" type="text" placeholder="Message"/>
-        <button id="chat-send" class="btn-sm">Send</button>
-      </div>
-    </div>
-  </section>
 </main>
 
 <!-- PLAYER ACCOUNT MODAL -->
@@ -956,6 +935,5 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script type="module" src="scripts/users.js"></script>
 <script type="module" src="scripts/main.js"></script>
-<script type="module" src="scripts/chat.js"></script>
 </body>
 </html>

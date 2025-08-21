@@ -38,7 +38,6 @@ const firebaseConfig = {
   databaseURL: "https://ccccg-7d6b6-default-rtdb.firebaseio.com",
   projectId: "ccccg-7d6b6",
   storageBucket: "ccccg-7d6b6.firebasestorage.app",
-  messagingSenderId: "705656976850",
   appId: "1:705656976850:web:eeca63f9f325e33f2b440b",
   measurementId: "G-DY7J7CNBVR"
 };
