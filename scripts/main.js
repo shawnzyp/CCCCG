@@ -410,22 +410,21 @@ const ORIGIN_PERKS = {
   'The Redemption': ['Advantage on persuasion checks for second chances.']
 };
 
+const COMMON_REP_TIERS = {
+  Hostile: ['You are hunted, sabotaged, or attacked on sight.'],
+  Untrusted: ['Faction denies you resources, spreads bad PR.'],
+  Neutral: ['No strong opinion—standard interactions only.'],
+  Recognized: ['Minor perks, small-scale favors.'],
+  Trusted: ['Reliable allies, access to mid-tier resources.'],
+  Favored: ['Priority treatment, elite support, story leverage.'],
+  Champion: ['Icon status, legendary backing, may call in major faction powers.'],
+};
+
 const FACTION_REP_PERKS = {
-  'Aegis Initiative': {
-    Allied: ['Once per session, call in agency support.'],
-    Neutral: ['Access to public records and safe houses.'],
-    Hostile: ['Tracked by agency drones.']
-  },
-  'Shadow Syndicate': {
-    Allied: ['Discounts on black market goods.'],
-    Neutral: ['Occasional tips from smugglers.'],
-    Hostile: ['Bounty placed on your head.']
-  },
-  'Arcane Council': {
-    Allied: ['Borrow minor magical items between missions.'],
-    Neutral: ['Consultation with apprentice mages.'],
-    Hostile: ['Marked as an enemy of the arcane.']
-  }
+  'O.M.N.I.': { ...COMMON_REP_TIERS },
+  'P.F.V.': { ...COMMON_REP_TIERS },
+  'Cosmic Conclave': { ...COMMON_REP_TIERS },
+  'Greyline PMC': { ...COMMON_REP_TIERS },
 };
 
 // handle special perk behavior (stat boosts, initiative mods, etc.)
@@ -611,7 +610,7 @@ const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const elTier = $('tier');
-const FACTIONS = ['aegis','shadow','arcane'];
+const FACTIONS = ['omni','pfv','conclave','greyline'];
 
 let hpRolls = [];
 if (elHPRoll) {
