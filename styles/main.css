@@ -21,7 +21,7 @@ h3{font-size:1.25rem;font-weight:600}
 header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(8px + env(safe-area-inset-top)) 10px 8px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column;transition:padding .3s ease}
 header.compact{flex-direction:row;align-items:center;justify-content:flex-end;padding:4px 10px}
 header #btn-theme,header h1{transition:opacity .3s ease,max-width .3s ease,margin .3s ease,padding .3s ease;overflow:hidden}
-header.compact #btn-theme,header.compact h1{opacity:0;max-width:0;margin:0;padding:0;pointer-events:none}
+header.compact #btn-theme,header.compact h1{opacity:0;max-width:0;margin:0;padding:0;pointer-events:none;display:none}
 header.compact .top{margin-left:8px;margin-right:0;flex:0 0 auto;order:2}
 header.compact .tabs{margin-top:0;flex:1;order:1;justify-content:space-evenly}
 header.hide-tabs .tabs{opacity:0;pointer-events:none}
