@@ -33,10 +33,15 @@ async function getDb() {
   return dbPromise;
 }
 
-function appendMessage(container, from, text) {
+function formatTimestamp(ts) {
+  return new Date(ts).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function appendMessage(container, msg) {
+  const { from, text, ts } = msg;
   const div = document.createElement('div');
   div.className = 'chat-msg';
-  div.textContent = `${from}: ${text}`;
+  div.textContent = `[${formatTimestamp(ts)}] ${from}: ${text}`;
   if (isDM() && container.id === 'chat-dm' && from !== 'DM') {
     const btn = document.createElement('button');
     btn.className = 'btn-sm chat-reply-btn';
@@ -55,7 +60,15 @@ function appendMessage(container, from, text) {
     div.appendChild(btn);
   }
   container.appendChild(div);
+  while (container.children.length > 10) {
+    container.removeChild(container.firstChild);
+  }
   container.scrollTop = container.scrollHeight;
+}
+
+function renderMessages(container, msgs) {
+  container.innerHTML = '';
+  msgs.slice(-10).forEach(m => appendMessage(container, m));
 }
 
 function switchTab(tab) {
@@ -71,6 +84,10 @@ function switchTab(tab) {
 }
 
 let currentTab = 'global';
+let globalMessages = [];
+let dmMessages = {};
+let dmListeners = [];
+let db, dbFns;
 
 async function initChat() {
   const btn = document.getElementById('btn-chat');
@@ -80,7 +97,7 @@ async function initChat() {
   const globalPane = document.getElementById('chat-global');
   const dmPane = document.getElementById('chat-dm');
   const dmSelect = document.getElementById('dm-select');
-  if (!btn || !badge || !input || !sendBtn) return;
+  if (!btn || !badge || !input || !sendBtn || !globalPane || !dmPane || !dmSelect) return;
 
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
@@ -107,22 +124,26 @@ async function initChat() {
     tabBtn.addEventListener('click', () => switchTab(tabBtn.dataset.tab));
   });
 
-  const db = await getDb().catch(() => null);
+  dmSelect.addEventListener('change', () => {
+    const msgs = dmMessages[dmSelect.value] || [];
+    renderMessages(dmPane, msgs);
+  });
+
+  db = await getDb().catch(() => null);
   if (!db) return;
-  const { ref, push, onChildAdded } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+  dbFns = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+  const { ref, push, onChildAdded, query, limitToLast } = dbFns;
 
   sendBtn.addEventListener('click', async () => {
     const text = input.value.trim();
     if (!text) return;
-    const from = isDM() ? 'DM' : (currentPlayer() || 'Anon');
+    const msg = { from: isDM() ? 'DM' : (currentPlayer() || 'Anon'), text, ts: Date.now() };
     try {
       if (currentTab === 'global') {
-        await push(ref(db, 'chat/global'), { from, text, ts: Date.now() });
+        await push(ref(db, 'chat/global'), msg);
       } else {
         const target = isDM() ? dmSelect.value : currentPlayer();
-        if (target) {
-          await push(ref(db, 'chat/dm/' + target), { from, text, ts: Date.now() });
-        }
+        if (target) await push(ref(db, 'chat/dm/' + target), msg);
       }
     } catch (e) {
       console.error('Chat send failed', e);
@@ -130,43 +151,70 @@ async function initChat() {
     input.value = '';
   });
 
-  onChildAdded(ref(db, 'chat/global'), snap => {
+  const globalQuery = query(ref(db, 'chat/global'), limitToLast(10));
+  onChildAdded(globalQuery, snap => {
     const val = snap.val();
-    appendMessage(globalPane, val.from, val.text);
+    globalMessages.push(val);
+    if (globalMessages.length > 10) globalMessages.shift();
+    renderMessages(globalPane, globalMessages);
     if (currentTab !== 'global') markUnread();
   });
 
-  if (isDM()) {
-    const players = getPlayers();
-    players.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p;
-      opt.textContent = p;
-      dmSelect.appendChild(opt);
-      onChildAdded(ref(db, 'chat/dm/' + p), snap => {
-        const val = snap.val();
-        if (dmSelect.value === p && currentTab === 'dm') {
-          appendMessage(dmPane, val.from, val.text);
-        } else {
-          markUnread();
-        }
+  const setupDm = () => {
+    const { ref, onChildAdded, query, limitToLast, off } = dbFns;
+    dmListeners.forEach(({ q, cb }) => off(q, 'child_added', cb));
+    dmListeners = [];
+    dmMessages = {};
+    dmPane.innerHTML = '';
+    dmSelect.innerHTML = '';
+
+    if (isDM()) {
+      const players = getPlayers();
+      players.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p;
+        opt.textContent = p;
+        dmSelect.appendChild(opt);
+        const q = query(ref(db, 'chat/dm/' + p), limitToLast(10));
+        const cb = snap => {
+          const val = snap.val();
+          const arr = dmMessages[p] ||= [];
+          arr.push(val);
+          if (arr.length > 10) arr.shift();
+          if (dmSelect.value === p && currentTab === 'dm') {
+            renderMessages(dmPane, arr);
+          } else {
+            markUnread();
+          }
+        };
+        onChildAdded(q, cb);
+        dmListeners.push({ q, cb });
       });
-    });
-  } else {
-    const player = currentPlayer();
-    if (player) {
-      onChildAdded(ref(db, 'chat/dm/' + player), snap => {
-        const val = snap.val();
-        appendMessage(dmPane, val.from, val.text);
-        if (currentTab !== 'dm') markUnread();
-      });
+    } else {
+      const player = currentPlayer();
+      if (player) {
+        const q = query(ref(db, 'chat/dm/' + player), limitToLast(10));
+        const cb = snap => {
+          const val = snap.val();
+          const arr = dmMessages[player] ||= [];
+          arr.push(val);
+          if (arr.length > 10) arr.shift();
+          renderMessages(dmPane, arr);
+          if (currentTab !== 'dm') markUnread();
+        };
+        onChildAdded(q, cb);
+        dmListeners.push({ q, cb });
+      }
     }
-  }
+  };
+
+  setupDm();
+  window.addEventListener('playerChanged', setupDm);
 }
 
-  if (typeof document !== 'undefined') {
-    document.addEventListener('DOMContentLoaded', initChat);
-  }
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', initChat);
+}
 
 export { initChat };
 
