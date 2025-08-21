@@ -677,7 +677,6 @@ function updateDerived(){
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
   });
   updateXP();
-  updateFactionXP();
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
 ['hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
@@ -697,34 +696,6 @@ $('xp-submit').addEventListener('click', ()=>{
   const mode = $('xp-mode').value;
   setXP(num(elXP.value) + (mode==='add'? amt : -amt));
 });
-
-function updateFactionXP(){
-  FACTIONS.forEach(f=>{
-    const input = $(`${f}-xp`);
-    const bar = $(`${f}-xp-bar`);
-    if(!input || !bar) return;
-    const val = Math.max(0, num(input.value));
-    bar.value = val % 100;
-  });
-}
-
-function setupFactionXP(){
-  FACTIONS.forEach(f=>{
-    const input = $(`${f}-xp`);
-    const gain = $(`${f}-xp-gain`);
-    const lose = $(`${f}-xp-lose`);
-    if(!input || !gain || !lose) return;
-    gain.addEventListener('click', ()=>{
-      input.value = Math.max(0, num(input.value) + 5);
-      updateFactionXP();
-    });
-    lose.addEventListener('click', ()=>{
-      input.value = Math.max(0, num(input.value) - 5);
-      updateFactionXP();
-    });
-  });
-  updateFactionXP();
-}
 
 function updateFactionRep(){
   FACTIONS.forEach(f=>{
@@ -1744,7 +1715,6 @@ setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
 setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
 setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
 setupFactionRepTracker();
-setupFactionXP();
 updateDerived();
 applyDeleteIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
