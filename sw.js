@@ -1,10 +1,12 @@
-const CACHE = 'cccg-cache-v4';
+const CACHE = 'cccg-cache-v5';
 const ASSETS = [
   './',
   './index.html',
   './styles/main.css',
   './scripts/main.js',
   './scripts/helpers.js',
+  './scripts/storage.js',
+  './scripts/users.js',
   './ccccg.pdf'
 ];
 self.addEventListener('install', e => {
@@ -18,7 +20,15 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 self.addEventListener('fetch', e => {
+  const { request } = e;
+  if (request.method !== 'GET' || new URL(request.url).origin !== location.origin) return;
   e.respondWith(
-    caches.match(e.request).then(res => res || fetch(e.request))
+    fetch(request)
+      .then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(cache => cache.put(request, copy));
+        return res;
+      })
+      .catch(() => caches.match(request))
   );
 });
