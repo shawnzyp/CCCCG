@@ -4,6 +4,7 @@ import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
 let lastFocus = null;
+let openModals = 0;
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
 const cccgCtx = cccgCanvas ? cccgCanvas.getContext('2d') : null;
@@ -51,8 +52,13 @@ function applyDeleteIcons(root=document){
 }
 function show(id){
   const el = $(id);
-  if(!el) return;
+  if(!el || !el.classList.contains('hidden')) return;
   lastFocus = document.activeElement;
+  if (openModals === 0) {
+    document.body.classList.add('modal-open');
+    qsa('body > :not(.overlay)').forEach(e => e.setAttribute('inert',''));
+  }
+  openModals++;
   el.classList.remove('hidden');
   el.setAttribute('aria-hidden','false');
   const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
@@ -62,11 +68,16 @@ function show(id){
 }
 function hide(id){
   const el = $(id);
-  if(!el) return;
+  if(!el || el.classList.contains('hidden')) return;
   el.classList.add('hidden');
   el.setAttribute('aria-hidden','true');
   if (lastFocus && typeof lastFocus.focus === 'function') {
     lastFocus.focus();
+  }
+  openModals = Math.max(0, openModals - 1);
+  if (openModals === 0) {
+    document.body.classList.remove('modal-open');
+    qsa('body > :not(.overlay)').forEach(e => e.removeAttribute('inert'));
   }
 }
 let audioCtx = null;
