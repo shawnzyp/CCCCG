@@ -127,8 +127,8 @@ progress::-moz-progress-bar{
   .roll-flip-grid .inline>select{flex:1;width:auto;}
   .roll-flip-grid .inline>button{flex:0 0 auto;width:auto;}
 }
-.death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:24px;justify-content:center;}
-.death-saves input[type="checkbox"]{margin:0;}
+.death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:32px;justify-content:center;}
+.death-saves input[type="checkbox"]{margin:0;width:20px;height:20px;max-width:20px;max-height:20px;}
 #death-animation{
   position:fixed;
   inset:0;
