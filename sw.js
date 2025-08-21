@@ -1,4 +1,4 @@
-const CACHE = 'cccg-cache-v5';
+const CACHE = 'cccg-cache-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,19 @@ const ASSETS = [
   './scripts/helpers.js',
   './scripts/storage.js',
   './scripts/users.js',
-  './ccccg.pdf'
+  './ccccg.pdf',
+  // background and other images
+  './images/Dark.PNG',
+  './images/Light.PNG',
+  './images/High Contrast.PNG',
+  './images/Forest.PNG',
+  './images/Ocean.PNG',
+  './images/Mutant.PNG',
+  './images/Enhanced Human.PNG',
+  './images/Magic User.PNG',
+  './images/Alien:Extraterrestrial.PNG',
+  './images/Mystical Being.PNG',
+  './images/Logo.png'
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();
