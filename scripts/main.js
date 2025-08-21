@@ -539,6 +539,7 @@ function setupFactionRep(factionId, repId, perkId, data){
   const factionSel = $(factionId);
   const repSel = $(repId);
   const perkEl = $(perkId);
+  const modalEl = $('modal-faction-perk-list');
   if(!factionSel || !repSel || !perkEl) return;
 
   function populateReps(){
@@ -553,6 +554,7 @@ function setupFactionRep(factionId, repId, perkId, data){
     const rep = repSel.value;
     const perks = (data[fac] && data[fac][rep]) || [];
     perkEl.innerHTML = '';
+    if(modalEl) modalEl.innerHTML = '';
     perks.forEach((p,i)=>{
       const text = typeof p === 'string' ? p : String(p);
       const lower = text.toLowerCase();
@@ -568,8 +570,13 @@ function setupFactionRep(factionId, repId, perkId, data){
       }
       perkEl.appendChild(li);
       handlePerkEffects(li, text);
+      if(modalEl) modalEl.appendChild(li.cloneNode(true));
     });
     perkEl.style.display = perks.length ? 'block' : 'none';
+    if(modalEl){
+      if(perks.length) show('modal-faction-perk');
+      else hide('modal-faction-perk');
+    }
   }
 
   factionSel.addEventListener('change', ()=>{ populateReps(); render(); });
