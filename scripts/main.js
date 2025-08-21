@@ -129,13 +129,18 @@ document.addEventListener('input', e=>{
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
 function applyTheme(t){
-  root.classList.remove('theme-light','theme-high','theme-forest','theme-ocean');
+  root.classList.remove('theme-light','theme-high','theme-forest','theme-ocean','theme-mutant','theme-enhanced','theme-magic','theme-alien','theme-mystic');
   if(t==='light') root.classList.add('theme-light');
   if(t==='high') root.classList.add('theme-high');
   if(t==='forest') root.classList.add('theme-forest');
   if(t==='ocean') root.classList.add('theme-ocean');
+  if(t==='mutant') root.classList.add('theme-mutant');
+  if(t==='enhanced') root.classList.add('theme-enhanced');
+  if(t==='magic') root.classList.add('theme-magic');
+  if(t==='alien') root.classList.add('theme-alien');
+  if(t==='mystic') root.classList.add('theme-mystic');
   if(btnTheme){
-    qs('#icon-sun', btnTheme).style.display = ['dark','forest','ocean'].includes(t) ? 'block' : 'none';
+    qs('#icon-sun', btnTheme).style.display = ['dark','forest','ocean','mutant','enhanced','magic','alien','mystic'].includes(t) ? 'block' : 'none';
     qs('#icon-contrast', btnTheme).style.display = t==='light' ? 'block' : 'none';
     qs('#icon-moon', btnTheme).style.display = t==='high' ? 'block' : 'none';
   }
@@ -160,6 +165,32 @@ if (btnTheme) {
   });
 }
 window.addEventListener('playerChanged', loadTheme);
+
+const CLASS_THEMES = {
+  'Mutant':'mutant',
+  'Enhanced Human':'enhanced',
+  'Magic User':'magic',
+  'Alien/Extraterrestrial':'alien',
+  'Mystical Being':'mystic'
+};
+function bindClassificationTheme(id){
+  const sel=$(id);
+  if(!sel) return;
+  const apply=()=>{
+    const t=CLASS_THEMES[sel.value];
+    if(t){
+      const player=currentPlayer();
+      const key=player?`theme:${player}`:'theme';
+      localStorage.setItem(key,t);
+      if(player) localStorage.setItem('theme', t);
+      applyTheme(t);
+    }
+  };
+  sel.addEventListener('change', apply);
+  apply();
+}
+bindClassificationTheme('classification');
+bindClassificationTheme('wiz-classification');
 
 const btnMenu = $('btn-menu');
 const menuActions = $('menu-actions');
