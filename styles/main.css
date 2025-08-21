@@ -28,7 +28,7 @@ header.hide-tabs .tabs{opacity:0;pointer-events:none}
 .top{display:flex;align-items:center;justify-content:center;gap:8px;transition:var(--transition)}
 .title-group{display:flex;align-items:center;gap:6px}
 .actions{display:flex;gap:6px}
-.dropdown{position:relative}
+.dropdown{position:relative;display:flex;align-items:center}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:none;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50}
 .menu.show{display:flex}
 .menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
