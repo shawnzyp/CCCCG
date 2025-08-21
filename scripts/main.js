@@ -529,6 +529,7 @@ function getTierIndex(xp){
 }
 
 let currentTierIdx = 0;
+let xpInitialized = false;
 if (elXP) {
   const initXP = Math.max(0, num(elXP.value));
   currentTierIdx = getTierIndex(initXP);
@@ -568,10 +569,11 @@ function updateHP(){
 function updateXP(){
   const xp = Math.max(0, num(elXP.value));
   const idx = getTierIndex(xp);
-  if (idx > currentTierIdx) {
+  if (xpInitialized && idx > currentTierIdx) {
     launchConfetti();
   }
   currentTierIdx = idx;
+  xpInitialized = true;
   if(elTier) elTier.value = XP_TIERS[idx].label;
   const nextTier = XP_TIERS[idx+1];
   if(nextTier){
