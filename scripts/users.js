@@ -164,10 +164,21 @@ function updateDMButton() {
   }
 }
 
+function updateDMLoginControls() {
+  const logged = isDM();
+  const loginBtn = $('login-dm');
+  const logoutBtn = $('logout-dm');
+  const passInput = $('dm-password');
+  if (loginBtn) loginBtn.hidden = logged;
+  if (logoutBtn) logoutBtn.hidden = !logged;
+  if (passInput) passInput.hidden = logged;
+}
+
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     updatePlayerButton();
     updateDMButton();
+    updateDMLoginControls();
 
     const regBtn = $('register-player');
     if (regBtn) {
@@ -284,6 +295,7 @@ if (typeof document !== 'undefined') {
           toast('DM logged in','success');
           $('dm-password').value = '';
           updateDMButton();
+          updateDMLoginControls();
           const modal = $('modal-dm-login');
           if (modal) {
             modal.classList.add('hidden');
@@ -291,6 +303,21 @@ if (typeof document !== 'undefined') {
           }
         } else {
           toast('Invalid credentials','error');
+        }
+      });
+    }
+
+    const dmLogoutBtn = $('logout-dm');
+    if (dmLogoutBtn) {
+      dmLogoutBtn.addEventListener('click', () => {
+        logoutDM();
+        toast('DM logged out','info');
+        updateDMButton();
+        updateDMLoginControls();
+        const modal = $('modal-dm-login');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.setAttribute('aria-hidden','true');
         }
       });
     }
