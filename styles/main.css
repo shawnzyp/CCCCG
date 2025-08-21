@@ -145,6 +145,9 @@ progress::-moz-progress-bar{
 .faction-xp .inline{gap:4px;}
 .faction-xp progress{height:20px;}
 .faction-xp .btn-sm{min-height:28px;padding:4px 6px;}
+.faction-rep .inline{gap:4px;}
+.faction-rep progress{height:20px;}
+.faction-rep .btn-sm{min-height:28px;padding:4px 6px;}
 .death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:32px;justify-content:center;}
 .death-saves input[type="checkbox"]{margin:0;width:20px;height:20px;max-width:20px;max-height:20px;}
 #death-animation{

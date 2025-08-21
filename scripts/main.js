@@ -427,6 +427,8 @@ const FACTION_REP_PERKS = {
   'Greyline PMC': { ...COMMON_REP_TIERS },
 };
 
+const REP_TIERS = Object.keys(COMMON_REP_TIERS);
+
 // handle special perk behavior (stat boosts, initiative mods, etc.)
 const ACTION_HINTS = [
   'once per',
@@ -534,56 +536,6 @@ function setupPerkSelect(selId, perkId, data){
   render();
 }
 
-function setupFactionRep(factionId, repId, perkId, data){
-  const factionSel = $(factionId);
-  const repSel = $(repId);
-  const perkEl = $(perkId);
-  const modalEl = $('modal-faction-perk-list');
-  if(!factionSel || !repSel || !perkEl) return;
-
-  function populateReps(){
-    const reps = data[factionSel.value] ? Object.keys(data[factionSel.value]) : [];
-    const current = repSel.value;
-    repSel.innerHTML = '<option value="">Select reputation</option>' + reps.map(r=>`<option>${r}</option>`).join('');
-    if(reps.includes(current)) repSel.value = current; else repSel.value='';
-  }
-
-  function render(){
-    const fac = factionSel.value;
-    const rep = repSel.value;
-    const perks = (data[fac] && data[fac][rep]) || [];
-    perkEl.innerHTML = '';
-    if(modalEl) modalEl.innerHTML = '';
-    perks.forEach((p,i)=>{
-      const text = typeof p === 'string' ? p : String(p);
-      const lower = text.toLowerCase();
-      const isAction = ACTION_HINTS.some(k=> lower.includes(k));
-      let li;
-      if(isAction){
-        const id = `${perkId}-${i}`;
-        li = document.createElement('li');
-        li.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
-      }else{
-        li = document.createElement('li');
-        li.textContent = text;
-      }
-      perkEl.appendChild(li);
-      handlePerkEffects(li, text);
-      if(modalEl) modalEl.appendChild(li.cloneNode(true));
-    });
-    perkEl.style.display = perks.length ? 'block' : 'none';
-    if(modalEl){
-      if(perks.length) show('modal-faction-perk');
-      else hide('modal-faction-perk');
-    }
-  }
-
-  factionSel.addEventListener('change', ()=>{ populateReps(); render(); });
-  repSel.addEventListener('change', render);
-  populateReps();
-  render();
-}
-
 /* ========= cached elements ========= */
 const elPP = $('pp');
 const elTC = $('tc');
@@ -611,6 +563,12 @@ const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const elTier = $('tier');
 const FACTIONS = ['omni','pfv','conclave','greyline'];
+const FACTION_NAME_MAP = {
+  omni: 'O.M.N.I.',
+  pfv: 'P.F.V.',
+  conclave: 'Cosmic Conclave',
+  greyline: 'Greyline PMC',
+};
 
 let hpRolls = [];
 if (elHPRoll) {
@@ -766,6 +724,62 @@ function setupFactionXP(){
     });
   });
   updateFactionXP();
+}
+
+function updateFactionRep(){
+  FACTIONS.forEach(f=>{
+    const input = $(`${f}-rep`);
+    const bar = $(`${f}-rep-bar`);
+    const tierEl = $(`${f}-rep-tier`);
+    const perkEl = $(`${f}-rep-perk`);
+    if(!input || !bar || !tierEl || !perkEl) return;
+    let val = Math.max(0, num(input.value));
+    const maxVal = REP_TIERS.length * 100 - 1;
+    if(val > maxVal) val = maxVal;
+    input.value = val;
+    const tierIdx = Math.min(REP_TIERS.length - 1, Math.floor(val / 100));
+    const tierName = REP_TIERS[tierIdx];
+    bar.value = val % 100;
+    tierEl.textContent = tierName;
+    perkEl.innerHTML = '';
+    const facName = FACTION_NAME_MAP[f];
+    const perks = (FACTION_REP_PERKS[facName] && FACTION_REP_PERKS[facName][tierName]) || [];
+    perks.forEach((p,i)=>{
+      const text = typeof p === 'string' ? p : String(p);
+      const lower = text.toLowerCase();
+      const isAction = ACTION_HINTS.some(k=> lower.includes(k));
+      let li;
+      if(isAction){
+        const id = `${f}-rep-perk-${i}`;
+        li = document.createElement('li');
+        li.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
+      }else{
+        li = document.createElement('li');
+        li.textContent = text;
+      }
+      perkEl.appendChild(li);
+      handlePerkEffects(li, text);
+    });
+    perkEl.style.display = perks.length ? 'block' : 'none';
+  });
+}
+
+function setupFactionRepTracker(){
+  FACTIONS.forEach(f=>{
+    const input = $(`${f}-rep`);
+    const gain = $(`${f}-rep-gain`);
+    const lose = $(`${f}-rep-lose`);
+    if(!input || !gain || !lose) return;
+    gain.addEventListener('click', ()=>{
+      input.value = Math.max(0, num(input.value) + 5);
+      updateFactionRep();
+    });
+    lose.addEventListener('click', ()=>{
+      input.value = Math.max(0, num(input.value) - 5);
+      updateFactionRep();
+    });
+  });
+  updateFactionRep();
 }
 
 /* ========= HP/SP controls ========= */
@@ -1729,7 +1743,7 @@ setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
 setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
 setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
 setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
-setupFactionRep('faction','faction-rep','faction-perks', FACTION_REP_PERKS);
+setupFactionRepTracker();
 setupFactionXP();
 updateDerived();
 applyDeleteIcons();
