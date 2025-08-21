@@ -432,7 +432,7 @@ select[required]:valid{
 /* chat */
 .tab{position:relative}
 .badge{position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:var(--error)}
-.chat-modal{max-width:400px}
+.chat-modal{max-width:400px;margin:0 auto}
 .chat-tabs{display:flex;gap:4px;margin-bottom:8px}
 .chat-tabs button{flex:1}
 .chat-pane{border:1px solid var(--line);border-radius:var(--radius);padding:8px;max-height:200px;overflow-y:auto;margin-bottom:8px}
