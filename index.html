@@ -382,6 +382,21 @@
         </select>
         <ul id="origin-perks" class="perk-list"></ul>
       </div>
+      <div class="card">
+        <label for="faction">Faction Reputation</label>
+        <div class="inline">
+          <select id="faction">
+            <option value="">Select faction</option>
+            <option>Aegis Initiative</option>
+            <option>Shadow Syndicate</option>
+            <option>Arcane Council</option>
+          </select>
+          <select id="faction-rep">
+            <option value="">Select reputation</option>
+          </select>
+        </div>
+        <ul id="faction-perks" class="perk-list"></ul>
+      </div>
     </div>
 
     <div class="card">
@@ -754,6 +769,19 @@
       <div><h4 style="margin:0">Dice</h4><div id="full-log-dice" class="catalog"></div></div>
       <div><h4 style="margin:0">Coins</h4><div id="full-log-coin" class="catalog"></div></div>
     </div>
+    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-faction-perk" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3 id="faction-perk-title">Faction Perk</h3>
+    <ul id="modal-faction-perk-list" class="perk-list"></ul>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
