@@ -74,19 +74,17 @@ let currentTab = 'global';
 
 async function initChat() {
   const btn = document.getElementById('btn-chat');
-  const overlay = document.getElementById('chat-overlay');
-  const closeBtn = overlay ? overlay.querySelector('[data-close]') : null;
   const badge = document.getElementById('chat-badge');
   const input = document.getElementById('chat-text');
   const sendBtn = document.getElementById('chat-send');
   const globalPane = document.getElementById('chat-global');
   const dmPane = document.getElementById('chat-dm');
   const dmSelect = document.getElementById('dm-select');
-  if (!btn || !overlay || !badge || !input || !sendBtn) return;
+  if (!btn || !badge || !input || !sendBtn) return;
 
   let unread = false;
   const markUnread = () => {
-    if (overlay.classList.contains('hidden')) {
+    if (!btn.classList.contains('active')) {
       unread = true;
       badge.hidden = false;
     }
@@ -96,18 +94,7 @@ async function initChat() {
     badge.hidden = true;
   };
 
-  btn.addEventListener('click', () => {
-    overlay.classList.remove('hidden');
-    overlay.setAttribute('aria-hidden', 'false');
-    clearUnread();
-  });
-
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      overlay.classList.add('hidden');
-      overlay.setAttribute('aria-hidden', 'true');
-    });
-  }
+  btn.addEventListener('click', clearUnread);
 
   document.querySelectorAll('.chat-tab').forEach(tabBtn => {
     tabBtn.addEventListener('click', () => switchTab(tabBtn.dataset.tab));
