@@ -10,6 +10,16 @@ const cccgCtx = cccgCanvas ? cccgCanvas.getContext('2d') : null;
 const CCCCG_SRC = './ccccg.pdf';
 let cccgDoc = null;
 let dmPlayer = null;
+
+/* ========= viewport ========= */
+function setVh(){
+  document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+}
+setVh();
+window.addEventListener('resize', setVh);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', setVh);
+}
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
