@@ -250,6 +250,8 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 .overlay.hidden{opacity:0;pointer-events:none}
 .modal{background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius);max-width:720px;width:100%;padding:16px;box-shadow:var(--shadow);position:relative;max-height:calc(100vh - 32px);overflow:auto;transform:scale(1);opacity:1;transition:transform .2s ease,opacity .2s ease}
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
+body.modal-open{overflow:hidden}
+body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
 .modal h3{margin:0 0 4px;color:var(--accent);font-size:.9rem;line-height:1.2;font-weight:600}
 .modal .x{position:sticky;top:8px;margin-left:auto;margin-right:8px;background:transparent;border:none;color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:var(--transition);z-index:2}
 .modal .x:hover{color:var(--accent)}
