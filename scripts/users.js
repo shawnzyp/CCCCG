@@ -1,5 +1,6 @@
 import { saveLocal, loadLocal, loadCloud } from './storage.js';
 import { $ } from './helpers.js';
+import { show as showModal, hide as hideModal } from './modal.js';
 
 const PLAYERS_KEY = 'players';
 const PLAYER_SESSION = 'player-session';
@@ -127,22 +128,6 @@ function toast(msg, type = 'info') {
   t.className = `toast ${type}`;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 1200);
-}
-
-function showModal(id) {
-  const m = $(id);
-  if (m) {
-    m.classList.remove('hidden');
-    m.setAttribute('aria-hidden', 'false');
-  }
-}
-
-function hideModal(id) {
-  const m = $(id);
-  if (m) {
-    m.classList.add('hidden');
-    m.setAttribute('aria-hidden', 'true');
-  }
 }
 
 function updatePlayerButton() {
