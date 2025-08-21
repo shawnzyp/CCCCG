@@ -128,6 +128,18 @@ document.addEventListener('input', e=>{
 /* ========= theme ========= */
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
+const THEME_ICONS = {
+  dark: 'icon-dark',
+  light: 'icon-light',
+  high: 'icon-high',
+  forest: 'icon-forest',
+  ocean: 'icon-ocean',
+  mutant: 'icon-mutant',
+  enhanced: 'icon-enhanced',
+  magic: 'icon-magic',
+  alien: 'icon-alien',
+  mystic: 'icon-mystic'
+};
 function applyTheme(t){
   root.classList.remove('theme-light','theme-high','theme-forest','theme-ocean','theme-mutant','theme-enhanced','theme-magic','theme-alien','theme-mystic');
   if(t==='light') root.classList.add('theme-light');
@@ -140,9 +152,10 @@ function applyTheme(t){
   if(t==='alien') root.classList.add('theme-alien');
   if(t==='mystic') root.classList.add('theme-mystic');
   if(btnTheme){
-    qs('#icon-sun', btnTheme).style.display = ['dark','forest','ocean','mutant','enhanced','magic','alien','mystic'].includes(t) ? 'block' : 'none';
-    qs('#icon-contrast', btnTheme).style.display = t==='light' ? 'block' : 'none';
-    qs('#icon-moon', btnTheme).style.display = t==='high' ? 'block' : 'none';
+    qsa('svg', btnTheme).forEach(i => i.style.display = 'none');
+    const iconId = THEME_ICONS[t] || 'icon-dark';
+    const icon = qs(`#${iconId}`, btnTheme);
+    if(icon) icon.style.display = 'block';
   }
 }
 function loadTheme(){
