@@ -8,11 +8,11 @@
 :root.theme-magic{--bg:linear-gradient(135deg,#4a148c,#ec407a);--bg-color:#4a148c;--surface:rgba(74,20,140,.8);--surface-2:rgba(50,10,100,.8);--text:#f3e8ff;--muted:#d1c4e9;--accent:#ab47bc;--accent-2:#ff7043;--line:rgba(255,255,255,.1);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#0e1117;--success:#ce93d8;--error:#ef5350}
 :root.theme-alien{--bg:linear-gradient(135deg,#004d40,#7b1fa2);--bg-color:#004d40;--surface:rgba(0,77,64,.8);--surface-2:rgba(27,20,60,.8);--text:#e0f2f1;--muted:#80cbc4;--accent:#00e5ff;--accent-2:#651fff;--line:rgba(255,255,255,.1);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#0e1117;--success:#4db6ac;--error:#ef5350}
 :root.theme-mystic{--bg:linear-gradient(135deg,#311b92,#d4af37);--bg-color:#311b92;--surface:rgba(49,27,146,.8);--surface-2:rgba(35,20,100,.8);--text:#fff8e1;--muted:#ffe082;--accent:#d4af37;--accent-2:#7b1fa2;--line:rgba(255,255,255,.1);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#0e1117;--success:#fff59d;--error:#ef5350}
-*,*::before,*::after{box-sizing:border-box}
+*,*::before,*::after{box-sizing:border-box;transition:var(--transition)}
 html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
-html{height:100%;background:var(--bg);transition:var(--transition);}body{min-height:100%}
-body{margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:16px;transition:var(--transition)}
+html{height:100%;background:var(--bg);transition:var(--transition)}
+body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:16px;transition:var(--transition)}
 h1,h2,h3,h4{font-family:inherit;line-height:1.25;margin:0 0 .5em}
 h1{font-size:2rem;font-weight:700;color:var(--accent)}
 header h1{font-size:1rem}
