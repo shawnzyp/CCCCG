@@ -1624,6 +1624,7 @@ setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
 setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
 updateDerived();
 applyDeleteIcons();
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(e=>console.error('SW reg failed', e));
+if ('serviceWorker' in navigator) {
+  const swUrl = new URL('../sw.js', import.meta.url);
+  navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
 }
