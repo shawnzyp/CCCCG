@@ -84,6 +84,9 @@ export function logoutPlayer() {
 export function loginDM(password) {
   if (password === DM_PASSWORD) {
     localStorage.setItem(DM_SESSION, '1');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('playerChanged'));
+    }
     return true;
   }
   return false;
@@ -95,6 +98,9 @@ export function isDM() {
 
 export function logoutDM() {
   localStorage.removeItem(DM_SESSION);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('playerChanged'));
+  }
 }
 
 export async function savePlayerCharacter(player, data) {
