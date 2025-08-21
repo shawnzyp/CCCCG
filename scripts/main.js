@@ -434,17 +434,24 @@ function handlePerkEffects(li, text){
       ABILS.map(a=>`<option value="${a}">${a.toUpperCase()}</option>`).join('');
     select.addEventListener('change', ()=>{
       const prev = select.dataset.prev;
-      if(prev){
-        const elPrev = $(prev);
-        elPrev.value = Number(elPrev.value) - 1;
-      }
       const key = select.value;
+      if(prev && prev !== key){
+        const elPrev = $(prev);
+        if(elPrev){
+          const reverted = Math.max(10, Number(elPrev.value) - 1);
+          elPrev.value = reverted;
+        }
+      }
       if(ABILS.includes(key)){
         const el = $(key);
-        el.value = Number(el.value) + 1;
-        select.dataset.prev = key;
-        updateDerived();
+        if(el){
+          el.value = Number(el.value) + 1;
+          select.dataset.prev = key;
+        }
+      }else{
+        select.dataset.prev = '';
       }
+      updateDerived();
     });
     li.appendChild(document.createTextNode(' '));
     li.appendChild(select);
