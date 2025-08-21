@@ -82,6 +82,13 @@ async function initChat() {
   const dmSelect = document.getElementById('dm-select');
   if (!btn || !badge || !input || !sendBtn) return;
 
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+
   let unread = false;
   const markUnread = () => {
     if (!btn.classList.contains('active')) {
@@ -157,7 +164,9 @@ async function initChat() {
   }
 }
 
-if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', initChat);
-}
+  if (typeof document !== 'undefined') {
+    document.addEventListener('DOMContentLoaded', initChat);
+  }
+
+export { initChat };
 
