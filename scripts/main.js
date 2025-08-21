@@ -2,9 +2,8 @@
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
 import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
+import { show, hide } from './modal.js';
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
-let lastFocus = null;
-let openModals = 0;
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
 const cccgCtx = cccgCanvas ? cccgCanvas.getContext('2d') : null;
@@ -49,36 +48,6 @@ function applyDeleteIcon(btn){
 
 function applyDeleteIcons(root=document){
   qsa('button[data-del], button[data-act="del"]', root).forEach(applyDeleteIcon);
-}
-function show(id){
-  const el = $(id);
-  if(!el || !el.classList.contains('hidden')) return;
-  lastFocus = document.activeElement;
-  if (openModals === 0) {
-    document.body.classList.add('modal-open');
-    qsa('body > :not(.overlay)').forEach(e => e.setAttribute('inert',''));
-  }
-  openModals++;
-  el.classList.remove('hidden');
-  el.setAttribute('aria-hidden','false');
-  const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
-  if (focusEl && typeof focusEl.focus === 'function') {
-    focusEl.focus();
-  }
-}
-function hide(id){
-  const el = $(id);
-  if(!el || el.classList.contains('hidden')) return;
-  el.classList.add('hidden');
-  el.setAttribute('aria-hidden','true');
-  if (lastFocus && typeof lastFocus.focus === 'function') {
-    lastFocus.focus();
-  }
-  openModals = Math.max(0, openModals - 1);
-  if (openModals === 0) {
-    document.body.classList.remove('modal-open');
-    qsa('body > :not(.overlay)').forEach(e => e.removeAttribute('inert'));
-  }
 }
 let audioCtx = null;
 window.addEventListener('unload', () => {
