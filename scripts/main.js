@@ -1608,5 +1608,5 @@ updateDerived();
 applyDeleteIcons();
 if ('serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
-  navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+  navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
 }
