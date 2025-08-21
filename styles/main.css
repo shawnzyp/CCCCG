@@ -21,13 +21,14 @@ h2{font-size:1.5rem;font-weight:600;color:var(--accent)}
 h3{font-size:1.25rem;font-weight:600}
 header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(8px + env(safe-area-inset-top)) 10px 8px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column;transition:padding .3s ease-in-out}
 header.compact{flex-direction:row;align-items:center;justify-content:flex-end;padding:4px 10px}
-header #btn-theme,header h1{transition:opacity .3s ease-in-out,max-width .3s ease-in-out,margin .3s ease-in-out,padding .3s ease-in-out;overflow:hidden}
-header.compact #btn-theme,header.compact h1{opacity:0;max-width:0;margin:0;padding:0;pointer-events:none;visibility:hidden}
+header #btn-theme,header .title-group{transition:opacity .3s ease-in-out,max-width .3s ease-in-out,margin .3s ease-in-out,padding .3s ease-in-out;overflow:hidden}
+header.compact #btn-theme,header.compact .title-group{opacity:0;max-width:0;margin:0;padding:0;pointer-events:none;visibility:hidden}
 header.compact .top{margin-left:8px;margin-right:0;flex:0 0 auto;order:2}
 header.compact .tabs{margin-top:0;flex:1;order:1;justify-content:space-evenly}
 header.hide-tabs .tabs{opacity:0;pointer-events:none}
 .top{display:flex;align-items:center;justify-content:center;gap:8px;transition:var(--transition)}
 .title-group{display:flex;align-items:center;gap:6px}
+.logo{width:40px;height:40px;display:block}
 .actions{display:flex;gap:6px}
 .dropdown{position:relative;display:flex;align-items:center}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:none;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50}
