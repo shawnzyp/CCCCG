@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import {
   registerPlayer,
   getPlayers,
@@ -58,6 +59,16 @@ describe('user management', () => {
     localStorage.setItem('players', '{not valid json');
     expect(getPlayers()).toEqual([]);
     expect(localStorage.getItem('players')).toBeNull();
+  });
+
+  test('handles localStorage access errors gracefully', () => {
+    const spy = jest
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => {
+        throw new Error('blocked');
+      });
+    expect(getPlayers()).toEqual([]);
+    spy.mockRestore();
   });
 
   test('save fails without login', async () => {

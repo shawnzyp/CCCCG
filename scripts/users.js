@@ -7,7 +7,16 @@ const DM_SESSION = 'dm-session';
 const DM_PASSWORD = 'Dragons22!';
 
 function getPlayersRaw() {
-  const raw = localStorage.getItem(PLAYERS_KEY);
+  let raw;
+  try {
+    raw = localStorage.getItem(PLAYERS_KEY);
+  } catch (e) {
+    // Accessing localStorage can fail in some environments (e.g. disabled
+    // storage or privacy modes). Treat this as no data rather than throwing an
+    // uncaught exception that prevents the page from loading.
+    console.error('Failed to access localStorage', e);
+    return {};
+  }
   if (!raw) return {};
   try {
     return JSON.parse(raw);
@@ -16,7 +25,7 @@ function getPlayersRaw() {
     // application can continue operating with a clean slate instead of
     // throwing a runtime error that breaks the page.
     console.error('Failed to parse players from localStorage', e);
-    localStorage.removeItem(PLAYERS_KEY);
+    try { localStorage.removeItem(PLAYERS_KEY); } catch {}
     return {};
   }
 }
