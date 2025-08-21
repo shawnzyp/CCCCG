@@ -37,6 +37,23 @@ function appendMessage(container, from, text) {
   const div = document.createElement('div');
   div.className = 'chat-msg';
   div.textContent = `${from}: ${text}`;
+  if (isDM() && container.id === 'chat-dm' && from !== 'DM') {
+    const btn = document.createElement('button');
+    btn.className = 'btn-sm chat-reply-btn';
+    btn.textContent = 'Reply';
+    btn.addEventListener('click', () => {
+      const sel = document.getElementById('dm-select');
+      if (sel) {
+        sel.value = from;
+        switchTab('dm');
+        sel.dispatchEvent(new Event('change'));
+        const input = document.getElementById('chat-text');
+        if (input) input.focus();
+      }
+    });
+    div.append(' ');
+    div.appendChild(btn);
+  }
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 }
