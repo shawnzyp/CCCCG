@@ -410,6 +410,24 @@ const ORIGIN_PERKS = {
   'The Redemption': ['Advantage on persuasion checks for second chances.']
 };
 
+const FACTION_REP_PERKS = {
+  'Aegis Initiative': {
+    Allied: ['Once per session, call in agency support.'],
+    Neutral: ['Access to public records and safe houses.'],
+    Hostile: ['Tracked by agency drones.']
+  },
+  'Shadow Syndicate': {
+    Allied: ['Discounts on black market goods.'],
+    Neutral: ['Occasional tips from smugglers.'],
+    Hostile: ['Bounty placed on your head.']
+  },
+  'Arcane Council': {
+    Allied: ['Borrow minor magical items between missions.'],
+    Neutral: ['Consultation with apprentice mages.'],
+    Hostile: ['Marked as an enemy of the arcane.']
+  }
+};
+
 // handle special perk behavior (stat boosts, initiative mods, etc.)
 const ACTION_HINTS = [
   'once per',
@@ -514,6 +532,49 @@ function setupPerkSelect(selId, perkId, data){
     perkEl.style.display = perks.length ? 'block' : 'none';
   }
   sel.addEventListener('change', render);
+  render();
+}
+
+function setupFactionRep(factionId, repId, perkId, data){
+  const factionSel = $(factionId);
+  const repSel = $(repId);
+  const perkEl = $(perkId);
+  if(!factionSel || !repSel || !perkEl) return;
+
+  function populateReps(){
+    const reps = data[factionSel.value] ? Object.keys(data[factionSel.value]) : [];
+    const current = repSel.value;
+    repSel.innerHTML = '<option value="">Select reputation</option>' + reps.map(r=>`<option>${r}</option>`).join('');
+    if(reps.includes(current)) repSel.value = current; else repSel.value='';
+  }
+
+  function render(){
+    const fac = factionSel.value;
+    const rep = repSel.value;
+    const perks = (data[fac] && data[fac][rep]) || [];
+    perkEl.innerHTML = '';
+    perks.forEach((p,i)=>{
+      const text = typeof p === 'string' ? p : String(p);
+      const lower = text.toLowerCase();
+      const isAction = ACTION_HINTS.some(k=> lower.includes(k));
+      let li;
+      if(isAction){
+        const id = `${perkId}-${i}`;
+        li = document.createElement('li');
+        li.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
+      }else{
+        li = document.createElement('li');
+        li.textContent = text;
+      }
+      perkEl.appendChild(li);
+      handlePerkEffects(li, text);
+    });
+    perkEl.style.display = perks.length ? 'block' : 'none';
+  }
+
+  factionSel.addEventListener('change', ()=>{ populateReps(); render(); });
+  repSel.addEventListener('change', render);
+  populateReps();
   render();
 }
 
@@ -1632,6 +1693,7 @@ setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
 setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
 setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
 setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
+setupFactionRep('faction','faction-rep','faction-perks', FACTION_REP_PERKS);
 updateDerived();
 applyDeleteIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
