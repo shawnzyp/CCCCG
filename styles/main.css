@@ -54,7 +54,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .tabs .dropdown{margin-left:auto}
 .tabs-title{
   padding:0 8px;
-  font-size:clamp(.75rem,4vw,1rem);
+  font-size:clamp(.675rem,3.6vw,.9rem);
   white-space:nowrap;
   color:var(--accent);
   font-weight:700;
