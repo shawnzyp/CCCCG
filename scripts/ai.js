@@ -42,6 +42,9 @@ if (sendBtn) {
         })
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || res.statusText);
+      }
       output.textContent = data.choices?.[0]?.message?.content?.trim() || 'No response';
     } catch (err) {
       output.textContent = 'Error: ' + err.message;
