@@ -41,4 +41,26 @@ describe('AI Assistant button', () => {
     expect(global.fetch).toHaveBeenCalled();
     expect(localStorage.getItem('openai-key')).toBe('test-key');
   });
+
+  test('shows API error messages', async () => {
+    jest.resetModules();
+    document.body.innerHTML = `
+      <input id="ai-input" value="hi" />
+      <div id="ai-output"></div>
+      <button id="ai-send">Send</button>
+    `;
+    localStorage.setItem('openai-key', 'test-key');
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({ error: { message: 'Invalid API key' } }),
+      }),
+    );
+
+    await import('../scripts/ai.js');
+    document.getElementById('ai-send').click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(document.getElementById('ai-output').textContent).toBe('Error: Invalid API key');
+  });
 });
