@@ -513,8 +513,16 @@ function setupPerkSelect(selId, perkId, data){
       let li;
       if(isAction){
         const id = `${selId}-perk-${i}`;
+        const statusId = `${id}-status`;
         li = document.createElement('li');
-        li.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
+        li.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> <span id="${statusId}" class="perk-status">Available</span> ${text}</label>`;
+        const cb = li.querySelector(`#${id}`);
+        const status = li.querySelector(`#${statusId}`);
+        if (cb && status) {
+          cb.addEventListener('change', () => {
+            status.textContent = cb.checked ? 'Used' : 'Available';
+          });
+        }
       }else{
         li = document.createElement('li');
         li.textContent = text;
