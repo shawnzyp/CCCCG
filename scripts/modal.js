@@ -6,6 +6,21 @@ let openModals = 0;
 // Ensure hidden overlays are not focusable on load
 qsa('.overlay.hidden').forEach(ov => { ov.style.display = 'none'; });
 
+// Close modal on overlay click
+qsa('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => {
+    if (e.target === ov) hide(ov.id);
+  });
+});
+
+// Allow closing with Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && openModals > 0) {
+    const open = qsa('.overlay').find(o => !o.classList.contains('hidden'));
+    if (open) hide(open.id);
+  }
+});
+
 export function show(id) {
   const el = $(id);
   if (!el || !el.classList.contains('hidden')) return;

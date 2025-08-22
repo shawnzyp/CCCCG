@@ -184,10 +184,18 @@ const menuActions = $('menu-actions');
 if (btnMenu && menuActions) {
   btnMenu.addEventListener('click', () => {
     menuActions.classList.toggle('show');
+    btnMenu.setAttribute('aria-expanded', menuActions.classList.contains('show'));
   });
   document.addEventListener('click', e => {
     if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) {
       menuActions.classList.remove('show');
+      btnMenu.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      menuActions.classList.remove('show');
+      btnMenu.setAttribute('aria-expanded', 'false');
     }
   });
 }
@@ -198,7 +206,12 @@ const headerEl = qs('header');
 /* ========= tabs ========= */
 function setTab(name){
   qsa('fieldset[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
-  qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
+  qsa('.tab').forEach(b=> {
+    const active = b.getAttribute('data-go')===name;
+    b.classList.toggle('active', active);
+    if (active) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
   try {
     localStorage.setItem('active-tab', name);
   } catch (e) {}
@@ -603,6 +616,9 @@ if (elXP) {
 }
 
 function launchConfetti(){
+  if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
   confetti({
     particleCount: 100,
     spread: 70,
