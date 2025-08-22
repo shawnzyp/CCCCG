@@ -772,7 +772,10 @@ async function setSP(v){
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
   const diff = num(elSPBar.value) - prev;
-  if(diff !== 0) await playSPAnimation(diff);
+  if(diff !== 0) {
+    await playSPAnimation(diff);
+    pushHistory();
+  }
   if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
 }
 $('hp-dmg').addEventListener('click', async ()=>{
