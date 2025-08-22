@@ -12,7 +12,7 @@
 *,*::before,*::after{box-sizing:border-box;transition:var(--transition)}
 html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
-html{height:100%;background:var(--bg);transition:var(--transition)}
+html{height:100%;background:var(--bg);transition:var(--transition);scroll-behavior:smooth}
 body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:16px;transition:var(--transition)}
 h1,h2,h3,h4{font-family:inherit;line-height:1.25;margin:0 0 .5em}
 h1{font-size:2rem;font-weight:700;color:var(--accent)}
@@ -22,8 +22,8 @@ header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var
 header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(-10px)}
 .actions{display:flex;gap:6px}
 .dropdown{position:relative;display:flex;align-items:center}
-.menu{position:absolute;top:calc(100% + 4px);right:0;display:none;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50}
-.menu.show{display:flex}
+.menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-10px);visibility:hidden;transition:opacity .3s ease,transform .3s ease}
+.menu.show{opacity:1;transform:translateY(0);visibility:visible}
 .menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
 .menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 @media(max-width:600px){
@@ -76,9 +76,10 @@ label{display:block;font-weight:700;margin-bottom:6px}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
 select{background-image:var(--chevron);background-repeat:no-repeat;background-position:right 12px center;background-size:16px;padding-right:40px}
 input[type="checkbox"]{width:15px;height:15px;max-width:15px;max-height:15px;-webkit-appearance:checkbox;-moz-appearance:checkbox;appearance:checkbox;flex:0 0 auto;padding:0;margin:0 4px 0 0;}
-button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer}
+button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2)}
 button:hover{filter:brightness(1.1);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
+button:disabled{background:var(--surface-2);color:var(--muted);cursor:not-allowed;opacity:.6;box-shadow:none;transform:none;filter:none;pointer-events:none}
 button.loading{opacity:.8;pointer-events:none;position:relative;padding-right:2.5em}
 button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;right:8px;top:50%;transform:translateY(-50%);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -385,8 +386,9 @@ input:not([type="checkbox"]):focus,
 select:focus,
 textarea:focus{
   border-color:var(--accent);
-  box-shadow:0 0 0 2px rgba(59,130,246,.5);
-  outline:none;
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  box-shadow:0 0 0 2px var(--accent);
 }
 
 /* Validation states */
