@@ -284,7 +284,7 @@ abilGrid.innerHTML = ABILS.map(a=>`
       <span class="mod" id="${a}-mod">+0</span>
     </div>
   </div>`).join('');
-ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=24; v++) sel.add(new Option(v,v)); sel.value='10'; });
+ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=28; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
@@ -497,7 +497,7 @@ function handlePerkEffects(li, text){
       if(ABILS.includes(key)){
         const el = $(key);
         if(el){
-          const next = Math.min(24, Number(el.value) + 1);
+          const next = Math.min(28, Number(el.value) + 1);
           el.value = String(next);
           el.dispatchEvent(new Event('change', { bubbles: true }));
           enhancedAbility = key;
@@ -1663,7 +1663,7 @@ if (btnWizard && modalWizard) {
       const sel = $('wiz-' + a);
       const orig = $(a);
       const modSpan = $('wiz-' + a + '-mod');
-      for (let v = 10; v <= 24; v++) sel.add(new Option(v, v));
+      for (let v = 10; v <= 28; v++) sel.add(new Option(v, v));
       if (orig) sel.value = orig.value;
       const sync = () => {
         if (orig) {
