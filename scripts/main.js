@@ -799,6 +799,7 @@ $('hp-full').addEventListener('click', async ()=>{
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{
+  if(!confirm('Take a long rest?')) return;
   setHP(num(elHPBar.max));
   setSP(num(elSPBar.max));
   elHPTemp.value='';
