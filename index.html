@@ -20,7 +20,7 @@
 
 
 <header>
-  <div class="tabs" role="tablist">
+  <nav class="tabs" role="tablist" aria-label="Primary">
     <button id="btn-theme" class="icon" aria-label="Toggle Theme" type="button">
       <svg id="icon-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>
@@ -107,7 +107,7 @@
         <button id="btn-dm" class="btn-sm" hidden>Players</button>
       </div>
     </div>
-  </div>
+  </nav>
 </header>
 
 <main id="main">
@@ -995,7 +995,7 @@
 <footer>
   <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
   <p>Product of XoVrom industries ® 2025</p>
- <p><a href="#" id="dm-login-link">DM Login</a></p>
+ <p><a href="#" id="dm-login-link" title="Dungeon Master login">DM Login</a></p>
 </footer>
 <div id="death-animation" aria-hidden="true">💀</div>
 <div id="damage-animation" aria-hidden="true"></div>
@@ -1004,6 +1004,11 @@
 <div id="coin-animation" aria-hidden="true"></div>
 <div id="sp-animation" aria-hidden="true"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<button id="back-to-top" class="icon back-to-top" aria-label="Back to top" hidden>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0-7 7m7-7 7 7"/>
+  </svg>
+</button>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script type="module" src="scripts/users.js"></script>
 <script type="module" src="scripts/main.js"></script>
