@@ -836,7 +836,10 @@ $('hp-dmg').addEventListener('click', async ()=>{
   }
   const down = setHP(num(elHPBar.value)-d);
   await playDamageAnimation(-d);
-  if(down) alert('Player is down');
+  if(down){
+    await playDeathAnimation();
+    alert('Player is down');
+  }
 });
 $('hp-heal').addEventListener('click', async ()=>{
   const d=num(elHPAmt ? elHPAmt.value : 0)||0;
