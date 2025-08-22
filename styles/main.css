@@ -54,10 +54,12 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .tabs .dropdown{margin-left:auto}
 .tabs-title{
   padding:0 8px;
-  font-size:clamp(.675rem,3.6vw,.9rem);
+  font-size:clamp(.709rem,3.78vw,.945rem);
   white-space:nowrap;
   color:var(--accent);
   font-weight:700;
+  flex:1;
+  text-align:center;
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
