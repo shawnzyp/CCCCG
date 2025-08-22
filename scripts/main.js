@@ -197,16 +197,8 @@ if (btnMenu && menuActions) {
   });
 }
 
-/* ========= header scroll ========= */
+/* ========= header ========= */
 const headerEl = qs('header');
-if (headerEl) {
-  const updateHeader = () => {
-    if (window.scrollY > 10) headerEl.classList.add('compact');
-    else headerEl.classList.remove('compact');
-  };
-  window.addEventListener('scroll', () => requestAnimationFrame(updateHeader), { passive: true });
-  updateHeader();
-}
 
 /* ========= tabs ========= */
 function setTab(name){
@@ -218,7 +210,7 @@ function setTab(name){
 }
 
 const switchTab = name => {
-  if (headerEl && headerEl.classList.contains('compact')) {
+  if (headerEl && window.scrollY > 0) {
     headerEl.classList.add('hide-tabs');
     const onScroll = () => {
       if (window.scrollY === 0) {
