@@ -15,8 +15,16 @@ if (sendBtn) {
     if (!prompt) return;
     let key = localStorage.getItem('openai-key');
     if (!key) {
-      key = window.prompt('Enter OpenAI API Key:');
+      // Allow setting a global or environment-based API key so users aren't
+      // repeatedly prompted every session. This checks, in order:
+      //  1. a global `openaiKey` variable that can be injected by the page
+      //  2. the Node-style `process.env.OPENAI_API_KEY` when running tests
+      //  3. a manual prompt as a final fallback
+      key = (typeof window !== 'undefined' && window.openaiKey) ||
+            (typeof process !== 'undefined' && process.env && process.env.OPENAI_API_KEY) ||
+            window.prompt('Enter OpenAI API Key:');
       if (!key) return;
+      // Persist the key so the user isn't asked again on subsequent calls.
       localStorage.setItem('openai-key', key);
     }
     const output = $('ai-output');
