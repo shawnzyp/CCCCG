@@ -4,6 +4,7 @@ import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
 import { show, hide } from './modal.js';
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
+import { initBackToTop } from './back_to_top.js';
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
 const cccgCtx = cccgCanvas ? cccgCanvas.getContext('2d') : null;
@@ -1806,16 +1807,4 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 /* ========= Back to top ========= */
-const backToTop = $('back-to-top');
-if (backToTop) {
-  const toggleBackToTop = () => {
-    const show = window.scrollY > 200;
-    backToTop.classList.toggle('show', show);
-    backToTop.hidden = !show;
-  };
-  window.addEventListener('scroll', toggleBackToTop, { passive: true });
-  toggleBackToTop();
-  backToTop.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-}
+initBackToTop();
