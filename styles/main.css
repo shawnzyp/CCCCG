@@ -40,6 +40,7 @@ header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(-10px)
 [data-tip]:hover::after,[data-tip]:focus::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface-2);color:var(--text);padding:4px 8px;border-radius:var(--radius);box-shadow:var(--shadow);white-space:nowrap;font-size:.75rem;z-index:1500}
 .tabs{display:flex;align-items:center;flex-wrap:nowrap;gap:6px;width:100%;transition:opacity .4s ease,transform .4s ease}
 .tabs .dropdown{margin-left:auto}
+.tabs-title{padding:0 8px}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
 section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
