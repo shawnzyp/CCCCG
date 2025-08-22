@@ -483,14 +483,15 @@ function handlePerkEffects(li, text){
         const elPrev = $(enhancedAbility);
         if(elPrev){
           const reverted = Math.max(10, Number(elPrev.value) - 1);
-          elPrev.value = reverted;
+          elPrev.value = String(reverted);
           elPrev.dispatchEvent(new Event('change', { bubbles: true }));
         }
       }
       if(ABILS.includes(key)){
         const el = $(key);
         if(el){
-          el.value = Number(el.value) + 1;
+          const next = Math.min(24, Number(el.value) + 1);
+          el.value = String(next);
           el.dispatchEvent(new Event('change', { bubbles: true }));
           enhancedAbility = key;
         }
@@ -533,7 +534,8 @@ function setupPerkSelect(selId, perkId, data){
     if(selId==='classification' && enhancedAbility){
       const elPrev = $(enhancedAbility);
       if(elPrev){
-        elPrev.value = Math.max(10, Number(elPrev.value) - 1);
+        const reverted = Math.max(10, Number(elPrev.value) - 1);
+        elPrev.value = String(reverted);
         elPrev.dispatchEvent(new Event('change', { bubbles: true }));
       }
       enhancedAbility = '';
