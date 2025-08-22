@@ -837,7 +837,7 @@ $('hp-dmg').addEventListener('click', async ()=>{
   const down = setHP(num(elHPBar.value)-d);
   await playDamageAnimation(-d);
   if(down){
-    await playDeathAnimation();
+    await playDownAnimation();
     alert('Player is down');
   }
 });
@@ -965,6 +965,20 @@ function playDamageAnimation(amount){
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=`${amount}`;
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
+
+function playDownAnimation(){
+  const anim = $('down-animation');
+  if(!anim) return Promise.resolve();
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
