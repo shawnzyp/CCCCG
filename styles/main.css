@@ -42,8 +42,8 @@ header.compact .logo{width:34px;height:34px}
   .actions{flex-wrap:wrap;justify-content:center}
   .tabs{justify-content:space-evenly}
 }
-.icon,.tab{padding:2px;width:27px;height:27px;min-height:27px;aspect-ratio:1/1;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
-.icon svg,.tab svg{width:27px;height:27px}
+.icon,.tab{padding:2px;width:23px;height:23px;min-height:27px;aspect-ratio:1/1;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition)}
+.icon svg,.tab svg{width:23px;height:23px}
 .modal .x svg{width:20px;height:20px}
 .icon:hover,.tab:hover{background:var(--accent);color:var(--text-on-accent)}
 .icon:active{transform:translateY(1px)}
@@ -53,10 +53,10 @@ header.compact .logo{width:34px;height:34px}
 .tabs{margin-top:6px;display:flex;align-items:center;flex-wrap:nowrap;gap:6px;width:100%;transition:var(--transition)}
 .tabs .dropdown{margin-left:auto}
 
-header .tabs .icon,header .tabs .tab{width:40px;height:40px;border-radius:50%}
-header .tabs .icon svg,header .tabs .tab svg{width:40px;height:40px}
-header.compact .tabs .icon,header.compact .tabs .tab{width:27px;height:27px;border-radius:50%}
-header.compact .tabs .icon svg,header.compact .tabs .tab svg{width:27px;height:27px}
+header .tabs .icon,header .tabs .tab{width:34px;height:34px;border-radius:50%}
+header .tabs .icon svg,header .tabs .tab svg{width:34px;height:34px}
+header.compact .tabs .icon,header.compact .tabs .tab{width:23px;height:23px;border-radius:50%}
+header.compact .tabs .icon svg,header.compact .tabs .tab svg{width:23px;height:23px}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
 section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
