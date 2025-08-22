@@ -182,21 +182,27 @@ bindClassificationTheme('wiz-classification');
 const btnMenu = $('btn-menu');
 const menuActions = $('menu-actions');
 if (btnMenu && menuActions) {
+  const hideMenu = () => {
+    if (!menuActions.hidden) {
+      menuActions.classList.remove('show');
+      menuActions.addEventListener('transitionend', () => menuActions.hidden = true, { once: true });
+      btnMenu.setAttribute('aria-expanded', 'false');
+    }
+  };
   btnMenu.addEventListener('click', () => {
-    menuActions.classList.toggle('show');
-    btnMenu.setAttribute('aria-expanded', menuActions.classList.contains('show'));
+    if (menuActions.hidden) {
+      menuActions.hidden = false;
+      requestAnimationFrame(() => menuActions.classList.add('show'));
+      btnMenu.setAttribute('aria-expanded', 'true');
+    } else {
+      hideMenu();
+    }
   });
   document.addEventListener('click', e => {
-    if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) {
-      menuActions.classList.remove('show');
-      btnMenu.setAttribute('aria-expanded', 'false');
-    }
+    if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      menuActions.classList.remove('show');
-      btnMenu.setAttribute('aria-expanded', 'false');
-    }
+    if (e.key === 'Escape') hideMenu();
   });
 }
 
