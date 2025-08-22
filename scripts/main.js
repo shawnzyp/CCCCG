@@ -484,12 +484,14 @@ function handlePerkEffects(li, text){
         if(elPrev){
           const reverted = Math.max(10, Number(elPrev.value) - 1);
           elPrev.value = reverted;
+          elPrev.dispatchEvent(new Event('change', { bubbles: true }));
         }
       }
       if(ABILS.includes(key)){
         const el = $(key);
         if(el){
           el.value = Number(el.value) + 1;
+          el.dispatchEvent(new Event('change', { bubbles: true }));
           enhancedAbility = key;
         }
       }else{
@@ -532,6 +534,7 @@ function setupPerkSelect(selId, perkId, data){
       const elPrev = $(enhancedAbility);
       if(elPrev){
         elPrev.value = Math.max(10, Number(elPrev.value) - 1);
+        elPrev.dispatchEvent(new Event('change', { bubbles: true }));
       }
       enhancedAbility = '';
       updateDerived();
