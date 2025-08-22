@@ -554,6 +554,8 @@ const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const elTier = $('tier');
+const elCAPCheck = $('cap-check');
+const elCAPStatus = $('cap-status');
 const FACTIONS = ['omni','pfv','conclave','greyline'];
 const FACTION_NAME_MAP = {
   omni: 'O.M.N.I.',
@@ -566,6 +568,12 @@ let hpRolls = [];
 if (elHPRoll) {
   const initial = num(elHPRoll.value);
   if (initial) hpRolls = [initial];
+}
+
+if (elCAPCheck && elCAPStatus) {
+  elCAPCheck.addEventListener('change', () => {
+    elCAPStatus.textContent = elCAPCheck.checked ? 'Used' : 'Available';
+  });
 }
 
 const XP_TIERS = [
@@ -796,6 +804,7 @@ $('long-rest').addEventListener('click', ()=>{
   elHPTemp.value='';
   const spTemp=$('sp-temp'); if(spTemp) spTemp.value='';
   qsa('input[type="checkbox"]').forEach(cb=> cb.checked=false);
+  if (elCAPStatus) elCAPStatus.textContent = 'Available';
   activeStatuses.clear();
 });
 function renderHPRollList(){
