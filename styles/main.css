@@ -16,8 +16,8 @@ html{height:100%;background:var(--bg);transition:var(--transition)}
 body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:16px;transition:var(--transition)}
 h1,h2,h3,h4{font-family:inherit;line-height:1.25;margin:0 0 .5em}
 h1{font-size:2rem;font-weight:700;color:var(--accent)}
-header h1{font-size:2rem}
-header.compact h1{font-size:1rem}
+header h1{font-size:1.7rem;margin:0}
+header.compact h1{font-size:0.85rem}
 h2{font-size:1.5rem;font-weight:600;color:var(--accent)}
 h3{font-size:1.25rem;font-weight:600}
 header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(20px + env(safe-area-inset-top)) 10px 20px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column;transition:padding .3s ease-in-out}
@@ -29,8 +29,8 @@ header.compact .tabs{margin-top:0;flex:1;order:1}
 header.hide-tabs .tabs{opacity:0;pointer-events:none}
 .top{display:flex;align-items:center;justify-content:center;gap:8px;transition:var(--transition);overflow:hidden;max-height:80px}
 .title-group{display:flex;align-items:center;gap:6px}
-.logo{width:60px;height:60px;display:block}
-header.compact .logo{width:40px;height:40px}
+.logo{width:51px;height:51px;display:block}
+header.compact .logo{width:34px;height:34px}
 .actions{display:flex;gap:6px}
 .dropdown{position:relative;display:flex;align-items:center}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:none;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50}
