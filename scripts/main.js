@@ -803,7 +803,11 @@ $('long-rest').addEventListener('click', ()=>{
   setSP(num(elSPBar.max));
   elHPTemp.value='';
   const spTemp=$('sp-temp'); if(spTemp) spTemp.value='';
-  qsa('input[type="checkbox"]').forEach(cb=> cb.checked=false);
+  // clear all checkbox states on the page
+  qsa('input[type="checkbox"]').forEach(cb=>{
+    cb.checked = false;
+    cb.removeAttribute('checked');
+  });
   if (elCAPStatus) elCAPStatus.textContent = 'Available';
   activeStatuses.clear();
 });
