@@ -87,6 +87,11 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.04168C10.4077 4.61656 8.30506 3.75 6 3.75C4.94809 3.75 3.93834 3.93046 3 4.26212V18.5121C3.93834 18.1805 4.94809 18 6 18C8.30506 18 10.4077 18.8666 12 20.2917M12 6.04168C13.5923 4.61656 15.6949 3.75 18 3.75C19.0519 3.75 20.0617 3.93046 21 4.26212V18.5121C20.0617 18.1805 19.0519 18 18 18C15.6949 18 13.5923 18.8666 12 20.2917M12 6.04168V20.2917"/>
       </svg>
     </button>
+    <button class="tab" data-go="company" aria-label="Company" title="Company">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0z"/>
+      </svg>
+    </button>
     <div class="dropdown">
       <button id="btn-menu" class="icon" aria-label="Menu" title="Menu">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
@@ -464,6 +469,14 @@
     </div>
   </section>
 
+
+  <section data-tab="company">
+    <h2>Company</h2>
+    <div class="actions" style="justify-content:center">
+      <button id="btn-cap" class="btn-sm" type="button">Cinematic Action Point</button>
+    </div>
+  </section>
+
 </main>
 
 <!-- PLAYER ACCOUNT MODAL -->
@@ -756,6 +769,19 @@
       <button id="hp-roll-save" class="btn-sm">Add</button>
       <button class="btn-sm" data-close>Cancel</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-cap" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Cinematic Action Point" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <label class="inline" for="cap-check"><input type="checkbox" id="cap-check"/> Cinematic Action Point</label>
+    <p>A Cinematic Action Point lets a hero perform an extraordinary, story-driven action. Check the box when one is available and uncheck it once spent.</p>
+    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
 
