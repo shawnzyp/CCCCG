@@ -245,15 +245,21 @@ function setTab(name){
 const switchTab = name => {
   if (headerEl && window.scrollY > 0) {
     headerEl.classList.add('hide-tabs');
-    const onScroll = () => {
-      if (window.scrollY === 0) {
+    const showTabs = () => {
+      if (headerEl.classList.contains('hide-tabs')) {
         headerEl.classList.remove('hide-tabs');
         setTab(name);
-        window.removeEventListener('scroll', onScroll);
+      }
+      window.removeEventListener('scroll', onScroll);
+    };
+    const onScroll = () => {
+      if (window.scrollY <= 1) {
+        showTabs();
       }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(showTabs, 600);
   } else {
     setTab(name);
   }
