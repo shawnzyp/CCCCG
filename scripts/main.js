@@ -1421,7 +1421,7 @@ function serialize(){
   const data={};
   function getVal(sel, root){ const el = qs(sel, root); return el ? el.value : ''; }
   function getChecked(sel, root){ const el = qs(sel, root); return el ? el.checked : false; }
-  qsa('input,select,textarea').forEach(el=>{
+  qsa('input,select,textarea,progress').forEach(el=>{
     const id = el.id; if (!id) return;
     if (el.type==='checkbox') data[id] = !!el.checked; else data[id] = el.value;
   });
