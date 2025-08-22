@@ -7,6 +7,9 @@ const PLAYER_SESSION = 'player-session';
 const DM_SESSION = 'dm-session';
 const DM_PASSWORD = 'Dragons22!';
 
+// Cached elements to avoid repeated DOM queries
+let dmPasswordInput = null;
+
 function getPlayersRaw() {
   let raw;
   try {
@@ -155,18 +158,26 @@ function updateDMButton() {
   }
 }
 
+/**
+ * Show or hide DM login controls based on current authorization state.
+ * Reuses cached password input element to minimize DOM lookups.
+ */
 function updateDMLoginControls() {
   const logged = isDM();
   const loginBtn = $('login-dm');
   const logoutBtn = $('logout-dm');
-  const passInput = $('dm-password');
   if (loginBtn) loginBtn.hidden = logged;
   if (logoutBtn) logoutBtn.hidden = !logged;
-  if (passInput) passInput.hidden = logged;
+  if (dmPasswordInput) dmPasswordInput.hidden = logged;
 }
 
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
+    dmPasswordInput = $('dm-password');
+    const modalDMLogin = $('modal-dm-login');
+    const recoverName = $('recover-name');
+    const recoverAnswer = $('recover-answer');
+    const recoverQuestion = $('recover-question');
     updatePlayerButton();
     updateDMButton();
     updateDMLoginControls();
@@ -244,20 +255,18 @@ if (typeof document !== 'undefined') {
       });
     }
 
-    const recoverName = $('recover-name');
-    if (recoverName) {
+    if (recoverName && recoverQuestion) {
       recoverName.addEventListener('input', () => {
         const q = getPlayerQuestion(recoverName.value.trim());
-        const qEl = $('recover-question');
-        if (qEl) qEl.textContent = q || '';
+        recoverQuestion.textContent = q || '';
       });
     }
 
     const recoverBtn = $('recover-player');
     if (recoverBtn) {
       recoverBtn.addEventListener('click', () => {
-        const name = $('recover-name').value.trim();
-        const answer = $('recover-answer').value;
+        const name = recoverName ? recoverName.value.trim() : '';
+        const answer = recoverAnswer ? recoverAnswer.value : '';
         const pass = recoverPlayerPassword(name, answer);
         if (pass) {
           toast(`Password: ${pass}`,'info');
@@ -281,16 +290,15 @@ if (typeof document !== 'undefined') {
     const dmBtn = $('login-dm');
     if (dmBtn) {
       dmBtn.addEventListener('click', () => {
-        const pass = $('dm-password').value;
+        const pass = dmPasswordInput ? dmPasswordInput.value : '';
         if (loginDM(pass)) {
           toast('DM logged in','success');
-          $('dm-password').value = '';
+          if (dmPasswordInput) dmPasswordInput.value = '';
           updateDMButton();
           updateDMLoginControls();
-          const modal = $('modal-dm-login');
-          if (modal) {
-            modal.classList.add('hidden');
-            modal.setAttribute('aria-hidden','true');
+          if (modalDMLogin) {
+            modalDMLogin.classList.add('hidden');
+            modalDMLogin.setAttribute('aria-hidden','true');
           }
         } else {
           toast('Invalid credentials','error');
@@ -305,10 +313,9 @@ if (typeof document !== 'undefined') {
         toast('DM logged out','info');
         updateDMButton();
         updateDMLoginControls();
-        const modal = $('modal-dm-login');
-        if (modal) {
-          modal.classList.add('hidden');
-          modal.setAttribute('aria-hidden','true');
+        if (modalDMLogin) {
+          modalDMLogin.classList.add('hidden');
+          modalDMLogin.setAttribute('aria-hidden','true');
         }
       });
     }
