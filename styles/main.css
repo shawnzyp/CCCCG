@@ -481,3 +481,6 @@ select[required]:valid{
 .wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
 #wizard-progress{flex:1;text-align:center}
 
+/* AI assistant */
+.ai-output{margin-top:16px;white-space:pre-wrap}
+
