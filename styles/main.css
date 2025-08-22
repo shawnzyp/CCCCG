@@ -13,7 +13,7 @@
 html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
 html{height:100%;background:var(--bg);transition:var(--transition);scroll-behavior:smooth}
-body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:auto;line-height:1.6;font-size:16px;transition:var(--transition);opacity:0;animation:pageFade .5s ease-in-out forwards}
+body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:auto;line-height:1.6;font-size:16px;transition:var(--transition);opacity:1}
 ::selection{background:var(--accent);color:var(--text-on-accent)}
 h1,h2,h3,h4{font-family:inherit;line-height:1.25;margin:0 0 .5em}
 h1{font-size:2rem;font-weight:700;color:var(--accent)}
@@ -482,6 +482,4 @@ select[required]:valid{
 @keyframes wizardFade{to{opacity:1;transform:translateX(0)}}
 .wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
 #wizard-progress{flex:1;text-align:center}
-
-@keyframes pageFade{to{opacity:1}}
 
