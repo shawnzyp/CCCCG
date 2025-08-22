@@ -25,6 +25,11 @@ if (typeof pdfjsLib !== 'undefined') {
 }
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
 
+/**
+ * Render the CCCCG rules PDF onto the canvas, loading the document on
+ * first use and scaling it to fit the canvas container.
+ * @returns {Promise<void>} resolves when the page has been drawn
+ */
 async function renderCCCG(){
   if(!cccgCanvas || !cccgCtx || typeof pdfjsLib === 'undefined') return;
   if(!cccgDoc){
@@ -107,6 +112,7 @@ document.addEventListener('input', e=>{
 /* ========= theme ========= */
 const root = document.documentElement;
 const btnTheme = $('btn-theme');
+// Mapping of theme names to the ID of the SVG icon shown on the theme button
 const THEME_ICONS = {
   dark: 'icon-dark',
   light: 'icon-light',
@@ -119,6 +125,10 @@ const THEME_ICONS = {
   alien: 'icon-alien',
   mystic: 'icon-mystic'
 };
+/**
+ * Apply a visual theme by toggling root classes and updating the button icon.
+ * @param {string} t - theme identifier matching keys of THEME_ICONS
+ */
 function applyTheme(t){
   const classes = Object.keys(THEME_ICONS)
     .filter(n => n !== 'dark')
@@ -160,6 +170,10 @@ const CLASS_THEMES = {
   'Alien/Extraterrestrial':'alien',
   'Mystical Being':'mystic'
 };
+/**
+ * Bind a select element so choosing certain classifications updates the theme.
+ * @param {string} id - element id of the classification select
+ */
 function bindClassificationTheme(id){
   const sel=$(id);
   if(!sel) return;
@@ -570,6 +584,8 @@ const elHPBar = $('hp-bar');
 const elHPPill = $('hp-pill');
 const elHPRoll = $('hp-roll');
 const elHPTemp = $('hp-temp');
+// Cache frequently accessed HP amount field to avoid repeated DOM queries
+const elHPAmt = $('hp-amt');
 const elHPRollAdd = $('hp-roll-add');
 const elHPRollInput = $('hp-roll-input');
 const elHPRollList = $('hp-roll-list');
@@ -806,7 +822,7 @@ async function setSP(v){
   if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
 }
 $('hp-dmg').addEventListener('click', async ()=>{
-  let d=num($('hp-amt').value);
+  let d=num(elHPAmt ? elHPAmt.value : 0);
   if(!d) return;
   let tv=num(elHPTemp.value);
   if(d>0 && tv>0){
@@ -820,7 +836,7 @@ $('hp-dmg').addEventListener('click', async ()=>{
   if(down) alert('Player is down');
 });
 $('hp-heal').addEventListener('click', async ()=>{
-  const d=num($('hp-amt').value)||0;
+  const d=num(elHPAmt ? elHPAmt.value : 0)||0;
   setHP(num(elHPBar.value)+d);
   if(d>0) await playHealAnimation(d);
 });
