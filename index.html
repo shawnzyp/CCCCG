@@ -139,9 +139,11 @@
         <input type="checkbox" id="death-save-3"/>
       </div>
     </fieldset>
-    <div class="actions" style="justify-content:center">
-      <button id="btn-cap" class="btn-sm" type="button">Cinematic Action Point</button>
-    </div>
+    <fieldset class="card">
+      <legend>Cinematic Action Point</legend>
+      <label class="inline" for="cap-check"><input type="checkbox" id="cap-check"/> Available</label>
+      <p>A Cinematic Action Point lets a hero perform an extraordinary, story-driven action. Check the box when one is available and uncheck it once spent.</p>
+    </fieldset>
   </section>
 
   <section data-tab="combat">
@@ -758,18 +760,6 @@
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-cap" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Cinematic Action Point" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <label class="inline" for="cap-check"><input type="checkbox" id="cap-check"/> Cinematic Action Point</label>
-    <p>A Cinematic Action Point lets a hero perform an extraordinary, story-driven action. Check the box when one is available and uncheck it once spent.</p>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
-  </div>
-</div>
 
 <!-- LOG MODAL -->
 <div class="overlay hidden" id="modal-log" aria-hidden="true">

@@ -1035,10 +1035,6 @@ const btnCampaign = $('btn-campaign');
 if (btnCampaign) {
   btnCampaign.addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
 }
-const btnCAP = $('btn-cap');
-if (btnCAP) {
-  btnCAP.addEventListener('click', ()=>{ show('modal-cap'); });
-}
 const btnHelp = $('btn-help');
 if (btnHelp) {
   btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
