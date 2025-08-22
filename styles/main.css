@@ -53,9 +53,9 @@ header.compact .logo{width:40px;height:40px}
 .tabs{margin-top:6px;display:flex;align-items:center;flex-wrap:nowrap;gap:6px;width:100%;transition:var(--transition)}
 .tabs .dropdown{margin-left:auto}
 
-header .tabs .icon,header .tabs .tab{width:60px;height:60px}
-header .tabs .icon svg,header .tabs .tab svg{width:60px;height:60px}
-header.compact .tabs .icon,header.compact .tabs .tab{width:27px;height:27px}
+header .tabs .icon,header .tabs .tab{width:40px;height:40px;border-radius:50%}
+header .tabs .icon svg,header .tabs .tab svg{width:40px;height:40px}
+header.compact .tabs .icon,header.compact .tabs .tab{width:27px;height:27px;border-radius:50%}
 header.compact .tabs .icon svg,header.compact .tabs .tab svg{width:27px;height:27px}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
