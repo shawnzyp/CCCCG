@@ -4,7 +4,6 @@ import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
 import { show, hide } from './modal.js';
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
-import { initBackToTop } from './back_to_top.js';
 let cccgPage = 1;
 const cccgCanvas = qs('#cccg-canvas');
 const cccgCtx = cccgCanvas ? cccgCanvas.getContext('2d') : null;
@@ -1806,5 +1805,3 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
 }
 
-/* ========= Back to top ========= */
-initBackToTop();
