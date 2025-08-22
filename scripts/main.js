@@ -1809,10 +1809,12 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 const backToTop = $('back-to-top');
 if (backToTop) {
   const toggleBackToTop = () => {
-    if (window.scrollY > 200) backToTop.classList.add('show');
-    else backToTop.classList.remove('show');
+    const show = window.scrollY > 200;
+    backToTop.classList.toggle('show', show);
+    backToTop.hidden = !show;
   };
   window.addEventListener('scroll', toggleBackToTop, { passive: true });
+  toggleBackToTop();
   backToTop.addEventListener('click', () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
