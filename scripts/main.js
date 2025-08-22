@@ -1760,3 +1760,16 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
 }
+
+/* ========= Back to top ========= */
+const backToTop = $('back-to-top');
+if (backToTop) {
+  const toggleBackToTop = () => {
+    if (window.scrollY > 200) backToTop.classList.add('show');
+    else backToTop.classList.remove('show');
+  };
+  window.addEventListener('scroll', toggleBackToTop, { passive: true });
+  backToTop.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
