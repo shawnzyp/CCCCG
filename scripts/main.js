@@ -616,7 +616,7 @@ if(elTier){
 function updateSP(){
   const spMax = 5 + mod(elCon.value);
   elSPBar.max = spMax;
-  if (!num(elSPBar.value)) elSPBar.value = spMax;
+  if (elSPBar.value === '' || Number.isNaN(Number(elSPBar.value))) elSPBar.value = spMax;
   elSPPill.textContent = `${num(elSPBar.value)}/${spMax}`;
 }
 
