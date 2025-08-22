@@ -120,16 +120,11 @@ const THEME_ICONS = {
   mystic: 'icon-mystic'
 };
 function applyTheme(t){
-  root.classList.remove('theme-light','theme-high','theme-forest','theme-ocean','theme-mutant','theme-enhanced','theme-magic','theme-alien','theme-mystic');
-  if(t==='light') root.classList.add('theme-light');
-  if(t==='high') root.classList.add('theme-high');
-  if(t==='forest') root.classList.add('theme-forest');
-  if(t==='ocean') root.classList.add('theme-ocean');
-  if(t==='mutant') root.classList.add('theme-mutant');
-  if(t==='enhanced') root.classList.add('theme-enhanced');
-  if(t==='magic') root.classList.add('theme-magic');
-  if(t==='alien') root.classList.add('theme-alien');
-  if(t==='mystic') root.classList.add('theme-mystic');
+  const classes = Object.keys(THEME_ICONS)
+    .filter(n => n !== 'dark')
+    .map(n => `theme-${n}`);
+  root.classList.remove(...classes);
+  if (t !== 'dark') root.classList.add(`theme-${t}`);
   if(btnTheme){
     qsa('svg', btnTheme).forEach(i => i.style.display = 'none');
     const iconId = THEME_ICONS[t] || 'icon-dark';
@@ -146,7 +141,7 @@ function loadTheme(){
 loadTheme();
 if (btnTheme) {
   btnTheme.addEventListener('click', ()=>{
-    const themes=['dark','light','high','forest','ocean'];
+    const themes = Object.keys(THEME_ICONS);
     const player=currentPlayer();
     const key=player?`theme:${player}`:'theme';
     const curr=localStorage.getItem(key)||'dark';
