@@ -50,8 +50,8 @@ header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(-10px)
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
-section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow)}
-section h2{margin:0 0 10px}
+fieldset[data-tab].card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow);display:block;cursor:default}
+fieldset[data-tab].card>legend{font-size:1.5rem;font-weight:600;color:var(--accent);margin:0 0 10px}
 p{max-width:65ch}
 footer{text-align:center;font-size:9pt;margin-top:24px;padding:12px 0;color:var(--muted)}
 footer p{max-width:none}

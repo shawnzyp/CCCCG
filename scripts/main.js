@@ -197,7 +197,7 @@ const headerEl = qs('header');
 
 /* ========= tabs ========= */
 function setTab(name){
-  qsa('section[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
+  qsa('fieldset[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
   qsa('.tab').forEach(b=> b.classList.toggle('active', b.getAttribute('data-go')===name));
   try {
     localStorage.setItem('active-tab', name);

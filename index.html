@@ -105,7 +105,7 @@
 
 <main>
   <!-- COMBAT -->
-  <section data-tab="combat">
+  <fieldset data-tab="combat" class="card">
     <div class="grid grid-2 roll-flip-grid">
       <fieldset class="card">
         <legend>Dice Roll</legend>
@@ -144,9 +144,9 @@
       <label class="inline" for="cap-check"><input type="checkbox" id="cap-check"/> <span id="cap-status">Available</span></label>
       <p>A Cinematic Action Point lets a hero perform an extraordinary, story-driven action. Check the box when one is available and uncheck it once spent.</p>
     </fieldset>
-  </section>
+  </fieldset>
 
-  <section data-tab="combat">
+  <fieldset data-tab="combat" class="card">
     <div class="grid grid-2">
       <fieldset class="card">
         <legend>HP</legend>
@@ -210,18 +210,16 @@
         <input id="tc" type="number" readonly/>
       </fieldset>
     </div>
-  </section>
+  </fieldset>
 
-  <section data-tab="combat">
-    <fieldset class="card">
-      <legend>Status Effects</legend>
-      <div id="statuses" class="grid grid-2"></div>
-    </fieldset>
-  </section>
+  <fieldset data-tab="combat" class="card">
+    <legend>Status Effects</legend>
+    <div id="statuses" class="grid grid-2"></div>
+  </fieldset>
 
   <!-- ABILITIES -->
-  <section data-tab="abilities">
-    <h2>Ability Scores</h2>
+  <fieldset data-tab="abilities" class="card">
+    <legend>Ability Scores</legend>
     <div id="abil-grid" class="grid ability-grid"></div>
     <fieldset class="card">
       <legend>Proficiency &amp; Power</legend>
@@ -251,26 +249,26 @@
       <legend>Skills</legend>
       <div id="skills" class="grid ability-grid"></div>
     </fieldset>
-  </section>
+  </fieldset>
 
   <!-- POWERS -->
-  <section data-tab="powers">
-      <div class="inline" style="justify-content:space-between">
-        <h2>Powers</h2>
+  <fieldset data-tab="powers" class="card">
+    <legend>Powers</legend>
+    <div class="inline" style="justify-content:flex-end">
       <button id="add-power" style="max-width:180px">Add Power</button>
     </div>
     <div class="grid grid-2" id="powers"></div>
 
-      <div class="inline" style="justify-content:space-between;margin-top:8px">
-        <h2>Signature Moves</h2>
+    <div class="inline" style="justify-content:space-between;margin-top:8px">
+      <h2>Signature Moves</h2>
       <button id="add-sig" style="max-width:200px">Add Signature Move</button>
     </div>
     <div class="grid grid-2" id="sigs"></div>
-  </section>
+  </fieldset>
 
   <!-- GEAR -->
-  <section data-tab="gear">
-    <h2>Gear</h2>
+  <fieldset data-tab="gear" class="card">
+    <legend>Gear</legend>
     <div class="grid grid-2">
       <div class="card">
         <div class="inline" style="justify-content:space-between">
@@ -295,11 +293,11 @@
         <div id="items" class="grid grid-1"></div>
       </div>
     </div>
-  </section>
+  </fieldset>
 
   <!-- STORY -->
-  <section data-tab="story">
-    <h2>Character & Story</h2>
+  <fieldset data-tab="story" class="card">
+    <legend>Character & Story</legend>
     <div class="grid grid-2">
       <div class="card"><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigilante Name"/></div>
       <div class="card"><label for="secret">Secret Identity</label><input id="secret" placeholder="Real name"/></div>
@@ -462,7 +460,7 @@
       <div class="card"><label for="q-admire">Which teammate do you admire the most and what do they have that you lack?</label><textarea id="q-admire" rows="2"></textarea></div>
       <div class="card"><label for="q-if-lost">If you lost your powers tomorrow, who would you still be?</label><textarea id="q-if-lost" rows="2"></textarea></div>
     </div>
-  </section>
+  </fieldset>
 
 
 </main>
