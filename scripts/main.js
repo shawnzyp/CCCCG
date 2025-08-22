@@ -187,6 +187,7 @@ if (btnMenu && menuActions) {
       menuActions.classList.remove('show');
       menuActions.addEventListener('transitionend', () => menuActions.hidden = true, { once: true });
       btnMenu.setAttribute('aria-expanded', 'false');
+      btnMenu.classList.remove('open');
     }
   };
   btnMenu.addEventListener('click', () => {
@@ -194,6 +195,7 @@ if (btnMenu && menuActions) {
       menuActions.hidden = false;
       requestAnimationFrame(() => menuActions.classList.add('show'));
       btnMenu.setAttribute('aria-expanded', 'true');
+      btnMenu.classList.add('open');
     } else {
       hideMenu();
     }
@@ -211,7 +213,10 @@ const headerEl = qs('header');
 
 /* ========= tabs ========= */
 function setTab(name){
-  qsa('fieldset[data-tab]').forEach(s=> s.style.display = s.getAttribute('data-tab')===name ? 'block':'none');
+  qsa('fieldset[data-tab]').forEach(s=> {
+    const active = s.getAttribute('data-tab') === name;
+    s.classList.toggle('active', active);
+  });
   qsa('.tab').forEach(b=> {
     const active = b.getAttribute('data-go')===name;
     b.classList.toggle('active', active);
