@@ -1,4 +1,4 @@
-const CACHE = 'cccg-cache-v6';
+const CACHE = 'cccg-cache-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -6,7 +6,6 @@ const ASSETS = [
   './scripts/main.js',
   './scripts/helpers.js',
   './scripts/storage.js',
-  './scripts/users.js',
   './ccccg.pdf',
   // background and other images
   './images/Dark.PNG',
