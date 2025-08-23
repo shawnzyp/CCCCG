@@ -4,11 +4,9 @@ import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
 import { show, hide } from './modal.js';
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
-let cccgPage = 1;
-const cccgCanvas = qs('#cccg-canvas');
-const cccgCtx = cccgCanvas ? cccgCanvas.getContext('2d') : null;
-const CCCCG_SRC = './ccccg.pdf';
-let cccgDoc = null;
+const rulesEl = qs('#rules-text');
+const RULES_SRC = './ruleshelp.txt';
+let rulesLoaded = false;
 let dmPlayer = null;
 
 // ----- animation lock -----
@@ -28,34 +26,17 @@ function setVh(){
   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
 }
 setVh();
-if (typeof pdfjsLib !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-}
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
 
-/**
- * Render the CCCCG rules PDF onto the canvas, loading the document on
- * first use and scaling it to fit the canvas container.
- * @returns {Promise<void>} resolves when the page has been drawn
- */
-async function renderCCCG(){
-  if(!cccgCanvas || !cccgCtx || typeof pdfjsLib === 'undefined') return;
-  if(!cccgDoc){
-    try{
-      cccgDoc = await pdfjsLib.getDocument(CCCCG_SRC).promise;
-    }catch(e){ return; }
+async function renderRules(){
+  if (!rulesEl || rulesLoaded) return;
+  try {
+    const res = await fetch(RULES_SRC);
+    rulesEl.textContent = await res.text();
+    rulesLoaded = true;
+  } catch (e) {
+    rulesEl.textContent = 'Failed to load rules.';
   }
-  const total = cccgDoc.numPages;
-  if(cccgPage < 1) cccgPage = 1;
-  if(cccgPage > total) cccgPage = total;
-  const page = await cccgDoc.getPage(cccgPage);
-  const viewport = page.getViewport({ scale:1 });
-  const width = cccgCanvas.parentElement.clientWidth;
-  const scale = width / viewport.width;
-  const vp = page.getViewport({ scale });
-  cccgCanvas.height = vp.height;
-  cccgCanvas.width = vp.width;
-  await page.render({ canvasContext: cccgCtx, viewport: vp }).promise;
 }
 
 const DELETE_ICON_STYLE = {
@@ -1610,20 +1591,6 @@ function redo(){
   if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
 }
 
-document.addEventListener('keydown', e=>{
-  const modal = $('modal-rules');
-  if (modal && !modal.classList.contains('hidden')) {
-    if (e.key === 'PageDown') {
-      e.preventDefault();
-      cccgPage++;
-      renderCCCG();
-    } else if (e.key === 'PageUp') {
-      e.preventDefault();
-      if (cccgPage > 1) cccgPage--;
-      renderCCCG();
-    }
-  }
-});
 
 (function(){
   const raw = localStorage.getItem(AUTO_KEY);
@@ -1783,24 +1750,10 @@ if (btnWizard && modalWizard) {
 
 /* ========= Rules ========= */
 const btnRules = $('btn-rules');
-const btnPageUp = $('cccg-page-up');
-const btnPageDown = $('cccg-page-down');
 if (btnRules) {
   btnRules.addEventListener('click', ()=>{
-    renderCCCG();
+    renderRules();
     show('modal-rules');
-  });
-}
-if (btnPageUp) {
-  btnPageUp.addEventListener('click', ()=>{
-    if(cccgPage>1) cccgPage--;
-    renderCCCG();
-  });
-}
-if (btnPageDown) {
-  btnPageDown.addEventListener('click', ()=>{
-    cccgPage++;
-    renderCCCG();
   });
 }
 
