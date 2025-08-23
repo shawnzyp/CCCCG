@@ -1,0 +1,218 @@
+==================================
+CATALYST CORE: RULES REFERENCE
+==================================
+
+----------------------------------
+CHARACTER CREATION
+----------------------------------
+
+Step 1: Classification (choose one)
+- Mutant: Reroll one failed saving throw per long rest.
+- Enhanced Human: Advantage on Technology checks.
+- Magic User: Cast one minor magical effect once per long rest.
+- Alien/Extraterrestrial: Immune to environmental hazards; ignore rough terrain penalties.
+- Mystical Being: +2 to Persuasion or Intimidation checks.
+
+Step 2: Power Style (choose up to 2, only 1 perk applies)
+- Physical Powerhouse: Halve one attack’s damage once per combat encounter.
+- Energy Manipulator: Reroll 1s once per turn.
+- Speedster: +10 ft movement and +1 TC when moving 20+ ft.
+- Telekinetic/Psychic: Once per rest, force enemies to reroll rolls of 18–20.
+- Illusionist: Create a 1-minute decoy once per combat encounter.
+- Shape-shifter: Advantage on Deception; disguise freely.
+- Elemental Controller: +2 to hit and +5 damage once per turn with elemental powers.
+
+Step 3: Origin Story (choose one)
+- Accident: Resistance to one damage type.
+- Experiment: Reroll failed CON/INT save once per long rest.
+- Legacy: Use another character’s power once per long rest.
+- Awakening: +5 to hit, +10 damage when below 1/2 HP.
+- Pact: Auto-success on one save or +10 to any roll per long rest.
+- Lost Time: Once per combat, declare a Skill Move (free, +1d6 effect).
+- Exposure: +5 elemental damage once per round.
+- Rebirth: If knocked out, revive with 1 HP + damage resistance for 1 round.
+- Vigil: Once per combat, shield all allies from damage for 1 round.
+- Redemption: Once/day take damage for ally, they heal 1d6 + gain advantage.
+
+Step 4: Ability Scores
+- Roll 7d20, drop lowest. Assign to STR, DEX, CON, INT, WIS, CHA.
+
+Step 5: Toughness Class (TC)
+- Formula: 10 + DEX modifier + Armor/Shield/Origin bonuses.
+
+Step 6: Hit Points (HP)
+- Formula: 30 + CON modifier + (Tier × 1d10).
+- Rookie (Tier 5): +1d10
+- Emerging Vigilante (Tier 4): +2d10
+- Field-Tested (Tier 3): +3d10
+- Respected Force (Tier 2): +4d10
+- Heroic Figure (Tier 1): +5d10
+- Transcendent (Tier 0): Fixed 100 + CON
+
+At 0 HP:
+- Roll 3 CON saves DC 13. 2+ successes = stabilize at 1 HP. Fail = unconscious.
+
+Step 7: Powers
+- Create 3–5 custom powers.
+- Define: Name, Range, Effect, SP Cost, Save (if any), Description.
+
+Step 8: Stamina Points (SP)
+- Max SP = 5 + CON modifier.
+- SP fully regenerates at start of each combat round.
+- Power costs: 1–5 SP.
+
+Step 9: Alignment
+Two Axes:
+- Moral: Light, Neutral, Shadow.
+- Discipline: Lawful, Neutral, Chaotic.
+Each combo grants unique perk.
+
+----------------------------------
+CORE MECHANICS
+----------------------------------
+
+Turn Structure
+- Each turn: 1 Action, 1 Movement, 1 Reaction. Some allow Bonus Actions.
+
+Initiative
+- Roll 1d20 + DEX modifier.
+
+Attack Rolls
+- 1d20 + modifiers vs TC.
+
+Critical Hits
+- Nat 20 = double damage dice.
+
+Saving Throws
+- STR: Grapples, knockback, force.
+- DEX: Dodging AoE, explosions, speed.
+- CON: Poison, radiation, endurance.
+- INT: Illusions, hacks, disruption.
+- WIS: Psychic, sensory overload.
+- CHA: Emotional manipulation.
+
+SP Cost Guide
+- 1 SP: Basic attack, minor effect.
+- 2 SP: Core ability, status effect.
+- 3 SP: AoE, heal, enhanced status.
+- 4 SP: Strong AoE, control.
+- 5 SP: Ultimate (10-turn cooldown).
+
+Cinematic Action Point
+- 1 per session. May:
+  • Auto-succeed a roll.
+  • Interrupt initiative.
+  • Flashback: +5 to a roll.
+  • Redirect damage/rescue ally.
+
+Downtime System
+- Media Control (CHA): Influence public trust.
+- Research (INT/WIS): Learn threat weaknesses.
+- Train/Tinker (STR/INT): +1 SP or upgrade.
+- Gather Intel (CHA/WIS): Secrets, traps.
+- Personal Time (WIS/CHA): Refresh; reroll save next session.
+
+Resistances & Vulnerabilities
+- Mutant: Resist radiation/psychic. Weak necrotic/force.
+- Enhanced Human: Resist piercing/fire. Weak psychic/radiation.
+- Magic User: Resist force/necrotic. Weak confusion/radiation.
+- Alien: Resist cold/acid/lightning. Weak radiant/emotion.
+- Mystical: Resist radiant/psychic. Weak corruption/radiation.
+
+----------------------------------
+EQUIPMENT
+----------------------------------
+
+Gear Types: Armor, Shields, Utility.
+Rarity: Common, Uncommon, Rare, Elite, Legendary.
+
+Universal Gear
+- Common: +1 TC, minor bonuses (stealth, fall dmg resist).
+- Uncommon: +2 TC, resistances (slashing, fire/cold).
+- Rare: +3 TC, advantage on saves, special effects.
+- Elite: +3 TC, regen or terrain immunity.
+- Legendary: +4 TC, powerful effects (auto-block, teleport).
+
+Class-Specific Gear
+- Physical Powerhouse: Heavy armor, melee shields, tremor boots, etc.
+- Energy Manipulator: Energy armor, SP-charging gear, reflectors.
+- Speedster: Velocity suits, dash-boost gear, initiative bonuses.
+- Telekinetic/Psychic: Mind armor, reflection shields, psionic nodes.
+- Illusionist: Stealth cloaks, decoy gear, disorienters.
+- Shape-shifter: Morph armor, clone shields, regen gear.
+- Elemental Controller: Elemental ward gear, fire/cold/earth resistances.
+
+Equip Limit: 1 Armor, 1 Shield, 1 Utility (unless specified).
+
+----------------------------------
+FACTION REPUTATION
+----------------------------------
+
+Factions: O.M.N.I., PFV, Cosmic Conclave, Greyline.
+- Track influence as “Tiers.”
+- Actions raise or lower reputation.
+- Reputation impacts NPC reactions, mission options, and resource access.
+
+----------------------------------
+FAQ
+----------------------------------
+
+Q1: How do Stamina Points regenerate?
+A1: SP fully regenerates at the start of each combat round.
+
+Q2: What happens at 0 HP?
+A2: Roll 3 CON saves (DC 13). Success = stabilize at 1 HP. Failure = unconscious.
+
+Q3: How many powers can I create?
+A3: 3–5, using SP cost chart.
+
+Q4: What is a Signature Move?
+A4: Your most iconic ability (2–3 SP), tied to your Origin/identity.
+
+Q5: Can I mix Power Styles?
+A5: Yes. Only the primary grants the perk.
+
+Q6: What are Cinematic Action Points?
+A6: 1 per session. Auto-succeed, flashback, interrupt initiative, or rescue.
+
+Q7: What is TC?
+A7: Toughness Class. Defense rating. 10 + DEX + bonuses.
+
+Q8: How do alignments affect play?
+A8: They grant perks and guide roleplay.
+
+Q9: Do gear bonuses stack with powers?
+A9: Yes, unless explicitly stated otherwise.
+
+Q10: What are ultimate powers?
+A10: Cost 5 SP, 10-turn cooldown, very strong.
+
+Q11: What dice system is used?
+A11: Mostly d20. Damage is usually d6 unless stated.
+
+Q12: How do resistances/vulnerabilities apply?
+A12: Resistance halves damage. Vulnerability doubles it.
+
+Q13: How many items can I equip?
+A13: One armor, one shield, one utility.
+
+Q14: What happens if I fail all 3 death saves?
+A14: Character is in critical condition and may die. GM discretion.
+
+Q15: Do downtime activities matter?
+A15: Yes. They provide bonuses, intel, or rerolls.
+
+Q16: How does reputation impact play?
+A16: High/low faction reputation alters story paths, allies, and resources.
+
+Q17: Can I heal during combat?
+A17: Yes, via powers, gear, or ally abilities.
+
+Q18: Can SP be saved between combats?
+A18: No. SP resets to max each new combat round.
+
+Q19: What happens on a critical hit?
+A19: Double damage dice are rolled.
+
+Q20: Can multiple resistances stack?
+A20: No. Only one applies unless GM allows.
