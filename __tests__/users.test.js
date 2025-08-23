@@ -17,12 +17,14 @@ describe('user management', () => {
     localStorage.clear();
   });
 
-  test('registers players and lists them', () => {
-    expect(registerPlayer('Alice', 'a', 'pet?', 'cat')).toBe(true);
-    expect(registerPlayer('Bob', 'b', 'pet?', 'dog')).toBe(true);
-    expect(registerPlayer('Alice', 'c', 'pet?', 'cat')).toBe(false);
-    expect(getPlayers()).toEqual(['Alice', 'Bob']);
-  });
+    test('registers players and lists them alphabetically', () => {
+      // Register out of order to ensure getPlayers sorts names
+      expect(registerPlayer('Bob', 'b', 'pet?', 'dog')).toBe(true);
+      expect(registerPlayer('Alice', 'a', 'pet?', 'cat')).toBe(true);
+      expect(registerPlayer('Alice', 'c', 'pet?', 'cat')).toBe(false);
+      // Should return names sorted alphabetically despite insertion order
+      expect(getPlayers()).toEqual(['Alice', 'Bob']);
+    });
 
   test('registration requires name and password', () => {
     registerPlayer('', 'pw', 'q', 'a');
