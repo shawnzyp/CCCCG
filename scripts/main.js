@@ -11,6 +11,17 @@ const CCCCG_SRC = './ccccg.pdf';
 let cccgDoc = null;
 let dmPlayer = null;
 
+// ----- animation lock -----
+// Animations should only run after an explicit user action. To prevent them
+// from firing on initial page load, keep them locked until a user interaction
+// (click or keydown) occurs.
+let animationsEnabled = false;
+const enableAnimations = () => { animationsEnabled = true; };
+// Use capture so the lock is released before other handlers run on the first
+// interaction.
+document.addEventListener('click', enableAnimations, { once: true, capture: true });
+document.addEventListener('keydown', enableAnimations, { once: true, capture: true });
+
 /* ========= viewport ========= */
 function setVh(){
   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
@@ -970,6 +981,7 @@ $('flip').addEventListener('click', ()=>{
 });
 
 function playDamageAnimation(amount){
+  if(!animationsEnabled) return Promise.resolve();
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=`${amount}`;
@@ -985,6 +997,7 @@ function playDamageAnimation(amount){
 }
 
 function playDownAnimation(){
+  if(!animationsEnabled) return Promise.resolve();
   const anim = $('down-animation');
   if(!anim) return Promise.resolve();
   return new Promise(res=>{
@@ -999,6 +1012,7 @@ function playDownAnimation(){
 }
 
 function playDeathAnimation(){
+  if(!animationsEnabled) return Promise.resolve();
   const anim = $('death-animation');
   if(!anim) return Promise.resolve();
   return new Promise(res=>{
@@ -1013,6 +1027,7 @@ function playDeathAnimation(){
 }
 
 function playHealAnimation(amount){
+  if(!animationsEnabled) return Promise.resolve();
   const anim=$('heal-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=`+${amount}`;
@@ -1028,6 +1043,7 @@ function playHealAnimation(amount){
 }
 
 function playSaveAnimation(){
+  if(!animationsEnabled) return Promise.resolve();
   const anim=$('save-animation');
   if(!anim) return Promise.resolve();
   return new Promise(res=>{
@@ -1042,6 +1058,7 @@ function playSaveAnimation(){
 }
 
 function playCoinAnimation(result){
+  if(!animationsEnabled) return Promise.resolve();
   const anim=$('coin-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=result;
@@ -1057,6 +1074,7 @@ function playCoinAnimation(result){
 }
 
 function playSPAnimation(amount){
+  if(!animationsEnabled) return Promise.resolve();
   const anim = $('sp-animation');
   if(!anim) return Promise.resolve();
   anim.textContent = `${amount>0?'+':''}${amount}`;
