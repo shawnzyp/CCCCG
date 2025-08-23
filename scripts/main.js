@@ -21,6 +21,7 @@ const enableAnimations = () => { animationsEnabled = true; };
 // interaction.
 document.addEventListener('click', enableAnimations, { once: true, capture: true });
 document.addEventListener('keydown', enableAnimations, { once: true, capture: true });
+document.addEventListener('touchstart', enableAnimations, { once: true, capture: true });
 
 /* ========= viewport ========= */
 function setVh(){
