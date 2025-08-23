@@ -657,6 +657,8 @@ const XP_TIERS = [
   { xp: 162000, label: 'Tier 0 – Transcendent / Legendary' }
 ];
 
+const PROF_BONUS_TIERS = [2, 3, 4, 5, 6, 7];
+
 function getTierIndex(xp){
   for(let i=XP_TIERS.length-1;i>=0;i--){
     if(xp >= XP_TIERS[i].xp) return i;
@@ -714,6 +716,7 @@ function updateXP(){
   currentTierIdx = idx;
   xpInitialized = true;
   if(elTier) elTier.value = XP_TIERS[idx].label;
+  if(elProfBonus) elProfBonus.value = PROF_BONUS_TIERS[idx] || 2;
   const nextTier = XP_TIERS[idx+1];
   const currentTierXP = XP_TIERS[idx].xp;
   if(nextTier){
@@ -730,6 +733,8 @@ function updateXP(){
 }
 
 function updateDerived(){
+  updateXP();
+  const pb = PROF_BONUS_TIERS[currentTierIdx] || 2;
   elPP.value = 10 + mod(elWis.value);
   const armorAuto = calculateArmorBonus();
   elArmorBonus.value = armorAuto;
@@ -737,7 +742,6 @@ function updateDerived(){
   updateSP();
   updateHP();
   elInitiative.value = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
-  const pb = num(elProfBonus.value)||2;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
   ABILS.forEach(a=>{
     const m = mod($(a).value);
@@ -751,19 +755,15 @@ function updateDerived(){
     const val = mod($(s.abil).value) + (skillEl && skillEl.checked ? pb : 0);
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
   });
-  updateXP();
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
-['hp-temp','origin-bonus','prof-bonus','power-save-ability'].forEach(id=> $(id).addEventListener('input', updateDerived));
+['hp-temp','origin-bonus','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
-if (elXP) {
-  elXP.addEventListener('input', updateXP);
-}
 
 function setXP(v){
   elXP.value = Math.max(0, v);
-  updateXP();
+  updateDerived();
 }
 $('xp-submit').addEventListener('click', ()=>{
   const amt = num($('xp-amt').value)||0;
