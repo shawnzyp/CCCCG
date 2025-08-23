@@ -4,6 +4,3 @@ compatibility_date = "2025-08-01"
 
 [vars]
 OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
-
-# I will add the secret after you set this up:
-# wrangler secret put OPENROUTER_API_KEY
