@@ -104,7 +104,6 @@
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
         <button id="btn-rules" class="btn-sm">Rules</button>
         <button id="btn-help" class="btn-sm">Help</button>
-        <button id="btn-ai" class="btn-sm">AI Assistant</button>
         <button id="btn-dm" class="btn-sm" hidden>Players</button>
       </div>
     </div>
@@ -603,21 +602,6 @@
   </div>
 </div>
 
-<!-- AI ASSISTANT MODAL -->
-<div class="overlay hidden" id="modal-ai" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>AI Assistant</h3>
-    <textarea id="ai-input" rows="3" placeholder="Ask the AI about game rules or lore..."></textarea>
-    <div class="actions"><button id="ai-send" class="btn-sm">Ask</button></div>
-    <div id="ai-output" class="ai-output"></div>
-  </div>
-</div>
-
 <!-- HELP MODAL -->
 <div class="overlay hidden" id="modal-help" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
@@ -1023,7 +1007,6 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script type="module" src="scripts/users.js"></script>
-<script type="module" src="scripts/main.js"></script>
-<script type="module" src="scripts/ai.js"></script>
-</body>
+  <script type="module" src="scripts/main.js"></script>
+  </body>
 </html>
