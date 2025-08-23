@@ -722,7 +722,8 @@ function updateDerived(){
   elTC.value = 10 + mod(elDex.value) + armorAuto + num(elOriginBonus.value||0);
   updateSP();
   updateHP();
-  elInitiative.value = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
+  const initiative = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
+  elInitiative.value = (initiative >= 0 ? '+' : '') + initiative;
   elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
   ABILS.forEach(a=>{
     const m = mod($(a).value);
