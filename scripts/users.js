@@ -7,8 +7,11 @@ const PLAYER_SESSION = 'player-session';
 const DM_SESSION = 'dm-session';
 const DM_PASSWORD = 'Dragons22!';
 
-// Cached elements to avoid repeated DOM queries
+// Cache frequently accessed DOM elements and player data to reduce repeated
+// lookups and expensive JSON parsing of the players list.
 let dmPasswordInput = null;
+let playersCache = null;
+let playersCacheRaw = null;
 
 function getPlayersRaw() {
   let raw;
@@ -19,19 +22,41 @@ function getPlayersRaw() {
     // storage or privacy modes). Treat this as no data rather than throwing an
     // uncaught exception that prevents the page from loading.
     console.error('Failed to access localStorage', e);
-    return {};
+    playersCache = {};
+    playersCacheRaw = null;
+    return playersCache;
   }
-  if (!raw) return {};
+
+  // If the stored value hasn't changed, reuse the cached object rather than
+  // parsing JSON again. This avoids work in hot paths like login checks.
+  if (raw === playersCacheRaw && playersCache !== null) return playersCache;
+
+  if (!raw) {
+    playersCache = {};
+    playersCacheRaw = null;
+    return playersCache;
+  }
+
   try {
-    return JSON.parse(raw);
+    playersCache = JSON.parse(raw);
+    playersCacheRaw = raw;
+    return playersCache;
   } catch (e) {
     // If the stored data is corrupted or invalid JSON, discard it so the
     // application can continue operating with a clean slate instead of
     // throwing a runtime error that breaks the page.
     console.error('Failed to parse players from localStorage', e);
     try { localStorage.removeItem(PLAYERS_KEY); } catch {}
-    return {};
+    playersCache = {};
+    playersCacheRaw = null;
+    return playersCache;
   }
+}
+
+function setPlayersRaw(players) {
+  playersCache = players;
+  playersCacheRaw = JSON.stringify(players);
+  localStorage.setItem(PLAYERS_KEY, playersCacheRaw);
 }
 
 export function getPlayers() {
@@ -42,7 +67,7 @@ export function registerPlayer(name, password, question, answer) {
   const players = getPlayersRaw();
   if (name && password && question && answer && !players[name]) {
     players[name] = { password, question, answer };
-    localStorage.setItem(PLAYERS_KEY, JSON.stringify(players));
+    setPlayersRaw(players);
   }
   return Object.keys(players);
 }
