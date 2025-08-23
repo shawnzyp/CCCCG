@@ -65,11 +65,12 @@ export function getPlayers() {
 
 export function registerPlayer(name, password, question, answer) {
   const players = getPlayersRaw();
-  if (name && password && question && answer && !players[name]) {
-    players[name] = { password, question, answer };
-    setPlayersRaw(players);
+  if (!name || !password || !question || !answer || players[name]) {
+    return false;
   }
-  return Object.keys(players);
+  players[name] = { password, question, answer };
+  setPlayersRaw(players);
+  return true;
 }
 
 export function getPlayerQuestion(name) {
@@ -238,7 +239,10 @@ if (typeof document !== 'undefined') {
           toast('Security answer required','error');
           return;
         }
-        registerPlayer(name, pass, question, answer);
+        if (!registerPlayer(name, pass, question, answer)) {
+          toast('Player already exists','error');
+          return;
+        }
         nameInput.value = '';
         passInput.value = '';
         questionInput.value = '';

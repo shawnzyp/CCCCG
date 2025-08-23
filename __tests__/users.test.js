@@ -18,8 +18,9 @@ describe('user management', () => {
   });
 
   test('registers players and lists them', () => {
-    registerPlayer('Alice', 'a', 'pet?', 'cat');
-    registerPlayer('Bob', 'b', 'pet?', 'dog');
+    expect(registerPlayer('Alice', 'a', 'pet?', 'cat')).toBe(true);
+    expect(registerPlayer('Bob', 'b', 'pet?', 'dog')).toBe(true);
+    expect(registerPlayer('Alice', 'c', 'pet?', 'cat')).toBe(false);
     expect(getPlayers()).toEqual(['Alice', 'Bob']);
   });
 
