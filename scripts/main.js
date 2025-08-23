@@ -1130,6 +1130,10 @@ const btnHelp = $('btn-help');
 if (btnHelp) {
   btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
 }
+const btnCCAI = $('btn-ccai');
+if (btnCCAI) {
+  btnCCAI.addEventListener('click', ()=>{ show('modal-ccai'); });
+}
 const btnPlayer = $('btn-player');
 if (btnPlayer) {
   btnPlayer.addEventListener('click', ()=>{ show('modal-player'); });
