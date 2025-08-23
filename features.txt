@@ -1,0 +1,16 @@
+Catalyst Core Character Tracker Features
+=======================================
+
+- Theme toggle: Switch between visual themes with the sun, contrast, or moon icons.
+- Main menu: Open for Log In, Character wizard, Encounter tracker, Save, Roll/Flip Log, Campaign Log, Rules, Help, and Players.
+- Tab navigation: Use Combat, Abilities, Powers, Gear, and Story icons to switch sections.
+- Combat tools: Roll dice and coins, manage HP/SP, death saves, initiative, defense stats, and conditions.
+- Character creation wizard: Build a new character step by step.
+- Encounter tracker: Manage encounters and turn order.
+- Dice rolling & coin flips: Use Roll/Flip Log to make rolls or flips and review results.
+- Campaign & roll logs: Keep notes and history in the Campaign Log and Roll/Flip Log.
+- Gear catalog: Browse equipment on the Gear tab and open the gear catalog.
+- Rules reference: Read the Character Creation Guide from the Rules menu.
+- Player & DM login: Use Log In or the DM link to access shared tools.
+- Save characters: Save your character locally and in the cloud after logging in.
+- Offline auto-saving: Your changes save automatically in the browser.

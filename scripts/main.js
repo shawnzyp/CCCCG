@@ -1151,6 +1151,12 @@ if (btnCampaign) {
   btnCampaign.addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
 }
 const btnHelp = $('btn-help');
+const helpText = $('features-content');
+if (helpText) {
+  fetch('features.txt')
+    .then(res => res.text())
+    .then(text => { helpText.textContent = text; });
+}
 if (btnHelp) {
   btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
 }
