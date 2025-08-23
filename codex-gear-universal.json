@@ -1,0 +1,82 @@
+[
+  {"type":"gear","gear":"armor","rarity":"common","key":"tactical_mesh_undersuit","text":"+1 TC. Lightweight and breathable."},
+  {"type":"gear","gear":"armor","rarity":"common","key":"utility_combat_jacket","text":"+1 TC; +1 to Stealth checks."},
+  {"type":"gear","gear":"armor","rarity":"common","key":"synthetic_kevlayer_vest","text":"+1 TC; reduce fall damage by 5."},
+  {"type":"gear","gear":"armor","rarity":"common","key":"friction_lined_undersuit","text":"+1 TC; ignore heat environmental penalties."},
+
+  {"type":"gear","gear":"armor","rarity":"uncommon","key":"guardian_field_plate","text":"+2 TC; +1 to STR or DEX saves."},
+  {"type":"gear","gear":"armor","rarity":"uncommon","key":"enviro_matched_armor","text":"+2 TC; advantage on saves vs weather/environment."},
+  {"type":"gear","gear":"armor","rarity":"uncommon","key":"hardened_utility_armor","text":"+2 TC; resist slashing once/day."},
+  {"type":"gear","gear":"armor","rarity":"uncommon","key":"impact_sensor_vest","text":"+2 TC; warns before surprise rounds (no flat-footed penalty)."},
+
+  {"type":"gear","gear":"armor","rarity":"rare","key":"reflex_reinforced_vest","text":"+3 TC; advantage vs being knocked prone."},
+  {"type":"gear","gear":"armor","rarity":"rare","key":"haztech_core_plating","text":"+3 TC; resistance to poison, acid, or radiation (choose one)."},
+  {"type":"gear","gear":"armor","rarity":"rare","key":"tactical_absorption_lining","text":"+3 TC; +1 SP if hit by an AoE."},
+  {"type":"gear","gear":"armor","rarity":"rare","key":"servo_spine_rig","text":"+3 TC; +5 ft movement."},
+
+  {"type":"gear","gear":"armor","rarity":"elite","key":"kinetic_nullifier_suit","text":"+3 TC; +1 SP regen when not hit during a round."},
+  {"type":"gear","gear":"armor","rarity":"elite","key":"omni_response_mesh","text":"+3 TC; ignore difficult terrain."},
+  {"type":"gear","gear":"armor","rarity":"elite","key":"deflection_halo_exosuit","text":"+3 TC; first hit each encounter is reduced by 5."},
+  {"type":"gear","gear":"armor","rarity":"elite","key":"phase_shield_bodysuit","text":"+3 TC; +1 DEX save and resistance to psychic."},
+
+  {"type":"gear","gear":"armor","rarity":"legendary","key":"aegis_core_cuirass","text":"+4 TC; once/session auto-block one physical hit."},
+  {"type":"gear","gear":"armor","rarity":"legendary","key":"temporal_fold_plating","text":"+3 TC; +2 Initiative while worn."},
+  {"type":"gear","gear":"armor","rarity":"legendary","key":"astral_guard_harness","text":"+3 TC; resistance to force and psychic."},
+  {"type":"gear","gear":"armor","rarity":"legendary","key":"echoweave_armor","text":"+4 TC; if an attacker misses once, they take \u22121 to hit thereafter."},
+  {"type":"gear","gear":"armor","rarity":"legendary","key":"dimensional_layered_vest","text":"+3 TC; when hit, teleport 10 ft once/short rest."},
+  {"type":"gear","gear":"armor","rarity":"legendary","key":"star_tether_harness","text":"+4 TC; immunity to the first critical hit against you each day."},
+
+  {"type":"gear","gear":"shield","rarity":"common","key":"polysteel_riot_plate","text":"+1 TC vs melee."},
+  {"type":"gear","gear":"shield","rarity":"common","key":"deflector_ring_gauntlet","text":"+1 TC; +1 INT saves."},
+  {"type":"gear","gear":"shield","rarity":"common","key":"kiteboard_bracer","text":"+1 TC while moving."},
+  {"type":"gear","gear":"shield","rarity":"common","key":"magseal_wrist_guard","text":"+1 TC; resistance to grappling."},
+
+  {"type":"gear","gear":"shield","rarity":"uncommon","key":"echo_deflector_disk","text":"+2 TC vs ranged attacks."},
+  {"type":"gear","gear":"shield","rarity":"uncommon","key":"reactive_feedback_guard","text":"+2 TC; attacker takes 1 lightning damage on a miss."},
+  {"type":"gear","gear":"shield","rarity":"uncommon","key":"tuned_kinetic_bracer","text":"+2 TC vs blunt/force."},
+  {"type":"gear","gear":"shield","rarity":"uncommon","key":"thermal_diffuser_plate","text":"+2 TC vs fire/cold-based powers."},
+
+  {"type":"gear","gear":"shield","rarity":"rare","key":"surge_buffer_barrier","text":"+2 TC; negate one elemental attack per day."},
+  {"type":"gear","gear":"shield","rarity":"rare","key":"quantum_stitch_bracer","text":"+2 TC; phase through one AoE per combat."},
+  {"type":"gear","gear":"shield","rarity":"rare","key":"displacement_arc_shield","text":"+2 TC; 50% miss chance once/day for enemies."},
+  {"type":"gear","gear":"shield","rarity":"rare","key":"aether_circuit_shard","text":"+2 TC; recharge 1 SP when you roll a natural 20."},
+
+  {"type":"gear","gear":"shield","rarity":"elite","key":"adaptive_reflex_wall","text":"+3 TC; reactive +1 TC boost if hit."},
+  {"type":"gear","gear":"shield","rarity":"elite","key":"mirror_field_buckler","text":"+3 TC; reflect one ranged hit per encounter."},
+  {"type":"gear","gear":"shield","rarity":"elite","key":"titan_barrier_cuff","text":"+3 TC; +1 CON save when resisting critical hits."},
+  {"type":"gear","gear":"shield","rarity":"elite","key":"phase_dome_generator","text":"+3 TC; adjacent allies gain +1 TC."},
+
+  {"type":"gear","gear":"shield","rarity":"legendary","key":"nova_dome_projector","text":"Once/day, allies within 10 ft gain +2 TC for 1 round."},
+  {"type":"gear","gear":"shield","rarity":"legendary","key":"quantum_fold_bracer","text":"+2 TC; teleport 5 ft as a reaction to being targeted."},
+  {"type":"gear","gear":"shield","rarity":"legendary","key":"sentinel_sigil_shield","text":"+3 TC; store 1 blocked hit and unleash it as force damage next turn."},
+  {"type":"gear","gear":"shield","rarity":"legendary","key":"temporal_rift_shield","text":"+3 TC; once/round shift damage to the next round."},
+  {"type":"gear","gear":"shield","rarity":"legendary","key":"eclipse_generator","text":"+3 TC; grant total concealment once/day."},
+  {"type":"gear","gear":"shield","rarity":"legendary","key":"fortress_light_beacon","text":"+3 TC; allies within 15 ft cannot be surprised."},
+
+  {"type":"gear","gear":"utility","rarity":"common","key":"combat_reflex_enhancer","text":"+1 TC during the first round."},
+  {"type":"gear","gear":"utility","rarity":"common","key":"emergency_blink_chip","text":"+1 TC; teleport 5 ft as a bonus action once/long rest."},
+  {"type":"gear","gear":"utility","rarity":"common","key":"optic_flash_spike","text":"+1 TC; blind one adjacent attacker as a reaction (1/day)."},
+  {"type":"gear","gear":"utility","rarity":"common","key":"thermal_regulation_patch","text":"+1 TC vs elemental terrain effects."},
+
+  {"type":"gear","gear":"utility","rarity":"uncommon","key":"adrenaline_booster_patch","text":"+2 TC while under 50% HP."},
+  {"type":"gear","gear":"utility","rarity":"uncommon","key":"pulse_guard_band","text":"+2 TC for 1 round after spending 3+ SP."},
+  {"type":"gear","gear":"utility","rarity":"uncommon","key":"reflex_timer_loop","text":"+2 TC vs AoE effects."},
+  {"type":"gear","gear":"utility","rarity":"uncommon","key":"hazard_compensation_implant","text":"+2 TC; ignore environment conditions for 1 hour."},
+
+  {"type":"gear","gear":"utility","rarity":"rare","key":"perception_sync_visor","text":"+1 TC and +1 Passive Perception."},
+  {"type":"gear","gear":"utility","rarity":"rare","key":"directional_flux_beacon","text":"Once/day, reroute one ranged power away from you."},
+  {"type":"gear","gear":"utility","rarity":"rare","key":"kinetic_assist_boots","text":"+2 TC when moving more than 15 ft."},
+  {"type":"gear","gear":"utility","rarity":"rare","key":"echo_reversal_node","text":"Once/day, negate one condition on yourself."},
+
+  {"type":"gear","gear":"utility","rarity":"elite","key":"phase_step_belt","text":"+2 TC; ignore difficult terrain while active."},
+  {"type":"gear","gear":"utility","rarity":"elite","key":"temporal_leech_ring","text":"+2 TC; steal 1 SP when you dodge."},
+  {"type":"gear","gear":"utility","rarity":"elite","key":"nullskin_emitter","text":"+2 TC; immune to Burn, Freeze, or Stun (choose each day)."},
+  {"type":"gear","gear":"utility","rarity":"elite","key":"aegis_burst_pack","text":"+3 TC for 1 turn when hit (1/short rest)."},
+
+  {"type":"gear","gear":"utility","rarity":"legendary","key":"chrono_anchor_locket","text":"Once/day reset position & TC to start of turn."},
+  {"type":"gear","gear":"utility","rarity":"legendary","key":"null_pulse_core","text":"Emit a wave that gives all allies +2 TC for 1 round."},
+  {"type":"gear","gear":"utility","rarity":"legendary","key":"omniguard_relay_matrix","text":"+2 TC; allies within 5 ft gain +1 TC."},
+  {"type":"gear","gear":"utility","rarity":"legendary","key":"loopfield_projector","text":"Reflect a failed attack once per scene."},
+  {"type":"gear","gear":"utility","rarity":"legendary","key":"heartsync_signal_band","text":"Share your TC with an ally within 10 ft for 1 round."},
+  {"type":"gear","gear":"utility","rarity":"legendary","key":"dimensional_safeguard_disk","text":"Immune to critical hits and one chosen damage type for 1 turn."}
+]
