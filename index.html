@@ -104,6 +104,7 @@
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
         <button id="btn-rules" class="btn-sm">Rules</button>
         <button id="btn-help" class="btn-sm">Help</button>
+        <button id="btn-ai" class="btn-sm">CC A.I.</button>
         <button id="btn-dm" class="btn-sm" hidden>Players</button>
       </div>
     </div>
@@ -1015,6 +1016,137 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script type="module" src="scripts/users.js"></script>
-  <script type="module" src="scripts/main.js"></script>
+<script type="module" src="scripts/main.js"></script>
+<style>
+  .cc-btn{position:fixed;right:16px;bottom:16px;padding:10px 14px;border-radius:999px;background:#1e2740;color:#e7e9ee;border:1px solid #2c3454;cursor:pointer;z-index:9999}
+  .cc-modal{position:fixed;inset:0;display:none;background:rgba(0,0,0,.35);z-index:9998}
+  .cc-panel{position:absolute;right:16px;bottom:72px;width:min(92vw,460px);max-height:min(85vh,720px);display:flex;flex-direction:column;background:#0f1320;color:#e7e9ee;border:1px solid #263155;border-radius:12px;overflow:hidden}
+  .cc-head{display:flex;gap:8px;align-items:center;padding:10px;border-bottom:1px solid #212b4c}
+  .cc-title{font:600 15px system-ui;margin-right:auto}
+  .cc-log{padding:10px;overflow:auto;flex:1}
+  .cc-b{padding:8px 10px;margin:6px 0;border-radius:8px;white-space:pre-wrap;background:#12182a}
+  .cc-user{background:#172034}
+  .cc-sys{background:#11151f;border:1px dashed #27314b;color:#b3c0e0}
+  .cc-row{display:flex;gap:8px;padding:10px;border-top:1px solid #212b4c}
+  .cc-row textarea{flex:1;min-height:60px;background:#0b1020;color:#e7e9ee;border:1px solid #2a2f3f;border-radius:8px;padding:8px}
+  .cc-row button{background:#1e2740;border:1px solid #2c3454;color:#e7e9ee;border-radius:8px;padding:8px 12px;cursor:pointer}
+  .cc-pill{display:flex;align-items:center;gap:6px;border:1px solid #2b2f3a;background:#141827;border-radius:999px;padding:4px 8px;font-size:12px}
+  .cc-controls{display:flex;gap:8px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid #212b4c}
+</style>
+
+<button class="cc-btn" id="cc-open">Ask the Assistant</button>
+<div class="cc-modal" id="cc-modal" aria-hidden="true">
+  <div class="cc-panel" role="dialog" aria-modal="true" aria-label="Catalyst Core Assistant">
+    <div class="cc-head">
+      <div class="cc-title">Catalyst Core Assistant</div>
+      <div class="cc-pill"><label><input type="checkbox" id="cc-gm"> GM Mode</label></div>
+      <div class="cc-pill"><label><input type="checkbox" id="cc-sp" checked> Spoiler Safe</label></div>
+      <button id="cc-close" title="Close">✕</button>
+    </div>
+    <div class="cc-controls">
+      <div class="cc-pill">Model:
+        <select id="cc-model">
+          <option value="openai/gpt-oss-20b:free" selected>gpt-oss-20b (free)</option>
+        </select>
+      </div>
+    </div>
+    <div id="cc-log" class="cc-log">
+      <div class="cc-b cc-sys">Hosted assistant via OpenRouter proxy. Local Codex loaded.</div>
+    </div>
+    <div class="cc-row">
+      <textarea id="cc-msg" placeholder="Ask about rules, gear, SP, CAP, alignments…"></textarea>
+      <button id="cc-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  const PROXY_URL = "https://cc-assistant-proxy.<your-subdomain>.workers.dev/chat"; // set to your Worker URL
+
+  const $ = (s)=>document.querySelector(s);
+  const openBtn=$("#cc-open"), modal=$("#cc-modal"), closeBtn=$("#cc-close"), menuAI=$("#btn-ai");
+  const log=$("#cc-log"), sendBtn=$("#cc-send"), msg=$("#cc-msg");
+  const selModel=$("#cc-model"), gm=$("#cc-gm"), sp=$("#cc-sp");
+
+  const append=(cls, text)=>{ const d=document.createElement("div"); d.className="cc-b "+cls; d.textContent=text; log.appendChild(d); log.scrollTop=log.scrollHeight; return d; };
+
+  const SYSTEM_PROMPT = `You are the Catalyst Core Campaign Assistant.
+Use concise, plain language. No emojis. If Spoiler Safe is ON, avoid hidden twists or secret identities. If GM Mode is ON, add a short "GM Tips" section.
+When helpful, format with: Summary; Steps; Examples; GM Tips (GM only).
+Prefer citing Codex keys in square brackets when present: [mechanic:sp], [gear:armor.tactical_mesh_undersuit], [classgear:speedster.armor.kinetic_glide_suit].`;
+
+  // Merge multiple Codex files (character + universal gear + class gear)
+  async function fetchJSON(url){ try{ const r=await fetch(url,{cache:"no-store"}); return r.ok? await r.json():[]; }catch{return[];} }
+  const [CHAR, UNI, CLASS] = await Promise.all([
+    fetchJSON("/codex-character.json"),
+    fetchJSON("/codex-gear-universal.json"),
+    fetchJSON("/codex-gear-class.json")
+  ]);
+  const CODEX = [...CHAR, ...UNI, ...CLASS];
+
+  // Simple retrieval by keyword overlap
+  function retrieve(q, k=14){
+    const terms=q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    return CODEX.map(e=>{
+      const hay=((e.type||"")+" "+(e.key||"")+" "+(e.text||"")+" "+(e.class||"")+" "+(e.gear||"")+" "+(e.rarity||"")).toLowerCase();
+      let s=0; for(const t of terms) if(hay.includes(t)) s++;
+      return {e,s};
+    }).filter(x=>x.s>0).sort((a,b)=>b.s-a.s).slice(0,k).map(x=>x.e);
+  }
+
+  function buildUser(q){
+    const ctx = retrieve(q, 14);
+    const ctxLines = ctx.map(e=>{
+      if(e.type==="gear")      return `- [gear:${e.gear}.${e.key}] (${e.rarity}) ${e.text}`;
+      if(e.type==="classgear") return `- [classgear:${e.class}.${e.gear}.${e.key}] (${e.rarity}) ${e.text}`;
+      return `- [${e.type}:${e.key}] ${e.text}`;
+    });
+    const flags = { gmMode: gm.checked, spoilerSafe: sp.checked };
+    const ctxBlock = ctxLines.length ? "Local Codex:\n"+ctxLines.join("\n")+"\n\n" : "";
+    return `${ctxBlock}Flags: ${JSON.stringify(flags)}\nQuestion:\n${q}\n`;
+  }
+
+  async function send(){
+    const q = msg.value.trim(); if(!q) return;
+    msg.value=""; append("cc-user", q); const reply=append("", "…thinking…");
+
+    const payload = {
+      model: selModel.value,
+      stream: true,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: buildUser(q) }],
+      temperature: 0.7
+    };
+
+    const r = await fetch(PROXY_URL, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!r.ok || !r.body) { reply.textContent = "Error contacting assistant."; return; }
+
+    const reader = r.body.getReader(); const decoder = new TextDecoder("utf-8"); let agg="";
+    while (true) {
+      const { value, done } = await reader.read(); if (done) break;
+      const chunk = decoder.decode(value, { stream:true });
+      const lines = chunk.split("\n").filter(Boolean);
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6); if (data === "[DONE]") continue;
+          try { const json = JSON.parse(data); const delta = json.choices?.[0]?.delta?.content || ""; agg += delta; reply.textContent = agg; }
+          catch { agg += line; reply.textContent = agg; }
+        } else { agg += line; reply.textContent = agg; }
+      }
+    }
+  }
+
+  const toggle = (show)=>{ modal.style.display = show? "block":"none"; modal.setAttribute("aria-hidden", show? "false":"true"); if(show) msg.focus(); };
+  [openBtn, menuAI].forEach(btn => btn && btn.addEventListener("click", () => toggle(true)));
+  closeBtn.addEventListener("click", () => toggle(false));
+  modal.addEventListener("click", (e) => { if (e.target===modal) toggle(false); });
+  sendBtn.addEventListener("click", send);
+  msg.addEventListener("keydown", (e) => { if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); }});
+</script>
 </body>
 </html>
