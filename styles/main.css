@@ -139,12 +139,12 @@ progress::-moz-progress-bar{
   background:var(--accent);
   transition:width .4s ease;
 }
+
 .pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
-#sp-pill{height:36px;padding:0 10px;display:inline-flex;align-items:center}
 
 .bar-label{position:relative}
 .bar-label>progress{width:100%;height:36px}
-.bar-label>#hp-pill{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;padding:0}
+.bar-label>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;padding:0}
 .pill-sm{padding:2px 6px;font-size:.75rem}
 .pill.result{font-size:1rem;font-weight:700;}
 .pill.result:empty::before{content:attr(data-placeholder);visibility:hidden;}
