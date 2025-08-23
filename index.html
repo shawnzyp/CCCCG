@@ -116,6 +116,7 @@
     <div class="grid grid-2 roll-flip-grid">
       <fieldset class="card">
         <legend>Dice Roll</legend>
+        <span class="pill result" id="dice-out" data-placeholder="000"></span>
         <div class="inline">
           <label for="dice-sides" class="sr-only">Sides</label>
           <select id="dice-sides">
@@ -125,14 +126,13 @@
           <input id="dice-count" type="number" inputmode="numeric" min="1" value="1"/>
           <button id="roll-dice" class="btn-sm">Roll</button>
         </div>
-        <span class="pill result" id="dice-out" data-placeholder="000"></span>
       </fieldset>
       <fieldset class="card">
         <legend>Coin Flip</legend>
+        <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
         <div class="inline">
           <button id="flip" class="btn-sm">Flip</button>
         </div>
-        <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
       </fieldset>
     </div>
     <fieldset class="card">
