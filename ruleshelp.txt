@@ -1,10 +1,6 @@
-==================================
 CATALYST CORE: RULES REFERENCE
-==================================
 
-----------------------------------
 CHARACTER CREATION
-----------------------------------
 
 Step 1: Classification (choose one)
 - Mutant: Reroll one failed saving throw per long rest.
@@ -67,9 +63,7 @@ Two Axes:
 - Discipline: Lawful, Neutral, Chaotic.
 Each combo grants unique perk.
 
-----------------------------------
 CORE MECHANICS
-----------------------------------
 
 Turn Structure
 - Each turn: 1 Action, 1 Movement, 1 Reaction. Some allow Bonus Actions.
@@ -119,9 +113,7 @@ Resistances & Vulnerabilities
 - Alien: Resist cold/acid/lightning. Weak radiant/emotion.
 - Mystical: Resist radiant/psychic. Weak corruption/radiation.
 
-----------------------------------
 EQUIPMENT
-----------------------------------
 
 Gear Types: Armor, Shields, Utility.
 Rarity: Common, Uncommon, Rare, Elite, Legendary.
@@ -144,18 +136,14 @@ Class-Specific Gear
 
 Equip Limit: 1 Armor, 1 Shield, 1 Utility (unless specified).
 
-----------------------------------
 FACTION REPUTATION
-----------------------------------
 
 Factions: O.M.N.I., PFV, Cosmic Conclave, Greyline.
 - Track influence as “Tiers.”
 - Actions raise or lower reputation.
 - Reputation impacts NPC reactions, mission options, and resource access.
 
-----------------------------------
 FAQ
-----------------------------------
 
 Q1: How do Stamina Points regenerate?
 A1: SP fully regenerates at the start of each combat round.
