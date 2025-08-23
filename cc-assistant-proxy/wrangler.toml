@@ -1,6 +1,0 @@
-name = "cc-assistant-proxy"
-main = "worker.js"
-compatibility_date = "2025-08-01"
-
-[vars]
-OPENROUTER_MODEL = "openai/gpt-oss-20b:free"
