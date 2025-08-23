@@ -1151,8 +1151,25 @@ if (btnCampaign) {
   btnCampaign.addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
 }
 const btnHelp = $('btn-help');
+const helpText = $('features-content');
+let featuresLoaded = false;
+
+async function loadFeatures() {
+  if (featuresLoaded || !helpText) return;
+  try {
+    const res = await fetch('features.txt');
+    helpText.textContent = await res.text();
+  } catch {
+    helpText.textContent = 'Unable to load feature list.';
+  }
+  featuresLoaded = true;
+}
+
 if (btnHelp) {
-  btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
+  btnHelp.addEventListener('click', async () => {
+    await loadFeatures();
+    show('modal-help');
+  });
 }
 const btnPlayer = $('btn-player');
 if (btnPlayer) {
