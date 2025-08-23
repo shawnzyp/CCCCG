@@ -27,10 +27,6 @@ function setVh(){
   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
 }
 setVh();
-window.addEventListener('resize', setVh);
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', setVh);
-}
 if (typeof pdfjsLib !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
@@ -61,15 +57,19 @@ async function renderCCCG(){
   await page.render({ canvasContext: cccgCtx, viewport: vp }).promise;
 }
 
+const DELETE_ICON_STYLE = {
+  width: '15px',
+  height: '15px',
+  minHeight: '15px',
+  padding: '0',
+  flex: '0 0 auto'
+};
+
 function applyDeleteIcon(btn){
   if(!btn) return;
   btn.innerHTML = ICON_TRASH;
   btn.setAttribute('aria-label','Delete');
-  btn.style.width = '15px';
-  btn.style.height = '15px';
-  btn.style.minHeight = '15px';
-  btn.style.padding = '0';
-  btn.style.flex = '0 0 auto';
+  Object.assign(btn.style, DELETE_ICON_STYLE);
 }
 
 function applyDeleteIcons(root=document){
@@ -110,6 +110,12 @@ function debounce(fn, delay){
     clearTimeout(t);
     t = setTimeout(()=>fn(...args), delay);
   };
+}
+
+const debouncedSetVh = debounce(setVh, 100);
+window.addEventListener('resize', debouncedSetVh, { passive: true });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', debouncedSetVh, { passive: true });
 }
 
 // prevent negative numbers in numeric inputs
