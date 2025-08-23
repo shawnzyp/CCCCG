@@ -157,23 +157,29 @@
     <div class="grid grid-2">
       <fieldset class="card">
         <legend>HP</legend>
-        <div class="inline">
-          <progress id="hp-bar" max="30" value="30" style="width:100%"></progress>
-          <span class="pill" id="hp-pill">30/30</span>
-        </div>
-        <div class="inline">
-          <input id="hp-roll" type="hidden" value="0"/>
-          <button id="hp-roll-add" class="btn-sm" type="button">Add Tier HP</button>
-        </div>
-        <div class="inline">
-          <label for="hp-temp" class="sr-only">Temp HP</label>
-          <input id="hp-temp" type="number" inputmode="numeric" placeholder="Temp HP"/>
-          <label for="hp-amt" class="sr-only">Amount</label>
-          <input id="hp-amt" type="number" inputmode="numeric" placeholder="Amount"/>
-          <button id="hp-dmg" class="btn-sm">Damage</button>
-          <button id="hp-heal" class="btn-sm">Heal</button>
-          <button id="hp-full" class="btn-sm">Reset HP</button>
-        </div>
+          <div class="inline">
+            <div class="bar-label">
+              <progress id="hp-bar" max="30" value="30"></progress>
+              <span id="hp-pill">30/30</span>
+            </div>
+          </div>
+          <div class="inline">
+            <input id="hp-roll" type="hidden" value="0"/>
+            <button id="hp-roll-add" class="btn-sm" type="button">Add Tier HP</button>
+          </div>
+          <div class="inline">
+            <label for="hp-temp" class="sr-only">Temp HP</label>
+            <input id="hp-temp" type="number" inputmode="numeric" placeholder="Temp HP"/>
+            <label for="hp-amt" class="sr-only">Amount</label>
+            <input id="hp-amt" type="number" inputmode="numeric" placeholder="Amount"/>
+          </div>
+          <div class="inline">
+            <button id="hp-dmg" class="btn-sm">Damage</button>
+            <button id="hp-heal" class="btn-sm">Heal</button>
+          </div>
+          <div class="inline">
+            <button id="hp-full" class="btn-sm">Reset HP</button>
+          </div>
       </fieldset>
       <fieldset class="card">
         <legend>SP</legend>

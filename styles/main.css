@@ -106,7 +106,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;animatio
 .inline>select,
 .inline>textarea,
 .inline>button,
-.inline>progress{flex:1;width:auto;height:36px}
+.inline>progress,
+.inline>.bar-label{flex:1;width:auto;height:36px}
 .inline>.pill,
 .inline>.sr-only{flex:0;width:auto}
 @media(max-width:600px){
@@ -115,7 +116,8 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;animatio
   .inline>select,
   .inline>textarea,
   .inline>button,
-  .inline>progress{flex:none;width:100%;height:36px}
+  .inline>progress,
+  .inline>.bar-label{flex:none;width:100%;height:36px}
 }
 progress{
   -webkit-appearance:none;
@@ -138,7 +140,11 @@ progress::-moz-progress-bar{
   transition:width .4s ease;
 }
 .pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
-#hp-pill,#sp-pill{height:36px;padding:0 10px;display:inline-flex;align-items:center}
+#sp-pill{height:36px;padding:0 10px;display:inline-flex;align-items:center}
+
+.bar-label{position:relative}
+.bar-label>progress{width:100%;height:36px}
+.bar-label>#hp-pill{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;padding:0}
 .pill-sm{padding:2px 6px;font-size:.75rem}
 .pill.result{font-size:1rem;font-weight:700;}
 .pill.result:empty::before{content:attr(data-placeholder);visibility:hidden;}
