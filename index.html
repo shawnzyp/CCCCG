@@ -1023,7 +1023,7 @@
 <!-- Catalyst Core — Assistant Widget (Local AI via WebGPU, no server) -->
 <script type="module">
   // Requires a modern browser with WebGPU. First load caches the chosen model.
-  import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+  let webllm = null;
 
   // ===== Custom Element =====
   class CCAssistant extends HTMLElement {
@@ -1286,6 +1286,9 @@
         loadBtn.disabled = true;
         append("sys", `Loading model: ${modelSel.value}. This caches after first load.`);
         try {
+          if(!webllm){
+            webllm = await import("https://esm.run/@mlc-ai/web-llm");
+          }
           engine = await webllm.CreateMLCEngine({ model: modelSel.value });
           append("sys","Model ready.");
         } catch (e){
