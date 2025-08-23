@@ -60,7 +60,11 @@ function setPlayersRaw(players) {
 }
 
 export function getPlayers() {
-  return Object.keys(getPlayersRaw());
+  // Return player names in a consistent alphabetical order so that UI
+  // lists remain stable regardless of the registration sequence. Sorting
+  // also makes unit tests deterministic when using Object keys which
+  // otherwise preserve insertion order.
+  return Object.keys(getPlayersRaw()).sort((a, b) => a.localeCompare(b));
 }
 
 export function registerPlayer(name, password, question, answer) {
