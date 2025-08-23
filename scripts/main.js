@@ -475,9 +475,12 @@ const ACTION_HINTS = [
 
 let addWisToInitiative = false;
 let enhancedAbility = '';
+let powerStyleTCBonus = 0;
+let originTCBonus = 0;
 
 function handlePerkEffects(li, text){
   const lower = text.toLowerCase();
+  let bonus = 0;
   if(/increase one ability score by 1/.test(lower)){
     const select = document.createElement('select');
     select.innerHTML = `<option value="">Choose ability</option>` +
@@ -529,6 +532,9 @@ function handlePerkEffects(li, text){
     addWisToInitiative = true;
     updateDerived();
   }
+  const m = text.match(/([+-]\d+)\s*tc\b/i);
+  if(m) bonus += Number(m[1]);
+  return bonus;
 }
 
 function setupPerkSelect(selId, perkId, data){
@@ -549,6 +555,7 @@ function setupPerkSelect(selId, perkId, data){
     const perks = data[sel.value] || [];
     perkEl.innerHTML = '';
     if(selId==='alignment') addWisToInitiative = false;
+    let tcBonus = 0;
     perks.forEach((p,i)=>{
       const text = typeof p === 'string' ? p : String(p);
       const lower = text.toLowerCase();
@@ -571,9 +578,15 @@ function setupPerkSelect(selId, perkId, data){
         li.textContent = text;
       }
       perkEl.appendChild(li);
-      handlePerkEffects(li, text);
+      tcBonus += handlePerkEffects(li, text);
     });
     perkEl.style.display = perks.length ? 'block' : 'none';
+    if(selId==='power-style') powerStyleTCBonus = tcBonus;
+    if(selId==='origin') originTCBonus = tcBonus;
+    if(selId==='power-style' || selId==='origin'){
+      elOriginBonus.value = String(powerStyleTCBonus + originTCBonus);
+      updateDerived();
+    }
   }
   sel.addEventListener('change', render);
   render();
