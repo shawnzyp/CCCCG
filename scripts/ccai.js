@@ -165,53 +165,53 @@ class CCAssistant extends HTMLElement {
 
       // Elements (short highlights)
       {type:"element", key:"fire", text:"Strong vs Earth, Ice, Shadow; weak vs Water, Aether. Can ignite, melt, wreck tech."},          // :contentReference[oaicite:46]{index=46}
-      {type:"element", key="water", text:"Strong vs Fire, Catalyst; weak vs Earth, Lightning. Extinguish, slow, slick terrain."},       // :contentReference[oaicite:47]{index=47}
-      {type:"element", key="earth", text:"Strong vs Lightning, Air; weak vs Fire, Ice. Difficult terrain, barriers."},                  // :contentReference[oaicite:48]{index=48}
-      {type="element", key="air", text="Strong vs Water, Fire; weak vs Lightning, Shadow. Push, disarm flying, gusts."},               // :contentReference[oaicite:49]{index=49}
-      {type="element", key="lightning", text="Strong vs Water, Air; weak vs Earth, Shadow. Stun tech, electrify water."},              // :contentReference[oaicite:50]{index=50}
-      {type="element", key="ice", text="Strong vs Earth, Fire; weak vs Fire, Energy. Freeze movement, brittle hits."},                  // :contentReference[oaicite:51]{index=51}
-      {type="element", key="light", text="Strong vs Shadow, Psychic; weak vs Void, Corruption. Reveal, radiant damage, blind."},       // :contentReference[oaicite:52]{index=52}
-      {type="element", key="shadow", text="Strong vs Light, Psychic; weak vs Fire, Light. Fear, shadow strikes."},                     // :contentReference[oaicite:53]{index=53}
-      {type="element", key="energy", text="Strong vs Ice, Water, Light; weak vs Earth, Aether. Overload tech, 2d6 lightning."},        // :contentReference[oaicite:54]{index=54}
-      {type="element", key="psychic", text="Strong vs elemental/tech foes; weak vs Shadow, Light. Confuse, mind-read."},               // :contentReference[oaicite:55]{index=55}
-      {type="element", key="void", text="Strong vs Light, Energy, Catalyst; none weak. Deletes effects, true damage."},                 // :contentReference[oaicite:56]{index=56}
-      {type="element", key="catalyst", text="Strong vs technology, structure; weak vs Water, Void. Wild surges, corruption."},          // :contentReference[oaicite:57]{index=57}
-      {type="element", key="aether", text="Strong vs Fire, Lightning, Energy; weak vs Shadow, Void. Phase, time bend."},                // :contentReference[oaicite:58]{index=58}
+      {type:"element", key:"water", text:"Strong vs Fire, Catalyst; weak vs Earth, Lightning. Extinguish, slow, slick terrain."},       // :contentReference[oaicite:47]{index=47}
+      {type:"element", key:"earth", text:"Strong vs Lightning, Air; weak vs Fire, Ice. Difficult terrain, barriers."},                  // :contentReference[oaicite:48]{index=48}
+      {type:"element", key:"air", text:"Strong vs Water, Fire; weak vs Lightning, Shadow. Push, disarm flying, gusts."},               // :contentReference[oaicite:49]{index=49}
+      {type:"element", key:"lightning", text:"Strong vs Water, Air; weak vs Earth, Shadow. Stun tech, electrify water."},              // :contentReference[oaicite:50]{index=50}
+      {type:"element", key:"ice", text:"Strong vs Earth, Fire; weak vs Fire, Energy. Freeze movement, brittle hits."},                  // :contentReference[oaicite:51]{index=51}
+      {type:"element", key:"light", text:"Strong vs Shadow, Psychic; weak vs Void, Corruption. Reveal, radiant damage, blind."},       // :contentReference[oaicite:52]{index=52}
+      {type:"element", key:"shadow", text:"Strong vs Light, Psychic; weak vs Fire, Light. Fear, shadow strikes."},                     // :contentReference[oaicite:53]{index=53}
+      {type:"element", key:"energy", text:"Strong vs Ice, Water, Light; weak vs Earth, Aether. Overload tech, 2d6 lightning."},        // :contentReference[oaicite:54]{index=54}
+      {type:"element", key:"psychic", text:"Strong vs elemental/tech foes; weak vs Shadow, Light. Confuse, mind-read."},               // :contentReference[oaicite:55]{index=55}
+      {type:"element", key:"void", text:"Strong vs Light, Energy, Catalyst; none weak. Deletes effects, true damage."},                 // :contentReference[oaicite:56]{index=56}
+      {type:"element", key:"catalyst", text:"Strong vs technology, structure; weak vs Water, Void. Wild surges, corruption."},          // :contentReference[oaicite:57]{index=57}
+      {type:"element", key:"aether", text:"Strong vs Fire, Lightning, Energy; weak vs Shadow, Void. Phase, time bend."},                // :contentReference[oaicite:58]{index=58}
 
       // Combat Core
       {type:"mechanic", key:"initiative", text:"Initiative: 1d20 + DEX mod."},                                                          // :contentReference[oaicite:59]{index=59}
       {type:"mechanic", key:"action_economy", text:"Each turn: 1 Action, 1 Movement, 1 Reaction. You may ready an attack or power as a bonus action. One bonus action per turn."}, // :contentReference[oaicite:60]{index=60}
       {type:"mechanic", key:"attack_rolls", text:"Attack rolls: 1d20 + relevant modifiers."},                                           // :contentReference[oaicite:61]{index=61}
-      {type:"mechanic", key="crits", text:"Critical hits: on natural 20 roll all damage dice twice."},                                   // :contentReference[oaicite:62]{index=62}
-      {type:"mechanic", key="saves", text:"Saves: STR, DEX, CON, INT, WIS, CHA vs appropriate threats."},                               // :contentReference[oaicite:63]{index=63}
+      {type:"mechanic", key:"crits", text:"Critical hits: on natural 20 roll all damage dice twice."},                                   // :contentReference[oaicite:62]{index=62}
+      {type:"mechanic", key:"saves", text:"Saves: STR, DEX, CON, INT, WIS, CHA vs appropriate threats."},                               // :contentReference[oaicite:63]{index=63}
 
       // CAP and Downtime
-      {type:"mechanic", key="cap", text:"Cinematic Action Point: 1 per session. Auto succeed, interrupt initiative, flashback +5, or rescue an ally."}, // :contentReference[oaicite:64]{index=64}
-      {type:"mechanic", key="downtime", text:"Downtime: Media Control, Research, Train/Tinker, Gather Intel, Personal Time."},           // :contentReference[oaicite:65]{index=65}
+      {type:"mechanic", key:"cap", text:"Cinematic Action Point: 1 per session. Auto succeed, interrupt initiative, flashback +5, or rescue an ally."}, // :contentReference[oaicite:64]{index=64}
+      {type:"mechanic", key:"downtime", text:"Downtime: Media Control, Research, Train/Tinker, Gather Intel, Personal Time."},           // :contentReference[oaicite:65]{index=65}
 
       // Alignments
-      {type:"alignment", key="paragon", text:"Paragon (Lawful Light): Auto succeed one Charisma check with civilians or allies per session."}, // :contentReference[oaicite:66]{index=66}
-      {type:"alignment", key="guardian", text:"Guardian (Neutral Light): Once per session restore 1d6 HP or 1 SP to an ally as a bonus action."}, // :contentReference[oaicite:67]{index=67}
-      {type="alignment", key="vigilante", text:"Vigilante (Chaotic Light): Ignore opportunity attacks when moving toward a threat or hostage."}, // :contentReference[oaicite:68]{index=68}
-      {type="alignment", key="sentinel", text:"Sentinel (Lawful Neutral): +1 to all saves when acting on orders or directives."},         // :contentReference[oaicite:69]{index=69}
-      {type="alignment", key="outsider", text:"Outsider (True Neutral): Once per session reroll any roll or remove one condition from yourself."}, // :contentReference[oaicite:70]{index=70}
-      {type="alignment", key="wildcard", text:"Wildcard (Chaotic Neutral): Advantage on Initiative and Deception once per combat."},     // :contentReference[oaicite:71]{index=71}
-      {type="alignment", key="inquisitor", text:"Inquisitor (Lawful Shadow): Once per session deal maximum damage to enemies labeled criminal by GM."}, // :contentReference[oaicite:72]{index=72}
-      {type="alignment", key="anti_hero", text:"Anti-Hero (Neutral Shadow): Heal 1d6 HP when defeating an enemy while no allies are within 10 ft."}, // :contentReference[oaicite:73]{index=73}
-      {type="alignment", key="renegade", text:"Renegade (Chaotic Shadow): Once per combat add +1d6 damage when attacking from stealth or surprise."}, // :contentReference[oaicite:74]{index=74}
+      {type:"alignment", key:"paragon", text:"Paragon (Lawful Light): Auto succeed one Charisma check with civilians or allies per session."}, // :contentReference[oaicite:66]{index=66}
+      {type:"alignment", key:"guardian", text:"Guardian (Neutral Light): Once per session restore 1d6 HP or 1 SP to an ally as a bonus action."}, // :contentReference[oaicite:67]{index=67}
+      {type:"alignment", key:"vigilante", text:"Vigilante (Chaotic Light): Ignore opportunity attacks when moving toward a threat or hostage."}, // :contentReference[oaicite:68]{index=68}
+      {type:"alignment", key:"sentinel", text:"Sentinel (Lawful Neutral): +1 to all saves when acting on orders or directives."},         // :contentReference[oaicite:69]{index=69}
+      {type:"alignment", key:"outsider", text:"Outsider (True Neutral): Once per session reroll any roll or remove one condition from yourself."}, // :contentReference[oaicite:70]{index=70}
+      {type:"alignment", key:"wildcard", text:"Wildcard (Chaotic Neutral): Advantage on Initiative and Deception once per combat."},     // :contentReference[oaicite:71]{index=71}
+      {type:"alignment", key:"inquisitor", text:"Inquisitor (Lawful Shadow): Once per session deal maximum damage to enemies labeled criminal by GM."}, // :contentReference[oaicite:72]{index=72}
+      {type:"alignment", key:"anti_hero", text:"Anti-Hero (Neutral Shadow): Heal 1d6 HP when defeating an enemy while no allies are within 10 ft."}, // :contentReference[oaicite:73]{index=73}
+      {type:"alignment", key:"renegade", text:"Renegade (Chaotic Shadow): Once per combat add +1d6 damage when attacking from stealth or surprise."}, // :contentReference[oaicite:74]{index=74}
 
       // Resistances & Vulnerabilities (summarized)
       {type:"mechanic", key:"resistances_mutant", text:"Mutant: Resistant radiation, psychic; vulnerable necrotic, force."},            // :contentReference[oaicite:75]{index=75}
-      {type:"mechanic", key="resistances_enhanced", text:"Enhanced Human: Resistant piercing, fire; vulnerable psychic, radiation."},    // :contentReference[oaicite:76]{index=76}
-      {type="mechanic", key="resistances_magic_user", text:"Magic User: Resistant force, necrotic; vulnerable confusion, radiation."},   // :contentReference[oaicite:77]{index=77}
-      {type="mechanic", key="resistances_alien", text:"Alien: Resistant cold, acid, lightning; vulnerable radiant, emotion."},           // :contentReference[oaicite:78]{index=78}
-      {type="mechanic", key="resistances_mystical", text:"Mystical Being: Resistant radiant, psychic; vulnerable corruption, radiation."}, // :contentReference[oaicite:79]{index=79}
+      {type:"mechanic", key:"resistances_enhanced", text:"Enhanced Human: Resistant piercing, fire; vulnerable psychic, radiation."},    // :contentReference[oaicite:76]{index=76}
+      {type:"mechanic", key:"resistances_magic_user", text:"Magic User: Resistant force, necrotic; vulnerable confusion, radiation."},   // :contentReference[oaicite:77]{index=77}
+      {type:"mechanic", key:"resistances_alien", text:"Alien: Resistant cold, acid, lightning; vulnerable radiant, emotion."},           // :contentReference[oaicite:78]{index=78}
+      {type:"mechanic", key:"resistances_mystical", text:"Mystical Being: Resistant radiant, psychic; vulnerable corruption, radiation."}, // :contentReference[oaicite:79]{index=79}
 
       // Glossary
       {type:"glossary", key:"sp", text:"Stamina Points: resource to fuel powers. Refresh fully each round."},                            // :contentReference[oaicite:80]{index=80}
-      {type:"glossary", key="per_session", text:"Per Session: once per full play session."},                                            // :contentReference[oaicite:81]{index=81}
-      {type:"glossary", key="per_combat", text:"Per Combat: resets each new combat."},                                                 // :contentReference[oaicite:82]{index=82}
-      {type:"glossary", key="concentration", text:"Concentration: some powers cost +1 SP per round to sustain."}                        // :contentReference[oaicite:83]{index=83}
+      {type:"glossary", key:"per_session", text:"Per Session: once per full play session."},                                            // :contentReference[oaicite:81]{index=81}
+      {type:"glossary", key:"per_combat", text:"Per Combat: resets each new combat."},                                                 // :contentReference[oaicite:82]{index=82}
+      {type:"glossary", key:"concentration", text:"Concentration: some powers cost +1 SP per round to sustain."}                        // :contentReference[oaicite:83]{index=83}
     ];
 
     // Render Codex table
