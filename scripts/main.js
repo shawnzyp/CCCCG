@@ -783,23 +783,22 @@ function updateFactionRep(){
     perkEl.innerHTML = '';
     const facName = FACTION_NAME_MAP[f];
     const perks = (FACTION_REP_PERKS[facName] && FACTION_REP_PERKS[facName][tierName]) || [];
-    perks.forEach((p,i)=>{
-      const text = typeof p === 'string' ? p : String(p);
+    const perk = perks[0];
+    if(perk){
+      const text = typeof perk === 'string' ? perk : String(perk);
       const lower = text.toLowerCase();
       const isAction = ACTION_HINTS.some(k=> lower.includes(k));
-      let li;
       if(isAction){
-        const id = `${f}-rep-perk-${i}`;
-        li = document.createElement('li');
-        li.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
+        const id = `${f}-rep-perk-act`;
+        perkEl.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
       }else{
-        li = document.createElement('li');
-        li.textContent = text;
+        perkEl.textContent = text;
       }
-      perkEl.appendChild(li);
-      handlePerkEffects(li, text);
-    });
-    perkEl.style.display = perks.length ? 'block' : 'none';
+      handlePerkEffects(perkEl, text);
+      perkEl.style.display = 'block';
+    }else{
+      perkEl.style.display = 'none';
+    }
   });
 }
 

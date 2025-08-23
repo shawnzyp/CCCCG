@@ -320,6 +320,7 @@ progress::-moz-progress-bar{
 .card.dragging{opacity:.5}
 .catalog{max-height:360px;overflow:auto;border:1px dashed var(--line);border-radius:10px;padding:6px}
 .perk-list{margin:0;padding-left:20px;list-style:disc}
+.perk{margin:0}
 .feature-list{margin:0 0 12px;padding-left:20px;list-style:disc}
 .catalog-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px;border-bottom:1px solid var(--line)}
 .catalog-item:last-child{border-bottom:none}
