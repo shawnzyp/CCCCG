@@ -119,6 +119,23 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;animatio
   .inline>progress,
   .inline>.bar-label{flex:none;width:100%;height:36px}
 }
+
+@media(max-width:600px){
+  .hp-field .inline{
+    flex-direction:row;
+    align-items:center;
+  }
+  .hp-field .inline>input:not([type="checkbox"]),
+  .hp-field .inline>select,
+  .hp-field .inline>textarea,
+  .hp-field .inline>button,
+  .hp-field .inline>progress,
+  .hp-field .inline>.bar-label{
+    flex:1;
+    width:auto;
+    height:36px;
+  }
+}
 progress{
   -webkit-appearance:none;
   appearance:none;
