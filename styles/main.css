@@ -344,8 +344,11 @@ progress::-moz-progress-bar{
   30%{transform:scale(1.2);opacity:1;}
   100%{transform:scale(1);opacity:0;}
 }
-.sp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;flex:1;}
+.sp-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,1fr);grid-auto-columns:1fr;gap:8px;flex:1;}
 .sp-grid .btn-sm{width:100%;}
+
+.sp-field #sp-temp{flex:0 0 60px;max-width:60px;}
+.sp-field #long-rest{flex:0 0 auto;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:12px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .3s ease-in-out}
 .card:focus-within{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
 .card.dragging{opacity:.5}
