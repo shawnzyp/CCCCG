@@ -27,6 +27,7 @@ header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-
 .menu.show{opacity:1;transform:translateY(0);visibility:visible;pointer-events:auto}
 .menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
 .menu button:hover{background:var(--accent);color:var(--text-on-accent)}
+.menu .btn-sm{justify-content:flex-start}
 @media(max-width:600px){
   .actions{justify-content:center}
   .tabs{justify-content:space-evenly}
@@ -97,7 +98,7 @@ button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2
 @keyframes spin{to{transform:rotate(360deg)}}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;animation:focusPulse .6s ease}
 @keyframes focusPulse{from{box-shadow:0 0 0 0 var(--accent)}to{box-shadow:0 0 0 6px transparent}}
-.btn-sm{min-height:36px;padding:8px 10px;border-radius:var(--radius)}
+.btn-sm{min-height:36px;padding:8px 10px;border-radius:var(--radius);font-size:clamp(.6rem,2vw,.85rem);display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .btn-sm:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn-sm:disabled{opacity:.5;cursor:not-allowed}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
