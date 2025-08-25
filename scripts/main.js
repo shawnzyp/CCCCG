@@ -1859,7 +1859,10 @@ CC.RP = (function () {
 
   function wireEvents() {
     els.btnReset.addEventListener("click", () => { endSurge("reset"); setRP(0); });
-    els.rpDots.forEach(btn => btn.addEventListener("click", () => setRP(parseInt(btn.dataset.rp, 10))));
+    els.rpDots.forEach(btn => btn.addEventListener("click", () => {
+      const v = parseInt(btn.dataset.rp, 10);
+      setRP(state.rp === v ? 0 : v);
+    }));
     els.chkSurge.addEventListener("change", e => { if (e.target.checked) triggerSurge(); else endSurge("toggle"); });
     els.btnClearAftermath.addEventListener("click", () => clearAftermath());
   }
@@ -1918,7 +1921,7 @@ CC.RP = (function () {
     els.rpValue.textContent = String(state.rp);
     els.rpDots.forEach(btn => {
       const v = parseInt(btn.dataset.rp, 10);
-      btn.setAttribute("aria-pressed", String(v <= state.rp));
+      btn.setAttribute("aria-pressed", String(v === state.rp));
     });
 
     els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
