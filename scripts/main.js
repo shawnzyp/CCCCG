@@ -490,8 +490,17 @@ function handlePerkEffects(li, text){
   let bonus = 0;
   if(/increase one ability score by 1/.test(lower)){
     const select = document.createElement('select');
+    select.id = 'enhanced-ability';
     select.innerHTML = `<option value="">Choose ability</option>` +
       ABILS.map(a=>`<option value="${a}">${a.toUpperCase()}</option>`).join('');
+    // restore saved selection without reapplying the bonus
+    try{
+      const saved = JSON.parse(localStorage.getItem(AUTO_KEY) || '{}')['enhanced-ability'];
+      if(saved && ABILS.includes(saved)){
+        select.value = saved;
+        enhancedAbility = saved;
+      }
+    }catch(e){ /* noop */ }
     select.addEventListener('change', ()=>{
       const key = select.value;
       if(enhancedAbility && enhancedAbility !== key){
