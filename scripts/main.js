@@ -610,6 +610,7 @@ const elCon = $('con');
 const elWis = $('wis');
 const elSPBar = $('sp-bar');
 const elSPPill = $('sp-pill');
+const elSPTemp = $('sp-temp');
 const elHPBar = $('hp-bar');
 const elHPPill = $('hp-pill');
 const elHPRoll = $('hp-roll');
@@ -695,7 +696,8 @@ function updateSP(){
   const spMax = 5 + mod(elCon.value);
   elSPBar.max = spMax;
   if (elSPBar.value === '' || Number.isNaN(Number(elSPBar.value))) elSPBar.value = spMax;
-  elSPPill.textContent = `${num(elSPBar.value)}/${spMax}`;
+  const temp = elSPTemp ? num(elSPTemp.value) : 0;
+  elSPPill.textContent = `${num(elSPBar.value)}/${spMax}` + (temp ? ` (+${temp})` : ``);
 }
 
 function updateHP(){
@@ -759,7 +761,7 @@ function updateDerived(){
   });
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
-['hp-temp','origin-bonus','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
+['hp-temp','sp-temp','origin-bonus','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 
@@ -843,7 +845,8 @@ async function setSP(v){
     return;
   }
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
-  elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}`;
+  const temp = elSPTemp ? num(elSPTemp.value) : 0;
+  elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}` + (temp ? ` (+${temp})` : ``);
   const diff = num(elSPBar.value) - prev;
   if(diff !== 0) {
     await playSPAnimation(diff);
@@ -879,13 +882,28 @@ $('hp-full').addEventListener('click', async ()=>{
   setHP(num(elHPBar.max));
 });
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
-qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> setSP(num(elSPBar.value) + num(b.dataset.sp)||0) ));
+
+function changeSP(delta){
+  const current = num(elSPBar.value);
+  if(delta < 0 && elSPTemp){
+    const temp = num(elSPTemp.value);
+    const use = Math.min(temp, -delta);
+    if(current + delta + use < 0){
+      alert("You don't have enough SP for that.");
+      return;
+    }
+    elSPTemp.value = temp - use || '';
+    delta += use;
+  }
+  setSP(current + delta);
+}
+qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{
   if(!confirm('Take a long rest?')) return;
   setHP(num(elHPBar.max));
   setSP(num(elSPBar.max));
   elHPTemp.value='';
-  const spTemp=$('sp-temp'); if(spTemp) spTemp.value='';
+  if (elSPTemp) elSPTemp.value='';
   // clear all checkbox states on the page
   qsa('input[type="checkbox"]').forEach(cb=>{
     cb.checked = false;
