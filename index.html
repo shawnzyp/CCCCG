@@ -151,6 +151,63 @@
       <label class="inline" for="cap-check"><input type="checkbox" id="cap-check"/> <span id="cap-status">Available</span></label>
       <p>A Cinematic Action Point lets a hero perform an extraordinary, story or role-play driven action.</p>
     </fieldset>
+    <section id="resonance-points" class="card">
+      <h3>Resonance Points (RP)</h3>
+      <p>
+        Resonance Points are awarded by the GM for truly heroic acts. At <strong>5 RP</strong>, trigger a Heroic Surge for temporary boosts.
+      </p>
+
+      <div class="rp-row">
+        <label class="rp-label" for="rp-value">Current RP</label>
+        <output id="rp-value" aria-live="polite">0</output>
+      </div>
+
+      <div class="rp-track" role="group" aria-label="Resonance Points Track">
+        <button type="button" class="rp-dot" data-rp="1" aria-pressed="false" aria-label="Set RP to 1"></button>
+        <button type="button" class="rp-dot" data-rp="2" aria-pressed="false" aria-label="Set RP to 2"></button>
+        <button type="button" class="rp-dot" data-rp="3" aria-pressed="false" aria-label="Set RP to 3"></button>
+        <button type="button" class="rp-dot" data-rp="4" aria-pressed="false" aria-label="Set RP to 4"></button>
+        <button type="button" class="rp-dot" data-rp="5" aria-pressed="false" aria-label="Set RP to 5"></button>
+      </div>
+
+      <div class="rp-controls">
+        <button type="button" id="rp-award" aria-label="Award 1 Resonance Point">+1 RP</button>
+        <button type="button" id="rp-remove" aria-label="Remove 1 Resonance Point">-1 RP</button>
+        <button type="button" id="rp-reset" aria-label="Reset Resonance Points">Reset RP</button>
+      </div>
+
+      <hr class="rp-divide">
+
+      <div class="rp-surge">
+        <div class="rp-surge-status" aria-live="polite">
+          <label class="inline" for="rp-trigger">
+            <input type="checkbox" id="rp-trigger" disabled aria-label="Activate Heroic Surge"/>
+            <strong>Heroic Surge:</strong> <span id="rp-surge-state">Inactive</span>
+          </label>
+        </div>
+
+        <details id="rp-surge-details">
+          <summary>Heroic Surge Effects</summary>
+          <ul class="rp-list">
+            <li>Roleplay checks: +2 to CHA/WIS/INT (leadership, persuasion, interpretation)</li>
+            <li>Combat: +1d4 to all attack rolls and saving throws</li>
+            <li>SP Flow: +1 SP regenerated per round</li>
+            <li>Bonus XP: grant at session end (GM)</li>
+          </ul>
+          <p class="subtext">Duration: 1 encounter or 10 minutes of narrative time</p>
+          <p class="subtext">Aftermath: first save at disadvantage; first round next combat regenerate 1 fewer SP</p>
+        </details>
+
+        <div class="rp-surge-controls">
+          <button type="button" id="rp-clear-aftermath" disabled aria-label="Clear Aftermath">Clear Aftermath</button>
+        </div>
+
+        <div class="rp-tags">
+          <span id="rp-tag-active" hidden class="tag">Surge Active</span>
+          <span id="rp-tag-aftermath" hidden class="tag warn">Aftermath Pending</span>
+        </div>
+      </div>
+    </section>
   </fieldset>
 
   <fieldset data-tab="combat" class="card">
