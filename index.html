@@ -186,16 +186,17 @@
           <label for="sp-temp" class="sr-only">Temp SP</label>
           <input id="sp-temp" type="number" inputmode="numeric" placeholder="Temp SP"/>
         </div>
-        <div class="inline">
-          <div class="sp-grid">
-            <button class="btn-sm" data-sp="-1">-1 SP</button>
-            <button class="btn-sm" data-sp="-2">-2 SP</button>
-            <button class="btn-sm" data-sp="-3">-3 SP</button>
-            <button class="btn-sm" data-sp="-4">-4 SP</button>
-            <button class="btn-sm" data-sp="-5">-5 SP</button>
-            <button id="sp-full" class="btn-sm">Reset SP</button>
-          </div>
-          <button id="long-rest" class="btn-sm">Long Rest</button>
+        <div class="sp-grid">
+          <button class="btn-sm" data-sp="-1">-1 SP</button>
+          <button class="btn-sm" data-sp="-2">-2 SP</button>
+          <button class="btn-sm" data-sp="-3">-3 SP</button>
+          <button class="btn-sm" data-sp="-4">-4 SP</button>
+          <button class="btn-sm" data-sp="-5">-5 SP</button>
+          <button id="sp-full" class="btn-sm">Reset SP</button>
+        </div>
+        <button id="long-rest" class="btn-sm">Long Rest</button>
+        <div class="cap-box">
+          <label for="cap-check"><input type="checkbox" id="cap-check"/> Cinematic Action Point <span id="cap-status">Available</span></label>
         </div>
       </fieldset>
     </div>
@@ -220,12 +221,6 @@
         <input id="tc" type="number" readonly/>
       </fieldset>
     </div>
-  </fieldset>
-
-  <fieldset data-tab="combat" class="card">
-    <legend>Cinematic Action Point</legend>
-    <label class="inline" for="cap-check"><input type="checkbox" id="cap-check"/> <span id="cap-status">Available</span></label>
-    <p>A Cinematic Action Point lets a hero perform an extraordinary, story or role-play driven action.</p>
   </fieldset>
 
   <section data-tab="combat" id="resonance-points" class="card">
