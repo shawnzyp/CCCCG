@@ -103,10 +103,19 @@ input[type="checkbox"]{\
   appearance:none;\
   flex:0 0 auto;\
   margin:0 4px 0 0;\
+  inline-size:14px;\
+  block-size:14px;\
+  border-radius:50%;\
+  border:2px solid var(--line, #bbb);\
+  background:var(--bg, #fff);\
 }
 input[type="checkbox"]:focus-visible{\
   outline:2px solid var(--accent);\
   outline-offset:2px;\
+}
+input[type="checkbox"]:checked{\
+  background:var(--accent, #222);\
+  border-color:var(--accent, #222);\
 }
 button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2);touch-action:manipulation}
 button:hover{filter:brightness(1.1);transform:translateY(-1px)}
@@ -544,16 +553,14 @@ select[required]:valid{
 .rp-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 10px; }
 .rp-label { font-weight: 600; }
 .rp-track { display: flex; justify-content: center; gap: 8px; margin: 6px 0 12px; }
-.rp-dot,
-input[type="checkbox"] {
+.rp-dot {
   inline-size: 14px;
   block-size: 14px;
   border-radius: 50%;
   border: 2px solid var(--line, #bbb);
   background: var(--bg, #fff);
 }
-.rp-dot[aria-pressed="true"],
-input[type="checkbox"]:checked {
+.rp-dot[aria-pressed="true"] {
   background: var(--accent, #222);
   border-color: var(--accent, #222);
 }
