@@ -12,6 +12,11 @@ export const proficiencyBonus = (level) => {
   const lvl = Math.max(1, num(level));
   return Math.floor((lvl - 1) / 4) + 2;
 };
+// When reverting temporary ability score increases, simply subtract the bonus
+// without enforcing a 10-point floor. Ability scores in the system may start
+// below 10, so clamping to that value would incorrectly inflate low abilities
+// when a perk is removed.
+export const revertAbilityScore = (score) => Math.max(0, num(score) - 1);
 export const wizardProgress = (i, total) => {
   const curr = Math.max(1, Math.min(num(i) + 1, num(total)));
   const max = Math.max(num(total), curr);
