@@ -331,7 +331,7 @@ qsa('[data-roll-save]').forEach(btn=>{
     const a = btn.dataset.rollSave;
     const pb = num(elProfBonus.value)||2;
     const bonus = mod($(a).value) + ($('save-'+a+'-prof').checked ? pb : 0);
-    rollWithBonus(`${a.toUpperCase()} save`, bonus, $('save-'+a+'-res'));
+    rollWithBonus(`${a.toUpperCase()} save`, bonus, $('save-'+a+'-res'), { type: 'save', ability: a.toUpperCase() });
   });
 });
 qsa('[data-roll-skill]').forEach(btn=>{
@@ -340,7 +340,14 @@ qsa('[data-roll-skill]').forEach(btn=>{
     const s = SKILLS[i];
     const pb = num(elProfBonus.value)||2;
     const bonus = mod($(s.abil).value) + ($('skill-'+i+'-prof').checked ? pb : 0);
-    rollWithBonus(`${s.name} check`, bonus, $('skill-'+i+'-res'));
+    let roleplay = false;
+    try {
+      const rpState = CC?.RP?.get?.() || {};
+      if (rpState.surgeActive && ['cha','wis','int'].includes(s.abil)) {
+        roleplay = window.confirm('Roleplay/Leadership?');
+      }
+    } catch {}
+    rollWithBonus(`${s.name} check`, bonus, $('skill-'+i+'-res'), { type: 'skill', ability: s.abil.toUpperCase(), roleplay });
   });
 });
 
@@ -1313,7 +1320,7 @@ function createCard(kind, pref = {}) {
       const abil = rangeVal ? elDex.value : elStr.value;
       const bonus = mod(abil) + pb;
       const name = qs("[data-f='name']", card)?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
-      rollWithBonus(`${name} attack roll`, bonus, out);
+      rollWithBonus(`${name} attack roll`, bonus, out, { type: 'attack' });
     });
     delWrap.appendChild(hitBtn);
     delWrap.appendChild(out);
@@ -1795,4 +1802,331 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
 }
+
+// == Resonance Points (RP) Module ============================================
+window.CC = window.CC || {};
+CC.RP = (function () {
+  // --- Internal state
+  let state = {
+    rp: 0,                    // 0..5
+    surgeActive: false,
+    surgeStartedAt: null,
+    surgeMode: "encounter",   // "encounter" | "time"
+    surgeEndsAt: null,        // ms timestamp if timed
+    aftermathPending: false,  // true when surge just ended until 1st save disadvantage is consumed
+    nextCombatRegenPenalty: false // true: apply -1 SP regen on next combat's 1st round
+  };
+
+  // --- DOM refs
+  const els = {};
+  function q(id) { return document.getElementById(id); }
+
+  function init() {
+    const root = document.getElementById("resonance-points");
+    if (!root) return;
+
+    els.rpValue = q("rp-value");
+    els.rpDots = Array.from(document.querySelectorAll("#resonance-points .rp-dot"));
+    els.btnAward = q("rp-award");
+    els.btnRemove = q("rp-remove");
+    els.btnReset = q("rp-reset");
+    els.chkSurge = q("rp-trigger");
+    els.btnClearAftermath = q("rp-clear-aftermath");
+    els.surgeState = q("rp-surge-state");
+    els.tagActive = q("rp-tag-active");
+    els.tagAfter = q("rp-tag-aftermath");
+
+    wireEvents();
+    tryLoadFromApp();
+    applyStateToUI();
+    exposeHooks();
+    installIntegrations();
+    // Optional background timer for timed surges
+    setInterval(tick, 1000 * 10); // 10s cadence is fine for coarse timers
+  }
+
+  function wireEvents() {
+    els.btnAward.addEventListener("click", () => setRP(state.rp + 1));
+    els.btnRemove.addEventListener("click", () => setRP(state.rp - 1));
+    els.btnReset.addEventListener("click", () => { endSurge("reset"); setRP(0); });
+    els.rpDots.forEach(btn => btn.addEventListener("click", () => setRP(parseInt(btn.dataset.rp, 10))));
+    els.chkSurge.addEventListener("change", e => { if (e.target.checked) triggerSurge(); else endSurge("toggle"); });
+    els.btnClearAftermath.addEventListener("click", () => clearAftermath());
+  }
+
+  // --- State transitions
+  function setRP(n) {
+    const clamped = Math.max(0, Math.min(5, n));
+    state.rp = clamped;
+    applyStateToUI();
+    save();
+    dispatch("rp:changed", { rp: state.rp });
+  }
+
+  function triggerSurge({ mode = "encounter", minutes = 10 } = {}) {
+    if (state.rp < 5 || state.surgeActive) return;
+    state.surgeActive = true;
+    state.surgeStartedAt = Date.now();
+    state.surgeMode = mode;
+    state.surgeEndsAt = mode === "time" ? (Date.now() + minutes * 60 * 1000) : null;
+    state.rp = 0; // consume
+    state.aftermathPending = false;
+    state.nextCombatRegenPenalty = false;
+    applyStateToUI();
+    save();
+    dispatch("rp:surge:start", { mode: state.surgeMode, startedAt: state.surgeStartedAt, endsAt: state.surgeEndsAt });
+  }
+
+  function endSurge(reason = "natural") {
+    if (!state.surgeActive) return;
+    state.surgeActive = false;
+    state.aftermathPending = true;           // first save at disadvantage
+    state.nextCombatRegenPenalty = true;     // first round next combat: -1 SP regen
+    state.surgeEndsAt = null;
+    state.surgeStartedAt = null;
+    applyStateToUI();
+    save();
+    dispatch("rp:surge:end", { reason });
+  }
+
+  function clearAftermath() {
+    state.aftermathPending = false;
+    applyStateToUI();
+    save();
+    dispatch("rp:aftermath:cleared", {});
+  }
+
+  function tick(now = Date.now()) {
+    if (state.surgeActive && state.surgeMode === "time" && state.surgeEndsAt && now >= state.surgeEndsAt) {
+      endSurge("timer");
+    }
+  }
+
+  // --- UI sync
+  function applyStateToUI() {
+    if (!els.rpValue) return;
+    els.rpValue.textContent = String(state.rp);
+    els.rpDots.forEach(btn => {
+      const v = parseInt(btn.dataset.rp, 10);
+      btn.setAttribute("aria-pressed", String(v <= state.rp));
+    });
+
+    els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
+    els.chkSurge.checked = state.surgeActive;
+    els.chkSurge.disabled = state.rp < 5 && !state.surgeActive;
+    els.btnClearAftermath.disabled = !state.aftermathPending;
+
+    els.tagActive.hidden = !state.surgeActive;
+    els.tagAfter.hidden = !state.aftermathPending;
+  }
+
+  // --- Persistence
+  function serialize() {
+    return {
+      resonancePoints: state.rp,
+      resonanceSurge: {
+        active: state.surgeActive,
+        startedAt: state.surgeStartedAt,
+        mode: state.surgeMode,
+        endsAt: state.surgeEndsAt,
+        aftermathPending: state.aftermathPending
+      },
+      resonanceNextCombatRegenPenalty: state.nextCombatRegenPenalty
+    };
+  }
+  function deserialize(data) {
+    if (!data) return;
+    const s = data.resonanceSurge || {};
+    state.rp = Number.isFinite(data.resonancePoints) ? data.resonancePoints : 0;
+    state.surgeActive = !!s.active;
+    state.surgeStartedAt = s.startedAt || null;
+    state.surgeMode = s.mode || "encounter";
+    state.surgeEndsAt = s.endsAt || null;
+    state.aftermathPending = !!s.aftermathPending;
+    state.nextCombatRegenPenalty = !!data.resonanceNextCombatRegenPenalty;
+  }
+  function save() {
+    if (window.CC && typeof CC.savePartial === "function") {
+      CC.savePartial("resonance", serialize());
+    } else {
+      localStorage.setItem("cc_resonance", JSON.stringify(serialize()));
+    }
+  }
+  function tryLoadFromApp() {
+    if (window.CC && typeof CC.loadPartial === "function") {
+      const data = CC.loadPartial("resonance");
+      if (data) deserialize(data);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem("cc_resonance");
+      if (raw) deserialize(JSON.parse(raw));
+    } catch {}
+  }
+
+  // --- Events
+  function dispatch(name, detail) {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  }
+
+  // --- Public API (for GM buttons/macros, etc.)
+  function exposeHooks() {
+    CC.RP.get = () => ({ ...state });
+    CC.RP.setRP = setRP;
+    CC.RP.trigger = triggerSurge;
+    CC.RP.end = endSurge;
+    CC.RP.clearAftermath = clearAftermath;
+    CC.RP.tick = tick;
+  }
+
+  // --- Integrations (rolls, saves, checks, SP regen)
+  function installIntegrations() {
+    // 1) Attack rolls
+    if (CC.rollAttack && !CC.rollAttack.__rpWrapped) {
+      const base = CC.rollAttack.bind(CC);
+      CC.rollAttack = function (opts = {}) {
+        const res = base(opts);
+        try {
+          if (state.surgeActive && res && typeof res.total === "number") {
+            const bonus = d4();
+            res.total += bonus;
+            if (res.breakdown) res.breakdown.push(`+ RP Surge: +${bonus}`);
+          }
+        } catch {}
+        return res;
+      };
+      CC.rollAttack.__rpWrapped = true;
+    }
+
+    // 2) Generic roll wrapper (if app uses a single entry point)
+    if (CC.roll && !CC.roll.__rpWrapped) {
+      const base = CC.roll.bind(CC);
+      CC.roll = function (opts = {}) {
+        const out = base(opts);
+        try {
+          // Apply +1d4 to attacks/saves during surge
+          if (state.surgeActive && out && typeof out.total === "number") {
+            const isAttack = opts?.type === "attack";
+            const isSave = opts?.type === "save";
+            if (isAttack || isSave) {
+              const bonus = d4();
+              out.total += bonus;
+              out.breakdown = out.breakdown || [];
+              out.breakdown.push(`+ RP Surge: +${bonus}`);
+            }
+          }
+          // Aftermath: first save at disadvantage
+          if (!state.surgeActive && state.aftermathPending && opts?.type === "save") {
+            if (out && Array.isArray(out.rolls) && out.rolls.length >= 2) {
+              // assume out.total used highest; recompute with disadvantage (take lowest)
+              const low = Math.min(...out.rolls);
+              const mod = (out.modifier || 0);
+              out.total = low + mod;
+              out.breakdown = out.breakdown || [];
+              out.breakdown.push(`Aftermath (disadvantage on first save)`);
+            }
+            clearAftermath(); // consume one-time penalty
+          }
+          // Roleplay checks +2 (CHA/WIS/INT only) if flagged
+          if (state.surgeActive && opts?.type === "skill" && opts?.roleplay === true) {
+            const abil = (opts?.ability || "").toUpperCase();
+            if (abil === "CHA" || abil === "WIS" || abil === "INT") {
+              out.total += 2;
+              out.breakdown = out.breakdown || [];
+              out.breakdown.push(`+ RP Surge (roleplay +2)`);
+            }
+          }
+        } catch {}
+        return out;
+      };
+      CC.roll.__rpWrapped = true;
+    }
+
+    // 3) Generic rollWithBonus wrapper used across the app
+    if (typeof rollWithBonus === "function" && !rollWithBonus.__rpWrapped) {
+      const base = rollWithBonus;
+      rollWithBonus = function (name, bonus, out, opts = {}) {
+        const type = opts.type || "";
+        const ability = (opts.ability || "").toUpperCase();
+        const roleplay = !!opts.roleplay;
+
+        // Aftermath penalty: first save at disadvantage
+        if (!state.surgeActive && state.aftermathPending && type === "save") {
+          const r1 = 1 + Math.floor(Math.random() * 20);
+          const r2 = 1 + Math.floor(Math.random() * 20);
+          const roll = Math.min(r1, r2);
+          const total = roll + bonus;
+          if (out) out.textContent = total;
+          pushLog(diceLog, { t: Date.now(), text: `${name}: ${r1}/${r2}${bonus>=0?'+':''}${bonus} = ${total} (Aftermath disadvantage)` }, 'dice-log');
+          renderLogs();
+          renderFullLogs();
+          clearAftermath();
+          return total;
+        }
+
+        let extra = 0;
+        let breakdown = [];
+
+        if (state.surgeActive && (type === "attack" || type === "save")) {
+          const b = d4();
+          extra += b;
+          breakdown.push(`+ RP Surge: +${b}`);
+        }
+
+        if (state.surgeActive && type === "skill" && roleplay && ["CHA","WIS","INT"].includes(ability)) {
+          extra += 2;
+          breakdown.push(`+ RP Surge: +2`);
+        }
+
+        const total = base(name, bonus + extra, out);
+        if (breakdown.length) {
+          try {
+            const last = diceLog[diceLog.length - 1];
+            last.text += ' ' + breakdown.join(' ');
+            renderLogs();
+            renderFullLogs();
+          } catch {}
+        }
+        return total;
+      };
+      rollWithBonus.__rpWrapped = true;
+    }
+
+    // 4) SP regeneration integration
+    if (CC.SP && typeof CC.SP.getRegenBase === "function" && !CC.SP.getRegenBase.__rpWrapped) {
+      const base = CC.SP.getRegenBase.bind(CC.SP);
+      CC.SP.getRegenBase = function (...args) {
+        let regen = base(...args);
+        try {
+          if (state.surgeActive) regen += 1;
+          if (!state.surgeActive && state.nextCombatRegenPenalty && CC.Combat?.isFirstRound?.()) {
+            regen = Math.max(0, regen - 1);
+            state.nextCombatRegenPenalty = false; // consume
+            save();
+          }
+        } catch {}
+        return regen;
+      };
+      CC.SP.getRegenBase.__rpWrapped = true;
+    }
+
+    // Optional: mark encounter end to end surge automatically
+    if (CC.Combat && typeof CC.Combat.onEnd === "function" && !CC.Combat.onEnd.__rpHook) {
+      CC.Combat.onEnd(() => {
+        if (state.surgeActive) endSurge("encounter-end");
+      });
+      CC.Combat.onStart?.(() => {
+        // noop; nextCombatRegenPenalty handled in SP regen hook via isFirstRound()
+      });
+      CC.Combat.onEnd.__rpHook = true;
+    }
+  }
+
+  // --- dice helper
+  function d4() { return 1 + Math.floor(Math.random() * 4); }
+
+  // Boot
+  document.addEventListener("DOMContentLoaded", init);
+  return {};
+})();
 
