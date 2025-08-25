@@ -212,6 +212,8 @@
         <input id="pp" type="number" readonly/>
         <label for="tc">TC</label>
         <input id="tc" type="number" readonly/>
+        <h3>Status Effects</h3>
+        <div id="statuses" class="grid grid-2"></div>
       </fieldset>
 
       <fieldset id="resonance-points" class="card">
@@ -243,8 +245,8 @@
             </label>
           </div>
 
-          <details id="rp-surge-details">
-            <summary>Heroic Surge Effects</summary>
+          <div id="rp-surge-details">
+            <h3>Heroic Surge Effects</h3>
             <ul class="rp-list">
               <li>Roleplay checks: +2 to CHA/WIS/INT (leadership, persuasion, interpretation)</li>
               <li>Combat: +1d4 to all attack rolls and saving throws</li>
@@ -253,7 +255,7 @@
             </ul>
             <p class="subtext">Duration: 1 encounter or 10 minutes of narrative time</p>
             <p class="subtext">Aftermath: first save at disadvantage; first round next combat regenerate 1 fewer SP</p>
-          </details>
+          </div>
 
           <div class="rp-surge-controls">
             <button type="button" id="rp-reset" aria-label="Reset Resonance Points">Reset RP</button>
@@ -267,11 +269,6 @@
         </div>
       </fieldset>
     </div>
-  </fieldset>
-
-  <fieldset data-tab="combat" class="card">
-    <h2 class="card-title">Status Effects</h2>
-    <div id="statuses" class="grid grid-2"></div>
   </fieldset>
 
   <!-- ABILITIES -->

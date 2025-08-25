@@ -83,7 +83,7 @@ footer p{max-width:none}
 .grid-3{grid-template-columns:1fr}
 @media(min-width:600px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:900px){.grid-3{grid-template-columns:repeat(3,1fr)}}
-#statuses{grid-template-columns:repeat(2,1fr)}
+#statuses{grid-template-columns:repeat(2,1fr);margin-top:8px}
 label{display:block;font-weight:700;margin-bottom:6px}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:auto;max-width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
 input:not([type="checkbox"]),select,textarea{width:100%}
@@ -567,6 +567,7 @@ select[required]:valid{
 .rp-surge-controls { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin: 10px 0; }
 .rp-divide { margin: 12px 0; }
 .rp-surge-status { margin: 6px 0 8px; }
+#rp-surge-details { margin: 6px 0 8px; }
 .rp-list { margin: 6px 0; padding-left: 18px; }
 .rp-tags { display: flex; gap: 8px; margin-top: 8px; }
 .tag { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; background: #e9f5ff; color: #0a5; border: 1px solid #bfe6ff; }
