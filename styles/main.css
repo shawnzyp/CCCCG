@@ -103,8 +103,8 @@ input[type="checkbox"]{
   appearance:none;
   flex:0 0 auto;
   margin:0 4px 0 0;
-  width:10px;
-  height:10px;
+  width:15px;
+  height:15px;
   border-radius:50%;
   border:1.5px solid var(--line, #bbb);
   background:var(--bg, #fff);
