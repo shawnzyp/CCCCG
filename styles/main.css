@@ -392,7 +392,8 @@ progress::-moz-progress-bar{
 .small{font-size:.9rem;color:var(--muted)}
 .overlay{position:fixed;top:0;left:0;right:0;height:calc(var(--vh,1vh)*100);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);z-index:1000;padding:16px 16px calc(16px + env(safe-area-inset-bottom));opacity:1;pointer-events:auto;transition:opacity .3s ease-in-out;will-change:opacity}
 .overlay.hidden{opacity:0;pointer-events:none}
-.modal{background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius);max-width:720px;width:100%;padding:16px;box-shadow:var(--shadow);position:relative;max-height:calc(var(--vh,1vh)*100 - 32px - env(safe-area-inset-bottom));overflow:auto;transform:scale(1);opacity:1;transition:transform .3s ease-in-out,opacity .3s ease-in-out;will-change:transform,opacity}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);max-width:720px;width:100%;padding:16px;box-shadow:var(--shadow);position:relative;max-height:calc(var(--vh,1vh)*100 - 32px - env(safe-area-inset-bottom));overflow:auto;transform:scale(1);opacity:1;transition:transform .3s ease-in-out,opacity .3s ease-in-out;will-change:transform,opacity}
+.modal:focus{outline:none}
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
 body.modal-open{overflow:hidden}
 body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
