@@ -591,7 +591,6 @@ function setupPerkSelect(selId, perkId, data){
     if(selId==='power-style') powerStyleTCBonus = tcBonus;
     if(selId==='origin') originTCBonus = tcBonus;
     if(selId==='power-style' || selId==='origin'){
-      elOriginBonus.value = String(powerStyleTCBonus + originTCBonus);
       updateDerived();
     }
   }
@@ -602,8 +601,6 @@ function setupPerkSelect(selId, perkId, data){
 /* ========= cached elements ========= */
 const elPP = $('pp');
 const elTC = $('tc');
-const elArmorBonus = $('armor-bonus');
-const elOriginBonus = $('origin-bonus');
 const elStr = $('str');
 const elDex = $('dex');
 const elCon = $('con');
@@ -740,8 +737,7 @@ function updateDerived(){
   const pb = PROF_BONUS_TIERS[currentTierIdx] || 2;
   elPP.value = 10 + mod(elWis.value);
   const armorAuto = calculateArmorBonus();
-  elArmorBonus.value = armorAuto;
-  elTC.value = 10 + mod(elDex.value) + armorAuto + num(elOriginBonus.value||0);
+  elTC.value = 10 + mod(elDex.value) + armorAuto + powerStyleTCBonus + originTCBonus;
   updateSP();
   updateHP();
   const initiative = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
@@ -761,7 +757,7 @@ function updateDerived(){
   });
 }
 ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
-['hp-temp','sp-temp','origin-bonus','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
+['hp-temp','sp-temp','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 
