@@ -1827,8 +1827,6 @@ CC.RP = (function () {
 
     els.rpValue = q("rp-value");
     els.rpDots = Array.from(document.querySelectorAll("#resonance-points .rp-dot"));
-    els.btnAward = q("rp-award");
-    els.btnRemove = q("rp-remove");
     els.btnReset = q("rp-reset");
     els.chkSurge = q("rp-trigger");
     els.btnClearAftermath = q("rp-clear-aftermath");
@@ -1846,8 +1844,6 @@ CC.RP = (function () {
   }
 
   function wireEvents() {
-    els.btnAward.addEventListener("click", () => setRP(state.rp + 1));
-    els.btnRemove.addEventListener("click", () => setRP(state.rp - 1));
     els.btnReset.addEventListener("click", () => { endSurge("reset"); setRP(0); });
     els.rpDots.forEach(btn => btn.addEventListener("click", () => setRP(parseInt(btn.dataset.rp, 10))));
     els.chkSurge.addEventListener("change", e => { if (e.target.checked) triggerSurge(); else endSurge("toggle"); });

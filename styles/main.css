@@ -523,17 +523,14 @@ select[required]:valid{
 #resonance-points .subtext { font-size: 0.9rem; opacity: 0.85; }
 .rp-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 10px; }
 .rp-label { font-weight: 600; }
-.rp-track { display: flex; gap: 8px; margin: 6px 0 12px; }
-.rp-dot { inline-size: 28px; block-size: 28px; border-radius: 50%; border: 2px solid var(--line, #bbb); background: var(--bg, #fff); }
+.rp-track { display: flex; justify-content: center; gap: 8px; margin: 6px 0 12px; }
+.rp-dot { inline-size: 14px; block-size: 14px; border-radius: 50%; border: 2px solid var(--line, #bbb); background: var(--bg, #fff); }
 .rp-dot[aria-pressed="true"] { background: var(--accent, #222); border-color: var(--accent, #222); }
-.rp-controls, .rp-surge-controls { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin: 10px 0; }
+.rp-surge-controls { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin: 10px 0; }
 .rp-divide { margin: 12px 0; }
 .rp-surge-status { margin: 6px 0 8px; }
 .rp-list { margin: 6px 0; padding-left: 18px; }
 .rp-tags { display: flex; gap: 8px; margin-top: 8px; }
 .tag { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; background: #e9f5ff; color: #0a5; border: 1px solid #bfe6ff; }
 .tag.warn { background: #fff5e5; color: #a65; border-color: #ffd9a1; }
-@media (max-width: 480px) {
-  .rp-controls, .rp-surge-controls { grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
 
