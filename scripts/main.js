@@ -1,5 +1,5 @@
 /* ========= helpers ========= */
-import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress } from './helpers.js';
+import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress, revertAbilityScore } from './helpers.js';
 import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
 import { show, hide } from './modal.js';
@@ -497,7 +497,7 @@ function handlePerkEffects(li, text){
       if(enhancedAbility && enhancedAbility !== key){
         const elPrev = $(enhancedAbility);
         if(elPrev){
-          const reverted = Math.max(10, Number(elPrev.value) - 1);
+          const reverted = revertAbilityScore(elPrev.value);
           elPrev.value = String(reverted);
           elPrev.dispatchEvent(new Event('change', { bubbles: true }));
         }
@@ -552,7 +552,7 @@ function setupPerkSelect(selId, perkId, data){
     if(selId==='classification' && enhancedAbility){
       const elPrev = $(enhancedAbility);
       if(elPrev){
-        const reverted = Math.max(10, Number(elPrev.value) - 1);
+        const reverted = revertAbilityScore(elPrev.value);
         elPrev.value = String(reverted);
         elPrev.dispatchEvent(new Event('change', { bubbles: true }));
       }
