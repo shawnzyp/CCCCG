@@ -548,7 +548,6 @@ select[required]:valid{
 .wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
 #wizard-progress{flex:1;text-align:center}
 
-#resonance-points.card { padding: 12px; border: 1px solid var(--line, #ddd); border-radius: 8px; }
 #resonance-points .subtext { font-size: 0.9rem; opacity: 0.85; }
 .rp-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 10px; }
 .rp-label { font-weight: 600; }
