@@ -19,7 +19,7 @@ const enableAnimations = () => { animationsEnabled = true; };
 // interaction.
 document.addEventListener('click', enableAnimations, { once: true, capture: true });
 document.addEventListener('keydown', enableAnimations, { once: true, capture: true });
-document.addEventListener('touchstart', enableAnimations, { once: true, capture: true });
+// Avoid using 'touchstart' so pull-to-refresh on iOS doesn't enable animations
 
 /* ========= viewport ========= */
 function setVh(){
