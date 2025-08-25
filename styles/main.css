@@ -103,10 +103,10 @@ input[type="checkbox"]{\
   appearance:none;\
   flex:0 0 auto;\
   margin:0 4px 0 0;\
-  inline-size:14px;\
-  block-size:14px;\
+  inline-size:10.5px;\
+  block-size:10.5px;\
   border-radius:50%;\
-  border:2px solid var(--line, #bbb);\
+  border:1.5px solid var(--line, #bbb);\
   background:var(--bg, #fff);\
 }
 input[type="checkbox"]:focus-visible{\
@@ -554,10 +554,10 @@ select[required]:valid{
 .rp-label { font-weight: 600; }
 .rp-track { display: flex; justify-content: center; gap: 8px; margin: 6px 0 12px; }
 .rp-dot {
-  inline-size: 14px;
-  block-size: 14px;
+  inline-size: 10.5px;
+  block-size: 10.5px;
   border-radius: 50%;
-  border: 2px solid var(--line, #bbb);
+  border: 1.5px solid var(--line, #bbb);
   background: var(--bg, #fff);
 }
 .rp-dot[aria-pressed="true"] {
