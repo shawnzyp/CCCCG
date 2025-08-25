@@ -203,7 +203,7 @@
 
     <div class="grid grid-2">
       <fieldset class="card">
-        <legend>Battle Stats</legend>
+        <legend>Stats and Effects</legend>
         <label for="initiative">Initiative Bonus</label>
         <input id="initiative" type="text" inputmode="numeric" placeholder="auto from DEX + bonuses" readonly/>
         <label for="speed">Speed (ft)</label>
@@ -212,8 +212,10 @@
         <input id="pp" type="number" readonly/>
         <label for="tc">TC</label>
         <input id="tc" type="number" readonly/>
-        <h3>Status Effects</h3>
-        <div id="statuses" class="grid grid-2"></div>
+        <div class="status-effects">
+          <h3>Status Effects</h3>
+          <div id="statuses" class="grid grid-2"></div>
+        </div>
       </fieldset>
 
       <fieldset id="resonance-points" class="card">
