@@ -18,7 +18,7 @@ const ASSETS = [
   './images/Magic User.PNG',
   './images/Alien:Extraterrestrial.PNG',
   './images/Mystical Being.PNG',
-  './images/Logo.png'
+  './images/LOGO.PNG'
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();
