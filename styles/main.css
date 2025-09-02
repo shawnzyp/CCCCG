@@ -52,7 +52,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .tabs{display:flex;align-items:center;flex-wrap:wrap;gap:calc(4px * 1.15);width:100%;justify-content:space-evenly;transition:opacity .4s ease,transform .4s ease}
 .tabs-title{
   padding:0 8px;
-  font-size:clamp(.709rem,3.78vw,.945rem);
+  font-size:clamp(1.5rem,4vw,2.25rem);
   white-space:nowrap;
   color:var(--accent);
   font-weight:700;
