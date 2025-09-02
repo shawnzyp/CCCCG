@@ -22,7 +22,7 @@ h3{font-size:1.25rem;font-weight:600}
 header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(4px * 1.15 + env(safe-area-inset-top)) calc(10px * 1.15) calc(4px * 1.15);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:calc(6px * 1.15)}
 header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-10px * 1.15))}
 .actions{display:flex;gap:calc(6px * 1.15);flex-wrap:wrap}
-.dropdown{position:relative;display:flex;align-items:center}
+.dropdown{position:relative;display:flex;align-items:center;margin-left:auto}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-10px);visibility:hidden;transition:opacity .3s ease,transform .3s ease;pointer-events:none}
 .menu.show{opacity:1;transform:translateY(0);visibility:visible;pointer-events:auto}
 .menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
@@ -32,7 +32,7 @@ header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-
   .actions{justify-content:center}
 }
 .icon,.tab{padding:calc(2px * 1.15);height:calc(23px * 1.15);min-height:calc(27px * 1.15);border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition);cursor:pointer;touch-action:manipulation}
-.icon{width:calc(23px * 1.15 * 3)}
+.icon{width:calc(23px * 1.15 * 1.8)}
 .tab{width:calc(23px * 1.15 * 1.8)}
 .icon svg,.tab svg{width:calc(23px * 1.15);height:calc(23px * 1.15)}
 .modal .x svg{width:20px;height:20px}
@@ -48,7 +48,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 [data-tip]{position:relative;cursor:help}
 [data-tip]:hover::after,[data-tip]:focus::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface-2);color:var(--text);padding:4px 8px;border-radius:var(--radius);box-shadow:var(--shadow);white-space:nowrap;font-size:.75rem;z-index:1500}
 .breadcrumb,.breadcrumbs{display:none}
-.top{display:flex;align-items:center;gap:calc(6px * 1.15)}
+.top{display:flex;align-items:center;gap:calc(6px * 1.15);position:relative}
 .tabs{display:flex;align-items:center;flex-wrap:wrap;gap:calc(4px * 1.15);width:100%;justify-content:space-evenly;transition:opacity .4s ease,transform .4s ease}
 .tabs-title{
   padding:0 8px;
@@ -56,12 +56,15 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   white-space:nowrap;
   color:var(--accent);
   font-weight:700;
-  flex:1;
   text-align:center;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:8px;
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
 }
 
 .tabs-title .logo{
