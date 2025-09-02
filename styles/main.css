@@ -31,7 +31,7 @@ header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-
 @media(max-width:600px){
   .actions{justify-content:center}
 }
-.icon,.tab{padding:calc(2px * 1.15);width:calc(23px * 1.15);height:calc(23px * 1.15);min-height:calc(27px * 1.15);aspect-ratio:1/1;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition);cursor:pointer;touch-action:manipulation}
+.icon,.tab{padding:calc(2px * 1.15);width:calc(23px * 1.15 * 3);height:calc(23px * 1.15);min-height:calc(27px * 1.15);border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition);cursor:pointer;touch-action:manipulation}
 .icon svg,.tab svg{width:calc(23px * 1.15);height:calc(23px * 1.15)}
 .modal .x svg{width:20px;height:20px}
 .icon svg{transition:transform .3s ease}
