@@ -1,4 +1,4 @@
-const CACHE = 'cccg-cache-v7';
+const CACHE = 'cccg-cache-v8';
 const ASSETS = [
   './',
   './index.html',
