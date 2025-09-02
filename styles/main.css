@@ -19,7 +19,7 @@ h1,h2,h3,h4{font-family:inherit;line-height:1.25;margin:0 0 .5em}
 h1{font-size:2rem;font-weight:700;color:var(--accent)}
 h2{font-size:1.5rem;font-weight:600;color:var(--accent)}
 h3{font-size:1.25rem;font-weight:600}
-header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(4px * 1.15 + env(safe-area-inset-top)) calc(10px * 1.15) calc(4px * 1.15);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;justify-content:flex-end}
+header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(4px * 1.15 + env(safe-area-inset-top)) calc(10px * 1.15) calc(4px * 1.15);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:calc(6px * 1.15)}
 header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-10px * 1.15))}
 .actions{display:flex;gap:calc(6px * 1.15);flex-wrap:wrap}
 .dropdown{position:relative;display:flex;align-items:center}
@@ -30,7 +30,6 @@ header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-
 .menu .btn-sm{justify-content:flex-start}
 @media(max-width:600px){
   .actions{justify-content:center}
-  .tabs{justify-content:space-evenly}
 }
 .icon,.tab{padding:calc(2px * 1.15);width:calc(23px * 1.15);height:calc(23px * 1.15);min-height:calc(27px * 1.15);aspect-ratio:1/1;border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition);cursor:pointer;touch-action:manipulation}
 .icon svg,.tab svg{width:calc(23px * 1.15);height:calc(23px * 1.15)}
@@ -47,8 +46,8 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 [data-tip]{position:relative;cursor:help}
 [data-tip]:hover::after,[data-tip]:focus::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface-2);color:var(--text);padding:4px 8px;border-radius:var(--radius);box-shadow:var(--shadow);white-space:nowrap;font-size:.75rem;z-index:1500}
 .breadcrumb,.breadcrumbs{display:none}
-.tabs{display:flex;align-items:center;flex-wrap:wrap;gap:calc(6px * 1.15);width:100%;transition:opacity .4s ease,transform .4s ease}
-.tabs .dropdown{margin-left:auto}
+.top{display:flex;align-items:center;gap:calc(6px * 1.15)}
+.tabs{display:flex;align-items:center;flex-wrap:wrap;gap:calc(6px * 1.15);width:100%;justify-content:space-evenly;transition:opacity .4s ease,transform .4s ease}
 .tabs-title{
   padding:0 8px;
   font-size:clamp(.709rem,3.78vw,.945rem);
