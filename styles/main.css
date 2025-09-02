@@ -63,7 +63,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 }
 
 .tabs-title .logo{
-  height:16px;
+  height:32px;
   width:auto;
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
