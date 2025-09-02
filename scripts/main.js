@@ -14,11 +14,20 @@ let dmPlayer = null;
 // from firing on initial page load, keep them locked until a user interaction
 // (click or keydown) occurs.
 let animationsEnabled = false;
-const enableAnimations = () => { animationsEnabled = true; };
-// Use capture so the lock is released before other handlers run on the first
-// interaction.
-document.addEventListener('click', enableAnimations, { once: true, capture: true });
-document.addEventListener('keydown', enableAnimations, { once: true, capture: true });
+function enableAnimations(e){
+  if(animationsEnabled) return;
+  if(e.type==='click'){
+    const interactive=e.target.closest('button, a, input, select, textarea, [role="button"], [data-act]');
+    if(!interactive) return;
+  }
+  animationsEnabled=true;
+  document.removeEventListener('click', enableAnimations, true);
+  document.removeEventListener('keydown', enableAnimations, true);
+}
+// Use capture so the lock is evaluated before other handlers. Do not use `once`
+// so clicks from pull-to-refresh are ignored until a real interaction occurs.
+document.addEventListener('click', enableAnimations, true);
+document.addEventListener('keydown', enableAnimations, true);
 // Avoid using 'touchstart' so pull-to-refresh on iOS doesn't enable animations
 
 /* ========= viewport ========= */
