@@ -212,6 +212,12 @@ if (typeof document !== 'undefined') {
     updateDMButton();
     updateDMLoginControls();
 
+    window.addEventListener('playerChanged', () => {
+      updatePlayerButton();
+      updateDMButton();
+      updateDMLoginControls();
+    });
+
     const regBtn = $('register-player');
     if (regBtn) {
       regBtn.addEventListener('click', () => {
@@ -333,6 +339,11 @@ if (typeof document !== 'undefined') {
             modalDMLogin.classList.add('hidden');
             modalDMLogin.setAttribute('aria-hidden','true');
           }
+          try {
+            window.location.reload();
+          } catch (e) {
+            // Ignore reload errors (e.g., during tests)
+          }
         } else {
           toast('Invalid credentials','error');
         }
@@ -349,6 +360,11 @@ if (typeof document !== 'undefined') {
         if (modalDMLogin) {
           modalDMLogin.classList.add('hidden');
           modalDMLogin.setAttribute('aria-hidden','true');
+        }
+        try {
+          window.location.reload();
+        } catch (e) {
+          // Ignore reload errors (e.g., during tests)
         }
       });
     }
