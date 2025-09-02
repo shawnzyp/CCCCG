@@ -20,7 +20,7 @@
 
 
 <header>
-  <nav class="tabs" role="tablist" aria-label="Primary">
+  <div class="top">
     <button id="btn-theme" class="icon" aria-label="Toggle Theme" type="button">
       <svg id="icon-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/>
@@ -58,6 +58,27 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
       </svg>
     </button>
+      <span class="tabs-title"><img src="images/Logo.png" alt="Catalyst Core logo" class="logo"/>Catalyst Core</span>
+    <div class="dropdown">
+      <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
+        </svg>
+      </button>
+      <div id="menu-actions" class="menu" hidden>
+        <button id="btn-player" class="btn-sm">Log In</button>
+        <button id="btn-save" class="btn-sm">Save</button>
+        <button id="btn-wizard" class="btn-sm" aria-label="Character creation wizard" title="Character creation wizard">Character wizard</button>
+        <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
+        <button id="btn-log" class="btn-sm">Roll/Flip Log</button>
+        <button id="btn-campaign" class="btn-sm">Campaign Log</button>
+        <button id="btn-rules" class="btn-sm">Rules</button>
+        <button id="btn-help" class="btn-sm">Help</button>
+        <button id="btn-dm" class="btn-sm" hidden>Players</button>
+      </div>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Primary">
     <button class="tab active" data-go="combat" aria-label="Combat" title="Combat" role="tab" aria-current="page" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <polyline stroke-linecap="round" stroke-linejoin="round" points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/>
@@ -88,25 +109,6 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.04168C10.4077 4.61656 8.30506 3.75 6 3.75C4.94809 3.75 3.93834 3.93046 3 4.26212V18.5121C3.93834 18.1805 4.94809 18 6 18C8.30506 18 10.4077 18.8666 12 20.2917M12 6.04168C13.5923 4.61656 15.6949 3.75 18 3.75C19.0519 3.75 20.0617 3.93046 21 4.26212V18.5121C20.0617 18.1805 19.0519 18 18 18C15.6949 18 13.5923 18.8666 12 20.2917M12 6.04168V20.2917"/>
       </svg>
     </button>
-      <span class="tabs-title"><img src="images/Logo.png" alt="Catalyst Core logo" class="logo"/>Catalyst Core</span>
-    <div class="dropdown">
-      <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
-        </svg>
-      </button>
-      <div id="menu-actions" class="menu" hidden>
-        <button id="btn-player" class="btn-sm">Log In</button>
-        <button id="btn-save" class="btn-sm">Save</button>
-        <button id="btn-wizard" class="btn-sm" aria-label="Character creation wizard" title="Character creation wizard">Character wizard</button>
-        <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
-        <button id="btn-log" class="btn-sm">Roll/Flip Log</button>
-        <button id="btn-campaign" class="btn-sm">Campaign Log</button>
-        <button id="btn-rules" class="btn-sm">Rules</button>
-        <button id="btn-help" class="btn-sm">Help</button>
-        <button id="btn-dm" class="btn-sm" hidden>Players</button>
-      </div>
-    </div>
   </nav>
 </header>
 
