@@ -57,15 +57,6 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   font-weight:700;
   flex:1;
   text-align:center;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-}
-
-.tabs-title .logo{
-  height:24px;
-  width:auto;
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 main{max-width:65ch;margin:16px auto;padding:0 12px calc(16px + env(safe-area-inset-bottom))}
