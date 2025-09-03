@@ -1,4 +1,6 @@
-const CACHE = 'cccg-cache-v9';
+// Bump cache version whenever the pre-cached asset list changes so clients
+// pick up the latest files on next load.
+const CACHE = 'cccg-cache-v10';
 const ASSETS = [
   './',
   './index.html',
@@ -6,6 +8,11 @@ const ASSETS = [
   './scripts/main.js',
   './scripts/helpers.js',
   './scripts/storage.js',
+  // Additional scripts required for offline operation
+  './scripts/users.js',
+  './scripts/modal.js',
+  './scripts/firebase-config.js',
+  './scripts/firebase-init.js',
   './ccccg.pdf',
   // background and other images
   './images/Dark.PNG',
@@ -32,7 +39,36 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const { request } = e;
-  if (request.method !== 'GET' || new URL(request.url).origin !== location.origin) return;
+  if (request.method !== 'GET') return;
+
+  const notifyClient = () => {
+    if (e.clientId) {
+      self.clients.get(e.clientId).then(client => {
+        if (client) client.postMessage('cacheCloudSaves');
+      });
+    }
+  };
+
+  if (request.mode === 'navigate') {
+    e.respondWith(
+      fetch(request)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE).then(cache => cache.put(request, copy));
+          notifyClient();
+          return res;
+        })
+        .catch(() =>
+          caches.match(request).then(res => {
+            notifyClient();
+            return res;
+          })
+        )
+    );
+    return;
+  }
+
+  if (new URL(request.url).origin !== location.origin) return;
   e.respondWith(
     fetch(request)
       .then(res => {

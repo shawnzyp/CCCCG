@@ -2,6 +2,14 @@ import { saveLocal, loadLocal, loadCloud, saveCloud, listCloudSaves, listLocalSa
 import { $ } from './helpers.js';
 import { show as showModal, hide as hideModal } from './modal.js';
 
+if (typeof navigator !== 'undefined' && navigator.serviceWorker?.addEventListener) {
+  navigator.serviceWorker.addEventListener('message', evt => {
+    if (evt.data === 'cacheCloudSaves') {
+      cacheCloudSaves().catch(e => console.error('Failed to cache cloud saves', e));
+    }
+  });
+}
+
 const PLAYERS_KEY = 'players';
 const PLAYER_SESSION = 'player-session';
 const DM_SESSION = 'dm-session';
