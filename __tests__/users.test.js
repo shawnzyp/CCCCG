@@ -102,7 +102,8 @@ describe('user management', () => {
     });
     expect(await loginPlayer('Zara', 'pw')).toBe(true);
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('user%3AZara.json')
+      expect.stringContaining('user%3AZara.json'),
+      expect.objectContaining({ method: 'GET' })
     );
     delete global.fetch;
   });
