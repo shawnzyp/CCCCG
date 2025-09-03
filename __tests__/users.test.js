@@ -20,6 +20,10 @@ describe('user management', () => {
     localStorage.clear();
   });
 
+  afterEach(() => {
+    delete global.fetch;
+  });
+
     test('registers players and lists them alphabetically', () => {
       // Register out of order to ensure getPlayers sorts names
       expect(registerPlayer('Bob', 'b', 'pet?', 'dog')).toBe(true);
@@ -102,6 +106,15 @@ describe('user management', () => {
   test('lists characters from cloud regardless of key casing', async () => {
     const names = await listCharacters(async () => ['PLAYER:Charlie', 'player:alice']);
     expect(names).toEqual(['alice', 'Charlie']);
+  });
+
+  test('lists characters with encoded cloud keys', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ 'player%3ABob': {}, 'player%3AAlice': {} }),
+    });
+    const names = await listCharacters();
+    expect(names).toEqual(['Alice', 'Bob']);
   });
 
   test('handles corrupted player storage gracefully', () => {
