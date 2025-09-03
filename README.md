@@ -15,15 +15,22 @@ enable this feature:
    anonymous sign-in) and the **Realtime Database**.
 2. Add `https://ccccg-7d6b6.firebaseapp.com/__/auth/handler` to the list of
    authorized domains in the Firebase Auth console.
-3. Use the following database rules to require authenticated access while
-   allowing all signed-in users to read and write saves:
+3. Use the following database rules to allow each authenticated user to
+   access only their own saves while denying all other reads and writes. A DM
+   account with a `dm` custom claim may access any save:
 
 ```json
 {
   "rules": {
+    ".read": false,
+    ".write": false,
     "saves": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      ".read": "auth.token.dm === true",
+      ".write": "auth.token.dm === true",
+      "$uid": {
+        ".read": "$uid === auth.uid || auth.token.dm === true",
+        ".write": "$uid === auth.uid || auth.token.dm === true"
+      }
     }
   }
 }

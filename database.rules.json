@@ -1,0 +1,14 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "saves": {
+      ".read": "auth.token.dm === true",
+      ".write": "auth.token.dm === true",
+      "$uid": {
+        ".read": "$uid === auth.uid || auth.token.dm === true",
+        ".write": "$uid === auth.uid || auth.token.dm === true"
+      }
+    }
+  }
+}
