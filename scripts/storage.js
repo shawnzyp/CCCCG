@@ -57,9 +57,18 @@ async function getIdToken() {
   try {
     if (typeof window !== 'undefined' && window.firebase?.auth) {
       const auth = window.firebase.auth();
-      const user = auth.currentUser || (await auth.signInAnonymously());
-      idToken = await user.getIdToken();
-      return idToken;
+      // signInAnonymously returns a UserCredential in Firebase v8. Access the
+      // user property so we always end up with an actual User instance that
+      // exposes getIdToken().
+      let user = auth.currentUser;
+      if (!user) {
+        const cred = await auth.signInAnonymously();
+        user = cred && cred.user ? cred.user : cred;
+      }
+      if (user?.getIdToken) {
+        idToken = await user.getIdToken();
+        return idToken;
+      }
     }
   } catch (e) {
     console.error('Failed to acquire auth token', e);
