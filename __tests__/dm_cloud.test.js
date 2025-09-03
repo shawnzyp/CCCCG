@@ -29,9 +29,9 @@ describe('DM cloud loading', () => {
     storage.loadCloud.mockResolvedValue({ hp: 30 });
     expect(loginDM('Dragons22!')).toBe(true);
     const data = await loadPlayerCharacter('Eve');
-    expect(storage.loadCloud).toHaveBeenCalledWith('player:Eve');
+    expect(storage.loadCloud).toHaveBeenCalledWith('Player :Eve');
     expect(storage.loadLocal).not.toHaveBeenCalled();
-    expect(storage.saveLocal).toHaveBeenCalledWith('player:Eve', { hp: 30 });
+    expect(storage.saveLocal).toHaveBeenCalledWith('Player :Eve', { hp: 30 });
     expect(data.hp).toBe(30);
   });
 
@@ -41,8 +41,8 @@ describe('DM cloud loading', () => {
     storage.loadLocal.mockResolvedValue({ hp: 15 });
     expect(loginDM('Dragons22!')).toBe(true);
     const data = await loadPlayerCharacter('Eve');
-    expect(storage.loadCloud).toHaveBeenCalledWith('player:Eve');
-    expect(storage.loadLocal).toHaveBeenCalledWith('player:Eve');
+    expect(storage.loadCloud).toHaveBeenCalledWith('Player :Eve');
+    expect(storage.loadLocal).toHaveBeenCalledWith('Player :Eve');
     expect(data.hp).toBe(15);
   });
 });

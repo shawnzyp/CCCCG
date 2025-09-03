@@ -1667,13 +1667,13 @@ $('btn-save').addEventListener('click', async () => {
     const data = serialize();
     const results = [];
     try {
-      await saveLocal('player:' + player, data);
+      await saveLocal('Player :' + player, data);
       results.push('Local save successful');
     } catch (e) {
       results.push('Local save failed: ' + e.message);
     }
     try {
-      await saveCloud('player:' + player, data);
+      await saveCloud('Player :' + player, data);
       results.push('Cloud save successful');
     } catch (e) {
       results.push('Cloud save failed: ' + e.message);

@@ -100,7 +100,9 @@ export async function saveCloud(name, payload) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     localStorage.setItem('last-save', name);
   } catch (e) {
-    console.error('Cloud save failed', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud save failed', e);
+    }
     throw e;
   }
 }
@@ -114,7 +116,9 @@ export async function loadCloud(name) {
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {
-    console.error('Cloud load failed', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud load failed', e);
+    }
   }
   throw new Error('No save found');
 }
@@ -131,7 +135,9 @@ export async function deleteCloud(name) {
       localStorage.removeItem('last-save');
     }
   } catch (e) {
-    console.error('Cloud delete failed', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud delete failed', e);
+    }
   }
 }
 
@@ -146,7 +152,9 @@ export async function listCloudSaves() {
     // saving. Decode them here so callers receive the original player names.
     return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
   } catch (e) {
-    console.error('Cloud list failed', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud list failed', e);
+    }
     return [];
   }
 }
@@ -159,18 +167,24 @@ export async function cacheCloudSaves(
     const keys = await listFn();
     // Only cache player character data. Other saves such as user credentials
     // are skipped to avoid polluting local storage with unnecessary entries.
-    const playerKeys = keys.filter(k => typeof k === 'string' && k.startsWith('player:'));
+    const playerKeys = keys.filter(
+      k => typeof k === 'string' && /^player\s*:/i.test(k)
+    );
     await Promise.all(
       playerKeys.map(async k => {
         try {
           const data = await loadFn(k);
           await saveFn(k, data);
         } catch (e) {
-          console.error('Failed to cache', k, e);
+          if (e && e.message !== 'fetch not supported') {
+            console.error('Failed to cache', k, e);
+          }
         }
       })
     );
   } catch (e) {
-    console.error('Failed to cache cloud saves', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Failed to cache cloud saves', e);
+    }
   }
 }

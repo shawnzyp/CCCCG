@@ -22,9 +22,9 @@ describe('saveLocal/loadLocal', () => {
   });
 
   test('lists local saves', async () => {
-    await saveLocal('player:Alpha', {});
-    await saveLocal('player:Beta', {});
-    expect(listLocalSaves()).toEqual(['player:Alpha', 'player:Beta']);
+    await saveLocal('Player :Alpha', {});
+    await saveLocal('Player :Beta', {});
+    expect(listLocalSaves()).toEqual(['Player :Alpha', 'Player :Beta']);
   });
 });
 

@@ -124,25 +124,25 @@ describe('user management', () => {
   });
 
   test('lists characters from cloud', async () => {
-    const names = await listCharacters(async () => ['player:Bob', 'player:Alice', 'other']);
+    const names = await listCharacters(async () => ['Player :Bob', 'Player :Alice', 'other']);
     expect(names).toEqual(['Alice', 'Bob']);
   });
 
   test('merges local saves when listing characters', async () => {
-    await saveLocal('player:Eve', {});
-    const names = await listCharacters(async () => ['player:Bob']);
+    await saveLocal('Player :Eve', {});
+    const names = await listCharacters(async () => ['Player :Bob']);
     expect(names).toEqual(['Bob', 'Eve']);
   });
 
   test('lists characters from cloud regardless of key casing', async () => {
-    const names = await listCharacters(async () => ['PLAYER:Charlie', 'player:alice']);
+    const names = await listCharacters(async () => ['PLAYER :Charlie', 'player :alice']);
     expect(names).toEqual(['alice', 'Charlie']);
   });
 
   test('lists characters with encoded cloud keys', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ 'player%3ABob': {}, 'player%3AAlice': {} }),
+      json: async () => ({ 'Player%20%3ABob': {}, 'Player%20%3AAlice': {} }),
     });
     const names = await listCharacters();
     expect(names).toEqual(['Alice', 'Bob']);
@@ -150,7 +150,7 @@ describe('user management', () => {
 
 
   test('lists characters with encoded local keys', async () => {
-    const names = await listCharacters(async () => [], async () => ['player%3AEve']);
+    const names = await listCharacters(async () => [], async () => ['Player%20%3AEve']);
     expect(names).toEqual(['Eve']);
   });
 
