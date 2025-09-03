@@ -117,6 +117,12 @@ describe('user management', () => {
     expect(names).toEqual(['Alice', 'Bob']);
   });
 
+
+  test('lists characters with encoded local keys', async () => {
+    const names = await listCharacters(async () => [], async () => ['player%3AEve']);
+    expect(names).toEqual(['Eve']);
+  });
+
   test('handles corrupted player storage gracefully', () => {
     localStorage.setItem('players', '{not valid json');
     expect(getPlayers()).toEqual([]);

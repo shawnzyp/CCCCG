@@ -183,12 +183,33 @@ export async function listCharacters(listFn = listCloudSaves, localFn = listLoca
   } catch (e) {
     console.error('Failed to list local saves', e);
   }
-  const saves = [...cloud, ...local];
-  return Array.from(new Set(
-    saves
-      .filter(k => k.toLowerCase().startsWith('player:'))
-      .map(k => k.slice(7))
-  )).sort((a, b) => a.localeCompare(b));
+
+  // Combine cloud and local keys and decode any encoded names. Decoding here
+  // ensures that both sources are treated uniformly (some callers may not
+  // decode names themselves) so that all character saves are considered.
+  const decoded = [...cloud, ...local].map(k => {
+    try {
+      return decodeURIComponent(k);
+    } catch {
+      return k;
+    }
+  });
+
+  // Filter to player saves, strip the prefix and de-duplicate in a
+  // case-insensitive manner so variations in casing don't drop entries.
+  const names = [];
+  const seen = new Set();
+  for (const k of decoded) {
+    if (!k || !k.toLowerCase().startsWith('player:')) continue;
+    const name = k.slice(7);
+    const key = name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      names.push(name);
+    }
+  }
+
+  return names.sort((a, b) => a.localeCompare(b));
 }
 
 // ===== DOM Wiring =====
