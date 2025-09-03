@@ -72,8 +72,11 @@ export function registerPlayer(name, password, question, answer) {
   if (!name || !password || !question || !answer || players[name]) {
     return false;
   }
-  players[name] = { password, question, answer };
+  const record = { password, question, answer };
+  players[name] = record;
   setPlayersRaw(players);
+  // Persist player credentials to the cloud so logins work across devices.
+  saveCloud('user:' + name, record).catch(e => console.error('Cloud player save failed', e));
   return true;
 }
 
@@ -90,9 +93,25 @@ export function recoverPlayerPassword(name, answer) {
   return null;
 }
 
-export function loginPlayer(name, password) {
+async function loadPlayerRecord(name) {
   const players = getPlayersRaw();
-  const p = players[name];
+  let p = players[name];
+  if (p) return p;
+  try {
+    const remote = await loadCloud('user:' + name);
+    if (remote && typeof remote.password === 'string') {
+      players[name] = remote;
+      try { setPlayersRaw(players); } catch {}
+      return remote;
+    }
+  } catch (e) {
+    console.error('Failed to load player from cloud', e);
+  }
+  return null;
+}
+
+export async function loginPlayer(name, password) {
+  const p = await loadPlayerRecord(name);
   if (p && p.password === password) {
     // Logging in as a player should terminate any active DM session to avoid
     // concurrent logins. Use the standard logout helper so events are
@@ -316,10 +335,10 @@ if (typeof document !== 'undefined') {
 
     const loginBtn = $('login-player');
     if (loginBtn) {
-      loginBtn.addEventListener('click', () => {
+      loginBtn.addEventListener('click', async () => {
         const name = $('login-player-name').value.trim();
         const pass = $('login-player-password').value;
-        if (loginPlayer(name, pass)) {
+        if (await loginPlayer(name, pass)) {
           toast(`Logged in as ${name}`,'success');
           updatePlayerButton();
           updateDMButton();

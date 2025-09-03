@@ -43,44 +43,56 @@ describe('user management', () => {
 
   test('player login and save', async () => {
     registerPlayer('Alice', 'pass', 'pet?', 'cat');
-    expect(loginPlayer('Alice', 'pass')).toBe(true);
+    expect(await loginPlayer('Alice', 'pass')).toBe(true);
     await savePlayerCharacter('Alice', { hp: 10 });
     const data = await loadPlayerCharacter('Alice');
     expect(data.hp).toBe(10);
   });
 
-  test('player logout clears session', () => {
+  test('player logout clears session', async () => {
     registerPlayer('Dana', 'pw', 'pet?', 'cat');
-    expect(loginPlayer('Dana', 'pw')).toBe(true);
+    expect(await loginPlayer('Dana', 'pw')).toBe(true);
     logoutPlayer();
     expect(currentPlayer()).toBeNull();
   });
 
-  test('dm login logs out current player', () => {
+  test('dm login logs out current player', async () => {
     registerPlayer('Alice', 'pw', 'pet?', 'cat');
-    expect(loginPlayer('Alice', 'pw')).toBe(true);
+    expect(await loginPlayer('Alice', 'pw')).toBe(true);
     expect(currentPlayer()).toBe('Alice');
     expect(loginDM('Dragons22!')).toBe(true);
     expect(currentPlayer()).toBeNull();
     expect(isDM()).toBe(true);
   });
 
-  test('failed dm login keeps current player', () => {
+  test('failed dm login keeps current player', async () => {
     registerPlayer('Gina', 'pw', 'pet?', 'dog');
-    expect(loginPlayer('Gina', 'pw')).toBe(true);
+    expect(await loginPlayer('Gina', 'pw')).toBe(true);
     expect(currentPlayer()).toBe('Gina');
     expect(loginDM('wrong')).toBe(false);
     expect(currentPlayer()).toBe('Gina');
     expect(isDM()).toBe(false);
   });
 
-  test('player login logs out dm', () => {
+  test('player login logs out dm', async () => {
     registerPlayer('Bob', 'pw', 'pet?', 'dog');
     expect(loginDM('Dragons22!')).toBe(true);
     expect(isDM()).toBe(true);
-    expect(loginPlayer('Bob', 'pw')).toBe(true);
+    expect(await loginPlayer('Bob', 'pw')).toBe(true);
     expect(isDM()).toBe(false);
     expect(currentPlayer()).toBe('Bob');
+  });
+
+  test('player login loads from cloud when cache is empty', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ password: 'pw', question: 'q', answer: 'a' }),
+    });
+    expect(await loginPlayer('Zara', 'pw')).toBe(true);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('user%3AZara.json')
+    );
+    delete global.fetch;
   });
 
   test('dm editing', async () => {
@@ -125,7 +137,7 @@ describe('user management', () => {
 
   test('lists and loads characters with percent signs in the name', async () => {
     registerPlayer('A%20B', 'pw', 'pet?', 'cat');
-    expect(loginPlayer('A%20B', 'pw')).toBe(true);
+    expect(await loginPlayer('A%20B', 'pw')).toBe(true);
     await savePlayerCharacter('A%20B', { hp: 7 });
     const names = await listCharacters();
     expect(names).toEqual(['A%20B']);
