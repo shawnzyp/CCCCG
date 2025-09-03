@@ -13,7 +13,17 @@ import {
   savePlayerCharacter,
 } from './users.js';
 import { show, hide } from './modal.js';
-import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
+// Load the optional confetti library lazily so tests and offline environments
+// don't attempt a network import on startup.
+let confettiPromise = null;
+function loadConfetti() {
+  if (!confettiPromise) {
+    confettiPromise = import('https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs')
+      .then(m => m.default)
+      .catch(() => (() => {}));
+  }
+  return confettiPromise;
+}
 const rulesEl = qs('#rules-text');
 const RULES_SRC = './ruleshelp.txt';
 let rulesLoaded = false;
@@ -669,10 +679,14 @@ function launchConfetti(){
   if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     return;
   }
-  confetti({
-    particleCount: 100,
-    spread: 70,
-    origin: { y: 0 }
+  loadConfetti().then(fn => {
+    try {
+      fn({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0 }
+      });
+    } catch {}
   });
 }
 
@@ -1919,7 +1933,15 @@ CC.RP = (function () {
   // --- UI sync
   function applyStateToUI() {
     if (!els.rpValue) return;
-    els.rpValue.textContent = String(state.rp);
+    // Update both the text and value so screen readers and any logic
+    // reading the `value` property receive the current RP. Using only
+    // `textContent` leaves `value` stale, which caused the on-screen
+    // number to remain at 0 when a dot was toggled in some browsers.
+    const val = String(state.rp);
+    els.rpValue.textContent = val;
+    // The output element exposes a `.value` property that may be used
+    // by CSS `attr(value)` or assistive tech; keep it in sync.
+    els.rpValue.value = val;
     els.rpDots.forEach(btn => {
       const v = parseInt(btn.dataset.rp, 10);
       // Highlight all dots up to the current RP value so previously selected
