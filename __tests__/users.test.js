@@ -215,8 +215,11 @@ describe('user management', () => {
   });
 
   test('password recovery', () => {
-    registerPlayer('Frank', 'pw', 'color?', 'blue');
+    // Store the answer with mixed case to verify that registration normalizes
+    // the value and recovery is case/whitespace insensitive.
+    registerPlayer('Frank', 'pw', 'color?', ' Blue\n');
     expect(recoverPlayerPassword('Frank', 'blue')).toBe('pw');
+    expect(recoverPlayerPassword('Frank', ' BLUE  ')).toBe('pw');
     expect(recoverPlayerPassword('Frank', 'red')).toBeNull();
   });
 });
