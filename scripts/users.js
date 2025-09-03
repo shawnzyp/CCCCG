@@ -13,6 +13,13 @@ let dmPasswordInput = null;
 let playersCache = null;
 let playersCacheRaw = null;
 
+// Helper to determine if cloud functionality is available. When `fetch` is not
+// implemented (e.g. during tests or in very old browsers) cloud operations
+// should be skipped silently rather than emitting noisy errors.
+function canUseCloud() {
+  return typeof fetch === 'function';
+}
+
 function getPlayersRaw() {
   let raw;
   try {
@@ -76,7 +83,9 @@ export function registerPlayer(name, password, question, answer) {
   players[name] = record;
   setPlayersRaw(players);
   // Persist player credentials to the cloud so logins work across devices.
-  saveCloud('user:' + name, record).catch(e => console.error('Cloud player save failed', e));
+  if (canUseCloud()) {
+    saveCloud('user:' + name, record).catch(e => console.error('Cloud player save failed', e));
+  }
   return true;
 }
 
@@ -95,15 +104,19 @@ export function recoverPlayerPassword(name, answer) {
 
 async function loadPlayerRecord(name) {
   const players = getPlayersRaw();
-  try {
-    const remote = await loadCloud('user:' + name);
-    if (remote && typeof remote.password === 'string') {
-      players[name] = remote;
-      try { setPlayersRaw(players); } catch {}
-      return remote;
+  if (canUseCloud()) {
+    try {
+      const remote = await loadCloud('user:' + name);
+      if (remote && typeof remote.password === 'string') {
+        players[name] = remote;
+        try { setPlayersRaw(players); } catch {}
+        return remote;
+      }
+    } catch (e) {
+      if (e && e.message !== 'No save found' && e.message !== 'fetch not supported') {
+        console.error('Failed to load player from cloud', e);
+      }
     }
-  } catch (e) {
-    console.error('Failed to load player from cloud', e);
   }
   return players[name] || null;
 }
@@ -164,21 +177,23 @@ export function logoutDM() {
 
 export async function savePlayerCharacter(player, data) {
   if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
-  await saveLocal('player:' + player, data);
+  await saveLocal('Player :' + player, data);
   // Persist to the shared cloud store so DMs and other devices see updates.
-  saveCloud('player:' + player, data).catch(e => console.error('Cloud save failed', e));
+  if (canUseCloud()) {
+    saveCloud('Player :' + player, data).catch(e => console.error('Cloud save failed', e));
+  }
 }
 
 export async function loadPlayerCharacter(player) {
   if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
   try {
-    const data = await loadCloud('player:' + player);
+    const data = await loadCloud('Player :' + player);
     // Cache the latest cloud version locally for offline access.
-    try { await saveLocal('player:' + player, data); } catch {}
+    try { await saveLocal('Player :' + player, data); } catch {}
     return data;
   } catch (e) {
     // Cloud load failed (e.g. offline), fall back to local copy.
-    return await loadLocal('player:' + player);
+    return await loadLocal('Player :' + player);
   }
 }
 
@@ -189,10 +204,12 @@ export function editPlayerCharacter(player, data) {
 
 export async function listCharacters(listFn = listCloudSaves, localFn = listLocalSaves) {
   let cloud = [];
-  try {
-    cloud = await listFn();
-  } catch (e) {
-    console.error('Failed to list cloud saves', e);
+  if (canUseCloud() || listFn !== listCloudSaves) {
+    try {
+      cloud = await listFn();
+    } catch (e) {
+      console.error('Failed to list cloud saves', e);
+    }
   }
   let local = [];
   try {
@@ -211,13 +228,14 @@ export async function listCharacters(listFn = listCloudSaves, localFn = listLoca
   for (const raw of [...cloud, ...local]) {
     if (!raw) continue;
     let key = raw;
-    if (!key.toLowerCase().startsWith('player:')) {
+    if (!/^player\s*:/i.test(key)) {
       try {
         key = decodeURIComponent(key);
       } catch {}
     }
-    if (!key.toLowerCase().startsWith('player:')) continue;
-    const name = key.slice(7);
+    const match = /^player\s*:(.*)$/i.exec(key);
+    if (!match) continue;
+    const name = match[1];
     const lower = name.toLowerCase();
     if (!seen.has(lower)) {
       seen.add(lower);
@@ -232,6 +250,7 @@ export async function syncPlayersFromCloud(
   listFn = listCloudSaves,
   loadFn = loadCloud
 ) {
+  if (!canUseCloud() && listFn === listCloudSaves && loadFn === loadCloud) return;
   try {
     const keys = await listFn();
     const arr = Array.isArray(keys) ? keys : [];
@@ -300,14 +319,14 @@ function updateDMLoginControls() {
 }
 
 if (typeof document !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', () => {
-    cacheCloudSaves().catch(e => console.error('Failed to cache cloud saves', e));
-    syncPlayersFromCloud().catch(e => console.error('Failed to sync players from cloud', e));
-    dmPasswordInput = $('dm-password');
-    const modalDMLogin = $('modal-dm-login');
-    const recoverName = $('recover-name');
-    const recoverAnswer = $('recover-answer');
-    const recoverQuestion = $('recover-question');
+    document.addEventListener('DOMContentLoaded', () => {
+      cacheCloudSaves().catch(e => console.error('Failed to cache cloud saves', e));
+      syncPlayersFromCloud().catch(e => console.error('Failed to sync players from cloud', e));
+      dmPasswordInput = $('dm-password');
+      const modalDMLogin = $('modal-dm-login');
+      const recoverName = $('recover-name');
+      const recoverAnswer = $('recover-answer');
+      const recoverQuestion = $('recover-question');
     updatePlayerButton();
     updateDMButton();
     updateDMLoginControls();
@@ -435,15 +454,22 @@ if (typeof document !== 'undefined') {
           if (dmPasswordInput) dmPasswordInput.value = '';
           updateDMButton();
           updateDMLoginControls();
-          if (modalDMLogin) {
-            modalDMLogin.classList.add('hidden');
-            modalDMLogin.setAttribute('aria-hidden','true');
-          }
-          try {
-            window.location.reload();
-          } catch (e) {
-            // Ignore reload errors (e.g., during tests)
-          }
+            if (modalDMLogin) {
+              modalDMLogin.classList.add('hidden');
+              modalDMLogin.setAttribute('aria-hidden','true');
+            }
+            if (
+              typeof window !== 'undefined' &&
+              window.location &&
+              typeof window.location.reload === 'function' &&
+              !/jsdom/i.test(window.navigator?.userAgent || '')
+            ) {
+              try {
+                window.location.reload();
+              } catch (e) {
+                // Ignore reload errors (e.g., during tests)
+              }
+            }
         } else {
           toast('Invalid credentials','error');
         }
@@ -461,10 +487,17 @@ if (typeof document !== 'undefined') {
           modalDMLogin.classList.add('hidden');
           modalDMLogin.setAttribute('aria-hidden','true');
         }
-        try {
-          window.location.reload();
-        } catch (e) {
-          // Ignore reload errors (e.g., during tests)
+        if (
+          typeof window !== 'undefined' &&
+          window.location &&
+          typeof window.location.reload === 'function' &&
+          !/jsdom/i.test(window.navigator?.userAgent || '')
+        ) {
+          try {
+            window.location.reload();
+          } catch (e) {
+            // Ignore reload errors (e.g., during tests)
+          }
         }
       });
     }

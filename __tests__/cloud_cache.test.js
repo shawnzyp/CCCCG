@@ -4,7 +4,7 @@ import { cacheCloudSaves } from '../scripts/storage.js';
 test('cacheCloudSaves stores only player character data locally', async () => {
   const listFn = jest
     .fn()
-    .mockResolvedValue(['player:A', 'user:X', 'player:B', 'misc']);
+    .mockResolvedValue(['Player :A', 'user:X', 'Player :B', 'misc']);
   const loadFn = jest.fn(k => Promise.resolve({ key: k }));
   const saveFn = jest.fn();
 
@@ -13,9 +13,9 @@ test('cacheCloudSaves stores only player character data locally', async () => {
   expect(listFn).toHaveBeenCalled();
   // Only player-prefixed keys should be processed
   expect(loadFn).toHaveBeenCalledTimes(2);
-  expect(loadFn).toHaveBeenCalledWith('player:A');
-  expect(loadFn).toHaveBeenCalledWith('player:B');
+  expect(loadFn).toHaveBeenCalledWith('Player :A');
+  expect(loadFn).toHaveBeenCalledWith('Player :B');
   expect(saveFn).toHaveBeenCalledTimes(2);
-  expect(saveFn).toHaveBeenCalledWith('player:A', { key: 'player:A' });
-  expect(saveFn).toHaveBeenCalledWith('player:B', { key: 'player:B' });
+  expect(saveFn).toHaveBeenCalledWith('Player :A', { key: 'Player :A' });
+  expect(saveFn).toHaveBeenCalledWith('Player :B', { key: 'Player :B' });
 });
