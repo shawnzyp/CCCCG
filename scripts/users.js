@@ -464,6 +464,26 @@ if (typeof document !== 'undefined') {
       updateDMLoginControls();
     });
 
+    const loginNameInput = $('login-player-name');
+    const loginStatus = $('login-player-status');
+    if (loginNameInput) {
+      loginNameInput.addEventListener('input', async () => {
+        const name = loginNameInput.value.trim();
+        if (!name) {
+          if (loginStatus) loginStatus.textContent = '';
+          return;
+        }
+        try {
+          const { record } = await loadPlayerRecord(name);
+          if (loginStatus) {
+            loginStatus.textContent = record ? 'Player found' : 'Player not found';
+          }
+        } catch {
+          if (loginStatus) loginStatus.textContent = 'Player not found';
+        }
+      });
+    }
+
     const regBtn = $('register-player');
     if (regBtn) {
       regBtn.addEventListener('click', () => {
