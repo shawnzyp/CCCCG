@@ -46,10 +46,40 @@ export function listLocalSaves() {
 // ===== Firebase Cloud Save =====
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 
+// Attempt to fetch a Firebase Auth ID token and cache it. The application can
+// operate without Firebase (only local saves) so failures are logged but do not
+// throw. Authentication is optional but when available the token is appended to
+// database requests so security rules requiring `auth != null` are satisfied.
+let idToken = null;
+
+async function getIdToken() {
+  if (idToken) return idToken;
+  try {
+    if (typeof window !== 'undefined' && window.firebase?.auth) {
+      const auth = window.firebase.auth();
+      const user = auth.currentUser || (await auth.signInAnonymously());
+      idToken = await user.getIdToken();
+      return idToken;
+    }
+  } catch (e) {
+    console.error('Failed to acquire auth token', e);
+  }
+  return null;
+}
+
+async function authedFetch(url, options) {
+  const token = await getIdToken();
+  if (token) {
+    const sep = url.includes('?') ? '&' : '?';
+    url = `${url}${sep}auth=${token}`;
+  }
+  return options ? fetch(url, options) : fetch(url);
+}
+
 export async function saveCloud(name, payload) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await fetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`, {
+    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -65,7 +95,7 @@ export async function saveCloud(name, payload) {
 export async function loadCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await fetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`);
+    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     if (val !== null) return val;
@@ -78,7 +108,7 @@ export async function loadCloud(name) {
 export async function deleteCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await fetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`, {
+    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`, {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -93,7 +123,7 @@ export async function deleteCloud(name) {
 export async function listCloudSaves() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await fetch(`${CLOUD_SAVES_URL}.json`);
+    const res = await authedFetch(`${CLOUD_SAVES_URL}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     // Keys in the realtime database are URL-encoded because we escape them when
