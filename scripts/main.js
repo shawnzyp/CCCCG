@@ -1,6 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress, revertAbilityScore } from './helpers.js';
-import { saveLocal, saveCloud } from './storage.js';
+import { saveLocal, saveCloud, listCloudSaves } from './storage.js';
 import { currentPlayer, getPlayers, loadPlayerCharacter, isDM } from './users.js';
 import { show, hide } from './modal.js';
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
@@ -1201,18 +1201,27 @@ if (dmLoginLink) {
 }
 const btnDM = $('btn-dm');
 if (btnDM) {
-  btnDM.addEventListener('click', ()=>{
+  btnDM.addEventListener('click', async ()=>{
     if (!isDM()) return;
-    renderDMList();
+    await renderDMList();
     show('modal-dm');
   });
 }
-function renderDMList(){
+async function renderDMList(){
   if(!isDM()) return;
   const list = $('dm-player-list');
   if(!list) return;
-  const players = getPlayers();
-  list.innerHTML = players.map(p=>`<div class="catalog-item"><div>${p}</div><div><button class="btn-sm" data-player="${p}">Load</button></div></div>`).join('');
+  const players = new Set(getPlayers());
+  try {
+    const saves = await listCloudSaves();
+    saves.forEach(k => {
+      if (k.startsWith('player:')) players.add(k.slice(7));
+    });
+  } catch (e) {
+    console.error('Failed to list cloud saves', e);
+  }
+  const names = Array.from(players).sort((a, b) => a.localeCompare(b));
+  list.innerHTML = names.map(p=>`<div class="catalog-item"><div>${p}</div><div><button class="btn-sm" data-player="${p}">Load</button></div></div>`).join('');
 }
 const dmList = $('dm-player-list');
 if(dmList){
