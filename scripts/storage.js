@@ -84,6 +84,10 @@ export async function saveCloud(name, payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    // If the request is rejected due to missing or invalid auth, treat it as a
+    // soft failure. Cloud saves are optional and the app should continue
+    // operating with local storage only.
+    if (res.status === 401 || res.status === 403) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     localStorage.setItem('last-save', name);
   } catch (e) {
@@ -96,6 +100,7 @@ export async function loadCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`);
+    if (res.status === 401 || res.status === 403) return null;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     if (val !== null) return val;
@@ -111,6 +116,7 @@ export async function deleteCloud(name) {
     const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`, {
       method: 'DELETE'
     });
+    if (res.status === 401 || res.status === 403) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     if (localStorage.getItem('last-save') === name) {
       localStorage.removeItem('last-save');
@@ -124,6 +130,7 @@ export async function listCloudSaves() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await authedFetch(`${CLOUD_SAVES_URL}.json`);
+    if (res.status === 401 || res.status === 403) return [];
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     // Keys in the realtime database are URL-encoded because we escape them when
