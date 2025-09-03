@@ -1922,7 +1922,9 @@ CC.RP = (function () {
     els.rpValue.textContent = String(state.rp);
     els.rpDots.forEach(btn => {
       const v = parseInt(btn.dataset.rp, 10);
-      btn.setAttribute("aria-pressed", String(v === state.rp));
+      // Highlight all dots up to the current RP value so previously selected
+      // points remain visibly "ticked" rather than only the most recent one.
+      btn.setAttribute("aria-pressed", String(v <= state.rp));
     });
 
     els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
