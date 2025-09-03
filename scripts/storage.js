@@ -73,15 +73,19 @@ async function getIdToken() {
       }
     }
 
-    // When running in a Node environment, allow use of a service account key
-    // (typically provided via `serviceAccountKey.json` or the
-    // GOOGLE_APPLICATION_CREDENTIALS environment variable) to generate an OAuth2
-    // access token for the realtime database.
+    // When running in a Node environment, always use the service account key
+    // from `serviceAccountKey.json` to generate an OAuth2 access token for the
+    // realtime database.
     if (typeof process !== 'undefined' && process.versions?.node) {
-      const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || 'serviceAccountKey.json';
-      try {
-        const fs = await import('fs');
-        if (fs.existsSync(keyPath)) {
+      const { resolve } = await import('path');
+      const fs = await import('fs');
+      const keyPath = resolve('serviceAccountKey.json');
+      if (fs.existsSync(keyPath)) {
+        // Ensure downstream libraries pick up the service account automatically
+        // without overwriting an explicit path from the environment.
+        process.env.GOOGLE_APPLICATION_CREDENTIALS =
+          process.env.GOOGLE_APPLICATION_CREDENTIALS || keyPath;
+        try {
           const { GoogleAuth } = await import('google-auth-library');
           const auth = new GoogleAuth({
             keyFilename: keyPath,
@@ -95,10 +99,10 @@ async function getIdToken() {
           idToken = access.token || access;
           tokenIsOAuth = true;
           return { token: idToken, oauth: true };
+        } catch (e) {
+          // If service account auth fails, fall through to unauthenticated mode.
+          console.error('Failed to acquire service account token', e);
         }
-      } catch (e) {
-        // If service account auth fails, fall through to unauthenticated mode.
-        console.error('Failed to acquire service account token', e);
       }
     }
   } catch (e) {
