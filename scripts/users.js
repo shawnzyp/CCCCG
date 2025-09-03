@@ -68,6 +68,14 @@ export function getPlayers() {
 }
 
 export function registerPlayer(name, password, question, answer) {
+  // Trim inputs to ensure that values consisting solely of whitespace are
+  // treated as empty. This prevents registering accounts with blank names or
+  // other fields that appear empty to users.
+  name = name ? name.trim() : '';
+  password = password ? password.trim() : '';
+  question = question ? question.trim() : '';
+  answer = answer ? answer.trim() : '';
+
   const players = getPlayersRaw();
   if (!name || !password || !question || !answer || players[name]) {
     return false;

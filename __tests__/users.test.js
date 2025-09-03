@@ -41,6 +41,14 @@ describe('user management', () => {
     expect(getPlayers()).toEqual([]);
   });
 
+  test('registration rejects whitespace-only fields', () => {
+    registerPlayer('   ', 'pw', 'q', 'a');
+    registerPlayer('Frank', '   ', 'q', 'a');
+    registerPlayer('Grace', 'pw', '   ', 'a');
+    registerPlayer('Heidi', 'pw', 'q', '   ');
+    expect(getPlayers()).toEqual([]);
+  });
+
   test('player login and save', async () => {
     registerPlayer('Alice', 'pass', 'pet?', 'cat');
     expect(loginPlayer('Alice', 'pass')).toBe(true);
