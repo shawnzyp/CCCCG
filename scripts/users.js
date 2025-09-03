@@ -184,27 +184,26 @@ export async function listCharacters(listFn = listCloudSaves, localFn = listLoca
     console.error('Failed to list local saves', e);
   }
 
-  // Combine cloud and local keys and decode any encoded names. Decoding here
-  // ensures that both sources are treated uniformly (some callers may not
-  // decode names themselves) so that all character saves are considered.
-  const decoded = [...cloud, ...local].map(k => {
-    try {
-      return decodeURIComponent(k);
-    } catch {
-      return k;
-    }
-  });
-
-  // Filter to player saves, strip the prefix and de-duplicate in a
-  // case-insensitive manner so variations in casing don't drop entries.
+  // Combine cloud and local keys. Some keys may be URL-encoded (for example
+  // legacy saves or Firebase keys) while others are stored verbatim. To avoid
+  // mangling player names that legitimately contain "%" characters, only
+  // decode keys when the player prefix itself is encoded. Names are then
+  // de-duplicated case-insensitively.
   const names = [];
   const seen = new Set();
-  for (const k of decoded) {
-    if (!k || !k.toLowerCase().startsWith('player:')) continue;
-    const name = k.slice(7);
-    const key = name.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
+  for (const raw of [...cloud, ...local]) {
+    if (!raw) continue;
+    let key = raw;
+    if (!key.toLowerCase().startsWith('player:')) {
+      try {
+        key = decodeURIComponent(key);
+      } catch {}
+    }
+    if (!key.toLowerCase().startsWith('player:')) continue;
+    const name = key.slice(7);
+    const lower = name.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
       names.push(name);
     }
   }
