@@ -76,59 +76,92 @@ export function getPlayers() {
 
 export function registerPlayer(name, password, question, answer) {
   const players = getPlayersRaw();
-  if (!name || !password || !question || !answer || players[name]) {
+  if (!name || !password || !question || !answer) {
     return false;
+  }
+  const lower = name.toLowerCase();
+  for (const existing of Object.keys(players)) {
+    if (existing.toLowerCase() === lower) {
+      return false;
+    }
   }
   const record = { password, question, answer };
   players[name] = record;
   setPlayersRaw(players);
   // Persist player credentials to the cloud so logins work across devices.
   if (canUseCloud()) {
-    saveCloud('user:' + name, record).catch(e => console.error('Cloud player save failed', e));
+    saveCloud('user:' + name, record).catch(e =>
+      console.error('Cloud player save failed', e)
+    );
   }
   return true;
 }
 
 export function getPlayerQuestion(name) {
-  const p = getPlayersRaw()[name];
-  return p ? p.question : null;
+  const players = getPlayersRaw();
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(players)) {
+    if (key.toLowerCase() === lower) {
+      return players[key].question;
+    }
+  }
+  return null;
 }
 
 export function recoverPlayerPassword(name, answer) {
-  const p = getPlayersRaw()[name];
-  if (p && p.answer === answer) {
-    return p.password;
+  const players = getPlayersRaw();
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(players)) {
+    if (key.toLowerCase() === lower) {
+      const p = players[key];
+      return p.answer === answer ? p.password : null;
+    }
   }
   return null;
 }
 
 async function loadPlayerRecord(name) {
   const players = getPlayersRaw();
+  const lower = name.toLowerCase();
+  let canonical = name;
+  for (const key of Object.keys(players)) {
+    if (key.toLowerCase() === lower) {
+      canonical = key;
+      break;
+    }
+  }
+  let record = players[canonical] || null;
   if (canUseCloud()) {
     try {
-      const remote = await loadCloud('user:' + name);
+      const remote = await loadCloud('user:' + canonical);
       if (remote && typeof remote.password === 'string') {
-        players[name] = remote;
-        try { setPlayersRaw(players); } catch {}
-        return remote;
+        players[canonical] = remote;
+        try {
+          setPlayersRaw(players);
+        } catch {}
+        record = remote;
       }
     } catch (e) {
-      if (e && e.message !== 'No save found' && e.message !== 'fetch not supported') {
+      if (
+        e &&
+        e.message !== 'No save found' &&
+        e.message !== 'fetch not supported'
+      ) {
         console.error('Failed to load player from cloud', e);
       }
     }
   }
-  return players[name] || null;
+  return { record, canonical };
 }
 
 export async function loginPlayer(name, password) {
-  const p = await loadPlayerRecord(name);
+  const { record: p, canonical } = await loadPlayerRecord(name);
   if (p && p.password === password) {
     // Logging in as a player should terminate any active DM session to avoid
     // concurrent logins. Use the standard logout helper so events are
     // dispatched consistently.
     logoutDM();
-    localStorage.setItem(PLAYER_SESSION, name);
+    localStorage.setItem(PLAYER_SESSION, canonical);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('playerChanged'));
     }
