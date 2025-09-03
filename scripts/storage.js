@@ -104,3 +104,18 @@ export async function listCloudSaves() {
     return [];
   }
 }
+export async function cacheCloudSaves(listFn = listCloudSaves, loadFn = loadCloud, saveFn = saveLocal) {
+  try {
+    const keys = await listFn();
+    await Promise.all(keys.map(async (k) => {
+      try {
+        const data = await loadFn(k);
+        await saveFn(k, data);
+      } catch (e) {
+        console.error('Failed to cache', k, e);
+      }
+    }));
+  } catch (e) {
+    console.error('Failed to cache cloud saves', e);
+  }
+}

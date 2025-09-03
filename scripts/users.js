@@ -1,4 +1,4 @@
-import { saveLocal, loadLocal, loadCloud, saveCloud, listCloudSaves, listLocalSaves } from './storage.js';
+import { saveLocal, loadLocal, loadCloud, saveCloud, listCloudSaves, listLocalSaves, cacheCloudSaves } from './storage.js';
 import { $ } from './helpers.js';
 import { show as showModal, hide as hideModal } from './modal.js';
 
@@ -274,6 +274,7 @@ function updateDMLoginControls() {
 
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
+    cacheCloudSaves().catch(e => console.error('Failed to cache cloud saves', e));
     dmPasswordInput = $('dm-password');
     const modalDMLogin = $('modal-dm-login');
     const recoverName = $('recover-name');
