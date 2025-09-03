@@ -7,6 +7,7 @@ jest.unstable_mockModule('../scripts/storage.js', () => ({
   saveCloud: jest.fn(),
   deleteSave: jest.fn(),
   listCloudSaves: jest.fn(),
+  listLocalSaves: jest.fn(),
 }));
 
 const users = await import('../scripts/users.js');
