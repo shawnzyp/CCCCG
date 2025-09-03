@@ -13,6 +13,7 @@ import {
   recoverPlayerPassword,
   listCharacters,
 } from '../scripts/users.js';
+import { saveLocal } from '../scripts/storage.js';
 
 describe('user management', () => {
   beforeEach(() => {
@@ -72,6 +73,12 @@ describe('user management', () => {
   test('lists characters from cloud', async () => {
     const names = await listCharacters(async () => ['player:Bob', 'player:Alice', 'other']);
     expect(names).toEqual(['Alice', 'Bob']);
+  });
+
+  test('merges local saves when listing characters', async () => {
+    await saveLocal('player:Eve', {});
+    const names = await listCharacters(async () => ['player:Bob']);
+    expect(names).toEqual(['Bob', 'Eve']);
   });
 
   test('handles corrupted player storage gracefully', () => {

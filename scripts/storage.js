@@ -29,6 +29,20 @@ export async function deleteSave(name) {
   }
 }
 
+export function listLocalSaves() {
+  try {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('save:')) keys.push(k.slice(5));
+    }
+    return keys.sort((a, b) => a.localeCompare(b));
+  } catch (e) {
+    console.error('Local list failed', e);
+    return [];
+  }
+}
+
 // ===== Firebase Cloud Save =====
 // Lazily load the Firebase SDK modules from the official CDN so tests
 // and environments without Firebase still work.

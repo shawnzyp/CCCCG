@@ -1,4 +1,4 @@
-import { saveLocal, loadLocal, deleteSave } from '../scripts/storage.js';
+import { saveLocal, loadLocal, deleteSave, listLocalSaves } from '../scripts/storage.js';
 
 describe('saveLocal/loadLocal', () => {
   beforeEach(() => {
@@ -19,6 +19,12 @@ describe('saveLocal/loadLocal', () => {
     await expect(loadLocal('remove')).rejects.toThrow('No save found');
     expect(localStorage.getItem('save:remove')).toBeNull();
     expect(localStorage.getItem('last-save')).toBeNull();
+  });
+
+  test('lists local saves', async () => {
+    await saveLocal('player:Alpha', {});
+    await saveLocal('player:Beta', {});
+    expect(listLocalSaves()).toEqual(['player:Alpha', 'player:Beta']);
   });
 });
 

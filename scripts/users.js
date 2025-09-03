@@ -1,4 +1,4 @@
-import { saveLocal, loadLocal, loadCloud, saveCloud, listCloudSaves } from './storage.js';
+import { saveLocal, loadLocal, loadCloud, saveCloud, listCloudSaves, listLocalSaves } from './storage.js';
 import { $ } from './helpers.js';
 import { show as showModal, hide as hideModal } from './modal.js';
 
@@ -166,17 +166,24 @@ export function editPlayerCharacter(player, data) {
   return savePlayerCharacter(player, data);
 }
 
-export async function listCharacters(listFn = listCloudSaves) {
+export async function listCharacters(listFn = listCloudSaves, localFn = listLocalSaves) {
+  let cloud = [];
   try {
-    const saves = await listFn();
-    return saves
-      .filter(k => k.startsWith('player:'))
-      .map(k => k.slice(7))
-      .sort((a, b) => a.localeCompare(b));
+    cloud = await listFn();
   } catch (e) {
     console.error('Failed to list cloud saves', e);
-    return [];
   }
+  let local = [];
+  try {
+    local = await localFn();
+  } catch (e) {
+    console.error('Failed to list local saves', e);
+  }
+  const saves = Array.from(new Set([...cloud, ...local]));
+  return saves
+    .filter(k => k.startsWith('player:'))
+    .map(k => k.slice(7))
+    .sort((a, b) => a.localeCompare(b));
 }
 
 // ===== DOM Wiring =====
