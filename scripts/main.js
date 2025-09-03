@@ -838,19 +838,19 @@ function updateFactionRep(){
 }
 
 function setupFactionRepTracker(){
+  const maxVal = REP_TIERS.length * 100 - 1;
   FACTIONS.forEach(f=>{
     const input = $(`${f}-rep`);
     const gain = $(`${f}-rep-gain`);
     const lose = $(`${f}-rep-lose`);
     if(!input || !gain || !lose) return;
-    gain.addEventListener('click', ()=>{
-      input.value = Math.max(0, num(input.value) + 5);
+    function change(delta){
+      const next = Math.max(0, Math.min(maxVal, num(input.value) + delta));
+      input.value = next;
       updateFactionRep();
-    });
-    lose.addEventListener('click', ()=>{
-      input.value = Math.max(0, num(input.value) - 5);
-      updateFactionRep();
-    });
+    }
+    gain.addEventListener('click', () => change(5));
+    lose.addEventListener('click', () => change(-5));
   });
   updateFactionRep();
 }
