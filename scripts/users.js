@@ -94,6 +94,10 @@ export function loginPlayer(name, password) {
   const players = getPlayersRaw();
   const p = players[name];
   if (p && p.password === password) {
+    // Logging in as a player should terminate any active DM session to avoid
+    // concurrent logins. Use the standard logout helper so events are
+    // dispatched consistently.
+    logoutDM();
     localStorage.setItem(PLAYER_SESSION, name);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('playerChanged'));
@@ -179,11 +183,12 @@ export async function listCharacters(listFn = listCloudSaves, localFn = listLoca
   } catch (e) {
     console.error('Failed to list local saves', e);
   }
-  const saves = Array.from(new Set([...cloud, ...local]));
-  return saves
-    .filter(k => k.startsWith('player:'))
-    .map(k => k.slice(7))
-    .sort((a, b) => a.localeCompare(b));
+  const saves = [...cloud, ...local];
+  return Array.from(new Set(
+    saves
+      .filter(k => k.toLowerCase().startsWith('player:'))
+      .map(k => k.slice(7))
+  )).sort((a, b) => a.localeCompare(b));
 }
 
 // ===== DOM Wiring =====

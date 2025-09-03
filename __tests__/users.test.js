@@ -61,6 +61,24 @@ describe('user management', () => {
     expect(isDM()).toBe(true);
   });
 
+  test('failed dm login keeps current player', () => {
+    registerPlayer('Gina', 'pw', 'pet?', 'dog');
+    expect(loginPlayer('Gina', 'pw')).toBe(true);
+    expect(currentPlayer()).toBe('Gina');
+    expect(loginDM('wrong')).toBe(false);
+    expect(currentPlayer()).toBe('Gina');
+    expect(isDM()).toBe(false);
+  });
+
+  test('player login logs out dm', () => {
+    registerPlayer('Bob', 'pw', 'pet?', 'dog');
+    expect(loginDM('Dragons22!')).toBe(true);
+    expect(isDM()).toBe(true);
+    expect(loginPlayer('Bob', 'pw')).toBe(true);
+    expect(isDM()).toBe(false);
+    expect(currentPlayer()).toBe('Bob');
+  });
+
   test('dm editing', async () => {
     registerPlayer('Alice', 'pw', 'pet?', 'cat');
     expect(loginDM('Dragons22!')).toBe(true);
@@ -79,6 +97,11 @@ describe('user management', () => {
     await saveLocal('player:Eve', {});
     const names = await listCharacters(async () => ['player:Bob']);
     expect(names).toEqual(['Bob', 'Eve']);
+  });
+
+  test('lists characters from cloud regardless of key casing', async () => {
+    const names = await listCharacters(async () => ['PLAYER:Charlie', 'player:alice']);
+    expect(names).toEqual(['alice', 'Charlie']);
   });
 
   test('handles corrupted player storage gracefully', () => {
