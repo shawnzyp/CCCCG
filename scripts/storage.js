@@ -65,7 +65,7 @@ async function getIdToken() {
         const cred = await auth.signInAnonymously();
         user = cred && cred.user ? cred.user : cred;
       }
-      if (user?.getIdToken) {
+      if (typeof user?.getIdToken === 'function') {
         idToken = await user.getIdToken();
         return idToken;
       }
