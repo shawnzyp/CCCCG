@@ -3,7 +3,12 @@ import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress, revertAbilit
 import { saveLocal, saveCloud } from './storage.js';
 import { currentPlayer, loadPlayerCharacter, isDM, listCharacters } from './users.js';
 import { show, hide } from './modal.js';
-import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
+let confetti = () => {};
+if (typeof window !== 'undefined') {
+  import('https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs')
+    .then(m => { confetti = m.default; })
+    .catch(() => {});
+}
 const rulesEl = qs('#rules-text');
 const RULES_SRC = './ruleshelp.txt';
 let rulesLoaded = false;
@@ -1217,7 +1222,17 @@ async function renderDMList(){
   } catch (e) {
     console.error('Failed to list cloud saves', e);
   }
-  list.innerHTML = names.map(p=>`<div class="catalog-item"><div>${p}</div><div><button class="btn-sm" data-player="${p}">Load</button></div></div>`).join('');
+  // Preload all player saves so they are immediately available.
+  await Promise.all(
+    names.map(n =>
+      loadPlayerCharacter(n).catch(() => null)
+    )
+  );
+  list.innerHTML = names
+    .map(p =>
+      `<div class="catalog-item"><div>${p}</div><div><button class="btn-sm" data-player="${p}">Load</button></div></div>`
+    )
+    .join('');
 }
 const dmList = $('dm-player-list');
 if(dmList){
