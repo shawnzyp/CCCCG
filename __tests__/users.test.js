@@ -42,6 +42,17 @@ describe('user management', () => {
     expect(getPlayers()).toEqual([]);
   });
 
+  test('player login is case-insensitive', async () => {
+    registerPlayer('Alice', 'pw', 'pet?', 'cat');
+    expect(await loginPlayer('alice', 'pw')).toBe(true);
+    expect(currentPlayer()).toBe('Alice');
+  });
+
+  test('registration rejects duplicate names regardless of case', () => {
+    expect(registerPlayer('Eve', 'pw', 'q', 'a')).toBe(true);
+    expect(registerPlayer('eve', 'pw2', 'q', 'a')).toBe(false);
+  });
+
   test('player login and save', async () => {
     registerPlayer('Alice', 'pass', 'pet?', 'cat');
     expect(await loginPlayer('Alice', 'pass')).toBe(true);
