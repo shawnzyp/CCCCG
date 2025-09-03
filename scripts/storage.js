@@ -96,7 +96,9 @@ export async function listCloudSaves() {
     const res = await fetch(`${CLOUD_SAVES_URL}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
-    return val ? Object.keys(val) : [];
+    // Keys in the realtime database are URL-encoded because we escape them when
+    // saving. Decode them here so callers receive the original player names.
+    return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
   } catch (e) {
     console.error('Cloud list failed', e);
     return [];
