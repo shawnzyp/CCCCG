@@ -12,6 +12,7 @@ const DM_PASSWORD = 'Dragons22!';
 let dmPasswordInput = null;
 let playersCache = null;
 let playersCacheRaw = null;
+let storageBlocked = false;
 
 // Helper to determine if cloud functionality is available. When `fetch` is not
 // implemented (e.g. during tests or in very old browsers) cloud operations
@@ -24,11 +25,12 @@ function getPlayersRaw() {
   let raw;
   try {
     raw = localStorage.getItem(PLAYERS_KEY);
+    storageBlocked = false;
   } catch (e) {
     // Accessing localStorage can fail in some environments (e.g. disabled
     // storage or privacy modes). Treat this as no data rather than throwing an
     // uncaught exception that prevents the page from loading.
-    console.error('Failed to access localStorage', e);
+    console.warn('Failed to access localStorage', e);
     playersCache = {};
     playersCacheRaw = null;
     return playersCache;
@@ -52,7 +54,7 @@ function getPlayersRaw() {
     // If the stored data is corrupted or invalid JSON, discard it so the
     // application can continue operating with a clean slate instead of
     // throwing a runtime error that breaks the page.
-    console.error('Failed to parse players from localStorage', e);
+    console.warn('Failed to parse players from localStorage', e);
     try { localStorage.removeItem(PLAYERS_KEY); } catch {}
     playersCache = {};
     playersCacheRaw = null;
@@ -63,7 +65,17 @@ function getPlayersRaw() {
 function setPlayersRaw(players) {
   playersCache = players;
   playersCacheRaw = JSON.stringify(players);
-  localStorage.setItem(PLAYERS_KEY, playersCacheRaw);
+  try {
+    localStorage.setItem(PLAYERS_KEY, playersCacheRaw);
+    storageBlocked = false;
+  } catch (e) {
+    storageBlocked = true;
+    console.warn('Failed to write players to localStorage', e);
+  }
+}
+
+export function storageAvailable() {
+  return !storageBlocked;
 }
 
 export function getPlayers() {
@@ -88,6 +100,7 @@ export function registerPlayer(name, password, question, answer) {
   const record = { password, question, answer };
   players[name] = record;
   setPlayersRaw(players);
+  if (storageBlocked) return false;
   // Persist player credentials to the cloud so logins work across devices.
   if (canUseCloud()) {
     saveCloud('user:' + name, record).catch(e =>
@@ -161,7 +174,14 @@ export async function loginPlayer(name, password) {
     // concurrent logins. Use the standard logout helper so events are
     // dispatched consistently.
     logoutDM();
-    localStorage.setItem(PLAYER_SESSION, canonical);
+    try {
+      localStorage.setItem(PLAYER_SESSION, canonical);
+      storageBlocked = false;
+    } catch (e) {
+      storageBlocked = true;
+      console.warn('Failed to access localStorage', e);
+      return false;
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('playerChanged'));
     }
@@ -171,11 +191,25 @@ export async function loginPlayer(name, password) {
 }
 
 export function currentPlayer() {
-  return localStorage.getItem(PLAYER_SESSION);
+  try {
+    const v = localStorage.getItem(PLAYER_SESSION);
+    storageBlocked = false;
+    return v;
+  } catch (e) {
+    storageBlocked = true;
+    console.warn('Failed to access localStorage', e);
+    return null;
+  }
 }
 
 export function logoutPlayer() {
-  localStorage.removeItem(PLAYER_SESSION);
+  try {
+    localStorage.removeItem(PLAYER_SESSION);
+    storageBlocked = false;
+  } catch (e) {
+    storageBlocked = true;
+    console.warn('Failed to access localStorage', e);
+  }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('playerChanged'));
   }
@@ -188,7 +222,14 @@ export function loginDM(password) {
     // logout helper to ensure events are dispatched and session storage is
     // cleared consistently.
     logoutPlayer();
-    localStorage.setItem(DM_SESSION, '1');
+    try {
+      localStorage.setItem(DM_SESSION, '1');
+      storageBlocked = false;
+    } catch (e) {
+      storageBlocked = true;
+      console.warn('Failed to access localStorage', e);
+      return false;
+    }
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('playerChanged'));
     }
@@ -198,11 +239,25 @@ export function loginDM(password) {
 }
 
 export function isDM() {
-  return localStorage.getItem(DM_SESSION) === '1';
+  try {
+    const v = localStorage.getItem(DM_SESSION) === '1';
+    storageBlocked = false;
+    return v;
+  } catch (e) {
+    storageBlocked = true;
+    console.warn('Failed to access localStorage', e);
+    return false;
+  }
 }
 
 export function logoutDM() {
-  localStorage.removeItem(DM_SESSION);
+  try {
+    localStorage.removeItem(DM_SESSION);
+    storageBlocked = false;
+  } catch (e) {
+    storageBlocked = true;
+    console.warn('Failed to access localStorage', e);
+  }
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event('playerChanged'));
   }
@@ -425,7 +480,10 @@ if (typeof document !== 'undefined') {
           updateDMButton();
           hideModal('modal-player');
         } else {
-          toast('Invalid credentials','error');
+          toast(
+            storageAvailable() ? 'Invalid credentials' : 'Storage access denied',
+            'error'
+          );
         }
       });
     }
@@ -504,7 +562,10 @@ if (typeof document !== 'undefined') {
               }
             }
         } else {
-          toast('Invalid credentials','error');
+          toast(
+            storageAvailable() ? 'Invalid credentials' : 'Storage access denied',
+            'error'
+          );
         }
       });
     }
