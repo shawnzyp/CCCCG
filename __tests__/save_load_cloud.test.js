@@ -17,6 +17,10 @@ beforeAll(async () => {
   }
 });
 
+beforeEach(() => {
+  localStorage.clear();
+});
+
 testOrSkip('saveCloud sends data and loadCloud retrieves it from Firebase', async () => {
   jest.resetModules();
 
