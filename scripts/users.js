@@ -96,22 +96,38 @@ export function getPlayers() {
 
 export function registerPlayer(name, password, question, answer) {
   const players = getPlayersRaw();
-  if (!name || !password || !question || !answer) {
+
+  // Normalize inputs so that accidental whitespace or case differences don't
+  // prevent subsequent logins or password recovery. Treat answers with only
+  // whitespace as missing.
+  const normalizedName = name?.trim();
+  const normalizedQuestion = question?.trim();
+  const normalizedAnswer = answer?.trim();
+
+  if (!normalizedName || !password || !normalizedQuestion || !normalizedAnswer) {
     return false;
   }
-  const lower = name.toLowerCase();
+
+  const lower = normalizedName.toLowerCase();
   for (const existing of Object.keys(players)) {
     if (existing.toLowerCase() === lower) {
       return false;
     }
   }
-  const record = { password, question, answer };
-  players[name] = record;
+
+  const record = {
+    password,
+    question: normalizedQuestion,
+    // Store the answer in a canonical lowercase form to make recovery
+    // case-insensitive.
+    answer: normalizedAnswer.toLowerCase(),
+  };
+  players[normalizedName] = record;
   setPlayersRaw(players);
   if (storageBlocked) return false;
   // Persist player credentials to the cloud so logins work across devices.
   if (canUseCloud()) {
-    saveCloud('user:' + name, record).catch(e =>
+    saveCloud('user:' + normalizedName, record).catch(e =>
       console.error('Cloud player save failed', e)
     );
   }
@@ -131,11 +147,14 @@ export function getPlayerQuestion(name) {
 
 export function recoverPlayerPassword(name, answer) {
   const players = getPlayersRaw();
-  const lower = name.toLowerCase();
+  const lowerName = name.toLowerCase();
+  const normalizedAnswer = answer.trim().toLowerCase();
   for (const key of Object.keys(players)) {
-    if (key.toLowerCase() === lower) {
+    if (key.toLowerCase() === lowerName) {
       const p = players[key];
-      return p.answer === answer ? p.password : null;
+      const storedAnswer =
+        typeof p.answer === 'string' ? p.answer.trim().toLowerCase() : '';
+      return storedAnswer === normalizedAnswer ? p.password : null;
     }
   }
   return null;
