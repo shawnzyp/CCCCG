@@ -123,6 +123,16 @@ describe('user management', () => {
     expect(names).toEqual(['Eve']);
   });
 
+  test('lists and loads characters with percent signs in the name', async () => {
+    registerPlayer('A%20B', 'pw', 'pet?', 'cat');
+    expect(loginPlayer('A%20B', 'pw')).toBe(true);
+    await savePlayerCharacter('A%20B', { hp: 7 });
+    const names = await listCharacters();
+    expect(names).toEqual(['A%20B']);
+    const data = await loadPlayerCharacter('A%20B');
+    expect(data.hp).toBe(7);
+  });
+
   test('handles corrupted player storage gracefully', () => {
     localStorage.setItem('players', '{not valid json');
     expect(getPlayers()).toEqual([]);
