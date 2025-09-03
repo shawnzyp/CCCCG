@@ -46,14 +46,15 @@ export function listLocalSaves() {
 // ===== Firebase Cloud Save =====
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 
-// Attempt to fetch a Firebase Auth ID token and cache it. The application can
+// Attempt to fetch a Firebase Auth token and cache it. The application can
 // operate without Firebase (only local saves) so failures are logged but do not
 // throw. Authentication is optional but when available the token is appended to
 // database requests so security rules requiring `auth != null` are satisfied.
 let idToken = null;
+let tokenIsOAuth = false;
 
 async function getIdToken() {
-  if (idToken) return idToken;
+  if (idToken) return { token: idToken, oauth: tokenIsOAuth };
   try {
     if (typeof window !== 'undefined' && window.firebase?.auth) {
       const auth = window.firebase.auth();
@@ -67,22 +68,56 @@ async function getIdToken() {
       }
       if (typeof user?.getIdToken === 'function') {
         idToken = await user.getIdToken();
-        return idToken;
+        tokenIsOAuth = false;
+        return { token: idToken, oauth: false };
+      }
+    }
+
+    // When running in a Node environment, allow use of a service account key
+    // (typically provided via `serviceAccountKey.json` or the
+    // GOOGLE_APPLICATION_CREDENTIALS environment variable) to generate an OAuth2
+    // access token for the realtime database.
+    if (typeof process !== 'undefined' && process.versions?.node) {
+      const keyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || 'serviceAccountKey.json';
+      try {
+        const fs = await import('fs');
+        if (fs.existsSync(keyPath)) {
+          const { GoogleAuth } = await import('google-auth-library');
+          const auth = new GoogleAuth({
+            keyFilename: keyPath,
+            scopes: [
+              'https://www.googleapis.com/auth/firebase.database',
+              'https://www.googleapis.com/auth/userinfo.email',
+            ],
+          });
+          const client = await auth.getClient();
+          const access = await client.getAccessToken();
+          idToken = access.token || access;
+          tokenIsOAuth = true;
+          return { token: idToken, oauth: true };
+        }
+      } catch (e) {
+        // If service account auth fails, fall through to unauthenticated mode.
+        console.error('Failed to acquire service account token', e);
       }
     }
   } catch (e) {
     console.error('Failed to acquire auth token', e);
   }
-  return null;
+  return { token: null, oauth: false };
 }
 
-async function authedFetch(url, options) {
-  const token = await getIdToken();
+async function authedFetch(url, options = {}) {
+  const { token, oauth } = await getIdToken();
   if (token) {
-    const sep = url.includes('?') ? '&' : '?';
-    url = `${url}${sep}auth=${token}`;
+    if (oauth) {
+      options.headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
+    } else {
+      const sep = url.includes('?') ? '&' : '?';
+      url = `${url}${sep}auth=${token}`;
+    }
   }
-  return options ? fetch(url, options) : fetch(url);
+  return fetch(url, options);
 }
 
 export async function saveCloud(name, payload) {
@@ -110,7 +145,10 @@ export async function saveCloud(name, payload) {
 export async function loadCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`);
+    const res = await authedFetch(
+      `${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`,
+      { method: 'GET' }
+    );
     if (res.status === 401 || res.status === 403) return null;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
