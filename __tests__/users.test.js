@@ -6,10 +6,12 @@ import {
   loginPlayer,
   logoutPlayer,
   currentPlayer,
+  isDM,
   editPlayerCharacter,
   savePlayerCharacter,
   loadPlayerCharacter,
   recoverPlayerPassword,
+  listCharacters,
 } from '../scripts/users.js';
 
 describe('user management', () => {
@@ -49,6 +51,15 @@ describe('user management', () => {
     expect(currentPlayer()).toBeNull();
   });
 
+  test('dm login logs out current player', () => {
+    registerPlayer('Alice', 'pw', 'pet?', 'cat');
+    expect(loginPlayer('Alice', 'pw')).toBe(true);
+    expect(currentPlayer()).toBe('Alice');
+    expect(loginDM('Dragons22!')).toBe(true);
+    expect(currentPlayer()).toBeNull();
+    expect(isDM()).toBe(true);
+  });
+
   test('dm editing', async () => {
     registerPlayer('Alice', 'pw', 'pet?', 'cat');
     expect(loginDM('Dragons22!')).toBe(true);
@@ -56,6 +67,11 @@ describe('user management', () => {
     await editPlayerCharacter('Alice', { hp: 20 });
     const data = await loadPlayerCharacter('Alice');
     expect(data.hp).toBe(20);
+  });
+
+  test('lists characters from cloud', async () => {
+    const names = await listCharacters(async () => ['player:Bob', 'player:Alice', 'other']);
+    expect(names).toEqual(['Alice', 'Bob']);
   });
 
   test('handles corrupted player storage gracefully', () => {

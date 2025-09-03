@@ -1,4 +1,4 @@
-import { saveLocal, loadLocal, loadCloud, saveCloud } from './storage.js';
+import { saveLocal, loadLocal, loadCloud, saveCloud, listCloudSaves } from './storage.js';
 import { $ } from './helpers.js';
 import { show as showModal, hide as hideModal } from './modal.js';
 
@@ -116,6 +116,11 @@ export function logoutPlayer() {
 
 export function loginDM(password) {
   if (password === DM_PASSWORD) {
+    // Signing in as the DM should terminate any existing player session so
+    // that the DM is the only account with an active login. Reuse the normal
+    // logout helper to ensure events are dispatched and session storage is
+    // cleared consistently.
+    logoutPlayer();
     localStorage.setItem(DM_SESSION, '1');
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('playerChanged'));
@@ -159,6 +164,19 @@ export async function loadPlayerCharacter(player) {
 export function editPlayerCharacter(player, data) {
   if (!isDM()) throw new Error('Not authorized');
   return savePlayerCharacter(player, data);
+}
+
+export async function listCharacters(listFn = listCloudSaves) {
+  try {
+    const saves = await listFn();
+    return saves
+      .filter(k => k.startsWith('player:'))
+      .map(k => k.slice(7))
+      .sort((a, b) => a.localeCompare(b));
+  } catch (e) {
+    console.error('Failed to list cloud saves', e);
+    return [];
+  }
 }
 
 // ===== DOM Wiring =====
