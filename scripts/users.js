@@ -145,23 +145,35 @@ async function loadPlayerRecord(name) {
   }
   let record = players[canonical] || null;
   if (canUseCloud()) {
+    let remote = null;
     try {
-      const remote = await loadCloud('user:' + canonical);
-      if (remote && typeof remote.password === 'string') {
-        players[canonical] = remote;
-        try {
-          setPlayersRaw(players);
-        } catch {}
-        record = remote;
-      }
+      remote = await loadCloud('user:' + canonical);
     } catch (e) {
-      if (
-        e &&
-        e.message !== 'No save found' &&
-        e.message !== 'fetch not supported'
-      ) {
+      if (e && e.message === 'No save found') {
+        try {
+          const keys = await listCloudSaves();
+          const match = keys.find(
+            k => k.toLowerCase() === ('user:' + name).toLowerCase()
+          );
+          if (match) {
+            canonical = match.slice(5);
+            remote = await loadCloud(match);
+          }
+        } catch (e2) {
+          if (e2 && e2.message !== 'fetch not supported') {
+            console.error('Failed to load player from cloud', e2);
+          }
+        }
+      } else if (e && e.message !== 'fetch not supported') {
         console.error('Failed to load player from cloud', e);
       }
+    }
+    if (remote && typeof remote.password === 'string') {
+      players[canonical] = remote;
+      try {
+        setPlayersRaw(players);
+      } catch {}
+      record = remote;
     }
   }
   return { record, canonical };

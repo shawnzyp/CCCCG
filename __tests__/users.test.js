@@ -108,6 +108,23 @@ describe('user management', () => {
     delete global.fetch;
   });
 
+  test('player login fetches cloud record case-insensitively', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => null })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ 'user%3AZara': { password: 'pw', question: 'q', answer: 'a' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ password: 'pw', question: 'q', answer: 'a' }),
+      });
+    expect(await loginPlayer('zara', 'pw')).toBe(true);
+    expect(currentPlayer()).toBe('Zara');
+    delete global.fetch;
+  });
+
   test('login verifies credentials against the cloud', async () => {
     localStorage.setItem('players', JSON.stringify({ Hank: { password: 'old', question: 'q', answer: 'a' } }));
     global.fetch = jest.fn().mockResolvedValue({
