@@ -1,5 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress, revertAbilityScore } from './helpers.js';
+import { setupFactionRepTracker, ACTION_HINTS } from './faction.js';
 import {
   currentPlayer,
   loadPlayerCharacter,
@@ -466,38 +467,9 @@ const ORIGIN_PERKS = {
   'The Redemption': ['Advantage on persuasion checks for second chances.']
 };
 
-const COMMON_REP_TIERS = {
-  Hostile: ['You are hunted, sabotaged, or attacked on sight.'],
-  Untrusted: ['Faction denies you resources, spreads bad PR.'],
-  Neutral: ['No strong opinion—standard interactions only.'],
-  Recognized: ['Minor perks, small-scale favors.'],
-  Trusted: ['Reliable allies, access to mid-tier resources.'],
-  Favored: ['Priority treatment, elite support, story leverage.'],
-  Champion: ['Icon status, legendary backing, may call in major faction powers.'],
-};
-
-const FACTION_REP_PERKS = {
-  'O.M.N.I.': { ...COMMON_REP_TIERS },
-  'P.F.V.': { ...COMMON_REP_TIERS },
-  'Cosmic Conclave': { ...COMMON_REP_TIERS },
-  'Greyline PMC': { ...COMMON_REP_TIERS },
-};
-
-const REP_TIERS = Object.keys(COMMON_REP_TIERS);
+// faction reputation configuration moved to separate module
 
 // handle special perk behavior (stat boosts, initiative mods, etc.)
-const ACTION_HINTS = [
-  'once per',
-  'per encounter',
-  'per day',
-  'per long rest',
-  'reroll',
-  'call upon',
-  'protect an ally',
-  'gain temporary hit points',
-  'dash as a bonus action',
-  'add +'
-];
 
 let addWisToInitiative = false;
 let enhancedAbility = '';
@@ -655,13 +627,6 @@ const elXPPill = $('xp-pill');
 const elTier = $('tier');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
-const FACTIONS = ['omni','pfv','conclave','greyline'];
-const FACTION_NAME_MAP = {
-  omni: 'O.M.N.I.',
-  pfv: 'P.F.V.',
-  conclave: 'Cosmic Conclave',
-  greyline: 'Greyline PMC',
-};
 
 let hpRolls = [];
 if (elHPRoll) {
@@ -800,60 +765,6 @@ $('xp-submit').addEventListener('click', ()=>{
   setXP(num(elXP.value) + (mode==='add'? amt : -amt));
 });
 
-function updateFactionRep(){
-  FACTIONS.forEach(f=>{
-    const input = $(`${f}-rep`);
-    const bar = $(`${f}-rep-bar`);
-    const tierEl = $(`${f}-rep-tier`);
-    const perkEl = $(`${f}-rep-perk`);
-    if(!input || !bar || !tierEl || !perkEl) return;
-    let val = Math.max(0, num(input.value));
-    const maxVal = REP_TIERS.length * 100 - 1;
-    if(val > maxVal) val = maxVal;
-    input.value = val;
-    const tierIdx = Math.min(REP_TIERS.length - 1, Math.floor(val / 100));
-    const tierName = REP_TIERS[tierIdx];
-    bar.value = val % 100;
-    tierEl.textContent = tierName;
-    perkEl.innerHTML = '';
-    const facName = FACTION_NAME_MAP[f];
-    const perks = (FACTION_REP_PERKS[facName] && FACTION_REP_PERKS[facName][tierName]) || [];
-    const perk = perks[0];
-    if(perk){
-      const text = typeof perk === 'string' ? perk : String(perk);
-      const lower = text.toLowerCase();
-      const isAction = ACTION_HINTS.some(k=> lower.includes(k));
-      if(isAction){
-        const id = `${f}-rep-perk-act`;
-        perkEl.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
-      }else{
-        perkEl.textContent = text;
-      }
-      handlePerkEffects(perkEl, text);
-      perkEl.style.display = 'block';
-    }else{
-      perkEl.style.display = 'none';
-    }
-  });
-}
-
-function setupFactionRepTracker(){
-  const maxVal = REP_TIERS.length * 100 - 1;
-  FACTIONS.forEach(f=>{
-    const input = $(`${f}-rep`);
-    const gain = $(`${f}-rep-gain`);
-    const lose = $(`${f}-rep-lose`);
-    if(!input || !gain || !lose) return;
-    function change(delta){
-      const next = Math.max(0, Math.min(maxVal, num(input.value) + delta));
-      input.value = next;
-      updateFactionRep();
-    }
-    gain.addEventListener('click', () => change(5));
-    lose.addEventListener('click', () => change(-5));
-  });
-  updateFactionRep();
-}
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
@@ -1899,7 +1810,7 @@ setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
 setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
 setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
 setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
-setupFactionRepTracker();
+setupFactionRepTracker(handlePerkEffects, pushHistory);
 updateDerived();
 applyDeleteIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
