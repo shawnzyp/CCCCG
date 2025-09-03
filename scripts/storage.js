@@ -104,3 +104,27 @@ export async function listCloudSaves() {
     return [];
   }
 }
+export async function cacheCloudSaves(
+  listFn = listCloudSaves,
+  loadFn = loadCloud,
+  saveFn = saveLocal
+) {
+  try {
+    const keys = await listFn();
+    // Only cache player character data. Other saves such as user credentials
+    // are skipped to avoid polluting local storage with unnecessary entries.
+    const playerKeys = keys.filter(k => typeof k === 'string' && k.startsWith('player:'));
+    await Promise.all(
+      playerKeys.map(async k => {
+        try {
+          const data = await loadFn(k);
+          await saveFn(k, data);
+        } catch (e) {
+          console.error('Failed to cache', k, e);
+        }
+      })
+    );
+  } catch (e) {
+    console.error('Failed to cache cloud saves', e);
+  }
+}
