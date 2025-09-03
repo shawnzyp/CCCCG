@@ -32,6 +32,7 @@
         <button id="btn-theme" class="btn-sm">Toggle Theme</button>
         <button id="btn-player" class="btn-sm">Log In</button>
         <button id="btn-save" class="btn-sm">Save</button>
+        <button id="btn-character" class="btn-sm">Characters</button>
         <button id="btn-wizard" class="btn-sm" aria-label="Character creation wizard" title="Character creation wizard">Character wizard</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
         <button id="btn-log" class="btn-sm">Roll/Flip Log</button>
@@ -605,6 +606,22 @@
     </button>
     <h3>Player Characters</h3>
     <div id="dm-player-list" class="catalog"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-characters" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Your Characters</h3>
+    <div id="player-char-list" class="catalog"></div>
+    <div class="inline">
+      <input id="new-character-name" placeholder="New character name"/>
+      <button id="create-character" class="btn-sm" type="button">Create/Switch</button>
+    </div>
   </div>
 </div>
 

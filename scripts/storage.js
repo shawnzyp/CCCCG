@@ -124,10 +124,19 @@ async function authedFetch(url, options = {}) {
   return fetch(url, options);
 }
 
+// Encode each path segment separately so callers can supply hierarchical
+// keys like `player:Alice/hero1` without worrying about Firebase escaping.
+function encodePath(name) {
+  return name
+    .split('/')
+    .map((s) => encodeURIComponent(s))
+    .join('/');
+}
+
 export async function saveCloud(name, payload) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`, {
+    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -150,7 +159,7 @@ export async function loadCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await authedFetch(
-      `${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`,
+      `${CLOUD_SAVES_URL}/${encodePath(name)}.json`,
       { method: 'GET' }
     );
     if (res.status === 401 || res.status === 403) return null;
@@ -168,7 +177,7 @@ export async function loadCloud(name) {
 export async function deleteCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodeURIComponent(name)}.json`, {
+    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
       method: 'DELETE'
     });
     if (res.status === 401 || res.status === 403) return;

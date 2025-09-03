@@ -6,6 +6,7 @@ jest.unstable_mockModule('../scripts/storage.js', () => ({
   loadCloud: jest.fn(),
   saveCloud: jest.fn(),
   deleteSave: jest.fn(),
+  deleteCloud: jest.fn(),
   listCloudSaves: jest.fn(),
   listLocalSaves: jest.fn(),
   cacheCloudSaves: jest.fn(),
@@ -29,9 +30,9 @@ describe('DM cloud loading', () => {
     storage.loadCloud.mockResolvedValue({ hp: 30 });
     expect(loginDM('Dragons22!')).toBe(true);
     const data = await loadPlayerCharacter('Eve');
-    expect(storage.loadCloud).toHaveBeenCalledWith('Player :Eve');
+    expect(storage.loadCloud).toHaveBeenCalledWith('Player :Eve/default');
     expect(storage.loadLocal).not.toHaveBeenCalled();
-    expect(storage.saveLocal).toHaveBeenCalledWith('Player :Eve', { hp: 30 });
+    expect(storage.saveLocal).toHaveBeenCalledWith('Player :Eve/default', { hp: 30 });
     expect(data.hp).toBe(30);
   });
 
@@ -41,8 +42,8 @@ describe('DM cloud loading', () => {
     storage.loadLocal.mockResolvedValue({ hp: 15 });
     expect(loginDM('Dragons22!')).toBe(true);
     const data = await loadPlayerCharacter('Eve');
-    expect(storage.loadCloud).toHaveBeenCalledWith('Player :Eve');
-    expect(storage.loadLocal).toHaveBeenCalledWith('Player :Eve');
+    expect(storage.loadCloud).toHaveBeenCalledWith('Player :Eve/default');
+    expect(storage.loadLocal).toHaveBeenCalledWith('Player :Eve/default');
     expect(data.hp).toBe(15);
   });
 });

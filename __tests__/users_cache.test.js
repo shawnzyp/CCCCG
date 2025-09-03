@@ -17,6 +17,8 @@ jest.unstable_mockModule('../scripts/storage.js', () => ({
   loadLocal: jest.fn(),
   loadCloud: jest.fn(),
   saveCloud: jest.fn(),
+  deleteCloud: jest.fn(),
+  deleteSave: jest.fn(),
   listCloudSaves: jest.fn(),
   listLocalSaves: jest.fn(),
   cacheCloudSaves,
