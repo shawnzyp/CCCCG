@@ -1,13 +1,23 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress, revertAbilityScore } from './helpers.js';
-import { saveLocal, saveCloud } from './storage.js';
-import { currentPlayer, loadPlayerCharacter, isDM, listCharacters } from './users.js';
+import {
+  currentPlayer,
+  loadPlayerCharacter,
+  isDM,
+  listCharacters,
+  listPlayerCharacters,
+  setCurrentCharacter,
+  currentCharacter,
+  deletePlayerCharacter,
+  savePlayerCharacter,
+} from './users.js';
 import { show, hide } from './modal.js';
 import confetti from 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.module.mjs';
 const rulesEl = qs('#rules-text');
 const RULES_SRC = './ruleshelp.txt';
 let rulesLoaded = false;
 let dmPlayer = null;
+let dmCharacter = null;
 
 // ----- animation lock -----
 // Animations should only run after an explicit user action. To prevent them
@@ -1217,7 +1227,12 @@ async function renderDMList(){
   } catch (e) {
     console.error('Failed to list cloud saves', e);
   }
-  list.innerHTML = names.map(p=>`<div class="catalog-item"><div>${p}</div><div><button class="btn-sm" data-player="${p}">Load</button></div></div>`).join('');
+  list.innerHTML = names
+    .map(p => {
+      const [pl, ch] = p.split('/');
+      return `<div class="catalog-item"><div>${pl} - ${ch}</div><div><button class="btn-sm" data-player="${pl}" data-char="${ch}">Load</button></div></div>`;
+    })
+    .join('');
 }
 const dmList = $('dm-player-list');
 if(dmList){
@@ -1225,12 +1240,76 @@ if(dmList){
     const btn = e.target.closest('button[data-player]');
     if(!btn) return;
     const player = btn.dataset.player;
-    loadPlayerCharacter(player).then(data=>{
+    const char = btn.dataset.char;
+    loadPlayerCharacter(player, char).then(data=>{
       deserialize(data);
       dmPlayer = player;
+      dmCharacter = char;
       hide('modal-dm');
-      toast(`Loaded ${player}`,'success');
+      toast(`Loaded ${player} - ${char}`,'success');
     }).catch(()=> toast('Load failed','error'));
+  });
+}
+const btnCharacter = $('btn-character');
+if (btnCharacter) {
+  btnCharacter.addEventListener('click', async () => {
+    const player = currentPlayer();
+    if (!player) return toast('Login required','error');
+    await renderCharacterList(player);
+    show('modal-characters');
+  });
+}
+
+async function renderCharacterList(player){
+  if(!player) return;
+  const list = $('player-char-list');
+  if(!list) return;
+  let names = [];
+  try { names = await listPlayerCharacters(player); }
+  catch (e) { console.error('Failed to list characters', e); }
+  list.innerHTML = names.map(c=>`<div class="catalog-item"><div>${c}</div><div><button class="btn-sm" data-char="${c}">Load</button><button class="btn-sm" data-del-char="${c}">Delete</button></div></div>`).join('');
+  applyDeleteIcons(list);
+}
+
+const charList = $('player-char-list');
+if(charList){
+  charList.addEventListener('click', e=>{
+    const player = currentPlayer();
+    if(!player) return;
+    const loadBtn = e.target.closest('button[data-char]');
+    const delBtn = e.target.closest('button[data-del-char]');
+    if(loadBtn){
+      const ch = loadBtn.dataset.char;
+      loadPlayerCharacter(player, ch).then(data=>{
+        deserialize(data);
+        setCurrentCharacter(player, ch);
+        hide('modal-characters');
+        toast(`Loaded ${ch}`,'success');
+      }).catch(()=> toast('Load failed','error'));
+    } else if(delBtn){
+      const ch = delBtn.dataset.delChar;
+      if(confirm(`Delete ${ch}?`)){
+        deletePlayerCharacter(player, ch).then(()=>{
+          renderCharacterList(player);
+          toast('Deleted','info');
+        }).catch(()=> toast('Delete failed','error'));
+      }
+    }
+  });
+}
+
+const newCharBtn = $('create-character');
+if(newCharBtn){
+  newCharBtn.addEventListener('click', ()=>{
+    const input = $('new-character-name');
+    const name = input.value.trim();
+    if(!name) return toast('Name required','error');
+    const player = currentPlayer();
+    if(!player) return toast('Login required','error');
+    setCurrentCharacter(player, name);
+    deserialize({});
+    hide('modal-characters');
+    toast(`Switched to ${name}`,'success');
   });
 }
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
@@ -1661,26 +1740,14 @@ function redo(){
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
   const player = currentPlayer() || (isDM() ? dmPlayer : null);
-  if (!player) return toast('Login required', 'error');
+  const char = currentCharacter(player) || (isDM() ? dmCharacter : null);
+  if (!player || !char) return toast('Login required', 'error');
   btn.classList.add('loading'); btn.disabled = true;
   try {
     const data = serialize();
-    const results = [];
-    try {
-      await saveLocal('Player :' + player, data);
-      results.push('Local save successful');
-    } catch (e) {
-      results.push('Local save failed: ' + e.message);
-    }
-    try {
-      await saveCloud('Player :' + player, data);
-      results.push('Cloud save successful');
-    } catch (e) {
-      results.push('Cloud save failed: ' + e.message);
-    }
-    const isErr = results.some(r => r.includes('failed'));
-    toast(results.join(' | '), isErr ? 'error' : 'success');
-    if(!isErr) playSaveAnimation();
+    await savePlayerCharacter(player, data, char);
+    toast('Save successful', 'success');
+    playSaveAnimation();
   } finally {
     btn.classList.remove('loading'); btn.disabled = false;
   }

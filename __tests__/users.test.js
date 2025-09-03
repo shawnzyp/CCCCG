@@ -154,18 +154,18 @@ describe('user management', () => {
 
   test('lists characters from cloud', async () => {
     const names = await listCharacters(async () => ['Player :Bob', 'Player :Alice', 'other']);
-    expect(names).toEqual(['Alice', 'Bob']);
+    expect(names).toEqual(['Alice/default', 'Bob/default']);
   });
 
   test('merges local saves when listing characters', async () => {
     await saveLocal('Player :Eve', {});
     const names = await listCharacters(async () => ['Player :Bob']);
-    expect(names).toEqual(['Bob', 'Eve']);
+    expect(names).toEqual(['Bob/default', 'Eve/default']);
   });
 
   test('lists characters from cloud regardless of key casing', async () => {
     const names = await listCharacters(async () => ['PLAYER :Charlie', 'player :alice']);
-    expect(names).toEqual(['alice', 'Charlie']);
+    expect(names).toEqual(['alice/default', 'Charlie/default']);
   });
 
   test('lists characters with encoded cloud keys', async () => {
@@ -174,13 +174,13 @@ describe('user management', () => {
       json: async () => ({ 'Player%20%3ABob': {}, 'Player%20%3AAlice': {} }),
     });
     const names = await listCharacters();
-    expect(names).toEqual(['Alice', 'Bob']);
+    expect(names).toEqual(['Alice/default', 'Bob/default']);
   });
 
 
   test('lists characters with encoded local keys', async () => {
     const names = await listCharacters(async () => [], async () => ['Player%20%3AEve']);
-    expect(names).toEqual(['Eve']);
+    expect(names).toEqual(['Eve/default']);
   });
 
   test('lists and loads characters with percent signs in the name', async () => {
@@ -188,7 +188,7 @@ describe('user management', () => {
     expect(await loginPlayer('A%20B', 'pw')).toBe(true);
     await savePlayerCharacter('A%20B', { hp: 7 });
     const names = await listCharacters();
-    expect(names).toEqual(['A%20B']);
+    expect(names).toEqual(['A%20B/default']);
     const data = await loadPlayerCharacter('A%20B');
     expect(data.hp).toBe(7);
   });
@@ -222,5 +222,6 @@ describe('user management', () => {
     expect(recoverPlayerPassword('Frank', ' BLUE  ')).toBe('pw');
     expect(recoverPlayerPassword('Frank', 'red')).toBeNull();
   });
+
 });
 

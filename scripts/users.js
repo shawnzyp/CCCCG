@@ -1,4 +1,14 @@
-import { saveLocal, loadLocal, loadCloud, saveCloud, listCloudSaves, listLocalSaves, cacheCloudSaves } from './storage.js';
+import {
+  saveLocal,
+  loadLocal,
+  loadCloud,
+  saveCloud,
+  listCloudSaves,
+  listLocalSaves,
+  cacheCloudSaves,
+  deleteSave,
+  deleteCloud,
+} from './storage.js';
 import { $ } from './helpers.js';
 import { show as showModal, hide as hideModal } from './modal.js';
 
@@ -14,6 +24,8 @@ const PLAYERS_KEY = 'players';
 const PLAYER_SESSION = 'player-session';
 const DM_SESSION = 'dm-session';
 const DM_PASSWORD = 'Dragons22!';
+
+const CHARACTER_SESSION_PREFIX = 'char-session:';
 
 // Cache frequently accessed DOM elements and player data to reduce repeated
 // lookups and expensive JSON parsing of the players list.
@@ -216,6 +228,9 @@ export async function loginPlayer(name, password) {
     try {
       localStorage.setItem(PLAYER_SESSION, canonical);
       storageBlocked = false;
+      if (!localStorage.getItem(CHARACTER_SESSION_PREFIX + canonical)) {
+        localStorage.setItem(CHARACTER_SESSION_PREFIX + canonical, 'default');
+      }
     } catch (e) {
       storageBlocked = true;
       console.warn('Failed to access localStorage', e);
@@ -241,8 +256,36 @@ export function currentPlayer() {
   }
 }
 
+export function currentCharacter(player = currentPlayer()) {
+  if (!player) return null;
+  try {
+    const v = localStorage.getItem(CHARACTER_SESSION_PREFIX + player);
+    storageBlocked = false;
+    return v;
+  } catch (e) {
+    storageBlocked = true;
+    console.warn('Failed to access localStorage', e);
+    return null;
+  }
+}
+
+export function setCurrentCharacter(player, character) {
+  if (!player) return;
+  try {
+    localStorage.setItem(CHARACTER_SESSION_PREFIX + player, character);
+    storageBlocked = false;
+  } catch (e) {
+    storageBlocked = true;
+    console.warn('Failed to access localStorage', e);
+  }
+}
+
 export function logoutPlayer() {
   try {
+    const p = localStorage.getItem(PLAYER_SESSION);
+    if (p) {
+      localStorage.removeItem(CHARACTER_SESSION_PREFIX + p);
+    }
     localStorage.removeItem(PLAYER_SESSION);
     storageBlocked = false;
   } catch (e) {
@@ -302,31 +345,72 @@ export function logoutDM() {
   }
 }
 
-export async function savePlayerCharacter(player, data) {
+export async function savePlayerCharacter(
+  player,
+  data,
+  character = currentCharacter(player) || 'default'
+) {
   if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
-  await saveLocal('Player :' + player, data);
+  const key = `Player :${player}/${character}`;
+  await saveLocal(key, data);
+  // Maintain backward compatibility for existing single-character saves.
+  if (character === 'default') {
+    try { await saveLocal(`Player :${player}`, data); } catch {}
+  }
   // Persist to the shared cloud store so DMs and other devices see updates.
   if (canUseCloud()) {
-    saveCloud('Player :' + player, data).catch(e => console.error('Cloud save failed', e));
+    saveCloud(key, data).catch(e => console.error('Cloud save failed', e));
+    if (character === 'default') {
+      saveCloud(`Player :${player}`, data).catch(e =>
+        console.error('Cloud save failed', e)
+      );
+    }
   }
 }
 
-export async function loadPlayerCharacter(player) {
+export async function loadPlayerCharacter(
+  player,
+  character = currentCharacter(player) || 'default'
+) {
   if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
-  try {
-    const data = await loadCloud('Player :' + player);
-    // Cache the latest cloud version locally for offline access.
-    try { await saveLocal('Player :' + player, data); } catch {}
-    return data;
-  } catch (e) {
-    // Cloud load failed (e.g. offline), fall back to local copy.
-    return await loadLocal('Player :' + player);
+  const paths = [`Player :${player}/${character}`];
+  if (character === 'default') paths.push(`Player :${player}`);
+  for (const p of paths) {
+    try {
+      const data = await loadCloud(p);
+      try { await saveLocal(p, data); } catch {}
+      return data;
+    } catch {}
+    try {
+      return await loadLocal(p);
+    } catch {}
+  }
+  throw new Error('No save found');
+}
+
+export async function deletePlayerCharacter(
+  player,
+  character = currentCharacter(player) || 'default'
+) {
+  if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
+  const key = `Player :${player}/${character}`;
+  await deleteSave(key);
+  if (character === 'default') {
+    try { await deleteSave(`Player :${player}`); } catch {}
+  }
+  if (canUseCloud()) {
+    deleteCloud(key).catch(e => console.error('Cloud delete failed', e));
+    if (character === 'default') {
+      deleteCloud(`Player :${player}`).catch(e =>
+        console.error('Cloud delete failed', e)
+      );
+    }
   }
 }
 
-export function editPlayerCharacter(player, data) {
+export function editPlayerCharacter(player, data, character) {
   if (!isDM()) throw new Error('Not authorized');
-  return savePlayerCharacter(player, data);
+  return savePlayerCharacter(player, data, character);
 }
 
 export async function listCharacters(listFn = listCloudSaves, localFn = listLocalSaves) {
@@ -345,11 +429,8 @@ export async function listCharacters(listFn = listCloudSaves, localFn = listLoca
     console.error('Failed to list local saves', e);
   }
 
-  // Combine cloud and local keys. Some keys may be URL-encoded (for example
-  // legacy saves or Firebase keys) while others are stored verbatim. To avoid
-  // mangling player names that legitimately contain "%" characters, only
-  // decode keys when the player prefix itself is encoded. Names are then
-  // de-duplicated case-insensitively.
+  // Extract player and character names from keys. Keys without a character
+  // component are treated as the default character.
   const names = [];
   const seen = new Set();
   for (const raw of [...cloud, ...local]) {
@@ -360,16 +441,62 @@ export async function listCharacters(listFn = listCloudSaves, localFn = listLoca
         key = decodeURIComponent(key);
       } catch {}
     }
-    const match = /^player\s*:(.*)$/i.exec(key);
+    const match = /^player\s*:([^/]+)(?:\/(.+))?$/i.exec(key);
     if (!match) continue;
-    const name = match[1];
-    const lower = name.toLowerCase();
+    const player = match[1];
+    const char = match[2] || 'default';
+    const lower = `${player.toLowerCase()}/${char.toLowerCase()}`;
     if (!seen.has(lower)) {
       seen.add(lower);
-      names.push(name);
+      names.push(`${player}/${char}`);
     }
   }
 
+  return names.sort((a, b) => a.localeCompare(b));
+}
+
+export async function listPlayerCharacters(
+  player,
+  listFn = listCloudSaves,
+  loadFn = loadCloud,
+  localFn = listLocalSaves
+) {
+  const names = [];
+  const seen = new Set();
+  if (!player) return names;
+  if (canUseCloud() || listFn !== listCloudSaves || loadFn !== loadCloud) {
+    try {
+      const data = await loadFn(`Player :${player}`);
+      if (data && typeof data === 'object') {
+        for (const key of Object.keys(data)) {
+          names.push(key);
+          seen.add(key.toLowerCase());
+        }
+      }
+    } catch (e) {
+      if (e && e.message !== 'No save found') {
+        console.error('Failed to list cloud characters', e);
+      }
+    }
+  }
+  try {
+    const local = await localFn();
+    for (let raw of local) {
+      if (!/^player\s*:/i.test(raw)) {
+        try { raw = decodeURIComponent(raw); } catch {}
+      }
+      const match = new RegExp(`^player\s*:${player}\/([^/]+)$`, 'i').exec(raw);
+      if (match) {
+        const name = match[1];
+        if (!seen.has(name.toLowerCase())) {
+          seen.add(name.toLowerCase());
+          names.push(name);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to list local characters', e);
+  }
   return names.sort((a, b) => a.localeCompare(b));
 }
 
