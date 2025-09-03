@@ -102,3 +102,16 @@ export async function deleteCloud(name) {
   }
 }
 
+export async function listCloudSaves() {
+  try {
+    const db = await getDb();
+    const { ref, get } = await import('https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js');
+    const snap = await get(ref(db, 'saves'));
+    const val = snap.val();
+    return val ? Object.keys(val) : [];
+  } catch (e) {
+    console.error('Cloud list failed', e);
+    return [];
+  }
+}
+
