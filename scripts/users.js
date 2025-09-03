@@ -1,4 +1,4 @@
-import { saveLocal, loadLocal, loadCloud } from './storage.js';
+import { saveLocal, loadLocal, loadCloud, saveCloud } from './storage.js';
 import { $ } from './helpers.js';
 import { show as showModal, hide as hideModal } from './modal.js';
 
@@ -138,19 +138,21 @@ export function logoutDM() {
 
 export async function savePlayerCharacter(player, data) {
   if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
-  return saveLocal('player:' + player, data);
+  await saveLocal('player:' + player, data);
+  // Persist to the shared cloud store so DMs and other devices see updates.
+  saveCloud('player:' + player, data).catch(e => console.error('Cloud save failed', e));
 }
 
 export async function loadPlayerCharacter(player) {
   if (currentPlayer() !== player && !isDM()) throw new Error('Not authorized');
   try {
-    return await loadLocal('player:' + player);
+    const data = await loadCloud('player:' + player);
+    // Cache the latest cloud version locally for offline access.
+    try { await saveLocal('player:' + player, data); } catch {}
+    return data;
   } catch (e) {
-    // If the character isn't saved locally (e.g. attempting to view a player's
-    // sheet from another device), fall back to the cloud save. This allows the
-    // DM to load any player's character as long as it exists in the shared
-    // database.
-    return await loadCloud('player:' + player);
+    // Cloud load failed (e.g. offline), fall back to local copy.
+    return await loadLocal('player:' + player);
   }
 }
 
