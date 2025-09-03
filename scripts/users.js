@@ -95,8 +95,6 @@ export function recoverPlayerPassword(name, answer) {
 
 async function loadPlayerRecord(name) {
   const players = getPlayersRaw();
-  let p = players[name];
-  if (p) return p;
   try {
     const remote = await loadCloud('user:' + name);
     if (remote && typeof remote.password === 'string') {
@@ -107,7 +105,7 @@ async function loadPlayerRecord(name) {
   } catch (e) {
     console.error('Failed to load player from cloud', e);
   }
-  return null;
+  return players[name] || null;
 }
 
 export async function loginPlayer(name, password) {
@@ -230,6 +228,35 @@ export async function listCharacters(listFn = listCloudSaves, localFn = listLoca
   return names.sort((a, b) => a.localeCompare(b));
 }
 
+export async function syncPlayersFromCloud(
+  listFn = listCloudSaves,
+  loadFn = loadCloud
+) {
+  try {
+    const keys = await listFn();
+    const arr = Array.isArray(keys) ? keys : [];
+    const userKeys = arr.filter(k => typeof k === 'string' && k.startsWith('user:'));
+    if (userKeys.length === 0) return;
+    const players = getPlayersRaw();
+    await Promise.all(
+      userKeys.map(async k => {
+        const name = k.slice(5);
+        try {
+          const data = await loadFn(k);
+          if (data && typeof data.password === 'string') {
+            players[name] = data;
+          }
+        } catch (e) {
+          console.error('Failed to sync player', k, e);
+        }
+      })
+    );
+    try { setPlayersRaw(players); } catch {}
+  } catch (e) {
+    console.error('Failed to sync players from cloud', e);
+  }
+}
+
 // ===== DOM Wiring =====
 function toast(msg, type = 'info') {
   const t = $('toast');
@@ -275,6 +302,7 @@ function updateDMLoginControls() {
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     cacheCloudSaves().catch(e => console.error('Failed to cache cloud saves', e));
+    syncPlayersFromCloud().catch(e => console.error('Failed to sync players from cloud', e));
     dmPasswordInput = $('dm-password');
     const modalDMLogin = $('modal-dm-login');
     const recoverName = $('recover-name');

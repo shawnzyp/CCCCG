@@ -12,6 +12,7 @@ import {
   loadPlayerCharacter,
   recoverPlayerPassword,
   listCharacters,
+  syncPlayersFromCloud,
 } from '../scripts/users.js';
 import { saveLocal } from '../scripts/storage.js';
 
@@ -93,6 +94,24 @@ describe('user management', () => {
       expect.stringContaining('user%3AZara.json')
     );
     delete global.fetch;
+  });
+
+  test('login verifies credentials against the cloud', async () => {
+    localStorage.setItem('players', JSON.stringify({ Hank: { password: 'old', question: 'q', answer: 'a' } }));
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ password: 'new', question: 'q', answer: 'a' }),
+    });
+    expect(await loginPlayer('Hank', 'new')).toBe(true);
+    delete global.fetch;
+  });
+
+  test('syncs player credentials from cloud', async () => {
+    await syncPlayersFromCloud(
+      async () => ['user:Bob', 'user:Alice'],
+      async () => ({ password: 'pw', question: 'q', answer: 'a' })
+    );
+    expect(getPlayers()).toEqual(['Alice', 'Bob']);
   });
 
   test('dm editing', async () => {
