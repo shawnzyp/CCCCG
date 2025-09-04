@@ -1835,6 +1835,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 // == Resonance Points (RP) Module ============================================
 window.CC = window.CC || {};
 CC.RP = (function () {
+  const api = {};
   // --- Internal state
   let state = {
     rp: 0,                    // 0..4
@@ -2034,12 +2035,12 @@ CC.RP = (function () {
 
   // --- Public API (for GM buttons/macros, etc.)
   function exposeHooks() {
-    CC.RP.get = () => ({ ...state });
-    CC.RP.setRP = setRP;
-    CC.RP.trigger = triggerSurge;
-    CC.RP.end = endSurge;
-    CC.RP.clearAftermath = clearAftermath;
-    CC.RP.tick = tick;
+    api.get = () => ({ ...state });
+    api.setRP = setRP;
+    api.trigger = triggerSurge;
+    api.end = endSurge;
+    api.clearAftermath = clearAftermath;
+    api.tick = tick;
   }
 
   // --- Integrations (rolls, saves, checks, SP regen)
@@ -2189,7 +2190,11 @@ CC.RP = (function () {
   function d4() { return 1 + Math.floor(Math.random() * 4); }
 
   // Boot
-  document.addEventListener("DOMContentLoaded", init);
-  return {};
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+  return api;
 })();
 
