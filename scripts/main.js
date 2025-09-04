@@ -1141,8 +1141,10 @@ async function renderCharacterList(){
   let names = [];
   try { names = await listCharacters(); }
   catch (e) { console.error('Failed to list characters', e); }
-  list.innerHTML = names.map(c=>`<div class="catalog-item"><div><button class="btn-sm" data-char="${c}">${c}</button></div><div><button class="btn-sm" data-rec-char="${c}">Recover</button><button class="btn-sm" data-del-char="${c}">Delete</button></div></div>`).join('');
+  const current = currentCharacter();
+  list.innerHTML = names.map(c=>`<div class="catalog-item${c===current?' active':''}"><button class="btn-sm" data-char="${c}">${c}</button><button class="btn-sm" data-del="${c}"></button></div>`).join('');
   applyDeleteIcons(list);
+  selectedChar = current;
 }
 
 async function renderRecoverList(name){
@@ -1161,23 +1163,24 @@ async function renderRecoverList(name){
 
 let pendingLoad = null;
 let recoverTarget = null;
+let selectedChar = null;
 const charList = $('char-list');
 if(charList){
   charList.addEventListener('click', e=>{
     const loadBtn = e.target.closest('button[data-char]');
-    const delBtn = e.target.closest('button[data-del-char]');
-    const recBtn = e.target.closest('button[data-rec-char]');
+    const delBtn = e.target.closest('button[data-del]');
     if(loadBtn){
-      pendingLoad = { name: loadBtn.dataset.char };
+      selectedChar = loadBtn.dataset.char;
+      qsa('#char-list .catalog-item').forEach(ci=> ci.classList.remove('active'));
+      const item = loadBtn.closest('.catalog-item');
+      if(item) item.classList.add('active');
+      pendingLoad = { name: selectedChar };
       const text = $('load-confirm-text');
       if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
       show('modal-load');
-    } else if(recBtn){
-      recoverTarget = recBtn.dataset.recChar;
-      renderRecoverList(recoverTarget);
     } else if(delBtn){
-      const ch = delBtn.dataset.delChar;
-      if(confirm(`Delete ${ch}?`)){
+      const ch = delBtn.dataset.del;
+      if(confirm(`Delete ${ch}?`) && confirm('This cannot be undone. Are you sure?')){
         deleteCharacter(ch).then(()=>{
           renderCharacterList();
           toast('Deleted','info');
@@ -1187,16 +1190,35 @@ if(charList){
   });
 }
 
+const recoverBtn = $('recover-save');
+if(recoverBtn){
+  recoverBtn.addEventListener('click', ()=>{
+    if(!selectedChar) return toast('Select a character first','error');
+    recoverTarget = selectedChar;
+    renderRecoverList(recoverTarget);
+  });
+}
+
 const newCharBtn = $('create-character');
 if(newCharBtn){
   newCharBtn.addEventListener('click', ()=>{
-    const input = $('new-character-name');
-    const name = input.value.trim();
+    if(!confirm('Start a new character? All current progress will be lost.')) return;
+    const name = prompt('Enter new character name:');
     if(!name) return toast('Name required','error');
-    setCurrentCharacter(name);
+    const clean = name.trim();
+    if(!clean) return toast('Name required','error');
+    setCurrentCharacter(clean);
     deserialize({});
     hide('modal-load-list');
-    toast(`Switched to ${name}`,'success');
+    toast(`Switched to ${clean}`,'success');
+  });
+}
+
+const saveCurrentBtn = $('save-current');
+if(saveCurrentBtn){
+  saveCurrentBtn.addEventListener('click', async ()=>{
+    try{ await saveCharacter(serialize()); toast('Saved','success'); }
+    catch(e){ toast('Save failed','error'); }
   });
 }
 
