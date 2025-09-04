@@ -215,6 +215,13 @@ export async function cacheCloudSaves(
   saveFn = saveLocal
 ) {
   try {
+    if (
+      typeof navigator !== 'undefined' &&
+      Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
+      navigator.onLine === false
+    ) {
+      return;
+    }
     const keys = await listFn();
     // Only cache player character data. Other saves such as user credentials
     // are skipped to avoid polluting local storage with unnecessary entries.

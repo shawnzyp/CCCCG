@@ -38,7 +38,19 @@ let storageBlocked = false;
 // implemented (e.g. during tests or in very old browsers) cloud operations
 // should be skipped silently rather than emitting noisy errors.
 function canUseCloud() {
-  return typeof fetch === 'function';
+  if (typeof fetch !== 'function') return false;
+  // When running in a browser, avoid cloud operations if the network is
+  // reported as offline to prevent redundant fetch attempts that would trigger
+  // console errors. `navigator.onLine` is not universally reliable but provides
+  // a best-effort signal and is ignored when unavailable (e.g. in tests).
+  if (
+    typeof navigator !== 'undefined' &&
+    Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
+    navigator.onLine === false
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function getPlayersRaw() {
