@@ -1664,8 +1664,12 @@ function redo(){
 })();
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
-  const player = currentPlayer() || (isDM() ? dmPlayer : null);
-  const char = currentCharacter(player) || (isDM() ? dmCharacter : null);
+  let player = currentPlayer();
+  let char = currentCharacter(player);
+  if (isDM()) {
+    if (!player) player = dmPlayer;
+    if (!char) char = dmCharacter;
+  }
   if (!player || !char) return toast('Login required', 'error');
   btn.classList.add('loading'); btn.disabled = true;
   try {
