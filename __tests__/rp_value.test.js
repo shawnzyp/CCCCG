@@ -20,7 +20,6 @@ describe('Resonance Points tracker', () => {
           <button type="button" class="rp-dot" data-rp="4" aria-pressed="false"></button>
           <button type="button" class="rp-dot" data-rp="5" aria-pressed="false"></button>
         </div>
-        <button id="rp-reset"></button>
         <input type="checkbox" id="rp-trigger" />
         <button id="rp-clear-aftermath"></button>
         <span id="rp-surge-state"></span>

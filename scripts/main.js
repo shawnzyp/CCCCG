@@ -1856,7 +1856,6 @@ CC.RP = (function () {
 
     els.rpValue = q("rp-value");
     els.rpDots = Array.from(document.querySelectorAll("#resonance-points .rp-dot"));
-    els.btnReset = q("rp-reset");
     els.chkSurge = q("rp-trigger");
     els.btnClearAftermath = q("rp-clear-aftermath");
     els.surgeState = q("rp-surge-state");
@@ -1873,13 +1872,12 @@ CC.RP = (function () {
   }
 
   function wireEvents() {
-    els.btnReset.addEventListener("click", () => { endSurge("reset"); setRP(0); });
     els.rpDots.forEach(btn => btn.addEventListener("click", () => {
       const v = parseInt(btn.dataset.rp, 10);
       setRP(state.rp === v ? 0 : v);
     }));
-    els.chkSurge.addEventListener("change", e => { if (e.target.checked) triggerSurge(); else endSurge("toggle"); });
-    els.btnClearAftermath.addEventListener("click", () => clearAftermath());
+    els.chkSurge.addEventListener("change", e => { if (e.target.checked) triggerSurge(); });
+    els.btnClearAftermath.addEventListener("click", () => { if (state.surgeActive) endSurge("aftermath"); else clearAftermath(); });
   }
 
   // --- State transitions
@@ -1951,8 +1949,8 @@ CC.RP = (function () {
 
     els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
     els.chkSurge.checked = state.surgeActive;
-    els.chkSurge.disabled = state.rp < 5 && !state.surgeActive;
-    els.btnClearAftermath.disabled = !state.aftermathPending;
+    els.chkSurge.disabled = state.surgeActive || state.rp < 5;
+    els.btnClearAftermath.disabled = !(state.surgeActive || state.aftermathPending);
 
     els.tagActive.hidden = !state.surgeActive;
     els.tagAfter.hidden = !state.aftermathPending;

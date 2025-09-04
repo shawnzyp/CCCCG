@@ -579,7 +579,7 @@ select[required]:valid{
   background: var(--accent, #222);
   border-color: var(--accent, #222);
 }
-.rp-surge-controls { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin: 10px 0; }
+.rp-surge-controls { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; margin: 10px 0; }
 .rp-divide { margin: 12px 0; }
 .rp-surge-status { margin: 6px 0 8px; }
 #rp-surge-details { margin: 6px 0 8px; }
