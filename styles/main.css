@@ -567,7 +567,12 @@ select[required]:valid{
 #resonance-points .subtext { font-size: 0.9rem; opacity: 0.85; }
 .rp-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 10px; }
 .rp-label { font-weight: 600; }
-.rp-track { display: flex; justify-content: center; gap: 8px; margin: 6px 0 12px; }
+.rp-track { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 6px 0 12px; }
+#rp-dec,
+#rp-inc {
+  inline-size: 20px;
+  block-size: 20px;
+}
 .rp-dot {
   inline-size: 10.5px;
   block-size: 10.5px;
@@ -578,6 +583,9 @@ select[required]:valid{
 .rp-dot[aria-pressed="true"] {
   background: var(--accent, #222);
   border-color: var(--accent, #222);
+}
+.rp-track.maxed .rp-dot {
+  opacity: 0.5;
 }
 .rp-surge-controls { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; margin: 10px 0; }
 .rp-divide { margin: 12px 0; }
