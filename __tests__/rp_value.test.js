@@ -21,8 +21,12 @@ describe('Resonance Points tracker', () => {
           <button type="button" class="rp-dot" data-rp="4" aria-pressed="false" disabled></button>
           <button type="button" class="rp-dot" data-rp="5" aria-pressed="false" disabled></button>
           <button type="button" id="rp-inc">+</button>
+          <div class="rp-bank">
+            <span class="rp-bank-label">Bank</span>
+            <span class="rp-dot rp-bank-dot" data-bank="1" aria-pressed="false"></span>
+            <span class="rp-dot rp-bank-dot" data-bank="2" aria-pressed="false"></span>
+          </div>
         </div>
-        <div id="rp-banked"></div>
         <input type="checkbox" id="rp-trigger" />
         <button id="rp-clear-aftermath"></button>
         <span id="rp-surge-state"></span>
@@ -66,18 +70,19 @@ describe('Resonance Points tracker', () => {
     for (let i = 0; i < 5; i++) inc.click();
 
     const output = document.getElementById('rp-value');
-    expect(output.textContent).toBe('0');
-    expect(output.value).toBe('0');
-    expect(output.getAttribute('value')).toBe('0');
+    expect(output.textContent).toBe('5');
+    expect(output.value).toBe('5');
+    expect(output.getAttribute('value')).toBe('5');
 
-    const indicator = document.getElementById('rp-banked');
-    expect(indicator.hidden).toBe(false);
-    expect(indicator.textContent).toBe('1 Banked Surge');
+    const bankDots = document.querySelectorAll('.rp-bank-dot');
+    expect(bankDots[0].getAttribute('aria-pressed')).toBe('true');
+    expect(bankDots[1].getAttribute('aria-pressed')).toBe('false');
 
     inc.click();
     inc.click();
-    expect(output.textContent).toBe('2');
-    expect(indicator.textContent).toBe('1 Banked Surge');
+    expect(output.textContent).toBe('7');
+    expect(bankDots[0].getAttribute('aria-pressed')).toBe('true');
+    expect(bankDots[1].getAttribute('aria-pressed')).toBe('false');
   });
 });
 

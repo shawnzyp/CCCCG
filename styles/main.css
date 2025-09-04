@@ -589,6 +589,9 @@ select[required]:valid{
   background: var(--accent, #222);
   border-color: var(--accent, #222);
 }
+.rp-bank { display: flex; align-items: center; gap: 4px; margin-left: 8px; }
+.rp-bank-label { font-size: 0.75rem; text-transform: uppercase; }
+.rp-bank-dot { pointer-events: none; }
 .rp-track.maxed .rp-dot {
   opacity: 0.5;
 }
