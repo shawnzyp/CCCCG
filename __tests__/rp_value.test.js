@@ -41,7 +41,7 @@ describe('Resonance Points tracker', () => {
     document.getElementById = (id) => realGet(id) || {
       innerHTML: '',
       value: '',
-      style: {},
+      style: { setProperty: () => {}, getPropertyValue: () => '' },
       classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} },
       setAttribute: () => {},
       getAttribute: () => null,
