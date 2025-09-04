@@ -204,18 +204,19 @@
           <button type="button" class="rp-dot" data-rp="4" aria-pressed="false" disabled></button>
           <button type="button" class="rp-dot" data-rp="5" aria-pressed="false" disabled></button>
           <button type="button" id="rp-inc" aria-label="Gain Resonance Point">+</button>
+          <div class="rp-bank" aria-live="polite">
+            <span class="rp-bank-label">Bank</span>
+            <span class="rp-dot rp-bank-dot" data-bank="1" aria-pressed="false"></span>
+            <span class="rp-dot rp-bank-dot" data-bank="2" aria-pressed="false"></span>
+          </div>
         </div>
-
-        <div id="rp-banked" class="rp-banked" hidden aria-live="polite"></div>
 
         <hr class="rp-divide">
 
         <div class="rp-surge">
           <div class="rp-surge-status" aria-live="polite">
-            <label class="inline" for="rp-trigger">
-              <input type="checkbox" id="rp-trigger" disabled aria-label="Activate Heroic Surge"/>
-              <strong>Heroic Surge:</strong> <span id="rp-surge-state">Inactive</span>
-            </label>
+            <input type="checkbox" id="rp-trigger" disabled aria-label="Activate Heroic Surge"/>
+            <strong>Surge Active:</strong> <span id="rp-surge-state">Inactive</span>
           </div>
 
           <div id="rp-surge-details">

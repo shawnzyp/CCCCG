@@ -1858,10 +1858,10 @@ CC.RP = (function () {
 
     els.rpValue = q("rp-value");
     els.rpTrack = root.querySelector('.rp-track');
-    els.rpDots = Array.from(root.querySelectorAll(".rp-dot"));
+    els.rpDots = Array.from(root.querySelectorAll(".rp-dot[data-rp]"));
+    els.bankDots = Array.from(root.querySelectorAll('.rp-bank-dot'));
     els.btnDec = q('rp-dec');
     els.btnInc = q('rp-inc');
-    els.banked = q('rp-banked');
     els.chkSurge = q("rp-trigger");
     els.btnClearAftermath = q("rp-clear-aftermath");
     els.surgeState = q("rp-surge-state");
@@ -1878,8 +1878,8 @@ CC.RP = (function () {
   }
 
   function wireEvents() {
-    if (els.btnInc) els.btnInc.addEventListener('click', () => setRP(state.rp + 1));
-    if (els.btnDec) els.btnDec.addEventListener('click', () => setRP(state.rp - 1));
+    if (els.btnInc) els.btnInc.addEventListener('click', () => setRP(state.rp + state.banked * 5 + 1));
+    if (els.btnDec) els.btnDec.addEventListener('click', () => setRP(state.rp + state.banked * 5 - 1));
     if (els.chkSurge) {
       els.chkSurge.addEventListener("change", e => {
         if (e.target.checked) triggerSurge();
@@ -1895,14 +1895,8 @@ CC.RP = (function () {
 
   // --- State transitions
   function setRP(n) {
-    const total = Math.max(0, n);
-    if (total >= 5) {
-      state.banked += Math.floor(total / 5);
-      // Immediately clear the track so the UI reflects the banked point.
-      if (els.rpDots) {
-        els.rpDots.forEach(btn => btn.setAttribute('aria-pressed', 'false'));
-      }
-    }
+    const total = Math.max(0, Math.min(10, n));
+    state.banked = Math.floor(total / 5);
     state.rp = total % 5;
     applyStateToUI();
     save();
@@ -1955,7 +1949,8 @@ CC.RP = (function () {
     // reading the `value` property receive the current RP. Using only
     // `textContent` leaves `value` stale, which caused the on-screen
     // number to remain at 0 when a dot was toggled in some browsers.
-    const val = String(state.rp);
+    const total = state.rp + state.banked * 5;
+    const val = String(total);
     els.rpValue.textContent = val;
     // The output element exposes a `.value` property that may be used
     // by CSS `attr(value)` or assistive tech; keep it in sync. Updating
@@ -1966,21 +1961,17 @@ CC.RP = (function () {
     const banked = state.banked;
     els.rpDots.forEach(btn => {
       const v = parseInt(btn.dataset.rp, 10);
-      // Highlight all dots up to the current RP value so previously selected
-      // points remain visibly "ticked" rather than only the most recent one.
       btn.setAttribute("aria-pressed", String(v <= state.rp));
     });
-    if (els.banked) {
-      if (banked > 0) {
-        els.banked.textContent = `${banked} Banked Surge${banked > 1 ? 's' : ''}`;
-        els.banked.hidden = false;
-      } else {
-        els.banked.hidden = true;
-      }
+    if (els.bankDots) {
+      els.bankDots.forEach(dot => {
+        const v = parseInt(dot.dataset.bank, 10);
+        dot.setAttribute('aria-pressed', String(v <= banked));
+      });
     }
     if (els.btnInc) els.btnInc.disabled = false;
-    if (els.btnDec) els.btnDec.disabled = state.rp <= 0;
-    if (els.rpTrack) els.rpTrack.classList.remove('maxed');
+    if (els.btnDec) els.btnDec.disabled = false;
+    if (els.rpTrack) els.rpTrack.classList.toggle('maxed', total >= 10);
 
     if (els.surgeState) {
       els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
@@ -2016,6 +2007,12 @@ CC.RP = (function () {
     const s = data.resonanceSurge || {};
     state.rp = Number.isFinite(data.resonancePoints) ? data.resonancePoints : 0;
     state.banked = Number.isFinite(data.resonanceBanked) ? data.resonanceBanked : 0;
+    let total = state.rp + state.banked * 5;
+    if (total > 10) {
+      total = 10;
+      state.banked = Math.floor(total / 5);
+      state.rp = total % 5;
+    }
     state.surgeActive = !!s.active;
     state.surgeStartedAt = s.startedAt || null;
     state.surgeMode = s.mode || "encounter";
