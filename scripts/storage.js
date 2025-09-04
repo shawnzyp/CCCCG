@@ -148,10 +148,10 @@ export async function saveCloud(name, payload) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     localStorage.setItem('last-save', name);
   } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Cloud save failed', e);
+    if (e && e.message === 'fetch not supported') {
+      throw e;
     }
-    throw e;
+    console.error('Cloud save failed', e);
   }
 }
 
@@ -186,9 +186,10 @@ export async function deleteCloud(name) {
       localStorage.removeItem('last-save');
     }
   } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Cloud delete failed', e);
+    if (e && e.message === 'fetch not supported') {
+      throw e;
     }
+    console.error('Cloud delete failed', e);
   }
 }
 
@@ -203,9 +204,10 @@ export async function listCloudSaves() {
     // saving. Decode them here so callers receive the original player names.
     return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
   } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Cloud list failed', e);
+    if (e && e.message === 'fetch not supported') {
+      throw e;
     }
+    console.error('Cloud list failed', e);
     return [];
   }
 }
@@ -227,15 +229,17 @@ export async function cacheCloudSaves(
           const data = await loadFn(k);
           await saveFn(k, data);
         } catch (e) {
-          if (e && e.message !== 'fetch not supported') {
-            console.error('Failed to cache', k, e);
+          if (e && e.message === 'fetch not supported') {
+            throw e;
           }
+          console.error('Failed to cache', k, e);
         }
       })
     );
   } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
-      console.error('Failed to cache cloud saves', e);
+    if (e && e.message === 'fetch not supported') {
+      throw e;
     }
+    console.error('Failed to cache cloud saves', e);
   }
 }
