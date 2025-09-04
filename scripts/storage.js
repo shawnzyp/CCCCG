@@ -47,81 +47,8 @@ export function listLocalSaves() {
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 
-// Attempt to fetch a Firebase Auth token and cache it. The application can
-// operate without Firebase (only local saves) so failures are logged but do not
-// throw. Authentication is optional but when available the token is appended to
-// database requests so security rules requiring `auth != null` are satisfied.
-let idToken = null;
-let tokenIsOAuth = false;
-
-async function getIdToken() {
-  if (idToken) return { token: idToken, oauth: tokenIsOAuth };
-  try {
-    if (typeof window !== 'undefined' && window.firebase?.auth) {
-      const auth = window.firebase.auth();
-      // signInAnonymously returns a UserCredential in Firebase v8. Access the
-      // user property so we always end up with an actual User instance that
-      // exposes getIdToken().
-      let user = auth.currentUser;
-      if (!user) {
-        const cred = await auth.signInAnonymously();
-        user = cred && cred.user ? cred.user : cred;
-      }
-      if (typeof user?.getIdToken === 'function') {
-        idToken = await user.getIdToken();
-        tokenIsOAuth = false;
-        return { token: idToken, oauth: false };
-      }
-    }
-
-    // When running in a Node environment, always use the service account key
-    // from `serviceAccountKey.json` to generate an OAuth2 access token for the
-    // realtime database.
-    if (typeof process !== 'undefined' && process.versions?.node) {
-      const { resolve } = await import('path');
-      const fs = await import('fs');
-      const keyPath = resolve('serviceAccountKey.json');
-      if (fs.existsSync(keyPath)) {
-        // Ensure downstream libraries pick up the service account automatically
-        // without overwriting an explicit path from the environment.
-        process.env.GOOGLE_APPLICATION_CREDENTIALS =
-          process.env.GOOGLE_APPLICATION_CREDENTIALS || keyPath;
-        try {
-          const { GoogleAuth } = await import('google-auth-library');
-          const auth = new GoogleAuth({
-            keyFilename: keyPath,
-            scopes: [
-              'https://www.googleapis.com/auth/firebase.database',
-              'https://www.googleapis.com/auth/userinfo.email',
-            ],
-          });
-          const client = await auth.getClient();
-          const access = await client.getAccessToken();
-          idToken = access.token || access;
-          tokenIsOAuth = true;
-          return { token: idToken, oauth: true };
-        } catch (e) {
-          // If service account auth fails, fall through to unauthenticated mode.
-          console.error('Failed to acquire service account token', e);
-        }
-      }
-    }
-  } catch (e) {
-    console.error('Failed to acquire auth token', e);
-  }
-  return { token: null, oauth: false };
-}
-
-async function authedFetch(url, options = {}) {
-  const { token, oauth } = await getIdToken();
-  if (token) {
-    if (oauth) {
-      options.headers = { ...(options.headers || {}), Authorization: `Bearer ${token}` };
-    } else {
-      const sep = url.includes('?') ? '&' : '?';
-      url = `${url}${sep}auth=${token}`;
-    }
-  }
+// Direct fetch helper used by cloud save functions.
+async function cloudFetch(url, options = {}) {
   return fetch(url, options);
 }
 
@@ -137,12 +64,12 @@ function encodePath(name) {
 export async function saveCloud(name, payload) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
+    const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    // If the request is rejected due to missing or invalid auth, treat it as a
+    // If the request is rejected (for example, access denied), treat it as a
     // soft failure. Cloud saves are optional and the app should continue
     // operating with local storage only.
     if (res.status === 401 || res.status === 403) return;
@@ -151,7 +78,7 @@ export async function saveCloud(name, payload) {
 
     // Also persist a timestamped backup and prune to the three most recent entries.
     const ts = Date.now();
-    await authedFetch(
+    await cloudFetch(
       `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
       {
         method: 'PUT',
@@ -160,7 +87,7 @@ export async function saveCloud(name, payload) {
       }
     );
 
-    const listRes = await authedFetch(
+    const listRes = await cloudFetch(
       `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`,
       { method: 'GET' }
     );
@@ -170,7 +97,7 @@ export async function saveCloud(name, payload) {
       const excess = keys.slice(3);
       await Promise.all(
         excess.map(k =>
-          authedFetch(
+          cloudFetch(
             `${CLOUD_HISTORY_URL}/${encodePath(name)}/${k}.json`,
             { method: 'DELETE' }
           )
@@ -188,7 +115,7 @@ export async function saveCloud(name, payload) {
 export async function loadCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(
+    const res = await cloudFetch(
       `${CLOUD_SAVES_URL}/${encodePath(name)}.json`,
       { method: 'GET' }
     );
@@ -207,7 +134,7 @@ export async function loadCloud(name) {
 export async function deleteCloud(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
+    const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
       method: 'DELETE'
     });
     if (res.status === 401 || res.status === 403) return;
@@ -226,7 +153,7 @@ export async function deleteCloud(name) {
 export async function listCloudSaves() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(`${CLOUD_SAVES_URL}.json`);
+    const res = await cloudFetch(`${CLOUD_SAVES_URL}.json`);
     if (res.status === 401 || res.status === 403) return [];
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
@@ -245,7 +172,7 @@ export async function listCloudSaves() {
 export async function listCloudBackups(name) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(
+    const res = await cloudFetch(
       `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`
     );
     if (res.status === 401 || res.status === 403) return [];
@@ -269,7 +196,7 @@ export async function listCloudBackups(name) {
 export async function loadCloudBackup(name, ts) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await authedFetch(
+    const res = await cloudFetch(
       `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
       { method: 'GET' }
     );
