@@ -11,8 +11,6 @@ const ASSETS = [
   // Additional scripts required for offline operation
   './scripts/characters.js',
   './scripts/modal.js',
-  './scripts/firebase-config.js',
-  './scripts/firebase-init.js',
   './ccccg.pdf',
   // background and other images
   './images/Dark.PNG',
