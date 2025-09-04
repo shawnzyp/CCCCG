@@ -1888,6 +1888,10 @@ CC.RP = (function () {
     const total = Math.max(0, n);
     if (total >= 5) {
       state.banked += Math.floor(total / 5);
+      // Immediately clear the track so the UI reflects the banked point.
+      if (els.rpDots) {
+        els.rpDots.forEach(btn => btn.setAttribute('aria-pressed', 'false'));
+      }
     }
     state.rp = total % 5;
     applyStateToUI();

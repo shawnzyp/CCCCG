@@ -572,6 +572,11 @@ select[required]:valid{
 #rp-inc {
   inline-size: 20px;
   block-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
 }
 .rp-dot {
   inline-size: 10.5px;
