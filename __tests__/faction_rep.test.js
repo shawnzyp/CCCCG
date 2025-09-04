@@ -21,7 +21,11 @@ describe('faction reputation tracker', () => {
 
     document.getElementById('omni-rep-gain').click();
 
-    expect(document.getElementById('omni-rep').value).toBe('205');
+    const repInput = document.getElementById('omni-rep');
+    const bar = document.getElementById('omni-rep-bar');
+    expect(repInput.value).toBe('205');
+    expect(bar.value).toBe(205);
+    expect(bar.max).toBe(699);
     expect(pushHistory).toHaveBeenCalled();
   });
 
@@ -44,7 +48,11 @@ describe('faction reputation tracker', () => {
 
     document.getElementById('omni-rep-lose').click();
 
-    expect(document.getElementById('omni-rep').value).toBe('195');
+    const repInput = document.getElementById('omni-rep');
+    const bar = document.getElementById('omni-rep-bar');
+    expect(repInput.value).toBe('195');
+    expect(bar.value).toBe(195);
+    expect(bar.max).toBe(699);
     expect(pushHistory).toHaveBeenCalled();
   });
 });
