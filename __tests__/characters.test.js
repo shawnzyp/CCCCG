@@ -1,0 +1,95 @@
+import { jest } from '@jest/globals';
+import fs from 'fs';
+
+describe('character storage', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    global.fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    delete global.fetch;
+  });
+
+  test('backs up to cloud and restores after local wipe', async () => {
+    fetch
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ Hero: { hp: 10 } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ hp: 10 }),
+      });
+
+    const {
+      setCurrentCharacter,
+      saveCharacter,
+      loadCharacter,
+      listCharacters,
+    } = await import('../scripts/users.js');
+
+    setCurrentCharacter('Hero');
+    await saveCharacter({ hp: 10 });
+    localStorage.clear();
+
+    expect(await listCharacters()).toEqual(['Hero']);
+    const data = await loadCharacter('Hero');
+    expect(data).toEqual({ hp: 10 });
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+});
+
+const keyPath = 'serviceAccountKey.json';
+const hasCredentials = fs.existsSync(keyPath);
+const testOrSkip = hasCredentials ? test : test.skip;
+
+beforeAll(async () => {
+  if (!hasCredentials) return;
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = keyPath;
+  if (typeof global.fetch !== 'function') {
+    global.fetch = (await import('node-fetch')).default;
+  }
+});
+
+testOrSkip('backs up to live Firebase and restores after local wipe', async () => {
+  jest.resetModules();
+  const {
+    setCurrentCharacter,
+    saveCharacter,
+    loadCharacter,
+    listCharacters,
+    deleteCharacter,
+  } = await import('../scripts/users.js');
+
+  const name = `HeroLive${Date.now()}`;
+  const payload = { hp: 12 };
+
+  try {
+    setCurrentCharacter(name);
+    await saveCharacter(payload);
+    localStorage.clear();
+
+    const chars = await listCharacters();
+    expect(chars).toContain(name);
+
+    const data = await loadCharacter(name);
+    expect(data).toEqual(payload);
+
+    await deleteCharacter(name);
+  } catch (e) {
+    if (e?.code === 'ENETUNREACH') {
+      console.warn(
+        'Skipping live character test due to network unavailability:',
+        e.message,
+      );
+      return;
+    }
+    throw e;
+  }
+});
+
+
