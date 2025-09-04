@@ -180,9 +180,10 @@ button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;animatio
   }
 }
 progress{
+  --progress-color: var(--accent);
   -webkit-appearance:none;
   appearance:none;
-  border:1px solid var(--accent);
+  border:1px solid var(--progress-color);
   border-radius:999px;
   background:var(--surface-2);
   overflow:hidden;
@@ -192,15 +193,24 @@ progress::-webkit-progress-bar{
   background:var(--surface-2);
 }
 progress::-webkit-progress-value{
-  background:var(--accent);
+  background:var(--progress-color);
   transition:width .4s ease;
 }
 progress::-moz-progress-bar{
-  background:var(--accent);
+  background:var(--progress-color);
   transition:width .4s ease;
 }
 
-.pill{display:inline-block;padding:6px 10px;border:1px solid var(--accent);border-radius:999px;color:var(--accent);font-size:.85rem;white-space:nowrap}
+.pill{
+  --progress-color: var(--accent);
+  display:inline-block;
+  padding:6px 10px;
+  border:1px solid var(--progress-color);
+  border-radius:999px;
+  color:var(--progress-color);
+  font-size:.85rem;
+  white-space:nowrap;
+}
 
 .bar-label{position:relative}
 .bar-label>progress{width:100%;height:36px}

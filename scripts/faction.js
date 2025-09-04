@@ -63,7 +63,12 @@ export function updateFactionRep(handlePerkEffects = () => {}) {
     bar.value = val;
     bar.setAttribute('max', String(maxVal));
     bar.setAttribute('value', String(val));
+    const ratio = val / maxVal;
+    const hue = 120 * ratio;
+    const color = `hsl(${hue}, 70%, 50%)`;
+    bar.style.setProperty('--progress-color', color);
     tierEl.textContent = tierName;
+    tierEl.style.setProperty('--progress-color', color);
     perkEl.innerHTML = '';
     const facName = FACTION_NAME_MAP[f];
     const perks = (FACTION_REP_PERKS[facName] && FACTION_REP_PERKS[facName][tierName]) || [];

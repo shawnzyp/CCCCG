@@ -28,6 +28,11 @@ describe('faction reputation tracker', () => {
     expect(bar.max).toBe(699);
     expect(bar.getAttribute('value')).toBe('205');
     expect(bar.getAttribute('max')).toBe('699');
+    const expectedHue = 120 * (205 / 699);
+    const expectedColor = `hsl(${expectedHue}, 70%, 50%)`;
+    expect(bar.style.getPropertyValue('--progress-color')).toBe(expectedColor);
+    const tier = document.getElementById('omni-rep-tier');
+    expect(tier.style.getPropertyValue('--progress-color')).toBe(expectedColor);
     expect(pushHistory).toHaveBeenCalled();
   });
 
@@ -57,6 +62,11 @@ describe('faction reputation tracker', () => {
     expect(bar.max).toBe(699);
     expect(bar.getAttribute('value')).toBe('195');
     expect(bar.getAttribute('max')).toBe('699');
+    const expectedHue = 120 * (195 / 699);
+    const expectedColor = `hsl(${expectedHue}, 70%, 50%)`;
+    expect(bar.style.getPropertyValue('--progress-color')).toBe(expectedColor);
+    const tier = document.getElementById('omni-rep-tier');
+    expect(tier.style.getPropertyValue('--progress-color')).toBe(expectedColor);
     expect(pushHistory).toHaveBeenCalled();
   });
 });
