@@ -79,21 +79,28 @@ export function updateFactionRep(handlePerkEffects = () => {}) {
 }
 
 export function setupFactionRepTracker(handlePerkEffects = () => {}, pushHistory) {
-  const maxVal = REP_TIERS.length * 100 - 1;
-  FACTIONS.forEach(f => {
-    const input = $(`${f}-rep`);
-    const gain = $(`${f}-rep-gain`);
-    const lose = $(`${f}-rep-lose`);
-    if (!input || !gain || !lose) return;
-    function change(delta) {
-      const next = Math.max(0, Math.min(maxVal, num(input.value) + delta));
-      input.value = next;
-      updateFactionRep(handlePerkEffects);
-      if (typeof pushHistory === 'function') pushHistory();
-    }
-    gain.addEventListener('click', () => change(5));
-    lose.addEventListener('click', () => change(-5));
-  });
-  updateFactionRep(handlePerkEffects);
+  const init = () => {
+    const maxVal = REP_TIERS.length * 100 - 1;
+    FACTIONS.forEach(f => {
+      const input = $(`${f}-rep`);
+      const gain = $(`${f}-rep-gain`);
+      const lose = $(`${f}-rep-lose`);
+      if (!input || !gain || !lose) return;
+      function change(delta) {
+        const next = Math.max(0, Math.min(maxVal, num(input.value) + delta));
+        input.value = next;
+        updateFactionRep(handlePerkEffects);
+        if (typeof pushHistory === 'function') pushHistory();
+      }
+      gain.addEventListener('click', e => { e.preventDefault(); change(5); });
+      lose.addEventListener('click', e => { e.preventDefault(); change(-5); });
+    });
+    updateFactionRep(handlePerkEffects);
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 }
 
