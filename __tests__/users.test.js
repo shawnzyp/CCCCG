@@ -108,6 +108,20 @@ describe('user management', () => {
     delete global.fetch;
   });
 
+  test('player login trims name before cloud lookup', async () => {
+    localStorage.clear();
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ password: 'pw', question: 'q', answer: 'a' }),
+    });
+    expect(await loginPlayer('  Zara  ', 'pw')).toBe(true);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('user%3AZara.json'),
+      expect.objectContaining({ method: 'GET' })
+    );
+    delete global.fetch;
+  });
+
   test('player login fetches cloud record case-insensitively', async () => {
     global.fetch = jest
       .fn()

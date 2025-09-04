@@ -185,9 +185,10 @@ export function recoverPlayerPassword(name, answer) {
 }
 
 async function loadPlayerRecord(name) {
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
   const players = getPlayersRaw();
-  const lower = name.toLowerCase();
-  let canonical = name;
+  const lower = normalizedName.toLowerCase();
+  let canonical = normalizedName;
   for (const key of Object.keys(players)) {
     if (key.toLowerCase() === lower) {
       canonical = key;
@@ -204,7 +205,7 @@ async function loadPlayerRecord(name) {
         try {
           const keys = await listCloudSaves();
           const match = keys.find(
-            k => k.toLowerCase() === ('user:' + name).toLowerCase()
+            k => k.toLowerCase() === ('user:' + normalizedName).toLowerCase()
           );
           if (match) {
             canonical = match.slice(5);
@@ -232,6 +233,7 @@ async function loadPlayerRecord(name) {
 
 export async function loginPlayer(name, password) {
   const { record: p, canonical } = await loadPlayerRecord(name);
+  if (!canonical) return false;
   if (p && p.password === password) {
     // Logging in as a player should terminate any active DM session to avoid
     // concurrent logins. Use the standard logout helper so events are
