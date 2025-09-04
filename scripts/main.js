@@ -1880,8 +1880,17 @@ CC.RP = (function () {
   function wireEvents() {
     if (els.btnInc) els.btnInc.addEventListener('click', () => setRP(state.rp + 1));
     if (els.btnDec) els.btnDec.addEventListener('click', () => setRP(state.rp - 1));
-    els.chkSurge.addEventListener("change", e => { if (e.target.checked) triggerSurge(); });
-    els.btnClearAftermath.addEventListener("click", () => { if (state.surgeActive) endSurge("aftermath"); else clearAftermath(); });
+    if (els.chkSurge) {
+      els.chkSurge.addEventListener("change", e => {
+        if (e.target.checked) triggerSurge();
+      });
+    }
+    if (els.btnClearAftermath) {
+      els.btnClearAftermath.addEventListener("click", () => {
+        if (state.surgeActive) endSurge("aftermath");
+        else clearAftermath();
+      });
+    }
   }
 
   // --- State transitions
@@ -1973,13 +1982,18 @@ CC.RP = (function () {
     if (els.btnDec) els.btnDec.disabled = state.rp <= 0;
     if (els.rpTrack) els.rpTrack.classList.remove('maxed');
 
-    els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
-    els.chkSurge.checked = state.surgeActive;
-    els.chkSurge.disabled = state.surgeActive || state.banked < 1;
-    els.btnClearAftermath.disabled = !(state.surgeActive || state.aftermathPending);
-
-    els.tagActive.hidden = !state.surgeActive;
-    els.tagAfter.hidden = !state.aftermathPending;
+    if (els.surgeState) {
+      els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
+    }
+    if (els.chkSurge) {
+      els.chkSurge.checked = state.surgeActive;
+      els.chkSurge.disabled = state.surgeActive || state.banked < 1;
+    }
+    if (els.btnClearAftermath) {
+      els.btnClearAftermath.disabled = !(state.surgeActive || state.aftermathPending);
+    }
+    if (els.tagActive) els.tagActive.hidden = !state.surgeActive;
+    if (els.tagAfter) els.tagAfter.hidden = !state.aftermathPending;
   }
 
   // --- Persistence
