@@ -2,15 +2,12 @@
 import { $, qs, qsa, num, mod, calculateArmorBonus, wizardProgress, revertAbilityScore } from './helpers.js';
 import { setupFactionRepTracker, ACTION_HINTS } from './faction.js';
 import {
-  currentPlayer,
-  loadPlayerCharacter,
-  isDM,
-  listCharacters,
-  listPlayerCharacters,
-  setCurrentCharacter,
   currentCharacter,
-  deletePlayerCharacter,
-  savePlayerCharacter,
+  setCurrentCharacter,
+  listCharacters,
+  loadCharacter,
+  deleteCharacter,
+  saveCharacter,
 } from './users.js';
 import { show, hide } from './modal.js';
 // Load the optional confetti library lazily so tests and offline environments
@@ -27,8 +24,6 @@ function loadConfetti() {
 const rulesEl = qs('#rules-text');
 const RULES_SRC = './ruleshelp.txt';
 let rulesLoaded = false;
-let dmPlayer = null;
-let dmCharacter = null;
 
 // ----- animation lock -----
 // Animations should only run after an explicit user action. To prevent them
@@ -172,25 +167,19 @@ function applyTheme(t){
   }
 }
 function loadTheme(){
-  const player=currentPlayer();
-  const key=player?`theme:${player}`:'theme';
-  const theme=localStorage.getItem(key)||localStorage.getItem('theme')||'dark';
+  const theme = localStorage.getItem('theme') || 'dark';
   applyTheme(theme);
 }
 loadTheme();
 if (btnTheme) {
   btnTheme.addEventListener('click', ()=>{
     const themes = Object.keys(THEME_ICONS);
-    const player=currentPlayer();
-    const key=player?`theme:${player}`:'theme';
-    const curr=localStorage.getItem(key)||'dark';
-    const next=themes[(themes.indexOf(curr)+1)%themes.length];
-    localStorage.setItem(key, next);
-    if(player) localStorage.setItem('theme', next);
+    const curr = localStorage.getItem('theme') || 'dark';
+    const next = themes[(themes.indexOf(curr)+1)%themes.length];
+    localStorage.setItem('theme', next);
     applyTheme(next);
   });
 }
-window.addEventListener('playerChanged', loadTheme);
 
 const CLASS_THEMES = {
   'Mutant':'mutant',
@@ -209,10 +198,7 @@ function bindClassificationTheme(id){
   const apply=()=>{
     const t=CLASS_THEMES[sel.value];
     if(t){
-      const player=currentPlayer();
-      const key=player?`theme:${player}`:'theme';
-      localStorage.setItem(key,t);
-      if(player) localStorage.setItem('theme', t);
+      localStorage.setItem('theme', t);
       applyTheme(t);
     }
   };
@@ -1123,99 +1109,40 @@ const btnHelp = $('btn-help');
 if (btnHelp) {
   btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
 }
-const btnPlayer = $('btn-player');
-if (btnPlayer) {
-  btnPlayer.addEventListener('click', ()=>{ show('modal-player'); });
-}
-const dmLoginLink = $('dm-login-link');
-if (dmLoginLink) {
-  dmLoginLink.addEventListener('click', (e)=>{
-    e.preventDefault();
-    show('modal-dm-login');
-  });
-}
-const btnDM = $('btn-dm');
-if (btnDM) {
-  btnDM.addEventListener('click', async ()=>{
-    if (!isDM()) return;
-    await renderDMList();
-    show('modal-dm');
-  });
-}
-async function renderDMList(){
-  if(!isDM()) return;
-  const list = $('dm-player-list');
-  if(!list) return;
-  let names = [];
-  try {
-    names = await listCharacters();
-  } catch (e) {
-    console.error('Failed to list cloud saves', e);
-  }
-  list.innerHTML = names
-    .map(p => {
-      const [pl, ch] = p.split('/');
-      return `<div class="catalog-item"><div>${pl} - ${ch}</div><div><button class="btn-sm" data-player="${pl}" data-char="${ch}">Load</button></div></div>`;
-    })
-    .join('');
-}
-const dmList = $('dm-player-list');
-if(dmList){
-  dmList.addEventListener('click', e=>{
-    const btn = e.target.closest('button[data-player]');
-    if(!btn) return;
-    const player = btn.dataset.player;
-    const char = btn.dataset.char;
-    loadPlayerCharacter(player, char).then(data=>{
-      deserialize(data);
-      dmPlayer = player;
-      dmCharacter = char;
-      hide('modal-dm');
-      toast(`Loaded ${player} - ${char}`,'success');
-    }).catch(()=> toast('Load failed','error'));
-  });
-}
 const btnCharacter = $('btn-character');
 if (btnCharacter) {
   btnCharacter.addEventListener('click', async () => {
-    const player = currentPlayer();
-    if (!player) return toast('Login required','error');
-    await renderCharacterList(player);
+    await renderCharacterList();
     show('modal-characters');
   });
 }
 
-async function renderCharacterList(player){
-  if(!player) return;
+async function renderCharacterList(){
   const list = $('player-char-list');
   if(!list) return;
   let names = [];
-  try { names = await listPlayerCharacters(player); }
+  try { names = await listCharacters(); }
   catch (e) { console.error('Failed to list characters', e); }
-  list.innerHTML = names.map(c=>`<div class="catalog-item"><div>${c}</div><div><button class="btn-sm" data-char="${c}">Load</button><button class="btn-sm" data-del-char="${c}">Delete</button></div></div>`).join('');
+  list.innerHTML = names.map(c=>`<div class="catalog-item"><div><button class="btn-sm" data-char="${c}">${c}</button></div><div><button class="btn-sm" data-del-char="${c}">Delete</button></div></div>`).join('');
   applyDeleteIcons(list);
 }
 
+let pendingLoad = null;
 const charList = $('player-char-list');
 if(charList){
   charList.addEventListener('click', e=>{
-    const player = currentPlayer();
-    if(!player) return;
     const loadBtn = e.target.closest('button[data-char]');
     const delBtn = e.target.closest('button[data-del-char]');
     if(loadBtn){
-      const ch = loadBtn.dataset.char;
-      loadPlayerCharacter(player, ch).then(data=>{
-        deserialize(data);
-        setCurrentCharacter(player, ch);
-        hide('modal-characters');
-        toast(`Loaded ${ch}`,'success');
-      }).catch(()=> toast('Load failed','error'));
+      pendingLoad = loadBtn.dataset.char;
+      const text = $('load-confirm-text');
+      if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad}. All current progress will be lost if you haven't saved yet.`;
+      show('modal-load');
     } else if(delBtn){
       const ch = delBtn.dataset.delChar;
       if(confirm(`Delete ${ch}?`)){
-        deletePlayerCharacter(player, ch).then(()=>{
-          renderCharacterList(player);
+        deleteCharacter(ch).then(()=>{
+          renderCharacterList();
           toast('Deleted','info');
         }).catch(()=> toast('Delete failed','error'));
       }
@@ -1229,14 +1156,38 @@ if(newCharBtn){
     const input = $('new-character-name');
     const name = input.value.trim();
     if(!name) return toast('Name required','error');
-    const player = currentPlayer();
-    if(!player) return toast('Login required','error');
-    setCurrentCharacter(player, name);
+    setCurrentCharacter(name);
     deserialize({});
     hide('modal-characters');
     toast(`Switched to ${name}`,'success');
   });
 }
+
+const loadSaveBtn = $('load-save');
+const loadCancelBtn = $('load-cancel');
+const loadAcceptBtn = $('load-accept');
+async function doLoad(){
+  if(!pendingLoad) return;
+  try{
+    const data = await loadCharacter(pendingLoad);
+    deserialize(data);
+    setCurrentCharacter(pendingLoad);
+    hide('modal-load');
+    hide('modal-characters');
+    toast(`Loaded ${pendingLoad}`,'success');
+  }catch(e){
+    toast('Load failed','error');
+  }
+}
+if(loadSaveBtn){
+  loadSaveBtn.addEventListener('click', async ()=>{
+    try{ await saveCharacter(serialize()); }
+    catch(e){ toast('Save failed','error'); return; }
+    await doLoad();
+  });
+}
+if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
+if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); }); }
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
 /* ========= Card Helper ========= */
@@ -1664,17 +1615,12 @@ function redo(){
 })();
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
-  let player = currentPlayer();
-  let char = currentCharacter(player);
-  if (isDM()) {
-    if (!player) player = dmPlayer;
-    if (!char) char = dmCharacter;
-  }
-  if (!player || !char) return toast('Login required', 'error');
+  const char = currentCharacter();
+  if (!char) return toast('No character selected', 'error');
   btn.classList.add('loading'); btn.disabled = true;
   try {
     const data = serialize();
-    await savePlayerCharacter(player, data, char);
+    await saveCharacter(data, char);
     toast('Save successful', 'success');
     playSaveAnimation();
   } finally {

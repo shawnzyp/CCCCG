@@ -30,7 +30,6 @@
       </button>
       <div id="menu-actions" class="menu" hidden>
         <button id="btn-theme" class="btn-sm">Toggle Theme</button>
-        <button id="btn-player" class="btn-sm">Log In</button>
         <button id="btn-save" class="btn-sm">Save</button>
         <button id="btn-character" class="btn-sm">Characters</button>
         <button id="btn-wizard" class="btn-sm" aria-label="Character creation wizard" title="Character creation wizard">Character wizard</button>
@@ -39,7 +38,6 @@
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
         <button id="btn-rules" class="btn-sm">Rules</button>
         <button id="btn-help" class="btn-sm">Help</button>
-        <button id="btn-dm" class="btn-sm" hidden>Players</button>
       </div>
     </div>
   </div>
@@ -500,118 +498,6 @@
 
 </main>
 
-<!-- PLAYER ACCOUNT MODAL -->
-<div class="overlay hidden" id="modal-player" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>The Catalyst Gate</h3>
-    <fieldset class="card">
-      <legend>Player Account</legend>
-      <div class="inline">
-        <input id="login-player-name" placeholder="Player name"/>
-        <input id="login-player-password" type="password" placeholder="Password"/>
-      </div>
-      <div id="login-player-status" role="status"></div>
-      <div class="inline">
-        <button id="login-player" class="btn-sm" type="button">Login</button>
-        <a id="open-register" href="#">Register</a>
-        <a id="open-recover" href="#">Recover</a>
-        <button id="logout-player" class="btn-sm" type="button" hidden>Logout</button>
-      </div>
-    </fieldset>
-  </div>
-</div>
-
-<!-- PLAYER REGISTRATION MODAL -->
-<div class="overlay hidden" id="modal-register" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Register Player</h3>
-    <fieldset class="card">
-      <legend>Player Account</legend>
-      <div class="inline">
-        <input id="register-player-name" placeholder="Player name"/>
-        <input id="register-player-password" type="password" placeholder="Password"/>
-      </div>
-      <div class="inline">
-        <select id="register-player-question">
-          <option value="" disabled selected>Select a security question</option>
-          <option value="What was the name of your first D&D character?">What was the name of your first D&D character?</option>
-          <option value="What is your favorite D&D class?">What is your favorite D&D class?</option>
-          <option value="Who is your current Dungeon Master?">Who is your current Dungeon Master?</option>
-        </select>
-        <input id="register-player-answer" type="password" placeholder="Security answer"/>
-      </div>
-      <div class="inline">
-        <button id="register-player" class="btn-sm" type="button">Register</button>
-      </div>
-    </fieldset>
-  </div>
-</div>
-
-<!-- PASSWORD RECOVERY MODAL -->
-<div class="overlay hidden" id="modal-recover" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Recover Password</h3>
-    <fieldset class="card">
-      <legend>Password Recovery</legend>
-      <div class="inline">
-        <input id="recover-name" placeholder="Player name"/>
-      </div>
-      <div class="inline">
-        <p id="recover-question"></p>
-      </div>
-      <div class="inline">
-        <input id="recover-answer" type="password" placeholder="Security answer"/>
-        <button id="recover-player" class="btn-sm" type="button">Recover</button>
-      </div>
-    </fieldset>
-  </div>
-</div>
-
-<div class="overlay hidden" id="modal-dm-login" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>DM Login</h3>
-    <fieldset class="card">
-      <legend>DM Access</legend>
-      <div class="inline">
-        <input id="dm-password" type="password" placeholder="DM password"/>
-        <button id="login-dm" class="btn-sm" type="button">Login</button>
-        <button id="logout-dm" class="btn-sm" type="button" hidden>Logout</button>
-      </div>
-    </fieldset>
-  </div>
-</div>
-
-<div class="overlay hidden" id="modal-dm" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Player Characters</h3>
-    <div id="dm-player-list" class="catalog"></div>
-  </div>
-</div>
 
 <div class="overlay hidden" id="modal-characters" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
@@ -629,6 +515,17 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="modal-load" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <p id="load-confirm-text"></p>
+    <div class="actions">
+      <button id="load-save" class="btn-sm">Save</button>
+      <button id="load-cancel" class="btn-sm">Cancel</button>
+      <button id="load-accept" class="btn-sm">Accept</button>
+    </div>
+  </div>
+</div>
+
 <!-- WELCOME MODAL -->
 <div class="overlay hidden" id="modal-welcome" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
@@ -639,9 +536,7 @@
     </button>
     <h3>Welcome to the Tracker</h3>
     <p>Use the tabs to navigate your sheet. Changes save automatically and work offline.</p>
-    <p>If you're new here, register to save your character and access cloud features.</p>
     <div class="actions">
-      <button id="welcome-register" class="btn-sm" type="button">Register</button>
       <button id="welcome-ok" type="button">Get Started</button>
     </div>
   </div>
@@ -658,7 +553,7 @@
     <h3>How to Use the Tracker</h3>
     <ul class="feature-list">
       <li><b>Theme toggle</b>Switch between light, high-contrast, and dark modes using the sun, contrast, or moon icons.</li>
-      <li><b>Main menu</b>Tap the menu icon to open options—Log&nbsp;In, Character wizard, Encounter tracker, Save, Roll/Flip Log, Campaign Log, Rules, Help, and Players.</li>
+      <li><b>Main menu</b>Tap the menu icon to open options—Character wizard, Encounter tracker, Save, Roll/Flip Log, Campaign Log, Rules, and Help.</li>
       <li><b>Tab navigation</b>Use Combat, Abilities, Powers, Gear, and Story icons to move between sections.</li>
       <li><b>Combat tools</b>Adjust HP/SP, track death saves, initiative, defenses, and conditions; roll dice or flip coins directly.</li>
       <li><b>Abilities management</b>Edit ability scores and proficiency bonuses on the Abilities tab.</li>
@@ -670,24 +565,21 @@
       <li><b>Dice rolling &amp; coin flips</b>Use the Roll/Flip Log to perform rolls or flips and review results.</li>
       <li><b>Campaign &amp; roll logs</b>Keep adventure notes and roll history in their respective logs.</li>
       <li><b>Rules reference</b>Read the Character Creation Guide from the Rules menu.</li>
-      <li><b>Player &amp; DM login</b>Log in for cloud features or use the DM link to manage shared tools.</li>
-      <li><b>Save characters</b>Save locally or to the cloud after logging in.</li>
-      <li><b>Offline auto-saving</b>Changes are stored in your browser and sync when you're back online.</li>
+      <li><b>Save characters</b>Save your progress locally from the menu.</li>
+      <li><b>Offline auto-saving</b>Changes are stored in your browser.</li>
     </ul>
     <h4>Frequently Asked Questions</h4>
     <ul class="qa-list">
       <li><b>How do I start a new character?</b> Open the main menu and select <i>Character wizard</i>.</li>
-      <li><b>Can I use the tracker offline?</b> Yes. The app auto-saves in your browser and syncs once you log in again.</li>
+      <li><b>Can I use the tracker offline?</b> Yes. The app auto-saves in your browser.</li>
       <li><b>How do I change the theme?</b> Tap the sun, contrast, or moon icon at the top of the page.</li>
       <li><b>Where do I adjust my HP or SP?</b> Visit the Combat tab and tap the current values to edit them.</li>
       <li><b>How do I roll a die or flip a coin?</b> Open the Roll/Flip Log from the main menu and choose the die or coin you need.</li>
       <li><b>How can I manage my equipment?</b> Use the Gear tab and tap <i>Open Gear Catalog</i> to search and add items.</li>
       <li><b>Is there a way to track initiative?</b> Yes. Use the Encounter tracker to add combatants and move through turns.</li>
       <li><b>What is the Campaign Log for?</b> It stores session notes. Open it from the main menu to add or review entries.</li>
-      <li><b>How do I share my character with the DM?</b> Log in and use <i>Save</i> to upload your character so the DM can access it.</li>
       <li><b>Where can I find the rules?</b> Tap <i>Rules</i> in the main menu to open the Character Creation Guide.</li>
       <li><b>Can I see past rolls?</b> The Roll/Flip Log keeps a history of your recent rolls, and the full log shows everything.</li>
-      <li><b>How do I log out?</b> Open the main menu; once logged in the Log&nbsp;In button becomes <i>Logout</i>.</li>
     </ul>
   </div>
 </div>
@@ -954,7 +846,6 @@
   <footer>
   <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
   <p>Product of XoVrom industries ® 2025</p>
- <p><a href="#" id="dm-login-link" title="Dungeon Master login">DM Login</a></p>
 </footer>
 <div id="down-animation" aria-hidden="true">⚠️</div>
 <div id="death-animation" aria-hidden="true">💀</div>
