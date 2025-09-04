@@ -54,7 +54,12 @@ export function updateFactionRep(handlePerkEffects = () => {}) {
     input.value = val;
     const tierIdx = Math.min(REP_TIERS.length - 1, Math.floor(val / 100));
     const tierName = REP_TIERS[tierIdx];
-    bar.value = val % 100;
+    // Display the full reputation total on the progress element so players
+    // see overall advancement instead of only the progress within the current
+    // tier. Update the bar's max to the global cap to keep the visual scale in
+    // sync.
+    bar.max = maxVal;
+    bar.value = val;
     tierEl.textContent = tierName;
     perkEl.innerHTML = '';
     const facName = FACTION_NAME_MAP[f];

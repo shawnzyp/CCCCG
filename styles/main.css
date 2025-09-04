@@ -570,6 +570,7 @@ select[required]:valid{
   border-radius: 50%;
   border: 1.5px solid var(--line, #bbb);
   background: var(--bg, #fff);
+  opacity: 1; /* override global button:disabled fade so progress dots stay visible */
 }
 .rp-dot[aria-pressed="true"] {
   background: var(--accent, #222);
