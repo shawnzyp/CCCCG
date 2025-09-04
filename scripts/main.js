@@ -1837,7 +1837,8 @@ window.CC = window.CC || {};
 CC.RP = (function () {
   // --- Internal state
   let state = {
-    rp: 0,                    // 0..10
+    rp: 0,                    // 0..4
+    banked: 0,                // number of banked surges
     surgeActive: false,
     surgeStartedAt: null,
     surgeMode: "encounter",   // "encounter" | "time"
@@ -1884,20 +1885,23 @@ CC.RP = (function () {
 
   // --- State transitions
   function setRP(n) {
-    const clamped = Math.max(0, Math.min(10, n));
-    state.rp = clamped;
+    const total = Math.max(0, n);
+    if (total >= 5) {
+      state.banked += Math.floor(total / 5);
+    }
+    state.rp = total % 5;
     applyStateToUI();
     save();
-    dispatch("rp:changed", { rp: state.rp });
+    dispatch("rp:changed", { rp: state.rp, banked: state.banked });
   }
 
   function triggerSurge({ mode = "encounter", minutes = 10 } = {}) {
-    if (state.rp < 5 || state.surgeActive) return;
+    if (state.banked < 1 || state.surgeActive) return;
     state.surgeActive = true;
     state.surgeStartedAt = Date.now();
     state.surgeMode = mode;
     state.surgeEndsAt = mode === "time" ? (Date.now() + minutes * 60 * 1000) : null;
-    state.rp = Math.max(0, state.rp - 5); // consume 5 RP
+    state.banked = Math.max(0, state.banked - 1); // consume 1 banked surge
     state.aftermathPending = false;
     state.nextCombatRegenPenalty = false;
     applyStateToUI();
@@ -1945,7 +1949,7 @@ CC.RP = (function () {
     // browsers or CSS selectors may rely on, so set both.
     els.rpValue.value = val;
     els.rpValue.setAttribute("value", val);
-    const banked = Math.floor(state.rp / 5);
+    const banked = state.banked;
     els.rpDots.forEach(btn => {
       const v = parseInt(btn.dataset.rp, 10);
       // Highlight all dots up to the current RP value so previously selected
@@ -1960,13 +1964,13 @@ CC.RP = (function () {
         els.banked.hidden = true;
       }
     }
-    if (els.btnInc) els.btnInc.disabled = state.rp >= 10;
+    if (els.btnInc) els.btnInc.disabled = false;
     if (els.btnDec) els.btnDec.disabled = state.rp <= 0;
-    if (els.rpTrack) els.rpTrack.classList.toggle('maxed', state.rp >= 10);
+    if (els.rpTrack) els.rpTrack.classList.remove('maxed');
 
     els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
     els.chkSurge.checked = state.surgeActive;
-    els.chkSurge.disabled = state.surgeActive || state.rp < 5;
+    els.chkSurge.disabled = state.surgeActive || state.banked < 1;
     els.btnClearAftermath.disabled = !(state.surgeActive || state.aftermathPending);
 
     els.tagActive.hidden = !state.surgeActive;
@@ -1977,6 +1981,7 @@ CC.RP = (function () {
   function serialize() {
     return {
       resonancePoints: state.rp,
+      resonanceBanked: state.banked,
       resonanceSurge: {
         active: state.surgeActive,
         startedAt: state.surgeStartedAt,
@@ -1991,6 +1996,7 @@ CC.RP = (function () {
     if (!data) return;
     const s = data.resonanceSurge || {};
     state.rp = Number.isFinite(data.resonancePoints) ? data.resonancePoints : 0;
+    state.banked = Number.isFinite(data.resonanceBanked) ? data.resonanceBanked : 0;
     state.surgeActive = !!s.active;
     state.surgeStartedAt = s.startedAt || null;
     state.surgeMode = s.mode || "encounter";
