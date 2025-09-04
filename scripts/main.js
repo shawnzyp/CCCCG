@@ -389,7 +389,7 @@ const statusGrid = $('statuses');
 const activeStatuses = new Set();
 if (statusGrid) {
   statusGrid.innerHTML = STATUS_EFFECTS.map(s => `
-    <label class="inline"><input type="checkbox" id="status-${s.id}"/> ${s.name}</label>
+    <div class="inline"><input type="checkbox" id="status-${s.id}"/><span>${s.name}</span></div>
   `).join('');
   STATUS_EFFECTS.forEach(s => {
     const cb = $('status-' + s.id);
@@ -633,7 +633,17 @@ if (elHPRoll) {
 
 if (elCAPCheck && elCAPStatus) {
   elCAPCheck.addEventListener('change', () => {
-    elCAPStatus.textContent = elCAPCheck.checked ? 'Used' : 'Available';
+    if (elCAPCheck.checked) {
+      if (confirm('Use Cinematic Action Point?')) {
+        elCAPStatus.textContent = 'Used';
+        elCAPCheck.disabled = true;
+      } else {
+        elCAPCheck.checked = false;
+      }
+    } else {
+      // Prevent clearing without long rest
+      elCAPCheck.checked = true;
+    }
   });
 }
 
@@ -845,6 +855,7 @@ $('long-rest').addEventListener('click', ()=>{
     cb.checked = false;
     cb.removeAttribute('checked');
   });
+  if (elCAPCheck) elCAPCheck.disabled = false;
   if (elCAPStatus) elCAPStatus.textContent = 'Available';
   activeStatuses.clear();
 });
@@ -1750,7 +1761,13 @@ CC.RP = (function () {
     if (els.btnDec) els.btnDec.addEventListener('click', () => setRP(state.rp + state.banked * 5 - 1));
     if (els.chkSurge) {
       els.chkSurge.addEventListener("change", e => {
-        if (e.target.checked) triggerSurge();
+        if (e.target.checked) {
+          if (confirm('Activate Heroic Surge?')) {
+            triggerSurge();
+          } else {
+            e.target.checked = false;
+          }
+        }
       });
     }
     if (els.btnClearAftermath) {
