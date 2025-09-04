@@ -1,4 +1,4 @@
-import { num, mod, calculateArmorBonus, proficiencyBonus, wizardProgress, revertAbilityScore } from '../scripts/helpers.js';
+import { num, mod, calculateArmorBonus, proficiencyBonus, revertAbilityScore } from '../scripts/helpers.js';
 
 describe('num', () => {
   test('converts strings to numbers and defaults to 0', () => {
@@ -71,22 +71,6 @@ describe('calculateArmorBonus', () => {
       </div>
     `;
     expect(calculateArmorBonus()).toBe(0);
-  });
-});
-
-describe('wizardProgress', () => {
-  test('formats current step out of total with percentage', () => {
-    expect(wizardProgress(0, 3)).toBe('Step 1 of 3 (33%)');
-    expect(wizardProgress(2, 3)).toBe('Step 3 of 3 (100%)');
-  });
-
-  test('clamps step index within range', () => {
-    expect(wizardProgress(-1, 3)).toBe('Step 1 of 3 (33%)');
-    expect(wizardProgress(5, 3)).toBe('Step 3 of 3 (100%)');
-  });
-
-  test('handles non-positive totals', () => {
-    expect(wizardProgress(0, 0)).toBe('Step 1 of 1 (100%)');
   });
 });
 

@@ -1,6 +1,6 @@
 // Bump cache version whenever the pre-cached asset list changes so clients
 // pick up the latest files on next load.
-const CACHE = 'cccg-cache-v10';
+const CACHE = 'cccg-cache-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -9,7 +9,7 @@ const ASSETS = [
   './scripts/helpers.js',
   './scripts/storage.js',
   // Additional scripts required for offline operation
-  './scripts/users.js',
+  './scripts/characters.js',
   './scripts/modal.js',
   './scripts/firebase-config.js',
   './scripts/firebase-init.js',
