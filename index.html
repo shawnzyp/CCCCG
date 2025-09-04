@@ -505,11 +505,14 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Your Characters</h3>
-    <div id="char-list" class="catalog"></div>
-    <div class="inline">
-      <input id="new-character-name" placeholder="New character name"/>
-      <button id="create-character" class="btn-sm" type="button">Create/Switch</button>
+    <h3>All Characters</h3>
+    <div class="load-layout">
+      <div id="char-list" class="catalog"></div>
+      <div class="load-actions">
+        <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
+        <button id="create-character" class="btn-sm" type="button">Create New</button>
+        <button id="save-current" class="btn-sm" type="button">Save</button>
+      </div>
     </div>
   </div>
 </div>
