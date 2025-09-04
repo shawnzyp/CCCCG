@@ -81,16 +81,6 @@ fieldset[data-tab].card>legend{font-size:1.5rem;font-weight:600;color:var(--acce
 p{max-width:65ch}
 footer{text-align:center;font-size:9pt;margin-top:24px;padding:12px 0;color:var(--muted)}
 footer p{max-width:none}
-#dm-login-link,
-#dm-login-link:visited{
-  color:var(--bg-color);
-  text-decoration:none;
-  outline:none;
-}
-#dm-login-link:hover,
-#dm-login-link:focus{
-  color:var(--accent);
-}
 .grid{display:grid;gap:12px}
 .grid-1{grid-template-columns:1fr}
 .grid-2{grid-template-columns:1fr}
@@ -558,12 +548,6 @@ select[required]:valid{
   padding-right:64px;
 }
 
-/* wizard */
-.wizard-step{display:none;opacity:0;transform:translateX(10px)}
-.wizard-step.active{display:block;animation:wizardFade .3s ease-in-out forwards}
-@keyframes wizardFade{to{opacity:1;transform:translateX(0)}}
-.wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
-#wizard-progress{flex:1;text-align:center}
 
 #resonance-points .subtext { font-size: 0.9rem; opacity: 0.85; }
 .rp-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0 10px; }

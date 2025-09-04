@@ -17,12 +17,6 @@ export const proficiencyBonus = (level) => {
 // below 10, so clamping to that value would incorrectly inflate low abilities
 // when a perk is removed.
 export const revertAbilityScore = (score) => Math.max(0, num(score) - 1);
-export const wizardProgress = (i, total) => {
-  const curr = Math.max(1, Math.min(num(i) + 1, num(total)));
-  const max = Math.max(num(total), curr);
-  const pct = Math.round((curr / max) * 100);
-  return `Step ${curr} of ${max} (${pct}%)`;
-};
 export function calculateArmorBonus(){
   let body=[], head=[], shield=0, misc=0;
   qsa("[data-kind='armor']").forEach(card=>{

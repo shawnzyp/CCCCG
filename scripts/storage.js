@@ -45,6 +45,7 @@ export function listLocalSaves() {
 
 // ===== Firebase Cloud Save =====
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
+const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 
 // Attempt to fetch a Firebase Auth token and cache it. The application can
 // operate without Firebase (only local saves) so failures are logged but do not
@@ -125,7 +126,7 @@ async function authedFetch(url, options = {}) {
 }
 
 // Encode each path segment separately so callers can supply hierarchical
-// keys like `player:Alice/hero1` without worrying about Firebase escaping.
+// keys like `Alice/hero1` without worrying about Firebase escaping.
 function encodePath(name) {
   return name
     .split('/')
@@ -147,6 +148,35 @@ export async function saveCloud(name, payload) {
     if (res.status === 401 || res.status === 403) return;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     localStorage.setItem('last-save', name);
+
+    // Also persist a timestamped backup and prune to the three most recent entries.
+    const ts = Date.now();
+    await authedFetch(
+      `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const listRes = await authedFetch(
+      `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`,
+      { method: 'GET' }
+    );
+    if (listRes.ok) {
+      const val = await listRes.json();
+      const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
+      const excess = keys.slice(3);
+      await Promise.all(
+        excess.map(k =>
+          authedFetch(
+            `${CLOUD_HISTORY_URL}/${encodePath(name)}/${k}.json`,
+            { method: 'DELETE' }
+          )
+        )
+      );
+    }
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;
@@ -201,7 +231,7 @@ export async function listCloudSaves() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
     // Keys in the realtime database are URL-encoded because we escape them when
-    // saving. Decode them here so callers receive the original player names.
+    // saving. Decode them here so callers receive the original character names.
     return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
@@ -210,6 +240,49 @@ export async function listCloudSaves() {
     console.error('Cloud list failed', e);
     return [];
   }
+}
+
+export async function listCloudBackups(name) {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const res = await authedFetch(
+      `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`
+    );
+    if (res.status === 401 || res.status === 403) return [];
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    return val
+      ? Object.keys(val)
+          .map(k => Number(k))
+          .sort((a, b) => b - a)
+          .map(ts => ({ ts }))
+      : [];
+  } catch (e) {
+    if (e && e.message === 'fetch not supported') {
+      throw e;
+    }
+    console.error('Cloud history list failed', e);
+    return [];
+  }
+}
+
+export async function loadCloudBackup(name, ts) {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const res = await authedFetch(
+      `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
+      { method: 'GET' }
+    );
+    if (res.status === 401 || res.status === 403) return null;
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    if (val !== null) return val;
+  } catch (e) {
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud history load failed', e);
+    }
+  }
+  throw new Error('No backup found');
 }
 export async function cacheCloudSaves(
   listFn = listCloudSaves,
@@ -225,13 +298,9 @@ export async function cacheCloudSaves(
       return;
     }
     const keys = await listFn();
-    // Only cache player character data. Other saves such as user credentials
-    // are skipped to avoid polluting local storage with unnecessary entries.
-    const playerKeys = keys.filter(
-      k => typeof k === 'string' && /^player\s*:/i.test(k)
-    );
+    // Cache all available saves so local storage reflects the cloud state.
     await Promise.all(
-      playerKeys.map(async k => {
+      keys.map(async k => {
         try {
           const data = await loadFn(k);
           await saveFn(k, data);
