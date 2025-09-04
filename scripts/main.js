@@ -1837,7 +1837,7 @@ window.CC = window.CC || {};
 CC.RP = (function () {
   // --- Internal state
   let state = {
-    rp: 0,                    // 0..5
+    rp: 0,                    // 0..10
     surgeActive: false,
     surgeStartedAt: null,
     surgeMode: "encounter",   // "encounter" | "time"
@@ -1855,7 +1855,11 @@ CC.RP = (function () {
     if (!root) return;
 
     els.rpValue = q("rp-value");
-    els.rpDots = Array.from(document.querySelectorAll("#resonance-points .rp-dot"));
+    els.rpTrack = root.querySelector('.rp-track');
+    els.rpDots = Array.from(root.querySelectorAll(".rp-dot"));
+    els.btnDec = q('rp-dec');
+    els.btnInc = q('rp-inc');
+    els.banked = q('rp-banked');
     els.chkSurge = q("rp-trigger");
     els.btnClearAftermath = q("rp-clear-aftermath");
     els.surgeState = q("rp-surge-state");
@@ -1872,17 +1876,15 @@ CC.RP = (function () {
   }
 
   function wireEvents() {
-    els.rpDots.forEach(btn => btn.addEventListener("click", () => {
-      const v = parseInt(btn.dataset.rp, 10);
-      setRP(state.rp === v ? 0 : v);
-    }));
+    if (els.btnInc) els.btnInc.addEventListener('click', () => setRP(state.rp + 1));
+    if (els.btnDec) els.btnDec.addEventListener('click', () => setRP(state.rp - 1));
     els.chkSurge.addEventListener("change", e => { if (e.target.checked) triggerSurge(); });
     els.btnClearAftermath.addEventListener("click", () => { if (state.surgeActive) endSurge("aftermath"); else clearAftermath(); });
   }
 
   // --- State transitions
   function setRP(n) {
-    const clamped = Math.max(0, Math.min(5, n));
+    const clamped = Math.max(0, Math.min(10, n));
     state.rp = clamped;
     applyStateToUI();
     save();
@@ -1895,7 +1897,7 @@ CC.RP = (function () {
     state.surgeStartedAt = Date.now();
     state.surgeMode = mode;
     state.surgeEndsAt = mode === "time" ? (Date.now() + minutes * 60 * 1000) : null;
-    state.rp = 0; // consume
+    state.rp = Math.max(0, state.rp - 5); // consume 5 RP
     state.aftermathPending = false;
     state.nextCombatRegenPenalty = false;
     applyStateToUI();
@@ -1938,14 +1940,29 @@ CC.RP = (function () {
     const val = String(state.rp);
     els.rpValue.textContent = val;
     // The output element exposes a `.value` property that may be used
-    // by CSS `attr(value)` or assistive tech; keep it in sync.
+    // by CSS `attr(value)` or assistive tech; keep it in sync. Updating
+    // the property alone does not update the `value` attribute, which some
+    // browsers or CSS selectors may rely on, so set both.
     els.rpValue.value = val;
+    els.rpValue.setAttribute("value", val);
+    const banked = Math.floor(state.rp / 5);
     els.rpDots.forEach(btn => {
       const v = parseInt(btn.dataset.rp, 10);
       // Highlight all dots up to the current RP value so previously selected
       // points remain visibly "ticked" rather than only the most recent one.
       btn.setAttribute("aria-pressed", String(v <= state.rp));
     });
+    if (els.banked) {
+      if (banked > 0) {
+        els.banked.textContent = `${banked} Banked Surge${banked > 1 ? 's' : ''}`;
+        els.banked.hidden = false;
+      } else {
+        els.banked.hidden = true;
+      }
+    }
+    if (els.btnInc) els.btnInc.disabled = state.rp >= 10;
+    if (els.btnDec) els.btnDec.disabled = state.rp <= 0;
+    if (els.rpTrack) els.rpTrack.classList.toggle('maxed', state.rp >= 10);
 
     els.surgeState.textContent = state.surgeActive ? "Active" : "Inactive";
     els.chkSurge.checked = state.surgeActive;
