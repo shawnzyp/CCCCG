@@ -26,6 +26,8 @@ describe('faction reputation tracker', () => {
     expect(repInput.value).toBe('205');
     expect(bar.value).toBe(205);
     expect(bar.max).toBe(699);
+    expect(bar.getAttribute('value')).toBe('205');
+    expect(bar.getAttribute('max')).toBe('699');
     expect(pushHistory).toHaveBeenCalled();
   });
 
@@ -53,6 +55,8 @@ describe('faction reputation tracker', () => {
     expect(repInput.value).toBe('195');
     expect(bar.value).toBe(195);
     expect(bar.max).toBe(699);
+    expect(bar.getAttribute('value')).toBe('195');
+    expect(bar.getAttribute('max')).toBe('699');
     expect(pushHistory).toHaveBeenCalled();
   });
 });

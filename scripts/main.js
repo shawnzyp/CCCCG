@@ -1837,8 +1837,12 @@ CC.RP = (function () {
         dot.setAttribute('aria-pressed', String(v <= banked));
       });
     }
-    if (els.btnInc) els.btnInc.disabled = false;
-    if (els.btnDec) els.btnDec.disabled = false;
+    // Disable controls at their bounds so users receive immediate feedback
+    // that no further adjustment is possible. Previously the buttons remained
+    // active even when the value was clamped, leading to the impression that
+    // they were non-functional.
+    if (els.btnInc) els.btnInc.disabled = total >= 10;
+    if (els.btnDec) els.btnDec.disabled = total <= 0;
     if (els.rpTrack) els.rpTrack.classList.toggle('maxed', total >= 10);
 
     if (els.surgeState) {

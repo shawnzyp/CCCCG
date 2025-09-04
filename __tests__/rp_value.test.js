@@ -67,6 +67,12 @@ describe('Resonance Points tracker', () => {
     document.dispatchEvent(new Event('DOMContentLoaded'));
 
     const inc = document.getElementById('rp-inc');
+    const dec = document.getElementById('rp-dec');
+
+    // At start, decrement should be disabled while increment is enabled.
+    expect(dec.disabled).toBe(true);
+    expect(inc.disabled).toBe(false);
+
     for (let i = 0; i < 5; i++) inc.click();
 
     const output = document.getElementById('rp-value');
@@ -74,15 +80,19 @@ describe('Resonance Points tracker', () => {
     expect(output.value).toBe('5');
     expect(output.getAttribute('value')).toBe('5');
 
+    // Mid-range: both controls active.
+    expect(dec.disabled).toBe(false);
+    expect(inc.disabled).toBe(false);
+
     const bankDots = document.querySelectorAll('.rp-bank-dot');
     expect(bankDots[0].getAttribute('aria-pressed')).toBe('true');
     expect(bankDots[1].getAttribute('aria-pressed')).toBe('false');
 
-    inc.click();
-    inc.click();
-    expect(output.textContent).toBe('7');
-    expect(bankDots[0].getAttribute('aria-pressed')).toBe('true');
-    expect(bankDots[1].getAttribute('aria-pressed')).toBe('false');
+    // Push to maximum to confirm increment disables at cap
+    for (let i = 0; i < 5; i++) inc.click();
+    expect(output.textContent).toBe('10');
+    expect(inc.disabled).toBe(true);
+    expect(dec.disabled).toBe(false);
   });
 });
 
