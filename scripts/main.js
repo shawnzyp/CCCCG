@@ -746,7 +746,13 @@ function updateDerived(){
   updateHP();
   const initiative = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
   elInitiative.value = (initiative >= 0 ? '+' : '') + initiative;
-  elPowerSaveDC.value = 8 + pb + mod($( elPowerSaveAbility.value ).value);
+  // Guard against missing ability elements when calculating the power save DC.
+  // If the selected ability cannot be found in the DOM, default its modifier to 0
+  // rather than throwing an error which prevents other derived stats from
+  // updating and leaves all modifiers displayed as +0.
+  const saveAbilityEl = $(elPowerSaveAbility.value);
+  const saveMod = saveAbilityEl ? mod(saveAbilityEl.value) : 0;
+  elPowerSaveDC.value = 8 + pb + saveMod;
   ABILS.forEach(a=>{
     const m = mod($(a).value);
     $(a+'-mod').textContent = (m>=0?'+':'') + m;
