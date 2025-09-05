@@ -415,7 +415,6 @@ progress::-moz-progress-bar{
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .3s ease-in-out;background:color-mix(in srgb,var(--surface) 85%,transparent)}
 .card:focus-within{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
 .card.dragging{opacity:.5}
-.card-wide{margin-left:calc(-20px - env(safe-area-inset-left));width:calc(100% + 20px + env(safe-area-inset-left))}
 .catalog{max-height:360px;overflow:auto;border:1px dashed var(--line);border-radius:10px;padding:6px}
 .perk-list{margin:0;padding-left:20px;list-style:disc}
 .perk{margin:0}
