@@ -53,6 +53,9 @@ function setVh(){
   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
 }
 setVh();
+// Update the CSS viewport height variable on resize or orientation changes
+window.addEventListener('resize', setVh);
+window.addEventListener('orientationchange', setVh);
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
 
 async function renderRules(){
