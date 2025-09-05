@@ -1,6 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, revertAbilityScore } from './helpers.js';
-import { setupFactionRepTracker, ACTION_HINTS } from './faction.js';
+import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep } from './faction.js';
 import {
   currentCharacter,
   setCurrentCharacter,
@@ -1232,7 +1232,7 @@ if(newCharBtn){
     const clean = name.trim();
     if(!clean) return toast('Name required','error');
     setCurrentCharacter(clean);
-    deserialize({});
+    deserialize(DEFAULT_STATE);
     hide('modal-load-list');
     toast(`Switched to ${clean}`,'success');
   });
@@ -1662,7 +1662,8 @@ function serialize(){
   data.campaignLog = campaignLog;
   return data;
 }
-function deserialize(data){
+const DEFAULT_STATE = serialize();
+ function deserialize(data){
   $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
   Object.entries(data||{}).forEach(([k,v])=>{ const el=$(k); if (!el) return; if (el.type==='checkbox') el.checked=!!v; else el.value=v; });
   (data && data.powers ? data.powers : []).forEach(p=> $('powers').appendChild(createCard('power', p)));
@@ -1678,6 +1679,7 @@ function deserialize(data){
     currentTierIdx = getTierIndex(xp);
   }
   updateDerived();
+  updateFactionRep(handlePerkEffects);
 }
 
 /* ========= autosave + history ========= */
