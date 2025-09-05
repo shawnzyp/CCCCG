@@ -83,8 +83,20 @@ fieldset[data-tab].card.active{display:block;opacity:1;transform:translateX(0)}
 fieldset[data-tab].card>legend{font-size:1.5rem;font-weight:600;color:var(--accent);margin:0 0 10px}
 .card-title{font-size:1.5rem;font-weight:600;color:var(--accent);margin:0 0 10px}
 p{max-width:var(--content-width)}
-footer{text-align:center;font-size:9pt;margin-top:8px;padding:4px 0 calc(4px + env(safe-area-inset-bottom));color:var(--muted)}
-footer p{max-width:var(--content-width)}
+footer{
+  text-align:center;
+  font-size:9pt;
+  margin:8px auto 0;
+  padding:4px 0 calc(4px + env(safe-area-inset-bottom));
+  color:var(--muted);
+  max-width:var(--content-width);
+}
+
+footer p{
+  max-width:var(--content-width);
+  margin-left:auto;
+  margin-right:auto;
+}
 .grid{display:grid;gap:12px}
 .grid-1{grid-template-columns:1fr}
 .grid-2{grid-template-columns:1fr}
