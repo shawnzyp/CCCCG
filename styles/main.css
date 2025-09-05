@@ -392,7 +392,7 @@ progress::-moz-progress-bar{
   30%{transform:scale(1.2);opacity:1;}
   100%{transform:scale(1);opacity:0;}
 }
-.sp-grid{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,1fr);grid-auto-columns:1fr;gap:8px;}
+.sp-grid{display:grid;width:100%;grid-template-columns:repeat(3,1fr);gap:8px;}
 .sp-grid .btn-sm{width:100%;}
 
 .sp-field #sp-temp{flex:0 0 60px;max-width:60px;}
