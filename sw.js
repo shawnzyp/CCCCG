@@ -1,6 +1,6 @@
 // Bump cache version whenever the pre-cached asset list changes so clients
 // pick up the latest files on next load.
-const CACHE = 'cccg-cache-v11';
+const CACHE = 'cccg-cache-v12';
 const ASSETS = [
   './',
   './index.html',
@@ -8,9 +8,14 @@ const ASSETS = [
   './scripts/main.js',
   './scripts/helpers.js',
   './scripts/storage.js',
+  './scripts/faction.js',
   // Additional scripts required for offline operation
   './scripts/characters.js',
   './scripts/modal.js',
+  './codex-character.json',
+  './codex-gear-class.json',
+  './codex-gear-universal.json',
+  './ruleshelp.txt',
   './ccccg.pdf',
   // background and other images
   './images/Dark.PNG',
