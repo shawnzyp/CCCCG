@@ -1260,7 +1260,6 @@ if(recoverListEl){
   });
 }
 
-const loadSaveBtn = $('load-save');
 const loadCancelBtn = $('load-cancel');
 const loadAcceptBtn = $('load-accept');
 async function doLoad(){
@@ -1277,13 +1276,6 @@ async function doLoad(){
   }catch(e){
     toast('Load failed','error');
   }
-}
-if(loadSaveBtn){
-  loadSaveBtn.addEventListener('click', async ()=>{
-    try{ await saveCharacter(serialize()); }
-    catch(e){ toast('Save failed','error'); return; }
-    await doLoad();
-  });
 }
 if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
 if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); }); }
