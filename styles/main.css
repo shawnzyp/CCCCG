@@ -76,7 +76,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   filter:invert(1);
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
-main{max-width:65ch;margin:16px auto;padding:0 12px calc(4px + env(safe-area-inset-bottom))}
+main{max-width:65ch;margin:16px auto;padding:0 calc(12px + env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
 fieldset[data-tab].card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow);display:none;opacity:0;transform:translateX(10px);cursor:default;transition:opacity .3s ease,transform .3s ease}
 main>:last-child{margin-bottom:0}
 fieldset[data-tab].card.active{display:block;opacity:1;transform:translateX(0)}
@@ -414,7 +414,7 @@ progress::-moz-progress-bar{
 .load-actions{display:flex;flex-direction:column;gap:10px;min-width:120px}
 .load-actions button{width:100%}
 .small{font-size:.9rem;color:var(--muted)}
-.overlay{position:fixed;top:0;left:0;right:0;height:calc(var(--vh,1vh)*100);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);z-index:1000;padding:16px 16px calc(16px + env(safe-area-inset-bottom));opacity:1;pointer-events:auto;transition:opacity .3s ease-in-out;will-change:opacity}
+.overlay{position:fixed;top:0;left:0;right:0;height:calc(var(--vh,1vh)*100);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(2px);z-index:1000;padding:16px calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));opacity:1;pointer-events:auto;transition:opacity .3s ease-in-out;will-change:opacity}
 .overlay.hidden{opacity:0;pointer-events:none}
 .modal{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);max-width:720px;width:100%;padding:16px;box-shadow:var(--shadow);position:relative;max-height:calc(var(--vh,1vh)*100 - 32px - env(safe-area-inset-bottom));overflow:auto;transform:scale(1);opacity:1;transition:transform .3s ease-in-out,opacity .3s ease-in-out;will-change:transform,opacity}
 .modal:focus{outline:none}
