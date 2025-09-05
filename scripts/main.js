@@ -1147,6 +1147,15 @@ async function renderCharacterList(){
   selectedChar = current;
 }
 
+async function renderRecoverCharList(){
+  const list = $('recover-char-list');
+  if(!list) return;
+  let names = [];
+  try { names = await listCharacters(); }
+  catch (e) { console.error('Failed to list characters', e); }
+  list.innerHTML = names.map(c=>`<div class="catalog-item"><button class="btn-sm" data-char="${c}">${c}</button></div>`).join('');
+}
+
 async function renderRecoverList(name){
   const list = $('recover-list');
   if(!list) return;
@@ -1156,7 +1165,7 @@ async function renderRecoverList(name){
   if(backups.length === 0){
     list.innerHTML = '<p>No backups found.</p>';
   } else {
-    list.innerHTML = backups.map(b=>`<div class="catalog-item"><button class="btn-sm" data-recover-ts="${b.ts}">${new Date(b.ts).toLocaleString()}</button></div>`).join('');
+    list.innerHTML = backups.map(b=>`<div class="catalog-item"><button class="btn-sm" data-recover-ts="${b.ts}">${name} - ${new Date(b.ts).toLocaleString()}</button></div>`).join('');
   }
   show('modal-recover-list');
 }
@@ -1190,12 +1199,24 @@ if(charList){
   });
 }
 
+const recoverCharListEl = $('recover-char-list');
+if(recoverCharListEl){
+  recoverCharListEl.addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-char]');
+    if(btn){
+      recoverTarget = btn.dataset.char;
+      hide('modal-recover-char');
+      renderRecoverList(recoverTarget);
+    }
+  });
+}
+
 const recoverBtn = $('recover-save');
 if(recoverBtn){
-  recoverBtn.addEventListener('click', ()=>{
-    if(!selectedChar) return toast('Select a character first','error');
-    recoverTarget = selectedChar;
-    renderRecoverList(recoverTarget);
+  recoverBtn.addEventListener('click', async ()=>{
+    hide('modal-load-list');
+    await renderRecoverCharList();
+    show('modal-recover-char');
   });
 }
 
