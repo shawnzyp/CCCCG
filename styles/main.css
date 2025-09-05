@@ -412,7 +412,7 @@ progress::-moz-progress-bar{
 .sp-field #sp-temp{flex:0 0 60px;max-width:60px;}
 .sp-field #long-rest{width:100%;margin-top:8px;}
 .sp-field .cap-box{margin-top:8px;}
-.card{border:1px solid var(--line);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .3s ease-in-out;background:color-mix(in srgb,var(--surface) 5%,transparent);margin-left:calc(-20px - env(safe-area-inset-left));width:calc(100% + 20px + env(safe-area-inset-left));font-size:1.1rem}
+.card{border:1px solid var(--line);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:10px;cursor:grab;transition:box-shadow .3s ease-in-out;background:color-mix(in srgb,var(--surface) 5%,transparent);margin-left:auto;margin-right:auto;width:100%;max-width:var(--content-width);font-size:1.1rem}
 .card:focus-within{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
 .card.dragging{opacity:.5}
 .catalog{max-height:360px;overflow:auto;border:1px dashed var(--line);border-radius:10px;padding:6px}
