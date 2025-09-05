@@ -89,6 +89,7 @@ footer p{max-width:none}
 .grid-1{grid-template-columns:1fr}
 .grid-2{grid-template-columns:1fr}
 .grid-3{grid-template-columns:1fr}
+.grid-2-fixed{grid-template-columns:repeat(2,1fr)}
 @media(min-width:600px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:900px){.grid-3{grid-template-columns:repeat(3,1fr)}}
 #statuses{grid-template-columns:repeat(2,1fr);margin-top:8px}
