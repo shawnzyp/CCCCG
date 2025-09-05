@@ -76,7 +76,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   filter:invert(1);
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
-main{max-width:var(--content-width);margin:16px auto;padding:0 calc(20px + env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))}
+main{width:100%;max-width:var(--content-width);margin:16px auto;padding:0 calc(20px + env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))}
 fieldset[data-tab].card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px;box-shadow:var(--shadow);display:none;opacity:0;transform:translateX(10px);cursor:default;transition:opacity .3s ease,transform .3s ease}
 main>:last-child{margin-bottom:0}
 fieldset[data-tab].card.active{display:block;opacity:1;transform:translateX(0)}
