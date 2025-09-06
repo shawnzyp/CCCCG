@@ -787,11 +787,38 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
+    <label class="cc-switch"><input id="dm-shard-toggle" type="checkbox"><span>Allow Shards</span></label>
     <h3 id="shard-resolve-title">Resolve Shard</h3>
-    <div id="shard-resolve-body"></div>
+    <div class="cc-tabs">
+      <nav class="cc-tabs__nav">
+        <button data-tab="card" class="active">Card</button>
+        <button data-tab="npcs">NPCs</button>
+        <button data-tab="tips">DM Tips</button>
+      </nav>
+      <article class="cc-tabs__pane active" id="shard-resolve-card"></article>
+      <article class="cc-tabs__pane" id="shard-resolve-npcs"></article>
+      <article class="cc-tabs__pane" id="shard-resolve-tips"></article>
+    </div>
     <div class="actions">
       <button id="shard-resolve-addnpc" class="btn-sm" hidden>Add NPC as Character</button>
       <button id="shard-resolve-complete" class="btn-sm">Mark Resolved</button>
+      <button id="shard-resolve-reset" class="btn-sm">Reset Shards</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-shard-reset" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Reset Shards" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Reset Shards</h3>
+    <p>Shuffle all plates back into the deck and allow new draws?</p>
+    <div class="actions">
+      <button id="shard-reset-confirm" class="btn-sm">Reset</button>
+      <button class="btn-sm" data-close>Cancel</button>
     </div>
   </div>
 </div>

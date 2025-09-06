@@ -10,14 +10,59 @@ const shardCount = document.getElementById('ccShard-player-count');
 const shardResults = document.getElementById('ccShard-player-results');
 
 const resolveTitle = document.getElementById('shard-resolve-title');
-const resolveBody = document.getElementById('shard-resolve-body');
+const resolveCard = document.getElementById('shard-resolve-card');
+const resolveNPCs = document.getElementById('shard-resolve-npcs');
+const resolveTips = document.getElementById('shard-resolve-tips');
 const resolveAddBtn = document.getElementById('shard-resolve-addnpc');
 const resolveCompleteBtn = document.getElementById('shard-resolve-complete');
+const resolveResetBtn = document.getElementById('shard-resolve-reset');
+const resetConfirmBtn = document.getElementById('shard-reset-confirm');
+const shardToggle = document.getElementById('dm-shard-toggle');
+const resolveTabBtns = document.querySelectorAll('#modal-shard-resolve .cc-tabs__nav button');
 
 const SHARD_KEY = 'ccShardEnabled';
 const NOTIFY_KEY = 'dmNotifications';
 const DRAW_COUNT_KEY = 'ccShardPlayerDraws';
 const DRAW_LOCK_KEY = 'ccShardPlayerLocked';
+
+function setResolveTab(tab){
+  resolveTabBtns.forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.tab===tab);
+  });
+  resolveCard.classList.toggle('active', tab==='card');
+  resolveNPCs.classList.toggle('active', tab==='npcs');
+  resolveTips.classList.toggle('active', tab==='tips');
+}
+resolveTabBtns.forEach(btn=> btn.addEventListener('click', ()=> setResolveTab(btn.dataset.tab)));
+if(shardToggle){
+  shardToggle.addEventListener('change', e=>{
+    if(e.target.checked) localStorage.setItem(SHARD_KEY,'1');
+    else localStorage.removeItem(SHARD_KEY);
+    setShardCardVisibility(true);
+    if(!e.target.checked) baseMessage('Shards disabled');
+  });
+}
+
+if(resolveResetBtn){
+  resolveResetBtn.addEventListener('click', ()=>{
+    window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-shard-reset' }));
+  });
+}
+
+if(resetConfirmBtn){
+  resetConfirmBtn.addEventListener('click', ()=>{
+    localStorage.removeItem(DRAW_COUNT_KEY);
+    localStorage.removeItem(DRAW_LOCK_KEY);
+    const btn = document.getElementById('ccShard-player-draw');
+    if(btn) btn.disabled = false;
+    if(window.CCShard && typeof window.CCShard.resetDeck === 'function'){
+      window.CCShard.resetDeck();
+    }
+    logDMAction('Shard deck reset');
+    baseMessage('Shard deck reset');
+    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-reset' }));
+  });
+}
 
 function setShardCardVisibility(showToast=false){
   if(shardCard){
@@ -72,43 +117,18 @@ function openDmTools(){
     document.getElementById('dm-recover-btn').addEventListener('click', openRecovery);
     return;
   }
-  const enabled = localStorage.getItem(SHARD_KEY) === '1';
   const notes = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
   showDmToast(`
-    <label class="cc-switch"><input id="dm-shard-toggle" type="checkbox" ${enabled? 'checked' : ''}><span>Allow Shards</span></label>
     <div class="inline">
       <button id="ccShard-open" class="btn-sm">Shard of Many Fates</button>
-      <button id="dm-resolve-shard" class="btn-sm">Resolve Shards</button>
-      <button id="dm-reset-draws" class="btn-sm">Reset Draws</button>
       <button id="dm-view-notes" class="btn-sm">Notifications (${notes.length})</button>
       <button id="dm-logout-btn" class="btn-sm">Log Out</button>
     </div>
   `);
-  document.getElementById('dm-shard-toggle').addEventListener('change', e=>{
-    if(e.target.checked) localStorage.setItem(SHARD_KEY,'1');
-    else localStorage.removeItem(SHARD_KEY);
-    setShardCardVisibility(true);
-    if(!e.target.checked) baseMessage('Shards disabled');
-  });
   const shardBtn = document.getElementById('ccShard-open');
   if(shardBtn){
-    shardBtn.addEventListener('click', ()=>{
-      if(window.CCShard && typeof window.CCShard.open === 'function'){
-        window.CCShard.open();
-      }
-    });
+    shardBtn.addEventListener('click', openShardResolver);
   }
-  const resolveBtn = document.getElementById('dm-resolve-shard');
-  if(resolveBtn){
-    resolveBtn.addEventListener('click', openShardResolver);
-  }
-  document.getElementById('dm-reset-draws').addEventListener('click', ()=>{
-    localStorage.removeItem(DRAW_COUNT_KEY);
-    localStorage.removeItem(DRAW_LOCK_KEY);
-    const btn = document.getElementById('ccShard-player-draw');
-    if(btn) btn.disabled = false;
-    baseMessage('Players may draw again');
-  });
   document.getElementById('dm-view-notes').addEventListener('click', openNotifications);
   document.getElementById('dm-logout-btn').addEventListener('click', handleLogout);
 }
@@ -134,30 +154,60 @@ function openShardResolver(){
   const card = window.CCShard && typeof window.CCShard.getActiveCard === 'function'
     ? window.CCShard.getActiveCard()
     : null;
+  if(shardToggle){
+    shardToggle.checked = localStorage.getItem(SHARD_KEY) === '1';
+  }
   if(card){
     resolveTitle.textContent = card.name;
+    const eff = card.effect ? card.effect.map(r=>`<li>${escapeHtml(r)}</li>`).join('') : '<li>None</li>';
+    const hooks = card.hooks ? card.hooks.map(r=>`<li>${escapeHtml(r)}</li>`).join('') : '<li>None</li>';
     const res = card.resolution ? card.resolution.map(r=>`<li>${escapeHtml(r)}</li>`).join('') : '<li>None</li>';
-    let enemyHtml = '<p><em>No enemy</em></p>';
+    resolveCard.innerHTML = `<h4>Effect</h4><ul>${eff}</ul><h4>Hooks</h4><ul>${hooks}</ul><h4>Resolution</h4><ul>${res}</ul>`;
+    const npcIds = [];
     if(card.enemy){
-      const stats = (window.CCShard && window.CCShard.stats) || {};
-      enemyHtml = card.enemy.split('|').map(k=>`<strong>${k}</strong><pre class="cc-code">${escapeHtml(stats[k]||'Unknown')}</pre>`).join('');
+      card.enemy.split('|').forEach(id=> npcIds.push({ id:id.trim(), type:'enemy' }));
     }
-    resolveBody.innerHTML = `<h4>Resolution</h4><ul>${res}</ul><h4>Enemy</h4>${enemyHtml}`;
     const ally = card.rewards && card.rewards.find(r=>/ally\s+(\w+)/i.test(r));
     if(ally){
       const m = ally.match(/ally\s+(\w+)/i);
       resolveAddBtn.dataset.npcId = m ? m[1] : '';
       resolveAddBtn.hidden = !resolveAddBtn.dataset.npcId;
+      if(resolveAddBtn.dataset.npcId){
+        npcIds.push({ id: resolveAddBtn.dataset.npcId, type:'ally' });
+      }
     } else {
       resolveAddBtn.hidden = true;
     }
+    if(npcIds.length){
+      resolveNPCs.innerHTML = `<ul class="cc-list">${npcIds.map(n=>{
+        const npc = window.CCShard && window.CCShard.getNPC ? window.CCShard.getNPC(n.id) : null;
+        const name = npc ? npc.name : n.id;
+        const label = n.type==='ally'?` (Ally)`:'';
+        const stats = npc ? ` <span class="muted">(HP ${npc.hp}, SP ${npc.sp})</span>` : '';
+        return `<li><button class="btn-sm" data-npc="${n.id}">${escapeHtml(name+label)}</button>${stats}</li>`;
+      }).join('')}</ul>`;
+    } else {
+      resolveNPCs.innerHTML = '<p><em>No NPCs</em></p>';
+    }
+    resolveTips.innerHTML = '<p>Work with your players to weave shard effects into the story.</p>';
     resolveCompleteBtn.disabled = false;
   } else {
     resolveTitle.textContent = 'Resolve Shard';
-    resolveBody.innerHTML = '<p>No active shard.</p>';
+    resolveCard.innerHTML = '<p>No active shard.</p>';
+    resolveNPCs.innerHTML = '<p><em>No NPCs</em></p>';
+    resolveTips.innerHTML = '';
     resolveAddBtn.hidden = true;
     resolveCompleteBtn.disabled = true;
   }
+  setResolveTab('card');
+  document.querySelectorAll('#shard-resolve-npcs button[data-npc]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.npc;
+      if(window.CCShard && typeof window.CCShard.openNPC === 'function'){
+        window.CCShard.openNPC(id);
+      }
+    });
+  });
   window.dispatchEvent(new CustomEvent('dm:showModal',{ detail: 'modal-shard-resolve' }));
 }
 
