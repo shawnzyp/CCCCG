@@ -380,7 +380,9 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
   }
 
   function wireUI(){
-    ui.openBtn.addEventListener('click', ()=> ui.root.classList.remove('hidden'));
+    if(ui.openBtn){
+      ui.openBtn.addEventListener('click', ()=> ui.root.classList.remove('hidden'));
+    }
     ui.closeBtn.addEventListener('click', ()=> ui.root.classList.add('hidden'));
 
     ui.resetBtn.addEventListener('click', resetAll);
@@ -702,15 +704,19 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
     await load();
     buildFreshDeckIfNeeded();
     if (!state.deck.length) return [];
-    const id = state.deck.splice(Math.floor(Math.random() * state.deck.length), 1)[0];
-    const plate = PLATES.find(p => p.id === id);
-    state.activeCard = { ...plate, drawnAt: Date.now() };
+    const results = [];
+    for(let i=0;i<count && state.deck.length;i++){
+      const id = state.deck.splice(Math.floor(Math.random() * state.deck.length), 1)[0];
+      const plate = PLATES.find(p => p.id === id);
+      results.push(plate);
+      state.activeCard = { ...plate, drawnAt: Date.now() };
+      if (plate.id==='FRAGMENT') state.declared += 1;
+      logDM(`Draw: ${plate.name}`);
+    }
     await persist();
     await playDrawAnimation();
     renderPlate();
-    if (plate.id==='FRAGMENT') state.declared += 1;
-    logDM(`Draw: ${plate.name}`);
-    return [plate];
+    return results;
   }
 
   window.CCShard = {
@@ -719,7 +725,10 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
     setFirebase: (database)=>{ fb = database; },
     plates: PLATES,
     stats: STATS,
-    draw: drawCardsSimple
+    draw: drawCardsSimple,
+    getActiveCard: ()=> state.activeCard,
+    getNPC: id => NPCS[id],
+    resolveActive: completePlate
   };
 
   async function init(){
