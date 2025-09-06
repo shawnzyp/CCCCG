@@ -37,7 +37,7 @@
         <button id="btn-help" class="btn-sm">Help</button>
         <button id="btn-fun" class="btn-sm">Fun Tip</button>
         <button id="btn-save" class="btn-sm">Save</button>
-        <button id="btn-dm-tools" class="btn-sm" hidden>DM Tools</button>
+        <button id="ccShard-open" class="btn-sm" hidden>Shard of Many Fates</button>
       </div>
     </div>
   </div>
@@ -78,6 +78,13 @@
 <main id="main">
   <!-- COMBAT -->
   <fieldset data-tab="combat" class="card">
+    <fieldset id="ccShard-player" class="card" hidden>
+      <legend>Shard Draw</legend>
+      <div class="inline">
+        <button id="ccShard-player-draw" class="btn-sm">Draw</button>
+      </div>
+      <ol id="ccShard-player-results" class="cc-list"></ol>
+    </fieldset>
     <div class="grid grid-2 roll-flip-grid">
       <fieldset class="card">
         <legend>Dice Roll</legend>
@@ -772,6 +779,128 @@
   </div>
 </div>
 
+<!-- Shard of Many Fates -->
+<!-- Shard of Many Fates • Catalyst Core Add-on -->
+<section id="cc-shard" class="cc-deck hidden">
+      <header class="cc-deck__header">
+        <h2>Shard of Many Fates</h2>
+        <div class="cc-deck__header-controls">
+          <button id="ccShard-showAll" class="cc-btn cc-btn--ghost">Card List</button>
+          <button id="ccShard-reset" class="cc-btn cc-btn--ghost" title="Reset draws">Reset</button>
+          <button id="ccShard-close" class="cc-btn cc-btn--ghost">Close</button>
+        </div>
+      </header>
+
+      <div class="cc-deck__top">
+        <div class="cc-deck__draw">
+          <div class="cc-deck__drawRow">
+            <label>Declared draws:</label>
+            <input id="ccShard-declared" type="number" min="1" max="22" value="1" />
+            <button id="ccShard-start" class="cc-btn">Start Draw</button>
+            <button id="ccShard-draw" class="cc-btn cc-btn--primary" disabled>Draw Plate</button>
+          </div>
+
+          <div class="cc-deck__toggles">
+            <label class="cc-switch">
+              <input id="ccShard-reshuffle24h" type="checkbox" checked>
+              <span>Shard reforms after 24h</span>
+            </label>
+            <label class="cc-switch">
+              <input id="ccShard-allowCAPCancel" type="checkbox" checked>
+              <span>Allow CAP to cancel a draw</span>
+            </label>
+          </div>
+        </div>
+
+        <aside class="cc-deck__save">
+          <h4>Save Target</h4>
+          <div class="cc-deck__saveRow">
+            <label>Profile ID</label>
+            <input id="ccShard-profileId" placeholder="player_or_character_id">
+          </div>
+          <div class="cc-deck__saveRow">
+            <label>Use Firebase</label>
+            <label class="cc-switch">
+              <input id="ccShard-useFirebase" type="checkbox">
+              <span>RTDB</span>
+            </label>
+          </div>
+          <button id="ccShard-saveLog" class="cc-btn">Save Log</button>
+          <button id="ccShard-exportJSON" class="cc-btn cc-btn--ghost">Export JSON</button>
+          <input id="ccShard-importFile" type="file" accept="application/json" hidden>
+          <button id="ccShard-importJSON" class="cc-btn cc-btn--ghost">Import JSON</button>
+        </aside>
+      </div>
+
+      <div class="cc-deck__main">
+        <div class="cc-deck__card">
+          <div id="ccShard-flash" class="cc-deck__flash"></div>
+          <div class="cc-deck__cardFront">
+            <div class="cc-deck__sigil">Ready</div>
+            <h3 id="ccShard-cardName">No plate drawn</h3>
+            <p id="ccShard-cardVisual" class="muted">Draw to reveal a fate.</p>
+
+            <div class="cc-tabs">
+              <nav class="cc-tabs__nav">
+                <button data-tab="effect" class="active">Effect</button>
+                <button data-tab="hooks">GM Hooks</button>
+                <button data-tab="resolution">Resolution</button>
+                <button data-tab="enemy">Enemy</button>
+                <button data-tab="rewards">Rewards</button>
+              </nav>
+              <article class="cc-tabs__pane active" id="ccShard-tab-effect"></article>
+              <article class="cc-tabs__pane" id="ccShard-tab-hooks"></article>
+              <article class="cc-tabs__pane" id="ccShard-tab-resolution"></article>
+              <article class="cc-tabs__pane" id="ccShard-tab-enemy"></article>
+              <article class="cc-tabs__pane" id="ccShard-tab-rewards"></article>
+            </div>
+
+            <div class="cc-deck__actions">
+              <button id="ccShard-capCancel" class="cc-btn cc-btn--danger" disabled>Use CAP to cancel</button>
+              <button id="ccShard-complete" class="cc-btn cc-btn--primary" disabled>Resolve Plate</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="cc-deck__sidebar">
+          <h4>Draw Log</h4>
+          <ol id="ccShard-log" class="cc-list"></ol>
+
+          <h4>Stat Blocks</h4>
+          <select id="ccShard-statSelect">
+            <option value="">Select stat block</option>
+            <option value="H1">Herald of Morvox, Echo Warden (H1)</option>
+            <option value="G1">Greyline Assault Cell (G1)</option>
+            <option value="C1">Conclave Trial Agent, Blade of Accession (C1)</option>
+            <option value="E1">Echo Operative, Tier 3 Ally (E1)</option>
+            <option value="B1">Betrayer Template (B1)</option>
+          </select>
+          <button id="ccShard-openNPC" class="cc-btn cc-btn--ghost" disabled>Open NPC Sheet</button>
+          <pre id="ccShard-statView" class="cc-code"></pre>
+        </aside>
+      </div>
+    </section>
+
+    <div id="ccShard-cardList" class="cc-cardList hidden">
+      <div class="cc-cardList__body">
+        <button id="ccShard-cardList-close" class="cc-btn cc-btn--ghost">Close</button>
+        <ol id="ccShard-cardList-ol" class="cc-list"></ol>
+      </div>
+    </div>
+
+    <div id="ccShard-npcModal" class="cc-npcModal hidden">
+      <div class="cc-npcModal__inner">
+        <h3 id="ccShard-npcName"></h3>
+        <div class="cc-npcStats">
+          <label>HP <input id="ccShard-npcHP" type="number" min="0"></label>
+          <label>SP <input id="ccShard-npcSP" type="number" min="0"></label>
+        </div>
+        <div id="ccShard-npcActions" class="cc-npcModal__actions"></div>
+        <pre id="ccShard-npcLog" class="cc-code"></pre>
+        <button id="ccShard-npcClose" class="cc-btn cc-btn--ghost">Close</button>
+      </div>
+    </div>
+
 
   <footer>
   <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
@@ -790,6 +919,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="scripts/main.js"></script>
 <script type="module" src="scripts/dm.js"></script>
+<script src="shard-of-many-fates.js"></script>
 
 </body>
 </html>

@@ -490,7 +490,7 @@ body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
 .toast.error::before{background-image:var(--icon-error)}
 
 .dm-login-btn{display:block;width:100%;height:20px;margin:0;padding:0;opacity:0;border:none;background:transparent}
-#dm-toast{flex-direction:column;gap:6px}
+#dm-toast{flex-direction:column;gap:6px;max-height:80vh;overflow:auto}
 #dm-toast::before{display:none}
 
 /* ability grid */
@@ -664,3 +664,48 @@ select[required]:valid{
 .tag { font-size: 0.8rem; padding: 2px 8px; border-radius: 999px; background: #e9f5ff; color: #0a5; border: 1px solid #bfe6ff; }
 .tag.warn { background: #fff5e5; color: #a65; border-color: #ffd9a1; }
 
+/* Shard of Many Fates • Catalyst Core Add-on */
+#cc-shard.hidden { display: none; }
+#cc-shard { background:#0c0f13; color:#e6f1ff; border:1px solid #1b2532; border-radius:8px; padding:16px; margin:12px 0; }
+#cc-shard h2, #cc-shard h3, #cc-shard h4 { margin: 0 0 8px 0; }
+#cc-shard .muted { opacity:.8; }
+.cc-btn { padding:8px 12px; border:1px solid #253247; background:#121821; color:#e6f1ff; border-radius:6px; cursor:pointer; }
+.cc-btn--primary { background:#0b2a3a; border-color:#104a64; }
+.cc-btn--ghost { background:transparent; }
+.cc-btn--danger { background:#3a0b14; border-color:#64101c; }
+
+.cc-switch { display:inline-flex; align-items:center; gap:8px; }
+.cc-deck__header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.cc-deck__top { display:grid; grid-template-columns: 1fr 280px; gap:16px; margin-bottom:12px; }
+.cc-deck__main { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+.cc-deck__drawRow, .cc-deck__saveRow { display:flex; align-items:center; gap:8px; margin:8px 0; }
+
+.cc-deck__card { position:relative; border:1px solid #1b2532; border-radius:8px; padding:12px; background:#0c1017; }
+.cc-deck__flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
+.cc-deck__flash.active { animation:ccShardFlash .8s ease-out; }
+@keyframes ccShardFlash {
+  0%,100%{opacity:0;}
+  10%{opacity:.9;}
+  20%{opacity:0;}
+  30%{opacity:.9;}
+  40%{opacity:0;}
+}
+.cc-deck__sigil { font-size:12px; text-transform:uppercase; letter-spacing:.12em; opacity:.8; }
+.cc-deck__actions { display:flex; gap:8px; margin-top:12px; }
+
+.cc-deck__sidebar { border:1px solid #1b2532; border-radius:8px; padding:12px; background:#0c1017; max-height:680px; overflow:auto; }
+.cc-list { margin:0; padding-left:16px; }
+.cc-code { background:#0b1119; color:#bfe2ff; padding:12px; border-radius:6px; border:1px solid #1b2532; white-space:pre-wrap; }
+
+.cc-cardList, .cc-npcModal { position:fixed; inset:0; background:rgba(0,0,0,.8); display:flex; align-items:center; justify-content:center; z-index:1000; }
+.cc-cardList.hidden, .cc-npcModal.hidden { display:none; }
+.cc-cardList__body, .cc-npcModal__inner { background:#0c0f13; color:#e6f1ff; border:1px solid #1b2532; border-radius:8px; padding:16px; max-height:90vh; overflow:auto; width:90%; max-width:600px; }
+.cc-npcStats { display:flex; gap:8px; margin-bottom:8px; }
+.cc-npcModal__actions { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+
+.cc-tabs { margin-top:8px; }
+.cc-tabs__nav { display:flex; gap:6px; margin-bottom:8px; }
+.cc-tabs__nav button { padding:6px 10px; border:1px solid #253247; background:#0d141c; border-radius:4px; color:#cfe7ff; cursor:pointer; }
+.cc-tabs__nav button.active { background:#0b2a3a; border-color:#104a64; }
+.cc-tabs__pane { display:none; border:1px dashed #223044; border-radius:6px; padding:8px; }
+.cc-tabs__pane.active { display:block; }
