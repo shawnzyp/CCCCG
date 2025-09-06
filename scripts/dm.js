@@ -7,7 +7,6 @@ const baseToast = document.getElementById('toast');
 const shardCard = document.getElementById('ccShard-player');
 const shardDraw = document.getElementById('ccShard-player-draw');
 const shardCount = document.getElementById('ccShard-player-count');
-const shardConfirm = document.getElementById('ccShard-player-confirm');
 const shardResults = document.getElementById('ccShard-player-results');
 
 const resolveTitle = document.getElementById('shard-resolve-title');
@@ -216,30 +215,22 @@ if(shardDraw){
       baseMessage('Shard draws exhausted');
       return;
     }
+    if(!confirm("Are you sure you wish to draw Shard's?")) return;
+    if(!confirm('This cannot be undone, are you sure?')) return;
     const count = Math.max(1, parseInt(shardCount.value,10)||1);
     const cards = window.CCShard && typeof window.CCShard.draw === 'function'
       ? await window.CCShard.draw(count)
       : [];
     if(cards.length){
       shardResults.innerHTML = cards.map(c=>`<li>${c.name}</li>`).join('');
-      shardConfirm.hidden = false;
-    }
-  });
-}
-
-if(shardConfirm){
-  shardConfirm.addEventListener('click', ()=>{
-    shardConfirm.hidden = true;
-    shardResults.innerHTML = '';
-    const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
-    localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
-    if(draws >= 2){
-      localStorage.setItem(DRAW_LOCK_KEY, '1');
-      shardDraw.disabled = true;
-      baseMessage('Shard draws exhausted');
-      logDMAction('Player exhausted shard draws');
-    } else {
-      baseMessage('Draw confirmed');
+      const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
+      localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
+      if(draws >= 2){
+        localStorage.setItem(DRAW_LOCK_KEY, '1');
+        shardDraw.disabled = true;
+        baseMessage('Shard draws exhausted');
+        logDMAction('Player exhausted shard draws');
+      }
     }
   });
 }
