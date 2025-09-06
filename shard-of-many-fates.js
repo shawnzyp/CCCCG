@@ -428,6 +428,14 @@ function completePlate(){
   render();
 }
 
+async function resetDeck(){
+  localStorage.removeItem(DECK_LOCK_KEY);
+  buildFreshDeckIfNeeded(true);
+  await persist();
+  render();
+  logDM('Shard deck reset');
+}
+
 
 
   function playDrawAnimation(){
@@ -645,7 +653,9 @@ async function drawCardsSimple(count){
     draw: drawCardsSimple,
     getActiveCard: ()=> state.activeCard,
     getNPC: id => NPCS[id],
-    resolveActive: completePlate
+    openNPC: openNPC,
+    resolveActive: completePlate,
+    resetDeck: resetDeck
   };
 
   async function init(){
