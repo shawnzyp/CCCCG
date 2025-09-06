@@ -967,10 +967,12 @@ function playDamageAnimation(amount){
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=`${amount}`;
+  anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
     };
@@ -982,10 +984,12 @@ function playDownAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('down-animation');
   if(!anim) return Promise.resolve();
+  anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
     };
@@ -997,10 +1001,12 @@ function playDeathAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('death-animation');
   if(!anim) return Promise.resolve();
+  anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
     };
@@ -1013,10 +1019,12 @@ function playHealAnimation(amount){
   const anim=$('heal-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=`+${amount}`;
+  anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
     };
@@ -1028,10 +1036,12 @@ function playSaveAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('save-animation');
   if(!anim) return Promise.resolve();
+  anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
     };
@@ -1044,10 +1054,12 @@ function playCoinAnimation(result){
   const anim=$('coin-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=result;
+  anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
     };
@@ -1060,10 +1072,12 @@ function playSPAnimation(amount){
   const anim = $('sp-animation');
   if(!anim) return Promise.resolve();
   anim.textContent = `${amount>0?'+':''}${amount}`;
+  anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
     };
