@@ -1111,16 +1111,63 @@ function playLoadAnimation(){
   });
 }
 
-const deathBoxes = ['death-save-1','death-save-2','death-save-3'].map(id => $(id));
-let deathHandled=false;
-deathBoxes.forEach((box) => {
-  box.addEventListener('change', async () => {
-    if (!deathHandled && deathBoxes.every(b => b.checked)) {
-      deathHandled=true;
+const deathSuccesses = ['death-success-1','death-success-2','death-success-3'].map(id=>$(id));
+const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(id));
+const deathOut = $('death-save-out');
+let deathState = null; // null, 'stable', 'dead'
+
+function markBoxes(arr, n){
+  for(const box of arr){
+    if(!box.checked){
+      box.checked=true;
+      n--;
+      if(n<=0) break;
+    }
+  }
+}
+
+function resetDeathSaves(){
+  [...deathSuccesses, ...deathFailures].forEach(b=> b.checked=false);
+  deathState=null;
+  if(deathOut) deathOut.textContent='';
+}
+$('death-save-reset')?.addEventListener('click', resetDeathSaves);
+
+async function checkDeathProgress(){
+  if(deathFailures.every(b=>b.checked)){
+    if(deathState!=='dead'){
+      deathState='dead';
       await playDeathAnimation();
       alert('You have fallen, your sacrifice will be remembered.');
     }
-  });
+  }else if(deathSuccesses.every(b=>b.checked)){
+    if(deathState!=='stable'){
+      deathState='stable';
+      alert('You are stable at 0 HP.');
+    }
+  }else{
+    deathState=null;
+  }
+}
+[...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
+
+$('roll-death-save')?.addEventListener('click', ()=>{
+  const roll = 1+Math.floor(Math.random()*20);
+  if(deathOut) deathOut.textContent = String(roll);
+  pushLog(diceLog, {t:Date.now(), text:`Death save: ${roll}`}, 'dice-log');
+  if(roll===20){
+    resetDeathSaves();
+    alert('Critical success! You regain 1 HP and awaken.');
+    return;
+  }
+  if(roll===1){
+    markBoxes(deathFailures,2);
+  }else if(roll>=10){
+    markBoxes(deathSuccesses,1);
+  }else{
+    markBoxes(deathFailures,1);
+  }
+  checkDeathProgress();
 });
 const btnCampaignAdd = $('campaign-add');
 if (btnCampaignAdd) {
