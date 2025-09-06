@@ -185,14 +185,24 @@
     <div class="grid grid-1">
       <fieldset class="card">
         <legend>Stats and Effects</legend>
-        <label for="initiative">Initiative Bonus</label>
-        <input id="initiative" type="text" inputmode="numeric" placeholder="auto from DEX + bonuses" readonly/>
-        <label for="speed">Speed (ft)</label>
-        <input id="speed" type="number" inputmode="numeric" placeholder="30"/>
-        <label for="pp">Passive Perception</label>
-        <input id="pp" type="number" readonly/>
-        <label for="tc">TC</label>
-        <input id="tc" type="number" readonly/>
+        <div class="stats-grid">
+          <div>
+            <label for="initiative">Initiative Bonus</label>
+            <input id="initiative" type="text" inputmode="numeric" placeholder="auto from DEX + bonuses" readonly/>
+          </div>
+          <div>
+            <label for="speed">Speed (ft)</label>
+            <input id="speed" type="number" inputmode="numeric" placeholder="30"/>
+          </div>
+          <div>
+            <label for="pp">Passive Perception</label>
+            <input id="pp" type="number" readonly/>
+          </div>
+          <div>
+            <label for="tc">TC</label>
+            <input id="tc" type="number" readonly/>
+          </div>
+        </div>
         <div class="status-effects">
           <h3>Status Effects</h3>
           <div id="statuses" class="grid grid-1"></div>
