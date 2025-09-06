@@ -267,10 +267,14 @@ progress::-moz-progress-bar{
 .faction-rep .inline>button{flex:0 0 auto;width:auto;}
 .faction-rep progress{width:100%;height:20px;}
 .faction-rep .btn-sm{min-height:28px;padding:4px 6px;}
-.death-saves{display:flex;flex-direction:column;gap:16px;align-items:center;}
-.death-save-group{display:grid;grid-template-columns:repeat(3,auto);gap:32px;justify-content:center;}
-.death-save-group span{grid-column:1/-1;text-align:center;}
+.death-saves-grid{display:grid;grid-template-columns:auto 64px auto;gap:16px;align-items:center;}
+.death-save-tracks{display:flex;flex-direction:column;gap:16px;}
+.death-save-group{display:flex;flex-direction:column;gap:4px;}
+.death-save-group span{text-align:left;}
 .death-save-group input[type="checkbox"]{margin:0;}
+#death-save-out.death-save-result{display:flex;align-items:center;justify-content:center;border:1px solid var(--accent);width:64px;height:64px;font-weight:700;}
+#death-save-out.death-save-result:empty::before{content:attr(data-placeholder);visibility:hidden;}
+.death-save-buttons{display:flex;flex-direction:column;gap:8px;}
 #down-animation{
   position:fixed;
   inset:0;
