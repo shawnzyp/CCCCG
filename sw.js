@@ -1,12 +1,13 @@
 // Bump cache version whenever the pre-cached asset list changes so clients
 // pick up the latest files on next load.
-const CACHE = 'cccg-cache-v12';
+const CACHE = 'cccg-cache-v13';
 const ASSETS = [
   './',
   './index.html',
   './styles/main.css',
   './scripts/main.js',
   './scripts/helpers.js',
+  './scripts/funTips.js',
   './scripts/storage.js',
   './scripts/faction.js',
   // Additional scripts required for offline operation

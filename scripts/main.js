@@ -1172,20 +1172,13 @@ if (btnHelp) {
 }
 const btnFun = $('btn-fun');
 if (btnFun) {
-  // Lighthearted reminders to amuse players and hint at game mechanics
-  const tips = [
-    'A hero is just one good roll away.',
-    'Check your gear before heading out!',
-    'Remember to take breaks between battles.',
-    'Allies can turn the tide—track your faction rep.',
-    'Saving your progress is the real treasure.',
-    'Try a new build; surprises keep enemies guessing.',
-    'Even mutants need snacks; pack some supplies.',
-    'Roll high and stay hydrated.'
-  ];
-  btnFun.addEventListener('click', () => {
-    const tip = tips[Math.floor(Math.random() * tips.length)];
-    toast(tip, 'info');
+  // Lazy-load fun tips so the main bundle stays small and fast.
+  let getNextTip;
+  btnFun.addEventListener('click', async () => {
+    if (!getNextTip) {
+      ({ getNextTip } = await import('./funTips.js'));
+    }
+    toast(getNextTip(), 'info');
   });
 }
 const btnLoad = $('btn-load');
