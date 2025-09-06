@@ -32,10 +32,11 @@ let rulesLoaded = false;
 // from firing on initial page load, keep them locked until a user interaction
 // (click or keydown) occurs.
 let animationsEnabled = false;
+const INTERACTIVE_SEL = 'button, .icon, .tab, a, input, select, textarea, [role="button"], [data-act]';
 function enableAnimations(e){
   if(animationsEnabled) return;
   if(e.type==='click'){
-    const interactive=e.target.closest('button, a, input, select, textarea, [role="button"], [data-act]');
+    const interactive=e.target.closest(INTERACTIVE_SEL);
     if(!interactive) return;
   }
   animationsEnabled=true;
@@ -47,6 +48,14 @@ function enableAnimations(e){
 document.addEventListener('click', enableAnimations, true);
 document.addEventListener('keydown', enableAnimations, true);
 // Avoid using 'touchstart' so pull-to-refresh on iOS doesn't enable animations
+document.addEventListener('click', e=>{
+  if(!animationsEnabled) return;
+  const el=e.target.closest(INTERACTIVE_SEL);
+  if(el){
+    el.classList.add('action-anim');
+    el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
+  }
+}, true);
 
 /* ========= viewport ========= */
 function setVh(){
@@ -1085,6 +1094,23 @@ function playSPAnimation(amount){
   });
 }
 
+function playLoadAnimation(){
+  if(!animationsEnabled) return Promise.resolve();
+  const anim=$('load-animation');
+  if(!anim) return Promise.resolve();
+  anim.hidden=false;
+  return new Promise(res=>{
+    anim.classList.add('show');
+    const done=()=>{
+      anim.classList.remove('show');
+      anim.hidden=true;
+      anim.removeEventListener('animationend', done);
+      res();
+    };
+    anim.addEventListener('animationend', done);
+  });
+}
+
 const deathBoxes = ['death-save-1','death-save-2','death-save-3'].map(id => $(id));
 let deathHandled=false;
 deathBoxes.forEach((box) => {
@@ -1305,6 +1331,7 @@ async function doLoad(){
     hide('modal-load');
     hide('modal-load-list');
     toast(`Loaded ${pendingLoad.name}`,'success');
+    playLoadAnimation();
   }catch(e){
     toast('Load failed','error');
   }
