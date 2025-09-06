@@ -37,6 +37,7 @@
         <button id="btn-help" class="btn-sm">Help</button>
         <button id="btn-fun" class="btn-sm">Fun Tip</button>
         <button id="btn-save" class="btn-sm">Save</button>
+        <button id="btn-dm-tools" class="btn-sm" hidden>DM Tools</button>
       </div>
     </div>
   </div>
@@ -776,6 +777,7 @@
   <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
   <p>Product of XoVrom industries ® 2025</p>
 </footer>
+<button id="dm-login" class="dm-login-btn" aria-label="DM Login"></button>
 <div id="down-animation" aria-hidden="true" hidden>⚠️</div>
 <div id="death-animation" aria-hidden="true" hidden>💀</div>
 <div id="damage-animation" aria-hidden="true" hidden></div>
@@ -784,8 +786,10 @@
 <div id="coin-animation" aria-hidden="true" hidden></div>
 <div id="sp-animation" aria-hidden="true" hidden></div>
 <div id="load-animation" aria-hidden="true" hidden>📂</div>
+<div class="toast" id="dm-toast" role="dialog"></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="scripts/main.js"></script>
+<script type="module" src="scripts/dm.js"></script>
 
 </body>
 </html>
