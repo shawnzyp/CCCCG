@@ -116,13 +116,13 @@ function playTone(type){
     osc.stop(audioCtx.currentTime + 0.15);
   }catch(e){ /* noop */ }
 }
-function toast(msg, type='info'){
+function toast(msg,type='info'){
   const t=$('toast');
   t.textContent=msg;
   t.className=`toast ${type}`;
   t.classList.add('show');
   playTone(type);
-  setTimeout(()=>t.classList.remove('show'),1200);
+  setTimeout(()=>t.classList.remove('show'),5000);
 }
 
 function debounce(fn, delay){
@@ -1225,7 +1225,7 @@ if (btnFun) {
     if (!getNextTip) {
       ({ getNextTip } = await import('./funTips.js'));
     }
-    toast(getNextTip(), 'info');
+    toast(getNextTip(),'info');
   });
 }
 const btnLoad = $('btn-load');
