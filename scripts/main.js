@@ -149,7 +149,6 @@ document.addEventListener('input', e=>{
 
 /* ========= theme ========= */
 const root = document.documentElement;
-const btnTheme = $('btn-theme');
 // Mapping of theme names to the ID of the SVG icon shown on the theme button
 const THEME_ICONS = {
   dark: 'icon-dark',
@@ -173,27 +172,21 @@ function applyTheme(t){
     .map(n => `theme-${n}`);
   root.classList.remove(...classes);
   if (t !== 'dark') root.classList.add(`theme-${t}`);
-  if(btnTheme){
-    qsa('svg', btnTheme).forEach(i => i.style.display = 'none');
-    const iconId = THEME_ICONS[t] || 'icon-dark';
-    const icon = qs(`#${iconId}`, btnTheme);
-    if(icon) icon.style.display = 'block';
-  }
 }
 function loadTheme(){
   const theme = localStorage.getItem('theme') || 'dark';
   applyTheme(theme);
 }
 loadTheme();
-if (btnTheme) {
-  btnTheme.addEventListener('click', ()=>{
-    const themes = Object.keys(THEME_ICONS);
-    const curr = localStorage.getItem('theme') || 'dark';
-    const next = themes[(themes.indexOf(curr)+1)%themes.length];
-    localStorage.setItem('theme', next);
-    applyTheme(next);
-  });
+
+function toggleTheme(){
+  const themes = Object.keys(THEME_ICONS);
+  const curr = localStorage.getItem('theme') || 'dark';
+  const next = themes[(themes.indexOf(curr)+1)%themes.length];
+  localStorage.setItem('theme', next);
+  applyTheme(next);
 }
+
 
 const CLASS_THEMES = {
   'Mutant':'mutant',
@@ -252,6 +245,16 @@ if (btnMenu && menuActions) {
 
 /* ========= header ========= */
 const headerEl = qs('header');
+if (headerEl) {
+  headerEl.addEventListener('click', e => {
+    if (
+      e.target.closest('#btn-menu') ||
+      e.target.closest('#menu-actions') ||
+      e.target.closest('nav')
+    ) return;
+    toggleTheme();
+  });
+}
 
 /* ========= tabs ========= */
 function setTab(name){
@@ -425,7 +428,7 @@ document.addEventListener('click', e => {
   const btn = e.target.closest(ACTION_BUTTONS);
   if (!btn) return;
 
-  if (btn.closest('header .top, header .tabs, #statuses, #modal-enc, #modal-log, #modal-log-full, #modal-rules, #modal-campaign, #btn-theme')) {
+  if (btn.closest('header .top, header .tabs, #statuses, #modal-enc, #modal-log, #modal-log-full, #modal-rules, #modal-campaign')) {
     return;
   }
 
