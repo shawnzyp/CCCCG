@@ -635,6 +635,7 @@ const elXPPill = $('xp-pill');
 const elTier = $('tier');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
+const elDeathSaves = $('death-saves');
 
 let hpRolls = [];
 if (elHPRoll) {
@@ -712,6 +713,11 @@ function updateSP(){
   elSPPill.textContent = `${num(elSPBar.value)}/${spMax}` + (temp ? ` (+${temp})` : ``);
 }
 
+function updateDeathSaveAvailability(){
+  if(!elDeathSaves) return;
+  elDeathSaves.disabled = num(elHPBar.value) !== 0;
+}
+
 function updateHP(){
   const base = 30;
   const conMod = elCon.value === '' ? 0 : mod(elCon.value);
@@ -720,6 +726,10 @@ function updateHP(){
   elHPBar.max = Math.max(0, total);
   if (!num(elHPBar.value) || num(elHPBar.value) === prevMax) elHPBar.value = elHPBar.max;
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+  updateDeathSaveAvailability();
+  if(num(elHPBar.value) > 0){
+    try { resetDeathSaves(); } catch {}
+  }
 }
 
 function updateXP(){
@@ -799,6 +809,10 @@ function setHP(v){
   const prev = num(elHPBar.value);
   elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+  updateDeathSaveAvailability();
+  if(num(elHPBar.value) > 0){
+    try { resetDeathSaves(); } catch {}
+  }
   return prev > 0 && num(elHPBar.value) === 0;
 }
 async function setSP(v){
