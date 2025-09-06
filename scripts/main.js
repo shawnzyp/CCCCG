@@ -418,19 +418,18 @@ if (statusGrid) {
   });
 }
 
+const ACTION_BUTTONS = 'button:not(.tab), [role="button"], [data-roll-save], [data-roll-skill], [data-add], [data-del]';
 document.addEventListener('click', e => {
-  if (activeStatuses.size &&
-      !e.target.closest('header .top') &&
-      !e.target.closest('header .tabs') &&
-      !e.target.closest('#statuses') &&
-      !e.target.closest('#modal-enc') &&
-      !e.target.closest('#modal-log') &&
-      !e.target.closest('#modal-log-full') &&
-      !e.target.closest('#modal-rules') &&
-      !e.target.closest('#modal-campaign') &&
-      !e.target.closest('#btn-theme')) {
-    alert('Afflicted by: ' + Array.from(activeStatuses).join(', '));
+  if (!activeStatuses.size) return;
+
+  const btn = e.target.closest(ACTION_BUTTONS);
+  if (!btn) return;
+
+  if (btn.closest('header .top, header .tabs, #statuses, #modal-enc, #modal-log, #modal-log-full, #modal-rules, #modal-campaign, #btn-theme')) {
+    return;
   }
+
+  toast('Afflicted by: ' + Array.from(activeStatuses).join(', '), 'error');
 }, true);
 
 const ALIGNMENT_PERKS = {
