@@ -79,10 +79,10 @@
   <fieldset data-tab="combat" class="card">
     <fieldset id="ccShard-player" class="card" hidden>
       <legend>Shard Draw</legend>
-      <div class="inline">
-        <label for="ccShard-player-count" class="sr-only">Cards</label>
-        <input id="ccShard-player-count" type="number" inputmode="numeric" min="1" value="1" />
+      <label for="ccShard-player-count" class="sr-only">Cards</label>
+      <div class="grid shard-draw-grid">
         <button id="ccShard-player-draw" class="btn-sm">Draw</button>
+        <input id="ccShard-player-count" type="number" inputmode="numeric" min="1" value="1" />
       </div>
       <ol id="ccShard-player-results" class="cc-list"></ol>
     </fieldset>
@@ -819,6 +819,16 @@
     <div class="actions">
       <button id="shard-reset-confirm" class="btn-sm">Reset</button>
       <button class="btn-sm" data-close>Cancel</button>
+    </div>
+</div>
+</div>
+
+<div class="overlay hidden" id="modal-shard-reveal" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <h3 id="shard-reveal-name">Shard Drawn</h3>
+    <p id="shard-reveal-visual"></p>
+    <div class="actions">
+      <button id="shard-reveal-next" class="btn-sm">Close</button>
     </div>
   </div>
 </div>

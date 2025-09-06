@@ -8,6 +8,9 @@ const shardCard = document.getElementById('ccShard-player');
 const shardDraw = document.getElementById('ccShard-player-draw');
 const shardCount = document.getElementById('ccShard-player-count');
 const shardResults = document.getElementById('ccShard-player-results');
+const shardRevealName = document.getElementById('shard-reveal-name');
+const shardRevealVisual = document.getElementById('shard-reveal-visual');
+const shardRevealBtn = document.getElementById('shard-reveal-next');
 
 const resolveTitle = document.getElementById('shard-resolve-title');
 const resolveCard = document.getElementById('shard-resolve-card');
@@ -36,9 +39,14 @@ function setResolveTab(tab){
 resolveTabBtns.forEach(btn=> btn.addEventListener('click', ()=> setResolveTab(btn.dataset.tab)));
 if(shardToggle){
   shardToggle.addEventListener('change', e=>{
-    if(e.target.checked) localStorage.setItem(SHARD_KEY,'1');
-    else localStorage.removeItem(SHARD_KEY);
+    if(e.target.checked) {
+      localStorage.setItem(SHARD_KEY,'1');
+    } else {
+      localStorage.removeItem(SHARD_KEY);
+      if(shardCard) shardCard.hidden = true;
+    }
     setShardCardVisibility(true);
+    window.dispatchEvent(new StorageEvent('storage',{ key: SHARD_KEY }));
     if(!e.target.checked) baseMessage('Shards disabled');
   });
 }
@@ -81,13 +89,32 @@ function baseMessage(msg){
   setTimeout(()=> baseToast.classList.remove('show'), 3000);
 }
 
+async function revealShards(cards){
+  if(!shardRevealName || !shardRevealVisual || !shardRevealBtn) return;
+  for(let i=0;i<cards.length;i++){
+    const card = cards[i];
+    shardRevealName.textContent = card.name;
+    shardRevealVisual.textContent = card.visual || '';
+    shardRevealBtn.textContent = i < cards.length - 1 ? 'Next' : 'Close';
+    await new Promise(resolve=>{
+      shardRevealBtn.onclick = () => {
+        window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-reveal' }));
+        resolve();
+      };
+      window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-shard-reveal' }));
+    });
+  }
+}
+
 function showDmToast(html){
   dmToast.innerHTML = `${html}<button id="dm-toast-close" class="btn-sm">Close</button>`;
   dmToast.classList.add('show');
+  if(dmBtn) dmBtn.hidden = true;
   document.getElementById('dm-toast-close').addEventListener('click', hideDmToast);
 }
 function hideDmToast(){
   dmToast.classList.remove('show');
+  if(dmBtn) dmBtn.hidden = false;
 }
 
 function logDMAction(text){
@@ -273,6 +300,7 @@ if(shardDraw){
       : [];
     if(cards.length){
       shardResults.innerHTML = cards.map(c=>`<li>${c.name}</li>`).join('');
+      await revealShards(cards);
       const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
       localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
       if(draws >= 2){
