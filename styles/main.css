@@ -506,6 +506,12 @@ body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
   margin-bottom:0;
 }
 
+/* Ensure skill names like "Sleight of Hand" fit on one line */
+#skills .ability-box label{
+  font-size:0.85rem;
+  white-space:nowrap;
+}
+
 .ability-box .score{
   position:relative;
   width:100%;
