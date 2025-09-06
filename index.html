@@ -102,13 +102,30 @@
     </div>
     <fieldset class="card">
       <legend>Death Saves</legend>
+      <span class="pill result" id="death-save-out" data-placeholder="Roll"></span>
       <div class="death-saves">
-        <label for="death-save-1" class="sr-only">Death Save 1</label>
-        <input type="checkbox" id="death-save-1"/>
-        <label for="death-save-2" class="sr-only">Death Save 2</label>
-        <input type="checkbox" id="death-save-2"/>
-        <label for="death-save-3" class="sr-only">Death Save 3</label>
-        <input type="checkbox" id="death-save-3"/>
+        <div class="death-save-group">
+          <span>Successes</span>
+          <label for="death-success-1" class="sr-only">Success 1</label>
+          <input type="checkbox" id="death-success-1"/>
+          <label for="death-success-2" class="sr-only">Success 2</label>
+          <input type="checkbox" id="death-success-2"/>
+          <label for="death-success-3" class="sr-only">Success 3</label>
+          <input type="checkbox" id="death-success-3"/>
+        </div>
+        <div class="death-save-group">
+          <span>Failures</span>
+          <label for="death-fail-1" class="sr-only">Failure 1</label>
+          <input type="checkbox" id="death-fail-1"/>
+          <label for="death-fail-2" class="sr-only">Failure 2</label>
+          <input type="checkbox" id="death-fail-2"/>
+          <label for="death-fail-3" class="sr-only">Failure 3</label>
+          <input type="checkbox" id="death-fail-3"/>
+        </div>
+      </div>
+      <div class="inline">
+        <button id="roll-death-save" class="btn-sm" type="button">Roll</button>
+        <button id="death-save-reset" class="btn-sm" type="button">Reset</button>
       </div>
     </fieldset>
     </fieldset>

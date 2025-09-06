@@ -267,8 +267,10 @@ progress::-moz-progress-bar{
 .faction-rep .inline>button{flex:0 0 auto;width:auto;}
 .faction-rep progress{width:100%;height:20px;}
 .faction-rep .btn-sm{min-height:28px;padding:4px 6px;}
-.death-saves{display:grid;grid-template-columns:repeat(3,auto);gap:32px;justify-content:center;}
-.death-saves input[type="checkbox"]{margin:0;}
+.death-saves{display:flex;flex-direction:column;gap:16px;align-items:center;}
+.death-save-group{display:grid;grid-template-columns:repeat(3,auto);gap:32px;justify-content:center;}
+.death-save-group span{grid-column:1/-1;text-align:center;}
+.death-save-group input[type="checkbox"]{margin:0;}
 #down-animation{
   position:fixed;
   inset:0;

@@ -185,7 +185,7 @@ Q13: How many items can I equip?
 A13: One armor, one shield, one utility.
 
 Q14: What happens if I fail all 3 death saves?
-A14: Character is in critical condition and may die. GM discretion.
+A14: You die permanently. Three successes instead leave you stable at 0 HP. A natural 20 restores 1 HP and consciousness, while a natural 1 counts as two failures.
 
 Q15: Do downtime activities matter?
 A15: Yes. They provide bonuses, intel, or rerolls.
