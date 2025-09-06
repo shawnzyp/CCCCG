@@ -37,7 +37,6 @@
         <button id="btn-help" class="btn-sm">Help</button>
         <button id="btn-fun" class="btn-sm">Fun Tip</button>
         <button id="btn-save" class="btn-sm">Save</button>
-        <button id="ccShard-open" class="btn-sm" hidden>Shard of Many Fates</button>
       </div>
     </div>
   </div>
@@ -81,9 +80,12 @@
     <fieldset id="ccShard-player" class="card" hidden>
       <legend>Shard Draw</legend>
       <div class="inline">
+        <label for="ccShard-player-count" class="sr-only">Cards</label>
+        <input id="ccShard-player-count" type="number" inputmode="numeric" min="1" value="1" />
         <button id="ccShard-player-draw" class="btn-sm">Draw</button>
       </div>
       <ol id="ccShard-player-results" class="cc-list"></ol>
+      <button id="ccShard-player-confirm" class="btn-sm" hidden>Confirm</button>
     </fieldset>
     <div class="grid grid-2 roll-flip-grid">
       <fieldset class="card">
@@ -776,6 +778,22 @@
       </svg>
     </button>
     <pre id="rules-text"></pre>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-shard-resolve" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3 id="shard-resolve-title">Resolve Shard</h3>
+    <div id="shard-resolve-body"></div>
+    <div class="actions">
+      <button id="shard-resolve-addnpc" class="btn-sm" hidden>Add NPC as Character</button>
+      <button id="shard-resolve-complete" class="btn-sm">Mark Resolved</button>
+    </div>
   </div>
 </div>
 
