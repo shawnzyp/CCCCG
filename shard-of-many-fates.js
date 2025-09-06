@@ -7,20 +7,8 @@
     root: $('#cc-shard'),
     openBtn: $('#ccShard-open'),
     closeBtn: $('#ccShard-close'),
-    resetBtn: $('#ccShard-reset'),
-    startBtn: $('#ccShard-start'),
-    drawBtn: $('#ccShard-draw'),
     capCancelBtn: $('#ccShard-capCancel'),
     completeBtn: $('#ccShard-complete'),
-    declared: $('#ccShard-declared'),
-    reshuffle24h: $('#ccShard-reshuffle24h'),
-    allowCAPCancel: $('#ccShard-allowCAPCancel'),
-    profileId: $('#ccShard-profileId'),
-    useFirebase: $('#ccShard-useFirebase'),
-    saveLog: $('#ccShard-saveLog'),
-    exportJSON: $('#ccShard-exportJSON'),
-    importJSON: $('#ccShard-importJSON'),
-    importFile: $('#ccShard-importFile'),
     showAllBtn: $('#ccShard-showAll'),
     cardList: $('#ccShard-cardList'),
     cardListClose: $('#ccShard-cardList-close'),
@@ -49,23 +37,20 @@
     flash: $('#ccShard-flash'),
   };
 
-  let fb = null; // optional Firebase DB instance
-
   const state = {
     deck: [],
     archive: [],
-    declared: 1,
-    drawnCount: 0,
     activeCard: null,
-    queue: [],
-    startedAt: null,
     lastReset: null,
+    drawnCount: 0,
   };
 
   const STORAGE_KEY = 'ccShard_v1';
-  const CLOUD_STATE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeck.json';
 
   const DM_SHARD_KEY = 'ccShardEnabled';
+  const DECK_LOCK_KEY = 'ccShardDeckLock';
+  const CLOUD_STATE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeck.json';
+  const CLOUD_LOCK_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeckLock.json';
   const logDM = window.logDMAction || function(text){
     const arr = JSON.parse(localStorage.getItem('dmNotifications') || '[]');
     arr.push({ time: Date.now(), text });
@@ -381,134 +366,68 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
 
   function wireUI(){
     if(ui.openBtn){
-      ui.openBtn.addEventListener('click', ()=> ui.root.classList.remove('hidden'));
+        ui.openBtn.addEventListener('click', ()=> ui.root.classList.remove('hidden'));
     }
     ui.closeBtn.addEventListener('click', ()=> ui.root.classList.add('hidden'));
 
-    ui.resetBtn.addEventListener('click', resetAll);
-    ui.startBtn.addEventListener('click', startSession);
-    ui.drawBtn.addEventListener('click', drawPlate);
     ui.capCancelBtn.addEventListener('click', capCancel);
     ui.completeBtn.addEventListener('click', completePlate);
-
-    ui.declared.addEventListener('change', e=> state.declared = Math.max(1, Math.min(22, +e.target.value||1)));
-
-    ui.reshuffle24h.addEventListener('change', persist);
-    ui.allowCAPCancel.addEventListener('change', renderActions);
 
     ui.showAllBtn.addEventListener('click', ()=>{ renderCardList(); ui.cardList.classList.remove('hidden'); });
     ui.cardListClose.addEventListener('click', ()=> ui.cardList.classList.add('hidden'));
 
     ui.tabBtns.forEach(btn=> btn.addEventListener('click', ()=>{
-      ui.tabBtns.forEach(b=> b.classList.remove('active'));
-      btn.classList.add('active');
-      const t = btn.dataset.tab;
-      ui.tabPanes.effect.classList.toggle('active', t==='effect');
-      ui.tabPanes.hooks.classList.toggle('active', t==='hooks');
-      ui.tabPanes.resolution.classList.toggle('active', t==='resolution');
-      ui.tabPanes.enemy.classList.toggle('active', t==='enemy');
-      ui.tabPanes.rewards.classList.toggle('active', t==='rewards');
+        ui.tabBtns.forEach(b=> b.classList.remove('active'));
+        btn.classList.add('active');
+        const t = btn.dataset.tab;
+        ui.tabPanes.effect.classList.toggle('active', t==='effect');
+        ui.tabPanes.hooks.classList.toggle('active', t==='hooks');
+        ui.tabPanes.resolution.classList.toggle('active', t==='resolution');
+        ui.tabPanes.enemy.classList.toggle('active', t==='enemy');
+        ui.tabPanes.rewards.classList.toggle('active', t==='rewards');
     }));
 
     ui.statSelect.addEventListener('change', ()=>{
-      const key = ui.statSelect.value; ui.statView.textContent = STATS[key] || '';
-      ui.openNPCBtn.disabled = !NPCS[key];
+        const key = ui.statSelect.value; ui.statView.textContent = STATS[key] || '';
+        ui.openNPCBtn.disabled = !NPCS[key];
     });
     ui.openNPCBtn.addEventListener('click', ()=> openNPC(ui.statSelect.value));
     ui.npcClose.addEventListener('click', ()=> ui.npcModal.classList.add('hidden'));
-
-    ui.saveLog.addEventListener('click', saveLog);
-    ui.exportJSON.addEventListener('click', exportJSON);
-    ui.importJSON.addEventListener('click', ()=> ui.importFile.click());
-    ui.importFile.addEventListener('change', importJSON);
   }
 
   function buildFreshDeckIfNeeded(force=false){
-    const now = Date.now();
-    const reshuffle = ui.reshuffle24h.checked;
-    if (force || !state.lastReset || (reshuffle && now - state.lastReset > 24*60*60*1000)) {
-      state.deck = PLATES.map(p=>p.id);
-      state.archive = [];
-      state.drawnCount = 0;
-      state.activeCard = null;
-      state.queue = [];
-      state.startedAt = null;
-      state.lastReset = now;
-      persist();
-    } else if (!Array.isArray(state.deck) || state.deck.length===0) {
-      state.deck = PLATES.map(p=>p.id).filter(id => !state.archive.includes(id));
-    }
-  }
-
-  function fillQueue(){
-    let target = state.declared;
-    while (state.drawnCount + state.queue.length < target){
-      if (!state.deck.length) buildFreshDeckIfNeeded(true);
-      if (!state.deck.length) break;
-      const id = state.deck.splice(Math.floor(Math.random()*state.deck.length),1)[0];
-      const plate = PLATES.find(p=>p.id===id);
-      const entry = { ...plate, drawnAt: Date.now() };
-      state.queue.push(entry);
-      logDraw(entry);
-      logDM(`Drew plate: ${plate.name}`);
-      if (plate.id==='FRAGMENT'){ state.declared++; target++; }
-    }
-  }
-
-  function startSession(){
-    if (state.activeCard) return;
-    state.declared = Math.max(1, Math.min(22, +ui.declared.value || 1));
-    state.drawnCount = 0;
-    state.queue = [];
-    state.startedAt = Date.now();
-    ui.drawBtn.disabled = false; render();
-    logDM(`Session started (${state.declared} draws)`);
-    persist();
-  }
-
-  async function drawPlate(){
-    if (localStorage.getItem(DM_SHARD_KEY) !== '1'){
-      toast('The Shards reject your call');
-      logDM('Draw attempt rejected');
-      return;
-    }
-    if (state.activeCard || state.queue.length) return;
-    if (!confirm('Draw from the Shard?')) return;
-    if (!confirm('Are you sure? This cannot be undone.')) return;
-    await load();
-    if (!state.deck.length) buildFreshDeckIfNeeded(true);
-    if (state.drawnCount >= state.declared) return;
-    fillQueue();
-    await persist();
-    await playDrawAnimation();
-    state.activeCard = state.queue.shift() || null;
-    renderPlate();
-    persist();
-  }
-
-  function capCancel(){
-    if (!state.activeCard) return;
-    if (!ui.allowCAPCancel.checked) return;
-    logLine(`CAP used. Canceled plate: ${state.activeCard.name}`);
-    logDM(`CAP canceled: ${state.activeCard.name}`);
+  const now = Date.now();
+  const reshuffle = true;
+  if (force || !state.lastReset || (reshuffle && now - state.lastReset > 24*60*60*1000)) {
+    state.deck = PLATES.map(p=>p.id);
+    state.archive = [];
     state.activeCard = null;
-    ui.capCancelBtn.disabled = true;
-    fillQueue();
-    state.activeCard = state.queue.shift() || null;
-    renderPlate(); persist();
-  }
-
-  function completePlate(){
-    if (!state.activeCard) return;
-    logDM(`Resolved plate: ${state.activeCard.name}`);
-    state.archive.push(state.activeCard.id);
-    state.drawnCount++;
-    markResolved(state.activeCard);
-    state.activeCard = state.queue.shift() || null;
-    if (state.drawnCount >= state.declared) ui.drawBtn.disabled = true;
+    state.drawnCount = 0;
+    state.lastReset = now;
     persist();
-    render();
+  } else if (!Array.isArray(state.deck) || state.deck.length===0) {
+    state.deck = PLATES.map(p=>p.id).filter(id => !state.archive.includes(id));
   }
+}
+
+function capCancel(){
+  if (!state.activeCard) return;
+  logLine(`CAP used. Canceled plate: ${state.activeCard.name}`);
+  logDM(`CAP canceled: ${state.activeCard.name}`);
+  state.activeCard = null;
+  ui.capCancelBtn.disabled = true;
+  renderPlate(); persist();
+}
+function completePlate(){
+  if (!state.activeCard) return;
+  logDM(`Resolved plate: ${state.activeCard.name}`);
+  state.archive.push(state.activeCard.id);
+  markResolved(state.activeCard);
+  state.activeCard = null;
+  persist();
+  render();
+}
+
 
 
   function playDrawAnimation(){
@@ -537,10 +456,10 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
   }
 
   function renderActions(){
-    const active = !!state.activeCard;
-    ui.completeBtn.disabled = !active;
-    ui.capCancelBtn.disabled = !(active && ui.allowCAPCancel.checked && state.activeCard.capsAllowed);
-  }
+  const active = !!state.activeCard;
+  ui.completeBtn.disabled = !active;
+  ui.capCancelBtn.disabled = !(active && state.activeCard.capsAllowed);
+}
 
   function logDraw(c){
     const li = document.createElement('li');
@@ -608,121 +527,119 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
     ui.npcLog.textContent = `${action.name}: ${parts.join('; ')}\n` + ui.npcLog.textContent;
   }
 
-  function resetAll(){
-    state.archive = []; state.deck = []; state.drawnCount = 0;
-    state.declared = 1; state.activeCard = null; state.queue = [];
-    state.startedAt = null; state.lastReset = Date.now();
-    ui.log.innerHTML = '';
-    buildFreshDeckIfNeeded(true); render(); persist();
-    logDM('Deck reset');
-  }
+  
+function render(){
+  renderPlate();
+}
 
-  function render(){
-    ui.declared.value = state.declared;
-    const allowed = localStorage.getItem(DM_SHARD_KEY) === '1';
-    if (!state.activeCard && state.queue.length) {
-      state.activeCard = state.queue.shift();
-    }
-    ui.drawBtn.disabled = !state.startedAt || state.drawnCount >= state.declared || !!state.activeCard || state.queue.length > 0 || !allowed;
-    renderPlate();
-  }
-
-  async function persist(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, savedAt: Date.now() }));
-    if (typeof fetch === 'function') {
-      try {
-        await fetch(CLOUD_STATE_URL, {
-          method:'PUT',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ state, savedAt: Date.now() })
-        });
-      } catch(e){ console.error('Cloud save failed', e); }
-    }
-  }
-
-  async function load(){
-    if (typeof fetch === 'function') {
-      try {
-        const res = await fetch(CLOUD_STATE_URL);
-        if(res.ok){
-          const data = await res.json();
-          if(data && data.state){ Object.assign(state, data.state); if(!Array.isArray(state.queue)) state.queue = []; return; }
-        }
-      } catch(e){}
-    }
+async function persist(){
+  const payload = { state, savedAt: Date.now() };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  if (typeof fetch === 'function') {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return;
-      const data = JSON.parse(raw); if (data && data.state) Object.assign(state, data.state);
-    } catch {}
-    if(!Array.isArray(state.queue)) state.queue = [];
+      await fetch(CLOUD_STATE_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch(e){ console.error('Cloud save failed', e); }
   }
+}
 
-  function exportJSON(){
-    const data = { state,
-      archiveNames: state.archive.map(id => PLATES.find(p=>p.id===id)?.name || id),
-      savedAt: new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(data,null,2)], { type:'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const pid = (ui.profileId.value || 'unknown').replace(/[^\w.-]+/g,'_');
-    a.href = url; a.download = `cc_shard_log_${pid}_${Date.now()}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+async function load(){
+  if (typeof fetch === 'function') {
+    try {
+      const res = await fetch(CLOUD_STATE_URL);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.state) { Object.assign(state, data.state); return; }
+      }
+    } catch(e){}
   }
-  async function importJSON(e){
-    const file = e.target.files?.[0]; if (!file) return;
-    const text = await file.text(); const data = JSON.parse(text);
-    if (data && data.state){ Object.assign(state, data.state); render(); persist(); logLine('Imported shard state from JSON.'); }
-  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return;
+    const data = JSON.parse(raw); if (data && data.state) Object.assign(state, data.state);
+  } catch {}
+}
 
-  async function saveLog(){
-    const profileId = ui.profileId.value.trim();
-    if (!profileId){ alert('Enter a Profile ID to save'); return; }
-    const payload = {
-      profileId, state,
-      archiveNames: state.archive.map(id => PLATES.find(p=>p.id===id)?.name || id),
-      savedAt: Date.now()
-    };
-    if (ui.useFirebase.checked && fb){
-      try { const path = `shard_logs/${profileId}/${payload.savedAt}`; await fb.ref(path).set(payload); logLine(`Saved to Firebase: ${path}`);}
-      catch(err){ logLine(`Firebase error: ${err.message||err}`); }
-    } else {
-      localStorage.setItem(`${STORAGE_KEY}__${profileId}`, JSON.stringify(payload));
-      logLine(`Saved locally for ${profileId}.`);
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
+
+async function acquireCloudLock(id){
+  if (typeof fetch !== 'function') return;
+  while(true){
+    try {
+      const res = await fetch(CLOUD_LOCK_URL, { headers: { 'X-Firebase-ETag': 'true' } });
+      const etag = res.headers.get('etag');
+      const val = await res.json();
+      if (val === null || val === id){
+        const putRes = await fetch(CLOUD_LOCK_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'If-Match': etag },
+          body: JSON.stringify(id)
+        });
+        if (putRes.status === 412) continue;
+        if (putRes.ok) return;
+      }
+    } catch (e) {}
+    await new Promise(r=>setTimeout(r,200));
+  }
+}
+
+async function releaseCloudLock(id){
+  if (typeof fetch !== 'function') return;
+  try {
+    const res = await fetch(CLOUD_LOCK_URL, { headers: { 'X-Firebase-ETag': 'true' } });
+    const etag = res.headers.get('etag');
+    const val = await res.json();
+    if (val === id){
+      await fetch(CLOUD_LOCK_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'If-Match': etag },
+        body: 'null'
+      });
     }
-  }
+  } catch (e) {}
+}
 
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
-
-  async function drawCardsSimple(count){
+async function drawCardsSimple(count){
     if (localStorage.getItem(DM_SHARD_KEY) !== '1') {
       toast('The Shards reject your call');
       logDM('Blocked draw: shards disabled');
       return [];
     }
     if (state.activeCard) return [state.activeCard];
-    if (!confirm('Draw from the Shard?')) return [];
-    if (!confirm('Are you sure? This cannot be undone.')) return [];
-    await load();
-    buildFreshDeckIfNeeded();
-    if (!state.deck.length) return [];
-    const results = [];
-    for(let i=0;i<count && state.deck.length;i++){
-      const id = state.deck.splice(Math.floor(Math.random() * state.deck.length), 1)[0];
-      const plate = PLATES.find(p => p.id === id);
-      results.push(plate);
-      state.activeCard = { ...plate, drawnAt: Date.now() };
-      if (plate.id==='FRAGMENT') state.declared += 1;
-      logDM(`Draw: ${plate.name}`);
+    const lockId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    while(localStorage.getItem(DECK_LOCK_KEY) && localStorage.getItem(DECK_LOCK_KEY) !== lockId){
+      await new Promise(r=>setTimeout(r,50));
     }
-    await persist();
-    await playDrawAnimation();
-    renderPlate();
-    return results;
-  }
+    localStorage.setItem(DECK_LOCK_KEY, lockId);
+    await acquireCloudLock(lockId);
+    try {
+      await load();
+      buildFreshDeckIfNeeded();
+      if (!state.deck.length) return [];
+      const results = [];
+      for(let i=0;i<count && state.deck.length;i++){
+        const id = state.deck.splice(Math.floor(Math.random() * state.deck.length), 1)[0];
+        const plate = PLATES.find(p => p.id === id);
+        results.push(plate);
+        state.activeCard = { ...plate, drawnAt: Date.now() };
+        state.drawnCount++;
+        logDraw(state.activeCard);
+        logDM(`Draw: ${plate.name}`);
+      }
+      await persist();
+      await playDrawAnimation();
+      renderPlate();
+      return results;
+    } finally {
+      await releaseCloudLock(lockId);
+      if(localStorage.getItem(DECK_LOCK_KEY) === lockId) localStorage.removeItem(DECK_LOCK_KEY);
+    }
+}
 
   window.CCShard = {
     open: ()=> ui.root.classList.remove('hidden'),
-    reset: resetAll,
-    setFirebase: (database)=>{ fb = database; },
     plates: PLATES,
     stats: STATS,
     draw: drawCardsSimple,
