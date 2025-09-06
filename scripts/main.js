@@ -693,9 +693,35 @@ function launchConfetti(){
       fn({
         particleCount: 100,
         spread: 70,
-        origin: { y: 0 }
+        origin: { x: 0, y: 0 }
+      });
+      fn({
+        particleCount: 100,
+        spread: 70,
+        origin: { x: 1, y: 0 }
       });
     } catch {}
+  });
+}
+
+function launchFireworks(){
+  if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    return;
+  }
+  loadConfetti().then(fn => {
+    const firework = () => {
+      try {
+        fn({
+          particleCount: 80,
+          startVelocity: 30,
+          spread: 360,
+          origin: { x: Math.random(), y: Math.random() * 0.5 }
+        });
+      } catch {}
+    };
+    firework();
+    setTimeout(firework, 250);
+    setTimeout(firework, 500);
   });
 }
 
@@ -737,6 +763,8 @@ function updateXP(){
   const idx = getTierIndex(xp);
   if (xpInitialized && idx > currentTierIdx) {
     launchConfetti();
+    launchFireworks();
+    toast(`Tier up! ${XP_TIERS[idx].label}. Director says: grab your 1d10 HP booster!`, 'success');
   }
   currentTierIdx = idx;
   xpInitialized = true;
