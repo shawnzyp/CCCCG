@@ -17,7 +17,6 @@ const resolveTitle = document.getElementById('shard-resolve-title');
 const resolveCard = document.getElementById('shard-resolve-card');
 const resolveNPCs = document.getElementById('shard-resolve-npcs');
 const resolveTips = document.getElementById('shard-resolve-tips');
-const resolveAddBtn = document.getElementById('shard-resolve-addnpc');
 const resolveCompleteBtn = document.getElementById('shard-resolve-complete');
 const resolveResetBtn = document.getElementById('shard-resolve-reset');
 const resetConfirmBtn = document.getElementById('shard-reset-confirm');
@@ -77,6 +76,10 @@ function setShardCardVisibility(showToast=false){
   if(shardCard){
     const enabled = localStorage.getItem(SHARD_KEY) === '1';
     shardCard.hidden = !enabled;
+    if(shardDraw){
+      const locked = localStorage.getItem(DRAW_LOCK_KEY) === '1';
+      shardDraw.disabled = !enabled || locked;
+    }
     if(enabled && showToast){
       baseMessage("The Shard's have shown them selves to you.");
       shardCard.scrollIntoView({ behavior: 'smooth' });
@@ -227,13 +230,10 @@ function openShardResolver(){
     const ally = card.rewards && card.rewards.find(r=>/ally\s+(\w+)/i.test(r));
     if(ally){
       const m = ally.match(/ally\s+(\w+)/i);
-      resolveAddBtn.dataset.npcId = m ? m[1] : '';
-      resolveAddBtn.hidden = !resolveAddBtn.dataset.npcId;
-      if(resolveAddBtn.dataset.npcId){
-        npcIds.push({ id: resolveAddBtn.dataset.npcId, type:'ally' });
+      const id = m ? m[1] : '';
+      if(id){
+        npcIds.push({ id, type:'ally' });
       }
-    } else {
-      resolveAddBtn.hidden = true;
     }
     if(npcIds.length){
       resolveNPCs.innerHTML = `<ul class="cc-list">${npcIds.map(n=>{
@@ -253,7 +253,6 @@ function openShardResolver(){
     resolveCard.innerHTML = '<p>No active shard.</p>';
     resolveNPCs.innerHTML = '<p><em>No NPCs</em></p>';
     resolveTips.innerHTML = '';
-    resolveAddBtn.hidden = true;
     resolveCompleteBtn.disabled = true;
   }
   setResolveTab('card');
@@ -352,15 +351,6 @@ if(shardDraw){
   });
 }
 
-if(resolveAddBtn){
-  resolveAddBtn.addEventListener('click', ()=>{
-    const id = resolveAddBtn.dataset.npcId;
-    if(id){
-      window.dispatchEvent(new CustomEvent('dm:addNpc',{ detail:{ id }}));
-    }
-    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-resolve' }));
-  });
-}
 if(resolveCompleteBtn){
   resolveCompleteBtn.addEventListener('click', ()=>{
     if(window.CCShard && typeof window.CCShard.resolveActive === 'function'){
