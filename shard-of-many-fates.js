@@ -574,6 +574,7 @@ function showNextFromQueue(){
   
 function render(){
   renderPlate();
+  if(state.activeCard) ui.root.classList.remove('hidden');
 }
 
 async function persist(){
