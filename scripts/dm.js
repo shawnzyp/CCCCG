@@ -2,6 +2,7 @@ const DM_PIN = '1231';
 const RECOVERY_ANSWER = 'August 29 2022';
 
 const dmBtn = document.getElementById('dm-login');
+const dmLink = document.getElementById('dm-login-link');
 const dmToast = document.getElementById('dm-toast');
 const baseToast = document.getElementById('toast');
 const shardCard = document.getElementById('ccShard-player');
@@ -110,11 +111,18 @@ function showDmToast(html){
   dmToast.innerHTML = `${html}<button id="dm-toast-close" class="btn-sm">Close</button>`;
   dmToast.classList.add('show');
   if(dmBtn) dmBtn.hidden = true;
+  if(dmLink) dmLink.hidden = true;
   document.getElementById('dm-toast-close').addEventListener('click', hideDmToast);
 }
 function hideDmToast(){
   dmToast.classList.remove('show');
-  if(dmBtn) dmBtn.hidden = false;
+  updateDmButton();
+}
+
+function updateDmButton(){
+  const loggedIn = sessionStorage.getItem('dmLoggedIn') === '1';
+  if(dmBtn) dmBtn.hidden = !loggedIn;
+  if(dmLink) dmLink.hidden = loggedIn;
 }
 
 function logDMAction(text){
@@ -242,6 +250,7 @@ function handleLogin(){
   const val = document.getElementById('dm-pin').value.trim();
   if(val === DM_PIN){
     sessionStorage.setItem('dmLoggedIn', '1');
+    updateDmButton();
     openDmTools();
     baseMessage('Logged in');
   } else {
@@ -250,9 +259,9 @@ function handleLogin(){
 }
 
 function handleLogout(){
+  sessionStorage.removeItem('dmLoggedIn');
   hideDmToast();
   baseMessage('Logged out');
-  sessionStorage.removeItem('dmLoggedIn');
 }
 
 function openRecovery(){
@@ -279,6 +288,10 @@ function handleRecovery(){
 if(dmBtn){
   dmBtn.addEventListener('click', openLogin);
 }
+if(dmLink){
+  dmLink.addEventListener('click', openLogin);
+}
+updateDmButton();
 
 setShardCardVisibility();
 window.addEventListener('storage', e=>{
