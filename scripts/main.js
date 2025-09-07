@@ -1337,7 +1337,7 @@ if(charList){
         deleteCharacter(ch).then(()=>{
           renderCharacterList();
           toast('Deleted','info');
-        }).catch(()=> toast('Delete failed','error'));
+        }).catch(e=> toast(e.message || 'Delete failed','error'));
       }
     }
   });
@@ -1435,7 +1435,7 @@ async function doLoad(){
     toast(`Loaded ${pendingLoad.name}`,'success');
     playLoadAnimation();
   }catch(e){
-    toast('Load failed','error');
+    toast(e.message || 'Load failed','error');
   }
 }
 if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }

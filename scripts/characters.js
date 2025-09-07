@@ -11,6 +11,19 @@ import {
   deleteCloud,
 } from './storage.js';
 
+const PINNED = { 'Player :Shawn': '1231' };
+
+function verifyPin(name) {
+  const pin = PINNED[name];
+  if (!pin) return;
+  const entered = typeof prompt === 'function'
+    ? prompt(`Enter PIN for ${name}`)
+    : null;
+  if (entered !== pin) {
+    throw new Error('Invalid PIN');
+  }
+}
+
 let currentName = null;
 
 export function currentCharacter() {
@@ -41,6 +54,7 @@ export async function listCharacters() {
 }
 
 export async function loadCharacter(name) {
+  verifyPin(name);
   try {
     return await loadLocal(name);
   } catch {}
@@ -53,6 +67,7 @@ export async function loadCharacter(name) {
 
 export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
+  verifyPin(name);
   await saveLocal(name, data);
   try {
     await saveCloud(name, data);
@@ -62,6 +77,17 @@ export async function saveCharacter(data, name = currentCharacter()) {
 }
 
 export async function deleteCharacter(name) {
+  verifyPin(name);
+  let data = null;
+  try {
+    data = await loadLocal(name);
+  } catch {}
+  if (data === null) {
+    try { data = await loadCloud(name); } catch {}
+  }
+  if (data !== null) {
+    try { await saveCloud(name, data); } catch (e) { console.error('Cloud backup failed', e); }
+  }
   await deleteSave(name);
   try {
     await deleteCloud(name);
