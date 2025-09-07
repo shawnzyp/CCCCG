@@ -43,19 +43,24 @@
     activeCard: null,
     lastReset: null,
     drawnCount: 0,
+    drawQueue: [],
+    capUsed: false,
   };
 
   const STORAGE_KEY = 'ccShard_v1';
 
-  const DM_SHARD_KEY = 'ccShardEnabled';
   const DECK_LOCK_KEY = 'ccShardDeckLock';
   const CLOUD_STATE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeck.json';
   const CLOUD_LOCK_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeckLock.json';
-  const logDM = window.logDMAction || function(text){
-    const arr = JSON.parse(localStorage.getItem('dmNotifications') || '[]');
-    arr.push({ time: Date.now(), text });
-    localStorage.setItem('dmNotifications', JSON.stringify(arr));
-  };
+  function logDM(text){
+    if (typeof window.logDMAction === 'function') {
+      window.logDMAction(text);
+    } else {
+      const arr = JSON.parse(localStorage.getItem('dmNotifications') || '[]');
+      arr.push({ time: Date.now(), text });
+      localStorage.setItem('dmNotifications', JSON.stringify(arr));
+    }
+  }
 
   function toast(msg){
     const el = document.getElementById('toast');
@@ -402,6 +407,7 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
     state.deck = PLATES.map(p=>p.id);
     state.archive = [];
     state.activeCard = null;
+    state.drawQueue = [];
     state.drawnCount = 0;
     state.lastReset = now;
     persist();
@@ -412,11 +418,29 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
 
 function capCancel(){
   if (!state.activeCard) return;
+  if (state.capUsed){
+    toast("There's no escaping fate!");
+    return;
+  }
+  if(!confirm('Use Cinematic Action Point to cancel this shard?')) return;
+  state.capUsed = true;
+  const capCheck = document.getElementById('cap-check');
+  const capStatus = document.getElementById('cap-status');
+  if (capCheck){
+    capCheck.checked = true;
+    capCheck.disabled = true;
+    if (capStatus) capStatus.textContent = 'Used';
+  }
   logLine(`CAP used. Canceled plate: ${state.activeCard.name}`);
   logDM(`CAP canceled: ${state.activeCard.name}`);
   state.activeCard = null;
   ui.capCancelBtn.disabled = true;
-  renderPlate(); persist();
+  if(state.drawQueue.length){
+    showNextFromQueue();
+  } else {
+    renderPlate();
+  }
+  persist();
 }
 function completePlate(){
   if (!state.activeCard) return;
@@ -424,8 +448,12 @@ function completePlate(){
   state.archive.push(state.activeCard.id);
   markResolved(state.activeCard);
   state.activeCard = null;
+  if(state.drawQueue.length){
+    showNextFromQueue();
+  } else {
+    render();
+  }
   persist();
-  render();
 }
 
 async function resetDeck(){
@@ -436,7 +464,15 @@ async function resetDeck(){
   logDM('Shard deck reset');
 }
 
-
+function showNextFromQueue(){
+  if(state.drawQueue && state.drawQueue.length){
+    state.activeCard = state.drawQueue.shift();
+    ui.root.classList.remove('hidden');
+    playDrawAnimation().then(render);
+  } else {
+    render();
+  }
+}
 
   function playDrawAnimation(){
     return new Promise(res=>{
@@ -610,12 +646,7 @@ async function releaseCloudLock(id){
 }
 
 async function drawCardsSimple(count){
-    if (localStorage.getItem(DM_SHARD_KEY) !== '1') {
-      toast('The Shards reject your call');
-      logDM('Blocked draw: shards disabled');
-      return [];
-    }
-    if (state.activeCard) return [state.activeCard];
+    state.drawQueue = state.drawQueue || [];
     const lockId = Date.now().toString(36) + Math.random().toString(36).slice(2);
     while(localStorage.getItem(DECK_LOCK_KEY) && localStorage.getItem(DECK_LOCK_KEY) !== lockId){
       await new Promise(r=>setTimeout(r,50));
@@ -630,15 +661,15 @@ async function drawCardsSimple(count){
       for(let i=0;i<count && state.deck.length;i++){
         const id = state.deck.splice(Math.floor(Math.random() * state.deck.length), 1)[0];
         const plate = PLATES.find(p => p.id === id);
-        results.push(plate);
-        state.activeCard = { ...plate, drawnAt: Date.now() };
+        const card = { ...plate, drawnAt: Date.now() };
+        results.push(card);
+        state.drawQueue.push(card);
         state.drawnCount++;
-        logDraw(state.activeCard);
+        logDraw(card);
         logDM(`Draw: ${plate.name}`);
       }
       await persist();
-      await playDrawAnimation();
-      renderPlate();
+      if(!state.activeCard) showNextFromQueue();
       return results;
     } finally {
       await releaseCloudLock(lockId);
