@@ -470,7 +470,7 @@ progress::-moz-progress-bar{
 .modal:focus{outline:none}
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
 body.modal-open{overflow:hidden}
-body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
+body.modal-open> :not(.overlay):not(#dm-login):not(#dm-toast){pointer-events:none;user-select:none}
 .modal h3{margin:0 0 4px;color:var(--accent);font-size:.9rem;line-height:1.2;font-weight:600}
 .modal .x{position:sticky;top:8px;margin-left:auto;margin-right:8px;background:transparent;border:none;color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:var(--transition);z-index:2}
 .modal .x:hover{color:var(--accent)}
@@ -495,7 +495,7 @@ body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
 .dm-login-btn{
   position:fixed;
   bottom:18px;
-  right:18px;
+  left:18px;
   width:44px;
   height:44px;
   margin:0;
@@ -514,7 +514,7 @@ body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
 .dm-login-btn[hidden]{display:none;}
 .dm-login-wrapper{position:relative;height:0;margin-bottom:20px;text-align:center;}
 #dm-login-link{position:absolute;left:50%;top:0;transform:translateX(-50%);width:80px;height:20px;opacity:0;border:none;background:none;}
-#dm-toast{flex-direction:column;gap:6px;max-height:80vh;overflow:auto}
+#dm-toast{flex-direction:column;gap:6px;max-height:80vh;overflow:auto;left:72px;right:auto}
 #dm-toast::before{display:none}
 
 /* ability grid */

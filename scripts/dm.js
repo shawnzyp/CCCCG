@@ -110,7 +110,6 @@ async function revealShards(cards){
 function showDmToast(html){
   dmToast.innerHTML = `${html}<button id="dm-toast-close" class="btn-sm">Close</button>`;
   dmToast.classList.add('show');
-  if(dmBtn) dmBtn.hidden = true;
   if(dmLink) dmLink.hidden = true;
   document.getElementById('dm-toast-close').addEventListener('click', hideDmToast);
 }
@@ -134,26 +133,45 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
 }
 window.logDMAction = logDMAction;
+const dmLoginForm = document.getElementById('dm-login-form');
+
+function renderLoginForm(){
+  if(!dmLoginForm) return;
+  dmLoginForm.innerHTML = `
+      <input id="dm-pin" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" placeholder="PIN" />
+      <div class="inline">
+        <button id="dm-login-btn" class="btn-sm">Log In</button>
+      </div>
+      <button id="dm-recover-btn" class="btn-sm">Recover PIN</button>
+  `;
+  document.getElementById('dm-login-btn').addEventListener('click', handleLogin);
+  document.getElementById('dm-recover-btn').addEventListener('click', openRecovery);
+}
 
 function openLogin(e){
   if (e) {
     e.preventDefault();
     e.stopPropagation();
   }
-  openDmTools();
+  renderLoginForm();
+  window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-dm-login' }));
+}
+
+function toggleDmTools(e){
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  if(dmToast.classList.contains('show')){
+    hideDmToast();
+  } else {
+    openDmTools();
+  }
 }
 
 function openDmTools(){
   if(!sessionStorage.getItem('dmLoggedIn')){
-    showDmToast(`
-      <input id="dm-pin" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" placeholder="PIN" />
-      <div class="inline">
-        <button id="dm-login-btn" class="btn-sm">Log In</button>
-      </div>
-      <button id="dm-recover-btn" class="btn-sm">Recover PIN</button>
-    `);
-    document.getElementById('dm-login-btn').addEventListener('click', handleLogin);
-    document.getElementById('dm-recover-btn').addEventListener('click', openRecovery);
+    openLogin();
     return;
   }
   const notes = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
@@ -255,7 +273,7 @@ function handleLogin(){
   if(val === DM_PIN){
     sessionStorage.setItem('dmLoggedIn', '1');
     updateDmButton();
-    openDmTools();
+    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-dm-login' }));
     baseMessage('Logged in');
   } else {
     baseMessage('Wrong PIN');
@@ -269,28 +287,32 @@ function handleLogout(){
 }
 
 function openRecovery(){
-  showDmToast(`
+  if(!dmLoginForm) return;
+  dmLoginForm.innerHTML = `
     <label for="dm-answer">Your First Date Anniversary</label>
     <input id="dm-answer" type="text" placeholder="Answer" />
     <div class="inline">
       <button id="dm-answer-btn" class="btn-sm">Submit</button>
+      <button id="dm-back-btn" class="btn-sm">Back</button>
     </div>
-  `);
+  `;
   document.getElementById('dm-answer-btn').addEventListener('click', handleRecovery);
+  document.getElementById('dm-back-btn').addEventListener('click', renderLoginForm);
 }
 
 function handleRecovery(){
   const ans = document.getElementById('dm-answer').value.trim();
   if(ans === RECOVERY_ANSWER){
-    hideDmToast();
+    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-dm-login' }));
     baseMessage('PIN: ' + DM_PIN);
   } else {
     baseMessage('Incorrect');
   }
+  renderLoginForm();
 }
 
 if(dmBtn){
-  dmBtn.addEventListener('click', openLogin);
+  dmBtn.addEventListener('click', toggleDmTools);
 }
 if(dmLink){
   dmLink.addEventListener('click', openLogin);
