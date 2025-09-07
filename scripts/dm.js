@@ -135,7 +135,11 @@ function escapeHtml(s){
 }
 window.logDMAction = logDMAction;
 
-function openLogin(){
+function openLogin(e){
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
   openDmTools();
 }
 
