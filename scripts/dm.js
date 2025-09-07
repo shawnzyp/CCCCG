@@ -21,6 +21,7 @@ const resolveCompleteBtn = document.getElementById('shard-resolve-complete');
 const resolveResetBtn = document.getElementById('shard-resolve-reset');
 const resetConfirmBtn = document.getElementById('shard-reset-confirm');
 const shardToggle = document.getElementById('dm-shard-toggle');
+const shardToggleLabel = document.getElementById('dm-shard-label');
 const resolveTabBtns = document.querySelectorAll('#modal-shard-resolve .cc-tabs__nav button');
 
 const SHARD_KEY = 'ccShardEnabled';
@@ -31,6 +32,9 @@ const CLOUD_SHARD_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardEn
 
 // Shards default to off until explicitly enabled by the DM
 localStorage.removeItem(SHARD_KEY);
+if(shardToggle) shardToggle.checked = false;
+if(shardToggleLabel) shardToggleLabel.textContent = 'Off';
+setShardCardVisibility();
 
 function setResolveTab(tab){
   resolveTabBtns.forEach(btn=>{
@@ -49,6 +53,7 @@ if(shardToggle){
       localStorage.removeItem(SHARD_KEY);
       if(shardCard) shardCard.hidden = true;
     }
+    if(shardToggleLabel) shardToggleLabel.textContent = e.target.checked ? 'On' : 'Off';
     setShardCardVisibility(true);
     try {
       await fetch(CLOUD_SHARD_URL, { method:'PUT', headers:{'Content-Type':'application/json'}, body: e.target.checked ? '1' : '0' });
@@ -108,8 +113,9 @@ async function initShardSync(){
       localStorage.removeItem(SHARD_KEY);
     }
     if(shardToggle) shardToggle.checked = enabled;
-    setShardCardVisibility();
+    if(shardToggleLabel) shardToggleLabel.textContent = enabled ? 'On' : 'Off';
   } catch(e) {}
+  setShardCardVisibility();
   if(typeof EventSource !== 'undefined'){
     try {
       const src = new EventSource(CLOUD_SHARD_URL);
@@ -124,6 +130,7 @@ async function initShardSync(){
               localStorage.removeItem(SHARD_KEY);
             }
             if(shardToggle) shardToggle.checked = enabled;
+            if(shardToggleLabel) shardToggleLabel.textContent = enabled ? 'On' : 'Off';
             setShardCardVisibility(true);
             window.dispatchEvent(new StorageEvent('storage',{ key: SHARD_KEY }));
           }
