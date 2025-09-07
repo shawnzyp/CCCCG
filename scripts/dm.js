@@ -27,6 +27,7 @@ const SHARD_KEY = 'ccShardEnabled';
 const NOTIFY_KEY = 'dmNotifications';
 const DRAW_COUNT_KEY = 'ccShardPlayerDraws';
 const DRAW_LOCK_KEY = 'ccShardPlayerLocked';
+const CLOUD_SHARD_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardEnabled.json';
 
 function setResolveTab(tab){
   resolveTabBtns.forEach(btn=>{
@@ -38,7 +39,7 @@ function setResolveTab(tab){
 }
 resolveTabBtns.forEach(btn=> btn.addEventListener('click', ()=> setResolveTab(btn.dataset.tab)));
 if(shardToggle){
-  shardToggle.addEventListener('change', e=>{
+  shardToggle.addEventListener('change', async e=>{
     if(e.target.checked) {
       localStorage.setItem(SHARD_KEY,'1');
     } else {
@@ -46,6 +47,9 @@ if(shardToggle){
       if(shardCard) shardCard.hidden = true;
     }
     setShardCardVisibility(true);
+    try {
+      await fetch(CLOUD_SHARD_URL, { method:'PUT', headers:{'Content-Type':'application/json'}, body: e.target.checked ? '1' : '0' });
+    } catch(err) {}
     window.dispatchEvent(new StorageEvent('storage',{ key: SHARD_KEY }));
     if(!e.target.checked) baseMessage('Shards disabled');
   });
@@ -87,27 +91,63 @@ function setShardCardVisibility(showToast=false){
   }
 }
 
+async function initShardSync(){
+  try {
+    const res = await fetch(CLOUD_SHARD_URL);
+    const val = await res.json();
+    const enabled = val === '1' || val === 1;
+    if(enabled) {
+      localStorage.setItem(SHARD_KEY,'1');
+    } else {
+      localStorage.removeItem(SHARD_KEY);
+    }
+    if(shardToggle) shardToggle.checked = enabled;
+    setShardCardVisibility();
+  } catch(e) {}
+  if(typeof EventSource !== 'undefined'){
+    try {
+      const src = new EventSource(CLOUD_SHARD_URL);
+      src.addEventListener('put', ev=>{
+        try {
+          const data = JSON.parse(ev.data);
+          if('data' in data){
+            const enabled = data.data === '1' || data.data === 1;
+            if(enabled){
+              localStorage.setItem(SHARD_KEY,'1');
+            } else {
+              localStorage.removeItem(SHARD_KEY);
+            }
+            if(shardToggle) shardToggle.checked = enabled;
+            setShardCardVisibility(true);
+            window.dispatchEvent(new StorageEvent('storage',{ key: SHARD_KEY }));
+          }
+        } catch(err){}
+      });
+    } catch(err){}
+  }
+}
+
 function baseMessage(msg){
   baseToast.textContent = msg;
   baseToast.className = 'toast show';
   setTimeout(()=> baseToast.classList.remove('show'), 3000);
 }
 
-async function revealShards(cards){
+async function revealShard(card){
   if(!shardRevealName || !shardRevealVisual || !shardRevealBtn) return;
-  for(let i=0;i<cards.length;i++){
-    const card = cards[i];
-    shardRevealName.textContent = card.name;
-    shardRevealVisual.textContent = card.visual || '';
-    shardRevealBtn.textContent = i < cards.length - 1 ? 'Next' : 'Close';
-    await new Promise(resolve=>{
-      shardRevealBtn.onclick = () => {
-        window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-reveal' }));
-        resolve();
-      };
-      window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-shard-reveal' }));
-    });
-  }
+  shardRevealName.textContent = card.name;
+  shardRevealVisual.textContent = card.visual || '';
+  shardRevealBtn.textContent = 'Resolve';
+  await new Promise(resolve=>{
+    shardRevealBtn.onclick = () => {
+      if(window.CCShard && typeof window.CCShard.resolveActive === 'function'){
+        window.CCShard.resolveActive();
+      }
+      window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-reveal' }));
+      resolve();
+    };
+    window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-shard-reveal' }));
+  });
 }
 
 function showDmToast(html){
@@ -211,6 +251,7 @@ function openNotifications(){
 }
 
 function openShardResolver(){
+  hideDmToast();
   const card = window.CCShard && typeof window.CCShard.getActiveCard === 'function'
     ? window.CCShard.getActiveCard()
     : null;
@@ -319,6 +360,7 @@ if(dmLink){
 updateDmButton();
 
 setShardCardVisibility();
+initShardSync();
 window.addEventListener('storage', e=>{
   if(e.key === SHARD_KEY) setShardCardVisibility(true);
 });
@@ -326,6 +368,7 @@ window.addEventListener('storage', e=>{
 if(shardDraw){
   if(localStorage.getItem(DRAW_LOCK_KEY) === '1') shardDraw.disabled = true;
   shardDraw.addEventListener('click', async ()=>{
+    hideDmToast();
     if(localStorage.getItem(DRAW_LOCK_KEY) === '1'){
       baseMessage('Shard draws exhausted');
       return;
@@ -333,20 +376,28 @@ if(shardDraw){
     if(!confirm("Are you sure you wish to draw Shard's?")) return;
     if(!confirm('This cannot be undone, are you sure?')) return;
     const count = Math.max(1, parseInt(shardCount.value,10)||1);
-    const cards = window.CCShard && typeof window.CCShard.draw === 'function'
-      ? await window.CCShard.draw(count)
-      : [];
-    if(cards.length){
-      shardResults.innerHTML = cards.map(c=>`<li>${c.name}</li>`).join('');
-      await revealShards(cards);
-      const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
-      localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
-      if(draws >= 2){
-        localStorage.setItem(DRAW_LOCK_KEY, '1');
-        shardDraw.disabled = true;
-        baseMessage('Shard draws exhausted');
-        logDMAction('Player exhausted shard draws');
+    const names = [];
+    for(let i=0;i<count;i++){
+      const res = window.CCShard && typeof window.CCShard.draw === 'function'
+        ? await window.CCShard.draw(1)
+        : [];
+      if(!res.length){
+        baseMessage('No shards drawn');
+        break;
       }
+      const card = res[0];
+      names.push(card.name);
+      shardResults.innerHTML = names.map(n=>`<li>${n}</li>`).join('');
+      await revealShard(card);
+    }
+    if(!names.length) return;
+    const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
+    localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
+    if(draws >= 2){
+      localStorage.setItem(DRAW_LOCK_KEY, '1');
+      shardDraw.disabled = true;
+      baseMessage('Shard draws exhausted');
+      logDMAction('Player exhausted shard draws');
     }
   });
 }
