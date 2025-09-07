@@ -29,6 +29,9 @@ const DRAW_COUNT_KEY = 'ccShardPlayerDraws';
 const DRAW_LOCK_KEY = 'ccShardPlayerLocked';
 const CLOUD_SHARD_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardEnabled.json';
 
+// Shards default to off until explicitly enabled by the DM
+localStorage.removeItem(SHARD_KEY);
+
 function setResolveTab(tab){
   resolveTabBtns.forEach(btn=>{
     btn.classList.toggle('active', btn.dataset.tab===tab);
@@ -80,13 +83,16 @@ function setShardCardVisibility(showToast=false){
   if(shardCard){
     const enabled = localStorage.getItem(SHARD_KEY) === '1';
     shardCard.hidden = !enabled;
+    shardCard.setAttribute('aria-hidden', String(!enabled));
     if(shardDraw){
       const locked = localStorage.getItem(DRAW_LOCK_KEY) === '1';
       shardDraw.disabled = !enabled || locked;
     }
     if(enabled && showToast){
-      baseMessage("The Shard's have shown them selves to you.");
+      baseMessage('The Shards reveal themselves to you.');
       shardCard.scrollIntoView({ behavior: 'smooth' });
+    } else if(!enabled){
+      if(shardResults) shardResults.innerHTML = '';
     }
   }
 }
@@ -226,7 +232,7 @@ function openDmTools(){
   const notes = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
   showDmToast(`
     <div class="inline">
-      <button id="ccShard-open" class="btn-sm">Shard of Many Fates</button>
+      <button id="ccShard-open" class="btn-sm">The Shards of Many Fates</button>
       <button id="dm-view-notes" class="btn-sm">Notifications (${notes.length})</button>
       <button id="dm-logout-btn" class="btn-sm">Log Out</button>
     </div>
