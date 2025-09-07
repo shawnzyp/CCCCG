@@ -235,7 +235,7 @@ function openDmTools(){
   }
   const notes = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
   showDmToast(`
-    <div class="inline">
+    <div class="dm-toast-buttons">
       <button id="ccShard-open" class="btn-sm">The Shards of Many Fates</button>
       <button id="dm-view-notes" class="btn-sm">Notifications (${notes.length})</button>
       <button id="dm-logout-btn" class="btn-sm">Log Out</button>
@@ -405,6 +405,7 @@ if(shardDraw){
       await revealShard(card);
     }
     if(!names.length) return;
+    logDMAction(`Player drew shard${names.length>1?'s':''}: ${names.join(', ')}`);
     const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
     localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
     if(draws >= 2){
