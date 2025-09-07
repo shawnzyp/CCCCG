@@ -71,6 +71,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .tabs-title .logo{
   height:36px;
   width:auto;
+  cursor:pointer;
 }
 .theme-light .tabs-title .logo{
   filter:invert(1);
