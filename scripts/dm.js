@@ -1,5 +1,3 @@
-import { show as showModal, hide as hideModal } from './modal.js';
-
 const DM_PIN = '1231';
 const RECOVERY_ANSWER = 'August 29 2022';
 
@@ -67,7 +65,7 @@ if(shardToggle){
 
 if(resolveResetBtn){
   resolveResetBtn.addEventListener('click', ()=>{
-    showModal('modal-shard-reset');
+    window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-shard-reset' }));
   });
 }
 
@@ -82,7 +80,7 @@ if(resetConfirmBtn){
     }
     logDMAction('Shard deck reset');
     baseMessage('Shard deck reset');
-    hideModal('modal-shard-reset');
+    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-reset' }));
   });
 }
 
@@ -158,10 +156,10 @@ async function revealShard(card){
       if(window.CCShard && typeof window.CCShard.resolveActive === 'function'){
         window.CCShard.resolveActive();
       }
-      hideModal('modal-shard-reveal');
+      window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-reveal' }));
       resolve();
     };
-    showModal('modal-shard-reveal');
+    window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-shard-reveal' }));
   });
 }
 
@@ -331,7 +329,7 @@ function openShardResolver(){
       }
     });
   });
-  showModal('modal-shard-resolve');
+  window.dispatchEvent(new CustomEvent('dm:showModal',{ detail: 'modal-shard-resolve' }));
 }
 
 function handleLogin(){
@@ -434,6 +432,6 @@ if(resolveCompleteBtn){
       window.CCShard.resolveActive();
       baseMessage('Shard resolved');
     }
-    hideModal('modal-shard-resolve');
+    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-resolve' }));
   });
 }
