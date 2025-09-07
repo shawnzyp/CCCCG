@@ -152,12 +152,18 @@ async function revealShard(card){
 
 function showDmToast(html){
   dmToast.innerHTML = `${html}<button id="dm-toast-close" class="btn-sm">Close</button>`;
-  dmToast.classList.add('show');
+  dmToast.hidden = false;
+  dmToast.setAttribute('aria-hidden', 'false');
+  requestAnimationFrame(() => dmToast.classList.add('show'));
   if(dmLink) dmLink.hidden = true;
   document.getElementById('dm-toast-close').addEventListener('click', hideDmToast);
 }
 function hideDmToast(){
   dmToast.classList.remove('show');
+  dmToast.addEventListener('transitionend', () => {
+    dmToast.hidden = true;
+    dmToast.setAttribute('aria-hidden', 'true');
+  }, { once: true });
   updateDmButton();
 }
 
