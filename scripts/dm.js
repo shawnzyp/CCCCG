@@ -91,7 +91,7 @@ function setShardCardVisibility(showToast=false){
     shardCard.setAttribute('aria-hidden', String(!enabled));
     if(shardDraw){
       const locked = localStorage.getItem(DRAW_LOCK_KEY) === '1';
-      shardDraw.disabled = !enabled || locked;
+      shardDraw.disabled = locked;
     }
     if(enabled && showToast){
       baseMessage('The Shards reveal themselves to you.');
