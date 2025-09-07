@@ -106,7 +106,8 @@ footer p{
 .grid-2-fixed{grid-template-columns:repeat(2,1fr)}
 @media(min-width:600px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:900px){.grid-3{grid-template-columns:repeat(3,1fr)}}
-#ccShard-player .shard-draw-grid{grid-template-columns:auto 1fr;align-items:center}
+#ccShard-player[aria-hidden="true"]{display:none}
+#ccShard-player .shard-draw-grid{grid-template-columns:auto auto 1fr;align-items:center}
 #ccShard-player .shard-draw-grid input{width:4em}
 #ccShard-player .shard-draw-grid button{width:100%}
 #statuses{grid-template-columns:repeat(2,1fr);margin-top:8px}
