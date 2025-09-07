@@ -12,7 +12,7 @@ const shardDraw = document.getElementById('ccShard-player-draw');
 const shardCount = document.getElementById('ccShard-player-count');
 const shardResults = document.getElementById('ccShard-player-results');
 const shardRevealName = document.getElementById('shard-reveal-name');
-const shardRevealCard = document.getElementById('shard-reveal-card');
+const shardRevealVisual = document.getElementById('shard-reveal-visual');
 const shardRevealBtn = document.getElementById('shard-reveal-next');
 
 const resolveTitle = document.getElementById('shard-resolve-title');
@@ -148,27 +148,10 @@ function baseMessage(msg){
   setTimeout(()=> baseToast.classList.remove('show'), 3000);
 }
 
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
-}
-function bullets(arr){
-  if(!arr || !arr.length) return '<em>None</em>';
-  return `<ul>${arr.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`;
-}
-
 async function revealShard(card){
-  if(!shardRevealName || !shardRevealCard || !shardRevealBtn) return;
+  if(!shardRevealName || !shardRevealVisual || !shardRevealBtn) return;
   shardRevealName.textContent = card.name;
-  const enemyHtml = card.enemy
-    ? card.enemy.split('|').map(k => `<strong>${escapeHtml(k)}</strong><pre class="cc-code">${escapeHtml((window.CCShard?.stats || {})[k] || 'Unknown')}</pre>`).join('')
-    : '<em>None</em>';
-  shardRevealCard.innerHTML = `
-    <p class="muted">${escapeHtml(card.visual || '')}</p>
-    <div><strong>Effect:</strong>${bullets(card.effect)}</div>
-    <div><strong>Hooks:</strong>${bullets(card.hooks)}</div>
-    <div><strong>Resolution:</strong>${bullets(card.resolution)}</div>
-    <div><strong>Enemy:</strong>${enemyHtml}</div>
-    <div><strong>Rewards:</strong>${card.rewards ? bullets(card.rewards) : '<em>None specified</em>'}</div>`;
+  shardRevealVisual.textContent = card.visual || '';
   shardRevealBtn.textContent = 'Resolve';
   await new Promise(resolve=>{
     shardRevealBtn.onclick = () => {
