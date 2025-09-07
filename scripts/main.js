@@ -247,13 +247,10 @@ if (btnMenu && menuActions) {
 
 /* ========= header ========= */
 const headerEl = qs('header');
-if (headerEl) {
-  headerEl.addEventListener('click', e => {
-    if (
-      e.target.closest('#btn-menu') ||
-      e.target.closest('#menu-actions') ||
-      e.target.closest('nav')
-    ) return;
+const logoEl = qs('.logo');
+if (logoEl) {
+  logoEl.addEventListener('click', e => {
+    e.stopPropagation();
     toggleTheme();
   });
 }
