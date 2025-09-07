@@ -243,7 +243,7 @@ function openDmTools(){
   }
   const notes = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
   showDmToast(`
-    <div class="dm-toast-buttons">
+    <div class="dm-toast-buttons dm-tools-menu">
       <button id="ccShard-open" class="btn-sm">The Shards of Many Fates</button>
       <button id="dm-view-notes" class="btn-sm">Notifications (${notes.length})</button>
       <button id="dm-logout-btn" class="btn-sm">Log Out</button>
