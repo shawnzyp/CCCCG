@@ -88,10 +88,11 @@ footer{
   text-align:center;
   font-size:9pt;
   margin:8px auto 0;
-  padding:4px calc(20px + env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
+  padding:4px calc(20px + env(safe-area-inset-right)) calc(44px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
   color:var(--muted);
   max-width:var(--content-width);
   width:100%;
+  position:relative;
 }
 
 footer p{
@@ -514,8 +515,8 @@ body.modal-open> :not(.overlay):not(#dm-login):not(#dm-toast){pointer-events:non
 }
 .dm-login-btn::before{content:'DM';}
 .dm-login-btn[hidden]{display:none;}
-.dm-login-wrapper{position:relative;height:0;margin-bottom:20px;text-align:center;}
-#dm-login-link{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);width:80px;height:20px;opacity:0;border:none;background:none;cursor:pointer;z-index:2000;}
+.dm-login-wrapper{position:absolute;left:0;right:0;bottom:0;height:40px;text-align:center;}
+#dm-login-link{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:80px;height:20px;opacity:0;border:none;background:none;cursor:pointer;}
 #dm-toast{flex-direction:column;gap:6px;max-height:80vh;overflow:auto;left:72px;right:auto}
 #dm-toast::before{display:none}
 

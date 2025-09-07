@@ -195,17 +195,15 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
 }
 window.logDMAction = logDMAction;
-const dmLoginForm = document.getElementById('dm-login-form');
 
 function renderLoginForm(){
-  if(!dmLoginForm) return;
-  dmLoginForm.innerHTML = `
+  showDmToast(`
       <input id="dm-pin" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" placeholder="PIN" />
       <div class="inline">
         <button id="dm-login-btn" class="btn-sm">Log In</button>
       </div>
       <button id="dm-recover-btn" class="btn-sm">Recover PIN</button>
-  `;
+  `);
   document.getElementById('dm-login-btn').addEventListener('click', handleLogin);
   document.getElementById('dm-recover-btn').addEventListener('click', openRecovery);
 }
@@ -216,7 +214,6 @@ function openLogin(e){
     e.stopPropagation();
   }
   renderLoginForm();
-  window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-dm-login' }));
 }
 
 function toggleDmTools(e){
@@ -332,7 +329,7 @@ function handleLogin(){
   if(val === DM_PIN){
     sessionStorage.setItem('dmLoggedIn', '1');
     updateDmButton();
-    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-dm-login' }));
+    hideDmToast();
     baseMessage('Logged in');
   } else {
     baseMessage('Wrong PIN');
@@ -346,15 +343,14 @@ function handleLogout(){
 }
 
 function openRecovery(){
-  if(!dmLoginForm) return;
-  dmLoginForm.innerHTML = `
+  showDmToast(`
     <label for="dm-answer">Your First Date Anniversary</label>
     <input id="dm-answer" type="text" placeholder="Answer" />
     <div class="inline">
       <button id="dm-answer-btn" class="btn-sm">Submit</button>
       <button id="dm-back-btn" class="btn-sm">Back</button>
     </div>
-  `;
+  `);
   document.getElementById('dm-answer-btn').addEventListener('click', handleRecovery);
   document.getElementById('dm-back-btn').addEventListener('click', renderLoginForm);
 }
@@ -362,7 +358,6 @@ function openRecovery(){
 function handleRecovery(){
   const ans = document.getElementById('dm-answer').value.trim();
   if(ans === RECOVERY_ANSWER){
-    window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-dm-login' }));
     baseMessage('PIN: ' + DM_PIN);
   } else {
     baseMessage('Incorrect');
