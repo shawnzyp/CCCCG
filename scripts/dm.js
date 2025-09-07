@@ -164,12 +164,19 @@ async function revealShard(card){
 }
 
 function showDmToast(html){
-  dmToast.innerHTML = `${html}<button id="dm-toast-close" class="btn-sm">Close</button>`;
+  dmToast.innerHTML = html;
+  if(!dmToast.querySelector('#dm-toast-close')){
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'dm-toast-close';
+    closeBtn.className = 'btn-sm';
+    closeBtn.textContent = 'Close';
+    dmToast.appendChild(closeBtn);
+  }
   dmToast.hidden = false;
   dmToast.setAttribute('aria-hidden', 'false');
   requestAnimationFrame(() => dmToast.classList.add('show'));
   if(dmLink) dmLink.hidden = true;
-  document.getElementById('dm-toast-close').addEventListener('click', hideDmToast);
+  dmToast.querySelector('#dm-toast-close').addEventListener('click', hideDmToast);
 }
 function hideDmToast(){
   dmToast.classList.remove('show');
@@ -199,10 +206,11 @@ window.logDMAction = logDMAction;
 function renderLoginForm(){
   showDmToast(`
       <input id="dm-pin" type="password" inputmode="numeric" maxlength="4" pattern="\\d{4}" placeholder="PIN" />
-      <div class="inline">
+      <div class="dm-toast-buttons">
         <button id="dm-login-btn" class="btn-sm">Log In</button>
+        <button id="dm-recover-btn" class="btn-sm">Recover PIN</button>
+        <button id="dm-toast-close" class="btn-sm">Close</button>
       </div>
-      <button id="dm-recover-btn" class="btn-sm">Recover PIN</button>
   `);
   document.getElementById('dm-login-btn').addEventListener('click', handleLogin);
   document.getElementById('dm-recover-btn').addEventListener('click', openRecovery);
@@ -346,9 +354,10 @@ function openRecovery(){
   showDmToast(`
     <label for="dm-answer">Your First Date Anniversary</label>
     <input id="dm-answer" type="text" placeholder="Answer" />
-    <div class="inline">
+    <div class="dm-toast-buttons">
       <button id="dm-answer-btn" class="btn-sm">Submit</button>
       <button id="dm-back-btn" class="btn-sm">Back</button>
+      <button id="dm-toast-close" class="btn-sm">Close</button>
     </div>
   `);
   document.getElementById('dm-answer-btn').addEventListener('click', handleRecovery);
