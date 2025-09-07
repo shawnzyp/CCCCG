@@ -514,7 +514,7 @@ body.modal-open> :not(.overlay):not(#dm-login):not(#dm-toast){pointer-events:non
 .dm-login-btn::before{content:'DM';}
 .dm-login-btn[hidden]{display:none;}
 .dm-login-wrapper{position:relative;height:0;margin-bottom:20px;text-align:center;}
-#dm-login-link{position:absolute;left:50%;top:0;transform:translateX(-50%);width:80px;height:20px;opacity:0;border:none;background:none;}
+#dm-login-link{position:absolute;left:50%;top:0;transform:translateX(-50%);width:80px;height:20px;opacity:0;border:none;background:none;cursor:pointer;}
 #dm-toast{flex-direction:column;gap:6px;max-height:80vh;overflow:auto;left:72px;right:auto}
 #dm-toast::before{display:none}
 
