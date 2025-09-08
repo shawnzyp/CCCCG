@@ -819,11 +819,15 @@
     <header class="somf-dm__hdr">
       <h3>DM • Shards</h3>
       <div class="somf-dm__hdr-controls">
-        <label class="somf-switch"><input id="somfDM-live" type="checkbox" checked><span>Live</span></label>
-        <label class="somf-switch"><input id="somfDM-desktop" type="checkbox"><span>Desktop</span></label>
-        <label class="somf-switch"><input id="somfDM-playerCard" type="checkbox" checked><span>Reveal Shards</span><span id="somfDM-playerCard-state">On</span></label>
-        <button id="somfDM-refresh" class="somf-btn">Refresh</button>
-        <button id="somfDM-close" class="somf-btn somf-ghost">Close</button>
+        <div class="somf-dm__toggles">
+          <label class="somf-switch"><input id="somfDM-live" type="checkbox" checked><span>Live</span></label>
+          <label class="somf-switch"><input id="somfDM-desktop" type="checkbox"><span>Desktop</span></label>
+          <label class="somf-switch"><input id="somfDM-playerCard" type="checkbox" checked><span>Reveal Shards</span><span id="somfDM-playerCard-state">On</span></label>
+        </div>
+        <div class="somf-dm__actions">
+          <button id="somfDM-reset" class="somf-btn">Reset</button>
+          <button id="somfDM-close" class="somf-btn somf-ghost">Close</button>
+        </div>
       </div>
     </header>
 
