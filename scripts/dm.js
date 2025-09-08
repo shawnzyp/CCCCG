@@ -18,7 +18,7 @@ const shardToggleLabel = document.getElementById('dm-shard-label');
 const resolveTabBtns = document.querySelectorAll('#modal-shard-resolve .cc-tabs__nav button');
 
 const SHARD_KEY = 'ccShardEnabled';
-const NOTIFY_KEY = 'dmNotifications';
+const dmNotes = [];
 const DRAW_COUNT_KEY = 'ccShardPlayerDraws';
 const DRAW_LOCK_KEY = 'ccShardPlayerLocked';
 const CLOUD_SHARD_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardEnabled.json';
@@ -171,9 +171,7 @@ window.addEventListener('dm:notify', () => {
 });
 
 function logDMAction(text){
-  const arr = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
-  arr.push({ time: Date.now(), text });
-  localStorage.setItem(NOTIFY_KEY, JSON.stringify(arr));
+  dmNotes.push({ time: Date.now(), text });
   window.dispatchEvent(new CustomEvent('dm:notify', { detail: text }));
 }
 function escapeHtml(s){
@@ -219,7 +217,7 @@ function openDmTools(){
     openLogin();
     return;
   }
-  const notes = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
+  const notes = dmNotes;
   showDmToast(`
     <div class="dm-toast-buttons dm-tools-menu">
       <button id="ccShard-open" class="btn-sm">The Shards of Many Fates</button>
@@ -237,7 +235,7 @@ function openDmTools(){
 }
 
 function openNotifications(){
-  const notes = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
+  const notes = dmNotes;
   showDmToast(`
     <h3>Notifications</h3>
     <ol class="cc-list">${notes.map(n=>`<li><span class="muted">${new Date(n.time).toLocaleString()}</span> ${escapeHtml(n.text)}</li>`).reverse().join('')}</ol>
@@ -247,7 +245,7 @@ function openNotifications(){
     </div>
   `);
   document.getElementById('dm-clear-notes').addEventListener('click', ()=>{
-    localStorage.removeItem(NOTIFY_KEY);
+    dmNotes.length = 0;
     openNotifications();
   });
   document.getElementById('dm-back-btn').addEventListener('click', openDmTools);

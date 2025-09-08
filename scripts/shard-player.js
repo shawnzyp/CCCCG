@@ -41,13 +41,7 @@ window.addEventListener('storage', e=>{
 });
 
 function logDM(text){
-  if(typeof window.logDMAction === 'function'){
-    window.logDMAction(text);
-  } else {
-    const arr = JSON.parse(localStorage.getItem('dmNotifications') || '[]');
-    arr.push({ time: Date.now(), text });
-    localStorage.setItem('dmNotifications', JSON.stringify(arr));
-  }
+  window.dispatchEvent(new CustomEvent('dm:notify', { detail: text }));
 }
 
 async function drawShards(){

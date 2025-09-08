@@ -57,13 +57,7 @@
   const CLOUD_STATE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeck.json';
   const CLOUD_LOCK_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeckLock.json';
   function logDM(text){
-    if (typeof window.logDMAction === 'function') {
-      window.logDMAction(text);
-    } else {
-      const arr = JSON.parse(localStorage.getItem('dmNotifications') || '[]');
-      arr.push({ time: Date.now(), text });
-      localStorage.setItem('dmNotifications', JSON.stringify(arr));
-    }
+    window.dispatchEvent(new CustomEvent('dm:notify', { detail: text }));
   }
 
   function toast(msg){
