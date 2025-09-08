@@ -37,6 +37,16 @@ window.addEventListener('storage', e=>{
   }
 });
 
+function logDM(text){
+  if(typeof window.logDMAction === 'function'){
+    window.logDMAction(text);
+  } else {
+    const arr = JSON.parse(localStorage.getItem('dmNotifications') || '[]');
+    arr.push({ time: Date.now(), text });
+    localStorage.setItem('dmNotifications', JSON.stringify(arr));
+  }
+}
+
 async function drawShards(){
   if(localStorage.getItem(DRAW_LOCK_KEY) === '1'){
     message('Shard draws exhausted');
@@ -45,9 +55,16 @@ async function drawShards(){
   const count = Math.max(1, parseInt(shardCount.value,10)||1);
   const names = [];
   for(let i=0;i<count;i++){
-    const res = window.CCShard && typeof window.CCShard.draw === 'function'
-      ? await window.CCShard.draw(1)
-      : [];
+    let res = [];
+    try {
+      res = window.CCShard && typeof window.CCShard.draw === 'function'
+        ? await window.CCShard.draw(1)
+        : [];
+    } catch(err){
+      message('Shard draw failed');
+      logDM('Shard draw failed');
+      break;
+    }
     if(!res.length){
       message('No shards drawn');
       break;
@@ -60,18 +77,14 @@ async function drawShards(){
     shardResults.appendChild(li);
   }
   if(!names.length) return;
-  if(typeof window.logDMAction === 'function'){
-    window.logDMAction(`Player drew shard${names.length>1?'s':''}: ${names.join(', ')}`);
-  }
+  logDM(`Player drew shard${names.length>1?'s':''}: ${names.join(', ')}`);
   const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
   localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
   if(draws >= 2){
     localStorage.setItem(DRAW_LOCK_KEY,'1');
     updateVisibility();
     message('Shard draws exhausted');
-    if(typeof window.logDMAction === 'function'){
-      window.logDMAction('Player exhausted shard draws');
-    }
+    logDM('Player exhausted shard draws');
   }
 }
 
