@@ -633,8 +633,8 @@ const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const elTier = $('tier');
-const elCAPCheck = $('cap-check');
-const elCAPStatus = $('cap-status');
+const elSPCheck = $('sp-check');
+const elSPStatus = $('sp-status');
 const elDeathSaves = $('death-saves');
 
 let hpRolls = [];
@@ -643,18 +643,18 @@ if (elHPRoll) {
   if (initial) hpRolls = [initial];
 }
 
-if (elCAPCheck && elCAPStatus) {
-  elCAPCheck.addEventListener('change', () => {
-    if (elCAPCheck.checked) {
-      if (confirm('Use Cinematic Action Point?')) {
-        elCAPStatus.textContent = 'Used';
-        elCAPCheck.disabled = true;
+if (elSPCheck && elSPStatus) {
+  elSPCheck.addEventListener('change', () => {
+    if (elSPCheck.checked) {
+      if (confirm('Use Story Point?')) {
+        elSPStatus.textContent = 'Used';
+        elSPCheck.disabled = true;
       } else {
-        elCAPCheck.checked = false;
+        elSPCheck.checked = false;
       }
     } else {
       // Prevent clearing without long rest
-      elCAPCheck.checked = true;
+      elSPCheck.checked = true;
     }
   });
 }
@@ -914,8 +914,8 @@ $('long-rest').addEventListener('click', ()=>{
     cb.checked = false;
     cb.removeAttribute('checked');
   });
-  if (elCAPCheck) elCAPCheck.disabled = false;
-  if (elCAPStatus) elCAPStatus.textContent = 'Available';
+  if (elSPCheck) elSPCheck.disabled = false;
+  if (elSPStatus) elSPStatus.textContent = 'Available';
   activeStatuses.clear();
 });
 function renderHPRollList(){
