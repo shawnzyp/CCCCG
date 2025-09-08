@@ -375,7 +375,17 @@ function handleRecovery(){
 }
 
 if(dmBtn){
-  dmBtn.addEventListener('click', toggleDmTools);
+  dmBtn.addEventListener('click', e=>{
+    if(e){
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if(sessionStorage.getItem('dmLoggedIn') === '1'){
+      toggleDmTools();
+    } else {
+      openLogin();
+    }
+  });
 }
 if(dmLink){
   dmLink.addEventListener('click', openLogin);
