@@ -59,7 +59,7 @@ export function show(id) {
   lastFocus = document.activeElement;
     if (openModals === 0) {
       document.body.classList.add('modal-open');
-      qsa('body > :not(.overlay):not(#dm-login):not(#dm-toast)').forEach(e => e.setAttribute('inert', ''));
+      qsa('body > :not(.overlay)').forEach(e => e.setAttribute('inert', ''));
     }
   openModals++;
   el.style.display = 'flex';
@@ -91,6 +91,6 @@ export function hide(id) {
   openModals = Math.max(0, openModals - 1);
     if (openModals === 0) {
       document.body.classList.remove('modal-open');
-      qsa('body > :not(.overlay):not(#dm-login):not(#dm-toast)').forEach(e => e.removeAttribute('inert'));
+      qsa('body > :not(.overlay)').forEach(e => e.removeAttribute('inert'));
     }
 }

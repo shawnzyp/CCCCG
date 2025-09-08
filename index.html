@@ -77,15 +77,36 @@
 <main id="main">
   <!-- COMBAT -->
   <fieldset data-tab="combat" class="card">
-    <fieldset id="ccShard-player" class="card" hidden aria-hidden="true">
-      <legend>The Shards of Many Fates</legend>
-      <div class="grid shard-draw-grid">
-        <label for="ccShard-player-count">Shards</label>
-        <input id="ccShard-player-count" type="number" inputmode="numeric" min="1" value="1" />
-        <button id="ccShard-player-draw" type="button" class="btn-sm" disabled>Draw</button>
+    <section id="somf-panel" class="somf-card">
+      <h3 class="somf-title">The Shards of Many Fates</h3>
+      <div class="somf-row">
+        <label for="somf-count" class="somf-label">Shards</label>
+        <input id="somf-count" type="number" min="1" max="22" value="1" class="somf-input"/>
+        <button id="somf-draw" class="somf-btn somf-primary">Draw Shards</button>
       </div>
-      <ol id="ccShard-player-results" class="cc-list" aria-live="polite"></ol>
-    </fieldset>
+    </section>
+
+    <section id="somf-history" class="somf-card">
+      <div class="somf-history__row">
+        <h3 class="somf-title">Shard Draw History</h3>
+        <div class="somf-flex-spacer"></div>
+        <button id="somf-history-refresh" class="somf-btn">Refresh</button>
+      </div>
+
+      <div class="somf-history__stats">
+        <div class="somf-kv"><span class="somf-k">Total Draws</span><span id="somf-hist-total" class="somf-v">—</span></div>
+        <div class="somf-kv"><span class="somf-k">Remaining in Deck</span><span id="somf-hist-remaining" class="somf-v">—</span></div>
+        <div class="somf-kv"><span class="somf-k">Campaign</span><span id="somf-hist-campaign" class="somf-v">—</span></div>
+      </div>
+
+      <div class="somf-history__list">
+        <div class="somf-history__head">
+          <span>#</span><span>When</span><span>Token</span>
+        </div>
+        <ol id="somf-history-feed" class="somf-history__feed"></ol>
+      </div>
+    </section>
+
     <div class="grid grid-2 roll-flip-grid">
       <fieldset class="card">
         <legend>Dice Roll</legend>
@@ -780,154 +801,124 @@
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-shard-resolve" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <label class="cc-switch">
-      <input id="dm-shard-toggle" type="checkbox">
-      <span>Allow Shards</span>
-      <span id="dm-shard-label">Off</span>
-    </label>
-    <h3 id="shard-resolve-title">Resolve Shard</h3>
-    <div class="cc-tabs">
-      <nav class="cc-tabs__nav">
-        <button data-tab="card" class="active">Card</button>
-        <button data-tab="npcs">NPCs</button>
-      </nav>
-      <article class="cc-tabs__pane active" id="shard-resolve-card"></article>
-      <article class="cc-tabs__pane" id="shard-resolve-npcs"></article>
-    </div>
-    <div class="actions">
-      <button id="shard-resolve-complete" class="btn-sm">Mark Resolved</button>
-      <button id="shard-resolve-reset" class="btn-sm">Reset Shards</button>
-    </div>
-  </div>
-</div>
-
-<div class="overlay hidden" id="modal-shard-reset" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Reset Shards" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Reset Shards</h3>
-    <p>Shuffle all plates back into the deck and allow new draws?</p>
-    <div class="actions">
-      <button id="shard-reset-confirm" class="btn-sm">Reset</button>
-      <button class="btn-sm" data-close>Cancel</button>
-    </div>
-</div>
-</div>
-
-<div class="overlay hidden" id="modal-shard-reveal" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <h3 id="shard-reveal-name">Shard Drawn</h3>
-    <p id="shard-reveal-visual"></p>
-    <div class="actions">
-      <button id="shard-reveal-next" class="btn-sm">Close</button>
-    </div>
-  </div>
-</div>
-
-<!-- Shard of Many Fates -->
-<!-- Shard of Many Fates • Catalyst Core Add-on -->
-<section id="cc-shard" class="cc-deck hidden">
-      <header class="cc-deck__header">
-        <h2>The Shards of Many Fates</h2>
-        <div class="cc-deck__header-controls">
-          <button id="ccShard-showAll" class="cc-btn cc-btn--ghost">Card List</button>
-          <button id="ccShard-close" class="cc-btn cc-btn--ghost">Close</button>
-        </div>
-      </header>
-      <div class="cc-deck__main">
-        <div class="cc-deck__card">
-          <div id="ccShard-flash" class="cc-deck__flash"></div>
-          <div class="cc-deck__cardFront">
-            <div class="cc-deck__sigil">Ready</div>
-            <h3 id="ccShard-cardName">No plate drawn</h3>
-            <p id="ccShard-cardVisual" class="muted">Draw to reveal a fate.</p>
-
-            <div class="cc-tabs">
-              <nav class="cc-tabs__nav">
-                <button data-tab="effect" class="active">Effect</button>
-                <button data-tab="hooks">GM Hooks</button>
-                <button data-tab="resolution">Resolution</button>
-                <button data-tab="enemy">Enemy</button>
-                <button data-tab="rewards">Rewards</button>
-              </nav>
-              <article class="cc-tabs__pane active" id="ccShard-tab-effect"></article>
-              <article class="cc-tabs__pane" id="ccShard-tab-hooks"></article>
-              <article class="cc-tabs__pane" id="ccShard-tab-resolution"></article>
-              <article class="cc-tabs__pane" id="ccShard-tab-enemy"></article>
-              <article class="cc-tabs__pane" id="ccShard-tab-rewards"></article>
-            </div>
-
-            <div class="cc-deck__actions">
-              <button id="ccShard-capCancel" class="cc-btn cc-btn--danger" disabled>Use CAP to cancel</button>
-              <button id="ccShard-complete" class="cc-btn cc-btn--primary" disabled>Resolve Plate</button>
-            </div>
-          </div>
-        </div>
-
-        <aside class="cc-deck__sidebar">
-          <h4>Draw Log</h4>
-          <ol id="ccShard-log" class="cc-list"></ol>
-
-          <h4>Stat Blocks</h4>
-          <select id="ccShard-statSelect">
-            <option value="">Select stat block</option>
-            <option value="H1">Herald of Morvox, Echo Warden (H1)</option>
-            <option value="G1">Greyline Assault Cell (G1)</option>
-            <option value="C1">Conclave Trial Agent, Blade of Accession (C1)</option>
-            <option value="E1">Echo Operative, Tier 3 Ally (E1)</option>
-            <option value="B1">Betrayer Template (B1)</option>
-          </select>
-          <button id="ccShard-openNPC" class="cc-btn cc-btn--ghost" disabled>Open NPC Sheet</button>
-          <pre id="ccShard-statView" class="cc-code"></pre>
-        </aside>
+<div id="somf-modal" class="somf-modal" hidden>
+  <div class="somf-modal__backdrop"></div>
+  <div class="somf-modal__card" role="dialog" aria-modal="true" aria-labelledby="somf-cur-name">
+    <header class="somf-modal__hdr">
+      <div class="somf-badge">Shard</div>
+      <button id="somf-close" class="somf-btn somf-ghost" aria-label="Close">Close</button>
+    </header>
+    <div class="somf-modal__body">
+      <h4 id="somf-cur-name" class="somf-cur-name">—</h4>
+      <p id="somf-cur-visual" class="somf-cur-visual somf-muted">—</p>
+      <div>
+        <h5 class="somf-subttl">Effect</h5>
+        <ul id="somf-cur-effect" class="somf-list"></ul>
       </div>
-    </section>
-
-    <div id="ccShard-cardList" class="cc-cardList hidden">
-      <div class="cc-cardList__body">
-        <button id="ccShard-cardList-close" class="cc-btn cc-btn--ghost">Close</button>
-        <ol id="ccShard-cardList-ol" class="cc-list"></ol>
-      </div>
+      <div id="somf-progress" class="somf-progress">Shard <span id="somf-idx">0</span>/<span id="somf-total">0</span></div>
     </div>
+    <footer class="somf-modal__ftr">
+      <label class="somf-checkbox">
+        <input id="somf-resolved" type="checkbox"> <span>Mark this shard as resolved</span>
+      </label>
+      <div class="somf-flex-spacer"></div>
+      <button id="somf-next" class="somf-btn somf-primary" disabled>Next</button>
+    </footer>
+</div>
+</div>
 
-    <div id="ccShard-npcModal" class="cc-npcModal hidden">
-      <div class="cc-npcModal__inner">
-        <h3 id="ccShard-npcName"></h3>
-        <div class="cc-npcStats">
-          <label>HP <input id="ccShard-npcHP" type="number" min="0"></label>
-          <label>SP <input id="ccShard-npcSP" type="number" min="0"></label>
-        </div>
-        <div id="ccShard-npcDetails" class="cc-npcDetails">
-          <div id="ccShard-npcAbilities"></div>
-          <div id="ccShard-npcSkills"></div>
-          <div id="ccShard-npcGear"></div>
-          <p id="ccShard-npcXP" class="muted"></p>
-        </div>
-        <div id="ccShard-npcActions" class="cc-npcModal__actions"></div>
-        <pre id="ccShard-npcLog" class="cc-code"></pre>
-        <button id="ccShard-npcClose" class="cc-btn cc-btn--ghost">Close</button>
-      </div>
-    </div>
-
-
-  <footer>
+<footer>
   <p>When the whole world tells you to move, it's your job to plant yourself like a tree by the river of truth and tell the whole world - no, YOU move.</p>
   <p>Product of XoVrom industries ® 2025</p>
   <div class="dm-login-wrapper">
     <button id="dm-login-link" type="button" aria-label="DM Login"></button>
   </div>
 </footer>
+
 <button id="dm-login" class="dm-login-btn" aria-label="DM Tools" hidden></button>
+<div id="dm-tools-menu" class="dm-tools-menu" hidden>
+  <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
+</div>
+
+<button id="somfDM-open" class="somf-btn" hidden>Open DM Tool</button>
+
+<section id="somf-dm" class="somf-dm hidden">
+  <header class="somf-dm__hdr">
+    <h3>DM • Shards of Many Fates</h3>
+    <div class="somf-dm__hdr-controls">
+      <label class="somf-switch"><input id="somfDM-live" type="checkbox" checked><span>Live</span></label>
+      <label class="somf-switch"><input id="somfDM-sfx" type="checkbox" checked><span>Sound</span></label>
+      <label class="somf-switch"><input id="somfDM-desktop" type="checkbox"><span>Desktop</span></label>
+      <button id="somfDM-refresh" class="somf-btn">Refresh</button>
+      <button id="somfDM-close" class="somf-btn somf-ghost">Close</button>
+    </div>
+  </header>
+
+  <nav class="somf-dm__tabs">
+    <button data-tab="cards" class="active">Card List</button>
+    <button data-tab="resolve">Resolve</button>
+    <button data-tab="npcs">NPCs</button>
+  </nav>
+
+  <!-- Card List -->
+  <section class="somf-dm__tab active" id="somfDM-tab-cards">
+    <div class="somf-dm__grid" id="somfDM-cards"></div>
+  </section>
+
+  <!-- Resolve -->
+  <section class="somf-dm__tab" id="somfDM-tab-resolve">
+    <div class="somf-dm__row">
+      <div class="somf-kv"><span class="somf-k">Campaign</span><span id="somfDM-campaign" class="somf-v">—</span></div>
+      <div class="somf-kv"><span class="somf-k">Draws (total)</span><span id="somfDM-total" class="somf-v">—</span></div>
+      <div class="somf-kv"><span class="somf-k">Remaining</span><span id="somfDM-remaining" class="somf-v">—</span></div>
+    </div>
+
+    <div class="somf-dm__resolve">
+      <aside class="somf-dm__left">
+        <h4>Incoming Draws</h4>
+        <ol id="somfDM-incoming" class="somf-dm__list"></ol>
+      </aside>
+      <main class="somf-dm__main">
+        <h4>Selected Draw</h4>
+        <div id="somfDM-drawView" class="somf-dm__card"></div>
+
+        <div class="somf-dm__subcard" id="somfDM-seedsBox">
+          <h5>Scene Seeds & DCs</h5>
+          <div id="somfDM-seeds" class="somf-seeds"></div>
+        </div>
+
+        <div class="somf-dm__actions">
+          <button id="somfDM-spawnNPC" class="somf-btn" disabled>Spawn Related NPC</button>
+          <button id="somfDM-markResolved" class="somf-btn somf-primary" disabled>Mark Resolved</button>
+        </div>
+
+        <div class="somf-dm__notes">
+          <label>Notes</label>
+          <textarea id="somfDM-notes" rows="4" placeholder="Outcome, changes, consequences…"></textarea>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- NPCs -->
+  <section class="somf-dm__tab" id="somfDM-tab-npcs">
+    <div class="somf-dm__npcs">
+      <aside>
+        <h4>Templates (Allies & Enemies)</h4>
+        <ul id="somfDM-npcTemplates" class="somf-dm__list"></ul>
+      </aside>
+      <main>
+        <h4>Active NPCs (Spawned)</h4>
+        <div id="somfDM-activeNPCs" class="somf-dm__stack"></div>
+      </main>
+    </div>
+  </section>
+</section>
+
+<!-- Toasts + Tiny Ping -->
+<div id="somfDM-toasts" class="somf-dm__toasts"></div>
+<audio id="somfDM-ping" preload="auto"></audio>
+
 <div id="down-animation" aria-hidden="true" hidden>⚠️</div>
 <div id="death-animation" aria-hidden="true" hidden>💀</div>
 <div id="damage-animation" aria-hidden="true" hidden></div>
@@ -936,12 +927,11 @@
 <div id="coin-animation" aria-hidden="true" hidden></div>
 <div id="sp-animation" aria-hidden="true" hidden></div>
 <div id="load-animation" aria-hidden="true" hidden>📂</div>
-  <div class="toast" id="dm-toast" role="dialog" aria-hidden="true" hidden></div>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="scripts/main.js"></script>
 <script type="module" src="scripts/dm.js"></script>
-<script type="module" src="scripts/shard-player.js"></script>
 <script src="shard-of-many-fates.js"></script>
+<script src="shard-of-many-fates-dm.js"></script>
 
 </body>
 </html>
