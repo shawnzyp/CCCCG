@@ -704,41 +704,41 @@ select[required]:valid{
 .cc-tabs__pane.active { display:block; }
 
 /* The Shards of Many Fates — minimal UI */
-.somf-card { border:1px solid #1b2532; background:#0c0f13; color:#e6f1ff; border-radius:8px; padding:12px; max-width:560px }
+.somf-card { border:1px solid var(--line); background:var(--surface-2); color:var(--text); border-radius:var(--radius); padding:12px; max-width:560px }
 .somf-title { margin:0 0 10px 0; font-size:18px }
 .somf-row { display:flex; gap:8px; align-items:center }
-.somf-label { min-width:58px; color:#c3d6ea }
-.somf-input { width:80px; padding:6px 8px; border-radius:6px; border:1px solid #253247; background:#0f1420; color:#e6f1ff }
-.somf-btn { padding:8px 12px; border-radius:6px; border:1px solid #253247; background:#121821; color:#e6f1ff; cursor:pointer }
-.somf-primary { background:#0b2a3a; border-color:#104a64 }
-.somf-ghost { background:transparent }
-.somf-muted { opacity:.85 }
+.somf-label { min-width:58px; color:var(--muted) }
+.somf-input { width:80px; padding:6px 8px; border-radius:var(--radius); border:1px solid var(--line); background:var(--surface); color:var(--text) }
+.somf-btn { padding:8px 12px; border-radius:var(--radius); border:1px solid var(--line); background:var(--surface); color:var(--text); cursor:pointer }
+.somf-primary { background:var(--accent); border-color:var(--accent-2); color:var(--text-on-accent) }
+.somf-ghost { background:transparent; color:var(--text) }
+.somf-muted { color:var(--muted) }
 .somf-checkbox { display:flex; align-items:center; gap:8px; user-select:none }
 
 .somf-modal[hidden] { display:none }
 .somf-modal { position:fixed; inset:0; z-index:9999; display:grid; place-items:center }
-.somf-modal__backdrop { position:absolute; inset:0; background:#000a }
-.somf-modal__card { position:relative; background:#0c1017; border:1px solid #1b2532; color:#e6f1ff; border-radius:10px; width:min(640px, 96vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 10px 30px #0008 }
-.somf-modal__hdr, .somf-modal__ftr { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #1b2532 }
-.somf-modal__ftr { border-top:1px solid #1b2532; border-bottom:none }
+.somf-modal__backdrop { position:absolute; inset:0; background:rgba(0,0,0,.5) }
+.somf-modal__card { position:relative; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:var(--radius); width:min(640px, 96vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:var(--shadow) }
+.somf-modal__hdr, .somf-modal__ftr { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line) }
+.somf-modal__ftr { border-top:1px solid var(--line); border-bottom:none }
 .somf-modal__body { padding:12px; overflow:auto }
-.somf-badge { font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.9 }
-.somf-subttl { margin:10px 0 6px 0; font-size:13px; color:#cde6ff }
+.somf-badge { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); opacity:.9 }
+.somf-subttl { margin:10px 0 6px 0; font-size:13px; color:var(--muted) }
 .somf-list { margin:0; padding-left:18px }
-.somf-progress { margin-top:12px; font-size:12px; color:#a9c3dd }
+.somf-progress { margin-top:12px; font-size:12px; color:var(--muted) }
 .somf-flex-spacer { flex:1 }
 
 /* History Viewer (No Spoilers) */
 .somf-history__row { display:flex; align-items:center; gap:8px; margin-bottom:8px }
 .somf-history__stats { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:10px }
-.somf-kv { display:flex; flex-direction:column; border:1px solid #1b2532; border-radius:8px; padding:8px; background:#0c1017 }
-.somf-k { font-size:12px; color:#a9c3dd }
-.somf-v { font-size:16px; color:#e6f1ff }
-.somf-history__list { border:1px solid #1b2532; border-radius:8px; overflow:hidden }
-.somf-history__head { display:grid; grid-template-columns: 60px 1fr 160px; gap:8px; padding:8px 10px; background:#0b1119; color:#cfe7ff; font-size:12px }
+.somf-kv { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--radius); padding:8px; background:var(--surface) }
+.somf-k { font-size:12px; color:var(--muted) }
+.somf-v { font-size:16px; color:var(--text) }
+.somf-history__list { border:1px solid var(--line); border-radius:var(--radius); overflow:hidden }
+.somf-history__head { display:grid; grid-template-columns: 60px 1fr 160px; gap:8px; padding:8px 10px; background:var(--surface-2); color:var(--text); font-size:12px }
 .somf-history__feed { margin:0; padding:0; list-style:none; max-height:260px; overflow:auto }
-.somf-history__feed li { display:grid; grid-template-columns: 60px 1fr 160px; gap:8px; padding:8px 10px; border-top:1px solid #1b2532 }
-.somf-hash { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; color:#bfe2ff }
+.somf-history__feed li { display:grid; grid-template-columns: 60px 1fr 160px; gap:8px; padding:8px 10px; border-top:1px solid var(--line) }
+.somf-hash { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; color:var(--accent) }
 
 /* DM login & tools menu */
 .dm-login-btn{position:fixed;bottom:33px;left:18px;width:44px;height:44px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--accent);border-radius:50%;background:var(--surface);box-shadow:var(--shadow);cursor:pointer;font-weight:700}
@@ -752,7 +752,7 @@ select[required]:valid{
 .dm-tools-menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 
 /* DM Tool (Shards of Many Fates) */
-.somf-dm.hidden{display:none}
+.somf-dm[hidden]{display:none}
 .somf-dm{background:#0c0f13;color:#e6f1ff;border:1px solid #1b2532;border-radius:10px;padding:12px;margin:12px 0}
 .somf-dm__hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .somf-dm__hdr-controls{display:flex;gap:8px;align-items:center}
