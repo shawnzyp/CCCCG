@@ -1,316 +1,496 @@
-/* === Shards of Many Fates minimal module === */
-/* === CONFIG you can tweak === */
-const SOMF_CAMPAIGN_ID = "ccampaign-001";   // set per table/campaign
-// After your Firebase init, call: SOMF.setFirebase(firebase.database());
-
-/* === Shard data (player-facing: name, visual, effect summary) === */
-const SOMF_PLATES = [
-  {id:'TRIBUNAL',     name:'The Tribunal',        visual:'A halo of alien law glyphs inverts.', effect:['Shift one step on Moral or Discipline axis','Immediate faction reaction','1-time alignment perk for 3 sessions']},
-  {id:'METEOR',       name:'The Meteor',          visual:'A burning shard fractures into your nemesis sigil.', effect:['Solo-next major enemy to ascend one Hero Tier','Fail: lose 1 rep tier with a watching faction']},
-  {id:'NULL_VAULT',   name:'The Null Vault',      visual:'The floor tears like static; a doorframe with no door opens.', effect:['You vanish to Morvox’s Echo Pit','Team must mount a rescue']},
-  {id:'SHEPHERDS_MASK',name:'The Shepherd’s Mask',visual:'A porcelain mask melts into black tracer lines.', effect:['Curse: −2 on all saves; nat 20 rolls twice, keep lower','Lift via Herald duel or Conclave starlight']},
-  {id:'REDACTION',    name:'The Redaction',       visual:'Frames of your past appear; a black bar erases one.', effect:['Erase one event or outcome; rewrite one consequence','Another thread becomes harder']},
-  {id:'BROADCAST',    name:'The Broadcast',       visual:'Billboards flip to your face marked TRAITOR or MONSTER.', effect:['Gain a powerful pursuing enemy']},
-  {id:'FRAGMENT',     name:'The Fragment',        visual:'A cracked shard refracts you into a caricature.', effect:['Lose 1d4 CAP this arc','Must draw one extra shard']},
-  {id:'CACHE',        name:'The Catalyst Cache',  visual:'A humming shard-case phases in.', effect:['Gain 1d6 Fragments + one Rare item','Cache is watermarked (tracker)']},
-  {id:'STATIC',       name:'The Static',          visual:'Vision pixelates; thoughts stutter.', effect:['Permanent −1d4 INT','Lose a language/tech specialty until retrained']},
-  {id:'TRICKSTER',    name:'The Trickster Signal',visual:'Confetti of system alerts rains down.', effect:['Choose 10,000 credits OR draw two more','If drawn twice ever: a contact is an O.M.N.I. sleeper']},
-  {id:'HELIX_CODE',   name:'The Helix Code',      visual:'A living circuitry key slots into your kit.', effect:['Gain Legendary class item','Backdoor ping reveals location on first combat use']},
-  {id:'ECHO_OPERATIVE',name:'The Echo Operative', visual:'A soldier steps out of your shadow in inverted colors.', effect:['Gain a loyal Tier 3 ally mirroring one tactic']},
-  {id:'DREAM',        name:'The Dream',           visual:'A shardlight crescent drips motes into your hands.', effect:['Gain 1d3 Resonance Point wishes']},
-  {id:'DEFECTOR',     name:'The Defector',        visual:'Your team appears; one face shatters.', effect:['One ally/contact will betray you at a pivotal moment']},
-  {id:'COLLAPSE',     name:'The Collapse',        visual:'Homes, lockers, and accounts implode into cubes.', effect:['Lose civilian assets','Gain one-scene Renegade surge (+1d6)']},
-  {id:'WRAITH',       name:'The Wraith',          visual:'A skeletal silhouette with shardlight eyes exhales frost.', effect:['A relentless hunter pursues you until slain']},
-  {id:'ASCENDANT',    name:'The Ascendant',       visual:'A seven-point star embeds in your sternum.', effect:['+2 to one ability','+1d4 free once in each of next two encounters']},
-  {id:'HALO',         name:'The Halo',            visual:'A rotating shard halo casts your emblem.', effect:['Gain Elite/Legendary artifact','+1d4 CAP this arc']},
-  {id:'SILENCE_BLOOM',name:'The Silence Bloom',   visual:'Your gear dissolves into black petals.', effect:['All carried gear erased except bonded artifacts and fragments']},
-  {id:'VIGIL',        name:'The Vigil',           visual:'A city district lifts into your palm as a sigil.', effect:['Gain district/safehouse/post; set one team policy there']},
-  {id:'ORACLE',       name:'The Oracle',          visual:'A sphere of light shows a single truth.', effect:['Ask one specific campaign question']},
-  {id:'SHEPHERDS_THREAD', name:'The Shepherd’s Thread', visual:'A black filament tethers your chest to darkness.', effect:['Soul tether to Morvox; periodic WIS save or lose action','Sever via Null Vault or Conclave Rite']},
-];
-
-/* === Internals === */
-const $ = sel => document.querySelector(sel);
-const SOMF_KEYS = {
-  localDeck: (cid)=>`somf_deck__${cid}`,
-  localAudit: (cid)=>`somf_audit__${cid}`
-};
-let RTDB = null; // set via SOMF.setFirebase()
-const DECK_PATH = (cid)=>`somf/${cid}/deck`;
-const AUDIT_PATH = (cid)=>`somf/${cid}/audits`;
-
-// cryptographically strong [0, max)
-function cryptoInt(max){
-  if (window.crypto?.getRandomValues) {
-    const arr = new Uint32Array(1);
-    window.crypto.getRandomValues(arr);
-    return Math.floor((arr[0] / 2**32) * max);
-  }
-  return Math.floor(Math.random()*max);
-}
-
-// Local deck helpers (fallback if no RTDB)
-function getLocalDeck(cid){
-  const raw = localStorage.getItem(SOMF_KEYS.localDeck(cid));
-  return raw ? JSON.parse(raw) : null;
-}
-function setLocalDeck(cid, deck){
-  localStorage.setItem(SOMF_KEYS.localDeck(cid), JSON.stringify(deck));
-}
-function ensureLocalDeck(cid){
-  let deck = getLocalDeck(cid);
-  if (!deck || !Array.isArray(deck) || deck.length===0){
-    deck = SOMF_PLATES.map(p=>p.id);
-    setLocalDeck(cid, deck);
-  }
-  return deck;
-}
-function localDrawOne(cid){
-  const deck = ensureLocalDeck(cid);
-  const idx = cryptoInt(deck.length);
-  const [id] = deck.splice(idx,1);
-  setLocalDeck(cid, deck);
-  auditLocal(cid, id);
-  return id;
-}
-function auditLocal(cid, id){
-  const key = SOMF_KEYS.localAudit(cid);
-  const raw = localStorage.getItem(key);
-  const arr = raw ? JSON.parse(raw) : [];
-  arr.unshift({id, ts: Date.now()});
-  localStorage.setItem(key, JSON.stringify(arr));
-}
-
-// RTDB helpers
-async function rtdbInitDeckIfMissing(cid){
-  const ref = RTDB.ref(DECK_PATH(cid));
-  const snap = await ref.get();
-  if (!snap.exists()) {
-    const all = SOMF_PLATES.map(p=>p.id);
-    await ref.set(all);
-    return all;
-  }
-  return snap.val();
-}
-async function rtdbDrawOne(cid){
-  const deckRef = RTDB.ref(DECK_PATH(cid));
-  let drawnId = null;
-  await deckRef.transaction(current => {
-    let cur = current;
-    if (!Array.isArray(cur) || cur.length===0){
-      cur = SOMF_PLATES.map(p=>p.id); // auto-reshuffle when empty
-    }
-    const idx = cryptoInt(cur.length);
-    drawnId = cur[idx];
-    const next = cur.slice(0, idx).concat(cur.slice(idx+1));
-    return next;
-  }, undefined, false);
-  // audit
-  await RTDB.ref(AUDIT_PATH(cid)).push({ id: drawnId, ts: RTDB.ServerValue.TIMESTAMP });
-  return drawnId;
-}
-
-/* === UI logic === */
-const ui = {
-  count: $('#somf-count'),
-  drawBtn: $('#somf-draw'),
-  modal: $('#somf-modal'),
-  close: $('#somf-close'),
-  resolved: $('#somf-resolved'),
-  next: $('#somf-next'),
-  curName: $('#somf-cur-name'),
-  curVisual: $('#somf-cur-visual'),
-  curEffect: $('#somf-cur-effect'),
-  idx: $('#somf-idx'),
-  total: $('#somf-total'),
-};
-
-let session = { queue: [], index: 0, campaignId: SOMF_CAMPAIGN_ID };
-
-function openModal(){ ui.modal.hidden = false; ui.resolved.checked = false; ui.next.disabled = true; }
-function closeModal(){ ui.modal.hidden = true; }
-
-function renderCurrent(){
-  const i = session.index;
-  const total = session.queue.length;
-  ui.idx.textContent = String(i+1);
-  ui.total.textContent = String(total);
-  const plate = session.queue[i];
-  ui.curName.textContent = plate.name;
-  ui.curVisual.textContent = plate.visual;
-  ui.curEffect.innerHTML = plate.effect.map(e=>`<li>${escapeHtml(e)}</li>`).join('');
-  ui.resolved.checked = false;
-  ui.next.disabled = true;
-}
-
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
-
-/* === Draw flow === */
-async function drawFlow(){
-  const n = Math.max(1, Math.min(22, +ui.count.value || 1));
-
-  if (!confirm('The Fates are fickle, are you sure you wish to draw from the Shards?')) return;
-  if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
-
-  // Build queue of N unique shard objects via cloud (preferred) or local fallback
-  const ids = [];
-  for (let k=0; k<n; k++){
-    const id = RTDB ? await rtdbDrawOne(session.campaignId) : localDrawOne(session.campaignId);
-    ids.push(id);
-  }
-  session.queue = ids.map(id => SOMF_PLATES.find(p=>p.id===id));
-  session.index = 0;
-
-  openModal();
-  renderCurrent();
-}
-
-/* === Wire events === */
-ui.drawBtn.addEventListener('click', async () => {
-  try {
-    if (RTDB) await rtdbInitDeckIfMissing(session.campaignId);
-    await drawFlow();
-  } catch (e) {
-    alert('Error drawing shards. Check your connection and Firebase configuration.');
-    console.error(e);
-  }
-});
-ui.close.addEventListener('click', closeModal);
-ui.resolved.addEventListener('change', ()=> { ui.next.disabled = !ui.resolved.checked; });
-ui.next.addEventListener('click', ()=>{
-  if (!ui.resolved.checked) return;
-  if (session.index < session.queue.length - 1){
-    session.index += 1; renderCurrent();
-  } else {
-    closeModal();
-  }
-});
-
-/* === Public API === */
-window.SOMF = {
-  setCampaignId: (id)=> { session.campaignId = id || SOMF_CAMPAIGN_ID; },
-  setFirebase: (db)=> { RTDB = db || null; },
-};
-
-/* === History viewer (No spoilers) === */
+/* =========================================================================
+   SHARED MINIMAL RUNTIME
+   - Optional Firebase RTDB for shared deck + notices
+   - LocalStorage fallback for solo/offline testing
+   ========================================================================= */
 (function(){
-  const $ = (s)=>document.querySelector(s);
-  const SOMF_HISTORY_MAX = 100;
+  const $ = s=>document.querySelector(s);
+  const $$ = s=>Array.from(document.querySelectorAll(s));
 
-  // Reuse campaign & RTDB from SOMF public API if present
-  function getCampaignId(){ return (window.SOMF?._getCampaignId?.() || window.SOMF_CAMPAIGN_ID); }
-  function getRTDB(){ return window.SOMF?._getFirebase?.() || null; }
-
-  // LocalStorage keys (same scheme as the main module)
-  const keys = {
-    deck: (cid)=>`somf_deck__${cid}`,
-    audit: (cid)=>`somf_audit__${cid}`
+  // Public hook for your app:
+  window.SOMF_MIN = {
+    setFirebase: (db)=> { window._somf_db = db || null; },
+    setCampaignId: (id)=> { window._somf_cid = id || 'ccampaign-001'; }
   };
 
-  // Hash an internal id to a short, non-reversible token (no spoilers)
-  async function tokenize(str){
-    // Use subtle crypto if available; fallback to a quick non-crypto hash
-    if (crypto?.subtle) {
-      const enc = new TextEncoder().encode(str);
-      const buf = await crypto.subtle.digest('SHA-256', enc);
-      const bytes = Array.from(new Uint8Array(buf));
-      return bytes.slice(0,6).map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase(); // 12 hex chars
-    } else {
-      let h=2166136261>>>0;
-      for (let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
-      return (h>>>0).toString(16).toUpperCase().padStart(8,'0');
+  const PLATES = [
+    {id:'TRIBUNAL',name:'The Tribunal',visual:'Alien law glyphs invert.',effect:['Shift alignment axis','Faction reaction','1-time perk (3 sessions)']},
+    {id:'METEOR',name:'The Meteor',visual:'Burning shard becomes nemesis sigil.',effect:['Solo next major foe to ascend','Fail: -1 rep with a watcher']},
+    {id:'NULL_VAULT',name:'The Null Vault',visual:'Floor tears as static; door with no door.',effect:['You vanish to Echo Pit','Team must rescue']},
+    {id:'SHEPHERDS_MASK',name:'The Shepherd’s Mask',visual:'Porcelain mask melts to black lines.',effect:['Curse: −2 all saves; nat20 rolls twice (lower)']},
+    {id:'REDACTION',name:'The Redaction',visual:'A memory frame is black-barred.',effect:['Erase 1 event/outcome; rewrite 1 consequence','Another thread gets harder']},
+    {id:'BROADCAST',name:'The Broadcast',visual:'Billboards: TRAITOR / MONSTER.',effect:['Gain a powerful pursuing enemy']},
+    {id:'FRAGMENT',name:'The Fragment',visual:'Cracked shard; clumsy caricatures.',effect:['Lose 1d4 CAP this arc','Must draw one extra shard']},
+    {id:'CACHE',name:'The Catalyst Cache',visual:'Humming case phases in.',effect:['+1d6 Fragments + 1 Rare item','Watermarked tracker']},
+    {id:'STATIC',name:'The Static',visual:'Vision pixelates.',effect:['Permanent −1d4 INT','Lose a language/specialty until retrained']},
+    {id:'TRICKSTER',name:'The Trickster Signal',visual:'Confetti of alerts.',effect:['10,000 cr OR draw two more','If drawn twice: sleeper agent reveal']},
+    {id:'HELIX_CODE',name:'The Helix Code',visual:'Living key slots into gear.',effect:['Legendary item','Backdoor ping on first use']},
+    {id:'ECHO_OPERATIVE',name:'The Echo Operative',visual:'A soldier steps out of your shadow.',effect:['Loyal Tier 3 ally (mirrors a tactic)']},
+    {id:'DREAM',name:'The Dream',visual:'Shardlight crescent drips motes.',effect:['1d3 RP wishes (each use adds Heat)']},
+    {id:'DEFECTOR',name:'The Defector',visual:'Team shown; one face shatters.',effect:['An ally/contact betrays at a key moment']},
+    {id:'COLLAPSE',name:'The Collapse',visual:'Homes & accounts implode.',effect:['Lose civilian assets','Gain one-scene Renegade surge (+1d6)']},
+    {id:'WRAITH',name:'The Wraith',visual:'Skeletal silhouette, frosted breath.',effect:['Relentless hunter pursues until slain']},
+    {id:'ASCENDANT',name:'The Ascendant',visual:'Seven-point star in sternum.',effect:['+2 to one ability','+1d4 once in each of next two encounters']},
+    {id:'HALO',name:'The Halo',visual:'Rotating shard halo.',effect:['Elite/Legendary artifact','+1d4 CAP this arc']},
+    {id:'SILENCE_BLOOM',name:'The Silence Bloom',visual:'Gear dissolves into black petals.',effect:['All carried gear erased except bonded & fragments']},
+    {id:'VIGIL',name:'The Vigil',visual:'District sigil in your palm.',effect:['Claim a district/post; set one policy there']},
+    {id:'ORACLE',name:'The Oracle',visual:'A sphere reveals one truth.',effect:['Ask one specific campaign question']},
+    {id:'SHEPHERDS_THREAD',name:'The Shepherd’s Thread',visual:'Black filament tethers you.',effect:['Soul tether to Morvox; periodic WIS save or lose action']},
+  ];
+  const plateById = Object.fromEntries(PLATES.map(p=>[p.id,p]));
+
+  /* ---------- Helpers ---------- */
+  const db = ()=> window._somf_db || null;
+  const CID = ()=> window._somf_cid || 'ccampaign-001';
+  const path = {
+    deck: cid=>`somf/${cid}/deck`,
+    audits: cid=>`somf/${cid}/audits`,
+    notices: cid=>`somf/${cid}/notices`,
+    resolutions: cid=>`somf/${cid}/resolutions`,
+    npcs: cid=>`somf/${cid}/active_npcs`,
+    hidden: cid=>`somf/${cid}/hidden`,
+  };
+  const LSK = {
+    deck: cid=>`somf_deck__${cid}`,
+    audits: cid=>`somf_audit__${cid}`,
+    notices: cid=>`somf_notices__${cid}`,
+    resolutions: cid=>`somf_resolutions__${cid}`,
+    npcs: cid=>`somf_active_npcs__${cid}`,
+    lastNotice: cid=>`somf_last_notice__${cid}`,
+    hidden: cid=>`somf_hidden__${cid}`,
+  };
+  const getLocal = k => { const r=localStorage.getItem(k); return r? JSON.parse(r): null; };
+  const setLocal = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
+
+  function cryptoInt(max){
+    if (crypto?.getRandomValues){
+      const a=new Uint32Array(1); crypto.getRandomValues(a);
+      return Math.floor((a[0]/2**32)*max);
     }
+    return Math.floor(Math.random()*max);
+  }
+  function ensureLocalDeck(){
+    const cid = CID(); let d = getLocal(LSK.deck(cid));
+    if (!Array.isArray(d) || !d.length){ d = PLATES.map(p=>p.id); setLocal(LSK.deck(cid), d); }
+    return d;
+  }
+  function localDrawOne(){
+    const cid = CID(); const d = ensureLocalDeck();
+    const idx = cryptoInt(d.length);
+    const [id] = d.splice(idx,1);
+    setLocal(LSK.deck(cid), d);
+    const a = getLocal(LSK.audits(cid))||[]; a.unshift({id, ts:Date.now()}); setLocal(LSK.audits(cid), a);
+    return id;
   }
 
-  function fmtWhen(ts){
-    const d = new Date(ts);
-    const now = Date.now();
-    const diff = Math.max(0, now - d.getTime());
-    const mins = Math.floor(diff/60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins/60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs/24);
-    if (days < 7) return `${days}d ago`;
-    return d.toLocaleString();
+  async function rtdbInitDeckIfMissing(){
+    const deckRef = db().ref(path.deck(CID()));
+    const snap = await deckRef.get();
+    if (!snap.exists()) await deckRef.set(PLATES.map(p=>p.id));
+  }
+  async function rtdbDrawOne(){
+    const deckRef = db().ref(path.deck(CID()));
+    let out = null;
+    await deckRef.transaction(cur=>{
+      let arr = Array.isArray(cur)? cur.slice(): [];
+      if (!arr.length) arr = PLATES.map(p=>p.id);
+      const idx = cryptoInt(arr.length);
+      out = arr[idx]; arr.splice(idx,1);
+      return arr;
+    });
+    await db().ref(path.audits(CID())).push({ id: out, ts: db().ServerValue.TIMESTAMP });
+    return out;
   }
 
-  async function loadDeckCounts(cid, rtdb){
-    if (rtdb){
-      const deckSnap = await rtdb.ref(`somf/${cid}/deck`).get();
-      const deck = deckSnap.exists() ? deckSnap.val() : null;
-      const auditsSnap = await rtdb.ref(`somf/${cid}/audits`).get();
-      const audits = auditsSnap.exists() ? auditsSnap.size || Object.keys(auditsSnap.val()).length : 0;
-      const remaining = Array.isArray(deck) ? deck.length : 22;
-      return { total: audits, remaining };
+  /* ======================================================================
+     PLAYER FLOW (draw, double confirm, reveal one-by-one, resolved gate)
+     ====================================================================== */
+  const PUI = {
+    count: $('#somf-min-count'),
+    drawBtn: $('#somf-min-draw'),
+    modal: $('#somf-min-modal'),
+    close: $('#somf-min-close'),
+    name: $('#somf-min-name'),
+    visual: $('#somf-min-visual'),
+    effect: $('#somf-min-effect'),
+    idx: $('#somf-min-idx'),
+    total: $('#somf-min-total'),
+    resolved: $('#somf-min-resolved'),
+    next: $('#somf-min-next'),
+  };
+  let queue = []; let qi = 0;
+
+  function openPlayerModal(){ PUI.modal.hidden=false; }
+  function closePlayerModal(){ PUI.modal.hidden=true; }
+
+  function renderCurrent(){
+    const p = queue[qi];
+    PUI.name.textContent = p.name;
+    PUI.visual.textContent = p.visual;
+    PUI.effect.innerHTML = p.effect.map(e=>`<li>${e}</li>`).join('');
+    PUI.idx.textContent = String(qi+1);
+    PUI.total.textContent = String(queue.length);
+    PUI.resolved.checked = false;
+    PUI.next.disabled = true;
+  }
+
+  PUI.resolved?.addEventListener('change', ()=> PUI.next.disabled = !PUI.resolved.checked);
+  PUI.next?.addEventListener('click', ()=>{
+    if (!PUI.resolved.checked) return;
+    if (qi < queue.length-1){ qi++; renderCurrent(); } else { closePlayerModal(); }
+  });
+  PUI.close?.addEventListener('click', closePlayerModal);
+
+  async function doDraw(){
+    const n = Math.max(1, Math.min(22, +PUI.count.value||1));
+    if (!confirm('The Fates are fickle, are you sure you wish to draw from the Shards?')) return;
+    if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
+
+    const ids = [];
+    if (db()){
+      await rtdbInitDeckIfMissing();
+      for (let i=0;i<n;i++) ids.push(await rtdbDrawOne());
+      // batch notice (for DM): count + ids
+      await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids });
     } else {
-      const deckRaw = localStorage.getItem(keys.deck(cid));
-      const deck = deckRaw ? JSON.parse(deckRaw) : null;
-      const auditRaw = localStorage.getItem(keys.audit(cid));
-      const audits = auditRaw ? JSON.parse(auditRaw) : [];
-      const remaining = Array.isArray(deck) ? deck.length : 22;
-      return { total: audits.length, remaining };
+      for (let i=0;i<n;i++) ids.push(localDrawOne());
+      const notices = getLocal(LSK.notices(CID()))||[];
+      notices.unshift({ ts: Date.now(), count:n, ids });
+      setLocal(LSK.notices(CID()), notices);
+      window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notices[0] }));
     }
-  }
 
-  async function loadAuditFeed(cid, rtdb){
-    if (rtdb){
-      // newest first
-      const ref = rtdb.ref(`somf/${cid}/audits`).limitToLast(SOMF_HISTORY_MAX);
+    queue = ids.map(id=> plateById[id]);
+    qi = 0;
+    openPlayerModal(); renderCurrent();
+  }
+  PUI.drawBtn?.addEventListener('click', ()=> doDraw());
+
+  const playerCard = $('#somf-min');
+  function applyHiddenState(h){
+    if(playerCard) playerCard.hidden = h;
+    if(h) closePlayerModal();
+  }
+  async function initPlayerHidden(){
+    if(db()){
+      const ref = db().ref(path.hidden(CID()));
       const snap = await ref.get();
-      if (!snap.exists()) return [];
-      const entries = Object.entries(snap.val()).map(([k,v])=>({ id:v.id, ts:v.ts || Date.now() }));
-      entries.sort((a,b)=> b.ts - a.ts);
-      return entries;
+      applyHiddenState(snap.exists()? !!snap.val(): false);
+      ref.on('value', s=> applyHiddenState(!!s.val()));
+    }else{
+      applyHiddenState(!!getLocal(LSK.hidden(CID())));
+      window.addEventListener('somf-local-hidden', e=> applyHiddenState(!!e.detail));
+      window.addEventListener('storage', e=>{ if(e.key===LSK.hidden(CID())) applyHiddenState(!!JSON.parse(e.newValue)); });
+    }
+  }
+  initPlayerHidden();
+
+  /* ======================================================================
+     DM TOOL (notifications, resolve, npcs)
+     ====================================================================== */
+  const D = {
+    root: $('#somf-dm'),
+    open: $('#somfDM-open'),
+    close: $('#somfDM-close'),
+    tabs: $$('.somf-dm-tabbtn'),
+    cardTab: $('#somfDM-tab-cards'),
+    resTab: $('#somfDM-tab-resolve'),
+    npcsTab: $('#somfDM-tab-npcs'),
+    live: $('#somfDM-live'),
+    sfx: $('#somfDM-sfx'),
+    desktop: $('#somfDM-desktop'),
+    refresh: $('#somfDM-refresh'),
+    campaign: $('#somfDM-campaign'),
+    total: $('#somfDM-total'),
+    remaining: $('#somfDM-remaining'),
+    incoming: $('#somfDM-incoming'),
+    noticeView: $('#somfDM-noticeView'),
+    markResolved: $('#somfDM-markResolved'),
+    spawnNPC: $('#somfDM-spawnNPC'),
+    npcTemplates: $('#somfDM-npcTemplates'),
+    activeNPCs: $('#somfDM-activeNPCs'),
+    toasts: $('#somfDM-toasts'),
+    ping: $('#somfDM-ping'),
+    playerCardToggle: $('#somfDM-playerCard'),
+  };
+  D.open?.addEventListener('click', ()=> { D.root.hidden=false; initDMOnce(); });
+  D.close?.addEventListener('click', ()=> { D.root.hidden=true; });
+
+  // Tabs
+  D.tabs.forEach(b=>{
+    b.addEventListener('click', ()=>{
+      D.tabs.forEach(x=>{ x.classList.remove('somf-dm-active'); x.style.background='#0d141c'; });
+      b.classList.add('somf-dm-active'); b.style.background='#0b2a3a';
+      const t = b.dataset.tab;
+      [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.hidden=true);
+      if (t==='cards') D.cardTab.hidden=false;
+      if (t==='resolve') D.resTab.hidden=false;
+      if (t==='npcs') D.npcsTab.hidden=false;
+    });
+  });
+
+  // Toasts
+  function toast(msg, ttl=6000){
+    const t=document.createElement('div');
+    t.style.cssText='background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008';
+    t.innerHTML = msg;
+    D.toasts.appendChild(t);
+    if (D.sfx?.checked) { try{ D.ping.currentTime=0; D.ping.play(); }catch{} }
+    setTimeout(()=> t.remove(), ttl);
+    if (D.desktop?.checked && 'Notification' in window && Notification.permission==='granted'){
+      new Notification('Shards Drawn', { body: msg.replace(/<[^>]+>/g,'') });
+    }
+  }
+
+  D.playerCardToggle?.addEventListener('change', async ()=>{
+    const hidden = !D.playerCardToggle.checked;
+    if(db()){
+      await db().ref(path.hidden(CID())).set(hidden);
+    }else{
+      setLocal(LSK.hidden(CID()), hidden);
+      window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
+    }
+  });
+
+  async function refreshHiddenToggle(){
+    let hidden=false;
+    if(db()){
+      const snap = await db().ref(path.hidden(CID())).get();
+      hidden = snap.exists()? !!snap.val() : false;
     } else {
-      const raw = localStorage.getItem(keys.audit(cid));
-      const arr = raw ? JSON.parse(raw) : [];
-      return arr.slice(0,SOMF_HISTORY_MAX);
+      hidden = !!getLocal(LSK.hidden(CID()));
+    }
+    if(D.playerCardToggle) D.playerCardToggle.checked = !hidden;
+  }
+  D.desktop?.addEventListener('change', async ()=>{
+    if (D.desktop.checked && 'Notification' in window){
+      if (Notification.permission!=='granted') await Notification.requestPermission();
+    }
+  });
+
+  // Dice (for NPC buttons)
+  function roll(expr){
+    const m = String(expr).replace(/\s+/g,'').match(/^(\d*)d(\d+)([+-]\d+)?$/i);
+    if (!m) return {total:NaN, rolls:[], mod:0};
+    const n=Math.max(1,parseInt(m[1]||'1',10)), faces=parseInt(m[2],10), mod=parseInt(m[3]||'0',10);
+    const rolls=Array.from({length:n},()=>1+Math.floor(Math.random()*faces));
+    return { total: rolls.reduce((a,b)=>a+b,0)+mod, rolls, mod };
+  }
+  function rollBtn(label, expr){
+    const b=document.createElement('button');
+    b.textContent=`${label} (${expr})`;
+    b.style.cssText='padding:6px 10px;border:1px solid #253247;background:#121821;color:#e6f1ff;border-radius:6px;cursor:pointer';
+    b.addEventListener('click', ()=>{
+      const r=roll(expr);
+      toast(`<strong>${label}</strong> ${r.total} <span style="opacity:.85;font-family:monospace">[${r.rolls.join(', ')}${r.mod? (r.mod>0?` + ${r.mod}`:` - ${Math.abs(r.mod)}`):''}]</span>`);
+    });
+    return b;
+  }
+
+  // Simple NPC set (compact but complete enough)
+  const NPCS = [
+    {id:'H1',name:'Herald of Morvox',type:'Enemy • Elite Controller (T3)',ability:{STR:10,DEX:14,CON:14,INT:12,WIS:16,CHA:12},hp:58,tc:16,sp:7,
+     weapons:[{n:'Echo Lash', atk:'+6', dmg:'2d8'}], saves:'WIS+3 DEX+2 CON+2',
+     skills:'Perception+5 Insight+5 Stealth+4', traits:['Silence Bloom 10 ft','Fragment Glide'],
+     powers:['Broadcast Scramble (2 SP)','Shepherd’s Mark (3 SP)'],
+     actions:[{label:'Echo Lash Attack', expr:'1d20+6'},{label:'Echo Lash Damage', expr:'2d8'}]},
+    {id:'G1',name:'Greyline Assault Cell',type:'Enemy • Fireteam (T3)',ability:{STR:14,DEX:16,CON:14,INT:12,WIS:12,CHA:10},hp:64,tc:15,sp:6,
+     weapons:[{n:'SMG Burst', atk:'+5', dmg:'2d6+2'}], saves:'DEX+3 CON+2',
+     skills:'Athletics+4 Stealth+5 Perception+3', traits:['Coordinated Fire','Kill-Switch Smoke (1/enc)'],
+     powers:['Suppression Volley (1 SP)','Netline Taser (2 SP)'],
+     actions:[{label:'Burst Attack', expr:'1d20+5'},{label:'Burst Damage', expr:'2d6+2'}]},
+    {id:'C1',name:'Conclave Trial Agent',type:'Enemy • Duelist (T4)',ability:{STR:12,DEX:18,CON:14,INT:14,WIS:16,CHA:14},hp:72,tc:17,sp:8,
+     weapons:[{n:'Prism Edge', atk:'+7', dmg:'2d10'}], saves:'DEX+4 WIS+3 CHA+2',
+     skills:'Acrobatics+6 Insight+5', traits:['Astral Parry 5','Immune charm/fear'],
+     powers:['Accession Step (2 SP)','Starlight Decree (3 SP)'],
+     actions:[{label:'Prism Attack', expr:'1d20+7'},{label:'Prism Damage', expr:'2d10'}]},
+    {id:'E1',name:'Echo Operative',type:'Ally • T3',ability:{STR:12,DEX:16,CON:14,INT:12,WIS:12,CHA:12},hp:50,tc:15,sp:6,
+     weapons:[{n:'Rifle', atk:'+5', dmg:'1d10+2'}], saves:'DEX+3 CON+2',
+     skills:'Stealth+5 Perception+3', traits:['Mirrors one tactic of summoner'],
+     powers:['Covering Fire (1 SP)','Drive Forward (2 SP)'],
+     actions:[{label:'Rifle Attack', expr:'1d20+5'},{label:'Rifle Damage', expr:'1d10+2'}]},
+    {id:'B1',name:'Betrayer (Template)',type:'Template',template:true,traits:['Hidden Blade +2d6 once/scene','False Flag (1 SP): nearby ally WIS DC14 or loses reaction'], actions:[]},
+  ];
+  const spawnFor = (id)=> {
+    if (id==='BROADCAST'||id==='HELIX_CODE') return 'G1';
+    if (id==='NULL_VAULT'||id==='SHEPHERDS_MASK'||id==='SHEPHERDS_THREAD') return 'H1';
+    if (id==='WRAITH') return 'C1';
+    if (id==='ECHO_OPERATIVE') return 'E1';
+    if (id==='DEFECTOR') return 'B1';
+    return null;
+  };
+
+  function npcCard(n, attachRolls=true){
+    const card=document.createElement('div');
+    card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+    card.innerHTML = `
+      <div><strong>${n.name}</strong> <span style="opacity:.8">• ${n.type||''}</span></div>
+      ${n.template? '<div style="margin-top:4px" class="mono">Template</div>' : `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
+        <div><span style="opacity:.8;font-size:12px">HP</span><div>${n.hp}</div></div>
+        <div><span style="opacity:.8;font-size:12px">TC</span><div>${n.tc}</div></div>
+        <div><span style="opacity:.8;font-size:12px">SP</span><div>${n.sp}</div></div>
+      </div>`}
+      ${n.weapons? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Weapons</span><div>${n.weapons.map(w=>`${w.n} (atk ${w.atk}, dmg ${w.dmg})`).join('; ')}</div></div>`:``}
+      ${n.traits? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Traits</span><ul style="margin:4px 0 0 18px;padding:0">${n.traits.map(t=>`<li>${t}</li>`).join('')}</ul></div>`:``}
+      ${attachRolls && n.actions?.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`:``}
+    `;
+    const host = card.lastElementChild;
+    if (host && n.actions){
+      n.actions.forEach(a=> host.appendChild(rollBtn(a.label, a.expr)));
+    }
+    return card;
+  }
+
+  // Render: Card List
+  function renderCardList(){
+    D.cardTab.innerHTML='';
+    PLATES.forEach(p=>{
+      const d=document.createElement('div');
+      d.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+      d.innerHTML = `<div><strong>${p.name}</strong></div><div style="opacity:.8;font-size:12px">ID: ${p.id}</div>`;
+      D.cardTab.appendChild(d);
+    });
+  }
+
+  // Counts + incoming
+  async function refreshCounts(){
+    D.campaign.textContent = CID();
+    if (db()){
+      const deckSnap = await db().ref(path.deck(CID())).get();
+      const deck = deckSnap.exists()? deckSnap.val(): [];
+      const auditsSnap = await db().ref(path.audits(CID())).get();
+      const total = auditsSnap.exists()? Object.keys(auditsSnap.val()).length : 0;
+      D.total.textContent = String(total);
+      D.remaining.textContent = String(Array.isArray(deck)? deck.length : 22);
+    } else {
+      const deck = getLocal(LSK.deck(CID()))||[];
+      const audits = getLocal(LSK.audits(CID()))||[];
+      D.total.textContent = String(audits.length);
+      D.remaining.textContent = String(Array.isArray(deck)? deck.length : 22);
     }
   }
 
-  async function refreshHistory(){
-    const cid = getCampaignId();
-    const rtdb = getRTDB();
+  function renderIncoming(notices){
+    D.incoming.innerHTML='';
+    notices.forEach((n,ix)=>{
+      const li=document.createElement('li');
+      li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
+      if (ix===0) li.style.borderTop='none';
+      const names = n.ids.map(id=> plateById[id]?.name || id);
+      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.join(', ')}</div>`;
+      li.addEventListener('click', ()=>{
+        $$('#somfDM-incoming li').forEach(x=> x.style.background='');
+        li.style.background='#0b2a3a';
+        D.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(n.ts||Date.now()).toLocaleString()}</div>
+          <ul style="margin:6px 0 0 18px;padding:0">${names.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+        // enable spawn if exactly one shard and it maps to a NPC
+        const spawnCode = (n.ids.length===1)? (spawnFor(n.ids[0])||null) : null;
+        D.spawnNPC.disabled = !spawnCode;
+        D.spawnNPC.onclick = ()=>{
+          if (!spawnCode) return;
+          const tpl = NPCS.find(x=>x.id===spawnCode);
+          pushActiveNPC({ ...tpl, spawnedAt: Date.now(), sourceShard: n.ids[0] });
+          toast(`<strong>NPC Spawned</strong> ${tpl.name}`);
+          renderActiveNPCs();
+        };
+        D.markResolved.disabled = false;
+        D.markResolved.onclick = async ()=>{
+          await pushResolutionBatch(n);
+          toast(`<strong>Resolved</strong> ${names.length} shard(s)`);
+          loadAndRender(); // refresh list
+        };
+      });
+      D.incoming.appendChild(li);
+    });
+  }
 
-    $('#somf-hist-campaign').textContent = cid;
-
-    const { total, remaining } = await loadDeckCounts(cid, rtdb);
-    $('#somf-hist-total').textContent = String(total);
-    $('#somf-hist-remaining').textContent = String(remaining);
-
-    const feed = await loadAuditFeed(cid, rtdb);
-    const ol = $('#somf-history-feed');
-    ol.innerHTML = '';
-    let index = total; // descending numbering
-    for (const entry of feed){
-      const li = document.createElement('li');
-      const tok = await tokenize(`${entry.id}|${entry.ts}|${cid}`); // anonymized per-campaign
-      li.innerHTML = `
-        <span>${index--}</span>
-        <span>${fmtWhen(entry.ts)}</span>
-        <span class="somf-hash">#${tok}</span>
-      `;
-      ol.appendChild(li);
+  async function loadNotices(limit=30){
+    if (db()){
+      const snap = await db().ref(path.notices(CID())).limitToLast(limit).get();
+      if (!snap.exists()) return [];
+      const arr = Object.values(snap.val()).sort((a,b)=> (b.ts||0)-(a.ts||0));
+      return arr;
+    } else {
+      const arr = getLocal(LSK.notices(CID()))||[];
+      return arr.slice(0,limit);
     }
   }
 
-  // Wire
-  $('#somf-history-refresh').addEventListener('click', refreshHistory);
-
-  // Expose tiny helpers to main SOMF (optional)
-  if (window.SOMF){
-    // These are read by this history module to avoid global vars in your app
-    if (!window.SOMF._getCampaignId) window.SOMF._getCampaignId = ()=> window._somf_campaignId || SOMF_CAMPAIGN_ID;
-    if (!window.SOMF._getFirebase) window.SOMF._getFirebase = ()=> window._somf_rtdb || null;
-    // Let main module set them when you call setFirebase / setCampaignId
-    const _origSetFirebase = window.SOMF.setFirebase;
-    window.SOMF.setFirebase = (db)=>{ window._somf_rtdb = db || null; if (_origSetFirebase) _origSetFirebase(db); };
-    const _origSetCampaignId = window.SOMF.setCampaignId;
-    window.SOMF.setCampaignId = (id)=>{ window._somf_campaignId = id || SOMF_CAMPAIGN_ID; if (_origSetCampaignId) _origSetCampaignId(id); };
+  async function pushResolutionBatch(n){
+    if (db()){
+      await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids:n.ids });
+    } else {
+      const rs = getLocal(LSK.resolutions(CID()))||[];
+      rs.unshift({ ts: Date.now(), ids: n.ids }); setLocal(LSK.resolutions(CID()), rs);
+    }
   }
 
-  // Auto-initialize on page load
-  document.addEventListener('DOMContentLoaded', refreshHistory);
+  async function pushActiveNPC(npc){
+    if (db()){
+      await db().ref(path.npcs(CID())).push(npc);
+    } else {
+      const arr = getLocal(LSK.npcs(CID()))||[]; arr.unshift(npc); setLocal(LSK.npcs(CID()), arr);
+    }
+  }
+  async function fetchActiveNPCs(){
+    if (db()){
+      const snap = await db().ref(path.npcs(CID())).get();
+      if (!snap.exists()) return [];
+      return Object.values(snap.val()).sort((a,b)=> (b.spawnedAt||0)-(a.spawnedAt||0));
+    } else {
+      return getLocal(LSK.npcs(CID()))||[];
+    }
+  }
+  async function renderActiveNPCs(){
+    const list = await fetchActiveNPCs();
+    D.activeNPCs.innerHTML = '';
+    list.forEach(n=> D.activeNPCs.appendChild(npcCard(n)));
+  }
+
+  async function loadAndRender(){
+    await refreshCounts();
+    renderCardList();
+    renderActiveNPCs();
+    const notices = await loadNotices();
+    renderIncoming(notices);
+    await refreshHiddenToggle();
+  }
+
+  // Live listeners
+  let liveOff = null;
+  function enableLive(){
+    if (!D.live?.checked) return;
+    if (db()){
+      const ref = db().ref(path.notices(CID())).limitToLast(1);
+      ref.on('child_added', snap=>{
+        const v=snap.val(); if (!v) return;
+        const names = (v.ids||[]).map(id=> plateById[id]?.name || id);
+        toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
+        loadAndRender();
+      });
+      const hRef = db().ref(path.hidden(CID()));
+      hRef.on('value', s=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !s.val(); });
+      liveOff = ()=> { ref.off(); hRef.off(); };
+    } else {
+      window.addEventListener('somf-local-notice', (e)=>{
+        const v=e.detail; const names=(v.ids||[]).map(id=> plateById[id]?.name || id);
+        toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
+        loadAndRender();
+      });
+      window.addEventListener('somf-local-hidden', e=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !e.detail; });
+      liveOff = ()=> { window.removeEventListener('somf-local-notice', ()=>{}); window.removeEventListener('somf-local-hidden', ()=>{}); };
+    }
+  }
+
+  D.refresh?.addEventListener('click', loadAndRender);
+
+  let _inited=false;
+  function initDMOnce(){
+    if (_inited) return; _inited=true;
+    D.root.hidden=false;
+    loadAndRender(); enableLive();
+  }
+
 })();
+
