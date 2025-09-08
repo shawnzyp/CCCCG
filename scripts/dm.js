@@ -4,6 +4,7 @@ const linkBtn = document.getElementById('dm-login-link');
 const dmBtn = document.getElementById('dm-login');
 const menu = document.getElementById('dm-tools-menu');
 const tsomfBtn = document.getElementById('dm-tools-tsomf');
+const logoutBtn = document.getElementById('dm-tools-logout');
 
 function updateButtons(){
   const loggedIn = sessionStorage.getItem('dmLoggedIn') === '1';
@@ -18,6 +19,11 @@ function login(){
     sessionStorage.setItem('dmLoggedIn','1');
     updateButtons();
   }
+}
+
+function logout(){
+  sessionStorage.removeItem('dmLoggedIn');
+  updateButtons();
 }
 
 function toggleMenu(){
@@ -36,6 +42,11 @@ document.addEventListener('click', e => {
 tsomfBtn?.addEventListener('click', () => {
   menu.hidden = true;
   window.openSomfDM?.();
+});
+
+logoutBtn?.addEventListener('click', () => {
+  menu.hidden = true;
+  logout();
 });
 
 updateButtons();

@@ -125,6 +125,22 @@
   function openPlayerModal(){ PUI.modal.hidden=false; }
   function closePlayerModal(){ PUI.modal.hidden=true; }
 
+  async function playShardAnimation(){
+    const anim=document.getElementById('load-animation');
+    if(!anim) return;
+    anim.hidden=false;
+    await new Promise(res=>{
+      anim.classList.add('show');
+      const done=()=>{
+        anim.classList.remove('show');
+        anim.hidden=true;
+        anim.removeEventListener('animationend', done);
+        res();
+      };
+      anim.addEventListener('animationend', done);
+    });
+  }
+
   function renderCurrent(){
     const p = queue[qi];
     PUI.name.textContent = p.name;
@@ -137,9 +153,9 @@
   }
 
   PUI.resolved?.addEventListener('change', ()=> PUI.next.disabled = !PUI.resolved.checked);
-  PUI.next?.addEventListener('click', ()=>{
+  PUI.next?.addEventListener('click', async ()=>{
     if (!PUI.resolved.checked) return;
-    if (qi < queue.length-1){ qi++; renderCurrent(); } else { closePlayerModal(); }
+    if (qi < queue.length-1){ qi++; await playShardAnimation(); renderCurrent(); } else { closePlayerModal(); }
   });
   PUI.close?.addEventListener('click', closePlayerModal);
 
@@ -166,6 +182,7 @@
 
     queue = ids.map(id=> plateById[id]);
     qi = 0;
+    await playShardAnimation();
     openPlayerModal(); renderCurrent();
   }
   PUI.drawBtn?.addEventListener('click', ()=> doDraw());
@@ -200,13 +217,13 @@
     resTab: $('#somfDM-tab-resolve'),
     npcsTab: $('#somfDM-tab-npcs'),
     live: $('#somfDM-live'),
-    sfx: $('#somfDM-sfx'),
     desktop: $('#somfDM-desktop'),
     refresh: $('#somfDM-refresh'),
     campaign: $('#somfDM-campaign'),
     total: $('#somfDM-total'),
     remaining: $('#somfDM-remaining'),
     incoming: $('#somfDM-incoming'),
+    resolvedList: $('#somfDM-resolved'),
     noticeView: $('#somfDM-noticeView'),
     markResolved: $('#somfDM-markResolved'),
     spawnNPC: $('#somfDM-spawnNPC'),
@@ -215,6 +232,7 @@
     toasts: $('#somfDM-toasts'),
     ping: $('#somfDM-ping'),
     playerCardToggle: $('#somfDM-playerCard'),
+    playerCardState: $('#somfDM-playerCard-state'),
   };
   function preventTouch(e){ e.preventDefault(); }
   function openDM(){
@@ -258,7 +276,7 @@
     t.style.cssText='background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008';
     t.innerHTML = msg;
     D.toasts.appendChild(t);
-    if (D.sfx?.checked) { try{ D.ping.currentTime=0; D.ping.play(); }catch{} }
+    try{ D.ping.currentTime=0; D.ping.play(); }catch{}
     setTimeout(()=> t.remove(), ttl);
     if (D.desktop?.checked && 'Notification' in window && Notification.permission==='granted'){
       new Notification('Shards Drawn', { body: msg.replace(/<[^>]+>/g,'') });
@@ -267,6 +285,7 @@
 
   D.playerCardToggle?.addEventListener('change', async ()=>{
     const hidden = !D.playerCardToggle.checked;
+    if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
     if(db()){
       await db().ref(path.hidden(CID())).set(hidden);
     }else{
@@ -283,7 +302,10 @@
     } else {
       hidden = !!getLocal(LSK.hidden(CID()));
     }
-    if(D.playerCardToggle) D.playerCardToggle.checked = !hidden;
+    if(D.playerCardToggle) {
+      D.playerCardToggle.checked = !hidden;
+      if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
+    }
   }
   D.desktop?.addEventListener('change', async ()=>{
     if (D.desktop.checked && 'Notification' in window){
@@ -371,8 +393,23 @@
     PLATES.forEach(p=>{
       const d=document.createElement('div');
       d.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-      d.innerHTML = `<div><strong>${p.name}</strong></div><div style="opacity:.8;font-size:12px">ID: ${p.id}</div>`;
+      d.innerHTML = `<div><strong>${p.name}</strong></div>
+        <div style="opacity:.8;font-size:12px">ID: ${p.id}</div>
+        <div style="margin-top:4px;opacity:.8;font-size:12px">${p.visual}</div>
+        <ul style="margin:6px 0 0 18px;padding:0">${p.effect.map(e=>`<li>${e}</li>`).join('')}</ul>`;
       D.cardTab.appendChild(d);
+    });
+  }
+
+  function renderNPCTemplates(){
+    D.npcTemplates.innerHTML='';
+    NPCS.forEach(n=>{
+      const li=document.createElement('li');
+      li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
+      if(D.npcTemplates.children.length===0) li.style.borderTop='none';
+      li.innerHTML=`<strong>${n.name}</strong><div style="opacity:.8">${n.type||''}</div>`;
+      li.addEventListener('click', ()=>{ D.activeNPCs.appendChild(npcCard(n)); });
+      D.npcTemplates.appendChild(li);
     });
   }
 
@@ -440,6 +477,28 @@
     }
   }
 
+  async function loadResolutions(limit=50){
+    if(db()){
+      const snap = await db().ref(path.resolutions(CID())).limitToLast(limit).get();
+      if(!snap.exists()) return [];
+      const arr = Object.values(snap.val()).sort((a,b)=> (b.ts||0)-(a.ts||0));
+      return arr;
+    } else {
+      const arr = getLocal(LSK.resolutions(CID()))||[];
+      return arr.slice(0,limit);
+    }
+  }
+
+  function renderResolved(list){
+    D.resolvedList.innerHTML='';
+    list.forEach(r=>{
+      const li=document.createElement('li');
+      const names = (r.ids||[]).map(id=> plateById[id]?.name || id);
+      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.join(', ')}</div>`;
+      D.resolvedList.appendChild(li);
+    });
+  }
+
   async function pushResolutionBatch(n){
     if (db()){
       await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids:n.ids });
@@ -474,9 +533,12 @@
   async function loadAndRender(){
     await refreshCounts();
     renderCardList();
+    renderNPCTemplates();
     renderActiveNPCs();
     const notices = await loadNotices();
     renderIncoming(notices);
+    const resolved = await loadResolutions();
+    renderResolved(resolved);
     await refreshHiddenToggle();
   }
 
