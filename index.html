@@ -77,33 +77,12 @@
 <main id="main">
   <!-- COMBAT -->
   <fieldset data-tab="combat" class="card">
-    <section id="somf-panel" class="somf-card">
+    <section id="somf-min" class="somf-card">
       <h3 class="somf-title">The Shards of Many Fates</h3>
       <div class="somf-row">
-        <label for="somf-count" class="somf-label">Shards</label>
-        <input id="somf-count" type="number" min="1" max="22" value="1" class="somf-input"/>
-        <button id="somf-draw" class="somf-btn somf-primary">Draw Shards</button>
-      </div>
-    </section>
-
-    <section id="somf-history" class="somf-card">
-      <div class="somf-history__row">
-        <h3 class="somf-title">Shard Draw History</h3>
-        <div class="somf-flex-spacer"></div>
-        <button id="somf-history-refresh" class="somf-btn">Refresh</button>
-      </div>
-
-      <div class="somf-history__stats">
-        <div class="somf-kv"><span class="somf-k">Total Draws</span><span id="somf-hist-total" class="somf-v">—</span></div>
-        <div class="somf-kv"><span class="somf-k">Remaining in Deck</span><span id="somf-hist-remaining" class="somf-v">—</span></div>
-        <div class="somf-kv"><span class="somf-k">Campaign</span><span id="somf-hist-campaign" class="somf-v">—</span></div>
-      </div>
-
-      <div class="somf-history__list">
-        <div class="somf-history__head">
-          <span>#</span><span>When</span><span>Token</span>
-        </div>
-        <ol id="somf-history-feed" class="somf-history__feed"></ol>
+        <label for="somf-min-count" class="somf-label">Shards</label>
+        <input id="somf-min-count" type="number" min="1" max="22" value="1" class="somf-input">
+        <button id="somf-min-draw" class="somf-btn somf-primary">Draw Shards</button>
       </div>
     </section>
 
@@ -801,30 +780,25 @@
   </div>
 </div>
 
-<div id="somf-modal" class="somf-modal" hidden>
+<div id="somf-min-modal" class="somf-modal" hidden>
   <div class="somf-modal__backdrop"></div>
-  <div class="somf-modal__card" role="dialog" aria-modal="true" aria-labelledby="somf-cur-name">
+  <div class="somf-modal__card">
     <header class="somf-modal__hdr">
-      <div class="somf-badge">Shard</div>
-      <button id="somf-close" class="somf-btn somf-ghost" aria-label="Close">Close</button>
+      <strong>Shard</strong>
+      <button id="somf-min-close" class="somf-btn somf-ghost">Close</button>
     </header>
     <div class="somf-modal__body">
-      <h4 id="somf-cur-name" class="somf-cur-name">—</h4>
-      <p id="somf-cur-visual" class="somf-cur-visual somf-muted">—</p>
-      <div>
-        <h5 class="somf-subttl">Effect</h5>
-        <ul id="somf-cur-effect" class="somf-list"></ul>
-      </div>
-      <div id="somf-progress" class="somf-progress">Shard <span id="somf-idx">0</span>/<span id="somf-total">0</span></div>
+      <h4 id="somf-min-name" class="somf-subttl">—</h4>
+      <p id="somf-min-visual" class="somf-muted">—</p>
+      <ul id="somf-min-effect" class="somf-list"></ul>
+      <div id="somf-min-progress" class="somf-progress">Shard <span id="somf-min-idx">0</span>/<span id="somf-min-total">0</span></div>
     </div>
     <footer class="somf-modal__ftr">
-      <label class="somf-checkbox">
-        <input id="somf-resolved" type="checkbox"> <span>Mark this shard as resolved</span>
-      </label>
+      <label class="somf-checkbox"><input id="somf-min-resolved" type="checkbox"> <span>Mark resolved</span></label>
       <div class="somf-flex-spacer"></div>
-      <button id="somf-next" class="somf-btn somf-primary" disabled>Next</button>
+      <button id="somf-min-next" class="somf-btn somf-primary" disabled>Next</button>
     </footer>
-</div>
+  </div>
 </div>
 
 <footer>
@@ -844,7 +818,7 @@
 
 <section id="somf-dm" class="somf-dm hidden">
   <header class="somf-dm__hdr">
-    <h3>DM • Shards of Many Fates</h3>
+    <h3>DM • Shards</h3>
     <div class="somf-dm__hdr-controls">
       <label class="somf-switch"><input id="somfDM-live" type="checkbox" checked><span>Live</span></label>
       <label class="somf-switch"><input id="somfDM-sfx" type="checkbox" checked><span>Sound</span></label>
@@ -855,60 +829,42 @@
   </header>
 
   <nav class="somf-dm__tabs">
-    <button data-tab="cards" class="active">Card List</button>
-    <button data-tab="resolve">Resolve</button>
-    <button data-tab="npcs">NPCs</button>
+    <button data-tab="cards" class="somf-dm-tabbtn somf-dm-active">Card List</button>
+    <button data-tab="resolve" class="somf-dm-tabbtn">Resolve</button>
+    <button data-tab="npcs" class="somf-dm-tabbtn">NPCs</button>
   </nav>
 
-  <!-- Card List -->
-  <section class="somf-dm__tab active" id="somfDM-tab-cards">
-    <div class="somf-dm__grid" id="somfDM-cards"></div>
-  </section>
+  <section id="somfDM-tab-cards" class="somf-dm-tab somf-dm__tab somf-dm-show"></section>
 
-  <!-- Resolve -->
-  <section class="somf-dm__tab" id="somfDM-tab-resolve">
+  <section id="somfDM-tab-resolve" class="somf-dm-tab somf-dm__tab" hidden>
     <div class="somf-dm__row">
       <div class="somf-kv"><span class="somf-k">Campaign</span><span id="somfDM-campaign" class="somf-v">—</span></div>
-      <div class="somf-kv"><span class="somf-k">Draws (total)</span><span id="somfDM-total" class="somf-v">—</span></div>
+      <div class="somf-kv"><span class="somf-k">Total Draws</span><span id="somfDM-total" class="somf-v">—</span></div>
       <div class="somf-kv"><span class="somf-k">Remaining</span><span id="somfDM-remaining" class="somf-v">—</span></div>
     </div>
-
     <div class="somf-dm__resolve">
       <aside class="somf-dm__left">
         <h4>Incoming Draws</h4>
         <ol id="somfDM-incoming" class="somf-dm__list"></ol>
       </aside>
       <main class="somf-dm__main">
-        <h4>Selected Draw</h4>
-        <div id="somfDM-drawView" class="somf-dm__card"></div>
-
-        <div class="somf-dm__subcard" id="somfDM-seedsBox">
-          <h5>Scene Seeds & DCs</h5>
-          <div id="somfDM-seeds" class="somf-seeds"></div>
-        </div>
-
+        <div id="somfDM-noticeView" class="somf-dm__card"></div>
         <div class="somf-dm__actions">
-          <button id="somfDM-spawnNPC" class="somf-btn" disabled>Spawn Related NPC</button>
           <button id="somfDM-markResolved" class="somf-btn somf-primary" disabled>Mark Resolved</button>
-        </div>
-
-        <div class="somf-dm__notes">
-          <label>Notes</label>
-          <textarea id="somfDM-notes" rows="4" placeholder="Outcome, changes, consequences…"></textarea>
+          <button id="somfDM-spawnNPC" class="somf-btn" disabled>Spawn Related NPC</button>
         </div>
       </main>
     </div>
   </section>
 
-  <!-- NPCs -->
-  <section class="somf-dm__tab" id="somfDM-tab-npcs">
+  <section id="somfDM-tab-npcs" class="somf-dm-tab somf-dm__tab" hidden>
     <div class="somf-dm__npcs">
       <aside>
-        <h4>Templates (Allies & Enemies)</h4>
+        <h4>Templates</h4>
         <ul id="somfDM-npcTemplates" class="somf-dm__list"></ul>
       </aside>
       <main>
-        <h4>Active NPCs (Spawned)</h4>
+        <h4>Active NPCs</h4>
         <div id="somfDM-activeNPCs" class="somf-dm__stack"></div>
       </main>
     </div>
@@ -931,7 +887,6 @@
 <script type="module" src="scripts/main.js"></script>
 <script type="module" src="scripts/dm.js"></script>
 <script src="shard-of-many-fates.js"></script>
-<script src="shard-of-many-fates-dm.js"></script>
 
 </body>
 </html>
