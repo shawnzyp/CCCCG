@@ -10,7 +10,6 @@ const shardCard = document.getElementById('ccShard-player');
 const resolveTitle = document.getElementById('shard-resolve-title');
 const resolveCard = document.getElementById('shard-resolve-card');
 const resolveNPCs = document.getElementById('shard-resolve-npcs');
-const resolveTips = document.getElementById('shard-resolve-tips');
 const resolveCompleteBtn = document.getElementById('shard-resolve-complete');
 const resolveResetBtn = document.getElementById('shard-resolve-reset');
 const resetConfirmBtn = document.getElementById('shard-reset-confirm');
@@ -36,7 +35,6 @@ function setResolveTab(tab){
   });
   resolveCard.classList.toggle('active', tab==='card');
   resolveNPCs.classList.toggle('active', tab==='npcs');
-  resolveTips.classList.toggle('active', tab==='tips');
 }
 resolveTabBtns.forEach(btn=> btn.addEventListener('click', ()=> setResolveTab(btn.dataset.tab)));
 if(shardToggle){
@@ -168,10 +166,15 @@ function updateDmButton(){
   if(dmLink) dmLink.hidden = loggedIn;
 }
 
+window.addEventListener('dm:notify', () => {
+  if(dmLink) dmLink.classList.add('notify');
+});
+
 function logDMAction(text){
   const arr = JSON.parse(localStorage.getItem(NOTIFY_KEY) || '[]');
   arr.push({ time: Date.now(), text });
   localStorage.setItem(NOTIFY_KEY, JSON.stringify(arr));
+  window.dispatchEvent(new CustomEvent('dm:notify', { detail: text }));
 }
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
@@ -224,6 +227,7 @@ function openDmTools(){
       <button id="dm-logout-btn" class="btn-sm">Log Out</button>
     </div>
   `);
+  if(dmLink) dmLink.classList.remove('notify');
   const shardBtn = document.getElementById('ccShard-open');
   if(shardBtn){
     shardBtn.addEventListener('click', openShardResolver);
@@ -259,10 +263,9 @@ function openShardResolver(){
   }
   if(card){
     resolveTitle.textContent = card.name;
-    const eff = card.effect ? card.effect.map(r=>`<li>${escapeHtml(r)}</li>`).join('') : '<li>None</li>';
-    const hooks = card.hooks ? card.hooks.map(r=>`<li>${escapeHtml(r)}</li>`).join('') : '<li>None</li>';
     const res = card.resolution ? card.resolution.map(r=>`<li>${escapeHtml(r)}</li>`).join('') : '<li>None</li>';
-    resolveCard.innerHTML = `<h4>Effect</h4><ul>${eff}</ul><h4>Hooks</h4><ul>${hooks}</ul><h4>Resolution</h4><ul>${res}</ul>`;
+    const visual = card.visual ? `<p>${escapeHtml(card.visual)}</p>` : '';
+    resolveCard.innerHTML = `${visual}<h4>Resolution</h4><ul>${res}</ul>`;
     const npcIds = [];
     if(card.enemy){
       card.enemy.split('|').forEach(id=> npcIds.push({ id:id.trim(), type:'enemy' }));
@@ -280,19 +283,18 @@ function openShardResolver(){
         const npc = window.CCShard && window.CCShard.getNPC ? window.CCShard.getNPC(n.id) : null;
         const name = npc ? npc.name : n.id;
         const label = n.type==='ally'?` (Ally)`:'';
-        const stats = npc ? ` <span class="muted">(HP ${npc.hp}, SP ${npc.sp})</span>` : '';
+        const xp = npc && npc.xp ? `, XP ${npc.xp}` : '';
+        const stats = npc ? ` <span class="muted">(HP ${npc.hp}, SP ${npc.sp}${xp})</span>` : '';
         return `<li><button class="btn-sm" data-npc="${n.id}">${escapeHtml(name+label)}</button>${stats}</li>`;
       }).join('')}</ul>`;
     } else {
       resolveNPCs.innerHTML = '<p><em>No NPCs</em></p>';
     }
-    resolveTips.innerHTML = '<p>Work with your players to weave shard effects into the story.</p>';
     resolveCompleteBtn.disabled = false;
   } else {
     resolveTitle.textContent = 'Resolve Shard';
     resolveCard.innerHTML = '<p>No active shard.</p>';
     resolveNPCs.innerHTML = '<p><em>No NPCs</em></p>';
-    resolveTips.innerHTML = '';
     resolveCompleteBtn.disabled = true;
   }
   setResolveTab('card');
