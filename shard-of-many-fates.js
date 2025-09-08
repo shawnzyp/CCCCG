@@ -31,6 +31,10 @@
     npcName: $('#ccShard-npcName'),
     npcHP: $('#ccShard-npcHP'),
     npcSP: $('#ccShard-npcSP'),
+    npcAbilities: $('#ccShard-npcAbilities'),
+    npcSkills: $('#ccShard-npcSkills'),
+    npcGear: $('#ccShard-npcGear'),
+    npcXP: $('#ccShard-npcXP'),
     npcActions: $('#ccShard-npcActions'),
     npcLog: $('#ccShard-npcLog'),
     npcClose: $('#ccShard-npcClose'),
@@ -308,6 +312,13 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
       name: 'Herald of Morvox, Echo Warden',
       hp: 58,
       sp: 7,
+      abilities: { str: 16, dex: 14, con: 14, int: 12, wis: 15, cha: 13 },
+      skills: ['Athletics +6','Perception +5','Intimidation +4'],
+      weapons: ['Echo Lash','Phase Glaive'],
+      armor: ['Shardmail'],
+      equipment: ['Signal Scrambler'],
+      items: ['Shepherd\u2019s Mark token'],
+      xp: 1000,
       actions: [
         { name: 'Echo Lash', attack: 6, damage: '2d8', sp: 1, effect: 'WIS DC 15 or Disoriented 1 round.' },
         { name: 'Broadcast Scramble', sp: 2, effect: 'Foes lose reactions and have disadvantage on next attack. WIS DC 15 halves.' },
@@ -318,6 +329,13 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
       name: 'Greyline Assault Cell',
       hp: 64,
       sp: 6,
+      abilities: { str: 14, dex: 12, con: 13, int: 12, wis: 11, cha: 10 },
+      skills: ['Tactics +5','Athletics +4'],
+      weapons: ['Suppression Rifle','Netline Taser','Breach Charges'],
+      armor: ['Tactical Armor'],
+      equipment: ['Comms rig','Breach gear'],
+      items: ['Flashbangs'],
+      xp: 450,
       actions: [
         { name: 'Suppression Volley', damage: '2d6', sp: 1, effect: 'DEX DC 14 or lose reaction.' },
         { name: 'Breach Charge', damage: '2d8', sp: 2, effect: 'DEX DC 14 or knocked prone.' },
@@ -328,6 +346,13 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
       name: 'Conclave Trial Agent, Blade of Accession',
       hp: 72,
       sp: 8,
+      abilities: { str: 15, dex: 14, con: 15, int: 13, wis: 14, cha: 12 },
+      skills: ['Perception +5','Acrobatics +5','Insight +5'],
+      weapons: ['Prism Edge','Light Pistol'],
+      armor: ['Starlight Armor'],
+      equipment: ['Envoy Spire key'],
+      items: ['Conclave badge'],
+      xp: 900,
       actions: [
         { name: 'Prism Edge', attack: 7, damage: '2d10', sp: 1, effect: 'WIS DC 15 or disadvantage on next attack.' },
         { name: 'Accession Step', attack: 9, damage: '2d10', sp: 2, effect: 'Teleport 20 ft, free Prism Edge at +2 to hit.' },
@@ -338,6 +363,13 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
       name: 'Echo Operative',
       hp: 50,
       sp: 6,
+      abilities: { str: 13, dex: 15, con: 14, int: 12, wis: 13, cha: 11 },
+      skills: ['Stealth +6','Perception +5','Athletics +4'],
+      weapons: ['Auto Rifle'],
+      armor: ['Stealth Suit'],
+      equipment: ['Commlink'],
+      items: ['Medkit'],
+      xp: 500,
       actions: [
         { name: 'Covering Fire', sp: 1, effect: 'Ally +2 TC, 10 ft reposition.' },
         { name: 'Drive Forward', sp: 2, effect: 'You and an ally move 20 ft; the ally has advantage on next attack.' },
@@ -348,6 +380,13 @@ Weakness: Disadvantage on Deception vs party after reveal.`,
       name: 'Betrayer Template',
       hp: 0,
       sp: 0,
+      abilities: { str: 12, dex: 14, con: 10, int: 12, wis: 11, cha: 13 },
+      skills: ['Deception +5','Stealth +4'],
+      weapons: ['Hidden Blade'],
+      armor: ['Civilian Garb'],
+      equipment: ['False Flag devices'],
+      items: ['Poison vial'],
+      xp: 250,
       actions: [
         { name: 'Hidden Blade', damage: '2d6', effect: 'Once/scene +2d6 if target surprised.' },
         { name: 'False Flag', sp: 1, effect: 'Nearby ally WIS DC 14 or loses reaction.' }
@@ -541,6 +580,15 @@ function showNextFromQueue(){
     ui.npcName.textContent = npc.name;
     ui.npcHP.max = npc.hp; ui.npcHP.value = npc.hp;
     ui.npcSP.max = npc.sp; ui.npcSP.value = npc.sp;
+    ui.npcAbilities.innerHTML = npc.abilities ? `<h4>Ability Scores</h4><ul class="cc-list">${Object.entries(npc.abilities).map(([k,v])=>`<li>${k.toUpperCase()} ${v}</li>`).join('')}</ul>` : '';
+    ui.npcSkills.innerHTML = npc.skills ? `<h4>Skills</h4><ul class="cc-list">${npc.skills.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>` : '';
+    const gear = [];
+    if(npc.weapons && npc.weapons.length) gear.push(`<strong>Weapons:</strong> ${escapeHtml(npc.weapons.join(', '))}`);
+    if(npc.armor && npc.armor.length) gear.push(`<strong>Armor:</strong> ${escapeHtml(npc.armor.join(', '))}`);
+    if(npc.equipment && npc.equipment.length) gear.push(`<strong>Equipment:</strong> ${escapeHtml(npc.equipment.join(', '))}`);
+    if(npc.items && npc.items.length) gear.push(`<strong>Items:</strong> ${escapeHtml(npc.items.join(', '))}`);
+    ui.npcGear.innerHTML = gear.length ? `<h4>Gear</h4><ul class="cc-list">${gear.map(g=>`<li>${g}</li>`).join('')}</ul>` : '';
+    ui.npcXP.textContent = npc.xp ? `XP: ${npc.xp}` : '';
     ui.npcActions.innerHTML = '';
     ui.npcLog.textContent = '';
     npc.actions.forEach(act=>{

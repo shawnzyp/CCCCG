@@ -733,6 +733,8 @@ select[required]:valid{
 .cc-cardList.hidden, .cc-npcModal.hidden { display:none; }
 .cc-cardList__body, .cc-npcModal__inner { background:#0c0f13; color:#e6f1ff; border:1px solid #1b2532; border-radius:8px; padding:16px; max-height:90vh; overflow:auto; width:90%; max-width:600px; }
 .cc-npcStats { display:flex; gap:8px; margin-bottom:8px; }
+.cc-npcDetails { margin-bottom:8px; }
+.cc-npcDetails h4 { margin:8px 0 4px; }
 .cc-npcModal__actions { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
 
 .cc-tabs { margin-top:8px; }
