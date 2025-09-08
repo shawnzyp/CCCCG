@@ -218,7 +218,7 @@
     npcsTab: $('#somfDM-tab-npcs'),
     live: $('#somfDM-live'),
     desktop: $('#somfDM-desktop'),
-    refresh: $('#somfDM-refresh'),
+    reset: $('#somfDM-reset'),
     campaign: $('#somfDM-campaign'),
     total: $('#somfDM-total'),
     remaining: $('#somfDM-remaining'),
@@ -568,7 +568,7 @@
     }
   }
 
-  D.refresh?.addEventListener('click', loadAndRender);
+  D.reset?.addEventListener('click', loadAndRender);
 
   let _inited=false;
   function initDMOnce(){

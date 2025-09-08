@@ -446,7 +446,7 @@ progress::-moz-progress-bar{
 
 .sp-field #sp-temp{flex:0 0 60px;max-width:60px;}
 .sp-field #long-rest{width:100%;margin-top:8px;}
-.sp-field .sp-box{margin-top:8px;}
+.sp-field .cap-box{margin-top:8px;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:8px;display:flex;flex-direction:column;gap:10px;transition:box-shadow .3s ease-in-out;background:color-mix(in srgb,var(--surface) 5%,transparent);background-color:color-mix(in srgb,var(--surface) 5%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);margin-left:auto;margin-right:auto;width:100%;max-width:var(--content-width);font-size:1.1rem}
 .card[draggable]{cursor:grab}
 .card:focus-within{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
@@ -753,8 +753,10 @@ select[required]:valid{
 
 /* DM Tool (Shards of Many Fates) */
 .somf-dm{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0;width:100%;max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
-.somf-dm__hdr{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:8px}
-.somf-dm__hdr-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.somf-dm__hdr{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:8px}
+.somf-dm__hdr-controls{display:flex;flex-direction:column;gap:8px}
+.somf-dm__toggles{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.somf-dm__actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .somf-switch{display:inline-flex;align-items:center;gap:6px}
 .somf-dm__tabs{display:flex;gap:6px;margin:8px 0}
 .somf-dm__tabs button{padding:6px 10px;border:1px solid #253247;background:#0d141c;color:#cfe7ff;border-radius:6px;cursor:pointer}

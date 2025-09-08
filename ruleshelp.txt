@@ -92,7 +92,7 @@ SP Cost Guide
 - 4 SP: Strong AoE, control.
 - 5 SP: Ultimate (10-turn cooldown).
 
-Story Point
+Cinematic Action Point
 - 1 per session. May:
   • Auto-succeed a roll.
   • Interrupt initiative.
@@ -160,7 +160,7 @@ A4: Your most iconic ability (2–3 SP), tied to your Origin/identity.
 Q5: Can I mix Power Styles?
 A5: Yes. Only the primary grants the perk.
 
-Q6: What are Story Points?
+Q6: What are Cinematic Action Points?
 A6: 1 per session. Auto-succeed, flashback, interrupt initiative, or rescue.
 
 Q7: What is TC?
