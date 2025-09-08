@@ -81,6 +81,10 @@ async function drawShards(){
     shardResults.appendChild(li);
   });
 
+  if(window.CCShard && typeof window.CCShard.open === 'function'){
+    window.CCShard.open();
+  }
+
   logDM(`Player drew shard${names.length>1?'s':''}: ${names.join(', ')}`);
   const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
   localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
