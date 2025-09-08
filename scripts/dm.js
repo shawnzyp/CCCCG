@@ -6,12 +6,6 @@ const dmLink = document.getElementById('dm-login-link');
 const dmToast = document.getElementById('dm-toast');
 const baseToast = document.getElementById('toast');
 const shardCard = document.getElementById('ccShard-player');
-const shardDraw = document.getElementById('ccShard-player-draw');
-const shardCount = document.getElementById('ccShard-player-count');
-const shardResults = document.getElementById('ccShard-player-results');
-const shardRevealName = document.getElementById('shard-reveal-name');
-const shardRevealVisual = document.getElementById('shard-reveal-visual');
-const shardRevealBtn = document.getElementById('shard-reveal-next');
 
 const resolveTitle = document.getElementById('shard-resolve-title');
 const resolveCard = document.getElementById('shard-resolve-card');
@@ -89,15 +83,12 @@ function setShardCardVisibility(showToast=false){
     const enabled = localStorage.getItem(SHARD_KEY) === '1';
     shardCard.hidden = !enabled;
     shardCard.setAttribute('aria-hidden', String(!enabled));
-    if(shardDraw){
-      const locked = localStorage.getItem(DRAW_LOCK_KEY) === '1';
-      shardDraw.disabled = locked;
-    }
     if(enabled && showToast){
       baseMessage('The Shards reveal themselves to you.');
       shardCard.scrollIntoView({ behavior: 'smooth' });
     } else if(!enabled){
-      if(shardResults) shardResults.innerHTML = '';
+      const results = document.getElementById('ccShard-player-results');
+      if(results) results.innerHTML = '';
     }
   }
 }
@@ -146,22 +137,6 @@ function baseMessage(msg){
   setTimeout(()=> baseToast.classList.remove('show'), 3000);
 }
 
-async function revealShard(card){
-  if(!shardRevealName || !shardRevealVisual || !shardRevealBtn) return;
-  shardRevealName.textContent = card.name;
-  shardRevealVisual.textContent = card.visual || '';
-  shardRevealBtn.textContent = 'Resolve';
-  await new Promise(resolve=>{
-    shardRevealBtn.onclick = () => {
-      if(window.CCShard && typeof window.CCShard.resolveActive === 'function'){
-        window.CCShard.resolveActive();
-      }
-      window.dispatchEvent(new CustomEvent('dm:hideModal',{ detail:'modal-shard-reveal' }));
-      resolve();
-    };
-    window.dispatchEvent(new CustomEvent('dm:showModal',{ detail:'modal-shard-reveal' }));
-  });
-}
 
 function showDmToast(html){
   dmToast.innerHTML = html;
@@ -397,44 +372,6 @@ initShardSync();
 window.addEventListener('storage', e=>{
   if(e.key === SHARD_KEY) setShardCardVisibility(true);
 });
-
-if(shardDraw){
-  if(localStorage.getItem(DRAW_LOCK_KEY) === '1') shardDraw.disabled = true;
-  shardDraw.addEventListener('click', async ()=>{
-    hideDmToast();
-    if(localStorage.getItem(DRAW_LOCK_KEY) === '1'){
-      baseMessage('Shard draws exhausted');
-      return;
-    }
-    if(!confirm("Are you sure you wish to draw Shard's?")) return;
-    if(!confirm('This cannot be undone, are you sure?')) return;
-    const count = Math.max(1, parseInt(shardCount.value,10)||1);
-    const names = [];
-    for(let i=0;i<count;i++){
-      const res = window.CCShard && typeof window.CCShard.draw === 'function'
-        ? await window.CCShard.draw(1)
-        : [];
-      if(!res.length){
-        baseMessage('No shards drawn');
-        break;
-      }
-      const card = res[0];
-      names.push(card.name);
-      shardResults.innerHTML = names.map(n=>`<li>${n}</li>`).join('');
-      await revealShard(card);
-    }
-    if(!names.length) return;
-    logDMAction(`Player drew shard${names.length>1?'s':''}: ${names.join(', ')}`);
-    const draws = parseInt(localStorage.getItem(DRAW_COUNT_KEY) || '0',10) + 1;
-    localStorage.setItem(DRAW_COUNT_KEY, draws.toString());
-    if(draws >= 2){
-      localStorage.setItem(DRAW_LOCK_KEY, '1');
-      shardDraw.disabled = true;
-      baseMessage('Shard draws exhausted');
-      logDMAction('Player exhausted shard draws');
-    }
-  });
-}
 
 if(resolveCompleteBtn){
   resolveCompleteBtn.addEventListener('click', ()=>{
