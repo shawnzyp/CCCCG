@@ -12,8 +12,6 @@ import {
   saveCharacter,
 } from './characters.js';
 import { show, hide } from './modal.js';
-window.addEventListener('dm:showModal', e => show(e.detail));
-window.addEventListener('dm:hideModal', e => hide(e.detail));
 // Load the optional confetti library lazily so tests and offline environments
 // don't attempt a network import on startup.
 let confettiPromise = null;
@@ -1387,24 +1385,6 @@ if(saveCurrentBtn){
   });
 }
 
-window.addEventListener('dm:addNpc', e=>{
-  const id = e.detail && e.detail.id;
-  if(!id || !window.CCShard || typeof window.CCShard.getNPC !== 'function') return;
-  const npc = window.CCShard.getNPC(id);
-  if(!npc) return;
-  const name = prompt('Enter character name for NPC', npc.name) || npc.name;
-  setCurrentCharacter(name);
-  deserialize(DEFAULT_STATE);
-  const hpBar = $('hp-bar');
-  const spBar = $('sp-bar');
-  const hpPill = $('hp-pill');
-  const spPill = $('sp-pill');
-  if(hpBar){ hpBar.max = npc.hp; hpBar.value = npc.hp; }
-  if(spBar){ spBar.max = npc.sp; spBar.value = npc.sp; }
-  if(hpPill) hpPill.textContent = `${npc.hp}/${npc.hp}`;
-  if(spPill) spPill.textContent = `${npc.sp}/${npc.sp}`;
-  toast(`Switched to ${name}`,'success');
-});
 
 const recoverListEl = $('recover-list');
 if(recoverListEl){

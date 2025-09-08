@@ -1,743 +1,316 @@
-/* Shard of Many Fates • Catalyst Core Add-on */
-(function () {
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+/* === Shards of Many Fates minimal module === */
+/* === CONFIG you can tweak === */
+const SOMF_CAMPAIGN_ID = "ccampaign-001";   // set per table/campaign
+// After your Firebase init, call: SOMF.setFirebase(firebase.database());
 
-  const ui = {
-    root: $('#cc-shard'),
-    openBtn: $('#ccShard-open'),
-    closeBtn: $('#ccShard-close'),
-    capCancelBtn: $('#ccShard-capCancel'),
-    completeBtn: $('#ccShard-complete'),
-    showAllBtn: $('#ccShard-showAll'),
-    cardList: $('#ccShard-cardList'),
-    cardListClose: $('#ccShard-cardList-close'),
-    cardListOl: $('#ccShard-cardList-ol'),
-    cardName: $('#ccShard-cardName'),
-    cardVisual: $('#ccShard-cardVisual'),
-    tabBtns: $$('#cc-shard .cc-tabs__nav button'),
-    tabPanes: {
-      effect: $('#ccShard-tab-effect'),
-      hooks: $('#ccShard-tab-hooks'),
-      resolution: $('#ccShard-tab-resolution'),
-      enemy: $('#ccShard-tab-enemy'),
-      rewards: $('#ccShard-tab-rewards')
-    },
-    log: $('#ccShard-log'),
-    statSelect: $('#ccShard-statSelect'),
-    openNPCBtn: $('#ccShard-openNPC'),
-    statView: $('#ccShard-statView'),
-    npcModal: $('#ccShard-npcModal'),
-    npcName: $('#ccShard-npcName'),
-    npcHP: $('#ccShard-npcHP'),
-    npcSP: $('#ccShard-npcSP'),
-    npcAbilities: $('#ccShard-npcAbilities'),
-    npcSkills: $('#ccShard-npcSkills'),
-    npcGear: $('#ccShard-npcGear'),
-    npcXP: $('#ccShard-npcXP'),
-    npcActions: $('#ccShard-npcActions'),
-    npcLog: $('#ccShard-npcLog'),
-    npcClose: $('#ccShard-npcClose'),
-    flash: $('#ccShard-flash'),
-  };
+/* === Shard data (player-facing: name, visual, effect summary) === */
+const SOMF_PLATES = [
+  {id:'TRIBUNAL',     name:'The Tribunal',        visual:'A halo of alien law glyphs inverts.', effect:['Shift one step on Moral or Discipline axis','Immediate faction reaction','1-time alignment perk for 3 sessions']},
+  {id:'METEOR',       name:'The Meteor',          visual:'A burning shard fractures into your nemesis sigil.', effect:['Solo-next major enemy to ascend one Hero Tier','Fail: lose 1 rep tier with a watching faction']},
+  {id:'NULL_VAULT',   name:'The Null Vault',      visual:'The floor tears like static; a doorframe with no door opens.', effect:['You vanish to Morvox’s Echo Pit','Team must mount a rescue']},
+  {id:'SHEPHERDS_MASK',name:'The Shepherd’s Mask',visual:'A porcelain mask melts into black tracer lines.', effect:['Curse: −2 on all saves; nat 20 rolls twice, keep lower','Lift via Herald duel or Conclave starlight']},
+  {id:'REDACTION',    name:'The Redaction',       visual:'Frames of your past appear; a black bar erases one.', effect:['Erase one event or outcome; rewrite one consequence','Another thread becomes harder']},
+  {id:'BROADCAST',    name:'The Broadcast',       visual:'Billboards flip to your face marked TRAITOR or MONSTER.', effect:['Gain a powerful pursuing enemy']},
+  {id:'FRAGMENT',     name:'The Fragment',        visual:'A cracked shard refracts you into a caricature.', effect:['Lose 1d4 CAP this arc','Must draw one extra shard']},
+  {id:'CACHE',        name:'The Catalyst Cache',  visual:'A humming shard-case phases in.', effect:['Gain 1d6 Fragments + one Rare item','Cache is watermarked (tracker)']},
+  {id:'STATIC',       name:'The Static',          visual:'Vision pixelates; thoughts stutter.', effect:['Permanent −1d4 INT','Lose a language/tech specialty until retrained']},
+  {id:'TRICKSTER',    name:'The Trickster Signal',visual:'Confetti of system alerts rains down.', effect:['Choose 10,000 credits OR draw two more','If drawn twice ever: a contact is an O.M.N.I. sleeper']},
+  {id:'HELIX_CODE',   name:'The Helix Code',      visual:'A living circuitry key slots into your kit.', effect:['Gain Legendary class item','Backdoor ping reveals location on first combat use']},
+  {id:'ECHO_OPERATIVE',name:'The Echo Operative', visual:'A soldier steps out of your shadow in inverted colors.', effect:['Gain a loyal Tier 3 ally mirroring one tactic']},
+  {id:'DREAM',        name:'The Dream',           visual:'A shardlight crescent drips motes into your hands.', effect:['Gain 1d3 Resonance Point wishes (each use adds Heat)']},
+  {id:'DEFECTOR',     name:'The Defector',        visual:'Your team appears; one face shatters.', effect:['One ally/contact will betray you at a pivotal moment']},
+  {id:'COLLAPSE',     name:'The Collapse',        visual:'Homes, lockers, and accounts implode into cubes.', effect:['Lose civilian assets','Gain one-scene Renegade surge (+1d6)']},
+  {id:'WRAITH',       name:'The Wraith',          visual:'A skeletal silhouette with shardlight eyes exhales frost.', effect:['A relentless hunter pursues you until slain']},
+  {id:'ASCENDANT',    name:'The Ascendant',       visual:'A seven-point star embeds in your sternum.', effect:['+2 to one ability','+1d4 free once in each of next two encounters']},
+  {id:'HALO',         name:'The Halo',            visual:'A rotating shard halo casts your emblem.', effect:['Gain Elite/Legendary artifact','+1d4 CAP this arc']},
+  {id:'SILENCE_BLOOM',name:'The Silence Bloom',   visual:'Your gear dissolves into black petals.', effect:['All carried gear erased except bonded artifacts and fragments']},
+  {id:'VIGIL',        name:'The Vigil',           visual:'A city district lifts into your palm as a sigil.', effect:['Gain district/safehouse/post; set one team policy there']},
+  {id:'ORACLE',       name:'The Oracle',          visual:'A sphere of light shows a single truth.', effect:['Ask one specific campaign question']},
+  {id:'SHEPHERDS_THREAD', name:'The Shepherd’s Thread', visual:'A black filament tethers your chest to darkness.', effect:['Soul tether to Morvox; periodic WIS save or lose action','Sever via Null Vault or Conclave Rite']},
+];
 
-  const state = {
-    deck: [],
-    archive: [],
-    activeCard: null,
-    lastReset: null,
-    drawnCount: 0,
-    drawQueue: [],
-    capUsed: false,
-  };
+/* === Internals === */
+const $ = sel => document.querySelector(sel);
+const SOMF_KEYS = {
+  localDeck: (cid)=>`somf_deck__${cid}`,
+  localAudit: (cid)=>`somf_audit__${cid}`
+};
+let RTDB = null; // set via SOMF.setFirebase()
+const DECK_PATH = (cid)=>`somf/${cid}/deck`;
+const AUDIT_PATH = (cid)=>`somf/${cid}/audits`;
 
-  const STORAGE_KEY = 'ccShard_v1';
-
-  const DECK_LOCK_KEY = 'ccShardDeckLock';
-  const CLOUD_STATE_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeck.json';
-  const CLOUD_LOCK_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/shardDeckLock.json';
-  function logDM(text){
-    window.dispatchEvent(new CustomEvent('dm:notify', { detail: text }));
+// cryptographically strong [0, max)
+function cryptoInt(max){
+  if (window.crypto?.getRandomValues) {
+    const arr = new Uint32Array(1);
+    window.crypto.getRandomValues(arr);
+    return Math.floor((arr[0] / 2**32) * max);
   }
+  return Math.floor(Math.random()*max);
+}
 
-  function toast(msg){
-    const el = document.getElementById('toast');
-    if(el){
-      el.textContent = msg;
-      el.className = 'toast show';
-      setTimeout(()=> el.classList.remove('show'),3000);
+// Local deck helpers (fallback if no RTDB)
+function getLocalDeck(cid){
+  const raw = localStorage.getItem(SOMF_KEYS.localDeck(cid));
+  return raw ? JSON.parse(raw) : null;
+}
+function setLocalDeck(cid, deck){
+  localStorage.setItem(SOMF_KEYS.localDeck(cid), JSON.stringify(deck));
+}
+function ensureLocalDeck(cid){
+  let deck = getLocalDeck(cid);
+  if (!deck || !Array.isArray(deck) || deck.length===0){
+    deck = SOMF_PLATES.map(p=>p.id);
+    setLocalDeck(cid, deck);
+  }
+  return deck;
+}
+function localDrawOne(cid){
+  const deck = ensureLocalDeck(cid);
+  const idx = cryptoInt(deck.length);
+  const [id] = deck.splice(idx,1);
+  setLocalDeck(cid, deck);
+  auditLocal(cid, id);
+  return id;
+}
+function auditLocal(cid, id){
+  const key = SOMF_KEYS.localAudit(cid);
+  const raw = localStorage.getItem(key);
+  const arr = raw ? JSON.parse(raw) : [];
+  arr.unshift({id, ts: Date.now()});
+  localStorage.setItem(key, JSON.stringify(arr));
+}
+
+// RTDB helpers
+async function rtdbInitDeckIfMissing(cid){
+  const ref = RTDB.ref(DECK_PATH(cid));
+  const snap = await ref.get();
+  if (!snap.exists()) {
+    const all = SOMF_PLATES.map(p=>p.id);
+    await ref.set(all);
+    return all;
+  }
+  return snap.val();
+}
+async function rtdbDrawOne(cid){
+  const deckRef = RTDB.ref(DECK_PATH(cid));
+  let drawnId = null;
+  await deckRef.transaction(current => {
+    let cur = current;
+    if (!Array.isArray(cur) || cur.length===0){
+      cur = SOMF_PLATES.map(p=>p.id); // auto-reshuffle when empty
     }
-  }
-
-  // All 22 plates
-  const PLATES = [
-    { id:'TRIBUNAL', name:'The Tribunal', src:'Balance',
-      visual:'A rotating hex of alien law glyphs surrounds the drawer then inverts.',
-      effect:[
-        'Shift one step on Moral or Discipline axis.',
-        'Adjust reputation with O.M.N.I. or PFV by one tier.',
-        'Gain a one-time perk aligned to the new axis for 3 sessions.'
-      ],
-      hooks:[
-        'O.M.N.I. audit team arrives.',
-        'PFV ethics board demands a mediation stream.',
-        'Conclave tags you with a luminal sigil.'
-      ],
-      resolution:[
-        'Three acts supporting prior alignment or argue a Conclave Trial.',
-        'Contrition or conviction scene clears the sigil and restores one rep.'
-      ],
-      enemy:null, rewards:null, heatDelta:1, capsAllowed:true },
-
-    { id:'METEOR', name:'The Meteor', src:'Comet',
-      visual:'A burning shard streaks overhead and fractures into the next nemesis sigil.',
-      effect:[
-        'Defeat the next significant enemy solo to ascend one Hero Tier and gain a Legendary class item.',
-        'If you fail, lose one reputation tier with a faction that was watching.'
-      ],
-      hooks:[
-        'PFV broadcasts a solo trial.',
-        'O.M.N.I. restricts backup to force narrative.'
-      ],
-      resolution:[
-        'Win the duel or repair failure with a public challenge or expose manipulation.'
-      ],
-      enemy:null, rewards:['Legendary class item on success'], heatDelta:1, capsAllowed:true },
-
-    { id:'NULL_VAULT', name:'The Null Vault', src:'Donjon',
-      visual:'The floor tears like video static. A doorframe with no door opens.',
-      effect:[
-        'Drawer is pulled into Morvox’s Echo Pit. Team must mount a rescue.'
-      ],
-      hooks:[
-        'O.M.N.I. flags a Null Fragment.',
-        'Acquire a Shepherd Pulse to phase in.'
-      ],
-      resolution:[
-        'Stage 1. Retrieve Shepherd Pulse. Skill challenge DC 14.',
-        'Stage 2. Shard sync DC 15. Inside, defeat a Herald (H1) or sever the Shard Choir.'
-      ],
-      enemy:'H1', rewards:null, heatDelta:2, capsAllowed:false },
-
-    { id:'SHEPHERDS_MASK', name:'The Shepherd’s Mask', src:'Euryale',
-      visual:'A smooth porcelain mask phases over the face then melts into tracer lines.',
-      effect:['Curse. −2 on all saves. On natural 20, roll twice and keep the lower.'],
-      hooks:['Voice sometimes routes through nearby speakers.','PFV healers refuse treatment without tribunal.'],
-      resolution:['Defeat a Herald (H1) in single combat or bathe mask in Conclave starlight at an Envoy Spire.'],
-      enemy:'H1', rewards:null, heatDelta:1, capsAllowed:true },
-
-    { id:'REDACTION', name:'The Redaction', src:'Fates',
-      visual:'Frames of your past hang in air. A black bar erases one.',
-      effect:[
-        'Once, erase an event in your past or a current outcome and rewrite one consequence in your favor.',
-        'Choose another thread that becomes one step harder.'
-      ],
-      hooks:['O.M.N.I. reconstructs from surveillance gaps.','A loved one remembers both versions and has nightmares.'],
-      resolution:['Accept the complication and play it out or stabilize at an Oracle node.'],
-      enemy:null, rewards:null, heatDelta:1, capsAllowed:true },
-
-    { id:'BROADCAST', name:'The Broadcast', src:'Flames',
-      visual:'Holo-billboards flip to your face stamped TRAITOR or MONSTER.',
-      effect:['Gain a powerful enemy who commits resources against you. Heat +2 on reveal.'],
-      hooks:['Greyline assault cell raids your safehouse.','O.M.N.I. issues a sealed detention order.'],
-      resolution:['Clear your name publicly or defeat the enemy live.'],
-      enemy:'G1', rewards:null, heatDelta:2, capsAllowed:true },
-
-    { id:'FRAGMENT', name:'The Fragment', src:'Fool',
-      visual:'A cracked shard refracts everyone into clumsy caricatures.',
-      effect:['Lose 1d4 CAP this arc. You must draw one extra plate immediately.'],
-      hooks:['Conclave junior emissary tries to pocket the fragment.','Memes cause mild hostility penalties for 24h.'],
-      resolution:['Redeem by a public rescue or destroy the fragment at a shard kiln.'],
-      enemy:null, rewards:null, heatDelta:0, capsAllowed:true },
-
-    { id:'CACHE', name:'The Catalyst Cache', src:'Gem',
-      visual:'A carbon case phases in, humming with shardlight.',
-      effect:['Gain 1d6 Catalyst Fragments and one Rare class item. Watermarked tracker included.'],
-      hooks:['Greyline attempts a theft in transit.','PFV asks for one fragment donation.'],
-      resolution:['Scrub watermark with Conclave key or sacrifice 1 fragment to lower heat.'],
-      enemy:null, rewards:['+1d6 fragments','1 Rare class item'], heatDelta:1, capsAllowed:true },
-
-    { id:'STATIC', name:'The Static', src:'Idiot',
-      visual:'Your vision pixelates. Thoughts stutter.',
-      effect:['Permanent −1d4 INT. Lose a language or technical specialty until retrained.'],
-      hooks:['Old passphrases fail and strand allies.','A former student offers help for a price.'],
-      resolution:['Two downtime Research actions + mnemonic imprint or attach Neural Sync with a side effect.'],
-      enemy:null, rewards:null, heatDelta:0, capsAllowed:true },
-
-    { id:'TRICKSTER', name:'The Trickster Signal', src:'Jester',
-      visual:'Confetti of system alerts rains from nowhere.',
-      effect:['Choose 10,000 credits or draw two additional plates. If drawn twice, a contact is an O.M.N.I. sleeper.'],
-      hooks:['Funds are laundered through an enemy shell.','Sleeper reveal hits at a critical moment.'],
-      resolution:['Expose laundering source or reveal the sleeper cleanly.'],
-      enemy:null, rewards:['10,000 credits or 2 extra draws'], heatDelta:0, capsAllowed:true },
-
-    { id:'HELIX_CODE', name:'The Helix Code', src:'Key',
-      visual:'A living circuitry key slides into your palm and links to your kit.',
-      effect:['Gain a Legendary class item with a Greyline backdoor ping. First combat use pings location.'],
-      hooks:['Greyline issues an extraction contract.','PFV pleads for quarantine and offers alternative.'],
-      resolution:['Purge backdoor via O.M.N.I. or Conclave, or bait Greyline and win.'],
-      enemy:'G1', rewards:['Legendary class item'], heatDelta:2, capsAllowed:true },
-
-    { id:'ECHO_OPERATIVE', name:'The Echo Operative', src:'Knight',
-      visual:'A soldier steps out of your shadow with inverted colors.',
-      effect:['Gain a loyal Tier 3 NPC ally that mirrors one of your tactics. If they die you gain a scar or phobia.'],
-      hooks:['They may be your alt-timeline self.','O.M.N.I. tries to draft them.'],
-      resolution:['Roleplay the bond. Protect or release them to their arc.'],
-      enemy:null, rewards:['Ally E1'], heatDelta:0, capsAllowed:true },
-
-    { id:'DREAM', name:'The Dream', src:'Moon',
-      visual:'A shardlight crescent drips motes into your hands.',
-      effect:['Gain 1d3 Resonance Point wishes. Each use adds Heat +1.'],
-      hooks:['Conclave auditors observe every use.','O.M.N.I. moves to confiscate you.'],
-      resolution:['RP are consumed on use. Live with the heat.'],
-      enemy:null, rewards:['+1d3 RP wishes'], heatDelta:0, capsAllowed:true },
-
-    { id:'DEFECTOR', name:'The Defector', src:'Rogue',
-      visual:'Your team appears. One face shatters.',
-      effect:['One ally or contact betrays you at a pivotal moment.'],
-      hooks:['Breadcrumb sabotage culminates during a high-stakes op.'],
-      resolution:['Confront, convert, or cut them loose. Clean resolution restores 1 rep.'],
-      enemy:'B1', rewards:null, heatDelta:1, capsAllowed:true },
-
-    { id:'COLLAPSE', name:'The Collapse', src:'Ruin',
-      visual:'Apartments and accounts collapse like hollow cubes.',
-      effect:['All civilian assets are seized or destroyed. Gain a one-scene Renegade surge of +1d6 to an aggressive action.'],
-      hooks:['HelixDyne shell corp executed the move.','PFV relief if you do public service.'],
-      resolution:['Expose the paper trail or steal your life back in a heist.'],
-      enemy:null, rewards:['Renegade surge x1 scene'], heatDelta:1, capsAllowed:true },
-
-    { id:'WRAITH', name:'The Wraith', src:'Skull',
-      visual:'Skeletal silhouette with shardlight eyes. Breath frosts.',
-      effect:['A relentless hunter spawns and pursues until slain, growing stronger if ignored.'],
-      hooks:['It wears the face of someone the drawer failed to save.','It gains strength each night you avoid it.'],
-      resolution:['Hunt and defeat it.'],
-      enemy:'C1|H1', rewards:null, heatDelta:1, capsAllowed:true },
-
-    { id:'ASCENDANT', name:'The Ascendant', src:'Star',
-      visual:'A seven-point star embeds in your sternum and dims.',
-      effect:['Increase one ability score by +2. For the next two encounters, once per encounter add +1d4 to any roll without SP.'],
-      hooks:['Conclave offers a test.','O.M.N.I. tempts with higher clearance.'],
-      resolution:['None.'],
-      enemy:null, rewards:['+2 to one ability'], heatDelta:0, capsAllowed:true },
-
-    { id:'HALO', name:'The Halo', src:'Sun',
-      visual:'A rotating shard halo casts your emblem across the scene.',
-      effect:['Gain an Elite or Legendary artifact. Gain +1d4 CAP for this campaign arc.'],
-      hooks:['Null Silence ripple briefly disrupts enemy comms for one fight.'],
-      resolution:['None.'],
-      enemy:null, rewards:['Elite or Legendary artifact','+1d4 CAP'], heatDelta:1, capsAllowed:true },
-
-    { id:'SILENCE_BLOOM', name:'The Silence Bloom', src:'Talons',
-      visual:'Gear dissolves into black petals and vanishes.',
-      effect:['All carried gear erased except bonded artifacts and Catalyst Fragments. Powers remain.'],
-      hooks:['PFV will re-outfit you after a televised mission.','Greyline offers a predatory loan.'],
-      resolution:['Regain gear via patronage, heist, or Conclave trial of merit to restore one item.'],
-      enemy:null, rewards:null, heatDelta:1, capsAllowed:true },
-
-    { id:'VIGIL', name:'The Vigil', src:'Throne',
-      visual:'A city district lifts from the map and stamps into your palm.',
-      effect:['Gain leadership of a district, safehouse, or O.M.N.I. post. Set one team policy when operating there.'],
-      hooks:['Rivals challenge your claim.','Conclave declares it a micro-trial zone.'],
-      resolution:['Maintain public trust and win a public duel or court case to keep it.'],
-      enemy:null, rewards:['Territory with policy perk'], heatDelta:1, capsAllowed:true },
-
-    { id:'ORACLE', name:'The Oracle', src:'Vizier',
-      visual:'A sphere of light reveals one actionable truth.',
-      effect:['Ask the GM one campaign question. The answer is specific and actionable.'],
-      hooks:['The truth angers someone who needed it buried.'],
-      resolution:['None.'],
-      enemy:null, rewards:['One true answer'], heatDelta:0, capsAllowed:true },
-
-    { id:'SHEPHERDS_THREAD', name:'The Shepherd’s Thread', src:'Void',
-      visual:'A black filament tethers your chest to darkness.',
-      effect:[
-        'Your soul is bound to Morvox. You cannot benefit from inspires.',
-        'Once per encounter WIS save DC 15 or lose your action to "listen." On failure Morvox speaks one sentence through you.'
-      ],
-      hooks:['O.M.N.I. seeks to weaponize your tether.','Your voice echoes from radios, mirrors, and glass.'],
-      resolution:['Enter the Null Vault and sever at the Shard Choir or perform a Conclave Rite with starlight, two fragments, and a personal sacrifice.'],
-      enemy:'H1', rewards:null, heatDelta:2, capsAllowed:false },
-  ];
-
-  const STATS = {
-    H1: `H1. Herald of Morvox, Echo Warden
-Tier 3 elite controller
-HP 58  |  TC 16  |  Speed 30 ft  |  SP 7
-Saves WIS +3, DEX +2, CON +2
-Traits: Silence Bloom aura 10 ft; Fragment Glide
-Actions:
-• Echo Lash (1 SP): +6 to hit, 2d8 psychic. WIS DC 15 or Disoriented 1 round.
-• Broadcast Scramble (2 SP): 20 ft radius. Foes lose reactions and have disadvantage on next attack. WIS DC 15 halves.
-• Shepard’s Mark (3 SP): If marked target attacks Herald they are stunned; if they attack others they deal +1d6 that turn. WIS DC 16 negates.
-Reaction:
-• Memory Tear: When crit, attacker WIS DC 15 or stunned 1 round.`,
-    G1: `G1. Greyline Assault Cell
-Tier 3 fireteam | HP 64 | TC 15 | SP 6 | Speed 30 ft
-Saves DEX +3, CON +2
-Traits: Coordinated Fire; Kill-Switch Smoke 1/enc
-Actions:
-• Suppression Volley (1 SP): 15 ft cone. DEX DC 14 or 2d6 ballistic and lose reaction.
-• Breach Charge (2 SP): Destroy cover. Within 10 ft DEX DC 14 or 2d8 force, knocked prone.
-• Netline Taser (2 SP): 30 ft. On hit Restrained until end of next turn.
-Reaction: Drag Out.`,
-    C1: `C1. Conclave Trial Agent, Blade of Accession
-Tier 4 duelist | HP 72 | TC 17 | Speed 35 ft (hover 10) | SP 8
-Traits: Astral Parry; Starlit Code
-Actions:
-• Prism Edge (1 SP): +7 to hit, 2d10 radiant; WIS DC 15 or disadvantage on next attack.
-• Accession Step (2 SP): Teleport 20 ft, free Prism Edge at +2 to hit.
-• Starlight Decree (3 SP): 15 ft pulse. WIS DC 16 or lose reactions and movement.`,
-    E1: `E1. Echo Operative (Ally)
-Tier 3 | HP 50 | TC 15 | SP 6
-Perk: Copies one signature tactic
-Actions:
-• Covering Fire (1 SP): Ally +2 TC, 10 ft reposition.
-• Drive Forward (2 SP): You and an ally move 20 ft; the ally has advantage on next attack.
-• Last Stand (3 SP): Stay at 1 HP and grant allies within 10 ft +1d6 temp HP.`,
-    B1: `B1. Betrayer Template
-Add to an existing sheet on reveal
-+ Hidden Blade: once/scene +2d6 if target surprised
-+ False Flag (1 SP): Nearby ally WIS DC 14 or loses reaction
-Weakness: Disadvantage on Deception vs party after reveal.`,
-  };
-
-  const NPCS = {
-    H1: {
-      name: 'Herald of Morvox, Echo Warden',
-      hp: 58,
-      sp: 7,
-      abilities: { str: 16, dex: 14, con: 14, int: 12, wis: 15, cha: 13 },
-      skills: ['Athletics +6','Perception +5','Intimidation +4'],
-      weapons: ['Echo Lash','Phase Glaive'],
-      armor: ['Shardmail'],
-      equipment: ['Signal Scrambler'],
-      items: ['Shepherd\u2019s Mark token'],
-      xp: 1000,
-      actions: [
-        { name: 'Echo Lash', attack: 6, damage: '2d8', sp: 1, effect: 'WIS DC 15 or Disoriented 1 round.' },
-        { name: 'Broadcast Scramble', sp: 2, effect: 'Foes lose reactions and have disadvantage on next attack. WIS DC 15 halves.' },
-        { name: 'Shepard\u2019s Mark', sp: 3, effect: 'If marked target attacks Herald they are stunned; if they attack others they deal +1d6 that turn. WIS DC 16 negates.' }
-      ]
-    },
-    G1: {
-      name: 'Greyline Assault Cell',
-      hp: 64,
-      sp: 6,
-      abilities: { str: 14, dex: 12, con: 13, int: 12, wis: 11, cha: 10 },
-      skills: ['Tactics +5','Athletics +4'],
-      weapons: ['Suppression Rifle','Netline Taser','Breach Charges'],
-      armor: ['Tactical Armor'],
-      equipment: ['Comms rig','Breach gear'],
-      items: ['Flashbangs'],
-      xp: 450,
-      actions: [
-        { name: 'Suppression Volley', damage: '2d6', sp: 1, effect: 'DEX DC 14 or lose reaction.' },
-        { name: 'Breach Charge', damage: '2d8', sp: 2, effect: 'DEX DC 14 or knocked prone.' },
-        { name: 'Netline Taser', sp: 2, effect: 'On hit Restrained until end of next turn.' }
-      ]
-    },
-    C1: {
-      name: 'Conclave Trial Agent, Blade of Accession',
-      hp: 72,
-      sp: 8,
-      abilities: { str: 15, dex: 14, con: 15, int: 13, wis: 14, cha: 12 },
-      skills: ['Perception +5','Acrobatics +5','Insight +5'],
-      weapons: ['Prism Edge','Light Pistol'],
-      armor: ['Starlight Armor'],
-      equipment: ['Envoy Spire key'],
-      items: ['Conclave badge'],
-      xp: 900,
-      actions: [
-        { name: 'Prism Edge', attack: 7, damage: '2d10', sp: 1, effect: 'WIS DC 15 or disadvantage on next attack.' },
-        { name: 'Accession Step', attack: 9, damage: '2d10', sp: 2, effect: 'Teleport 20 ft, free Prism Edge at +2 to hit.' },
-        { name: 'Starlight Decree', sp: 3, effect: '15 ft pulse. WIS DC 16 or lose reactions and movement.' }
-      ]
-    },
-    E1: {
-      name: 'Echo Operative',
-      hp: 50,
-      sp: 6,
-      abilities: { str: 13, dex: 15, con: 14, int: 12, wis: 13, cha: 11 },
-      skills: ['Stealth +6','Perception +5','Athletics +4'],
-      weapons: ['Auto Rifle'],
-      armor: ['Stealth Suit'],
-      equipment: ['Commlink'],
-      items: ['Medkit'],
-      xp: 500,
-      actions: [
-        { name: 'Covering Fire', sp: 1, effect: 'Ally +2 TC, 10 ft reposition.' },
-        { name: 'Drive Forward', sp: 2, effect: 'You and an ally move 20 ft; the ally has advantage on next attack.' },
-        { name: 'Last Stand', sp: 3, effect: 'Stay at 1 HP and grant allies within 10 ft +1d6 temp HP.' }
-      ]
-    },
-    B1: {
-      name: 'Betrayer Template',
-      hp: 0,
-      sp: 0,
-      abilities: { str: 12, dex: 14, con: 10, int: 12, wis: 11, cha: 13 },
-      skills: ['Deception +5','Stealth +4'],
-      weapons: ['Hidden Blade'],
-      armor: ['Civilian Garb'],
-      equipment: ['False Flag devices'],
-      items: ['Poison vial'],
-      xp: 250,
-      actions: [
-        { name: 'Hidden Blade', damage: '2d6', effect: 'Once/scene +2d6 if target surprised.' },
-        { name: 'False Flag', sp: 1, effect: 'Nearby ally WIS DC 14 or loses reaction.' }
-      ]
-    }
-  };
-
-
-  function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-  function roll(expr){
-    const m = /^([0-9]+)d([0-9]+)$/i.exec(expr.trim());
-    if(!m) return 0;
-    const cnt = parseInt(m[1],10); const sides = parseInt(m[2],10);
-    let total = 0; for(let i=0;i<cnt;i++) total += Math.floor(Math.random()*sides)+1;
-    return total;
-  }
-
-  function init(){
-    wireUI(); load(); buildFreshDeckIfNeeded(); render();
-  }
-
-  function wireUI(){
-    if(ui.openBtn){
-        ui.openBtn.addEventListener('click', ()=> ui.root.classList.remove('hidden'));
-    }
-    ui.closeBtn.addEventListener('click', ()=> ui.root.classList.add('hidden'));
-
-    ui.capCancelBtn.addEventListener('click', capCancel);
-    ui.completeBtn.addEventListener('click', completePlate);
-
-    ui.showAllBtn.addEventListener('click', ()=>{ renderCardList(); ui.cardList.classList.remove('hidden'); });
-    ui.cardListClose.addEventListener('click', ()=> ui.cardList.classList.add('hidden'));
-
-    ui.tabBtns.forEach(btn=> btn.addEventListener('click', ()=>{
-        ui.tabBtns.forEach(b=> b.classList.remove('active'));
-        btn.classList.add('active');
-        const t = btn.dataset.tab;
-        ui.tabPanes.effect.classList.toggle('active', t==='effect');
-        ui.tabPanes.hooks.classList.toggle('active', t==='hooks');
-        ui.tabPanes.resolution.classList.toggle('active', t==='resolution');
-        ui.tabPanes.enemy.classList.toggle('active', t==='enemy');
-        ui.tabPanes.rewards.classList.toggle('active', t==='rewards');
-    }));
-
-    ui.statSelect.addEventListener('change', ()=>{
-        const key = ui.statSelect.value; ui.statView.textContent = STATS[key] || '';
-        ui.openNPCBtn.disabled = !NPCS[key];
-    });
-    ui.openNPCBtn.addEventListener('click', ()=> openNPC(ui.statSelect.value));
-    ui.npcClose.addEventListener('click', ()=> ui.npcModal.classList.add('hidden'));
-  }
-
-  function buildFreshDeckIfNeeded(force=false){
-  const now = Date.now();
-  const reshuffle = true;
-  if (force || !state.lastReset || (reshuffle && now - state.lastReset > 24*60*60*1000)) {
-    state.deck = PLATES.map(p=>p.id);
-    state.archive = [];
-    state.activeCard = null;
-    state.drawQueue = [];
-    state.drawnCount = 0;
-    state.lastReset = now;
-    persist();
-  } else if (!Array.isArray(state.deck) || state.deck.length===0) {
-    state.deck = PLATES.map(p=>p.id).filter(id => !state.archive.includes(id));
-  }
+    const idx = cryptoInt(cur.length);
+    drawnId = cur[idx];
+    const next = cur.slice(0, idx).concat(cur.slice(idx+1));
+    return next;
+  }, undefined, false);
+  // audit
+  await RTDB.ref(AUDIT_PATH(cid)).push({ id: drawnId, ts: RTDB.ServerValue.TIMESTAMP });
+  return drawnId;
 }
 
-function capCancel(){
-  if (!state.activeCard) return;
-  if (state.capUsed){
-    toast("There's no escaping fate!");
-    return;
-  }
-  if(!confirm('Use Cinematic Action Point to cancel this shard?')) return;
-  state.capUsed = true;
-  const capCheck = document.getElementById('cap-check');
-  const capStatus = document.getElementById('cap-status');
-  if (capCheck){
-    capCheck.checked = true;
-    capCheck.disabled = true;
-    if (capStatus) capStatus.textContent = 'Used';
-  }
-  logLine(`CAP used. Canceled plate: ${state.activeCard.name}`);
-  logDM(`CAP canceled: ${state.activeCard.name}`);
-  state.activeCard = null;
-  ui.capCancelBtn.disabled = true;
-  if(state.drawQueue.length){
-    showNextFromQueue();
-  } else {
-    renderPlate();
-  }
-  persist();
-}
-function completePlate(){
-  if (!state.activeCard) return;
-  logDM(`Resolved plate: ${state.activeCard.name}`);
-  state.archive.push(state.activeCard.id);
-  markResolved(state.activeCard);
-  state.activeCard = null;
-  if(state.drawQueue.length){
-    showNextFromQueue();
-  } else {
-    render();
-  }
-  persist();
-}
+/* === UI logic === */
+const ui = {
+  count: $('#somf-count'),
+  drawBtn: $('#somf-draw'),
+  modal: $('#somf-modal'),
+  close: $('#somf-close'),
+  resolved: $('#somf-resolved'),
+  next: $('#somf-next'),
+  curName: $('#somf-cur-name'),
+  curVisual: $('#somf-cur-visual'),
+  curEffect: $('#somf-cur-effect'),
+  idx: $('#somf-idx'),
+  total: $('#somf-total'),
+};
 
-async function resetDeck(){
-  localStorage.removeItem(DECK_LOCK_KEY);
-  buildFreshDeckIfNeeded(true);
-  await persist();
-  render();
-  logDM('Shard deck reset');
-}
+let session = { queue: [], index: 0, campaignId: SOMF_CAMPAIGN_ID };
 
-function showNextFromQueue(){
-  if(state.drawQueue && state.drawQueue.length){
-    state.activeCard = state.drawQueue.shift();
-    ui.root.classList.remove('hidden');
-    playDrawAnimation().then(render);
-  } else {
-    render();
-  }
-}
+function openModal(){ ui.modal.hidden = false; ui.resolved.checked = false; ui.next.disabled = true; }
+function closeModal(){ ui.modal.hidden = true; }
 
-  function playDrawAnimation(){
-    return new Promise(res=>{
-      ui.flash.classList.add('active');
-      ui.flash.addEventListener('animationend', ()=>{
-        ui.flash.classList.remove('active');
-        res();
-      }, { once:true });
-    });
-  }
-
-  function renderPlate(){
-    const c = state.activeCard;
-    ui.cardName.textContent = c ? `${c.name} (${c.src})` : 'No plate drawn';
-    ui.cardVisual.textContent = c ? c.visual : 'Draw to reveal a fate.';
-    ui.tabPanes.effect.innerHTML = c ? bullets(c.effect) : '';
-    ui.tabPanes.hooks.innerHTML = c ? bullets(c.hooks) : '';
-    ui.tabPanes.resolution.innerHTML = c ? bullets(c.resolution) : '';
-    ui.tabPanes.rewards.innerHTML = c && c.rewards ? bullets(c.rewards) : '<em>None specified</em>';
-    if (c && c.enemy){
-      const keys = c.enemy.split('|');
-      ui.tabPanes.enemy.innerHTML = keys.map(k => `<strong>${k}</strong><pre class="cc-code">${escapeHtml(STATS[k]||'Unknown')}</pre>`).join('');
-    } else ui.tabPanes.enemy.innerHTML = '<em>None</em>';
-    renderActions();
-  }
-
-  function renderActions(){
-  const active = !!state.activeCard;
-  ui.completeBtn.disabled = !active;
-  ui.capCancelBtn.disabled = !(active && state.activeCard.capsAllowed);
-}
-
-  function logDraw(c){
-    const li = document.createElement('li');
-    const time = new Date(c.drawnAt).toLocaleString();
-    li.dataset.key = `${c.id}_${c.drawnAt}`;
-    li.innerHTML = `<strong>${c.name}</strong> <span class="muted">(${time})</span>`;
-    ui.log.append(li);
-  }
-  function markResolved(c){
-    const li = ui.log.querySelector(`li[data-key="${c.id}_${c.drawnAt}"]`);
-    if (li){
-      li.classList.add('muted');
-      li.append(' — resolved');
-    }
-  }
-  function logLine(t){
-    const li = document.createElement('li'); li.textContent = t; ui.log.append(li);
-  }
-  function bullets(arr){
-    if (!arr || !arr.length) return '<em>None</em>';
-    return `<ul>${arr.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>`;
-  }
-
-  function renderCardList(){
-    ui.cardListOl.innerHTML = '';
-    PLATES.forEach(p=>{
-      const li = document.createElement('li');
-      li.innerHTML = `<strong>${p.name}</strong><p class="muted">${escapeHtml(p.visual)}</p><div><strong>Effect:</strong>${bullets(p.effect)}</div><div><strong>Hooks:</strong>${bullets(p.hooks)}</div><div><strong>Resolution:</strong>${bullets(p.resolution)}</div>`;
-      ui.cardListOl.append(li);
-    });
-  }
-
-  function openNPC(id){
-    const npc = NPCS[id]; if(!npc) return;
-    ui.npcName.textContent = npc.name;
-    ui.npcHP.max = npc.hp; ui.npcHP.value = npc.hp;
-    ui.npcSP.max = npc.sp; ui.npcSP.value = npc.sp;
-    ui.npcAbilities.innerHTML = npc.abilities ? `<h4>Ability Scores</h4><ul class="cc-list">${Object.entries(npc.abilities).map(([k,v])=>`<li>${k.toUpperCase()} ${v}</li>`).join('')}</ul>` : '';
-    ui.npcSkills.innerHTML = npc.skills ? `<h4>Skills</h4><ul class="cc-list">${npc.skills.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>` : '';
-    const gear = [];
-    if(npc.weapons && npc.weapons.length) gear.push(`<strong>Weapons:</strong> ${escapeHtml(npc.weapons.join(', '))}`);
-    if(npc.armor && npc.armor.length) gear.push(`<strong>Armor:</strong> ${escapeHtml(npc.armor.join(', '))}`);
-    if(npc.equipment && npc.equipment.length) gear.push(`<strong>Equipment:</strong> ${escapeHtml(npc.equipment.join(', '))}`);
-    if(npc.items && npc.items.length) gear.push(`<strong>Items:</strong> ${escapeHtml(npc.items.join(', '))}`);
-    ui.npcGear.innerHTML = gear.length ? `<h4>Gear</h4><ul class="cc-list">${gear.map(g=>`<li>${g}</li>`).join('')}</ul>` : '';
-    ui.npcXP.textContent = npc.xp ? `XP: ${npc.xp}` : '';
-    ui.npcActions.innerHTML = '';
-    ui.npcLog.textContent = '';
-    npc.actions.forEach(act=>{
-      const btn = document.createElement('button');
-      btn.textContent = act.name;
-      btn.className = 'cc-btn';
-      btn.addEventListener('click', ()=> handleNpcAction(act));
-      ui.npcActions.append(btn);
-    });
-    ui.npcModal.classList.remove('hidden');
-  }
-
-  function handleNpcAction(action){
-    const parts = [];
-    if(typeof action.attack === 'number'){
-      const d20 = roll('1d20');
-      const total = d20 + action.attack;
-      parts.push(`attack ${total} (d20 ${d20}+${action.attack})`);
-    }
-    if(action.damage){
-      const dmg = roll(action.damage);
-      parts.push(`damage ${dmg}`);
-    }
-    if(action.effect) parts.push(action.effect);
-    if(action.sp){
-      ui.npcSP.value = Math.max(0, (Number(ui.npcSP.value)||0) - action.sp);
-    }
-    ui.npcLog.textContent = `${action.name}: ${parts.join('; ')}\n` + ui.npcLog.textContent;
-  }
-
-  
-function render(){
-  renderPlate();
-  if(state.activeCard) ui.root.classList.remove('hidden');
-}
-
-async function persist(){
-  const payload = { state, savedAt: Date.now() };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  if (typeof fetch === 'function') {
-    try {
-      await fetch(CLOUD_STATE_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch(e){ console.error('Cloud save failed', e); }
-  }
-}
-
-async function load(){
-  if (typeof fetch === 'function') {
-    try {
-      const res = await fetch(CLOUD_STATE_URL);
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.state) { Object.assign(state, data.state); return; }
-      }
-    } catch(e){}
-  }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY); if (!raw) return;
-    const data = JSON.parse(raw); if (data && data.state) Object.assign(state, data.state);
-  } catch {}
+function renderCurrent(){
+  const i = session.index;
+  const total = session.queue.length;
+  ui.idx.textContent = String(i+1);
+  ui.total.textContent = String(total);
+  const plate = session.queue[i];
+  ui.curName.textContent = plate.name;
+  ui.curVisual.textContent = plate.visual;
+  ui.curEffect.innerHTML = plate.effect.map(e=>`<li>${escapeHtml(e)}</li>`).join('');
+  ui.resolved.checked = false;
+  ui.next.disabled = true;
 }
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])); }
 
-async function acquireCloudLock(id){
-  if (typeof fetch !== 'function') return;
-  while(true){
-    try {
-      const res = await fetch(CLOUD_LOCK_URL, { headers: { 'X-Firebase-ETag': 'true' } });
-      const etag = res.headers.get('etag');
-      const val = await res.json();
-      if (val === null || val === id){
-        const putRes = await fetch(CLOUD_LOCK_URL, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'If-Match': etag },
-          body: JSON.stringify(id)
-        });
-        if (putRes.status === 412) continue;
-        if (putRes.ok) return;
-      }
-    } catch (e) {}
-    await new Promise(r=>setTimeout(r,200));
+/* === Draw flow === */
+async function drawFlow(){
+  const n = Math.max(1, Math.min(22, +ui.count.value || 1));
+
+  if (!confirm('The Fates are fickle, are you sure you wish to draw from the Shards?')) return;
+  if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
+
+  // Build queue of N unique shard objects via cloud (preferred) or local fallback
+  const ids = [];
+  for (let k=0; k<n; k++){
+    const id = RTDB ? await rtdbDrawOne(session.campaignId) : localDrawOne(session.campaignId);
+    ids.push(id);
   }
+  session.queue = ids.map(id => SOMF_PLATES.find(p=>p.id===id));
+  session.index = 0;
+
+  openModal();
+  renderCurrent();
 }
 
-async function releaseCloudLock(id){
-  if (typeof fetch !== 'function') return;
+/* === Wire events === */
+ui.drawBtn.addEventListener('click', async () => {
   try {
-    const res = await fetch(CLOUD_LOCK_URL, { headers: { 'X-Firebase-ETag': 'true' } });
-    const etag = res.headers.get('etag');
-    const val = await res.json();
-    if (val === id){
-      await fetch(CLOUD_LOCK_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'If-Match': etag },
-        body: 'null'
-      });
-    }
-  } catch (e) {}
-}
+    if (RTDB) await rtdbInitDeckIfMissing(session.campaignId);
+    await drawFlow();
+  } catch (e) {
+    alert('Error drawing shards. Check your connection and Firebase configuration.');
+    console.error(e);
+  }
+});
+ui.close.addEventListener('click', closeModal);
+ui.resolved.addEventListener('change', ()=> { ui.next.disabled = !ui.resolved.checked; });
+ui.next.addEventListener('click', ()=>{
+  if (!ui.resolved.checked) return;
+  if (session.index < session.queue.length - 1){
+    session.index += 1; renderCurrent();
+  } else {
+    closeModal();
+  }
+});
 
-async function drawCardsSimple(count){
-    state.drawQueue = state.drawQueue || [];
-    const lockId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-    while(localStorage.getItem(DECK_LOCK_KEY) && localStorage.getItem(DECK_LOCK_KEY) !== lockId){
-      await new Promise(r=>setTimeout(r,50));
-    }
-    localStorage.setItem(DECK_LOCK_KEY, lockId);
-    await acquireCloudLock(lockId);
-    try {
-      await load();
-      buildFreshDeckIfNeeded();
-      if (!state.deck.length) return [];
-      const results = [];
-      for(let i=0;i<count && state.deck.length;i++){
-        const id = state.deck.splice(Math.floor(Math.random() * state.deck.length), 1)[0];
-        const plate = PLATES.find(p => p.id === id);
-        const card = { ...plate, drawnAt: Date.now() };
-        results.push(card);
-        state.drawQueue.push(card);
-        state.drawnCount++;
-        logDraw(card);
-        logDM(`Draw: ${plate.name}`);
-      }
-      await persist();
-      if(!state.activeCard) showNextFromQueue();
-      return results;
-    } finally {
-      await releaseCloudLock(lockId);
-      if(localStorage.getItem(DECK_LOCK_KEY) === lockId) localStorage.removeItem(DECK_LOCK_KEY);
-    }
-}
+/* === Public API === */
+window.SOMF = {
+  setCampaignId: (id)=> { session.campaignId = id || SOMF_CAMPAIGN_ID; },
+  setFirebase: (db)=> { RTDB = db || null; },
+};
 
-  window.CCShard = {
-    open: ()=> ui.root.classList.remove('hidden'),
-    plates: PLATES,
-    stats: STATS,
-    draw: drawCardsSimple,
-    getActiveCard: ()=> state.activeCard,
-    getNPC: id => NPCS[id],
-    openNPC: openNPC,
-    resolveActive: completePlate,
-    resetDeck: resetDeck
+/* === History viewer (No spoilers) === */
+(function(){
+  const $ = (s)=>document.querySelector(s);
+  const SOMF_HISTORY_MAX = 100;
+
+  // Reuse campaign & RTDB from SOMF public API if present
+  function getCampaignId(){ return (window.SOMF?._getCampaignId?.() || window.SOMF_CAMPAIGN_ID); }
+  function getRTDB(){ return window.SOMF?._getFirebase?.() || null; }
+
+  // LocalStorage keys (same scheme as the main module)
+  const keys = {
+    deck: (cid)=>`somf_deck__${cid}`,
+    audit: (cid)=>`somf_audit__${cid}`
   };
 
-  async function init(){
-    wireUI();
-    await load();
-    buildFreshDeckIfNeeded();
-    render();
+  // Hash an internal id to a short, non-reversible token (no spoilers)
+  async function tokenize(str){
+    // Use subtle crypto if available; fallback to a quick non-crypto hash
+    if (crypto?.subtle) {
+      const enc = new TextEncoder().encode(str);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      const bytes = Array.from(new Uint8Array(buf));
+      return bytes.slice(0,6).map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase(); // 12 hex chars
+    } else {
+      let h=2166136261>>>0;
+      for (let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+      return (h>>>0).toString(16).toUpperCase().padStart(8,'0');
+    }
   }
 
-  init();
+  function fmtWhen(ts){
+    const d = new Date(ts);
+    const now = Date.now();
+    const diff = Math.max(0, now - d.getTime());
+    const mins = Math.floor(diff/60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins/60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs/24);
+    if (days < 7) return `${days}d ago`;
+    return d.toLocaleString();
+  }
+
+  async function loadDeckCounts(cid, rtdb){
+    if (rtdb){
+      const deckSnap = await rtdb.ref(`somf/${cid}/deck`).get();
+      const deck = deckSnap.exists() ? deckSnap.val() : null;
+      const auditsSnap = await rtdb.ref(`somf/${cid}/audits`).get();
+      const audits = auditsSnap.exists() ? auditsSnap.size || Object.keys(auditsSnap.val()).length : 0;
+      const remaining = Array.isArray(deck) ? deck.length : 22;
+      return { total: audits, remaining };
+    } else {
+      const deckRaw = localStorage.getItem(keys.deck(cid));
+      const deck = deckRaw ? JSON.parse(deckRaw) : null;
+      const auditRaw = localStorage.getItem(keys.audit(cid));
+      const audits = auditRaw ? JSON.parse(auditRaw) : [];
+      const remaining = Array.isArray(deck) ? deck.length : 22;
+      return { total: audits.length, remaining };
+    }
+  }
+
+  async function loadAuditFeed(cid, rtdb){
+    if (rtdb){
+      // newest first
+      const ref = rtdb.ref(`somf/${cid}/audits`).limitToLast(SOMF_HISTORY_MAX);
+      const snap = await ref.get();
+      if (!snap.exists()) return [];
+      const entries = Object.entries(snap.val()).map(([k,v])=>({ id:v.id, ts:v.ts || Date.now() }));
+      entries.sort((a,b)=> b.ts - a.ts);
+      return entries;
+    } else {
+      const raw = localStorage.getItem(keys.audit(cid));
+      const arr = raw ? JSON.parse(raw) : [];
+      return arr.slice(0,SOMF_HISTORY_MAX);
+    }
+  }
+
+  async function refreshHistory(){
+    const cid = getCampaignId();
+    const rtdb = getRTDB();
+
+    $('#somf-hist-campaign').textContent = cid;
+
+    const { total, remaining } = await loadDeckCounts(cid, rtdb);
+    $('#somf-hist-total').textContent = String(total);
+    $('#somf-hist-remaining').textContent = String(remaining);
+
+    const feed = await loadAuditFeed(cid, rtdb);
+    const ol = $('#somf-history-feed');
+    ol.innerHTML = '';
+    let index = total; // descending numbering
+    for (const entry of feed){
+      const li = document.createElement('li');
+      const tok = await tokenize(`${entry.id}|${entry.ts}|${cid}`); // anonymized per-campaign
+      li.innerHTML = `
+        <span>${index--}</span>
+        <span>${fmtWhen(entry.ts)}</span>
+        <span class="somf-hash">#${tok}</span>
+      `;
+      ol.appendChild(li);
+    }
+  }
+
+  // Wire
+  $('#somf-history-refresh').addEventListener('click', refreshHistory);
+
+  // Expose tiny helpers to main SOMF (optional)
+  if (window.SOMF){
+    // These are read by this history module to avoid global vars in your app
+    if (!window.SOMF._getCampaignId) window.SOMF._getCampaignId = ()=> window._somf_campaignId || SOMF_CAMPAIGN_ID;
+    if (!window.SOMF._getFirebase) window.SOMF._getFirebase = ()=> window._somf_rtdb || null;
+    // Let main module set them when you call setFirebase / setCampaignId
+    const _origSetFirebase = window.SOMF.setFirebase;
+    window.SOMF.setFirebase = (db)=>{ window._somf_rtdb = db || null; if (_origSetFirebase) _origSetFirebase(db); };
+    const _origSetCampaignId = window.SOMF.setCampaignId;
+    window.SOMF.setCampaignId = (id)=>{ window._somf_campaignId = id || SOMF_CAMPAIGN_ID; if (_origSetCampaignId) _origSetCampaignId(id); };
+  }
+
+  // Auto-initialize on page load
+  document.addEventListener('DOMContentLoaded', refreshHistory);
 })();

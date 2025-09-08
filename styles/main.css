@@ -107,10 +107,6 @@ footer p{
 .grid-2-fixed{grid-template-columns:repeat(2,1fr)}
 @media(min-width:600px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:900px){.grid-3{grid-template-columns:repeat(3,1fr)}}
-#ccShard-player[aria-hidden="true"]{display:none}
-#ccShard-player .shard-draw-grid{grid-template-columns:auto auto 1fr;align-items:center}
-#ccShard-player .shard-draw-grid input{width:4em}
-#ccShard-player .shard-draw-grid button{width:100%}
 #statuses{grid-template-columns:repeat(2,1fr);margin-top:8px}
 .status-effects{font-size:90%}
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
@@ -176,10 +172,6 @@ button:focus-visible,
 .inline>.pill,
 .inline>.sr-only{flex:0;width:auto}
 
-.dm-toast-buttons{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
-.dm-toast-buttons>button{flex:1;width:auto;height:36px}
-.dm-tools-menu{flex-direction:column;width:100%}
-.dm-tools-menu>button{flex:none;width:100%}
 @media(max-width:600px){
   .inline{flex-direction:column;align-items:stretch}
   .inline>input:not([type="checkbox"]),
@@ -478,7 +470,7 @@ progress::-moz-progress-bar{
 .modal:focus{outline:none}
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
 body.modal-open{overflow:hidden}
-body.modal-open> :not(.overlay):not(#dm-login):not(#dm-toast){pointer-events:none;user-select:none}
+body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
 .modal h3{margin:0 0 4px;color:var(--accent);font-size:.9rem;line-height:1.2;font-weight:600}
 .modal .x{position:sticky;top:8px;margin-left:auto;margin-right:8px;background:transparent;border:none;color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:var(--transition);z-index:2}
 .modal .x:hover{color:var(--accent)}
@@ -500,30 +492,6 @@ body.modal-open> :not(.overlay):not(#dm-login):not(#dm-toast){pointer-events:non
 .toast.success::before{background-image:var(--icon-success)}
 .toast.error::before{background-image:var(--icon-error)}
 
-.dm-login-btn{
-  position:fixed;
-  bottom:33px;
-  left:18px;
-  width:44px;
-  height:44px;
-  margin:0;
-  padding:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border:1px solid var(--accent);
-  border-radius:50%;
-  background:var(--surface);
-  box-shadow:var(--shadow);
-  cursor:pointer;
-  font-weight:700;
-}
-.dm-login-btn::before{content:'DM';}
-.dm-login-btn[hidden]{display:none;}
-.dm-login-wrapper{position:relative;left:0;right:0;bottom:0;height:40px;text-align:center;}
-#dm-login-link{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:120px;height:40px;opacity:0;border:none;background:none;cursor:pointer;}
-#dm-toast{flex-direction:column;gap:6px;max-height:80vh;overflow:auto;left:72px;right:auto}
-#dm-toast::before{display:none}
 
 /* ability grid */
 .ability-grid{grid-template-columns:repeat(2,1fr)}
@@ -713,15 +681,6 @@ select[required]:valid{
 .cc-deck__drawRow, .cc-deck__saveRow { display:flex; align-items:center; gap:8px; margin:8px 0; }
 
 .cc-deck__card { position:relative; border:1px solid #1b2532; border-radius:8px; padding:12px; background:#0c1017; }
-.cc-deck__flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; }
-.cc-deck__flash.active { animation:ccShardFlash .8s ease-out; }
-@keyframes ccShardFlash {
-  0%,100%{opacity:0;}
-  10%{opacity:.9;}
-  20%{opacity:0;}
-  30%{opacity:.9;}
-  40%{opacity:0;}
-}
 .cc-deck__sigil { font-size:12px; text-transform:uppercase; letter-spacing:.12em; opacity:.8; }
 .cc-deck__actions { display:flex; gap:8px; margin-top:12px; }
 
@@ -743,3 +702,93 @@ select[required]:valid{
 .cc-tabs__nav button.active { background:#0b2a3a; border-color:#104a64; }
 .cc-tabs__pane { display:none; border:1px dashed #223044; border-radius:6px; padding:8px; }
 .cc-tabs__pane.active { display:block; }
+
+/* The Shards of Many Fates — minimal UI */
+.somf-card { border:1px solid #1b2532; background:#0c0f13; color:#e6f1ff; border-radius:8px; padding:12px; max-width:560px }
+.somf-title { margin:0 0 10px 0; font-size:18px }
+.somf-row { display:flex; gap:8px; align-items:center }
+.somf-label { min-width:58px; color:#c3d6ea }
+.somf-input { width:80px; padding:6px 8px; border-radius:6px; border:1px solid #253247; background:#0f1420; color:#e6f1ff }
+.somf-btn { padding:8px 12px; border-radius:6px; border:1px solid #253247; background:#121821; color:#e6f1ff; cursor:pointer }
+.somf-primary { background:#0b2a3a; border-color:#104a64 }
+.somf-ghost { background:transparent }
+.somf-muted { opacity:.85 }
+.somf-checkbox { display:flex; align-items:center; gap:8px; user-select:none }
+
+.somf-modal[hidden] { display:none }
+.somf-modal { position:fixed; inset:0; z-index:9999; display:grid; place-items:center }
+.somf-modal__backdrop { position:absolute; inset:0; background:#000a }
+.somf-modal__card { position:relative; background:#0c1017; border:1px solid #1b2532; color:#e6f1ff; border-radius:10px; width:min(640px, 96vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 10px 30px #0008 }
+.somf-modal__hdr, .somf-modal__ftr { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #1b2532 }
+.somf-modal__ftr { border-top:1px solid #1b2532; border-bottom:none }
+.somf-modal__body { padding:12px; overflow:auto }
+.somf-badge { font-size:12px; letter-spacing:.08em; text-transform:uppercase; opacity:.9 }
+.somf-subttl { margin:10px 0 6px 0; font-size:13px; color:#cde6ff }
+.somf-list { margin:0; padding-left:18px }
+.somf-progress { margin-top:12px; font-size:12px; color:#a9c3dd }
+.somf-flex-spacer { flex:1 }
+
+/* History Viewer (No Spoilers) */
+.somf-history__row { display:flex; align-items:center; gap:8px; margin-bottom:8px }
+.somf-history__stats { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:10px }
+.somf-kv { display:flex; flex-direction:column; border:1px solid #1b2532; border-radius:8px; padding:8px; background:#0c1017 }
+.somf-k { font-size:12px; color:#a9c3dd }
+.somf-v { font-size:16px; color:#e6f1ff }
+.somf-history__list { border:1px solid #1b2532; border-radius:8px; overflow:hidden }
+.somf-history__head { display:grid; grid-template-columns: 60px 1fr 160px; gap:8px; padding:8px 10px; background:#0b1119; color:#cfe7ff; font-size:12px }
+.somf-history__feed { margin:0; padding:0; list-style:none; max-height:260px; overflow:auto }
+.somf-history__feed li { display:grid; grid-template-columns: 60px 1fr 160px; gap:8px; padding:8px 10px; border-top:1px solid #1b2532 }
+.somf-hash { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; color:#bfe2ff }
+
+/* DM login & tools menu */
+.dm-login-btn{position:fixed;bottom:33px;left:18px;width:44px;height:44px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--accent);border-radius:50%;background:var(--surface);box-shadow:var(--shadow);cursor:pointer;font-weight:700}
+.dm-login-btn::before{content:'DM'}
+.dm-login-btn[hidden]{display:none}
+.dm-login-wrapper{position:relative;left:0;right:0;bottom:0;height:40px;text-align:center}
+#dm-login-link{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:120px;height:40px;opacity:0;border:none;background:none;cursor:pointer}
+.dm-tools-menu{position:fixed;bottom:80px;left:18px;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:2000}
+.dm-tools-menu[hidden]{display:none}
+.dm-tools-menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;min-width:160px}
+.dm-tools-menu button:hover{background:var(--accent);color:var(--text-on-accent)}
+
+/* DM Tool (Shards of Many Fates) */
+.somf-dm.hidden{display:none}
+.somf-dm{background:#0c0f13;color:#e6f1ff;border:1px solid #1b2532;border-radius:10px;padding:12px;margin:12px 0}
+.somf-dm__hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.somf-dm__hdr-controls{display:flex;gap:8px;align-items:center}
+.somf-switch{display:inline-flex;align-items:center;gap:6px}
+.somf-dm__tabs{display:flex;gap:6px;margin:8px 0}
+.somf-dm__tabs button{padding:6px 10px;border:1px solid #253247;background:#0d141c;color:#cfe7ff;border-radius:6px;cursor:pointer}
+.somf-dm__tabs button.active{background:#0b2a3a;border-color:#104a64}
+.somf-dm__tab{display:none}
+.somf-dm__tab.active{display:block}
+.somf-dm__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.somf-card h5{margin:.2rem 0 .4rem}
+.somf-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.somf-badge{font-size:11px;border:1px solid #1b2532;background:#0b1119;padding:2px 6px;border-radius:4px}
+.somf-dm__row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.somf-dm__resolve{display:grid;grid-template-columns:280px 1fr;gap:10px}
+.somf-dm__list{margin:0;padding:0;list-style:none;border:1px solid #1b2532;border-radius:8px;overflow:auto;max-height:420px;background:#0c1017}
+.somf-dm__list li{border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer}
+.somf-dm__list li:first-child{border-top:none}
+.somf-dm__list li.active{background:#0b2a3a}
+.somf-dm__card{border:1px solid #1b2532;border-radius:8px;background:#0b1119;padding:12px;min-height:160px}
+.somf-dm__subcard{border:1px dashed #223044;border-radius:8px;background:#0c0f13;padding:10px;margin-top:8px}
+.somf-seeds{display:grid;gap:8px}
+.somf-seed{border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px}
+.somf-seed h6{margin:0 0 4px 0}
+.somf-dm__actions{display:flex;gap:8px;margin:8px 0}
+.somf-dm__notes textarea{width:100%;background:#0c0f13;color:#e6f1ff;border:1px solid #1b2532;border-radius:6px;padding:8px}
+.somf-dm__npcs{display:grid;grid-template-columns:300px 1fr;gap:10px}
+.somf-dm__stack{display:flex;flex-direction:column;gap:10px}
+.somf-sheet{border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:10px}
+.somf-sheet h5{margin:.2rem 0 .4rem 0}
+.somf-grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.somf-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.somf-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.somf-rolls{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.somf-tag{font-size:12px;padding:2px 6px;border:1px solid #1b2532;border-radius:4px;background:#0b1119}
+.somf-dm__toasts{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.somf-toast{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
+.somf-toast strong{display:block;margin-bottom:4px}
+
