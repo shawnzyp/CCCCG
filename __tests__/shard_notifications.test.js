@@ -17,7 +17,8 @@ describe('Shard draws notify DM', () => {
     localStorage.setItem('ccShardEnabled', '1');
     // stub shard draw
     window.CCShard = {
-      draw: () => [{ name: 'Test Shard' }]
+      draw: () => [{ name: 'Test Shard' }],
+      open: jest.fn()
     };
     // auto-confirm prompts
     window.confirm = jest.fn(() => true);
@@ -42,5 +43,6 @@ describe('Shard draws notify DM', () => {
     expect(localStorage.getItem('dmNotifications')).toBeNull();
     expect(notifyHandler).toHaveBeenCalled();
     expect(notifyHandler.mock.calls[0][0].detail).toMatch('Player drew shard');
+    expect(window.CCShard.open).toHaveBeenCalled();
   });
 });
