@@ -812,6 +812,7 @@
 <button id="dm-login" class="dm-login-btn" aria-label="DM Tools" hidden></button>
 <div id="dm-tools-menu" class="dm-tools-menu" hidden>
   <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
+  <button id="dm-tools-logout" class="btn-sm">Logout</button>
 </div>
 <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
   <section id="somf-dm" class="modal somf-dm">
@@ -819,9 +820,8 @@
       <h3>DM • Shards</h3>
       <div class="somf-dm__hdr-controls">
         <label class="somf-switch"><input id="somfDM-live" type="checkbox" checked><span>Live</span></label>
-        <label class="somf-switch"><input id="somfDM-sfx" type="checkbox" checked><span>Sound</span></label>
         <label class="somf-switch"><input id="somfDM-desktop" type="checkbox"><span>Desktop</span></label>
-        <label class="somf-switch"><input id="somfDM-playerCard" type="checkbox" checked><span>Player Card</span></label>
+        <label class="somf-switch"><input id="somfDM-playerCard" type="checkbox" checked><span>Reveal Shards</span><span id="somfDM-playerCard-state">On</span></label>
         <button id="somfDM-refresh" class="somf-btn">Refresh</button>
         <button id="somfDM-close" class="somf-btn somf-ghost">Close</button>
       </div>
@@ -845,6 +845,8 @@
         <aside class="somf-dm__left">
           <h4>Incoming Draws</h4>
           <ol id="somfDM-incoming" class="somf-dm__list"></ol>
+          <h4>Resolved</h4>
+          <ol id="somfDM-resolved" class="somf-dm__list"></ol>
         </aside>
         <main class="somf-dm__main">
           <div id="somfDM-noticeView" class="somf-dm__card"></div>
