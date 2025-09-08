@@ -79,7 +79,9 @@
     const idx = cryptoInt(d.length);
     const [id] = d.splice(idx,1);
     setLocal(LSK.deck(cid), d);
-    const a = getLocal(LSK.audits(cid))||[]; a.unshift({id, ts:Date.now()}); setLocal(LSK.audits(cid), a);
+    const a = getLocal(LSK.audits(cid))||[];
+    a.unshift({id, name: plateById[id]?.name || id, ts:Date.now()});
+    setLocal(LSK.audits(cid), a);
     return id;
   }
 
@@ -98,7 +100,7 @@
       out = arr[idx]; arr.splice(idx,1);
       return arr;
     });
-    await db().ref(path.audits(CID())).push({ id: out, ts: db().ServerValue.TIMESTAMP });
+    await db().ref(path.audits(CID())).push({ id: out, name: plateById[out]?.name || out, ts: db().ServerValue.TIMESTAMP });
     return out;
   }
 
@@ -150,12 +152,14 @@
     if (db()){
       await rtdbInitDeckIfMissing();
       for (let i=0;i<n;i++) ids.push(await rtdbDrawOne());
-      // batch notice (for DM): count + ids
-      await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids });
+      const names = ids.map(id=> plateById[id]?.name || id);
+      // batch notice (for DM): count + ids + names
+      await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids, names });
     } else {
       for (let i=0;i<n;i++) ids.push(localDrawOne());
       const notices = getLocal(LSK.notices(CID()))||[];
-      notices.unshift({ ts: Date.now(), count:n, ids });
+      const names = ids.map(id=> plateById[id]?.name || id);
+      notices.unshift({ ts: Date.now(), count:n, ids, names });
       setLocal(LSK.notices(CID()), notices);
       window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notices[0] }));
     }
@@ -189,8 +193,7 @@
      DM TOOL (notifications, resolve, npcs)
      ====================================================================== */
   const D = {
-    root: $('#somf-dm'),
-    open: $('#somfDM-open'),
+    root: $('#modal-somf-dm'),
     close: $('#somfDM-close'),
     tabs: $$('.somf-dm-tabbtn'),
     cardTab: $('#somfDM-tab-cards'),
@@ -213,8 +216,28 @@
     ping: $('#somfDM-ping'),
     playerCardToggle: $('#somfDM-playerCard'),
   };
-  D.open?.addEventListener('click', ()=> { D.root.hidden=false; initDMOnce(); });
-  D.close?.addEventListener('click', ()=> { D.root.hidden=true; });
+  function preventTouch(e){ e.preventDefault(); }
+  function openDM(){
+    if(!D.root) return;
+    D.root.style.display='flex';
+    D.root.classList.remove('hidden');
+    D.root.setAttribute('aria-hidden','false');
+    document.body.classList.add('modal-open');
+    document.addEventListener('touchmove', preventTouch, { passive: false });
+    initDMOnce();
+  }
+  function closeDM(){
+    if(!D.root) return;
+    D.root.classList.add('hidden');
+    D.root.setAttribute('aria-hidden','true');
+    D.root.style.display='none';
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('touchmove', preventTouch);
+  }
+  D.root?.addEventListener('click', e=>{ if(e.target===D.root) closeDM(); });
+  D.root?.addEventListener('touchstart', e=>{ if(e.target===D.root) closeDM(); });
+  D.close?.addEventListener('click', closeDM);
+  window.openSomfDM = openDM;
 
   // Tabs
   D.tabs.forEach(b=>{
@@ -377,7 +400,7 @@
       const li=document.createElement('li');
       li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
       if (ix===0) li.style.borderTop='none';
-      const names = n.ids.map(id=> plateById[id]?.name || id);
+      const names = n.names || n.ids.map(id=> plateById[id]?.name || id);
       li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.join(', ')}</div>`;
       li.addEventListener('click', ()=>{
         $$('#somfDM-incoming li').forEach(x=> x.style.background='');
@@ -465,7 +488,7 @@
       const ref = db().ref(path.notices(CID())).limitToLast(1);
       ref.on('child_added', snap=>{
         const v=snap.val(); if (!v) return;
-        const names = (v.ids||[]).map(id=> plateById[id]?.name || id);
+        const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
         toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
         loadAndRender();
       });
@@ -474,7 +497,7 @@
       liveOff = ()=> { ref.off(); hRef.off(); };
     } else {
       window.addEventListener('somf-local-notice', (e)=>{
-        const v=e.detail; const names=(v.ids||[]).map(id=> plateById[id]?.name || id);
+        const v=e.detail; const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
         toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
         loadAndRender();
       });
@@ -488,8 +511,8 @@
   let _inited=false;
   function initDMOnce(){
     if (_inited) return; _inited=true;
-    D.root.hidden=false;
-    loadAndRender(); enableLive();
+    loadAndRender();
+    enableLive();
   }
 
 })();

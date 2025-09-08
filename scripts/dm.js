@@ -35,7 +35,7 @@ document.addEventListener('click', e => {
 
 tsomfBtn?.addEventListener('click', () => {
   menu.hidden = true;
-  document.getElementById('somfDM-open')?.click();
+  window.openSomfDM?.();
 });
 
 updateButtons();

@@ -752,8 +752,7 @@ select[required]:valid{
 .dm-tools-menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 
 /* DM Tool (Shards of Many Fates) */
-.somf-dm[hidden]{display:none}
-.somf-dm{background:#0c0f13;color:#e6f1ff;border:1px solid #1b2532;border-radius:10px;padding:12px;margin:12px 0}
+.somf-dm{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0;width:100%;max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
 .somf-dm__hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .somf-dm__hdr-controls{display:flex;gap:8px;align-items:center}
 .somf-switch{display:inline-flex;align-items:center;gap:6px}
@@ -768,7 +767,7 @@ select[required]:valid{
 .somf-badge{font-size:11px;border:1px solid #1b2532;background:#0b1119;padding:2px 6px;border-radius:4px}
 .somf-dm__row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
 .somf-dm__resolve{display:grid;grid-template-columns:280px 1fr;gap:10px}
-.somf-dm__list{margin:0;padding:0;list-style:none;border:1px solid #1b2532;border-radius:8px;overflow:auto;max-height:420px;background:#0c1017}
+.somf-dm__list{margin:0;padding:0;list-style:none;border:1px solid #1b2532;border-radius:8px;overflow:auto;max-height:420px;background:#0c1017;-webkit-overflow-scrolling:touch}
 .somf-dm__list li{border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer}
 .somf-dm__list li:first-child{border-top:none}
 .somf-dm__list li.active{background:#0b2a3a}
