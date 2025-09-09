@@ -428,13 +428,13 @@
   // Tabs
   D.tabs.forEach(b=>{
     b.addEventListener('click', ()=>{
-      D.tabs.forEach(x=>{ x.classList.remove('somf-dm-active'); x.style.background='#0d141c'; });
-      b.classList.add('somf-dm-active'); b.style.background='#0b2a3a';
+      D.tabs.forEach(x=> x.classList.remove('active'));
+      b.classList.add('active');
+      [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.classList.remove('active'));
       const t = b.dataset.tab;
-      [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.hidden=true);
-      if (t==='cards') D.cardTab.hidden=false;
-      if (t==='resolve') D.resTab.hidden=false;
-      if (t==='npcs') D.npcsTab.hidden=false;
+      if (t==='cards') D.cardTab.classList.add('active');
+      if (t==='resolve') D.resTab.classList.add('active');
+      if (t==='npcs') D.npcsTab.classList.add('active');
     });
   });
 
