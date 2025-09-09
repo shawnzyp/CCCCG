@@ -441,6 +441,46 @@ progress::-moz-progress-bar{
   30%{transform:translateY(0);opacity:1;}
   100%{transform:translateY(20px);opacity:0;}
 }
+#draw-lightning{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:3500;
+}
+#draw-lightning .bolt{
+  position:absolute;
+  width:20px;
+  height:80px;
+  background:#fff;
+  clip-path:polygon(35% 0,65% 0,55% 35%,100% 35%,30% 100%,45% 60%,0 60%);
+  filter:drop-shadow(0 0 6px #fff);
+  opacity:0;
+  animation:boltStrike .6s ease-in-out forwards;
+}
+@keyframes boltStrike{
+  0%{opacity:0;transform:scale(.8);}
+  10%{opacity:1;transform:scale(1);}
+  100%{opacity:0;transform:scale(1);}
+}
+#draw-flash{
+  position:fixed;
+  inset:0;
+  background:#fff;
+  pointer-events:none;
+  opacity:0;
+  z-index:4000;
+}
+#draw-flash.show{
+  animation:drawFlash 1s ease-in-out forwards;
+}
+@keyframes drawFlash{
+  0%{opacity:0;}
+  25%{opacity:.8;}
+  50%{opacity:0;}
+  75%{opacity:.8;}
+  90%{opacity:1;}
+  100%{opacity:0;}
+}
 .sp-grid{display:grid;width:100%;grid-template-columns:repeat(3,1fr);gap:8px;}
 .sp-grid .btn-sm{width:100%;}
 
