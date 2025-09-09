@@ -210,6 +210,14 @@
     if (!Array.isArray(d) || !d.length){ d = PLATES.map(p=>p.id); setLocal(LSK.deck(cid), d); }
     return d;
   }
+  function shuffledIds(){
+    const ids = PLATES.map(p=>p.id);
+    for(let i=ids.length-1;i>0;i--){
+      const j = cryptoInt(i+1);
+      [ids[i],ids[j]] = [ids[j],ids[i]];
+    }
+    return ids;
+  }
   function localDrawOne(){
     const cid = CID(); const d = ensureLocalDeck();
     const idx = cryptoInt(d.length);
@@ -392,6 +400,7 @@
     ping: $('#somfDM-ping'),
     playerCardToggle: $('#somfDM-playerCard'),
     playerCardState: $('#somfDM-playerCard-state'),
+    resolveOptions: $('#somfDM-resolveOptions'),
   };
   function preventTouch(e){ e.preventDefault(); }
   function openDM(){
@@ -515,6 +524,14 @@
     return null;
   };
 
+  const RESOLVE_OPTIONS = [
+    {name:'Return to the Vault', desc:'Shuffle the shard back into the deck and remove its effects.'},
+    {name:'Destroy the Shard', desc:'Use a powerful ritual or device to permanently remove it from play.'},
+    {name:'Forge into Gear', desc:'Channel the shard into a unique item granting its power.'},
+    {name:'Empower or Summon an NPC', desc:'Consume the shard to create or enhance a notable NPC.'},
+    {name:'Story Consequence', desc:'Resolve the shard as a narrative event that alters the campaign.'},
+  ];
+
   function npcCard(n, attachRolls=true){
     const card=document.createElement('div');
     card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
@@ -546,7 +563,8 @@
       d.innerHTML = `<div><strong>${p.name}</strong></div>
         <div style="opacity:.8;font-size:12px">ID: ${p.id}</div>
         <div style="margin-top:4px;opacity:.8;font-size:12px">${p.visual}</div>
-        <ul style="margin:6px 0 0 18px;padding:0">${p.dm.map(e=>`<li>${e}</li>`).join('')}</ul>`;
+        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Player</span><ul style="margin:4px 0 0 18px;padding:0">${p.player.map(e=>`<li>${e}</li>`).join('')}</ul></div>
+        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">DM</span><ul style="margin:4px 0 0 18px;padding:0">${p.dm.map(e=>`<li>${e}</li>`).join('')}</ul></div>`;
       D.cardTab.appendChild(d);
     });
   }
@@ -582,6 +600,16 @@
       li.innerHTML=`<strong>${n.name}</strong><div style="opacity:.8">${n.type||''}</div>`;
       li.addEventListener('click', ()=> openNPCModal(n));
       D.npcList.appendChild(li);
+    });
+  }
+
+  function renderResolveOptions(){
+    if(!D.resolveOptions) return;
+    D.resolveOptions.innerHTML='';
+    RESOLVE_OPTIONS.forEach(o=>{
+      const li=document.createElement('li');
+      li.innerHTML = `<strong>${o.name}</strong><div style="opacity:.8">${o.desc}</div>`;
+      D.resolveOptions.appendChild(li);
     });
   }
 
@@ -663,6 +691,23 @@
     }
   }
 
+  async function resetDeck(){
+    if (db()){
+      await db().ref(path.deck(CID())).set(shuffledIds());
+      await db().ref(path.audits(CID())).remove();
+      await db().ref(path.notices(CID())).remove();
+      await db().ref(path.resolutions(CID())).remove();
+      await db().ref(path.npcs(CID())).remove();
+    } else {
+      setLocal(LSK.deck(CID()), shuffledIds());
+      setLocal(LSK.audits(CID()), []);
+      setLocal(LSK.notices(CID()), []);
+      setLocal(LSK.resolutions(CID()), []);
+      setLocal(LSK.npcs(CID()), []);
+    }
+    await loadAndRender();
+  }
+
   function renderResolved(list){
     D.resolvedList.innerHTML='';
     const resolvedSet = new Set();
@@ -691,6 +736,7 @@
     renderIncoming(notices);
     const resolved = await loadResolutions();
     renderResolved(resolved);
+    renderResolveOptions();
     await refreshHiddenToggle();
   }
 
@@ -716,7 +762,7 @@
     }
   }
 
-  D.reset?.addEventListener('click', loadAndRender);
+  D.reset?.addEventListener('click', resetDeck);
 
   let _inited=false;
   function initDMOnce(){

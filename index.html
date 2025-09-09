@@ -816,15 +816,19 @@
 </div>
 <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
   <section id="somf-dm" class="modal somf-dm">
+    <button id="somfDM-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <header class="somf-dm__hdr">
       <h3>DM • Shards <span id="somfDM-cardCount"></span></h3>
       <div class="somf-dm__hdr-controls">
         <div class="somf-dm__toggles">
-          <label class="somf-switch"><input id="somfDM-playerCard" type="checkbox" checked><span>Reveal Shards</span><span id="somfDM-playerCard-state">On</span></label>
+          <label class="somf-switch"><span id="somfDM-playerCard-state">On</span><input id="somfDM-playerCard" type="checkbox" checked><span>Reveal Shards</span></label>
         </div>
         <div class="somf-dm__actions">
           <button id="somfDM-reset" class="somf-btn">Reset</button>
-          <button id="somfDM-close" class="somf-btn somf-ghost">Close</button>
         </div>
       </div>
     </header>
@@ -858,6 +862,8 @@
           </div>
         </main>
       </div>
+      <h4>Resolution Methods</h4>
+      <ol id="somfDM-resolveOptions" class="somf-dm__list"></ol>
     </section>
 
     <section id="somfDM-tab-npcs" class="somf-dm-tab somf-dm__tab" hidden>
