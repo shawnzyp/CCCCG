@@ -50,4 +50,33 @@ describe('dm login', () => {
     expect(menu.hidden).toBe(false);
     delete window.toast;
   });
+
+  test('falls back to prompt when modal elements missing', async () => {
+    document.body.innerHTML = '';
+    window.toast = jest.fn();
+    window.prompt = jest.fn(() => '1231');
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+    }));
+
+    await import('../scripts/dm.js');
+    const { loadCharacter } = await import('../scripts/characters.js');
+
+    await loadCharacter('DM');
+
+    expect(window.prompt).toHaveBeenCalled();
+    expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
+    delete window.toast;
+    delete window.prompt;
+  });
 });
