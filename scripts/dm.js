@@ -79,7 +79,15 @@ function initDMLogin(){
     if(menu) menu.hidden = !menu.hidden;
   }
 
-  if (linkBtn) linkBtn.addEventListener('click', openLogin);
+  if (linkBtn){
+    linkBtn.addEventListener('click', openLogin);
+    linkBtn.addEventListener('pointerdown', e => {
+      // some mobile browsers don't fire click on invisible elements
+      // so we open the login on pointer interaction as well
+      e.preventDefault();
+      openLogin();
+    });
+  }
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
 
   document.addEventListener('click', e => {
