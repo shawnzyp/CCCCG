@@ -405,15 +405,26 @@
     playerCardState: $('#somfDM-playerCard-state'),
     resolveOptions: $('#somfDM-resolveOptions'),
   };
+  let _selectLatest = false;
   function preventTouch(e){ e.preventDefault(); }
-  function openDM(){
+  function openDM(opts={}){
     if(!D.root) return;
     D.root.style.display='flex';
     D.root.classList.remove('hidden');
     D.root.setAttribute('aria-hidden','false');
     document.body.classList.add('modal-open');
     document.addEventListener('touchmove', preventTouch, { passive: false });
+    if(opts.selectLatest) _selectLatest = true;
     initDMOnce();
+    if(opts.tab){
+      D.tabs.forEach(x=> x.classList.remove('active'));
+      [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.classList.remove('active'));
+      const t=opts.tab;
+      if(t==='cards') D.cardTab.classList.add('active');
+      if(t==='resolve') D.resTab.classList.add('active');
+      if(t==='npcs') D.npcsTab.classList.add('active');
+      D.tabs.forEach(b=>{ if(b.dataset.tab===t) b.classList.add('active'); });
+    }
   }
   function closeDM(){
     if(!D.root) return;
@@ -452,6 +463,7 @@
     if ('Notification' in window && Notification.permission==='granted'){
       new Notification('Shards Drawn', { body: msg.replace(/<[^>]+>/g,'') });
     }
+    return t;
   }
 
   D.playerCardToggle?.addEventListener('change', async ()=>{
@@ -668,6 +680,11 @@
       });
       D.incoming.appendChild(li);
     });
+    if(_selectLatest){
+      _selectLatest=false;
+      const first=D.incoming.firstElementChild;
+      if(first) first.click();
+    }
   }
 
   async function loadNotices(limit=30){
@@ -738,7 +755,9 @@
       ref.on('child_added', snap=>{
         const v=snap.val(); if (!v) return;
         const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
-        toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
+        const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
+        t.style.cursor='pointer';
+        t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
         loadAndRender();
       });
       const hRef = db().ref(path.hidden(CID()));
@@ -751,7 +770,9 @@
     } else {
       window.addEventListener('somf-local-notice', (e)=>{
         const v=e.detail; const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
-        toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
+        const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
+        t.style.cursor='pointer';
+        t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
         loadAndRender();
       });
       window.addEventListener('somf-local-hidden', e=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !e.detail; });
@@ -768,6 +789,8 @@
   }
 
   initPlayerHidden();
+  if (sessionStorage.getItem('dmLoggedIn') === '1') initDMOnce();
+  window.initSomfDM = initDMOnce;
 
 })();
 
