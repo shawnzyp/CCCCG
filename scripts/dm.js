@@ -34,6 +34,7 @@ function attemptLogin(){
   if(loginPin.value === DM_PIN){
     sessionStorage.setItem('dmLoggedIn','1');
     updateButtons();
+    window.initSomfDM?.();
     closeLogin();
   } else {
     loginPin.value='';
@@ -74,3 +75,6 @@ loginPin?.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); }
 loginModal?.addEventListener('click', e=>{ if(e.target===loginModal) closeLogin(); });
 
 updateButtons();
+if(sessionStorage.getItem('dmLoggedIn')==='1'){
+  window.initSomfDM?.();
+}
