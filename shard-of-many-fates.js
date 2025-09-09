@@ -1416,7 +1416,11 @@ function renderCardList(){
   }
 
   initPlayerHidden();
-  if (sessionStorage.getItem('dmLoggedIn') === '1') initDM();
+  try {
+    if (sessionStorage.getItem('dmLoggedIn') === '1') initDM();
+  } catch {
+    /* ignore */
+  }
   window.initSomfDM = initDM;
 
 })();
