@@ -13,13 +13,21 @@ import {
 
 const PINNED = { 'DM': '1231' };
 
-// Migrate legacy save named "Shawn" to the new DM name.
+// Migrate legacy DM saves to the new "DM" name.
+// Older versions stored the DM character under names like "Shawn"
+// or "Player :Shawn". Ensure any of these variants are renamed.
 try {
-  const legacy = localStorage.getItem('save:Shawn');
-  if (legacy && !localStorage.getItem('save:DM')) {
-    localStorage.setItem('save:DM', legacy);
-    localStorage.removeItem('save:Shawn');
-    if (localStorage.getItem('last-save') === 'Shawn') {
+  const legacyNames = ['Shawn', 'Player :Shawn'];
+  for (const name of legacyNames) {
+    const legacy = localStorage.getItem(`save:${name}`);
+    if (!legacy) continue;
+    // Only create the DM save if it doesn't already exist to avoid
+    // overwriting newer data.
+    if (!localStorage.getItem('save:DM')) {
+      localStorage.setItem('save:DM', legacy);
+    }
+    localStorage.removeItem(`save:${name}`);
+    if (localStorage.getItem('last-save') === name) {
       localStorage.setItem('last-save', 'DM');
     }
   }

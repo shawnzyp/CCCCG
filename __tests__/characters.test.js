@@ -68,26 +68,28 @@ describe('character storage', () => {
     expect(data).toEqual({ hp: 20 });
   });
 
-  test('renames legacy Shawn character to DM', async () => {
-    localStorage.setItem('save:Shawn', JSON.stringify({ hp: 5 }));
-    localStorage.setItem('last-save', 'Shawn');
-    fetch.mockResolvedValue({ ok: true, status: 200, json: async () => null });
-    window.dmRequireLogin = jest.fn().mockResolvedValue(true);
+  for (const legacyName of ['Shawn', 'Player :Shawn']) {
+    test(`renames legacy ${legacyName} character to DM`, async () => {
+      localStorage.setItem(`save:${legacyName}`, JSON.stringify({ hp: 5 }));
+      localStorage.setItem('last-save', legacyName);
+      fetch.mockResolvedValue({ ok: true, status: 200, json: async () => null });
+      window.dmRequireLogin = jest.fn().mockResolvedValue(true);
 
-    const { listCharacters, loadCharacter } = await import('../scripts/characters.js');
+      const { listCharacters, loadCharacter } = await import('../scripts/characters.js');
 
-    expect(localStorage.getItem('save:Shawn')).toBeNull();
-    expect(localStorage.getItem('save:DM')).toBe(JSON.stringify({ hp: 5 }));
-    expect(localStorage.getItem('last-save')).toBe('DM');
+      expect(localStorage.getItem(`save:${legacyName}`)).toBeNull();
+      expect(localStorage.getItem('save:DM')).toBe(JSON.stringify({ hp: 5 }));
+      expect(localStorage.getItem('last-save')).toBe('DM');
 
-    const chars = await listCharacters();
-    expect(chars).toContain('DM');
+      const chars = await listCharacters();
+      expect(chars).toContain('DM');
 
-    const data = await loadCharacter('DM');
-    expect(data).toEqual({ hp: 5 });
+      const data = await loadCharacter('DM');
+      expect(data).toEqual({ hp: 5 });
 
-    delete window.dmRequireLogin;
-  });
+      delete window.dmRequireLogin;
+    });
+  }
 });
 
 const keyPath = 'serviceAccountKey.json';
