@@ -384,12 +384,8 @@
     resTab: $('#somfDM-tab-resolve'),
     npcsTab: $('#somfDM-tab-npcs'),
     reset: $('#somfDM-reset'),
-    campaign: $('#somfDM-campaign'),
-    total: $('#somfDM-total'),
-    remaining: $('#somfDM-remaining'),
     cardCount: $('#somfDM-cardCount'),
     incoming: $('#somfDM-incoming'),
-    resolvedList: $('#somfDM-resolved'),
     noticeView: $('#somfDM-noticeView'),
     markResolved: $('#somfDM-markResolved'),
     spawnNPC: $('#somfDM-spawnNPC'),
@@ -615,22 +611,15 @@
 
   // Counts + incoming
   async function refreshCounts(){
-    D.campaign.textContent = CID();
-    let deckLen=PLATES.length, total=0;
+    let deckLen = PLATES.length;
     if (db()){
       const deckSnap = await db().ref(path.deck(CID())).get();
       const deck = deckSnap.exists()? deckSnap.val(): [];
       deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-      const auditsSnap = await db().ref(path.audits(CID())).get();
-      total = auditsSnap.exists()? Object.keys(auditsSnap.val()).length : 0;
     } else {
       const deck = getLocal(LSK.deck(CID()))||[];
       deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-      const audits = getLocal(LSK.audits(CID()))||[];
-      total = audits.length;
     }
-    D.total.textContent = String(total);
-    D.remaining.textContent = String(deckLen);
     if(D.cardCount) D.cardCount.textContent = `${deckLen}/${PLATES.length}`;
   }
 
@@ -708,16 +697,6 @@
     await loadAndRender();
   }
 
-  function renderResolved(list){
-    D.resolvedList.innerHTML='';
-    const resolvedSet = new Set();
-    list.forEach(r=> (r.ids||[]).forEach(id=> resolvedSet.add(id)) );
-    PLATES.forEach(p=>{
-      const li=document.createElement('li');
-      li.innerHTML = `<strong>${p.name}</strong><div style="opacity:.8">${resolvedSet.has(p.id)?'Resolved':'Unresolved'}</div>`;
-      D.resolvedList.appendChild(li);
-    });
-  }
 
   async function pushResolutionBatch(n){
     if (db()){
@@ -734,8 +713,6 @@
     renderNPCList();
     const notices = await loadNotices();
     renderIncoming(notices);
-    const resolved = await loadResolutions();
-    renderResolved(resolved);
     renderResolveOptions();
     await refreshHiddenToggle();
   }
