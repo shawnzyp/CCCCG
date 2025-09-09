@@ -13,6 +13,18 @@ import {
 
 const PINNED = { 'DM': '1231' };
 
+// Migrate legacy save named "Shawn" to the new DM name.
+try {
+  const legacy = localStorage.getItem('save:Shawn');
+  if (legacy && !localStorage.getItem('save:DM')) {
+    localStorage.setItem('save:DM', legacy);
+    localStorage.removeItem('save:Shawn');
+    if (localStorage.getItem('last-save') === 'Shawn') {
+      localStorage.setItem('last-save', 'DM');
+    }
+  }
+} catch {}
+
 async function verifyPin(name) {
   const pin = PINNED[name];
   if (!pin) return;
