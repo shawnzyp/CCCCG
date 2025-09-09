@@ -68,15 +68,15 @@ describe('character storage', () => {
     expect(data).toEqual({ hp: 20 });
   });
 
-  test('renames legacy Shawn character to DM', async () => {
-    localStorage.setItem('save:Shawn', JSON.stringify({ hp: 5 }));
-    localStorage.setItem('last-save', 'Shawn');
+  test('renames legacy Player :Shawn character to DM', async () => {
+    localStorage.setItem('save:Player :Shawn', JSON.stringify({ hp: 5 }));
+    localStorage.setItem('last-save', 'Player :Shawn');
     fetch.mockResolvedValue({ ok: true, status: 200, json: async () => null });
     window.dmRequireLogin = jest.fn().mockResolvedValue(true);
 
     const { listCharacters, loadCharacter } = await import('../scripts/characters.js');
 
-    expect(localStorage.getItem('save:Shawn')).toBeNull();
+    expect(localStorage.getItem('save:Player :Shawn')).toBeNull();
     expect(localStorage.getItem('save:DM')).toBe(JSON.stringify({ hp: 5 }));
     expect(localStorage.getItem('last-save')).toBe('DM');
 

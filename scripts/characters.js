@@ -13,16 +13,21 @@ import {
 
 const PINNED = { 'DM': '1231' };
 
-// Migrate legacy save named "Shawn" to the new DM name.
+// Migrate legacy save named "Shawn" or "Player :Shawn" to the new DM name.
 try {
-  const legacy = localStorage.getItem('save:Shawn');
-  if (legacy && !localStorage.getItem('save:DM')) {
-    localStorage.setItem('save:DM', legacy);
-    localStorage.removeItem('save:Shawn');
-    if (localStorage.getItem('last-save') === 'Shawn') {
+  ['Shawn', 'Player :Shawn'].forEach(old => {
+    const key = `save:${old}`;
+    const legacy = localStorage.getItem(key);
+    if (legacy && !localStorage.getItem('save:DM')) {
+      localStorage.setItem('save:DM', legacy);
+    }
+    if (legacy) {
+      localStorage.removeItem(key);
+    }
+    if (localStorage.getItem('last-save') === old) {
       localStorage.setItem('last-save', 'DM');
     }
-  }
+  });
 } catch {}
 
 async function verifyPin(name) {
