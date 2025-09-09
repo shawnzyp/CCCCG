@@ -688,7 +688,7 @@ function initSomf(){
       { "id": "LEGEND_INQUISITOR_SILAS", "name": "Legendary Shard — Inquisitor Silas", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_SILAS", "tier": 3 }, { "type": "faction_rep_delta", "faction": "Conclave", "value": -1 } ], "resolution": "Silas marks the drawer for doctrinal judgment and recurs until defeated." }
     ]
   };
-  const PLATES = SOMF_DECK.shards;
+  const PLATES = OLD_PLATES;
   const plateById = Object.fromEntries(PLATES.map(p => [p.id, p]));
 
   /* ---------- Helpers ---------- */
@@ -873,7 +873,10 @@ function initSomf(){
     openPlayerModal(); renderCurrent();
   }
   if (PUI.drawBtn) {
-    PUI.drawBtn.addEventListener('click', ()=> doDraw());
+    PUI.drawBtn.addEventListener('click', ()=>{
+      if (PUI.count) PUI.count.blur();
+      doDraw();
+    });
   }
 
   const playerCard = $('#somf-min');
