@@ -10,8 +10,32 @@ document.addEventListener('DOMContentLoaded', () => {
   const loginPin = document.getElementById('dm-login-pin');
   const loginSubmit = document.getElementById('dm-login-submit');
 
+  function isLoggedIn(){
+    try {
+      return sessionStorage.getItem('dmLoggedIn') === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  function setLoggedIn(){
+    try {
+      sessionStorage.setItem('dmLoggedIn','1');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function clearLoggedIn(){
+    try {
+      sessionStorage.removeItem('dmLoggedIn');
+    } catch {
+      /* ignore */
+    }
+  }
+
   function updateButtons(){
-    const loggedIn = sessionStorage.getItem('dmLoggedIn') === '1';
+    const loggedIn = isLoggedIn();
     if(dmBtn) dmBtn.hidden = !loggedIn;
     if(linkBtn) linkBtn.hidden = loggedIn;
     if(!loggedIn && menu) menu.hidden = true;
@@ -33,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function attemptLogin(){
     if(loginPin.value === DM_PIN){
-      sessionStorage.setItem('dmLoggedIn','1');
+      setLoggedIn();
       updateButtons();
       window.initSomfDM?.();
       closeLogin();
@@ -44,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function logout(){
-    sessionStorage.removeItem('dmLoggedIn');
+    clearLoggedIn();
     updateButtons();
   }
 
@@ -76,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loginModal?.addEventListener('click', e=>{ if(e.target===loginModal) closeLogin(); });
 
   updateButtons();
-  if(sessionStorage.getItem('dmLoggedIn')==='1'){
+  if(isLoggedIn()){
     window.initSomfDM?.();
   }
 });
