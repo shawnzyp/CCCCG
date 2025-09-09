@@ -13,7 +13,7 @@
     setCampaignId: (id)=> { window._somf_cid = id || 'ccampaign-001'; }
   };
 
-  const PLATES = [
+  const OLD_PLATES = [
     {id:'VAULT',name:'The Vault',visual:'Space folds into a recursion cell.',player:[
       'You vanish from the scene.',
       'An adjacent ally can pull you back.',
@@ -173,7 +173,521 @@
       'Effect: Your SP does not refresh for 1 round (retain current SP). After that round ends, gain one free +1d4 Boost Roll.'
     ]},
   ];
-  const plateById = Object.fromEntries(PLATES.map(p=>[p.id,p]));
+
+  const SOMF_DECK = {
+    "schema_version": "2.0",
+    "notes": {
+      "SP": "Stamina Points; refresh to full at the start of each combat round.",
+      "BoostRoll": "Add +1d4 to a roll. Normally costs 1 SP unless marked free.",
+      "TC": "Target Class (defense).",
+      "XP_unit": "xp",
+      "Money_unit": "cr",
+      "Ability_caps": "Permanent increases cannot push a base ability score above 20; temporary effects can exceed."
+    },
+
+    "items": {
+      "CMD_BEACON": {
+        "id": "CMD_BEACON",
+        "name": "Command Beacon",
+        "rarity": "Unique",
+        "slot": "Utility",
+        "type": "consumable",
+        "uses": 1,
+        "activation": {
+          "when": "combat_round1_start",
+          "cost_sp": 0,
+          "action": "free",
+          "can_activate_if_downed": true
+        },
+        "orders": {
+          "A_SHIELD_WALL": {
+            "name": "Shield Wall",
+            "duration": "combat",
+            "aura_center": "item_holder",
+            "radius_ft": 15,
+            "effects": [
+              { "target": "allies_in_aura", "type": "tc_bonus", "value": 3, "stacks": true }
+            ],
+            "persists_if_holder_unconscious": true,
+            "moves_with_holder": true
+          },
+          "B_PRIME_STRIKE": {
+            "name": "Prime Strike",
+            "duration": "combat",
+            "effects": [
+              { "target": "each_ally", "type": "free_boost_roll", "value": "1d4", "count": 1 }
+            ]
+          },
+          "C_TACTICAL_RECON": {
+            "name": "Tactical Recon",
+            "duration": "combat",
+            "effects": [
+              { "target": "gm", "type": "declare_mechanical_weakness", "specific": true },
+              { "target": "each_ally", "type": "free_boost_roll_first_attack_vs_declared_enemy", "value": "1d4" }
+            ]
+          }
+        }
+      },
+
+      "PRISM_EDGE": {
+        "id": "PRISM_EDGE",
+        "name": "Prism Edge",
+        "rarity": "Legendary",
+        "slot": "Weapon",
+        "type": "melee",
+        "requirements": { "dex_or_int_mod_at_least": 2 },
+        "attack_profile": { "to_hit_mod_from_ability": "DEX", "damage": "2d10 radiant" },
+        "powers": [
+          {
+            "name": "Starlight Decree",
+            "cost_sp": 3,
+            "range": "melee",
+            "effect": "On hit, add +1d10 radiant and target makes WIS save DC 14 or Stunned 1 round"
+          }
+        ]
+      },
+
+      "ASCENDANT_HALO": {
+        "id": "ASCENDANT_HALO",
+        "name": "Ascendant Halo",
+        "rarity": "Legendary",
+        "slot": "Utility",
+        "type": "reusable",
+        "active": {
+          "uses": "1_per_combat",
+          "activation": { "when": "your_turn", "action": "bonus_action", "cost_sp": 0 },
+          "duration": "3_rounds",
+          "aura": { "radius_ft": 10 },
+          "effects": [
+            { "target": "allies_in_aura", "type": "free_boost_roll_first_roll_each_turn", "value": "1d4" }
+          ]
+        }
+      },
+
+      "SOLARIS_DIADEM": {
+        "id": "SOLARIS_DIADEM",
+        "name": "Solaris Diadem",
+        "rarity": "Legendary",
+        "slot": "Utility",
+        "type": "reusable",
+        "passive": [
+          { "type": "passive_perception_bonus", "value": 2 }
+        ],
+        "active": {
+          "uses": "1_per_scene",
+          "activation": { "when": "your_turn", "action": "bonus_action", "cost_sp": 0 },
+          "duration": "until_start_of_your_next_turn",
+          "aura": { "radius_ft": 15 },
+          "effects": [
+            { "target": "you_and_allies_in_aura", "type": "tc_bonus", "value": 2 }
+          ]
+        }
+      },
+
+      "COMET_SPURS": {
+        "id": "COMET_SPURS",
+        "name": "Comet Spurs",
+        "rarity": "Rare",
+        "slot": "Utility",
+        "type": "reusable",
+        "passive": [{ "type": "speed_bonus_ft", "value": 10 }],
+        "active": {
+          "uses": "1_per_combat",
+          "activation": { "when": "your_turn", "action": "bonus_action", "cost_sp": 1 },
+          "effects": [
+            { "target": "self", "type": "free_boost_roll", "value": "1d4" },
+            { "target": "self", "type": "dash_no_reaction_attacks_this_turn" }
+          ]
+        }
+      },
+
+      "Q_LOCKPICK": {
+        "id": "Q_LOCKPICK",
+        "name": "Quantum Lockpick",
+        "rarity": "Uncommon",
+        "slot": "Utility",
+        "type": "reusable",
+        "uses": "1_per_scene",
+        "activation": { "when": "your_turn", "action": "bonus_action", "cost_sp": 1 },
+        "effect": {
+          "test": { "type": "save", "ability": "INT", "dc": 13 },
+          "on_success": "Bypass a touched lock/field; you and one ally may pass this round.",
+          "on_failure": "No effect; SP spent."
+        }
+      },
+
+      "SOLARIS_BADGE": {
+        "id": "SOLARIS_BADGE",
+        "name": "Solaris Badge",
+        "rarity": "Rare",
+        "slot": "Utility",
+        "type": "reusable",
+        "passive": [{ "type": "passive_perception_bonus", "value": 1 }],
+        "active": {
+          "uses": "1_per_scene",
+          "activation": { "when": "your_turn", "action": "bonus_action", "cost_sp": 0 },
+          "aura": { "radius_ft": 10 },
+          "effects": [{ "target": "you_and_allies_in_aura", "type": "tc_bonus", "value": 1, "duration": "until_start_of_your_next_turn" }]
+        }
+      },
+
+      "SHARD_BATTERY": {
+        "id": "SHARD_BATTERY",
+        "name": "Shard Battery",
+        "rarity": "Common",
+        "slot": "Consumable",
+        "type": "consumable",
+        "activation": { "when": "your_turn", "action": "bonus_action", "cost_sp": 0 },
+        "effect": [{ "target": "self", "type": "gain_sp", "value": 2 }]
+      }
+    },
+
+    "npcs": {
+      "ALLY_KNIGHT_COMMANDER_AERIN": {
+        "id": "ALLY_KNIGHT_COMMANDER_AERIN",
+        "name": "Knight-Commander Aerin Valis",
+        "created_by_shard": "LEGEND_KNIGHT_COMMANDER",
+        "role": "Ally",
+        "affiliation": "PFV",
+        "loyal_to": "drawer",
+        "tier": 3,
+        "classification": "Enhanced Human",
+        "power_style": "Physical Powerhouse",
+        "speed_ft": 30,
+        "hp": 50,
+        "sp": 7,
+        "tc_base": 14,
+        "tc_notes": "Base 10 + DEX 1 + Tectonic Armor Rig +3 = 14. Immune to knockback. +3 TC vs charge attacks from G-Force Displacer (situational).",
+        "abilities": { "STR": 16, "DEX": 12, "CON": 14, "INT": 12, "WIS": 12, "CHA": 14 },
+        "saves": { "STR": 3, "DEX": 1, "CON": 2, "INT": 1, "WIS": 1, "CHA": 2 },
+        "skills": { "Athletics": 5, "Intimidation": 4, "Perception": 3 },
+        "gear": {
+          "armor": { "name": "Tectonic Armor Rig", "effects": ["+3 TC", "Immune to knockback"] },
+          "shield": { "name": "G-Force Displacer", "effects": ["+3 TC vs charge attacks (1 round)"] },
+          "utility": { "name": "Seismic Stabilizers", "effects": ["On melee hit: ground shock; target DEX save DC 15 or Prone"] }
+        },
+        "weapons": [
+          { "name": "Mag-Hammer", "range": "melee", "to_hit": "+3", "damage": "2d8 bludgeoning" }
+        ],
+        "powers": [
+          { "name": "Hammer Verdict", "cost_sp": 2, "range": "melee", "effect": "2d8 bludgeoning; target DEX save DC 13 or Prone (1 round)" },
+          { "name": "Aegis Intercept", "cost_sp": 0, "timing": "reaction_once_per_combat", "effect": "Halve damage of one attack vs you or adjacent ally" },
+          { "name": "Rift Catch", "cost_sp": 3, "range": "10 ft", "effect": "Redirect a hit from ally to self; reduce damage by 5" }
+        ],
+        "features": [
+          "Loyal to the drawer (permanent unless slain).",
+          "If Aerin would break, may fight to 0 HP once per session instead."
+        ]
+      },
+      "ALLY_ECHO_OPERATIVE_ZERO": {
+        "id": "ALLY_ECHO_OPERATIVE_ZERO",
+        "name": "Echo Operative Z3R0",
+        "created_by_shard": "LEGEND_ECHO_ZERO",
+        "role": "Ally",
+        "affiliation": "Echo Network",
+        "loyal_to": "drawer",
+        "tier": 3,
+        "classification": "Enhanced Human",
+        "power_style": "Telekinetic/Psychic",
+        "speed_ft": 30,
+        "hp": 49,
+        "sp": 6,
+        "tc_base": 16,
+        "tc_notes": "Base 10 + DEX 3 + Thoughtweave Lining +3 = 16. +2 TC vs mental effects (Mind Ward Halo). Telekinetic Aegis: +2 TC for 1 round (1 SP).",
+        "abilities": { "STR": 10, "DEX": 16, "CON": 12, "INT": 14, "WIS": 14, "CHA": 12 },
+        "saves": { "STR": 0, "DEX": 3, "CON": 1, "INT": 2, "WIS": 2, "CHA": 1 },
+        "skills": { "Stealth": 5, "Perception": 4, "Insight": 4, "Technology": 4 },
+        "gear": {
+          "armor": { "name": "Thoughtweave Lining", "effects": ["+3 TC", "+1 to resist psychic"] },
+          "shield": { "name": "Mind Ward Halo", "effects": ["+2 TC vs mental effects"] },
+          "utility": { "name": "Telekinetic Aegis", "effects": ["Spend 1 SP for +2 TC for 1 round"] }
+        },
+        "weapons": [
+          { "name": "TK Darts", "range": "ranged", "to_hit": "+3", "damage": "1d10 psychic" }
+        ],
+        "powers": [
+          { "name": "Mind Spike", "cost_sp": 2, "range": "60 ft", "effect": "2d6 psychic; WIS save DC 14 or Stunned (1 round)" },
+          { "name": "Kinetic Shove", "cost_sp": 2, "range": "60 ft", "effect": "Push 15 ft; STR or DEX save DC 13 resists" },
+          { "name": "Veil Step", "cost_sp": 1, "range": "self", "effect": "Teleport 10 ft; advantage on next attack this turn" }
+        ],
+        "features": [
+          "Psi-link with the drawer: once per combat the drawer may reroll a failed save."
+        ]
+      },
+      "ENEMY_ARCHNEMESIS_NYX": {
+        "id": "ENEMY_ARCHNEMESIS_NYX",
+        "name": "Razor Nyx",
+        "created_by_shard": "LEGEND_NEMESIS_NYX",
+        "role": "Enemy",
+        "affiliation": "Greyline",
+        "archenemy_of": "drawer",
+        "tier": 3,
+        "classification": "Enhanced Human",
+        "power_style": "Speedster",
+        "speed_ft": 40,
+        "hp": 49,
+        "sp": 6,
+        "tc_base": 14,
+        "tc_notes": "Base 10 + DEX 4 = 14. +3 TC if moved ≥20 ft (Glide Suit), +2 TC if moved ≥10 ft (Momentum Redirector), +1 TC passive (Stutter-Blink Harness) — up to TC 20 with full movement.",
+        "abilities": { "STR": 12, "DEX": 18, "CON": 12, "INT": 12, "WIS": 12, "CHA": 12 },
+        "saves": { "STR": 1, "DEX": 4, "CON": 1, "INT": 1, "WIS": 1, "CHA": 1 },
+        "skills": { "Stealth": 6, "Acrobatics": 7, "Perception": 3, "Deception": 3 },
+        "gear": {
+          "armor": { "name": "Kinetic Glide Suit", "effects": ["+3 TC if moved ≥20 ft this round"] },
+          "shield": { "name": "Momentum Redirector", "effects": ["+2 TC if moved ≥10 ft this round"] },
+          "utility": { "name": "Stutter-Blink Harness", "effects": ["+1 TC passive", "Reaction: 5-ft teleport once/round when targeted"] }
+        },
+        "weapons": [
+          { "name": "Mono-Knife", "range": "melee", "to_hit": "+4", "damage": "1d8+4 slashing" }
+        ],
+        "powers": [
+          { "name": "Throat of Silence", "cost_sp": 2, "range": "melee", "effect": "2d6 slashing; CON save DC 14 or Weaken (–2 attack) 1 round" },
+          { "name": "Mirrorstep Assault", "cost_sp": 1, "range": "self", "effect": "Move 20+ ft; advantage on next two attacks this turn" },
+          { "name": "Temporal Slip", "cost_sp": 3, "timing": "reaction", "trigger": "Targeted by an attack", "effect": "Teleport 5 ft; attacker rerolls to hit" }
+        ],
+        "features": [
+          "Archenemy of the drawer.",
+          "If reduced to 0 HP and not slain, escapes and returns later with +1 to all saves and elite tactics."
+        ]
+      },
+      "ENEMY_ARCHNEMESIS_SILAS": {
+        "id": "ENEMY_ARCHNEMESIS_SILAS",
+        "name": "Inquisitor Silas Vane",
+        "created_by_shard": "LEGEND_INQUISITOR_SILAS",
+        "role": "Enemy",
+        "affiliation": "Conclave",
+        "archenemy_of": "drawer",
+        "tier": 3,
+        "classification": "Enhanced Human",
+        "power_style": "Energy Manipulator",
+        "speed_ft": 30,
+        "hp": 49,
+        "sp": 6,
+        "tc_base": 12,
+        "tc_notes": "Base 10 + DEX 2 = 12. +2 TC vs energy (Light Prism Carapace). Phase Dome Generator: +2 TC aura to adjacent allies for 1 round (1 SP).",
+        "abilities": { "STR": 12, "DEX": 14, "CON": 12, "INT": 14, "WIS": 16, "CHA": 14 },
+        "saves": { "STR": 1, "DEX": 2, "CON": 1, "INT": 2, "WIS": 3, "CHA": 2 },
+        "skills": { "Insight": 5, "Persuasion": 4, "Perception": 4, "Technology": 4 },
+        "gear": {
+          "armor": { "name": "Light Prism Carapace", "effects": ["+2 TC vs energy attacks"] },
+          "shield": { "name": "Phase Dome Generator", "effects": ["1 SP: +2 TC to adjacent allies for 1 round"] },
+          "utility": { "name": "Charge Sink Filament", "effects": ["When hit by energy: gain 1 SP (once/round)"] }
+        },
+        "weapons": [
+          { "name": "Officer’s Prism Edge", "range": "melee", "to_hit": "+2", "damage": "2d10 radiant" }
+        ],
+        "powers": [
+          { "name": "Starlight Decree", "cost_sp": 3, "range": "melee", "effect": "On hit add +1d10 radiant; WIS save DC 15 or Stunned 1 round" },
+          { "name": "Accession Step", "cost_sp": 2, "range": "self", "effect": "Teleport 10 ft; +2 TC until start of next turn" },
+          { "name": "Dazzling Edict", "cost_sp": 2, "range": "15-ft cone", "effect": "2d6 radiant; CON save DC 14 or Blinded 1 round" }
+        ],
+        "features": [
+          "Archenemy of the drawer.",
+          "If defeated and not slain, triggers political reprisals: drawer loses 1 step Reputation with Conclave and Silas returns later with a counter-relic."
+        ]
+      },
+      "HERALD_OF_SILENCE": {
+        "id": "HERALD_OF_SILENCE",
+        "name": "Herald of Silence",
+        "created_by_shard": "SKULL",
+        "role": "Enemy",
+        "affiliation": "Morvox",
+        "tier": 2,
+        "classification": "Mystical Being",
+        "power_style": "Telekinetic/Psychic",
+        "speed_ft": 30,
+        "movement_modes": ["hover"],
+        "hp": 56,
+        "sp": 7,
+        "tc_base": 15,
+        "tc_notes": "Base 10 + DEX 2 + Thoughtweave Lining +3 = 15. +2 TC vs mental (Mind Ward Halo). Telekinetic Aegis: +2 TC for 1 round (1 SP).",
+        "abilities": { "STR": 8, "DEX": 14, "CON": 14, "INT": 14, "WIS": 14, "CHA": 12 },
+        "saves": { "STR": -1, "DEX": 2, "CON": 2, "INT": 2, "WIS": 2, "CHA": 1 },
+        "skills": { "Perception": 4, "Insight": 4 },
+        "gear": {
+          "armor": { "name": "Thoughtweave Lining", "effects": ["+3 TC", "+1 to resist psychic"] },
+          "shield": { "name": "Mind Ward Halo", "effects": ["+2 TC vs mental effects"] },
+          "utility": { "name": "Telekinetic Aegis", "effects": ["Spend 1 SP for +2 TC for 1 round"] }
+        },
+        "powers": [
+          { "name": "Mind Spike", "cost_sp": 2, "range": "60 ft", "effect": "2d6 psychic; WIS save DC 14 or Stunned 1 round" },
+          { "name": "Kinetic Shove", "cost_sp": 2, "range": "60 ft", "effect": "Push 15 ft; STR or DEX save DC 13 resists" },
+          { "name": "Silence Bloom", "cost_sp": 3, "range": "aura 15 ft", "sustain_cost_sp_per_round": 1, "effect": "Enemies in aura: disadvantage on CHA checks; must pass CHA save DC 13 to use verbal/sonic powers this round" }
+        ],
+        "features": [
+          "Skull duel rule: Only the drawer can damage the Herald until it reaches 0 HP."
+        ]
+      },
+      "PFV_HUNTER_RIOT_UNIT": {
+        "id": "PFV_HUNTER_RIOT_UNIT",
+        "name": "PFV Hunter (Riot Unit)",
+        "created_by_shard": "FLAMES",
+        "role": "Enemy",
+        "affiliation": "PFV",
+        "tier": 2,
+        "classification": "Enhanced Human",
+        "power_style": "Tactics/Control",
+        "speed_ft": 30,
+        "hp": 56,
+        "sp": 7,
+        "tc_base": 16,
+        "tc_notes": "Base 10 + DEX 2 + Kinetic Carapace +2 + Riot Shield +2 = 16. Riot Shield bonus is strongest vs melee.",
+        "abilities": { "STR": 14, "DEX": 14, "CON": 14, "INT": 10, "WIS": 12, "CHA": 10 },
+        "saves": { "STR": 2, "DEX": 2, "CON": 2, "INT": 0, "WIS": 1, "CHA": 0 },
+        "skills": { "Athletics": 4, "Perception": 3, "Intimidation": 2 },
+        "gear": {
+          "armor": { "name": "Kinetic Carapace", "effects": ["+2 TC"] },
+          "shield": { "name": "Riot Shield", "effects": ["+2 TC vs melee attacks"] },
+          "utility": { "name": "Stun-Net Emitter", "effects": ["Deploy electrified net for crowd control (GM adjudication)"] }
+        },
+        "weapons": [
+          { "name": "SMG Burst", "range": "ranged", "to_hit": "+2", "damage": "2d6+2 ballistic" },
+          { "name": "Riot Baton", "range": "melee", "to_hit": "+2", "damage": "1d6+2 bludgeoning" }
+        ],
+        "powers": [
+          { "name": "Suppression Volley", "cost_sp": 2, "range": "30 ft", "effect": "Hit up to 2 targets: 1d6+2 ballistic each; WIS save DC 13 or Weaken (–2 attack) 1 round" },
+          { "name": "Shock Taser", "cost_sp": 2, "range": "melee", "effect": "1d6 lightning; CON save DC 13 or Stunned until end of target’s next turn" },
+          { "name": "Riot Wall", "cost_sp": 1, "range": "self+adjacent allies", "effect": "+2 TC to you and adjacent allies until start of your next turn" }
+        ],
+        "features": [
+          "Spawns once per session until dismissed by successful parley/media scene against PFV."
+        ]
+      },
+      "OMNI_TRACKER_RECON": {
+        "id": "OMNI_TRACKER_RECON",
+        "name": "O.M.N.I. Tracker (Recon Marksman)",
+        "created_by_shard": "FLAMES",
+        "role": "Enemy",
+        "affiliation": "O.M.N.I.",
+        "tier": 2,
+        "classification": "Enhanced Human",
+        "power_style": "Marksman/Control",
+        "speed_ft": 30,
+        "hp": 55,
+        "sp": 6,
+        "tc_base": 16,
+        "tc_notes": "Base 10 + DEX 3 + Lightweave Cloak +2 + Kinetic Buckler +1 = 16. Cloak bonus is strongest vs ranged.",
+        "abilities": { "STR": 10, "DEX": 16, "CON": 12, "INT": 12, "WIS": 14, "CHA": 10 },
+        "saves": { "STR": 0, "DEX": 3, "CON": 1, "INT": 1, "WIS": 2, "CHA": 0 },
+        "skills": { "Stealth": 5, "Perception": 4, "Technology": 3 },
+        "gear": {
+          "armor": { "name": "Lightweave Cloak", "effects": ["+2 TC vs ranged attacks"] },
+          "shield": { "name": "Kinetic Buckler", "effects": ["+1 TC"] },
+          "utility": { "name": "Sensor Darts", "effects": ["Reveal hidden targets within 30 ft (GM adjudication)"] }
+        },
+        "weapons": [
+          { "name": "Marksman Rifle", "range": "ranged", "to_hit": "+3", "damage": "1d10+3 ballistic" }
+        ],
+        "powers": [
+          { "name": "Hunter’s Tag", "cost_sp": 2, "range": "90 ft", "effect": "Mark one target; your attacks vs it gain advantage this combat" },
+          { "name": "Netline Shock", "cost_sp": 2, "range": "60 ft", "effect": "1d6 lightning; DEX save DC 14 or Weaken and Push 5 ft" },
+          { "name": "Ghost Step", "cost_sp": 1, "range": "self", "effect": "Move 10 ft; attacks vs you have disadvantage until your next turn" }
+        ],
+        "features": [
+          "Spawns once per session until dismissed by successful parley/media scene against O.M.N.I."
+        ]
+      },
+      "CONCLAVE_CENSOR": {
+        "id": "CONCLAVE_CENSOR",
+        "name": "Conclave Censor (Edict Enforcer)",
+        "created_by_shard": "FLAMES",
+        "role": "Enemy",
+        "affiliation": "Conclave",
+        "tier": 2,
+        "classification": "Enhanced Human",
+        "power_style": "Energy/Control",
+        "speed_ft": 30,
+        "hp": 55,
+        "sp": 6,
+        "tc_base": 15,
+        "tc_notes": "Base 10 + DEX 1 + Prism Vest +2 + Phase Buckler +2 = 15. Phase Buckler strongest vs powers.",
+        "abilities": { "STR": 12, "DEX": 12, "CON": 12, "INT": 14, "WIS": 14, "CHA": 12 },
+        "saves": { "STR": 1, "DEX": 1, "CON": 1, "INT": 2, "WIS": 2, "CHA": 1 },
+        "skills": { "Insight": 4, "Perception": 3, "Persuasion": 3, "Technology": 3 },
+        "gear": {
+          "armor": { "name": "Prism Vest", "effects": ["+2 TC vs energy"] },
+          "shield": { "name": "Phase Buckler", "effects": ["+2 TC vs powers"] },
+          "utility": { "name": "Edict Seal", "effects": ["1 SP: create 10-ft silence zone; CHA save DC 13 to use verbal/sonic powers in zone"] }
+        },
+        "weapons": [
+          { "name": "Prism Edge", "range": "melee", "to_hit": "+1", "damage": "2d10 radiant" }
+        ],
+        "powers": [
+          { "name": "Dazzling Edict", "cost_sp": 2, "range": "15-ft cone", "effect": "2d6 radiant; CON save DC 13 or Blinded 1 round" },
+          { "name": "Command Suppression", "cost_sp": 2, "range": "30 ft", "effect": "WIS save DC 14 or Weaken (–2 attack) 1 round" },
+          { "name": "Accession Step", "cost_sp": 2, "range": "self", "effect": "Teleport 10 ft; +2 TC until start of next turn" }
+        ],
+        "features": [
+          "Spawns once per session until dismissed by successful parley/media scene against the Conclave."
+        ]
+      },
+      "GREYLINE_ENFORCER": {
+        "id": "GREYLINE_ENFORCER",
+        "name": "Greyline Enforcer (Shock Cell)",
+        "created_by_shard": "FLAMES",
+        "role": "Enemy",
+        "affiliation": "Greyline",
+        "tier": 2,
+        "classification": "Enhanced Human",
+        "power_style": "Speed/Assault",
+        "speed_ft": 35,
+        "hp": 56,
+        "sp": 7,
+        "tc_base": 13,
+        "tc_notes": "Base 10 + DEX 2 + Stutter-Blink Harness +1 = 13. +3 TC if moved ≥20 ft (Glide Suit), +2 TC if moved ≥10 ft (Momentum Redirector) — up to TC 18 with movement.",
+        "abilities": { "STR": 14, "DEX": 14, "CON": 14, "INT": 12, "WIS": 12, "CHA": 10 },
+        "saves": { "STR": 2, "DEX": 2, "CON": 2, "INT": 1, "WIS": 1, "CHA": 0 },
+        "skills": { "Acrobatics": 4, "Stealth": 4, "Intimidation": 2 },
+        "gear": {
+          "armor": { "name": "Kinetic Glide Suit", "effects": ["+3 TC if moved ≥20 ft this round"] },
+          "shield": { "name": "Momentum Redirector", "effects": ["+2 TC if moved ≥10 ft this round"] },
+          "utility": { "name": "Stutter-Blink Harness", "effects": ["+1 TC", "Reaction: 5-ft teleport once/round when targeted"] }
+        },
+        "weapons": [
+          { "name": "SMG", "range": "ranged", "to_hit": "+2", "damage": "1d10+2 ballistic" }
+        ],
+        "powers": [
+          { "name": "Rapid Barrage", "cost_sp": 2, "range": "30 ft", "effect": "Hit up to two targets for 1d6+2 ballistic each" },
+          { "name": "Throat of Silence", "cost_sp": 2, "range": "melee", "effect": "2d6 slashing; CON save DC 13 or Weaken 1 round" },
+          { "name": "Smoke Vanish", "cost_sp": 1, "range": "self", "effect": "Become obscured (attacks vs you at disadvantage) until your next turn; move 10 ft" }
+        ],
+        "features": [
+          "Spawns once per session until dismissed by successful parley/media scene against Greyline."
+        ]
+      }
+
+    },
+    "shards": [
+      { "id": "SUNSHARD", "name": "The Sun", "polarity": "good", "effect": [ { "type": "xp_delta", "value": 5000 }, { "type": "grant_item", "item_id": "SOLARIS_DIADEM", "quantity": 1 } ], "resolution": "Add XP and item immediately." },
+      { "id": "GEM", "name": "The Gem", "polarity": "good", "effect": [ { "type": "credits_delta", "value": 20000 }, { "type": "grant_item", "item_id": "SHARD_BATTERY", "quantity": 3 } ], "resolution": "Credit the account; add consumables." },
+      { "id": "KEY", "name": "The Key", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "PRISM_EDGE", "quantity": 1 } ], "requirements": { "owner_binds_on_equip": true }, "resolution": "Bind legendary weapon to the drawer." },
+      { "id": "STAR", "name": "The Star", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 2, "cap": 20 }, { "type": "skill_bonus_perm", "target_skill_choice": true, "value": 2 } ], "resolution": "Apply permanent changes; obey ability cap." },
+      { "id": "MOON", "name": "The Moon", "polarity": "good", "effect": [ { "type": "choose_one", "options": [ { "xp_delta": 3000 }, { "credits_delta": 15000 }, { "remove_one_negative_shard_curse": true } ] } ], "resolution": "Record chosen boon and apply." },
+      { "id": "COMET", "name": "The Comet", "polarity": "good", "effect": [ { "type": "flag_next_combat_bounty", "condition": "drawer_deals_final_blow_to_highest_hp_enemy", "rewards": [ { "type": "xp_delta", "value": 1500 }, { "type": "grant_item", "item_id": "COMET_SPURS", "quantity": 1 } ] } ], "resolution": "Check condition at end of combat; grant rewards if met." },
+      { "id": "VIZIER", "name": "The Vizier", "polarity": "good", "effect": [ { "type": "declare_two_mechanical_weaknesses_on_next_boss": true }, { "type": "downtime_advantage", "task": "Research", "uses": 1 } ], "resolution": "GM states two concrete weaknesses; mark downtime advantage." },
+      { "id": "THRONE", "name": "The Throne", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "CMD_BEACON", "quantity": 1 } ], "resolution": "Add Beacon; must be activated at start of round 1 if used." },
+      { "id": "ASCENDANT", "name": "The Ascendant", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 1, "count": 2, "cap": 20 }, { "type": "grant_free_boost_per_encounter", "count_encounters": 3, "value": "1d4" } ], "resolution": "Apply permanent +1 to two different abilities; track 3 free boosts." },
+      { "id": "HALO", "name": "The Halo", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "ASCENDANT_HALO", "quantity": 1 } ], "resolution": "Add legendary utility and its uses." },
+
+      { "id": "RUIN", "name": "Ruin", "polarity": "bad", "effect": [ { "type": "credits_delta", "value": -20000 } ], "resolution": "Deduct credits immediately." },
+      { "id": "TALONS", "name": "Talons", "polarity": "bad", "effect": [ { "type": "destroy_equipped_items", "count": 2, "priority": ["highest_rarity_first"], "exceptions": ["bonded_legendary_1_item_choice"] } ], "resolution": "Remove items; note they cannot be recovered except via major story quest." },
+      { "id": "IDIOT", "name": "The Idiot", "polarity": "bad", "effect": [ { "type": "xp_delta", "value": -2500 }, { "type": "ability_score_decrease_perm", "ability": "INT", "value": -2, "floor": 3 } ], "resolution": "Apply losses; only a major quest can restore the permanent INT loss (+2)." },
+      { "id": "EURYALE", "name": "Euryale", "polarity": "bad", "effect": [ { "type": "attack_penalty_curse", "value": -2, "duration": "until_cleansed" }, { "type": "cleanse_method", "methods": [ { "downtime": "Gather Intel", "dc": 15, "successes_required": 2 }, { "item": "PRISM_EDGE", "special_counter": "Spend 3 SP to shatter the curse once" } ] } ], "resolution": "Track –2 to all attack rolls until a listed cleanse completes." },
+      { "id": "SKULL", "name": "Skull", "polarity": "bad", "effect": [ { "type": "spawn_enemy_1v1", "enemy_template": "HERALD_OF_SILENCE", "rule": "Only the drawer can damage it until it is reduced to 0 HP" } ], "resolution": "Run immediate duel if drawn during combat; otherwise at next safe opportunity." },
+      { "id": "DONJON", "name": "Donjon", "polarity": "bad", "effect": [ { "type": "imprison_drawer", "state": "removed_from_play", "rescue": { "mission_required": true, "scenes_required": 2, "fail_consequence": "drawer loses 1000 xp and 5000 cr" } } ], "resolution": "Team must rescue via a focused side-mission." },
+      { "id": "FLAMES", "name": "Flames", "polarity": "bad", "effect": [ { "type": "faction_rep_delta", "faction": "chosen_major", "value": -2 }, { "type": "spawn_hunters", "tier": 2, "count": 1, "frequency": "once_per_session_until_you_complete_parley" } ], "resolution": "Hunters appear once per session; a successful Media Control or Parley scene dismisses them." },
+      { "id": "ROGUE", "name": "Rogue", "polarity": "bad", "effect": [ { "type": "convert_contact_to_enemy", "pick_existing_contact": true }, { "type": "steal_item_or_credits", "priority": "highest_rarity_item_else_5000cr" } ], "resolution": "Mark contact hostile; stolen goods are gone unless retrieved in play." },
+      { "id": "FOOL", "name": "Fool", "polarity": "bad", "effect": [ { "type": "xp_delta", "value": -2000 }, { "type": "force_draw", "pool": "bad_only", "count": 1 } ], "resolution": "Apply XP loss; immediately draw one additional bad shard and resolve it." },
+      { "id": "STATIC", "name": "Static", "polarity": "bad", "effect": [ { "type": "choice", "options": [ { "ability_score_decrease_perm": { "ability_choice": true, "value": -2, "floor": 3 } }, { "lose_one_trained_skill_perm": true } ] } ], "resolution": "Apply chosen permanent penalty." },
+
+      { "id": "LEGEND_KNIGHT_COMMANDER", "name": "Legendary Shard — The Knight-Commander", "polarity": "legendary", "effect": [ { "type": "spawn_ally_loyal_permanent", "npc_id": "ALLY_KNIGHT_COMMANDER_AERIN", "tier": 3 }, { "type": "title_award", "title": "Commander’s Aegis", "mechanic": "Once per session you may call Aerin to your location within 1 scene if plausible." } ], "resolution": "Add ally sheet; loyal to the drawer permanently unless slain." },
+      { "id": "LEGEND_ECHO_ZERO", "name": "Legendary Shard — The Echo Zero", "polarity": "legendary", "effect": [ { "type": "spawn_ally_loyal_permanent", "npc_id": "ALLY_ECHO_OPERATIVE_ZERO", "tier": 3 }, { "type": "bond", "text": "Z3R0 shares a psi-link with the drawer; once/combat, the drawer may reroll a failed save." } ], "resolution": "Add ally sheet; loyal to the drawer permanently unless slain." },
+      { "id": "LEGEND_NEMESIS_NYX", "name": "Legendary Shard — Nemesis Nyx", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_NYX", "tier": 3 }, { "type": "immediate_theft", "steal": { "priority": "highest_rarity_non_bonded_item", "fallback_credits": 10000 } } ], "resolution": "Nyx becomes the drawer’s archenemy and returns if driven off." },
+      { "id": "LEGEND_INQUISITOR_SILAS", "name": "Legendary Shard — Inquisitor Silas", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_SILAS", "tier": 3 }, { "type": "faction_rep_delta", "faction": "Conclave", "value": -1 } ], "resolution": "Silas marks the drawer for doctrinal judgment and recurs until defeated." }
+    ]
+  };
+  const PLATES = SOMF_DECK.shards;
+  const plateById = Object.fromEntries(PLATES.map(p => [p.id, p]));
 
   /* ---------- Helpers ---------- */
   const db = ()=> window._somf_db || null;
@@ -392,6 +906,7 @@
     cardTab: $('#somfDM-tab-cards'),
     resTab: $('#somfDM-tab-resolve'),
     npcsTab: $('#somfDM-tab-npcs'),
+    itemsTab: $('#somfDM-tab-items'),
     reset: $('#somfDM-reset'),
     cardCount: $('#somfDM-cardCount'),
     incoming: $('#somfDM-incoming'),
@@ -399,6 +914,7 @@
     markResolved: $('#somfDM-markResolved'),
     spawnNPC: $('#somfDM-spawnNPC'),
     npcList: $('#somfDM-npcList'),
+    itemList: $('#somfDM-itemList'),
     npcModal: $('#somfDM-npcModal'),
     npcModalCard: $('#somfDM-npcModalCard'),
     toasts: $('#somfDM-toasts'),
@@ -423,11 +939,12 @@
     initDM();
     if(opts.tab){
       D.tabs.forEach(x=> x.classList.remove('active'));
-      [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.classList.remove('active'));
+      [D.cardTab,D.resTab,D.npcsTab,D.itemsTab].forEach(el=> el.classList.remove('active'));
       const t=opts.tab;
       if(t==='cards') D.cardTab.classList.add('active');
       if(t==='resolve') D.resTab.classList.add('active');
       if(t==='npcs') D.npcsTab.classList.add('active');
+      if(t==='items') D.itemsTab.classList.add('active');
       D.tabs.forEach(b=>{ if(b.dataset.tab===t) b.classList.add('active'); });
     }
   }
@@ -449,11 +966,12 @@
     b.addEventListener('click', ()=>{
       D.tabs.forEach(x=> x.classList.remove('active'));
       b.classList.add('active');
-      [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.classList.remove('active'));
+      [D.cardTab,D.resTab,D.npcsTab,D.itemsTab].forEach(el=> el.classList.remove('active'));
       const t = b.dataset.tab;
       if (t==='cards') D.cardTab.classList.add('active');
       if (t==='resolve') D.resTab.classList.add('active');
       if (t==='npcs') D.npcsTab.classList.add('active');
+      if (t==='items') D.itemsTab.classList.add('active');
     });
   });
 
@@ -518,28 +1036,14 @@
     return b;
   }
 
-  // Simple NPC set (compact but complete enough)
-  const NPCS = [
-    {id:'NH1',name:'Null Hound',type:'Enemy • Greyline Assassin (T3)',ability:{STR:12,DEX:16,CON:12,INT:12,WIS:12,CHA:10},hp:46,tc:14,sp:6,
-     weapons:[{n:'Throat of Silence', atk:'+5', dmg:'2d6'}], saves:'STR+1 DEX+3 CON+1 INT+1 WIS+1 CHA+0',
-     skills:'Stealth+5 Acrobatics+5 Perception+3', traits:['Kinetic Glide Suit: +3 TC when moving 20+ ft','Momentum Redirector: +2 TC if moved 10+ ft','Stutter-Blink Harness: +1 TC; Reaction 5-ft teleport once/combat'],
-     powers:['Throat of Silence — 2 SP, melee, 2d6 slashing; CON save DC13 or Weaken 1 round','Mirrorstep Feint — 1 SP, move 20+ ft; advantage on next attack this turn','Temporal Slip — 3 SP, Reaction when targeted: teleport 5 ft and force attacker to reroll'],
-     actions:[{label:'Throat Attack', expr:'1d20+5'},{label:'Throat Damage', expr:'2d6'}]},
-    {id:'SQ1',name:'Seraph Quinn',type:'Ally • PFV Peacekeeper (T3)',ability:{STR:12,DEX:14,CON:14,INT:12,WIS:12,CHA:13},hp:46,tc:12,sp:7,
-     weapons:[], saves:'STR+1 DEX+2 CON+2 INT+1 WIS+1 CHA+1',
-     skills:'Perception+3 Insight+3 Technology+3', traits:['Livewire Vest: +2 TC vs energy','Plasma Flicker Disk: +2 TC vs ranged powers','Charge Filter Mod: regain 1 SP when hit by energy (1/round)'],
-     powers:['Arc Lance — 2 SP, 60-ft line, 2d8 lightning; CON save DC13 or Burn 1d4','Pulse Overload — 3 SP, 20-ft cone, 2d6 lightning; WIS save DC13 or Weaken 1 round','Conductive Shielding — 2 SP, self +2 TC vs energy until start of next turn; first enemy that misses you takes 1 lightning'],
-     actions:[{label:'Arc Lance Attack', expr:'1d20+2'},{label:'Arc Lance Damage', expr:'2d8'},{label:'Pulse Overload Damage', expr:'2d6'}]},
-    {id:'HS1',name:'Herald of Silence',type:'Enemy • Psionic Wraith (T2)',ability:{STR:8,DEX:14,CON:14,INT:14,WIS:14,CHA:12},hp:60,tc:15,sp:7,
-     weapons:[], saves:'DEX+2 CON+2 INT+2 WIS+2 CHA+1 STR-1',
-     skills:'', traits:['Thoughtweave Lining: +3 TC and +1 vs psychic','Mind Ward Halo: +2 TC vs mental effects','Telekinetic Aegis: spend 1 SP for +2 TC 1 round'],
-     powers:['Mind Spike — 2 SP, 60 ft, 2d6 psychic; WIS save DC14 or Stunned 1 round','Kinetic Shove — 2 SP, 60 ft Push 15 ft; STR or DEX save DC13 resists','Silence Bloom — 3 SP, aura 15 ft; sustain +1 SP/round: enemies have disadvantage on CHA checks; verbal/sonic powers require CHA save DC13'],
-     actions:[{label:'Mind Spike Damage', expr:'2d6'}]},
-  ];
+  // NPCs pulled from the deck definition
+  const NPCS = Object.values(SOMF_DECK.npcs || {});
   const spawnFor = (id)=> {
-    if (id==='CONTRACT') return 'NH1';
-    if (id==='PEACEKEEPER') return 'SQ1';
-    if (id==='WRAITH') return 'HS1';
+    if (id==='SKULL') return 'HERALD_OF_SILENCE';
+    if (id==='LEGEND_KNIGHT_COMMANDER') return 'ALLY_KNIGHT_COMMANDER_AERIN';
+    if (id==='LEGEND_ECHO_ZERO') return 'ALLY_ECHO_OPERATIVE_ZERO';
+    if (id==='LEGEND_NEMESIS_NYX') return 'ENEMY_ARCHNEMESIS_NYX';
+    if (id==='LEGEND_INQUISITOR_SILAS') return 'ENEMY_ARCHNEMESIS_SILAS';
     return null;
   };
 
@@ -551,38 +1055,104 @@
     {name:'Story Consequence', desc:'Resolve the shard as a narrative event that alters the campaign.'},
   ];
 
-  function npcCard(n, attachRolls=true){
+  function npcCard(n){
     const card=document.createElement('div');
     card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+    const ability = n.abilities || n.ability || {};
     const abilityGrid = ['STR','DEX','CON','INT','WIS','CHA']
-      .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${n.ability?.[k]??''}</div></div>`)
+      .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${ability[k]??''}</div></div>`)
       .join('');
+    const saves = typeof n.saves === 'string' ? n.saves : Object.entries(n.saves||{}).map(([k,v])=>`${k}+${v}`).join(' ');
+    const skills = typeof n.skills === 'string' ? n.skills : Object.entries(n.skills||{}).map(([k,v])=>`${k}+${v}`).join(' ');
+    const weapons = (n.weapons||[]).map(w=>({n:w.name, atk:w.to_hit||w.attack, dmg:w.damage}));
+    const traits=[];
+    if(n.tc_notes) traits.push(`TC Notes: ${n.tc_notes}`);
+    Object.values(n.gear||{}).forEach(g=>{
+      const eff = g.effects?.join ? g.effects.join('; ') : (g.effect||g.bonus||'');
+      traits.push(`${g.name}: ${eff}`);
+    });
+    (n.features||[]).forEach(f=> traits.push(f));
+    const powers = (n.powers||[]).map(p=>{
+      const parts=[];
+      if(p.cost_sp!=null) parts.push(`${p.cost_sp} SP`);
+      if(p.range) parts.push(p.range);
+      if(p.damage) parts.push(p.damage);
+      if(p.effect) parts.push(p.effect);
+      if(p.save) parts.push(`${p.save.ability} save DC ${p.save.dc}${p.save.on_fail? ' or '+p.save.on_fail:''}`);
+      return `${p.name} — ${parts.join(', ')}`;
+    });
+    const hostMarkup = weapons.length? `<div class="roll-host" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`:'';
     card.innerHTML = `
-      <div><strong>${n.name}</strong> <span style="opacity:.8">• ${n.type||''}</span></div>
-      ${n.template? '<div style="margin-top:4px" class="mono">Template</div>' : `
+      <div><strong>${n.name}</strong> <span style="opacity:.8">• ${n.role||''}${n.affiliation? ' • '+n.affiliation:''}${n.tier? ' (T'+n.tier+')':''}</span></div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
-        <div><span style="opacity:.8;font-size:12px">HP</span><div>${n.hp}</div></div>
-        <div><span style="opacity:.8;font-size:12px">TC</span><div>${n.tc}</div></div>
-        <div><span style="opacity:.8;font-size:12px">SP</span><div>${n.sp}</div></div>
+        <div><span style="opacity:.8;font-size:12px">HP</span><div>${n.hp_average??n.hp??''}</div></div>
+        <div><span style="opacity:.8;font-size:12px">TC</span><div>${n.tc_computed_example??n.tc_base??''}</div></div>
+        <div><span style="opacity:.8;font-size:12px">SP</span><div>${n.sp??''}</div></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
-      <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Saves</span><div>${n.saves||''}</div></div>
-      ${n.skills? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Skills</span><div>${n.skills}</div></div>`:''}
-      ${n.powers? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Powers</span><ul style="margin:4px 0 0 18px;padding:0">${n.powers.map(p=>`<li>${p}</li>`).join('')}</ul></div>`:''}
-      `}
-      ${n.weapons? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Weapons</span><div>${n.weapons.map(w=>`${w.n} (atk ${w.atk}, dmg ${w.dmg})`).join('; ')}</div></div>`:``}
-      ${n.traits? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Traits</span><ul style="margin:4px 0 0 18px;padding:0">${n.traits.map(t=>`<li>${t}</li>`).join('')}</ul></div>`:``}
-      ${attachRolls && n.actions?.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`:``}
+      ${saves? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Saves</span><div>${saves}</div></div>`:''}
+      ${skills? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Skills</span><div>${skills}</div></div>`:''}
+      ${powers.length? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Powers</span><ul style="margin:4px 0 0 18px;padding:0">${powers.map(p=>`<li>${p}</li>`).join('')}</ul></div>`:''}
+      ${weapons.length? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Weapons</span><div>${weapons.map(w=>`${w.n}${w.atk?` (atk ${w.atk}`:''}${w.dmg?`${w.atk?', ' : ''}dmg ${w.dmg}`:''}${w.atk||w.dmg?')':''}`).join('; ')}</div></div>`:''}
+      ${traits.length? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Traits</span><ul style="margin:4px 0 0 18px;padding:0">${traits.map(t=>`<li>${t}</li>`).join('')}</ul></div>`:''}
+      ${hostMarkup}
     `;
-    const host = card.lastElementChild;
-    if (host && n.actions){
-      n.actions.forEach(a=> host.appendChild(rollBtn(a.label, a.expr)));
+    const host = card.querySelector('.roll-host');
+    if(host){
+      weapons.forEach(w=>{
+        if(w.atk) host.appendChild(rollBtn(`${w.n} Attack`, w.atk));
+        if(w.dmg) host.appendChild(rollBtn(`${w.n} Damage`, w.dmg));
+      });
     }
     return card;
   }
 
-  // Render: Card List
-  function renderCardList(){
+  function itemCard(it){
+    const card=document.createElement('div');
+    card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+    card.innerHTML = `<div><strong>${it.name}</strong> <span style="opacity:.8">• ${it.rarity||''} ${it.slot||''}</span></div>`;
+    if(it.type) card.innerHTML += `<div style="opacity:.8;font-size:12px">${it.type}</div>`;
+    if(it.passive){
+      const arr = Array.isArray(it.passive)? it.passive: [it.passive];
+      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Passive</span><ul style="margin:4px 0 0 18px;padding:0">${arr.map(p=>`<li>${typeof p==='string'?p:JSON.stringify(p)}</li>`).join('')}</ul></div>`;
+    }
+    if(it.active){
+      const a=it.active, details=[];
+      if(a.uses) details.push(`Uses: ${a.uses}`);
+      if(a.activation){
+        const act=[];
+        if(a.activation.when) act.push(a.activation.when);
+        if(a.activation.action) act.push(a.activation.action);
+        if(a.activation.cost_sp!=null) act.push(`${a.activation.cost_sp} SP`);
+        details.push(`Activation: ${act.join(', ')}`);
+      }
+      if(a.duration) details.push(`Duration: ${a.duration}`);
+      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Active</span><div style="opacity:.8;font-size:12px">${details.join(' • ')}</div>${a.effects? `<ul style="margin:4px 0 0 18px;padding:0">${a.effects.map(e=>`<li>${typeof e==='string'?e:JSON.stringify(e)}</li>`).join('')}</ul>`:''}</div>`;
+    }
+    if(it.effect){
+      const effs=Array.isArray(it.effect)? it.effect:[it.effect];
+      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Effect</span><ul style="margin:4px 0 0 18px;padding:0">${effs.map(e=>`<li>${typeof e==='string'?e:JSON.stringify(e)}</li>`).join('')}</ul></div>`;
+    }
+    if(it.orders){
+      const ord=Object.values(it.orders);
+      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Orders</span><ul style="margin:4px 0 0 18px;padding:0">${ord.map(o=>`<li><strong>${o.name}</strong> (${o.duration})</li>`).join('')}</ul></div>`;
+    }
+    return card;
+  }
+
+  function renderItemList(){
+    if(!D.itemList) return;
+    D.itemList.innerHTML='';
+    Object.values(SOMF_DECK.items||{}).forEach(it=>{
+      const li=document.createElement('li');
+      li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px';
+      if(D.itemList.children.length===0) li.style.borderTop='none';
+      li.appendChild(itemCard(it));
+      D.itemList.appendChild(li);
+    });
+  }
+
+function renderCardList(){
     D.cardTab.innerHTML='';
     PLATES.forEach(p=>{
       const d=document.createElement('div');
@@ -624,7 +1194,8 @@
       const li=document.createElement('li');
       li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
       if(D.npcList.children.length===0) li.style.borderTop='none';
-      li.innerHTML=`<strong>${n.name}</strong><div style="opacity:.8">${n.type||''}</div>`;
+      const type = n.type || `${n.role||''}${n.affiliation? ' • '+n.affiliation:''}${n.tier? ' (T'+n.tier+')':''}`;
+      li.innerHTML=`<strong>${n.name}</strong><div style="opacity:.8">${type}</div>`;
       li.addEventListener('click', ()=> openNPCModal(n));
       D.npcList.appendChild(li);
     });
@@ -785,6 +1356,7 @@
   async function loadAndRender(){
     await refreshCounts();
     renderCardList();
+    renderItemList();
     renderNPCList();
     const notices = await loadNotices();
     renderIncoming(notices);
