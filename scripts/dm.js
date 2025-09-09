@@ -1,7 +1,6 @@
 const DM_PIN = '1231';
 
 function initDMLogin(){
-  const linkBtn = document.getElementById('dm-login-link');
   const dmBtn = document.getElementById('dm-login');
   const menu = document.getElementById('dm-tools-menu');
   const tsomfBtn = document.getElementById('dm-tools-tsomf');
@@ -37,7 +36,6 @@ function initDMLogin(){
   function updateButtons(){
     const loggedIn = isLoggedIn();
     if (dmBtn) dmBtn.hidden = !loggedIn;
-    if (linkBtn) linkBtn.hidden = loggedIn;
     if (!loggedIn && menu) menu.hidden = true;
   }
 
@@ -55,18 +53,40 @@ function initDMLogin(){
     loginModal.setAttribute('aria-hidden','true');
   }
 
-  function attemptLogin(){
-    if(loginPin.value === DM_PIN){
-      setLoggedIn();
-      updateButtons();
-      if (window.initSomfDM) window.initSomfDM();
-      closeLogin();
-      if (typeof toast === 'function') toast('DM tools unlocked','success');
-    } else {
-      loginPin.value='';
-      loginPin.focus();
-      if (typeof toast === 'function') toast('Invalid PIN','error');
-    }
+  function requireLogin(){
+    return new Promise((resolve, reject) => {
+      if (isLoggedIn()) {
+        updateButtons();
+        resolve(true);
+        return;
+      }
+      openLogin();
+      function cleanup(){
+        loginSubmit?.removeEventListener('click', onSubmit);
+        loginPin?.removeEventListener('keydown', onKey);
+        loginModal?.removeEventListener('click', onCancel);
+      }
+      function onSubmit(){
+        if(loginPin.value === DM_PIN){
+          setLoggedIn();
+          updateButtons();
+          if (window.initSomfDM) window.initSomfDM();
+          closeLogin();
+          if (typeof toast === 'function') toast('DM tools unlocked','success');
+          cleanup();
+          resolve(true);
+        } else {
+          loginPin.value='';
+          loginPin.focus();
+          if (typeof toast === 'function') toast('Invalid PIN','error');
+        }
+      }
+      function onKey(e){ if(e.key==='Enter') onSubmit(); }
+      function onCancel(e){ if(e.target===loginModal){ closeLogin(); cleanup(); reject(new Error('cancel')); } }
+      loginSubmit?.addEventListener('click', onSubmit);
+      loginPin?.addEventListener('keydown', onKey);
+      loginModal?.addEventListener('click', onCancel);
+    });
   }
 
   function logout(){
@@ -79,15 +99,6 @@ function initDMLogin(){
     if(menu) menu.hidden = !menu.hidden;
   }
 
-  if (linkBtn){
-    linkBtn.addEventListener('click', openLogin);
-    linkBtn.addEventListener('pointerdown', e => {
-      // some mobile browsers don't fire click on invisible elements
-      // so we open the login on pointer interaction as well
-      e.preventDefault();
-      openLogin();
-    });
-  }
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
 
   document.addEventListener('click', e => {
@@ -110,14 +121,12 @@ function initDMLogin(){
     });
   }
 
-  if (loginSubmit) loginSubmit.addEventListener('click', attemptLogin);
-  if (loginPin) loginPin.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); });
-  if (loginModal) loginModal.addEventListener('click', e=>{ if(e.target===loginModal) closeLogin(); });
-
   updateButtons();
   if (isLoggedIn() && window.initSomfDM){
     window.initSomfDM();
   }
+
+  window.dmRequireLogin = requireLogin;
 }
 if (document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', initDMLogin);

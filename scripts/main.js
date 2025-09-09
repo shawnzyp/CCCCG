@@ -1844,14 +1844,13 @@ function redo(){
   if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
 }
 
-
 (function(){
-  const raw = localStorage.getItem(AUTO_KEY);
-  if(raw){
-    try{ const data = JSON.parse(raw); deserialize(data); history=[data]; histIdx=0; }
-    catch(e){ console.error('Auto-load failed', e); }
-  }
-  pushHistory();
+  try{ localStorage.removeItem(AUTO_KEY); }catch{}
+  deserialize(DEFAULT_STATE);
+  const snap = serialize();
+  history = [snap];
+  histIdx = 0;
+  try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
 })();
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');

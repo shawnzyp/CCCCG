@@ -11,11 +11,15 @@ import {
   deleteCloud,
 } from './storage.js';
 
-const PINNED = { 'Player :Shawn': '1231' };
+const PINNED = { 'DM': '1231' };
 
-function verifyPin(name) {
+async function verifyPin(name) {
   const pin = PINNED[name];
   if (!pin) return;
+  if (name === 'DM' && typeof window.dmRequireLogin === 'function') {
+    await window.dmRequireLogin();
+    return;
+  }
   const entered = typeof prompt === 'function'
     ? prompt(`Enter PIN for ${name}`)
     : null;
@@ -54,7 +58,7 @@ export async function listCharacters() {
 }
 
 export async function loadCharacter(name) {
-  verifyPin(name);
+  await verifyPin(name);
   try {
     return await loadLocal(name);
   } catch {}
@@ -67,7 +71,7 @@ export async function loadCharacter(name) {
 
 export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
-  verifyPin(name);
+  await verifyPin(name);
   await saveLocal(name, data);
   try {
     await saveCloud(name, data);
@@ -77,7 +81,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
 }
 
 export async function deleteCharacter(name) {
-  verifyPin(name);
+  await verifyPin(name);
   let data = null;
   try {
     data = await loadLocal(name);
