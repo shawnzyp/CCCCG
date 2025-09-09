@@ -203,23 +203,31 @@
   PUI.drawBtn?.addEventListener('click', ()=> doDraw());
 
   const playerCard = $('#somf-min');
-  function applyHiddenState(h){
-    if(playerCard) playerCard.hidden = h;
+  let _lastHidden = true;
+  async function applyHiddenState(h){
+    if(!playerCard) return;
+    if(_lastHidden && !h){
+      await playShardAnimation();
+      toast('The Shards of Many Fates have reveled themselves to you.',6000);
+      playerCard.hidden = false;
+    }else{
+      playerCard.hidden = h;
+    }
     if(h) closePlayerModal();
+    _lastHidden = h;
   }
   async function initPlayerHidden(){
     if(db()){
       const ref = db().ref(path.hidden(CID()));
       const snap = await ref.get();
-      applyHiddenState(snap.exists()? !!snap.val(): false);
+      await applyHiddenState(snap.exists()? !!snap.val(): false);
       ref.on('value', s=> applyHiddenState(!!s.val()));
     }else{
-      applyHiddenState(!!getLocal(LSK.hidden(CID())));
+      await applyHiddenState(!!getLocal(LSK.hidden(CID())));
       window.addEventListener('somf-local-hidden', e=> applyHiddenState(!!e.detail));
       window.addEventListener('storage', e=>{ if(e.key===LSK.hidden(CID())) applyHiddenState(!!JSON.parse(e.newValue)); });
     }
   }
-  initPlayerHidden();
 
   /* ======================================================================
      DM TOOL (notifications, resolve, npcs)
@@ -588,6 +596,8 @@
     loadAndRender();
     enableLive();
   }
+
+  initPlayerHidden();
 
 })();
 
