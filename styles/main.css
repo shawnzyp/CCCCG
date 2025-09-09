@@ -830,6 +830,8 @@ select[required]:valid{
 .somf-rolls{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .somf-tag{font-size:12px;padding:2px 6px;border:1px solid #1b2532;border-radius:4px;background:#0b1119}
 .somf-dm__toasts{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.somf-dm__queue{position:fixed;right:12px;bottom:60px;margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;z-index:9998}
+.somf-dm__queue li{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:6px 10px;cursor:pointer;min-width:200px}
 #modal-somf-dm{padding:0}
 #modal-somf-dm .somf-dm{max-width:none;max-height:none;width:100%;height:100%;border-radius:0;display:flex;flex-direction:column;overflow:hidden}
 #modal-somf-dm .somf-dm__tab{flex:1;overflow:auto}

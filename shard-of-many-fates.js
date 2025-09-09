@@ -334,9 +334,11 @@
       for (let i=0;i<n;i++) ids.push(localDrawOne());
       const notices = getLocal(LSK.notices(CID()))||[];
       const names = ids.map(id=> plateById[id]?.name || id);
-      notices.unshift({ ts: Date.now(), count:n, ids, names });
+      const now = Date.now();
+      const notice = { key: now.toString(), ts: now, count:n, ids, names };
+      notices.unshift(notice);
       setLocal(LSK.notices(CID()), notices);
-      window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notices[0] }));
+      window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notice }));
     }
 
     queue = ids.map(id=> plateById[id]);
@@ -404,8 +406,10 @@
     playerCardToggle: $('#somfDM-playerCard'),
     playerCardState: $('#somfDM-playerCard-state'),
     resolveOptions: $('#somfDM-resolveOptions'),
+    queue: $('#somfDM-notifications'),
   };
   let _selectLatest = false;
+  let _selectKey = null;
   function preventTouch(e){ e.preventDefault(); }
   function openDM(opts={}){
     if(!D.root) return;
@@ -415,7 +419,8 @@
     document.body.classList.add('modal-open');
     document.addEventListener('touchmove', preventTouch, { passive: false });
     if(opts.selectLatest) _selectLatest = true;
-    initDMOnce();
+    if(opts.selectKey) _selectKey = opts.selectKey;
+    initDM();
     if(opts.tab){
       D.tabs.forEach(x=> x.classList.remove('active'));
       [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.classList.remove('active'));
@@ -649,6 +654,24 @@
     if(D.cardCount) D.cardCount.textContent = `${deckLen}/${PLATES.length}`;
   }
 
+  async function removeNotice(n){
+    if(db()){
+      await db().ref(path.notices(CID())).child(n.key).remove();
+    } else {
+      const arr = getLocal(LSK.notices(CID()))||[];
+      const filtered = arr.filter(x=> (x.key||x.ts) !== n.key);
+      setLocal(LSK.notices(CID()), filtered);
+      window.dispatchEvent(new CustomEvent('somf-local-resolved', { detail: n.key }));
+    }
+  }
+
+  async function resolveNotice(n,count){
+    await pushResolutionBatch(n);
+    await removeNotice(n);
+    toast(`<strong>Resolved</strong> ${count} shard(s)`);
+    loadAndRender();
+  }
+
   function renderIncoming(notices){
     D.incoming.innerHTML='';
     notices.forEach((n,ix)=>{
@@ -657,12 +680,12 @@
       if (ix===0) li.style.borderTop='none';
       const names = n.names || n.ids.map(id=> plateById[id]?.name || id);
       li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.join(', ')}</div>`;
+      li.dataset.key = n.key || '';
       li.addEventListener('click', ()=>{
         $$('#somfDM-incoming li').forEach(x=> x.style.background='');
         li.style.background='#0b2a3a';
-        D.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(n.ts||Date.now()).toLocaleString()}</div>
-          <ul style="margin:6px 0 0 18px;padding:0">${names.map(x=>`<li>${x}</li>`).join('')}</ul>`;
-        // enable spawn if exactly one shard and it maps to a NPC
+        D.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(n.ts||Date.now()).toLocaleString()}</div>`+
+          `<ul style="margin:6px 0 0 18px;padding:0">${names.map(x=>`<li>${x}</li>`).join('')}</ul>`;
         const spawnCode = (n.ids.length===1)? (spawnFor(n.ids[0])||null) : null;
         D.spawnNPC.disabled = !spawnCode;
         D.spawnNPC.onclick = ()=>{
@@ -673,28 +696,49 @@
         };
         D.markResolved.disabled = false;
         D.markResolved.onclick = async ()=>{
-          await pushResolutionBatch(n);
-          toast(`<strong>Resolved</strong> ${names.length} shard(s)`);
-          loadAndRender(); // refresh list
+          await resolveNotice(n, names.length);
         };
       });
       D.incoming.appendChild(li);
     });
-    if(_selectLatest){
+    if(_selectKey){
+      const target = D.incoming.querySelector(`li[data-key="${_selectKey}"]`);
+      _selectKey=null;
+      if(target) target.click();
+      else if(_selectLatest){
+        _selectLatest=false;
+        const first=D.incoming.firstElementChild;
+        if(first) first.click();
+      }
+    } else if(_selectLatest){
       _selectLatest=false;
       const first=D.incoming.firstElementChild;
       if(first) first.click();
     }
   }
 
+  function renderQueue(notices){
+    if(!D.queue) return;
+    D.queue.innerHTML='';
+    notices.forEach(n=>{
+      const names = n.names || n.ids.map(id=> plateById[id]?.name || id);
+      const li=document.createElement('li');
+      li.textContent = `${names.length} shard(s): ${names.join(', ')}`;
+      li.addEventListener('click', ()=> openDM({tab:'resolve', selectKey:n.key}));
+      D.queue.appendChild(li);
+    });
+  }
+
   async function loadNotices(limit=30){
     if (db()){
       const snap = await db().ref(path.notices(CID())).limitToLast(limit).get();
       if (!snap.exists()) return [];
-      const arr = Object.values(snap.val()).sort((a,b)=> (b.ts||0)-(a.ts||0));
+      const arr = [];
+      snap.forEach(child=> arr.push({ key: child.key, ...child.val() }));
+      arr.sort((a,b)=> (b.ts||0)-(a.ts||0));
       return arr;
     } else {
-      const arr = getLocal(LSK.notices(CID()))||[];
+      const arr = (getLocal(LSK.notices(CID()))||[]).map((n,i)=> ({ key: n.key || n.ts || i.toString(), ...n }));
       return arr.slice(0,limit);
     }
   }
@@ -744,6 +788,7 @@
     renderNPCList();
     const notices = await loadNotices();
     renderIncoming(notices);
+    renderQueue(notices);
     renderResolveOptions();
     await refreshHiddenToggle();
   }
@@ -751,8 +796,10 @@
   // Live listeners
   function enableLive(){
     if (db()){
-      const ref = db().ref(path.notices(CID())).limitToLast(1);
-      ref.on('child_added', snap=>{
+      if(_noticeRef) _noticeRef.off();
+      if(_hiddenRef) _hiddenRef.off();
+      _noticeRef = db().ref(path.notices(CID()));
+      _noticeRef.limitToLast(1).on('child_added', snap=>{
         const v=snap.val(); if (!v) return;
         const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
         const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
@@ -760,37 +807,45 @@
         t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
         loadAndRender();
       });
-      const hRef = db().ref(path.hidden(CID()));
-      hRef.on('value', s=>{
+      _noticeRef.on('child_removed', ()=>{ loadAndRender(); });
+      _hiddenRef = db().ref(path.hidden(CID()));
+      _hiddenRef.on('value', s=>{
         const h = !!s.val();
         if(D.playerCardToggle) D.playerCardToggle.checked = !h;
         setLocal(LSK.hidden(CID()), h);
         window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
       });
     } else {
-      window.addEventListener('somf-local-notice', (e)=>{
+      if(_onLocalNotice) window.removeEventListener('somf-local-notice', _onLocalNotice);
+      if(_onLocalHidden) window.removeEventListener('somf-local-hidden', _onLocalHidden);
+      if(_onLocalResolved) window.removeEventListener('somf-local-resolved', _onLocalResolved);
+      _onLocalNotice = (e)=>{
         const v=e.detail; const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
         const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
         t.style.cursor='pointer';
         t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
         loadAndRender();
-      });
-      window.addEventListener('somf-local-hidden', e=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !e.detail; });
+      };
+      _onLocalHidden = e=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !e.detail; };
+      _onLocalResolved = ()=>{ loadAndRender(); };
+      window.addEventListener('somf-local-notice', _onLocalNotice);
+      window.addEventListener('somf-local-hidden', _onLocalHidden);
+      window.addEventListener('somf-local-resolved', _onLocalResolved);
     }
   }
 
   D.reset?.addEventListener('click', resetDeck);
 
-  let _inited=false;
-  function initDMOnce(){
-    if (_inited) return; _inited=true;
+  let _noticeRef=null,_hiddenRef=null;
+  let _onLocalNotice=null,_onLocalHidden=null,_onLocalResolved=null;
+  function initDM(){
     loadAndRender();
     enableLive();
   }
 
   initPlayerHidden();
-  if (sessionStorage.getItem('dmLoggedIn') === '1') initDMOnce();
-  window.initSomfDM = initDMOnce;
+  if (sessionStorage.getItem('dmLoggedIn') === '1') initDM();
+  window.initSomfDM = initDM;
 
 })();
 
