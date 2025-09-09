@@ -817,11 +817,9 @@
 <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
   <section id="somf-dm" class="modal somf-dm">
     <header class="somf-dm__hdr">
-      <h3>DM • Shards</h3>
+      <h3>DM • Shards <span id="somfDM-cardCount"></span></h3>
       <div class="somf-dm__hdr-controls">
         <div class="somf-dm__toggles">
-          <label class="somf-switch"><input id="somfDM-live" type="checkbox" checked><span>Live</span></label>
-          <label class="somf-switch"><input id="somfDM-desktop" type="checkbox"><span>Desktop</span></label>
           <label class="somf-switch"><input id="somfDM-playerCard" type="checkbox" checked><span>Reveal Shards</span><span id="somfDM-playerCard-state">On</span></label>
         </div>
         <div class="somf-dm__actions">
@@ -832,7 +830,7 @@
     </header>
 
     <nav class="somf-dm__tabs">
-      <button data-tab="cards" class="somf-dm-tabbtn somf-dm-active">Card List</button>
+      <button data-tab="cards" class="somf-dm-tabbtn somf-dm-active">Shards List</button>
       <button data-tab="resolve" class="somf-dm-tabbtn">Resolve</button>
       <button data-tab="npcs" class="somf-dm-tabbtn">NPCs</button>
     </nav>
@@ -863,18 +861,13 @@
     </section>
 
     <section id="somfDM-tab-npcs" class="somf-dm-tab somf-dm__tab" hidden>
-      <div class="somf-dm__npcs">
-        <aside>
-          <h4>Templates</h4>
-          <ul id="somfDM-npcTemplates" class="somf-dm__list"></ul>
-        </aside>
-        <main>
-          <h4>Active NPCs</h4>
-          <div id="somfDM-activeNPCs" class="somf-dm__stack"></div>
-        </main>
-      </div>
+      <ul id="somfDM-npcList" class="somf-dm__list"></ul>
     </section>
   </section>
+</div>
+
+<div class="overlay hidden" id="somfDM-npcModal" aria-hidden="true">
+  <section id="somfDM-npcModalCard" class="modal somf-dm"></section>
 </div>
 
 <!-- Toasts + Tiny Ping -->

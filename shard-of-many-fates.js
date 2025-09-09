@@ -231,19 +231,19 @@
     cardTab: $('#somfDM-tab-cards'),
     resTab: $('#somfDM-tab-resolve'),
     npcsTab: $('#somfDM-tab-npcs'),
-    live: $('#somfDM-live'),
-    desktop: $('#somfDM-desktop'),
     reset: $('#somfDM-reset'),
     campaign: $('#somfDM-campaign'),
     total: $('#somfDM-total'),
     remaining: $('#somfDM-remaining'),
+    cardCount: $('#somfDM-cardCount'),
     incoming: $('#somfDM-incoming'),
     resolvedList: $('#somfDM-resolved'),
     noticeView: $('#somfDM-noticeView'),
     markResolved: $('#somfDM-markResolved'),
     spawnNPC: $('#somfDM-spawnNPC'),
-    npcTemplates: $('#somfDM-npcTemplates'),
-    activeNPCs: $('#somfDM-activeNPCs'),
+    npcList: $('#somfDM-npcList'),
+    npcModal: $('#somfDM-npcModal'),
+    npcModalCard: $('#somfDM-npcModalCard'),
     toasts: $('#somfDM-toasts'),
     ping: $('#somfDM-ping'),
     playerCardToggle: $('#somfDM-playerCard'),
@@ -293,7 +293,7 @@
     D.toasts.appendChild(t);
     try{ D.ping.currentTime=0; D.ping.play(); }catch{}
     setTimeout(()=> t.remove(), ttl);
-    if (D.desktop?.checked && 'Notification' in window && Notification.permission==='granted'){
+    if ('Notification' in window && Notification.permission==='granted'){
       new Notification('Shards Drawn', { body: msg.replace(/<[^>]+>/g,'') });
     }
   }
@@ -322,11 +322,10 @@
       if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
     }
   }
-  D.desktop?.addEventListener('change', async ()=>{
-    if (D.desktop.checked && 'Notification' in window){
-      if (Notification.permission!=='granted') await Notification.requestPermission();
-    }
-  });
+  // request notification permission up front
+  if('Notification' in window && Notification.permission!=='granted'){
+    Notification.requestPermission().catch(()=>{});
+  }
 
   // Dice (for NPC buttons)
   function roll(expr){
@@ -416,34 +415,59 @@
     });
   }
 
-  function renderNPCTemplates(){
-    D.npcTemplates.innerHTML='';
+  function openNPCModal(n){
+    if(!D.npcModal || !D.npcModalCard) return;
+    D.npcModalCard.innerHTML='';
+    const card=npcCard(n);
+    const close=document.createElement('button');
+    close.textContent='Close';
+    close.className='somf-btn somf-ghost';
+    close.style.marginTop='8px';
+    close.addEventListener('click', closeNPCModal);
+    D.npcModalCard.appendChild(card);
+    D.npcModalCard.appendChild(close);
+    D.npcModal.classList.remove('hidden');
+    D.npcModal.setAttribute('aria-hidden','false');
+  }
+  function closeNPCModal(){
+    if(!D.npcModal) return;
+    D.npcModal.classList.add('hidden');
+    D.npcModal.setAttribute('aria-hidden','true');
+  }
+  D.npcModal?.addEventListener('click', e=>{ if(e.target===D.npcModal) closeNPCModal(); });
+
+  function renderNPCList(){
+    if(!D.npcList) return;
+    D.npcList.innerHTML='';
     NPCS.forEach(n=>{
       const li=document.createElement('li');
       li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
-      if(D.npcTemplates.children.length===0) li.style.borderTop='none';
+      if(D.npcList.children.length===0) li.style.borderTop='none';
       li.innerHTML=`<strong>${n.name}</strong><div style="opacity:.8">${n.type||''}</div>`;
-      li.addEventListener('click', ()=>{ D.activeNPCs.appendChild(npcCard(n)); });
-      D.npcTemplates.appendChild(li);
+      li.addEventListener('click', ()=> openNPCModal(n));
+      D.npcList.appendChild(li);
     });
   }
 
   // Counts + incoming
   async function refreshCounts(){
     D.campaign.textContent = CID();
+    let deckLen=22, total=0;
     if (db()){
       const deckSnap = await db().ref(path.deck(CID())).get();
       const deck = deckSnap.exists()? deckSnap.val(): [];
+      deckLen = Array.isArray(deck)? deck.length : 22;
       const auditsSnap = await db().ref(path.audits(CID())).get();
-      const total = auditsSnap.exists()? Object.keys(auditsSnap.val()).length : 0;
-      D.total.textContent = String(total);
-      D.remaining.textContent = String(Array.isArray(deck)? deck.length : 22);
+      total = auditsSnap.exists()? Object.keys(auditsSnap.val()).length : 0;
     } else {
       const deck = getLocal(LSK.deck(CID()))||[];
+      deckLen = Array.isArray(deck)? deck.length : 22;
       const audits = getLocal(LSK.audits(CID()))||[];
-      D.total.textContent = String(audits.length);
-      D.remaining.textContent = String(Array.isArray(deck)? deck.length : 22);
+      total = audits.length;
     }
+    D.total.textContent = String(total);
+    D.remaining.textContent = String(deckLen);
+    if(D.cardCount) D.cardCount.textContent = `${deckLen}/${PLATES.length}`;
   }
 
   function renderIncoming(notices){
@@ -465,9 +489,8 @@
         D.spawnNPC.onclick = ()=>{
           if (!spawnCode) return;
           const tpl = NPCS.find(x=>x.id===spawnCode);
-          pushActiveNPC({ ...tpl, spawnedAt: Date.now(), sourceShard: n.ids[0] });
-          toast(`<strong>NPC Spawned</strong> ${tpl.name}`);
-          renderActiveNPCs();
+          openNPCModal(tpl);
+          toast(`<strong>NPC</strong> ${tpl.name}`);
         };
         D.markResolved.disabled = false;
         D.markResolved.onclick = async ()=>{
@@ -506,10 +529,11 @@
 
   function renderResolved(list){
     D.resolvedList.innerHTML='';
-    list.forEach(r=>{
+    const resolvedSet = new Set();
+    list.forEach(r=> (r.ids||[]).forEach(id=> resolvedSet.add(id)) );
+    PLATES.forEach(p=>{
       const li=document.createElement('li');
-      const names = (r.ids||[]).map(id=> plateById[id]?.name || id);
-      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.join(', ')}</div>`;
+      li.innerHTML = `<strong>${p.name}</strong><div style="opacity:.8">${resolvedSet.has(p.id)?'Resolved':'Unresolved'}</div>`;
       D.resolvedList.appendChild(li);
     });
   }
@@ -523,33 +547,10 @@
     }
   }
 
-  async function pushActiveNPC(npc){
-    if (db()){
-      await db().ref(path.npcs(CID())).push(npc);
-    } else {
-      const arr = getLocal(LSK.npcs(CID()))||[]; arr.unshift(npc); setLocal(LSK.npcs(CID()), arr);
-    }
-  }
-  async function fetchActiveNPCs(){
-    if (db()){
-      const snap = await db().ref(path.npcs(CID())).get();
-      if (!snap.exists()) return [];
-      return Object.values(snap.val()).sort((a,b)=> (b.spawnedAt||0)-(a.spawnedAt||0));
-    } else {
-      return getLocal(LSK.npcs(CID()))||[];
-    }
-  }
-  async function renderActiveNPCs(){
-    const list = await fetchActiveNPCs();
-    D.activeNPCs.innerHTML = '';
-    list.forEach(n=> D.activeNPCs.appendChild(npcCard(n)));
-  }
-
   async function loadAndRender(){
     await refreshCounts();
     renderCardList();
-    renderNPCTemplates();
-    renderActiveNPCs();
+    renderNPCList();
     const notices = await loadNotices();
     renderIncoming(notices);
     const resolved = await loadResolutions();
@@ -558,9 +559,7 @@
   }
 
   // Live listeners
-  let liveOff = null;
   function enableLive(){
-    if (!D.live?.checked) return;
     if (db()){
       const ref = db().ref(path.notices(CID())).limitToLast(1);
       ref.on('child_added', snap=>{
@@ -571,7 +570,6 @@
       });
       const hRef = db().ref(path.hidden(CID()));
       hRef.on('value', s=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !s.val(); });
-      liveOff = ()=> { ref.off(); hRef.off(); };
     } else {
       window.addEventListener('somf-local-notice', (e)=>{
         const v=e.detail; const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
@@ -579,7 +577,6 @@
         loadAndRender();
       });
       window.addEventListener('somf-local-hidden', e=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !e.detail; });
-      liveOff = ()=> { window.removeEventListener('somf-local-notice', ()=>{}); window.removeEventListener('somf-local-hidden', ()=>{}); };
     }
   }
 
