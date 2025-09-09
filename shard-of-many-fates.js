@@ -126,18 +126,33 @@
   function closePlayerModal(){ PUI.modal.hidden=true; }
 
   async function playShardAnimation(){
-    const anim=document.getElementById('load-animation');
-    if(!anim) return;
-    anim.hidden=false;
+    const flash=document.getElementById('draw-flash');
+    const lightning=document.getElementById('draw-lightning');
+    if(!flash) return;
+    flash.hidden=false;
+    if(lightning){
+      lightning.hidden=false;
+      lightning.innerHTML='';
+      for(let i=0;i<3;i++){
+        const b=document.createElement('div');
+        b.className='bolt';
+        b.style.left=`${10+Math.random()*80}%`;
+        b.style.top=`${Math.random()*60}%`;
+        b.style.transform=`rotate(${Math.random()*30-15}deg)`;
+        b.style.animationDelay=`${i*0.1}s`;
+        lightning.appendChild(b);
+      }
+    }
     await new Promise(res=>{
-      anim.classList.add('show');
+      flash.classList.add('show');
       const done=()=>{
-        anim.classList.remove('show');
-        anim.hidden=true;
-        anim.removeEventListener('animationend', done);
+        flash.classList.remove('show');
+        flash.hidden=true;
+        if(lightning){ lightning.hidden=true; lightning.innerHTML=''; }
+        flash.removeEventListener('animationend', done);
         res();
       };
-      anim.addEventListener('animationend', done);
+      flash.addEventListener('animationend', done);
     });
   }
 
