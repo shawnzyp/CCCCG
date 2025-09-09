@@ -61,15 +61,18 @@ function initDMLogin(){
       updateButtons();
       if (window.initSomfDM) window.initSomfDM();
       closeLogin();
+      if (typeof toast === 'function') toast('DM tools unlocked','success');
     } else {
       loginPin.value='';
       loginPin.focus();
+      if (typeof toast === 'function') toast('Invalid PIN','error');
     }
   }
 
   function logout(){
     clearLoggedIn();
     updateButtons();
+    if (typeof toast === 'function') toast('Logged out','info');
   }
 
   function toggleMenu(){
