@@ -364,8 +364,15 @@
     if(db()){
       const ref = db().ref(path.hidden(CID()));
       const snap = await ref.get();
-      await applyHiddenState(snap.exists()? !!snap.val(): false);
-      ref.on('value', s=> applyHiddenState(!!s.val()));
+      const initial = snap.exists()? !!snap.val(): false;
+      setLocal(LSK.hidden(CID()), initial);
+      await applyHiddenState(initial);
+      ref.on('value', s=>{
+        const h = !!s.val();
+        setLocal(LSK.hidden(CID()), h);
+        window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
+        applyHiddenState(h);
+      });
     }else{
       await applyHiddenState(!!getLocal(LSK.hidden(CID())));
       window.addEventListener('somf-local-hidden', e=> applyHiddenState(!!e.detail));
@@ -384,12 +391,8 @@
     resTab: $('#somfDM-tab-resolve'),
     npcsTab: $('#somfDM-tab-npcs'),
     reset: $('#somfDM-reset'),
-    campaign: $('#somfDM-campaign'),
-    total: $('#somfDM-total'),
-    remaining: $('#somfDM-remaining'),
     cardCount: $('#somfDM-cardCount'),
     incoming: $('#somfDM-incoming'),
-    resolvedList: $('#somfDM-resolved'),
     noticeView: $('#somfDM-noticeView'),
     markResolved: $('#somfDM-markResolved'),
     spawnNPC: $('#somfDM-spawnNPC'),
@@ -456,10 +459,9 @@
     if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
     if(db()){
       await db().ref(path.hidden(CID())).set(hidden);
-    }else{
-      setLocal(LSK.hidden(CID()), hidden);
-      window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
     }
+    setLocal(LSK.hidden(CID()), hidden);
+    window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
   });
 
   async function refreshHiddenToggle(){
@@ -535,6 +537,9 @@
   function npcCard(n, attachRolls=true){
     const card=document.createElement('div');
     card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+    const abilityGrid = ['STR','DEX','CON','INT','WIS','CHA']
+      .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${n.ability?.[k]??''}</div></div>`)
+      .join('');
     card.innerHTML = `
       <div><strong>${n.name}</strong> <span style="opacity:.8">• ${n.type||''}</span></div>
       ${n.template? '<div style="margin-top:4px" class="mono">Template</div>' : `
@@ -542,7 +547,12 @@
         <div><span style="opacity:.8;font-size:12px">HP</span><div>${n.hp}</div></div>
         <div><span style="opacity:.8;font-size:12px">TC</span><div>${n.tc}</div></div>
         <div><span style="opacity:.8;font-size:12px">SP</span><div>${n.sp}</div></div>
-      </div>`}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
+      <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Saves</span><div>${n.saves||''}</div></div>
+      ${n.skills? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Skills</span><div>${n.skills}</div></div>`:''}
+      ${n.powers? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Powers</span><ul style="margin:4px 0 0 18px;padding:0">${n.powers.map(p=>`<li>${p}</li>`).join('')}</ul></div>`:''}
+      `}
       ${n.weapons? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Weapons</span><div>${n.weapons.map(w=>`${w.n} (atk ${w.atk}, dmg ${w.dmg})`).join('; ')}</div></div>`:``}
       ${n.traits? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Traits</span><ul style="margin:4px 0 0 18px;padding:0">${n.traits.map(t=>`<li>${t}</li>`).join('')}</ul></div>`:``}
       ${attachRolls && n.actions?.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`:``}
@@ -615,22 +625,15 @@
 
   // Counts + incoming
   async function refreshCounts(){
-    D.campaign.textContent = CID();
-    let deckLen=PLATES.length, total=0;
+    let deckLen = PLATES.length;
     if (db()){
       const deckSnap = await db().ref(path.deck(CID())).get();
       const deck = deckSnap.exists()? deckSnap.val(): [];
       deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-      const auditsSnap = await db().ref(path.audits(CID())).get();
-      total = auditsSnap.exists()? Object.keys(auditsSnap.val()).length : 0;
     } else {
       const deck = getLocal(LSK.deck(CID()))||[];
       deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-      const audits = getLocal(LSK.audits(CID()))||[];
-      total = audits.length;
     }
-    D.total.textContent = String(total);
-    D.remaining.textContent = String(deckLen);
     if(D.cardCount) D.cardCount.textContent = `${deckLen}/${PLATES.length}`;
   }
 
@@ -708,16 +711,6 @@
     await loadAndRender();
   }
 
-  function renderResolved(list){
-    D.resolvedList.innerHTML='';
-    const resolvedSet = new Set();
-    list.forEach(r=> (r.ids||[]).forEach(id=> resolvedSet.add(id)) );
-    PLATES.forEach(p=>{
-      const li=document.createElement('li');
-      li.innerHTML = `<strong>${p.name}</strong><div style="opacity:.8">${resolvedSet.has(p.id)?'Resolved':'Unresolved'}</div>`;
-      D.resolvedList.appendChild(li);
-    });
-  }
 
   async function pushResolutionBatch(n){
     if (db()){
@@ -734,8 +727,6 @@
     renderNPCList();
     const notices = await loadNotices();
     renderIncoming(notices);
-    const resolved = await loadResolutions();
-    renderResolved(resolved);
     renderResolveOptions();
     await refreshHiddenToggle();
   }
@@ -751,7 +742,12 @@
         loadAndRender();
       });
       const hRef = db().ref(path.hidden(CID()));
-      hRef.on('value', s=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !s.val(); });
+      hRef.on('value', s=>{
+        const h = !!s.val();
+        if(D.playerCardToggle) D.playerCardToggle.checked = !h;
+        setLocal(LSK.hidden(CID()), h);
+        window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
+      });
     } else {
       window.addEventListener('somf-local-notice', (e)=>{
         const v=e.detail; const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
