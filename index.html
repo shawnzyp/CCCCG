@@ -81,7 +81,7 @@
       <h3 class="somf-title">The Shards of Many Fates</h3>
       <div class="somf-row">
         <label for="somf-min-count" class="somf-label">Shards</label>
-        <input id="somf-min-count" type="number" min="1" max="22" value="1" class="somf-input">
+        <input id="somf-min-count" type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="22" value="1" class="somf-input">
         <button id="somf-min-draw" class="somf-btn somf-primary">Draw Shards</button>
       </div>
     </section>
@@ -96,7 +96,7 @@
             <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
           </select>
           <label for="dice-count" class="sr-only">Count</label>
-          <input id="dice-count" type="number" inputmode="numeric" min="1" value="1"/>
+          <input id="dice-count" type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
           <button id="roll-dice" class="btn-sm">Roll</button>
         </div>
       </fieldset>
@@ -150,12 +150,12 @@
           </div>
           <div class="inline">
             <label for="hp-temp" class="sr-only">Temp HP</label>
-            <input id="hp-temp" type="number" inputmode="numeric" placeholder="Temp HP"/>
+            <input id="hp-temp" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
             <button id="hp-roll-add" class="btn-sm" type="button">Tier HP</button>
           </div>
           <div class="inline">
             <label for="hp-amt" class="sr-only">Amount</label>
-            <input id="hp-amt" type="number" inputmode="numeric" placeholder="Amount"/>
+            <input id="hp-amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
           </div>
           <div class="inline">
             <button id="hp-dmg" class="btn-sm">Damage</button>
@@ -173,7 +173,7 @@
             <span id="sp-pill">5/5</span>
           </div>
           <label for="sp-temp" class="sr-only">Temp SP</label>
-          <input id="sp-temp" type="number" inputmode="numeric" placeholder="Temp SP"/>
+          <input id="sp-temp" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
         </div>
         <div class="sp-grid">
           <button class="btn-sm" data-sp="-1">-1 SP</button>
@@ -196,19 +196,19 @@
         <div class="stats-grid">
           <div>
             <label for="initiative">Initiative Bonus</label>
-            <input id="initiative" type="text" inputmode="numeric" placeholder="auto from DEX + bonuses" readonly/>
+            <input id="initiative" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="auto from DEX + bonuses" readonly/>
           </div>
           <div>
             <label for="speed">Speed (ft)</label>
-            <input id="speed" type="number" inputmode="numeric" placeholder="30"/>
+            <input id="speed" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="30"/>
           </div>
           <div>
             <label for="pp">Passive Perception</label>
-            <input id="pp" type="number" readonly/>
+            <input id="pp" type="number" inputmode="numeric" pattern="[0-9]*" readonly/>
           </div>
           <div>
             <label for="tc">TC</label>
-            <input id="tc" type="number" readonly/>
+            <input id="tc" type="number" inputmode="numeric" pattern="[0-9]*" readonly/>
           </div>
         </div>
         <div class="status-effects">
@@ -285,7 +285,7 @@
       <div class="inline">
         <div style="flex:1">
           <label for="prof-bonus">Proficiency Bonus</label>
-          <input id="prof-bonus" type="number" inputmode="numeric" value="2" readonly/>
+          <input id="prof-bonus" type="number" inputmode="numeric" pattern="[0-9]*" value="2" readonly/>
         </div>
         <div style="flex:1">
           <label for="power-save-ability">Power Save Ability</label>
@@ -296,7 +296,7 @@
         </div>
         <div style="flex:1">
           <label for="power-save-dc">Power Save DC</label>
-          <input id="power-save-dc" type="number" readonly/>
+          <input id="power-save-dc" type="number" inputmode="numeric" pattern="[0-9]*" readonly/>
         </div>
       </div>
     </fieldset>
@@ -371,13 +371,13 @@
       <div class="card" style="grid-column:1/-1">
         <label for="xp">Experience</label>
         <div class="inline">
-          <input id="xp" type="number" inputmode="numeric" value="0" min="0" style="max-width:120px" readonly/>
+          <input id="xp" type="number" inputmode="numeric" pattern="[0-9]*" value="0" min="0" style="max-width:120px" readonly/>
           <progress id="xp-bar" max="2000" value="0" style="flex:1"></progress>
           <span id="xp-pill" class="pill">0/2000</span>
         </div>
         <div class="inline">
           <label for="xp-amt" class="sr-only">Amount</label>
-          <input id="xp-amt" type="number" inputmode="numeric" placeholder="Amount"/>
+          <input id="xp-amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
           <select id="xp-mode" style="max-width:160px">
             <option value="add">Add XP</option>
             <option value="remove">Remove XP</option>
@@ -648,7 +648,7 @@
       <label for="enc-name" class="sr-only">Name</label>
       <input id="enc-name" placeholder="Name"/>
       <label for="enc-init" class="sr-only">Init</label>
-      <input id="enc-init" type="number" inputmode="numeric" placeholder="Init"/>
+      <input id="enc-init" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Init"/>
       <button id="enc-add" class="btn-sm">Add</button>
     </fieldset>
     <div id="enc-list" class="catalog" style="margin-top:8px"></div>
@@ -669,7 +669,7 @@
     </button>
     <h3>Tier HP</h3>
     <label for="hp-roll-input" class="sr-only">Tier HP Bonus</label>
-    <input id="hp-roll-input" type="number" inputmode="numeric" placeholder="Tier HP Bonus"/>
+    <input id="hp-roll-input" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Tier HP Bonus"/>
     <ul id="hp-roll-list"></ul>
     <div class="actions">
       <button id="hp-roll-save" class="btn-sm">Add</button>

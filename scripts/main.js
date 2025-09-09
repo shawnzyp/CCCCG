@@ -12,6 +12,12 @@ import {
   saveCharacter,
 } from './characters.js';
 import { show, hide } from './modal.js';
+// Ensure numeric inputs accept only digits and trigger numeric keypad
+document.addEventListener('input', e => {
+  if(e.target.matches('input[inputmode="numeric"]')){
+    e.target.value = e.target.value.replace(/[^0-9]/g,'');
+  }
+});
 // Load the optional confetti library lazily so tests and offline environments
 // don't attempt a network import on startup.
 let confettiPromise = null;
