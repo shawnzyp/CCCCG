@@ -897,7 +897,7 @@ function initSomf(){
     if(db()){
       const ref = db().ref(path.hidden(CID()));
       const snap = await ref.get();
-      const initial = snap.exists()? !!snap.val(): false;
+      const initial = snap.exists()? !!snap.val(): true;
       setLocal(LSK.hidden(CID()), initial);
       await applyHiddenState(initial);
       ref.on('value', s=>{
@@ -907,7 +907,9 @@ function initSomf(){
         applyHiddenState(h);
       });
     }else{
-      await applyHiddenState(!!getLocal(LSK.hidden(CID())));
+      const saved = getLocal(LSK.hidden(CID()));
+      const initial = saved === null ? true : !!saved;
+      await applyHiddenState(initial);
       window.addEventListener('somf-local-hidden', e=> applyHiddenState(!!e.detail));
       window.addEventListener('storage', e=>{ if(e.key===LSK.hidden(CID())) applyHiddenState(!!JSON.parse(e.newValue)); });
     }
@@ -1017,12 +1019,13 @@ function initSomf(){
   });
 
   async function refreshHiddenToggle(){
-    let hidden=false;
+    let hidden;
     if(db()){
       const snap = await db().ref(path.hidden(CID())).get();
-      hidden = snap.exists()? !!snap.val() : false;
+      hidden = snap.exists()? !!snap.val() : true;
     } else {
-      hidden = !!getLocal(LSK.hidden(CID()));
+      const saved = getLocal(LSK.hidden(CID()));
+      hidden = saved === null ? true : !!saved;
     }
     if(D.playerCardToggle) {
       D.playerCardToggle.checked = !hidden;
