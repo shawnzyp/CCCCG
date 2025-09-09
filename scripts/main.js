@@ -12,6 +12,11 @@ import {
   saveCharacter,
 } from './characters.js';
 import { show, hide } from './modal.js';
+// Global CC object for cross-module state
+window.CC = window.CC || {};
+CC.partials = CC.partials || {};
+CC.savePartial = (k, d) => { CC.partials[k] = d; };
+CC.loadPartial = k => CC.partials[k];
 // Ensure numeric inputs accept only digits and trigger numeric keypad
 document.addEventListener('input', e => {
   if(e.target.matches('input[inputmode="numeric"]')){
@@ -1799,12 +1804,29 @@ function serialize(){
     notes: getVal("[data-f='notes']", card) || ''
   }));
   data.campaignLog = campaignLog;
+  if (window.CC && CC.partials && Object.keys(CC.partials).length) {
+    try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
+  }
   return data;
 }
 const DEFAULT_STATE = serialize();
  function deserialize(data){
-  $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
-  Object.entries(data||{}).forEach(([k,v])=>{ const el=$(k); if (!el) return; if (el.type==='checkbox') el.checked=!!v; else el.value=v; });
+ $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
+ const perkSelects=['alignment','classification','power-style','origin'];
+ perkSelects.forEach(id=>{
+   const el=$(id);
+   const val=data?data[id]:undefined;
+   if(el && val!==undefined){
+     el.value=val;
+     el.dispatchEvent(new Event('change',{bubbles:true}));
+   }
+ });
+ Object.entries(data||{}).forEach(([k,v])=>{
+   if(perkSelects.includes(k)) return;
+   const el=$(k);
+   if (!el) return;
+   if (el.type==='checkbox') el.checked=!!v; else el.value=v;
+ });
   (data && data.powers ? data.powers : []).forEach(p=> $('powers').appendChild(createCard('power', p)));
   (data && data.signatures ? data.signatures : []).forEach(s=> $('sigs').appendChild(createCard('sig', s)));
   (data && data.weapons ? data.weapons : []).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
@@ -1816,6 +1838,12 @@ const DEFAULT_STATE = serialize();
   if (elXP) {
     const xp = Math.max(0, num(elXP.value));
     currentTierIdx = getTierIndex(xp);
+  }
+  if(data && data.partials && window.CC){
+    CC.partials = data.partials;
+    if(CC.RP && typeof CC.RP.load==='function' && CC.partials.resonance){
+      CC.RP.load(CC.partials.resonance);
+    }
   }
   updateDerived();
   updateFactionRep(handlePerkEffects);
@@ -1904,7 +1932,6 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 // == Resonance Points (RP) Module ============================================
-window.CC = window.CC || {};
 CC.RP = (function () {
   const api = {};
   // --- Internal state
@@ -2133,6 +2160,7 @@ CC.RP = (function () {
     api.end = endSurge;
     api.clearAftermath = clearAftermath;
     api.tick = tick;
+    api.load = data => { deserialize(data); applyStateToUI(); };
   }
 
   // --- Integrations (rolls, saves, checks, SP regen)
