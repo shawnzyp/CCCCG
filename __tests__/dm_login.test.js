@@ -22,6 +22,24 @@ describe('dm login', () => {
     expect(document.getElementById('dm-login-modal').classList.contains('hidden')).toBe(false);
   });
 
+  test('pointer interaction opens modal', async () => {
+    document.body.innerHTML = `
+      <button id="dm-login-link"></button>
+      <button id="dm-login" hidden></button>
+      <div id="dm-tools-menu" hidden></div>
+      <button id="dm-tools-tsomf"></button>
+      <button id="dm-tools-logout"></button>
+      <div id="dm-login-modal" class="hidden" aria-hidden="true">
+        <input id="dm-login-pin">
+        <button id="dm-login-submit"></button>
+      </div>
+    `;
+    await import('../scripts/dm.js');
+    const evt = new Event('pointerdown', {bubbles: true});
+    document.getElementById('dm-login-link').dispatchEvent(evt);
+    expect(document.getElementById('dm-login-modal').classList.contains('hidden')).toBe(false);
+  });
+
   test('successful login unlocks tools and shows toast', async () => {
     document.body.innerHTML = `
       <button id="dm-login-link"></button>
