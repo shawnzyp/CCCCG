@@ -1,6 +1,6 @@
 const DM_PIN = '1231';
 
-document.addEventListener('DOMContentLoaded', () => {
+function initDMLogin(){
   const linkBtn = document.getElementById('dm-login-link');
   const dmBtn = document.getElementById('dm-login');
   const menu = document.getElementById('dm-tools-menu');
@@ -103,4 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if(isLoggedIn()){
     window.initSomfDM?.();
   }
-});
+}
+
+initDMLogin();
+document.addEventListener('DOMContentLoaded', initDMLogin);

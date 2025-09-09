@@ -3,7 +3,9 @@
    - Optional Firebase RTDB for shared deck + notices
    - LocalStorage fallback for solo/offline testing
    ========================================================================= */
-(function(){
+window.SOMF_MIN = window.SOMF_MIN || {};
+
+function initSomf(){
   const $ = s=>document.querySelector(s);
   const $$ = s=>Array.from(document.querySelectorAll(s));
 
@@ -664,7 +666,7 @@
       { "id": "STAR", "name": "The Star", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 2, "cap": 20 }, { "type": "skill_bonus_perm", "target_skill_choice": true, "value": 2 } ], "resolution": "Apply permanent changes; obey ability cap." },
       { "id": "MOON", "name": "The Moon", "polarity": "good", "effect": [ { "type": "choose_one", "options": [ { "xp_delta": 3000 }, { "credits_delta": 15000 }, { "remove_one_negative_shard_curse": true } ] } ], "resolution": "Record chosen boon and apply." },
       { "id": "COMET", "name": "The Comet", "polarity": "good", "effect": [ { "type": "flag_next_combat_bounty", "condition": "drawer_deals_final_blow_to_highest_hp_enemy", "rewards": [ { "type": "xp_delta", "value": 1500 }, { "type": "grant_item", "item_id": "COMET_SPURS", "quantity": 1 } ] } ], "resolution": "Check condition at end of combat; grant rewards if met." },
-      { "id": "VIZIER", "name": "The Vizier", "polarity": "good", "effect": [ { "type": "declare_two_mechanical_weaknesses_on_next_boss": true }, { "type": "downtime_advantage", "task": "Research", "uses": 1 } ], "resolution": "GM states two concrete weaknesses; mark downtime advantage." },
+      { "id": "VIZIER", "name": "The Vizier", "polarity": "good", "effect": [ { "type": "declare_two_mechanical_weaknesses_on_next_boss" }, { "type": "downtime_advantage", "task": "Research", "uses": 1 } ], "resolution": "GM states two concrete weaknesses; mark downtime advantage." },
       { "id": "THRONE", "name": "The Throne", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "CMD_BEACON", "quantity": 1 } ], "resolution": "Add Beacon; must be activated at start of round 1 if used." },
       { "id": "ASCENDANT", "name": "The Ascendant", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 1, "count": 2, "cap": 20 }, { "type": "grant_free_boost_per_encounter", "count_encounters": 3, "value": "1d4" } ], "resolution": "Apply permanent +1 to two different abilities; track 3 free boosts." },
       { "id": "HALO", "name": "The Halo", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "ASCENDANT_HALO", "quantity": 1 } ], "resolution": "Add legendary utility and its uses." },
@@ -1423,5 +1425,10 @@ function renderCardList(){
   }
   window.initSomfDM = initDM;
 
-})();
+}
+
+document.addEventListener('DOMContentLoaded', initSomf);
+if(document.readyState !== 'loading'){
+  initSomf();
+}
 
