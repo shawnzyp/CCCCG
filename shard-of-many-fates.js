@@ -14,28 +14,164 @@
   };
 
   const PLATES = [
-    {id:'TRIBUNAL',name:'The Tribunal',visual:'Alien law glyphs invert.',effect:['Shift alignment axis','Faction reaction','1-time perk (3 sessions)']},
-    {id:'METEOR',name:'The Meteor',visual:'Burning shard becomes nemesis sigil.',effect:['Solo next major foe to ascend','Fail: -1 rep with a watcher']},
-    {id:'NULL_VAULT',name:'The Null Vault',visual:'Floor tears as static; door with no door.',effect:['You vanish to Echo Pit','Team must rescue']},
-    {id:'SHEPHERDS_MASK',name:'The Shepherd’s Mask',visual:'Porcelain mask melts to black lines.',effect:['Curse: −2 all saves; nat20 rolls twice (lower)']},
-    {id:'REDACTION',name:'The Redaction',visual:'A memory frame is black-barred.',effect:['Erase 1 event/outcome; rewrite 1 consequence','Another thread gets harder']},
-    {id:'BROADCAST',name:'The Broadcast',visual:'Billboards: TRAITOR / MONSTER.',effect:['Gain a powerful pursuing enemy']},
-    {id:'FRAGMENT',name:'The Fragment',visual:'Cracked shard; clumsy caricatures.',effect:['Lose 1d4 SP this arc','Must draw one extra shard']},
-    {id:'CACHE',name:'The Catalyst Cache',visual:'Humming case phases in.',effect:['+1d6 Fragments + 1 Rare item','Watermarked tracker']},
-    {id:'STATIC',name:'The Static',visual:'Vision pixelates.',effect:['Permanent −1d4 INT','Lose a language/specialty until retrained']},
-    {id:'TRICKSTER',name:'The Trickster Signal',visual:'Confetti of alerts.',effect:['10,000 cr OR draw two more','If drawn twice: sleeper agent reveal']},
-    {id:'HELIX_CODE',name:'The Helix Code',visual:'Living key slots into gear.',effect:['Legendary item','Backdoor ping on first use']},
-    {id:'ECHO_OPERATIVE',name:'The Echo Operative',visual:'A soldier steps out of your shadow.',effect:['Loyal Tier 3 ally (mirrors a tactic)']},
-    {id:'DREAM',name:'The Dream',visual:'Shardlight crescent drips motes.',effect:['1d3 RP wishes (each use adds Heat)']},
-    {id:'DEFECTOR',name:'The Defector',visual:'Team shown; one face shatters.',effect:['An ally/contact betrays at a key moment']},
-    {id:'COLLAPSE',name:'The Collapse',visual:'Homes & accounts implode.',effect:['Lose civilian assets','Gain one-scene Renegade surge (+1d6)']},
-    {id:'WRAITH',name:'The Wraith',visual:'Skeletal silhouette, frosted breath.',effect:['Relentless hunter pursues until slain']},
-    {id:'ASCENDANT',name:'The Ascendant',visual:'Seven-point star in sternum.',effect:['+2 to one ability','+1d4 once in each of next two encounters']},
-    {id:'HALO',name:'The Halo',visual:'Rotating shard halo.',effect:['Elite/Legendary artifact','+1d4 SP this arc']},
-    {id:'SILENCE_BLOOM',name:'The Silence Bloom',visual:'Gear dissolves into black petals.',effect:['All carried gear erased except bonded & fragments']},
-    {id:'VIGIL',name:'The Vigil',visual:'District sigil in your palm.',effect:['Claim a district/post; set one policy there']},
-    {id:'ORACLE',name:'The Oracle',visual:'A sphere reveals one truth.',effect:['Ask one specific campaign question']},
-    {id:'SHEPHERDS_THREAD',name:'The Shepherd’s Thread',visual:'Black filament tethers you.',effect:['Soul tether to Morvox; periodic WIS save or lose action']},
+    {id:'VAULT',name:'The Vault',visual:'Space folds into a recursion cell.',player:[
+      'You vanish from the scene.',
+      'An adjacent ally can pull you back.',
+      'Return battered when the scene ends.'
+    ],dm:[
+      'Timing: Immediate • Duration: Scene',
+      'Effect: Drawer phases out and cannot act or be targeted.',
+      'Freeing: Adjacent ally may spend Reaction (no roll) to pull them back immediately.',
+      'Fail-safe: If not freed by scene end, drawer returns at 1 HP and 0 SP.'
+    ]},
+    {id:'ECHO',name:'The Echo',visual:'Time ripples and rewinds.',player:[
+      'Once today, redo a d20 affecting you.'
+    ],dm:[
+      'Timing: Banked (use once within the campaign day)',
+      'Effect: Cancel and reroll any one d20 you just made or that targets you.',
+      'Resolution: Use the new result. Free.'
+    ]},
+    {id:'JUDGE',name:'The Judge',visual:'Alignment scales shimmer.',player:[
+      'Shift one step on an alignment axis.',
+      'Advantage on one downtime check this session.'
+    ],dm:[
+      'Timing: Immediate • Duration: Session',
+      'Effect: Shift one step on Light/Shadow or Law/Chaos axis.',
+      'Benefit: Gain advantage on one Downtime check of your choice this session.'
+    ]},
+    {id:'COMET',name:'The Comet',visual:'Fiery streak heralds your turn.',player:[
+      'Next combat, your first attack, save, and skill check each get a boost.'
+    ],dm:[
+      'Timing: Your next combat, on your turn 1',
+      'Effect: Three free +1d4 Boost Rolls applied this turn only in order:',
+      '1) +1d4 to first attack roll, 2) +1d4 to first save, 3) +1d4 to first skill check.'
+    ]},
+    {id:'CONTRACT',name:'The Contract',visual:'Greyline sigil burns.',player:[
+      'A deadly assassin will strike within three scenes.',
+      'Defeating it grants extra stamina for this session.'
+    ],dm:[
+      'Timing: A Greyline assassin will strike within 3 scenes',
+      'Effect: Spawn Enemy NPC: "Null Hound" prioritizing the drawer.',
+      'Reward: If defeated, drawer gains +1 SP max for the rest of this session.'
+    ]},
+    {id:'PEACEKEEPER',name:'The Peacekeeper',visual:'PFV badge glows.',player:[
+      'Seraph Quinn joins you for one mission chain.'
+    ],dm:[
+      'Timing: Immediate or at start of next mission chain',
+      'Effect: Spawn Ally NPC "Seraph Quinn" serving for one mission (one chain of scenes).',
+      'Resolution: Ally departs after mission unless story recruits them.'
+    ]},
+    {id:'WRAITH',name:'The Wraith',visual:'Psionic specter manifests.',player:[
+      'A psionic wraith stalks your next combat.',
+      'Defeating it grants each ally a boost.'
+    ],dm:[
+      'Timing: Add to your next combat',
+      'Effect: Spawn Enemy NPC "Herald of Silence" fixated on the drawer.',
+      'On defeat: Each ally immediately gains one free +1d4 Boost Roll in that combat.'
+    ]},
+    {id:'KEY',name:'The Key',visual:'Shard reshapes into a lockpick.',player:[
+      'Gain a quantum lockpick that slips one barrier per scene.'
+    ],dm:[
+      'Item: Quantum Lockpick (Unique Utility, Uncommon)',
+      'Use: 1/scene, bonus action, spend 1 SP and make INT save DC 13 to bypass one lock/field you can touch.',
+      'Success: You and one ally may pass through that barrier this round.',
+      'Failure: No effect; SP still spent.'
+    ]},
+    {id:'THRONE',name:'The Throne',visual:'Command beacon descends.',player:[
+      'Gain a command beacon to issue a powerful order at combat start.'
+    ],dm:[
+      'Item: Command Beacon (Unique Utility, consumable; 1 use)',
+      'Activation: Beginning of combat (Round 1) after initiative, before first turn; free to activate.',
+      'Choose one order for entire combat: Shield Wall (+3 TC to allies within 15 ft),',
+      'Prime Strike (each ally gains one free +1d4 Boost Roll), or Tactical Recon (learn one enemy weakness; first attack each ally makes vs that enemy gains +1d4).'
+    ]},
+    {id:'CRASH',name:'The Crash',visual:'Gear sparks and fails.',player:[
+      'One equipped item is disabled for this session.'
+    ],dm:[
+      'Timing: Immediate • Duration: Session',
+      'Effect: Choose one equipped item (armor, shield, or utility); it is disabled for the rest of this session.',
+      'Repair: Restore later with Train or Tinker downtime.'
+    ]},
+    {id:'CHRONICLE',name:'The Chronicle',visual:'Future scenes unfold.',player:[
+      'Learn a weakness of the next boss and gain a research edge.'
+    ],dm:[
+      'Timing: Immediate',
+      'Effect: Immediately learn one mechanical weakness of the next boss you will face.',
+      'Bonus: Your next Research downtime on that threat has advantage and grants a tactical detail you can invoke in play.'
+    ]},
+    {id:'SUNSHARD',name:'The Sunshard',visual:'Solar badge radiates.',player:[
+      'Gain a Solaris Badge that heightens senses and can bolster nearby allies.'
+    ],dm:[
+      'Item: Solaris Badge (Unique Utility, Rare)',
+      'Passive: +1 Passive Perception while worn.',
+      'Active: 1/scene, bonus action, you and allies within 10 ft gain +1 TC until start of your next turn (no SP).'
+    ]},
+    {id:'MOONSHARD',name:'The Moonshard',visual:'Lunar mote pulses.',player:[
+      'Hold two free boost rolls; use one in each of your next two encounters.'
+    ],dm:[
+      'Timing: Banked',
+      'Effect: Gain two free +1d4 Boost Rolls (no SP).',
+      'Restriction: Must spend one in each of your next two encounters or they expire.'
+    ]},
+    {id:'STARSHARD',name:'The Starshard',visual:'Starlight mends wounds.',player:[
+      'For three turns, end-of-turn energy heals or restores stamina to you or an ally.'
+    ],dm:[
+      'Timing: This combat • Duration: Your next 3 turns',
+      'Effect: At end of each of your next three turns, choose you or an ally within 30 ft to regain 1d6 HP or 1d6 SP.'
+    ]},
+    {id:'SCRAMBLER',name:'The Scrambler',visual:'Inventory flickers away.',player:[
+      'Your consumables fizzle out.'
+    ],dm:[
+      'Timing: Immediate',
+      'Effect: All non-legendary consumables and throwables are treated as expended.',
+      'Resolution: Mark expended; reacquire later.'
+    ]},
+    {id:'UPRISING',name:'The Uprising',visual:'Faction banners clash.',player:[
+      'Faction reputations shift against each other.'
+    ],dm:[
+      'Timing: Immediate',
+      'Effect: Choose a faction (e.g., O.M.N.I., PFV, Conclave, Greyline). Reduce your Reputation with it by one step; increase the opposed faction by one step.',
+      'Resolution: Update faction reputation boxes now.'
+    ]},
+    {id:'GORGON_CODE',name:'The Gorgon Code',visual:'Digital gaze locks on.',player:[
+      'Enemies hit you more easily this combat, but you can spend stamina to negate it.'
+    ],dm:[
+      'Timing: This combat • Duration: Combat',
+      'Effect: Attacks against you have +1 to hit this combat.',
+      'Reaction: Spend 1 SP once/round to cancel this +1 on a single attack that targets you.'
+    ]},
+    {id:'GLITCH',name:'The Glitch',visual:'Memory fragments scatter.',player:[
+      'Your intellect is dulled until rested or researched away.'
+    ],dm:[
+      'Timing: Immediate • Duration: Until long rest or cleared',
+      'Effect: –1 to INT checks and INT saves.',
+      'Clear early: Succeed a Research downtime check DC 13 to remove the penalty.'
+    ]},
+    {id:'PRANK',name:'The Prank',visual:'Shard flashes with mischief.',player:[
+      'Random boon: either a free Signature Move or extra damage next fight.'
+    ],dm:[
+      'Timing: Immediate',
+      'Effect: Roll 1d2 — 1: Gain one free use of your Signature Move this session. 2: Gain +1d6 bonus damage on your first hit next combat.'
+    ]},
+    {id:'CATALYST',name:'The Catalyst',visual:'Three shard batteries appear.',player:[
+      'Gain three batteries that instantly restore stamina.'
+    ],dm:[
+      'Timing: Immediate',
+      'Items: Shard Battery ×3 (consumable, Common)',
+      'Use: Bonus action to gain +2 SP immediately. Consumed on use.'
+    ]},
+    {id:'WANDERER',name:'The Wanderer',visual:'Power shifts unpredictably.',player:[
+      'This combat, retag one of your powers.'
+    ],dm:[
+      'Timing: This combat • Duration: Combat',
+      'Effect: Choose one of your powers; for this combat only, you may change its Effect Tag to any one legal tag without changing SP cost. Declare new tag when first used; revert afterward.'
+    ]},
+    {id:'VOID',name:'The Void',visual:'Stamina well runs dry.',player:[
+      'Next turn your stamina doesn’t refresh, then Fate grants a boost.'
+    ],dm:[
+      'Timing: Start of your next turn',
+      'Effect: Your SP does not refresh for 1 round (retain current SP). After that round ends, gain one free +1d4 Boost Roll.'
+    ]},
   ];
   const plateById = Object.fromEntries(PLATES.map(p=>[p.id,p]));
 
@@ -160,7 +296,7 @@
     const p = queue[qi];
     PUI.name.textContent = p.name;
     PUI.visual.textContent = p.visual;
-    PUI.effect.innerHTML = p.effect.map(e=>`<li>${e}</li>`).join('');
+    PUI.effect.innerHTML = p.player.map(e=>`<li>${e}</li>`).join('');
     PUI.idx.textContent = String(qi+1);
     PUI.total.textContent = String(queue.length);
     PUI.resolved.checked = false;
@@ -175,7 +311,7 @@
   PUI.close?.addEventListener('click', closePlayerModal);
 
   async function doDraw(){
-    const n = Math.max(1, Math.min(22, +PUI.count.value||1));
+    const n = Math.max(1, Math.min(PLATES.length, +PUI.count.value||1));
     if (!confirm('The Fates are fickle, are you sure you wish to draw from the Shards?')) return;
     if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
 
@@ -356,34 +492,26 @@
 
   // Simple NPC set (compact but complete enough)
   const NPCS = [
-    {id:'H1',name:'Herald of Morvox',type:'Enemy • Elite Controller (T3)',ability:{STR:10,DEX:14,CON:14,INT:12,WIS:16,CHA:12},hp:58,tc:16,sp:7,
-     weapons:[{n:'Echo Lash', atk:'+6', dmg:'2d8'}], saves:'WIS+3 DEX+2 CON+2',
-     skills:'Perception+5 Insight+5 Stealth+4', traits:['Silence Bloom 10 ft','Fragment Glide'],
-     powers:['Broadcast Scramble (2 SP)','Shepherd’s Mark (3 SP)'],
-     actions:[{label:'Echo Lash Attack', expr:'1d20+6'},{label:'Echo Lash Damage', expr:'2d8'}]},
-    {id:'G1',name:'Greyline Assault Cell',type:'Enemy • Fireteam (T3)',ability:{STR:14,DEX:16,CON:14,INT:12,WIS:12,CHA:10},hp:64,tc:15,sp:6,
-     weapons:[{n:'SMG Burst', atk:'+5', dmg:'2d6+2'}], saves:'DEX+3 CON+2',
-     skills:'Athletics+4 Stealth+5 Perception+3', traits:['Coordinated Fire','Kill-Switch Smoke (1/enc)'],
-     powers:['Suppression Volley (1 SP)','Netline Taser (2 SP)'],
-     actions:[{label:'Burst Attack', expr:'1d20+5'},{label:'Burst Damage', expr:'2d6+2'}]},
-    {id:'C1',name:'Conclave Trial Agent',type:'Enemy • Duelist (T4)',ability:{STR:12,DEX:18,CON:14,INT:14,WIS:16,CHA:14},hp:72,tc:17,sp:8,
-     weapons:[{n:'Prism Edge', atk:'+7', dmg:'2d10'}], saves:'DEX+4 WIS+3 CHA+2',
-     skills:'Acrobatics+6 Insight+5', traits:['Astral Parry 5','Immune charm/fear'],
-     powers:['Accession Step (2 SP)','Starlight Decree (3 SP)'],
-     actions:[{label:'Prism Attack', expr:'1d20+7'},{label:'Prism Damage', expr:'2d10'}]},
-    {id:'E1',name:'Echo Operative',type:'Ally • T3',ability:{STR:12,DEX:16,CON:14,INT:12,WIS:12,CHA:12},hp:50,tc:15,sp:6,
-     weapons:[{n:'Rifle', atk:'+5', dmg:'1d10+2'}], saves:'DEX+3 CON+2',
-     skills:'Stealth+5 Perception+3', traits:['Mirrors one tactic of summoner'],
-     powers:['Covering Fire (1 SP)','Drive Forward (2 SP)'],
-     actions:[{label:'Rifle Attack', expr:'1d20+5'},{label:'Rifle Damage', expr:'1d10+2'}]},
-    {id:'B1',name:'Betrayer (Template)',type:'Template',template:true,traits:['Hidden Blade +2d6 once/scene','False Flag (1 SP): nearby ally WIS DC14 or loses reaction'], actions:[]},
+    {id:'NH1',name:'Null Hound',type:'Enemy • Greyline Assassin (T3)',ability:{STR:12,DEX:16,CON:12,INT:12,WIS:12,CHA:10},hp:46,tc:14,sp:6,
+     weapons:[{n:'Throat of Silence', atk:'+5', dmg:'2d6'}], saves:'STR+1 DEX+3 CON+1 INT+1 WIS+1 CHA+0',
+     skills:'Stealth+5 Acrobatics+5 Perception+3', traits:['Kinetic Glide Suit: +3 TC when moving 20+ ft','Momentum Redirector: +2 TC if moved 10+ ft','Stutter-Blink Harness: +1 TC; Reaction 5-ft teleport once/combat'],
+     powers:['Throat of Silence — 2 SP, melee, 2d6 slashing; CON save DC13 or Weaken 1 round','Mirrorstep Feint — 1 SP, move 20+ ft; advantage on next attack this turn','Temporal Slip — 3 SP, Reaction when targeted: teleport 5 ft and force attacker to reroll'],
+     actions:[{label:'Throat Attack', expr:'1d20+5'},{label:'Throat Damage', expr:'2d6'}]},
+    {id:'SQ1',name:'Seraph Quinn',type:'Ally • PFV Peacekeeper (T3)',ability:{STR:12,DEX:14,CON:14,INT:12,WIS:12,CHA:13},hp:46,tc:12,sp:7,
+     weapons:[], saves:'STR+1 DEX+2 CON+2 INT+1 WIS+1 CHA+1',
+     skills:'Perception+3 Insight+3 Technology+3', traits:['Livewire Vest: +2 TC vs energy','Plasma Flicker Disk: +2 TC vs ranged powers','Charge Filter Mod: regain 1 SP when hit by energy (1/round)'],
+     powers:['Arc Lance — 2 SP, 60-ft line, 2d8 lightning; CON save DC13 or Burn 1d4','Pulse Overload — 3 SP, 20-ft cone, 2d6 lightning; WIS save DC13 or Weaken 1 round','Conductive Shielding — 2 SP, self +2 TC vs energy until start of next turn; first enemy that misses you takes 1 lightning'],
+     actions:[{label:'Arc Lance Attack', expr:'1d20+2'},{label:'Arc Lance Damage', expr:'2d8'},{label:'Pulse Overload Damage', expr:'2d6'}]},
+    {id:'HS1',name:'Herald of Silence',type:'Enemy • Psionic Wraith (T2)',ability:{STR:8,DEX:14,CON:14,INT:14,WIS:14,CHA:12},hp:60,tc:15,sp:7,
+     weapons:[], saves:'DEX+2 CON+2 INT+2 WIS+2 CHA+1 STR-1',
+     skills:'', traits:['Thoughtweave Lining: +3 TC and +1 vs psychic','Mind Ward Halo: +2 TC vs mental effects','Telekinetic Aegis: spend 1 SP for +2 TC 1 round'],
+     powers:['Mind Spike — 2 SP, 60 ft, 2d6 psychic; WIS save DC14 or Stunned 1 round','Kinetic Shove — 2 SP, 60 ft Push 15 ft; STR or DEX save DC13 resists','Silence Bloom — 3 SP, aura 15 ft; sustain +1 SP/round: enemies have disadvantage on CHA checks; verbal/sonic powers require CHA save DC13'],
+     actions:[{label:'Mind Spike Damage', expr:'2d6'}]},
   ];
   const spawnFor = (id)=> {
-    if (id==='BROADCAST'||id==='HELIX_CODE') return 'G1';
-    if (id==='NULL_VAULT'||id==='SHEPHERDS_MASK'||id==='SHEPHERDS_THREAD') return 'H1';
-    if (id==='WRAITH') return 'C1';
-    if (id==='ECHO_OPERATIVE') return 'E1';
-    if (id==='DEFECTOR') return 'B1';
+    if (id==='CONTRACT') return 'NH1';
+    if (id==='PEACEKEEPER') return 'SQ1';
+    if (id==='WRAITH') return 'HS1';
     return null;
   };
 
@@ -418,7 +546,7 @@
       d.innerHTML = `<div><strong>${p.name}</strong></div>
         <div style="opacity:.8;font-size:12px">ID: ${p.id}</div>
         <div style="margin-top:4px;opacity:.8;font-size:12px">${p.visual}</div>
-        <ul style="margin:6px 0 0 18px;padding:0">${p.effect.map(e=>`<li>${e}</li>`).join('')}</ul>`;
+        <ul style="margin:6px 0 0 18px;padding:0">${p.dm.map(e=>`<li>${e}</li>`).join('')}</ul>`;
       D.cardTab.appendChild(d);
     });
   }
@@ -460,16 +588,16 @@
   // Counts + incoming
   async function refreshCounts(){
     D.campaign.textContent = CID();
-    let deckLen=22, total=0;
+    let deckLen=PLATES.length, total=0;
     if (db()){
       const deckSnap = await db().ref(path.deck(CID())).get();
       const deck = deckSnap.exists()? deckSnap.val(): [];
-      deckLen = Array.isArray(deck)? deck.length : 22;
+      deckLen = Array.isArray(deck)? deck.length : PLATES.length;
       const auditsSnap = await db().ref(path.audits(CID())).get();
       total = auditsSnap.exists()? Object.keys(auditsSnap.val()).length : 0;
     } else {
       const deck = getLocal(LSK.deck(CID()))||[];
-      deckLen = Array.isArray(deck)? deck.length : 22;
+      deckLen = Array.isArray(deck)? deck.length : PLATES.length;
       const audits = getLocal(LSK.audits(CID()))||[];
       total = audits.length;
     }
