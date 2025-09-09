@@ -1,6 +1,6 @@
 const DM_PIN = '1231';
 
-document.addEventListener('DOMContentLoaded', () => {
+function initDMLogin(){
   const linkBtn = document.getElementById('dm-login-link');
   const dmBtn = document.getElementById('dm-login');
   const menu = document.getElementById('dm-tools-menu');
@@ -36,9 +36,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateButtons(){
     const loggedIn = isLoggedIn();
-    if(dmBtn) dmBtn.hidden = !loggedIn;
-    if(linkBtn) linkBtn.hidden = loggedIn;
-    if(!loggedIn && menu) menu.hidden = true;
+    if (dmBtn) dmBtn.hidden = !loggedIn;
+    if (linkBtn) linkBtn.hidden = loggedIn;
+    if (!loggedIn && menu) menu.hidden = true;
   }
 
   function openLogin(){
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(loginPin.value === DM_PIN){
       setLoggedIn();
       updateButtons();
-      window.initSomfDM?.();
+      if (window.initSomfDM) window.initSomfDM();
       closeLogin();
     } else {
       loginPin.value='';
@@ -76,8 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if(menu) menu.hidden = !menu.hidden;
   }
 
-  linkBtn?.addEventListener('click', openLogin);
-  dmBtn?.addEventListener('click', toggleMenu);
+  if (linkBtn) linkBtn.addEventListener('click', openLogin);
+  if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
 
   document.addEventListener('click', e => {
     if(menu && !menu.hidden && !menu.contains(e.target) && e.target !== dmBtn){
@@ -85,22 +85,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  tsomfBtn?.addEventListener('click', () => {
-    menu.hidden = true;
-    window.openSomfDM?.();
-  });
+  if (tsomfBtn) {
+    tsomfBtn.addEventListener('click', () => {
+      if (menu) menu.hidden = true;
+      if (window.openSomfDM) window.openSomfDM();
+    });
+  }
 
-  logoutBtn?.addEventListener('click', () => {
-    menu.hidden = true;
-    logout();
-  });
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      if (menu) menu.hidden = true;
+      logout();
+    });
+  }
 
-  loginSubmit?.addEventListener('click', attemptLogin);
-  loginPin?.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); });
-  loginModal?.addEventListener('click', e=>{ if(e.target===loginModal) closeLogin(); });
+  if (loginSubmit) loginSubmit.addEventListener('click', attemptLogin);
+  if (loginPin) loginPin.addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); });
+  if (loginModal) loginModal.addEventListener('click', e=>{ if(e.target===loginModal) closeLogin(); });
 
   updateButtons();
-  if(isLoggedIn()){
-    window.initSomfDM?.();
+  if (isLoggedIn() && window.initSomfDM){
+    window.initSomfDM();
   }
-});
+}
+if (document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initDMLogin);
+} else {
+  initDMLogin();
+}
