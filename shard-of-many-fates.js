@@ -334,9 +334,10 @@
       for (let i=0;i<n;i++) ids.push(localDrawOne());
       const notices = getLocal(LSK.notices(CID()))||[];
       const names = ids.map(id=> plateById[id]?.name || id);
-      notices.unshift({ ts: Date.now(), count:n, ids, names });
+      const notice = { key: 'n'+Date.now(), ts: Date.now(), count:n, ids, names };
+      notices.unshift(notice);
       setLocal(LSK.notices(CID()), notices);
-      window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notices[0] }));
+      window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notice }));
     }
 
     queue = ids.map(id=> plateById[id]);
@@ -364,8 +365,15 @@
     if(db()){
       const ref = db().ref(path.hidden(CID()));
       const snap = await ref.get();
-      await applyHiddenState(snap.exists()? !!snap.val(): false);
-      ref.on('value', s=> applyHiddenState(!!s.val()));
+      const initial = snap.exists()? !!snap.val(): false;
+      setLocal(LSK.hidden(CID()), initial);
+      await applyHiddenState(initial);
+      ref.on('value', s=>{
+        const h = !!s.val();
+        setLocal(LSK.hidden(CID()), h);
+        window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
+        applyHiddenState(h);
+      });
     }else{
       await applyHiddenState(!!getLocal(LSK.hidden(CID())));
       window.addEventListener('somf-local-hidden', e=> applyHiddenState(!!e.detail));
@@ -384,12 +392,8 @@
     resTab: $('#somfDM-tab-resolve'),
     npcsTab: $('#somfDM-tab-npcs'),
     reset: $('#somfDM-reset'),
-    campaign: $('#somfDM-campaign'),
-    total: $('#somfDM-total'),
-    remaining: $('#somfDM-remaining'),
     cardCount: $('#somfDM-cardCount'),
     incoming: $('#somfDM-incoming'),
-    resolvedList: $('#somfDM-resolved'),
     noticeView: $('#somfDM-noticeView'),
     markResolved: $('#somfDM-markResolved'),
     spawnNPC: $('#somfDM-spawnNPC'),
@@ -402,15 +406,27 @@
     playerCardState: $('#somfDM-playerCard-state'),
     resolveOptions: $('#somfDM-resolveOptions'),
   };
+  const N = $('#dm-notifications');
+  let _pendingNoticeKey = null;
   function preventTouch(e){ e.preventDefault(); }
-  function openDM(){
+  let _inited=false;
+  function openDM(targetKey){
     if(!D.root) return;
+    _pendingNoticeKey = targetKey || null;
     D.root.style.display='flex';
     D.root.classList.remove('hidden');
     D.root.setAttribute('aria-hidden','false');
     document.body.classList.add('modal-open');
     document.addEventListener('touchmove', preventTouch, { passive: false });
-    initDMOnce();
+    if(_pendingNoticeKey){
+      D.tabs.forEach(x=> x.classList.remove('active'));
+      const rb = D.tabs.find(b=> b.dataset.tab==='resolve');
+      rb?.classList.add('active');
+      [D.cardTab,D.resTab,D.npcsTab].forEach(el=> el.classList.remove('active'));
+      D.resTab.classList.add('active');
+    }
+    if(!_inited){ _inited=true; enableLive(); }
+    loadAndRender();
   }
   function closeDM(){
     if(!D.root) return;
@@ -456,10 +472,9 @@
     if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
     if(db()){
       await db().ref(path.hidden(CID())).set(hidden);
-    }else{
-      setLocal(LSK.hidden(CID()), hidden);
-      window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
     }
+    setLocal(LSK.hidden(CID()), hidden);
+    window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
   });
 
   async function refreshHiddenToggle(){
@@ -535,6 +550,9 @@
   function npcCard(n, attachRolls=true){
     const card=document.createElement('div');
     card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+    const abilityGrid = ['STR','DEX','CON','INT','WIS','CHA']
+      .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${n.ability?.[k]??''}</div></div>`)
+      .join('');
     card.innerHTML = `
       <div><strong>${n.name}</strong> <span style="opacity:.8">• ${n.type||''}</span></div>
       ${n.template? '<div style="margin-top:4px" class="mono">Template</div>' : `
@@ -542,7 +560,12 @@
         <div><span style="opacity:.8;font-size:12px">HP</span><div>${n.hp}</div></div>
         <div><span style="opacity:.8;font-size:12px">TC</span><div>${n.tc}</div></div>
         <div><span style="opacity:.8;font-size:12px">SP</span><div>${n.sp}</div></div>
-      </div>`}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
+      <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Saves</span><div>${n.saves||''}</div></div>
+      ${n.skills? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Skills</span><div>${n.skills}</div></div>`:''}
+      ${n.powers? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Powers</span><ul style="margin:4px 0 0 18px;padding:0">${n.powers.map(p=>`<li>${p}</li>`).join('')}</ul></div>`:''}
+      `}
       ${n.weapons? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Weapons</span><div>${n.weapons.map(w=>`${w.n} (atk ${w.atk}, dmg ${w.dmg})`).join('; ')}</div></div>`:``}
       ${n.traits? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Traits</span><ul style="margin:4px 0 0 18px;padding:0">${n.traits.map(t=>`<li>${t}</li>`).join('')}</ul></div>`:``}
       ${attachRolls && n.actions?.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`:``}
@@ -615,29 +638,24 @@
 
   // Counts + incoming
   async function refreshCounts(){
-    D.campaign.textContent = CID();
-    let deckLen=PLATES.length, total=0;
+    let deckLen = PLATES.length;
     if (db()){
       const deckSnap = await db().ref(path.deck(CID())).get();
       const deck = deckSnap.exists()? deckSnap.val(): [];
       deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-      const auditsSnap = await db().ref(path.audits(CID())).get();
-      total = auditsSnap.exists()? Object.keys(auditsSnap.val()).length : 0;
     } else {
       const deck = getLocal(LSK.deck(CID()))||[];
       deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-      const audits = getLocal(LSK.audits(CID()))||[];
-      total = audits.length;
     }
-    D.total.textContent = String(total);
-    D.remaining.textContent = String(deckLen);
     if(D.cardCount) D.cardCount.textContent = `${deckLen}/${PLATES.length}`;
   }
 
   function renderIncoming(notices){
+    if(!D.incoming) return;
     D.incoming.innerHTML='';
     notices.forEach((n,ix)=>{
       const li=document.createElement('li');
+      li.dataset.key = n.key;
       li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
       if (ix===0) li.style.borderTop='none';
       const names = n.names || n.ids.map(id=> plateById[id]?.name || id);
@@ -647,7 +665,6 @@
         li.style.background='#0b2a3a';
         D.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(n.ts||Date.now()).toLocaleString()}</div>
           <ul style="margin:6px 0 0 18px;padding:0">${names.map(x=>`<li>${x}</li>`).join('')}</ul>`;
-        // enable spawn if exactly one shard and it maps to a NPC
         const spawnCode = (n.ids.length===1)? (spawnFor(n.ids[0])||null) : null;
         D.spawnNPC.disabled = !spawnCode;
         D.spawnNPC.onclick = ()=>{
@@ -660,22 +677,43 @@
         D.markResolved.onclick = async ()=>{
           await pushResolutionBatch(n);
           toast(`<strong>Resolved</strong> ${names.length} shard(s)`);
-          loadAndRender(); // refresh list
+          loadAndRender();
         };
       });
       D.incoming.appendChild(li);
     });
+    if(_pendingNoticeKey){
+      const li = D.incoming.querySelector(`[data-key="${_pendingNoticeKey}"]`);
+      li?.click();
+      _pendingNoticeKey = null;
+    }
+  }
+
+  function renderNotifications(notices){
+    if(!N) return;
+    if(sessionStorage.getItem('dmLoggedIn')!=='1'){ N.hidden = true; return; }
+    N.innerHTML='';
+    notices.forEach(n=>{
+      const names = n.names || n.ids.map(id=> plateById[id]?.name || id);
+      const li=document.createElement('li');
+      li.dataset.key = n.key;
+      li.textContent = names.join(', ');
+      li.addEventListener('click', ()=> openDM(n.key));
+      N.appendChild(li);
+    });
+    N.hidden = !notices.length;
   }
 
   async function loadNotices(limit=30){
     if (db()){
       const snap = await db().ref(path.notices(CID())).limitToLast(limit).get();
       if (!snap.exists()) return [];
-      const arr = Object.values(snap.val()).sort((a,b)=> (b.ts||0)-(a.ts||0));
+      const arr = Object.entries(snap.val()).map(([key,val])=>({ key, ...val }));
+      arr.sort((a,b)=> (b.ts||0)-(a.ts||0));
       return arr;
     } else {
       const arr = getLocal(LSK.notices(CID()))||[];
-      return arr.slice(0,limit);
+      return arr.slice(0,limit).map(n=> n.key? n : {...n, key:'n'+(n.ts||Date.now())});
     }
   }
 
@@ -708,23 +746,16 @@
     await loadAndRender();
   }
 
-  function renderResolved(list){
-    D.resolvedList.innerHTML='';
-    const resolvedSet = new Set();
-    list.forEach(r=> (r.ids||[]).forEach(id=> resolvedSet.add(id)) );
-    PLATES.forEach(p=>{
-      const li=document.createElement('li');
-      li.innerHTML = `<strong>${p.name}</strong><div style="opacity:.8">${resolvedSet.has(p.id)?'Resolved':'Unresolved'}</div>`;
-      D.resolvedList.appendChild(li);
-    });
-  }
 
   async function pushResolutionBatch(n){
     if (db()){
       await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids:n.ids });
+      if(n.key) await db().ref(`${path.notices(CID())}/${n.key}`).remove();
     } else {
       const rs = getLocal(LSK.resolutions(CID()))||[];
       rs.unshift({ ts: Date.now(), ids: n.ids }); setLocal(LSK.resolutions(CID()), rs);
+      const notices = getLocal(LSK.notices(CID()))||[];
+      setLocal(LSK.notices(CID()), notices.filter(x=> x.key!==n.key));
     }
   }
 
@@ -734,14 +765,20 @@
     renderNPCList();
     const notices = await loadNotices();
     renderIncoming(notices);
-    const resolved = await loadResolutions();
-    renderResolved(resolved);
+    renderNotifications(notices);
     renderResolveOptions();
     await refreshHiddenToggle();
   }
 
+  window.refreshSomfNotifications = async ()=>{
+    const notices = await loadNotices();
+    renderNotifications(notices);
+  };
+
   // Live listeners
+  let _liveEnabled=false;
   function enableLive(){
+    if(_liveEnabled) return; _liveEnabled=true;
     if (db()){
       const ref = db().ref(path.notices(CID())).limitToLast(1);
       ref.on('child_added', snap=>{
@@ -751,7 +788,12 @@
         loadAndRender();
       });
       const hRef = db().ref(path.hidden(CID()));
-      hRef.on('value', s=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !s.val(); });
+      hRef.on('value', s=>{
+        const h = !!s.val();
+        if(D.playerCardToggle) D.playerCardToggle.checked = !h;
+        setLocal(LSK.hidden(CID()), h);
+        window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
+      });
     } else {
       window.addEventListener('somf-local-notice', (e)=>{
         const v=e.detail; const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
@@ -762,16 +804,16 @@
     }
   }
 
+  window.enableSomfLive = enableLive;
+
   D.reset?.addEventListener('click', resetDeck);
 
-  let _inited=false;
-  function initDMOnce(){
-    if (_inited) return; _inited=true;
-    loadAndRender();
-    enableLive();
-  }
-
   initPlayerHidden();
+
+  if(sessionStorage.getItem('dmLoggedIn')==='1'){
+    enableLive();
+    window.refreshSomfNotifications();
+  }
 
 })();
 

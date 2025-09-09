@@ -814,6 +814,14 @@
   <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
   <button id="dm-tools-logout" class="btn-sm">Logout</button>
 </div>
+<ol id="dm-notifications" class="dm-notifications" hidden></ol>
+<div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
+  <section class="modal">
+    <h3>DM Login</h3>
+    <input id="dm-login-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+    <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
+  </section>
+</div>
 <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
   <section id="somf-dm" class="modal somf-dm">
     <button id="somfDM-close" class="x" aria-label="Close">
@@ -842,17 +850,10 @@
     <section id="somfDM-tab-cards" class="somf-dm-tab somf-dm__tab active"></section>
 
     <section id="somfDM-tab-resolve" class="somf-dm-tab somf-dm__tab">
-      <div class="somf-dm__row">
-        <div class="somf-kv"><span class="somf-k">Campaign</span><span id="somfDM-campaign" class="somf-v">—</span></div>
-        <div class="somf-kv"><span class="somf-k">Total Draws</span><span id="somfDM-total" class="somf-v">—</span></div>
-        <div class="somf-kv"><span class="somf-k">Remaining</span><span id="somfDM-remaining" class="somf-v">—</span></div>
-      </div>
       <div class="somf-dm__resolve">
         <aside class="somf-dm__left">
           <h4>Incoming Draws</h4>
           <ol id="somfDM-incoming" class="somf-dm__list"></ol>
-          <h4>Resolved</h4>
-          <ol id="somfDM-resolved" class="somf-dm__list"></ol>
         </aside>
         <main class="somf-dm__main">
           <div id="somfDM-noticeView" class="somf-dm__card"></div>

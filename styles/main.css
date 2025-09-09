@@ -791,6 +791,12 @@ select[required]:valid{
 .dm-tools-menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;min-width:160px}
 .dm-tools-menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 
+/* DM incoming notifications */
+.dm-notifications{position:fixed;bottom:80px;left:18px;list-style:none;margin:0;padding:0;z-index:2000}
+.dm-notifications li{margin-top:4px;padding:6px 8px;border:1px solid var(--accent);background:var(--surface-2);border-radius:var(--radius);cursor:pointer;box-shadow:var(--shadow)}
+.dm-notifications li:hover{background:var(--accent);color:var(--text-on-accent)}
+.dm-notifications[hidden]{display:none}
+
 /* DM Tool (Shards of Many Fates) */
 .somf-dm{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0;width:100%;max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
 .somf-dm__hdr{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:8px}
@@ -830,6 +836,10 @@ select[required]:valid{
 .somf-rolls{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .somf-tag{font-size:12px;padding:2px 6px;border:1px solid #1b2532;border-radius:4px;background:#0b1119}
 .somf-dm__toasts{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+#modal-somf-dm{padding:0}
+#modal-somf-dm .somf-dm{max-width:none;max-height:none;width:100%;height:100%;border-radius:0;display:flex;flex-direction:column;overflow:hidden}
+#modal-somf-dm .somf-dm__tab{flex:1;overflow:auto}
+#dm-login-modal input{width:100%;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text)}
 .somf-toast{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
 .somf-toast strong{display:block;margin-bottom:4px}
 
