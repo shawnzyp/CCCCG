@@ -3,6 +3,7 @@ import fs from 'fs';
 
 describe('character storage', () => {
   beforeEach(() => {
+    jest.resetModules();
     localStorage.clear();
     global.fetch = jest.fn();
   });
@@ -65,6 +66,27 @@ describe('character storage', () => {
 
     const data = await loadBackup('Hero', ts2);
     expect(data).toEqual({ hp: 20 });
+  });
+
+  test('renames legacy Shawn character to DM', async () => {
+    localStorage.setItem('save:Shawn', JSON.stringify({ hp: 5 }));
+    localStorage.setItem('last-save', 'Shawn');
+    fetch.mockResolvedValue({ ok: true, status: 200, json: async () => null });
+    window.dmRequireLogin = jest.fn().mockResolvedValue(true);
+
+    const { listCharacters, loadCharacter } = await import('../scripts/characters.js');
+
+    expect(localStorage.getItem('save:Shawn')).toBeNull();
+    expect(localStorage.getItem('save:DM')).toBe(JSON.stringify({ hp: 5 }));
+    expect(localStorage.getItem('last-save')).toBe('DM');
+
+    const chars = await listCharacters();
+    expect(chars).toContain('DM');
+
+    const data = await loadCharacter('DM');
+    expect(data).toEqual({ hp: 5 });
+
+    delete window.dmRequireLogin;
   });
 });
 
