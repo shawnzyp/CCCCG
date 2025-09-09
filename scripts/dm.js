@@ -60,6 +60,24 @@ function initDMLogin(){
         resolve(true);
         return;
       }
+
+      // If the modal elements are missing, fall back to a simple prompt so
+      // the promise always resolves and loading doesn't hang.
+      if (!loginModal || !loginPin || !loginSubmit) {
+        const entered = typeof prompt === 'function' ? prompt('Enter DM PIN') : null;
+        if (entered === DM_PIN) {
+          setLoggedIn();
+          updateButtons();
+          if (window.initSomfDM) window.initSomfDM();
+          if (typeof toast === 'function') toast('DM tools unlocked','success');
+          resolve(true);
+        } else {
+          if (typeof toast === 'function') toast('Invalid PIN','error');
+          reject(new Error('Invalid PIN'));
+        }
+        return;
+      }
+
       openLogin();
       function cleanup(){
         loginSubmit?.removeEventListener('click', onSubmit);
