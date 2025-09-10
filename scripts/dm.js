@@ -1,4 +1,4 @@
-import { listCharacters } from './characters.js';
+import { listCharacters, currentCharacter, setCurrentCharacter } from './characters.js';
 import { DM_PIN } from './dm-pin.js';
 const notifications = [];
 
@@ -147,6 +147,9 @@ function initDMLogin(){
 
   function logout(){
     clearLoggedIn();
+    if (currentCharacter() === 'The DM') {
+      setCurrentCharacter(null);
+    }
     updateButtons();
     if (typeof toast === 'function') toast('Logged out','info');
   }

@@ -63,7 +63,13 @@ export function currentCharacter() {
 
 export function setCurrentCharacter(name) {
   currentName = name;
-  try { localStorage.setItem('last-save', name); } catch {}
+  try {
+    if (name === null) {
+      localStorage.removeItem('last-save');
+    } else {
+      localStorage.setItem('last-save', name);
+    }
+  } catch {}
 }
 
 export async function listCharacters() {

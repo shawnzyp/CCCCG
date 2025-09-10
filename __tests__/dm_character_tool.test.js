@@ -7,7 +7,9 @@ describe('DM character viewer tool', () => {
     }
 
     const listCharacters = jest.fn(async () => ['The DM']);
-    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters }));
+    const currentCharacter = jest.fn(() => null);
+    const setCurrentCharacter = jest.fn();
+    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter }));
 
     sessionStorage.setItem('dmLoggedIn', '1');
 

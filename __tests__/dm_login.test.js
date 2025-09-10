@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 beforeEach(() => {
   jest.resetModules();
   sessionStorage.clear();
+  localStorage.clear();
 });
 
 describe('dm login', () => {
@@ -80,5 +81,26 @@ describe('dm login', () => {
     expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
     delete window.toast;
     delete window.prompt;
+  });
+
+  test('logout clears DM session and last save', async () => {
+    document.body.innerHTML = `
+        <button id="dm-login" hidden></button>
+        <div id="dm-tools-menu" hidden></div>
+        <button id="dm-tools-logout"></button>
+      `;
+    sessionStorage.setItem('dmLoggedIn', '1');
+    localStorage.setItem('last-save', 'The DM');
+
+    const { currentCharacter } = await import('../scripts/characters.js');
+    await import('../scripts/dm.js');
+
+    expect(currentCharacter()).toBe('The DM');
+
+    document.getElementById('dm-tools-logout').click();
+
+    expect(sessionStorage.getItem('dmLoggedIn')).toBeNull();
+    expect(currentCharacter()).toBeNull();
+    expect(localStorage.getItem('last-save')).toBeNull();
   });
 });
