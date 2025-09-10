@@ -11,9 +11,8 @@ import {
   deleteCloud,
 } from './storage.js';
 
-import { DM_PIN } from './dm-pin.js';
-
-const PINNED = { 'The DM': DM_PIN };
+// DM saves are protected by a login flow rather than a manual PIN entry.
+// Only "The DM" character triggers this flow.
 
 // Migrate legacy DM saves to the new "The DM" name.
 // Older versions stored the DM character under names like "Shawn",
@@ -36,17 +35,9 @@ try {
 } catch {}
 
 async function verifyPin(name) {
-  const pin = PINNED[name];
-  if (!pin) return;
-  if (name === 'The DM' && typeof window.dmRequireLogin === 'function') {
+  if (name !== 'The DM') return;
+  if (typeof window.dmRequireLogin === 'function') {
     await window.dmRequireLogin();
-    return;
-  }
-  const entered = typeof prompt === 'function'
-    ? prompt(`Enter PIN for ${name}`)
-    : null;
-  if (entered !== pin) {
-    throw new Error('Invalid PIN');
   }
 }
 
