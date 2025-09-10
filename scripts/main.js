@@ -607,6 +607,9 @@ function setupPerkSelect(selId, perkId, data){
       }else{
         li = document.createElement('li');
         li.textContent = text;
+        li.addEventListener('click', () => {
+          window.dmNotify?.(`${text} perk referenced`);
+        });
       }
       perkEl.appendChild(li);
       tcBonus += handlePerkEffects(li, text);
@@ -2036,16 +2039,21 @@ CC.RP = (function () {
 
   // --- State transitions
   function setRP(n) {
+    const prev = { rp: state.rp, banked: state.banked };
     const total = Math.max(0, Math.min(10, n));
     state.banked = Math.floor(total / 5);
     state.rp = total % 5;
     applyStateToUI();
     save();
     dispatch("rp:changed", { rp: state.rp, banked: state.banked });
+    if (state.rp !== prev.rp || state.banked !== prev.banked) {
+      window.dmNotify?.(`RP ${state.rp} (bank ${state.banked})`);
+    }
   }
 
   function triggerSurge({ mode = "encounter", minutes = 10 } = {}) {
     if (state.banked < 1 || state.surgeActive) return;
+    const prevBank = state.banked;
     state.surgeActive = true;
     state.surgeStartedAt = Date.now();
     state.surgeMode = mode;
@@ -2056,6 +2064,10 @@ CC.RP = (function () {
     applyStateToUI();
     save();
     dispatch("rp:surge:start", { mode: state.surgeMode, startedAt: state.surgeStartedAt, endsAt: state.surgeEndsAt });
+    window.dmNotify?.(`Heroic Surge activated (${mode})`);
+    if (state.banked !== prevBank) {
+      window.dmNotify?.(`RP bank ${state.banked}`);
+    }
   }
 
   function endSurge(reason = "natural") {
@@ -2068,6 +2080,7 @@ CC.RP = (function () {
     applyStateToUI();
     save();
     dispatch("rp:surge:end", { reason });
+    window.dmNotify?.(`Heroic Surge ended (${reason})`);
   }
 
   function clearAftermath() {
@@ -2075,6 +2088,7 @@ CC.RP = (function () {
     applyStateToUI();
     save();
     dispatch("rp:aftermath:cleared", {});
+    window.dmNotify?.("Heroic Surge aftermath cleared");
   }
 
   function tick(now = Date.now()) {
