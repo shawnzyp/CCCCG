@@ -831,8 +831,18 @@ select[required]:valid{
 .somf-dm__queue{position:fixed;right:12px;bottom:60px;margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;z-index:9998}
 .somf-dm__queue li{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:6px 10px;cursor:pointer;min-width:200px}
 #modal-somf-dm{padding:0}
-#modal-somf-dm .somf-dm{max-width:none;max-height:none;width:100%;height:100%;border-radius:0;display:flex;flex-direction:column;overflow:hidden}
+#modal-somf-dm .somf-dm{max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);width:100%;height:100%;border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
 #modal-somf-dm .somf-dm__tab{flex:1;overflow:auto}
+
+#dm-notifications-modal .modal{display:flex;flex-direction:column}
+#dm-notifications-modal #dm-notifications-list{flex:1;overflow:auto}
+
+@media (max-width:600px){
+  .somf-dm__row{grid-template-columns:1fr}
+  .somf-dm__resolve{grid-template-columns:1fr}
+  .somf-dm__npcs{grid-template-columns:1fr}
+  .somf-dm__list{max-height:60vh}
+}
 #dm-login-modal input{width:100%;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text)}
 .somf-toast{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
 .somf-toast strong{display:block;margin-bottom:4px}
