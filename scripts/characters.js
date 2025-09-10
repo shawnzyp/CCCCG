@@ -103,7 +103,6 @@ export async function loadCharacter(name) {
 
 export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
-  await verifyPin(name);
   await saveLocal(name, data);
   try {
     await saveCloud(name, data);
