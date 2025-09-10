@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 import fs from 'fs';
-import { DM_PIN } from '../scripts/dm-pin.js';
 
 describe('character storage', () => {
   beforeEach(() => {
@@ -102,13 +101,27 @@ describe('character storage', () => {
     delete window.dmRequireLogin;
   });
 
-  test('allows The DM to save after PIN prompt', async () => {
-    window.prompt = jest.fn(() => DM_PIN);
+  test('saving The DM requires DM login but no prompt', async () => {
+    window.dmRequireLogin = jest.fn().mockResolvedValue(true);
+    window.prompt = jest.fn();
     const { setCurrentCharacter, saveCharacter } = await import('../scripts/characters.js');
     setCurrentCharacter('The DM');
     await saveCharacter({ hp: 7 });
+    expect(window.dmRequireLogin).toHaveBeenCalled();
+    expect(window.prompt).not.toHaveBeenCalled();
     expect(localStorage.getItem('save:The DM')).toBe(JSON.stringify({ hp: 7 }));
+    delete window.dmRequireLogin;
     delete window.prompt;
+  });
+
+  test('saving another character does not require DM login', async () => {
+    window.dmRequireLogin = jest.fn().mockResolvedValue(true);
+    const { setCurrentCharacter, saveCharacter } = await import('../scripts/characters.js');
+    setCurrentCharacter('Hero');
+    await saveCharacter({ hp: 3 });
+    expect(window.dmRequireLogin).not.toHaveBeenCalled();
+    expect(localStorage.getItem('save:Hero')).toBe(JSON.stringify({ hp: 3 }));
+    delete window.dmRequireLogin;
   });
 });
 
