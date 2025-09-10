@@ -1,6 +1,5 @@
 import { jest } from '@jest/globals';
 import fs from 'fs';
-import { DM_PIN } from '../scripts/dm-pin.js';
 
 describe('character storage', () => {
   beforeEach(() => {
@@ -102,11 +101,12 @@ describe('character storage', () => {
     delete window.dmRequireLogin;
   });
 
-  test('allows The DM to save after PIN prompt', async () => {
-    window.prompt = jest.fn(() => DM_PIN);
+  test('allows The DM to save without PIN prompt', async () => {
+    window.prompt = jest.fn();
     const { setCurrentCharacter, saveCharacter } = await import('../scripts/characters.js');
     setCurrentCharacter('The DM');
     await saveCharacter({ hp: 7 });
+    expect(window.prompt).not.toHaveBeenCalled();
     expect(localStorage.getItem('save:The DM')).toBe(JSON.stringify({ hp: 7 }));
     delete window.prompt;
   });
