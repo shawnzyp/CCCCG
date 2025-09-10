@@ -1849,6 +1849,15 @@ function serialize(){
     qty: Number(getVal("[data-f='qty']", card) || 1),
     notes: getVal("[data-f='notes']", card) || ''
   }));
+  // Persist save and skill proficiencies explicitly so they restore reliably
+  data.saveProfs = ABILS.filter(a => {
+    const el = $('save-' + a + '-prof');
+    return el && el.checked;
+  });
+  data.skillProfs = SKILLS.map((_, i) => {
+    const el = $('skill-' + i + '-prof');
+    return el && el.checked ? i : null;
+  }).filter(i => i !== null);
   data.campaignLog = campaignLog;
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
@@ -1868,11 +1877,23 @@ const DEFAULT_STATE = serialize();
    }
  });
  Object.entries(data||{}).forEach(([k,v])=>{
-   if(perkSelects.includes(k)) return;
+   if(perkSelects.includes(k) || k==='saveProfs' || k==='skillProfs') return;
    const el=$(k);
    if (!el) return;
    if (el.type==='checkbox') el.checked=!!v; else el.value=v;
  });
+ if(data && Array.isArray(data.saveProfs)){
+   ABILS.forEach(a=>{
+     const el = $('save-'+a+'-prof');
+     if(el) el.checked = data.saveProfs.includes(a);
+   });
+ }
+ if(data && Array.isArray(data.skillProfs)){
+   SKILLS.forEach((_,i)=>{
+     const el = $('skill-'+i+'-prof');
+     if(el) el.checked = data.skillProfs.includes(i);
+   });
+ }
   (data && data.powers ? data.powers : []).forEach(p=> $('powers').appendChild(createCard('power', p)));
   (data && data.signatures ? data.signatures : []).forEach(s=> $('sigs').appendChild(createCard('sig', s)));
   (data && data.weapons ? data.weapons : []).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
