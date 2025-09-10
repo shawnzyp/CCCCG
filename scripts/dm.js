@@ -1,6 +1,5 @@
 import { listCharacters } from './characters.js';
-
-const DM_PIN = '123123';
+import { DM_PIN } from './dm-pin.js';
 const notifications = [];
 
 function initDMLogin(){

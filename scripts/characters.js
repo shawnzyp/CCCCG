@@ -11,7 +11,9 @@ import {
   deleteCloud,
 } from './storage.js';
 
-const PINNED = { 'The DM': '123123' };
+import { DM_PIN } from './dm-pin.js';
+
+const PINNED = { 'The DM': DM_PIN };
 
 // Migrate legacy DM saves to the new "The DM" name.
 // Older versions stored the DM character under names like "Shawn",
