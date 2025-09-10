@@ -845,6 +845,17 @@
     <ol id="dm-notifications-list"></ol>
   </section>
 </div>
+<div class="overlay hidden" id="dm-characters-modal" aria-hidden="true">
+  <section class="modal dm-characters">
+    <button id="dm-characters-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>All Characters</h3>
+    <ul id="dm-characters-list" class="dm-characters-list"></ul>
+  </section>
+</div>
 <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
   <section id="somf-dm" class="modal somf-dm">
     <button id="somfDM-close" class="x" aria-label="Close">
@@ -922,7 +933,7 @@
 <div id="draw-flash" aria-hidden="true" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="scripts/main.js"></script>
-<script src="scripts/dm.js"></script>
+<script type="module" src="scripts/dm.js"></script>
 <script src="shard-of-many-fates.js"></script>
 
 </body>
