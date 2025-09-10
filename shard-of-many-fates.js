@@ -947,14 +947,14 @@ function initSomf(){
   };
   let _selectLatest = false;
   let _selectKey = null;
-  function preventTouch(e){ e.preventDefault(); }
+  function preventTouch(e){ if(e.target===D.root) e.preventDefault(); }
   function openDM(opts={}){
     if(!D.root) return;
     D.root.style.display='flex';
     D.root.classList.remove('hidden');
     D.root.setAttribute('aria-hidden','false');
     document.body.classList.add('modal-open');
-    document.addEventListener('touchmove', preventTouch, { passive: false });
+    D.root.addEventListener('touchmove', preventTouch, { passive: false });
     if(opts.selectLatest) _selectLatest = true;
     if(opts.selectKey) _selectKey = opts.selectKey;
     initDM();
@@ -975,7 +975,7 @@ function initSomf(){
     D.root.setAttribute('aria-hidden','true');
     D.root.style.display='none';
     document.body.classList.remove('modal-open');
-    document.removeEventListener('touchmove', preventTouch);
+    D.root.removeEventListener('touchmove', preventTouch);
   }
   D.root?.addEventListener('click', e=>{ if(e.target===D.root) closeDM(); });
   D.root?.addEventListener('touchstart', e=>{ if(e.target===D.root) closeDM(); });

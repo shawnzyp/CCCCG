@@ -762,6 +762,10 @@ select[required]:valid{
 .somf-modal__hdr, .somf-modal__ftr { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line) }
 .somf-modal__ftr { border-top:1px solid var(--line); border-bottom:none }
 .somf-modal__body { padding:12px; overflow:auto }
+.somf-modal__x{position:absolute;top:8px;right:8px;background:transparent;border:none;color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:var(--transition)}
+.somf-modal__x:hover{color:var(--accent)}
+.somf-modal__x svg{width:20px;height:20px}
+.somf-modal__x:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .somf-badge { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); opacity:.9 }
 .somf-subttl { margin:10px 0 6px 0; font-size:13px; color:var(--muted) }
 .somf-list { margin:0; padding-left:18px }
@@ -832,7 +836,7 @@ select[required]:valid{
 .somf-dm__queue li{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:6px 10px;cursor:pointer;min-width:200px}
 #modal-somf-dm{padding:0}
 #modal-somf-dm .somf-dm{max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);width:100%;height:100%;border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
-#modal-somf-dm .somf-dm__tab{flex:1;overflow:auto}
+#modal-somf-dm .somf-dm__tab{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 
 #dm-notifications-modal .modal{display:flex;flex-direction:column}
 #dm-notifications-modal #dm-notifications-list{flex:1;overflow:auto}

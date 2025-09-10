@@ -10,8 +10,10 @@ function initDMLogin(){
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
   const loginSubmit = document.getElementById('dm-login-submit');
+  const loginClose = document.getElementById('dm-login-close');
   const notifyModal = document.getElementById('dm-notifications-modal');
   const notifyList = document.getElementById('dm-notifications-list');
+  const notifyClose = document.getElementById('dm-notifications-close');
 
   if (loginPin) {
     loginPin.type = 'password';
@@ -110,7 +112,8 @@ function initDMLogin(){
       function cleanup(){
         loginSubmit?.removeEventListener('click', onSubmit);
         loginPin?.removeEventListener('keydown', onKey);
-        loginModal?.removeEventListener('click', onCancel);
+        loginModal?.removeEventListener('click', onOverlay);
+        loginClose?.removeEventListener('click', onCancel);
       }
       function onSubmit(){
         if(loginPin.value === DM_PIN){
@@ -128,10 +131,12 @@ function initDMLogin(){
         }
       }
       function onKey(e){ if(e.key==='Enter') onSubmit(); }
-      function onCancel(e){ if(e.target===loginModal){ closeLogin(); cleanup(); reject(new Error('cancel')); } }
+      function onCancel(){ closeLogin(); cleanup(); reject(new Error('cancel')); }
+      function onOverlay(e){ if(e.target===loginModal) onCancel(); }
       loginSubmit?.addEventListener('click', onSubmit);
       loginPin?.addEventListener('keydown', onKey);
-      loginModal?.addEventListener('click', onCancel);
+      loginModal?.addEventListener('click', onOverlay);
+      loginClose?.addEventListener('click', onCancel);
     });
   }
 
@@ -182,6 +187,7 @@ function initDMLogin(){
   }
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });
+  notifyClose?.addEventListener('click', closeNotifications);
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
