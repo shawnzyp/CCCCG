@@ -1986,13 +1986,17 @@ if (btnRules) {
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
 const welcomeOk = $('welcome-ok');
 if (welcomeOk) {
-  welcomeOk.addEventListener('click', ()=>{ hide('modal-welcome'); localStorage.setItem('welcome-done','1'); });
+  welcomeOk.addEventListener('click', ()=>{ hide('modal-welcome'); });
 }
-const welcomeRegister = $('welcome-register');
-if (welcomeRegister) {
-  welcomeRegister.addEventListener('click', ()=>{ hide('modal-welcome'); localStorage.setItem('welcome-done','1'); show('modal-register'); });
+const welcomeCreate = $('welcome-create-character');
+if (welcomeCreate) {
+  welcomeCreate.addEventListener('click', () => {
+    hide('modal-welcome');
+    const newCharBtn = $('create-character');
+    if (newCharBtn) newCharBtn.click();
+  });
 }
-if(!localStorage.getItem('welcome-done')) show('modal-welcome');
+show('modal-welcome');
 
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
