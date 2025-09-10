@@ -1949,9 +1949,18 @@ function redo(){
 })();
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
-  const char = currentCharacter();
+  let char = currentCharacter();
+  const vig = $('superhero')?.value.trim();
+  const real = $('secret')?.value.trim();
+  if (vig) {
+    if (char !== vig) setCurrentCharacter(vig);
+    char = vig;
+  } else if (!char && real) {
+    setCurrentCharacter(real);
+    char = real;
+  }
   if (!char) return toast('No character selected', 'error');
-  if(!confirm(`Save current progress for ${char}?`)) return;
+  if (!confirm(`Save current progress for ${char}?`)) return;
   btn.classList.add('loading'); btn.disabled = true;
   try {
     const data = serialize();
