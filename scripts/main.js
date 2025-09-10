@@ -1338,6 +1338,7 @@ if(charList){
       if(item) item.classList.add('active');
       pendingLoad = { name: selectedChar };
       if(selectedChar === 'The DM'){
+        hide('modal-load-list');
         doLoad();
       }else{
         const text = $('load-confirm-text');
