@@ -31,12 +31,18 @@ describe('dm login', () => {
       loadCloudBackup: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
     }));
-
+    await import('../scripts/modal.js');
     await import('../scripts/dm.js');
     const { loadCharacter } = await import('../scripts/characters.js');
 
     const promise = loadCharacter('The DM');
-    expect(document.getElementById('dm-login-modal').classList.contains('hidden')).toBe(false);
+    const modal = document.getElementById('dm-login-modal');
+    expect(modal.classList.contains('hidden')).toBe(false);
+    expect(modal.style.display).toBe('flex');
+    const pin = document.getElementById('dm-login-pin');
+    expect(document.activeElement).toBe(pin);
+    expect(pin.type).toBe('password');
+    expect(pin.getAttribute('inputmode')).toBe('numeric');
     document.getElementById('dm-login-pin').value = '123123';
     document.getElementById('dm-login-submit').click();
     await promise;

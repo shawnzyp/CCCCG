@@ -59,8 +59,13 @@ function initDMLogin(){
 
   function openLogin(){
     if(!loginModal || !loginPin) return;
+    loginModal.style.display = 'flex';
     loginModal.classList.remove('hidden');
     loginModal.setAttribute('aria-hidden','false');
+    loginPin.type = 'password';
+    loginPin.setAttribute('inputmode','numeric');
+    loginPin.setAttribute('pattern','[0-9]*');
+    loginPin.setAttribute('autocomplete','one-time-code');
     loginPin.value='';
     loginPin.focus();
   }
@@ -69,6 +74,7 @@ function initDMLogin(){
     if(!loginModal) return;
     loginModal.classList.add('hidden');
     loginModal.setAttribute('aria-hidden','true');
+    loginModal.style.display = 'none';
   }
 
   function requireLogin(){
