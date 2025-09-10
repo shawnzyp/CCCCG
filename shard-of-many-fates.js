@@ -947,6 +947,7 @@ function initSomf(){
   };
   let _selectLatest = false;
   let _selectKey = null;
+  let _focusId = null;
   function preventTouch(e){ if(e.target===D.root) e.preventDefault(); }
   function openDM(opts={}){
     if(!D.root) return;
@@ -957,6 +958,7 @@ function initSomf(){
     D.root.addEventListener('touchmove', preventTouch, { passive: false });
     if(opts.selectLatest) _selectLatest = true;
     if(opts.selectKey) _selectKey = opts.selectKey;
+    if(opts.focusId) _focusId = opts.focusId;
     initDM();
     if(opts.tab){
       D.tabs.forEach(x=> x.classList.remove('active'));
@@ -1132,30 +1134,30 @@ function initSomf(){
 function itemCard(it){
   const card=document.createElement('div');
   card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-  card.innerHTML = `<div><strong>${it.name}</strong> <span style="opacity:.8">• ${it.rarity||''} ${it.slot||''}</span></div>`;
-  if(it.type) card.innerHTML += `<div style="opacity:.8;font-size:12px">${it.type}</div>`;
   const toText = v => {
     if(v==null) return '';
-    if(typeof v==='string') return v;
+    if(typeof v==='string') return v.replace(/_/g,' ');
     if(Array.isArray(v)) return v.map(toText).join(', ');
     if(typeof v==='object') return Object.entries(v).map(([k,val])=>`${k.replace(/_/g,' ')}: ${toText(val)}`).join(', ');
     return String(v);
   };
+  card.innerHTML = `<div><strong>${it.name}</strong> <span style="opacity:.8">• ${it.rarity||''} ${it.slot||''}</span></div>`;
+  if(it.type) card.innerHTML += `<div style="opacity:.8;font-size:12px">${toText(it.type)}</div>`;
   if(it.passive){
     const arr = Array.isArray(it.passive)? it.passive: [it.passive];
     card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Passive</span><ul style="margin:4px 0 0 18px;padding:0">${arr.map(p=>`<li>${toText(p)}</li>`).join('')}</ul></div>`;
   }
   if(it.active){
     const a=it.active, details=[];
-    if(a.uses) details.push(`Uses: ${a.uses}`);
+    if(a.uses) details.push(`Uses: ${toText(a.uses)}`);
     if(a.activation){
       const act=[];
-      if(a.activation.when) act.push(a.activation.when);
-      if(a.activation.action) act.push(a.activation.action);
+      if(a.activation.when) act.push(toText(a.activation.when));
+      if(a.activation.action) act.push(toText(a.activation.action));
       if(a.activation.cost_sp!=null) act.push(`${a.activation.cost_sp} SP`);
       details.push(`Activation: ${act.join(', ')}`);
     }
-    if(a.duration) details.push(`Duration: ${a.duration}`);
+    if(a.duration) details.push(`Duration: ${toText(a.duration)}`);
     card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Active</span><div style="opacity:.8;font-size:12px">${details.join(' • ')}</div>${a.effects? `<ul style="margin:4px 0 0 18px;padding:0">${a.effects.map(e=>`<li>${toText(e)}</li>`).join('')}</ul>`:''}</div>`;
   }
   if(it.effect){
@@ -1164,7 +1166,7 @@ function itemCard(it){
   }
   if(it.orders){
     const ord=Object.values(it.orders);
-    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Orders</span><ul style="margin:4px 0 0 18px;padding:0">${ord.map(o=>`<li><strong>${o.name}</strong> (${o.duration})</li>`).join('')}</ul></div>`;
+    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Orders</span><ul style="margin:4px 0 0 18px;padding:0">${ord.map(o=>`<li><strong>${o.name}</strong> (${toText(o.duration)})</li>`).join('')}</ul></div>`;
   }
   return card;
 }
@@ -1185,6 +1187,7 @@ function renderCardList(){
     D.cardTab.innerHTML='';
     PLATES.forEach(p=>{
       const d=document.createElement('div');
+      d.id = `somfDM-card-${p.id}`;
       d.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
       d.innerHTML = `<div><strong>${p.name}</strong></div>
         <div style="opacity:.8;font-size:12px">ID: ${p.id}</div>
@@ -1193,6 +1196,15 @@ function renderCardList(){
         <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">DM</span><ul style="margin:4px 0 0 18px;padding:0">${p.dm.map(e=>`<li>${e}</li>`).join('')}</ul></div>`;
       D.cardTab.appendChild(d);
     });
+    if(_focusId){
+      const target = D.cardTab.querySelector(`#somfDM-card-${_focusId}`);
+      _focusId=null;
+      if(target){
+        target.scrollIntoView({behavior:'smooth', block:'start'});
+        target.style.outline='2px solid #39f';
+        setTimeout(()=>{ target.style.outline=''; },1200);
+      }
+    }
   }
 
   function openNPCModal(n){
@@ -1280,14 +1292,21 @@ function renderCardList(){
       const li=document.createElement('li');
       li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
       if (ix===0) li.style.borderTop='none';
-      const names = n.names || n.ids.map(id=> plateById[id]?.name || id);
-      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.join(', ')}</div>`;
+      const ids = n.ids || [];
+      const names = n.names || ids.map(id=> plateById[id]?.name || id);
+      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.map((x,i)=>`<span data-id="${ids[i]}" style="text-decoration:underline;cursor:pointer">${x}</span>`).join(', ')}</div>`;
       li.dataset.key = n.key || '';
+      li.querySelectorAll('span[data-id]').forEach(sp=>{
+        sp.addEventListener('click', e=>{ e.stopPropagation(); openDM({tab:'cards', focusId: sp.dataset.id}); });
+      });
       li.addEventListener('click', ()=>{
         $$('#somfDM-incoming li').forEach(x=> x.style.background='');
         li.style.background='#0b2a3a';
         D.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(n.ts||Date.now()).toLocaleString()}</div>`+
-          `<ul style="margin:6px 0 0 18px;padding:0">${names.map(x=>`<li>${x}</li>`).join('')}</ul>`;
+          `<ul style="margin:6px 0 0 18px;padding:0">${names.map((x,i)=>`<li data-id="${ids[i]}" style="cursor:pointer;text-decoration:underline">${x}</li>`).join('')}</ul>`;
+        D.noticeView.querySelectorAll('li[data-id]').forEach(li2=>{
+          li2.addEventListener('click', ()=> openDM({tab:'cards', focusId: li2.dataset.id}));
+        });
         const spawnCode = (n.ids.length===1)? (spawnFor(n.ids[0])||null) : null;
         D.spawnNPC.disabled = !spawnCode;
         D.spawnNPC.onclick = ()=>{
@@ -1323,10 +1342,14 @@ function renderCardList(){
     if(!D.queue) return;
     D.queue.innerHTML='';
     notices.forEach(n=>{
-      const names = n.names || n.ids.map(id=> plateById[id]?.name || id);
+      const ids = n.ids || [];
+      const names = n.names || ids.map(id=> plateById[id]?.name || id);
       const li=document.createElement('li');
-      li.textContent = `${names.length} shard(s): ${names.join(', ')}`;
+      li.innerHTML = `${names.length} shard(s): ${names.map((nm,i)=>`<span data-id="${ids[i]}" style="text-decoration:underline;cursor:pointer">${nm}</span>`).join(', ')}`;
       li.addEventListener('click', ()=> openDM({tab:'resolve', selectKey:n.key}));
+      li.querySelectorAll('span[data-id]').forEach(sp=>{
+        sp.addEventListener('click', e=>{ e.stopPropagation(); openDM({tab:'cards', focusId: sp.dataset.id}); });
+      });
       D.queue.appendChild(li);
     });
   }
