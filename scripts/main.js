@@ -1259,7 +1259,8 @@ if (btnCampaignAdd) {
   btnCampaignAdd.addEventListener('click', ()=>{
     const text = $('campaign-entry').value.trim();
     if(!text) return;
-    pushLog(campaignLog, {t:Date.now(), text}, 'campaign-log');
+    const name = currentCharacter();
+    pushLog(campaignLog, {t:Date.now(), name, text}, 'campaign-log');
     $('campaign-entry').value='';
     renderCampaignLog();
     pushHistory();
@@ -1269,7 +1270,7 @@ if (btnCampaignAdd) {
     $('campaign-log').innerHTML = campaignLog
       .slice()
       .reverse()
-      .map((e,i)=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div><div><button class="btn-sm" data-del="${i}"></button></div></div>`)
+      .map((e,i)=>`<div class="catalog-item"><div>${fmt(e.t)}${e.name ? ' ' + e.name : ''}</div><div>${e.text}</div><div><button class="btn-sm" data-del="${i}"></button></div></div>`)
       .join('');
     applyDeleteIcons($('campaign-log'));
   }
