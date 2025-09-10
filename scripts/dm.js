@@ -1,3 +1,5 @@
+import { listCharacters } from './characters.js';
+
 const DM_PIN = '123123';
 const notifications = [];
 
@@ -15,6 +17,9 @@ function initDMLogin(){
   const notifyModal = document.getElementById('dm-notifications-modal');
   const notifyList = document.getElementById('dm-notifications-list');
   const notifyClose = document.getElementById('dm-notifications-close');
+  const charModal = document.getElementById('dm-characters-modal');
+  const charList = document.getElementById('dm-characters-list');
+  const charClose = document.getElementById('dm-characters-close');
 
   if (loginPin) {
     loginPin.type = 'password';
@@ -165,6 +170,24 @@ function initDMLogin(){
     notifyModal.style.display = 'none';
   }
 
+  async function openCharacters(){
+    if(!charModal || !charList) return;
+    charModal.style.display = 'flex';
+    charModal.classList.remove('hidden');
+    charModal.setAttribute('aria-hidden','false');
+    let names = [];
+    try { names = await listCharacters(); }
+    catch(e){ console.error('Failed to list characters', e); }
+    charList.innerHTML = names.map(n => `<li>${n}</li>`).join('');
+  }
+
+  function closeCharacters(){
+    if(!charModal) return;
+    charModal.classList.add('hidden');
+    charModal.setAttribute('aria-hidden','true');
+    charModal.style.display = 'none';
+  }
+
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
 
   document.addEventListener('click', e => {
@@ -190,12 +213,14 @@ function initDMLogin(){
   if (charBtn) {
     charBtn.addEventListener('click', () => {
       if (menu) menu.hidden = true;
-      if (window.openCharacterList) window.openCharacterList();
+      openCharacters();
     });
   }
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });
   notifyClose?.addEventListener('click', closeNotifications);
+  charModal?.addEventListener('click', e => { if(e.target===charModal) closeCharacters(); });
+  charClose?.addEventListener('click', closeCharacters);
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
