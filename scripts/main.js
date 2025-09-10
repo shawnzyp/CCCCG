@@ -1481,6 +1481,21 @@ if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
 if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); }); }
 qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
 
+function openCharacterModalByName(name){
+  if(!name) return;
+  selectedChar = name;
+  pendingLoad = { name };
+  if(name === 'The DM'){
+    hide('modal-load-list');
+    doLoad();
+  }else{
+    const text = $('load-confirm-text');
+    if(text) text.textContent = `Are you sure you would like to load this character: ${name}. All current progress will be lost if you haven't saved yet.`;
+    show('modal-load');
+  }
+}
+window.openCharacterModal = openCharacterModalByName;
+
 /* ========= Card Helper ========= */
 const CARD_CONFIG = {
   power: {
