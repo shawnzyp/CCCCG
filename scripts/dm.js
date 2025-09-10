@@ -13,6 +13,13 @@ function initDMLogin(){
   const notifyModal = document.getElementById('dm-notifications-modal');
   const notifyList = document.getElementById('dm-notifications-list');
 
+  if (loginPin) {
+    loginPin.type = 'password';
+    loginPin.autocomplete = 'one-time-code';
+    loginPin.inputMode = 'numeric';
+    loginPin.pattern = '[0-9]*';
+  }
+
   window.dmNotify = function(detail){
     const entry = {
       ts: new Date().toLocaleString(),
