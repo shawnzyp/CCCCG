@@ -1,13 +1,31 @@
-const DM_PIN = '1231';
+const DM_PIN = '123123';
+const notifications = [];
 
 function initDMLogin(){
   const dmBtn = document.getElementById('dm-login');
   const menu = document.getElementById('dm-tools-menu');
   const tsomfBtn = document.getElementById('dm-tools-tsomf');
+  const notifyBtn = document.getElementById('dm-tools-notifications');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
   const loginSubmit = document.getElementById('dm-login-submit');
+  const notifyModal = document.getElementById('dm-notifications-modal');
+  const notifyList = document.getElementById('dm-notifications-list');
+
+  window.dmNotify = function(detail){
+    const entry = {
+      ts: new Date().toLocaleString(),
+      char: (()=>{ try { return localStorage.getItem('last-save') || ''; } catch { return ''; } })(),
+      detail
+    };
+    notifications.push(entry);
+    if(notifyList){
+      const li = document.createElement('li');
+      li.textContent = `[${entry.ts}] ${entry.char}: ${detail}`;
+      notifyList.prepend(li);
+    }
+  };
 
   function isLoggedIn(){
     try {
@@ -79,6 +97,7 @@ function initDMLogin(){
       }
 
       openLogin();
+      if (typeof toast === 'function') toast('Enter DM PIN','info');
       function cleanup(){
         loginSubmit?.removeEventListener('click', onSubmit);
         loginPin?.removeEventListener('keydown', onKey);
@@ -117,6 +136,18 @@ function initDMLogin(){
     if(menu) menu.hidden = !menu.hidden;
   }
 
+  function openNotifications(){
+    if(!notifyModal) return;
+    notifyModal.classList.remove('hidden');
+    notifyModal.setAttribute('aria-hidden','false');
+  }
+
+  function closeNotifications(){
+    if(!notifyModal) return;
+    notifyModal.classList.add('hidden');
+    notifyModal.setAttribute('aria-hidden','true');
+  }
+
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
 
   document.addEventListener('click', e => {
@@ -132,6 +163,15 @@ function initDMLogin(){
     });
   }
 
+  if (notifyBtn) {
+    notifyBtn.addEventListener('click', () => {
+      if (menu) menu.hidden = true;
+      openNotifications();
+    });
+  }
+
+  notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });
+
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       if (menu) menu.hidden = true;
@@ -143,6 +183,13 @@ function initDMLogin(){
   if (isLoggedIn() && window.initSomfDM){
     window.initSomfDM();
   }
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('button,a');
+    if(!t) return;
+    const id = t.id || t.textContent?.trim() || 'interaction';
+    window.dmNotify?.(`Clicked ${id}`);
+  });
 
   window.dmRequireLogin = requireLogin;
 }
