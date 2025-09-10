@@ -106,6 +106,31 @@ export async function saveCharacter(data, name = currentCharacter()) {
   } catch {}
 }
 
+export async function renameCharacter(oldName, newName, data) {
+  if (!oldName || oldName === newName) {
+    setCurrentCharacter(newName);
+    await saveCharacter(data, newName);
+    return;
+  }
+  await verifyPin(oldName);
+  await saveLocal(newName, data);
+  try {
+    await saveCloud(newName, data);
+  } catch (e) {
+    console.error('Cloud save failed', e);
+  }
+  await deleteSave(oldName);
+  try {
+    await deleteCloud(oldName);
+  } catch (e) {
+    console.error('Cloud delete failed', e);
+  }
+  setCurrentCharacter(newName);
+  try {
+    document.dispatchEvent(new CustomEvent('character-saved', { detail: newName }));
+  } catch {}
+}
+
 export async function deleteCharacter(name) {
   if (name === 'The DM') {
     throw new Error('Cannot delete The DM');

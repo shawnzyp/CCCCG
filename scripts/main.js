@@ -10,6 +10,7 @@ import {
   listBackups,
   deleteCharacter,
   saveCharacter,
+  renameCharacter,
 } from './characters.js';
 import { show, hide } from './modal.js';
 // Global CC object for cross-module state
@@ -1950,28 +1951,48 @@ function redo(){
 })();
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
-  let char = currentCharacter();
+  const oldChar = currentCharacter();
   const vig = $('superhero')?.value.trim();
   const real = $('secret')?.value.trim();
+  let target = oldChar;
   if (vig) {
-    if (char !== vig) setCurrentCharacter(vig);
-    char = vig;
-  } else if (!char && real) {
-    setCurrentCharacter(real);
-    char = real;
+    target = vig;
+  } else if (!oldChar && real) {
+    target = real;
   }
-  if (!char) return toast('No character selected', 'error');
-  if (!confirm(`Save current progress for ${char}?`)) return;
+  if (!target) return toast('No character selected', 'error');
+  if (!confirm(`Save current progress for ${target}?`)) return;
   btn.classList.add('loading'); btn.disabled = true;
   try {
     const data = serialize();
-    await saveCharacter(data, char);
+    if (oldChar && vig && vig !== oldChar) {
+      await renameCharacter(oldChar, vig, data);
+    } else {
+      if (target !== oldChar) setCurrentCharacter(target);
+      await saveCharacter(data, target);
+    }
     toast('Save successful', 'success');
     playSaveAnimation();
   } finally {
     btn.classList.remove('loading'); btn.disabled = false;
   }
 });
+
+const heroInput = $('superhero');
+if (heroInput) {
+  heroInput.addEventListener('change', async () => {
+    const name = heroInput.value.trim();
+    if (!name) return;
+    if (!currentCharacter()) {
+      setCurrentCharacter(name);
+      try {
+        await saveCharacter(serialize(), name);
+      } catch (e) {
+        console.error('Autosave failed', e);
+      }
+    }
+  });
+}
 
 
 /* ========= Rules ========= */

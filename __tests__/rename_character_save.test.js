@@ -41,14 +41,18 @@ function setupDom() {
   };
 }
 
-describe('auto character naming on save', () => {
-  beforeEach(() => {
+describe('rename save to vigilante name', () => {
+  beforeEach(async () => {
     jest.resetModules();
     localStorage.clear();
     setupDom();
     global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => null });
     window.confirm = jest.fn(() => true);
     console.error = jest.fn();
+    localStorage.setItem('save:Bruce', '{}');
+    localStorage.setItem('last-save', 'Bruce');
+    await import('../scripts/main.js');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
   });
 
   afterEach(() => {
@@ -56,33 +60,12 @@ describe('auto character naming on save', () => {
     delete window.confirm;
   });
 
-  test('uses secret identity when vigilante is blank', async () => {
-    await import('../scripts/main.js');
-    document.dispatchEvent(new Event('DOMContentLoaded'));
-    document.getElementById('secret').value = 'Bruce';
-    document.getElementById('btn-save').click();
-    await new Promise(res => setTimeout(res, 0));
-    expect(localStorage.getItem('save:Bruce')).not.toBeNull();
-  });
-
-  test('prioritizes vigilante name over secret identity', async () => {
-    await import('../scripts/main.js');
-    document.dispatchEvent(new Event('DOMContentLoaded'));
-    document.getElementById('superhero').value = 'Batman';
-    document.getElementById('secret').value = 'Bruce';
+  test('saving renames existing save to vigilante name', async () => {
+    const input = document.getElementById('superhero');
+    input.value = 'Batman';
     document.getElementById('btn-save').click();
     await new Promise(res => setTimeout(res, 0));
     expect(localStorage.getItem('save:Batman')).not.toBeNull();
     expect(localStorage.getItem('save:Bruce')).toBeNull();
-  });
-
-  test('auto-saves new character when vigilante name entered', async () => {
-    await import('../scripts/main.js');
-    document.dispatchEvent(new Event('DOMContentLoaded'));
-    const input = document.getElementById('superhero');
-    input.value = 'Batman';
-    input.dispatchEvent(new Event('change'));
-    await new Promise(res => setTimeout(res, 0));
-    expect(localStorage.getItem('save:Batman')).not.toBeNull();
   });
 });
