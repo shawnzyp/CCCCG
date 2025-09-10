@@ -11,24 +11,24 @@ import {
   deleteCloud,
 } from './storage.js';
 
-const PINNED = { 'DM': '123123' };
+const PINNED = { 'The DM': '123123' };
 
-// Migrate legacy DM saves to the new "DM" name.
-// Older versions stored the DM character under names like "Shawn"
-// or "Player :Shawn". Ensure any of these variants are renamed.
+// Migrate legacy DM saves to the new "The DM" name.
+// Older versions stored the DM character under names like "Shawn",
+// "Player :Shawn", or simply "DM". Ensure any of these variants are renamed.
 try {
-  const legacyNames = ['Shawn', 'Player :Shawn'];
+  const legacyNames = ['Shawn', 'Player :Shawn', 'DM'];
   for (const name of legacyNames) {
     const legacy = localStorage.getItem(`save:${name}`);
     if (!legacy) continue;
-    // Only create the DM save if it doesn't already exist to avoid
+    // Only create the The DM save if it doesn't already exist to avoid
     // overwriting newer data.
-    if (!localStorage.getItem('save:DM')) {
-      localStorage.setItem('save:DM', legacy);
+    if (!localStorage.getItem('save:The DM')) {
+      localStorage.setItem('save:The DM', legacy);
     }
     localStorage.removeItem(`save:${name}`);
     if (localStorage.getItem('last-save') === name) {
-      localStorage.setItem('last-save', 'DM');
+      localStorage.setItem('last-save', 'The DM');
     }
   }
 } catch {}
@@ -36,7 +36,7 @@ try {
 async function verifyPin(name) {
   const pin = PINNED[name];
   if (!pin) return;
-  if (name === 'DM' && typeof window.dmRequireLogin === 'function') {
+  if (name === 'The DM' && typeof window.dmRequireLogin === 'function') {
     await window.dmRequireLogin();
     return;
   }
@@ -65,15 +65,15 @@ export function setCurrentCharacter(name) {
 }
 
 export async function listCharacters() {
-  const local = listLocalSaves();
+  const local = listLocalSaves().map(n => (n === 'DM' ? 'The DM' : n));
   try {
-    const cloud = await listCloudSaves();
+    const cloud = (await listCloudSaves()).map(n => (n === 'DM' ? 'The DM' : n));
     return Array.from(new Set([...local, ...cloud])).sort((a, b) =>
       a.localeCompare(b)
     );
   } catch (e) {
     console.error('Failed to list cloud saves', e);
-    return local;
+    return Array.from(new Set(local)).sort((a, b) => a.localeCompare(b));
   }
 }
 
@@ -105,6 +105,9 @@ export async function saveCharacter(data, name = currentCharacter()) {
 }
 
 export async function deleteCharacter(name) {
+  if (name === 'The DM') {
+    throw new Error('Cannot delete The DM');
+  }
   await verifyPin(name);
   let data = null;
   try {

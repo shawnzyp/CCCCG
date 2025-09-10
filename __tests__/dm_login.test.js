@@ -6,17 +6,17 @@ beforeEach(() => {
 });
 
 describe('dm login', () => {
-  test('loading DM character unlocks tools', async () => {
+  test('loading The DM character unlocks tools', async () => {
     document.body.innerHTML = `
-      <button id="dm-login" hidden></button>
-      <div id="dm-tools-menu" hidden></div>
-      <button id="dm-tools-tsomf"></button>
-      <button id="dm-tools-logout"></button>
-      <div id="dm-login-modal" class="hidden" aria-hidden="true">
-        <input id="dm-login-pin">
-        <button id="dm-login-submit"></button>
-      </div>
-    `;
+        <button id="dm-login" hidden></button>
+        <div id="dm-tools-menu" hidden></div>
+        <button id="dm-tools-tsomf"></button>
+        <button id="dm-tools-logout"></button>
+        <div id="dm-login-modal" class="hidden" aria-hidden="true">
+          <input id="dm-login-pin">
+          <button id="dm-login-submit"></button>
+        </div>
+      `;
     window.toast = jest.fn();
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
@@ -35,7 +35,7 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
     const { loadCharacter } = await import('../scripts/characters.js');
 
-    const promise = loadCharacter('DM');
+    const promise = loadCharacter('The DM');
     expect(document.getElementById('dm-login-modal').classList.contains('hidden')).toBe(false);
     document.getElementById('dm-login-pin').value = '123123';
     document.getElementById('dm-login-submit').click();
@@ -51,7 +51,7 @@ describe('dm login', () => {
     delete window.toast;
   });
 
-  test('falls back to prompt when modal elements missing', async () => {
+  test('falls back to prompt when modal elements missing for The DM', async () => {
     document.body.innerHTML = '';
     window.toast = jest.fn();
     window.prompt = jest.fn(() => '123123');
@@ -72,7 +72,7 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
     const { loadCharacter } = await import('../scripts/characters.js');
 
-    await loadCharacter('DM');
+    await loadCharacter('The DM');
 
     expect(window.prompt).toHaveBeenCalled();
     expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');

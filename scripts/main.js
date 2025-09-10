@@ -1295,7 +1295,7 @@ async function renderCharacterList(){
   try { names = await listCharacters(); }
   catch (e) { console.error('Failed to list characters', e); }
   const current = currentCharacter();
-  list.innerHTML = names.map(c=>`<div class="catalog-item${c===current?' active':''}"><button class="btn-sm" data-char="${c}">${c}</button><button class="btn-sm" data-del="${c}"></button></div>`).join('');
+  list.innerHTML = names.map(c=>`<div class="catalog-item${c===current?' active':''}"><button class="btn-sm" data-char="${c}">${c}</button>${c==='The DM'?'':'<button class="btn-sm" data-del="'+c+'"></button>'}</div>`).join('');
   applyDeleteIcons(list);
   selectedChar = current;
 }
@@ -1337,12 +1337,18 @@ if(charList){
       const item = loadBtn.closest('.catalog-item');
       if(item) item.classList.add('active');
       pendingLoad = { name: selectedChar };
-      const text = $('load-confirm-text');
-      if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
-      show('modal-load');
+      if(selectedChar === 'The DM'){
+        doLoad();
+      }else{
+        const text = $('load-confirm-text');
+        if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
+        show('modal-load');
+      }
     } else if(delBtn){
       const ch = delBtn.dataset.del;
-      if(confirm(`Delete ${ch}?`) && confirm('This cannot be undone. Are you sure?')){
+      if(ch === 'The DM'){
+        toast('Cannot delete The DM','error');
+      }else if(confirm(`Delete ${ch}?`) && confirm('This cannot be undone. Are you sure?')){
         deleteCharacter(ch).then(()=>{
           renderCharacterList();
           toast('Deleted','info');
