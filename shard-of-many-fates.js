@@ -850,16 +850,17 @@ function initSomf(){
     if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
 
     const ids = [];
+    let names = [];
     if (db()){
       await rtdbInitDeckIfMissing();
       for (let i=0;i<n;i++) ids.push(await rtdbDrawOne());
-      const names = ids.map(id=> plateById[id]?.name || id);
+      names = ids.map(id=> plateById[id]?.name || id);
       // batch notice (for DM): count + ids + names
       await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids, names });
     } else {
       for (let i=0;i<n;i++) ids.push(localDrawOne());
+      names = ids.map(id=> plateById[id]?.name || id);
       const notices = getLocal(LSK.notices(CID()))||[];
-      const names = ids.map(id=> plateById[id]?.name || id);
       const now = Date.now();
       const notice = { key: now.toString(), ts: now, count:n, ids, names };
       notices.unshift(notice);
@@ -867,6 +868,7 @@ function initSomf(){
       window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notice }));
     }
 
+    window.dmNotify?.(`Drew ${n} Shard(s): ${names.join(', ')} (unresolved)`);
     queue = ids.map(id=> plateById[id]);
     qi = 0;
     await playShardAnimation();

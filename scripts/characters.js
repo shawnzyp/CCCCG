@@ -11,7 +11,7 @@ import {
   deleteCloud,
 } from './storage.js';
 
-const PINNED = { 'DM': '1231' };
+const PINNED = { 'DM': '123123' };
 
 // Migrate legacy DM saves to the new "DM" name.
 // Older versions stored the DM character under names like "Shawn"
@@ -79,13 +79,17 @@ export async function listCharacters() {
 
 export async function loadCharacter(name) {
   await verifyPin(name);
+  let data;
   try {
-    return await loadLocal(name);
+    data = await loadLocal(name);
   } catch {}
-  const data = await loadCloud(name);
-  try {
-    await saveLocal(name, data);
-  } catch {}
+  if (!data) {
+    data = await loadCloud(name);
+    try {
+      await saveLocal(name, data);
+    } catch {}
+  }
+  window.dmNotify?.(`Loaded character ${name}`);
   return data;
 }
 

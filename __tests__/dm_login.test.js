@@ -37,7 +37,7 @@ describe('dm login', () => {
 
     const promise = loadCharacter('DM');
     expect(document.getElementById('dm-login-modal').classList.contains('hidden')).toBe(false);
-    document.getElementById('dm-login-pin').value = '1231';
+    document.getElementById('dm-login-pin').value = '123123';
     document.getElementById('dm-login-submit').click();
     await promise;
 
@@ -54,7 +54,7 @@ describe('dm login', () => {
   test('falls back to prompt when modal elements missing', async () => {
     document.body.innerHTML = '';
     window.toast = jest.fn();
-    window.prompt = jest.fn(() => '1231');
+    window.prompt = jest.fn(() => '123123');
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
       saveLocal: jest.fn(),
