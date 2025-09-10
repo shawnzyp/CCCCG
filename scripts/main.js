@@ -135,6 +135,10 @@ function toast(msg,type='info'){
   playTone(type);
   setTimeout(()=>t.classList.remove('show'),5000);
 }
+// Expose toast globally so non-module scripts (e.g. dm.js) can display messages.
+// Without this assignment the login flow for special accounts like "The DM"
+// will silently skip notifications because `toast` isn't found on `window`.
+window.toast = toast;
 
 function debounce(fn, delay){
   let t;
