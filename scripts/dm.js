@@ -180,7 +180,9 @@ function initDMLogin(){
     let names = [];
     try { names = await listCharacters(); }
     catch(e){ console.error('Failed to list characters', e); }
-    charList.innerHTML = names.map(n => `<li>${n}</li>`).join('');
+    charList.innerHTML = names
+      .map(n => `<li><button type="button">${n}</button></li>`)
+      .join('');
   }
 
   function closeCharacters(){
@@ -189,6 +191,14 @@ function initDMLogin(){
     charModal.setAttribute('aria-hidden','true');
     charModal.style.display = 'none';
   }
+
+  charList?.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const name = btn.textContent?.trim();
+    closeCharacters();
+    window.openCharacterModal?.(name);
+  });
 
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
 
