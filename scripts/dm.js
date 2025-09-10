@@ -147,6 +147,7 @@ function initDMLogin(){
 
   function openNotifications(){
     if(!notifyModal) return;
+    notifyModal.style.display = 'flex';
     notifyModal.classList.remove('hidden');
     notifyModal.setAttribute('aria-hidden','false');
   }
@@ -155,6 +156,7 @@ function initDMLogin(){
     if(!notifyModal) return;
     notifyModal.classList.add('hidden');
     notifyModal.setAttribute('aria-hidden','true');
+    notifyModal.style.display = 'none';
   }
 
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);

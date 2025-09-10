@@ -1129,38 +1129,45 @@ function initSomf(){
     return card;
   }
 
-  function itemCard(it){
-    const card=document.createElement('div');
-    card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-    card.innerHTML = `<div><strong>${it.name}</strong> <span style="opacity:.8">• ${it.rarity||''} ${it.slot||''}</span></div>`;
-    if(it.type) card.innerHTML += `<div style="opacity:.8;font-size:12px">${it.type}</div>`;
-    if(it.passive){
-      const arr = Array.isArray(it.passive)? it.passive: [it.passive];
-      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Passive</span><ul style="margin:4px 0 0 18px;padding:0">${arr.map(p=>`<li>${typeof p==='string'?p:JSON.stringify(p)}</li>`).join('')}</ul></div>`;
-    }
-    if(it.active){
-      const a=it.active, details=[];
-      if(a.uses) details.push(`Uses: ${a.uses}`);
-      if(a.activation){
-        const act=[];
-        if(a.activation.when) act.push(a.activation.when);
-        if(a.activation.action) act.push(a.activation.action);
-        if(a.activation.cost_sp!=null) act.push(`${a.activation.cost_sp} SP`);
-        details.push(`Activation: ${act.join(', ')}`);
-      }
-      if(a.duration) details.push(`Duration: ${a.duration}`);
-      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Active</span><div style="opacity:.8;font-size:12px">${details.join(' • ')}</div>${a.effects? `<ul style="margin:4px 0 0 18px;padding:0">${a.effects.map(e=>`<li>${typeof e==='string'?e:JSON.stringify(e)}</li>`).join('')}</ul>`:''}</div>`;
-    }
-    if(it.effect){
-      const effs=Array.isArray(it.effect)? it.effect:[it.effect];
-      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Effect</span><ul style="margin:4px 0 0 18px;padding:0">${effs.map(e=>`<li>${typeof e==='string'?e:JSON.stringify(e)}</li>`).join('')}</ul></div>`;
-    }
-    if(it.orders){
-      const ord=Object.values(it.orders);
-      card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Orders</span><ul style="margin:4px 0 0 18px;padding:0">${ord.map(o=>`<li><strong>${o.name}</strong> (${o.duration})</li>`).join('')}</ul></div>`;
-    }
-    return card;
+function itemCard(it){
+  const card=document.createElement('div');
+  card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+  card.innerHTML = `<div><strong>${it.name}</strong> <span style="opacity:.8">• ${it.rarity||''} ${it.slot||''}</span></div>`;
+  if(it.type) card.innerHTML += `<div style="opacity:.8;font-size:12px">${it.type}</div>`;
+  const toText = v => {
+    if(v==null) return '';
+    if(typeof v==='string') return v;
+    if(Array.isArray(v)) return v.map(toText).join(', ');
+    if(typeof v==='object') return Object.entries(v).map(([k,val])=>`${k.replace(/_/g,' ')}: ${toText(val)}`).join(', ');
+    return String(v);
+  };
+  if(it.passive){
+    const arr = Array.isArray(it.passive)? it.passive: [it.passive];
+    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Passive</span><ul style="margin:4px 0 0 18px;padding:0">${arr.map(p=>`<li>${toText(p)}</li>`).join('')}</ul></div>`;
   }
+  if(it.active){
+    const a=it.active, details=[];
+    if(a.uses) details.push(`Uses: ${a.uses}`);
+    if(a.activation){
+      const act=[];
+      if(a.activation.when) act.push(a.activation.when);
+      if(a.activation.action) act.push(a.activation.action);
+      if(a.activation.cost_sp!=null) act.push(`${a.activation.cost_sp} SP`);
+      details.push(`Activation: ${act.join(', ')}`);
+    }
+    if(a.duration) details.push(`Duration: ${a.duration}`);
+    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Active</span><div style="opacity:.8;font-size:12px">${details.join(' • ')}</div>${a.effects? `<ul style="margin:4px 0 0 18px;padding:0">${a.effects.map(e=>`<li>${toText(e)}</li>`).join('')}</ul>`:''}</div>`;
+  }
+  if(it.effect){
+    const effs=Array.isArray(it.effect)? it.effect:[it.effect];
+    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Effect</span><ul style="margin:4px 0 0 18px;padding:0">${effs.map(e=>`<li>${toText(e)}</li>`).join('')}</ul></div>`;
+  }
+  if(it.orders){
+    const ord=Object.values(it.orders);
+    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Orders</span><ul style="margin:4px 0 0 18px;padding:0">${ord.map(o=>`<li><strong>${o.name}</strong> (${o.duration})</li>`).join('')}</ul></div>`;
+  }
+  return card;
+}
 
   function renderItemList(){
     if(!D.itemList) return;
@@ -1199,6 +1206,7 @@ function renderCardList(){
     close.addEventListener('click', closeNPCModal);
     D.npcModalCard.appendChild(card);
     D.npcModalCard.appendChild(close);
+    D.npcModal.style.display='flex';
     D.npcModal.classList.remove('hidden');
     D.npcModal.setAttribute('aria-hidden','false');
   }
@@ -1206,6 +1214,7 @@ function renderCardList(){
     if(!D.npcModal) return;
     D.npcModal.classList.add('hidden');
     D.npcModal.setAttribute('aria-hidden','true');
+    D.npcModal.style.display='none';
   }
   D.npcModal?.addEventListener('click', e=>{ if(e.target===D.npcModal) closeNPCModal(); });
 
