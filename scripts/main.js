@@ -601,6 +601,7 @@ function setupPerkSelect(selId, perkId, data){
         if (cb && status) {
           cb.addEventListener('change', () => {
             status.textContent = cb.checked ? 'Used' : 'Available';
+            window.dmNotify?.(`${text} ${cb.checked ? 'used' : 'reset'}`);
           });
         }
       }else{
@@ -617,7 +618,10 @@ function setupPerkSelect(selId, perkId, data){
       updateDerived();
     }
   }
-  sel.addEventListener('change', render);
+  sel.addEventListener('change', () => {
+    window.dmNotify?.(`${selId.replace(/-/g,' ')} changed to ${sel.value}`);
+    render();
+  });
   render();
 }
 
@@ -664,6 +668,7 @@ if (elCAPCheck && elCAPStatus) {
       if (confirm('Use Cinematic Action Point?')) {
         elCAPStatus.textContent = 'Used';
         elCAPCheck.disabled = true;
+        window.dmNotify?.('Used Cinematic Action Point');
       } else {
         elCAPCheck.checked = false;
       }
@@ -780,6 +785,9 @@ function updateXP(){
     launchConfetti();
     launchFireworks();
     toast(`Tier up! ${XP_TIERS[idx].label}. Director says: grab your 1d10 HP booster!`, 'success');
+    window.dmNotify?.(`Tier up to ${XP_TIERS[idx].label}`);
+  } else if(xpInitialized && idx < currentTierIdx){
+    window.dmNotify?.(`Tier down to ${XP_TIERS[idx].label}`);
   }
   currentTierIdx = idx;
   xpInitialized = true;
@@ -830,14 +838,25 @@ function updateDerived(){
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
   });
 }
-ABILS.forEach(a=> $(a).addEventListener('change', updateDerived));
+ABILS.forEach(a=> {
+  const el = $(a);
+  el.addEventListener('change', () => {
+    window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`);
+    updateDerived();
+  });
+});
 ['hp-temp','sp-temp','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 
 function setXP(v){
+  const prev = num(elXP.value);
   elXP.value = Math.max(0, v);
   updateDerived();
+  const diff = num(elXP.value) - prev;
+  if(diff !== 0){
+    window.dmNotify?.(`XP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elXP.value})`);
+  }
 }
 $('xp-submit').addEventListener('click', ()=>{
   const amt = num($('xp-amt').value)||0;
@@ -853,6 +872,10 @@ function setHP(v){
   elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
   updateDeathSaveAvailability();
+  const diff = num(elHPBar.value) - prev;
+  if(diff !== 0){
+    window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
+  }
   if(num(elHPBar.value) > 0){
     try { resetDeathSaves(); } catch {}
   }
@@ -869,6 +892,7 @@ async function setSP(v){
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}` + (temp ? ` (+${temp})` : ``);
   const diff = num(elSPBar.value) - prev;
   if(diff !== 0) {
+    window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     await playSPAnimation(diff);
     pushHistory();
   }
@@ -1017,6 +1041,7 @@ $('roll-dice').addEventListener('click', ()=>{
   pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
   renderLogs();
   renderFullLogs();
+  window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
 });
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
@@ -1025,6 +1050,7 @@ $('flip').addEventListener('click', ()=>{
   pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
   renderLogs();
   renderFullLogs();
+  window.dmNotify?.(`Coin flip: ${v}`);
 });
 
 function playDamageAnimation(amount){
