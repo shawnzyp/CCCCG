@@ -6,6 +6,7 @@ function initDMLogin(){
   const menu = document.getElementById('dm-tools-menu');
   const tsomfBtn = document.getElementById('dm-tools-tsomf');
   const notifyBtn = document.getElementById('dm-tools-notifications');
+  const charBtn = document.getElementById('dm-tools-characters');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
@@ -183,6 +184,13 @@ function initDMLogin(){
     notifyBtn.addEventListener('click', () => {
       if (menu) menu.hidden = true;
       openNotifications();
+    });
+  }
+
+  if (charBtn) {
+    charBtn.addEventListener('click', () => {
+      if (menu) menu.hidden = true;
+      if (window.openCharacterList) window.openCharacterList();
     });
   }
 

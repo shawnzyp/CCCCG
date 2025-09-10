@@ -102,6 +102,9 @@ export async function saveCharacter(data, name = currentCharacter()) {
   } catch (e) {
     console.error('Cloud save failed', e);
   }
+  try {
+    document.dispatchEvent(new CustomEvent('character-saved', { detail: name }));
+  } catch {}
 }
 
 export async function deleteCharacter(name) {
@@ -125,6 +128,9 @@ export async function deleteCharacter(name) {
   } catch (e) {
     console.error('Cloud delete failed', e);
   }
+  try {
+    document.dispatchEvent(new CustomEvent('character-deleted', { detail: name }));
+  } catch {}
 }
 
 export async function listBackups(name) {
