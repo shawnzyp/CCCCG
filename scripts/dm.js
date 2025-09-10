@@ -59,6 +59,7 @@ function initDMLogin(){
 
   function openLogin(){
     if(!loginModal || !loginPin) return;
+    loginModal.style.display = 'flex';
     loginModal.classList.remove('hidden');
     loginModal.setAttribute('aria-hidden','false');
     loginPin.value='';
@@ -69,6 +70,7 @@ function initDMLogin(){
     if(!loginModal) return;
     loginModal.classList.add('hidden');
     loginModal.setAttribute('aria-hidden','true');
+    loginModal.style.display = 'none';
   }
 
   function requireLogin(){
