@@ -1314,12 +1314,14 @@ if (btnFun) {
   });
 }
 const btnLoad = $('btn-load');
-if (btnLoad) {
-  btnLoad.addEventListener('click', async () => {
-    await renderCharacterList();
-    show('modal-load-list');
-  });
+async function openCharacterList(){
+  await renderCharacterList();
+  show('modal-load-list');
 }
+if (btnLoad) {
+  btnLoad.addEventListener('click', openCharacterList);
+}
+window.openCharacterList = openCharacterList;
 
 async function renderCharacterList(){
   const list = $('char-list');
@@ -1332,6 +1334,10 @@ async function renderCharacterList(){
   applyDeleteIcons(list);
   selectedChar = current;
 }
+
+document.addEventListener('character-saved', renderCharacterList);
+document.addEventListener('character-deleted', renderCharacterList);
+window.addEventListener('storage', renderCharacterList);
 
 async function renderRecoverCharList(){
   const list = $('recover-char-list');
