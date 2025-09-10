@@ -578,6 +578,11 @@
 
 <div class="overlay hidden" id="modal-load" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <p id="load-confirm-text"></p>
     <div class="actions">
       <button id="load-cancel" class="btn-sm">Cancel</button>
@@ -783,9 +788,13 @@
 <div id="somf-min-modal" class="somf-modal" hidden>
   <div class="somf-modal__backdrop"></div>
   <div class="somf-modal__card">
+    <button id="somf-min-close" class="somf-modal__x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <header class="somf-modal__hdr">
       <strong>Shard</strong>
-      <button id="somf-min-close" class="somf-btn somf-ghost">Close</button>
     </header>
     <div class="somf-modal__body">
       <h4 id="somf-min-name" class="somf-subttl">—</h4>
@@ -814,6 +823,11 @@
 </div>
 <div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
   <section class="modal">
+    <button id="dm-login-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>DM Login</h3>
     <input id="dm-login-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
     <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
@@ -821,6 +835,11 @@
 </div>
 <div class="overlay hidden" id="dm-notifications-modal" aria-hidden="true">
   <section class="modal">
+    <button id="dm-notifications-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
     <h3>Notifications</h3>
     <ol id="dm-notifications-list"></ol>
   </section>
