@@ -17,7 +17,10 @@ const vertexAI = getVertexAI(firebaseApp, { location: "us-central1" });
 const model = getGenerativeModel(vertexAI, {
   model: "gemini-1.5-flash",
   generationConfig: {
-    responseMimeTypes: ["text/plain", "image/png"],
+    // The Vertex AI API no longer accepts `responseMimeTypes`.
+    // Use the singular `responseMimeType` to request plain text
+    // responses while still allowing image parts when available.
+    responseMimeType: "text/plain",
   },
 });
 
