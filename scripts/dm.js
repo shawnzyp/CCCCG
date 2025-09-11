@@ -20,6 +20,8 @@ function initDMLogin(){
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
+  const charViewModal = document.getElementById('dm-character-modal');
+  const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
 
   if (loginPin) {
@@ -176,6 +178,7 @@ function initDMLogin(){
 
     async function openCharacters(){
       if(!charModal || !charList) return;
+      closeCharacterView();
       charModal.style.display = 'flex';
       charModal.classList.remove('hidden');
       charModal.setAttribute('aria-hidden','false');
@@ -185,7 +188,6 @@ function initDMLogin(){
       charList.innerHTML = names
         .map(n => `<li><button type="button">${n}</button></li>`)
         .join('');
-      if (charView) charView.innerHTML = '';
     }
 
   function closeCharacters(){
@@ -193,6 +195,20 @@ function initDMLogin(){
     charModal.classList.add('hidden');
     charModal.setAttribute('aria-hidden','true');
     charModal.style.display = 'none';
+  }
+
+  function openCharacterView(){
+    if(!charViewModal) return;
+    charViewModal.style.display='flex';
+    charViewModal.classList.remove('hidden');
+    charViewModal.setAttribute('aria-hidden','false');
+  }
+
+  function closeCharacterView(){
+    if(!charViewModal) return;
+    charViewModal.classList.add('hidden');
+    charViewModal.setAttribute('aria-hidden','true');
+    charViewModal.style.display='none';
   }
 
     function characterCard(data, name){
@@ -237,6 +253,7 @@ function initDMLogin(){
         const data = await loadCharacter(name);
         charView.innerHTML='';
         charView.appendChild(characterCard(data, name));
+        openCharacterView();
       } catch (err) {
         console.error('Failed to load character', err);
       }
@@ -289,6 +306,8 @@ function initDMLogin(){
   notifyClose?.addEventListener('click', closeNotifications);
   charModal?.addEventListener('click', e => { if(e.target===charModal) closeCharacters(); });
   charClose?.addEventListener('click', closeCharacters);
+  charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });
+  charViewClose?.addEventListener('click', closeCharacterView);
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
