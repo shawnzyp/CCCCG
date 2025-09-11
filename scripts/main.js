@@ -1061,7 +1061,7 @@ function playDamageAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
-  anim.textContent=`💥${amount}`;
+  anim.textContent=String(amount);
   anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
@@ -1113,7 +1113,7 @@ function playHealAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('heal-animation');
   if(!anim) return Promise.resolve();
-  anim.textContent=`💖+${amount}`;
+  anim.textContent=`+${amount}`;
   anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
@@ -1148,7 +1148,7 @@ function playCoinAnimation(result){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('coin-animation');
   if(!anim) return Promise.resolve();
-  anim.textContent=`🪙 ${result}`;
+  anim.textContent=result;
   anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
@@ -1166,7 +1166,7 @@ function playSPAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('sp-animation');
   if(!anim) return Promise.resolve();
-  anim.textContent = `✨${amount>0?'+':''}${amount}`;
+  anim.textContent = `${amount>0?'+':''}${amount}`;
   anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
