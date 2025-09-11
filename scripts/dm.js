@@ -213,12 +213,15 @@ function initDMLogin(){
       if(data.powers?.length){
         card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Powers</span><ul style=\"margin:4px 0 0 18px;padding:0\">${data.powers.map(p=>`<li>${p.name}${p.sp?` (${p.sp} SP)`:''}${p.range?`, ${p.range}`:''}${p.effect?`, ${p.effect}`:''}${p.save?`, ${p.save}`:''}</li>`).join('')}</ul></div>`;
       }
+      if(data.signatures?.length){
+        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Signatures</span><ul style=\"margin:4px 0 0 18px;padding:0\">${data.signatures.map(s=>`<li>${s.name}${s.sp?` (${s.sp} SP)`:''}${s.save?`, ${s.save}`:''}${s.special?`, ${s.special}`:''}${s.desc?`, ${s.desc}`:''}</li>`).join('')}</ul></div>`;
+      }
       if(data.weapons?.length){
         card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Weapons</span><div>${data.weapons.map(w=>`${w.name}${w.damage?` dmg ${w.damage}`:''}${w.range?` (${w.range})`:''}`).join('; ')}</div></div>`;
       }
       const gear=[];
-      (data.armors||[]).forEach(a=> gear.push(`${a.name}${a.slot?` (${a.slot})`:''}`));
-      (data.items||[]).forEach(i=> gear.push(`${i.name}${i.qty?` x${i.qty}`:''}`));
+      (data.armor||[]).forEach(a=> gear.push(`${a.name}${a.slot?` (${a.slot})`:''}${a.bonus?` +${a.bonus}`:''}${a.equipped?` [Equipped]`:''}`));
+      (data.items||[]).forEach(i=> gear.push(`${i.name}${i.qty?` x${i.qty}`:''}${i.notes?` (${i.notes})`:''}`));
       if(gear.length){
         card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Gear</span><ul style=\"margin:4px 0 0 18px;padding:0\">${gear.map(g=>`<li>${g}</li>`).join('')}</ul></div>`;
       }
