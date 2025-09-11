@@ -8,7 +8,6 @@ function initDMLogin(){
   const tsomfBtn = document.getElementById('dm-tools-tsomf');
   const notifyBtn = document.getElementById('dm-tools-notifications');
   const charBtn = document.getElementById('dm-tools-characters');
-  const wizardBtn = document.getElementById('dm-tools-wizard');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
@@ -337,19 +336,6 @@ function initDMLogin(){
       });
     }
 
-    function openWizard(){
-      const el=document.getElementById('wizard-tool');
-      const input=document.getElementById('wizard-input');
-      el?.scrollIntoView({behavior:'smooth'});
-      input?.focus();
-    }
-
-    if (wizardBtn) {
-      wizardBtn.addEventListener('click', () => {
-        if (menu) menu.hidden = true;
-        openWizard();
-      });
-    }
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });
   notifyClose?.addEventListener('click', closeNotifications);
