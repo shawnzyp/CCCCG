@@ -30,7 +30,8 @@ The application communicates with the database using its public REST API.
 ## Ask the Wizard
 
 A simple DM tool powered by Firebase's Gemini API. The "Ask the Wizard" section
-in the app streams a response from the `gemini-2.0-flash-live-preview-04-09`
-model for each prompt you send. Configure your Firebase project and update
-`scripts/wizard.js` with your credentials to enable the tool.
+in the app calls the `gemini-2.5-flash-image-preview` model for each prompt you
+send and can display both text and image responses. Configure your Firebase
+project and update `scripts/wizard.js` with your credentials to enable the
+tool.
 

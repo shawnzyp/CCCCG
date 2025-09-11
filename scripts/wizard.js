@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getAI, GoogleAIBackend, getLiveGenerativeModel, ResponseModality } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-ai.js";
+import { getAI, GoogleAIBackend, getGenerativeModel, ResponseModality } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-ai.js";
 
 // TODO: Replace with your Firebase project configuration
 const firebaseConfig = {
@@ -11,9 +11,11 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
-const model = getLiveGenerativeModel(ai, {
-  model: "gemini-2.0-flash-live-preview-04-09",
-  generationConfig: { responseModalities: [ResponseModality.TEXT] },
+const model = getGenerativeModel(ai, {
+  model: "gemini-2.5-flash-image-preview",
+  generationConfig: {
+    responseModalities: [ResponseModality.TEXT, ResponseModality.IMAGE],
+  },
 });
 
 async function sendPrompt() {
@@ -25,21 +27,13 @@ async function sendPrompt() {
     appendMessage("You", text);
     input.value = "";
 
-    const session = await model.connect();
-    session.send(text);
-
-    const chat = document.getElementById("wizard-chat");
-    const span = appendMessage("Wizard", "");
-    let response = "";
-    const messages = session.receive();
-    for await (const message of messages) {
-      if (message.type === "serverContent") {
-        const parts = message.modelTurn?.parts;
-        if (parts) {
-          response += parts.map((part) => part.text).join("");
-          span.textContent = response;
-          chat.scrollTop = chat.scrollHeight;
-        }
+    const result = await model.generateContent(text);
+    const parts = result.response?.candidates?.[0]?.content?.parts ?? [];
+    for (const part of parts) {
+      if (part.text) {
+        appendMessage("Wizard", part.text);
+      } else if (part.inlineData) {
+        appendImage(part.inlineData);
       }
     }
   } catch (e) {
@@ -64,4 +58,24 @@ function appendMessage(speaker, message) {
 const btn = document.getElementById("wizard-send");
 if (btn) {
   btn.addEventListener("click", sendPrompt);
+  const input = document.getElementById("wizard-input");
+  if (input) {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendPrompt();
+    });
+  }
+}
+
+function appendImage(data) {
+  const chat = document.getElementById("wizard-chat");
+  const div = document.createElement("div");
+  const strong = document.createElement("strong");
+  strong.textContent = "Wizard:";
+  div.appendChild(strong);
+  const img = document.createElement("img");
+  img.src = `data:${data.mimeType};base64,${data.data}`;
+  img.alt = "Wizard response image";
+  div.appendChild(img);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
 }
