@@ -100,4 +100,77 @@ describe('DM character viewer tool', () => {
     expect(loadCharacter).toHaveBeenCalledWith('Test');
     expect(view.textContent).toContain('Test');
   });
+
+  test('character card displays all character data', async () => {
+    if (!window.matchMedia) {
+      window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
+    }
+
+    const characterData = {
+      'hp-bar': '30/30',
+      tc: '12',
+      'sp-bar': '5/5',
+      str: 10,
+      dex: 12,
+      con: 14,
+      int: 8,
+      wis: 11,
+      cha: 13,
+      powers: [{ name: 'Fireball', sp: '2', range: '30', effect: 'boom', save: 'DEX' }],
+      signatures: [{ name: 'Signature', sp: '1', save: 'STR', special: 'Knockback', desc: 'Strong' }],
+      weapons: [{ name: 'Sword', damage: '1d8', range: 'melee' }],
+      armor: [{ name: 'Chainmail', slot: 'Body', bonus: 1, equipped: true }],
+      items: [{ name: 'Potion', qty: 2, notes: 'healing' }]
+    };
+
+    const listCharacters = jest.fn(async () => ['Hero']);
+    const currentCharacter = jest.fn(() => null);
+    const setCurrentCharacter = jest.fn();
+    const loadCharacter = jest.fn(async () => characterData);
+    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
+
+    sessionStorage.setItem('dmLoggedIn', '1');
+
+    document.body.innerHTML = `
+      <div id="dm-tools-menu"></div>
+      <button id="dm-tools-tsomf"></button>
+      <button id="dm-tools-notifications"></button>
+      <button id="dm-tools-characters"></button>
+      <button id="dm-tools-logout"></button>
+      <div id="dm-login"></div>
+      <div id="dm-login-modal"></div>
+      <input id="dm-login-pin" />
+      <button id="dm-login-submit"></button>
+      <button id="dm-login-close"></button>
+      <div id="dm-notifications-modal"></div>
+      <div id="dm-notifications-list"></div>
+      <button id="dm-notifications-close"></button>
+      <div id="dm-characters-modal" class="overlay hidden" aria-hidden="true">
+        <section class="modal dm-characters">
+          <button id="dm-characters-close"></button>
+          <ul id="dm-characters-list"></ul>
+          <div id="dm-character-sheet"></div>
+        </section>
+      </div>
+      <div id="modal-load" class="overlay hidden" aria-hidden="true"></div>
+      <div id="modal-load-list" class="overlay hidden" aria-hidden="true"></div>
+      <div id="load-confirm-text"></div>
+    `;
+
+    await import('../scripts/dm.js');
+
+    document.getElementById('dm-tools-characters').click();
+    await new Promise(r => setTimeout(r, 0));
+    const btn = document.querySelector('#dm-characters-list button');
+    btn.click();
+    await new Promise(r => setTimeout(r, 0));
+    const view = document.getElementById('dm-character-sheet');
+    const text = view.textContent;
+    expect(text).toContain('Fireball');
+    expect(text).toContain('Signature');
+    expect(text).toContain('Sword');
+    expect(text).toContain('Chainmail');
+    expect(text).toContain('Potion x2');
+    expect(text).toContain('healing');
+  });
 });
