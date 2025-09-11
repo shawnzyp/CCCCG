@@ -15,7 +15,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 // Explicitly set the region used for Vertex AI requests
 const vertexAI = getVertexAI(firebaseApp, { location: "us-central1" });
 const model = getGenerativeModel(vertexAI, {
-  model: "gemini-2.5-flash-image-preview",
+  model: "gemini-1.5-flash",
   generationConfig: {
     responseMimeTypes: ["text/plain", "image/png"],
   },
@@ -43,7 +43,7 @@ async function sendPrompt() {
     }
   } catch (e) {
     console.error("Wizard error:", e);
-    appendMessage("Wizard", "There was an error talking to the tower.");
+    appendMessage("Wizard", `There was an error talking to the tower: ${e.message}`);
   }
 }
 
