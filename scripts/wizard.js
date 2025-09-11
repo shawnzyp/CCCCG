@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
-import { getAI, GoogleAIBackend, getGenerativeModel, ResponseModality } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-ai.js";
+import { getVertexAI, getGenerativeModel } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-vertexai.js";
 
 // TODO: Replace with your Firebase project configuration
 const firebaseConfig = {
@@ -10,11 +10,11 @@ const firebaseConfig = {
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
-const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
-const model = getGenerativeModel(ai, {
+const vertexAI = getVertexAI(firebaseApp);
+const model = getGenerativeModel(vertexAI, {
   model: "gemini-2.5-flash-image-preview",
   generationConfig: {
-    responseModalities: [ResponseModality.TEXT, ResponseModality.IMAGE],
+    responseMimeTypes: ["text/plain", "image/png"],
   },
 });
 
