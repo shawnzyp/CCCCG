@@ -1496,6 +1496,23 @@ function openCharacterModalByName(name){
 }
 window.openCharacterModal = openCharacterModalByName;
 
+const params = new URLSearchParams(window.location.search);
+const autoChar = params.get('char');
+if (autoChar) {
+  (async () => {
+    const prev = currentCharacter();
+    try {
+      setCurrentCharacter(autoChar);
+      const data = await loadCharacter(autoChar);
+      deserialize(data);
+    } catch (e) {
+      console.error('Failed to load character from URL', e);
+    } finally {
+      setCurrentCharacter(prev);
+    }
+  })();
+}
+
 /* ========= Card Helper ========= */
 const CARD_CONFIG = {
   power: {
