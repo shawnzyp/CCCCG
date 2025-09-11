@@ -1,16 +1,19 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getVertexAI, getGenerativeModel } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-vertexai.js";
 
-// TODO: Replace with your Firebase project configuration
+// Firebase project configuration for Vertex AI access
+// NOTE: Do not expose the API key publicly in production.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyA3DZNONr73L62eERENpVOnujzyxhoiydY",
+  authDomain: "ccccg-7d6b6.firebaseapp.com",
+  projectId: "ccccg-7d6b6",
+  // Example app ID using the provided project number
+  appId: "1:705656976850:web:placeholder",
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
-const vertexAI = getVertexAI(firebaseApp);
+// Explicitly set the region used for Vertex AI requests
+const vertexAI = getVertexAI(firebaseApp, { location: "us-central1" });
 const model = getGenerativeModel(vertexAI, {
   model: "gemini-2.5-flash-image-preview",
   generationConfig: {
