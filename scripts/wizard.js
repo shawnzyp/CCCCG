@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getVertexAI, getGenerativeModel } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-vertexai.js";
+import { formatVertexAIError } from "./wizard_helpers.js";
 
 // Firebase project configuration for Vertex AI access
 // NOTE: Do not expose the API key publicly in production.
@@ -43,7 +44,7 @@ async function sendPrompt() {
     }
   } catch (e) {
     console.error("Wizard error:", e);
-    appendMessage("Wizard", `There was an error talking to the tower: ${e.message}`);
+    appendMessage("Wizard", formatVertexAIError(e));
   }
 }
 
