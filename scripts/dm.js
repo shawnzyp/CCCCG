@@ -1,4 +1,4 @@
-import { listCharacters, currentCharacter, setCurrentCharacter } from './characters.js';
+import { listCharacters, currentCharacter, setCurrentCharacter, loadCharacter } from './characters.js';
 import { DM_PIN } from './dm-pin.js';
 const notifications = [];
 
@@ -8,6 +8,7 @@ function initDMLogin(){
   const tsomfBtn = document.getElementById('dm-tools-tsomf');
   const notifyBtn = document.getElementById('dm-tools-notifications');
   const charBtn = document.getElementById('dm-tools-characters');
+  const wizardBtn = document.getElementById('dm-tools-wizard');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
@@ -19,7 +20,7 @@ function initDMLogin(){
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
-  const charFrame = document.getElementById('dm-character-sheet');
+  const charView = document.getElementById('dm-character-sheet');
 
   if (loginPin) {
     loginPin.type = 'password';
@@ -173,19 +174,19 @@ function initDMLogin(){
     notifyModal.style.display = 'none';
   }
 
-  async function openCharacters(){
-    if(!charModal || !charList) return;
-    charModal.style.display = 'flex';
-    charModal.classList.remove('hidden');
-    charModal.setAttribute('aria-hidden','false');
-    let names = [];
-    try { names = await listCharacters(); }
-    catch(e){ console.error('Failed to list characters', e); }
-    charList.innerHTML = names
-      .map(n => `<li><button type="button">${n}</button></li>`)
-      .join('');
-    if (charFrame) charFrame.src = '';
-  }
+    async function openCharacters(){
+      if(!charModal || !charList) return;
+      charModal.style.display = 'flex';
+      charModal.classList.remove('hidden');
+      charModal.setAttribute('aria-hidden','false');
+      let names = [];
+      try { names = await listCharacters(); }
+      catch(e){ console.error('Failed to list characters', e); }
+      charList.innerHTML = names
+        .map(n => `<li><button type="button">${n}</button></li>`)
+        .join('');
+      if (charView) charView.innerHTML = '';
+    }
 
   function closeCharacters(){
     if(!charModal) return;
@@ -194,16 +195,49 @@ function initDMLogin(){
     charModal.style.display = 'none';
   }
 
-  charList?.addEventListener('click', e => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    const name = btn.textContent?.trim();
-    if (!name || !charFrame) return;
-    try {
-      charFrame.contentWindow.sessionStorage.setItem('dmLoggedIn','1');
-    } catch {}
-    charFrame.src = `index.html?char=${encodeURIComponent(name)}`;
-  });
+    function characterCard(data, name){
+      const card=document.createElement('div');
+      card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+      const abilityGrid=['STR','DEX','CON','INT','WIS','CHA']
+        .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${data[k.toLowerCase()]||''}</div></div>`)
+        .join('');
+      card.innerHTML=`
+        <div><strong>${name}</strong></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
+          <div><span style="opacity:.8;font-size:12px">HP</span><div>${data['hp-bar']||''}</div></div>
+          <div><span style="opacity:.8;font-size:12px">TC</span><div>${data.tc||''}</div></div>
+          <div><span style="opacity:.8;font-size:12px">SP</span><div>${data['sp-bar']||''}</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
+      `;
+      if(data.powers?.length){
+        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Powers</span><ul style=\"margin:4px 0 0 18px;padding:0\">${data.powers.map(p=>`<li>${p.name}${p.sp?` (${p.sp} SP)`:''}${p.range?`, ${p.range}`:''}${p.effect?`, ${p.effect}`:''}${p.save?`, ${p.save}`:''}</li>`).join('')}</ul></div>`;
+      }
+      if(data.weapons?.length){
+        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Weapons</span><div>${data.weapons.map(w=>`${w.name}${w.damage?` dmg ${w.damage}`:''}${w.range?` (${w.range})`:''}`).join('; ')}</div></div>`;
+      }
+      const gear=[];
+      (data.armors||[]).forEach(a=> gear.push(`${a.name}${a.slot?` (${a.slot})`:''}`));
+      (data.items||[]).forEach(i=> gear.push(`${i.name}${i.qty?` x${i.qty}`:''}`));
+      if(gear.length){
+        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Gear</span><ul style=\"margin:4px 0 0 18px;padding:0\">${gear.map(g=>`<li>${g}</li>`).join('')}</ul></div>`;
+      }
+      return card;
+    }
+
+    charList?.addEventListener('click', async e => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const name = btn.textContent?.trim();
+      if (!name || !charView) return;
+      try {
+        const data = await loadCharacter(name);
+        charView.innerHTML='';
+        charView.appendChild(characterCard(data, name));
+      } catch (err) {
+        console.error('Failed to load character', err);
+      }
+    });
 
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
 
@@ -227,12 +261,26 @@ function initDMLogin(){
     });
   }
 
-  if (charBtn) {
-    charBtn.addEventListener('click', () => {
-      if (menu) menu.hidden = true;
-      openCharacters();
-    });
-  }
+    if (charBtn) {
+      charBtn.addEventListener('click', () => {
+        if (menu) menu.hidden = true;
+        openCharacters();
+      });
+    }
+
+    function openWizard(){
+      const el=document.getElementById('wizard-tool');
+      const input=document.getElementById('wizard-input');
+      el?.scrollIntoView({behavior:'smooth'});
+      input?.focus();
+    }
+
+    if (wizardBtn) {
+      wizardBtn.addEventListener('click', () => {
+        if (menu) menu.hidden = true;
+        openWizard();
+      });
+    }
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });
   notifyClose?.addEventListener('click', closeNotifications);

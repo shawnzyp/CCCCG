@@ -13,7 +13,8 @@ describe('DM character viewer tool', () => {
     const listCharacters = jest.fn(async () => ['The DM']);
     const currentCharacter = jest.fn(() => null);
     const setCurrentCharacter = jest.fn();
-    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter }));
+    const loadCharacter = jest.fn(async () => ({}));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
@@ -35,7 +36,7 @@ describe('DM character viewer tool', () => {
         <section class="modal dm-characters">
           <button id="dm-characters-close"></button>
           <ul id="dm-characters-list"></ul>
-          <iframe id="dm-character-sheet"></iframe>
+          <div id="dm-character-sheet"></div>
         </section>
       </div>
     `;
@@ -57,7 +58,8 @@ describe('DM character viewer tool', () => {
     const listCharacters = jest.fn(async () => ['Test']);
     const currentCharacter = jest.fn(() => null);
     const setCurrentCharacter = jest.fn();
-    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter }));
+    const loadCharacter = jest.fn(async () => ({ str: 10 }));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
@@ -79,7 +81,7 @@ describe('DM character viewer tool', () => {
         <section class="modal dm-characters">
           <button id="dm-characters-close"></button>
           <ul id="dm-characters-list"></ul>
-          <iframe id="dm-character-sheet"></iframe>
+          <div id="dm-character-sheet"></div>
         </section>
       </div>
       <div id="modal-load" class="overlay hidden" aria-hidden="true"></div>
@@ -93,8 +95,9 @@ describe('DM character viewer tool', () => {
     await new Promise(r => setTimeout(r, 0));
     const btn = document.querySelector('#dm-characters-list button');
     btn.click();
-
-    const frame = document.getElementById('dm-character-sheet');
-    expect(frame.src).toContain('index.html?char=Test');
+    await new Promise(r => setTimeout(r, 0));
+    const view = document.getElementById('dm-character-sheet');
+    expect(loadCharacter).toHaveBeenCalledWith('Test');
+    expect(view.textContent).toContain('Test');
   });
 });
