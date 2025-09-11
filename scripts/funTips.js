@@ -84,7 +84,6 @@ const tips = [
   'Sing to your gear; it might level up.',
   'Dodge rolls make excellent dance moves.',
   'A balanced diet includes victory and pie.',
-  'Wizards love libraries; befriend librarians.',
   'Use your environment; walls are just big shields.',
   'Never loan your only weapon.',
   'A friendly wave can stop a battle.',
