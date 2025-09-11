@@ -35,6 +35,7 @@ describe('DM character viewer tool', () => {
         <section class="modal dm-characters">
           <button id="dm-characters-close"></button>
           <ul id="dm-characters-list"></ul>
+          <iframe id="dm-character-sheet"></iframe>
         </section>
       </div>
     `;
@@ -78,14 +79,13 @@ describe('DM character viewer tool', () => {
         <section class="modal dm-characters">
           <button id="dm-characters-close"></button>
           <ul id="dm-characters-list"></ul>
+          <iframe id="dm-character-sheet"></iframe>
         </section>
       </div>
       <div id="modal-load" class="overlay hidden" aria-hidden="true"></div>
       <div id="modal-load-list" class="overlay hidden" aria-hidden="true"></div>
       <div id="load-confirm-text"></div>
     `;
-
-    window.openCharacterModal = jest.fn();
 
     await import('../scripts/dm.js');
 
@@ -94,6 +94,7 @@ describe('DM character viewer tool', () => {
     const btn = document.querySelector('#dm-characters-list button');
     btn.click();
 
-    expect(window.openCharacterModal).toHaveBeenCalledWith('Test');
+    const frame = document.getElementById('dm-character-sheet');
+    expect(frame.src).toContain('index.html?char=Test');
   });
 });

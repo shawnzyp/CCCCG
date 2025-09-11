@@ -19,6 +19,7 @@ function initDMLogin(){
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
+  const charFrame = document.getElementById('dm-character-sheet');
 
   if (loginPin) {
     loginPin.type = 'password';
@@ -183,6 +184,7 @@ function initDMLogin(){
     charList.innerHTML = names
       .map(n => `<li><button type="button">${n}</button></li>`)
       .join('');
+    if (charFrame) charFrame.src = '';
   }
 
   function closeCharacters(){
@@ -196,8 +198,11 @@ function initDMLogin(){
     const btn = e.target.closest('button');
     if (!btn) return;
     const name = btn.textContent?.trim();
-    closeCharacters();
-    window.openCharacterModal?.(name);
+    if (!name || !charFrame) return;
+    try {
+      charFrame.contentWindow.sessionStorage.setItem('dmLoggedIn','1');
+    } catch {}
+    charFrame.src = `index.html?char=${encodeURIComponent(name)}`;
   });
 
   if (dmBtn) dmBtn.addEventListener('click', toggleMenu);

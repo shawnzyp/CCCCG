@@ -517,6 +517,7 @@ body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
 .modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 #dm-characters-modal .modal.dm-characters{max-width:none;width:100%;height:100%;max-height:none;display:flex;flex-direction:column}
 #dm-characters-modal .dm-characters-list{list-style:none;margin:0;padding:0;flex:1;overflow:auto}
+#dm-characters-modal .dm-character-sheet{flex:3;border:0}
 #modal-help{align-items:flex-start;overflow-y:auto}
 #modal-help .modal{max-height:none}
 #modal-help .feature-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:90%}
