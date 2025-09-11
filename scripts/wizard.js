@@ -14,14 +14,11 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 // Explicitly set the region used for Vertex AI requests
 const vertexAI = getVertexAI(firebaseApp, { location: "us-central1" });
+// `responseMimeTypes` is no longer supported by Vertex AI. The default
+// configuration already returns plain text and image parts when available,
+// so no generation config is provided here.
 const model = getGenerativeModel(vertexAI, {
   model: "gemini-1.5-flash",
-  generationConfig: {
-    // The Vertex AI API no longer accepts `responseMimeTypes`.
-    // Use the singular `responseMimeType` to request plain text
-    // responses while still allowing image parts when available.
-    responseMimeType: "text/plain",
-  },
 });
 
 async function sendPrompt() {
