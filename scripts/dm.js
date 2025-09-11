@@ -217,6 +217,24 @@ function initDMLogin(){
       const abilityGrid=['STR','DEX','CON','INT','WIS','CHA']
         .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${data[k.toLowerCase()]||''}</div></div>`)
         .join('');
+      const perkGrid=[
+        ['Alignment', data.alignment],
+        ['Classification', data.classification],
+        ['Power Style', data['power-style']],
+        ['Origin', data.origin],
+        ['Tier', data.tier]
+      ]
+        .filter(([,v])=>v)
+        .map(([l,v])=>`<div><span style=\"opacity:.8;font-size:12px\">${l}</span><div>${v}</div></div>`)
+        .join('');
+      const statsGrid=[
+        ['Init', data.initiative],
+        ['Speed', data.speed],
+        ['PP', data.pp]
+      ]
+        .filter(([,v])=>v)
+        .map(([l,v])=>`<div><span style=\"opacity:.8;font-size:12px\">${l}</span><div>${v}</div></div>`)
+        .join('');
       card.innerHTML=`
         <div><strong>${name}</strong></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
@@ -225,6 +243,8 @@ function initDMLogin(){
           <div><span style="opacity:.8;font-size:12px">SP</span><div>${data['sp-bar']||''}</div></div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
+        ${perkGrid?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">${perkGrid}</div>`:''}
+        ${statsGrid?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${statsGrid}</div>`:''}
       `;
       if(data.powers?.length){
         card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Powers</span><ul style=\"margin:4px 0 0 18px;padding:0\">${data.powers.map(p=>`<li>${p.name}${p.sp?` (${p.sp} SP)`:''}${p.range?`, ${p.range}`:''}${p.effect?`, ${p.effect}`:''}${p.save?`, ${p.save}`:''}</li>`).join('')}</ul></div>`;
@@ -240,6 +260,28 @@ function initDMLogin(){
       (data.items||[]).forEach(i=> gear.push(`${i.name}${i.qty?` x${i.qty}`:''}${i.notes?` (${i.notes})`:''}`));
       if(gear.length){
         card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Gear</span><ul style=\"margin:4px 0 0 18px;padding:0\">${gear.map(g=>`<li>${g}</li>`).join('')}</ul></div>`;
+      }
+      if(data['story-notes']){
+        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Backstory / Notes</span><div>${data['story-notes']}</div></div>`;
+      }
+      const qMap={
+        'q-mask':'Who are you behind the mask?',
+        'q-justice':'What does justice mean to you?',
+        'q-fear':'What is your biggest fear or unresolved trauma?',
+        'q-first-power':'What moment first defined your sense of power—was it thrilling, terrifying, or tragic?',
+        'q-origin-meaning':'What does your Origin Story mean to you now?',
+        'q-before-powers':'What was your life like before you had powers or before you remembered having them?',
+        'q-power-scare':'What is one way your powers scare even you?',
+        'q-signature-move':'What is your signature move or ability, and how does it reflect who you are?',
+        'q-emotional':'What happens to your powers when you are emotionally compromised?',
+        'q-no-line':'What line will you never cross even if the world burns around you?'
+      };
+      const qList=Object.entries(qMap)
+        .filter(([k])=>data[k])
+        .map(([k,q])=>`<li><strong>${q}</strong> ${data[k]}</li>`)
+        .join('');
+      if(qList){
+        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Character Questions</span><ul style=\"margin:4px 0 0 18px;padding:0\">${qList}</ul></div>`;
       }
       return card;
     }
