@@ -529,6 +529,16 @@
     </div>
   </fieldset>
 
+  <!-- Ask the Wizard DM tool -->
+  <section id="wizard-tool" class="card">
+    <h3 class="card-title">Ask the Wizard</h3>
+    <div id="wizard-chat" class="wizard-chat" aria-live="polite"></div>
+    <div class="wizard-input-row">
+      <input id="wizard-input" type="text" placeholder="Ask the Wizard..." />
+      <button id="wizard-send" type="button">Send</button>
+    </div>
+  </section>
+
 
 </main>
 
@@ -936,6 +946,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="scripts/main.js"></script>
 <script type="module" src="scripts/dm.js"></script>
+<script type="module" src="scripts/wizard.js"></script>
 <script src="shard-of-many-fates.js"></script>
 
 </body>
