@@ -186,7 +186,7 @@ function initDMLogin(){
       try { names = await listCharacters(); }
       catch(e){ console.error('Failed to list characters', e); }
       charList.innerHTML = names
-        .map(n => `<li><button type="button">${n}</button></li>`)
+        .map(n => `<li><a href="#">${n}</a></li>`)
         .join('');
     }
 
@@ -214,8 +214,9 @@ function initDMLogin(){
     function characterCard(data, name){
       const card=document.createElement('div');
       card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+      const labeled=(l,v)=>v?`<div><span style="opacity:.8;font-size:12px">${l}</span><div>${v}</div></div>`:'';
       const abilityGrid=['STR','DEX','CON','INT','WIS','CHA']
-        .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${data[k.toLowerCase()]||''}</div></div>`)
+        .map(k=>labeled(k,data[k.toLowerCase()]||''))
         .join('');
       const perkGrid=[
         ['Alignment', data.alignment],
@@ -225,7 +226,7 @@ function initDMLogin(){
         ['Tier', data.tier]
       ]
         .filter(([,v])=>v)
-        .map(([l,v])=>`<div><span style=\"opacity:.8;font-size:12px\">${l}</span><div>${v}</div></div>`)
+        .map(([l,v])=>labeled(l,v))
         .join('');
       const statsGrid=[
         ['Init', data.initiative],
@@ -233,33 +234,39 @@ function initDMLogin(){
         ['PP', data.pp]
       ]
         .filter(([,v])=>v)
-        .map(([l,v])=>`<div><span style=\"opacity:.8;font-size:12px\">${l}</span><div>${v}</div></div>`)
+        .map(([l,v])=>labeled(l,v))
         .join('');
       card.innerHTML=`
         <div><strong>${name}</strong></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
-          <div><span style="opacity:.8;font-size:12px">HP</span><div>${data['hp-bar']||''}</div></div>
-          <div><span style="opacity:.8;font-size:12px">TC</span><div>${data.tc||''}</div></div>
-          <div><span style="opacity:.8;font-size:12px">SP</span><div>${data['sp-bar']||''}</div></div>
+          ${labeled('HP', data['hp-bar']||'')}
+          ${labeled('TC', data.tc||'')}
+          ${labeled('SP', data['sp-bar']||'')}
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
         ${perkGrid?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">${perkGrid}</div>`:''}
         ${statsGrid?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${statsGrid}</div>`:''}
       `;
+      const renderList=(title, items)=>`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${items.join('')}</ul></div>`;
       if(data.powers?.length){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Powers</span><ul style=\"margin:4px 0 0 18px;padding:0\">${data.powers.map(p=>`<li>${p.name}${p.sp?` (${p.sp} SP)`:''}${p.range?`, ${p.range}`:''}${p.effect?`, ${p.effect}`:''}${p.save?`, ${p.save}`:''}</li>`).join('')}</ul></div>`;
+        const powers=data.powers.map(p=>`<li>${labeled('Name',p.name)}${labeled('SP',p.sp)}${labeled('Range',p.range)}${labeled('Effect',p.effect)}${labeled('Save',p.save)}</li>`);
+        card.innerHTML+=renderList('Powers',powers);
       }
       if(data.signatures?.length){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Signatures</span><ul style=\"margin:4px 0 0 18px;padding:0\">${data.signatures.map(s=>`<li>${s.name}${s.sp?` (${s.sp} SP)`:''}${s.save?`, ${s.save}`:''}${s.special?`, ${s.special}`:''}${s.desc?`, ${s.desc}`:''}</li>`).join('')}</ul></div>`;
+        const sigs=data.signatures.map(s=>`<li>${labeled('Name',s.name)}${labeled('SP',s.sp)}${labeled('Save',s.save)}${labeled('Special',s.special)}${labeled('Description',s.desc)}</li>`);
+        card.innerHTML+=renderList('Signatures',sigs);
       }
       if(data.weapons?.length){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Weapons</span><div>${data.weapons.map(w=>`${w.name}${w.damage?` dmg ${w.damage}`:''}${w.range?` (${w.range})`:''}`).join('; ')}</div></div>`;
+        const weapons=data.weapons.map(w=>`<li>${labeled('Name',w.name)}${labeled('Damage',w.damage)}${labeled('Range',w.range)}</li>`);
+        card.innerHTML+=renderList('Weapons',weapons);
       }
-      const gear=[];
-      (data.armor||[]).forEach(a=> gear.push(`${a.name}${a.slot?` (${a.slot})`:''}${a.bonus?` +${a.bonus}`:''}${a.equipped?` [Equipped]`:''}`));
-      (data.items||[]).forEach(i=> gear.push(`${i.name}${i.qty?` x${i.qty}`:''}${i.notes?` (${i.notes})`:''}`));
-      if(gear.length){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Gear</span><ul style=\"margin:4px 0 0 18px;padding:0\">${gear.map(g=>`<li>${g}</li>`).join('')}</ul></div>`;
+      if(data.armor?.length){
+        const armor=data.armor.map(a=>`<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${a.bonus?labeled('Bonus',`+${a.bonus}`):''}${a.equipped?labeled('Equipped','Yes'):''}</li>`);
+        card.innerHTML+=renderList('Armor',armor);
+      }
+      if(data.items?.length){
+        const items=data.items.map(i=>`<li>${labeled('Name',i.name)}${labeled('Qty',i.qty)}${labeled('Notes',i.notes)}</li>`);
+        card.innerHTML+=renderList('Items',items);
       }
       if(data['story-notes']){
         card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Backstory / Notes</span><div>${data['story-notes']}</div></div>`;
@@ -287,9 +294,9 @@ function initDMLogin(){
     }
 
     charList?.addEventListener('click', async e => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-      const name = btn.textContent?.trim();
+      const link = e.target.closest('a');
+      if (!link) return;
+      const name = link.textContent?.trim();
       if (!name || !charView) return;
       try {
         const data = await loadCharacter(name);

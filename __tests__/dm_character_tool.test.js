@@ -93,8 +93,8 @@ describe('DM character viewer tool', () => {
 
     document.getElementById('dm-tools-characters').click();
     await new Promise(r => setTimeout(r, 0));
-    const btn = document.querySelector('#dm-characters-list button');
-    btn.click();
+    const link = document.querySelector('#dm-characters-list a');
+    link.click();
     await new Promise(r => setTimeout(r, 0));
     const view = document.getElementById('dm-character-sheet');
     expect(loadCharacter).toHaveBeenCalledWith('Test');
@@ -161,8 +161,8 @@ describe('DM character viewer tool', () => {
 
     document.getElementById('dm-tools-characters').click();
     await new Promise(r => setTimeout(r, 0));
-    const btn = document.querySelector('#dm-characters-list button');
-    btn.click();
+    const link = document.querySelector('#dm-characters-list a');
+    link.click();
     await new Promise(r => setTimeout(r, 0));
     const view = document.getElementById('dm-character-sheet');
     const text = view.textContent;
@@ -170,7 +170,9 @@ describe('DM character viewer tool', () => {
     expect(text).toContain('Signature');
     expect(text).toContain('Sword');
     expect(text).toContain('Chainmail');
-    expect(text).toContain('Potion x2');
+    expect(text).toContain('Potion');
+    expect(text).toContain('Qty');
+    expect(text).toContain('2');
     expect(text).toContain('healing');
   });
 });
