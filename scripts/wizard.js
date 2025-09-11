@@ -30,7 +30,9 @@ async function sendPrompt() {
     appendMessage("You", text);
     input.value = "";
 
-    const result = await model.generateContent(text);
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text }] }],
+    });
     const parts = result.response?.candidates?.[0]?.content?.parts ?? [];
     for (const part of parts) {
       if (part.text) {
@@ -40,6 +42,7 @@ async function sendPrompt() {
       }
     }
   } catch (e) {
+    console.error("Wizard error:", e);
     appendMessage("Wizard", "There was an error talking to the tower.");
   }
 }
