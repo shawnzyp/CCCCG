@@ -64,15 +64,12 @@ export function setCurrentCharacter(name) {
 }
 
 export async function listCharacters() {
-  const local = listLocalSaves().map(n => (n === 'DM' ? 'The DM' : n));
   try {
-    const cloud = (await listCloudSaves()).map(n => (n === 'DM' ? 'The DM' : n));
-    return Array.from(new Set([...local, ...cloud])).sort((a, b) =>
-      a.localeCompare(b)
-    );
+    const cloud = (await listCloudSaves()).map((n) => (n === 'DM' ? 'The DM' : n));
+    return cloud.sort((a, b) => a.localeCompare(b));
   } catch (e) {
     console.error('Failed to list cloud saves', e);
-    return Array.from(new Set(local)).sort((a, b) => a.localeCompare(b));
+    return [];
   }
 }
 
