@@ -1332,7 +1332,7 @@ async function renderCharacterList(){
   try { names = await listCharacters(); }
   catch (e) { console.error('Failed to list characters', e); }
   const current = currentCharacter();
-  list.innerHTML = names.map(c=>`<div class="catalog-item${c===current?' active':''}"><button class="btn-sm" data-char="${c}">${c}</button>${c==='The DM'?'':'<button class="btn-sm" data-del="'+c+'"></button>'}</div>`).join('');
+  list.innerHTML = names.map(c=>`<div class="catalog-item${c===current?' active':''}"><a href="#" data-char="${c}">${c}</a>${c==='The DM'?'':'<button class="btn-sm" data-del="'+c+'"></button>'}</div>`).join('');
   applyDeleteIcons(list);
   selectedChar = current;
 }
@@ -1370,9 +1370,10 @@ let selectedChar = null;
 const charList = $('char-list');
 if(charList){
   charList.addEventListener('click', e=>{
-    const loadBtn = e.target.closest('button[data-char]');
+    const loadBtn = e.target.closest('[data-char]');
     const delBtn = e.target.closest('button[data-del]');
     if(loadBtn){
+      e.preventDefault();
       selectedChar = loadBtn.dataset.char;
       qsa('#char-list .catalog-item').forEach(ci=> ci.classList.remove('active'));
       const item = loadBtn.closest('.catalog-item');
@@ -1436,13 +1437,6 @@ if(newCharBtn){
   });
 }
 
-const saveCurrentBtn = $('save-current');
-if(saveCurrentBtn){
-  saveCurrentBtn.addEventListener('click', async ()=>{
-    try{ await saveCharacter(serialize()); toast('Saved','success'); }
-    catch(e){ toast('Save failed','error'); }
-  });
-}
 
 
 const recoverListEl = $('recover-list');

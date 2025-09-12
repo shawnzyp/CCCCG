@@ -569,9 +569,7 @@ progress::-moz-progress-bar{
 .catalog-item.active{background:var(--accent);color:var(--text-on-accent)}
 .catalog-item.active .pill{border-color:var(--text-on-accent);color:var(--text-on-accent)}
 #char-list .catalog-item{grid-template-columns:1fr auto}
-.load-layout{display:flex;gap:16px;align-items:flex-start}
-.load-actions{display:flex;flex-direction:column;gap:10px;min-width:120px}
-.load-actions button{width:100%}
+#char-list .catalog-item a{color:inherit;text-decoration:none;display:block}
 .small{font-size:.9rem;color:var(--muted)}
 .overlay{position:fixed;top:0;left:0;right:0;height:calc(var(--vh,1vh)*100);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(2px);z-index:1000;padding:16px calc(20px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));opacity:1;pointer-events:auto;transition:opacity .3s ease-in-out;will-change:opacity}
 .overlay.hidden{opacity:0;pointer-events:none}
