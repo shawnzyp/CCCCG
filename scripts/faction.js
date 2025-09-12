@@ -80,6 +80,12 @@ export function updateFactionRep(handlePerkEffects = () => {}) {
       if (isAction) {
         const id = `${f}-rep-perk-act`;
         perkEl.innerHTML = `<label class="inline"><input type="checkbox" id="${id}"/> ${text}</label>`;
+        const cb = perkEl.querySelector(`#${id}`);
+        if (cb) {
+          cb.addEventListener('change', () => {
+            window.logAction?.(`${text} perk ${cb.checked ? 'used' : 'reset'}`);
+          });
+        }
       } else {
         perkEl.textContent = text;
       }
