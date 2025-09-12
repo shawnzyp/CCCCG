@@ -292,6 +292,13 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
+}
+#down-animation::before{
+  content:"";width:1em;height:1em;
+  background:
+    linear-gradient(currentColor,currentColor) 50% 20%/15% 60% no-repeat,
+    radial-gradient(circle,currentColor 60%,transparent 61%) 50% 85%/15% 15% no-repeat;
 }
 #down-animation.show{
   animation:downFlash 1.5s ease-in-out forwards;
@@ -314,6 +321,14 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
+}
+#death-animation::before{
+  content:"";width:1em;height:1em;
+  background:
+    linear-gradient(45deg,transparent 40%,currentColor 40% 60%,transparent 60%),
+    linear-gradient(-45deg,transparent 40%,currentColor 40% 60%,transparent 60%);
+  background-size:100% 100%;
 }
 #death-animation.show{
   animation:deathFade 2s ease-in-out forwards;
@@ -336,9 +351,16 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
+  gap:.25em;
 }
 #damage-animation.show{
   animation:damagePop 1s ease-in-out forwards;
+}
+#damage-animation::before{
+  content:"";width:1em;height:1em;
+  background:currentColor;
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
 }
 @keyframes damagePop{
   0%{transform:scale(0) rotate(-45deg);opacity:0;}
@@ -358,9 +380,15 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
+  gap:.25em;
 }
 #heal-animation.show{
   animation:healRise 1s ease-in-out forwards;
+}
+#heal-animation::before{
+  content:"";width:1em;height:1em;background:currentColor;
+  clip-path:polygon(50% 0%,61% 19%,78% 19%,100% 41%,100% 68%,50% 100%,0 68%,0 41%,22% 19%,39% 19%);
 }
 @keyframes healRise{
   0%{transform:translateY(20px) scale(0);opacity:0;}
@@ -380,9 +408,14 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
 }
 #save-animation.show{
   animation:saveSpin 1s ease-in-out forwards;
+}
+#save-animation::before{
+  content:"";width:1em;height:1em;background:currentColor;
+  clip-path:polygon(0 55%,15% 55%,35% 75%,100% 0,85% 0,35% 60%);
 }
 @keyframes saveSpin{
   0%{transform:scale(0) rotate(-360deg);opacity:0;}
@@ -402,9 +435,19 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
+  gap:.25em;
 }
 #coin-animation.show{
   animation:coinFlip 1s ease-in-out forwards;
+}
+#coin-animation::before{
+  content:"";width:1em;height:1em;
+  background:
+    radial-gradient(circle at 30% 30%,rgba(255,255,255,.6)0%,rgba(255,255,255,0)60%),
+    radial-gradient(circle at 70% 70%,rgba(0,0,0,.4)0%,rgba(0,0,0,0)60%),
+    linear-gradient(to right,#d4af37,#f9e79f);
+  border-radius:50%;
 }
 @keyframes coinFlip{
   0%{transform:translateY(-50px) scale(0) rotateY(0);opacity:0;}
@@ -424,9 +467,15 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
+  gap:.25em;
 }
 #sp-animation.show{
   animation:spPulse 1s ease-in-out forwards;
+}
+#sp-animation::before{
+  content:"";width:1em;height:1em;background:currentColor;
+  clip-path:polygon(50% 0,65% 35%,100% 50%,65% 65%,50% 100%,35% 65%,0 50%,35% 35%);
 }
 @keyframes spPulse{
   0%{transform:scale(0) rotate(0deg);opacity:0;}
@@ -446,9 +495,14 @@ progress::-moz-progress-bar{
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:transform,opacity;
 }
 #load-animation.show{
   animation:loadDrop 1s ease-in-out forwards;
+}
+#load-animation::before{
+  content:"";width:1em;height:1em;background:currentColor;
+  clip-path:polygon(50% 100%,80% 60%,60% 60%,60% 0,40% 0,40% 60%,20% 60%);
 }
 @keyframes loadDrop{
   0%{transform:translateY(-50px) scale(0) rotate(-45deg);opacity:0;}
