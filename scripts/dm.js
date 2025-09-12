@@ -70,7 +70,6 @@ function initDMLogin(){
 
   function updateButtons(){
     const loggedIn = isLoggedIn();
-    if (dmBtn) dmBtn.hidden = !loggedIn;
     if (!loggedIn && menu) menu.hidden = true;
   }
 
@@ -307,7 +306,13 @@ function initDMLogin(){
       }
     });
 
-  if (dmBtn) dmBtn.addEventListener('click', toggleMenu);
+  if (dmBtn) dmBtn.addEventListener('click', () => {
+    if (isLoggedIn()) {
+      toggleMenu();
+    } else {
+      requireLogin().catch(() => {});
+    }
+  });
 
   document.addEventListener('click', e => {
     if(menu && !menu.hidden && !menu.contains(e.target) && e.target !== dmBtn){
