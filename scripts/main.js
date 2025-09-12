@@ -426,8 +426,10 @@ if (statusGrid) {
         if (cb.checked) {
           activeStatuses.add(s.name);
           alert(`${s.name}: ${s.desc}`);
+          logAction(`Status effect gained: ${s.name}`);
         } else {
           activeStatuses.delete(s.name);
+          logAction(`Status effect removed: ${s.name}`);
         }
       });
     }
@@ -603,6 +605,7 @@ function setupPerkSelect(selId, perkId, data){
           cb.addEventListener('change', () => {
             status.textContent = cb.checked ? 'Used' : 'Available';
             window.dmNotify?.(`${text} ${cb.checked ? 'used' : 'reset'}`);
+            logAction(`${text} perk ${cb.checked ? 'used' : 'reset'}`);
           });
         }
       }else{
@@ -885,6 +888,7 @@ function setHP(v){
   const diff = num(elHPBar.value) - prev;
   if(diff !== 0){
     window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
+    logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
   }
   if(num(elHPBar.value) > 0){
     try { resetDeathSaves(); } catch {}
@@ -903,6 +907,7 @@ async function setSP(v){
   const diff = num(elSPBar.value) - prev;
   if(diff !== 0) {
     window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
+    logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     await playSPAnimation(diff);
     pushHistory();
   }
@@ -1595,6 +1600,12 @@ function createCard(kind, pref = {}) {
           chk.type = 'checkbox';
           chk.dataset.f = f.f;
           chk.checked = !!pref[f.f];
+          if (kind === 'armor') {
+            chk.addEventListener('change', () => {
+              const name = qs("[data-f='name']", card)?.value || 'Armor';
+              logAction(`Armor ${chk.checked ? 'equipped' : 'unequipped'}: ${name}`);
+            });
+          }
           label.appendChild(chk);
           label.append(f.label || '');
           wrap.appendChild(label);
@@ -1634,6 +1645,7 @@ function createCard(kind, pref = {}) {
       const abil = rangeVal ? elDex.value : elStr.value;
       const bonus = mod(abil) + pb;
       const name = qs("[data-f='name']", card)?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
+      logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
       rollWithBonus(`${name} attack roll`, bonus, out, { type: 'attack' });
     });
     delWrap.appendChild(hitBtn);
@@ -1644,6 +1656,8 @@ function createCard(kind, pref = {}) {
   delBtn.dataset.act = 'del';
   applyDeleteIcon(delBtn);
   delBtn.addEventListener('click', () => {
+    const name = qs("[data-f='name']", card)?.value || kind;
+    logAction(`${kind.charAt(0).toUpperCase()+kind.slice(1)} removed: ${name}`);
     card.remove();
     if (cfg.onDelete) cfg.onDelete();
     pushHistory();
@@ -2140,7 +2154,10 @@ CC.RP = (function () {
     save();
     dispatch("rp:changed", { rp: state.rp, banked: state.banked });
     if (state.rp !== prev.rp || state.banked !== prev.banked) {
+      const prevTotal = prev.rp + prev.banked * 5;
+      const newTotal = state.rp + state.banked * 5;
       window.dmNotify?.(`RP ${state.rp} (bank ${state.banked})`);
+      logAction(`RP: ${prevTotal} -> ${newTotal}`);
     }
   }
 
