@@ -670,9 +670,11 @@ if (elCAPCheck && elCAPStatus) {
   elCAPCheck.addEventListener('change', () => {
     if (elCAPCheck.checked) {
       if (confirm('Use Cinematic Action Point?')) {
+        const prev = elCAPStatus.textContent;
         elCAPStatus.textContent = 'Used';
         elCAPCheck.disabled = true;
         window.dmNotify?.('Used Cinematic Action Point');
+        logAction(`Cinematic Action Point: ${prev} -> Used`);
       } else {
         elCAPCheck.checked = false;
       }
@@ -785,6 +787,10 @@ function updateHP(){
 function updateXP(){
   const xp = Math.max(0, num(elXP.value));
   const idx = getTierIndex(xp);
+  const prevIdx = currentTierIdx;
+  if (xpInitialized && idx !== prevIdx) {
+    logAction(`Tier: ${XP_TIERS[prevIdx].label} -> ${XP_TIERS[idx].label}`);
+  }
   if (xpInitialized && idx > currentTierIdx) {
     launchConfetti();
     launchFireworks();
@@ -1008,31 +1014,33 @@ function safeParse(key){
     return [];
   }
 }
-const diceLog = safeParse('dice-log');
-const coinLog = safeParse('coin-log');
+const actionLog = safeParse('action-log');
 const campaignLog = safeParse('campaign-log');
 const fmt = (ts)=>new Date(ts).toLocaleTimeString();
 function pushLog(arr, entry, key){ arr.push(entry); if (arr.length>30) arr.splice(0, arr.length-30); localStorage.setItem(key, JSON.stringify(arr)); }
 function renderLogs(){
-  $('log-dice').innerHTML = diceLog.slice(-5).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
-  $('log-coin').innerHTML = coinLog.slice(-5).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
+  $('log-action').innerHTML = actionLog.slice(-10).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
 }
 function renderFullLogs(){
-  $('full-log-dice').innerHTML = diceLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
-  $('full-log-coin').innerHTML = coinLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div><b>${e.text}</b></div></div>`).join('');
+  $('full-log-action').innerHTML = actionLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
 }
+function logAction(text){
+  pushLog(actionLog, {t:Date.now(), text}, 'action-log');
+  renderLogs();
+  renderFullLogs();
+}
+window.logAction = logAction;
 
 function rollWithBonus(name, bonus, out){
   const roll = 1 + Math.floor(Math.random() * 20);
   const total = roll + bonus;
   if(out) out.textContent = total;
   const sign = bonus >= 0 ? '+' : '';
-  pushLog(diceLog, { t: Date.now(), text: `${name}: ${roll}${sign}${bonus} = ${total}` }, 'dice-log');
-  renderLogs();
-  renderFullLogs();
+  logAction(`${name}: ${roll}${sign}${bonus} = ${total}`);
   return total;
 }
 renderLogs();
+renderFullLogs();
 $('roll-dice').addEventListener('click', ()=>{
   const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
   const out = $('dice-out');
@@ -1042,18 +1050,14 @@ $('roll-dice').addEventListener('click', ()=>{
   out.textContent = sum;
   void out.offsetWidth; out.classList.add('rolling');
   playDamageAnimation(sum);
-  pushLog(diceLog, {t:Date.now(), text:`${c}×d${s}: ${rolls.join(', ')} = ${sum}`}, 'dice-log');
-  renderLogs();
-  renderFullLogs();
+  logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
   window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
 });
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
   $('flip-out').textContent = v;
   playCoinAnimation(v);
-  pushLog(coinLog, {t:Date.now(), text:v}, 'coin-log');
-  renderLogs();
-  renderFullLogs();
+  logAction(`Coin flip: ${v}`);
   window.dmNotify?.(`Coin flip: ${v}`);
 });
 
@@ -1240,7 +1244,7 @@ async function checkDeathProgress(){
 $('roll-death-save')?.addEventListener('click', ()=>{
   const roll = 1+Math.floor(Math.random()*20);
   if(deathOut) deathOut.textContent = String(roll);
-  pushLog(diceLog, {t:Date.now(), text:`Death save: ${roll}`}, 'dice-log');
+  logAction(`Death save: ${roll}`);
   if(roll===20){
     resetDeathSaves();
     alert('Critical success! You regain 1 HP and awaken.');
@@ -1262,6 +1266,7 @@ if (btnCampaignAdd) {
     if(!text) return;
     const name = currentCharacter();
     pushLog(campaignLog, {t:Date.now(), name, text}, 'campaign-log');
+    logAction(`${name}: ${text}`);
     $('campaign-entry').value='';
     renderCampaignLog();
     pushHistory();
@@ -2380,9 +2385,7 @@ CC.RP = (function () {
           const roll = Math.min(r1, r2);
           const total = roll + bonus;
           if (out) out.textContent = total;
-          pushLog(diceLog, { t: Date.now(), text: `${name}: ${r1}/${r2}${bonus>=0?'+':''}${bonus} = ${total} (Aftermath disadvantage)` }, 'dice-log');
-          renderLogs();
-          renderFullLogs();
+          logAction(`${name}: ${r1}/${r2}${bonus>=0?'+':''}${bonus} = ${total} (Aftermath disadvantage)`);
           clearAftermath();
           return total;
         }
@@ -2404,7 +2407,7 @@ CC.RP = (function () {
         const total = base(name, bonus + extra, out);
         if (breakdown.length) {
           try {
-            const last = diceLog[diceLog.length - 1];
+            const last = actionLog[actionLog.length - 1];
             last.text += ' ' + breakdown.join(' ');
             renderLogs();
             renderFullLogs();

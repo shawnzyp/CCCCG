@@ -100,9 +100,18 @@ export function setupFactionRepTracker(handlePerkEffects = () => {}, pushHistory
       const lose = $(`${f}-rep-lose`);
       if (!input || !gain || !lose) return;
       function change(delta) {
-        const next = Math.max(0, Math.min(maxVal, num(input.value) + delta));
+        const currentVal = num(input.value);
+        const oldTierIdx = Math.min(REP_TIERS.length - 1, Math.floor(currentVal / 100));
+        const oldTierName = REP_TIERS[oldTierIdx];
+        const next = Math.max(0, Math.min(maxVal, currentVal + delta));
         input.value = next;
         updateFactionRep(handlePerkEffects);
+        const newTierIdx = Math.min(REP_TIERS.length - 1, Math.floor(next / 100));
+        const newTierName = REP_TIERS[newTierIdx];
+        if (oldTierName !== newTierName) {
+          const facName = FACTION_NAME_MAP[f];
+          window.logAction?.(`${facName} Reputation: ${oldTierName} -> ${newTierName}`);
+        }
         if (typeof pushHistory === 'function') pushHistory();
       }
       gain.addEventListener('click', e => { e.preventDefault(); change(5); });
