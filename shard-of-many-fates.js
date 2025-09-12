@@ -692,7 +692,10 @@ function initSomf(){
   const plateById = Object.fromEntries(PLATES.map(p => [p.id, p]));
 
   /* ---------- Helpers ---------- */
-  const db = ()=> window._somf_db || null;
+  const db = ()=> {
+    if (!window._somf_db) throw new Error('Firebase Realtime Database required');
+    return window._somf_db;
+  };
   const CID = ()=> window._somf_cid || 'ccampaign-001';
   const path = {
     deck: cid=>`somf/${cid}/deck`,
@@ -721,11 +724,6 @@ function initSomf(){
     }
     return Math.floor(Math.random()*max);
   }
-  function ensureLocalDeck(){
-    const cid = CID(); let d = getLocal(LSK.deck(cid));
-    if (!Array.isArray(d) || !d.length){ d = PLATES.map(p=>p.id); setLocal(LSK.deck(cid), d); }
-    return d;
-  }
   function shuffledIds(){
     const ids = PLATES.map(p=>p.id);
     for(let i=ids.length-1;i>0;i--){
@@ -734,17 +732,6 @@ function initSomf(){
     }
     return ids;
   }
-  function localDrawOne(){
-    const cid = CID(); const d = ensureLocalDeck();
-    const idx = cryptoInt(d.length);
-    const [id] = d.splice(idx,1);
-    setLocal(LSK.deck(cid), d);
-    const a = getLocal(LSK.audits(cid))||[];
-    a.unshift({id, name: plateById[id]?.name || id, ts:Date.now()});
-    setLocal(LSK.audits(cid), a);
-    return id;
-  }
-
   async function rtdbInitDeckIfMissing(){
     const deckRef = db().ref(path.deck(CID()));
     const snap = await deckRef.get();
@@ -851,22 +838,11 @@ function initSomf(){
 
     const ids = [];
     let names = [];
-    if (db()){
-      await rtdbInitDeckIfMissing();
-      for (let i=0;i<n;i++) ids.push(await rtdbDrawOne());
-      names = ids.map(id=> plateById[id]?.name || id);
-      // batch notice (for DM): count + ids + names
-      await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids, names });
-    } else {
-      for (let i=0;i<n;i++) ids.push(localDrawOne());
-      names = ids.map(id=> plateById[id]?.name || id);
-      const notices = getLocal(LSK.notices(CID()))||[];
-      const now = Date.now();
-      const notice = { key: now.toString(), ts: now, count:n, ids, names };
-      notices.unshift(notice);
-      setLocal(LSK.notices(CID()), notices);
-      window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: notice }));
-    }
+    await rtdbInitDeckIfMissing();
+    for (let i=0;i<n;i++) ids.push(await rtdbDrawOne());
+    names = ids.map(id=> plateById[id]?.name || id);
+    // batch notice (for DM): count + ids + names
+    await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids, names });
 
     window.dmNotify?.(`Drew ${n} Shard(s): ${names.join(', ')} (unresolved)`);
     queue = ids.map(id=> plateById[id]);
@@ -896,25 +872,17 @@ function initSomf(){
     _lastHidden = h;
   }
   async function initPlayerHidden(){
-    if(db()){
-      const ref = db().ref(path.hidden(CID()));
-      const snap = await ref.get();
-      const initial = snap.exists()? !!snap.val(): true;
-      setLocal(LSK.hidden(CID()), initial);
-      await applyHiddenState(initial);
-      ref.on('value', s=>{
-        const h = !!s.val();
-        setLocal(LSK.hidden(CID()), h);
-        window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
-        applyHiddenState(h);
-      });
-    }else{
-      const saved = getLocal(LSK.hidden(CID()));
-      const initial = saved === null ? true : !!saved;
-      await applyHiddenState(initial);
-      window.addEventListener('somf-local-hidden', e=> applyHiddenState(!!e.detail));
-      window.addEventListener('storage', e=>{ if(e.key===LSK.hidden(CID())) applyHiddenState(!!JSON.parse(e.newValue)); });
-    }
+    const ref = db().ref(path.hidden(CID()));
+    const snap = await ref.get();
+    const initial = snap.exists()? !!snap.val(): true;
+    setLocal(LSK.hidden(CID()), initial);
+    await applyHiddenState(initial);
+    ref.on('value', s=>{
+      const h = !!s.val();
+      setLocal(LSK.hidden(CID()), h);
+      window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
+      applyHiddenState(h);
+    });
   }
 
   /* ======================================================================
@@ -1015,22 +983,14 @@ function initSomf(){
   D.playerCardToggle?.addEventListener('change', async ()=>{
     const hidden = !D.playerCardToggle.checked;
     if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
-    if(db()){
-      await db().ref(path.hidden(CID())).set(hidden);
-    }
+    await db().ref(path.hidden(CID())).set(hidden);
     setLocal(LSK.hidden(CID()), hidden);
     window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
   });
 
   async function refreshHiddenToggle(){
-    let hidden;
-    if(db()){
-      const snap = await db().ref(path.hidden(CID())).get();
-      hidden = snap.exists()? !!snap.val() : true;
-    } else {
-      const saved = getLocal(LSK.hidden(CID()));
-      hidden = saved === null ? true : !!saved;
-    }
+    const snap = await db().ref(path.hidden(CID())).get();
+    const hidden = snap.exists()? !!snap.val() : true;
     if(D.playerCardToggle) {
       D.playerCardToggle.checked = !hidden;
       if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
@@ -1257,26 +1217,14 @@ function renderCardList(){
   // Counts + incoming
   async function refreshCounts(){
     let deckLen = PLATES.length;
-    if (db()){
-      const deckSnap = await db().ref(path.deck(CID())).get();
-      const deck = deckSnap.exists()? deckSnap.val(): [];
-      deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-    } else {
-      const deck = getLocal(LSK.deck(CID()))||[];
-      deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-    }
+    const deckSnap = await db().ref(path.deck(CID())).get();
+    const deck = deckSnap.exists()? deckSnap.val(): [];
+    deckLen = Array.isArray(deck)? deck.length : PLATES.length;
     if(D.cardCount) D.cardCount.textContent = `${deckLen}/${PLATES.length}`;
   }
 
   async function removeNotice(n){
-    if(db()){
-      await db().ref(path.notices(CID())).child(n.key).remove();
-    } else {
-      const arr = getLocal(LSK.notices(CID()))||[];
-      const filtered = arr.filter(x=> (x.key||x.ts) !== n.key);
-      setLocal(LSK.notices(CID()), filtered);
-      window.dispatchEvent(new CustomEvent('somf-local-resolved', { detail: n.key }));
-    }
+    await db().ref(path.notices(CID())).child(n.key).remove();
   }
 
   async function resolveNotice(n,count){
@@ -1355,56 +1303,33 @@ function renderCardList(){
   }
 
   async function loadNotices(limit=30){
-    if (db()){
-      const snap = await db().ref(path.notices(CID())).limitToLast(limit).get();
-      if (!snap.exists()) return [];
-      const arr = [];
-      snap.forEach(child=> arr.push({ key: child.key, ...child.val() }));
-      arr.sort((a,b)=> (b.ts||0)-(a.ts||0));
-      return arr;
-    } else {
-      const arr = (getLocal(LSK.notices(CID()))||[]).map((n,i)=> ({ key: n.key || n.ts || i.toString(), ...n }));
-      return arr.slice(0,limit);
-    }
+    const snap = await db().ref(path.notices(CID())).limitToLast(limit).get();
+    if (!snap.exists()) return [];
+    const arr = [];
+    snap.forEach(child=> arr.push({ key: child.key, ...child.val() }));
+    arr.sort((a,b)=> (b.ts||0)-(a.ts||0));
+    return arr;
   }
 
   async function loadResolutions(limit=50){
-    if(db()){
-      const snap = await db().ref(path.resolutions(CID())).limitToLast(limit).get();
-      if(!snap.exists()) return [];
-      const arr = Object.values(snap.val()).sort((a,b)=> (b.ts||0)-(a.ts||0));
-      return arr;
-    } else {
-      const arr = getLocal(LSK.resolutions(CID()))||[];
-      return arr.slice(0,limit);
-    }
+    const snap = await db().ref(path.resolutions(CID())).limitToLast(limit).get();
+    if(!snap.exists()) return [];
+    const arr = Object.values(snap.val()).sort((a,b)=> (b.ts||0)-(a.ts||0));
+    return arr;
   }
 
   async function resetDeck(){
-    if (db()){
-      await db().ref(path.deck(CID())).set(shuffledIds());
-      await db().ref(path.audits(CID())).remove();
-      await db().ref(path.notices(CID())).remove();
-      await db().ref(path.resolutions(CID())).remove();
-      await db().ref(path.npcs(CID())).remove();
-    } else {
-      setLocal(LSK.deck(CID()), shuffledIds());
-      setLocal(LSK.audits(CID()), []);
-      setLocal(LSK.notices(CID()), []);
-      setLocal(LSK.resolutions(CID()), []);
-      setLocal(LSK.npcs(CID()), []);
-    }
+    await db().ref(path.deck(CID())).set(shuffledIds());
+    await db().ref(path.audits(CID())).remove();
+    await db().ref(path.notices(CID())).remove();
+    await db().ref(path.resolutions(CID())).remove();
+    await db().ref(path.npcs(CID())).remove();
     await loadAndRender();
   }
 
 
   async function pushResolutionBatch(n){
-    if (db()){
-      await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids:n.ids });
-    } else {
-      const rs = getLocal(LSK.resolutions(CID()))||[];
-      rs.unshift({ ts: Date.now(), ids: n.ids }); setLocal(LSK.resolutions(CID()), rs);
-    }
+    await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids:n.ids });
   }
 
   async function loadAndRender(){
@@ -1421,49 +1346,30 @@ function renderCardList(){
 
   // Live listeners
   function enableLive(){
-    if (db()){
-      if(_noticeRef) _noticeRef.off();
-      if(_hiddenRef) _hiddenRef.off();
-      _noticeRef = db().ref(path.notices(CID()));
-      _noticeRef.limitToLast(1).on('child_added', snap=>{
-        const v=snap.val(); if (!v) return;
-        const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
-        const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
-        t.style.cursor='pointer';
-        t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
-        loadAndRender();
-      });
-      _noticeRef.on('child_removed', ()=>{ loadAndRender(); });
-      _hiddenRef = db().ref(path.hidden(CID()));
-      _hiddenRef.on('value', s=>{
-        const h = !!s.val();
-        if(D.playerCardToggle) D.playerCardToggle.checked = !h;
-        setLocal(LSK.hidden(CID()), h);
-        window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
-      });
-    } else {
-      if(_onLocalNotice) window.removeEventListener('somf-local-notice', _onLocalNotice);
-      if(_onLocalHidden) window.removeEventListener('somf-local-hidden', _onLocalHidden);
-      if(_onLocalResolved) window.removeEventListener('somf-local-resolved', _onLocalResolved);
-      _onLocalNotice = (e)=>{
-        const v=e.detail; const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
-        const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
-        t.style.cursor='pointer';
-        t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
-        loadAndRender();
-      };
-      _onLocalHidden = e=>{ if(D.playerCardToggle) D.playerCardToggle.checked = !e.detail; };
-      _onLocalResolved = ()=>{ loadAndRender(); };
-      window.addEventListener('somf-local-notice', _onLocalNotice);
-      window.addEventListener('somf-local-hidden', _onLocalHidden);
-      window.addEventListener('somf-local-resolved', _onLocalResolved);
-    }
+    if(_noticeRef) _noticeRef.off();
+    if(_hiddenRef) _hiddenRef.off();
+    _noticeRef = db().ref(path.notices(CID()));
+    _noticeRef.limitToLast(1).on('child_added', snap=>{
+      const v=snap.val(); if (!v) return;
+      const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
+      const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
+      t.style.cursor='pointer';
+      t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
+      loadAndRender();
+    });
+    _noticeRef.on('child_removed', ()=>{ loadAndRender(); });
+    _hiddenRef = db().ref(path.hidden(CID()));
+    _hiddenRef.on('value', s=>{
+      const h = !!s.val();
+      if(D.playerCardToggle) D.playerCardToggle.checked = !h;
+      setLocal(LSK.hidden(CID()), h);
+      window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
+    });
   }
 
   D.reset?.addEventListener('click', resetDeck);
 
   let _noticeRef=null,_hiddenRef=null;
-  let _onLocalNotice=null,_onLocalHidden=null,_onLocalResolved=null;
   function initDM(){
     loadAndRender();
     enableLive();
