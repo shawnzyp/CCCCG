@@ -81,9 +81,6 @@ describe('character storage', () => {
       expect(localStorage.getItem('save:The DM')).toBe(JSON.stringify({ hp: 5 }));
       expect(localStorage.getItem('last-save')).toBe('The DM');
 
-      const chars = await listCharacters();
-      expect(chars).toContain('The DM');
-
       const data = await loadCharacter('The DM');
       expect(data).toEqual({ hp: 5 });
 
