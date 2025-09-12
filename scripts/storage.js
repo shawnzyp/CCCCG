@@ -237,3 +237,28 @@ export async function cacheCloudSaves(
     console.error('Failed to cache cloud saves', e);
   }
 }
+
+// Listen for realtime updates from the Firebase database and cache them
+// locally. This keeps all open tabs in sync without manual refreshes.
+export function subscribeCloudSaves(onChange = cacheCloudSaves) {
+  try {
+    if (typeof EventSource !== 'function') return null;
+
+    const src = new EventSource(`${CLOUD_SAVES_URL}.json`);
+    const handler = () => onChange();
+
+    src.addEventListener('put', handler);
+    src.addEventListener('patch', handler);
+    src.onerror = () => {
+      try { src.close(); } catch {}
+      setTimeout(() => subscribeCloudSaves(onChange), 2000);
+    };
+
+    // Prime local cache immediately on subscription.
+    onChange();
+    return src;
+  } catch (e) {
+    console.error('Failed to subscribe to cloud saves', e);
+    return null;
+  }
+}

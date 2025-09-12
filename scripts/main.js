@@ -13,6 +13,7 @@ import {
   renameCharacter,
 } from './characters.js';
 import { show, hide } from './modal.js';
+import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
 // Global CC object for cross-module state
 window.CC = window.CC || {};
 CC.partials = CC.partials || {};
@@ -2076,7 +2077,11 @@ applyDeleteIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data === 'cacheCloudSaves') cacheCloudSaves();
+  });
 }
+subscribeCloudSaves();
 
 // == Resonance Points (RP) Module ============================================
 CC.RP = (function () {
