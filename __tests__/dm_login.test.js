@@ -9,7 +9,7 @@ beforeEach(() => {
 describe('dm login', () => {
   test('loading The DM character unlocks tools', async () => {
     document.body.innerHTML = `
-        <button id="dm-login" hidden></button>
+        <button id="dm-login"></button>
         <div id="dm-tools-menu" hidden></div>
         <button id="dm-tools-tsomf"></button>
         <button id="dm-tools-logout"></button>
@@ -85,7 +85,7 @@ describe('dm login', () => {
 
   test('logout clears DM session and last save', async () => {
     document.body.innerHTML = `
-        <button id="dm-login" hidden></button>
+        <button id="dm-login"></button>
         <div id="dm-tools-menu" hidden></div>
         <button id="dm-tools-logout"></button>
       `;
