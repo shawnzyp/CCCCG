@@ -31,7 +31,7 @@
       <div id="menu-actions" class="menu" hidden>
         <button id="btn-load" class="btn-sm">Load</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
-        <button id="btn-log" class="btn-sm">Roll/Flip Log</button>
+        <button id="btn-log" class="btn-sm">Action Log</button>
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
         <button id="btn-rules" class="btn-sm">Rules</button>
         <button id="btn-help" class="btn-sm">Help</button>
@@ -689,11 +689,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Recent Log</h3>
-    <div class="grid grid-2">
-      <div><h4 style="margin:0">Dice</h4><div id="log-dice" class="catalog"></div></div>
-      <div><h4 style="margin:0">Coins</h4><div id="log-coin" class="catalog"></div></div>
-    </div>
+    <h3>Action Log</h3>
+    <div id="log-action" class="catalog"></div>
     <div class="actions"><button id="log-full" class="btn-sm">Full Log</button><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
@@ -724,11 +721,8 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Full Log</h3>
-    <div class="grid grid-2">
-      <div><h4 style="margin:0">Dice</h4><div id="full-log-dice" class="catalog"></div></div>
-      <div><h4 style="margin:0">Coins</h4><div id="full-log-coin" class="catalog"></div></div>
-    </div>
+    <h3>Full Action Log</h3>
+    <div id="full-log-action" class="catalog"></div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
