@@ -4,12 +4,12 @@ Hosted version of the mobile-optimized character sheet for GitHub Pages.
 
 ## Storage
 
-Saved characters are stored locally in your browser using `localStorage`.
+Saved characters are stored locally in your browser using `localStorage` and synchronized through a Firebase Realtime Database.
 
 ### Cloud saves
 
-The app can also synchronize saves through a Firebase Realtime Database. To
-enable this feature:
+The app requires a Firebase Realtime Database for real-time updates. To
+configure the database:
 
 1. Create a Firebase project and enable the **Realtime Database**.
 2. Use the following database rules to allow read and write access:
