@@ -327,7 +327,7 @@ function initDMLogin(){
   });
 
   document.addEventListener('click', e => {
-    if(menu && !menu.hidden && !menu.contains(e.target) && e.target !== dmBtn){
+    if (menu && !menu.hidden && !menu.contains(e.target) && !dmBtn?.contains(e.target)) {
       menu.hidden = true;
     }
   });
