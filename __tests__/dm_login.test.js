@@ -30,6 +30,7 @@ describe('dm login', () => {
       loadCloud: jest.fn(async () => ({})),
       listCloudSaves: jest.fn(async () => []),
       listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
       loadCloudBackup: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
     }));
@@ -71,6 +72,7 @@ describe('dm login', () => {
       loadCloud: jest.fn(async () => ({})),
       listCloudSaves: jest.fn(async () => []),
       listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
       loadCloudBackup: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
     }));

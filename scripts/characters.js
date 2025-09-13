@@ -7,6 +7,7 @@ import {
   loadCloud,
   listCloudSaves,
   listCloudBackups,
+  listCloudBackupNames,
   loadCloudBackup,
   deleteCloud,
 } from './storage.js';
@@ -69,6 +70,18 @@ export async function listCharacters() {
     return cloud.sort((a, b) => a.localeCompare(b));
   } catch (e) {
     console.error('Failed to list cloud saves', e);
+    return [];
+  }
+}
+
+export async function listRecoverableCharacters() {
+  try {
+    const saves = await listCharacters();
+    const backups = (await listCloudBackupNames()).map(n => (n === 'DM' ? 'The DM' : n));
+    const set = new Set([...saves, ...backups]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  } catch (e) {
+    console.error('Failed to list recoverable characters', e);
     return [];
   }
 }
