@@ -15,6 +15,7 @@ import {
 } from './characters.js';
 import { show, hide } from './modal.js';
 import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
+import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin } from './pin.js';
 // Global CC object for cross-module state
 window.CC = window.CC || {};
 CC.partials = CC.partials || {};
@@ -80,6 +81,8 @@ setVh();
 window.addEventListener('resize', setVh);
 window.addEventListener('orientationchange', setVh);
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
+const ICON_LOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75C16.5 4.26472 14.4853 2.25 12 2.25C9.51472 2.25 7.5 4.26472 7.5 6.75V10.5M6.75 21.75H17.25C18.4926 21.75 19.5 20.7426 19.5 19.5V12.75C19.5 11.5074 18.4926 10.5 17.25 10.5H6.75C5.50736 10.5 4.5 11.5074 4.5 12.75V19.5C4.5 20.7426 5.50736 21.75 6.75 21.75Z"/></svg>';
+const ICON_UNLOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75C13.5 4.26472 15.5147 2.25 18 2.25C20.4853 2.25 22.5 4.26472 22.5 6.75V10.5M3.75 21.75H14.25C15.4926 21.75 16.5 20.7426 16.5 19.5V12.75C16.5 11.5074 15.4926 10.5 14.25 10.5H3.75C2.50736 10.5 1.5 11.5074 1.5 12.75V19.5C1.5 20.7426 2.50736 21.75 3.75 21.75Z"/></svg>';
 
 async function renderRules(){
   if (!rulesEl || rulesLoaded) return;
@@ -109,6 +112,18 @@ function applyDeleteIcon(btn){
 
 function applyDeleteIcons(root=document){
   qsa('button[data-del], button[data-act="del"]', root).forEach(applyDeleteIcon);
+}
+
+function applyLockIcon(btn){
+  if(!btn) return;
+  const name = btn.dataset.lock;
+  btn.innerHTML = hasPin(name) ? ICON_LOCK : ICON_UNLOCK;
+  btn.setAttribute('aria-label','Toggle PIN');
+  Object.assign(btn.style, DELETE_ICON_STYLE);
+}
+
+function applyLockIcons(root=document){
+  qsa('button[data-lock]', root).forEach(applyLockIcon);
 }
 let audioCtx = null;
 window.addEventListener('unload', () => {
@@ -1365,6 +1380,10 @@ async function renderCharacterList(){
     link.textContent = c;
     item.appendChild(link);
     if(c !== 'The DM'){
+      const lock = document.createElement('button');
+      lock.className = 'btn-sm';
+      lock.dataset.lock = c;
+      item.appendChild(lock);
       const btn = document.createElement('button');
       btn.className = 'btn-sm';
       btn.dataset.del = c;
@@ -1372,6 +1391,7 @@ async function renderCharacterList(){
     }
     list.appendChild(item);
   });
+  applyLockIcons(list);
   applyDeleteIcons(list);
   selectedChar = current;
 }
@@ -1418,9 +1438,10 @@ let recoverTarget = null;
 let selectedChar = null;
 const charList = $('char-list');
 if(charList){
-  charList.addEventListener('click', e=>{
+  charList.addEventListener('click', async e=>{
     const loadBtn = e.target.closest('[data-char]');
     const delBtn = e.target.closest('button[data-del]');
+    const lockBtn = e.target.closest('button[data-lock]');
     if(loadBtn){
       e.preventDefault();
       selectedChar = loadBtn.dataset.char;
@@ -1435,6 +1456,33 @@ if(charList){
         const text = $('load-confirm-text');
         if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
         show('modal-load');
+      }
+    } else if(lockBtn){
+      const ch = lockBtn.dataset.lock;
+      if(hasPin(ch)){
+        const pin = typeof prompt === 'function' ? prompt('Enter PIN to disable protection') : null;
+        if(pin !== null){
+          const ok = await verifyStoredPin(ch, pin);
+          if(ok){
+            clearPin(ch);
+            applyLockIcon(lockBtn);
+            toast('PIN disabled','info');
+          }else{
+            toast('Invalid PIN','error');
+          }
+        }
+      }else{
+        const pin1 = typeof prompt === 'function' ? prompt('Set PIN') : null;
+        if(pin1){
+          const pin2 = typeof prompt === 'function' ? prompt('Confirm PIN') : null;
+          if(pin1 === pin2){
+            await setPin(ch, pin1);
+            applyLockIcon(lockBtn);
+            toast('PIN enabled','success');
+          }else if(pin2 !== null){
+            toast('PINs did not match','error');
+          }
+        }
       }
     } else if(delBtn){
       const ch = delBtn.dataset.del;
@@ -2112,6 +2160,7 @@ setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
 setupFactionRepTracker(handlePerkEffects, pushHistory);
 updateDerived();
 applyDeleteIcons();
+applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
