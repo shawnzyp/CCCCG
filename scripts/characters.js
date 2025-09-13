@@ -86,8 +86,10 @@ export async function listRecoverableCharacters() {
   }
 }
 
-export async function loadCharacter(name) {
-  await verifyPin(name);
+export async function loadCharacter(name, { bypassPin = false } = {}) {
+  if (!bypassPin) {
+    await verifyPin(name);
+  }
   let data;
   try {
     data = await loadLocal(name);

@@ -131,6 +131,18 @@ describe('character storage', () => {
     expect(localStorage.getItem('save:Hero')).toBe(JSON.stringify({ hp: 3 }));
     delete window.dmRequireLogin;
   });
+
+  test('loading a pinned character can bypass pin prompt', async () => {
+    const { setPin } = await import('../scripts/pin.js');
+    const { loadCharacter } = await import('../scripts/characters.js');
+    localStorage.setItem('save:Hero', JSON.stringify({ hp: 10 }));
+    await setPin('Hero', '1234');
+    window.pinPrompt = jest.fn().mockResolvedValue('1234');
+    const data = await loadCharacter('Hero', { bypassPin: true });
+    expect(window.pinPrompt).not.toHaveBeenCalled();
+    expect(data).toEqual({ hp: 10 });
+    delete window.pinPrompt;
+  });
 });
 
 const keyPath = 'serviceAccountKey.json';
