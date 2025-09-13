@@ -97,7 +97,7 @@ describe('DM character viewer tool', () => {
     link.click();
     await new Promise(r => setTimeout(r, 0));
     const view = document.getElementById('dm-character-sheet');
-    expect(loadCharacter).toHaveBeenCalledWith('Test');
+    expect(loadCharacter).toHaveBeenCalledWith('Test', { bypassPin: true });
     expect(view.textContent).toContain('Test');
   });
 
@@ -166,6 +166,7 @@ describe('DM character viewer tool', () => {
     await new Promise(r => setTimeout(r, 0));
     const view = document.getElementById('dm-character-sheet');
     const text = view.textContent;
+    expect(loadCharacter).toHaveBeenCalledWith('Hero', { bypassPin: true });
     expect(text).toContain('Fireball');
     expect(text).toContain('Signature');
     expect(text).toContain('Sword');

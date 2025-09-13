@@ -309,7 +309,7 @@ function initDMLogin(){
       const name = link.textContent?.trim();
       if (!name || !charView) return;
       try {
-        const data = await loadCharacter(name);
+        const data = await loadCharacter(name, { bypassPin: true });
         charView.innerHTML='';
         charView.appendChild(characterCard(data, name));
         openCharacterView();
