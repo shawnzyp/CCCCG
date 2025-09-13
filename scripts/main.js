@@ -169,6 +169,41 @@ function playTone(type){
 window.toast = toast;
 window.dismissToast = dismissToast;
 
+async function pinPrompt(message){
+  const modal = $('modal-pin');
+  const title = $('pin-title');
+  const input = $('pin-input');
+  const submit = $('pin-submit');
+  const close = $('pin-close');
+  if(!modal || !input || !submit || !close){
+    return typeof prompt === 'function' ? prompt(message) : null;
+  }
+  title.textContent = message;
+  return new Promise(resolve => {
+    function cleanup(result){
+      submit.removeEventListener('click', onSubmit);
+      input.removeEventListener('keydown', onKey);
+      close.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onOverlay);
+      hide('modal-pin');
+      resolve(result);
+    }
+    function onSubmit(){ cleanup(input.value); }
+    function onCancel(){ cleanup(null); }
+    function onKey(e){ if(e.key==='Enter') onSubmit(); }
+    function onOverlay(e){ if(e.target===modal) onCancel(); }
+    submit.addEventListener('click', onSubmit);
+    input.addEventListener('keydown', onKey);
+    close.addEventListener('click', onCancel);
+    modal.addEventListener('click', onOverlay);
+    show('modal-pin');
+    input.value='';
+    input.focus();
+  });
+}
+
+window.pinPrompt = pinPrompt;
+
 function debounce(fn, delay){
   let t;
   return (...args)=>{
@@ -1460,7 +1495,7 @@ if(charList){
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
       if(hasPin(ch)){
-        const pin = typeof prompt === 'function' ? prompt('Enter PIN to disable protection') : null;
+        const pin = await pinPrompt('Enter PIN to disable protection');
         if(pin !== null){
           const ok = await verifyStoredPin(ch, pin);
           if(ok){
@@ -1472,9 +1507,9 @@ if(charList){
           }
         }
       }else{
-        const pin1 = typeof prompt === 'function' ? prompt('Set PIN') : null;
+        const pin1 = await pinPrompt('Set PIN');
         if(pin1){
-          const pin2 = typeof prompt === 'function' ? prompt('Confirm PIN') : null;
+          const pin2 = await pinPrompt('Confirm PIN');
           if(pin1 === pin2){
             await setPin(ch, pin1);
             applyLockIcon(lockBtn);
