@@ -688,7 +688,9 @@ function initSomf(){
       { "id": "LEGEND_INQUISITOR_SILAS", "name": "Legendary Shard — Inquisitor Silas", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_SILAS", "tier": 3 }, { "type": "faction_rep_delta", "faction": "Conclave", "value": -1 } ], "resolution": "Silas marks the drawer for doctrinal judgment and recurs until defeated." }
     ]
   };
-  const PLATES = OLD_PLATES;
+  // Use the full shard list from the deck definition when available so the
+  // DM tools can render every shard, even outside the minimal test deck.
+  const PLATES = SOMF_DECK.shards || OLD_PLATES;
   const plateById = Object.fromEntries(PLATES.map(p => [p.id, p]));
 
   /* ---------- Helpers ---------- */
@@ -1333,15 +1335,21 @@ function renderCardList(){
   }
 
   async function loadAndRender(){
-    await refreshCounts();
+    // Always render static lists so the DM modal has content even if the
+    // realtime database isn't configured (offline/solo play).
     renderCardList();
     renderItemList();
     renderNPCList();
-    const notices = await loadNotices();
-    renderIncoming(notices);
-    renderQueue(notices);
     renderResolveOptions();
-    await refreshHiddenToggle();
+    try {
+      await refreshCounts();
+      const notices = await loadNotices();
+      renderIncoming(notices);
+      renderQueue(notices);
+      await refreshHiddenToggle();
+    } catch (err) {
+      console.error('SOMF DM load failed', err);
+    }
   }
 
   // Live listeners
@@ -1352,9 +1360,14 @@ function renderCardList(){
     _noticeRef.limitToLast(1).on('child_added', snap=>{
       const v=snap.val(); if (!v) return;
       const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
+      const key = snap.key;
+      const firstId = v.ids && v.ids[0];
       const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
       t.style.cursor='pointer';
-      t.addEventListener('click', ()=> openDM({tab:'resolve', selectLatest:true}));
+      t.addEventListener('click', ()=>{
+        if(firstId) openDM({tab:'cards', focusId:firstId, selectKey:key});
+        else openDM({tab:'resolve', selectKey:key});
+      });
       loadAndRender();
     });
     _noticeRef.on('child_removed', ()=>{ loadAndRender(); });
