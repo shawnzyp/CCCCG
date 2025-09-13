@@ -1,5 +1,6 @@
 import { listCharacters, currentCharacter, setCurrentCharacter, loadCharacter } from './characters.js';
 import { DM_PIN } from './dm-pin.js';
+import { show, hide } from './modal.js';
 const notifications = [];
 
 function initDMLogin(){
@@ -71,23 +72,21 @@ function initDMLogin(){
   function updateButtons(){
     const loggedIn = isLoggedIn();
     if (!loggedIn && menu) menu.hidden = true;
-    if (dmBtn) dmBtn.style.opacity = loggedIn ? '1' : '0';
+    if (dmBtn){
+      dmBtn.style.opacity = loggedIn ? '1' : '0';
+    }
   }
 
   function openLogin(){
     if(!loginModal || !loginPin) return;
-    loginModal.style.display = 'flex';
-    loginModal.classList.remove('hidden');
-    loginModal.setAttribute('aria-hidden','false');
+    show('dm-login-modal');
     loginPin.value='';
     loginPin.focus();
   }
 
   function closeLogin(){
     if(!loginModal) return;
-    loginModal.classList.add('hidden');
-    loginModal.setAttribute('aria-hidden','true');
-    loginModal.style.display = 'none';
+    hide('dm-login-modal');
   }
 
   function requireLogin(){
