@@ -164,9 +164,6 @@ function initDMLogin(){
 
   function logout(){
     clearLoggedIn();
-    if (currentCharacter() === 'The DM') {
-      setCurrentCharacter(null);
-    }
     updateButtons();
     if (typeof toast === 'function') toast('Logged out','info');
   }

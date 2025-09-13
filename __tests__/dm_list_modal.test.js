@@ -6,7 +6,7 @@ if (!window.matchMedia) {
 }
 
 describe('DM load from character list', () => {
-  test('hides character list before DM login', async () => {
+  test('shows confirmation when selecting The DM', async () => {
     const loadCharacter = jest.fn(async () => ({}));
     const hide = jest.fn();
     const show = jest.fn();
@@ -92,7 +92,8 @@ describe('DM load from character list', () => {
 
     document.querySelector('[data-char="The DM"]').click();
 
-    expect(hide).toHaveBeenCalledWith('modal-load-list');
-    expect(loadCharacter).toHaveBeenCalledWith('The DM');
+    expect(show).toHaveBeenCalledWith('modal-load');
+    expect(hide).not.toHaveBeenCalled();
+    expect(loadCharacter).not.toHaveBeenCalled();
   });
 });

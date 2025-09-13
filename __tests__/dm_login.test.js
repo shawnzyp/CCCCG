@@ -7,7 +7,7 @@ beforeEach(() => {
 });
 
 describe('dm login', () => {
-  test('loading The DM character unlocks tools', async () => {
+  test('DM login unlocks tools', async () => {
     document.body.innerHTML = `
         <button id="dm-login"></button>
         <div id="dm-tools-menu" hidden></div>
@@ -36,9 +36,8 @@ describe('dm login', () => {
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
-    const { loadCharacter } = await import('../scripts/characters.js');
 
-    const promise = loadCharacter('The DM');
+    const promise = window.dmRequireLogin();
     const modal = document.getElementById('dm-login-modal');
     expect(modal.classList.contains('hidden')).toBe(false);
     expect(modal.style.display).toBe('flex');
@@ -93,9 +92,8 @@ describe('dm login', () => {
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
-    const { loadCharacter } = await import('../scripts/characters.js');
 
-    const promise = loadCharacter('The DM');
+    const promise = window.dmRequireLogin();
     const modal = document.getElementById('dm-login-modal');
     document.getElementById('dm-login-pin').value = '123123';
     document.getElementById('dm-login-submit').click();
@@ -113,7 +111,7 @@ describe('dm login', () => {
     delete window.initSomfDM;
   });
 
-  test('falls back to prompt when modal elements missing for The DM', async () => {
+  test('falls back to prompt when modal elements missing', async () => {
     document.body.innerHTML = '';
     window.toast = jest.fn();
     window.prompt = jest.fn(() => '123123');
@@ -133,9 +131,8 @@ describe('dm login', () => {
     }));
 
     await import('../scripts/dm.js');
-    const { loadCharacter } = await import('../scripts/characters.js');
 
-    await loadCharacter('The DM');
+    await window.dmRequireLogin();
 
     expect(window.prompt).toHaveBeenCalled();
     expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
@@ -143,7 +140,7 @@ describe('dm login', () => {
     delete window.prompt;
   });
 
-  test('logout clears DM session and last save', async () => {
+  test('logout clears DM session but keeps last save', async () => {
     document.body.innerHTML = `
         <button id="dm-login"></button>
         <div id="dm-tools-menu" hidden></div>
@@ -160,7 +157,7 @@ describe('dm login', () => {
     document.getElementById('dm-tools-logout').click();
 
     expect(sessionStorage.getItem('dmLoggedIn')).toBeNull();
-    expect(currentCharacter()).toBeNull();
-    expect(localStorage.getItem('last-save')).toBeNull();
+    expect(currentCharacter()).toBe('The DM');
+    expect(localStorage.getItem('last-save')).toBe('The DM');
   });
 });
