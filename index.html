@@ -587,6 +587,19 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="modal-pin" aria-hidden="true">
+  <section class="modal">
+    <button id="pin-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3 id="pin-title">Enter PIN</h3>
+    <input id="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+    <div class="actions"><button id="pin-submit" class="somf-btn">OK</button></div>
+  </section>
+</div>
+
 <!-- WELCOME MODAL -->
 <div class="overlay hidden" id="modal-welcome" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">

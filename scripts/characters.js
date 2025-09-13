@@ -44,7 +44,7 @@ async function verifyPin(name) {
     return;
   }
   if (hasPin(name)) {
-    const pin = typeof prompt === 'function' ? prompt('Enter PIN') : null;
+    const pin = await (window.pinPrompt ? window.pinPrompt('Enter PIN') : Promise.resolve(typeof prompt === 'function' ? prompt('Enter PIN') : null));
     if (pin === null || !(await verifyStoredPin(name, pin))) {
       throw new Error('Invalid PIN');
     }
