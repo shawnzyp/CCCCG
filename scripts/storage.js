@@ -185,6 +185,22 @@ export async function listCloudBackups(name) {
   }
 }
 
+export async function listCloudBackupNames() {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const res = await cloudFetch(`${CLOUD_HISTORY_URL}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
+  } catch (e) {
+    if (e && e.message === 'fetch not supported') {
+      throw e;
+    }
+    console.error('Cloud history names failed', e);
+    return [];
+  }
+}
+
 export async function loadCloudBackup(name, ts) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');

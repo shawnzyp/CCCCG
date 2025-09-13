@@ -11,6 +11,7 @@ import {
   deleteCharacter,
   saveCharacter,
   renameCharacter,
+  listRecoverableCharacters,
 } from './characters.js';
 import { show, hide } from './modal.js';
 import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
@@ -1367,7 +1368,7 @@ async function renderRecoverCharList(){
   const list = $('recover-char-list');
   if(!list) return;
   let names = [];
-  try { names = await listCharacters(); }
+  try { names = await listRecoverableCharacters(); }
   catch (e) { console.error('Failed to list characters', e); }
   list.innerHTML = names.map(c=>`<div class="catalog-item"><button class="btn-sm" data-char="${c}">${c}</button></div>`).join('');
 }

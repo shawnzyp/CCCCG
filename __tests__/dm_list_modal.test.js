@@ -31,6 +31,7 @@ describe('DM load from character list', () => {
       currentCharacter: () => null,
       setCurrentCharacter: jest.fn(),
       listCharacters: jest.fn(async () => ['The DM']),
+      listRecoverableCharacters: jest.fn(async () => ['The DM']),
       loadCharacter,
       loadBackup: jest.fn(),
       listBackups: jest.fn(),

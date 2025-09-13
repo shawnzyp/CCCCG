@@ -11,6 +11,7 @@ describe('character events', () => {
       loadCloud: jest.fn().mockRejectedValue(new Error('no')),
       listCloudSaves: jest.fn().mockResolvedValue([]),
       listCloudBackups: jest.fn().mockResolvedValue([]),
+      listCloudBackupNames: jest.fn().mockResolvedValue([]),
       loadCloudBackup: jest.fn().mockResolvedValue({}),
       deleteCloud: jest.fn()
     }));

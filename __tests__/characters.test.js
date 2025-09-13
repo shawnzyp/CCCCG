@@ -68,6 +68,25 @@ describe('character storage', () => {
     expect(data).toEqual({ hp: 20 });
   });
 
+  test('recovery list includes names from backups', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ Hero: {} }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ Ghost: { 1: {} } }),
+      });
+
+    const { listRecoverableCharacters } = await import('../scripts/characters.js');
+
+    const names = await listRecoverableCharacters();
+    expect(names).toEqual(['Ghost', 'Hero']);
+  });
+
   for (const legacyName of ['Shawn', 'Player :Shawn', 'DM']) {
     test(`renames legacy ${legacyName} character to The DM`, async () => {
       localStorage.setItem(`save:${legacyName}`, JSON.stringify({ hp: 5 }));
