@@ -80,6 +80,14 @@ function initDMLogin(){
     }
   }
 
+  function initTools(){
+    try {
+      if (window.initSomfDM) window.initSomfDM();
+    } catch (e) {
+      console.error('Failed to init DM tools', e);
+    }
+  }
+
   function openLogin(){
     if(!loginModal || !loginPin) return;
     show('dm-login-modal');
@@ -108,7 +116,7 @@ function initDMLogin(){
           if (entered === DM_PIN) {
             setLoggedIn();
             updateButtons();
-            if (window.initSomfDM) window.initSomfDM();
+            initTools();
             if (typeof dismissToast === 'function') dismissToast();
             if (typeof toast === 'function') toast('DM tools unlocked','success');
             resolve(true);
@@ -132,7 +140,7 @@ function initDMLogin(){
         if(loginPin.value === DM_PIN){
           setLoggedIn();
           updateButtons();
-          if (window.initSomfDM) window.initSomfDM();
+          initTools();
           closeLogin();
           if (typeof dismissToast === 'function') dismissToast();
           if (typeof toast === 'function') toast('DM tools unlocked','success');
@@ -364,9 +372,7 @@ function initDMLogin(){
   }
 
   updateButtons();
-  if (isLoggedIn() && window.initSomfDM){
-    window.initSomfDM();
-  }
+  if (isLoggedIn()) initTools();
 
   document.addEventListener('click', e => {
     const t = e.target.closest('button,a');
