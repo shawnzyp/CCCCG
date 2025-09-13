@@ -48,6 +48,8 @@ describe('dm login', () => {
 
     expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
     expect(window.dismissToast).toHaveBeenCalled();
+    expect(modal.classList.contains('hidden')).toBe(true);
+    expect(modal.getAttribute('aria-hidden')).toBe('true');
     const dmBtn = document.getElementById('dm-login');
     const menu = document.getElementById('dm-tools-menu');
     expect(dmBtn.style.opacity).toBe('1');
