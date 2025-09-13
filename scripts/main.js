@@ -1355,7 +1355,23 @@ async function renderCharacterList(){
   try { names = await listCharacters(); }
   catch (e) { console.error('Failed to list characters', e); }
   const current = currentCharacter();
-  list.innerHTML = names.map(c=>`<div class="catalog-item${c===current?' active':''}"><a href="#" data-char="${c}">${c}</a>${c==='The DM'?'':'<button class="btn-sm" data-del="'+c+'"></button>'}</div>`).join('');
+  list.innerHTML = '';
+  names.forEach(c => {
+    const item = document.createElement('div');
+    item.className = `catalog-item${c===current ? ' active' : ''}`;
+    const link = document.createElement('a');
+    link.href = '#';
+    link.dataset.char = c;
+    link.textContent = c;
+    item.appendChild(link);
+    if(c !== 'The DM'){
+      const btn = document.createElement('button');
+      btn.className = 'btn-sm';
+      btn.dataset.del = c;
+      item.appendChild(btn);
+    }
+    list.appendChild(item);
+  });
   applyDeleteIcons(list);
   selectedChar = current;
 }
@@ -1370,7 +1386,17 @@ async function renderRecoverCharList(){
   let names = [];
   try { names = await listRecoverableCharacters(); }
   catch (e) { console.error('Failed to list characters', e); }
-  list.innerHTML = names.map(c=>`<div class="catalog-item"><button class="btn-sm" data-char="${c}">${c}</button></div>`).join('');
+  list.innerHTML = '';
+  names.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'catalog-item';
+    const btn = document.createElement('button');
+    btn.className = 'btn-sm';
+    btn.dataset.char = c;
+    btn.textContent = c;
+    item.appendChild(btn);
+    list.appendChild(item);
+  });
 }
 
 async function renderRecoverList(name){
