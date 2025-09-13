@@ -53,6 +53,9 @@ describe('dm login', () => {
     const dmBtn = document.getElementById('dm-login');
     const menu = document.getElementById('dm-tools-menu');
     expect(dmBtn.style.opacity).toBe('1');
+    expect(dmBtn.style.left).toBe('18px');
+    expect(dmBtn.style.bottom).toBe('18px');
+    expect(dmBtn.style.transform).toBe('none');
     expect(menu.hidden).toBe(true);
     dmBtn.click();
     expect(menu.hidden).toBe(false);

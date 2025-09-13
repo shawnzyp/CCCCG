@@ -74,6 +74,9 @@ function initDMLogin(){
     if (!loggedIn && menu) menu.hidden = true;
     if (dmBtn){
       dmBtn.style.opacity = loggedIn ? '1' : '0';
+      dmBtn.style.left = loggedIn ? '18px' : '50%';
+      dmBtn.style.bottom = loggedIn ? '18px' : '0';
+      dmBtn.style.transform = loggedIn ? 'none' : 'translateX(-50%)';
     }
   }
 
