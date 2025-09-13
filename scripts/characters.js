@@ -11,6 +11,7 @@ import {
   loadCloudBackup,
   deleteCloud,
 } from './storage.js';
+import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin } from './pin.js';
 
 // DM saves are protected by a login flow rather than a manual PIN entry.
 // Only "The DM" character triggers this flow.
@@ -36,9 +37,17 @@ try {
 } catch {}
 
 async function verifyPin(name) {
-  if (name !== 'The DM') return;
-  if (typeof window.dmRequireLogin === 'function') {
-    await window.dmRequireLogin();
+  if (name === 'The DM') {
+    if (typeof window.dmRequireLogin === 'function') {
+      await window.dmRequireLogin();
+    }
+    return;
+  }
+  if (hasPin(name)) {
+    const pin = typeof prompt === 'function' ? prompt('Enter PIN') : null;
+    if (pin === null || !(await verifyStoredPin(name, pin))) {
+      throw new Error('Invalid PIN');
+    }
   }
 }
 
@@ -129,6 +138,7 @@ export async function renameCharacter(oldName, newName, data) {
   } catch (e) {
     console.error('Cloud save failed', e);
   }
+  movePin(oldName, newName);
   await deleteSave(oldName);
   try {
     await deleteCloud(oldName);
@@ -157,6 +167,7 @@ export async function deleteCharacter(name) {
     try { await saveCloud(name, data); } catch (e) { console.error('Cloud backup failed', e); }
   }
   await deleteSave(name);
+  clearPin(name);
   try {
     await deleteCloud(name);
   } catch (e) {
