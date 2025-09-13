@@ -13,9 +13,6 @@ import {
 } from './storage.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin } from './pin.js';
 
-// DM saves are protected by a login flow rather than a manual PIN entry.
-// Only "The DM" character triggers this flow.
-
 // Migrate legacy DM saves to the new "The DM" name.
 // Older versions stored the DM character under names like "Shawn",
 // "Player :Shawn", or simply "DM". Ensure any of these variants are renamed.
@@ -37,12 +34,6 @@ try {
 } catch {}
 
 async function verifyPin(name) {
-  if (name === 'The DM') {
-    if (typeof window.dmRequireLogin === 'function') {
-      await window.dmRequireLogin();
-    }
-    return;
-  }
   if (hasPin(name)) {
     const pin = await (window.pinPrompt ? window.pinPrompt('Enter PIN') : Promise.resolve(typeof prompt === 'function' ? prompt('Enter PIN') : null));
     if (pin === null || !(await verifyStoredPin(name, pin))) {

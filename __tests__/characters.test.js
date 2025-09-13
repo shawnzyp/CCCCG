@@ -92,7 +92,6 @@ describe('character storage', () => {
       localStorage.setItem(`save:${legacyName}`, JSON.stringify({ hp: 5 }));
       localStorage.setItem('last-save', legacyName);
       fetch.mockResolvedValue({ ok: true, status: 200, json: async () => null });
-      window.dmRequireLogin = jest.fn().mockResolvedValue(true);
 
       const { listCharacters, loadCharacter } = await import('../scripts/characters.js');
 
@@ -102,32 +101,25 @@ describe('character storage', () => {
 
       const data = await loadCharacter('The DM');
       expect(data).toEqual({ hp: 5 });
-
-      delete window.dmRequireLogin;
     });
   }
 
   test('cannot delete The DM', async () => {
     fetch.mockResolvedValue({ ok: true, status: 200, json: async () => null });
-    window.dmRequireLogin = jest.fn().mockResolvedValue(true);
     const { setCurrentCharacter, saveCharacter, deleteCharacter } = await import('../scripts/characters.js');
     setCurrentCharacter('The DM');
     await saveCharacter({ hp: 5 }, 'The DM');
     await expect(deleteCharacter('The DM')).rejects.toThrow('Cannot delete The DM');
-    delete window.dmRequireLogin;
   });
 
-  test('saving The DM requires DM login but no prompt', async () => {
+  test('saving The DM does not require DM login', async () => {
     window.dmRequireLogin = jest.fn().mockResolvedValue(true);
-    window.prompt = jest.fn();
     const { setCurrentCharacter, saveCharacter } = await import('../scripts/characters.js');
     setCurrentCharacter('The DM');
     await saveCharacter({ hp: 7 });
-    expect(window.dmRequireLogin).toHaveBeenCalled();
-    expect(window.prompt).not.toHaveBeenCalled();
+    expect(window.dmRequireLogin).not.toHaveBeenCalled();
     expect(localStorage.getItem('save:The DM')).toBe(JSON.stringify({ hp: 7 }));
     delete window.dmRequireLogin;
-    delete window.prompt;
   });
 
   test('saving another character does not require DM login', async () => {

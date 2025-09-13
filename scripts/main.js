@@ -164,8 +164,6 @@ function playTone(type){
 
 // Expose toast utilities globally so non-module scripts (e.g. dm.js)
 // can display and control notifications.
-// Without these assignments the login flow for special accounts like "The DM"
-// will silently skip notifications because `toast` isn't found on `window`.
 window.toast = toast;
 window.dismissToast = dismissToast;
 
@@ -1484,14 +1482,9 @@ if(charList){
       const item = loadBtn.closest('.catalog-item');
       if(item) item.classList.add('active');
       pendingLoad = { name: selectedChar };
-      if(selectedChar === 'The DM'){
-        hide('modal-load-list');
-        doLoad();
-      }else{
-        const text = $('load-confirm-text');
-        if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
-        show('modal-load');
-      }
+      const text = $('load-confirm-text');
+      if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
+      show('modal-load');
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
       if(hasPin(ch)){
@@ -1611,14 +1604,9 @@ function openCharacterModalByName(name){
   if(!name) return;
   selectedChar = name;
   pendingLoad = { name };
-  if(name === 'The DM'){
-    hide('modal-load-list');
-    doLoad();
-  }else{
-    const text = $('load-confirm-text');
-    if(text) text.textContent = `Are you sure you would like to load this character: ${name}. All current progress will be lost if you haven't saved yet.`;
-    show('modal-load');
-  }
+  const text = $('load-confirm-text');
+  if(text) text.textContent = `Are you sure you would like to load this character: ${name}. All current progress will be lost if you haven't saved yet.`;
+  show('modal-load');
 }
 window.openCharacterModal = openCharacterModalByName;
 
