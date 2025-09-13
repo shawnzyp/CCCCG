@@ -1,6 +1,6 @@
 // Bump cache version whenever the pre-cached asset list changes so clients
 // pick up the latest files on next load.
-const CACHE = 'cccg-cache-v14';
+const CACHE = 'cccg-cache-v15';
 const ASSETS = [
   './',
   './index.html',
@@ -55,41 +55,18 @@ self.addEventListener('fetch', e => {
 
   const cacheKey = request.url.split('?')[0];
 
-  if (request.mode === 'navigate') {
-    e.respondWith(
-      caches.match(cacheKey).then(cacheRes => {
-        const fetchPromise = fetch(request)
-          .then(res => {
-            const copy = res.clone();
-            caches.open(CACHE).then(cache => cache.put(cacheKey, copy));
-            notifyClient();
-            return res;
-          })
-          .catch(() => cacheRes);
-        if (cacheRes) {
-          e.waitUntil(fetchPromise);
-          return cacheRes;
-        }
-        return fetchPromise;
-      })
-    );
-    return;
-  }
-
   if (new URL(request.url).origin !== location.origin) return;
+
   e.respondWith(
-    caches.match(cacheKey).then(cacheRes => {
-      const fetchPromise = fetch(request)
-        .then(res => {
-          caches.open(CACHE).then(cache => cache.put(cacheKey, res.clone()));
-          return res;
-        })
-        .catch(() => cacheRes);
-      if (cacheRes) {
-        e.waitUntil(fetchPromise);
-        return cacheRes;
-      }
-      return fetchPromise;
-    })
+    fetch(request)
+      .then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(cache => cache.put(cacheKey, copy));
+        if (request.mode === 'navigate') {
+          notifyClient();
+        }
+        return res;
+      })
+      .catch(() => caches.match(cacheKey))
   );
 });
