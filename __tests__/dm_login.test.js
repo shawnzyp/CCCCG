@@ -19,6 +19,7 @@ describe('dm login', () => {
         </div>
       `;
     window.toast = jest.fn();
+    window.dismissToast = jest.fn();
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
       saveLocal: jest.fn(),
@@ -45,13 +46,15 @@ describe('dm login', () => {
     await promise;
 
     expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
+    expect(window.dismissToast).toHaveBeenCalled();
     const dmBtn = document.getElementById('dm-login');
     const menu = document.getElementById('dm-tools-menu');
-    expect(dmBtn.hidden).toBe(false);
+    expect(dmBtn.style.opacity).toBe('1');
     expect(menu.hidden).toBe(true);
     dmBtn.click();
     expect(menu.hidden).toBe(false);
     delete window.toast;
+    delete window.dismissToast;
   });
 
   test('falls back to prompt when modal elements missing for The DM', async () => {

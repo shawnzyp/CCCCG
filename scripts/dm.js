@@ -71,6 +71,7 @@ function initDMLogin(){
   function updateButtons(){
     const loggedIn = isLoggedIn();
     if (!loggedIn && menu) menu.hidden = true;
+    if (dmBtn) dmBtn.style.opacity = loggedIn ? '1' : '0';
   }
 
   function openLogin(){
@@ -105,6 +106,7 @@ function initDMLogin(){
           setLoggedIn();
           updateButtons();
           if (window.initSomfDM) window.initSomfDM();
+          if (typeof dismissToast === 'function') dismissToast();
           if (typeof toast === 'function') toast('DM tools unlocked','success');
           resolve(true);
         } else {
@@ -128,6 +130,7 @@ function initDMLogin(){
           updateButtons();
           if (window.initSomfDM) window.initSomfDM();
           closeLogin();
+          if (typeof dismissToast === 'function') dismissToast();
           if (typeof toast === 'function') toast('DM tools unlocked','success');
           cleanup();
           resolve(true);
