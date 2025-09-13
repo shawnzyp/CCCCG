@@ -129,18 +129,29 @@ function playTone(type){
     osc.stop(audioCtx.currentTime + 0.15);
   }catch(e){ /* noop */ }
 }
-function toast(msg,type='info'){
-  const t=$('toast');
-  t.textContent=msg;
-  t.className=`toast ${type}`;
-  t.classList.add('show');
-  playTone(type);
-  setTimeout(()=>t.classList.remove('show'),5000);
-}
-// Expose toast globally so non-module scripts (e.g. dm.js) can display messages.
-// Without this assignment the login flow for special accounts like "The DM"
+ let toastTimeout;
+ function toast(msg,type='info'){
+   const t=$('toast');
+   t.textContent=msg;
+   t.className=`toast ${type}`;
+   t.classList.add('show');
+   playTone(type);
+   clearTimeout(toastTimeout);
+   toastTimeout = setTimeout(()=>t.classList.remove('show'),5000);
+ }
+
+ function dismissToast(){
+   const t=$('toast');
+   t.classList.remove('show');
+   clearTimeout(toastTimeout);
+ }
+
+// Expose toast utilities globally so non-module scripts (e.g. dm.js)
+// can display and control notifications.
+// Without these assignments the login flow for special accounts like "The DM"
 // will silently skip notifications because `toast` isn't found on `window`.
 window.toast = toast;
+window.dismissToast = dismissToast;
 
 function debounce(fn, delay){
   let t;
