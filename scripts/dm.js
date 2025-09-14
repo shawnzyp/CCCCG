@@ -34,7 +34,15 @@ function initDMLogin(){
   window.dmNotify = function(detail){
     const entry = {
       ts: new Date().toLocaleString(),
-      char: (()=>{ try { return localStorage.getItem('last-save') || ''; } catch { return ''; } })(),
+      char: (()=>{
+        try {
+          return sessionStorage.getItem('dmLoggedIn') === '1'
+            ? 'DM'
+            : (localStorage.getItem('last-save') || '');
+        } catch {
+          return '';
+        }
+      })(),
       detail
     };
     notifications.push(entry);
