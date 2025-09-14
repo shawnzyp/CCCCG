@@ -1091,6 +1091,11 @@ function renderFullLogs(){
   $('full-log-action').innerHTML = actionLog.slice().reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
 }
 function logAction(text){
+  try{
+    if(sessionStorage.getItem('dmLoggedIn') === '1'){
+      text = `DM: ${text}`;
+    }
+  }catch{}
   pushLog(actionLog, {t:Date.now(), text}, 'action-log');
   renderLogs();
   renderFullLogs();
