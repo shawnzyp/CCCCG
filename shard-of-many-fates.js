@@ -699,13 +699,16 @@ function initSomf(){
     return window._somf_db;
   };
   const CID = ()=> window._somf_cid || 'ccampaign-001';
+  // Firebase location for the shared Shard Deck. The campaign ID is kept for
+  // compatibility but no longer affects the path so all campaigns share the
+  // same data at /shardDeck in the RTDB.
   const path = {
-    deck: cid=>`somf/${cid}/deck`,
-    audits: cid=>`somf/${cid}/audits`,
-    notices: cid=>`somf/${cid}/notices`,
-    resolutions: cid=>`somf/${cid}/resolutions`,
-    npcs: cid=>`somf/${cid}/active_npcs`,
-    hidden: cid=>`somf/${cid}/hidden`,
+    deck: (_cid)=>`shardDeck/deck`,
+    audits: (_cid)=>`shardDeck/audits`,
+    notices: (_cid)=>`shardDeck/notices`,
+    resolutions: (_cid)=>`shardDeck/resolutions`,
+    npcs: (_cid)=>`shardDeck/active_npcs`,
+    hidden: (_cid)=>`shardDeck/hidden`,
   };
   const LSK = {
     deck: cid=>`somf_deck__${cid}`,
