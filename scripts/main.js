@@ -15,7 +15,7 @@ import {
 } from './characters.js';
 import { show, hide } from './modal.js';
 import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
-import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin } from './pin.js';
+import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 // Global CC object for cross-module state
 window.CC = window.CC || {};
 CC.partials = CC.partials || {};
@@ -114,16 +114,17 @@ function applyDeleteIcons(root=document){
   qsa('button[data-del], button[data-act="del"]', root).forEach(applyDeleteIcon);
 }
 
-function applyLockIcon(btn){
+async function applyLockIcon(btn){
   if(!btn) return;
   const name = btn.dataset.lock;
+  await syncPin(name);
   btn.innerHTML = hasPin(name) ? ICON_LOCK : ICON_UNLOCK;
   btn.setAttribute('aria-label','Toggle PIN');
   Object.assign(btn.style, DELETE_ICON_STYLE);
 }
 
 function applyLockIcons(root=document){
-  qsa('button[data-lock]', root).forEach(applyLockIcon);
+  qsa('button[data-lock]', root).forEach(btn=>{ applyLockIcon(btn); });
 }
 let audioCtx = null;
 window.addEventListener('unload', () => {
@@ -1492,12 +1493,13 @@ if(charList){
       show('modal-load');
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
+      await syncPin(ch);
       if(hasPin(ch)){
         const pin = await pinPrompt('Enter PIN to disable protection');
         if(pin !== null){
           const ok = await verifyStoredPin(ch, pin);
           if(ok){
-            clearPin(ch);
+            await clearPin(ch);
             applyLockIcon(lockBtn);
             toast('PIN disabled','info');
           }else{
