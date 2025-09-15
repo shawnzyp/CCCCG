@@ -724,6 +724,9 @@ const elTier = $('tier');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
+const elCredits = $('credits');
+const elCreditsPill = $('credits-total-pill');
+const elCreditsModal = $('credits-total-modal');
 
 let hpRolls = [];
 if (elHPRoll) {
@@ -938,6 +941,41 @@ $('xp-submit').addEventListener('click', ()=>{
   if(!amt) return;
   const mode = $('xp-mode').value;
   setXP(num(elXP.value) + (mode==='add'? amt : -amt));
+});
+
+function updateCreditsDisplay(){
+  if (elCreditsPill) elCreditsPill.textContent = num(elCredits.value)||0;
+  if (elCreditsModal) elCreditsModal.textContent = num(elCredits.value)||0;
+}
+
+function setCredits(v){
+  const prev = num(elCredits.value)||0;
+  const total = Math.max(0, v);
+  elCredits.value = total;
+  updateCreditsDisplay();
+  const diff = total - prev;
+  if(diff !== 0){
+    window.dmNotify?.(`Credits ${diff>0?'gained':'spent'} ${Math.abs(diff)} (now ${total})`);
+    pushHistory();
+    const name = currentCharacter();
+    if (name) {
+      saveCharacter(serialize(), name).catch(e => {
+        console.error('Credits cloud save failed', e);
+      });
+    }
+  }
+}
+
+if (elCredits) updateCreditsDisplay();
+const elCreditsOpen = $('credits-open');
+if (elCreditsOpen) elCreditsOpen.addEventListener('click', ()=>{ updateCreditsDisplay(); show('modal-credits'); });
+
+$('credits-submit').addEventListener('click', ()=>{
+  const amt = num($('credits-amt').value)||0;
+  if(!amt) return;
+  const mode = $('credits-mode').value;
+  setCredits(num(elCredits.value) + (mode==='add'? amt : -amt));
+  $('credits-amt').value='';
 });
 
 
@@ -2078,6 +2116,7 @@ const DEFAULT_STATE = serialize();
   }
   updateDerived();
   updateFactionRep(handlePerkEffects);
+  updateCreditsDisplay();
 }
 
 /* ========= autosave + history ========= */
