@@ -1,6 +1,6 @@
 // Bump cache version whenever the pre-cached asset list changes so clients
 // pick up the latest files on next load.
-const CACHE = 'cccg-cache-v15';
+const CACHE = 'cccg-cache-v16';
 const ASSETS = [
   './',
   './index.html',
@@ -29,6 +29,7 @@ const ASSETS = [
   './images/Magic User.PNG',
   './images/Alien:Extraterrestrial.PNG',
   './images/Mystical Being.PNG',
+  './images/LOGO ICON.png',
   './images/LOGO.PNG'
 ];
 self.addEventListener('install', e => {
