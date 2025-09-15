@@ -11,7 +11,7 @@ import {
   loadCloudBackup,
   deleteCloud,
 } from './storage.js';
-import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin } from './pin.js';
+import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
 
 // Migrate legacy DM saves to the new "The DM" name.
 // Older versions stored the DM character under names like "Shawn",
@@ -34,6 +34,7 @@ try {
 } catch {}
 
 async function verifyPin(name) {
+  await syncPin(name);
   if (hasPin(name)) {
     const pin = await (window.pinPrompt ? window.pinPrompt('Enter PIN') : Promise.resolve(typeof prompt === 'function' ? prompt('Enter PIN') : null));
     if (pin === null || !(await verifyStoredPin(name, pin))) {
@@ -131,7 +132,7 @@ export async function renameCharacter(oldName, newName, data) {
   } catch (e) {
     console.error('Cloud save failed', e);
   }
-  movePin(oldName, newName);
+  await movePin(oldName, newName);
   await deleteSave(oldName);
   try {
     await deleteCloud(oldName);
@@ -160,7 +161,7 @@ export async function deleteCharacter(name) {
     try { await saveCloud(name, data); } catch (e) { console.error('Cloud backup failed', e); }
   }
   await deleteSave(name);
-  clearPin(name);
+  await clearPin(name);
   try {
     await deleteCloud(name);
   } catch (e) {

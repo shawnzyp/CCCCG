@@ -14,19 +14,21 @@ describe('character storage', () => {
 
   test('backs up to cloud and restores after local wipe', async () => {
     fetch
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null })
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null })
-      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null }) // syncPin during save
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null }) // saveCloud
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null }) // history save
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) }) // history list
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ Hero: { hp: 10 } }),
-      })
+      }) // listCloudSaves
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null }) // syncPin during load
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ hp: 10 }),
-      });
+      }); // loadCloud
 
     const {
       setCurrentCharacter,
@@ -42,7 +44,7 @@ describe('character storage', () => {
     expect(await listCharacters()).toEqual(['Hero']);
     const data = await loadCharacter('Hero');
     expect(data).toEqual({ hp: 10 });
-    expect(fetch).toHaveBeenCalledTimes(5);
+    expect(fetch).toHaveBeenCalledTimes(7);
   });
 
   test('lists backups and loads a selected one', async () => {
