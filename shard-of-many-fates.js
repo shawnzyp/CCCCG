@@ -1146,16 +1146,35 @@ function itemCard(it){
   }
 
 function renderCardList(){
+    if(!D.cardTab) return;
     D.cardTab.innerHTML='';
+    const toText = v => {
+      if(v==null) return '';
+      if(typeof v==='string') return v.replace(/_/g,' ');
+      if(Array.isArray(v)) return v.map(toText).join(', ');
+      if(typeof v==='object') return Object.entries(v).map(([k,val])=>`${k.replace(/_/g,' ')}: ${toText(val)}`).join(', ');
+      return String(v);
+    };
     PLATES.forEach(p=>{
       const d=document.createElement('div');
       d.id = `somfDM-card-${p.id}`;
       d.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-      d.innerHTML = `<div><strong>${p.name}</strong></div>
-        <div style="opacity:.8;font-size:12px">ID: ${p.id}</div>
-        <div style="margin-top:4px;opacity:.8;font-size:12px">${p.visual}</div>
-        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Player</span><ul style="margin:4px 0 0 18px;padding:0">${p.player.map(e=>`<li>${e}</li>`).join('')}</ul></div>
+      let html = `<div><strong>${p.name}</strong></div>
+        <div style="opacity:.8;font-size:12px">ID: ${p.id}</div>`;
+      if(p.visual) html += `
+        <div style="margin-top:4px;opacity:.8;font-size:12px">${p.visual}</div>`;
+      if(Array.isArray(p.player)) html += `
+        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Player</span><ul style="margin:4px 0 0 18px;padding:0">${p.player.map(e=>`<li>${e}</li>`).join('')}</ul></div>`;
+      if(Array.isArray(p.dm)) html += `
         <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">DM</span><ul style="margin:4px 0 0 18px;padding:0">${p.dm.map(e=>`<li>${e}</li>`).join('')}</ul></div>`;
+      if(p.effect && !p.player && !p.dm){
+        const effs = Array.isArray(p.effect)? p.effect: [p.effect];
+        html += `
+        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Effect</span><ul style="margin:4px 0 0 18px;padding:0">${effs.map(e=>`<li>${toText(e)}</li>`).join('')}</ul></div>`;
+        if(p.resolution) html += `
+        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Resolution</span><div style="opacity:.8;font-size:12px">${toText(p.resolution)}</div></div>`;
+      }
+      d.innerHTML = html;
       D.cardTab.appendChild(d);
     });
     if(_focusId){
