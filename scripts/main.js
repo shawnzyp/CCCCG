@@ -2236,6 +2236,23 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data === 'cacheCloudSaves') cacheCloudSaves();
   });
+  navigator.serviceWorker.ready
+    .then(reg => {
+      const triggerFlush = () => {
+        const worker = navigator.serviceWorker.controller || reg.active;
+        if (reg.sync && typeof reg.sync.register === 'function') {
+          reg.sync.register('cloud-save-sync').catch(() => {
+            worker?.postMessage({ type: 'flush-cloud-saves' });
+          });
+        }
+        worker?.postMessage({ type: 'flush-cloud-saves' });
+      };
+      triggerFlush();
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        window.addEventListener('online', triggerFlush);
+      }
+    })
+    .catch(() => {});
 }
 subscribeCloudSaves();
 
