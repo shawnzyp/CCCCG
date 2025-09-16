@@ -47,6 +47,59 @@ export function listLocalSaves() {
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 
+let lastHistoryTimestamp = 0;
+let offlineSyncToastShown = false;
+let offlineQueueToastShown = false;
+
+function nextHistoryTimestamp() {
+  const now = Date.now();
+  if (now <= lastHistoryTimestamp) {
+    lastHistoryTimestamp += 1;
+  } else {
+    lastHistoryTimestamp = now;
+  }
+  return lastHistoryTimestamp;
+}
+
+function isNavigatorOffline() {
+  return (
+    typeof navigator !== 'undefined' &&
+    Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
+    navigator.onLine === false
+  );
+}
+
+function showToast(message, type = 'info') {
+  if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+    window.toast(message, type);
+  } else if (typeof toast === 'function') {
+    toast(message, type);
+  }
+}
+
+function notifySyncPaused() {
+  if (!offlineSyncToastShown) {
+    showToast('Cloud sync paused while offline', 'info');
+    offlineSyncToastShown = true;
+  }
+}
+
+function notifySaveQueued() {
+  if (!offlineQueueToastShown) {
+    showToast('Offline: changes will sync when you reconnect', 'info');
+    offlineQueueToastShown = true;
+  }
+}
+
+function resetOfflineNotices() {
+  offlineSyncToastShown = false;
+  offlineQueueToastShown = false;
+}
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('online', resetOfflineNotices);
+}
+
 // Direct fetch helper used by cloud save functions.
 async function cloudFetch(url, options = {}) {
   return fetch(url, options);
@@ -61,50 +114,92 @@ function encodePath(name) {
     .join('/');
 }
 
-export async function saveCloud(name, payload) {
-  try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
+async function attemptCloudSave(name, payload, ts) {
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  localStorage.setItem('last-save', name);
+
+  await cloudFetch(
+    `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
+    {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    localStorage.setItem('last-save', name);
-
-    // Also persist a timestamped backup and prune to the three most recent entries.
-    const ts = Date.now();
-    await cloudFetch(
-      `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
-      {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const listRes = await cloudFetch(
-      `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`,
-      { method: 'GET' }
-    );
-    if (listRes.ok) {
-      const val = await listRes.json();
-      const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
-      const excess = keys.slice(3);
-      await Promise.all(
-        excess.map(k =>
-          cloudFetch(
-            `${CLOUD_HISTORY_URL}/${encodePath(name)}/${k}.json`,
-            { method: 'DELETE' }
-          )
-        )
-      );
     }
+  );
+
+  const listRes = await cloudFetch(
+    `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`,
+    { method: 'GET' }
+  );
+  if (listRes.ok) {
+    const val = await listRes.json();
+    const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
+    const excess = keys.slice(3);
+    await Promise.all(
+      excess.map(k =>
+        cloudFetch(
+          `${CLOUD_HISTORY_URL}/${encodePath(name)}/${k}.json`,
+          { method: 'DELETE' }
+        )
+      )
+    );
+  }
+}
+
+async function enqueueCloudSave(name, payload, ts) {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false;
+  try {
+    const ready = await navigator.serviceWorker.ready;
+    const controller = navigator.serviceWorker.controller || ready.active;
+    if (!controller) return false;
+    let data = payload;
+    try {
+      if (typeof structuredClone === 'function') {
+        data = structuredClone(payload);
+      } else {
+        data = JSON.parse(JSON.stringify(payload));
+      }
+    } catch {
+      // Fall back to original payload if cloning fails.
+    }
+    controller.postMessage({ type: 'queue-cloud-save', name, payload: data, ts });
+    if (ready.sync && typeof ready.sync.register === 'function') {
+      await ready.sync.register('cloud-save-sync');
+    } else {
+      controller.postMessage({ type: 'flush-cloud-saves' });
+    }
+    return true;
+  } catch (e) {
+    console.error('Failed to queue cloud save', e);
+    return false;
+  }
+}
+
+export async function saveCloud(name, payload) {
+  if (!isNavigatorOffline()) {
+    offlineQueueToastShown = false;
+  }
+  const ts = nextHistoryTimestamp();
+  try {
+    await attemptCloudSave(name, payload, ts);
+    return 'saved';
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;
     }
+    const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
+    if (shouldQueue && (await enqueueCloudSave(name, payload, ts))) {
+      notifySaveQueued();
+      return 'queued';
+    }
     console.error('Cloud save failed', e);
+    throw e;
   }
 }
 
@@ -218,19 +313,18 @@ export async function loadCloudBackup(name, ts) {
   }
   throw new Error('No backup found');
 }
+
 export async function cacheCloudSaves(
   listFn = listCloudSaves,
   loadFn = loadCloud,
   saveFn = saveLocal
 ) {
   try {
-    if (
-      typeof navigator !== 'undefined' &&
-      Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
-      navigator.onLine === false
-    ) {
+    if (isNavigatorOffline()) {
+      notifySyncPaused();
       return;
     }
+    offlineSyncToastShown = false;
     const keys = await listFn();
     // Cache all available saves so local storage reflects the cloud state.
     await Promise.all(
