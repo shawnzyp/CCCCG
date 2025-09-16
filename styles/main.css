@@ -230,12 +230,19 @@ progress::-moz-progress-bar{
 
 .pill{
   --progress-color: var(--accent);
-  display:inline-block;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   padding:6px 10px;
   border:1px solid var(--progress-color);
   border-radius:999px;
-  color:var(--progress-color);
+  background:var(--surface-2);
+  background:color-mix(in srgb, var(--progress-color) 22%, var(--surface-2));
+  color:var(--text);
   font-size:.85rem;
+  font-weight:600;
+  letter-spacing:.02em;
+  text-shadow:0 1px 1px rgba(0,0,0,.35);
   white-space:nowrap;
 }
 
@@ -257,7 +264,7 @@ progress::-moz-progress-bar{
 .roll-flip-grid input,
 .roll-flip-grid button,
 .roll-flip-grid .pill{padding:4px 6px;min-height:28px;}
-.roll-flip-grid .pill.result{font-size:.85rem;min-width:40px;width:100%;display:block;text-align:center;margin-bottom:4px;}
+.roll-flip-grid .pill.result{font-size:.85rem;min-width:40px;width:100%;display:flex;align-items:center;justify-content:center;text-align:center;margin-bottom:4px;}
 #dice-count{flex:0 0 30px;width:30px;}
 @media(max-width:600px){
   .roll-flip-grid{grid-template-columns:repeat(2,1fr);}
@@ -267,6 +274,11 @@ progress::-moz-progress-bar{
   .roll-flip-grid .inline>button{flex:0 0 auto;width:auto;}
 }
 #flip{flex:1;width:100%;display:block;}
+#credits-total-pill,
+#credits-total-modal{
+  font-size:1rem;
+  letter-spacing:.04em;
+}
 .faction-rep>div{display:flex;flex-direction:column;gap:4px;}
 .faction-rep .inline{gap:4px;flex-wrap:nowrap;}
 .faction-rep .faction-header{justify-content:space-between;}
