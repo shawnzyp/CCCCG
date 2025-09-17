@@ -35,8 +35,11 @@ const ASSETS = [
 
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
+const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
 const OUTBOX_DB = 'cccg-cloud-outbox';
+const OUTBOX_VERSION = 2;
 const OUTBOX_STORE = 'cloud-saves';
+const OUTBOX_PINS_STORE = 'cloud-pins';
 
 let flushPromise = null;
 
@@ -57,11 +60,14 @@ function isSwOffline() {
 
 function openOutboxDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open(OUTBOX_DB, 1);
+    const req = indexedDB.open(OUTBOX_DB, OUTBOX_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
       if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
         db.createObjectStore(OUTBOX_STORE, { keyPath: 'id', autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains(OUTBOX_PINS_STORE)) {
+        db.createObjectStore(OUTBOX_PINS_STORE, { keyPath: 'id', autoIncrement: true });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -69,34 +75,34 @@ function openOutboxDb() {
   });
 }
 
-async function addOutboxEntry(entry) {
+async function addOutboxEntry(entry, storeName = OUTBOX_STORE) {
   const db = await openOutboxDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(OUTBOX_STORE, 'readwrite');
+    const tx = db.transaction(storeName, 'readwrite');
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.objectStore(OUTBOX_STORE).add(entry);
+    tx.objectStore(storeName).add(entry);
   });
 }
 
-async function getOutboxEntries() {
+async function getOutboxEntries(storeName = OUTBOX_STORE) {
   const db = await openOutboxDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(OUTBOX_STORE, 'readonly');
-    const store = tx.objectStore(OUTBOX_STORE);
+    const tx = db.transaction(storeName, 'readonly');
+    const store = tx.objectStore(storeName);
     const req = store.getAll();
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function deleteOutboxEntry(id) {
+async function deleteOutboxEntry(id, storeName = OUTBOX_STORE) {
   const db = await openOutboxDb();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(OUTBOX_STORE, 'readwrite');
+    const tx = db.transaction(storeName, 'readwrite');
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.objectStore(OUTBOX_STORE).delete(id);
+    tx.objectStore(storeName).delete(id);
   });
 }
 
@@ -134,6 +140,23 @@ async function pushQueuedSave({ name, payload, ts }) {
   }
 }
 
+async function pushQueuedPin({ name, hash, op }) {
+  const encoded = encodePath(name);
+  if (op === 'delete') {
+    const res = await fetch(`${CLOUD_PINS_URL}/${encoded}.json`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return;
+  }
+  if (op === 'set') {
+    const res = await fetch(`${CLOUD_PINS_URL}/${encoded}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(hash ?? null),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  }
+}
+
 async function flushOutbox() {
   if (flushPromise) return flushPromise;
   flushPromise = (async () => {
@@ -146,8 +169,11 @@ async function flushOutbox() {
       return;
     }
 
-    const entries = await getOutboxEntries();
-    if (!entries.length) return;
+    const [entries, pinEntries] = await Promise.all([
+      getOutboxEntries(),
+      getOutboxEntries(OUTBOX_PINS_STORE),
+    ]);
+    if (!entries.length && !pinEntries.length) return;
 
     entries.sort((a, b) => {
       if (a.ts !== b.ts) return a.ts - b.ts;
@@ -175,8 +201,36 @@ async function flushOutbox() {
       }
     }
 
+    pinEntries.sort((a, b) => {
+      if (a.queuedAt && b.queuedAt && a.queuedAt !== b.queuedAt) return a.queuedAt - b.queuedAt;
+      if (a.id && b.id) return a.id - b.id;
+      return 0;
+    });
+
+    let pinsSynced = false;
+    for (const entry of pinEntries) {
+      try {
+        await pushQueuedPin(entry);
+        if (entry.id !== undefined) {
+          await deleteOutboxEntry(entry.id, OUTBOX_PINS_STORE);
+        }
+        pinsSynced = true;
+      } catch (err) {
+        console.error('Cloud pin flush failed', err);
+        if (self.registration?.sync && typeof self.registration.sync.register === 'function') {
+          try {
+            await self.registration.sync.register('cloud-save-sync');
+          } catch {}
+        }
+        break;
+      }
+    }
+
     if (synced) {
       await broadcast('cacheCloudSaves');
+    }
+    if (pinsSynced) {
+      await broadcast('pins-updated');
     }
   })().finally(() => {
     flushPromise = null;
@@ -242,6 +296,16 @@ self.addEventListener('message', event => {
       addOutboxEntry(entry)
         .then(() => flushOutbox())
         .catch(err => console.error('Failed to queue cloud save', err))
+    );
+  } else if (data.type === 'queue-pin') {
+    const { name, hash = null, op } = data;
+    if (!name || !op) return;
+    if (op !== 'set' && op !== 'delete') return;
+    const entry = { name, hash, op, queuedAt: Date.now() };
+    event.waitUntil(
+      addOutboxEntry(entry, OUTBOX_PINS_STORE)
+        .then(() => flushOutbox())
+        .catch(err => console.error('Failed to queue cloud pin', err))
     );
   } else if (data.type === 'flush-cloud-saves') {
     event.waitUntil(flushOutbox());
