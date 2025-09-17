@@ -18,24 +18,24 @@ export const FACTION_REP_PERKS = {
   'Cosmic Conclave': { ...COMMON_REP_TIERS },
   'Greyline PMC': { ...COMMON_REP_TIERS },
   'Public Opinion': {
-    Beloved: [
-      'Civilians trust you on sight. Reduce Persuasion and Deception DCs with civilians by 5. One scene per session, a crowd or witness will take a personal risk to help you. Local officials default to cooperation unless there is direct harm.',
+    Hostile: [
+      'Mobs form, rumors spread, and you are blamed by default. Deception to hide identity is at disadvantage around locals. Police set perimeters against you—not for you. Expect ambush interviews and hostile headlines.',
+    ],
+    Untrusted: [
+      'Civilians are wary. Persuasion vs. civilians is at disadvantage if you are masked or armed unless you take time to explain. Expect phones out and hostile streaming. Crowds may scatter or obstruct and officials demand proof before offering aid.',
+    ],
+    Neutral: ['No modifier. People judge you by the moment.'],
+    Recognized: [
+      'Bystanders give you the benefit of the doubt. Minor favors are easy—camera access from a shop owner, a rushed statement from a witness. Reduce one crowd-control or de-escalation DC by 2 per scene.',
     ],
     Trusted: [
       'Persuasion checks with civilians are at advantage when the stakes involve safety or rescue. You can clear an area fast, no questions asked. First responder NPCs share operational updates if asked politely.',
     ],
-    Noticed: [
-      'Bystanders give you the benefit of the doubt. Minor favors are easy—camera access from a shop owner, a rushed statement from a witness. Reduce one crowd-control or de-escalation DC by 2 per scene.',
+    Favored: [
+      'Civilians trust you on sight. Reduce Persuasion and Deception DCs with civilians by 5. One scene per session, a crowd or witness will take a personal risk to help you. Local officials default to cooperation unless there is direct harm.',
     ],
-    Unknown: ['No modifier. People judge you by the moment.'],
-    Distrusted: [
-      'Civilians are wary. Persuasion vs. civilians is at disadvantage if you are masked or armed unless you take time to explain. Expect phones out and hostile streaming.',
-    ],
-    Feared: [
-      'Crowds scatter or obstruct. Intimidation gains advantage while Persuasion suffers a –5 DC penalty. Officials require proof or warrants. Collateral damage is amplified by the media.',
-    ],
-    Villainized: [
-      'Mobs form, rumors spread, and you are blamed by default. Deception to hide identity is at disadvantage around locals. Police set perimeters against you—not for you. Expect ambush interviews and hostile headlines.',
+    Champion: [
+      'You are the face of heroism. News outlets amplify your victories, civic leaders coordinate with you in advance, and once per session you can declare a public appeal that grants advantage on the next reputation check with any faction.',
     ],
   },
 };
@@ -72,12 +72,16 @@ const createCommonFaction = (id, name) => {
   return config;
 };
 
-const PUBLIC_OPINION_MIN = -10;
-const PUBLIC_OPINION_MAX = 20;
-const PUBLIC_OPINION_STEP = 1;
+export const FACTIONS = [
+  createCommonFaction('omni', 'O.M.N.I.'),
+  createCommonFaction('pfv', 'P.F.V.'),
+  createCommonFaction('conclave', 'Cosmic Conclave'),
+  createCommonFaction('greyline', 'Greyline PMC'),
+  createCommonFaction('public', 'Public Opinion'),
+];
 
-const PUBLIC_OPINION_LADDER = [
-  { min: PUBLIC_OPINION_MIN, name: 'Villainized' },
+const LEGACY_PUBLIC_OPINION_LADDER = [
+  { min: -10, name: 'Villainized' },
   { min: -7, name: 'Feared' },
   { min: -3, name: 'Distrusted' },
   { min: 0, name: 'Unknown' },
@@ -86,45 +90,51 @@ const PUBLIC_OPINION_LADDER = [
   { min: 13, name: 'Beloved' },
 ];
 
-const createPublicOpinionFaction = () => {
-  const config = {
-    id: 'public',
-    name: 'Public Opinion',
-    min: PUBLIC_OPINION_MIN,
-    max: PUBLIC_OPINION_MAX,
-    defaultValue: 0,
-    step: PUBLIC_OPINION_STEP,
-  };
-  config.clamp = value => clamp(num(value), config.min, config.max);
-  config.getProgressValue = value => config.clamp(value) - config.min;
-  config.getProgressMax = () => config.max - config.min;
-  config.getRatio = value => {
-    const max = config.getProgressMax();
-    return max === 0 ? 0 : config.getProgressValue(value) / max;
-  };
-  config.getTier = value => {
-    const clamped = config.clamp(value);
-    let tier = PUBLIC_OPINION_LADDER[0];
-    for (const candidate of PUBLIC_OPINION_LADDER) {
-      if (clamped >= candidate.min) {
-        tier = candidate;
-      } else {
-        break;
-      }
-    }
-    const perks = (FACTION_REP_PERKS[config.name] && FACTION_REP_PERKS[config.name][tier.name]) || [];
-    return { name: tier.name, perks };
-  };
-  return config;
+const LEGACY_PUBLIC_OPINION_MAP = {
+  Villainized: 0,
+  Feared: 100,
+  Distrusted: 150,
+  Unknown: COMMON_DEFAULT,
+  Noticed: 350,
+  Trusted: 450,
+  Beloved: 600,
 };
 
-export const FACTIONS = [
-  createCommonFaction('omni', 'O.M.N.I.'),
-  createCommonFaction('pfv', 'P.F.V.'),
-  createCommonFaction('conclave', 'Cosmic Conclave'),
-  createCommonFaction('greyline', 'Greyline PMC'),
-  createPublicOpinionFaction(),
-];
+function getLegacyPublicOpinionTier(value) {
+  let tier = LEGACY_PUBLIC_OPINION_LADDER[0];
+  for (const candidate of LEGACY_PUBLIC_OPINION_LADDER) {
+    if (value >= candidate.min) {
+      tier = candidate;
+    } else {
+      break;
+    }
+  }
+  return tier;
+}
+
+export function migratePublicOpinionSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return snapshot;
+  const rawValue = snapshot['public-rep'];
+  if (rawValue === undefined) return snapshot;
+  const rep = Number(rawValue);
+  if (!Number.isFinite(rep)) return snapshot;
+  const barRaw = snapshot['public-rep-bar'];
+  const bar = Number(barRaw);
+  if (Number.isFinite(bar) && Math.abs(bar - rep) < 0.001) {
+    return snapshot;
+  }
+  const hasLegacyProgress = Number.isFinite(bar) && Math.abs(bar - rep - 10) < 0.001;
+  const looksLegacyRange = !Number.isFinite(bar) && rep >= -10 && rep <= 30;
+  if (!hasLegacyProgress && !looksLegacyRange) {
+    return snapshot;
+  }
+  const tier = getLegacyPublicOpinionTier(rep);
+  const nextValue = LEGACY_PUBLIC_OPINION_MAP[tier.name];
+  if (typeof nextValue !== 'number') return snapshot;
+  snapshot['public-rep'] = String(nextValue);
+  snapshot['public-rep-bar'] = String(nextValue);
+  return snapshot;
+}
 
 export const FACTION_NAME_MAP = Object.fromEntries(FACTIONS.map(({ id, name }) => [id, name]));
 
