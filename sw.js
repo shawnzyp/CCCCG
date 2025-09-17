@@ -108,7 +108,10 @@ async function deleteOutboxEntry(id, storeName = OUTBOX_STORE) {
 }
 
 async function broadcast(message) {
-  const clients = await self.clients.matchAll({ type: 'window' });
+  const clients = await self.clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true,
+  });
   clients.forEach(client => client.postMessage(message));
 }
 
