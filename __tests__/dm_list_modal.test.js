@@ -25,6 +25,7 @@ describe('DM load from character list', () => {
       setupFactionRepTracker: () => {},
       ACTION_HINTS: {},
       updateFactionRep: () => {},
+      migratePublicOpinionSnapshot: (data) => data,
     }));
 
     jest.unstable_mockModule('../scripts/characters.js', () => ({

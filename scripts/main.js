@@ -1,6 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, revertAbilityScore } from './helpers.js';
-import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep } from './faction.js';
+import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep, migratePublicOpinionSnapshot } from './faction.js';
 import {
   currentCharacter,
   setCurrentCharacter,
@@ -2144,8 +2144,9 @@ function serialize(){
   return data;
 }
 const DEFAULT_STATE = serialize();
- function deserialize(data){
- $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
+function deserialize(data){
+  migratePublicOpinionSnapshot(data);
+  $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
  const perkSelects=['alignment','classification','power-style','origin'];
  perkSelects.forEach(id=>{
    const el=$(id);

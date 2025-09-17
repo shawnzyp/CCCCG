@@ -22,6 +22,7 @@ describe('credits autosave to cloud', () => {
       setupFactionRepTracker: () => {},
       ACTION_HINTS: {},
       updateFactionRep: () => {},
+      migratePublicOpinionSnapshot: (data) => data,
     }));
 
     jest.unstable_mockModule('../scripts/characters.js', () => ({
