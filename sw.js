@@ -42,6 +42,7 @@ const OUTBOX_STORE = 'cloud-saves';
 const OUTBOX_PINS_STORE = 'cloud-pins';
 
 let flushPromise = null;
+let notifyClientsOnActivate = false;
 
 function encodePath(name) {
   return name
@@ -239,20 +240,27 @@ async function flushOutbox() {
 }
 
 self.addEventListener('install', e => {
+  notifyClientsOnActivate = Boolean(self.registration?.active);
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    Promise.all([
-      caches
-        .keys()
-        .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))),
-      flushOutbox().catch(() => {}),
-    ])
+    (async () => {
+      await Promise.all([
+        caches
+          .keys()
+          .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))),
+        flushOutbox().catch(() => {}),
+      ]);
+      await self.clients.claim();
+      if (notifyClientsOnActivate) {
+        await broadcast({ type: 'sw-updated', message: 'New Codex content is available.', updatedAt: Date.now(), source: 'service-worker' });
+        notifyClientsOnActivate = false;
+      }
+    })()
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {

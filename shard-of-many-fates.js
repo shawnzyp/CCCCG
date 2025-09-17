@@ -985,6 +985,15 @@ function initSomf(){
     return t;
   }
 
+  window.addEventListener('cc:content-updated', evt => {
+    const detail = evt?.detail || {};
+    const msg =
+      typeof detail.message === 'string' && detail.message
+        ? detail.message
+        : 'Codex content updated with new data.';
+    toast(`<strong>Codex Update</strong> ${msg}`);
+  });
+
   D.playerCardToggle?.addEventListener('change', async ()=>{
     const hidden = !D.playerCardToggle.checked;
     if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
