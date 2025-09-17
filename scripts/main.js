@@ -2235,6 +2235,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data === 'cacheCloudSaves') cacheCloudSaves();
+    if (e.data === 'pins-updated') applyLockIcons();
   });
   navigator.serviceWorker.ready
     .then(reg => {

@@ -4,6 +4,11 @@ import { setPin, hasPin, verifyPin, clearPin, movePin, syncPin } from '../script
 beforeEach(() => {
   localStorage.clear();
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => null }));
+  delete global.navigator;
+});
+
+afterEach(() => {
+  delete global.navigator;
 });
 
 test('set, verify, clear pin', async () => {
@@ -44,4 +49,33 @@ test('syncs pin from cloud', async () => {
   expect(hasPin('Remote')).toBe(true);
   expect(await verifyPin('Remote', '2222')).toBe(true);
   await clearPin('Remote');
+});
+
+test('queues pin updates when offline', async () => {
+  const postMessage = jest.fn();
+  const register = jest.fn().mockResolvedValue(undefined);
+  const swReady = Promise.resolve({
+    sync: { register },
+    active: { postMessage },
+  });
+  global.navigator = {
+    onLine: false,
+    serviceWorker: {
+      ready: swReady,
+      controller: { postMessage },
+    },
+  };
+
+  global.fetch = jest.fn(async () => { throw new TypeError('Network error'); });
+
+  await setPin('Offline', '9999');
+
+  expect(hasPin('Offline')).toBe(true);
+  expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({
+    type: 'queue-pin',
+    op: 'set',
+    name: 'Offline',
+    hash: expect.any(String),
+  }));
+  expect(register).toHaveBeenCalledWith('cloud-save-sync');
 });
