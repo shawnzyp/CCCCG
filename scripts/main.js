@@ -2310,6 +2310,19 @@ applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
+  let hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (serviceWorkerUpdateHandled) return;
+    if (!hadController) {
+      hadController = true;
+      return;
+    }
+    announceContentUpdate({
+      message: 'New Codex content is available.',
+      updatedAt: Date.now(),
+      source: 'controllerchange',
+    });
+  });
   navigator.serviceWorker.addEventListener('message', e => {
     const { data } = e;
     const payload = (data && typeof data === 'object') ? data : { type: data };
