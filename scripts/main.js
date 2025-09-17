@@ -2234,8 +2234,14 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
   navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data === 'cacheCloudSaves') cacheCloudSaves();
-    if (e.data === 'pins-updated') applyLockIcons();
+    const { data } = e;
+    const type = typeof data === 'string' ? data : data?.type;
+    if (!type) return;
+    if (type === 'cacheCloudSaves') cacheCloudSaves();
+    if (type === 'pins-updated') applyLockIcons();
+    if (type === 'sw-updated') {
+      window.location.reload();
+    }
   });
   navigator.serviceWorker.ready
     .then(reg => {
