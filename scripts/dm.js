@@ -1,7 +1,74 @@
 import { listCharacters, currentCharacter, setCurrentCharacter, loadCharacter } from './characters.js';
 import { DM_PIN } from './dm-pin.js';
 import { show, hide } from './modal.js';
-const notifications = [];
+const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
+const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
+const MAX_STORED_NOTIFICATIONS = 100;
+
+function normalizeTimestamp(value) {
+  if (typeof value === 'string' && value) return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return new Date(value).toLocaleString();
+  return new Date().toLocaleString();
+}
+
+function loadStoredNotifications() {
+  if (typeof sessionStorage === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem(DM_NOTIFICATIONS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const normalized = parsed
+      .map(entry => {
+        if (!entry || typeof entry.detail !== 'string') return null;
+        const ts = normalizeTimestamp(entry.ts);
+        const char = typeof entry.char === 'string' ? entry.char : '';
+        return { ts, char, detail: entry.detail };
+      })
+      .filter(Boolean);
+    if (normalized.length > MAX_STORED_NOTIFICATIONS) {
+      return normalized.slice(normalized.length - MAX_STORED_NOTIFICATIONS);
+    }
+    return normalized;
+  } catch {
+    return [];
+  }
+}
+
+const notifications = loadStoredNotifications();
+
+function persistNotifications() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    const trimmed = notifications.slice(-MAX_STORED_NOTIFICATIONS);
+    sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* ignore persistence errors */
+  }
+}
+
+function deriveNotificationChar() {
+  try {
+    return sessionStorage.getItem('dmLoggedIn') === '1'
+      ? 'DM'
+      : localStorage.getItem('last-save') || '';
+  } catch {
+    return '';
+  }
+}
+
+function buildNotification(detail, meta = {}) {
+  const text = typeof detail === 'string' ? detail : String(detail ?? '');
+  if (!text) return null;
+  const ts = normalizeTimestamp(meta.ts);
+  const char = typeof meta.char === 'string' && meta.char ? meta.char : deriveNotificationChar();
+  return { ts, char, detail: text };
+}
+
+function formatNotification(entry) {
+  const prefix = entry.char ? `${entry.char}: ` : '';
+  return `[${entry.ts}] ${prefix}${entry.detail}`;
+}
 
 function initDMLogin(){
   const dmBtn = document.getElementById('dm-login');
@@ -31,27 +98,56 @@ function initDMLogin(){
     loginPin.pattern = '[0-9]*';
   }
 
-  window.dmNotify = function(detail){
-    const entry = {
-      ts: new Date().toLocaleString(),
-      char: (()=>{
-        try {
-          return sessionStorage.getItem('dmLoggedIn') === '1'
-            ? 'DM'
-            : (localStorage.getItem('last-save') || '');
-        } catch {
-          return '';
-        }
-      })(),
-      detail
-    };
-    notifications.push(entry);
-    if(notifyList){
+  function renderStoredNotifications() {
+    if (!notifyList) return;
+    notifyList.innerHTML = '';
+    notifications.forEach(entry => {
       const li = document.createElement('li');
-      li.textContent = `[${entry.ts}] ${entry.char}: ${detail}`;
+      li.textContent = formatNotification(entry);
+      notifyList.prepend(li);
+    });
+  }
+
+  function pushNotification(entry) {
+    notifications.push(entry);
+    if (notifications.length > MAX_STORED_NOTIFICATIONS) {
+      notifications.splice(0, notifications.length - MAX_STORED_NOTIFICATIONS);
+    }
+    persistNotifications();
+    if (notifyList) {
+      const li = document.createElement('li');
+      li.textContent = formatNotification(entry);
       notifyList.prepend(li);
     }
+  }
+
+  renderStoredNotifications();
+  persistNotifications();
+
+  window.dmNotify = function(detail, meta = {}) {
+    const entry = buildNotification(detail, meta);
+    if (!entry) return;
+    pushNotification(entry);
   };
+
+  function drainPendingNotifications() {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      const raw = sessionStorage.getItem(PENDING_DM_NOTIFICATIONS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      parsed.forEach(item => {
+        if (!item || typeof item.detail !== 'string') return;
+        window.dmNotify(item.detail, { ts: item.ts, char: item.char });
+      });
+      sessionStorage.removeItem(PENDING_DM_NOTIFICATIONS_KEY);
+    } catch {
+      /* ignore draining errors */
+    }
+  }
+
+  drainPendingNotifications();
 
   function isLoggedIn(){
     try {

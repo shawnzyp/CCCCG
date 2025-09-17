@@ -1140,6 +1140,83 @@ function logAction(text){
   renderFullLogs();
 }
 window.logAction = logAction;
+const CONTENT_UPDATE_EVENT = 'cc:content-updated';
+const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
+let serviceWorkerUpdateHandled = false;
+
+function queueDmNotification(message, meta = {}) {
+  if (typeof window === 'undefined') return;
+  const text = typeof message === 'string' ? message : String(message ?? '');
+  if (!text) return;
+  if (typeof window.dmNotify === 'function') {
+    window.dmNotify(text, meta);
+    return;
+  }
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    const raw = sessionStorage.getItem(DM_PENDING_NOTIFICATIONS_KEY);
+    let pending = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) pending = parsed;
+    }
+    const record = {
+      detail: text,
+      ts: typeof meta.ts === 'number' || typeof meta.ts === 'string' ? meta.ts : Date.now(),
+      char: meta.char || 'System',
+    };
+    pending.push(record);
+    const MAX_PENDING = 20;
+    if (pending.length > MAX_PENDING) {
+      pending = pending.slice(pending.length - MAX_PENDING);
+    }
+    sessionStorage.setItem(DM_PENDING_NOTIFICATIONS_KEY, JSON.stringify(pending));
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+function announceContentUpdate(payload = {}) {
+  if (serviceWorkerUpdateHandled) return;
+  serviceWorkerUpdateHandled = true;
+  const baseMessage =
+    typeof payload.message === 'string' && payload.message.trim()
+      ? payload.message.trim()
+      : 'New Codex content is available.';
+  const message = /refresh/i.test(baseMessage) ? baseMessage : `${baseMessage} Refreshing to apply the latest data.`;
+  const updatedAt = typeof payload.updatedAt === 'number' ? payload.updatedAt : Date.now();
+  const detail = {
+    ...payload,
+    message,
+    updatedAt,
+    source: payload.source || 'service-worker',
+  };
+  if (typeof window !== 'undefined') {
+    window.__ccLastContentUpdate = detail;
+  }
+  try {
+    logAction(message);
+  } catch {
+    /* ignore logging errors */
+  }
+  queueDmNotification(message, { ts: updatedAt, char: detail.char || 'System' });
+  try {
+    toast(message, 'info');
+  } catch {
+    /* ignore toast errors */
+  }
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    try {
+      window.dispatchEvent(new CustomEvent(CONTENT_UPDATE_EVENT, { detail }));
+    } catch {
+      /* ignore event errors */
+    }
+  }
+  setTimeout(() => {
+    window.location.reload();
+  }, 750);
+}
+
 
 function rollWithBonus(name, bonus, out){
   const roll = 1 + Math.floor(Math.random() * 20);
@@ -2234,8 +2311,21 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   const swUrl = new URL('../sw.js', import.meta.url);
   navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
   navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data === 'cacheCloudSaves') cacheCloudSaves();
-    if (e.data === 'pins-updated') applyLockIcons();
+    const { data } = e;
+    const payload = (data && typeof data === 'object') ? data : { type: data };
+    const type = typeof payload.type === 'string' ? payload.type : undefined;
+    if (!type) return;
+    if (type === 'cacheCloudSaves') {
+      cacheCloudSaves();
+      return;
+    }
+    if (type === 'pins-updated') {
+      applyLockIcons();
+      return;
+    }
+    if (type === 'sw-updated') {
+      announceContentUpdate(payload);
+    }
   });
   navigator.serviceWorker.ready
     .then(reg => {
