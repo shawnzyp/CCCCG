@@ -1,4 +1,4 @@
-:root{--bg-color:#0e1117;--bg:var(--bg-color) url('../images/Dark.PNG?v=2') center/cover no-repeat fixed;--surface:#151a23;--surface-2:#0b0f16;--text:#f3f4f6;--muted:#9ca3af;--accent:#3b82f6;--accent-2:#1e40af;--line:rgba(255,255,255,.12);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#fff;--radius:12px;--transition:background-color .4s ease-in-out,color .4s ease-in-out,border-color .4s ease-in-out,transform .4s ease-in-out,opacity .4s ease-in-out;--success:#16a34a;--error:#dc2626;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2316a34a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23dc2626' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E");--chevron:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2020%2020'%20fill%3D'none'%20stroke%3D'currentColor'%20stroke-width%3D'2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%208l4%204%204-4'%2F%3E%3C%2Fsvg%3E");--vh:1vh;--content-width:65ch;--modal-width:var(--content-width)}
+:root{--bg-color:#0e1117;--bg:var(--bg-color) url('../images/Dark.PNG?v=2') center/cover no-repeat fixed;--surface:#151a23;--surface-2:#0b0f16;--text:#f3f4f6;--muted:#9ca3af;--accent:#3b82f6;--accent-2:#1e40af;--line:rgba(255,255,255,.12);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#fff;--radius:12px;--control-min-height:44px;--transition:background-color .4s ease-in-out,color .4s ease-in-out,border-color .4s ease-in-out,transform .4s ease-in-out,opacity .4s ease-in-out;--success:#16a34a;--error:#dc2626;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2316a34a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23dc2626' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E");--chevron:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2020%2020'%20fill%3D'none'%20stroke%3D'currentColor'%20stroke-width%3D'2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%208l4%204%204-4'%2F%3E%3C%2Fsvg%3E");--vh:1vh;--content-width:65ch;--modal-width:var(--content-width)}
 :root.theme-light{--bg-color:#f9fafb;--bg:var(--bg-color) url('../images/Light.PNG?v=2') center/cover no-repeat fixed;--surface:#fff;--surface-2:#f3f4f6;--text:#111827;--muted:#6b7280;--accent:#3b82f6;--accent-2:#1e40af;--line:rgba(0,0,0,.1);--shadow:0 8px 28px rgba(0,0,0,.2);--text-on-accent:#fff;--success:#16a34a;--error:#dc2626;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2316a34a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23dc2626' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E")}
 :root.theme-high{--bg-color:#000;--bg:var(--bg-color) url('../images/High Contrast.PNG?v=2') center/cover no-repeat fixed;--surface:#000;--surface-2:#000;--text:#fff;--muted:#fff;--accent:#ff0;--accent-2:#0ff;--line:#fff;--shadow:none;--text-on-accent:#000;--success:#0f0;--error:#f00;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2300ff00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ff0000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E")}
 :root.theme-forest{--bg-color:#0b3d0b;--bg:var(--bg-color) url('../images/Forest.PNG?v=2') center/cover no-repeat fixed;--surface:rgba(34,90,34,.8);--surface-2:rgba(20,60,20,.8);--text:#e8f5e9;--muted:#a5d6a7;--accent:#66bb6a;--accent-2:#2e7d32;--line:rgba(255,255,255,.1);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#0e1117;--success:#81c784;--error:#e57373;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2381c784' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23e57373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E")}
@@ -113,7 +113,7 @@ footer p{
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 label{display:block;font-weight:700;margin-bottom:6px}
 .stats-grid label{min-height:3.2em;display:flex;align-items:flex-end}
-input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:auto;max-width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;transition:var(--transition)}
+input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:auto;max-width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;min-height:var(--control-min-height);transition:var(--transition)}
 input:not([type="checkbox"]),select,textarea{width:100%}
 select{background-image:var(--chevron);background-repeat:no-repeat;background-position:right 12px center;background-size:16px;padding-right:40px}
 select option{color:var(--text);background:var(--surface-2)}
@@ -146,7 +146,7 @@ input[type="checkbox"]:checked{
   background:var(--accent, #222);
   border-color:var(--accent, #222);
 }
-button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:44px;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2);touch-action:manipulation}
+button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:var(--control-min-height);cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2);touch-action:manipulation}
 button:hover{filter:brightness(1.1);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
 button:disabled{background:var(--surface-2);color:var(--muted);cursor:not-allowed;opacity:.6;box-shadow:none;transform:none;filter:none;pointer-events:none}
@@ -167,9 +167,9 @@ button:focus-visible,
 .inline>input:not([type="checkbox"]),
 .inline>select,
 .inline>textarea,
-.inline>button,
-.inline>progress,
-.inline>.bar-label{flex:1;width:auto;height:36px}
+.inline>.bar-label{flex:1;width:auto;min-height:var(--control-min-height)}
+.inline>button{flex:1}
+.inline>progress{flex:1;width:auto}
 .inline>.pill,
 .inline>.sr-only{flex:0;width:auto}
 
@@ -178,9 +178,9 @@ button:focus-visible,
   .inline>input:not([type="checkbox"]),
   .inline>select,
   .inline>textarea,
+  .inline>.bar-label{flex:none;width:100%;min-height:var(--control-min-height)}
   .inline>button,
-  .inline>progress,
-  .inline>.bar-label{flex:none;width:100%;height:36px}
+  .inline>progress{flex:none;width:100%}
 }
 
 @media(max-width:600px){
@@ -192,18 +192,21 @@ button:focus-visible,
   .hp-field .inline>input:not([type="checkbox"]),
   .hp-field .inline>select,
   .hp-field .inline>textarea,
-  .hp-field .inline>button,
-  .hp-field .inline>progress,
   .hp-field .inline>.bar-label,
   .sp-field .inline>input:not([type="checkbox"]),
   .sp-field .inline>select,
   .sp-field .inline>textarea,
-  .sp-field .inline>button,
-  .sp-field .inline>progress,
   .sp-field .inline>.bar-label{
     flex:1;
     width:auto;
-    height:36px;
+    min-height:var(--control-min-height);
+  }
+  .hp-field .inline>button,
+  .hp-field .inline>progress,
+  .sp-field .inline>button,
+  .sp-field .inline>progress{
+    flex:1;
+    width:auto;
   }
 }
 progress{
