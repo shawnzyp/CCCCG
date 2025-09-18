@@ -49,11 +49,12 @@ describe('credits autosave to cloud', () => {
     document.body.innerHTML = `
       <input id="credits" value="0" />
       <span id="credits-total-pill"></span>
-      <span id="credits-total-modal"></span>
-      <button id="credits-open"></button>
       <input id="credits-amt" />
-      <select id="credits-mode"><option value="add" selected>Add</option></select>
-      <button id="credits-submit"></button>
+      <select id="credits-mode">
+        <option value="add" selected>Add Credits</option>
+        <option value="subtract">Spend Credits</option>
+      </select>
+      <button id="credits-submit" type="button"></button>
     `;
 
     const realGet = document.getElementById.bind(document);
