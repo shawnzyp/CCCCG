@@ -694,8 +694,9 @@ function initSomf(){
   const plateById = Object.fromEntries(PLATES.map(p => [p.id, p]));
 
   /* ---------- Helpers ---------- */
+  const hasRealtime = ()=> !!window._somf_db;
   const db = ()=> {
-    if (!window._somf_db) throw new Error('Firebase Realtime Database required');
+    if (!hasRealtime()) throw new Error('Firebase Realtime Database required');
     return window._somf_db;
   };
   const CID = ()=> window._somf_cid || 'ccampaign-001';
@@ -877,13 +878,35 @@ function initSomf(){
     _lastHidden = h;
   }
   async function initPlayerHidden(){
+    const stored = getLocal(LSK.hidden(CID()));
+    const defaultHidden = typeof stored === 'boolean' ? stored : true;
+
+    if (!hasRealtime()){
+      const handleLocalHidden = (evt)=>{
+        const detail = evt?.detail;
+        const next = typeof detail === 'boolean' ? detail : !!detail;
+        setLocal(LSK.hidden(CID()), next);
+        applyHiddenState(next);
+      };
+      window.addEventListener('somf-local-hidden', handleLocalHidden);
+      setLocal(LSK.hidden(CID()), defaultHidden);
+      await applyHiddenState(defaultHidden);
+      return;
+    }
+
     const ref = db().ref(path.hidden(CID()));
-    const snap = await ref.get();
-    const initial = snap.exists()? !!snap.val(): true;
+    let initial = defaultHidden;
+    try {
+      const snap = await ref.get();
+      initial = snap.exists()? !!snap.val(): defaultHidden;
+    } catch (err) {
+      console.error('SOMF hidden state sync failed', err);
+    }
     setLocal(LSK.hidden(CID()), initial);
     await applyHiddenState(initial);
     ref.on('value', s=>{
-      const h = !!s.val();
+      const val = s?.val?.();
+      const h = typeof val === 'boolean' ? val : !!val;
       setLocal(LSK.hidden(CID()), h);
       window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
       applyHiddenState(h);
@@ -997,14 +1020,32 @@ function initSomf(){
   D.playerCardToggle?.addEventListener('change', async ()=>{
     const hidden = !D.playerCardToggle.checked;
     if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
-    await db().ref(path.hidden(CID())).set(hidden);
+    if(hasRealtime()){
+      try {
+        await db().ref(path.hidden(CID())).set(hidden);
+      } catch (err) {
+        console.error('SOMF hidden state update failed', err);
+      }
+    }
     setLocal(LSK.hidden(CID()), hidden);
     window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
   });
 
   async function refreshHiddenToggle(){
-    const snap = await db().ref(path.hidden(CID())).get();
-    const hidden = snap.exists()? !!snap.val() : true;
+    let hidden = true;
+    if(hasRealtime()){
+      try {
+        const snap = await db().ref(path.hidden(CID())).get();
+        hidden = snap.exists()? !!snap.val() : true;
+      } catch (err) {
+        console.error('SOMF hidden toggle refresh failed', err);
+        const stored = getLocal(LSK.hidden(CID()));
+        hidden = typeof stored === 'boolean' ? stored : true;
+      }
+    } else {
+      const stored = getLocal(LSK.hidden(CID()));
+      hidden = typeof stored === 'boolean' ? stored : true;
+    }
     if(D.playerCardToggle) {
       D.playerCardToggle.checked = !hidden;
       if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
@@ -1385,6 +1426,7 @@ function renderCardList(){
 
   // Live listeners
   function enableLive(){
+    if(!hasRealtime()) return;
     if(_noticeRef) _noticeRef.off();
     if(_hiddenRef) _hiddenRef.off();
     _noticeRef = db().ref(path.notices(CID()));
