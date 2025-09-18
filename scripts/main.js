@@ -1954,92 +1954,356 @@ function enableDragReorder(id){
 }
 ['powers','sigs','weapons','armors','items'].forEach(enableDragReorder);
 
-/* ========= Gear Catalog (seeded; extend as needed) ========= */
-const CATALOG = (()=>{ const mk=(style,type,rarity,name,tc,notes)=>({style,type,rarity,name,tc,notes}); const out=[];
-  out.push(
-    mk('Universal','Armor','Common','Tactical Mesh Undersuit','+1 TC','Lightweight, breathable'),
-    mk('Universal','Armor','Uncommon','Guardian Field Plate','+2 TC','+1 to STR or DEX saves'),
-    mk('Universal','Armor','Rare','Reflex-Reinforced Vest','+3 TC','Advantage vs knocked prone'),
-    mk('Universal','Armor','Elite','Deflection Halo Exosuit','+3 TC','First hit each encounter reduced by 5'),
-    mk('Universal','Armor','Legendary','Aegis Core Cuirass','+4 TC','Auto-block one physical hit per session'),
-    mk('Universal','Shield','Common','Polysteel Riot Plate','+1 TC vs melee',''),
-    mk('Universal','Shield','Uncommon','Echo-Deflector Disk','+2 TC vs ranged',''),
-    mk('Universal','Shield','Rare','Quantum-Stitch Bracer','+2 TC','Phase through one AoE per combat'),
-    mk('Universal','Shield','Elite','Mirror Field Buckler','+3 TC','Reflect one ranged hit per encounter'),
-    mk('Universal','Shield','Legendary','Nova Dome Projector','+2 TC to allies (10ft) 1/day',''),
-    mk('Universal','Utility','Common','Combat Reflex Enhancer','+1 TC (first round)',''),
-    mk('Universal','Utility','Uncommon','Adrenaline Booster Patch','+2 TC under 1/2 HP',''),
-    mk('Universal','Utility','Rare','Perception Sync Visor','+1 TC & +1 Passive Perception',''),
-    mk('Universal','Utility','Elite','Aegis Burst Pack','+3 TC for 1 turn (1/short rest)',''),
-    mk('Universal','Utility','Legendary','Null Pulse Core','+2 TC to allies (5ft)','Emit protective wave')
-  );
-  out.push(
-    mk('Physical Powerhouse','Armor','Common','Combat Vest MK-I','+1 TC','Reinforced plating'),
-    mk('Physical Powerhouse','Armor','Uncommon','Shockframe Bodysuit','+2 TC','+1 STR saves'),
-    mk('Physical Powerhouse','Armor','Rare','Tectonic Armor Rig','+3 TC','Immune to knockback'),
-    mk('Physical Powerhouse','Shield','Common','Bunker Bracer','+1 TC vs melee',''),
-    mk('Physical Powerhouse','Utility','Uncommon','Momentum Harness','+2 TC if immobile','')
-  );
-  out.push(
-    mk('Energy Manipulator','Armor','Uncommon','Livewire Vest','+2 TC vs energy',''),
-    mk('Energy Manipulator','Armor','Legendary','Stormcell Frame','+3 TC','Gain 1 SP when hit'),
-    mk('Energy Manipulator','Shield','Uncommon','Plasma Flicker Disk','+2 TC vs ranged powers',''),
-    mk('Energy Manipulator','Utility','Rare','Amplifier Ring','+2 TC after 4+ SP power','')
-  );
-  out.push(
-    mk('Speedster','Armor','Common','Aerodynamic Skinsuit','+1 TC, +10 ft move',''),
-    mk('Speedster','Armor','Elite','Reactive Velocity Mesh','+2 TC','+2 Initiative'),
-    mk('Speedster','Shield','Common','Momentum Redirector','+2 TC if moved 10+ ft',''),
-    mk('Speedster','Utility','Uncommon','Stutter-Blink Harness','+1 TC','Teleport 5 ft as reaction (1/combat)')
-  );
-  out.push(
-    mk('Telekinetic/Psychic','Armor','Uncommon','Psionic Feedback Mesh','+2 TC','Attacker takes 1 psychic on miss'),
-    mk('Telekinetic/Psychic','Shield','Common','Mind Ward Halo','+2 TC vs mental',''),
-    mk('Telekinetic/Psychic','Utility','Common','Telekinetic Aegis','+2 TC (spend 1 SP, 1 round)','')
-  );
-  out.push(
-    mk('Illusionist','Armor','Common','Refraction Cloak','+2 TC vs first attack each round',''),
-    mk('Illusionist','Shield','Elite','Shadowlight Barrier','+2 TC','Redirect one ranged attack per combat'),
-    mk('Illusionist','Utility','Rare','Vanishing Step Locket','—','Become invisible as reaction')
-  );
-  out.push(
-    mk('Shape-shifter','Armor','Elite','Phaseform Hide','+3 TC','Enter semi-liquid state'),
-    mk('Shape-shifter','Shield','Legendary','Shifting Scale Dome','+3 TC','Attacker –2 to hit next round'),
-    mk('Shape-shifter','Utility','Elite','Shedskin Matrix','+3 TC','Leave decoy clone')
-  );
-  out.push(
-    mk('Elemental Controller','Armor','Elite','Stoneguard Core','+3 TC','Immunity to knockdown'),
-    mk('Elemental Controller','Shield','Elite','Galehalo Barrier','+3 TC vs ranged','Deflect projectiles'),
-    mk('Elemental Controller','Utility','Elite','Cyclone Core Belt','—','Immune to AoE for 1 turn (1 SP)')
-  );
-  return out;})();
+/* ========= Gear Catalog (CatalystCore_Master_Book integration) ========= */
+let catalogData = null;
+let catalogPromise = null;
+let catalogError = null;
+let catalogFiltersInitialized = false;
 
-const styles = ['Universal','Physical Powerhouse','Energy Manipulator','Speedster','Telekinetic/Psychic','Illusionist','Shape-shifter','Elemental Controller'];
-const styleSel = $('catalog-filter-style'); styles.forEach(s=> styleSel.add(new Option(s,s))); styleSel.value='Universal';
-function renderCatalog(){
-  const s = $('catalog-search').value.toLowerCase().trim();
-  const style = styleSel.value, type=$('catalog-filter-type').value, rar=$('catalog-filter-rarity').value;
-  const rows = CATALOG.filter(g => (!style || g.style===style) && (!type || g.type===type) && (!rar || g.rarity===rar) &&
-    (!s || (g.name.toLowerCase().includes(s) || g.notes.toLowerCase().includes(s))));
-  $('catalog-list').innerHTML = rows.map((g,i)=>`
-    <div class="catalog-item">
-      <div class="pill">${g.rarity}</div>
-      <div><b>${g.name}</b> <span class="small">— ${g.type} — ${g.tc}${g.notes?` — ${g.notes}`:''}</span></div>
-      <div><button class="btn-sm" data-add="${i}">Add</button></div>
-    </div>`).join('');
-    qsa('[data-add]').forEach(btn => btn.addEventListener('click', ()=>{
-      const it = rows[Number(btn.dataset.add)];
-      if (it.type==='Armor' || it.type==='Shield'){
-        const slot = it.type==='Shield' ? 'Shield' : 'Body';
-        $('armors').appendChild(createCard('armor', {name:it.name, slot, bonus: Number((it.tc.match(/\+(\d+)/)||[,0])[1]), equipped:true}));
-      } else {
-        $('items').appendChild(createCard('item', {name:it.name, notes:`${it.rarity} — ${it.tc}${it.notes?(' — '+it.notes):''}`}));
+const styleSel = $('catalog-filter-style');
+const typeSel = $('catalog-filter-type');
+const tierSel = $('catalog-filter-rarity');
+const catalogSearchEl = $('catalog-search');
+const catalogListEl = $('catalog-list');
+
+function decodeCatalogBuffer(buffer){
+  if (typeof TextDecoder !== 'undefined') {
+    try {
+      return new TextDecoder('windows-1252').decode(buffer);
+    } catch (e) {
+      try {
+        return new TextDecoder().decode(buffer);
+      } catch (err) {
+        console.error('Catalog decode fallback failed', err);
       }
-      updateDerived(); toast('Added to sheet','success');
-    }));
+    }
+  }
+  let str = '';
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < view.length; i++) {
+    str += String.fromCharCode(view[i]);
+  }
+  return str;
 }
-$('open-catalog').addEventListener('click', ()=>{ renderCatalog(); show('modal-catalog'); });
-['catalog-filter-style','catalog-filter-type','catalog-filter-rarity','catalog-search'].forEach(id=> $(id).addEventListener('input', renderCatalog));
+
+function parseCsv(text){
+  if (!text) return [];
+  const rows = [];
+  let current = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      current.push(field);
+      field = '';
+    } else if (ch === '\r') {
+      // ignore
+    } else if (ch === '\n') {
+      current.push(field);
+      rows.push(current);
+      current = [];
+      field = '';
+    } else {
+      field += ch;
+    }
+  }
+  if (field || current.length) {
+    current.push(field);
+  }
+  if (current.length) rows.push(current);
+  if (!rows.length) return [];
+  const headers = rows.shift().map(h => h.trim());
+  if (headers.length && headers[0] && headers[0].charCodeAt(0) === 0xfeff) {
+    headers[0] = headers[0].slice(1);
+  }
+  return rows
+    .filter(row => row.length && row.some(cell => (cell || '').trim() !== ''))
+    .map(row => headers.reduce((acc, header, idx) => {
+      acc[header] = (row[idx] || '').trim();
+      return acc;
+    }, {}));
+}
+
+function normalizeCatalogRow(row){
+  const rawType = (row.Type || '').trim();
+  const section = (row.Section || '').trim() || 'Gear';
+  const name = (row.Name || '').trim();
+  if (!name) return null;
+  const tier = (row.Tier || '').trim();
+  const priceNum = Number((row.PriceCr || '').replace(/[^0-9.]/g, ''));
+  const price = Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null;
+  const perk = (row.Perk || '').trim();
+  const description = (row.Description || '').trim();
+  const use = (row.Use || '').trim();
+  const attunement = (row.Attunement || '').trim();
+  const source = (row['Where To Find'] || '').trim();
+  const displayType = rawType || 'Item';
+  const search = [section, displayType, name, tier, row.PriceCr || '', perk, description, use, attunement, source]
+    .map(part => part.toLowerCase())
+    .join(' ');
+  return {
+    section,
+    type: displayType,
+    rawType,
+    name,
+    tier,
+    price,
+    perk,
+    description,
+    use,
+    attunement,
+    source,
+    search
+  };
+}
+
+function escapeHtml(str){
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+}
+
+function formatPrice(value){
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return `₡${value.toLocaleString('en-US')}`;
+}
+
+function formatDamageText(damage){
+  if (!damage) return '';
+  return damage.replace(/(\dd\d)(\dd\d)/ig, '$1 / $2');
+}
+
+function extractArmorDetails(perk){
+  if (!perk) return { bonus: 0, details: [] };
+  const segments = perk.split(/;|\./).map(p => p.trim()).filter(Boolean);
+  let bonus = 0;
+  const details = [];
+  segments.forEach((seg, idx) => {
+    const match = seg.match(/\+(\d+)\s*TC/i);
+    if (match && bonus === 0) {
+      bonus = Number(match[1]) || 0;
+      const remainder = seg.replace(/\+(\d+)\s*TC/i, '').trim();
+      if (remainder) details.push(remainder.replace(/^[-–—]/, '').trim());
+    } else if (idx > 0 || !match) {
+      details.push(seg);
+    }
+  });
+  return { bonus, details };
+}
+
+function extractWeaponDetails(perk){
+  if (!perk) return { damage: '', extras: [] };
+  const segments = perk.split(/;|\./).map(p => p.trim()).filter(Boolean);
+  let damage = '';
+  const extras = [];
+  segments.forEach((seg, idx) => {
+    const match = seg.match(/^(?:Damage\s*)?(.*)$/i);
+    if (idx === 0 && /damage/i.test(seg)) {
+      damage = match && match[1] ? match[1].trim() : seg.trim();
+    } else if (idx === 0 && !/damage/i.test(seg)) {
+      extras.push(seg);
+    } else if (seg) {
+      extras.push(seg);
+    }
+  });
+  if (damage.toLowerCase().startsWith('damage')) {
+    damage = damage.slice(6).trim();
+  }
+  return { damage: formatDamageText(damage), extras };
+}
+
+function buildItemNotes(entry){
+  const notes = [];
+  if (entry.tier) notes.push(`Tier ${entry.tier}`);
+  const priceText = formatPrice(entry.price);
+  if (priceText) notes.push(priceText);
+  if (entry.perk) notes.push(entry.perk);
+  if (entry.description) notes.push(entry.description);
+  if (entry.use) notes.push(`Use: ${entry.use}`);
+  if (entry.attunement) notes.push(`Attunement: ${entry.attunement}`);
+  if (entry.source) notes.push(entry.source);
+  return notes.join(' — ');
+}
+
+function ensureCatalogFilters(data){
+  if (catalogFiltersInitialized) return;
+  catalogFiltersInitialized = true;
+  if (styleSel) {
+    styleSel.innerHTML = '';
+    styleSel.add(new Option('All Sections', ''));
+    [...new Set(data.map(r => r.section).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+      .forEach(section => styleSel.add(new Option(section, section)));
+    styleSel.value = '';
+  }
+  if (typeSel) {
+    typeSel.innerHTML = '';
+    typeSel.add(new Option('All Types', ''));
+    [...new Set(data.map(r => r.type).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+      .forEach(type => typeSel.add(new Option(type, type)));
+    typeSel.value = '';
+  }
+  if (tierSel) {
+    tierSel.innerHTML = '';
+    tierSel.add(new Option('All Tiers', ''));
+    [...new Set(data.map(r => r.tier).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
+      .forEach(tier => tierSel.add(new Option(tier, tier)));
+    tierSel.value = '';
+  }
+}
+
+function renderCatalog(){
+  if (!catalogListEl) return;
+  if (catalogError) {
+    catalogListEl.innerHTML = '<div class="catalog-empty">Failed to load gear catalog.</div>';
+    return;
+  }
+  if (!catalogData) {
+    catalogListEl.innerHTML = '<div class="catalog-empty">Loading gear catalog...</div>';
+    return;
+  }
+  const searchTerm = (catalogSearchEl?.value || '').toLowerCase().trim();
+  const style = styleSel ? styleSel.value : '';
+  const type = typeSel ? typeSel.value : '';
+  const tier = tierSel ? tierSel.value : '';
+  const rows = catalogData.filter(entry => (
+    (!style || entry.section === style) &&
+    (!type || entry.type === type) &&
+    (!tier || entry.tier === tier) &&
+    (!searchTerm || entry.search.includes(searchTerm))
+  ));
+  if (!rows.length) {
+    catalogListEl.innerHTML = '<div class="catalog-empty">No matching gear found.</div>';
+    return;
+  }
+  catalogListEl.innerHTML = rows.map((entry, idx) => {
+    const priceText = formatPrice(entry.price);
+    const details = [];
+    if (entry.perk) details.push(`<div class="small">${escapeHtml(entry.perk)}</div>`);
+    if (entry.use) details.push(`<div class="small">Use: ${escapeHtml(entry.use)}</div>`);
+    if (entry.attunement) details.push(`<div class="small">Attunement: ${escapeHtml(entry.attunement)}</div>`);
+    if (entry.description) details.push(`<div class="small">${escapeHtml(entry.description)}</div>`);
+    return `
+    <div class="catalog-item">
+      <div class="pill">${escapeHtml(entry.tier || '—')}</div>
+      <div><b>${escapeHtml(entry.name)}</b> <span class="small">— ${escapeHtml(entry.section)}${entry.type ? ` • ${escapeHtml(entry.type)}` : ''}${priceText ? ` • ${escapeHtml(priceText)}` : ''}</span>
+        ${details.join('')}
+      </div>
+      <div><button class="btn-sm" data-add="${idx}">Add</button></div>
+    </div>`;
+  }).join('');
+  qsa('[data-add]', catalogListEl).forEach(btn => btn.addEventListener('click', () => {
+    const item = rows[Number(btn.dataset.add)];
+    if (!item) return;
+    if (item.rawType === 'Weapon') {
+      const { damage, extras } = extractWeaponDetails(item.perk);
+      const damageParts = [];
+      if (damage) damageParts.push(`Damage ${damage}`);
+      extras.forEach(part => damageParts.push(part));
+      if (item.tier) damageParts.push(`Tier ${item.tier}`);
+      const priceText = formatPrice(item.price);
+      if (priceText) damageParts.push(priceText);
+      if (item.use) damageParts.push(`Use: ${item.use}`);
+      if (item.attunement) damageParts.push(`Attunement: ${item.attunement}`);
+      if (item.source) damageParts.push(item.source);
+      $('weapons').appendChild(createCard('weapon', {
+        name: item.name,
+        damage: damageParts.join(' — ')
+      }));
+    } else if (item.rawType === 'Armor' || item.rawType === 'Shield') {
+      const { bonus, details } = extractArmorDetails(item.perk);
+      const nameParts = [];
+      if (details.length) nameParts.push(details.join(' — '));
+      if (item.tier) nameParts.push(`Tier ${item.tier}`);
+      const priceText = formatPrice(item.price);
+      if (priceText) nameParts.push(priceText);
+      if (item.use) nameParts.push(`Use: ${item.use}`);
+      if (item.attunement) nameParts.push(`Attunement: ${item.attunement}`);
+      if (item.source) nameParts.push(item.source);
+      const slot = item.rawType === 'Shield' ? 'Shield' : 'Body';
+      $('armors').appendChild(createCard('armor', {
+        name: nameParts.length ? `${item.name} — ${nameParts.join(' — ')}` : item.name,
+        slot,
+        bonus: Number.isFinite(bonus) ? bonus : 0,
+        equipped: true
+      }));
+    } else {
+      const notes = buildItemNotes(item);
+      $('items').appendChild(createCard('item', {
+        name: item.name,
+        notes,
+        qty: 1
+      }));
+    }
+    updateDerived();
+    toast('Added to sheet', 'success');
+  }));
+}
+
+async function ensureCatalog(){
+  if (catalogData) return catalogData;
+  if (catalogPromise) return catalogPromise;
+  catalogPromise = (async () => {
+    try {
+      const res = await fetch('./CatalystCore_Master_Book.csv');
+      if (!res || (typeof res.ok === 'boolean' && !res.ok)) throw new Error('Catalog fetch failed');
+      let rawText = '';
+      if (typeof res.arrayBuffer === 'function') {
+        const buffer = await res.arrayBuffer();
+        rawText = decodeCatalogBuffer(buffer);
+      } else if (typeof res.text === 'function') {
+        rawText = await res.text();
+      }
+      const parsed = parseCsv(rawText);
+      const normalized = parsed.map(normalizeCatalogRow).filter(Boolean);
+      catalogData = normalized;
+      catalogError = null;
+      ensureCatalogFilters(normalized);
+      renderCatalog();
+      return catalogData;
+    } catch (err) {
+      console.error('Failed to load catalog', err);
+      catalogError = err;
+      catalogData = null;
+      renderCatalog();
+      throw err;
+    } finally {
+      catalogPromise = null;
+    }
+  })();
+  return catalogPromise;
+}
+
+if (styleSel) styleSel.addEventListener('input', renderCatalog);
+if (typeSel) typeSel.addEventListener('input', renderCatalog);
+if (tierSel) tierSel.addEventListener('input', renderCatalog);
+if (catalogSearchEl) catalogSearchEl.addEventListener('input', renderCatalog);
+
+$('open-catalog').addEventListener('click', async () => {
+  show('modal-catalog');
+  renderCatalog();
+  try {
+    await ensureCatalog();
+  } catch (err) {
+    toast('Failed to load gear catalog', 'error');
+  }
+  renderCatalog();
+});
 
 /* ========= Encounter / Initiative ========= */
 let round = Number(localStorage.getItem('enc-round')||'1')||1;
