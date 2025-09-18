@@ -55,3 +55,31 @@ test('DM enabling shards pushes state to active browsers', async () => {
   expect(playerCard.hidden).toBe(false);
 });
 
+test('DM toggle reveals shards without realtime database', async () => {
+  delete window._somf_db;
+  localStorage.clear();
+
+  document.body.innerHTML = `
+    <section id="somf-min" hidden></section>
+    <div id="somf-min-modal" hidden></div>
+    <div id="somfDM-toasts"></div>
+    <input id="somfDM-playerCard" type="checkbox">
+    <span id="somfDM-playerCard-state"></span>
+  `;
+
+  await import(`../shard-of-many-fates.js?offline=${Date.now()}`);
+
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  await new Promise(r => setTimeout(r, 0));
+
+  const playerCard = document.getElementById('somf-min');
+  expect(playerCard.hidden).toBe(true);
+
+  const toggle = document.getElementById('somfDM-playerCard');
+  toggle.checked = true;
+  toggle.dispatchEvent(new Event('change'));
+  await new Promise(r => setTimeout(r, 0));
+
+  expect(playerCard.hidden).toBe(false);
+});
+
