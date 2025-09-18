@@ -999,7 +999,7 @@ function initSomf(){
     const t=document.createElement('div');
     t.style.cssText='background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008';
     t.innerHTML = msg;
-    D.toasts.appendChild(t);
+    if (D.toasts) D.toasts.appendChild(t);
     try{ D.ping.currentTime=0; D.ping.play(); }catch{}
     setTimeout(()=> t.remove(), ttl);
     if ('Notification' in window && Notification.permission==='granted'){
@@ -1020,6 +1020,11 @@ function initSomf(){
   D.playerCardToggle?.addEventListener('change', async ()=>{
     const hidden = !D.playerCardToggle.checked;
     if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
+    try {
+      await applyHiddenState(hidden);
+    } catch (err) {
+      console.error('SOMF hidden state apply failed', err);
+    }
     if(hasRealtime()){
       try {
         await db().ref(path.hidden(CID())).set(hidden);
