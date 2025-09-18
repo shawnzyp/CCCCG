@@ -377,29 +377,39 @@ progress::-moz-progress-bar{
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:10rem;
-  color:var(--text);
-  text-shadow:0 0 1rem currentColor;
   pointer-events:none;
   opacity:0;
   z-index:3000;
+  will-change:opacity;
+}
+#death-animation img{
+  display:block;
+  width:min(45vmin, 320px);
+  max-width:80%;
+  height:auto;
+  opacity:0;
+  transform:scale(0.6) rotate(-12deg);
+  filter:drop-shadow(0 0 1.5rem rgba(136,0,0,0.55));
   will-change:transform,opacity;
 }
-#death-animation::before{
-  content:"";width:1em;height:1em;
-  background:
-    linear-gradient(45deg,transparent 40%,currentColor 40% 60%,transparent 60%),
-    linear-gradient(-45deg,transparent 40%,currentColor 40% 60%,transparent 60%);
-  background-size:100% 100%;
-}
 #death-animation.show{
-  animation:deathFade 2s ease-in-out forwards;
+  animation:deathVeil 2.4s ease-in-out forwards;
 }
-@keyframes deathFade{
-  0%{transform:scale(0) rotate(-180deg);opacity:0;}
-  30%{transform:scale(1.3) rotate(0);opacity:1;color:var(--error);}
-  70%{transform:scale(1) rotate(0);opacity:1;}
-  100%{transform:scale(0.5) rotate(180deg);opacity:0;}
+#death-animation.show img{
+  animation:deathPulse 2.4s ease-in-out forwards;
+}
+@keyframes deathVeil{
+  0%{opacity:0;}
+  18%{opacity:1;}
+  60%{opacity:.95;}
+  100%{opacity:0;}
+}
+@keyframes deathPulse{
+  0%{opacity:0;transform:scale(0.5) rotate(-18deg);}
+  20%{opacity:1;transform:scale(1.15) rotate(3deg);}
+  55%{opacity:1;transform:scale(1) rotate(0);}
+  80%{opacity:.9;transform:scale(0.95) rotate(-2deg);}
+  100%{opacity:0;transform:scale(0.85) rotate(-8deg);}
 }
 #damage-animation{
   position:fixed;
