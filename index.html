@@ -449,7 +449,15 @@
         <label for="credits">Credits</label>
         <div class="inline">
           <span id="credits-total-pill" class="pill">0</span>
-          <button id="credits-open" class="btn-sm" type="button">Manage</button>
+        </div>
+        <div class="inline">
+          <label for="credits-amt" class="sr-only">Amount</label>
+          <input id="credits-amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
+          <select id="credits-mode">
+            <option value="add">Add Credits</option>
+            <option value="subtract">Spend Credits</option>
+          </select>
+          <button id="credits-submit" class="btn-sm" type="button">Apply</button>
         </div>
         <input id="credits" type="hidden" value="0"/>
       </div>
@@ -555,26 +563,6 @@
 
 </main>
 
-<div class="overlay hidden" id="modal-credits" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Credits</h3>
-    <p>Total: <span id="credits-total-modal" class="pill">0</span></p>
-    <div class="inline">
-      <label for="credits-amt" class="sr-only">Amount</label>
-      <input id="credits-amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-      <select id="credits-mode">
-        <option value="add">Add</option>
-        <option value="subtract">Subtract</option>
-      </select>
-      <button id="credits-submit" class="btn-sm" type="button">Calculate</button>
-    </div>
-  </div>
-</div>
 
 <div class="overlay hidden" id="modal-load-list" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">

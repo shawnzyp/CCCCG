@@ -274,8 +274,7 @@ progress::-moz-progress-bar{
   .roll-flip-grid .inline>button{flex:0 0 auto;width:auto;}
 }
 #flip{flex:1;width:100%;display:block;}
-#credits-total-pill,
-#credits-total-modal{
+#credits-total-pill{
   font-size:1rem;
   letter-spacing:.04em;
 }

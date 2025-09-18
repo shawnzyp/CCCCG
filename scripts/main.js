@@ -726,7 +726,6 @@ const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
-const elCreditsModal = $('credits-total-modal');
 
 let hpRolls = [];
 if (elHPRoll) {
@@ -945,7 +944,6 @@ $('xp-submit').addEventListener('click', ()=>{
 
 function updateCreditsDisplay(){
   if (elCreditsPill) elCreditsPill.textContent = num(elCredits.value)||0;
-  if (elCreditsModal) elCreditsModal.textContent = num(elCredits.value)||0;
 }
 
 function setCredits(v){
@@ -967,8 +965,6 @@ function setCredits(v){
 }
 
 if (elCredits) updateCreditsDisplay();
-const elCreditsOpen = $('credits-open');
-if (elCreditsOpen) elCreditsOpen.addEventListener('click', ()=>{ updateCreditsDisplay(); show('modal-credits'); });
 
 $('credits-submit').addEventListener('click', ()=>{
   const amt = num($('credits-amt').value)||0;
