@@ -2092,6 +2092,7 @@ function serialize(){
   function getChecked(sel, root){ const el = qs(sel, root); return el ? el.checked : false; }
   qsa('input,select,textarea,progress').forEach(el=>{
     const id = el.id; if (!id) return;
+    if (id === 'xp-mode') return;
     if (el.type==='checkbox') data[id] = !!el.checked; else data[id] = el.value;
   });
   data.powers = qsa("[data-kind='power']").map(card => ({
@@ -2152,8 +2153,8 @@ function deserialize(data){
      el.dispatchEvent(new Event('change',{bubbles:true}));
    }
  });
- Object.entries(data||{}).forEach(([k,v])=>{
-   if(perkSelects.includes(k) || k==='saveProfs' || k==='skillProfs') return;
+  Object.entries(data||{}).forEach(([k,v])=>{
+   if(perkSelects.includes(k) || k==='saveProfs' || k==='skillProfs' || k==='xp-mode') return;
    const el=$(k);
    if (!el) return;
    if (el.type==='checkbox') el.checked=!!v; else el.value=v;
@@ -2178,6 +2179,8 @@ function deserialize(data){
   campaignLog.length=0; (data && data.campaignLog ? data.campaignLog : []).forEach(e=>campaignLog.push(e));
   localStorage.setItem('campaign-log', JSON.stringify(campaignLog));
   renderCampaignLog();
+  const xpModeEl = $('xp-mode');
+  if (xpModeEl) xpModeEl.value = 'add';
   if (elXP) {
     const xp = Math.max(0, num(elXP.value));
     currentTierIdx = getTierIndex(xp);
