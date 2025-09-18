@@ -33,13 +33,59 @@ try {
   }
 } catch {}
 
+function getPinPrompt(message) {
+  if (typeof window !== 'undefined' && typeof window.pinPrompt === 'function') {
+    return window.pinPrompt(message);
+  }
+  if (typeof prompt === 'function') {
+    return Promise.resolve(prompt(message));
+  }
+  return Promise.resolve(null);
+}
+
 async function verifyPin(name) {
   await syncPin(name);
-  if (hasPin(name)) {
-    const pin = await (window.pinPrompt ? window.pinPrompt('Enter PIN') : Promise.resolve(typeof prompt === 'function' ? prompt('Enter PIN') : null));
-    if (pin === null || !(await verifyStoredPin(name, pin))) {
+  if (!hasPin(name)) return;
+
+  const toastFn = typeof window !== 'undefined' && typeof window.toast === 'function'
+    ? window.toast
+    : null;
+  const dismissFn = typeof window !== 'undefined' && typeof window.dismissToast === 'function'
+    ? window.dismissToast
+    : null;
+  let showedToast = false;
+
+  const showToast = (message, type = 'info') => {
+    if (!toastFn) return;
+    try {
+      toastFn(message, { type, duration: 0 });
+      showedToast = true;
+    } catch {}
+  };
+
+  const hideToast = () => {
+    if (!showedToast || !dismissFn) return;
+    try {
+      dismissFn();
+    } catch {}
+    showedToast = false;
+  };
+
+  const promptLabel = 'Enter PIN';
+  const suffix = typeof name === 'string' && name ? ` for ${name}` : '';
+  showToast(`${promptLabel}${suffix}`, 'info');
+
+  while (true) {
+    const pin = await getPinPrompt(promptLabel);
+    if (pin === null) {
+      hideToast();
       throw new Error('Invalid PIN');
     }
+    if (await verifyStoredPin(name, pin)) {
+      hideToast();
+      return;
+    }
+    showToast('Invalid PIN. Try again.', 'error');
   }
 }
 
