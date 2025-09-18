@@ -453,75 +453,99 @@
         </div>
         <input id="credits" type="hidden" value="0"/>
       </div>
-      <div class="card">
+      <div class="card card-wide">
         <label>Faction Reputation</label>
-          <div class="grid grid-1 faction-rep">
-            <div>
+        <div class="faction-rep">
+          <div class="faction-rep__header">
+            <span class="faction-rep__heading">Reputation</span>
+            <span class="faction-rep__heading">Current Perk</span>
+          </div>
+          <div class="faction-rep__row">
+            <div class="faction-rep__info">
               <div class="inline faction-header">
                 <span class="pill pill-sm">O.M.N.I.</span>
                 <span id="omni-rep-tier" class="pill pill-sm">Neutral</span>
               </div>
               <progress id="omni-rep-bar" max="100" value="0"></progress>
-              <p id="omni-rep-perk" class="perk"></p>
               <div class="inline">
                 <button id="omni-rep-gain" class="btn-sm">Gain</button>
                 <button id="omni-rep-lose" class="btn-sm">Lose</button>
               </div>
               <input type="hidden" id="omni-rep" value="200"/>
             </div>
-            <div>
+            <div class="faction-rep__perk">
+              <p id="omni-rep-perk" class="perk"></p>
+            </div>
+          </div>
+          <div class="faction-rep__row">
+            <div class="faction-rep__info">
               <div class="inline faction-header">
                 <span class="pill pill-sm">P.F.V.</span>
                 <span id="pfv-rep-tier" class="pill pill-sm">Neutral</span>
               </div>
               <progress id="pfv-rep-bar" max="100" value="0"></progress>
-              <p id="pfv-rep-perk" class="perk"></p>
               <div class="inline">
                 <button id="pfv-rep-gain" class="btn-sm">Gain</button>
                 <button id="pfv-rep-lose" class="btn-sm">Lose</button>
               </div>
               <input type="hidden" id="pfv-rep" value="200"/>
             </div>
-            <div>
+            <div class="faction-rep__perk">
+              <p id="pfv-rep-perk" class="perk"></p>
+            </div>
+          </div>
+          <div class="faction-rep__row">
+            <div class="faction-rep__info">
               <div class="inline faction-header">
                 <span class="pill pill-sm">Cosmic Conclave</span>
                 <span id="conclave-rep-tier" class="pill pill-sm">Neutral</span>
               </div>
               <progress id="conclave-rep-bar" max="100" value="0"></progress>
-              <p id="conclave-rep-perk" class="perk"></p>
               <div class="inline">
                 <button id="conclave-rep-gain" class="btn-sm">Gain</button>
                 <button id="conclave-rep-lose" class="btn-sm">Lose</button>
               </div>
               <input type="hidden" id="conclave-rep" value="200"/>
             </div>
-            <div>
+            <div class="faction-rep__perk">
+              <p id="conclave-rep-perk" class="perk"></p>
+            </div>
+          </div>
+          <div class="faction-rep__row">
+            <div class="faction-rep__info">
               <div class="inline faction-header">
                 <span class="pill pill-sm">Greyline PMC</span>
                 <span id="greyline-rep-tier" class="pill pill-sm">Neutral</span>
               </div>
               <progress id="greyline-rep-bar" max="100" value="0"></progress>
-              <p id="greyline-rep-perk" class="perk"></p>
               <div class="inline">
                 <button id="greyline-rep-gain" class="btn-sm">Gain</button>
                 <button id="greyline-rep-lose" class="btn-sm">Lose</button>
               </div>
               <input type="hidden" id="greyline-rep" value="200"/>
             </div>
-            <div>
+            <div class="faction-rep__perk">
+              <p id="greyline-rep-perk" class="perk"></p>
+            </div>
+          </div>
+          <div class="faction-rep__row">
+            <div class="faction-rep__info">
               <div class="inline faction-header">
                 <span class="pill pill-sm">Public Opinion</span>
                 <span id="public-rep-tier" class="pill pill-sm">Neutral</span>
               </div>
               <progress id="public-rep-bar" max="100" value="0"></progress>
-              <p id="public-rep-perk" class="perk"></p>
               <div class="inline">
                 <button id="public-rep-gain" class="btn-sm">Gain</button>
                 <button id="public-rep-lose" class="btn-sm">Lose</button>
               </div>
               <input type="hidden" id="public-rep" value="200"/>
             </div>
+            <div class="faction-rep__perk">
+              <p id="public-rep-perk" class="perk"></p>
+            </div>
           </div>
+        </div>
       </div>
 
     </div>

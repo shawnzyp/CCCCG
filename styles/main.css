@@ -279,12 +279,25 @@ progress::-moz-progress-bar{
   font-size:1rem;
   letter-spacing:.04em;
 }
-.faction-rep>div{display:flex;flex-direction:column;gap:4px;}
-.faction-rep .inline{gap:4px;flex-wrap:nowrap;}
-.faction-rep .faction-header{justify-content:space-between;}
+.card.card-wide{max-width:none;width:100%;}
+.faction-rep{display:flex;flex-direction:column;gap:12px;width:100%;}
+.faction-rep__header{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:center;font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:0 4px;}
+.faction-rep__heading{display:block;}
+.faction-rep__row{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:16px;align-items:start;padding:12px;border-radius:var(--radius);background:color-mix(in srgb,var(--surface) 8%,transparent);border:1px solid color-mix(in srgb,var(--line) 50%,transparent);box-shadow:0 3px 8px rgba(0,0,0,.15);}
+.faction-rep__info{display:flex;flex-direction:column;gap:8px;}
+.faction-rep__perk{padding:8px 12px;border-left:1px solid color-mix(in srgb,var(--line) 60%,transparent);background:color-mix(in srgb,var(--surface-2) 40%,transparent);border-radius:calc(var(--radius) - 2px);display:flex;flex-direction:column;gap:6px;align-self:stretch;}
+.faction-rep__perk .perk{margin:0;font-size:.95rem;line-height:1.4;}
+.faction-rep .inline{gap:6px;flex-wrap:wrap;}
+.faction-rep .faction-header{justify-content:space-between;gap:8px;}
 .faction-rep .inline>button{flex:0 0 auto;width:auto;}
 .faction-rep progress{width:100%;height:20px;}
 .faction-rep .btn-sm{min-height:28px;padding:4px 6px;}
+@media(max-width:900px){
+  .faction-rep__header,
+  .faction-rep__row{grid-template-columns:1fr;}
+  .faction-rep__row{padding:12px 10px;}
+  .faction-rep__perk{border-left:none;border-top:1px solid color-mix(in srgb,var(--line) 60%,transparent);margin-top:8px;border-radius:calc(var(--radius) - 4px);padding:10px;}
+}
 .death-saves-grid{display:grid;grid-template-columns:auto 64px auto;gap:16px;align-items:center;}
 .death-save-tracks{display:flex;flex-direction:column;gap:16px;}
 .death-save-group{display:flex;flex-direction:row;align-items:center;gap:4px;}
