@@ -147,20 +147,39 @@ function playTone(type){
   }catch(e){ /* noop */ }
 }
  let toastTimeout;
- function toast(msg,type='info'){
-   const t=$('toast');
-   t.textContent=msg;
-   t.className=`toast ${type}`;
+ function toast(msg, type = 'info'){
+   const t = $('toast');
+   if(!t) return;
+   let opts;
+   if (typeof type === 'object' && type !== null) {
+     opts = type;
+   } else if (typeof type === 'number') {
+     opts = { type: 'info', duration: type };
+   } else {
+     opts = { type, duration: 5000 };
+   }
+   const toastType = typeof opts.type === 'string' && opts.type ? opts.type : 'info';
+   const duration = typeof opts.duration === 'number' ? opts.duration : 5000;
+   t.textContent = msg;
+   t.className = toastType ? `toast ${toastType}` : 'toast';
    t.classList.add('show');
-   playTone(type);
+   playTone(toastType);
    clearTimeout(toastTimeout);
-   toastTimeout = setTimeout(()=>t.classList.remove('show'),5000);
+   if (Number.isFinite(duration) && duration > 0) {
+     toastTimeout = setTimeout(()=>{
+       t.classList.remove('show');
+     }, duration);
+   } else {
+     toastTimeout = null;
+   }
  }
 
  function dismissToast(){
    const t=$('toast');
+   if(!t) return;
    t.classList.remove('show');
    clearTimeout(toastTimeout);
+   toastTimeout = null;
  }
 
 // Expose toast utilities globally so non-module scripts (e.g. dm.js)
@@ -189,7 +208,7 @@ async function pinPrompt(message){
     }
     function onSubmit(){ cleanup(input.value); }
     function onCancel(){ cleanup(null); }
-    function onKey(e){ if(e.key==='Enter') onSubmit(); }
+    function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); onSubmit(); } }
     function onOverlay(e){ if(e.target===modal) onCancel(); }
     submit.addEventListener('click', onSubmit);
     input.addEventListener('keydown', onKey);
