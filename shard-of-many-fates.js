@@ -692,6 +692,285 @@ function initSomf(){
   // DM tools can render every shard, even outside the minimal test deck.
   const PLATES = SOMF_DECK.shards || OLD_PLATES;
   const plateById = Object.fromEntries(PLATES.map(p => [p.id, p]));
+  const ITEM_BY_ID = SOMF_DECK.items || {};
+  const NPC_BY_ID = SOMF_DECK.npcs || {};
+
+  function formatNumber(value){
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value.toLocaleString()
+      : value;
+  }
+  function words(str){
+    return typeof str === 'string' ? str.replace(/_/g, ' ') : '';
+  }
+  function sentenceCase(str){
+    const text = words(str).trim();
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+  }
+  function joinWithConjunction(list, conjunction='and'){
+    const arr = list.filter(Boolean);
+    if(!arr.length) return '';
+    if(arr.length === 1) return arr[0];
+    if(arr.length === 2) return `${arr[0]} ${conjunction} ${arr[1]}`;
+    return `${arr.slice(0, -1).join(', ')}, ${conjunction} ${arr[arr.length-1]}`;
+  }
+  function pluralize(word, count){
+    return count === 1 ? word : `${word}s`;
+  }
+  function describeItem(itemId, quantity=1){
+    const item = ITEM_BY_ID[itemId];
+    const name = item?.name || sentenceCase(itemId);
+    const qty = quantity && quantity > 1 ? ` ×${quantity}` : '';
+    return `${name}${qty}`.trim();
+  }
+  function describeNpc(npcId){
+    const npc = NPC_BY_ID[npcId];
+    return npc?.name || sentenceCase(npcId);
+  }
+  function summarizeChoiceOption(option){
+    if(option == null) return '';
+    if(typeof option === 'string') return option;
+    if(typeof option === 'number') return formatNumber(option);
+    if(Array.isArray(option)){
+      return option.map(summarizeChoiceOption).filter(Boolean).join(', ');
+    }
+    if(typeof option !== 'object') return String(option);
+    if(option.type) return summarizeEffect(option);
+    const entries = Object.entries(option);
+    if(entries.length === 1){
+      const [key, value] = entries[0];
+      switch(key){
+        case 'xp_delta':
+          return summarizeEffect({ type: 'xp_delta', value });
+        case 'credits_delta':
+          return summarizeEffect({ type: 'credits_delta', value });
+        case 'remove_one_negative_shard_curse':
+          return 'Remove one negative shard curse';
+        case 'ability_score_decrease_perm':
+          return summarizeEffect({ type: 'ability_score_decrease_perm', ...value });
+        case 'lose_one_trained_skill_perm':
+          return 'Lose one trained skill permanently';
+        default:
+          return `${sentenceCase(key)}: ${summarizeChoiceOption(value)}`.trim();
+      }
+    }
+    return entries
+      .map(([key,value])=>`${sentenceCase(key)}: ${summarizeChoiceOption(value)}`.trim())
+      .join(', ');
+  }
+  function summarizeEffect(effect){
+    if(effect == null) return '';
+    if(typeof effect === 'string') return effect;
+    if(Array.isArray(effect)){
+      return effect.map(summarizeEffect).filter(Boolean).join(' ');
+    }
+    if(typeof effect !== 'object') return String(effect);
+    const type = effect.type;
+    if(!type) return summarizeChoiceOption(effect);
+    switch(type){
+      case 'xp_delta': {
+        const value = Number(effect.value) || 0;
+        const verb = value >= 0 ? 'Gain' : 'Lose';
+        return `${verb} ${formatNumber(Math.abs(value))} XP`;
+      }
+      case 'credits_delta': {
+        const value = Number(effect.value) || 0;
+        const verb = value >= 0 ? 'Gain' : 'Lose';
+        return `${verb} ${formatNumber(Math.abs(value))} cr`;
+      }
+      case 'grant_item': {
+        return `Gain ${describeItem(effect.item_id, effect.quantity)}`;
+      }
+      case 'ability_score_increase_perm': {
+        const value = Number(effect.value) || 0;
+        const cap = effect.cap ? ` (cap ${effect.cap})` : '';
+        const count = Number(effect.count) || 1;
+        if(effect.ability){
+          return `Increase ${effect.ability.toUpperCase()} by +${value} permanently${cap}`;
+        }
+        if(effect.ability_choice){
+          return `Increase an ability of your choice by +${value} permanently${cap}`;
+        }
+        if(effect.choices?.length){
+          const list = joinWithConjunction(effect.choices.map(c=>c.toUpperCase()), 'or');
+          const pick = count > 1 ? `${count} different abilities` : 'one ability';
+          return `Increase ${pick} (${list}) by +${value} permanently${cap}`;
+        }
+        return `Increase ability score by +${value} permanently${cap}`;
+      }
+      case 'skill_bonus_perm': {
+        const value = Number(effect.value) || 0;
+        if(effect.target_skill_choice) return `Gain a permanent +${value} bonus to a skill of your choice`;
+        if(effect.skill) return `Gain a permanent +${value} bonus to ${sentenceCase(effect.skill)}`;
+        return `Gain a permanent +${value} skill bonus`;
+      }
+      case 'choose_one':
+      case 'choice': {
+        const label = type === 'choose_one' ? 'Choose one' : 'Choose';
+        const options = (effect.options||[])
+          .map(opt=>summarizeChoiceOption(opt))
+          .filter(Boolean);
+        return options.length ? `${label}: ${options.join('; ')}` : label;
+      }
+      case 'flag_next_combat_bounty': {
+        const condition = words(effect.condition || '').trim();
+        const rewards = (effect.rewards||[]).map(r=>summarizeEffect(r)).filter(Boolean).join('; ');
+        return `Next combat bounty — if ${condition || 'the condition is met'}, gain ${rewards}`.trim();
+      }
+      case 'declare_two_mechanical_weaknesses_on_next_boss':
+        return 'GM declares two mechanical weaknesses on the next boss';
+      case 'downtime_advantage': {
+        const uses = Number(effect.uses) || 1;
+        const task = sentenceCase(effect.task || 'a downtime task');
+        return `Gain advantage on ${task} downtime ${pluralize('check', uses)} (${uses} use${uses===1?'':'s'})`;
+      }
+      case 'grant_free_boost_per_encounter': {
+        const count = Number(effect.count_encounters) || 1;
+        const value = effect.value ? effect.value : 'a boost';
+        return `Gain a free ${value} in each of your next ${count} ${pluralize('encounter', count)}`;
+      }
+      case 'ability_score_decrease_perm': {
+        const value = Math.abs(Number(effect.value) || 0);
+        const target = effect.ability_choice
+          ? 'an ability of your choice'
+          : (effect.ability ? effect.ability.toUpperCase() : 'an ability');
+        const floor = effect.floor ? ` (minimum ${effect.floor})` : '';
+        return `Permanently reduce ${target} by ${value}${floor}`;
+      }
+      case 'attack_penalty_curse': {
+        const value = Math.abs(Number(effect.value) || 0);
+        const duration = words(effect.duration || '').trim();
+        return `Suffer -${value} to attack rolls${duration ? ` ${duration}` : ''}`.trim();
+      }
+      case 'cleanse_method': {
+        const methods = (effect.methods||[]).map(m=>{
+          if(m.downtime){
+            const parts=[`${m.downtime} downtime`];
+            if(m.dc) parts.push(`DC ${m.dc}`);
+            if(m.successes_required) parts.push(`${m.successes_required} ${pluralize('success', m.successes_required)}`);
+            return parts.join(', ');
+          }
+          if(m.item){
+            const parts=[`Use ${describeItem(m.item)}`];
+            if(m.special_counter) parts.push(words(m.special_counter));
+            return parts.join(' — ');
+          }
+          return Object.entries(m)
+            .map(([k,v])=>`${sentenceCase(k)}: ${summarizeChoiceOption(v)}`.trim())
+            .join(', ');
+        });
+        return methods.length ? `Cleanse by: ${methods.join('; ')}` : 'Cleanse via special method';
+      }
+      case 'spawn_enemy_1v1': {
+        const name = describeNpc(effect.enemy_template);
+        const rule = effect.rule ? ` ${effect.rule}` : '';
+        return `${name || 'An enemy'} challenges the drawer to a one-on-one duel.${rule}`.trim();
+      }
+      case 'imprison_drawer': {
+        const parts=['The drawer is imprisoned and removed from play'];
+        if(effect.rescue){
+          const rescue=[];
+          if(effect.rescue.mission_required) rescue.push('requires a focused mission');
+          if(effect.rescue.scenes_required) rescue.push(`at least ${effect.rescue.scenes_required} ${pluralize('scene', effect.rescue.scenes_required)}`);
+          if(effect.rescue.fail_consequence) rescue.push(`failure: ${effect.rescue.fail_consequence}`);
+          if(rescue.length) parts.push(`Rescue ${rescue.join('; ')}`);
+        }
+        return parts.join('. ');
+      }
+      case 'faction_rep_delta': {
+        const value = Number(effect.value) || 0;
+        const faction = sentenceCase(effect.faction || 'faction');
+        const verb = value >= 0 ? 'Increase' : 'Decrease';
+        return `${verb} ${faction} reputation by ${formatNumber(Math.abs(value))}`;
+      }
+      case 'spawn_hunters': {
+        const count = Number(effect.count) || 1;
+        const tier = effect.tier ? `Tier ${effect.tier} ` : '';
+        const frequency = words(effect.frequency || '').trim();
+        return `Spawn ${count} ${tier}${pluralize('hunter', count)}${frequency ? ` (${frequency})` : ''}`.trim();
+      }
+      case 'convert_contact_to_enemy':
+        return 'Choose an existing contact to become an enemy';
+      case 'steal_item_or_credits': {
+        const priority = words(effect.priority || 'an item');
+        const fallback = effect.fallback_credits ? ` (or ${formatNumber(effect.fallback_credits)} cr if none)` : '';
+        return `A foe steals ${priority}${fallback}`.trim();
+      }
+      case 'force_draw': {
+        const count = Number(effect.count) || 1;
+        const pool = words(effect.pool || 'from the deck');
+        return `Immediately draw ${count} additional ${pool} shard${count===1?'':'s'}`;
+      }
+      case 'ability_score_decrease_temp': {
+        const value = Math.abs(Number(effect.value) || 0);
+        const target = effect.ability ? effect.ability.toUpperCase() : 'an ability';
+        return `Temporarily reduce ${target} by ${value}`;
+      }
+      case 'spawn_ally_loyal_permanent': {
+        const name = describeNpc(effect.npc_id);
+        const tier = effect.tier ? ` (Tier ${effect.tier})` : '';
+        return `${name || 'An ally'} joins you as a loyal companion${tier}`;
+      }
+      case 'title_award':
+        return `Gain the title "${effect.title}" — ${effect.mechanic || 'new privileges'}`;
+      case 'bond':
+        return effect.text || 'Gain a special bond';
+      case 'spawn_archenemy_permanent': {
+        const name = describeNpc(effect.npc_id);
+        const tier = effect.tier ? ` (Tier ${effect.tier})` : '';
+        return `${name || 'An archenemy'} marks you permanently${tier}`;
+      }
+      case 'immediate_theft': {
+        const steal = effect.steal || {};
+        const priority = words(steal.priority || 'a prized item');
+        const fallback = steal.fallback_credits ? ` (or ${formatNumber(steal.fallback_credits)} cr if none)` : '';
+        return `Nemesis steals ${priority}${fallback}`.trim();
+      }
+      default:
+        return sentenceCase(type);
+    }
+  }
+  function summarizeRequirements(requirements){
+    if(!requirements) return '';
+    const parts=[];
+    if(requirements.owner_binds_on_equip) parts.push('Item binds to the drawer when equipped');
+    Object.entries(requirements).forEach(([key,val])=>{
+      if(key==='owner_binds_on_equip') return;
+      if(typeof val === 'boolean'){
+        parts.push(sentenceCase(key));
+      }else{
+        parts.push(`${sentenceCase(key)}: ${summarizeChoiceOption(val)}`.trim());
+      }
+    });
+    return parts.join('; ');
+  }
+  function plateForPlayer(p){
+    if(!p) return { id: null, name: 'Unknown Shard', visual: '—', player: ['No effect data available.'] };
+    if(Array.isArray(p.player) && p.player.length){
+      return {
+        id: p.id,
+        name: p.name || p.id || 'Unknown Shard',
+        visual: p.visual || '—',
+        player: p.player.slice(),
+      };
+    }
+    const lines=[];
+    const req = summarizeRequirements(p.requirements);
+    if(req) lines.push(`Requirement: ${req}`);
+    const effects = Array.isArray(p.effect) ? p.effect : (p.effect ? [p.effect] : []);
+    effects.map(summarizeEffect).filter(Boolean).forEach(text=>lines.push(text));
+    if(p.resolution) lines.push(`Resolution: ${p.resolution}`);
+    const visualParts=[];
+    if(p.visual) visualParts.push(p.visual);
+    if(!p.visual && p.polarity) visualParts.push(`${sentenceCase(p.polarity)} shard`);
+    if(p.id) visualParts.push(`ID: ${p.id}`);
+    return {
+      id: p.id,
+      name: p.name || p.id || 'Unknown Shard',
+      visual: visualParts.filter(Boolean).join(' • ') || '—',
+      player: lines.length ? lines : ['No effect data available.'],
+    };
+  }
 
   /* ---------- Helpers ---------- */
   const hasRealtime = ()=> !!window._somf_db;
@@ -814,14 +1093,17 @@ function initSomf(){
   }
 
   function renderCurrent(){
-    const p = queue[qi];
-    PUI.name.textContent = p.name;
-    PUI.visual.textContent = p.visual;
-    PUI.effect.innerHTML = p.player.map(e=>`<li>${e}</li>`).join('');
-    PUI.idx.textContent = String(qi+1);
-    PUI.total.textContent = String(queue.length);
-    PUI.resolved.checked = false;
-    PUI.next.disabled = true;
+    const p = queue[qi] || { name: '—', visual: '—', player: ['No effect data available.'] };
+    if (PUI.name) PUI.name.textContent = p.name || '—';
+    if (PUI.visual) PUI.visual.textContent = p.visual || '—';
+    if (PUI.effect) {
+      const lines = (Array.isArray(p.player) && p.player.length) ? p.player : ['No effect data available.'];
+      PUI.effect.innerHTML = lines.map(e=>`<li>${e}</li>`).join('');
+    }
+    if (PUI.idx) PUI.idx.textContent = String(Math.min(queue.length, qi+1));
+    if (PUI.total) PUI.total.textContent = String(queue.length);
+    if (PUI.resolved) PUI.resolved.checked = false;
+    if (PUI.next) PUI.next.disabled = true;
   }
 
   if (PUI.resolved) {
@@ -851,7 +1133,7 @@ function initSomf(){
     await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids, names });
 
     window.dmNotify?.(`Drew ${n} Shard(s): ${names.join(', ')} (unresolved)`);
-    queue = ids.map(id=> plateById[id]);
+    queue = ids.map(id=> plateForPlayer(plateById[id]));
     qi = 0;
     await playShardAnimation();
     openPlayerModal(); renderCurrent();
@@ -898,15 +1180,25 @@ function initSomf(){
     let initial = defaultHidden;
     try {
       const snap = await ref.get();
-      initial = snap.exists()? !!snap.val(): defaultHidden;
+      if (snap.exists()) {
+        const raw = typeof snap.val === 'function' ? snap.val() : snap.val;
+        initial = typeof raw === 'boolean' ? raw : defaultHidden;
+      }
     } catch (err) {
       console.error('SOMF hidden state sync failed', err);
     }
     setLocal(LSK.hidden(CID()), initial);
     await applyHiddenState(initial);
+    let fallbackHidden = initial;
     ref.on('value', s=>{
-      const val = s?.val?.();
-      const h = typeof val === 'boolean' ? val : !!val;
+      let raw;
+      try {
+        raw = typeof s?.val === 'function' ? s.val() : s?.val;
+      } catch {
+        raw = undefined;
+      }
+      const h = typeof raw === 'boolean' ? raw : fallbackHidden;
+      fallbackHidden = h;
       setLocal(LSK.hidden(CID()), h);
       window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
       applyHiddenState(h);
@@ -1450,9 +1742,21 @@ function renderCardList(){
     });
     _noticeRef.on('child_removed', ()=>{ loadAndRender(); });
     _hiddenRef = db().ref(path.hidden(CID()));
+    let fallbackHidden = getLocal(LSK.hidden(CID()));
+    if (typeof fallbackHidden !== 'boolean') fallbackHidden = true;
     _hiddenRef.on('value', s=>{
-      const h = !!s.val();
-      if(D.playerCardToggle) D.playerCardToggle.checked = !h;
+      let raw;
+      try {
+        raw = typeof s?.val === 'function' ? s.val() : s?.val;
+      } catch {
+        raw = undefined;
+      }
+      const h = typeof raw === 'boolean' ? raw : fallbackHidden;
+      fallbackHidden = h;
+      if(D.playerCardToggle) {
+        D.playerCardToggle.checked = !h;
+        if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
+      }
       setLocal(LSK.hidden(CID()), h);
       window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
     });
