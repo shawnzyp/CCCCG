@@ -1351,6 +1351,16 @@ function initSomf(){
     const flash=document.getElementById('draw-flash');
     const lightning=document.getElementById('draw-lightning');
     if(!flash) return;
+
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    flash.classList.remove('show');
+
+    if(prefersReducedMotion){
+      flash.hidden=true;
+      if(lightning){ lightning.hidden=true; lightning.innerHTML=''; }
+      return;
+    }
+
     flash.hidden=false;
     if(lightning){
       lightning.hidden=false;
@@ -1365,16 +1375,28 @@ function initSomf(){
         lightning.appendChild(b);
       }
     }
+
     await new Promise(res=>{
-      flash.classList.add('show');
-      const done=()=>{
+      let settled=false;
+      let fallback=null;
+      const cleanup=()=>{
+        if(settled) return;
+        settled=true;
         flash.classList.remove('show');
         flash.hidden=true;
         if(lightning){ lightning.hidden=true; lightning.innerHTML=''; }
-        flash.removeEventListener('animationend', done);
+        flash.removeEventListener('animationend', onEnd);
+        flash.removeEventListener('animationcancel', onEnd);
+        if(fallback) clearTimeout(fallback);
         res();
       };
-      flash.addEventListener('animationend', done);
+      const onEnd=()=>cleanup();
+      flash.addEventListener('animationend', onEnd);
+      flash.addEventListener('animationcancel', onEnd);
+      // Restart the animation if it was mid-flight during a previous draw.
+      void flash.offsetWidth;
+      flash.classList.add('show');
+      fallback=setTimeout(cleanup,1100);
     });
   }
 
