@@ -1151,12 +1151,71 @@ function initSomf(){
     return `${key}__${id}__${idx}`;
   }
 
+  function toArrayLike(value){
+    if(Array.isArray(value)) return value.slice();
+    if(value && typeof value === 'object'){
+      const keys = Object.keys(value);
+      keys.sort((a,b)=>{
+        const na = Number(a);
+        const nb = Number(b);
+        const aNum = Number.isFinite(na);
+        const bNum = Number.isFinite(nb);
+        if(aNum && bNum) return na - nb;
+        if(aNum) return -1;
+        if(bNum) return 1;
+        return a.localeCompare(b);
+      });
+      return keys.map(key=> value[key]);
+    }
+    return [];
+  }
+  function normalizeStringList(value){
+    return toArrayLike(value)
+      .map(item=>{
+        if(typeof item === 'string') return item;
+        if(item == null) return '';
+        try {
+          return String(item);
+        } catch {
+          return '';
+        }
+      })
+      .filter(item=> item !== '');
+  }
+  function normalizeIds(value){
+    return normalizeStringList(value).filter(Boolean);
+  }
+  function normalizeNames(value){
+    return normalizeStringList(value);
+  }
+  function normalizeTimestamp(value){
+    if(typeof value === 'number' && Number.isFinite(value)) return value;
+    if(typeof value === 'string'){
+      const parsed = Number(value);
+      if(Number.isFinite(parsed)) return parsed;
+      const dateParsed = Date.parse(value);
+      if(Number.isFinite(dateParsed)) return dateParsed;
+    }
+    return Date.now();
+  }
+  function normalizeCount(value, fallback=0){
+    const num = Number(value);
+    if(Number.isFinite(num) && num > 0) return num;
+    return fallback;
+  }
   function normalizeNotice(raw){
     if(!raw) return null;
-    const ids = Array.isArray(raw.ids) ? raw.ids.filter(Boolean) : [];
-    const names = Array.isArray(raw.names) ? raw.names : ids.map(id=> plateById[id]?.name || id);
-    const ts = typeof raw.ts === 'number' ? raw.ts : Date.now();
-    const count = typeof raw.count === 'number' ? raw.count : ids.length;
+    const ids = normalizeIds(raw.ids);
+    let names = normalizeNames(raw.names);
+    if(!names.length){
+      names = ids.map(id=> plateById[id]?.name || id).filter(Boolean);
+    }
+    if(!names.length && typeof raw.name === 'string' && raw.name){
+      names = [raw.name];
+    }
+    if(!names.length) names = ['Unknown shard'];
+    const ts = normalizeTimestamp(raw.ts);
+    const count = normalizeCount(raw.count, ids.length || names.length || 0);
     const key = raw.key || raw.id || raw.noticeId || null;
     return {
       key,
@@ -1209,7 +1268,7 @@ function initSomf(){
     const prevSignature = opts.preserveCurrent === false ? '' : entrySignature(queue[qi]);
     queue = [];
     PLAYER.notices.forEach(notice=>{
-      const ids = Array.isArray(notice.ids) ? notice.ids : [];
+      const ids = normalizeIds(notice.ids);
       ids.forEach((id, idx)=>{
         const plate = plateForPlayer(plateById[id]);
         queue.push({ ...plate, _noticeKey: notice.key || null, _noticeIndex: idx, _noticeTs: notice.ts || 0 });
@@ -1629,24 +1688,17 @@ function initSomf(){
 
   function toastNotice(notice, keyHint){
     if (!notice) return null;
-    const ids = Array.isArray(notice.ids) ? notice.ids.filter(Boolean) : [];
-    const count = typeof notice.count === 'number' && notice.count > 0
-      ? notice.count
-      : (ids.length || 1);
-    const namesSource = Array.isArray(notice.names) ? notice.names : null;
-    const derivedNames = ids.map(id => {
-      const plate = plateById[id];
-      return plate?.name || id;
-    }).filter(Boolean);
-    const names = namesSource && namesSource.length
-      ? namesSource
-      : (derivedNames.length ? derivedNames : ['Unknown shard']);
+    const normalized = normalizeNotice({ key: keyHint || notice.key, ...notice });
+    if (!normalized) return null;
+    const ids = normalized.ids;
+    const names = normalized.names;
+    const count = normalized.count || names.length || ids.length || 1;
     const label = names.join(', ');
     const toastEl = toast(`<strong>New Draw</strong> ${count} shard(s): ${label}`);
     if (!toastEl) return null;
     toastEl.style.cursor = 'pointer';
     const firstId = ids.find(Boolean);
-    const key = keyHint || notice.key || null;
+    const key = normalized.key || keyHint || null;
     toastEl.addEventListener('click', ()=>{
       if (firstId) {
         openDM({ tab: 'cards', focusId: firstId, selectKey: key });
@@ -1981,9 +2033,17 @@ function renderCardList(){
       const li=document.createElement('li');
       li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
       if (ix===0) li.style.borderTop='none';
-      const ids = n.ids || [];
-      const names = n.names || ids.map(id=> plateById[id]?.name || id);
-      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${names.map((x,i)=>`<span data-id="${ids[i]}" style="text-decoration:underline;cursor:pointer">${x}</span>`).join(', ')}</div>`;
+      const ids = normalizeIds(n.ids);
+      let names = normalizeNames(n.names);
+      if(!names.length){
+        names = ids.map(id=> plateById[id]?.name || id).filter(Boolean);
+      }
+      if(!names.length) names = ['Unknown shard'];
+      const chipMarkup = names.map((x,i)=>{
+        const idAttr = ids[i] ?? '';
+        return `<span data-id="${idAttr}" style="text-decoration:underline;cursor:pointer">${x}</span>`;
+      }).join(', ');
+      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${chipMarkup}</div>`;
       li.dataset.key = n.key || '';
       li.querySelectorAll('span[data-id]').forEach(sp=>{
         sp.addEventListener('click', e=>{ e.stopPropagation(); openDM({tab:'cards', focusId: sp.dataset.id}); });
@@ -1991,12 +2051,16 @@ function renderCardList(){
       li.addEventListener('click', ()=>{
         $$('#somfDM-incoming li').forEach(x=> x.style.background='');
         li.style.background='#0b2a3a';
+        const listMarkup = names.map((x,i)=>{
+          const idAttr = ids[i] ?? '';
+          return `<li data-id="${idAttr}" style="cursor:pointer;text-decoration:underline">${x}</li>`;
+        }).join('');
         D.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(n.ts||Date.now()).toLocaleString()}</div>`+
-          `<ul style="margin:6px 0 0 18px;padding:0">${names.map((x,i)=>`<li data-id="${ids[i]}" style="cursor:pointer;text-decoration:underline">${x}</li>`).join('')}</ul>`;
+          `<ul style="margin:6px 0 0 18px;padding:0">${listMarkup}</ul>`;
         D.noticeView.querySelectorAll('li[data-id]').forEach(li2=>{
           li2.addEventListener('click', ()=> openDM({tab:'cards', focusId: li2.dataset.id}));
         });
-        const spawnCode = (n.ids.length===1)? (spawnFor(n.ids[0])||null) : null;
+        const spawnCode = (ids.length===1)? (spawnFor(ids[0])||null) : null;
         D.spawnNPC.disabled = !spawnCode;
         D.spawnNPC.onclick = ()=>{
           if (!spawnCode) return;
@@ -2006,7 +2070,7 @@ function renderCardList(){
         };
         D.markResolved.disabled = false;
         D.markResolved.onclick = async ()=>{
-          await resolveNotice(n, names.length);
+          await resolveNotice({ ...n, ids, names }, names.length);
         };
       });
       D.incoming.appendChild(li);
@@ -2031,10 +2095,18 @@ function renderCardList(){
     if(!D.queue) return;
     D.queue.innerHTML='';
     notices.forEach(n=>{
-      const ids = n.ids || [];
-      const names = n.names || ids.map(id=> plateById[id]?.name || id);
+      const ids = normalizeIds(n.ids);
+      let names = normalizeNames(n.names);
+      if(!names.length){
+        names = ids.map(id=> plateById[id]?.name || id).filter(Boolean);
+      }
+      if(!names.length) names = ['Unknown shard'];
+      const itemMarkup = names.map((nm,i)=>{
+        const idAttr = ids[i] ?? '';
+        return `<span data-id="${idAttr}" style="text-decoration:underline;cursor:pointer">${nm}</span>`;
+      }).join(', ');
       const li=document.createElement('li');
-      li.innerHTML = `${names.length} shard(s): ${names.map((nm,i)=>`<span data-id="${ids[i]}" style="text-decoration:underline;cursor:pointer">${nm}</span>`).join(', ')}`;
+      li.innerHTML = `${names.length} shard(s): ${itemMarkup}`;
       li.addEventListener('click', ()=> openDM({tab:'resolve', selectKey:n.key}));
       li.querySelectorAll('span[data-id]').forEach(sp=>{
         sp.addEventListener('click', e=>{ e.stopPropagation(); openDM({tab:'cards', focusId: sp.dataset.id}); });
@@ -2044,15 +2116,18 @@ function renderCardList(){
   }
 
   async function loadNotices(limit=30){
+    const normalizeList = list => list
+      .map(normalizeNotice)
+      .filter(Boolean)
+      .sort((a,b)=> (b.ts||0)-(a.ts||0));
     if(hasRealtime()){
       const snap = await db().ref(path.notices(CID())).limitToLast(limit).get();
       if (!snap.exists()) return [];
       const arr = [];
       snap.forEach(child=> arr.push({ key: child.key, ...child.val() }));
-      arr.sort((a,b)=> (b.ts||0)-(a.ts||0));
-      return arr;
+      return normalizeList(arr);
     }
-    return localLoadNotices(limit);
+    return normalizeList(localLoadNotices(limit));
   }
 
   async function loadResolutions(limit=50){
@@ -2080,10 +2155,11 @@ function renderCardList(){
 
 
   async function pushResolutionBatch(n){
+    const ids = normalizeIds(n?.ids);
     if(hasRealtime()){
-      await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids:n.ids });
+      await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids });
     } else {
-      localPushResolutionBatch(n.ids || []);
+      localPushResolutionBatch(ids);
     }
   }
 
