@@ -1075,7 +1075,7 @@ function initSomf(){
     notices.push(payload);
     const trimmed = notices.slice(-MAX_LOCAL_RECORDS);
     setLocal(LSK.notices(cid), trimmed);
-    triggerLocalEvent('somf-local-notice', { key: payload.key });
+    triggerLocalEvent('somf-local-notice', { key: payload.key, action: 'add', notice: payload });
     return payload;
   }
   function localLoadNotices(limit=30){
@@ -1089,7 +1089,7 @@ function initSomf(){
     const notices = getLocalArray(LSK.notices(cid));
     const next = notices.filter(n=> n.key !== key);
     setLocal(LSK.notices(cid), next);
-    triggerLocalEvent('somf-local-notice', { key });
+    triggerLocalEvent('somf-local-notice', { key, action: 'remove' });
   }
   function localPushResolutionBatch(ids){
     const cid = CID();
@@ -1382,6 +1382,36 @@ function initSomf(){
       new Notification('Shards Drawn', { body: msg.replace(/<[^>]+>/g,'') });
     }
     return t;
+  }
+
+  function toastNotice(notice, keyHint){
+    if (!notice) return null;
+    const ids = Array.isArray(notice.ids) ? notice.ids.filter(Boolean) : [];
+    const count = typeof notice.count === 'number' && notice.count > 0
+      ? notice.count
+      : (ids.length || 1);
+    const namesSource = Array.isArray(notice.names) ? notice.names : null;
+    const derivedNames = ids.map(id => {
+      const plate = plateById[id];
+      return plate?.name || id;
+    }).filter(Boolean);
+    const names = namesSource && namesSource.length
+      ? namesSource
+      : (derivedNames.length ? derivedNames : ['Unknown shard']);
+    const label = names.join(', ');
+    const toastEl = toast(`<strong>New Draw</strong> ${count} shard(s): ${label}`);
+    if (!toastEl) return null;
+    toastEl.style.cursor = 'pointer';
+    const firstId = ids.find(Boolean);
+    const key = keyHint || notice.key || null;
+    toastEl.addEventListener('click', ()=>{
+      if (firstId) {
+        openDM({ tab: 'cards', focusId: firstId, selectKey: key });
+      } else {
+        openDM({ tab: 'resolve', selectKey: key });
+      }
+    });
+    return toastEl;
   }
 
   window.addEventListener('cc:content-updated', evt => {
@@ -1835,30 +1865,39 @@ function renderCardList(){
   // Live listeners
   function enableLive(){
     if(!hasRealtime()){
-      if(!_localLiveEnabled){
-        window.addEventListener('somf-local-notice', loadAndRender);
-        window.addEventListener('somf-local-resolution', loadAndRender);
-        window.addEventListener('somf-local-deck', loadAndRender);
-        _localLiveEnabled = true;
+      if(!_localLiveHandlers){
+        const handleNotice = (evt)=>{
+          loadAndRender();
+          const detail = evt?.detail || {};
+          if (detail.action === 'remove') return;
+          const notice = detail.notice
+            || (detail.key ? localLoadNotices(30).find(n=> n.key === detail.key) : null)
+            || localLoadNotices(1)[0];
+          if (notice) toastNotice(notice, detail.key);
+        };
+        const handleResolution = ()=> loadAndRender();
+        const handleDeck = ()=> loadAndRender();
+        window.addEventListener('somf-local-notice', handleNotice);
+        window.addEventListener('somf-local-resolution', handleResolution);
+        window.addEventListener('somf-local-deck', handleDeck);
+        _localLiveHandlers = { notice: handleNotice, resolution: handleResolution, deck: handleDeck };
       }
       if(_noticeRef) { _noticeRef.off(); _noticeRef=null; }
       if(_hiddenRef) { _hiddenRef.off(); _hiddenRef=null; }
       return;
+    }
+    if(_localLiveHandlers){
+      window.removeEventListener('somf-local-notice', _localLiveHandlers.notice);
+      window.removeEventListener('somf-local-resolution', _localLiveHandlers.resolution);
+      window.removeEventListener('somf-local-deck', _localLiveHandlers.deck);
+      _localLiveHandlers = null;
     }
     if(_noticeRef) _noticeRef.off();
     if(_hiddenRef) _hiddenRef.off();
     _noticeRef = db().ref(path.notices(CID()));
     _noticeRef.limitToLast(1).on('child_added', snap=>{
       const v=snap.val(); if (!v) return;
-      const names = v.names || (v.ids||[]).map(id=> plateById[id]?.name || id);
-      const key = snap.key;
-      const firstId = v.ids && v.ids[0];
-      const t = toast(`<strong>New Draw</strong> ${v.count} shard(s): ${names.join(', ')}`);
-      t.style.cursor='pointer';
-      t.addEventListener('click', ()=>{
-        if(firstId) openDM({tab:'cards', focusId:firstId, selectKey:key});
-        else openDM({tab:'resolve', selectKey:key});
-      });
+      toastNotice({ ...v, key: snap.key }, snap.key);
       loadAndRender();
     });
     _noticeRef.on('child_removed', ()=>{ loadAndRender(); });
@@ -1885,7 +1924,7 @@ function renderCardList(){
 
   D.reset?.addEventListener('click', resetDeck);
 
-  let _noticeRef=null,_hiddenRef=null,_localLiveEnabled=false;
+  let _noticeRef=null,_hiddenRef=null,_localLiveHandlers=null;
   function initDM(){
     loadAndRender();
     enableLive();
