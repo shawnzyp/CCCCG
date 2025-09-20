@@ -1,37 +1,82 @@
-// Bump cache version whenever the pre-cached asset list changes so clients
-// pick up the latest files on next load.
-const CACHE = 'cccg-cache-v16';
-const ASSETS = [
-  './',
-  './index.html',
-  './styles/main.css',
-  './scripts/main.js',
-  './scripts/helpers.js',
-  './scripts/funTips.js',
-  './scripts/storage.js',
-  './scripts/faction.js',
-  // Additional scripts required for offline operation
-  './scripts/characters.js',
-  './scripts/modal.js',
-  './codex-character.json',
-  './codex-gear-class.json',
-  './codex-gear-universal.json',
-  './ruleshelp.txt',
-  './ccccg.pdf',
-  // background and other images
-  './images/Dark.PNG',
-  './images/Light.PNG',
-  './images/High Contrast.PNG',
-  './images/Forest.PNG',
-  './images/Ocean.PNG',
-  './images/Mutant.PNG',
-  './images/Enhanced Human.PNG',
-  './images/Magic User.PNG',
-  './images/Alien:Extraterrestrial.PNG',
-  './images/Mystical Being.PNG',
-  './images/LOGO ICON.png',
-  './images/LOGO.PNG'
-];
+const MANIFEST_PATH = 'asset-manifest.json';
+
+function resolveAssetUrl(pathname) {
+  try {
+    return new URL(pathname, self.registration?.scope ?? self.location.href).toString();
+  } catch (err) {
+    return pathname;
+  }
+}
+
+const MANIFEST_URL = resolveAssetUrl(MANIFEST_PATH);
+
+let manifestFetchPromise = null;
+let cachedManifest = null;
+
+function isValidManifest(manifest) {
+  return (
+    manifest &&
+    typeof manifest === 'object' &&
+    typeof manifest.version === 'string' &&
+    manifest.version.length > 0 &&
+    Array.isArray(manifest.assets)
+  );
+}
+
+async function fetchManifestFromNetwork() {
+  const response = await fetch(MANIFEST_URL, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch asset manifest: HTTP ${response.status}`);
+  }
+  const manifest = await response.clone().json();
+  if (!isValidManifest(manifest)) {
+    throw new Error('Invalid asset manifest received');
+  }
+  return manifest;
+}
+
+async function fetchManifestFromCache() {
+  const cachedResponse = await caches.match(MANIFEST_URL);
+  if (!cachedResponse) return null;
+  try {
+    const manifest = await cachedResponse.clone().json();
+    if (isValidManifest(manifest)) {
+      return manifest;
+    }
+  } catch (err) {}
+  return null;
+}
+
+async function loadManifest() {
+  if (cachedManifest) {
+    return cachedManifest;
+  }
+  if (!manifestFetchPromise) {
+    manifestFetchPromise = (async () => {
+      try {
+        const manifest = await fetchManifestFromNetwork();
+        cachedManifest = manifest;
+        return manifest;
+      } catch (networkError) {
+        const fallback = await fetchManifestFromCache();
+        if (fallback) {
+          cachedManifest = fallback;
+          return fallback;
+        }
+        throw networkError;
+      }
+    })().finally(() => {
+      manifestFetchPromise = null;
+    });
+  }
+  return manifestFetchPromise;
+}
+
+async function getCacheAndManifest() {
+  const manifest = await loadManifest();
+  const cache = await caches.open(manifest.version);
+  return { cache, manifest };
+}
 
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
@@ -245,18 +290,32 @@ async function flushOutbox() {
 self.addEventListener('install', e => {
   notifyClientsOnActivate = Boolean(self.registration?.active);
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  e.waitUntil(
+    (async () => {
+      const { cache, manifest } = await getCacheAndManifest();
+      await cache.addAll(manifest.assets);
+    })()
+  );
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     (async () => {
-      await Promise.all([
-        caches
-          .keys()
-          .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))),
-        flushOutbox().catch(() => {}),
-      ]);
+      let activeCacheName = null;
+      try {
+        const manifest = await loadManifest();
+        activeCacheName = manifest.version;
+      } catch (err) {}
+
+      const cacheCleanup = activeCacheName
+        ? caches
+            .keys()
+            .then(keys =>
+              Promise.all(keys.filter(k => k !== activeCacheName).map(k => caches.delete(k)))
+            )
+        : Promise.resolve();
+
+      await Promise.all([cacheCleanup, flushOutbox().catch(() => {})]);
       await self.clients.claim();
       if (notifyClientsOnActivate) {
         await broadcast({ type: 'sw-updated', message: 'New Codex content is available.', updatedAt: Date.now(), source: 'service-worker' });
@@ -270,6 +329,9 @@ self.addEventListener('fetch', e => {
   const { request } = e;
   if (request.method !== 'GET') return;
 
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
   const notifyClient = () => {
     if (e.clientId) {
       self.clients.get(e.clientId).then(client => {
@@ -280,19 +342,35 @@ self.addEventListener('fetch', e => {
 
   const cacheKey = request.url.split('?')[0];
 
-  if (new URL(request.url).origin !== location.origin) return;
-
   e.respondWith(
-    fetch(request)
-      .then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(cache => cache.put(cacheKey, copy));
+    (async () => {
+      let cache;
+      try {
+        ({ cache } = await getCacheAndManifest());
+      } catch (err) {
+        const fallback = await caches.match(cacheKey);
+        if (fallback) {
+          return fallback;
+        }
+        throw err;
+      }
+
+      try {
+        const response = await fetch(request);
+        const copy = response.clone();
+        cache.put(cacheKey, copy).catch(() => {});
         if (request.mode === 'navigate') {
           notifyClient();
         }
-        return res;
-      })
-      .catch(() => caches.match(cacheKey))
+        return response;
+      } catch (networkError) {
+        const cached = await cache.match(cacheKey);
+        if (cached) {
+          return cached;
+        }
+        throw networkError;
+      }
+    })()
   );
 });
 
