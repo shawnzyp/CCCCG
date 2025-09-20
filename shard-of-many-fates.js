@@ -1131,14 +1131,221 @@ function initSomf(){
     resolved: $('#somf-min-resolved'),
     next: $('#somf-min-next'),
   };
-  let queue = []; let qi = 0;
+
+  const PLAYER = {
+    notices: [],
+    noticeRef: null,
+    localHandlers: null,
+    ready: false,
+    initialized: false,
+  };
+
+  let queue = [];
+  let qi = 0;
+
+  function entrySignature(entry){
+    if(!entry) return '';
+    const key = entry._noticeKey || '';
+    const id = entry.id || '';
+    const idx = Number.isFinite(entry._noticeIndex) ? entry._noticeIndex : 0;
+    return `${key}__${id}__${idx}`;
+  }
+
+  function normalizeNotice(raw){
+    if(!raw) return null;
+    const ids = Array.isArray(raw.ids) ? raw.ids.filter(Boolean) : [];
+    const names = Array.isArray(raw.names) ? raw.names : ids.map(id=> plateById[id]?.name || id);
+    const ts = typeof raw.ts === 'number' ? raw.ts : Date.now();
+    const count = typeof raw.count === 'number' ? raw.count : ids.length;
+    const key = raw.key || raw.id || raw.noticeId || null;
+    return {
+      key,
+      ids,
+      names,
+      ts,
+      count,
+    };
+  }
+
+  function setPlayerNotices(next, opts={}){
+    PLAYER.notices = next
+      .map(normalizeNotice)
+      .filter(Boolean)
+      .sort((a,b)=>{
+        const ta = a.ts || 0;
+        const tb = b.ts || 0;
+        if(ta === tb){
+          const ka = a.key || '';
+          const kb = b.key || '';
+          return ka.localeCompare(kb);
+        }
+        return ta - tb;
+      });
+    rebuildPlayerQueue(opts);
+  }
+
+  function upsertPlayerNotice(notice, opts={}){
+    const normalized = normalizeNotice(notice);
+    if(!normalized) return;
+    const idx = PLAYER.notices.findIndex(n=> n.key === normalized.key);
+    if(idx >= 0){
+      PLAYER.notices[idx] = { ...PLAYER.notices[idx], ...normalized };
+    } else {
+      PLAYER.notices.push(normalized);
+    }
+    setPlayerNotices(PLAYER.notices, opts);
+  }
+
+  function removePlayerNotice(key, opts={}){
+    if(!key){
+      setPlayerNotices(PLAYER.notices, opts);
+      return;
+    }
+    const next = PLAYER.notices.filter(n=> n.key !== key);
+    setPlayerNotices(next, opts);
+  }
+
+  function rebuildPlayerQueue(opts={}){
+    const prevSignature = opts.preserveCurrent === false ? '' : entrySignature(queue[qi]);
+    queue = [];
+    PLAYER.notices.forEach(notice=>{
+      const ids = Array.isArray(notice.ids) ? notice.ids : [];
+      ids.forEach((id, idx)=>{
+        const plate = plateForPlayer(plateById[id]);
+        queue.push({ ...plate, _noticeKey: notice.key || null, _noticeIndex: idx, _noticeTs: notice.ts || 0 });
+      });
+    });
+    const total = queue.length;
+    const focus = opts.focus || null;
+    const focusNotice = opts.focusNotice || null;
+    let nextIndex = -1;
+    if(focusNotice && focusNotice.key){
+      nextIndex = queue.findIndex(entry=> entry._noticeKey === focusNotice.key && entry._noticeIndex === (focusNotice.index || 0));
+    }
+    if(nextIndex < 0 && focus === 'end' && total){
+      nextIndex = total - 1;
+    }
+    if(nextIndex < 0 && prevSignature){
+      nextIndex = queue.findIndex(entry=> entrySignature(entry) === prevSignature);
+    }
+    if(nextIndex < 0 && total){
+      nextIndex = Math.min(qi, total - 1);
+    }
+    if(nextIndex < 0) nextIndex = 0;
+    qi = total ? nextIndex : 0;
+    renderCurrent();
+    if(!total && opts.autoClose !== false){
+      closePlayerModal();
+    }
+  }
+
+  async function loadPlayerNotices(){
+    try {
+      if(hasRealtime()){
+        const snap = await db().ref(path.notices(CID())).get();
+        if(!snap.exists()){
+          setPlayerNotices([], { preserveCurrent: false, autoClose: false });
+          return [];
+        }
+        const arr = [];
+        snap.forEach(child=> arr.push({ key: child.key, ...child.val() }));
+        setPlayerNotices(arr, { preserveCurrent: false, focus: 'start', autoClose: false });
+        return arr;
+      }
+      const local = localLoadNotices(30);
+      setPlayerNotices(local, { preserveCurrent: false, focus: 'start', autoClose: false });
+      return local;
+    } catch (err) {
+      console.error('SOMF player notice load failed', err);
+      return [];
+    }
+  }
+
+  function attachRealtimePlayerListeners(){
+    if(!hasRealtime()) return;
+    if(PLAYER.localHandlers){
+      window.removeEventListener('somf-local-notice', PLAYER.localHandlers.notice);
+      window.removeEventListener('somf-local-deck', PLAYER.localHandlers.deck);
+      PLAYER.localHandlers = null;
+    }
+    if(PLAYER.noticeRef) PLAYER.noticeRef.off();
+    PLAYER.noticeRef = db().ref(path.notices(CID()));
+    PLAYER.noticeRef.on('child_added', snap=>{
+      const payload = { key: snap.key, ...(snap.val()||{}) };
+      const existed = PLAYER.notices.some(n=> n.key === payload.key);
+      upsertPlayerNotice(payload, {
+        preserveCurrent: existed,
+        focusNotice: (!existed && PLAYER.ready) ? { key: payload.key, index: 0 } : null,
+        autoClose: true,
+      });
+      if(PLAYER.ready && !existed){
+        (async ()=>{
+          await playShardAnimation();
+          openPlayerModal();
+          renderCurrent();
+        })();
+      }
+    });
+    PLAYER.noticeRef.on('child_removed', snap=>{
+      removePlayerNotice(snap.key, { preserveCurrent: false });
+    });
+  }
+
+  function attachLocalPlayerListeners(){
+    if(PLAYER.noticeRef){
+      PLAYER.noticeRef.off();
+      PLAYER.noticeRef = null;
+    }
+    if(PLAYER.localHandlers){
+      window.removeEventListener('somf-local-notice', PLAYER.localHandlers.notice);
+      window.removeEventListener('somf-local-deck', PLAYER.localHandlers.deck);
+    }
+    const handleNotice = evt => {
+      const detail = evt?.detail || {};
+      if(detail.action === 'remove'){
+        removePlayerNotice(detail.key, { preserveCurrent: false });
+        return;
+      }
+      const notice = detail.notice
+        || (detail.key ? localLoadNotices(30).find(n=> n.key === detail.key) : null);
+      if(!notice) return;
+      const existed = PLAYER.notices.some(n=> n.key === notice.key);
+      upsertPlayerNotice(notice, {
+        preserveCurrent: existed,
+        focusNotice: existed ? null : { key: notice.key, index: 0 },
+      });
+      if(!existed){
+        (async ()=>{
+          await playShardAnimation();
+          openPlayerModal();
+          renderCurrent();
+        })();
+      }
+    };
+    const handleDeck = ()=> loadPlayerNotices();
+    window.addEventListener('somf-local-notice', handleNotice);
+    window.addEventListener('somf-local-deck', handleDeck);
+    PLAYER.localHandlers = { notice: handleNotice, deck: handleDeck };
+  }
+
+  async function initPlayerQueue(){
+    if(PLAYER.initialized) return;
+    PLAYER.initialized = true;
+    await loadPlayerNotices();
+    if(hasRealtime()){
+      attachRealtimePlayerListeners();
+    } else {
+      attachLocalPlayerListeners();
+    }
+    PLAYER.ready = true;
+  }
 
   if (PUI.count) {
     PUI.count.blur();
   }
 
-  function openPlayerModal(){ PUI.modal.hidden=false; }
-  function closePlayerModal(){ PUI.modal.hidden=true; }
+  function openPlayerModal(){ if(PUI.modal) PUI.modal.hidden=false; }
+  function closePlayerModal(){ if(PUI.modal) PUI.modal.hidden=true; }
 
   async function playShardAnimation(){
     const flash=document.getElementById('draw-flash');
@@ -1172,6 +1379,7 @@ function initSomf(){
   }
 
   function renderCurrent(){
+    const total = queue.length;
     const p = queue[qi] || { name: '—', visual: '—', player: ['No effect data available.'] };
     if (PUI.name) PUI.name.textContent = p.name || '—';
     if (PUI.visual) PUI.visual.textContent = p.visual || '—';
@@ -1179,10 +1387,15 @@ function initSomf(){
       const lines = (Array.isArray(p.player) && p.player.length) ? p.player : ['No effect data available.'];
       PUI.effect.innerHTML = lines.map(e=>`<li>${e}</li>`).join('');
     }
-    if (PUI.idx) PUI.idx.textContent = String(Math.min(queue.length, qi+1));
-    if (PUI.total) PUI.total.textContent = String(queue.length);
-    if (PUI.resolved) PUI.resolved.checked = false;
-    if (PUI.next) PUI.next.disabled = true;
+    if (PUI.idx) PUI.idx.textContent = String(total ? Math.min(total, qi+1) : 0);
+    if (PUI.total) PUI.total.textContent = String(total);
+    if (PUI.resolved) {
+      PUI.resolved.checked = false;
+      PUI.resolved.disabled = total === 0;
+    }
+    if (PUI.next) {
+      PUI.next.disabled = true;
+    }
   }
 
   if (PUI.resolved) {
@@ -1210,17 +1423,25 @@ function initSomf(){
     for (let i=0;i<n;i++) ids.push(await (realtime ? rtdbDrawOne() : localDrawOne()));
     names = ids.map(id=> plateById[id]?.name || id);
     // batch notice (for DM): count + ids + names
+    let noticeKey = null;
     if (realtime) {
-      await db().ref(path.notices(CID())).push({ ts: db().ServerValue.TIMESTAMP, count:n, ids, names });
+      const payload = { ts: db().ServerValue.TIMESTAMP, count:n, ids, names };
+      const ref = db().ref(path.notices(CID())).push();
+      noticeKey = ref.key;
+      await ref.set(payload);
+      upsertPlayerNotice({ ...payload, key: noticeKey, ts: Date.now() }, { preserveCurrent: false, focusNotice: { key: noticeKey, index: 0 } });
     } else {
-      localPushNotice({ count:n, ids, names });
+      const notice = localPushNotice({ count:n, ids, names });
+      noticeKey = notice?.key || null;
+      upsertPlayerNotice(notice, { preserveCurrent: false, focusNotice: noticeKey ? { key: noticeKey, index: 0 } : null });
     }
 
     window.dmNotify?.(`Drew ${n} Shard(s): ${names.join(', ')} (unresolved)`);
-    queue = ids.map(id=> plateForPlayer(plateById[id]));
-    qi = 0;
-    await playShardAnimation();
-    openPlayerModal(); renderCurrent();
+    const shouldSelfAnimate = realtime || !PLAYER.localHandlers;
+    if(shouldSelfAnimate){
+      await playShardAnimation();
+      openPlayerModal(); renderCurrent();
+    }
   }
   if (PUI.drawBtn) {
     PUI.drawBtn.addEventListener('click', ()=>{
@@ -1931,6 +2152,7 @@ function renderCardList(){
   }
 
   initPlayerHidden();
+  initPlayerQueue();
   try {
     if (sessionStorage.getItem('dmLoggedIn') === '1') initDM();
   } catch {
