@@ -824,6 +824,28 @@
 </div>
 </div>
 
+<div class="overlay hidden" id="modal-custom-item" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Create Custom Item</h3>
+    <p>Select the type of custom item to add.</p>
+    <div class="custom-type-grid">
+      <button class="btn-sm" type="button" data-custom-type="weapon">Weapon</button>
+      <button class="btn-sm" type="button" data-custom-type="armor">Armor</button>
+      <button class="btn-sm" type="button" data-custom-type="shield">Shield</button>
+      <button class="btn-sm" type="button" data-custom-type="utility">Utility</button>
+      <button class="btn-sm" type="button" data-custom-type="item">Item</button>
+    </div>
+    <div class="actions">
+      <button class="btn-sm" type="button" data-close>Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- RULES -->
 <div class="overlay hidden" id="modal-rules" aria-hidden="true">
   <div class="modal modal-rules" role="dialog" aria-modal="true" aria-label="Rules Help" tabindex="-1">

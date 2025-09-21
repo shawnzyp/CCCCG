@@ -652,6 +652,8 @@ progress::-moz-progress-bar{
 }
 .sp-grid{display:grid;width:100%;grid-template-columns:repeat(3,1fr);gap:8px;}
 .sp-grid .btn-sm{width:100%;}
+.custom-type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0;}
+.custom-type-grid .btn-sm{width:100%;}
 
 .sp-field #sp-temp{flex:0 0 60px;max-width:60px;}
 .sp-field #long-rest{width:100%;margin-top:8px;}

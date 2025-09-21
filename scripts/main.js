@@ -1942,6 +1942,61 @@ const CARD_CONFIG = {
   }
 };
 
+const pendingManualCards = { weapon: null, armor: null, item: null };
+
+function isCardEmpty(card){
+  if (!card) return true;
+  const nameField = qs("[data-f='name']", card);
+  if (nameField && nameField.value && nameField.value.trim()) return false;
+  return true;
+}
+
+function clearPendingManualCard(kind, { force = false } = {}){
+  const card = pendingManualCards[kind];
+  if (!card) return false;
+  if (force || isCardEmpty(card)) {
+    if (card.isConnected) {
+      card.remove();
+      if (kind === 'armor') updateDerived();
+    }
+    pendingManualCards[kind] = null;
+    return true;
+  }
+  return false;
+}
+
+function setPendingManualCard(kind, card){
+  clearPendingManualCard(kind);
+  pendingManualCards[kind] = card;
+  const delBtn = qs("[data-act='del']", card);
+  if (delBtn) {
+    delBtn.addEventListener('click', () => {
+      if (pendingManualCards[kind] === card) pendingManualCards[kind] = null;
+    }, { once: true });
+  }
+}
+
+function cleanupPendingManualCards(){
+  let removed = false;
+  ['weapon', 'armor', 'item'].forEach(kind => {
+    removed = clearPendingManualCard(kind) || removed;
+  });
+  return removed;
+}
+
+function populateCardFromData(card, data){
+  if (!card || !data) return;
+  Object.entries(data).forEach(([key, value]) => {
+    const field = qs(`[data-f='${key}']`, card);
+    if (!field) return;
+    if (field.type === 'checkbox') {
+      field.checked = !!value;
+    } else {
+      field.value = value ?? '';
+    }
+  });
+}
+
 function createCard(kind, pref = {}) {
   const cfg = CARD_CONFIG[kind];
   const card = document.createElement('div');
@@ -2045,17 +2100,29 @@ $('add-sig').addEventListener('click', () => { $('sigs').appendChild(createCard(
 
 /* ========= Gear ========= */
 $('add-weapon').addEventListener('click', () => {
-  $('weapons').appendChild(createCard('weapon'));
+  const list = $('weapons');
+  if (!list) return;
+  const card = createCard('weapon');
+  list.appendChild(card);
+  setPendingManualCard('weapon', card);
   pushHistory();
   openCatalogWithFilters({ type: 'Weapon', style: '', tier: '' });
 });
 $('add-armor').addEventListener('click', () => {
-  $('armors').appendChild(createCard('armor'));
+  const list = $('armors');
+  if (!list) return;
+  const card = createCard('armor');
+  list.appendChild(card);
+  setPendingManualCard('armor', card);
   pushHistory();
   openCatalogWithFilters({ type: 'Armor', style: '', tier: '' });
 });
 $('add-item').addEventListener('click', () => {
-  $('items').appendChild(createCard('item'));
+  const list = $('items');
+  if (!list) return;
+  const card = createCard('item');
+  list.appendChild(card);
+  setPendingManualCard('item', card);
   pushHistory();
   openCatalogWithFilters({ type: 'Item', style: '', tier: '' });
 });
@@ -2155,14 +2222,25 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
   if (!info) return null;
   const list = $(info.listId);
   if (!list) return null;
-  const card = createCard(info.kind, info.data);
+  let card = null;
+  const pending = pendingManualCards[info.kind];
+  if (pending && pending.isConnected) {
+    card = pending;
+    pendingManualCards[info.kind] = null;
+    populateCardFromData(card, info.data);
+  } else {
+    card = createCard(info.kind, info.data);
+    list.appendChild(card);
+  }
   const priceValue = getEntryPriceValue(entry);
   if (Number.isFinite(priceValue) && priceValue > 0) {
     card.dataset.price = String(priceValue);
     const priceDisplay = getPriceDisplay(entry);
     if (priceDisplay) card.dataset.priceDisplay = priceDisplay;
+  } else {
+    delete card.dataset.price;
+    delete card.dataset.priceDisplay;
   }
-  list.appendChild(card);
   updateDerived();
   pushHistory();
   if (toastMessage) toast(toastMessage, 'success');
@@ -2181,6 +2259,21 @@ const tierSel = $('catalog-filter-rarity');
 const catalogCustomBtn = $('catalog-add-custom');
 const catalogListEl = $('catalog-list');
 let pendingCatalogFilters = null;
+const CUSTOM_CATALOG_KEY = 'custom-catalog';
+let customCatalogEntries = loadCustomCatalogEntries();
+const customTypeModal = $('modal-custom-item');
+const customTypeButtons = customTypeModal ? qsa('[data-custom-type]', customTypeModal) : [];
+const requestCatalogRender = debounce(() => renderCatalog(), 100);
+const catalogOverlay = $('modal-catalog');
+if (catalogOverlay) {
+  catalogOverlay.addEventListener('transitionend', e => {
+    if (e.target === catalogOverlay && catalogOverlay.classList.contains('hidden')) {
+      if (cleanupPendingManualCards()) {
+        pushHistory();
+      }
+    }
+  });
+}
 
 function decodeCatalogBuffer(buffer){
   if (typeof TextDecoder !== 'undefined') {
@@ -2399,6 +2492,208 @@ function buildItemNotes(entry){
   return notes.join(' — ');
 }
 
+const CUSTOM_ITEM_TYPES = {
+  weapon: { displayType: 'Weapon', cardKind: 'weapon', listId: 'weapons' },
+  armor: { displayType: 'Armor', cardKind: 'armor', listId: 'armors' },
+  shield: { displayType: 'Shield', cardKind: 'armor', listId: 'armors' },
+  utility: { displayType: 'Utility', cardKind: 'item', listId: 'items' },
+  item: { displayType: 'Item', cardKind: 'item', listId: 'items' }
+};
+
+function inferCardKind(type){
+  const key = (type || '').toLowerCase();
+  if (key === 'weapon') return 'weapon';
+  if (key === 'armor' || key === 'shield') return 'armor';
+  return 'item';
+}
+
+function refreshCustomEntrySearch(entry){
+  if (!entry) return;
+  entry.search = [
+    entry.section,
+    entry.type,
+    entry.name,
+    entry.tier,
+    entry.priceText || '',
+    entry.perk,
+    entry.description,
+    entry.use,
+    entry.attunement,
+    entry.source
+  ].map(part => (part || '').toLowerCase()).join(' ');
+}
+
+function normalizeCustomCatalogEntry(raw = {}){
+  const type = raw.type || raw.rawType || 'Item';
+  const entry = {
+    customId: raw.customId || `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    section: raw.section || 'Custom Gear',
+    type,
+    rawType: raw.rawType || type,
+    name: raw.name || '',
+    tier: raw.tier || '',
+    price: Number.isFinite(raw.price) ? raw.price : null,
+    priceText: raw.priceText || '',
+    perk: raw.perk || '',
+    description: raw.description || '',
+    use: raw.use || '',
+    attunement: raw.attunement || '',
+    source: raw.source || 'Custom Entry',
+    cardKind: raw.cardKind || inferCardKind(type),
+    slot: raw.slot || (type === 'Shield' ? 'Shield' : ''),
+    bonus: Number.isFinite(raw.bonus) ? raw.bonus : 0,
+    qty: Number.isFinite(raw.qty) && raw.qty > 0 ? raw.qty : 1,
+    hidden: !(raw.name && String(raw.name).trim())
+  };
+  refreshCustomEntrySearch(entry);
+  return entry;
+}
+
+function loadCustomCatalogEntries(){
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_CATALOG_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeCustomCatalogEntry);
+  } catch (err) {
+    console.error('Failed to load custom catalog entries', err);
+    return [];
+  }
+}
+
+function getVisibleCustomCatalogEntries(){
+  return customCatalogEntries.filter(entry => !entry.hidden);
+}
+
+function getAllCatalogEntries(){
+  const base = Array.isArray(catalogData) ? catalogData : [];
+  return base.concat(getVisibleCustomCatalogEntries());
+}
+
+function saveCustomCatalogEntries(){
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const toSave = customCatalogEntries
+      .filter(entry => !entry.hidden && entry.name && entry.name.trim())
+      .map(entry => ({
+        customId: entry.customId,
+        section: entry.section,
+        type: entry.type,
+        rawType: entry.rawType,
+        name: entry.name,
+        tier: entry.tier,
+        price: entry.price,
+        priceText: entry.priceText,
+        perk: entry.perk,
+        description: entry.description,
+        use: entry.use,
+        attunement: entry.attunement,
+        source: entry.source,
+        search: entry.search,
+        cardKind: entry.cardKind,
+        slot: entry.slot,
+        bonus: entry.bonus,
+        qty: entry.qty
+      }));
+    localStorage.setItem(CUSTOM_CATALOG_KEY, JSON.stringify(toSave));
+  } catch (err) {
+    console.error('Failed to save custom catalog entries', err);
+  }
+}
+
+function removeCustomCatalogEntry(customId){
+  const idx = customCatalogEntries.findIndex(entry => entry.customId === customId);
+  if (idx >= 0) {
+    customCatalogEntries.splice(idx, 1);
+    saveCustomCatalogEntries();
+    rebuildCatalogFilterOptions();
+    requestCatalogRender();
+  }
+}
+
+function createCustomCatalogEntry(config){
+  const entry = normalizeCustomCatalogEntry({
+    customId: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    section: 'Custom Gear',
+    type: config.displayType,
+    rawType: config.displayType,
+    cardKind: config.cardKind,
+    slot: config.displayType === 'Shield' ? 'Shield' : ''
+  });
+  entry.hidden = true;
+  refreshCustomEntrySearch(entry);
+  return entry;
+}
+
+function updateCustomCatalogEntryFromCard(entry, card){
+  if (!entry || !card) return;
+  const getVal = field => {
+    const el = qs(`[data-f='${field}']`, card);
+    if (!el) return '';
+    if (el.type === 'number') return el.value || '';
+    return el.value || '';
+  };
+  const name = getVal('name').trim();
+  const wasHidden = entry.hidden;
+  entry.name = name;
+  if (entry.cardKind === 'weapon') {
+    const damage = getVal('damage').trim();
+    const range = getVal('range').trim();
+    entry.perk = damage ? `Damage ${damage}` : '';
+    entry.description = '';
+    entry.use = range ? `Range ${range}` : '';
+  } else if (entry.cardKind === 'armor') {
+    const slotValue = getVal('slot') || (entry.type === 'Shield' ? 'Shield' : 'Body');
+    const bonusValue = Number(getVal('bonus'));
+    entry.slot = slotValue;
+    entry.bonus = Number.isFinite(bonusValue) ? bonusValue : 0;
+    entry.perk = entry.bonus ? `${entry.bonus >= 0 ? '+' : ''}${entry.bonus} TC` : '';
+    entry.description = '';
+    entry.use = '';
+  } else {
+    const qtyValue = Number(getVal('qty'));
+    const notes = getVal('notes').trim();
+    entry.qty = Number.isFinite(qtyValue) && qtyValue > 0 ? qtyValue : 1;
+    entry.description = notes;
+    entry.perk = '';
+    entry.use = '';
+  }
+  entry.tier = '';
+  entry.price = null;
+  entry.priceText = '';
+  entry.attunement = '';
+  entry.source = 'Custom Entry';
+  entry.hidden = !entry.name;
+  refreshCustomEntrySearch(entry);
+  saveCustomCatalogEntries();
+  if (wasHidden !== entry.hidden) {
+    rebuildCatalogFilterOptions();
+  }
+  requestCatalogRender();
+}
+
+function attachCustomEntryListeners(entry, card){
+  const update = debounce(() => updateCustomCatalogEntryFromCard(entry, card), 200);
+  qsa('input,select,textarea', card).forEach(el => {
+    el.addEventListener('input', update);
+    el.addEventListener('change', update);
+  });
+  const delBtn = qs("[data-act='del']", card);
+  if (delBtn) {
+    delBtn.addEventListener('click', () => {
+      removeCustomCatalogEntry(entry.customId);
+    });
+  }
+  updateCustomCatalogEntryFromCard(entry, card);
+}
+
+if (customCatalogEntries.length) {
+  rebuildCatalogFilterOptions();
+  requestCatalogRender();
+}
+
 function ensureCatalogFilters(data){
   if (catalogFiltersInitialized) return;
   catalogFiltersInitialized = true;
@@ -2487,24 +2782,27 @@ function applyPendingCatalogFilters(){
 function rebuildCatalogFilterOptions(){
   const current = getCatalogFilters();
   catalogFiltersInitialized = false;
-  ensureCatalogFilters(catalogData || []);
+  ensureCatalogFilters(getAllCatalogEntries());
   setCatalogFilters(current);
 }
 
 function renderCatalog(){
   if (!catalogListEl) return;
-  if (catalogError) {
+  const visibleCustom = getVisibleCustomCatalogEntries();
+  if (catalogError && !visibleCustom.length) {
     catalogListEl.innerHTML = '<div class="catalog-empty">Failed to load gear catalog.</div>';
     return;
   }
-  if (!catalogData) {
+  const baseLoaded = Array.isArray(catalogData);
+  if (!baseLoaded && !visibleCustom.length) {
     catalogListEl.innerHTML = '<div class="catalog-empty">Loading gear catalog...</div>';
     return;
   }
   const style = styleSel ? styleSel.value : '';
   const type = typeSel ? typeSel.value : '';
   const tier = tierSel ? tierSel.value : '';
-  const rows = sortCatalogRows(catalogData.filter(entry => (
+  const source = (baseLoaded ? catalogData.slice() : []).concat(visibleCustom);
+  const rows = sortCatalogRows(source.filter(entry => (
     (!style || entry.section === style) &&
     (!type || entry.type === type) &&
     (!tier || entry.tier === tier)
@@ -2555,8 +2853,9 @@ async function ensureCatalog(){
       const normalized = parsed.map(normalizeCatalogRow).filter(Boolean);
       catalogData = normalized;
       catalogError = null;
-      ensureCatalogFilters(normalized);
+      rebuildCatalogFilterOptions();
       applyPendingCatalogFilters();
+      requestCatalogRender();
       return catalogData;
     } catch (err) {
       console.error('Failed to load catalog', err);
@@ -2577,6 +2876,13 @@ if (tierSel) tierSel.addEventListener('input', renderCatalog);
 if (catalogCustomBtn) catalogCustomBtn.addEventListener('click', () => {
   handleAddCustomCatalogItem();
 });
+if (customTypeButtons.length) {
+  customTypeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      handleCustomItemTypeSelection(btn.dataset.customType);
+    });
+  });
+}
 
 function openCatalogWithFilters(filters = {}){
   pendingCatalogFilters = filters;
@@ -2603,121 +2909,39 @@ async function handleAddCustomCatalogItem(){
     console.error('Custom item catalog load failed', err);
     toast('Failed to load gear catalog', 'error');
     renderCatalog();
-    return;
   }
-  const typePrompt = prompt('What type of item is it? (Weapon, Armor, Shield, Utility, Item)');
-  if (!typePrompt) return;
-  const typeKey = typePrompt.trim().toLowerCase();
-  const typeMap = {
-    weapon: { value: 'Weapon', cardKind: 'weapon' },
-    armor: { value: 'Armor', cardKind: 'armor' },
-    shield: { value: 'Shield', cardKind: 'armor' },
-    utility: { value: 'Utility', cardKind: 'item' },
-    item: { value: 'Item', cardKind: 'item' }
-  };
-  const typeInfo = typeMap[typeKey];
-  if (!typeInfo) {
+  hide('modal-catalog');
+  if (customTypeModal) {
+    show('modal-custom-item');
+  }
+}
+
+function handleCustomItemTypeSelection(typeKey){
+  const key = String(typeKey || '').toLowerCase();
+  const config = CUSTOM_ITEM_TYPES[key];
+  if (!config) {
     toast('Unknown item type. Try Weapon, Armor, Shield, Utility, or Item.', 'error');
     return;
   }
-  const nameInput = prompt(`Enter the ${typeInfo.value.toLowerCase()} name`);
-  const name = nameInput ? nameInput.trim() : '';
-  if (!name) {
-    toast('Item name is required.', 'error');
-    return;
+  hide('modal-custom-item');
+  const list = $(config.listId);
+  if (!list) return;
+  const entry = createCustomCatalogEntry(config);
+  customCatalogEntries.push(entry);
+  const card = createCard(config.cardKind);
+  card.dataset.customCatalogId = entry.customId;
+  if (config.displayType === 'Shield') {
+    const slotSel = qs("[data-f='slot']", card);
+    if (slotSel) slotSel.value = 'Shield';
   }
-  const tierInput = prompt('Enter tier (e.g., T0 - T5). Leave blank if none.');
-  const tier = tierInput ? tierInput.trim().toUpperCase() : '';
-  const priceInput = prompt('Enter price in credits (numbers only). Leave blank if unknown.');
-  let price = null;
-  if (priceInput && priceInput.trim()) {
-    const numeric = Number(priceInput.replace(/[^0-9.]/g, ''));
-    if (Number.isFinite(numeric) && numeric > 0) price = numeric;
+  list.appendChild(card);
+  attachCustomEntryListeners(entry, card);
+  pushHistory();
+  const nameInput = qs("[data-f='name']", card);
+  if (nameInput && typeof nameInput.focus === 'function') {
+    nameInput.focus();
   }
-  const priceDisplay = price != null ? formatPrice(price) : '';
-  let perk = '';
-  let description = '';
-  let use = '';
-  let attunement = '';
-  let qtyValue = null;
-  let slotValue = '';
-  let bonusValue = null;
-  if (typeInfo.value === 'Weapon') {
-    const damageInput = prompt('Enter weapon damage (e.g., 1d6). Leave blank to fill later.') || '';
-    const rangeInput = prompt('Enter weapon range (optional).') || '';
-    const extraInput = prompt('Enter any extra weapon details (optional).') || '';
-    const damage = damageInput.trim();
-    const range = rangeInput.trim();
-    const extra = extraInput.trim();
-    const perkParts = [];
-    if (damage) perkParts.push(`Damage ${damage}`);
-    if (extra) perkParts.push(extra);
-    perk = perkParts.join('. ');
-    description = extra;
-    use = range ? `Range ${range}` : '';
-  } else if (typeInfo.value === 'Armor' || typeInfo.value === 'Shield') {
-    const slotDefault = typeInfo.value === 'Shield' ? 'Shield' : 'Body';
-    const slotInput = prompt('Enter armor slot (Body, Head, Shield, Misc).', slotDefault) || slotDefault;
-    const bonusInput = prompt('Enter armor bonus (number). Leave blank for 0.', '0') || '0';
-    const detailInput = prompt('Enter armor details (optional).') || '';
-    const bonusNum = Number(bonusInput.replace(/[^0-9.-]/g, ''));
-    const bonus = Number.isFinite(bonusNum) ? bonusNum : 0;
-    const detail = detailInput.trim();
-    const perkParts = [];
-    if (Number.isFinite(bonusNum) && bonusNum !== 0) {
-      perkParts.push(`${bonusNum >= 0 ? '+' : ''}${bonusNum} TC`);
-    }
-    if (detail) perkParts.push(detail);
-    perk = perkParts.join('; ');
-    description = detail;
-    slotValue = slotInput.trim() || slotDefault;
-    bonusValue = bonus;
-  } else {
-    const notesInput = prompt('Enter item notes (optional).') || '';
-    const qtyInput = prompt('Enter quantity (optional). Leave blank for 1.') || '';
-    const qtyNum = Number(qtyInput);
-    const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 1;
-    description = notesInput.trim();
-    qtyValue = qty;
-  }
-  const entry = {
-    section: 'Custom Gear',
-    type: typeInfo.value,
-    rawType: typeInfo.value,
-    name,
-    tier,
-    price,
-    priceText: priceDisplay || (price != null ? String(price) : ''),
-    perk,
-    description,
-    use,
-    attunement,
-    source: 'Custom Entry',
-    search: [
-      'Custom Gear',
-      typeInfo.value,
-      name,
-      tier,
-      priceDisplay || (price != null ? String(price) : ''),
-      perk,
-      description,
-      use,
-      attunement,
-      'Custom Entry'
-    ].map(part => part.toLowerCase()).join(' ')
-  };
-  if (slotValue) entry.slot = slotValue;
-  if (Number.isFinite(bonusValue)) entry.bonus = bonusValue;
-  if (Number.isFinite(qtyValue)) entry.qty = qtyValue;
-  if (!tryPurchaseEntry(entry)) {
-    return;
-  }
-  if (!catalogData) catalogData = [];
-  catalogData.push(entry);
-  rebuildCatalogFilterOptions();
-  setCatalogFilters({ style: 'Custom Gear', type: typeInfo.value, tier: tier || '' });
-  renderCatalog();
-  addEntryToSheet(entry, { toastMessage: 'Custom item added to catalog and equipped.' });
+  toast('Custom item card added. Fill in the details to add it to the catalog.', 'success');
 }
 
 /* ========= Encounter / Initiative ========= */
