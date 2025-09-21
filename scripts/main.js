@@ -2051,7 +2051,11 @@ $('add-armor').addEventListener('click', () => {
   pushHistory();
   openCatalogWithFilters({ type: 'Armor', style: '', tier: '' });
 });
-$('add-item').addEventListener('click', () => { $('items').appendChild(createCard('item')); pushHistory(); });
+$('add-item').addEventListener('click', () => {
+  $('items').appendChild(createCard('item'));
+  pushHistory();
+  openCatalogWithFilters({ type: 'Item', style: '', tier: '' });
+});
 
 /* ========= Drag & Drop ========= */
 function enableDragReorder(id){
@@ -2173,8 +2177,12 @@ function normalizeCatalogRow(row){
   const name = (row.Name || '').trim();
   if (!name) return null;
   const tier = (row.Tier || '').trim();
-  const priceNum = Number((row.PriceCr || '').replace(/[^0-9.]/g, ''));
-  const price = Number.isFinite(priceNum) && priceNum > 0 ? priceNum : null;
+  const priceSource = (row.PriceCr || '').trim();
+  let price = null;
+  if (priceSource && /^[0-9.,\s]+$/.test(priceSource)) {
+    const numeric = Number(priceSource.replace(/[^0-9.]/g, ''));
+    if (Number.isFinite(numeric)) price = numeric;
+  }
   const perk = (row.Perk || '').trim();
   const description = (row.Description || '').trim();
   const use = (row.Use || '').trim();
@@ -2191,6 +2199,7 @@ function normalizeCatalogRow(row){
     name,
     tier,
     price,
+    priceText: priceSource,
     perk,
     description,
     use,
@@ -2208,6 +2217,15 @@ function escapeHtml(str){
 function formatPrice(value){
   if (!Number.isFinite(value) || value <= 0) return '';
   return `₡${value.toLocaleString('en-US')}`;
+}
+
+function getPriceDisplay(entry){
+  if (!entry) return '';
+  const formatted = formatPrice(entry.price);
+  if (formatted) return formatted;
+  const raw = (entry.priceText || entry.priceRaw || '').trim();
+  if (!raw) return '';
+  return raw;
 }
 
 function formatDamageText(damage){
@@ -2257,8 +2275,8 @@ function extractWeaponDetails(perk){
 function buildItemNotes(entry){
   const notes = [];
   if (entry.tier) notes.push(`Tier ${entry.tier}`);
-  const priceText = formatPrice(entry.price);
-  if (priceText) notes.push(priceText);
+  const priceText = getPriceDisplay(entry);
+  if (priceText) notes.push(priceText.startsWith('₡') ? priceText : `Price: ${priceText}`);
   if (entry.perk) notes.push(entry.perk);
   if (entry.description) notes.push(entry.description);
   if (entry.use) notes.push(`Use: ${entry.use}`);
@@ -2308,9 +2326,19 @@ function tierRank(tier){
 
 function sortCatalogRows(rows){
   return rows.slice().sort((a, b) => {
-    const tierDiff = tierRank(a.tier) - tierRank(b.tier);
-    if (tierDiff !== 0) return tierDiff;
-    return a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+    const rankA = tierRank(a.tier);
+    const rankB = tierRank(b.tier);
+    const aHasTier = Number.isFinite(rankA);
+    const bHasTier = Number.isFinite(rankB);
+    if (aHasTier && bHasTier && rankA !== rankB) {
+      return rankB - rankA;
+    }
+    if (aHasTier !== bHasTier) {
+      return aHasTier ? -1 : 1;
+    }
+    const nameCompare = a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+    if (nameCompare !== 0) return nameCompare;
+    return (a.type || '').localeCompare(b.type || '', 'en', { sensitivity: 'base' });
   });
 }
 
@@ -2370,7 +2398,8 @@ function renderCatalog(){
     return;
   }
   catalogListEl.innerHTML = rows.map((entry, idx) => {
-    const priceText = formatPrice(entry.price);
+    const priceDisplay = getPriceDisplay(entry);
+    const priceText = priceDisplay ? (priceDisplay.startsWith('₡') ? priceDisplay : `Price: ${priceDisplay}`) : '';
     const details = [];
     if (entry.perk) details.push(`<div class="small">${escapeHtml(entry.perk)}</div>`);
     if (entry.use) details.push(`<div class="small">Use: ${escapeHtml(entry.use)}</div>`);
@@ -2394,8 +2423,8 @@ function renderCatalog(){
       if (damage) damageParts.push(`Damage ${damage}`);
       extras.forEach(part => damageParts.push(part));
       if (item.tier) damageParts.push(`Tier ${item.tier}`);
-      const priceText = formatPrice(item.price);
-      if (priceText) damageParts.push(priceText);
+      const priceText = getPriceDisplay(item);
+      if (priceText) damageParts.push(priceText.startsWith('₡') ? priceText : `Price: ${priceText}`);
       if (item.use) damageParts.push(`Use: ${item.use}`);
       if (item.attunement) damageParts.push(`Attunement: ${item.attunement}`);
       if (item.source) damageParts.push(item.source);
@@ -2408,8 +2437,8 @@ function renderCatalog(){
       const nameParts = [];
       if (details.length) nameParts.push(details.join(' — '));
       if (item.tier) nameParts.push(`Tier ${item.tier}`);
-      const priceText = formatPrice(item.price);
-      if (priceText) nameParts.push(priceText);
+      const priceText = getPriceDisplay(item);
+      if (priceText) nameParts.push(priceText.startsWith('₡') ? priceText : `Price: ${priceText}`);
       if (item.use) nameParts.push(`Use: ${item.use}`);
       if (item.attunement) nameParts.push(`Attunement: ${item.attunement}`);
       if (item.source) nameParts.push(item.source);
@@ -2530,6 +2559,7 @@ async function handleAddCustomCatalogItem(){
     const numeric = Number(priceInput.replace(/[^0-9.]/g, ''));
     if (Number.isFinite(numeric) && numeric > 0) price = numeric;
   }
+  const priceDisplay = price != null ? formatPrice(price) : '';
   let perk = '';
   let description = '';
   let use = '';
@@ -2580,6 +2610,7 @@ async function handleAddCustomCatalogItem(){
     name,
     tier,
     price,
+    priceText: priceDisplay || (price != null ? String(price) : ''),
     perk,
     description,
     use,
@@ -2590,7 +2621,7 @@ async function handleAddCustomCatalogItem(){
       typeInfo.value,
       name,
       tier,
-      price ? String(price) : '',
+      priceDisplay || (price != null ? String(price) : ''),
       perk,
       description,
       use,
