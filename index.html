@@ -34,6 +34,7 @@
       </button>
       <div id="menu-actions" class="menu" hidden>
         <button id="btn-load" class="btn-sm">Load / Save</button>
+        <button id="btn-view-mode" class="btn-sm" type="button" aria-pressed="false" title="Switch to View Mode">View Mode</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
         <button id="btn-log" class="btn-sm">Action Log</button>
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
@@ -84,7 +85,7 @@
       <h3 class="somf-title">The Shards of Many Fates</h3>
       <div class="somf-row">
         <label for="somf-min-count" class="somf-label">Shards</label>
-        <input id="somf-min-count" type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="22" value="1" class="somf-input">
+        <input id="somf-min-count" type="number" inputmode="numeric" pattern="[0-9]*" min="1" max="22" value="1" class="somf-input" data-view-allow>
         <button id="somf-min-draw" type="button" class="somf-btn somf-primary">Draw Shards</button>
       </div>
     </section>
@@ -95,11 +96,11 @@
         <span class="pill result" id="dice-out" data-placeholder="000"></span>
         <div class="inline">
           <label for="dice-sides" class="sr-only">Sides</label>
-          <select id="dice-sides">
+          <select id="dice-sides" data-view-allow>
             <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
           </select>
           <label for="dice-count" class="sr-only">Count</label>
-          <input id="dice-count" type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
+          <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
           <button id="roll-dice" class="btn-sm">Roll</button>
         </div>
       </fieldset>
@@ -153,12 +154,12 @@
           </div>
           <div class="inline">
             <label for="hp-temp" class="sr-only">Temp HP</label>
-            <input id="hp-temp" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
+            <input id="hp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
             <button id="hp-roll-add" class="btn-sm" type="button">Tier HP</button>
           </div>
           <div class="inline">
             <label for="hp-amt" class="sr-only">Amount</label>
-            <input id="hp-amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
+            <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
           </div>
           <div class="inline">
             <button id="hp-dmg" class="btn-sm">Damage</button>
@@ -176,7 +177,7 @@
             <span id="sp-pill">5/5</span>
           </div>
           <label for="sp-temp" class="sr-only">Temp SP</label>
-          <input id="sp-temp" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
+          <input id="sp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
         </div>
         <div class="sp-grid">
           <button class="btn-sm" data-sp="-1">-1 SP</button>
@@ -378,8 +379,8 @@
         </div>
         <div class="inline">
           <label for="xp-amt" class="sr-only">Amount</label>
-          <input id="xp-amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-          <select id="xp-mode" style="max-width:160px">
+          <input id="xp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
+          <select id="xp-mode" data-view-allow style="max-width:160px">
             <option value="add">Add XP</option>
             <option value="remove">Remove XP</option>
           </select>
@@ -450,8 +451,8 @@
         </div>
         <div class="inline">
           <label for="credits-amt" class="sr-only">Amount</label>
-          <input id="credits-amt" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-          <select id="credits-mode">
+          <input id="credits-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
+          <select id="credits-mode" data-view-allow>
             <option value="add">Add Credits</option>
             <option value="subtract">Spend Credits</option>
           </select>
@@ -641,7 +642,7 @@
       </svg>
     </button>
     <h3 id="pin-title">Enter PIN</h3>
-    <input id="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+    <input id="pin-input" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
     <div class="actions"><button id="pin-submit" class="somf-btn">OK</button></div>
   </section>
 </div>
@@ -707,9 +708,9 @@
     <fieldset class="inline">
       <legend class="sr-only">Add Combatant</legend>
       <label for="enc-name" class="sr-only">Name</label>
-      <input id="enc-name" placeholder="Name"/>
+      <input id="enc-name" data-view-allow placeholder="Name"/>
       <label for="enc-init" class="sr-only">Init</label>
-      <input id="enc-init" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Init"/>
+      <input id="enc-init" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Init"/>
       <button id="enc-add" class="btn-sm">Add</button>
     </fieldset>
     <div id="enc-list" class="catalog" style="margin-top:8px"></div>
@@ -730,7 +731,7 @@
     </button>
     <h3>Tier HP</h3>
     <label for="hp-roll-input" class="sr-only">Tier HP Bonus</label>
-    <input id="hp-roll-input" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Tier HP Bonus"/>
+    <input id="hp-roll-input" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Tier HP Bonus"/>
     <ul id="hp-roll-list"></ul>
     <div class="actions">
       <button id="hp-roll-save" class="btn-sm">Add</button>
@@ -764,7 +765,7 @@
     </button>
     <h3>Campaign Log</h3>
     <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
-    <textarea id="campaign-entry" rows="2" placeholder="Session notes..."></textarea>
+    <textarea id="campaign-entry" data-view-allow rows="2" placeholder="Session notes..."></textarea>
     <div class="actions">
       <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
     </div>
@@ -811,13 +812,13 @@
     <fieldset class="inline" style="margin:6px 0">
       <legend class="sr-only">Filters</legend>
       <label for="catalog-filter-style" class="sr-only">Style</label>
-      <select id="catalog-filter-style" style="max-width:260px"></select>
+      <select id="catalog-filter-style" data-view-allow style="max-width:260px"></select>
       <label for="catalog-filter-type" class="sr-only">Type</label>
-      <select id="catalog-filter-type" style="max-width:180px"><option value="">All Types</option><option>Armor</option><option>Shield</option><option>Utility</option></select>
+      <select id="catalog-filter-type" data-view-allow style="max-width:180px"><option value="">All Types</option><option>Armor</option><option>Shield</option><option>Utility</option></select>
       <label for="catalog-filter-rarity" class="sr-only">Rarity</label>
-      <select id="catalog-filter-rarity" style="max-width:160px"><option value="">All Rarities</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Elite</option><option>Legendary</option></select>
+      <select id="catalog-filter-rarity" data-view-allow style="max-width:160px"><option value="">All Rarities</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Elite</option><option>Legendary</option></select>
       <label for="catalog-search" class="sr-only">Search</label>
-      <input id="catalog-search" placeholder="Search..."/>
+      <input id="catalog-search" data-view-allow placeholder="Search..."/>
     </fieldset>
     <div id="catalog-list" class="catalog"></div>
 </div>
@@ -885,7 +886,7 @@
       </svg>
     </button>
     <h3>DM Login</h3>
-    <input id="dm-login-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+    <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
     <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
   </section>
 </div>
