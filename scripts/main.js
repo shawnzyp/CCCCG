@@ -1299,6 +1299,9 @@ function queueDmNotification(message, meta = {}) {
       ts: typeof meta.ts === 'number' || typeof meta.ts === 'string' ? meta.ts : Date.now(),
       char: meta.char || 'System',
     };
+    if (typeof meta.html === 'string' && meta.html) {
+      record.html = meta.html;
+    }
     pending.push(record);
     const MAX_PENDING = 20;
     if (pending.length > MAX_PENDING) {
