@@ -72,6 +72,125 @@ document.addEventListener('click', e=>{
   }
 }, true);
 
+/* ========= view mode ========= */
+const VIEW_LOCK_SKIP_TYPES = new Set(['checkbox','radio','button','submit','reset','file','color','range','hidden','image']);
+let viewMode = false;
+let viewModeButton = null;
+
+function hasViewAllow(el){
+  if (!el || !el.closest) return false;
+  if (el.dataset && Object.prototype.hasOwnProperty.call(el.dataset, 'viewAllow')) return true;
+  return !!el.closest('[data-view-allow]');
+}
+
+function shouldLockElement(el){
+  if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+  if (hasViewAllow(el)) return false;
+  const tag = el.tagName;
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (tag === 'INPUT') {
+    const type = (el.getAttribute('type') || 'text').toLowerCase();
+    if (VIEW_LOCK_SKIP_TYPES.has(type)) return false;
+    return true;
+  }
+  return false;
+}
+
+function lockViewElement(el){
+  if (!shouldLockElement(el) || el.dataset.viewLocked === 'true') return;
+  el.dataset.viewLocked = 'true';
+  if (el.tagName === 'SELECT') {
+    el.dataset.viewPrevDisabled = el.disabled ? '1' : '0';
+    el.disabled = true;
+    el.setAttribute('aria-disabled', 'true');
+  } else if (el.tagName === 'TEXTAREA') {
+    el.dataset.viewPrevReadonly = el.readOnly ? '1' : '0';
+    el.readOnly = true;
+    el.setAttribute('aria-readonly', 'true');
+  } else {
+    el.dataset.viewPrevReadonly = el.readOnly ? '1' : '0';
+    el.dataset.viewPrevDisabled = el.disabled ? '1' : '0';
+    el.readOnly = true;
+    el.setAttribute('aria-readonly', 'true');
+  }
+}
+
+function unlockViewElement(el){
+  if (!el || el.dataset.viewLocked !== 'true') return;
+  if (el.tagName === 'SELECT') {
+    const wasDisabled = el.dataset.viewPrevDisabled === '1';
+    el.disabled = wasDisabled;
+    if (!wasDisabled) el.removeAttribute('disabled');
+    el.removeAttribute('aria-disabled');
+  } else if (el.tagName === 'TEXTAREA') {
+    const wasReadonly = el.dataset.viewPrevReadonly === '1';
+    el.readOnly = wasReadonly;
+    if (!wasReadonly) el.removeAttribute('readonly');
+    el.removeAttribute('aria-readonly');
+    if (el.dataset.viewPrevDisabled) {
+      const wasDisabled = el.dataset.viewPrevDisabled === '1';
+      el.disabled = wasDisabled;
+      if (!wasDisabled) el.removeAttribute('disabled');
+    }
+  } else {
+    const wasReadonly = el.dataset.viewPrevReadonly === '1';
+    const wasDisabled = el.dataset.viewPrevDisabled === '1';
+    el.readOnly = wasReadonly;
+    if (!wasReadonly) el.removeAttribute('readonly');
+    el.removeAttribute('aria-readonly');
+    el.disabled = wasDisabled;
+    if (!wasDisabled) el.removeAttribute('disabled');
+  }
+  delete el.dataset.viewPrevReadonly;
+  delete el.dataset.viewPrevDisabled;
+  delete el.dataset.viewLocked;
+}
+
+function applyViewLockState(root=document){
+  if (!root) return;
+  const targets = new Set();
+  if (root.nodeType === Node.ELEMENT_NODE) {
+    const el = root;
+    if (['INPUT','SELECT','TEXTAREA'].includes(el.tagName)) targets.add(el);
+  }
+  const scope = (root && typeof root.querySelectorAll === 'function') ? root : document;
+  qsa('input,select,textarea', scope).forEach(el => targets.add(el));
+  targets.forEach(el => {
+    if (viewMode) lockViewElement(el);
+    else unlockViewElement(el);
+  });
+}
+
+function syncViewModeButton(){
+  if (!viewModeButton) return;
+  viewModeButton.setAttribute('aria-pressed', viewMode ? 'true' : 'false');
+  viewModeButton.textContent = viewMode ? 'Edit Mode' : 'View Mode';
+  viewModeButton.setAttribute('title', viewMode ? 'Switch to Edit Mode' : 'Switch to View Mode');
+}
+
+function setViewMode(enabled, { skipPersist = false } = {}){
+  const next = !!enabled;
+  const changed = viewMode !== next;
+  viewMode = next;
+  if (document.body) document.body.classList.toggle('is-view-mode', viewMode);
+  if (viewMode && document.activeElement && shouldLockElement(document.activeElement)) {
+    document.activeElement.blur();
+  }
+  applyViewLockState();
+  syncViewModeButton();
+  if (!skipPersist && changed) {
+    try { localStorage.setItem('view-mode', viewMode ? '1' : '0'); } catch (e) {}
+  }
+}
+
+viewModeButton = $('btn-view-mode');
+let storedViewMode = false;
+try { storedViewMode = localStorage.getItem('view-mode') === '1'; } catch (e) {}
+setViewMode(storedViewMode, { skipPersist: true });
+if (viewModeButton) {
+  viewModeButton.addEventListener('click', () => setViewMode(!viewMode));
+}
+
 /* ========= viewport ========= */
 function setVh(){
   document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
@@ -1914,6 +2033,7 @@ function createCard(kind, pref = {}) {
   if (cfg.onChange) {
     qsa('input,select', card).forEach(el => el.addEventListener('input', cfg.onChange));
   }
+  if (viewMode) applyViewLockState(card);
   return card;
 }
 
@@ -2477,6 +2597,7 @@ function deserialize(data){
   updateDerived();
   updateFactionRep(handlePerkEffects);
   updateCreditsDisplay();
+  if (viewMode) applyViewLockState();
 }
 
 /* ========= autosave + history ========= */
