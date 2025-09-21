@@ -2249,8 +2249,12 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
 }
 
 /* ========= Gear Catalog (CatalystCore_Master_Book integration) ========= */
+const CATALOG_MASTER_SRC = './CatalystCore_Master_Book.csv';
+const CATALOG_PRICE_SRC = './CatalystCore_Items_Prices.csv';
 let catalogData = null;
 let catalogPromise = null;
+let catalogPriceEntries = [];
+let catalogPriceIndex = new Map();
 let catalogError = null;
 let catalogFiltersInitialized = false;
 
@@ -2262,6 +2266,7 @@ const catalogListEl = $('catalog-list');
 let pendingCatalogFilters = null;
 const CUSTOM_CATALOG_KEY = 'custom-catalog';
 let customCatalogEntries = loadCustomCatalogEntries();
+rebuildCatalogPriceIndex();
 const customTypeModal = $('modal-custom-item');
 const customTypeButtons = customTypeModal ? qsa('[data-custom-type]', customTypeModal) : [];
 const requestCatalogRender = debounce(() => renderCatalog(), 100);
@@ -2348,21 +2353,92 @@ function parseCsv(text){
     }, {}));
 }
 
-function normalizeCatalogRow(row){
+function normalizePriceRow(row){
+  const name = (row.Name || '').trim();
+  if (!name) return null;
+  const priceSource = (row.PriceCr || row.Price || '').trim();
+  const numeric = extractPriceValue(priceSource);
+  return {
+    name,
+    price: Number.isFinite(numeric) && numeric > 0 ? numeric : null,
+    priceText: priceSource
+  };
+}
+
+function buildPriceIndex(entries = []){
+  const index = new Map();
+  entries.forEach(entry => {
+    if (!entry || !entry.name) return;
+    const key = entry.name.trim().toLowerCase();
+    if (!key) return;
+    if (!index.has(key)) {
+      index.set(key, entry);
+    }
+  });
+  return index;
+}
+
+function rebuildCatalogPriceIndex(baseEntries = catalogPriceEntries){
+  const index = buildPriceIndex(baseEntries);
+  if (Array.isArray(customCatalogEntries)) {
+    customCatalogEntries.forEach(entry => {
+      if (!entry || !entry.name) return;
+      const key = entry.name.trim().toLowerCase();
+      if (!key) return;
+      let priceText = (entry.priceText || '').trim();
+      let priceValue = Number.isFinite(entry.price) ? entry.price : null;
+      if (!priceText && Number.isFinite(priceValue) && priceValue > 0) {
+        priceText = `₡${priceValue.toLocaleString('en-US')}`;
+      }
+      if (!priceText && !Number.isFinite(priceValue)) return;
+      if ((!Number.isFinite(priceValue) || priceValue <= 0) && priceText) {
+        const extracted = extractPriceValue(priceText);
+        priceValue = Number.isFinite(extracted) && extracted > 0 ? extracted : null;
+      }
+      if (!index.has(key)) {
+        index.set(key, {
+          name: entry.name,
+          price: Number.isFinite(priceValue) && priceValue > 0 ? priceValue : null,
+          priceText
+        });
+      }
+    });
+  }
+  catalogPriceIndex = index;
+  return catalogPriceIndex;
+}
+
+function normalizeCatalogRow(row, priceLookup = catalogPriceIndex){
   const rawType = (row.Type || '').trim();
   const section = (row.Section || '').trim() || 'Gear';
   const name = (row.Name || '').trim();
   if (!name) return null;
   const tier = (row.Tier || '').trim();
-  const priceSource = (row.PriceCr || '').trim();
-  const price = extractPriceValue(priceSource);
+  const legacyPriceSource = (row.PriceCr || '').trim();
+  let priceEntry = null;
+  if (priceLookup && name) {
+    const key = name.toLowerCase();
+    if (priceLookup.has(key)) {
+      priceEntry = priceLookup.get(key);
+    }
+  }
+  let priceText = priceEntry ? (priceEntry.priceText || '') : '';
+  let price = priceEntry && Number.isFinite(priceEntry.price) ? priceEntry.price : null;
+  if (!priceText && legacyPriceSource) {
+    priceText = legacyPriceSource;
+  }
+  if ((!Number.isFinite(price) || price <= 0) && priceText) {
+    const parsedPrice = extractPriceValue(priceText);
+    price = Number.isFinite(parsedPrice) && parsedPrice > 0 ? parsedPrice : null;
+  }
   const perk = (row.Perk || '').trim();
   const description = (row.Description || '').trim();
   const use = (row.Use || '').trim();
   const attunement = (row.Attunement || '').trim();
   const source = (row['Where To Find'] || '').trim();
   const displayType = rawType || 'Item';
-  const search = [section, displayType, name, tier, row.PriceCr || '', perk, description, use, attunement, source]
+  const priceSearchText = priceText || legacyPriceSource;
+  const search = [section, displayType, name, tier, priceSearchText || '', perk, description, use, attunement, source]
     .map(part => part.toLowerCase())
     .join(' ');
   return {
@@ -2372,7 +2448,8 @@ function normalizeCatalogRow(row){
     name,
     tier,
     price,
-    priceText: priceSource,
+    priceText,
+    priceRaw: legacyPriceSource || priceText,
     perk,
     description,
     use,
@@ -2567,34 +2644,36 @@ function getAllCatalogEntries(){
 }
 
 function saveCustomCatalogEntries(){
-  if (typeof localStorage === 'undefined') return;
-  try {
-    const toSave = customCatalogEntries
-      .filter(entry => !entry.hidden && entry.name && entry.name.trim())
-      .map(entry => ({
-        customId: entry.customId,
-        section: entry.section,
-        type: entry.type,
-        rawType: entry.rawType,
-        name: entry.name,
-        tier: entry.tier,
-        price: entry.price,
-        priceText: entry.priceText,
-        perk: entry.perk,
-        description: entry.description,
-        use: entry.use,
-        attunement: entry.attunement,
-        source: entry.source,
-        search: entry.search,
-        cardKind: entry.cardKind,
-        slot: entry.slot,
-        bonus: entry.bonus,
-        qty: entry.qty
-      }));
-    localStorage.setItem(CUSTOM_CATALOG_KEY, JSON.stringify(toSave));
-  } catch (err) {
-    console.error('Failed to save custom catalog entries', err);
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const toSave = customCatalogEntries
+        .filter(entry => !entry.hidden && entry.name && entry.name.trim())
+        .map(entry => ({
+          customId: entry.customId,
+          section: entry.section,
+          type: entry.type,
+          rawType: entry.rawType,
+          name: entry.name,
+          tier: entry.tier,
+          price: entry.price,
+          priceText: entry.priceText,
+          perk: entry.perk,
+          description: entry.description,
+          use: entry.use,
+          attunement: entry.attunement,
+          source: entry.source,
+          search: entry.search,
+          cardKind: entry.cardKind,
+          slot: entry.slot,
+          bonus: entry.bonus,
+          qty: entry.qty
+        }));
+      localStorage.setItem(CUSTOM_CATALOG_KEY, JSON.stringify(toSave));
+    } catch (err) {
+      console.error('Failed to save custom catalog entries', err);
+    }
   }
+  rebuildCatalogPriceIndex();
 }
 
 function removeCustomCatalogEntry(customId){
@@ -2655,8 +2734,6 @@ function updateCustomCatalogEntryFromCard(entry, card){
     entry.use = '';
   }
   entry.tier = '';
-  entry.price = null;
-  entry.priceText = '';
   entry.attunement = '';
   entry.source = 'Custom Entry';
   entry.hidden = !entry.name;
@@ -2829,22 +2906,41 @@ function renderCatalog(){
   }));
 }
 
+async function fetchCatalogText(url, errorMessage = 'Catalog fetch failed'){
+  const res = await fetch(url);
+  if (!res || (typeof res.ok === 'boolean' && !res.ok)) {
+    throw new Error(errorMessage);
+  }
+  if (typeof res.arrayBuffer === 'function') {
+    const buffer = await res.arrayBuffer();
+    return decodeCatalogBuffer(buffer);
+  }
+  if (typeof res.text === 'function') {
+    return await res.text();
+  }
+  return '';
+}
+
 async function ensureCatalog(){
   if (catalogData) return catalogData;
   if (catalogPromise) return catalogPromise;
   catalogPromise = (async () => {
     try {
-      const res = await fetch('./CatalystCore_Master_Book.csv');
-      if (!res || (typeof res.ok === 'boolean' && !res.ok)) throw new Error('Catalog fetch failed');
-      let rawText = '';
-      if (typeof res.arrayBuffer === 'function') {
-        const buffer = await res.arrayBuffer();
-        rawText = decodeCatalogBuffer(buffer);
-      } else if (typeof res.text === 'function') {
-        rawText = await res.text();
+      const masterPromise = fetchCatalogText(CATALOG_MASTER_SRC, 'Catalog fetch failed');
+      const pricePromise = fetchCatalogText(CATALOG_PRICE_SRC, 'Price fetch failed').catch(err => {
+        console.error('Failed to load catalog prices', err);
+        return null;
+      });
+      const [masterText, priceTextRaw] = await Promise.all([masterPromise, pricePromise]);
+      const parsedMaster = parseCsv(masterText);
+      if (typeof priceTextRaw === 'string') {
+        const parsedPrices = parseCsv(priceTextRaw);
+        catalogPriceEntries = parsedPrices.map(normalizePriceRow).filter(Boolean);
+      } else if (!Array.isArray(catalogPriceEntries) || !catalogPriceEntries.length) {
+        catalogPriceEntries = [];
       }
-      const parsed = parseCsv(rawText);
-      const normalized = parsed.map(normalizeCatalogRow).filter(Boolean);
+      const priceIndex = rebuildCatalogPriceIndex(catalogPriceEntries);
+      const normalized = parsedMaster.map(row => normalizeCatalogRow(row, priceIndex)).filter(Boolean);
       catalogData = normalized;
       catalogError = null;
       rebuildCatalogFilterOptions();
