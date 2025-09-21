@@ -695,6 +695,33 @@
     ]
   };
 
+  const LEGACY_PLATE_BY_ID = Object.fromEntries(LEGACY_PLATES.map(plate => [plate.id, plate]));
+  const normalizedShards = Array.isArray(SOMF_DECK.shards)
+    ? SOMF_DECK.shards.map(shard => {
+      if (!shard || typeof shard !== 'object') return shard;
+      const legacy = LEGACY_PLATE_BY_ID[shard.id];
+      if (!legacy) return shard;
+      const merged = { ...shard };
+      if (legacy.name) merged.name = legacy.name;
+      if (legacy.visual) merged.visual = legacy.visual;
+      if (Array.isArray(legacy.player)) merged.player = legacy.player.slice();
+      if (Array.isArray(legacy.dm)) merged.dm = legacy.dm.slice();
+      return merged;
+    })
+    : [];
+
+  if (normalizedShards.length) {
+    SOMF_DECK.shards = normalizedShards;
+  } else {
+    SOMF_DECK.shards = LEGACY_PLATES.map(legacy => ({
+      id: legacy.id,
+      name: legacy.name,
+      visual: legacy.visual,
+      player: Array.isArray(legacy.player) ? legacy.player.slice() : [],
+      dm: Array.isArray(legacy.dm) ? legacy.dm.slice() : [],
+    }));
+  }
+
 
   const RESOLVE_OPTIONS = [
     {name:'Stabilize the Fracture', desc:'Seal the shard in PFV Vault stasis to end its immediate fallout.'},
