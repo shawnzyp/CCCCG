@@ -2334,7 +2334,7 @@ function sortCatalogRows(rows){
     const aHasTier = Number.isFinite(rankA);
     const bHasTier = Number.isFinite(rankB);
     if (aHasTier && bHasTier && rankA !== rankB) {
-      return rankB - rankA;
+      return rankA - rankB;
     }
     if (aHasTier !== bHasTier) {
       return aHasTier ? -1 : 1;
@@ -2344,6 +2344,8 @@ function sortCatalogRows(rows){
     return (a.type || '').localeCompare(b.type || '', 'en', { sensitivity: 'base' });
   });
 }
+
+export { tierRank, sortCatalogRows };
 
 function setCatalogFilters(filters = {}){
   if (styleSel && Object.prototype.hasOwnProperty.call(filters, 'style')) {
