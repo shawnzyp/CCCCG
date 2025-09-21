@@ -1,21 +1,27 @@
-/* =========================================================================
-   SHARED MINIMAL RUNTIME
-   - Optional Firebase RTDB for shared deck + notices
-   - LocalStorage fallback for solo/offline testing
-   ========================================================================= */
-window.SOMF_MIN = window.SOMF_MIN || {};
+'use strict';
 
-function initSomf(){
-  const $ = s=>document.querySelector(s);
-  const $$ = s=>Array.from(document.querySelectorAll(s));
-
-  // Public hook for your app:
-  window.SOMF_MIN = {
-    setFirebase: (db)=> { window._somf_db = db || null; },
-    setCampaignId: (id)=> { window._somf_cid = id || 'ccampaign-001'; }
+(function(){
+  const DEFAULT_CAMPAIGN_ID = 'ccampaign-001';
+  const REALTIME_PATHS = {
+    deck: () => 'shardDeck/deck',
+    audits: () => 'shardDeck/audits',
+    notices: () => 'shardDeck/notices',
+    resolutions: () => 'shardDeck/resolutions',
+    npcs: () => 'shardDeck/active_npcs',
+    hidden: () => 'shardDeck/hidden',
   };
+  const LOCAL_KEYS = {
+    deck: cid => `somf_deck__${cid}`,
+    audits: cid => `somf_audit__${cid}`,
+    notices: cid => `somf_notices__${cid}`,
+    resolutions: cid => `somf_resolutions__${cid}`,
+    npcs: cid => `somf_active_npcs__${cid}`,
+    lastNotice: cid => `somf_last_notice__${cid}`,
+    hidden: cid => `somf_hidden__${cid}`,
+  };
+  const MAX_LOCAL_RECORDS = 120;
 
-  const OLD_PLATES = [
+  const LEGACY_PLATES = [
     {id:'VAULT',name:'The Vault',visual:'Space folds into a recursion cell.',player:[
       'You vanish from the scene.',
       'An adjacent ally can pull you back.',
@@ -688,58 +694,149 @@ function initSomf(){
       { "id": "LEGEND_INQUISITOR_SILAS", "name": "Legendary Shard — Inquisitor Silas", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_SILAS", "tier": 3 }, { "type": "faction_rep_delta", "faction": "Conclave", "value": -1 } ], "resolution": "Silas marks the drawer for doctrinal judgment and recurs until defeated." }
     ]
   };
-  // Use the full shard list from the deck definition when available so the
-  // DM tools can render every shard, even outside the minimal test deck.
-  const PLATES = SOMF_DECK.shards || OLD_PLATES;
-  const plateById = Object.fromEntries(PLATES.map(p => [p.id, p]));
+
+
+  const RESOLVE_OPTIONS = [
+    {name:'Stabilize the Fracture', desc:'Seal the shard in PFV Vault stasis to end its immediate fallout.'},
+    {name:'Catalyze a Hero', desc:'Bind the shard to a PC or ally as a bespoke boon, mutation, or power surge.'},
+    {name:'Prime a Mission Asset', desc:'Channel the shard into a base, vehicle, or downtime project to unlock new capabilities.'},
+    {name:'Manifest a Fatebound NPC', desc:'Let the shard call, empower, or redeem a notable NPC tied to its omen.'},
+    {name:'Let Fate Ripple', desc:'Resolve the shard through a narrative twist that reshapes faction clocks or campaign stakes.'},
+  ];
+
+  const PLATES = Array.isArray(SOMF_DECK.shards) && SOMF_DECK.shards.length ? SOMF_DECK.shards : LEGACY_PLATES;
+  const PLATE_BY_ID = Object.fromEntries(PLATES.map(plate => [plate.id, plate]));
   const ITEM_BY_ID = SOMF_DECK.items || {};
   const NPC_BY_ID = SOMF_DECK.npcs || {};
 
-  function formatNumber(value){
-    return typeof value === 'number' && Number.isFinite(value)
-      ? value.toLocaleString()
-      : value;
+  const dom = {
+    one: selector => document.querySelector(selector),
+    all: selector => Array.from(document.querySelectorAll(selector)),
+  };
+
+  const formatNumber = value => typeof value === 'number' && Number.isFinite(value)
+    ? value.toLocaleString()
+    : value;
+
+  const words = value => typeof value === 'string' ? value.replace(/_/g, ' ') : '';
+
+  function sentenceCase(text) {
+    const value = words(text).trim();
+    return value ? value[0].toUpperCase() + value.slice(1) : '';
   }
-  function words(str){
-    return typeof str === 'string' ? str.replace(/_/g, ' ') : '';
+
+  function joinWithConjunction(list, conjunction = 'and') {
+    const entries = list.filter(Boolean);
+    if (!entries.length) return '';
+    if (entries.length === 1) return entries[0];
+    if (entries.length === 2) return `${entries[0]} ${conjunction} ${entries[1]}`;
+    return `${entries.slice(0, -1).join(', ')}, ${conjunction} ${entries[entries.length - 1]}`;
   }
-  function sentenceCase(str){
-    const text = words(str).trim();
-    return text ? text.charAt(0).toUpperCase() + text.slice(1) : '';
+
+  const pluralize = (word, count) => (count === 1 ? word : `${word}s`);
+
+  function preferReducedMotion() {
+    try {
+      return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+    } catch {
+      return false;
+    }
   }
-  function joinWithConjunction(list, conjunction='and'){
-    const arr = list.filter(Boolean);
-    if(!arr.length) return '';
-    if(arr.length === 1) return arr[0];
-    if(arr.length === 2) return `${arr[0]} ${conjunction} ${arr[1]}`;
-    return `${arr.slice(0, -1).join(', ')}, ${conjunction} ${arr[arr.length-1]}`;
+
+  const Random = {
+    int(max) {
+      if (!Number.isFinite(max) || max <= 0) return 0;
+      if (window.crypto?.getRandomValues) {
+        const buffer = new Uint32Array(1);
+        window.crypto.getRandomValues(buffer);
+        return Math.floor((buffer[0] / 2 ** 32) * max);
+      }
+      return Math.floor(Math.random() * max);
+    }
+  };
+
+  const localKey = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+  function readStorage(key, fallback = null) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw == null) return fallback;
+      return JSON.parse(raw);
+    } catch {
+      return fallback;
+    }
   }
-  function pluralize(word, count){
-    return count === 1 ? word : `${word}s`;
+
+  function writeStorage(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* ignore quota errors */
+    }
   }
-  function describeItem(itemId, quantity=1){
+
+  function dispatch(type, detail) {
+    if (typeof window.CustomEvent === 'function') {
+      window.dispatchEvent(new window.CustomEvent(type, { detail }));
+    } else {
+      const evt = document.createEvent('CustomEvent');
+      evt.initCustomEvent(type, false, false, detail);
+      window.dispatchEvent(evt);
+    }
+  }
+
+  const toArray = value => {
+    if (Array.isArray(value)) return value.slice();
+    if (!value || typeof value !== 'object') return [];
+    const keys = Object.keys(value);
+    keys.sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      const aIsNum = Number.isFinite(na);
+      const bIsNum = Number.isFinite(nb);
+      if (aIsNum && bIsNum) return na - nb;
+      if (aIsNum) return -1;
+      if (bIsNum) return 1;
+      return a.localeCompare(b);
+    });
+    return keys.map(key => value[key]);
+  };
+
+  const toStringList = value => toArray(value)
+    .map(item => {
+      if (typeof item === 'string') return item.trim();
+      if (item == null) return '';
+      try {
+        return String(item).trim();
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean);
+
+  const describeItem = (itemId, quantity = 1) => {
     const item = ITEM_BY_ID[itemId];
     const name = item?.name || sentenceCase(itemId);
-    const qty = quantity && quantity > 1 ? ` ×${quantity}` : '';
-    return `${name}${qty}`.trim();
-  }
-  function describeNpc(npcId){
+    const suffix = quantity > 1 ? ` ×${quantity}` : '';
+    return `${name}${suffix}`.trim();
+  };
+
+  const describeNpc = npcId => {
     const npc = NPC_BY_ID[npcId];
     return npc?.name || sentenceCase(npcId);
-  }
-  function summarizeChoiceOption(option){
-    if(option == null) return '';
-    if(typeof option === 'string') return option;
-    if(typeof option === 'number') return formatNumber(option);
-    if(Array.isArray(option)){
-      return option.map(summarizeChoiceOption).filter(Boolean).join(', ');
-    }
-    if(typeof option !== 'object') return String(option);
-    if(option.type) return summarizeEffect(option);
+  };
+
+  function summarizeChoiceOption(option) {
+    if (option == null) return '';
+    if (typeof option === 'string') return option;
+    if (typeof option === 'number') return formatNumber(option);
+    if (Array.isArray(option)) return option.map(summarizeChoiceOption).filter(Boolean).join(', ');
+    if (typeof option !== 'object') return String(option);
+    if (option.type) return summarizeEffect(option);
     const entries = Object.entries(option);
-    if(entries.length === 1){
+    if (entries.length === 1) {
       const [key, value] = entries[0];
-      switch(key){
+      switch (key) {
         case 'xp_delta':
           return summarizeEffect({ type: 'xp_delta', value });
         case 'credits_delta':
@@ -755,19 +852,18 @@ function initSomf(){
       }
     }
     return entries
-      .map(([key,value])=>`${sentenceCase(key)}: ${summarizeChoiceOption(value)}`.trim())
+      .map(([key, value]) => `${sentenceCase(key)}: ${summarizeChoiceOption(value)}`.trim())
       .join(', ');
   }
-  function summarizeEffect(effect){
-    if(effect == null) return '';
-    if(typeof effect === 'string') return effect;
-    if(Array.isArray(effect)){
-      return effect.map(summarizeEffect).filter(Boolean).join(' ');
-    }
-    if(typeof effect !== 'object') return String(effect);
-    const type = effect.type;
-    if(!type) return summarizeChoiceOption(effect);
-    switch(type){
+
+  function summarizeEffect(effect) {
+    if (effect == null) return '';
+    if (typeof effect === 'string') return effect;
+    if (Array.isArray(effect)) return effect.map(summarizeEffect).filter(Boolean).join(' ');
+    if (typeof effect !== 'object') return String(effect);
+    const { type } = effect;
+    if (!type) return summarizeChoiceOption(effect);
+    switch (type) {
       case 'xp_delta': {
         const value = Number(effect.value) || 0;
         const verb = value >= 0 ? 'Gain' : 'Lose';
@@ -778,21 +874,20 @@ function initSomf(){
         const verb = value >= 0 ? 'Gain' : 'Lose';
         return `${verb} ${formatNumber(Math.abs(value))} cr`;
       }
-      case 'grant_item': {
+      case 'grant_item':
         return `Gain ${describeItem(effect.item_id, effect.quantity)}`;
-      }
       case 'ability_score_increase_perm': {
         const value = Number(effect.value) || 0;
         const cap = effect.cap ? ` (cap ${effect.cap})` : '';
         const count = Number(effect.count) || 1;
-        if(effect.ability){
+        if (effect.ability) {
           return `Increase ${effect.ability.toUpperCase()} by +${value} permanently${cap}`;
         }
-        if(effect.ability_choice){
+        if (effect.ability_choice) {
           return `Increase an ability of your choice by +${value} permanently${cap}`;
         }
-        if(effect.choices?.length){
-          const list = joinWithConjunction(effect.choices.map(c=>c.toUpperCase()), 'or');
+        if (effect.choices?.length) {
+          const list = joinWithConjunction(effect.choices.map(choice => choice.toUpperCase()), 'or');
           const pick = count > 1 ? `${count} different abilities` : 'one ability';
           return `Increase ${pick} (${list}) by +${value} permanently${cap}`;
         }
@@ -800,21 +895,19 @@ function initSomf(){
       }
       case 'skill_bonus_perm': {
         const value = Number(effect.value) || 0;
-        if(effect.target_skill_choice) return `Gain a permanent +${value} bonus to a skill of your choice`;
-        if(effect.skill) return `Gain a permanent +${value} bonus to ${sentenceCase(effect.skill)}`;
+        if (effect.target_skill_choice) return `Gain a permanent +${value} bonus to a skill of your choice`;
+        if (effect.skill) return `Gain a permanent +${value} bonus to ${sentenceCase(effect.skill)}`;
         return `Gain a permanent +${value} skill bonus`;
       }
       case 'choose_one':
       case 'choice': {
         const label = type === 'choose_one' ? 'Choose one' : 'Choose';
-        const options = (effect.options||[])
-          .map(opt=>summarizeChoiceOption(opt))
-          .filter(Boolean);
+        const options = (effect.options || []).map(option => summarizeChoiceOption(option)).filter(Boolean);
         return options.length ? `${label}: ${options.join('; ')}` : label;
       }
       case 'flag_next_combat_bounty': {
         const condition = words(effect.condition || '').trim();
-        const rewards = (effect.rewards||[]).map(r=>summarizeEffect(r)).filter(Boolean).join('; ');
+        const rewards = (effect.rewards || []).map(entry => summarizeEffect(entry)).filter(Boolean).join('; ');
         return `Next combat bounty — if ${condition || 'the condition is met'}, gain ${rewards}`.trim();
       }
       case 'declare_two_mechanical_weaknesses_on_next_boss':
@@ -822,7 +915,7 @@ function initSomf(){
       case 'downtime_advantage': {
         const uses = Number(effect.uses) || 1;
         const task = sentenceCase(effect.task || 'a downtime task');
-        return `Gain advantage on ${task} downtime ${pluralize('check', uses)} (${uses} use${uses===1?'':'s'})`;
+        return `Gain advantage on ${task} downtime ${pluralize('check', uses)} (${uses} use${uses === 1 ? '' : 's'})`;
       }
       case 'grant_free_boost_per_encounter': {
         const count = Number(effect.count_encounters) || 1;
@@ -843,20 +936,20 @@ function initSomf(){
         return `Suffer -${value} to attack rolls${duration ? ` ${duration}` : ''}`.trim();
       }
       case 'cleanse_method': {
-        const methods = (effect.methods||[]).map(m=>{
-          if(m.downtime){
-            const parts=[`${m.downtime} downtime`];
-            if(m.dc) parts.push(`DC ${m.dc}`);
-            if(m.successes_required) parts.push(`${m.successes_required} ${pluralize('success', m.successes_required)}`);
+        const methods = (effect.methods || []).map(method => {
+          if (method.downtime) {
+            const parts = [`${method.downtime} downtime`];
+            if (method.dc) parts.push(`DC ${method.dc}`);
+            if (method.successes_required) parts.push(`${method.successes_required} ${pluralize('success', method.successes_required)}`);
             return parts.join(', ');
           }
-          if(m.item){
-            const parts=[`Use ${describeItem(m.item)}`];
-            if(m.special_counter) parts.push(words(m.special_counter));
+          if (method.item) {
+            const parts = [`Use ${describeItem(method.item)}`];
+            if (method.special_counter) parts.push(words(method.special_counter));
             return parts.join(' — ');
           }
-          return Object.entries(m)
-            .map(([k,v])=>`${sentenceCase(k)}: ${summarizeChoiceOption(v)}`.trim())
+          return Object.entries(method)
+            .map(([key, value]) => `${sentenceCase(key)}: ${summarizeChoiceOption(value)}`.trim())
             .join(', ');
         });
         return methods.length ? `Cleanse by: ${methods.join('; ')}` : 'Cleanse via special method';
@@ -867,13 +960,13 @@ function initSomf(){
         return `${name || 'An enemy'} challenges the drawer to a one-on-one duel.${rule}`.trim();
       }
       case 'imprison_drawer': {
-        const parts=['The drawer is imprisoned and removed from play'];
-        if(effect.rescue){
-          const rescue=[];
-          if(effect.rescue.mission_required) rescue.push('requires a focused mission');
-          if(effect.rescue.scenes_required) rescue.push(`at least ${effect.rescue.scenes_required} ${pluralize('scene', effect.rescue.scenes_required)}`);
-          if(effect.rescue.fail_consequence) rescue.push(`failure: ${effect.rescue.fail_consequence}`);
-          if(rescue.length) parts.push(`Rescue ${rescue.join('; ')}`);
+        const parts = ['The drawer is imprisoned and removed from play'];
+        if (effect.rescue) {
+          const rescue = [];
+          if (effect.rescue.mission_required) rescue.push('requires a focused mission');
+          if (effect.rescue.scenes_required) rescue.push(`at least ${effect.rescue.scenes_required} ${pluralize('scene', effect.rescue.scenes_required)}`);
+          if (effect.rescue.fail_consequence) rescue.push(`failure: ${effect.rescue.fail_consequence}`);
+          if (rescue.length) parts.push(`Rescue ${rescue.join('; ')}`);
         }
         return parts.join('. ');
       }
@@ -899,7 +992,7 @@ function initSomf(){
       case 'force_draw': {
         const count = Number(effect.count) || 1;
         const pool = words(effect.pool || 'from the deck');
-        return `Immediately draw ${count} additional ${pool} shard${count===1?'':'s'}`;
+        return `Immediately draw ${count} additional ${pool} shard${count === 1 ? '' : 's'}`;
       }
       case 'ability_score_decrease_temp': {
         const value = Math.abs(Number(effect.value) || 0);
@@ -920,1348 +1013,1145 @@ function initSomf(){
         const tier = effect.tier ? ` (Tier ${effect.tier})` : '';
         return `${name || 'An archenemy'} marks you permanently${tier}`;
       }
-      case 'immediate_theft': {
-        const steal = effect.steal || {};
-        const priority = words(steal.priority || 'a prized item');
-        const fallback = steal.fallback_credits ? ` (or ${formatNumber(steal.fallback_credits)} cr if none)` : '';
-        return `Nemesis steals ${priority}${fallback}`.trim();
+      case 'destroy_equipped_items': {
+        const count = Number(effect.count) || 1;
+        return `Destroy ${count} equipped ${pluralize('item', count)} (${words(effect.priority?.join?.(', ') || effect.priority) || 'GM choice'})`;
       }
+      case 'immediate_theft': {
+        const priority = effect.steal?.priority ? words(effect.steal.priority) : 'an item';
+        const fallback = effect.steal?.fallback_credits ? ` (or ${formatNumber(effect.steal.fallback_credits)} cr)` : '';
+        return `An enemy steals ${priority}${fallback}`.trim();
+      }
+      case 'grant_free_boost_roll':
+        return `Gain a free ${effect.value || '+1d4'} boost roll`;
+      case 'free_boost_roll_first_attack_vs_declared_enemy':
+        return `Each ally gains a free ${effect.value || '+1d4'} boost on their first attack vs the declared enemy`;
       default:
-        return sentenceCase(type);
+        return Object.entries(effect)
+          .map(([key, value]) => `${sentenceCase(key)}: ${summarizeChoiceOption(value)}`.trim())
+          .join(', ');
     }
   }
-  function summarizeRequirements(requirements){
-    if(!requirements) return '';
-    const parts=[];
-    if(requirements.owner_binds_on_equip) parts.push('Item binds to the drawer when equipped');
-    Object.entries(requirements).forEach(([key,val])=>{
-      if(key==='owner_binds_on_equip') return;
-      if(typeof val === 'boolean'){
-        parts.push(sentenceCase(key));
-      }else{
-        parts.push(`${sentenceCase(key)}: ${summarizeChoiceOption(val)}`.trim());
-      }
-    });
-    return parts.join('; ');
-  }
-  function plateForPlayer(p){
-    if(!p) return { id: null, name: 'Unknown Shard', visual: '—', player: ['No effect data available.'] };
-    if(Array.isArray(p.player) && p.player.length){
+
+  function plateForPlayer(plate) {
+    if (!plate) {
+      return { id: 'UNKNOWN', name: 'Unknown Shard', visual: '—', player: ['No effect data available.'] };
+    }
+    if (Array.isArray(plate.player) && plate.player.length) {
       return {
-        id: p.id,
-        name: p.name || p.id || 'Unknown Shard',
-        visual: p.visual || '—',
-        player: p.player.slice(),
+        id: plate.id,
+        name: plate.name || plate.id,
+        visual: plate.visual || sentenceCase(plate.polarity ? `${plate.polarity} shard` : '') || '—',
+        player: plate.player.slice(),
       };
     }
-    const lines=[];
-    const req = summarizeRequirements(p.requirements);
-    if(req) lines.push(`Requirement: ${req}`);
-    const effects = Array.isArray(p.effect) ? p.effect : (p.effect ? [p.effect] : []);
-    effects.map(summarizeEffect).filter(Boolean).forEach(text=>lines.push(text));
-    if(p.resolution) lines.push(`Resolution: ${p.resolution}`);
-    const visualParts=[];
-    if(p.visual) visualParts.push(p.visual);
-    if(!p.visual && p.polarity) visualParts.push(`${sentenceCase(p.polarity)} shard`);
-    if(p.id) visualParts.push(`ID: ${p.id}`);
+    const lines = [];
+    const effects = Array.isArray(plate.effect) ? plate.effect : (plate.effect ? [plate.effect] : []);
+    effects.map(summarizeEffect).filter(Boolean).forEach(line => lines.push(line));
+    if (plate.resolution) lines.push(`Resolution: ${plate.resolution}`);
+    const visualParts = [];
+    if (plate.visual) visualParts.push(plate.visual);
+    if (!plate.visual && plate.polarity) visualParts.push(`${sentenceCase(plate.polarity)} shard`);
+    if (plate.id) visualParts.push(`ID: ${plate.id}`);
     return {
-      id: p.id,
-      name: p.name || p.id || 'Unknown Shard',
+      id: plate.id,
+      name: plate.name || plate.id || 'Unknown Shard',
       visual: visualParts.filter(Boolean).join(' • ') || '—',
       player: lines.length ? lines : ['No effect data available.'],
     };
   }
 
-  /* ---------- Helpers ---------- */
-  const hasRealtime = ()=> !!window._somf_db;
-  const db = ()=> {
-    if (!hasRealtime()) throw new Error('Firebase Realtime Database required');
-    return window._somf_db;
-  };
-  const CID = ()=> window._somf_cid || 'ccampaign-001';
-  // Firebase location for the shared Shard Deck. The campaign ID is kept for
-  // compatibility but no longer affects the path so all campaigns share the
-  // same data at /shardDeck in the RTDB.
-  const path = {
-    deck: (_cid)=>`shardDeck/deck`,
-    audits: (_cid)=>`shardDeck/audits`,
-    notices: (_cid)=>`shardDeck/notices`,
-    resolutions: (_cid)=>`shardDeck/resolutions`,
-    npcs: (_cid)=>`shardDeck/active_npcs`,
-    hidden: (_cid)=>`shardDeck/hidden`,
-  };
-  const LSK = {
-    deck: cid=>`somf_deck__${cid}`,
-    audits: cid=>`somf_audit__${cid}`,
-    notices: cid=>`somf_notices__${cid}`,
-    resolutions: cid=>`somf_resolutions__${cid}`,
-    npcs: cid=>`somf_active_npcs__${cid}`,
-    lastNotice: cid=>`somf_last_notice__${cid}`,
-    hidden: cid=>`somf_hidden__${cid}`,
-  };
-  const getLocal = k => { const r=localStorage.getItem(k); return r? JSON.parse(r): null; };
-  const setLocal = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
-  const getLocalArray = key => {
-    const data = getLocal(key);
-    return Array.isArray(data) ? data.slice() : [];
-  };
-  const MAX_LOCAL_RECORDS = 120;
-  const localKey = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`;
-  const triggerLocalEvent = (type, detail)=>{
-    window.dispatchEvent(new CustomEvent(type,{detail}));
-  };
-
-  function cryptoInt(max){
-    if (crypto?.getRandomValues){
-      const a=new Uint32Array(1); crypto.getRandomValues(a);
-      return Math.floor((a[0]/2**32)*max);
+  const Catalog = {
+    shardIds() {
+      return PLATES.map(plate => plate.id);
+    },
+    shuffleShardIds() {
+      const ids = this.shardIds();
+      for (let i = ids.length - 1; i > 0; i -= 1) {
+        const j = Random.int(i + 1);
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+      }
+      return ids;
+    },
+    shardById(id) {
+      return PLATE_BY_ID[id] || null;
+    },
+    allShards() {
+      return PLATES.slice();
+    },
+    allItems() {
+      return Object.values(ITEM_BY_ID);
+    },
+    allNpcs() {
+      return Object.values(NPC_BY_ID);
+    },
+    resolveOptions() {
+      return RESOLVE_OPTIONS.slice();
+    },
+    playerCard(plate) {
+      return plateForPlayer(plate);
+    },
+    shardName(id) {
+      return this.shardById(id)?.name || id;
     }
-    return Math.floor(Math.random()*max);
-  }
-  function shuffledIds(){
-    const ids = PLATES.map(p=>p.id);
-    for(let i=ids.length-1;i>0;i--){
-      const j = cryptoInt(i+1);
-      [ids[i],ids[j]] = [ids[j],ids[i]];
-    }
-    return ids;
-  }
-  async function rtdbInitDeckIfMissing(){
-    const deckRef = db().ref(path.deck(CID()));
-    const snap = await deckRef.get();
-    if (!snap.exists()) await deckRef.set(PLATES.map(p=>p.id));
-  }
-  async function rtdbDrawOne(){
-    const deckRef = db().ref(path.deck(CID()));
-    let out = null;
-    await deckRef.transaction(cur=>{
-      let arr = Array.isArray(cur)? cur.slice(): [];
-      if (!arr.length) arr = PLATES.map(p=>p.id);
-      const idx = cryptoInt(arr.length);
-      out = arr[idx]; arr.splice(idx,1);
-      return arr;
-    });
-    await db().ref(path.audits(CID())).push({ id: out, name: plateById[out]?.name || out, ts: db().ServerValue.TIMESTAMP });
-    return out;
-  }
-
-  function ensureLocalDeck(){
-    const cid = CID();
-    let deck = getLocal(LSK.deck(cid));
-    if (!Array.isArray(deck) || !deck.length) {
-      deck = shuffledIds();
-      setLocal(LSK.deck(cid), deck);
-    }
-    return deck.slice();
-  }
-  function localInitDeckIfMissing(){
-    ensureLocalDeck();
-  }
-  function localDrawOne(){
-    const cid = CID();
-    const deck = ensureLocalDeck();
-    const idx = deck.length ? cryptoInt(deck.length) : 0;
-    const [id] = deck.splice(idx, 1);
-    setLocal(LSK.deck(cid), deck);
-    const audits = getLocalArray(LSK.audits(cid));
-    audits.push({ id, name: plateById[id]?.name || id, ts: Date.now() });
-    setLocal(LSK.audits(cid), audits.slice(-MAX_LOCAL_RECORDS));
-    return id;
-  }
-  function localPushNotice(entry){
-    const cid = CID();
-    const notices = getLocalArray(LSK.notices(cid));
-    const payload = { key: localKey('notice'), ts: Date.now(), ...entry };
-    notices.push(payload);
-    const trimmed = notices.slice(-MAX_LOCAL_RECORDS);
-    setLocal(LSK.notices(cid), trimmed);
-    triggerLocalEvent('somf-local-notice', { key: payload.key, action: 'add', notice: payload });
-    return payload;
-  }
-  function localLoadNotices(limit=30){
-    const cid = CID();
-    const notices = getLocalArray(LSK.notices(cid));
-    notices.sort((a,b)=> (b.ts||0)-(a.ts||0));
-    return notices.slice(0, limit);
-  }
-  function localRemoveNotice(key){
-    const cid = CID();
-    const notices = getLocalArray(LSK.notices(cid));
-    const next = notices.filter(n=> n.key !== key);
-    setLocal(LSK.notices(cid), next);
-    triggerLocalEvent('somf-local-notice', { key, action: 'remove' });
-  }
-  function localPushResolutionBatch(ids){
-    const cid = CID();
-    const resolutions = getLocalArray(LSK.resolutions(cid));
-    resolutions.push({ ids, ts: Date.now(), key: localKey('resolution') });
-    const trimmed = resolutions.slice(-MAX_LOCAL_RECORDS);
-    setLocal(LSK.resolutions(cid), trimmed);
-    triggerLocalEvent('somf-local-resolution', {});
-  }
-  function localLoadResolutions(limit=50){
-    const cid = CID();
-    const resolutions = getLocalArray(LSK.resolutions(cid));
-    resolutions.sort((a,b)=> (b.ts||0)-(a.ts||0));
-    return resolutions.slice(0, limit);
-  }
-  function localResetDeck(){
-    const cid = CID();
-    setLocal(LSK.deck(cid), shuffledIds());
-    setLocal(LSK.audits(cid), []);
-    setLocal(LSK.notices(cid), []);
-    setLocal(LSK.resolutions(cid), []);
-    setLocal(LSK.npcs(cid), []);
-    triggerLocalEvent('somf-local-deck', {});
-  }
-
-  /* ======================================================================
-     PLAYER FLOW (draw, double confirm, reveal one-by-one, resolved gate)
-     ====================================================================== */
-  const PUI = {
-    count: $('#somf-min-count'),
-    drawBtn: $('#somf-min-draw'),
-    modal: $('#somf-min-modal'),
-    close: $('#somf-min-close'),
-    name: $('#somf-min-name'),
-    visual: $('#somf-min-visual'),
-    effect: $('#somf-min-effect'),
-    idx: $('#somf-min-idx'),
-    total: $('#somf-min-total'),
-    resolved: $('#somf-min-resolved'),
-    next: $('#somf-min-next'),
   };
 
-  const PLAYER = {
-    notices: [],
-    noticeRef: null,
-    localHandlers: null,
-    ready: false,
-    initialized: false,
-  };
-
-  let queue = [];
-  let qi = 0;
-
-  function entrySignature(entry){
-    if(!entry) return '';
-    const key = entry._noticeKey || '';
-    const id = entry.id || '';
-    const idx = Number.isFinite(entry._noticeIndex) ? entry._noticeIndex : 0;
-    return `${key}__${id}__${idx}`;
-  }
-
-  function toArrayLike(value){
-    if(Array.isArray(value)) return value.slice();
-    if(value && typeof value === 'object'){
-      const keys = Object.keys(value);
-      keys.sort((a,b)=>{
-        const na = Number(a);
-        const nb = Number(b);
-        const aNum = Number.isFinite(na);
-        const bNum = Number.isFinite(nb);
-        if(aNum && bNum) return na - nb;
-        if(aNum) return -1;
-        if(bNum) return 1;
-        return a.localeCompare(b);
-      });
-      return keys.map(key=> value[key]);
-    }
-    return [];
-  }
-  function normalizeStringList(value){
-    return toArrayLike(value)
-      .map(item=>{
-        if(typeof item === 'string') return item;
-        if(item == null) return '';
-        try {
-          return String(item);
-        } catch {
-          return '';
-        }
-      })
-      .filter(item=> item !== '');
-  }
-  function normalizeIds(value){
-    return normalizeStringList(value).filter(Boolean);
-  }
-  function normalizeNames(value){
-    return normalizeStringList(value);
-  }
-  function normalizeTimestamp(value){
-    if(typeof value === 'number' && Number.isFinite(value)) return value;
-    if(typeof value === 'string'){
-      const parsed = Number(value);
-      if(Number.isFinite(parsed)) return parsed;
-      const dateParsed = Date.parse(value);
-      if(Number.isFinite(dateParsed)) return dateParsed;
+  function normalizeTimestamp(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value) {
+      const asNumber = Number(value);
+      if (Number.isFinite(asNumber)) return asNumber;
+      const parsed = Date.parse(value);
+      if (Number.isFinite(parsed)) return parsed;
     }
     return Date.now();
   }
-  function normalizeCount(value, fallback=0){
-    const num = Number(value);
-    if(Number.isFinite(num) && num > 0) return num;
-    return fallback;
+
+  function normalizeCount(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : fallback;
   }
-  function normalizeNotice(raw){
-    if(!raw) return null;
-    const ids = normalizeIds(raw.ids);
-    let names = normalizeNames(raw.names);
-    if(!names.length){
-      names = ids.map(id=> plateById[id]?.name || id).filter(Boolean);
+
+  function normalizeNotice(raw) {
+    if (!raw) return null;
+    const ids = toStringList(raw.ids);
+    let names = toStringList(raw.names);
+    if (!names.length) {
+      names = ids.map(id => Catalog.shardName(id)).filter(Boolean);
     }
-    if(!names.length && typeof raw.name === 'string' && raw.name){
+    if (!names.length && typeof raw.name === 'string' && raw.name) {
       names = [raw.name];
     }
-    if(!names.length) names = ['Unknown shard'];
+    if (!names.length) names = ['Unknown shard'];
     const ts = normalizeTimestamp(raw.ts);
     const count = normalizeCount(raw.count, ids.length || names.length || 0);
     const key = raw.key || raw.id || raw.noticeId || null;
-    return {
-      key,
-      ids,
-      names,
-      ts,
-      count,
-    };
+    return { key, ids, names, ts, count };
   }
 
-  function setPlayerNotices(next, opts={}){
-    PLAYER.notices = next
-      .map(normalizeNotice)
-      .filter(Boolean)
-      .sort((a,b)=>{
-        const ta = a.ts || 0;
-        const tb = b.ts || 0;
-        if(ta === tb){
-          const ka = a.key || '';
-          const kb = b.key || '';
-          return ka.localeCompare(kb);
-        }
-        return ta - tb;
-      });
-    rebuildPlayerQueue(opts);
+  const normalizeNoticeList = list => (Array.isArray(list) ? list : [])
+    .map(normalizeNotice)
+    .filter(Boolean)
+    .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  function pushLocalLimited(key, entry, limit = MAX_LOCAL_RECORDS) {
+    const list = readStorage(key, []);
+    if (!Array.isArray(list)) {
+      writeStorage(key, [entry]);
+      return [entry];
+    }
+    list.push(entry);
+    if (list.length > limit) {
+      list.splice(0, list.length - limit);
+    }
+    writeStorage(key, list);
+    return list;
   }
 
-  function upsertPlayerNotice(notice, opts={}){
-    const normalized = normalizeNotice(notice);
-    if(!normalized) return;
-    const idx = PLAYER.notices.findIndex(n=> n.key === normalized.key);
-    if(idx >= 0){
-      PLAYER.notices[idx] = { ...PLAYER.notices[idx], ...normalized };
-    } else {
-      PLAYER.notices.push(normalized);
+  class LocalStore {
+    constructor(campaignId) {
+      this.setCampaign(campaignId || DEFAULT_CAMPAIGN_ID);
     }
-    setPlayerNotices(PLAYER.notices, opts);
-  }
 
-  function removePlayerNotice(key, opts={}){
-    if(!key){
-      setPlayerNotices(PLAYER.notices, opts);
-      return;
+    setCampaign(campaignId) {
+      this.cid = campaignId || DEFAULT_CAMPAIGN_ID;
     }
-    const next = PLAYER.notices.filter(n=> n.key !== key);
-    setPlayerNotices(next, opts);
-  }
 
-  function rebuildPlayerQueue(opts={}){
-    const prevSignature = opts.preserveCurrent === false ? '' : entrySignature(queue[qi]);
-    queue = [];
-    PLAYER.notices.forEach(notice=>{
-      const ids = normalizeIds(notice.ids);
-      ids.forEach((id, idx)=>{
-        const plate = plateForPlayer(plateById[id]);
-        queue.push({ ...plate, _noticeKey: notice.key || null, _noticeIndex: idx, _noticeTs: notice.ts || 0 });
-      });
-    });
-    const total = queue.length;
-    const focus = opts.focus || null;
-    const focusNotice = opts.focusNotice || null;
-    let nextIndex = -1;
-    if(focusNotice && focusNotice.key){
-      nextIndex = queue.findIndex(entry=> entry._noticeKey === focusNotice.key && entry._noticeIndex === (focusNotice.index || 0));
+    key(name) {
+      const lookup = LOCAL_KEYS[name];
+      return typeof lookup === 'function' ? lookup(this.cid) : '';
     }
-    if(nextIndex < 0 && focus === 'end' && total){
-      nextIndex = total - 1;
-    }
-    if(nextIndex < 0 && prevSignature){
-      nextIndex = queue.findIndex(entry=> entrySignature(entry) === prevSignature);
-    }
-    if(nextIndex < 0 && total){
-      nextIndex = Math.min(qi, total - 1);
-    }
-    if(nextIndex < 0) nextIndex = 0;
-    qi = total ? nextIndex : 0;
-    renderCurrent();
-    if(!total && opts.autoClose !== false){
-      closePlayerModal();
-    }
-  }
 
-  async function loadPlayerNotices(){
-    try {
-      if(hasRealtime()){
-        const snap = await db().ref(path.notices(CID())).get();
-        if(!snap.exists()){
-          setPlayerNotices([], { preserveCurrent: false, autoClose: false });
-          return [];
-        }
-        const arr = [];
-        snap.forEach(child=> arr.push({ key: child.key, ...child.val() }));
-        setPlayerNotices(arr, { preserveCurrent: false, focus: 'start', autoClose: false });
-        return arr;
+    ensureDeck() {
+      let deck = readStorage(this.key('deck'), null);
+      if (!Array.isArray(deck) || !deck.every(id => typeof id === 'string')) {
+        deck = Catalog.shuffleShardIds();
       }
-      const local = localLoadNotices(30);
-      setPlayerNotices(local, { preserveCurrent: false, focus: 'start', autoClose: false });
-      return local;
-    } catch (err) {
-      console.error('SOMF player notice load failed', err);
-      return [];
+      if (!deck.length) deck = Catalog.shuffleShardIds();
+      writeStorage(this.key('deck'), deck);
+      return deck.slice();
     }
-  }
 
-  function attachRealtimePlayerListeners(){
-    if(!hasRealtime()) return;
-    if(PLAYER.localHandlers){
-      window.removeEventListener('somf-local-notice', PLAYER.localHandlers.notice);
-      window.removeEventListener('somf-local-deck', PLAYER.localHandlers.deck);
-      PLAYER.localHandlers = null;
-    }
-    if(PLAYER.noticeRef) PLAYER.noticeRef.off();
-    PLAYER.noticeRef = db().ref(path.notices(CID()));
-    PLAYER.noticeRef.on('child_added', snap=>{
-      const payload = { key: snap.key, ...(snap.val()||{}) };
-      const existed = PLAYER.notices.some(n=> n.key === payload.key);
-      upsertPlayerNotice(payload, {
-        preserveCurrent: existed,
-        focusNotice: (!existed && PLAYER.ready) ? { key: payload.key, index: 0 } : null,
-        autoClose: true,
-      });
-      if(PLAYER.ready && !existed){
-        (async ()=>{
-          await playShardAnimation();
-          openPlayerModal();
-          renderCurrent();
-        })();
+    drawOne() {
+      let deck = this.ensureDeck();
+      if (!deck.length) {
+        deck = Catalog.shuffleShardIds();
       }
-    });
-    PLAYER.noticeRef.on('child_removed', snap=>{
-      removePlayerNotice(snap.key, { preserveCurrent: false });
-    });
+      const index = Random.int(deck.length);
+      const [id] = deck.splice(index, 1);
+      writeStorage(this.key('deck'), deck);
+      pushLocalLimited(this.key('audits'), { id, name: Catalog.shardName(id), ts: Date.now() }, MAX_LOCAL_RECORDS);
+      dispatch('somf-local-deck', { action: 'draw', id });
+      return id;
+    }
+
+    reset() {
+      writeStorage(this.key('deck'), Catalog.shuffleShardIds());
+      writeStorage(this.key('audits'), []);
+      writeStorage(this.key('notices'), []);
+      writeStorage(this.key('resolutions'), []);
+      writeStorage(this.key('npcs'), []);
+      dispatch('somf-local-deck', { action: 'reset' });
+      dispatch('somf-local-notice', { action: 'reset' });
+      dispatch('somf-local-resolution', { action: 'reset' });
+    }
+
+    pushNotice(payload) {
+      const entry = normalizeNotice({ ...payload, key: payload.key || localKey('notice'), ts: payload.ts || Date.now() });
+      pushLocalLimited(this.key('notices'), entry, MAX_LOCAL_RECORDS);
+      dispatch('somf-local-notice', { key: entry.key, action: 'add', notice: entry });
+      return entry;
+    }
+
+    loadNotices(limit = 30) {
+      return normalizeNoticeList(readStorage(this.key('notices'), [])).slice(0, limit);
+    }
+
+    removeNotice(key) {
+      const current = readStorage(this.key('notices'), []);
+      const next = Array.isArray(current) ? current.filter(entry => entry?.key !== key) : [];
+      writeStorage(this.key('notices'), next);
+      dispatch('somf-local-notice', { key, action: 'remove' });
+      return normalizeNoticeList(next);
+    }
+
+    pushResolutionBatch(ids) {
+      const entry = { ids: toStringList(ids), ts: Date.now(), key: localKey('resolution') };
+      pushLocalLimited(this.key('resolutions'), entry, MAX_LOCAL_RECORDS);
+      dispatch('somf-local-resolution', { entry });
+      return entry;
+    }
+
+    loadResolutions(limit = 50) {
+      const list = readStorage(this.key('resolutions'), []);
+      if (!Array.isArray(list)) return [];
+      return list.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, limit);
+    }
+
+    async setHidden(hidden) {
+      writeStorage(this.key('hidden'), !!hidden);
+      dispatch('somf-local-hidden', !!hidden);
+    }
+
+    getHidden() {
+      const stored = readStorage(this.key('hidden'));
+      return typeof stored === 'boolean' ? stored : true;
+    }
+
+    watchNotices(handler) {
+      const listener = event => handler(event?.detail || {});
+      window.addEventListener('somf-local-notice', listener);
+      return () => window.removeEventListener('somf-local-notice', listener);
+    }
+
+    watchDeck(handler) {
+      const listener = event => handler(event?.detail || {});
+      window.addEventListener('somf-local-deck', listener);
+      return () => window.removeEventListener('somf-local-deck', listener);
+    }
+
+    watchHidden(handler) {
+      const listener = event => handler(event?.detail);
+      window.addEventListener('somf-local-hidden', listener);
+      return () => window.removeEventListener('somf-local-hidden', listener);
+    }
   }
 
-  function attachLocalPlayerListeners(){
-    if(PLAYER.noticeRef){
-      PLAYER.noticeRef.off();
-      PLAYER.noticeRef = null;
+  class RealtimeStore {
+    constructor(db, campaignId) {
+      this.setDatabase(db || null);
+      this.setCampaign(campaignId || DEFAULT_CAMPAIGN_ID);
+      this.noticeListeners = [];
+      this.hiddenListener = null;
     }
-    if(PLAYER.localHandlers){
-      window.removeEventListener('somf-local-notice', PLAYER.localHandlers.notice);
-      window.removeEventListener('somf-local-deck', PLAYER.localHandlers.deck);
+
+    setDatabase(db) {
+      this.db = db || null;
     }
-    const handleNotice = evt => {
-      const detail = evt?.detail || {};
-      if(detail.action === 'remove'){
-        removePlayerNotice(detail.key, { preserveCurrent: false });
-        return;
+
+    setCampaign(campaignId) {
+      this.cid = campaignId || DEFAULT_CAMPAIGN_ID;
+    }
+
+    hasDatabase() {
+      return !!this.db;
+    }
+
+    ref(name) {
+      if (!this.hasDatabase()) throw new Error('Firebase database not configured');
+      const path = REALTIME_PATHS[name];
+      if (typeof path !== 'function') throw new Error(`Unknown path: ${name}`);
+      return this.db.ref(path(this.cid));
+    }
+
+    async ensureDeck() {
+      const deckRef = this.ref('deck');
+      const snap = await deckRef.get();
+      if (!snap.exists()) {
+        const shuffled = Catalog.shuffleShardIds();
+        await deckRef.set(shuffled);
+        return shuffled.slice();
       }
-      const notice = detail.notice
-        || (detail.key ? localLoadNotices(30).find(n=> n.key === detail.key) : null);
-      if(!notice) return;
-      const existed = PLAYER.notices.some(n=> n.key === notice.key);
-      upsertPlayerNotice(notice, {
-        preserveCurrent: existed,
-        focusNotice: existed ? null : { key: notice.key, index: 0 },
-      });
-      if(!existed){
-        (async ()=>{
-          await playShardAnimation();
-          openPlayerModal();
-          renderCurrent();
-        })();
+      const value = snap.val();
+      const arr = Array.isArray(value) ? value.filter(id => typeof id === 'string') : [];
+      if (!arr.length) {
+        const shuffled = Catalog.shuffleShardIds();
+        await deckRef.set(shuffled);
+        return shuffled.slice();
       }
-    };
-    const handleDeck = ()=> loadPlayerNotices();
-    window.addEventListener('somf-local-notice', handleNotice);
-    window.addEventListener('somf-local-deck', handleDeck);
-    PLAYER.localHandlers = { notice: handleNotice, deck: handleDeck };
-  }
-
-  async function initPlayerQueue(){
-    if(PLAYER.initialized) return;
-    PLAYER.initialized = true;
-    await loadPlayerNotices();
-    if(hasRealtime()){
-      attachRealtimePlayerListeners();
-    } else {
-      attachLocalPlayerListeners();
-    }
-    PLAYER.ready = true;
-  }
-
-  if (PUI.count) {
-    PUI.count.blur();
-  }
-
-  function openPlayerModal(){ if(PUI.modal) PUI.modal.hidden=false; }
-  function closePlayerModal(){ if(PUI.modal) PUI.modal.hidden=true; }
-
-  async function playShardAnimation(){
-    const flash=document.getElementById('draw-flash');
-    const lightning=document.getElementById('draw-lightning');
-    if(!flash) return;
-
-    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    flash.classList.remove('show');
-
-    if(prefersReducedMotion){
-      flash.hidden=true;
-      if(lightning){ lightning.hidden=true; lightning.innerHTML=''; }
-      return;
-    }
-
-    flash.hidden=false;
-    if(lightning){
-      lightning.hidden=false;
-      lightning.innerHTML='';
-      for(let i=0;i<3;i++){
-        const b=document.createElement('div');
-        b.className='bolt';
-        b.style.left=`${10+Math.random()*80}%`;
-        b.style.top=`${Math.random()*60}%`;
-        b.style.transform=`rotate(${Math.random()*30-15}deg)`;
-        b.style.animationDelay=`${i*0.1}s`;
-        lightning.appendChild(b);
-      }
-    }
-
-    await new Promise(res=>{
-      let settled=false;
-      let fallback=null;
-      const cleanup=()=>{
-        if(settled) return;
-        settled=true;
-        flash.classList.remove('show');
-        flash.hidden=true;
-        if(lightning){ lightning.hidden=true; lightning.innerHTML=''; }
-        flash.removeEventListener('animationend', onEnd);
-        flash.removeEventListener('animationcancel', onEnd);
-        if(fallback) clearTimeout(fallback);
-        res();
-      };
-      const onEnd=()=>cleanup();
-      flash.addEventListener('animationend', onEnd);
-      flash.addEventListener('animationcancel', onEnd);
-      // Restart the animation if it was mid-flight during a previous draw.
-      void flash.offsetWidth;
-      flash.classList.add('show');
-      fallback=setTimeout(cleanup,1100);
-    });
-  }
-
-  function renderCurrent(){
-    const total = queue.length;
-    const p = queue[qi] || { name: '—', visual: '—', player: ['No effect data available.'] };
-    if (PUI.name) PUI.name.textContent = p.name || '—';
-    if (PUI.visual) PUI.visual.textContent = p.visual || '—';
-    if (PUI.effect) {
-      const lines = (Array.isArray(p.player) && p.player.length) ? p.player : ['No effect data available.'];
-      PUI.effect.innerHTML = lines.map(e=>`<li>${e}</li>`).join('');
-    }
-    if (PUI.idx) PUI.idx.textContent = String(total ? Math.min(total, qi+1) : 0);
-    if (PUI.total) PUI.total.textContent = String(total);
-    if (PUI.resolved) {
-      PUI.resolved.checked = false;
-      PUI.resolved.disabled = total === 0;
-    }
-    if (PUI.next) {
-      PUI.next.disabled = true;
-    }
-  }
-
-  if (PUI.resolved) {
-    PUI.resolved.addEventListener('change', ()=> PUI.next.disabled = !PUI.resolved.checked);
-  }
-  if (PUI.next) {
-    PUI.next.addEventListener('click', async ()=>{
-      if (!PUI.resolved.checked) return;
-      if (qi < queue.length-1){ qi++; await playShardAnimation(); renderCurrent(); } else { closePlayerModal(); }
-    });
-  }
-  if (PUI.close) {
-    PUI.close.addEventListener('click', closePlayerModal);
-  }
-
-  async function doDraw(){
-    const n = Math.max(1, Math.min(PLATES.length, +PUI.count.value||1));
-    if (!confirm('The Fates are fickle, are you sure you wish to draw from the Shards?')) return;
-    if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
-
-    const ids = [];
-    let names = [];
-    const realtime = hasRealtime();
-    if (realtime) await rtdbInitDeckIfMissing(); else localInitDeckIfMissing();
-    for (let i=0;i<n;i++) ids.push(await (realtime ? rtdbDrawOne() : localDrawOne()));
-    names = ids.map(id=> plateById[id]?.name || id);
-    // batch notice (for DM): count + ids + names
-    let noticeKey = null;
-    if (realtime) {
-      const payload = { ts: db().ServerValue.TIMESTAMP, count:n, ids, names };
-      const ref = db().ref(path.notices(CID())).push();
-      noticeKey = ref.key;
-      await ref.set(payload);
-      upsertPlayerNotice({ ...payload, key: noticeKey, ts: Date.now() }, { preserveCurrent: false, focusNotice: { key: noticeKey, index: 0 } });
-    } else {
-      const notice = localPushNotice({ count:n, ids, names });
-      noticeKey = notice?.key || null;
-      upsertPlayerNotice(notice, { preserveCurrent: false, focusNotice: noticeKey ? { key: noticeKey, index: 0 } : null });
-    }
-
-    window.dmNotify?.(`Drew ${n} Shard(s): ${names.join(', ')} (unresolved)`);
-    const shouldSelfAnimate = realtime || !PLAYER.localHandlers;
-    if(shouldSelfAnimate){
-      await playShardAnimation();
-      openPlayerModal(); renderCurrent();
-    }
-  }
-  if (PUI.drawBtn) {
-    PUI.drawBtn.addEventListener('click', ()=>{
-      if (PUI.count) PUI.count.blur();
-      doDraw();
-    });
-  }
-
-  const playerCard = $('#somf-min');
-  let _lastHidden = true;
-  async function applyHiddenState(h){
-    if(!playerCard) return;
-    if(_lastHidden && !h){
-      await playShardAnimation();
-      toast('The Shards of Many Fates have reveled themselves to you.',6000);
-      playerCard.hidden = false;
-    }else{
-      playerCard.hidden = h;
-    }
-    if(h) closePlayerModal();
-    _lastHidden = h;
-  }
-  async function initPlayerHidden(){
-    const stored = getLocal(LSK.hidden(CID()));
-    const defaultHidden = typeof stored === 'boolean' ? stored : true;
-
-    if (!hasRealtime()){
-      const handleLocalHidden = (evt)=>{
-        const detail = evt?.detail;
-        const next = typeof detail === 'boolean' ? detail : !!detail;
-        setLocal(LSK.hidden(CID()), next);
-        applyHiddenState(next);
-      };
-      window.addEventListener('somf-local-hidden', handleLocalHidden);
-      setLocal(LSK.hidden(CID()), defaultHidden);
-      await applyHiddenState(defaultHidden);
-      return;
-    }
-
-    const ref = db().ref(path.hidden(CID()));
-    let initial = defaultHidden;
-    try {
-      const snap = await ref.get();
-      if (snap.exists()) {
-        const raw = typeof snap.val === 'function' ? snap.val() : snap.val;
-        initial = typeof raw === 'boolean' ? raw : defaultHidden;
-      }
-    } catch (err) {
-      console.error('SOMF hidden state sync failed', err);
-    }
-    setLocal(LSK.hidden(CID()), initial);
-    await applyHiddenState(initial);
-    let fallbackHidden = initial;
-    ref.on('value', s=>{
-      let raw;
-      try {
-        raw = typeof s?.val === 'function' ? s.val() : s?.val;
-      } catch {
-        raw = undefined;
-      }
-      const h = typeof raw === 'boolean' ? raw : fallbackHidden;
-      fallbackHidden = h;
-      setLocal(LSK.hidden(CID()), h);
-      window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
-      applyHiddenState(h);
-    });
-  }
-
-  /* ======================================================================
-     DM TOOL (notifications, resolve, npcs)
-     ====================================================================== */
-  const D = {
-    root: $('#modal-somf-dm'),
-    close: $('#somfDM-close'),
-    tabs: $$('.somf-dm-tabbtn'),
-    cardTab: $('#somfDM-tab-cards'),
-    resTab: $('#somfDM-tab-resolve'),
-    npcsTab: $('#somfDM-tab-npcs'),
-    itemsTab: $('#somfDM-tab-items'),
-    reset: $('#somfDM-reset'),
-    cardCount: $('#somfDM-cardCount'),
-    incoming: $('#somfDM-incoming'),
-    noticeView: $('#somfDM-noticeView'),
-    markResolved: $('#somfDM-markResolved'),
-    spawnNPC: $('#somfDM-spawnNPC'),
-    npcList: $('#somfDM-npcList'),
-    itemList: $('#somfDM-itemList'),
-    npcModal: $('#somfDM-npcModal'),
-    npcModalCard: $('#somfDM-npcModalCard'),
-    toasts: $('#somfDM-toasts'),
-    ping: $('#somfDM-ping'),
-    playerCardToggle: $('#somfDM-playerCard'),
-    playerCardState: $('#somfDM-playerCard-state'),
-    resolveOptions: $('#somfDM-resolveOptions'),
-    queue: $('#somfDM-notifications'),
-  };
-  let _selectLatest = false;
-  let _selectKey = null;
-  let _focusId = null;
-  function preventTouch(e){ if(e.target===D.root) e.preventDefault(); }
-  function openDM(opts={}){
-    if(!D.root) return;
-    D.root.style.display='flex';
-    D.root.classList.remove('hidden');
-    D.root.setAttribute('aria-hidden','false');
-    document.body.classList.add('modal-open');
-    D.root.addEventListener('touchmove', preventTouch, { passive: false });
-    if(opts.selectLatest) _selectLatest = true;
-    if(opts.selectKey) _selectKey = opts.selectKey;
-    if(opts.focusId) _focusId = opts.focusId;
-    initDM();
-    if(opts.tab){
-      D.tabs.forEach(x=> x.classList.remove('active'));
-      [D.cardTab,D.resTab,D.npcsTab,D.itemsTab].forEach(el=> el.classList.remove('active'));
-      const t=opts.tab;
-      if(t==='cards') D.cardTab.classList.add('active');
-      if(t==='resolve') D.resTab.classList.add('active');
-      if(t==='npcs') D.npcsTab.classList.add('active');
-      if(t==='items') D.itemsTab.classList.add('active');
-      D.tabs.forEach(b=>{ if(b.dataset.tab===t) b.classList.add('active'); });
-    }
-  }
-  function closeDM(){
-    if(!D.root) return;
-    D.root.classList.add('hidden');
-    D.root.setAttribute('aria-hidden','true');
-    D.root.style.display='none';
-    document.body.classList.remove('modal-open');
-    D.root.removeEventListener('touchmove', preventTouch);
-  }
-  D.root?.addEventListener('click', e=>{ if(e.target===D.root) closeDM(); });
-  D.root?.addEventListener('touchstart', e=>{ if(e.target===D.root) closeDM(); });
-  D.close?.addEventListener('click', closeDM);
-  window.openSomfDM = openDM;
-
-  // Tabs
-  D.tabs.forEach(b=>{
-    b.addEventListener('click', ()=>{
-      D.tabs.forEach(x=> x.classList.remove('active'));
-      b.classList.add('active');
-      [D.cardTab,D.resTab,D.npcsTab,D.itemsTab].forEach(el=> el.classList.remove('active'));
-      const t = b.dataset.tab;
-      if (t==='cards') D.cardTab.classList.add('active');
-      if (t==='resolve') D.resTab.classList.add('active');
-      if (t==='npcs') D.npcsTab.classList.add('active');
-      if (t==='items') D.itemsTab.classList.add('active');
-    });
-  });
-
-  // Toasts
-  function toast(msg, ttl=6000){
-    const t=document.createElement('div');
-    t.style.cssText='background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008';
-    t.innerHTML = msg;
-    if (D.toasts) D.toasts.appendChild(t);
-    try{ D.ping.currentTime=0; D.ping.play(); }catch{}
-    setTimeout(()=> t.remove(), ttl);
-    if ('Notification' in window && Notification.permission==='granted'){
-      new Notification('Shards Drawn', { body: msg.replace(/<[^>]+>/g,'') });
-    }
-    return t;
-  }
-
-  function toastNotice(notice, keyHint){
-    if (!notice) return null;
-    const normalized = normalizeNotice({ key: keyHint || notice.key, ...notice });
-    if (!normalized) return null;
-    const ids = normalized.ids;
-    const names = normalized.names;
-    const count = normalized.count || names.length || ids.length || 1;
-    const label = names.join(', ');
-    const toastEl = toast(`<strong>New Draw</strong> ${count} shard(s): ${label}`);
-    if (!toastEl) return null;
-    toastEl.style.cursor = 'pointer';
-    const firstId = ids.find(Boolean);
-    const key = normalized.key || keyHint || null;
-    toastEl.addEventListener('click', ()=>{
-      if (firstId) {
-        openDM({ tab: 'cards', focusId: firstId, selectKey: key });
-      } else {
-        openDM({ tab: 'resolve', selectKey: key });
-      }
-    });
-    return toastEl;
-  }
-
-  window.addEventListener('cc:content-updated', evt => {
-    const detail = evt?.detail || {};
-    const msg =
-      typeof detail.message === 'string' && detail.message
-        ? detail.message
-        : 'Codex content updated with new data.';
-    toast(`<strong>Codex Update</strong> ${msg}`);
-  });
-
-  D.playerCardToggle?.addEventListener('change', async ()=>{
-    const hidden = !D.playerCardToggle.checked;
-    if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
-    try {
-      await applyHiddenState(hidden);
-    } catch (err) {
-      console.error('SOMF hidden state apply failed', err);
-    }
-    if(hasRealtime()){
-      try {
-        await db().ref(path.hidden(CID())).set(hidden);
-      } catch (err) {
-        console.error('SOMF hidden state update failed', err);
-      }
-    }
-    setLocal(LSK.hidden(CID()), hidden);
-    window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:hidden}));
-  });
-
-  async function refreshHiddenToggle(){
-    let hidden = true;
-    if(hasRealtime()){
-      try {
-        const snap = await db().ref(path.hidden(CID())).get();
-        hidden = snap.exists()? !!snap.val() : true;
-      } catch (err) {
-        console.error('SOMF hidden toggle refresh failed', err);
-        const stored = getLocal(LSK.hidden(CID()));
-        hidden = typeof stored === 'boolean' ? stored : true;
-      }
-    } else {
-      const stored = getLocal(LSK.hidden(CID()));
-      hidden = typeof stored === 'boolean' ? stored : true;
-    }
-    if(D.playerCardToggle) {
-      D.playerCardToggle.checked = !hidden;
-      if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
-    }
-  }
-  // request notification permission up front
-  if('Notification' in window && Notification.permission!=='granted'){
-    Notification.requestPermission().catch(()=>{});
-  }
-
-  // Dice (for NPC buttons)
-  function roll(expr){
-    const m = String(expr).replace(/\s+/g,'').match(/^(\d*)d(\d+)([+-]\d+)?$/i);
-    if (!m) return {total:NaN, rolls:[], mod:0};
-    const n=Math.max(1,parseInt(m[1]||'1',10)), faces=parseInt(m[2],10), mod=parseInt(m[3]||'0',10);
-    const rolls=Array.from({length:n},()=>1+Math.floor(Math.random()*faces));
-    return { total: rolls.reduce((a,b)=>a+b,0)+mod, rolls, mod };
-  }
-  function rollBtn(label, expr){
-    const b=document.createElement('button');
-    b.textContent=`${label} (${expr})`;
-    b.style.cssText='padding:6px 10px;border:1px solid #253247;background:#121821;color:#e6f1ff;border-radius:6px;cursor:pointer';
-    b.addEventListener('click', ()=>{
-      const r=roll(expr);
-      toast(`<strong>${label}</strong> ${r.total} <span style="opacity:.85;font-family:monospace">[${r.rolls.join(', ')}${r.mod? (r.mod>0?` + ${r.mod}`:` - ${Math.abs(r.mod)}`):''}]</span>`);
-    });
-    return b;
-  }
-
-  // NPCs pulled from the deck definition
-  const NPCS = Object.values(SOMF_DECK.npcs || {});
-  const spawnFor = (id)=> {
-    if (id==='SKULL') return 'HERALD_OF_SILENCE';
-    if (id==='LEGEND_KNIGHT_COMMANDER') return 'ALLY_KNIGHT_COMMANDER_AERIN';
-    if (id==='LEGEND_ECHO_ZERO') return 'ALLY_ECHO_OPERATIVE_ZERO';
-    if (id==='LEGEND_NEMESIS_NYX') return 'ENEMY_ARCHNEMESIS_NYX';
-    if (id==='LEGEND_INQUISITOR_SILAS') return 'ENEMY_ARCHNEMESIS_SILAS';
-    return null;
-  };
-
-  const RESOLVE_OPTIONS = [
-    {name:'Stabilize the Fracture', desc:'Seal the shard in PFV Vault stasis to end its immediate fallout.'},
-    {name:'Catalyze a Hero', desc:'Bind the shard to a PC or ally as a bespoke boon, mutation, or power surge.'},
-    {name:'Prime a Mission Asset', desc:'Channel the shard into a base, vehicle, or downtime project to unlock new capabilities.'},
-    {name:'Manifest a Fatebound NPC', desc:'Let the shard call, empower, or redeem a notable NPC tied to its omen.'},
-    {name:'Let Fate Ripple', desc:'Resolve the shard through a narrative twist that reshapes faction clocks or campaign stakes.'},
-  ];
-
-  function npcCard(n){
-    const card=document.createElement('div');
-    card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-    const ability = n.abilities || n.ability || {};
-    const abilityGrid = ['STR','DEX','CON','INT','WIS','CHA']
-      .map(k=>`<div><span style="opacity:.8;font-size:12px">${k}</span><div>${ability[k]??''}</div></div>`)
-      .join('');
-    const saves = typeof n.saves === 'string' ? n.saves : Object.entries(n.saves||{}).map(([k,v])=>`${k}+${v}`).join(' ');
-    const skills = typeof n.skills === 'string' ? n.skills : Object.entries(n.skills||{}).map(([k,v])=>`${k}+${v}`).join(' ');
-    const weapons = (n.weapons||[]).map(w=>({n:w.name, atk:w.to_hit||w.attack, dmg:w.damage}));
-    const traits=[];
-    if(n.tc_notes) traits.push(`TC Notes: ${n.tc_notes}`);
-    Object.values(n.gear||{}).forEach(g=>{
-      const eff = g.effects?.join ? g.effects.join('; ') : (g.effect||g.bonus||'');
-      traits.push(`${g.name}: ${eff}`);
-    });
-    (n.features||[]).forEach(f=> traits.push(f));
-    const powers = (n.powers||[]).map(p=>{
-      const parts=[];
-      if(p.cost_sp!=null) parts.push(`${p.cost_sp} SP`);
-      if(p.range) parts.push(p.range);
-      if(p.damage) parts.push(p.damage);
-      if(p.effect) parts.push(p.effect);
-      if(p.save) parts.push(`${p.save.ability} save DC ${p.save.dc}${p.save.on_fail? ' or '+p.save.on_fail:''}`);
-      return `${p.name} — ${parts.join(', ')}`;
-    });
-    const hostMarkup = weapons.length? `<div class="roll-host" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"></div>`:'';
-    card.innerHTML = `
-      <div><strong>${n.name}</strong> <span style="opacity:.8">• ${n.role||''}${n.affiliation? ' • '+n.affiliation:''}${n.tier? ' (T'+n.tier+')':''}</span></div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
-        <div><span style="opacity:.8;font-size:12px">HP</span><div>${n.hp_average??n.hp??''}</div></div>
-        <div><span style="opacity:.8;font-size:12px">TC</span><div>${n.tc_computed_example??n.tc_base??''}</div></div>
-        <div><span style="opacity:.8;font-size:12px">SP</span><div>${n.sp??''}</div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
-      ${saves? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Saves</span><div>${saves}</div></div>`:''}
-      ${skills? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Skills</span><div>${skills}</div></div>`:''}
-      ${powers.length? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Powers</span><ul style="margin:4px 0 0 18px;padding:0">${powers.map(p=>`<li>${p}</li>`).join('')}</ul></div>`:''}
-      ${weapons.length? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Weapons</span><div>${weapons.map(w=>`${w.n}${w.atk?` (atk ${w.atk}`:''}${w.dmg?`${w.atk?', ' : ''}dmg ${w.dmg}`:''}${w.atk||w.dmg?')':''}`).join('; ')}</div></div>`:''}
-      ${traits.length? `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Traits</span><ul style="margin:4px 0 0 18px;padding:0">${traits.map(t=>`<li>${t}</li>`).join('')}</ul></div>`:''}
-      ${hostMarkup}
-    `;
-    const host = card.querySelector('.roll-host');
-    if(host){
-      weapons.forEach(w=>{
-        if(w.atk) host.appendChild(rollBtn(`${w.n} Attack`, w.atk));
-        if(w.dmg) host.appendChild(rollBtn(`${w.n} Damage`, w.dmg));
-      });
-    }
-    return card;
-  }
-
-function itemCard(it){
-  const card=document.createElement('div');
-  card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-  const toText = v => {
-    if(v==null) return '';
-    if(typeof v==='string') return v.replace(/_/g,' ');
-    if(Array.isArray(v)) return v.map(toText).join(', ');
-    if(typeof v==='object') return Object.entries(v).map(([k,val])=>`${k.replace(/_/g,' ')}: ${toText(val)}`).join(', ');
-    return String(v);
-  };
-  card.innerHTML = `<div><strong>${it.name}</strong> <span style="opacity:.8">• ${it.rarity||''} ${it.slot||''}</span></div>`;
-  if(it.type) card.innerHTML += `<div style="opacity:.8;font-size:12px">${toText(it.type)}</div>`;
-  if(it.passive){
-    const arr = Array.isArray(it.passive)? it.passive: [it.passive];
-    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Passive</span><ul style="margin:4px 0 0 18px;padding:0">${arr.map(p=>`<li>${toText(p)}</li>`).join('')}</ul></div>`;
-  }
-  if(it.active){
-    const a=it.active, details=[];
-    if(a.uses) details.push(`Uses: ${toText(a.uses)}`);
-    if(a.activation){
-      const act=[];
-      if(a.activation.when) act.push(toText(a.activation.when));
-      if(a.activation.action) act.push(toText(a.activation.action));
-      if(a.activation.cost_sp!=null) act.push(`${a.activation.cost_sp} SP`);
-      details.push(`Activation: ${act.join(', ')}`);
-    }
-    if(a.duration) details.push(`Duration: ${toText(a.duration)}`);
-    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Active</span><div style="opacity:.8;font-size:12px">${details.join(' • ')}</div>${a.effects? `<ul style="margin:4px 0 0 18px;padding:0">${a.effects.map(e=>`<li>${toText(e)}</li>`).join('')}</ul>`:''}</div>`;
-  }
-  if(it.effect){
-    const effs=Array.isArray(it.effect)? it.effect:[it.effect];
-    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Effect</span><ul style="margin:4px 0 0 18px;padding:0">${effs.map(e=>`<li>${toText(e)}</li>`).join('')}</ul></div>`;
-  }
-  if(it.orders){
-    const ord=Object.values(it.orders);
-    card.innerHTML += `<div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Orders</span><ul style="margin:4px 0 0 18px;padding:0">${ord.map(o=>`<li><strong>${o.name}</strong> (${toText(o.duration)})</li>`).join('')}</ul></div>`;
-  }
-  return card;
-}
-
-  function renderItemList(){
-    if(!D.itemList) return;
-    D.itemList.innerHTML='';
-    Object.values(SOMF_DECK.items||{}).forEach(it=>{
-      const li=document.createElement('li');
-      li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px';
-      if(D.itemList.children.length===0) li.style.borderTop='none';
-      li.appendChild(itemCard(it));
-      D.itemList.appendChild(li);
-    });
-  }
-
-function renderCardList(){
-    if(!D.cardTab) return;
-    D.cardTab.innerHTML='';
-    const toText = v => {
-      if(v==null) return '';
-      if(typeof v==='string') return v.replace(/_/g,' ');
-      if(Array.isArray(v)) return v.map(toText).join(', ');
-      if(typeof v==='object') return Object.entries(v).map(([k,val])=>`${k.replace(/_/g,' ')}: ${toText(val)}`).join(', ');
-      return String(v);
-    };
-    PLATES.forEach(p=>{
-      const d=document.createElement('div');
-      d.id = `somfDM-card-${p.id}`;
-      d.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-      let html = `<div><strong>${p.name}</strong></div>
-        <div style="opacity:.8;font-size:12px">ID: ${p.id}</div>`;
-      if(p.visual) html += `
-        <div style="margin-top:4px;opacity:.8;font-size:12px">${p.visual}</div>`;
-      if(Array.isArray(p.player)) html += `
-        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Player</span><ul style="margin:4px 0 0 18px;padding:0">${p.player.map(e=>`<li>${e}</li>`).join('')}</ul></div>`;
-      if(Array.isArray(p.dm)) html += `
-        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">DM</span><ul style="margin:4px 0 0 18px;padding:0">${p.dm.map(e=>`<li>${e}</li>`).join('')}</ul></div>`;
-      if(p.effect && !p.player && !p.dm){
-        const effs = Array.isArray(p.effect)? p.effect: [p.effect];
-        html += `
-        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Effect</span><ul style="margin:4px 0 0 18px;padding:0">${effs.map(e=>`<li>${toText(e)}</li>`).join('')}</ul></div>`;
-        if(p.resolution) html += `
-        <div style="margin-top:6px"><span style="opacity:.8;font-size:12px">Resolution</span><div style="opacity:.8;font-size:12px">${toText(p.resolution)}</div></div>`;
-      }
-      d.innerHTML = html;
-      D.cardTab.appendChild(d);
-    });
-    if(_focusId){
-      const target = D.cardTab.querySelector(`#somfDM-card-${_focusId}`);
-      _focusId=null;
-      if(target){
-        target.scrollIntoView({behavior:'smooth', block:'start'});
-        target.style.outline='2px solid #39f';
-        setTimeout(()=>{ target.style.outline=''; },1200);
-      }
-    }
-  }
-
-  function openNPCModal(n){
-    if(!D.npcModal || !D.npcModalCard) return;
-    D.npcModalCard.innerHTML='';
-    const card=npcCard(n);
-    const close=document.createElement('button');
-    close.textContent='Close';
-    close.className='somf-btn somf-ghost';
-    close.style.marginTop='8px';
-    close.addEventListener('click', closeNPCModal);
-    D.npcModalCard.appendChild(card);
-    D.npcModalCard.appendChild(close);
-    D.npcModal.style.display='flex';
-    D.npcModal.classList.remove('hidden');
-    D.npcModal.setAttribute('aria-hidden','false');
-  }
-  function closeNPCModal(){
-    if(!D.npcModal) return;
-    D.npcModal.classList.add('hidden');
-    D.npcModal.setAttribute('aria-hidden','true');
-    D.npcModal.style.display='none';
-  }
-  D.npcModal?.addEventListener('click', e=>{ if(e.target===D.npcModal) closeNPCModal(); });
-
-  function renderNPCList(){
-    if(!D.npcList) return;
-    D.npcList.innerHTML='';
-    NPCS.forEach(n=>{
-      const li=document.createElement('li');
-      li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
-      if(D.npcList.children.length===0) li.style.borderTop='none';
-      const type = n.type || `${n.role||''}${n.affiliation? ' • '+n.affiliation:''}${n.tier? ' (T'+n.tier+')':''}`;
-      li.innerHTML=`<strong>${n.name}</strong><div style="opacity:.8">${type}</div>`;
-      li.addEventListener('click', ()=> openNPCModal(n));
-      D.npcList.appendChild(li);
-    });
-  }
-
-  function renderResolveOptions(){
-    if(!D.resolveOptions) return;
-    D.resolveOptions.innerHTML='';
-    RESOLVE_OPTIONS.forEach(o=>{
-      const li=document.createElement('li');
-      li.innerHTML = `<strong>${o.name}</strong><div style="opacity:.8">${o.desc}</div>`;
-      D.resolveOptions.appendChild(li);
-    });
-  }
-
-  // Counts + incoming
-  async function refreshCounts(){
-    let deckLen = PLATES.length;
-    if(hasRealtime()){
-      try {
-        const deckSnap = await db().ref(path.deck(CID())).get();
-        const deck = deckSnap.exists()? deckSnap.val(): [];
-        deckLen = Array.isArray(deck)? deck.length : PLATES.length;
-      } catch (err) {
-        console.error('SOMF deck count refresh failed', err);
-        deckLen = ensureLocalDeck().length;
-      }
-    } else {
-      deckLen = ensureLocalDeck().length;
-    }
-    if(D.cardCount) D.cardCount.textContent = `${deckLen}/${PLATES.length}`;
-  }
-
-  async function removeNotice(n){
-    if(hasRealtime()){
-      await db().ref(path.notices(CID())).child(n.key).remove();
-    } else {
-      localRemoveNotice(n.key);
-    }
-  }
-
-  async function resolveNotice(n,count){
-    await pushResolutionBatch(n);
-    await removeNotice(n);
-    toast(`<strong>Resolved</strong> ${count} shard(s)`);
-    loadAndRender();
-  }
-
-  function renderIncoming(notices){
-    D.incoming.innerHTML='';
-    notices.forEach((n,ix)=>{
-      const li=document.createElement('li');
-      li.style.cssText='border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
-      if (ix===0) li.style.borderTop='none';
-      const ids = normalizeIds(n.ids);
-      let names = normalizeNames(n.names);
-      if(!names.length){
-        names = ids.map(id=> plateById[id]?.name || id).filter(Boolean);
-      }
-      if(!names.length) names = ['Unknown shard'];
-      const chipMarkup = names.map((x,i)=>{
-        const idAttr = ids[i] ?? '';
-        return `<span data-id="${idAttr}" style="text-decoration:underline;cursor:pointer">${x}</span>`;
-      }).join(', ');
-      li.innerHTML = `<strong>${names.length} shard(s)</strong><div style="opacity:.8">${chipMarkup}</div>`;
-      li.dataset.key = n.key || '';
-      li.querySelectorAll('span[data-id]').forEach(sp=>{
-        sp.addEventListener('click', e=>{ e.stopPropagation(); openDM({tab:'cards', focusId: sp.dataset.id}); });
-      });
-      li.addEventListener('click', ()=>{
-        $$('#somfDM-incoming li').forEach(x=> x.style.background='');
-        li.style.background='#0b2a3a';
-        const listMarkup = names.map((x,i)=>{
-          const idAttr = ids[i] ?? '';
-          return `<li data-id="${idAttr}" style="cursor:pointer;text-decoration:underline">${x}</li>`;
-        }).join('');
-        D.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(n.ts||Date.now()).toLocaleString()}</div>`+
-          `<ul style="margin:6px 0 0 18px;padding:0">${listMarkup}</ul>`;
-        D.noticeView.querySelectorAll('li[data-id]').forEach(li2=>{
-          li2.addEventListener('click', ()=> openDM({tab:'cards', focusId: li2.dataset.id}));
-        });
-        const spawnCode = (ids.length===1)? (spawnFor(ids[0])||null) : null;
-        D.spawnNPC.disabled = !spawnCode;
-        D.spawnNPC.onclick = ()=>{
-          if (!spawnCode) return;
-          const tpl = NPCS.find(x=>x.id===spawnCode);
-          openNPCModal(tpl);
-          toast(`<strong>NPC</strong> ${tpl.name}`);
-        };
-        D.markResolved.disabled = false;
-        D.markResolved.onclick = async ()=>{
-          await resolveNotice({ ...n, ids, names }, names.length);
-        };
-      });
-      D.incoming.appendChild(li);
-    });
-    if(_selectKey){
-      const target = D.incoming.querySelector(`li[data-key="${_selectKey}"]`);
-      _selectKey=null;
-      if(target) target.click();
-      else if(_selectLatest){
-        _selectLatest=false;
-        const first=D.incoming.firstElementChild;
-        if(first) first.click();
-      }
-    } else if(_selectLatest){
-      _selectLatest=false;
-      const first=D.incoming.firstElementChild;
-      if(first) first.click();
-    }
-  }
-
-  function renderQueue(notices){
-    if(!D.queue) return;
-    D.queue.innerHTML='';
-    notices.forEach(n=>{
-      const ids = normalizeIds(n.ids);
-      let names = normalizeNames(n.names);
-      if(!names.length){
-        names = ids.map(id=> plateById[id]?.name || id).filter(Boolean);
-      }
-      if(!names.length) names = ['Unknown shard'];
-      const itemMarkup = names.map((nm,i)=>{
-        const idAttr = ids[i] ?? '';
-        return `<span data-id="${idAttr}" style="text-decoration:underline;cursor:pointer">${nm}</span>`;
-      }).join(', ');
-      const li=document.createElement('li');
-      li.innerHTML = `${names.length} shard(s): ${itemMarkup}`;
-      li.addEventListener('click', ()=> openDM({tab:'resolve', selectKey:n.key}));
-      li.querySelectorAll('span[data-id]').forEach(sp=>{
-        sp.addEventListener('click', e=>{ e.stopPropagation(); openDM({tab:'cards', focusId: sp.dataset.id}); });
-      });
-      D.queue.appendChild(li);
-    });
-  }
-
-  async function loadNotices(limit=30){
-    const normalizeList = list => list
-      .map(normalizeNotice)
-      .filter(Boolean)
-      .sort((a,b)=> (b.ts||0)-(a.ts||0));
-    if(hasRealtime()){
-      const snap = await db().ref(path.notices(CID())).limitToLast(limit).get();
-      if (!snap.exists()) return [];
-      const arr = [];
-      snap.forEach(child=> arr.push({ key: child.key, ...child.val() }));
-      return normalizeList(arr);
-    }
-    return normalizeList(localLoadNotices(limit));
-  }
-
-  async function loadResolutions(limit=50){
-    if(hasRealtime()){
-      const snap = await db().ref(path.resolutions(CID())).limitToLast(limit).get();
-      if(!snap.exists()) return [];
-      const arr = Object.values(snap.val()).sort((a,b)=> (b.ts||0)-(a.ts||0));
       return arr;
     }
-    return localLoadResolutions(limit);
-  }
 
-  async function resetDeck(){
-    if(hasRealtime()){
-      await db().ref(path.deck(CID())).set(shuffledIds());
-      await db().ref(path.audits(CID())).remove();
-      await db().ref(path.notices(CID())).remove();
-      await db().ref(path.resolutions(CID())).remove();
-      await db().ref(path.npcs(CID())).remove();
-    } else {
-      localResetDeck();
+    async drawOne() {
+      const deckRef = this.ref('deck');
+      let drawnId = null;
+      await deckRef.transaction(current => {
+        let deck = Array.isArray(current) ? current.slice() : [];
+        if (!deck.length) deck = Catalog.shuffleShardIds();
+        const index = Random.int(deck.length);
+        drawnId = deck.splice(index, 1)[0];
+        return deck;
+      });
+      await this.ref('audits').push({ id: drawnId, name: Catalog.shardName(drawnId), ts: this.db.ServerValue.TIMESTAMP });
+      return drawnId;
     }
-    await loadAndRender();
-  }
 
-
-  async function pushResolutionBatch(n){
-    const ids = normalizeIds(n?.ids);
-    if(hasRealtime()){
-      await db().ref(path.resolutions(CID())).push({ ts: db().ServerValue.TIMESTAMP, ids });
-    } else {
-      localPushResolutionBatch(ids);
+    async reset() {
+      await this.ref('deck').set(Catalog.shuffleShardIds());
+      await this.ref('audits').remove();
+      await this.ref('notices').remove();
+      await this.ref('resolutions').remove();
+      await this.ref('npcs').remove();
     }
-  }
 
-  async function loadAndRender(){
-    // Always render static lists so the DM modal has content even if the
-    // realtime database isn't configured (offline/solo play).
-    renderCardList();
-    renderItemList();
-    renderNPCList();
-    renderResolveOptions();
-    try {
-      await refreshCounts();
-      const notices = await loadNotices();
-      renderIncoming(notices);
-      renderQueue(notices);
-      await refreshHiddenToggle();
-    } catch (err) {
-      console.error('SOMF DM load failed', err);
+    async pushNotice(payload) {
+      const noticeRef = this.ref('notices').push();
+      const data = { count: payload.count, ids: payload.ids, names: payload.names, ts: this.db.ServerValue.TIMESTAMP };
+      await noticeRef.set(data);
+      return normalizeNotice({ ...data, ts: Date.now(), key: noticeRef.key });
     }
-  }
 
-  // Live listeners
-  function enableLive(){
-    if(!hasRealtime()){
-      if(!_localLiveHandlers){
-        const handleNotice = (evt)=>{
-          loadAndRender();
-          const detail = evt?.detail || {};
-          if (detail.action === 'remove') return;
-          const notice = detail.notice
-            || (detail.key ? localLoadNotices(30).find(n=> n.key === detail.key) : null)
-            || localLoadNotices(1)[0];
-          if (notice) toastNotice(notice, detail.key);
-        };
-        const handleResolution = ()=> loadAndRender();
-        const handleDeck = ()=> loadAndRender();
-        window.addEventListener('somf-local-notice', handleNotice);
-        window.addEventListener('somf-local-resolution', handleResolution);
-        window.addEventListener('somf-local-deck', handleDeck);
-        _localLiveHandlers = { notice: handleNotice, resolution: handleResolution, deck: handleDeck };
+    async loadNotices(limit = 30) {
+      const snap = await this.ref('notices').get();
+      if (!snap.exists()) return [];
+      const collected = [];
+      snap.forEach(child => {
+        collected.push(normalizeNotice({ key: child.key, ...child.val() }));
+      });
+      const sorted = collected.filter(Boolean).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      return sorted.slice(0, limit);
+    }
+
+    async removeNotice(key) {
+      await this.ref('notices').child(key).remove();
+    }
+
+    async pushResolutionBatch(ids) {
+      await this.ref('resolutions').push({ ids: toStringList(ids), ts: this.db.ServerValue.TIMESTAMP });
+    }
+
+    async loadResolutions(limit = 50) {
+      const snap = await this.ref('resolutions').get();
+      if (!snap.exists()) return [];
+      const collected = [];
+      snap.forEach(child => {
+        const value = child.val();
+        collected.push({ key: child.key, ids: toStringList(value?.ids), ts: normalizeTimestamp(value?.ts) });
+      });
+      return collected.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, limit);
+    }
+
+    async setHidden(hidden) {
+      await this.ref('hidden').set(!!hidden);
+    }
+
+    async getHidden() {
+      const snap = await this.ref('hidden').get();
+      if (!snap.exists()) return true;
+      const value = snap.val();
+      return typeof value === 'boolean' ? value : true;
+    }
+
+    watchNotices(callbacks) {
+      this.unwatchNotices();
+      if (!this.hasDatabase()) return () => {};
+      const ref = this.ref('notices');
+      const limitRef = typeof ref.limitToLast === 'function' ? ref.limitToLast(1) : ref;
+      const added = limitRef.on('child_added', snap => {
+        const value = normalizeNotice({ key: snap.key, ...snap.val() });
+        if (value && callbacks?.onAdd) callbacks.onAdd(value);
+        if (callbacks?.onChange) callbacks.onChange();
+      });
+      const removed = ref.on('child_removed', snap => {
+        if (callbacks?.onRemove) callbacks.onRemove({ key: snap.key });
+        if (callbacks?.onChange) callbacks.onChange();
+      });
+      this.noticeListeners = [
+        () => { if (typeof limitRef.off === 'function') limitRef.off('child_added', added); },
+        () => { if (typeof ref.off === 'function') ref.off('child_removed', removed); }
+      ];
+      return () => this.unwatchNotices();
+    }
+
+    unwatchNotices() {
+      this.noticeListeners.forEach(fn => fn());
+      this.noticeListeners = [];
+    }
+
+    watchHidden(handler) {
+      this.unwatchHidden();
+      if (!this.hasDatabase()) return () => {};
+      const ref = this.ref('hidden');
+      const listener = snap => {
+        const value = snap?.val();
+        handler(typeof value === 'boolean' ? value : undefined);
+      };
+      ref.on('value', listener);
+      this.hiddenListener = () => { if (typeof ref.off === 'function') ref.off('value', listener); };
+      return () => this.unwatchHidden();
+    }
+
+    unwatchHidden() {
+      if (this.hiddenListener) {
+        this.hiddenListener();
+        this.hiddenListener = null;
       }
-      if(_noticeRef) { _noticeRef.off(); _noticeRef=null; }
-      if(_hiddenRef) { _hiddenRef.off(); _hiddenRef=null; }
-      return;
     }
-    if(_localLiveHandlers){
-      window.removeEventListener('somf-local-notice', _localLiveHandlers.notice);
-      window.removeEventListener('somf-local-resolution', _localLiveHandlers.resolution);
-      window.removeEventListener('somf-local-deck', _localLiveHandlers.deck);
-      _localLiveHandlers = null;
+  }
+
+  class SomfRuntime {
+    constructor() {
+      this.catalog = Catalog;
+      this.campaignId = window._somf_cid || DEFAULT_CAMPAIGN_ID;
+      this.localStore = new LocalStore(this.campaignId);
+      this.realtimeStore = window._somf_db ? new RealtimeStore(window._somf_db, this.campaignId) : null;
+      this.player = null;
+      this.dm = null;
+      this.modeListeners = new Set();
+
+      window.SOMF_MIN = window.SOMF_MIN || {};
+      window.SOMF_MIN.setFirebase = db => this.setFirebase(db);
+      window.SOMF_MIN.setCampaignId = id => this.setCampaignId(id);
+      if (!window._somf_db && this.realtimeStore) {
+        this.realtimeStore.setDatabase(null);
+      }
     }
-    if(_noticeRef) _noticeRef.off();
-    if(_hiddenRef) _hiddenRef.off();
-    _noticeRef = db().ref(path.notices(CID()));
-    _noticeRef.limitToLast(1).on('child_added', snap=>{
-      const v=snap.val(); if (!v) return;
-      toastNotice({ ...v, key: snap.key }, snap.key);
-      loadAndRender();
-    });
-    _noticeRef.on('child_removed', ()=>{ loadAndRender(); });
-    _hiddenRef = db().ref(path.hidden(CID()));
-    let fallbackHidden = getLocal(LSK.hidden(CID()));
-    if (typeof fallbackHidden !== 'boolean') fallbackHidden = true;
-    _hiddenRef.on('value', s=>{
-      let raw;
+
+    setFirebase(db) {
+      window._somf_db = db || null;
+      if (db) {
+        if (this.realtimeStore) {
+          this.realtimeStore.setDatabase(db);
+          this.realtimeStore.setCampaign(this.campaignId);
+        } else {
+          this.realtimeStore = new RealtimeStore(db, this.campaignId);
+        }
+      } else if (this.realtimeStore) {
+        this.realtimeStore.setDatabase(null);
+      }
+      this.notifyModeChange();
+    }
+
+    setCampaignId(id) {
+      const next = id || DEFAULT_CAMPAIGN_ID;
+      this.campaignId = next;
+      window._somf_cid = next;
+      this.localStore.setCampaign(next);
+      if (this.realtimeStore) this.realtimeStore.setCampaign(next);
+      this.notifyModeChange();
+    }
+
+    mode() {
+      return this.hasRealtime() ? 'realtime' : 'local';
+    }
+
+    hasRealtime() {
+      return !!(this.realtimeStore && this.realtimeStore.hasDatabase());
+    }
+
+    store() {
+      return this.hasRealtime() ? this.realtimeStore : this.localStore;
+    }
+
+    onModeChange(listener) {
+      this.modeListeners.add(listener);
+      return () => this.modeListeners.delete(listener);
+    }
+
+    notifyModeChange() {
+      const mode = this.mode();
+      this.modeListeners.forEach(listener => {
+        try { listener(mode); } catch (err) { console.error(err); }
+      });
+    }
+
+    async draw(count) {
+      const n = Math.max(1, Math.min(PLATES.length, Number(count) || 1));
+      const store = this.store();
+      if (store.ensureDeck) await store.ensureDeck();
+      const ids = [];
+      for (let i = 0; i < n; i += 1) {
+        ids.push(await store.drawOne());
+      }
+      const names = ids.map(id => this.catalog.shardName(id));
+      const notice = await store.pushNotice({ count: n, ids, names, ts: Date.now() });
+      return notice;
+    }
+
+    async loadNotices(limit = 30) {
+      const store = this.store();
+      return store.loadNotices ? store.loadNotices(limit) : [];
+    }
+
+    async removeNotice(key) {
+      const store = this.store();
+      if (store.removeNotice) await store.removeNotice(key);
+    }
+
+    async pushResolutionBatch(ids) {
+      const store = this.store();
+      if (store.pushResolutionBatch) await store.pushResolutionBatch(ids);
+    }
+
+    async loadResolutions(limit = 50) {
+      const store = this.store();
+      return store.loadResolutions ? store.loadResolutions(limit) : [];
+    }
+
+    async resetDeck() {
+      const store = this.store();
+      if (store.reset) await store.reset();
+    }
+
+    async deckCount() {
+      const store = this.store();
+      if (store.ensureDeck) {
+        const deck = await store.ensureDeck();
+        return deck.length;
+      }
+      return Catalog.shardIds().length;
+    }
+
+    async setHidden(hidden) {
+      const store = this.store();
+      if (store.setHidden) await store.setHidden(hidden);
+      if (!this.hasRealtime()) {
+        // local store already dispatched event; ensure cached fallback updates
+        writeStorage(LOCAL_KEYS.hidden(this.campaignId), !!hidden);
+      }
+    }
+
+    async getHidden() {
+      const store = this.store();
+      if (store.getHidden) return store.getHidden();
+      return true;
+    }
+
+    watchNotices(callbacks) {
+      if (this.hasRealtime()) {
+        return this.realtimeStore.watchNotices(callbacks);
+      }
+      return this.localStore.watchNotices(detail => {
+        if (detail.action === 'add' && callbacks?.onAdd) callbacks.onAdd(detail.notice);
+        if (detail.action === 'remove' && callbacks?.onRemove) callbacks.onRemove({ key: detail.key });
+        if (callbacks?.onChange) callbacks.onChange();
+      });
+    }
+
+    watchDeck(handler) {
+      if (this.hasRealtime()) {
+        // Realtime deck updates are already captured via notice listeners; fallback to no-op
+        return () => {};
+      }
+      return this.localStore.watchDeck(handler);
+    }
+
+    watchHidden(handler) {
+      if (this.hasRealtime()) {
+        return this.realtimeStore.watchHidden(value => {
+          if (typeof value === 'boolean') handler(value); else handler(undefined);
+        });
+      }
+      return this.localStore.watchHidden(value => handler(value));
+    }
+
+    attachPlayer() {
+      if (!this.player) {
+        this.player = new PlayerController(this);
+      }
+      this.player.attach();
+    }
+
+    ensureDM() {
+      if (!this.dm) {
+        this.dm = new DMController(this);
+      }
+      this.dm.attach();
+      return this.dm;
+    }
+
+    openDM(opts = {}) {
+      const controller = this.ensureDM();
+      controller.open(opts);
+    }
+  }
+
+  class PlayerController {
+    constructor(runtime) {
+      this.runtime = runtime;
+      this.dom = {};
+      this.queue = [];
+      this.queueIndex = 0;
+      this.modeCleanup = null;
+      this.noticeCleanup = null;
+      this.hiddenCleanup = null;
+      this.deckCleanup = null;
+    }
+
+    attach() {
+      this.captureDom();
+      if (this.dom.count) this.dom.count.blur();
+      if (this.dom.card) this.dom.card.hidden = true;
+      this.bindEvents();
+      this.subscribe();
+      this.loadInitialState();
+    }
+
+    captureDom() {
+      this.dom = {
+        count: dom.one('#somf-min-count'),
+        drawBtn: dom.one('#somf-min-draw'),
+        card: dom.one('#somf-min'),
+        modal: dom.one('#somf-min-modal'),
+        close: dom.one('#somf-min-close'),
+        name: dom.one('#somf-min-name'),
+        visual: dom.one('#somf-min-visual'),
+        effect: dom.one('#somf-min-effect'),
+        idx: dom.one('#somf-min-idx'),
+        total: dom.one('#somf-min-total'),
+        resolved: dom.one('#somf-min-resolved'),
+        next: dom.one('#somf-min-next'),
+      };
+    }
+
+    bindEvents() {
+      if (this.dom.drawBtn && !this.dom.drawBtn.__somfBound) {
+        this.dom.drawBtn.addEventListener('click', () => this.onDraw());
+        this.dom.drawBtn.__somfBound = true;
+      }
+      if (this.dom.close && !this.dom.close.__somfBound) {
+        this.dom.close.addEventListener('click', () => this.closeModal());
+        this.dom.close.__somfBound = true;
+      }
+      if (this.dom.resolved && !this.dom.resolved.__somfBound) {
+        this.dom.resolved.addEventListener('change', () => {
+          if (this.dom.next) this.dom.next.disabled = !this.dom.resolved.checked;
+        });
+        this.dom.resolved.__somfBound = true;
+      }
+      if (this.dom.next && !this.dom.next.__somfBound) {
+        this.dom.next.addEventListener('click', () => this.advanceQueue());
+        this.dom.next.__somfBound = true;
+      }
+    }
+
+    subscribe() {
+      if (this.modeCleanup) this.modeCleanup();
+      this.modeCleanup = this.runtime.onModeChange(() => {
+        this.setupWatchers();
+        this.reloadNotices();
+      });
+      this.setupWatchers();
+    }
+
+    setupWatchers() {
+      if (this.noticeCleanup) this.noticeCleanup();
+      this.noticeCleanup = this.runtime.watchNotices({
+        onChange: () => this.reloadNotices(),
+      });
+      if (this.hiddenCleanup) this.hiddenCleanup();
+      this.hiddenCleanup = this.runtime.watchHidden(value => {
+        if (typeof value === 'boolean') this.applyHiddenState(value);
+      });
+    }
+
+    async loadInitialState() {
+      await this.reloadNotices();
+      const hidden = await this.runtime.getHidden();
+      this.applyHiddenState(hidden);
+    }
+
+    async reloadNotices() {
+      const notices = await this.runtime.loadNotices(50);
+      this.setNotices(notices);
+    }
+
+    setNotices(notices) {
+      this.notices = normalizeNoticeList(notices || []);
+      const nextQueue = [];
+      this.notices.forEach(notice => {
+        const ids = toStringList(notice.ids);
+        if (ids.length) {
+          ids.forEach((id, index) => {
+            const plate = Catalog.playerCard(Catalog.shardById(id));
+            nextQueue.push({ ...plate, _noticeKey: notice.key, _noticeIndex: index, _noticeTs: notice.ts || 0 });
+          });
+        } else {
+          nextQueue.push({ id: notice.key, name: notice.names.join(', '), visual: '—', player: ['No effect data available.'], _noticeKey: notice.key, _noticeIndex: 0, _noticeTs: notice.ts || 0 });
+        }
+      });
+      const previousEntry = this.queue[this.queueIndex];
+      this.queue = nextQueue;
+      if (previousEntry) {
+        const signature = `${previousEntry._noticeKey || ''}:${previousEntry._noticeIndex || 0}`;
+        const idx = this.queue.findIndex(entry => `${entry._noticeKey || ''}:${entry._noticeIndex || 0}` === signature);
+        this.queueIndex = idx >= 0 ? idx : 0;
+      } else {
+        this.queueIndex = 0;
+      }
+      this.render();
+      if (!this.queue.length) this.closeModal();
+    }
+
+    render() {
+      const total = this.queue.length;
+      const entry = this.queue[this.queueIndex] || { name: '—', visual: '—', player: ['No effect data available.'] };
+      if (this.dom.name) this.dom.name.textContent = entry.name || '—';
+      if (this.dom.visual) this.dom.visual.textContent = entry.visual || '—';
+      if (this.dom.effect) {
+        const list = Array.isArray(entry.player) && entry.player.length ? entry.player : ['No effect data available.'];
+        this.dom.effect.innerHTML = list.map(line => `<li>${line}</li>`).join('');
+      }
+      if (this.dom.idx) this.dom.idx.textContent = total ? String(Math.min(this.queueIndex + 1, total)) : '0';
+      if (this.dom.total) this.dom.total.textContent = String(total);
+      if (this.dom.resolved) {
+        this.dom.resolved.checked = false;
+        this.dom.resolved.disabled = total === 0;
+      }
+      if (this.dom.next) this.dom.next.disabled = true;
+    }
+
+    async onDraw() {
+      if (this.dom.count) this.dom.count.blur();
+      if (!confirm('The Fates are fickle, are you sure you wish to draw from the Shards?')) return;
+      if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
+      const count = Math.max(1, Math.min(PLATES.length, Number(this.dom.count?.value) || 1));
       try {
-        raw = typeof s?.val === 'function' ? s.val() : s?.val;
-      } catch {
-        raw = undefined;
+        const notice = await this.runtime.draw(count);
+        if (notice) {
+          window.dmNotify?.(`Drew ${count} Shard(s): ${notice.names.join(', ')} (unresolved)`);
+          await this.playAnimation();
+          this.openModal();
+          await this.reloadNotices();
+        }
+      } catch (err) {
+        console.error('Shard draw failed', err);
       }
-      const h = typeof raw === 'boolean' ? raw : fallbackHidden;
-      fallbackHidden = h;
-      if(D.playerCardToggle) {
-        D.playerCardToggle.checked = !h;
-        if(D.playerCardState) D.playerCardState.textContent = D.playerCardToggle.checked ? 'On' : 'Off';
+    }
+
+    openModal() {
+      if (this.dom.modal) this.dom.modal.hidden = false;
+      this.render();
+    }
+
+    closeModal() {
+      if (this.dom.modal) this.dom.modal.hidden = true;
+    }
+
+    async playAnimation() {
+      const flash = dom.one('#draw-flash');
+      const lightning = dom.one('#draw-lightning');
+      if (!flash) return;
+
+      flash.classList.remove('show');
+      if (preferReducedMotion()) {
+        flash.hidden = true;
+        if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
+        return;
       }
-      setLocal(LSK.hidden(CID()), h);
-      window.dispatchEvent(new CustomEvent('somf-local-hidden',{detail:h}));
-    });
+
+      flash.hidden = false;
+      if (lightning) {
+        lightning.hidden = false;
+        lightning.innerHTML = '';
+        for (let i = 0; i < 3; i += 1) {
+          const bolt = document.createElement('div');
+          bolt.className = 'bolt';
+          bolt.style.left = `${10 + Math.random() * 80}%`;
+          bolt.style.top = `${Math.random() * 60}%`;
+          bolt.style.transform = `rotate(${Math.random() * 30 - 15}deg)`;
+          bolt.style.animationDelay = `${i * 0.1}s`;
+          lightning.appendChild(bolt);
+        }
+      }
+
+      await new Promise(resolve => {
+        let settled = false;
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          flash.classList.remove('show');
+          flash.hidden = true;
+          if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
+          flash.removeEventListener('animationend', cleanup);
+          flash.removeEventListener('animationcancel', cleanup);
+          resolve();
+        };
+        flash.addEventListener('animationend', cleanup);
+        flash.addEventListener('animationcancel', cleanup);
+        // restart animation
+        void flash.offsetWidth;
+        flash.classList.add('show');
+        setTimeout(cleanup, 1100);
+      });
+    }
+
+    advanceQueue() {
+      if (!this.dom.resolved?.checked) return;
+      if (this.queueIndex < this.queue.length - 1) {
+        this.queueIndex += 1;
+        this.render();
+      } else {
+        this.closeModal();
+      }
+    }
+
+    applyHiddenState(hidden) {
+      if (!this.dom.card) return;
+      this.dom.card.hidden = !!hidden;
+      if (hidden) this.closeModal();
+    }
   }
 
-  D.reset?.addEventListener('click', resetDeck);
+  class DMController {
+    constructor(runtime) {
+      this.runtime = runtime;
+      this.dom = {};
+      this.initialized = false;
+      this.notices = [];
+      this.noticeCleanup = null;
+      this.hiddenCleanup = null;
+    }
 
-  let _noticeRef=null,_hiddenRef=null,_localLiveHandlers=null;
-  function initDM(){
-    loadAndRender();
-    enableLive();
+    attach() {
+      if (this.initialized) return;
+      this.initialized = true;
+      this.captureDom();
+      this.bindEvents();
+      this.renderStaticLists();
+      this.refresh();
+      this.noticeCleanup = this.runtime.watchNotices({
+        onAdd: notice => this.toastNotice(notice),
+        onChange: () => this.refresh(),
+      });
+      this.hiddenCleanup = this.runtime.watchHidden(value => {
+        if (typeof value === 'boolean') this.applyHiddenState(value);
+      });
+    }
+
+    captureDom() {
+      this.dom = {
+        modal: dom.one('#modal-somf-dm'),
+        close: dom.one('#somfDM-close'),
+        tabs: dom.all('.somf-dm-tabbtn'),
+        cardTab: dom.one('#somfDM-tab-cards'),
+        resolveTab: dom.one('#somfDM-tab-resolve'),
+        npcTab: dom.one('#somfDM-tab-npcs'),
+        itemTab: dom.one('#somfDM-tab-items'),
+        reset: dom.one('#somfDM-reset'),
+        cardCount: dom.one('#somfDM-cardCount'),
+        incoming: dom.one('#somfDM-incoming'),
+        noticeView: dom.one('#somfDM-noticeView'),
+        markResolved: dom.one('#somfDM-markResolved'),
+        spawnNPC: dom.one('#somfDM-spawnNPC'),
+        npcList: dom.one('#somfDM-npcList'),
+        itemList: dom.one('#somfDM-itemList'),
+        toasts: dom.one('#somfDM-toasts'),
+        ping: dom.one('#somfDM-ping'),
+        playerToggle: dom.one('#somfDM-playerCard'),
+        playerState: dom.one('#somfDM-playerCard-state'),
+        resolveOptions: dom.one('#somfDM-resolveOptions'),
+        queue: dom.one('#somfDM-notifications'),
+        npcModal: dom.one('#somfDM-npcModal'),
+        npcModalCard: dom.one('#somfDM-npcModalCard'),
+      };
+    }
+
+    bindEvents() {
+      if (this.dom.close && !this.dom.close.__somfBound) {
+        this.dom.close.addEventListener('click', () => this.close());
+        this.dom.close.__somfBound = true;
+      }
+      if (this.dom.modal && !this.dom.modal.__somfBound) {
+        this.dom.modal.addEventListener('click', evt => { if (evt.target === this.dom.modal) this.close(); });
+        this.dom.modal.__somfBound = true;
+      }
+      if (this.dom.tabs.length) {
+        this.dom.tabs.forEach(btn => {
+          if (btn.__somfBound) return;
+          btn.addEventListener('click', () => this.activateTab(btn.dataset.tab));
+          btn.__somfBound = true;
+        });
+      }
+      if (this.dom.reset && !this.dom.reset.__somfBound) {
+        this.dom.reset.addEventListener('click', () => this.resetDeck());
+        this.dom.reset.__somfBound = true;
+      }
+      if (this.dom.playerToggle && !this.dom.playerToggle.__somfBound) {
+        this.dom.playerToggle.addEventListener('change', () => this.onToggleHidden());
+        this.dom.playerToggle.__somfBound = true;
+      }
+      if (this.dom.markResolved && !this.dom.markResolved.__somfBound) {
+        this.dom.markResolved.addEventListener('click', () => this.resolveActiveNotice());
+        this.dom.markResolved.__somfBound = true;
+      }
+    }
+
+    activateTab(tab) {
+      const tabs = {
+        cards: this.dom.cardTab,
+        resolve: this.dom.resolveTab,
+        npcs: this.dom.npcTab,
+        items: this.dom.itemTab,
+      };
+      this.dom.tabs.forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+      Object.values(tabs).forEach(section => {
+        if (!section) return;
+        section.classList.toggle('active', section === tabs[tab]);
+      });
+    }
+
+    async refresh() {
+      await this.refreshCounts();
+      await this.refreshHiddenToggle();
+      await this.renderNotices();
+    }
+
+    async refreshCounts() {
+      if (this.dom.cardCount) {
+        try {
+          const count = await this.runtime.deckCount();
+          this.dom.cardCount.textContent = `${count}/${PLATES.length}`;
+        } catch {
+          this.dom.cardCount.textContent = `${PLATES.length}`;
+        }
+      }
+    }
+
+    async refreshHiddenToggle() {
+      if (!this.dom.playerToggle) return;
+      const hidden = await this.runtime.getHidden();
+      this.dom.playerToggle.checked = !hidden;
+      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+    }
+
+    async renderNotices() {
+      this.notices = await this.runtime.loadNotices(30);
+      if (this.dom.incoming) {
+        this.dom.incoming.innerHTML = '';
+        this.notices.forEach((notice, index) => {
+          const li = document.createElement('li');
+          li.dataset.key = notice.key || '';
+          li.innerHTML = `<strong>${notice.count || notice.names.length || 1} shard(s)</strong><div style="opacity:.8">${notice.names.join(', ')}</div>`;
+          li.addEventListener('click', () => this.selectNotice(index));
+          this.dom.incoming.appendChild(li);
+        });
+      }
+      if (this.dom.queue) {
+        this.dom.queue.innerHTML = '';
+        this.notices.forEach(notice => {
+          const li = document.createElement('li');
+          li.textContent = `${notice.count || notice.names.length || 1} shard(s): ${notice.names.join(', ')}`;
+          li.addEventListener('click', () => {
+            this.open({ tab: 'resolve', focusKey: notice.key });
+          });
+          this.dom.queue.appendChild(li);
+        });
+      }
+      if (this.notices.length) this.selectNotice(0);
+    }
+
+    selectNotice(index) {
+      this.activeNotice = this.notices[index] || null;
+      if (!this.activeNotice) {
+        if (this.dom.noticeView) this.dom.noticeView.innerHTML = '';
+        if (this.dom.markResolved) this.dom.markResolved.disabled = true;
+        if (this.dom.spawnNPC) this.dom.spawnNPC.disabled = true;
+        return;
+      }
+      if (this.dom.incoming) {
+        Array.from(this.dom.incoming.children).forEach((child, idx) => {
+          child.classList.toggle('active', idx === index);
+        });
+      }
+      if (this.dom.noticeView) {
+        const list = this.activeNotice.names.map(name => `<li>${name}</li>`).join('');
+        this.dom.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(this.activeNotice.ts || Date.now()).toLocaleString()}</div><ul style="margin:6px 0 0 18px;padding:0">${list}</ul>`;
+      }
+      if (this.dom.markResolved) this.dom.markResolved.disabled = false;
+      if (this.dom.spawnNPC) this.dom.spawnNPC.disabled = true;
+    }
+
+    async resolveActiveNotice() {
+      if (!this.activeNotice) return;
+      const ids = toStringList(this.activeNotice.ids);
+      await this.runtime.pushResolutionBatch(ids);
+      await this.runtime.removeNotice(this.activeNotice.key);
+      this.toast(`<strong>Resolved</strong> ${ids.length || this.activeNotice.count || 1} shard(s)`);
+      await this.renderNotices();
+    }
+
+    toastNotice(notice) {
+      this.toast(`<strong>New Draw</strong> ${notice.count || notice.names.length || 1} shard(s): ${notice.names.join(', ')}`, () => {
+        this.open({ tab: 'cards', focusKey: notice.key });
+      });
+    }
+
+    toast(html, onClick) {
+      if (!this.dom.toasts) return;
+      const toast = document.createElement('div');
+      toast.className = 'somf-toast';
+      toast.innerHTML = html;
+      if (onClick) {
+        toast.style.cursor = 'pointer';
+        toast.addEventListener('click', () => {
+          onClick();
+          toast.remove();
+        });
+      }
+      this.dom.toasts.appendChild(toast);
+      if (this.dom.ping && this.dom.ping.src) {
+        try {
+          this.dom.ping.currentTime = 0;
+          this.dom.ping.play();
+        } catch {}
+      }
+      setTimeout(() => toast.remove(), 6000);
+    }
+
+    renderStaticLists() {
+      if (this.dom.cardTab) {
+        this.dom.cardTab.innerHTML = '';
+        Catalog.allShards().forEach(plate => {
+          const card = document.createElement('div');
+          card.style.cssText = 'border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px;margin-bottom:8px;';
+          card.id = `somfDM-card-${plate.id}`;
+          const player = Catalog.playerCard(plate);
+          card.innerHTML = `<div><strong>${player.name}</strong></div><div style="opacity:.8;font-size:12px">${player.visual}</div><ul style="margin:6px 0 0 18px;padding:0">${player.player.map(line => `<li>${line}</li>`).join('')}</ul>`;
+          this.dom.cardTab.appendChild(card);
+        });
+      }
+      if (this.dom.itemList) {
+        this.dom.itemList.innerHTML = '';
+        Catalog.allItems().forEach(item => {
+          const li = document.createElement('li');
+          li.style.cssText = 'border-top:1px solid #1b2532;padding:8px 10px';
+          if (!this.dom.itemList.children.length) li.style.borderTop = 'none';
+          li.innerHTML = `<strong>${item.name}</strong><div style="opacity:.8;font-size:12px">${sentenceCase(item.type || '')}</div>`;
+          this.dom.itemList.appendChild(li);
+        });
+      }
+      if (this.dom.npcList) {
+        this.dom.npcList.innerHTML = '';
+        Catalog.allNpcs().forEach(npc => {
+          const li = document.createElement('li');
+          li.style.cssText = 'border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
+          if (!this.dom.npcList.children.length) li.style.borderTop = 'none';
+          li.innerHTML = `<strong>${npc.name}</strong><div style="opacity:.8;font-size:12px">${sentenceCase(npc.role || '')}${npc.tier ? ` (T${npc.tier})` : ''}</div>`;
+          li.addEventListener('click', () => this.showNpcModal(npc));
+          this.dom.npcList.appendChild(li);
+        });
+      }
+      if (this.dom.resolveOptions) {
+        this.dom.resolveOptions.innerHTML = '';
+        Catalog.resolveOptions().forEach(option => {
+          const li = document.createElement('li');
+          li.innerHTML = `<strong>${option.name}</strong><div style="opacity:.8">${option.desc}</div>`;
+          this.dom.resolveOptions.appendChild(li);
+        });
+      }
+      this.activateTab('cards');
+    }
+
+    showNpcModal(npc) {
+      if (!this.dom.npcModal || !this.dom.npcModalCard) return;
+      this.dom.npcModalCard.innerHTML = `<h4>${npc.name}</h4><div style="opacity:.8">${sentenceCase(npc.role || '')}${npc.tier ? ` (T${npc.tier})` : ''}</div>`;
+      const close = document.createElement('button');
+      close.className = 'somf-btn somf-ghost';
+      close.textContent = 'Close';
+      close.addEventListener('click', () => this.hideNpcModal());
+      this.dom.npcModalCard.appendChild(close);
+      this.dom.npcModal.style.display = 'flex';
+      this.dom.npcModal.classList.remove('hidden');
+      this.dom.npcModal.setAttribute('aria-hidden', 'false');
+      if (!this.dom.npcModal.__somfBound) {
+        this.dom.npcModal.addEventListener('click', evt => { if (evt.target === this.dom.npcModal) this.hideNpcModal(); });
+        this.dom.npcModal.__somfBound = true;
+      }
+    }
+
+    hideNpcModal() {
+      if (!this.dom.npcModal) return;
+      this.dom.npcModal.classList.add('hidden');
+      this.dom.npcModal.style.display = 'none';
+      this.dom.npcModal.setAttribute('aria-hidden', 'true');
+    }
+
+    async onToggleHidden() {
+      if (!this.dom.playerToggle) return;
+      const hidden = !this.dom.playerToggle.checked;
+      await this.runtime.setHidden(hidden);
+      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+    }
+
+    async resetDeck() {
+      await this.runtime.resetDeck();
+      this.toast('<strong>Deck Reset</strong> Shards reshuffled');
+      await this.refresh();
+    }
+
+    applyHiddenState(hidden) {
+      if (this.dom.playerToggle) this.dom.playerToggle.checked = !hidden;
+      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+    }
+
+    open(opts = {}) {
+      if (!this.dom.modal) return;
+      this.dom.modal.style.display = 'flex';
+      this.dom.modal.classList.remove('hidden');
+      this.dom.modal.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      if (opts.tab) this.activateTab(opts.tab);
+      if (opts.focusKey && this.dom.incoming) {
+        const idx = this.notices.findIndex(notice => notice.key === opts.focusKey);
+        if (idx >= 0) this.selectNotice(idx);
+      }
+    }
+
+    close() {
+      if (!this.dom.modal) return;
+      this.dom.modal.classList.add('hidden');
+      this.dom.modal.style.display = 'none';
+      this.dom.modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      this.hideNpcModal();
+    }
   }
 
-  initPlayerHidden();
-  initPlayerQueue();
-  try {
-    if (sessionStorage.getItem('dmLoggedIn') === '1') initDM();
-  } catch {
-    /* ignore */
+  const runtime = new SomfRuntime();
+
+  function initSomf() {
+    runtime.setFirebase(window._somf_db || null);
+    runtime.attachPlayer();
+    if (document.getElementById('somfDM-playerCard') || document.getElementById('modal-somf-dm')) {
+      runtime.ensureDM();
+    }
   }
-  window.initSomfDM = initDM;
 
-}
+  document.addEventListener('DOMContentLoaded', initSomf);
+  if (document.readyState !== 'loading') initSomf();
 
-document.addEventListener('DOMContentLoaded', initSomf);
-if(document.readyState !== 'loading'){
-  initSomf();
-}
+  window.initSomfDM = () => runtime.ensureDM();
+  window.openSomfDM = opts => runtime.openDM(opts || {});
 
+})();
