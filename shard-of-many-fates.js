@@ -21,7 +21,7 @@
   };
   const MAX_LOCAL_RECORDS = 120;
 
-  const LEGACY_PLATES = [
+  const SHARDS_OF_MANY_FATES = [
     {id:'VAULT',name:'The Vault',visual:'Space folds into a recursion cell.',player:[
       'You vanish from the scene.',
       'An adjacent ally can pull you back.',
@@ -180,6 +180,35 @@
       'Timing: Start of your next turn',
       'Effect: Your SP does not refresh for 1 round (retain current SP). After that round ends, gain one free +1d4 Boost Roll.'
     ]},
+  ];
+
+  const LEGACY_STRUCTURED_SHARDS = [
+    { "id": "SUNSHARD", "name": "The Sun", "polarity": "good", "effect": [ { "type": "xp_delta", "value": 5000 }, { "type": "grant_item", "item_id": "SOLARIS_DIADEM", "quantity": 1 } ], "resolution": "Add XP and item immediately." },
+    { "id": "GEM", "name": "The Gem", "polarity": "good", "effect": [ { "type": "credits_delta", "value": 20000 }, { "type": "grant_item", "item_id": "SHARD_BATTERY", "quantity": 3 } ], "resolution": "Credit the account; add consumables." },
+    { "id": "KEY", "name": "The Key", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "PRISM_EDGE", "quantity": 1 } ], "requirements": { "owner_binds_on_equip": true }, "resolution": "Bind legendary weapon to the drawer." },
+    { "id": "STAR", "name": "The Star", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 2, "cap": 20 }, { "type": "skill_bonus_perm", "target_skill_choice": true, "value": 2 } ], "resolution": "Apply permanent changes; obey ability cap." },
+    { "id": "MOON", "name": "The Moon", "polarity": "good", "effect": [ { "type": "choose_one", "options": [ { "xp_delta": 3000 }, { "credits_delta": 15000 }, { "remove_one_negative_shard_curse": true } ] } ], "resolution": "Record chosen boon and apply." },
+    { "id": "COMET", "name": "The Comet", "polarity": "good", "effect": [ { "type": "flag_next_combat_bounty", "condition": "drawer_deals_final_blow_to_highest_hp_enemy", "rewards": [ { "type": "xp_delta", "value": 1500 }, { "type": "grant_item", "item_id": "COMET_SPURS", "quantity": 1 } ] } ], "resolution": "Check condition at end of combat; grant rewards if met." },
+    { "id": "VIZIER", "name": "The Vizier", "polarity": "good", "effect": [ { "type": "declare_two_mechanical_weaknesses_on_next_boss" }, { "type": "downtime_advantage", "task": "Research", "uses": 1 } ], "resolution": "GM states two concrete weaknesses; mark downtime advantage." },
+    { "id": "THRONE", "name": "The Throne", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "CMD_BEACON", "quantity": 1 } ], "resolution": "Add Beacon; must be activated at start of round 1 if used." },
+    { "id": "ASCENDANT", "name": "The Ascendant", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 1, "count": 2, "cap": 20 }, { "type": "grant_free_boost_per_encounter", "count_encounters": 3, "value": "1d4" } ], "resolution": "Apply permanent +1 to two different abilities; track 3 free boosts." },
+    { "id": "HALO", "name": "The Halo", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "ASCENDANT_HALO", "quantity": 1 } ], "resolution": "Add legendary utility and its uses." },
+
+    { "id": "RUIN", "name": "Ruin", "polarity": "bad", "effect": [ { "type": "credits_delta", "value": -20000 } ], "resolution": "Deduct credits immediately." },
+    { "id": "TALONS", "name": "Talons", "polarity": "bad", "effect": [ { "type": "destroy_equipped_items", "count": 2, "priority": ["highest_rarity_first"], "exceptions": ["bonded_legendary_1_item_choice"] } ], "resolution": "Remove items; note they cannot be recovered except via major story quest." },
+    { "id": "IDIOT", "name": "The Idiot", "polarity": "bad", "effect": [ { "type": "xp_delta", "value": -2500 }, { "type": "ability_score_decrease_perm", "ability": "INT", "value": -2, "floor": 3 } ], "resolution": "Apply losses; only a major quest can restore the permanent INT loss (+2)." },
+    { "id": "EURYALE", "name": "Euryale", "polarity": "bad", "effect": [ { "type": "attack_penalty_curse", "value": -2, "duration": "until_cleansed" }, { "type": "cleanse_method", "methods": [ { "downtime": "Gather Intel", "dc": 15, "successes_required": 2 }, { "item": "PRISM_EDGE", "special_counter": "Spend 3 SP to shatter the curse once" } ] } ], "resolution": "Track –2 to all attack rolls until a listed cleanse completes." },
+    { "id": "SKULL", "name": "Skull", "polarity": "bad", "effect": [ { "type": "spawn_enemy_1v1", "enemy_template": "HERALD_OF_SILENCE", "rule": "Only the drawer can damage it until it is reduced to 0 HP" } ], "resolution": "Run immediate duel if drawn during combat; otherwise at next safe opportunity." },
+    { "id": "DONJON", "name": "Donjon", "polarity": "bad", "effect": [ { "type": "imprison_drawer", "state": "removed_from_play", "rescue": { "mission_required": true, "scenes_required": 2, "fail_consequence": "drawer loses 1000 xp and 5000 cr" } } ], "resolution": "Team must rescue via a focused side-mission." },
+    { "id": "FLAMES", "name": "Flames", "polarity": "bad", "effect": [ { "type": "faction_rep_delta", "faction": "chosen_major", "value": -2 }, { "type": "spawn_hunters", "tier": 2, "count": 1, "frequency": "once_per_session_until_you_complete_parley" } ], "resolution": "Hunters appear once per session; a successful Media Control or Parley scene dismisses them." },
+    { "id": "ROGUE", "name": "Rogue", "polarity": "bad", "effect": [ { "type": "convert_contact_to_enemy", "pick_existing_contact": true }, { "type": "steal_item_or_credits", "priority": "highest_rarity_item_else_5000cr" } ], "resolution": "Mark contact hostile; stolen goods are gone unless retrieved in play." },
+    { "id": "FOOL", "name": "Fool", "polarity": "bad", "effect": [ { "type": "xp_delta", "value": -2000 }, { "type": "force_draw", "pool": "bad_only", "count": 1 } ], "resolution": "Apply XP loss; immediately draw one additional bad shard and resolve it." },
+    { "id": "STATIC", "name": "Static", "polarity": "bad", "effect": [ { "type": "choice", "options": [ { "ability_score_decrease_perm": { "ability_choice": true, "value": -2, "floor": 3 } }, { "lose_one_trained_skill_perm": true } ] } ], "resolution": "Apply chosen permanent penalty." },
+
+    { "id": "LEGEND_KNIGHT_COMMANDER", "name": "Legendary Shard — The Knight-Commander", "polarity": "legendary", "effect": [ { "type": "spawn_ally_loyal_permanent", "npc_id": "ALLY_KNIGHT_COMMANDER_AERIN", "tier": 3 }, { "type": "title_award", "title": "Commander’s Aegis", "mechanic": "Once per session you may call Aerin to your location within 1 scene if plausible." } ], "resolution": "Add ally sheet; loyal to the drawer permanently unless slain." },
+    { "id": "LEGEND_ECHO_ZERO", "name": "Legendary Shard — The Echo Zero", "polarity": "legendary", "effect": [ { "type": "spawn_ally_loyal_permanent", "npc_id": "ALLY_ECHO_OPERATIVE_ZERO", "tier": 3 }, { "type": "bond", "text": "Z3R0 shares a psi-link with the drawer; once/combat, the drawer may reroll a failed save." } ], "resolution": "Add ally sheet; loyal to the drawer permanently unless slain." },
+    { "id": "LEGEND_NEMESIS_NYX", "name": "Legendary Shard — Nemesis Nyx", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_NYX", "tier": 3 }, { "type": "immediate_theft", "steal": { "priority": "highest_rarity_non_bonded_item", "fallback_credits": 10000 } } ], "resolution": "Nyx becomes the drawer’s archenemy and returns if driven off." },
+    { "id": "LEGEND_INQUISITOR_SILAS", "name": "Legendary Shard — Inquisitor Silas", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_SILAS", "tier": 3 }, { "type": "faction_rep_delta", "faction": "Conclave", "value": -1 } ], "resolution": "Silas marks the drawer for doctrinal judgment and recurs until defeated." }
   ];
 
   const SOMF_DECK = {
@@ -497,7 +526,7 @@
       "HERALD_OF_SILENCE": {
         "id": "HERALD_OF_SILENCE",
         "name": "Herald of Silence",
-        "created_by_shard": "SKULL",
+        "created_by_shard": "WRAITH",
         "role": "Enemy",
         "affiliation": "Morvox",
         "tier": 2,
@@ -529,7 +558,7 @@
       "PFV_HUNTER_RIOT_UNIT": {
         "id": "PFV_HUNTER_RIOT_UNIT",
         "name": "PFV Hunter (Riot Unit)",
-        "created_by_shard": "FLAMES",
+        "created_by_shard": "UPRISING",
         "role": "Enemy",
         "affiliation": "PFV",
         "tier": 2,
@@ -564,7 +593,7 @@
       "OMNI_TRACKER_RECON": {
         "id": "OMNI_TRACKER_RECON",
         "name": "O.M.N.I. Tracker (Recon Marksman)",
-        "created_by_shard": "FLAMES",
+        "created_by_shard": "UPRISING",
         "role": "Enemy",
         "affiliation": "O.M.N.I.",
         "tier": 2,
@@ -598,7 +627,7 @@
       "CONCLAVE_CENSOR": {
         "id": "CONCLAVE_CENSOR",
         "name": "Conclave Censor (Edict Enforcer)",
-        "created_by_shard": "FLAMES",
+        "created_by_shard": "UPRISING",
         "role": "Enemy",
         "affiliation": "Conclave",
         "tier": 2,
@@ -632,7 +661,7 @@
       "GREYLINE_ENFORCER": {
         "id": "GREYLINE_ENFORCER",
         "name": "Greyline Enforcer (Shock Cell)",
-        "created_by_shard": "FLAMES",
+        "created_by_shard": "UPRISING",
         "role": "Enemy",
         "affiliation": "Greyline",
         "tier": 2,
@@ -664,64 +693,32 @@
         ]
       }
 
-    },
-    "shards": [
-      { "id": "SUNSHARD", "name": "The Sun", "polarity": "good", "effect": [ { "type": "xp_delta", "value": 5000 }, { "type": "grant_item", "item_id": "SOLARIS_DIADEM", "quantity": 1 } ], "resolution": "Add XP and item immediately." },
-      { "id": "GEM", "name": "The Gem", "polarity": "good", "effect": [ { "type": "credits_delta", "value": 20000 }, { "type": "grant_item", "item_id": "SHARD_BATTERY", "quantity": 3 } ], "resolution": "Credit the account; add consumables." },
-      { "id": "KEY", "name": "The Key", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "PRISM_EDGE", "quantity": 1 } ], "requirements": { "owner_binds_on_equip": true }, "resolution": "Bind legendary weapon to the drawer." },
-      { "id": "STAR", "name": "The Star", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 2, "cap": 20 }, { "type": "skill_bonus_perm", "target_skill_choice": true, "value": 2 } ], "resolution": "Apply permanent changes; obey ability cap." },
-      { "id": "MOON", "name": "The Moon", "polarity": "good", "effect": [ { "type": "choose_one", "options": [ { "xp_delta": 3000 }, { "credits_delta": 15000 }, { "remove_one_negative_shard_curse": true } ] } ], "resolution": "Record chosen boon and apply." },
-      { "id": "COMET", "name": "The Comet", "polarity": "good", "effect": [ { "type": "flag_next_combat_bounty", "condition": "drawer_deals_final_blow_to_highest_hp_enemy", "rewards": [ { "type": "xp_delta", "value": 1500 }, { "type": "grant_item", "item_id": "COMET_SPURS", "quantity": 1 } ] } ], "resolution": "Check condition at end of combat; grant rewards if met." },
-      { "id": "VIZIER", "name": "The Vizier", "polarity": "good", "effect": [ { "type": "declare_two_mechanical_weaknesses_on_next_boss" }, { "type": "downtime_advantage", "task": "Research", "uses": 1 } ], "resolution": "GM states two concrete weaknesses; mark downtime advantage." },
-      { "id": "THRONE", "name": "The Throne", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "CMD_BEACON", "quantity": 1 } ], "resolution": "Add Beacon; must be activated at start of round 1 if used." },
-      { "id": "ASCENDANT", "name": "The Ascendant", "polarity": "good", "effect": [ { "type": "ability_score_increase_perm", "choices": ["STR","DEX","CON","INT","WIS","CHA"], "value": 1, "count": 2, "cap": 20 }, { "type": "grant_free_boost_per_encounter", "count_encounters": 3, "value": "1d4" } ], "resolution": "Apply permanent +1 to two different abilities; track 3 free boosts." },
-      { "id": "HALO", "name": "The Halo", "polarity": "good", "effect": [ { "type": "grant_item", "item_id": "ASCENDANT_HALO", "quantity": 1 } ], "resolution": "Add legendary utility and its uses." },
-
-      { "id": "RUIN", "name": "Ruin", "polarity": "bad", "effect": [ { "type": "credits_delta", "value": -20000 } ], "resolution": "Deduct credits immediately." },
-      { "id": "TALONS", "name": "Talons", "polarity": "bad", "effect": [ { "type": "destroy_equipped_items", "count": 2, "priority": ["highest_rarity_first"], "exceptions": ["bonded_legendary_1_item_choice"] } ], "resolution": "Remove items; note they cannot be recovered except via major story quest." },
-      { "id": "IDIOT", "name": "The Idiot", "polarity": "bad", "effect": [ { "type": "xp_delta", "value": -2500 }, { "type": "ability_score_decrease_perm", "ability": "INT", "value": -2, "floor": 3 } ], "resolution": "Apply losses; only a major quest can restore the permanent INT loss (+2)." },
-      { "id": "EURYALE", "name": "Euryale", "polarity": "bad", "effect": [ { "type": "attack_penalty_curse", "value": -2, "duration": "until_cleansed" }, { "type": "cleanse_method", "methods": [ { "downtime": "Gather Intel", "dc": 15, "successes_required": 2 }, { "item": "PRISM_EDGE", "special_counter": "Spend 3 SP to shatter the curse once" } ] } ], "resolution": "Track –2 to all attack rolls until a listed cleanse completes." },
-      { "id": "SKULL", "name": "Skull", "polarity": "bad", "effect": [ { "type": "spawn_enemy_1v1", "enemy_template": "HERALD_OF_SILENCE", "rule": "Only the drawer can damage it until it is reduced to 0 HP" } ], "resolution": "Run immediate duel if drawn during combat; otherwise at next safe opportunity." },
-      { "id": "DONJON", "name": "Donjon", "polarity": "bad", "effect": [ { "type": "imprison_drawer", "state": "removed_from_play", "rescue": { "mission_required": true, "scenes_required": 2, "fail_consequence": "drawer loses 1000 xp and 5000 cr" } } ], "resolution": "Team must rescue via a focused side-mission." },
-      { "id": "FLAMES", "name": "Flames", "polarity": "bad", "effect": [ { "type": "faction_rep_delta", "faction": "chosen_major", "value": -2 }, { "type": "spawn_hunters", "tier": 2, "count": 1, "frequency": "once_per_session_until_you_complete_parley" } ], "resolution": "Hunters appear once per session; a successful Media Control or Parley scene dismisses them." },
-      { "id": "ROGUE", "name": "Rogue", "polarity": "bad", "effect": [ { "type": "convert_contact_to_enemy", "pick_existing_contact": true }, { "type": "steal_item_or_credits", "priority": "highest_rarity_item_else_5000cr" } ], "resolution": "Mark contact hostile; stolen goods are gone unless retrieved in play." },
-      { "id": "FOOL", "name": "Fool", "polarity": "bad", "effect": [ { "type": "xp_delta", "value": -2000 }, { "type": "force_draw", "pool": "bad_only", "count": 1 } ], "resolution": "Apply XP loss; immediately draw one additional bad shard and resolve it." },
-      { "id": "STATIC", "name": "Static", "polarity": "bad", "effect": [ { "type": "choice", "options": [ { "ability_score_decrease_perm": { "ability_choice": true, "value": -2, "floor": 3 } }, { "lose_one_trained_skill_perm": true } ] } ], "resolution": "Apply chosen permanent penalty." },
-
-      { "id": "LEGEND_KNIGHT_COMMANDER", "name": "Legendary Shard — The Knight-Commander", "polarity": "legendary", "effect": [ { "type": "spawn_ally_loyal_permanent", "npc_id": "ALLY_KNIGHT_COMMANDER_AERIN", "tier": 3 }, { "type": "title_award", "title": "Commander’s Aegis", "mechanic": "Once per session you may call Aerin to your location within 1 scene if plausible." } ], "resolution": "Add ally sheet; loyal to the drawer permanently unless slain." },
-      { "id": "LEGEND_ECHO_ZERO", "name": "Legendary Shard — The Echo Zero", "polarity": "legendary", "effect": [ { "type": "spawn_ally_loyal_permanent", "npc_id": "ALLY_ECHO_OPERATIVE_ZERO", "tier": 3 }, { "type": "bond", "text": "Z3R0 shares a psi-link with the drawer; once/combat, the drawer may reroll a failed save." } ], "resolution": "Add ally sheet; loyal to the drawer permanently unless slain." },
-      { "id": "LEGEND_NEMESIS_NYX", "name": "Legendary Shard — Nemesis Nyx", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_NYX", "tier": 3 }, { "type": "immediate_theft", "steal": { "priority": "highest_rarity_non_bonded_item", "fallback_credits": 10000 } } ], "resolution": "Nyx becomes the drawer’s archenemy and returns if driven off." },
-      { "id": "LEGEND_INQUISITOR_SILAS", "name": "Legendary Shard — Inquisitor Silas", "polarity": "legendary", "effect": [ { "type": "spawn_archenemy_permanent", "npc_id": "ENEMY_ARCHNEMESIS_SILAS", "tier": 3 }, { "type": "faction_rep_delta", "faction": "Conclave", "value": -1 } ], "resolution": "Silas marks the drawer for doctrinal judgment and recurs until defeated." }
-    ]
+    }
   };
 
-  const LEGACY_PLATE_BY_ID = Object.fromEntries(LEGACY_PLATES.map(plate => [plate.id, plate]));
-  const normalizedShards = Array.isArray(SOMF_DECK.shards)
-    ? SOMF_DECK.shards.map(shard => {
-      if (!shard || typeof shard !== 'object') return shard;
-      const legacy = LEGACY_PLATE_BY_ID[shard.id];
-      if (!legacy) return shard;
-      const merged = { ...shard };
-      if (legacy.name) merged.name = legacy.name;
-      if (legacy.visual) merged.visual = legacy.visual;
-      if (Array.isArray(legacy.player)) merged.player = legacy.player.slice();
-      if (Array.isArray(legacy.dm)) merged.dm = legacy.dm.slice();
-      return merged;
-    })
-    : [];
+  const LEGACY_SHARD_BY_ID = Object.fromEntries(
+    LEGACY_STRUCTURED_SHARDS
+      .filter(shard => shard && typeof shard.id === 'string' && shard.id)
+      .map(shard => [shard.id, shard])
+  );
 
-  if (normalizedShards.length) {
-    SOMF_DECK.shards = normalizedShards;
-  } else {
-    SOMF_DECK.shards = LEGACY_PLATES.map(legacy => ({
-      id: legacy.id,
-      name: legacy.name,
-      visual: legacy.visual,
-      player: Array.isArray(legacy.player) ? legacy.player.slice() : [],
-      dm: Array.isArray(legacy.dm) ? legacy.dm.slice() : [],
-    }));
-  }
+  const CURRENT_SHARDS = SHARDS_OF_MANY_FATES.map(plate => {
+    if (!plate || typeof plate !== 'object' || typeof plate.id !== 'string') return null;
+    const legacy = LEGACY_SHARD_BY_ID[plate.id];
+    const merged = legacy ? { ...legacy } : {};
+    merged.id = plate.id;
+    merged.name = plate.name || merged.name || plate.id;
+    merged.visual = plate.visual || merged.visual || '';
+    merged.player = Array.isArray(plate.player)
+      ? plate.player.slice()
+      : (Array.isArray(merged.player) ? merged.player.slice() : []);
+    merged.dm = Array.isArray(plate.dm)
+      ? plate.dm.slice()
+      : (Array.isArray(merged.dm) ? merged.dm.slice() : []);
+    return merged;
+  }).filter(Boolean);
 
+  SOMF_DECK.shards = CURRENT_SHARDS;
 
   const RESOLVE_OPTIONS = [
     {name:'Stabilize the Fracture', desc:'Seal the shard in PFV Vault stasis to end its immediate fallout.'},
@@ -731,8 +728,9 @@
     {name:'Let Fate Ripple', desc:'Resolve the shard through a narrative twist that reshapes faction clocks or campaign stakes.'},
   ];
 
-  const PLATES = Array.isArray(SOMF_DECK.shards) && SOMF_DECK.shards.length ? SOMF_DECK.shards : LEGACY_PLATES;
+  const PLATES = Array.isArray(SOMF_DECK.shards) ? SOMF_DECK.shards : [];
   const PLATE_BY_ID = Object.fromEntries(PLATES.map(plate => [plate.id, plate]));
+  const FALLBACK_PLATE_BY_ID = LEGACY_SHARD_BY_ID;
   const ITEM_BY_ID = SOMF_DECK.items || {};
   const NPC_BY_ID = SOMF_DECK.npcs || {};
   const NPCS_BY_SHARD = Object.values(NPC_BY_ID).reduce((map, npc) => {
@@ -1136,7 +1134,8 @@
       return ids;
     },
     shardById(id) {
-      return PLATE_BY_ID[id] || null;
+      if (typeof id !== 'string' || !id) return null;
+      return PLATE_BY_ID[id] || FALLBACK_PLATE_BY_ID[id] || null;
     },
     allShards() {
       return PLATES.slice();
