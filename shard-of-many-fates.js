@@ -182,6 +182,41 @@
     ]},
   ];
 
+  const SHARD_ART_BASE = ['images', 'The Shards of Many Fates Art']
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+
+  const SHARD_ART_BY_ID = {
+    VAULT: 'The Vault.png',
+    ECHO: 'The Echo.png',
+    JUDGE: 'The Judge.png',
+    COMET: 'The Comet.png',
+    CONTRACT: 'The Contract.png',
+    PEACEKEEPER: 'The Peacekeeper.png',
+    WRAITH: 'The Wraith.png',
+    KEY: 'The Key.png',
+    THRONE: 'The Throne.png',
+    CRASH: 'The Crash.png',
+    CHRONICLE: 'The Chronicile.png',
+    SUNSHARD: 'The Sunshard.png',
+    MOONSHARD: 'The Moonshard.png',
+    STARSHARD: 'The Starshard.png',
+    SCRAMBLER: 'The Scrambler.png',
+    UPRISING: 'The Uprising.png',
+    GORGON_CODE: 'The Gorgon Code.png',
+    GLITCH: 'The Glitch.png',
+    PRANK: 'The Prank.png',
+    CATALYST: 'The Catalyst.png',
+    WANDERER: 'The Wanderer.png',
+    VOID: 'The Void.png',
+  };
+
+  const shardArtById = id => {
+    if (typeof id !== 'string' || !id) return null;
+    const file = SHARD_ART_BY_ID[id];
+    return file ? `${SHARD_ART_BASE}/${encodeURIComponent(file)}` : null;
+  };
+
   const LEGACY_STRUCTURED_SHARDS = [
     { "id": "SUNSHARD", "name": "The Sun", "polarity": "good", "effect": [ { "type": "xp_delta", "value": 5000 }, { "type": "grant_item", "item_id": "SOLARIS_DIADEM", "quantity": 1 } ], "resolution": "Add XP and item immediately." },
     { "id": "GEM", "name": "The Gem", "polarity": "good", "effect": [ { "type": "credits_delta", "value": 20000 }, { "type": "grant_item", "item_id": "SHARD_BATTERY", "quantity": 3 } ], "resolution": "Credit the account; add consumables." },
@@ -1067,7 +1102,7 @@
 
   function plateForPlayer(plate) {
     if (!plate) {
-      return { id: 'UNKNOWN', name: 'Unknown Shard', visual: '—', player: ['No effect data available.'] };
+      return { id: 'UNKNOWN', name: 'Unknown Shard', visual: '—', player: ['No effect data available.'], image: null };
     }
     if (Array.isArray(plate.player) && plate.player.length) {
       return {
@@ -1075,6 +1110,7 @@
         name: plate.name || plate.id,
         visual: plate.visual || sentenceCase(plate.polarity ? `${plate.polarity} shard` : '') || '—',
         player: plate.player.slice(),
+        image: shardArtById(plate.id),
       };
     }
     const lines = [];
@@ -1090,6 +1126,7 @@
       name: plate.name || plate.id || 'Unknown Shard',
       visual: visualParts.filter(Boolean).join(' • ') || '—',
       player: lines.length ? lines : ['No effect data available.'],
+      image: shardArtById(plate.id),
     };
   }
 
@@ -1705,14 +1742,9 @@
         drawBtn: dom.one('#somf-min-draw'),
         card: dom.one('#somf-min'),
         modal: dom.one('#somf-min-modal'),
+        backdrop: dom.one('#somf-min-modal [data-somf-dismiss]'),
         close: dom.one('#somf-min-close'),
-        name: dom.one('#somf-min-name'),
-        visual: dom.one('#somf-min-visual'),
-        effect: dom.one('#somf-min-effect'),
-        idx: dom.one('#somf-min-idx'),
-        total: dom.one('#somf-min-total'),
-        resolved: dom.one('#somf-min-resolved'),
-        next: dom.one('#somf-min-next'),
+        image: dom.one('#somf-min-image'),
       };
     }
 
@@ -1722,18 +1754,17 @@
         this.dom.drawBtn.__somfBound = true;
       }
       if (this.dom.close && !this.dom.close.__somfBound) {
-        this.dom.close.addEventListener('click', () => this.closeModal());
+        this.dom.close.addEventListener('click', () => this.dismissCurrent());
         this.dom.close.__somfBound = true;
       }
-      if (this.dom.resolved && !this.dom.resolved.__somfBound) {
-        this.dom.resolved.addEventListener('change', () => {
-          if (this.dom.next) this.dom.next.disabled = !this.dom.resolved.checked;
+      if (this.dom.modal && !this.dom.modal.__somfDismissBound) {
+        this.dom.modal.addEventListener('click', evt => {
+          const target = evt.target;
+          if (target === this.dom.modal || target === this.dom.backdrop || target?.dataset?.somfDismiss !== undefined) {
+            this.dismissCurrent();
+          }
         });
-        this.dom.resolved.__somfBound = true;
-      }
-      if (this.dom.next && !this.dom.next.__somfBound) {
-        this.dom.next.addEventListener('click', () => this.advanceQueue());
-        this.dom.next.__somfBound = true;
+        this.dom.modal.__somfDismissBound = true;
       }
     }
 
@@ -1780,7 +1811,7 @@
             nextQueue.push({ ...plate, name, _noticeKey: notice.key, _noticeIndex: index, _noticeTs: notice.ts || 0 });
           });
         } else {
-          nextQueue.push({ id: notice.key, name: notice.names.join(', '), visual: '—', player: ['No effect data available.'], _noticeKey: notice.key, _noticeIndex: 0, _noticeTs: notice.ts || 0 });
+          nextQueue.push({ id: notice.key, name: notice.names.join(', '), visual: '—', player: ['No effect data available.'], image: null, _noticeKey: notice.key, _noticeIndex: 0, _noticeTs: notice.ts || 0 });
         }
       });
       const previousEntry = this.queue[this.queueIndex];
@@ -1798,20 +1829,23 @@
 
     render() {
       const total = this.queue.length;
-      const entry = this.queue[this.queueIndex] || { name: '—', visual: '—', player: ['No effect data available.'] };
-      if (this.dom.name) this.dom.name.textContent = entry.name || '—';
-      if (this.dom.visual) this.dom.visual.textContent = entry.visual || '—';
-      if (this.dom.effect) {
-        const list = Array.isArray(entry.player) && entry.player.length ? entry.player : ['No effect data available.'];
-        this.dom.effect.innerHTML = list.map(line => `<li>${line}</li>`).join('');
+      if (this.queueIndex >= total) {
+        this.queueIndex = total ? total - 1 : 0;
       }
-      if (this.dom.idx) this.dom.idx.textContent = total ? String(Math.min(this.queueIndex + 1, total)) : '0';
-      if (this.dom.total) this.dom.total.textContent = String(total);
-      if (this.dom.resolved) {
-        this.dom.resolved.checked = false;
-        this.dom.resolved.disabled = total === 0;
+      const entry = total ? this.queue[this.queueIndex] : null;
+      if (this.dom.image) {
+        const src = entry?.image || '';
+        if (src) {
+          if (this.dom.image.getAttribute('src') !== src) {
+            this.dom.image.setAttribute('src', src);
+          }
+          this.dom.image.hidden = false;
+        } else {
+          this.dom.image.removeAttribute('src');
+          this.dom.image.hidden = true;
+        }
+        this.dom.image.alt = 'Shard artwork';
       }
-      if (this.dom.next) this.dom.next.disabled = true;
     }
 
     async onDraw() {
@@ -1833,12 +1867,23 @@
     }
 
     openModal() {
-      if (this.dom.modal) this.dom.modal.hidden = false;
       this.render();
+      if (this.dom.modal) this.dom.modal.hidden = false;
     }
 
     closeModal() {
       if (this.dom.modal) this.dom.modal.hidden = true;
+    }
+
+    dismissCurrent() {
+      if (this.queue.length) {
+        if (this.queueIndex < this.queue.length - 1) {
+          this.queueIndex += 1;
+        } else if (this.queueIndex >= this.queue.length) {
+          this.queueIndex = this.queue.length - 1;
+        }
+      }
+      this.closeModal();
     }
 
     async playAnimation() {
@@ -1887,16 +1932,6 @@
         flash.classList.add('show');
         setTimeout(cleanup, 1100);
       });
-    }
-
-    advanceQueue() {
-      if (!this.dom.resolved?.checked) return;
-      if (this.queueIndex < this.queue.length - 1) {
-        this.queueIndex += 1;
-        this.render();
-      } else {
-        this.closeModal();
-      }
     }
 
     applyHiddenState(hidden) {

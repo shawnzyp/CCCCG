@@ -837,27 +837,14 @@
 </div>
 
 <div id="somf-min-modal" class="somf-modal" hidden>
-  <div class="somf-modal__backdrop"></div>
-  <div class="somf-modal__card">
+  <div class="somf-modal__backdrop" data-somf-dismiss></div>
+  <div class="somf-modal__card somf-modal__card--image">
     <button id="somf-min-close" class="somf-modal__x" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <header class="somf-modal__hdr">
-      <strong>Shard</strong>
-    </header>
-    <div class="somf-modal__body">
-      <h4 id="somf-min-name" class="somf-subttl">—</h4>
-      <p id="somf-min-visual" class="somf-muted">—</p>
-      <ul id="somf-min-effect" class="somf-list"></ul>
-      <div id="somf-min-progress" class="somf-progress">Shard <span id="somf-min-idx">0</span>/<span id="somf-min-total">0</span></div>
-    </div>
-    <footer class="somf-modal__ftr">
-      <label class="somf-checkbox"><input id="somf-min-resolved" type="checkbox"> <span>Mark resolved</span></label>
-      <div class="somf-flex-spacer"></div>
-      <button id="somf-min-next" class="somf-btn somf-primary" disabled>Next</button>
-    </footer>
+    <img id="somf-min-image" class="somf-modal__art" alt="Shard artwork" loading="lazy">
   </div>
 </div>
 

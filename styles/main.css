@@ -925,6 +925,9 @@ select[required]:valid{
 .somf-modal { position:fixed; inset:0; z-index:9999; display:grid; place-items:center }
 .somf-modal__backdrop { position:absolute; inset:0; background:rgba(0,0,0,.5) }
 .somf-modal__card { position:relative; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:var(--radius); width:min(640px, 96vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:var(--shadow) }
+.somf-modal__card--image{background:transparent;border:none;box-shadow:none;padding:0;display:block;width:auto;max-width:min(90vw,720px);max-height:90vh}
+.somf-modal__card--image .somf-modal__x{color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.6)}
+.somf-modal__art{display:block;width:100%;height:auto;max-width:min(90vw,720px);max-height:90vh;border-radius:var(--radius);box-shadow:var(--shadow)}
 .somf-modal__hdr, .somf-modal__ftr { display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line) }
 .somf-modal__ftr { border-top:1px solid var(--line); border-bottom:none }
 .somf-modal__body { padding:12px; overflow:auto }
