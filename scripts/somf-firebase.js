@@ -1,12 +1,12 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-import { getDatabase } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+import firebase from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js';
+import 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js';
 
 const firebaseConfig = {
   databaseURL: 'https://ccccg-7d6b6-default-rtdb.firebaseio.com'
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+const db = firebase.database(app);
 
 // The main runtime defines a global helper (SOMF_MIN.setFirebase) during its
 // own initialization. This file loads before that script, so the helper may not
