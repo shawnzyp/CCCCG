@@ -992,8 +992,14 @@ select[required]:valid{
 .somf-dm__list li{border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer}
 .somf-dm__list li:first-child{border-top:none}
 .somf-dm__list li.active{background:#0b2a3a}
+.somf-dm__noticeNames{opacity:.8}
+.somf-dm__link{color:#8fc7ff;background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline}
+.somf-dm__link:hover{color:#cfe7ff}
+.somf-dm__link:focus-visible{outline:2px solid #2b9dff;outline-offset:2px}
 .somf-dm__card{border:1px solid #1b2532;border-radius:8px;background:#0b1119;padding:12px;min-height:160px}
 .somf-dm__subcard{border:1px dashed #223044;border-radius:8px;background:#0c0f13;padding:10px;margin-top:8px}
+@keyframes somf-dm-card-highlight{0%{box-shadow:0 0 0 0 rgba(43,157,255,.6)}50%{box-shadow:0 0 0 6px rgba(43,157,255,.25)}100%{box-shadow:0 0 0 0 rgba(43,157,255,0)}}
+#somfDM-tab-cards .somf-dm__card--highlight{border-color:#2b9dff!important;animation:somf-dm-card-highlight 2s ease-out}
 .somf-seeds{display:grid;gap:8px}
 .somf-seed{border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px}
 .somf-seed h6{margin:0 0 4px 0}

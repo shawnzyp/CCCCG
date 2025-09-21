@@ -2183,7 +2183,10 @@
         this.notices.forEach((notice, index) => {
           const li = document.createElement('li');
           li.dataset.key = notice.key || '';
-          li.innerHTML = `<strong>${notice.count || notice.names.length || 1} shard(s)</strong><div style="opacity:.8">${notice.names.join(', ')}</div>`;
+          const count = document.createElement('strong');
+          count.textContent = `${notice.count || notice.names.length || 1} shard(s)`;
+          li.appendChild(count);
+          li.appendChild(this.renderNoticeNames(notice));
           li.addEventListener('click', () => this.selectNotice(index));
           this.dom.incoming.appendChild(li);
         });
@@ -2201,6 +2204,66 @@
       }
       if (this.notices.length) this.selectNotice(0);
       else this.selectNotice(-1);
+    }
+
+    renderNoticeNames(notice) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'somf-dm__noticeNames';
+      const names = Array.isArray(notice?.names) ? notice.names : [];
+      const ids = Array.isArray(notice?.ids) ? notice.ids : [];
+      names.forEach((name, idx) => {
+        if (idx > 0) wrapper.appendChild(document.createTextNode(', '));
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'somf-dm__link';
+        btn.textContent = name;
+        btn.addEventListener('click', event => {
+          event.stopPropagation();
+          this.focusShard(ids[idx] || name);
+        });
+        wrapper.appendChild(btn);
+      });
+      if (!wrapper.childNodes.length) wrapper.textContent = '—';
+      return wrapper;
+    }
+
+    focusShard(ref) {
+      const shardId = this.resolveShardId(ref);
+      if (!shardId) return false;
+      this.activateTab('cards');
+      const applyFocus = () => {
+        const card = document.getElementById(`somfDM-card-${shardId}`);
+        if (!card) return;
+        if (typeof card.scrollIntoView === 'function') {
+          try { card.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+          catch { card.scrollIntoView(); }
+        }
+        this.highlightCard(card);
+      };
+      setTimeout(applyFocus, 0);
+      return true;
+    }
+
+    resolveShardId(ref) {
+      if (typeof ref !== 'string') return null;
+      const trimmed = ref.trim();
+      if (!trimmed) return null;
+      if (Catalog.shardById(trimmed)) return trimmed;
+      const upper = trimmed.toUpperCase();
+      if (Catalog.shardById(upper)) return upper;
+      const lower = trimmed.toLowerCase();
+      const match = Catalog.allShards().find(plate => (plate?.name || '').toLowerCase() === lower);
+      return match?.id || null;
+    }
+
+    highlightCard(card) {
+      if (!card) return;
+      card.classList.add('somf-dm__card--highlight');
+      if (card.__somfHighlightTimeout) clearTimeout(card.__somfHighlightTimeout);
+      card.__somfHighlightTimeout = setTimeout(() => {
+        card.classList.remove('somf-dm__card--highlight');
+        card.__somfHighlightTimeout = null;
+      }, 2000);
     }
 
     selectNotice(index) {
