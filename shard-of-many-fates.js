@@ -1068,6 +1068,34 @@
     };
   }
 
+  function plateForDM(plate) {
+    if (!plate) {
+      return { id: 'UNKNOWN', name: 'Unknown Shard', desc: ['No GM information available.'] };
+    }
+    const name = plate.name || plate.id || 'Unknown Shard';
+    if (Array.isArray(plate.dm) && plate.dm.length) {
+      return { id: plate.id, name, desc: plate.dm.slice() };
+    }
+    const details = [];
+    const effects = Array.isArray(plate.effect) ? plate.effect : (plate.effect ? [plate.effect] : []);
+    effects.map(summarizeEffect).filter(Boolean).forEach(line => details.push(line));
+    if (plate.requirements) {
+      const reqEntries = Object.entries(plate.requirements)
+        .map(([key, value]) => {
+          if (value == null || value === false) return '';
+          if (typeof value === 'boolean') {
+            return sentenceCase(words(key));
+          }
+          return `${sentenceCase(words(key))}: ${summarizeChoiceOption(value)}`.trim();
+        })
+        .filter(Boolean);
+      if (reqEntries.length) details.push(`Requirements: ${reqEntries.join('; ')}`);
+    }
+    if (plate.resolution) details.push(`Resolution: ${plate.resolution}`);
+    if (!details.length) details.push('No GM information available.');
+    return { id: plate.id, name, desc: details };
+  }
+
   const Catalog = {
     shardIds() {
       return PLATES.map(plate => plate.id);
@@ -1115,6 +1143,9 @@
     },
     playerCard(plate) {
       return plateForPlayer(plate);
+    },
+    dmCard(plate) {
+      return plateForDM(plate);
     },
     shardName(id) {
       return this.shardById(id)?.name || id;
@@ -1719,7 +1750,8 @@
         if (ids.length) {
           ids.forEach((id, index) => {
             const plate = Catalog.playerCard(Catalog.shardById(id));
-            nextQueue.push({ ...plate, _noticeKey: notice.key, _noticeIndex: index, _noticeTs: notice.ts || 0 });
+            const name = notice.names?.[index] || plate.name || Catalog.shardName(id);
+            nextQueue.push({ ...plate, name, _noticeKey: notice.key, _noticeIndex: index, _noticeTs: notice.ts || 0 });
           });
         } else {
           nextQueue.push({ id: notice.key, name: notice.names.join(', '), visual: '—', player: ['No effect data available.'], _noticeKey: notice.key, _noticeIndex: 0, _noticeTs: notice.ts || 0 });
@@ -2084,8 +2116,13 @@
           const card = document.createElement('div');
           card.style.cssText = 'border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px;margin-bottom:8px;';
           card.id = `somfDM-card-${plate.id}`;
-          const player = Catalog.playerCard(plate);
-          card.innerHTML = `<div><strong>${player.name}</strong></div><div style="opacity:.8;font-size:12px">${player.visual}</div><ul style="margin:6px 0 0 18px;padding:0">${player.player.map(line => `<li>${line}</li>`).join('')}</ul>`;
+          const dm = Catalog.dmCard(plate);
+          const subtitleParts = [];
+          if (plate.polarity) subtitleParts.push(`${sentenceCase(plate.polarity)} shard`);
+          if (plate.id) subtitleParts.push(`ID: ${plate.id}`);
+          const subtitle = subtitleParts.filter(Boolean).join(' • ') || '—';
+          const lines = Array.isArray(dm.desc) && dm.desc.length ? dm.desc : ['No GM information available.'];
+          card.innerHTML = `<div><strong>${dm.name}</strong></div><div style="opacity:.8;font-size:12px">${subtitle}</div><ul style="margin:6px 0 0 18px;padding:0">${lines.map(line => `<li>${line}</li>`).join('')}</ul>`;
           this.dom.cardTab.appendChild(card);
         });
       }
