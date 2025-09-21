@@ -708,6 +708,13 @@
   const PLATE_BY_ID = Object.fromEntries(PLATES.map(plate => [plate.id, plate]));
   const ITEM_BY_ID = SOMF_DECK.items || {};
   const NPC_BY_ID = SOMF_DECK.npcs || {};
+  const NPCS_BY_SHARD = Object.values(NPC_BY_ID).reduce((map, npc) => {
+    const shard = npc?.created_by_shard;
+    if (typeof shard !== 'string' || !shard) return map;
+    if (!map[shard]) map[shard] = [];
+    map[shard].push(npc);
+    return map;
+  }, {});
 
   const dom = {
     one: selector => document.querySelector(selector),
@@ -1084,6 +1091,24 @@
     },
     allNpcs() {
       return Object.values(NPC_BY_ID);
+    },
+    npcsByShard(shardId) {
+      if (typeof shardId !== 'string' || !shardId) return [];
+      const list = NPCS_BY_SHARD[shardId];
+      return Array.isArray(list) ? list.slice() : [];
+    },
+    relatedNpcs(shardIds) {
+      const seen = new Set();
+      const results = [];
+      toStringList(shardIds).forEach(id => {
+        this.npcsByShard(id).forEach(npc => {
+          const key = npc?.id || `${id}-${results.length}`;
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          results.push(npc);
+        });
+      });
+      return results;
     },
     resolveOptions() {
       return RESOLVE_OPTIONS.slice();
@@ -1831,6 +1856,7 @@
       this.notices = [];
       this.noticeCleanup = null;
       this.hiddenCleanup = null;
+      this.relatedNpcs = [];
     }
 
     attach() {
@@ -1905,6 +1931,10 @@
         this.dom.markResolved.addEventListener('click', () => this.resolveActiveNotice());
         this.dom.markResolved.__somfBound = true;
       }
+      if (this.dom.spawnNPC && !this.dom.spawnNPC.__somfBound) {
+        this.dom.spawnNPC.addEventListener('click', () => this.handleSpawnNpc());
+        this.dom.spawnNPC.__somfBound = true;
+      }
     }
 
     activateTab(tab) {
@@ -1969,14 +1999,19 @@
         });
       }
       if (this.notices.length) this.selectNotice(0);
+      else this.selectNotice(-1);
     }
 
     selectNotice(index) {
       this.activeNotice = this.notices[index] || null;
+      this.relatedNpcs = [];
       if (!this.activeNotice) {
         if (this.dom.noticeView) this.dom.noticeView.innerHTML = '';
         if (this.dom.markResolved) this.dom.markResolved.disabled = true;
-        if (this.dom.spawnNPC) this.dom.spawnNPC.disabled = true;
+        if (this.dom.spawnNPC) {
+          this.dom.spawnNPC.disabled = true;
+          this.dom.spawnNPC.textContent = 'Spawn Related NPC';
+        }
         return;
       }
       if (this.dom.incoming) {
@@ -1989,7 +2024,15 @@
         this.dom.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(this.activeNotice.ts || Date.now()).toLocaleString()}</div><ul style="margin:6px 0 0 18px;padding:0">${list}</ul>`;
       }
       if (this.dom.markResolved) this.dom.markResolved.disabled = false;
-      if (this.dom.spawnNPC) this.dom.spawnNPC.disabled = true;
+      const related = this.runtime.catalog.relatedNpcs(this.activeNotice.ids);
+      this.relatedNpcs = related;
+      if (this.dom.spawnNPC) {
+        const count = related.length;
+        this.dom.spawnNPC.disabled = count === 0;
+        this.dom.spawnNPC.textContent = count > 1
+          ? `Spawn Related NPC (${count})`
+          : 'Spawn Related NPC';
+      }
     }
 
     async resolveActiveNotice() {
@@ -1999,6 +2042,11 @@
       await this.runtime.removeNotice(this.activeNotice.key);
       this.toast(`<strong>Resolved</strong> ${ids.length || this.activeNotice.count || 1} shard(s)`);
       await this.renderNotices();
+    }
+
+    handleSpawnNpc() {
+      if (!this.relatedNpcs.length) return;
+      this.showNpcModal(this.relatedNpcs[0], this.relatedNpcs);
     }
 
     toastNotice(notice) {
@@ -2058,7 +2106,7 @@
           li.style.cssText = 'border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer';
           if (!this.dom.npcList.children.length) li.style.borderTop = 'none';
           li.innerHTML = `<strong>${npc.name}</strong><div style="opacity:.8;font-size:12px">${sentenceCase(npc.role || '')}${npc.tier ? ` (T${npc.tier})` : ''}</div>`;
-          li.addEventListener('click', () => this.showNpcModal(npc));
+          li.addEventListener('click', () => this.showNpcModal(npc, [npc]));
           this.dom.npcList.appendChild(li);
         });
       }
@@ -2073,14 +2121,97 @@
       this.activateTab('cards');
     }
 
-    showNpcModal(npc) {
-      if (!this.dom.npcModal || !this.dom.npcModalCard) return;
-      this.dom.npcModalCard.innerHTML = `<h4>${npc.name}</h4><div style="opacity:.8">${sentenceCase(npc.role || '')}${npc.tier ? ` (T${npc.tier})` : ''}</div>`;
+    showNpcModal(npc, related = []) {
+      if (!npc || !this.dom.npcModal || !this.dom.npcModalCard) return;
+      this.dom.npcModalCard.innerHTML = '';
+
+      const title = document.createElement('h4');
+      title.textContent = npc.name || npc.id || 'Unknown NPC';
+      this.dom.npcModalCard.appendChild(title);
+
+      const meta = document.createElement('div');
+      meta.style.opacity = '.8';
+      const metaParts = [];
+      if (npc.role) metaParts.push(sentenceCase(npc.role));
+      if (npc.tier) metaParts.push(`T${npc.tier}`);
+      if (npc.affiliation) metaParts.push(npc.affiliation);
+      meta.textContent = metaParts.filter(Boolean).join(' • ') || '—';
+      this.dom.npcModalCard.appendChild(meta);
+
+      const statParts = [];
+      if (typeof npc.hp === 'number') statParts.push(`HP ${npc.hp}`);
+      if (typeof npc.sp === 'number') statParts.push(`SP ${npc.sp}`);
+      if (npc.tc_base != null) statParts.push(`TC ${npc.tc_base}`);
+      if (typeof npc.speed_ft === 'number') statParts.push(`Speed ${npc.speed_ft} ft`);
+      if (statParts.length) {
+        const stats = document.createElement('div');
+        stats.style.opacity = '.8';
+        stats.style.margin = '8px 0';
+        stats.textContent = statParts.join(' • ');
+        this.dom.npcModalCard.appendChild(stats);
+      }
+
+      if (Array.isArray(npc.features) && npc.features.length) {
+        const head = document.createElement('div');
+        head.className = 'somf-subttl';
+        head.textContent = 'Features';
+        this.dom.npcModalCard.appendChild(head);
+        const list = document.createElement('ul');
+        list.className = 'somf-list';
+        npc.features.forEach(feature => {
+          const item = document.createElement('li');
+          item.textContent = feature;
+          list.appendChild(item);
+        });
+        this.dom.npcModalCard.appendChild(list);
+      }
+
+      if (Array.isArray(npc.powers) && npc.powers.length) {
+        const head = document.createElement('div');
+        head.className = 'somf-subttl';
+        head.textContent = 'Signature Powers';
+        this.dom.npcModalCard.appendChild(head);
+        const list = document.createElement('ul');
+        list.className = 'somf-list';
+        npc.powers.slice(0, 3).forEach(power => {
+          const item = document.createElement('li');
+          const name = power?.name ? `${power.name}` : '';
+          const effect = power?.effect ? ` — ${power.effect}` : '';
+          item.textContent = (name + effect).trim() || power?.name || '—';
+          list.appendChild(item);
+        });
+        this.dom.npcModalCard.appendChild(list);
+      }
+
+      const others = Array.isArray(related)
+        ? related.filter(other => other && other.id && other.id !== npc.id)
+        : [];
+      if (others.length) {
+        const head = document.createElement('div');
+        head.className = 'somf-subttl';
+        head.textContent = 'Other related NPCs';
+        this.dom.npcModalCard.appendChild(head);
+        const list = document.createElement('ul');
+        list.className = 'somf-list';
+        others.forEach(other => {
+          const item = document.createElement('li');
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'somf-btn somf-ghost';
+          btn.textContent = other.name || other.id;
+          btn.addEventListener('click', () => this.showNpcModal(other, related));
+          item.appendChild(btn);
+          list.appendChild(item);
+        });
+        this.dom.npcModalCard.appendChild(list);
+      }
+
       const close = document.createElement('button');
       close.className = 'somf-btn somf-ghost';
       close.textContent = 'Close';
       close.addEventListener('click', () => this.hideNpcModal());
       this.dom.npcModalCard.appendChild(close);
+
       this.dom.npcModal.style.display = 'flex';
       this.dom.npcModal.classList.remove('hidden');
       this.dom.npcModal.setAttribute('aria-hidden', 'false');
