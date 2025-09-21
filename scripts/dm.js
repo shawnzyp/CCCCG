@@ -5,6 +5,11 @@ const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
 
+const escapeHtml = value => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;');
+
 function normalizeTimestamp(value) {
   if (typeof value === 'string' && value) return value;
   if (typeof value === 'number' && Number.isFinite(value)) return new Date(value).toLocaleString();
@@ -23,7 +28,10 @@ function loadStoredNotifications() {
         if (!entry || typeof entry.detail !== 'string') return null;
         const ts = normalizeTimestamp(entry.ts);
         const char = typeof entry.char === 'string' ? entry.char : '';
-        return { ts, char, detail: entry.detail };
+        const html = typeof entry.html === 'string' ? entry.html : null;
+        const record = { ts, char, detail: entry.detail };
+        if (html) record.html = html;
+        return record;
       })
       .filter(Boolean);
     if (normalized.length > MAX_STORED_NOTIFICATIONS) {
@@ -62,11 +70,20 @@ function buildNotification(detail, meta = {}) {
   if (!text) return null;
   const ts = normalizeTimestamp(meta.ts);
   const char = typeof meta.char === 'string' && meta.char ? meta.char : deriveNotificationChar();
-  return { ts, char, detail: text };
+  const entry = { ts, char, detail: text };
+  if (typeof meta.html === 'string' && meta.html) {
+    entry.html = meta.html;
+  }
+  return entry;
 }
 
-function formatNotification(entry) {
+function formatNotification(entry, { html = false } = {}) {
   const prefix = entry.char ? `${entry.char}: ` : '';
+  if (html && entry.html) {
+    const safeTs = escapeHtml(entry.ts);
+    const safePrefix = escapeHtml(prefix);
+    return `[${safeTs}] ${safePrefix}${entry.html}`;
+  }
   return `[${entry.ts}] ${prefix}${entry.detail}`;
 }
 
@@ -98,12 +115,21 @@ function initDMLogin(){
     loginPin.pattern = '[0-9]*';
   }
 
+  function applyNotificationContent(node, entry) {
+    if (!node) return;
+    if (entry?.html) {
+      node.innerHTML = formatNotification(entry, { html: true });
+    } else {
+      node.textContent = formatNotification(entry);
+    }
+  }
+
   function renderStoredNotifications() {
     if (!notifyList) return;
     notifyList.innerHTML = '';
     notifications.forEach(entry => {
       const li = document.createElement('li');
-      li.textContent = formatNotification(entry);
+      applyNotificationContent(li, entry);
       notifyList.prepend(li);
     });
   }
@@ -116,7 +142,7 @@ function initDMLogin(){
     persistNotifications();
     if (notifyList) {
       const li = document.createElement('li');
-      li.textContent = formatNotification(entry);
+      applyNotificationContent(li, entry);
       notifyList.prepend(li);
     }
   }

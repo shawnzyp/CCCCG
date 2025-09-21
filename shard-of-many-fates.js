@@ -217,6 +217,34 @@
     return file ? `${SHARD_ART_BASE}/${encodeURIComponent(file)}` : null;
   };
 
+  const escapeHtml = value => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  const escapeAttr = value => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/'/g, '&#39;');
+
+  function shardLinkMarkup({ id, label, noticeKey, noticeIndex }) {
+    if (typeof id !== 'string' || !id) return escapeHtml(label || id || '');
+    const rawLabel = String(label || id || '');
+    const attrs = [`data-somf-art="${escapeAttr(id)}"`];
+    if (typeof noticeKey === 'string' && noticeKey) {
+      attrs.push(`data-somf-notice="${escapeAttr(noticeKey)}"`);
+    }
+    if (Number.isFinite(noticeIndex)) {
+      attrs.push(`data-somf-index="${escapeAttr(String(noticeIndex))}"`);
+    }
+    const safeLabel = escapeHtml(rawLabel);
+    const title = `Open artwork for ${rawLabel}`;
+    attrs.push(`title="${escapeAttr(title)}"`);
+    return `<a href="#" ${attrs.join(' ')}>${safeLabel}</a>`;
+  }
+
   const LEGACY_STRUCTURED_SHARDS = [
     { "id": "SUNSHARD", "name": "The Sun", "polarity": "good", "effect": [ { "type": "xp_delta", "value": 5000 }, { "type": "grant_item", "item_id": "SOLARIS_DIADEM", "quantity": 1 } ], "resolution": "Add XP and item immediately." },
     { "id": "GEM", "name": "The Gem", "polarity": "good", "effect": [ { "type": "credits_delta", "value": 20000 }, { "type": "grant_item", "item_id": "SHARD_BATTERY", "quantity": 3 } ], "resolution": "Credit the account; add consumables." },
@@ -1725,6 +1753,7 @@
       this.noticeCleanup = null;
       this.hiddenCleanup = null;
       this.deckCleanup = null;
+      this.tempArtwork = null;
     }
 
     attach() {
@@ -1833,8 +1862,17 @@
         this.queueIndex = total ? total - 1 : 0;
       }
       const entry = total ? this.queue[this.queueIndex] : null;
+      let src = '';
+      let label = '';
+      if (entry?.image) {
+        src = entry.image;
+        label = entry?.name || '';
+        this.tempArtwork = null;
+      } else if (this.tempArtwork?.image) {
+        src = this.tempArtwork.image;
+        label = this.tempArtwork.name || '';
+      }
       if (this.dom.image) {
-        const src = entry?.image || '';
         if (src) {
           if (this.dom.image.getAttribute('src') !== src) {
             this.dom.image.setAttribute('src', src);
@@ -1844,8 +1882,54 @@
           this.dom.image.removeAttribute('src');
           this.dom.image.hidden = true;
         }
-        this.dom.image.alt = 'Shard artwork';
+        const altLabel = label ? `${label} artwork` : 'Shard artwork';
+        this.dom.image.alt = altLabel;
       }
+    }
+
+    showArtworkLink(opts = {}) {
+      const idRaw = typeof opts.id === 'string' ? opts.id.trim() : '';
+      if (!idRaw) return false;
+      const noticeKey = typeof opts.noticeKey === 'string' ? opts.noticeKey : null;
+      const noticeIndex = Number.isFinite(Number(opts.noticeIndex ?? opts.index))
+        ? Number(opts.noticeIndex ?? opts.index)
+        : null;
+      const normalizedId = idRaw;
+      let targetIndex = -1;
+      if (this.queue.length) {
+        targetIndex = this.queue.findIndex(entry => {
+          if (!entry || entry.id !== normalizedId) return false;
+          if (noticeKey && entry._noticeKey !== noticeKey) return false;
+          if (noticeIndex != null && entry._noticeIndex !== noticeIndex) return false;
+          return true;
+        });
+      }
+      let image = null;
+      let name = '';
+      if (targetIndex >= 0) {
+        const entry = this.queue[targetIndex];
+        image = entry?.image || null;
+        name = entry?.name || '';
+        this.queueIndex = targetIndex;
+        this.tempArtwork = null;
+      } else {
+        const plate = Catalog.playerCard(Catalog.shardById(normalizedId));
+        if (plate?.image) {
+          image = plate.image;
+          name = plate.name || normalizedId;
+        } else {
+          const fallback = shardArtById(normalizedId);
+          if (fallback) {
+            image = fallback;
+            name = Catalog.shardName(normalizedId) || normalizedId;
+          }
+        }
+        this.tempArtwork = image ? { image, name } : null;
+      }
+      if (!image) return false;
+      this.render();
+      this.openModal();
+      return true;
     }
 
     async onDraw() {
@@ -1856,7 +1940,30 @@
       try {
         const notice = await this.runtime.draw(count);
         if (notice) {
-          window.dmNotify?.(`Drew ${count} Shard(s): ${notice.names.join(', ')} (unresolved)`);
+          const ids = toStringList(notice.ids);
+          const names = ids.map((id, idx) => notice.names?.[idx] || Catalog.shardName(id) || id);
+          const listCount = notice.count || ids.length || count;
+          const suffix = ' (unresolved)';
+          const plainList = names.length ? names.join(', ') : (Array.isArray(notice.names) ? notice.names.join(', ') : 'Unknown Shard');
+          const htmlList = (ids.length ? ids : notice.names || [])
+            .map((id, idx) => {
+              const label = names[idx] || notice.names?.[idx] || id;
+              return shardLinkMarkup({
+                id: typeof ids[idx] === 'string' ? ids[idx] : '',
+                label,
+                noticeKey: notice.key,
+                noticeIndex: idx,
+              });
+            })
+            .join(', ');
+          const plainMessage = `Drew ${listCount} Shard(s): ${plainList}${suffix}`;
+          const htmlMessage = `Drew ${listCount} Shard(s): ${htmlList || escapeHtml(plainList)}${suffix}`;
+          if (typeof window.logAction === 'function') {
+            window.logAction(htmlMessage);
+          }
+          if (typeof window.dmNotify === 'function') {
+            window.dmNotify(plainMessage, { html: htmlMessage, ts: notice.ts });
+          }
           await this.playAnimation();
           this.openModal();
           await this.reloadNotices();
@@ -1873,6 +1980,7 @@
 
     closeModal() {
       if (this.dom.modal) this.dom.modal.hidden = true;
+      this.tempArtwork = null;
     }
 
     dismissCurrent() {
@@ -2368,6 +2476,31 @@
   }
 
   const runtime = new SomfRuntime();
+
+  function handleSomfArtLinkClick(event) {
+    const anchor = event.target.closest('[data-somf-art]');
+    if (!anchor) return;
+    const shardId = anchor.getAttribute('data-somf-art');
+    if (!shardId) return;
+    event.preventDefault();
+    const noticeKey = anchor.getAttribute('data-somf-notice') || null;
+    const indexAttr = anchor.getAttribute('data-somf-index');
+    const noticeIndex = indexAttr !== null && indexAttr !== '' ? Number(indexAttr) : null;
+    const payload = { id: shardId, noticeKey };
+    if (Number.isFinite(noticeIndex)) payload.noticeIndex = noticeIndex;
+    const handled = runtime?.player?.showArtworkLink?.(payload);
+    if (handled) return;
+    const fallback = shardArtById(shardId);
+    if (fallback) {
+      try {
+        window.open(fallback, '_blank', 'noopener,noreferrer');
+      } catch (err) {
+        console.error('Unable to open shard artwork', err);
+      }
+    }
+  }
+
+  document.addEventListener('click', handleSomfArtLinkClick);
 
   function initSomf() {
     runtime.setFirebase(window._somf_db || null);
