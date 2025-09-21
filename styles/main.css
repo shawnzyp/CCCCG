@@ -315,9 +315,9 @@ progress::-moz-progress-bar{
 }
 .card.card-wide{max-width:none;width:100%;}
 .grid>.card.card-wide{grid-column:1/-1;}
-.faction-rep{display:grid;gap:12px;width:100%;grid-template-columns:1fr;grid-auto-flow:row;}
-@media(min-width:600px){
-  .faction-rep{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:column;}
+.faction-rep{display:grid;gap:12px;width:100%;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));grid-auto-flow:row;}
+@media(min-width:900px){
+  .faction-rep{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));}
 }
 .faction-rep__card{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:var(--radius);background:color-mix(in srgb,var(--surface) 8%,transparent);border:1px solid color-mix(in srgb,var(--line) 50%,transparent);box-shadow:0 3px 8px rgba(0,0,0,.15);}
 .faction-rep__header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
