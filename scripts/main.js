@@ -2089,6 +2089,86 @@ function enableDragReorder(id){
 }
 ['powers','sigs','weapons','armors','items'].forEach(enableDragReorder);
 
+function buildCardInfo(entry){
+  if (!entry) return null;
+  const rawType = (entry.rawType || entry.type || '').trim();
+  const typeKey = rawType.toLowerCase();
+  const priceNote = formatPriceNote(entry);
+  const name = entry.name || 'Item';
+  if (typeKey === 'weapon') {
+    const { damage, extras } = extractWeaponDetails(entry.perk);
+    const damageParts = [];
+    if (damage) damageParts.push(`Damage ${damage}`);
+    extras.filter(Boolean).forEach(part => damageParts.push(part));
+    if (entry.tier) damageParts.push(`Tier ${entry.tier}`);
+    if (priceNote) damageParts.push(priceNote);
+    if (entry.use) damageParts.push(`Use: ${entry.use}`);
+    if (entry.attunement) damageParts.push(`Attunement: ${entry.attunement}`);
+    if (entry.source) damageParts.push(entry.source);
+    return {
+      kind: 'weapon',
+      listId: 'weapons',
+      data: {
+        name,
+        damage: damageParts.join(' — ')
+      }
+    };
+  }
+  if (typeKey === 'armor' || typeKey === 'shield') {
+    const { bonus: parsedBonus, details } = extractArmorDetails(entry.perk);
+    const nameParts = [];
+    if (details.length) nameParts.push(details.join(' — '));
+    if (entry.tier) nameParts.push(`Tier ${entry.tier}`);
+    if (priceNote) nameParts.push(priceNote);
+    if (entry.use) nameParts.push(`Use: ${entry.use}`);
+    if (entry.attunement) nameParts.push(`Attunement: ${entry.attunement}`);
+    if (entry.source) nameParts.push(entry.source);
+    const slotBase = typeKey === 'shield' ? 'Shield' : 'Body';
+    const slot = (entry.slot || slotBase || '').trim() || slotBase;
+    const bonusValue = Number.isFinite(entry.bonus) ? entry.bonus : parsedBonus;
+    return {
+      kind: 'armor',
+      listId: 'armors',
+      data: {
+        name: nameParts.length ? `${name} — ${nameParts.join(' — ')}` : name,
+        slot,
+        bonus: Number.isFinite(bonusValue) ? bonusValue : 0,
+        equipped: true
+      }
+    };
+  }
+  const notes = buildItemNotes(entry);
+  const qty = Number.isFinite(entry.qty) && entry.qty > 0 ? entry.qty : 1;
+  return {
+    kind: 'item',
+    listId: 'items',
+    data: {
+      name,
+      notes,
+      qty
+    }
+  };
+}
+
+function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverride = null } = {}){
+  const info = cardInfoOverride || buildCardInfo(entry);
+  if (!info) return null;
+  const list = $(info.listId);
+  if (!list) return null;
+  const card = createCard(info.kind, info.data);
+  const priceValue = getEntryPriceValue(entry);
+  if (Number.isFinite(priceValue) && priceValue > 0) {
+    card.dataset.price = String(priceValue);
+    const priceDisplay = getPriceDisplay(entry);
+    if (priceDisplay) card.dataset.priceDisplay = priceDisplay;
+  }
+  list.appendChild(card);
+  updateDerived();
+  pushHistory();
+  if (toastMessage) toast(toastMessage, 'success');
+  return card;
+}
+
 /* ========= Gear Catalog (CatalystCore_Master_Book integration) ========= */
 let catalogData = null;
 let catalogPromise = null;
@@ -2231,6 +2311,37 @@ function getPriceDisplay(entry){
   return raw;
 }
 
+function formatPriceNote(entry){
+  const display = getPriceDisplay(entry);
+  if (!display) return '';
+  return display.startsWith('₡') ? display : `Price: ${display}`;
+}
+
+function getEntryPriceValue(entry){
+  if (!entry) return null;
+  if (Number.isFinite(entry.price) && entry.price > 0) return entry.price;
+  const raw = (entry.priceText || entry.priceRaw || '').trim();
+  if (!raw) return null;
+  const normalized = raw.replace(/[,]/g, '');
+  const match = normalized.match(/(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const numeric = Number(match[1]);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function tryPurchaseEntry(entry){
+  const cost = getEntryPriceValue(entry);
+  if (!Number.isFinite(cost) || cost <= 0) return true;
+  if (!elCredits) return true;
+  const available = num(elCredits.value) || 0;
+  if (available < cost) {
+    toast('You do not have enough Credits to purchase this item, come back when you have enough Credits.', 'error');
+    return false;
+  }
+  setCredits(available - cost);
+  return true;
+}
+
 function formatDamageText(damage){
   if (!damage) return '';
   return damage.replace(/(\dd\d)(\dd\d)/ig, '$1 / $2');
@@ -2278,8 +2389,8 @@ function extractWeaponDetails(perk){
 function buildItemNotes(entry){
   const notes = [];
   if (entry.tier) notes.push(`Tier ${entry.tier}`);
-  const priceText = getPriceDisplay(entry);
-  if (priceText) notes.push(priceText.startsWith('₡') ? priceText : `Price: ${priceText}`);
+  const priceText = formatPriceNote(entry);
+  if (priceText) notes.push(priceText);
   if (entry.perk) notes.push(entry.perk);
   if (entry.description) notes.push(entry.description);
   if (entry.use) notes.push(`Use: ${entry.use}`);
@@ -2403,8 +2514,7 @@ function renderCatalog(){
     return;
   }
   catalogListEl.innerHTML = rows.map((entry, idx) => {
-    const priceDisplay = getPriceDisplay(entry);
-    const priceText = priceDisplay ? (priceDisplay.startsWith('₡') ? priceDisplay : `Price: ${priceDisplay}`) : '';
+    const priceText = formatPriceNote(entry);
     const details = [];
     if (entry.perk) details.push(`<div class="small">${escapeHtml(entry.perk)}</div>`);
     if (entry.use) details.push(`<div class="small">Use: ${escapeHtml(entry.use)}</div>`);
@@ -2422,48 +2532,8 @@ function renderCatalog(){
   qsa('[data-add]', catalogListEl).forEach(btn => btn.addEventListener('click', () => {
     const item = rows[Number(btn.dataset.add)];
     if (!item) return;
-    if (item.rawType === 'Weapon') {
-      const { damage, extras } = extractWeaponDetails(item.perk);
-      const damageParts = [];
-      if (damage) damageParts.push(`Damage ${damage}`);
-      extras.forEach(part => damageParts.push(part));
-      if (item.tier) damageParts.push(`Tier ${item.tier}`);
-      const priceText = getPriceDisplay(item);
-      if (priceText) damageParts.push(priceText.startsWith('₡') ? priceText : `Price: ${priceText}`);
-      if (item.use) damageParts.push(`Use: ${item.use}`);
-      if (item.attunement) damageParts.push(`Attunement: ${item.attunement}`);
-      if (item.source) damageParts.push(item.source);
-      $('weapons').appendChild(createCard('weapon', {
-        name: item.name,
-        damage: damageParts.join(' — ')
-      }));
-    } else if (item.rawType === 'Armor' || item.rawType === 'Shield') {
-      const { bonus, details } = extractArmorDetails(item.perk);
-      const nameParts = [];
-      if (details.length) nameParts.push(details.join(' — '));
-      if (item.tier) nameParts.push(`Tier ${item.tier}`);
-      const priceText = getPriceDisplay(item);
-      if (priceText) nameParts.push(priceText.startsWith('₡') ? priceText : `Price: ${priceText}`);
-      if (item.use) nameParts.push(`Use: ${item.use}`);
-      if (item.attunement) nameParts.push(`Attunement: ${item.attunement}`);
-      if (item.source) nameParts.push(item.source);
-      const slot = item.rawType === 'Shield' ? 'Shield' : 'Body';
-      $('armors').appendChild(createCard('armor', {
-        name: nameParts.length ? `${item.name} — ${nameParts.join(' — ')}` : item.name,
-        slot,
-        bonus: Number.isFinite(bonus) ? bonus : 0,
-        equipped: true
-      }));
-    } else {
-      const notes = buildItemNotes(item);
-      $('items').appendChild(createCard('item', {
-        name: item.name,
-        notes,
-        qty: 1
-      }));
-    }
-    updateDerived();
-    toast('Added to sheet', 'success');
+    if (!tryPurchaseEntry(item)) return;
+    addEntryToSheet(item);
   }));
 }
 
@@ -2569,7 +2639,9 @@ async function handleAddCustomCatalogItem(){
   let description = '';
   let use = '';
   let attunement = '';
-  let cardData = {};
+  let qtyValue = null;
+  let slotValue = '';
+  let bonusValue = null;
   if (typeInfo.value === 'Weapon') {
     const damageInput = prompt('Enter weapon damage (e.g., 1d6). Leave blank to fill later.') || '';
     const rangeInput = prompt('Enter weapon range (optional).') || '';
@@ -2577,10 +2649,12 @@ async function handleAddCustomCatalogItem(){
     const damage = damageInput.trim();
     const range = rangeInput.trim();
     const extra = extraInput.trim();
-    perk = damage ? `Damage ${damage}` : '';
+    const perkParts = [];
+    if (damage) perkParts.push(`Damage ${damage}`);
+    if (extra) perkParts.push(extra);
+    perk = perkParts.join('. ');
     description = extra;
-    use = range ? `Range: ${range}` : '';
-    cardData = { name, damage, range };
+    use = range ? `Range ${range}` : '';
   } else if (typeInfo.value === 'Armor' || typeInfo.value === 'Shield') {
     const slotDefault = typeInfo.value === 'Shield' ? 'Shield' : 'Body';
     const slotInput = prompt('Enter armor slot (Body, Head, Shield, Misc).', slotDefault) || slotDefault;
@@ -2588,25 +2662,23 @@ async function handleAddCustomCatalogItem(){
     const detailInput = prompt('Enter armor details (optional).') || '';
     const bonusNum = Number(bonusInput.replace(/[^0-9.-]/g, ''));
     const bonus = Number.isFinite(bonusNum) ? bonusNum : 0;
-    perk = Number.isFinite(bonusNum) && bonusNum !== 0 ? `${bonusNum >= 0 ? '+' : ''}${bonusNum} TC` : '';
-    description = detailInput.trim();
-    cardData = {
-      name,
-      slot: slotInput.trim() || slotDefault,
-      bonus,
-      equipped: true
-    };
+    const detail = detailInput.trim();
+    const perkParts = [];
+    if (Number.isFinite(bonusNum) && bonusNum !== 0) {
+      perkParts.push(`${bonusNum >= 0 ? '+' : ''}${bonusNum} TC`);
+    }
+    if (detail) perkParts.push(detail);
+    perk = perkParts.join('; ');
+    description = detail;
+    slotValue = slotInput.trim() || slotDefault;
+    bonusValue = bonus;
   } else {
     const notesInput = prompt('Enter item notes (optional).') || '';
     const qtyInput = prompt('Enter quantity (optional). Leave blank for 1.') || '';
     const qtyNum = Number(qtyInput);
     const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 1;
     description = notesInput.trim();
-    cardData = {
-      name,
-      qty,
-      notes: notesInput.trim()
-    };
+    qtyValue = qty;
   }
   const entry = {
     section: 'Custom Gear',
@@ -2634,24 +2706,18 @@ async function handleAddCustomCatalogItem(){
       'Custom Entry'
     ].map(part => part.toLowerCase()).join(' ')
   };
+  if (slotValue) entry.slot = slotValue;
+  if (Number.isFinite(bonusValue)) entry.bonus = bonusValue;
+  if (Number.isFinite(qtyValue)) entry.qty = qtyValue;
+  if (!tryPurchaseEntry(entry)) {
+    return;
+  }
   if (!catalogData) catalogData = [];
   catalogData.push(entry);
   rebuildCatalogFilterOptions();
   setCatalogFilters({ style: 'Custom Gear', type: typeInfo.value, tier: tier || '' });
   renderCatalog();
-  if (typeInfo.cardKind === 'weapon') {
-    $('weapons').appendChild(createCard('weapon', cardData));
-  } else if (typeInfo.cardKind === 'armor') {
-    if (!cardData.slot) cardData.slot = typeInfo.value === 'Shield' ? 'Shield' : 'Body';
-    if (!Number.isFinite(cardData.bonus)) cardData.bonus = 0;
-    cardData.equipped = true;
-    $('armors').appendChild(createCard('armor', cardData));
-  } else {
-    $('items').appendChild(createCard('item', cardData));
-  }
-  updateDerived();
-  pushHistory();
-  toast('Custom item added to catalog and equipped.', 'success');
+  addEntryToSheet(entry, { toastMessage: 'Custom item added to catalog and equipped.' });
 }
 
 /* ========= Encounter / Initiative ========= */
