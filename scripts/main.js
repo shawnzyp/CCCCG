@@ -2041,8 +2041,16 @@ $('add-power').addEventListener('click', () => { $('powers').appendChild(createC
 $('add-sig').addEventListener('click', () => { $('sigs').appendChild(createCard('sig')); pushHistory(); });
 
 /* ========= Gear ========= */
-$('add-weapon').addEventListener('click', () => { $('weapons').appendChild(createCard('weapon')); pushHistory(); });
-$('add-armor').addEventListener('click', () => { $('armors').appendChild(createCard('armor')); pushHistory(); });
+$('add-weapon').addEventListener('click', () => {
+  $('weapons').appendChild(createCard('weapon'));
+  pushHistory();
+  openCatalogWithFilters({ type: 'Weapon', style: '', tier: '' });
+});
+$('add-armor').addEventListener('click', () => {
+  $('armors').appendChild(createCard('armor'));
+  pushHistory();
+  openCatalogWithFilters({ type: 'Armor', style: '', tier: '' });
+});
 $('add-item').addEventListener('click', () => { $('items').appendChild(createCard('item')); pushHistory(); });
 
 /* ========= Drag & Drop ========= */
@@ -2083,8 +2091,9 @@ let catalogFiltersInitialized = false;
 const styleSel = $('catalog-filter-style');
 const typeSel = $('catalog-filter-type');
 const tierSel = $('catalog-filter-rarity');
-const catalogSearchEl = $('catalog-search');
+const catalogCustomBtn = $('catalog-add-custom');
 const catalogListEl = $('catalog-list');
+let pendingCatalogFilters = null;
 
 function decodeCatalogBuffer(buffer){
   if (typeof TextDecoder !== 'undefined') {
@@ -2287,6 +2296,57 @@ function ensureCatalogFilters(data){
   }
 }
 
+function tierRank(tier){
+  if (!tier) return Number.POSITIVE_INFINITY;
+  const match = String(tier).match(/T(\d+)/i);
+  if (match) {
+    const rank = Number(match[1]);
+    if (Number.isFinite(rank)) return rank;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+function sortCatalogRows(rows){
+  return rows.slice().sort((a, b) => {
+    const tierDiff = tierRank(a.tier) - tierRank(b.tier);
+    if (tierDiff !== 0) return tierDiff;
+    return a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+  });
+}
+
+function setCatalogFilters(filters = {}){
+  if (styleSel && Object.prototype.hasOwnProperty.call(filters, 'style')) {
+    styleSel.value = filters.style ?? '';
+  }
+  if (typeSel && Object.prototype.hasOwnProperty.call(filters, 'type')) {
+    typeSel.value = filters.type ?? '';
+  }
+  if (tierSel && Object.prototype.hasOwnProperty.call(filters, 'tier')) {
+    tierSel.value = filters.tier ?? '';
+  }
+}
+
+function getCatalogFilters(){
+  return {
+    style: styleSel ? styleSel.value : '',
+    type: typeSel ? typeSel.value : '',
+    tier: tierSel ? tierSel.value : ''
+  };
+}
+
+function applyPendingCatalogFilters(){
+  if (!pendingCatalogFilters) return;
+  setCatalogFilters(pendingCatalogFilters);
+  pendingCatalogFilters = null;
+}
+
+function rebuildCatalogFilterOptions(){
+  const current = getCatalogFilters();
+  catalogFiltersInitialized = false;
+  ensureCatalogFilters(catalogData || []);
+  setCatalogFilters(current);
+}
+
 function renderCatalog(){
   if (!catalogListEl) return;
   if (catalogError) {
@@ -2297,16 +2357,14 @@ function renderCatalog(){
     catalogListEl.innerHTML = '<div class="catalog-empty">Loading gear catalog...</div>';
     return;
   }
-  const searchTerm = (catalogSearchEl?.value || '').toLowerCase().trim();
   const style = styleSel ? styleSel.value : '';
   const type = typeSel ? typeSel.value : '';
   const tier = tierSel ? tierSel.value : '';
-  const rows = catalogData.filter(entry => (
+  const rows = sortCatalogRows(catalogData.filter(entry => (
     (!style || entry.section === style) &&
     (!type || entry.type === type) &&
-    (!tier || entry.tier === tier) &&
-    (!searchTerm || entry.search.includes(searchTerm))
-  ));
+    (!tier || entry.tier === tier)
+  )));
   if (!rows.length) {
     catalogListEl.innerHTML = '<div class="catalog-empty">No matching gear found.</div>';
     return;
@@ -2394,7 +2452,7 @@ async function ensureCatalog(){
       catalogData = normalized;
       catalogError = null;
       ensureCatalogFilters(normalized);
-      renderCatalog();
+      applyPendingCatalogFilters();
       return catalogData;
     } catch (err) {
       console.error('Failed to load catalog', err);
@@ -2412,18 +2470,153 @@ async function ensureCatalog(){
 if (styleSel) styleSel.addEventListener('input', renderCatalog);
 if (typeSel) typeSel.addEventListener('input', renderCatalog);
 if (tierSel) tierSel.addEventListener('input', renderCatalog);
-if (catalogSearchEl) catalogSearchEl.addEventListener('input', renderCatalog);
+if (catalogCustomBtn) catalogCustomBtn.addEventListener('click', () => {
+  handleAddCustomCatalogItem();
+});
 
-$('open-catalog').addEventListener('click', async () => {
+function openCatalogWithFilters(filters = {}){
+  pendingCatalogFilters = filters;
   show('modal-catalog');
   renderCatalog();
+  ensureCatalog().then(() => {
+    applyPendingCatalogFilters();
+    renderCatalog();
+  }).catch(() => {
+    toast('Failed to load gear catalog', 'error');
+    pendingCatalogFilters = null;
+    renderCatalog();
+  });
+}
+
+$('open-catalog').addEventListener('click', () => {
+  openCatalogWithFilters({ style: '', type: '', tier: '' });
+});
+
+async function handleAddCustomCatalogItem(){
   try {
     await ensureCatalog();
   } catch (err) {
+    console.error('Custom item catalog load failed', err);
     toast('Failed to load gear catalog', 'error');
+    renderCatalog();
+    return;
   }
+  const typePrompt = prompt('What type of item is it? (Weapon, Armor, Shield, Utility, Item)');
+  if (!typePrompt) return;
+  const typeKey = typePrompt.trim().toLowerCase();
+  const typeMap = {
+    weapon: { value: 'Weapon', cardKind: 'weapon' },
+    armor: { value: 'Armor', cardKind: 'armor' },
+    shield: { value: 'Shield', cardKind: 'armor' },
+    utility: { value: 'Utility', cardKind: 'item' },
+    item: { value: 'Item', cardKind: 'item' }
+  };
+  const typeInfo = typeMap[typeKey];
+  if (!typeInfo) {
+    toast('Unknown item type. Try Weapon, Armor, Shield, Utility, or Item.', 'error');
+    return;
+  }
+  const nameInput = prompt(`Enter the ${typeInfo.value.toLowerCase()} name`);
+  const name = nameInput ? nameInput.trim() : '';
+  if (!name) {
+    toast('Item name is required.', 'error');
+    return;
+  }
+  const tierInput = prompt('Enter tier (e.g., T0 - T5). Leave blank if none.');
+  const tier = tierInput ? tierInput.trim().toUpperCase() : '';
+  const priceInput = prompt('Enter price in credits (numbers only). Leave blank if unknown.');
+  let price = null;
+  if (priceInput && priceInput.trim()) {
+    const numeric = Number(priceInput.replace(/[^0-9.]/g, ''));
+    if (Number.isFinite(numeric) && numeric > 0) price = numeric;
+  }
+  let perk = '';
+  let description = '';
+  let use = '';
+  let attunement = '';
+  let cardData = {};
+  if (typeInfo.value === 'Weapon') {
+    const damageInput = prompt('Enter weapon damage (e.g., 1d6). Leave blank to fill later.') || '';
+    const rangeInput = prompt('Enter weapon range (optional).') || '';
+    const extraInput = prompt('Enter any extra weapon details (optional).') || '';
+    const damage = damageInput.trim();
+    const range = rangeInput.trim();
+    const extra = extraInput.trim();
+    perk = damage ? `Damage ${damage}` : '';
+    description = extra;
+    use = range ? `Range: ${range}` : '';
+    cardData = { name, damage, range };
+  } else if (typeInfo.value === 'Armor' || typeInfo.value === 'Shield') {
+    const slotDefault = typeInfo.value === 'Shield' ? 'Shield' : 'Body';
+    const slotInput = prompt('Enter armor slot (Body, Head, Shield, Misc).', slotDefault) || slotDefault;
+    const bonusInput = prompt('Enter armor bonus (number). Leave blank for 0.', '0') || '0';
+    const detailInput = prompt('Enter armor details (optional).') || '';
+    const bonusNum = Number(bonusInput.replace(/[^0-9.-]/g, ''));
+    const bonus = Number.isFinite(bonusNum) ? bonusNum : 0;
+    perk = Number.isFinite(bonusNum) && bonusNum !== 0 ? `${bonusNum >= 0 ? '+' : ''}${bonusNum} TC` : '';
+    description = detailInput.trim();
+    cardData = {
+      name,
+      slot: slotInput.trim() || slotDefault,
+      bonus,
+      equipped: true
+    };
+  } else {
+    const notesInput = prompt('Enter item notes (optional).') || '';
+    const qtyInput = prompt('Enter quantity (optional). Leave blank for 1.') || '';
+    const qtyNum = Number(qtyInput);
+    const qty = Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 1;
+    description = notesInput.trim();
+    cardData = {
+      name,
+      qty,
+      notes: notesInput.trim()
+    };
+  }
+  const entry = {
+    section: 'Custom Gear',
+    type: typeInfo.value,
+    rawType: typeInfo.value,
+    name,
+    tier,
+    price,
+    perk,
+    description,
+    use,
+    attunement,
+    source: 'Custom Entry',
+    search: [
+      'Custom Gear',
+      typeInfo.value,
+      name,
+      tier,
+      price ? String(price) : '',
+      perk,
+      description,
+      use,
+      attunement,
+      'Custom Entry'
+    ].map(part => part.toLowerCase()).join(' ')
+  };
+  if (!catalogData) catalogData = [];
+  catalogData.push(entry);
+  rebuildCatalogFilterOptions();
+  setCatalogFilters({ style: 'Custom Gear', type: typeInfo.value, tier: tier || '' });
   renderCatalog();
-});
+  if (typeInfo.cardKind === 'weapon') {
+    $('weapons').appendChild(createCard('weapon', cardData));
+  } else if (typeInfo.cardKind === 'armor') {
+    if (!cardData.slot) cardData.slot = typeInfo.value === 'Shield' ? 'Shield' : 'Body';
+    if (!Number.isFinite(cardData.bonus)) cardData.bonus = 0;
+    cardData.equipped = true;
+    $('armors').appendChild(createCard('armor', cardData));
+  } else {
+    $('items').appendChild(createCard('item', cardData));
+  }
+  updateDerived();
+  pushHistory();
+  toast('Custom item added to catalog and equipped.', 'success');
+}
 
 /* ========= Encounter / Initiative ========= */
 let round = Number(localStorage.getItem('enc-round')||'1')||1;
