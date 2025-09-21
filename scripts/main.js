@@ -16,6 +16,7 @@ import {
 import { show, hide } from './modal.js';
 import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
+import { extractPriceValue } from './catalog-utils.js';
 // Global CC object for cross-module state
 window.CC = window.CC || {};
 CC.partials = CC.partials || {};
@@ -2354,11 +2355,7 @@ function normalizeCatalogRow(row){
   if (!name) return null;
   const tier = (row.Tier || '').trim();
   const priceSource = (row.PriceCr || '').trim();
-  let price = null;
-  if (priceSource && /^[0-9.,\s]+$/.test(priceSource)) {
-    const numeric = Number(priceSource.replace(/[^0-9.]/g, ''));
-    if (Number.isFinite(numeric)) price = numeric;
-  }
+  const price = extractPriceValue(priceSource);
   const perk = (row.Perk || '').trim();
   const description = (row.Description || '').trim();
   const use = (row.Use || '').trim();
@@ -2415,10 +2412,7 @@ function getEntryPriceValue(entry){
   if (Number.isFinite(entry.price) && entry.price > 0) return entry.price;
   const raw = (entry.priceText || entry.priceRaw || '').trim();
   if (!raw) return null;
-  const normalized = raw.replace(/[,]/g, '');
-  const match = normalized.match(/(\d+(?:\.\d+)?)/);
-  if (!match) return null;
-  const numeric = Number(match[1]);
+  const numeric = extractPriceValue(raw);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
@@ -2751,7 +2745,7 @@ function sortCatalogRows(rows){
   });
 }
 
-export { tierRank, sortCatalogRows };
+export { tierRank, sortCatalogRows, extractPriceValue };
 
 function setCatalogFilters(filters = {}){
   if (styleSel && Object.prototype.hasOwnProperty.call(filters, 'style')) {
