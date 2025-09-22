@@ -462,12 +462,16 @@ if (btnMenu && menuActions) {
 
 /* ========= header ========= */
 const headerEl = qs('header');
+const logoButton = qs('.pill-logo-button');
 const logoEl = qs('.logo');
-if (logoEl) {
-  logoEl.addEventListener('click', e => {
-    e.stopPropagation();
-    toggleTheme();
-  });
+const onLogoClick = e => {
+  e.stopPropagation();
+  toggleTheme();
+};
+if (logoButton) {
+  logoButton.addEventListener('click', onLogoClick);
+} else if (logoEl) {
+  logoEl.addEventListener('click', onLogoClick);
 }
 
 /* ========= tabs ========= */

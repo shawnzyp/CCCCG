@@ -10,6 +10,7 @@ function createGlow(className) {
 
 function wrapButton(button) {
   if (!(button instanceof HTMLButtonElement)) return;
+  if (button.hasAttribute('data-no-star-border')) return;
   if (button.querySelector(CONTENT_SELECTOR)) {
     button.dataset[STAR_BORDER_FLAG] = 'true';
     button.classList.add('star-border');
