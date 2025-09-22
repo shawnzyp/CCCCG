@@ -825,6 +825,9 @@ function setupPerkSelect(selId, perkId, data){
     if(selId==='power-style' || selId==='origin'){
       updateDerived();
     }
+    if (typeof catalogRenderScheduler === 'function') {
+      catalogRenderScheduler();
+    }
   }
   sel.addEventListener('change', () => {
     window.dmNotify?.(`${selId.replace(/-/g,' ')} changed to ${sel.value}`);
@@ -865,6 +868,15 @@ const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
+const elPowerStyleSecondary = $('power-style-2');
+
+if (elPowerStyleSecondary) {
+  elPowerStyleSecondary.addEventListener('change', () => {
+    if (typeof catalogRenderScheduler === 'function') {
+      catalogRenderScheduler();
+    }
+  });
+}
 
 let hpRolls = [];
 if (elHPRoll) {
@@ -911,6 +923,7 @@ function getTierIndex(xp){
 
 let currentTierIdx = 0;
 let xpInitialized = false;
+let catalogRenderScheduler = null;
 if (elXP) {
   const initXP = Math.max(0, num(elXP.value));
   currentTierIdx = getTierIndex(initXP);
@@ -1021,6 +1034,9 @@ function updateXP(){
     elXPBar.max = 1;
     elXPBar.value = 1;
     elXPPill.textContent = `${xp}+`;
+  }
+  if (typeof catalogRenderScheduler === 'function') {
+    catalogRenderScheduler();
   }
 }
 
@@ -2270,6 +2286,7 @@ rebuildCatalogPriceIndex();
 const customTypeModal = $('modal-custom-item');
 const customTypeButtons = customTypeModal ? qsa('[data-custom-type]', customTypeModal) : [];
 const requestCatalogRender = debounce(() => renderCatalog(), 100);
+catalogRenderScheduler = () => requestCatalogRender();
 const catalogOverlay = $('modal-catalog');
 if (catalogOverlay) {
   catalogOverlay.addEventListener('transitionend', e => {
@@ -2408,6 +2425,75 @@ function rebuildCatalogPriceIndex(baseEntries = catalogPriceEntries){
   return catalogPriceIndex;
 }
 
+function normalizeCatalogToken(value){
+  if (value == null) return '';
+  const text = String(value).toLowerCase();
+  const cleaned = text.replace(/[^a-z0-9+]+/g, ' ').trim();
+  return cleaned.replace(/\s+/g, ' ');
+}
+
+function splitValueOptions(text){
+  if (text == null) return [];
+  const raw = String(text).trim();
+  if (!raw) return [];
+  const parts = raw
+    .split(/(?:\s+or\s+|\s*&\s*|\/|\||\s*,\s*)/i)
+    .map(part => part.trim())
+    .filter(Boolean);
+  return parts.length ? parts : [raw];
+}
+
+function parseCatalogList(value){
+  if (Array.isArray(value)) {
+    return value.flatMap(parseCatalogList);
+  }
+  const text = String(value || '').trim();
+  if (!text) return [];
+  return text
+    .split(/[\n;]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+function parseCatalogPrerequisites(value){
+  const text = String(value || '').trim();
+  if (!text) return [];
+  return text
+    .split(/[\n;]+/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(segment => {
+      const match = segment.match(/^([^:=]+)[:=]\s*(.+)$/);
+      if (match) {
+        return {
+          key: match[1].trim(),
+          values: splitValueOptions(match[2]),
+          raw: segment
+        };
+      }
+      return {
+        key: '',
+        values: splitValueOptions(segment),
+        raw: segment
+      };
+    })
+    .filter(entry => Array.isArray(entry.values) && entry.values.length);
+}
+
+function getRowValue(row, ...keys){
+  for (const key of keys) {
+    if (!key) continue;
+    if (Object.prototype.hasOwnProperty.call(row, key)) {
+      const value = row[key];
+      if (value != null) {
+        const trimmed = String(value).trim();
+        if (trimmed) return trimmed;
+      }
+    }
+  }
+  return '';
+}
+
 function normalizeCatalogRow(row, priceLookup = catalogPriceIndex){
   const rawType = (row.Type || '').trim();
   const section = (row.Section || '').trim() || 'Gear';
@@ -2438,9 +2524,70 @@ function normalizeCatalogRow(row, priceLookup = catalogPriceIndex){
   const source = (row['Where To Find'] || '').trim();
   const displayType = rawType || 'Item';
   const priceSearchText = priceText || legacyPriceSource;
-  const search = [section, displayType, name, tier, priceSearchText || '', perk, description, use, attunement, source]
-    .map(part => part.toLowerCase())
-    .join(' ');
+  const classificationValue = getRowValue(
+    row,
+    'Classification',
+    'Classifications',
+    'Classification Requirement',
+    'Classification Requirements'
+  );
+  const classifications = parseCatalogList(classificationValue)
+    .flatMap(splitValueOptions)
+    .map(normalizeCatalogToken)
+    .filter(Boolean);
+  const tierRestrictionValue = getRowValue(
+    row,
+    'Tier Requirement',
+    'Tier Requirements',
+    'Required Tier',
+    'Required Tiers',
+    'Tier Restriction',
+    'Tier Restrictions',
+    'Allowed Tier',
+    'Allowed Tiers'
+  );
+  const tierRestrictions = parseCatalogList(tierRestrictionValue)
+    .flatMap(splitValueOptions)
+    .map(value => {
+      const normalized = normalizeCatalogToken(value);
+      return normalized ? { raw: value, normalized } : null;
+    })
+    .filter(Boolean);
+  const prerequisitesValue = getRowValue(
+    row,
+    'Prerequisites',
+    'Prerequisite',
+    'Requirements',
+    'Requirement',
+    'Prereqs',
+    'Prereq'
+  );
+  const prerequisites = parseCatalogPrerequisites(prerequisitesValue)
+    .map(entry => {
+      const normalizedKey = normalizeCatalogToken(entry.key || '');
+      const values = entry.values
+        .map(value => {
+          const normalized = normalizeCatalogToken(value);
+          return normalized ? { raw: value, normalized } : null;
+        })
+        .filter(Boolean);
+      if (!values.length) return null;
+      return {
+        key: normalizedKey || null,
+        values,
+        raw: entry.raw
+      };
+    })
+    .filter(Boolean);
+  const searchParts = [section, displayType, name, tier, priceSearchText || '', perk, description, use, attunement, source];
+  if (classifications.length) searchParts.push(classifications.join(' '));
+  if (tierRestrictions.length) {
+    searchParts.push(tierRestrictions.map(r => r.raw || r.normalized).join(' '));
+  }
+  if (prerequisites.length) {
+    searchParts.push(prerequisites.map(r => r.raw || '').join(' '));
+  }
+  const search = searchParts.map(part => (part || '').toLowerCase()).join(' ');
   return {
     section,
     type: displayType,
@@ -2455,6 +2602,9 @@ function normalizeCatalogRow(row, priceLookup = catalogPriceIndex){
     use,
     attunement,
     source,
+    classifications,
+    tierRestrictions,
+    prerequisites,
     search
   };
 }
@@ -2590,7 +2740,10 @@ function refreshCustomEntrySearch(entry){
     entry.description,
     entry.use,
     entry.attunement,
-    entry.source
+    entry.source,
+    ...(Array.isArray(entry.classifications) ? entry.classifications : []),
+    ...(Array.isArray(entry.tierRestrictions) ? entry.tierRestrictions.map(r => r && (r.raw || r.normalized) || '') : []),
+    ...(Array.isArray(entry.prerequisites) ? entry.prerequisites.map(r => r && (r.raw || '')).filter(Boolean) : [])
   ].map(part => (part || '').toLowerCase()).join(' ');
 }
 
@@ -2614,7 +2767,10 @@ function normalizeCustomCatalogEntry(raw = {}){
     slot: raw.slot || (type === 'Shield' ? 'Shield' : ''),
     bonus: Number.isFinite(raw.bonus) ? raw.bonus : 0,
     qty: Number.isFinite(raw.qty) && raw.qty > 0 ? raw.qty : 1,
-    hidden: !(raw.name && String(raw.name).trim())
+    hidden: !(raw.name && String(raw.name).trim()),
+    classifications: [],
+    tierRestrictions: [],
+    prerequisites: []
   };
   refreshCustomEntrySearch(entry);
   return entry;
@@ -2857,6 +3013,160 @@ function rebuildCatalogFilterOptions(){
   setCatalogFilters(current);
 }
 
+function getPlayerCatalogState(){
+  const readValue = id => {
+    const el = $(id);
+    if (!el || typeof el.value !== 'string') return '';
+    return el.value.trim();
+  };
+  const classificationRaw = readValue('classification');
+  const primaryStyleRaw = readValue('power-style');
+  let secondaryStyleRaw = readValue('power-style-2');
+  if (secondaryStyleRaw && /^none$/i.test(secondaryStyleRaw)) secondaryStyleRaw = '';
+  const originRaw = readValue('origin');
+  const alignmentRaw = readValue('alignment');
+  const highestTierIndex = XP_TIERS.length ? XP_TIERS.length - 1 : 0;
+  const safeIdx = Number.isFinite(currentTierIdx) ? Math.min(Math.max(currentTierIdx, 0), XP_TIERS.length ? XP_TIERS.length - 1 : 0) : 0;
+  const tierNumber = Math.max(0, highestTierIndex - safeIdx);
+  const tierLabel = `T${tierNumber}`;
+  const tierValue = tierRank(tierLabel);
+  const tierLabelText = XP_TIERS[safeIdx]?.label || '';
+  const tags = new Set();
+  const addTokens = value => {
+    if (!value) return;
+    const raw = String(value).trim();
+    if (!raw) return;
+    const normalized = normalizeCatalogToken(raw);
+    if (normalized) tags.add(normalized);
+    splitValueOptions(raw).forEach(option => {
+      const normalizedOption = normalizeCatalogToken(option);
+      if (normalizedOption) tags.add(normalizedOption);
+    });
+  };
+  addTokens(classificationRaw);
+  addTokens(primaryStyleRaw);
+  addTokens(secondaryStyleRaw);
+  addTokens(originRaw);
+  addTokens(alignmentRaw);
+  addTokens(tierLabelText);
+  addTokens(tierLabel);
+  addTokens(`Tier ${tierNumber}`);
+  addTokens(String(tierNumber));
+  if (Number.isFinite(tierValue)) addTokens(String(tierValue));
+  const attributes = Object.create(null);
+  const setAttr = (key, value) => {
+    const normalizedKey = normalizeCatalogToken(key);
+    const normalizedValue = normalizeCatalogToken(value);
+    if (!normalizedKey || !normalizedValue) return;
+    attributes[normalizedKey] = normalizedValue;
+    if (normalizedKey.endsWith('s') && normalizedKey.length > 1) {
+      const singular = normalizedKey.slice(0, -1);
+      if (!attributes[singular]) attributes[singular] = normalizedValue;
+    }
+  };
+  setAttr('classification', classificationRaw);
+  setAttr('class', classificationRaw);
+  setAttr('power style', primaryStyleRaw);
+  setAttr('style', primaryStyleRaw);
+  setAttr('primary power style', primaryStyleRaw);
+  setAttr('secondary power style', secondaryStyleRaw);
+  setAttr('power style 2', secondaryStyleRaw);
+  setAttr('origin', originRaw);
+  setAttr('origin story', originRaw);
+  setAttr('alignment', alignmentRaw);
+  setAttr('tier', tierLabel);
+  setAttr('tier label', tierLabelText);
+  setAttr('tier level', `Tier ${tierNumber}`);
+  setAttr('tier number', String(tierNumber));
+  if (Number.isFinite(tierValue)) {
+    setAttr('tier rank', String(tierValue));
+  }
+  return {
+    tierLabel,
+    tierValue,
+    classification: attributes.classification || '',
+    primaryStyle: attributes['power style'] || '',
+    secondaryStyle: attributes['secondary power style'] || '',
+    origin: attributes.origin || '',
+    alignment: attributes.alignment || '',
+    tags,
+    attributes
+  };
+}
+
+function matchesTierRestriction(restriction, playerState){
+  if (!restriction || !playerState) return true;
+  const raw = typeof restriction === 'string' ? restriction : restriction.raw;
+  const normalized = typeof restriction === 'string' ? normalizeCatalogToken(restriction) : restriction.normalized;
+  if (!normalized) return true;
+  let requiredRank = null;
+  let match = normalized.match(/t(\d)/);
+  if (match) requiredRank = Number(match[1]);
+  if (!Number.isFinite(requiredRank)) {
+    match = normalized.match(/tier\s*(\d)/);
+    if (match) requiredRank = Number(match[1]);
+  }
+  if (!Number.isFinite(requiredRank)) {
+    match = normalized.match(/\b(\d)\b/);
+    if (match) requiredRank = Number(match[1]);
+  }
+  if (Number.isFinite(requiredRank) && Number.isFinite(playerState.tierValue)) {
+    if (/\bor higher\b/.test(normalized) || /\+$/.test(normalized)) {
+      return playerState.tierValue <= requiredRank;
+    }
+    if (/\bor lower\b/.test(normalized) || /\-$/.test(normalized)) {
+      return playerState.tierValue >= requiredRank;
+    }
+    return playerState.tierValue === requiredRank;
+  }
+  if (Number.isFinite(requiredRank) && !Number.isFinite(playerState.tierValue)) {
+    return false;
+  }
+  return playerState.tags.has(normalized);
+}
+
+function isCatalogPrerequisiteMet(prereq, playerState){
+  if (!prereq || !playerState) return true;
+  const values = Array.isArray(prereq.values) ? prereq.values : [];
+  if (!values.length) return true;
+  if (prereq.key) {
+    if (prereq.key === 'tier' || prereq.key === 'tier level' || prereq.key === 'tier rank') {
+      return values.some(value => matchesTierRestriction(value, playerState));
+    }
+    const attrValue = playerState.attributes[prereq.key];
+    if (attrValue) {
+      return values.some(value => attrValue === value.normalized || playerState.tags.has(value.normalized));
+    }
+    return values.some(value => playerState.tags.has(value.normalized));
+  }
+  return values.some(value => playerState.tags.has(value.normalized));
+}
+
+function isEntryAvailableToPlayer(entry, playerState){
+  if (!entry || !playerState) return true;
+  const playerTier = playerState.tierValue;
+  if (entry.tier) {
+    const entryTier = tierRank(entry.tier);
+    if (Number.isFinite(entryTier) && Number.isFinite(playerTier) && entryTier !== playerTier) {
+      return false;
+    }
+  }
+  if (Array.isArray(entry.tierRestrictions) && entry.tierRestrictions.length) {
+    const tierOk = entry.tierRestrictions.some(restriction => matchesTierRestriction(restriction, playerState));
+    if (!tierOk) return false;
+  }
+  if (Array.isArray(entry.classifications) && entry.classifications.length) {
+    const classOk = entry.classifications.some(token => playerState.tags.has(token));
+    if (!classOk) return false;
+  }
+  if (Array.isArray(entry.prerequisites) && entry.prerequisites.length) {
+    for (const prereq of entry.prerequisites) {
+      if (!isCatalogPrerequisiteMet(prereq, playerState)) return false;
+    }
+  }
+  return true;
+}
+
 function renderCatalog(){
   if (!catalogListEl) return;
   const visibleCustom = getVisibleCustomCatalogEntries();
@@ -2873,10 +3183,12 @@ function renderCatalog(){
   const type = typeSel ? typeSel.value : '';
   const tier = tierSel ? tierSel.value : '';
   const source = (baseLoaded ? catalogData.slice() : []).concat(visibleCustom);
+  const playerState = getPlayerCatalogState();
   const rows = sortCatalogRows(source.filter(entry => (
     (!style || entry.section === style) &&
     (!type || entry.type === type) &&
-    (!tier || entry.tier === tier)
+    (!tier || entry.tier === tier) &&
+    isEntryAvailableToPlayer(entry, playerState)
   )));
   if (!rows.length) {
     catalogListEl.innerHTML = '<div class="catalog-empty">No matching gear found.</div>';
