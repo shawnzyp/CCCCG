@@ -433,10 +433,6 @@ bindClassificationTheme('classification');
 
 const btnMenu = $('btn-menu');
 const menuActions = $('menu-actions');
-const pillNav = qs('.pill-nav');
-const pillNavItems = qs('.pill-nav-items');
-const mobileMenuButton = qs('.mobile-menu-button');
-let closeMobileMenu = () => {};
 if (btnMenu && menuActions) {
   const hideMenu = () => {
     if (!menuActions.hidden) {
@@ -464,53 +460,14 @@ if (btnMenu && menuActions) {
   });
 }
 
-if (pillNav && mobileMenuButton) {
-  const setMobileNavState = open => {
-    pillNav.classList.toggle('is-open', open);
-    mobileMenuButton.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (pillNavItems) {
-      const hidden = !open && window.innerWidth <= 768;
-      pillNavItems.setAttribute('aria-hidden', hidden ? 'true' : 'false');
-    }
-  };
-
-  closeMobileMenu = () => setMobileNavState(false);
-
-  mobileMenuButton.addEventListener('click', e => {
-    e.stopPropagation();
-    const expanded = mobileMenuButton.getAttribute('aria-expanded') === 'true';
-    setMobileNavState(!expanded);
-  });
-
-  document.addEventListener('click', e => {
-    if (!pillNav.contains(e.target)) closeMobileMenu();
-  });
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeMobileMenu();
-  });
-
-  window.addEventListener('resize', () => setMobileNavState(false), { passive: true });
-
-  setMobileNavState(false);
-}
-
 /* ========= header ========= */
 const headerEl = qs('header');
-const logoButton = qs('.pill-logo');
-if (logoButton) {
-  logoButton.addEventListener('click', e => {
+const logoEl = qs('.logo');
+if (logoEl) {
+  logoEl.addEventListener('click', e => {
     e.stopPropagation();
     toggleTheme();
   });
-} else {
-  const logoEl = qs('.logo');
-  if (logoEl) {
-    logoEl.addEventListener('click', e => {
-      e.stopPropagation();
-      toggleTheme();
-    });
-  }
 }
 
 /* ========= tabs ========= */
@@ -531,7 +488,6 @@ function setTab(name){
 }
 
 const switchTab = name => {
-  closeMobileMenu();
   if (headerEl && window.scrollY > 0) {
     headerEl.classList.add('hide-tabs');
     const showTabs = () => {
