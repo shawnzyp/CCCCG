@@ -66,6 +66,27 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   transform:none;
 }
 
+.header-title-react-root{
+  display:inline-flex;
+  align-items:center;
+}
+
+.header-decrypted{
+  display:inline-flex;
+  gap:0.05em;
+  letter-spacing:0.03em;
+}
+
+.header-decrypted__char{
+  color:inherit;
+  transition:color .3s ease,text-shadow .3s ease;
+}
+
+.header-decrypted__char--scrambling{
+  color:color-mix(in srgb,var(--muted) 65%,transparent);
+  text-shadow:0 0 8px color-mix(in srgb,var(--accent) 55%,transparent);
+}
+
 .tabs .tab{justify-self:center}
 
 .tabs-title .logo{

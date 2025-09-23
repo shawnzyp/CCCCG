@@ -1,6 +1,6 @@
 {
-  "version": "cccg-cache-75390f800e523878",
-  "generatedAt": "2025-09-21T13:48:51.221Z",
+  "version": "cccg-cache-5ea933bf16b724fb",
+  "generatedAt": "2025-09-23T05:16:26.374Z",
   "assets": [
     "./",
     "./CatalystCore_Items_Prices.csv",
@@ -55,6 +55,7 @@
     "./scripts/dm.js",
     "./scripts/faction.js",
     "./scripts/funTips.js",
+    "./scripts/header-title.js",
     "./scripts/helpers.js",
     "./scripts/main.js",
     "./scripts/modal.js",
