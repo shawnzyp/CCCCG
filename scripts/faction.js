@@ -17,6 +17,56 @@ export const FACTION_REP_PERKS = {
   'P.F.V.': { ...COMMON_REP_TIERS },
   'Cosmic Conclave': { ...COMMON_REP_TIERS },
   'Greyline PMC': { ...COMMON_REP_TIERS },
+  'The Government': {
+    Hostile: [
+      [
+        'O.M.N.I. is under investigation, assets frozen.',
+        'Team loses access to advanced gear requisition (Elite/Legendary restricted).',
+        'NPC allies may be recalled, leaving the team isolated.',
+        'Missions may be sabotaged or interrupted by official audits and oversight committees.',
+      ].join(' '),
+    ],
+    Distrusted: [
+      [
+        'Limited funding: +25% cost on all requisition gear.',
+        'O.M.N.I. cannot deploy heavy support (airstrikes, drone swarms, etc.).',
+        "Media leaks and political speeches undermine the team's credibility.",
+        'PCs may find travel restricted or jurisdiction challenged by local authorities.',
+      ].join(' '),
+    ],
+    Neutral: [
+      [
+        'Baseline funding. Access to standard gear lists.',
+        'Team operates quietly under radar.',
+        'Government neither hinders nor actively champions the group.',
+      ].join(' '),
+    ],
+    Supported: [
+      [
+        'O.M.N.I. granted discretionary budget boosts.',
+        'PCs gain access to one free Rare item per mission from requisition.',
+        'Airlift and surveillance support available in critical encounters.',
+        'Government officials defend the team in public hearings.',
+      ].join(' '),
+    ],
+    Favored: [
+      [
+        'Elite clearance. All Rare gear discounted by 50%.',
+        "Access to high-level intel on rival factions at GM's discretion.",
+        'PCs may call in government strike teams once per mission.',
+        'Diplomatic immunity shields the team from legal entanglements.',
+      ].join(' '),
+    ],
+    Patroned: [
+      [
+        'The team is a flagship program for O.M.N.I.',
+        'Access to Legendary prototypes, orbital defense satellites, and experimental vehicles.',
+        'Governments bend laws to support operations.',
+        'PCs become de facto ambassadors of Earth-9 power projection.',
+        'Enemies risk being branded terrorists if they oppose the team.',
+      ].join(' '),
+    ],
+  },
   'Public Opinion': {
     Hostile: [
       'Mobs form, rumors spread, and you are blamed by default. Deception to hide identity is at disadvantage around locals. Police set perimeters against you—not for you. Expect ambush interviews and hostile headlines.',
@@ -46,28 +96,48 @@ const COMMON_MAX_REP = REP_TIERS.length * 100 - 1;
 const COMMON_STEP = 5;
 const COMMON_DEFAULT = 200;
 
-const createCommonFaction = (id, name) => {
+const createCommonFaction = (id, name, overrides = {}) => {
+  const tiers = Array.isArray(overrides.tiers) && overrides.tiers.length ? overrides.tiers : REP_TIERS;
+  const min = overrides.min ?? 0;
+  const derivedMax = tiers.length ? min + tiers.length * 100 - 1 : min + COMMON_MAX_REP;
+  const max = overrides.max ?? derivedMax;
+  const defaultValueInput = overrides.defaultValue ?? COMMON_DEFAULT;
+  const defaultValue = clamp(num(defaultValueInput), min, max);
+  const step = overrides.step ?? COMMON_STEP;
   const config = {
     id,
     name,
-    min: 0,
-    max: COMMON_MAX_REP,
-    defaultValue: COMMON_DEFAULT,
-    step: COMMON_STEP,
+    min,
+    max,
+    defaultValue,
+    step,
+    tiers,
   };
   config.clamp = value => clamp(num(value), config.min, config.max);
   config.getProgressValue = value => config.clamp(value) - config.min;
   config.getProgressMax = () => config.max - config.min;
   config.getRatio = value => {
-    const max = config.getProgressMax();
-    return max === 0 ? 0 : config.getProgressValue(value) / max;
+    const progressMax = config.getProgressMax();
+    return progressMax === 0 ? 0 : config.getProgressValue(value) / progressMax;
   };
   config.getTier = value => {
     const clamped = config.clamp(value);
-    const tierIdx = Math.min(REP_TIERS.length - 1, Math.floor(clamped / 100));
-    const tierName = REP_TIERS[tierIdx];
-    const perks = (FACTION_REP_PERKS[name] && FACTION_REP_PERKS[name][tierName]) || [];
-    return { name: tierName, perks };
+    const offset = clamped - config.min;
+    const tierIdx = config.tiers.length
+      ? Math.min(config.tiers.length - 1, Math.floor(offset / 100))
+      : 0;
+    const tierKey = config.tiers[tierIdx] ?? '';
+    const factionPerks = FACTION_REP_PERKS[name];
+    const tierData = factionPerks ? factionPerks[tierKey] : undefined;
+    let label = tierKey;
+    let perks = [];
+    if (Array.isArray(tierData)) {
+      perks = tierData;
+    } else if (tierData && typeof tierData === 'object') {
+      label = tierData.label ?? tierKey;
+      perks = Array.isArray(tierData.perks) ? tierData.perks : [];
+    }
+    return { name: label, perks };
   };
   return config;
 };
@@ -77,6 +147,9 @@ export const FACTIONS = [
   createCommonFaction('pfv', 'P.F.V.'),
   createCommonFaction('conclave', 'Cosmic Conclave'),
   createCommonFaction('greyline', 'Greyline PMC'),
+  createCommonFaction('government', 'The Government', {
+    tiers: ['Hostile', 'Distrusted', 'Neutral', 'Supported', 'Favored', 'Patroned'],
+  }),
   createCommonFaction('public', 'Public Opinion'),
 ];
 
