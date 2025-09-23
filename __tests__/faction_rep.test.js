@@ -116,6 +116,47 @@ describe('faction reputation tracker', () => {
     expect(handlePerkEffects).toHaveBeenCalled();
   });
 
+  test('government faction uses custom tiers and perks', () => {
+    document.body.innerHTML = `
+      <div>
+        <progress id="government-rep-bar" max="100" value="0"></progress>
+        <span id="government-rep-tier"></span>
+        <p id="government-rep-perk"></p>
+        <button id="government-rep-gain"></button>
+        <button id="government-rep-lose"></button>
+        <input type="hidden" id="government-rep" value="295" />
+      </div>
+    `;
+    const pushHistory = jest.fn();
+    const handlePerkEffects = jest.fn();
+    window.logAction = jest.fn();
+
+    setupFactionRepTracker(handlePerkEffects, pushHistory);
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const repInput = document.getElementById('government-rep');
+    const bar = document.getElementById('government-rep-bar');
+    expect(repInput.value).toBe('295');
+    expect(bar.max).toBe(599);
+    expect(bar.getAttribute('max')).toBe('599');
+    expect(bar.value).toBe(295);
+    const tier = document.getElementById('government-rep-tier');
+    expect(tier.textContent).toBe('Neutral');
+    const perk = document.getElementById('government-rep-perk');
+    expect(perk.textContent).toContain('Baseline funding');
+    expect(handlePerkEffects).toHaveBeenCalled();
+
+    handlePerkEffects.mockClear();
+    document.getElementById('government-rep-gain').click();
+
+    expect(repInput.value).toBe('300');
+    expect(bar.value).toBe(300);
+    expect(tier.textContent).toBe('Supported');
+    expect(window.logAction).toHaveBeenCalledWith('The Government Reputation: Neutral -> Supported');
+    expect(handlePerkEffects).toHaveBeenCalled();
+    expect(pushHistory).toHaveBeenCalled();
+  });
+
   test('migrates legacy public opinion values to the new scale', () => {
     const snapshot = {
       'public-rep': '-3',

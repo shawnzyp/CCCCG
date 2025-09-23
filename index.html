@@ -530,6 +530,22 @@
           </div>
           <div class="faction-rep__card">
             <div class="faction-rep__header">
+              <span class="pill pill-sm">The Government</span>
+              <span id="government-rep-tier" class="pill pill-sm">Neutral</span>
+            </div>
+            <progress id="government-rep-bar" max="100" value="0"></progress>
+            <div class="inline">
+              <button id="government-rep-gain" class="btn-sm">Gain</button>
+              <button id="government-rep-lose" class="btn-sm">Lose</button>
+            </div>
+            <input type="hidden" id="government-rep" value="200"/>
+            <div class="faction-rep__perk">
+              <span class="faction-rep__perk-label">Current Perk</span>
+              <p id="government-rep-perk" class="perk"></p>
+            </div>
+          </div>
+          <div class="faction-rep__card">
+            <div class="faction-rep__header">
               <span class="pill pill-sm">Public Opinion</span>
               <span id="public-rep-tier" class="pill pill-sm">Neutral</span>
             </div>
