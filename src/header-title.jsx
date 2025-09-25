@@ -74,6 +74,64 @@ function renderHeaderTitle() {
   }
 
   rootInstance.render(<HeaderTitle />);
+
+  let widthRequestId = null;
+
+  const measureAndLockWidth = () => {
+    if (!mountNode || !titleEl) return;
+
+    const measurement = document.createElement('span');
+    measurement.className = 'header-decrypted header-title-width-measure';
+    measurement.setAttribute('aria-hidden', 'true');
+    measurement.style.position = 'absolute';
+    measurement.style.visibility = 'hidden';
+    measurement.style.pointerEvents = 'none';
+    measurement.style.whiteSpace = 'nowrap';
+    measurement.style.left = '-9999px';
+
+    TITLE_TEXT.split('').forEach(char => {
+      const charSpan = document.createElement('span');
+      charSpan.className = 'header-decrypted__char';
+      charSpan.textContent = char === ' ' ? '\u00A0' : char;
+      measurement.appendChild(charSpan);
+    });
+
+    titleEl.appendChild(measurement);
+    const { width } = measurement.getBoundingClientRect();
+    titleEl.removeChild(measurement);
+
+    if (!width) return;
+
+    const roundedWidth = Math.ceil(width);
+    const widthPx = `${roundedWidth}px`;
+
+    mountNode.style.width = widthPx;
+    mountNode.style.minWidth = widthPx;
+    mountNode.style.maxWidth = widthPx;
+  };
+
+  const scheduleWidthLock = () => {
+    if (widthRequestId) return;
+
+    widthRequestId = window.requestAnimationFrame(() => {
+      widthRequestId = null;
+      measureAndLockWidth();
+    });
+  };
+
+  scheduleWidthLock();
+
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(scheduleWidthLock).catch(() => {});
+  }
+
+  if (!mountNode.__headerTitleResizeHandler) {
+    const handleResize = () => {
+      scheduleWidthLock();
+    };
+    window.addEventListener('resize', handleResize);
+    mountNode.__headerTitleResizeHandler = handleResize;
+  }
 }
 
 if (document.readyState === 'loading') {
