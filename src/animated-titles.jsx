@@ -1,0 +1,128 @@
+import React, { useMemo } from 'react';
+import { createRoot } from 'react-dom/client';
+import DecryptedText from './DecryptedText.jsx';
+
+const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=';
+
+function AnimatedTitle({ text, playIndex }) {
+  const characters = useMemo(() => CHARACTERS, []);
+
+  return (
+    <DecryptedText
+      key={playIndex}
+      text={text}
+      speed={55}
+      maxIterations={18}
+      characters={characters}
+      revealDirection="center"
+      animateOn="both"
+      parentClassName="animated-decrypted"
+      className="animated-decrypted__char"
+      encryptedClassName="animated-decrypted__char--scrambling"
+    />
+  );
+}
+
+const animatedTitles = new Map();
+
+function getGroupKey(element) {
+  const fieldset = element.closest('fieldset[data-tab]');
+  return fieldset?.dataset.tab ?? 'global';
+}
+
+function stripTextNodes(element) {
+  const textNodes = Array.from(element.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+  textNodes.forEach(node => element.removeChild(node));
+}
+
+function ensureMountNode(element) {
+  let mountNode = element.querySelector(':scope > .animated-title-react-root');
+  if (!mountNode) {
+    mountNode = document.createElement('span');
+    mountNode.className = 'animated-title-react-root';
+    element.appendChild(mountNode);
+  }
+  return mountNode;
+}
+
+function renderInstance(instance) {
+  instance.root.render(<AnimatedTitle text={instance.text} playIndex={instance.playIndex} />);
+}
+
+function mountTitle(element) {
+  if (animatedTitles.has(element)) return;
+
+  const text = element.getAttribute('data-animate-title-text') ?? element.textContent?.trim();
+  if (!text) return;
+
+  stripTextNodes(element);
+  const mountNode = ensureMountNode(element);
+  const root = createRoot(mountNode);
+
+  const instance = {
+    element,
+    root,
+    text,
+    playIndex: 0,
+    group: getGroupKey(element)
+  };
+
+  renderInstance(instance);
+  animatedTitles.set(element, instance);
+}
+
+function playGroup(group) {
+  animatedTitles.forEach(instance => {
+    if (instance.group === group || (group !== 'global' && instance.group === 'global')) {
+      instance.playIndex += 1;
+      renderInstance(instance);
+    }
+  });
+}
+
+function initializeTitles() {
+  const elements = document.querySelectorAll('[data-animate-title]');
+  elements.forEach(element => mountTitle(element));
+
+  requestAnimationFrame(() => {
+    playGroup('global');
+    const activeCard = document.querySelector('fieldset[data-tab].card.active');
+    const activeGroup = activeCard?.dataset.tab;
+    if (activeGroup) {
+      playGroup(activeGroup);
+    }
+  });
+
+  const main = document.querySelector('main');
+  if (main) {
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (
+          mutation.type === 'attributes' &&
+          mutation.attributeName === 'class' &&
+          mutation.target instanceof HTMLElement &&
+          mutation.target.matches('fieldset[data-tab].card') &&
+          mutation.target.classList.contains('active')
+        ) {
+          const tabName = mutation.target.dataset.tab;
+          if (tabName) {
+            playGroup('global');
+            playGroup(tabName);
+          }
+        }
+      });
+    });
+
+    observer.observe(main, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeTitles, { once: true });
+} else {
+  initializeTitles();
+}

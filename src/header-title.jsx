@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import DecryptedText from './DecryptedText.jsx';
 
@@ -7,8 +7,34 @@ const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567
 
 function HeaderTitle() {
   const characters = useMemo(() => CHARACTERS, []);
+  const [playKey, setPlayKey] = useState(0);
+
+  useEffect(() => {
+    let timeoutId;
+
+    const scheduleNext = () => {
+      const minDelay = 12000;
+      const maxDelay = 28000;
+      const delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+
+      timeoutId = window.setTimeout(() => {
+        setPlayKey(prev => prev + 1);
+        scheduleNext();
+      }, delay);
+    };
+
+    scheduleNext();
+
+    return () => {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
   return (
     <DecryptedText
+      key={playKey}
       text={TITLE_TEXT}
       speed={55}
       maxIterations={18}
