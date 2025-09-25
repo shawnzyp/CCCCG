@@ -346,6 +346,7 @@ progress::-moz-progress-bar{
 .roll-flip-grid input,
 .roll-flip-grid button,
 .roll-flip-grid .pill{padding:4px 6px;min-height:28px;}
+.roll-flip-grid fieldset>legend{font-size:clamp(0.95rem,2.5vw,1.2rem);}
 .roll-flip-grid .pill.result{font-size:.85rem;min-width:40px;width:100%;display:flex;align-items:center;justify-content:center;text-align:center;margin-bottom:4px;}
 #dice-count{flex:0 0 30px;width:30px;}
 @media(max-width:600px){
