@@ -290,11 +290,6 @@ progress::-moz-progress-bar{
   white-space:nowrap;
 }
 
-#xp-pill{
-  height:var(--tracker-pill-height);
-  padding:0 16px;
-}
-
 .bar-label{position:relative}
 .bar-label>progress{width:100%;height:var(--tracker-pill-height)}
 .bar-label>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;padding:0}
