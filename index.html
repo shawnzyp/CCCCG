@@ -371,11 +371,13 @@
         <input id="tier" type="text" readonly/>
       </div>
       <div class="card" style="grid-column:1/-1">
-        <label for="xp">Experience</label>
+        <label>Experience</label>
+        <input id="xp" type="hidden" value="0"/>
         <div class="inline">
-          <input id="xp" type="number" inputmode="numeric" pattern="[0-9]*" value="0" min="0" style="max-width:120px" readonly/>
-          <progress id="xp-bar" max="2000" value="0" style="flex:1"></progress>
-          <span id="xp-pill" class="pill">0/2000</span>
+          <div class="bar-label">
+            <progress id="xp-bar" max="2000" value="0"></progress>
+            <span id="xp-pill">0/2000</span>
+          </div>
         </div>
         <div class="inline">
           <label for="xp-amt" class="sr-only">Amount</label>
