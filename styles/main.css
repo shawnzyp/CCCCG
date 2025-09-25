@@ -72,6 +72,16 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .header-title-react-root{
   display:inline-flex;
   align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+
+.header-title-react-root>.header-decrypted,
+.header-title-react-root>.animated-decrypted{
+  flex:1 1 auto;
+  justify-content:center;
 }
 
 .header-decrypted,
