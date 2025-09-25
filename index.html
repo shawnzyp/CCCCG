@@ -92,7 +92,7 @@
 
     <div class="grid grid-2 roll-flip-grid">
       <fieldset class="card">
-        <legend>Dice Roll</legend>
+        <legend data-animate-title>Dice Roll</legend>
         <span class="pill result" id="dice-out" data-placeholder="000"></span>
         <div class="inline">
           <label for="dice-sides" class="sr-only">Sides</label>
@@ -105,7 +105,7 @@
         </div>
       </fieldset>
       <fieldset class="card">
-        <legend>Coin Flip</legend>
+        <legend data-animate-title>Coin Flip</legend>
         <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
         <div class="inline">
           <button id="flip" class="btn-sm">Flip</button>
@@ -113,7 +113,7 @@
       </fieldset>
     </div>
     <fieldset id="death-saves" class="card" disabled>
-      <legend>Death Saves</legend>
+      <legend data-animate-title>Death Saves</legend>
       <div class="death-saves-grid">
         <div class="death-save-tracks">
           <div class="death-save-group">
@@ -144,7 +144,7 @@
     </fieldset>
     <div class="grid grid-1">
       <fieldset class="card hp-field">
-        <legend>HP</legend>
+        <legend data-animate-title>HP</legend>
           <input id="hp-roll" type="hidden" value="0"/>
           <div class="inline">
             <div class="bar-label">
@@ -170,7 +170,7 @@
           </div>
       </fieldset>
       <fieldset class="card sp-field">
-        <legend>SP</legend>
+        <legend data-animate-title>SP</legend>
         <div class="inline">
           <div class="bar-label">
             <progress id="sp-bar" max="5" value="5"></progress>
@@ -189,14 +189,18 @@
         </div>
         <button id="long-rest" class="btn-sm">Long Rest</button>
         <div class="cap-box">
-          <label for="cap-check"><input type="checkbox" id="cap-check"/> Cinematic Action Point <span id="cap-status">Available</span></label>
+          <label for="cap-check">
+            <input type="checkbox" id="cap-check"/>
+            <span class="cap-label-text" data-animate-title>Cinematic Action Point</span>
+            <span id="cap-status">Available</span>
+          </label>
         </div>
       </fieldset>
     </div>
 
     <div class="grid grid-1">
       <fieldset class="card">
-        <legend>Stats and Effects</legend>
+        <legend data-animate-title>Stats and Effects</legend>
         <div class="stats-grid">
           <div>
             <label for="initiative">Initiative Bonus</label>
@@ -222,7 +226,7 @@
       </fieldset>
 
       <fieldset id="resonance-points" class="card">
-        <legend>Resonance Points (RP)</legend>
+        <legend data-animate-title>Resonance Points (RP)</legend>
         <p>
           Resonance Points are awarded by the GM for truly heroic acts. At <strong>5 RP</strong>, trigger a Heroic Surge for temporary boosts.
         </p>
@@ -285,7 +289,7 @@
     <h2 class="card-title">Ability Scores</h2>
     <div id="abil-grid" class="grid ability-grid"></div>
     <fieldset class="card">
-      <legend>Proficiency &amp; Power</legend>
+      <legend data-animate-title>Proficiency &amp; Power</legend>
       <div class="inline">
         <div style="flex:1">
           <label for="prof-bonus">Proficiency Bonus</label>
@@ -305,11 +309,11 @@
       </div>
     </fieldset>
     <fieldset class="card">
-      <legend>Saving Throws</legend>
+      <legend data-animate-title>Saving Throws</legend>
       <div id="saves" class="grid ability-grid"></div>
     </fieldset>
     <fieldset class="card">
-      <legend>Skills</legend>
+      <legend data-animate-title>Skills</legend>
       <div id="skills" class="grid ability-grid"></div>
     </fieldset>
   </fieldset>
@@ -371,7 +375,7 @@
         <input id="tier" type="text" readonly/>
       </div>
       <div class="card" style="grid-column:1/-1">
-        <label>Experience</label>
+        <label data-animate-title>Experience</label>
         <input id="xp" type="hidden" value="0"/>
         <div class="inline">
           <div class="bar-label">
@@ -447,7 +451,7 @@
         <ul id="origin-perks" class="perk-list"></ul>
       </div>
       <div class="card">
-        <label for="credits">Credits</label>
+        <label for="credits" data-animate-title>Credits</label>
         <div class="inline">
           <span class="credits-currency" aria-hidden="true">₡</span>
           <span id="credits-total-pill" class="pill">0</span>
@@ -464,7 +468,7 @@
         <input id="credits" type="hidden" value="0"/>
       </div>
       <div class="card card-wide">
-        <label>Faction Reputation</label>
+        <label data-animate-title>Faction Reputation</label>
         <div class="faction-rep">
           <div class="faction-rep__card">
             <div class="faction-rep__header">
@@ -568,7 +572,7 @@
     </div>
 
     <div class="card">
-      <label for="story-notes">Backstory / Notes</label>
+      <label for="story-notes" data-animate-title>Backstory / Notes</label>
       <textarea id="story-notes" rows="6" placeholder="Key events, allies, vulnerabilities, research/training notes, etc."></textarea>
     </div>
       <h3>Character Questions</h3>
@@ -1028,6 +1032,7 @@
 <div id="draw-flash" aria-hidden="true" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module" src="scripts/header-title.js"></script>
+<script type="module" src="scripts/animated-titles.js"></script>
 <script type="module" src="scripts/main.js"></script>
 <script type="module" src="scripts/dm.js"></script>
 <script type="module" src="scripts/somf-firebase.js"></script>
