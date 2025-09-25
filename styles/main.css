@@ -14,12 +14,13 @@
 html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
 html{height:100%;background:var(--bg);transition:var(--transition);scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}
-body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:16px;transition:var(--transition);opacity:1;padding:0}
+body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:clamp(.95rem,2.2vw,1rem);transition:var(--transition);opacity:1;padding:0}
 ::selection{background:var(--accent);color:var(--text-on-accent)}
-h1,h2,h3,h4{font-family:inherit;line-height:1.25;margin:0 0 .5em}
-h1{font-size:2rem;font-weight:700;color:var(--accent)}
-h2{font-size:1.5rem;font-weight:600;color:var(--accent)}
-h3{font-size:1.25rem;font-weight:600}
+h1,h2,h3,h4{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;line-height:1.25;margin:0 0 .5em}
+h1{font-size:clamp(1.75rem,4.6vw,2rem);font-weight:700;color:var(--accent)}
+h2{font-size:clamp(1.35rem,3.8vw,1.5rem);font-weight:600;color:var(--accent)}
+h3{font-size:clamp(1.1rem,3.2vw,1.25rem);font-weight:600}
+h4{font-size:clamp(1rem,2.8vw,1.1rem);font-weight:600}
 header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding:calc(4px * 1.15 + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(4px * 1.15) calc(20px + env(safe-area-inset-left));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:calc(6px * 1.15)}
 header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-10px * 1.15))}
 .actions{display:flex;gap:calc(6px * 1.15);flex-wrap:wrap}
@@ -53,7 +54,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .tabs{display:grid;grid-template-columns:repeat(5,1fr);align-items:center;gap:calc(4px * 1.15);width:100%;transition:opacity .4s ease,transform .4s ease}
 .tabs-title{
   padding:0 8px;
-  font-size:clamp(1.5rem,4vw,2.25rem);
+  font-size:clamp(1.1rem,3.6vw,1.75rem);
   white-space:nowrap;
   color:var(--accent);
   font-weight:700;
@@ -65,6 +66,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   grid-column:1/5;
   position:static;
   transform:none;
+  font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
 }
 
 .header-title-react-root{
@@ -104,8 +106,8 @@ main{width:100%;max-width:var(--content-width);margin:16px auto;padding:0 calc(2
 fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:14px;box-shadow:var(--shadow);display:none;opacity:0;transform:translateX(10px);cursor:default;transition:opacity .3s ease,transform .3s ease;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent)}
 main>:last-child{margin-bottom:0}
 fieldset[data-tab].card.active{display:block;opacity:1;transform:translateX(0)}
-fieldset[data-tab].card>legend{font-size:1.5rem;font-weight:600;color:var(--accent);margin:0 0 10px}
-.card-title{font-size:1.5rem;font-weight:600;color:var(--accent);margin:0 0 10px}
+fieldset[data-tab].card>legend{font-size:clamp(1.1rem,3.4vw,1.5rem);font-weight:600;color:var(--accent);margin:0 0 10px;font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+.card-title{font-size:clamp(1.1rem,3.4vw,1.5rem);font-weight:600;color:var(--accent);margin:0 0 10px;font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif}
 p{max-width:var(--content-width)}
 footer{
   text-align:center;
@@ -133,7 +135,7 @@ footer p{
 #statuses{grid-template-columns:repeat(2,1fr);margin-top:8px}
 .status-effects{font-size:90%}
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-label{display:block;font-weight:700;margin-bottom:6px}
+label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4vw,1rem)}
 .stats-grid label{min-height:3.2em;display:flex;align-items:flex-end}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:auto;max-width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;min-height:var(--control-min-height);transition:var(--transition)}
 input:not([type="checkbox"]),select,textarea{width:100%}
