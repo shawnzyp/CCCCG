@@ -44,6 +44,11 @@ const LAUNCH_REVEAL_DELAY = 2600;
       window.setTimeout(cleanup, 1000);
     }
   };
+  if(launchEl){
+    const skipLaunch = () => reveal();
+    launchEl.addEventListener('click', skipLaunch, { passive: true });
+    launchEl.addEventListener('pointerdown', skipLaunch, { passive: true });
+  }
   if(prefersReducedMotion){
     reveal();
     return;
