@@ -1,5 +1,15 @@
 import { $, qsa } from './helpers.js';
 
+function getInertTargets() {
+  const targets = new Set();
+  qsa('body > :not(.overlay):not([data-launch-shell])').forEach(el => targets.add(el));
+  const shell = document.querySelector('[data-launch-shell]');
+  if (shell) {
+    qsa(':scope > :not(.overlay)', shell).forEach(el => targets.add(el));
+  }
+  return Array.from(targets);
+}
+
 let lastFocus = null;
 let openModals = 0;
 
@@ -57,10 +67,10 @@ export function show(id) {
   const el = $(id);
   if (!el || !el.classList.contains('hidden')) return;
   lastFocus = document.activeElement;
-    if (openModals === 0) {
-      document.body.classList.add('modal-open');
-      qsa('body > :not(.overlay)').forEach(e => e.setAttribute('inert', ''));
-    }
+  if (openModals === 0) {
+    document.body.classList.add('modal-open');
+    getInertTargets().forEach(e => e.setAttribute('inert', ''));
+  }
   openModals++;
   el.style.display = 'flex';
   el.classList.remove('hidden');
@@ -89,8 +99,8 @@ export function hide(id) {
     lastFocus.focus();
   }
   openModals = Math.max(0, openModals - 1);
-    if (openModals === 0) {
-      document.body.classList.remove('modal-open');
-      qsa('body > :not(.overlay)').forEach(e => e.removeAttribute('inert'));
-    }
+  if (openModals === 0) {
+    document.body.classList.remove('modal-open');
+    getInertTargets().forEach(e => e.removeAttribute('inert'));
+  }
 }
