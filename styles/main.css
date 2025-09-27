@@ -17,10 +17,10 @@ html{height:100%;background:var(--bg);transition:var(--transition);scroll-behavi
 body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.6;font-size:clamp(.95rem,2.2vw,1rem);transition:var(--transition);opacity:1;padding:0}
 body.launching{overflow:hidden;height:100vh;height:100dvh}
 .app-shell{opacity:1;transition:opacity .6s ease}
-body.launching .app-shell{opacity:0;pointer-events:none}
-#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:clamp(1.5rem,4vh,4rem);background:var(--bg-color,#0e1117);z-index:2000;opacity:0;pointer-events:none;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;min-height:100vh;min-height:100dvh}
-body.launching #launch-animation{opacity:1;pointer-events:auto;visibility:visible}
-#launch-animation img{width:auto;max-width:min(calc(100vw - 3rem),560px);max-height:min(calc(100vh - 3rem),560px);height:auto;border-radius:var(--radius);box-shadow:var(--shadow);object-fit:contain}
+body.launching .app-shell{opacity:0}
+#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:var(--bg-color,#0e1117);z-index:2000;opacity:0;pointer-events:none;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;min-height:100vh;min-height:100dvh}
+body.launching #launch-animation{opacity:1;visibility:visible}
+#launch-animation img{width:100%;height:100%;max-width:none;max-height:none;display:block;object-fit:cover}
 ::selection{background:var(--accent);color:var(--text-on-accent)}
 h1,h2,h3,h4{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;line-height:1.25;margin:0 0 .5em}
 h1{font-size:clamp(1.75rem,4.6vw,2rem);font-weight:700;color:var(--accent)}
