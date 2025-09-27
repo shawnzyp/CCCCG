@@ -22,6 +22,40 @@ window.CC = window.CC || {};
 CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
+
+const LAUNCH_REVEAL_DELAY = 2600;
+(function setupLaunchAnimation(){
+  const body = document.body;
+  if(!body || !body.classList.contains('launching')) return;
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const launchEl = document.getElementById('launch-animation');
+  let revealed = false;
+  const cleanup = () => {
+    if(launchEl && launchEl.parentNode){
+      launchEl.parentNode.removeChild(launchEl);
+    }
+  };
+  const reveal = () => {
+    if(revealed) return;
+    revealed = true;
+    body.classList.remove('launching');
+    if(launchEl){
+      launchEl.addEventListener('transitionend', cleanup, { once: true });
+      window.setTimeout(cleanup, 1000);
+    }
+  };
+  if(prefersReducedMotion){
+    reveal();
+    return;
+  }
+  const scheduleReveal = () => window.setTimeout(reveal, LAUNCH_REVEAL_DELAY);
+  if(document.readyState === 'complete'){
+    scheduleReveal();
+  } else {
+    window.addEventListener('load', scheduleReveal, { once: true });
+  }
+  window.setTimeout(reveal, LAUNCH_REVEAL_DELAY + 2000);
+})();
 // Ensure numeric inputs accept only digits and trigger numeric keypad
 document.addEventListener('input', e => {
   if(e.target.matches('input[inputmode="numeric"]')){
