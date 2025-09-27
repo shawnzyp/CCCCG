@@ -18,7 +18,7 @@ body{min-height:100%;margin:0;background:transparent;color:var(--text);font-fami
 body.launching{overflow:hidden;height:100vh;height:100dvh}
 .app-shell{opacity:1;transition:opacity .6s ease}
 body.launching .app-shell{opacity:0}
-#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:var(--bg-color,#0e1117);z-index:2000;opacity:0;pointer-events:none;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;min-height:100vh;min-height:100dvh}
+#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:var(--bg-color,#0e1117);z-index:2000;opacity:0;pointer-events:none;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;width:100vw;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh}
 body.launching #launch-animation{opacity:1;visibility:visible}
 #launch-animation img{width:100%;height:100%;max-width:none;max-height:none;display:block;object-fit:cover}
 ::selection{background:var(--accent);color:var(--text-on-accent)}
@@ -752,7 +752,8 @@ progress::-moz-progress-bar{
 .modal:focus{outline:none}
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
 body.modal-open{overflow:hidden}
-body.modal-open> :not(.overlay){pointer-events:none;user-select:none}
+body.modal-open> :not(.overlay):not([data-launch-shell]){pointer-events:none;user-select:none}
+body.modal-open [data-launch-shell]> :not(.overlay){pointer-events:none;user-select:none}
 .modal h3{margin:0 0 4px;color:var(--accent);font-size:.9rem;line-height:1.2;font-weight:600}
 .modal .x{position:sticky;top:8px;margin-left:auto;margin-right:8px;background:transparent;border:none;color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:var(--transition);z-index:2}
 .modal .x:hover{color:var(--accent)}
