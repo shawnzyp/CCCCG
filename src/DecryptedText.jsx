@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 
 const styles = {
   wrapper: {
-    display: 'inline-block',
-    whiteSpace: 'pre-wrap'
+    whiteSpace: 'pre-wrap',
+    position: 'relative'
   },
   srOnly: {
     position: 'absolute',
@@ -15,6 +15,16 @@ const styles = {
     overflow: 'hidden',
     clip: 'rect(0,0,0,0)',
     border: 0
+  },
+  measure: {
+    position: 'absolute',
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    whiteSpace: 'pre',
+    display: 'inline-flex',
+    alignItems: 'inherit',
+    gap: 'inherit',
+    letterSpacing: 'inherit'
   }
 };
 
@@ -38,10 +48,62 @@ export default function DecryptedText({
   const [revealedIndices, setRevealedIndices] = useState(new Set());
   const [hasAnimated, setHasAnimated] = useState(false);
   const containerRef = useRef(null);
+  const measureRef = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const updateDimensions = useCallback(() => {
+    const measureNode = measureRef.current;
+    if (!measureNode) return;
+
+    const rect = measureNode.getBoundingClientRect();
+    const nextDimensions = {
+      width: Math.ceil(rect.width * 1000) / 1000,
+      height: Math.ceil(rect.height * 1000) / 1000
+    };
+
+    setDimensions(prev => {
+      if (
+        Math.abs(prev.width - nextDimensions.width) < 0.5 &&
+        Math.abs(prev.height - nextDimensions.height) < 0.5
+      ) {
+        return prev;
+      }
+      return nextDimensions;
+    });
+  }, []);
 
   useEffect(() => {
     setDisplayText(text);
   }, [text]);
+
+  useLayoutEffect(() => {
+    updateDimensions();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+
+    const node = measureRef.current;
+    if (!node) return undefined;
+
+    const observer = new ResizeObserver(() => updateDimensions());
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, [text, updateDimensions]);
+
+  useEffect(() => {
+    if (!document.fonts || typeof document.fonts.addEventListener !== 'function') return undefined;
+
+    const handleFontEvent = () => updateDimensions();
+    document.fonts.addEventListener('loadingdone', handleFontEvent);
+    document.fonts.addEventListener('loadingerror', handleFontEvent);
+
+    return () => {
+      document.fonts.removeEventListener('loadingdone', handleFontEvent);
+      document.fonts.removeEventListener('loadingerror', handleFontEvent);
+    };
+  }, [updateDimensions]);
 
   useEffect(() => {
     let interval;
@@ -193,14 +255,34 @@ export default function DecryptedText({
         }
       : {};
 
+  const wrapperStyle = {
+    ...styles.wrapper,
+    minWidth: dimensions.width ? `${dimensions.width}px` : undefined,
+    minHeight: dimensions.height ? `${dimensions.height}px` : undefined,
+    width: dimensions.width ? `${dimensions.width}px` : undefined,
+    height: dimensions.height ? `${dimensions.height}px` : undefined
+  };
+
   return (
     <motion.span
       className={parentClassName}
       ref={containerRef}
-      style={styles.wrapper}
+      style={wrapperStyle}
       {...hoverProps}
       {...props}
     >
+      <span
+        aria-hidden="true"
+        ref={measureRef}
+        className={parentClassName}
+        style={styles.measure}
+      >
+        {text.split('').map((char, index) => (
+          <span key={`measure-${index}`} className={className}>
+            {char}
+          </span>
+        ))}
+      </span>
       <span style={styles.srOnly}>{text}</span>
 
       <span aria-hidden="true">
