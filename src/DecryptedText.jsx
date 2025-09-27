@@ -4,7 +4,13 @@ import { motion } from 'motion/react';
 const styles = {
   wrapper: {
     whiteSpace: 'pre-wrap',
-    position: 'relative'
+    position: 'relative',
+    display: 'inline-flex',
+    alignItems: 'inherit',
+    justifyContent: 'inherit',
+    gap: 'inherit',
+    letterSpacing: 'inherit',
+    overflow: 'hidden'
   },
   srOnly: {
     position: 'absolute',
@@ -23,6 +29,7 @@ const styles = {
     whiteSpace: 'pre',
     display: 'inline-flex',
     alignItems: 'inherit',
+    justifyContent: 'inherit',
     gap: 'inherit',
     letterSpacing: 'inherit'
   }
@@ -285,7 +292,16 @@ export default function DecryptedText({
       </span>
       <span style={styles.srOnly}>{text}</span>
 
-      <span aria-hidden="true">
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'inherit',
+          justifyContent: 'inherit',
+          gap: 'inherit',
+          letterSpacing: 'inherit'
+        }}
+      >
         {displayText.split('').map((char, index) => {
           const isRevealedOrDone = revealedIndices.has(index) || !isScrambling || !isHovering;
 
