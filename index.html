@@ -17,9 +17,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
 </head>
-<body>
+<body class="launching">
 <noscript>This app requires JavaScript to run properly.</noscript>
 
+<div id="launch-animation" role="presentation" aria-hidden="true">
+  <img src="images/IMG_4848.gif" alt="" loading="eager" decoding="async"/>
+</div>
+
+<div class="app-shell" data-launch-shell>
 <a href="#main" class="skip-link">Skip to main content</a>
 
 
@@ -1031,6 +1036,7 @@
 <div id="draw-lightning" aria-hidden="true" hidden></div>
 <div id="draw-flash" aria-hidden="true" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
 <script type="module" src="scripts/header-title.js"></script>
 <script type="module" src="scripts/animated-titles.js"></script>
 <script type="module" src="scripts/main.js"></script>
