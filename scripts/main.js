@@ -23,12 +23,14 @@ CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
 
-const LAUNCH_REVEAL_DELAY = 2600;
+const LAUNCH_MIN_DURATION = 2600;
+const LAUNCH_MAX_WAIT = 12000;
 (function setupLaunchAnimation(){
   const body = document.body;
   if(!body || !body.classList.contains('launching')) return;
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const launchEl = document.getElementById('launch-animation');
+  const video = launchEl ? launchEl.querySelector('video') : null;
   let revealed = false;
   const cleanup = () => {
     if(launchEl && launchEl.parentNode){
@@ -48,13 +50,65 @@ const LAUNCH_REVEAL_DELAY = 2600;
     reveal();
     return;
   }
-  const scheduleReveal = () => window.setTimeout(reveal, LAUNCH_REVEAL_DELAY);
-  if(document.readyState === 'complete'){
-    scheduleReveal();
+  const waitForVideoPlayback = vid => new Promise(resolve => {
+    let settled = false;
+    let fallbackTimer = null;
+    const finish = () => {
+      if(settled) return;
+      settled = true;
+      if(fallbackTimer) window.clearTimeout(fallbackTimer);
+      resolve();
+    };
+    const scheduleFallback = delay => {
+      if(fallbackTimer) window.clearTimeout(fallbackTimer);
+      fallbackTimer = window.setTimeout(finish, delay);
+    };
+    vid.addEventListener('ended', () => {
+      if(settled) return;
+      if(fallbackTimer) window.clearTimeout(fallbackTimer);
+      window.setTimeout(finish, 120);
+    }, { once: true });
+    ['error','abort','emptied'].forEach(evt => vid.addEventListener(evt, finish, { once: true }));
+    const beginPlayback = () => {
+      const durationMs = (Number.isFinite(vid.duration) && vid.duration > 0) ? vid.duration * 1000 : 0;
+      const fallbackDelay = Math.min(Math.max(durationMs + 300, LAUNCH_MIN_DURATION + 800), LAUNCH_MAX_WAIT);
+      scheduleFallback(fallbackDelay);
+      try {
+        if(vid.currentTime > 0){
+          vid.currentTime = 0;
+        }
+      } catch (err) {
+        // ignore inability to reset playback position
+      }
+      try {
+        const playPromise = vid.play();
+        if(playPromise && typeof playPromise.then === 'function'){
+          playPromise.catch(()=>{});
+        }
+      } catch (err) {
+        // ignore autoplay rejections; fallback timer will reveal
+      }
+    };
+    if(vid.readyState >= 1){
+      beginPlayback();
+    } else {
+      vid.addEventListener('loadedmetadata', beginPlayback, { once: true });
+      scheduleFallback(LAUNCH_MAX_WAIT);
+    }
+  });
+  if(video){
+    waitForVideoPlayback(video).then(() => {
+      reveal();
+    });
   } else {
-    window.addEventListener('load', scheduleReveal, { once: true });
+    const scheduleReveal = () => window.setTimeout(reveal, LAUNCH_MIN_DURATION);
+    if(document.readyState === 'complete'){
+      scheduleReveal();
+    } else {
+      window.addEventListener('load', scheduleReveal, { once: true });
+    }
+    window.setTimeout(reveal, LAUNCH_MAX_WAIT);
   }
-  window.setTimeout(reveal, LAUNCH_REVEAL_DELAY + 2000);
 })();
 // Ensure numeric inputs accept only digits and trigger numeric keypad
 document.addEventListener('input', e => {
@@ -3820,10 +3874,6 @@ if (btnRules) {
 
 /* ========= Close + click-outside ========= */
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
-const welcomeOk = $('welcome-ok');
-if (welcomeOk) {
-  welcomeOk.addEventListener('click', ()=>{ hide('modal-welcome'); });
-}
 const welcomeCreate = $('welcome-create-character');
 if (welcomeCreate) {
   welcomeCreate.addEventListener('click', () => {
@@ -3831,6 +3881,19 @@ if (welcomeCreate) {
     const newCharBtn = $('create-character');
     if (newCharBtn) newCharBtn.click();
   });
+}
+const welcomeLoad = $('welcome-load-character');
+if (welcomeLoad) {
+  welcomeLoad.addEventListener('click', () => {
+    hide('modal-welcome');
+    window.requestAnimationFrame(() => {
+      openCharacterList().catch(err => console.error('Failed to open load list from welcome', err));
+    });
+  });
+}
+const welcomeSkip = $('welcome-skip');
+if (welcomeSkip) {
+  welcomeSkip.addEventListener('click', () => { hide('modal-welcome'); });
 }
 show('modal-welcome');
 

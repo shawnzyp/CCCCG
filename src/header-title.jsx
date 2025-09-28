@@ -77,6 +77,19 @@ function renderHeaderTitle() {
 
   let widthRequestId = null;
 
+  const lockWidth = width => {
+    if (!width) return;
+
+    const roundedWidth = Math.ceil(width);
+    const widthPx = `${roundedWidth}px`;
+
+    if (mountNode.style.width !== widthPx) {
+      mountNode.style.width = widthPx;
+      mountNode.style.minWidth = widthPx;
+      mountNode.style.maxWidth = widthPx;
+    }
+  };
+
   const measureAndLockWidth = () => {
     if (!mountNode || !titleEl) return;
 
@@ -84,15 +97,7 @@ function renderHeaderTitle() {
     if (!renderedText) return;
 
     const { width } = renderedText.getBoundingClientRect();
-
-    if (!width) return;
-
-    const roundedWidth = Math.ceil(width);
-    const widthPx = `${roundedWidth}px`;
-
-    mountNode.style.width = widthPx;
-    mountNode.style.minWidth = widthPx;
-    mountNode.style.maxWidth = widthPx;
+    lockWidth(width);
   };
 
   const scheduleWidthLock = () => {
@@ -106,16 +111,57 @@ function renderHeaderTitle() {
 
   scheduleWidthLock();
 
-  if (document.fonts?.ready) {
-    document.fonts.ready.then(scheduleWidthLock).catch(() => {});
-  }
+  if ('ResizeObserver' in window) {
+    const ensureResizeObserver = () => {
+      const renderedText = mountNode.querySelector('.header-decrypted');
+      if (!renderedText) return;
 
-  if (!mountNode.__headerTitleResizeHandler) {
-    const handleResize = () => {
-      scheduleWidthLock();
+      let observer = mountNode.__headerTitleResizeObserver;
+      if (!observer) {
+        observer = new ResizeObserver(entries => {
+          entries.forEach(entry => {
+            lockWidth(entry.contentRect?.width ?? 0);
+          });
+        });
+        mountNode.__headerTitleResizeObserver = observer;
+      }
+
+      const prevObserved = mountNode.__headerTitleObservedEl;
+      if (prevObserved && prevObserved !== renderedText) {
+        try {
+          observer.unobserve(prevObserved);
+        } catch (error) {
+          // ignore browsers that throw when unobserving a stale node
+        }
+      }
+
+      if (prevObserved !== renderedText) {
+        observer.observe(renderedText);
+        mountNode.__headerTitleObservedEl = renderedText;
+      }
     };
-    window.addEventListener('resize', handleResize);
-    mountNode.__headerTitleResizeHandler = handleResize;
+
+    ensureResizeObserver();
+
+    if (!mountNode.__headerTitleMutationObserver) {
+      const mutationObserver = new MutationObserver(() => {
+        ensureResizeObserver();
+      });
+      mutationObserver.observe(mountNode, { childList: true, subtree: true });
+      mountNode.__headerTitleMutationObserver = mutationObserver;
+    }
+  } else {
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(scheduleWidthLock).catch(() => {});
+    }
+
+    if (!mountNode.__headerTitleResizeHandler) {
+      const handleResize = () => {
+        scheduleWidthLock();
+      };
+      window.addEventListener('resize', handleResize);
+      mountNode.__headerTitleResizeHandler = handleResize;
+    }
   }
 }
 
