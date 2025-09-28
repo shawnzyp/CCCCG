@@ -10,7 +10,8 @@ const styles = {
     justifyContent: 'inherit',
     gap: 'inherit',
     letterSpacing: 'inherit',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    flex: '0 0 auto'
   },
   srOnly: {
     position: 'absolute',
@@ -267,7 +268,9 @@ export default function DecryptedText({
     minWidth: dimensions.width ? `${dimensions.width}px` : undefined,
     minHeight: dimensions.height ? `${dimensions.height}px` : undefined,
     width: dimensions.width ? `${dimensions.width}px` : undefined,
-    height: dimensions.height ? `${dimensions.height}px` : undefined
+    height: dimensions.height ? `${dimensions.height}px` : undefined,
+    maxWidth: dimensions.width ? `${dimensions.width}px` : undefined,
+    maxHeight: dimensions.height ? `${dimensions.height}px` : undefined
   };
 
   return (
