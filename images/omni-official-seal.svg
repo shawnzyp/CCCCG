@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Office of Metahuman Nature and Intervention seal</title>
+  <desc id="desc">Circular O.M.N.I. seal with an eagle over the word OMNI and surrounding motto text.</desc>
+  <defs>
+    <path id="topArc" d="M192 512a320 320 0 0 1 640 0" fill="none"/>
+    <path id="bottomArc" d="M832 512a320 320 0 0 1-640 0" fill="none"/>
+  </defs>
+  <g fill="none" stroke="#000" stroke-width="18" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="512" cy="512" r="392"/>
+    <circle cx="512" cy="512" r="328"/>
+  </g>
+  <g fill="none" stroke="#000" stroke-width="22" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M272 520h480l96-96H584l-56-96-56 96H176z"/>
+    <path d="M312 616h400l72-72H384z"/>
+    <path d="M360 704h312l56-56H416z"/>
+  </g>
+  <g fill="none" stroke="#000" stroke-width="18" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M512 328l-56 96h112l-56-96z"/>
+    <path d="M456 424h112v192H456z"/>
+    <path d="M488 616h48l48 144h112l-160 80-160-80h112l48-144z"/>
+  </g>
+  <text font-family="'Inter', 'Arial', sans-serif" font-size="86" font-weight="600" letter-spacing="32" fill="#000" text-anchor="middle" x="512" y="612">OMNI</text>
+  <g font-family="'Inter', 'Arial', sans-serif" font-size="44" font-weight="600" letter-spacing="6" fill="#000" text-transform="uppercase">
+    <text>
+      <textPath href="#topArc" startOffset="50%" text-anchor="middle">OFFICE OF METAHUMAN NATURE AND INTERVENTION</textPath>
+    </text>
+    <text>
+      <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">BALANCE IN DESIGN · POWER WITH PERMISSION</textPath>
+    </text>
+  </g>
+</svg>
