@@ -154,9 +154,9 @@ label[data-animate-title]{
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 .news-ticker{
-  --pennant-width:clamp(168px,32vw,260px);
-  --pennant-point:clamp(36px,8.6vw,60px);
-  --pennant-gap:clamp(18px,4.4vw,32px);
+  --pennant-width:clamp(160px,30vw,240px);
+  --pennant-point:clamp(26px,6.4vw,44px);
+  --pennant-gap:clamp(14px,3.6vw,26px);
   --pennant-overlap:calc(var(--pennant-point) + var(--pennant-gap));
   position:relative;
   overflow:hidden;
@@ -166,7 +166,9 @@ label[data-animate-title]{
   border-left:2px solid var(--accent);
   width:100vw;
   margin-inline:calc(50% - 50vw);
-  min-height:52px;
+  height:45px;
+  min-height:45px;
+  box-sizing:border-box;
   box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 10%, transparent);
 }
 .news-ticker::before{
@@ -184,7 +186,7 @@ label[data-animate-title]{
   align-items:center;
   width:100%;
   height:100%;
-  padding-block:6px;
+  padding-block:0;
   padding-right:calc(22px + env(safe-area-inset-right));
 }
 .news-ticker__label{
@@ -193,7 +195,8 @@ label[data-animate-title]{
   justify-content:center;
   align-items:center;
   min-width:var(--pennant-width);
-  padding-block:clamp(8px,2.4vw,14px);
+  height:100%;
+  padding-block:0;
   padding-left:calc(clamp(18px,4.8vw,32px) + env(safe-area-inset-left));
   padding-right:calc(var(--pennant-overlap) + clamp(10px,2.8vw,16px));
   background:var(--accent);
@@ -217,13 +220,20 @@ label[data-animate-title]{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:clamp(76px,15vw,118px);
+  width:clamp(60px,12vw,90px);
+  height:calc(100% - 8px);
+  color:var(--text-on-accent);
+  flex:0 0 auto;
 }
 
-.news-ticker__logo img{
+.news-ticker__logo::before{
+  content:"";
   display:block;
   width:100%;
-  height:auto;
+  height:100%;
+  background:currentColor;
+  mask:url('../images/6a78d5b9-619a-4670-a141-271387532fdb.svg') center/contain no-repeat;
+  -webkit-mask:url('../images/6a78d5b9-619a-4670-a141-271387532fdb.svg') center/contain no-repeat;
 }
 .news-ticker__track{
   --ticker-gap:clamp(64px,20vw,280px);
