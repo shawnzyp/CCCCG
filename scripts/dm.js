@@ -125,7 +125,7 @@ function initDMLogin(){
   }
 
   function renderStoredNotifications() {
-    if (!notifyList) return;
+    if (!notifyList || !isLoggedIn()) return;
     notifyList.innerHTML = '';
     notifications.forEach(entry => {
       const li = document.createElement('li');
@@ -134,7 +134,31 @@ function initDMLogin(){
     });
   }
 
+  function storePendingNotification(entry) {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      const raw = sessionStorage.getItem(PENDING_DM_NOTIFICATIONS_KEY);
+      let pending = [];
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) pending = parsed;
+      }
+      pending.push(entry);
+      const MAX_PENDING = 20;
+      if (pending.length > MAX_PENDING) {
+        pending = pending.slice(pending.length - MAX_PENDING);
+      }
+      sessionStorage.setItem(PENDING_DM_NOTIFICATIONS_KEY, JSON.stringify(pending));
+    } catch {
+      /* ignore persistence errors */
+    }
+  }
+
   function pushNotification(entry) {
+    if (!isLoggedIn()) {
+      storePendingNotification(entry);
+      return;
+    }
     notifications.push(entry);
     if (notifications.length > MAX_STORED_NOTIFICATIONS) {
       notifications.splice(0, notifications.length - MAX_STORED_NOTIFICATIONS);
@@ -147,7 +171,6 @@ function initDMLogin(){
     }
   }
 
-  renderStoredNotifications();
   persistNotifications();
 
   window.dmNotify = function(detail, meta = {}) {
@@ -157,6 +180,7 @@ function initDMLogin(){
   };
 
   function drainPendingNotifications() {
+    if (!isLoggedIn()) return;
     if (typeof sessionStorage === 'undefined') return;
     try {
       const raw = sessionStorage.getItem(PENDING_DM_NOTIFICATIONS_KEY);
@@ -199,9 +223,19 @@ function initDMLogin(){
     }
   }
 
+  function clearNotificationDisplay() {
+    if (notifyList) notifyList.innerHTML = '';
+    closeNotifications();
+  }
+
   function updateButtons(){
     const loggedIn = isLoggedIn();
     if (!loggedIn && menu) menu.hidden = true;
+    if (!loggedIn) {
+      clearNotificationDisplay();
+    } else {
+      renderStoredNotifications();
+    }
     if (dmBtn){
       dmBtn.style.opacity = loggedIn ? '1' : '0';
       dmBtn.style.left = loggedIn ? '18px' : '50%';
@@ -244,9 +278,7 @@ function initDMLogin(){
         (async () => {
           const entered = window.pinPrompt ? await window.pinPrompt('Enter DM PIN') : (typeof prompt === 'function' ? prompt('Enter DM PIN') : null);
           if (entered === DM_PIN) {
-            setLoggedIn();
-            updateButtons();
-            initTools();
+            onLoginSuccess();
             if (typeof dismissToast === 'function') dismissToast();
             if (typeof toast === 'function') toast('DM tools unlocked','success');
             resolve(true);
@@ -268,9 +300,7 @@ function initDMLogin(){
       }
       function onSubmit(){
         if(loginPin.value === DM_PIN){
-          setLoggedIn();
-          updateButtons();
-          initTools();
+          onLoginSuccess();
           closeLogin();
           if (typeof dismissToast === 'function') dismissToast();
           if (typeof toast === 'function') toast('DM tools unlocked','success');
@@ -314,6 +344,13 @@ function initDMLogin(){
     notifyModal.classList.add('hidden');
     notifyModal.setAttribute('aria-hidden','true');
     notifyModal.style.display = 'none';
+  }
+
+  function onLoginSuccess(){
+    setLoggedIn();
+    updateButtons();
+    drainPendingNotifications();
+    initTools();
   }
 
     async function openCharacters(){
