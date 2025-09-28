@@ -80,25 +80,10 @@ function renderHeaderTitle() {
   const measureAndLockWidth = () => {
     if (!mountNode || !titleEl) return;
 
-    const measurement = document.createElement('span');
-    measurement.className = 'header-decrypted header-title-width-measure';
-    measurement.setAttribute('aria-hidden', 'true');
-    measurement.style.position = 'absolute';
-    measurement.style.visibility = 'hidden';
-    measurement.style.pointerEvents = 'none';
-    measurement.style.whiteSpace = 'nowrap';
-    measurement.style.left = '-9999px';
+    const renderedText = mountNode.querySelector('.header-decrypted');
+    if (!renderedText) return;
 
-    TITLE_TEXT.split('').forEach(char => {
-      const charSpan = document.createElement('span');
-      charSpan.className = 'header-decrypted__char';
-      charSpan.textContent = char === ' ' ? '\u00A0' : char;
-      measurement.appendChild(charSpan);
-    });
-
-    titleEl.appendChild(measurement);
-    const { width } = measurement.getBoundingClientRect();
-    titleEl.removeChild(measurement);
+    const { width } = renderedText.getBoundingClientRect();
 
     if (!width) return;
 
