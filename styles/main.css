@@ -166,8 +166,8 @@ label[data-animate-title]{
   border-left:2px solid var(--accent);
   width:100vw;
   margin-inline:calc(50% - 50vw);
-  height:45px;
-  min-height:45px;
+  height:90px;
+  min-height:90px;
   box-sizing:border-box;
   box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 10%, transparent);
 }
@@ -220,8 +220,8 @@ label[data-animate-title]{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:clamp(82px,17vw,120px);
-  height:calc(100% - 6px);
+  width:clamp(164px,34vw,240px);
+  height:calc(100% - 12px);
   color:var(--text-on-accent);
   flex:0 0 auto;
 }
