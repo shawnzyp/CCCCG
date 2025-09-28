@@ -51,6 +51,7 @@ export default function DecryptedText({
   ...props
 }) {
   const [displayText, setDisplayText] = useState(text);
+  const [measurementText, setMeasurementText] = useState(text);
   const [isHovering, setIsHovering] = useState(false);
   const [isScrambling, setIsScrambling] = useState(false);
   const [revealedIndices, setRevealedIndices] = useState(new Set());
@@ -80,11 +81,94 @@ export default function DecryptedText({
     });
   }, []);
 
+  const updateMeasurementText = useCallback(() => {
+    if (typeof document === 'undefined' || useOriginalCharsOnly) {
+      setMeasurementText(text);
+      return;
+    }
+
+    const containerNode = containerRef.current;
+    if (!containerNode) {
+      setMeasurementText(text);
+      return;
+    }
+
+    const candidateChars = Array.from(
+      new Set(
+        characters
+          .split('')
+          .filter(char => char.trim() !== '')
+      )
+    );
+
+    if (!candidateChars.length) {
+      setMeasurementText(text);
+      return;
+    }
+
+    const measurement = document.createElement('span');
+    measurement.style.position = 'absolute';
+    measurement.style.visibility = 'hidden';
+    measurement.style.pointerEvents = 'none';
+    measurement.style.whiteSpace = 'pre';
+    measurement.style.display = 'inline-flex';
+    measurement.style.alignItems = 'inherit';
+    measurement.style.justifyContent = 'inherit';
+    measurement.style.gap = 'inherit';
+    measurement.style.letterSpacing = 'inherit';
+
+    const computedStyle = window.getComputedStyle(containerNode);
+    const styleProperties = [
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'fontStyle',
+      'fontVariant',
+      'fontStretch',
+      'letterSpacing',
+      'textTransform',
+      'textRendering',
+      'lineHeight'
+    ];
+
+    styleProperties.forEach(prop => {
+      if (computedStyle[prop]) {
+        measurement.style[prop] = computedStyle[prop];
+      }
+    });
+
+    document.body.appendChild(measurement);
+
+    let widestChar = candidateChars[0];
+    let maxWidth = 0;
+
+    candidateChars.forEach(char => {
+      measurement.textContent = char;
+      const width = measurement.getBoundingClientRect().width;
+      if (width > maxWidth) {
+        maxWidth = width;
+        widestChar = char;
+      }
+    });
+
+    document.body.removeChild(measurement);
+
+    const fallbackChar = widestChar || 'W';
+    const computedMeasurement = text
+      .split('')
+      .map(char => (char === ' ' ? ' ' : fallbackChar))
+      .join('');
+
+    setMeasurementText(computedMeasurement);
+  }, [characters, text, useOriginalCharsOnly]);
+
   useEffect(() => {
     setDisplayText(text);
+    setMeasurementText(text);
   }, [text]);
 
   useLayoutEffect(() => {
+    updateMeasurementText();
     updateDimensions();
 
     if (typeof ResizeObserver === 'undefined') {
@@ -98,12 +182,15 @@ export default function DecryptedText({
     observer.observe(node);
 
     return () => observer.disconnect();
-  }, [text, updateDimensions]);
+  }, [text, updateDimensions, updateMeasurementText]);
 
   useEffect(() => {
     if (!document.fonts || typeof document.fonts.addEventListener !== 'function') return undefined;
 
-    const handleFontEvent = () => updateDimensions();
+    const handleFontEvent = () => {
+      updateMeasurementText();
+      updateDimensions();
+    };
     document.fonts.addEventListener('loadingdone', handleFontEvent);
     document.fonts.addEventListener('loadingerror', handleFontEvent);
 
@@ -111,7 +198,7 @@ export default function DecryptedText({
       document.fonts.removeEventListener('loadingdone', handleFontEvent);
       document.fonts.removeEventListener('loadingerror', handleFontEvent);
     };
-  }, [updateDimensions]);
+  }, [updateDimensions, updateMeasurementText]);
 
   useEffect(() => {
     let interval;
@@ -287,7 +374,7 @@ export default function DecryptedText({
         className={parentClassName}
         style={styles.measure}
       >
-        {text.split('').map((char, index) => (
+        {measurementText.split('').map((char, index) => (
           <span key={`measure-${index}`} className={className}>
             {char}
           </span>
