@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="omniGradient" x1="20" y1="10" x2="140" y2="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7f8fb"/>
+      <stop offset="1" stop-color="#cdd4dc"/>
+    </linearGradient>
+    <linearGradient id="wingGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e4e8ef"/>
+      <stop offset="1" stop-color="#b7c1cc"/>
+    </linearGradient>
+  </defs>
+  <circle cx="80" cy="80" r="74" fill="url(#omniGradient)" stroke="#7f8a98" stroke-width="4"/>
+  <circle cx="80" cy="80" r="58" fill="#0f1a24"/>
+  <circle cx="80" cy="80" r="50" fill="#111c26" stroke="#c1cad4" stroke-width="4"/>
+  <path d="M80 42c11 0 20 9 20 20v6H60v-6c0-11 9-20 20-20Z" fill="#d7dde4"/>
+  <path d="M80 38c-13.255 0-24 10.745-24 24v8h48v-8c0-13.255-10.745-24-24-24Zm16 28H64v-4c0-8.837 7.163-16 16-16s16 7.163 16 16v4Z" fill="#2b353f"/>
+  <g fill="url(#wingGradient)" stroke="#6f7c8a" stroke-width="2" stroke-linejoin="round">
+    <path d="M26 84h48l-10 18H20l6-18Z"/>
+    <path d="M38 66h32l-8 18H30l8-18Z"/>
+    <path d="M48 52h20l-6 14H42l6-14Z"/>
+    <path d="M134 84h-48l10 18h44l-6-18Z"/>
+    <path d="M122 66H90l8 18h32l-8-18Z"/>
+    <path d="M112 52H92l6 14h20l-6-14Z"/>
+  </g>
+  <path d="M80 62c-8.837 0-16 7.163-16 16v24h32V78c0-8.837-7.163-16-16-16Z" fill="#0f1a24" stroke="#c1cad4" stroke-width="4"/>
+  <path d="M68 118h24l-12 16-12-16Z" fill="#c1cad4" stroke="#2b353f" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M80 112c13.807 0 25-11.193 25-25H55c0 13.807 11.193 25 25 25Z" fill="#d7dde4" stroke="#2b353f" stroke-width="2"/>
+  <text x="80" y="88" text-anchor="middle" font-family="'CFTechnoMania Slanted','Inter',sans-serif" font-size="20" fill="#111c26" letter-spacing="10">OMNI</text>
+  <text x="80" y="128" text-anchor="middle" font-family="'Inter',sans-serif" font-size="7" fill="#1a242e" letter-spacing="3">BALANCE IN DESIGN</text>
+  <text x="80" y="40" text-anchor="middle" font-family="'Inter',sans-serif" font-size="7" fill="#1a242e" letter-spacing="2">POWER WITH PERMISSION</text>
+  <path d="M80 18a62 62 0 1 1 0 124 62 62 0 0 1 0-124Zm0 6a56 56 0 1 0 0 112 56 56 0 0 0 0-112Z" fill="#b4bdc7"/>
+</svg>

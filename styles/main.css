@@ -154,8 +154,8 @@ label[data-animate-title]{
 }
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 .news-ticker{
-  --pennant-width:clamp(148px,28vw,236px);
-  --pennant-point:clamp(34px,8vw,56px);
+  --pennant-width:clamp(168px,32vw,260px);
+  --pennant-point:clamp(36px,8.6vw,60px);
   --pennant-gap:clamp(18px,4.4vw,32px);
   --pennant-overlap:calc(var(--pennant-point) + var(--pennant-gap));
   position:relative;
@@ -174,7 +174,7 @@ label[data-animate-title]{
   position:absolute;
   inset:0 auto 0 0;
   width:calc(var(--pennant-width) + var(--pennant-overlap));
-  background:linear-gradient(90deg,color-mix(in srgb,var(--surface) 96%, transparent) 0%,color-mix(in srgb,var(--surface) 88%, transparent) 48%,transparent 78%);
+  background:linear-gradient(90deg,color-mix(in srgb,var(--surface) 96%, transparent) 0%,color-mix(in srgb,var(--surface) 82%, transparent) 42%,transparent 75%);
   pointer-events:none;
   z-index:1;
 }
@@ -190,10 +190,8 @@ label[data-animate-title]{
 .news-ticker__label{
   position:relative;
   display:flex;
-  flex-direction:column;
   justify-content:center;
   align-items:center;
-  gap:2px;
   min-width:var(--pennant-width);
   padding-block:clamp(8px,2.4vw,14px);
   padding-left:calc(clamp(18px,4.8vw,32px) + env(safe-area-inset-left));
@@ -216,15 +214,16 @@ label[data-animate-title]{
   opacity:.24;
 }
 .news-ticker__logo{
-  font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
-  font-size:clamp(.92rem,3.2vw,1.45rem);
-  letter-spacing:.38em;
-  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:clamp(76px,15vw,118px);
 }
-.news-ticker__logo-sub{
-  font-size:clamp(.58rem,1.8vw,.78rem);
-  letter-spacing:.54em;
-  line-height:1;
+
+.news-ticker__logo img{
+  display:block;
+  width:100%;
+  height:auto;
 }
 .news-ticker__track{
   --ticker-gap:clamp(64px,20vw,280px);
@@ -236,10 +235,10 @@ label[data-animate-title]{
   white-space:nowrap;
   animation:ticker-scroll var(--ticker-duration,12s) linear infinite;
   will-change:transform;
-  margin-left:calc(-1 * (var(--pennant-overlap) - clamp(14px,3.8vw,24px)));
-  padding-left:calc(var(--pennant-overlap) + clamp(8px,2.2vw,14px));
+  margin-left:calc(-1 * (var(--pennant-overlap) - clamp(12px,3.4vw,22px)));
+  padding-left:calc(var(--pennant-overlap) + clamp(14px,3.6vw,24px));
   min-width:100%;
-  z-index:2;
+  z-index:0;
 }
 .news-ticker__text{
   font-weight:600;
