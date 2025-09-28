@@ -328,18 +328,39 @@ function playTone(type){
    }
  }
 
- function dismissToast(){
-   const t=$('toast');
-   if(!t) return;
-   t.classList.remove('show');
-   clearTimeout(toastTimeout);
-   toastTimeout = null;
- }
+function dismissToast(){
+  const t=$('toast');
+  if(!t) return;
+  t.classList.remove('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = null;
+}
 
 // Expose toast utilities globally so non-module scripts (e.g. dm.js)
 // can display and control notifications.
 window.toast = toast;
 window.dismissToast = dismissToast;
+
+let funTipsPromise = null;
+let getNextTipFn = null;
+async function ensureFunTips(){
+  if(getNextTipFn) return getNextTipFn;
+  if(!funTipsPromise){
+    funTipsPromise = import('./funTips.js')
+      .then(mod => {
+        if(mod && typeof mod.getNextTip === 'function'){
+          getNextTipFn = mod.getNextTip;
+          return getNextTipFn;
+        }
+        throw new Error('Fun tips module missing getNextTip');
+      })
+      .catch(err => {
+        funTipsPromise = null;
+        throw err;
+      });
+  }
+  return funTipsPromise;
+}
 
 async function pinPrompt(message){
   const modal = $('modal-pin');
@@ -550,6 +571,159 @@ try {
   if (storedTab && qs(`.tab[data-go="${storedTab}"]`)) initialTab = storedTab;
 } catch (e) {}
 setTab(initialTab);
+
+const tabButtons = Array.from(qsa('.tab'));
+const TAB_ORDER = tabButtons.map(btn => btn.getAttribute('data-go')).filter(Boolean);
+let swipeIndicator = null;
+
+function ensureSwipeIndicator(){
+  if(swipeIndicator || !document.body) return swipeIndicator;
+  swipeIndicator = document.createElement('div');
+  swipeIndicator.className = 'tab-swipe-indicator';
+  swipeIndicator.setAttribute('aria-hidden','true');
+  document.body.appendChild(swipeIndicator);
+  return swipeIndicator;
+}
+
+function updateSwipeIndicatorContent(tabName){
+  const indicator = ensureSwipeIndicator();
+  if(!indicator || !tabName) return false;
+  if(indicator.dataset.tab === tabName) return true;
+  const btn = qs(`.tab[data-go="${tabName}"]`);
+  if(!btn) return false;
+  const svg = btn.querySelector('svg');
+  if(!svg) return false;
+  const label = btn.getAttribute('aria-label') || btn.getAttribute('title') || tabName;
+  indicator.innerHTML = `<div class="tab-swipe-icon">${svg.outerHTML}</div><span class="tab-swipe-label">${label}</span>`;
+  indicator.dataset.tab = tabName;
+  return true;
+}
+
+function hideSwipeIndicator(){
+  if(!swipeIndicator) return;
+  swipeIndicator.classList.remove('show');
+}
+
+function showSwipeIndicator(direction, tabName, progress){
+  const indicator = ensureSwipeIndicator();
+  if(!indicator) return;
+  if(!updateSwipeIndicatorContent(tabName)){
+    hideSwipeIndicator();
+    return;
+  }
+  indicator.dataset.direction = direction;
+  const offset = Math.max(28, Math.min(progress || 0, 140));
+  indicator.style.setProperty('--swipe-offset', `${offset}px`);
+  requestAnimationFrame(()=> indicator.classList.add('show'));
+}
+
+function getAdjacentTab(offset){
+  if(!Number.isInteger(offset) || !offset) return null;
+  const activeBtn = qs('.tab.active');
+  if(!activeBtn) return null;
+  const current = activeBtn.getAttribute('data-go');
+  const idx = TAB_ORDER.indexOf(current);
+  if(idx === -1) return null;
+  const nextIdx = idx + offset;
+  if(nextIdx < 0 || nextIdx >= TAB_ORDER.length) return null;
+  return TAB_ORDER[nextIdx];
+}
+
+const mainEl = qs('main');
+if(mainEl && TAB_ORDER.length){
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let swipeDirection = null;
+  let swipeActive = false;
+
+  const resetSwipe = () => {
+    touchStartX = 0;
+    touchStartY = 0;
+    swipeDirection = null;
+    swipeActive = false;
+    hideSwipeIndicator();
+  };
+
+  mainEl.addEventListener('touchstart', e => {
+    if(e.touches.length !== 1){
+      resetSwipe();
+      return;
+    }
+    const touch = e.touches[0];
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    swipeDirection = null;
+    swipeActive = true;
+  }, { passive: true });
+
+  mainEl.addEventListener('touchmove', e => {
+    if(!swipeActive || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    if(!swipeDirection){
+      if(Math.abs(dx) < 12) return;
+      if(Math.abs(dx) <= Math.abs(dy)){
+        resetSwipe();
+        return;
+      }
+      swipeDirection = dx < 0 ? 'left' : 'right';
+    }
+    const offset = swipeDirection === 'left' ? 1 : -1;
+    const target = getAdjacentTab(offset);
+    if(!target){
+      hideSwipeIndicator();
+      return;
+    }
+    const progress = Math.min(Math.abs(dx), 140);
+    showSwipeIndicator(swipeDirection, target, progress);
+  }, { passive: true });
+
+  mainEl.addEventListener('touchend', e => {
+    if(!swipeActive) return;
+    const touch = e.changedTouches[0];
+    if(!touch){
+      resetSwipe();
+      return;
+    }
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60){
+      const offset = dx < 0 ? 1 : -1;
+      const target = getAdjacentTab(offset);
+      if(target) switchTab(target);
+    }
+    resetSwipe();
+  }, { passive: true });
+
+  mainEl.addEventListener('touchcancel', resetSwipe, { passive: true });
+}
+
+const tickerTrack = qs('[data-fun-ticker-track]');
+const tickerText = qs('[data-fun-ticker-text]');
+if(tickerTrack && tickerText){
+  let tickerIterations = 0;
+  const updateTicker = async () => {
+    try{
+      const getNextTip = await ensureFunTips();
+      if(typeof getNextTip === 'function'){
+        tickerText.textContent = getNextTip();
+      }
+    }catch(err){
+      console.error('Failed to update fun tip ticker', err);
+      if(!tickerText.textContent){
+        tickerText.textContent = 'Fun tips are loading…';
+      }
+    }
+  };
+  updateTicker();
+  tickerTrack.addEventListener('animationiteration', () => {
+    tickerIterations += 1;
+    if(tickerIterations % 3 === 0){
+      updateTicker();
+    }
+  });
+}
 
 /* ========= ability grid + autos ========= */
 const ABILS = ['str','dex','con','int','wis','cha'];
@@ -1686,13 +1860,16 @@ if (btnHelp) {
 }
 const btnFun = $('btn-fun');
 if (btnFun) {
-  // Lazy-load fun tips so the main bundle stays small and fast.
-  let getNextTip;
   btnFun.addEventListener('click', async () => {
-    if (!getNextTip) {
-      ({ getNextTip } = await import('./funTips.js'));
+    try{
+      const getNextTip = await ensureFunTips();
+      if(typeof getNextTip === 'function'){
+        toast(getNextTip(),'info');
+      }
+    }catch(err){
+      console.error('Failed to load fun tips', err);
+      toast('Fun tips are powering up. Try again soon!', 'error');
     }
-    toast(getNextTip(),'info');
   });
 }
 const btnLoad = $('btn-load');
