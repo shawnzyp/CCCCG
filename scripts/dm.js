@@ -1,9 +1,40 @@
 import { listCharacters, currentCharacter, setCurrentCharacter, loadCharacter } from './characters.js';
-import { DM_PIN } from './dm-pin.js';
+import { DM_PIN, DM_DEVICE_FINGERPRINT } from './dm-pin.js';
 import { show, hide } from './modal.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
+
+function computeDeviceFingerprint() {
+  if (typeof navigator === 'undefined') return '';
+  const { userAgent = '', language = '', platform = '' } = navigator;
+  let screenInfo = '';
+  if (typeof screen !== 'undefined') {
+    const { width = '', height = '', colorDepth = '' } = screen;
+    screenInfo = `${width}x${height}x${colorDepth}`;
+  }
+  let timeZone = '';
+  try {
+    timeZone = Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone || '';
+  } catch {
+    timeZone = '';
+  }
+  const raw = [userAgent, language, platform, screenInfo, timeZone].join('||');
+  try {
+    return btoa(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function isAuthorizedDevice() {
+  if (!DM_DEVICE_FINGERPRINT) return true;
+  return computeDeviceFingerprint() === DM_DEVICE_FINGERPRINT;
+}
+
+if (typeof window !== 'undefined' && !window.computeDmDeviceFingerprint) {
+  window.computeDmDeviceFingerprint = computeDeviceFingerprint;
+}
 
 const escapeHtml = value => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -107,6 +138,16 @@ function initDMLogin(){
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
+
+  if (!isAuthorizedDevice()) {
+    dmBtn?.remove();
+    menu?.remove();
+    loginModal?.remove();
+    notifyModal?.remove();
+    charModal?.remove();
+    charViewModal?.remove();
+    return;
+  }
 
   if (loginPin) {
     loginPin.type = 'password';
