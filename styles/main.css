@@ -172,7 +172,7 @@ label[data-animate-title]{
   --pennant-point:clamp(18px,4vw,30px);
   --pennant-gap:clamp(10px,2.6vw,18px);
   --pennant-overlap:calc(var(--pennant-point) + var(--pennant-gap));
-  --ticker-duration:12s;
+  --ticker-duration:18s;
   position:relative;
   overflow:hidden;
   background:color-mix(in srgb,var(--surface) 92%, transparent);
@@ -268,7 +268,7 @@ label[data-animate-title]{
 }
 @media(min-width:900px){
   .news-ticker{
-    --ticker-duration:18s;
+    --ticker-duration:27s;
   }
 }
 .news-ticker__text{
@@ -376,7 +376,7 @@ label[data-animate-title]{
   text-shadow:0 1px 4px rgba(0,0,0,.4);
 }
 .news-ticker__track--m24n{
-  --ticker-duration:20s;
+  --ticker-duration:30s;
   animation:none;
   transform:translate3d(100%,0,0);
   gap:clamp(44px,10vw,72px);
