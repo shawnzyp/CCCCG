@@ -89,17 +89,30 @@ const LAUNCH_MAX_WAIT = 12000;
     } catch (err) {
       // ignore inability to pause
     }
+    let shouldReload = false;
     try {
       if(vid.currentTime > 0){
         vid.currentTime = 0;
       }
     } catch (err) {
       // ignore inability to reset playback position
+      shouldReload = true;
     }
     try {
-      vid.load();
+      const readyState = Number.isFinite(vid.readyState) ? vid.readyState : 0;
+      const hasSrc = typeof vid.currentSrc === 'string' && vid.currentSrc !== '';
+      if(readyState < 1 || !hasSrc){
+        shouldReload = true;
+      }
     } catch (err) {
-      // ignore load failures
+      shouldReload = true;
+    }
+    if(shouldReload){
+      try {
+        vid.load();
+      } catch (err) {
+        // ignore load failures
+      }
     }
   };
   const waitForVideoPlayback = vid => new Promise(resolve => {
@@ -120,7 +133,23 @@ const LAUNCH_MAX_WAIT = 12000;
         }
       }
     };
-    const attemptPlayback = () => {
+    let playAttemptTimer = null;
+    const clearPlayAttemptTimer = () => {
+      if(playAttemptTimer){
+        window.clearTimeout(playAttemptTimer);
+        playAttemptTimer = null;
+      }
+    };
+    let hasStartedPlayback = false;
+    const markPlaybackStarted = () => {
+      hasStartedPlayback = true;
+      clearPlayAttemptTimer();
+    };
+    const attemptPlayback = (delay = 280) => {
+      if(settled || hasStartedPlayback){
+        clearPlayAttemptTimer();
+        return;
+      }
       try {
         ensureLaunchVideoAttributes(vid);
         const playPromise = vid.play();
@@ -128,8 +157,11 @@ const LAUNCH_MAX_WAIT = 12000;
           playPromise.catch(()=>{});
         }
       } catch (err) {
-        // ignore autoplay rejections; fallback timer will reveal
+        // ignore autoplay rejections; retry via timer or fallback
       }
+      clearPlayAttemptTimer();
+      const nextDelay = Math.min(delay * 1.5, 2000);
+      playAttemptTimer = window.setTimeout(() => attemptPlayback(nextDelay), nextDelay);
     };
     const handleVisibilityChange = () => {
       if(document.hidden) return;
@@ -145,6 +177,7 @@ const LAUNCH_MAX_WAIT = 12000;
       resolve();
       cleanupVisibility();
       cleanupUserGestureListeners();
+      clearPlayAttemptTimer();
     };
     const scheduleFallback = delay => {
       if(fallbackTimer) window.clearTimeout(fallbackTimer);
@@ -162,7 +195,15 @@ const LAUNCH_MAX_WAIT = 12000;
     addUserGestureListener(window, 'pointerdown', handleUserGesture, true);
     addUserGestureListener(window, 'touchend', handleUserGesture, true);
     addUserGestureListener(window, 'keydown', handleUserGesture, true);
-    vid.addEventListener('play', cleanupUserGestureListeners, { once: true });
+    vid.addEventListener('play', () => {
+      cleanupUserGestureListeners();
+    }, { once: true });
+    const playbackStartedEvents = ['playing', 'timeupdate', 'seeked', 'loadeddata'];
+    playbackStartedEvents.forEach(evt => vid.addEventListener(evt, markPlaybackStarted, { once: true }));
+    vid.addEventListener('pause', () => {
+      if(settled || vid.ended || hasStartedPlayback) return;
+      attemptPlayback();
+    });
     const beginPlayback = () => {
       const durationMs = (Number.isFinite(vid.duration) && vid.duration > 0) ? vid.duration * 1000 : 0;
       const fallbackDelay = Math.min(Math.max(durationMs + 300, LAUNCH_MIN_DURATION + 800), LAUNCH_MAX_WAIT);
