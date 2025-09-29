@@ -1378,10 +1378,15 @@ select[required]:valid{
   cursor:pointer;
 }
 .dm-login-btn img{display:block;max-width:160px;width:100%;height:auto}
+.dm-login-btn:disabled,.dm-login-btn.dm-login-btn--inactive{cursor:default;opacity:.65}
+.dm-login-btn:disabled img,.dm-login-btn.dm-login-btn--inactive img{opacity:1}
 .dm-tools-menu{position:fixed;bottom:80px;left:18px;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:2000}
 .dm-tools-menu[hidden]{display:none}
 .dm-tools-menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;min-width:160px}
 .dm-tools-menu button:hover{background:var(--accent);color:var(--text-on-accent)}
+.dm-tools-toggle{position:fixed;bottom:18px;left:18px;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-radius:var(--radius);border:1px solid var(--accent);background:var(--accent);color:var(--text-on-accent);font-weight:600;box-shadow:var(--shadow);cursor:pointer;z-index:2100}
+.dm-tools-toggle:hover{background:var(--accent-2);border-color:var(--accent-2)}
+.dm-tools-toggle[hidden]{display:none}
 
 /* DM Tool (Shards of Many Fates) */
 .somf-dm{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0;width:100%;max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
