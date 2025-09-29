@@ -355,8 +355,9 @@ label[data-animate-title]{
   color:#131c30;
   font-family:'Race Sport',sans-serif;
   font-weight:800;
+  font-style:italic;
   font-size:clamp(.82rem,2.8vw,1.12rem);
-  letter-spacing:3px;
+  letter-spacing:1px;
   line-height:1;
   text-transform:uppercase;
   flex-shrink:0;
@@ -429,7 +430,7 @@ label[data-animate-title]{
   .news-ticker__logo--m24n{
     padding:0 clamp(8px,2.4vw,12px);
     font-size:clamp(.74rem,2.8vw,.94rem);
-    letter-spacing:3px;
+    letter-spacing:1px;
   }
   .news-ticker--m24n .news-ticker__badge{
     margin-left:clamp(4px,1.8vw,8px);
@@ -459,7 +460,7 @@ label[data-animate-title]{
   .news-ticker__logo--m24n{
     padding:0 clamp(8px,2.6vw,12px);
     font-size:clamp(.7rem,2.6vw,.88rem);
-    letter-spacing:3px;
+    letter-spacing:1px;
   }
   .news-ticker--m24n .news-ticker__badge{
     padding:0 clamp(4px,1.6vw,8px);

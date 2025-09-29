@@ -1093,12 +1093,12 @@ if(m24nTrack && m24nText){
       pushCurrent();
       headlines = sets.slice(0, 100);
       if(!headlines.length){
-        throw new Error('No M24N headlines available');
+        throw new Error('No MN24/7 headlines available');
       }
       buildRotation();
     }catch(err){
-      console.error('Failed to load M24N ticker', err);
-      m24nText.textContent = 'M24N feed temporarily offline.';
+      console.error('Failed to load MN24/7 ticker', err);
+      m24nText.textContent = 'MN24/7 feed temporarily offline.';
     }
   }
 
