@@ -1381,6 +1381,7 @@ select[required]:valid{
   border:none;
   padding:0;
   background:transparent;
+  box-shadow:none;
   cursor:pointer;
 }
 .dm-login-btn img{display:block;max-width:160px;width:100%;height:auto}
