@@ -23,6 +23,66 @@ CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
 
+function detectPlatform(){
+  if(typeof navigator === 'undefined'){
+    return {
+      os: 'unknown',
+      isMobile: false,
+      isDesktop: true
+    };
+  }
+
+  const uaData = navigator.userAgentData;
+  const reportedMobile = !!(uaData && typeof uaData.mobile === 'boolean' && uaData.mobile);
+  const ua = (navigator.userAgent || '').toLowerCase();
+  const platform = (navigator.platform || '').toLowerCase();
+
+  const isIos = () => {
+    if(/iphone|ipad|ipod/.test(ua)) return true;
+    if(platform === 'macintel' && typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1){
+      return true;
+    }
+    return false;
+  };
+
+  const isAndroid = () => /android/.test(ua);
+
+  let os = 'unknown';
+  if(isIos()){
+    os = 'ios';
+  }else if(isAndroid()){
+    os = 'android';
+  }else if(/mac/.test(ua) || /mac/.test(platform)){
+    os = 'mac';
+  }else if(/win/.test(ua) || /win/.test(platform)){
+    os = 'windows';
+  }else if(/linux/.test(ua) || /cros/.test(platform)){
+    os = 'linux';
+  }
+
+  const isMobile = reportedMobile || os === 'ios' || os === 'android';
+
+  return {
+    os,
+    isMobile,
+    isDesktop: !isMobile
+  };
+}
+
+const DEVICE_INFO = detectPlatform();
+CC.deviceInfo = DEVICE_INFO;
+CC.canRequestDesktopMode = !DEVICE_INFO.isMobile;
+
+if(typeof document !== 'undefined' && document.documentElement){
+  const { documentElement } = document;
+  documentElement.dataset.platform = DEVICE_INFO.os;
+  documentElement.dataset.deviceClass = DEVICE_INFO.isMobile ? 'mobile' : 'desktop';
+  documentElement.classList.toggle('is-mobile-device', DEVICE_INFO.isMobile);
+  documentElement.classList.toggle('is-desktop-device', !DEVICE_INFO.isMobile);
+}
+
+const BASE_TICKER_DURATION_MS = DEVICE_INFO.isMobile ? 55000 : 30000;
+
 const SKIP_LAUNCH_STORAGE_KEY = 'cc:skip-launch';
 const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 
@@ -1090,6 +1150,7 @@ if(mainEl && TAB_ORDER.length){
 const tickerTrack = qs('[data-fun-ticker-track]');
 const tickerText = qs('[data-fun-ticker-text]');
 if(tickerTrack && tickerText){
+  tickerTrack.style.setProperty('--ticker-duration', `${BASE_TICKER_DURATION_MS}ms`);
   let tickerIterations = 0;
   const updateTicker = async () => {
     try{
@@ -1116,13 +1177,10 @@ if(tickerTrack && tickerText){
 const m24nTrack = qs('[data-m24n-ticker-track]');
 const m24nText = qs('[data-m24n-ticker-text]');
 if(m24nTrack && m24nText){
-  const BASE_HEADLINE_DURATION = 20000;
+  const BASE_HEADLINE_DURATION = BASE_TICKER_DURATION_MS;
   const BUFFER_DURATION = 3000;
   const ROTATION_WINDOW = 10 * 60 * 1000;
   const HEADLINES_PER_ROTATION = Math.max(1, Math.floor(ROTATION_WINDOW / (BASE_HEADLINE_DURATION + BUFFER_DURATION)));
-  const MIN_HEADLINE_DURATION = 16000;
-  const MAX_HEADLINE_DURATION = 60000;
-  const SCROLL_SPEED_PX_PER_SEC = 110;
   let headlines = [];
   let rotationItems = [];
   let rotationIndex = 0;
@@ -1157,10 +1215,7 @@ if(m24nTrack && m24nText){
     const viewportWidth = m24nTrack.parentElement?.clientWidth || m24nTrack.offsetWidth;
     const travelDistance = trackWidth + viewportWidth + gapValue;
     m24nTrack.style.setProperty('--ticker-distance', `${Math.round(travelDistance)}px`);
-    const durationMs = Math.min(
-      MAX_HEADLINE_DURATION,
-      Math.max(MIN_HEADLINE_DURATION, (travelDistance / SCROLL_SPEED_PX_PER_SEC) * 1000)
-    );
+    const durationMs = BASE_TICKER_DURATION_MS;
     m24nTrack.style.setProperty('--ticker-duration', `${Math.round(durationMs)}ms`);
     return durationMs;
   }
