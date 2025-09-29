@@ -21,8 +21,76 @@
 <noscript>This app requires JavaScript to run properly.</noscript>
 
 <div id="launch-animation" role="presentation" aria-hidden="true">
-  <video src="images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" autoplay muted playsinline preload="auto"></video>
+  <video autoplay muted playsinline preload="auto" webkit-playsinline>
+    <source src="images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
+  </video>
 </div>
+<script>
+  (function(){
+    const FALLBACK_DELAY = 6000;
+    const body = document.body;
+    const launchEl = document.getElementById('launch-animation');
+    const video = launchEl ? launchEl.querySelector('video') : null;
+    if(!body || !launchEl){
+      return;
+    }
+
+    const hideLaunch = () => {
+      if(!body.classList.contains('launching')){
+        return;
+      }
+      body.classList.remove('launching');
+      launchEl.setAttribute('data-hidden', 'true');
+      launchEl.addEventListener('transitionend', () => {
+        if(launchEl.parentNode){
+          launchEl.parentNode.removeChild(launchEl);
+        }
+      }, { once: true });
+      window.setTimeout(() => {
+        if(launchEl.parentNode){
+          launchEl.parentNode.removeChild(launchEl);
+        }
+      }, 800);
+    };
+
+    const scheduleFallback = () => {
+      window.setTimeout(() => {
+        if(body.classList.contains('launching')){
+          hideLaunch();
+        }
+      }, FALLBACK_DELAY);
+    };
+
+    if(video){
+      const ensureAttributes = () => {
+        try { video.setAttribute('playsinline', ''); } catch (err) {}
+        try { video.setAttribute('webkit-playsinline', ''); } catch (err) {}
+        try {
+          if(!video.hasAttribute('muted')){
+            video.setAttribute('muted', '');
+          }
+          video.muted = true;
+        } catch (err) {}
+      };
+      ensureAttributes();
+      ['error','abort','stalled','suspend'].forEach(evt => {
+        video.addEventListener(evt, hideLaunch, { once: true });
+      });
+      video.addEventListener('loadeddata', () => {
+        ensureAttributes();
+        if(typeof video.play === 'function'){
+          video.play().catch(() => {});
+        }
+      }, { once: true });
+    }
+
+    if(document.readyState === 'complete'){
+      scheduleFallback();
+    } else {
+      window.addEventListener('load', scheduleFallback, { once: true });
+    }
+  })();
+</script>
 
 <div class="app-shell" data-launch-shell>
 <a href="#main" class="skip-link">Skip to main content</a>
