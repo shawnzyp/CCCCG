@@ -822,13 +822,113 @@ function setTab(name){
   } catch (e) {}
 }
 
-const switchTab = name => {
+const tabButtons = Array.from(qsa('.tab'));
+const TAB_ORDER = tabButtons.map(btn => btn.getAttribute('data-go')).filter(Boolean);
+
+const TAB_ANIMATION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
+const TAB_ANIMATION_DURATION = 360;
+const reduceMotionQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+let isTabAnimating = false;
+
+const prefersReducedMotion = () => reduceMotionQuery ? reduceMotionQuery.matches : false;
+
+function getActiveTabName(){
+  const activeBtn = qs('.tab.active');
+  return activeBtn ? activeBtn.getAttribute('data-go') : null;
+}
+
+function inferTabDirection(currentName, nextName){
+  if(!currentName || !nextName) return null;
+  const currentIndex = TAB_ORDER.indexOf(currentName);
+  const nextIndex = TAB_ORDER.indexOf(nextName);
+  if(currentIndex === -1 || nextIndex === -1 || currentIndex === nextIndex) return null;
+  return nextIndex > currentIndex ? 'left' : 'right';
+}
+
+function cleanupPanelAnimation(panel){
+  if(!panel) return;
+  panel.classList.remove('animating');
+  panel.style.removeProperty('pointer-events');
+  panel.style.removeProperty('transform');
+  panel.style.removeProperty('opacity');
+}
+
+function animateTabTransition(currentName, nextName, direction){
+  const targetPanel = qs(`fieldset[data-tab="${nextName}"]`);
+  if(!targetPanel) return false;
+  if(prefersReducedMotion() || typeof targetPanel.animate !== 'function') return false;
+
+  const activePanel = currentName ? qs(`fieldset[data-tab="${currentName}"]`) : null;
+  if(!activePanel) return false;
+
+  if(direction !== 'left' && direction !== 'right'){
+    direction = inferTabDirection(currentName, nextName);
+    if(!direction) return false;
+  }
+
+  isTabAnimating = true;
+
+  const incomingOffset = direction === 'left' ? 36 : -36;
+  const outgoingOffset = -incomingOffset;
+
+  activePanel.classList.add('animating');
+  targetPanel.classList.add('animating');
+  activePanel.style.pointerEvents = 'none';
+  targetPanel.style.pointerEvents = 'none';
+  targetPanel.style.transform = `translate3d(${incomingOffset}px,0,0)`;
+  targetPanel.style.opacity = '0';
+
+  const animations = [
+    targetPanel.animate([
+      { transform: `translate3d(${incomingOffset}px,0,0)`, opacity: 0 },
+      { transform: 'translate3d(0,0,0)', opacity: 1 }
+    ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' }),
+    activePanel.animate([
+      { transform: 'translate3d(0,0,0)', opacity: 1 },
+      { transform: `translate3d(${outgoingOffset}px,0,0)`, opacity: 0 }
+    ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' })
+  ];
+
+  Promise.all(animations.map(anim => anim.finished.catch(() => {}))).then(() => {
+    setTab(nextName);
+  }).finally(() => {
+    const finishCleanup = () => {
+      cleanupPanelAnimation(activePanel);
+      cleanupPanelAnimation(targetPanel);
+      animations.forEach(anim => {
+        try {
+          if(typeof anim.cancel === 'function') anim.cancel();
+        } catch (err) {}
+      });
+      isTabAnimating = false;
+    };
+    if(typeof requestAnimationFrame === 'function') requestAnimationFrame(finishCleanup);
+    else finishCleanup();
+  });
+
+  return true;
+}
+
+const switchTab = (name, options = {}) => {
+  if(!name || isTabAnimating) return;
+
+  const performSwitch = () => {
+    const currentName = getActiveTabName();
+    if(currentName === name) return;
+    const desiredDirection = options.direction || inferTabDirection(currentName, name);
+    if(!animateTabTransition(currentName, name, desiredDirection)){
+      setTab(name);
+    }
+  };
+
   if (headerEl && window.scrollY > 0) {
     headerEl.classList.add('hide-tabs');
     const showTabs = () => {
       if (headerEl.classList.contains('hide-tabs')) {
         headerEl.classList.remove('hide-tabs');
-        setTab(name);
+        performSwitch();
       }
       window.removeEventListener('scroll', onScroll);
     };
@@ -841,10 +941,13 @@ const switchTab = name => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(showTabs, 600);
   } else {
-    setTab(name);
+    performSwitch();
   }
 };
-qsa('.tab').forEach(b=> b.addEventListener('click', ()=> switchTab(b.getAttribute('data-go'))));
+tabButtons.forEach(btn => btn.addEventListener('click', () => {
+  const target = btn.getAttribute('data-go');
+  if(target) switchTab(target);
+}));
 let initialTab = 'combat';
 try {
   const storedTab = localStorage.getItem('active-tab');
@@ -852,8 +955,6 @@ try {
 } catch (e) {}
 setTab(initialTab);
 
-const tabButtons = Array.from(qsa('.tab'));
-const TAB_ORDER = tabButtons.map(btn => btn.getAttribute('data-go')).filter(Boolean);
 let swipeIndicator = null;
 
 function ensureSwipeIndicator(){
@@ -975,7 +1076,10 @@ if(mainEl && TAB_ORDER.length){
     if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60){
       const offset = dx < 0 ? 1 : -1;
       const target = getAdjacentTab(offset);
-      if(target) switchTab(target);
+      if(target){
+        const gestureDirection = swipeDirection || (dx < 0 ? 'left' : 'right');
+        switchTab(target, { direction: gestureDirection });
+      }
     }
     resetSwipe();
   }, { passive: true });
