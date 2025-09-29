@@ -2566,20 +2566,6 @@ const btnHelp = $('btn-help');
 if (btnHelp) {
   btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
 }
-const btnFun = $('btn-fun');
-if (btnFun) {
-  btnFun.addEventListener('click', async () => {
-    try{
-      const getNextTip = await ensureFunTips();
-      if(typeof getNextTip === 'function'){
-        toast(getNextTip(),'info');
-      }
-    }catch(err){
-      console.error('Failed to load fun tips', err);
-      toast('Fun tips are powering up. Try again soon!', 'error');
-    }
-  });
-}
 const btnLoad = $('btn-load');
 async function openCharacterList(){
   await renderCharacterList();
