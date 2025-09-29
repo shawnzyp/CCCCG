@@ -829,16 +829,41 @@ bindClassificationTheme('classification');
 const btnMenu = $('btn-menu');
 const menuActions = $('menu-actions');
 if (btnMenu && menuActions) {
+  let hideMenuTimer = null;
+  let pendingHideListener = null;
+  const clearHideMenuCleanup = () => {
+    if (pendingHideListener) {
+      try {
+        menuActions.removeEventListener('transitionend', pendingHideListener);
+      } catch (err) {}
+      pendingHideListener = null;
+    }
+    if (hideMenuTimer) {
+      window.clearTimeout(hideMenuTimer);
+      hideMenuTimer = null;
+    }
+  };
   const hideMenu = () => {
     if (!menuActions.hidden) {
+      const finalizeHide = () => {
+        clearHideMenuCleanup();
+        menuActions.hidden = true;
+      };
+      const onTransitionEnd = event => {
+        if (event.target === menuActions) finalizeHide();
+      };
+      clearHideMenuCleanup();
+      pendingHideListener = onTransitionEnd;
       menuActions.classList.remove('show');
-      menuActions.addEventListener('transitionend', () => menuActions.hidden = true, { once: true });
+      menuActions.addEventListener('transitionend', onTransitionEnd, { once: true });
+      hideMenuTimer = window.setTimeout(finalizeHide, 400);
       btnMenu.setAttribute('aria-expanded', 'false');
       btnMenu.classList.remove('open');
     }
   };
   btnMenu.addEventListener('click', () => {
     if (menuActions.hidden) {
+      clearHideMenuCleanup();
       menuActions.hidden = false;
       requestAnimationFrame(() => menuActions.classList.add('show'));
       btnMenu.setAttribute('aria-expanded', 'true');
