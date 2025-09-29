@@ -298,7 +298,8 @@ label[data-animate-title]{
   border-radius:8px 0 0 8px;
   padding-right:var(--m24n-line-width);
   gap:clamp(10px,2.6vw,16px);
-  flex:0 1 auto;
+  justify-content:flex-start;
+  flex:0 0 auto;
   min-width:var(--pennant-width);
   flex-wrap:nowrap;
   max-width:100%;
@@ -347,6 +348,7 @@ label[data-animate-title]{
   letter-spacing:.38em;
   line-height:1;
   text-transform:uppercase;
+  flex-shrink:0;
   box-shadow:0 4px 16px rgba(10,14,24,.35);
 }
 .news-ticker__logo--m24n::before{content:none}
@@ -358,6 +360,7 @@ label[data-animate-title]{
   padding:0 clamp(10px,2.6vw,16px);
   margin-left:clamp(10px,2.8vw,18px);
   border-radius:999px;
+  flex-shrink:0;
   font-weight:700;
   font-size:.68rem;
   letter-spacing:.28em;
