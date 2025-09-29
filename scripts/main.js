@@ -31,6 +31,15 @@ const LAUNCH_MAX_WAIT = 12000;
 
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
+  const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
+  const disableSkipButton = () => {
+    if(!skipButton) return;
+    skipButton.disabled = true;
+    skipButton.setAttribute('aria-hidden', 'true');
+    skipButton.setAttribute('tabindex', '-1');
+    skipButton.style.pointerEvents = 'none';
+    skipButton.style.opacity = '0';
+  };
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let revealCalled = false;
@@ -108,6 +117,7 @@ const LAUNCH_MAX_WAIT = 12000;
   };
 
   if(!video || prefersReducedMotion){
+    disableSkipButton();
     revealApp();
     return;
   }
@@ -160,11 +170,20 @@ const LAUNCH_MAX_WAIT = 12000;
   };
 
   const finalizeLaunch = () => {
+    disableSkipButton();
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
     notifyServiceWorkerVideoPlayed();
     revealApp();
   };
+
+  if(skipButton){
+    const handleSkip = event => {
+      event.preventDefault();
+      finalizeLaunch();
+    };
+    skipButton.addEventListener('click', handleSkip);
+  }
 
   const scheduleFallback = delay => {
     fallbackTimer = clearTimer(fallbackTimer);
