@@ -53,11 +53,48 @@ const LAUNCH_MAX_WAIT = 12000;
   const waitForVideoPlayback = vid => new Promise(resolve => {
     let settled = false;
     let fallbackTimer = null;
+    const attemptPlayback = () => {
+      try {
+        const playPromise = vid.play();
+        if(playPromise && typeof playPromise.then === 'function'){
+          playPromise.catch(()=>{});
+        }
+      } catch (err) {
+        // ignore autoplay rejections; fallback timer will reveal
+      }
+    };
+    const resetPlaybackState = () => {
+      try {
+        vid.pause();
+      } catch (err) {
+        // ignore inability to pause
+      }
+      try {
+        if(vid.currentTime > 0){
+          vid.currentTime = 0;
+        }
+      } catch (err) {
+        // ignore inability to reset playback position
+      }
+      try {
+        vid.load();
+      } catch (err) {
+        // ignore load failures
+      }
+    };
+    const handleVisibilityChange = () => {
+      if(document.hidden) return;
+      attemptPlayback();
+    };
+    const cleanupVisibility = () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange, true);
+    };
     const finish = () => {
       if(settled) return;
       settled = true;
       if(fallbackTimer) window.clearTimeout(fallbackTimer);
       resolve();
+      cleanupVisibility();
     };
     const scheduleFallback = delay => {
       if(fallbackTimer) window.clearTimeout(fallbackTimer);
@@ -73,27 +110,20 @@ const LAUNCH_MAX_WAIT = 12000;
       const durationMs = (Number.isFinite(vid.duration) && vid.duration > 0) ? vid.duration * 1000 : 0;
       const fallbackDelay = Math.min(Math.max(durationMs + 300, LAUNCH_MIN_DURATION + 800), LAUNCH_MAX_WAIT);
       scheduleFallback(fallbackDelay);
-      try {
-        if(vid.currentTime > 0){
-          vid.currentTime = 0;
-        }
-      } catch (err) {
-        // ignore inability to reset playback position
-      }
-      try {
-        const playPromise = vid.play();
-        if(playPromise && typeof playPromise.then === 'function'){
-          playPromise.catch(()=>{});
-        }
-      } catch (err) {
-        // ignore autoplay rejections; fallback timer will reveal
-      }
+      resetPlaybackState();
+      attemptPlayback();
+      document.addEventListener('visibilitychange', handleVisibilityChange, true);
     };
     if(vid.readyState >= 1){
       beginPlayback();
     } else {
       vid.addEventListener('loadedmetadata', beginPlayback, { once: true });
       scheduleFallback(LAUNCH_MAX_WAIT);
+      try {
+        vid.load();
+      } catch (err) {
+        // ignore load failures while waiting for metadata
+      }
     }
   });
   if(video){
