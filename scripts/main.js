@@ -1011,6 +1011,145 @@ if(tickerTrack && tickerText){
   });
 }
 
+const m24nTrack = qs('[data-m24n-ticker-track]');
+const m24nText = qs('[data-m24n-ticker-text]');
+if(m24nTrack && m24nText){
+  const HEADLINE_DURATION = 20000;
+  const BUFFER_DURATION = 3000;
+  const ROTATION_WINDOW = 10 * 60 * 1000;
+  const HEADLINES_PER_ROTATION = Math.max(1, Math.floor(ROTATION_WINDOW / (HEADLINE_DURATION + BUFFER_DURATION)));
+  let headlines = [];
+  let rotationItems = [];
+  let rotationIndex = 0;
+  let rotationStart = 0;
+  let animationTimer = null;
+  let bufferTimer = null;
+
+  function clearTimers(){
+    if(animationTimer){
+      clearTimeout(animationTimer);
+      animationTimer = null;
+    }
+    if(bufferTimer){
+      clearTimeout(bufferTimer);
+      bufferTimer = null;
+    }
+  }
+
+  function resetTrack(){
+    m24nTrack.classList.remove('is-animating');
+    m24nTrack.style.transform = 'translate3d(100%,0,0)';
+  }
+
+  function shuffle(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function buildRotation(){
+    rotationStart = Date.now();
+    rotationIndex = 0;
+    if(!headlines.length){
+      rotationItems = [];
+      return;
+    }
+    const pool = shuffle([...headlines]);
+    const selectionSize = Math.min(pool.length, HEADLINES_PER_ROTATION);
+    rotationItems = pool.slice(0, selectionSize);
+  }
+
+  async function loadHeadlines(){
+    try{
+      const res = await fetch('News.txt', { cache: 'no-store' });
+      if(!res || !res.ok){
+        throw new Error(`Failed to fetch headlines (${res ? res.status : 'no response'})`);
+      }
+      const rawText = await res.text();
+      const sets = [];
+      const lines = rawText.split(/\r?\n/);
+      let current = [];
+      const pushCurrent = () => {
+        if(!current.length) return;
+        const combined = current.join(' ')
+          .replace(/\s*\|\s*/g, ' | ')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+        if(combined) sets.push(combined);
+        current = [];
+      };
+      for(const line of lines){
+        const trimmed = line.trim();
+        if(!trimmed) continue;
+        const startMatch = trimmed.match(/^(\d+)\.\s*(.*)$/);
+        if(startMatch){
+          pushCurrent();
+          current.push(startMatch[2]);
+        }else if(current.length){
+          current.push(trimmed);
+        }
+      }
+      pushCurrent();
+      headlines = sets.slice(0, 100);
+      if(!headlines.length){
+        throw new Error('No M24N headlines available');
+      }
+      buildRotation();
+    }catch(err){
+      console.error('Failed to load M24N ticker', err);
+      m24nText.textContent = 'M24N feed temporarily offline.';
+    }
+  }
+
+  function scheduleNextHeadline(){
+    clearTimers();
+    if(!headlines.length){
+      return;
+    }
+    if(!rotationItems.length){
+      buildRotation();
+    }
+    if(!rotationItems.length){
+      return;
+    }
+    if(Date.now() - rotationStart >= ROTATION_WINDOW){
+      buildRotation();
+    }
+    if(!rotationItems.length){
+      return;
+    }
+    const headline = rotationItems[rotationIndex] || rotationItems[0];
+    rotationIndex = (rotationIndex + 1) % rotationItems.length;
+    m24nText.textContent = headline;
+    resetTrack();
+    requestAnimationFrame(() => {
+      void m24nTrack.offsetWidth;
+      m24nTrack.classList.add('is-animating');
+      animationTimer = window.setTimeout(() => {
+        resetTrack();
+        bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+      }, HEADLINE_DURATION);
+    });
+  }
+
+  loadHeadlines().then(() => {
+    if(rotationItems.length){
+      scheduleNextHeadline();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden'){
+      clearTimers();
+      resetTrack();
+    }else if(headlines.length && !animationTimer && !bufferTimer){
+      bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+    }
+  });
+}
+
 /* ========= ability grid + autos ========= */
 const ABILS = ['str','dex','con','int','wis','cha'];
 const abilGrid = $('abil-grid');
