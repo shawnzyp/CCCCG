@@ -474,7 +474,7 @@ main{
   flex:1 0 auto;
   width:100%;
   max-width:var(--content-width);
-  margin:16px auto;
+  margin:0 auto 16px;
   padding:0 calc(20px + env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
 }
 fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:14px;box-shadow:var(--shadow);display:none;opacity:0;transform:translate3d(18px,0,0);cursor:default;pointer-events:none;will-change:opacity,transform;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent)}
@@ -1331,7 +1331,7 @@ select[required]:valid{
 .cc-tabs__pane.active { display:block; }
 
 /* The Shards of Many Fates — minimal UI */
-.somf-card { border:1px solid var(--line); background:var(--surface-2); color:var(--text); border-radius:var(--radius); padding:12px; max-width:560px }
+.somf-card { border:1px solid var(--line); background:var(--surface-2); color:var(--text); border-radius:var(--radius); padding:12px; max-width:560px; margin:0 auto }
 .somf-title { margin:0 0 10px 0; font-size:18px }
 .somf-row { display:flex; gap:8px; align-items:center }
 .somf-label { min-width:58px; color:var(--muted) }
@@ -1396,7 +1396,7 @@ select[required]:valid{
 .dm-tools-toggle[hidden]{display:none}
 
 /* DM Tool (Shards of Many Fates) */
-.somf-dm{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0;width:100%;max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
+.somf-dm{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0 auto;width:100%;max-width:800px;max-height:calc(var(--vh,1vh)*100 - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
 .somf-dm__hdr{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:8px}
 .somf-dm__hdr-controls{display:flex;flex-direction:column;gap:8px}
 .somf-dm__toggles{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
