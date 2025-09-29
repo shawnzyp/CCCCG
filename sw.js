@@ -371,6 +371,8 @@ self.addEventListener('fetch', e => {
   };
 
   const cacheKey = request.url.split('?')[0];
+  const isRangeRequest = request.headers.has('range');
+  const isMediaRequest = request.destination === 'video' || request.destination === 'audio';
 
   e.respondWith(
     (async () => {
@@ -387,16 +389,26 @@ self.addEventListener('fetch', e => {
 
       try {
         const response = await fetch(request);
-        const copy = response.clone();
-        cache.put(cacheKey, copy).catch(() => {});
+        if (!isRangeRequest && (!isMediaRequest || response.status === 200)) {
+          const copy = response.clone();
+          cache.put(cacheKey, copy).catch(() => {});
+        }
         if (request.mode === 'navigate') {
           notifyClient();
         }
         return response;
       } catch (networkError) {
-        const cached = await cache.match(cacheKey);
-        if (cached) {
-          return cached;
+        if (!isRangeRequest) {
+          const cached = await cache.match(cacheKey);
+          if (cached) {
+            return cached;
+          }
+        }
+        if (isRangeRequest) {
+          const cachedRangeFallback = await cache.match(cacheKey);
+          if (cachedRangeFallback) {
+            return cachedRangeFallback;
+          }
         }
         throw networkError;
       }
