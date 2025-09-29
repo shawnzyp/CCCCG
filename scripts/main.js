@@ -32,6 +32,7 @@ const LAUNCH_MAX_WAIT = 12000;
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
   let revealed = false;
+  let cleanupLaunchVideoMessaging = null;
   const cleanup = () => {
     if(launchEl && launchEl.parentNode){
       launchEl.parentNode.removeChild(launchEl);
@@ -41,6 +42,21 @@ const LAUNCH_MAX_WAIT = 12000;
     if(revealed) return;
     revealed = true;
     body.classList.remove('launching');
+    if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
+      try {
+        delete window.__resetLaunchVideo;
+      } catch (err) {
+        window.__resetLaunchVideo = undefined;
+      }
+    }
+    if(typeof cleanupLaunchVideoMessaging === 'function'){
+      try {
+        cleanupLaunchVideoMessaging();
+      } catch (err) {
+        // ignore cleanup failures
+      }
+      cleanupLaunchVideoMessaging = null;
+    }
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanup, { once: true });
       window.setTimeout(cleanup, 1000);
@@ -50,36 +66,69 @@ const LAUNCH_MAX_WAIT = 12000;
     reveal();
     return;
   }
+  const ensureLaunchVideoAttributes = vid => {
+    try {
+      vid.setAttribute('playsinline', '');
+      vid.setAttribute('webkit-playsinline', '');
+    } catch (err) {
+      // ignore attribute failures
+    }
+    try {
+      if(!vid.hasAttribute('muted')){
+        vid.setAttribute('muted', '');
+      }
+      vid.muted = true;
+    } catch (err) {
+      // ignore inability to force muted playback
+    }
+  };
+  const resetLaunchVideoPlayback = vid => {
+    if(!vid) return;
+    try {
+      vid.pause();
+    } catch (err) {
+      // ignore inability to pause
+    }
+    try {
+      if(vid.currentTime > 0){
+        vid.currentTime = 0;
+      }
+    } catch (err) {
+      // ignore inability to reset playback position
+    }
+    try {
+      vid.load();
+    } catch (err) {
+      // ignore load failures
+    }
+  };
   const waitForVideoPlayback = vid => new Promise(resolve => {
     let settled = false;
     let fallbackTimer = null;
+    const userGestureListeners = [];
+    const addUserGestureListener = (target, event, handler, options) => {
+      target.addEventListener(event, handler, options);
+      userGestureListeners.push(() => target.removeEventListener(event, handler, options));
+    };
+    const cleanupUserGestureListeners = () => {
+      while(userGestureListeners.length){
+        const remove = userGestureListeners.pop();
+        try {
+          remove();
+        } catch (err) {
+          // ignore removal failures
+        }
+      }
+    };
     const attemptPlayback = () => {
       try {
+        ensureLaunchVideoAttributes(vid);
         const playPromise = vid.play();
         if(playPromise && typeof playPromise.then === 'function'){
           playPromise.catch(()=>{});
         }
       } catch (err) {
         // ignore autoplay rejections; fallback timer will reveal
-      }
-    };
-    const resetPlaybackState = () => {
-      try {
-        vid.pause();
-      } catch (err) {
-        // ignore inability to pause
-      }
-      try {
-        if(vid.currentTime > 0){
-          vid.currentTime = 0;
-        }
-      } catch (err) {
-        // ignore inability to reset playback position
-      }
-      try {
-        vid.load();
-      } catch (err) {
-        // ignore load failures
       }
     };
     const handleVisibilityChange = () => {
@@ -95,6 +144,7 @@ const LAUNCH_MAX_WAIT = 12000;
       if(fallbackTimer) window.clearTimeout(fallbackTimer);
       resolve();
       cleanupVisibility();
+      cleanupUserGestureListeners();
     };
     const scheduleFallback = delay => {
       if(fallbackTimer) window.clearTimeout(fallbackTimer);
@@ -106,11 +156,18 @@ const LAUNCH_MAX_WAIT = 12000;
       window.setTimeout(finish, 120);
     }, { once: true });
     ['error','abort','emptied'].forEach(evt => vid.addEventListener(evt, finish, { once: true }));
+    const handleUserGesture = () => {
+      attemptPlayback();
+    };
+    addUserGestureListener(window, 'pointerdown', handleUserGesture, true);
+    addUserGestureListener(window, 'touchend', handleUserGesture, true);
+    addUserGestureListener(window, 'keydown', handleUserGesture, true);
+    vid.addEventListener('play', cleanupUserGestureListeners, { once: true });
     const beginPlayback = () => {
       const durationMs = (Number.isFinite(vid.duration) && vid.duration > 0) ? vid.duration * 1000 : 0;
       const fallbackDelay = Math.min(Math.max(durationMs + 300, LAUNCH_MIN_DURATION + 800), LAUNCH_MAX_WAIT);
       scheduleFallback(fallbackDelay);
-      resetPlaybackState();
+      resetLaunchVideoPlayback(vid);
       attemptPlayback();
       document.addEventListener('visibilitychange', handleVisibilityChange, true);
     };
@@ -127,6 +184,74 @@ const LAUNCH_MAX_WAIT = 12000;
     }
   });
   if(video){
+    ensureLaunchVideoAttributes(video);
+    let swMessageHandler = null;
+    const attachSwMessageHandler = () => {
+      if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
+        return;
+      }
+      if(swMessageHandler){
+        return;
+      }
+      swMessageHandler = event => {
+        const payload = event?.data && typeof event.data === 'object' ? event.data : { type: event?.data };
+        if(!payload || typeof payload.type !== 'string'){
+          return;
+        }
+        if(payload.type === 'reset-launch-video'){
+          resetLaunchVideoPlayback(video);
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', swMessageHandler);
+    };
+    attachSwMessageHandler();
+    cleanupLaunchVideoMessaging = () => {
+      if(typeof navigator !== 'undefined' && 'serviceWorker' in navigator && swMessageHandler){
+        try {
+          navigator.serviceWorker.removeEventListener('message', swMessageHandler);
+        } catch (err) {
+          // ignore removal failures
+        }
+      }
+      swMessageHandler = null;
+      if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
+        try {
+          delete window.__resetLaunchVideo;
+        } catch (err) {
+          window.__resetLaunchVideo = undefined;
+        }
+      }
+    };
+    const notifyServiceWorkerVideoPlayed = () => {
+      if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
+        return;
+      }
+      const videoUrl = video.currentSrc || video.getAttribute('src') || null;
+      const payload = { type: 'launch-video-played', videoUrl };
+      const postToWorker = worker => {
+        if(!worker) return;
+        try {
+          worker.postMessage(payload);
+        } catch (err) {
+          // ignore messaging failures
+        }
+      };
+      postToWorker(navigator.serviceWorker.controller);
+      navigator.serviceWorker.ready
+        .then(reg => {
+          const worker = navigator.serviceWorker.controller || reg.active;
+          if(worker){
+            postToWorker(worker);
+          }
+        })
+        .catch(() => {});
+    };
+    video.addEventListener('ended', () => {
+      resetLaunchVideoPlayback(video);
+      notifyServiceWorkerVideoPlayed();
+    });
+    video.addEventListener('error', notifyServiceWorkerVideoPlayed);
+    window.__resetLaunchVideo = () => resetLaunchVideoPlayback(video);
     waitForVideoPlayback(video).then(() => {
       reveal();
     });
@@ -3967,6 +4092,16 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     }
     if (type === 'pins-updated') {
       applyLockIcons();
+      return;
+    }
+    if (type === 'reset-launch-video') {
+      if(typeof window !== 'undefined' && typeof window.__resetLaunchVideo === 'function'){
+        try {
+          window.__resetLaunchVideo();
+        } catch (err) {
+          // ignore reset failures
+        }
+      }
       return;
     }
     if (type === 'sw-updated') {
