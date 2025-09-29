@@ -160,6 +160,36 @@ async function broadcast(message) {
   clients.forEach(client => client.postMessage(message));
 }
 
+async function ensureLaunchVideoReset(videoUrl) {
+  const normalizedUrl = (typeof videoUrl === 'string' && videoUrl) ? resolveAssetUrl(videoUrl) : null;
+  if (normalizedUrl) {
+    try {
+      const response = await fetch(normalizedUrl, { cache: 'reload' });
+      if (response && (response.ok || response.type === 'opaque')) {
+        try {
+          const { cache } = await getCacheAndManifest();
+          const request = new Request(normalizedUrl);
+          await cache.put(request, response.clone());
+        } catch (cacheError) {
+          // ignore cache population failures for large media assets
+        }
+      }
+    } catch (err) {
+      try {
+        const { cache } = await getCacheAndManifest();
+        await cache.delete(normalizedUrl);
+      } catch (cacheDeleteError) {
+        // ignore cache cleanup failures
+      }
+    }
+  }
+  try {
+    await broadcast({ type: 'reset-launch-video' });
+  } catch (err) {
+    // ignore broadcast failures
+  }
+}
+
 async function pushQueuedSave({ name, payload, ts }) {
   const encoded = encodePath(name);
   const body = JSON.stringify(payload);
@@ -398,6 +428,8 @@ self.addEventListener('message', event => {
     );
   } else if (data.type === 'flush-cloud-saves') {
     event.waitUntil(flushOutbox());
+  } else if (data.type === 'launch-video-played') {
+    event.waitUntil(ensureLaunchVideoReset(data.videoUrl));
   }
 });
 
