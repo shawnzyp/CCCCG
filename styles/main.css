@@ -478,10 +478,24 @@ main{
   padding:0 calc(20px + env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
 }
 fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:14px;box-shadow:var(--shadow);display:none;opacity:0;transform:translate3d(18px,0,0);cursor:default;pointer-events:none;will-change:opacity,transform;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent)}
-fieldset[data-tab="combat"].card{flex-direction:column;align-items:center}
-fieldset[data-tab="combat"].card>*{width:100%}
-fieldset[data-tab="combat"].card .grid{justify-items:center}
+fieldset[data-tab="combat"].card{
+  flex-direction:column;
+  align-items:center;
+  --combat-max-width:min(100%, 640px);
+}
+fieldset[data-tab="combat"].card>*{
+  width:var(--combat-max-width);
+  margin-inline:auto;
+}
+fieldset[data-tab="combat"].card .grid{
+  width:100%;
+  justify-items:center;
+}
 fieldset[data-tab="combat"].card .grid>.card{width:100%}
+fieldset[data-tab="combat"].card .somf-card{
+  width:100%;
+  margin-inline:auto;
+}
 main>:last-child{margin-bottom:0}
 fieldset[data-tab].card.active{display:flex;opacity:1;transform:translate3d(0,0,0);pointer-events:auto;animation:tab-panel-enter .45s cubic-bezier(.33,1,.68,1);animation-fill-mode:forwards}
 @keyframes tab-panel-enter{from{opacity:0;transform:translate3d(18px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
