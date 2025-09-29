@@ -1004,10 +1004,15 @@ if(m24nTrack && m24nText){
 
   function updateHeadlineDuration(){
     const trackStyles = window.getComputedStyle(m24nTrack);
-    const gapValueRaw = trackStyles.getPropertyValue('--ticker-gap');
-    const gapValue = Number.parseFloat(gapValueRaw) || 0;
+    const gapValue = Number.parseFloat(
+      trackStyles.getPropertyValue('column-gap') ||
+      trackStyles.getPropertyValue('gap') ||
+      '0'
+    ) || 0;
     const trackWidth = m24nTrack.scrollWidth;
-    const travelDistance = (trackWidth * 2) + gapValue;
+    const viewportWidth = m24nTrack.parentElement?.clientWidth || m24nTrack.offsetWidth;
+    const travelDistance = trackWidth + viewportWidth + gapValue;
+    m24nTrack.style.setProperty('--ticker-distance', `${Math.round(travelDistance)}px`);
     const durationMs = Math.min(
       MAX_HEADLINE_DURATION,
       Math.max(MIN_HEADLINE_DURATION, (travelDistance / SCROLL_SPEED_PX_PER_SEC) * 1000)
