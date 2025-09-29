@@ -83,6 +83,8 @@ if(typeof document !== 'undefined' && document.documentElement){
 }
 
 const BASE_TICKER_DURATION_MS = DEVICE_INFO.isMobile ? 55000 : 30000;
+const FUN_TICKER_SPEED_MULTIPLIER = 0.65;
+const FUN_TICKER_DURATION_MS = Math.round(BASE_TICKER_DURATION_MS * FUN_TICKER_SPEED_MULTIPLIER);
 
 const SKIP_LAUNCH_STORAGE_KEY = 'cc:skip-launch';
 const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
@@ -1198,7 +1200,7 @@ if(mainEl && TAB_ORDER.length){
 const tickerTrack = qs('[data-fun-ticker-track]');
 const tickerText = qs('[data-fun-ticker-text]');
 if(tickerTrack && tickerText){
-  tickerTrack.style.setProperty('--ticker-duration', `${BASE_TICKER_DURATION_MS}ms`);
+  tickerTrack.style.setProperty('--ticker-duration', `${FUN_TICKER_DURATION_MS}ms`);
   let tickerIterations = 0;
   const updateTicker = async () => {
     try{
