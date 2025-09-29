@@ -838,6 +838,20 @@
     }
   }
 
+  function normalizeHiddenValue(value) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true' || normalized === '1') return true;
+      if (normalized === 'false' || normalized === '0') return false;
+    }
+    if (typeof value === 'number') {
+      if (value === 1) return true;
+      if (value === 0) return false;
+    }
+    return undefined;
+  }
+
   const Random = {
     int(max) {
       if (!Number.isFinite(max) || max <= 0) return 0;
@@ -878,6 +892,224 @@
       evt.initCustomEvent(type, false, false, detail);
       window.dispatchEvent(evt);
     }
+  }
+
+  const HiddenSync = (() => {
+    if (typeof window === 'undefined') {
+      return {
+        broadcast() {},
+        subscribe() { return () => {}; },
+        restorePreparedState() {},
+        prepareRefresh() {},
+      };
+    }
+
+    const CHANNEL_NAME = 'somf-hidden-sync';
+    const STORAGE_EVENT_KEY = 'somf:hidden-sync-event';
+    const REFRESH_STATE_KEY = 'somf:hidden-sync-refresh';
+    const sourceId = Math.random().toString(36).slice(2);
+    const listeners = new Set();
+    let broadcastChannel = null;
+
+    function notify(detail) {
+      listeners.forEach(listener => {
+        try {
+          listener(detail);
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    }
+
+    function handleIncoming(raw) {
+      if (!raw || typeof raw !== 'object') return;
+      if (raw.source && raw.source === sourceId) return;
+      if (raw.type !== 'hidden-sync') return;
+      const normalized = { ...raw };
+      const normalizedHidden = normalizeHiddenValue(normalized.hidden);
+      normalized.hidden = typeof normalizedHidden === 'boolean' ? normalizedHidden : undefined;
+      notify(normalized);
+    }
+
+    function ensureChannel() {
+      if (broadcastChannel || typeof BroadcastChannel !== 'function') return broadcastChannel;
+      try {
+        broadcastChannel = new BroadcastChannel(CHANNEL_NAME);
+        const handler = event => handleIncoming(event?.data);
+        if (typeof broadcastChannel.addEventListener === 'function') {
+          broadcastChannel.addEventListener('message', handler);
+        } else {
+          broadcastChannel.onmessage = handler;
+        }
+      } catch (err) {
+        console.error('Failed to establish hidden sync channel', err);
+        broadcastChannel = null;
+      }
+      return broadcastChannel;
+    }
+
+    function storageListener(event) {
+      if (event.key !== STORAGE_EVENT_KEY || !event.newValue) return;
+      try {
+        const parsed = JSON.parse(event.newValue);
+        handleIncoming(parsed);
+      } catch (err) {
+        console.error('Failed to parse hidden sync storage payload', err);
+      }
+    }
+
+    function prepareRefresh(reason = 'hidden-sync') {
+      if (typeof sessionStorage === 'undefined') return;
+      try {
+        const state = {
+          reason,
+          ts: Date.now(),
+          scrollX: Math.max(0, Math.round(window.scrollX || window.pageXOffset || 0)),
+          scrollY: Math.max(0, Math.round(window.scrollY || window.pageYOffset || 0)),
+          hash: window.location.hash || '',
+          focusId: document.activeElement?.id || null,
+          launching: document.body?.classList?.contains('launching') || false,
+        };
+        sessionStorage.setItem(REFRESH_STATE_KEY, JSON.stringify(state));
+      } catch (err) {
+        console.error('Failed to cache refresh state', err);
+      }
+    }
+
+    function restorePreparedState() {
+      if (typeof sessionStorage === 'undefined') return;
+      let parsed = null;
+      try {
+        const raw = sessionStorage.getItem(REFRESH_STATE_KEY);
+        if (!raw) return;
+        sessionStorage.removeItem(REFRESH_STATE_KEY);
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        console.error('Failed to restore refresh state', err);
+        return;
+      }
+      if (!parsed || parsed.reason !== 'hidden-sync') return;
+
+      try {
+        if (parsed.launching && document.body?.classList?.contains('launching')) {
+          document.body.classList.remove('launching');
+        }
+        document.body?.classList?.add('somf-hidden-refresh');
+      } catch {
+        /* ignore body mutations */
+      }
+
+      const applyScroll = () => {
+        try {
+          if (parsed.hash) {
+            const target = document.querySelector(parsed.hash);
+            if (target) {
+              try {
+                target.scrollIntoView({ block: 'center' });
+              } catch {
+                target.scrollIntoView();
+              }
+              return;
+            }
+          }
+          window.scrollTo(parsed.scrollX || 0, parsed.scrollY || 0);
+        } catch (err) {
+          console.error('Failed to restore scroll position', err);
+        }
+      };
+
+      const restoreFocus = () => {
+        if (!parsed.focusId) return;
+        const el = document.getElementById(parsed.focusId);
+        if (!el) return;
+        try {
+          el.focus({ preventScroll: true });
+        } catch {
+          try { el.focus(); } catch { /* ignore focus errors */ }
+        }
+      };
+
+      if (document.readyState === 'complete') {
+        applyScroll();
+        window.requestAnimationFrame(restoreFocus);
+      } else {
+        window.addEventListener('load', () => {
+          applyScroll();
+          window.requestAnimationFrame(restoreFocus);
+        }, { once: true });
+      }
+    }
+
+    function broadcast(campaignId, hidden) {
+      const detail = {
+        type: 'hidden-sync',
+        campaignId: campaignId || DEFAULT_CAMPAIGN_ID,
+        hidden: !!hidden,
+        ts: Date.now(),
+        source: sourceId,
+      };
+
+      let delivered = false;
+      const channel = ensureChannel();
+      if (channel) {
+        try {
+          channel.postMessage(detail);
+          delivered = true;
+        } catch (err) {
+          console.error('Failed to post hidden sync message', err);
+        }
+      }
+
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(STORAGE_EVENT_KEY, JSON.stringify(detail));
+          window.setTimeout(() => {
+            try {
+              localStorage.removeItem(STORAGE_EVENT_KEY);
+            } catch {
+              /* ignore cleanup failures */
+            }
+          }, 0);
+          delivered = true;
+        }
+      } catch (err) {
+        console.error('Failed to write hidden sync storage event', err);
+      }
+
+      notify(detail);
+
+      if (!delivered) {
+        prepareRefresh();
+        try {
+          window.location.reload();
+        } catch {
+          /* ignore reload failures */
+        }
+      }
+    }
+
+    function subscribe(handler) {
+      if (typeof handler !== 'function') return () => {};
+      listeners.add(handler);
+      return () => listeners.delete(handler);
+    }
+
+    ensureChannel();
+    window.addEventListener('storage', storageListener);
+
+    return {
+      broadcast,
+      subscribe,
+      restorePreparedState,
+      prepareRefresh,
+    };
+  })();
+
+  HiddenSync.restorePreparedState();
+
+  if (typeof window !== 'undefined') {
+    window.SOMF_MIN = window.SOMF_MIN || {};
+    window.SOMF_MIN.prepareHiddenRefresh = reason => HiddenSync.prepareRefresh(reason || 'hidden-sync');
   }
 
   const toArray = value => {
@@ -1382,7 +1614,8 @@
 
     getHidden() {
       const stored = readStorage(this.key('hidden'));
-      return typeof stored === 'boolean' ? stored : true;
+      const normalized = normalizeHiddenValue(stored);
+      return typeof normalized === 'boolean' ? normalized : true;
     }
 
     watchNotices(handler) {
@@ -1398,9 +1631,26 @@
     }
 
     watchHidden(handler) {
-      const listener = event => handler(event?.detail);
+      const listener = event => {
+        const normalized = normalizeHiddenValue(event?.detail);
+        handler(typeof normalized === 'boolean' ? normalized : undefined);
+      };
       window.addEventListener('somf-local-hidden', listener);
-      return () => window.removeEventListener('somf-local-hidden', listener);
+      const storageHandler = evt => {
+        if (!evt || evt.key !== this.key('hidden')) return;
+        try {
+          const value = evt.newValue ? JSON.parse(evt.newValue) : undefined;
+          const normalized = normalizeHiddenValue(value);
+          handler(typeof normalized === 'boolean' ? normalized : undefined);
+        } catch {
+          handler(undefined);
+        }
+      };
+      window.addEventListener('storage', storageHandler);
+      return () => {
+        window.removeEventListener('somf-local-hidden', listener);
+        window.removeEventListener('storage', storageHandler);
+      };
     }
   }
 
@@ -1516,7 +1766,8 @@
       const snap = await this.ref('hidden').get();
       if (!snap.exists()) return true;
       const value = snap.val();
-      return typeof value === 'boolean' ? value : true;
+      const normalized = normalizeHiddenValue(value);
+      return typeof normalized === 'boolean' ? normalized : true;
     }
 
     watchNotices(callbacks) {
@@ -1551,7 +1802,8 @@
       const ref = this.ref('hidden');
       const listener = snap => {
         const value = snap?.val();
-        handler(typeof value === 'boolean' ? value : undefined);
+        const normalized = normalizeHiddenValue(value);
+        handler(typeof normalized === 'boolean' ? normalized : undefined);
       };
       ref.on('value', listener);
       this.hiddenListener = () => { if (typeof ref.off === 'function') ref.off('value', listener); };
@@ -1682,16 +1934,19 @@
     async setHidden(hidden) {
       const store = this.store();
       if (store.setHidden) await store.setHidden(hidden);
-      if (!this.hasRealtime()) {
-        // local store already dispatched event; ensure cached fallback updates
-        writeStorage(LOCAL_KEYS.hidden(this.campaignId), !!hidden);
-      }
+      writeStorage(LOCAL_KEYS.hidden(this.campaignId), !!hidden);
+      HiddenSync.broadcast(this.campaignId, hidden);
     }
 
     async getHidden() {
       const store = this.store();
-      if (store.getHidden) return store.getHidden();
-      return true;
+      if (store.getHidden) {
+        const value = await store.getHidden();
+        const normalized = normalizeHiddenValue(value);
+        if (typeof normalized === 'boolean') return normalized;
+      }
+      const fallback = normalizeHiddenValue(readStorage(LOCAL_KEYS.hidden(this.campaignId)));
+      return typeof fallback === 'boolean' ? fallback : true;
     }
 
     watchNotices(callbacks) {
@@ -1714,12 +1969,26 @@
     }
 
     watchHidden(handler) {
-      if (this.hasRealtime()) {
-        return this.realtimeStore.watchHidden(value => {
-          if (typeof value === 'boolean') handler(value); else handler(undefined);
-        });
-      }
-      return this.localStore.watchHidden(value => handler(value));
+      const safeHandler = value => {
+        const normalized = normalizeHiddenValue(value);
+        if (typeof normalized === 'boolean') {
+          handler(normalized);
+        }
+      };
+
+      const unsubStore = this.hasRealtime()
+        ? this.realtimeStore.watchHidden(val => safeHandler(val))
+        : this.localStore.watchHidden(val => safeHandler(val));
+
+      const unsubBroadcast = HiddenSync.subscribe(detail => {
+        if (!detail || detail.campaignId !== this.campaignId) return;
+        if (typeof detail.hidden === 'boolean') handler(detail.hidden);
+      });
+
+      return () => {
+        if (typeof unsubStore === 'function') unsubStore();
+        if (typeof unsubBroadcast === 'function') unsubBroadcast();
+      };
     }
 
     attachPlayer() {
