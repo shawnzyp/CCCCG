@@ -158,6 +158,7 @@ label[data-animate-title]{
   --pennant-point:clamp(18px,4vw,30px);
   --pennant-gap:clamp(10px,2.6vw,18px);
   --pennant-overlap:calc(var(--pennant-point) + var(--pennant-gap));
+  --ticker-duration:12s;
   position:relative;
   overflow:hidden;
   background:color-mix(in srgb,var(--surface) 92%, transparent);
@@ -250,6 +251,11 @@ label[data-animate-title]{
   padding-left:calc(var(--pennant-overlap) + clamp(14px,3.6vw,24px));
   min-width:100%;
   z-index:0;
+}
+@media(min-width:900px){
+  .news-ticker{
+    --ticker-duration:18s;
+  }
 }
 .news-ticker__text{
   font-weight:600;
