@@ -4579,7 +4579,7 @@ function redo(){
   }
 })();
 
-const CLOUD_AUTO_SAVE_INTERVAL_MS = 3 * 60 * 1000;
+const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
 let scheduledAutoSaveId = null;
 let scheduledAutoSaveInFlight = false;
 
