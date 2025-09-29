@@ -43,6 +43,11 @@ const ALWAYS_INCLUDE = new Set([
   'index.html',
 ]);
 
+const EXCLUDED_FILES = new Set([
+  'package.json',
+  'package-lock.json',
+]);
+
 function normalizePath(filePath) {
   return filePath.split(path.sep).join('/');
 }
@@ -64,6 +69,8 @@ function collectFiles(dir, base = '') {
     if (entry.isDirectory()) {
       if (shouldSkipDir(relativePath)) continue;
       files.push(...collectFiles(fullPath, relativePath));
+    } else if (EXCLUDED_FILES.has(relativePath)) {
+      continue;
     } else if (ALWAYS_INCLUDE.has(relativePath)) {
       files.push(relativePath);
     } else {
