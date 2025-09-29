@@ -409,6 +409,18 @@ label[data-animate-title]{
     --ticker-duration:40s;
   }
 }
+@supports (-webkit-touch-callout:none){
+  @media screen and (device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3){
+    .news-ticker__track--m24n{
+      --ticker-duration:55s;
+    }
+  }
+  @media screen and (device-width:932px) and (device-height:430px) and (-webkit-device-pixel-ratio:3){
+    .news-ticker__track--m24n{
+      --ticker-duration:55s;
+    }
+  }
+}
 .news-ticker__track--m24n.is-animating{
   animation:ticker-scroll-m24n var(--ticker-duration) linear forwards;
 }
