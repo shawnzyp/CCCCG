@@ -404,6 +404,11 @@ label[data-animate-title]{
   margin-left:calc(-1 * var(--m24n-line-width));
   padding-left:calc(var(--m24n-line-width) + var(--m24n-line-gap));
 }
+@media(max-width:899px){
+  .news-ticker__track--m24n{
+    --ticker-duration:40s;
+  }
+}
 .news-ticker__track--m24n.is-animating{
   animation:ticker-scroll-m24n var(--ticker-duration) linear forwards;
 }
