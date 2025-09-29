@@ -297,7 +297,11 @@ label[data-animate-title]{
   clip-path:none;
   border-radius:8px 0 0 8px;
   padding-right:var(--m24n-line-width);
-  gap:clamp(12px,3vw,18px);
+  gap:clamp(10px,2.6vw,16px);
+  flex:0 1 auto;
+  min-width:var(--pennant-width);
+  flex-wrap:nowrap;
+  max-width:100%;
   overflow:hidden;
 }
 .news-ticker__label--m24n::before{
@@ -325,8 +329,13 @@ label[data-animate-title]{
 }
 .news-ticker__logo--m24n{
   position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   width:auto;
   min-width:unset;
+  min-width:0;
+  max-width:100%;
   height:calc(100% - 8px);
   padding:0 clamp(18px,4vw,26px);
   margin-block:auto;
@@ -354,6 +363,8 @@ label[data-animate-title]{
   letter-spacing:.28em;
   text-transform:uppercase;
   box-shadow:0 2px 12px rgba(0,0,0,.35);
+  flex:0 0 auto;
+  white-space:nowrap;
 }
 .news-ticker__badge--live{
   background:linear-gradient(135deg,var(--m24n-highlight) 0%,#b4163d 100%);
@@ -384,19 +395,20 @@ label[data-animate-title]{
     --m24n-line-gap:clamp(8px,2.6vw,12px);
   }
   .news-ticker__label--m24n{
+    gap:clamp(6px,2vw,12px);
     padding-left:calc(clamp(10px,3vw,18px) + env(safe-area-inset-left));
-    padding-right:var(--m24n-line-width);
+    padding-right:calc(var(--m24n-line-width) + clamp(6px,2vw,12px));
   }
   .news-ticker__logo--m24n{
     padding:0 clamp(14px,3vw,20px);
-    font-size:clamp(.88rem,3.8vw,1.1rem);
-    letter-spacing:.26em;
+    font-size:clamp(.88rem,3.4vw,1.08rem);
+    letter-spacing:.24em;
   }
   .news-ticker--m24n .news-ticker__badge{
     margin-left:clamp(6px,2vw,12px);
     padding:0 clamp(8px,2vw,12px);
-    font-size:.62rem;
-    letter-spacing:.2em;
+    font-size:.6rem;
+    letter-spacing:.18em;
   }
   .news-ticker__track--m24n{
     gap:clamp(26px,7vw,42px);
@@ -405,6 +417,26 @@ label[data-animate-title]{
   .news-ticker__text--m24n{
     font-size:.72rem;
     letter-spacing:.1em;
+  }
+}
+
+@media(max-width:400px){
+  .news-ticker--m24n{
+    --m24n-line-gap:clamp(6px,1.8vw,10px);
+  }
+  .news-ticker__label--m24n{
+    gap:clamp(4px,1.8vw,8px);
+    padding-right:calc(var(--m24n-line-width) + clamp(4px,1.6vw,8px));
+  }
+  .news-ticker__logo--m24n{
+    padding:0 clamp(12px,3.6vw,18px);
+    font-size:clamp(.82rem,3.2vw,.98rem);
+    letter-spacing:.18em;
+  }
+  .news-ticker--m24n .news-ticker__badge{
+    padding:0 clamp(6px,1.8vw,10px);
+    font-size:.56rem;
+    letter-spacing:.14em;
   }
 }
 @keyframes ticker-scroll{from{transform:translate3d(100%,0,0)}to{transform:translate3d(calc(-100% - var(--ticker-gap)),0,0)}}
