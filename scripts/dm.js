@@ -278,10 +278,17 @@ function initDMLogin(){
       renderStoredNotifications();
     }
     if (dmBtn){
-      dmBtn.style.opacity = loggedIn ? '1' : '0';
-      dmBtn.style.left = loggedIn ? '18px' : '50%';
-      dmBtn.style.bottom = loggedIn ? '18px' : '0';
-      dmBtn.style.transform = loggedIn ? 'none' : 'translateX(-50%)';
+      if (loggedIn) {
+        dmBtn.style.opacity = '1';
+        dmBtn.style.left = '18px';
+        dmBtn.style.bottom = '18px';
+        dmBtn.style.transform = 'none';
+      } else {
+        dmBtn.style.removeProperty('opacity');
+        dmBtn.style.removeProperty('left');
+        dmBtn.style.removeProperty('bottom');
+        dmBtn.style.removeProperty('transform');
+      }
     }
   }
 
