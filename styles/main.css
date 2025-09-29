@@ -1155,8 +1155,8 @@ select[required]:valid{
 .somf-hash { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; color:var(--accent) }
 
 /* DM login & tools menu */
-.dm-login-btn{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:40px;height:40px;margin:0;padding:0;border:1px solid var(--accent);background:var(--surface-2);border-radius:var(--radius);opacity:0;cursor:pointer;z-index:900;display:flex;align-items:center;justify-content:center;color:var(--text)}
-.dm-login-btn svg{width:24px;height:24px}
+.dm-login-btn{display:block;margin:16px auto 0;border:none;padding:0;background:transparent;cursor:pointer}
+.dm-login-btn img{display:block;max-width:160px;width:100%;height:auto}
 .dm-tools-menu{position:fixed;bottom:80px;left:18px;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:2000}
 .dm-tools-menu[hidden]{display:none}
 .dm-tools-menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;min-width:160px}
