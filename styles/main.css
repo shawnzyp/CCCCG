@@ -504,6 +504,8 @@ fieldset[data-tab="combat"].card{
 fieldset[data-tab="combat"].card>*{
   width:var(--combat-max-width);
   margin-inline:auto;
+  margin-left:auto;
+  margin-right:auto;
 }
 fieldset[data-tab="combat"].card .grid{
   width:100%;
@@ -513,6 +515,8 @@ fieldset[data-tab="combat"].card .grid>.card{width:100%}
 fieldset[data-tab="combat"].card .somf-card{
   width:100%;
   margin-inline:auto;
+  margin-left:auto;
+  margin-right:auto;
 }
 main>:last-child{margin-bottom:0}
 fieldset[data-tab].card.active{display:flex;opacity:1;transform:translate3d(0,0,0);pointer-events:auto;animation:tab-panel-enter .45s cubic-bezier(.33,1,.68,1);animation-fill-mode:forwards}
