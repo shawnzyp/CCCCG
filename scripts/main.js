@@ -963,6 +963,7 @@ function cleanupPanelAnimation(panel){
   panel.style.removeProperty('pointer-events');
   panel.style.removeProperty('transform');
   panel.style.removeProperty('opacity');
+  panel.style.removeProperty('will-change');
 }
 
 function animateTabTransition(currentName, nextName, direction){
@@ -1065,53 +1066,6 @@ try {
 } catch (e) {}
 setTab(initialTab);
 
-let swipeIndicator = null;
-
-function ensureSwipeIndicator(){
-  if(swipeIndicator || !document.body) return swipeIndicator;
-  swipeIndicator = document.createElement('div');
-  swipeIndicator.className = 'tab-swipe-indicator';
-  swipeIndicator.setAttribute('aria-hidden','true');
-  document.body.appendChild(swipeIndicator);
-  return swipeIndicator;
-}
-
-function updateSwipeIndicatorContent(tabName){
-  const indicator = ensureSwipeIndicator();
-  if(!indicator || !tabName) return false;
-  if(indicator.dataset.tab === tabName) return true;
-  const btn = qs(`.tab[data-go="${tabName}"]`);
-  if(!btn) return false;
-  const svg = btn.querySelector('svg');
-  if(!svg) return false;
-  const label = btn.getAttribute('aria-label') || btn.getAttribute('title') || tabName;
-  indicator.innerHTML = `<div class="tab-swipe-icon">${svg.outerHTML}</div><span class="tab-swipe-label">${label}</span>`;
-  indicator.dataset.tab = tabName;
-  return true;
-}
-
-function hideSwipeIndicator(){
-  if(!swipeIndicator) return;
-  swipeIndicator.classList.remove('show');
-  swipeIndicator.style.removeProperty('--swipe-translate');
-  delete swipeIndicator.dataset.side;
-}
-
-function showSwipeIndicator(direction, tabName, progress){
-  const indicator = ensureSwipeIndicator();
-  if(!indicator) return;
-  if(!updateSwipeIndicatorContent(tabName)){
-    hideSwipeIndicator();
-    return;
-  }
-  const side = direction === 'left' ? 'right' : 'left';
-  indicator.dataset.side = side;
-  const offset = Math.max(28, Math.min(progress || 0, 140));
-  const translate = side === 'left' ? offset : -offset;
-  indicator.style.setProperty('--swipe-translate', `${translate}px`);
-  requestAnimationFrame(()=> indicator.classList.add('show'));
-}
-
 function getAdjacentTab(offset){
   if(!Number.isInteger(offset) || !offset) return null;
   const activeBtn = qs('.tab.active');
@@ -1131,17 +1085,149 @@ if(mainEl && TAB_ORDER.length){
   let swipeDirection = null;
   let swipeActive = false;
 
-  const resetSwipe = () => {
+  const swipeState = {
+    activePanel: null,
+    targetPanel: null,
+    targetName: null,
+    direction: null,
+    width: 1,
+    progress: 0,
+    lastDx: 0,
+    isActive: false
+  };
+
+  const resetSwipeTracking = () => {
     touchStartX = 0;
     touchStartY = 0;
     swipeDirection = null;
     swipeActive = false;
-    hideSwipeIndicator();
+  };
+
+  const cleanupSwipePanels = () => {
+    if(swipeState.activePanel) cleanupPanelAnimation(swipeState.activePanel);
+    if(swipeState.targetPanel) cleanupPanelAnimation(swipeState.targetPanel);
+    swipeState.activePanel = null;
+    swipeState.targetPanel = null;
+    swipeState.targetName = null;
+    swipeState.direction = null;
+    swipeState.width = 1;
+    swipeState.progress = 0;
+    swipeState.lastDx = 0;
+    swipeState.isActive = false;
+    mainEl.classList.remove('is-swiping');
+    isTabAnimating = false;
+  };
+
+  const initSwipePanels = direction => {
+    if(!direction) return false;
+    const activeName = getActiveTabName();
+    if(!activeName) return false;
+    const offset = direction === 'left' ? 1 : -1;
+    const targetName = getAdjacentTab(offset);
+    if(!targetName) return false;
+    const activePanel = qs(`fieldset[data-tab="${activeName}"]`);
+    const targetPanel = qs(`fieldset[data-tab="${targetName}"]`);
+    if(!activePanel || !targetPanel) return false;
+    const rect = mainEl.getBoundingClientRect();
+    const width = Math.max(1, rect.width || window.innerWidth || 1);
+
+    swipeState.activePanel = activePanel;
+    swipeState.targetPanel = targetPanel;
+    swipeState.targetName = targetName;
+    swipeState.direction = direction;
+    swipeState.width = width;
+    swipeState.progress = 0;
+    swipeState.lastDx = 0;
+    swipeState.isActive = true;
+    isTabAnimating = true;
+
+    [activePanel, targetPanel].forEach(panel => {
+      panel.classList.add('animating');
+      panel.style.pointerEvents = 'none';
+      panel.style.willChange = 'transform, opacity';
+    });
+
+    const startOffset = direction === 'left' ? width : -width;
+    targetPanel.style.transform = `translate3d(${startOffset}px,0,0)`;
+    targetPanel.style.opacity = '0';
+    mainEl.classList.add('is-swiping');
+    return true;
+  };
+
+  const updateSwipeProgress = dx => {
+    if(!swipeState.isActive) return;
+    const clampedDx = Math.max(Math.min(dx, swipeState.width), -swipeState.width);
+    const progress = Math.min(1, Math.abs(clampedDx) / swipeState.width);
+    const activePanel = swipeState.activePanel;
+    const targetPanel = swipeState.targetPanel;
+    if(activePanel){
+      activePanel.style.transform = `translate3d(${clampedDx}px,0,0)`;
+      activePanel.style.opacity = `${1 - (progress * 0.4)}`;
+    }
+    if(targetPanel){
+      const startOffset = swipeState.direction === 'left' ? swipeState.width : -swipeState.width;
+      const translateTarget = startOffset + clampedDx;
+      targetPanel.style.transform = `translate3d(${translateTarget}px,0,0)`;
+      targetPanel.style.opacity = `${0.35 + (progress * 0.65)}`;
+    }
+    swipeState.progress = progress;
+    swipeState.lastDx = clampedDx;
+  };
+
+  const finishSwipe = shouldCommit => {
+    if(!swipeState.isActive){
+      cleanupSwipePanels();
+      return;
+    }
+    const activePanel = swipeState.activePanel;
+    const targetPanel = swipeState.targetPanel;
+    const targetName = swipeState.targetName;
+    const direction = swipeState.direction;
+    const width = swipeState.width;
+    const progress = swipeState.progress;
+    const currentDx = swipeState.lastDx;
+    const startOffset = direction === 'left' ? width : -width;
+    const remainingFactor = shouldCommit ? (1 - progress) : progress;
+    const duration = Math.max(140, Math.round(TAB_ANIMATION_DURATION * Math.max(0.35, remainingFactor || 0.35)));
+    const animations = [];
+
+    if(activePanel && typeof activePanel.animate === 'function'){
+      const currentOpacity = parseFloat(activePanel.style.opacity || '1') || 1;
+      animations.push(activePanel.animate([
+        { transform: `translate3d(${currentDx}px,0,0)`, opacity: currentOpacity },
+        { transform: shouldCommit ? `translate3d(${direction === 'left' ? -width : width}px,0,0)` : 'translate3d(0,0,0)', opacity: shouldCommit ? 0 : 1 }
+      ], { duration, easing: TAB_ANIMATION_EASING, fill: 'forwards' }));
+    } else if(activePanel){
+      activePanel.style.transform = shouldCommit ? `translate3d(${direction === 'left' ? -width : width}px,0,0)` : 'translate3d(0,0,0)';
+      activePanel.style.opacity = shouldCommit ? '0' : '1';
+    }
+
+    if(targetPanel){
+      const currentOpacity = parseFloat(targetPanel.style.opacity || '0') || 0;
+      if(typeof targetPanel.animate === 'function'){
+        animations.push(targetPanel.animate([
+          { transform: `translate3d(${startOffset + currentDx}px,0,0)`, opacity: currentOpacity },
+          { transform: shouldCommit ? 'translate3d(0,0,0)' : `translate3d(${startOffset}px,0,0)`, opacity: shouldCommit ? 1 : 0 }
+        ], { duration, easing: TAB_ANIMATION_EASING, fill: 'forwards' }));
+      } else {
+        targetPanel.style.transform = shouldCommit ? 'translate3d(0,0,0)' : `translate3d(${startOffset}px,0,0)`;
+        targetPanel.style.opacity = shouldCommit ? '1' : '0';
+      }
+    }
+
+    Promise.all(animations.map(anim => anim && anim.finished ? anim.finished.catch(() => {}) : Promise.resolve())).then(() => {
+      if(shouldCommit && targetName){
+        setTab(targetName);
+      }
+    }).finally(() => {
+      cleanupSwipePanels();
+    });
   };
 
   mainEl.addEventListener('touchstart', e => {
     if(e.touches.length !== 1){
-      resetSwipe();
+      if(swipeState.isActive) finishSwipe(false);
+      resetSwipeTracking();
       return;
     }
     const touch = e.touches[0];
@@ -1159,42 +1245,46 @@ if(mainEl && TAB_ORDER.length){
     if(!swipeDirection){
       if(Math.abs(dx) < 12) return;
       if(Math.abs(dx) <= Math.abs(dy)){
-        resetSwipe();
+        if(swipeState.isActive) finishSwipe(false);
+        resetSwipeTracking();
         return;
       }
       swipeDirection = dx < 0 ? 'left' : 'right';
+      if(!initSwipePanels(swipeDirection)){
+        resetSwipeTracking();
+        return;
+      }
     }
-    const offset = swipeDirection === 'left' ? 1 : -1;
-    const target = getAdjacentTab(offset);
-    if(!target){
-      hideSwipeIndicator();
+    if(!swipeState.isActive && !initSwipePanels(swipeDirection)){
+      resetSwipeTracking();
       return;
     }
-    const progress = Math.min(Math.abs(dx), 140);
-    showSwipeIndicator(swipeDirection, target, progress);
+    updateSwipeProgress(dx);
   }, { passive: true });
 
   mainEl.addEventListener('touchend', e => {
-    if(!swipeActive) return;
+    if(!swipeActive){
+      resetSwipeTracking();
+      return;
+    }
     const touch = e.changedTouches[0];
     if(!touch){
-      resetSwipe();
+      finishSwipe(false);
+      resetSwipeTracking();
       return;
     }
     const dx = touch.clientX - touchStartX;
     const dy = touch.clientY - touchStartY;
-    if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60){
-      const offset = dx < 0 ? 1 : -1;
-      const target = getAdjacentTab(offset);
-      if(target){
-        const gestureDirection = swipeDirection || (dx < 0 ? 'left' : 'right');
-        switchTab(target, { direction: gestureDirection });
-      }
-    }
-    resetSwipe();
+    const distance = Math.abs(dx);
+    const shouldCommit = swipeState.isActive && Math.abs(dx) > Math.abs(dy) && (distance > 60 || (swipeState.width && distance > swipeState.width * 0.32));
+    finishSwipe(shouldCommit);
+    resetSwipeTracking();
   }, { passive: true });
 
-  mainEl.addEventListener('touchcancel', resetSwipe, { passive: true });
+  mainEl.addEventListener('touchcancel', () => {
+    finishSwipe(false);
+    resetSwipeTracking();
+  }, { passive: true });
 }
 
 const tickerTrack = qs('[data-fun-ticker-track]');
