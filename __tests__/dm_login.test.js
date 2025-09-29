@@ -33,6 +33,10 @@ describe('dm login', () => {
       listCloudBackups: jest.fn(async () => []),
       listCloudBackupNames: jest.fn(async () => []),
       loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
     }));
     await import('../scripts/modal.js');
@@ -92,6 +96,10 @@ describe('dm login', () => {
       listCloudBackups: jest.fn(async () => []),
       listCloudBackupNames: jest.fn(async () => []),
       loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
     }));
     await import('../scripts/modal.js');
@@ -134,6 +142,10 @@ describe('dm login', () => {
       listCloudBackups: jest.fn(async () => []),
       listCloudBackupNames: jest.fn(async () => []),
       loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
     }));
 

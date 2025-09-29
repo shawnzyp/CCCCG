@@ -13,6 +13,10 @@ describe('character events', () => {
       listCloudBackups: jest.fn().mockResolvedValue([]),
       listCloudBackupNames: jest.fn().mockResolvedValue([]),
       loadCloudBackup: jest.fn().mockResolvedValue({}),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn().mockResolvedValue([]),
+      listCloudAutosaveNames: jest.fn().mockResolvedValue([]),
+      loadCloudAutosave: jest.fn().mockResolvedValue({}),
       deleteCloud: jest.fn()
     }));
 

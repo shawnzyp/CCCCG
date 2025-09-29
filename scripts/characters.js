@@ -9,6 +9,10 @@ import {
   listCloudBackups,
   listCloudBackupNames,
   loadCloudBackup,
+  saveCloudAutosave,
+  listCloudAutosaves,
+  listCloudAutosaveNames,
+  loadCloudAutosave,
   deleteCloud,
 } from './storage.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
@@ -125,7 +129,8 @@ export async function listRecoverableCharacters() {
   try {
     const saves = await listCharacters();
     const backups = (await listCloudBackupNames()).map(n => (n === 'DM' ? 'The DM' : n));
-    const set = new Set([...saves, ...backups]);
+    const autos = (await listCloudAutosaveNames()).map(n => (n === 'DM' ? 'The DM' : n));
+    const set = new Set([...saves, ...backups, ...autos]);
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   } catch (e) {
     console.error('Failed to list recoverable characters', e);
@@ -219,16 +224,41 @@ export async function deleteCharacter(name) {
 }
 
 export async function listBackups(name) {
+  let manual = [];
+  let autos = [];
   try {
-    return await listCloudBackups(name);
+    manual = await listCloudBackups(name);
   } catch (e) {
     console.error('Failed to list backups', e);
-    return [];
   }
+  try {
+    autos = await listCloudAutosaves(name);
+  } catch (e) {
+    console.error('Failed to list autosaves', e);
+  }
+  return [
+    ...manual.map(entry => ({ ...entry, type: 'manual' })),
+    ...autos.map(entry => ({ ...entry, type: 'auto' })),
+  ];
 }
 
-export async function loadBackup(name, ts) {
-  const data = await loadCloudBackup(name, ts);
+export async function loadBackup(name, ts, type = 'manual') {
+  const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
+  const data = await loader(name, ts);
   try { await saveLocal(name, data); } catch {}
   return data;
+}
+
+export async function saveAutoBackup(data, name = currentCharacter()) {
+  if (!name) return null;
+  try {
+    const ts = await saveCloudAutosave(name, data);
+    try {
+      document.dispatchEvent(new CustomEvent('character-autosaved', { detail: { name, ts } }));
+    } catch {}
+    return ts;
+  } catch (e) {
+    console.error('Failed to autosave character', e);
+    return null;
+  }
 }

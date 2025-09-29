@@ -46,6 +46,7 @@ export function listLocalSaves() {
 // ===== Firebase Cloud Save =====
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
+const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
@@ -114,6 +115,36 @@ function encodePath(name) {
     .join('/');
 }
 
+async function saveHistoryEntry(baseUrl, name, payload, ts) {
+  const res = await cloudFetch(
+    `${baseUrl}/${encodePath(name)}/${ts}.json`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const listRes = await cloudFetch(
+    `${baseUrl}/${encodePath(name)}.json`,
+    { method: 'GET' }
+  );
+  if (listRes.ok) {
+    const val = await listRes.json();
+    const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
+    const excess = keys.slice(3);
+    await Promise.all(
+      excess.map(k =>
+        cloudFetch(
+          `${baseUrl}/${encodePath(name)}/${k}.json`,
+          { method: 'DELETE' }
+        )
+      )
+    );
+  }
+}
+
 async function attemptCloudSave(name, payload, ts) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
@@ -124,32 +155,7 @@ async function attemptCloudSave(name, payload, ts) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   localStorage.setItem('last-save', name);
 
-  await cloudFetch(
-    `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    }
-  );
-
-  const listRes = await cloudFetch(
-    `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`,
-    { method: 'GET' }
-  );
-  if (listRes.ok) {
-    const val = await listRes.json();
-    const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
-    const excess = keys.slice(3);
-    await Promise.all(
-      excess.map(k =>
-        cloudFetch(
-          `${CLOUD_HISTORY_URL}/${encodePath(name)}/${k}.json`,
-          { method: 'DELETE' }
-        )
-      )
-    );
-  }
+  await saveHistoryEntry(CLOUD_HISTORY_URL, name, payload, ts);
 }
 
 async function enqueueCloudSave(name, payload, ts) {
@@ -199,6 +205,21 @@ export async function saveCloud(name, payload) {
       return 'queued';
     }
     console.error('Cloud save failed', e);
+    throw e;
+  }
+}
+
+export async function saveCloudAutosave(name, payload) {
+  const ts = nextHistoryTimestamp();
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    await saveHistoryEntry(CLOUD_AUTOSAVES_URL, name, payload, ts);
+    return ts;
+  } catch (e) {
+    if (e && e.message === 'fetch not supported') {
+      throw e;
+    }
+    console.error('Cloud autosave failed', e);
     throw e;
   }
 }
@@ -280,6 +301,29 @@ export async function listCloudBackups(name) {
   }
 }
 
+export async function listCloudAutosaves(name) {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const res = await cloudFetch(
+      `${CLOUD_AUTOSAVES_URL}/${encodePath(name)}.json`
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    return val
+      ? Object.keys(val)
+          .map(k => Number(k))
+          .sort((a, b) => b - a)
+          .map(ts => ({ ts }))
+      : [];
+  } catch (e) {
+    if (e && e.message === 'fetch not supported') {
+      throw e;
+    }
+    console.error('Cloud autosave list failed', e);
+    return [];
+  }
+}
+
 export async function listCloudBackupNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
@@ -292,6 +336,22 @@ export async function listCloudBackupNames() {
       throw e;
     }
     console.error('Cloud history names failed', e);
+    return [];
+  }
+}
+
+export async function listCloudAutosaveNames() {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const res = await cloudFetch(`${CLOUD_AUTOSAVES_URL}.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
+  } catch (e) {
+    if (e && e.message === 'fetch not supported') {
+      throw e;
+    }
+    console.error('Cloud autosave names failed', e);
     return [];
   }
 }
@@ -309,6 +369,24 @@ export async function loadCloudBackup(name, ts) {
   } catch (e) {
     if (e && e.message !== 'fetch not supported') {
       console.error('Cloud history load failed', e);
+    }
+  }
+  throw new Error('No backup found');
+}
+
+export async function loadCloudAutosave(name, ts) {
+  try {
+    if (typeof fetch !== 'function') throw new Error('fetch not supported');
+    const res = await cloudFetch(
+      `${CLOUD_AUTOSAVES_URL}/${encodePath(name)}/${ts}.json`,
+      { method: 'GET' }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const val = await res.json();
+    if (val !== null) return val;
+  } catch (e) {
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud autosave load failed', e);
     }
   }
   throw new Error('No backup found');

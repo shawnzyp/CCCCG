@@ -36,6 +36,7 @@ describe('credits autosave to cloud', () => {
       saveCharacter,
       renameCharacter: jest.fn(),
       listRecoverableCharacters: jest.fn(),
+      saveAutoBackup: jest.fn(),
     }));
 
     jest.unstable_mockModule('../scripts/modal.js', () => ({ show: jest.fn(), hide: jest.fn() }));

@@ -1115,6 +1115,10 @@ progress::-moz-progress-bar{
 .catalog-item:last-child{border-bottom:none}
 .catalog-item.active{background:var(--accent);color:var(--text-on-accent)}
 .catalog-item.active .pill{border-color:var(--text-on-accent);color:var(--text-on-accent)}
+#recover-list .recover-group{margin-bottom:16px}
+#recover-list .recover-group:last-child{margin-bottom:0}
+#recover-list .recover-group h4{margin:8px 4px;font-size:1rem;font-weight:600;color:var(--muted)}
+#recover-list .recover-empty{padding:8px 4px;color:var(--muted)}
 #char-list .catalog-item{grid-template-columns:1fr auto auto}
 #char-list .catalog-item a{color:inherit;text-decoration:none;display:block}
 .small{font-size:.9rem;color:var(--muted)}

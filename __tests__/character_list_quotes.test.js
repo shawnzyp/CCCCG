@@ -61,6 +61,7 @@ describe('character list displays names with quotes', () => {
       saveCharacter: jest.fn(),
       renameCharacter: jest.fn(),
       listRecoverableCharacters: jest.fn().mockResolvedValue([]),
+      saveAutoBackup: jest.fn(),
     }));
     await import('../scripts/main.js');
   });
