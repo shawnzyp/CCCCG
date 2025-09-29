@@ -12,6 +12,7 @@ import {
   saveCharacter,
   renameCharacter,
   listRecoverableCharacters,
+  saveAutoBackup,
 } from './characters.js';
 import { show, hide } from './modal.js';
 import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
@@ -2651,10 +2652,21 @@ async function renderRecoverList(name){
   let backups = [];
   try { backups = await listBackups(name); }
   catch (e) { console.error('Failed to list backups', e); }
-  if(backups.length === 0){
+  const manual = backups.filter(b => b.type !== 'auto').sort((a, b) => b.ts - a.ts).slice(0, 3);
+  const autos = backups.filter(b => b.type === 'auto').sort((a, b) => b.ts - a.ts).slice(0, 3);
+  const renderGroup = (title, entries, type) => {
+    if(entries.length === 0){
+      return `<div class="recover-group"><h4>${title}</h4><p class="recover-empty">No ${title.toLowerCase()} found.</p></div>`;
+    }
+    const items = entries
+      .map(b => `<div class="catalog-item"><button class="btn-sm" data-recover-ts="${b.ts}" data-recover-type="${type}">${name} - ${new Date(b.ts).toLocaleString()}</button></div>`)
+      .join('');
+    return `<div class="recover-group"><h4>${title}</h4>${items}</div>`;
+  };
+  if(manual.length === 0 && autos.length === 0){
     list.innerHTML = '<p>No backups found.</p>';
   } else {
-    list.innerHTML = backups.map(b=>`<div class="catalog-item"><button class="btn-sm" data-recover-ts="${b.ts}">${name} - ${new Date(b.ts).toLocaleString()}</button></div>`).join('');
+    list.innerHTML = `${renderGroup('Auto Saves', autos, 'auto')}${renderGroup('Manual Saves', manual, 'manual')}`;
   }
   show('modal-recover-list');
 }
@@ -2763,9 +2775,13 @@ if(recoverListEl){
   recoverListEl.addEventListener('click', e=>{
     const btn = e.target.closest('button[data-recover-ts]');
     if(btn){
-      pendingLoad = { name: recoverTarget, ts: Number(btn.dataset.recoverTs) };
+      const type = btn.dataset.recoverType || 'manual';
+      pendingLoad = { name: recoverTarget, ts: Number(btn.dataset.recoverTs), type };
       const text = $('load-confirm-text');
-      if(text) text.textContent = `Are you sure you would like to recover ${pendingLoad.name} from ${new Date(pendingLoad.ts).toLocaleString()}? All current progress will be lost if you haven't saved yet.`;
+      if(text){
+        const descriptor = type === 'auto' ? 'auto save created on' : 'manual save from';
+        text.textContent = `Are you sure you would like to recover ${pendingLoad.name} from the ${descriptor} ${new Date(pendingLoad.ts).toLocaleString()}? All current progress will be lost if you haven't saved yet.`;
+      }
       hide('modal-recover-list');
       show('modal-load');
     }
@@ -2778,7 +2794,7 @@ async function doLoad(){
   if(!pendingLoad) return;
   try{
     const data = pendingLoad.ts
-      ? await loadBackup(pendingLoad.name, pendingLoad.ts)
+      ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
       : await loadCharacter(pendingLoad.name);
     deserialize(data);
     setCurrentCharacter(pendingLoad.name);
@@ -4484,6 +4500,36 @@ function redo(){
     });
   }
 })();
+
+const CLOUD_AUTO_SAVE_INTERVAL_MS = 3 * 60 * 1000;
+let scheduledAutoSaveId = null;
+let scheduledAutoSaveInFlight = false;
+
+async function performScheduledAutoSave(){
+  if(scheduledAutoSaveInFlight) return;
+  const name = currentCharacter();
+  if(!name) return;
+  try {
+    scheduledAutoSaveInFlight = true;
+    const snapshot = serialize();
+    await saveAutoBackup(snapshot, name);
+  } catch (err) {
+    console.error('Scheduled auto save failed', err);
+  } finally {
+    scheduledAutoSaveInFlight = false;
+  }
+}
+
+function ensureAutoSaveTimer(){
+  if(typeof window === 'undefined') return;
+  if(scheduledAutoSaveId !== null) return;
+  scheduledAutoSaveId = window.setInterval(performScheduledAutoSave, CLOUD_AUTO_SAVE_INTERVAL_MS);
+}
+
+ensureAutoSaveTimer();
+if(typeof window !== 'undefined'){
+  window.addEventListener('focus', performScheduledAutoSave, { passive: true });
+}
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
   const oldChar = currentCharacter();

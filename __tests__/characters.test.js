@@ -58,13 +58,22 @@ describe('character storage', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
         json: async () => ({ hp: 20 }),
       });
 
     const { listBackups, loadBackup } = await import('../scripts/characters.js');
 
     const list = await listBackups('Hero');
-    expect(list).toEqual([{ ts: ts3 }, { ts: ts2 }, { ts: ts1 }]);
+    expect(list).toEqual([
+      { ts: ts3, type: 'manual' },
+      { ts: ts2, type: 'manual' },
+      { ts: ts1, type: 'manual' },
+    ]);
 
     const data = await loadBackup('Hero', ts2);
     expect(data).toEqual({ hp: 20 });
@@ -81,12 +90,17 @@ describe('character storage', () => {
         ok: true,
         status: 200,
         json: async () => ({ Ghost: { 1: {} } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ Specter: { 2: {} } }),
       });
 
     const { listRecoverableCharacters } = await import('../scripts/characters.js');
 
     const names = await listRecoverableCharacters();
-    expect(names).toEqual(['Ghost', 'Hero']);
+    expect(names).toEqual(['Ghost', 'Hero', 'Specter']);
   });
 
   for (const legacyName of ['Shawn', 'Player :Shawn', 'DM']) {
@@ -132,6 +146,27 @@ describe('character storage', () => {
     expect(window.dmRequireLogin).not.toHaveBeenCalled();
     expect(localStorage.getItem('save:Hero')).toBe(JSON.stringify({ hp: 3 }));
     delete window.dmRequireLogin;
+  });
+
+  test('auto backup saves without prompting for pin', async () => {
+    fetch
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+
+    const { saveAutoBackup, setCurrentCharacter } = await import('../scripts/characters.js');
+
+    setCurrentCharacter('Hero');
+    const listener = jest.fn();
+    document.addEventListener('character-autosaved', listener);
+
+    const ts = await saveAutoBackup({ hp: 12 });
+
+    expect(typeof ts).toBe('number');
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0].detail.name).toBe('Hero');
+
+    document.removeEventListener('character-autosaved', listener);
   });
 
   test('loading a pinned character can bypass pin prompt', async () => {

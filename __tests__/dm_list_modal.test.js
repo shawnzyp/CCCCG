@@ -39,6 +39,7 @@ describe('DM load from character list', () => {
       deleteCharacter: jest.fn(),
       saveCharacter: jest.fn(),
       renameCharacter: jest.fn(),
+      saveAutoBackup: jest.fn(),
     }));
 
     jest.unstable_mockModule('../scripts/modal.js', () => ({ show, hide }));

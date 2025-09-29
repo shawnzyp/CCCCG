@@ -284,9 +284,11 @@ function initDMLogin(){
       if (loggedIn) {
         dmBtn.classList.add('dm-login-btn--inactive');
         dmBtn.setAttribute('aria-disabled', 'true');
+        dmBtn.style.opacity = '1';
       } else {
         dmBtn.classList.remove('dm-login-btn--inactive');
         dmBtn.removeAttribute('aria-disabled');
+        dmBtn.style.opacity = '';
       }
     }
     if (dmToggleBtn) {
