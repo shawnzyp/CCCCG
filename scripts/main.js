@@ -229,7 +229,8 @@ const LAUNCH_MAX_WAIT = 12000;
     }
     cleanupUserGestures();
     const durationMs = Number.isFinite(video.duration) && video.duration > 0 ? (video.duration * 1000) + 500 : LAUNCH_MAX_WAIT;
-    scheduleFallback(Math.min(durationMs, LAUNCH_MAX_WAIT));
+    const fallbackDelay = Math.max(durationMs, LAUNCH_MAX_WAIT);
+    scheduleFallback(fallbackDelay);
   };
 
   const handlePause = () => {
