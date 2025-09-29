@@ -23,25 +23,72 @@ CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
 
-const LAUNCH_MIN_DURATION = 2600;
+const LAUNCH_MIN_VISIBLE = 1800;
 const LAUNCH_MAX_WAIT = 12000;
 (function setupLaunchAnimation(){
   const body = document.body;
   if(!body || !body.classList.contains('launching')) return;
-  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
-  let revealed = false;
-  let cleanupLaunchVideoMessaging = null;
-  const cleanup = () => {
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let revealCalled = false;
+  let playbackStartedAt = null;
+  let fallbackTimer = null;
+  let awaitingGesture = false;
+  let cleanupMessaging = null;
+  const userGestureListeners = [];
+
+  const clearTimer = timer => {
+    if(timer){
+      window.clearTimeout(timer);
+    }
+    return null;
+  };
+
+  const cleanupUserGestures = () => {
+    while(userGestureListeners.length){
+      const { target, event, handler, capture } = userGestureListeners.pop();
+      try {
+        target.removeEventListener(event, handler, capture);
+      } catch (err) {
+        // ignore removal failures
+      }
+    }
+    awaitingGesture = false;
+  };
+
+  const cleanupLaunchShell = () => {
     if(launchEl && launchEl.parentNode){
       launchEl.parentNode.removeChild(launchEl);
     }
   };
-  const reveal = () => {
-    if(revealed) return;
-    revealed = true;
+
+  const detachMessaging = () => {
+    if(typeof cleanupMessaging === 'function'){
+      try {
+        cleanupMessaging();
+      } catch (err) {
+        // ignore cleanup failures
+      }
+    }
+    cleanupMessaging = null;
+  };
+
+  const finalizeReveal = () => {
     body.classList.remove('launching');
+    if(launchEl){
+      launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
+      window.setTimeout(cleanupLaunchShell, 1000);
+    }
+  };
+
+  const revealApp = () => {
+    if(revealCalled) return;
+    revealCalled = true;
+    detachMessaging();
+    cleanupUserGestures();
     if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
       try {
         delete window.__resetLaunchVideo;
@@ -49,23 +96,22 @@ const LAUNCH_MAX_WAIT = 12000;
         window.__resetLaunchVideo = undefined;
       }
     }
-    if(typeof cleanupLaunchVideoMessaging === 'function'){
-      try {
-        cleanupLaunchVideoMessaging();
-      } catch (err) {
-        // ignore cleanup failures
+    if(playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
+      const elapsed = performance.now() - playbackStartedAt;
+      const remaining = Math.max(0, LAUNCH_MIN_VISIBLE - elapsed);
+      if(remaining > 0){
+        window.setTimeout(finalizeReveal, remaining);
+        return;
       }
-      cleanupLaunchVideoMessaging = null;
     }
-    if(launchEl){
-      launchEl.addEventListener('transitionend', cleanup, { once: true });
-      window.setTimeout(cleanup, 1000);
-    }
+    finalizeReveal();
   };
-  if(prefersReducedMotion){
-    reveal();
+
+  if(!video || prefersReducedMotion){
+    revealApp();
     return;
   }
+
   const ensureLaunchVideoAttributes = vid => {
     try {
       vid.setAttribute('playsinline', '');
@@ -81,263 +127,174 @@ const LAUNCH_MAX_WAIT = 12000;
     } catch (err) {
       // ignore inability to force muted playback
     }
-  };
-  const resetLaunchVideoPlayback = vid => {
-    if(!vid) return;
     try {
-      vid.pause();
+      vid.autoplay = true;
+    } catch (err) {
+      // ignore inability to set autoplay
+    }
+  };
+
+  const notifyServiceWorkerVideoPlayed = () => {
+    if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
+      return;
+    }
+    const videoUrl = video.currentSrc || video.getAttribute('src') || null;
+    const payload = { type: 'launch-video-played', videoUrl };
+    const postToWorker = worker => {
+      if(!worker) return;
+      try {
+        worker.postMessage(payload);
+      } catch (err) {
+        // ignore messaging failures
+      }
+    };
+    postToWorker(navigator.serviceWorker.controller);
+    navigator.serviceWorker.ready
+      .then(reg => {
+        const worker = navigator.serviceWorker.controller || reg.active;
+        if(worker){
+          postToWorker(worker);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const finalizeLaunch = () => {
+    if(revealCalled) return;
+    fallbackTimer = clearTimer(fallbackTimer);
+    notifyServiceWorkerVideoPlayed();
+    revealApp();
+  };
+
+  const scheduleFallback = delay => {
+    fallbackTimer = clearTimer(fallbackTimer);
+    fallbackTimer = window.setTimeout(finalizeLaunch, delay);
+  };
+
+  function attemptPlayback(){
+    ensureLaunchVideoAttributes(video);
+    try {
+      const playAttempt = video.play();
+      if(playAttempt && typeof playAttempt.then === 'function'){
+        playAttempt.catch(() => {
+          requireUserGesture();
+        });
+      }
+    } catch (err) {
+      requireUserGesture();
+    }
+  }
+
+  function requireUserGesture(){
+    if(awaitingGesture) return;
+    awaitingGesture = true;
+    const resumePlayback = () => {
+      cleanupUserGestures();
+      attemptPlayback();
+    };
+    const addGesture = event => {
+      const handler = () => resumePlayback();
+      const capture = true;
+      window.addEventListener(event, handler, { once: true, passive: true, capture });
+      userGestureListeners.push({ target: window, event, handler, capture });
+    };
+    ['pointerdown','touchstart','keydown'].forEach(addGesture);
+  }
+
+  const resetPlayback = () => {
+    try {
+      video.pause();
     } catch (err) {
       // ignore inability to pause
     }
-    let shouldReload = false;
     try {
-      if(vid.currentTime > 0){
-        vid.currentTime = 0;
+      if(video.readyState > 0){
+        video.currentTime = 0;
       }
     } catch (err) {
-      // ignore inability to reset playback position
-      shouldReload = true;
+      // ignore inability to seek
     }
-    try {
-      const readyState = Number.isFinite(vid.readyState) ? vid.readyState : 0;
-      const hasSrc = typeof vid.currentSrc === 'string' && vid.currentSrc !== '';
-      if(readyState < 1 || !hasSrc){
-        shouldReload = true;
-      }
-    } catch (err) {
-      shouldReload = true;
-    }
-    if(shouldReload){
+    if(video.readyState === 0){
       try {
-        vid.load();
+        video.load();
       } catch (err) {
         // ignore load failures
       }
     }
   };
-  let requestLaunchVideoRestart = () => {};
-  const waitForVideoPlayback = vid => {
-    let restartPlayback = () => {};
-    const playbackPromise = new Promise(resolve => {
-      let settled = false;
-      let fallbackTimer = null;
-      const userGestureListeners = [];
-      const addUserGestureListener = (target, event, handler, options) => {
-        target.addEventListener(event, handler, options);
-        userGestureListeners.push(() => target.removeEventListener(event, handler, options));
-      };
-      const cleanupUserGestureListeners = () => {
-        while(userGestureListeners.length){
-          const remove = userGestureListeners.pop();
-          try {
-            remove();
-          } catch (err) {
-            // ignore removal failures
-          }
-        }
-      };
-      let playAttemptTimer = null;
-      const clearPlayAttemptTimer = () => {
-        if(playAttemptTimer){
-          window.clearTimeout(playAttemptTimer);
-          playAttemptTimer = null;
-        }
-      };
-      let hasStartedPlayback = false;
-      const markPlaybackStarted = () => {
-        hasStartedPlayback = true;
-        clearPlayAttemptTimer();
-      };
-      const attemptPlayback = (delay = 280) => {
-        if(settled || hasStartedPlayback){
-          clearPlayAttemptTimer();
-          return;
-        }
-        try {
-          ensureLaunchVideoAttributes(vid);
-          const playPromise = vid.play();
-          if(playPromise && typeof playPromise.then === 'function'){
-            playPromise.catch(()=>{});
-          }
-        } catch (err) {
-          // ignore autoplay rejections; retry via timer or fallback
-        }
-        clearPlayAttemptTimer();
-        const nextDelay = Math.min(delay * 1.5, 2000);
-        playAttemptTimer = window.setTimeout(() => attemptPlayback(nextDelay), nextDelay);
-      };
-      restartPlayback = () => {
-        if(settled) return;
-        hasStartedPlayback = false;
-        clearPlayAttemptTimer();
-        attemptPlayback(0);
-      };
-      const handleVisibilityChange = () => {
-        if(document.hidden) return;
-        attemptPlayback();
-      };
-      const cleanupVisibility = () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange, true);
-      };
-      const finish = () => {
-        if(settled) return;
-        settled = true;
-        if(fallbackTimer) window.clearTimeout(fallbackTimer);
-        resolve();
-        cleanupVisibility();
-        cleanupUserGestureListeners();
-        clearPlayAttemptTimer();
-        restartPlayback = () => {};
-      };
-      const scheduleFallback = delay => {
-        if(fallbackTimer) window.clearTimeout(fallbackTimer);
-        fallbackTimer = window.setTimeout(finish, delay);
-      };
-      vid.addEventListener('ended', () => {
-        if(settled) return;
-        if(fallbackTimer) window.clearTimeout(fallbackTimer);
-        window.setTimeout(finish, 120);
-      }, { once: true });
-      ['error','abort'].forEach(evt => vid.addEventListener(evt, finish, { once: true }));
-      let allowEmptiedFinish = false;
-      const markEmptiedEligible = () => {
-        allowEmptiedFinish = true;
-      };
-      const handleEmptied = () => {
-        if(!allowEmptiedFinish){
-          return;
-        }
-        vid.removeEventListener('emptied', handleEmptied);
-        finish();
-      };
-      vid.addEventListener('loadeddata', markEmptiedEligible, { once: true });
-      vid.addEventListener('emptied', handleEmptied);
-      const handleUserGesture = () => {
-        attemptPlayback();
-      };
-      addUserGestureListener(window, 'pointerdown', handleUserGesture, true);
-      addUserGestureListener(window, 'touchend', handleUserGesture, true);
-      addUserGestureListener(window, 'keydown', handleUserGesture, true);
-      vid.addEventListener('play', () => {
-        cleanupUserGestureListeners();
-      }, { once: true });
-      const playbackStartedEvents = ['playing', 'timeupdate', 'seeked', 'loadeddata'];
-      playbackStartedEvents.forEach(evt => vid.addEventListener(evt, markPlaybackStarted, { once: true }));
-      vid.addEventListener('pause', () => {
-        if(settled || vid.ended || hasStartedPlayback) return;
-        attemptPlayback();
-      });
-      const beginPlayback = () => {
-        const durationMs = (Number.isFinite(vid.duration) && vid.duration > 0) ? vid.duration * 1000 : 0;
-        const fallbackDelay = Math.min(Math.max(durationMs + 300, LAUNCH_MIN_DURATION + 800), LAUNCH_MAX_WAIT);
-        scheduleFallback(fallbackDelay);
-        resetLaunchVideoPlayback(vid);
-        attemptPlayback();
-        document.addEventListener('visibilitychange', handleVisibilityChange, true);
-      };
-      if(vid.readyState >= 1){
-        beginPlayback();
-      } else {
-        vid.addEventListener('loadedmetadata', beginPlayback, { once: true });
-        scheduleFallback(LAUNCH_MAX_WAIT);
-        try {
-          vid.load();
-        } catch (err) {
-          // ignore load failures while waiting for metadata
-        }
-      }
-    });
-    return { promise: playbackPromise, restartPlayback: () => restartPlayback() };
-  };
-  if(video){
-    ensureLaunchVideoAttributes(video);
-    let swMessageHandler = null;
-    const attachSwMessageHandler = () => {
-      if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
-        return;
-      }
-      if(swMessageHandler){
-        return;
-      }
-      swMessageHandler = event => {
-        const payload = event?.data && typeof event.data === 'object' ? event.data : { type: event?.data };
-        if(!payload || typeof payload.type !== 'string'){
-          return;
-        }
-        if(payload.type === 'reset-launch-video'){
-          resetLaunchVideoPlayback(video);
-          requestLaunchVideoRestart();
-        }
-      };
-      navigator.serviceWorker.addEventListener('message', swMessageHandler);
-    };
-    attachSwMessageHandler();
-      cleanupLaunchVideoMessaging = () => {
-        if(typeof navigator !== 'undefined' && 'serviceWorker' in navigator && swMessageHandler){
-          try {
-            navigator.serviceWorker.removeEventListener('message', swMessageHandler);
-          } catch (err) {
-            // ignore removal failures
-          }
-        }
-        swMessageHandler = null;
-        requestLaunchVideoRestart = () => {};
-        if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
-          try {
-            delete window.__resetLaunchVideo;
-          } catch (err) {
-            window.__resetLaunchVideo = undefined;
-        }
-      }
-    };
-    const notifyServiceWorkerVideoPlayed = () => {
-      if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
-        return;
-      }
-      const videoUrl = video.currentSrc || video.getAttribute('src') || null;
-      const payload = { type: 'launch-video-played', videoUrl };
-      const postToWorker = worker => {
-        if(!worker) return;
-        try {
-          worker.postMessage(payload);
-        } catch (err) {
-          // ignore messaging failures
-        }
-      };
-      postToWorker(navigator.serviceWorker.controller);
-      navigator.serviceWorker.ready
-        .then(reg => {
-          const worker = navigator.serviceWorker.controller || reg.active;
-          if(worker){
-            postToWorker(worker);
-          }
-        })
-        .catch(() => {});
-    };
-    video.addEventListener('ended', () => {
-      resetLaunchVideoPlayback(video);
-      notifyServiceWorkerVideoPlayed();
-    });
-    video.addEventListener('error', notifyServiceWorkerVideoPlayed);
-      const { promise: playbackPromise, restartPlayback } = waitForVideoPlayback(video);
-      requestLaunchVideoRestart = restartPlayback;
-      window.__resetLaunchVideo = () => {
-        resetLaunchVideoPlayback(video);
-        restartPlayback();
-      };
-    playbackPromise.then(() => {
-      reveal();
-    });
-  } else {
-    const scheduleReveal = () => window.setTimeout(reveal, LAUNCH_MIN_DURATION);
-    if(document.readyState === 'complete'){
-      scheduleReveal();
-    } else {
-      window.addEventListener('load', scheduleReveal, { once: true });
+
+  const handlePlaying = () => {
+    if(!playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
+      playbackStartedAt = performance.now();
     }
-    window.setTimeout(reveal, LAUNCH_MAX_WAIT);
+    cleanupUserGestures();
+    const durationMs = Number.isFinite(video.duration) && video.duration > 0 ? (video.duration * 1000) + 500 : LAUNCH_MAX_WAIT;
+    scheduleFallback(Math.min(durationMs, LAUNCH_MAX_WAIT));
+  };
+
+  const handlePause = () => {
+    if(revealCalled || video.ended) return;
+    attemptPlayback();
+  };
+
+  const setupServiceWorkerMessaging = () => {
+    if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
+      return () => {};
+    }
+    const handler = event => {
+      const payload = event?.data && typeof event.data === 'object' ? event.data : { type: event?.data };
+      if(!payload || typeof payload.type !== 'string'){
+        return;
+      }
+      if(payload.type === 'reset-launch-video'){
+        resetPlayback();
+        attemptPlayback();
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => {
+      try {
+        navigator.serviceWorker.removeEventListener('message', handler);
+      } catch (err) {
+        // ignore removal failures
+      }
+    };
+  };
+
+  cleanupMessaging = setupServiceWorkerMessaging();
+
+  window.__resetLaunchVideo = () => {
+    if(revealCalled) return;
+    resetPlayback();
+    attemptPlayback();
+  };
+
+  video.addEventListener('playing', handlePlaying);
+  video.addEventListener('timeupdate', handlePlaying, { once: true });
+  video.addEventListener('pause', handlePause);
+  video.addEventListener('ended', finalizeLaunch, { once: true });
+  video.addEventListener('error', finalizeLaunch, { once: true });
+  ['stalled','suspend','abort'].forEach(evt => video.addEventListener(evt, () => scheduleFallback(LAUNCH_MAX_WAIT)));
+
+  const beginPlayback = () => {
+    resetPlayback();
+    attemptPlayback();
+    scheduleFallback(LAUNCH_MAX_WAIT);
+  };
+
+  if(video.readyState >= 1){
+    beginPlayback();
+  } else {
+    video.addEventListener('loadedmetadata', beginPlayback, { once: true });
+    try {
+      video.load();
+    } catch (err) {
+      // ignore load failures while waiting for metadata
+    }
+    scheduleFallback(LAUNCH_MAX_WAIT);
   }
 })();
+
 // Ensure numeric inputs accept only digits and trigger numeric keypad
 document.addEventListener('input', e => {
   if(e.target.matches('input[inputmode="numeric"]')){
