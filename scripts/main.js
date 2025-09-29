@@ -198,7 +198,20 @@ const LAUNCH_MAX_WAIT = 12000;
         if(fallbackTimer) window.clearTimeout(fallbackTimer);
         window.setTimeout(finish, 120);
       }, { once: true });
-      ['error','abort','emptied'].forEach(evt => vid.addEventListener(evt, finish, { once: true }));
+      ['error','abort'].forEach(evt => vid.addEventListener(evt, finish, { once: true }));
+      let allowEmptiedFinish = false;
+      const markEmptiedEligible = () => {
+        allowEmptiedFinish = true;
+      };
+      const handleEmptied = () => {
+        if(!allowEmptiedFinish){
+          return;
+        }
+        vid.removeEventListener('emptied', handleEmptied);
+        finish();
+      };
+      vid.addEventListener('loadeddata', markEmptiedEligible, { once: true });
+      vid.addEventListener('emptied', handleEmptied);
       const handleUserGesture = () => {
         attemptPlayback();
       };
