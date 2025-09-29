@@ -10,6 +10,7 @@ describe('dm login', () => {
   test('DM login unlocks tools', async () => {
     document.body.innerHTML = `
         <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
         <div id="dm-tools-menu" hidden></div>
         <button id="dm-tools-tsomf"></button>
         <button id="dm-tools-logout"></button>
@@ -51,13 +52,15 @@ describe('dm login', () => {
     expect(modal.getAttribute('aria-hidden')).toBe('true');
     const dmBtn = document.getElementById('dm-login');
     const menu = document.getElementById('dm-tools-menu');
-    expect(dmBtn.style.opacity).toBe('1');
-    expect(dmBtn.style.left).toBe('18px');
-    expect(dmBtn.style.bottom).toBe('18px');
-    expect(dmBtn.style.transform).toBe('none');
+    const toggle = document.getElementById('dm-tools-toggle');
+    expect(dmBtn.disabled).toBe(true);
+    expect(dmBtn.getAttribute('aria-disabled')).toBe('true');
+    expect(toggle.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(menu.hidden).toBe(true);
-    dmBtn.click();
+    toggle.click();
     expect(menu.hidden).toBe(false);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     delete window.toast;
     delete window.dismissToast;
   });
@@ -65,6 +68,7 @@ describe('dm login', () => {
   test('login modal closes even if tools init fails', async () => {
     document.body.innerHTML = `
         <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
         <div id="dm-tools-menu" hidden></div>
         <button id="dm-tools-tsomf"></button>
         <button id="dm-tools-logout"></button>
@@ -103,8 +107,11 @@ describe('dm login', () => {
     expect(modal.classList.contains('hidden')).toBe(true);
     const dmBtn = document.getElementById('dm-login');
     const menu = document.getElementById('dm-tools-menu');
+    const toggle = document.getElementById('dm-tools-toggle');
+    expect(dmBtn.disabled).toBe(true);
+    expect(toggle.hidden).toBe(false);
     expect(menu.hidden).toBe(true);
-    dmBtn.click();
+    toggle.click();
     expect(menu.hidden).toBe(false);
     delete window.toast;
     delete window.dismissToast;
