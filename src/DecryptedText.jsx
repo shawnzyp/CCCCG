@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useLayoutEffect, useState, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useRef,
+  useMemo
+} from 'react';
 import { motion } from 'motion/react';
 
 const styles = {
@@ -59,6 +66,30 @@ export default function DecryptedText({
   const containerRef = useRef(null);
   const measureRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const measurementCacheRef = useRef(new Map());
+  const measurementStringCacheRef = useRef(new Map());
+
+  const textCharacters = useMemo(() => text.split(''), [text]);
+  const filteredCandidateChars = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          characters
+            .split('')
+            .filter(char => char.trim() !== '')
+        )
+      ),
+    [characters]
+  );
+  const randomCharPool = useMemo(() => characters.split(''), [characters]);
+  const nonSpaceIndices = useMemo(
+    () =>
+      textCharacters.reduce((acc, char, index) => {
+        if (char !== ' ') acc.push(index);
+        return acc;
+      }, []),
+    [textCharacters]
+  );
 
   const updateDimensions = useCallback(() => {
     const measureNode = measureRef.current;
@@ -82,40 +113,21 @@ export default function DecryptedText({
   }, []);
 
   const updateMeasurementText = useCallback(() => {
-    if (typeof document === 'undefined' || useOriginalCharsOnly) {
-      setMeasurementText(text);
+    if (typeof document === 'undefined' || typeof window === 'undefined' || useOriginalCharsOnly) {
+      setMeasurementText(prev => (prev === text ? prev : text));
       return;
     }
 
     const containerNode = containerRef.current;
     if (!containerNode) {
-      setMeasurementText(text);
+      setMeasurementText(prev => (prev === text ? prev : text));
       return;
     }
 
-    const candidateChars = Array.from(
-      new Set(
-        characters
-          .split('')
-          .filter(char => char.trim() !== '')
-      )
-    );
-
-    if (!candidateChars.length) {
-      setMeasurementText(text);
+    if (!filteredCandidateChars.length) {
+      setMeasurementText(prev => (prev === text ? prev : text));
       return;
     }
-
-    const measurement = document.createElement('span');
-    measurement.style.position = 'absolute';
-    measurement.style.visibility = 'hidden';
-    measurement.style.pointerEvents = 'none';
-    measurement.style.whiteSpace = 'pre';
-    measurement.style.display = 'inline-flex';
-    measurement.style.alignItems = 'inherit';
-    measurement.style.justifyContent = 'inherit';
-    measurement.style.gap = 'inherit';
-    measurement.style.letterSpacing = 'inherit';
 
     const computedStyle = window.getComputedStyle(containerNode);
     const styleProperties = [
@@ -131,40 +143,72 @@ export default function DecryptedText({
       'lineHeight'
     ];
 
-    styleProperties.forEach(prop => {
-      if (computedStyle[prop]) {
-        measurement.style[prop] = computedStyle[prop];
-      }
-    });
+    const styleKey = styleProperties
+      .map(prop => `${prop}:${computedStyle[prop] || ''}`)
+      .join(';');
+    const cacheKey = `${styleKey}|${filteredCandidateChars.join('')}`;
 
-    document.body.appendChild(measurement);
+    let fallbackChar = measurementCacheRef.current.get(cacheKey);
 
-    let widestChar = candidateChars[0];
-    let maxWidth = 0;
+    if (!fallbackChar) {
+      const measurement = document.createElement('span');
+      measurement.style.position = 'absolute';
+      measurement.style.visibility = 'hidden';
+      measurement.style.pointerEvents = 'none';
+      measurement.style.whiteSpace = 'pre';
+      measurement.style.display = 'inline-flex';
+      measurement.style.alignItems = 'inherit';
+      measurement.style.justifyContent = 'inherit';
+      measurement.style.gap = 'inherit';
+      measurement.style.letterSpacing = 'inherit';
 
-    candidateChars.forEach(char => {
-      measurement.textContent = char;
-      const width = measurement.getBoundingClientRect().width;
-      if (width > maxWidth) {
-        maxWidth = width;
-        widestChar = char;
-      }
-    });
+      styleProperties.forEach(prop => {
+        if (computedStyle[prop]) {
+          measurement.style[prop] = computedStyle[prop];
+        }
+      });
 
-    document.body.removeChild(measurement);
+      document.body.appendChild(measurement);
 
-    const fallbackChar = widestChar || 'W';
-    const computedMeasurement = text
-      .split('')
-      .map(char => (char === ' ' ? ' ' : fallbackChar))
-      .join('');
+      let widestChar = filteredCandidateChars[0];
+      let maxWidth = 0;
 
-    setMeasurementText(computedMeasurement);
-  }, [characters, text, useOriginalCharsOnly]);
+      filteredCandidateChars.forEach(char => {
+        measurement.textContent = char;
+        const width = measurement.getBoundingClientRect().width;
+        if (width > maxWidth) {
+          maxWidth = width;
+          widestChar = char;
+        }
+      });
+
+      document.body.removeChild(measurement);
+
+      fallbackChar = widestChar || 'W';
+      measurementCacheRef.current.set(cacheKey, fallbackChar);
+    }
+
+    const measurementKey = `${fallbackChar}|${text}`;
+    let computedMeasurement = measurementStringCacheRef.current.get(measurementKey);
+
+    if (!computedMeasurement) {
+      computedMeasurement = textCharacters
+        .map(char => (char === ' ' ? ' ' : fallbackChar))
+        .join('');
+      measurementStringCacheRef.current.set(measurementKey, computedMeasurement);
+    }
+
+    setMeasurementText(prev => (prev === computedMeasurement ? prev : computedMeasurement));
+  }, [
+    filteredCandidateChars,
+    text,
+    textCharacters,
+    useOriginalCharsOnly
+  ]);
 
   useEffect(() => {
     setDisplayText(text);
-    setMeasurementText(text);
+    setMeasurementText(prev => (prev === text ? prev : text));
   }, [text]);
 
   useLayoutEffect(() => {
@@ -205,7 +249,7 @@ export default function DecryptedText({
     let currentIteration = 0;
 
     const getNextIndex = revealedSet => {
-      const textLength = text.length;
+      const textLength = textCharacters.length;
       switch (revealDirection) {
         case 'start':
           return revealedSet.size;
@@ -230,42 +274,43 @@ export default function DecryptedText({
       }
     };
 
-    const availableChars = useOriginalCharsOnly
-      ? Array.from(new Set(text.split(''))).filter(char => char !== ' ')
-      : characters.split('');
-
-    const shuffleText = (originalText, currentRevealed) => {
+    const shuffleText = currentRevealed => {
       if (useOriginalCharsOnly) {
-        const positions = originalText.split('').map((char, i) => ({
-          char,
-          isSpace: char === ' ',
-          index: i,
-          isRevealed: currentRevealed.has(i)
-        }));
+        if (!nonSpaceIndices.length) {
+          return text;
+        }
 
-        const nonSpaceChars = positions.filter(p => !p.isSpace && !p.isRevealed).map(p => p.char);
+        const availableChars = [];
+        nonSpaceIndices.forEach(index => {
+          if (!currentRevealed.has(index)) {
+            availableChars.push(textCharacters[index]);
+          }
+        });
 
-        for (let i = nonSpaceChars.length - 1; i > 0; i--) {
+        for (let i = availableChars.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [nonSpaceChars[i], nonSpaceChars[j]] = [nonSpaceChars[j], nonSpaceChars[i]];
+          [availableChars[i], availableChars[j]] = [availableChars[j], availableChars[i]];
         }
 
         let charIndex = 0;
-        return positions
-          .map(p => {
-            if (p.isSpace) return ' ';
-            if (p.isRevealed) return originalText[p.index];
-            return nonSpaceChars[charIndex++];
+        return textCharacters
+          .map((char, idx) => {
+            if (char === ' ') return ' ';
+            if (currentRevealed.has(idx)) return char;
+            return availableChars[charIndex++] ?? char;
           })
           .join('');
       }
 
-      return originalText
-        .split('')
+      if (!randomCharPool.length) {
+        return text;
+      }
+
+      return textCharacters
         .map((char, i) => {
           if (char === ' ') return ' ';
-          if (currentRevealed.has(i)) return originalText[i];
-          return availableChars[Math.floor(Math.random() * availableChars.length)];
+          if (currentRevealed.has(i)) return char;
+          return randomCharPool[Math.floor(Math.random() * randomCharPool.length)];
         })
         .join('');
     };
@@ -275,11 +320,11 @@ export default function DecryptedText({
       interval = setInterval(() => {
         setRevealedIndices(prevRevealed => {
           if (sequential) {
-            if (prevRevealed.size < text.length) {
+            if (prevRevealed.size < textCharacters.length) {
               const nextIndex = getNextIndex(prevRevealed);
               const newRevealed = new Set(prevRevealed);
               newRevealed.add(nextIndex);
-              setDisplayText(shuffleText(text, newRevealed));
+              setDisplayText(shuffleText(newRevealed));
               return newRevealed;
             }
 
@@ -288,7 +333,7 @@ export default function DecryptedText({
             return prevRevealed;
           }
 
-          setDisplayText(shuffleText(text, prevRevealed));
+          setDisplayText(shuffleText(prevRevealed));
           currentIteration++;
           if (currentIteration >= maxIterations) {
             clearInterval(interval);
@@ -307,7 +352,18 @@ export default function DecryptedText({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isHovering, text, speed, maxIterations, sequential, revealDirection, characters, useOriginalCharsOnly]);
+  }, [
+    isHovering,
+    maxIterations,
+    nonSpaceIndices,
+    randomCharPool,
+    revealDirection,
+    sequential,
+    speed,
+    text,
+    textCharacters,
+    useOriginalCharsOnly
+  ]);
 
   useEffect(() => {
     if (animateOn !== 'view' && animateOn !== 'both') return;
