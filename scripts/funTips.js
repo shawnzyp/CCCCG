@@ -1,6 +1,6 @@
 // Lighthearted reminders to amuse players and hint at game mechanics.
 // Tips are served in a random order without repeats until all have been shown.
-const tips = [
+const rawTips = [
   `1. Do not attempt to catch falling civilians with your face.`,
   `2. Collateral damage is not a trophy. Stop keeping score.`,
   `3. If you can't lift it safely, don't. We'll bill you for the street repairs.`,
@@ -102,6 +102,8 @@ const tips = [
   `99. Collateral damage makes headlines. So do you. Choose wisely.`,
   `100. O.M.N.I. is always watching. Especially you.`,
 ];
+
+const tips = rawTips.map(tip => tip.replace(/^\s*\d+\.\s*/, ''));
 
 let queue = [];
 

@@ -656,6 +656,8 @@ function updateSwipeIndicatorContent(tabName){
 function hideSwipeIndicator(){
   if(!swipeIndicator) return;
   swipeIndicator.classList.remove('show');
+  swipeIndicator.style.removeProperty('--swipe-translate');
+  delete swipeIndicator.dataset.side;
 }
 
 function showSwipeIndicator(direction, tabName, progress){
@@ -665,9 +667,11 @@ function showSwipeIndicator(direction, tabName, progress){
     hideSwipeIndicator();
     return;
   }
-  indicator.dataset.direction = direction;
+  const side = direction === 'left' ? 'right' : 'left';
+  indicator.dataset.side = side;
   const offset = Math.max(28, Math.min(progress || 0, 140));
-  indicator.style.setProperty('--swipe-offset', `${offset}px`);
+  const translate = side === 'left' ? offset : -offset;
+  indicator.style.setProperty('--swipe-translate', `${translate}px`);
   requestAnimationFrame(()=> indicator.classList.add('show'));
 }
 
