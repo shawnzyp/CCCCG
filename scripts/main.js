@@ -115,115 +115,127 @@ const LAUNCH_MAX_WAIT = 12000;
       }
     }
   };
-  const waitForVideoPlayback = vid => new Promise(resolve => {
-    let settled = false;
-    let fallbackTimer = null;
-    const userGestureListeners = [];
-    const addUserGestureListener = (target, event, handler, options) => {
-      target.addEventListener(event, handler, options);
-      userGestureListeners.push(() => target.removeEventListener(event, handler, options));
-    };
-    const cleanupUserGestureListeners = () => {
-      while(userGestureListeners.length){
-        const remove = userGestureListeners.pop();
-        try {
-          remove();
-        } catch (err) {
-          // ignore removal failures
+  let requestLaunchVideoRestart = () => {};
+  const waitForVideoPlayback = vid => {
+    let restartPlayback = () => {};
+    const playbackPromise = new Promise(resolve => {
+      let settled = false;
+      let fallbackTimer = null;
+      const userGestureListeners = [];
+      const addUserGestureListener = (target, event, handler, options) => {
+        target.addEventListener(event, handler, options);
+        userGestureListeners.push(() => target.removeEventListener(event, handler, options));
+      };
+      const cleanupUserGestureListeners = () => {
+        while(userGestureListeners.length){
+          const remove = userGestureListeners.pop();
+          try {
+            remove();
+          } catch (err) {
+            // ignore removal failures
+          }
         }
-      }
-    };
-    let playAttemptTimer = null;
-    const clearPlayAttemptTimer = () => {
-      if(playAttemptTimer){
-        window.clearTimeout(playAttemptTimer);
-        playAttemptTimer = null;
-      }
-    };
-    let hasStartedPlayback = false;
-    const markPlaybackStarted = () => {
-      hasStartedPlayback = true;
-      clearPlayAttemptTimer();
-    };
-    const attemptPlayback = (delay = 280) => {
-      if(settled || hasStartedPlayback){
+      };
+      let playAttemptTimer = null;
+      const clearPlayAttemptTimer = () => {
+        if(playAttemptTimer){
+          window.clearTimeout(playAttemptTimer);
+          playAttemptTimer = null;
+        }
+      };
+      let hasStartedPlayback = false;
+      const markPlaybackStarted = () => {
+        hasStartedPlayback = true;
         clearPlayAttemptTimer();
-        return;
-      }
-      try {
-        ensureLaunchVideoAttributes(vid);
-        const playPromise = vid.play();
-        if(playPromise && typeof playPromise.then === 'function'){
-          playPromise.catch(()=>{});
+      };
+      const attemptPlayback = (delay = 280) => {
+        if(settled || hasStartedPlayback){
+          clearPlayAttemptTimer();
+          return;
         }
-      } catch (err) {
-        // ignore autoplay rejections; retry via timer or fallback
+        try {
+          ensureLaunchVideoAttributes(vid);
+          const playPromise = vid.play();
+          if(playPromise && typeof playPromise.then === 'function'){
+            playPromise.catch(()=>{});
+          }
+        } catch (err) {
+          // ignore autoplay rejections; retry via timer or fallback
+        }
+        clearPlayAttemptTimer();
+        const nextDelay = Math.min(delay * 1.5, 2000);
+        playAttemptTimer = window.setTimeout(() => attemptPlayback(nextDelay), nextDelay);
+      };
+      restartPlayback = () => {
+        if(settled) return;
+        hasStartedPlayback = false;
+        clearPlayAttemptTimer();
+        attemptPlayback(0);
+      };
+      const handleVisibilityChange = () => {
+        if(document.hidden) return;
+        attemptPlayback();
+      };
+      const cleanupVisibility = () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange, true);
+      };
+      const finish = () => {
+        if(settled) return;
+        settled = true;
+        if(fallbackTimer) window.clearTimeout(fallbackTimer);
+        resolve();
+        cleanupVisibility();
+        cleanupUserGestureListeners();
+        clearPlayAttemptTimer();
+        restartPlayback = () => {};
+      };
+      const scheduleFallback = delay => {
+        if(fallbackTimer) window.clearTimeout(fallbackTimer);
+        fallbackTimer = window.setTimeout(finish, delay);
+      };
+      vid.addEventListener('ended', () => {
+        if(settled) return;
+        if(fallbackTimer) window.clearTimeout(fallbackTimer);
+        window.setTimeout(finish, 120);
+      }, { once: true });
+      ['error','abort','emptied'].forEach(evt => vid.addEventListener(evt, finish, { once: true }));
+      const handleUserGesture = () => {
+        attemptPlayback();
+      };
+      addUserGestureListener(window, 'pointerdown', handleUserGesture, true);
+      addUserGestureListener(window, 'touchend', handleUserGesture, true);
+      addUserGestureListener(window, 'keydown', handleUserGesture, true);
+      vid.addEventListener('play', () => {
+        cleanupUserGestureListeners();
+      }, { once: true });
+      const playbackStartedEvents = ['playing', 'timeupdate', 'seeked', 'loadeddata'];
+      playbackStartedEvents.forEach(evt => vid.addEventListener(evt, markPlaybackStarted, { once: true }));
+      vid.addEventListener('pause', () => {
+        if(settled || vid.ended || hasStartedPlayback) return;
+        attemptPlayback();
+      });
+      const beginPlayback = () => {
+        const durationMs = (Number.isFinite(vid.duration) && vid.duration > 0) ? vid.duration * 1000 : 0;
+        const fallbackDelay = Math.min(Math.max(durationMs + 300, LAUNCH_MIN_DURATION + 800), LAUNCH_MAX_WAIT);
+        scheduleFallback(fallbackDelay);
+        resetLaunchVideoPlayback(vid);
+        attemptPlayback();
+        document.addEventListener('visibilitychange', handleVisibilityChange, true);
+      };
+      if(vid.readyState >= 1){
+        beginPlayback();
+      } else {
+        vid.addEventListener('loadedmetadata', beginPlayback, { once: true });
+        scheduleFallback(LAUNCH_MAX_WAIT);
+        try {
+          vid.load();
+        } catch (err) {
+          // ignore load failures while waiting for metadata
+        }
       }
-      clearPlayAttemptTimer();
-      const nextDelay = Math.min(delay * 1.5, 2000);
-      playAttemptTimer = window.setTimeout(() => attemptPlayback(nextDelay), nextDelay);
-    };
-    const handleVisibilityChange = () => {
-      if(document.hidden) return;
-      attemptPlayback();
-    };
-    const cleanupVisibility = () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange, true);
-    };
-    const finish = () => {
-      if(settled) return;
-      settled = true;
-      if(fallbackTimer) window.clearTimeout(fallbackTimer);
-      resolve();
-      cleanupVisibility();
-      cleanupUserGestureListeners();
-      clearPlayAttemptTimer();
-    };
-    const scheduleFallback = delay => {
-      if(fallbackTimer) window.clearTimeout(fallbackTimer);
-      fallbackTimer = window.setTimeout(finish, delay);
-    };
-    vid.addEventListener('ended', () => {
-      if(settled) return;
-      if(fallbackTimer) window.clearTimeout(fallbackTimer);
-      window.setTimeout(finish, 120);
-    }, { once: true });
-    ['error','abort','emptied'].forEach(evt => vid.addEventListener(evt, finish, { once: true }));
-    const handleUserGesture = () => {
-      attemptPlayback();
-    };
-    addUserGestureListener(window, 'pointerdown', handleUserGesture, true);
-    addUserGestureListener(window, 'touchend', handleUserGesture, true);
-    addUserGestureListener(window, 'keydown', handleUserGesture, true);
-    vid.addEventListener('play', () => {
-      cleanupUserGestureListeners();
-    }, { once: true });
-    const playbackStartedEvents = ['playing', 'timeupdate', 'seeked', 'loadeddata'];
-    playbackStartedEvents.forEach(evt => vid.addEventListener(evt, markPlaybackStarted, { once: true }));
-    vid.addEventListener('pause', () => {
-      if(settled || vid.ended || hasStartedPlayback) return;
-      attemptPlayback();
     });
-    const beginPlayback = () => {
-      const durationMs = (Number.isFinite(vid.duration) && vid.duration > 0) ? vid.duration * 1000 : 0;
-      const fallbackDelay = Math.min(Math.max(durationMs + 300, LAUNCH_MIN_DURATION + 800), LAUNCH_MAX_WAIT);
-      scheduleFallback(fallbackDelay);
-      resetLaunchVideoPlayback(vid);
-      attemptPlayback();
-      document.addEventListener('visibilitychange', handleVisibilityChange, true);
-    };
-    if(vid.readyState >= 1){
-      beginPlayback();
-    } else {
-      vid.addEventListener('loadedmetadata', beginPlayback, { once: true });
-      scheduleFallback(LAUNCH_MAX_WAIT);
-      try {
-        vid.load();
-      } catch (err) {
-        // ignore load failures while waiting for metadata
-      }
-    }
-  });
+    return { promise: playbackPromise, restartPlayback: () => restartPlayback() };
+  };
   if(video){
     ensureLaunchVideoAttributes(video);
     let swMessageHandler = null;
@@ -241,25 +253,27 @@ const LAUNCH_MAX_WAIT = 12000;
         }
         if(payload.type === 'reset-launch-video'){
           resetLaunchVideoPlayback(video);
+          requestLaunchVideoRestart();
         }
       };
       navigator.serviceWorker.addEventListener('message', swMessageHandler);
     };
     attachSwMessageHandler();
-    cleanupLaunchVideoMessaging = () => {
-      if(typeof navigator !== 'undefined' && 'serviceWorker' in navigator && swMessageHandler){
-        try {
-          navigator.serviceWorker.removeEventListener('message', swMessageHandler);
-        } catch (err) {
-          // ignore removal failures
+      cleanupLaunchVideoMessaging = () => {
+        if(typeof navigator !== 'undefined' && 'serviceWorker' in navigator && swMessageHandler){
+          try {
+            navigator.serviceWorker.removeEventListener('message', swMessageHandler);
+          } catch (err) {
+            // ignore removal failures
+          }
         }
-      }
-      swMessageHandler = null;
-      if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
-        try {
-          delete window.__resetLaunchVideo;
-        } catch (err) {
-          window.__resetLaunchVideo = undefined;
+        swMessageHandler = null;
+        requestLaunchVideoRestart = () => {};
+        if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
+          try {
+            delete window.__resetLaunchVideo;
+          } catch (err) {
+            window.__resetLaunchVideo = undefined;
         }
       }
     };
@@ -292,8 +306,13 @@ const LAUNCH_MAX_WAIT = 12000;
       notifyServiceWorkerVideoPlayed();
     });
     video.addEventListener('error', notifyServiceWorkerVideoPlayed);
-    window.__resetLaunchVideo = () => resetLaunchVideoPlayback(video);
-    waitForVideoPlayback(video).then(() => {
+      const { promise: playbackPromise, restartPlayback } = waitForVideoPlayback(video);
+      requestLaunchVideoRestart = restartPlayback;
+      window.__resetLaunchVideo = () => {
+        resetLaunchVideoPlayback(video);
+        restartPlayback();
+      };
+    playbackPromise.then(() => {
       reveal();
     });
   } else {
