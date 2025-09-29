@@ -23,6 +23,9 @@ CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
 
+const SKIP_LAUNCH_STORAGE_KEY = 'cc:skip-launch';
+const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
+
 const LAUNCH_MIN_VISIBLE = 1800;
 const LAUNCH_MAX_WAIT = 12000;
 (function setupLaunchAnimation(){
@@ -41,6 +44,18 @@ const LAUNCH_MAX_WAIT = 12000;
     skipButton.style.opacity = '0';
   };
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const shouldSkipLaunch = (() => {
+    try {
+      if (sessionStorage.getItem(SKIP_LAUNCH_STORAGE_KEY) === '1') {
+        sessionStorage.removeItem(SKIP_LAUNCH_STORAGE_KEY);
+        return true;
+      }
+    } catch (err) {
+      // ignore storage access issues
+    }
+    return false;
+  })();
 
   let revealCalled = false;
   let playbackStartedAt = null;
@@ -115,6 +130,12 @@ const LAUNCH_MAX_WAIT = 12000;
     }
     finalizeReveal();
   };
+
+  if(shouldSkipLaunch){
+    disableSkipButton();
+    revealApp();
+    return;
+  }
 
   if(!video || prefersReducedMotion){
     disableSkipButton();
@@ -1963,6 +1984,60 @@ function queueDmNotification(message, meta = {}) {
   }
 }
 
+function stashForcedRefreshState() {
+  try {
+    sessionStorage.setItem(SKIP_LAUNCH_STORAGE_KEY, '1');
+  } catch (err) {
+    // ignore storage errors but continue capturing state when possible
+  }
+
+  let snapshot = null;
+  try {
+    snapshot = serialize();
+  } catch (err) {
+    // ignore serialization errors
+  }
+
+  if (!snapshot) return;
+
+  const payload = {
+    data: snapshot,
+    scrollY: typeof window !== 'undefined' && typeof window.scrollY === 'number' ? window.scrollY : 0,
+    ts: Date.now(),
+  };
+
+  try {
+    sessionStorage.setItem(FORCED_REFRESH_STATE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    try { sessionStorage.removeItem(FORCED_REFRESH_STATE_KEY); } catch (cleanupErr) {
+      // ignore cleanup failures
+    }
+  }
+}
+
+CC.prepareForcedRefresh = stashForcedRefreshState;
+
+function consumeForcedRefreshState() {
+  let raw = null;
+  try {
+    raw = sessionStorage.getItem(FORCED_REFRESH_STATE_KEY);
+    if (raw !== null) {
+      sessionStorage.removeItem(FORCED_REFRESH_STATE_KEY);
+    }
+  } catch (err) {
+    raw = null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!parsed.data || typeof parsed.data !== 'object') return null;
+    return parsed;
+  } catch (err) {
+    return null;
+  }
+}
+
 function announceContentUpdate(payload = {}) {
   if (serviceWorkerUpdateHandled) return;
   serviceWorkerUpdateHandled = true;
@@ -1999,6 +2074,7 @@ function announceContentUpdate(payload = {}) {
       /* ignore event errors */
     }
   }
+  stashForcedRefreshState();
   setTimeout(() => {
     window.location.reload();
   }, 750);
@@ -4161,6 +4237,7 @@ function deserialize(data){
 const AUTO_KEY = 'autosave';
 let history = [];
 let histIdx = -1;
+const forcedRefreshResume = consumeForcedRefreshState();
 const pushHistory = debounce(()=>{
   const snap = serialize();
   history = history.slice(0, histIdx + 1);
@@ -4182,11 +4259,24 @@ function redo(){
 
 (function(){
   try{ localStorage.removeItem(AUTO_KEY); }catch{}
-  deserialize(DEFAULT_STATE);
+  if(forcedRefreshResume && forcedRefreshResume.data){
+    deserialize(forcedRefreshResume.data);
+  } else {
+    deserialize(DEFAULT_STATE);
+  }
   const snap = serialize();
   history = [snap];
   histIdx = 0;
   try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
+  if(forcedRefreshResume && typeof forcedRefreshResume.scrollY === 'number'){
+    requestAnimationFrame(() => {
+      try {
+        window.scrollTo({ top: forcedRefreshResume.scrollY, behavior: 'auto' });
+      } catch (err) {
+        window.scrollTo(0, forcedRefreshResume.scrollY);
+      }
+    });
+  }
 })();
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');

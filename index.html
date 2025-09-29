@@ -45,6 +45,27 @@
       return;
     }
 
+    let skipLaunch = false;
+    try {
+      if (sessionStorage.getItem('cc:skip-launch') === '1') {
+        sessionStorage.removeItem('cc:skip-launch');
+        skipLaunch = true;
+      }
+    } catch (err) {
+      // ignore storage errors
+    }
+
+    if (skipLaunch) {
+      body.classList.remove('launching');
+      launchEl.setAttribute('data-hidden', 'true');
+      requestAnimationFrame(() => {
+        if (launchEl.parentNode) {
+          launchEl.parentNode.removeChild(launchEl);
+        }
+      });
+      return;
+    }
+
     let fallbackTimer = null;
     const clearFallback = () => {
       if(fallbackTimer){

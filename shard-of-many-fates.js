@@ -960,6 +960,22 @@
 
     function prepareRefresh(reason = 'hidden-sync') {
       if (typeof sessionStorage === 'undefined') return;
+      let forcedPrepHandled = false;
+      try {
+        if (window.CC?.prepareForcedRefresh) {
+          window.CC.prepareForcedRefresh();
+          forcedPrepHandled = true;
+        }
+      } catch (err) {
+        forcedPrepHandled = false;
+      }
+      if (!forcedPrepHandled) {
+        try {
+          sessionStorage.setItem('cc:skip-launch', '1');
+        } catch (err) {
+          /* ignore storage errors */
+        }
+      }
       try {
         const state = {
           reason,
