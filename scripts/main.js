@@ -972,10 +972,13 @@ if(tickerTrack && tickerText){
 const m24nTrack = qs('[data-m24n-ticker-track]');
 const m24nText = qs('[data-m24n-ticker-text]');
 if(m24nTrack && m24nText){
-  const HEADLINE_DURATION = 20000;
+  const BASE_HEADLINE_DURATION = 20000;
   const BUFFER_DURATION = 3000;
   const ROTATION_WINDOW = 10 * 60 * 1000;
-  const HEADLINES_PER_ROTATION = Math.max(1, Math.floor(ROTATION_WINDOW / (HEADLINE_DURATION + BUFFER_DURATION)));
+  const HEADLINES_PER_ROTATION = Math.max(1, Math.floor(ROTATION_WINDOW / (BASE_HEADLINE_DURATION + BUFFER_DURATION)));
+  const MIN_HEADLINE_DURATION = 16000;
+  const MAX_HEADLINE_DURATION = 60000;
+  const SCROLL_SPEED_PX_PER_SEC = 110;
   let headlines = [];
   let rotationItems = [];
   let rotationIndex = 0;
@@ -997,6 +1000,20 @@ if(m24nTrack && m24nText){
   function resetTrack(){
     m24nTrack.classList.remove('is-animating');
     m24nTrack.style.transform = 'translate3d(100%,0,0)';
+  }
+
+  function updateHeadlineDuration(){
+    const trackStyles = window.getComputedStyle(m24nTrack);
+    const gapValueRaw = trackStyles.getPropertyValue('--ticker-gap');
+    const gapValue = Number.parseFloat(gapValueRaw) || 0;
+    const trackWidth = m24nTrack.scrollWidth;
+    const travelDistance = (trackWidth * 2) + gapValue;
+    const durationMs = Math.min(
+      MAX_HEADLINE_DURATION,
+      Math.max(MIN_HEADLINE_DURATION, (travelDistance / SCROLL_SPEED_PX_PER_SEC) * 1000)
+    );
+    m24nTrack.style.setProperty('--ticker-duration', `${Math.round(durationMs)}ms`);
+    return durationMs;
   }
 
   function shuffle(arr){
@@ -1083,12 +1100,13 @@ if(m24nTrack && m24nText){
     m24nText.textContent = headline;
     resetTrack();
     requestAnimationFrame(() => {
+      const duration = updateHeadlineDuration();
       void m24nTrack.offsetWidth;
       m24nTrack.classList.add('is-animating');
       animationTimer = window.setTimeout(() => {
         resetTrack();
         bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
-      }, HEADLINE_DURATION);
+      }, duration);
     });
   }
 
