@@ -831,6 +831,8 @@ const menuActions = $('menu-actions');
 if (btnMenu && menuActions) {
   let hideMenuTimer = null;
   let pendingHideListener = null;
+  let isMenuOpen = !menuActions.hidden;
+
   const clearHideMenuCleanup = () => {
     if (pendingHideListener) {
       try {
@@ -843,40 +845,60 @@ if (btnMenu && menuActions) {
       hideMenuTimer = null;
     }
   };
-  const hideMenu = () => {
-    if (!menuActions.hidden) {
-      const finalizeHide = () => {
-        clearHideMenuCleanup();
-        menuActions.hidden = true;
-      };
-      const onTransitionEnd = event => {
-        if (event.target === menuActions) finalizeHide();
-      };
-      clearHideMenuCleanup();
-      pendingHideListener = onTransitionEnd;
-      menuActions.classList.remove('show');
-      menuActions.addEventListener('transitionend', onTransitionEnd, { once: true });
-      hideMenuTimer = window.setTimeout(finalizeHide, 400);
-      btnMenu.setAttribute('aria-expanded', 'false');
-      btnMenu.classList.remove('open');
-    }
+
+  const finalizeHide = () => {
+    clearHideMenuCleanup();
+    menuActions.hidden = true;
+    btnMenu.setAttribute('aria-expanded', 'false');
+    btnMenu.classList.remove('open');
   };
-  btnMenu.addEventListener('click', () => {
-    if (menuActions.hidden) {
-      clearHideMenuCleanup();
-      menuActions.hidden = false;
-      requestAnimationFrame(() => menuActions.classList.add('show'));
-      btnMenu.setAttribute('aria-expanded', 'true');
-      btnMenu.classList.add('open');
-    } else {
-      hideMenu();
+
+  const hideMenu = (options = {}) => {
+    const immediate = options === true || options.immediate === true;
+    if (!isMenuOpen && menuActions.hidden && !menuActions.classList.contains('show')) {
+      return;
     }
+    isMenuOpen = false;
+    const onTransitionEnd = event => {
+      if (event.target === menuActions) finalizeHide();
+    };
+    clearHideMenuCleanup();
+    if (immediate) {
+      menuActions.classList.remove('show');
+      finalizeHide();
+      return;
+    }
+    pendingHideListener = onTransitionEnd;
+    menuActions.classList.remove('show');
+    menuActions.addEventListener('transitionend', onTransitionEnd, { once: true });
+    hideMenuTimer = window.setTimeout(finalizeHide, 400);
+  };
+
+  const showMenu = () => {
+    if (isMenuOpen && menuActions.classList.contains('show')) return;
+    clearHideMenuCleanup();
+    isMenuOpen = true;
+    menuActions.hidden = false;
+    requestAnimationFrame(() => menuActions.classList.add('show'));
+    btnMenu.setAttribute('aria-expanded', 'true');
+    btnMenu.classList.add('open');
+  };
+
+  btnMenu.addEventListener('click', () => {
+    if (isMenuOpen && !menuActions.hidden) hideMenu();
+    else showMenu();
   });
+
   document.addEventListener('click', e => {
     if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
   });
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') hideMenu();
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
   });
 }
 
