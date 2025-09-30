@@ -937,6 +937,7 @@ const TAB_ORDER = tabButtons.map(btn => btn.getAttribute('data-go')).filter(Bool
 
 const TAB_ANIMATION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
 const TAB_ANIMATION_DURATION = 360;
+const TAB_CONTAINER_CLASS = 'is-animating-tabs';
 const reduceMotionQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
   ? window.matchMedia('(prefers-reduced-motion: reduce)')
   : null;
@@ -964,6 +965,7 @@ function cleanupPanelAnimation(panel){
   panel.style.removeProperty('transform');
   panel.style.removeProperty('opacity');
   panel.style.removeProperty('will-change');
+  panel.style.removeProperty('z-index');
 }
 
 function animateTabTransition(currentName, nextName, direction){
@@ -979,15 +981,74 @@ function animateTabTransition(currentName, nextName, direction){
     if(!direction) return false;
   }
 
+  const container = activePanel.parentElement;
+  const activePanelHeight = activePanel.offsetHeight || activePanel.scrollHeight || 0;
+
   isTabAnimating = true;
 
   const incomingOffset = direction === 'left' ? 36 : -36;
   const outgoingOffset = -incomingOffset;
 
+  let cleanupContainer = null;
+
+  const prepareContainerForAnimation = () => {
+    if(!container || !(container instanceof HTMLElement)) return;
+    let activeHeight = activePanelHeight;
+    if(activeHeight <= 0){
+      const activeRect = activePanel.getBoundingClientRect();
+      activeHeight = activeRect.height || activePanel.scrollHeight || 0;
+    }
+
+    const prevHeight = container.style.height;
+    const prevTransition = container.style.transition;
+    const prevOverflow = container.style.overflow;
+    const prevWillChange = container.style.willChange;
+
+    const measureTargetHeight = () => {
+      const rect = targetPanel.getBoundingClientRect();
+      return rect.height || targetPanel.offsetHeight || targetPanel.scrollHeight || activeHeight;
+    };
+    let targetHeight = measureTargetHeight();
+    if(targetHeight <= 0){
+      targetHeight = activeHeight;
+    }
+
+    container.classList.add(TAB_CONTAINER_CLASS);
+    container.style.height = `${activeHeight}px`;
+    container.style.transition = `height ${TAB_ANIMATION_DURATION}ms ${TAB_ANIMATION_EASING}`;
+    container.style.overflow = 'hidden';
+    container.style.willChange = 'height';
+
+    if(typeof requestAnimationFrame === 'function'){
+      requestAnimationFrame(() => {
+        container.style.height = `${targetHeight}px`;
+      });
+    } else {
+      container.style.height = `${targetHeight}px`;
+    }
+
+    cleanupContainer = () => {
+      container.classList.remove(TAB_CONTAINER_CLASS);
+      if(prevHeight) container.style.height = prevHeight;
+      else container.style.removeProperty('height');
+      if(prevTransition) container.style.transition = prevTransition;
+      else container.style.removeProperty('transition');
+      if(prevOverflow) container.style.overflow = prevOverflow;
+      else container.style.removeProperty('overflow');
+      if(prevWillChange) container.style.willChange = prevWillChange;
+      else container.style.removeProperty('will-change');
+    };
+  };
+
   activePanel.classList.add('animating');
   targetPanel.classList.add('animating');
   activePanel.style.pointerEvents = 'none';
   targetPanel.style.pointerEvents = 'none';
+  activePanel.style.willChange = 'transform, opacity';
+  targetPanel.style.willChange = 'transform, opacity';
+  activePanel.style.zIndex = '3';
+  targetPanel.style.zIndex = '4';
+  prepareContainerForAnimation();
   targetPanel.style.transform = `translate3d(${incomingOffset}px,0,0)`;
   targetPanel.style.opacity = '0';
 
@@ -1013,6 +1074,7 @@ function animateTabTransition(currentName, nextName, direction){
           if(typeof anim.cancel === 'function') anim.cancel();
         } catch (err) {}
       });
+      if(typeof cleanupContainer === 'function') cleanupContainer();
       isTabAnimating = false;
     };
     if(typeof requestAnimationFrame === 'function') requestAnimationFrame(finishCleanup);
