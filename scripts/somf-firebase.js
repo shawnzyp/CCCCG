@@ -1,5 +1,21 @@
-import firebase from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js';
-import 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js';
+async function loadFirebaseCompat(){
+  if (window.firebase?.database) {
+    return window.firebase;
+  }
+
+  await Promise.all([
+    import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js'),
+    import('https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js')
+  ]);
+
+  if (!window.firebase?.database) {
+    throw new Error('Failed to load Firebase compat libraries.');
+  }
+
+  return window.firebase;
+}
+
+const firebase = await loadFirebaseCompat();
 
 const firebaseConfig = {
   databaseURL: 'https://ccccg-7d6b6-default-rtdb.firebaseio.com'

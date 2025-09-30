@@ -103,7 +103,7 @@ const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 
 const LAUNCH_MIN_VISIBLE = 1800;
 const LAUNCH_MAX_WAIT = 12000;
-(function setupLaunchAnimation(){
+(async function setupLaunchAnimation(){
   const body = document.body;
   if(!body || !body.classList.contains('launching')) return;
 
@@ -212,7 +212,86 @@ const LAUNCH_MAX_WAIT = 12000;
     return;
   }
 
+  let manifestAssetsPromise = null;
+  const getManifestAssets = async () => {
+    if(manifestAssetsPromise) return manifestAssetsPromise;
+    if(typeof fetch !== 'function') return null;
+    manifestAssetsPromise = (async () => {
+      try {
+        const response = await fetch('asset-manifest.json', { cache: 'no-cache' });
+        if(!response || !response.ok) return null;
+        const data = await response.json();
+        if(Array.isArray(data?.assets)){
+          return new Set(data.assets);
+        }
+      } catch (err) {
+        // ignore manifest lookup failures
+      }
+      return null;
+    })();
+    return manifestAssetsPromise;
+  };
+
+  const ensureLaunchVideoSources = async vid => {
+    if(!vid) return false;
+
+    const hasExistingSource = !!vid.querySelector('source[src]');
+    let appended = false;
+    const canProbe = typeof fetch === 'function';
+    const manifestAssets = canProbe ? await getManifestAssets() : null;
+
+    const candidates = [
+      { key: 'srcWebm', type: 'video/webm' },
+      { key: 'srcMp4', type: 'video/mp4' }
+    ];
+
+    for (const { key, type } of candidates) {
+      const url = vid.dataset?.[key];
+      if(!url) continue;
+      if(!canProbe) continue;
+      if(manifestAssets){
+        const normalized = url.replace(/^\.\//, '').replace(/^\//, '');
+        const manifestKey = `./${normalized}`;
+        if(!manifestAssets.has(manifestKey)){
+          continue;
+        }
+      }
+      let ok = false;
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        ok = response && (response.ok || response.status === 405);
+      } catch (err) {
+        ok = false;
+      }
+      if(!ok) continue;
+      const source = document.createElement('source');
+      source.src = url;
+      if(type){
+        source.type = type;
+      }
+      vid.appendChild(source);
+      appended = true;
+    }
+
+    if(appended){
+      try {
+        vid.load();
+      } catch (err) {
+        // ignore inability to reload with new sources
+      }
+    }
+
+    return hasExistingSource || appended;
+  };
+
   if(!video || prefersReducedMotion){
+    disableSkipButton();
+    revealApp();
+    return;
+  }
+
+  const hasLaunchVideo = await ensureLaunchVideoSources(video);
+  if(!hasLaunchVideo){
     disableSkipButton();
     revealApp();
     return;
