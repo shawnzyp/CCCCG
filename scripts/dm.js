@@ -282,8 +282,10 @@ function initDMLogin(){
     if (dmBtn){
       dmBtn.hidden = loggedIn;
       if (loggedIn) {
+        dmBtn.style.opacity = '1';
         dmBtn.setAttribute('aria-hidden', 'true');
       } else {
+        dmBtn.style.opacity = '';
         dmBtn.removeAttribute('aria-hidden');
       }
     }
