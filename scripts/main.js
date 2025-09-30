@@ -1162,16 +1162,15 @@ function animateTabTransition(currentName, nextName, direction){
   targetPanel.style.opacity = '0';
   targetPanel.style.filter = 'blur(18px) saturate(1.35)';
   targetPanel.style.visibility = 'visible';
-  targetPanel.style.transform = 'scale(0.98)';
 
   const animations = [
     targetPanel.animate([
-      { opacity: 0, filter: 'blur(18px) saturate(1.35)', transform: 'scale(0.98)' },
-      { opacity: 1, filter: 'blur(0px) saturate(1)', transform: 'scale(1)' }
+      { opacity: 0, filter: 'blur(18px) saturate(1.35)' },
+      { opacity: 1, filter: 'blur(0px) saturate(1)' }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' }),
     activePanel.animate([
-      { opacity: 1, filter: 'blur(0px) saturate(1)', transform: 'scale(1)' },
-      { opacity: 0, filter: 'blur(18px) saturate(1.2)', transform: 'scale(1.02)' }
+      { opacity: 1, filter: 'blur(0px) saturate(1)' },
+      { opacity: 0, filter: 'blur(18px) saturate(1.2)' }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' })
   ];
 
