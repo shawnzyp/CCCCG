@@ -1128,6 +1128,157 @@
     window.SOMF_MIN.prepareHiddenRefresh = reason => HiddenSync.prepareRefresh(reason || 'hidden-sync');
   }
 
+  const REVEAL_SKIP_KEY = 'somf:skip-reveal-sequence';
+  let revealSkipConsumed = false;
+  let revealSequencePromise = null;
+
+  function consumeRevealSkipFlag() {
+    if (revealSkipConsumed) return false;
+    if (typeof sessionStorage === 'undefined') return false;
+    try {
+      const value = sessionStorage.getItem(REVEAL_SKIP_KEY);
+      if (value === '1') {
+        sessionStorage.removeItem(REVEAL_SKIP_KEY);
+        revealSkipConsumed = true;
+        return true;
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+    return false;
+  }
+
+  function markRevealSkipForReload() {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      sessionStorage.setItem(REVEAL_SKIP_KEY, '1');
+    } catch {
+      /* ignore storage errors */
+    }
+  }
+
+  async function playShardLightningSequence() {
+    const flash = dom.one('#draw-flash');
+    const lightning = dom.one('#draw-lightning');
+    if (!flash) return;
+
+    flash.classList.remove('show');
+    if (preferReducedMotion()) {
+      flash.hidden = true;
+      if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
+      return;
+    }
+
+    flash.hidden = false;
+    if (lightning) {
+      lightning.hidden = false;
+      lightning.innerHTML = '';
+      for (let i = 0; i < 3; i += 1) {
+        const bolt = document.createElement('div');
+        bolt.className = 'bolt';
+        bolt.style.left = `${10 + Math.random() * 80}%`;
+        bolt.style.top = `${Math.random() * 60}%`;
+        bolt.style.transform = `rotate(${Math.random() * 30 - 15}deg)`;
+        bolt.style.animationDelay = `${i * 0.1}s`;
+        lightning.appendChild(bolt);
+      }
+    }
+
+    await new Promise(resolve => {
+      let settled = false;
+      const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        flash.classList.remove('show');
+        flash.hidden = true;
+        if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
+        flash.removeEventListener('animationend', cleanup);
+        flash.removeEventListener('animationcancel', cleanup);
+        resolve();
+      };
+      flash.addEventListener('animationend', cleanup);
+      flash.addEventListener('animationcancel', cleanup);
+      void flash.offsetWidth;
+      flash.classList.add('show');
+      setTimeout(cleanup, 1100);
+    });
+  }
+
+  function showShardRevealToast() {
+    const host = dom.one('#somf-reveal-toast');
+    const dismiss = dom.one('#somf-reveal-toast-dismiss');
+    const card = host?.querySelector('.somf-reveal-toast__card') || null;
+
+    if (!host || !dismiss) {
+      markRevealSkipForReload();
+      HiddenSync.prepareRefresh('hidden-sync');
+      window.setTimeout(() => {
+        try { window.location.reload(); } catch (err) { console.error('Failed to reload after reveal', err); }
+      }, 50);
+      return Promise.resolve();
+    }
+
+    host.hidden = false;
+    host.setAttribute('aria-hidden', 'false');
+    if (card) card.setAttribute('aria-hidden', 'false');
+
+    const previouslyFocused = document.activeElement;
+    try {
+      dismiss.focus({ preventScroll: true });
+    } catch {
+      try { dismiss.focus(); } catch { /* ignore */ }
+    }
+
+    return new Promise(resolve => {
+      const finalize = () => {
+        dismiss.removeEventListener('click', onClick);
+        host.setAttribute('aria-hidden', 'true');
+        host.hidden = true;
+        if (card) card.setAttribute('aria-hidden', 'true');
+        if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+          try { previouslyFocused.focus({ preventScroll: true }); }
+          catch { try { previouslyFocused.focus(); } catch { /* ignore focus errors */ } }
+        }
+        markRevealSkipForReload();
+        HiddenSync.prepareRefresh('hidden-sync');
+        window.setTimeout(() => {
+          try { window.location.reload(); }
+          catch (err) { console.error('Failed to reload after reveal', err); }
+        }, 50);
+        resolve();
+      };
+
+      const onClick = event => {
+        event.preventDefault();
+        finalize();
+      };
+
+      dismiss.addEventListener('click', onClick, { once: true });
+    });
+  }
+
+  function triggerShardRevealSequence() {
+    if (revealSequencePromise) return revealSequencePromise;
+    if (consumeRevealSkipFlag()) return Promise.resolve();
+
+    revealSequencePromise = (async () => {
+      await playShardLightningSequence();
+      await showShardRevealToast();
+    })().catch(err => {
+      console.error('Shard reveal sequence failed', err);
+      markRevealSkipForReload();
+      HiddenSync.prepareRefresh('hidden-sync');
+      window.setTimeout(() => {
+        try { window.location.reload(); }
+        catch (reloadErr) { console.error('Failed to recover from reveal error', reloadErr); }
+      }, 50);
+    }).finally(() => {
+      revealSequencePromise = null;
+    });
+
+    return revealSequencePromise;
+  }
+
   const toArray = value => {
     if (Array.isArray(value)) return value.slice();
     if (!value || typeof value !== 'object') return [];
@@ -2039,6 +2190,7 @@
       this.hiddenCleanup = null;
       this.deckCleanup = null;
       this.tempArtwork = null;
+      this.lastHidden = undefined;
     }
 
     attach() {
@@ -2280,57 +2432,19 @@
     }
 
     async playAnimation() {
-      const flash = dom.one('#draw-flash');
-      const lightning = dom.one('#draw-lightning');
-      if (!flash) return;
-
-      flash.classList.remove('show');
-      if (preferReducedMotion()) {
-        flash.hidden = true;
-        if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
-        return;
-      }
-
-      flash.hidden = false;
-      if (lightning) {
-        lightning.hidden = false;
-        lightning.innerHTML = '';
-        for (let i = 0; i < 3; i += 1) {
-          const bolt = document.createElement('div');
-          bolt.className = 'bolt';
-          bolt.style.left = `${10 + Math.random() * 80}%`;
-          bolt.style.top = `${Math.random() * 60}%`;
-          bolt.style.transform = `rotate(${Math.random() * 30 - 15}deg)`;
-          bolt.style.animationDelay = `${i * 0.1}s`;
-          lightning.appendChild(bolt);
-        }
-      }
-
-      await new Promise(resolve => {
-        let settled = false;
-        const cleanup = () => {
-          if (settled) return;
-          settled = true;
-          flash.classList.remove('show');
-          flash.hidden = true;
-          if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
-          flash.removeEventListener('animationend', cleanup);
-          flash.removeEventListener('animationcancel', cleanup);
-          resolve();
-        };
-        flash.addEventListener('animationend', cleanup);
-        flash.addEventListener('animationcancel', cleanup);
-        // restart animation
-        void flash.offsetWidth;
-        flash.classList.add('show');
-        setTimeout(cleanup, 1100);
-      });
+      await playShardLightningSequence();
     }
 
     applyHiddenState(hidden) {
       if (!this.dom.card) return;
+      const previous = this.lastHidden;
       this.dom.card.hidden = !!hidden;
-      if (hidden) this.closeModal();
+      if (hidden) {
+        this.closeModal();
+      } else if (previous !== false) {
+        triggerShardRevealSequence();
+      }
+      this.lastHidden = hidden;
     }
   }
 
@@ -2343,6 +2457,7 @@
       this.noticeCleanup = null;
       this.hiddenCleanup = null;
       this.relatedNpcs = [];
+      this.lastHidden = undefined;
     }
 
     attach() {
@@ -2459,6 +2574,7 @@
       const hidden = await this.runtime.getHidden();
       this.dom.playerToggle.checked = !hidden;
       if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+      this.lastHidden = hidden;
     }
 
     async renderNotices() {
@@ -2796,8 +2912,13 @@
     }
 
     applyHiddenState(hidden) {
+      const previous = this.lastHidden;
       if (this.dom.playerToggle) this.dom.playerToggle.checked = !hidden;
       if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+      if (!hidden && previous !== false) {
+        triggerShardRevealSequence();
+      }
+      this.lastHidden = hidden;
     }
 
     open(opts = {}) {
