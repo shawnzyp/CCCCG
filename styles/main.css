@@ -1244,6 +1244,7 @@ body.modal-open [data-launch-shell]> :not(.overlay){pointer-events:none;user-sel
 #dm-character-modal .dm-character-sheet{flex:1;overflow:auto}
 #modal-help{align-items:flex-start;overflow-y:auto}
 #modal-help .modal{max-height:none}
+#modal-welcome .modal{font-size:.85rem;line-height:1.4}
 #modal-help .feature-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:90%}
 #modal-help .feature-list li{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 #modal-help .feature-list b{display:block}
