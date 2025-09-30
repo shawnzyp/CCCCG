@@ -124,16 +124,23 @@ function dismissWelcomeModal() {
   hide(WELCOME_MODAL_ID);
 }
 
-function queueWelcomeModal() {
+function queueWelcomeModal(options = {}) {
   if (welcomeModalDismissed || welcomeModalQueued) return;
   welcomeModalQueued = true;
+  const triggerShow = () => {
+    welcomeModalQueued = false;
+    maybeShowWelcomeModal();
+  };
+
+  if (options.immediate) {
+    triggerShow();
+    return;
+  }
+
   const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
     ? window.requestAnimationFrame
     : (cb => setTimeout(cb, 0));
-  schedule(() => {
-    welcomeModalQueued = false;
-    maybeShowWelcomeModal();
-  });
+  schedule(triggerShow);
 }
 (async function setupLaunchAnimation(){
   const body = document.body;
@@ -191,7 +198,7 @@ function queueWelcomeModal() {
 
   const finalizeReveal = () => {
     body.classList.remove('launching');
-    queueWelcomeModal();
+    queueWelcomeModal({ immediate: true });
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
       window.setTimeout(cleanupLaunchShell, 1000);
