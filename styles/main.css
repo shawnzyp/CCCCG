@@ -634,28 +634,31 @@ footer p{
 @media(min-width:900px){.grid-3{grid-template-columns:repeat(3,1fr)}}
 #statuses{
 display:grid;
-grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-gap:12px;
-margin-top:8px
+grid-template-columns:repeat(2,minmax(0,1fr));
+gap:12px 24px;
+margin-top:8px;
+align-items:start
 }
 #statuses .status-option{
 display:flex;
 align-items:center;
-gap:10px;
-padding:10px 14px;
-min-height:48px;
-background:var(--surface-2);
-border:1px solid var(--line);
-border-radius:calc(var(--radius)*0.75);
+gap:8px;
+padding:4px 0;
+min-height:auto;
+background:none;
+border:none;
+border-radius:0;
 cursor:pointer;
-transition:var(--transition)
+transition:color 0.2s ease
 }
 #statuses .status-option:hover,
 #statuses .status-option:focus-within{
-border-color:var(--accent);
-box-shadow:0 0 0 1px var(--accent);
+color:var(--accent)
 }
-#statuses .status-option input{flex:0 0 auto}
+#statuses .status-option input{
+flex:0 0 auto;
+margin:0
+}
 #statuses .status-option span{flex:1}
 .status-effects{font-size:90%}
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
