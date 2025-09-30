@@ -9,6 +9,7 @@
     resolutions: () => 'shardDeck/resolutions',
     npcs: () => 'shardDeck/active_npcs',
     hidden: () => 'shardDeck/hidden',
+    hiddenSignals: () => 'shardDeck/hidden_signals',
   };
   const LOCAL_KEYS = {
     deck: cid => `somf_deck__${cid}`,
@@ -18,6 +19,7 @@
     npcs: cid => `somf_active_npcs__${cid}`,
     lastNotice: cid => `somf_last_notice__${cid}`,
     hidden: cid => `somf_hidden__${cid}`,
+    hiddenSignal: cid => `somf_hidden_signal__${cid}`,
   };
   const MAX_LOCAL_RECORDS = 120;
 
@@ -1056,13 +1058,15 @@
       }
     }
 
-    function broadcast(campaignId, hidden) {
+    function broadcast(campaignId, hidden, extra) {
+      const extras = extra && typeof extra === 'object' ? extra : {};
       const detail = {
         type: 'hidden-sync',
         campaignId: campaignId || DEFAULT_CAMPAIGN_ID,
         hidden: !!hidden,
         ts: Date.now(),
         source: sourceId,
+        ...extras,
       };
 
       let delivered = false;
@@ -1810,6 +1814,7 @@
       this.setCampaign(campaignId || DEFAULT_CAMPAIGN_ID);
       this.noticeListeners = [];
       this.hiddenListener = null;
+      this.hiddenSignalListener = null;
     }
 
     setDatabase(db) {
@@ -1912,6 +1917,26 @@
       await this.ref('hidden').set(!!hidden);
     }
 
+    async pushHiddenSignal(hidden, payload = {}) {
+      const signalsRef = this.ref('hiddenSignals').push();
+      const data = {
+        hidden: !!hidden,
+        ts: this.db.ServerValue.TIMESTAMP,
+      };
+      const signalId = typeof payload.signalId === 'string' && payload.signalId ? payload.signalId : null;
+      const source = typeof payload.source === 'string' && payload.source ? payload.source : null;
+      if (signalId) data.signalId = signalId;
+      if (source) data.source = source;
+      await signalsRef.set(data);
+      return {
+        key: signalsRef.key,
+        hidden: !!hidden,
+        ts: Date.now(),
+        signalId,
+        source,
+      };
+    }
+
     async getHidden() {
       const snap = await this.ref('hidden').get();
       if (!snap.exists()) return true;
@@ -1966,6 +1991,37 @@
         this.hiddenListener = null;
       }
     }
+
+    watchHiddenSignals(handler) {
+      this.unwatchHiddenSignals();
+      if (!this.hasDatabase()) return () => {};
+      const ref = this.ref('hiddenSignals');
+      const limitRef = typeof ref.limitToLast === 'function' ? ref.limitToLast(10) : ref;
+      const listener = limitRef.on('child_added', snap => {
+        const value = snap?.val() || {};
+        const normalizedHidden = normalizeHiddenValue(value.hidden);
+        if (typeof normalizedHidden !== 'boolean') return;
+        const detail = {
+          key: snap.key,
+          hidden: normalizedHidden,
+          ts: normalizeTimestamp(value.ts),
+          source: typeof value.source === 'string' && value.source ? value.source : null,
+          signalId: typeof value.signalId === 'string' && value.signalId ? value.signalId : null,
+        };
+        handler(detail);
+      });
+      this.hiddenSignalListener = () => {
+        if (typeof limitRef.off === 'function') limitRef.off('child_added', listener);
+      };
+      return () => this.unwatchHiddenSignals();
+    }
+
+    unwatchHiddenSignals() {
+      if (this.hiddenSignalListener) {
+        this.hiddenSignalListener();
+        this.hiddenSignalListener = null;
+      }
+    }
   }
 
   class SomfRuntime {
@@ -1977,6 +2033,20 @@
       this.player = null;
       this.dm = null;
       this.modeListeners = new Set();
+      this.hiddenSignalSource = Math.random().toString(36).slice(2);
+      this.hiddenSignalCache = new Set();
+      const storedSignal = readStorage(LOCAL_KEYS.hiddenSignal(this.campaignId));
+      if (storedSignal && typeof storedSignal === 'object') {
+        const storedId = typeof storedSignal.id === 'string' && storedSignal.id ? storedSignal.id : null;
+        const storedTs = Number(storedSignal.ts);
+        this.lastProcessedHiddenSignal = storedId
+          ? { id: storedId, ts: Number.isFinite(storedTs) ? storedTs : 0 }
+          : null;
+      } else if (typeof storedSignal === 'string' && storedSignal) {
+        this.lastProcessedHiddenSignal = { id: storedSignal, ts: 0 };
+      } else {
+        this.lastProcessedHiddenSignal = null;
+      }
 
       window.SOMF_MIN = window.SOMF_MIN || {};
       window.SOMF_MIN.setFirebase = db => this.setFirebase(db);
@@ -2007,6 +2077,19 @@
       window._somf_cid = next;
       this.localStore.setCampaign(next);
       if (this.realtimeStore) this.realtimeStore.setCampaign(next);
+      this.hiddenSignalCache.clear();
+      const storedSignal = readStorage(LOCAL_KEYS.hiddenSignal(next));
+      if (storedSignal && typeof storedSignal === 'object') {
+        const storedId = typeof storedSignal.id === 'string' && storedSignal.id ? storedSignal.id : null;
+        const storedTs = Number(storedSignal.ts);
+        this.lastProcessedHiddenSignal = storedId
+          ? { id: storedId, ts: Number.isFinite(storedTs) ? storedTs : 0 }
+          : null;
+      } else if (typeof storedSignal === 'string' && storedSignal) {
+        this.lastProcessedHiddenSignal = { id: storedSignal, ts: 0 };
+      } else {
+        this.lastProcessedHiddenSignal = null;
+      }
       this.notifyModeChange();
     }
 
@@ -2032,6 +2115,74 @@
       this.modeListeners.forEach(listener => {
         try { listener(mode); } catch (err) { console.error(err); }
       });
+    }
+
+    registerHiddenSignal(signalId, ts) {
+      if (!signalId) return true;
+      const normalizedTs = Number(ts);
+      const last = this.lastProcessedHiddenSignal;
+      if (last && last.id === signalId) return false;
+      if (last && Number.isFinite(last.ts) && Number.isFinite(normalizedTs) && normalizedTs <= last.ts) return false;
+      if (this.hiddenSignalCache.has(signalId)) return false;
+      this.hiddenSignalCache.add(signalId);
+      const record = {
+        id: signalId,
+        ts: Number.isFinite(normalizedTs) ? normalizedTs : Date.now(),
+      };
+      this.lastProcessedHiddenSignal = record;
+      try {
+        writeStorage(LOCAL_KEYS.hiddenSignal(this.campaignId), record);
+      } catch { /* ignore storage errors */ }
+      const clear = () => this.hiddenSignalCache.delete(signalId);
+      try {
+        setTimeout(clear, 5 * 60 * 1000);
+      } catch {
+        /* ignore timer errors */
+      }
+      return true;
+    }
+
+    async emitHiddenSignal(hidden, signalId) {
+      if (!this.hasRealtime() || !this.realtimeStore?.pushHiddenSignal) return;
+      try {
+        await this.realtimeStore.pushHiddenSignal(hidden, { signalId, source: this.hiddenSignalSource });
+      } catch (err) {
+        console.error('Failed to push hidden toggle signal', err);
+      }
+    }
+
+    onHiddenSignal(handler) {
+      if (typeof handler !== 'function') return () => {};
+      const disposers = [];
+      const process = detail => {
+        if (!detail || typeof detail.hidden !== 'boolean') return;
+        const signalId = typeof detail.signalId === 'string' && detail.signalId ? detail.signalId : null;
+        if (!this.registerHiddenSignal(signalId, detail.ts)) return;
+        handler({ ...detail, signalId });
+      };
+
+      if (this.hasRealtime() && this.realtimeStore?.watchHiddenSignals) {
+        disposers.push(this.realtimeStore.watchHiddenSignals(detail => {
+          process({ ...detail, transport: 'realtime' });
+        }));
+      }
+
+      disposers.push(HiddenSync.subscribe(detail => {
+        if (!detail || detail.campaignId !== this.campaignId) return;
+        const normalized = normalizeHiddenValue(detail.hidden);
+        if (typeof normalized !== 'boolean') return;
+        process({
+          hidden: normalized,
+          ts: detail.ts || Date.now(),
+          source: detail.source || null,
+          signalId: typeof detail.signalId === 'string' && detail.signalId ? detail.signalId : null,
+          transport: 'broadcast',
+        });
+      }));
+
+      return () => {
+        disposers.forEach(fn => { if (typeof fn === 'function') fn(); });
+      };
     }
 
     async draw(count) {
@@ -2083,9 +2234,12 @@
 
     async setHidden(hidden) {
       const store = this.store();
-      if (store.setHidden) await store.setHidden(hidden);
-      writeStorage(LOCAL_KEYS.hidden(this.campaignId), !!hidden);
-      HiddenSync.broadcast(this.campaignId, hidden);
+      const normalized = !!hidden;
+      if (store.setHidden) await store.setHidden(normalized);
+      const signalId = `${this.hiddenSignalSource}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+      writeStorage(LOCAL_KEYS.hidden(this.campaignId), normalized);
+      HiddenSync.broadcast(this.campaignId, normalized, { signalId });
+      await this.emitHiddenSignal(normalized, signalId);
     }
 
     async getHidden() {
@@ -2174,6 +2328,7 @@
       this.deckCleanup = null;
       this.tempArtwork = null;
       this.lastHiddenState = null;
+      this.hiddenSignalCleanup = null;
     }
 
     attach() {
@@ -2235,6 +2390,8 @@
       this.hiddenCleanup = this.runtime.watchHidden(value => {
         if (typeof value === 'boolean') this.applyHiddenState(value);
       });
+      if (this.hiddenSignalCleanup) this.hiddenSignalCleanup();
+      this.hiddenSignalCleanup = this.runtime.onHiddenSignal(detail => this.handleHiddenSignal(detail));
     }
 
     async loadInitialState() {
@@ -2418,6 +2575,24 @@
       await runLightningFlash();
     }
 
+    handleHiddenSignal(detail) {
+      if (!detail || typeof detail.hidden !== 'boolean') return;
+      if (detail.hidden === false) {
+        try {
+          if (typeof window.toast === 'function') {
+            window.toast('The DM revealed the Shards of Many Fates', { type: 'success', duration: 6000 });
+          }
+        } catch {}
+        triggerShardRevealEffects();
+      } else if (detail.hidden === true) {
+        try {
+          if (typeof window.toast === 'function') {
+            window.toast('The DM concealed the Shards of Many Fates', { type: 'info', duration: 4000 });
+          }
+        } catch {}
+      }
+    }
+
     applyHiddenState(hidden) {
       const normalized = !!hidden;
       const previous = this.lastHiddenState;
@@ -2438,6 +2613,7 @@
       this.notices = [];
       this.noticeCleanup = null;
       this.hiddenCleanup = null;
+      this.hiddenSignalCleanup = null;
       this.relatedNpcs = [];
       this.lastHiddenState = null;
     }
@@ -2456,6 +2632,8 @@
       this.hiddenCleanup = this.runtime.watchHidden(value => {
         if (typeof value === 'boolean') this.applyHiddenState(value);
       });
+      if (this.hiddenSignalCleanup) this.hiddenSignalCleanup();
+      this.hiddenSignalCleanup = this.runtime.onHiddenSignal(detail => this.handleHiddenSignal(detail));
     }
 
     captureDom() {
@@ -2694,6 +2872,17 @@
     handleSpawnNpc() {
       if (!this.relatedNpcs.length) return;
       this.showNpcModal(this.relatedNpcs[0], this.relatedNpcs);
+    }
+
+    handleHiddenSignal(detail) {
+      if (!detail || typeof detail.hidden !== 'boolean') return;
+      const message = detail.hidden
+        ? '<strong>Shards Concealed</strong> Players can no longer see the deck'
+        : '<strong>Shards Revealed</strong> Broadcasting refresh to players';
+      this.toast(message);
+      if (detail.hidden === false) {
+        triggerShardRevealEffects();
+      }
     }
 
     toastNotice(notice) {
