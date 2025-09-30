@@ -554,7 +554,7 @@ label[data-animate-title]{
 }
 @keyframes ticker-scroll{from{transform:translate3d(100%,0,0)}to{transform:translate3d(calc(-100% - var(--ticker-gap)),0,0)}}
 main{
-  flex:1 0 auto;
+  flex:0 0 auto;
   width:100%;
   max-width:var(--content-width);
   margin:0 auto 16px;
@@ -608,7 +608,7 @@ footer{
   text-align:center;
   font-size:9pt;
   margin:0 auto;
-  margin-top:auto;
+  margin-top:0;
   padding:12px 20px 44px;
   padding-right:calc(20px + env(safe-area-inset-right));
   padding-left:calc(20px + env(safe-area-inset-left));
