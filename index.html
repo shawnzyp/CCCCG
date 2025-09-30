@@ -1112,7 +1112,13 @@
   <button id="dm-tools-characters" class="btn-sm">Characters</button>
   <button id="dm-tools-logout" class="btn-sm">Logout</button>
 </div>
-<button id="dm-tools-toggle" class="dm-tools-toggle" hidden aria-haspopup="true" aria-controls="dm-tools-menu">DM Tools</button>
+<button id="dm-tools-toggle" class="dm-tools-toggle" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-label="DM tools menu">
+  <svg class="dm-tools-toggle__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.214 1.285c.063.374.326.686.672.838.347.152.744.142 1.08-.026l1.155-.577a1.125 1.125 0 011.45.516l1.296 2.247a1.125 1.125 0 01-.286 1.431l-1.003.753a1.125 1.125 0 00-.401 1.13l.214 1.285c.09.542-.262 1.06-.78 1.12l-1.29.143a1.125 1.125 0 00-.966.86l-.213 1.285c-.091.542-.56.94-1.111.94h-2.591c-.55 0-1.02-.398-1.11-.94l-.214-1.285a1.125 1.125 0 00-.672-.838 1.125 1.125 0 00-1.08.027l-1.155.577a1.125 1.125 0 01-1.45-.516l-1.296-2.247a1.125 1.125 0 01.286-1.431l1.003-.753a1.125 1.125 0 00.401-1.13l-.214-1.285a1.125 1.125 0 01.78-1.12l1.29-.143a1.125 1.125 0 00.966-.86l.213-1.285z" />
+    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+  <span class="sr-only">DM Tools</span>
+</button>
 <div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
   <section class="modal">
     <button id="dm-login-close" class="x" aria-label="Close">
