@@ -280,15 +280,11 @@ function initDMLogin(){
       renderStoredNotifications();
     }
     if (dmBtn){
-      dmBtn.disabled = loggedIn;
+      dmBtn.hidden = loggedIn;
       if (loggedIn) {
-        dmBtn.classList.add('dm-login-btn--inactive');
-        dmBtn.setAttribute('aria-disabled', 'true');
-        dmBtn.style.opacity = '1';
+        dmBtn.setAttribute('aria-hidden', 'true');
       } else {
-        dmBtn.classList.remove('dm-login-btn--inactive');
-        dmBtn.removeAttribute('aria-disabled');
-        dmBtn.style.opacity = '';
+        dmBtn.removeAttribute('aria-hidden');
       }
     }
     if (dmToggleBtn) {

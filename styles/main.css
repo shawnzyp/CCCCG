@@ -1495,8 +1495,6 @@ select[required]:valid{
 .dm-login-logo{
   box-shadow:var(--shadow);
 }
-.dm-login-btn:disabled,.dm-login-btn.dm-login-btn--inactive{cursor:default;opacity:.65}
-.dm-login-btn:disabled img,.dm-login-btn.dm-login-btn--inactive img{opacity:1}
 .dm-tools-menu{position:fixed;bottom:80px;left:18px;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:2000}
 .dm-tools-menu[hidden]{display:none}
 .dm-tools-menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;min-width:160px}
