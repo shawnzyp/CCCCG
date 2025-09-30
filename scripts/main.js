@@ -636,9 +636,16 @@ function applyLockIcons(root=document){
   qsa('button[data-lock]', root).forEach(btn=>{ applyLockIcon(btn); });
 }
 let audioCtx = null;
-window.addEventListener('unload', () => {
+const closeAudioContext = () => {
   if (audioCtx && typeof audioCtx.close === 'function') {
     audioCtx.close();
+  }
+};
+
+window.addEventListener('pagehide', closeAudioContext, { once: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    closeAudioContext();
   }
 });
 function playTone(type){
