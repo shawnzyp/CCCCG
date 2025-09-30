@@ -130,6 +130,60 @@ function dismissWelcomeModal() {
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
   const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
+  const LAUNCH_SKIP_INPUT_LOCK_MS = 2000;
+  let launchInputLockTimer = null;
+  let launchInputLockActive = false;
+  const launchInputLockEvents = [
+    'pointerdown',
+    'pointerup',
+    'touchstart',
+    'touchend',
+    'mousedown',
+    'mouseup',
+    'click',
+    'keydown',
+    'keyup',
+    'focusin'
+  ];
+  const clearLaunchInputLockTimer = () => {
+    if(launchInputLockTimer){
+      window.clearTimeout(launchInputLockTimer);
+      launchInputLockTimer = null;
+    }
+  };
+  const deactivateLaunchInputLock = () => {
+    clearLaunchInputLockTimer();
+    if(!launchInputLockActive) return;
+    launchInputLockActive = false;
+    body.classList.remove('launch-input-locked');
+  };
+  const handleLockedInputEvent = event => {
+    if(!launchInputLockActive) return;
+    if(event.type === 'focusin' && event.target && typeof event.target.blur === 'function'){
+      try {
+        event.target.blur();
+      } catch (err) {
+        // ignore blur failures
+      }
+    }
+    if(event.cancelable){
+      event.preventDefault();
+    }
+    event.stopImmediatePropagation();
+  };
+  launchInputLockEvents.forEach(eventName => {
+    document.addEventListener(eventName, handleLockedInputEvent, true);
+  });
+  const activateLaunchInputLock = () => {
+    clearLaunchInputLockTimer();
+    if(!launchInputLockActive){
+      launchInputLockActive = true;
+      body.classList.add('launch-input-locked');
+    }
+    launchInputLockTimer = window.setTimeout(() => {
+      deactivateLaunchInputLock();
+    }, LAUNCH_SKIP_INPUT_LOCK_MS);
+  };
   const disableSkipButton = () => {
     if(!skipButton) return;
     skipButton.disabled = true;
@@ -228,6 +282,7 @@ function dismissWelcomeModal() {
 
   if(shouldSkipLaunch){
     disableSkipButton();
+    activateLaunchInputLock();
     revealApp();
     window.requestAnimationFrame(() => {
       maybeShowWelcomeModal();
@@ -378,6 +433,7 @@ function dismissWelcomeModal() {
   if(skipButton){
     const handleSkip = event => {
       event.preventDefault();
+      activateLaunchInputLock();
       const shouldRestoreWelcome = !welcomeModalDismissed;
       finalizeLaunch();
       if(shouldRestoreWelcome){
