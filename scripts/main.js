@@ -18,16 +18,6 @@ import { show, hide } from './modal.js';
 import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import { extractPriceValue } from './catalog-utils.js';
-import {
-  parseCsv,
-  normalizePriceRow,
-  buildPriceIndex,
-  normalizeCatalogToken,
-  splitValueOptions,
-  normalizeCatalogRow,
-  tierRank,
-  sortCatalogRows,
-} from './catalog-shared.js';
 // Global CC object for cross-module state
 window.CC = window.CC || {};
 CC.partials = CC.partials || {};
@@ -3287,7 +3277,6 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
 }
 
 /* ========= Gear Catalog (CatalystCore_Master_Book integration) ========= */
-const CATALOG_JSON_SRC = './CatalystCore_GearCatalog.json';
 const CATALOG_MASTER_SRC = './CatalystCore_Master_Book.csv';
 const CATALOG_PRICE_SRC = './CatalystCore_Items_Prices.csv';
 let catalogData = null;
@@ -3341,6 +3330,83 @@ function decodeCatalogBuffer(buffer){
   return str;
 }
 
+function parseCsv(text){
+  if (!text) return [];
+  const rows = [];
+  let current = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      current.push(field);
+      field = '';
+    } else if (ch === '\r') {
+      // ignore
+    } else if (ch === '\n') {
+      current.push(field);
+      rows.push(current);
+      current = [];
+      field = '';
+    } else {
+      field += ch;
+    }
+  }
+  if (field || current.length) {
+    current.push(field);
+  }
+  if (current.length) rows.push(current);
+  if (!rows.length) return [];
+  const headers = rows.shift().map(h => h.trim());
+  if (headers.length && headers[0] && headers[0].charCodeAt(0) === 0xfeff) {
+    headers[0] = headers[0].slice(1);
+  }
+  return rows
+    .filter(row => row.length && row.some(cell => (cell || '').trim() !== ''))
+    .map(row => headers.reduce((acc, header, idx) => {
+      acc[header] = (row[idx] || '').trim();
+      return acc;
+    }, {}));
+}
+
+function normalizePriceRow(row){
+  const name = (row.Name || '').trim();
+  if (!name) return null;
+  const priceSource = (row.PriceCr || row.Price || '').trim();
+  const numeric = extractPriceValue(priceSource);
+  return {
+    name,
+    price: Number.isFinite(numeric) && numeric > 0 ? numeric : null,
+    priceText: priceSource
+  };
+}
+
+function buildPriceIndex(entries = []){
+  const index = new Map();
+  entries.forEach(entry => {
+    if (!entry || !entry.name) return;
+    const key = entry.name.trim().toLowerCase();
+    if (!key) return;
+    if (!index.has(key)) {
+      index.set(key, entry);
+    }
+  });
+  return index;
+}
+
 function rebuildCatalogPriceIndex(baseEntries = catalogPriceEntries){
   const index = buildPriceIndex(baseEntries);
   if (Array.isArray(customCatalogEntries)) {
@@ -3371,169 +3437,188 @@ function rebuildCatalogPriceIndex(baseEntries = catalogPriceEntries){
   return catalogPriceIndex;
 }
 
-function sanitizeCatalogPriceEntry(entry){
-  if (!entry || typeof entry !== 'object') return null;
-  if (
-    Object.prototype.hasOwnProperty.call(entry, 'Name') ||
-    Object.prototype.hasOwnProperty.call(entry, 'PriceCr') ||
-    Object.prototype.hasOwnProperty.call(entry, 'Price')
-  ) {
-    return normalizePriceRow(entry);
-  }
-  const name = (entry.name || '').trim();
-  if (!name) return null;
-  const row = { Name: name };
-  if (entry.priceText != null && String(entry.priceText).trim()) {
-    row.PriceCr = String(entry.priceText).trim();
-  }
-  if (Number.isFinite(entry.price) && entry.price > 0) {
-    row.Price = String(entry.price);
-  }
-  return normalizePriceRow(row);
+function normalizeCatalogToken(value){
+  if (value == null) return '';
+  const text = String(value).toLowerCase();
+  const cleaned = text.replace(/[^a-z0-9+]+/g, ' ').trim();
+  return cleaned.replace(/\s+/g, ' ');
 }
 
-function sanitizeCatalogEntry(entry){
-  if (!entry || typeof entry !== 'object') return null;
-  const name = (entry.name || '').trim();
+function splitValueOptions(text){
+  if (text == null) return [];
+  const raw = String(text).trim();
+  if (!raw) return [];
+  const parts = raw
+    .split(/(?:\s+or\s+|\s*&\s*|\/|\||\s*,\s*)/i)
+    .map(part => part.trim())
+    .filter(Boolean);
+  return parts.length ? parts : [raw];
+}
+
+function parseCatalogList(value){
+  if (Array.isArray(value)) {
+    return value.flatMap(parseCatalogList);
+  }
+  const text = String(value || '').trim();
+  if (!text) return [];
+  return text
+    .split(/[\n;]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+function parseCatalogPrerequisites(value){
+  const text = String(value || '').trim();
+  if (!text) return [];
+  return text
+    .split(/[\n;]+/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(segment => {
+      const match = segment.match(/^([^:=]+)[:=]\s*(.+)$/);
+      if (match) {
+        return {
+          key: match[1].trim(),
+          values: splitValueOptions(match[2]),
+          raw: segment
+        };
+      }
+      return {
+        key: '',
+        values: splitValueOptions(segment),
+        raw: segment
+      };
+    })
+    .filter(entry => Array.isArray(entry.values) && entry.values.length);
+}
+
+function getRowValue(row, ...keys){
+  for (const key of keys) {
+    if (!key) continue;
+    if (Object.prototype.hasOwnProperty.call(row, key)) {
+      const value = row[key];
+      if (value != null) {
+        const trimmed = String(value).trim();
+        if (trimmed) return trimmed;
+      }
+    }
+  }
+  return '';
+}
+
+function normalizeCatalogRow(row, priceLookup = catalogPriceIndex){
+  const rawType = (row.Type || '').trim();
+  const section = (row.Section || '').trim() || 'Gear';
+  const name = (row.Name || '').trim();
   if (!name) return null;
-  const safeArray = value => (Array.isArray(value) ? value : []);
-  const sanitizeRestriction = value => {
-    if (!value) return null;
-    if (typeof value === 'string') {
+  const tier = (row.Tier || '').trim();
+  const legacyPriceSource = (row.PriceCr || '').trim();
+  let priceEntry = null;
+  if (priceLookup && name) {
+    const key = name.toLowerCase();
+    if (priceLookup.has(key)) {
+      priceEntry = priceLookup.get(key);
+    }
+  }
+  let priceText = priceEntry ? (priceEntry.priceText || '') : '';
+  let price = priceEntry && Number.isFinite(priceEntry.price) ? priceEntry.price : null;
+  if (!priceText && legacyPriceSource) {
+    priceText = legacyPriceSource;
+  }
+  if ((!Number.isFinite(price) || price <= 0) && priceText) {
+    const parsedPrice = extractPriceValue(priceText);
+    price = Number.isFinite(parsedPrice) && parsedPrice > 0 ? parsedPrice : null;
+  }
+  const perk = (row.Perk || '').trim();
+  const description = (row.Description || '').trim();
+  const use = (row.Use || '').trim();
+  const attunement = (row.Attunement || '').trim();
+  const source = (row['Where To Find'] || '').trim();
+  const displayType = rawType || 'Item';
+  const priceSearchText = priceText || legacyPriceSource;
+  const classificationValue = getRowValue(
+    row,
+    'Classification',
+    'Classifications',
+    'Classification Requirement',
+    'Classification Requirements'
+  );
+  const classifications = parseCatalogList(classificationValue)
+    .flatMap(splitValueOptions)
+    .map(normalizeCatalogToken)
+    .filter(Boolean);
+  const tierRestrictionValue = getRowValue(
+    row,
+    'Tier Requirement',
+    'Tier Requirements',
+    'Required Tier',
+    'Required Tiers',
+    'Tier Restriction',
+    'Tier Restrictions',
+    'Allowed Tier',
+    'Allowed Tiers'
+  );
+  const tierRestrictions = parseCatalogList(tierRestrictionValue)
+    .flatMap(splitValueOptions)
+    .map(value => {
       const normalized = normalizeCatalogToken(value);
       return normalized ? { raw: value, normalized } : null;
-    }
-    const raw = value.raw != null ? String(value.raw) : '';
-    const normalizedSource = value.normalized != null ? String(value.normalized) : '';
-    const normalized = normalizedSource || normalizeCatalogToken(raw || value);
-    if (!raw && !normalized) return null;
-    return {
-      raw: raw || (value.raw != null ? String(value.raw) : normalized),
-      normalized,
-    };
-  };
-  const sanitizePrerequisite = value => {
-    if (!value || typeof value !== 'object') return null;
-    const raw = value.raw != null ? String(value.raw) : '';
-    const keyText = value.key != null ? String(value.key) : '';
-    const values = safeArray(value.values).map(sanitizeRestriction).filter(Boolean);
-    if (!values.length) return null;
-    const normalizedKey = keyText ? normalizeCatalogToken(keyText) : '';
-    return {
-      key: normalizedKey || null,
-      values,
-      raw,
-    };
-  };
-  const sanitized = {
-    section: entry.section || 'Gear',
-    type: entry.type || entry.rawType || 'Item',
-    rawType: entry.rawType || entry.type || '',
-    name,
-    tier: entry.tier || '',
-    price: Number.isFinite(entry.price) ? entry.price : null,
-    priceText: entry.priceText || '',
-    priceRaw: entry.priceRaw || entry.priceText || '',
-    perk: entry.perk || '',
-    description: entry.description || '',
-    use: entry.use || '',
-    attunement: entry.attunement || '',
-    source: entry.source || '',
-    classifications: safeArray(entry.classifications).map(value => String(value)),
-    tierRestrictions: safeArray(entry.tierRestrictions).map(sanitizeRestriction).filter(Boolean),
-    prerequisites: safeArray(entry.prerequisites).map(sanitizePrerequisite).filter(Boolean),
-    search: typeof entry.search === 'string' ? entry.search : '',
-  };
-  if (!sanitized.search) {
-    const searchParts = [
-      sanitized.section,
-      sanitized.type,
-      sanitized.name,
-      sanitized.tier,
-      sanitized.priceText || sanitized.priceRaw || '',
-      sanitized.perk,
-      sanitized.description,
-      sanitized.use,
-      sanitized.attunement,
-      sanitized.source,
-      sanitized.classifications.join(' '),
-      sanitized.tierRestrictions.map(r => r.raw || r.normalized).join(' '),
-      sanitized.prerequisites.map(r => r.raw || '').join(' '),
-    ];
-    sanitized.search = searchParts.map(part => (part || '').toLowerCase()).join(' ');
-  }
-  return sanitized;
-}
-
-function applyCatalogPayload(entries, priceEntries = []){
-  const normalizedEntries = sortCatalogRows(
-    (Array.isArray(entries) ? entries : [])
-      .map(sanitizeCatalogEntry)
-      .filter(Boolean)
-  );
-  if (!normalizedEntries.length) {
-    throw new Error('No catalog entries available');
-  }
-  const normalizedPrices = (Array.isArray(priceEntries) ? priceEntries : [])
-    .map(sanitizeCatalogPriceEntry)
+    })
     .filter(Boolean);
-  const effectivePrices = normalizedPrices.length
-    ? normalizedPrices
-    : normalizedEntries.map(entry => ({
-        name: entry.name,
-        price: Number.isFinite(entry.price) ? entry.price : null,
-        priceText: entry.priceText || entry.priceRaw || '',
-      }));
-  catalogData = normalizedEntries;
-  catalogPriceEntries = effectivePrices;
-  rebuildCatalogPriceIndex(catalogPriceEntries);
-  catalogError = null;
-  rebuildCatalogFilterOptions();
-  applyPendingCatalogFilters();
-  requestCatalogRender();
-  return catalogData;
-}
-
-async function loadCatalogFromJson(){
-  try {
-    const res = await fetch(CATALOG_JSON_SRC, { cache: 'no-store' });
-    if (!res || (typeof res.ok === 'boolean' && !res.ok)) {
-      throw new Error('Catalog JSON fetch failed');
-    }
-    const payload = await res.json();
-    if (!payload || typeof payload !== 'object') {
-      throw new Error('Invalid catalog JSON payload');
-    }
-    const entries = Array.isArray(payload.entries) ? payload.entries : [];
-    if (!entries.length) {
-      throw new Error('Catalog JSON payload missing entries');
-    }
-    const prices = Array.isArray(payload.priceEntries) ? payload.priceEntries : [];
-    return applyCatalogPayload(entries, prices);
-  } catch (err) {
-    console.error('Failed to load catalog JSON', err);
-    return null;
+  const prerequisitesValue = getRowValue(
+    row,
+    'Prerequisites',
+    'Prerequisite',
+    'Requirements',
+    'Requirement',
+    'Prereqs',
+    'Prereq'
+  );
+  const prerequisites = parseCatalogPrerequisites(prerequisitesValue)
+    .map(entry => {
+      const normalizedKey = normalizeCatalogToken(entry.key || '');
+      const values = entry.values
+        .map(value => {
+          const normalized = normalizeCatalogToken(value);
+          return normalized ? { raw: value, normalized } : null;
+        })
+        .filter(Boolean);
+      if (!values.length) return null;
+      return {
+        key: normalizedKey || null,
+        values,
+        raw: entry.raw
+      };
+    })
+    .filter(Boolean);
+  const searchParts = [section, displayType, name, tier, priceSearchText || '', perk, description, use, attunement, source];
+  if (classifications.length) searchParts.push(classifications.join(' '));
+  if (tierRestrictions.length) {
+    searchParts.push(tierRestrictions.map(r => r.raw || r.normalized).join(' '));
   }
-}
-
-async function loadCatalogFromCsv(){
-  const masterPromise = fetchCatalogText(CATALOG_MASTER_SRC, 'Catalog fetch failed');
-  const pricePromise = fetchCatalogText(CATALOG_PRICE_SRC, 'Price fetch failed').catch(err => {
-    console.error('Failed to load catalog prices', err);
-    return null;
-  });
-  const [masterText, priceTextRaw] = await Promise.all([masterPromise, pricePromise]);
-  const parsedMaster = parseCsv(masterText);
-  let priceEntries = [];
-  if (typeof priceTextRaw === 'string') {
-    const parsedPrices = parseCsv(priceTextRaw);
-    priceEntries = parsedPrices.map(normalizePriceRow).filter(Boolean);
-  } else if (Array.isArray(catalogPriceEntries) && catalogPriceEntries.length) {
-    priceEntries = catalogPriceEntries;
+  if (prerequisites.length) {
+    searchParts.push(prerequisites.map(r => r.raw || '').join(' '));
   }
-  const priceIndex = buildPriceIndex(priceEntries);
-  const normalized = parsedMaster.map(row => normalizeCatalogRow(row, priceIndex)).filter(Boolean);
-  return applyCatalogPayload(normalized, priceEntries);
+  const search = searchParts.map(part => (part || '').toLowerCase()).join(' ');
+  return {
+    section,
+    type: displayType,
+    rawType,
+    name,
+    tier,
+    price,
+    priceText,
+    priceRaw: legacyPriceSource || priceText,
+    perk,
+    description,
+    use,
+    attunement,
+    source,
+    classifications,
+    tierRestrictions,
+    prerequisites,
+    search
+  };
 }
 
 function escapeHtml(str){
@@ -3877,6 +3962,36 @@ function ensureCatalogFilters(data){
   }
 }
 
+function tierRank(tier){
+  if (!tier) return Number.POSITIVE_INFINITY;
+  const match = String(tier).match(/T(\d+)/i);
+  if (match) {
+    const rank = Number(match[1]);
+    if (Number.isFinite(rank)) return rank;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+function sortCatalogRows(rows){
+  return rows.slice().sort((a, b) => {
+    const rankA = tierRank(a.tier);
+    const rankB = tierRank(b.tier);
+    const aHasTier = Number.isFinite(rankA);
+    const bHasTier = Number.isFinite(rankB);
+    if (aHasTier && bHasTier && rankA !== rankB) {
+      return rankA - rankB;
+    }
+    if (aHasTier !== bHasTier) {
+      return aHasTier ? -1 : 1;
+    }
+    const nameCompare = a.name.localeCompare(b.name, 'en', { sensitivity: 'base' });
+    if (nameCompare !== 0) return nameCompare;
+    return (a.type || '').localeCompare(b.type || '', 'en', { sensitivity: 'base' });
+  });
+}
+
+export { tierRank, sortCatalogRows, extractPriceValue };
+
 function setCatalogFilters(filters = {}){
   if (styleSel && Object.prototype.hasOwnProperty.call(filters, 'style')) {
     styleSel.value = filters.style ?? '';
@@ -4135,11 +4250,27 @@ async function ensureCatalog(){
   if (catalogPromise) return catalogPromise;
   catalogPromise = (async () => {
     try {
-      const jsonResult = await loadCatalogFromJson();
-      if (jsonResult) {
-        return jsonResult;
+      const masterPromise = fetchCatalogText(CATALOG_MASTER_SRC, 'Catalog fetch failed');
+      const pricePromise = fetchCatalogText(CATALOG_PRICE_SRC, 'Price fetch failed').catch(err => {
+        console.error('Failed to load catalog prices', err);
+        return null;
+      });
+      const [masterText, priceTextRaw] = await Promise.all([masterPromise, pricePromise]);
+      const parsedMaster = parseCsv(masterText);
+      if (typeof priceTextRaw === 'string') {
+        const parsedPrices = parseCsv(priceTextRaw);
+        catalogPriceEntries = parsedPrices.map(normalizePriceRow).filter(Boolean);
+      } else if (!Array.isArray(catalogPriceEntries) || !catalogPriceEntries.length) {
+        catalogPriceEntries = [];
       }
-      return await loadCatalogFromCsv();
+      const priceIndex = rebuildCatalogPriceIndex(catalogPriceEntries);
+      const normalized = parsedMaster.map(row => normalizeCatalogRow(row, priceIndex)).filter(Boolean);
+      catalogData = normalized;
+      catalogError = null;
+      rebuildCatalogFilterOptions();
+      applyPendingCatalogFilters();
+      requestCatalogRender();
+      return catalogData;
     } catch (err) {
       console.error('Failed to load catalog', err);
       catalogError = err;
