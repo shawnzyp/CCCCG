@@ -355,7 +355,19 @@ const LAUNCH_MAX_WAIT = 12000;
   if(skipButton){
     const handleSkip = event => {
       event.preventDefault();
+      let shouldRestoreWelcome = false;
+      const welcomeModal = document.getElementById('modal-welcome');
+      if (welcomeModal && !welcomeModal.classList.contains('hidden')) {
+        shouldRestoreWelcome = true;
+      }
       finalizeLaunch();
+      if (shouldRestoreWelcome) {
+        window.requestAnimationFrame(() => {
+          if (welcomeModal && welcomeModal.classList.contains('hidden')) {
+            show('modal-welcome');
+          }
+        });
+      }
     };
     skipButton.addEventListener('click', handleSkip);
   }
