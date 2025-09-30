@@ -49,8 +49,8 @@ header::before{content:none}
 }
 .actions{display:flex;gap:calc(6px * 1.15);flex-wrap:wrap}
 .dropdown{position:relative;display:flex;align-items:center;justify-self:center;grid-column:5;margin-left:0}
-.menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-10px);visibility:hidden;transition:opacity .3s ease,transform .3s ease;pointer-events:none}
-.menu.show{opacity:1;transform:translateY(0);visibility:visible;pointer-events:auto}
+.menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-10px) scale(.96);visibility:hidden;transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1);pointer-events:none;transform-origin:top right;will-change:opacity,transform}
+.menu.show{opacity:1;transform:translateY(0) scale(1);visibility:visible;pointer-events:auto}
 .menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
 .menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 .menu .btn-sm{justify-content:flex-start}
@@ -558,9 +558,14 @@ main{
   padding-right:calc(20px + env(safe-area-inset-right));
   padding-left:calc(20px + env(safe-area-inset-left));
   padding-bottom:calc(4px + env(safe-area-inset-bottom));
+  position:relative;
+}
+main.is-animating-tabs{
+  overflow:hidden;
 }
 fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:14px;box-shadow:var(--shadow);display:none;opacity:0;transform:translate3d(18px,0,0);cursor:default;pointer-events:none;will-change:opacity,transform;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent)}
-fieldset[data-tab].card.animating{display:flex!important;pointer-events:none;animation:none!important}
+fieldset[data-tab].card.animating{display:flex!important;pointer-events:none;animation:none!important;position:absolute;inset:0;margin-bottom:0;width:100%;max-width:100%;z-index:2}
+main.is-animating-tabs fieldset[data-tab].card.animating{will-change:transform,opacity}
 fieldset[data-tab="combat"].card{
   flex-direction:column;
   align-items:center;
@@ -1190,7 +1195,7 @@ progress::-moz-progress-bar{
 .small{font-size:.9rem;color:var(--muted)}
 .overlay{position:fixed;top:0;left:0;right:0;height:calc(var(--vh,1vh)*100);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(2px);z-index:1000;padding:16px calc(20px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));opacity:1;pointer-events:auto;transition:opacity .3s ease-in-out;will-change:opacity}
 .overlay.hidden{opacity:0;pointer-events:none}
-.modal{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);max-width:var(--modal-width);width:100%;padding:16px 20px;box-shadow:var(--shadow);position:relative;max-height:calc(var(--vh,1vh)*100 - 32px - env(safe-area-inset-bottom));overflow:auto;transform:scale(1);opacity:1;transition:transform .3s ease-in-out,opacity .3s ease-in-out;will-change:transform,opacity}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);max-width:var(--modal-width);width:100%;padding:16px 20px;box-shadow:var(--shadow);position:relative;max-height:calc(var(--vh,1vh)*100 - 32px - env(safe-area-inset-bottom));overflow:auto;transform:scale(1);opacity:1;transition:transform .28s cubic-bezier(.22,1,.36,1),opacity .28s cubic-bezier(.22,1,.36,1);will-change:transform,opacity;transform-origin:top center;backface-visibility:hidden}
 .modal:focus{outline:none}
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
 body.modal-open{overflow:hidden}
