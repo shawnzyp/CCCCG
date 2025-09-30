@@ -932,6 +932,12 @@ function setTab(name){
   qsa('fieldset[data-tab]').forEach(s=> {
     const active = s.getAttribute('data-tab') === name;
     s.classList.toggle('active', active);
+    s.setAttribute('aria-hidden', active ? 'false' : 'true');
+    if ('inert' in s) {
+      try {
+        s.inert = !active;
+      } catch (err) {}
+    }
   });
   qsa('.tab').forEach(b=> {
     const active = b.getAttribute('data-go')===name;
@@ -978,6 +984,8 @@ function cleanupPanelAnimation(panel){
   panel.style.removeProperty('opacity');
   panel.style.removeProperty('will-change');
   panel.style.removeProperty('z-index');
+  panel.style.removeProperty('filter');
+  panel.style.removeProperty('visibility');
 }
 
 function animateTabTransition(currentName, nextName, direction){
@@ -988,18 +996,10 @@ function animateTabTransition(currentName, nextName, direction){
   const activePanel = currentName ? qs(`fieldset[data-tab="${currentName}"]`) : null;
   if(!activePanel) return false;
 
-  if(direction !== 'left' && direction !== 'right'){
-    direction = inferTabDirection(currentName, nextName);
-    if(!direction) return false;
-  }
-
   const container = activePanel.parentElement;
   const activePanelHeight = activePanel.offsetHeight || activePanel.scrollHeight || 0;
 
   isTabAnimating = true;
-
-  const incomingOffset = direction === 'left' ? 36 : -36;
-  const outgoingOffset = -incomingOffset;
 
   let cleanupContainer = null;
 
@@ -1056,22 +1056,24 @@ function animateTabTransition(currentName, nextName, direction){
   targetPanel.classList.add('animating');
   activePanel.style.pointerEvents = 'none';
   targetPanel.style.pointerEvents = 'none';
-  activePanel.style.willChange = 'transform, opacity';
-  targetPanel.style.willChange = 'transform, opacity';
+  activePanel.style.willChange = 'opacity, filter';
+  targetPanel.style.willChange = 'opacity, filter';
   activePanel.style.zIndex = '3';
   targetPanel.style.zIndex = '4';
   prepareContainerForAnimation();
-  targetPanel.style.transform = `translate3d(${incomingOffset}px,0,0)`;
   targetPanel.style.opacity = '0';
+  targetPanel.style.filter = 'blur(18px) saturate(1.35)';
+  targetPanel.style.visibility = 'visible';
+  targetPanel.style.transform = 'scale(0.98)';
 
   const animations = [
     targetPanel.animate([
-      { transform: `translate3d(${incomingOffset}px,0,0)`, opacity: 0 },
-      { transform: 'translate3d(0,0,0)', opacity: 1 }
+      { opacity: 0, filter: 'blur(18px) saturate(1.35)', transform: 'scale(0.98)' },
+      { opacity: 1, filter: 'blur(0px) saturate(1)', transform: 'scale(1)' }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' }),
     activePanel.animate([
-      { transform: 'translate3d(0,0,0)', opacity: 1 },
-      { transform: `translate3d(${outgoingOffset}px,0,0)`, opacity: 0 }
+      { opacity: 1, filter: 'blur(0px) saturate(1)', transform: 'scale(1)' },
+      { opacity: 0, filter: 'blur(18px) saturate(1.2)', transform: 'scale(1.02)' }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' })
   ];
 

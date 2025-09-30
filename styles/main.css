@@ -563,9 +563,9 @@ main{
 main.is-animating-tabs{
   overflow:hidden;
 }
-fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:14px;box-shadow:var(--shadow);display:none;opacity:0;transform:translate3d(18px,0,0);cursor:default;pointer-events:none;will-change:opacity,transform;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent)}
-fieldset[data-tab].card.animating{display:flex!important;pointer-events:none;animation:none!important;position:absolute;inset:0;margin-bottom:0;width:100%;max-width:100%;z-index:2}
-main.is-animating-tabs fieldset[data-tab].card.animating{will-change:transform,opacity}
+fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:10px;margin-bottom:0;box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translate3d(0,0,0);cursor:default;pointer-events:none;will-change:opacity,filter;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent);position:absolute;inset:0;width:100%;max-width:100%;visibility:hidden;filter:blur(18px) saturate(1.2)}
+fieldset[data-tab].card.animating{visibility:visible;pointer-events:none;position:absolute;inset:0;margin-bottom:0;width:100%;max-width:100%;z-index:2}
+main.is-animating-tabs fieldset[data-tab].card.animating{will-change:opacity,filter}
 fieldset[data-tab="combat"].card{
   flex-direction:column;
   align-items:center;
@@ -596,8 +596,7 @@ fieldset[data-tab="combat"].card .somf-card{
   margin-right:auto;
 }
 main>:last-child{margin-bottom:0}
-fieldset[data-tab].card.active{display:flex;opacity:1;transform:translate3d(0,0,0);pointer-events:auto;animation:tab-panel-enter .45s cubic-bezier(.33,1,.68,1);animation-fill-mode:forwards}
-@keyframes tab-panel-enter{from{opacity:0;transform:translate3d(18px,0,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+fieldset[data-tab].card.active{opacity:1;transform:translate3d(0,0,0);pointer-events:auto;visibility:visible;filter:blur(0)saturate(1);position:relative;inset:auto;margin-bottom:14px}
 fieldset[data-tab].card>legend{font-size:clamp(1.1rem,3.4vw,1.5rem);font-weight:600;color:var(--accent);margin:0 0 6px;font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif}
 .card-title{font-size:clamp(1.1rem,3.4vw,1.5rem);font-weight:600;color:var(--accent);margin:0 0 10px;font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif}
 p{max-width:var(--content-width)}
