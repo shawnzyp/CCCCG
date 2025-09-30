@@ -1484,7 +1484,14 @@ select[required]:valid{
   padding:0;
   background:transparent;
   box-shadow:none;
+  filter:none;
+  transform:none;
   cursor:pointer;
+}
+.dm-login-btn:hover,
+.dm-login-btn:focus{
+  filter:none;
+  transform:none;
 }
 .dm-login-btn img{
   display:block;
@@ -1493,7 +1500,7 @@ select[required]:valid{
   height:auto;
 }
 .dm-login-logo{
-  box-shadow:var(--shadow);
+  filter:drop-shadow(0 6px 12px rgba(0,0,0,.35));
 }
 .dm-tools-menu{position:fixed;bottom:80px;left:18px;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);z-index:2000}
 .dm-tools-menu[hidden]{display:none}
