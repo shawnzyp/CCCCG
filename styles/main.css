@@ -1429,6 +1429,8 @@ select[required]:valid{
   max-width:160px;
   width:100%;
   height:auto;
+}
+.dm-login-logo{
   box-shadow:var(--shadow);
 }
 .dm-login-btn:disabled,.dm-login-btn.dm-login-btn--inactive{cursor:default;opacity:.65}
