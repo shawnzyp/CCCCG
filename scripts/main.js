@@ -98,7 +98,6 @@ const BASE_TICKER_DURATION_MS = DEVICE_INFO.isMobile ? 55000 : 30000;
 const FUN_TICKER_SPEED_MULTIPLIER = 0.65;
 const FUN_TICKER_DURATION_MS = Math.round(BASE_TICKER_DURATION_MS * FUN_TICKER_SPEED_MULTIPLIER);
 
-const SKIP_LAUNCH_STORAGE_KEY = 'cc:skip-launch';
 const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 
 const LAUNCH_MIN_VISIBLE = 1800;
@@ -106,6 +105,7 @@ const LAUNCH_MAX_WAIT = 12000;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
 let welcomeModalDismissed = false;
+let welcomeModalQueued = false;
 
 function getWelcomeModal() {
   return document.getElementById(WELCOME_MODAL_ID);
@@ -123,88 +123,28 @@ function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hide(WELCOME_MODAL_ID);
 }
+
+function queueWelcomeModal() {
+  if (welcomeModalDismissed || welcomeModalQueued) return;
+  welcomeModalQueued = true;
+  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame
+    : (cb => setTimeout(cb, 0));
+  schedule(() => {
+    welcomeModalQueued = false;
+    maybeShowWelcomeModal();
+  });
+}
 (async function setupLaunchAnimation(){
   const body = document.body;
-  if(!body || !body.classList.contains('launching')) return;
+  if(!body || !body.classList.contains('launching')){
+    queueWelcomeModal();
+    return;
+  }
 
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
-  const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-  const LAUNCH_SKIP_INPUT_LOCK_MS = 2000;
-  let launchInputLockTimer = null;
-  let launchInputLockActive = false;
-  const launchInputLockEvents = [
-    'pointerdown',
-    'pointerup',
-    'touchstart',
-    'touchend',
-    'mousedown',
-    'mouseup',
-    'click',
-    'keydown',
-    'keyup',
-    'focusin'
-  ];
-  const clearLaunchInputLockTimer = () => {
-    if(launchInputLockTimer){
-      window.clearTimeout(launchInputLockTimer);
-      launchInputLockTimer = null;
-    }
-  };
-  const deactivateLaunchInputLock = () => {
-    clearLaunchInputLockTimer();
-    if(!launchInputLockActive) return;
-    launchInputLockActive = false;
-    body.classList.remove('launch-input-locked');
-  };
-  const handleLockedInputEvent = event => {
-    if(!launchInputLockActive) return;
-    if(event.type === 'focusin' && event.target && typeof event.target.blur === 'function'){
-      try {
-        event.target.blur();
-      } catch (err) {
-        // ignore blur failures
-      }
-    }
-    if(event.cancelable){
-      event.preventDefault();
-    }
-    event.stopImmediatePropagation();
-  };
-  launchInputLockEvents.forEach(eventName => {
-    document.addEventListener(eventName, handleLockedInputEvent, true);
-  });
-  const activateLaunchInputLock = () => {
-    clearLaunchInputLockTimer();
-    if(!launchInputLockActive){
-      launchInputLockActive = true;
-      body.classList.add('launch-input-locked');
-    }
-    launchInputLockTimer = window.setTimeout(() => {
-      deactivateLaunchInputLock();
-    }, LAUNCH_SKIP_INPUT_LOCK_MS);
-  };
-  const disableSkipButton = () => {
-    if(!skipButton) return;
-    skipButton.disabled = true;
-    skipButton.setAttribute('aria-hidden', 'true');
-    skipButton.setAttribute('tabindex', '-1');
-    skipButton.style.pointerEvents = 'none';
-    skipButton.style.opacity = '0';
-  };
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const shouldSkipLaunch = (() => {
-    try {
-      if (sessionStorage.getItem(SKIP_LAUNCH_STORAGE_KEY) === '1') {
-        sessionStorage.removeItem(SKIP_LAUNCH_STORAGE_KEY);
-        return true;
-      }
-    } catch (err) {
-      // ignore storage access issues
-    }
-    return false;
-  })();
 
   let revealCalled = false;
   let playbackStartedAt = null;
@@ -251,6 +191,7 @@ function dismissWelcomeModal() {
 
   const finalizeReveal = () => {
     body.classList.remove('launching');
+    queueWelcomeModal();
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
       window.setTimeout(cleanupLaunchShell, 1000);
@@ -279,16 +220,6 @@ function dismissWelcomeModal() {
     }
     finalizeReveal();
   };
-
-  if(shouldSkipLaunch){
-    disableSkipButton();
-    activateLaunchInputLock();
-    revealApp();
-    window.requestAnimationFrame(() => {
-      maybeShowWelcomeModal();
-    });
-    return;
-  }
 
   let manifestAssetsPromise = null;
   const getManifestAssets = async () => {
@@ -363,14 +294,12 @@ function dismissWelcomeModal() {
   };
 
   if(!video || prefersReducedMotion){
-    disableSkipButton();
     revealApp();
     return;
   }
 
   const hasLaunchVideo = await ensureLaunchVideoSources(video);
   if(!hasLaunchVideo){
-    disableSkipButton();
     revealApp();
     return;
   }
@@ -423,27 +352,11 @@ function dismissWelcomeModal() {
   };
 
   const finalizeLaunch = () => {
-    disableSkipButton();
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
     notifyServiceWorkerVideoPlayed();
     revealApp();
   };
-
-  if(skipButton){
-    const handleSkip = event => {
-      event.preventDefault();
-      activateLaunchInputLock();
-      const shouldRestoreWelcome = !welcomeModalDismissed;
-      finalizeLaunch();
-      if(shouldRestoreWelcome){
-        window.requestAnimationFrame(() => {
-          maybeShowWelcomeModal();
-        });
-      }
-    };
-    skipButton.addEventListener('click', handleSkip);
-  }
 
   const scheduleFallback = delay => {
     fallbackTimer = clearTimer(fallbackTimer);
@@ -4708,7 +4621,9 @@ document.addEventListener('keydown', event => {
     }
   }
 });
-maybeShowWelcomeModal();
+if (!document.body?.classList?.contains('launching')) {
+  queueWelcomeModal();
+}
 
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
