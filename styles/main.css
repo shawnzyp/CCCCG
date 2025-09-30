@@ -1276,12 +1276,14 @@ body.modal-open [data-launch-shell]> :not(.overlay){pointer-events:none;user-sel
   gap:6px;
 }
 
-.ability-box label{
+.ability-box label,
+.ability-box .ability-label{
   margin-bottom:0;
 }
 
 /* Ensure skill names like "Sleight of Hand" fit on one line */
-#skills .ability-box label{
+#skills .ability-box label,
+#skills .ability-box .ability-label{
   font-size:0.85rem;
   white-space:nowrap;
 }
