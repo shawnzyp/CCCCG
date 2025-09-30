@@ -1555,23 +1555,29 @@ select[required]:valid{
   height:56px;
   padding:0;
   border-radius:999px;
-  border:1px solid var(--line);
-  background:var(--surface);
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(10,13,18,.92);
   color:var(--text);
-  box-shadow:var(--shadow);
+  box-shadow:0 16px 36px rgba(0,0,0,.55),0 0 0 1px rgba(59,130,246,.12) inset;
+  backdrop-filter:blur(8px);
   cursor:pointer;
   z-index:2100;
   transition:var(--transition),transform .2s ease;
 }
 .dm-tools-toggle:hover,
 .dm-tools-toggle:focus-visible{
-  background:var(--surface-2);
+  background:rgba(15,21,30,.95);
   color:var(--accent);
-  border-color:var(--accent);
+  border-color:rgba(59,130,246,.6);
+  transform:translateY(-2px);
 }
 .dm-tools-toggle:focus-visible{
   outline:2px solid var(--accent);
   outline-offset:3px;
+}
+.dm-tools-toggle:active{
+  transform:translateY(0);
+  box-shadow:0 10px 24px rgba(0,0,0,.45),0 0 0 1px rgba(59,130,246,.2) inset;
 }
 .dm-tools-toggle[hidden]{display:none}
 .dm-tools-toggle__icon{
@@ -1647,6 +1653,23 @@ select[required]:valid{
 #dm-login-modal input{width:100%;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--text)}
 .somf-toast{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
 .somf-toast strong{display:block;margin-bottom:4px}
+
+.somf-reveal-alert{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:rgba(4,6,12,.92);z-index:5000;opacity:0;pointer-events:none;transition:opacity .4s ease}
+.somf-reveal-alert[hidden]{display:none}
+.somf-reveal-alert.is-visible{opacity:1;pointer-events:auto}
+.somf-reveal-alert__card{background:var(--surface);color:var(--text);border-radius:24px;border:1px solid rgba(255,255,255,.12);box-shadow:0 32px 60px rgba(0,0,0,.6);max-width:520px;width:100%;padding:32px 28px;text-align:center;display:flex;flex-direction:column;gap:18px;transform:translateY(12px) scale(.98);transition:transform .35s ease,box-shadow .35s ease}
+.somf-reveal-alert.is-visible .somf-reveal-alert__card{transform:translateY(0) scale(1);box-shadow:0 40px 70px rgba(0,0,0,.65)}
+.somf-reveal-alert__title{margin:0;font-family:'CFTechnoMania Slanted',sans-serif;font-size:24px;letter-spacing:.08em;text-transform:uppercase}
+.somf-reveal-alert__text{margin:0;font-size:16px;line-height:1.5}
+.somf-reveal-alert__btn{align-self:center;padding:12px 28px;border-radius:999px;border:none;background:var(--accent);color:var(--text-on-accent);font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 18px 44px rgba(59,130,246,.45);transition:transform .25s ease,box-shadow .25s ease}
+.somf-reveal-alert__btn:hover{transform:translateY(-2px);box-shadow:0 22px 54px rgba(59,130,246,.55)}
+.somf-reveal-alert__btn:focus-visible{outline:2px solid var(--text-on-accent);outline-offset:4px}
+body.somf-reveal-active{overflow:hidden}
+@media (prefers-reduced-motion:reduce){
+  .somf-reveal-alert{transition:none}
+  .somf-reveal-alert__card{transition:none}
+  .somf-reveal-alert__btn{transition:none}
+}
 
 
 :root{--bg-color:#0e1117;--bg:var(--bg-color) url('../images/Dark.PNG?v=2') center/cover no-repeat fixed;--surface:#151a23;--surface-2:#0b0f16;--text:#f3f4f6;--muted:#9ca3af;--accent:#3b82f6;--accent-2:#1e40af;--line:rgba(255,255,255,.12);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#fff;--radius:12px;--control-min-height:44px;--tracker-pill-height:36px;--transition:background-color .4s ease-in-out,color .4s ease-in-out,border-color .4s ease-in-out,transform .4s ease-in-out,opacity .4s ease-in-out;--success:#16a34a;--error:#dc2626;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2316a34a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23dc2626' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E");--chevron:url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2020%2020'%20fill%3D'none'%20stroke%3D'currentColor'%20stroke-width%3D'2'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M6%208l4%204%204-4'%2F%3E%3C%2Fsvg%3E");--vh:1vh;--content-width:65ch;--modal-width:var(--content-width)}
