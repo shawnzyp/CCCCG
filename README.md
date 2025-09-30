@@ -5,9 +5,18 @@ Hosted version of the mobile-optimized character sheet for GitHub Pages.
 ## Offline support
 
 The service worker pre-caches every asset listed in `asset-manifest.json` so the
-app is fully available after a user's first visit. Run
-`npm run build:manifest` whenever static files change to refresh the manifest
-and ensure updated assets are synchronized to clients on subsequent visits.
+app is fully available after a user's first visit. Run `npm run build` to
+regenerate the compiled assets before deploying. This pipeline will:
+
+1. Normalize the gear catalog CSV exports into `data/gear-catalog.json` via
+   `npm run build:catalog`.
+2. Bundle interactive headers and animated titles with esbuild.
+3. Transcode the launch animation into lightweight WebM/MP4 assets with
+   `npm run build:media` (requires `ffmpeg` on your PATH).
+4. Refresh the precache manifest with `npm run build:manifest`.
+
+If you only need to refresh the manifest, the legacy
+`npm run build:manifest` command is still available.
 
 ## Storage
 

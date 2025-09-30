@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "build:catalog": "node tools/build-catalog.mjs",
+    "build:media": "node tools/transcode-launch-animation.mjs",
     "build:manifest": "node tools/generate-asset-manifest.mjs",
     "build:header": "esbuild src/header-title.jsx --bundle --format=esm --minify --outfile=scripts/header-title.js",
-    "build:titles": "esbuild src/animated-titles.jsx --bundle --format=esm --minify --outfile=scripts/animated-titles.js"
+    "build:titles": "esbuild src/animated-titles.jsx --bundle --format=esm --minify --outfile=scripts/animated-titles.js",
+    "build": "npm run build:catalog && npm run build:header && npm run build:titles && npm run build:media && npm run build:manifest"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",

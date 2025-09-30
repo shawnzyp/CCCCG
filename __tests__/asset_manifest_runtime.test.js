@@ -23,6 +23,7 @@ describe('asset manifest runtime coverage', () => {
       './scripts/storage.js',
       './scripts/pin.js',
       './shard-of-many-fates.js',
+      './data/gear-catalog.json',
       './CatalystCore_Master_Book.csv',
       './CatalystCore_Items_Prices.csv',
       './News.txt',
