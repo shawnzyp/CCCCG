@@ -1128,6 +1128,140 @@
     window.SOMF_MIN.prepareHiddenRefresh = reason => HiddenSync.prepareRefresh(reason || 'hidden-sync');
   }
 
+  async function runLightningFlash() {
+    const flash = dom.one('#draw-flash');
+    const lightning = dom.one('#draw-lightning');
+    if (!flash) return;
+
+    flash.classList.remove('show');
+    if (preferReducedMotion()) {
+      flash.hidden = true;
+      if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
+      return;
+    }
+
+    flash.hidden = false;
+    if (lightning) {
+      lightning.hidden = false;
+      lightning.innerHTML = '';
+      for (let i = 0; i < 3; i += 1) {
+        const bolt = document.createElement('div');
+        bolt.className = 'bolt';
+        bolt.style.left = `${10 + Math.random() * 80}%`;
+        bolt.style.top = `${Math.random() * 60}%`;
+        bolt.style.transform = `rotate(${Math.random() * 30 - 15}deg)`;
+        bolt.style.animationDelay = `${i * 0.1}s`;
+        lightning.appendChild(bolt);
+      }
+    }
+
+    await new Promise(resolve => {
+      let settled = false;
+      const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        flash.classList.remove('show');
+        flash.hidden = true;
+        if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
+        flash.removeEventListener('animationend', cleanup);
+        flash.removeEventListener('animationcancel', cleanup);
+        resolve();
+      };
+      flash.addEventListener('animationend', cleanup);
+      flash.addEventListener('animationcancel', cleanup);
+      void flash.offsetWidth;
+      flash.classList.add('show');
+      setTimeout(cleanup, 1100);
+    });
+  }
+
+  function showShardRevealAlert() {
+    const overlay = dom.one('#somf-reveal-alert');
+    const dismiss = overlay?.querySelector('[data-somf-reveal-dismiss]');
+    const card = overlay?.querySelector('.somf-reveal-alert__card');
+    if (!overlay || !dismiss) return Promise.resolve();
+
+    const previouslyFocused = document.activeElement;
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.classList.add('is-visible');
+    document.body?.classList?.add('somf-reveal-active');
+
+    const focusTarget = card || dismiss;
+    window.requestAnimationFrame(() => {
+      try { focusTarget?.focus({ preventScroll: true }); }
+      catch {
+        try { focusTarget?.focus(); } catch { /* ignore focus errors */ }
+      }
+    });
+
+    return new Promise(resolve => {
+      const cleanup = () => {
+        overlay.classList.remove('is-visible');
+        document.body?.classList?.remove('somf-reveal-active');
+
+        const finalize = () => {
+          overlay.hidden = true;
+          overlay.setAttribute('aria-hidden', 'true');
+          if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+            try { previouslyFocused.focus({ preventScroll: true }); }
+            catch { try { previouslyFocused.focus(); } catch { /* ignore */ } }
+          }
+          resolve();
+        };
+
+        if (preferReducedMotion()) {
+          finalize();
+          return;
+        }
+
+        let settled = false;
+        const onTransitionEnd = () => {
+          if (settled) return;
+          settled = true;
+          overlay.removeEventListener('transitionend', onTransitionEnd);
+          finalize();
+        };
+        overlay.addEventListener('transitionend', onTransitionEnd);
+        window.setTimeout(onTransitionEnd, 400);
+      };
+
+      const handleKey = event => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          dismiss.removeEventListener('click', handleDismiss);
+          overlay.removeEventListener('keydown', handleKey);
+          cleanup();
+        }
+      };
+
+      const handleDismiss = () => {
+        dismiss.removeEventListener('click', handleDismiss);
+        overlay.removeEventListener('keydown', handleKey);
+        cleanup();
+      };
+
+      overlay.addEventListener('keydown', handleKey);
+      dismiss.addEventListener('click', handleDismiss);
+    });
+  }
+
+  let revealSequencePromise = null;
+  function triggerShardRevealEffects() {
+    if (revealSequencePromise) return revealSequencePromise;
+    revealSequencePromise = (async () => {
+      await runLightningFlash();
+      await showShardRevealAlert();
+      try { HiddenSync.prepareRefresh('hidden-sync'); }
+      catch { /* ignore prep errors */ }
+      try { window.location.reload(); }
+      catch (err) { console.error('Failed to reload after shard reveal', err); }
+    })().finally(() => {
+      revealSequencePromise = null;
+    });
+    return revealSequencePromise;
+  }
+
   const toArray = value => {
     if (Array.isArray(value)) return value.slice();
     if (!value || typeof value !== 'object') return [];
@@ -2039,6 +2173,7 @@
       this.hiddenCleanup = null;
       this.deckCleanup = null;
       this.tempArtwork = null;
+      this.lastHiddenState = null;
     }
 
     attach() {
@@ -2280,57 +2415,18 @@
     }
 
     async playAnimation() {
-      const flash = dom.one('#draw-flash');
-      const lightning = dom.one('#draw-lightning');
-      if (!flash) return;
-
-      flash.classList.remove('show');
-      if (preferReducedMotion()) {
-        flash.hidden = true;
-        if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
-        return;
-      }
-
-      flash.hidden = false;
-      if (lightning) {
-        lightning.hidden = false;
-        lightning.innerHTML = '';
-        for (let i = 0; i < 3; i += 1) {
-          const bolt = document.createElement('div');
-          bolt.className = 'bolt';
-          bolt.style.left = `${10 + Math.random() * 80}%`;
-          bolt.style.top = `${Math.random() * 60}%`;
-          bolt.style.transform = `rotate(${Math.random() * 30 - 15}deg)`;
-          bolt.style.animationDelay = `${i * 0.1}s`;
-          lightning.appendChild(bolt);
-        }
-      }
-
-      await new Promise(resolve => {
-        let settled = false;
-        const cleanup = () => {
-          if (settled) return;
-          settled = true;
-          flash.classList.remove('show');
-          flash.hidden = true;
-          if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
-          flash.removeEventListener('animationend', cleanup);
-          flash.removeEventListener('animationcancel', cleanup);
-          resolve();
-        };
-        flash.addEventListener('animationend', cleanup);
-        flash.addEventListener('animationcancel', cleanup);
-        // restart animation
-        void flash.offsetWidth;
-        flash.classList.add('show');
-        setTimeout(cleanup, 1100);
-      });
+      await runLightningFlash();
     }
 
     applyHiddenState(hidden) {
-      if (!this.dom.card) return;
-      this.dom.card.hidden = !!hidden;
-      if (hidden) this.closeModal();
+      const normalized = !!hidden;
+      const previous = this.lastHiddenState;
+      this.lastHiddenState = normalized;
+      if (this.dom.card) this.dom.card.hidden = normalized;
+      if (normalized) this.closeModal();
+      if (previous === true && normalized === false) {
+        triggerShardRevealEffects();
+      }
     }
   }
 
@@ -2343,6 +2439,7 @@
       this.noticeCleanup = null;
       this.hiddenCleanup = null;
       this.relatedNpcs = [];
+      this.lastHiddenState = null;
     }
 
     attach() {
@@ -2457,6 +2554,7 @@
     async refreshHiddenToggle() {
       if (!this.dom.playerToggle) return;
       const hidden = await this.runtime.getHidden();
+      this.lastHiddenState = !!hidden;
       this.dom.playerToggle.checked = !hidden;
       if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
     }
@@ -2796,8 +2894,14 @@
     }
 
     applyHiddenState(hidden) {
-      if (this.dom.playerToggle) this.dom.playerToggle.checked = !hidden;
-      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+      const normalized = !!hidden;
+      const previous = this.lastHiddenState;
+      this.lastHiddenState = normalized;
+      if (this.dom.playerToggle) this.dom.playerToggle.checked = !normalized;
+      if (this.dom.playerState) this.dom.playerState.textContent = normalized ? 'Off' : 'On';
+      if (previous === true && normalized === false) {
+        triggerShardRevealEffects();
+      }
     }
 
     open(opts = {}) {
