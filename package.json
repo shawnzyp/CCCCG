@@ -5,8 +5,9 @@
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "build:manifest": "node tools/generate-asset-manifest.mjs",
-    "build:header": "esbuild src/header-title.jsx --bundle --format=esm --minify --outfile=scripts/header-title.js",
-    "build:titles": "esbuild src/animated-titles.jsx --bundle --format=esm --minify --outfile=scripts/animated-titles.js"
+    "build:client": "esbuild src/client-entry.js --bundle --format=esm --minify --outfile=scripts/client-bundle.js",
+    "build:catalog": "node tools/build-gear-catalog.mjs",
+    "build": "npm run build:client && npm run build:catalog && npm run build:manifest"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",

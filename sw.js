@@ -161,7 +161,8 @@ async function broadcast(message) {
 }
 
 async function ensureLaunchVideoReset(videoUrl) {
-  const normalizedUrl = (typeof videoUrl === 'string' && videoUrl) ? resolveAssetUrl(videoUrl) : null;
+  const isFetchableVideo = typeof videoUrl === 'string' && videoUrl && !/^blob:|^data:/i.test(videoUrl);
+  const normalizedUrl = isFetchableVideo ? resolveAssetUrl(videoUrl) : null;
   if (normalizedUrl) {
     try {
       const response = await fetch(normalizedUrl, { cache: 'reload' });

@@ -27,7 +27,7 @@ describe('gear catalog sorting', () => {
       hidden: false
     };
 
-    const { sortCatalogRows } = await import('../scripts/main.js');
+    const { sortCatalogRows } = await import('../scripts/catalog-shared.js');
 
     const rows = [
       { name: 'Gamma', tier: 'T3', type: 'Item' },

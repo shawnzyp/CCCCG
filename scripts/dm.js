@@ -281,6 +281,7 @@ function initDMLogin(){
     }
     if (dmBtn){
       dmBtn.hidden = loggedIn;
+      dmBtn.style.opacity = '1';
       if (loggedIn) {
         dmBtn.setAttribute('aria-hidden', 'true');
       } else {
