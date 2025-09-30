@@ -1234,6 +1234,8 @@ progress::-moz-progress-bar{
 body.modal-open{overflow:hidden}
 body.modal-open> :not(.overlay):not([data-launch-shell]){pointer-events:none;user-select:none}
 body.modal-open [data-launch-shell]> :not(.overlay){pointer-events:none;user-select:none}
+body.touch-controls-disabled{touch-action:none}
+body.touch-controls-disabled .app-shell{pointer-events:none}
 .modal h3{margin:0 0 4px;color:var(--accent);font-size:.9rem;line-height:1.2;font-weight:600}
 .modal .x{position:sticky;top:8px;margin-left:auto;margin-right:8px;background:transparent;border:none;color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;width:32px;height:32px;transition:var(--transition);z-index:2}
 .modal .x:hover{color:var(--accent)}
@@ -1246,6 +1248,10 @@ body.modal-open [data-launch-shell]> :not(.overlay){pointer-events:none;user-sel
 #modal-help .modal{max-height:none}
 #modal-welcome .modal{font-size:.85rem;line-height:1.4}
 #modal-welcome .actions{justify-content:center;width:100%}
+#modal-welcome .welcome-modal__title{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:baseline}
+#modal-welcome .welcome-modal__title-break{display:inline}
+#modal-welcome .welcome-modal__tab-label{text-decoration:underline;text-decoration-thickness:.08em;text-decoration-skip-ink:auto}
+@media(max-width:600px){#modal-welcome .welcome-modal__title{display:block}#modal-welcome .welcome-modal__title-break{display:block}}
 #modal-help .feature-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:90%}
 #modal-help .feature-list li{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 #modal-help .feature-list b{display:block}
