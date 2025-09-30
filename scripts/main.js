@@ -1645,7 +1645,10 @@ const statusGrid = $('statuses');
 const activeStatuses = new Set();
 if (statusGrid) {
   statusGrid.innerHTML = STATUS_EFFECTS.map(s => `
-    <div class="inline"><input type="checkbox" id="status-${s.id}"/><span>${s.name}</span></div>
+    <label class="status-option" for="status-${s.id}">
+      <input type="checkbox" id="status-${s.id}" />
+      <span>${s.name}</span>
+    </label>
   `).join('');
   STATUS_EFFECTS.forEach(s => {
     const cb = $('status-' + s.id);
