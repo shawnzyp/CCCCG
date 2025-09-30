@@ -27,9 +27,8 @@
     playsinline
     preload="auto"
     webkit-playsinline
-    src="images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4"
+    data-launch-video
   >
-    <source src="images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
     Sorry, your browser does not support the launch animation video.
   </video>
   <button type="button" class="launch-skip" data-skip-launch>Skip</button>
@@ -104,6 +103,55 @@
     };
 
     if(video){
+      const applyLaunchMediaSources = sources => {
+        if (!video || !Array.isArray(sources) || !sources.length) {
+          return;
+        }
+        const existingSources = video.querySelectorAll('source');
+        existingSources.forEach(source => {
+          if (source && source.parentNode) {
+            source.parentNode.removeChild(source);
+          }
+        });
+        const fragment = document.createDocumentFragment();
+        let firstUrl = '';
+        sources.forEach(entry => {
+          if (!entry || !entry.url) {
+            return;
+          }
+          const sourceEl = document.createElement('source');
+          sourceEl.src = entry.url;
+          if (entry.type) {
+            sourceEl.type = entry.type;
+          }
+          fragment.appendChild(sourceEl);
+          if (!firstUrl) {
+            firstUrl = entry.url;
+          }
+        });
+        video.appendChild(fragment);
+        if (firstUrl) {
+          try {
+            video.src = firstUrl;
+          } catch (err) {}
+        }
+        if (typeof video.load === 'function') {
+          try { video.load(); } catch (err) {}
+        }
+      };
+
+      if (Array.isArray(window.LAUNCH_MEDIA_SOURCES) && window.LAUNCH_MEDIA_SOURCES.length) {
+        applyLaunchMediaSources(window.LAUNCH_MEDIA_SOURCES);
+      } else {
+        const handleMediaReady = event => {
+          const detail = event && event.detail ? event.detail : window.LAUNCH_MEDIA_SOURCES;
+          applyLaunchMediaSources(detail);
+        };
+        window.addEventListener('launch-media-ready', handleMediaReady, { once: true });
+      }
+
+      window.__applyLaunchMediaSources = applyLaunchMediaSources;
+
       const ensureAttributes = () => {
         try { video.setAttribute('playsinline', ''); } catch (err) {}
         try { video.setAttribute('webkit-playsinline', ''); } catch (err) {}
@@ -1188,11 +1236,7 @@
 <div id="draw-flash" aria-hidden="true" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
-<script type="module" src="scripts/header-title.js"></script>
-<script type="module" src="scripts/animated-titles.js"></script>
-<script type="module" src="scripts/main.js"></script>
-<script type="module" src="scripts/dm.js"></script>
-<script type="module" src="scripts/somf-firebase.js"></script>
+<script type="module" src="scripts/client-bundle.js"></script>
 <script src="shard-of-many-fates.js"></script>
 
 </body>
