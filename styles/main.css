@@ -626,7 +626,31 @@ footer p{
 .grid-2-fixed{grid-template-columns:repeat(2,1fr)}
 @media(min-width:600px){.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:900px){.grid-3{grid-template-columns:repeat(3,1fr)}}
-#statuses{grid-template-columns:repeat(2,1fr);margin-top:8px}
+#statuses{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+gap:12px;
+margin-top:8px
+}
+#statuses .status-option{
+display:flex;
+align-items:center;
+gap:10px;
+padding:10px 14px;
+min-height:48px;
+background:var(--surface-2);
+border:1px solid var(--line);
+border-radius:calc(var(--radius)*0.75);
+cursor:pointer;
+transition:var(--transition)
+}
+#statuses .status-option:hover,
+#statuses .status-option:focus-within{
+border-color:var(--accent);
+box-shadow:0 0 0 1px var(--accent);
+}
+#statuses .status-option input{flex:0 0 auto}
+#statuses .status-option span{flex:1}
 .status-effects{font-size:90%}
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4vw,1rem)}
