@@ -57,8 +57,8 @@ describe('dm login', () => {
     const dmBtn = document.getElementById('dm-login');
     const menu = document.getElementById('dm-tools-menu');
     const toggle = document.getElementById('dm-tools-toggle');
-    expect(dmBtn.disabled).toBe(true);
-    expect(dmBtn.getAttribute('aria-disabled')).toBe('true');
+    expect(dmBtn.hidden).toBe(true);
+    expect(dmBtn.getAttribute('aria-hidden')).toBe('true');
     expect(toggle.hidden).toBe(false);
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(menu.hidden).toBe(true);
@@ -116,7 +116,7 @@ describe('dm login', () => {
     const dmBtn = document.getElementById('dm-login');
     const menu = document.getElementById('dm-tools-menu');
     const toggle = document.getElementById('dm-tools-toggle');
-    expect(dmBtn.disabled).toBe(true);
+    expect(dmBtn.hidden).toBe(true);
     expect(toggle.hidden).toBe(false);
     expect(menu.hidden).toBe(true);
     toggle.click();
