@@ -103,6 +103,26 @@ const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 
 const LAUNCH_MIN_VISIBLE = 1800;
 const LAUNCH_MAX_WAIT = 12000;
+
+const WELCOME_MODAL_ID = 'modal-welcome';
+let welcomeModalDismissed = false;
+
+function getWelcomeModal() {
+  return document.getElementById(WELCOME_MODAL_ID);
+}
+
+function maybeShowWelcomeModal() {
+  if (welcomeModalDismissed) return;
+  const modal = getWelcomeModal();
+  if (modal) {
+    show(WELCOME_MODAL_ID);
+  }
+}
+
+function dismissWelcomeModal() {
+  welcomeModalDismissed = true;
+  hide(WELCOME_MODAL_ID);
+}
 (async function setupLaunchAnimation(){
   const body = document.body;
   if(!body || !body.classList.contains('launching')) return;
@@ -209,6 +229,9 @@ const LAUNCH_MAX_WAIT = 12000;
   if(shouldSkipLaunch){
     disableSkipButton();
     revealApp();
+    window.requestAnimationFrame(() => {
+      maybeShowWelcomeModal();
+    });
     return;
   }
 
@@ -355,17 +378,11 @@ const LAUNCH_MAX_WAIT = 12000;
   if(skipButton){
     const handleSkip = event => {
       event.preventDefault();
-      let shouldRestoreWelcome = false;
-      const welcomeModal = document.getElementById('modal-welcome');
-      if (welcomeModal && !welcomeModal.classList.contains('hidden')) {
-        shouldRestoreWelcome = true;
-      }
+      const shouldRestoreWelcome = !welcomeModalDismissed;
       finalizeLaunch();
-      if (shouldRestoreWelcome) {
+      if(shouldRestoreWelcome){
         window.requestAnimationFrame(() => {
-          if (welcomeModal && welcomeModal.classList.contains('hidden')) {
-            show('modal-welcome');
-          }
+          maybeShowWelcomeModal();
         });
       }
     };
@@ -4597,7 +4614,7 @@ qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===
 const welcomeCreate = $('welcome-create-character');
 if (welcomeCreate) {
   welcomeCreate.addEventListener('click', () => {
-    hide('modal-welcome');
+    dismissWelcomeModal();
     const newCharBtn = $('create-character');
     if (newCharBtn) newCharBtn.click();
   });
@@ -4605,7 +4622,7 @@ if (welcomeCreate) {
 const welcomeLoad = $('welcome-load-character');
 if (welcomeLoad) {
   welcomeLoad.addEventListener('click', () => {
-    hide('modal-welcome');
+    dismissWelcomeModal();
     window.requestAnimationFrame(() => {
       openCharacterList().catch(err => console.error('Failed to open load list from welcome', err));
     });
@@ -4613,9 +4630,30 @@ if (welcomeLoad) {
 }
 const welcomeSkip = $('welcome-skip');
 if (welcomeSkip) {
-  welcomeSkip.addEventListener('click', () => { hide('modal-welcome'); });
+  welcomeSkip.addEventListener('click', () => { dismissWelcomeModal(); });
 }
-show('modal-welcome');
+const welcomeOverlay = getWelcomeModal();
+if (welcomeOverlay) {
+  welcomeOverlay.addEventListener('click', event => {
+    if (event.target === welcomeOverlay) {
+      welcomeModalDismissed = true;
+    }
+  }, { capture: true });
+  qsa('#modal-welcome [data-close]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      welcomeModalDismissed = true;
+    }, { capture: true });
+  });
+}
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    const modal = getWelcomeModal();
+    if (modal && !modal.classList.contains('hidden')) {
+      welcomeModalDismissed = true;
+    }
+  }
+});
+maybeShowWelcomeModal();
 
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
