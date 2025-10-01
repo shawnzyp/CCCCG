@@ -1105,6 +1105,33 @@ function setTab(name){
 const tabButtons = Array.from(qsa('.tab'));
 const TAB_ORDER = tabButtons.map(btn => btn.getAttribute('data-go')).filter(Boolean);
 
+const getNavigationType = () => {
+  if (typeof performance === 'undefined') return null;
+  if (typeof performance.getEntriesByType === 'function') {
+    const entries = performance.getEntriesByType('navigation');
+    if (entries && entries.length) {
+      const entry = entries[0];
+      if (entry && typeof entry.type === 'string') return entry.type;
+    }
+  }
+  const legacyNavigation = performance.navigation;
+  if (legacyNavigation) {
+    switch (legacyNavigation.type) {
+      case legacyNavigation.TYPE_RELOAD:
+        return 'reload';
+      case legacyNavigation.TYPE_BACK_FORWARD:
+        return 'back_forward';
+      case legacyNavigation.TYPE_NAVIGATE:
+        return 'navigate';
+      case legacyNavigation.TYPE_RESERVED:
+        return 'reserved';
+      default:
+        return null;
+    }
+  }
+  return null;
+};
+
 const TAB_ANIMATION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
 const TAB_ANIMATION_DURATION = 360;
 const TAB_CONTAINER_CLASS = 'is-animating-tabs';
@@ -1286,11 +1313,31 @@ tabButtons.forEach(btn => btn.addEventListener('click', () => {
   const target = btn.getAttribute('data-go');
   if(target) switchTab(target);
 }));
+const navigationType = getNavigationType();
+const shouldForceCombatTab = navigationType === 'navigate' || navigationType === 'reload' || navigationType === null;
+
+const scrollToTopOfCombat = () => {
+  if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') return;
+  const scroll = () => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    } catch (err) {
+      window.scrollTo(0, 0);
+    }
+  };
+  if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(scroll);
+  else scroll();
+};
+
 let initialTab = 'combat';
-try {
-  const storedTab = localStorage.getItem('active-tab');
-  if (storedTab && qs(`.tab[data-go="${storedTab}"]`)) initialTab = storedTab;
-} catch (e) {}
+if (!shouldForceCombatTab) {
+  try {
+    const storedTab = localStorage.getItem('active-tab');
+    if (storedTab && qs(`.tab[data-go="${storedTab}"]`)) initialTab = storedTab;
+  } catch (e) {}
+} else {
+  scrollToTopOfCombat();
+}
 setTab(initialTab);
 
 function getAdjacentTab(offset){
