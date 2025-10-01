@@ -62,7 +62,10 @@ header::before{content:none}
 }
 .icon,.tab{padding:calc(2px * 1.15);height:calc(23px * 1.15);min-height:calc(27px * 1.15);border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--accent);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;transition:var(--transition);cursor:pointer;touch-action:manipulation}
 .icon{width:calc(23px * 1.15 * 1.8)}
-.tab{width:calc(23px * 1.15 * 1.8)}
+.tab{
+  min-width:calc(23px * 1.15 * 1.8);
+  flex:1 1 calc(23px * 1.15 * 1.8);
+}
 .icon svg,.tab svg{width:calc(23px * 1.15);height:calc(23px * 1.15)}
 .modal .x svg{width:20px;height:20px}
 .icon svg{transition:transform .3s ease}
@@ -91,7 +94,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .tabs{
   display:flex;
   justify-content:center;
-  align-items:center;
+  align-items:stretch;
   gap:calc(4px * 1.15);
   flex-wrap:wrap;
   width:100%;
