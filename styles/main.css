@@ -51,7 +51,7 @@ header::before{content:none}
 }
 .actions{display:flex;gap:calc(6px * 1.15);flex-wrap:wrap}
 .actions.actions--center{justify-content:center}
-.dropdown{position:relative;display:flex;align-items:center;justify-self:center;grid-column:5;margin-left:0}
+.dropdown{position:relative;display:flex;align-items:center;justify-content:flex-end;margin-left:auto;flex:0 0 auto}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-10px) scale(.96);visibility:hidden;transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1);pointer-events:none;transform-origin:top right;will-change:opacity,transform}
 .menu.show{opacity:1;transform:translateY(0) scale(1);visibility:visible;pointer-events:auto}
 .menu button{background:transparent;color:var(--text);border:none;padding:8px 12px;text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
@@ -78,14 +78,15 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 [data-tip]:hover::after,[data-tip]:focus::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--surface-2);color:var(--text);padding:4px 8px;border-radius:var(--radius);box-shadow:var(--shadow);white-space:nowrap;font-size:.75rem;z-index:1500}
 .breadcrumb,.breadcrumbs{display:none}
 .top{
-  display:grid;
-  grid-template-columns:repeat(5,1fr);
+  display:flex;
   align-items:center;
+  justify-content:space-between;
   gap:calc(6px * 1.15);
   position:relative;
   width:100%;
   max-width:var(--shell-width);
   margin-inline:auto;
+  flex-wrap:wrap;
 }
 .tabs{
   display:flex;
@@ -109,10 +110,38 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   align-items:center;
   justify-content:center;
   gap:8px;
-  grid-column:1/5;
-  position:static;
-  transform:none;
   font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+  flex:1 1 auto;
+  min-width:0;
+}
+
+.logo-button{
+  background:transparent;
+  border:none;
+  padding:0;
+  width:43px;
+  height:43px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  border-radius:50%;
+  flex:0 0 43px;
+}
+
+.logo-button:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+.logo-button .logo{
+  height:100%;
+  width:100%;
+  object-fit:contain;
+}
+
+.theme-light .logo-button .logo{
+  filter:invert(1);
 }
 
 .header-title-react-root{
@@ -183,15 +212,6 @@ label[data-animate-title]{
 
 .tabs .tab{justify-self:center}
 
-.tabs-title .logo{
-  height:43px;
-  width:43px;
-  object-fit:contain;
-  cursor:pointer;
-}
-.theme-light .tabs-title .logo{
-  filter:invert(1);
-}
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 .news-ticker{
   --pennant-width:clamp(100px,20vw,150px);
