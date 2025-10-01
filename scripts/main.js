@@ -145,7 +145,33 @@ function maybeShowWelcomeModal() {
     unlockTouchControls();
     return;
   }
+  const wasHidden = modal.classList.contains('hidden');
   show(WELCOME_MODAL_ID);
+
+  if (!wasHidden) {
+    if (!document.body?.classList?.contains('launching')) {
+      unlockTouchControls();
+    }
+    return;
+  }
+
+  const body = document.body;
+  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+    ? window.requestAnimationFrame.bind(window)
+    : (cb => setTimeout(cb, 0));
+
+  if (body && body.classList.contains('launching')) {
+    const waitForLaunchEnd = () => {
+      if (!body.classList.contains('launching')) {
+        unlockTouchControls();
+        return;
+      }
+      schedule(waitForLaunchEnd);
+    };
+    schedule(waitForLaunchEnd);
+    return;
+  }
+
   unlockTouchControls();
 }
 
@@ -233,7 +259,6 @@ function queueWelcomeModal({ immediate = false } = {}) {
 
   const finalizeReveal = () => {
     body.classList.remove('launching');
-    queueWelcomeModal({ immediate: true });
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
       window.setTimeout(cleanupLaunchShell, 1000);
@@ -245,6 +270,7 @@ function queueWelcomeModal({ immediate = false } = {}) {
     revealCalled = true;
     detachMessaging();
     cleanupUserGestures();
+    queueWelcomeModal({ immediate: true });
     if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
       try {
         delete window.__resetLaunchVideo;
