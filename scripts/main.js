@@ -15,7 +15,14 @@ import {
   saveAutoBackup,
 } from './characters.js';
 import { show, hide } from './modal.js';
-import { cacheCloudSaves, subscribeCloudSaves } from './storage.js';
+import {
+  cacheCloudSaves,
+  subscribeCloudSaves,
+  appendCampaignLogEntry,
+  deleteCampaignLogEntry,
+  fetchCampaignLogEntries,
+  subscribeCampaignLog,
+} from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
   buildPriceIndex,
@@ -2421,8 +2428,16 @@ function safeParse(key){
   }
 }
 const actionLog = safeParse('action-log');
-const campaignLog = safeParse('campaign-log');
 const fmt = (ts)=>new Date(ts).toLocaleTimeString();
+const FALLBACK_ACTOR_NAME = 'A Mysterious Force';
+const CAMPAIGN_LOG_LOCAL_KEY = 'campaign-log';
+const CAMPAIGN_LOG_VISIBLE_LIMIT = 100;
+let campaignLogEntries = normalizeCampaignLogEntries(safeParse(CAMPAIGN_LOG_LOCAL_KEY));
+let campaignBacklogEntries = [];
+let lastLocalCampaignTimestamp = campaignLogEntries.length
+  ? campaignLogEntries[campaignLogEntries.length - 1].t
+  : 0;
+
 function pushLog(arr, entry, key){ arr.push(entry); if (arr.length>30) arr.splice(0, arr.length-30); localStorage.setItem(key, JSON.stringify(arr)); }
 function renderLogs(){
   $('log-action').innerHTML = actionLog.slice(-10).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
@@ -2441,6 +2456,145 @@ function logAction(text){
   renderFullLogs();
 }
 window.logAction = logAction;
+
+function resolveActorName(name = currentCharacter()){
+  if(typeof name === 'string'){
+    const trimmed = name.trim();
+    if(trimmed) return trimmed;
+  }
+  return FALLBACK_ACTOR_NAME;
+}
+
+function nextLocalCampaignTimestamp(){
+  const now = Date.now();
+  if(now <= lastLocalCampaignTimestamp){
+    lastLocalCampaignTimestamp += 1;
+  }else{
+    lastLocalCampaignTimestamp = now;
+  }
+  return lastLocalCampaignTimestamp;
+}
+
+function normalizeCampaignLogEntry(entry, idx = 0){
+  if(!entry || typeof entry !== 'object') return null;
+  let t = Number(entry.t);
+  if(!Number.isFinite(t) || t <= 0){
+    t = Date.now() + idx;
+  }
+  const id = typeof entry.id === 'string' && entry.id
+    ? entry.id
+    : `${t}-${idx}`;
+  const name = typeof entry.name === 'string' && entry.name.trim()
+    ? entry.name.trim()
+    : FALLBACK_ACTOR_NAME;
+  const text = typeof entry.text === 'string' ? entry.text : '';
+  return { id, t, name, text };
+}
+
+function normalizeCampaignLogEntries(entries){
+  if(!Array.isArray(entries)) return [];
+  return entries
+    .map((entry, idx) => normalizeCampaignLogEntry(entry, idx))
+    .filter(Boolean)
+    .sort((a,b)=>a.t-b.t);
+}
+
+function persistCampaignLog(){
+  try{
+    localStorage.setItem(CAMPAIGN_LOG_LOCAL_KEY, JSON.stringify(campaignLogEntries));
+  }catch(e){
+    console.error('Failed to persist campaign log', e);
+  }
+}
+
+function renderCampaignCollection(entries, targetId, emptyMessage){
+  const container = $(targetId);
+  if(!container) return;
+  if(!entries.length){
+    container.innerHTML = emptyMessage ? `<div class="catalog-item"><div>${emptyMessage}</div></div>` : '';
+    return;
+  }
+  container.innerHTML = entries
+    .slice()
+    .reverse()
+    .map(entry=>`<div class="catalog-item" data-entry-id="${entry.id}"><div>${fmt(entry.t)} ${entry.name}</div><div>${entry.text}</div><div><button class="btn-sm" data-entry-id="${entry.id}" aria-label="Delete entry"></button></div></div>`)
+    .join('');
+  applyDeleteIcons(container);
+}
+
+function updateBacklogButtonState(){
+  const btn = $('campaign-view-backlog');
+  if(!btn) return;
+  const hasBacklog = campaignBacklogEntries.length > 0;
+  btn.disabled = !hasBacklog;
+  btn.setAttribute('aria-disabled', String(!hasBacklog));
+  btn.textContent = hasBacklog
+    ? `View Backlog (${campaignBacklogEntries.length})`
+    : 'View Backlog';
+}
+
+function updateCampaignLogViews(){
+  const sorted = campaignLogEntries.slice().sort((a,b)=>a.t-b.t);
+  const visible = sorted.slice(-CAMPAIGN_LOG_VISIBLE_LIMIT);
+  campaignBacklogEntries = sorted.slice(0, -CAMPAIGN_LOG_VISIBLE_LIMIT);
+  renderCampaignCollection(visible, 'campaign-log', 'No campaign log entries yet.');
+  renderCampaignCollection(campaignBacklogEntries, 'campaign-backlog', 'No backlog entries yet.');
+  updateBacklogButtonState();
+}
+
+function mergeCampaignEntry(entry){
+  const normalized = normalizeCampaignLogEntry(entry);
+  if(!normalized) return;
+  const existingIdx = campaignLogEntries.findIndex(e => e.id === normalized.id);
+  if(existingIdx >= 0){
+    campaignLogEntries[existingIdx] = normalized;
+  }else{
+    campaignLogEntries.push(normalized);
+  }
+  campaignLogEntries.sort((a,b)=>a.t-b.t);
+  if(normalized.t > lastLocalCampaignTimestamp){
+    lastLocalCampaignTimestamp = normalized.t;
+  }
+  persistCampaignLog();
+  updateCampaignLogViews();
+}
+
+function setCampaignEntries(entries){
+  campaignLogEntries = normalizeCampaignLogEntries(entries);
+  if(campaignLogEntries.length){
+    lastLocalCampaignTimestamp = campaignLogEntries[campaignLogEntries.length - 1].t;
+  }
+  persistCampaignLog();
+  updateCampaignLogViews();
+}
+
+function removeCampaignEntry(id){
+  const idx = campaignLogEntries.findIndex(e => e.id === id);
+  if(idx === -1) return null;
+  const [removed] = campaignLogEntries.splice(idx, 1);
+  persistCampaignLog();
+  updateCampaignLogViews();
+  return removed;
+}
+
+async function refreshCampaignLogFromCloud(){
+  try{
+    const remote = await fetchCampaignLogEntries();
+    setCampaignEntries(remote);
+  }catch(e){
+    if(e && e.message !== 'fetch not supported'){
+      console.error('Failed to refresh campaign log', e);
+    }
+  }
+}
+
+function createCampaignEntry(text){
+  const timestamp = nextLocalCampaignTimestamp();
+  const id = `${timestamp.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  return { id, t: timestamp, name: resolveActorName(), text };
+}
+
+updateCampaignLogViews();
 const CONTENT_UPDATE_EVENT = 'cc:content-updated';
 const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 let serviceWorkerUpdateHandled = false;
@@ -2805,40 +2959,65 @@ $('roll-death-save')?.addEventListener('click', ()=>{
   }
   checkDeathProgress();
 });
+async function handleCampaignLogDelete(e){
+  const btn = e.target.closest('button[data-entry-id]');
+  if(!btn) return;
+  const id = btn.dataset.entryId;
+  if(!id) return;
+  if(!confirm('Delete this entry?')) return;
+  const removed = removeCampaignEntry(id);
+  if(!removed) return;
+  try{
+    await deleteCampaignLogEntry(id);
+    pushHistory();
+  }catch(err){
+    console.error('Failed to delete campaign log entry', err);
+    mergeCampaignEntry(removed);
+    try{ toast(err?.message || 'Failed to delete campaign log entry', 'error'); }catch{}
+  }
+}
+
 const btnCampaignAdd = $('campaign-add');
 if (btnCampaignAdd) {
-  btnCampaignAdd.addEventListener('click', ()=>{
-    const text = $('campaign-entry').value.trim();
+  btnCampaignAdd.addEventListener('click', async ()=>{
+    const field = $('campaign-entry');
+    const text = field ? field.value.trim() : '';
     if(!text) return;
-    const name = currentCharacter();
-    pushLog(campaignLog, {t:Date.now(), name, text}, 'campaign-log');
-    logAction(`${name}: ${text}`);
-    $('campaign-entry').value='';
-    renderCampaignLog();
+    const entry = createCampaignEntry(text);
+    mergeCampaignEntry(entry);
+    logAction(`${entry.name}: ${text}`);
+    if(field) field.value='';
     pushHistory();
+    try{
+      const saved = await appendCampaignLogEntry(entry);
+      mergeCampaignEntry(saved);
+    }catch(err){
+      console.error('Failed to sync campaign log entry', err);
+      try{ toast('Failed to sync campaign log entry', 'error'); }catch{}
+    }
   });
 }
-  function renderCampaignLog(){
-    $('campaign-log').innerHTML = campaignLog
-      .slice()
-      .reverse()
-      .map((e,i)=>`<div class="catalog-item"><div>${fmt(e.t)}${e.name ? ' ' + e.name : ''}</div><div>${e.text}</div><div><button class="btn-sm" data-del="${i}"></button></div></div>`)
-      .join('');
-    applyDeleteIcons($('campaign-log'));
-  }
-  renderCampaignLog();
-$('campaign-log').addEventListener('click', e=>{
-  const btn = e.target.closest('button[data-del]');
-  if(!btn) return;
-  const idx = Number(btn.dataset.del);
-  if(!Number.isFinite(idx)) return;
-  if(confirm('Delete this entry?')){
-    campaignLog.splice(campaignLog.length-1-idx,1);
-    localStorage.setItem('campaign-log', JSON.stringify(campaignLog));
-    renderCampaignLog();
-    pushHistory();
-  }
-});
+
+const campaignLogContainer = $('campaign-log');
+if(campaignLogContainer){
+  campaignLogContainer.addEventListener('click', handleCampaignLogDelete);
+}
+
+const campaignBacklogContainer = $('campaign-backlog');
+if(campaignBacklogContainer){
+  campaignBacklogContainer.addEventListener('click', handleCampaignLogDelete);
+}
+
+const btnCampaignBacklog = $('campaign-view-backlog');
+if(btnCampaignBacklog){
+  btnCampaignBacklog.addEventListener('click', ()=>{
+    updateCampaignLogViews();
+    show('modal-campaign-backlog');
+  });
+}
+
+subscribeCampaignLog(refreshCampaignLogFromCloud);
+refreshCampaignLogFromCloud();
 const btnLog = $('btn-log');
 if (btnLog) {
   btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
@@ -2849,7 +3028,7 @@ if (btnLogFull) {
 }
 const btnCampaign = $('btn-campaign');
 if (btnCampaign) {
-  btnCampaign.addEventListener('click', ()=>{ renderCampaignLog(); show('modal-campaign'); });
+  btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
 }
 const btnHelp = $('btn-help');
 if (btnHelp) {
@@ -4419,7 +4598,7 @@ function serialize(){
     const el = $('skill-' + i + '-prof');
     return el && el.checked ? i : null;
   }).filter(i => i !== null);
-  data.campaignLog = campaignLog;
+  data.campaignLog = campaignLogEntries;
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
@@ -4461,9 +4640,15 @@ function deserialize(data){
   (data && data.weapons ? data.weapons : []).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
   (data && data.armor ? data.armor : []).forEach(a=> $('armors').appendChild(createCard('armor', a)));
   (data && data.items ? data.items : []).forEach(i=> $('items').appendChild(createCard('item', i)));
-  campaignLog.length=0; (data && data.campaignLog ? data.campaignLog : []).forEach(e=>campaignLog.push(e));
-  localStorage.setItem('campaign-log', JSON.stringify(campaignLog));
-  renderCampaignLog();
+  const restoredCampaignLog = Array.isArray(data?.campaignLog) ? data.campaignLog : [];
+  campaignLogEntries = normalizeCampaignLogEntries(restoredCampaignLog);
+  if(campaignLogEntries.length){
+    lastLocalCampaignTimestamp = campaignLogEntries[campaignLogEntries.length - 1].t;
+  }else{
+    lastLocalCampaignTimestamp = 0;
+  }
+  persistCampaignLog();
+  updateCampaignLogViews();
   const xpModeEl = $('xp-mode');
   if (xpModeEl) xpModeEl.value = 'add';
   if (elXP) {
@@ -4559,7 +4744,13 @@ if(typeof window !== 'undefined'){
 }
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
-  const oldChar = currentCharacter();
+  let oldChar = currentCharacter();
+  if(!oldChar){
+    try{
+      const stored = localStorage.getItem('last-save');
+      if(stored && stored.trim()) oldChar = stored.trim();
+    }catch{}
+  }
   const vig = $('superhero')?.value.trim();
   const real = $('secret')?.value.trim();
   let target = oldChar;

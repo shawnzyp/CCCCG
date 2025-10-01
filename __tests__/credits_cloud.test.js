@@ -41,7 +41,14 @@ describe('credits autosave to cloud', () => {
 
     jest.unstable_mockModule('../scripts/modal.js', () => ({ show: jest.fn(), hide: jest.fn() }));
 
-    jest.unstable_mockModule('../scripts/storage.js', () => ({ cacheCloudSaves: () => {}, subscribeCloudSaves: () => {} }));
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      cacheCloudSaves: () => {},
+      subscribeCloudSaves: () => {},
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+    }));
 
     global.toast = jest.fn();
     global.confirm = jest.fn(() => true);

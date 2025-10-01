@@ -38,6 +38,10 @@ describe('dm login', () => {
       listCloudAutosaveNames: jest.fn(async () => []),
       loadCloudAutosave: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
@@ -101,6 +105,10 @@ describe('dm login', () => {
       listCloudAutosaveNames: jest.fn(async () => []),
       loadCloudAutosave: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
@@ -147,6 +155,10 @@ describe('dm login', () => {
       listCloudAutosaveNames: jest.fn(async () => []),
       loadCloudAutosave: jest.fn(async () => ({})),
       deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
     }));
 
     await import('../scripts/dm.js');
@@ -171,12 +183,12 @@ describe('dm login', () => {
     const { currentCharacter } = await import('../scripts/characters.js');
     await import('../scripts/dm.js');
 
-    expect(currentCharacter()).toBe('The DM');
+    expect(currentCharacter()).toBeNull();
 
     document.getElementById('dm-tools-logout').click();
 
     expect(sessionStorage.getItem('dmLoggedIn')).toBeNull();
-    expect(currentCharacter()).toBe('The DM');
+    expect(currentCharacter()).toBeNull();
     expect(localStorage.getItem('last-save')).toBe('The DM');
   });
 });

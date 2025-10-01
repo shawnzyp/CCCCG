@@ -45,6 +45,7 @@ function setupDom() {
 }
 
 describe('campaign log includes character name', () => {
+  let characters;
   beforeEach(async () => {
     jest.resetModules();
     localStorage.clear();
@@ -56,8 +57,8 @@ describe('campaign log includes character name', () => {
       json: async () => null,
     });
     window.confirm = jest.fn(() => true);
-    localStorage.setItem('last-save', 'Alice');
     await import('../scripts/main.js');
+    characters = await import('../scripts/characters.js');
     document.dispatchEvent(new Event('DOMContentLoaded'));
   });
 
@@ -66,12 +67,21 @@ describe('campaign log includes character name', () => {
     delete window.confirm;
   });
 
-  test('records current character name', () => {
+  test('defaults to mysterious force when no character loaded', () => {
     const entry = document.getElementById('campaign-entry');
     entry.value = 'Test note';
     document.getElementById('campaign-add').click();
     const stored = JSON.parse(localStorage.getItem('campaign-log'));
-    expect(stored[0].name).toBe('Alice');
+    expect(stored[stored.length - 1].name).toBe('A Mysterious Force');
+  });
+
+  test('records active character name once loaded', () => {
+    characters.setCurrentCharacter('Alice');
+    const entry = document.getElementById('campaign-entry');
+    entry.value = 'Hero note';
+    document.getElementById('campaign-add').click();
+    const stored = JSON.parse(localStorage.getItem('campaign-log'));
+    expect(stored[stored.length - 1].name).toBe('Alice');
   });
 });
 
