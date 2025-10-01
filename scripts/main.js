@@ -1071,9 +1071,9 @@ if (btnMenu && menuActions) {
 
 /* ========= header ========= */
 const headerEl = qs('header');
-const logoEl = qs('.logo');
-if (logoEl) {
-  logoEl.addEventListener('click', e => {
+const themeToggleEl = qs('[data-theme-toggle]');
+if (themeToggleEl) {
+  themeToggleEl.addEventListener('click', e => {
     e.stopPropagation();
     toggleTheme();
   });
