@@ -2605,8 +2605,10 @@
       this.noticeCleanup = null;
       this.hiddenCleanup = null;
       this.hiddenSignalCleanup = null;
+      this.modeCleanup = null;
       this.relatedNpcs = [];
       this.lastHiddenState = null;
+      this.realtimeReady = this.runtime.hasRealtime();
     }
 
     attach() {
@@ -2615,16 +2617,11 @@
       this.captureDom();
       this.bindEvents();
       this.renderStaticLists();
+      this.setupWatchers();
       this.refresh();
-      this.noticeCleanup = this.runtime.watchNotices({
-        onAdd: notice => this.toastNotice(notice),
-        onChange: () => this.refresh(),
-      });
-      this.hiddenCleanup = this.runtime.watchHidden(value => {
-        if (typeof value === 'boolean') this.applyHiddenState(value);
-      });
-      if (this.hiddenSignalCleanup) this.hiddenSignalCleanup();
-      this.hiddenSignalCleanup = this.runtime.onHiddenSignal(detail => this.handleHiddenSignal(detail));
+      this.updateRealtimeState();
+      if (this.modeCleanup) this.modeCleanup();
+      this.modeCleanup = this.runtime.onModeChange(() => this.handleModeChange());
     }
 
     captureDom() {
@@ -2653,6 +2650,86 @@
         npcModal: dom.one('#somfDM-npcModal'),
         npcModalCard: dom.one('#somfDM-npcModalCard'),
       };
+    }
+
+    setupWatchers() {
+      if (this.noticeCleanup) this.noticeCleanup();
+      this.noticeCleanup = this.runtime.watchNotices({
+        onAdd: notice => this.toastNotice(notice),
+        onChange: () => this.refresh(),
+      });
+      if (this.hiddenCleanup) this.hiddenCleanup();
+      this.hiddenCleanup = this.runtime.watchHidden(value => {
+        if (typeof value === 'boolean') this.applyHiddenState(value);
+      });
+      if (this.hiddenSignalCleanup) this.hiddenSignalCleanup();
+      this.hiddenSignalCleanup = this.runtime.onHiddenSignal(detail => this.handleHiddenSignal(detail));
+    }
+
+    handleModeChange() {
+      const hasRealtime = this.runtime.hasRealtime();
+      if (!this.initialized) {
+        this.realtimeReady = hasRealtime;
+        return;
+      }
+      const previous = this.realtimeReady;
+      if (previous !== hasRealtime) {
+        this.realtimeReady = hasRealtime;
+        this.setupWatchers();
+        Promise.resolve(this.refresh()).catch(err => console.error('Failed to refresh DM view after mode change', err));
+      }
+      this.updateRealtimeState();
+      if (previous !== hasRealtime && previous != null) {
+        const message = hasRealtime
+          ? '<strong>Cloud Sync Restored</strong> The shard deck is now live.'
+          : '<strong>Cloud Sync Lost</strong> Changes are paused until connection returns.';
+        this.toast(message);
+      }
+    }
+
+    updateRealtimeState() {
+      const hasRealtime = this.runtime.hasRealtime();
+      if (this.dom.playerToggle) {
+        this.dom.playerToggle.disabled = !hasRealtime;
+        this.dom.playerToggle.setAttribute('aria-disabled', hasRealtime ? 'false' : 'true');
+      }
+      if (this.dom.reset) {
+        this.dom.reset.disabled = !hasRealtime;
+      }
+      this.updateNoticeActions();
+    }
+
+    updateNoticeActions() {
+      const hasRealtime = this.runtime.hasRealtime();
+      if (this.dom.markResolved) {
+        const canResolve = !!this.activeNotice && hasRealtime;
+        this.dom.markResolved.disabled = !canResolve;
+      }
+      if (this.dom.spawnNPC) {
+        const canSpawn = this.relatedNpcs.length > 0 && hasRealtime;
+        this.dom.spawnNPC.disabled = !canSpawn;
+      }
+    }
+
+    ensureRealtime(action, fallback) {
+      if (this.runtime.hasRealtime()) return true;
+      const message = action
+        ? `<strong>Cloud Sync Offline</strong> ${action}`
+        : '<strong>Cloud Sync Offline</strong> Connect to manage the Shards of Many Fates.';
+      this.toast(message);
+      if (typeof fallback === 'function') {
+        try { fallback(); }
+        catch (err) { console.error(err); }
+      }
+      this.updateRealtimeState();
+      return false;
+    }
+
+    restoreHiddenToggle() {
+      if (!this.dom.playerToggle) return;
+      const hidden = typeof this.lastHiddenState === 'boolean' ? this.lastHiddenState : true;
+      this.dom.playerToggle.checked = !hidden;
+      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
     }
 
     bindEvents() {
@@ -2823,11 +2900,8 @@
       this.relatedNpcs = [];
       if (!this.activeNotice) {
         if (this.dom.noticeView) this.dom.noticeView.innerHTML = '';
-        if (this.dom.markResolved) this.dom.markResolved.disabled = true;
-        if (this.dom.spawnNPC) {
-          this.dom.spawnNPC.disabled = true;
-          this.dom.spawnNPC.textContent = 'Spawn Related NPC';
-        }
+        if (this.dom.spawnNPC) this.dom.spawnNPC.textContent = 'Spawn Related NPC';
+        this.updateNoticeActions();
         return;
       }
       if (this.dom.incoming) {
@@ -2839,20 +2913,22 @@
         const list = this.activeNotice.names.map(name => `<li>${name}</li>`).join('');
         this.dom.noticeView.innerHTML = `<div><strong>Batch</strong> • ${new Date(this.activeNotice.ts || Date.now()).toLocaleString()}</div><ul style="margin:6px 0 0 18px;padding:0">${list}</ul>`;
       }
-      if (this.dom.markResolved) this.dom.markResolved.disabled = false;
       const related = this.runtime.catalog.relatedNpcs(this.activeNotice.ids);
       this.relatedNpcs = related;
       if (this.dom.spawnNPC) {
         const count = related.length;
-        this.dom.spawnNPC.disabled = count === 0;
         this.dom.spawnNPC.textContent = count > 1
           ? `Spawn Related NPC (${count})`
           : 'Spawn Related NPC';
       }
+      this.updateNoticeActions();
     }
 
     async resolveActiveNotice() {
       if (!this.activeNotice) return;
+      if (!this.ensureRealtime('Reconnect to resolve shards before notifying players.')) {
+        return;
+      }
       const ids = toStringList(this.activeNotice.ids);
       await this.runtime.pushResolutionBatch(ids);
       await this.runtime.removeNotice(this.activeNotice.key);
@@ -2862,6 +2938,9 @@
 
     handleSpawnNpc() {
       if (!this.relatedNpcs.length) return;
+      if (!this.ensureRealtime('Reconnect before spawning related NPCs.')) {
+        return;
+      }
       this.showNpcModal(this.relatedNpcs[0], this.relatedNpcs);
     }
 
@@ -3063,11 +3142,17 @@
     async onToggleHidden() {
       if (!this.dom.playerToggle) return;
       const hidden = !this.dom.playerToggle.checked;
+      if (!this.ensureRealtime(hidden ? 'Connect before concealing the Shards.' : 'Connect before revealing the Shards.', () => this.restoreHiddenToggle())) {
+        return;
+      }
       await this.runtime.setHidden(hidden);
       if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
     }
 
     async resetDeck() {
+      if (!this.ensureRealtime('Connect to the deck before resetting.')) {
+        return;
+      }
       await this.runtime.resetDeck();
       this.toast('<strong>Deck Reset</strong> Shards reshuffled');
       await this.refresh();
