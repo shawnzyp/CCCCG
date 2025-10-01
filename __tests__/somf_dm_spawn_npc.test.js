@@ -49,7 +49,7 @@ const overlayTemplate = () => `
   <audio id="somfDM-ping"></audio>
 `;
 
-test('DM spawn NPC button reveals shard-linked allies', async () => {
+test('DM spawn NPC button stays disabled without realtime sync', async () => {
   delete window._somf_db;
   const notice = [{
     key: 'test',
@@ -66,15 +66,12 @@ test('DM spawn NPC button reveals shard-linked allies', async () => {
   await new Promise(r => setTimeout(r, 0));
 
   const spawnBtn = document.getElementById('somfDM-spawnNPC');
-  expect(spawnBtn.disabled).toBe(false);
+  expect(spawnBtn.disabled).toBe(true);
   expect(spawnBtn.textContent).toContain('NPC');
 
   spawnBtn.click();
 
   const modal = document.getElementById('somfDM-npcModal');
-  expect(modal.classList.contains('hidden')).toBe(false);
-  expect(modal.getAttribute('aria-hidden')).toBe('false');
-
-  const card = document.getElementById('somfDM-npcModalCard');
-  expect(card.textContent).toContain('Knight-Commander Aerin Valis');
+  expect(modal.classList.contains('hidden')).toBe(true);
+  expect(modal.getAttribute('aria-hidden')).toBe('true');
 });

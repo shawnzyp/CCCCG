@@ -55,7 +55,7 @@ test('DM enabling shards pushes state to active browsers', async () => {
   expect(playerCard.hidden).toBe(false);
 });
 
-test('DM toggle reveals shards without realtime database', async () => {
+test('DM toggle does not reveal shards without realtime database', async () => {
   delete window._somf_db;
   localStorage.clear();
 
@@ -76,10 +76,18 @@ test('DM toggle reveals shards without realtime database', async () => {
   expect(playerCard.hidden).toBe(true);
 
   const toggle = document.getElementById('somfDM-playerCard');
+  expect(toggle.disabled).toBe(true);
+
   toggle.checked = true;
   toggle.dispatchEvent(new Event('change'));
   await new Promise(r => setTimeout(r, 0));
 
-  expect(playerCard.hidden).toBe(false);
+  // Offline toggles should not change visibility and should restore the switch state
+  expect(playerCard.hidden).toBe(true);
+  expect(toggle.checked).toBe(false);
+
+  const toasts = document.getElementById('somfDM-toasts');
+  expect(toasts.children.length).toBeGreaterThan(0);
+  expect(toasts.textContent).toMatch(/Cloud Sync Offline/i);
 });
 
