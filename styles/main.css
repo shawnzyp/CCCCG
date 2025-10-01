@@ -97,10 +97,8 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 
 @media(max-width:600px){
   .top{
-    grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      "logo menu"
-      "title title";
+    grid-template-columns:auto minmax(0, 1fr) auto;
+    grid-template-areas:"logo title menu";
   }
 }
 .tabs{
