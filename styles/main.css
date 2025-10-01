@@ -862,14 +862,16 @@ progress::-moz-progress-bar{
 .roll-flip-grid input,
 .roll-flip-grid button,
 .roll-flip-grid .pill{padding:4px 6px;min-height:28px;}
+.roll-flip-grid .inline>select{flex:0 0 auto;width:72px;min-height:28px;height:28px;}
+.roll-flip-grid .inline>input:not([type="checkbox"]){flex:1;width:auto;min-height:28px;height:28px;line-height:28px;padding-top:0;padding-bottom:0;}
 .roll-flip-grid fieldset>legend{font-size:clamp(0.95rem,2.5vw,1.2rem);}
 .roll-flip-grid .pill.result{font-size:.85rem;min-width:40px;width:100%;display:flex;align-items:center;justify-content:center;text-align:center;margin-bottom:4px;}
 #dice-count{flex:0 0 30px;width:30px;}
 @media(max-width:600px){
   .roll-flip-grid{grid-template-columns:repeat(2,1fr);}
   .roll-flip-grid .inline{flex-direction:row;}
-  .roll-flip-grid .inline>input:not([type="checkbox"]),
-  .roll-flip-grid .inline>select{flex:1;width:auto;}
+  .roll-flip-grid .inline>select,
+  .roll-flip-grid .inline>input:not([type="checkbox"]){flex:1;width:auto;}
   .roll-flip-grid .inline>button{flex:0 0 auto;width:auto;}
 }
 #flip{flex:1;width:100%;display:block;}
