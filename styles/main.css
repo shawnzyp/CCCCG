@@ -88,11 +88,11 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   margin-inline:auto;
 }
 .tabs{
-  display:flex;
-  justify-content:center;
-  align-items:center;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(3.5rem,1fr));
+  justify-items:stretch;
+  align-items:stretch;
   gap:calc(4px * 1.15);
-  flex-wrap:wrap;
   width:100%;
   max-width:var(--shell-width);
   margin-inline:auto;
@@ -181,7 +181,11 @@ label[data-animate-title]{
   margin-bottom:0;
 }
 
-.tabs .tab{justify-self:center}
+.tabs .tab{
+  justify-self:stretch;
+  width:100%;
+  display:flex;
+}
 
 .tabs-title .logo{
   height:43px;
