@@ -17,7 +17,11 @@ describe('character events', () => {
       listCloudAutosaves: jest.fn().mockResolvedValue([]),
       listCloudAutosaveNames: jest.fn().mockResolvedValue([]),
       loadCloudAutosave: jest.fn().mockResolvedValue({}),
-      deleteCloud: jest.fn()
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
     }));
 
     const { saveCharacter, deleteCharacter } = await import('../scripts/characters.js');

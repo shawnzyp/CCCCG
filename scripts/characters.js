@@ -96,11 +96,6 @@ async function verifyPin(name) {
 let currentName = null;
 
 export function currentCharacter() {
-  if (currentName) return currentName;
-  try {
-    const last = localStorage.getItem('last-save');
-    if (last) currentName = last;
-  } catch {}
   return currentName;
 }
 

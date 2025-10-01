@@ -47,10 +47,12 @@ export function listLocalSaves() {
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
+const CLOUD_CAMPAIGN_LOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/campaignLogs';
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
 let offlineQueueToastShown = false;
+let lastCampaignLogTimestamp = 0;
 
 function nextHistoryTimestamp() {
   const now = Date.now();
@@ -60,6 +62,16 @@ function nextHistoryTimestamp() {
     lastHistoryTimestamp = now;
   }
   return lastHistoryTimestamp;
+}
+
+function nextCampaignLogTimestamp() {
+  const now = Date.now();
+  if (now <= lastCampaignLogTimestamp) {
+    lastCampaignLogTimestamp += 1;
+  } else {
+    lastCampaignLogTimestamp = now;
+  }
+  return lastCampaignLogTimestamp;
 }
 
 function isNavigatorOffline() {
@@ -156,6 +168,108 @@ async function attemptCloudSave(name, payload, ts) {
   localStorage.setItem('last-save', name);
 
   await saveHistoryEntry(CLOUD_HISTORY_URL, name, payload, ts);
+}
+
+export async function appendCampaignLogEntry(entry = {}) {
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+
+  const id = typeof entry.id === 'string' && entry.id ? entry.id : String(nextCampaignLogTimestamp());
+  let ts = typeof entry.t === 'number' && Number.isFinite(entry.t) ? entry.t : Date.now();
+  if (!Number.isFinite(ts) || ts <= 0) {
+    ts = nextCampaignLogTimestamp();
+  } else if (ts <= lastCampaignLogTimestamp) {
+    ts = nextCampaignLogTimestamp();
+  } else {
+    lastCampaignLogTimestamp = ts;
+  }
+
+  const payload = {
+    t: ts,
+    name: typeof entry.name === 'string' ? entry.name : '',
+    text: typeof entry.text === 'string' ? entry.text : '',
+  };
+
+  const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}/${encodePath(id)}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  return { ...payload, id };
+}
+
+export async function deleteCampaignLogEntry(id) {
+  if (typeof id !== 'string' || !id) return;
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}/${encodePath(id)}.json`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function fetchCampaignLogEntries() {
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}.json`, { method: 'GET' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data) return [];
+  const entries = Object.entries(data).map(([id, value]) => {
+    const record = value && typeof value === 'object' ? value : {};
+    const rawTs = Number(record.t);
+    const t = Number.isFinite(rawTs) && rawTs > 0 ? rawTs : Date.now();
+    return {
+      id,
+      t,
+      name: typeof record.name === 'string' ? record.name : '',
+      text: typeof record.text === 'string' ? record.text : '',
+    };
+  }).sort((a, b) => a.t - b.t);
+
+  if (entries.length) {
+    const maxTs = entries[entries.length - 1].t;
+    if (Number.isFinite(maxTs) && maxTs > lastCampaignLogTimestamp) {
+      lastCampaignLogTimestamp = maxTs;
+    }
+  }
+
+  return entries;
+}
+
+export function subscribeCampaignLog(onChange) {
+  try {
+    if (typeof EventSource !== 'function') {
+      if (typeof onChange === 'function') {
+        onChange();
+      }
+      return null;
+    }
+
+    const src = new EventSource(`${CLOUD_CAMPAIGN_LOG_URL}.json`);
+    const handler = () => {
+      if (typeof onChange === 'function') {
+        onChange();
+      }
+    };
+
+    src.addEventListener('put', handler);
+    src.addEventListener('patch', handler);
+    src.onerror = () => {
+      try { src.close(); } catch {}
+      setTimeout(() => subscribeCampaignLog(onChange), 2000);
+    };
+
+    if (typeof onChange === 'function') {
+      onChange();
+    }
+
+    return src;
+  } catch (e) {
+    console.error('Failed to subscribe to campaign log', e);
+    if (typeof onChange === 'function') {
+      try { onChange(); } catch {}
+    }
+    return null;
+  }
 }
 
 async function enqueueCloudSave(name, payload, ts) {
