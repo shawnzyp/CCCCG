@@ -42,7 +42,7 @@ h1{font-size:clamp(1.75rem,4.6vw,2rem);font-weight:700;color:var(--accent)}
 h2{font-size:clamp(1.35rem,3.8vw,1.5rem);font-weight:600;color:var(--accent)}
 h3{font-size:clamp(1.1rem,3.2vw,1.25rem);font-weight:600}
 h4{font-size:clamp(1rem,2.8vw,1.1rem);font-weight:600}
-header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding-top:calc(4px * 1.15);padding-right:calc(20px + env(safe-area-inset-right, 0px));padding-bottom:calc(4px * 1.15);padding-left:calc(20px + env(safe-area-inset-left, 0px));display:flex;flex-direction:column;gap:calc(6px * 1.15);isolation:isolate}
+header{position:sticky;top:0;z-index:20;background:var(--surface);box-shadow:var(--shadow);padding-top:calc(4px * 1.15);padding-right:env(safe-area-inset-right, 0px);padding-bottom:calc(4px * 1.15);padding-left:env(safe-area-inset-left, 0px);display:flex;flex-direction:column;gap:calc(6px * 1.15);isolation:isolate}
 header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-10px * 1.15))}
 header::before{content:none}
 @supports ((-webkit-backdrop-filter:blur(0)) or (backdrop-filter:blur(0))){
@@ -87,8 +87,8 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   gap:calc(6px * 1.15);
   position:relative;
   width:100%;
-  max-width:var(--shell-width);
-  margin-inline:auto;
+  max-width:100%;
+  margin-inline:0;
   flex-wrap:wrap;
 }
 .tabs{
@@ -98,8 +98,8 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   gap:calc(4px * 1.15);
   flex-wrap:wrap;
   width:100%;
-  max-width:var(--shell-width);
-  margin-inline:auto;
+  max-width:100%;
+  margin-inline:0;
   transition:opacity .4s ease,transform .4s ease;
 }
 .tabs-title{
@@ -235,17 +235,17 @@ label[data-animate-title]{
   border-bottom:2px solid var(--accent);
   border-left:2px solid var(--accent);
   width:100%;
-  max-width:var(--shell-width);
-  margin-inline:auto;
+  max-width:100%;
+  margin-inline:0;
   height:45px;
   min-height:45px;
   box-sizing:border-box;
   box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 10%, transparent);
 }
 .news-ticker[data-expand-edge]{
-  margin-left:calc(-1 * (20px + env(safe-area-inset-left, 0px)));
-  margin-right:calc(-1 * (20px + env(safe-area-inset-right, 0px)));
-  width:calc(100% + (20px + env(safe-area-inset-left, 0px)) + (20px + env(safe-area-inset-right, 0px)));
+  margin-left:calc(-1 * env(safe-area-inset-left, 0px));
+  margin-right:calc(-1 * env(safe-area-inset-right, 0px));
+  width:calc(100% + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
 }
 .news-ticker::before{
   content:"";
@@ -609,12 +609,12 @@ label[data-animate-title]{
 main{
   flex:0 0 auto;
   width:100%;
-  max-width:var(--shell-width);
-  margin:0 auto 16px;
-  padding:0 20px 4px;
-  padding-right:calc(20px + env(safe-area-inset-right));
-  padding-left:calc(20px + env(safe-area-inset-left));
-  padding-bottom:calc(4px + env(safe-area-inset-bottom));
+  max-width:100%;
+  margin:0 0 16px;
+  padding:0 0 4px;
+  padding-right:env(safe-area-inset-right, 0px);
+  padding-left:env(safe-area-inset-left, 0px);
+  padding-bottom:calc(4px + env(safe-area-inset-bottom, 0px));
   position:relative;
 }
 main.is-animating-tabs{
@@ -625,34 +625,44 @@ fieldset[data-tab].card.animating{visibility:visible;pointer-events:none;positio
 main.is-animating-tabs fieldset[data-tab].card.animating{will-change:opacity,filter}
 fieldset[data-tab="combat"].card{
   flex-direction:column;
-  align-items:center;
-  width:min(100%, var(--content-width));
-  max-width:var(--content-width);
-  margin-inline:auto;
-  --combat-max-width:min(100%, var(--content-width));
+  align-items:stretch;
+  width:100%;
+  max-width:100%;
+  margin-inline:0;
+  --combat-max-width:100%;
 }
 fieldset[data-tab="combat"].card>*{
-  width:var(--combat-max-width);
-  max-width:var(--combat-max-width);
-  margin-inline:auto;
-  margin-left:auto;
-  margin-right:auto;
+  width:100%;
+  max-width:100%;
+  margin-inline:0;
 }
 fieldset[data-tab="combat"].card .grid{
   width:100%;
-  max-width:var(--combat-max-width);
-  margin-inline:auto;
-  margin-left:auto;
-  margin-right:auto;
-  justify-items:center;
+  max-width:100%;
+  margin-inline:0;
+  justify-items:stretch;
 }
 fieldset[data-tab="combat"].card .grid>.card{width:100%}
 fieldset[data-tab="combat"].card .somf-card{
   width:100%;
-  max-width:var(--combat-max-width);
-  margin-inline:auto;
-  margin-left:auto;
-  margin-right:auto;
+  max-width:100%;
+  margin-inline:0;
+}
+fieldset[data-tab="abilities"].card,
+fieldset[data-tab="powers"].card,
+fieldset[data-tab="gear"].card,
+fieldset[data-tab="story"].card{
+  width:100%;
+  max-width:100%;
+  margin-inline:0;
+}
+fieldset[data-tab="abilities"] .card,
+fieldset[data-tab="powers"] .card,
+fieldset[data-tab="gear"] .card,
+fieldset[data-tab="story"] .card,
+fieldset[data-tab="combat"] .card{
+  max-width:100%;
+  margin-inline:0;
 }
 main>:last-child{margin-bottom:0}
 fieldset[data-tab].card.active{opacity:1;transform:translate3d(0,0,0);pointer-events:auto;visibility:visible;filter:blur(0)saturate(1);position:relative;inset:auto;margin-bottom:14px}
