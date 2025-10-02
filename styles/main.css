@@ -1751,22 +1751,23 @@ select[required]:valid{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  width:56px;
-  height:56px;
+  width:60px;
+  height:60px;
   padding:0;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.14);
-  background:rgba(10,13,18,.92);
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(10,13,18,.94);
   color:var(--text);
   box-shadow:0 16px 36px rgba(0,0,0,.55),0 0 0 1px rgba(59,130,246,.12) inset;
   backdrop-filter:blur(8px);
   cursor:pointer;
   z-index:2100;
   transition:var(--transition),transform .2s ease;
+  touch-action:manipulation;
 }
 .dm-tools-toggle:hover,
 .dm-tools-toggle:focus-visible{
-  background:rgba(15,21,30,.95);
+  background:rgba(15,21,30,.97);
   color:var(--accent);
   border-color:rgba(59,130,246,.6);
   transform:translateY(-2px);
@@ -1781,13 +1782,16 @@ select[required]:valid{
 }
 .dm-tools-toggle[hidden]{display:none}
 .dm-tools-toggle__icon{
-  width:26px;
-  height:26px;
+  width:28px;
+  height:28px;
   transition:transform .3s ease;
 }
 .dm-tools-toggle:hover .dm-tools-toggle__icon,
 .dm-tools-toggle:focus-visible .dm-tools-toggle__icon{
   transform:rotate(25deg);
+}
+.dm-tools-menu button{
+  touch-action:manipulation;
 }
 
 /* DM Tool (Shards of Many Fates) */
