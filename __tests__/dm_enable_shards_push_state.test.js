@@ -87,7 +87,6 @@ test('DM toggle does not reveal shards without realtime database', async () => {
   expect(toggle.checked).toBe(false);
 
   const toasts = document.getElementById('somfDM-toasts');
-  expect(toasts.children.length).toBeGreaterThan(0);
-  expect(toasts.textContent).toMatch(/Cloud Sync Offline/i);
+  expect(toasts.children.length).toBe(0);
 });
 

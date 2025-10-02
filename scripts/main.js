@@ -971,33 +971,44 @@ function playTone(type){
     osc.stop(audioCtx.currentTime + 0.15);
   }catch(e){ /* noop */ }
 }
- let toastTimeout;
- function toast(msg, type = 'info'){
-   const t = $('toast');
-   if(!t) return;
-   let opts;
-   if (typeof type === 'object' && type !== null) {
-     opts = type;
-   } else if (typeof type === 'number') {
-     opts = { type: 'info', duration: type };
-   } else {
-     opts = { type, duration: 5000 };
-   }
-   const toastType = typeof opts.type === 'string' && opts.type ? opts.type : 'info';
-   const duration = typeof opts.duration === 'number' ? opts.duration : 5000;
-   t.textContent = msg;
-   t.className = toastType ? `toast ${toastType}` : 'toast';
-   t.classList.add('show');
-   playTone(toastType);
-   clearTimeout(toastTimeout);
-   if (Number.isFinite(duration) && duration > 0) {
-     toastTimeout = setTimeout(()=>{
-       t.classList.remove('show');
-     }, duration);
-   } else {
-     toastTimeout = null;
-   }
- }
+let toastTimeout;
+
+function dispatchToastEvent(name, detail = {}) {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+  try {
+    window.dispatchEvent(new CustomEvent(name, { detail }));
+  } catch {}
+}
+
+function toast(msg, type = 'info'){
+  const t = $('toast');
+  if(!t) return;
+  let opts;
+  if (typeof type === 'object' && type !== null) {
+    opts = type;
+  } else if (typeof type === 'number') {
+    opts = { type: 'info', duration: type };
+  } else {
+    opts = { type, duration: 5000 };
+  }
+  const toastType = typeof opts.type === 'string' && opts.type ? opts.type : 'info';
+  const duration = typeof opts.duration === 'number' ? opts.duration : 5000;
+  t.textContent = msg;
+  t.className = toastType ? `toast ${toastType}` : 'toast';
+  t.classList.add('show');
+  playTone(toastType);
+  clearTimeout(toastTimeout);
+  if (Number.isFinite(duration) && duration > 0) {
+    toastTimeout = setTimeout(()=>{
+      t.classList.remove('show');
+      toastTimeout = null;
+      dispatchToastEvent('cc:toast-dismissed');
+    }, duration);
+  } else {
+    toastTimeout = null;
+  }
+  dispatchToastEvent('cc:toast-shown', { message: msg, options: opts });
+}
 
 function dismissToast(){
   const t=$('toast');
@@ -1005,6 +1016,7 @@ function dismissToast(){
   t.classList.remove('show');
   clearTimeout(toastTimeout);
   toastTimeout = null;
+  dispatchToastEvent('cc:toast-dismissed');
 }
 
 // Expose toast utilities globally so non-module scripts (e.g. dm.js)
@@ -2693,6 +2705,7 @@ function logAction(text){
   renderFullLogs();
 }
 window.logAction = logAction;
+window.queueCampaignLogEntry = queueCampaignLogEntry;
 
 function resolveActorName(name = currentCharacter()){
   if(typeof name === 'string'){
@@ -2825,10 +2838,36 @@ async function refreshCampaignLogFromCloud(){
   }
 }
 
-function createCampaignEntry(text){
-  const timestamp = nextLocalCampaignTimestamp();
-  const id = `${timestamp.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  return { id, t: timestamp, name: resolveActorName(), text };
+function createCampaignEntry(text, options = {}){
+  const providedTs = Number(options.timestamp);
+  const timestamp = Number.isFinite(providedTs) && providedTs > 0
+    ? providedTs
+    : nextLocalCampaignTimestamp();
+  const providedId = typeof options.id === 'string' && options.id.trim()
+    ? options.id.trim()
+    : `${timestamp.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const providedName = typeof options.name === 'string' && options.name.trim()
+    ? options.name.trim()
+    : resolveActorName();
+  return { id: providedId, t: timestamp, name: providedName, text };
+}
+
+function queueCampaignLogEntry(text, options = {}){
+  if (typeof text !== 'string' || !text.trim()) return null;
+  const entry = createCampaignEntry(text, options);
+  mergeCampaignEntry(entry);
+  if (options.sync === false) return entry;
+  (async () => {
+    try{
+      const saved = await appendCampaignLogEntry(entry);
+      if (saved) mergeCampaignEntry(saved);
+    }catch(err){
+      if (err && err.message !== 'fetch not supported') {
+        console.error('Failed to sync campaign log entry', err);
+      }
+    }
+  })();
+  return entry;
 }
 
 updateCampaignLogViews();
