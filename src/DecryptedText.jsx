@@ -431,7 +431,11 @@ export default function DecryptedText({
         style={styles.measure}
       >
         {measurementText.split('').map((char, index) => (
-          <span key={`measure-${index}`} className={className}>
+          <span
+            key={`measure-${index}`}
+            className={className}
+            data-char={char === ' ' ? 'space' : char}
+          >
             {char}
           </span>
         ))}
@@ -452,7 +456,11 @@ export default function DecryptedText({
           const isRevealedOrDone = revealedIndices.has(index) || !isScrambling || !isHovering;
 
           return (
-            <span key={index} className={isRevealedOrDone ? className : encryptedClassName}>
+            <span
+              key={index}
+              className={isRevealedOrDone ? className : encryptedClassName}
+              data-char={char === ' ' ? 'space' : char}
+            >
               {char}
             </span>
           );
