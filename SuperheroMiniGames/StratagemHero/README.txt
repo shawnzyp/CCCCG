@@ -1,0 +1,1 @@
+README for Stratagem Hero with full instructions.
