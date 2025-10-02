@@ -170,6 +170,10 @@ function initDMLogin(){
   const miniGamesRefreshBtn = document.getElementById('dm-mini-games-refresh');
   const miniGamesDeployments = document.getElementById('dm-mini-games-deployments');
 
+  if (menu) {
+    menu.setAttribute('aria-hidden', menu.hidden ? 'true' : 'false');
+  }
+
   if (!isAuthorizedDevice()) {
     dmBtn?.remove();
     dmToggleBtn?.remove();
@@ -729,7 +733,7 @@ function initDMLogin(){
 
   function updateButtons(){
     const loggedIn = isLoggedIn();
-    if (!loggedIn && menu) menu.hidden = true;
+    if (!loggedIn) closeMenu();
     if (!loggedIn) {
       clearNotificationDisplay();
     } else {
@@ -838,11 +842,40 @@ function initDMLogin(){
     if (typeof toast === 'function') toast('Logged out','info');
   }
 
-  function toggleMenu(){
-    if(!menu) return;
-    menu.hidden = !menu.hidden;
+  function closeMenu(){
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    menu.setAttribute('aria-hidden','true');
     if (dmToggleBtn) {
-      dmToggleBtn.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+      dmToggleBtn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function openMenu({ focusFirst = false } = {}){
+    if (!menu || !menu.hidden) return;
+    menu.hidden = false;
+    menu.setAttribute('aria-hidden','false');
+    if (dmToggleBtn) {
+      dmToggleBtn.setAttribute('aria-expanded', 'true');
+    }
+    if (focusFirst) {
+      const firstItem = menu.querySelector('button');
+      if (firstItem) {
+        try {
+          firstItem.focus({ preventScroll: true });
+        } catch {
+          firstItem.focus();
+        }
+      }
+    }
+  }
+
+  function toggleMenu({ focusMenu = false } = {}){
+    if (!menu) return;
+    if (menu.hidden) {
+      openMenu({ focusFirst: focusMenu });
+    } else {
+      closeMenu();
     }
   }
 
@@ -1006,49 +1039,77 @@ function initDMLogin(){
     }
   });
 
-  if (dmToggleBtn) dmToggleBtn.addEventListener('click', () => {
-    if (!isLoggedIn()) {
-      requireLogin().catch(() => {});
-      return;
-    }
-    toggleMenu();
-  });
+  if (dmToggleBtn) {
+    let skipClick = false;
+    const activateToggle = (opts = {}) => {
+      if (!isLoggedIn()) {
+        requireLogin().catch(() => {});
+        return;
+      }
+      toggleMenu(opts);
+    };
 
-  document.addEventListener('click', e => {
-    if (menu && !menu.hidden && !menu.contains(e.target) && !dmBtn?.contains(e.target) && !dmToggleBtn?.contains(e.target)) {
-      menu.hidden = true;
-      if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+    dmToggleBtn.addEventListener('click', () => {
+      if (skipClick) {
+        skipClick = false;
+        return;
+      }
+      activateToggle();
+    });
+
+    dmToggleBtn.addEventListener('pointerup', e => {
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+        e.preventDefault();
+        skipClick = true;
+        activateToggle();
+      }
+    });
+
+    dmToggleBtn.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activateToggle({ focusMenu: true });
+      }
+    });
+  }
+
+  const closeMenuIfOutside = e => {
+    if (!menu || menu.hidden) return;
+    if (!menu.contains(e.target) && !dmBtn?.contains(e.target) && !dmToggleBtn?.contains(e.target)) {
+      closeMenu();
     }
+  };
+
+  document.addEventListener('click', closeMenuIfOutside);
+  document.addEventListener('pointerdown', closeMenuIfOutside);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeMenu();
   });
 
   if (tsomfBtn) {
     tsomfBtn.addEventListener('click', () => {
-      if (menu) menu.hidden = true;
-      if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+      closeMenu();
       if (window.openSomfDM) window.openSomfDM();
     });
   }
 
   if (notifyBtn) {
     notifyBtn.addEventListener('click', () => {
-      if (menu) menu.hidden = true;
-      if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+      closeMenu();
       openNotifications();
     });
   }
 
     if (charBtn) {
       charBtn.addEventListener('click', () => {
-        if (menu) menu.hidden = true;
-        if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+        closeMenu();
         openCharacters();
       });
     }
 
   if (miniGamesBtn) {
     miniGamesBtn.addEventListener('click', async () => {
-      if (menu) menu.hidden = true;
-      if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+      closeMenu();
       try {
         await openMiniGames();
       } catch (err) {
@@ -1132,8 +1193,7 @@ function initDMLogin(){
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
-      if (menu) menu.hidden = true;
-      if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+      closeMenu();
       logout();
     });
   }
