@@ -1763,6 +1763,23 @@ select[required]:valid{
 .somf-toast{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:10px 12px;min-width:260px;box-shadow:0 8px 24px #0008}
 .somf-toast strong{display:block;margin-bottom:4px}
 
+.app-alert{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:rgba(8,10,16,.88);z-index:6000;opacity:0;pointer-events:none;transition:opacity .3s ease}
+.app-alert[hidden]{display:none}
+.app-alert.is-visible{opacity:1;pointer-events:auto}
+.app-alert__card{background:var(--surface);color:var(--text);border-radius:20px;border:1px solid rgba(255,255,255,.16);box-shadow:0 28px 60px rgba(0,0,0,.65);max-width:460px;width:100%;padding:28px 24px;display:flex;flex-direction:column;gap:16px;text-align:center;transform:translateY(12px) scale(.97);transition:transform .3s ease,box-shadow .3s ease}
+.app-alert.is-visible .app-alert__card{transform:translateY(0) scale(1);box-shadow:0 32px 70px rgba(0,0,0,.7)}
+.app-alert__title{margin:0;font-family:'CFTechnoMania Slanted',sans-serif;font-size:22px;letter-spacing:.12em;text-transform:uppercase}
+.app-alert__message{margin:0;font-size:16px;line-height:1.6}
+.app-alert__button{align-self:center;padding:12px 32px;border-radius:999px;border:none;background:var(--accent);color:var(--text-on-accent);font-size:15px;font-weight:600;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 16px 40px rgba(59,130,246,.45);transition:transform .25s ease,box-shadow .25s ease}
+.app-alert__button:hover{transform:translateY(-2px);box-shadow:0 22px 54px rgba(59,130,246,.55)}
+.app-alert__button:focus-visible{outline:2px solid var(--text-on-accent);outline-offset:4px}
+body.app-alert-active{overflow:hidden}
+@media (prefers-reduced-motion:reduce){
+  .app-alert{transition:none}
+  .app-alert__card{transition:none}
+  .app-alert__button{transition:none}
+}
+
 .somf-reveal-alert{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:rgba(4,6,12,.92);z-index:5000;opacity:0;pointer-events:none;transition:opacity .4s ease}
 .somf-reveal-alert[hidden]{display:none}
 .somf-reveal-alert.is-visible{opacity:1;pointer-events:auto}
