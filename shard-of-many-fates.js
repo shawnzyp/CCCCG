@@ -1176,6 +1176,22 @@
     const card = overlay?.querySelector('.somf-reveal-alert__card');
     if (!overlay || !dismiss) return Promise.resolve();
 
+    const body = document.body;
+    const suppressedBodyClasses = [];
+    if (body?.classList?.contains('modal-open')) {
+      try { body.classList.remove('modal-open'); } catch {}
+      suppressedBodyClasses.push('modal-open');
+    }
+    if (body?.classList?.contains('touch-controls-disabled')) {
+      try { body.classList.remove('touch-controls-disabled'); } catch {}
+      suppressedBodyClasses.push('touch-controls-disabled');
+    }
+
+    const overlayWasInert = overlay.hasAttribute('inert');
+    if (overlayWasInert) {
+      try { overlay.removeAttribute('inert'); } catch {}
+    }
+
     const previouslyFocused = document.activeElement;
     overlay.hidden = false;
     overlay.setAttribute('aria-hidden', 'false');
@@ -1195,7 +1211,18 @@
         overlay.classList.remove('is-visible');
         document.body?.classList?.remove('somf-reveal-active');
 
+        if (body && suppressedBodyClasses.length) {
+          suppressedBodyClasses.forEach(cls => {
+            if (cls && !body.classList.contains(cls)) {
+              try { body.classList.add(cls); } catch {}
+            }
+          });
+        }
+
         const finalize = () => {
+          if (overlayWasInert) {
+            try { overlay.setAttribute('inert', ''); } catch {}
+          }
           overlay.hidden = true;
           overlay.setAttribute('aria-hidden', 'true');
           if (previouslyFocused && typeof previouslyFocused.focus === 'function') {

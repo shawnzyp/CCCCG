@@ -1347,7 +1347,7 @@ progress::-moz-progress-bar{
 .overlay.hidden .modal{transform:scale(.95);opacity:0}
 body.modal-open{overflow:hidden}
 body.modal-open> :not(.overlay):not([data-launch-shell]){pointer-events:none;user-select:none}
-body.modal-open [data-launch-shell]> :not(.overlay){pointer-events:none;user-select:none}
+body.modal-open [data-launch-shell]> :not(.overlay):not(.somf-reveal-alert){pointer-events:none;user-select:none}
 body.touch-controls-disabled{touch-action:none}
 body.touch-controls-disabled .app-shell{pointer-events:none}
 .modal h3{margin:0 0 4px;color:var(--accent);font-size:.9rem;line-height:1.2;font-weight:600}
@@ -1906,7 +1906,7 @@ body.app-alert-active{overflow:hidden}
   .app-alert__button{transition:none}
 }
 
-.somf-reveal-alert{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:rgba(4,6,12,.92);z-index:5000;opacity:0;pointer-events:none;transition:opacity .4s ease}
+.somf-reveal-alert{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:rgba(4,6,12,.92);z-index:12000;opacity:0;pointer-events:none;transition:opacity .4s ease}
 .somf-reveal-alert[hidden]{display:none}
 .somf-reveal-alert.is-visible{opacity:1;pointer-events:auto}
 .somf-reveal-alert__card{background:var(--surface);color:var(--text);border-radius:24px;border:1px solid rgba(255,255,255,.12);box-shadow:0 32px 60px rgba(0,0,0,.6);width:100%;max-width:var(--content-width);padding:32px 28px;text-align:center;display:flex;flex-direction:column;gap:18px;transform:translateY(12px) scale(.98);transition:transform .35s ease,box-shadow .35s ease}
@@ -1917,6 +1917,11 @@ body.app-alert-active{overflow:hidden}
 .somf-reveal-alert__btn:hover{transform:translateY(-2px);box-shadow:0 22px 54px rgba(59,130,246,.55)}
 .somf-reveal-alert__btn:focus-visible{outline:2px solid var(--text-on-accent);outline-offset:4px}
 body.somf-reveal-active{overflow:hidden}
+body.somf-reveal-active .overlay{pointer-events:none}
+body.somf-reveal-active .app-alert{pointer-events:none}
+body.modal-open [data-launch-shell]>.somf-reveal-alert{pointer-events:auto;user-select:auto}
+body.touch-controls-disabled.somf-reveal-active .app-shell{pointer-events:auto}
+body.touch-controls-disabled.somf-reveal-active .app-shell> :not(.somf-reveal-alert){pointer-events:none}
 @media (prefers-reduced-motion:reduce){
   .somf-reveal-alert{transition:none}
   .somf-reveal-alert__card{transition:none}
