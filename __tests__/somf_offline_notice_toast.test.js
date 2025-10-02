@@ -36,7 +36,7 @@ function setupDom() {
   `;
 }
 
-test('offline shard draw raises DM toast that links to details', async () => {
+test('offline shard draw does not raise DM toast', async () => {
   jest.resetModules();
   localStorage.clear();
   sessionStorage.clear();
@@ -66,13 +66,5 @@ test('offline shard draw raises DM toast that links to details', async () => {
   await new Promise(r => setTimeout(r, 0));
 
   const toastHost = document.getElementById('somfDM-toasts');
-  expect(toastHost.children.length).toBe(1);
-
-  const toast = toastHost.firstElementChild;
-  expect(toast.textContent).toContain('The Echo');
-
-  toast.click();
-  // openDM should make modal visible when structure exists
-  const dmModal = document.getElementById('modal-somf-dm');
-  expect(dmModal.classList.contains('hidden')).toBe(false);
+  expect(toastHost.children.length).toBe(0);
 });

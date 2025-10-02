@@ -2320,6 +2320,24 @@
       this.tempArtwork = null;
       this.lastHiddenState = null;
       this.hiddenSignalCleanup = null;
+      const storedNotice = readStorage(LOCAL_KEYS.lastNotice(this.runtime.campaignId));
+      if (storedNotice && typeof storedNotice === 'object') {
+        const storedKey = typeof storedNotice.key === 'string' ? storedNotice.key : null;
+        const storedTs = Number(storedNotice.ts);
+        this.lastProcessedNotice = {
+          key: storedKey,
+          ts: Number.isFinite(storedTs) ? storedTs : 0,
+        };
+      } else {
+        this.lastProcessedNotice = null;
+      }
+      this.pendingNoticeAdds = [];
+      this.initialNoticesLoaded = false;
+      this.seenNoticeKeys = new Set();
+      this.playerToastData = null;
+      this.toastEventsBound = false;
+      this.toastShownHandler = evt => this.onGlobalToastShown(evt);
+      this.toastDismissHandler = () => this.onGlobalToastDismissed();
     }
 
     attach() {
@@ -2327,6 +2345,7 @@
       if (this.dom.count) this.dom.count.blur();
       if (this.dom.card) this.dom.card.hidden = true;
       this.bindEvents();
+      this.bindToastHandlers();
       this.subscribe();
       this.loadInitialState();
     }
@@ -2375,6 +2394,7 @@
     setupWatchers() {
       if (this.noticeCleanup) this.noticeCleanup();
       this.noticeCleanup = this.runtime.watchNotices({
+        onAdd: notice => this.handleNoticeAdded(notice),
         onChange: () => this.reloadNotices(),
       });
       if (this.hiddenCleanup) this.hiddenCleanup();
@@ -2389,6 +2409,8 @@
       await this.reloadNotices();
       const hidden = await this.runtime.getHidden();
       this.applyHiddenState(hidden);
+      this.initialNoticesLoaded = true;
+      this.flushPendingNoticeAdds();
     }
 
     async reloadNotices() {
@@ -2398,6 +2420,16 @@
 
     setNotices(notices) {
       this.notices = normalizeNoticeList(notices || []);
+      if (!this.initialNoticesLoaded) {
+        const pendingKeys = new Set(this.pendingNoticeAdds
+          .map(entry => (entry && typeof entry.key === 'string') ? entry.key : null)
+          .filter(key => typeof key === 'string' && key));
+        this.seenNoticeKeys = new Set(
+          this.notices
+            .map(entry => (entry && typeof entry.key === 'string') ? entry.key : null)
+            .filter(key => typeof key === 'string' && key && !pendingKeys.has(key))
+        );
+      }
       const nextQueue = [];
       this.notices.forEach(notice => {
         const ids = toStringList(notice.ids);
@@ -2453,6 +2485,193 @@
         const altLabel = label ? `${label} artwork` : 'Shard artwork';
         this.dom.image.alt = altLabel;
       }
+    }
+
+    bindToastHandlers() {
+      if (typeof window === 'undefined') return;
+      const toastEl = document.getElementById('toast');
+      if (toastEl && !toastEl.__somfPlayerBound) {
+        toastEl.addEventListener('click', () => this.handlePlayerToastClick());
+        toastEl.__somfPlayerBound = true;
+      }
+      if (!this.toastEventsBound) {
+        window.addEventListener('cc:toast-shown', this.toastShownHandler);
+        window.addEventListener('cc:toast-dismissed', this.toastDismissHandler);
+        this.toastEventsBound = true;
+      }
+    }
+
+    onGlobalToastShown(event) {
+      const detail = event?.detail;
+      const meta = detail && detail.options && detail.options.somf;
+      if (!meta || meta.context !== 'player-shard') {
+        this.clearPlayerToastState();
+      }
+    }
+
+    onGlobalToastDismissed() {
+      this.clearPlayerToastState();
+    }
+
+    clearPlayerToastState() {
+      this.playerToastData = null;
+      const toastEl = document.getElementById('toast');
+      if (!toastEl) return;
+      delete toastEl.dataset.somfContext;
+      delete toastEl.dataset.somfShardId;
+      delete toastEl.dataset.somfNoticeKey;
+      delete toastEl.dataset.somfNoticeIndex;
+      delete toastEl.dataset.somfShardName;
+      toastEl.removeAttribute('role');
+      toastEl.removeAttribute('aria-label');
+      toastEl.style.removeProperty('cursor');
+    }
+
+    handlePlayerToastClick() {
+      if (!this.playerToastData) return;
+      const payload = { ...this.playerToastData };
+      let handled = false;
+      try {
+        handled = this.showArtworkLink(payload);
+      } catch {
+        handled = false;
+      }
+      if (!handled) {
+        this.openModal();
+      }
+      if (typeof window.dismissToast === 'function') {
+        try { window.dismissToast(); }
+        catch {}
+      }
+      this.clearPlayerToastState();
+    }
+
+    handleNoticeAdded(notice) {
+      if (!notice) return;
+      if (!this.initialNoticesLoaded) {
+        this.addPendingNotice(notice);
+        return;
+      }
+      this.processNoticeAdd(notice);
+    }
+
+    processNoticeAdd(notice) {
+      if (!notice) return;
+      const key = typeof notice.key === 'string' ? notice.key : null;
+      if (key && this.seenNoticeKeys.has(key)) return;
+      if (key && this.lastProcessedNotice?.key === key) return;
+      const ts = Number(notice.ts);
+      if (!key && this.lastProcessedNotice && Number.isFinite(this.lastProcessedNotice.ts) && Number.isFinite(ts) && ts <= this.lastProcessedNotice.ts) {
+        return;
+      }
+      if (this.lastHiddenState === true) {
+        this.addPendingNotice(notice);
+        return;
+      }
+      if (key) this.seenNoticeKeys.add(key);
+      this.announceNotice(notice);
+    }
+
+    addPendingNotice(notice) {
+      if (!notice) return;
+      const key = typeof notice.key === 'string' ? notice.key : null;
+      if (key && this.pendingNoticeAdds.some(entry => entry && entry.key === key)) return;
+      this.pendingNoticeAdds.push(notice);
+    }
+
+    flushPendingNoticeAdds() {
+      if (!this.pendingNoticeAdds.length) return;
+      if (this.lastHiddenState === true) return;
+      const pending = this.pendingNoticeAdds.splice(0);
+      pending.forEach(entry => this.processNoticeAdd(entry));
+    }
+
+    announceNotice(notice) {
+      const ids = toStringList(notice.ids);
+      const providedNames = Array.isArray(notice.names)
+        ? notice.names.filter(name => typeof name === 'string' && name.trim())
+        : [];
+      const fallbackNames = ids
+        .map(id => Catalog.shardName(id) || id)
+        .filter(name => typeof name === 'string' && name);
+      const displayNames = providedNames.length ? providedNames : fallbackNames;
+      if (!displayNames.length) return;
+      const noticeKey = typeof notice.key === 'string' ? notice.key : null;
+      const namesForMessage = joinWithConjunction(displayNames);
+      const message = `The Shards reveal ${namesForMessage}.`;
+      const primaryId = ids[0] || null;
+      this.showPlayerToast({
+        message,
+        id: primaryId,
+        name: displayNames[0] || '',
+        noticeKey,
+        noticeIndex: 0,
+      });
+      const logPrefix = displayNames.length > 1 ? 'Revealed shards' : 'Revealed shard';
+      const logMessage = `${logPrefix}: ${displayNames.join(', ')}`;
+      this.logShardAnnouncement(logMessage);
+      this.recordLastProcessedNotice(noticeKey, notice.ts);
+    }
+
+    showPlayerToast({ message, id, name, noticeKey, noticeIndex }) {
+      if (typeof window === 'undefined' || typeof window.toast !== 'function') return;
+      const normalizedIndex = Number.isFinite(noticeIndex) ? Number(noticeIndex) : null;
+      const toastOptions = {
+        type: 'info',
+        duration: 8000,
+        somf: {
+          context: 'player-shard',
+          shardId: typeof id === 'string' ? id : null,
+          noticeKey: typeof noticeKey === 'string' && noticeKey ? noticeKey : null,
+          noticeIndex: normalizedIndex,
+        },
+      };
+      try {
+        window.toast(message, toastOptions);
+      } catch {}
+      const toastEl = document.getElementById('toast');
+      if (toastEl) {
+        toastEl.dataset.somfContext = 'player-shard';
+        toastEl.dataset.somfShardId = typeof id === 'string' ? id : '';
+        toastEl.dataset.somfNoticeKey = typeof noticeKey === 'string' ? noticeKey : '';
+        toastEl.dataset.somfNoticeIndex = normalizedIndex != null ? String(normalizedIndex) : '';
+        toastEl.dataset.somfShardName = typeof name === 'string' ? name : '';
+        toastEl.style.cursor = 'pointer';
+        toastEl.setAttribute('role', 'button');
+        if (typeof name === 'string' && name) {
+          toastEl.setAttribute('aria-label', `View ${name} artwork`);
+        } else {
+          toastEl.setAttribute('aria-label', 'View shard artwork');
+        }
+      }
+      this.playerToastData = {
+        id: typeof id === 'string' ? id : null,
+        noticeKey: typeof noticeKey === 'string' && noticeKey ? noticeKey : null,
+        noticeIndex: normalizedIndex,
+      };
+    }
+
+    logShardAnnouncement(text) {
+      const message = typeof text === 'string' ? text.trim() : '';
+      if (!message) return;
+      try {
+        if (typeof window.logAction === 'function') {
+          window.logAction(`The Shards: ${message}`);
+        }
+      } catch {}
+      try {
+        if (typeof window.queueCampaignLogEntry === 'function') {
+          window.queueCampaignLogEntry(message, { name: 'The Shards' });
+        }
+      } catch {}
+    }
+
+    recordLastProcessedNotice(key, ts) {
+      const normalizedKey = typeof key === 'string' && key ? key : null;
+      const numericTs = Number(ts);
+      const normalizedTs = Number.isFinite(numericTs) && numericTs > 0 ? numericTs : Date.now();
+      this.lastProcessedNotice = { key: normalizedKey, ts: normalizedTs };
+      writeStorage(LOCAL_KEYS.lastNotice(this.runtime.campaignId), this.lastProcessedNotice);
     }
 
     showArtworkLink(opts = {}) {
@@ -2592,6 +2811,9 @@
       if (normalized) this.closeModal();
       if (previous === true && normalized === false) {
         triggerShardRevealEffects();
+      }
+      if (normalized === false) {
+        this.flushPendingNoticeAdds();
       }
     }
   }
@@ -2961,27 +3183,7 @@
       });
     }
 
-    toast(html, onClick) {
-      if (!this.dom.toasts) return;
-      const toast = document.createElement('div');
-      toast.className = 'somf-toast';
-      toast.innerHTML = html;
-      if (onClick) {
-        toast.style.cursor = 'pointer';
-        toast.addEventListener('click', () => {
-          onClick();
-          toast.remove();
-        });
-      }
-      this.dom.toasts.appendChild(toast);
-      if (this.dom.ping && this.dom.ping.src) {
-        try {
-          this.dom.ping.currentTime = 0;
-          this.dom.ping.play();
-        } catch {}
-      }
-      setTimeout(() => toast.remove(), 6000);
-    }
+    toast() {}
 
     renderStaticLists() {
       if (this.dom.cardTab) {
