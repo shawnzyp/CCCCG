@@ -248,8 +248,23 @@ const LAUNCH_MAX_WAIT = 12000;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
 const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
+const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
 let welcomeModalQueued = false;
+let touchUnlockTimer = null;
+let waitingForTouchUnlock = false;
+
+function clearTouchUnlockTimer() {
+  if (touchUnlockTimer) {
+    try {
+      clearTimeout(touchUnlockTimer);
+    } catch (err) {
+      // ignore inability to clear timer
+    }
+    touchUnlockTimer = null;
+  }
+  waitingForTouchUnlock = false;
+}
 
 function getWelcomeModal() {
   return document.getElementById(WELCOME_MODAL_ID);
@@ -257,57 +272,69 @@ function getWelcomeModal() {
 
 function lockTouchControls() {
   if (typeof document === 'undefined') return;
+  clearTouchUnlockTimer();
   const { body } = document;
   if (body) {
     body.classList.add(TOUCH_LOCK_CLASS);
   }
 }
 
-function unlockTouchControls() {
+function unlockTouchControls({ immediate = false } = {}) {
   if (typeof document === 'undefined') return;
   const { body } = document;
   if (body) {
-    body.classList.remove(TOUCH_LOCK_CLASS);
+    if (immediate || !body.classList.contains('launching')) {
+      clearTouchUnlockTimer();
+      body.classList.remove(TOUCH_LOCK_CLASS);
+      return;
+    }
+
+    if (touchUnlockTimer || waitingForTouchUnlock) return;
+    waitingForTouchUnlock = true;
+
+    const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : (cb => setTimeout(cb, 16));
+
+    const setTimer = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
+      ? window.setTimeout.bind(window)
+      : ((cb, ms) => setTimeout(cb, ms));
+
+    const release = () => {
+      touchUnlockTimer = null;
+      body.classList.remove(TOUCH_LOCK_CLASS);
+    };
+
+    const waitForLaunchEnd = () => {
+      if (!body.classList.contains('launching')) {
+        waitingForTouchUnlock = false;
+        touchUnlockTimer = setTimer(release, TOUCH_UNLOCK_DELAY_MS);
+        return;
+      }
+      schedule(waitForLaunchEnd);
+    };
+
+    schedule(waitForLaunchEnd);
   }
 }
 
 function maybeShowWelcomeModal() {
   const modal = getWelcomeModal();
   if (!modal) {
-    unlockTouchControls();
+    unlockTouchControls({ immediate: true });
     return;
   }
   if (welcomeModalDismissed) {
-    unlockTouchControls();
+    unlockTouchControls({ immediate: true });
     return;
   }
   const wasHidden = modal.classList.contains('hidden');
   show(WELCOME_MODAL_ID);
 
   if (!wasHidden) {
-    if (!document.body?.classList?.contains('launching')) {
-      unlockTouchControls();
-    }
+    unlockTouchControls();
     return;
   }
-
-  const body = document.body;
-  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-    ? window.requestAnimationFrame.bind(window)
-    : (cb => setTimeout(cb, 0));
-
-  if (body && body.classList.contains('launching')) {
-    const waitForLaunchEnd = () => {
-      if (!body.classList.contains('launching')) {
-        unlockTouchControls();
-        return;
-      }
-      schedule(waitForLaunchEnd);
-    };
-    schedule(waitForLaunchEnd);
-    return;
-  }
-
   unlockTouchControls();
 }
 
@@ -345,6 +372,7 @@ function queueWelcomeModal({ immediate = false } = {}) {
   }
 
   lockTouchControls();
+  queueWelcomeModal({ immediate: true });
 
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
