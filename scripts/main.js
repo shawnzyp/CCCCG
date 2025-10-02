@@ -43,6 +43,142 @@ CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
 
+const PRIORITY_ALERT_TITLE = 'O.M.N.I: Priority Transmission';
+setupPriorityTransmissionAlert();
+
+function setupPriorityTransmissionAlert(){
+  if (typeof document === 'undefined') return;
+  const overlay = document.getElementById('app-alert');
+  const messageNode = overlay?.querySelector('[data-app-alert-message]');
+  const titleNode = overlay?.querySelector('.app-alert__title');
+  const dismissButton = overlay?.querySelector('[data-app-alert-dismiss]');
+  const card = overlay?.querySelector('.app-alert__card');
+  if (!overlay || !messageNode || !dismissButton) return;
+
+  if (titleNode) {
+    titleNode.textContent = PRIORITY_ALERT_TITLE;
+  }
+
+  let isVisible = false;
+  let resolveCurrent = null;
+  let previouslyFocused = null;
+
+  const finalize = () => {
+    overlay.hidden = true;
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.removeEventListener('transitionend', finalize);
+    overlay.removeEventListener('transitioncancel', finalize);
+    if (typeof resolveCurrent === 'function') {
+      resolveCurrent();
+      resolveCurrent = null;
+    }
+    if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+      try {
+        previouslyFocused.focus({ preventScroll: true });
+      } catch {
+        try { previouslyFocused.focus(); } catch { /* ignore focus errors */ }
+      }
+    }
+    previouslyFocused = null;
+  };
+
+  const hide = () => {
+    if (!isVisible) return;
+    isVisible = false;
+    overlay.classList.remove('is-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body?.classList?.remove('app-alert-active');
+
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!prefersReducedMotion && typeof window?.getComputedStyle === 'function') {
+      const styles = window.getComputedStyle(overlay);
+      const transitionDuration = parseFloat(styles.transitionDuration || '0');
+      const transitionDelay = parseFloat(styles.transitionDelay || '0');
+      const total = (Number.isFinite(transitionDuration) ? transitionDuration : 0) +
+        (Number.isFinite(transitionDelay) ? transitionDelay : 0);
+      if (total > 0) {
+        overlay.addEventListener('transitionend', finalize, { once: true });
+        overlay.addEventListener('transitioncancel', finalize, { once: true });
+        return;
+      }
+    }
+
+    finalize();
+  };
+
+  const show = message => {
+    if (typeof resolveCurrent === 'function') {
+      resolveCurrent();
+      resolveCurrent = null;
+    }
+
+    const text = message == null ? '' : String(message);
+    messageNode.textContent = text;
+    const activeElement = document.activeElement;
+    previouslyFocused =
+      activeElement && typeof activeElement.focus === 'function' ? activeElement : null;
+    overlay.hidden = false;
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.classList.add('is-visible');
+    document.body?.classList?.add('app-alert-active');
+    isVisible = true;
+
+    const focusTarget = dismissButton || card;
+    window.requestAnimationFrame(() => {
+      try {
+        focusTarget?.focus({ preventScroll: true });
+      } catch {
+        try { focusTarget?.focus(); } catch { /* ignore focus errors */ }
+      }
+    });
+
+    return new Promise(resolve => {
+      resolveCurrent = resolve;
+    });
+  };
+
+  const handleOverlayClick = event => {
+    if (!isVisible) return;
+    if (event.target === overlay) {
+      event.preventDefault();
+      hide();
+    }
+  };
+
+  const handleKeydown = event => {
+    if (!isVisible) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      hide();
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      try {
+        dismissButton?.focus({ preventScroll: true });
+      } catch {
+        try { dismissButton?.focus(); } catch { /* ignore focus errors */ }
+      }
+    }
+  };
+
+  dismissButton.addEventListener('click', event => {
+    event.preventDefault();
+    hide();
+  });
+  overlay.addEventListener('click', handleOverlayClick);
+  overlay.addEventListener('keydown', handleKeydown);
+
+  window.showPriorityTransmissionAlert = message => show(message);
+  window.dismissPriorityTransmissionAlert = hide;
+  window.alert = function priorityTransmissionAlert(message) {
+    show(message);
+    return undefined;
+  };
+}
+
 function detectPlatform(){
   if(typeof navigator === 'undefined'){
     return {
