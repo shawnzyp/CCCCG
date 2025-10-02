@@ -16,6 +16,13 @@ import {
 } from './characters.js';
 import { show, hide } from './modal.js';
 import {
+  formatKnobValue as formatMiniGameKnobValue,
+  getMiniGame as getMiniGameDefinition,
+  subscribePlayerDeployments,
+  summarizeConfig as summarizeMiniGameConfig,
+  updateDeployment as updateMiniGameDeployment,
+} from './mini-games.js';
+import {
   cacheCloudSaves,
   subscribeCloudSaves,
   appendCampaignLogEntry,
@@ -177,6 +184,345 @@ function setupPriorityTransmissionAlert(){
     show(message);
     return undefined;
   };
+}
+
+/* ========= Mini-Game Player Sync ========= */
+const MINI_GAME_PLAYER_CHECK_INTERVAL_MS = 10000;
+const miniGameInviteOverlay = typeof document !== 'undefined' ? $('mini-game-invite') : null;
+const miniGameInviteTitle = typeof document !== 'undefined' ? $('mini-game-invite-title') : null;
+const miniGameInviteMessage = typeof document !== 'undefined' ? $('mini-game-invite-message') : null;
+const miniGameInviteGame = typeof document !== 'undefined' ? $('mini-game-invite-game') : null;
+const miniGameInviteTagline = typeof document !== 'undefined' ? $('mini-game-invite-tagline') : null;
+const miniGameInviteSummary = typeof document !== 'undefined' ? $('mini-game-invite-summary') : null;
+const miniGameInviteNotes = typeof document !== 'undefined' ? $('mini-game-invite-notes') : null;
+const miniGameInviteNotesText = typeof document !== 'undefined' ? $('mini-game-invite-notes-text') : null;
+const miniGameInviteAccept = typeof document !== 'undefined' ? $('mini-game-invite-accept') : null;
+const miniGameInviteDecline = typeof document !== 'undefined' ? $('mini-game-invite-decline') : null;
+const hasMiniGameInviteUi = Boolean(miniGameInviteOverlay && miniGameInviteAccept && miniGameInviteDecline);
+let miniGameActivePlayer = '';
+let miniGameUnsubscribe = null;
+let miniGamePlayerCheckTimer = null;
+const miniGameKnownDeployments = new Map();
+const miniGamePromptedDeployments = new Set();
+const miniGameInviteQueue = [];
+let miniGameActiveInvite = null;
+let miniGameSyncInitialized = false;
+
+function sanitizeMiniGamePlayerName(name = '') {
+  if (typeof name !== 'string') return '';
+  const trimmed = name.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return '';
+  const lowered = trimmed.toLowerCase();
+  if (lowered === 'the dm' || lowered === 'dm') return '';
+  return trimmed;
+}
+
+function miniGameTimestamp(entry) {
+  if (!entry || typeof entry !== 'object') return 0;
+  if (typeof entry.createdAt === 'number') return entry.createdAt;
+  if (typeof entry.updatedAt === 'number') return entry.updatedAt;
+  return 0;
+}
+
+function resolveMiniGamePlayerName() {
+  try {
+    const current = sanitizeMiniGamePlayerName(typeof currentCharacter === 'function' ? currentCharacter() : '');
+    if (current) return current;
+  } catch {}
+  if (typeof document !== 'undefined') {
+    const heroField = document.getElementById('superhero');
+    if (heroField && typeof heroField.value === 'string') {
+      const normalized = sanitizeMiniGamePlayerName(heroField.value);
+      if (normalized) return normalized;
+    }
+  }
+  try {
+    const stored = localStorage.getItem('last-save');
+    const normalized = sanitizeMiniGamePlayerName(stored || '');
+    if (normalized) return normalized;
+  } catch {}
+  return '';
+}
+
+function removeMiniGameQueueEntry(id) {
+  if (!id || !miniGameInviteQueue.length) return;
+  for (let i = miniGameInviteQueue.length - 1; i >= 0; i--) {
+    if (miniGameInviteQueue[i]?.id === id) {
+      miniGameInviteQueue.splice(i, 1);
+    }
+  }
+}
+
+function resetMiniGameInvites() {
+  miniGameKnownDeployments.clear();
+  miniGamePromptedDeployments.clear();
+  miniGameInviteQueue.length = 0;
+  miniGameActiveInvite = null;
+  if (hasMiniGameInviteUi) {
+    hide('mini-game-invite');
+  }
+}
+
+function applyMiniGamePlayerName(name) {
+  if (!hasMiniGameInviteUi) return;
+  const normalized = sanitizeMiniGamePlayerName(name);
+  if (normalized === miniGameActivePlayer) return;
+  if (typeof miniGameUnsubscribe === 'function') {
+    try { miniGameUnsubscribe(); } catch {}
+    miniGameUnsubscribe = null;
+  }
+  miniGameActivePlayer = normalized;
+  resetMiniGameInvites();
+  if (!normalized) return;
+  try {
+    miniGameUnsubscribe = subscribePlayerDeployments(normalized, handleMiniGameDeployments);
+  } catch (err) {
+    console.error('Failed to subscribe to mini-game deployments', err);
+  }
+}
+
+function syncMiniGamePlayerName() {
+  applyMiniGamePlayerName(resolveMiniGamePlayerName());
+}
+
+function buildMiniGameConfigEntries(entry, game) {
+  const configEntries = [];
+  if (!entry || !game || !Array.isArray(game.knobs)) return configEntries;
+  const config = entry.config || {};
+  game.knobs.forEach(knob => {
+    if (!Object.prototype.hasOwnProperty.call(config, knob.key)) return;
+    const value = formatMiniGameKnobValue(knob, config[knob.key]);
+    configEntries.push({ label: knob.label, value });
+  });
+  return configEntries;
+}
+
+function renderMiniGameSummary(entry, game) {
+  if (!miniGameInviteSummary) return;
+  miniGameInviteSummary.innerHTML = '';
+  const entries = buildMiniGameConfigEntries(entry, game);
+  if (entries.length) {
+    const list = document.createElement('ul');
+    entries.forEach(({ label, value }) => {
+      const li = document.createElement('li');
+      const strong = document.createElement('strong');
+      strong.textContent = `${label}: `;
+      const span = document.createElement('span');
+      span.textContent = value;
+      li.appendChild(strong);
+      li.appendChild(span);
+      list.appendChild(li);
+    });
+    miniGameInviteSummary.appendChild(list);
+    return;
+  }
+  const summary = entry ? miniGameConfigSummary(entry) : '';
+  miniGameInviteSummary.textContent = summary || 'No adjustable parameters were provided.';
+}
+
+function miniGameConfigSummary(entry) {
+  try {
+    return summarizeMiniGameConfig(entry.gameId, entry.config || {});
+  } catch {
+    return '';
+  }
+}
+
+function renderMiniGameNotes(entry) {
+  if (!miniGameInviteNotes || !miniGameInviteNotesText) return;
+  const notes = typeof entry?.notes === 'string' ? entry.notes.trim() : '';
+  if (notes) {
+    miniGameInviteNotesText.textContent = notes;
+    miniGameInviteNotes.hidden = false;
+  } else {
+    miniGameInviteNotes.hidden = true;
+    miniGameInviteNotesText.textContent = '';
+  }
+}
+
+function populateMiniGameInvite(entry) {
+  if (!hasMiniGameInviteUi || !entry) return;
+  const issuer = entry.issuedBy || 'DM';
+  if (miniGameInviteTitle) {
+    miniGameInviteTitle.textContent = 'Incoming Mini-Game Assignment';
+  }
+  if (miniGameInviteMessage) {
+    miniGameInviteMessage.textContent = `${issuer} has assigned you a new mission. Accept to launch it or decline to forfeit any benefits.`;
+  }
+  const game = getMiniGameDefinition(entry.gameId);
+  const gameName = entry.gameName || game?.name || 'Mini-game';
+  if (miniGameInviteGame) miniGameInviteGame.textContent = gameName;
+  const tagline = entry.tagline || game?.tagline || '';
+  if (miniGameInviteTagline) {
+    miniGameInviteTagline.textContent = tagline;
+    miniGameInviteTagline.hidden = !tagline;
+  }
+  renderMiniGameSummary(entry, game);
+  renderMiniGameNotes(entry);
+}
+
+function enqueueMiniGameInvite(entry) {
+  if (!entry || !entry.id || !hasMiniGameInviteUi) return;
+  if (miniGameInviteQueue.some(item => item.id === entry.id)) return;
+  miniGameInviteQueue.push(entry);
+  miniGameInviteQueue.sort((a, b) => miniGameTimestamp(a) - miniGameTimestamp(b));
+}
+
+function showNextMiniGameInvite() {
+  if (!hasMiniGameInviteUi) return;
+  if (miniGameActiveInvite && miniGameActiveInvite.status === 'pending') return;
+  if (!miniGameInviteQueue.length) return;
+  const next = miniGameInviteQueue.shift();
+  miniGameActiveInvite = next;
+  populateMiniGameInvite(next);
+  show('mini-game-invite');
+  if (typeof toast === 'function') {
+    const gameLabel = next.gameName || getMiniGameDefinition(next.gameId)?.name || 'Mini-game';
+    toast(`Incoming mini-game: ${gameLabel}`, 'info');
+  }
+}
+
+function closeMiniGameInvite(updatedEntry) {
+  if (!hasMiniGameInviteUi) return;
+  hide('mini-game-invite');
+  if (updatedEntry?.id) {
+    miniGameKnownDeployments.set(updatedEntry.id, updatedEntry);
+  }
+  miniGameActiveInvite = null;
+  showNextMiniGameInvite();
+}
+
+function handleMiniGameDeployments(entries = []) {
+  if (!Array.isArray(entries)) entries = [];
+  const pendingIds = new Set();
+  const seenIds = new Set();
+  entries.forEach(entry => {
+    if (!entry || !entry.id) return;
+    const normalized = { ...entry };
+    normalized.player = sanitizeMiniGamePlayerName(entry.player || miniGameActivePlayer);
+    seenIds.add(normalized.id);
+    if (normalized.status === 'pending') {
+      pendingIds.add(normalized.id);
+    }
+    miniGameKnownDeployments.set(normalized.id, normalized);
+    if (miniGameActiveInvite && miniGameActiveInvite.id === normalized.id) {
+      if (normalized.status === 'pending') {
+        miniGameActiveInvite = normalized;
+        populateMiniGameInvite(normalized);
+      } else {
+        miniGameActiveInvite = normalized;
+        closeMiniGameInvite(normalized);
+      }
+    }
+    if (normalized.status === 'pending') {
+      if (!miniGamePromptedDeployments.has(normalized.id)) {
+        miniGamePromptedDeployments.add(normalized.id);
+        enqueueMiniGameInvite(normalized);
+      }
+    } else {
+      miniGamePromptedDeployments.delete(normalized.id);
+      removeMiniGameQueueEntry(normalized.id);
+    }
+  });
+
+  for (let i = miniGameInviteQueue.length - 1; i >= 0; i--) {
+    const item = miniGameInviteQueue[i];
+    if (!item || !pendingIds.has(item.id)) {
+      miniGameInviteQueue.splice(i, 1);
+    }
+  }
+
+  for (const id of Array.from(miniGameKnownDeployments.keys())) {
+    if (!seenIds.has(id)) {
+      miniGameKnownDeployments.delete(id);
+      miniGamePromptedDeployments.delete(id);
+      removeMiniGameQueueEntry(id);
+      if (miniGameActiveInvite && miniGameActiveInvite.id === id) {
+        closeMiniGameInvite();
+      }
+    }
+  }
+
+  showNextMiniGameInvite();
+}
+
+function launchMiniGame(entry) {
+  if (!entry || !entry.gameUrl) return;
+  const url = entry.gameUrl;
+  const win = window.open(url, '_blank', 'noopener');
+  if (!win) {
+    try { window.location.assign(url); } catch { window.location.href = url; }
+  }
+}
+
+async function respondToMiniGameInvite(action) {
+  if (!miniGameActiveInvite || !hasMiniGameInviteUi) return;
+  const entry = miniGameActiveInvite;
+  const { player, id } = entry;
+  if (!player || !id) return;
+  const acceptBtn = miniGameInviteAccept;
+  const declineBtn = miniGameInviteDecline;
+  const responseTs = Date.now();
+  const updates = { respondedAt: responseTs };
+  if (action === 'accept') {
+    updates.status = 'active';
+    updates.acceptedAt = responseTs;
+  } else {
+    updates.status = 'cancelled';
+    updates.declinedAt = responseTs;
+    updates.declineReason = 'Player declined mini-game invitation';
+  }
+  if (acceptBtn) acceptBtn.disabled = true;
+  if (declineBtn) declineBtn.disabled = true;
+  try {
+    await updateMiniGameDeployment(player, id, updates);
+  } catch (err) {
+    console.error('Failed to update mini-game deployment', err);
+    if (typeof toast === 'function') toast('Failed to update mini-game assignment', 'error');
+    if (acceptBtn) acceptBtn.disabled = false;
+    if (declineBtn) declineBtn.disabled = false;
+    return;
+  }
+  const merged = { ...entry, ...updates };
+  miniGameKnownDeployments.set(id, merged);
+  miniGamePromptedDeployments.delete(id);
+  removeMiniGameQueueEntry(id);
+  if (acceptBtn) acceptBtn.disabled = false;
+  if (declineBtn) declineBtn.disabled = false;
+  hide('mini-game-invite');
+  miniGameActiveInvite = null;
+  if (action === 'accept') {
+    if (typeof toast === 'function') toast('Mini-game accepted', 'success');
+    launchMiniGame(merged);
+  } else if (typeof toast === 'function') {
+    toast('Mini-game declined', 'info');
+  }
+  showNextMiniGameInvite();
+}
+
+function setupMiniGamePlayerSync() {
+  if (!hasMiniGameInviteUi || miniGameSyncInitialized) return;
+  miniGameSyncInitialized = true;
+  if (miniGameInviteAccept) {
+    miniGameInviteAccept.addEventListener('click', () => respondToMiniGameInvite('accept'));
+  }
+  if (miniGameInviteDecline) {
+    miniGameInviteDecline.addEventListener('click', () => respondToMiniGameInvite('decline'));
+  }
+  syncMiniGamePlayerName();
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', () => syncMiniGamePlayerName(), { passive: true });
+    if (miniGamePlayerCheckTimer === null) {
+      miniGamePlayerCheckTimer = window.setInterval(syncMiniGamePlayerName, MINI_GAME_PLAYER_CHECK_INTERVAL_MS);
+    }
+  }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('character-saved', syncMiniGamePlayerName);
+  }
+}
+
+if (typeof document !== 'undefined') {
+  setupMiniGamePlayerSync();
 }
 
 function detectPlatform(){
@@ -3492,6 +3838,7 @@ if(newCharBtn){
     const clean = name.trim();
     if(!clean) return toast('Name required','error');
     setCurrentCharacter(clean);
+    syncMiniGamePlayerName();
     deserialize(DEFAULT_STATE);
     hide('modal-load-list');
     toast(`Switched to ${clean}`,'success');
@@ -3528,6 +3875,7 @@ async function doLoad(){
       : await loadCharacter(pendingLoad.name);
     deserialize(data);
     setCurrentCharacter(pendingLoad.name);
+    syncMiniGamePlayerName();
     hide('modal-load');
     hide('modal-load-list');
     toast(`Loaded ${pendingLoad.name}`,'success');
@@ -3557,12 +3905,14 @@ if (autoChar) {
     const prev = currentCharacter();
     try {
       setCurrentCharacter(autoChar);
+      syncMiniGamePlayerName();
       const data = await loadCharacter(autoChar);
       deserialize(data);
     } catch (e) {
       console.error('Failed to load character from URL', e);
     } finally {
       setCurrentCharacter(prev);
+      syncMiniGamePlayerName();
     }
   })();
 }
@@ -5043,7 +5393,10 @@ $('btn-save').addEventListener('click', async () => {
     if (oldChar && vig && vig !== oldChar) {
       await renameCharacter(oldChar, vig, data);
     } else {
-      if (target !== oldChar) setCurrentCharacter(target);
+      if (target !== oldChar) {
+        setCurrentCharacter(target);
+        syncMiniGamePlayerName();
+      }
       await saveCharacter(data, target);
     }
     toast('Save successful', 'success');
@@ -5060,6 +5413,7 @@ if (heroInput) {
     if (!name) return;
     if (!currentCharacter()) {
       setCurrentCharacter(name);
+      syncMiniGamePlayerName();
       try {
         await saveCharacter(serialize(), name);
       } catch (e) {

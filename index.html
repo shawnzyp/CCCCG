@@ -1183,6 +1183,7 @@
   <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
   <button id="dm-tools-notifications" class="btn-sm">Notifications</button>
   <button id="dm-tools-characters" class="btn-sm">Characters</button>
+  <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
   <button id="dm-tools-logout" class="btn-sm">Logout</button>
 </div>
 <button id="dm-tools-toggle" class="dm-tools-toggle" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-label="DM tools menu">
@@ -1234,6 +1235,93 @@
       </svg>
     </button>
     <div id="dm-character-sheet" class="dm-character-sheet" title="Character Sheet"></div>
+  </section>
+</div>
+<div class="overlay hidden" id="dm-mini-games-modal" aria-hidden="true">
+  <section class="modal dm-mini-games">
+    <button id="dm-mini-games-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Deploy Mini-Games</h3>
+    <div class="dm-mini-games__layout">
+      <aside class="dm-mini-games__sidebar">
+        <h4 class="dm-mini-games__section-title">Library</h4>
+        <ul id="dm-mini-games-list" class="dm-mini-games__list" role="listbox" aria-label="Mini-game library"></ul>
+      </aside>
+      <div class="dm-mini-games__content">
+        <header class="dm-mini-games__header">
+          <div class="dm-mini-games__heading">
+            <h4 id="dm-mini-games-title" class="dm-mini-games__title">Select a mini-game</h4>
+            <p id="dm-mini-games-tagline" class="dm-mini-games__tagline"></p>
+          </div>
+          <a id="dm-mini-games-launch" class="dm-mini-games__launch" href="#" target="_blank" rel="noopener" hidden>Open Player View</a>
+        </header>
+        <section class="dm-mini-games__section">
+          <h5>Fast Edit Controls</h5>
+          <div id="dm-mini-games-knobs" class="dm-mini-games__knobs"></div>
+        </section>
+        <section class="dm-mini-games__section">
+          <h5>Deployment Target</h5>
+          <div class="dm-mini-games__deploy-form">
+            <label class="dm-mini-games__field">
+              <span>Select character</span>
+              <select id="dm-mini-games-player">
+                <option value="">Loading…</option>
+              </select>
+            </label>
+            <label class="dm-mini-games__field">
+              <span>Or enter name</span>
+              <input id="dm-mini-games-player-custom" type="text" placeholder="Custom target name"/>
+            </label>
+            <label class="dm-mini-games__field">
+              <span>DM notes (optional)</span>
+              <textarea id="dm-mini-games-notes" rows="2" placeholder="Add private context for the player"></textarea>
+            </label>
+            <div class="dm-mini-games__actions">
+              <button id="dm-mini-games-refresh-players" type="button" class="btn-sm">Refresh Characters</button>
+              <button id="dm-mini-games-deploy" type="button" class="somf-btn somf-primary">Deploy Mini-Game</button>
+            </div>
+          </div>
+        </section>
+        <section class="dm-mini-games__section dm-mini-games__section--scroll">
+          <h5>Mini-Game Briefing</h5>
+          <pre id="dm-mini-games-readme" class="dm-mini-games__readme" tabindex="0">Select a mini-game to view its briefing.</pre>
+        </section>
+        <section class="dm-mini-games__section dm-mini-games__section--scroll">
+          <div class="dm-mini-games__section-header">
+            <h5>Active Deployments</h5>
+            <div class="dm-mini-games__section-actions">
+              <button id="dm-mini-games-refresh" type="button" class="btn-sm">Refresh</button>
+            </div>
+          </div>
+          <ul id="dm-mini-games-deployments" class="dm-mini-games__deployments"></ul>
+        </section>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay hidden" id="mini-game-invite" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title" data-modal-static>
+  <section class="modal mini-game-invite">
+    <header class="mini-game-invite__header">
+      <h3 id="mini-game-invite-title" class="mini-game-invite__title">Incoming Mini-Game Assignment</h3>
+      <p id="mini-game-invite-message" class="mini-game-invite__message"></p>
+    </header>
+    <div class="mini-game-invite__game">
+      <div id="mini-game-invite-game" class="mini-game-invite__name"></div>
+      <p id="mini-game-invite-tagline" class="mini-game-invite__tagline"></p>
+    </div>
+    <div id="mini-game-invite-summary" class="mini-game-invite__summary"></div>
+    <div id="mini-game-invite-notes" class="mini-game-invite__notes" hidden>
+      <h4 class="mini-game-invite__notes-title">Briefing</h4>
+      <p id="mini-game-invite-notes-text" class="mini-game-invite__notes-text"></p>
+    </div>
+    <footer class="mini-game-invite__actions">
+      <button id="mini-game-invite-decline" type="button" class="btn-sm mini-game-invite__decline">Decline</button>
+      <button id="mini-game-invite-accept" type="button" class="somf-btn somf-primary mini-game-invite__accept">Accept &amp; Launch</button>
+    </footer>
   </section>
 </div>
 <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">

@@ -51,14 +51,14 @@ qsa('.overlay.hidden').forEach(ov => { ov.style.display = 'none'; });
 // Close modal on overlay click
 qsa('.overlay').forEach(ov => {
   ov.addEventListener('click', e => {
-    if (e.target === ov) hide(ov.id);
+    if (e.target === ov && !ov.hasAttribute('data-modal-static')) hide(ov.id);
   });
 });
 
 // Allow closing with Escape key
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && openModals > 0) {
-    const open = qsa('.overlay').find(o => !o.classList.contains('hidden'));
+    const open = qsa('.overlay').find(o => !o.classList.contains('hidden') && !o.hasAttribute('data-modal-static'));
     if (open) hide(open.id);
   }
 });

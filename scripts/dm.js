@@ -1,6 +1,20 @@
-import { listCharacters, currentCharacter, setCurrentCharacter, loadCharacter } from './characters.js';
+import { listCharacters, loadCharacter } from './characters.js';
 import { DM_PIN, DM_DEVICE_FINGERPRINT } from './dm-pin.js';
 import { show, hide } from './modal.js';
+import {
+  listMiniGames,
+  getMiniGame,
+  getDefaultConfig,
+  loadMiniGameReadme,
+  subscribeToDeployments as subscribeMiniGameDeployments,
+  refreshDeployments as refreshMiniGameDeployments,
+  deployMiniGame as deployMiniGameToCloud,
+  updateDeployment as updateMiniGameDeployment,
+  deleteDeployment as deleteMiniGameDeployment,
+  MINI_GAME_STATUS_OPTIONS,
+  summarizeConfig,
+  getStatusLabel,
+} from './mini-games.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -125,6 +139,7 @@ function initDMLogin(){
   const tsomfBtn = document.getElementById('dm-tools-tsomf');
   const notifyBtn = document.getElementById('dm-tools-notifications');
   const charBtn = document.getElementById('dm-tools-characters');
+  const miniGamesBtn = document.getElementById('dm-tools-mini-games');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
@@ -139,6 +154,21 @@ function initDMLogin(){
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
+  const miniGamesModal = document.getElementById('dm-mini-games-modal');
+  const miniGamesClose = document.getElementById('dm-mini-games-close');
+  const miniGamesList = document.getElementById('dm-mini-games-list');
+  const miniGamesTitle = document.getElementById('dm-mini-games-title');
+  const miniGamesTagline = document.getElementById('dm-mini-games-tagline');
+  const miniGamesLaunch = document.getElementById('dm-mini-games-launch');
+  const miniGamesKnobs = document.getElementById('dm-mini-games-knobs');
+  const miniGamesPlayerSelect = document.getElementById('dm-mini-games-player');
+  const miniGamesPlayerCustom = document.getElementById('dm-mini-games-player-custom');
+  const miniGamesNotes = document.getElementById('dm-mini-games-notes');
+  const miniGamesRefreshPlayers = document.getElementById('dm-mini-games-refresh-players');
+  const miniGamesDeployBtn = document.getElementById('dm-mini-games-deploy');
+  const miniGamesReadme = document.getElementById('dm-mini-games-readme');
+  const miniGamesRefreshBtn = document.getElementById('dm-mini-games-refresh');
+  const miniGamesDeployments = document.getElementById('dm-mini-games-deployments');
 
   if (!isAuthorizedDevice()) {
     dmBtn?.remove();
@@ -149,6 +179,432 @@ function initDMLogin(){
     charModal?.remove();
     charViewModal?.remove();
     return;
+  }
+
+  const miniGamesLibrary = listMiniGames();
+  const knobStateByGame = new Map();
+  miniGamesLibrary.forEach(game => {
+    try {
+      knobStateByGame.set(game.id, getDefaultConfig(game.id));
+    } catch {
+      knobStateByGame.set(game.id, {});
+    }
+  });
+  let selectedMiniGameId = miniGamesLibrary.length ? miniGamesLibrary[0].id : null;
+  let miniGamesInitialized = false;
+  let miniGamesUnsubscribe = null;
+  let miniGameDeploymentsCache = [];
+
+  function ensureKnobState(gameId) {
+    if (!gameId) return {};
+    if (!knobStateByGame.has(gameId)) {
+      try {
+        knobStateByGame.set(gameId, getDefaultConfig(gameId));
+      } catch {
+        knobStateByGame.set(gameId, {});
+      }
+    }
+    const stored = knobStateByGame.get(gameId) || {};
+    return { ...stored };
+  }
+
+  function writeKnobState(gameId, state) {
+    knobStateByGame.set(gameId, { ...state });
+  }
+
+  function buildMiniGamesList() {
+    if (!miniGamesList || miniGamesInitialized) return;
+    miniGamesList.innerHTML = '';
+    miniGamesLibrary.forEach(game => {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.gameId = game.id;
+      btn.setAttribute('aria-selected', game.id === selectedMiniGameId ? 'true' : 'false');
+      const title = document.createElement('span');
+      title.className = 'dm-mini-games__list-title';
+      title.textContent = game.name;
+      btn.appendChild(title);
+      if (game.tagline) {
+        const tagline = document.createElement('span');
+        tagline.className = 'dm-mini-games__list-tagline';
+        tagline.textContent = game.tagline;
+        btn.appendChild(tagline);
+      }
+      li.appendChild(btn);
+      miniGamesList.appendChild(li);
+    });
+    miniGamesInitialized = true;
+  }
+
+  function updateMiniGamesListSelection() {
+    if (!miniGamesList) return;
+    miniGamesList.querySelectorAll('button[data-game-id]').forEach(btn => {
+      const selected = btn.dataset.gameId === selectedMiniGameId;
+      btn.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+  }
+
+  function resetMiniGameDetails() {
+    if (miniGamesTitle) miniGamesTitle.textContent = 'Select a mini-game';
+    if (miniGamesTagline) miniGamesTagline.textContent = '';
+    if (miniGamesLaunch) miniGamesLaunch.hidden = true;
+    if (miniGamesKnobs) {
+      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">No mini-game selected.</p>';
+    }
+    if (miniGamesReadme) {
+      miniGamesReadme.textContent = 'Select a mini-game to view its briefing.';
+    }
+  }
+
+  function renderMiniGameKnobs(game) {
+    if (!miniGamesKnobs) return;
+    const state = ensureKnobState(game.id);
+    miniGamesKnobs.innerHTML = '';
+    if (!Array.isArray(game.knobs) || game.knobs.length === 0) {
+      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">No fast edit controls defined.</p>';
+      return;
+    }
+    game.knobs.forEach(knob => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'dm-mini-games__knob';
+      wrapper.dataset.knob = knob.key;
+      if (knob.type === 'toggle') {
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'dm-mini-games__knob-toggle';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.checked = Boolean(state[knob.key]);
+        input.addEventListener('change', () => {
+          const next = ensureKnobState(game.id);
+          next[knob.key] = input.checked;
+          writeKnobState(game.id, next);
+        });
+        toggleLabel.append(input, document.createTextNode(knob.label));
+        wrapper.appendChild(toggleLabel);
+      } else {
+        const label = document.createElement('label');
+        const labelText = document.createElement('span');
+        labelText.textContent = knob.label;
+        label.appendChild(labelText);
+        let control;
+        if (knob.type === 'select') {
+          control = document.createElement('select');
+          control.setAttribute('data-knob', knob.key);
+          (knob.options || []).forEach(opt => {
+            const option = document.createElement('option');
+            option.value = String(opt.value);
+            option.textContent = opt.label;
+            control.appendChild(option);
+          });
+          const currentValue = state[knob.key] ?? knob.default ?? (knob.options?.[0]?.value ?? '');
+          control.value = String(currentValue);
+          control.addEventListener('change', () => {
+            const next = ensureKnobState(game.id);
+            next[knob.key] = control.value;
+            writeKnobState(game.id, next);
+          });
+        } else {
+          control = document.createElement('input');
+          control.setAttribute('data-knob', knob.key);
+          if (knob.type === 'number') {
+            control.type = 'number';
+            if (typeof knob.min === 'number') control.min = String(knob.min);
+            if (typeof knob.max === 'number') control.max = String(knob.max);
+            if (typeof knob.step === 'number') control.step = String(knob.step);
+            const raw = state[knob.key];
+            const value = typeof raw === 'number' && Number.isFinite(raw)
+              ? raw
+              : typeof knob.default === 'number'
+                ? knob.default
+                : typeof knob.min === 'number'
+                  ? knob.min
+                  : 0;
+            control.value = String(value);
+            control.addEventListener('change', () => {
+              const parsed = Number(control.value);
+              if (Number.isFinite(parsed)) {
+                const next = ensureKnobState(game.id);
+                next[knob.key] = parsed;
+                writeKnobState(game.id, next);
+              }
+            });
+          } else {
+            control.type = 'text';
+            const raw = state[knob.key] ?? knob.default ?? '';
+            control.value = String(raw);
+            control.addEventListener('change', () => {
+              const next = ensureKnobState(game.id);
+              next[knob.key] = control.value;
+              writeKnobState(game.id, next);
+            });
+          }
+        }
+        label.appendChild(control);
+        wrapper.appendChild(label);
+      }
+      if (knob.description) {
+        const hint = document.createElement('small');
+        hint.textContent = knob.description;
+        wrapper.appendChild(hint);
+      }
+      miniGamesKnobs.appendChild(wrapper);
+    });
+  }
+
+  function renderMiniGameDetails() {
+    if (!selectedMiniGameId) {
+      resetMiniGameDetails();
+      return;
+    }
+    const game = getMiniGame(selectedMiniGameId);
+    if (!game) {
+      resetMiniGameDetails();
+      return;
+    }
+    if (miniGamesTitle) miniGamesTitle.textContent = game.name;
+    if (miniGamesTagline) miniGamesTagline.textContent = game.tagline || '';
+    if (miniGamesLaunch) {
+      if (game.url) {
+        miniGamesLaunch.href = game.url;
+        miniGamesLaunch.hidden = false;
+      } else {
+        miniGamesLaunch.hidden = true;
+      }
+    }
+    renderMiniGameKnobs(game);
+    if (miniGamesReadme) {
+      miniGamesReadme.textContent = 'Loading briefing…';
+      loadMiniGameReadme(game.id)
+        .then(text => {
+          if (selectedMiniGameId === game.id) {
+            miniGamesReadme.textContent = text;
+          }
+        })
+        .catch(() => {
+          if (selectedMiniGameId === game.id) {
+            miniGamesReadme.textContent = 'Failed to load briefing.';
+          }
+        });
+    }
+  }
+
+  function formatTimestamp(ts) {
+    if (typeof ts !== 'number' || !Number.isFinite(ts)) return '';
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return '';
+    }
+  }
+
+  function renderMiniGameDeployments(entries = []) {
+    if (!miniGamesDeployments) return;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      miniGamesDeployments.innerHTML = '<li class="dm-mini-games__empty">No active deployments.</li>';
+      return;
+    }
+    miniGamesDeployments.innerHTML = '';
+    entries.forEach(entry => {
+      const li = document.createElement('li');
+      li.className = 'dm-mini-games__deployment';
+      li.dataset.player = entry.player || '';
+      li.dataset.deploymentId = entry.id || '';
+      li.dataset.status = entry.status || 'pending';
+
+      const header = document.createElement('div');
+      header.className = 'dm-mini-games__deployment-header';
+      const title = document.createElement('strong');
+      const gameName = entry.gameName || getMiniGame(entry.gameId)?.name || entry.gameId || 'Mini-game';
+      title.textContent = `${entry.player || 'Unknown'} • ${gameName}`;
+      header.appendChild(title);
+      const meta = document.createElement('div');
+      meta.className = 'dm-mini-games__deployment-meta';
+      const status = document.createElement('span');
+      status.textContent = `Status: ${getStatusLabel(entry.status || 'pending')}`;
+      meta.appendChild(status);
+      const tsLabel = formatTimestamp(entry.updatedAt ?? entry.createdAt);
+      if (tsLabel) {
+        const tsSpan = document.createElement('span');
+        tsSpan.textContent = `Updated: ${tsLabel}`;
+        meta.appendChild(tsSpan);
+      }
+      if (entry.issuedBy) {
+        const issuer = document.createElement('span');
+        issuer.textContent = `Issued by: ${entry.issuedBy}`;
+        meta.appendChild(issuer);
+      }
+      header.appendChild(meta);
+      li.appendChild(header);
+
+      const summary = document.createElement('div');
+      summary.className = 'dm-mini-games__deployment-summary';
+      const summaryText = summarizeConfig(entry.gameId, entry.config || {});
+      summary.textContent = summaryText || 'No configuration specified.';
+      li.appendChild(summary);
+
+      if (entry.notes) {
+        const notes = document.createElement('div');
+        notes.className = 'dm-mini-games__deployment-notes';
+        notes.textContent = `Notes: ${entry.notes}`;
+        li.appendChild(notes);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'dm-mini-games__deployment-actions';
+
+      const statusSelect = document.createElement('select');
+      statusSelect.setAttribute('data-action', 'status');
+      statusSelect.ariaLabel = 'Deployment status';
+      MINI_GAME_STATUS_OPTIONS.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.label;
+        statusSelect.appendChild(option);
+      });
+      statusSelect.value = entry.status || 'pending';
+      actions.appendChild(statusSelect);
+
+      const updateBtn = document.createElement('button');
+      updateBtn.type = 'button';
+      updateBtn.className = 'btn-sm';
+      updateBtn.dataset.action = 'update';
+      updateBtn.textContent = 'Update';
+      actions.appendChild(updateBtn);
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn-sm';
+      removeBtn.dataset.action = 'delete';
+      removeBtn.textContent = 'Remove';
+      actions.appendChild(removeBtn);
+
+      if (entry.gameUrl) {
+        const openLink = document.createElement('a');
+        openLink.href = entry.gameUrl;
+        openLink.target = '_blank';
+        openLink.rel = 'noopener';
+        openLink.className = 'btn-sm';
+        openLink.textContent = 'Open Player View';
+        actions.appendChild(openLink);
+      }
+
+      li.appendChild(actions);
+      miniGamesDeployments.appendChild(li);
+    });
+  }
+
+  function ensureMiniGameSubscription() {
+    if (miniGamesUnsubscribe) return;
+    miniGamesUnsubscribe = subscribeMiniGameDeployments(entries => {
+      miniGameDeploymentsCache = Array.isArray(entries) ? entries : [];
+      if (miniGamesModal && !miniGamesModal.classList.contains('hidden')) {
+        renderMiniGameDeployments(miniGameDeploymentsCache);
+      }
+    });
+  }
+
+  function teardownMiniGameSubscription() {
+    if (typeof miniGamesUnsubscribe === 'function') {
+      try { miniGamesUnsubscribe(); } catch {}
+      miniGamesUnsubscribe = null;
+    }
+  }
+
+  async function refreshMiniGameCharacters({ preserveSelection = true } = {}) {
+    if (!miniGamesPlayerSelect) return;
+    const previous = preserveSelection ? miniGamesPlayerSelect.value : '';
+    miniGamesPlayerSelect.innerHTML = '<option value="">Loading…</option>';
+    try {
+      const names = await listCharacters();
+      miniGamesPlayerSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Select a character';
+      miniGamesPlayerSelect.appendChild(placeholder);
+      names.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        miniGamesPlayerSelect.appendChild(option);
+      });
+      if (previous && names.includes(previous)) {
+        miniGamesPlayerSelect.value = previous;
+      }
+    } catch (err) {
+      console.error('Failed to load characters for mini-games', err);
+      miniGamesPlayerSelect.innerHTML = '<option value="">Unable to load characters</option>';
+    }
+  }
+
+  async function forceRefreshMiniGameDeployments() {
+    try {
+      const entries = await refreshMiniGameDeployments();
+      miniGameDeploymentsCache = Array.isArray(entries) ? entries : [];
+      if (miniGamesModal && !miniGamesModal.classList.contains('hidden')) {
+        renderMiniGameDeployments(miniGameDeploymentsCache);
+      }
+    } catch (err) {
+      console.error('Failed to refresh mini-game deployments', err);
+      if (typeof toast === 'function') toast('Failed to refresh mini-games', 'error');
+    }
+  }
+
+  function getMiniGameTargetPlayer() {
+    const custom = miniGamesPlayerCustom?.value?.trim();
+    if (custom) return custom;
+    const selected = miniGamesPlayerSelect?.value?.trim();
+    return selected || '';
+  }
+
+  async function handleMiniGameDeploy() {
+    if (!selectedMiniGameId) {
+      if (typeof toast === 'function') toast('Choose a mini-game first', 'error');
+      return false;
+    }
+    const playerName = getMiniGameTargetPlayer();
+    if (!playerName) {
+      if (typeof toast === 'function') toast('Select or enter a player target', 'error');
+      return false;
+    }
+    const config = ensureKnobState(selectedMiniGameId);
+    const notes = miniGamesNotes?.value?.trim() || '';
+    try {
+      if (miniGamesDeployBtn) miniGamesDeployBtn.disabled = true;
+      await deployMiniGameToCloud({
+        gameId: selectedMiniGameId,
+        player: playerName,
+        config,
+        notes,
+        issuedBy: 'DM'
+      });
+      if (miniGamesNotes) miniGamesNotes.value = '';
+      if (typeof toast === 'function') toast('Mini-game deployed', 'success');
+      window.dmNotify?.(`Deployed ${selectedMiniGameId} to ${playerName}`);
+      return true;
+    } catch (err) {
+      console.error('Failed to deploy mini-game', err);
+      if (typeof toast === 'function') toast('Failed to deploy mini-game', 'error');
+      return false;
+    } finally {
+      if (miniGamesDeployBtn) miniGamesDeployBtn.disabled = false;
+    }
+  }
+
+  async function openMiniGames() {
+    if (!miniGamesModal) return;
+    ensureMiniGameSubscription();
+    buildMiniGamesList();
+    updateMiniGamesListSelection();
+    renderMiniGameDetails();
+    await refreshMiniGameCharacters();
+    renderMiniGameDeployments(miniGameDeploymentsCache);
+    show('dm-mini-games-modal');
+  }
+
+  function closeMiniGames() {
+    if (!miniGamesModal) return;
+    hide('dm-mini-games-modal');
   }
 
   if (loginPin) {
@@ -376,6 +832,8 @@ function initDMLogin(){
 
   function logout(){
     clearLoggedIn();
+    teardownMiniGameSubscription();
+    closeMiniGames();
     updateButtons();
     if (typeof toast === 'function') toast('Logged out','info');
   }
@@ -406,6 +864,7 @@ function initDMLogin(){
     setLoggedIn();
     updateButtons();
     drainPendingNotifications();
+    ensureMiniGameSubscription();
     initTools();
   }
 
@@ -585,6 +1044,83 @@ function initDMLogin(){
         openCharacters();
       });
     }
+
+  if (miniGamesBtn) {
+    miniGamesBtn.addEventListener('click', async () => {
+      if (menu) menu.hidden = true;
+      if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+      try {
+        await openMiniGames();
+      } catch (err) {
+        console.error('Failed to open mini-games', err);
+        if (typeof toast === 'function') toast('Failed to open mini-games', 'error');
+      }
+    });
+  }
+
+  miniGamesClose?.addEventListener('click', closeMiniGames);
+
+  miniGamesList?.addEventListener('click', e => {
+    const button = e.target.closest('button[data-game-id]');
+    if (!button) return;
+    selectedMiniGameId = button.dataset.gameId || null;
+    updateMiniGamesListSelection();
+    renderMiniGameDetails();
+  });
+
+  miniGamesRefreshPlayers?.addEventListener('click', () => {
+    refreshMiniGameCharacters({ preserveSelection: false });
+  });
+
+  miniGamesDeployBtn?.addEventListener('click', async () => {
+    const deployed = await handleMiniGameDeploy();
+    if (deployed) {
+      await forceRefreshMiniGameDeployments();
+    }
+  });
+
+  miniGamesRefreshBtn?.addEventListener('click', () => {
+    forceRefreshMiniGameDeployments();
+  });
+
+  miniGamesDeployments?.addEventListener('click', async e => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const item = btn.closest('.dm-mini-games__deployment');
+    if (!item) return;
+    const player = item.dataset.player;
+    const deploymentId = item.dataset.deploymentId;
+    if (!player || !deploymentId) return;
+    if (btn.dataset.action === 'update') {
+      const select = item.querySelector('select[data-action="status"]');
+      const status = select?.value || 'pending';
+      btn.disabled = true;
+      try {
+        await updateMiniGameDeployment(player, deploymentId, { status });
+        if (typeof toast === 'function') toast('Mini-game updated', 'success');
+        window.dmNotify?.(`Updated mini-game ${deploymentId} to ${status}`);
+      } catch (err) {
+        console.error('Failed to update mini-game deployment', err);
+        if (typeof toast === 'function') toast('Failed to update mini-game', 'error');
+      } finally {
+        btn.disabled = false;
+        await forceRefreshMiniGameDeployments();
+      }
+    } else if (btn.dataset.action === 'delete') {
+      btn.disabled = true;
+      try {
+        await deleteMiniGameDeployment(player, deploymentId);
+        if (typeof toast === 'function') toast('Mini-game deployment removed', 'info');
+        window.dmNotify?.(`Removed mini-game ${deploymentId}`);
+      } catch (err) {
+        console.error('Failed to remove mini-game deployment', err);
+        if (typeof toast === 'function') toast('Failed to remove mini-game', 'error');
+      } finally {
+        btn.disabled = false;
+        await forceRefreshMiniGameDeployments();
+      }
+    }
+  });
 
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });
