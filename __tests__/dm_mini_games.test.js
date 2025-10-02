@@ -113,7 +113,7 @@ async function initDmModule() {
     id: 'clue-tracker',
     name: 'Clue Tracker',
     tagline: 'Connect the dots',
-    url: 'SuperheroMiniGames/ClueTracker/ClueTracker.html',
+    url: 'SuperheroMiniGames/play.html?game=clue-tracker',
     knobs: [
       { key: 'cluesToReveal', label: 'Clues to reveal', type: 'number', min: 1, max: 6, step: 1, default: 3 }
     ]

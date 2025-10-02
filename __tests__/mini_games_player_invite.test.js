@@ -70,6 +70,16 @@ function setupDom() {
   `;
 
   document.getElementById = (id) => nativeGetElementById(id) || createStubElement();
+
+  const storage = {};
+  global.localStorage = {
+    getItem: key => Object.prototype.hasOwnProperty.call(storage, key) ? storage[key] : null,
+    setItem: (key, value) => { storage[key] = String(value); },
+    removeItem: key => { delete storage[key]; },
+    clear: () => { Object.keys(storage).forEach(k => delete storage[k]); },
+    key: index => Object.keys(storage)[index] ?? null,
+    get length() { return Object.keys(storage).length; },
+  };
 }
 
 async function initMainModule() {
@@ -198,7 +208,7 @@ describe('player mini-game invitations', () => {
       status: 'pending',
       gameId: 'clue-tracker',
       gameName: 'Clue Tracker',
-      gameUrl: 'game.html',
+      gameUrl: 'SuperheroMiniGames/play.html?game=clue-tracker&deployment=mg-7',
       config: { difficulty: 3 },
       notes: 'Finish within 5 minutes',
       createdAt: Date.now(),
@@ -222,8 +232,12 @@ describe('player mini-game invitations', () => {
       expect.objectContaining({ status: 'active' })
     );
     expect(hide).toHaveBeenCalledWith('mini-game-invite');
-    expect(window.open).toHaveBeenCalledWith('game.html', '_blank', 'noopener');
+    expect(window.open).toHaveBeenCalledWith('SuperheroMiniGames/play.html?game=clue-tracker&deployment=mg-7', '_blank', 'noopener');
     expect(toastEl.textContent).toBe('Mini-game accepted');
+    const stored = localStorage.getItem('cc:mini-game:deployment:mg-7');
+    expect(stored).not.toBeNull();
+    const parsed = JSON.parse(stored);
+    expect(parsed).toMatchObject({ id: 'mg-7', player: 'Hero One', gameId: 'clue-tracker' });
   });
 
   test('declining an invite cancels the deployment and does not launch the game', async () => {
@@ -236,7 +250,7 @@ describe('player mini-game invitations', () => {
       status: 'pending',
       gameId: 'clue-tracker',
       gameName: 'Clue Tracker',
-      gameUrl: 'game.html',
+      gameUrl: 'SuperheroMiniGames/play.html?game=clue-tracker&deployment=mg-8',
       config: { difficulty: 2 },
       createdAt: Date.now(),
     };

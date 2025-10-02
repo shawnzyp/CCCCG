@@ -198,6 +198,8 @@ const miniGameInviteNotes = typeof document !== 'undefined' ? $('mini-game-invit
 const miniGameInviteNotesText = typeof document !== 'undefined' ? $('mini-game-invite-notes-text') : null;
 const miniGameInviteAccept = typeof document !== 'undefined' ? $('mini-game-invite-accept') : null;
 const miniGameInviteDecline = typeof document !== 'undefined' ? $('mini-game-invite-decline') : null;
+const MINI_GAME_STORAGE_KEY_PREFIX = 'cc:mini-game:deployment:';
+const MINI_GAME_LAST_DEPLOYMENT_KEY = 'cc:mini-game:last-deployment';
 const hasMiniGameInviteUi = Boolean(miniGameInviteOverlay && miniGameInviteAccept && miniGameInviteDecline);
 let miniGameActivePlayer = '';
 let miniGameUnsubscribe = null;
@@ -446,9 +448,33 @@ function handleMiniGameDeployments(entries = []) {
   showNextMiniGameInvite();
 }
 
+function persistMiniGameLaunch(entry) {
+  if (!entry || !entry.id) return;
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const payload = {
+      id: entry.id,
+      gameId: entry.gameId,
+      gameName: entry.gameName || '',
+      gameUrl: entry.gameUrl || '',
+      config: entry.config || {},
+      notes: typeof entry.notes === 'string' ? entry.notes : '',
+      player: entry.player || '',
+      issuedBy: entry.issuedBy || '',
+      tagline: entry.tagline || '',
+      storedAt: Date.now(),
+    };
+    localStorage.setItem(`${MINI_GAME_STORAGE_KEY_PREFIX}${entry.id}`, JSON.stringify(payload));
+    localStorage.setItem(MINI_GAME_LAST_DEPLOYMENT_KEY, entry.id);
+  } catch (err) {
+    console.error('Failed to persist mini-game launch payload', err);
+  }
+}
+
 function launchMiniGame(entry) {
   if (!entry || !entry.gameUrl) return;
   const url = entry.gameUrl;
+  persistMiniGameLaunch(entry);
   const win = window.open(url, '_blank', 'noopener');
   if (!win) {
     try { window.location.assign(url); } catch { window.location.href = url; }
