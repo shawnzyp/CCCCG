@@ -1006,15 +1006,47 @@ function initDMLogin(){
     }
   });
 
-  if (dmToggleBtn) dmToggleBtn.addEventListener('click', () => {
+  let pointerToggleActivated = false;
+  function clearPointerToggleFlag() {
+    pointerToggleActivated = false;
+  }
+
+  function handleToggleActivation(event) {
     if (!isLoggedIn()) {
       requireLogin().catch(() => {});
       return;
     }
-    toggleMenu();
-  });
+    if (event.type === 'pointerdown' && event.pointerType && event.pointerType !== 'mouse') {
+      pointerToggleActivated = true;
+      event.preventDefault();
+      toggleMenu();
+      return;
+    }
+    if (event.type === 'click') {
+      if (pointerToggleActivated) {
+        clearPointerToggleFlag();
+        return;
+      }
+      toggleMenu();
+    }
+  }
+
+  if (dmToggleBtn) {
+    dmToggleBtn.addEventListener('pointerdown', handleToggleActivation);
+    dmToggleBtn.addEventListener('pointerup', clearPointerToggleFlag);
+    dmToggleBtn.addEventListener('pointercancel', clearPointerToggleFlag);
+    dmToggleBtn.addEventListener('click', handleToggleActivation);
+  }
 
   document.addEventListener('click', e => {
+    if (menu && !menu.hidden && !menu.contains(e.target) && !dmBtn?.contains(e.target) && !dmToggleBtn?.contains(e.target)) {
+      menu.hidden = true;
+      if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse') return;
     if (menu && !menu.hidden && !menu.contains(e.target) && !dmBtn?.contains(e.target) && !dmToggleBtn?.contains(e.target)) {
       menu.hidden = true;
       if (dmToggleBtn) dmToggleBtn.setAttribute('aria-expanded', 'false');
