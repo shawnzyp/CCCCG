@@ -1740,6 +1740,9 @@ select[required]:valid{
 .dm-login-logo{
   filter:drop-shadow(0 6px 12px rgba(0,0,0,.35));
 }
+.dm-tools-portal{
+  position:relative;
+}
 .dm-tools-menu{
   position:fixed;
   bottom:calc(84px + env(safe-area-inset-bottom, 0px));
