@@ -2680,10 +2680,9 @@
       }
       this.updateRealtimeState();
       if (previous !== hasRealtime && previous != null) {
-        const message = hasRealtime
-          ? '<strong>Cloud Sync Restored</strong> The shard deck is now live.'
-          : '<strong>Cloud Sync Lost</strong> Changes are paused until connection returns.';
-        this.toast(message);
+        if (!hasRealtime) {
+          this.toast('<strong>Cloud Sync Lost</strong> Changes are paused until connection returns.');
+        }
       }
     }
 
