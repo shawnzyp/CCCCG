@@ -246,6 +246,7 @@ const README_BASE_PATH = 'SuperheroMiniGames';
 const README_FILENAME = 'README.txt';
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
 const POLL_INTERVAL_MS = 15000;
+const PLAYER_POLL_INTERVAL_MS = 7000;
 
 const readmeCache = new Map();
 const listeners = new Set();
@@ -380,6 +381,15 @@ async function fetchDeploymentsFromCloud() {
   return data || {};
 }
 
+function sortDeployments(entries) {
+  entries.sort((a, b) => {
+    const aTime = typeof a.updatedAt === 'number' ? a.updatedAt : typeof a.createdAt === 'number' ? a.createdAt : 0;
+    const bTime = typeof b.updatedAt === 'number' ? b.updatedAt : typeof b.createdAt === 'number' ? b.createdAt : 0;
+    return bTime - aTime;
+  });
+  return entries;
+}
+
 function transformDeploymentData(raw) {
   const entries = [];
   if (!raw || typeof raw !== 'object') return entries;
@@ -394,12 +404,21 @@ function transformDeploymentData(raw) {
       });
     }
   }
-  entries.sort((a, b) => {
-    const aTime = typeof a.updatedAt === 'number' ? a.updatedAt : typeof a.createdAt === 'number' ? a.createdAt : 0;
-    const bTime = typeof b.updatedAt === 'number' ? b.updatedAt : typeof b.createdAt === 'number' ? b.createdAt : 0;
-    return bTime - aTime;
-  });
-  return entries;
+  return sortDeployments(entries);
+}
+
+function transformPlayerDeploymentData(player, raw) {
+  const entries = [];
+  if (!raw || typeof raw !== 'object') return entries;
+  for (const [id, details] of Object.entries(raw)) {
+    if (!details || typeof details !== 'object') continue;
+    entries.push({
+      player,
+      id,
+      ...details
+    });
+  }
+  return sortDeployments(entries);
 }
 
 function safeClone(value) {
@@ -480,6 +499,54 @@ function randomId() {
 
 function sanitizePlayer(player = '') {
   return player.trim().replace(/\s+/g, ' ');
+}
+
+async function fetchPlayerDeployments(player) {
+  const trimmed = sanitizePlayer(player);
+  if (!trimmed) return [];
+  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmed)}.json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return transformPlayerDeploymentData(trimmed, data || {});
+}
+
+export async function listPlayerDeployments(player) {
+  return fetchPlayerDeployments(player);
+}
+
+export function subscribePlayerDeployments(player, callback, { intervalMs = PLAYER_POLL_INTERVAL_MS } = {}) {
+  if (typeof callback !== 'function') return () => {};
+  const trimmed = sanitizePlayer(player);
+  if (!trimmed) {
+    callback([]);
+    return () => {};
+  }
+  let active = true;
+  let timer = null;
+
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const entries = await fetchPlayerDeployments(trimmed);
+      callback(entries);
+    } catch (err) {
+      console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
+    } finally {
+      if (!active) return;
+      timer = setTimeout(poll, Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS));
+    }
+  };
+
+  poll();
+
+  return () => {
+    active = false;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
 }
 
 export async function deployMiniGame({ gameId, player, config = {}, notes = '', issuedBy = '' } = {}) {
