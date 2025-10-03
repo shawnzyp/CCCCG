@@ -178,6 +178,28 @@ body {
   letter-spacing: 0.08em;
 }
 
+.mini-game-shell__launch {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  box-shadow: 0 16px 26px rgba(15, 23, 42, 0.28);
+}
+
+.mini-game-shell__launch-text {
+  margin: 0;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.mini-game-shell__launch-button {
+  align-self: flex-start;
+}
+
 .mini-game-shell__content {
   display: flex;
   flex-direction: column;

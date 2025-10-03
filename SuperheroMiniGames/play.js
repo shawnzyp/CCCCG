@@ -14,6 +14,9 @@ const configEl = document.getElementById('mini-game-config');
 const notesEl = document.getElementById('mini-game-notes');
 const notesTextEl = document.getElementById('mini-game-notes-text');
 const previewBannerEl = document.getElementById('mini-game-preview-banner');
+const launchEl = document.getElementById('mini-game-launch');
+const launchTextEl = document.getElementById('mini-game-launch-text');
+const startButtonEl = document.getElementById('mini-game-start');
 const rootEl = document.getElementById('mini-game-root');
 
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
@@ -1417,10 +1420,56 @@ async function init() {
     }
   }
 
-  rootEl.innerHTML = '';
-  game.setup(rootEl, context);
+  if (launchTextEl) {
+    const baseMessage = 'Review the mission briefing and parameters. When you\'re ready, begin the deployment to load the interactive console.';
+    launchTextEl.textContent = context.warning
+      ? `${context.warning} ${baseMessage}`
+      : baseMessage;
+  }
 
+  rootEl.innerHTML = '';
+  rootEl.hidden = true;
   shell.hidden = false;
+
+  let missionStarted = false;
+
+  const startMission = () => {
+    if (missionStarted) return true;
+    missionStarted = true;
+    if (launchEl) {
+      launchEl.hidden = true;
+    }
+    hideError();
+    try {
+      game.setup(rootEl, context);
+      rootEl.hidden = false;
+      return true;
+    } catch (err) {
+      console.error('Failed to initialise mission content', err);
+      showError('Failed to load the mini-game deployment. Please refresh or request a new link.');
+      missionStarted = false;
+      if (launchEl) {
+        launchEl.hidden = false;
+      }
+      return false;
+    }
+  };
+
+  if (launchEl && startButtonEl) {
+    launchEl.hidden = false;
+    startButtonEl.disabled = false;
+    startButtonEl.addEventListener('click', () => {
+      startButtonEl.disabled = true;
+      const success = startMission();
+      if (!success) {
+        startButtonEl.disabled = false;
+        try { startButtonEl.focus(); } catch {}
+      }
+    });
+    try { startButtonEl.focus(); } catch {}
+  } else {
+    startMission();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

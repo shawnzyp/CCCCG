@@ -44,7 +44,15 @@
           Running in preview mode with default parameters.
         </p>
       </section>
-      <section class="mini-game-shell__content" id="mini-game-root"></section>
+      <div id="mini-game-launch" class="mini-game-shell__launch" hidden>
+        <p id="mini-game-launch-text" class="mini-game-shell__launch-text">
+          Review the mission briefing and parameters. When you're ready, begin the deployment to load the interactive console.
+        </p>
+        <button id="mini-game-start" type="button" class="mg-button mini-game-shell__launch-button">
+          Start Mission
+        </button>
+      </div>
+      <section class="mini-game-shell__content" id="mini-game-root" hidden></section>
     </main>
     <div id="mini-game-error" class="mini-game-shell__error" hidden></div>
     <script type="module" src="play.js"></script>
