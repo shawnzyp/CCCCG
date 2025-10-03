@@ -1272,8 +1272,6 @@
   function triggerShardRevealEffects() {
     if (revealSequencePromise) return revealSequencePromise;
     revealSequencePromise = (async () => {
-      await runLightningFlash();
-      await showShardRevealAlert();
       try { HiddenSync.prepareRefresh('hidden-sync'); }
       catch { /* ignore prep errors */ }
       try { window.location.reload(); }
@@ -2815,18 +2813,7 @@
     handleHiddenSignal(detail) {
       if (!detail || typeof detail.hidden !== 'boolean') return;
       if (detail.hidden === false) {
-        try {
-          if (typeof window.toast === 'function') {
-            window.toast('The DM revealed the Shards of Many Fates', { type: 'success', duration: 6000 });
-          }
-        } catch {}
         triggerShardRevealEffects();
-      } else if (detail.hidden === true) {
-        try {
-          if (typeof window.toast === 'function') {
-            window.toast('The DM concealed the Shards of Many Fates', { type: 'info', duration: 4000 });
-          }
-        } catch {}
       }
     }
 
@@ -2929,10 +2916,9 @@
       }
       this.updateRealtimeState();
       if (previous !== hasRealtime && previous != null) {
-        const message = hasRealtime
-          ? '<strong>Cloud Sync Restored</strong> The shard deck is now live.'
-          : '<strong>Cloud Sync Lost</strong> Changes are paused until connection returns.';
-        this.toast(message);
+        if (!hasRealtime) {
+          this.toast('<strong>Cloud Sync Lost</strong> Changes are paused until connection returns.');
+        }
       }
     }
 
