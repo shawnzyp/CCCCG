@@ -1341,162 +1341,139 @@ function setupTechLockpick(root, context) {
   const failuresAllowed = clamp(Number(config.failuresAllowed ?? 2), 0, 6);
   const supportDrones = Boolean(config.supportDrones);
 
-  const dialCount = {
-    standard: 3,
-    advanced: 4,
-    exotic: 5,
-  }[complexity] || 3;
+  const complexitySettings = {
+    standard: { count: 10, wordLength: 5 },
+    advanced: { count: 12, wordLength: 6 },
+    exotic: { count: 14, wordLength: 7 },
+  };
+
+  const WORD_BANK = {
+    standard: [
+      'GLASS', 'NEON', 'TRACE', 'SHARD', 'LASER', 'SONIC', 'SHIFT', 'PRISM', 'LIGHT', 'STEEL',
+      'SPIKE', 'VAULT', 'CRANE', 'PHASE', 'SLICE', 'BLADE', 'HYPER', 'MAGIC', 'FROST', 'PLAZA',
+    ],
+    advanced: [
+      'CYBERS', 'VECTOR', 'RECOIL', 'AURORA', 'SCHEMA', 'ROGUES', 'LOCKED', 'FALCON', 'REFLEX', 'SILICA',
+      'TUNNEL', 'DRIVER', 'SLICER', 'TETHER', 'ECHOES', 'VORTEX', 'STATIC', 'STRIKE', 'SHADOW', 'SPIRAL',
+    ],
+    exotic: [
+      'PHANTOM', 'GATEWAY', 'SPECTRE', 'CIRCUIT', 'PARAGON', 'RAZORIN', 'MONITOR', 'HELICON', 'ECLIPSE', 'MATRIXE',
+      'LIBRARY', 'CRYSTAL', 'VAULTED', 'TINKERS', 'OVERLAY', 'SKYLITE', 'HAUNTER', 'LEXICON', 'SERRATE', 'SHARDEN',
+    ],
+  };
+
+  const settings = complexitySettings[complexity] || complexitySettings.standard;
+  const bank = WORD_BANK[complexity] || WORD_BANK.standard;
+  const words = shuffle(bank.slice()).slice(0, settings.count);
+  const secret = words[Math.floor(Math.random() * words.length)];
+
+  const attemptsTotal = Math.max(1, failuresAllowed + 1);
+  let attemptsRemaining = attemptsTotal;
+  let solved = false;
+  let droneAvailable = supportDrones;
 
   const card = document.createElement('section');
   card.className = 'mg-card';
   const intro = document.createElement('p');
-  intro.textContent = 'Tune each subsystem dial to the correct frequency. Use drones for assistance or risk the lock sealing shut.';
+  intro.textContent = 'Spoof the terminal buffer. Each candidate word is a possible passphrase—choose wisely before the trace spikes.';
   card.appendChild(intro);
 
   const strikeLabel = document.createElement('div');
   strikeLabel.className = 'mg-status';
-  strikeLabel.textContent = `Strike tokens remaining: ${failuresAllowed}`;
+  strikeLabel.textContent = `Attempts before lockout: ${attemptsRemaining}`;
   card.appendChild(strikeLabel);
 
-  const grid = document.createElement('div');
-  grid.className = 'lockpick-grid';
-  card.appendChild(grid);
+  const terminal = document.createElement('div');
+  terminal.className = 'lockpick-terminal';
+  const header = document.createElement('div');
+  header.className = 'lockpick-terminal__header';
+  header.textContent = `> SECURITY NODE ACCEPTS ${settings.wordLength}-LETTER PHRASES`;
+  terminal.appendChild(header);
+
+  const wordGrid = document.createElement('div');
+  wordGrid.className = 'lockpick-terminal__grid';
+  terminal.appendChild(wordGrid);
+  card.appendChild(terminal);
 
   const actions = document.createElement('div');
   actions.className = 'mg-actions';
-  const probeBtn = document.createElement('button');
-  probeBtn.type = 'button';
-  probeBtn.className = 'mg-button';
-  probeBtn.textContent = 'Probe lock';
-  actions.appendChild(probeBtn);
-  let droneAvailable = supportDrones;
   let droneBtn = null;
   if (supportDrones) {
     droneBtn = document.createElement('button');
     droneBtn.type = 'button';
     droneBtn.className = 'mg-button mg-button--ghost';
-    droneBtn.textContent = 'Deploy support drone';
+    droneBtn.textContent = 'Run debug script';
     actions.appendChild(droneBtn);
   }
   card.appendChild(actions);
 
   const feedback = document.createElement('div');
   feedback.className = 'mg-status';
-  feedback.textContent = 'Awaiting calibration check…';
+  feedback.textContent = 'Terminal ready. Select a candidate password.';
   card.appendChild(feedback);
 
   root.appendChild(card);
 
-  const dials = [];
-  for (let i = 0; i < dialCount; i += 1) {
-    const pane = document.createElement('div');
-    pane.className = 'lockpick-dial';
-    const label = document.createElement('div');
-    label.textContent = `Subsystem ${i + 1}`;
-    const valueEl = document.createElement('div');
-    valueEl.className = 'lockpick-dial__value';
-    const controls = document.createElement('div');
-    controls.className = 'lockpick-dial__controls';
-    const dec = document.createElement('button');
-    dec.type = 'button';
-    dec.textContent = '−';
-    const inc = document.createElement('button');
-    inc.type = 'button';
-    inc.textContent = '+';
-    controls.appendChild(dec);
-    controls.appendChild(inc);
-    const hint = document.createElement('div');
-    hint.className = 'lockpick-dial__hint';
-    hint.textContent = 'Uncalibrated';
-    pane.appendChild(label);
-    pane.appendChild(valueEl);
-    pane.appendChild(controls);
-    pane.appendChild(hint);
-    grid.appendChild(pane);
+  const buttons = [];
 
-    const target = Math.floor(Math.random() * 10);
-    const dialState = {
-      value: Math.floor(Math.random() * 10),
-      target,
-      valueEl,
-      hint,
-      controls,
-    };
-
-    function updateDisplay() {
-      dialState.valueEl.textContent = dialState.value;
-      const delta = Math.abs(dialState.value - dialState.target);
-      if (delta === 0) {
-        hint.textContent = 'Aligned';
-      } else if (delta === 1) {
-        hint.textContent = 'Very close';
-      } else if (dialState.value < dialState.target) {
-        hint.textContent = 'Need higher resonance';
-      } else {
-        hint.textContent = 'Need lower resonance';
-      }
-    }
-
-    dec.addEventListener('click', () => {
-      dialState.value = (dialState.value + 9) % 10;
-      updateDisplay();
-    });
-
-    inc.addEventListener('click', () => {
-      dialState.value = (dialState.value + 1) % 10;
-      updateDisplay();
-    });
-
-    updateDisplay();
-    dials.push(dialState);
+  function updateAttempts() {
+    strikeLabel.textContent = `Attempts before lockout: ${Math.max(0, attemptsRemaining)}`;
   }
 
-  let strikes = failuresAllowed;
-  let solved = false;
-
-  function updateStrikeLabel() {
-    strikeLabel.textContent = `Strike tokens remaining: ${strikes}`;
-  }
-
-  function complete(success) {
+  function lockTerminal(success) {
     solved = true;
-    probeBtn.disabled = true;
+    buttons.forEach(btn => { btn.disabled = true; });
     if (droneBtn) droneBtn.disabled = true;
-    dials.forEach(d => {
-      d.controls.querySelectorAll('button').forEach(btn => { btn.disabled = true; });
-    });
-    feedback.textContent = success ? 'Lock disengaged!' : 'Lock sealed. Countermeasures triggered!';
+    feedback.textContent = success
+      ? 'ACCESS GRANTED · ICE BACKDOOR OPENED'
+      : `LOCKOUT · PASSCODE WAS ${secret}`;
     feedback.style.background = success
       ? 'rgba(34,197,94,0.2)'
       : 'rgba(248,113,113,0.2)';
   }
 
-  probeBtn.addEventListener('click', () => {
-    if (solved) return;
-    const misaligned = dials.filter(d => d.value !== d.target);
-    if (misaligned.length === 0) {
-      complete(true);
+  function handleGuess(word, btn) {
+    if (solved || btn.disabled) return;
+    if (word === secret) {
+      btn.classList.add('lockpick-terminal__guess--success');
+      lockTerminal(true);
       return;
     }
-    strikes -= 1;
-    updateStrikeLabel();
-    feedback.textContent = `${misaligned.length} subsystem${misaligned.length === 1 ? '' : 's'} misaligned.`;
-    if (strikes < 0) {
-      complete(false);
+
+    btn.disabled = true;
+    attemptsRemaining -= 1;
+    updateAttempts();
+    const matches = word.split('').reduce((count, letter, idx) => (
+      letter === secret[idx] ? count + 1 : count
+    ), 0);
+    feedback.textContent = `ACCESS DENIED · ${matches}/${secret.length} characters correct`;
+    btn.classList.add('lockpick-terminal__guess--used');
+    if (attemptsRemaining <= 0) {
+      lockTerminal(false);
     }
+  }
+
+  words.forEach(word => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mg-button mg-button--ghost lockpick-terminal__guess';
+    btn.textContent = word;
+    btn.addEventListener('click', () => handleGuess(word, btn));
+    wordGrid.appendChild(btn);
+    buttons.push(btn);
   });
 
   if (droneBtn) {
     droneBtn.addEventListener('click', () => {
-      if (solved || !droneAvailable) return;
-      const candidates = dials.filter(d => d.value !== d.target);
-      if (!candidates.length) return;
-      const target = candidates[Math.floor(Math.random() * candidates.length)];
-      target.value = target.target;
-      target.hint.textContent = 'Drone resolved alignment';
-      target.valueEl.textContent = target.value;
+      if (!droneAvailable || solved) return;
+      const activeDuds = buttons.filter(btn => !btn.disabled && btn.textContent !== secret);
+      if (!activeDuds.length) return;
+      const dud = activeDuds[Math.floor(Math.random() * activeDuds.length)];
+      dud.disabled = true;
+      dud.textContent = `${dud.textContent} · DUD REMOVED`;
       droneAvailable = false;
       droneBtn.disabled = true;
+      feedback.textContent = 'Debug script isolated a dud password.';
     });
   }
 }
@@ -1586,8 +1563,8 @@ const GAMES = {
   'tech-lockpick': {
     id: 'tech-lockpick',
     name: 'Tech Lockpick',
-    tagline: 'Bypass alien security architecture with finesse or brute force.',
-    briefing: 'Dial into each alien subsystem to decode its frequency. Manage strikes carefully—the lock adapts after every failed probe.',
+    tagline: 'Spoof the vault console by isolating the hidden passphrase before ICE locks you out.',
+    briefing: 'Jack into the corp terminal and sift the candidate passphrases. Every guess reveals how close you are—burn through your attempts and the watchdog process seizes the line.',
     knobs: [
       { key: 'lockComplexity', label: 'Lock complexity', type: 'select', default: 'standard', options: [
         { value: 'standard', label: 'Standard' },

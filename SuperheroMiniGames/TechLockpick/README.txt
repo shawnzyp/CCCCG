@@ -1,11 +1,11 @@
-Tech Lockpick lets a hero bypass advanced security. They strip shielding, spoof biometrics, and coax alien tech to obey.
+Tech Lockpick now plays like a Fallout-style console hack. You jack into a corp terminal, comb through a clutter of candidate passphrases, and deduce the right word before the watchdog locks you out.
 
 ## Fast Edit Knobs
-- **Lock Complexity** *(select, default Standard)* – Dictates how many distinct subsystems must be solved.
-- **Failures Allowed** *(number, default 2)* – The number of strike tokens the hero can accumulate before the lock seals.
-- **Support Drones Available** *(toggle, default on)* – When active, provides a single-use AI assist that can auto-clear one subsystem.
+- **Lock Complexity** *(select, default Standard)* – Sets how many passphrases fill the terminal buffer and how long each is.
+- **Failures Allowed** *(number, default 2)* – How many wrong passwords the crew can try before ICE slams the console.
+- **Support Drones Available** *(toggle, default on)* – When active, a debug script can purge a dud word from the list.
 
 ## Deployment Tips
-1. Deploy to gadgeteers or tech-savvy characters when the team hits a secure vault.
-2. Spend failures to introduce sparks, counter-hacks, or collateral damage opportunities.
-3. If support drones are active, describe their personality to keep the scene lively.
+1. Deploy to hackers or augment junkies any time a story beat calls for cracking a corp console or air-gapped vault terminal.
+2. Each failed attempt can escalate countermeasures: flickering monitors, angry sysadmins, or ICE routines creeping toward hard lock.
+3. If support drones are active, frame the debug script as bracket-matching heuristics or a rogue helper AI carving out extra time.
