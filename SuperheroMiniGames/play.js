@@ -310,7 +310,8 @@ function setupClueTracker(root, context) {
 
   const state = {
     revealed: 0,
-    solved: 0,
+    confirmed: 0,
+    disproved: 0,
     timer: timePerClue,
     interval: null,
   };
@@ -318,7 +319,10 @@ function setupClueTracker(root, context) {
   const cards = [];
 
   function updateProgress() {
-    progress.textContent = `Revealed ${state.revealed} clue${state.revealed === 1 ? '' : 's'} · Solved ${state.solved}`;
+    const segments = [`Revealed ${state.revealed} clue${state.revealed === 1 ? '' : 's'}`];
+    segments.push(`Connected ${state.confirmed}`);
+    segments.push(`Flagged ${state.disproved}`);
+    progress.textContent = segments.join(' · ');
     if (!hiddenDeck.length) {
       revealBtn.disabled = true;
       revealBtn.textContent = 'All clues revealed';
@@ -371,45 +375,137 @@ function setupClueTracker(root, context) {
     bodyText.className = 'clue-card__body';
     const tags = document.createElement('div');
     tags.className = 'clue-card__tags';
+    const status = document.createElement('span');
+    status.className = 'clue-card__status';
+    status.hidden = true;
     const actionsRow = document.createElement('div');
     actionsRow.className = 'mg-actions';
-    const solveBtn = document.createElement('button');
-    solveBtn.type = 'button';
-    solveBtn.className = 'mg-button mg-button--ghost';
-    solveBtn.textContent = 'Mark resolved';
-    actionsRow.appendChild(solveBtn);
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'mg-button mg-button--ghost';
+    confirmBtn.textContent = 'Mark connected';
+    confirmBtn.setAttribute('aria-pressed', 'false');
+    const disproveBtn = document.createElement('button');
+    disproveBtn.type = 'button';
+    disproveBtn.className = 'mg-button mg-button--ghost';
+    disproveBtn.textContent = 'Flag red herring';
+    disproveBtn.setAttribute('aria-pressed', 'false');
+    actionsRow.appendChild(confirmBtn);
+    actionsRow.appendChild(disproveBtn);
 
     el.appendChild(title);
     el.appendChild(bodyText);
     el.appendChild(tags);
+    el.appendChild(status);
     el.appendChild(actionsRow);
 
     const data = {
       clue,
       element: el,
       revealed: false,
-      solved: false,
+      confirmed: false,
+      disproved: false,
       index,
-      solveBtn,
+      confirmBtn,
+      disproveBtn,
       title,
       bodyText,
       tags,
+      status,
     };
 
-    solveBtn.addEventListener('click', () => {
-      data.solved = !data.solved;
-      if (data.solved) {
-        solveBtn.textContent = 'Undo';
-        solveBtn.classList.add('mg-button');
-        solveBtn.classList.remove('mg-button--ghost');
-        state.solved += 1;
-      } else {
-        solveBtn.textContent = 'Mark resolved';
-        solveBtn.classList.add('mg-button--ghost');
-        solveBtn.classList.remove('mg-button');
-        state.solved = Math.max(0, state.solved - 1);
+    function updateStatus() {
+      if (!data.revealed) {
+        status.hidden = true;
+        status.textContent = '';
+        status.className = 'clue-card__status';
+        el.classList.remove('clue-card--confirmed', 'clue-card--disproved');
+        return;
       }
+      if (data.confirmed) {
+        status.hidden = false;
+        status.textContent = 'Confirmed link';
+        status.className = 'clue-card__status clue-card__status--confirmed';
+        el.classList.add('clue-card--confirmed');
+        el.classList.remove('clue-card--disproved');
+      } else if (data.disproved) {
+        status.hidden = false;
+        status.textContent = 'Flagged red herring';
+        status.className = 'clue-card__status clue-card__status--disproved';
+        el.classList.add('clue-card--disproved');
+        el.classList.remove('clue-card--confirmed');
+      } else {
+        status.hidden = true;
+        status.textContent = '';
+        status.className = 'clue-card__status';
+        el.classList.remove('clue-card--confirmed', 'clue-card--disproved');
+      }
+    }
+
+    function updateButtons() {
+      if (data.confirmed) {
+        confirmBtn.textContent = 'Undo connection';
+        confirmBtn.className = 'mg-button';
+        confirmBtn.setAttribute('aria-pressed', 'true');
+      } else {
+        confirmBtn.textContent = 'Mark connected';
+        confirmBtn.className = 'mg-button mg-button--ghost';
+        confirmBtn.setAttribute('aria-pressed', 'false');
+      }
+
+      if (data.disproved) {
+        disproveBtn.textContent = 'Undo flag';
+        disproveBtn.className = 'mg-button mg-button--danger';
+        disproveBtn.setAttribute('aria-pressed', 'true');
+      } else {
+        disproveBtn.textContent = 'Flag red herring';
+        disproveBtn.className = 'mg-button mg-button--ghost';
+        disproveBtn.setAttribute('aria-pressed', 'false');
+      }
+    }
+
+    function setConfirmed(value) {
+      if (!data.revealed || value === data.confirmed) return;
+      if (value) {
+        state.confirmed += 1;
+        if (data.disproved) {
+          data.disproved = false;
+          state.disproved = Math.max(0, state.disproved - 1);
+        }
+        data.confirmed = true;
+      } else {
+        data.confirmed = false;
+        state.confirmed = Math.max(0, state.confirmed - 1);
+      }
+      updateButtons();
+      updateStatus();
       updateProgress();
+    }
+
+    function setDisproved(value) {
+      if (!data.revealed || value === data.disproved) return;
+      if (value) {
+        state.disproved += 1;
+        if (data.confirmed) {
+          data.confirmed = false;
+          state.confirmed = Math.max(0, state.confirmed - 1);
+        }
+        data.disproved = true;
+      } else {
+        data.disproved = false;
+        state.disproved = Math.max(0, state.disproved - 1);
+      }
+      updateButtons();
+      updateStatus();
+      updateProgress();
+    }
+
+    confirmBtn.addEventListener('click', () => {
+      setConfirmed(!data.confirmed);
+    });
+
+    disproveBtn.addEventListener('click', () => {
+      setDisproved(!data.disproved);
     });
 
     function applyReveal() {
@@ -433,11 +529,14 @@ function setupClueTracker(root, context) {
         pill.textContent = 'Red Herring';
         tags.appendChild(pill);
       }
-      solveBtn.disabled = false;
+      confirmBtn.disabled = false;
+      disproveBtn.disabled = false;
       state.revealed += 1;
       updateProgress();
       resetTimer();
       ensureTimer();
+      updateButtons();
+      updateStatus();
     }
 
     if (revealed) {
@@ -445,7 +544,10 @@ function setupClueTracker(root, context) {
     } else {
       el.classList.add('clue-card--hidden');
       bodyText.textContent = 'Encrypted dossier awaiting clearance.';
-      solveBtn.disabled = true;
+      confirmBtn.disabled = true;
+      disproveBtn.disabled = true;
+      updateButtons();
+      updateStatus();
     }
 
     grid.appendChild(el);

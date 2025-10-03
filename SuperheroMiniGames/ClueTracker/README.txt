@@ -8,4 +8,5 @@ Clue Tracker tasks a hero with connecting scattered intel before the trail goes 
 ## Deployment Tips
 1. Brief the player on the scene and drop the corresponding clue card set.
 2. Adjust the fast edit knobs in the DM tools and deploy the mini-game to the target hero.
-3. During play, use the deployment tracker to escalate the situation if the timer runs out or if too many red herrings are accepted.
+3. During play, the hero can tag each dossier card as a connected lead or flag it as a red herring to track their deductions.
+4. Use the deployment tracker to escalate the situation if the timer runs out or if too many red herrings are accepted.
