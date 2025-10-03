@@ -452,6 +452,31 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
+.code-breaker__display--active {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35em;
+  letter-spacing: 0;
+  min-height: 2.3em;
+}
+
+.code-breaker__slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4ch;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.code-breaker__slot--hint {
+  color: #fde68a;
+  background: rgba(234, 179, 8, 0.15);
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.45);
+}
+
 .code-breaker__input {
   display: flex;
   gap: 10px;

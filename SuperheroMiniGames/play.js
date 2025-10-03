@@ -490,6 +490,13 @@ const CIPHER_SETS = {
   'emoji': ['⚡', '🔥', '💎', '🛰️', '🧬', '🛡️', '🔮', '🧠', '🌀']
 };
 
+function normaliseCipherSet(set) {
+  if (Array.isArray(set)) {
+    return [...set];
+  }
+  return Array.from(set);
+}
+
 function randomFromSet(set, length) {
   if (Array.isArray(set)) {
     const arr = [];
@@ -505,11 +512,49 @@ function randomFromSet(set, length) {
   return result;
 }
 
+function startCipherRotation(displayEl, secret, symbolSet) {
+  const timers = [];
+  const symbols = normaliseCipherSet(symbolSet);
+  if (!symbols.length) {
+    return {
+      stop() {},
+    };
+  }
+  displayEl.textContent = '';
+  displayEl.classList.add('code-breaker__display--active');
+
+  Array.from(secret).forEach(secretChar => {
+    const slot = document.createElement('span');
+    slot.className = 'code-breaker__slot';
+    displayEl.appendChild(slot);
+    let pointer = Math.floor(Math.random() * symbols.length);
+    slot.textContent = symbols[pointer];
+    const interval = setInterval(() => {
+      pointer = (pointer + 1) % symbols.length;
+      const symbol = symbols[pointer];
+      slot.textContent = symbol;
+      if (symbol === secretChar) {
+        slot.classList.add('code-breaker__slot--hint');
+      } else {
+        slot.classList.remove('code-breaker__slot--hint');
+      }
+    }, 140 + Math.floor(Math.random() * 80));
+    timers.push(interval);
+  });
+
+  return {
+    stop() {
+      timers.forEach(id => clearInterval(id));
+      displayEl.classList.remove('code-breaker__display--active');
+    },
+  };
+}
+
 function setupCodeBreaker(root, context) {
   const card = document.createElement('section');
   card.className = 'mg-card code-breaker';
   const intro = document.createElement('p');
-  intro.textContent = 'Crack the rotating cipher before the console locks. Each attempt provides feedback on symbol placement.';
+  intro.textContent = 'Crack the rotating cipher before the console locks. Watch for highlighted glyphs—each flash reveals a true symbol while console feedback narrows their order.';
   card.appendChild(intro);
 
   const display = document.createElement('div');
@@ -553,10 +598,10 @@ function setupCodeBreaker(root, context) {
   const attempts = clamp(Number(config.attemptLimit ?? 6), 1, 12);
   const cipherSet = CIPHER_SETS[config.cipherSet] || CIPHER_SETS.alphanumeric;
   const secret = randomFromSet(cipherSet, length);
+  const rotation = startCipherRotation(display, secret, cipherSet);
   let remaining = attempts;
   let solved = false;
 
-  display.textContent = '⚠︎ Console Locked';
   attemptsLabel.textContent = `${remaining} attempt${remaining === 1 ? '' : 's'} remaining`;
 
   function appendLog(entry) {
@@ -584,6 +629,7 @@ function setupCodeBreaker(root, context) {
     solved = true;
     submit.disabled = true;
     input.disabled = true;
+    rotation.stop();
     if (success) {
       display.textContent = secret;
       attemptsLabel.textContent = 'Access granted. Vault unlocked!';
