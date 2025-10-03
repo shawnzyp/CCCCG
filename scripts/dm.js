@@ -604,6 +604,19 @@ function initDMLogin(){
     await refreshMiniGameCharacters();
     renderMiniGameDeployments(miniGameDeploymentsCache);
     show('dm-mini-games-modal');
+    if (typeof miniGamesModal?.scrollTo === 'function') {
+      miniGamesModal.scrollTo({ top: 0 });
+    } else if (miniGamesModal) {
+      miniGamesModal.scrollTop = 0;
+    }
+    const modalContent = miniGamesModal?.querySelector?.('.modal');
+    if (modalContent) {
+      if (typeof modalContent.scrollTo === 'function') {
+        modalContent.scrollTo({ top: 0 });
+      } else {
+        modalContent.scrollTop = 0;
+      }
+    }
   }
 
   function closeMiniGames() {

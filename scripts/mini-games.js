@@ -3,7 +3,7 @@ const MINI_GAMES = [
     id: 'clue-tracker',
     name: 'Clue Tracker',
     folder: 'ClueTracker',
-    url: 'SuperheroMiniGames/ClueTracker/ClueTracker.html',
+    url: 'SuperheroMiniGames/play.html?game=clue-tracker',
     tagline: 'Connect scattered evidence before the trail goes cold.',
     knobs: [
       {
@@ -39,7 +39,7 @@ const MINI_GAMES = [
     id: 'code-breaker',
     name: 'Code Breaker',
     folder: 'CodeBreaker',
-    url: 'SuperheroMiniGames/CodeBreaker/CodeBreaker.html',
+    url: 'SuperheroMiniGames/play.html?game=code-breaker',
     tagline: 'Crack the villain\'s encryption before the final lock engages.',
     knobs: [
       {
@@ -80,7 +80,7 @@ const MINI_GAMES = [
     id: 'lockdown-override',
     name: 'Lockdown Override',
     folder: 'LockdownOverride',
-    url: 'SuperheroMiniGames/LockdownOverride/LockdownOverride.html',
+    url: 'SuperheroMiniGames/play.html?game=lockdown-override',
     tagline: 'Stabilise the base before automated defences engage.',
     knobs: [
       {
@@ -118,7 +118,7 @@ const MINI_GAMES = [
     id: 'power-surge',
     name: 'Power Surge',
     folder: 'PowerSurge',
-    url: 'SuperheroMiniGames/PowerSurge/PowerSurge.html',
+    url: 'SuperheroMiniGames/play.html?game=power-surge',
     tagline: 'Balance unstable energy flows before the generator ruptures.',
     knobs: [
       {
@@ -159,7 +159,7 @@ const MINI_GAMES = [
     id: 'stratagem-hero',
     name: 'Stratagem Hero',
     folder: 'StratagemHero',
-    url: 'SuperheroMiniGames/StratagemHero/StratagemHero.html',
+    url: 'SuperheroMiniGames/play.html?game=stratagem-hero',
     tagline: 'Coordinate the team\'s tactical response to an evolving crisis.',
     knobs: [
       {
@@ -199,7 +199,7 @@ const MINI_GAMES = [
     id: 'tech-lockpick',
     name: 'Tech Lockpick',
     folder: 'TechLockpick',
-    url: 'SuperheroMiniGames/TechLockpick/TechLockpick.html',
+    url: 'SuperheroMiniGames/play.html?game=tech-lockpick',
     tagline: 'Bypass alien security architecture with finesse or brute force.',
     knobs: [
       {
@@ -264,6 +264,31 @@ function cloneGame(game) {
     ...game,
     knobs: game.knobs.map(knob => ({ ...knob, options: cloneOptions(knob.options) }))
   };
+}
+
+function addQueryParams(url, params = {}) {
+  try {
+    const absolute = url.startsWith('http://') || url.startsWith('https://')
+      ? new URL(url)
+      : new URL(url, 'https://example.com/');
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') return;
+      absolute.searchParams.set(key, String(value));
+    });
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return absolute.toString();
+    }
+    const serialised = absolute.toString();
+    return serialised.replace('https://example.com/', '');
+  } catch {
+    const entries = Object.entries(params)
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+    if (!entries.length) return url;
+    const [base, hash = ''] = url.split('#');
+    const separator = base.includes('?') ? '&' : '?';
+    return `${base}${separator}${entries.join('&')}${hash ? `#${hash}` : ''}`;
+  }
 }
 
 export function listMiniGames() {
@@ -555,11 +580,16 @@ export async function deployMiniGame({ gameId, player, config = {}, notes = '', 
   if (!trimmedPlayer) throw new Error('Player name is required');
   const deploymentId = randomId();
   const ts = Date.now();
+  const gameUrl = addQueryParams(game.url, {
+    deployment: deploymentId,
+    player: trimmedPlayer,
+    ts,
+  });
   const payload = {
     id: deploymentId,
     gameId: game.id,
     gameName: game.name,
-    gameUrl: game.url,
+    gameUrl,
     config,
     player: trimmedPlayer,
     status: 'pending',
