@@ -1665,177 +1665,336 @@ function setupTechLockpick(root, context) {
   const failuresAllowed = clamp(Number(config.failuresAllowed ?? 2), 0, 6);
   const supportDrones = Boolean(config.supportDrones);
 
-  const dialCount = {
-    standard: 3,
-    advanced: 4,
-    exotic: 5,
-  }[complexity] || 3;
+  const ATTEMPT_FLOOR = 3;
+  const attemptsTotal = Math.max(ATTEMPT_FLOOR, failuresAllowed + 2);
 
-  const card = document.createElement('section');
-  card.className = 'mg-card';
-  const intro = document.createElement('p');
-  intro.textContent = 'Tune each subsystem dial to the correct frequency. Use drones for assistance or risk the lock sealing shut.';
-  card.appendChild(intro);
+  const wordBanks = {
+    standard: ['NEXUS', 'SIGMA', 'PROBE', 'TRACE', 'PLASM', 'ARRAY', 'IONIC', 'PIXEL', 'NODES', 'LASER', 'FIBER', 'CIRCU', 'GRIDS', 'LOGIC', 'VAULT'],
+    advanced: ['PHOTON', 'CRYPTO', 'VECTOR', 'NEURAL', 'ANODED', 'MODULE', 'QUANTA', 'SCRYER', 'PULSER', 'SYSTEM', 'TERMIN', 'CORTEX', 'RIGGED', 'SPIRAL', 'SHADOW'],
+    exotic: ['AETHER', 'OVERDR', 'PRISMZ', 'CYGNUS', 'QUARKS', 'ENTROP', 'CHIMER', 'OBELIS', 'MANTIS', 'VIOLET', 'ORACLE', 'FORGED', 'SINGUL', 'CRYPTX', 'ZEPIHR'],
+  };
 
-  const strikeLabel = document.createElement('div');
-  strikeLabel.className = 'mg-status';
-  strikeLabel.textContent = `Strike tokens remaining: ${failuresAllowed}`;
-  card.appendChild(strikeLabel);
+  const wordLengthMap = { standard: 5, advanced: 6, exotic: 6 };
+  const optionsMap = { standard: 8, advanced: 10, exotic: 12 };
 
-  const grid = document.createElement('div');
-  grid.className = 'lockpick-grid';
-  card.appendChild(grid);
+  const targetLength = wordLengthMap[complexity] || wordLengthMap.standard;
+  const optionsCount = optionsMap[complexity] || optionsMap.standard;
+  const bank = wordBanks[complexity] || wordBanks.standard;
 
-  const actions = document.createElement('div');
-  actions.className = 'mg-actions';
-  const probeBtn = document.createElement('button');
-  probeBtn.type = 'button';
-  probeBtn.className = 'mg-button';
-  probeBtn.textContent = 'Probe lock';
-  actions.appendChild(probeBtn);
-  let droneAvailable = supportDrones;
-  let droneBtn = null;
-  if (supportDrones) {
-    droneBtn = document.createElement('button');
-    droneBtn.type = 'button';
-    droneBtn.className = 'mg-button mg-button--ghost';
-    droneBtn.textContent = 'Deploy support drone';
-    actions.appendChild(droneBtn);
-  }
-  card.appendChild(actions);
-
-  const feedback = document.createElement('div');
-  feedback.className = 'mg-status';
-  feedback.textContent = 'Awaiting calibration check…';
-  card.appendChild(feedback);
-
-  root.appendChild(card);
-
-  const dials = [];
-  for (let i = 0; i < dialCount; i += 1) {
-    const pane = document.createElement('div');
-    pane.className = 'lockpick-dial';
-    const label = document.createElement('div');
-    label.textContent = `Subsystem ${i + 1}`;
-    const valueEl = document.createElement('div');
-    valueEl.className = 'lockpick-dial__value';
-    const controls = document.createElement('div');
-    controls.className = 'lockpick-dial__controls';
-    const dec = document.createElement('button');
-    dec.type = 'button';
-    dec.textContent = '−';
-    const inc = document.createElement('button');
-    inc.type = 'button';
-    inc.textContent = '+';
-    controls.appendChild(dec);
-    controls.appendChild(inc);
-    const hint = document.createElement('div');
-    hint.className = 'lockpick-dial__hint';
-    hint.textContent = 'Uncalibrated';
-    pane.appendChild(label);
-    pane.appendChild(valueEl);
-    pane.appendChild(controls);
-    pane.appendChild(hint);
-    grid.appendChild(pane);
-
-    const target = Math.floor(Math.random() * 10);
-    const dialState = {
-      value: Math.floor(Math.random() * 10),
-      target,
-      valueEl,
-      hint,
-      controls,
-    };
-
-    function updateDisplay() {
-      dialState.valueEl.textContent = dialState.value;
-      const delta = Math.abs(dialState.value - dialState.target);
-      if (delta === 0) {
-        hint.textContent = 'Aligned';
-      } else if (delta === 1) {
-        hint.textContent = 'Very close';
-      } else if (dialState.value < dialState.target) {
-        hint.textContent = 'Need higher resonance';
-      } else {
-        hint.textContent = 'Need lower resonance';
+  function pickWords(pool, length, count) {
+    const candidates = pool.filter(word => word.length === length);
+    const words = [];
+    const seen = new Set();
+    const mutable = [...candidates];
+    while (words.length < count && mutable.length) {
+      const index = Math.floor(Math.random() * mutable.length);
+      const choice = mutable.splice(index, 1)[0];
+      if (!seen.has(choice)) {
+        seen.add(choice);
+        words.push(choice);
       }
     }
-
-    dec.addEventListener('click', () => {
-      dialState.value = (dialState.value + 9) % 10;
-      updateDisplay();
-    });
-
-    inc.addEventListener('click', () => {
-      dialState.value = (dialState.value + 1) % 10;
-      updateDisplay();
-    });
-
-    updateDisplay();
-    dials.push(dialState);
+    return words;
   }
 
-  let strikes = failuresAllowed;
+  let words = pickWords(bank, targetLength, optionsCount);
+  if (words.length < 4) {
+    words = pickWords(wordBanks.standard, targetLength, Math.max(6, optionsCount));
+  }
+  if (!words.length) {
+    words = ['LOGIC', 'NEXUS', 'TRACE', 'PIXEL'];
+  }
+  const password = words[Math.floor(Math.random() * words.length)];
+
+  const terminal = document.createElement('section');
+  terminal.className = 'mg-card tech-terminal';
+
+  const header = document.createElement('div');
+  header.className = 'tech-terminal__header';
+  header.innerHTML = `<pre>ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL\n> ACCESSING SECURE LOCK INTERFACE...</pre>`;
+  terminal.appendChild(header);
+
+  const status = document.createElement('div');
+  status.className = 'tech-terminal__status';
+  terminal.appendChild(status);
+
+  const memoryWrapper = document.createElement('div');
+  memoryWrapper.className = 'tech-terminal__memory';
+  terminal.appendChild(memoryWrapper);
+
+  const columnLeft = document.createElement('div');
+  columnLeft.className = 'tech-terminal__column';
+  const columnRight = document.createElement('div');
+  columnRight.className = 'tech-terminal__column';
+  memoryWrapper.appendChild(columnLeft);
+  memoryWrapper.appendChild(columnRight);
+
+  const logWrapper = document.createElement('div');
+  logWrapper.className = 'tech-terminal__log';
+  const logOutput = document.createElement('div');
+  logOutput.className = 'tech-terminal__log-output';
+  logWrapper.appendChild(logOutput);
+  terminal.appendChild(logWrapper);
+
+  const commandRow = document.createElement('form');
+  commandRow.className = 'tech-terminal__command-row';
+  const prompt = document.createElement('span');
+  prompt.className = 'tech-terminal__prompt';
+  prompt.textContent = '>';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'tech-terminal__input';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.setAttribute('aria-label', 'Enter hack guess');
+  commandRow.appendChild(prompt);
+  commandRow.appendChild(input);
+  terminal.appendChild(commandRow);
+
+  const droneBtn = supportDrones ? document.createElement('button') : null;
+  if (droneBtn) {
+    droneBtn.type = 'button';
+    droneBtn.className = 'tech-terminal__drone';
+    droneBtn.textContent = 'DRONE PING (1)';
+    terminal.appendChild(droneBtn);
+  }
+
+  root.appendChild(terminal);
+
+  const memoryLines = 16;
+  const lineLength = complexity === 'exotic' ? 36 : 32;
+  const totalChars = memoryLines * lineLength;
+  const charset = '!$%&/<>?{}[]()*+-=^|#@_';
+  const buffer = Array.from({ length: totalChars }, () => charset[Math.floor(Math.random() * charset.length)]);
+
+  const placements = [];
+  function placeWord(word) {
+    const length = word.length;
+    const attempts = 200;
+    for (let i = 0; i < attempts; i += 1) {
+      const start = Math.floor(Math.random() * (totalChars - length));
+      const lineIndex = Math.floor(start / lineLength);
+      const end = start + length;
+      const sameLine = Math.floor((end - 1) / lineLength) === lineIndex;
+      if (!sameLine) continue;
+      let blocked = false;
+      for (let j = 0; j < length; j += 1) {
+        if (placements.some(p => p.start <= start + j && start + j < p.end)) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked) continue;
+      for (let j = 0; j < length; j += 1) {
+        buffer[start + j] = word[j];
+      }
+      placements.push({ word, start, end, line: lineIndex, column: start % lineLength });
+      return true;
+    }
+    return false;
+  }
+
+  words.forEach(word => {
+    if (!placeWord(word)) {
+      const length = word.length;
+      for (let idx = 0; idx <= totalChars - length; idx += 1) {
+        const lineIndex = Math.floor(idx / lineLength);
+        const sameLine = Math.floor((idx + length - 1) / lineLength) === lineIndex;
+        if (!sameLine) continue;
+        let blocked = false;
+        for (let j = 0; j < length; j += 1) {
+          if (placements.some(p => p.start <= idx + j && idx + j < p.end)) {
+            blocked = true;
+            break;
+          }
+        }
+        if (blocked) continue;
+        for (let j = 0; j < length; j += 1) {
+          buffer[idx + j] = word[j];
+        }
+        placements.push({ word, start: idx, end: idx + length, line: lineIndex, column: idx % lineLength });
+        break;
+      }
+    }
+  });
+
+  const offsetBase = 0x7a0 + Math.floor(Math.random() * 0x100);
+  const wordElements = new Map();
+
+  function buildLine(lineIndex) {
+    const lineStart = lineIndex * lineLength;
+    const raw = buffer.slice(lineStart, lineStart + lineLength).join('');
+    const lineEl = document.createElement('div');
+    lineEl.className = 'tech-terminal__line';
+    const offset = document.createElement('span');
+    offset.className = 'tech-terminal__offset';
+    offset.textContent = `0x${(offsetBase + lineIndex * lineLength).toString(16).toUpperCase().padStart(4, '0')}`;
+    lineEl.appendChild(offset);
+
+    const dump = document.createElement('span');
+    dump.className = 'tech-terminal__dump';
+
+    let cursor = 0;
+    const linePlacements = placements
+      .filter(p => p.line === lineIndex)
+      .sort((a, b) => a.column - b.column);
+    linePlacements.forEach(p => {
+      const localStart = p.column;
+      const localEnd = localStart + p.word.length;
+      if (localStart > cursor) {
+        dump.appendChild(document.createTextNode(raw.slice(cursor, localStart)));
+      }
+      const span = document.createElement('span');
+      span.className = 'tech-terminal__word';
+      span.dataset.word = p.word;
+      span.textContent = raw.slice(localStart, localEnd);
+      dump.appendChild(span);
+      if (!wordElements.has(p.word)) {
+        wordElements.set(p.word, []);
+      }
+      wordElements.get(p.word).push(span);
+      cursor = localEnd;
+    });
+    if (cursor < raw.length) {
+      dump.appendChild(document.createTextNode(raw.slice(cursor)));
+    }
+    lineEl.appendChild(dump);
+    return lineEl;
+  }
+
+  for (let i = 0; i < memoryLines; i += 1) {
+    const lineEl = buildLine(i);
+    if (i < memoryLines / 2) {
+      columnLeft.appendChild(lineEl);
+    } else {
+      columnRight.appendChild(lineEl);
+    }
+  }
+
+  const guesses = new Set();
+  let attemptsRemaining = attemptsTotal;
   let solved = false;
+  let droneAvailable = supportDrones;
+  const revealedIndices = new Set();
 
-  function updateStrikeLabel() {
-    strikeLabel.textContent = `Strike tokens remaining: ${strikes}`;
+  function likeness(word) {
+    let score = 0;
+    for (let i = 0; i < Math.min(word.length, password.length); i += 1) {
+      if (word[i] === password[i]) score += 1;
+    }
+    return score;
   }
 
-  function complete(success, detail) {
+  function appendLog(text, type = 'log') {
+    const line = document.createElement('div');
+    line.className = `tech-terminal__log-line tech-terminal__log-line--${type}`;
+    line.textContent = text;
+    logOutput.appendChild(line);
+    logOutput.scrollTop = logOutput.scrollHeight;
+  }
+
+  function updateStatus() {
+    const droneText = droneAvailable ? 'DRONE READY' : 'DRONE SPENT';
+    const clue = revealedIndices.size
+      ? `KNOWN: ${password
+        .split('')
+        .map((ch, idx) => (revealedIndices.has(idx) ? ch : '•'))
+        .join('')}`
+      : `KNOWN: ${'•'.repeat(password.length)}`;
+    status.textContent = `ATTEMPTS REMAINING: ${attemptsRemaining}  |  ${droneBtn ? droneText : 'DRONE OFFLINE'}  |  ${clue}`;
+  }
+
+  function markWordUsed(word) {
+    const elements = wordElements.get(word);
+    if (!elements) return;
+    elements.forEach(el => el.classList.add('tech-terminal__word--spent'));
+  }
+
+  function completeMission(success, body) {
     solved = true;
-    probeBtn.disabled = true;
+    input.disabled = true;
     if (droneBtn) droneBtn.disabled = true;
-    dials.forEach(d => {
-      d.controls.querySelectorAll('button').forEach(btn => { btn.disabled = true; });
-    });
-    feedback.textContent = success ? 'Lock disengaged!' : 'Lock sealed. Countermeasures triggered!';
-    feedback.style.background = success
-      ? 'rgba(34,197,94,0.2)'
-      : 'rgba(248,113,113,0.2)';
+    appendLog(success ? 'ACCESS GRANTED. LOCK DISENGAGED.' : 'SECURITY LOCKOUT. COUNTERMEASURES DEPLOYED.', success ? 'success' : 'error');
     if (context?.completeMission) {
       context.completeMission({
         success,
         heading: success ? 'Lock disengaged' : 'Lock sealed',
-        body: detail
+        body: body
           || (success
-            ? 'All subsystems aligned. The alien lock is open.'
-            : 'Strike tokens depleted. Countermeasures sealed the lock.'),
+            ? 'Console override accepted. The vault seal retracts.'
+            : 'All attempts exhausted. The system hardened the lock.'),
         dismissMessage: success
           ? 'Mission dismissed. Coordinate with your DM for the breach.'
-          : 'Mission dismissed. Debrief the failed lockpick with your DM.',
+          : 'Mission dismissed. Debrief the failed intrusion with your DM.',
       });
     }
   }
 
-  probeBtn.addEventListener('click', () => {
+  function handleGuess(rawGuess) {
     if (solved) return;
-    const misaligned = dials.filter(d => d.value !== d.target);
-    if (misaligned.length === 0) {
-      complete(true, 'All subsystems aligned. The alien lock is open.');
+    const guess = rawGuess.trim().toUpperCase();
+    if (!guess) return;
+    appendLog(`> ${guess}`, 'prompt');
+    if (!words.includes(guess)) {
+      appendLog('SYNTAX ERROR: ENTRY NOT RECOGNISED.', 'error');
       return;
     }
-    strikes -= 1;
-    updateStrikeLabel();
-    feedback.textContent = `${misaligned.length} subsystem${misaligned.length === 1 ? '' : 's'} misaligned.`;
-    if (strikes < 0) {
-      complete(false, 'Strike tokens depleted. Countermeasures sealed the lock.');
+    if (guesses.has(guess)) {
+      appendLog('ENTRY PREVIOUSLY EVALUATED. SELECT NEW CANDIDATE.', 'warn');
+      return;
     }
+    guesses.add(guess);
+    markWordUsed(guess);
+    const likenessScore = likeness(guess);
+    if (guess === password) {
+      appendLog(`PASSWORD ACCEPTED. LIKENESS ${password.length}/${password.length}.`, 'success');
+      completeMission(true, `Override password ${password} accepted. Security shell collapsed.`);
+      return;
+    }
+    attemptsRemaining -= 1;
+    appendLog(`ENTRY DENIED. LIKENESS = ${likenessScore}/${password.length}.`, 'warn');
+    if (attemptsRemaining <= 0) {
+      completeMission(false, 'All intrusion attempts expended. The console hard-locks and purges access tokens.');
+    }
+    updateStatus();
+  }
+
+  memoryWrapper.addEventListener('click', event => {
+    const target = event.target.closest('.tech-terminal__word');
+    if (!target) return;
+    handleGuess(target.dataset.word || '');
+  });
+
+  commandRow.addEventListener('submit', event => {
+    event.preventDefault();
+    if (input.disabled) return;
+    const value = input.value;
+    input.value = '';
+    handleGuess(value);
   });
 
   if (droneBtn) {
     droneBtn.addEventListener('click', () => {
-      if (solved || !droneAvailable) return;
-      const candidates = dials.filter(d => d.value !== d.target);
-      if (!candidates.length) return;
-      const target = candidates[Math.floor(Math.random() * candidates.length)];
-      target.value = target.target;
-      target.hint.textContent = 'Drone resolved alignment';
-      target.valueEl.textContent = target.value;
+      if (!droneAvailable || solved) return;
+      const hiddenIndices = password
+        .split('')
+        .map((_, idx) => idx)
+        .filter(idx => !revealedIndices.has(idx));
+      if (!hiddenIndices.length) return;
+      const revealIndex = hiddenIndices[Math.floor(Math.random() * hiddenIndices.length)];
+      revealedIndices.add(revealIndex);
       droneAvailable = false;
       droneBtn.disabled = true;
+      appendLog(`DRONE PING: POSITION ${revealIndex + 1} CONFIRMED AS '${password[revealIndex]}'.`, 'info');
+      updateStatus();
     });
   }
+
+  appendLog('SECURITY LOCK V3.7 ONLINE. ATTEMPT PASSWORD ENTRY.');
+  updateStatus();
+  window.setTimeout(() => {
+    input.focus();
+  }, 80);
 }
 
 const GAMES = {
