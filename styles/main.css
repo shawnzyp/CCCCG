@@ -1836,16 +1836,15 @@ select[required]:valid{
   box-shadow:0 10px 24px rgba(0,0,0,.45),0 0 0 1px rgba(59,130,246,.2) inset;
 }
 .dm-tools-toggle[hidden]{display:none}
-.dm-tools-toggle__label{
-  display:inline-block;
-  font-size:18px;
-  font-weight:700;
-  letter-spacing:0.18em;
-  text-transform:uppercase;
+.dm-tools-toggle__icon{
+  display:block;
+  width:28px;
+  height:28px;
+  pointer-events:none;
   transition:transform .3s ease;
 }
-.dm-tools-toggle:hover .dm-tools-toggle__label,
-.dm-tools-toggle:focus-visible .dm-tools-toggle__label{
+.dm-tools-toggle:hover .dm-tools-toggle__icon,
+.dm-tools-toggle:focus-visible .dm-tools-toggle__icon{
   transform:scale(1.08);
 }
 
