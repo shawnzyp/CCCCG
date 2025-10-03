@@ -200,6 +200,63 @@ body {
   align-self: flex-start;
 }
 
+.mini-game-shell__outcome {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.6);
+  box-shadow: 0 16px 26px rgba(15, 23, 42, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mini-game-shell__outcome-heading {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: 0.02em;
+}
+
+.mini-game-shell__outcome[data-state='success'] .mini-game-shell__outcome-heading {
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.mini-game-shell__outcome[data-state='failure'] .mini-game-shell__outcome-heading {
+  color: rgba(248, 113, 113, 0.9);
+}
+
+.mini-game-shell__outcome-body {
+  margin: 0;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.mini-game-shell__outcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mini-game-shell__dismissed {
+  width: min(640px, 100%);
+  margin: 24px auto 0;
+  padding: 24px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(15, 23, 42, 0.7);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.mini-game-shell__dismissed-text {
+  margin: 0;
+  line-height: 1.6;
+  color: rgba(226, 232, 240, 0.92);
+}
+
 .mini-game-shell__content {
   display: flex;
   flex-direction: column;

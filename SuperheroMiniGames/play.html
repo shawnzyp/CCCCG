@@ -53,8 +53,25 @@
         </button>
       </div>
       <section class="mini-game-shell__content" id="mini-game-root" hidden></section>
+      <section class="mini-game-shell__outcome" id="mini-game-outcome" hidden>
+        <h2 id="mini-game-outcome-heading" class="mini-game-shell__outcome-heading"></h2>
+        <p id="mini-game-outcome-body" class="mini-game-shell__outcome-body"></p>
+        <div class="mini-game-shell__outcome-actions">
+          <button id="mini-game-dismiss" type="button" class="mg-button mg-button--ghost">
+            Dismiss Mission
+          </button>
+        </div>
+      </section>
     </main>
     <div id="mini-game-error" class="mini-game-shell__error" hidden></div>
+    <section id="mini-game-dismissed" class="mini-game-shell__dismissed" hidden>
+      <p id="mini-game-dismissed-text" class="mini-game-shell__dismissed-text">
+        Mission dismissed. You may close this window or relaunch the console if your DM sends a new deployment.
+      </p>
+      <button id="mini-game-dismissed-reopen" type="button" class="mg-button mg-button--ghost">
+        Reopen Mission Briefing
+      </button>
+    </section>
     <script type="module" src="play.js"></script>
   </body>
 </html>

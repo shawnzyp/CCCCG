@@ -18,6 +18,13 @@ let launchEl = document.getElementById('mini-game-launch');
 let launchTextEl = document.getElementById('mini-game-launch-text');
 let startButtonEl = document.getElementById('mini-game-start');
 const rootEl = document.getElementById('mini-game-root');
+const outcomeEl = document.getElementById('mini-game-outcome');
+const outcomeHeadingEl = document.getElementById('mini-game-outcome-heading');
+const outcomeBodyEl = document.getElementById('mini-game-outcome-body');
+const dismissButtonEl = document.getElementById('mini-game-dismiss');
+const dismissedEl = document.getElementById('mini-game-dismissed');
+const dismissedTextEl = document.getElementById('mini-game-dismissed-text');
+const dismissedReopenBtn = document.getElementById('mini-game-dismissed-reopen');
 
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
 
@@ -31,6 +38,58 @@ function hideError() {
   if (!errorEl) return;
   errorEl.hidden = true;
   errorEl.textContent = '';
+}
+
+function hideOutcome() {
+  if (!outcomeEl) return;
+  outcomeEl.hidden = true;
+  if (outcomeEl.dataset) {
+    delete outcomeEl.dataset.state;
+  }
+  if (outcomeHeadingEl) outcomeHeadingEl.textContent = '';
+  if (outcomeBodyEl) outcomeBodyEl.textContent = '';
+}
+
+function showOutcome({ success, heading, body } = {}) {
+  if (!outcomeEl) return;
+  if (outcomeHeadingEl) {
+    outcomeHeadingEl.textContent = heading
+      || (success === true
+        ? 'Mission accomplished'
+        : success === false
+          ? 'Mission concluded'
+          : 'Mission update');
+  }
+  if (outcomeBodyEl) {
+    outcomeBodyEl.textContent = body
+      || (success === true
+        ? 'Great work. You can replay the mission or dismiss this console.'
+        : success === false
+          ? 'The mission failed. Debrief with your DM before trying again.'
+          : 'Mission status updated.');
+  }
+  if (success === true) {
+    outcomeEl.dataset.state = 'success';
+  } else if (success === false) {
+    outcomeEl.dataset.state = 'failure';
+  } else if (outcomeEl.dataset && 'state' in outcomeEl.dataset) {
+    delete outcomeEl.dataset.state;
+  }
+  outcomeEl.hidden = false;
+}
+
+function hideDismissedNotice() {
+  if (dismissedEl) {
+    dismissedEl.hidden = true;
+  }
+}
+
+function showDismissedNotice(message) {
+  if (!dismissedEl) return;
+  if (dismissedTextEl && typeof message === 'string' && message.trim()) {
+    dismissedTextEl.textContent = message.trim();
+  }
+  dismissedEl.hidden = false;
 }
 
 function safeLocalStorage() {
@@ -419,6 +478,17 @@ function setupClueTracker(root, context) {
       entry.data.disproveBtn.disabled = true;
     });
     updateProgress();
+    if (context?.completeMission) {
+      const heading = success ? 'Case closed' : 'Intel compromised';
+      context.completeMission({
+        success,
+        heading,
+        body: message,
+        dismissMessage: success
+          ? 'Mission dismissed. Debrief the findings with HQ.'
+          : 'Mission dismissed. Debrief with your DM before attempting a new trace.',
+      });
+    }
   }
 
   function updateProgress() {
@@ -881,7 +951,7 @@ function setupCodeBreaker(root, context) {
     return { correct, inSequence };
   }
 
-  function complete(success) {
+  function complete(success, detail) {
     solved = true;
     submit.disabled = true;
     input.disabled = true;
@@ -892,6 +962,21 @@ function setupCodeBreaker(root, context) {
     } else {
       display.textContent = secret;
       attemptsLabel.textContent = 'Console sealed. Attempt logged with HQ.';
+    }
+    if (context?.completeMission) {
+      const heading = success ? 'Access granted' : 'Console sealed';
+      const body = detail
+        || (success
+          ? 'Override accepted. Sequence matched.'
+          : 'System lock engaged. The console logged the failed attempts.');
+      context.completeMission({
+        success,
+        heading,
+        body,
+        dismissMessage: success
+          ? 'Mission dismissed. Inform your DM that the vault is open.'
+          : 'Mission dismissed. Coordinate a new approach with your DM.',
+      });
     }
   }
 
@@ -907,14 +992,16 @@ function setupCodeBreaker(root, context) {
     const result = evaluateGuess(normalized);
     remaining -= 1;
     if (result.correct === length) {
-      appendLog('Override accepted. Sequence matched.');
-      complete(true);
+      const detail = 'Override accepted. Sequence matched.';
+      appendLog(detail);
+      complete(true, detail);
     } else {
       appendLog(`Exact matches: ${result.correct}, misaligned glyphs: ${result.inSequence}.`);
       attemptsLabel.textContent = `${remaining} attempt${remaining === 1 ? '' : 's'} remaining`;
       if (remaining <= 0) {
-        appendLog('System lock engaged.');
-        complete(false);
+        const detail = 'System lock engaged.';
+        appendLog(detail);
+        complete(false, detail);
       }
     }
     input.value = '';
@@ -1065,15 +1152,19 @@ function setupLockdownOverride(root, context) {
       degradeSystems();
     }
     if (anyFailed()) {
-      complete(false);
+      complete(false, 'Subsystem failure triggered the lockdown.');
       return;
     }
     if (state.timer <= 0) {
-      complete(allOptimal());
+      const success = allOptimal();
+      const detail = success
+        ? 'Stabilisation held through the countdown.'
+        : 'Override timer expired with unstable subsystems.';
+      complete(success, detail);
     }
   }
 
-  function complete(success) {
+  function complete(success, detail) {
     if (state.completed) return;
     state.completed = true;
     window.clearInterval(state.interval);
@@ -1087,6 +1178,19 @@ function setupLockdownOverride(root, context) {
     } else {
       statusLabel.textContent = 'Status: Lockdown Engaged';
       statusLabel.style.background = 'rgba(248,113,113,0.25)';
+    }
+    if (context?.completeMission) {
+      context.completeMission({
+        success,
+        heading: success ? 'Base stabilised' : 'Lockdown engaged',
+        body: detail
+          || (success
+            ? 'Stabilisation held through the countdown.'
+            : 'Subsystem instability triggered the lockdown.'),
+        dismissMessage: success
+          ? 'Mission dismissed. Alert your DM that defences are offline.'
+          : 'Mission dismissed. Debrief the failed override with your DM.',
+      });
     }
   }
 
@@ -1175,7 +1279,7 @@ function setupPowerSurge(root, context) {
     gaugeFill.style.height = `${clamp(energy, 0, 100)}%`;
   }
 
-  function complete(success) {
+  function complete(success, detail) {
     concluded = true;
     window.clearInterval(interval);
     ventBtn.disabled = true;
@@ -1184,6 +1288,19 @@ function setupPowerSurge(root, context) {
     status.style.background = success
       ? 'rgba(34,197,94,0.2)'
       : 'rgba(248,113,113,0.2)';
+    if (context?.completeMission) {
+      context.completeMission({
+        success,
+        heading: success ? 'Generator stabilised' : 'Containment failure',
+        body: detail
+          || (success
+            ? 'Generator output held within the safe band through every surge wave.'
+            : 'Energy output spiked beyond tolerance. Containment failed.'),
+        dismissMessage: success
+          ? 'Mission dismissed. Report the stabilisation to HQ.'
+          : 'Mission dismissed. Debrief the failure with your DM before retrying.',
+      });
+    }
   }
 
   function tick() {
@@ -1201,7 +1318,7 @@ function setupPowerSurge(root, context) {
         completedWaves += 1;
         stableSeconds = 0;
         if (completedWaves >= surgeWaves) {
-          complete(true);
+          complete(true, 'Generator output held within the safe band through every surge wave.');
           return;
         }
         status.textContent = `Wave ${completedWaves + 1} incoming.`;
@@ -1458,7 +1575,7 @@ function setupTechLockpick(root, context) {
     strikeLabel.textContent = `Strike tokens remaining: ${strikes}`;
   }
 
-  function complete(success) {
+  function complete(success, detail) {
     solved = true;
     probeBtn.disabled = true;
     if (droneBtn) droneBtn.disabled = true;
@@ -1469,20 +1586,33 @@ function setupTechLockpick(root, context) {
     feedback.style.background = success
       ? 'rgba(34,197,94,0.2)'
       : 'rgba(248,113,113,0.2)';
+    if (context?.completeMission) {
+      context.completeMission({
+        success,
+        heading: success ? 'Lock disengaged' : 'Lock sealed',
+        body: detail
+          || (success
+            ? 'All subsystems aligned. The alien lock is open.'
+            : 'Strike tokens depleted. Countermeasures sealed the lock.'),
+        dismissMessage: success
+          ? 'Mission dismissed. Coordinate with your DM for the breach.'
+          : 'Mission dismissed. Debrief the failed lockpick with your DM.',
+      });
+    }
   }
 
   probeBtn.addEventListener('click', () => {
     if (solved) return;
     const misaligned = dials.filter(d => d.value !== d.target);
     if (misaligned.length === 0) {
-      complete(true);
+      complete(true, 'All subsystems aligned. The alien lock is open.');
       return;
     }
     strikes -= 1;
     updateStrikeLabel();
     feedback.textContent = `${misaligned.length} subsystem${misaligned.length === 1 ? '' : 's'} misaligned.`;
     if (strikes < 0) {
-      complete(false);
+      complete(false, 'Strike tokens depleted. Countermeasures sealed the lock.');
     }
   });
 
@@ -1722,6 +1852,9 @@ async function init() {
 
   const ensuredLaunch = ensureLaunchPanel();
 
+  hideOutcome();
+  hideDismissedNotice();
+
   if (launchTextEl) {
     const baseMessage = 'Review the mission briefing and parameters. When you\'re ready, begin the deployment to load the interactive console.';
     launchTextEl.textContent = context.warning
@@ -1734,16 +1867,63 @@ async function init() {
   shell.hidden = false;
 
   let missionStarted = false;
+  let lastDismissMessage = '';
+
+  const missionContext = { ...context };
+
+  const handleMissionComplete = (result = {}) => {
+    missionStarted = false;
+    rootEl.innerHTML = '';
+    rootEl.hidden = true;
+    hideError();
+    const { success = null, heading = '', body = '', dismissMessage } = result;
+    showOutcome({ success, heading, body });
+    if (launchEl) {
+      launchEl.hidden = false;
+    }
+    if (launchTextEl) {
+      const base = 'You can replay the mission or dismiss this console.';
+      const prefix = heading
+        || (success === true
+          ? 'Mission accomplished.'
+          : success === false
+            ? 'Mission concluded.'
+            : '');
+      launchTextEl.textContent = [prefix, base].filter(Boolean).join(' ');
+    }
+    if (startButtonEl) {
+      startButtonEl.textContent = 'Replay Mission';
+      startButtonEl.disabled = false;
+    }
+    hideDismissedNotice();
+    lastDismissMessage = dismissMessage
+      || (success === true
+        ? 'Mission dismissed. Outstanding work—stand by for your DM.'
+        : success === false
+          ? 'Mission dismissed. Coordinate with your DM before attempting again.'
+          : 'Mission dismissed. You may close this window.');
+    if (dismissButtonEl) {
+      dismissButtonEl.disabled = false;
+    }
+  };
+
+  missionContext.completeMission = handleMissionComplete;
 
   const startMission = () => {
     if (missionStarted) return true;
     missionStarted = true;
+    hideOutcome();
+    hideDismissedNotice();
+    lastDismissMessage = '';
     if (launchEl) {
       launchEl.hidden = true;
     }
+    if (startButtonEl) {
+      startButtonEl.textContent = 'Start Mission';
+    }
     hideError();
     try {
-      game.setup(rootEl, context);
+      game.setup(rootEl, missionContext);
       rootEl.hidden = false;
       return true;
     } catch (err) {
@@ -1756,6 +1936,36 @@ async function init() {
       return false;
     }
   };
+
+  if (dismissButtonEl) {
+    dismissButtonEl.addEventListener('click', () => {
+      hideOutcome();
+      showDismissedNotice(lastDismissMessage);
+      if (launchEl) {
+        launchEl.hidden = true;
+      }
+      if (shell) {
+        shell.hidden = true;
+      }
+    });
+  }
+
+  if (dismissedReopenBtn) {
+    dismissedReopenBtn.addEventListener('click', () => {
+      if (shell) {
+        shell.hidden = false;
+      }
+      hideOutcome();
+      if (launchEl) {
+        launchEl.hidden = false;
+      }
+      if (startButtonEl) {
+        startButtonEl.disabled = false;
+        try { startButtonEl.focus(); } catch {}
+      }
+      hideDismissedNotice();
+    });
+  }
 
   if (ensuredLaunch.start) {
     if (ensuredLaunch.launch) {
