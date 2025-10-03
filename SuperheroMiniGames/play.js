@@ -16,6 +16,8 @@ const notesTextEl = document.getElementById('mini-game-notes-text');
 const previewBannerEl = document.getElementById('mini-game-preview-banner');
 const rootEl = document.getElementById('mini-game-root');
 
+const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
+
 function showError(message) {
   if (!errorEl) return;
   errorEl.textContent = message;
@@ -36,6 +38,21 @@ function safeLocalStorage() {
   }
 }
 
+function sanitizePlayerName(name = '') {
+  return name.trim().replace(/\s+/g, ' ');
+}
+
+function encodePathSegment(segment) {
+  return encodeURIComponent(segment).replace(/%2F/g, '/');
+}
+
+function encodePath(path) {
+  return path
+    .split('/')
+    .map(encodePathSegment)
+    .join('/');
+}
+
 function loadPayloadFromStorage(deploymentId) {
   if (!deploymentId) return null;
   const storage = safeLocalStorage();
@@ -47,6 +64,33 @@ function loadPayloadFromStorage(deploymentId) {
   } catch {
     return null;
   }
+}
+
+function persistPayloadToStorage(payload) {
+  if (!payload || !payload.id) return;
+  const storage = safeLocalStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(`${STORAGE_PREFIX}${payload.id}`, JSON.stringify(payload));
+    storage.setItem(LAST_DEPLOYMENT_KEY, payload.id);
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
+async function fetchDeploymentPayload(player, deploymentId) {
+  const trimmedPlayer = sanitizePlayerName(player);
+  const trimmedDeployment = String(deploymentId ?? '').trim();
+  if (!trimmedPlayer || !trimmedDeployment) return null;
+  if (typeof fetch !== 'function') return null;
+  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(trimmedDeployment)}.json`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  if (!data || typeof data !== 'object') return null;
+  return data;
 }
 
 function formatKnobValue(knob, value) {
@@ -1193,7 +1237,7 @@ function getGameDefinition(gameId) {
   return GAMES[gameId] || null;
 }
 
-function buildContext(game, params) {
+async function buildContext(game, params) {
   const storage = safeLocalStorage();
   let payload = null;
   if (params.deploymentId) {
@@ -1205,6 +1249,28 @@ function buildContext(game, params) {
       payload = loadPayloadFromStorage(last);
     }
   }
+
+  let warning = '';
+
+  if (!payload && params.deploymentId) {
+    try {
+      const remote = await fetchDeploymentPayload(params.player, params.deploymentId);
+      if (remote) {
+        payload = {
+          ...remote,
+          id: remote.id || params.deploymentId,
+          player: remote.player || params.player || '',
+        };
+        persistPayloadToStorage(payload);
+      } else {
+        warning = 'Deployment data was not found. Running in preview mode with default parameters.';
+      }
+    } catch (err) {
+      console.error('Failed to load mini-game deployment from cloud', err);
+      warning = 'Could not load deployment details from the cloud. Running in preview mode with default parameters.';
+    }
+  }
+
   if (!payload) {
     return {
       mode: 'preview',
@@ -1213,8 +1279,10 @@ function buildContext(game, params) {
       issuedBy: 'DM',
       deploymentId: params.deploymentId || '',
       notes: '',
+      warning,
     };
   }
+
   return {
     mode: 'live',
     config: payload.config || getDefaultConfig(game),
@@ -1224,10 +1292,11 @@ function buildContext(game, params) {
     notes: payload.notes || '',
     gameName: payload.gameName || game.name,
     tagline: payload.tagline || game.tagline,
+    warning,
   };
 }
 
-function init() {
+async function init() {
   hideError();
   if (!shell || !rootEl) {
     showError('Mini-game shell failed to load.');
@@ -1244,7 +1313,7 @@ function init() {
     return;
   }
 
-  const context = buildContext(game, params);
+  const context = await buildContext(game, params);
 
   const title = context.gameName || game.name;
   const tagline = context.tagline || game.tagline;
@@ -1271,7 +1340,17 @@ function init() {
     notesEl.hidden = true;
   }
 
-  previewBannerEl.hidden = context.mode !== 'preview';
+  if (context.mode === 'preview') {
+    previewBannerEl.hidden = false;
+    previewBannerEl.textContent = context.warning
+      ? context.warning
+      : 'Running in preview mode with default parameters.';
+  } else {
+    previewBannerEl.hidden = !context.warning;
+    if (context.warning) {
+      previewBannerEl.textContent = context.warning;
+    }
+  }
 
   rootEl.innerHTML = '';
   game.setup(rootEl, context);
@@ -1279,4 +1358,9 @@ function init() {
   shell.hidden = false;
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  init().catch(err => {
+    console.error('Failed to initialise mini-game runner', err);
+    showError('Failed to load the mini-game deployment. Please refresh or request a new link.');
+  });
+});
