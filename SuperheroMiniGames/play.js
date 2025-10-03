@@ -154,12 +154,73 @@ function renderConfigSummary(game, config) {
   configEl.appendChild(dl);
 }
 
+function readMetaContent(name) {
+  try {
+    const meta = document.querySelector(`meta[name="${name}"]`);
+    const value = meta?.getAttribute('content');
+    return typeof value === 'string' ? value.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function readDataAttribute(key) {
+  const sources = [document.body, document.documentElement];
+  for (const el of sources) {
+    const value = el?.dataset?.[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+function readWindowFallback(key) {
+  try {
+    const value = window?.[key];
+    return typeof value === 'string' ? value.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+function withFallback(initial, fallbacks = []) {
+  if (typeof initial === 'string' && initial.trim()) {
+    return initial.trim();
+  }
+  for (const getter of fallbacks) {
+    try {
+      const value = getter();
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return '';
+}
+
 function parseQueryParams() {
   const params = new URLSearchParams(window.location.search);
-  const gameId = params.get('game') || '';
-  const deploymentId = params.get('deployment') || '';
-  const player = params.get('player') || '';
-  return { gameId: gameId.trim(), deploymentId: deploymentId.trim(), player: player.trim() };
+  const gameId = withFallback(params.get('game'), [
+    () => readDataAttribute('miniGameId'),
+    () => readMetaContent('mini-game-id'),
+    () => readMetaContent('game-id'),
+    () => readWindowFallback('MINI_GAME_ID'),
+    () => readWindowFallback('MINI_GAME_LEGACY_ID'),
+  ]);
+  const deploymentId = withFallback(params.get('deployment'), [
+    () => readDataAttribute('miniGameDeployment'),
+    () => readMetaContent('mini-game-deployment'),
+    () => readWindowFallback('MINI_GAME_DEPLOYMENT'),
+  ]);
+  const player = withFallback(params.get('player'), [
+    () => readDataAttribute('miniGamePlayer'),
+    () => readMetaContent('mini-game-player'),
+    () => readWindowFallback('MINI_GAME_PLAYER'),
+  ]);
+  return { gameId, deploymentId, player };
 }
 
 function shuffle(array) {

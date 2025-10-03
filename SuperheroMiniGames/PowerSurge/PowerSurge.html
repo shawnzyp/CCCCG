@@ -1,14 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-mini-game-id="power-surge">
   <head>
     <meta charset="utf-8" />
-    <title>Power Surge</title>
-    <meta http-equiv="refresh" content="0; url=../play.html?game=power-surge" />
-    <script>
-      window.location.replace('../play.html?game=power-surge');
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="mini-game-id" content="power-surge" />
+    <title>Power Surge – Superhero Mini-Game</title>
+    <link rel="stylesheet" href="../play.css" />
   </head>
-  <body>
-    <p>Redirecting to the updated Power Surge experience… <a href="../play.html?game=power-surge">Continue</a></p>
+  <body data-mini-game-id="power-surge">
+    <noscript>This app requires JavaScript to run properly.</noscript>
+    <main id="mini-game-shell" class="mini-game-shell" hidden>
+      <header class="mini-game-shell__header">
+        <div class="mini-game-shell__heading">
+          <h1 id="mini-game-title" class="mini-game-shell__title"></h1>
+          <p id="mini-game-tagline" class="mini-game-shell__tagline"></p>
+        </div>
+        <aside class="mini-game-shell__meta">
+          <dl>
+            <div>
+              <dt>Player</dt>
+              <dd id="mini-game-player">Unknown Operative</dd>
+            </div>
+            <div>
+              <dt>Issued By</dt>
+              <dd id="mini-game-issued"></dd>
+            </div>
+            <div id="mini-game-deployment-row" hidden>
+              <dt>Deployment</dt>
+              <dd id="mini-game-deployment"></dd>
+            </div>
+          </dl>
+        </aside>
+      </header>
+      <section class="mini-game-shell__briefing">
+        <div class="mini-game-shell__brief-text">
+          <h2>Mission Briefing</h2>
+          <p id="mini-game-brief"></p>
+        </div>
+        <div class="mini-game-shell__config" id="mini-game-config"></div>
+        <div class="mini-game-shell__notes" id="mini-game-notes" hidden>
+          <h3>DM Notes</h3>
+          <p id="mini-game-notes-text"></p>
+        </div>
+        <p id="mini-game-preview-banner" class="mini-game-shell__preview" hidden>
+          Running in preview mode with default parameters.
+        </p>
+      </section>
+      <section class="mini-game-shell__content" id="mini-game-root"></section>
+    </main>
+    <div id="mini-game-error" class="mini-game-shell__error" hidden></div>
+    <script type="module" src="../play.js"></script>
   </body>
 </html>
