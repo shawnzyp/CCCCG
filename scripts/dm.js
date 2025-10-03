@@ -160,7 +160,10 @@ function initDMLogin(){
   const miniGamesTitle = document.getElementById('dm-mini-games-title');
   const miniGamesTagline = document.getElementById('dm-mini-games-tagline');
   const miniGamesLaunch = document.getElementById('dm-mini-games-launch');
+  const miniGamesIntro = document.getElementById('dm-mini-games-steps');
+  const miniGamesKnobsHint = document.getElementById('dm-mini-games-knobs-hint');
   const miniGamesKnobs = document.getElementById('dm-mini-games-knobs');
+  const miniGamesPlayerHint = document.getElementById('dm-mini-games-player-hint');
   const miniGamesPlayerSelect = document.getElementById('dm-mini-games-player');
   const miniGamesPlayerCustom = document.getElementById('dm-mini-games-player-custom');
   const miniGamesNotes = document.getElementById('dm-mini-games-notes');
@@ -216,6 +219,27 @@ function initDMLogin(){
     knobStateByGame.set(gameId, { ...state });
   }
 
+  function updateMiniGameGuidance(game) {
+    const hasKnobs = Array.isArray(game?.knobs) && game.knobs.length > 0;
+    if (miniGamesIntro) {
+      miniGamesIntro.textContent = game
+        ? `Step 1 complete: ${game.name} is loaded and ready to deploy.`
+        : 'Step 1: Choose a mini-game from the library to get started.';
+    }
+    if (miniGamesKnobsHint) {
+      miniGamesKnobsHint.textContent = game
+        ? hasKnobs
+          ? 'Adjust these DM-only controls to fit the moment. Players will never see them.'
+          : 'This mission has no optional tuning—skip straight to sending it to a player.'
+        : 'Choose a mini-game to unlock DM-only tuning controls.';
+    }
+    if (miniGamesPlayerHint) {
+      miniGamesPlayerHint.textContent = game
+        ? 'Choose the hero to receive this mission and add any quick instructions before deploying.'
+        : 'Pick who should receive the mission once you have it tuned.';
+    }
+  }
+
   function buildMiniGamesList() {
     if (!miniGamesList || miniGamesInitialized) return;
     miniGamesList.innerHTML = '';
@@ -254,11 +278,12 @@ function initDMLogin(){
     if (miniGamesTagline) miniGamesTagline.textContent = '';
     if (miniGamesLaunch) miniGamesLaunch.hidden = true;
     if (miniGamesKnobs) {
-      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">No mini-game selected.</p>';
+      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">Pick a mini-game to unlock DM tools.</p>';
     }
     if (miniGamesReadme) {
-      miniGamesReadme.textContent = 'Select a mini-game to view its briefing.';
+      miniGamesReadme.textContent = 'Select a mini-game to review the player-facing briefing.';
     }
+    updateMiniGameGuidance(null);
   }
 
   function renderMiniGameKnobs(game) {
@@ -266,7 +291,7 @@ function initDMLogin(){
     const state = ensureKnobState(game.id);
     miniGamesKnobs.innerHTML = '';
     if (!Array.isArray(game.knobs) || game.knobs.length === 0) {
-      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">No fast edit controls defined.</p>';
+      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">This mission has no DM tuning controls.</p>';
       return;
     }
     game.knobs.forEach(knob => {
@@ -377,6 +402,7 @@ function initDMLogin(){
       }
     }
     renderMiniGameKnobs(game);
+    updateMiniGameGuidance(game);
     if (miniGamesReadme) {
       miniGamesReadme.textContent = 'Loading briefing…';
       loadMiniGameReadme(game.id)
@@ -405,7 +431,7 @@ function initDMLogin(){
   function renderMiniGameDeployments(entries = []) {
     if (!miniGamesDeployments) return;
     if (!Array.isArray(entries) || entries.length === 0) {
-      miniGamesDeployments.innerHTML = '<li class="dm-mini-games__empty">No active deployments.</li>';
+      miniGamesDeployments.innerHTML = '<li class="dm-mini-games__empty">Launched missions will appear here for quick status updates.</li>';
       return;
     }
     miniGamesDeployments.innerHTML = '';

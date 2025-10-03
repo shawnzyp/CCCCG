@@ -129,25 +129,29 @@ function getDefaultConfig(game) {
 function renderConfigSummary(game, config) {
   if (!configEl) return;
   configEl.innerHTML = '';
-  const knobs = game.knobs || [];
+  const knobs = (game.knobs || []).filter(knob => knob && knob.playerFacing === true);
   if (!knobs.length) {
     const p = document.createElement('p');
-    p.textContent = 'This assignment uses default parameters.';
+    p.className = 'mini-game-shell__configHint';
+    p.textContent = 'Your DM already set the mission parameters. Focus on the briefing and tap “Start Mission” when you are ready.';
     configEl.appendChild(p);
     return;
   }
   const heading = document.createElement('h3');
-  heading.textContent = 'Fast Edit Parameters';
+  heading.textContent = 'Mission Parameters';
   configEl.appendChild(heading);
   const dl = document.createElement('dl');
   knobs.forEach(knob => {
     const dt = document.createElement('dt');
-    dt.textContent = knob.label;
+    dt.textContent = knob.playerLabel || knob.label;
     const dd = document.createElement('dd');
     const raw = Object.prototype.hasOwnProperty.call(config, knob.key)
       ? config[knob.key]
       : knob.default;
-    dd.textContent = formatKnobValue(knob, raw);
+    const displayValue = typeof knob.playerFormat === 'function'
+      ? knob.playerFormat(raw, config)
+      : formatKnobValue(knob, raw);
+    dd.textContent = displayValue;
     dl.appendChild(dt);
     dl.appendChild(dd);
   });

@@ -19,7 +19,6 @@ import {
   formatKnobValue as formatMiniGameKnobValue,
   getMiniGame as getMiniGameDefinition,
   subscribePlayerDeployments,
-  summarizeConfig as summarizeMiniGameConfig,
   updateDeployment as updateMiniGameDeployment,
 } from './mini-games.js';
 import {
@@ -293,8 +292,13 @@ function buildMiniGameConfigEntries(entry, game) {
   const config = entry.config || {};
   game.knobs.forEach(knob => {
     if (!Object.prototype.hasOwnProperty.call(config, knob.key)) return;
+    if (knob.playerFacing !== true) return;
     const value = formatMiniGameKnobValue(knob, config[knob.key]);
-    configEntries.push({ label: knob.label, value });
+    const label = knob.playerLabel || knob.label;
+    const formatted = typeof knob.playerFormat === 'function'
+      ? knob.playerFormat(config[knob.key], config)
+      : value;
+    configEntries.push({ label, value: formatted });
   });
   return configEntries;
 }
@@ -318,16 +322,12 @@ function renderMiniGameSummary(entry, game) {
     miniGameInviteSummary.appendChild(list);
     return;
   }
-  const summary = entry ? miniGameConfigSummary(entry) : '';
-  miniGameInviteSummary.textContent = summary || 'No adjustable parameters were provided.';
-}
-
-function miniGameConfigSummary(entry) {
-  try {
-    return summarizeMiniGameConfig(entry.gameId, entry.config || {});
-  } catch {
-    return '';
+  const summary = typeof entry?.playerSummary === 'string' ? entry.playerSummary.trim() : '';
+  if (summary) {
+    miniGameInviteSummary.textContent = summary;
+    return;
   }
+  miniGameInviteSummary.textContent = 'Your DM already prepared this mission. Review the briefing below and tap “Start Mission” when you are ready.';
 }
 
 function renderMiniGameNotes(entry) {
@@ -346,10 +346,10 @@ function populateMiniGameInvite(entry) {
   if (!hasMiniGameInviteUi || !entry) return;
   const issuer = entry.issuedBy || 'DM';
   if (miniGameInviteTitle) {
-    miniGameInviteTitle.textContent = 'Incoming Mini-Game Assignment';
+    miniGameInviteTitle.textContent = 'Incoming Mission';
   }
   if (miniGameInviteMessage) {
-    miniGameInviteMessage.textContent = `${issuer} has assigned you a new mission. Accept to launch it or decline to forfeit any benefits.`;
+    miniGameInviteMessage.textContent = `${issuer} just sent you a mission. Tap “Start Mission” to jump in or “Not Now” if you need a moment.`;
   }
   const game = getMiniGameDefinition(entry.gameId);
   const gameName = entry.gameName || game?.name || 'Mini-game';

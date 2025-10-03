@@ -32,9 +32,10 @@ function setupDom() {
     <div id="dm-mini-games-modal" class="overlay hidden" aria-hidden="true">
       <section class="modal dm-mini-games">
         <button id="dm-mini-games-close"></button>
+        <p id="dm-mini-games-steps" class="dm-mini-games__intro"></p>
         <div class="dm-mini-games__layout">
           <aside class="dm-mini-games__sidebar">
-            <h4 class="dm-mini-games__section-title">Library</h4>
+            <h4 class="dm-mini-games__section-title">Mini-Game Library</h4>
             <ul id="dm-mini-games-list" class="dm-mini-games__list"></ul>
           </aside>
           <div class="dm-mini-games__content">
@@ -46,9 +47,13 @@ function setupDom() {
               <a id="dm-mini-games-launch" hidden></a>
             </header>
             <section class="dm-mini-games__section">
+              <h5 class="dm-mini-games__section-heading">Step 2 · Tune the Mission (DM only)</h5>
+              <p id="dm-mini-games-knobs-hint" class="dm-mini-games__hint"></p>
               <div id="dm-mini-games-knobs" class="dm-mini-games__knobs"></div>
             </section>
             <section class="dm-mini-games__section">
+              <h5 class="dm-mini-games__section-heading">Step 3 · Send to a Player</h5>
+              <p id="dm-mini-games-player-hint" class="dm-mini-games__hint"></p>
               <div class="dm-mini-games__deploy-form">
                 <label class="dm-mini-games__field">
                   <span>Target</span>
@@ -69,11 +74,12 @@ function setupDom() {
               </div>
             </section>
             <section class="dm-mini-games__section dm-mini-games__section--scroll">
+              <h5 class="dm-mini-games__section-heading">Mission Briefing (Player View)</h5>
               <pre id="dm-mini-games-readme" class="dm-mini-games__readme"></pre>
             </section>
             <section class="dm-mini-games__section dm-mini-games__section--scroll">
               <div class="dm-mini-games__section-header">
-                <h5>Deployments</h5>
+                <h5 class="dm-mini-games__section-heading">Deployments</h5>
                 <div class="dm-mini-games__section-actions">
                   <button id="dm-mini-games-refresh" type="button"></button>
                 </div>

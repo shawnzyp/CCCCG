@@ -1389,8 +1389,10 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 .dm-mini-games__tagline{margin:0;font-size:.9rem;color:var(--muted)}
 .dm-mini-games__launch{align-self:flex-start;text-decoration:none;font-size:.85rem;border:1px solid var(--accent);padding:6px 10px;border-radius:var(--radius);color:var(--accent);transition:var(--transition)}
 .dm-mini-games__launch:hover{background:var(--accent);color:var(--text-on-accent)}
+.dm-mini-games__intro{margin:0 0 12px;font-size:.9rem;color:var(--muted);line-height:1.5}
 .dm-mini-games__section{display:flex;flex-direction:column;gap:12px}
-.dm-mini-games__section>h5{margin:0;font-size:.85rem;font-weight:600;color:var(--muted)}
+.dm-mini-games__section-heading{margin:0;font-size:.85rem;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:.02em}
+.dm-mini-games__hint{margin:0;font-size:.8rem;color:var(--muted);line-height:1.4}
 .dm-mini-games__knobs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .dm-mini-games__knob{border:1px solid var(--line);border-radius:var(--radius);padding:10px;display:flex;flex-direction:column;gap:8px;background:rgba(0,0,0,.1)}
 .theme-light .dm-mini-games__knob{background:rgba(255,255,255,.04)}

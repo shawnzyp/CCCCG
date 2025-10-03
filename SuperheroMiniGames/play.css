@@ -110,7 +110,7 @@ body {
   color: rgba(226, 232, 240, 0.9);
 }
 
-.mini-game-shell__config {
+.mini-game-shell__config { 
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px 16px;
@@ -120,6 +120,13 @@ body {
 .mini-game-shell__config h3 {
   margin: 0 0 8px;
   font-size: 1.05rem;
+}
+
+.mini-game-shell__configHint {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: rgba(226, 232, 240, 0.85);
 }
 
 .mini-game-shell__config dl {
