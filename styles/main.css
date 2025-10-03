@@ -1740,7 +1740,7 @@ select[required]:valid{
   filter:none;
   transform:none;
 }
-.dm-login-btn img{
+.dm-login-btn svg{
   display:block;
   max-width:160px;
   width:100%;
