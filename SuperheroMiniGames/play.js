@@ -946,7 +946,7 @@ function setupLockdownOverride(root, context) {
   const card = document.createElement('section');
   card.className = 'mg-card';
   const intro = document.createElement('p');
-  intro.textContent = 'Balance the base subsystems before lockdown finalises. Stabilise each system while the clock counts down.';
+  intro.textContent = 'Balance the base subsystems before the base seals and lethal countermeasures trigger. Stabilise each system while the evacuation clock counts down.';
   card.appendChild(intro);
 
   const timerLabel = document.createElement('div');
