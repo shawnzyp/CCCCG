@@ -14,6 +14,9 @@ const configEl = document.getElementById('mini-game-config');
 const notesEl = document.getElementById('mini-game-notes');
 const notesTextEl = document.getElementById('mini-game-notes-text');
 const previewBannerEl = document.getElementById('mini-game-preview-banner');
+let launchEl = document.getElementById('mini-game-launch');
+let launchTextEl = document.getElementById('mini-game-launch-text');
+let startButtonEl = document.getElementById('mini-game-start');
 const rootEl = document.getElementById('mini-game-root');
 
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
@@ -156,6 +159,64 @@ function renderConfigSummary(game, config) {
     dl.appendChild(dd);
   });
   configEl.appendChild(dl);
+}
+
+function ensureLaunchPanel() {
+  if (!shell) {
+    launchEl = null;
+    startButtonEl = null;
+    launchTextEl = null;
+    return { launch: null, start: null, text: null };
+  }
+
+  if (!launchEl) {
+    launchEl = document.createElement('div');
+    launchEl.id = 'mini-game-launch';
+    launchEl.className = 'mini-game-shell__launch';
+  }
+
+  if (!launchTextEl) {
+    launchTextEl = document.createElement('p');
+    launchTextEl.id = 'mini-game-launch-text';
+    launchTextEl.className = 'mini-game-shell__launch-text';
+  }
+
+  if (!startButtonEl) {
+    startButtonEl = document.createElement('button');
+    startButtonEl.id = 'mini-game-start';
+    startButtonEl.type = 'button';
+    startButtonEl.className = 'mg-button mini-game-shell__launch-button';
+    startButtonEl.textContent = 'Start Mission';
+  }
+
+  if (!launchTextEl.parentElement || launchTextEl.parentElement !== launchEl) {
+    if (launchTextEl.parentElement) {
+      launchTextEl.parentElement.removeChild(launchTextEl);
+    }
+    launchEl.appendChild(launchTextEl);
+  }
+
+  if (!startButtonEl.parentElement || startButtonEl.parentElement !== launchEl) {
+    if (startButtonEl.parentElement) {
+      startButtonEl.parentElement.removeChild(startButtonEl);
+    }
+    launchEl.appendChild(startButtonEl);
+  }
+
+  if (!launchEl.parentElement) {
+    const briefingSection = document.querySelector('.mini-game-shell__briefing');
+    if (briefingSection && briefingSection.parentElement === shell) {
+      briefingSection.insertAdjacentElement('afterend', launchEl);
+    } else if (rootEl && rootEl.parentElement === shell) {
+      shell.insertBefore(launchEl, rootEl);
+    } else {
+      shell.appendChild(launchEl);
+    }
+  }
+
+  launchEl.hidden = true;
+
+  return { launch: launchEl, start: startButtonEl, text: launchTextEl };
 }
 
 function readMetaContent(name) {
@@ -1659,10 +1720,60 @@ async function init() {
     }
   }
 
-  rootEl.innerHTML = '';
-  game.setup(rootEl, context);
+  const ensuredLaunch = ensureLaunchPanel();
 
+  if (launchTextEl) {
+    const baseMessage = 'Review the mission briefing and parameters. When you\'re ready, begin the deployment to load the interactive console.';
+    launchTextEl.textContent = context.warning
+      ? `${context.warning} ${baseMessage}`
+      : baseMessage;
+  }
+
+  rootEl.innerHTML = '';
+  rootEl.hidden = true;
   shell.hidden = false;
+
+  let missionStarted = false;
+
+  const startMission = () => {
+    if (missionStarted) return true;
+    missionStarted = true;
+    if (launchEl) {
+      launchEl.hidden = true;
+    }
+    hideError();
+    try {
+      game.setup(rootEl, context);
+      rootEl.hidden = false;
+      return true;
+    } catch (err) {
+      console.error('Failed to initialise mission content', err);
+      showError('Failed to load the mini-game deployment. Please refresh or request a new link.');
+      missionStarted = false;
+      if (launchEl) {
+        launchEl.hidden = false;
+      }
+      return false;
+    }
+  };
+
+  if (ensuredLaunch.start) {
+    if (ensuredLaunch.launch) {
+      ensuredLaunch.launch.hidden = false;
+    }
+    ensuredLaunch.start.disabled = false;
+    ensuredLaunch.start.addEventListener('click', () => {
+      ensuredLaunch.start.disabled = true;
+      const success = startMission();
+      if (!success) {
+        ensuredLaunch.start.disabled = false;
+        try { ensuredLaunch.start.focus(); } catch {}
+      }
+    });
+    try { ensuredLaunch.start.focus(); } catch {}
+  } else {
+    showError('Launch controls failed to load. Refresh the page or contact your DM.');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
