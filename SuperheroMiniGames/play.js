@@ -1346,110 +1346,317 @@ function setupPowerSurge(root, context) {
   interval = window.setInterval(tick, 1000);
 }
 
-const STRATAGEM_MISSIONS = {
-  infiltration: {
-    briefing: 'Slip past security, neutralise watch posts, and extract the intel cache without triggering alarms.',
-    tasks: [
-      { id: 'entry', label: 'Entry Point', options: ['Shadow Step', 'Roof Drop', 'Sewer Route'] },
-      { id: 'disable', label: 'Disable Defences', options: ['EMP Sweep', 'Silent Knockout', 'Bypass Console'] },
-      { id: 'exfil', label: 'Extraction', options: ['Grapple Evac', 'Stealth Van', 'Subterranean Rail'] },
-    ],
+const STRATAGEM_LIBRARY = [
+  {
+    id: 'skyshield-dome',
+    name: 'Skyshield Dome',
+    callSign: 'Skyshield Seven',
+    summary: 'Drops a radiant barrier that hardens the evac zone against incoming fire.',
+    difficulty: 0,
+    sequence: ['up', 'down', 'left', 'right'],
   },
-  rescue: {
-    briefing: 'Evacuate civilians while containing hostiles and shoring up collapsing infrastructure.',
-    tasks: [
-      { id: 'crowd', label: 'Crowd Management', options: ['Shield Tunnel', 'Escort Team', 'Rapid Relocation Pods'] },
-      { id: 'threat', label: 'Suppress Threats', options: ['Flash Containment', 'Heroic Diversion', 'Precision Strike'] },
-      { id: 'support', label: 'Support Assets', options: ['Medic Drones', 'Barrier Array', 'Hover Evac'] },
-    ],
+  {
+    id: 'starfall-barrage',
+    name: 'Starfall Barrage',
+    callSign: 'Orbital Lance',
+    summary: 'Signals an orbital lance strike to vaporise entrenched hostiles.',
+    difficulty: 0,
+    sequence: ['right', 'down', 'down', 'up'],
   },
-  sabotage: {
-    briefing: 'Cripple enemy production lines while masking the team\'s involvement.',
-    tasks: [
-      { id: 'breach', label: 'Breach Strategy', options: ['Holo-Misdirection', 'Tunnel Charge', 'Inside Agent'] },
-      { id: 'payload', label: 'Payload Delivery', options: ['Quantum Disruptors', 'Nanite Flood', 'Cascade Virus'] },
-      { id: 'clean', label: 'Cover Tracks', options: ['EMP Scrub', 'Thermite Purge', 'False Flag Trail'] },
-    ],
+  {
+    id: 'medevac-spire',
+    name: 'Medevac Spire',
+    callSign: 'Angel Flight',
+    summary: 'Deploys medevac drones that auto-extract injured allies.',
+    difficulty: 0,
+    sequence: ['down', 'left', 'up', 'up'],
   },
-};
+  {
+    id: 'aegis-reservoir',
+    name: 'Aegis Reservoir',
+    callSign: 'Beacon Ward',
+    summary: 'Projects a regenerative field that empowers friendly abilities.',
+    difficulty: 1,
+    sequence: ['up', 'up', 'right', 'down', 'left'],
+  },
+  {
+    id: 'tempest-lancers',
+    name: 'Tempest Lancers',
+    callSign: 'Storm Team',
+    summary: 'Summons aerial lancers to sweep the battlefield.',
+    difficulty: 1,
+    sequence: ['left', 'up', 'right', 'down', 'down'],
+  },
+  {
+    id: 'quantum-net',
+    name: 'Quantum Net',
+    callSign: 'Nullwave',
+    summary: 'Deploys a net of nullwave pylons that snare teleporting foes.',
+    difficulty: 1,
+    sequence: ['down', 'down', 'left', 'right', 'up'],
+  },
+  {
+    id: 'sunforge-cannon',
+    name: 'Sunforge Cannon',
+    callSign: 'Solar Forge',
+    summary: 'Calibrates a solar cannon that burns a path through armour.',
+    difficulty: 2,
+    sequence: ['up', 'right', 'down', 'left', 'up', 'right'],
+  },
+  {
+    id: 'phase-relay',
+    name: 'Phase Relay',
+    callSign: 'Blink Gate',
+    summary: 'Establishes a temporary blink gate for allied reinforcements.',
+    difficulty: 2,
+    sequence: ['right', 'right', 'up', 'down', 'left', 'left'],
+  },
+  {
+    id: 'tidal-catalyst',
+    name: 'Tidal Catalyst',
+    callSign: 'Cascade Prime',
+    summary: 'Unleashes a gravity pulse that knocks back any remaining threats.',
+    difficulty: 2,
+    sequence: ['left', 'down', 'down', 'up', 'right', 'up'],
+  },
+];
 
 function setupStratagemHero(root, context) {
   const config = context.config || {};
-  const missionProfile = config.missionProfile || 'rescue';
-  const intelLevel = config.intelLevel || 'briefed';
-  const teamBoost = Boolean(config.teamBoost);
+  const callsRequired = clamp(Number(config.callsRequired ?? 5), 1, 12);
+  const selectedDifficulty = config.callDifficulty || 'training';
+  const signalTolerance = clamp(Number(config.signalTolerance ?? 3), 0, 6);
 
-  const mission = STRATAGEM_MISSIONS[missionProfile] || STRATAGEM_MISSIONS.rescue;
+  const difficultyRank = {
+    training: 0,
+    frontline: 1,
+    doomsday: 2,
+  };
+
+  const targetRank = difficultyRank[selectedDifficulty] ?? 0;
+  const availableStratagems = STRATAGEM_LIBRARY.filter(item => item.difficulty <= targetRank);
+
+  const glyphs = {
+    up: '↑',
+    down: '↓',
+    left: '←',
+    right: '→',
+  };
 
   const card = document.createElement('section');
-  card.className = 'mg-card';
+  card.className = 'mg-card stratagem-hero';
+
   const intro = document.createElement('p');
-  intro.textContent = mission.briefing;
+  intro.textContent = 'Synchronise with HQ and input the tactical stratagem codes. Hold the combo together to deliver reinforcements exactly where the team needs them. Use arrow keys/WASD or tap the console pad to respond.';
   card.appendChild(intro);
 
-  const intel = document.createElement('div');
-  intel.className = 'mg-status';
-  intel.textContent = `Intel Level: ${intelLevel.charAt(0).toUpperCase()}${intelLevel.slice(1)}`;
-  card.appendChild(intel);
+  const telemetry = document.createElement('div');
+  telemetry.className = 'stratagem-telemetry';
+  const callsLabel = document.createElement('div');
+  callsLabel.className = 'stratagem-telemetry__item';
+  const strikesLabel = document.createElement('div');
+  strikesLabel.className = 'stratagem-telemetry__item';
+  telemetry.appendChild(callsLabel);
+  telemetry.appendChild(strikesLabel);
+  card.appendChild(telemetry);
 
-  if (teamBoost) {
-    const boost = document.createElement('p');
-    boost.className = 'mg-status';
-    boost.style.background = 'rgba(34,197,94,0.2)';
-    boost.textContent = 'Team synergy boost available · grant one reroll to a teammate!';
-    card.appendChild(boost);
-  }
+  const consoleWrap = document.createElement('div');
+  consoleWrap.className = 'stratagem-console';
 
-  const grid = document.createElement('div');
-  grid.className = 'stratagem-grid';
-  const plans = {};
+  const callHeader = document.createElement('div');
+  callHeader.className = 'stratagem-console__heading';
+  const callName = document.createElement('h3');
+  callName.className = 'stratagem-console__title';
+  const callSign = document.createElement('p');
+  callSign.className = 'stratagem-console__call-sign';
+  const callSummary = document.createElement('p');
+  callSummary.className = 'stratagem-console__summary';
+  callHeader.appendChild(callName);
+  callHeader.appendChild(callSign);
+  callHeader.appendChild(callSummary);
 
-  mission.tasks.forEach(task => {
-    const pane = document.createElement('div');
-    pane.className = 'stratagem-card';
-    const heading = document.createElement('h4');
-    heading.textContent = task.label;
-    const select = document.createElement('select');
-    task.options.forEach(option => {
-      const opt = document.createElement('option');
-      opt.value = option;
-      opt.textContent = option;
-      select.appendChild(opt);
-    });
-    const notes = document.createElement('textarea');
-    notes.placeholder = 'Tactical notes…';
-    pane.appendChild(heading);
-    pane.appendChild(select);
-    pane.appendChild(notes);
-    grid.appendChild(pane);
-    plans[task.id] = { select, notes };
+  const sequence = document.createElement('div');
+  sequence.className = 'stratagem-sequence';
+
+  const pad = document.createElement('div');
+  pad.className = 'stratagem-pad';
+  const padDirections = [
+    { dir: 'up', label: '↑', classes: ['stratagem-pad__button', 'stratagem-pad__button--up'] },
+    { dir: 'left', label: '←', classes: ['stratagem-pad__button', 'stratagem-pad__button--left'] },
+    { dir: 'down', label: '↓', classes: ['stratagem-pad__button', 'stratagem-pad__button--down'] },
+    { dir: 'right', label: '→', classes: ['stratagem-pad__button', 'stratagem-pad__button--right'] },
+  ];
+  padDirections.forEach(({ dir, label, classes }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.direction = dir;
+    btn.textContent = label;
+    btn.setAttribute('aria-label', `${dir} input`);
+    btn.className = classes.join(' ');
+    pad.appendChild(btn);
   });
 
-  card.appendChild(grid);
-
-  const actions = document.createElement('div');
-  actions.className = 'mg-actions';
-  const execute = document.createElement('button');
-  execute.type = 'button';
-  execute.className = 'mg-button';
-  execute.textContent = 'Execute plan';
-  actions.appendChild(execute);
-  card.appendChild(actions);
-
   const report = document.createElement('div');
-  report.className = 'mg-status';
-  report.textContent = 'Awaiting go-order…';
+  report.className = 'mg-status stratagem-report';
+  report.textContent = 'Awaiting first stratagem…';
+
+  consoleWrap.appendChild(callHeader);
+  consoleWrap.appendChild(sequence);
+  consoleWrap.appendChild(pad);
+  card.appendChild(consoleWrap);
   card.appendChild(report);
 
   root.appendChild(card);
 
-  execute.addEventListener('click', () => {
-    const summary = Object.entries(plans)
-      .map(([id, controls]) => `${id}: ${controls.select.value}`)
-      .join(' · ');
-    report.textContent = `Plan locked: ${summary}`;
+  let completedCalls = 0;
+  let strikesRemaining = signalTolerance;
+  let activeStratagem = null;
+  let progressIndex = 0;
+  let missionComplete = false;
+
+  const deckSource = availableStratagems.length ? availableStratagems : STRATAGEM_LIBRARY;
+  let deck = shuffle([...deckSource]);
+
+  function updateTelemetry() {
+    const safeStrikes = Math.max(0, strikesRemaining);
+    callsLabel.innerHTML = `<strong>${completedCalls}/${callsRequired}</strong> Stratagems linked`;
+    strikesLabel.innerHTML = `Signal tolerance: <strong>${safeStrikes}</strong>`;
+  }
+
+  function highlightSequence() {
+    const steps = sequence.querySelectorAll('.stratagem-sequence__step');
+    steps.forEach((step, idx) => {
+      step.classList.toggle('is-entered', idx < progressIndex);
+      step.classList.toggle('is-active', idx === progressIndex);
+    });
+  }
+
+  function endMission(message, background) {
+    if (missionComplete) return;
+    missionComplete = true;
+    report.textContent = message;
+    if (background) {
+      report.style.background = background;
+    }
+    pad.querySelectorAll('button').forEach(btn => {
+      btn.disabled = true;
+    });
+    cleanup();
+  }
+
+  function loadNextStratagem() {
+    if (missionComplete) return;
+    if (completedCalls >= callsRequired) {
+      endMission('Transmission complete. Reinforcements inbound!', 'rgba(34,197,94,0.2)');
+      return;
+    }
+
+    if (!deck.length) {
+      deck = shuffle([...deckSource]);
+    }
+
+    activeStratagem = deck.shift();
+    progressIndex = 0;
+
+    callName.textContent = activeStratagem.name;
+    callSign.textContent = `Call sign: ${activeStratagem.callSign}`;
+    callSummary.textContent = activeStratagem.summary;
+
+    sequence.innerHTML = '';
+    activeStratagem.sequence.forEach(dir => {
+      const step = document.createElement('span');
+      step.className = 'stratagem-sequence__step';
+      step.dataset.direction = dir;
+      step.textContent = glyphs[dir];
+      sequence.appendChild(step);
+    });
+
+    highlightSequence();
+    report.textContent = 'Input the stratagem code!';
     report.style.background = 'rgba(56,189,248,0.18)';
+  }
+
+  function resetActiveSequence() {
+    progressIndex = 0;
+    highlightSequence();
+  }
+
+  function registerFailure() {
+    if (missionComplete) return;
+    strikesRemaining -= 1;
+    updateTelemetry();
+    if (strikesRemaining < 0) {
+      endMission('Signal collapsed. HQ cannot verify your stratagem codes.', 'rgba(248,113,113,0.2)');
+      sequence.querySelectorAll('.stratagem-sequence__step').forEach(step => {
+        step.classList.remove('is-active');
+      });
+      return;
+    }
+    report.textContent = 'Code corrupted! Re-input from the top.';
+    report.style.background = 'rgba(248,113,113,0.2)';
+    resetActiveSequence();
+  }
+
+  function handleDirection(direction) {
+    if (missionComplete || !activeStratagem) return;
+    const expected = activeStratagem.sequence[progressIndex];
+    if (direction === expected) {
+      progressIndex += 1;
+      highlightSequence();
+      if (progressIndex >= activeStratagem.sequence.length) {
+        completedCalls += 1;
+        report.textContent = `${activeStratagem.name} confirmed. Package inbound.`;
+        report.style.background = 'rgba(34,197,94,0.2)';
+        activeStratagem = null;
+        updateTelemetry();
+        window.setTimeout(loadNextStratagem, 700);
+      }
+    } else {
+      sequence.classList.add('stratagem-sequence--shake');
+      window.setTimeout(() => sequence.classList.remove('stratagem-sequence--shake'), 300);
+      registerFailure();
+    }
+  }
+
+  function handleKeyDown(event) {
+    const keyMap = {
+      ArrowUp: 'up',
+      ArrowDown: 'down',
+      ArrowLeft: 'left',
+      ArrowRight: 'right',
+      w: 'up',
+      a: 'left',
+      s: 'down',
+      d: 'right',
+      W: 'up',
+      A: 'left',
+      S: 'down',
+      D: 'right',
+    };
+    const direction = keyMap[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    handleDirection(direction);
+  }
+
+  pad.addEventListener('click', event => {
+    const target = event.target.closest('button[data-direction]');
+    if (!target) return;
+    handleDirection(target.dataset.direction);
   });
+
+  document.addEventListener('keydown', handleKeyDown);
+
+  function cleanup() {
+    document.removeEventListener('keydown', handleKeyDown);
+  }
+
+  if (context.onCleanup) {
+    context.onCleanup(cleanup);
+  }
+
+  updateTelemetry();
+  loadNextStratagem();
 }
 
 function setupTechLockpick(root, context) {
@@ -1696,20 +1903,16 @@ const GAMES = {
   'stratagem-hero': {
     id: 'stratagem-hero',
     name: 'Stratagem Hero',
-    tagline: 'Coordinate the team\'s tactical response to an evolving crisis.',
-    briefing: 'Assemble a synchronized plan that leverages each hero\'s strengths. Assign tactics, jot contingencies, then lock the mission profile.',
+    tagline: 'Punch in stratagem codes before HQ\'s signal degrades.',
+    briefing: 'Tap into HQ\'s stratagem uplink. As icons flash across the console, input the command sequence to drop thematic reinforcements from orbit.',
     knobs: [
-      { key: 'missionProfile', label: 'Mission profile', type: 'select', default: 'rescue', options: [
-        { value: 'infiltration', label: 'Infiltration' },
-        { value: 'rescue', label: 'Rescue' },
-        { value: 'sabotage', label: 'Sabotage' },
+      { key: 'callsRequired', label: 'Stratagem drops to complete', type: 'number', min: 1, max: 12, default: 5, playerFacing: true },
+      { key: 'callDifficulty', label: 'Signal difficulty', type: 'select', default: 'training', options: [
+        { value: 'training', label: 'Training Run' },
+        { value: 'frontline', label: 'Frontline Uplink' },
+        { value: 'doomsday', label: 'Doomsday Protocol' },
       ] },
-      { key: 'intelLevel', label: 'Intel level', type: 'select', default: 'briefed', options: [
-        { value: 'blind', label: 'Blind Drop' },
-        { value: 'briefed', label: 'Briefed' },
-        { value: 'overwatch', label: 'Overwatch Support' },
-      ] },
-      { key: 'teamBoost', label: 'Team synergy boost', type: 'toggle', default: false },
+      { key: 'signalTolerance', label: 'Signal tolerance (errors allowed)', type: 'number', min: 0, max: 6, default: 3, playerFacing: true },
     ],
     setup: setupStratagemHero,
   },
