@@ -160,7 +160,10 @@ function initDMLogin(){
   const miniGamesTitle = document.getElementById('dm-mini-games-title');
   const miniGamesTagline = document.getElementById('dm-mini-games-tagline');
   const miniGamesLaunch = document.getElementById('dm-mini-games-launch');
+  const miniGamesIntro = document.getElementById('dm-mini-games-steps');
+  const miniGamesKnobsHint = document.getElementById('dm-mini-games-knobs-hint');
   const miniGamesKnobs = document.getElementById('dm-mini-games-knobs');
+  const miniGamesPlayerHint = document.getElementById('dm-mini-games-player-hint');
   const miniGamesPlayerSelect = document.getElementById('dm-mini-games-player');
   const miniGamesPlayerCustom = document.getElementById('dm-mini-games-player-custom');
   const miniGamesNotes = document.getElementById('dm-mini-games-notes');
@@ -216,6 +219,27 @@ function initDMLogin(){
     knobStateByGame.set(gameId, { ...state });
   }
 
+  function updateMiniGameGuidance(game) {
+    const hasKnobs = Array.isArray(game?.knobs) && game.knobs.length > 0;
+    if (miniGamesIntro) {
+      miniGamesIntro.textContent = game
+        ? `Step 1 complete: ${game.name} is loaded and ready to deploy.`
+        : 'Step 1: Choose a mini-game from the library to get started.';
+    }
+    if (miniGamesKnobsHint) {
+      miniGamesKnobsHint.textContent = game
+        ? hasKnobs
+          ? 'Adjust these DM-only controls to fit the moment. Players will never see them.'
+          : 'This mission has no optional tuning—skip straight to sending it to a player.'
+        : 'Choose a mini-game to unlock DM-only tuning controls.';
+    }
+    if (miniGamesPlayerHint) {
+      miniGamesPlayerHint.textContent = game
+        ? 'Choose the hero to receive this mission and add any quick instructions before deploying.'
+        : 'Pick who should receive the mission once you have it tuned.';
+    }
+  }
+
   function buildMiniGamesList() {
     if (!miniGamesList || miniGamesInitialized) return;
     miniGamesList.innerHTML = '';
@@ -254,11 +278,12 @@ function initDMLogin(){
     if (miniGamesTagline) miniGamesTagline.textContent = '';
     if (miniGamesLaunch) miniGamesLaunch.hidden = true;
     if (miniGamesKnobs) {
-      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">No mini-game selected.</p>';
+      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">Pick a mini-game to unlock DM tools.</p>';
     }
     if (miniGamesReadme) {
-      miniGamesReadme.textContent = 'Select a mini-game to view its briefing.';
+      miniGamesReadme.textContent = 'Select a mini-game to review the player-facing briefing.';
     }
+    updateMiniGameGuidance(null);
   }
 
   function renderMiniGameKnobs(game) {
@@ -266,7 +291,7 @@ function initDMLogin(){
     const state = ensureKnobState(game.id);
     miniGamesKnobs.innerHTML = '';
     if (!Array.isArray(game.knobs) || game.knobs.length === 0) {
-      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">No fast edit controls defined.</p>';
+      miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">This mission has no DM tuning controls.</p>';
       return;
     }
     game.knobs.forEach(knob => {
@@ -377,6 +402,11 @@ function initDMLogin(){
       }
     }
     renderMiniGameKnobs(game);
+    if (shouldFocusMiniGameKnobs) {
+      shouldFocusMiniGameKnobs = false;
+      Promise.resolve().then(() => focusMiniGameKnobs());
+    }
+    updateMiniGameGuidance(game);
     if (miniGamesReadme) {
       miniGamesReadme.textContent = 'Loading briefing…';
       loadMiniGameReadme(game.id)
@@ -405,7 +435,7 @@ function initDMLogin(){
   function renderMiniGameDeployments(entries = []) {
     if (!miniGamesDeployments) return;
     if (!Array.isArray(entries) || entries.length === 0) {
-      miniGamesDeployments.innerHTML = '<li class="dm-mini-games__empty">No active deployments.</li>';
+      miniGamesDeployments.innerHTML = '<li class="dm-mini-games__empty">Launched missions will appear here for quick status updates.</li>';
       return;
     }
     miniGamesDeployments.innerHTML = '';
@@ -595,11 +625,27 @@ function initDMLogin(){
     }
   }
 
+  function focusMiniGameKnobs() {
+    if (!miniGamesModal || miniGamesModal.classList.contains('hidden')) return;
+    const knobTarget = miniGamesKnobs?.querySelector('input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled])');
+    const fallbackTarget = miniGamesPlayerSelect || miniGamesPlayerCustom || miniGamesNotes || miniGamesDeployBtn;
+    const focusTarget = knobTarget || fallbackTarget;
+    if (!focusTarget || typeof focusTarget.focus !== 'function') return;
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch {
+      focusTarget.focus();
+    }
+  }
+
+  let shouldFocusMiniGameKnobs = false;
+
   async function openMiniGames() {
     if (!miniGamesModal) return;
     ensureMiniGameSubscription();
     buildMiniGamesList();
     updateMiniGamesListSelection();
+    shouldFocusMiniGameKnobs = true;
     renderMiniGameDetails();
     await refreshMiniGameCharacters();
     renderMiniGameDeployments(miniGameDeploymentsCache);
@@ -616,6 +662,10 @@ function initDMLogin(){
       } else {
         modalContent.scrollTop = 0;
       }
+    }
+    if (shouldFocusMiniGameKnobs) {
+      shouldFocusMiniGameKnobs = false;
+      Promise.resolve().then(() => focusMiniGameKnobs());
     }
   }
 
@@ -857,10 +907,18 @@ function initDMLogin(){
 
   function closeMenu(){
     if (!menu || menu.hidden) return;
+    const restoreToggleFocus = menu.contains(document.activeElement);
     menu.hidden = true;
     menu.setAttribute('aria-hidden','true');
     if (dmToggleBtn) {
       dmToggleBtn.setAttribute('aria-expanded', 'false');
+      if (restoreToggleFocus && !dmToggleBtn.hidden && typeof dmToggleBtn.focus === 'function') {
+        try {
+          dmToggleBtn.focus({ preventScroll: true });
+        } catch {
+          dmToggleBtn.focus();
+        }
+      }
     }
   }
 
@@ -894,16 +952,12 @@ function initDMLogin(){
 
   function openNotifications(){
     if(!notifyModal) return;
-    notifyModal.style.display = 'flex';
-    notifyModal.classList.remove('hidden');
-    notifyModal.setAttribute('aria-hidden','false');
+    show('dm-notifications-modal');
   }
 
   function closeNotifications(){
     if(!notifyModal) return;
-    notifyModal.classList.add('hidden');
-    notifyModal.setAttribute('aria-hidden','true');
-    notifyModal.style.display = 'none';
+    hide('dm-notifications-modal');
   }
 
   function onLoginSuccess(){
@@ -917,36 +971,60 @@ function initDMLogin(){
     async function openCharacters(){
       if(!charModal || !charList) return;
       closeCharacterView();
-      charModal.style.display = 'flex';
-      charModal.classList.remove('hidden');
-      charModal.setAttribute('aria-hidden','false');
+      show('dm-characters-modal');
+      charList.innerHTML = '<li class="dm-characters__placeholder">Loading characters…</li>';
       let names = [];
-      try { names = await listCharacters(); }
-      catch(e){ console.error('Failed to list characters', e); }
-      charList.innerHTML = names
-        .map(n => `<li><a href="#">${n}</a></li>`)
-        .join('');
+      try {
+        names = await listCharacters();
+      }
+      catch(e){
+        console.error('Failed to list characters', e);
+        charList.innerHTML = '<li class="dm-characters__placeholder">Unable to load characters.</li>';
+        return;
+      }
+      if (!Array.isArray(names) || names.length === 0) {
+        charList.innerHTML = '<li class="dm-characters__placeholder">No characters available.</li>';
+        return;
+      }
+      charList.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      names.forEach(n => {
+        if (!n) return;
+        const li = document.createElement('li');
+        li.className = 'dm-characters__item';
+        const link = document.createElement('a');
+        link.href = '#';
+        link.setAttribute('role', 'button');
+        link.className = 'dm-characters__link';
+        link.dataset.characterName = n;
+        link.textContent = n;
+        li.appendChild(link);
+        frag.appendChild(li);
+      });
+      charList.appendChild(frag);
+      const firstLink = charList.querySelector('.dm-characters__link');
+      if (firstLink && typeof firstLink.focus === 'function') {
+        try {
+          firstLink.focus({ preventScroll: true });
+        } catch {
+          firstLink.focus();
+        }
+      }
     }
 
   function closeCharacters(){
     if(!charModal) return;
-    charModal.classList.add('hidden');
-    charModal.setAttribute('aria-hidden','true');
-    charModal.style.display = 'none';
+    hide('dm-characters-modal');
   }
 
   function openCharacterView(){
     if(!charViewModal) return;
-    charViewModal.style.display='flex';
-    charViewModal.classList.remove('hidden');
-    charViewModal.setAttribute('aria-hidden','false');
+    show('dm-character-modal');
   }
 
   function closeCharacterView(){
     if(!charViewModal) return;
-    charViewModal.classList.add('hidden');
-    charViewModal.setAttribute('aria-hidden','true');
-    charViewModal.style.display='none';
+    hide('dm-character-modal');
   }
 
     function characterCard(data, name){
@@ -1032,9 +1110,10 @@ function initDMLogin(){
     }
 
     charList?.addEventListener('click', async e => {
-      const link = e.target.closest('a');
-      if (!link) return;
-      const name = link.textContent?.trim();
+      const trigger = e.target.closest('[data-character-name], a');
+      if (!trigger) return;
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      const name = trigger.dataset?.characterName || trigger.textContent?.trim();
       if (!name || !charView) return;
       try {
         const data = await loadCharacter(name, { bypassPin: true });
@@ -1139,6 +1218,7 @@ function initDMLogin(){
     if (!button) return;
     selectedMiniGameId = button.dataset.gameId || null;
     updateMiniGamesListSelection();
+    shouldFocusMiniGameKnobs = true;
     renderMiniGameDetails();
   });
 

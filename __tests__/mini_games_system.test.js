@@ -17,18 +17,6 @@ function setupDom() {
       <button id="dm-login-submit"></button>
       <button id="dm-login-close"></button>
     </div>
-    <div id="dm-notifications-modal" class="hidden" aria-hidden="true">
-      <ul id="dm-notifications-list"></ul>
-      <button id="dm-notifications-close"></button>
-    </div>
-    <div id="dm-characters-modal" class="hidden" aria-hidden="true">
-      <ul id="dm-characters-list"></ul>
-      <button id="dm-characters-close"></button>
-    </div>
-    <div id="dm-character-modal" class="hidden" aria-hidden="true">
-      <div id="dm-character-sheet"></div>
-      <button id="dm-character-close"></button>
-    </div>
     <div id="dm-mini-games-modal" class="overlay hidden" aria-hidden="true">
       <section class="modal dm-mini-games">
         <button id="dm-mini-games-close"></button>
@@ -95,83 +83,66 @@ function setupDom() {
 
 async function initDmModule() {
   jest.resetModules();
+  const actualMiniGames = await import('../scripts/mini-games.js');
+  jest.resetModules();
   setupDom();
-  global.fetch = jest.fn();
   global.toast = jest.fn();
   global.dismissToast = jest.fn();
+  window.dmNotify = jest.fn();
 
-  const show = jest.fn();
-  const hide = jest.fn();
+  const miniGamesModule = actualMiniGames;
+  const readmeMock = jest.fn(async id => `Briefing for ${id}`);
+  const subscribeMock = jest.fn(callback => {
+    callback([]);
+    return jest.fn();
+  });
+  const refreshMock = jest.fn(async () => []);
+  const deployMock = jest.fn(async payload => ({
+    ...payload,
+    id: `mg-${payload.gameId}`,
+    status: 'pending',
+    player: payload.player,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }));
+  const updateMock = jest.fn(async () => {});
+  const deleteMock = jest.fn(async () => {});
 
-  jest.unstable_mockModule('../scripts/modal.js', () => ({ show, hide }));
+  jest.unstable_mockModule('../scripts/mini-games.js', () => ({
+    ...miniGamesModule,
+    loadMiniGameReadme: readmeMock,
+    subscribeToDeployments: subscribeMock,
+    refreshDeployments: refreshMock,
+    deployMiniGame: deployMock,
+    updateDeployment: updateMock,
+    deleteDeployment: deleteMock,
+  }));
 
-  const listCharacters = jest.fn(async () => ['Hero One', 'Hero Two']);
+  const listCharacters = jest.fn(async () => ['Alpha', 'Beta']);
   const loadCharacter = jest.fn(async () => ({}));
   const setCurrentCharacter = jest.fn();
-
   jest.unstable_mockModule('../scripts/characters.js', () => ({
     listCharacters,
     loadCharacter,
     setCurrentCharacter,
   }));
 
-  const sampleGame = {
-    id: 'clue-tracker',
-    name: 'Clue Tracker',
-    tagline: 'Connect the dots',
-    url: 'SuperheroMiniGames/play.html?game=clue-tracker',
-    knobs: [
-      { key: 'cluesToReveal', label: 'Clues to reveal', type: 'number', min: 1, max: 6, step: 1, default: 3 }
-    ]
-  };
-
-  let deploymentsCallback = null;
-
-  const deployMiniGame = jest.fn(async payload => ({
-    ...payload,
-    id: 'mg-123',
-    status: 'pending',
-    player: payload.player.trim(),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }));
-
-  jest.unstable_mockModule('../scripts/mini-games.js', () => ({
-    listMiniGames: () => [sampleGame],
-    getMiniGame: () => sampleGame,
-    getDefaultConfig: () => ({ cluesToReveal: 3 }),
-    loadMiniGameReadme: async () => 'Briefing text',
-    subscribeToDeployments: callback => {
-      deploymentsCallback = callback;
-      callback([]);
-      return jest.fn();
-    },
-    refreshDeployments: async () => [],
-    deployMiniGame,
-    updateDeployment: jest.fn(async () => {}),
-    deleteDeployment: jest.fn(async () => {}),
-    summarizeConfig: () => 'Clues to reveal: 3',
-    MINI_GAME_STATUS_OPTIONS: [
-      { value: 'pending', label: 'Pending' },
-      { value: 'active', label: 'In Progress' },
-      { value: 'completed', label: 'Completed' },
-      { value: 'cancelled', label: 'Cancelled' },
-    ],
-    getStatusLabel: value => value,
-    formatKnobValue: () => '3',
-  }));
-
-  window.dmNotify = jest.fn();
+  const show = jest.fn();
+  const hide = jest.fn();
+  jest.unstable_mockModule('../scripts/modal.js', () => ({ show, hide }));
 
   await import('../scripts/dm.js');
   document.dispatchEvent(new Event('DOMContentLoaded'));
 
   return {
+    actualMiniGames: miniGamesModule,
+    readmeMock,
+    subscribeMock,
+    refreshMock,
+    deployMock,
+    listCharacters,
     show,
     hide,
-    listCharacters,
-    deployMiniGame,
-    getDeploymentsCallback: () => deploymentsCallback,
   };
 }
 
@@ -183,9 +154,17 @@ async function completeLogin() {
   await loginPromise;
 }
 
-describe('DM mini-game tooling', () => {
-  test('deploys a mini-game to the selected character', async () => {
-    const { show, listCharacters, deployMiniGame, getDeploymentsCallback } = await initDmModule();
+describe('mini-game system modals', () => {
+  test('every mini-game renders fully inside the DM modal', async () => {
+    const {
+      actualMiniGames,
+      readmeMock,
+      subscribeMock,
+      refreshMock,
+      listCharacters,
+      show,
+      hide,
+    } = await initDmModule();
 
     await completeLogin();
 
@@ -196,43 +175,73 @@ describe('DM mini-game tooling', () => {
     await Promise.resolve();
 
     expect(show).toHaveBeenCalledWith('dm-mini-games-modal');
+    expect(subscribeMock).toHaveBeenCalledTimes(1);
     expect(listCharacters).toHaveBeenCalled();
+    expect(refreshMock).not.toHaveBeenCalled();
 
-    const playerSelect = document.getElementById('dm-mini-games-player');
-    playerSelect.value = 'Hero One';
-    const notesField = document.getElementById('dm-mini-games-notes');
-    notesField.value = 'Bring backup';
+    const library = actualMiniGames.listMiniGames();
+    const listButtons = Array.from(document.querySelectorAll('#dm-mini-games-list button[data-game-id]'));
+    expect(listButtons).toHaveLength(library.length);
 
-    const deployBtn = document.getElementById('dm-mini-games-deploy');
-    deployBtn.dispatchEvent(new Event('click'));
+    const readmeEl = document.getElementById('dm-mini-games-readme');
+    const introEl = document.getElementById('dm-mini-games-steps');
+    const knobHintEl = document.getElementById('dm-mini-games-knobs-hint');
+    const playerHintEl = document.getElementById('dm-mini-games-player-hint');
 
-    await Promise.resolve();
-    await Promise.resolve();
+    for (const game of library) {
+      const button = listButtons.find(btn => btn.dataset.gameId === game.id);
+      expect(button).toBeTruthy();
+      button.dispatchEvent(new Event('click', { bubbles: true }));
 
-    expect(deployMiniGame).toHaveBeenCalledTimes(1);
-    expect(deployMiniGame.mock.calls[0][0]).toMatchObject({
-      gameId: 'clue-tracker',
-      player: 'Hero One',
-      notes: 'Bring backup',
-    });
-    expect(global.toast).toHaveBeenCalledWith('Mini-game deployed', 'success');
+      await Promise.resolve();
+      await Promise.resolve();
 
-    const deploymentsCallback = getDeploymentsCallback();
-    const miniGamesModal = document.getElementById('dm-mini-games-modal');
-    miniGamesModal.classList.remove('hidden');
-    miniGamesModal.setAttribute('aria-hidden', 'false');
-    deploymentsCallback?.([
-      {
-        id: 'mg-123',
-        player: 'Hero One',
-        status: 'pending',
-        gameName: 'Clue Tracker',
-        config: { cluesToReveal: 3 },
-        createdAt: Date.now(),
+      expect(document.getElementById('dm-mini-games-title').textContent).toBe(game.name);
+      expect(document.getElementById('dm-mini-games-tagline').textContent).toBe(game.tagline || '');
+      const launchLink = document.getElementById('dm-mini-games-launch');
+      if (game.url) {
+        expect(launchLink.hidden).toBe(false);
+        expect(launchLink.getAttribute('href')).toBe(game.url);
+      } else {
+        expect(launchLink.hidden).toBe(true);
       }
-    ]);
 
-    const deploymentsList = document.getElementById('dm-mini-games-deployments');
-    expect(deploymentsList.textContent).toContain('Hero One');
+      expect(introEl.textContent).toContain(game.name);
+      expect(playerHintEl.textContent).toContain('mission');
+
+      const knobContainer = document.getElementById('dm-mini-games-knobs');
+      if (Array.isArray(game.knobs) && game.knobs.length) {
+        expect(knobHintEl.textContent).toContain('Adjust');
+        const wrappers = Array.from(knobContainer.querySelectorAll('.dm-mini-games__knob'));
+        expect(wrappers).toHaveLength(game.knobs.length);
+        for (const knob of game.knobs) {
+          const wrapper = wrappers.find(node => node.dataset.knob === knob.key);
+          expect(wrapper).toBeTruthy();
+          if (knob.type === 'toggle') {
+            expect(wrapper.querySelector('input[type="checkbox"]')).not.toBeNull();
+          } else if (knob.type === 'select') {
+            const select = wrapper.querySelector('select[data-knob]');
+            expect(select).not.toBeNull();
+            expect(select.value).toBe(String(knob.default ?? knob.options?.[0]?.value ?? ''));
+            expect(select.querySelectorAll('option')).toHaveLength(knob.options?.length ?? 0);
+          } else {
+            const input = wrapper.querySelector('input[data-knob]');
+            expect(input).not.toBeNull();
+            expect(input.type === 'number' || input.type === 'text').toBe(true);
+          }
+        }
+      } else {
+        expect(knobHintEl.textContent).toContain('no optional tuning');
+        expect(knobContainer.textContent).toContain('no DM tuning controls');
+      }
+
+      expect(readmeMock).toHaveBeenLastCalledWith(game.id);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(readmeEl.textContent).toBe(`Briefing for ${game.id}`);
+    }
+
+    document.getElementById('dm-mini-games-close').dispatchEvent(new Event('click'));
+    expect(hide).toHaveBeenCalledWith('dm-mini-games-modal');
   });
 });

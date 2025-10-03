@@ -1244,9 +1244,10 @@
       </svg>
     </button>
     <h3>Deploy Mini-Games</h3>
+    <p id="dm-mini-games-steps" class="dm-mini-games__intro">Step 1: Choose a mini-game from the library to get started.</p>
     <div class="dm-mini-games__layout">
       <aside class="dm-mini-games__sidebar">
-        <h4 class="dm-mini-games__section-title">Library</h4>
+        <h4 class="dm-mini-games__section-title">Mini-Game Library</h4>
         <ul id="dm-mini-games-list" class="dm-mini-games__list" role="listbox" aria-label="Mini-game library"></ul>
       </aside>
       <div class="dm-mini-games__content">
@@ -1258,11 +1259,13 @@
           <a id="dm-mini-games-launch" class="dm-mini-games__launch" href="#" target="_blank" rel="noopener" hidden>Open Player View</a>
         </header>
         <section class="dm-mini-games__section">
-          <h5>Fast Edit Controls</h5>
+          <h5 class="dm-mini-games__section-heading">Step 2 · Tune the Mission (DM only)</h5>
+          <p id="dm-mini-games-knobs-hint" class="dm-mini-games__hint">Choose a mini-game to unlock DM-only tuning controls.</p>
           <div id="dm-mini-games-knobs" class="dm-mini-games__knobs"></div>
         </section>
         <section class="dm-mini-games__section">
-          <h5>Deployment Target</h5>
+          <h5 class="dm-mini-games__section-heading">Step 3 · Send to a Player</h5>
+          <p id="dm-mini-games-player-hint" class="dm-mini-games__hint">Pick who should receive the mission and add any quick instructions.</p>
           <div class="dm-mini-games__deploy-form">
             <label class="dm-mini-games__field">
               <span>Select character</span>
@@ -1285,12 +1288,12 @@
           </div>
         </section>
         <section class="dm-mini-games__section dm-mini-games__section--scroll">
-          <h5>Mini-Game Briefing</h5>
+          <h5 class="dm-mini-games__section-heading">Mission Briefing (Player View)</h5>
           <pre id="dm-mini-games-readme" class="dm-mini-games__readme" tabindex="0">Select a mini-game to view its briefing.</pre>
         </section>
         <section class="dm-mini-games__section dm-mini-games__section--scroll">
           <div class="dm-mini-games__section-header">
-            <h5>Active Deployments</h5>
+            <h5 class="dm-mini-games__section-heading">Active Deployments</h5>
             <div class="dm-mini-games__section-actions">
               <button id="dm-mini-games-refresh" type="button" class="btn-sm">Refresh</button>
             </div>
@@ -1318,8 +1321,8 @@
       <p id="mini-game-invite-notes-text" class="mini-game-invite__notes-text"></p>
     </div>
     <footer class="mini-game-invite__actions">
-      <button id="mini-game-invite-decline" type="button" class="btn-sm mini-game-invite__decline">Decline</button>
-      <button id="mini-game-invite-accept" type="button" class="somf-btn somf-primary mini-game-invite__accept">Accept &amp; Launch</button>
+      <button id="mini-game-invite-decline" type="button" class="btn-sm mini-game-invite__decline">Not Now</button>
+      <button id="mini-game-invite-accept" type="button" class="somf-btn somf-primary mini-game-invite__accept">Start Mission</button>
     </footer>
   </section>
 </div>

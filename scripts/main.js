@@ -19,7 +19,6 @@ import {
   formatKnobValue as formatMiniGameKnobValue,
   getMiniGame as getMiniGameDefinition,
   subscribePlayerDeployments,
-  summarizeConfig as summarizeMiniGameConfig,
   updateDeployment as updateMiniGameDeployment,
 } from './mini-games.js';
 import {
@@ -293,8 +292,13 @@ function buildMiniGameConfigEntries(entry, game) {
   const config = entry.config || {};
   game.knobs.forEach(knob => {
     if (!Object.prototype.hasOwnProperty.call(config, knob.key)) return;
+    if (knob.playerFacing !== true) return;
     const value = formatMiniGameKnobValue(knob, config[knob.key]);
-    configEntries.push({ label: knob.label, value });
+    const label = knob.playerLabel || knob.label;
+    const formatted = typeof knob.playerFormat === 'function'
+      ? knob.playerFormat(config[knob.key], config)
+      : value;
+    configEntries.push({ label, value: formatted });
   });
   return configEntries;
 }
@@ -318,16 +322,12 @@ function renderMiniGameSummary(entry, game) {
     miniGameInviteSummary.appendChild(list);
     return;
   }
-  const summary = entry ? miniGameConfigSummary(entry) : '';
-  miniGameInviteSummary.textContent = summary || 'No adjustable parameters were provided.';
-}
-
-function miniGameConfigSummary(entry) {
-  try {
-    return summarizeMiniGameConfig(entry.gameId, entry.config || {});
-  } catch {
-    return '';
+  const summary = typeof entry?.playerSummary === 'string' ? entry.playerSummary.trim() : '';
+  if (summary) {
+    miniGameInviteSummary.textContent = summary;
+    return;
   }
+  miniGameInviteSummary.textContent = 'Your DM already prepared this mission. Review the briefing below and tap “Start Mission” when you are ready.';
 }
 
 function renderMiniGameNotes(entry) {
@@ -346,10 +346,10 @@ function populateMiniGameInvite(entry) {
   if (!hasMiniGameInviteUi || !entry) return;
   const issuer = entry.issuedBy || 'DM';
   if (miniGameInviteTitle) {
-    miniGameInviteTitle.textContent = 'Incoming Mini-Game Assignment';
+    miniGameInviteTitle.textContent = 'Incoming Mission';
   }
   if (miniGameInviteMessage) {
-    miniGameInviteMessage.textContent = `${issuer} has assigned you a new mission. Accept to launch it or decline to forfeit any benefits.`;
+    miniGameInviteMessage.textContent = `${issuer} just sent you a mission. Tap “Start Mission” to jump in or “Not Now” if you need a moment.`;
   }
   const game = getMiniGameDefinition(entry.gameId);
   const gameName = entry.gameName || game?.name || 'Mini-game';
@@ -1344,6 +1344,78 @@ function playTone(type){
   }catch(e){ /* noop */ }
 }
 let toastTimeout;
+let toastLastFocus = null;
+let toastFocusGuardActive = false;
+let toastFocusHandlersBound = false;
+let toastControlsBound = false;
+
+function focusToastElement(el, { preserveSource = true } = {}) {
+  if (!el) return;
+  if (typeof el.setAttribute === 'function') {
+    const canCheck = typeof el.hasAttribute === 'function';
+    if (!canCheck || !el.hasAttribute('tabindex')) {
+      el.setAttribute('tabindex', '-1');
+    }
+  }
+  if (preserveSource) {
+    const active = document.activeElement;
+    if (active && active !== el && active !== document.body && document.contains(active)) {
+      toastLastFocus = active;
+    }
+  }
+  if (typeof el.focus === 'function') {
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
+  }
+}
+
+function restoreToastFocus() {
+  const target = toastLastFocus;
+  toastLastFocus = null;
+  if (!target || typeof target.focus !== 'function') return;
+  if (!document.contains(target)) return;
+  try {
+    target.focus({ preventScroll: true });
+  } catch {
+    target.focus();
+  }
+}
+
+function ensureToastFocusHandlers() {
+  if (toastFocusHandlersBound) return;
+  toastFocusHandlersBound = true;
+  document.addEventListener('focusin', e => {
+    if (!toastFocusGuardActive) return;
+    const toastEl = $('toast');
+    if (!toastEl || !toastEl.classList.contains('show')) return;
+    if (toastEl.contains(e.target)) return;
+    focusToastElement(toastEl, { preserveSource: false });
+  });
+}
+
+function hideToastElement(options = {}) {
+  const { restoreFocus = true } = options;
+  const t = $('toast');
+  if (!t) return;
+  const wasShown = t.classList.contains('show');
+  t.classList.remove('show');
+  if (toastTimeout) {
+    clearTimeout(toastTimeout);
+    toastTimeout = null;
+  }
+  toastFocusGuardActive = false;
+  if (restoreFocus) {
+    restoreToastFocus();
+  } else {
+    toastLastFocus = null;
+  }
+  if (wasShown) {
+    dispatchToastEvent('cc:toast-dismissed');
+  }
+}
 
 function dispatchToastEvent(name, detail = {}) {
   if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
@@ -1370,11 +1442,24 @@ function toast(msg, type = 'info'){
   t.classList.add('show');
   playTone(toastType);
   clearTimeout(toastTimeout);
+  ensureToastFocusHandlers();
+  const shouldTrap = !(document?.body?.classList?.contains('modal-open'));
+  toastFocusGuardActive = shouldTrap;
+  focusToastElement(t, { preserveSource: true });
+  if (!toastControlsBound) {
+    toastControlsBound = true;
+    t.addEventListener('keydown', e => {
+      if (e.key === 'Escape' || e.key === 'Esc' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        hideToastElement();
+      }
+    });
+    t.addEventListener('click', () => hideToastElement());
+  }
   if (Number.isFinite(duration) && duration > 0) {
     toastTimeout = setTimeout(()=>{
-      t.classList.remove('show');
       toastTimeout = null;
-      dispatchToastEvent('cc:toast-dismissed');
+      hideToastElement();
     }, duration);
   } else {
     toastTimeout = null;
@@ -1383,12 +1468,7 @@ function toast(msg, type = 'info'){
 }
 
 function dismissToast(){
-  const t=$('toast');
-  if(!t) return;
-  t.classList.remove('show');
-  clearTimeout(toastTimeout);
-  toastTimeout = null;
-  dispatchToastEvent('cc:toast-dismissed');
+  hideToastElement();
 }
 
 // Expose toast utilities globally so non-module scripts (e.g. dm.js)
@@ -1562,10 +1642,18 @@ if (btnMenu && menuActions) {
   };
 
   const finalizeHide = () => {
+    const shouldRestoreFocus = menuActions.contains(document.activeElement);
     clearHideMenuCleanup();
     menuActions.hidden = true;
     btnMenu.setAttribute('aria-expanded', 'false');
     btnMenu.classList.remove('open');
+    if (shouldRestoreFocus && typeof btnMenu.focus === 'function') {
+      try {
+        btnMenu.focus({ preventScroll: true });
+      } catch {
+        btnMenu.focus();
+      }
+    }
   };
 
   const hideMenu = (options = {}) => {
@@ -1594,7 +1682,20 @@ if (btnMenu && menuActions) {
     clearHideMenuCleanup();
     isMenuOpen = true;
     menuActions.hidden = false;
-    requestAnimationFrame(() => menuActions.classList.add('show'));
+    const shouldFocusFirst = document.activeElement === btnMenu;
+    requestAnimationFrame(() => {
+      menuActions.classList.add('show');
+      if (shouldFocusFirst) {
+        const firstFocusable = menuActions.querySelector('button, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable && typeof firstFocusable.focus === 'function') {
+          try {
+            firstFocusable.focus({ preventScroll: true });
+          } catch {
+            firstFocusable.focus();
+          }
+        }
+      }
+    });
     btnMenu.setAttribute('aria-expanded', 'true');
     btnMenu.classList.add('open');
   };
