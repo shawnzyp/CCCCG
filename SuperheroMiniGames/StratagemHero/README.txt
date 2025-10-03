@@ -1,11 +1,11 @@
-Stratagem Hero is a tactical planning board. The player orchestrates an operation, allocates assets, and reacts to unfolding intel.
+Stratagem Hero ports the Helldivers-style stratagem mini-game into the campaign: slam in directional inputs to call down super-team support while the signal holds.
 
 ## Fast Edit Knobs
-- **Mission Profile** *(select, default Rescue)* – Sets the scenario focus: infiltration, rescue, or sabotage.
-- **Intel Level** *(select, default Briefed)* – Chooses how much support HQ provides, from blind drops to full overwatch.
-- **Team Synergy Boost** *(toggle, default off)* – Grants a one-time teamwork advantage that can shift the odds during critical actions.
+- **Stratagem Drops to Complete** *(number, default 5)* – How many successful call-ins are required to clear the console.
+- **Signal Difficulty** *(select, default Training Run)* – Expands the pool of stratagem codes from short routines to brutal doomsday chains.
+- **Signal Tolerance (Errors Allowed)** *(number, default 3)* – How many corrupted inputs the uplink can absorb before HQ cuts the transmission.
 
-## Deployment Tips
-1. Use the mission profile to mirror the story beat the heroes are tackling.
-2. Adjust the intel level mid-play to represent evolving support or setbacks.
-3. Activate the synergy boost when players coordinate a clever plan and reward their collaboration.
+## Table Use
+1. Read the active stratagem name aloud and describe its effect when players succeed.
+2. Encourage players to shout directions together to mimic hectic Helldivers call-ins.
+3. Drop the signal tolerance or bump the difficulty to reflect escalating mission stakes.
