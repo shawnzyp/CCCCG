@@ -1819,6 +1819,8 @@ select[required]:valid{
   z-index:2100;
   transition:var(--transition),transform .2s ease;
   touch-action:manipulation;
+  --dm-tools-icon-scale:1;
+  --dm-tools-icon-rotation:0deg;
 }
 .dm-tools-toggle:hover,
 .dm-tools-toggle:focus-visible{
@@ -1836,17 +1838,22 @@ select[required]:valid{
   box-shadow:0 10px 24px rgba(0,0,0,.45),0 0 0 1px rgba(59,130,246,.2) inset;
 }
 .dm-tools-toggle[hidden]{display:none}
-.dm-tools-toggle__label{
-  display:inline-block;
-  font-size:18px;
-  font-weight:700;
-  letter-spacing:0.18em;
-  text-transform:uppercase;
-  transition:transform .3s ease;
+.dm-tools-toggle[aria-expanded="true"]{
+  --dm-tools-icon-rotation:90deg;
 }
-.dm-tools-toggle:hover .dm-tools-toggle__label,
-.dm-tools-toggle:focus-visible .dm-tools-toggle__label{
-  transform:scale(1.08);
+
+.dm-tools-toggle__icon{
+  display:block;
+  width:34px;
+  height:34px;
+  pointer-events:none;
+  transition:transform .35s ease;
+  transform-origin:50% 50%;
+  transform:scale(var(--dm-tools-icon-scale)) rotate(var(--dm-tools-icon-rotation));
+}
+.dm-tools-toggle:hover .dm-tools-toggle__icon,
+.dm-tools-toggle:focus-visible .dm-tools-toggle__icon{
+  --dm-tools-icon-scale:1.08;
 }
 
 /* DM Tool (Shards of Many Fates) */
