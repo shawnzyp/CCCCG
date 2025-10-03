@@ -279,8 +279,13 @@ function setupClueTracker(root, context) {
   intro.appendChild(timer);
   card.appendChild(intro);
 
+  const objective = document.createElement('p');
+  objective.className = 'clue-tracker__objective';
+  card.appendChild(objective);
+
   const body = document.createElement('p');
-  body.textContent = 'Reveal clues, mark which ones connect, and watch for planted misinformation.';
+  body.className = 'clue-tracker__instruction';
+  body.textContent = 'Reveal clues, prove which ones connect, and quarantine misinformation before it derails the case.';
   card.appendChild(body);
 
   const actions = document.createElement('div');
@@ -292,6 +297,11 @@ function setupClueTracker(root, context) {
   actions.appendChild(revealBtn);
   card.appendChild(actions);
 
+  const outcome = document.createElement('div');
+  outcome.className = 'clue-tracker__outcome';
+  outcome.hidden = true;
+  card.appendChild(outcome);
+
   const grid = document.createElement('div');
   grid.className = 'clue-grid';
 
@@ -301,7 +311,16 @@ function setupClueTracker(root, context) {
   const config = context.config || {};
   const initialReveal = clamp(Number(config.cluesToReveal ?? 3), 1, 8);
   const includeRed = Boolean(config.includeRedHerrings);
+  const requiredConnections = clamp(Number(config.connectionsRequired ?? 3), 1, CLUE_POOL.length);
   const timePerClue = clamp(Number(config.timePerClue ?? 90), 15, 900);
+
+  const objectiveText = `Objective: Confirm ${requiredConnections} connected lead${requiredConnections === 1 ? '' : 's'} before intel runs dry.`;
+  objective.textContent = includeRed
+    ? `${objectiveText} Flag planted red herrings so they can't poison the evidence chain.`
+    : objectiveText;
+
+  const successMessage = 'You triangulated the villain\'s route. Relay the confirmed sequence to HQ.';
+  const exhaustionMessage = 'All intel exhausted before you could confirm the full sequence.';
 
   const pool = shuffle([...CLUE_POOL]);
   const redDeck = includeRed ? shuffle([...RED_HERRINGS]) : [];
@@ -314,33 +333,70 @@ function setupClueTracker(root, context) {
     disproved: 0,
     timer: timePerClue,
     interval: null,
+    required: requiredConnections,
+    solved: false,
+    success: false,
   };
 
   const cards = [];
 
+  function completeCase(success, message) {
+    if (state.solved) return;
+    state.solved = true;
+    state.success = success;
+    stopTimer();
+    revealBtn.disabled = true;
+    revealBtn.textContent = success ? 'Case closed' : 'Investigation failed';
+    timer.textContent = success ? 'Case closed' : 'Intel compromised';
+    outcome.hidden = false;
+    outcome.textContent = message;
+    outcome.className = success
+      ? 'clue-tracker__outcome clue-tracker__outcome--success'
+      : 'clue-tracker__outcome clue-tracker__outcome--failure';
+    cards.forEach(entry => {
+      entry.data.confirmBtn.disabled = true;
+      entry.data.disproveBtn.disabled = true;
+    });
+    updateProgress();
+  }
+
   function updateProgress() {
     const segments = [`Revealed ${state.revealed} clue${state.revealed === 1 ? '' : 's'}`];
-    segments.push(`Connected ${state.confirmed}`);
-    segments.push(`Flagged ${state.disproved}`);
+    segments.push(`Connections ${Math.min(state.confirmed, state.required)}/${state.required}`);
+    if (includeRed) {
+      segments.push(`Red herrings flagged ${state.disproved}`);
+    }
+    if (state.solved) {
+      segments.push(state.success ? 'Case closed' : 'Case compromised');
+    }
     progress.textContent = segments.join(' · ');
-    if (!hiddenDeck.length) {
+    if (!hiddenDeck.length && !state.solved) {
       revealBtn.disabled = true;
       revealBtn.textContent = 'All clues revealed';
     }
   }
 
   function updateTimerDisplay() {
+    if (state.solved) {
+      timer.textContent = state.success ? 'Case closed' : 'Intel compromised';
+      return;
+    }
     timer.textContent = hiddenDeck.length
       ? `Auto reveal in ${secondsToClock(state.timer)}`
       : 'All intel deployed';
   }
 
   function resetTimer() {
+    if (state.solved) return;
     state.timer = timePerClue;
     updateTimerDisplay();
   }
 
   function tickTimer() {
+    if (state.solved) {
+      stopTimer();
+      return;
+    }
     if (!hiddenDeck.length) {
       timer.textContent = 'All intel deployed';
       return;
@@ -353,6 +409,7 @@ function setupClueTracker(root, context) {
   }
 
   function ensureTimer() {
+    if (state.solved) return;
     if (state.interval) return;
     state.interval = window.setInterval(tickTimer, 1000);
   }
@@ -405,6 +462,7 @@ function setupClueTracker(root, context) {
       revealed: false,
       confirmed: false,
       disproved: false,
+      compromised: false,
       index,
       confirmBtn,
       disproveBtn,
@@ -420,6 +478,14 @@ function setupClueTracker(root, context) {
         status.textContent = '';
         status.className = 'clue-card__status';
         el.classList.remove('clue-card--confirmed', 'clue-card--disproved');
+        return;
+      }
+      if (data.compromised) {
+        status.hidden = false;
+        status.textContent = 'Red herring locked in';
+        status.className = 'clue-card__status clue-card__status--disproved';
+        el.classList.add('clue-card--disproved');
+        el.classList.remove('clue-card--confirmed');
         return;
       }
       if (data.confirmed) {
@@ -465,25 +531,39 @@ function setupClueTracker(root, context) {
     }
 
     function setConfirmed(value) {
-      if (!data.revealed || value === data.confirmed) return;
+      if (state.solved || !data.revealed || value === data.confirmed) return;
       if (value) {
+        if (data.clue?.redHerring) {
+          data.confirmed = true;
+          data.compromised = true;
+          state.confirmed += 1;
+          updateButtons();
+          updateStatus();
+          completeCase(false, 'A planted red herring poisoned the intel. Debrief with HQ and reset the trace.');
+          return;
+        }
         state.confirmed += 1;
         if (data.disproved) {
           data.disproved = false;
           state.disproved = Math.max(0, state.disproved - 1);
         }
         data.confirmed = true;
+        data.compromised = false;
       } else {
         data.confirmed = false;
         state.confirmed = Math.max(0, state.confirmed - 1);
+        data.compromised = false;
       }
       updateButtons();
       updateStatus();
       updateProgress();
+      if (value && state.confirmed >= state.required) {
+        completeCase(true, successMessage);
+      }
     }
 
     function setDisproved(value) {
-      if (!data.revealed || value === data.disproved) return;
+      if (state.solved || !data.revealed || value === data.disproved) return;
       if (value) {
         state.disproved += 1;
         if (data.confirmed) {
@@ -491,8 +571,10 @@ function setupClueTracker(root, context) {
           state.confirmed = Math.max(0, state.confirmed - 1);
         }
         data.disproved = true;
+        data.compromised = false;
       } else {
         data.disproved = false;
+        data.compromised = false;
         state.disproved = Math.max(0, state.disproved - 1);
       }
       updateButtons();
@@ -563,17 +645,28 @@ function setupClueTracker(root, context) {
   });
 
   function revealNext() {
+    if (state.solved) return;
     const hidden = cards.find(entry => !entry.data.revealed);
     if (!hidden) {
       stopTimer();
-      updateProgress();
+      if (!state.solved) {
+        if (state.confirmed >= state.required) {
+          completeCase(true, successMessage);
+        } else {
+          completeCase(false, exhaustionMessage);
+        }
+      }
       return;
     }
     hiddenDeck.shift();
     hidden.reveal();
-    if (!cards.some(entry => !entry.data.revealed)) {
+    if (!cards.some(entry => !entry.data.revealed) && !state.solved) {
       stopTimer();
-      timer.textContent = 'All intel deployed';
+      if (state.confirmed >= state.required) {
+        completeCase(true, successMessage);
+      } else {
+        timer.textContent = 'All intel deployed';
+      }
     }
   }
 
@@ -1311,6 +1404,7 @@ const GAMES = {
       { key: 'cluesToReveal', label: 'Clues to reveal', type: 'number', min: 1, max: 12, default: 3 },
       { key: 'timePerClue', label: 'Time per clue (seconds)', type: 'number', min: 15, max: 600, default: 90 },
       { key: 'includeRedHerrings', label: 'Include red herrings', type: 'toggle', default: false },
+      { key: 'connectionsRequired', label: 'Connections to solve', type: 'number', min: 1, max: 10, default: 3, playerFacing: true },
     ],
     setup: setupClueTracker,
   },
