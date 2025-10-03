@@ -30,7 +30,7 @@ function setupDom() {
       <button id="dm-character-close"></button>
     </div>
     <div id="dm-mini-games-modal" class="overlay hidden" aria-hidden="true">
-      <section class="modal dm-mini-games">
+      <section class="modal dm-mini-games" data-view-allow>
         <button id="dm-mini-games-close"></button>
         <p id="dm-mini-games-steps" class="dm-mini-games__intro"></p>
         <div class="dm-mini-games__layout">
