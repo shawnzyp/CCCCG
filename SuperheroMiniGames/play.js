@@ -1,6 +1,7 @@
 const STORAGE_PREFIX = 'cc:mini-game:deployment:';
 const LAST_DEPLOYMENT_KEY = 'cc:mini-game:last-deployment';
 
+const rootDocument = typeof document !== 'undefined' ? document : null;
 const shell = document.getElementById('mini-game-shell');
 const errorEl = document.getElementById('mini-game-error');
 const titleEl = document.getElementById('mini-game-title');
@@ -26,24 +27,52 @@ const dismissedEl = document.getElementById('mini-game-dismissed');
 const dismissedTextEl = document.getElementById('mini-game-dismissed-text');
 const dismissedReopenBtn = document.getElementById('mini-game-dismissed-reopen');
 
+const MINI_GAME_VIEWPORT_VAR = '--mini-game-vh';
 const MINI_GAME_TOAST_ID = 'mini-game-toast';
 let toastHideTimer = null;
 
+function updateViewportUnit() {
+  if (!rootDocument || typeof window === 'undefined') return;
+  const innerHeight = window.innerHeight;
+  if (typeof innerHeight !== 'number' || !Number.isFinite(innerHeight) || innerHeight <= 0) {
+    return;
+  }
+  const vhUnit = (innerHeight * 0.01).toFixed(4);
+  rootDocument.documentElement.style.setProperty(MINI_GAME_VIEWPORT_VAR, `${vhUnit}px`);
+}
+
+function setupViewportUnitListener() {
+  if (!rootDocument || typeof window === 'undefined') return;
+  updateViewportUnit();
+  const handler = () => updateViewportUnit();
+  window.addEventListener('resize', handler, { passive: true });
+  window.addEventListener('orientationchange', handler, { passive: true });
+  window.addEventListener('pageshow', event => {
+    if (event && event.persisted) {
+      updateViewportUnit();
+    }
+  });
+}
+
+setupViewportUnitListener();
+
 function getToastElement() {
-  return document.getElementById(MINI_GAME_TOAST_ID);
+  if (!rootDocument) return null;
+  return rootDocument.getElementById(MINI_GAME_TOAST_ID);
 }
 
 function ensureToastElement() {
+  if (!rootDocument || !rootDocument.body) return null;
   let el = getToastElement();
   if (!el) {
-    el = document.createElement('div');
+    el = rootDocument.createElement('div');
     el.id = MINI_GAME_TOAST_ID;
     el.className = 'mini-game-toast';
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
     el.tabIndex = -1;
     el.addEventListener('click', () => hideToastMessage());
-    document.body.appendChild(el);
+    rootDocument.body.appendChild(el);
   }
   return el;
 }
@@ -64,6 +93,7 @@ function showToastMessage(message, { type = 'info', duration = 4000 } = {}) {
   const text = typeof message === 'string' ? message.trim() : '';
   if (!text) return;
   const el = ensureToastElement();
+  if (!el) return;
   if (toastHideTimer) {
     clearTimeout(toastHideTimer);
     toastHideTimer = null;
