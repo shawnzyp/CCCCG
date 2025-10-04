@@ -2397,12 +2397,11 @@
         backdrop: dom.one('#somf-min-modal [data-somf-dismiss]'),
         close: dom.one('#somf-min-close'),
         image: dom.one('#somf-min-image'),
-        revealInvite: dom.one('#somf-reveal-invite'),
-        revealInviteTitle: dom.one('#somf-reveal-invite-title'),
-        revealInviteMessage: dom.one('#somf-reveal-invite-message'),
-        revealInviteSummary: dom.one('#somf-reveal-invite-summary'),
-        revealInviteAccept: dom.one('#somf-reveal-accept'),
-        revealInviteDecline: dom.one('#somf-reveal-decline'),
+        revealInvite: dom.one('#somf-reveal-alert'),
+        revealInviteCard: dom.one('#somf-reveal-alert .somf-reveal-alert__card'),
+        revealInviteTitle: dom.one('#somf-reveal-title'),
+        revealInviteMessage: dom.one('#somf-reveal-text'),
+        revealInviteAccept: dom.one('#somf-reveal-alert [data-somf-reveal-dismiss]'),
       };
     }
 
@@ -2428,22 +2427,10 @@
     }
 
     bindRevealInviteEvents() {
-      const { revealInvite, revealInviteAccept, revealInviteDecline } = this.dom;
+      const { revealInvite, revealInviteAccept } = this.dom;
       if (revealInviteAccept && !revealInviteAccept.__somfBound) {
         revealInviteAccept.addEventListener('click', () => this.acceptRevealInvite());
         revealInviteAccept.__somfBound = true;
-      }
-      if (revealInviteDecline && !revealInviteDecline.__somfBound) {
-        revealInviteDecline.addEventListener('click', () => this.dismissRevealInvite());
-        revealInviteDecline.__somfBound = true;
-      }
-      if (revealInvite && !revealInvite.__somfDismissBound) {
-        revealInvite.addEventListener('click', evt => {
-          if (evt.target === revealInvite && this.revealInviteActive) {
-            this.dismissRevealInvite();
-          }
-        });
-        revealInvite.__somfDismissBound = true;
       }
       if (revealInvite && !revealInvite.__somfKeyBound) {
         revealInvite.addEventListener('keydown', this.handleRevealInviteKeydown);
@@ -2463,10 +2450,10 @@
         this.dom.revealInviteTitle.textContent = 'The Shards of Many Fates';
       }
       if (this.dom.revealInviteMessage) {
-        this.dom.revealInviteMessage.textContent = 'Your DM just revealed the Shards of Many Fates. Refresh to see the latest draws?';
+        this.dom.revealInviteMessage.textContent = 'The Shards of Many Fates have revealed themselves to you, do you dare tempt Fate?';
       }
-      if (this.dom.revealInviteSummary) {
-        this.dom.revealInviteSummary.textContent = 'When you continue, we will refresh your view so you can see every shard that’s currently in play.';
+      if (this.dom.revealInviteAccept) {
+        this.dom.revealInviteAccept.textContent = 'Eeehhhhh…';
       }
     }
 
@@ -2491,12 +2478,13 @@
         catch {}
       }
       const previouslyFocused = typeof document !== 'undefined' ? document.activeElement : null;
-      overlay.classList.remove('hidden');
+      overlay.hidden = false;
       overlay.setAttribute('aria-hidden', 'false');
       overlay.classList.add('is-visible');
       body?.classList?.add('somf-reveal-active');
       this.revealInviteOverlayState = { suppressedClasses, overlayWasInert, previouslyFocused };
       const focusTarget = this.dom.revealInviteAccept
+        || this.dom.revealInviteCard
         || overlay.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
       const focus = () => {
         if (!focusTarget) return;
@@ -2519,7 +2507,6 @@
       const state = this.revealInviteOverlayState || {};
       overlay.classList.remove('is-visible');
       overlay.setAttribute('aria-hidden', 'true');
-      overlay.classList.add('hidden');
       document.body?.classList?.remove('somf-reveal-active');
       const suppressed = Array.isArray(state.suppressedClasses) ? state.suppressedClasses : [];
       if (suppressed.length && document.body) {
@@ -2541,6 +2528,16 @@
           try { previouslyFocused.focus(); }
           catch { /* ignore focus errors */ }
         }
+      }
+      const finalize = () => {
+        overlay.hidden = true;
+        overlay.removeEventListener('transitionend', finalize);
+      };
+      if (preferReducedMotion()) {
+        finalize();
+      } else {
+        overlay.addEventListener('transitionend', finalize);
+        window.setTimeout(finalize, 400);
       }
       this.revealInviteOverlayState = null;
     }
@@ -2595,8 +2592,8 @@
         await triggerShardRevealEffects({ showAlert: false });
       } catch (err) {
         console.error('Failed to trigger shard reveal sequence', err);
-        if (acceptBtn) acceptBtn.disabled = false;
       } finally {
+        if (acceptBtn) acceptBtn.disabled = false;
         this.revealInviteAccepting = false;
       }
       this.showNextRevealInvite();

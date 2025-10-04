@@ -91,6 +91,17 @@ test('player receives a shard reveal invite and can accept it', async () => {
     },
   };
 
+  window.matchMedia = jest.fn().mockImplementation(query => ({
+    matches: query === '(prefers-reduced-motion: reduce)',
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  }));
+
   document.body.innerHTML = `
     <div id="toast"></div>
     <section id="somf-min">
@@ -102,20 +113,12 @@ test('player receives a shard reveal invite and can accept it', async () => {
       <button id="somf-min-close" type="button"></button>
       <img id="somf-min-image" alt="">
     </div>
-    <div class="overlay hidden" id="somf-reveal-invite" aria-hidden="true">
-      <section class="modal somf-reveal-invite">
-        <header class="somf-reveal-invite__header">
-          <h3 id="somf-reveal-invite-title" class="somf-reveal-invite__title"></h3>
-          <p id="somf-reveal-invite-message" class="somf-reveal-invite__message"></p>
-        </header>
-        <div class="somf-reveal-invite__summary">
-          <p id="somf-reveal-invite-summary" class="somf-reveal-invite__summary-text"></p>
-        </div>
-        <footer class="somf-reveal-invite__actions">
-          <button id="somf-reveal-decline" type="button" class="btn-sm somf-reveal-invite__decline"></button>
-          <button id="somf-reveal-accept" type="button" class="somf-btn somf-primary somf-reveal-invite__accept"></button>
-        </footer>
-      </section>
+    <div id="somf-reveal-alert" class="somf-reveal-alert" hidden role="alertdialog" aria-modal="true" aria-labelledby="somf-reveal-title" aria-describedby="somf-reveal-text" aria-hidden="true">
+      <div class="somf-reveal-alert__card" tabindex="-1">
+        <h3 id="somf-reveal-title" class="somf-reveal-alert__title"></h3>
+        <p id="somf-reveal-text" class="somf-reveal-alert__text"></p>
+        <button type="button" class="somf-reveal-alert__btn" data-somf-reveal-dismiss></button>
+      </div>
     </div>
     <div id="somfDM-toasts"></div>
     <input id="somfDM-playerCard" type="checkbox">
@@ -139,18 +142,19 @@ test('player receives a shard reveal invite and can accept it', async () => {
   toggle.dispatchEvent(new Event('change'));
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  const invite = document.getElementById('somf-reveal-invite');
-  expect(invite.classList.contains('hidden')).toBe(false);
+  const invite = document.getElementById('somf-reveal-alert');
+  expect(invite.hidden).toBe(false);
   expect(invite.classList.contains('is-visible')).toBe(true);
   expect(invite.getAttribute('aria-hidden')).toBe('false');
+  expect(document.getElementById('somf-reveal-title').textContent).toBe('The Shards of Many Fates');
+  expect(document.getElementById('somf-reveal-text').textContent).toBe('The Shards of Many Fates have revealed themselves to you, do you dare tempt Fate?');
 
-  expect(invite.classList.contains('is-visible')).toBe(true);
-
-  const accept = document.getElementById('somf-reveal-accept');
+  const accept = invite.querySelector('[data-somf-reveal-dismiss]');
+  expect(accept.textContent).toBe('Eeehhhhh…');
   accept.click();
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  expect(invite.classList.contains('hidden')).toBe(true);
+  expect(invite.hidden).toBe(true);
   expect(invite.getAttribute('aria-hidden')).toBe('true');
   expect(document.body.classList.contains('somf-reveal-active')).toBe(false);
   consoleError.mockRestore();
