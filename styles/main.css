@@ -1856,9 +1856,9 @@ select[required]:valid{
   --dm-tools-icon-scale:1.08;
 }
 
-body.modal-open .dm-login-btn,
-body.modal-open .dm-tools-toggle,
-body.modal-open .dm-tools-menu{
+body:is(.modal-open, .dm-floating-covered) .dm-login-btn,
+body:is(.modal-open, .dm-floating-covered) .dm-tools-toggle,
+body:is(.modal-open, .dm-floating-covered) .dm-tools-menu{
   opacity:0;
   visibility:hidden;
   pointer-events:none;
