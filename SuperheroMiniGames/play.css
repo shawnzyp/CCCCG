@@ -415,6 +415,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
   padding: 10px 12px;
   border-radius: 12px;
   background: rgba(2, 30, 20, 0.96);
@@ -424,10 +426,12 @@ body {
 .tech-terminal__prompt {
   color: #5ff0b3;
   font-weight: 600;
+  flex: 0 0 auto;
 }
 
 .tech-terminal__input {
-  flex: 1;
+  flex: 1 1 220px;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
@@ -446,12 +450,16 @@ body {
 
 .tech-terminal__drone {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px dashed rgba(34, 197, 94, 0.45);
   background: rgba(4, 37, 24, 0.9);
   color: #a7ffdd;
   font-family: inherit;
   letter-spacing: 0.08em;
-  padding: 8px 16px;
+  min-height: 44px;
+  padding: 10px 18px;
   border-radius: 10px;
   cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease;
@@ -479,11 +487,18 @@ body {
   appearance: none;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 10px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 12px 20px;
   background: var(--accent);
   color: #0f172a;
   font-weight: 600;
+  text-align: center;
   cursor: pointer;
+  touch-action: manipulation;
   transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
   box-shadow: 0 10px 18px rgba(14, 165, 233, 0.35);
 }
@@ -716,6 +731,11 @@ body {
     gap: 12px;
   }
 
+  .mini-game-shell__launch,
+  .mini-game-shell__outcome {
+    width: 100%;
+  }
+
   .mini-game-shell__meta dl {
     gap: 4px 12px;
     font-size: 0.85rem;
@@ -748,9 +768,25 @@ body {
   .clue-card__tags {
     gap: 4px;
   }
+
+  .tech-terminal__memory {
+    padding: 12px 14px;
+  }
+
+  .tech-terminal__log {
+    max-height: 240px;
+  }
+
+  .power-surge__gauge {
+    margin-inline: auto;
+  }
 }
 
 @media (max-width: 420px) {
+  .mini-game-shell {
+    padding: 16px 12px 22px;
+  }
+
   .mini-game-shell__title {
     font-size: clamp(1.5rem, 8vw, 1.9rem);
   }
@@ -771,6 +807,51 @@ body {
     font-size: 0.7rem;
     padding: 3px 8px;
   }
+
+  .mg-button {
+    font-size: 0.95rem;
+  }
+
+  .tech-terminal__memory {
+    gap: 12px;
+  }
+
+  .tech-terminal__command-row {
+    padding: 10px;
+  }
+
+  .tech-terminal__input {
+    font-size: 0.9rem;
+  }
+
+  .tech-terminal__line {
+    font-size: 0.78rem;
+  }
+
+  .power-surge__target {
+    font-size: 0.7rem;
+  }
+
+  .power-surge__wave {
+    flex: 1 1 100%;
+  }
+
+  .stratagem-sequence {
+    gap: 8px;
+  }
+
+  .stratagem-sequence__step {
+    flex: 1 1 calc(50% - 8px);
+    max-width: 72px;
+  }
+
+  .lockpick-dial__controls {
+    gap: 6px;
+  }
+
+  .lockpick-dial__controls button {
+    flex: 1 1 100%;
+  }
 }
 
 /* Code Breaker */
@@ -783,9 +864,9 @@ body {
 .code-breaker__display {
   font-family: 'Fira Mono', 'Source Code Pro', monospace;
   font-size: clamp(1.4rem, 6vw, 2rem);
-  letter-spacing: 0.24em;
+  letter-spacing: clamp(0.14em, 1.8vw, 0.24em);
   text-align: center;
-  padding: 12px 16px;
+  padding: clamp(10px, 3vw, 12px) clamp(12px, 4vw, 16px);
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.7);
   border: 1px solid rgba(148, 163, 184, 0.35);
@@ -897,7 +978,7 @@ body {
 
 .power-surge__gauge {
   position: relative;
-  height: 220px;
+  height: clamp(180px, 52vw, 260px);
   border-radius: 18px;
   background: radial-gradient(circle at 50% 20%, rgba(56, 189, 248, 0.35), transparent 55%),
     rgba(15, 23, 42, 0.7);
@@ -906,6 +987,8 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  width: min(100%, 360px);
+  margin-inline: auto;
 }
 
 .power-surge__gauge-fill {
@@ -933,6 +1016,7 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .power-surge__wave {
@@ -941,6 +1025,8 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(15, 23, 42, 0.7);
   font-size: 0.85rem;
+  flex: 1 1 140px;
+  text-align: center;
 }
 
 .power-surge__wave--complete {
@@ -1009,26 +1095,31 @@ body {
 
 .stratagem-sequence {
   display: flex;
-  gap: 12px;
+  gap: clamp(10px, 3vw, 14px);
   padding: 14px 18px;
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: rgba(15, 23, 42, 0.68);
   justify-content: center;
   align-items: center;
+  flex-wrap: wrap;
+  width: min(100%, 420px);
+  margin-inline: auto;
   min-height: 68px;
   transition: transform 0.18s ease;
 }
 
 .stratagem-sequence__step {
-  width: 44px;
-  height: 44px;
+  width: clamp(44px, 14vw, 56px);
+  height: clamp(44px, 14vw, 56px);
+  flex: 1 1 clamp(44px, 14vw, 56px);
+  max-width: clamp(44px, 14vw, 56px);
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
+  font-size: clamp(1.2rem, 6vw, 1.4rem);
   color: rgba(148, 163, 184, 0.85);
   background: rgba(30, 41, 59, 0.8);
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
@@ -1064,10 +1155,11 @@ body {
 
 .stratagem-pad {
   display: grid;
-  grid-template-columns: repeat(3, 68px);
-  grid-template-rows: repeat(3, 68px);
+  grid-template-columns: repeat(3, minmax(56px, 1fr));
   justify-content: center;
-  gap: 12px;
+  gap: clamp(10px, 3vw, 14px);
+  width: min(100%, 260px);
+  margin-inline: auto;
 }
 
 .stratagem-pad__button {
@@ -1075,7 +1167,9 @@ body {
   border: 1px solid rgba(15, 23, 42, 0.8);
   background: rgba(96, 165, 250, 0.16);
   color: #e2e8f0;
-  font-size: 1.8rem;
+  width: 100%;
+  aspect-ratio: 1;
+  font-size: clamp(1.4rem, 9vw, 1.8rem);
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.2s ease;
@@ -1135,7 +1229,7 @@ body {
 }
 
 .lockpick-dial__value {
-  font-size: 2.2rem;
+  font-size: clamp(1.9rem, 10vw, 2.2rem);
   font-family: 'Fira Mono', 'Source Code Pro', monospace;
   letter-spacing: 0.08em;
 }
@@ -1143,11 +1237,16 @@ body {
 .lockpick-dial__controls {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .lockpick-dial__controls button {
-  width: 44px;
-  height: 44px;
+  width: clamp(44px, 12vw, 52px);
+  height: clamp(44px, 12vw, 52px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 12px;
   background: rgba(56, 189, 248, 0.15);
   border: 1px solid rgba(56, 189, 248, 0.45);
@@ -1179,5 +1278,220 @@ body {
 
   .mini-game-shell__meta dl {
     grid-template-columns: auto auto;
+  }
+}
+
+@media (max-width: 540px) {
+  body {
+    display: block;
+    padding: 14px 10px 22px;
+  }
+
+  .mini-game-shell {
+    width: 100%;
+    padding: 18px 12px 24px;
+    gap: 16px;
+  }
+
+  .mini-game-shell__header {
+    gap: 10px;
+  }
+
+  .mini-game-shell__tagline {
+    font-size: 0.9rem;
+  }
+
+  .mini-game-shell__meta dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+
+  .mini-game-shell__config dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mini-game-shell__launch,
+  .mini-game-shell__outcome {
+    align-items: stretch;
+  }
+
+  .mini-game-shell__outcome-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .mg-button,
+  .mini-game-shell__launch-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .mg-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .tech-terminal__memory {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: auto;
+    gap: 14px;
+  }
+
+  .tech-terminal__command-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .tech-terminal__prompt {
+    font-size: 0.88rem;
+  }
+
+  .tech-terminal__input {
+    font-size: 0.95rem;
+    letter-spacing: 0.06em;
+    padding: 12px 14px;
+  }
+
+  .tech-terminal__drone {
+    width: 100%;
+  }
+
+  .tech-terminal__line {
+    font-size: 0.82rem;
+  }
+
+  .code-breaker__display {
+    font-size: clamp(1.1rem, 8vw, 1.4rem);
+    letter-spacing: clamp(0.12em, 1.6vw, 0.18em);
+    padding: 10px 12px;
+  }
+
+  .code-breaker__input {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .code-breaker__input input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .lockdown-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .power-surge__gauge {
+    height: clamp(160px, 48vw, 200px);
+  }
+
+  .power-surge__waves {
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .power-surge__wave {
+    flex: 1 1 calc(50% - 6px);
+  }
+
+  .stratagem-telemetry {
+    flex-direction: column;
+  }
+
+  .stratagem-telemetry__item {
+    width: 100%;
+  }
+
+  .stratagem-sequence {
+    width: 100%;
+  }
+
+  .stratagem-sequence__step {
+    flex: 1 1 clamp(48px, 30vw, 64px);
+  }
+
+  .stratagem-pad {
+    width: min(100%, 220px);
+    gap: 8px;
+  }
+
+  .stratagem-pad__button {
+    font-size: clamp(1.3rem, 10vw, 1.6rem);
+  }
+
+  .lockpick-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lockpick-dial {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .lockpick-dial__value {
+    font-size: clamp(1.7rem, 12vw, 2.2rem);
+  }
+
+  .lockpick-dial__controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .lockpick-dial__controls button {
+    flex: 1 1 calc(50% - 8px);
+    max-width: none;
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 360px) {
+  body {
+    padding: 12px 8px 18px;
+  }
+
+  .mini-game-shell {
+    padding: 16px 10px 20px;
+  }
+
+  .mini-game-shell__title {
+    font-size: clamp(1.35rem, 9vw, 1.7rem);
+  }
+
+  .tech-terminal__status {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+  }
+
+  .tech-terminal__command-row {
+    padding: 8px;
+  }
+
+  .tech-terminal__input {
+    font-size: 0.88rem;
+  }
+
+  .code-breaker__display {
+    font-size: clamp(1rem, 9vw, 1.3rem);
+    letter-spacing: 0.12em;
+  }
+
+  .power-surge__target {
+    font-size: 0.68rem;
+  }
+
+  .stratagem-pad {
+    width: 100%;
+  }
+
+  .lockpick-dial {
+    gap: 10px;
   }
 }
