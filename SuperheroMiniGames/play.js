@@ -385,59 +385,162 @@ const RED_HERRINGS = [
   { title: 'Street Artist', detail: 'Graffiti near the scene mimics the villain\'s emblem but predates the attack.', tags: ['Distraction'], redHerring: true },
 ];
 
+
 function setupClueTracker(root, context) {
-  const card = document.createElement('section');
-  card.className = 'mg-card';
-  const intro = document.createElement('div');
-  intro.className = 'clue-tracker__summary';
-  const progress = document.createElement('span');
-  progress.className = 'mg-status';
-  progress.textContent = 'Revealed 0 clues';
-  const timer = document.createElement('span');
-  timer.className = 'clue-tracker__timer';
-  intro.appendChild(progress);
-  intro.appendChild(timer);
-  card.appendChild(intro);
-
-  const objective = document.createElement('p');
-  objective.className = 'clue-tracker__objective';
-  card.appendChild(objective);
-
-  const body = document.createElement('p');
-  body.className = 'clue-tracker__instruction';
-  body.textContent = 'Reveal clues, prove which ones connect, and quarantine misinformation before it derails the case.';
-  card.appendChild(body);
-
-  const actions = document.createElement('div');
-  actions.className = 'mg-actions';
-  const revealBtn = document.createElement('button');
-  revealBtn.type = 'button';
-  revealBtn.className = 'mg-button';
-  revealBtn.textContent = 'Reveal next clue';
-  actions.appendChild(revealBtn);
-  card.appendChild(actions);
-
-  const outcome = document.createElement('div');
-  outcome.className = 'clue-tracker__outcome';
-  outcome.hidden = true;
-  card.appendChild(outcome);
-
-  const grid = document.createElement('div');
-  grid.className = 'clue-grid';
-
-  root.appendChild(card);
-  root.appendChild(grid);
-
   const config = context.config || {};
   const initialReveal = clamp(Number(config.cluesToReveal ?? 3), 1, 8);
   const includeRed = Boolean(config.includeRedHerrings);
   const requiredConnections = clamp(Number(config.connectionsRequired ?? 3), 1, CLUE_POOL.length);
   const timePerClue = clamp(Number(config.timePerClue ?? 90), 15, 900);
 
+  const layout = document.createElement('div');
+  layout.className = 'clue-tracker';
+
+  const board = document.createElement('section');
+  board.className = 'mg-card clue-tracker__panel';
+
+  const summary = document.createElement('header');
+  summary.className = 'clue-tracker__summary';
+
+  const progressBlock = document.createElement('div');
+  progressBlock.className = 'clue-tracker__progress';
+
+  const progressHeading = document.createElement('span');
+  progressHeading.className = 'clue-tracker__progress-heading';
+  progressHeading.textContent = 'Investigation live';
+
+  const progressDetail = document.createElement('span');
+  progressDetail.className = 'clue-tracker__progress-detail';
+  progressDetail.textContent = `Connections 0/${requiredConnections}`;
+
+  const progressMeter = document.createElement('div');
+  progressMeter.className = 'clue-tracker__progress-meter';
+
+  const progressFill = document.createElement('div');
+  progressFill.className = 'clue-tracker__progress-fill';
+  progressFill.style.width = '0%';
+
+  progressMeter.appendChild(progressFill);
+  progressBlock.appendChild(progressHeading);
+  progressBlock.appendChild(progressDetail);
+  progressBlock.appendChild(progressMeter);
+
+  const timer = document.createElement('span');
+  timer.className = 'clue-tracker__timer';
+
+  summary.appendChild(progressBlock);
+  summary.appendChild(timer);
+  board.appendChild(summary);
+
+  const statsList = document.createElement('dl');
+  statsList.className = 'clue-tracker__stats';
+
+  function createStat(label) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'clue-tracker__stat';
+    const dt = document.createElement('dt');
+    dt.className = 'clue-tracker__stat-label';
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.className = 'clue-tracker__stat-value';
+    dd.textContent = '0';
+    wrapper.appendChild(dt);
+    wrapper.appendChild(dd);
+    statsList.appendChild(wrapper);
+    return dd;
+  }
+
+  const revealedStat = createStat('Clues revealed');
+  const confirmedStat = createStat('Links confirmed');
+  const flaggedStat = includeRed ? createStat('Red herrings quarantined') : null;
+
+  board.appendChild(statsList);
+
+  const objective = document.createElement('p');
+  objective.className = 'clue-tracker__objective';
   const objectiveText = `Objective: Confirm ${requiredConnections} connected lead${requiredConnections === 1 ? '' : 's'} before intel runs dry.`;
   objective.textContent = includeRed
     ? `${objectiveText} Flag planted red herrings so they can't poison the evidence chain.`
     : objectiveText;
+  board.appendChild(objective);
+
+  const settings = document.createElement('p');
+  settings.className = 'clue-tracker__settings';
+  const deploymentPieces = [
+    `${initialReveal} dossier${initialReveal === 1 ? '' : 's'} unlocked`,
+    `${requiredConnections} connection${requiredConnections === 1 ? '' : 's'} required`,
+    `auto reveal every ${timePerClue} seconds`,
+  ];
+  if (includeRed) {
+    deploymentPieces.push('red herrings active');
+  }
+  settings.textContent = `Deployment: ${deploymentPieces.join(' · ')}.`;
+  board.appendChild(settings);
+
+  const flow = document.createElement('div');
+  flow.className = 'clue-tracker__flow';
+  const flowHeading = document.createElement('h3');
+  flowHeading.textContent = 'Case flow';
+  const flowList = document.createElement('ol');
+  flowList.className = 'clue-tracker__flow-list';
+  [
+    'Decrypt dossier cards as the console unlocks them. Deploy the next file early if you need fresh intel.',
+    'Review each clue, confirming the leads that align with the mission objective and quarantining misinformation.',
+    'Once the required links are locked, report the sequence to HQ. DMs can escalate or drop new beats from the case log.',
+  ].forEach(step => {
+    const li = document.createElement('li');
+    li.textContent = step;
+    flowList.appendChild(li);
+  });
+  flow.appendChild(flowHeading);
+  flow.appendChild(flowList);
+  board.appendChild(flow);
+
+  const actions = document.createElement('div');
+  actions.className = 'mg-actions clue-tracker__actions';
+  const revealBtn = document.createElement('button');
+  revealBtn.type = 'button';
+  revealBtn.className = 'mg-button';
+  revealBtn.textContent = 'Deploy next dossier';
+  actions.appendChild(revealBtn);
+  board.appendChild(actions);
+
+  const outcome = document.createElement('div');
+  outcome.className = 'clue-tracker__outcome';
+  outcome.hidden = true;
+  board.appendChild(outcome);
+
+  const logSection = document.createElement('section');
+  logSection.className = 'clue-tracker__log';
+  const logHeading = document.createElement('h3');
+  logHeading.textContent = 'Case log';
+  const logHint = document.createElement('p');
+  logHint.className = 'clue-tracker__log-hint';
+  logHint.textContent = 'Track how the investigation unfolds. Use entries to narrate for your table.';
+  const logList = document.createElement('ol');
+  logList.className = 'clue-tracker__log-list';
+  logSection.appendChild(logHeading);
+  logSection.appendChild(logHint);
+  logSection.appendChild(logList);
+  board.appendChild(logSection);
+
+  const deck = document.createElement('section');
+  deck.className = 'clue-tracker__deck';
+  const deckHeading = document.createElement('h2');
+  deckHeading.className = 'clue-tracker__deck-heading';
+  deckHeading.textContent = 'Evidence dossiers';
+  const deckCopy = document.createElement('p');
+  deckCopy.className = 'clue-tracker__deck-copy';
+  deckCopy.textContent = 'Cards flip as intel decrypts. Confirm solid leads or quarantine misinformation when the data feels off.';
+  const grid = document.createElement('div');
+  grid.className = 'clue-grid clue-tracker__cards';
+  deck.appendChild(deckHeading);
+  deck.appendChild(deckCopy);
+  deck.appendChild(grid);
+
+  layout.appendChild(board);
+  layout.appendChild(deck);
+  root.appendChild(layout);
 
   const successMessage = 'You triangulated the villain\'s route. Relay the confirmed sequence to HQ.';
   const exhaustionMessage = 'All intel exhausted before you could confirm the full sequence.';
@@ -460,14 +563,36 @@ function setupClueTracker(root, context) {
 
   const cards = [];
 
-  function completeCase(success, message) {
+  function logEvent(message, tone = 'info') {
+    const toneClass = ['success', 'warning', 'alert'].includes(tone) ? tone : 'info';
+    if (logHint) {
+      logHint.hidden = true;
+    }
+    logSection.classList.add('clue-tracker__log--active');
+    const item = document.createElement('li');
+    item.className = `clue-tracker__log-item clue-tracker__log-item--${toneClass}`;
+    const text = document.createElement('p');
+    text.textContent = message;
+    item.appendChild(text);
+    logList.prepend(item);
+    const maxEntries = 12;
+    while (logList.children.length > maxEntries) {
+      logList.removeChild(logList.lastElementChild);
+    }
+  }
+
+  logEvent(
+    `Briefing sync: ${initialReveal} dossier${initialReveal === 1 ? '' : 's'} online, ${hiddenDeck.length} in reserve. `
+    + `${requiredConnections} connection${requiredConnections === 1 ? '' : 's'} required${includeRed ? '; red herrings seeded' : ''}.`,
+  );
+
+  function completeCase(success, message, tone = success ? 'success' : 'alert') {
     if (state.solved) return;
     state.solved = true;
     state.success = success;
     stopTimer();
     revealBtn.disabled = true;
     revealBtn.textContent = success ? 'Case closed' : 'Investigation failed';
-    timer.textContent = success ? 'Case closed' : 'Intel compromised';
     outcome.hidden = false;
     outcome.textContent = message;
     outcome.className = success
@@ -478,6 +603,8 @@ function setupClueTracker(root, context) {
       entry.data.disproveBtn.disabled = true;
     });
     updateProgress();
+    updateTimerDisplay();
+    logEvent(message, tone);
     if (context?.completeMission) {
       const heading = success ? 'Case closed' : 'Intel compromised';
       context.completeMission({
@@ -492,18 +619,30 @@ function setupClueTracker(root, context) {
   }
 
   function updateProgress() {
-    const segments = [`Revealed ${state.revealed} clue${state.revealed === 1 ? '' : 's'}`];
-    segments.push(`Connections ${Math.min(state.confirmed, state.required)}/${state.required}`);
-    if (includeRed) {
-      segments.push(`Red herrings flagged ${state.disproved}`);
+    const locked = Math.min(state.confirmed, state.required);
+    const ratio = state.required ? Math.min(1, locked / state.required) : 1;
+    progressFill.style.width = `${ratio * 100}%`;
+    if (state.solved) {
+      progressHeading.textContent = state.success ? 'Case closed' : 'Investigation compromised';
+    } else if (locked >= state.required) {
+      progressHeading.textContent = 'Connections locked';
+    } else {
+      progressHeading.textContent = 'Investigation live';
+    }
+    progressDetail.textContent = `Connections ${locked}/${state.required}`;
+    revealedStat.textContent = String(state.revealed);
+    confirmedStat.textContent = String(state.confirmed);
+    if (flaggedStat) {
+      flaggedStat.textContent = String(state.disproved);
     }
     if (state.solved) {
-      segments.push(state.success ? 'Case closed' : 'Case compromised');
-    }
-    progress.textContent = segments.join(' · ');
-    if (!hiddenDeck.length && !state.solved) {
       revealBtn.disabled = true;
-      revealBtn.textContent = 'All clues revealed';
+    } else if (!hiddenDeck.length) {
+      revealBtn.disabled = true;
+      revealBtn.textContent = 'All dossiers deployed';
+    } else {
+      revealBtn.disabled = false;
+      revealBtn.textContent = 'Deploy next dossier';
     }
   }
 
@@ -512,9 +651,11 @@ function setupClueTracker(root, context) {
       timer.textContent = state.success ? 'Case closed' : 'Intel compromised';
       return;
     }
-    timer.textContent = hiddenDeck.length
-      ? `Auto reveal in ${secondsToClock(state.timer)}`
-      : 'All intel deployed';
+    if (!hiddenDeck.length) {
+      timer.textContent = 'All intel deployed';
+      return;
+    }
+    timer.textContent = `Auto deploy in ${secondsToClock(state.timer)}`;
   }
 
   function resetTimer() {
@@ -529,18 +670,24 @@ function setupClueTracker(root, context) {
       return;
     }
     if (!hiddenDeck.length) {
-      timer.textContent = 'All intel deployed';
+      stopTimer();
+      updateTimerDisplay();
       return;
     }
     state.timer -= 1;
     updateTimerDisplay();
     if (state.timer <= 0) {
-      revealNext();
+      revealNext('timer');
     }
   }
 
   function ensureTimer() {
     if (state.solved) return;
+    if (!hiddenDeck.length) {
+      stopTimer();
+      updateTimerDisplay();
+      return;
+    }
     if (state.interval) return;
     state.interval = window.setInterval(tickTimer, 1000);
   }
@@ -670,7 +817,8 @@ function setupClueTracker(root, context) {
           state.confirmed += 1;
           updateButtons();
           updateStatus();
-          completeCase(false, 'A planted red herring poisoned the intel. Debrief with HQ and reset the trace.');
+          logEvent(`Red herring locked in: ${clue.title}`, 'alert');
+          completeCase(false, 'A planted red herring poisoned the intel. Debrief with HQ and reset the trace.', 'alert');
           return;
         }
         state.confirmed += 1;
@@ -680,10 +828,12 @@ function setupClueTracker(root, context) {
         }
         data.confirmed = true;
         data.compromised = false;
+        logEvent(`Confirmed link: ${clue.title}`, 'success');
       } else {
         data.confirmed = false;
         state.confirmed = Math.max(0, state.confirmed - 1);
         data.compromised = false;
+        logEvent(`Connection cleared: ${clue.title}`, 'info');
       }
       updateButtons();
       updateStatus();
@@ -703,10 +853,12 @@ function setupClueTracker(root, context) {
         }
         data.disproved = true;
         data.compromised = false;
+        logEvent(`Flagged as red herring: ${clue.title}`, clue.redHerring ? 'success' : 'warning');
       } else {
         data.disproved = false;
         data.compromised = false;
         state.disproved = Math.max(0, state.disproved - 1);
+        logEvent(`Flag removed: ${clue.title}`, 'info');
       }
       updateButtons();
       updateStatus();
@@ -721,7 +873,8 @@ function setupClueTracker(root, context) {
       setDisproved(!data.disproved);
     });
 
-    function applyReveal() {
+    function applyReveal(source = 'manual') {
+      if (data.revealed) return;
       data.revealed = true;
       el.classList.add('clue-card--revealed');
       el.classList.remove('clue-card--hidden');
@@ -746,14 +899,25 @@ function setupClueTracker(root, context) {
       disproveBtn.disabled = false;
       state.revealed += 1;
       updateProgress();
-      resetTimer();
-      ensureTimer();
+      if (hiddenDeck.length) {
+        resetTimer();
+        ensureTimer();
+      } else {
+        stopTimer();
+        updateTimerDisplay();
+      }
       updateButtons();
       updateStatus();
+      const prefix = source === 'timer'
+        ? 'Timer deployed dossier'
+        : source === 'initial'
+          ? 'Briefing dossier ready'
+          : 'Operative deployed dossier';
+      logEvent(`${prefix} #${data.index}: ${clue.title}`, clue.redHerring ? 'warning' : 'info');
     }
 
     if (revealed) {
-      applyReveal();
+      applyReveal('initial');
     } else {
       el.classList.add('clue-card--hidden');
       bodyText.textContent = 'Encrypted dossier awaiting clearance.';
@@ -764,7 +928,7 @@ function setupClueTracker(root, context) {
     }
 
     grid.appendChild(el);
-    cards.push({ data, reveal: applyReveal });
+    cards.push({ data, reveal: source => applyReveal(source) });
   }
 
   revealOrder.forEach((clue, idx) => {
@@ -775,7 +939,7 @@ function setupClueTracker(root, context) {
     renderCard(clue, revealOrder.length + idx + 1, false);
   });
 
-  function revealNext() {
+  function revealNext(reason = 'manual') {
     if (state.solved) return;
     const hidden = cards.find(entry => !entry.data.revealed);
     if (!hidden) {
@@ -784,32 +948,31 @@ function setupClueTracker(root, context) {
         if (state.confirmed >= state.required) {
           completeCase(true, successMessage);
         } else {
-          completeCase(false, exhaustionMessage);
+          completeCase(false, exhaustionMessage, 'warning');
         }
       }
       return;
     }
     hiddenDeck.shift();
-    hidden.reveal();
+    hidden.reveal(reason);
     if (!cards.some(entry => !entry.data.revealed) && !state.solved) {
       stopTimer();
       if (state.confirmed >= state.required) {
         completeCase(true, successMessage);
       } else {
-        timer.textContent = 'All intel deployed';
+        updateTimerDisplay();
       }
     }
   }
 
   revealBtn.addEventListener('click', () => {
-    revealNext();
+    revealNext('manual');
   });
 
   updateProgress();
   resetTimer();
   ensureTimer();
 }
-
 const CIPHER_SETS = {
   'alphanumeric': 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
   'glyph': 'ΔΛΩΨΦΞΣΓΘ',
