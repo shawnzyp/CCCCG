@@ -2365,6 +2365,7 @@
       this.toastEventsBound = false;
       this.toastShownHandler = evt => this.onGlobalToastShown(evt);
       this.toastDismissHandler = () => this.onGlobalToastDismissed();
+      this.modalIsOpen = false;
     }
 
     attach() {
@@ -2790,10 +2791,22 @@
     openModal() {
       this.render();
       if (this.dom.modal) this.dom.modal.hidden = false;
+      if (!this.modalIsOpen) {
+        this.modalIsOpen = true;
+        if (typeof window?.coverFloatingLauncher === 'function') {
+          window.coverFloatingLauncher();
+        }
+      }
     }
 
     closeModal() {
       if (this.dom.modal) this.dom.modal.hidden = true;
+      if (this.modalIsOpen) {
+        this.modalIsOpen = false;
+        if (typeof window?.releaseFloatingLauncher === 'function') {
+          window.releaseFloatingLauncher();
+        }
+      }
       this.tempArtwork = null;
     }
 

@@ -1,4 +1,5 @@
 import { $, qsa } from './helpers.js';
+import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
 function getInertTargets() {
   const targets = new Set();
@@ -68,6 +69,7 @@ export function show(id) {
   if (!el || !el.classList.contains('hidden')) return;
   lastFocus = document.activeElement;
   if (openModals === 0) {
+    coverFloatingLauncher();
     document.body.classList.add('modal-open');
     getInertTargets().forEach(e => e.setAttribute('inert', ''));
   }
@@ -100,6 +102,7 @@ export function hide(id) {
   }
   openModals = Math.max(0, openModals - 1);
   if (openModals === 0) {
+    releaseFloatingLauncher();
     document.body.classList.remove('modal-open');
     getInertTargets().forEach(e => e.removeAttribute('inert'));
   }
