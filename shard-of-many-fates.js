@@ -1269,11 +1269,14 @@
   }
 
   let revealSequencePromise = null;
-  function triggerShardRevealEffects() {
+  function triggerShardRevealEffects(options = {}) {
+    const { showAlert = true } = typeof options === 'object' && options ? options : {};
     if (revealSequencePromise) return revealSequencePromise;
     revealSequencePromise = (async () => {
       await runLightningFlash();
-      await showShardRevealAlert();
+      if (showAlert) {
+        await showShardRevealAlert();
+      }
       try { HiddenSync.prepareRefresh('hidden-sync'); }
       catch { /* ignore prep errors */ }
       try { window.location.reload(); }
@@ -2347,6 +2350,13 @@
       this.tempArtwork = null;
       this.lastHiddenState = null;
       this.hiddenSignalCleanup = null;
+      this.revealInviteQueue = [];
+      this.revealInviteActive = null;
+      this.revealInviteSeenSignals = new Set();
+      this.lastRevealSignalDetail = null;
+      this.revealInviteOverlayState = null;
+      this.revealInviteAccepting = false;
+      this.handleRevealInviteKeydown = event => this.onRevealInviteKeydown(event);
       const storedNotice = readStorage(LOCAL_KEYS.lastNotice(this.runtime.campaignId));
       if (storedNotice && typeof storedNotice === 'object') {
         const storedKey = typeof storedNotice.key === 'string' ? storedNotice.key : null;
@@ -2387,6 +2397,12 @@
         backdrop: dom.one('#somf-min-modal [data-somf-dismiss]'),
         close: dom.one('#somf-min-close'),
         image: dom.one('#somf-min-image'),
+        revealInvite: dom.one('#somf-reveal-invite'),
+        revealInviteTitle: dom.one('#somf-reveal-invite-title'),
+        revealInviteMessage: dom.one('#somf-reveal-invite-message'),
+        revealInviteSummary: dom.one('#somf-reveal-invite-summary'),
+        revealInviteAccept: dom.one('#somf-reveal-accept'),
+        revealInviteDecline: dom.one('#somf-reveal-decline'),
       };
     }
 
@@ -2408,7 +2424,184 @@
         });
         this.dom.modal.__somfDismissBound = true;
       }
+      this.bindRevealInviteEvents();
     }
+
+    bindRevealInviteEvents() {
+      const { revealInvite, revealInviteAccept, revealInviteDecline } = this.dom;
+      if (revealInviteAccept && !revealInviteAccept.__somfBound) {
+        revealInviteAccept.addEventListener('click', () => this.acceptRevealInvite());
+        revealInviteAccept.__somfBound = true;
+      }
+      if (revealInviteDecline && !revealInviteDecline.__somfBound) {
+        revealInviteDecline.addEventListener('click', () => this.dismissRevealInvite());
+        revealInviteDecline.__somfBound = true;
+      }
+      if (revealInvite && !revealInvite.__somfDismissBound) {
+        revealInvite.addEventListener('click', evt => {
+          if (evt.target === revealInvite && this.revealInviteActive) {
+            this.dismissRevealInvite();
+          }
+        });
+        revealInvite.__somfDismissBound = true;
+      }
+      if (revealInvite && !revealInvite.__somfKeyBound) {
+        revealInvite.addEventListener('keydown', this.handleRevealInviteKeydown);
+        revealInvite.__somfKeyBound = true;
+      }
+    }
+
+    onRevealInviteKeydown(event) {
+      if (event.key === 'Escape' && this.revealInviteActive) {
+        event.preventDefault();
+        this.dismissRevealInvite();
+      }
+    }
+
+    populateRevealInvite() {
+      if (this.dom.revealInviteTitle) {
+        this.dom.revealInviteTitle.textContent = 'The Shards of Many Fates';
+      }
+      if (this.dom.revealInviteMessage) {
+        this.dom.revealInviteMessage.textContent = 'Your DM just revealed the Shards of Many Fates. Refresh to see the latest draws?';
+      }
+      if (this.dom.revealInviteSummary) {
+        this.dom.revealInviteSummary.textContent = 'When you continue, we will refresh your view so you can see every shard that’s currently in play.';
+      }
+    }
+
+    openRevealInvite() {
+      const overlay = this.dom.revealInvite;
+      if (!overlay) return;
+      const body = document.body;
+      const suppressedClasses = [];
+      if (body?.classList?.contains('modal-open')) {
+        try { body.classList.remove('modal-open'); }
+        catch {}
+        suppressedClasses.push('modal-open');
+      }
+      if (body?.classList?.contains('touch-controls-disabled')) {
+        try { body.classList.remove('touch-controls-disabled'); }
+        catch {}
+        suppressedClasses.push('touch-controls-disabled');
+      }
+      const overlayWasInert = overlay.hasAttribute('inert');
+      if (overlayWasInert) {
+        try { overlay.removeAttribute('inert'); }
+        catch {}
+      }
+      const previouslyFocused = typeof document !== 'undefined' ? document.activeElement : null;
+      overlay.classList.remove('hidden');
+      overlay.setAttribute('aria-hidden', 'false');
+      overlay.classList.add('is-visible');
+      body?.classList?.add('somf-reveal-active');
+      this.revealInviteOverlayState = { suppressedClasses, overlayWasInert, previouslyFocused };
+      const focusTarget = this.dom.revealInviteAccept
+        || overlay.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      const focus = () => {
+        if (!focusTarget) return;
+        try { focusTarget.focus({ preventScroll: true }); }
+        catch {
+          try { focusTarget.focus(); }
+          catch { /* ignore focus errors */ }
+        }
+      };
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(focus);
+      } else {
+        setTimeout(focus, 0);
+      }
+    }
+
+    closeRevealInvite() {
+      const overlay = this.dom.revealInvite;
+      if (!overlay) return;
+      const state = this.revealInviteOverlayState || {};
+      overlay.classList.remove('is-visible');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.classList.add('hidden');
+      document.body?.classList?.remove('somf-reveal-active');
+      const suppressed = Array.isArray(state.suppressedClasses) ? state.suppressedClasses : [];
+      if (suppressed.length && document.body) {
+        suppressed.forEach(cls => {
+          if (cls && !document.body.classList.contains(cls)) {
+            try { document.body.classList.add(cls); }
+            catch {}
+          }
+        });
+      }
+      if (state.overlayWasInert) {
+        try { overlay.setAttribute('inert', ''); }
+        catch {}
+      }
+      const { previouslyFocused } = state;
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        try { previouslyFocused.focus({ preventScroll: true }); }
+        catch {
+          try { previouslyFocused.focus(); }
+          catch { /* ignore focus errors */ }
+        }
+      }
+      this.revealInviteOverlayState = null;
+    }
+
+    showNextRevealInvite() {
+      if (this.revealInviteActive || !this.revealInviteQueue.length) return;
+      const next = this.revealInviteQueue.shift();
+      this.revealInviteActive = next;
+      this.populateRevealInvite(next);
+      this.openRevealInvite();
+    }
+
+    enqueueRevealInvite(detail = {}) {
+      if (!this.dom.revealInvite) return;
+      const signalId = typeof detail.signalId === 'string' && detail.signalId ? detail.signalId : null;
+      if (signalId) {
+        if (this.revealInviteSeenSignals.has(signalId)) return;
+        this.revealInviteSeenSignals.add(signalId);
+      } else if (this.revealInviteActive || this.revealInviteQueue.some(entry => !entry.signalId)) {
+        return;
+      }
+      const ts = Number(detail.ts);
+      const entry = {
+        signalId,
+        ts: Number.isFinite(ts) ? ts : Date.now(),
+      };
+      this.revealInviteQueue.push(entry);
+      this.revealInviteQueue.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      this.showNextRevealInvite();
+    }
+
+    dismissRevealInvite() {
+      if (this.revealInviteActive) {
+        this.revealInviteActive = null;
+      }
+      this.closeRevealInvite();
+      this.showNextRevealInvite();
+    }
+
+    async acceptRevealInvite() {
+      if (this.revealInviteAccepting) return;
+      if (!this.revealInviteActive) {
+        this.closeRevealInvite();
+        return;
+      }
+      this.revealInviteAccepting = true;
+      const acceptBtn = this.dom.revealInviteAccept;
+      if (acceptBtn) acceptBtn.disabled = true;
+      this.revealInviteActive = null;
+      this.closeRevealInvite();
+      try {
+        await triggerShardRevealEffects({ showAlert: false });
+      } catch (err) {
+        console.error('Failed to trigger shard reveal sequence', err);
+        if (acceptBtn) acceptBtn.disabled = false;
+      } finally {
+        this.revealInviteAccepting = false;
+      }
+      this.showNextRevealInvite();
+    }
+
 
     subscribe() {
       if (this.modeCleanup) this.modeCleanup();
@@ -2828,13 +3021,13 @@
     handleHiddenSignal(detail) {
       if (!detail || typeof detail.hidden !== 'boolean') return;
       if (detail.hidden === false) {
-        try {
-          if (typeof window.toast === 'function') {
-            window.toast('The DM revealed the Shards of Many Fates', { type: 'success', duration: 6000 });
-          }
-        } catch {}
-        triggerShardRevealEffects();
+        this.lastRevealSignalDetail = detail;
+        this.enqueueRevealInvite(detail);
       } else if (detail.hidden === true) {
+        this.lastRevealSignalDetail = null;
+        this.revealInviteQueue = [];
+        this.revealInviteActive = null;
+        this.closeRevealInvite();
         try {
           if (typeof window.toast === 'function') {
             window.toast('The DM concealed the Shards of Many Fates', { type: 'info', duration: 4000 });
@@ -2848,13 +3041,20 @@
       const previous = this.lastHiddenState;
       this.lastHiddenState = normalized;
       if (this.dom.card) this.dom.card.hidden = normalized;
-      if (normalized) this.closeModal();
+      if (normalized) {
+        this.closeModal();
+        this.revealInviteQueue = [];
+        this.revealInviteActive = null;
+        this.closeRevealInvite();
+      }
       if (previous === true && normalized === false) {
-        triggerShardRevealEffects();
+        const detail = this.lastRevealSignalDetail || {};
+        this.enqueueRevealInvite(detail);
       }
       if (normalized === false) {
         this.flushPendingNoticeAdds();
       }
+      this.lastRevealSignalDetail = null;
     }
   }
 
@@ -3212,9 +3412,6 @@
         ? '<strong>Shards Concealed</strong> Players can no longer see the deck'
         : '<strong>Shards Revealed</strong> Broadcasting refresh to players';
       this.toast(message);
-      if (detail.hidden === false) {
-        triggerShardRevealEffects();
-      }
     }
 
     toastNotice(notice) {
@@ -3406,9 +3603,6 @@
       this.lastHiddenState = normalized;
       if (this.dom.playerToggle) this.dom.playerToggle.checked = !normalized;
       if (this.dom.playerState) this.dom.playerState.textContent = normalized ? 'Off' : 'On';
-      if (previous === true && normalized === false) {
-        triggerShardRevealEffects();
-      }
     }
 
     open(opts = {}) {
