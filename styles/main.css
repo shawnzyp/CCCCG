@@ -1856,6 +1856,14 @@ select[required]:valid{
   --dm-tools-icon-scale:1.08;
 }
 
+body.modal-open .dm-login-btn,
+body.modal-open .dm-tools-toggle,
+body.modal-open .dm-tools-menu{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+
 /* DM Tool (Shards of Many Fates) */
 .somf-dm{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);padding:12px;margin:0 auto;width:100%;max-width:var(--content-width);max-height:calc(var(--vh,1vh)*100 - 32px);overflow:auto;-webkit-overflow-scrolling:touch}
 .somf-dm__hdr{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:8px}
