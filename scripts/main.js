@@ -1437,7 +1437,12 @@ function toast(msg, type = 'info'){
   }
   const toastType = typeof opts.type === 'string' && opts.type ? opts.type : 'info';
   const duration = typeof opts.duration === 'number' ? opts.duration : 5000;
-  t.textContent = msg;
+  const html = typeof opts.html === 'string' ? opts.html : '';
+  if (html) {
+    t.innerHTML = html;
+  } else {
+    t.textContent = msg ?? '';
+  }
   t.className = toastType ? `toast ${toastType}` : 'toast';
   t.classList.add('show');
   playTone(toastType);
@@ -4061,7 +4066,7 @@ const HAMMERSPACE_TABLE = [
     lines: [
       'Effect: Pull out a propane tank flamethrower.',
       'Damage: 4d6 fire damage in a 15-foot cone.',
-      'Narrative: "I tell you what—propane solves everything."'
+      'Narrative: “I tell you what—propane solves everything.”'
     ]
   },
   {
@@ -4069,7 +4074,7 @@ const HAMMERSPACE_TABLE = [
     lines: [
       'Effect: Summon a riding lawnmower.',
       'Damage: 3d8 bludgeoning in a 10-foot line.',
-      'Narrative: "Time to mow down the competition."'
+      'Narrative: “Time to mow down the competition.”'
     ]
   },
   {
@@ -4077,39 +4082,39 @@ const HAMMERSPACE_TABLE = [
     lines: [
       'Effect: A magical barbecue grill heals allies.',
       'Healing: Allies within 10 feet regain 2d6 HP.',
-      'Narrative: "Prime-grade grilling, comin\' right up."'
+      'Narrative: “Prime-grade grilling, comin’ right up.”'
     ]
   },
   {
     title: '“That’s My Purse!” Technique',
     lines: [
       'Effect: Swing an oversized purse.',
-      'Damage: 2d6 bludgeoning; DC 13 Con save or stunned for 1 round.',
-      'Narrative: "That\'s my purse! I don\'t know you!"'
+      'Damage: 2d6 bludgeoning, DC 13 Con save or stunned 1 round.',
+      'Narrative: “That’s my purse! I don’t know you!”'
     ]
   },
   {
     title: 'Propane-Powered Punchline',
     lines: [
-      'Effect: Tiny propane lighter plus a Hank one-liner.',
+      'Effect: Tiny propane lighter + Hank one-liner.',
       'Buff: Allies gain advantage on their next attack.',
-      'Narrative: "This\'ll light a fire under y\'all."'
+      'Narrative: “This’ll light a fire under y’all.”'
     ]
   },
   {
     title: 'Sacred Spatula',
     lines: [
       'Effect: Giant spatula flips enemies.',
-      'Damage: 1d8 bludgeoning and push the target 10 feet.',
-      'Narrative: "Guess you\'re well done."'
+      'Damage: 1d8 bludgeoning + push target 10 feet.',
+      'Narrative: “Guess you’re well done.”'
     ]
   },
   {
     title: 'Pocket Sand (Dale Tribute)',
     lines: [
       'Effect: Toss pocket sand from nowhere.',
-      'Damage: 1d4 and blinds the target until the end of their next turn.',
-      'Narrative: "Sh-sh-shaa!"'
+      'Damage: 1d4 and blinds target until end of next turn.',
+      'Narrative: “Sh-sh-shaa!”'
     ]
   },
   {
@@ -4117,55 +4122,55 @@ const HAMMERSPACE_TABLE = [
     lines: [
       'Effect: A propane tank becomes a makeshift shield.',
       'Buff: +2 AC for 1 minute.',
-      'Narrative: "Good ol\' propane—stronger than steel."'
+      'Narrative: “Good ol’ propane—stronger than steel.”'
     ]
   },
   {
     title: 'BBQ Sauce Flood',
     lines: [
       'Effect: Wave of sauce sprays enemies.',
-      'Damage: 2d6 sticky, acidic damage and movement halved for 1 round.',
-      'Narrative: "Now you\'re marinated."'
+      'Damage: 2d6 acid-like sticky damage, movement halved 1 round.',
+      'Narrative: “Now you’re marinated.”'
     ]
   },
   {
     title: 'Tactical Lawn Chair',
     lines: [
       'Effect: Summon a folding chair.',
-      'Damage: 1d6 bludgeoning or provide an ally +1 AC when used defensively.',
-      'Narrative: "Y\'all sit down now."'
+      'Damage: 1d6 bludgeoning, or provide ally +1 AC when used defensively.',
+      'Narrative: “Y’all sit down now.”'
     ]
   },
   {
     title: 'Toolbelt Toss',
     lines: [
       'Effect: A full toolbox flings open.',
-      'Damage: 2d6 piercing and bludgeoning in a 5-foot radius.',
-      'Narrative: "Dang ol\' maintenance required."'
+      'Damage: 2d6 piercing/bludgeoning in a 5-foot radius.',
+      'Narrative: “Dang ol’ maintenance required.”'
     ]
   },
   {
     title: 'Hank’s Holy Handbook',
     lines: [
       'Effect: Manifest a guidebook on propane.',
-      'Buff: Advantage on a persuasion or intimidation check.',
-      'Narrative: "Let me educate you."'
+      'Buff: Advantage on persuasion or intimidation for 1 check.',
+      'Narrative: “Let me educate you.”'
     ]
   },
   {
     title: 'Charcoal Curse',
     lines: [
       'Effect: Accidentally pull charcoal instead of propane.',
-      'Debuff: Disadvantage on the next attack roll.',
-      'Narrative: "Charcoal?! That\'s just wrong."'
+      'Debuff: Disadvantage on next attack roll.',
+      'Narrative: “Charcoal?! That’s just wrong.”'
     ]
   },
   {
     title: 'Mega Rake',
     lines: [
       'Effect: A comically long rake appears.',
-      'Damage: 2d8 slashing and can trip a foe (DC 14 Dex save).',
-      'Narrative: "Keep off the dang lawn."'
+      'Damage: 2d8 slashing, can also trip a foe (DC 14 Dex save).',
+      'Narrative: “Keep off the dang lawn.”'
     ]
   },
   {
@@ -4173,7 +4178,7 @@ const HAMMERSPACE_TABLE = [
     lines: [
       'Effect: Fertilizer spreads a healing aura.',
       'Healing: Allies in 15 feet regain 1d8 + Con HP.',
-      'Narrative: "Healthy grass, healthy folks."'
+      'Narrative: “Healthy grass, healthy folks.”'
     ]
   },
   {
@@ -4181,39 +4186,39 @@ const HAMMERSPACE_TABLE = [
     lines: [
       'Effect: Massive glowing belt buckle punch.',
       'Damage: 3d6 radiant bludgeoning.',
-      'Narrative: "Proud Texan power!"'
+      'Narrative: “Proud Texan power!”'
     ]
   },
   {
     title: 'Propane Jetpack',
     lines: [
-      'Effect: Strap on twin propane tanks to rocket forward.',
-      'Utility: Fly 30 feet for 1 round; landing deals 2d6 fire in 5 feet.',
-      'Narrative: "Not recommended by the handbook."'
+      'Effect: Strap on twin propane tanks.',
+      'Utility: Fly 30 feet for 1 round. Landing deals 2d6 fire in 5 feet.',
+      'Narrative: “Not recommended by the handbook.”'
     ]
   },
   {
     title: 'King of the Hilltop Banner',
     lines: [
-      'Effect: A rallying flag waves high.',
+      'Effect: A flag waves, rallying allies.',
       'Buff: Allies within 20 feet gain +1 to attack rolls for 1 minute.',
-      'Narrative: "We stand tall, like a hill."'
+      'Narrative: “We stand tall, like a hill.”'
     ]
   },
   {
     title: 'Grill Grease Slip',
     lines: [
       'Effect: Spill grease everywhere.',
-      'Damage: 1d6 fire if ignited; enemies in 10 feet must make a DC 12 Dex save or fall prone.',
-      'Narrative: "Careful now—slippery."'
+      'Damage: 1d6 fire if ignited; enemies in 10 feet must save (DC 12 Dex) or fall prone.',
+      'Narrative: “Careful now—slippery.”'
     ]
   },
   {
     title: 'Spirit of Texas BBQ',
     lines: [
       'Effect: Legendary spectral cow spirit appears.',
-      'Damage: Charges for 4d10 bludgeoning against one target before vanishing.',
-      'Narrative: "By God, the spirit of Texas itself."'
+      'Damage: Charges for 4d10 bludgeoning against 1 target, then vanishes.',
+      'Narrative: “By God, the spirit of Texas itself.”'
     ]
   }
 ];
@@ -4255,8 +4260,22 @@ function getHammerspaceEntry(roll) {
 
 function formatHammerspaceMessage(roll, entry) {
   if (!entry) return null;
-  const body = Array.isArray(entry.lines) ? entry.lines.join(' ') : '';
-  return `${HAMMERSPACE_POWER_NAME} (Roll ${roll}: ${entry.title}) — ${body}`;
+  const lines = Array.isArray(entry.lines) ? entry.lines : [];
+  const textParts = [`${HAMMERSPACE_POWER_NAME} (Roll ${roll}: ${entry.title})`];
+  const htmlLines = [];
+  lines.forEach(line => {
+    if (!line) return;
+    textParts.push(`• ${line}`);
+    htmlLines.push(`<span class="toast-line">• ${escapeHtml(line)}</span>`);
+  });
+  const htmlBody = [`<strong>${escapeHtml(HAMMERSPACE_POWER_NAME)}</strong>`, `<span class="toast-subtitle">Roll ${roll}: ${escapeHtml(entry.title)}</span>`];
+  if (htmlLines.length) {
+    htmlBody.push(...htmlLines);
+  }
+  return {
+    text: textParts.join(' '),
+    html: `<div class="toast-body">${htmlBody.join('')}</div>`
+  };
 }
 
 function showHammerspaceResult(roll) {
@@ -4264,13 +4283,13 @@ function showHammerspaceResult(roll) {
   const message = formatHammerspaceMessage(roll, entry);
   if (!message) return;
   try {
-    toast(message, { type: 'info', duration: 0 });
+    toast(message.text, { type: 'info', duration: 0, html: message.html });
   } catch {}
   try {
     logAction(`${HAMMERSPACE_POWER_NAME} result (${roll}): ${entry.title}`);
   } catch {}
   try {
-    window.dmNotify?.(message, { ts: Date.now(), char: currentCharacter?.() || 'Hank' });
+    window.dmNotify?.(message.text, { ts: Date.now(), char: currentCharacter?.() || 'Hank' });
   } catch {}
 }
 

@@ -1504,6 +1504,10 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 .toast.success::before{background-image:var(--icon-success)}
 .toast.error::before{background-image:var(--icon-error)}
 .toast:focus{outline:2px solid var(--accent);outline-offset:2px}
+.toast .toast-body{display:flex;flex-direction:column;gap:2px}
+.toast .toast-body strong{font-size:1.05em}
+.toast .toast-body .toast-subtitle{font-size:.9em;font-style:italic}
+.toast .toast-body .toast-line{font-size:.85em}
 
 
 /* ability grid */
