@@ -6,6 +6,7 @@ import {
   getMiniGame,
   getDefaultConfig,
   loadMiniGameReadme,
+  formatKnobValue,
   subscribeToDeployments as subscribeMiniGameDeployments,
   refreshDeployments as refreshMiniGameDeployments,
   deployMiniGame as deployMiniGameToCloud,
@@ -229,7 +230,7 @@ function initDMLogin(){
     if (miniGamesKnobsHint) {
       miniGamesKnobsHint.textContent = game
         ? hasKnobs
-          ? 'Adjust these DM-only controls to fit the moment. Players will never see them.'
+          ? 'Adjust these DM-only controls with confidence—every knob shows safe ranges and defaults.'
           : 'This mission has no optional tuning—skip straight to sending it to a player.'
         : 'Choose a mini-game to unlock DM-only tuning controls.';
     }
@@ -237,6 +238,117 @@ function initDMLogin(){
       miniGamesPlayerHint.textContent = game
         ? 'Choose the hero to receive this mission and add any quick instructions before deploying.'
         : 'Pick who should receive the mission once you have it tuned.';
+    }
+  }
+
+  function displayKnobValue(knob, value) {
+    const formatted = formatKnobValue(knob, value);
+    if (typeof formatted === 'string' && formatted.trim() !== '') return formatted;
+    if (knob.type === 'toggle') return value ? 'Enabled' : 'Disabled';
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    return '(empty)';
+  }
+
+  function buildKnobStatusText(knob, current, recommended) {
+    const currentLabel = displayKnobValue(knob, current);
+    const defaultLabel = displayKnobValue(knob, recommended);
+    if (knobValuesMatch(knob, current, recommended)) {
+      return `Current: ${currentLabel} (default)`;
+    }
+    return `Current: ${currentLabel} · Default: ${defaultLabel}`;
+  }
+
+  function buildKnobMetaText(knob, recommended) {
+    const parts = [];
+    if (knob.type === 'number') {
+      const hasMin = typeof knob.min === 'number' && Number.isFinite(knob.min);
+      const hasMax = typeof knob.max === 'number' && Number.isFinite(knob.max);
+      if (hasMin && hasMax) {
+        parts.push(`Range: ${knob.min} – ${knob.max}`);
+      } else if (hasMin) {
+        parts.push(`Minimum: ${knob.min}`);
+      } else if (hasMax) {
+        parts.push(`Maximum: ${knob.max}`);
+      }
+      if (typeof knob.step === 'number' && Number.isFinite(knob.step) && knob.step > 0) {
+        parts.push(`Step: ${knob.step}`);
+      }
+    }
+    if (knob.type === 'select' && Array.isArray(knob.options) && knob.options.length > 0) {
+      parts.push(`${knob.options.length} choices`);
+    }
+    if (typeof recommended !== 'undefined') {
+      parts.push(`Default: ${displayKnobValue(knob, recommended)}`);
+    }
+    return parts.join(' · ');
+  }
+
+  function knobValuesMatch(knob, a, b) {
+    if (typeof a === 'undefined' && typeof b === 'undefined') return true;
+    switch (knob.type) {
+      case 'number':
+        return Number(a) === Number(b);
+      case 'toggle':
+        return Boolean(a) === Boolean(b);
+      default:
+        return String(a ?? '') === String(b ?? '');
+    }
+  }
+
+  function sanitizeNumberValue(knob, raw, recommended) {
+    let next;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      next = raw;
+    } else {
+      const parsed = Number(raw);
+      next = Number.isFinite(parsed) ? parsed : undefined;
+    }
+    if (!Number.isFinite(next)) {
+      if (typeof recommended === 'number' && Number.isFinite(recommended)) {
+        next = recommended;
+      } else if (typeof knob.min === 'number' && Number.isFinite(knob.min)) {
+        next = knob.min;
+      } else {
+        next = 0;
+      }
+    }
+    if (typeof knob.min === 'number' && Number.isFinite(knob.min)) {
+      next = Math.max(next, knob.min);
+    }
+    if (typeof knob.max === 'number' && Number.isFinite(knob.max)) {
+      next = Math.min(next, knob.max);
+    }
+    if (typeof knob.step === 'number' && Number.isFinite(knob.step) && knob.step > 0) {
+      const base = typeof knob.min === 'number' && Number.isFinite(knob.min) ? knob.min : 0;
+      const steps = Math.round((next - base) / knob.step);
+      next = base + steps * knob.step;
+      if (typeof knob.min === 'number' && Number.isFinite(knob.min)) {
+        next = Math.max(next, knob.min);
+      }
+      if (typeof knob.max === 'number' && Number.isFinite(knob.max)) {
+        next = Math.min(next, knob.max);
+      }
+      next = Number(Number(next).toFixed(5));
+    }
+    return next;
+  }
+
+  function sanitizeKnobValue(knob, raw, recommended) {
+    switch (knob.type) {
+      case 'toggle':
+        return Boolean(raw);
+      case 'number':
+        return sanitizeNumberValue(knob, raw, recommended);
+      case 'select': {
+        const value = String(raw ?? '');
+        const options = Array.isArray(knob.options) ? knob.options : [];
+        const hasOption = options.some(opt => String(opt.value) === value);
+        if (hasOption) return value;
+        if (typeof recommended !== 'undefined') return String(recommended ?? '');
+        return options.length ? String(options[0].value ?? '') : '';
+      }
+      default:
+        return String(raw ?? '');
     }
   }
 
@@ -288,97 +400,271 @@ function initDMLogin(){
 
   function renderMiniGameKnobs(game) {
     if (!miniGamesKnobs) return;
-    const state = ensureKnobState(game.id);
+    const defaults = getDefaultConfig(game.id) || {};
+    let state = ensureKnobState(game.id);
+    let stateMutated = false;
     miniGamesKnobs.innerHTML = '';
     if (!Array.isArray(game.knobs) || game.knobs.length === 0) {
       miniGamesKnobs.innerHTML = '<p class="dm-mini-games__empty">This mission has no DM tuning controls.</p>';
       return;
     }
+
+    const dirtyKnobs = new Set();
+    let resetAllButton = null;
+    const updateResetAllState = () => {
+      if (!resetAllButton) return;
+      const disabled = dirtyKnobs.size === 0;
+      resetAllButton.disabled = disabled;
+      resetAllButton.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    };
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'dm-mini-games__knobs-toolbar';
+    const toolbarCopy = document.createElement('p');
+    toolbarCopy.textContent = 'Every control shows its safe range and recommended defaults. Reset anything if you need to undo tweaks.';
+    toolbar.appendChild(toolbarCopy);
+    resetAllButton = document.createElement('button');
+    resetAllButton.type = 'button';
+    resetAllButton.className = 'dm-mini-games__knob-reset dm-mini-games__knob-reset--all';
+    resetAllButton.textContent = 'Reset all to defaults';
+    resetAllButton.setAttribute('aria-label', 'Reset all DM controls to their defaults');
+    resetAllButton.addEventListener('click', () => {
+      writeKnobState(game.id, { ...defaults });
+      renderMiniGameKnobs(game);
+      focusMiniGameKnobs();
+    });
+    toolbar.appendChild(resetAllButton);
+    miniGamesKnobs.appendChild(toolbar);
+
+    const grid = document.createElement('div');
+    grid.className = 'dm-mini-games__knob-grid';
+    miniGamesKnobs.appendChild(grid);
+
     game.knobs.forEach(knob => {
+      const recommended = defaults[knob.key];
+      const storedValue = state[knob.key];
+      const initialValue = sanitizeKnobValue(knob, storedValue, recommended);
+      if (!knobValuesMatch(knob, storedValue, initialValue)) {
+        state[knob.key] = initialValue;
+        stateMutated = true;
+      }
+
       const wrapper = document.createElement('div');
       wrapper.className = 'dm-mini-games__knob';
       wrapper.dataset.knob = knob.key;
+
+      const controlId = `dm-mini-games-${game.id}-${knob.key}`;
+      const labelId = `${controlId}-label`;
+
+      const header = document.createElement('div');
+      header.className = 'dm-mini-games__knob-header';
+
+      const title = document.createElement('label');
+      title.className = 'dm-mini-games__knob-title';
+      title.id = labelId;
+      title.setAttribute('for', controlId);
+      title.textContent = knob.label;
+      header.appendChild(title);
+
+      const badge = document.createElement('span');
+      badge.className = 'dm-mini-games__knob-badge';
+      badge.textContent = 'Adjusted';
+      badge.hidden = true;
+      header.appendChild(badge);
+
+      const resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.className = 'dm-mini-games__knob-reset';
+      resetBtn.textContent = 'Reset';
+      resetBtn.title = 'Reset to default';
+      resetBtn.setAttribute('aria-label', `Reset ${knob.label} to its default value`);
+      header.appendChild(resetBtn);
+
+      wrapper.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'dm-mini-games__knob-body';
+      wrapper.appendChild(body);
+
+      let control;
+      let toggleStatus = null;
+
       if (knob.type === 'toggle') {
-        const toggleLabel = document.createElement('label');
-        toggleLabel.className = 'dm-mini-games__knob-toggle';
         const input = document.createElement('input');
         input.type = 'checkbox';
-        input.checked = Boolean(state[knob.key]);
-        input.addEventListener('change', () => {
-          const next = ensureKnobState(game.id);
-          next[knob.key] = input.checked;
-          writeKnobState(game.id, next);
+        input.id = controlId;
+        input.dataset.knob = knob.key;
+        input.checked = Boolean(initialValue);
+        input.setAttribute('role', 'switch');
+        control = input;
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'dm-mini-games__knob-toggle';
+        toggleLabel.setAttribute('for', controlId);
+        toggleStatus = document.createElement('span');
+        toggleStatus.className = 'dm-mini-games__knob-toggle-status';
+        toggleStatus.textContent = displayKnobValue(knob, initialValue);
+        toggleLabel.append(input, toggleStatus);
+        body.appendChild(toggleLabel);
+      } else if (knob.type === 'select') {
+        const select = document.createElement('select');
+        select.id = controlId;
+        select.dataset.knob = knob.key;
+        (knob.options || []).forEach(opt => {
+          const option = document.createElement('option');
+          option.value = String(opt.value);
+          option.textContent = opt.label;
+          select.appendChild(option);
         });
-        toggleLabel.append(input, document.createTextNode(knob.label));
-        wrapper.appendChild(toggleLabel);
+        select.value = String(initialValue);
+        body.appendChild(select);
+        control = select;
       } else {
-        const label = document.createElement('label');
-        const labelText = document.createElement('span');
-        labelText.textContent = knob.label;
-        label.appendChild(labelText);
-        let control;
-        if (knob.type === 'select') {
-          control = document.createElement('select');
-          control.setAttribute('data-knob', knob.key);
-          (knob.options || []).forEach(opt => {
-            const option = document.createElement('option');
-            option.value = String(opt.value);
-            option.textContent = opt.label;
-            control.appendChild(option);
-          });
-          const currentValue = state[knob.key] ?? knob.default ?? (knob.options?.[0]?.value ?? '');
-          control.value = String(currentValue);
-          control.addEventListener('change', () => {
-            const next = ensureKnobState(game.id);
-            next[knob.key] = control.value;
-            writeKnobState(game.id, next);
-          });
+        const input = document.createElement('input');
+        input.id = controlId;
+        input.dataset.knob = knob.key;
+        if (knob.type === 'number') {
+          input.type = 'number';
+          if (typeof knob.min === 'number') input.min = String(knob.min);
+          if (typeof knob.max === 'number') input.max = String(knob.max);
+          if (typeof knob.step === 'number') input.step = String(knob.step);
+          input.inputMode = 'decimal';
+          input.value = String(initialValue);
         } else {
-          control = document.createElement('input');
-          control.setAttribute('data-knob', knob.key);
-          if (knob.type === 'number') {
-            control.type = 'number';
-            if (typeof knob.min === 'number') control.min = String(knob.min);
-            if (typeof knob.max === 'number') control.max = String(knob.max);
-            if (typeof knob.step === 'number') control.step = String(knob.step);
-            const raw = state[knob.key];
-            const value = typeof raw === 'number' && Number.isFinite(raw)
-              ? raw
-              : typeof knob.default === 'number'
-                ? knob.default
-                : typeof knob.min === 'number'
-                  ? knob.min
-                  : 0;
-            control.value = String(value);
-            control.addEventListener('change', () => {
-              const parsed = Number(control.value);
-              if (Number.isFinite(parsed)) {
-                const next = ensureKnobState(game.id);
-                next[knob.key] = parsed;
-                writeKnobState(game.id, next);
-              }
-            });
-          } else {
-            control.type = 'text';
-            const raw = state[knob.key] ?? knob.default ?? '';
-            control.value = String(raw);
-            control.addEventListener('change', () => {
-              const next = ensureKnobState(game.id);
-              next[knob.key] = control.value;
-              writeKnobState(game.id, next);
-            });
+          input.type = 'text';
+          input.autocomplete = 'off';
+          input.value = String(initialValue ?? '');
+          if (typeof knob.placeholder === 'string') {
+            input.placeholder = knob.placeholder;
           }
         }
-        label.appendChild(control);
-        wrapper.appendChild(label);
+        body.appendChild(input);
+        control = input;
       }
+
+      const describedBy = [];
+
       if (knob.description) {
         const hint = document.createElement('small');
+        hint.className = 'dm-mini-games__knob-description';
+        hint.id = `${controlId}-description`;
         hint.textContent = knob.description;
-        wrapper.appendChild(hint);
+        body.appendChild(hint);
+        describedBy.push(hint.id);
       }
-      miniGamesKnobs.appendChild(wrapper);
+
+      const metaText = buildKnobMetaText(knob, recommended);
+      if (metaText) {
+        const meta = document.createElement('small');
+        meta.className = 'dm-mini-games__knob-meta';
+        meta.id = `${controlId}-meta`;
+        meta.textContent = metaText;
+        body.appendChild(meta);
+        describedBy.push(meta.id);
+      }
+
+      const status = document.createElement('small');
+      status.className = 'dm-mini-games__knob-status';
+      status.id = `${controlId}-status`;
+      body.appendChild(status);
+      describedBy.push(status.id);
+
+      if (control) {
+        if (!control.id) control.id = controlId;
+        control.setAttribute('aria-labelledby', labelId);
+        if (describedBy.length) {
+          control.setAttribute('aria-describedby', describedBy.join(' '));
+        }
+      }
+
+      let currentValue = initialValue;
+
+      const updateVisualState = value => {
+        const dirty = !knobValuesMatch(knob, value, recommended);
+        if (dirty) {
+          dirtyKnobs.add(knob.key);
+        } else {
+          dirtyKnobs.delete(knob.key);
+        }
+        wrapper.classList.toggle('dm-mini-games__knob--dirty', dirty);
+        resetBtn.disabled = !dirty;
+        resetBtn.setAttribute('aria-disabled', resetBtn.disabled ? 'true' : 'false');
+        badge.hidden = !dirty;
+        status.textContent = buildKnobStatusText(knob, value, recommended);
+        if (toggleStatus) {
+          toggleStatus.textContent = displayKnobValue(knob, value);
+        }
+        updateResetAllState();
+      };
+
+      const commitValue = raw => {
+        const sanitized = sanitizeKnobValue(knob, raw, recommended);
+        if (knob.type === 'toggle') {
+          control.checked = Boolean(sanitized);
+        } else if (knob.type === 'number') {
+          control.value = String(sanitized);
+        } else if (control) {
+          control.value = String(sanitized ?? '');
+        }
+        if (!knobValuesMatch(knob, sanitized, currentValue)) {
+          currentValue = sanitized;
+          const next = ensureKnobState(game.id);
+          next[knob.key] = sanitized;
+          writeKnobState(game.id, next);
+        }
+        updateVisualState(sanitized);
+        return sanitized;
+      };
+
+      if (knob.type === 'toggle') {
+        control.addEventListener('change', () => {
+          commitValue(control.checked);
+        });
+      } else if (knob.type === 'select') {
+        control.addEventListener('change', () => {
+          commitValue(control.value);
+        });
+      } else if (knob.type === 'number') {
+        control.addEventListener('input', () => {
+          const raw = Number(control.value);
+          const sanitized = sanitizeNumberValue(knob, raw, recommended);
+          const valid = Number.isFinite(raw) && sanitized === raw;
+          wrapper.classList.toggle('dm-mini-games__knob--invalid', !valid);
+        });
+        control.addEventListener('change', () => {
+          wrapper.classList.remove('dm-mini-games__knob--invalid');
+          commitValue(control.value);
+        });
+        control.addEventListener('blur', () => {
+          wrapper.classList.remove('dm-mini-games__knob--invalid');
+          const sanitized = sanitizeNumberValue(knob, control.value, recommended);
+          control.value = String(sanitized);
+          if (!knobValuesMatch(knob, sanitized, currentValue)) {
+            commitValue(sanitized);
+          } else {
+            updateVisualState(sanitized);
+          }
+        });
+      } else {
+        control.addEventListener('input', () => {
+          commitValue(control.value);
+        });
+      }
+
+      resetBtn.addEventListener('click', () => {
+        commitValue(recommended);
+        if (typeof control?.focus === 'function') {
+          control.focus();
+        }
+      });
+
+      updateVisualState(initialValue);
+      grid.appendChild(wrapper);
     });
+
+    if (stateMutated) {
+      writeKnobState(game.id, state);
+    }
+    updateResetAllState();
   }
 
   function renderMiniGameDetails() {
@@ -627,7 +913,8 @@ function initDMLogin(){
 
   function focusMiniGameKnobs() {
     if (!miniGamesModal || miniGamesModal.classList.contains('hidden')) return;
-    const knobTarget = miniGamesKnobs?.querySelector('input:not([disabled]),select:not([disabled]),textarea:not([disabled]),button:not([disabled])');
+    const knobInput = miniGamesKnobs?.querySelector('.dm-mini-games__knob input:not([disabled]), .dm-mini-games__knob select:not([disabled]), .dm-mini-games__knob textarea:not([disabled])');
+    const knobTarget = knobInput || miniGamesKnobs?.querySelector('.dm-mini-games__knob button:not([disabled])');
     const fallbackTarget = miniGamesPlayerSelect || miniGamesPlayerCustom || miniGamesNotes || miniGamesDeployBtn;
     const focusTarget = knobTarget || fallbackTarget;
     if (!focusTarget || typeof focusTarget.focus !== 'function') return;
