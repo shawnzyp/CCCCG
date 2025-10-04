@@ -3480,12 +3480,19 @@ function announceContentUpdate(payload = {}) {
 }
 
 
-function rollWithBonus(name, bonus, out){
+function rollWithBonus(name, bonus, out, opts = {}){
   const roll = 1 + Math.floor(Math.random() * 20);
   const total = roll + bonus;
   if(out) out.textContent = total;
   const sign = bonus >= 0 ? '+' : '';
   logAction(`${name}: ${roll}${sign}${bonus} = ${total}`);
+  if (opts && typeof opts.onRoll === 'function') {
+    try {
+      opts.onRoll({ roll, total, bonus, name, output: out, options: opts });
+    } catch (err) {
+      console.error('rollWithBonus onRoll handler failed', err);
+    }
+  }
   return total;
 }
 renderLogs();
@@ -4045,6 +4052,253 @@ if (autoChar) {
 }
 
 /* ========= Card Helper ========= */
+const HAMMERSPACE_POWER_NAME = 'Gat Dang Hammerspace';
+const HAMMERSPACE_NAME_KEY = HAMMERSPACE_POWER_NAME.toLowerCase();
+const HANK_NAME_CANDIDATES = ['hank', 'hank hill'];
+const HAMMERSPACE_TABLE = [
+  {
+    title: 'Propane Powerhouse',
+    lines: [
+      'Effect: Pull out a propane tank flamethrower.',
+      'Damage: 4d6 fire damage in a 15-foot cone.',
+      'Narrative: "I tell you what—propane solves everything."'
+    ]
+  },
+  {
+    title: 'Mower of Justice',
+    lines: [
+      'Effect: Summon a riding lawnmower.',
+      'Damage: 3d8 bludgeoning in a 10-foot line.',
+      'Narrative: "Time to mow down the competition."'
+    ]
+  },
+  {
+    title: 'The King of the Grill',
+    lines: [
+      'Effect: A magical barbecue grill heals allies.',
+      'Healing: Allies within 10 feet regain 2d6 HP.',
+      'Narrative: "Prime-grade grilling, comin\' right up."'
+    ]
+  },
+  {
+    title: '“That’s My Purse!” Technique',
+    lines: [
+      'Effect: Swing an oversized purse.',
+      'Damage: 2d6 bludgeoning; DC 13 Con save or stunned for 1 round.',
+      'Narrative: "That\'s my purse! I don\'t know you!"'
+    ]
+  },
+  {
+    title: 'Propane-Powered Punchline',
+    lines: [
+      'Effect: Tiny propane lighter plus a Hank one-liner.',
+      'Buff: Allies gain advantage on their next attack.',
+      'Narrative: "This\'ll light a fire under y\'all."'
+    ]
+  },
+  {
+    title: 'Sacred Spatula',
+    lines: [
+      'Effect: Giant spatula flips enemies.',
+      'Damage: 1d8 bludgeoning and push the target 10 feet.',
+      'Narrative: "Guess you\'re well done."'
+    ]
+  },
+  {
+    title: 'Pocket Sand (Dale Tribute)',
+    lines: [
+      'Effect: Toss pocket sand from nowhere.',
+      'Damage: 1d4 and blinds the target until the end of their next turn.',
+      'Narrative: "Sh-sh-shaa!"'
+    ]
+  },
+  {
+    title: 'Propane Tank Shield',
+    lines: [
+      'Effect: A propane tank becomes a makeshift shield.',
+      'Buff: +2 AC for 1 minute.',
+      'Narrative: "Good ol\' propane—stronger than steel."'
+    ]
+  },
+  {
+    title: 'BBQ Sauce Flood',
+    lines: [
+      'Effect: Wave of sauce sprays enemies.',
+      'Damage: 2d6 sticky, acidic damage and movement halved for 1 round.',
+      'Narrative: "Now you\'re marinated."'
+    ]
+  },
+  {
+    title: 'Tactical Lawn Chair',
+    lines: [
+      'Effect: Summon a folding chair.',
+      'Damage: 1d6 bludgeoning or provide an ally +1 AC when used defensively.',
+      'Narrative: "Y\'all sit down now."'
+    ]
+  },
+  {
+    title: 'Toolbelt Toss',
+    lines: [
+      'Effect: A full toolbox flings open.',
+      'Damage: 2d6 piercing and bludgeoning in a 5-foot radius.',
+      'Narrative: "Dang ol\' maintenance required."'
+    ]
+  },
+  {
+    title: 'Hank’s Holy Handbook',
+    lines: [
+      'Effect: Manifest a guidebook on propane.',
+      'Buff: Advantage on a persuasion or intimidation check.',
+      'Narrative: "Let me educate you."'
+    ]
+  },
+  {
+    title: 'Charcoal Curse',
+    lines: [
+      'Effect: Accidentally pull charcoal instead of propane.',
+      'Debuff: Disadvantage on the next attack roll.',
+      'Narrative: "Charcoal?! That\'s just wrong."'
+    ]
+  },
+  {
+    title: 'Mega Rake',
+    lines: [
+      'Effect: A comically long rake appears.',
+      'Damage: 2d8 slashing and can trip a foe (DC 14 Dex save).',
+      'Narrative: "Keep off the dang lawn."'
+    ]
+  },
+  {
+    title: 'Lawn Care Miracle',
+    lines: [
+      'Effect: Fertilizer spreads a healing aura.',
+      'Healing: Allies in 15 feet regain 1d8 + Con HP.',
+      'Narrative: "Healthy grass, healthy folks."'
+    ]
+  },
+  {
+    title: 'Texas Belt Buckle Slam',
+    lines: [
+      'Effect: Massive glowing belt buckle punch.',
+      'Damage: 3d6 radiant bludgeoning.',
+      'Narrative: "Proud Texan power!"'
+    ]
+  },
+  {
+    title: 'Propane Jetpack',
+    lines: [
+      'Effect: Strap on twin propane tanks to rocket forward.',
+      'Utility: Fly 30 feet for 1 round; landing deals 2d6 fire in 5 feet.',
+      'Narrative: "Not recommended by the handbook."'
+    ]
+  },
+  {
+    title: 'King of the Hilltop Banner',
+    lines: [
+      'Effect: A rallying flag waves high.',
+      'Buff: Allies within 20 feet gain +1 to attack rolls for 1 minute.',
+      'Narrative: "We stand tall, like a hill."'
+    ]
+  },
+  {
+    title: 'Grill Grease Slip',
+    lines: [
+      'Effect: Spill grease everywhere.',
+      'Damage: 1d6 fire if ignited; enemies in 10 feet must make a DC 12 Dex save or fall prone.',
+      'Narrative: "Careful now—slippery."'
+    ]
+  },
+  {
+    title: 'Spirit of Texas BBQ',
+    lines: [
+      'Effect: Legendary spectral cow spirit appears.',
+      'Damage: Charges for 4d10 bludgeoning against one target before vanishing.',
+      'Narrative: "By God, the spirit of Texas itself."'
+    ]
+  }
+];
+
+function normalizeName(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function isHankIdentity(value) {
+  const normalized = normalizeName(value);
+  if (!normalized) return false;
+  if (HANK_NAME_CANDIDATES.includes(normalized)) return true;
+  return normalized.includes('hank hill');
+}
+
+function isActiveHankCharacter() {
+  try {
+    if (isHankIdentity(typeof currentCharacter === 'function' ? currentCharacter() : null)) {
+      return true;
+    }
+  } catch {}
+  const hero = $('superhero');
+  if (hero && isHankIdentity(hero.value)) return true;
+  const secret = $('secret');
+  if (secret && isHankIdentity(secret.value)) return true;
+  return false;
+}
+
+function isHammerspaceName(value) {
+  return normalizeName(value) === HAMMERSPACE_NAME_KEY;
+}
+
+function getHammerspaceEntry(roll) {
+  if (!Number.isInteger(roll)) return null;
+  const idx = roll - 1;
+  if (idx < 0 || idx >= HAMMERSPACE_TABLE.length) return null;
+  return HAMMERSPACE_TABLE[idx];
+}
+
+function formatHammerspaceMessage(roll, entry) {
+  if (!entry) return null;
+  const body = Array.isArray(entry.lines) ? entry.lines.join(' ') : '';
+  return `${HAMMERSPACE_POWER_NAME} (Roll ${roll}: ${entry.title}) — ${body}`;
+}
+
+function showHammerspaceResult(roll) {
+  const entry = getHammerspaceEntry(roll);
+  const message = formatHammerspaceMessage(roll, entry);
+  if (!message) return;
+  try {
+    toast(message, { type: 'info', duration: 0 });
+  } catch {}
+  try {
+    logAction(`${HAMMERSPACE_POWER_NAME} result (${roll}): ${entry.title}`);
+  } catch {}
+  try {
+    window.dmNotify?.(message, { ts: Date.now(), char: currentCharacter?.() || 'Hank' });
+  } catch {}
+}
+
+function markHammerspaceState(card) {
+  if (!card || card.dataset.kind !== 'sig') return;
+  const nameField = qs("[data-f='name']", card);
+  const delBtn = qs("[data-act='del']", card);
+  const locked = isActiveHankCharacter() && isHammerspaceName(nameField?.value || '');
+  card.dataset.hammerspaceLock = locked ? 'true' : 'false';
+  if (delBtn) {
+    if (locked) {
+      delBtn.disabled = true;
+      delBtn.setAttribute('aria-disabled', 'true');
+      delBtn.title = `${HAMMERSPACE_POWER_NAME} cannot be deleted`;
+    } else {
+      delBtn.disabled = false;
+      delBtn.removeAttribute('aria-disabled');
+      if (delBtn.title === `${HAMMERSPACE_POWER_NAME} cannot be deleted`) {
+        delBtn.removeAttribute('title');
+      }
+    }
+  }
+}
+
+function refreshHammerspaceCards() {
+  qsa("[data-kind='sig']").forEach(markHammerspaceState);
+}
+
 const CARD_CONFIG = {
   power: {
     rows: [
@@ -4226,9 +4480,18 @@ function createCard(kind, pref = {}) {
       const rangeVal = qs("[data-f='range']", card)?.value || '';
       const abil = rangeVal ? elDex.value : elStr.value;
       const bonus = mod(abil) + pb;
-      const name = qs("[data-f='name']", card)?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
+      const nameField = qs("[data-f='name']", card);
+      const name = nameField?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
       logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
-      rollWithBonus(`${name} attack roll`, bonus, out, { type: 'attack' });
+      const opts = { type: 'attack' };
+      if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
+        opts.onRoll = ({ roll }) => {
+          if (Number.isInteger(roll)) {
+            showHammerspaceResult(roll);
+          }
+        };
+      }
+      rollWithBonus(`${name} attack roll`, bonus, out, opts);
     });
     delWrap.appendChild(hitBtn);
     delWrap.appendChild(out);
@@ -4238,6 +4501,12 @@ function createCard(kind, pref = {}) {
   delBtn.dataset.act = 'del';
   applyDeleteIcon(delBtn);
   delBtn.addEventListener('click', () => {
+    if (kind === 'sig' && card.dataset.hammerspaceLock === 'true') {
+      if (typeof toast === 'function') {
+        toast(`${HAMMERSPACE_POWER_NAME} cannot be deleted`, 'error');
+      }
+      return;
+    }
     const name = qs("[data-f='name']", card)?.value || kind;
     logAction(`${kind.charAt(0).toUpperCase()+kind.slice(1)} removed: ${name}`);
     card.remove();
@@ -4248,6 +4517,13 @@ function createCard(kind, pref = {}) {
   card.appendChild(delWrap);
   if (cfg.onChange) {
     qsa('input,select', card).forEach(el => el.addEventListener('input', cfg.onChange));
+  }
+  if (kind === 'sig') {
+    const nameField = qs("[data-f='name']", card);
+    if (nameField) {
+      nameField.addEventListener('input', () => markHammerspaceState(card));
+    }
+    markHammerspaceState(card);
   }
   if (viewMode) applyViewLockState(card);
   return card;
@@ -5393,6 +5669,7 @@ function deserialize(data){
   (data && data.weapons ? data.weapons : []).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
   (data && data.armor ? data.armor : []).forEach(a=> $('armors').appendChild(createCard('armor', a)));
   (data && data.items ? data.items : []).forEach(i=> $('items').appendChild(createCard('item', i)));
+  refreshHammerspaceCards();
   const restoredCampaignLog = Array.isArray(data?.campaignLog) ? data.campaignLog : [];
   campaignLogEntries = normalizeCampaignLogEntries(restoredCampaignLog);
   if(campaignLogEntries.length){
@@ -5536,6 +5813,7 @@ $('btn-save').addEventListener('click', async () => {
 const heroInput = $('superhero');
 if (heroInput) {
   heroInput.addEventListener('change', async () => {
+    refreshHammerspaceCards();
     const name = heroInput.value.trim();
     if (!name) return;
     if (!currentCharacter()) {
@@ -5547,6 +5825,13 @@ if (heroInput) {
         console.error('Autosave failed', e);
       }
     }
+  });
+}
+
+const secretInput = $('secret');
+if (secretInput) {
+  secretInput.addEventListener('change', () => {
+    refreshHammerspaceCards();
   });
 }
 
@@ -6023,7 +6308,7 @@ CC.RP = (function () {
           breakdown.push(`+ RP Surge: +2`);
         }
 
-        const total = base(name, bonus + extra, out);
+        const total = base(name, bonus + extra, out, opts);
         if (breakdown.length) {
           try {
             const last = actionLog[actionLog.length - 1];
