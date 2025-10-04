@@ -11,6 +11,7 @@
   --warning: #facc15;
   --card-bg: rgba(15, 23, 42, 0.82);
   --shadow: 0 22px 45px rgba(2, 6, 23, 0.5);
+  --mini-game-vh: 1vh;
 }
 
 * {
@@ -19,14 +20,15 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: calc(var(--mini-game-vh, 1vh) * 100);
   background: radial-gradient(circle at top, rgba(14, 165, 233, 0.25), transparent 55%),
     linear-gradient(160deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
   color: #f8fafc;
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: 24px 16px 40px;
+  padding: clamp(22px, 6vh, 36px) clamp(16px, 5vw, 32px);
+  padding-bottom: calc(clamp(28px, 8vh, 44px) + env(safe-area-inset-bottom, 0px));
 }
 
 .mini-game-shell {
@@ -40,6 +42,9 @@ body {
   padding: 28px clamp(18px, 4vw, 32px) 36px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
+  max-height: calc(var(--mini-game-vh, 1vh) * 100 - clamp(56px, 12vh, 96px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: shell-fade-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -240,7 +245,7 @@ body {
 .mini-game-shell__dismissed {
   width: min(640px, 100%);
   margin: 24px auto 0;
-  padding: 24px 20px;
+  padding: 24px clamp(16px, 4vw, 24px);
   border-radius: 18px;
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: rgba(15, 23, 42, 0.7);
@@ -255,6 +260,20 @@ body {
   margin: 0;
   line-height: 1.6;
   color: rgba(226, 232, 240, 0.92);
+}
+
+@media (max-width: 540px) {
+  .mini-game-shell__dismissed {
+    width: 100%;
+    margin: 20px 0 0;
+    padding: 18px 14px;
+    border-radius: 16px;
+  }
+
+  .mini-game-shell__dismissed-text {
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
 }
 
 .mini-game-shell__content {
@@ -719,7 +738,8 @@ body {
 
 @media (max-width: 720px) {
   body {
-    padding: 16px 12px 28px;
+    padding: clamp(18px, 6vh, 28px) clamp(12px, 6vw, 20px);
+    padding-bottom: calc(clamp(22px, 7vh, 32px) + env(safe-area-inset-bottom, 0px));
   }
 
   .mini-game-shell {
@@ -779,6 +799,64 @@ body {
 
   .power-surge__gauge {
     margin-inline: auto;
+  }
+}
+
+.mini-game-toast {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: clamp(16px, 6vw, 28px);
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 14px clamp(16px, 4vw, 20px);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  box-shadow: 0 18px 36px rgba(2, 6, 23, 0.45);
+  font-size: 0.95rem;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 200ms ease, transform 200ms ease;
+  pointer-events: none;
+  z-index: 2000;
+  cursor: default;
+  outline: none;
+}
+
+.mini-game-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.mini-game-toast--success {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.mini-game-toast--error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.mini-game-toast:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 600px) {
+  .mini-game-toast {
+    width: min(90vw, 440px);
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, 12px);
+    text-align: center;
+  }
+
+  .mini-game-toast--visible {
+    transform: translate(-50%, 0);
   }
 }
 
@@ -1262,10 +1340,6 @@ body {
 }
 
 @media (max-width: 720px) {
-  body {
-    padding: 16px;
-  }
-
   .mini-game-shell {
     border-radius: 18px;
     padding: 22px 16px 28px;
@@ -1284,13 +1358,16 @@ body {
 @media (max-width: 540px) {
   body {
     display: block;
-    padding: 14px 10px 22px;
+    padding: 16px 10px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
 
   .mini-game-shell {
     width: 100%;
     padding: 18px 12px 24px;
     gap: 16px;
+    max-height: none;
+    overflow: visible;
   }
 
   .mini-game-shell__header {
@@ -1454,7 +1531,8 @@ body {
 
 @media (max-width: 360px) {
   body {
-    padding: 12px 8px 18px;
+    padding: 14px 8px;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   }
 
   .mini-game-shell {
