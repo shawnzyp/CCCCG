@@ -495,9 +495,166 @@ function shuffle(array) {
   return array;
 }
 
+function pickRandom(array) {
+  if (!Array.isArray(array) || array.length === 0) return undefined;
+  return array[Math.floor(Math.random() * array.length)];
+}
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
+
+const CLUE_CONNECTION_GROUPS = [
+  {
+    id: 'quantum-breach',
+    label: 'Quantum Breach Circuit',
+    hint: 'Phase anomalies, time skips, and quantum breadcrumbs outline the escape corridor.',
+    leads: ['Phase Residue', 'Temporal Drift', 'Quantum Breadcrumb', 'Polarity Burn'],
+  },
+  {
+    id: 'vault-infiltration',
+    label: 'Vault Infiltration Chain',
+    hint: 'Vault hardware damage and counterfeit keys chart the breach pathway.',
+    leads: ['Holo-Key Fragment', 'Broken Restraints', 'Locksmith Chip', 'Vault Echo Map', 'Fractured Gauntlet'],
+  },
+  {
+    id: 'forensic-imprint',
+    label: 'Forensic Imprint Trail',
+    hint: 'Residual heat signatures and alloy scrapes tie to the getaway rig.',
+    leads: ['Thermal Residue', 'Arc Reactor Core', 'Resonant Footprint', 'Mag-Rail Scrape'],
+  },
+  {
+    id: 'surveillance-loop',
+    label: 'Surveillance Loopback',
+    hint: 'Looped camera feeds and drifted holograms reveal tampered oversight.',
+    leads: ['City Cam Snapshot', 'Sky Patrol Report', 'Streetlight Archive', 'Hologram Drift'],
+  },
+  {
+    id: 'logistics-diversion',
+    label: 'Logistics Diversion Route',
+    hint: 'Rerouted freight and dummy crates expose the smuggling pipeline.',
+    leads: ['Courier Route', 'Dusting Drone', 'Warehouse Ledger', 'Displaced Crate'],
+  },
+  {
+    id: 'financial-shell',
+    label: 'Financial Shell Game',
+    hint: 'Phantom ledgers and proxy accounts bankroll the operation.',
+    leads: ['Atlas Transit Pass', 'Quantum Ledger', 'Civic Ledger', 'Intercepted Invoice'],
+  },
+  {
+    id: 'system-intrusion',
+    label: 'System Intrusion Plot',
+    hint: 'Security overrides and rail hacks point to a coordinated systems breach.',
+    leads: ['Dispatch Log', 'Encrypted Badge', 'Rail Schedule Hack', 'Jailbreak Packet'],
+  },
+  {
+    id: 'biohazard-trail',
+    label: 'Biohazard Extraction Trail',
+    hint: 'Toxic samples and pheromone tricks suggest a biochemical objective.',
+    leads: ['Accelerant Sample', 'Residue Lace', 'Pheromone Lure', 'Volatile Coolant'],
+  },
+  {
+    id: 'drone-hijack',
+    label: 'Drone Hijack Network',
+    hint: 'Compromised drones and servos map out a hijacked automation grid.',
+    leads: ['Nanite Swarm', 'Microdrone Hull', 'Collapsed Drone Swarm', 'Exposed Servos'],
+  },
+  {
+    id: 'environmental-shift',
+    label: 'Environmental Shift Pattern',
+    hint: 'Sensor anomalies and flooded locks expose environmental tampering.',
+    leads: ['Eco Sensor Alert', 'Aqua Lock Override', 'Civic Sensor Ping', 'Meteoric Dust'],
+  },
+  {
+    id: 'witness-network',
+    label: 'Witness Network Chatter',
+    hint: 'Field reports and psychic impressions point to a coordinated cell.',
+    leads: ['Anonymous Tip', 'Crowdsourced Clip', 'Mind-Link Trace', 'Tactical Memo'],
+  },
+  {
+    id: 'comms-ghost',
+    label: 'Ghosted Communications',
+    hint: 'Dead drops and ghost signals track the relay that guided the heist.',
+    leads: ['Encrypted Page', 'Recovered Sat-Phone', 'Signal Ghost', 'Submerged Drive'],
+  },
+  {
+    id: 'arcane-veil',
+    label: 'Arcane Veil Riddle',
+    hint: 'Arcane resonances and glyphwork show a mystic masking layer.',
+    leads: ['Harmonic Crystal', 'Spectral Echo', 'Runic Seal', 'Glyph-stamped Card'],
+  },
+  {
+    id: 'crowd-diversion',
+    label: 'Crowd Diversion Gambit',
+    hint: 'Public distractions and rerouted evac paths hide the true objective.',
+    leads: ['Arcade Token', 'Evac Route Overlay', 'Vandalised Billboard', 'Emergency Beacon'],
+  },
+  {
+    id: 'aerial-ambush',
+    label: 'Aerial Ambush Ensemble',
+    hint: 'Airspace sabotage and cloaked gear uncover the skyward assault vector.',
+    leads: ['Sky Harpoon', 'Thermal Cloak Tear', 'Shield Fragment', 'Evacuation Badge'],
+  },
+];
+
+const CLUE_CONNECTION_GROUP_INDEX = new Map(
+  CLUE_CONNECTION_GROUPS.map(group => [group.id, group]),
+);
+
+const CASE_FOCUS_THREAD_MAP = new Map([
+  ['Biohazard Theft', ['biohazard-trail']],
+  ['Psychic Coordination', ['witness-network']],
+  ['Tunnel Infiltration', ['logistics-diversion']],
+  ['Signal Hijack', ['comms-ghost']],
+  ['Power Grid Disruption', ['system-intrusion']],
+  ['Energy Theft', ['quantum-breach', 'system-intrusion']],
+  ['Explosive Diversion', ['crowd-diversion']],
+  ['Aquatic Escape', ['environmental-shift']],
+  ['Orbital Manipulation', ['aerial-ambush']],
+  ['Chronal Sabotage', ['quantum-breach']],
+  ['Logistics Hijack', ['logistics-diversion']],
+  ['Market Manipulation', ['financial-shell']],
+  ['Illusion Warfare', ['arcane-veil']],
+  ['Solar Sabotage', ['aerial-ambush', 'quantum-breach']],
+  ['Weather Control', ['environmental-shift']],
+  ['Chemical Assault', ['biohazard-trail']],
+  ['Energy Camouflage', ['aerial-ambush', 'quantum-breach']],
+  ['Digital Erasure', ['system-intrusion']],
+  ['Mass Hallucination', ['arcane-veil']],
+  ['Subliminal Messaging', ['witness-network']],
+  ['Gravity Distortion', ['aerial-ambush', 'quantum-breach']],
+  ['Polar Diversion', ['environmental-shift']],
+  ['Duplicity Network', ['financial-shell']],
+  ['Event Cover', ['crowd-diversion']],
+  ['Optical Signalling', ['surveillance-loop', 'comms-ghost']],
+  ['Spatial Distortion', ['quantum-breach', 'vault-infiltration']],
+  ['Hypnotic Transmission', ['witness-network', 'arcane-veil']],
+  ['Glamour Diversion', ['crowd-diversion']],
+  ['Acoustic Cover', ['comms-ghost']],
+  ['Carceral Breach', ['vault-infiltration']],
+  ['Financial Obfuscation', ['financial-shell']],
+  ['Automation Hijack', ['drone-hijack']],
+  ['Beacon Subversion', ['comms-ghost']],
+  ['Botanical Trap', ['biohazard-trail', 'environmental-shift']],
+  ['Urban Manipulation', ['crowd-diversion']],
+  ['Quantum Swap', ['quantum-breach']],
+  ['Genomic Theft', ['biohazard-trail']],
+  ['Temporal Masking', ['quantum-breach']],
+  ['Structural Manipulation', ['logistics-diversion', 'forensic-imprint']],
+  ['Vibrational Command', ['arcane-veil']],
+  ['Maritime Diversion', ['environmental-shift']],
+  ['Festival Cover', ['crowd-diversion']],
+  ['Medical Diversion', ['biohazard-trail']],
+  ['Phase Assault', ['quantum-breach', 'vault-infiltration']],
+  ['Orbital Blind', ['aerial-ambush']],
+  ['Media Cutaway', ['crowd-diversion']],
+  ['Aquatic Coordination', ['environmental-shift']],
+  ['Atmospheric Siege', ['aerial-ambush']],
+  ['Civic Camouflage', ['crowd-diversion']],
+  ['Astral Diversion', ['arcane-veil']],
+  ['Botanical Sabotage', ['biohazard-trail', 'environmental-shift']],
+  ['AI Manipulation', ['system-intrusion']],
+]);
 
 function secondsToClock(totalSeconds) {
   const secs = Math.max(0, Math.floor(totalSeconds));
@@ -566,20 +723,71 @@ function setupClueTracker(root, context) {
   const requiredConnections = clamp(Number(config.connectionsRequired ?? 3), 1, Math.max(1, availableClues.length));
   const timePerClue = clamp(Number(config.timePerClue ?? 90), 15, 900);
 
+  const leadLookup = new Map(availableClues.map(lead => [lead.title, lead]));
+  const focusGroups = caseFile?.focus
+    ? (CASE_FOCUS_THREAD_MAP.get(caseFile.focus) || [])
+        .map(id => CLUE_CONNECTION_GROUP_INDEX.get(id))
+        .filter(Boolean)
+    : [];
+
+  let connectionGroup = focusGroups.length ? pickRandom(focusGroups) : pickRandom(CLUE_CONNECTION_GROUPS);
+  let connectedLeads = [];
+  if (connectionGroup) {
+    const resolved = connectionGroup.leads
+      .map(title => leadLookup.get(title))
+      .filter(Boolean);
+    if (resolved.length >= requiredConnections) {
+      connectedLeads = shuffle([...resolved]);
+    } else {
+      connectionGroup = null;
+    }
+  }
+
+  const connectedLeadTitles = new Set(connectedLeads.map(lead => lead.title));
+  const connectionThread = connectionGroup && connectedLeads.length
+    ? {
+        id: connectionGroup.id,
+        label: connectionGroup.label,
+        hint: connectionGroup.hint,
+        leads: Array.from(connectedLeadTitles),
+      }
+    : null;
+
+  const fillerCandidates = availableClues.filter(lead => !connectedLeadTitles.has(lead.title));
+  let pool = [];
+  if (connectedLeads.length) {
+    pool = shuffle([...connectedLeads, ...fillerCandidates]);
+    const initialWindow = Math.min(initialReveal, pool.length);
+    if (initialWindow > 0 && !pool.slice(0, initialWindow).some(lead => connectedLeadTitles.has(lead.title))) {
+      const firstConnectedIndex = pool.findIndex(lead => connectedLeadTitles.has(lead.title));
+      if (firstConnectedIndex >= 0) {
+        const swapIndex = Math.floor(Math.random() * initialWindow);
+        [pool[swapIndex], pool[firstConnectedIndex]] = [pool[firstConnectedIndex], pool[swapIndex]];
+      }
+    }
+  } else {
+    pool = shuffle([...availableClues]);
+  }
+
   const caseFocus = caseFile?.focus ? ` Case focus: ${caseFile.focus}.` : '';
-  const objectiveText = `Objective: Confirm ${requiredConnections} connected lead${requiredConnections === 1 ? '' : 's'} before intel runs dry.${caseFocus}`;
-  objective.textContent = includeRed
-    ? `${objectiveText} Flag planted red herrings so they can't poison the evidence chain.`
-    : objectiveText;
+  const objectiveSegments = [`Objective: Confirm ${requiredConnections} connected lead${requiredConnections === 1 ? '' : 's'} before intel runs dry.${caseFocus}`];
+  if (connectionThread) {
+    const hintText = connectionThread.hint || connectionThread.label;
+    objectiveSegments.push(`Connection intel: ${hintText}`);
+  }
+  if (includeRed) {
+    objectiveSegments.push("Flag planted red herrings so they can't poison the evidence chain.");
+  }
+  objective.textContent = objectiveSegments.join(' ');
 
+  const threadMessage = connectionThread?.label ? ` Connection thread: ${connectionThread.label}.` : '';
   const successMessage = caseFile
-    ? `You triangulated the villain's route for ${caseFile.name}. Relay the confirmed sequence to HQ.`
-    : "You triangulated the villain's route. Relay the confirmed sequence to HQ.";
+    ? `You triangulated the villain's route for ${caseFile.name}.${threadMessage} Relay the confirmed sequence to HQ.`
+    : `You triangulated the villain's route.${threadMessage} Relay the confirmed sequence to HQ.`;
   const exhaustionMessage = caseFile
-    ? `All intel exhausted before you could confirm the full sequence for ${caseFile.name}.`
-    : 'All intel exhausted before you could confirm the full sequence.';
+    ? `All intel exhausted before you could confirm the full sequence for ${caseFile.name}.${threadMessage}`
+    : `All intel exhausted before you could confirm the full sequence.${threadMessage}`;
 
-  const pool = shuffle([...availableClues]);
   const redDeck = includeRed ? shuffle([...(clueLibrary?.redHerrings ?? [])]) : [];
   const revealOrder = pool.slice(0, Math.min(initialReveal, pool.length));
   const hiddenDeck = shuffle([...pool.slice(revealOrder.length), ...redDeck]);
@@ -593,6 +801,7 @@ function setupClueTracker(root, context) {
     required: requiredConnections,
     solved: false,
     success: false,
+    connectionThread,
   };
 
   const cards = [];
@@ -630,6 +839,9 @@ function setupClueTracker(root, context) {
 
   function updateProgress() {
     const segments = [`Revealed ${state.revealed} clue${state.revealed === 1 ? '' : 's'}`];
+    if (state.connectionThread?.label) {
+      segments.push(`Thread: ${state.connectionThread.label}`);
+    }
     segments.push(`Connections ${Math.min(state.confirmed, state.required)}/${state.required}`);
     if (includeRed) {
       segments.push(`Red herrings flagged ${state.disproved}`);
@@ -689,7 +901,7 @@ function setupClueTracker(root, context) {
     }
   }
 
-  function renderCard(clue, index, revealed) {
+  function renderCard(clue, index, revealed, connected) {
     const el = document.createElement('article');
     el.className = 'clue-card';
     el.dataset.index = `#${index}`;
@@ -738,6 +950,7 @@ function setupClueTracker(root, context) {
       bodyText,
       tags,
       status,
+      connected: Boolean(connected),
     };
 
     function updateStatus() {
@@ -758,7 +971,8 @@ function setupClueTracker(root, context) {
       }
       if (data.confirmed) {
         status.hidden = false;
-        status.textContent = 'Confirmed link';
+        const connectionLabel = state.connectionThread?.label;
+        status.textContent = connectionLabel ? `Confirmed link — ${connectionLabel}` : 'Confirmed link';
         status.className = 'clue-card__status clue-card__status--confirmed';
         el.classList.add('clue-card--confirmed');
         el.classList.remove('clue-card--disproved');
@@ -905,11 +1119,11 @@ function setupClueTracker(root, context) {
   }
 
   revealOrder.forEach((clue, idx) => {
-    renderCard(clue, idx + 1, true);
+    renderCard(clue, idx + 1, true, connectedLeadTitles.has(clue.title));
   });
 
   hiddenDeck.forEach((clue, idx) => {
-    renderCard(clue, revealOrder.length + idx + 1, false);
+    renderCard(clue, revealOrder.length + idx + 1, false, connectedLeadTitles.has(clue.title));
   });
 
   function revealNext() {
