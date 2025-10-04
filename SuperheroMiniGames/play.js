@@ -26,6 +26,74 @@ const dismissedEl = document.getElementById('mini-game-dismissed');
 const dismissedTextEl = document.getElementById('mini-game-dismissed-text');
 const dismissedReopenBtn = document.getElementById('mini-game-dismissed-reopen');
 
+const MINI_GAME_TOAST_ID = 'mini-game-toast';
+let toastHideTimer = null;
+
+function getToastElement() {
+  return document.getElementById(MINI_GAME_TOAST_ID);
+}
+
+function ensureToastElement() {
+  let el = getToastElement();
+  if (!el) {
+    el = document.createElement('div');
+    el.id = MINI_GAME_TOAST_ID;
+    el.className = 'mini-game-toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.tabIndex = -1;
+    el.addEventListener('click', () => hideToastMessage());
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function hideToastMessage() {
+  const el = getToastElement();
+  if (!el) return;
+  el.classList.remove('mini-game-toast--visible');
+  el.classList.remove('mini-game-toast--success');
+  el.classList.remove('mini-game-toast--error');
+  if (toastHideTimer) {
+    clearTimeout(toastHideTimer);
+    toastHideTimer = null;
+  }
+}
+
+function showToastMessage(message, { type = 'info', duration = 4000 } = {}) {
+  const text = typeof message === 'string' ? message.trim() : '';
+  if (!text) return;
+  const el = ensureToastElement();
+  if (toastHideTimer) {
+    clearTimeout(toastHideTimer);
+    toastHideTimer = null;
+  }
+  const normalizedType = type === 'success'
+    ? 'success'
+    : type === 'error' || type === 'danger' || type === 'failure'
+      ? 'error'
+      : 'info';
+  const classNames = ['mini-game-toast', 'mini-game-toast--visible'];
+  if (normalizedType === 'success') {
+    classNames.push('mini-game-toast--success');
+  } else if (normalizedType === 'error') {
+    classNames.push('mini-game-toast--error');
+  }
+  el.className = classNames.join(' ');
+  el.textContent = text;
+  try {
+    el.focus({ preventScroll: true });
+  } catch {
+    /* ignore focus errors */
+  }
+  const timeout = typeof duration === 'number' && duration > 0 ? duration : 0;
+  if (timeout > 0) {
+    toastHideTimer = setTimeout(() => {
+      hideToastMessage();
+    }, timeout);
+  }
+}
+
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
 
 function showError(message) {
@@ -50,23 +118,32 @@ function hideOutcome() {
   if (outcomeBodyEl) outcomeBodyEl.textContent = '';
 }
 
+function getOutcomeCopy({ success, heading, body } = {}) {
+  const headingText = typeof heading === 'string' && heading.trim()
+    ? heading.trim()
+    : success === true
+      ? 'Mission accomplished'
+      : success === false
+        ? 'Mission concluded'
+        : 'Mission update';
+  const bodyText = typeof body === 'string' && body.trim()
+    ? body.trim()
+    : success === true
+      ? 'Great work. You can replay the mission or dismiss this console.'
+      : success === false
+        ? 'The mission failed. Debrief with your DM before trying again.'
+        : 'Mission status updated.';
+  return { headingText, bodyText };
+}
+
 function showOutcome({ success, heading, body } = {}) {
   if (!outcomeEl) return;
+  const { headingText, bodyText } = getOutcomeCopy({ success, heading, body });
   if (outcomeHeadingEl) {
-    outcomeHeadingEl.textContent = heading
-      || (success === true
-        ? 'Mission accomplished'
-        : success === false
-          ? 'Mission concluded'
-          : 'Mission update');
+    outcomeHeadingEl.textContent = headingText;
   }
   if (outcomeBodyEl) {
-    outcomeBodyEl.textContent = body
-      || (success === true
-        ? 'Great work. You can replay the mission or dismiss this console.'
-        : success === false
-          ? 'The mission failed. Debrief with your DM before trying again.'
-          : 'Mission status updated.');
+    outcomeBodyEl.textContent = bodyText;
   }
   if (success === true) {
     outcomeEl.dataset.state = 'success';
@@ -90,6 +167,30 @@ function showDismissedNotice(message) {
     dismissedTextEl.textContent = message.trim();
   }
   dismissedEl.hidden = false;
+}
+
+function autoDismissMission({ dismissMessage = '', toastMessage = '', toastType = 'info' } = {}) {
+  hideOutcome();
+  if (launchEl) {
+    launchEl.hidden = true;
+  }
+  if (shell) {
+    shell.hidden = true;
+  }
+  if (typeof dismissMessage === 'string' && dismissMessage.trim()) {
+    showDismissedNotice(dismissMessage);
+  } else {
+    hideDismissedNotice();
+  }
+  if (dismissedReopenBtn) {
+    try { dismissedReopenBtn.focus(); } catch {}
+  }
+  if (typeof toastMessage === 'string' && toastMessage.trim()) {
+    showToastMessage(toastMessage, {
+      type: toastType,
+      duration: 5000,
+    });
+  }
 }
 
 function safeLocalStorage() {
@@ -2239,13 +2340,17 @@ async function init() {
     rootEl.hidden = true;
     hideError();
     const { success = null, heading = '', body = '', dismissMessage } = result;
-    showOutcome({ success, heading, body });
-    if (launchEl) {
-      launchEl.hidden = false;
+    const { headingText, bodyText } = getOutcomeCopy({ success, heading, body });
+    const shouldAutoDismiss = success === true || success === false;
+    if (!shouldAutoDismiss) {
+      showOutcome({ success, heading: headingText, body: bodyText });
+      if (launchEl) {
+        launchEl.hidden = false;
+      }
     }
     if (launchTextEl) {
       const base = 'You can replay the mission or dismiss this console.';
-      const prefix = heading
+      const prefix = headingText
         || (success === true
           ? 'Mission accomplished.'
           : success === false
@@ -2264,7 +2369,17 @@ async function init() {
         : success === false
           ? 'Mission dismissed. Coordinate with your DM before attempting again.'
           : 'Mission dismissed. You may close this window.');
-    if (dismissButtonEl) {
+    const toastMessage = result.toastMessage && typeof result.toastMessage === 'string' && result.toastMessage.trim()
+      ? result.toastMessage.trim()
+      : `${title}: ${success === true ? 'Mission accomplished' : success === false ? 'Mission failed' : headingText}`;
+    const toastType = success === true ? 'success' : success === false ? 'error' : 'info';
+    if (shouldAutoDismiss) {
+      autoDismissMission({
+        dismissMessage: lastDismissMessage,
+        toastMessage,
+        toastType,
+      });
+    } else if (dismissButtonEl) {
       dismissButtonEl.disabled = false;
     }
   };
