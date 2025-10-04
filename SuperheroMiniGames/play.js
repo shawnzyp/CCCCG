@@ -1,3 +1,12 @@
+import {
+  clueLibrary,
+  cipherLibrary,
+  lockdownSubsystemLibrary,
+  powerSurgeEventLibrary,
+  stratagemLibrary,
+  techLockpickLibrary,
+} from './library.js';
+
 const STORAGE_PREFIX = 'cc:mini-game:deployment:';
 const LAST_DEPLOYMENT_KEY = 'cc:mini-game:last-deployment';
 
@@ -497,25 +506,6 @@ function secondsToClock(totalSeconds) {
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
 
-const CLUE_POOL = [
-  { title: 'Thermal Residue', detail: 'Heat signature indicates a quantum drive went active 3 minutes before the break-in.', tags: ['Evidence'] },
-  { title: 'Encrypted Page', detail: 'A torn journal page contains coordinates hidden under reactive ink.', tags: ['Puzzle'] },
-  { title: 'Anonymous Tip', detail: 'Voice-altered call mentions a hand-off at Pier 19 just after sunset.', tags: ['Witness'] },
-  { title: 'City Cam Snapshot', detail: 'Blurry image captures a figure swapping duffel bags at the monorail hub.', tags: ['Surveillance'] },
-  { title: 'Accelerant Sample', detail: 'Chemical analysis shows the accelerant was custom-engineered to burn cold.', tags: ['Forensics'] },
-  { title: 'Dispatch Log', detail: 'Responder log notes power fluctuations exactly when the vault alarm tripped.', tags: ['Systems'] },
-  { title: 'Holo-Key Fragment', detail: 'A fractured holographic key glows with the signature of Axiom Industries.', tags: ['Tech'] },
-  { title: 'Arcade Token', detail: 'Token from the Boardwalk Arcade has fresh scorch marks and residual ozone.', tags: ['Oddity'] },
-  { title: 'Nanite Swarm', detail: 'Dormant nanites recovered from the crime scene respond to a hidden carrier wave.', tags: ['Science'] },
-  { title: 'Courier Route', detail: 'Delivery drone was diverted mid-route, bypassing air traffic controls.', tags: ['Logistics'] },
-];
-
-const RED_HERRINGS = [
-  { title: 'Gossip Column', detail: 'Celebrity sighting claims the villain was across town during the incident.', tags: ['Rumour'], redHerring: true },
-  { title: 'Tabloid Scoop', detail: 'Anonymous blog insists the heist was staged for marketing.', tags: ['Noise'], redHerring: true },
-  { title: 'Street Artist', detail: 'Graffiti near the scene mimics the villain\'s emblem but predates the attack.', tags: ['Distraction'], redHerring: true },
-];
-
 function setupClueTracker(root, context) {
   const card = document.createElement('section');
   card.className = 'mg-card';
@@ -533,6 +523,16 @@ function setupClueTracker(root, context) {
   const objective = document.createElement('p');
   objective.className = 'clue-tracker__objective';
   card.appendChild(objective);
+
+  const caseDeck = Array.isArray(clueLibrary?.cases) ? clueLibrary.cases : [];
+  const caseFile = caseDeck.length ? caseDeck[Math.floor(Math.random() * caseDeck.length)] : null;
+
+  if (caseFile) {
+    const caseSummary = document.createElement('p');
+    caseSummary.className = 'clue-tracker__case';
+    caseSummary.innerHTML = `<strong>Case file:</strong> ${caseFile.name} — ${caseFile.summary}`;
+    card.appendChild(caseSummary);
+  }
 
   const body = document.createElement('p');
   body.className = 'clue-tracker__instruction';
@@ -562,21 +562,27 @@ function setupClueTracker(root, context) {
   const config = context.config || {};
   const initialReveal = clamp(Number(config.cluesToReveal ?? 3), 1, 8);
   const includeRed = Boolean(config.includeRedHerrings);
-  const requiredConnections = clamp(Number(config.connectionsRequired ?? 3), 1, CLUE_POOL.length);
+  const availableClues = Array.isArray(clueLibrary?.leads) ? clueLibrary.leads : [];
+  const requiredConnections = clamp(Number(config.connectionsRequired ?? 3), 1, Math.max(1, availableClues.length));
   const timePerClue = clamp(Number(config.timePerClue ?? 90), 15, 900);
 
-  const objectiveText = `Objective: Confirm ${requiredConnections} connected lead${requiredConnections === 1 ? '' : 's'} before intel runs dry.`;
+  const caseFocus = caseFile?.focus ? ` Case focus: ${caseFile.focus}.` : '';
+  const objectiveText = `Objective: Confirm ${requiredConnections} connected lead${requiredConnections === 1 ? '' : 's'} before intel runs dry.${caseFocus}`;
   objective.textContent = includeRed
     ? `${objectiveText} Flag planted red herrings so they can't poison the evidence chain.`
     : objectiveText;
 
-  const successMessage = 'You triangulated the villain\'s route. Relay the confirmed sequence to HQ.';
-  const exhaustionMessage = 'All intel exhausted before you could confirm the full sequence.';
+  const successMessage = caseFile
+    ? `You triangulated the villain's route for ${caseFile.name}. Relay the confirmed sequence to HQ.`
+    : "You triangulated the villain's route. Relay the confirmed sequence to HQ.";
+  const exhaustionMessage = caseFile
+    ? `All intel exhausted before you could confirm the full sequence for ${caseFile.name}.`
+    : 'All intel exhausted before you could confirm the full sequence.';
 
-  const pool = shuffle([...CLUE_POOL]);
-  const redDeck = includeRed ? shuffle([...RED_HERRINGS]) : [];
-  const revealOrder = pool.slice(0, initialReveal);
-  const hiddenDeck = shuffle([...pool.slice(initialReveal), ...redDeck]);
+  const pool = shuffle([...availableClues]);
+  const redDeck = includeRed ? shuffle([...(clueLibrary?.redHerrings ?? [])]) : [];
+  const revealOrder = pool.slice(0, Math.min(initialReveal, pool.length));
+  const hiddenDeck = shuffle([...pool.slice(revealOrder.length), ...redDeck]);
 
   const state = {
     revealed: 0,
@@ -941,12 +947,6 @@ function setupClueTracker(root, context) {
   ensureTimer();
 }
 
-const CIPHER_SETS = {
-  'alphanumeric': 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
-  'glyph': 'ΔΛΩΨΦΞΣΓΘ',
-  'emoji': ['⚡', '🔥', '💎', '🛰️', '🧬', '🛡️', '🔮', '🧠', '🌀']
-};
-
 function normaliseCipherSet(set) {
   if (Array.isArray(set)) {
     return [...set];
@@ -1019,6 +1019,10 @@ function setupCodeBreaker(root, context) {
   display.textContent = '????';
   card.appendChild(display);
 
+  const cipherMeta = document.createElement('div');
+  cipherMeta.className = 'mg-status code-breaker__meta';
+  card.appendChild(cipherMeta);
+
   const inputRow = document.createElement('div');
   inputRow.className = 'code-breaker__input';
   const input = document.createElement('input');
@@ -1051,11 +1055,33 @@ function setupCodeBreaker(root, context) {
   root.appendChild(log);
 
   const config = context.config || {};
-  const length = clamp(Number(config.codeLength ?? 5), 3, 10);
-  const attempts = clamp(Number(config.attemptLimit ?? 6), 1, 12);
-  const cipherSet = CIPHER_SETS[config.cipherSet] || CIPHER_SETS.alphanumeric;
+  const cipherPool = Array.isArray(cipherLibrary) && cipherLibrary.length
+    ? cipherLibrary
+    : [{
+      id: 'fallback',
+      name: 'Fallback Cipher',
+      symbols: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+      hint: 'Standard cipher engaged. Watch for repeated letters.',
+      defaultLength: 5,
+      defaultAttempts: 6,
+    }];
+  const cipherMap = new Map(cipherPool.map(entry => [entry.id, entry]));
+  let selectedCipher = null;
+  if (typeof config.cipherSet === 'string' && cipherMap.has(config.cipherSet)) {
+    selectedCipher = cipherMap.get(config.cipherSet);
+  } else {
+    selectedCipher = cipherPool[Math.floor(Math.random() * cipherPool.length)] || cipherPool[0];
+  }
+  const length = clamp(Number(config.codeLength ?? selectedCipher?.defaultLength ?? 5), 3, 10);
+  const attempts = clamp(Number(config.attemptLimit ?? selectedCipher?.defaultAttempts ?? 6), 1, 12);
+  const cipherSet = selectedCipher?.symbols ?? 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const secret = randomFromSet(cipherSet, length);
   const rotation = startCipherRotation(display, secret, cipherSet);
+  if (cipherMeta) {
+    cipherMeta.textContent = selectedCipher?.name
+      ? `Active cipher: ${selectedCipher.name}`
+      : 'Active cipher: Unknown protocol';
+  }
   let remaining = attempts;
   let solved = false;
 
@@ -1067,6 +1093,10 @@ function setupCodeBreaker(root, context) {
     item.style.padding = '6px 0';
     item.style.borderBottom = '1px solid rgba(148, 163, 184, 0.25)';
     logList.prepend(item);
+  }
+
+  if (selectedCipher?.hint) {
+    appendLog(`Console hint: ${selectedCipher.hint}`);
   }
 
   function evaluateGuess(value) {
@@ -1149,12 +1179,6 @@ function setupCodeBreaker(root, context) {
   input.focus();
 }
 
-const LOCKDOWN_SUBSYSTEMS = [
-  { id: 'reactor', label: 'Reactor Stabiliser' },
-  { id: 'security', label: 'Security Countermeasures' },
-  { id: 'evac', label: 'Civilian Evacuation' },
-];
-
 function setupLockdownOverride(root, context) {
   const config = context.config || {};
   const securityLevel = config.securityLevel || 'amber';
@@ -1198,11 +1222,28 @@ function setupLockdownOverride(root, context) {
   }[securityLevel] || 4;
   const hazardPenalty = hazardSuppression ? 0.5 : 1;
 
-  const subsystems = LOCKDOWN_SUBSYSTEMS.map((sub, index) => {
+  const subsystemSource = Array.isArray(lockdownSubsystemLibrary) && lockdownSubsystemLibrary.length
+    ? shuffle([...lockdownSubsystemLibrary])
+    : shuffle([
+      { id: 'reactor', label: 'Reactor Stabiliser', description: 'Keeps the antimatter core from slipping out of sync.', actionLabel: 'Pulse coolant', baseline: 60, volatility: 1.1, recovery: 18, boost: 14 },
+      { id: 'security', label: 'Security Countermeasures', description: 'Balances drones, turrets, and shield nodes.', actionLabel: 'Recalibrate turrets', baseline: 55, volatility: 1, recovery: 18, boost: 12 },
+      { id: 'evac', label: 'Civilian Evacuation', description: 'Guides evac pods toward the safe zone.', actionLabel: 'Redirect evac pods', baseline: 58, volatility: 0.95, recovery: 17, boost: 12 },
+    ]);
+  const subsystemCount = clamp(Number(config.subsystemCount ?? 3), 2, Math.min(6, subsystemSource.length));
+  const chosenSubsystems = subsystemSource.slice(0, subsystemCount);
+
+  const subsystems = chosenSubsystems.map((sub, index) => {
     const container = document.createElement('div');
     container.className = 'progress-track';
     const heading = document.createElement('h4');
     heading.textContent = sub.label;
+    container.appendChild(heading);
+    if (sub.description) {
+      const detail = document.createElement('p');
+      detail.className = 'progress-track__detail';
+      detail.textContent = sub.description;
+      container.appendChild(detail);
+    }
     const status = document.createElement('div');
     status.className = 'progress-track__status';
     status.textContent = 'Stable';
@@ -1215,13 +1256,12 @@ function setupLockdownOverride(root, context) {
     button.className = 'mg-button mg-button--ghost';
     button.textContent = 'Stabilise';
 
-    container.appendChild(heading);
     container.appendChild(status);
     container.appendChild(bar);
     container.appendChild(button);
     grid.appendChild(container);
 
-    const initial = 55 + index * 5;
+    const initial = typeof sub.baseline === 'number' ? sub.baseline : 55 + index * 5;
     const data = {
       id: sub.id,
       label: sub.label,
@@ -1229,11 +1269,14 @@ function setupLockdownOverride(root, context) {
       statusEl: status,
       fillEl: fill,
       button,
+      volatility: typeof sub.volatility === 'number' ? sub.volatility : 1,
+      recovery: typeof sub.recovery === 'number' ? sub.recovery : 18,
+      boost: typeof sub.boost === 'number' ? sub.boost : 12,
     };
 
     button.addEventListener('click', () => {
       if (state.completed) return;
-      data.value = clamp(data.value + 18, 0, 100);
+      data.value = clamp(data.value + data.recovery, 0, 100);
       updateSubsystem(data);
     });
 
@@ -1262,7 +1305,8 @@ function setupLockdownOverride(root, context) {
 
   function degradeSystems() {
     subsystems.forEach(sub => {
-      const drop = (Math.random() * difficulty + 1.5) * hazardPenalty;
+      const volatility = typeof sub.volatility === 'number' ? sub.volatility : 1;
+      const drop = (Math.random() * difficulty + 1.5) * hazardPenalty * volatility;
       sub.value = clamp(sub.value - drop, 0, 100);
       if (!state.completed) updateSubsystem(sub);
     });
@@ -1327,7 +1371,7 @@ function setupLockdownOverride(root, context) {
 
   boostAll.addEventListener('click', () => {
     subsystems.forEach(sub => {
-      sub.value = clamp(sub.value + 12, 0, 100);
+      sub.value = clamp(sub.value + sub.boost, 0, 100);
       updateSubsystem(sub);
     });
   });
@@ -1393,6 +1437,23 @@ function setupPowerSurge(root, context) {
   actions.appendChild(boostBtn);
   card.appendChild(actions);
 
+  const ticker = document.createElement('div');
+  ticker.className = 'mg-status power-surge__ticker';
+  ticker.textContent = 'Awaiting surge telemetry…';
+  card.appendChild(ticker);
+
+  const eventPanel = document.createElement('div');
+  eventPanel.className = 'mg-card power-surge__log';
+  const eventTitle = document.createElement('h3');
+  eventTitle.textContent = 'Surge Telemetry';
+  eventPanel.appendChild(eventTitle);
+  const eventList = document.createElement('ul');
+  eventList.style.listStyle = 'none';
+  eventList.style.margin = '0';
+  eventList.style.padding = '0';
+  eventPanel.appendChild(eventList);
+  card.appendChild(eventPanel);
+
   const status = document.createElement('div');
   status.className = 'mg-status';
   status.textContent = 'Stability Window: Hold for 8 seconds';
@@ -1405,9 +1466,57 @@ function setupPowerSurge(root, context) {
   let completedWaves = 0;
   let stableSeconds = 0;
   let concluded = false;
+  const eventLibrary = Array.isArray(powerSurgeEventLibrary) && powerSurgeEventLibrary.length
+    ? powerSurgeEventLibrary
+    : [
+      {
+        id: 'baseline',
+        title: 'Baseline Drift',
+        ticker: 'Minor fluctuations detected.',
+        description: 'Telemetry nominal with slight noise.',
+        volatility: 1,
+        bias: 0,
+        duration: 3,
+        ventModifier: 1,
+        boostModifier: 1,
+      },
+    ];
+  let eventDeck = shuffle([...eventLibrary]);
+  let currentEvent = null;
+  let eventTimer = 0;
+  let ventEffect = 1;
+  let boostEffect = 1;
 
   function updateGauge() {
     gaugeFill.style.height = `${clamp(energy, 0, 100)}%`;
+  }
+
+  function logEvent(event) {
+    if (!eventList) return;
+    const item = document.createElement('li');
+    item.textContent = `${event.title}: ${event.description}`;
+    item.style.padding = '6px 0';
+    item.style.borderBottom = '1px solid rgba(148, 163, 184, 0.25)';
+    eventList.prepend(item);
+    while (eventList.children.length > 6) {
+      eventList.removeChild(eventList.lastChild);
+    }
+  }
+
+  function nextEvent() {
+    if (!eventDeck.length) {
+      eventDeck = shuffle([...eventLibrary]);
+    }
+    currentEvent = eventDeck.shift() || null;
+    eventTimer = currentEvent ? Math.max(1, Number(currentEvent.duration) || 2) : 2;
+    ventEffect = currentEvent?.ventModifier ?? 1;
+    boostEffect = currentEvent?.boostModifier ?? 1;
+    if (ticker) {
+      ticker.textContent = currentEvent?.ticker || 'Telemetry stable.';
+    }
+    if (currentEvent) {
+      logEvent(currentEvent);
+    }
   }
 
   function complete(success, detail) {
@@ -1419,6 +1528,9 @@ function setupPowerSurge(root, context) {
     status.style.background = success
       ? 'rgba(34,197,94,0.2)'
       : 'rgba(248,113,113,0.2)';
+    if (ticker) {
+      ticker.textContent = success ? 'Surge telemetry nominal.' : 'Telemetry lost. Core spiking!';
+    }
     if (context?.completeMission) {
       context.completeMission({
         success,
@@ -1435,12 +1547,18 @@ function setupPowerSurge(root, context) {
   }
 
   function tick() {
+    if (!currentEvent || eventTimer <= 0) {
+      nextEvent();
+    }
+    eventTimer -= 1;
     const turbulence = {
       skill: () => (Math.random() * 8 - 4),
       power: () => (Math.random() * 10 - 5),
       mixed: () => (Math.random() * 12 - 6),
     }[stabilityChecks] || (() => (Math.random() * 8 - 4));
-    energy = clamp(energy + turbulence(), 0, 110);
+    const modifier = currentEvent?.volatility ?? 1;
+    const bias = currentEvent?.bias ?? 0;
+    energy = clamp(energy + turbulence() * modifier + bias, 0, 110);
     if (energy >= target - tolerance && energy <= target + tolerance) {
       stableSeconds += 1;
       status.textContent = `Hold steady… ${8 - stableSeconds} second${8 - stableSeconds === 1 ? '' : 's'} remaining`;
@@ -1464,93 +1582,19 @@ function setupPowerSurge(root, context) {
   }
 
   ventBtn.addEventListener('click', () => {
-    energy = clamp(energy - 12, 0, 110);
+    energy = clamp(energy - 12 * ventEffect, 0, 110);
     updateGauge();
   });
 
   boostBtn.addEventListener('click', () => {
-    energy = clamp(energy + 12, 0, 110);
+    energy = clamp(energy + 12 * boostEffect, 0, 110);
     updateGauge();
   });
 
   updateGauge();
+  nextEvent();
   interval = window.setInterval(tick, 1000);
 }
-
-const STRATAGEM_LIBRARY = [
-  {
-    id: 'skyshield-dome',
-    name: 'Skyshield Dome',
-    callSign: 'Skyshield Seven',
-    summary: 'Drops a radiant barrier that hardens the evac zone against incoming fire.',
-    difficulty: 0,
-    sequence: ['up', 'down', 'left', 'right'],
-  },
-  {
-    id: 'starfall-barrage',
-    name: 'Starfall Barrage',
-    callSign: 'Orbital Lance',
-    summary: 'Signals an orbital lance strike to vaporise entrenched hostiles.',
-    difficulty: 0,
-    sequence: ['right', 'down', 'down', 'up'],
-  },
-  {
-    id: 'medevac-spire',
-    name: 'Medevac Spire',
-    callSign: 'Angel Flight',
-    summary: 'Deploys medevac drones that auto-extract injured allies.',
-    difficulty: 0,
-    sequence: ['down', 'left', 'up', 'up'],
-  },
-  {
-    id: 'aegis-reservoir',
-    name: 'Aegis Reservoir',
-    callSign: 'Beacon Ward',
-    summary: 'Projects a regenerative field that empowers friendly abilities.',
-    difficulty: 1,
-    sequence: ['up', 'up', 'right', 'down', 'left'],
-  },
-  {
-    id: 'tempest-lancers',
-    name: 'Tempest Lancers',
-    callSign: 'Storm Team',
-    summary: 'Summons aerial lancers to sweep the battlefield.',
-    difficulty: 1,
-    sequence: ['left', 'up', 'right', 'down', 'down'],
-  },
-  {
-    id: 'quantum-net',
-    name: 'Quantum Net',
-    callSign: 'Nullwave',
-    summary: 'Deploys a net of nullwave pylons that snare teleporting foes.',
-    difficulty: 1,
-    sequence: ['down', 'down', 'left', 'right', 'up'],
-  },
-  {
-    id: 'sunforge-cannon',
-    name: 'Sunforge Cannon',
-    callSign: 'Solar Forge',
-    summary: 'Calibrates a solar cannon that burns a path through armour.',
-    difficulty: 2,
-    sequence: ['up', 'right', 'down', 'left', 'up', 'right'],
-  },
-  {
-    id: 'phase-relay',
-    name: 'Phase Relay',
-    callSign: 'Blink Gate',
-    summary: 'Establishes a temporary blink gate for allied reinforcements.',
-    difficulty: 2,
-    sequence: ['right', 'right', 'up', 'down', 'left', 'left'],
-  },
-  {
-    id: 'tidal-catalyst',
-    name: 'Tidal Catalyst',
-    callSign: 'Cascade Prime',
-    summary: 'Unleashes a gravity pulse that knocks back any remaining threats.',
-    difficulty: 2,
-    sequence: ['left', 'down', 'down', 'up', 'right', 'up'],
-  },
-];
 
 function setupStratagemHero(root, context) {
   const config = context.config || {};
@@ -1565,7 +1609,15 @@ function setupStratagemHero(root, context) {
   };
 
   const targetRank = difficultyRank[selectedDifficulty] ?? 0;
-  const availableStratagems = STRATAGEM_LIBRARY.filter(item => item.difficulty <= targetRank);
+  const fallbackStratagems = [
+    { id: 'fallback-alpha', name: 'Fallback Drop', callSign: 'Guardian Pack', summary: 'Standard supply drop to keep the line fortified.', difficulty: 0, sequence: ['up', 'down', 'left', 'right'] },
+    { id: 'fallback-beta', name: 'Fallback Strike', callSign: 'Beacon Hammer', summary: 'Targeted barrage to clear immediate hostiles.', difficulty: 1, sequence: ['right', 'up', 'left', 'down', 'right'] },
+    { id: 'fallback-gamma', name: 'Fallback Shield', callSign: 'Aegis Core', summary: 'Emergency shield lattice to buy recovery time.', difficulty: 1, sequence: ['left', 'left', 'up', 'down', 'right'] },
+  ];
+  const stratagemSource = Array.isArray(stratagemLibrary) && stratagemLibrary.length
+    ? stratagemLibrary
+    : fallbackStratagems;
+  const availableStratagems = stratagemSource.filter(item => item.difficulty <= targetRank);
 
   const glyphs = {
     up: '↑',
@@ -1645,7 +1697,7 @@ function setupStratagemHero(root, context) {
   let progressIndex = 0;
   let missionComplete = false;
 
-  const deckSource = availableStratagems.length ? availableStratagems : STRATAGEM_LIBRARY;
+  const deckSource = availableStratagems.length ? availableStratagems : stratagemSource;
   let deck = shuffle([...deckSource]);
 
   function updateTelemetry() {
@@ -1799,18 +1851,15 @@ function setupTechLockpick(root, context) {
   const ATTEMPT_FLOOR = 3;
   const attemptsTotal = Math.max(ATTEMPT_FLOOR, failuresAllowed + 2);
 
-  const wordBanks = {
-    standard: ['NEXUS', 'SIGMA', 'PROBE', 'TRACE', 'PLASM', 'ARRAY', 'IONIC', 'PIXEL', 'NODES', 'LASER', 'FIBER', 'CIRCU', 'GRIDS', 'LOGIC', 'VAULT'],
-    advanced: ['PHOTON', 'CRYPTO', 'VECTOR', 'NEURAL', 'ANODED', 'MODULE', 'QUANTA', 'SCRYER', 'PULSER', 'SYSTEM', 'TERMIN', 'CORTEX', 'RIGGED', 'SPIRAL', 'SHADOW'],
-    exotic: ['AETHER', 'OVERDR', 'PRISMZ', 'CYGNUS', 'QUARKS', 'ENTROP', 'CHIMER', 'OBELIS', 'MANTIS', 'VIOLET', 'ORACLE', 'FORGED', 'SINGUL', 'CRYPTX', 'ZEPIHR'],
-  };
-
-  const wordLengthMap = { standard: 5, advanced: 6, exotic: 6 };
-  const optionsMap = { standard: 8, advanced: 10, exotic: 12 };
-
-  const targetLength = wordLengthMap[complexity] || wordLengthMap.standard;
-  const optionsCount = optionsMap[complexity] || optionsMap.standard;
-  const bank = wordBanks[complexity] || wordBanks.standard;
+  const defaultConfig = techLockpickLibrary.standard || { length: 5, options: 8, words: [] };
+  const bankConfig = techLockpickLibrary[complexity] || defaultConfig;
+  const targetLength = Number(bankConfig.length) || defaultConfig.length || 5;
+  const optionsCount = Number(bankConfig.options) || defaultConfig.options || 8;
+  const bank = Array.isArray(bankConfig.words) && bankConfig.words.length
+    ? bankConfig.words
+    : Array.isArray(defaultConfig.words)
+      ? defaultConfig.words
+      : [];
 
   function pickWords(pool, length, count) {
     const candidates = pool.filter(word => word.length === length);
@@ -1830,7 +1879,8 @@ function setupTechLockpick(root, context) {
 
   let words = pickWords(bank, targetLength, optionsCount);
   if (words.length < 4) {
-    words = pickWords(wordBanks.standard, targetLength, Math.max(6, optionsCount));
+    const fallbackPool = Array.isArray(defaultConfig.words) ? defaultConfig.words : [];
+    words = pickWords(fallbackPool, targetLength, Math.max(6, optionsCount));
   }
   if (!words.length) {
     words = ['LOGIC', 'NEXUS', 'TRACE', 'PIXEL'];
