@@ -1181,3 +1181,140 @@ body {
     grid-template-columns: auto auto;
   }
 }
+
+@media (max-width: 540px) {
+  body {
+    display: block;
+    padding: 14px 10px 22px;
+  }
+
+  .mini-game-shell {
+    width: 100%;
+    padding: 18px 12px 24px;
+    gap: 16px;
+  }
+
+  .mini-game-shell__header {
+    gap: 10px;
+  }
+
+  .mini-game-shell__tagline {
+    font-size: 0.9rem;
+  }
+
+  .mini-game-shell__meta dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+
+  .mini-game-shell__config dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mini-game-shell__launch,
+  .mini-game-shell__outcome {
+    align-items: stretch;
+  }
+
+  .mini-game-shell__outcome-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mg-button,
+  .mini-game-shell__launch-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tech-terminal__memory {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: auto;
+  }
+
+  .tech-terminal__line {
+    font-size: 0.85rem;
+  }
+
+  .code-breaker__display {
+    font-size: clamp(1.1rem, 8vw, 1.4rem);
+    letter-spacing: 0.18em;
+    padding: 10px 12px;
+  }
+
+  .code-breaker__input {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .code-breaker__input input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .lockdown-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .power-surge__gauge {
+    height: 180px;
+  }
+
+  .power-surge__waves {
+    justify-content: flex-start;
+  }
+
+  .stratagem-telemetry {
+    flex-direction: column;
+  }
+
+  .stratagem-telemetry__item {
+    width: 100%;
+  }
+
+  .stratagem-pad {
+    grid-template-columns: repeat(3, 60px);
+    grid-template-rows: repeat(3, 60px);
+    gap: 10px;
+  }
+
+  .lockpick-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lockpick-dial__controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .lockpick-dial__controls button {
+    flex: 1 1 44px;
+    max-width: 80px;
+  }
+}
+
+@media (max-width: 360px) {
+  .mini-game-shell {
+    padding: 16px 10px 20px;
+  }
+
+  .mini-game-shell__title {
+    font-size: clamp(1.35rem, 9vw, 1.7rem);
+  }
+
+  .tech-terminal__status {
+    font-size: 0.78rem;
+    padding: 8px 10px;
+  }
+
+  .code-breaker__display {
+    letter-spacing: 0.12em;
+  }
+
+  .power-surge__target {
+    font-size: 0.68rem;
+  }
+}
