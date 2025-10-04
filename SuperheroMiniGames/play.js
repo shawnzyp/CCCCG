@@ -21,10 +21,19 @@ const rootEl = document.getElementById('mini-game-root');
 const outcomeEl = document.getElementById('mini-game-outcome');
 const outcomeHeadingEl = document.getElementById('mini-game-outcome-heading');
 const outcomeBodyEl = document.getElementById('mini-game-outcome-body');
-const dismissButtonEl = document.getElementById('mini-game-dismiss');
-const dismissedEl = document.getElementById('mini-game-dismissed');
-const dismissedTextEl = document.getElementById('mini-game-dismissed-text');
-const dismissedReopenBtn = document.getElementById('mini-game-dismissed-reopen');
+let lastDismissMessage = '';
+
+function getDismissElements() {
+  return {
+    button: document.getElementById('mini-game-dismiss'),
+    section: document.getElementById('mini-game-dismissed'),
+    text: document.getElementById('mini-game-dismissed-text'),
+    reopen: document.getElementById('mini-game-dismissed-reopen'),
+  };
+}
+
+let dismissHandlerBound = false;
+let reopenHandlerBound = false;
 
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
 
@@ -79,17 +88,57 @@ function showOutcome({ success, heading, body } = {}) {
 }
 
 function hideDismissedNotice() {
-  if (dismissedEl) {
-    dismissedEl.hidden = true;
+  const { section } = getDismissElements();
+  if (section) {
+    section.hidden = true;
   }
 }
 
 function showDismissedNotice(message) {
-  if (!dismissedEl) return;
-  if (dismissedTextEl && typeof message === 'string' && message.trim()) {
-    dismissedTextEl.textContent = message.trim();
+  const { section, text } = getDismissElements();
+  if (!section) return;
+  if (text && typeof message === 'string' && message.trim()) {
+    text.textContent = message.trim();
   }
-  dismissedEl.hidden = false;
+  section.hidden = false;
+}
+
+function handleDismissClick() {
+  hideOutcome();
+  showDismissedNotice(lastDismissMessage);
+  if (launchEl) {
+    launchEl.hidden = true;
+  }
+  if (shell) {
+    shell.hidden = true;
+  }
+}
+
+function handleDismissedReopenClick() {
+  if (shell) {
+    shell.hidden = false;
+  }
+  hideOutcome();
+  if (launchEl) {
+    launchEl.hidden = false;
+  }
+  if (startButtonEl) {
+    startButtonEl.disabled = false;
+    try { startButtonEl.focus(); } catch {}
+  }
+  hideDismissedNotice();
+}
+
+function bindDismissControls() {
+  const { button, reopen } = getDismissElements();
+  if (button && !dismissHandlerBound) {
+    button.addEventListener('click', handleDismissClick);
+    dismissHandlerBound = true;
+  }
+  if (reopen && !reopenHandlerBound) {
+    reopen.addEventListener('click', handleDismissedReopenClick);
+    reopenHandlerBound = true;
+  }
 }
 
 function safeLocalStorage() {
@@ -2216,6 +2265,7 @@ async function init() {
 
   hideOutcome();
   hideDismissedNotice();
+  bindDismissControls();
 
   if (launchTextEl) {
     const baseMessage = 'Review the mission briefing and parameters. When you\'re ready, begin the deployment to load the interactive console.';
@@ -2229,7 +2279,7 @@ async function init() {
   shell.hidden = false;
 
   let missionStarted = false;
-  let lastDismissMessage = '';
+  lastDismissMessage = '';
 
   const missionContext = { ...context };
 
@@ -2264,8 +2314,9 @@ async function init() {
         : success === false
           ? 'Mission dismissed. Coordinate with your DM before attempting again.'
           : 'Mission dismissed. You may close this window.');
-    if (dismissButtonEl) {
-      dismissButtonEl.disabled = false;
+    const { button } = getDismissElements();
+    if (button) {
+      button.disabled = false;
     }
   };
 
@@ -2298,36 +2349,6 @@ async function init() {
       return false;
     }
   };
-
-  if (dismissButtonEl) {
-    dismissButtonEl.addEventListener('click', () => {
-      hideOutcome();
-      showDismissedNotice(lastDismissMessage);
-      if (launchEl) {
-        launchEl.hidden = true;
-      }
-      if (shell) {
-        shell.hidden = true;
-      }
-    });
-  }
-
-  if (dismissedReopenBtn) {
-    dismissedReopenBtn.addEventListener('click', () => {
-      if (shell) {
-        shell.hidden = false;
-      }
-      hideOutcome();
-      if (launchEl) {
-        launchEl.hidden = false;
-      }
-      if (startButtonEl) {
-        startButtonEl.disabled = false;
-        try { startButtonEl.focus(); } catch {}
-      }
-      hideDismissedNotice();
-    });
-  }
 
   if (ensuredLaunch.start) {
     if (ensuredLaunch.launch) {
