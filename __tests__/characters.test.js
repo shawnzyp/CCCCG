@@ -47,6 +47,46 @@ describe('character storage', () => {
     expect(fetch).toHaveBeenCalledTimes(7);
   });
 
+  test('loadCharacter migrates legacy power entries', async () => {
+    const legacyData = {
+      powers: [
+        {
+          name: 'Arc Burst',
+          effect: 'Hurls a blazing bolt that deals 3d6 fire damage in a 60 ft line. Targets make a DEX save for half.',
+          sp: '3',
+          save: 'DEX half',
+          range: '60 ft line',
+        },
+      ],
+      powerSettings: {
+        casterSaveAbility: 'DEX',
+        dcFormula: 'Simple',
+        proficiencyBonus: 0,
+        abilityMods: { STR: 0, DEX: 3, CON: 0, INT: 0, WIS: 0, CHA: 0 },
+      },
+    };
+    localStorage.setItem('save:Hero', JSON.stringify(legacyData));
+
+    const { loadCharacter } = await import('../scripts/characters.js');
+    const data = await loadCharacter('Hero', { bypassPin: true });
+
+    expect(data.powers).toHaveLength(1);
+    const power = data.powers[0];
+    expect(power).toMatchObject({
+      name: 'Arc Burst',
+      shape: 'Line',
+      range: '60 ft',
+      effectTag: 'Damage',
+      intensity: 'Core',
+      requiresSave: true,
+      saveAbilityTarget: 'DEX',
+    });
+    expect(power.damage).toEqual({ dice: '3d6', type: 'Fire', onSave: 'Half' });
+    expect(power.rulesText).toContain('60 ft Line');
+    expect(power.rulesText).toContain('Cost:');
+    expect(power.rulesText).toContain('DEX Save DC');
+  });
+
   test('lists backups and loads a selected one', async () => {
     const ts1 = 1, ts2 = 2, ts3 = 3;
     fetch

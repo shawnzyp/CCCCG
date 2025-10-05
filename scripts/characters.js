@@ -37,6 +37,431 @@ try {
   }
 } catch {}
 
+const POWER_STYLES = [
+  'Physical Powerhouse',
+  'Energy Manipulator',
+  'Speedster',
+  'Telekinetic/Psychic',
+  'Illusionist',
+  'Shape-shifter',
+  'Elemental Controller',
+];
+
+const POWER_ACTION_TYPES = ['Action', 'Bonus', 'Reaction', 'Out-of-Combat'];
+const POWER_TARGET_SHAPES = ['Melee', 'Ranged Single', 'Cone', 'Line', 'Radius', 'Self', 'Aura'];
+const POWER_EFFECT_TAGS = [
+  'Damage',
+  'Stun',
+  'Blind',
+  'Weaken',
+  'Push/Pull',
+  'Burn',
+  'Freeze',
+  'Slow',
+  'Charm',
+  'Shield',
+  'Heal',
+  'Teleport/Phase',
+  'Summon/Clone',
+  'Terrain',
+  'Dispel/Nullify',
+];
+const POWER_INTENSITIES = ['Minor', 'Core', 'AoE', 'Control', 'Ultimate'];
+const POWER_SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+const POWER_DURATIONS = [
+  'Instant',
+  'End of Target’s Next Turn',
+  '1 Round',
+  'Sustained',
+  'Scene',
+  'Session',
+];
+const POWER_USES = ['At-will', 'Per Encounter', 'Per Session', 'Cooldown'];
+const POWER_ON_SAVE_OPTIONS = ['Full', 'Half', 'Negate'];
+const POWER_DAMAGE_TYPES = [
+  'Kinetic',
+  'Fire',
+  'Cold',
+  'Lightning',
+  'Psychic',
+  'Force',
+  'Radiant',
+  'Necrotic',
+  'Acid',
+];
+const POWER_SCALING_OPTIONS = ['Static', 'Level-based', 'Ability-based'];
+const POWER_DAMAGE_DICE = ['1d6', '2d6', '3d6', '4d6', '5d6', '6d6'];
+const POWER_RANGE_QUICK_VALUES = [
+  'Melee',
+  '10 ft',
+  '30 ft',
+  '60 ft',
+  '90 ft',
+  '120 ft',
+  'Unlimited (narrative)',
+];
+const POWER_SHAPE_RANGES = {
+  Melee: ['Melee'],
+  Cone: ['15 ft', '30 ft', '60 ft'],
+  Line: ['30 ft', '60 ft', '120 ft'],
+  Radius: ['10 ft', '15 ft', '20 ft', '30 ft'],
+  Self: ['Self'],
+  Aura: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
+  'Ranged Single': ['30 ft', '60 ft', '90 ft', '120 ft'],
+};
+
+const LEGACY_EFFECT_KEYWORDS = [
+  { tag: 'Damage', patterns: [/damage/i, /blast/i, /strike/i, /hit/i] },
+  { tag: 'Stun', patterns: [/stun/i, /daze/i, /paraly/i] },
+  { tag: 'Blind', patterns: [/blind/i, /dazzle/i] },
+  { tag: 'Weaken', patterns: [/weaken/i, /sap/i, /drain/i, /suppress/i] },
+  { tag: 'Push/Pull', patterns: [/push/i, /pull/i, /knock/i, /shove/i] },
+  { tag: 'Burn', patterns: [/burn/i, /ignite/i, /flame/i, /scorch/i] },
+  { tag: 'Freeze', patterns: [/freeze/i, /frost/i, /ice/i, /chill/i] },
+  { tag: 'Slow', patterns: [/slow/i, /hamper/i, /quicken/i] },
+  { tag: 'Charm', patterns: [/charm/i, /entranc/i, /persuad/i, /fear/i] },
+  { tag: 'Shield', patterns: [/shield/i, /ward/i, /barrier/i, /deflect/i] },
+  { tag: 'Heal', patterns: [/heal/i, /restore/i, /regenerat/i, /mend/i] },
+  { tag: 'Teleport/Phase', patterns: [/teleport/i, /blink/i, /phase/i, /step/i] },
+  { tag: 'Summon/Clone', patterns: [/summon/i, /clone/i, /duplicate/i, /decoy/i] },
+  { tag: 'Terrain', patterns: [/terrain/i, /field/i, /zone/i, /wall/i, /cage/i] },
+  { tag: 'Dispel/Nullify', patterns: [/dispel/i, /nullify/i, /counter/i, /negate/i] },
+];
+
+function suggestSpCost(intensity = 'Core') {
+  switch (intensity) {
+    case 'Minor':
+      return 1;
+    case 'Core':
+      return 2;
+    case 'AoE':
+      return 3;
+    case 'Control':
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function computeSaveDc(settings) {
+  if (!settings) return 10;
+  const { casterSaveAbility = 'WIS', dcFormula = 'Proficiency', proficiencyBonus = 0, abilityMods = {} } = settings;
+  const modValue = abilityMods?.[casterSaveAbility] ?? 0;
+  if (dcFormula === 'Simple') {
+    return 10 + modValue;
+  }
+  return 8 + modValue + proficiencyBonus;
+}
+
+function defaultDamageType(style) {
+  switch (style) {
+    case 'Energy Manipulator':
+      return 'Lightning';
+    case 'Elemental Controller':
+      return 'Fire';
+    case 'Telekinetic/Psychic':
+      return 'Force';
+    case 'Physical Powerhouse':
+      return 'Kinetic';
+    case 'Speedster':
+    case 'Shape-shifter':
+      return 'Kinetic';
+    default:
+      return null;
+  }
+}
+
+function generatePowerId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {}
+  }
+  return `power-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+function getRangeOptionsForShape(shape) {
+  const options = POWER_SHAPE_RANGES[shape];
+  if (options && options.length) return options;
+  return POWER_RANGE_QUICK_VALUES.filter(value => value !== 'Melee');
+}
+
+function normalizeRangeForShape(shape, range) {
+  const trimmed = typeof range === 'string' ? range.trim() : '';
+  if (shape === 'Melee') return 'Melee';
+  if (shape === 'Self') return trimmed || 'Self';
+  if (shape === 'Aura' && (!trimmed || /^self$/i.test(trimmed))) return 'Self';
+  const options = getRangeOptionsForShape(shape);
+  if (trimmed && options.includes(trimmed)) return trimmed;
+  if (trimmed) return trimmed;
+  if (options.length) return options[0];
+  return shape === 'Aura' ? '10 ft' : '30 ft';
+}
+
+function matchLegacyEffectTag(text) {
+  if (!text) return null;
+  for (const entry of LEGACY_EFFECT_KEYWORDS) {
+    if (entry.patterns.some(pattern => pattern.test(text))) {
+      return entry.tag;
+    }
+  }
+  return null;
+}
+
+function detectDamageTypeFromText(text) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  if (lower.includes('fire') || lower.includes('flame') || lower.includes('ember')) return 'Fire';
+  if (lower.includes('cold') || lower.includes('ice') || lower.includes('frost')) return 'Cold';
+  if (lower.includes('lightning') || lower.includes('shock') || lower.includes('elect')) return 'Lightning';
+  if (lower.includes('psychic') || lower.includes('mind') || lower.includes('mental')) return 'Psychic';
+  if (lower.includes('force') || lower.includes('kinetic')) return 'Force';
+  if (lower.includes('radiant') || lower.includes('light')) return 'Radiant';
+  if (lower.includes('necrotic') || lower.includes('void') || lower.includes('shadow')) return 'Necrotic';
+  if (lower.includes('acid') || lower.includes('corros')) return 'Acid';
+  if (lower.includes('slam') || lower.includes('punch') || lower.includes('impact')) return 'Kinetic';
+  return null;
+}
+
+function inferShapeFromLegacy(rangeText) {
+  const text = String(rangeText || '').toLowerCase();
+  if (text.includes('cone')) return 'Cone';
+  if (text.includes('line')) return 'Line';
+  if (text.includes('radius') || text.includes('burst')) return 'Radius';
+  if (text.includes('aura')) return 'Aura';
+  if (text.includes('self')) return 'Self';
+  if (text.includes('melee')) return 'Melee';
+  return 'Ranged Single';
+}
+
+function parseLegacyRange(rangeText, shape) {
+  const text = String(rangeText || '').trim();
+  if (!text) {
+    if (shape === 'Melee') return 'Melee';
+    if (shape === 'Self') return 'Self';
+    return normalizeRangeForShape(shape, '');
+  }
+  const ftMatch = text.match(/([0-9]{1,3})\s*ft/i);
+  if (ftMatch) {
+    const candidate = `${ftMatch[1]} ft`;
+    return normalizeRangeForShape(shape, candidate);
+  }
+  if (shape === 'Melee') return 'Melee';
+  if (shape === 'Self') return 'Self';
+  if (shape === 'Aura' && text.toLowerCase().includes('self')) return 'Self';
+  return normalizeRangeForShape(shape, text);
+}
+
+function migrateLegacyPower(raw = {}) {
+  const effectText = typeof raw.effect === 'string' ? raw.effect.trim() : '';
+  const shape = inferShapeFromLegacy(raw.range);
+  const range = parseLegacyRange(raw.range, shape);
+  const effectTag = matchLegacyEffectTag(effectText) || 'Damage';
+  const saveText = typeof raw.save === 'string' ? raw.save.trim() : '';
+  const requiresSave = !!saveText;
+  let saveAbility = null;
+  if (requiresSave) {
+    const abilityMatch = saveText.match(/STR|DEX|CON|INT|WIS|CHA/i);
+    if (abilityMatch) saveAbility = abilityMatch[0].toUpperCase();
+  }
+  const diceMatch = effectText.match(/([1-6])d6/i);
+  let damage = null;
+  if (diceMatch) {
+    const dice = POWER_DAMAGE_DICE.includes(`${diceMatch[1]}d6`) ? `${diceMatch[1]}d6` : '1d6';
+    let type = detectDamageTypeFromText(effectText) || defaultDamageType('');
+    if (!type || !POWER_DAMAGE_TYPES.includes(type)) type = 'Kinetic';
+    let onSave = 'Half';
+    if (/negate/i.test(saveText) || /negate/i.test(effectText)) onSave = 'Negate';
+    else if (/full/i.test(saveText)) onSave = 'Full';
+    damage = { dice, type, onSave };
+  }
+  return {
+    id: generatePowerId(),
+    name: raw.name || 'Power',
+    style: POWER_STYLES.includes(raw.style) ? raw.style : '',
+    actionType: 'Action',
+    shape,
+    range,
+    effectTag,
+    intensity: 'Core',
+    spCost: Math.max(1, Math.round(Number(raw.sp) || suggestSpCost('Core'))),
+    requiresSave,
+    saveAbilityTarget: requiresSave && POWER_SAVE_ABILITIES.includes(saveAbility) ? saveAbility : requiresSave ? 'WIS' : null,
+    duration: 'Instant',
+    description: effectText,
+    damage: damage || undefined,
+    secondaryTag: undefined,
+    concentration: false,
+    uses: 'At-will',
+    cooldown: 0,
+    scaling: 'Static',
+    special: '',
+    legacyText: effectText,
+    originalText: effectText,
+    migration: true,
+    needsReview: true,
+  };
+}
+
+function normalizeStoredPower(raw = {}) {
+  if (!raw || typeof raw !== 'object') return null;
+  let base = raw;
+  if (
+    raw.effect !== undefined
+    || raw.sp !== undefined
+    || raw.save !== undefined
+    || raw.range !== undefined
+  ) {
+    base = migrateLegacyPower(raw);
+  }
+  const shape = POWER_TARGET_SHAPES.includes(base.shape) ? base.shape : 'Ranged Single';
+  const range = normalizeRangeForShape(shape, base.range);
+  const intensity = POWER_INTENSITIES.includes(base.intensity) ? base.intensity : 'Core';
+  let spCost = Math.max(1, Math.round(Number(base.spCost)));
+  if (!Number.isFinite(spCost) || spCost <= 0) spCost = suggestSpCost(intensity);
+  const requiresSave = !!base.requiresSave;
+  const saveAbilityTarget = requiresSave && POWER_SAVE_ABILITIES.includes(base.saveAbilityTarget)
+    ? base.saveAbilityTarget
+    : requiresSave
+      ? 'WIS'
+      : null;
+  let cooldown = Number(base.cooldown);
+  if (!Number.isFinite(cooldown) || cooldown < 0) cooldown = 0;
+  const uses = POWER_USES.includes(base.uses) ? base.uses : 'At-will';
+  if (intensity === 'Ultimate') {
+    cooldown = Math.max(10, cooldown || 10);
+  } else if (uses === 'Cooldown' && cooldown === 0) {
+    cooldown = 1;
+  }
+  const damage = base.damage && typeof base.damage === 'object'
+    ? {
+        dice: POWER_DAMAGE_DICE.includes(base.damage.dice) ? base.damage.dice : '1d6',
+        type: POWER_DAMAGE_TYPES.includes(base.damage.type)
+          ? base.damage.type
+          : (defaultDamageType(base.style) || 'Kinetic'),
+        onSave: POWER_ON_SAVE_OPTIONS.includes(base.damage.onSave) ? base.damage.onSave : 'Half',
+      }
+    : null;
+  const secondaryTag = base.secondaryTag && POWER_EFFECT_TAGS.includes(base.secondaryTag) ? base.secondaryTag : null;
+  const scaling = POWER_SCALING_OPTIONS.includes(base.scaling) ? base.scaling : 'Static';
+  const duration = POWER_DURATIONS.includes(base.duration) ? base.duration : 'Instant';
+  const concentration = duration === 'Sustained' ? true : !!base.concentration;
+  const normalized = {
+    id: typeof base.id === 'string' && base.id ? base.id : generatePowerId(),
+    name: typeof base.name === 'string' ? base.name : '',
+    style: POWER_STYLES.includes(base.style) ? base.style : (base.style || ''),
+    actionType: POWER_ACTION_TYPES.includes(base.actionType) ? base.actionType : 'Action',
+    shape,
+    range,
+    effectTag: POWER_EFFECT_TAGS.includes(base.effectTag) ? base.effectTag : (secondaryTag || 'Damage'),
+    intensity,
+    spCost,
+    requiresSave,
+    saveAbilityTarget,
+    duration,
+    description: typeof base.description === 'string' ? base.description : '',
+    damage: damage || undefined,
+    secondaryTag: secondaryTag || undefined,
+    concentration,
+    uses,
+    cooldown,
+    scaling,
+    special: typeof base.special === 'string' ? base.special : '',
+    legacyText: base.legacyText || base.originalText || '',
+    originalText: base.originalText || base.legacyText || (typeof base.effect === 'string' ? base.effect : ''),
+    migration: !!base.migration,
+    needsReview: !!base.needsReview,
+  };
+  if (normalized.intensity === 'Ultimate') {
+    normalized.cooldown = Math.max(10, normalized.cooldown || 10);
+    normalized.uses = 'Cooldown';
+  }
+  if (normalized.duration === 'Sustained') {
+    normalized.concentration = true;
+  }
+  return normalized;
+}
+
+function formatStoredPowerRange(power) {
+  const shape = power.shape;
+  const range = power.range;
+  switch (shape) {
+    case 'Melee':
+      return 'Melee range';
+    case 'Line':
+      return `${range || '30 ft'} Line`;
+    case 'Cone':
+      return `${range || '15 ft'} Cone`;
+    case 'Radius':
+      return `${range || '10 ft'} Radius`;
+    case 'Self':
+      return 'Self';
+    case 'Aura':
+      if (!range || range === 'Self') return 'Aura';
+      return `Aura ${range}`;
+    case 'Ranged Single':
+    default:
+      return range || '30 ft';
+  }
+}
+
+function composeStoredPowerRulesText(power, settings) {
+  if (!power) return '';
+  const pieces = [];
+  pieces.push(power.actionType || 'Action');
+  pieces.push(formatStoredPowerRange(power));
+  if (power.requiresSave) {
+    const ability = power.saveAbilityTarget || settings?.casterSaveAbility || 'WIS';
+    const dc = computeSaveDc(settings);
+    pieces.push(`${ability} Save DC ${dc}`);
+  }
+  let effectPart = '';
+  if (power.damage) {
+    effectPart = `${power.damage.dice} ${power.damage.type}`;
+    if (power.damage.onSave) {
+      effectPart += `, ${power.damage.onSave} on Save`;
+    }
+  } else if (power.effectTag) {
+    effectPart = power.effectTag;
+  }
+  if (power.secondaryTag) {
+    effectPart += effectPart ? `, ${power.secondaryTag}` : power.secondaryTag;
+  }
+  if (effectPart) {
+    pieces.push(effectPart);
+  }
+  pieces.push(`Duration: ${power.duration || 'Instant'}`);
+  pieces.push(`Cost: ${power.spCost || 0} SP`);
+  if (power.concentration) {
+    pieces.push('Concentration +1 SP per round');
+  }
+  if (power.intensity === 'Ultimate') {
+    pieces.push('Cooldown 10 rounds');
+  } else if (power.uses === 'Cooldown' && power.cooldown > 0) {
+    pieces.push(`Cooldown ${power.cooldown} rounds`);
+  }
+  return pieces.join(' • ');
+}
+
+function normalizeCharacterData(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (Array.isArray(data.powers)) {
+    const normalized = data.powers
+      .map(entry => normalizeStoredPower(entry))
+      .filter(Boolean);
+    if (normalized.length || data.powers.length === 0) {
+      data.powers = normalized;
+      const settings = data.powerSettings && typeof data.powerSettings === 'object'
+        ? data.powerSettings
+        : null;
+      data.powers.forEach(power => {
+        power.rulesText = composeStoredPowerRulesText(power, settings);
+      });
+    }
+  }
+  return data;
+}
+
 function getPinPrompt(message) {
   if (typeof window !== 'undefined' && typeof window.pinPrompt === 'function') {
     return window.pinPrompt(message);
@@ -148,7 +573,7 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
     } catch {}
   }
   window.dmNotify?.(`Loaded character ${name}`);
-  return data;
+  return normalizeCharacterData(data);
 }
 
 export async function saveCharacter(data, name = currentCharacter()) {
@@ -241,7 +666,7 @@ export async function loadBackup(name, ts, type = 'manual') {
   const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
   const data = await loader(name, ts);
   try { await saveLocal(name, data); } catch {}
-  return data;
+  return normalizeCharacterData(data);
 }
 
 export async function saveAutoBackup(data, name = currentCharacter()) {
