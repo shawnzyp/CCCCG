@@ -271,6 +271,7 @@ export function updateFactionRep(handlePerkEffects = () => {}) {
       handlePerkEffects(perkEl, text);
       perkEl.style.display = 'block';
     } else {
+      handlePerkEffects(perkEl, '');
       perkEl.style.display = 'none';
     }
   });
