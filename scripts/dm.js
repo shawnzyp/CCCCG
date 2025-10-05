@@ -1352,7 +1352,12 @@ function initDMLogin(){
       `;
       const renderList=(title, items)=>`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${items.join('')}</ul></div>`;
       if(data.powers?.length){
-        const powers=data.powers.map(p=>`<li>${labeled('Name',p.name)}${labeled('SP',p.sp)}${labeled('Range',p.range)}${labeled('Effect',p.effect)}${labeled('Save',p.save)}</li>`);
+        const powers=data.powers.map(p=>{
+          if(p && typeof p === 'object'){
+            return `<li>${labeled('Name',p.name)}${labeled('Style',p.style)}${labeled('Action',p.actionType)}${labeled('Intensity',p.intensity)}${labeled('Uses',p.uses)}${labeled('Rules',p.rulesText || '')}${labeled('Description',p.description)}${labeled('Special',p.special)}</li>`;
+          }
+          return `<li>${labeled('Name',p?.name||'Power')}</li>`;
+        });
         card.innerHTML+=renderList('Powers',powers);
       }
       if(data.signatures?.length){

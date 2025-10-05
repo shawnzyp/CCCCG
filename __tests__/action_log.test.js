@@ -6,11 +6,17 @@ function setupDom() {
     <div id="saves"></div>
     <div id="skills"></div>
     <div id="powers"></div>
+    <input id="power-dc-formula" value="Proficiency" />
+    <label><input type="radio" name="power-dc-mode" id="power-dc-mode-simple" value="Simple" /></label>
+    <label><input type="radio" name="power-dc-mode" id="power-dc-mode-proficiency" value="Proficiency" checked /></label>
+    <select id="power-save-ability"><option value="wis">wis</option></select>
+    <input id="power-save-dc" />
     <div id="sigs"></div>
     <div id="weapons"></div>
     <div id="armors"></div>
     <div id="items"></div>
     <div id="statuses"></div>
+    <div id="ongoing-effects"></div>
     <select id="alignment"><option value="Guardian (Neutral Light)">Guardian (Neutral Light)</option></select>
     <ul id="alignment-perks"></ul>
     <button id="add-weapon"></button>
@@ -190,9 +196,15 @@ describe('action log records key events', () => {
     weaponCard.querySelector('button').click();
 
     document.getElementById('add-power').click();
-    const powerCard = document.querySelector('#powers .card');
-    powerCard.querySelector('[data-f="name"]').value = 'Blast';
-    powerCard.querySelector('button').click();
+    const presetMenu = document.querySelector('[data-role="power-preset-menu"] button');
+    if (presetMenu) presetMenu.click();
+    const powerCard = document.querySelector('#powers .power-card');
+    const powerNameInput = powerCard.querySelector('input[placeholder="Power Name"]');
+    powerNameInput.value = 'Blast';
+    powerNameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    const usePowerButton = Array.from(powerCard.querySelectorAll('button.btn-sm')).find((btn) => btn.textContent === 'Use Power');
+    expect(usePowerButton).toBeTruthy();
+    usePowerButton.click();
 
     document.getElementById('add-sig').click();
     const sigCard = document.querySelector('#sigs .card');
