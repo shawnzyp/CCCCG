@@ -109,6 +109,16 @@ const POWER_RANGE_QUICK_VALUES = [
   'Unlimited (narrative)',
 ];
 
+const POWER_STYLE_CASTER_SAVE_DEFAULTS = {
+  'Physical Powerhouse': ['STR'],
+  'Energy Manipulator': ['INT', 'CON'],
+  Speedster: ['DEX'],
+  'Telekinetic/Psychic': ['WIS', 'INT'],
+  Illusionist: ['CHA'],
+  'Shape-shifter': ['CON', 'DEX'],
+  'Elemental Controller': ['WIS', 'CON'],
+};
+
 const POWER_RANGE_UNITS = ['feet', 'narrative'];
 const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
 
@@ -465,6 +475,27 @@ function defaultDamageType(style) {
     default:
       return null;
   }
+}
+
+function getCasterAbilitySuggestions(primaryStyle, secondaryStyle) {
+  const normalizeStyle = (value) => {
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    if (!trimmed || /^none$/i.test(trimmed)) return '';
+    return trimmed;
+  };
+  const primary = normalizeStyle(primaryStyle);
+  const secondary = normalizeStyle(secondaryStyle);
+  const suggestions = [];
+  if (primary && POWER_STYLE_CASTER_SAVE_DEFAULTS[primary]) {
+    suggestions.push(...POWER_STYLE_CASTER_SAVE_DEFAULTS[primary]);
+  }
+  if (!suggestions.length && secondary && POWER_STYLE_CASTER_SAVE_DEFAULTS[secondary]) {
+    suggestions.push(...POWER_STYLE_CASTER_SAVE_DEFAULTS[secondary]);
+  }
+  if (!suggestions.length) suggestions.push('WIS');
+  const unique = Array.from(new Set(suggestions.map(value => value.toUpperCase())));
+  return unique.length ? unique : ['WIS'];
 }
 // Global CC object for cross-module state
 window.CC = window.CC || {};
@@ -3534,6 +3565,84 @@ const elPowerRangeUnit = $('power-range-unit');
 const elPowerSuggestionStrength = $('power-suggestion-strength');
 const elPowerMetricToggle = $('power-range-metric');
 const elPowerTextCompact = $('power-text-compact');
+const elPowerStylePrimary = $('power-style');
+const elPowerStyleSecondary = $('power-style-2');
+
+let casterAbilityManuallySet = false;
+let lastCasterAbilitySuggestions = [];
+let elPowerSaveAbilityHint = null;
+
+if (elPowerSaveAbility && elPowerSaveAbility.parentElement) {
+  elPowerSaveAbilityHint = document.createElement('div');
+  elPowerSaveAbilityHint.style.fontSize = '12px';
+  elPowerSaveAbilityHint.style.opacity = '0.8';
+  elPowerSaveAbilityHint.style.marginTop = '4px';
+  elPowerSaveAbilityHint.style.minHeight = '14px';
+  elPowerSaveAbilityHint.style.display = 'none';
+  elPowerSaveAbility.parentElement.appendChild(elPowerSaveAbilityHint);
+}
+
+function getCurrentCasterAbility() {
+  if (!elPowerSaveAbility) return '';
+  const value = elPowerSaveAbility.value || '';
+  return value.toUpperCase();
+}
+
+function updateCasterAbilityHint(suggestions) {
+  if (!elPowerSaveAbilityHint) return;
+  if (!Array.isArray(suggestions) || !suggestions.length) {
+    elPowerSaveAbilityHint.textContent = '';
+    elPowerSaveAbilityHint.style.display = 'none';
+    return;
+  }
+  const label = suggestions.length > 1 ? suggestions.join(' or ') : suggestions[0];
+  const manualNote = casterAbilityManuallySet ? ' (manual override)' : '';
+  elPowerSaveAbilityHint.textContent = `Suggested: ${label}${manualNote}`;
+  elPowerSaveAbilityHint.style.display = 'block';
+}
+
+function setCasterAbility(ability, { manual = false } = {}) {
+  if (!elPowerSaveAbility) return;
+  const normalized = typeof ability === 'string' ? ability.toUpperCase() : '';
+  if (!POWER_SAVE_ABILITIES.includes(normalized)) return;
+  const prev = getCurrentCasterAbility();
+  elPowerSaveAbility.value = normalized.toLowerCase();
+  casterAbilityManuallySet = manual;
+  if (prev !== normalized) {
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(() => updateDerived());
+    } else {
+      Promise.resolve().then(() => updateDerived());
+    }
+  }
+}
+
+function refreshCasterAbilitySuggestion({ force = false, syncOnly = false } = {}) {
+  if (!elPowerSaveAbility) return;
+  const primaryStyle = elPowerStylePrimary?.value || '';
+  const secondaryStyle = elPowerStyleSecondary?.value || '';
+  const suggestions = getCasterAbilitySuggestions(primaryStyle, secondaryStyle);
+  lastCasterAbilitySuggestions = suggestions;
+  const current = getCurrentCasterAbility();
+  if (syncOnly) {
+    casterAbilityManuallySet = suggestions.length ? current !== suggestions[0] : current !== '';
+    updateCasterAbilityHint(suggestions);
+    return;
+  }
+  if (casterAbilityManuallySet && suggestions.length && current === suggestions[0]) {
+    casterAbilityManuallySet = false;
+  }
+  if (force || !casterAbilityManuallySet) {
+    const recommended = suggestions[0];
+    if (recommended && current !== recommended) {
+      setCasterAbility(recommended, { manual: false });
+      updateCasterAbilityHint(suggestions);
+      return;
+    }
+    casterAbilityManuallySet = false;
+  }
+  updateCasterAbilityHint(suggestions);
+}
 
 function syncPowerDcRadios(value) {
   const target = value === 'Simple' ? 'Simple' : 'Proficiency';
@@ -3607,15 +3716,38 @@ const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
-const elPowerStyleSecondary = $('power-style-2');
+
+if (elPowerStylePrimary) {
+  elPowerStylePrimary.addEventListener('change', () => {
+    refreshCasterAbilitySuggestion();
+  });
+}
 
 if (elPowerStyleSecondary) {
   elPowerStyleSecondary.addEventListener('change', () => {
+    refreshCasterAbilitySuggestion();
     if (typeof catalogRenderScheduler === 'function') {
       catalogRenderScheduler();
     }
   });
 }
+
+if (elPowerSaveAbility) {
+  elPowerSaveAbility.addEventListener('change', event => {
+    const suggestions = lastCasterAbilitySuggestions.length
+      ? lastCasterAbilitySuggestions
+      : getCasterAbilitySuggestions(elPowerStylePrimary?.value || '', elPowerStyleSecondary?.value || '');
+    lastCasterAbilitySuggestions = suggestions;
+    const recommended = suggestions[0];
+    const current = getCurrentCasterAbility();
+    if (event?.isTrusted) {
+      casterAbilityManuallySet = recommended ? current !== recommended : current !== '';
+    }
+    updateCasterAbilityHint(suggestions);
+  });
+}
+
+refreshCasterAbilitySuggestion({ force: true });
 
 if (elInitiativeRollBtn) {
   elInitiativeRollBtn.addEventListener('click', () => {
@@ -8409,11 +8541,12 @@ function deserialize(data){
    const casterAbility = typeof data.powerSettings.casterSaveAbility === 'string'
      ? data.powerSettings.casterSaveAbility.toLowerCase()
      : null;
-   if (casterAbility && elPowerSaveAbility) {
-     elPowerSaveAbility.value = casterAbility;
-   }
-   syncPowerDcRadios(data.powerSettings.dcFormula || powerDcFormulaField?.value || 'Proficiency');
- }
+  if (casterAbility && elPowerSaveAbility) {
+    elPowerSaveAbility.value = casterAbility;
+  }
+  syncPowerDcRadios(data.powerSettings.dcFormula || powerDcFormulaField?.value || 'Proficiency');
+  refreshCasterAbilitySuggestion({ syncOnly: true });
+}
  if(data && Array.isArray(data.saveProfs)){
    ABILS.forEach(a=>{
      const el = $('save-'+a+'-prof');
