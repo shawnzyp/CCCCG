@@ -3485,15 +3485,25 @@ function announceContentUpdate(payload = {}) {
 }
 
 
+function getRollSides(opts = {}) {
+  const candidate = opts && opts.sides !== undefined ? opts.sides : opts?.die;
+  const parsed = Number(candidate);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.floor(parsed);
+  }
+  return 20;
+}
+
 function rollWithBonus(name, bonus, out, opts = {}){
-  const roll = 1 + Math.floor(Math.random() * 20);
+  const sides = getRollSides(opts);
+  const roll = 1 + Math.floor(Math.random() * sides);
   const total = roll + bonus;
   if(out) out.textContent = total;
   const sign = bonus >= 0 ? '+' : '';
   logAction(`${name}: ${roll}${sign}${bonus} = ${total}`);
   if (opts && typeof opts.onRoll === 'function') {
     try {
-      opts.onRoll({ roll, total, bonus, name, output: out, options: opts });
+      opts.onRoll({ roll, total, bonus, name, output: out, options: opts, sides });
     } catch (err) {
       console.error('rollWithBonus onRoll handler failed', err);
     }
@@ -4060,6 +4070,7 @@ if (autoChar) {
 const HAMMERSPACE_POWER_NAME = 'Gat Dang Hammerspace';
 const HAMMERSPACE_NAME_KEY = HAMMERSPACE_POWER_NAME.toLowerCase();
 const HANK_NAME_CANDIDATES = ['hank', 'hank hill'];
+const HAMMERSPACE_DIE_SIDES = 20;
 const HAMMERSPACE_TABLE = [
   {
     title: 'Propane Powerhouse',
@@ -4251,9 +4262,19 @@ function isHammerspaceName(value) {
   return normalizeName(value) === HAMMERSPACE_NAME_KEY;
 }
 
-function getHammerspaceEntry(roll) {
+function normalizeHammerspaceRoll(roll) {
   if (!Number.isInteger(roll)) return null;
-  const idx = roll - 1;
+  const max = Math.min(HAMMERSPACE_DIE_SIDES, HAMMERSPACE_TABLE.length);
+  if (!Number.isFinite(max) || max <= 0) return null;
+  if (roll < 1) return 1;
+  if (roll > max) return max;
+  return roll;
+}
+
+function getHammerspaceEntry(roll) {
+  const normalized = normalizeHammerspaceRoll(roll);
+  if (!Number.isInteger(normalized)) return null;
+  const idx = normalized - 1;
   if (idx < 0 || idx >= HAMMERSPACE_TABLE.length) return null;
   return HAMMERSPACE_TABLE[idx];
 }
@@ -4279,14 +4300,15 @@ function formatHammerspaceMessage(roll, entry) {
 }
 
 function showHammerspaceResult(roll) {
-  const entry = getHammerspaceEntry(roll);
-  const message = formatHammerspaceMessage(roll, entry);
+  const normalizedRoll = normalizeHammerspaceRoll(roll);
+  const entry = getHammerspaceEntry(normalizedRoll);
+  const message = formatHammerspaceMessage(normalizedRoll, entry);
   if (!message) return;
   try {
     toast(message.text, { type: 'info', duration: 0, html: message.html });
   } catch {}
   try {
-    logAction(`${HAMMERSPACE_POWER_NAME} result (${roll}): ${entry.title}`);
+    logAction(`${HAMMERSPACE_POWER_NAME} result (${normalizedRoll}): ${entry.title}`);
   } catch {}
   try {
     window.dmNotify?.(message.text, { ts: Date.now(), char: currentCharacter?.() || 'Hank' });
@@ -4504,6 +4526,7 @@ function createCard(kind, pref = {}) {
       logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
       const opts = { type: 'attack' };
       if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
+        opts.sides = HAMMERSPACE_DIE_SIDES;
         opts.onRoll = ({ roll }) => {
           if (Number.isInteger(roll)) {
             showHammerspaceResult(roll);
