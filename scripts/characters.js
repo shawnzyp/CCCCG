@@ -100,6 +100,8 @@ const POWER_RANGE_QUICK_VALUES = [
   '120 ft',
   'Unlimited (narrative)',
 ];
+const POWER_RANGE_UNITS = ['feet', 'narrative'];
+const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
 const POWER_SHAPE_RANGES = {
   Melee: ['Melee'],
   Cone: ['15 ft', '30 ft', '60 ft'],
@@ -303,8 +305,17 @@ function migrateLegacyPower(raw = {}) {
   };
 }
 
+function damagePackagesEqual(a, b) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.dice === b.dice && a.type === b.type && a.onSave === b.onSave;
+}
+
 function normalizeStoredPower(raw = {}) {
-  if (!raw || typeof raw !== 'object') return null;
+  if (!raw || typeof raw !== 'object') {
+    return { power: null, changed: false };
+  }
+  let changed = false;
   let base = raw;
   if (
     raw.effect !== undefined
@@ -313,6 +324,7 @@ function normalizeStoredPower(raw = {}) {
     || raw.range !== undefined
   ) {
     base = migrateLegacyPower(raw);
+    changed = true;
   }
   const shape = POWER_TARGET_SHAPES.includes(base.shape) ? base.shape : 'Ranged Single';
   const range = normalizeRangeForShape(shape, base.range);
@@ -379,7 +391,48 @@ function normalizeStoredPower(raw = {}) {
   if (normalized.duration === 'Sustained') {
     normalized.concentration = true;
   }
-  return normalized;
+  const baseDamage = base.damage && typeof base.damage === 'object'
+    ? {
+        dice: base.damage.dice,
+        type: base.damage.type,
+        onSave: base.damage.onSave,
+      }
+    : null;
+  if (!damagePackagesEqual(baseDamage, normalized.damage)) changed = true;
+  const compareKeys = [
+    'id',
+    'name',
+    'style',
+    'actionType',
+    'shape',
+    'range',
+    'effectTag',
+    'intensity',
+    'spCost',
+    'requiresSave',
+    'saveAbilityTarget',
+    'duration',
+    'description',
+    'secondaryTag',
+    'concentration',
+    'uses',
+    'cooldown',
+    'scaling',
+    'special',
+    'legacyText',
+    'originalText',
+    'migration',
+    'needsReview',
+  ];
+  for (const key of compareKeys) {
+    const prev = base ? base[key] : undefined;
+    const next = normalized[key];
+    if (!(prev === next || (Number.isNaN(prev) && Number.isNaN(next)))) {
+      changed = true;
+      break;
+    }
+  }
+  return { power: normalized, changed };
 }
 
 function formatStoredPowerRange(power) {
@@ -443,23 +496,85 @@ function composeStoredPowerRulesText(power, settings) {
   return pieces.join(' • ');
 }
 
-function normalizeCharacterData(data) {
-  if (!data || typeof data !== 'object') return data;
-  if (Array.isArray(data.powers)) {
-    const normalized = data.powers
-      .map(entry => normalizeStoredPower(entry))
-      .filter(Boolean);
-    if (normalized.length || data.powers.length === 0) {
-      data.powers = normalized;
-      const settings = data.powerSettings && typeof data.powerSettings === 'object'
-        ? data.powerSettings
-        : null;
-      data.powers.forEach(power => {
-        power.rulesText = composeStoredPowerRulesText(power, settings);
-      });
-    }
+function normalizeStoredPowerSettings(raw = {}) {
+  if (!raw || typeof raw !== 'object') {
+    return { settings: null, changed: false };
   }
-  return data;
+  let changed = false;
+  const abilityRaw = typeof raw.casterSaveAbility === 'string' ? raw.casterSaveAbility.toUpperCase() : '';
+  const casterSaveAbility = POWER_SAVE_ABILITIES.includes(abilityRaw) ? abilityRaw : 'WIS';
+  if (casterSaveAbility !== raw.casterSaveAbility) changed = true;
+  const dcFormula = raw.dcFormula === 'Simple' ? 'Simple' : 'Proficiency';
+  if (dcFormula !== raw.dcFormula) changed = true;
+  const profRaw = Number(raw.proficiencyBonus);
+  const proficiencyBonus = Number.isFinite(profRaw) ? Math.max(-5, Math.trunc(profRaw)) : 0;
+  if (!Number.isFinite(profRaw) || proficiencyBonus !== raw.proficiencyBonus) changed = true;
+  const abilityMods = {};
+  const sourceMods = raw.abilityMods && typeof raw.abilityMods === 'object' ? raw.abilityMods : {};
+  for (const ability of POWER_SAVE_ABILITIES) {
+    const rawValue = Number(sourceMods[ability]);
+    const normalizedValue = Number.isFinite(rawValue) ? Math.trunc(rawValue) : 0;
+    abilityMods[ability] = normalizedValue;
+    if (normalizedValue !== sourceMods[ability]) changed = true;
+  }
+  const rangeUnitRaw = typeof raw.defaultRangeUnit === 'string' ? raw.defaultRangeUnit.toLowerCase() : '';
+  const defaultRangeUnit = POWER_RANGE_UNITS.includes(rangeUnitRaw) ? rangeUnitRaw : 'feet';
+  if (defaultRangeUnit !== raw.defaultRangeUnit) changed = true;
+  const suggestionRaw = typeof raw.autoSuggestionStrength === 'string' ? raw.autoSuggestionStrength.toLowerCase() : '';
+  const autoSuggestionStrength = POWER_SUGGESTION_STRENGTHS.includes(suggestionRaw)
+    ? suggestionRaw
+    : 'conservative';
+  if (autoSuggestionStrength !== raw.autoSuggestionStrength) changed = true;
+  const showMetricRanges = !!raw.showMetricRanges;
+  if (showMetricRanges !== raw.showMetricRanges) changed = true;
+  const preferShortRulesText = !!raw.preferShortRulesText;
+  if (preferShortRulesText !== raw.preferShortRulesText) changed = true;
+  const normalized = {
+    casterSaveAbility,
+    dcFormula,
+    proficiencyBonus,
+    abilityMods,
+    defaultRangeUnit,
+    autoSuggestionStrength,
+    showMetricRanges,
+    preferShortRulesText,
+  };
+  return { settings: normalized, changed };
+}
+
+function normalizeCharacterData(data) {
+  if (!data || typeof data !== 'object') {
+    return { data, changed: false };
+  }
+  let changed = false;
+  let settings = null;
+  if (data.powerSettings && typeof data.powerSettings === 'object') {
+    const { settings: normalizedSettings, changed: settingsChanged } = normalizeStoredPowerSettings(data.powerSettings);
+    if (normalizedSettings) {
+      data.powerSettings = normalizedSettings;
+      settings = normalizedSettings;
+    }
+    if (settingsChanged) changed = true;
+  }
+  if (Array.isArray(data.powers)) {
+    const normalizedPowers = [];
+    for (const entry of data.powers) {
+      const { power, changed: powerChanged } = normalizeStoredPower(entry);
+      if (!power) {
+        if (entry) changed = true;
+        continue;
+      }
+      const prevRules = typeof entry?.rulesText === 'string' ? entry.rulesText : '';
+      const nextRules = composeStoredPowerRulesText(power, settings);
+      power.rulesText = nextRules;
+      if (prevRules !== nextRules) changed = true;
+      if (powerChanged) changed = true;
+      normalizedPowers.push(power);
+    }
+    if (normalizedPowers.length !== data.powers.length) changed = true;
+    data.powers = normalizedPowers;
+  }
+  return { data, changed };
 }
 
 function getPinPrompt(message) {
@@ -573,15 +688,21 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
     } catch {}
   }
   window.dmNotify?.(`Loaded character ${name}`);
-  return normalizeCharacterData(data);
+  const { data: normalized, changed } = normalizeCharacterData(data);
+  if (changed) {
+    try { await saveLocal(name, normalized); } catch {}
+    try { await saveCloud(name, normalized); } catch (e) { console.error('Cloud save failed', e); }
+  }
+  return normalized;
 }
 
 export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
+  const { data: normalized } = normalizeCharacterData(data);
   await verifyPin(name);
-  await saveLocal(name, data);
+  await saveLocal(name, normalized);
   try {
-    await saveCloud(name, data);
+    await saveCloud(name, normalized);
   } catch (e) {
     console.error('Cloud save failed', e);
   }
@@ -591,15 +712,16 @@ export async function saveCharacter(data, name = currentCharacter()) {
 }
 
 export async function renameCharacter(oldName, newName, data) {
+  const { data: normalized } = normalizeCharacterData(data);
   if (!oldName || oldName === newName) {
     setCurrentCharacter(newName);
-    await saveCharacter(data, newName);
+    await saveCharacter(normalized, newName);
     return;
   }
   await verifyPin(oldName);
-  await saveLocal(newName, data);
+  await saveLocal(newName, normalized);
   try {
-    await saveCloud(newName, data);
+    await saveCloud(newName, normalized);
   } catch (e) {
     console.error('Cloud save failed', e);
   }
@@ -665,8 +787,12 @@ export async function listBackups(name) {
 export async function loadBackup(name, ts, type = 'manual') {
   const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
   const data = await loader(name, ts);
-  try { await saveLocal(name, data); } catch {}
-  return normalizeCharacterData(data);
+  const { data: normalized, changed } = normalizeCharacterData(data);
+  try { await saveLocal(name, normalized); } catch {}
+  if (changed) {
+    try { await saveCloud(name, normalized); } catch (e) { console.error('Cloud save failed', e); }
+  }
+  return normalized;
 }
 
 export async function saveAutoBackup(data, name = currentCharacter()) {

@@ -66,6 +66,7 @@ describe('character storage', () => {
       },
     };
     localStorage.setItem('save:Hero', JSON.stringify(legacyData));
+    fetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
 
     const { loadCharacter } = await import('../scripts/characters.js');
     const data = await loadCharacter('Hero', { bypassPin: true });
@@ -85,6 +86,19 @@ describe('character storage', () => {
     expect(power.rulesText).toContain('60 ft Line');
     expect(power.rulesText).toContain('Cost:');
     expect(power.rulesText).toContain('DEX Save DC');
+
+    const stored = JSON.parse(localStorage.getItem('save:Hero'));
+    expect(stored.powers).toHaveLength(1);
+    expect(stored.powers[0]).toMatchObject({
+      id: power.id,
+      name: 'Arc Burst',
+      shape: 'Line',
+      range: '60 ft',
+      spCost: 3,
+      requiresSave: true,
+      saveAbilityTarget: 'DEX',
+    });
+    expect(stored.powers[0].rulesText).toBe(power.rulesText);
   });
 
   test('lists backups and loads a selected one', async () => {
