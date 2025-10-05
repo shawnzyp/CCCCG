@@ -2817,7 +2817,7 @@ if (statusGrid) {
       cb.addEventListener('change', () => {
         if (cb.checked) {
           activeStatuses.add(s.name);
-          alert(`${s.name}: ${s.desc}`);
+          toast(`${s.name}: ${s.desc}`, { type: 'info', duration: 8000 });
           logAction(`Status effect gained: ${s.name}`);
         } else {
           activeStatuses.delete(s.name);
@@ -3747,13 +3747,23 @@ function setHP(v){
   }
   return prev > 0 && num(elHPBar.value) === 0;
 }
+function notifyInsufficientSp(message = "You don't have enough SP for that.") {
+  try {
+    toast(message, 'error');
+  } catch {}
+  try {
+    logAction('SP spend prevented: insufficient SP.');
+  } catch {}
+}
+
 async function setSP(v){
   const prev = num(elSPBar.value);
-  if (num(v) < 0) {
-    alert("You don't have enough SP for that.");
-    return;
+  const target = num(v);
+  if (target < 0) {
+    notifyInsufficientSp();
+    return false;
   }
-  elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
+  elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), target));
   const temp = elSPTemp ? num(elSPTemp.value) : 0;
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}` + (temp ? ` (+${temp})` : ``);
   const diff = num(elSPBar.value) - prev;
@@ -3763,7 +3773,11 @@ async function setSP(v){
     await playSPAnimation(diff);
     pushHistory();
   }
-  if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
+  if(prev > 0 && num(elSPBar.value) === 0) {
+    toast('Player is out of SP', 'warning');
+    logAction('Player is out of SP.');
+  }
+  return true;
 }
 $('hp-dmg').addEventListener('click', async ()=>{
   let d=num(elHPAmt ? elHPAmt.value : 0);
@@ -3779,7 +3793,8 @@ $('hp-dmg').addEventListener('click', async ()=>{
   await playDamageAnimation(-d);
   if(down){
     await playDownAnimation();
-    alert('Player is down');
+    toast('Player is down', 'warning');
+    logAction('Player is down.');
   }
 });
 $('hp-heal').addEventListener('click', async ()=>{
@@ -3796,17 +3811,24 @@ $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 
 function changeSP(delta){
   const current = num(elSPBar.value);
-  if(delta < 0 && elSPTemp){
+  let adjusted = delta;
+  if(adjusted < 0 && elSPTemp){
     const temp = num(elSPTemp.value);
-    const use = Math.min(temp, -delta);
-    if(current + delta + use < 0){
-      alert("You don't have enough SP for that.");
-      return;
+    const use = Math.min(temp, -adjusted);
+    if(current + adjusted + use < 0){
+      notifyInsufficientSp();
+      return false;
     }
     elSPTemp.value = temp - use || '';
-    delta += use;
+    adjusted += use;
   }
-  setSP(current + delta);
+  const next = current + adjusted;
+  if (next < 0) {
+    notifyInsufficientSp();
+    return false;
+  }
+  setSP(next);
+  return true;
 }
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{
@@ -4453,12 +4475,14 @@ async function checkDeathProgress(){
     if(deathState!=='dead'){
       deathState='dead';
       await playDeathAnimation();
-      alert('You have fallen, your sacrifice will be remembered.');
+      toast('You have fallen, your sacrifice will be remembered.', 'error');
+      logAction('Death save failed: character has fallen.');
     }
   }else if(deathSuccesses.every(b=>b.checked)){
     if(deathState!=='stable'){
       deathState='stable';
-      alert('You are stable at 0 HP.');
+      toast('You are stable at 0 HP.', 'success');
+      logAction('Death saves complete: character is stable at 0 HP.');
     }
   }else{
     deathState=null;
@@ -4473,7 +4497,8 @@ $('roll-death-save')?.addEventListener('click', ()=>{
     onRoll: ({ roll, total }) => {
       if (roll === 20) {
         resetDeathSaves();
-        alert('Critical success! You regain 1 HP and awaken.');
+        toast('Critical success! You regain 1 HP and awaken.', 'success');
+        logAction('Death save critical success: regain 1 HP and awaken.');
         return;
       }
       if (roll === 1) {
@@ -5688,7 +5713,10 @@ function requestConcentrationDrop(card, power, proceed) {
 }
 
 function finalizePowerUse(card, power) {
-  changeSP(-power.spCost);
+  if (!changeSP(-power.spCost)) {
+    showPowerMessage(card, 'Insufficient SP to use this power.', 'error');
+    return;
+  }
   logAction(`Power used: ${power.name} — ${power.rulesText}`);
   toast(`${power.name} activated.`, 'success');
   if (power.concentration) {
@@ -5716,6 +5744,7 @@ function handleUsePower(card) {
   }
   const available = num(elSPBar?.value) + (elSPTemp ? num(elSPTemp.value) : 0);
   if (power.spCost > available) {
+    toast('Insufficient SP to use this power.', 'error');
     showPowerMessage(card, 'Insufficient SP to use this power.', 'error');
     return;
   }
@@ -5764,10 +5793,14 @@ function handleBoostRoll(card) {
   clearPowerMessage(card);
   const available = num(elSPBar?.value) + (elSPTemp ? num(elSPTemp.value) : 0);
   if (available < 1) {
+    toast('Insufficient SP to boost this roll.', 'error');
     showPowerMessage(card, 'Insufficient SP to boost this roll.', 'error');
     return;
   }
-  changeSP(-1);
+  if (!changeSP(-1)) {
+    showPowerMessage(card, 'Insufficient SP to boost this roll.', 'error');
+    return;
+  }
   logAction(`Boosted next roll for ${power.name} (+1d4).`);
   toast(`Boost ready for ${power.name}.`, 'info');
   showPowerMessage(card, 'Boost readied: +1d4 to the next roll.', 'success');
