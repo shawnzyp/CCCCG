@@ -2442,6 +2442,15 @@ const SKILLS = [
   { name: 'Stealth', abil: 'dex' },
   { name: 'Survival', abil: 'wis' }
 ];
+const escapeRegExp = value => String(value).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+const ABILITY_FULL_NAMES = {
+  str: 'Strength',
+  dex: 'Dexterity',
+  con: 'Constitution',
+  int: 'Intelligence',
+  wis: 'Wisdom',
+  cha: 'Charisma',
+};
 const skillGrid = $('skills');
 skillGrid.innerHTML = SKILLS.map((s,i)=>`
   <div class="ability-box">
@@ -2457,8 +2466,18 @@ qsa('[data-roll-save]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const a = btn.dataset.rollSave;
     const pb = num(elProfBonus.value)||2;
-    const bonus = mod($(a).value) + ($('save-'+a+'-prof').checked ? pb : 0);
-    rollWithBonus(`${a.toUpperCase()} save`, bonus, $('save-'+a+'-res'), { type: 'save', ability: a.toUpperCase() });
+    const abilityMod = mod($(a).value);
+    const profBonus = $('save-'+a+'-prof').checked ? pb : 0;
+    const baseBonuses = [
+      { label: `${a.toUpperCase()} mod`, value: abilityMod, includeZero: true },
+    ];
+    if (profBonus) baseBonuses.push({ label: 'Prof', value: profBonus });
+    rollWithBonus(
+      `${a.toUpperCase()} save`,
+      abilityMod + profBonus,
+      $('save-'+a+'-res'),
+      { type: 'save', ability: a.toUpperCase(), baseBonuses }
+    );
   });
 });
 qsa('[data-roll-skill]').forEach(btn=>{
@@ -2466,7 +2485,12 @@ qsa('[data-roll-skill]').forEach(btn=>{
     const i = num(btn.dataset.rollSkill);
     const s = SKILLS[i];
     const pb = num(elProfBonus.value)||2;
-    const bonus = mod($(s.abil).value) + ($('skill-'+i+'-prof').checked ? pb : 0);
+    const abilityMod = mod($(s.abil).value);
+    const profBonus = $('skill-'+i+'-prof').checked ? pb : 0;
+    const baseBonuses = [
+      { label: `${s.abil.toUpperCase()} mod`, value: abilityMod, includeZero: true },
+    ];
+    if (profBonus) baseBonuses.push({ label: 'Prof', value: profBonus });
     let roleplay = false;
     try {
       const rpState = CC?.RP?.get?.() || {};
@@ -2474,7 +2498,18 @@ qsa('[data-roll-skill]').forEach(btn=>{
         roleplay = window.confirm('Roleplay/Leadership?');
       }
     } catch {}
-    rollWithBonus(`${s.name} check`, bonus, $('skill-'+i+'-res'), { type: 'skill', ability: s.abil.toUpperCase(), roleplay });
+    rollWithBonus(
+      `${s.name} check`,
+      abilityMod + profBonus,
+      $('skill-'+i+'-res'),
+      {
+        type: 'skill',
+        ability: s.abil.toUpperCase(),
+        skill: s.name,
+        roleplay,
+        baseBonuses,
+      }
+    );
   });
 });
 
@@ -2583,6 +2618,194 @@ const ORIGIN_PERKS = {
 // handle special perk behavior (stat boosts, initiative mods, etc.)
 
 const INITIATIVE_BONUS_REGEX = /([+-]\d+)\s*(?:to\s+)?initiative(?:\s+(?:bonus|modifier))?\b/gi;
+
+const rollBonusRegistry = (() => {
+  const entries = new Set();
+  const ownerEntries = new WeakMap();
+  const ownerTokens = new Map();
+  const globalOwner = Object.freeze({ id: 'global-roll-bonus-owner' });
+
+  const normalizeSkill = value =>
+    typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+  const asOwner = owner => {
+    if (!owner) return globalOwner;
+    if (typeof owner === 'object' || typeof owner === 'function') return owner;
+    const key = String(owner);
+    if (!ownerTokens.has(key)) ownerTokens.set(key, { id: key });
+    return ownerTokens.get(key);
+  };
+
+  const release = owner => {
+    const resolvedOwner = asOwner(owner);
+    const existing = ownerEntries.get(resolvedOwner);
+    if (!existing) return;
+    existing.forEach(entry => entries.delete(entry));
+    ownerEntries.delete(resolvedOwner);
+  };
+
+  const normalizeList = value => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    return [value];
+  };
+
+  const normalizeConfig = (owner, config) => {
+    if (!config || (config.value === undefined && typeof config.getValue !== 'function')) {
+      return null;
+    }
+    const getValue = typeof config.getValue === 'function' ? config.getValue : null;
+    const staticValue = Number(config.value);
+    if (!getValue && (!Number.isFinite(staticValue) || staticValue === 0)) {
+      return null;
+    }
+    const types = new Set();
+    normalizeList(config.types ?? config.type).forEach(type => {
+      if (!type) return;
+      types.add(String(type).toLowerCase());
+    });
+    const abilities = new Set();
+    normalizeList(config.abilities ?? config.ability).forEach(ability => {
+      if (!ability) return;
+      abilities.add(String(ability).toUpperCase());
+    });
+    const skills = new Set();
+    normalizeList(config.skills ?? config.skill).forEach(skill => {
+      if (!skill) return;
+      skills.add(normalizeSkill(skill));
+    });
+    const matcher = typeof config.appliesTo === 'function' ? config.appliesTo : null;
+    return {
+      owner,
+      getValue,
+      value: Number.isFinite(staticValue) ? staticValue : 0,
+      label: typeof config.label === 'string' ? config.label : '',
+      breakdown: typeof config.breakdown === 'string' ? config.breakdown : '',
+      source: typeof config.source === 'string' ? config.source : '',
+      types,
+      abilities,
+      skills,
+      matcher,
+    };
+  };
+
+  const applies = (entry, opts) => {
+    if (entry.types.size && (!opts.type || !entry.types.has(opts.type))) return false;
+    if (entry.abilities.size && (!opts.ability || !entry.abilities.has(opts.ability))) return false;
+    if (entry.skills.size && (!opts.skill || !entry.skills.has(opts.skill))) return false;
+    if (entry.matcher && entry.matcher(opts.options) !== true) return false;
+    return true;
+  };
+
+  const collect = (opts = {}) => {
+    const normalized = {
+      type: typeof opts.type === 'string' ? opts.type.toLowerCase() : '',
+      ability: typeof opts.ability === 'string' ? opts.ability.toUpperCase() : '',
+      skill: normalizeSkill(opts.skill),
+      options: opts,
+    };
+    const results = [];
+    entries.forEach(entry => {
+      if (!applies(entry, normalized)) return;
+      const value = entry.getValue ? Number(entry.getValue(opts)) : entry.value;
+      if (!Number.isFinite(value) || value === 0) return;
+      let breakdownText = entry.breakdown;
+      if (!breakdownText) {
+        const sign = value >= 0 ? '+' : '';
+        if (entry.label) {
+          breakdownText = `${entry.label} ${sign}${value}`;
+        } else if (entry.source) {
+          breakdownText = `${entry.source} ${sign}${value}`;
+        } else {
+          breakdownText = `${sign}${value}`;
+        }
+      }
+      results.push({
+        entry,
+        value,
+        breakdown: breakdownText,
+      });
+    });
+    return results;
+  };
+
+  const register = (owner, configs = []) => {
+    const resolvedOwner = asOwner(owner);
+    release(resolvedOwner);
+    const list = normalizeList(configs);
+    const nextEntries = [];
+    list.forEach(config => {
+      const entry = normalizeConfig(resolvedOwner, config);
+      if (!entry) return;
+      entries.add(entry);
+      nextEntries.push(entry);
+    });
+    if (nextEntries.length) ownerEntries.set(resolvedOwner, nextEntries);
+  };
+
+  return { register, release, collect };
+})();
+
+function formatBreakdown(label, value, opts = {}) {
+  const includeZero = opts.includeZero === true;
+  const num = Number(value);
+  if (!Number.isFinite(num) || (!includeZero && num === 0)) return null;
+  const sign = num >= 0 ? '+' : '';
+  if (label) return `${label} ${sign}${num}`;
+  return `${sign}${num}`;
+}
+
+function resolveRollBonus(baseBonus = 0, opts = {}) {
+  const base = Number(baseBonus) || 0;
+  const baseBreakdown = [];
+  const appliedBase = Array.isArray(opts.baseBonuses) ? opts.baseBonuses : [];
+  appliedBase.forEach(part => {
+    const text = formatBreakdown(part?.label, part?.value, { includeZero: part?.includeZero });
+    if (text) baseBreakdown.push(text);
+  });
+
+  let modifier = base;
+  const registryBonuses = rollBonusRegistry.collect(opts);
+  const bonusBreakdown = [];
+  registryBonuses.forEach(({ value, breakdown }) => {
+    modifier += value;
+    if (breakdown) bonusBreakdown.push(breakdown);
+  });
+
+  const additional = Array.isArray(opts.additionalBonuses) ? opts.additionalBonuses : [];
+  additional.forEach(part => {
+    const value = Number(part?.value);
+    if (!Number.isFinite(value) || value === 0) return;
+    modifier += value;
+    const text = part?.breakdown || formatBreakdown(part?.label, value, { includeZero: part?.includeZero });
+    if (text) bonusBreakdown.push(text);
+  });
+
+  const breakdown = [...baseBreakdown, ...bonusBreakdown];
+  const appliedBonuses = registryBonuses.map(({ entry, value, breakdown: text }) => ({
+    value,
+    breakdown: text,
+    source: entry.source,
+    label: entry.label,
+    types: Array.from(entry.types),
+    abilities: Array.from(entry.abilities),
+    skills: Array.from(entry.skills),
+  }));
+
+  return {
+    modifier,
+    baseBonus: base,
+    breakdown,
+    baseBreakdown,
+    bonusBreakdown,
+    appliedBonuses,
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.RollBonusRegistry = rollBonusRegistry;
+  window.resolveRollBonus = resolveRollBonus;
+}
 let initiativeBonusUpdatePending = false;
 let currentInitiativeBonus = 0;
 
@@ -2626,7 +2849,37 @@ let powerStyleTCBonus = 0;
 let originTCBonus = 0;
 
 function handlePerkEffects(li, text){
+  text = typeof text === 'string' ? text : String(text || '');
   const lower = text.toLowerCase();
+  const normalizedText = text.replace(/\s+/g, ' ').trim();
+  const registryEntries = [];
+  const registerPerkBonus = config => {
+    if (!config) return;
+    const entry = { ...config };
+    const value = Number(entry.value);
+    if (!Number.isFinite(value) || value === 0) return;
+    entry.value = value;
+    if (!entry.label) entry.label = 'Perk';
+    const context = entry.source || normalizedText || 'Perk bonus';
+    if (!entry.source) entry.source = context;
+    if (!entry.breakdown) {
+      entry.breakdown = `${context} (${value >= 0 ? '+' : ''}${value})`;
+    }
+    registryEntries.push(entry);
+  };
+  const hasQualifier = fragment => /\b(against|versus|vs\.?|when|while|during|if)\b/i.test(fragment || '');
+  const applyMatches = (regex, handler) => {
+    if (!(regex instanceof RegExp)) return;
+    const baseFlags = typeof regex.flags === 'string'
+      ? regex.flags
+      : `${regex.ignoreCase ? 'i' : ''}${regex.multiline ? 'm' : ''}${regex.unicode ? 'u' : ''}${regex.sticky ? 'y' : ''}${regex.dotAll ? 's' : ''}`;
+    const flags = baseFlags.includes('g') ? baseFlags : `${baseFlags}g`;
+    const pattern = new RegExp(regex.source, flags);
+    let match;
+    while ((match = pattern.exec(text))) {
+      handler(match);
+    }
+  };
   let bonus = 0;
   if(/increase one ability score by 1/.test(lower)){
     const select = document.createElement('select');
@@ -2718,6 +2971,47 @@ function handlePerkEffects(li, text){
     }
     setInitiativeBonus(li, hasInitiativeBonus ? initiativeBonusTotal : 0);
   }
+  applyMatches(/\+([0-9]+)\s*to\s*death saving throws?/gi, match => {
+    registerPerkBonus({ type: 'death-save', value: match[1] });
+  });
+  applyMatches(/\+([0-9]+)\s*to\s*attack rolls?/gi, match => {
+    registerPerkBonus({ type: 'attack', value: match[1] });
+  });
+  Object.entries(ABILITY_FULL_NAMES).forEach(([key, label]) => {
+    const ability = key.toUpperCase();
+    const savePattern = new RegExp(`\\+([0-9]+)\\s*to\\s*${escapeRegExp(label)}\\s*(?:saving throws?|saves?)`, 'gi');
+    applyMatches(savePattern, match => {
+      if (hasQualifier(match[0])) return;
+      registerPerkBonus({ type: 'save', ability, value: match[1] });
+    });
+    const checkPattern = new RegExp(`\\+([0-9]+)\\s*to\\s*${escapeRegExp(label)}\\s*(?:ability\\s*)?checks?`, 'gi');
+    applyMatches(checkPattern, match => {
+      if (hasQualifier(match[0])) return;
+      registerPerkBonus({ type: 'ability', ability, value: match[1] });
+    });
+  });
+  applyMatches(/\+([0-9]+)\s*to\s*(?:all\s+)?saving throws?/gi, match => {
+    const fragment = match[0] || '';
+    if (/death saving throw/i.test(fragment)) return;
+    if (hasQualifier(fragment)) return;
+    registerPerkBonus({ type: 'save', value: match[1] });
+  });
+  SKILLS.forEach(skill => {
+    const pattern = new RegExp(`\\+([0-9]+)\\s*to\\s*${escapeRegExp(skill.name)}\\s*(?:skill\\s*)?checks?`, 'gi');
+    applyMatches(pattern, match => {
+      if (hasQualifier(match[0])) return;
+      registerPerkBonus({ type: 'skill', skill: skill.name, ability: skill.abil.toUpperCase(), value: match[1] });
+    });
+  });
+  applyMatches(/\+([0-9]+)\s*to\s*skill checks?/gi, match => {
+    if (hasQualifier(match[0])) return;
+    registerPerkBonus({ type: 'skill', value: match[1] });
+  });
+  applyMatches(/\+([0-9]+)\s*to\s*ability checks?/gi, match => {
+    if (hasQualifier(match[0])) return;
+    registerPerkBonus({ type: 'ability', value: match[1] });
+  });
+  rollBonusRegistry.register(li || null, registryEntries);
   return bonus;
 }
 
@@ -2832,8 +3126,24 @@ if (elPowerStyleSecondary) {
 
 if (elInitiativeRollBtn) {
   elInitiativeRollBtn.addEventListener('click', () => {
-    const bonus = Number.isFinite(currentInitiativeBonus) ? currentInitiativeBonus : num(elInitiative?.value);
-    rollWithBonus('Initiative', Number.isFinite(bonus) ? bonus : 0, elInitiativeRollResult, { type: 'initiative' });
+    const dexMod = mod(elDex.value);
+    const wisMod = addWisToInitiative ? mod(elWis.value) : 0;
+    const baseBonuses = [
+      { label: 'DEX mod', value: dexMod, includeZero: true },
+    ];
+    let base = dexMod;
+    if (addWisToInitiative) {
+      base += wisMod;
+      baseBonuses.push({ label: 'WIS mod', value: wisMod, includeZero: true });
+    }
+    const additionalBonuses = [];
+    const datasetBonus = Number(elInitiative?.dataset?.additionalBonus);
+    if (Number.isFinite(datasetBonus) && datasetBonus !== 0) {
+      additionalBonuses.push({ label: 'Bonuses', value: datasetBonus });
+    }
+    const opts = { type: 'initiative', baseBonuses };
+    if (additionalBonuses.length) opts.additionalBonuses = additionalBonuses;
+    rollWithBonus('Initiative', base, elInitiativeRollResult, opts);
   });
 }
 
@@ -3590,13 +3900,50 @@ function getRollSides(opts = {}) {
 function rollWithBonus(name, bonus, out, opts = {}){
   const sides = getRollSides(opts);
   const roll = 1 + Math.floor(Math.random() * sides);
-  const total = roll + bonus;
-  if(out) out.textContent = total;
-  const sign = bonus >= 0 ? '+' : '';
-  logAction(`${name}: ${roll}${sign}${bonus} = ${total}`);
+  const resolution = resolveRollBonus(bonus, opts);
+  const numericBonus = Number(bonus);
+  const fallbackBonus = Number.isFinite(numericBonus) ? numericBonus : 0;
+  const modifier = resolution && Number.isFinite(resolution.modifier)
+    ? resolution.modifier
+    : fallbackBonus;
+  const total = roll + modifier;
+  if(out){
+    out.textContent = total;
+    if (out.dataset) {
+      if (resolution?.breakdown?.length) {
+        out.dataset.rollBreakdown = resolution.breakdown.join(' | ');
+      } else if (out.dataset.rollBreakdown) {
+        delete out.dataset.rollBreakdown;
+      }
+      out.dataset.rollModifier = String(modifier);
+    }
+  }
+  const sign = modifier >= 0 ? '+' : '';
+  let message = `${name}: ${roll}${sign}${modifier} = ${total}`;
+  if (resolution?.breakdown?.length) {
+    message += ` [${resolution.breakdown.join(' | ')}]`;
+  }
+  logAction(message);
   if (opts && typeof opts.onRoll === 'function') {
     try {
-      opts.onRoll({ roll, total, bonus, name, output: out, options: opts, sides });
+      const baseBonusValue = resolution && Number.isFinite(resolution.baseBonus)
+        ? resolution.baseBonus
+        : fallbackBonus;
+      opts.onRoll({
+        roll,
+        total,
+        bonus: modifier,
+        modifier,
+        baseBonus: baseBonusValue,
+        breakdown: resolution?.breakdown || [],
+        baseBreakdown: resolution?.baseBreakdown || [],
+        bonusBreakdown: resolution?.bonusBreakdown || [],
+        appliedBonuses: resolution?.appliedBonuses || [],
+        name,
+        output: out,
+        options: opts,
+        sides,
+      });
     } catch (err) {
       console.error('rollWithBonus onRoll handler failed', err);
     }
@@ -3806,22 +4153,25 @@ async function checkDeathProgress(){
 [...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
 
 $('roll-death-save')?.addEventListener('click', ()=>{
-  const roll = 1+Math.floor(Math.random()*20);
-  if(deathOut) deathOut.textContent = String(roll);
-  logAction(`Death save: ${roll}`);
-  if(roll===20){
-    resetDeathSaves();
-    alert('Critical success! You regain 1 HP and awaken.');
-    return;
-  }
-  if(roll===1){
-    markBoxes(deathFailures,2);
-  }else if(roll>=10){
-    markBoxes(deathSuccesses,1);
-  }else{
-    markBoxes(deathFailures,1);
-  }
-  checkDeathProgress();
+  rollWithBonus('Death save', 0, deathOut, {
+    type: 'death-save',
+    baseBonuses: [],
+    onRoll: ({ roll, total }) => {
+      if (roll === 20) {
+        resetDeathSaves();
+        alert('Critical success! You regain 1 HP and awaken.');
+        return;
+      }
+      if (roll === 1) {
+        markBoxes(deathFailures, 2);
+      } else if (total >= 10) {
+        markBoxes(deathSuccesses, 1);
+      } else {
+        markBoxes(deathFailures, 1);
+      }
+      checkDeathProgress();
+    },
+  });
 });
 async function handleCampaignLogDelete(e){
   const btn = e.target.closest('button[data-entry-id]');
@@ -4612,12 +4962,17 @@ function createCard(kind, pref = {}) {
     hitBtn.addEventListener('click', () => {
       const pb = num(elProfBonus.value)||2;
       const rangeVal = qs("[data-f='range']", card)?.value || '';
-      const abil = rangeVal ? elDex.value : elStr.value;
-      const bonus = mod(abil) + pb;
+      const abilityKey = rangeVal ? 'dex' : 'str';
+      const abilityLabel = abilityKey.toUpperCase();
+      const abilityMod = mod(abilityKey === 'dex' ? elDex.value : elStr.value);
+      const baseBonuses = [
+        { label: `${abilityLabel} mod`, value: abilityMod, includeZero: true },
+      ];
+      if (pb) baseBonuses.push({ label: 'Prof', value: pb });
       const nameField = qs("[data-f='name']", card);
       const name = nameField?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
       logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
-      const opts = { type: 'attack' };
+      const opts = { type: 'attack', ability: abilityLabel, baseBonuses };
       if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
         opts.sides = HAMMERSPACE_DIE_SIDES;
         opts.onRoll = ({ roll }) => {
@@ -4626,7 +4981,7 @@ function createCard(kind, pref = {}) {
           }
         };
       }
-      rollWithBonus(`${name} attack roll`, bonus, out, opts);
+      rollWithBonus(`${name} attack roll`, abilityMod + pb, out, opts);
     });
     delWrap.appendChild(hitBtn);
     delWrap.appendChild(out);
@@ -5240,7 +5595,7 @@ function ensureCatalogFilters(data){
   }
 }
 
-export { tierRank, sortCatalogRows, extractPriceValue };
+export { tierRank, sortCatalogRows, extractPriceValue, resolveRollBonus, rollBonusRegistry };
 
 function setCatalogFilters(filters = {}){
   if (styleSel && Object.prototype.hasOwnProperty.call(filters, 'style')) {
