@@ -43,6 +43,460 @@ import {
   splitValueOptions,
   tierRank,
 } from './catalog-utils.js';
+
+const POWER_STYLES = [
+  'Physical Powerhouse',
+  'Energy Manipulator',
+  'Speedster',
+  'Telekinetic/Psychic',
+  'Illusionist',
+  'Shape-shifter',
+  'Elemental Controller',
+];
+
+const POWER_ACTION_TYPES = ['Action', 'Bonus', 'Reaction', 'Out-of-Combat'];
+const POWER_TARGET_SHAPES = ['Melee', 'Ranged Single', 'Cone', 'Line', 'Radius', 'Self', 'Aura'];
+const POWER_EFFECT_TAGS = [
+  'Damage',
+  'Stun',
+  'Blind',
+  'Weaken',
+  'Push/Pull',
+  'Burn',
+  'Freeze',
+  'Slow',
+  'Charm',
+  'Shield',
+  'Heal',
+  'Teleport/Phase',
+  'Summon/Clone',
+  'Terrain',
+  'Dispel/Nullify',
+];
+const POWER_INTENSITIES = ['Minor', 'Core', 'AoE', 'Control', 'Ultimate'];
+const POWER_SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+const POWER_DURATIONS = [
+  'Instant',
+  'End of Target’s Next Turn',
+  '1 Round',
+  'Sustained',
+  'Scene',
+  'Session',
+];
+const POWER_USES = ['At-will', 'Per Encounter', 'Per Session', 'Cooldown'];
+const POWER_ON_SAVE_OPTIONS = ['Full', 'Half', 'Negate'];
+const POWER_DAMAGE_TYPES = [
+  'Kinetic',
+  'Fire',
+  'Cold',
+  'Lightning',
+  'Psychic',
+  'Force',
+  'Radiant',
+  'Necrotic',
+  'Acid',
+];
+const POWER_SCALING_OPTIONS = ['Static', 'Level-based', 'Ability-based'];
+const POWER_DAMAGE_DICE = ['1d6', '2d6', '3d6', '4d6', '5d6', '6d6'];
+
+const POWER_RANGE_QUICK_VALUES = [
+  'Melee',
+  '10 ft',
+  '30 ft',
+  '60 ft',
+  '90 ft',
+  '120 ft',
+  'Unlimited (narrative)',
+];
+
+const POWER_STYLE_CASTER_SAVE_DEFAULTS = {
+  'Physical Powerhouse': ['STR'],
+  'Energy Manipulator': ['INT', 'CON'],
+  Speedster: ['DEX'],
+  'Telekinetic/Psychic': ['WIS', 'INT'],
+  Illusionist: ['CHA'],
+  'Shape-shifter': ['CON', 'DEX'],
+  'Elemental Controller': ['WIS', 'CON'],
+};
+
+const POWER_RANGE_UNITS = ['feet', 'narrative'];
+const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
+
+const POWER_SHAPE_RANGES = {
+  Melee: ['Melee'],
+  Cone: ['15 ft', '30 ft', '60 ft'],
+  Line: ['30 ft', '60 ft', '120 ft'],
+  Radius: ['10 ft', '15 ft', '20 ft', '30 ft'],
+  Self: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
+  Aura: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
+  'Ranged Single': ['10 ft', '30 ft', '60 ft', '90 ft', '120 ft', 'Unlimited (narrative)'],
+};
+
+const EFFECT_SAVE_SUGGESTIONS = {
+  Stun: ['WIS'],
+  Charm: ['WIS'],
+  Blind: ['CON', 'WIS'],
+  Weaken: ['CON', 'WIS'],
+  'Push/Pull': ['STR', 'DEX'],
+  Burn: ['DEX', 'CON'],
+  Freeze: ['DEX', 'CON'],
+  Slow: ['DEX', 'CON'],
+  Illusion: ['WIS'],
+  Fear: ['WIS'],
+};
+
+const EFFECT_ON_SAVE_SUGGESTIONS = {
+  Damage: 'Half',
+  Stun: 'Negate',
+  Charm: 'Negate',
+  Blind: 'Negate',
+  Weaken: 'Half',
+  'Push/Pull': 'Negate',
+  Burn: 'Half',
+  Freeze: 'Half',
+  Slow: 'Half',
+  Illusion: 'Negate',
+};
+
+const LEGACY_EFFECT_KEYWORDS = [
+  { tag: 'Damage', patterns: [/damage/i, /blast/i, /strike/i, /hit/i] },
+  { tag: 'Stun', patterns: [/stun/i, /daze/i, /paraly/i] },
+  { tag: 'Blind', patterns: [/blind/i, /dazzle/i] },
+  { tag: 'Weaken', patterns: [/weaken/i, /sap/i, /drain/i, /suppress/i] },
+  { tag: 'Push/Pull', patterns: [/push/i, /pull/i, /knock/i, /shove/i] },
+  { tag: 'Burn', patterns: [/burn/i, /ignite/i, /flame/i, /scorch/i] },
+  { tag: 'Freeze', patterns: [/freeze/i, /frost/i, /ice/i, /chill/i] },
+  { tag: 'Slow', patterns: [/slow/i, /hamper/i, /quicken/i] },
+  { tag: 'Charm', patterns: [/charm/i, /entranc/i, /persuad/i, /fear/i] },
+  { tag: 'Shield', patterns: [/shield/i, /ward/i, /barrier/i, /deflect/i] },
+  { tag: 'Heal', patterns: [/heal/i, /restore/i, /regenerat/i, /mend/i] },
+  { tag: 'Teleport/Phase', patterns: [/teleport/i, /blink/i, /phase/i, /step/i] },
+  { tag: 'Summon/Clone', patterns: [/summon/i, /clone/i, /duplicate/i, /decoy/i] },
+  { tag: 'Terrain', patterns: [/terrain/i, /field/i, /zone/i, /wall/i, /cage/i] },
+  { tag: 'Dispel/Nullify', patterns: [/dispel/i, /nullify/i, /counter/i, /negate/i] },
+];
+
+const POWER_PRESETS = [
+  {
+    id: 'powerhouse-smash',
+    label: 'Powerhouse: Smash',
+    data: {
+      name: 'Smash',
+      style: 'Physical Powerhouse',
+      actionType: 'Action',
+      shape: 'Melee',
+      range: 'Melee',
+      effectTag: 'Damage',
+      intensity: 'Minor',
+      spCost: 1,
+      damage: { dice: '2d6', type: 'Kinetic', onSave: 'Full' },
+      duration: 'Instant',
+      description: 'A crushing melee blow that rattles armor and sends foes reeling.',
+    },
+  },
+  {
+    id: 'powerhouse-shockwave',
+    label: 'Powerhouse: Shockwave',
+    data: {
+      name: 'Shockwave',
+      style: 'Physical Powerhouse',
+      actionType: 'Action',
+      shape: 'Cone',
+      range: '15 ft',
+      effectTag: 'Weaken',
+      intensity: 'AoE',
+      spCost: 3,
+      requiresSave: true,
+      saveAbilityTarget: 'STR',
+      duration: '1 Round',
+      description: 'You slam the ground with a seismic stomp, rattling foes in a close cone.',
+    },
+  },
+  {
+    id: 'energy-arc-lance',
+    label: 'Energy Manipulator: Arc Lance',
+    data: {
+      name: 'Arc Lance',
+      style: 'Energy Manipulator',
+      actionType: 'Action',
+      shape: 'Line',
+      range: '60 ft',
+      effectTag: 'Damage',
+      intensity: 'AoE',
+      spCost: 3,
+      requiresSave: true,
+      saveAbilityTarget: 'DEX',
+      duration: 'Instant',
+      damage: { dice: '3d6', type: 'Lightning', onSave: 'Half' },
+      description: 'A cutting beam of charged plasma lashes through a single line.',
+    },
+  },
+  {
+    id: 'energy-overload-field',
+    label: 'Energy Manipulator: Overload Field',
+    data: {
+      name: 'Overload Field',
+      style: 'Energy Manipulator',
+      actionType: 'Action',
+      shape: 'Radius',
+      range: '10 ft',
+      effectTag: 'Dispel/Nullify',
+      intensity: 'Control',
+      spCost: 4,
+      requiresSave: true,
+      saveAbilityTarget: 'WIS',
+      duration: '1 Round',
+      description: 'A pulsing null-field strips active powers and boons from everything in reach.',
+      special: 'On a failed save, suppress ongoing buffs and barriers until the end of your next turn.',
+    },
+  },
+  {
+    id: 'speedster-afterimage',
+    label: 'Speedster: Afterimage Feint',
+    data: {
+      name: 'Afterimage Feint',
+      style: 'Speedster',
+      actionType: 'Bonus',
+      shape: 'Aura',
+      range: '5 ft',
+      effectTag: 'Weaken',
+      intensity: 'Core',
+      spCost: 2,
+      duration: '1 Round',
+      description: 'You blur into afterimages, disorienting nearby foes with dizzying speed.',
+    },
+  },
+  {
+    id: 'speedster-time-skip',
+    label: 'Speedster: Time Skip',
+    data: {
+      name: 'Time Skip',
+      style: 'Speedster',
+      actionType: 'Bonus',
+      shape: 'Self',
+      range: 'Self',
+      effectTag: 'Teleport/Phase',
+      intensity: 'Core',
+      spCost: 2,
+      duration: 'Instant',
+      description: 'You step a heartbeat out of sync, reappearing exactly where you intend a moment later.',
+    },
+  },
+  {
+    id: 'psychic-mind-spike',
+    label: 'Telekinetic/Psychic: Mind Spike',
+    data: {
+      name: 'Mind Spike',
+      style: 'Telekinetic/Psychic',
+      actionType: 'Action',
+      shape: 'Ranged Single',
+      range: '60 ft',
+      effectTag: 'Damage',
+      intensity: 'Core',
+      spCost: 2,
+      requiresSave: true,
+      saveAbilityTarget: 'WIS',
+      duration: 'Instant',
+      damage: { dice: '2d6', type: 'Psychic', onSave: 'Half' },
+      description: 'A needle of psionic force tears through a foe’s mind.',
+    },
+  },
+  {
+    id: 'psychic-force-cage',
+    label: 'Telekinetic/Psychic: Force Cage',
+    data: {
+      name: 'Force Cage',
+      style: 'Telekinetic/Psychic',
+      actionType: 'Action',
+      shape: 'Radius',
+      range: '10 ft',
+      effectTag: 'Stun',
+      secondaryTag: 'Weaken',
+      intensity: 'Control',
+      spCost: 4,
+      requiresSave: true,
+      saveAbilityTarget: 'WIS',
+      duration: '1 Round',
+      description: 'A shimmering cage of kinetic force slams down, pinning foes inside.',
+      special: 'Creatures that fail are restrained and cannot leave the cage until the effect ends.',
+    },
+  },
+  {
+    id: 'illusionist-phantom-bind',
+    label: 'Illusionist: Phantom Bind',
+    data: {
+      name: 'Phantom Bind',
+      style: 'Illusionist',
+      actionType: 'Action',
+      shape: 'Ranged Single',
+      range: '60 ft',
+      effectTag: 'Stun',
+      intensity: 'Control',
+      spCost: 4,
+      requiresSave: true,
+      saveAbilityTarget: 'WIS',
+      duration: 'End of Target’s Next Turn',
+      description: 'Psychic chains of light bind your foe in a web of hallucinations.',
+      special: 'On a success the target shrugs off the illusion completely.',
+    },
+  },
+  {
+    id: 'illusionist-mirror-step',
+    label: 'Illusionist: Mirror Step',
+    data: {
+      name: 'Mirror Step',
+      style: 'Illusionist',
+      actionType: 'Bonus',
+      shape: 'Self',
+      range: 'Self',
+      effectTag: 'Teleport/Phase',
+      intensity: 'Core',
+      spCost: 2,
+      duration: 'Instant',
+      description: 'You disappear into a shimmer of light and reappear from a different angle.',
+    },
+  },
+  {
+    id: 'shapeshifter-bone-spear',
+    label: 'Shape-shifter: Bone Spear',
+    data: {
+      name: 'Bone Spear',
+      style: 'Shape-shifter',
+      actionType: 'Action',
+      shape: 'Ranged Single',
+      range: '60 ft',
+      effectTag: 'Damage',
+      intensity: 'Core',
+      spCost: 2,
+      requiresSave: true,
+      saveAbilityTarget: 'DEX',
+      duration: 'Instant',
+      damage: { dice: '2d6', type: 'Kinetic', onSave: 'Half' },
+      description: 'You harden your form into a razor spear and hurl it at distant prey.',
+    },
+  },
+  {
+    id: 'shapeshifter-shedskin',
+    label: 'Shape-shifter: Shedskin Decoy',
+    data: {
+      name: 'Shedskin Decoy',
+      style: 'Shape-shifter',
+      actionType: 'Reaction',
+      shape: 'Self',
+      range: 'Self',
+      effectTag: 'Summon/Clone',
+      intensity: 'Control',
+      spCost: 4,
+      duration: '1 Round',
+      description: 'You leave a reactive duplicate behind while you slip out of harm’s way.',
+      special: 'Swap positions with the decoy as part of the reaction.',
+    },
+  },
+  {
+    id: 'elemental-flame-burst',
+    label: 'Elemental: Flame Burst',
+    data: {
+      name: 'Flame Burst',
+      style: 'Elemental Controller',
+      actionType: 'Action',
+      shape: 'Cone',
+      range: '15 ft',
+      effectTag: 'Damage',
+      intensity: 'AoE',
+      spCost: 3,
+      requiresSave: true,
+      saveAbilityTarget: 'DEX',
+      duration: 'Instant',
+      damage: { dice: '3d6', type: 'Fire', onSave: 'Half' },
+      secondaryTag: 'Burn',
+      description: 'An explosive gout of elemental fire engulfs everything in front of you.',
+    },
+  },
+  {
+    id: 'elemental-frost-lock',
+    label: 'Elemental: Frost Lock',
+    data: {
+      name: 'Frost Lock',
+      style: 'Elemental Controller',
+      actionType: 'Action',
+      shape: 'Ranged Single',
+      range: '60 ft',
+      effectTag: 'Freeze',
+      secondaryTag: 'Slow',
+      intensity: 'Control',
+      spCost: 4,
+      requiresSave: true,
+      saveAbilityTarget: 'CON',
+      duration: '1 Round',
+      description: 'Icy chains freeze a target in place, chilling their limbs to a crawl.',
+    },
+  },
+];
+
+function suggestSpCost(intensity) {
+  switch (intensity) {
+    case 'Minor':
+      return 1;
+    case 'Core':
+      return 2;
+    case 'AoE':
+      return 3;
+    case 'Control':
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function computeSaveDc(settings) {
+  if (!settings) return 10;
+  const { casterSaveAbility, dcFormula, proficiencyBonus = 0, abilityMods = {} } = settings;
+  const modValue = abilityMods?.[casterSaveAbility] ?? 0;
+  if (dcFormula === 'Simple') {
+    return 10 + modValue;
+  }
+  return 8 + modValue + proficiencyBonus;
+}
+
+function defaultDamageType(style) {
+  switch (style) {
+    case 'Energy Manipulator':
+      return 'Lightning';
+    case 'Elemental Controller':
+      return 'Fire';
+    case 'Telekinetic/Psychic':
+      return 'Force';
+    case 'Physical Powerhouse':
+      return 'Kinetic';
+    case 'Speedster':
+      return 'Kinetic';
+    case 'Shape-shifter':
+      return 'Kinetic';
+    default:
+      return null;
+  }
+}
+
+function getCasterAbilitySuggestions(primaryStyle, secondaryStyle) {
+  const normalizeStyle = (value) => {
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    if (!trimmed || /^none$/i.test(trimmed)) return '';
+    return trimmed;
+  };
+  const primary = normalizeStyle(primaryStyle);
+  const secondary = normalizeStyle(secondaryStyle);
+  const suggestions = [];
+  if (primary && POWER_STYLE_CASTER_SAVE_DEFAULTS[primary]) {
+    suggestions.push(...POWER_STYLE_CASTER_SAVE_DEFAULTS[primary]);
+  }
+  if (!suggestions.length && secondary && POWER_STYLE_CASTER_SAVE_DEFAULTS[secondary]) {
+    suggestions.push(...POWER_STYLE_CASTER_SAVE_DEFAULTS[secondary]);
+  }
+  if (!suggestions.length) suggestions.push('WIS');
+  const unique = Array.from(new Set(suggestions.map(value => value.toUpperCase())));
+  return unique.length ? unique : ['WIS'];
+}
 // Global CC object for cross-module state
 window.CC = window.CC || {};
 CC.partials = CC.partials || {};
@@ -2545,7 +2999,7 @@ if (statusGrid) {
       cb.addEventListener('change', () => {
         if (cb.checked) {
           activeStatuses.add(s.name);
-          alert(`${s.name}: ${s.desc}`);
+          toast(`${s.name}: ${s.desc}`, { type: 'info', duration: 8000 });
           logAction(`Status effect gained: ${s.name}`);
         } else {
           activeStatuses.delete(s.name);
@@ -3105,6 +3559,154 @@ const elInitiativeRollResult = $('initiative-roll-result');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
+const powerDcFormulaField = $('power-dc-formula');
+const powerDcModeRadios = qsa("input[name='power-dc-mode']");
+const elPowerRangeUnit = $('power-range-unit');
+const elPowerSuggestionStrength = $('power-suggestion-strength');
+const elPowerMetricToggle = $('power-range-metric');
+const elPowerTextCompact = $('power-text-compact');
+const elPowerStylePrimary = $('power-style');
+const elPowerStyleSecondary = $('power-style-2');
+
+let casterAbilityManuallySet = false;
+let lastCasterAbilitySuggestions = [];
+let elPowerSaveAbilityHint = null;
+
+if (elPowerSaveAbility && elPowerSaveAbility.parentElement) {
+  elPowerSaveAbilityHint = document.createElement('div');
+  elPowerSaveAbilityHint.style.fontSize = '12px';
+  elPowerSaveAbilityHint.style.opacity = '0.8';
+  elPowerSaveAbilityHint.style.marginTop = '4px';
+  elPowerSaveAbilityHint.style.minHeight = '14px';
+  elPowerSaveAbilityHint.style.display = 'none';
+  elPowerSaveAbility.parentElement.appendChild(elPowerSaveAbilityHint);
+}
+
+function getCurrentCasterAbility() {
+  if (!elPowerSaveAbility) return '';
+  const value = elPowerSaveAbility.value || '';
+  return value.toUpperCase();
+}
+
+function updateCasterAbilityHint(suggestions) {
+  if (!elPowerSaveAbilityHint) return;
+  if (!Array.isArray(suggestions) || !suggestions.length) {
+    elPowerSaveAbilityHint.textContent = '';
+    elPowerSaveAbilityHint.style.display = 'none';
+    return;
+  }
+  const label = suggestions.length > 1 ? suggestions.join(' or ') : suggestions[0];
+  const manualNote = casterAbilityManuallySet ? ' (manual override)' : '';
+  elPowerSaveAbilityHint.textContent = `Suggested: ${label}${manualNote}`;
+  elPowerSaveAbilityHint.style.display = 'block';
+}
+
+function setCasterAbility(ability, { manual = false } = {}) {
+  if (!elPowerSaveAbility) return;
+  const normalized = typeof ability === 'string' ? ability.toUpperCase() : '';
+  if (!POWER_SAVE_ABILITIES.includes(normalized)) return;
+  const prev = getCurrentCasterAbility();
+  elPowerSaveAbility.value = normalized.toLowerCase();
+  casterAbilityManuallySet = manual;
+  if (prev !== normalized) {
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(() => updateDerived());
+    } else {
+      Promise.resolve().then(() => updateDerived());
+    }
+  }
+}
+
+function refreshCasterAbilitySuggestion({ force = false, syncOnly = false } = {}) {
+  if (!elPowerSaveAbility) return;
+  const primaryStyle = elPowerStylePrimary?.value || '';
+  const secondaryStyle = elPowerStyleSecondary?.value || '';
+  const suggestions = getCasterAbilitySuggestions(primaryStyle, secondaryStyle);
+  lastCasterAbilitySuggestions = suggestions;
+  const current = getCurrentCasterAbility();
+  if (syncOnly) {
+    casterAbilityManuallySet = suggestions.length ? current !== suggestions[0] : current !== '';
+    updateCasterAbilityHint(suggestions);
+    return;
+  }
+  if (casterAbilityManuallySet && suggestions.length && current === suggestions[0]) {
+    casterAbilityManuallySet = false;
+  }
+  if (force || !casterAbilityManuallySet) {
+    const recommended = suggestions[0];
+    if (recommended && current !== recommended) {
+      setCasterAbility(recommended, { manual: false });
+      updateCasterAbilityHint(suggestions);
+      return;
+    }
+    casterAbilityManuallySet = false;
+  }
+  updateCasterAbilityHint(suggestions);
+}
+
+function syncPowerDcRadios(value) {
+  const target = value === 'Simple' ? 'Simple' : 'Proficiency';
+  if (powerDcFormulaField) {
+    powerDcFormulaField.value = target;
+  }
+  powerDcModeRadios.forEach(radio => {
+    if (radio) radio.checked = radio.value === target;
+  });
+}
+
+function getCharacterPowerSettings() {
+  const abilityKeyRaw = (elPowerSaveAbility?.value || 'wis').toUpperCase();
+  const casterSaveAbility = POWER_SAVE_ABILITIES.includes(abilityKeyRaw) ? abilityKeyRaw : 'WIS';
+  const abilityMods = POWER_SAVE_ABILITIES.reduce((mods, ability) => {
+    const el = $(ability.toLowerCase());
+    mods[ability] = mod(el ? el.value : 0);
+    return mods;
+  }, {});
+  const formulaValue = powerDcFormulaField?.value === 'Simple' ? 'Simple' : 'Proficiency';
+  const proficiencyBonus = num(elProfBonus?.value) || 0;
+  const rangeUnitRaw = (elPowerRangeUnit?.value || 'feet').toLowerCase();
+  const defaultRangeUnit = POWER_RANGE_UNITS.includes(rangeUnitRaw) ? rangeUnitRaw : 'feet';
+  const strengthRaw = (elPowerSuggestionStrength?.value || 'conservative').toLowerCase();
+  const autoSuggestionStrength = POWER_SUGGESTION_STRENGTHS.includes(strengthRaw)
+    ? strengthRaw
+    : 'conservative';
+  const showMetricRanges = !!elPowerMetricToggle?.checked;
+  const preferShortRulesText = !!elPowerTextCompact?.checked;
+  return {
+    casterSaveAbility,
+    dcFormula: formulaValue,
+    proficiencyBonus,
+    abilityMods,
+    defaultRangeUnit,
+    autoSuggestionStrength,
+    showMetricRanges,
+    preferShortRulesText,
+  };
+}
+
+syncPowerDcRadios(powerDcFormulaField?.value || 'Proficiency');
+powerDcModeRadios.forEach(radio => {
+  if (!radio) return;
+  radio.addEventListener('change', () => {
+    if (radio.checked) {
+      syncPowerDcRadios(radio.value);
+      updateDerived();
+      refreshPowerCards();
+    }
+  });
+});
+[
+  elPowerRangeUnit,
+  elPowerSuggestionStrength,
+  elPowerMetricToggle,
+  elPowerTextCompact,
+].forEach(el => {
+  if (!el) return;
+  const eventName = el.tagName === 'SELECT' ? 'change' : 'input';
+  el.addEventListener(eventName, () => {
+    refreshPowerCards();
+  });
+});
 const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
@@ -3114,15 +3716,38 @@ const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
-const elPowerStyleSecondary = $('power-style-2');
+
+if (elPowerStylePrimary) {
+  elPowerStylePrimary.addEventListener('change', () => {
+    refreshCasterAbilitySuggestion();
+  });
+}
 
 if (elPowerStyleSecondary) {
   elPowerStyleSecondary.addEventListener('change', () => {
+    refreshCasterAbilitySuggestion();
     if (typeof catalogRenderScheduler === 'function') {
       catalogRenderScheduler();
     }
   });
 }
+
+if (elPowerSaveAbility) {
+  elPowerSaveAbility.addEventListener('change', event => {
+    const suggestions = lastCasterAbilitySuggestions.length
+      ? lastCasterAbilitySuggestions
+      : getCasterAbilitySuggestions(elPowerStylePrimary?.value || '', elPowerStyleSecondary?.value || '');
+    lastCasterAbilitySuggestions = suggestions;
+    const recommended = suggestions[0];
+    const current = getCurrentCasterAbility();
+    if (event?.isTrusted) {
+      casterAbilityManuallySet = recommended ? current !== recommended : current !== '';
+    }
+    updateCasterAbilityHint(suggestions);
+  });
+}
+
+refreshCasterAbilitySuggestion({ force: true });
 
 if (elInitiativeRollBtn) {
   elInitiativeRollBtn.addEventListener('click', () => {
@@ -3341,9 +3966,8 @@ function updateDerived(){
   // If the selected ability cannot be found in the DOM, default its modifier to 0
   // rather than throwing an error which prevents other derived stats from
   // updating and leaves all modifiers displayed as +0.
-  const saveAbilityEl = $(elPowerSaveAbility.value);
-  const saveMod = saveAbilityEl ? mod(saveAbilityEl.value) : 0;
-  elPowerSaveDC.value = 8 + pb + saveMod;
+  const powerSettings = getCharacterPowerSettings();
+  elPowerSaveDC.value = computeSaveDc(powerSettings);
   ABILS.forEach(a=>{
     const m = mod($(a).value);
     $(a+'-mod').textContent = (m>=0?'+':'') + m;
@@ -3356,6 +3980,7 @@ function updateDerived(){
     const val = mod($(s.abil).value) + (skillEl && skillEl.checked ? pb : 0);
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
   });
+  refreshPowerCards();
 }
 ABILS.forEach(a=> {
   const el = $(a);
@@ -3433,13 +4058,23 @@ function setHP(v){
   }
   return prev > 0 && num(elHPBar.value) === 0;
 }
+function notifyInsufficientSp(message = "You don't have enough SP for that.") {
+  try {
+    toast(message, 'error');
+  } catch {}
+  try {
+    logAction('SP spend prevented: insufficient SP.');
+  } catch {}
+}
+
 async function setSP(v){
   const prev = num(elSPBar.value);
-  if (num(v) < 0) {
-    alert("You don't have enough SP for that.");
-    return;
+  const target = num(v);
+  if (target < 0) {
+    notifyInsufficientSp();
+    return false;
   }
-  elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), v));
+  elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), target));
   const temp = elSPTemp ? num(elSPTemp.value) : 0;
   elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}` + (temp ? ` (+${temp})` : ``);
   const diff = num(elSPBar.value) - prev;
@@ -3449,7 +4084,11 @@ async function setSP(v){
     await playSPAnimation(diff);
     pushHistory();
   }
-  if(prev > 0 && num(elSPBar.value) === 0) alert('Player is out of SP');
+  if(prev > 0 && num(elSPBar.value) === 0) {
+    toast('Player is out of SP', 'warning');
+    logAction('Player is out of SP.');
+  }
+  return true;
 }
 $('hp-dmg').addEventListener('click', async ()=>{
   let d=num(elHPAmt ? elHPAmt.value : 0);
@@ -3465,7 +4104,8 @@ $('hp-dmg').addEventListener('click', async ()=>{
   await playDamageAnimation(-d);
   if(down){
     await playDownAnimation();
-    alert('Player is down');
+    toast('Player is down', 'warning');
+    logAction('Player is down.');
   }
 });
 $('hp-heal').addEventListener('click', async ()=>{
@@ -3482,17 +4122,24 @@ $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
 
 function changeSP(delta){
   const current = num(elSPBar.value);
-  if(delta < 0 && elSPTemp){
+  let adjusted = delta;
+  if(adjusted < 0 && elSPTemp){
     const temp = num(elSPTemp.value);
-    const use = Math.min(temp, -delta);
-    if(current + delta + use < 0){
-      alert("You don't have enough SP for that.");
-      return;
+    const use = Math.min(temp, -adjusted);
+    if(current + adjusted + use < 0){
+      notifyInsufficientSp();
+      return false;
     }
     elSPTemp.value = temp - use || '';
-    delta += use;
+    adjusted += use;
   }
-  setSP(current + delta);
+  const next = current + adjusted;
+  if (next < 0) {
+    notifyInsufficientSp();
+    return false;
+  }
+  setSP(next);
+  return true;
 }
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{
@@ -4139,12 +4786,14 @@ async function checkDeathProgress(){
     if(deathState!=='dead'){
       deathState='dead';
       await playDeathAnimation();
-      alert('You have fallen, your sacrifice will be remembered.');
+      toast('You have fallen, your sacrifice will be remembered.', 'error');
+      logAction('Death save failed: character has fallen.');
     }
   }else if(deathSuccesses.every(b=>b.checked)){
     if(deathState!=='stable'){
       deathState='stable';
-      alert('You are stable at 0 HP.');
+      toast('You are stable at 0 HP.', 'success');
+      logAction('Death saves complete: character is stable at 0 HP.');
     }
   }else{
     deathState=null;
@@ -4159,7 +4808,8 @@ $('roll-death-save')?.addEventListener('click', ()=>{
     onRoll: ({ roll, total }) => {
       if (roll === 20) {
         resetDeathSaves();
-        alert('Critical success! You regain 1 HP and awaken.');
+        toast('Critical success! You regain 1 HP and awaken.', 'success');
+        logAction('Death save critical success: regain 1 HP and awaken.');
         return;
       }
       if (roll === 1) {
@@ -4783,18 +5433,1758 @@ function refreshHammerspaceCards() {
   qsa("[data-kind='sig']").forEach(markHammerspaceState);
 }
 
+function generatePowerId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try { return crypto.randomUUID(); } catch {}
+  }
+  return `power-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+function getRangeOptionsForShape(shape) {
+  const options = POWER_SHAPE_RANGES[shape];
+  if (options && options.length) return options;
+  return POWER_RANGE_QUICK_VALUES.filter(value => value !== 'Melee');
+}
+
+function parseFeetValue(rangeValue) {
+  if (typeof rangeValue !== 'string') return null;
+  const match = rangeValue.match(/^(\d+)\s*ft$/i);
+  if (!match) return null;
+  const feet = Number(match[1]);
+  return Number.isFinite(feet) ? feet : null;
+}
+
+function formatMetricRange(rangeValue) {
+  const feet = parseFeetValue(rangeValue);
+  if (feet === null) return '';
+  const meters = Math.round(feet * 0.3048);
+  if (!Number.isFinite(meters) || meters <= 0) return '';
+  return `${meters} m`;
+}
+
+function formatRangeDisplay(rangeValue, settings) {
+  if (!settings?.showMetricRanges) return rangeValue;
+  const metric = formatMetricRange(rangeValue);
+  return metric ? `${rangeValue} (${metric})` : rangeValue;
+}
+
+function getPreferredRangeForShape(shape, options, settings) {
+  if (shape === 'Melee') return 'Melee';
+  if (!options || !options.length) return '';
+  if (shape === 'Self') return 'Self';
+  const unit = settings?.defaultRangeUnit === 'narrative' ? 'narrative' : 'feet';
+  if (unit === 'narrative') {
+    const narrativeOption = options.find(opt => /unlimited|narrative/i.test(opt));
+    if (narrativeOption) return narrativeOption;
+  }
+  const preferredTargets = {
+    Cone: ['30 ft', '15 ft', '60 ft'],
+    Line: ['60 ft', '30 ft', '120 ft'],
+    Radius: ['20 ft', '15 ft', '10 ft', '30 ft'],
+    Aura: ['10 ft', '15 ft', '20 ft', 'Self'],
+    'Ranged Single': ['30 ft', '60 ft', '90 ft', '120 ft'],
+  };
+  const targetList = preferredTargets[shape] || ['30 ft', '60 ft'];
+  for (const target of targetList) {
+    if (options.includes(target)) return target;
+  }
+  const numeric = options.filter(opt => parseFeetValue(opt) !== null);
+  if (numeric.length) return numeric[0];
+  return options[0];
+}
+
+function ensureRangeForShape(shape, range, settings) {
+  const options = getRangeOptionsForShape(shape);
+  const trimmed = typeof range === 'string' ? range.trim() : '';
+  if (!options.length) return trimmed || '';
+  if (trimmed && options.includes(trimmed)) return trimmed;
+  if (shape === 'Melee') return 'Melee';
+  return getPreferredRangeForShape(shape, options, settings);
+}
+
+function suggestOnSaveBehavior(effectTag) {
+  if (!effectTag) return 'Half';
+  return EFFECT_ON_SAVE_SUGGESTIONS[effectTag] || 'Half';
+}
+
+function matchLegacyEffectTag(text) {
+  if (!text) return null;
+  for (const entry of LEGACY_EFFECT_KEYWORDS) {
+    if (entry.patterns.some(pattern => pattern.test(text))) {
+      return entry.tag;
+    }
+  }
+  return null;
+}
+
+function detectDamageTypeFromText(text) {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  if (lower.includes('fire') || lower.includes('ember') || lower.includes('flame')) return 'Fire';
+  if (lower.includes('cold') || lower.includes('ice') || lower.includes('frost')) return 'Cold';
+  if (lower.includes('lightning') || lower.includes('shock') || lower.includes('elect')) return 'Lightning';
+  if (lower.includes('psychic') || lower.includes('mind') || lower.includes('mental')) return 'Psychic';
+  if (lower.includes('force') || lower.includes('kinetic')) return 'Force';
+  if (lower.includes('radiant') || lower.includes('light')) return 'Radiant';
+  if (lower.includes('necrotic') || lower.includes('void') || lower.includes('shadow')) return 'Necrotic';
+  if (lower.includes('acid') || lower.includes('corros')) return 'Acid';
+  if (lower.includes('slam') || lower.includes('punch') || lower.includes('impact')) return 'Kinetic';
+  return null;
+}
+
+function inferShapeFromLegacy(rangeText) {
+  const text = String(rangeText || '').toLowerCase();
+  if (text.includes('cone')) return 'Cone';
+  if (text.includes('line')) return 'Line';
+  if (text.includes('radius') || text.includes('burst')) return 'Radius';
+  if (text.includes('aura')) return 'Aura';
+  if (text.includes('self')) return 'Self';
+  if (text.includes('melee')) return 'Melee';
+  return 'Ranged Single';
+}
+
+function parseLegacyRange(rangeText, shape) {
+  const text = String(rangeText || '').trim();
+  const settings = typeof getCharacterPowerSettings === 'function' ? getCharacterPowerSettings() : null;
+  if (!text) {
+    if (shape === 'Melee') return 'Melee';
+    if (shape === 'Self') return 'Self';
+    const options = getRangeOptionsForShape(shape);
+    return ensureRangeForShape(shape, options[0] || '', settings);
+  }
+  const ftMatch = text.match(/([0-9]{1,3})\s*ft/i);
+  if (ftMatch) {
+    const candidate = `${ftMatch[1]} ft`;
+    return ensureRangeForShape(shape, candidate, settings);
+  }
+  if (shape === 'Melee') return 'Melee';
+  if (shape === 'Self') return 'Self';
+  if (shape === 'Aura' && text.toLowerCase().includes('self')) return 'Self';
+  return ensureRangeForShape(shape, text, settings);
+}
+
+function migrateLegacyPower(raw = {}) {
+  const effectText = typeof raw.effect === 'string' ? raw.effect.trim() : '';
+  const shape = inferShapeFromLegacy(raw.range);
+  const range = parseLegacyRange(raw.range, shape);
+  const effectTag = matchLegacyEffectTag(effectText) || 'Damage';
+  const saveText = typeof raw.save === 'string' ? raw.save.trim() : '';
+  const requiresSave = !!saveText;
+  let saveAbility = null;
+  if (requiresSave) {
+    const abilityMatch = saveText.match(/STR|DEX|CON|INT|WIS|CHA/i);
+    if (abilityMatch) saveAbility = abilityMatch[0].toUpperCase();
+  }
+  const diceMatch = effectText.match(/([1-6])d6/i);
+  let damage = null;
+  if (diceMatch) {
+    const dice = `${diceMatch[1]}d6`;
+    let type = detectDamageTypeFromText(effectText) || defaultDamageType('');
+    if (!type || !POWER_DAMAGE_TYPES.includes(type)) type = 'Kinetic';
+    let onSave = 'Half';
+    if (/negate/i.test(saveText) || /negate/i.test(effectText)) onSave = 'Negate';
+    else if (/full/i.test(saveText)) onSave = 'Full';
+    damage = { dice: POWER_DAMAGE_DICE.includes(dice) ? dice : POWER_DAMAGE_DICE[0], type, onSave };
+  }
+  return {
+    id: generatePowerId(),
+    name: raw.name || 'Power',
+    style: POWER_STYLES.includes(raw.style) ? raw.style : '',
+    actionType: 'Action',
+    shape,
+    range,
+    effectTag,
+    intensity: 'Core',
+    spCost: Math.max(1, Math.round(Number(raw.sp) || suggestSpCost('Core'))),
+    requiresSave,
+    saveAbilityTarget: requiresSave && POWER_SAVE_ABILITIES.includes(saveAbility) ? saveAbility : requiresSave ? 'WIS' : null,
+    duration: 'Instant',
+    description: effectText,
+    damage: damage || undefined,
+    secondaryTag: undefined,
+    concentration: false,
+    uses: 'At-will',
+    cooldown: 0,
+    scaling: 'Static',
+    special: '',
+    legacyText: effectText,
+    originalText: effectText,
+    migration: true,
+    needsReview: true,
+  };
+}
+
+function normalizePowerData(raw = {}) {
+  let base = raw;
+  if (raw && (raw.effect !== undefined || raw.sp !== undefined || raw.save !== undefined || raw.range !== undefined)) {
+    base = migrateLegacyPower(raw);
+  }
+  const settings = typeof getCharacterPowerSettings === 'function' ? getCharacterPowerSettings() : null;
+  const normalizedShape = POWER_TARGET_SHAPES.includes(base.shape) ? base.shape : 'Ranged Single';
+  const normalizedRange = ensureRangeForShape(normalizedShape, base.range, settings);
+  const intensity = POWER_INTENSITIES.includes(base.intensity) ? base.intensity : 'Core';
+  let spCost = Math.max(1, Math.round(Number(base.spCost))); 
+  if (!Number.isFinite(spCost) || spCost <= 0) spCost = suggestSpCost(intensity);
+  const requiresSave = !!base.requiresSave;
+  const saveAbilityTarget = requiresSave && POWER_SAVE_ABILITIES.includes(base.saveAbilityTarget)
+    ? base.saveAbilityTarget
+    : requiresSave
+      ? 'WIS'
+      : null;
+  let cooldown = Number(base.cooldown);
+  if (!Number.isFinite(cooldown) || cooldown < 0) cooldown = 0;
+  const uses = POWER_USES.includes(base.uses) ? base.uses : 'At-will';
+  if (intensity === 'Ultimate') {
+    cooldown = 10;
+  } else if (uses === 'Cooldown' && cooldown === 0) {
+    cooldown = 1;
+  }
+  const damage = base.damage && typeof base.damage === 'object'
+    ? {
+        dice: POWER_DAMAGE_DICE.includes(base.damage.dice) ? base.damage.dice : POWER_DAMAGE_DICE[0],
+        type: POWER_DAMAGE_TYPES.includes(base.damage.type) ? base.damage.type : (defaultDamageType(base.style) || 'Kinetic'),
+        onSave: POWER_ON_SAVE_OPTIONS.includes(base.damage.onSave) ? base.damage.onSave : 'Half',
+      }
+    : null;
+  const secondaryTag = base.secondaryTag && POWER_EFFECT_TAGS.includes(base.secondaryTag) ? base.secondaryTag : null;
+  const scaling = POWER_SCALING_OPTIONS.includes(base.scaling) ? base.scaling : 'Static';
+  const duration = POWER_DURATIONS.includes(base.duration) ? base.duration : 'Instant';
+  const concentration = duration === 'Sustained' ? true : !!base.concentration;
+  const normalized = {
+    id: typeof base.id === 'string' && base.id ? base.id : generatePowerId(),
+    name: base.name || '',
+    style: POWER_STYLES.includes(base.style) ? base.style : (base.style || ''),
+    actionType: POWER_ACTION_TYPES.includes(base.actionType) ? base.actionType : 'Action',
+    shape: normalizedShape,
+    range: normalizedRange || ensureRangeForShape(normalizedShape, '', settings),
+    effectTag: POWER_EFFECT_TAGS.includes(base.effectTag) ? base.effectTag : (secondaryTag || 'Damage'),
+    intensity,
+    spCost,
+    requiresSave,
+    saveAbilityTarget,
+    duration,
+    description: base.description || '',
+    damage: damage || undefined,
+    secondaryTag: secondaryTag || undefined,
+    concentration,
+    uses,
+    cooldown,
+    scaling,
+    special: base.special || '',
+    legacyText: base.legacyText || base.originalText || '',
+    originalText: base.originalText || base.legacyText || (typeof base.effect === 'string' ? base.effect : ''),
+    migration: !!base.migration,
+    needsReview: !!base.needsReview,
+  };
+  if (normalized.intensity === 'Ultimate') {
+    normalized.cooldown = 10;
+    normalized.uses = 'Cooldown';
+  }
+  if (normalized.duration === 'Sustained') {
+    normalized.concentration = true;
+  }
+  return normalized;
+}
+
+function formatPowerRange(power, settings) {
+  if (!power) return '';
+  const shape = power.shape;
+  const range = power.range;
+  if (!shape) return range || '';
+  switch (shape) {
+    case 'Melee':
+      return 'Melee range';
+    case 'Line':
+      return `${formatRangeDisplay(range || '30 ft', settings)} Line`;
+    case 'Cone':
+      return `${formatRangeDisplay(range || '15 ft', settings)} Cone`;
+    case 'Radius':
+      return `${formatRangeDisplay(range || '10 ft', settings)} Radius`;
+    case 'Self':
+      return 'Self';
+    case 'Aura':
+      if (!range || range === 'Self') return 'Aura';
+      return `Aura ${formatRangeDisplay(range, settings)}`;
+    case 'Ranged Single':
+    default:
+      return formatRangeDisplay(range || '30 ft', settings);
+  }
+}
+
+function composePowerRulesText(power, settings) {
+  if (!power) return '';
+  const pieces = [];
+  pieces.push(power.actionType || 'Action');
+  const rangeText = formatPowerRange(power, settings);
+  if (rangeText) pieces.push(rangeText);
+  if (power.requiresSave) {
+    const dc = computeSaveDc(settings);
+    const ability = power.saveAbilityTarget || settings?.casterSaveAbility || 'WIS';
+    if (settings?.preferShortRulesText) {
+      pieces.push(`${ability} DC ${dc}`);
+    } else {
+      pieces.push(`${ability} Save DC ${dc}`);
+    }
+  }
+  let effectPart = '';
+  if (power.damage) {
+    effectPart = `${power.damage.dice} ${power.damage.type}`;
+    if (power.damage.onSave) effectPart += `, ${power.damage.onSave} on Save`;
+  } else if (power.effectTag) {
+    effectPart = power.effectTag;
+  }
+  if (effectPart) {
+    if (power.secondaryTag && power.secondaryTag !== power.effectTag) {
+      effectPart += `, ${power.secondaryTag}`;
+    }
+    pieces.push(effectPart);
+  } else if (power.secondaryTag) {
+    pieces.push(power.secondaryTag);
+  }
+  const shortMode = !!settings?.preferShortRulesText;
+  pieces.push(shortMode ? `Dur ${power.duration}` : `Duration: ${power.duration}`);
+  pieces.push(shortMode ? `Cost ${power.spCost} SP` : `Cost: ${power.spCost} SP`);
+  if (power.concentration) {
+    pieces.push(shortMode ? 'Conc +1 SP/rnd' : 'Concentration +1 SP per round');
+  }
+  if (power.intensity === 'Ultimate') {
+    pieces.push(shortMode ? 'CD 10 rnds' : 'Cooldown 10 rounds');
+  } else if (power.uses === 'Cooldown' && Number(power.cooldown) > 0) {
+    const cdValue = Number(power.cooldown);
+    if (shortMode) {
+      pieces.push(`CD ${cdValue} rnd${cdValue === 1 ? '' : 's'}`);
+    } else {
+      pieces.push(`Cooldown ${power.cooldown} rounds`);
+    }
+  }
+  return pieces.join(' • ');
+}
+
+function parseDurationTracker(duration) {
+  switch (duration) {
+    case 'Instant':
+      return null;
+    case 'End of Target’s Next Turn':
+      return { rounds: 1, label: 'Ends next turn' };
+    case '1 Round':
+      return { rounds: 1, label: '1 Round' };
+    case 'Sustained':
+      return { rounds: null, label: 'Sustain' };
+    case 'Scene':
+      return { rounds: null, label: 'Scene' };
+    case 'Session':
+      return { rounds: null, label: 'Session' };
+    default:
+      if (!duration) return null;
+      return { rounds: null, label: duration };
+  }
+}
+
+const powerCardStates = new WeakMap();
+const activePowerCards = new Set();
+let activeConcentrationEffect = null;
+const ongoingEffectTrackers = new Map();
+let ongoingEffectCounter = 0;
+
+function getOngoingEffectsContainer() {
+  return $('ongoing-effects');
+}
+
+function formatRemainingDuration(state, initial = false) {
+  if (!state) return '';
+  if (state.remaining === null) return state.label;
+  if (initial && state.label) return state.label;
+  if (state.remaining <= 0) return 'Resolved';
+  const unit = state.remaining === 1 ? 'round left' : 'rounds left';
+  return `${state.remaining} ${unit}`;
+}
+
+function removeOngoingEffectTracker(id) {
+  const entry = ongoingEffectTrackers.get(id);
+  if (!entry) return;
+  if (entry.chip && entry.chip.parentNode) entry.chip.parentNode.removeChild(entry.chip);
+  ongoingEffectTrackers.delete(id);
+  if (entry.power && activeConcentrationEffect && activeConcentrationEffect.card === entry.powerCard) {
+    activeConcentrationEffect = null;
+  }
+}
+
+function addOngoingEffectTracker(power, card) {
+  const info = parseDurationTracker(power.duration);
+  if (!info) {
+    toast('This power has no ongoing duration to track.', 'info');
+    return;
+  }
+  const container = getOngoingEffectsContainer();
+  if (!container) return;
+  const id = `ongoing-${++ongoingEffectCounter}`;
+  const chip = document.createElement('div');
+  chip.style.display = 'flex';
+  chip.style.alignItems = 'center';
+  chip.style.gap = '8px';
+  chip.style.padding = '6px 10px';
+  chip.style.borderRadius = '12px';
+  chip.style.background = 'rgba(255,255,255,0.06)';
+  chip.style.border = '1px solid rgba(255,255,255,0.1)';
+  chip.dataset.ongoingId = id;
+  const nameSpan = document.createElement('strong');
+  nameSpan.textContent = power.name || 'Power';
+  nameSpan.style.fontSize = '12px';
+  const remainingSpan = document.createElement('span');
+  remainingSpan.style.fontSize = '12px';
+  const buttonWrap = document.createElement('div');
+  buttonWrap.style.display = 'flex';
+  buttonWrap.style.gap = '4px';
+  const tickBtn = document.createElement('button');
+  tickBtn.type = 'button';
+  tickBtn.className = 'btn-sm';
+  tickBtn.textContent = 'Tick';
+  const clearBtn = document.createElement('button');
+  clearBtn.type = 'button';
+  clearBtn.className = 'btn-sm';
+  clearBtn.textContent = 'Clear';
+  buttonWrap.append(tickBtn, clearBtn);
+  chip.append(nameSpan, remainingSpan, buttonWrap);
+  container.appendChild(chip);
+  const state = {
+    id,
+    chip,
+    label: info.label,
+    remaining: info.rounds,
+    power,
+    powerCard: card,
+  };
+  remainingSpan.textContent = formatRemainingDuration(state, true);
+  tickBtn.addEventListener('click', () => {
+    if (state.remaining === null) {
+      toast('Track this effect manually.', 'info');
+      return;
+    }
+    state.remaining = Math.max(0, (state.remaining ?? 0) - 1);
+    if (state.remaining <= 0) {
+      logAction(`Ongoing effect resolved: ${power.name}`);
+      removeOngoingEffectTracker(id);
+    } else {
+      remainingSpan.textContent = formatRemainingDuration(state);
+    }
+  });
+  clearBtn.addEventListener('click', () => {
+    logAction(`Ongoing effect cleared: ${power.name}`);
+    removeOngoingEffectTracker(id);
+  });
+  ongoingEffectTrackers.set(id, state);
+}
+
+function refreshPowerCards() {
+  activePowerCards.forEach(card => updatePowerCardDerived(card));
+}
+
+function createFieldContainer(labelText, input, { flex = '1', minWidth } = {}) {
+  const wrapper = document.createElement('div');
+  wrapper.style.display = 'flex';
+  wrapper.style.flexDirection = 'column';
+  wrapper.style.gap = '4px';
+  wrapper.style.flex = flex;
+  if (minWidth) wrapper.style.minWidth = minWidth;
+  const label = document.createElement('label');
+  label.textContent = labelText;
+  label.style.fontSize = '12px';
+  wrapper.append(label, input);
+  return { wrapper, label, input };
+}
+
+function setSelectOptions(select, options, value, { includeEmpty = false, formatDisplay } = {}) {
+  if (!select) return;
+  select.innerHTML = '';
+  if (includeEmpty) {
+    select.appendChild(new Option('None', ''));
+  }
+  options.forEach(option => {
+    const label = typeof formatDisplay === 'function' ? formatDisplay(option) : option;
+    select.appendChild(new Option(label, option));
+  });
+  const nextValue = options.includes(value) ? value : (includeEmpty ? '' : (options[0] || ''));
+  select.value = nextValue;
+  if (select.value !== nextValue) select.value = options[0] || '';
+}
+
+function readNumericInput(value, { min = 0, fallback = 0 } = {}) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed)) {
+    const rounded = Math.floor(parsed);
+    return Math.max(min, rounded);
+  }
+  return fallback;
+}
+
+function serializePowerCard(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return null;
+  const settings = getCharacterPowerSettings();
+  const power = { ...state.power };
+  if (power.damage) {
+    power.damage = { ...power.damage };
+  }
+  power.rulesText = composePowerRulesText(power, settings);
+  return power;
+}
+
+function updatePowerCardDerived(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const { power, elements } = state;
+  if (!elements) return;
+  const settings = getCharacterPowerSettings();
+  const suggestionStrength = POWER_SUGGESTION_STRENGTHS.includes(settings?.autoSuggestionStrength)
+    ? settings.autoSuggestionStrength
+    : 'conservative';
+  const quickActiveBg = 'rgba(46,160,67,0.25)';
+  const previousSuggestedSp = state.lastSuggestedSp;
+  const effectChanged = state.lastEffectTag !== power.effectTag;
+  const intensityChanged = state.lastIntensity !== power.intensity;
+  const hadDamageBefore = !!state.lastHasDamage;
+
+  power.spCost = Math.max(1, readNumericInput(elements.spInput?.value ?? power.spCost, { min: 1, fallback: power.spCost }));
+  const suggestedSp = suggestSpCost(power.intensity);
+  if (intensityChanged && suggestionStrength !== 'off') {
+    const shouldApplySp = suggestionStrength === 'assertive'
+      || (!state.manualSpOverride && (power.spCost === previousSuggestedSp || previousSuggestedSp === undefined));
+    if (shouldApplySp) {
+      power.spCost = suggestedSp;
+      if (elements.spInput) elements.spInput.value = String(power.spCost);
+      state.manualSpOverride = false;
+    }
+  }
+  state.lastSuggestedSp = suggestedSp;
+  if (elements.spInput && Number(elements.spInput.value) !== power.spCost) {
+    elements.spInput.value = String(power.spCost);
+  }
+
+  const shapeOptions = getRangeOptionsForShape(power.shape);
+  if (elements.rangeSelect) {
+    setSelectOptions(elements.rangeSelect, shapeOptions, power.range, {
+      formatDisplay: option => formatRangeDisplay(option, settings),
+    });
+    power.range = ensureRangeForShape(power.shape, elements.rangeSelect.value, settings);
+    elements.rangeSelect.disabled = shapeOptions.length <= 1;
+  }
+  if (elements.rangeField?.wrapper) {
+    const hideRange = power.shape === 'Melee';
+    elements.rangeField.wrapper.style.display = hideRange ? 'none' : 'flex';
+  }
+  if (elements.rangeHint) {
+    if (settings?.showMetricRanges) {
+      const metric = formatMetricRange(power.range);
+      elements.rangeHint.textContent = metric ? `≈ ${metric}` : '';
+      elements.rangeHint.style.display = metric ? 'block' : 'none';
+    } else {
+      elements.rangeHint.textContent = '';
+      elements.rangeHint.style.display = 'none';
+    }
+  }
+
+  if (elements.requiresSaveToggle) {
+    elements.requiresSaveToggle.checked = !!power.requiresSave;
+  }
+  if (elements.saveAbilityField?.wrapper) {
+    elements.saveAbilityField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
+  }
+  const saveSuggestions = EFFECT_SAVE_SUGGESTIONS[power.effectTag] || [];
+  const recommendedSave = saveSuggestions[0] || 'WIS';
+  if (power.requiresSave) {
+    if (!POWER_SAVE_ABILITIES.includes(power.saveAbilityTarget)) {
+      power.saveAbilityTarget = recommendedSave;
+    }
+    if (effectChanged && saveSuggestions.length && suggestionStrength !== 'off' && !state.manualSaveAbility) {
+      const shouldApplySave = suggestionStrength === 'assertive'
+        || !saveSuggestions.includes(power.saveAbilityTarget);
+      if (shouldApplySave) {
+        power.saveAbilityTarget = recommendedSave;
+      }
+    }
+    if (elements.saveAbilitySelect) {
+      elements.saveAbilitySelect.disabled = false;
+      if (power.saveAbilityTarget && elements.saveAbilitySelect.value !== power.saveAbilityTarget) {
+        elements.saveAbilitySelect.value = power.saveAbilityTarget;
+      }
+    }
+  } else {
+    power.saveAbilityTarget = null;
+    if (elements.saveAbilitySelect) {
+      elements.saveAbilitySelect.disabled = true;
+    }
+  }
+  if (elements.saveAbilityHint) {
+    elements.saveAbilityHint.textContent =
+      power.requiresSave && saveSuggestions.length
+        ? `Suggested: ${saveSuggestions.join(' or ')}`
+        : '';
+  }
+  if (elements.rollSaveBtn) {
+    elements.rollSaveBtn.disabled = !power.requiresSave;
+  }
+
+  if (elements.saveDcOutput) {
+    elements.saveDcOutput.value = power.requiresSave ? computeSaveDc(settings) : '';
+  }
+  if (elements.spHint) {
+    const parts = [`Suggested: ${suggestedSp} SP`];
+    if (power.spCost !== suggestedSp) {
+      parts.push(`(current ${power.spCost})`);
+    }
+    elements.spHint.textContent = parts.join(' ');
+  }
+  if (elements.quickSpValue) {
+    elements.quickSpValue.textContent = `${power.spCost} SP`;
+  }
+  if (elements.concentrationHint) {
+    elements.concentrationHint.textContent = power.concentration ? '+1 SP per round' : '';
+  }
+  if (elements.secondaryHint) {
+    elements.secondaryHint.textContent = power.secondaryTag ? 'Consider +1 SP for secondary effect' : '';
+  }
+  const hasDamage = !!power.damage;
+  if (elements.damageFields) {
+    elements.damageFields.style.display = hasDamage ? 'flex' : 'none';
+  }
+  if (hasDamage && elements.damageTypeSelect && !POWER_DAMAGE_TYPES.includes(power.damage.type)) {
+    const defaultType = defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+    power.damage.type = defaultType;
+    elements.damageTypeSelect.value = defaultType;
+  }
+  const onSaveSuggestion = suggestOnSaveBehavior(power.effectTag);
+  if (hasDamage) {
+    power.damage = power.damage || {};
+    if (!POWER_DAMAGE_DICE.includes(power.damage.dice)) {
+      power.damage.dice = POWER_DAMAGE_DICE[0];
+    }
+    if (!POWER_ON_SAVE_OPTIONS.includes(power.damage.onSave)) {
+      power.damage.onSave = onSaveSuggestion;
+    } else if ((effectChanged || !hadDamageBefore) && suggestionStrength !== 'off' && !state.manualOnSave) {
+      const shouldApplyOnSave = suggestionStrength === 'assertive'
+        || state.lastOnSaveSuggestion === undefined
+        || power.damage.onSave === state.lastOnSaveSuggestion;
+      if (shouldApplyOnSave) {
+        power.damage.onSave = onSaveSuggestion;
+      }
+    }
+    if (elements.damageDiceSelect && elements.damageDiceSelect.value !== power.damage.dice) {
+      elements.damageDiceSelect.value = power.damage.dice;
+    }
+    if (elements.damageTypeSelect && elements.damageTypeSelect.value !== power.damage.type) {
+      elements.damageTypeSelect.value = power.damage.type;
+    }
+    if (elements.damageSaveSelect && elements.damageSaveSelect.value !== power.damage.onSave) {
+      elements.damageSaveSelect.value = power.damage.onSave;
+    }
+  } else {
+    if (elements.damageDiceSelect) {
+      elements.damageDiceSelect.value = POWER_DAMAGE_DICE[0];
+    }
+    if (elements.damageTypeSelect) {
+      const defaultType = defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+      elements.damageTypeSelect.value = defaultType;
+    }
+    if (elements.damageSaveSelect) {
+      elements.damageSaveSelect.value = 'Half';
+    }
+  }
+  if (elements.damageToggle) {
+    elements.damageToggle.checked = hasDamage;
+  }
+  if (elements.damageSaveHint) {
+    elements.damageSaveHint.textContent = hasDamage ? `Suggested: ${onSaveSuggestion}` : '';
+  }
+
+  state.lastEffectTag = power.effectTag;
+  state.lastIntensity = power.intensity;
+  state.lastHasDamage = hasDamage;
+  state.lastOnSaveSuggestion = onSaveSuggestion;
+  if (elements.cooldownField && elements.cooldownField.wrapper) {
+    const requiresCooldown = power.intensity === 'Ultimate' || power.uses === 'Cooldown';
+    elements.cooldownField.wrapper.style.display = requiresCooldown ? 'flex' : 'none';
+    if (power.intensity === 'Ultimate') {
+      power.cooldown = 10;
+      if (elements.cooldownInput) {
+        elements.cooldownInput.value = '10';
+        elements.cooldownInput.disabled = true;
+      }
+      if (elements.usesSelect) {
+        power.uses = 'Cooldown';
+        elements.usesSelect.value = 'Cooldown';
+      }
+    } else {
+      if (elements.cooldownInput) {
+        elements.cooldownInput.disabled = power.uses !== 'Cooldown';
+        if (power.uses !== 'Cooldown' && power.cooldown > 0) {
+          power.cooldown = 0;
+        }
+        if (elements.cooldownInput.value !== String(power.cooldown)) {
+          elements.cooldownInput.value = String(power.cooldown);
+        }
+      }
+    }
+  }
+  if (power.duration === 'Sustained' && elements.concentrationToggle) {
+    power.concentration = true;
+    elements.concentrationToggle.checked = true;
+    elements.concentrationToggle.disabled = true;
+  } else if (elements.concentrationToggle) {
+    elements.concentrationToggle.disabled = false;
+  }
+  if (elements.rulesPreview) {
+    elements.rulesPreview.textContent = composePowerRulesText(power, settings);
+  }
+  if (elements.useButton) {
+    elements.useButton.disabled = !power.name;
+  }
+  if (elements.ongoingButton) {
+    elements.ongoingButton.disabled = power.duration === 'Instant';
+  }
+  if (elements.quickRangeButtons) {
+    const showQuickRange = power.shape !== 'Melee' && shapeOptions.length > 1;
+    if (elements.quickRangeRow) elements.quickRangeRow.style.display = showQuickRange ? 'flex' : 'none';
+    elements.quickRangeButtons.forEach(btn => {
+      const value = btn.dataset.value;
+      const baseLabel = btn.dataset.baseLabel || value;
+      const isMelee = value === 'Melee';
+      const canUse = isMelee ? power.shape === 'Melee' : shapeOptions.includes(value);
+      const isActive = isMelee ? power.shape === 'Melee' : power.range === value;
+      const enabled = showQuickRange ? canUse : (isMelee && power.shape === 'Melee');
+      const formatted = formatRangeDisplay(baseLabel, settings);
+      if (btn.textContent !== formatted) btn.textContent = formatted;
+      btn.disabled = !enabled;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = enabled ? '1' : '0.5';
+    });
+  }
+  if (elements.quickDiceButtons) {
+    if (elements.quickDiceRow) elements.quickDiceRow.style.display = hasDamage ? 'flex' : 'none';
+    elements.quickDiceButtons.forEach(btn => {
+      const isActive = hasDamage && power.damage?.dice === btn.dataset.value;
+      btn.disabled = !hasDamage;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = hasDamage ? '1' : '0.5';
+    });
+  }
+  if (elements.quickDurationButtons) {
+    if (elements.quickDurationRow) elements.quickDurationRow.style.display = 'flex';
+    elements.quickDurationButtons.forEach(btn => {
+      const isActive = power.duration === btn.dataset.value;
+      btn.disabled = false;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = '1';
+    });
+  }
+  if (elements.quickSaveAbilityButtons) {
+    const hasSave = !!power.requiresSave;
+    if (elements.quickSaveAbilityRow) elements.quickSaveAbilityRow.style.display = hasSave ? 'flex' : 'none';
+    elements.quickSaveAbilityButtons.forEach(btn => {
+      const isActive = hasSave && power.saveAbilityTarget === btn.dataset.value;
+      btn.disabled = !hasSave;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = hasSave ? '1' : '0.5';
+    });
+  }
+  if (elements.quickOnSaveButtons) {
+    if (elements.quickOnSaveRow) elements.quickOnSaveRow.style.display = hasDamage ? 'flex' : 'none';
+    const activeOnSave = power.damage?.onSave || '';
+    elements.quickOnSaveButtons.forEach(btn => {
+      const isActive = hasDamage && activeOnSave === btn.dataset.value;
+      btn.disabled = !hasDamage;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = hasDamage ? '1' : '0.5';
+    });
+  }
+}
+
+const POWER_MESSAGE_COLORS = {
+  info: '#58a6ff',
+  warning: '#f0ad4e',
+  error: '#f85149',
+  success: '#3fb950',
+};
+
+function showPowerMessage(card, text, tone = 'info') {
+  const state = powerCardStates.get(card);
+  const area = state?.elements?.messageArea;
+  if (!area) return;
+  if (!text) {
+    area.textContent = '';
+    area.hidden = true;
+    return;
+  }
+  area.hidden = false;
+  area.textContent = text;
+  area.style.color = POWER_MESSAGE_COLORS[tone] || '#c9d1d9';
+}
+
+function clearPowerMessage(card) {
+  showPowerMessage(card, '');
+}
+
+function hideConcentrationPrompt(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  state.pendingConcentrationAction = null;
+  const prompt = state.elements?.concentrationPrompt;
+  if (prompt) {
+    prompt.style.display = 'none';
+    prompt.dataset.open = 'false';
+  }
+}
+
+function requestConcentrationDrop(card, power, proceed) {
+  const state = powerCardStates.get(card);
+  if (!state || !state.elements) return false;
+  const { elements } = state;
+  if (!elements.concentrationPrompt || !elements.concentrationPromptText) {
+    showPowerMessage(card, `Drop concentration on ${activeConcentrationEffect?.name || 'the current effect'} before using this power.`, 'warning');
+    return false;
+  }
+  state.pendingConcentrationAction = proceed;
+  elements.concentrationPromptText.textContent = `Drop concentration on ${activeConcentrationEffect?.name || 'the current effect'} to use ${power.name}?`;
+  elements.concentrationPrompt.style.display = 'flex';
+  elements.concentrationPrompt.dataset.open = 'true';
+  showPowerMessage(card, `Concentration conflict: drop ${activeConcentrationEffect?.name || 'current effect'} to continue.`, 'warning');
+  return true;
+}
+
+function finalizePowerUse(card, power) {
+  if (!changeSP(-power.spCost)) {
+    showPowerMessage(card, 'Insufficient SP to use this power.', 'error');
+    return;
+  }
+  logAction(`Power used: ${power.name} — ${power.rulesText}`);
+  toast(`${power.name} activated.`, 'success');
+  if (power.concentration) {
+    activeConcentrationEffect = { card, name: power.name };
+  } else if (activeConcentrationEffect && activeConcentrationEffect.card === card) {
+    activeConcentrationEffect = null;
+  }
+  showPowerMessage(card, `${power.name} activated.`, 'success');
+}
+
+function handleUsePower(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  hideConcentrationPrompt(card);
+  clearPowerMessage(card);
+  const power = serializePowerCard(card);
+  if (!power) return;
+  if (power.requiresSave && !power.saveAbilityTarget) {
+    showPowerMessage(card, 'Select a save ability before using this power.', 'error');
+    return;
+  }
+  if (!Number.isFinite(power.spCost) || power.spCost <= 0) {
+    showPowerMessage(card, 'SP cost must be a positive number.', 'error');
+    return;
+  }
+  const available = num(elSPBar?.value) + (elSPTemp ? num(elSPTemp.value) : 0);
+  if (power.spCost > available) {
+    toast('Insufficient SP to use this power.', 'error');
+    showPowerMessage(card, 'Insufficient SP to use this power.', 'error');
+    return;
+  }
+  const proceed = () => finalizePowerUse(card, power);
+  if (power.concentration && activeConcentrationEffect && activeConcentrationEffect.card !== card) {
+    requestConcentrationDrop(card, power, proceed);
+    return;
+  }
+  proceed();
+}
+
+function handleRollPowerSave(card) {
+  const state = powerCardStates.get(card);
+  if (!state || !state.power.requiresSave) return;
+  const power = serializePowerCard(card);
+  if (!power) return;
+  const ability = power.saveAbilityTarget || 'WIS';
+  const dc = computeSaveDc(getCharacterPowerSettings());
+  let bonus = 0;
+  const bonusInput = state.elements?.saveBonusInput;
+  if (bonusInput) {
+    const parsed = Number(bonusInput.value);
+    bonus = Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+  }
+  const out = state.elements?.saveResult || null;
+  if (out) {
+    out.textContent = '—';
+    out.style.background = '';
+  }
+  rollWithBonus(`${power.name} save`, bonus, null, {
+    type: 'save',
+    ability,
+    onRoll: ({ total }) => {
+      if (!out) return;
+      const passed = total >= dc;
+      out.textContent = `${total} ${passed ? '✓ Success' : '✗ Fail'}`;
+      out.style.background = passed ? 'rgba(46,160,67,0.3)' : 'rgba(219,68,55,0.3)';
+    },
+  });
+}
+
+function handleBoostRoll(card) {
+  const power = serializePowerCard(card);
+  if (!power) return;
+  hideConcentrationPrompt(card);
+  clearPowerMessage(card);
+  const available = num(elSPBar?.value) + (elSPTemp ? num(elSPTemp.value) : 0);
+  if (available < 1) {
+    toast('Insufficient SP to boost this roll.', 'error');
+    showPowerMessage(card, 'Insufficient SP to boost this roll.', 'error');
+    return;
+  }
+  if (!changeSP(-1)) {
+    showPowerMessage(card, 'Insufficient SP to boost this roll.', 'error');
+    return;
+  }
+  logAction(`Boosted next roll for ${power.name} (+1d4).`);
+  toast(`Boost ready for ${power.name}.`, 'info');
+  showPowerMessage(card, 'Boost readied: +1d4 to the next roll.', 'success');
+}
+
+function handleDeletePower(card) {
+  const state = powerCardStates.get(card);
+  const name = state?.power?.name || 'Power';
+  logAction(`Power removed: ${name}`);
+  if (activeConcentrationEffect && activeConcentrationEffect.card === card) {
+    activeConcentrationEffect = null;
+  }
+  activePowerCards.delete(card);
+  powerCardStates.delete(card);
+  if (card && card.parentNode) card.parentNode.removeChild(card);
+  pushHistory();
+}
+
+function createPowerCard(pref = {}) {
+  const power = normalizePowerData(pref);
+  const card = document.createElement('div');
+  card.className = 'card power-card';
+  card.dataset.kind = 'power';
+  card.draggable = true;
+  card.dataset.powerId = power.id;
+
+  const elements = {};
+  function createQuickButton(label, value) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-sm';
+    btn.textContent = label;
+    btn.dataset.value = value;
+    btn.dataset.baseLabel = label;
+    btn.style.fontSize = '11px';
+    btn.style.padding = '2px 6px';
+    btn.style.lineHeight = '1.4';
+    btn.setAttribute('aria-pressed', 'false');
+    return btn;
+  }
+
+  function createQuickRow(labelText) {
+    const row = document.createElement('div');
+    row.className = 'inline';
+    row.style.flexWrap = 'wrap';
+    row.style.gap = '4px';
+    const label = document.createElement('span');
+    label.textContent = labelText;
+    label.style.fontSize = '11px';
+    label.style.opacity = '0.75';
+    row.appendChild(label);
+    return row;
+  }
+  const state = {
+    power,
+    elements,
+    pendingConcentrationAction: null,
+    manualSpOverride: false,
+    manualSaveAbility: false,
+    manualOnSave: false,
+    lastEffectTag: power.effectTag,
+    lastIntensity: power.intensity,
+    lastSuggestedSp: suggestSpCost(power.intensity),
+    lastHasDamage: !!power.damage,
+    lastOnSaveSuggestion: power.damage ? suggestOnSaveBehavior(power.effectTag) : null,
+  };
+  powerCardStates.set(card, state);
+  activePowerCards.add(card);
+
+  const topRow = document.createElement('div');
+  topRow.className = 'inline';
+  topRow.style.flexWrap = 'wrap';
+  topRow.style.gap = '8px';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.placeholder = 'Power Name';
+  nameInput.value = power.name;
+  const nameField = createFieldContainer('Name', nameInput, { flex: '2', minWidth: '200px' });
+  topRow.appendChild(nameField.wrapper);
+
+  const styleSelect = document.createElement('select');
+  setSelectOptions(styleSelect, POWER_STYLES, power.style, { includeEmpty: true });
+  const styleField = createFieldContainer('Style', styleSelect, { flex: '1', minWidth: '160px' });
+  topRow.appendChild(styleField.wrapper);
+
+  const actionSelect = document.createElement('select');
+  setSelectOptions(actionSelect, POWER_ACTION_TYPES, power.actionType);
+  const actionField = createFieldContainer('Action Type', actionSelect, { flex: '1', minWidth: '150px' });
+  topRow.appendChild(actionField.wrapper);
+
+  card.appendChild(topRow);
+
+  const targetingRow = document.createElement('div');
+  targetingRow.className = 'inline';
+  targetingRow.style.flexWrap = 'wrap';
+  targetingRow.style.gap = '8px';
+
+  const shapeSelect = document.createElement('select');
+  setSelectOptions(shapeSelect, POWER_TARGET_SHAPES, power.shape);
+  const shapeField = createFieldContainer('Target Shape', shapeSelect, { flex: '1', minWidth: '140px' });
+  targetingRow.appendChild(shapeField.wrapper);
+
+  const rangeSelect = document.createElement('select');
+  setSelectOptions(rangeSelect, POWER_SHAPE_RANGES[power.shape] || [], power.range);
+  const rangeField = createFieldContainer('Range', rangeSelect, { flex: '1', minWidth: '140px' });
+  const rangeHint = document.createElement('div');
+  rangeHint.style.fontSize = '12px';
+  rangeHint.style.opacity = '0.8';
+  rangeHint.style.minHeight = '14px';
+  rangeHint.style.display = 'none';
+  rangeField.wrapper.appendChild(rangeHint);
+  targetingRow.appendChild(rangeField.wrapper);
+
+  const effectSelect = document.createElement('select');
+  setSelectOptions(effectSelect, POWER_EFFECT_TAGS, power.effectTag);
+  const effectField = createFieldContainer('Primary Effect', effectSelect, { flex: '1', minWidth: '160px' });
+  targetingRow.appendChild(effectField.wrapper);
+
+  const secondarySelect = document.createElement('select');
+  setSelectOptions(secondarySelect, POWER_EFFECT_TAGS, power.secondaryTag, { includeEmpty: true });
+  const secondaryField = createFieldContainer('Secondary Tag', secondarySelect, { flex: '1', minWidth: '160px' });
+  targetingRow.appendChild(secondaryField.wrapper);
+
+  card.appendChild(targetingRow);
+
+  const intensityRow = document.createElement('div');
+  intensityRow.className = 'inline';
+  intensityRow.style.flexWrap = 'wrap';
+  intensityRow.style.gap = '8px';
+
+  const intensitySelect = document.createElement('select');
+  setSelectOptions(intensitySelect, POWER_INTENSITIES, power.intensity);
+  const intensityField = createFieldContainer('Intensity', intensitySelect, { flex: '1', minWidth: '140px' });
+  intensityRow.appendChild(intensityField.wrapper);
+
+  const spInput = document.createElement('input');
+  spInput.type = 'number';
+  spInput.min = '1';
+  spInput.value = power.spCost;
+  spInput.inputMode = 'numeric';
+  const spField = createFieldContainer('SP Cost', spInput, { flex: '1', minWidth: '120px' });
+  const spControls = document.createElement('div');
+  spControls.style.display = 'flex';
+  spControls.style.gap = '4px';
+  const spSuggestBtn = document.createElement('button');
+  spSuggestBtn.type = 'button';
+  spSuggestBtn.className = 'btn-sm';
+  spSuggestBtn.textContent = 'Suggest';
+  spControls.appendChild(spSuggestBtn);
+  spField.wrapper.appendChild(spControls);
+  const spHint = document.createElement('div');
+  spHint.style.fontSize = '12px';
+  spHint.style.opacity = '0.8';
+  spField.wrapper.appendChild(spHint);
+  intensityRow.appendChild(spField.wrapper);
+
+  card.appendChild(intensityRow);
+
+  const saveRow = document.createElement('div');
+  saveRow.className = 'inline';
+  saveRow.style.flexWrap = 'wrap';
+  saveRow.style.gap = '8px';
+
+  const requiresSaveWrap = document.createElement('div');
+  requiresSaveWrap.style.display = 'flex';
+  requiresSaveWrap.style.alignItems = 'center';
+  requiresSaveWrap.style.gap = '6px';
+  const requiresSaveLabel = document.createElement('label');
+  requiresSaveLabel.className = 'inline';
+  requiresSaveLabel.style.alignItems = 'center';
+  requiresSaveLabel.style.gap = '6px';
+  const requiresSaveToggle = document.createElement('input');
+  requiresSaveToggle.type = 'checkbox';
+  requiresSaveToggle.checked = power.requiresSave;
+  requiresSaveLabel.append(requiresSaveToggle, document.createTextNode(' Requires Save'));
+  requiresSaveWrap.appendChild(requiresSaveLabel);
+  saveRow.appendChild(requiresSaveWrap);
+
+  const saveAbilitySelect = document.createElement('select');
+  setSelectOptions(saveAbilitySelect, POWER_SAVE_ABILITIES, power.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
+  const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { flex: '1', minWidth: '120px' });
+  const saveAbilityHint = document.createElement('div');
+  saveAbilityHint.style.fontSize = '12px';
+  saveAbilityHint.style.opacity = '0.8';
+  saveAbilityHint.style.minHeight = '14px';
+  saveAbilityField.wrapper.appendChild(saveAbilityHint);
+  saveRow.appendChild(saveAbilityField.wrapper);
+
+  const saveBonusInput = document.createElement('input');
+  saveBonusInput.type = 'number';
+  saveBonusInput.step = '1';
+  saveBonusInput.value = '0';
+  saveBonusInput.placeholder = '+0';
+  const saveBonusField = createFieldContainer('Target Save Bonus', saveBonusInput, { flex: '1', minWidth: '120px' });
+  saveRow.appendChild(saveBonusField.wrapper);
+
+  const durationSelect = document.createElement('select');
+  setSelectOptions(durationSelect, POWER_DURATIONS, power.duration);
+  const durationField = createFieldContainer('Duration', durationSelect, { flex: '1', minWidth: '160px' });
+  saveRow.appendChild(durationField.wrapper);
+
+  const concentrationWrap = document.createElement('div');
+  concentrationWrap.style.display = 'flex';
+  concentrationWrap.style.flexDirection = 'column';
+  concentrationWrap.style.gap = '4px';
+  const concentrationLabel = document.createElement('label');
+  concentrationLabel.className = 'inline';
+  concentrationLabel.style.alignItems = 'center';
+  concentrationLabel.style.gap = '6px';
+  const concentrationToggle = document.createElement('input');
+  concentrationToggle.type = 'checkbox';
+  concentrationToggle.checked = power.concentration;
+  concentrationLabel.append(concentrationToggle, document.createTextNode(' Concentration'));
+  const concentrationHint = document.createElement('div');
+  concentrationHint.style.fontSize = '12px';
+  concentrationHint.style.opacity = '0.8';
+  concentrationWrap.append(concentrationLabel, concentrationHint);
+  saveRow.appendChild(concentrationWrap);
+
+  card.appendChild(saveRow);
+
+  const usageRow = document.createElement('div');
+  usageRow.className = 'inline';
+  usageRow.style.flexWrap = 'wrap';
+  usageRow.style.gap = '8px';
+
+  const usesSelect = document.createElement('select');
+  setSelectOptions(usesSelect, POWER_USES, power.uses);
+  const usesField = createFieldContainer('Uses', usesSelect, { flex: '1', minWidth: '140px' });
+  usageRow.appendChild(usesField.wrapper);
+
+  const cooldownInput = document.createElement('input');
+  cooldownInput.type = 'number';
+  cooldownInput.min = '0';
+  cooldownInput.value = power.cooldown || 0;
+  cooldownInput.inputMode = 'numeric';
+  const cooldownField = createFieldContainer('Cooldown (rounds)', cooldownInput, { flex: '1', minWidth: '140px' });
+  usageRow.appendChild(cooldownField.wrapper);
+
+  const scalingSelect = document.createElement('select');
+  setSelectOptions(scalingSelect, POWER_SCALING_OPTIONS, power.scaling);
+  const scalingField = createFieldContainer('Scaling', scalingSelect, { flex: '1', minWidth: '140px' });
+  usageRow.appendChild(scalingField.wrapper);
+
+  card.appendChild(usageRow);
+
+  const damageSection = document.createElement('div');
+  damageSection.style.display = 'flex';
+  damageSection.style.flexDirection = 'column';
+  damageSection.style.gap = '6px';
+
+  const damageToggleLabel = document.createElement('label');
+  damageToggleLabel.className = 'inline';
+  damageToggleLabel.style.alignItems = 'center';
+  damageToggleLabel.style.gap = '6px';
+  const damageToggle = document.createElement('input');
+  damageToggle.type = 'checkbox';
+  damageToggle.checked = !!power.damage;
+  damageToggleLabel.append(damageToggle, document.createTextNode(' Include Damage Package'));
+  damageSection.appendChild(damageToggleLabel);
+
+  const damageFields = document.createElement('div');
+  damageFields.className = 'inline';
+  damageFields.style.flexWrap = 'wrap';
+  damageFields.style.gap = '8px';
+
+  const damageDiceSelect = document.createElement('select');
+  setSelectOptions(damageDiceSelect, POWER_DAMAGE_DICE, power.damage?.dice || POWER_DAMAGE_DICE[0]);
+  const damageDiceField = createFieldContainer('Damage Dice', damageDiceSelect, { flex: '1', minWidth: '120px' });
+  damageFields.appendChild(damageDiceField.wrapper);
+
+  const damageTypeSelect = document.createElement('select');
+  setSelectOptions(damageTypeSelect, POWER_DAMAGE_TYPES, power.damage?.type || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0]);
+  const damageTypeField = createFieldContainer('Damage Type', damageTypeSelect, { flex: '1', minWidth: '140px' });
+  damageFields.appendChild(damageTypeField.wrapper);
+
+  const damageSaveSelect = document.createElement('select');
+  setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, power.damage?.onSave || 'Half');
+  const damageSaveField = createFieldContainer('On Save', damageSaveSelect, { flex: '1', minWidth: '140px' });
+  const damageSaveHint = document.createElement('div');
+  damageSaveHint.style.fontSize = '12px';
+  damageSaveHint.style.opacity = '0.8';
+  damageSaveHint.style.minHeight = '14px';
+  damageSaveField.wrapper.appendChild(damageSaveHint);
+  damageFields.appendChild(damageSaveField.wrapper);
+
+  damageSection.appendChild(damageFields);
+  if (!power.damage) damageFields.style.display = 'none';
+  card.appendChild(damageSection);
+
+  const secondaryHint = document.createElement('div');
+  secondaryHint.style.fontSize = '12px';
+  secondaryHint.style.opacity = '0.8';
+  secondaryHint.style.minHeight = '14px';
+  secondaryField.wrapper.appendChild(secondaryHint);
+
+  const descriptionArea = document.createElement('textarea');
+  descriptionArea.rows = 3;
+  descriptionArea.placeholder = 'Description / Flavor text';
+  descriptionArea.value = power.description || '';
+  descriptionArea.style.resize = 'vertical';
+  const descriptionField = createFieldContainer('Description', descriptionArea, { flex: '1', minWidth: '100%' });
+  card.appendChild(descriptionField.wrapper);
+
+  const specialArea = document.createElement('textarea');
+  specialArea.rows = 2;
+  specialArea.placeholder = 'Special Rider / Notes';
+  specialArea.value = power.special || '';
+  specialArea.style.resize = 'vertical';
+  const specialField = createFieldContainer('Special', specialArea, { flex: '1', minWidth: '100%' });
+  card.appendChild(specialField.wrapper);
+
+  const derivedRow = document.createElement('div');
+  derivedRow.className = 'inline';
+  derivedRow.style.flexWrap = 'wrap';
+  derivedRow.style.gap = '8px';
+  derivedRow.style.alignItems = 'center';
+
+  const saveDcInput = document.createElement('input');
+  saveDcInput.type = 'number';
+  saveDcInput.readOnly = true;
+  saveDcInput.placeholder = '—';
+  const saveDcField = createFieldContainer('Computed Save DC', saveDcInput, { flex: '0 0 160px', minWidth: '140px' });
+  derivedRow.appendChild(saveDcField.wrapper);
+
+  const rulesPreview = document.createElement('div');
+  rulesPreview.style.fontSize = '12px';
+  rulesPreview.style.opacity = '0.9';
+  rulesPreview.style.flex = '1';
+  rulesPreview.style.minWidth = '240px';
+  rulesPreview.style.padding = '6px 8px';
+  rulesPreview.style.borderRadius = '8px';
+  rulesPreview.style.background = 'rgba(255,255,255,0.04)';
+  rulesPreview.setAttribute('aria-live', 'polite');
+  derivedRow.appendChild(rulesPreview);
+
+  card.appendChild(derivedRow);
+
+  const quickControls = document.createElement('div');
+  quickControls.style.display = 'flex';
+  quickControls.style.flexDirection = 'column';
+  quickControls.style.gap = '6px';
+  quickControls.style.margin = '8px 0';
+
+  const rangeQuickRow = createQuickRow('Range quick set');
+  const quickRangeButtons = [];
+  POWER_RANGE_QUICK_VALUES.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (value === 'Melee') {
+        power.shape = 'Melee';
+        shapeSelect.value = 'Melee';
+        power.range = 'Melee';
+      } else {
+        power.range = value;
+      }
+      updatePowerCardDerived(card);
+    });
+    rangeQuickRow.appendChild(btn);
+    quickRangeButtons.push(btn);
+  });
+  quickControls.appendChild(rangeQuickRow);
+
+  const diceQuickRow = createQuickRow('Damage dice');
+  const quickDiceButtons = [];
+  POWER_DAMAGE_DICE.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (!power.damage) {
+        const defaultType = power.damage?.type || damageTypeSelect.value || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+        const onSaveSuggestion = suggestOnSaveBehavior(power.effectTag);
+        power.damage = {
+          dice: value,
+          type: defaultType,
+          onSave: onSaveSuggestion,
+        };
+        damageToggle.checked = true;
+        damageTypeSelect.value = power.damage.type;
+        damageSaveSelect.value = power.damage.onSave;
+      } else {
+        power.damage.dice = value;
+      }
+      damageDiceSelect.value = value;
+      updatePowerCardDerived(card);
+    });
+    diceQuickRow.appendChild(btn);
+    quickDiceButtons.push(btn);
+  });
+  quickControls.appendChild(diceQuickRow);
+
+  const spQuickRow = createQuickRow('SP quick adjust');
+  const spDecBtn = createQuickButton('-1 SP', 'dec');
+  const spIncBtn = createQuickButton('+1 SP', 'inc');
+  const spQuickValue = document.createElement('span');
+  spQuickValue.style.fontSize = '11px';
+  spQuickValue.style.opacity = '0.8';
+  spQuickValue.style.marginLeft = '4px';
+  spQuickValue.textContent = `${power.spCost} SP`;
+  spDecBtn.addEventListener('click', event => {
+    event.preventDefault();
+    power.spCost = Math.max(1, power.spCost - 1);
+    spInput.value = String(power.spCost);
+    state.manualSpOverride = true;
+    updatePowerCardDerived(card);
+  });
+  spIncBtn.addEventListener('click', event => {
+    event.preventDefault();
+    power.spCost = Math.max(1, power.spCost + 1);
+    spInput.value = String(power.spCost);
+    state.manualSpOverride = true;
+    updatePowerCardDerived(card);
+  });
+  spQuickRow.appendChild(spDecBtn);
+  spQuickRow.appendChild(spIncBtn);
+  spQuickRow.appendChild(spQuickValue);
+  quickControls.appendChild(spQuickRow);
+
+  const durationQuickRow = createQuickRow('Duration chips');
+  const quickDurationButtons = [];
+  POWER_DURATIONS.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      power.duration = value;
+      durationSelect.value = value;
+      updatePowerCardDerived(card);
+    });
+    durationQuickRow.appendChild(btn);
+    quickDurationButtons.push(btn);
+  });
+  quickControls.appendChild(durationQuickRow);
+
+  const saveAbilityQuickRow = createQuickRow('Save ability chips');
+  const quickSaveAbilityButtons = [];
+  POWER_SAVE_ABILITIES.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (!power.requiresSave) {
+        power.requiresSave = true;
+        requiresSaveToggle.checked = true;
+      }
+      power.saveAbilityTarget = value;
+      saveAbilitySelect.value = value;
+      state.manualSaveAbility = true;
+      updatePowerCardDerived(card);
+    });
+    saveAbilityQuickRow.appendChild(btn);
+    quickSaveAbilityButtons.push(btn);
+  });
+  quickControls.appendChild(saveAbilityQuickRow);
+
+  const onSaveQuickRow = createQuickRow('On Save behavior');
+  const quickOnSaveButtons = [];
+  POWER_ON_SAVE_OPTIONS.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (!power.damage) return;
+      power.damage.onSave = value;
+      damageSaveSelect.value = value;
+      state.manualOnSave = true;
+      updatePowerCardDerived(card);
+    });
+    onSaveQuickRow.appendChild(btn);
+    quickOnSaveButtons.push(btn);
+  });
+  quickControls.appendChild(onSaveQuickRow);
+
+  card.appendChild(quickControls);
+
+  const feedbackWrap = document.createElement('div');
+  feedbackWrap.style.display = 'flex';
+  feedbackWrap.style.flexDirection = 'column';
+  feedbackWrap.style.gap = '6px';
+  feedbackWrap.style.marginTop = '4px';
+
+  const messageArea = document.createElement('div');
+  messageArea.style.fontSize = '12px';
+  messageArea.style.minHeight = '16px';
+  messageArea.hidden = true;
+  feedbackWrap.appendChild(messageArea);
+
+  const concentrationPrompt = document.createElement('div');
+  concentrationPrompt.className = 'inline';
+  concentrationPrompt.style.flexWrap = 'wrap';
+  concentrationPrompt.style.gap = '8px';
+  concentrationPrompt.style.display = 'none';
+  const concentrationPromptText = document.createElement('span');
+  concentrationPromptText.style.flex = '1';
+  concentrationPromptText.style.minWidth = '160px';
+  const concentrationConfirm = document.createElement('button');
+  concentrationConfirm.type = 'button';
+  concentrationConfirm.className = 'btn-sm';
+  concentrationConfirm.textContent = 'Drop & Use';
+  const concentrationCancel = document.createElement('button');
+  concentrationCancel.type = 'button';
+  concentrationCancel.className = 'btn-sm';
+  concentrationCancel.textContent = 'Cancel';
+  concentrationPrompt.append(concentrationPromptText, concentrationConfirm, concentrationCancel);
+  feedbackWrap.appendChild(concentrationPrompt);
+
+  card.appendChild(feedbackWrap);
+
+  const actionRow = document.createElement('div');
+  actionRow.className = 'inline';
+  actionRow.style.flexWrap = 'wrap';
+  actionRow.style.gap = '8px';
+  actionRow.style.alignItems = 'center';
+
+  const useButton = document.createElement('button');
+  useButton.type = 'button';
+  useButton.className = 'btn-sm';
+  useButton.textContent = 'Use Power';
+  actionRow.appendChild(useButton);
+
+  const rollSaveButton = document.createElement('button');
+  rollSaveButton.type = 'button';
+  rollSaveButton.className = 'btn-sm';
+  rollSaveButton.textContent = 'Roll Save For Target';
+  actionRow.appendChild(rollSaveButton);
+
+  const saveResult = document.createElement('span');
+  saveResult.className = 'pill result';
+  saveResult.dataset.placeholder = 'Save';
+  actionRow.appendChild(saveResult);
+
+  const ongoingButton = document.createElement('button');
+  ongoingButton.type = 'button';
+  ongoingButton.className = 'btn-sm';
+  ongoingButton.textContent = 'Apply Ongoing';
+  actionRow.appendChild(ongoingButton);
+
+  const boostButton = document.createElement('button');
+  boostButton.type = 'button';
+  boostButton.className = 'btn-sm';
+  boostButton.textContent = 'Spend 1 SP: Boost Roll';
+  actionRow.appendChild(boostButton);
+
+  const deleteButton = document.createElement('button');
+  deleteButton.type = 'button';
+  deleteButton.className = 'btn-sm';
+  applyDeleteIcon(deleteButton);
+  actionRow.appendChild(deleteButton);
+
+  card.appendChild(actionRow);
+
+  elements.nameInput = nameInput;
+  elements.styleSelect = styleSelect;
+  elements.actionSelect = actionSelect;
+  elements.shapeSelect = shapeSelect;
+  elements.rangeSelect = rangeSelect;
+  elements.rangeField = rangeField;
+  elements.rangeHint = rangeHint;
+  elements.effectSelect = effectSelect;
+  elements.secondarySelect = secondarySelect;
+  elements.secondaryHint = secondaryHint;
+  elements.intensitySelect = intensitySelect;
+  elements.spInput = spInput;
+  elements.spSuggestBtn = spSuggestBtn;
+  elements.spHint = spHint;
+  elements.requiresSaveToggle = requiresSaveToggle;
+  elements.saveAbilitySelect = saveAbilitySelect;
+  elements.saveAbilityHint = saveAbilityHint;
+  elements.saveBonusInput = saveBonusInput;
+  elements.saveAbilityField = saveAbilityField;
+  elements.durationSelect = durationSelect;
+  elements.concentrationToggle = concentrationToggle;
+  elements.concentrationHint = concentrationHint;
+  elements.usesSelect = usesSelect;
+  elements.cooldownInput = cooldownInput;
+  elements.cooldownField = cooldownField;
+  elements.scalingSelect = scalingSelect;
+  elements.descriptionArea = descriptionArea;
+  elements.specialArea = specialArea;
+  elements.damageToggle = damageToggle;
+  elements.damageFields = damageFields;
+  elements.damageDiceSelect = damageDiceSelect;
+  elements.damageTypeSelect = damageTypeSelect;
+  elements.damageSaveSelect = damageSaveSelect;
+  elements.damageSaveHint = damageSaveHint;
+  elements.damageSection = damageSection;
+  elements.saveDcOutput = saveDcInput;
+  elements.rulesPreview = rulesPreview;
+  elements.messageArea = messageArea;
+  elements.concentrationPrompt = concentrationPrompt;
+  elements.concentrationPromptText = concentrationPromptText;
+  elements.concentrationConfirm = concentrationConfirm;
+  elements.concentrationCancel = concentrationCancel;
+  elements.rollSaveBtn = rollSaveButton;
+  elements.saveResult = saveResult;
+  elements.useButton = useButton;
+  elements.ongoingButton = ongoingButton;
+  elements.boostButton = boostButton;
+  elements.deleteButton = deleteButton;
+  elements.quickControls = quickControls;
+  elements.quickRangeButtons = quickRangeButtons;
+  elements.quickRangeRow = rangeQuickRow;
+  elements.quickDiceButtons = quickDiceButtons;
+  elements.quickDiceRow = diceQuickRow;
+  elements.quickSpValue = spQuickValue;
+  elements.quickDurationButtons = quickDurationButtons;
+  elements.quickDurationRow = durationQuickRow;
+  elements.quickSaveAbilityButtons = quickSaveAbilityButtons;
+  elements.quickSaveAbilityRow = saveAbilityQuickRow;
+  elements.quickOnSaveButtons = quickOnSaveButtons;
+  elements.quickOnSaveRow = onSaveQuickRow;
+
+  nameInput.addEventListener('input', () => {
+    power.name = nameInput.value;
+    updatePowerCardDerived(card);
+  });
+  styleSelect.addEventListener('change', () => {
+    power.style = styleSelect.value;
+    if (power.damage && power.damage.type === undefined) {
+      power.damage.type = defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+      damageTypeSelect.value = power.damage.type;
+    }
+    updatePowerCardDerived(card);
+  });
+  actionSelect.addEventListener('change', () => {
+    power.actionType = actionSelect.value;
+    updatePowerCardDerived(card);
+  });
+  shapeSelect.addEventListener('change', () => {
+    power.shape = shapeSelect.value;
+    const shapeOptions = getRangeOptionsForShape(power.shape);
+    setSelectOptions(rangeSelect, shapeOptions, power.range);
+    power.range = ensureRangeForShape(power.shape, rangeSelect.value);
+    updatePowerCardDerived(card);
+  });
+  rangeSelect.addEventListener('change', () => {
+    power.range = rangeSelect.value;
+    updatePowerCardDerived(card);
+  });
+  effectSelect.addEventListener('change', () => {
+    power.effectTag = effectSelect.value;
+    updatePowerCardDerived(card);
+  });
+  secondarySelect.addEventListener('change', () => {
+    power.secondaryTag = secondarySelect.value || undefined;
+    updatePowerCardDerived(card);
+  });
+  intensitySelect.addEventListener('change', () => {
+    power.intensity = intensitySelect.value;
+    updatePowerCardDerived(card);
+  });
+  spInput.addEventListener('input', () => {
+    state.manualSpOverride = true;
+    power.spCost = Math.max(1, readNumericInput(spInput.value, { min: 1, fallback: power.spCost }));
+    updatePowerCardDerived(card);
+  });
+  spSuggestBtn.addEventListener('click', () => {
+    power.spCost = suggestSpCost(power.intensity);
+    spInput.value = String(power.spCost);
+    state.manualSpOverride = false;
+    updatePowerCardDerived(card);
+  });
+  requiresSaveToggle.addEventListener('change', () => {
+    power.requiresSave = requiresSaveToggle.checked;
+    if (!power.requiresSave) {
+      state.manualSaveAbility = false;
+    }
+    updatePowerCardDerived(card);
+  });
+  saveAbilitySelect.addEventListener('change', () => {
+    power.saveAbilityTarget = saveAbilitySelect.value;
+    state.manualSaveAbility = true;
+    updatePowerCardDerived(card);
+  });
+  durationSelect.addEventListener('change', () => {
+    power.duration = durationSelect.value;
+    if (power.duration === 'Sustained') {
+      power.concentration = true;
+      concentrationToggle.checked = true;
+    }
+    updatePowerCardDerived(card);
+  });
+  concentrationToggle.addEventListener('change', () => {
+    power.concentration = concentrationToggle.checked || power.duration === 'Sustained';
+    if (power.duration === 'Sustained') {
+      concentrationToggle.checked = true;
+    }
+    updatePowerCardDerived(card);
+  });
+  usesSelect.addEventListener('change', () => {
+    power.uses = usesSelect.value;
+    updatePowerCardDerived(card);
+  });
+  cooldownInput.addEventListener('input', () => {
+    power.cooldown = readNumericInput(cooldownInput.value, { min: 0, fallback: power.cooldown });
+    updatePowerCardDerived(card);
+  });
+  scalingSelect.addEventListener('change', () => {
+    power.scaling = scalingSelect.value;
+  });
+  descriptionArea.addEventListener('input', () => {
+    power.description = descriptionArea.value;
+  });
+  specialArea.addEventListener('input', () => {
+    power.special = specialArea.value;
+  });
+  damageToggle.addEventListener('change', () => {
+    if (damageToggle.checked) {
+      const suggestedOnSave = suggestOnSaveBehavior(power.effectTag);
+      const nextDamage = power.damage || {};
+      nextDamage.dice = nextDamage.dice || damageDiceSelect.value || POWER_DAMAGE_DICE[0];
+      nextDamage.type = nextDamage.type || damageTypeSelect.value || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+      nextDamage.onSave = nextDamage.onSave || suggestedOnSave;
+      power.damage = nextDamage;
+      damageDiceSelect.value = power.damage.dice;
+      damageTypeSelect.value = power.damage.type;
+      damageSaveSelect.value = power.damage.onSave;
+      state.manualOnSave = false;
+    } else {
+      power.damage = undefined;
+      state.manualOnSave = false;
+    }
+    updatePowerCardDerived(card);
+  });
+  damageDiceSelect.addEventListener('change', () => {
+    power.damage = power.damage || {};
+    power.damage.dice = damageDiceSelect.value;
+    updatePowerCardDerived(card);
+  });
+  damageTypeSelect.addEventListener('change', () => {
+    power.damage = power.damage || {};
+    power.damage.type = damageTypeSelect.value;
+    updatePowerCardDerived(card);
+  });
+  damageSaveSelect.addEventListener('change', () => {
+    power.damage = power.damage || {};
+    power.damage.onSave = damageSaveSelect.value;
+    state.manualOnSave = true;
+    updatePowerCardDerived(card);
+  });
+  useButton.addEventListener('click', () => handleUsePower(card));
+  rollSaveButton.addEventListener('click', () => handleRollPowerSave(card));
+  ongoingButton.addEventListener('click', () => {
+    const serialized = serializePowerCard(card);
+    if (serialized) addOngoingEffectTracker(serialized, card);
+  });
+  boostButton.addEventListener('click', () => handleBoostRoll(card));
+  deleteButton.addEventListener('click', () => handleDeletePower(card));
+
+  concentrationConfirm.addEventListener('click', () => {
+    const pending = state.pendingConcentrationAction;
+    hideConcentrationPrompt(card);
+    if (typeof pending === 'function') {
+      if (activeConcentrationEffect && activeConcentrationEffect.card && activeConcentrationEffect.card !== card) {
+        logAction(`Concentration ended: ${activeConcentrationEffect.name}`);
+      }
+      activeConcentrationEffect = null;
+      clearPowerMessage(card);
+      pending();
+    }
+  });
+
+  concentrationCancel.addEventListener('click', () => {
+    hideConcentrationPrompt(card);
+    showPowerMessage(card, 'Concentration maintained on current effect.', 'info');
+  });
+
+  updatePowerCardDerived(card);
+  if (viewMode) applyViewLockState(card);
+  return card;
+}
+
+function setupPowerPresetMenu() {
+  const addBtn = $('add-power');
+  const list = $('powers');
+  if (!addBtn || !list) return;
+  const menu = document.createElement('div');
+  menu.className = 'card';
+  menu.style.position = 'absolute';
+  menu.style.zIndex = '2000';
+  menu.style.display = 'none';
+  menu.style.padding = '8px';
+  menu.style.gap = '6px';
+  menu.style.flexDirection = 'column';
+  menu.dataset.open = 'false';
+  menu.dataset.role = 'power-preset-menu';
+  document.body.appendChild(menu);
+
+  const hideMenu = () => {
+    menu.style.display = 'none';
+    menu.dataset.open = 'false';
+  };
+
+  const showMenu = () => {
+    menu.style.display = 'flex';
+    menu.dataset.open = 'true';
+  };
+
+  const createOptionButton = (label, data) => {
+    const optionBtn = document.createElement('button');
+    optionBtn.type = 'button';
+    optionBtn.className = 'btn-sm';
+    optionBtn.style.width = '100%';
+    optionBtn.style.margin = '2px 0';
+    optionBtn.textContent = label;
+    optionBtn.addEventListener('click', () => {
+      const card = createCard('power', data);
+      list.appendChild(card);
+      pushHistory();
+      hideMenu();
+      try { addBtn.focus(); } catch {}
+    });
+    return optionBtn;
+  };
+
+  menu.appendChild(createOptionButton('Custom Power', {}));
+  POWER_PRESETS.forEach(preset => {
+    menu.appendChild(createOptionButton(preset.label, preset.data));
+  });
+
+  addBtn.addEventListener('click', event => {
+    event.preventDefault();
+    if (menu.dataset.open === 'true') {
+      hideMenu();
+      return;
+    }
+    const rect = addBtn.getBoundingClientRect();
+    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+    menu.style.left = `${rect.left + window.scrollX}px`;
+    showMenu();
+  });
+
+  document.addEventListener('click', event => {
+    if (menu.dataset.open !== 'true') return;
+    if (event.target === addBtn || menu.contains(event.target)) return;
+    hideMenu();
+  });
+
+  window.addEventListener('blur', hideMenu);
+}
+
 const CARD_CONFIG = {
-  power: {
-    rows: [
-      { class: 'inline', fields: [
-        { f: 'name', placeholder: 'Power Name' },
-        { f: 'sp', placeholder: 'SP', style: 'max-width:100px' },
-        { f: 'save', placeholder: 'Save', style: 'max-width:160px' },
-        { f: 'range', placeholder: 'Range', style: 'max-width:160px' }
-      ]},
-      { tag: 'textarea', f: 'effect', placeholder: 'Effect', rows: 3 }
-    ]
-  },
   sig: {
     rows: [
       { class: 'inline', fields: [
@@ -4894,6 +7284,9 @@ function populateCardFromData(card, data){
 }
 
 function createCard(kind, pref = {}) {
+  if (kind === 'power') {
+    return createPowerCard(pref);
+  }
   const cfg = CARD_CONFIG[kind];
   const card = document.createElement('div');
   card.className = 'card';
@@ -5019,7 +7412,7 @@ function createCard(kind, pref = {}) {
   return card;
 }
 
-$('add-power').addEventListener('click', () => { $('powers').appendChild(createCard('power')); pushHistory(); });
+setupPowerPresetMenu();
 $('add-sig').addEventListener('click', () => { $('sigs').appendChild(createCard('sig')); pushHistory(); });
 
 /* ========= Gear ========= */
@@ -6078,13 +8471,10 @@ function serialize(){
     if (id === 'xp-mode') return;
     if (el.type==='checkbox') data[id] = !!el.checked; else data[id] = el.value;
   });
-  data.powers = qsa("[data-kind='power']").map(card => ({
-    name: getVal("[data-f='name']", card) || '',
-    sp: getVal("[data-f='sp']", card) || '',
-    save: getVal("[data-f='save']", card) || '',
-    range: getVal("[data-f='range']", card) || '',
-    effect: getVal("[data-f='effect']", card) || ''
-  }));
+  data.powers = qsa("[data-kind='power']")
+    .map(card => serializePowerCard(card))
+    .filter(Boolean);
+  data.powerSettings = getCharacterPowerSettings();
   data.signatures = qsa("[data-kind='sig']").map(card => ({
     name: getVal("[data-f='name']", card) || '',
     sp: getVal("[data-f='sp']", card) || '',
@@ -6127,6 +8517,11 @@ const DEFAULT_STATE = serialize();
 function deserialize(data){
   migratePublicOpinionSnapshot(data);
   $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
+  activePowerCards.forEach(card => powerCardStates.delete(card));
+  activePowerCards.clear();
+  const ongoingContainer = $('ongoing-effects');
+  if (ongoingContainer) ongoingContainer.innerHTML = '';
+  ongoingEffectTrackers.clear();
  const perkSelects=['alignment','classification','power-style','origin'];
  perkSelects.forEach(id=>{
    const el=$(id);
@@ -6136,12 +8531,22 @@ function deserialize(data){
      el.dispatchEvent(new Event('change',{bubbles:true}));
    }
  });
-  Object.entries(data||{}).forEach(([k,v])=>{
+ Object.entries(data||{}).forEach(([k,v])=>{
    if(perkSelects.includes(k) || k==='saveProfs' || k==='skillProfs' || k==='xp-mode') return;
    const el=$(k);
    if (!el) return;
    if (el.type==='checkbox') el.checked=!!v; else el.value=v;
  });
+ if (data?.powerSettings) {
+   const casterAbility = typeof data.powerSettings.casterSaveAbility === 'string'
+     ? data.powerSettings.casterSaveAbility.toLowerCase()
+     : null;
+  if (casterAbility && elPowerSaveAbility) {
+    elPowerSaveAbility.value = casterAbility;
+  }
+  syncPowerDcRadios(data.powerSettings.dcFormula || powerDcFormulaField?.value || 'Proficiency');
+  refreshCasterAbilitySuggestion({ syncOnly: true });
+}
  if(data && Array.isArray(data.saveProfs)){
    ABILS.forEach(a=>{
      const el = $('save-'+a+'-prof');
