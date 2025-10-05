@@ -772,6 +772,11 @@ margin:0
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4vw,1rem)}
 .stats-grid label{min-height:3.2em;display:flex;align-items:flex-end}
+.initiative-field{display:flex;flex-direction:column}
+.initiative-controls{display:flex;gap:8px;align-items:center}
+.initiative-controls input{flex:1 1 auto}
+.initiative-controls button{flex:0 0 auto;white-space:nowrap}
+.initiative-field .pill.result{margin-top:4px;display:flex;align-items:center;justify-content:center;min-height:28px;width:100%}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:auto;max-width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:12px;min-height:var(--control-min-height);transition:var(--transition)}
 input:not([type="checkbox"]),select,textarea{width:100%}
 body.is-view-mode input[data-view-locked],

@@ -2582,6 +2582,44 @@ const ORIGIN_PERKS = {
 
 // handle special perk behavior (stat boosts, initiative mods, etc.)
 
+const INITIATIVE_BONUS_REGEX = /([+-]\d+)\s*(?:to\s+)?initiative(?:\s+(?:bonus|modifier))?\b/gi;
+let initiativeBonusUpdatePending = false;
+let currentInitiativeBonus = 0;
+
+function scheduleInitiativeBonusUpdate(){
+  if(initiativeBonusUpdatePending) return;
+  initiativeBonusUpdatePending = true;
+  Promise.resolve().then(()=>{
+    initiativeBonusUpdatePending = false;
+    if (typeof updateDerived === 'function') {
+      updateDerived();
+    }
+  });
+}
+
+function setInitiativeBonus(target, bonus){
+  if(!target || !target.dataset) return;
+  const hasBonus = Number.isFinite(bonus) && bonus !== 0;
+  const next = hasBonus ? String(bonus) : '';
+  const current = target.dataset.initiativeBonus;
+  if(hasBonus){
+    if(current === next) return;
+    target.dataset.initiativeBonus = next;
+    scheduleInitiativeBonusUpdate();
+  }else if(current !== undefined){
+    delete target.dataset.initiativeBonus;
+    scheduleInitiativeBonusUpdate();
+  }
+}
+
+function getInitiativeBonusFromEffects(){
+  return qsa('[data-initiative-bonus]').reduce((total, el)=>{
+    if(!el || !el.dataset) return total;
+    const value = Number(el.dataset.initiativeBonus);
+    return Number.isFinite(value) ? total + value : total;
+  }, 0);
+}
+
 let addWisToInitiative = false;
 let enhancedAbility = '';
 let powerStyleTCBonus = 0;
@@ -2652,6 +2690,34 @@ function handlePerkEffects(li, text){
   }
   const m = text.match(/([+-]\d+)\s*tc\b/i);
   if(m) bonus += Number(m[1]);
+  if(li && li.dataset){
+    const source = String(text);
+    INITIATIVE_BONUS_REGEX.lastIndex = 0;
+    let hasInitiativeBonus = false;
+    let initiativeBonusTotal = 0;
+    if(typeof source.matchAll === 'function'){
+      for(const match of source.matchAll(INITIATIVE_BONUS_REGEX)){
+        const value = Number(match[1]);
+        if(Number.isFinite(value)){
+          initiativeBonusTotal += value;
+          hasInitiativeBonus = true;
+        }
+      }
+    }else{
+      const tokens = source.match(INITIATIVE_BONUS_REGEX) || [];
+      tokens.forEach(token => {
+        const valueMatch = token.match(/([+-]\d+)/);
+        if(valueMatch){
+          const value = Number(valueMatch[1]);
+          if(Number.isFinite(value)){
+            initiativeBonusTotal += value;
+            hasInitiativeBonus = true;
+          }
+        }
+      });
+    }
+    setInitiativeBonus(li, hasInitiativeBonus ? initiativeBonusTotal : 0);
+  }
   return bonus;
 }
 
@@ -2740,6 +2806,8 @@ const elHPRollAdd = $('hp-roll-add');
 const elHPRollInput = $('hp-roll-input');
 const elHPRollList = $('hp-roll-list');
 const elInitiative = $('initiative');
+const elInitiativeRollBtn = $('roll-initiative');
+const elInitiativeRollResult = $('initiative-roll-result');
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
@@ -2759,6 +2827,13 @@ if (elPowerStyleSecondary) {
     if (typeof catalogRenderScheduler === 'function') {
       catalogRenderScheduler();
     }
+  });
+}
+
+if (elInitiativeRollBtn) {
+  elInitiativeRollBtn.addEventListener('click', () => {
+    const bonus = Number.isFinite(currentInitiativeBonus) ? currentInitiativeBonus : num(elInitiative?.value);
+    rollWithBonus('Initiative', Number.isFinite(bonus) ? bonus : 0, elInitiativeRollResult, { type: 'initiative' });
   });
 }
 
@@ -2927,13 +3002,31 @@ function updateXP(){
 function updateDerived(){
   updateXP();
   const pb = PROF_BONUS_TIERS[currentTierIdx] || 2;
-  elPP.value = 10 + mod(elWis.value);
+  const wisMod = mod(elWis.value);
+  const dexMod = mod(elDex.value);
+  elPP.value = 10 + wisMod;
   const armorAuto = calculateArmorBonus();
-  elTC.value = 10 + mod(elDex.value) + armorAuto + powerStyleTCBonus + originTCBonus;
+  elTC.value = 10 + dexMod + armorAuto + powerStyleTCBonus + originTCBonus;
   updateSP();
   updateHP();
-  const initiative = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
-  elInitiative.value = (initiative >= 0 ? '+' : '') + initiative;
+  const extraInitiativeBonus = getInitiativeBonusFromEffects();
+  const initiative = dexMod + (addWisToInitiative ? wisMod : 0) + extraInitiativeBonus;
+  currentInitiativeBonus = initiative;
+  if (elInitiative) {
+    elInitiative.value = (initiative >= 0 ? '+' : '') + initiative;
+    const initiativeDataset = elInitiative.dataset;
+    if (initiativeDataset) {
+      if (extraInitiativeBonus) {
+        initiativeDataset.additionalBonus = String(extraInitiativeBonus);
+      } else if (initiativeDataset.additionalBonus) {
+        delete initiativeDataset.additionalBonus;
+      }
+    }
+    const breakdown = [`DEX ${dexMod >= 0 ? '+' : ''}${dexMod}`];
+    if (addWisToInitiative) breakdown.push(`WIS ${wisMod >= 0 ? '+' : ''}${wisMod}`);
+    if (extraInitiativeBonus) breakdown.push(`Bonuses ${extraInitiativeBonus >= 0 ? '+' : ''}${extraInitiativeBonus}`);
+    elInitiative.title = breakdown.length ? `Initiative breakdown: ${breakdown.join(' + ')}` : 'Initiative';
+  }
   // Guard against missing ability elements when calculating the power save DC.
   // If the selected ability cannot be found in the DOM, default its modifier to 0
   // rather than throwing an error which prevents other derived stats from
