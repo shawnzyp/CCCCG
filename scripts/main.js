@@ -109,6 +109,9 @@ const POWER_RANGE_QUICK_VALUES = [
   'Unlimited (narrative)',
 ];
 
+const POWER_RANGE_UNITS = ['feet', 'narrative'];
+const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
+
 const POWER_SHAPE_RANGES = {
   Melee: ['Melee'],
   Cone: ['15 ft', '30 ft', '60 ft'],
@@ -3527,6 +3530,10 @@ const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
 const powerDcFormulaField = $('power-dc-formula');
 const powerDcModeRadios = qsa("input[name='power-dc-mode']");
+const elPowerRangeUnit = $('power-range-unit');
+const elPowerSuggestionStrength = $('power-suggestion-strength');
+const elPowerMetricToggle = $('power-range-metric');
+const elPowerTextCompact = $('power-text-compact');
 
 function syncPowerDcRadios(value) {
   const target = value === 'Simple' ? 'Simple' : 'Proficiency';
@@ -3548,11 +3555,23 @@ function getCharacterPowerSettings() {
   }, {});
   const formulaValue = powerDcFormulaField?.value === 'Simple' ? 'Simple' : 'Proficiency';
   const proficiencyBonus = num(elProfBonus?.value) || 0;
+  const rangeUnitRaw = (elPowerRangeUnit?.value || 'feet').toLowerCase();
+  const defaultRangeUnit = POWER_RANGE_UNITS.includes(rangeUnitRaw) ? rangeUnitRaw : 'feet';
+  const strengthRaw = (elPowerSuggestionStrength?.value || 'conservative').toLowerCase();
+  const autoSuggestionStrength = POWER_SUGGESTION_STRENGTHS.includes(strengthRaw)
+    ? strengthRaw
+    : 'conservative';
+  const showMetricRanges = !!elPowerMetricToggle?.checked;
+  const preferShortRulesText = !!elPowerTextCompact?.checked;
   return {
     casterSaveAbility,
     dcFormula: formulaValue,
     proficiencyBonus,
     abilityMods,
+    defaultRangeUnit,
+    autoSuggestionStrength,
+    showMetricRanges,
+    preferShortRulesText,
   };
 }
 
@@ -3565,6 +3584,18 @@ powerDcModeRadios.forEach(radio => {
       updateDerived();
       refreshPowerCards();
     }
+  });
+});
+[
+  elPowerRangeUnit,
+  elPowerSuggestionStrength,
+  elPowerMetricToggle,
+  elPowerTextCompact,
+].forEach(el => {
+  if (!el) return;
+  const eventName = el.tagName === 'SELECT' ? 'change' : 'input';
+  el.addEventListener(eventName, () => {
+    refreshPowerCards();
   });
 });
 const elXP = $('xp');
@@ -5283,13 +5314,60 @@ function getRangeOptionsForShape(shape) {
   return POWER_RANGE_QUICK_VALUES.filter(value => value !== 'Melee');
 }
 
-function ensureRangeForShape(shape, range) {
+function parseFeetValue(rangeValue) {
+  if (typeof rangeValue !== 'string') return null;
+  const match = rangeValue.match(/^(\d+)\s*ft$/i);
+  if (!match) return null;
+  const feet = Number(match[1]);
+  return Number.isFinite(feet) ? feet : null;
+}
+
+function formatMetricRange(rangeValue) {
+  const feet = parseFeetValue(rangeValue);
+  if (feet === null) return '';
+  const meters = Math.round(feet * 0.3048);
+  if (!Number.isFinite(meters) || meters <= 0) return '';
+  return `${meters} m`;
+}
+
+function formatRangeDisplay(rangeValue, settings) {
+  if (!settings?.showMetricRanges) return rangeValue;
+  const metric = formatMetricRange(rangeValue);
+  return metric ? `${rangeValue} (${metric})` : rangeValue;
+}
+
+function getPreferredRangeForShape(shape, options, settings) {
+  if (shape === 'Melee') return 'Melee';
+  if (!options || !options.length) return '';
+  if (shape === 'Self') return 'Self';
+  const unit = settings?.defaultRangeUnit === 'narrative' ? 'narrative' : 'feet';
+  if (unit === 'narrative') {
+    const narrativeOption = options.find(opt => /unlimited|narrative/i.test(opt));
+    if (narrativeOption) return narrativeOption;
+  }
+  const preferredTargets = {
+    Cone: ['30 ft', '15 ft', '60 ft'],
+    Line: ['60 ft', '30 ft', '120 ft'],
+    Radius: ['20 ft', '15 ft', '10 ft', '30 ft'],
+    Aura: ['10 ft', '15 ft', '20 ft', 'Self'],
+    'Ranged Single': ['30 ft', '60 ft', '90 ft', '120 ft'],
+  };
+  const targetList = preferredTargets[shape] || ['30 ft', '60 ft'];
+  for (const target of targetList) {
+    if (options.includes(target)) return target;
+  }
+  const numeric = options.filter(opt => parseFeetValue(opt) !== null);
+  if (numeric.length) return numeric[0];
+  return options[0];
+}
+
+function ensureRangeForShape(shape, range, settings) {
   const options = getRangeOptionsForShape(shape);
   const trimmed = typeof range === 'string' ? range.trim() : '';
   if (!options.length) return trimmed || '';
   if (trimmed && options.includes(trimmed)) return trimmed;
   if (shape === 'Melee') return 'Melee';
-  return options[0] || trimmed || '';
+  return getPreferredRangeForShape(shape, options, settings);
 }
 
 function suggestOnSaveBehavior(effectTag) {
@@ -5335,21 +5413,22 @@ function inferShapeFromLegacy(rangeText) {
 
 function parseLegacyRange(rangeText, shape) {
   const text = String(rangeText || '').trim();
+  const settings = typeof getCharacterPowerSettings === 'function' ? getCharacterPowerSettings() : null;
   if (!text) {
     if (shape === 'Melee') return 'Melee';
     if (shape === 'Self') return 'Self';
     const options = getRangeOptionsForShape(shape);
-    return ensureRangeForShape(shape, options[0] || '');
+    return ensureRangeForShape(shape, options[0] || '', settings);
   }
   const ftMatch = text.match(/([0-9]{1,3})\s*ft/i);
   if (ftMatch) {
     const candidate = `${ftMatch[1]} ft`;
-    return ensureRangeForShape(shape, candidate);
+    return ensureRangeForShape(shape, candidate, settings);
   }
   if (shape === 'Melee') return 'Melee';
   if (shape === 'Self') return 'Self';
   if (shape === 'Aura' && text.toLowerCase().includes('self')) return 'Self';
-  return ensureRangeForShape(shape, text);
+  return ensureRangeForShape(shape, text, settings);
 }
 
 function migrateLegacyPower(raw = {}) {
@@ -5408,8 +5487,9 @@ function normalizePowerData(raw = {}) {
   if (raw && (raw.effect !== undefined || raw.sp !== undefined || raw.save !== undefined || raw.range !== undefined)) {
     base = migrateLegacyPower(raw);
   }
+  const settings = typeof getCharacterPowerSettings === 'function' ? getCharacterPowerSettings() : null;
   const normalizedShape = POWER_TARGET_SHAPES.includes(base.shape) ? base.shape : 'Ranged Single';
-  const normalizedRange = ensureRangeForShape(normalizedShape, base.range);
+  const normalizedRange = ensureRangeForShape(normalizedShape, base.range, settings);
   const intensity = POWER_INTENSITIES.includes(base.intensity) ? base.intensity : 'Core';
   let spCost = Math.max(1, Math.round(Number(base.spCost))); 
   if (!Number.isFinite(spCost) || spCost <= 0) spCost = suggestSpCost(intensity);
@@ -5444,7 +5524,7 @@ function normalizePowerData(raw = {}) {
     style: POWER_STYLES.includes(base.style) ? base.style : (base.style || ''),
     actionType: POWER_ACTION_TYPES.includes(base.actionType) ? base.actionType : 'Action',
     shape: normalizedShape,
-    range: normalizedRange || ensureRangeForShape(normalizedShape, ''),
+    range: normalizedRange || ensureRangeForShape(normalizedShape, '', settings),
     effectTag: POWER_EFFECT_TAGS.includes(base.effectTag) ? base.effectTag : (secondaryTag || 'Damage'),
     intensity,
     spCost,
@@ -5474,7 +5554,7 @@ function normalizePowerData(raw = {}) {
   return normalized;
 }
 
-function formatPowerRange(power) {
+function formatPowerRange(power, settings) {
   if (!power) return '';
   const shape = power.shape;
   const range = power.range;
@@ -5483,18 +5563,19 @@ function formatPowerRange(power) {
     case 'Melee':
       return 'Melee range';
     case 'Line':
-      return `${range || '30 ft'} Line`;
+      return `${formatRangeDisplay(range || '30 ft', settings)} Line`;
     case 'Cone':
-      return `${range || '15 ft'} Cone`;
+      return `${formatRangeDisplay(range || '15 ft', settings)} Cone`;
     case 'Radius':
-      return `${range || '10 ft'} Radius`;
+      return `${formatRangeDisplay(range || '10 ft', settings)} Radius`;
     case 'Self':
       return 'Self';
     case 'Aura':
-      return range && range !== 'Self' ? `Aura ${range}` : 'Aura';
+      if (!range || range === 'Self') return 'Aura';
+      return `Aura ${formatRangeDisplay(range, settings)}`;
     case 'Ranged Single':
     default:
-      return range || '30 ft';
+      return formatRangeDisplay(range || '30 ft', settings);
   }
 }
 
@@ -5502,12 +5583,16 @@ function composePowerRulesText(power, settings) {
   if (!power) return '';
   const pieces = [];
   pieces.push(power.actionType || 'Action');
-  const rangeText = formatPowerRange(power);
+  const rangeText = formatPowerRange(power, settings);
   if (rangeText) pieces.push(rangeText);
   if (power.requiresSave) {
     const dc = computeSaveDc(settings);
     const ability = power.saveAbilityTarget || settings?.casterSaveAbility || 'WIS';
-    pieces.push(`${ability} Save DC ${dc}`);
+    if (settings?.preferShortRulesText) {
+      pieces.push(`${ability} DC ${dc}`);
+    } else {
+      pieces.push(`${ability} Save DC ${dc}`);
+    }
   }
   let effectPart = '';
   if (power.damage) {
@@ -5524,13 +5609,21 @@ function composePowerRulesText(power, settings) {
   } else if (power.secondaryTag) {
     pieces.push(power.secondaryTag);
   }
-  pieces.push(`Duration: ${power.duration}`);
-  pieces.push(`Cost: ${power.spCost} SP`);
-  if (power.concentration) pieces.push('Concentration +1 SP per round');
+  const shortMode = !!settings?.preferShortRulesText;
+  pieces.push(shortMode ? `Dur ${power.duration}` : `Duration: ${power.duration}`);
+  pieces.push(shortMode ? `Cost ${power.spCost} SP` : `Cost: ${power.spCost} SP`);
+  if (power.concentration) {
+    pieces.push(shortMode ? 'Conc +1 SP/rnd' : 'Concentration +1 SP per round');
+  }
   if (power.intensity === 'Ultimate') {
-    pieces.push('Cooldown 10 rounds');
+    pieces.push(shortMode ? 'CD 10 rnds' : 'Cooldown 10 rounds');
   } else if (power.uses === 'Cooldown' && Number(power.cooldown) > 0) {
-    pieces.push(`Cooldown ${power.cooldown} rounds`);
+    const cdValue = Number(power.cooldown);
+    if (shortMode) {
+      pieces.push(`CD ${cdValue} rnd${cdValue === 1 ? '' : 's'}`);
+    } else {
+      pieces.push(`Cooldown ${power.cooldown} rounds`);
+    }
   }
   return pieces.join(' • ');
 }
@@ -5668,13 +5761,16 @@ function createFieldContainer(labelText, input, { flex = '1', minWidth } = {}) {
   return { wrapper, label, input };
 }
 
-function setSelectOptions(select, options, value, { includeEmpty = false } = {}) {
+function setSelectOptions(select, options, value, { includeEmpty = false, formatDisplay } = {}) {
   if (!select) return;
   select.innerHTML = '';
   if (includeEmpty) {
     select.appendChild(new Option('None', ''));
   }
-  options.forEach(option => select.appendChild(new Option(option, option)));
+  options.forEach(option => {
+    const label = typeof formatDisplay === 'function' ? formatDisplay(option) : option;
+    select.appendChild(new Option(label, option));
+  });
   const nextValue = options.includes(value) ? value : (includeEmpty ? '' : (options[0] || ''));
   select.value = nextValue;
   if (select.value !== nextValue) select.value = options[0] || '';
@@ -5706,58 +5802,102 @@ function updatePowerCardDerived(card) {
   if (!state) return;
   const { power, elements } = state;
   if (!elements) return;
+  const settings = getCharacterPowerSettings();
+  const suggestionStrength = POWER_SUGGESTION_STRENGTHS.includes(settings?.autoSuggestionStrength)
+    ? settings.autoSuggestionStrength
+    : 'conservative';
   const quickActiveBg = 'rgba(46,160,67,0.25)';
+  const previousSuggestedSp = state.lastSuggestedSp;
+  const effectChanged = state.lastEffectTag !== power.effectTag;
+  const intensityChanged = state.lastIntensity !== power.intensity;
+  const hadDamageBefore = !!state.lastHasDamage;
+
   power.spCost = Math.max(1, readNumericInput(elements.spInput?.value ?? power.spCost, { min: 1, fallback: power.spCost }));
+  const suggestedSp = suggestSpCost(power.intensity);
+  if (intensityChanged && suggestionStrength !== 'off') {
+    const shouldApplySp = suggestionStrength === 'assertive'
+      || (!state.manualSpOverride && (power.spCost === previousSuggestedSp || previousSuggestedSp === undefined));
+    if (shouldApplySp) {
+      power.spCost = suggestedSp;
+      if (elements.spInput) elements.spInput.value = String(power.spCost);
+      state.manualSpOverride = false;
+    }
+  }
+  state.lastSuggestedSp = suggestedSp;
   if (elements.spInput && Number(elements.spInput.value) !== power.spCost) {
     elements.spInput.value = String(power.spCost);
   }
+
+  const shapeOptions = getRangeOptionsForShape(power.shape);
   if (elements.rangeSelect) {
-    const shapeOptions = getRangeOptionsForShape(power.shape);
-    setSelectOptions(elements.rangeSelect, shapeOptions, power.range);
-    power.range = ensureRangeForShape(power.shape, elements.rangeSelect.value);
+    setSelectOptions(elements.rangeSelect, shapeOptions, power.range, {
+      formatDisplay: option => formatRangeDisplay(option, settings),
+    });
+    power.range = ensureRangeForShape(power.shape, elements.rangeSelect.value, settings);
     elements.rangeSelect.disabled = shapeOptions.length <= 1;
   }
-  if (elements.rangeField && elements.rangeField.wrapper) {
+  if (elements.rangeField?.wrapper) {
     const hideRange = power.shape === 'Melee';
     elements.rangeField.wrapper.style.display = hideRange ? 'none' : 'flex';
   }
+  if (elements.rangeHint) {
+    if (settings?.showMetricRanges) {
+      const metric = formatMetricRange(power.range);
+      elements.rangeHint.textContent = metric ? `≈ ${metric}` : '';
+      elements.rangeHint.style.display = metric ? 'block' : 'none';
+    } else {
+      elements.rangeHint.textContent = '';
+      elements.rangeHint.style.display = 'none';
+    }
+  }
+
   if (elements.requiresSaveToggle) {
     elements.requiresSaveToggle.checked = !!power.requiresSave;
   }
-  if (elements.saveAbilityField && elements.saveAbilityField.wrapper) {
+  if (elements.saveAbilityField?.wrapper) {
     elements.saveAbilityField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
   }
-  if (elements.saveAbilitySelect) {
-    elements.saveAbilitySelect.disabled = !power.requiresSave;
-    if (power.requiresSave && !POWER_SAVE_ABILITIES.includes(power.saveAbilityTarget)) {
-      const suggestions = EFFECT_SAVE_SUGGESTIONS[power.effectTag];
-      power.saveAbilityTarget = suggestions && suggestions.length ? suggestions[0] : POWER_SAVE_ABILITIES[0];
+  const saveSuggestions = EFFECT_SAVE_SUGGESTIONS[power.effectTag] || [];
+  const recommendedSave = saveSuggestions[0] || 'WIS';
+  if (power.requiresSave) {
+    if (!POWER_SAVE_ABILITIES.includes(power.saveAbilityTarget)) {
+      power.saveAbilityTarget = recommendedSave;
     }
-    if (power.saveAbilityTarget && elements.saveAbilitySelect.value !== power.saveAbilityTarget) {
-      elements.saveAbilitySelect.value = power.saveAbilityTarget;
+    if (effectChanged && saveSuggestions.length && suggestionStrength !== 'off' && !state.manualSaveAbility) {
+      const shouldApplySave = suggestionStrength === 'assertive'
+        || !saveSuggestions.includes(power.saveAbilityTarget);
+      if (shouldApplySave) {
+        power.saveAbilityTarget = recommendedSave;
+      }
     }
-  }
-  if (!power.requiresSave) {
+    if (elements.saveAbilitySelect) {
+      elements.saveAbilitySelect.disabled = false;
+      if (power.saveAbilityTarget && elements.saveAbilitySelect.value !== power.saveAbilityTarget) {
+        elements.saveAbilitySelect.value = power.saveAbilityTarget;
+      }
+    }
+  } else {
     power.saveAbilityTarget = null;
+    if (elements.saveAbilitySelect) {
+      elements.saveAbilitySelect.disabled = true;
+    }
   }
   if (elements.saveAbilityHint) {
-    const suggestions = EFFECT_SAVE_SUGGESTIONS[power.effectTag];
     elements.saveAbilityHint.textContent =
-      power.requiresSave && suggestions && suggestions.length
-        ? `Suggested: ${suggestions.join(' or ')}`
+      power.requiresSave && saveSuggestions.length
+        ? `Suggested: ${saveSuggestions.join(' or ')}`
         : '';
   }
   if (elements.rollSaveBtn) {
     elements.rollSaveBtn.disabled = !power.requiresSave;
   }
-  const settings = getCharacterPowerSettings();
+
   if (elements.saveDcOutput) {
     elements.saveDcOutput.value = power.requiresSave ? computeSaveDc(settings) : '';
   }
-  const suggestion = suggestSpCost(power.intensity);
   if (elements.spHint) {
-    const parts = [`Suggested: ${suggestion} SP`];
-    if (power.spCost !== suggestion) {
+    const parts = [`Suggested: ${suggestedSp} SP`];
+    if (power.spCost !== suggestedSp) {
       parts.push(`(current ${power.spCost})`);
     }
     elements.spHint.textContent = parts.join(' ');
@@ -5771,23 +5911,63 @@ function updatePowerCardDerived(card) {
   if (elements.secondaryHint) {
     elements.secondaryHint.textContent = power.secondaryTag ? 'Consider +1 SP for secondary effect' : '';
   }
+  const hasDamage = !!power.damage;
   if (elements.damageFields) {
-    elements.damageFields.style.display = power.damage ? 'flex' : 'none';
+    elements.damageFields.style.display = hasDamage ? 'flex' : 'none';
   }
-  if (power.damage && elements.damageTypeSelect && !POWER_DAMAGE_TYPES.includes(power.damage.type)) {
+  if (hasDamage && elements.damageTypeSelect && !POWER_DAMAGE_TYPES.includes(power.damage.type)) {
     const defaultType = defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
     power.damage.type = defaultType;
     elements.damageTypeSelect.value = defaultType;
   }
-  if (power.damage && !POWER_ON_SAVE_OPTIONS.includes(power.damage.onSave)) {
-    power.damage.onSave = suggestOnSaveBehavior(power.effectTag);
+  const onSaveSuggestion = suggestOnSaveBehavior(power.effectTag);
+  if (hasDamage) {
+    power.damage = power.damage || {};
+    if (!POWER_DAMAGE_DICE.includes(power.damage.dice)) {
+      power.damage.dice = POWER_DAMAGE_DICE[0];
+    }
+    if (!POWER_ON_SAVE_OPTIONS.includes(power.damage.onSave)) {
+      power.damage.onSave = onSaveSuggestion;
+    } else if ((effectChanged || !hadDamageBefore) && suggestionStrength !== 'off' && !state.manualOnSave) {
+      const shouldApplyOnSave = suggestionStrength === 'assertive'
+        || state.lastOnSaveSuggestion === undefined
+        || power.damage.onSave === state.lastOnSaveSuggestion;
+      if (shouldApplyOnSave) {
+        power.damage.onSave = onSaveSuggestion;
+      }
+    }
+    if (elements.damageDiceSelect && elements.damageDiceSelect.value !== power.damage.dice) {
+      elements.damageDiceSelect.value = power.damage.dice;
+    }
+    if (elements.damageTypeSelect && elements.damageTypeSelect.value !== power.damage.type) {
+      elements.damageTypeSelect.value = power.damage.type;
+    }
+    if (elements.damageSaveSelect && elements.damageSaveSelect.value !== power.damage.onSave) {
+      elements.damageSaveSelect.value = power.damage.onSave;
+    }
+  } else {
+    if (elements.damageDiceSelect) {
+      elements.damageDiceSelect.value = POWER_DAMAGE_DICE[0];
+    }
+    if (elements.damageTypeSelect) {
+      const defaultType = defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+      elements.damageTypeSelect.value = defaultType;
+    }
+    if (elements.damageSaveSelect) {
+      elements.damageSaveSelect.value = 'Half';
+    }
   }
   if (elements.damageToggle) {
-    elements.damageToggle.checked = !!power.damage;
+    elements.damageToggle.checked = hasDamage;
   }
   if (elements.damageSaveHint) {
-    elements.damageSaveHint.textContent = power.damage ? `Suggested: ${suggestOnSaveBehavior(power.effectTag)}` : '';
+    elements.damageSaveHint.textContent = hasDamage ? `Suggested: ${onSaveSuggestion}` : '';
   }
+
+  state.lastEffectTag = power.effectTag;
+  state.lastIntensity = power.intensity;
+  state.lastHasDamage = hasDamage;
+  state.lastOnSaveSuggestion = onSaveSuggestion;
   if (elements.cooldownField && elements.cooldownField.wrapper) {
     const requiresCooldown = power.intensity === 'Ultimate' || power.uses === 'Cooldown';
     elements.cooldownField.wrapper.style.display = requiresCooldown ? 'flex' : 'none';
@@ -5829,35 +6009,25 @@ function updatePowerCardDerived(card) {
   if (elements.ongoingButton) {
     elements.ongoingButton.disabled = power.duration === 'Instant';
   }
-  if (elements.damageDiceSelect && power.damage) {
-    if (elements.damageDiceSelect.value !== power.damage.dice) elements.damageDiceSelect.value = power.damage.dice;
-    if (elements.damageTypeSelect && elements.damageTypeSelect.value !== power.damage.type) elements.damageTypeSelect.value = power.damage.type;
-    if (elements.damageSaveSelect && elements.damageSaveSelect.value !== power.damage.onSave) elements.damageSaveSelect.value = power.damage.onSave;
-  }
-  if (!power.damage && elements.damageDiceSelect) {
-    elements.damageDiceSelect.value = POWER_DAMAGE_DICE[0];
-    if (elements.damageTypeSelect) {
-      const defaultType = defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
-      elements.damageTypeSelect.value = defaultType;
-    }
-    if (elements.damageSaveSelect) elements.damageSaveSelect.value = 'Half';
-  }
   if (elements.quickRangeButtons) {
-    const shapeOptions = getRangeOptionsForShape(power.shape);
-    if (elements.quickRangeRow) elements.quickRangeRow.style.display = 'flex';
+    const showQuickRange = power.shape !== 'Melee' && shapeOptions.length > 1;
+    if (elements.quickRangeRow) elements.quickRangeRow.style.display = showQuickRange ? 'flex' : 'none';
     elements.quickRangeButtons.forEach(btn => {
       const value = btn.dataset.value;
+      const baseLabel = btn.dataset.baseLabel || value;
       const isMelee = value === 'Melee';
       const canUse = isMelee ? power.shape === 'Melee' : shapeOptions.includes(value);
       const isActive = isMelee ? power.shape === 'Melee' : power.range === value;
-      btn.disabled = !canUse;
+      const enabled = showQuickRange ? canUse : (isMelee && power.shape === 'Melee');
+      const formatted = formatRangeDisplay(baseLabel, settings);
+      if (btn.textContent !== formatted) btn.textContent = formatted;
+      btn.disabled = !enabled;
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       btn.style.backgroundColor = isActive ? quickActiveBg : '';
-      btn.style.opacity = canUse ? '1' : '0.5';
+      btn.style.opacity = enabled ? '1' : '0.5';
     });
   }
   if (elements.quickDiceButtons) {
-    const hasDamage = !!power.damage;
     if (elements.quickDiceRow) elements.quickDiceRow.style.display = hasDamage ? 'flex' : 'none';
     elements.quickDiceButtons.forEach(btn => {
       const isActive = hasDamage && power.damage?.dice === btn.dataset.value;
@@ -5889,7 +6059,6 @@ function updatePowerCardDerived(card) {
     });
   }
   if (elements.quickOnSaveButtons) {
-    const hasDamage = !!power.damage;
     if (elements.quickOnSaveRow) elements.quickOnSaveRow.style.display = hasDamage ? 'flex' : 'none';
     const activeOnSave = power.damage?.onSave || '';
     elements.quickOnSaveButtons.forEach(btn => {
@@ -6076,6 +6245,7 @@ function createPowerCard(pref = {}) {
     btn.className = 'btn-sm';
     btn.textContent = label;
     btn.dataset.value = value;
+    btn.dataset.baseLabel = label;
     btn.style.fontSize = '11px';
     btn.style.padding = '2px 6px';
     btn.style.lineHeight = '1.4';
@@ -6095,7 +6265,19 @@ function createPowerCard(pref = {}) {
     row.appendChild(label);
     return row;
   }
-  const state = { power, elements, pendingConcentrationAction: null };
+  const state = {
+    power,
+    elements,
+    pendingConcentrationAction: null,
+    manualSpOverride: false,
+    manualSaveAbility: false,
+    manualOnSave: false,
+    lastEffectTag: power.effectTag,
+    lastIntensity: power.intensity,
+    lastSuggestedSp: suggestSpCost(power.intensity),
+    lastHasDamage: !!power.damage,
+    lastOnSaveSuggestion: power.damage ? suggestOnSaveBehavior(power.effectTag) : null,
+  };
   powerCardStates.set(card, state);
   activePowerCards.add(card);
 
@@ -6136,6 +6318,12 @@ function createPowerCard(pref = {}) {
   const rangeSelect = document.createElement('select');
   setSelectOptions(rangeSelect, POWER_SHAPE_RANGES[power.shape] || [], power.range);
   const rangeField = createFieldContainer('Range', rangeSelect, { flex: '1', minWidth: '140px' });
+  const rangeHint = document.createElement('div');
+  rangeHint.style.fontSize = '12px';
+  rangeHint.style.opacity = '0.8';
+  rangeHint.style.minHeight = '14px';
+  rangeHint.style.display = 'none';
+  rangeField.wrapper.appendChild(rangeHint);
   targetingRow.appendChild(rangeField.wrapper);
 
   const effectSelect = document.createElement('select');
@@ -6429,12 +6617,14 @@ function createPowerCard(pref = {}) {
     event.preventDefault();
     power.spCost = Math.max(1, power.spCost - 1);
     spInput.value = String(power.spCost);
+    state.manualSpOverride = true;
     updatePowerCardDerived(card);
   });
   spIncBtn.addEventListener('click', event => {
     event.preventDefault();
     power.spCost = Math.max(1, power.spCost + 1);
     spInput.value = String(power.spCost);
+    state.manualSpOverride = true;
     updatePowerCardDerived(card);
   });
   spQuickRow.appendChild(spDecBtn);
@@ -6469,6 +6659,7 @@ function createPowerCard(pref = {}) {
       }
       power.saveAbilityTarget = value;
       saveAbilitySelect.value = value;
+      state.manualSaveAbility = true;
       updatePowerCardDerived(card);
     });
     saveAbilityQuickRow.appendChild(btn);
@@ -6485,6 +6676,7 @@ function createPowerCard(pref = {}) {
       if (!power.damage) return;
       power.damage.onSave = value;
       damageSaveSelect.value = value;
+      state.manualOnSave = true;
       updatePowerCardDerived(card);
     });
     onSaveQuickRow.appendChild(btn);
@@ -6576,6 +6768,7 @@ function createPowerCard(pref = {}) {
   elements.shapeSelect = shapeSelect;
   elements.rangeSelect = rangeSelect;
   elements.rangeField = rangeField;
+  elements.rangeHint = rangeHint;
   elements.effectSelect = effectSelect;
   elements.secondarySelect = secondarySelect;
   elements.secondaryHint = secondaryHint;
@@ -6670,20 +6863,26 @@ function createPowerCard(pref = {}) {
     updatePowerCardDerived(card);
   });
   spInput.addEventListener('input', () => {
+    state.manualSpOverride = true;
     power.spCost = Math.max(1, readNumericInput(spInput.value, { min: 1, fallback: power.spCost }));
     updatePowerCardDerived(card);
   });
   spSuggestBtn.addEventListener('click', () => {
     power.spCost = suggestSpCost(power.intensity);
     spInput.value = String(power.spCost);
+    state.manualSpOverride = false;
     updatePowerCardDerived(card);
   });
   requiresSaveToggle.addEventListener('change', () => {
     power.requiresSave = requiresSaveToggle.checked;
+    if (!power.requiresSave) {
+      state.manualSaveAbility = false;
+    }
     updatePowerCardDerived(card);
   });
   saveAbilitySelect.addEventListener('change', () => {
     power.saveAbilityTarget = saveAbilitySelect.value;
+    state.manualSaveAbility = true;
     updatePowerCardDerived(card);
   });
   durationSelect.addEventListener('change', () => {
@@ -6729,8 +6928,10 @@ function createPowerCard(pref = {}) {
       damageDiceSelect.value = power.damage.dice;
       damageTypeSelect.value = power.damage.type;
       damageSaveSelect.value = power.damage.onSave;
+      state.manualOnSave = false;
     } else {
       power.damage = undefined;
+      state.manualOnSave = false;
     }
     updatePowerCardDerived(card);
   });
@@ -6747,6 +6948,7 @@ function createPowerCard(pref = {}) {
   damageSaveSelect.addEventListener('change', () => {
     power.damage = power.damage || {};
     power.damage.onSave = damageSaveSelect.value;
+    state.manualOnSave = true;
     updatePowerCardDerived(card);
   });
   useButton.addEventListener('click', () => handleUsePower(card));

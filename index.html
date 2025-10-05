@@ -470,6 +470,31 @@
           <label for="power-save-dc">Power Save DC</label>
           <input id="power-save-dc" type="number" inputmode="numeric" pattern="[0-9]*" readonly/>
         </div>
+        <div style="flex:1;min-width:160px">
+          <label for="power-range-unit">Default Range Unit</label>
+          <select id="power-range-unit">
+            <option value="feet" selected>Feet</option>
+            <option value="narrative">Narrative</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <label for="power-suggestion-strength">Auto-Suggestion Strength</label>
+          <select id="power-suggestion-strength">
+            <option value="off">Off</option>
+            <option value="conservative" selected>Conservative</option>
+            <option value="assertive">Assertive</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px">
+          <label class="inline" style="gap:6px">
+            <input type="checkbox" id="power-range-metric"/>
+            <span>Show metric ranges</span>
+          </label>
+          <label class="inline" style="gap:6px">
+            <input type="checkbox" id="power-text-compact"/>
+            <span>Use compact rules text</span>
+          </label>
+        </div>
       </div>
     </fieldset>
     <fieldset class="card">
