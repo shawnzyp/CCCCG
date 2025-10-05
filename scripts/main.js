@@ -5614,6 +5614,45 @@ function migrateLegacyPower(raw = {}) {
   };
 }
 
+function normalizeSignatureData(raw = {}) {
+  if (!raw || typeof raw !== 'object') {
+    return { signature: true };
+  }
+  if (raw.signature || raw.isSignature) {
+    return { ...raw, signature: true };
+  }
+  if (
+    raw.effectTag !== undefined
+    || raw.spCost !== undefined
+    || raw.shape !== undefined
+    || raw.range !== undefined
+    || raw.actionType !== undefined
+  ) {
+    return { ...raw, signature: true };
+  }
+
+  const parsedSp = Number.parseInt(raw.sp, 10);
+  const spCost = Number.isFinite(parsedSp) && parsedSp > 0 ? parsedSp : 1;
+  const saveRaw = typeof raw.save === 'string' ? raw.save.trim().toUpperCase() : '';
+  const requiresSave = !!saveRaw && saveRaw !== '—' && saveRaw !== 'NONE' && saveRaw !== 'N/A';
+  const saveAbility = requiresSave && POWER_SAVE_ABILITIES.includes(saveRaw)
+    ? saveRaw
+    : requiresSave
+      ? 'WIS'
+      : null;
+
+  return {
+    ...raw,
+    name: raw.name || '',
+    spCost,
+    requiresSave,
+    saveAbilityTarget: saveAbility,
+    special: raw.special || '',
+    description: raw.description || raw.desc || '',
+    signature: true,
+  };
+}
+
 function normalizePowerData(raw = {}) {
   let base = raw;
   if (raw && (raw.effect !== undefined || raw.sp !== undefined || raw.save !== undefined || raw.range !== undefined)) {
@@ -5676,6 +5715,9 @@ function normalizePowerData(raw = {}) {
     migration: !!base.migration,
     needsReview: !!base.needsReview,
   };
+  if (base.signature || base.isSignature) {
+    normalized.signature = true;
+  }
   if (normalized.intensity === 'Ultimate') {
     normalized.cooldown = 10;
     normalized.uses = 'Cooldown';
@@ -5788,6 +5830,11 @@ let ongoingEffectCounter = 0;
 
 function getOngoingEffectsContainer() {
   return $('ongoing-effects');
+}
+
+function getPowerCardLabel(card, { lowercase = false } = {}) {
+  const kind = card?.dataset?.kind === 'sig' ? 'Signature move' : 'Power';
+  return lowercase ? kind.toLowerCase() : kind;
 }
 
 function formatRemainingDuration(state, initial = false) {
@@ -5924,6 +5971,9 @@ function serializePowerCard(card) {
   const power = { ...state.power };
   if (power.damage) {
     power.damage = { ...power.damage };
+  }
+  if (card?.dataset?.kind === 'sig') {
+    power.signature = true;
   }
   power.rulesText = composePowerRulesText(power, settings);
   return power;
@@ -6244,7 +6294,8 @@ function requestConcentrationDrop(card, power, proceed) {
   if (!state || !state.elements) return false;
   const { elements } = state;
   if (!elements.concentrationPrompt || !elements.concentrationPromptText) {
-    showPowerMessage(card, `Drop concentration on ${activeConcentrationEffect?.name || 'the current effect'} before using this power.`, 'warning');
+    const labelLower = getPowerCardLabel(card, { lowercase: true });
+    showPowerMessage(card, `Drop concentration on ${activeConcentrationEffect?.name || 'the current effect'} before using this ${labelLower}.`, 'warning');
     return false;
   }
   state.pendingConcentrationAction = proceed;
@@ -6257,10 +6308,12 @@ function requestConcentrationDrop(card, power, proceed) {
 
 function finalizePowerUse(card, power) {
   if (!changeSP(-power.spCost)) {
-    showPowerMessage(card, 'Insufficient SP to use this power.', 'error');
+    const labelLower = getPowerCardLabel(card, { lowercase: true });
+    showPowerMessage(card, `Insufficient SP to use this ${labelLower}.`, 'error');
     return;
   }
-  logAction(`Power used: ${power.name} — ${power.rulesText}`);
+  const label = getPowerCardLabel(card);
+  logAction(`${label} used: ${power.name} — ${power.rulesText}`);
   toast(`${power.name} activated.`, 'success');
   if (power.concentration) {
     activeConcentrationEffect = { card, name: power.name };
@@ -6278,7 +6331,8 @@ function handleUsePower(card) {
   const power = serializePowerCard(card);
   if (!power) return;
   if (power.requiresSave && !power.saveAbilityTarget) {
-    showPowerMessage(card, 'Select a save ability before using this power.', 'error');
+    const labelLower = getPowerCardLabel(card, { lowercase: true });
+    showPowerMessage(card, `Select a save ability before using this ${labelLower}.`, 'error');
     return;
   }
   if (!Number.isFinite(power.spCost) || power.spCost <= 0) {
@@ -6287,8 +6341,9 @@ function handleUsePower(card) {
   }
   const available = num(elSPBar?.value) + (elSPTemp ? num(elSPTemp.value) : 0);
   if (power.spCost > available) {
-    toast('Insufficient SP to use this power.', 'error');
-    showPowerMessage(card, 'Insufficient SP to use this power.', 'error');
+    const labelLower = getPowerCardLabel(card, { lowercase: true });
+    toast(`Insufficient SP to use this ${labelLower}.`, 'error');
+    showPowerMessage(card, `Insufficient SP to use this ${labelLower}.`, 'error');
     return;
   }
   const proceed = () => finalizePowerUse(card, power);
@@ -6344,15 +6399,18 @@ function handleBoostRoll(card) {
     showPowerMessage(card, 'Insufficient SP to boost this roll.', 'error');
     return;
   }
-  logAction(`Boosted next roll for ${power.name} (+1d4).`);
+  const label = getPowerCardLabel(card);
+  logAction(`Boosted next roll for ${power.name} (${label}) (+1d4).`);
   toast(`Boost ready for ${power.name}.`, 'info');
   showPowerMessage(card, 'Boost readied: +1d4 to the next roll.', 'success');
 }
 
 function handleDeletePower(card) {
   const state = powerCardStates.get(card);
-  const name = state?.power?.name || 'Power';
-  logAction(`Power removed: ${name}`);
+  const label = getPowerCardLabel(card);
+  const fallbackName = label === 'Signature move' ? 'Signature move' : 'Power';
+  const name = state?.power?.name || fallbackName;
+  logAction(`${label} removed: ${name}`);
   if (activeConcentrationEffect && activeConcentrationEffect.card === card) {
     activeConcentrationEffect = null;
   }
@@ -6362,11 +6420,19 @@ function handleDeletePower(card) {
   pushHistory();
 }
 
-function createPowerCard(pref = {}) {
-  const power = normalizePowerData(pref);
+function createPowerCard(pref = {}, options = {}) {
+  const isSignature = options.signature === true;
+  const base = isSignature ? normalizeSignatureData(pref) : pref;
+  const power = normalizePowerData(isSignature ? { ...base, signature: true } : base);
+  if (isSignature) {
+    power.signature = true;
+  }
   const card = document.createElement('div');
   card.className = 'card power-card';
-  card.dataset.kind = 'power';
+  card.dataset.kind = isSignature ? 'sig' : 'power';
+  if (isSignature) {
+    card.dataset.signature = 'true';
+  }
   card.draggable = true;
   card.dataset.powerId = power.id;
 
@@ -6420,7 +6486,7 @@ function createPowerCard(pref = {}) {
 
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
-  nameInput.placeholder = 'Power Name';
+  nameInput.placeholder = isSignature ? 'Signature Move Name' : 'Power Name';
   nameInput.value = power.name;
   const nameField = createFieldContainer('Name', nameInput, { flex: '2', minWidth: '200px' });
   topRow.appendChild(nameField.wrapper);
@@ -6860,7 +6926,7 @@ function createPowerCard(pref = {}) {
   const useButton = document.createElement('button');
   useButton.type = 'button';
   useButton.className = 'btn-sm';
-  useButton.textContent = 'Use Power';
+  useButton.textContent = isSignature ? 'Use Signature' : 'Use Power';
   actionRow.appendChild(useButton);
 
   const rollSaveButton = document.createElement('button');
@@ -7284,8 +7350,8 @@ function populateCardFromData(card, data){
 }
 
 function createCard(kind, pref = {}) {
-  if (kind === 'power') {
-    return createPowerCard(pref);
+  if (kind === 'power' || kind === 'sig') {
+    return createPowerCard(pref, { signature: kind === 'sig' });
   }
   const cfg = CARD_CONFIG[kind];
   const card = document.createElement('div');
@@ -8475,13 +8541,10 @@ function serialize(){
     .map(card => serializePowerCard(card))
     .filter(Boolean);
   data.powerSettings = getCharacterPowerSettings();
-  data.signatures = qsa("[data-kind='sig']").map(card => ({
-    name: getVal("[data-f='name']", card) || '',
-    sp: getVal("[data-f='sp']", card) || '',
-    save: getVal("[data-f='save']", card) || '',
-    special: getVal("[data-f='special']", card) || '',
-    desc: getVal("[data-f='desc']", card) || ''
-  }));
+  data.signatures = qsa("[data-kind='sig']")
+    .map(card => serializePowerCard(card))
+    .filter(Boolean)
+    .map(sig => ({ ...sig, signature: true }));
   data.weapons = qsa("[data-kind='weapon']").map(card => ({
     name: getVal("[data-f='name']", card) || '',
     damage: getVal("[data-f='damage']", card) || '',

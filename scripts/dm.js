@@ -1351,17 +1351,43 @@ function initDMLogin(){
         ${statsGrid?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${statsGrid}</div>`:''}
       `;
       const renderList=(title, items)=>`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${items.join('')}</ul></div>`;
-      if(data.powers?.length){
-        const powers=data.powers.map(p=>{
-          if(p && typeof p === 'object'){
-            return `<li>${labeled('Name',p.name)}${labeled('Style',p.style)}${labeled('Action',p.actionType)}${labeled('Intensity',p.intensity)}${labeled('Uses',p.uses)}${labeled('Rules',p.rulesText || '')}${labeled('Description',p.description)}${labeled('Special',p.special)}</li>`;
+      const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
+        if (entry && typeof entry === 'object') {
+          const isModern = (
+            entry.rulesText !== undefined
+            || entry.effectTag !== undefined
+            || entry.spCost !== undefined
+            || entry.intensity !== undefined
+            || entry.actionType !== undefined
+            || entry.signature
+          );
+          if (isModern) {
+            const costValue = Number(entry.spCost);
+            const costLabel = Number.isFinite(costValue) && costValue > 0 ? `${costValue} SP` : '';
+            return `<li>${
+              labeled('Name', entry.name || fallback)
+              + labeled('Style', entry.style)
+              + labeled('Action', entry.actionType)
+              + labeled('Intensity', entry.intensity)
+              + labeled('Uses', entry.uses)
+              + labeled('Cost', costLabel)
+              + labeled('Save', entry.requiresSave ? entry.saveAbilityTarget : '')
+              + labeled('Rules', entry.rulesText || '')
+              + labeled('Description', entry.description)
+              + labeled('Special', entry.special)
+            }</li>`;
           }
-          return `<li>${labeled('Name',p?.name||'Power')}</li>`;
-        });
+          const legacyDesc = entry.description ?? entry.desc;
+          return `<li>${labeled('Name', entry.name || fallback)}${labeled('SP', entry.sp)}${labeled('Save', entry.save)}${labeled('Special', entry.special)}${labeled('Description', legacyDesc)}</li>`;
+        }
+        return `<li>${labeled('Name', fallback)}</li>`;
+      };
+      if(data.powers?.length){
+        const powers=data.powers.map(p=>renderPowerEntry(p,{fallback:'Power'}));
         card.innerHTML+=renderList('Powers',powers);
       }
       if(data.signatures?.length){
-        const sigs=data.signatures.map(s=>`<li>${labeled('Name',s.name)}${labeled('SP',s.sp)}${labeled('Save',s.save)}${labeled('Special',s.special)}${labeled('Description',s.desc)}</li>`);
+        const sigs=data.signatures.map(s=>renderPowerEntry(s,{fallback:'Signature'}));
         card.innerHTML+=renderList('Signatures',sigs);
       }
       if(data.weapons?.length){
