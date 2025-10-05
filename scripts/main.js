@@ -99,6 +99,16 @@ const POWER_DAMAGE_TYPES = [
 const POWER_SCALING_OPTIONS = ['Static', 'Level-based', 'Ability-based'];
 const POWER_DAMAGE_DICE = ['1d6', '2d6', '3d6', '4d6', '5d6', '6d6'];
 
+const POWER_RANGE_QUICK_VALUES = [
+  'Melee',
+  '10 ft',
+  '30 ft',
+  '60 ft',
+  '90 ft',
+  '120 ft',
+  'Unlimited (narrative)',
+];
+
 const POWER_SHAPE_RANGES = {
   Melee: ['Melee'],
   Cone: ['15 ft', '30 ft', '60 ft'],
@@ -106,7 +116,7 @@ const POWER_SHAPE_RANGES = {
   Radius: ['10 ft', '15 ft', '20 ft', '30 ft'],
   Self: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
   Aura: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
-  'Ranged Single': ['30 ft', '60 ft', '90 ft', '120 ft'],
+  'Ranged Single': ['10 ft', '30 ft', '60 ft', '90 ft', '120 ft', 'Unlimited (narrative)'],
 };
 
 const EFFECT_SAVE_SUGGESTIONS = {
@@ -119,6 +129,20 @@ const EFFECT_SAVE_SUGGESTIONS = {
   Freeze: ['DEX', 'CON'],
   Slow: ['DEX', 'CON'],
   Illusion: ['WIS'],
+  Fear: ['WIS'],
+};
+
+const EFFECT_ON_SAVE_SUGGESTIONS = {
+  Damage: 'Half',
+  Stun: 'Negate',
+  Charm: 'Negate',
+  Blind: 'Negate',
+  Weaken: 'Half',
+  'Push/Pull': 'Negate',
+  Burn: 'Half',
+  Freeze: 'Half',
+  Slow: 'Half',
+  Illusion: 'Negate',
 };
 
 const LEGACY_EFFECT_KEYWORDS = [
@@ -140,6 +164,23 @@ const LEGACY_EFFECT_KEYWORDS = [
 ];
 
 const POWER_PRESETS = [
+  {
+    id: 'powerhouse-smash',
+    label: 'Powerhouse: Smash',
+    data: {
+      name: 'Smash',
+      style: 'Physical Powerhouse',
+      actionType: 'Action',
+      shape: 'Melee',
+      range: 'Melee',
+      effectTag: 'Damage',
+      intensity: 'Minor',
+      spCost: 1,
+      damage: { dice: '2d6', type: 'Kinetic', onSave: 'Full' },
+      duration: 'Instant',
+      description: 'A crushing melee blow that rattles armor and sends foes reeling.',
+    },
+  },
   {
     id: 'powerhouse-shockwave',
     label: 'Powerhouse: Shockwave',
@@ -178,6 +219,25 @@ const POWER_PRESETS = [
     },
   },
   {
+    id: 'energy-overload-field',
+    label: 'Energy Manipulator: Overload Field',
+    data: {
+      name: 'Overload Field',
+      style: 'Energy Manipulator',
+      actionType: 'Action',
+      shape: 'Radius',
+      range: '10 ft',
+      effectTag: 'Dispel/Nullify',
+      intensity: 'Control',
+      spCost: 4,
+      requiresSave: true,
+      saveAbilityTarget: 'WIS',
+      duration: '1 Round',
+      description: 'A pulsing null-field strips active powers and boons from everything in reach.',
+      special: 'On a failed save, suppress ongoing buffs and barriers until the end of your next turn.',
+    },
+  },
+  {
     id: 'speedster-afterimage',
     label: 'Speedster: Afterimage Feint',
     data: {
@@ -194,6 +254,41 @@ const POWER_PRESETS = [
     },
   },
   {
+    id: 'speedster-time-skip',
+    label: 'Speedster: Time Skip',
+    data: {
+      name: 'Time Skip',
+      style: 'Speedster',
+      actionType: 'Bonus',
+      shape: 'Self',
+      range: 'Self',
+      effectTag: 'Teleport/Phase',
+      intensity: 'Core',
+      spCost: 2,
+      duration: 'Instant',
+      description: 'You step a heartbeat out of sync, reappearing exactly where you intend a moment later.',
+    },
+  },
+  {
+    id: 'psychic-mind-spike',
+    label: 'Telekinetic/Psychic: Mind Spike',
+    data: {
+      name: 'Mind Spike',
+      style: 'Telekinetic/Psychic',
+      actionType: 'Action',
+      shape: 'Ranged Single',
+      range: '60 ft',
+      effectTag: 'Damage',
+      intensity: 'Core',
+      spCost: 2,
+      requiresSave: true,
+      saveAbilityTarget: 'WIS',
+      duration: 'Instant',
+      damage: { dice: '2d6', type: 'Psychic', onSave: 'Half' },
+      description: 'A needle of psionic force tears through a foe’s mind.',
+    },
+  },
+  {
     id: 'psychic-force-cage',
     label: 'Telekinetic/Psychic: Force Cage',
     data: {
@@ -202,15 +297,15 @@ const POWER_PRESETS = [
       actionType: 'Action',
       shape: 'Radius',
       range: '10 ft',
-      effectTag: 'Terrain',
+      effectTag: 'Stun',
+      secondaryTag: 'Weaken',
       intensity: 'Control',
       spCost: 4,
       requiresSave: true,
       saveAbilityTarget: 'WIS',
       duration: '1 Round',
-      special: 'Targets that fail the save are restrained within a telekinetic barrier until the effect ends.',
-      description: 'A shimmering cage of kinetic force slams down, locking foes in place.',
-      secondaryTag: 'Stun',
+      description: 'A shimmering cage of kinetic force slams down, pinning foes inside.',
+      special: 'Creatures that fail are restrained and cannot leave the cage until the effect ends.',
     },
   },
   {
@@ -230,7 +325,41 @@ const POWER_PRESETS = [
       duration: 'End of Target’s Next Turn',
       description: 'Psychic chains of light bind your foe in a web of hallucinations.',
       special: 'On a success the target shrugs off the illusion completely.',
-      damage: undefined,
+    },
+  },
+  {
+    id: 'illusionist-mirror-step',
+    label: 'Illusionist: Mirror Step',
+    data: {
+      name: 'Mirror Step',
+      style: 'Illusionist',
+      actionType: 'Bonus',
+      shape: 'Self',
+      range: 'Self',
+      effectTag: 'Teleport/Phase',
+      intensity: 'Core',
+      spCost: 2,
+      duration: 'Instant',
+      description: 'You disappear into a shimmer of light and reappear from a different angle.',
+    },
+  },
+  {
+    id: 'shapeshifter-bone-spear',
+    label: 'Shape-shifter: Bone Spear',
+    data: {
+      name: 'Bone Spear',
+      style: 'Shape-shifter',
+      actionType: 'Action',
+      shape: 'Ranged Single',
+      range: '60 ft',
+      effectTag: 'Damage',
+      intensity: 'Core',
+      spCost: 2,
+      requiresSave: true,
+      saveAbilityTarget: 'DEX',
+      duration: 'Instant',
+      damage: { dice: '2d6', type: 'Kinetic', onSave: 'Half' },
+      description: 'You harden your form into a razor spear and hurl it at distant prey.',
     },
   },
   {
@@ -268,6 +397,25 @@ const POWER_PRESETS = [
       damage: { dice: '3d6', type: 'Fire', onSave: 'Half' },
       secondaryTag: 'Burn',
       description: 'An explosive gout of elemental fire engulfs everything in front of you.',
+    },
+  },
+  {
+    id: 'elemental-frost-lock',
+    label: 'Elemental: Frost Lock',
+    data: {
+      name: 'Frost Lock',
+      style: 'Elemental Controller',
+      actionType: 'Action',
+      shape: 'Ranged Single',
+      range: '60 ft',
+      effectTag: 'Freeze',
+      secondaryTag: 'Slow',
+      intensity: 'Control',
+      spCost: 4,
+      requiresSave: true,
+      saveAbilityTarget: 'CON',
+      duration: '1 Round',
+      description: 'Icy chains freeze a target in place, chilling their limbs to a crawl.',
     },
   },
 ];
@@ -5129,13 +5277,24 @@ function generatePowerId() {
   return `power-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
+function getRangeOptionsForShape(shape) {
+  const options = POWER_SHAPE_RANGES[shape];
+  if (options && options.length) return options;
+  return POWER_RANGE_QUICK_VALUES.filter(value => value !== 'Melee');
+}
+
 function ensureRangeForShape(shape, range) {
-  const options = POWER_SHAPE_RANGES[shape] || [];
+  const options = getRangeOptionsForShape(shape);
   const trimmed = typeof range === 'string' ? range.trim() : '';
   if (!options.length) return trimmed || '';
   if (trimmed && options.includes(trimmed)) return trimmed;
   if (shape === 'Melee') return 'Melee';
   return options[0] || trimmed || '';
+}
+
+function suggestOnSaveBehavior(effectTag) {
+  if (!effectTag) return 'Half';
+  return EFFECT_ON_SAVE_SUGGESTIONS[effectTag] || 'Half';
 }
 
 function matchLegacyEffectTag(text) {
@@ -5179,7 +5338,8 @@ function parseLegacyRange(rangeText, shape) {
   if (!text) {
     if (shape === 'Melee') return 'Melee';
     if (shape === 'Self') return 'Self';
-    return ensureRangeForShape(shape, POWER_SHAPE_RANGES[shape]?.[0] || '');
+    const options = getRangeOptionsForShape(shape);
+    return ensureRangeForShape(shape, options[0] || '');
   }
   const ftMatch = text.match(/([0-9]{1,3})\s*ft/i);
   if (ftMatch) {
@@ -5546,15 +5706,23 @@ function updatePowerCardDerived(card) {
   if (!state) return;
   const { power, elements } = state;
   if (!elements) return;
+  const quickActiveBg = 'rgba(46,160,67,0.25)';
   power.spCost = Math.max(1, readNumericInput(elements.spInput?.value ?? power.spCost, { min: 1, fallback: power.spCost }));
   if (elements.spInput && Number(elements.spInput.value) !== power.spCost) {
     elements.spInput.value = String(power.spCost);
   }
   if (elements.rangeSelect) {
-    const shapeOptions = POWER_SHAPE_RANGES[power.shape] || [];
+    const shapeOptions = getRangeOptionsForShape(power.shape);
     setSelectOptions(elements.rangeSelect, shapeOptions, power.range);
     power.range = ensureRangeForShape(power.shape, elements.rangeSelect.value);
     elements.rangeSelect.disabled = shapeOptions.length <= 1;
+  }
+  if (elements.rangeField && elements.rangeField.wrapper) {
+    const hideRange = power.shape === 'Melee';
+    elements.rangeField.wrapper.style.display = hideRange ? 'none' : 'flex';
+  }
+  if (elements.requiresSaveToggle) {
+    elements.requiresSaveToggle.checked = !!power.requiresSave;
   }
   if (elements.saveAbilityField && elements.saveAbilityField.wrapper) {
     elements.saveAbilityField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
@@ -5572,6 +5740,13 @@ function updatePowerCardDerived(card) {
   if (!power.requiresSave) {
     power.saveAbilityTarget = null;
   }
+  if (elements.saveAbilityHint) {
+    const suggestions = EFFECT_SAVE_SUGGESTIONS[power.effectTag];
+    elements.saveAbilityHint.textContent =
+      power.requiresSave && suggestions && suggestions.length
+        ? `Suggested: ${suggestions.join(' or ')}`
+        : '';
+  }
   if (elements.rollSaveBtn) {
     elements.rollSaveBtn.disabled = !power.requiresSave;
   }
@@ -5587,6 +5762,9 @@ function updatePowerCardDerived(card) {
     }
     elements.spHint.textContent = parts.join(' ');
   }
+  if (elements.quickSpValue) {
+    elements.quickSpValue.textContent = `${power.spCost} SP`;
+  }
   if (elements.concentrationHint) {
     elements.concentrationHint.textContent = power.concentration ? '+1 SP per round' : '';
   }
@@ -5601,8 +5779,14 @@ function updatePowerCardDerived(card) {
     power.damage.type = defaultType;
     elements.damageTypeSelect.value = defaultType;
   }
+  if (power.damage && !POWER_ON_SAVE_OPTIONS.includes(power.damage.onSave)) {
+    power.damage.onSave = suggestOnSaveBehavior(power.effectTag);
+  }
   if (elements.damageToggle) {
     elements.damageToggle.checked = !!power.damage;
+  }
+  if (elements.damageSaveHint) {
+    elements.damageSaveHint.textContent = power.damage ? `Suggested: ${suggestOnSaveBehavior(power.effectTag)}` : '';
   }
   if (elements.cooldownField && elements.cooldownField.wrapper) {
     const requiresCooldown = power.intensity === 'Ultimate' || power.uses === 'Cooldown';
@@ -5657,6 +5841,64 @@ function updatePowerCardDerived(card) {
       elements.damageTypeSelect.value = defaultType;
     }
     if (elements.damageSaveSelect) elements.damageSaveSelect.value = 'Half';
+  }
+  if (elements.quickRangeButtons) {
+    const shapeOptions = getRangeOptionsForShape(power.shape);
+    if (elements.quickRangeRow) elements.quickRangeRow.style.display = 'flex';
+    elements.quickRangeButtons.forEach(btn => {
+      const value = btn.dataset.value;
+      const isMelee = value === 'Melee';
+      const canUse = isMelee ? power.shape === 'Melee' : shapeOptions.includes(value);
+      const isActive = isMelee ? power.shape === 'Melee' : power.range === value;
+      btn.disabled = !canUse;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = canUse ? '1' : '0.5';
+    });
+  }
+  if (elements.quickDiceButtons) {
+    const hasDamage = !!power.damage;
+    if (elements.quickDiceRow) elements.quickDiceRow.style.display = hasDamage ? 'flex' : 'none';
+    elements.quickDiceButtons.forEach(btn => {
+      const isActive = hasDamage && power.damage?.dice === btn.dataset.value;
+      btn.disabled = !hasDamage;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = hasDamage ? '1' : '0.5';
+    });
+  }
+  if (elements.quickDurationButtons) {
+    if (elements.quickDurationRow) elements.quickDurationRow.style.display = 'flex';
+    elements.quickDurationButtons.forEach(btn => {
+      const isActive = power.duration === btn.dataset.value;
+      btn.disabled = false;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = '1';
+    });
+  }
+  if (elements.quickSaveAbilityButtons) {
+    const hasSave = !!power.requiresSave;
+    if (elements.quickSaveAbilityRow) elements.quickSaveAbilityRow.style.display = hasSave ? 'flex' : 'none';
+    elements.quickSaveAbilityButtons.forEach(btn => {
+      const isActive = hasSave && power.saveAbilityTarget === btn.dataset.value;
+      btn.disabled = !hasSave;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = hasSave ? '1' : '0.5';
+    });
+  }
+  if (elements.quickOnSaveButtons) {
+    const hasDamage = !!power.damage;
+    if (elements.quickOnSaveRow) elements.quickOnSaveRow.style.display = hasDamage ? 'flex' : 'none';
+    const activeOnSave = power.damage?.onSave || '';
+    elements.quickOnSaveButtons.forEach(btn => {
+      const isActive = hasDamage && activeOnSave === btn.dataset.value;
+      btn.disabled = !hasDamage;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      btn.style.backgroundColor = isActive ? quickActiveBg : '';
+      btn.style.opacity = hasDamage ? '1' : '0.5';
+    });
   }
 }
 
@@ -5828,6 +6070,31 @@ function createPowerCard(pref = {}) {
   card.dataset.powerId = power.id;
 
   const elements = {};
+  function createQuickButton(label, value) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-sm';
+    btn.textContent = label;
+    btn.dataset.value = value;
+    btn.style.fontSize = '11px';
+    btn.style.padding = '2px 6px';
+    btn.style.lineHeight = '1.4';
+    btn.setAttribute('aria-pressed', 'false');
+    return btn;
+  }
+
+  function createQuickRow(labelText) {
+    const row = document.createElement('div');
+    row.className = 'inline';
+    row.style.flexWrap = 'wrap';
+    row.style.gap = '4px';
+    const label = document.createElement('span');
+    label.textContent = labelText;
+    label.style.fontSize = '11px';
+    label.style.opacity = '0.75';
+    row.appendChild(label);
+    return row;
+  }
   const state = { power, elements, pendingConcentrationAction: null };
   powerCardStates.set(card, state);
   activePowerCards.add(card);
@@ -5939,6 +6206,11 @@ function createPowerCard(pref = {}) {
   const saveAbilitySelect = document.createElement('select');
   setSelectOptions(saveAbilitySelect, POWER_SAVE_ABILITIES, power.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
   const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { flex: '1', minWidth: '120px' });
+  const saveAbilityHint = document.createElement('div');
+  saveAbilityHint.style.fontSize = '12px';
+  saveAbilityHint.style.opacity = '0.8';
+  saveAbilityHint.style.minHeight = '14px';
+  saveAbilityField.wrapper.appendChild(saveAbilityHint);
   saveRow.appendChild(saveAbilityField.wrapper);
 
   const saveBonusInput = document.createElement('input');
@@ -6032,6 +6304,11 @@ function createPowerCard(pref = {}) {
   const damageSaveSelect = document.createElement('select');
   setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, power.damage?.onSave || 'Half');
   const damageSaveField = createFieldContainer('On Save', damageSaveSelect, { flex: '1', minWidth: '140px' });
+  const damageSaveHint = document.createElement('div');
+  damageSaveHint.style.fontSize = '12px';
+  damageSaveHint.style.opacity = '0.8';
+  damageSaveHint.style.minHeight = '14px';
+  damageSaveField.wrapper.appendChild(damageSaveHint);
   damageFields.appendChild(damageSaveField.wrapper);
 
   damageSection.appendChild(damageFields);
@@ -6085,6 +6362,137 @@ function createPowerCard(pref = {}) {
   derivedRow.appendChild(rulesPreview);
 
   card.appendChild(derivedRow);
+
+  const quickControls = document.createElement('div');
+  quickControls.style.display = 'flex';
+  quickControls.style.flexDirection = 'column';
+  quickControls.style.gap = '6px';
+  quickControls.style.margin = '8px 0';
+
+  const rangeQuickRow = createQuickRow('Range quick set');
+  const quickRangeButtons = [];
+  POWER_RANGE_QUICK_VALUES.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (value === 'Melee') {
+        power.shape = 'Melee';
+        shapeSelect.value = 'Melee';
+        power.range = 'Melee';
+      } else {
+        power.range = value;
+      }
+      updatePowerCardDerived(card);
+    });
+    rangeQuickRow.appendChild(btn);
+    quickRangeButtons.push(btn);
+  });
+  quickControls.appendChild(rangeQuickRow);
+
+  const diceQuickRow = createQuickRow('Damage dice');
+  const quickDiceButtons = [];
+  POWER_DAMAGE_DICE.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (!power.damage) {
+        const defaultType = power.damage?.type || damageTypeSelect.value || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+        const onSaveSuggestion = suggestOnSaveBehavior(power.effectTag);
+        power.damage = {
+          dice: value,
+          type: defaultType,
+          onSave: onSaveSuggestion,
+        };
+        damageToggle.checked = true;
+        damageTypeSelect.value = power.damage.type;
+        damageSaveSelect.value = power.damage.onSave;
+      } else {
+        power.damage.dice = value;
+      }
+      damageDiceSelect.value = value;
+      updatePowerCardDerived(card);
+    });
+    diceQuickRow.appendChild(btn);
+    quickDiceButtons.push(btn);
+  });
+  quickControls.appendChild(diceQuickRow);
+
+  const spQuickRow = createQuickRow('SP quick adjust');
+  const spDecBtn = createQuickButton('-1 SP', 'dec');
+  const spIncBtn = createQuickButton('+1 SP', 'inc');
+  const spQuickValue = document.createElement('span');
+  spQuickValue.style.fontSize = '11px';
+  spQuickValue.style.opacity = '0.8';
+  spQuickValue.style.marginLeft = '4px';
+  spQuickValue.textContent = `${power.spCost} SP`;
+  spDecBtn.addEventListener('click', event => {
+    event.preventDefault();
+    power.spCost = Math.max(1, power.spCost - 1);
+    spInput.value = String(power.spCost);
+    updatePowerCardDerived(card);
+  });
+  spIncBtn.addEventListener('click', event => {
+    event.preventDefault();
+    power.spCost = Math.max(1, power.spCost + 1);
+    spInput.value = String(power.spCost);
+    updatePowerCardDerived(card);
+  });
+  spQuickRow.appendChild(spDecBtn);
+  spQuickRow.appendChild(spIncBtn);
+  spQuickRow.appendChild(spQuickValue);
+  quickControls.appendChild(spQuickRow);
+
+  const durationQuickRow = createQuickRow('Duration chips');
+  const quickDurationButtons = [];
+  POWER_DURATIONS.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      power.duration = value;
+      durationSelect.value = value;
+      updatePowerCardDerived(card);
+    });
+    durationQuickRow.appendChild(btn);
+    quickDurationButtons.push(btn);
+  });
+  quickControls.appendChild(durationQuickRow);
+
+  const saveAbilityQuickRow = createQuickRow('Save ability chips');
+  const quickSaveAbilityButtons = [];
+  POWER_SAVE_ABILITIES.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (!power.requiresSave) {
+        power.requiresSave = true;
+        requiresSaveToggle.checked = true;
+      }
+      power.saveAbilityTarget = value;
+      saveAbilitySelect.value = value;
+      updatePowerCardDerived(card);
+    });
+    saveAbilityQuickRow.appendChild(btn);
+    quickSaveAbilityButtons.push(btn);
+  });
+  quickControls.appendChild(saveAbilityQuickRow);
+
+  const onSaveQuickRow = createQuickRow('On Save behavior');
+  const quickOnSaveButtons = [];
+  POWER_ON_SAVE_OPTIONS.forEach(value => {
+    const btn = createQuickButton(value, value);
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      if (!power.damage) return;
+      power.damage.onSave = value;
+      damageSaveSelect.value = value;
+      updatePowerCardDerived(card);
+    });
+    onSaveQuickRow.appendChild(btn);
+    quickOnSaveButtons.push(btn);
+  });
+  quickControls.appendChild(onSaveQuickRow);
+
+  card.appendChild(quickControls);
 
   const feedbackWrap = document.createElement('div');
   feedbackWrap.style.display = 'flex';
@@ -6167,6 +6575,7 @@ function createPowerCard(pref = {}) {
   elements.actionSelect = actionSelect;
   elements.shapeSelect = shapeSelect;
   elements.rangeSelect = rangeSelect;
+  elements.rangeField = rangeField;
   elements.effectSelect = effectSelect;
   elements.secondarySelect = secondarySelect;
   elements.secondaryHint = secondaryHint;
@@ -6176,6 +6585,7 @@ function createPowerCard(pref = {}) {
   elements.spHint = spHint;
   elements.requiresSaveToggle = requiresSaveToggle;
   elements.saveAbilitySelect = saveAbilitySelect;
+  elements.saveAbilityHint = saveAbilityHint;
   elements.saveBonusInput = saveBonusInput;
   elements.saveAbilityField = saveAbilityField;
   elements.durationSelect = durationSelect;
@@ -6192,6 +6602,7 @@ function createPowerCard(pref = {}) {
   elements.damageDiceSelect = damageDiceSelect;
   elements.damageTypeSelect = damageTypeSelect;
   elements.damageSaveSelect = damageSaveSelect;
+  elements.damageSaveHint = damageSaveHint;
   elements.damageSection = damageSection;
   elements.saveDcOutput = saveDcInput;
   elements.rulesPreview = rulesPreview;
@@ -6206,6 +6617,18 @@ function createPowerCard(pref = {}) {
   elements.ongoingButton = ongoingButton;
   elements.boostButton = boostButton;
   elements.deleteButton = deleteButton;
+  elements.quickControls = quickControls;
+  elements.quickRangeButtons = quickRangeButtons;
+  elements.quickRangeRow = rangeQuickRow;
+  elements.quickDiceButtons = quickDiceButtons;
+  elements.quickDiceRow = diceQuickRow;
+  elements.quickSpValue = spQuickValue;
+  elements.quickDurationButtons = quickDurationButtons;
+  elements.quickDurationRow = durationQuickRow;
+  elements.quickSaveAbilityButtons = quickSaveAbilityButtons;
+  elements.quickSaveAbilityRow = saveAbilityQuickRow;
+  elements.quickOnSaveButtons = quickOnSaveButtons;
+  elements.quickOnSaveRow = onSaveQuickRow;
 
   nameInput.addEventListener('input', () => {
     power.name = nameInput.value;
@@ -6225,7 +6648,8 @@ function createPowerCard(pref = {}) {
   });
   shapeSelect.addEventListener('change', () => {
     power.shape = shapeSelect.value;
-    setSelectOptions(rangeSelect, POWER_SHAPE_RANGES[power.shape] || [], power.range);
+    const shapeOptions = getRangeOptionsForShape(power.shape);
+    setSelectOptions(rangeSelect, shapeOptions, power.range);
     power.range = ensureRangeForShape(power.shape, rangeSelect.value);
     updatePowerCardDerived(card);
   });
@@ -6296,11 +6720,15 @@ function createPowerCard(pref = {}) {
   });
   damageToggle.addEventListener('change', () => {
     if (damageToggle.checked) {
-      power.damage = power.damage || {
-        dice: damageDiceSelect.value,
-        type: damageTypeSelect.value,
-        onSave: damageSaveSelect.value,
-      };
+      const suggestedOnSave = suggestOnSaveBehavior(power.effectTag);
+      const nextDamage = power.damage || {};
+      nextDamage.dice = nextDamage.dice || damageDiceSelect.value || POWER_DAMAGE_DICE[0];
+      nextDamage.type = nextDamage.type || damageTypeSelect.value || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
+      nextDamage.onSave = nextDamage.onSave || suggestedOnSave;
+      power.damage = nextDamage;
+      damageDiceSelect.value = power.damage.dice;
+      damageTypeSelect.value = power.damage.type;
+      damageSaveSelect.value = power.damage.onSave;
     } else {
       power.damage = undefined;
     }
