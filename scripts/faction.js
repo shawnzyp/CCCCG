@@ -232,6 +232,7 @@ export function updateFactionRep(handlePerkEffects = () => {}) {
     const tierEl = $(`${id}-rep-tier`);
     const perkEl = $(`${id}-rep-perk`);
     if (!input || !bar || !tierEl || !perkEl) return;
+    handlePerkEffects(perkEl, '', `faction:${id}`);
     const rawValue = input.value === '' ? config.defaultValue : input.value;
     const clamped = config.clamp(rawValue);
     input.value = String(clamped);
@@ -268,7 +269,8 @@ export function updateFactionRep(handlePerkEffects = () => {}) {
       } else {
         perkEl.textContent = text;
       }
-      handlePerkEffects(perkEl, text);
+      const tierKey = tierName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tier';
+      handlePerkEffects(perkEl, text, `faction:${config.id}:${tierKey}`);
       perkEl.style.display = 'block';
     } else {
       perkEl.style.display = 'none';

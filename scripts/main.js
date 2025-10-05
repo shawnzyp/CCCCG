@@ -185,6 +185,202 @@ function setupPriorityTransmissionAlert(){
   };
 }
 
+/* ========= Bonus Registry ========= */
+function createBonusRegistry() {
+  const scopes = new Map();
+  const listeners = new Set();
+  const WILDCARD_TARGET = '__ALL__';
+  const DEFAULT_TARGET = '__DEFAULT__';
+
+  const normalizeScope = scope => String(scope ?? '').toLowerCase().trim();
+
+  const normalizeTarget = target => {
+    if (target == null) return DEFAULT_TARGET;
+    const str = typeof target === 'number' ? String(target) : String(target ?? '').trim();
+    if (!str) return DEFAULT_TARGET;
+    const upper = str.toUpperCase();
+    if (upper === 'ALL' || upper === 'ANY' || upper === '*' || upper === 'GLOBAL') {
+      return WILDCARD_TARGET;
+    }
+    return upper;
+  };
+
+  const normalizeSource = source => {
+    const str = String(source ?? '').trim().toLowerCase();
+    return str || 'default';
+  };
+
+  const formatLabel = (entry, sourceKey) => {
+    const sign = entry.value >= 0 ? '+' : '';
+    if (entry.label && entry.label.trim()) {
+      return `${entry.label.trim()} ${sign}${entry.value}`;
+    }
+    const cleaned = sourceKey
+      .replace(/[_:-]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+    return `${cleaned || 'Bonus'} ${sign}${entry.value}`;
+  };
+
+  const notify = () => {
+    listeners.forEach(listener => {
+      try {
+        listener();
+      } catch (err) {
+        console.error('Bonus registry listener failed', err);
+      }
+    });
+  };
+
+  const ensureTargetMap = (scopeKey, targetKey) => {
+    let scopeMap = scopes.get(scopeKey);
+    if (!scopeMap) {
+      scopeMap = new Map();
+      scopes.set(scopeKey, scopeMap);
+    }
+    let targetMap = scopeMap.get(targetKey);
+    if (!targetMap) {
+      targetMap = new Map();
+      scopeMap.set(targetKey, targetMap);
+    }
+    return targetMap;
+  };
+
+  const cleanupScope = scopeKey => {
+    const scopeMap = scopes.get(scopeKey);
+    if (!scopeMap) return;
+    for (const [targetKey, targetMap] of scopeMap.entries()) {
+      if (!targetMap.size) scopeMap.delete(targetKey);
+    }
+    if (!scopeMap.size) scopes.delete(scopeKey);
+  };
+
+  return {
+    set(scope, target, source, value, options = {}) {
+      const scopeKey = normalizeScope(scope);
+      if (!scopeKey) return;
+      const numeric = Number(value);
+      const sourceKey = normalizeSource(source);
+      const targetKey = normalizeTarget(target);
+      if (!Number.isFinite(numeric) || numeric === 0) {
+        this.remove(scopeKey, targetKey, sourceKey);
+        return;
+      }
+      const targetMap = ensureTargetMap(scopeKey, targetKey);
+      targetMap.set(sourceKey, {
+        value: numeric,
+        label: typeof options.label === 'string' ? options.label : null,
+      });
+      notify();
+    },
+    remove(scope, target, source) {
+      const scopeKey = normalizeScope(scope);
+      const targetKey = normalizeTarget(target);
+      const sourceKey = normalizeSource(source);
+      const scopeMap = scopes.get(scopeKey);
+      if (!scopeMap) return;
+      const targetMap = scopeMap.get(targetKey);
+      if (!targetMap) return;
+      if (targetMap.delete(sourceKey)) {
+        notify();
+      }
+      if (!targetMap.size) {
+        scopeMap.delete(targetKey);
+        cleanupScope(scopeKey);
+      }
+    },
+    clearScope(scope) {
+      const scopeKey = normalizeScope(scope);
+      if (!scopeKey) return;
+      if (scopes.delete(scopeKey)) {
+        notify();
+      }
+    },
+    removeBySource(source) {
+      const sourceKey = normalizeSource(source);
+      let removed = false;
+      for (const [scopeKey, scopeMap] of scopes.entries()) {
+        for (const [targetKey, targetMap] of scopeMap.entries()) {
+          if (targetMap.delete(sourceKey)) {
+            removed = true;
+          }
+          if (!targetMap.size) scopeMap.delete(targetKey);
+        }
+        if (!scopeMap.size) scopes.delete(scopeKey);
+      }
+      if (removed) notify();
+    },
+    removeBySourcePrefix(prefix) {
+      const normalized = String(prefix ?? '').toLowerCase();
+      if (!normalized) return;
+      let removed = false;
+      for (const [scopeKey, scopeMap] of scopes.entries()) {
+        for (const [targetKey, targetMap] of scopeMap.entries()) {
+          for (const sourceKey of Array.from(targetMap.keys())) {
+            if (sourceKey.startsWith(normalized)) {
+              targetMap.delete(sourceKey);
+              removed = true;
+            }
+          }
+          if (!targetMap.size) scopeMap.delete(targetKey);
+        }
+        if (!scopeMap.size) scopes.delete(scopeKey);
+      }
+      if (removed) notify();
+    },
+    reset() {
+      if (!scopes.size) return;
+      scopes.clear();
+      notify();
+    },
+    get(scope, target) {
+      const scopeKey = normalizeScope(scope);
+      const scopeMap = scopes.get(scopeKey);
+      if (!scopeMap) return { total: 0, breakdown: [] };
+      const targetKey = normalizeTarget(target);
+      const seen = new Set();
+      const entries = [];
+      const collect = key => {
+        if (seen.has(key)) return;
+        seen.add(key);
+        const targetMap = scopeMap.get(key);
+        if (!targetMap) return;
+        for (const [sourceKey, entry] of targetMap.entries()) {
+          entries.push({ sourceKey, entry });
+        }
+      };
+      collect(WILDCARD_TARGET);
+      collect(targetKey);
+      if (!entries.length) return { total: 0, breakdown: [] };
+      const total = entries.reduce((sum, { entry }) => sum + entry.value, 0);
+      const breakdown = entries
+        .filter(({ entry }) => Number.isFinite(entry.value) && entry.value !== 0)
+        .map(({ entry, sourceKey }) => formatLabel(entry, sourceKey));
+      return { total, breakdown };
+    },
+    subscribe(listener) {
+      if (typeof listener !== 'function') return () => {};
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+const bonusRegistry = createBonusRegistry();
+
+CC.Bonuses = {
+  set: (scope, target, source, value, options) => bonusRegistry.set(scope, target, source, value, options),
+  remove: (scope, target, source) => bonusRegistry.remove(scope, target, source),
+  clearScope: scope => bonusRegistry.clearScope(scope),
+  clearAll: () => bonusRegistry.reset(),
+  removeBySource: source => bonusRegistry.removeBySource(source),
+  removeBySourcePrefix: prefix => bonusRegistry.removeBySourcePrefix(prefix),
+  get: (scope, target) => bonusRegistry.get(scope, target),
+  subscribe: listener => bonusRegistry.subscribe(listener),
+};
+
 /* ========= Mini-Game Player Sync ========= */
 const MINI_GAME_PLAYER_CHECK_INTERVAL_MS = 10000;
 const miniGameInviteOverlay = typeof document !== 'undefined' ? $('mini-game-invite') : null;
@@ -2457,8 +2653,10 @@ qsa('[data-roll-save]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const a = btn.dataset.rollSave;
     const pb = num(elProfBonus.value)||2;
-    const bonus = mod($(a).value) + ($('save-'+a+'-prof').checked ? pb : 0);
-    rollWithBonus(`${a.toUpperCase()} save`, bonus, $('save-'+a+'-res'), { type: 'save', ability: a.toUpperCase() });
+    const abilityKey = a.toUpperCase();
+    const baseBonus = mod($(a).value) + ($('save-'+a+'-prof').checked ? pb : 0);
+    const opts = { type: 'save', ability: abilityKey };
+    rollWithBonus(`${abilityKey} save`, baseBonus, $('save-'+a+'-res'), opts);
   });
 });
 qsa('[data-roll-skill]').forEach(btn=>{
@@ -2466,7 +2664,9 @@ qsa('[data-roll-skill]').forEach(btn=>{
     const i = num(btn.dataset.rollSkill);
     const s = SKILLS[i];
     const pb = num(elProfBonus.value)||2;
-    const bonus = mod($(s.abil).value) + ($('skill-'+i+'-prof').checked ? pb : 0);
+    const abilityKey = s.abil.toUpperCase();
+    const baseBonus = mod($(s.abil).value) + ($('skill-'+i+'-prof').checked ? pb : 0);
+    const skillKey = s.name.toUpperCase();
     let roleplay = false;
     try {
       const rpState = CC?.RP?.get?.() || {};
@@ -2474,7 +2674,8 @@ qsa('[data-roll-skill]').forEach(btn=>{
         roleplay = window.confirm('Roleplay/Leadership?');
       }
     } catch {}
-    rollWithBonus(`${s.name} check`, bonus, $('skill-'+i+'-res'), { type: 'skill', ability: s.abil.toUpperCase(), roleplay });
+    const opts = { type: 'skill', ability: abilityKey, roleplay, skill: skillKey };
+    rollWithBonus(`${s.name} check`, baseBonus, $('skill-'+i+'-res'), opts);
   });
 });
 
@@ -2587,9 +2788,15 @@ let enhancedAbility = '';
 let powerStyleTCBonus = 0;
 let originTCBonus = 0;
 
-function handlePerkEffects(li, text){
+function handlePerkEffects(li, text, sourceKey = ''){
   const lower = text.toLowerCase();
   let bonus = 0;
+  const normalizedSource = typeof sourceKey === 'string' && sourceKey.trim()
+    ? sourceKey.trim().toLowerCase()
+    : '';
+  const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'bonus';
+  const baseSource = normalizedSource || `perk:${slug}`;
+  bonusRegistry.removeBySourcePrefix(`${baseSource}:`);
   if(/increase one ability score by 1/.test(lower)){
     const select = document.createElement('select');
     select.id = 'enhanced-ability';
@@ -2650,6 +2857,9 @@ function handlePerkEffects(li, text){
     addWisToInitiative = true;
     updateDerived();
   }
+  if(/\+1\s*to\s*death saving throws/.test(lower)){
+    bonusRegistry.set('death-save', 'GLOBAL', `${baseSource}:death-save`, 1, { label: text });
+  }
   const m = text.match(/([+-]\d+)\s*tc\b/i);
   if(m) bonus += Number(m[1]);
   return bonus;
@@ -2660,6 +2870,7 @@ function setupPerkSelect(selId, perkId, data){
   const perkEl = $(perkId);
   if(!sel || !perkEl) return;
   function render(){
+    bonusRegistry.removeBySourcePrefix(`perk:${selId}:`);
     if(selId==='classification' && enhancedAbility){
       const elPrev = $(enhancedAbility);
       if(elPrev){
@@ -2701,7 +2912,7 @@ function setupPerkSelect(selId, perkId, data){
         });
       }
       perkEl.appendChild(li);
-      tcBonus += handlePerkEffects(li, text);
+      tcBonus += handlePerkEffects(li, text, `perk:${selId}:${i}`);
     });
     perkEl.style.display = perks.length ? 'block' : 'none';
     if(selId==='power-style') powerStyleTCBonus = tcBonus;
@@ -2932,8 +3143,10 @@ function updateDerived(){
   elTC.value = 10 + mod(elDex.value) + armorAuto + powerStyleTCBonus + originTCBonus;
   updateSP();
   updateHP();
-  const initiative = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
-  elInitiative.value = (initiative >= 0 ? '+' : '') + initiative;
+  const initiativeBase = mod(elDex.value) + (addWisToInitiative ? mod(elWis.value) : 0);
+  const { total: initiativeBonus } = bonusRegistry.get('initiative', 'INITIATIVE');
+  const initiativeTotal = initiativeBase + initiativeBonus;
+  elInitiative.value = (initiativeTotal >= 0 ? '+' : '') + initiativeTotal;
   // Guard against missing ability elements when calculating the power save DC.
   // If the selected ability cannot be found in the DOM, default its modifier to 0
   // rather than throwing an error which prevents other derived stats from
@@ -2945,16 +3158,21 @@ function updateDerived(){
     const m = mod($(a).value);
     $(a+'-mod').textContent = (m>=0?'+':'') + m;
     const saveEl = $('save-'+a+'-prof');
-    const val = m + (saveEl && saveEl.checked ? pb : 0);
+    const baseSave = m + (saveEl && saveEl.checked ? pb : 0);
+    const { total: saveBonus } = bonusRegistry.get('save', a.toUpperCase());
+    const val = baseSave + saveBonus;
     $('save-'+a).textContent = (val>=0?'+':'') + val;
   });
   SKILLS.forEach((s,i)=>{
     const skillEl = $('skill-'+i+'-prof');
-    const val = mod($(s.abil).value) + (skillEl && skillEl.checked ? pb : 0);
+    const baseSkill = mod($(s.abil).value) + (skillEl && skillEl.checked ? pb : 0);
+    const { total: skillBonus } = bonusRegistry.get('skill', s.name.toUpperCase());
+    const val = baseSkill + skillBonus;
     $('skill-'+i).textContent = (val>=0?'+':'') + val;
   });
 }
-ABILS.forEach(a=> {
+bonusRegistry.subscribe(updateDerived);
+ABILS.forEach(a=> { 
   const el = $(a);
   el.addEventListener('change', () => {
     window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`);
@@ -3421,6 +3639,21 @@ function stashForcedRefreshState() {
 
 CC.prepareForcedRefresh = stashForcedRefreshState;
 
+function appendRollBreakdown(parts){
+  if (!Array.isArray(parts) || !parts.length) return;
+  const text = parts.filter(Boolean).join(' ');
+  if (!text) return;
+  try {
+    const last = actionLog[actionLog.length - 1];
+    if (!last || typeof last.text !== 'string') return;
+    last.text += ` ${text}`;
+    renderLogs();
+    renderFullLogs();
+  } catch (err) {
+    console.error('Failed to append roll breakdown', err);
+  }
+}
+
 function consumeForcedRefreshState() {
   let raw = null;
   try {
@@ -3485,15 +3718,98 @@ function announceContentUpdate(payload = {}) {
 }
 
 
-function rollWithBonus(name, bonus, out, opts = {}){
+function resolveRollBonus(baseBonus, opts = {}) {
+  const startingBonus = Number(baseBonus);
+  let bonus = Number.isFinite(startingBonus) ? startingBonus : 0;
+  const breakdown = Array.isArray(opts.bonusBreakdown) ? [...opts.bonusBreakdown] : [];
+
+  if (!opts || opts.applyBonuses === false) {
+    return { bonus, breakdown };
+  }
+
+  const appliedKeys = new Set();
+  const applyScope = (scope, target) => {
+    if (!scope) return;
+    const normalizedScope = String(scope).toLowerCase();
+    const normalizedTarget = target === undefined || target === null
+      ? undefined
+      : (typeof target === 'number' ? String(target) : String(target).trim());
+    const cacheKey = `${normalizedScope}::${normalizedTarget || '__DEFAULT__'}`;
+    if (appliedKeys.has(cacheKey)) return;
+    appliedKeys.add(cacheKey);
+    const { total, breakdown: parts } = bonusRegistry.get(scope, target);
+    if (total) bonus += total;
+    if (Array.isArray(parts) && parts.length) {
+      breakdown.push(...parts);
+    }
+  };
+
+  const type = typeof opts.type === 'string' ? opts.type.trim().toLowerCase() : '';
+  const abilityKey = typeof opts.ability === 'string' ? opts.ability.trim().toUpperCase() : '';
+  const skillKey = typeof opts.skill === 'string' ? opts.skill.trim().toUpperCase() : '';
+  const attackKey = typeof opts.attack === 'string' ? opts.attack.trim().toUpperCase() : '';
+  const statKey = typeof opts.stat === 'string' ? opts.stat.trim().toUpperCase() : '';
+
+  if (abilityKey) {
+    applyScope('ability', abilityKey);
+  }
+
+  switch (type) {
+    case 'save':
+      if (abilityKey) applyScope('save', abilityKey);
+      break;
+    case 'skill':
+      if (skillKey) applyScope('skill', skillKey);
+      break;
+    case 'attack':
+      if (attackKey) applyScope('attack', attackKey);
+      break;
+    case 'initiative':
+      applyScope('initiative', 'INITIATIVE');
+      break;
+    case 'stat':
+      if (statKey) applyScope('stat', statKey);
+      break;
+    case 'death-save':
+      applyScope('death-save', 'GLOBAL');
+      break;
+    default:
+      break;
+  }
+
+  if (opts.bonusScope) {
+    applyScope(opts.bonusScope, opts.bonusTarget);
+  }
+
+  if (Array.isArray(opts.bonusScopes)) {
+    opts.bonusScopes.forEach(entry => {
+      if (!entry) return;
+      if (Array.isArray(entry)) {
+        applyScope(entry[0], entry[1]);
+        return;
+      }
+      const scope = entry.scope ?? entry.s;
+      const target = entry.target ?? entry.t;
+      applyScope(scope, target);
+    });
+  }
+
+  return { bonus, breakdown };
+}
+
+function rollWithBonus(name, baseBonus, out, opts = {}){
+  const options = opts && typeof opts === 'object' ? opts : {};
+  const { bonus, breakdown } = resolveRollBonus(baseBonus, options);
+  options.bonusBreakdown = breakdown;
   const roll = 1 + Math.floor(Math.random() * 20);
   const total = roll + bonus;
   if(out) out.textContent = total;
   const sign = bonus >= 0 ? '+' : '';
   logAction(`${name}: ${roll}${sign}${bonus} = ${total}`);
-  if (opts && typeof opts.onRoll === 'function') {
+  appendRollBreakdown(breakdown);
+  if (options && typeof options.onRoll === 'function') {
     try {
-      opts.onRoll({ roll, total, bonus, name, output: out, options: opts });
+      options.onRoll({ roll, total, bonus, name, output: out, options });
     } catch (err) {
       console.error('rollWithBonus onRoll handler failed', err);
     }
@@ -3704,8 +4020,12 @@ async function checkDeathProgress(){
 
 $('roll-death-save')?.addEventListener('click', ()=>{
   const roll = 1+Math.floor(Math.random()*20);
-  if(deathOut) deathOut.textContent = String(roll);
-  logAction(`Death save: ${roll}`);
+  const { bonus: deathSaveBonus, breakdown } = resolveRollBonus(0, { type: 'death-save' });
+  const total = roll + deathSaveBonus;
+  if(deathOut) deathOut.textContent = String(total);
+  const sign = deathSaveBonus >= 0 ? '+' : '';
+  logAction(`Death save: ${roll}${deathSaveBonus ? `${sign}${deathSaveBonus}` : ''} = ${total}`);
+  appendRollBreakdown(breakdown);
   if(roll===20){
     resetDeathSaves();
     alert('Critical success! You regain 1 HP and awaken.');
@@ -3713,7 +4033,7 @@ $('roll-death-save')?.addEventListener('click', ()=>{
   }
   if(roll===1){
     markBoxes(deathFailures,2);
-  }else if(roll>=10){
+  }else if(total>=10){
     markBoxes(deathSuccesses,1);
   }else{
     markBoxes(deathFailures,1);
@@ -4497,12 +4817,14 @@ function createCard(kind, pref = {}) {
     hitBtn.addEventListener('click', () => {
       const pb = num(elProfBonus.value)||2;
       const rangeVal = qs("[data-f='range']", card)?.value || '';
-      const abil = rangeVal ? elDex.value : elStr.value;
-      const bonus = mod(abil) + pb;
+      const abilityScore = rangeVal ? elDex.value : elStr.value;
+      const abilityKey = rangeVal && rangeVal.trim() ? 'DEX' : 'STR';
+      const baseBonus = mod(abilityScore) + pb;
+      const attackCategory = rangeVal && rangeVal.trim() ? 'RANGED' : 'MELEE';
       const nameField = qs("[data-f='name']", card);
       const name = nameField?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
       logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
-      const opts = { type: 'attack' };
+      const opts = { type: 'attack', attack: attackCategory, ability: abilityKey };
       if (kind === 'sig' && isActiveHankCharacter() && isHammerspaceName(name)) {
         opts.onRoll = ({ roll }) => {
           if (Number.isInteger(roll)) {
@@ -4510,7 +4832,7 @@ function createCard(kind, pref = {}) {
           }
         };
       }
-      rollWithBonus(`${name} attack roll`, bonus, out, opts);
+      rollWithBonus(`${name} attack roll`, baseBonus, out, opts);
     });
     delWrap.appendChild(hitBtn);
     delWrap.appendChild(out);
@@ -5655,6 +5977,7 @@ function serialize(){
 const DEFAULT_STATE = serialize();
 function deserialize(data){
   migratePublicOpinionSnapshot(data);
+  bonusRegistry.reset();
   $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
  const perkSelects=['alignment','classification','power-style','origin'];
  perkSelects.forEach(id=>{
