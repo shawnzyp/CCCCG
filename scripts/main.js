@@ -5635,38 +5635,96 @@ function updatePowerCardDerived(card) {
   }
 }
 
+const POWER_MESSAGE_COLORS = {
+  info: '#58a6ff',
+  warning: '#f0ad4e',
+  error: '#f85149',
+  success: '#3fb950',
+};
+
+function showPowerMessage(card, text, tone = 'info') {
+  const state = powerCardStates.get(card);
+  const area = state?.elements?.messageArea;
+  if (!area) return;
+  if (!text) {
+    area.textContent = '';
+    area.hidden = true;
+    return;
+  }
+  area.hidden = false;
+  area.textContent = text;
+  area.style.color = POWER_MESSAGE_COLORS[tone] || '#c9d1d9';
+}
+
+function clearPowerMessage(card) {
+  showPowerMessage(card, '');
+}
+
+function hideConcentrationPrompt(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  state.pendingConcentrationAction = null;
+  const prompt = state.elements?.concentrationPrompt;
+  if (prompt) {
+    prompt.style.display = 'none';
+    prompt.dataset.open = 'false';
+  }
+}
+
+function requestConcentrationDrop(card, power, proceed) {
+  const state = powerCardStates.get(card);
+  if (!state || !state.elements) return false;
+  const { elements } = state;
+  if (!elements.concentrationPrompt || !elements.concentrationPromptText) {
+    showPowerMessage(card, `Drop concentration on ${activeConcentrationEffect?.name || 'the current effect'} before using this power.`, 'warning');
+    return false;
+  }
+  state.pendingConcentrationAction = proceed;
+  elements.concentrationPromptText.textContent = `Drop concentration on ${activeConcentrationEffect?.name || 'the current effect'} to use ${power.name}?`;
+  elements.concentrationPrompt.style.display = 'flex';
+  elements.concentrationPrompt.dataset.open = 'true';
+  showPowerMessage(card, `Concentration conflict: drop ${activeConcentrationEffect?.name || 'current effect'} to continue.`, 'warning');
+  return true;
+}
+
+function finalizePowerUse(card, power) {
+  changeSP(-power.spCost);
+  logAction(`Power used: ${power.name} — ${power.rulesText}`);
+  toast(`${power.name} activated.`, 'success');
+  if (power.concentration) {
+    activeConcentrationEffect = { card, name: power.name };
+  } else if (activeConcentrationEffect && activeConcentrationEffect.card === card) {
+    activeConcentrationEffect = null;
+  }
+  showPowerMessage(card, `${power.name} activated.`, 'success');
+}
+
 function handleUsePower(card) {
   const state = powerCardStates.get(card);
   if (!state) return;
+  hideConcentrationPrompt(card);
+  clearPowerMessage(card);
   const power = serializePowerCard(card);
   if (!power) return;
   if (power.requiresSave && !power.saveAbilityTarget) {
-    alert('Select a save ability before using this power.');
+    showPowerMessage(card, 'Select a save ability before using this power.', 'error');
     return;
   }
   if (!Number.isFinite(power.spCost) || power.spCost <= 0) {
-    alert('SP cost must be a positive number.');
+    showPowerMessage(card, 'SP cost must be a positive number.', 'error');
     return;
   }
   const available = num(elSPBar?.value) + (elSPTemp ? num(elSPTemp.value) : 0);
   if (power.spCost > available) {
-    alert("You don't have enough SP for that.");
+    showPowerMessage(card, 'Insufficient SP to use this power.', 'error');
     return;
   }
-  if (power.concentration) {
-    if (activeConcentrationEffect && activeConcentrationEffect.card !== card) {
-      const shouldDrop = confirm(`Drop concentration on ${activeConcentrationEffect.name}?`);
-      if (!shouldDrop) {
-        return;
-      }
-      logAction(`Concentration ended: ${activeConcentrationEffect.name}`);
-      activeConcentrationEffect = null;
-    }
-    activeConcentrationEffect = { card, name: power.name };
+  const proceed = () => finalizePowerUse(card, power);
+  if (power.concentration && activeConcentrationEffect && activeConcentrationEffect.card !== card) {
+    requestConcentrationDrop(card, power, proceed);
+    return;
   }
-  changeSP(-power.spCost);
-  logAction(`Power used: ${power.name} — ${power.rulesText}`);
-  toast(`${power.name} activated.`, 'success');
+  proceed();
 }
 
 function handleRollPowerSave(card) {
@@ -5676,10 +5734,12 @@ function handleRollPowerSave(card) {
   if (!power) return;
   const ability = power.saveAbilityTarget || 'WIS';
   const dc = computeSaveDc(getCharacterPowerSettings());
-  const input = prompt(`${power.name} target save modifier (${ability})?`, '0');
-  if (input === null) return;
-  const parsed = Number(input.replace(/[^0-9-+]/g, ''));
-  const bonus = Number.isFinite(parsed) ? parsed : 0;
+  let bonus = 0;
+  const bonusInput = state.elements?.saveBonusInput;
+  if (bonusInput) {
+    const parsed = Number(bonusInput.value);
+    bonus = Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+  }
   const out = state.elements?.saveResult || null;
   if (out) {
     out.textContent = '—';
@@ -5700,14 +5760,17 @@ function handleRollPowerSave(card) {
 function handleBoostRoll(card) {
   const power = serializePowerCard(card);
   if (!power) return;
+  hideConcentrationPrompt(card);
+  clearPowerMessage(card);
   const available = num(elSPBar?.value) + (elSPTemp ? num(elSPTemp.value) : 0);
   if (available < 1) {
-    alert("You don't have enough SP for that.");
+    showPowerMessage(card, 'Insufficient SP to boost this roll.', 'error');
     return;
   }
   changeSP(-1);
   logAction(`Boosted next roll for ${power.name} (+1d4).`);
   toast(`Boost ready for ${power.name}.`, 'info');
+  showPowerMessage(card, 'Boost readied: +1d4 to the next roll.', 'success');
 }
 
 function handleDeletePower(card) {
@@ -5732,7 +5795,7 @@ function createPowerCard(pref = {}) {
   card.dataset.powerId = power.id;
 
   const elements = {};
-  const state = { power, elements };
+  const state = { power, elements, pendingConcentrationAction: null };
   powerCardStates.set(card, state);
   activePowerCards.add(card);
 
@@ -5844,6 +5907,14 @@ function createPowerCard(pref = {}) {
   setSelectOptions(saveAbilitySelect, POWER_SAVE_ABILITIES, power.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
   const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { flex: '1', minWidth: '120px' });
   saveRow.appendChild(saveAbilityField.wrapper);
+
+  const saveBonusInput = document.createElement('input');
+  saveBonusInput.type = 'number';
+  saveBonusInput.step = '1';
+  saveBonusInput.value = '0';
+  saveBonusInput.placeholder = '+0';
+  const saveBonusField = createFieldContainer('Target Save Bonus', saveBonusInput, { flex: '1', minWidth: '120px' });
+  saveRow.appendChild(saveBonusField.wrapper);
 
   const durationSelect = document.createElement('select');
   setSelectOptions(durationSelect, POWER_DURATIONS, power.duration);
@@ -5982,6 +6053,39 @@ function createPowerCard(pref = {}) {
 
   card.appendChild(derivedRow);
 
+  const feedbackWrap = document.createElement('div');
+  feedbackWrap.style.display = 'flex';
+  feedbackWrap.style.flexDirection = 'column';
+  feedbackWrap.style.gap = '6px';
+  feedbackWrap.style.marginTop = '4px';
+
+  const messageArea = document.createElement('div');
+  messageArea.style.fontSize = '12px';
+  messageArea.style.minHeight = '16px';
+  messageArea.hidden = true;
+  feedbackWrap.appendChild(messageArea);
+
+  const concentrationPrompt = document.createElement('div');
+  concentrationPrompt.className = 'inline';
+  concentrationPrompt.style.flexWrap = 'wrap';
+  concentrationPrompt.style.gap = '8px';
+  concentrationPrompt.style.display = 'none';
+  const concentrationPromptText = document.createElement('span');
+  concentrationPromptText.style.flex = '1';
+  concentrationPromptText.style.minWidth = '160px';
+  const concentrationConfirm = document.createElement('button');
+  concentrationConfirm.type = 'button';
+  concentrationConfirm.className = 'btn-sm';
+  concentrationConfirm.textContent = 'Drop & Use';
+  const concentrationCancel = document.createElement('button');
+  concentrationCancel.type = 'button';
+  concentrationCancel.className = 'btn-sm';
+  concentrationCancel.textContent = 'Cancel';
+  concentrationPrompt.append(concentrationPromptText, concentrationConfirm, concentrationCancel);
+  feedbackWrap.appendChild(concentrationPrompt);
+
+  card.appendChild(feedbackWrap);
+
   const actionRow = document.createElement('div');
   actionRow.className = 'inline';
   actionRow.style.flexWrap = 'wrap';
@@ -6039,6 +6143,7 @@ function createPowerCard(pref = {}) {
   elements.spHint = spHint;
   elements.requiresSaveToggle = requiresSaveToggle;
   elements.saveAbilitySelect = saveAbilitySelect;
+  elements.saveBonusInput = saveBonusInput;
   elements.saveAbilityField = saveAbilityField;
   elements.durationSelect = durationSelect;
   elements.concentrationToggle = concentrationToggle;
@@ -6057,6 +6162,11 @@ function createPowerCard(pref = {}) {
   elements.damageSection = damageSection;
   elements.saveDcOutput = saveDcInput;
   elements.rulesPreview = rulesPreview;
+  elements.messageArea = messageArea;
+  elements.concentrationPrompt = concentrationPrompt;
+  elements.concentrationPromptText = concentrationPromptText;
+  elements.concentrationConfirm = concentrationConfirm;
+  elements.concentrationCancel = concentrationCancel;
   elements.rollSaveBtn = rollSaveButton;
   elements.saveResult = saveResult;
   elements.useButton = useButton;
@@ -6186,6 +6296,24 @@ function createPowerCard(pref = {}) {
   });
   boostButton.addEventListener('click', () => handleBoostRoll(card));
   deleteButton.addEventListener('click', () => handleDeletePower(card));
+
+  concentrationConfirm.addEventListener('click', () => {
+    const pending = state.pendingConcentrationAction;
+    hideConcentrationPrompt(card);
+    if (typeof pending === 'function') {
+      if (activeConcentrationEffect && activeConcentrationEffect.card && activeConcentrationEffect.card !== card) {
+        logAction(`Concentration ended: ${activeConcentrationEffect.name}`);
+      }
+      activeConcentrationEffect = null;
+      clearPowerMessage(card);
+      pending();
+    }
+  });
+
+  concentrationCancel.addEventListener('click', () => {
+    hideConcentrationPrompt(card);
+    showPowerMessage(card, 'Concentration maintained on current effect.', 'info');
+  });
 
   updatePowerCardDerived(card);
   if (viewMode) applyViewLockState(card);
