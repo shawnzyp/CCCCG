@@ -15,6 +15,27 @@ const SKIP_INPUT_TYPES = new Set([
   'range',
 ]);
 
+const FIELD_ROOT_SELECTOR = [
+  '[data-field-root]',
+  '.field',
+  '.form-field',
+  '.form-row',
+  '.grid-item',
+  '.card__field',
+  '.proficiency-card__field',
+  '.dice-roll-grid__field',
+  '.dm-mini-games__field',
+  '.input-group',
+  '.sheet__field',
+  '.sheet-field',
+  'label',
+  'dt',
+  'dd',
+  'li',
+  '.list-item',
+  'fieldset',
+].join(', ');
+
 let mode = MODE_EDIT;
 let rootEl = null;
 let switchEl = null;
@@ -59,6 +80,23 @@ function resolveDisplayContainer(el) {
   }
   const card = el.closest('.card, .card__field, .field, .grid-item, label, .inline');
   return card || el.parentElement;
+}
+
+function resolveFieldRoot(control, target) {
+  if (!control) return null;
+  const base = target || control.parentElement;
+  if (!base) return null;
+  if (typeof base.matches === 'function' && base.matches(FIELD_ROOT_SELECTOR)) {
+    return base;
+  }
+  if (typeof base.closest === 'function') {
+    const root = base.closest(FIELD_ROOT_SELECTOR);
+    if (root) return root;
+  }
+  if (control.labels && control.labels.length) {
+    return control.labels[0];
+  }
+  return null;
 }
 
 function createValueShell(el, { inline = false } = {}) {
@@ -127,12 +165,54 @@ function markEmpty(meta) {
   if (!meta || !meta.wrapper) return;
   meta.wrapper.setAttribute('data-empty', 'true');
   meta.wrapper.setAttribute('aria-label', 'Empty value');
+  if (meta.container) {
+    if (mode === MODE_VIEW) {
+      meta.container.setAttribute('data-mode-empty-container', 'true');
+    } else {
+      meta.container.removeAttribute('data-mode-empty-container');
+    }
+  }
+  if (meta.labels && meta.labels.length) {
+    meta.labels.forEach((label) => {
+      if (!label) return;
+      if (mode === MODE_VIEW) {
+        label.setAttribute('data-mode-empty-label', 'true');
+      } else {
+        label.removeAttribute('data-mode-empty-label');
+      }
+    });
+  }
+  if (meta.helpers && meta.helpers.length) {
+    meta.helpers.forEach((helper) => {
+      if (!helper) return;
+      if (mode === MODE_VIEW) {
+        helper.setAttribute('data-mode-empty-helper', 'true');
+      } else {
+        helper.removeAttribute('data-mode-empty-helper');
+      }
+    });
+  }
 }
 
 function clearEmpty(meta) {
   if (!meta || !meta.wrapper) return;
   meta.wrapper.removeAttribute('data-empty');
   meta.wrapper.removeAttribute('aria-label');
+  if (meta.container) {
+    meta.container.removeAttribute('data-mode-empty-container');
+  }
+  if (meta.labels && meta.labels.length) {
+    meta.labels.forEach((label) => {
+      if (!label) return;
+      label.removeAttribute('data-mode-empty-label');
+    });
+  }
+  if (meta.helpers && meta.helpers.length) {
+    meta.helpers.forEach((helper) => {
+      if (!helper) return;
+      helper.removeAttribute('data-mode-empty-helper');
+    });
+  }
 }
 
 function renderCheckbox(meta) {
@@ -340,7 +420,28 @@ function registerField(control) {
               : 'text';
 
   const inline = type === 'checkbox';
+  const displayTarget = resolveDisplayContainer(control);
   const { wrapper, text } = createValueShell(control, { inline });
+  const container = resolveFieldRoot(control, displayTarget || control.parentElement);
+  const labels = [];
+  if (control.labels && control.labels.length) {
+    labels.push(...Array.from(control.labels));
+  }
+  const wrappingLabel = control.closest('label');
+  if (wrappingLabel && !labels.includes(wrappingLabel)) {
+    labels.push(wrappingLabel);
+  }
+  const helpers = [];
+  const describedBy = (control.getAttribute('aria-describedby') || '').trim();
+  if (describedBy) {
+    describedBy.split(/\s+/).forEach((id) => {
+      const helper = id ? qs(`#${id}`) : null;
+      if (helper) helpers.push(helper);
+    });
+  }
+  if (container && container !== wrapper) {
+    container.setAttribute('data-mode-field-container', 'true');
+  }
   const meta = {
     control,
     wrapper,
@@ -349,6 +450,9 @@ function registerField(control) {
     sensitive,
     revealed: false,
     canExpand: tag === 'TEXTAREA' || control.dataset.viewClamp === 'true',
+    container,
+    labels,
+    helpers,
   };
 
   if (meta.canExpand) {
@@ -362,7 +466,7 @@ function registerField(control) {
   control.classList.add('field-view__source');
   control.setAttribute('data-mode-field', 'source');
 
-  const target = resolveDisplayContainer(control);
+  const target = displayTarget;
   if (target && target !== control.parentElement) {
     target.appendChild(wrapper);
   } else {
@@ -382,7 +486,11 @@ function registerRadioGroup(radio) {
   if (!group) {
     const container = resolveDisplayContainer(radio) || radio.parentElement;
     const { wrapper, text } = createValueShell(radio);
-    group = { controls: new Set(), wrapper, text, name };
+    const fieldRoot = resolveFieldRoot(radio, container);
+    if (fieldRoot && fieldRoot !== wrapper) {
+      fieldRoot.setAttribute('data-mode-field-container', 'true');
+    }
+    group = { controls: new Set(), wrapper, text, name, container: fieldRoot };
     radioGroups.set(name, group);
     if (container && container !== radio.parentElement) {
       container.appendChild(wrapper);
@@ -431,6 +539,13 @@ function updateRadioGroup(group) {
   }
   if (wrapper) {
     wrapper.setAttribute('aria-hidden', mode === MODE_EDIT ? 'true' : 'false');
+  }
+  if (group.container) {
+    if (!selectedLabel && mode === MODE_VIEW) {
+      group.container.setAttribute('data-mode-empty-container', 'true');
+    } else {
+      group.container.removeAttribute('data-mode-empty-container');
+    }
   }
 }
 

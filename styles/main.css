@@ -1159,6 +1159,16 @@ input:not([type="checkbox"]),select,textarea{width:100%}
   display:inline-flex;
 }
 
+.view-mode [data-mode-field-container="true"][data-mode-empty-container="true"],
+.view-mode .field-value[data-empty="true"]{
+  display:none !important;
+}
+
+.view-mode [data-mode-empty-label="true"],
+.view-mode [data-mode-empty-helper="true"]{
+  display:none !important;
+}
+
 .view-mode .field-value__expander,
 .view-mode .field-value__reveal{
   display:inline-flex;
