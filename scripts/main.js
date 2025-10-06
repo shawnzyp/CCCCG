@@ -2034,40 +2034,75 @@ document.addEventListener('input', e=>{
 
 /* ========= theme ========= */
 const root = document.documentElement;
-// Mapping of theme names to the ID of the SVG icon shown on the theme button
-const THEME_ICONS = {
-  dark: 'icon-dark',
-  light: 'icon-light',
-  high: 'icon-high',
-  forest: 'icon-forest',
-  ocean: 'icon-ocean',
-  mutant: 'icon-mutant',
-  enhanced: 'icon-enhanced',
-  magic: 'icon-magic',
-  alien: 'icon-alien',
-  mystic: 'icon-mystic'
+const themeToggleEl = qs('[data-theme-toggle]');
+const themeSpinnerEl = themeToggleEl ? themeToggleEl.querySelector('.theme-toggle__spinner') : null;
+const reducedMotionQuery = typeof window.matchMedia === 'function'
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+if (themeSpinnerEl) {
+  themeSpinnerEl.addEventListener('animationend', () => {
+    themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
+  });
+}
+const THEMES = ['dark', 'light', 'high', 'forest', 'ocean', 'mutant', 'enhanced', 'magic', 'alien', 'mystic'];
+const THEME_LABELS = {
+  dark: 'Dark',
+  light: 'Light',
+  high: 'High Contrast',
+  forest: 'Forest',
+  ocean: 'Ocean',
+  mutant: 'Mutant',
+  enhanced: 'Enhanced Human',
+  magic: 'Magic User',
+  alien: 'Alien',
+  mystic: 'Mystic'
 };
 /**
  * Apply a visual theme by toggling root classes and updating the button icon.
- * @param {string} t - theme identifier matching keys of THEME_ICONS
+ * @param {string} t - theme identifier matching supported themes
  */
-function applyTheme(t){
-  const classes = Object.keys(THEME_ICONS)
+let activeTheme = null;
+function spinThemeToggle(){
+  if(!themeSpinnerEl) return;
+  if(reducedMotionQuery && reducedMotionQuery.matches) return;
+  themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
+  void themeSpinnerEl.offsetWidth;
+  themeSpinnerEl.classList.add('theme-toggle__spinner--spinning');
+}
+function applyTheme(t, { animate = true } = {}){
+  const themeName = THEMES.includes(t) ? t : 'dark';
+  const themeChanged = themeName !== activeTheme;
+  const classes = THEMES
     .filter(n => n !== 'dark')
     .map(n => `theme-${n}`);
   root.classList.remove(...classes);
-  if (t !== 'dark') root.classList.add(`theme-${t}`);
+  if (themeName !== 'dark') root.classList.add(`theme-${themeName}`);
+  if (themeToggleEl) {
+    themeToggleEl.setAttribute('data-theme', themeName);
+    const readable = THEME_LABELS[themeName] || themeName;
+    const description = `Cycle theme (current: ${readable})`;
+    themeToggleEl.setAttribute('aria-label', description);
+    themeToggleEl.setAttribute('title', description);
+    const labelEl = themeToggleEl.querySelector('.theme-toggle__label');
+    if (labelEl) labelEl.textContent = `Theme: ${readable}`;
+    if (animate && themeChanged) {
+      spinThemeToggle();
+    }
+  }
+  activeTheme = themeName;
 }
 function loadTheme(){
-  const theme = localStorage.getItem('theme') || 'dark';
-  applyTheme(theme);
+  const stored = localStorage.getItem('theme');
+  const theme = stored && THEMES.includes(stored) ? stored : 'dark';
+  if (stored && !THEMES.includes(stored)) localStorage.setItem('theme', theme);
+  applyTheme(theme, { animate: false });
 }
 loadTheme();
 
 function toggleTheme(){
-  const themes = Object.keys(THEME_ICONS);
   const curr = localStorage.getItem('theme') || 'dark';
-  const next = themes[(themes.indexOf(curr)+1)%themes.length];
+  const index = THEMES.includes(curr) ? THEMES.indexOf(curr) : 0;
+  const next = THEMES[(index + 1) % THEMES.length];
   localStorage.setItem('theme', next);
   applyTheme(next);
 }
@@ -2198,7 +2233,6 @@ if (btnMenu && menuActions) {
 
 /* ========= header ========= */
 const headerEl = qs('header');
-const themeToggleEl = qs('[data-theme-toggle]');
 if (themeToggleEl) {
   themeToggleEl.addEventListener('click', e => {
     e.stopPropagation();

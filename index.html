@@ -140,7 +140,13 @@
 <header>
   <div class="top">
     <button class="logo-button" type="button" aria-label="Cycle theme" title="Cycle theme" data-theme-toggle>
-      <img src="images/LOGO.PNG" alt="" class="logo"/>
+      <span class="theme-toggle__icon" aria-hidden="true">
+        <span class="theme-toggle__spinner">
+          <span class="theme-toggle__face theme-toggle__face--front"></span>
+          <span class="theme-toggle__face theme-toggle__face--back"></span>
+        </span>
+      </span>
+      <span class="theme-toggle__label sr-only">Theme</span>
     </button>
     <span class="tabs-title">Catalyst Core</span>
     <div class="dropdown">
