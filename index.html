@@ -513,14 +513,24 @@
   <!-- POWERS -->
   <fieldset data-tab="powers" class="card">
     <h2 class="card-title">Powers</h2>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button id="add-power" style="max-width:180px">Add Power</button>
+    <div class="card-toolbar">
+      <div class="card-toolbar__actions">
+        <button id="add-power" style="max-width:180px">
+          <span class="btn-icon" aria-hidden="true">➕</span>
+          <span class="btn-label">Add Power</span>
+        </button>
+      </div>
     </div>
     <div class="grid grid-2" id="powers"></div>
 
     <h3 style="margin:16px 0 8px">Signature Moves</h3>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button id="add-sig" style="max-width:200px">Add Signature Move</button>
+    <div class="card-toolbar">
+      <div class="card-toolbar__actions">
+        <button id="add-sig" style="max-width:200px">
+          <span class="btn-icon" aria-hidden="true">➕</span>
+          <span class="btn-label">Add Signature Move</span>
+        </button>
+      </div>
     </div>
     <div class="grid grid-2" id="sigs"></div>
   </fieldset>
@@ -530,21 +540,41 @@
     <h2 class="card-title">Gear</h2>
     <div class="grid grid-2">
       <div class="card gear-card">
-        <h3 class="gear-card-title">Weapons</h3>
-        <button id="add-weapon" class="btn-sm gear-card-action" style="max-width:140px">Add Weapon</button>
+        <div class="card-toolbar">
+          <h3 class="gear-card-title card-toolbar__title">Weapons</h3>
+          <div class="card-toolbar__actions">
+            <button id="add-weapon" class="btn-sm gear-card-action" style="max-width:140px">
+              <span class="btn-icon" aria-hidden="true">➕</span>
+              <span class="btn-label">Add Weapon</span>
+            </button>
+          </div>
+        </div>
         <div id="weapons" class="grid grid-1"></div>
       </div>
       <div class="card gear-card">
-        <h3 class="gear-card-title">Armor and Protection</h3>
-        <button id="add-armor" class="btn-sm gear-card-action" style="max-width:160px">Add Armor</button>
+        <div class="card-toolbar">
+          <h3 class="gear-card-title card-toolbar__title">Armor and Protection</h3>
+          <div class="card-toolbar__actions">
+            <button id="add-armor" class="btn-sm gear-card-action" style="max-width:160px">
+              <span class="btn-icon" aria-hidden="true">➕</span>
+              <span class="btn-label">Add Armor</span>
+            </button>
+          </div>
+        </div>
         <div id="armors" class="grid grid-1"></div>
       </div>
       <div class="card" style="grid-column:1/-1">
-        <div class="inline" style="justify-content:space-between">
-          <h3 style="margin:0">Gear and Items</h3>
-          <div class="inline">
-            <button id="add-item" class="btn-sm" style="max-width:140px">Add Item</button>
-            <button id="open-catalog" class="btn-sm" style="max-width:160px">Open Gear Catalog</button>
+        <div class="card-toolbar">
+          <h3 class="card-toolbar__title">Gear and Items</h3>
+          <div class="card-toolbar__actions">
+            <button id="add-item" class="btn-sm" style="max-width:140px">
+              <span class="btn-icon" aria-hidden="true">➕</span>
+              <span class="btn-label">Add Item</span>
+            </button>
+            <button id="open-catalog" class="btn-sm" style="max-width:160px">
+              <span class="btn-icon" aria-hidden="true">📚</span>
+              <span class="btn-label">Open Gear Catalog</span>
+            </button>
           </div>
         </div>
         <div id="items" class="grid grid-1"></div>
