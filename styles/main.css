@@ -1831,7 +1831,8 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 #modal-help{align-items:flex-start;overflow-y:auto}
 #modal-help .modal{max-height:none}
 #modal-welcome .modal{font-size:.85rem;line-height:1.4}
-#modal-welcome .actions{justify-content:center;width:100%}
+#modal-welcome{align-items:center;justify-content:center}
+#modal-welcome .actions{justify-content:center;width:100%;flex-wrap:nowrap;gap:var(--control-gap)}
 #modal-welcome .welcome-modal__title{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:baseline}
 #modal-welcome .welcome-modal__title-break{display:inline}
 #modal-welcome .welcome-modal__tab-label{text-decoration:underline;text-decoration-thickness:.08em;text-decoration-skip-ink:auto}
