@@ -5307,6 +5307,7 @@ if(newCharBtn){
     setCurrentCharacter(clean);
     syncMiniGamePlayerName();
     deserialize(DEFAULT_STATE);
+    setViewMode(false);
     hide('modal-load-list');
     toast(`Switched to ${clean}`,'success');
   });
@@ -5341,6 +5342,7 @@ async function doLoad(){
       ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
       : await loadCharacter(pendingLoad.name);
     deserialize(data);
+    setViewMode(true);
     setCurrentCharacter(pendingLoad.name);
     syncMiniGamePlayerName();
     hide('modal-load');
@@ -5375,6 +5377,7 @@ if (autoChar) {
       syncMiniGamePlayerName();
       const data = await loadCharacter(autoChar);
       deserialize(data);
+      setViewMode(true);
     } catch (e) {
       console.error('Failed to load character from URL', e);
     } finally {
