@@ -1640,9 +1640,16 @@ function hasViewAllow(el){
   return !!el.closest('[data-view-allow]');
 }
 
+function hasViewLock(el){
+  if (!el || !el.closest) return false;
+  if (el.dataset && Object.prototype.hasOwnProperty.call(el.dataset, 'viewLock')) return true;
+  return !!el.closest('[data-view-lock]');
+}
+
 function shouldTransformElement(el){
   if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
   if (hasViewAllow(el)) return false;
+  if (!hasViewLock(el)) return false;
   const tag = el.tagName;
   if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (tag === 'INPUT') {
