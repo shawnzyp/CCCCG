@@ -2897,9 +2897,8 @@ saveGrid.innerHTML = ABILS.map(a=>`
 
 const SKILLS = [
   { name: 'Acrobatics', abil: 'dex' },
-  { name: 'Biocontrol', abil: 'wis' },
-  { name: 'Technology', abil: 'int' },
   { name: 'Athletics', abil: 'str' },
+  { name: 'Biocontrol', abil: 'wis' },
   { name: 'Deception', abil: 'cha' },
   { name: 'History', abil: 'int' },
   { name: 'Insight', abil: 'wis' },
@@ -2913,7 +2912,8 @@ const SKILLS = [
   { name: 'Religion', abil: 'int' },
   { name: 'Sleight of Hand', abil: 'dex' },
   { name: 'Stealth', abil: 'dex' },
-  { name: 'Survival', abil: 'wis' }
+  { name: 'Survival', abil: 'wis' },
+  { name: 'Technology', abil: 'int' }
 ];
 const escapeRegExp = value => String(value).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 const ABILITY_FULL_NAMES = {
@@ -3571,9 +3571,10 @@ const elHPRoll = $('hp-roll');
 const elHPTemp = $('hp-temp');
 // Cache frequently accessed HP amount field to avoid repeated DOM queries
 const elHPAmt = $('hp-amt');
-const elHPRollAdd = $('hp-roll-add');
+const elHPSettingsToggle = $('hp-settings-toggle');
 const elHPRollInput = $('hp-roll-input');
 const elHPRollList = $('hp-roll-list');
+const hpSettingsOverlay = $('modal-hp-settings');
 const elInitiative = $('initiative');
 const elInitiativeRollBtn = $('roll-initiative');
 const elInitiativeRollResult = $('initiative-roll-result');
@@ -3588,6 +3589,8 @@ const elPowerMetricToggle = $('power-range-metric');
 const elPowerTextCompact = $('power-text-compact');
 const elPowerStylePrimary = $('power-style');
 const elPowerStyleSecondary = $('power-style-2');
+const elSPMenuToggle = $('sp-menu-toggle');
+const elSPMenu = $('sp-menu');
 
 let casterAbilityManuallySet = false;
 let lastCasterAbilitySuggestions = [];
@@ -3901,7 +3904,13 @@ function updateSP(){
 
 function updateDeathSaveAvailability(){
   if(!elDeathSaves) return;
-  elDeathSaves.disabled = num(elHPBar.value) !== 0;
+  const atZero = num(elHPBar.value) === 0;
+  elDeathSaves.disabled = !atZero;
+  if (atZero) {
+    elDeathSaves.removeAttribute('hidden');
+  } else {
+    elDeathSaves.setAttribute('hidden', '');
+  }
 }
 
 function updateHP(){
@@ -4164,6 +4173,7 @@ function changeSP(delta){
 }
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{
+  closeSpMenu();
   if(!confirm('Take a long rest?')) return;
   setHP(num(elHPBar.max));
   setSP(num(elSPBar.max));
@@ -4199,22 +4209,82 @@ function renderHPRollList(){
   });
   elHPRollList.style.display = hpRolls.length ? 'block' : 'none';
 }
-if (elHPRollAdd) {
-  elHPRollAdd.addEventListener('click', ()=>{
-    elHPRollInput.value='';
-    renderHPRollList();
-    show('modal-hp-roll');
+function setHpSettingsExpanded(expanded){
+  if (!elHPSettingsToggle) return;
+  elHPSettingsToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
+function openHpSettings(){
+  if (elHPRollInput) elHPRollInput.value='';
+  renderHPRollList();
+  show('modal-hp-settings');
+  setHpSettingsExpanded(true);
+}
+function closeHpSettings(){
+  hide('modal-hp-settings');
+  setHpSettingsExpanded(false);
+}
+if (elHPSettingsToggle) {
+  elHPSettingsToggle.addEventListener('click', openHpSettings);
+}
+if (typeof MutationObserver === 'function' && hpSettingsOverlay) {
+  const observer = new MutationObserver(() => {
+    const expanded = !hpSettingsOverlay.classList.contains('hidden');
+    setHpSettingsExpanded(expanded);
+    if (!expanded && elHPRollInput) {
+      elHPRollInput.value='';
+    }
   });
-  $('hp-roll-save').addEventListener('click', ()=>{
-    const v=num(elHPRollInput.value);
-    if(!v) return hide('modal-hp-roll');
+  observer.observe(hpSettingsOverlay, { attributes: true, attributeFilter: ['class'] });
+}
+const hpRollSaveButton = $('hp-roll-save');
+if (hpRollSaveButton) {
+  hpRollSaveButton.addEventListener('click', ()=>{
+    const v=num(elHPRollInput?.value);
+    if(!v){
+      if (elHPRollInput) elHPRollInput.focus();
+      return;
+    }
     hpRolls.push(v);
     elHPRoll.value = hpRolls.reduce((a,b)=>a+b,0);
     updateHP();
     renderHPRollList();
-    hide('modal-hp-roll');
+    if (elHPRollInput) elHPRollInput.value='';
   });
-  qsa('#modal-hp-roll [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-hp-roll')));
+}
+qsa('#modal-hp-settings [data-close]').forEach(b=> b.addEventListener('click', closeHpSettings));
+
+function openSpMenu(){
+  if (!elSPMenu || !elSPMenuToggle) return;
+  elSPMenu.removeAttribute('hidden');
+  elSPMenuToggle.setAttribute('aria-expanded', 'true');
+}
+function closeSpMenu(){
+  if (!elSPMenu || !elSPMenuToggle) return;
+  if (!elSPMenu.hasAttribute('hidden')) {
+    elSPMenu.setAttribute('hidden', '');
+  }
+  elSPMenuToggle.setAttribute('aria-expanded', 'false');
+}
+if (elSPMenuToggle && elSPMenu) {
+  elSPMenuToggle.addEventListener('click', e => {
+    e.stopPropagation();
+    if (elSPMenu.hasAttribute('hidden')) {
+      openSpMenu();
+    } else {
+      closeSpMenu();
+    }
+  });
+  elSPMenu.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', e => {
+    if (!elSPMenu.contains(e.target) && e.target !== elSPMenuToggle) {
+      closeSpMenu();
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closeSpMenu();
+    }
+  });
 }
 
 /* ========= Dice/Coin + Logs ========= */
