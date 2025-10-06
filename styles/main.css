@@ -1622,6 +1622,12 @@ progress::-moz-progress-bar{
   .sp-field .inline>.bar-label{
     max-width:none;
   }
+
+  .sp-field #sp-temp{
+    flex:1 0 100%;
+    max-width:100%;
+    margin-top:var(--control-gap);
+  }
 }
 .sp-field #long-rest{width:100%;margin-top:8px;}
 .cap-field .cap-box{margin-top:8px;}
