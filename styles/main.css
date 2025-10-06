@@ -954,7 +954,11 @@ margin:0
 label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4vw,1rem)}
 .stat-trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .stat-trio__item{display:flex;flex-direction:column;gap:6px}
-.stat-trio__item label{min-height:auto}
+.stat-trio__item label{
+  min-height:2.5em;
+  display:flex;
+  align-items:flex-end;
+}
 @media(max-width:480px){
   .stat-trio{grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px}
 }
