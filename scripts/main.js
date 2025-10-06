@@ -5932,11 +5932,13 @@ function createFieldContainer(labelText, input, { flex = '1', minWidth } = {}) {
   wrapper.style.flexDirection = 'column';
   wrapper.style.gap = '4px';
   wrapper.style.flex = flex;
-  if (minWidth) wrapper.style.minWidth = minWidth;
+  if (minWidth) wrapper.style.minWidth = `min(${minWidth}, 100%)`;
+  wrapper.classList.add('power-card__field');
   const label = document.createElement('label');
   label.textContent = labelText;
-  label.style.fontSize = '12px';
+  label.classList.add('power-card__label');
   wrapper.append(label, input);
+  if (input) input.classList.add('power-card__input');
   return { wrapper, label, input };
 }
 
@@ -5967,6 +5969,12 @@ function readNumericInput(value, { min = 0, fallback = 0 } = {}) {
 function serializePowerCard(card) {
   const state = powerCardStates.get(card);
   if (!state) return null;
+  const elements = state.elements || {};
+  if (elements.nameInput) {
+    const rawName = elements.nameInput.value?.trim() || '';
+    const fallbackName = state.power.signature ? 'Signature Move' : 'Power';
+    state.power.name = rawName || fallbackName;
+  }
   const settings = getCharacterPowerSettings();
   const power = { ...state.power };
   if (power.damage) {
@@ -5984,6 +5992,10 @@ function updatePowerCardDerived(card) {
   if (!state) return;
   const { power, elements } = state;
   if (!elements) return;
+  if (elements.nameInput) {
+    const currentName = elements.nameInput.value?.trim() || '';
+    power.name = currentName;
+  }
   const settings = getCharacterPowerSettings();
   const suggestionStrength = POWER_SUGGESTION_STRENGTHS.includes(settings?.autoSuggestionStrength)
     ? settings.autoSuggestionStrength
@@ -6186,7 +6198,7 @@ function updatePowerCardDerived(card) {
     elements.rulesPreview.textContent = composePowerRulesText(power, settings);
   }
   if (elements.useButton) {
-    elements.useButton.disabled = !power.name;
+    elements.useButton.disabled = false;
   }
   if (elements.ongoingButton) {
     elements.ongoingButton.disabled = power.duration === 'Instant';
@@ -6440,29 +6452,30 @@ function createPowerCard(pref = {}, options = {}) {
   function createQuickButton(label, value) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'btn-sm';
+    btn.className = 'btn-sm power-card__quick-chip';
     btn.textContent = label;
     btn.dataset.value = value;
     btn.dataset.baseLabel = label;
-    btn.style.fontSize = '11px';
-    btn.style.padding = '2px 6px';
-    btn.style.lineHeight = '1.4';
     btn.setAttribute('aria-pressed', 'false');
     return btn;
   }
 
   function createQuickRow(labelText) {
     const row = document.createElement('div');
-    row.className = 'inline';
-    row.style.flexWrap = 'wrap';
-    row.style.gap = '4px';
+    row.className = 'inline power-card__quick-row';
     const label = document.createElement('span');
     label.textContent = labelText;
-    label.style.fontSize = '11px';
-    label.style.opacity = '0.75';
+    label.className = 'power-card__quick-label';
     row.appendChild(label);
     return row;
   }
+
+  const tagField = (node, key) => {
+    if (node && node.dataset && typeof key === 'string') {
+      node.dataset.f = key;
+    }
+    return node;
+  };
   const state = {
     power,
     elements,
@@ -6480,69 +6493,69 @@ function createPowerCard(pref = {}, options = {}) {
   activePowerCards.add(card);
 
   const topRow = document.createElement('div');
-  topRow.className = 'inline';
-  topRow.style.flexWrap = 'wrap';
-  topRow.style.gap = '8px';
+  topRow.className = 'inline power-card__row';
 
   const nameInput = document.createElement('input');
   nameInput.type = 'text';
   nameInput.placeholder = isSignature ? 'Signature Move Name' : 'Power Name';
   nameInput.value = power.name;
+  tagField(nameInput, 'name');
   const nameField = createFieldContainer('Name', nameInput, { flex: '2', minWidth: '200px' });
   topRow.appendChild(nameField.wrapper);
 
   const styleSelect = document.createElement('select');
   setSelectOptions(styleSelect, POWER_STYLES, power.style, { includeEmpty: true });
+  tagField(styleSelect, 'style');
   const styleField = createFieldContainer('Style', styleSelect, { flex: '1', minWidth: '160px' });
   topRow.appendChild(styleField.wrapper);
 
   const actionSelect = document.createElement('select');
   setSelectOptions(actionSelect, POWER_ACTION_TYPES, power.actionType);
+  tagField(actionSelect, 'action');
   const actionField = createFieldContainer('Action Type', actionSelect, { flex: '1', minWidth: '150px' });
   topRow.appendChild(actionField.wrapper);
 
   card.appendChild(topRow);
 
   const targetingRow = document.createElement('div');
-  targetingRow.className = 'inline';
-  targetingRow.style.flexWrap = 'wrap';
-  targetingRow.style.gap = '8px';
+  targetingRow.className = 'inline power-card__row';
 
   const shapeSelect = document.createElement('select');
   setSelectOptions(shapeSelect, POWER_TARGET_SHAPES, power.shape);
+  tagField(shapeSelect, 'shape');
   const shapeField = createFieldContainer('Target Shape', shapeSelect, { flex: '1', minWidth: '140px' });
   targetingRow.appendChild(shapeField.wrapper);
 
   const rangeSelect = document.createElement('select');
   setSelectOptions(rangeSelect, POWER_SHAPE_RANGES[power.shape] || [], power.range);
+  tagField(rangeSelect, 'range');
   const rangeField = createFieldContainer('Range', rangeSelect, { flex: '1', minWidth: '140px' });
   const rangeHint = document.createElement('div');
-  rangeHint.style.fontSize = '12px';
-  rangeHint.style.opacity = '0.8';
-  rangeHint.style.minHeight = '14px';
+  rangeHint.className = 'power-card__hint';
   rangeHint.style.display = 'none';
   rangeField.wrapper.appendChild(rangeHint);
   targetingRow.appendChild(rangeField.wrapper);
 
   const effectSelect = document.createElement('select');
   setSelectOptions(effectSelect, POWER_EFFECT_TAGS, power.effectTag);
+  tagField(effectSelect, 'effect');
   const effectField = createFieldContainer('Primary Effect', effectSelect, { flex: '1', minWidth: '160px' });
   targetingRow.appendChild(effectField.wrapper);
 
   const secondarySelect = document.createElement('select');
   setSelectOptions(secondarySelect, POWER_EFFECT_TAGS, power.secondaryTag, { includeEmpty: true });
+  tagField(secondarySelect, 'secondary');
   const secondaryField = createFieldContainer('Secondary Tag', secondarySelect, { flex: '1', minWidth: '160px' });
   targetingRow.appendChild(secondaryField.wrapper);
 
   card.appendChild(targetingRow);
 
   const intensityRow = document.createElement('div');
-  intensityRow.className = 'inline';
-  intensityRow.style.flexWrap = 'wrap';
-  intensityRow.style.gap = '8px';
+  intensityRow.className = 'inline power-card__row';
 
   const intensitySelect = document.createElement('select');
   setSelectOptions(intensitySelect, POWER_INTENSITIES, power.intensity);
+  tagField(intensitySelect, 'intensity');
   const intensityField = createFieldContainer('Intensity', intensitySelect, { flex: '1', minWidth: '140px' });
   intensityRow.appendChild(intensityField.wrapper);
 
@@ -6551,51 +6564,36 @@ function createPowerCard(pref = {}, options = {}) {
   spInput.min = '1';
   spInput.value = power.spCost;
   spInput.inputMode = 'numeric';
+  tagField(spInput, 'sp');
   const spField = createFieldContainer('SP Cost', spInput, { flex: '1', minWidth: '120px' });
-  const spControls = document.createElement('div');
-  spControls.style.display = 'flex';
-  spControls.style.gap = '4px';
-  const spSuggestBtn = document.createElement('button');
-  spSuggestBtn.type = 'button';
-  spSuggestBtn.className = 'btn-sm';
-  spSuggestBtn.textContent = 'Suggest';
-  spControls.appendChild(spSuggestBtn);
-  spField.wrapper.appendChild(spControls);
   const spHint = document.createElement('div');
-  spHint.style.fontSize = '12px';
-  spHint.style.opacity = '0.8';
+  spHint.className = 'power-card__hint';
   spField.wrapper.appendChild(spHint);
   intensityRow.appendChild(spField.wrapper);
 
   card.appendChild(intensityRow);
 
   const saveRow = document.createElement('div');
-  saveRow.className = 'inline';
-  saveRow.style.flexWrap = 'wrap';
-  saveRow.style.gap = '8px';
+  saveRow.className = 'inline power-card__row';
 
   const requiresSaveWrap = document.createElement('div');
-  requiresSaveWrap.style.display = 'flex';
-  requiresSaveWrap.style.alignItems = 'center';
-  requiresSaveWrap.style.gap = '6px';
+  requiresSaveWrap.className = 'power-card__toggle-group';
   const requiresSaveLabel = document.createElement('label');
-  requiresSaveLabel.className = 'inline';
-  requiresSaveLabel.style.alignItems = 'center';
-  requiresSaveLabel.style.gap = '6px';
+  requiresSaveLabel.className = 'inline power-card__toggle';
   const requiresSaveToggle = document.createElement('input');
   requiresSaveToggle.type = 'checkbox';
   requiresSaveToggle.checked = power.requiresSave;
+  tagField(requiresSaveToggle, 'requires-save');
   requiresSaveLabel.append(requiresSaveToggle, document.createTextNode(' Requires Save'));
   requiresSaveWrap.appendChild(requiresSaveLabel);
   saveRow.appendChild(requiresSaveWrap);
 
   const saveAbilitySelect = document.createElement('select');
   setSelectOptions(saveAbilitySelect, POWER_SAVE_ABILITIES, power.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
+  tagField(saveAbilitySelect, 'save-ability');
   const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { flex: '1', minWidth: '120px' });
   const saveAbilityHint = document.createElement('div');
-  saveAbilityHint.style.fontSize = '12px';
-  saveAbilityHint.style.opacity = '0.8';
-  saveAbilityHint.style.minHeight = '14px';
+  saveAbilityHint.className = 'power-card__hint';
   saveAbilityField.wrapper.appendChild(saveAbilityHint);
   saveRow.appendChild(saveAbilityField.wrapper);
 
@@ -6604,41 +6602,38 @@ function createPowerCard(pref = {}, options = {}) {
   saveBonusInput.step = '1';
   saveBonusInput.value = '0';
   saveBonusInput.placeholder = '+0';
+  tagField(saveBonusInput, 'save-bonus');
   const saveBonusField = createFieldContainer('Target Save Bonus', saveBonusInput, { flex: '1', minWidth: '120px' });
   saveRow.appendChild(saveBonusField.wrapper);
 
   const durationSelect = document.createElement('select');
   setSelectOptions(durationSelect, POWER_DURATIONS, power.duration);
+  tagField(durationSelect, 'duration');
   const durationField = createFieldContainer('Duration', durationSelect, { flex: '1', minWidth: '160px' });
   saveRow.appendChild(durationField.wrapper);
 
   const concentrationWrap = document.createElement('div');
-  concentrationWrap.style.display = 'flex';
-  concentrationWrap.style.flexDirection = 'column';
-  concentrationWrap.style.gap = '4px';
+  concentrationWrap.className = 'power-card__toggle-group';
   const concentrationLabel = document.createElement('label');
-  concentrationLabel.className = 'inline';
-  concentrationLabel.style.alignItems = 'center';
-  concentrationLabel.style.gap = '6px';
+  concentrationLabel.className = 'inline power-card__toggle';
   const concentrationToggle = document.createElement('input');
   concentrationToggle.type = 'checkbox';
   concentrationToggle.checked = power.concentration;
+  tagField(concentrationToggle, 'concentration');
   concentrationLabel.append(concentrationToggle, document.createTextNode(' Concentration'));
   const concentrationHint = document.createElement('div');
-  concentrationHint.style.fontSize = '12px';
-  concentrationHint.style.opacity = '0.8';
+  concentrationHint.className = 'power-card__hint';
   concentrationWrap.append(concentrationLabel, concentrationHint);
   saveRow.appendChild(concentrationWrap);
 
   card.appendChild(saveRow);
 
   const usageRow = document.createElement('div');
-  usageRow.className = 'inline';
-  usageRow.style.flexWrap = 'wrap';
-  usageRow.style.gap = '8px';
+  usageRow.className = 'inline power-card__row';
 
   const usesSelect = document.createElement('select');
   setSelectOptions(usesSelect, POWER_USES, power.uses);
+  tagField(usesSelect, 'uses');
   const usesField = createFieldContainer('Uses', usesSelect, { flex: '1', minWidth: '140px' });
   usageRow.appendChild(usesField.wrapper);
 
@@ -6647,53 +6642,51 @@ function createPowerCard(pref = {}, options = {}) {
   cooldownInput.min = '0';
   cooldownInput.value = power.cooldown || 0;
   cooldownInput.inputMode = 'numeric';
+  tagField(cooldownInput, 'cooldown');
   const cooldownField = createFieldContainer('Cooldown (rounds)', cooldownInput, { flex: '1', minWidth: '140px' });
   usageRow.appendChild(cooldownField.wrapper);
 
   const scalingSelect = document.createElement('select');
   setSelectOptions(scalingSelect, POWER_SCALING_OPTIONS, power.scaling);
+  tagField(scalingSelect, 'scaling');
   const scalingField = createFieldContainer('Scaling', scalingSelect, { flex: '1', minWidth: '140px' });
   usageRow.appendChild(scalingField.wrapper);
 
   card.appendChild(usageRow);
 
   const damageSection = document.createElement('div');
-  damageSection.style.display = 'flex';
-  damageSection.style.flexDirection = 'column';
-  damageSection.style.gap = '6px';
+  damageSection.className = 'power-card__damage';
 
   const damageToggleLabel = document.createElement('label');
-  damageToggleLabel.className = 'inline';
-  damageToggleLabel.style.alignItems = 'center';
-  damageToggleLabel.style.gap = '6px';
+  damageToggleLabel.className = 'inline power-card__toggle';
   const damageToggle = document.createElement('input');
   damageToggle.type = 'checkbox';
   damageToggle.checked = !!power.damage;
+  tagField(damageToggle, 'damage-toggle');
   damageToggleLabel.append(damageToggle, document.createTextNode(' Include Damage Package'));
   damageSection.appendChild(damageToggleLabel);
 
   const damageFields = document.createElement('div');
-  damageFields.className = 'inline';
-  damageFields.style.flexWrap = 'wrap';
-  damageFields.style.gap = '8px';
+  damageFields.className = 'inline power-card__damage-fields';
 
   const damageDiceSelect = document.createElement('select');
   setSelectOptions(damageDiceSelect, POWER_DAMAGE_DICE, power.damage?.dice || POWER_DAMAGE_DICE[0]);
+  tagField(damageDiceSelect, 'damage-dice');
   const damageDiceField = createFieldContainer('Damage Dice', damageDiceSelect, { flex: '1', minWidth: '120px' });
   damageFields.appendChild(damageDiceField.wrapper);
 
   const damageTypeSelect = document.createElement('select');
   setSelectOptions(damageTypeSelect, POWER_DAMAGE_TYPES, power.damage?.type || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0]);
+  tagField(damageTypeSelect, 'damage-type');
   const damageTypeField = createFieldContainer('Damage Type', damageTypeSelect, { flex: '1', minWidth: '140px' });
   damageFields.appendChild(damageTypeField.wrapper);
 
   const damageSaveSelect = document.createElement('select');
   setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, power.damage?.onSave || 'Half');
+  tagField(damageSaveSelect, 'damage-on-save');
   const damageSaveField = createFieldContainer('On Save', damageSaveSelect, { flex: '1', minWidth: '140px' });
   const damageSaveHint = document.createElement('div');
-  damageSaveHint.style.fontSize = '12px';
-  damageSaveHint.style.opacity = '0.8';
-  damageSaveHint.style.minHeight = '14px';
+  damageSaveHint.className = 'power-card__hint';
   damageSaveField.wrapper.appendChild(damageSaveHint);
   damageFields.appendChild(damageSaveField.wrapper);
 
@@ -6702,9 +6695,7 @@ function createPowerCard(pref = {}, options = {}) {
   card.appendChild(damageSection);
 
   const secondaryHint = document.createElement('div');
-  secondaryHint.style.fontSize = '12px';
-  secondaryHint.style.opacity = '0.8';
-  secondaryHint.style.minHeight = '14px';
+  secondaryHint.className = 'power-card__hint';
   secondaryField.wrapper.appendChild(secondaryHint);
 
   const descriptionArea = document.createElement('textarea');
@@ -6712,6 +6703,7 @@ function createPowerCard(pref = {}, options = {}) {
   descriptionArea.placeholder = 'Description / Flavor text';
   descriptionArea.value = power.description || '';
   descriptionArea.style.resize = 'vertical';
+  tagField(descriptionArea, 'description');
   const descriptionField = createFieldContainer('Description', descriptionArea, { flex: '1', minWidth: '100%' });
   card.appendChild(descriptionField.wrapper);
 
@@ -6720,40 +6712,30 @@ function createPowerCard(pref = {}, options = {}) {
   specialArea.placeholder = 'Special Rider / Notes';
   specialArea.value = power.special || '';
   specialArea.style.resize = 'vertical';
+  tagField(specialArea, 'special');
   const specialField = createFieldContainer('Special', specialArea, { flex: '1', minWidth: '100%' });
   card.appendChild(specialField.wrapper);
 
   const derivedRow = document.createElement('div');
-  derivedRow.className = 'inline';
-  derivedRow.style.flexWrap = 'wrap';
-  derivedRow.style.gap = '8px';
-  derivedRow.style.alignItems = 'center';
+  derivedRow.className = 'inline power-card__row power-card__derived';
 
   const saveDcInput = document.createElement('input');
   saveDcInput.type = 'number';
   saveDcInput.readOnly = true;
   saveDcInput.placeholder = '—';
+  tagField(saveDcInput, 'save-dc');
   const saveDcField = createFieldContainer('Computed Save DC', saveDcInput, { flex: '0 0 160px', minWidth: '140px' });
   derivedRow.appendChild(saveDcField.wrapper);
 
   const rulesPreview = document.createElement('div');
-  rulesPreview.style.fontSize = '12px';
-  rulesPreview.style.opacity = '0.9';
-  rulesPreview.style.flex = '1';
-  rulesPreview.style.minWidth = '240px';
-  rulesPreview.style.padding = '6px 8px';
-  rulesPreview.style.borderRadius = '8px';
-  rulesPreview.style.background = 'rgba(255,255,255,0.04)';
+  rulesPreview.className = 'power-card__rules-preview';
   rulesPreview.setAttribute('aria-live', 'polite');
   derivedRow.appendChild(rulesPreview);
 
   card.appendChild(derivedRow);
 
   const quickControls = document.createElement('div');
-  quickControls.style.display = 'flex';
-  quickControls.style.flexDirection = 'column';
-  quickControls.style.gap = '6px';
-  quickControls.style.margin = '8px 0';
+  quickControls.className = 'power-card__quick-controls';
 
   const rangeQuickRow = createQuickRow('Range quick set');
   const quickRangeButtons = [];
@@ -6806,10 +6788,9 @@ function createPowerCard(pref = {}, options = {}) {
   const spQuickRow = createQuickRow('SP quick adjust');
   const spDecBtn = createQuickButton('-1 SP', 'dec');
   const spIncBtn = createQuickButton('+1 SP', 'inc');
+  const spSuggestBtn = createQuickButton('Suggest', 'suggest');
   const spQuickValue = document.createElement('span');
-  spQuickValue.style.fontSize = '11px';
-  spQuickValue.style.opacity = '0.8';
-  spQuickValue.style.marginLeft = '4px';
+  spQuickValue.className = 'power-card__quick-readout';
   spQuickValue.textContent = `${power.spCost} SP`;
   spDecBtn.addEventListener('click', event => {
     event.preventDefault();
@@ -6825,8 +6806,16 @@ function createPowerCard(pref = {}, options = {}) {
     state.manualSpOverride = true;
     updatePowerCardDerived(card);
   });
+  spSuggestBtn.addEventListener('click', event => {
+    event.preventDefault();
+    power.spCost = suggestSpCost(power.intensity);
+    spInput.value = String(power.spCost);
+    state.manualSpOverride = false;
+    updatePowerCardDerived(card);
+  });
   spQuickRow.appendChild(spDecBtn);
   spQuickRow.appendChild(spIncBtn);
+  spQuickRow.appendChild(spSuggestBtn);
   spQuickRow.appendChild(spQuickValue);
   quickControls.appendChild(spQuickRow);
 
@@ -6882,28 +6871,19 @@ function createPowerCard(pref = {}, options = {}) {
   });
   quickControls.appendChild(onSaveQuickRow);
 
-  card.appendChild(quickControls);
-
   const feedbackWrap = document.createElement('div');
-  feedbackWrap.style.display = 'flex';
-  feedbackWrap.style.flexDirection = 'column';
-  feedbackWrap.style.gap = '6px';
-  feedbackWrap.style.marginTop = '4px';
+  feedbackWrap.className = 'power-card__feedback';
 
   const messageArea = document.createElement('div');
-  messageArea.style.fontSize = '12px';
-  messageArea.style.minHeight = '16px';
+  messageArea.className = 'power-card__message';
   messageArea.hidden = true;
   feedbackWrap.appendChild(messageArea);
 
   const concentrationPrompt = document.createElement('div');
-  concentrationPrompt.className = 'inline';
-  concentrationPrompt.style.flexWrap = 'wrap';
-  concentrationPrompt.style.gap = '8px';
+  concentrationPrompt.className = 'inline power-card__concentration';
   concentrationPrompt.style.display = 'none';
   const concentrationPromptText = document.createElement('span');
-  concentrationPromptText.style.flex = '1';
-  concentrationPromptText.style.minWidth = '160px';
+  concentrationPromptText.className = 'power-card__concentration-text';
   const concentrationConfirm = document.createElement('button');
   concentrationConfirm.type = 'button';
   concentrationConfirm.className = 'btn-sm';
@@ -6915,18 +6895,14 @@ function createPowerCard(pref = {}, options = {}) {
   concentrationPrompt.append(concentrationPromptText, concentrationConfirm, concentrationCancel);
   feedbackWrap.appendChild(concentrationPrompt);
 
-  card.appendChild(feedbackWrap);
-
   const actionRow = document.createElement('div');
-  actionRow.className = 'inline';
-  actionRow.style.flexWrap = 'wrap';
-  actionRow.style.gap = '8px';
-  actionRow.style.alignItems = 'center';
+  actionRow.className = 'inline power-card__actions';
 
   const useButton = document.createElement('button');
   useButton.type = 'button';
   useButton.className = 'btn-sm';
   useButton.textContent = isSignature ? 'Use Signature' : 'Use Power';
+  useButton.dataset.role = 'power-use';
   actionRow.appendChild(useButton);
 
   const rollSaveButton = document.createElement('button');
@@ -6959,6 +6935,16 @@ function createPowerCard(pref = {}, options = {}) {
   actionRow.appendChild(deleteButton);
 
   card.appendChild(actionRow);
+
+  card.appendChild(quickControls);
+  card.appendChild(feedbackWrap);
+
+  card.addEventListener('click', event => {
+    const trigger = event.target.closest('[data-role="power-use"]');
+    if (!trigger || trigger !== useButton || !card.contains(trigger)) return;
+    event.preventDefault();
+    handleUsePower(card);
+  });
 
   elements.nameInput = nameInput;
   elements.styleSelect = styleSelect;
@@ -7149,7 +7135,6 @@ function createPowerCard(pref = {}, options = {}) {
     state.manualOnSave = true;
     updatePowerCardDerived(card);
   });
-  useButton.addEventListener('click', () => handleUsePower(card));
   rollSaveButton.addEventListener('click', () => handleRollPowerSave(card));
   ongoingButton.addEventListener('click', () => {
     const serialized = serializePowerCard(card);
@@ -7186,34 +7171,63 @@ function setupPowerPresetMenu() {
   const list = $('powers');
   if (!addBtn || !list) return;
   const menu = document.createElement('div');
-  menu.className = 'card';
-  menu.style.position = 'absolute';
-  menu.style.zIndex = '2000';
+  menu.className = 'card power-preset-menu';
   menu.style.display = 'none';
-  menu.style.padding = '8px';
-  menu.style.gap = '6px';
-  menu.style.flexDirection = 'column';
   menu.dataset.open = 'false';
   menu.dataset.role = 'power-preset-menu';
+  menu.setAttribute('role', 'menu');
+  menu.tabIndex = -1;
   document.body.appendChild(menu);
 
   const hideMenu = () => {
     menu.style.display = 'none';
     menu.dataset.open = 'false';
+    menu.removeAttribute('aria-expanded');
   };
 
   const showMenu = () => {
     menu.style.display = 'flex';
     menu.dataset.open = 'true';
+    menu.setAttribute('aria-expanded', 'true');
+    const focusTarget = menu.querySelector('button');
+    if (focusTarget) {
+      try { focusTarget.focus({ preventScroll: true }); } catch {}
+    } else {
+      try { menu.focus({ preventScroll: true }); } catch {}
+    }
+  };
+
+  const positionMenu = () => {
+    if (menu.dataset.open !== 'true') return;
+    const rect = addBtn.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const menuRect = menu.getBoundingClientRect();
+    const gutter = 12;
+    let left = rect.left;
+    let top = rect.bottom + 8;
+
+    if (left + menuRect.width > viewportWidth - gutter) {
+      left = Math.max(gutter, viewportWidth - menuRect.width - gutter);
+    } else if (left < gutter) {
+      left = gutter;
+    }
+
+    if (top + menuRect.height > viewportHeight - gutter) {
+      const above = rect.top - menuRect.height - 8;
+      top = above > gutter ? above : Math.max(gutter, viewportHeight - menuRect.height - gutter);
+    }
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
   };
 
   const createOptionButton = (label, data) => {
     const optionBtn = document.createElement('button');
     optionBtn.type = 'button';
-    optionBtn.className = 'btn-sm';
-    optionBtn.style.width = '100%';
-    optionBtn.style.margin = '2px 0';
+    optionBtn.className = 'btn-sm power-preset-menu__option';
     optionBtn.textContent = label;
+    optionBtn.setAttribute('role', 'menuitem');
     optionBtn.addEventListener('click', () => {
       const card = createCard('power', data);
       list.appendChild(card);
@@ -7235,10 +7249,8 @@ function setupPowerPresetMenu() {
       hideMenu();
       return;
     }
-    const rect = addBtn.getBoundingClientRect();
-    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
-    menu.style.left = `${rect.left + window.scrollX}px`;
     showMenu();
+    requestAnimationFrame(positionMenu);
   });
 
   document.addEventListener('click', event => {
@@ -7246,6 +7258,18 @@ function setupPowerPresetMenu() {
     if (event.target === addBtn || menu.contains(event.target)) return;
     hideMenu();
   });
+
+  document.addEventListener('keydown', event => {
+    if (menu.dataset.open !== 'true') return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      hideMenu();
+      try { addBtn.focus(); } catch {}
+    }
+  });
+
+  window.addEventListener('resize', positionMenu);
+  window.addEventListener('scroll', positionMenu, { passive: true });
 
   window.addEventListener('blur', hideMenu);
 }
@@ -7479,7 +7503,11 @@ function createCard(kind, pref = {}) {
 }
 
 setupPowerPresetMenu();
-$('add-sig').addEventListener('click', () => { $('sigs').appendChild(createCard('sig')); pushHistory(); });
+$('add-sig').addEventListener('click', () => {
+  const card = createCard('sig');
+  $('sigs').appendChild(card);
+  pushHistory();
+});
 
 /* ========= Gear ========= */
 $('add-weapon').addEventListener('click', () => {

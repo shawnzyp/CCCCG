@@ -893,6 +893,53 @@ button:focus-visible,
     width:auto;
   }
 }
+
+/* Power card layout */
+.power-card{display:flex;flex-direction:column;gap:12px;padding:12px}
+.power-card__field{min-width:min(220px,100%)}
+.power-card__label{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.power-card__hint{display:block;font-size:.75rem;opacity:.82;min-height:16px}
+.power-card__quick-controls{display:flex;flex-direction:column;gap:8px;margin:8px 0;width:100%}
+.power-card__quick-row{align-items:flex-start;gap:6px}
+.power-card__quick-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);flex:0 0 auto;padding:2px 0}
+.power-card__quick-chip{flex:0 1 auto}
+.power-card__quick-row .power-card__quick-chip{min-width:140px}
+.power-card__quick-readout{font-size:.75rem;opacity:.82;margin-left:auto}
+.power-card__feedback{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.power-card__message{font-size:.78rem;min-height:16px}
+.power-card__concentration{gap:8px;align-items:flex-start}
+.power-card__concentration-text{flex:1 1 220px}
+.power-card__actions{align-items:center;gap:8px}
+.power-card__damage{display:flex;flex-direction:column;gap:8px}
+.power-card__damage-fields{gap:8px}
+.power-card__toggle-group{display:flex;flex-direction:column;gap:4px}
+.power-card__toggle{align-items:center;gap:6px}
+.power-card__rules-preview{font-size:.8rem;opacity:.85;flex:1 1 240px;min-width:240px;padding:8px 10px;border-radius:var(--radius);background:rgba(255,255,255,.04);line-height:1.45;word-break:break-word}
+@media(max-width:720px){
+  .power-card{padding:10px;gap:10px}
+  .power-card__field{min-width:100% !important}
+  .power-card__quick-row{flex-direction:column;align-items:stretch}
+  .power-card__quick-row .power-card__quick-chip{width:100%;min-width:0}
+  .power-card__quick-label{width:100%}
+  .power-card__quick-readout{margin-left:0;text-align:left;width:100%;margin-top:4px}
+  .power-card__concentration{flex-direction:column;align-items:stretch}
+  .power-card__concentration button{width:100%}
+  .power-card__actions{flex-direction:column;align-items:stretch}
+  .power-card__actions>button,
+  .power-card__actions>.pill{width:100%}
+  .power-card__rules-preview{min-width:0}
+}
+
+.power-preset-menu{position:fixed;z-index:2000;display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:12px;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;border-radius:var(--radius);box-sizing:border-box}
+.power-preset-menu__option{width:100%;justify-content:flex-start;white-space:normal;line-height:1.35;text-align:left}
+
+@media(max-width:720px){
+  .power-preset-menu{padding:12px 10px}
+}
+
+@media(max-width:540px){
+  .power-preset-menu{left:12px !important;right:12px;max-width:none;width:calc(100vw - 24px);bottom:12px}
+}
 progress{
   --progress-color: var(--accent);
   -webkit-appearance:none;
@@ -1499,6 +1546,16 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 #modal-help .feature-list b{display:block}
 #modal-help .feature-list .icon-group{display:flex;gap:4px}
 #modal-help .feature-list svg{width:20px;height:20px;flex-shrink:0}
+
+@media(max-width:640px){
+  .overlay{align-items:flex-start;justify-content:center;padding:8px calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
+  .modal{border-radius:calc(var(--radius) - 4px);max-width:calc(100vw - 24px);padding:16px 14px}
+}
+
+@media(max-width:480px){
+  .overlay{padding:0}
+  .modal{border-radius:0;max-width:100%;height:auto;min-height:calc(var(--vh,1vh)*100);max-height:none;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom))}
+}
 #modal-rules .modal-rules{max-width:var(--modal-width)}
 #rules-text{white-space:pre-wrap}
 .toast{position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid var(--accent);padding:10px 12px;border-radius:var(--radius);opacity:0;transform:translateY(8px);transition:opacity .3s ease-in-out,transform .3s ease-in-out;z-index:2000;display:flex;align-items:center;gap:6px;pointer-events:none}
