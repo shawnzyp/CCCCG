@@ -1888,6 +1888,7 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 #modal-welcome .modal{font-size:.85rem;line-height:1.4}
 #modal-welcome{align-items:center;justify-content:center}
 #modal-welcome .actions{justify-content:center;width:100%;flex-wrap:nowrap;gap:var(--control-gap)}
+#modal-welcome .actions button{font-size:.8rem;padding:8px 12px;white-space:nowrap;flex:0 0 auto}
 #modal-welcome .welcome-modal__title{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:baseline}
 #modal-welcome .welcome-modal__title-break{display:inline}
 #modal-welcome .welcome-modal__tab-label{text-decoration:underline;text-decoration-thickness:.08em;text-decoration-skip-ink:auto}
