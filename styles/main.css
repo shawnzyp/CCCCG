@@ -141,18 +141,43 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   justify-self:center;
 }
 
+header{
+  --header-icon-size:calc(var(--icon-size) * 1.25);
+}
+
+header .icon,
+header .tab{
+  height:calc(var(--header-icon-size) * 1.05);
+  min-height:calc(var(--header-icon-size) * 1.2);
+}
+
+header .icon{
+  width:calc(var(--header-icon-size) * 1.8);
+}
+
+header .tab{
+  min-width:calc(var(--header-icon-size) * 1.8);
+  flex:1 1 calc(var(--header-icon-size) * 1.8);
+}
+
+header .icon svg,
+header .tab svg{
+  width:var(--header-icon-size);
+  height:var(--header-icon-size);
+}
+
 .logo-button{
   background:transparent;
   border:none;
   padding:0;
-  width:43px;
-  height:43px;
+  width:calc(43px * 1.25);
+  height:calc(43px * 1.25);
   display:inline-flex;
   align-items:center;
   justify-content:center;
   cursor:pointer;
   border-radius:50%;
-  flex:0 0 43px;
+  flex:0 0 calc(43px * 1.25);
   grid-area:logo;
   justify-self:start;
   --theme-toggle-backdrop:linear-gradient(135deg,#0f172a,#1f2937);
