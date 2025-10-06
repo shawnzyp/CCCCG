@@ -962,11 +962,11 @@ label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4v
 @media(max-width:480px){
   .stat-trio{grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px}
 }
-.initiative-field{display:flex;flex-direction:column}
-.initiative-controls{display:flex;gap:var(--control-gap);align-items:center}
-.initiative-controls input{flex:1 1 auto}
-.initiative-controls button{flex:0 0 auto;white-space:nowrap}
-.initiative-field .pill.result{margin-top:4px;display:flex;align-items:center;justify-content:center;min-height:var(--control-compact-min-height);width:100%}
+.initiative-field{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:calc(var(--roll-tools-gap,var(--control-gap))*.6)}
+.initiative-controls{display:contents}
+.initiative-controls input{min-width:0}
+.initiative-controls button{white-space:nowrap}
+.initiative-field .pill.result{margin:0;display:flex;align-items:center;justify-content:center;min-height:var(--roll-tools-pill-height,var(--control-compact-min-height));width:auto;justify-self:end;min-width:clamp(80px,20vw,120px)}
 .hp-settings__section{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .hp-settings__section:first-of-type{margin-top:0}
 .hp-settings__row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -2399,14 +2399,19 @@ body.is-view-mode .power-card__body{display:none}
   .power-card__summary-roll-btn,.power-card__quick-btn{min-height:26px;font-size:.78rem}
   .power-card__roll-output{min-height:26px;font-size:.78rem}
 }
-#dice-count{flex:0 0 clamp(30px,9vw,44px);width:clamp(30px,9vw,44px);}
-.roll-tools-card{display:flex;flex-direction:column;gap:clamp(10px,3vw,16px)}
-.roll-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--control-gap)}
-.roll-tools__panel{display:flex;flex-direction:column;gap:calc(var(--control-gap)*.6)}
-.roll-tools__heading{margin:0;font-size:clamp(.95rem,2.4vw,1.1rem);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
-.roll-tools__panel .pill.result{margin-bottom:4px}
-.roll-tools__initiative{margin-top:4px;padding-top:8px;border-top:1px solid var(--line)}
-@media(max-width:700px){
-  .roll-tools{grid-template-columns:1fr}
-  .roll-tools__initiative{border-top:1px solid var(--line);padding-top:12px;margin-top:8px}
-}
+#dice-count{flex:0 0 clamp(28px,7.5vw,40px);width:clamp(28px,7.5vw,40px);}
+.roll-tools-card{--roll-tools-gap:clamp(6px,1.8vw,12px);--roll-tools-heading-size:clamp(.78rem,2vw,.95rem);--roll-tools-control-font-size:clamp(.72rem,1.9vw,.88rem);--roll-tools-pill-font-size:clamp(.7rem,1.8vw,.85rem);--roll-tools-control-height:clamp(26px,5.2vw,34px);--roll-tools-pill-height:clamp(22px,4.8vw,30px);--roll-tools-section-padding:clamp(6px,2vw,12px);display:flex;flex-direction:column;gap:calc(var(--roll-tools-gap)*1.4)}
+.roll-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--roll-tools-gap);align-items:stretch}
+.roll-tools__panel{display:flex;flex-direction:column;gap:calc(var(--roll-tools-gap)*.55);padding:var(--roll-tools-section-padding);border-radius:calc(var(--radius)*.75);background:var(--surface-2);border:1px solid rgba(255,255,255,.05)}
+.roll-tools__heading{margin:0;font-size:var(--roll-tools-heading-size);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.roll-tools-card .inline{gap:calc(var(--roll-tools-gap)*.5);flex-wrap:nowrap}
+.roll-tools-card .inline>input:not([type="checkbox"]),
+.roll-tools-card .inline>select{min-width:0}
+.roll-tools-card .inline>button{flex:0 0 auto}
+.roll-tools-card input:not([type="checkbox"]),
+.roll-tools-card select,
+.roll-tools-card .btn-sm{min-height:var(--roll-tools-control-height);font-size:var(--roll-tools-control-font-size);padding:clamp(4px,1.2vw,8px) clamp(8px,2.6vw,12px)}
+.roll-tools-card label:not(.sr-only){margin-bottom:2px;font-size:var(--roll-tools-control-font-size);font-weight:600}
+.roll-tools__panel .pill.result{margin-bottom:2px;font-size:var(--roll-tools-pill-font-size);min-height:var(--roll-tools-pill-height);padding:clamp(3px,1.2vw,6px) clamp(8px,2.4vw,12px)}
+.roll-tools__initiative{margin-top:calc(var(--roll-tools-gap)*.6);padding-top:calc(var(--roll-tools-gap)*.8);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:calc(var(--roll-tools-gap)*.6)}
+.roll-tools__initiative label{margin:0;font-size:var(--roll-tools-heading-size);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
