@@ -1718,13 +1718,16 @@ function createFieldViewElements(){
   placeholderEl.className = 'field-value__placeholder';
   if (VIEW_EMPTY_PLACEHOLDER) {
     placeholderEl.textContent = VIEW_EMPTY_PLACEHOLDER;
+    placeholderEl.dataset.visiblePlaceholder = 'true';
   } else {
     placeholderEl.textContent = '';
     const srText = document.createElement('span');
     srText.className = 'sr-only';
     srText.textContent = VIEW_EMPTY_LABEL;
     placeholderEl.appendChild(srText);
+    placeholderEl.dataset.visiblePlaceholder = 'false';
   }
+  placeholderEl.hidden = true;
   placeholderEl.setAttribute('aria-label', VIEW_EMPTY_LABEL);
   viewEl.appendChild(placeholderEl);
 
@@ -2031,12 +2034,14 @@ function updateFieldView(el){
     state.textEl.textContent = trimmed;
   }
 
+  const placeholderIsVisible =
+    state.placeholderEl && state.placeholderEl.dataset.visiblePlaceholder === 'true';
   if (hasValue) {
     state.viewEl.dataset.empty = 'false';
-    state.placeholderEl.hidden = true;
+    if (state.placeholderEl) state.placeholderEl.hidden = true;
   } else {
     state.viewEl.dataset.empty = 'true';
-    state.placeholderEl.hidden = false;
+    if (state.placeholderEl) state.placeholderEl.hidden = !placeholderIsVisible;
   }
 }
 
@@ -2062,13 +2067,15 @@ function updateRadioGroup(name){
   if (!state) return;
   const selected = state.controls.find(control => control.checked);
   const label = selected ? findRadioLabel(selected) : '';
+  const placeholderIsVisible =
+    state.placeholderEl && state.placeholderEl.dataset.visiblePlaceholder === 'true';
   if (label) {
     state.textEl.textContent = label;
-    state.placeholderEl.hidden = true;
+    if (state.placeholderEl) state.placeholderEl.hidden = true;
     state.viewEl.dataset.empty = 'false';
   } else {
     state.textEl.textContent = '';
-    state.placeholderEl.hidden = false;
+    if (state.placeholderEl) state.placeholderEl.hidden = !placeholderIsVisible;
     state.viewEl.dataset.empty = 'true';
   }
   const srLabel = label || VIEW_EMPTY_LABEL;
