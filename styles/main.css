@@ -2408,7 +2408,7 @@ body.touch-controls-disabled.somf-reveal-active .app-shell> :not(.somf-reveal-al
 .power-card__summary-edit:hover,.power-card__summary-edit:focus-visible{background:rgba(148,163,184,.2);border-color:rgba(148,163,184,.35);outline:none}
 .power-card__summary-edit:focus-visible{box-shadow:0 0 0 2px rgba(59,130,246,.45)}
 .power-card__summary-edit:disabled{opacity:.5;cursor:not-allowed}
-.modal-power-editor{width:min(940px,96vw);max-height:calc(100vh - 48px);display:flex;flex-direction:column;gap:16px}
+.modal-power-editor{width:min(940px,96vw);max-height:calc(var(--vh,1vh)*100 - 48px - var(--safe-area-top) - var(--safe-area-bottom));display:flex;flex-direction:column;gap:16px}
 .power-editor__content{flex:1 1 auto;overflow:auto;padding:0 12px 0 0;margin-right:-12px}
 .power-editor__content>.power-card__body{padding-right:12px}
 .power-editor__actions{display:flex;justify-content:flex-end;gap:var(--control-gap);padding-top:4px;border-top:1px solid var(--line)}
