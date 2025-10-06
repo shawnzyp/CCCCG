@@ -90,7 +90,7 @@ describe('new character reset', () => {
 
   test('creating a new character exits view mode for editing', async () => {
     global.fetch = jest.fn().mockResolvedValue({ text: async () => '' });
-    localStorage.setItem('view-mode', '1');
+    localStorage.setItem('view-mode', 'view');
 
     document.body.innerHTML = `
       <div id="abil-grid"></div>
@@ -122,6 +122,6 @@ describe('new character reset', () => {
     document.getElementById('create-character').click();
 
     expect(document.body.classList.contains('is-view-mode')).toBe(false);
-    expect(localStorage.getItem('view-mode')).toBe('0');
+    expect(localStorage.getItem('view-mode')).toBe('edit');
   });
 });

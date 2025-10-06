@@ -1608,9 +1608,32 @@ document.addEventListener('click', e=>{
 }, true);
 
 /* ========= view mode ========= */
-const VIEW_LOCK_SKIP_TYPES = new Set(['checkbox','radio','button','submit','reset','file','color','range','hidden','image']);
-let viewMode = false;
-let viewModeButton = null;
+const VIEW_LOCK_SKIP_TYPES = new Set(['button','submit','reset','file','color','range','hidden','image']);
+const VIEW_EMPTY_PLACEHOLDER = '—';
+const VIEW_EMPTY_LABEL = 'Empty value';
+const viewFieldRegistry = new Map();
+const radioGroupRegistry = new Map();
+const viewModeListeners = new Set();
+const viewUpdateQueue = new Set();
+const radioUpdateQueue = new Set();
+let viewUpdateFrame = null;
+let radioUpdateFrame = null;
+let valueAccessorsPatched = false;
+
+const globalViewScope = typeof window !== 'undefined' ? window : globalThis;
+const scheduleViewFrame = typeof globalViewScope.requestAnimationFrame === 'function'
+  ? cb => globalViewScope.requestAnimationFrame(cb)
+  : cb => setTimeout(cb, 16);
+
+const numberFormatter = typeof Intl !== 'undefined' && Intl.NumberFormat
+  ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
+  : { format: v => String(v) };
+
+let mode = 'edit';
+let modeSwitchButton = null;
+let menuModeButton = null;
+let modeRoot = null;
+let modeLiveRegion = null;
 
 function hasViewAllow(el){
   if (!el || !el.closest) return false;
@@ -1618,7 +1641,7 @@ function hasViewAllow(el){
   return !!el.closest('[data-view-allow]');
 }
 
-function shouldLockElement(el){
+function shouldTransformElement(el){
   if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
   if (hasViewAllow(el)) return false;
   const tag = el.tagName;
@@ -1631,100 +1654,525 @@ function shouldLockElement(el){
   return false;
 }
 
-function lockViewElement(el){
-  if (!shouldLockElement(el) || el.dataset.viewLocked === 'true') return;
-  el.dataset.viewLocked = 'true';
-  if (el.tagName === 'SELECT') {
-    el.dataset.viewPrevDisabled = el.disabled ? '1' : '0';
-    el.disabled = true;
-    el.setAttribute('aria-disabled', 'true');
-  } else if (el.tagName === 'TEXTAREA') {
-    el.dataset.viewPrevReadonly = el.readOnly ? '1' : '0';
-    el.readOnly = true;
-    el.setAttribute('aria-readonly', 'true');
-  } else {
-    el.dataset.viewPrevReadonly = el.readOnly ? '1' : '0';
-    el.dataset.viewPrevDisabled = el.disabled ? '1' : '0';
-    el.readOnly = true;
-    el.setAttribute('aria-readonly', 'true');
+function ensureModeRoot(){
+  if (!modeRoot) {
+    modeRoot = document.querySelector('[data-launch-shell]') || document.body || null;
+  }
+  return modeRoot;
+}
+
+function findLabelText(el){
+  if (!el) return '';
+  const aria = el.getAttribute('aria-label');
+  if (aria) return aria.trim();
+  const id = el.getAttribute('id');
+  if (id) {
+    try {
+      const explicit = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+      if (explicit) {
+        const clone = explicit.cloneNode(true);
+        clone.querySelectorAll('input,select,textarea,button').forEach(node => node.remove());
+        return clone.textContent.trim().replace(/\s+/g, ' ');
+      }
+    } catch {}
+  }
+  const wrapping = el.closest('label');
+  if (wrapping) {
+    const clone = wrapping.cloneNode(true);
+    clone.querySelectorAll('input,select,textarea,button').forEach(node => node.remove());
+    return clone.textContent.trim().replace(/\s+/g, ' ');
+  }
+  const ariaLabelledby = el.getAttribute('aria-labelledby');
+  if (ariaLabelledby) {
+    const parts = ariaLabelledby.split(/\s+/).map(idPart => {
+      const node = document.getElementById(idPart);
+      return node ? node.textContent.trim() : '';
+    }).filter(Boolean);
+    if (parts.length) return parts.join(' ');
+  }
+  const name = el.getAttribute('name');
+  return name ? name.replace(/[-_]/g, ' ') : '';
+}
+
+function createFieldViewElements(){
+  const viewEl = document.createElement('div');
+  viewEl.className = 'field-value';
+  viewEl.dataset.fieldValue = 'true';
+  viewEl.hidden = mode !== 'view';
+
+  const contentEl = document.createElement('div');
+  contentEl.className = 'field-value__content';
+  viewEl.appendChild(contentEl);
+
+  const textEl = document.createElement('span');
+  textEl.className = 'field-value__text';
+  contentEl.appendChild(textEl);
+
+  const placeholderEl = document.createElement('span');
+  placeholderEl.className = 'field-value__placeholder';
+  placeholderEl.textContent = VIEW_EMPTY_PLACEHOLDER;
+  placeholderEl.setAttribute('aria-label', VIEW_EMPTY_LABEL);
+  viewEl.appendChild(placeholderEl);
+
+  return { viewEl, contentEl, textEl, placeholderEl };
+}
+
+function ensureExpander(state){
+  if (state.expander) return state.expander;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'field-value__expander';
+  btn.textContent = 'Show more';
+  btn.hidden = true;
+  btn.addEventListener('click', () => {
+    state.expanded = !state.expanded;
+    state.viewEl.dataset.expanded = state.expanded ? 'true' : 'false';
+    btn.textContent = state.expanded ? 'Show less' : 'Show more';
+  });
+  state.viewEl.appendChild(btn);
+  state.expander = btn;
+  return btn;
+}
+
+function removeExpander(state){
+  if (!state.expander) return;
+  state.expander.remove();
+  state.expander = null;
+  state.expanded = false;
+  delete state.viewEl.dataset.expanded;
+}
+
+function queueFieldUpdate(el){
+  if (!el) return;
+  const type = (el.getAttribute && el.getAttribute('type')) || el.type;
+  if (type && String(type).toLowerCase() === 'radio' && el.name) {
+    queueRadioGroupUpdate(el.name);
+    return;
+  }
+  if (!viewFieldRegistry.has(el)) return;
+  viewUpdateQueue.add(el);
+  if (!viewUpdateFrame) {
+    viewUpdateFrame = scheduleViewFrame(flushViewUpdates);
   }
 }
 
-function unlockViewElement(el){
-  if (!el || el.dataset.viewLocked !== 'true') return;
+function queueRadioGroupUpdate(name){
+  if (!name) return;
+  radioUpdateQueue.add(name);
+  if (!radioUpdateFrame) {
+    radioUpdateFrame = scheduleViewFrame(flushRadioUpdates);
+  }
+}
+
+function flushViewUpdates(){
+  viewUpdateFrame = null;
+  viewUpdateQueue.forEach(el => updateFieldView(el));
+  viewUpdateQueue.clear();
+}
+
+function flushRadioUpdates(){
+  radioUpdateFrame = null;
+  radioUpdateQueue.forEach(name => updateRadioGroup(name));
+  radioUpdateQueue.clear();
+}
+
+function patchValueAccessors(){
+  if (valueAccessorsPatched) return;
+  valueAccessorsPatched = true;
+  const patch = (Ctor, prop, handler) => {
+    if (!Ctor || !Ctor.prototype) return;
+    const desc = Object.getOwnPropertyDescriptor(Ctor.prototype, prop);
+    if (!desc || typeof desc.set !== 'function') return;
+    Object.defineProperty(Ctor.prototype, prop, {
+      configurable: true,
+      enumerable: desc.enumerable,
+      get: desc.get,
+      set(value){
+        desc.set.call(this, value);
+        handler(this);
+      }
+    });
+  };
+  try {
+    patch(globalViewScope.HTMLInputElement, 'value', queueFieldUpdate);
+    patch(globalViewScope.HTMLInputElement, 'checked', queueFieldUpdate);
+    patch(globalViewScope.HTMLTextAreaElement, 'value', queueFieldUpdate);
+    patch(globalViewScope.HTMLSelectElement, 'value', queueFieldUpdate);
+  } catch {}
+}
+
+function ensureFieldView(el){
+  if (!shouldTransformElement(el)) return;
+  const type = (el.getAttribute('type') || el.type || '').toLowerCase();
+  if (type === 'radio') {
+    ensureRadioGroup(el);
+    return;
+  }
+  if (viewFieldRegistry.has(el)) {
+    const existing = viewFieldRegistry.get(el);
+    if (!existing.viewEl.isConnected) {
+      el.insertAdjacentElement('afterend', existing.viewEl);
+    }
+    return;
+  }
+  const { viewEl, contentEl, textEl, placeholderEl } = createFieldViewElements();
+  const state = {
+    el,
+    viewEl,
+    contentEl,
+    textEl,
+    placeholderEl,
+    label: findLabelText(el),
+    prevTabIndex: el.hasAttribute('tabindex') ? el.getAttribute('tabindex') : null,
+    prevAriaHidden: el.hasAttribute('aria-hidden') ? el.getAttribute('aria-hidden') : null,
+    expander: null,
+    expanded: false,
+    isTextarea: el.tagName === 'TEXTAREA',
+    isMultiSelect: el.tagName === 'SELECT' && el.multiple,
+  };
+  if (state.isMultiSelect) {
+    const chips = document.createElement('span');
+    chips.className = 'field-value__chips';
+    contentEl.appendChild(chips);
+    state.chipsContainer = chips;
+  }
+  el.insertAdjacentElement('afterend', viewEl);
+  el.classList.add('view-field-control');
+  if (!el.dataset) el.dataset = {};
+  el.dataset.fieldValueBound = 'true';
+  if (!el.dataset.viewModeListener) {
+    el.addEventListener('input', () => queueFieldUpdate(el));
+    el.addEventListener('change', () => queueFieldUpdate(el));
+    el.dataset.viewModeListener = '1';
+  }
+  viewFieldRegistry.set(el, state);
+}
+
+function findRadioControls(name){
+  try {
+    return Array.from(document.querySelectorAll(`input[type="radio"][name="${CSS.escape(name)}"]`));
+  } catch {
+    return Array.from(document.querySelectorAll('input[type="radio"]')).filter(r => r.name === name);
+  }
+}
+
+function ensureRadioGroup(el){
+  const name = el.getAttribute('name');
+  if (!name) return;
+  const controls = findRadioControls(name);
+  if (!controls.length) return;
+  let state = radioGroupRegistry.get(name);
+  if (!state) {
+    const anchor = controls[controls.length - 1];
+    const { viewEl, contentEl, textEl, placeholderEl } = createFieldViewElements();
+    anchor.insertAdjacentElement('afterend', viewEl);
+    state = {
+      name,
+      controls,
+      viewEl,
+      contentEl,
+      textEl,
+      placeholderEl,
+      label: findLabelText(controls[0]),
+      prevTabIndex: new Map(),
+      prevAriaHidden: new Map(),
+    };
+    radioGroupRegistry.set(name, state);
+  } else {
+    state.controls = controls;
+    if (!state.viewEl.isConnected) {
+      const anchor = controls[controls.length - 1];
+      anchor.insertAdjacentElement('afterend', state.viewEl);
+    }
+  }
+  controls.forEach(control => {
+    control.classList.add('view-field-control');
+    if (!state.prevTabIndex.has(control)) {
+      state.prevTabIndex.set(control, control.hasAttribute('tabindex') ? control.getAttribute('tabindex') : null);
+    }
+    if (!state.prevAriaHidden.has(control)) {
+      state.prevAriaHidden.set(control, control.hasAttribute('aria-hidden') ? control.getAttribute('aria-hidden') : null);
+    }
+    if (!control.dataset) control.dataset = {};
+    if (!control.dataset.viewModeListener) {
+      control.addEventListener('input', () => queueRadioGroupUpdate(name));
+      control.addEventListener('change', () => queueRadioGroupUpdate(name));
+      control.dataset.viewModeListener = '1';
+    }
+  });
+}
+
+function syncFieldMode(el){
+  const state = viewFieldRegistry.get(el);
+  if (!state) return;
+  const isView = mode === 'view';
+  state.viewEl.hidden = !isView;
+  if (isView) {
+    if (!state.viewEl.isConnected) el.insertAdjacentElement('afterend', state.viewEl);
+    el.setAttribute('tabindex', '-1');
+    el.setAttribute('aria-hidden', 'true');
+    queueFieldUpdate(el);
+  } else {
+    if (state.prevTabIndex === null) el.removeAttribute('tabindex');
+    else el.setAttribute('tabindex', state.prevTabIndex);
+    if (state.prevAriaHidden === null) el.removeAttribute('aria-hidden');
+    else el.setAttribute('aria-hidden', state.prevAriaHidden);
+  }
+}
+
+function syncRadioGroup(name){
+  const state = radioGroupRegistry.get(name);
+  if (!state) return;
+  const isView = mode === 'view';
+  state.viewEl.hidden = !isView;
+  state.controls.forEach(control => {
+    if (isView) {
+      control.setAttribute('tabindex', '-1');
+      control.setAttribute('aria-hidden', 'true');
+    } else {
+      const prevTab = state.prevTabIndex.get(control);
+      if (prevTab === null || typeof prevTab === 'undefined') control.removeAttribute('tabindex');
+      else control.setAttribute('tabindex', prevTab);
+      const prevAria = state.prevAriaHidden.get(control);
+      if (prevAria === null || typeof prevAria === 'undefined') control.removeAttribute('aria-hidden');
+      else control.setAttribute('aria-hidden', prevAria);
+    }
+  });
+  if (isView) {
+    queueRadioGroupUpdate(name);
+  }
+}
+
+function getOptionLabel(option){
+  if (!option) return '';
+  const text = option.textContent || option.getAttribute('label');
+  return text ? text.trim().replace(/\s+/g, ' ') : option.value;
+}
+
+function describeValue(el){
+  if (!el) return '';
   if (el.tagName === 'SELECT') {
-    const wasDisabled = el.dataset.viewPrevDisabled === '1';
-    el.disabled = wasDisabled;
-    if (!wasDisabled) el.removeAttribute('disabled');
-    el.removeAttribute('aria-disabled');
-  } else if (el.tagName === 'TEXTAREA') {
-    const wasReadonly = el.dataset.viewPrevReadonly === '1';
-    el.readOnly = wasReadonly;
-    if (!wasReadonly) el.removeAttribute('readonly');
-    el.removeAttribute('aria-readonly');
-    if (el.dataset.viewPrevDisabled) {
-      const wasDisabled = el.dataset.viewPrevDisabled === '1';
-      el.disabled = wasDisabled;
-      if (!wasDisabled) el.removeAttribute('disabled');
+    const selected = Array.from(el.selectedOptions || []);
+    return selected.map(getOptionLabel).filter(Boolean);
+  }
+  const type = (el.getAttribute('type') || el.type || 'text').toLowerCase();
+  if (type === 'checkbox') {
+    return el.checked ? ['Yes'] : ['No'];
+  }
+  let raw = el.value != null ? String(el.value) : '';
+  raw = raw.trim();
+  if (!raw) return [];
+  if (type === 'number') {
+    const numeric = Number(raw.replace(/,/g, ''));
+    if (Number.isFinite(numeric)) {
+      return [numberFormatter.format(numeric)];
+    }
+  }
+  return [raw];
+}
+
+function updateFieldView(el){
+  const state = viewFieldRegistry.get(el);
+  if (!state) return;
+  const values = describeValue(el);
+  const isMulti = state.isMultiSelect;
+  const hasValue = values.length > 0 && values.some(Boolean);
+  if (isMulti && state.chipsContainer) {
+    state.chipsContainer.textContent = '';
+    if (hasValue) {
+      values.forEach(label => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = label;
+        state.chipsContainer.appendChild(chip);
+      });
     }
   } else {
-    const wasReadonly = el.dataset.viewPrevReadonly === '1';
-    const wasDisabled = el.dataset.viewPrevDisabled === '1';
-    el.readOnly = wasReadonly;
-    if (!wasReadonly) el.removeAttribute('readonly');
-    el.removeAttribute('aria-readonly');
-    el.disabled = wasDisabled;
-    if (!wasDisabled) el.removeAttribute('disabled');
+    state.textEl.textContent = hasValue ? values[0] : '';
   }
-  delete el.dataset.viewPrevReadonly;
-  delete el.dataset.viewPrevDisabled;
-  delete el.dataset.viewLocked;
+
+  const srValue = values.join(', ') || VIEW_EMPTY_PLACEHOLDER;
+  if (state.label) {
+    state.viewEl.setAttribute('aria-label', `${state.label}: ${srValue}`);
+  } else {
+    state.viewEl.setAttribute('aria-label', srValue);
+  }
+
+  if (state.isTextarea) {
+    const text = values.join('\n');
+    const trimmed = text.trim();
+    const lineCount = trimmed ? trimmed.split(/\r?\n/).length : 0;
+    const shouldClamp = lineCount > 6 || trimmed.length > 360;
+    if (shouldClamp) {
+      const expander = ensureExpander(state);
+      expander.hidden = false;
+      expander.textContent = state.expanded ? 'Show less' : 'Show more';
+      state.viewEl.dataset.clamped = 'true';
+      state.viewEl.dataset.expanded = state.expanded ? 'true' : 'false';
+    } else {
+      removeExpander(state);
+      delete state.viewEl.dataset.clamped;
+      delete state.viewEl.dataset.expanded;
+    }
+    state.textEl.textContent = trimmed;
+  }
+
+  if (hasValue) {
+    state.viewEl.dataset.empty = 'false';
+    state.placeholderEl.hidden = true;
+  } else {
+    state.viewEl.dataset.empty = 'true';
+    state.placeholderEl.hidden = false;
+  }
+}
+
+function findRadioLabel(control){
+  if (!control) return '';
+  const id = control.getAttribute('id');
+  if (id) {
+    try {
+      const label = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+      if (label) {
+        const clone = label.cloneNode(true);
+        clone.querySelectorAll('input,select,textarea,button').forEach(node => node.remove());
+        const text = clone.textContent.trim().replace(/\s+/g, ' ');
+        if (text) return text;
+      }
+    } catch {}
+  }
+  return control.value || '';
+}
+
+function updateRadioGroup(name){
+  const state = radioGroupRegistry.get(name);
+  if (!state) return;
+  const selected = state.controls.find(control => control.checked);
+  const label = selected ? findRadioLabel(selected) : '';
+  if (label) {
+    state.textEl.textContent = label;
+    state.placeholderEl.hidden = true;
+    state.viewEl.dataset.empty = 'false';
+  } else {
+    state.textEl.textContent = '';
+    state.placeholderEl.hidden = false;
+    state.viewEl.dataset.empty = 'true';
+  }
+  const srLabel = label || VIEW_EMPTY_PLACEHOLDER;
+  if (state.label) {
+    state.viewEl.setAttribute('aria-label', `${state.label}: ${srLabel}`);
+  } else {
+    state.viewEl.setAttribute('aria-label', srLabel);
+  }
 }
 
 function applyViewLockState(root=document){
   if (!root) return;
   const targets = new Set();
-  if (root.nodeType === Node.ELEMENT_NODE) {
-    const el = root;
-    if (['INPUT','SELECT','TEXTAREA'].includes(el.tagName)) targets.add(el);
+  if (root.nodeType === Node.ELEMENT_NODE && ['INPUT','SELECT','TEXTAREA'].includes(root.tagName)) {
+    targets.add(root);
   }
   const scope = (root && typeof root.querySelectorAll === 'function') ? root : document;
-  qsa('input,select,textarea', scope).forEach(el => targets.add(el));
+  scope.querySelectorAll('input,select,textarea').forEach(el => targets.add(el));
   targets.forEach(el => {
-    if (viewMode) lockViewElement(el);
-    else unlockViewElement(el);
+    if (!shouldTransformElement(el)) return;
+    ensureFieldView(el);
+    syncFieldMode(el);
   });
+  radioGroupRegistry.forEach((_, name) => syncRadioGroup(name));
 }
 
-function syncViewModeButton(){
-  if (!viewModeButton) return;
-  viewModeButton.setAttribute('aria-pressed', viewMode ? 'true' : 'false');
-  viewModeButton.textContent = viewMode ? 'Edit Mode' : 'View Mode';
-  viewModeButton.setAttribute('title', viewMode ? 'Switch to Edit Mode' : 'Switch to View Mode');
+function syncModeButtons(){
+  const isView = mode === 'view';
+  const label = isView ? 'Switch to Edit Mode' : 'Switch to View Mode';
+  if (modeSwitchButton) {
+    modeSwitchButton.textContent = isView ? 'Switch to Edit' : 'Switch to View';
+    modeSwitchButton.setAttribute('aria-pressed', isView ? 'true' : 'false');
+    modeSwitchButton.setAttribute('title', label);
+  }
+  if (menuModeButton) {
+    menuModeButton.textContent = isView ? 'Edit Mode' : 'View Mode';
+    menuModeButton.setAttribute('aria-pressed', isView ? 'true' : 'false');
+    menuModeButton.setAttribute('title', label);
+  }
 }
 
-function setViewMode(enabled, { skipPersist = false } = {}){
-  const next = !!enabled;
-  const changed = viewMode !== next;
-  viewMode = next;
-  if (document.body) document.body.classList.toggle('is-view-mode', viewMode);
-  if (viewMode && document.activeElement && shouldLockElement(document.activeElement)) {
+function ensureModeLiveRegion(){
+  if (modeLiveRegion && modeLiveRegion.isConnected) return modeLiveRegion;
+  const region = document.createElement('div');
+  region.className = 'sr-only';
+  region.setAttribute('aria-live', 'polite');
+  region.setAttribute('aria-atomic', 'true');
+  const header = document.querySelector('header');
+  (header || document.body || document.documentElement).appendChild(region);
+  modeLiveRegion = region;
+  return modeLiveRegion;
+}
+
+function announceModeChange(){
+  const region = ensureModeLiveRegion();
+  if (!region) return;
+  region.textContent = mode === 'view' ? 'View Mode' : 'Edit Mode';
+}
+
+function setMode(nextMode, { skipPersist = false } = {}){
+  const normalized = nextMode === 'view' ? 'view' : 'edit';
+  const changed = mode !== normalized;
+  mode = normalized;
+  const rootEl = ensureModeRoot();
+  if (rootEl) {
+    rootEl.dataset.mode = mode;
+    rootEl.classList.toggle('view-mode', mode === 'view');
+  }
+  if (document.body) {
+    document.body.classList.toggle('is-view-mode', mode === 'view');
+  }
+  if (mode === 'view' && document.activeElement && shouldTransformElement(document.activeElement)) {
     document.activeElement.blur();
   }
   applyViewLockState();
-  syncViewModeButton();
-  if (!skipPersist && changed) {
-    try { localStorage.setItem('view-mode', viewMode ? '1' : '0'); } catch (e) {}
+  syncModeButtons();
+  if (changed) {
+    announceModeChange();
+  }
+  if (!skipPersist) {
+    try { localStorage.setItem('view-mode', mode); } catch {}
+  }
+  if (changed) {
+    viewModeListeners.forEach(listener => {
+      try { listener(mode); } catch (err) { console.error(err); }
+    });
   }
 }
 
-viewModeButton = $('btn-view-mode');
-let storedViewMode = false;
-try { storedViewMode = localStorage.getItem('view-mode') === '1'; } catch (e) {}
-setViewMode(storedViewMode, { skipPersist: true });
-if (viewModeButton) {
-  viewModeButton.addEventListener('click', () => setViewMode(!viewMode));
+function toggleMode(){
+  setMode(mode === 'view' ? 'edit' : 'view');
 }
+
+function useViewMode(listener){
+  if (typeof listener === 'function') {
+    viewModeListeners.add(listener);
+    try { listener(mode); } catch (err) { console.error(err); }
+    return () => viewModeListeners.delete(listener);
+  }
+  return mode;
+}
+
+patchValueAccessors();
+modeSwitchButton = qs('[data-mode-switch]');
+menuModeButton = $('btn-view-mode');
+if (modeSwitchButton) modeSwitchButton.addEventListener('click', toggleMode);
+if (menuModeButton) menuModeButton.addEventListener('click', toggleMode);
+
+let storedMode = 'edit';
+try {
+  const raw = localStorage.getItem('view-mode');
+  if (raw === '1' || raw === 'view') storedMode = 'view';
+  else if (raw === '0' || raw === 'edit') storedMode = 'edit';
+} catch {}
+setMode(storedMode, { skipPersist: true });
+
+window.setMode = setMode;
+window.useViewMode = useViewMode;
 
 /* ========= viewport ========= */
 function setVh(){
@@ -5341,7 +5789,7 @@ if(newCharBtn){
     setCurrentCharacter(clean);
     syncMiniGamePlayerName();
     deserialize(DEFAULT_STATE);
-    setViewMode(false);
+    setMode('edit');
     hide('modal-load-list');
     toast(`Switched to ${clean}`,'success');
   });
@@ -5376,7 +5824,7 @@ async function doLoad(){
       ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
       : await loadCharacter(pendingLoad.name);
     deserialize(data);
-    setViewMode(true);
+    setMode('view');
     setCurrentCharacter(pendingLoad.name);
     syncMiniGamePlayerName();
     hide('modal-load');
@@ -5411,7 +5859,7 @@ if (autoChar) {
       syncMiniGamePlayerName();
       const data = await loadCharacter(autoChar);
       deserialize(data);
-      setViewMode(true);
+      setMode('view');
     } catch (e) {
       console.error('Failed to load character from URL', e);
     } finally {
@@ -8094,7 +8542,7 @@ function createPowerCard(pref = {}, options = {}) {
   });
 
   updatePowerCardDerived(card);
-  if (viewMode) applyViewLockState(card);
+  if (mode === 'view') applyViewLockState(card);
   return card;
 }
 
@@ -8557,7 +9005,7 @@ function createCard(kind, pref = {}) {
     }
     markHammerspaceState(card);
   }
-  if (viewMode) applyViewLockState(card);
+  if (mode === 'view') applyViewLockState(card);
   return card;
 }
 
@@ -9745,7 +10193,7 @@ function deserialize(data){
   updateDerived();
   updateFactionRep(handlePerkEffects);
   updateCreditsDisplay();
-  if (viewMode) applyViewLockState();
+  if (mode === 'view') applyViewLockState();
 }
 
 /* ========= autosave + history ========= */
