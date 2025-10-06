@@ -6055,6 +6055,15 @@ function updatePowerCardDerived(card) {
   if (elements.saveAbilityField?.wrapper) {
     elements.saveAbilityField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
   }
+  if (elements.saveBonusField?.wrapper) {
+    elements.saveBonusField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
+  }
+  if (elements.saveBonusInput) {
+    elements.saveBonusInput.disabled = !power.requiresSave;
+  }
+  if (elements.saveDcField?.wrapper) {
+    elements.saveDcField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
+  }
   const saveSuggestions = EFFECT_SAVE_SUGGESTIONS[power.effectTag] || [];
   const recommendedSave = saveSuggestions[0] || 'WIS';
   if (power.requiresSave) {
@@ -6092,6 +6101,9 @@ function updatePowerCardDerived(card) {
 
   if (elements.saveDcOutput) {
     elements.saveDcOutput.value = power.requiresSave ? computeSaveDc(settings) : '';
+  }
+  if (elements.saveResult) {
+    elements.saveResult.style.display = power.requiresSave ? '' : 'none';
   }
   if (elements.spHint) {
     const parts = [`Suggested: ${suggestedSp} SP`];
@@ -6612,13 +6624,13 @@ function createPowerCard(pref = {}, options = {}) {
   const requiresSaveToggle = document.createElement('input');
   requiresSaveToggle.type = 'checkbox';
   requiresSaveToggle.checked = power.requiresSave;
-  requiresSaveLabel.append(requiresSaveToggle, document.createTextNode(' Requires Save'));
+  requiresSaveLabel.append(requiresSaveToggle, document.createTextNode(' Save Required'));
   requiresSaveWrap.appendChild(requiresSaveLabel);
   saveRow.appendChild(requiresSaveWrap);
 
   const saveAbilitySelect = document.createElement('select');
   setSelectOptions(saveAbilitySelect, POWER_SAVE_ABILITIES, power.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
-  const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { flex: '1', minWidth: '120px' });
+  const saveAbilityField = createFieldContainer('Save Ability (target rolls)', saveAbilitySelect, { flex: '1', minWidth: '120px' });
   const saveAbilityHint = document.createElement('div');
   saveAbilityHint.style.fontSize = '12px';
   saveAbilityHint.style.opacity = '0.8';
@@ -6747,7 +6759,7 @@ function createPowerCard(pref = {}, options = {}) {
   specialArea.placeholder = 'Special Rider / Notes';
   specialArea.value = power.special || '';
   specialArea.style.resize = 'vertical';
-  const specialField = createFieldContainer('Special', specialArea, { flex: '1', minWidth: '100%' });
+  const specialField = createFieldContainer('Special Text', specialArea, { flex: '1', minWidth: '100%' });
   card.appendChild(specialField.wrapper);
 
   const derivedRow = document.createElement('div');
@@ -6760,7 +6772,7 @@ function createPowerCard(pref = {}, options = {}) {
   saveDcInput.type = 'number';
   saveDcInput.readOnly = true;
   saveDcInput.placeholder = '—';
-  const saveDcField = createFieldContainer('Computed Save DC', saveDcInput, { flex: '0 0 160px', minWidth: '140px' });
+  const saveDcField = createFieldContainer('Power Save DC', saveDcInput, { flex: '0 0 160px', minWidth: '140px' });
   derivedRow.appendChild(saveDcField.wrapper);
 
   const rulesPreview = document.createElement('div');
@@ -7004,6 +7016,7 @@ function createPowerCard(pref = {}, options = {}) {
   elements.saveAbilityHint = saveAbilityHint;
   elements.saveBonusInput = saveBonusInput;
   elements.saveAbilityField = saveAbilityField;
+  elements.saveBonusField = saveBonusField;
   elements.durationSelect = durationSelect;
   elements.concentrationToggle = concentrationToggle;
   elements.concentrationHint = concentrationHint;
@@ -7021,6 +7034,7 @@ function createPowerCard(pref = {}, options = {}) {
   elements.damageSaveHint = damageSaveHint;
   elements.damageSection = damageSection;
   elements.saveDcOutput = saveDcInput;
+  elements.saveDcField = saveDcField;
   elements.rulesPreview = rulesPreview;
   elements.messageArea = messageArea;
   elements.concentrationPrompt = concentrationPrompt;
