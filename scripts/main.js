@@ -6954,16 +6954,88 @@ function handleDeletePower(card) {
   pushHistory();
 }
 
+function createPowerEditorOverlay() {
+  if (typeof document === 'undefined') return null;
+  if (document.getElementById('modal-power-editor')) {
+    return document.getElementById('modal-power-editor');
+  }
+  const body = document.body;
+  if (!body) return null;
+  const overlay = document.createElement('div');
+  overlay.id = 'modal-power-editor';
+  overlay.className = 'overlay hidden';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.setAttribute('data-modal-static', '');
+  overlay.style.display = 'none';
+
+  const modal = document.createElement('div');
+  modal.className = 'modal modal-power-editor';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'power-editor-title');
+  modal.tabIndex = -1;
+
+  const dismissButton = document.createElement('button');
+  dismissButton.type = 'button';
+  dismissButton.className = 'x';
+  dismissButton.setAttribute('aria-label', 'Close');
+  dismissButton.setAttribute('data-power-editor-dismiss', '');
+  dismissButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
+
+  const title = document.createElement('h3');
+  title.id = 'power-editor-title';
+  title.textContent = 'Edit Power';
+
+  const content = document.createElement('div');
+  content.className = 'power-editor__content';
+  content.setAttribute('data-role', 'power-editor-content');
+
+  const actions = document.createElement('div');
+  actions.className = 'actions power-editor__actions';
+
+  const cancelButton = document.createElement('button');
+  cancelButton.type = 'button';
+  cancelButton.className = 'btn-sm';
+  cancelButton.setAttribute('data-power-editor-cancel', '');
+  cancelButton.textContent = 'Cancel';
+
+  const saveButton = document.createElement('button');
+  saveButton.type = 'button';
+  saveButton.className = 'btn-sm btn-primary';
+  saveButton.setAttribute('data-power-editor-save', '');
+  saveButton.textContent = 'Save';
+
+  actions.append(cancelButton, saveButton);
+  modal.append(dismissButton, title, content, actions);
+  overlay.appendChild(modal);
+  body.appendChild(overlay);
+  return overlay;
+}
+
 function ensurePowerEditorElements() {
   if (powerEditorState.overlay) return true;
-  const overlay = $('modal-power-editor');
+  let overlay = $('modal-power-editor');
+  if (!overlay) {
+    overlay = createPowerEditorOverlay();
+  }
   if (!overlay) return false;
-  const modal = overlay.querySelector('.modal-power-editor');
-  const content = overlay.querySelector('[data-role="power-editor-content"]');
-  const title = overlay.querySelector('#power-editor-title');
-  const saveButton = overlay.querySelector('[data-power-editor-save]');
-  const cancelButton = overlay.querySelector('[data-power-editor-cancel]');
-  if (!modal || !content || !title || !saveButton || !cancelButton) return false;
+  let modal = overlay.querySelector('.modal-power-editor');
+  let content = overlay.querySelector('[data-role="power-editor-content"]');
+  let title = overlay.querySelector('#power-editor-title');
+  let saveButton = overlay.querySelector('[data-power-editor-save]');
+  let cancelButton = overlay.querySelector('[data-power-editor-cancel]');
+  if (!modal || !content || !title || !saveButton || !cancelButton) {
+    try {
+      overlay.parentNode?.removeChild(overlay);
+    } catch (err) {}
+    overlay = createPowerEditorOverlay();
+    modal = overlay ? overlay.querySelector('.modal-power-editor') : null;
+    content = overlay ? overlay.querySelector('[data-role="power-editor-content"]') : null;
+    title = overlay ? overlay.querySelector('#power-editor-title') : null;
+    saveButton = overlay ? overlay.querySelector('[data-power-editor-save]') : null;
+    cancelButton = overlay ? overlay.querySelector('[data-power-editor-cancel]') : null;
+  }
+  if (!overlay || !modal || !content || !title || !saveButton || !cancelButton) return false;
   powerEditorState.overlay = overlay;
   powerEditorState.modal = modal;
   powerEditorState.content = content;
