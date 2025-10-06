@@ -54,6 +54,19 @@ function renderHeaderTitle() {
   const titleEl = document.querySelector('.tabs-title');
   if (!titleEl) return;
 
+  const headerRow = titleEl.closest('.top');
+  if (headerRow) {
+    const logoButton = headerRow.querySelector('.logo-button');
+    const menuContainer = headerRow.querySelector('.dropdown');
+    if (logoButton && menuContainer) {
+      if (logoButton.nextElementSibling !== titleEl) {
+        headerRow.insertBefore(titleEl, menuContainer);
+      } else if (titleEl.nextElementSibling !== menuContainer) {
+        headerRow.insertBefore(menuContainer, titleEl.nextSibling);
+      }
+    }
+  }
+
   const textNodes = Array.from(titleEl.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
   textNodes.forEach(node => titleEl.removeChild(node));
 
@@ -67,6 +80,13 @@ function renderHeaderTitle() {
   const logo = titleEl.querySelector('.logo');
   if (logo && logo.nextSibling !== mountNode) {
     titleEl.insertBefore(mountNode, logo.nextSibling);
+  }
+
+  if (!logo) {
+    const themeButton = headerRow?.querySelector('.logo-button');
+    if (themeButton && themeButton.nextElementSibling === titleEl && titleEl.firstChild !== mountNode) {
+      titleEl.appendChild(mountNode);
+    }
   }
 
   if (!rootInstance) {
