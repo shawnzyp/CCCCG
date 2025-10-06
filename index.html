@@ -257,14 +257,18 @@
       <div class="roll-tools">
         <div class="roll-tools__panel">
           <h3 class="roll-tools__heading">Dice Roll</h3>
-          <span class="pill result" id="dice-out" data-placeholder="000"></span>
-          <div class="inline">
-            <label for="dice-sides" class="sr-only">Sides</label>
-            <select id="dice-sides" data-view-allow>
-              <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
-            </select>
-            <label for="dice-count" class="sr-only">Count</label>
-            <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
+          <div class="dice-roll-grid">
+            <span class="pill result" id="dice-out" data-placeholder="000"></span>
+            <div class="dice-roll-grid__field">
+              <label for="dice-sides" class="sr-only">Sides</label>
+              <select id="dice-sides" data-view-allow>
+                <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
+              </select>
+            </div>
+            <div class="dice-roll-grid__field">
+              <label for="dice-count" class="sr-only">Count</label>
+              <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
+            </div>
             <button id="roll-dice" class="btn-sm">Roll</button>
           </div>
         </div>
