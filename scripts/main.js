@@ -3738,6 +3738,8 @@ const elTier = $('tier');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
+const elDeathSaveReset = $('death-save-reset');
+let deathState = null; // null, 'stable', 'dead'
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
 
@@ -3902,15 +3904,59 @@ function updateSP(){
   elSPPill.textContent = `${num(elSPBar.value)}/${spMax}` + (temp ? ` (+${temp})` : ``);
 }
 
-function updateDeathSaveAvailability(){
+function hideDeathSavesCard(){
   if(!elDeathSaves) return;
-  const atZero = num(elHPBar.value) === 0;
-  elDeathSaves.disabled = !atZero;
-  if (atZero) {
-    elDeathSaves.removeAttribute('hidden');
+  elDeathSaves.setAttribute('hidden','');
+  elDeathSaves.setAttribute('aria-hidden','true');
+  elDeathSaves.disabled = true;
+  if ('inert' in elDeathSaves) {
+    elDeathSaves.inert = true;
   } else {
-    elDeathSaves.setAttribute('hidden', '');
+    elDeathSaves.setAttribute('inert','');
   }
+}
+
+function showDeathSavesCard(){
+  if(!elDeathSaves) return;
+  elDeathSaves.removeAttribute('hidden');
+  elDeathSaves.removeAttribute('aria-hidden');
+  elDeathSaves.disabled = false;
+  if ('inert' in elDeathSaves) {
+    elDeathSaves.inert = false;
+  } else {
+    elDeathSaves.removeAttribute('inert');
+  }
+}
+
+function canResetDeathSaves(){
+  if(!elHPBar) return false;
+  if(num(elHPBar.value) > 0) return true;
+  return deathState === 'dead' || deathState === 'stable';
+}
+
+function updateDeathSaveResetState(){
+  if(!elDeathSaveReset) return;
+  elDeathSaveReset.disabled = !canResetDeathSaves();
+}
+
+function updateDeathSaveAvailability(){
+  if(!elDeathSaves || !elHPBar) return;
+  const atZero = num(elHPBar.value) === 0;
+  if (atZero) {
+    showDeathSavesCard();
+  } else {
+    hideDeathSavesCard();
+  }
+  updateDeathSaveResetState();
+}
+
+if (elDeathSaves) {
+  if (elDeathSaves.hasAttribute('hidden') || elDeathSaves.hidden) {
+    hideDeathSavesCard();
+  } else {
+    showDeathSavesCard();
+  }
+  updateDeathSaveResetState();
 }
 
 function updateHP(){
@@ -3923,7 +3969,7 @@ function updateHP(){
   elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
   updateDeathSaveAvailability();
   if(num(elHPBar.value) > 0){
-    try { resetDeathSaves(); } catch {}
+    try { resetDeathSaves(true); } catch {}
   }
 }
 
@@ -4039,6 +4085,8 @@ $('xp-submit').addEventListener('click', ()=>{
   setXP(num(elXP.value) + (mode==='add'? amt : -amt));
 });
 
+queueMicrotask(() => updateDerived());
+
 function updateCreditsDisplay(){
   if (elCreditsPill) elCreditsPill.textContent = num(elCredits.value)||0;
 }
@@ -4084,7 +4132,7 @@ function setHP(v){
     logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
   }
   if(num(elHPBar.value) > 0){
-    try { resetDeathSaves(); } catch {}
+    try { resetDeathSaves(true); } catch {}
   }
   return prev > 0 && num(elHPBar.value) === 0;
 }
@@ -4904,7 +4952,6 @@ function playLoadAnimation(){
 const deathSuccesses = ['death-success-1','death-success-2','death-success-3'].map(id=>$(id));
 const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(id));
 const deathOut = $('death-save-out');
-let deathState = null; // null, 'stable', 'dead'
 
 function markBoxes(arr, n){
   for(const box of arr){
@@ -4916,12 +4963,20 @@ function markBoxes(arr, n){
   }
 }
 
-function resetDeathSaves(){
+function resetDeathSaves(force = false){
+  if(!force && !canResetDeathSaves()){
+    try {
+      toast('Resolve your death saves before resetting.', 'info');
+    } catch {}
+    return false;
+  }
   [...deathSuccesses, ...deathFailures].forEach(b=> b.checked=false);
   deathState=null;
   if(deathOut) deathOut.textContent='';
+  updateDeathSaveResetState();
+  return true;
 }
-$('death-save-reset')?.addEventListener('click', resetDeathSaves);
+$('death-save-reset')?.addEventListener('click', ()=> resetDeathSaves());
 
 async function checkDeathProgress(){
   if(deathFailures.every(b=>b.checked)){
@@ -4940,6 +4995,7 @@ async function checkDeathProgress(){
   }else{
     deathState=null;
   }
+  updateDeathSaveResetState();
 }
 [...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
 
@@ -4949,7 +5005,7 @@ $('roll-death-save')?.addEventListener('click', ()=>{
     baseBonuses: [],
     onRoll: ({ roll, total }) => {
       if (roll === 20) {
-        resetDeathSaves();
+        resetDeathSaves(true);
         toast('Critical success! You regain 1 HP and awaken.', 'success');
         logAction('Death save critical success: regain 1 HP and awaken.');
         return;
