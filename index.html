@@ -1193,6 +1193,22 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="modal-power-editor" aria-hidden="true" data-modal-static>
+  <div class="modal modal-power-editor" role="dialog" aria-modal="true" aria-labelledby="power-editor-title" tabindex="-1">
+    <button class="x" type="button" data-power-editor-dismiss aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3 id="power-editor-title">Edit Power</h3>
+    <div class="power-editor__content" data-role="power-editor-content"></div>
+    <div class="actions power-editor__actions">
+      <button class="btn-sm" type="button" data-power-editor-cancel>Cancel</button>
+      <button class="btn-sm btn-primary" type="button" data-power-editor-save>Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- RULES -->
 <div class="overlay hidden" id="modal-rules" aria-hidden="true">
   <div class="modal modal-rules" role="dialog" aria-modal="true" aria-label="Rules Help" tabindex="-1">
