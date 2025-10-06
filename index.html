@@ -231,29 +231,42 @@
 
     <h2 class="card-title">Combat</h2>
 
-    <div class="grid grid-2 roll-flip-grid">
-      <fieldset class="card">
-        <legend data-animate-title>Dice Roll</legend>
-        <span class="pill result" id="dice-out" data-placeholder="000"></span>
-        <div class="inline">
-          <label for="dice-sides" class="sr-only">Sides</label>
-          <select id="dice-sides" data-view-allow>
-            <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
-          </select>
-          <label for="dice-count" class="sr-only">Count</label>
-          <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
-          <button id="roll-dice" class="btn-sm">Roll</button>
+    <fieldset class="card roll-tools-card">
+      <legend data-animate-title>Dice, Coin &amp; Initiative</legend>
+      <div class="roll-tools">
+        <div class="roll-tools__panel">
+          <h3 class="roll-tools__heading">Dice Roll</h3>
+          <span class="pill result" id="dice-out" data-placeholder="000"></span>
+          <div class="inline">
+            <label for="dice-sides" class="sr-only">Sides</label>
+            <select id="dice-sides" data-view-allow>
+              <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
+            </select>
+            <label for="dice-count" class="sr-only">Count</label>
+            <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
+            <button id="roll-dice" class="btn-sm">Roll</button>
+          </div>
         </div>
-      </fieldset>
-      <fieldset class="card">
-        <legend data-animate-title>Coin Flip</legend>
-        <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
-        <div class="inline">
-          <button id="flip" class="btn-sm">Flip</button>
+        <div class="roll-tools__panel">
+          <h3 class="roll-tools__heading">Coin Flip</h3>
+          <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
+          <div class="inline">
+            <button id="flip" class="btn-sm">Flip</button>
+          </div>
         </div>
-      </fieldset>
-    </div>
-    <fieldset id="death-saves" class="card" disabled>
+      </div>
+      <div class="roll-tools__initiative">
+        <div class="initiative-field">
+          <label for="initiative">Initiative</label>
+          <div class="initiative-controls">
+            <input id="initiative" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="auto from DEX + bonuses" readonly/>
+            <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
+          </div>
+          <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
+        </div>
+      </div>
+    </fieldset>
+    <fieldset id="death-saves" class="card" hidden disabled>
       <legend data-animate-title>Death Saves</legend>
       <div class="death-saves-grid">
         <div class="death-save-tracks">
@@ -286,32 +299,36 @@
     <div class="grid grid-1">
       <fieldset class="card hp-field">
         <legend data-animate-title>HP</legend>
-          <input id="hp-roll" type="hidden" value="0"/>
-          <div class="inline">
-            <div class="bar-label">
-              <progress id="hp-bar" max="30" value="30"></progress>
-              <span id="hp-pill">30/30</span>
-            </div>
+        <button type="button" class="card-caret" id="hp-settings-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="modal-hp-settings">
+          <span class="sr-only">Open HP options</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 8l4 4 4-4"/>
+          </svg>
+        </button>
+        <input id="hp-roll" type="hidden" value="0"/>
+        <div class="inline">
+          <div class="bar-label">
+            <progress id="hp-bar" max="30" value="30"></progress>
+            <span id="hp-pill">30/30</span>
           </div>
-          <div class="inline">
-            <label for="hp-temp" class="sr-only">Temp HP</label>
-            <input id="hp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
-            <button id="hp-roll-add" class="btn-sm" type="button">Tier HP</button>
-          </div>
-          <div class="inline">
-            <label for="hp-amt" class="sr-only">Amount</label>
-            <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-          </div>
-          <div class="inline">
-            <button id="hp-dmg" class="btn-sm">Damage</button>
-            <button id="hp-heal" class="btn-sm">Heal</button>
-          </div>
-          <div class="inline">
-            <button id="hp-full" class="btn-sm">Reset HP</button>
-          </div>
+        </div>
+        <div class="inline">
+          <label for="hp-amt" class="sr-only">Amount</label>
+          <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
+        </div>
+        <div class="inline">
+          <button id="hp-dmg" class="btn-sm">Damage</button>
+          <button id="hp-heal" class="btn-sm">Heal</button>
+        </div>
       </fieldset>
       <fieldset class="card sp-field">
         <legend data-animate-title>SP</legend>
+        <button type="button" class="card-caret" id="sp-menu-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="sp-menu">
+          <span class="sr-only">Open SP options</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 8l4 4 4-4"/>
+          </svg>
+        </button>
         <div class="inline">
           <div class="bar-label">
             <progress id="sp-bar" max="5" value="5"></progress>
@@ -328,7 +345,9 @@
           <button class="btn-sm" data-sp="-5">-5 SP</button>
           <button id="sp-full" class="btn-sm">Reset SP</button>
         </div>
-        <button id="long-rest" class="btn-sm">Long Rest</button>
+        <div id="sp-menu" class="card-menu" role="menu" hidden>
+          <button id="long-rest" class="card-menu__item" role="menuitem" type="button">Long Rest</button>
+        </div>
       </fieldset>
       <fieldset class="card cap-field">
         <legend data-animate-title>Cinematic Action Point</legend>
@@ -346,24 +365,16 @@
     <div class="grid grid-1">
       <fieldset class="card">
         <legend data-animate-title>Stats and Effects</legend>
-        <div class="stats-grid">
-          <div class="initiative-field">
-            <label for="initiative">Initiative</label>
-            <div class="initiative-controls">
-              <input id="initiative" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="auto from DEX + bonuses" readonly/>
-              <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
-            </div>
-            <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
-          </div>
-          <div>
+        <div class="stat-trio">
+          <div class="stat-trio__item">
             <label for="speed">Speed (ft)</label>
             <input id="speed" type="number" inputmode="numeric" pattern="[0-9]*" placeholder="30"/>
           </div>
-          <div>
+          <div class="stat-trio__item">
             <label for="pp">Passive Perception</label>
             <input id="pp" type="number" inputmode="numeric" pattern="[0-9]*" readonly/>
           </div>
-          <div>
+          <div class="stat-trio__item">
             <label for="tc">TC</label>
             <input id="tc" type="number" inputmode="numeric" pattern="[0-9]*" readonly/>
           </div>
@@ -440,60 +451,52 @@
     <div id="abil-grid" class="grid ability-grid"></div>
     <fieldset class="card">
       <legend data-animate-title>Proficiency and Power</legend>
-      <div class="inline" style="flex-wrap:wrap;gap:12px">
-        <div style="flex:1;min-width:160px">
+      <div class="proficiency-card__grid">
+        <div class="proficiency-card__field">
           <label for="prof-bonus">Proficiency Bonus</label>
           <input id="prof-bonus" type="number" inputmode="numeric" pattern="[0-9]*" value="2" readonly/>
         </div>
-        <div style="flex:1;min-width:200px">
-          <label data-animate-title>Save DC Formula</label>
-          <div class="inline" style="gap:8px">
-            <label class="inline" style="gap:4px">
-              <input type="radio" name="power-dc-mode" id="power-dc-mode-simple" value="Simple"/>
-              <span>Simple</span>
-            </label>
-            <label class="inline" style="gap:4px">
-              <input type="radio" name="power-dc-mode" id="power-dc-mode-proficiency" value="Proficiency" checked/>
-              <span>Proficiency</span>
-            </label>
-          </div>
-          <input id="power-dc-formula" type="hidden" value="Proficiency"/>
-        </div>
-        <div style="flex:1;min-width:160px">
+        <div class="proficiency-card__field">
           <label for="power-save-ability">Power Save Ability</label>
           <select id="power-save-ability">
             <option value="str">STR</option><option value="dex">DEX</option><option value="con">CON</option>
             <option value="int">INT</option><option value="wis" selected>WIS</option><option value="cha">CHA</option>
           </select>
         </div>
-        <div style="flex:1;min-width:160px">
-          <label for="power-save-dc">Power Save DC</label>
+      </div>
+      <div class="proficiency-card__hidden" aria-hidden="true">
+        <input id="power-dc-formula" type="hidden" value="Proficiency"/>
+        <div hidden>
+          <label data-animate-title class="sr-only" for="power-save-dc">Power Save DC</label>
           <input id="power-save-dc" type="number" inputmode="numeric" pattern="[0-9]*" readonly/>
         </div>
-        <div style="flex:1;min-width:160px">
-          <label for="power-range-unit">Default Range Unit</label>
+        <div hidden>
+          <label class="sr-only" for="power-range-unit">Default Range Unit</label>
           <select id="power-range-unit">
             <option value="feet" selected>Feet</option>
             <option value="narrative">Narrative</option>
           </select>
         </div>
-        <div style="flex:1;min-width:200px">
-          <label for="power-suggestion-strength">Auto-Suggestion Strength</label>
+        <div hidden>
+          <label class="sr-only" for="power-suggestion-strength">Auto-Suggestion Strength</label>
           <select id="power-suggestion-strength">
             <option value="off">Off</option>
             <option value="conservative" selected>Conservative</option>
             <option value="assertive">Assertive</option>
           </select>
         </div>
-        <div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:6px">
-          <label class="inline" style="gap:6px">
-            <input type="checkbox" id="power-range-metric"/>
-            <span>Show metric ranges</span>
-          </label>
-          <label class="inline" style="gap:6px">
-            <input type="checkbox" id="power-text-compact"/>
-            <span>Use compact rules text</span>
-          </label>
+        <div hidden>
+          <label class="sr-only" for="power-range-metric">Show metric ranges</label>
+          <input type="checkbox" id="power-range-metric"/>
+        </div>
+        <div hidden>
+          <label class="sr-only" for="power-text-compact">Use compact rules text</label>
+          <input type="checkbox" id="power-text-compact"/>
+        </div>
+        <div hidden>
+          <label class="sr-only" for="power-dc-mode-simple">Save DC Formula</label>
+          <input type="radio" name="power-dc-mode" id="power-dc-mode-simple" value="Simple"/>
+          <input type="radio" name="power-dc-mode" id="power-dc-mode-proficiency" value="Proficiency" checked/>
         </div>
       </div>
     </fieldset>
@@ -1056,20 +1059,29 @@
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-hp-roll" aria-hidden="true">
+<div class="overlay hidden" id="modal-hp-settings" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Tier HP</h3>
-    <label for="hp-roll-input" class="sr-only">Tier HP Bonus</label>
-    <input id="hp-roll-input" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Tier HP Bonus"/>
-    <ul id="hp-roll-list"></ul>
-    <div class="actions">
-      <button id="hp-roll-save" class="btn-sm">Add</button>
-      <button class="btn-sm" data-close>Cancel</button>
+    <h3>HP Options</h3>
+    <div class="hp-settings__section">
+      <label for="hp-temp">Temporary HP</label>
+      <input id="hp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
+    </div>
+    <div class="hp-settings__section">
+      <label for="hp-roll-input">Tier HP Bonus</label>
+      <div class="hp-settings__row">
+        <input id="hp-roll-input" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Tier HP Bonus"/>
+        <button id="hp-roll-save" class="btn-sm" type="button">Add</button>
+      </div>
+      <ul id="hp-roll-list"></ul>
+    </div>
+    <div class="actions hp-settings__actions">
+      <button id="hp-full" class="btn-sm">Reset HP</button>
+      <button class="btn-sm" data-close>Close</button>
     </div>
   </div>
 </div>
