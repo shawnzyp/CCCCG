@@ -1670,6 +1670,15 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
   line-height:1.2;
 }
 
+#saves{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,28vw,150px),1fr))}
+#saves .ability-box label,
+#saves .ability-box .ability-label{
+  font-size:0.8rem;
+  text-align:center;
+  white-space:normal;
+  line-height:1.2;
+}
+
 .ability-box .score{
   position:relative;
   width:100%;
