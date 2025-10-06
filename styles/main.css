@@ -1076,6 +1076,14 @@ button .btn-label{display:inline-flex;align-items:center}
   .inline>progress{flex:none;width:100%}
 }
 
+.hp-field{
+  --hp-settings-button-size:clamp(28px,6vw,34px);
+}
+
+.hp-field .card-caret{z-index:2}
+
+.hp-field .inline:first-of-type{padding-right:calc(var(--hp-settings-button-size) + var(--card-padding,8px))}
+
 @media(max-width:600px){
   .hp-field .inline,
   .sp-field .inline{
