@@ -389,7 +389,38 @@ label[data-animate-title]{
   color:var(--muted);
 }
 
-.tabs .tab{justify-self:center}
+.tabs .tab{
+  justify-self:center;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:calc(4px * 1.15);
+  padding:clamp(6px,2.4vw,12px) clamp(10px,4vw,18px);
+  min-width:calc(var(--icon-size) * 2.6);
+  min-height:calc(var(--icon-size) * 2.8);
+  height:auto;
+  text-align:center;
+  line-height:1.2;
+  font-size:clamp(.7rem,2.8vw,.9rem);
+  font-weight:600;
+}
+
+.tabs .tab .tab__icon{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.tabs .tab .tab__icon svg{
+  width:var(--icon-size);
+  height:var(--icon-size);
+}
+
+.tabs .tab .tab__label{
+  display:block;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+}
 
 .tab.active{background:var(--accent);color:var(--text-on-accent)}
 .news-ticker{
