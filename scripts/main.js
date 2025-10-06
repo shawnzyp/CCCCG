@@ -1609,7 +1609,7 @@ document.addEventListener('click', e=>{
 
 /* ========= view mode ========= */
 const VIEW_LOCK_SKIP_TYPES = new Set(['button','submit','reset','file','color','range','hidden','image']);
-const VIEW_EMPTY_PLACEHOLDER = '—';
+const VIEW_EMPTY_PLACEHOLDER = '';
 const VIEW_EMPTY_LABEL = 'Empty value';
 const viewFieldRegistry = new Map();
 const radioGroupRegistry = new Map();
@@ -1716,7 +1716,15 @@ function createFieldViewElements(){
 
   const placeholderEl = document.createElement('span');
   placeholderEl.className = 'field-value__placeholder';
-  placeholderEl.textContent = VIEW_EMPTY_PLACEHOLDER;
+  if (VIEW_EMPTY_PLACEHOLDER) {
+    placeholderEl.textContent = VIEW_EMPTY_PLACEHOLDER;
+  } else {
+    placeholderEl.textContent = '';
+    const srText = document.createElement('span');
+    srText.className = 'sr-only';
+    srText.textContent = VIEW_EMPTY_LABEL;
+    placeholderEl.appendChild(srText);
+  }
   placeholderEl.setAttribute('aria-label', VIEW_EMPTY_LABEL);
   viewEl.appendChild(placeholderEl);
 
@@ -1997,7 +2005,7 @@ function updateFieldView(el){
     state.textEl.textContent = hasValue ? values[0] : '';
   }
 
-  const srValue = values.join(', ') || VIEW_EMPTY_PLACEHOLDER;
+  const srValue = values.join(', ') || VIEW_EMPTY_LABEL;
   if (state.label) {
     state.viewEl.setAttribute('aria-label', `${state.label}: ${srValue}`);
   } else {
@@ -2063,7 +2071,7 @@ function updateRadioGroup(name){
     state.placeholderEl.hidden = false;
     state.viewEl.dataset.empty = 'true';
   }
-  const srLabel = label || VIEW_EMPTY_PLACEHOLDER;
+  const srLabel = label || VIEW_EMPTY_LABEL;
   if (state.label) {
     state.viewEl.setAttribute('aria-label', `${state.label}: ${srLabel}`);
   } else {
