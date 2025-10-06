@@ -107,8 +107,8 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 .breadcrumb,.breadcrumbs{display:none}
 .top{
   display:grid;
-  grid-template-columns:auto auto minmax(0, 1fr) auto;
-  grid-template-areas:"mode logo title menu";
+  grid-template-columns:auto minmax(0, 1fr) auto;
+  grid-template-areas:"logo title menu";
   align-items:center;
   column-gap:clamp(12px, 4vw, 24px);
   row-gap:calc(6px * 1.15);
@@ -126,8 +126,8 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   .top{
     grid-template-columns:minmax(0, 1fr) auto;
     grid-template-areas:
-      "mode menu"
-      "logo title";
+      "logo menu"
+      "title title";
     row-gap:clamp(10px, 3vw, 14px);
   }
 }
@@ -210,20 +210,6 @@ header .tab svg{
   --theme-toggle-backdrop:linear-gradient(135deg,#0f172a,#1f2937);
   --theme-toggle-shadow:0 0 0 2px rgba(0,0,0,.45);
   --theme-toggle-icon:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%23facc15%22%3E%3Cpath%20d%3D%22M21%2012.79A9%209%200%200%201%2011.21%203a7%207%200%201%200%20.79%2018A9%209%200%200%200%2021%2012.79Z%22/%3E%3C/svg%3E");
-}
-
-.mode-switch{
-  grid-area:mode;
-  justify-self:flex-start;
-  align-self:center;
-  font-weight:600;
-  gap:8px;
-}
-
-@media(max-width:600px){
-  .mode-switch{
-    justify-self:stretch;
-  }
 }
 
 .logo-button:focus-visible{
@@ -1077,7 +1063,7 @@ input:not([type="checkbox"]),select,textarea{width:100%}
 .view-mode .helper-text{color:var(--view-helper-color)}
 
 @media print{
-  button,.mode-switch,.dropdown,.tabs,.menu{display:none!important}
+  button,.dropdown,.tabs,.menu{display:none!important}
   [data-mode="edit"] .field-value{display:flex;flex-direction:column}
   [data-mode="edit"] .view-field-control{display:none!important}
 }

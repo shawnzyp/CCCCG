@@ -1630,7 +1630,6 @@ const numberFormatter = typeof Intl !== 'undefined' && Intl.NumberFormat
   : { format: v => String(v) };
 
 let mode = 'edit';
-let modeSwitchButton = null;
 let menuModeButton = null;
 let modeRoot = null;
 let modeLiveRegion = null;
@@ -2084,15 +2083,12 @@ function applyViewLockState(root=document){
 function syncModeButtons(){
   const isView = mode === 'view';
   const label = isView ? 'Switch to Edit Mode' : 'Switch to View Mode';
-  if (modeSwitchButton) {
-    modeSwitchButton.textContent = isView ? 'Switch to Edit' : 'Switch to View';
-    modeSwitchButton.setAttribute('aria-pressed', isView ? 'true' : 'false');
-    modeSwitchButton.setAttribute('title', label);
-  }
   if (menuModeButton) {
-    menuModeButton.textContent = isView ? 'Edit Mode' : 'View Mode';
+    const text = isView ? 'Edit Character' : 'View Character';
+    menuModeButton.textContent = text;
     menuModeButton.setAttribute('aria-pressed', isView ? 'true' : 'false');
     menuModeButton.setAttribute('title', label);
+    menuModeButton.setAttribute('aria-label', text);
   }
 }
 
@@ -2158,9 +2154,7 @@ function useViewMode(listener){
 }
 
 patchValueAccessors();
-modeSwitchButton = qs('[data-mode-switch]');
 menuModeButton = $('btn-view-mode');
-if (modeSwitchButton) modeSwitchButton.addEventListener('click', toggleMode);
 if (menuModeButton) menuModeButton.addEventListener('click', toggleMode);
 
 let storedMode = 'edit';
