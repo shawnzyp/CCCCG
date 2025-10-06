@@ -64,8 +64,8 @@ header::before{content:none}
 .actions{display:flex;gap:var(--control-gap);flex-wrap:wrap}
 .actions.actions--center{justify-content:center}
 .dropdown{position:relative;display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto;justify-self:end;grid-area:menu}
-.menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-10px) scale(1.92);visibility:hidden;transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1);pointer-events:none;transform-origin:top right;will-change:opacity,transform}
-.menu.show{opacity:1;transform:translateY(0) scale(2);visibility:visible;pointer-events:auto}
+.menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-8px) scale(.96);visibility:hidden;transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1);pointer-events:none;transform-origin:top right;will-change:opacity,transform}
+.menu.show{opacity:1;transform:translateY(0) scale(1);visibility:visible;pointer-events:auto}
 .menu button{background:transparent;color:var(--text);border:none;padding:clamp(6px,2.2vw,10px) clamp(10px,3.6vw,14px);text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
 .menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 .menu .btn-sm{justify-content:flex-start}
