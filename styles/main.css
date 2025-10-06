@@ -2461,12 +2461,40 @@ body.is-view-mode .power-card__body{display:none}
 .roll-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--roll-tools-gap);align-items:stretch}
 .roll-tools__panel{display:flex;flex-direction:column;gap:calc(var(--roll-tools-gap)*.55);padding:var(--roll-tools-section-padding);border-radius:calc(var(--radius)*.75);background:var(--surface-2);border:1px solid rgba(255,255,255,.05)}
 .roll-tools__heading{margin:0;font-size:var(--roll-tools-heading-size);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
-.dice-roll-grid{display:grid;grid-template-columns:minmax(0,1fr) clamp(80px,22vw,120px) clamp(38px,10vw,56px);gap:calc(var(--roll-tools-gap)*.5);align-items:center}
-.dice-roll-grid>.pill.result{margin:0}
-.dice-roll-grid__field{display:flex;flex-direction:column}
-.dice-roll-grid__field>select,
-.dice-roll-grid__field>input{width:100%}
+.dice-roll-grid{
+  --dice-sides-width: clamp(68px, 32%, 120px);
+  --dice-count-width: clamp(44px, 16%, 64px);
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,var(--dice-sides-width)) minmax(0,var(--dice-count-width));
+  gap:calc(var(--roll-tools-gap)*.5);
+  align-items:center;
+}
+.dice-roll-grid>.pill.result{
+  margin:0;
+  justify-self:stretch;
+  width:100%;
+  min-width:0;
+}
+.dice-roll-grid__field{display:flex;flex-direction:column;min-width:0}
+.dice-roll-grid__field>select{
+  width:100%;
+  min-height:var(--roll-tools-control-height);
+  font-size:var(--roll-tools-control-font-size);
+}
+.dice-roll-grid__field>input{
+  width:100%;
+  min-height:var(--roll-tools-control-height);
+  font-size:var(--roll-tools-control-font-size);
+}
+.dice-roll-grid__field>input{text-align:center}
 .dice-roll-grid>button{grid-column:1/-1;justify-self:stretch}
+@media (max-width:420px){
+  .dice-roll-grid{
+    --dice-sides-width: clamp(64px, 38%, 108px);
+    --dice-count-width: clamp(40px, 20%, 56px);
+    gap:calc(var(--roll-tools-gap)*.4);
+  }
+}
 .roll-tools-card .inline{gap:calc(var(--roll-tools-gap)*.5);flex-wrap:nowrap}
 .roll-tools-card .inline>input:not([type="checkbox"]),
 .roll-tools-card .inline>select{min-width:0}
