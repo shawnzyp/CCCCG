@@ -1718,12 +1718,20 @@ if (viewModeButton) {
 
 /* ========= viewport ========= */
 function setVh(){
-  document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+  const viewport = window.visualViewport;
+  const fallback = window.innerHeight || document.documentElement.clientHeight || 0;
+  const height = viewport && viewport.height ? viewport.height : fallback;
+  const vh = Math.max(height || 0, fallback || 0) * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
 setVh();
 // Update the CSS viewport height variable on resize or orientation changes
 window.addEventListener('resize', setVh);
 window.addEventListener('orientationchange', setVh);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', setVh);
+  window.visualViewport.addEventListener('scroll', setVh);
+}
 const ICON_TRASH = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 7.5h12m-9 0v9m6-9v9M4.5 7.5l1 12A2.25 2.25 0 007.75 21h8.5a2.25 2.25 0 002.25-2.25l1-12M9.75 7.5V4.875A1.125 1.125 0 0110.875 3.75h2.25A1.125 1.125 0 0114.25 4.875V7.5"/></svg>';
 const ICON_LOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75C16.5 4.26472 14.4853 2.25 12 2.25C9.51472 2.25 7.5 4.26472 7.5 6.75V10.5M6.75 21.75H17.25C18.4926 21.75 19.5 20.7426 19.5 19.5V12.75C19.5 11.5074 18.4926 10.5 17.25 10.5H6.75C5.50736 10.5 4.5 11.5074 4.5 12.75V19.5C4.5 20.7426 5.50736 21.75 6.75 21.75Z"/></svg>';
 const ICON_UNLOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75C13.5 4.26472 15.5147 2.25 18 2.25C20.4853 2.25 22.5 4.26472 22.5 6.75V10.5M3.75 21.75H14.25C15.4926 21.75 16.5 20.7426 16.5 19.5V12.75C16.5 11.5074 15.4926 10.5 14.25 10.5H3.75C2.50736 10.5 1.5 11.5074 1.5 12.75V19.5C1.5 20.7426 2.50736 21.75 3.75 21.75Z"/></svg>';
@@ -5969,6 +5977,14 @@ function serializePowerCard(card) {
   if (!state) return null;
   const settings = getCharacterPowerSettings();
   const power = { ...state.power };
+  const elements = state.elements || {};
+  if (elements.nameInput) {
+    const directName = elements.nameInput.value;
+    if (typeof directName === 'string' && directName.trim()) {
+      power.name = directName.trim();
+      state.power.name = power.name;
+    }
+  }
   if (power.damage) {
     power.damage = { ...power.damage };
   }
@@ -6039,6 +6055,15 @@ function updatePowerCardDerived(card) {
   if (elements.saveAbilityField?.wrapper) {
     elements.saveAbilityField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
   }
+  if (elements.saveBonusField?.wrapper) {
+    elements.saveBonusField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
+  }
+  if (elements.saveBonusInput) {
+    elements.saveBonusInput.disabled = !power.requiresSave;
+  }
+  if (elements.saveDcField?.wrapper) {
+    elements.saveDcField.wrapper.style.display = power.requiresSave ? 'flex' : 'none';
+  }
   const saveSuggestions = EFFECT_SAVE_SUGGESTIONS[power.effectTag] || [];
   const recommendedSave = saveSuggestions[0] || 'WIS';
   if (power.requiresSave) {
@@ -6076,6 +6101,9 @@ function updatePowerCardDerived(card) {
 
   if (elements.saveDcOutput) {
     elements.saveDcOutput.value = power.requiresSave ? computeSaveDc(settings) : '';
+  }
+  if (elements.saveResult) {
+    elements.saveResult.style.display = power.requiresSave ? '' : 'none';
   }
   if (elements.spHint) {
     const parts = [`Suggested: ${suggestedSp} SP`];
@@ -6436,6 +6464,16 @@ function createPowerCard(pref = {}, options = {}) {
   card.draggable = true;
   card.dataset.powerId = power.id;
 
+  const signatureUseProxy = isSignature ? (() => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sr-only power-card__proxy-button';
+    btn.tabIndex = -1;
+    btn.setAttribute('aria-hidden', 'true');
+    card.appendChild(btn);
+    return btn;
+  })() : null;
+
   const elements = {};
   function createQuickButton(label, value) {
     const btn = document.createElement('button');
@@ -6488,6 +6526,7 @@ function createPowerCard(pref = {}, options = {}) {
   nameInput.type = 'text';
   nameInput.placeholder = isSignature ? 'Signature Move Name' : 'Power Name';
   nameInput.value = power.name;
+  nameInput.dataset.f = 'name';
   const nameField = createFieldContainer('Name', nameInput, { flex: '2', minWidth: '200px' });
   topRow.appendChild(nameField.wrapper);
 
@@ -6585,13 +6624,13 @@ function createPowerCard(pref = {}, options = {}) {
   const requiresSaveToggle = document.createElement('input');
   requiresSaveToggle.type = 'checkbox';
   requiresSaveToggle.checked = power.requiresSave;
-  requiresSaveLabel.append(requiresSaveToggle, document.createTextNode(' Requires Save'));
+  requiresSaveLabel.append(requiresSaveToggle, document.createTextNode(' Save Required'));
   requiresSaveWrap.appendChild(requiresSaveLabel);
   saveRow.appendChild(requiresSaveWrap);
 
   const saveAbilitySelect = document.createElement('select');
   setSelectOptions(saveAbilitySelect, POWER_SAVE_ABILITIES, power.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
-  const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { flex: '1', minWidth: '120px' });
+  const saveAbilityField = createFieldContainer('Save Ability (target rolls)', saveAbilitySelect, { flex: '1', minWidth: '120px' });
   const saveAbilityHint = document.createElement('div');
   saveAbilityHint.style.fontSize = '12px';
   saveAbilityHint.style.opacity = '0.8';
@@ -6720,7 +6759,7 @@ function createPowerCard(pref = {}, options = {}) {
   specialArea.placeholder = 'Special Rider / Notes';
   specialArea.value = power.special || '';
   specialArea.style.resize = 'vertical';
-  const specialField = createFieldContainer('Special', specialArea, { flex: '1', minWidth: '100%' });
+  const specialField = createFieldContainer('Special Text', specialArea, { flex: '1', minWidth: '100%' });
   card.appendChild(specialField.wrapper);
 
   const derivedRow = document.createElement('div');
@@ -6733,7 +6772,7 @@ function createPowerCard(pref = {}, options = {}) {
   saveDcInput.type = 'number';
   saveDcInput.readOnly = true;
   saveDcInput.placeholder = '—';
-  const saveDcField = createFieldContainer('Computed Save DC', saveDcInput, { flex: '0 0 160px', minWidth: '140px' });
+  const saveDcField = createFieldContainer('Power Save DC', saveDcInput, { flex: '0 0 160px', minWidth: '140px' });
   derivedRow.appendChild(saveDcField.wrapper);
 
   const rulesPreview = document.createElement('div');
@@ -6882,8 +6921,6 @@ function createPowerCard(pref = {}, options = {}) {
   });
   quickControls.appendChild(onSaveQuickRow);
 
-  card.appendChild(quickControls);
-
   const feedbackWrap = document.createElement('div');
   feedbackWrap.style.display = 'flex';
   feedbackWrap.style.flexDirection = 'column';
@@ -6914,8 +6951,6 @@ function createPowerCard(pref = {}, options = {}) {
   concentrationCancel.textContent = 'Cancel';
   concentrationPrompt.append(concentrationPromptText, concentrationConfirm, concentrationCancel);
   feedbackWrap.appendChild(concentrationPrompt);
-
-  card.appendChild(feedbackWrap);
 
   const actionRow = document.createElement('div');
   actionRow.className = 'inline';
@@ -6959,6 +6994,8 @@ function createPowerCard(pref = {}, options = {}) {
   actionRow.appendChild(deleteButton);
 
   card.appendChild(actionRow);
+  card.appendChild(feedbackWrap);
+  card.appendChild(quickControls);
 
   elements.nameInput = nameInput;
   elements.styleSelect = styleSelect;
@@ -6979,6 +7016,7 @@ function createPowerCard(pref = {}, options = {}) {
   elements.saveAbilityHint = saveAbilityHint;
   elements.saveBonusInput = saveBonusInput;
   elements.saveAbilityField = saveAbilityField;
+  elements.saveBonusField = saveBonusField;
   elements.durationSelect = durationSelect;
   elements.concentrationToggle = concentrationToggle;
   elements.concentrationHint = concentrationHint;
@@ -6996,6 +7034,7 @@ function createPowerCard(pref = {}, options = {}) {
   elements.damageSaveHint = damageSaveHint;
   elements.damageSection = damageSection;
   elements.saveDcOutput = saveDcInput;
+  elements.saveDcField = saveDcField;
   elements.rulesPreview = rulesPreview;
   elements.messageArea = messageArea;
   elements.concentrationPrompt = concentrationPrompt;
@@ -7020,6 +7059,13 @@ function createPowerCard(pref = {}, options = {}) {
   elements.quickSaveAbilityRow = saveAbilityQuickRow;
   elements.quickOnSaveButtons = quickOnSaveButtons;
   elements.quickOnSaveRow = onSaveQuickRow;
+
+  if (signatureUseProxy) {
+    signatureUseProxy.addEventListener('click', event => {
+      event.preventDefault();
+      handleUsePower(card);
+    });
+  }
 
   nameInput.addEventListener('input', () => {
     power.name = nameInput.value;
@@ -7186,33 +7232,99 @@ function setupPowerPresetMenu() {
   const list = $('powers');
   if (!addBtn || !list) return;
   const menu = document.createElement('div');
-  menu.className = 'card';
-  menu.style.position = 'absolute';
-  menu.style.zIndex = '2000';
+  menu.className = 'card power-preset-menu';
   menu.style.display = 'none';
-  menu.style.padding = '8px';
-  menu.style.gap = '6px';
-  menu.style.flexDirection = 'column';
   menu.dataset.open = 'false';
   menu.dataset.role = 'power-preset-menu';
+  menu.setAttribute('role', 'menu');
   document.body.appendChild(menu);
 
   const hideMenu = () => {
     menu.style.display = 'none';
+    menu.style.visibility = '';
+    menu.style.left = '';
+    menu.style.top = '';
+    menu.style.maxWidth = '';
     menu.dataset.open = 'false';
+    menu.removeAttribute('data-placement');
   };
 
-  const showMenu = () => {
+  const positionMenu = anchorRect => {
+    if (!anchorRect) return;
+    const margin = 12;
+    const gap = 8;
+    const viewport = window.visualViewport;
+    const viewportWidth = viewport ? viewport.width : window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = viewport ? viewport.height : window.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportOffsetLeft = viewport ? viewport.offsetLeft : 0;
+    const viewportOffsetTop = viewport ? viewport.offsetTop : 0;
+    const initialLeft = Math.round(anchorRect.left + viewportOffsetLeft);
+    const initialTop = Math.round(anchorRect.bottom + gap + viewportOffsetTop);
+
+    menu.style.visibility = 'hidden';
+    menu.style.left = `${initialLeft}px`;
+    menu.style.top = `${initialTop}px`;
+
+    requestAnimationFrame(() => {
+      const menuRect = menu.getBoundingClientRect();
+      if (!menuRect.width || !menuRect.height) {
+        menu.style.visibility = 'visible';
+        return;
+      }
+
+      const minX = viewportOffsetLeft + margin;
+      const minY = viewportOffsetTop + margin;
+      const maxX = Math.max(minX, viewportOffsetLeft + viewportWidth - margin);
+      const maxY = Math.max(minY, viewportOffsetTop + viewportHeight - margin);
+
+      let left = initialLeft;
+      let top = initialTop;
+      let placement = 'below';
+
+      if (viewportWidth <= 560) {
+        left = minX;
+      } else {
+        const maxLeft = Math.max(minX, maxX - menuRect.width);
+        left = Math.min(Math.max(left, minX), maxLeft);
+      }
+
+      const anchorBottom = anchorRect.bottom + viewportOffsetTop;
+      const anchorTop = anchorRect.top + viewportOffsetTop;
+      const availableBelow = Math.max(0, maxY - anchorBottom);
+      const availableAbove = Math.max(0, anchorTop - minY);
+
+      if (menuRect.height + gap > availableBelow && availableAbove > availableBelow) {
+        top = anchorTop - menuRect.height - gap;
+        placement = 'above';
+      } else {
+        top = anchorBottom + gap;
+      }
+
+      const maxTop = Math.max(minY, maxY - menuRect.height);
+      top = Math.min(Math.max(top, minY), maxTop);
+
+      menu.style.left = `${Math.round(left)}px`;
+      menu.style.top = `${Math.round(top)}px`;
+      menu.dataset.placement = placement;
+      menu.style.visibility = 'visible';
+    });
+  };
+
+  const showMenu = anchorRect => {
     menu.style.display = 'flex';
     menu.dataset.open = 'true';
+    positionMenu(anchorRect);
+  };
+
+  const updateMenuPosition = () => {
+    if (menu.dataset.open !== 'true') return;
+    positionMenu(addBtn.getBoundingClientRect());
   };
 
   const createOptionButton = (label, data) => {
     const optionBtn = document.createElement('button');
     optionBtn.type = 'button';
-    optionBtn.className = 'btn-sm';
-    optionBtn.style.width = '100%';
-    optionBtn.style.margin = '2px 0';
+    optionBtn.className = 'btn-sm power-preset-menu__btn';
     optionBtn.textContent = label;
     optionBtn.addEventListener('click', () => {
       const card = createCard('power', data);
@@ -7235,10 +7347,7 @@ function setupPowerPresetMenu() {
       hideMenu();
       return;
     }
-    const rect = addBtn.getBoundingClientRect();
-    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
-    menu.style.left = `${rect.left + window.scrollX}px`;
-    showMenu();
+    showMenu(addBtn.getBoundingClientRect());
   });
 
   document.addEventListener('click', event => {
@@ -7248,6 +7357,14 @@ function setupPowerPresetMenu() {
   });
 
   window.addEventListener('blur', hideMenu);
+  window.addEventListener('resize', updateMenuPosition);
+  window.addEventListener('scroll', () => {
+    if (menu.dataset.open === 'true') hideMenu();
+  }, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateMenuPosition);
+    window.visualViewport.addEventListener('scroll', updateMenuPosition, { passive: true });
+  }
 }
 
 const CARD_CONFIG = {
