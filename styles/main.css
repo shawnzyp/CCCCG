@@ -712,7 +712,7 @@ fieldset[data-tab].card>legend{font-size:clamp(1.1rem,3.4vw,1.5rem);font-weight:
 .card .card-caret svg{width:clamp(14px,4vw,18px);height:clamp(14px,4vw,18px)}
 .card .card-caret:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card .card-caret:hover{background:color-mix(in srgb,var(--surface-2) 80%,var(--accent) 20%);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
-.card-menu{position:absolute;top:calc(10px + clamp(28px,6vw,34px));right:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;gap:6px;min-width:clamp(140px,40vw,180px);z-index:5}
+.card-menu{position:absolute;top:calc(10px + clamp(28px,6vw,34px));right:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:6px;display:flex;flex-direction:column;gap:6px;min-width:clamp(140px,48vw,200px);max-width:calc(100vw - 24px);width:max-content;max-height:var(--card-menu-max-height, none);overflow-x:hidden;overflow-y:auto;transform:translateX(calc(var(--card-menu-offset-x, 0px) * -1));z-index:5}
 .card-menu__item{width:100%;min-height:var(--control-compact-min-height);padding:clamp(6px,2.2vw,10px);font-size:clamp(.8rem,2.5vw,.95rem);background:var(--surface-2);border:1px solid transparent;border-radius:var(--radius);cursor:pointer;text-align:left}
 .card-menu__item:hover,.card-menu__item:focus-visible{background:color-mix(in srgb,var(--accent) 18%,var(--surface-2));border-color:color-mix(in srgb,var(--accent) 35%,transparent);outline:none}
 .card-menu[hidden]{display:none}
@@ -782,6 +782,9 @@ label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4v
 .stat-trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .stat-trio__item{display:flex;flex-direction:column;gap:6px}
 .stat-trio__item label{min-height:auto}
+@media(max-width:480px){
+  .stat-trio{grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px}
+}
 .initiative-field{display:flex;flex-direction:column}
 .initiative-controls{display:flex;gap:var(--control-gap);align-items:center}
 .initiative-controls input{flex:1 1 auto}
@@ -789,10 +792,14 @@ label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4v
 .initiative-field .pill.result{margin-top:4px;display:flex;align-items:center;justify-content:center;min-height:var(--control-compact-min-height);width:100%}
 .hp-settings__section{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .hp-settings__section:first-of-type{margin-top:0}
-.hp-settings__row{display:flex;gap:8px;align-items:center}
-.hp-settings__row input{flex:1}
+.hp-settings__row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hp-settings__row input{flex:1 1 140px;min-width:0}
 .hp-settings__row button{flex:0 0 auto}
 .hp-settings__actions{justify-content:flex-end;gap:8px}
+@media(max-width:520px){
+  .hp-settings__row{flex-direction:column;align-items:stretch}
+  .hp-settings__row button{width:100%}
+}
 input:not([type="checkbox"]),select,textarea,button{-webkit-appearance:none;-moz-appearance:none;appearance:none;width:auto;max-width:100%;border-radius:var(--radius);border:1px solid var(--accent);background:var(--surface-2);color:var(--text);padding:var(--control-padding-y) var(--control-padding-x);min-height:var(--control-min-height);font-size:var(--control-font-size);line-height:1.35;transition:var(--transition)}
 input:not([type="checkbox"]),select,textarea{width:100%}
 body.is-view-mode input[data-view-locked],
@@ -1310,7 +1317,7 @@ progress::-moz-progress-bar{
   90%{opacity:1;}
   100%{opacity:0;}
 }
-.sp-grid{display:grid;width:100%;grid-template-columns:repeat(3,1fr);gap:8px;}
+.sp-grid{display:grid;width:100%;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;}
 .sp-grid .btn-sm{width:100%;}
 .custom-type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0;}
 .custom-type-grid .btn-sm{width:100%;}
@@ -1576,8 +1583,8 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 
 
 /* ability grid */
-.ability-grid{grid-template-columns:repeat(2,1fr);gap:12px}
-#abil-grid{grid-template-columns:repeat(3,1fr);gap:clamp(10px,3vw,16px)}
+.ability-grid{display:grid;gap:clamp(10px,3vw,16px);grid-template-columns:repeat(auto-fit,minmax(clamp(140px,36vw,200px),1fr))}
+#abil-grid{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,26vw,140px),1fr))}
 
 .ability-box{
   border:1px solid var(--line);
@@ -1595,7 +1602,7 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 }
 
 /* Ensure skill names like "Sleight of Hand" fit on one line */
-#skills{grid-template-columns:repeat(3,1fr);gap:clamp(10px,3vw,16px)}
+#skills{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,28vw,150px),1fr))}
 #skills .ability-box label,
 #skills .ability-box .ability-label{
   font-size:0.8rem;
