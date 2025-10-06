@@ -103,7 +103,7 @@ describe('new character reset', () => {
       <div id="items"></div>
       <div id="campaign-log"></div>
       <button id="create-character"></button>
-      <button id="btn-view-mode"></button>
+      <button data-mode-switch></button>
       <input id="superhero" />
     `;
 

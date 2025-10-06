@@ -133,12 +133,16 @@
   })();
 </script>
 
-<div class="app-shell" data-launch-shell>
+<div class="app-shell" data-launch-shell data-mode="edit">
 <a href="#main" class="skip-link">Skip to main content</a>
 
 
 <header>
   <div class="top">
+    <div class="mode-switch" role="presentation">
+      <button type="button" class="mode-switch__button" data-mode-switch aria-pressed="false">Switch to View</button>
+      <span class="sr-only" data-mode-status aria-live="polite">Edit Mode</span>
+    </div>
     <button class="logo-button" type="button" aria-label="Cycle theme" title="Cycle theme" data-theme-toggle>
       <span class="theme-toggle__icon" aria-hidden="true">
         <span class="theme-toggle__spinner">
@@ -157,7 +161,6 @@
       </button>
       <div id="menu-actions" class="menu" hidden>
         <button id="btn-load" class="btn-sm">Load / Save</button>
-        <button id="btn-view-mode" class="btn-sm" type="button" aria-pressed="false" title="Switch to View Mode">View Mode</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
         <button id="btn-log" class="btn-sm">Action Log</button>
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
