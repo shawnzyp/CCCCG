@@ -3279,47 +3279,12 @@ if (typeof window !== 'undefined') {
   window.RollBonusRegistry = rollBonusRegistry;
   window.resolveRollBonus = resolveRollBonus;
 }
-let initiativeBonusUpdatePending = false;
 let currentInitiativeBonus = 0;
-
-function scheduleInitiativeBonusUpdate(){
-  if(initiativeBonusUpdatePending) return;
-  initiativeBonusUpdatePending = true;
-  Promise.resolve().then(()=>{
-    initiativeBonusUpdatePending = false;
-    if (typeof updateDerived === 'function') {
-      updateDerived();
-    }
-  });
-}
-
-function setInitiativeBonus(target, bonus){
-  if(!target || !target.dataset) return;
-  const hasBonus = Number.isFinite(bonus) && bonus !== 0;
-  const next = hasBonus ? String(bonus) : '';
-  const current = target.dataset.initiativeBonus;
-  if(hasBonus){
-    if(current === next) return;
-    target.dataset.initiativeBonus = next;
-    scheduleInitiativeBonusUpdate();
-  }else if(current !== undefined){
-    delete target.dataset.initiativeBonus;
-    scheduleInitiativeBonusUpdate();
-  }
-}
-
-function getInitiativeBonusFromEffects(){
-  return qsa('[data-initiative-bonus]').reduce((total, el)=>{
-    if(!el || !el.dataset) return total;
-    const value = Number(el.dataset.initiativeBonus);
-    return Number.isFinite(value) ? total + value : total;
-  }, 0);
-}
-
 let addWisToInitiative = false;
 let enhancedAbility = '';
 let powerStyleTCBonus = 0;
 let originTCBonus = 0;
+const activePowerCards = new Set();
 
 function handlePerkEffects(li, text){
   text = typeof text === 'string' ? text : String(text || '');
@@ -3388,7 +3353,7 @@ function handlePerkEffects(li, text){
       }else{
         enhancedAbility = '';
       }
-      updateDerived();
+      scheduleDerivedUpdate();
     });
     li.appendChild(document.createTextNode(' '));
     li.appendChild(select);
@@ -3405,28 +3370,26 @@ function handlePerkEffects(li, text){
       if(idx !== ''){
         $('skill-'+idx+'-prof').checked = true;
         select.dataset.prev = idx;
-        updateDerived();
+        scheduleDerivedUpdate();
       }
     });
     li.appendChild(document.createTextNode(' '));
     li.appendChild(select);
   }else if(/add your wisdom modifier to initiative/.test(lower)){
     addWisToInitiative = true;
-    updateDerived();
+    scheduleDerivedUpdate();
   }
   const m = text.match(/([+-]\d+)\s*tc\b/i);
   if(m) bonus += Number(m[1]);
   if(li && li.dataset){
     const source = String(text);
     INITIATIVE_BONUS_REGEX.lastIndex = 0;
-    let hasInitiativeBonus = false;
     let initiativeBonusTotal = 0;
     if(typeof source.matchAll === 'function'){
       for(const match of source.matchAll(INITIATIVE_BONUS_REGEX)){
         const value = Number(match[1]);
         if(Number.isFinite(value)){
           initiativeBonusTotal += value;
-          hasInitiativeBonus = true;
         }
       }
     }else{
@@ -3437,12 +3400,13 @@ function handlePerkEffects(li, text){
           const value = Number(valueMatch[1]);
           if(Number.isFinite(value)){
             initiativeBonusTotal += value;
-            hasInitiativeBonus = true;
           }
         }
       });
     }
-    setInitiativeBonus(li, hasInitiativeBonus ? initiativeBonusTotal : 0);
+    if (initiativeBonusTotal !== 0) {
+      registerPerkBonus({ type: 'initiative', value: initiativeBonusTotal });
+    }
   }
   applyMatches(/\+([0-9]+)\s*to\s*death saving throws?/gi, match => {
     registerPerkBonus({ type: 'death-save', value: match[1] });
@@ -3539,9 +3503,6 @@ function setupPerkSelect(selId, perkId, data){
     perkEl.style.display = perks.length ? 'block' : 'none';
     if(selId==='power-style') powerStyleTCBonus = tcBonus;
     if(selId==='origin') originTCBonus = tcBonus;
-    if(selId==='power-style' || selId==='origin'){
-      updateDerived();
-    }
     if (typeof catalogRenderScheduler === 'function') {
       catalogRenderScheduler();
     }
@@ -3549,8 +3510,10 @@ function setupPerkSelect(selId, perkId, data){
   sel.addEventListener('change', () => {
     window.dmNotify?.(`${selId.replace(/-/g,' ')} changed to ${sel.value}`);
     render();
+    scheduleDerivedUpdate();
   });
   render();
+  scheduleDerivedUpdate();
 }
 
 /* ========= cached elements ========= */
@@ -3785,14 +3748,7 @@ if (elInitiativeRollBtn) {
       base += wisMod;
       baseBonuses.push({ label: 'WIS mod', value: wisMod, includeZero: true });
     }
-    const additionalBonuses = [];
-    const datasetBonus = Number(elInitiative?.dataset?.additionalBonus);
-    if (Number.isFinite(datasetBonus) && datasetBonus !== 0) {
-      additionalBonuses.push({ label: 'Bonuses', value: datasetBonus });
-    }
-    const opts = { type: 'initiative', baseBonuses };
-    if (additionalBonuses.length) opts.additionalBonuses = additionalBonuses;
-    rollWithBonus('Initiative', base, elInitiativeRollResult, opts);
+    rollWithBonus('Initiative', base, elInitiativeRollResult, { type: 'initiative', baseBonuses });
   });
 }
 
@@ -3964,6 +3920,60 @@ function updateXP(){
   }
 }
 
+function formatModifier(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '+0';
+  return num >= 0 ? `+${num}` : String(num);
+}
+
+function applyBreakdownMetadata(target, breakdown, label) {
+  if (!target) return;
+  const text = Array.isArray(breakdown) && breakdown.length ? breakdown.join(' | ') : '';
+  if (target.dataset) {
+    if (text) target.dataset.rollBreakdown = text;
+    else delete target.dataset.rollBreakdown;
+  }
+  if (text) {
+    target.title = label ? `${label}: ${text}` : text;
+  } else if (target.title) {
+    target.removeAttribute('title');
+  }
+}
+
+let derivedUpdateScheduled = false;
+function scheduleDerivedUpdate() {
+  if (derivedUpdateScheduled) return;
+  derivedUpdateScheduled = true;
+
+  const runUpdate = () => {
+    Promise.resolve().then(() => {
+      derivedUpdateScheduled = false;
+      try { updateDerived(); } catch {}
+    });
+  };
+
+  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') {
+    runUpdate();
+    return;
+  }
+
+  if (document.readyState === 'loading') {
+    const handleReady = () => {
+      document.removeEventListener('DOMContentLoaded', handleReady);
+      runUpdate();
+    };
+    document.addEventListener('DOMContentLoaded', handleReady, { once: true });
+    // If the document became ready before the listener attached, run immediately.
+    if (document.readyState !== 'loading') {
+      document.removeEventListener('DOMContentLoaded', handleReady);
+      runUpdate();
+    }
+    return;
+  }
+
+  runUpdate();
+}
+
 function updateDerived(){
   updateXP();
   const pb = PROF_BONUS_TIERS[currentTierIdx] || 2;
@@ -3974,23 +3984,28 @@ function updateDerived(){
   elTC.value = 10 + dexMod + armorAuto + powerStyleTCBonus + originTCBonus;
   updateSP();
   updateHP();
-  const extraInitiativeBonus = getInitiativeBonusFromEffects();
-  const initiative = dexMod + (addWisToInitiative ? wisMod : 0) + extraInitiativeBonus;
+  const initiativeBaseBonuses = [{ label: 'DEX mod', value: dexMod, includeZero: true }];
+  let initiativeBase = dexMod;
+  if (addWisToInitiative) {
+    initiativeBase += wisMod;
+    initiativeBaseBonuses.push({ label: 'WIS mod', value: wisMod, includeZero: true });
+  }
+  const initiativeResolution = resolveRollBonus(initiativeBase, {
+    type: 'initiative',
+    baseBonuses: initiativeBaseBonuses,
+  });
+  const initiative = Number.isFinite(initiativeResolution?.modifier)
+    ? initiativeResolution.modifier
+    : initiativeBase;
   currentInitiativeBonus = initiative;
   if (elInitiative) {
-    elInitiative.value = (initiative >= 0 ? '+' : '') + initiative;
-    const initiativeDataset = elInitiative.dataset;
-    if (initiativeDataset) {
-      if (extraInitiativeBonus) {
-        initiativeDataset.additionalBonus = String(extraInitiativeBonus);
-      } else if (initiativeDataset.additionalBonus) {
-        delete initiativeDataset.additionalBonus;
-      }
-    }
-    const breakdown = [`DEX ${dexMod >= 0 ? '+' : ''}${dexMod}`];
-    if (addWisToInitiative) breakdown.push(`WIS ${wisMod >= 0 ? '+' : ''}${wisMod}`);
-    if (extraInitiativeBonus) breakdown.push(`Bonuses ${extraInitiativeBonus >= 0 ? '+' : ''}${extraInitiativeBonus}`);
-    elInitiative.title = breakdown.length ? `Initiative breakdown: ${breakdown.join(' + ')}` : 'Initiative';
+    elInitiative.value = formatModifier(initiative);
+    const initiativeBreakdown = (initiativeResolution?.breakdown && initiativeResolution.breakdown.length)
+      ? initiativeResolution.breakdown
+      : initiativeBaseBonuses
+        .map(part => formatBreakdown(part.label, part.value, { includeZero: part.includeZero }))
+        .filter(Boolean);
+    applyBreakdownMetadata(elInitiative, initiativeBreakdown, 'Initiative breakdown');
   }
   // Guard against missing ability elements when calculating the power save DC.
   // If the selected ability cannot be found in the DOM, default its modifier to 0
@@ -3999,16 +4014,62 @@ function updateDerived(){
   const powerSettings = getCharacterPowerSettings();
   elPowerSaveDC.value = computeSaveDc(powerSettings);
   ABILS.forEach(a=>{
-    const m = mod($(a).value);
-    $(a+'-mod').textContent = (m>=0?'+':'') + m;
-    const saveEl = $('save-'+a+'-prof');
-    const val = m + (saveEl && saveEl.checked ? pb : 0);
-    $('save-'+a).textContent = (val>=0?'+':'') + val;
+    const abilityInput = $(a);
+    if (!abilityInput) return;
+    const abilityLabel = a.toUpperCase();
+    const abilityMod = mod(abilityInput.value);
+    const abilityTarget = $(a+'-mod');
+    const abilityResolution = resolveRollBonus(abilityMod, {
+      type: 'ability',
+      ability: abilityLabel,
+      baseBonuses: [{ label: `${abilityLabel} mod`, value: abilityMod, includeZero: true }],
+    });
+    const abilityTotal = Number.isFinite(abilityResolution?.modifier)
+      ? abilityResolution.modifier
+      : abilityMod;
+    if (abilityTarget) {
+      abilityTarget.textContent = formatModifier(abilityTotal);
+      applyBreakdownMetadata(abilityTarget, abilityResolution?.breakdown, `${abilityLabel} ability checks`);
+    }
+    const saveProfEl = $('save-'+a+'-prof');
+    const isProficient = !!(saveProfEl && saveProfEl.checked);
+    const saveBaseBonuses = [{ label: `${abilityLabel} mod`, value: abilityMod, includeZero: true }];
+    if (isProficient && pb) saveBaseBonuses.push({ label: 'Prof', value: pb });
+    const saveBase = abilityMod + (isProficient ? pb : 0);
+    const saveResolution = resolveRollBonus(saveBase, {
+      type: 'save',
+      ability: abilityLabel,
+      baseBonuses: saveBaseBonuses,
+    });
+    const saveTarget = $('save-'+a);
+    const saveTotal = Number.isFinite(saveResolution?.modifier)
+      ? saveResolution.modifier
+      : saveBase;
+    if (saveTarget) {
+      saveTarget.textContent = formatModifier(saveTotal);
+      applyBreakdownMetadata(saveTarget, saveResolution?.breakdown, `${abilityLabel} saves`);
+    }
   });
   SKILLS.forEach((s,i)=>{
-    const skillEl = $('skill-'+i+'-prof');
-    const val = mod($(s.abil).value) + (skillEl && skillEl.checked ? pb : 0);
-    $('skill-'+i).textContent = (val>=0?'+':'') + val;
+    const skillTarget = $('skill-'+i);
+    if (!skillTarget) return;
+    const abilityMod = mod($(s.abil).value);
+    const profEl = $('skill-'+i+'-prof');
+    const proficient = !!(profEl && profEl.checked);
+    const baseBonuses = [{ label: `${s.abil.toUpperCase()} mod`, value: abilityMod, includeZero: true }];
+    if (proficient && pb) baseBonuses.push({ label: 'Prof', value: pb });
+    const base = abilityMod + (proficient ? pb : 0);
+    const skillResolution = resolveRollBonus(base, {
+      type: 'skill',
+      ability: s.abil.toUpperCase(),
+      skill: s.name,
+      baseBonuses,
+    });
+    const total = Number.isFinite(skillResolution?.modifier)
+      ? skillResolution.modifier
+      : base;
+    skillTarget.textContent = formatModifier(total);
+    applyBreakdownMetadata(skillTarget, skillResolution?.breakdown, `${s.name} checks`);
   });
   refreshPowerCards();
 }
@@ -4226,7 +4287,7 @@ function closeHpSettings(){
 if (elHPSettingsToggle) {
   elHPSettingsToggle.addEventListener('click', openHpSettings);
 }
-if (typeof MutationObserver === 'function' && hpSettingsOverlay) {
+if (typeof MutationObserver === 'function' && hpSettingsOverlay instanceof Element) {
   const observer = new MutationObserver(() => {
     const expanded = !hpSettingsOverlay.classList.contains('hidden');
     setHpSettingsExpanded(expanded);
@@ -4254,11 +4315,12 @@ if (hpRollSaveButton) {
 qsa('#modal-hp-settings [data-close]').forEach(b=> b.addEventListener('click', closeHpSettings));
 
 function adjustCardMenuBounds(menu){
-  if (!menu) return;
+  if (!menu || typeof menu.style === 'undefined') return;
   menu.style.removeProperty('--card-menu-offset-x');
   menu.style.removeProperty('--card-menu-max-height');
   requestAnimationFrame(()=>{
-    if (menu.hasAttribute('hidden')) return;
+    if (typeof menu.hasAttribute === 'function' && menu.hasAttribute('hidden')) return;
+    if (typeof menu.getBoundingClientRect !== 'function') return;
     const rect = menu.getBoundingClientRect();
     const viewportWidth = Math.max(document.documentElement?.clientWidth || 0, window.innerWidth || 0);
     const viewportHeight = Math.max(document.documentElement?.clientHeight || 0, window.innerHeight || 0);
@@ -4277,14 +4339,24 @@ function adjustCardMenuBounds(menu){
     }
   });
 }
+function isRealElement(node) {
+  if (!node) return false;
+  if (typeof Element !== 'undefined' && node instanceof Element) return true;
+  return typeof node === 'object'
+    && typeof node.removeAttribute === 'function'
+    && typeof node.setAttribute === 'function';
+}
+
 function openSpMenu(options = {}){
-  if (!elSPMenu || !elSPMenuToggle) return;
+  if (!isRealElement(elSPMenu) || !isRealElement(elSPMenuToggle)) return;
   elSPMenu.removeAttribute('hidden');
   elSPMenuToggle.setAttribute('aria-expanded', 'true');
   adjustCardMenuBounds(elSPMenu);
   if (options.focusFirst) {
     requestAnimationFrame(()=>{
-      const first = elSPMenu.querySelector('button:not([disabled])');
+      const first = typeof elSPMenu.querySelector === 'function'
+        ? elSPMenu.querySelector('button:not([disabled])')
+        : null;
       if (first && typeof first.focus === 'function') {
         first.focus({ preventScroll: true });
       }
@@ -4292,15 +4364,22 @@ function openSpMenu(options = {}){
   }
 }
 function closeSpMenu(options = {}){
-  if (!elSPMenu || !elSPMenuToggle) return;
-  const wasOpen = !elSPMenu.hasAttribute('hidden');
-  if (!elSPMenu.hasAttribute('hidden')) {
+  if (!isRealElement(elSPMenu) || !isRealElement(elSPMenuToggle)) return;
+  const wasOpen = typeof elSPMenu.hasAttribute === 'function' ? !elSPMenu.hasAttribute('hidden') : true;
+  if (typeof elSPMenu.setAttribute === 'function' && typeof elSPMenu.hasAttribute === 'function' && !elSPMenu.hasAttribute('hidden')) {
     elSPMenu.setAttribute('hidden', '');
   }
-  elSPMenuToggle.setAttribute('aria-expanded', 'false');
-  elSPMenu.style.removeProperty('--card-menu-offset-x');
-  elSPMenu.style.removeProperty('--card-menu-max-height');
-  if (wasOpen && (options.restoreFocus || elSPMenu.contains(document.activeElement))) {
+  if (typeof elSPMenuToggle.setAttribute === 'function') {
+    elSPMenuToggle.setAttribute('aria-expanded', 'false');
+  }
+  if (typeof elSPMenu.style !== 'undefined') {
+    elSPMenu.style.removeProperty('--card-menu-offset-x');
+    elSPMenu.style.removeProperty('--card-menu-max-height');
+  }
+  const shouldRestoreFocus = wasOpen && (
+    options.restoreFocus || (typeof elSPMenu.contains === 'function' && elSPMenu.contains(document.activeElement))
+  );
+  if (shouldRestoreFocus) {
     requestAnimationFrame(()=>{
       if (typeof elSPMenuToggle.focus === 'function') {
         elSPMenuToggle.focus({ preventScroll: true });
@@ -4308,10 +4387,11 @@ function closeSpMenu(options = {}){
     });
   }
 }
-if (elSPMenuToggle && elSPMenu) {
+if (isRealElement(elSPMenuToggle) && isRealElement(elSPMenu)) {
   elSPMenuToggle.addEventListener('click', e => {
     e.stopPropagation();
-    if (elSPMenu.hasAttribute('hidden')) {
+    const isHidden = typeof elSPMenu.hasAttribute === 'function' ? elSPMenu.hasAttribute('hidden') : false;
+    if (isHidden) {
       openSpMenu({ focusFirst: e.detail === 0 });
     } else {
       closeSpMenu();
@@ -4319,18 +4399,21 @@ if (elSPMenuToggle && elSPMenu) {
   });
   elSPMenu.addEventListener('click', e => e.stopPropagation());
   document.addEventListener('click', e => {
-    if (!elSPMenu.contains(e.target) && e.target !== elSPMenuToggle) {
+    const containsTarget = typeof elSPMenu.contains === 'function' && elSPMenu.contains(e.target);
+    if (!containsTarget && e.target !== elSPMenuToggle) {
       closeSpMenu();
     }
   });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !elSPMenu.hasAttribute('hidden')) {
+    const isHidden = typeof elSPMenu.hasAttribute === 'function' ? elSPMenu.hasAttribute('hidden') : false;
+    if (e.key === 'Escape' && !isHidden) {
       e.stopPropagation();
       closeSpMenu({ restoreFocus: true });
     }
   });
   const handleSpMenuViewportChange = ()=>{
-    if (!elSPMenu.hasAttribute('hidden')) {
+    const isHidden = typeof elSPMenu.hasAttribute === 'function' ? elSPMenu.hasAttribute('hidden') : false;
+    if (!isHidden) {
       adjustCardMenuBounds(elSPMenu);
     }
   };
@@ -5965,7 +6048,6 @@ function parseDurationTracker(duration) {
 }
 
 const powerCardStates = new WeakMap();
-const activePowerCards = new Set();
 const powerEditorState = {
   overlay: null,
   modal: null,
@@ -6606,9 +6688,11 @@ function handleRollPowerSave(card, { outputs: providedOutputs } = {}) {
     }
   });
   const primaryOut = outputs[0] || null;
+  const baseBonuses = [{ label: 'Save bonus', value: bonus, includeZero: true }];
   rollWithBonus(`${power.name} save`, bonus, primaryOut, {
     type: 'save',
     ability,
+    baseBonuses,
     onRoll: ({ total }) => {
       const passed = total >= dc;
       const resultText = `${total} ${passed ? '✓ Success' : '✗ Fail'}`;
