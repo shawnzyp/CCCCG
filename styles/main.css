@@ -1619,21 +1619,22 @@ progress::-moz-progress-bar{
 
 @media(max-width:600px){
   .sp-field{
-    --sp-temp-width:clamp(54px,18vw,60px);
+    --sp-temp-width:clamp(48px,18vw,60px);
   }
 
   .sp-field .inline:first-of-type{
     padding-right:0;
+    flex-wrap:nowrap;
   }
 
   .sp-field .inline>.bar-label{
-    max-width:none;
+    max-width:calc(100% - var(--sp-temp-width) - var(--control-gap));
   }
 
   .sp-field #sp-temp{
-    flex:1 0 100%;
-    max-width:100%;
-    margin-top:var(--control-gap);
+    flex:0 0 var(--sp-temp-width);
+    max-width:var(--sp-temp-width);
+    margin-top:0;
   }
 }
 .sp-field #long-rest{width:100%;margin-top:8px;}
