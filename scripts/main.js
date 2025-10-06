@@ -119,6 +119,16 @@ const POWER_STYLE_CASTER_SAVE_DEFAULTS = {
   'Elemental Controller': ['WIS', 'CON'],
 };
 
+const POWER_STYLE_ATTACK_DEFAULTS = {
+  'Physical Powerhouse': 'str',
+  'Energy Manipulator': 'int',
+  Speedster: 'dex',
+  'Telekinetic/Psychic': 'wis',
+  Illusionist: 'cha',
+  'Shape-shifter': 'con',
+  'Elemental Controller': 'wis',
+};
+
 const POWER_RANGE_UNITS = ['feet', 'narrative'];
 const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
 
@@ -3548,7 +3558,9 @@ const elTC = $('tc');
 const elStr = $('str');
 const elDex = $('dex');
 const elCon = $('con');
+const elInt = $('int');
 const elWis = $('wis');
+const elCha = $('cha');
 const elSPBar = $('sp-bar');
 const elSPPill = $('sp-pill');
 const elSPTemp = $('sp-temp');
@@ -6219,68 +6231,64 @@ function updatePowerCardDerived(card) {
   if (elements.ongoingButton) {
     elements.ongoingButton.disabled = power.duration === 'Instant';
   }
-  if (elements.quickRangeButtons) {
-    const showQuickRange = power.shape !== 'Melee' && shapeOptions.length > 1;
-    if (elements.quickRangeRow) elements.quickRangeRow.style.display = showQuickRange ? 'flex' : 'none';
-    elements.quickRangeButtons.forEach(btn => {
-      const value = btn.dataset.value;
-      const baseLabel = btn.dataset.baseLabel || value;
-      const isMelee = value === 'Melee';
-      const canUse = isMelee ? power.shape === 'Melee' : shapeOptions.includes(value);
-      const isActive = isMelee ? power.shape === 'Melee' : power.range === value;
-      const enabled = showQuickRange ? canUse : (isMelee && power.shape === 'Melee');
-      const formatted = formatRangeDisplay(baseLabel, settings);
-      if (btn.textContent !== formatted) btn.textContent = formatted;
-      btn.disabled = !enabled;
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      btn.style.backgroundColor = isActive ? quickActiveBg : '';
-      btn.style.opacity = enabled ? '1' : '0.5';
+  if (elements.quickRangeSelect) {
+    const quickRangeOptions = Array.from(new Set([...shapeOptions, ...POWER_RANGE_QUICK_VALUES]));
+    const preferredRange = power.shape === 'Melee' ? 'Melee' : power.range;
+    setSelectOptions(elements.quickRangeSelect, quickRangeOptions, preferredRange, {
+      formatDisplay: option => formatRangeDisplay(option, settings),
     });
+    const showQuickRange = power.shape !== 'Melee' && quickRangeOptions.length > 1;
+    elements.quickRangeSelect.disabled = quickRangeOptions.length <= 1;
+    if (elements.quickRangeField) {
+      elements.quickRangeField.style.display = showQuickRange ? '' : 'none';
+    }
   }
-  if (elements.quickDiceButtons) {
-    if (elements.quickDiceRow) elements.quickDiceRow.style.display = hasDamage ? 'flex' : 'none';
-    elements.quickDiceButtons.forEach(btn => {
-      const isActive = hasDamage && power.damage?.dice === btn.dataset.value;
-      btn.disabled = !hasDamage;
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      btn.style.backgroundColor = isActive ? quickActiveBg : '';
-      btn.style.opacity = hasDamage ? '1' : '0.5';
-    });
+  if (elements.quickDiceSelect) {
+    if (elements.quickDiceField) {
+      elements.quickDiceField.style.display = hasDamage ? '' : 'none';
+    }
+    if (hasDamage) {
+      setSelectOptions(elements.quickDiceSelect, POWER_DAMAGE_DICE, power.damage?.dice || POWER_DAMAGE_DICE[0]);
+      elements.quickDiceSelect.disabled = false;
+    } else {
+      elements.quickDiceSelect.disabled = true;
+    }
   }
-  if (elements.quickDurationButtons) {
-    if (elements.quickDurationRow) elements.quickDurationRow.style.display = 'flex';
-    elements.quickDurationButtons.forEach(btn => {
-      const isActive = power.duration === btn.dataset.value;
-      btn.disabled = false;
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      btn.style.backgroundColor = isActive ? quickActiveBg : '';
-      btn.style.opacity = '1';
-    });
+  if (elements.quickSpValue) {
+    elements.quickSpValue.textContent = `${power.spCost} SP`;
   }
-  if (elements.quickSaveAbilityButtons) {
-    const hasSave = !!power.requiresSave;
-    if (elements.quickSaveAbilityRow) elements.quickSaveAbilityRow.style.display = hasSave ? 'flex' : 'none';
-    elements.quickSaveAbilityButtons.forEach(btn => {
-      const isActive = hasSave && power.saveAbilityTarget === btn.dataset.value;
-      btn.disabled = !hasSave;
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      btn.style.backgroundColor = isActive ? quickActiveBg : '';
-      btn.style.opacity = hasSave ? '1' : '0.5';
-    });
+  if (elements.quickDurationSelect) {
+    setSelectOptions(elements.quickDurationSelect, POWER_DURATIONS, power.duration);
   }
-  if (elements.quickOnSaveButtons) {
-    if (elements.quickOnSaveRow) elements.quickOnSaveRow.style.display = hasDamage ? 'flex' : 'none';
-    const activeOnSave = power.damage?.onSave || '';
-    elements.quickOnSaveButtons.forEach(btn => {
-      const isActive = hasDamage && activeOnSave === btn.dataset.value;
-      btn.disabled = !hasDamage;
-      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      btn.style.backgroundColor = isActive ? quickActiveBg : '';
-      btn.style.opacity = hasDamage ? '1' : '0.5';
-    });
+  if (elements.quickSaveSelect) {
+    if (elements.quickSaveField) {
+      elements.quickSaveField.style.display = power.requiresSave ? '' : 'none';
+    }
+    if (power.requiresSave) {
+      setSelectOptions(elements.quickSaveSelect, POWER_SAVE_ABILITIES, power.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
+      elements.quickSaveSelect.disabled = false;
+    } else {
+      elements.quickSaveSelect.disabled = true;
+    }
   }
-}
-
+  if (elements.quickOnSaveSelect) {
+    if (elements.quickOnSaveField) {
+      elements.quickOnSaveField.style.display = hasDamage ? '' : 'none';
+    }
+    if (hasDamage) {
+      setSelectOptions(elements.quickOnSaveSelect, POWER_ON_SAVE_OPTIONS, power.damage?.onSave || 'Half');
+      elements.quickOnSaveSelect.disabled = false;
+    } else {
+      elements.quickOnSaveSelect.disabled = true;
+    }
+  }
+  const attackEnabled = shouldEnablePowerAttack(power);
+  if (elements.rollAttackButton) elements.rollAttackButton.disabled = !attackEnabled;
+  if (elements.summaryRollHit) elements.summaryRollHit.disabled = !attackEnabled;
+  if (elements.rollDamageButton) elements.rollDamageButton.disabled = !hasDamage;
+  if (elements.summaryRollDamage) elements.summaryRollDamage.disabled = !hasDamage;
+  if (elements.summaryRollSave) elements.summaryRollSave.disabled = !power.requiresSave;
+  updatePowerCardSummary(card, power, settings);
 const POWER_MESSAGE_COLORS = {
   info: '#58a6ff',
   warning: '#f0ad4e',
@@ -6382,7 +6390,7 @@ function handleUsePower(card) {
   proceed();
 }
 
-function handleRollPowerSave(card) {
+function handleRollPowerSave(card, { outputs: providedOutputs } = {}) {
   const state = powerCardStates.get(card);
   if (!state || !state.power.requiresSave) return;
   const power = serializePowerCard(card);
@@ -6395,22 +6403,248 @@ function handleRollPowerSave(card) {
     const parsed = Number(bonusInput.value);
     bonus = Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
   }
-  const out = state.elements?.saveResult || null;
-  if (out) {
+  const defaultOutputs = [state.elements?.saveResult, state.elements?.summarySaveResult].filter(Boolean);
+  const outputs = Array.isArray(providedOutputs) && providedOutputs.length
+    ? providedOutputs.filter(Boolean)
+    : defaultOutputs;
+  outputs.forEach(out => {
+    if (!out) return;
     out.textContent = '—';
     out.style.background = '';
-  }
-  rollWithBonus(`${power.name} save`, bonus, null, {
+    if (out.dataset) {
+      delete out.dataset.rollBreakdown;
+      delete out.dataset.rollModifier;
+    }
+  });
+  const primaryOut = outputs[0] || null;
+  rollWithBonus(`${power.name} save`, bonus, primaryOut, {
     type: 'save',
     ability,
     onRoll: ({ total }) => {
-      if (!out) return;
       const passed = total >= dc;
-      out.textContent = `${total} ${passed ? '✓ Success' : '✗ Fail'}`;
-      out.style.background = passed ? 'rgba(46,160,67,0.3)' : 'rgba(219,68,55,0.3)';
+      const resultText = `${total} ${passed ? '✓ Success' : '✗ Fail'}`;
+      outputs.forEach(out => {
+        if (!out) return;
+        out.textContent = resultText;
+        out.style.background = passed ? 'rgba(46,160,67,0.3)' : 'rgba(219,68,55,0.3)';
+        if (out.dataset) {
+          out.dataset.rollBreakdown = `DC ${dc}`;
+        }
+      });
     },
   });
 }
+
+function getPowerAttackAbility(power) {
+  if (!power) return 'str';
+  const normalizedStyle = typeof power.style === 'string' ? power.style : '';
+  if (power.shape === 'Melee') return 'str';
+  if (POWER_STYLE_ATTACK_DEFAULTS[normalizedStyle]) return POWER_STYLE_ATTACK_DEFAULTS[normalizedStyle];
+  if (power.shape === 'Self' || power.shape === 'Aura') return POWER_STYLE_ATTACK_DEFAULTS[normalizedStyle] || 'con';
+  if (power.shape === 'Ranged Single') return 'dex';
+  return POWER_STYLE_ATTACK_DEFAULTS[normalizedStyle] || 'dex';
+}
+
+function shouldEnablePowerAttack(power) {
+  if (!power) return false;
+  if (power.requiresSave) return false;
+  if (power.shape === 'Self' || power.shape === 'Aura') return false;
+  return true;
+}
+
+function handleRollPowerAttack(card, { outputs: providedOutputs } = {}) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const power = serializePowerCard(card);
+  if (!power || !shouldEnablePowerAttack(power)) return;
+  const abilityKey = (getPowerAttackAbility(power) || 'str').toLowerCase();
+  const abilityInputs = { str: elStr, dex: elDex, con: elCon, int: elInt, wis: elWis, cha: elCha };
+  const abilityEl = abilityInputs[abilityKey];
+  const abilityModValue = mod(abilityEl ? abilityEl.value : 10);
+  const proficiency = num(elProfBonus?.value) || 0;
+  const outputs = Array.isArray(providedOutputs) && providedOutputs.length
+    ? providedOutputs.filter(Boolean)
+    : [state.elements?.attackResult, state.elements?.summaryHitResult].filter(Boolean);
+  outputs.forEach(out => {
+    if (!out) return;
+    out.textContent = '—';
+    out.style.background = '';
+    if (out.dataset) {
+      delete out.dataset.rollBreakdown;
+      delete out.dataset.rollModifier;
+    }
+  });
+  const primaryOut = outputs[0] || null;
+  const baseBonuses = [
+    { label: `${abilityKey.toUpperCase()} mod`, value: abilityModValue, includeZero: true },
+  ];
+  if (proficiency) baseBonuses.push({ label: 'Prof', value: proficiency });
+  const label = `${power.name || 'Power'} attack roll`;
+  rollWithBonus(label, abilityModValue + proficiency, primaryOut, {
+    type: 'attack',
+    ability: abilityKey.toUpperCase(),
+    baseBonuses,
+    onRoll: ({ total, breakdown }) => {
+      outputs.forEach(out => {
+        if (!out) return;
+        out.textContent = total;
+        out.style.background = '';
+        if (out.dataset) {
+          out.dataset.rollBreakdown = breakdown?.length ? breakdown.join(' | ') : `${abilityKey.toUpperCase()} ${abilityModValue >= 0 ? '+' : ''}${abilityModValue}${proficiency ? ` | Prof +${proficiency}` : ''}`;
+        }
+      });
+    },
+  });
+}
+
+function handleRollPowerDamage(card, { outputs: providedOutputs } = {}) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const power = serializePowerCard(card);
+  if (!power || !power.damage || !power.damage.dice) return;
+  const match = /^\s*(\d+)d(\d+)\s*$/i.exec(power.damage.dice);
+  if (!match) {
+    showPowerMessage(card, 'Set a valid damage dice value.', 'error');
+    return;
+  }
+  const count = Number(match[1]);
+  const sides = Number(match[2]);
+  if (!Number.isFinite(count) || !Number.isFinite(sides) || count <= 0 || sides <= 0) {
+    showPowerMessage(card, 'Set a valid damage dice value.', 'error');
+    return;
+  }
+  const outputs = Array.isArray(providedOutputs) && providedOutputs.length
+    ? providedOutputs.filter(Boolean)
+    : [state.elements?.damageResult, state.elements?.summaryDamageResult].filter(Boolean);
+  outputs.forEach(out => {
+    if (!out) return;
+    out.textContent = '—';
+    out.style.background = '';
+    if (out.dataset) {
+      delete out.dataset.rollBreakdown;
+    }
+  });
+  const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * sides));
+  const total = rolls.reduce((sum, roll) => sum + roll, 0);
+  outputs.forEach(out => {
+    if (!out) return;
+    out.textContent = total;
+    out.style.background = '';
+    if (out.dataset) {
+      out.dataset.rollBreakdown = `${power.damage.dice}: ${rolls.join(' + ')}`;
+    }
+  });
+  playDamageAnimation(total);
+  logAction(`${power.name} damage roll (${power.damage.dice} ${power.damage.type || ''}): ${rolls.join(' + ')} = ${total}`);
+}
+
+function updatePowerCardSummary(card, power, settings) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const elements = state.elements || {};
+  if (!elements.summary) return;
+  const name = power.name || (power.signature ? 'Signature Move' : 'Power');
+  if (elements.summaryName) elements.summaryName.textContent = name;
+  if (elements.summarySp) elements.summarySp.textContent = `${power.spCost} SP`;
+  const descriptionParts = [];
+  if (power.description) descriptionParts.push(power.description);
+  if (power.special) descriptionParts.push(power.special);
+  const descriptionText = descriptionParts.join(' ');
+  if (elements.summaryDescription) {
+    elements.summaryDescription.textContent = descriptionText || '';
+    elements.summaryDescription.hidden = !descriptionText;
+  }
+  const statsContainer = elements.summaryStats;
+  if (statsContainer) {
+    statsContainer.innerHTML = '';
+    const stats = [];
+    if (power.style) stats.push(['Style', power.style]);
+    if (power.actionType) stats.push(['Action', power.actionType]);
+    if (power.shape) stats.push(['Shape', power.shape]);
+    const rangeText = formatPowerRange(power, settings);
+    if (rangeText) stats.push(['Range', rangeText]);
+    if (power.intensity) stats.push(['Intensity', power.intensity]);
+    if (power.effectTag) stats.push(['Effect', power.effectTag]);
+    if (power.secondaryTag) stats.push(['Secondary', power.secondaryTag]);
+    if (power.uses) {
+      let usesLabel = power.uses;
+      if (power.uses === 'Cooldown' && Number.isFinite(power.cooldown) && power.cooldown > 0) {
+        usesLabel = `${power.uses} (${power.cooldown})`;
+      }
+      stats.push(['Uses', usesLabel]);
+    }
+    if (power.duration) stats.push(['Duration', power.duration]);
+    if (power.concentration) stats.push(['Concentration', 'Yes']);
+    if (power.damage) {
+      const dmg = power.damage;
+      const dmgText = `${dmg.dice} ${dmg.type || ''}`.trim();
+      stats.push(['Damage', dmgText]);
+      if (dmg.onSave) stats.push(['On Save', dmg.onSave]);
+    }
+    if (power.requiresSave) {
+      const dc = computeSaveDc(settings);
+      const saveAbility = (power.saveAbilityTarget || 'WIS').toUpperCase();
+      const saveLabel = `${saveAbility} DC ${dc}`;
+      stats.push(['Save', saveLabel]);
+    }
+    stats.forEach(([label, value]) => {
+      if (!value) return;
+      const chip = document.createElement('span');
+      chip.className = 'power-card__summary-stat';
+      chip.textContent = `${label}: ${value}`;
+      statsContainer.appendChild(chip);
+    });
+  }
+}
+ = {}) {
+  const state = powerCardStates.get(card);
+  if (!state || !state.power.requiresSave) return;
+  const power = serializePowerCard(card);
+  if (!power) return;
+  const ability = power.saveAbilityTarget || 'WIS';
+  const dc = computeSaveDc(getCharacterPowerSettings());
+  let bonus = 0;
+  const bonusInput = state.elements?.saveBonusInput;
+  if (bonusInput) {
+    const parsed = Number(bonusInput.value);
+    bonus = Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+  }
+  const defaultOutputs = [state.elements?.saveResult, state.elements?.summarySaveResult].filter(Boolean);
+  const outputs = Array.isArray(providedOutputs) && providedOutputs.length
+    ? providedOutputs.filter(Boolean)
+    : defaultOutputs;
+  outputs.forEach(out => {
+    if (!out) return;
+    out.textContent = '—';
+    out.style.background = '';
+    if (out.dataset) {
+      delete out.dataset.rollBreakdown;
+      delete out.dataset.rollModifier;
+    }
+  });
+  const primaryOut = outputs[0] || null;
+  const messageTarget = primaryOut || outputs[1] || null;
+  rollWithBonus(`${power.name} save`, bonus, primaryOut, {
+    type: 'save',
+    ability,
+    onRoll: ({ total }) => {
+      const passed = total >= dc;
+      const resultText = `${total} ${passed ? '✓ Success' : '✗ Fail'}`;
+      outputs.forEach(out => {
+        if (!out) return;
+        out.textContent = resultText;
+        out.style.background = passed ? 'rgba(46,160,67,0.3)' : 'rgba(219,68,55,0.3)';
+        if (out.dataset) {
+          out.dataset.rollBreakdown = `DC ${dc}`;
+        }
+      });
+      if (messageTarget) {
+        messageTarget.style.background = passed ? 'rgba(46,160,67,0.3)' : 'rgba(219,68,55,0.3)';
+      }
+    },
+  });
+}
+
 
 function handleBoostRoll(card) {
   const power = serializePowerCard(card);
@@ -6475,20 +6709,92 @@ function createPowerCard(pref = {}, options = {}) {
   })() : null;
 
   const elements = {};
-  function createQuickButton(label, value) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn-sm';
-    btn.textContent = label;
-    btn.dataset.value = value;
-    btn.dataset.baseLabel = label;
-    btn.style.fontSize = '11px';
-    btn.style.padding = '2px 6px';
-    btn.style.lineHeight = '1.4';
-    btn.setAttribute('aria-pressed', 'false');
-    return btn;
+  const summary = document.createElement('div');
+  summary.className = 'power-card__summary';
+
+  const summaryHeader = document.createElement('div');
+  summaryHeader.className = 'power-card__summary-header';
+
+  const summaryName = document.createElement('span');
+  summaryName.className = 'power-card__summary-name';
+  summaryHeader.appendChild(summaryName);
+
+  const summarySp = document.createElement('span');
+  summarySp.className = 'power-card__sp-chip';
+  summarySp.dataset.placeholder = '0 SP';
+  summaryHeader.appendChild(summarySp);
+
+  summary.appendChild(summaryHeader);
+
+  const summaryRolls = document.createElement('div');
+  summaryRolls.className = 'power-card__summary-rolls';
+
+  function createSummaryRoll(label) {
+    const wrap = document.createElement('div');
+    wrap.className = 'power-card__summary-roll';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn-sm power-card__summary-roll-btn';
+    button.textContent = label;
+    const result = document.createElement('span');
+    result.className = 'pill result power-card__roll-output';
+    result.dataset.placeholder = label;
+    wrap.append(button, result);
+    summaryRolls.appendChild(wrap);
+    return { button, result };
   }
 
+  const summaryAttack = createSummaryRoll('Roll to Hit');
+  const summaryDamage = createSummaryRoll('Roll Damage');
+  const summarySave = createSummaryRoll('Roll Save');
+  summary.appendChild(summaryRolls);
+
+  const summaryDescription = document.createElement('p');
+  summaryDescription.className = 'power-card__summary-description';
+  summaryDescription.hidden = true;
+  summary.appendChild(summaryDescription);
+
+  const summaryStats = document.createElement('div');
+  summaryStats.className = 'power-card__summary-stats';
+  summary.appendChild(summaryStats);
+
+  card.appendChild(summary);
+
+  elements.summary = summary;
+  elements.summaryName = summaryName;
+  elements.summarySp = summarySp;
+  elements.summaryDescription = summaryDescription;
+  elements.summaryStats = summaryStats;
+  elements.summaryRollHit = summaryAttack.button;
+  elements.summaryHitResult = summaryAttack.result;
+  elements.summaryRollDamage = summaryDamage.button;
+  elements.summaryDamageResult = summaryDamage.result;
+  elements.summaryRollSave = summarySave.button;
+  elements.summarySaveResult = summarySave.result;
+
+  summaryAttack.button.addEventListener('click', event => {
+    event.preventDefault();
+    const outputs = [];
+    if (summaryAttack.result) outputs.push(summaryAttack.result);
+    if (elements.attackResult) outputs.push(elements.attackResult);
+    handleRollPowerAttack(card, { outputs });
+  });
+
+  summaryDamage.button.addEventListener('click', event => {
+    event.preventDefault();
+    const outputs = [];
+    if (summaryDamage.result) outputs.push(summaryDamage.result);
+    if (elements.damageResult) outputs.push(elements.damageResult);
+    handleRollPowerDamage(card, { outputs });
+  });
+
+  summarySave.button.addEventListener('click', event => {
+    event.preventDefault();
+    const outputs = [];
+    if (summarySave.result) outputs.push(summarySave.result);
+    if (elements.saveResult) outputs.push(elements.saveResult);
+    handleRollPowerSave(card, { outputs });
+  });
   function createQuickRow(labelText) {
     const row = document.createElement('div');
     row.className = 'inline';
@@ -6789,67 +7095,108 @@ function createPowerCard(pref = {}, options = {}) {
   card.appendChild(derivedRow);
 
   const quickControls = document.createElement('div');
-  quickControls.style.display = 'flex';
-  quickControls.style.flexDirection = 'column';
-  quickControls.style.gap = '6px';
-  quickControls.style.margin = '8px 0';
+  quickControls.className = 'power-card__quick-grid';
 
-  const rangeQuickRow = createQuickRow('Range quick set');
-  const quickRangeButtons = [];
-  POWER_RANGE_QUICK_VALUES.forEach(value => {
-    const btn = createQuickButton(value, value);
-    btn.addEventListener('click', event => {
-      event.preventDefault();
-      if (value === 'Melee') {
-        power.shape = 'Melee';
-        shapeSelect.value = 'Melee';
-        power.range = 'Melee';
-      } else {
-        power.range = value;
-      }
-      updatePowerCardDerived(card);
-    });
-    rangeQuickRow.appendChild(btn);
-    quickRangeButtons.push(btn);
-  });
-  quickControls.appendChild(rangeQuickRow);
+  function createQuickField(labelText) {
+    const field = document.createElement('label');
+    field.className = 'power-card__quick-field';
+    const caption = document.createElement('span');
+    caption.className = 'power-card__quick-label';
+    caption.textContent = labelText;
+    const select = document.createElement('select');
+    select.className = 'power-card__quick-select';
+    field.append(caption, select);
+    return { field, select, caption };
+  }
 
-  const diceQuickRow = createQuickRow('Damage dice');
-  const quickDiceButtons = [];
-  POWER_DAMAGE_DICE.forEach(value => {
-    const btn = createQuickButton(value, value);
-    btn.addEventListener('click', event => {
-      event.preventDefault();
-      if (!power.damage) {
-        const defaultType = power.damage?.type || damageTypeSelect.value || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0];
-        const onSaveSuggestion = suggestOnSaveBehavior(power.effectTag);
-        power.damage = {
-          dice: value,
-          type: defaultType,
-          onSave: onSaveSuggestion,
-        };
-        damageToggle.checked = true;
-        damageTypeSelect.value = power.damage.type;
-        damageSaveSelect.value = power.damage.onSave;
-      } else {
-        power.damage.dice = value;
-      }
-      damageDiceSelect.value = value;
-      updatePowerCardDerived(card);
-    });
-    diceQuickRow.appendChild(btn);
-    quickDiceButtons.push(btn);
-  });
-  quickControls.appendChild(diceQuickRow);
-
-  const spQuickRow = createQuickRow('SP quick adjust');
-  const spDecBtn = createQuickButton('-1 SP', 'dec');
-  const spIncBtn = createQuickButton('+1 SP', 'inc');
+  const spQuickField = document.createElement('div');
+  spQuickField.className = 'power-card__quick-field power-card__quick-field--sp';
+  const spQuickLabel = document.createElement('span');
+  spQuickLabel.className = 'power-card__quick-label';
+  spQuickLabel.textContent = 'SP Cost';
   const spQuickValue = document.createElement('span');
-  spQuickValue.style.fontSize = '11px';
-  spQuickValue.style.opacity = '0.8';
-  spQuickValue.style.marginLeft = '4px';
-  spQuickValue.textContent = `${power.spCost} SP`;
+  spQuickValue.className = 'power-card__sp-chip';
+  spQuickValue.dataset.placeholder = '0 SP';
+  const spQuickButtons = document.createElement('div');
+  spQuickButtons.className = 'power-card__quick-sp-controls';
+  const spDecBtn = document.createElement('button');
+  spDecBtn.type = 'button';
+  spDecBtn.className = 'btn-sm power-card__quick-btn';
+  spDecBtn.textContent = '−';
+  const spIncBtn = document.createElement('button');
+  spIncBtn.type = 'button';
+  spIncBtn.className = 'btn-sm power-card__quick-btn';
+  spIncBtn.textContent = '+';
+  spQuickButtons.append(spDecBtn, spIncBtn);
+  const spQuickValueWrap = document.createElement('div');
+  spQuickValueWrap.className = 'power-card__quick-sp-display';
+  spQuickValueWrap.append(spQuickValue);
+  spQuickField.append(spQuickLabel, spQuickValueWrap, spQuickButtons);
+
+  const rangeQuick = createQuickField('Quick Range');
+  const durationQuick = createQuickField('Duration');
+  const saveQuick = createQuickField('Save Ability');
+  const onSaveQuick = createQuickField('On Save');
+  const diceQuick = createQuickField('Damage Dice');
+
+  quickControls.append(spQuickField, rangeQuick.field, durationQuick.field, saveQuick.field, onSaveQuick.field, diceQuick.field);
+
+  rangeQuick.select.addEventListener('change', () => {
+    const value = rangeQuick.select.value;
+    if (value === 'Melee') {
+      power.shape = 'Melee';
+      shapeSelect.value = 'Melee';
+      power.range = 'Melee';
+    } else {
+      power.range = ensureRangeForShape(power.shape, value, getCharacterPowerSettings());
+    }
+    rangeSelect.value = power.range;
+    updatePowerCardDerived(card);
+  });
+
+  durationQuick.select.addEventListener('change', () => {
+    power.duration = durationQuick.select.value;
+    durationSelect.value = power.duration;
+    updatePowerCardDerived(card);
+  });
+
+  saveQuick.select.addEventListener('change', () => {
+    if (!power.requiresSave) {
+      power.requiresSave = true;
+      requiresSaveToggle.checked = true;
+    }
+    power.saveAbilityTarget = saveQuick.select.value;
+    saveAbilitySelect.value = power.saveAbilityTarget;
+    state.manualSaveAbility = true;
+    updatePowerCardDerived(card);
+  });
+
+  onSaveQuick.select.addEventListener('change', () => {
+    if (!power.damage) return;
+    power.damage.onSave = onSaveQuick.select.value;
+    damageSaveSelect.value = power.damage.onSave;
+    state.manualOnSave = true;
+    updatePowerCardDerived(card);
+  });
+
+  diceQuick.select.addEventListener('change', () => {
+    const value = diceQuick.select.value;
+    if (!value) return;
+    if (!power.damage) {
+      power.damage = {
+        dice: value,
+        type: defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0],
+        onSave: 'Half',
+      };
+      damageToggle.checked = true;
+      damageFields.style.display = 'flex';
+    } else {
+      power.damage.dice = value;
+    }
+    damageDiceSelect.value = value;
+    updatePowerCardDerived(card);
+  });
+
   spDecBtn.addEventListener('click', event => {
     event.preventDefault();
     power.spCost = Math.max(1, power.spCost - 1);
@@ -6857,6 +7204,7 @@ function createPowerCard(pref = {}, options = {}) {
     state.manualSpOverride = true;
     updatePowerCardDerived(card);
   });
+
   spIncBtn.addEventListener('click', event => {
     event.preventDefault();
     power.spCost = Math.max(1, power.spCost + 1);
@@ -6864,62 +7212,6 @@ function createPowerCard(pref = {}, options = {}) {
     state.manualSpOverride = true;
     updatePowerCardDerived(card);
   });
-  spQuickRow.appendChild(spDecBtn);
-  spQuickRow.appendChild(spIncBtn);
-  spQuickRow.appendChild(spQuickValue);
-  quickControls.appendChild(spQuickRow);
-
-  const durationQuickRow = createQuickRow('Duration chips');
-  const quickDurationButtons = [];
-  POWER_DURATIONS.forEach(value => {
-    const btn = createQuickButton(value, value);
-    btn.addEventListener('click', event => {
-      event.preventDefault();
-      power.duration = value;
-      durationSelect.value = value;
-      updatePowerCardDerived(card);
-    });
-    durationQuickRow.appendChild(btn);
-    quickDurationButtons.push(btn);
-  });
-  quickControls.appendChild(durationQuickRow);
-
-  const saveAbilityQuickRow = createQuickRow('Save ability chips');
-  const quickSaveAbilityButtons = [];
-  POWER_SAVE_ABILITIES.forEach(value => {
-    const btn = createQuickButton(value, value);
-    btn.addEventListener('click', event => {
-      event.preventDefault();
-      if (!power.requiresSave) {
-        power.requiresSave = true;
-        requiresSaveToggle.checked = true;
-      }
-      power.saveAbilityTarget = value;
-      saveAbilitySelect.value = value;
-      state.manualSaveAbility = true;
-      updatePowerCardDerived(card);
-    });
-    saveAbilityQuickRow.appendChild(btn);
-    quickSaveAbilityButtons.push(btn);
-  });
-  quickControls.appendChild(saveAbilityQuickRow);
-
-  const onSaveQuickRow = createQuickRow('On Save behavior');
-  const quickOnSaveButtons = [];
-  POWER_ON_SAVE_OPTIONS.forEach(value => {
-    const btn = createQuickButton(value, value);
-    btn.addEventListener('click', event => {
-      event.preventDefault();
-      if (!power.damage) return;
-      power.damage.onSave = value;
-      damageSaveSelect.value = value;
-      state.manualOnSave = true;
-      updatePowerCardDerived(card);
-    });
-    onSaveQuickRow.appendChild(btn);
-    quickOnSaveButtons.push(btn);
-  });
-  quickControls.appendChild(onSaveQuickRow);
 
   const feedbackWrap = document.createElement('div');
   feedbackWrap.style.display = 'flex';
@@ -6953,43 +7245,65 @@ function createPowerCard(pref = {}, options = {}) {
   feedbackWrap.appendChild(concentrationPrompt);
 
   const actionRow = document.createElement('div');
-  actionRow.className = 'inline';
-  actionRow.style.flexWrap = 'wrap';
-  actionRow.style.gap = '8px';
-  actionRow.style.alignItems = 'center';
+  actionRow.className = 'power-card__actions';
 
   const useButton = document.createElement('button');
   useButton.type = 'button';
-  useButton.className = 'btn-sm';
+  useButton.className = 'btn-sm power-card__action-button';
   useButton.textContent = isSignature ? 'Use Signature' : 'Use Power';
   actionRow.appendChild(useButton);
 
+  const attackGroup = document.createElement('div');
+  attackGroup.className = 'power-card__action-roll';
+  const rollAttackButton = document.createElement('button');
+  rollAttackButton.type = 'button';
+  rollAttackButton.className = 'btn-sm';
+  rollAttackButton.textContent = 'Roll to Hit';
+  const attackResult = document.createElement('span');
+  attackResult.className = 'pill result power-card__roll-output';
+  attackResult.dataset.placeholder = 'Hit';
+  attackGroup.append(rollAttackButton, attackResult);
+  actionRow.appendChild(attackGroup);
+
+  const damageGroup = document.createElement('div');
+  damageGroup.className = 'power-card__action-roll';
+  const rollDamageButton = document.createElement('button');
+  rollDamageButton.type = 'button';
+  rollDamageButton.className = 'btn-sm';
+  rollDamageButton.textContent = 'Roll Damage';
+  const damageResult = document.createElement('span');
+  damageResult.className = 'pill result power-card__roll-output';
+  damageResult.dataset.placeholder = 'Damage';
+  damageGroup.append(rollDamageButton, damageResult);
+  actionRow.appendChild(damageGroup);
+
+  const saveGroup = document.createElement('div');
+  saveGroup.className = 'power-card__action-roll';
   const rollSaveButton = document.createElement('button');
   rollSaveButton.type = 'button';
   rollSaveButton.className = 'btn-sm';
   rollSaveButton.textContent = 'Roll Save For Target';
-  actionRow.appendChild(rollSaveButton);
-
   const saveResult = document.createElement('span');
-  saveResult.className = 'pill result';
+  saveResult.className = 'pill result power-card__roll-output';
   saveResult.dataset.placeholder = 'Save';
-  actionRow.appendChild(saveResult);
+  saveGroup.append(rollSaveButton, saveResult);
+  actionRow.appendChild(saveGroup);
 
   const ongoingButton = document.createElement('button');
   ongoingButton.type = 'button';
-  ongoingButton.className = 'btn-sm';
+  ongoingButton.className = 'btn-sm power-card__action-button';
   ongoingButton.textContent = 'Apply Ongoing';
   actionRow.appendChild(ongoingButton);
 
   const boostButton = document.createElement('button');
   boostButton.type = 'button';
-  boostButton.className = 'btn-sm';
+  boostButton.className = 'btn-sm power-card__action-button';
   boostButton.textContent = 'Spend 1 SP: Boost Roll';
   actionRow.appendChild(boostButton);
 
   const deleteButton = document.createElement('button');
   deleteButton.type = 'button';
-  deleteButton.className = 'btn-sm';
+  deleteButton.className = 'btn-sm power-card__action-button';
   applyDeleteIcon(deleteButton);
   actionRow.appendChild(deleteButton);
 
@@ -7041,6 +7355,10 @@ function createPowerCard(pref = {}, options = {}) {
   elements.concentrationPromptText = concentrationPromptText;
   elements.concentrationConfirm = concentrationConfirm;
   elements.concentrationCancel = concentrationCancel;
+  elements.rollAttackButton = rollAttackButton;
+  elements.attackResult = attackResult;
+  elements.rollDamageButton = rollDamageButton;
+  elements.damageResult = damageResult;
   elements.rollSaveBtn = rollSaveButton;
   elements.saveResult = saveResult;
   elements.useButton = useButton;
@@ -7048,17 +7366,32 @@ function createPowerCard(pref = {}, options = {}) {
   elements.boostButton = boostButton;
   elements.deleteButton = deleteButton;
   elements.quickControls = quickControls;
-  elements.quickRangeButtons = quickRangeButtons;
-  elements.quickRangeRow = rangeQuickRow;
-  elements.quickDiceButtons = quickDiceButtons;
-  elements.quickDiceRow = diceQuickRow;
   elements.quickSpValue = spQuickValue;
-  elements.quickDurationButtons = quickDurationButtons;
-  elements.quickDurationRow = durationQuickRow;
-  elements.quickSaveAbilityButtons = quickSaveAbilityButtons;
-  elements.quickSaveAbilityRow = saveAbilityQuickRow;
-  elements.quickOnSaveButtons = quickOnSaveButtons;
-  elements.quickOnSaveRow = onSaveQuickRow;
+  elements.quickRangeSelect = rangeQuick.select;
+  elements.quickRangeField = rangeQuick.field;
+  elements.quickDiceSelect = diceQuick.select;
+  elements.quickDiceField = diceQuick.field;
+  elements.quickDurationSelect = durationQuick.select;
+  elements.quickSaveSelect = saveQuick.select;
+  elements.quickSaveField = saveQuick.field;
+  elements.quickOnSaveSelect = onSaveQuick.select;
+  elements.quickOnSaveField = onSaveQuick.field;
+  elements.quickSpDecButton = spDecBtn;
+  elements.quickSpIncButton = spIncBtn;
+
+  const bodyContainer = document.createElement('div');
+  bodyContainer.className = 'power-card__body';
+  const preservedNodes = new Set([summary]);
+  if (signatureUseProxy) preservedNodes.add(signatureUseProxy);
+  Array.from(card.childNodes).forEach(node => {
+    if (preservedNodes.has(node)) return;
+    bodyContainer.appendChild(node);
+  });
+  if (summary.nextSibling) {
+    card.insertBefore(bodyContainer, summary.nextSibling);
+  } else {
+    card.appendChild(bodyContainer);
+  }
 
   if (signatureUseProxy) {
     signatureUseProxy.addEventListener('click', event => {
@@ -7196,7 +7529,24 @@ function createPowerCard(pref = {}, options = {}) {
     updatePowerCardDerived(card);
   });
   useButton.addEventListener('click', () => handleUsePower(card));
-  rollSaveButton.addEventListener('click', () => handleRollPowerSave(card));
+  rollAttackButton.addEventListener('click', event => {
+    event.preventDefault();
+    const outputs = [attackResult];
+    if (elements.summaryHitResult) outputs.push(elements.summaryHitResult);
+    handleRollPowerAttack(card, { outputs });
+  });
+  rollDamageButton.addEventListener('click', event => {
+    event.preventDefault();
+    const outputs = [damageResult];
+    if (elements.summaryDamageResult) outputs.push(elements.summaryDamageResult);
+    handleRollPowerDamage(card, { outputs });
+  });
+  rollSaveButton.addEventListener('click', event => {
+    event.preventDefault();
+    const outputs = [saveResult];
+    if (elements.summarySaveResult) outputs.push(elements.summarySaveResult);
+    handleRollPowerSave(card, { outputs });
+  });
   ongoingButton.addEventListener('click', () => {
     const serialized = serializePowerCard(card);
     if (serialized) addOngoingEffectTracker(serialized, card);
@@ -7321,13 +7671,31 @@ function setupPowerPresetMenu() {
     positionMenu(addBtn.getBoundingClientRect());
   };
 
+  const clonePresetData = data => {
+    if (!data || typeof data !== 'object') return {};
+    try {
+      if (typeof structuredClone === 'function') {
+        return structuredClone(data);
+      }
+    } catch (error) {
+      console.error('Preset clone error (structuredClone):', error);
+    }
+    try {
+      return JSON.parse(JSON.stringify(data));
+    } catch (error) {
+      console.error('Preset clone error (JSON):', error);
+    }
+    const shallow = Array.isArray(data) ? [...data] : { ...data };
+    return shallow;
+  };
+
   const createOptionButton = (label, data) => {
     const optionBtn = document.createElement('button');
     optionBtn.type = 'button';
     optionBtn.className = 'btn-sm power-preset-menu__btn';
     optionBtn.textContent = label;
     optionBtn.addEventListener('click', () => {
-      const card = createCard('power', data);
+      const card = createCard('power', clonePresetData(data));
       list.appendChild(card);
       pushHistory();
       hideMenu();
@@ -7336,9 +7704,83 @@ function setupPowerPresetMenu() {
     return optionBtn;
   };
 
+  const groupsContainer = document.createElement('div');
+  groupsContainer.className = 'power-preset-menu__groups';
+
+  const intensityOrder = new Map(POWER_INTENSITIES.map((name, index) => [name, index]));
+
+  const groupedPresets = POWER_PRESETS.reduce((acc, preset) => {
+    if (!preset || typeof preset !== 'object') return acc;
+    const data = preset.data || {};
+    const labelParts = typeof preset.label === 'string' ? preset.label.split(':') : [];
+    const styleLabel = (data.style || (labelParts.length > 1 ? labelParts[0].trim() : '') || 'General').trim();
+    const effectLabel = (data.effectTag || data.secondaryTag || 'General').trim();
+    const optionLabel = (data.name || (labelParts.length ? labelParts[labelParts.length - 1].trim() : preset.label) || 'Preset').trim();
+    const styleKey = styleLabel || 'General';
+    const effectKey = effectLabel || 'General';
+
+    if (!acc.has(styleKey)) acc.set(styleKey, new Map());
+    const effectMap = acc.get(styleKey);
+    if (!effectMap.has(effectKey)) effectMap.set(effectKey, []);
+    effectMap.get(effectKey).push({
+      label: optionLabel,
+      data,
+      intensity: data.intensity || null,
+    });
+    return acc;
+  }, new Map());
+
+  const sortedGroups = Array.from(groupedPresets.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
   menu.appendChild(createOptionButton('Custom Power', {}));
-  POWER_PRESETS.forEach(preset => {
-    menu.appendChild(createOptionButton(preset.label, preset.data));
+  menu.appendChild(groupsContainer);
+
+  sortedGroups.forEach(([groupName, effectMap], index) => {
+    const group = document.createElement('details');
+    group.className = 'power-preset-menu__group';
+    if (index === 0) {
+      group.setAttribute('open', '');
+    }
+    const summary = document.createElement('summary');
+    summary.className = 'power-preset-menu__group-title';
+    summary.textContent = groupName;
+    group.appendChild(summary);
+    const subgroups = document.createElement('div');
+    subgroups.className = 'power-preset-menu__subgroups';
+
+    const sortedEffects = Array.from(effectMap.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+    sortedEffects.forEach(([effectName, items], effectIndex) => {
+      const subgroup = document.createElement('details');
+      subgroup.className = 'power-preset-menu__subgroup';
+      if (effectIndex === 0) {
+        subgroup.setAttribute('open', '');
+      }
+      const subgroupSummary = document.createElement('summary');
+      subgroupSummary.className = 'power-preset-menu__subgroup-title';
+
+      const intensityLabels = Array.from(new Set(items.map(item => item.intensity).filter(Boolean)));
+      intensityLabels.sort((a, b) => {
+        const orderA = intensityOrder.has(a) ? intensityOrder.get(a) : Number.MAX_SAFE_INTEGER;
+        const orderB = intensityOrder.has(b) ? intensityOrder.get(b) : Number.MAX_SAFE_INTEGER;
+        return orderA - orderB || a.localeCompare(b, undefined, { sensitivity: 'base' });
+      });
+      const intensitySuffix = intensityLabels.length ? ` · ${intensityLabels.join(', ')}` : '';
+      subgroupSummary.textContent = `${effectName}${intensitySuffix}`;
+      subgroup.appendChild(subgroupSummary);
+
+      const grid = document.createElement('div');
+      grid.className = 'power-preset-menu__grid';
+      items.sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
+      items.forEach(item => {
+        grid.appendChild(createOptionButton(item.label, item.data));
+      });
+      subgroup.appendChild(grid);
+      subgroups.appendChild(subgroup);
+    });
+
+    group.appendChild(subgroups);
+    groupsContainer.appendChild(group);
   });
 
   addBtn.addEventListener('click', event => {
