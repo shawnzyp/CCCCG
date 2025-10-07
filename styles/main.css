@@ -267,12 +267,10 @@ header .tab svg{
 
 .theme-toggle__face--front::after{
   inset:0;
-  background-image:url("../images/logo-theme-toggle.svg");
+  background-image:url("../images/logo.png");
   background-size:cover;
   background-position:center;
   box-shadow:0 0 12px rgba(0,0,0,.35);
-  image-rendering:-webkit-optimize-contrast;
-  image-rendering:optimizeQuality;
 }
 
 .theme-toggle__face--back{
