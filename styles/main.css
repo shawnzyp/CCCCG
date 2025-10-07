@@ -942,6 +942,7 @@ fieldset[data-tab].card.active{opacity:1;transform:translate3d(0,0,0);pointer-ev
 fieldset[data-tab].card>legend{font-size:clamp(1.1rem,3.4vw,1.5rem);font-weight:600;color:var(--accent);margin:0 0 6px;font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);word-spacing:var(--title-word-spacing)}
 .card{position:relative}
 .card .card-caret{width:clamp(28px,6vw,34px);height:clamp(28px,6vw,34px);border-radius:8px;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--text);cursor:pointer;padding:0;transition:background .2s ease,border-color .2s ease,transform .2s ease;margin-inline-start:auto}
+.card .card-caret .btn-icon{margin-inline-end:0;font-size:1.2em}
 .card .card-caret svg{width:clamp(14px,4vw,18px);height:clamp(14px,4vw,18px)}
 .card .card-caret:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card .card-caret:hover{background:color-mix(in srgb,var(--surface-2) 80%,var(--accent) 20%);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
@@ -1190,6 +1191,7 @@ button .btn-label{display:inline-flex;align-items:center}
 
 .hp-field{
   --hp-settings-button-size:clamp(28px,6vw,34px);
+  position:relative;
 }
 
 .hp-field .card-caret{z-index:2}
@@ -1635,6 +1637,7 @@ progress::-moz-progress-bar{
 .sp-field{
   --sp-caret-size:clamp(28px,6vw,34px);
   --sp-temp-width:60px;
+  position:relative;
 }
 
 .sp-field .inline:first-of-type{
