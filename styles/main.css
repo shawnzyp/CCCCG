@@ -134,9 +134,10 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 }
 .tabs{
   display:flex;
-  justify-content:center;
+  justify-content:space-evenly;
   align-items:stretch;
-  gap:calc(4px * 1.15);
+  column-gap:0;
+  row-gap:calc(4px * 1.15);
   flex-wrap:wrap;
   width:100%;
   max-width:100%;
@@ -185,7 +186,7 @@ header .icon{
 
 header .tab{
   min-width:calc(var(--header-icon-size) * 1.8);
-  flex:1 1 calc(var(--header-icon-size) * 1.8);
+  flex:0 1 auto;
 }
 
 header .icon svg,
