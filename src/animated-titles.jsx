@@ -35,12 +35,16 @@ function stripTextNodes(element) {
   textNodes.forEach(node => element.removeChild(node));
 }
 
+function findDirectChild(element, selector) {
+  return Array.from(element.children ?? []).find(child => child.matches(selector)) ?? null;
+}
+
 function ensureMountNode(element) {
-  let mountNode = element.querySelector(':scope > .animated-title-react-root');
+  let mountNode = findDirectChild(element, '.animated-title-react-root');
   if (!mountNode) {
     mountNode = document.createElement('span');
     mountNode.className = 'animated-title-react-root';
-    element.appendChild(mountNode);
+    element.insertBefore(mountNode, element.firstChild);
   }
   return mountNode;
 }
@@ -58,8 +62,10 @@ function resolveAnimationTarget(element) {
     return element;
   }
 
-  const legendTitle = element.querySelector(':scope > .card-legend__content > .card-legend__title')
-    ?? element.querySelector(':scope .card-legend__title');
+  const legendTitle =
+    findDirectChild(element, '.card-legend__title') ??
+    element.querySelector('.card-legend__content > .card-legend__title') ??
+    element.querySelector('.card-legend__title');
   if (legendTitle) {
     return legendTitle;
   }
