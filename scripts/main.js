@@ -1630,7 +1630,6 @@ const numberFormatter = typeof Intl !== 'undefined' && Intl.NumberFormat
   : { format: v => String(v) };
 
 let mode = 'edit';
-let menuModeButton = null;
 let modeRoot = null;
 let modeLiveRegion = null;
 
@@ -1644,6 +1643,17 @@ function hasViewLock(el){
   if (!el || !el.closest) return false;
   if (el.dataset && Object.prototype.hasOwnProperty.call(el.dataset, 'viewLock')) return true;
   return !!el.closest('[data-view-lock]');
+}
+
+function getViewLockHost(el){
+  if (!el || !el.closest) return null;
+  return el.closest('[data-view-lock]');
+}
+
+function isViewUnlocked(el){
+  const host = getViewLockHost(el);
+  if (!host) return false;
+  return host.dataset && host.dataset.viewUnlocked === 'true';
 }
 
 function shouldTransformElement(el){
@@ -1922,9 +1932,10 @@ function ensureRadioGroup(el){
 function syncFieldMode(el){
   const state = viewFieldRegistry.get(el);
   if (!state) return;
-  const isView = mode === 'view';
-  state.viewEl.hidden = !isView;
-  if (isView) {
+  const isEditable = mode !== 'view' || isViewUnlocked(el);
+  const showView = !isEditable;
+  state.viewEl.hidden = !showView;
+  if (showView) {
     if (!state.viewEl.isConnected) el.insertAdjacentElement('afterend', state.viewEl);
     el.setAttribute('tabindex', '-1');
     el.setAttribute('aria-hidden', 'true');
@@ -1940,10 +1951,11 @@ function syncFieldMode(el){
 function syncRadioGroup(name){
   const state = radioGroupRegistry.get(name);
   if (!state) return;
-  const isView = mode === 'view';
-  state.viewEl.hidden = !isView;
+  const isEditable = mode !== 'view' || state.controls.some(isViewUnlocked);
+  const showView = !isEditable;
+  state.viewEl.hidden = !showView;
   state.controls.forEach(control => {
-    if (isView) {
+    if (showView) {
       control.setAttribute('tabindex', '-1');
       control.setAttribute('aria-hidden', 'true');
     } else {
@@ -1955,7 +1967,7 @@ function syncRadioGroup(name){
       else control.setAttribute('aria-hidden', prevAria);
     }
   });
-  if (isView) {
+  if (showView) {
     queueRadioGroupUpdate(name);
   }
 }
@@ -2102,18 +2114,6 @@ function applyViewLockState(root=document){
   radioGroupRegistry.forEach((_, name) => syncRadioGroup(name));
 }
 
-function syncModeButtons(){
-  const isView = mode === 'view';
-  const label = isView ? 'Switch to Edit Mode' : 'Switch to View Mode';
-  if (menuModeButton) {
-    const text = isView ? 'Edit Character' : 'View Character';
-    menuModeButton.textContent = text;
-    menuModeButton.setAttribute('aria-pressed', isView ? 'true' : 'false');
-    menuModeButton.setAttribute('title', label);
-    menuModeButton.setAttribute('aria-label', text);
-  }
-}
-
 function ensureModeLiveRegion(){
   if (modeLiveRegion && modeLiveRegion.isConnected) return modeLiveRegion;
   const region = document.createElement('div');
@@ -2148,7 +2148,6 @@ function setMode(nextMode, { skipPersist = false } = {}){
     document.activeElement.blur();
   }
   applyViewLockState();
-  syncModeButtons();
   if (changed) {
     announceModeChange();
   }
@@ -2175,11 +2174,117 @@ function useViewMode(listener){
   return mode;
 }
 
-patchValueAccessors();
-menuModeButton = $('btn-view-mode');
-if (menuModeButton) menuModeButton.addEventListener('click', toggleMode);
+const cardEditToggleRegistry = new Map();
 
-let storedMode = 'edit';
+function collectViewLockTargets(root){
+  const targets = new Set();
+  if (!root) return [];
+  if (root.matches && root.matches('[data-view-lock]')) {
+    targets.add(root);
+  }
+  if (root.querySelectorAll) {
+    root.querySelectorAll('[data-view-lock]').forEach(node => targets.add(node));
+  }
+  return Array.from(targets);
+}
+
+function applyCardEditToggleState(button, state, { skipApply = false } = {}){
+  const isViewMode = mode === 'view';
+  const effectiveUnlocked = isViewMode ? state.unlocked : true;
+  const baseLabel = button.dataset?.viewLabel || '';
+  const editText = button.dataset?.viewEditText || 'Edit';
+  const doneText = button.dataset?.viewDoneText || 'Done';
+  const editLabel = button.dataset?.viewEditLabel || (baseLabel ? `Edit ${baseLabel}` : editText);
+  const doneLabel = button.dataset?.viewDoneLabel || (baseLabel ? `Lock ${baseLabel}` : doneText);
+
+  button.disabled = false;
+  button.setAttribute('aria-pressed', effectiveUnlocked ? 'true' : 'false');
+  button.setAttribute('aria-label', effectiveUnlocked ? doneLabel : editLabel);
+  button.setAttribute('title', effectiveUnlocked ? doneLabel : editLabel);
+
+  if (state.labelEl) {
+    state.labelEl.textContent = effectiveUnlocked ? doneText : editText;
+  } else {
+    button.textContent = effectiveUnlocked ? doneText : editText;
+  }
+
+  if (isViewMode) {
+    state.targets.forEach(target => {
+      if (effectiveUnlocked) {
+        target.dataset.viewUnlocked = 'true';
+      } else {
+        delete target.dataset.viewUnlocked;
+      }
+    });
+  } else {
+    state.targets.forEach(target => {
+      delete target.dataset.viewUnlocked;
+    });
+  }
+
+  if (!skipApply) {
+    applyViewLockState(state.root || undefined);
+  }
+}
+
+function initCardEditToggles(){
+  const buttons = qsa('.card-edit-toggle[data-view-target]');
+  buttons.forEach(button => {
+    const selector = button.getAttribute('data-view-target');
+    if (!selector) return;
+    let root = null;
+    try {
+      root = document.querySelector(selector);
+    } catch (err) {
+      root = null;
+    }
+    if (!root) return;
+    const targets = collectViewLockTargets(root);
+    if (!targets.length) return;
+    const state = {
+      root,
+      targets,
+      unlocked: false,
+      labelEl: button.querySelector('.card-edit-toggle__label') || null,
+    };
+    cardEditToggleRegistry.set(button, state);
+    button.addEventListener('click', () => {
+      if (mode !== 'view') {
+        setMode('view');
+        return;
+      }
+      state.unlocked = !state.unlocked;
+      applyCardEditToggleState(button, state);
+    });
+    applyCardEditToggleState(button, state, { skipApply: true });
+  });
+
+  if (!cardEditToggleRegistry.size) return;
+
+  const syncToggles = () => {
+    const scopes = new Set();
+    cardEditToggleRegistry.forEach((state, button) => {
+      applyCardEditToggleState(button, state, { skipApply: true });
+      if (state.root) scopes.add(state.root);
+    });
+    scopes.forEach(scope => applyViewLockState(scope));
+  };
+
+  useViewMode(currentMode => {
+    cardEditToggleRegistry.forEach(state => {
+      if (currentMode === 'view') {
+        state.unlocked = false;
+      }
+    });
+    syncToggles();
+  });
+
+  syncToggles();
+}
+
+patchValueAccessors();
+
+let storedMode = 'view';
 try {
   const raw = localStorage.getItem('view-mode');
   if (raw === '1' || raw === 'view') storedMode = 'view';
@@ -2189,6 +2294,8 @@ setMode(storedMode, { skipPersist: true });
 
 window.setMode = setMode;
 window.useViewMode = useViewMode;
+
+initCardEditToggles();
 
 /* ========= viewport ========= */
 function setVh(){
