@@ -27,7 +27,7 @@ describe('asset manifest runtime coverage', () => {
       './CatalystCore_Master_Book.csv',
       './CatalystCore_Items_Prices.csv',
       './News.txt',
-      './images/LOGO.PNG',
+      './images/logo.png',
     ];
 
     for (const asset of requiredAssets) {
