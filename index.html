@@ -157,7 +157,6 @@
       </button>
       <div id="menu-actions" class="menu" hidden>
         <button id="btn-load" class="btn-sm">Load / Save</button>
-        <button id="btn-view-mode" class="btn-sm" type="button" aria-pressed="false" title="Switch to View Mode">View Character</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
         <button id="btn-log" class="btn-sm">Action Log</button>
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
@@ -320,14 +319,16 @@
       </div>
     </fieldset>
     <div class="grid grid-1">
-      <fieldset class="card hp-field card--has-caret">
-        <legend data-animate-title>HP</legend>
-        <button type="button" class="card-caret" id="hp-settings-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="modal-hp-settings">
-          <span class="sr-only">Open HP options</span>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 8l4 4 4-4"/>
-          </svg>
-        </button>
+      <fieldset class="card hp-field">
+        <legend class="card-legend card-legend--actions" data-animate-title>
+          <span class="card-legend__title">HP</span>
+          <button type="button" class="card-caret" id="hp-settings-toggle" aria-haspopup="dialog" aria-expanded="false" aria-controls="modal-hp-settings">
+            <span class="sr-only">Open HP options</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 8l4 4 4-4"/>
+            </svg>
+          </button>
+        </legend>
         <input id="hp-roll" type="hidden" value="0"/>
         <div class="inline">
           <div class="bar-label">
@@ -344,14 +345,16 @@
           <button id="hp-heal" class="btn-sm">Heal</button>
         </div>
       </fieldset>
-      <fieldset class="card sp-field card--has-caret">
-        <legend data-animate-title>SP</legend>
-        <button type="button" class="card-caret" id="sp-menu-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="sp-menu">
-          <span class="sr-only">Open SP options</span>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 8l4 4 4-4"/>
-          </svg>
-        </button>
+      <fieldset class="card sp-field">
+        <legend class="card-legend card-legend--actions" data-animate-title>
+          <span class="card-legend__title">SP</span>
+          <button type="button" class="card-caret" id="sp-menu-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="sp-menu">
+            <span class="sr-only">Open SP options</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 8l4 4 4-4"/>
+            </svg>
+          </button>
+        </legend>
         <div class="inline">
           <div class="bar-label">
             <progress id="sp-bar" max="5" value="5"></progress>
@@ -469,8 +472,22 @@
   </fieldset>
 
   <!-- ABILITIES -->
-  <fieldset data-tab="abilities" class="card">
-    <h2 class="card-title">Ability Scores</h2>
+  <fieldset data-tab="abilities" class="card" id="card-abilities">
+    <div class="card-toolbar">
+      <h2 class="card-title card-toolbar__title" id="card-abilities-title">Ability Scores</h2>
+      <div class="card-toolbar__actions">
+        <button
+          type="button"
+          class="btn-sm card-edit-toggle"
+          data-view-target="#card-abilities"
+          data-view-label="Ability Scores"
+          aria-describedby="card-abilities-title"
+        >
+          <span class="btn-icon" aria-hidden="true">✎</span>
+          <span class="btn-label card-edit-toggle__label">Edit</span>
+        </button>
+      </div>
+    </div>
     <div id="abil-grid" class="grid ability-grid" data-view-lock></div>
     <fieldset class="card">
       <legend data-animate-title>Proficiency and Power</legend>
@@ -606,8 +623,22 @@
   </fieldset>
 
   <!-- STORY -->
-  <fieldset data-tab="story" class="card">
-    <h2 class="card-title">Character and Story</h2>
+  <fieldset data-tab="story" class="card" id="card-story">
+    <div class="card-toolbar">
+      <h2 class="card-title card-toolbar__title" id="card-story-title">Character and Story</h2>
+      <div class="card-toolbar__actions">
+        <button
+          type="button"
+          class="btn-sm card-edit-toggle"
+          data-view-target="#card-story"
+          data-view-label="Character and Story"
+          aria-describedby="card-story-title"
+        >
+          <span class="btn-icon" aria-hidden="true">✎</span>
+          <span class="btn-label card-edit-toggle__label">Edit</span>
+        </button>
+      </div>
+    </div>
     <div class="grid grid-2">
       <div class="card" data-view-lock><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigilante Name"/></div>
       <div class="card" data-view-lock><label for="secret">Secret Identity</label><input id="secret" placeholder="Real name"/></div>
@@ -990,7 +1021,7 @@
       </li>
       <li>
         <b>Main Menu</b>
-        The header menu button opens overlays for Load / Save, Edit Character, Encounter / Initiative, Action Log, Campaign Log, Rules,
+        The header menu button opens overlays for Load / Save, Encounter / Initiative, Action Log, Campaign Log, Rules,
         and this Help screen. Each modal floats above the sheet so you never lose context, and you can close any of them with Esc
         or by tapping outside.
       </li>
@@ -1021,9 +1052,9 @@
     <h4>Session Tools</h4>
     <ul class="feature-list">
       <li>
-        <b>Edit Character</b>
-        Choose <i>Edit Character</i> from the menu to unlock the sheet for updates. When you're finished adjusting stats or notes,
-        select <i>View Character</i> to return to the read-only layout and avoid accidental changes during play.
+        <b>Card Editing</b>
+        Use the edit buttons on the Ability Scores and Character and Story cards to unlock those sections for updates. Toggle the
+        button again to relock the cards and avoid accidental changes during play.
       </li>
       <li>
         <b>Encounter / Initiative</b>
