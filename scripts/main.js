@@ -2208,6 +2208,21 @@ function applyCardEditToggleState(button, state, { skipApply = false } = {}){
     button.textContent = effectiveUnlocked ? doneText : editText;
   }
 
+  const iconState = effectiveUnlocked ? 'save' : 'edit';
+  try {
+    button.dataset.iconState = iconState;
+  } catch {}
+  button.querySelectorAll('[data-icon]').forEach(icon => {
+    if (!icon || typeof icon.getAttribute !== 'function') return;
+    const name = icon.getAttribute('data-icon');
+    if (!name) return;
+    if (name === iconState) {
+      icon.removeAttribute('hidden');
+    } else {
+      icon.setAttribute('hidden', '');
+    }
+  });
+
   if (isViewMode) {
     state.targets.forEach(target => {
       if (effectiveUnlocked) {
