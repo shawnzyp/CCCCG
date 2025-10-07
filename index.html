@@ -321,19 +321,21 @@
     <div class="grid grid-1">
       <fieldset class="card hp-field">
         <legend class="card-legend card-legend--actions" data-animate-title>
-          <span class="card-legend__title">HP</span>
-          <button
-            type="button"
-            class="card-caret"
-            id="hp-settings-toggle"
-            aria-haspopup="dialog"
-            aria-expanded="false"
-            aria-controls="modal-hp-settings"
-            aria-label="Edit HP options"
-            title="Edit HP options"
-          >
-            <span class="btn-icon" aria-hidden="true">✎</span>
-          </button>
+          <span class="card-legend__content">
+            <span class="card-legend__title">HP</span>
+            <button
+              type="button"
+              class="card-caret"
+              id="hp-settings-toggle"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="modal-hp-settings"
+              aria-label="Edit HP options"
+              title="Edit HP options"
+            >
+              <span class="btn-icon" aria-hidden="true">✎</span>
+            </button>
+          </span>
         </legend>
         <input id="hp-roll" type="hidden" value="0"/>
         <div class="inline">
@@ -353,19 +355,21 @@
       </fieldset>
       <fieldset class="card sp-field">
         <legend class="card-legend card-legend--actions" data-animate-title>
-          <span class="card-legend__title">SP</span>
-          <button
-            type="button"
-            class="card-caret"
-            id="sp-menu-toggle"
-            aria-haspopup="true"
-            aria-expanded="false"
-            aria-controls="sp-menu"
-            aria-label="Edit SP options"
-            title="Edit SP options"
-          >
-            <span class="btn-icon" aria-hidden="true">✎</span>
-          </button>
+          <span class="card-legend__content">
+            <span class="card-legend__title">SP</span>
+            <button
+              type="button"
+              class="card-caret"
+              id="sp-menu-toggle"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="sp-menu"
+              aria-label="Edit SP options"
+              title="Edit SP options"
+            >
+              <span class="btn-icon" aria-hidden="true">✎</span>
+            </button>
+          </span>
         </legend>
         <div class="inline">
           <div class="bar-label">
@@ -486,8 +490,8 @@
   <!-- ABILITIES -->
   <fieldset data-tab="abilities" class="card" id="card-abilities">
     <div class="card-toolbar">
-      <h2 class="card-title card-toolbar__title" id="card-abilities-title">Ability Scores</h2>
-      <div class="card-toolbar__actions">
+      <h2 class="card-title card-toolbar__title card-toolbar__title--inline" id="card-abilities-title">
+        <span class="card-toolbar__title-text">Ability Scores</span>
         <button
           type="button"
           class="btn-sm card-edit-toggle"
@@ -498,7 +502,7 @@
           <span class="btn-icon" aria-hidden="true">✎</span>
           <span class="btn-label card-edit-toggle__label sr-only">Edit</span>
         </button>
-      </div>
+      </h2>
     </div>
     <div id="abil-grid" class="grid ability-grid" data-view-lock></div>
     <fieldset class="card">
@@ -637,8 +641,8 @@
   <!-- STORY -->
   <fieldset data-tab="story" class="card" id="card-story">
     <div class="card-toolbar">
-      <h2 class="card-title card-toolbar__title" id="card-story-title">Character and Story</h2>
-      <div class="card-toolbar__actions">
+      <h2 class="card-title card-toolbar__title card-toolbar__title--inline" id="card-story-title">
+        <span class="card-toolbar__title-text">Character and Story</span>
         <button
           type="button"
           class="btn-sm card-edit-toggle"
@@ -649,7 +653,7 @@
           <span class="btn-icon" aria-hidden="true">✎</span>
           <span class="btn-label card-edit-toggle__label sr-only">Edit</span>
         </button>
-      </div>
+      </h2>
     </div>
     <div class="grid grid-2">
       <div class="card" data-view-lock><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigilante Name"/></div>
