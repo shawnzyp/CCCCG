@@ -45,30 +45,70 @@ function ensureMountNode(element) {
   return mountNode;
 }
 
+function resolveAnimationTarget(element) {
+  const explicitSelector = element.getAttribute('data-animate-title-target');
+  if (explicitSelector) {
+    const explicitTarget = element.querySelector(explicitSelector);
+    if (explicitTarget) {
+      return explicitTarget;
+    }
+  }
+
+  if (element.matches('.card-legend__title')) {
+    return element;
+  }
+
+  const legendTitle = element.querySelector(':scope > .card-legend__content > .card-legend__title')
+    ?? element.querySelector(':scope .card-legend__title');
+  if (legendTitle) {
+    return legendTitle;
+  }
+
+  return element;
+}
+
+function getAnimationText(hostElement, targetElement) {
+  const hostOverride = hostElement.getAttribute('data-animate-title-text');
+  if (hostOverride) {
+    return hostOverride;
+  }
+
+  const targetOverride = targetElement.getAttribute?.('data-animate-title-text');
+  if (targetOverride) {
+    return targetOverride;
+  }
+
+  return targetElement.textContent?.trim() ?? '';
+}
+
 function renderInstance(instance) {
   instance.root.render(<AnimatedTitle text={instance.text} playIndex={instance.playIndex} />);
 }
 
-function mountTitle(element) {
-  if (animatedTitles.has(element)) return;
+function mountTitle(hostElement) {
+  const targetElement = resolveAnimationTarget(hostElement);
+  if (!targetElement) return;
 
-  const text = element.getAttribute('data-animate-title-text') ?? element.textContent?.trim();
+  if (animatedTitles.has(targetElement)) return;
+
+  const text = getAnimationText(hostElement, targetElement);
   if (!text) return;
 
-  stripTextNodes(element);
-  const mountNode = ensureMountNode(element);
+  stripTextNodes(targetElement);
+  const mountNode = ensureMountNode(targetElement);
   const root = createRoot(mountNode);
 
   const instance = {
-    element,
+    host: hostElement,
+    element: targetElement,
     root,
     text,
     playIndex: 0,
-    group: getGroupKey(element)
+    group: getGroupKey(targetElement)
   };
 
   renderInstance(instance);
-  animatedTitles.set(element, instance);
+  animatedTitles.set(targetElement, instance);
 }
 
 function playGroup(group) {
