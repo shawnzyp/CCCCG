@@ -8782,7 +8782,7 @@ function setupPowerPresetMenu() {
 
   document.addEventListener('click', event => {
     if (menu.dataset.open !== 'true') return;
-    if (event.target === addBtn || menu.contains(event.target)) return;
+    if ((addBtn && addBtn.contains(event.target)) || menu.contains(event.target)) return;
     hideMenu();
   });
 

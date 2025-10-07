@@ -2482,6 +2482,7 @@ body.touch-controls-disabled.somf-reveal-active .app-shell> :not(.somf-reveal-al
 body.is-view-mode .power-card{gap:calc(var(--control-gap)*.75)}
 body.is-view-mode .power-card__summary{display:flex}
 body.is-view-mode .power-card__body{display:none}
+body.is-view-mode .power-editor__content .power-card__body{display:flex}
 
 .power-preset-menu__groups{display:flex;flex-direction:column;gap:var(--control-gap)}
 .power-preset-menu__group{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface-2);overflow:hidden}
