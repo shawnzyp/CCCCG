@@ -7430,6 +7430,7 @@ function createPowerEditorOverlay() {
   overlay.className = 'overlay hidden';
   overlay.setAttribute('aria-hidden', 'true');
   overlay.setAttribute('data-modal-static', '');
+  overlay.setAttribute('data-view-allow', '');
   overlay.style.display = 'none';
 
   const modal = document.createElement('div');
@@ -7438,6 +7439,7 @@ function createPowerEditorOverlay() {
   modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-labelledby', 'power-editor-title');
   modal.tabIndex = -1;
+  modal.setAttribute('data-view-allow', '');
 
   const dismissButton = document.createElement('button');
   dismissButton.type = 'button';
@@ -7453,6 +7455,7 @@ function createPowerEditorOverlay() {
   const content = document.createElement('div');
   content.className = 'power-editor__content';
   content.setAttribute('data-role', 'power-editor-content');
+  content.setAttribute('data-view-allow', '');
 
   const actions = document.createElement('div');
   actions.className = 'actions power-editor__actions';
@@ -7500,6 +7503,11 @@ function ensurePowerEditorElements() {
     cancelButton = overlay ? overlay.querySelector('[data-power-editor-cancel]') : null;
   }
   if (!overlay || !modal || !content || !title || !saveButton || !cancelButton) return false;
+  try {
+    overlay.setAttribute('data-view-allow', '');
+    modal.setAttribute('data-view-allow', '');
+    content.setAttribute('data-view-allow', '');
+  } catch {}
   powerEditorState.overlay = overlay;
   powerEditorState.modal = modal;
   powerEditorState.content = content;
@@ -7659,6 +7667,7 @@ function createPowerCard(pref = {}, options = {}) {
   const card = document.createElement('div');
   card.className = 'card power-card';
   card.dataset.kind = isSignature ? 'sig' : 'power';
+  card.setAttribute('data-view-allow', '');
   if (isSignature) {
     card.dataset.signature = 'true';
   }
@@ -8572,7 +8581,13 @@ function setupPowerPresetMenu() {
   menu.dataset.open = 'false';
   menu.dataset.role = 'power-preset-menu';
   menu.setAttribute('role', 'menu');
+  menu.setAttribute('data-view-allow', '');
   document.body.appendChild(menu);
+
+  if (addBtn.type !== 'button') {
+    try { addBtn.type = 'button'; }
+    catch { addBtn.setAttribute('type', 'button'); }
+  }
 
   const hideMenu = () => {
     menu.style.display = 'none';
@@ -8600,7 +8615,11 @@ function setupPowerPresetMenu() {
     menu.style.left = `${initialLeft}px`;
     menu.style.top = `${initialTop}px`;
 
-    requestAnimationFrame(() => {
+    const schedulePosition = typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : callback => setTimeout(callback, 16);
+
+    schedulePosition(() => {
       const menuRect = menu.getBoundingClientRect();
       if (!menuRect.width || !menuRect.height) {
         menu.style.visibility = 'visible';
