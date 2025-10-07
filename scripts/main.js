@@ -5835,12 +5835,16 @@ const loadCancelBtn = $('load-cancel');
 const loadAcceptBtn = $('load-accept');
 async function doLoad(){
   if(!pendingLoad) return;
+  const previousMode = useViewMode();
   try{
     const data = pendingLoad.ts
       ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
       : await loadCharacter(pendingLoad.name);
     deserialize(data);
-    setMode('view');
+    applyViewLockState();
+    if(previousMode === 'view'){
+      setMode('view', { skipPersist: true });
+    }
     setCurrentCharacter(pendingLoad.name);
     syncMiniGamePlayerName();
     hide('modal-load');
@@ -5870,12 +5874,16 @@ const autoChar = params.get('char');
 if (autoChar) {
   (async () => {
     const prev = currentCharacter();
+    const previousMode = useViewMode();
     try {
       setCurrentCharacter(autoChar);
       syncMiniGamePlayerName();
       const data = await loadCharacter(autoChar);
       deserialize(data);
-      setMode('view');
+      applyViewLockState();
+      if (previousMode === 'view') {
+        setMode('view', { skipPersist: true });
+      }
     } catch (e) {
       console.error('Failed to load character from URL', e);
     } finally {
