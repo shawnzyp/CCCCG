@@ -2251,7 +2251,6 @@ function initCardEditToggles(){
     button.addEventListener('click', () => {
       if (mode !== 'view') {
         setMode('view');
-        return;
       }
       state.unlocked = !state.unlocked;
       applyCardEditToggleState(button, state);
