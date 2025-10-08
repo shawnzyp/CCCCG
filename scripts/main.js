@@ -9807,7 +9807,11 @@ function createCard(kind, pref = {}) {
     return createPowerCard(pref, { signature: kind === 'sig' });
   }
   pref = { ...pref };
+  let attackAbilityWasProvided = false;
+  let providedAttackAbilityRaw;
   if (kind === 'weapon') {
+    attackAbilityWasProvided = Object.prototype.hasOwnProperty.call(pref, 'attackAbility');
+    providedAttackAbilityRaw = pref.attackAbility;
     if (pref.attackAbility) {
       pref.attackAbility = String(pref.attackAbility).toLowerCase();
     } else {
@@ -9896,6 +9900,37 @@ function createCard(kind, pref = {}) {
   });
   const delWrap = document.createElement('div');
   delWrap.className = 'inline';
+  if (kind === 'weapon') {
+    const rangeField = qs("[data-f='range']", card);
+    const abilityField = qs("[data-f='attackAbility']", card);
+    const normalizedProvidedAbility = providedAttackAbilityRaw
+      ? String(providedAttackAbilityRaw).trim().toLowerCase()
+      : '';
+    const inferredAbilityFromRange = inferWeaponAttackAbility({ range: pref.range });
+    const abilityShouldAutoSync = !attackAbilityWasProvided
+      || !normalizedProvidedAbility
+      || normalizedProvidedAbility === inferredAbilityFromRange;
+    if (abilityField) {
+      abilityField.dataset.autoSync = abilityShouldAutoSync ? 'true' : 'false';
+      const markManualAbilitySelection = () => {
+        abilityField.dataset.autoSync = 'false';
+      };
+      abilityField.addEventListener('change', markManualAbilitySelection);
+      abilityField.addEventListener('input', markManualAbilitySelection);
+    }
+    if (rangeField && abilityField) {
+      const syncAbilityToRange = () => {
+        if (abilityField.dataset.autoSync !== 'true') return;
+        const inferred = inferWeaponAttackAbility({ range: rangeField.value });
+        if (!inferred) return;
+        if (abilityField.value !== inferred) {
+          abilityField.value = inferred;
+        }
+      };
+      rangeField.addEventListener('input', syncAbilityToRange);
+      rangeField.addEventListener('change', syncAbilityToRange);
+    }
+  }
   if (kind === 'weapon' || kind === 'sig' || kind === 'power') {
     const hitBtn = document.createElement('button');
     hitBtn.className = 'btn-sm';
