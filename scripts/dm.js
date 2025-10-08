@@ -320,6 +320,9 @@ function initDMLogin(){
   const catalogTabs = document.getElementById('dm-catalog-tabs');
   const catalogPanels = document.getElementById('dm-catalog-panels');
 
+  const CATALOG_RECIPIENT_FIELD_KEY = 'recipient';
+  const CATALOG_RECIPIENT_PLACEHOLDER = 'Assign to hero (optional)';
+
   const CATALOG_TYPES = [
     { id: 'gear', label: 'Gear', blurb: 'Outfit your operatives with surveillance, support, and survival tech.' },
     { id: 'weapons', label: 'Weapons', blurb: 'Detail signature arsenals, from close-quarters tools to experimental ordnance.' },
@@ -359,6 +362,7 @@ function initDMLogin(){
     items: [
       { key: 'uses', label: 'Uses', kind: 'input', type: 'text', placeholder: 'Single-use, 3 charges, etc.' },
       { key: 'size', label: 'Size / Carry', kind: 'input', type: 'text', placeholder: 'Handheld, pack, etc.' },
+      { key: CATALOG_RECIPIENT_FIELD_KEY, label: 'Recipient', kind: 'select', placeholder: CATALOG_RECIPIENT_PLACEHOLDER },
     ],
     powers: [
       { key: 'cost', label: 'Cost / Resource', kind: 'input', type: 'text', placeholder: 'SP cost, cooldown, etc.' },
@@ -1221,6 +1225,30 @@ function initDMLogin(){
     if (definition.kind === 'textarea') {
       control = document.createElement('textarea');
       control.rows = definition.rows || 3;
+    } else if (definition.kind === 'select') {
+      control = document.createElement('select');
+      const placeholderText = (definition.placeholder || '').trim() || 'Select an option';
+      control.dataset.placeholder = placeholderText;
+      const placeholderOption = document.createElement('option');
+      placeholderOption.value = '';
+      placeholderOption.textContent = placeholderText;
+      control.appendChild(placeholderOption);
+      if (Array.isArray(definition.options)) {
+        definition.options.forEach(option => {
+          if (!option) return;
+          const opt = document.createElement('option');
+          if (typeof option === 'string') {
+            opt.value = option;
+            opt.textContent = option;
+          } else {
+            const value = typeof option.value === 'string' ? option.value : '';
+            const label = typeof option.label === 'string' ? option.label : value;
+            opt.value = value;
+            opt.textContent = label;
+          }
+          control.appendChild(opt);
+        });
+      }
     } else {
       control = document.createElement('input');
       control.type = definition.type || 'text';
@@ -1320,6 +1348,57 @@ function initDMLogin(){
     form.dataset.catalogBuilt = 'true';
     form.addEventListener('submit', handleCatalogSubmit);
     form.addEventListener('reset', handleCatalogReset);
+  }
+
+  async function populateCatalogRecipients() {
+    const form = catalogForms.get('items');
+    if (!form) return;
+    const select = form.querySelector(`select[data-catalog-field="${CATALOG_RECIPIENT_FIELD_KEY}"]`);
+    if (!select) return;
+    const previousValue = typeof select.value === 'string' ? select.value : '';
+    const placeholder = select.dataset.placeholder || CATALOG_RECIPIENT_PLACEHOLDER;
+    let characters = [];
+    try {
+      const listed = await listCharacters();
+      if (Array.isArray(listed)) {
+        characters = listed;
+      }
+    } catch (err) {
+      console.error('Failed to load character list for catalog recipients', err);
+    }
+    const uniqueNames = [];
+    const seen = new Set();
+    characters.forEach(name => {
+      if (typeof name !== 'string') return;
+      const trimmed = name.trim();
+      if (!trimmed || seen.has(trimmed)) return;
+      seen.add(trimmed);
+      uniqueNames.push(trimmed);
+    });
+    const trimmedPrevious = previousValue.trim();
+    select.innerHTML = '';
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = placeholder || CATALOG_RECIPIENT_PLACEHOLDER;
+    select.appendChild(placeholderOption);
+    uniqueNames.forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+    if (trimmedPrevious && !seen.has(trimmedPrevious)) {
+      const retained = document.createElement('option');
+      retained.value = trimmedPrevious;
+      retained.textContent = trimmedPrevious;
+      select.appendChild(retained);
+    }
+    if (trimmedPrevious) {
+      select.value = trimmedPrevious;
+      if (select.value !== trimmedPrevious) {
+        select.value = '';
+      }
+    }
   }
 
   function updateCatalogTabState() {
@@ -1477,12 +1556,16 @@ function initDMLogin(){
     const typeMeta = catalogTypeLookup.get(typeId);
     if (typeMeta?.label) metadata.categoryLabel = typeMeta.label;
     const locked = data.get('dmLock') != null;
+    const recipient = typeof metadata[CATALOG_RECIPIENT_FIELD_KEY] === 'string'
+      ? metadata[CATALOG_RECIPIENT_FIELD_KEY]
+      : '';
     const payload = {
       type: typeId,
       label: typeMeta?.label || typeId,
       metadata,
       locked,
       timestamp: new Date().toISOString(),
+      recipient: recipient || null,
     };
     if (!metadata.name) return null;
     return payload;
@@ -1498,8 +1581,16 @@ function initDMLogin(){
     }
     const typeLabel = payload.label || payload.type;
     const entryName = payload.metadata?.name || 'Untitled';
-    if (typeof toast === 'function') toast(`${typeLabel} entry staged: ${entryName}`, 'success');
-    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}`);
+    const recipientName = typeof payload.recipient === 'string' && payload.recipient.trim()
+      ? payload.recipient.trim()
+      : (typeof payload.metadata?.[CATALOG_RECIPIENT_FIELD_KEY] === 'string'
+        ? payload.metadata[CATALOG_RECIPIENT_FIELD_KEY].trim()
+        : '');
+    const recipientSuffix = recipientName ? ` → ${recipientName}` : '';
+    if (typeof toast === 'function') {
+      toast(`${typeLabel} entry staged: ${entryName}${recipientSuffix}`, 'success');
+    }
+    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}${recipientSuffix}`);
     if (typeof console !== 'undefined' && typeof console.debug === 'function') {
       console.debug('DM catalog payload prepared', payload);
     }
@@ -1539,6 +1630,7 @@ function initDMLogin(){
   async function openCatalog() {
     if (!catalogModal) return;
     ensureCatalogUI();
+    await populateCatalogRecipients();
     if (!activeCatalogType || !catalogTypeLookup.has(activeCatalogType)) {
       activeCatalogType = CATALOG_TYPES[0]?.id || null;
     }

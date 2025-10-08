@@ -12350,6 +12350,7 @@ function renderCatalog(){
     if (entry.use) details.push(`<div class="small">Use: ${escapeHtml(entry.use)}</div>`);
     if (entry.attunement) details.push(`<div class="small">Attunement: ${escapeHtml(entry.attunement)}</div>`);
     if (entry.description) details.push(`<div class="small">${escapeHtml(entry.description)}</div>`);
+    if (entry.dmRecipient) details.push(`<div class="small">Recipient: ${escapeHtml(entry.dmRecipient)}</div>`);
     if (entry.dmEntry) details.push('<div class="small">DM catalog entry</div>');
     if (entry.dmLock) details.push('<div class="small">Locked by DM</div>');
     const buttonAttrs = [];

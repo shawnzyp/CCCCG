@@ -117,6 +117,9 @@ function normalizeDmCatalogPayload(raw = {}) {
   const normalizedName = normalizeCatalogToken(name) || name.toLowerCase();
   const label = typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : null;
   const locked = !!raw.locked;
+  const metaRecipient = typeof metadata.recipient === 'string' ? metadata.recipient.trim() : '';
+  const rawRecipient = typeof raw.recipient === 'string' ? raw.recipient.trim() : '';
+  const recipient = rawRecipient || metaRecipient || '';
   let timestamp = raw.timestamp;
   if (typeof timestamp === 'number' && Number.isFinite(timestamp)) {
     timestamp = new Date(timestamp).toISOString();
@@ -129,6 +132,9 @@ function normalizeDmCatalogPayload(raw = {}) {
   const idSource = typeof raw.id === 'string' && raw.id.trim()
     ? raw.id.trim()
     : `${type}-${normalizedName || Math.random().toString(36).slice(2)}`;
+  if (recipient && !metadata.recipient) {
+    metadata.recipient = recipient;
+  }
   return {
     id: idSource,
     type,
@@ -136,6 +142,7 @@ function normalizeDmCatalogPayload(raw = {}) {
     metadata,
     locked,
     timestamp,
+    recipient: recipient || null,
   };
 }
 
@@ -274,6 +281,7 @@ function buildCatalogSearchText(entry) {
     entry.use,
     entry.attunement,
     entry.source,
+    entry.dmRecipient,
   ];
   if (Array.isArray(entry.classifications) && entry.classifications.length) {
     searchParts.push(entry.classifications.join(' '));
@@ -520,6 +528,15 @@ function buildDmEntryFromPayload(payload) {
   const meta = payload.metadata;
   const name = typeof meta.name === 'string' ? meta.name.trim() : '';
   if (!name) return null;
+  const recipient = (() => {
+    if (typeof payload.recipient === 'string' && payload.recipient.trim()) {
+      return payload.recipient.trim();
+    }
+    if (typeof meta.recipient === 'string' && meta.recipient.trim()) {
+      return meta.recipient.trim();
+    }
+    return '';
+  })();
   const section = 'DM Catalog';
   const baseType = (() => {
     switch (type) {
@@ -599,6 +616,7 @@ function buildDmEntryFromPayload(payload) {
     dmLock: !!payload.locked,
     dmType: type,
     dmTimestamp: payload.timestamp,
+    dmRecipient: recipient,
   };
   entry.search = buildCatalogSearchText(entry);
   return entry;
@@ -611,6 +629,15 @@ function buildDmPowerPresetFromPayload(payload) {
   const meta = payload.metadata;
   const name = typeof meta.name === 'string' ? meta.name.trim() : '';
   if (!name) return null;
+  const recipient = (() => {
+    if (typeof payload.recipient === 'string' && payload.recipient.trim()) {
+      return payload.recipient.trim();
+    }
+    if (typeof meta.recipient === 'string' && meta.recipient.trim()) {
+      return meta.recipient.trim();
+    }
+    return '';
+  })();
   const tags = parseCatalogTags(meta.tags);
   const style = tags.length ? tags[0] : (meta.style || 'DM Authored');
   const baseCost = typeof meta.cost === 'string' ? meta.cost : '';
@@ -651,6 +678,7 @@ function buildDmPowerPresetFromPayload(payload) {
     locked: !!payload.locked,
     data,
     dmEntry: true,
+    dmRecipient: recipient || null,
   };
 }
 
