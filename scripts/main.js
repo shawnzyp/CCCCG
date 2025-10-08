@@ -5443,16 +5443,51 @@ function rollWithBonus(name, bonus, out, opts = {}){
 renderLogs();
 renderFullLogs();
 $('roll-dice').addEventListener('click', ()=>{
-  const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
+  const sidesValue = num($('dice-sides').value);
+  const s = sidesValue > 1 ? Math.floor(sidesValue) : 20;
+  const countValue = num($('dice-count').value);
+  const c = countValue > 1 ? Math.floor(countValue) : 1;
+  const modifierEl = $('dice-modifier');
+  const modifierValue = modifierEl ? num(modifierEl.value) : 0;
+  const modifier = Number.isFinite(modifierValue) ? Math.trunc(modifierValue) : 0;
+  const modeEl = $('dice-mode');
+  const mode = modeEl ? modeEl.value : 'normal';
+  const modeText = mode === 'advantage' ? 'Advantage' : mode === 'disadvantage' ? 'Disadvantage' : 'Normal';
   const out = $('dice-out');
+  const rollSet = () => Array.from({length: c}, () => 1 + Math.floor(Math.random() * s));
+  const rollSets = [rollSet()];
+  if (mode !== 'normal') {
+    rollSets.push(rollSet());
+  }
+  const sums = rollSets.map(set => set.reduce((a, b) => a + b, 0));
+  let chosenIndex = 0;
+  if (mode === 'advantage' && rollSets.length > 1) {
+    chosenIndex = sums[1] > sums[0] ? 1 : 0;
+  } else if (mode === 'disadvantage' && rollSets.length > 1) {
+    chosenIndex = sums[1] < sums[0] ? 1 : 0;
+  }
+  const chosenRolls = rollSets[chosenIndex];
+  const chosenSum = sums[chosenIndex];
+  const total = chosenSum + modifier;
+  const modifierLabel = modifier === 0 ? '' : (modifier > 0 ? `+${modifier}` : String(modifier));
+  const modifierLog = modifier === 0 ? '' : ` ${modifierLabel}`;
+  const displayRolls = chosenRolls.join(', ');
+  const logRolls = mode === 'normal'
+    ? displayRolls
+    : rollSets.map((set, idx) => `${idx === chosenIndex ? '▶ ' : ''}[${set.join(', ')}]`).join(' vs ');
+  const modeLabel = modeText === 'Normal' ? '' : ` (${modeText})`;
   out.classList.remove('rolling');
-  const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
-  const sum = rolls.reduce((a,b)=>a+b,0);
-  out.textContent = sum;
+  const breakdownParts = [];
+  if (modeText !== 'Normal') breakdownParts.push(modeText);
+  breakdownParts.push(displayRolls);
+  if (modifier !== 0) breakdownParts.push(modifierLabel);
+  const breakdownText = breakdownParts.join(' ');
+  out.textContent = `${total} (${breakdownText})`;
   void out.offsetWidth; out.classList.add('rolling');
-  playDamageAnimation(sum);
-  logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
-  window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
+  playDamageAnimation(total);
+  const summary = `${c}×d${s}${modeLabel}${modifierLog}: ${logRolls} => ${chosenSum}${modifierLog} = ${total}`;
+  logAction(summary);
+  window.dmNotify?.(`Rolled ${summary}`);
 });
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
