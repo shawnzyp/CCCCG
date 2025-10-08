@@ -2572,11 +2572,35 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
   gap:calc(var(--roll-tools-gap)*.5);
   align-items:center;
 }
-.dice-roll-grid>.pill.result{
+.dice-roll-grid__results{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:calc(var(--roll-tools-gap)*.5);
+}
+.dice-roll-grid__results>.pill.result{
   margin:0;
+  flex:0 0 auto;
   justify-self:stretch;
-  width:100%;
   min-width:0;
+}
+.dice-roll-grid .dice-breakdown{
+  display:flex;
+  flex-wrap:wrap;
+  gap:calc(var(--roll-tools-gap)*.35);
+  margin:0;
+  padding:0;
+  list-style:none;
+  font-size:calc(var(--roll-tools-pill-font-size)*.85);
+  color:var(--muted);
+}
+.dice-roll-grid .dice-breakdown[hidden]{
+  display:none;
+}
+.dice-roll-grid .dice-breakdown li{
+  padding:0.2em 0.55em;
+  border-radius:calc(var(--radius)*.6);
+  background:rgba(255,255,255,.08);
 }
 .dice-roll-grid__field{display:flex;flex-direction:column;min-width:0}
 .dice-roll-grid__field>select{

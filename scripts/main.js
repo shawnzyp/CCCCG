@@ -5445,11 +5445,28 @@ renderFullLogs();
 $('roll-dice').addEventListener('click', ()=>{
   const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
   const out = $('dice-out');
+  const breakdown = $('dice-breakdown');
   out.classList.remove('rolling');
   const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
   const sum = rolls.reduce((a,b)=>a+b,0);
   out.textContent = sum;
   void out.offsetWidth; out.classList.add('rolling');
+  if (breakdown) {
+    breakdown.textContent = '';
+    if (c > 1) {
+      const fragment = document.createDocumentFragment();
+      rolls.forEach((roll, index) => {
+        const item = document.createElement('li');
+        item.textContent = String(roll);
+        item.setAttribute('aria-label', `Roll ${index + 1}: ${roll}`);
+        fragment.appendChild(item);
+      });
+      breakdown.appendChild(fragment);
+      breakdown.hidden = false;
+    } else {
+      breakdown.hidden = true;
+    }
+  }
   playDamageAnimation(sum);
   logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
   window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);

@@ -257,7 +257,10 @@
         <div class="roll-tools__panel">
           <h3 class="roll-tools__heading">Dice Roll</h3>
           <div class="dice-roll-grid">
-            <span class="pill result" id="dice-out" data-placeholder="000"></span>
+            <div class="dice-roll-grid__results">
+              <span class="pill result" id="dice-out" data-placeholder="000"></span>
+              <ul id="dice-breakdown" class="dice-breakdown" aria-live="polite" hidden></ul>
+            </div>
             <div class="dice-roll-grid__field">
               <label for="dice-sides" class="sr-only">Sides</label>
               <select id="dice-sides" data-view-allow>
