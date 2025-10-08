@@ -2975,14 +2975,15 @@ function animateTabTransition(currentName, nextName, direction){
   targetPanel.style.opacity = '0';
 
   const axis = direction === 'up' || direction === 'down' ? 'Y' : 'X';
-  const directionSign = direction === 'left' || direction === 'up' ? -1
-    : direction === 'right' || direction === 'down' ? 1
+  const directionSign = direction === 'left' || direction === 'up' ? 1
+    : direction === 'right' || direction === 'down' ? -1
       : 0;
-  const translateDistance = `${directionSign * TAB_ANIMATION_OFFSET}px`;
+  const translateDistance = directionSign * TAB_ANIMATION_OFFSET;
   const zeroTranslate = `translate${axis}(0px)`;
-  const offsetTranslate = directionSign === 0 ? zeroTranslate : `translate${axis}(${translateDistance})`;
+  const offsetTranslate = directionSign === 0 ? zeroTranslate : `translate${axis}(${translateDistance}px)`;
+  const invertedOffsetTranslate = directionSign === 0 ? zeroTranslate : `translate${axis}(${-translateDistance}px)`;
   const enteringTransform = `${offsetTranslate} scale(0.98)`;
-  const exitingTransform = `${offsetTranslate} scale(0.98)`;
+  const exitingTransform = `${invertedOffsetTranslate} scale(0.98)`;
   const neutralTransform = `${zeroTranslate} scale(1)`;
 
   targetPanel.style.transform = enteringTransform;
