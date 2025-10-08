@@ -2966,8 +2966,32 @@ function animateTabTransition(currentName, nextName, direction){
   targetPanel.classList.add('animating');
   activePanel.style.pointerEvents = 'none';
   targetPanel.style.pointerEvents = 'none';
-  activePanel.style.willChange = 'opacity, filter';
-  targetPanel.style.willChange = 'opacity, filter';
+  const SLIDE_OFFSET = 12;
+  const axis = (direction === 'up' || direction === 'down') ? 'Y' : 'X';
+  let offsetValue = 0;
+  switch(direction){
+    case 'left':
+      offsetValue = -SLIDE_OFFSET;
+      break;
+    case 'right':
+      offsetValue = SLIDE_OFFSET;
+      break;
+    case 'up':
+      offsetValue = -SLIDE_OFFSET;
+      break;
+    case 'down':
+      offsetValue = SLIDE_OFFSET;
+      break;
+    default:
+      offsetValue = 0;
+  }
+  const formatTransform = (value) => axis === 'Y' ? `translateY(${value}px)` : `translateX(${value}px)`;
+  const enteringStartTransform = offsetValue !== 0 ? formatTransform(offsetValue) : 'none';
+  const restingTransform = offsetValue !== 0 ? formatTransform(0) : 'none';
+  const exitingEndTransform = offsetValue !== 0 ? formatTransform(offsetValue) : 'none';
+
+  activePanel.style.willChange = 'opacity, filter, transform';
+  targetPanel.style.willChange = 'opacity, filter, transform';
   activePanel.style.zIndex = '3';
   targetPanel.style.zIndex = '4';
   prepareContainerForAnimation();
@@ -2977,12 +3001,12 @@ function animateTabTransition(currentName, nextName, direction){
 
   const animations = [
     targetPanel.animate([
-      { opacity: 0, filter: 'blur(18px) saturate(1.35)' },
-      { opacity: 1, filter: 'blur(0px) saturate(1)' }
+      { opacity: 0, filter: 'blur(18px) saturate(1.35)', transform: enteringStartTransform },
+      { opacity: 1, filter: 'blur(0px) saturate(1)', transform: restingTransform }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' }),
     activePanel.animate([
-      { opacity: 1, filter: 'blur(0px) saturate(1)' },
-      { opacity: 0, filter: 'blur(18px) saturate(1.2)' }
+      { opacity: 1, filter: 'blur(0px) saturate(1)', transform: restingTransform },
+      { opacity: 0, filter: 'blur(18px) saturate(1.2)', transform: exitingEndTransform }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' })
   ];
 
