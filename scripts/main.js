@@ -6022,6 +6022,7 @@ function playDamageAnimation(amount){
   if(!anim) return Promise.resolve();
   anim.textContent=String(amount);
   anim.hidden=false;
+  playStatusCue('damage');
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
@@ -6096,6 +6097,32 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 1, amplitude: 1 },
       { ratio: 1.5, amplitude: 0.55 },
       { ratio: 2, amplitude: 0.3 },
+    ],
+  },
+  damage: {
+    frequency: 240,
+    type: 'square',
+    duration: 0.5,
+    volume: 0.32,
+    attack: 0.01,
+    release: 0.2,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.75, amplitude: 0.5 },
+      { ratio: 2.5, amplitude: 0.25 },
+    ],
+  },
+  save: {
+    frequency: 540,
+    type: 'triangle',
+    duration: 0.6,
+    volume: 0.24,
+    attack: 0.012,
+    release: 0.24,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.33, amplitude: 0.6 },
+      { ratio: 2, amplitude: 0.28 },
     ],
   },
 };
@@ -6287,6 +6314,7 @@ function playSaveAnimation(){
   const anim=$('save-animation');
   if(!anim) return Promise.resolve();
   anim.hidden=false;
+  playStatusCue('save');
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
