@@ -52,6 +52,45 @@ const CLOUD_CAMPAIGN_LOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
 let offlineQueueToastShown = false;
+let lastSyncStatus = isNavigatorOffline() ? 'offline' : 'online';
+const syncStatusListeners = new Set();
+
+function emitSyncStatus(status) {
+  const normalized = typeof status === 'string' ? status : 'online';
+  if (normalized === lastSyncStatus) return;
+  lastSyncStatus = normalized;
+  syncStatusListeners.forEach(listener => {
+    try {
+      listener(normalized);
+    } catch (err) {
+      console.error('Sync status listener failed', err);
+    }
+  });
+}
+
+function setSyncStatus(status) {
+  const normalized = status === 'offline' || status === 'queued' ? status : 'online';
+  emitSyncStatus(normalized);
+}
+
+export function subscribeSyncStatus(listener) {
+  if (typeof listener !== 'function') {
+    return () => {};
+  }
+  syncStatusListeners.add(listener);
+  try {
+    listener(lastSyncStatus);
+  } catch (err) {
+    console.error('Sync status listener failed', err);
+  }
+  return () => {
+    syncStatusListeners.delete(listener);
+  };
+}
+
+export function getLastSyncStatus() {
+  return lastSyncStatus;
+}
 let lastCampaignLogTimestamp = 0;
 
 function nextHistoryTimestamp() {
@@ -95,6 +134,7 @@ function notifySyncPaused() {
     showToast('Cloud sync paused while offline', 'info');
     offlineSyncToastShown = true;
   }
+  setSyncStatus('offline');
 }
 
 function notifySaveQueued() {
@@ -102,11 +142,13 @@ function notifySaveQueued() {
     showToast('Offline: changes will sync when you reconnect', 'info');
     offlineQueueToastShown = true;
   }
+  setSyncStatus('queued');
 }
 
 function resetOfflineNotices() {
   offlineSyncToastShown = false;
   offlineQueueToastShown = false;
+  setSyncStatus('online');
 }
 
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
@@ -308,6 +350,7 @@ export async function saveCloud(name, payload) {
   const ts = nextHistoryTimestamp();
   try {
     await attemptCloudSave(name, payload, ts);
+    resetOfflineNotices();
     return 'saved';
   } catch (e) {
     if (e && e.message === 'fetch not supported') {

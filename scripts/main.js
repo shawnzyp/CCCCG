@@ -28,6 +28,8 @@ import {
   deleteCampaignLogEntry,
   fetchCampaignLogEntries,
   subscribeCampaignLog,
+  subscribeSyncStatus,
+  getLastSyncStatus,
 } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
@@ -10434,6 +10436,35 @@ ensureAutoSaveTimer();
 if(typeof window !== 'undefined'){
   window.addEventListener('focus', performScheduledAutoSave, { passive: true });
 }
+
+const syncStatusBadge = $('cloud-sync-status');
+if (syncStatusBadge) {
+  const SYNC_STATUS_LABELS = {
+    online: 'Online',
+    offline: 'Offline',
+    queued: 'Sync queued',
+  };
+  const updateSyncBadge = status => {
+    const normalized = status === 'offline' || status === 'queued' ? status : 'online';
+    const label = SYNC_STATUS_LABELS[normalized] || SYNC_STATUS_LABELS.online;
+    if (syncStatusBadge.dataset && typeof syncStatusBadge.dataset === 'object') {
+      syncStatusBadge.dataset.status = normalized;
+    } else if (typeof syncStatusBadge.setAttribute === 'function') {
+      syncStatusBadge.setAttribute('data-status', normalized);
+    }
+    if ('textContent' in syncStatusBadge) {
+      syncStatusBadge.textContent = label;
+    }
+    if (typeof syncStatusBadge.setAttribute === 'function') {
+      syncStatusBadge.setAttribute('aria-label', `Cloud sync status: ${label}`);
+      syncStatusBadge.setAttribute('title', label);
+    }
+  };
+
+  updateSyncBadge(getLastSyncStatus());
+  subscribeSyncStatus(updateSyncBadge);
+}
+
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
   let oldChar = currentCharacter();

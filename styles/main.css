@@ -190,6 +190,48 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   justify-self:center;
 }
 
+.tabs-title__label{
+  display:inline-flex;
+  align-items:center;
+}
+
+.sync-status-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+  font-size:clamp(.6rem,2vw,.75rem);
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background:color-mix(in srgb, var(--surface) 88%, transparent);
+  color:var(--accent);
+}
+
+.sync-status-badge::before{
+  content:"";
+  display:inline-block;
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:currentColor;
+  box-shadow:0 0 0 1px color-mix(in srgb, currentColor 70%, transparent);
+}
+
+.sync-status-badge[data-status="offline"]{
+  color:var(--error);
+  border-color:color-mix(in srgb, var(--error) 50%, transparent);
+  background:color-mix(in srgb, var(--error) 14%, transparent);
+}
+
+.sync-status-badge[data-status="queued"]{
+  color:var(--warning, #f5c959);
+  border-color:color-mix(in srgb, var(--warning, #f5c959) 45%, transparent);
+  background:color-mix(in srgb, var(--warning, #f5c959) 18%, transparent);
+}
+
 header{
   --header-icon-size:calc(var(--icon-size) * 1.25);
 }
