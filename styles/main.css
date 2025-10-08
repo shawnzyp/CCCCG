@@ -2604,6 +2604,13 @@ body:is(.modal-open, .dm-floating-covered) .dm-tools-menu{
 .somf-rolls{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .somf-tag{font-size:12px;padding:2px 6px;border:1px solid #1b2532;border-radius:4px;background:#0b1119}
 .somf-dm__toasts{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.somf-dm__toast{background:rgba(10,16,27,.92);border:1px solid #27364b;border-radius:10px;padding:10px 12px;color:#e7f2ff;font-size:14px;line-height:1.4;max-width:320px;box-shadow:0 8px 18px rgba(7,12,20,.5);opacity:0;transform:translateY(6px);transition:opacity .18s ease,transform .18s ease}
+.somf-dm__toast strong{color:#fff}
+.somf-dm__toast--show{opacity:1;transform:translateY(0)}
+.somf-dm__toast--hide{opacity:0;transform:translateY(6px)}
+.somf-dm__toast--success{border-color:#2d9c61}
+.somf-dm__toast--error{border-color:#c75656}
+.somf-dm__toast--warning{border-color:#c99944}
 .somf-dm__queue{position:fixed;right:12px;bottom:60px;margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;z-index:9998}
 .somf-dm__queue li{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:6px 10px;cursor:pointer;min-width:200px}
 #modal-somf-dm{padding:0}
