@@ -10786,6 +10786,9 @@ function createPowerCard(pref = {}, options = {}) {
   return card;
 }
 
+let powerPresetMenuRefresh = null;
+let signaturePresetMenuRefresh = null;
+
 function setupPowerPresetMenu() {
   const addBtn = $('add-power');
   const list = $('powers');
@@ -11897,9 +11900,6 @@ let catalogFiltersInitialized = false;
 let dmCatalogGearEntries = [];
 let dmCatalogPowerPresets = [];
 let dmCatalogSignaturePresets = [];
-let powerPresetMenuRefresh = null;
-let signaturePresetMenuRefresh = null;
-
 const styleSel = $('catalog-filter-style');
 const typeSel = $('catalog-filter-type');
 const tierSel = $('catalog-filter-rarity');
