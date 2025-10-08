@@ -3188,7 +3188,8 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
   border-radius:calc(var(--radius)*.6);
   background:rgba(255,255,255,.08);
 }
-.dice-roll-grid__field{display:flex;flex-direction:column;min-width:0}
+.dice-roll-grid__field{display:flex;flex-direction:column;min-width:0;gap:4px}
+.dice-roll-grid__field label:not(.sr-only){font-size:.75rem;font-weight:600;color:var(--muted);}
 .dice-roll-grid__field>select{
   width:100%;
   min-height:var(--roll-tools-control-height);
@@ -3200,6 +3201,10 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
   font-size:var(--roll-tools-control-font-size);
 }
 .dice-roll-grid__field>input{text-align:center}
+.dice-roll-grid__options{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:calc(var(--roll-tools-gap)*.5);align-items:stretch}
+.dice-roll-grid__options .dice-roll-grid__field{flex:1 1 150px;}
+.dice-roll-grid__field--modifier{flex:0 1 clamp(80px,22%,120px);}
+.dice-roll-grid__field--modifier input{width:100%;}
 .dice-roll-grid>button{grid-column:1/-1;justify-self:stretch}
 @media (max-width:420px){
   .dice-roll-grid{
