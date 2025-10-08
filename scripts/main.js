@@ -4887,6 +4887,7 @@ const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
 const elCreditsGearTotal = $('credits-gear-total');
 const elCreditsGearRemaining = $('credits-gear-remaining');
+const elCreditsReason = $('credits-reason');
 
 if (elPowerStylePrimary) {
   elPowerStylePrimary.addEventListener('change', () => {
@@ -5385,6 +5386,76 @@ function formatCreditsValue(value) {
   return safe < 0 ? `-${formatted}` : formatted;
 }
 
+const CREDITS_LEDGER_STORAGE_KEY = 'credits-ledger';
+const CREDITS_LEDGER_MAX_ENTRIES = 200;
+let creditsLedgerEntries = [];
+
+function loadCreditsLedgerEntries() {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(CREDITS_LEDGER_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(entry => {
+      const amount = Number(entry?.amount);
+      const balance = Number(entry?.balance);
+      const ts = Number(entry?.ts);
+      const rawReason = typeof entry?.reason === 'string' ? entry.reason.trim() : '';
+      return {
+        amount: Number.isFinite(amount) ? amount : 0,
+        balance: Number.isFinite(balance) ? balance : 0,
+        reason: rawReason || 'Adjustment',
+        ts: Number.isFinite(ts) ? ts : Date.now(),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function persistCreditsLedgerEntries(entries) {
+  creditsLedgerEntries = entries.slice(-CREDITS_LEDGER_MAX_ENTRIES);
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(CREDITS_LEDGER_STORAGE_KEY, JSON.stringify(creditsLedgerEntries));
+  } catch {}
+}
+
+function getCreditsLedgerEntries() {
+  return creditsLedgerEntries.slice();
+}
+
+function recordCreditsLedgerEntry(entry) {
+  const amount = Number(entry?.amount);
+  const balance = Number(entry?.balance);
+  const ts = Number(entry?.ts);
+  const normalized = {
+    amount: Number.isFinite(amount) ? amount : 0,
+    balance: Number.isFinite(balance) ? balance : 0,
+    reason:
+      typeof entry?.reason === 'string' && entry.reason.trim()
+        ? entry.reason.trim()
+        : amount > 0
+          ? 'Credits gained'
+          : 'Credits spent',
+    ts: Number.isFinite(ts) ? ts : Date.now(),
+  };
+  const next = getCreditsLedgerEntries();
+  next.push(normalized);
+  persistCreditsLedgerEntries(next);
+  if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
+    try {
+      document.dispatchEvent(new CustomEvent('credits-ledger-updated', { detail: normalized }));
+    } catch {}
+  }
+}
+
+creditsLedgerEntries = loadCreditsLedgerEntries();
+if (creditsLedgerEntries.length > CREDITS_LEDGER_MAX_ENTRIES) {
+  persistCreditsLedgerEntries(creditsLedgerEntries);
+}
+
 function calculateEquippedGearTotal() {
   const gearLists = ['weapons', 'armors', 'items'];
   let total = 0;
@@ -5426,7 +5497,7 @@ function updateCreditsDisplay(){
   updateCreditsGearSummary();
 }
 
-function setCredits(v){
+function setCredits(v, options = {}){
   const prev = num(elCredits.value)||0;
   const total = Math.max(0, v);
   elCredits.value = total;
@@ -5436,6 +5507,17 @@ function setCredits(v){
     const actionKey = diff > 0 ? 'credits-gain' : 'credits-spend';
     playActionCue(actionKey);
     window.dmNotify?.(`Credits ${diff>0?'gained':'spent'} ${Math.abs(diff)} (now ${total})`);
+    const providedReason = typeof options === 'object' && options !== null ? options.reason : undefined;
+    const entryReason = typeof providedReason === 'string' && providedReason.trim()
+      ? providedReason.trim()
+      : diff > 0
+        ? 'Credits gained'
+        : 'Credits spent';
+    recordCreditsLedgerEntry({
+      amount: diff,
+      balance: total,
+      reason: entryReason,
+    });
     pushHistory();
     const name = currentCharacter();
     if (name) {
@@ -5459,11 +5541,20 @@ function notifyInsufficientCredits(message = "You don't have enough Credits for 
 }
 
 $('credits-submit').addEventListener('click', ()=>{
-  const amt = num($('credits-amt').value)||0;
+  const amtField = $('credits-amt');
+  const amt = num(amtField?.value)||0;
   if(!amt) return;
   const mode = $('credits-mode').value;
-  setCredits(num(elCredits.value) + (mode==='add'? amt : -amt));
-  $('credits-amt').value='';
+  const delta = mode==='add'? amt : -amt;
+  const current = num(elCredits.value) || 0;
+  const providedReason = elCreditsReason && typeof elCreditsReason.value === 'string'
+    ? elCreditsReason.value.trim()
+    : '';
+  const defaultReason = mode==='add' ? 'Manual credit gain' : 'Manual credit spend';
+  const reason = providedReason || defaultReason;
+  setCredits(current + delta, { reason });
+  if (amtField) amtField.value='';
+  if (elCreditsReason) elCreditsReason.value='';
 });
 
 
@@ -7000,6 +7091,72 @@ const btnLogFull = $('log-full');
 if (btnLogFull) {
   btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
 }
+const creditsLedgerList = $('credits-ledger-list');
+const creditsLedgerFilterButtons = Array.from(qsa('[data-ledger-filter]'));
+let creditsLedgerFilter = 'all';
+
+function setCreditsLedgerFilter(filter) {
+  const normalized = filter === 'gain' || filter === 'spend' ? filter : 'all';
+  creditsLedgerFilter = normalized;
+  creditsLedgerFilterButtons.forEach(btn => {
+    const target = btn?.dataset?.ledgerFilter || 'all';
+    btn.setAttribute('aria-pressed', target === normalized ? 'true' : 'false');
+  });
+  renderCreditsLedger();
+}
+
+function renderCreditsLedger() {
+  if (!creditsLedgerList) return;
+  const entries = (() => {
+    const all = getCreditsLedgerEntries();
+    if (creditsLedgerFilter === 'gain') return all.filter(entry => entry.amount > 0);
+    if (creditsLedgerFilter === 'spend') return all.filter(entry => entry.amount < 0);
+    return all;
+  })()
+    .slice()
+    .reverse();
+  if (!entries.length) {
+    creditsLedgerList.innerHTML = '<p class="credits-ledger__empty">No ledger entries yet.</p>';
+    return;
+  }
+  const html = entries
+    .map(entry => {
+      const amountDisplay = entry.amount > 0
+        ? `+${formatCreditsValue(entry.amount)}`
+        : formatCreditsValue(entry.amount);
+      const balanceDisplay = formatCreditsValue(entry.balance);
+      const reasonText = escapeHtml(entry.reason || 'Adjustment');
+      const ts = Number(entry.ts);
+      const timestampLabel = Number.isFinite(ts) ? new Date(ts).toLocaleString() : '';
+      const timestampHtml = timestampLabel
+        ? `<div class="small credits-ledger__timestamp">${escapeHtml(timestampLabel)}</div>`
+        : '';
+      const typeClass = entry.amount >= 0 ? 'credits-ledger__entry--gain' : 'credits-ledger__entry--spend';
+      return `<div class="catalog-item credits-ledger__entry ${typeClass}"><div class="credits-ledger__line"><span class="credits-ledger__amount">${escapeHtml(amountDisplay)}</span><span class="credits-ledger__balance">Balance: ${escapeHtml(balanceDisplay)}</span></div><div class="small">${reasonText}</div>${timestampHtml}</div>`;
+    })
+    .join('');
+  creditsLedgerList.innerHTML = html;
+}
+
+creditsLedgerFilterButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn?.dataset?.ledgerFilter || 'all';
+    setCreditsLedgerFilter(target);
+  });
+});
+
+const btnCreditsLedger = $('btn-credits-ledger');
+if (btnCreditsLedger) {
+  btnCreditsLedger.addEventListener('click', () => {
+    setCreditsLedgerFilter('all');
+    show('modal-credits-ledger');
+  });
+}
+
+document.addEventListener('credits-ledger-updated', () => {
+  renderCreditsLedger();
+});
+
 const btnCampaign = $('btn-campaign');
 if (btnCampaign) {
   btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
@@ -11320,21 +11477,24 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
   });
   const formattedPrice = hasPrice ? formatPrice(priceValue) : '';
   const isManualCard = !!(pending && pending.isConnected);
+  const entryName = info?.data?.name || entry?.name || 'item';
   let creditsDeducted = false;
   if (hasPrice && !isManualCard && typeof setCredits === 'function' && elCredits) {
     let shouldDeduct = false;
     if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      const entryName = info?.data?.name || entry?.name || 'this item';
-      shouldDeduct = window.confirm(`Subtract ${formattedPrice} from Credits for ${entryName}?`);
+      const confirmName = entryName || 'this item';
+      shouldDeduct = window.confirm(`Subtract ${formattedPrice} from Credits for ${confirmName}?`);
     }
     if (shouldDeduct) {
       const available = num(elCredits.value) || 0;
       if (available < priceValue) {
         notifyInsufficientCredits(`You don't have enough Credits to spend ${formattedPrice}.`);
       } else {
-        setCredits(available - priceValue);
+        const ledgerReason = formattedPrice
+          ? `Purchased ${entryName} for ${formattedPrice}`
+          : `Purchased ${entryName}`;
+        setCredits(available - priceValue, { reason: ledgerReason });
         creditsDeducted = true;
-        const entryName = info?.data?.name || entry?.name || 'item';
         try {
           logAction(`Credits spent automatically: ${formattedPrice} on ${entryName}.`);
         } catch {}
