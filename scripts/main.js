@@ -2670,6 +2670,13 @@ const AUDIO_CUE_SOURCES = {
     + 'mpqZl5OPiYN8dW5nYFpWUlBQUVRZYGhxfIaSnaewuL7CxMPAurKonI6AcGFTRjoxKiYlJyw2QU9f'
     + 'cYOWqbvK2OPq7e7p4dXGtJ+Kc1xGMR8=',};
 
+AUDIO_CUE_SOURCES['hp-damage'] = AUDIO_CUE_SOURCES.error;
+AUDIO_CUE_SOURCES['hp-heal'] = AUDIO_CUE_SOURCES.success;
+AUDIO_CUE_SOURCES['hp-down'] = AUDIO_CUE_SOURCES.warn;
+AUDIO_CUE_SOURCES['sp-gain'] = AUDIO_CUE_SOURCES.success;
+AUDIO_CUE_SOURCES['sp-spend'] = AUDIO_CUE_SOURCES.warn;
+AUDIO_CUE_SOURCES['sp-empty'] = AUDIO_CUE_SOURCES.error;
+
 const AUDIO_CUE_TYPE_MAP = {
   success: 'success',
   info: 'success',
@@ -5345,17 +5352,27 @@ $('credits-submit').addEventListener('click', ()=>{
 function setHP(v){
   const prev = num(elHPBar.value);
   elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
-  elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+  const current = num(elHPBar.value);
+  elHPPill.textContent = `${current}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
   updateDeathSaveAvailability();
-  const diff = num(elHPBar.value) - prev;
+  const diff = current - prev;
   if(diff !== 0){
+    if(diff < 0){
+      playActionCue('hp-damage');
+    }else{
+      playActionCue('hp-heal');
+    }
     window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
     logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
   }
-  if(num(elHPBar.value) > 0){
+  const down = prev > 0 && current === 0;
+  if(down){
+    playActionCue('hp-down');
+  }
+  if(current > 0){
     try { resetDeathSaves(); } catch {}
   }
-  return prev > 0 && num(elHPBar.value) === 0;
+  return down;
 }
 function notifyInsufficientSp(message = "You don't have enough SP for that.") {
   try {
@@ -5374,16 +5391,23 @@ async function setSP(v){
     return false;
   }
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), target));
+  const current = num(elSPBar.value);
   const temp = elSPTemp ? num(elSPTemp.value) : 0;
-  elSPPill.textContent = `${num(elSPBar.value)}/${num(elSPBar.max)}` + (temp ? ` (+${temp})` : ``);
-  const diff = num(elSPBar.value) - prev;
+  elSPPill.textContent = `${current}/${num(elSPBar.max)}` + (temp ? ` (+${temp})` : ``);
+  const diff = current - prev;
   if(diff !== 0) {
+    if(diff < 0){
+      playActionCue('sp-spend');
+    }else{
+      playActionCue('sp-gain');
+    }
     window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     await playSPAnimation(diff);
     pushHistory();
   }
-  if(prev > 0 && num(elSPBar.value) === 0) {
+  if(prev > 0 && current === 0) {
+    playActionCue('sp-empty');
     toast('Player is out of SP', 'warning');
     logAction('Player is out of SP.');
   }
@@ -6138,6 +6162,78 @@ const AUDIO_CUE_SETTINGS = {
     partials: [
       { ratio: 1, amplitude: 1 },
       { ratio: 0.5, amplitude: 0.5 },
+    ],
+  },
+  'hp-damage': {
+    frequency: 280,
+    type: 'square',
+    duration: 0.25,
+    volume: 0.27,
+    attack: 0.005,
+    release: 0.12,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2, amplitude: 0.3 },
+    ],
+  },
+  'hp-heal': {
+    frequency: 640,
+    type: 'triangle',
+    duration: 0.3,
+    volume: 0.24,
+    attack: 0.008,
+    release: 0.15,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2, amplitude: 0.4 },
+    ],
+  },
+  'hp-down': {
+    frequency: 190,
+    type: 'sawtooth',
+    duration: 0.5,
+    volume: 0.28,
+    attack: 0.01,
+    release: 0.3,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 0.5, amplitude: 0.5 },
+    ],
+  },
+  'sp-gain': {
+    frequency: 520,
+    type: 'sine',
+    duration: 0.22,
+    volume: 0.2,
+    attack: 0.005,
+    release: 0.1,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2, amplitude: 0.3 },
+    ],
+  },
+  'sp-spend': {
+    frequency: 360,
+    type: 'triangle',
+    duration: 0.24,
+    volume: 0.21,
+    attack: 0.006,
+    release: 0.12,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2, amplitude: 0.35 },
+    ],
+  },
+  'sp-empty': {
+    frequency: 240,
+    type: 'square',
+    duration: 0.32,
+    volume: 0.25,
+    attack: 0.007,
+    release: 0.2,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 0.5, amplitude: 0.4 },
     ],
   },
   heal: {
