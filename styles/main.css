@@ -2058,6 +2058,17 @@ progress::-moz-progress-bar{
 .catalog-item:last-child{border-bottom:none}
 .catalog-item.active{background:var(--accent);color:var(--text-on-accent)}
 .catalog-item.active .pill{border-color:var(--text-on-accent);color:var(--text-on-accent)}
+.credits-reason{margin-top:10px}
+.credits-reason input{width:100%}
+.credits-ledger__filters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:12px}
+.credits-ledger__filters .btn-sm[aria-pressed="true"]{background:var(--accent);color:var(--text-on-accent)}
+.catalog-item.credits-ledger__entry{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.credits-ledger__line{display:flex;justify-content:space-between;gap:12px;width:100%;font-weight:600}
+.credits-ledger__amount,.credits-ledger__balance{font-variant-numeric:tabular-nums}
+.credits-ledger__entry--gain .credits-ledger__amount{color:var(--success)}
+.credits-ledger__entry--spend .credits-ledger__amount{color:var(--error)}
+.credits-ledger__timestamp{color:var(--muted)}
+.credits-ledger__empty{text-align:center;padding:16px 8px;color:var(--muted)}
 #recover-list .recover-group{margin-bottom:16px}
 #recover-list .recover-group:last-child{margin-bottom:0}
 #recover-list .recover-group h4{margin:8px 4px;font-size:1rem;font-weight:600;color:var(--muted)}

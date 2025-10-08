@@ -171,6 +171,7 @@
         <button id="btn-load" class="btn-sm">Load / Save</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
         <button id="btn-log" class="btn-sm">Action Log</button>
+        <button id="btn-credits-ledger" class="btn-sm">Credits Ledger</button>
         <button id="btn-campaign" class="btn-sm">Campaign Log</button>
         <button id="btn-rules" class="btn-sm">Rules</button>
         <button id="btn-help" class="btn-sm">Help</button>
@@ -813,6 +814,16 @@
           </select>
           <button id="credits-submit" class="btn-sm" type="button">Apply</button>
         </div>
+        <div class="credits-reason">
+          <label for="credits-reason" class="sr-only">Reason</label>
+          <input
+            id="credits-reason"
+            data-view-allow
+            type="text"
+            placeholder="Reason (e.g., mission payout, equipment purchase)"
+            autocomplete="off"
+          />
+        </div>
         <input id="credits" type="hidden" value="0"/>
       </div>
       <div class="card card-wide">
@@ -1290,6 +1301,25 @@
     <h3>Action Log</h3>
     <div id="log-action" class="catalog"></div>
     <div class="actions"><button id="log-full" class="btn-sm">Full Log</button><button class="btn-sm" data-close>Close</button></div>
+  </div>
+</div>
+
+
+<div class="overlay hidden" id="modal-credits-ledger" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Credits Ledger</h3>
+    <div class="credits-ledger__filters" role="group" aria-label="Filter credits ledger entries">
+      <button class="btn-sm" type="button" data-ledger-filter="all" aria-pressed="true">All</button>
+      <button class="btn-sm" type="button" data-ledger-filter="gain" aria-pressed="false">Gains</button>
+      <button class="btn-sm" type="button" data-ledger-filter="spend" aria-pressed="false">Spends</button>
+    </div>
+    <div id="credits-ledger-list" class="catalog" aria-live="polite"></div>
+    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
 
