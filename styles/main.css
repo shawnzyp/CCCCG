@@ -166,6 +166,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   margin-right:calc(-1 * env(safe-area-inset-right, 0px));
   background:color-mix(in srgb,var(--surface) 94%, transparent);
   backdrop-filter:blur(8px);
+  will-change:opacity,transform;
 }
 .tabs-title{
   padding:0 8px;
