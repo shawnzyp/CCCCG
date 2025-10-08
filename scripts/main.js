@@ -9950,14 +9950,37 @@ function buildCardInfo(entry){
   };
 }
 
+function enforceExclusiveArmorSlot(list, slot) {
+  if (!list) return;
+  const normalizedSlot = String(slot || 'Body').trim().toLowerCase();
+  if (!normalizedSlot) return;
+  if (!['body', 'head'].includes(normalizedSlot)) return;
+  const cards = Array.from(list.querySelectorAll("[data-kind='armor']"));
+  cards.forEach(card => {
+    if (!card) return;
+    const slotSel = qs("[data-f='slot']", card);
+    if (!slotSel) return;
+    const cardSlot = String(slotSel.value || 'Body').trim().toLowerCase() || 'body';
+    if (cardSlot !== normalizedSlot) return;
+    const equipChk = qs("input[type='checkbox'][data-f='equipped']", card);
+    if (equipChk && equipChk.checked) {
+      equipChk.checked = false;
+    }
+  });
+}
+
 function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverride = null } = {}){
   const info = cardInfoOverride || buildCardInfo(entry);
   if (!info) return null;
   const list = $(info.listId);
   if (!list) return null;
-  let card = null;
   const pending = pendingManualCards[info.kind];
-  if (pending && pending.isConnected) {
+  const isManualCard = !!(pending && pending.isConnected);
+  if (info.kind === 'armor' && info?.data?.equipped && !isManualCard) {
+    enforceExclusiveArmorSlot(list, info.data.slot);
+  }
+  let card = null;
+  if (isManualCard) {
     card = pending;
     pendingManualCards[info.kind] = null;
     populateCardFromData(card, info.data);
@@ -9976,7 +9999,6 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
     delete card.dataset.price;
     delete card.dataset.priceDisplay;
   }
-  const isManualCard = !!(pending && pending.isConnected);
   let creditsDeducted = false;
   if (hasPrice && !isManualCard && typeof setCredits === 'function' && elCredits) {
     let shouldDeduct = false;
@@ -10432,7 +10454,7 @@ function ensureCatalogFilters(data){
   }
 }
 
-export { tierRank, sortCatalogRows, extractPriceValue, resolveRollBonus, rollBonusRegistry };
+export { tierRank, sortCatalogRows, extractPriceValue, resolveRollBonus, rollBonusRegistry, addEntryToSheet };
 
 function setCatalogFilters(filters = {}){
   if (styleSel && Object.prototype.hasOwnProperty.call(filters, 'style')) {
@@ -11121,6 +11143,9 @@ let autoSaveDirty = false;
 let lastSyncedSnapshotJson = null;
 let pendingAutoSaveSnapshot = null;
 let pendingAutoSaveJson = null;
+const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
+let scheduledAutoSaveId = null;
+let scheduledAutoSaveInFlight = false;
 const pushHistory = debounce(()=>{
   const snap = serialize();
   const serialized = JSON.stringify(snap);
@@ -11165,10 +11190,6 @@ function redo(){
     });
   }
 })();
-
-const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
-let scheduledAutoSaveId = null;
-let scheduledAutoSaveInFlight = false;
 
 async function performScheduledAutoSave(){
   if(scheduledAutoSaveInFlight) return;
