@@ -23,6 +23,11 @@ import {
   updateDeployment as updateMiniGameDeployment,
 } from './mini-games.js';
 import {
+  getDmCatalogState,
+  setServerDmCatalogPayloads,
+  subscribeDmCatalog,
+} from './dm-catalog-sync.js';
+import {
   cacheCloudSaves,
   subscribeCloudSaves,
   appendCampaignLogEntry,
@@ -118,6 +123,14 @@ const POWER_RANGE_QUICK_VALUES = [
   '120 ft',
   'Unlimited (narrative)',
 ];
+
+function isDmSessionActive() {
+  try {
+    return typeof sessionStorage !== 'undefined' && sessionStorage.getItem('dmLoggedIn') === '1';
+  } catch {
+    return false;
+  }
+}
 
 const POWER_STYLE_CASTER_SAVE_DEFAULTS = {
   'Physical Powerhouse': ['STR'],
@@ -10885,12 +10898,19 @@ function setupPowerPresetMenu() {
     return shallow;
   };
 
-  const createOptionButton = (label, data) => {
+  const createOptionButton = (label, data, { locked = false, isDm = false } = {}) => {
     const optionBtn = document.createElement('button');
     optionBtn.type = 'button';
     optionBtn.className = 'btn-sm power-preset-menu__btn';
     optionBtn.textContent = label;
+    if (isDm) optionBtn.dataset.dmEntry = 'true';
+    if (locked) optionBtn.dataset.dmLock = 'true';
     optionBtn.addEventListener('click', () => {
+      if (locked && !isDmSessionActive()) {
+        hideMenu();
+        toast('This power is locked by the DM.', 'error');
+        return;
+      }
       const card = createCard('power', clonePresetData(data));
       hideMenu();
       const opened = openPowerEditor(card, { isNew: true, targetList: list });
@@ -10908,79 +10928,92 @@ function setupPowerPresetMenu() {
 
   const intensityOrder = new Map(POWER_INTENSITIES.map((name, index) => [name, index]));
 
-  const groupedPresets = POWER_PRESETS.reduce((acc, preset) => {
-    if (!preset || typeof preset !== 'object') return acc;
-    const data = preset.data || {};
-    const labelParts = typeof preset.label === 'string' ? preset.label.split(':') : [];
-    const styleLabel = (data.style || (labelParts.length > 1 ? labelParts[0].trim() : '') || 'General').trim();
-    const effectLabel = (data.effectTag || data.secondaryTag || 'General').trim();
-    const optionLabel = (data.name || (labelParts.length ? labelParts[labelParts.length - 1].trim() : preset.label) || 'Preset').trim();
-    const styleKey = styleLabel || 'General';
-    const effectKey = effectLabel || 'General';
+  const renderPresets = () => {
+    menu.innerHTML = '';
+    groupsContainer.innerHTML = '';
+    menu.appendChild(createOptionButton('Custom Power', {}));
+    const combinedPresets = getCombinedPowerPresets();
+    const groupedPresets = combinedPresets.reduce((acc, preset) => {
+      if (!preset || typeof preset !== 'object') return acc;
+      const data = preset.data || {};
+      const labelParts = typeof preset.label === 'string' ? preset.label.split(':') : [];
+      const styleLabel = (data.style || (labelParts.length > 1 ? labelParts[0].trim() : '') || 'General').trim();
+      const effectLabel = (data.effectTag || data.secondaryTag || 'General').trim();
+      const optionLabelBase = (data.name || (labelParts.length ? labelParts[labelParts.length - 1].trim() : preset.label) || 'Preset').trim();
+      const optionLabel = preset.dmEntry && !/\(DM\)$/i.test(optionLabelBase)
+        ? `${optionLabelBase} (DM)`
+        : optionLabelBase;
+      const styleKey = styleLabel || 'General';
+      const effectKey = effectLabel || 'General';
 
-    if (!acc.has(styleKey)) acc.set(styleKey, new Map());
-    const effectMap = acc.get(styleKey);
-    if (!effectMap.has(effectKey)) effectMap.set(effectKey, []);
-    effectMap.get(effectKey).push({
-      label: optionLabel,
-      data,
-      intensity: data.intensity || null,
-    });
-    return acc;
-  }, new Map());
+      if (!acc.has(styleKey)) acc.set(styleKey, new Map());
+      const effectMap = acc.get(styleKey);
+      if (!effectMap.has(effectKey)) effectMap.set(effectKey, []);
+      effectMap.get(effectKey).push({
+        label: optionLabel,
+        data,
+        intensity: data.intensity || null,
+        locked: !!preset.locked,
+        dmEntry: !!preset.dmEntry,
+      });
+      return acc;
+    }, new Map());
 
-  const sortedGroups = Array.from(groupedPresets.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    const sortedGroups = Array.from(groupedPresets.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
-  menu.appendChild(createOptionButton('Custom Power', {}));
-  menu.appendChild(groupsContainer);
+    menu.appendChild(groupsContainer);
 
-  sortedGroups.forEach(([groupName, effectMap], index) => {
-    const group = document.createElement('details');
-    group.className = 'power-preset-menu__group';
-    if (index === 0) {
-      group.setAttribute('open', '');
-    }
-    const summary = document.createElement('summary');
-    summary.className = 'power-preset-menu__group-title';
-    summary.textContent = groupName;
-    group.appendChild(summary);
-    const subgroups = document.createElement('div');
-    subgroups.className = 'power-preset-menu__subgroups';
-
-    const sortedEffects = Array.from(effectMap.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
-    sortedEffects.forEach(([effectName, items], effectIndex) => {
-      const subgroup = document.createElement('details');
-      subgroup.className = 'power-preset-menu__subgroup';
-      if (effectIndex === 0) {
-        subgroup.setAttribute('open', '');
+    sortedGroups.forEach(([groupName, effectMap], index) => {
+      const group = document.createElement('details');
+      group.className = 'power-preset-menu__group';
+      if (index === 0) {
+        group.setAttribute('open', '');
       }
-      const subgroupSummary = document.createElement('summary');
-      subgroupSummary.className = 'power-preset-menu__subgroup-title';
+      const summary = document.createElement('summary');
+      summary.className = 'power-preset-menu__group-title';
+      summary.textContent = groupName;
+      group.appendChild(summary);
+      const subgroups = document.createElement('div');
+      subgroups.className = 'power-preset-menu__subgroups';
 
-      const intensityLabels = Array.from(new Set(items.map(item => item.intensity).filter(Boolean)));
-      intensityLabels.sort((a, b) => {
-        const orderA = intensityOrder.has(a) ? intensityOrder.get(a) : Number.MAX_SAFE_INTEGER;
-        const orderB = intensityOrder.has(b) ? intensityOrder.get(b) : Number.MAX_SAFE_INTEGER;
-        return orderA - orderB || a.localeCompare(b, undefined, { sensitivity: 'base' });
-      });
-      const intensitySuffix = intensityLabels.length ? ` · ${intensityLabels.join(', ')}` : '';
-      subgroupSummary.textContent = `${effectName}${intensitySuffix}`;
-      subgroup.appendChild(subgroupSummary);
+      const sortedEffects = Array.from(effectMap.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
-      const grid = document.createElement('div');
-      grid.className = 'power-preset-menu__grid';
-      items.sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
-      items.forEach(item => {
-        grid.appendChild(createOptionButton(item.label, item.data));
+      sortedEffects.forEach(([effectName, items], effectIndex) => {
+        const subgroup = document.createElement('details');
+        subgroup.className = 'power-preset-menu__subgroup';
+        if (effectIndex === 0) {
+          subgroup.setAttribute('open', '');
+        }
+        const subgroupSummary = document.createElement('summary');
+        subgroupSummary.className = 'power-preset-menu__subgroup-title';
+
+        const intensityLabels = Array.from(new Set(items.map(item => item.intensity).filter(Boolean)));
+        intensityLabels.sort((a, b) => {
+          const orderA = intensityOrder.has(a) ? intensityOrder.get(a) : Number.MAX_SAFE_INTEGER;
+          const orderB = intensityOrder.has(b) ? intensityOrder.get(b) : Number.MAX_SAFE_INTEGER;
+          return orderA - orderB || a.localeCompare(b, undefined, { sensitivity: 'base' });
+        });
+        const intensitySuffix = intensityLabels.length ? ` · ${intensityLabels.join(', ')}` : '';
+        subgroupSummary.textContent = `${effectName}${intensitySuffix}`;
+        subgroup.appendChild(subgroupSummary);
+
+        const grid = document.createElement('div');
+        grid.className = 'power-preset-menu__grid';
+        items.sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
+        items.forEach(item => {
+          grid.appendChild(createOptionButton(item.label, item.data, { locked: item.locked, isDm: item.dmEntry }));
+        });
+        subgroup.appendChild(grid);
+        subgroups.appendChild(subgroup);
       });
-      subgroup.appendChild(grid);
-      subgroups.appendChild(subgroup);
+
+      group.appendChild(subgroups);
+      groupsContainer.appendChild(group);
     });
+  };
 
-    group.appendChild(subgroups);
-    groupsContainer.appendChild(group);
-  });
+  renderPresets();
+  refreshPowerPresetMenu = renderPresets;
 
   addBtn.addEventListener('click', event => {
     event.preventDefault();
@@ -11060,6 +11093,12 @@ const GEAR_CARD_KINDS = new Set(['weapon', 'armor', 'item']);
 
 function isGearKind(kind) {
   return GEAR_CARD_KINDS.has(kind);
+}
+
+function getCombinedPowerPresets() {
+  const base = Array.isArray(POWER_PRESETS) ? POWER_PRESETS : [];
+  const extras = Array.isArray(dmPowerPresets) ? dmPowerPresets : [];
+  return base.concat(extras);
 }
 
 function ensureGearPriceDisplay(card) {
@@ -11393,7 +11432,6 @@ function createCard(kind, pref = {}) {
   return card;
 }
 
-setupPowerPresetMenu();
 $('add-sig').addEventListener('click', event => {
   if (event && typeof event.preventDefault === 'function') event.preventDefault();
   const list = $('sigs');
@@ -11527,6 +11565,10 @@ function buildCardInfo(entry){
 }
 
 function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverride = null } = {}){
+  if (entry?.dmLock && !isDmSessionActive()) {
+    toast('This entry is locked by the DM.', 'error');
+    return null;
+  }
   const info = cardInfoOverride || buildCardInfo(entry);
   if (!info) return null;
   const list = $(info.listId);
@@ -11604,11 +11646,28 @@ const catalogListEl = $('catalog-list');
 let pendingCatalogFilters = null;
 const CUSTOM_CATALOG_KEY = 'custom-catalog';
 let customCatalogEntries = loadCustomCatalogEntries();
+const initialDmCatalogState = getDmCatalogState();
+let dmCatalogEntries = Array.isArray(initialDmCatalogState.catalogEntries)
+  ? initialDmCatalogState.catalogEntries.slice()
+  : [];
+let dmPowerPresets = Array.isArray(initialDmCatalogState.powerPresets)
+  ? initialDmCatalogState.powerPresets.slice()
+  : [];
+let refreshPowerPresetMenu = () => {};
 rebuildCatalogPriceIndex();
 const customTypeModal = $('modal-custom-item');
 const customTypeButtons = customTypeModal ? qsa('[data-custom-type]', customTypeModal) : [];
 const requestCatalogRender = debounce(() => renderCatalog(), 100);
 catalogRenderScheduler = () => requestCatalogRender();
+subscribeDmCatalog(state => {
+  dmCatalogEntries = Array.isArray(state.catalogEntries) ? state.catalogEntries.slice() : [];
+  dmPowerPresets = Array.isArray(state.powerPresets) ? state.powerPresets.slice() : [];
+  rebuildCatalogPriceIndex();
+  rebuildCatalogFilterOptions();
+  requestCatalogRender();
+  try { refreshPowerPresetMenu(); } catch {}
+});
+setupPowerPresetMenu();
 const catalogOverlay = $('modal-catalog');
 if (catalogOverlay) {
   catalogOverlay.addEventListener('transitionend', e => {
@@ -11627,6 +11686,30 @@ function rebuildCatalogPriceIndex(baseEntries = catalogPriceEntries){
       if (!entry || !entry.name) return;
       const key = entry.name.trim().toLowerCase();
       if (!key) return;
+      let priceText = (entry.priceText || '').trim();
+      let priceValue = Number.isFinite(entry.price) ? entry.price : null;
+      if (!priceText && Number.isFinite(priceValue) && priceValue > 0) {
+        priceText = `₡${priceValue.toLocaleString('en-US')}`;
+      }
+      if (!priceText && !Number.isFinite(priceValue)) return;
+      if ((!Number.isFinite(priceValue) || priceValue <= 0) && priceText) {
+        const extracted = extractPriceValue(priceText);
+        priceValue = Number.isFinite(extracted) && extracted > 0 ? extracted : null;
+      }
+      if (!index.has(key)) {
+        index.set(key, {
+          name: entry.name,
+          price: Number.isFinite(priceValue) && priceValue > 0 ? priceValue : null,
+          priceText
+        });
+      }
+    });
+  }
+  if (Array.isArray(dmCatalogEntries)) {
+    dmCatalogEntries.forEach(entry => {
+      if (!entry || !entry.name) return;
+      const key = entry.name.trim().toLowerCase();
+      if (!key || index.has(key)) return;
       let priceText = (entry.priceText || '').trim();
       let priceValue = Number.isFinite(entry.price) ? entry.price : null;
       if (!priceText && Number.isFinite(priceValue) && priceValue > 0) {
@@ -11877,7 +11960,9 @@ function getVisibleCustomCatalogEntries(){
 
 function getAllCatalogEntries(){
   const base = Array.isArray(catalogData) ? catalogData : [];
-  return base.concat(getVisibleCustomCatalogEntries());
+  return base
+    .concat(getVisibleCustomCatalogEntries())
+    .concat(Array.isArray(dmCatalogEntries) ? dmCatalogEntries : []);
 }
 
 function saveCustomCatalogEntries(){
@@ -12038,7 +12123,8 @@ export {
   resolveRollBonus,
   rollBonusRegistry,
   buildCardInfo,
-  extractWeaponDetails
+  extractWeaponDetails,
+  addEntryToSheet
 };
 
 function setCatalogFilters(filters = {}){
@@ -12243,7 +12329,9 @@ function renderCatalog(){
   const style = styleSel ? styleSel.value : '';
   const type = typeSel ? typeSel.value : '';
   const tier = tierSel ? tierSel.value : '';
-  const source = (baseLoaded ? catalogData.slice() : []).concat(visibleCustom);
+  const source = (baseLoaded ? catalogData.slice() : [])
+    .concat(visibleCustom)
+    .concat(Array.isArray(dmCatalogEntries) ? dmCatalogEntries : []);
   const playerState = getPlayerCatalogState();
   const rows = sortCatalogRows(source.filter(entry => (
     (!style || entry.section === style) &&
@@ -12262,18 +12350,27 @@ function renderCatalog(){
     if (entry.use) details.push(`<div class="small">Use: ${escapeHtml(entry.use)}</div>`);
     if (entry.attunement) details.push(`<div class="small">Attunement: ${escapeHtml(entry.attunement)}</div>`);
     if (entry.description) details.push(`<div class="small">${escapeHtml(entry.description)}</div>`);
+    if (entry.dmEntry) details.push('<div class="small">DM catalog entry</div>');
+    if (entry.dmLock) details.push('<div class="small">Locked by DM</div>');
+    const buttonAttrs = [];
+    if (entry.dmLock) buttonAttrs.push('data-dm-lock="true"');
+    if (entry.dmEntry) buttonAttrs.push('data-dm-entry="true"');
     return `
     <div class="catalog-item">
       <div class="pill">${escapeHtml(entry.tier || '—')}</div>
       <div><b>${escapeHtml(entry.name)}</b> <span class="small">— ${escapeHtml(entry.section)}${entry.type ? ` • ${escapeHtml(entry.type)}` : ''}${priceText ? ` • ${escapeHtml(priceText)}` : ''}</span>
         ${details.join('')}
       </div>
-      <div><button class="btn-sm" data-add="${idx}">Add</button></div>
+      <div><button class="btn-sm" data-add="${idx}"${buttonAttrs.length ? ' ' + buttonAttrs.join(' ') : ''}>Add</button></div>
     </div>`;
   }).join('');
   qsa('[data-add]', catalogListEl).forEach(btn => btn.addEventListener('click', () => {
     const item = rows[Number(btn.dataset.add)];
     if (!item) return;
+    if (item.dmLock && !isDmSessionActive()) {
+      toast('This entry is locked by the DM.', 'error');
+      return;
+    }
     if (!tryPurchaseEntry(item)) return;
     addEntryToSheet(item);
   }));
@@ -12338,6 +12435,14 @@ async function ensureCatalog(){
         rebuildCatalogFilterOptions();
         applyPendingCatalogFilters();
         requestCatalogRender();
+        const dmPayloads = Array.isArray(prebuilt?.dmCatalog?.payloads)
+          ? prebuilt.dmCatalog.payloads
+          : Array.isArray(prebuilt?.dmCatalogPayloads)
+            ? prebuilt.dmCatalogPayloads
+            : [];
+        if (dmPayloads.length) {
+          setServerDmCatalogPayloads(dmPayloads);
+        }
         return catalogData;
       }
 

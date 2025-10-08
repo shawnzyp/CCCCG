@@ -16,6 +16,7 @@ import {
   summarizeConfig,
   getStatusLabel,
 } from './mini-games.js';
+import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -1501,6 +1502,11 @@ function initDMLogin(){
     window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}`);
     if (typeof console !== 'undefined' && typeof console.debug === 'function') {
       console.debug('DM catalog payload prepared', payload);
+    }
+    try {
+      storeDmCatalogPayload(payload);
+    } catch (err) {
+      console.error('Failed to persist DM catalog payload', err);
     }
   }
 

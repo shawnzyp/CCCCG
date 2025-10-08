@@ -92,6 +92,81 @@ function parseCsv(text) {
     }, {}));
 }
 
+function sanitizeObjectStrings(obj = {}) {
+  if (!obj || typeof obj !== 'object') return {};
+  const sanitized = {};
+  Object.entries(obj).forEach(([key, value]) => {
+    if (value == null) return;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) sanitized[key] = trimmed;
+      return;
+    }
+    sanitized[key] = value;
+  });
+  return sanitized;
+}
+
+function normalizeDmCatalogPayload(raw = {}) {
+  if (!raw || typeof raw !== 'object') return null;
+  const type = typeof raw.type === 'string' && raw.type.trim() ? raw.type.trim().toLowerCase() : null;
+  const metadataRaw = raw.metadata && typeof raw.metadata === 'object' ? raw.metadata : {};
+  const metadata = sanitizeObjectStrings(metadataRaw);
+  const name = typeof metadata.name === 'string' ? metadata.name.trim() : '';
+  if (!type || !name) return null;
+  const normalizedName = normalizeCatalogToken(name) || name.toLowerCase();
+  const label = typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim() : null;
+  const locked = !!raw.locked;
+  let timestamp = raw.timestamp;
+  if (typeof timestamp === 'number' && Number.isFinite(timestamp)) {
+    timestamp = new Date(timestamp).toISOString();
+  } else if (typeof timestamp === 'string' && timestamp.trim()) {
+    const parsed = Date.parse(timestamp);
+    timestamp = Number.isFinite(parsed) ? new Date(parsed).toISOString() : timestamp.trim();
+  } else {
+    timestamp = new Date().toISOString();
+  }
+  const idSource = typeof raw.id === 'string' && raw.id.trim()
+    ? raw.id.trim()
+    : `${type}-${normalizedName || Math.random().toString(36).slice(2)}`;
+  return {
+    id: idSource,
+    type,
+    label,
+    metadata,
+    locked,
+    timestamp,
+  };
+}
+
+function makeDmPayloadKey(payload) {
+  if (!payload) return '';
+  const name = typeof payload.metadata?.name === 'string'
+    ? payload.metadata.name.trim().toLowerCase()
+    : '';
+  return `${payload.type || ''}::${name}`;
+}
+
+function parseCatalogTags(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map(item => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }
+  return String(value)
+    .split(/[,;]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+function inferCardKindFromType(type) {
+  const key = (type || '').toLowerCase();
+  if (key === 'weapon') return 'weapon';
+  if (key === 'armor' || key === 'shield') return 'armor';
+  return 'item';
+}
+
 function normalizePriceRow(row) {
   if (!row || typeof row !== 'object') return null;
   const name = (row.Name || row.name || '').trim();
@@ -438,11 +513,156 @@ function sanitizeNormalizedCatalogEntry(entry) {
   return sanitized;
 }
 
+function buildDmEntryFromPayload(payload) {
+  if (!payload || !payload.metadata) return null;
+  const type = payload.type;
+  if (!['gear', 'weapons', 'armor', 'items'].includes(type)) return null;
+  const meta = payload.metadata;
+  const name = typeof meta.name === 'string' ? meta.name.trim() : '';
+  if (!name) return null;
+  const section = 'DM Catalog';
+  const baseType = (() => {
+    switch (type) {
+      case 'gear':
+        return meta.function || 'Gear';
+      case 'weapons':
+        return 'Weapon';
+      case 'armor':
+        return 'Armor';
+      case 'items':
+        return 'Item';
+      default:
+        return payload.label || 'DM Entry';
+    }
+  })();
+  const descriptionParts = [];
+  if (meta.description) descriptionParts.push(meta.description);
+  if (meta.effect && meta.effect !== meta.description) descriptionParts.push(meta.effect);
+  const description = descriptionParts.join(' ');
+  const perkParts = [];
+  if (meta.mechanics) perkParts.push(meta.mechanics);
+  switch (type) {
+    case 'gear':
+      if (meta.availability) perkParts.push(meta.availability);
+      if (meta.operation) perkParts.push(meta.operation);
+      break;
+    case 'weapons':
+      if (meta.damage) perkParts.push(meta.damage);
+      if (meta.range) perkParts.push(`Range: ${meta.range}`);
+      if (meta.special) perkParts.push(meta.special);
+      break;
+    case 'armor':
+      if (meta.defense) perkParts.push(meta.defense);
+      if (meta.capacity) perkParts.push(`Capacity: ${meta.capacity}`);
+      if (meta.coverage) perkParts.push(meta.coverage);
+      break;
+    case 'items':
+      if (meta.uses) perkParts.push(`Uses: ${meta.uses}`);
+      if (meta.size) perkParts.push(`Size: ${meta.size}`);
+      if (meta.usage) perkParts.push(meta.usage);
+      break;
+    default:
+      break;
+  }
+  const perk = perkParts.filter(Boolean).join(' — ');
+  const useParts = [];
+  if (type === 'gear' && meta.function) useParts.push(meta.function);
+  if (type === 'items' && meta.usage) useParts.push(meta.usage);
+  const use = useParts.filter(Boolean).join(' — ');
+  const priceText = typeof meta.price === 'string' ? meta.price : '';
+  const price = extractPriceValue(priceText);
+  const tags = parseCatalogTags(meta.tags);
+  const rarity = typeof meta.rarity === 'string' ? meta.rarity : '';
+  const entry = {
+    customId: payload.id || `${type}-${Date.now()}`,
+    section,
+    type: baseType,
+    rawType: baseType,
+    name,
+    tier: typeof meta.tier === 'string' ? meta.tier : '',
+    price: Number.isFinite(price) && price > 0 ? price : null,
+    priceText,
+    perk,
+    description,
+    use,
+    attunement: rarity,
+    source: payload.label ? `${section} · ${payload.label}` : section,
+    cardKind: inferCardKindFromType(baseType),
+    slot: type === 'armor' ? 'Body' : '',
+    bonus: 0,
+    qty: 1,
+    hidden: false,
+    classifications: tags,
+    prerequisites: [],
+    tierRestrictions: [],
+    dmEntry: true,
+    dmLock: !!payload.locked,
+    dmType: type,
+    dmTimestamp: payload.timestamp,
+  };
+  entry.search = buildCatalogSearchText(entry);
+  return entry;
+}
+
+function buildDmPowerPresetFromPayload(payload) {
+  if (!payload || !payload.metadata) return null;
+  const type = payload.type;
+  if (type !== 'powers' && type !== 'signature-moves') return null;
+  const meta = payload.metadata;
+  const name = typeof meta.name === 'string' ? meta.name.trim() : '';
+  if (!name) return null;
+  const tags = parseCatalogTags(meta.tags);
+  const style = tags.length ? tags[0] : (meta.style || 'DM Authored');
+  const baseCost = typeof meta.cost === 'string' ? meta.cost : '';
+  const numericCost = extractPriceValue(baseCost);
+  const data = {
+    name,
+    style,
+    actionType: 'Action',
+    description: meta.effect || meta.description || meta.mechanics || '',
+    rulesText: meta.mechanics || '',
+    duration: meta.duration || 'Instant',
+    special: meta.reward || meta.dmNotes || '',
+    intensity: meta.tier || 'Core',
+  };
+  if (Number.isFinite(numericCost) && numericCost > 0) {
+    data.spCost = numericCost;
+  } else if (baseCost) {
+    data.costNote = baseCost;
+  }
+  if (tags.length > 1) {
+    data.secondaryTag = tags[1];
+  }
+  if (type === 'signature-moves') {
+    data.signature = true;
+    if (meta.trigger) {
+      data.special = data.special ? `${meta.trigger} — ${data.special}` : meta.trigger;
+    }
+  }
+  data.dmLock = !!payload.locked;
+  const labelBase = payload.label && payload.label !== 'Signature Moves'
+    ? payload.label
+    : type === 'signature-moves'
+      ? 'Signature Move'
+      : 'Power';
+  return {
+    id: payload.id,
+    label: `${labelBase}: ${name}`,
+    locked: !!payload.locked,
+    data,
+    dmEntry: true,
+  };
+}
+
 export {
   buildCatalogSearchText,
   buildPriceIndex,
   decodeCatalogBuffer,
   extractPriceValue,
+  normalizeDmCatalogPayload,
+  makeDmPayloadKey,
+  buildDmEntryFromPayload,
+  buildDmPowerPresetFromPayload,
   getRowValue,
   normalizeCatalogRow,
   normalizeCatalogToken,
