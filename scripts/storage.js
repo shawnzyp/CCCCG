@@ -128,8 +128,10 @@ function encodePath(name) {
 }
 
 async function saveHistoryEntry(baseUrl, name, payload, ts) {
+  const encodedName = encodePath(name);
+
   const res = await cloudFetch(
-    `${baseUrl}/${encodePath(name)}/${ts}.json`,
+    `${baseUrl}/${encodedName}/${ts}.json`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -138,23 +140,48 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
   );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  const listRes = await cloudFetch(
-    `${baseUrl}/${encodePath(name)}.json`,
-    { method: 'GET' }
-  );
-  if (listRes.ok) {
-    const val = await listRes.json();
-    const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
-    const excess = keys.slice(3);
-    await Promise.all(
-      excess.map(k =>
-        cloudFetch(
-          `${baseUrl}/${encodePath(name)}/${k}.json`,
-          { method: 'DELETE' }
-        )
-      )
+  const parseKeys = (val) =>
+    val
+      ? Object.keys(val)
+          .map((k) => Number(k))
+          .filter((k) => Number.isFinite(k))
+          .sort((a, b) => b - a)
+      : [];
+
+  let keys = [];
+
+  try {
+    const limitedRes = await cloudFetch(
+      `${baseUrl}/${encodedName}.json?orderBy="$key"&limitToLast=4`,
+      { method: 'GET' }
     );
+    if (!limitedRes.ok) {
+      throw new Error(`HTTP ${limitedRes.status}`);
+    }
+    const val = await limitedRes.json();
+    keys = parseKeys(val);
+  } catch (err) {
+    try {
+      const listRes = await cloudFetch(
+        `${baseUrl}/${encodedName}.json`,
+        { method: 'GET' }
+      );
+      if (!listRes.ok) return;
+      const val = await listRes.json();
+      keys = parseKeys(val);
+    } catch (legacyErr) {
+      return;
+    }
   }
+
+  const excess = keys.slice(3);
+  await Promise.all(
+    excess.map((k) =>
+      cloudFetch(`${baseUrl}/${encodedName}/${k}.json`, {
+        method: 'DELETE',
+      })
+    )
+  );
 }
 
 async function attemptCloudSave(name, payload, ts) {
