@@ -10363,24 +10363,36 @@ function deserialize(data){
 const AUTO_KEY = 'autosave';
 let history = [];
 let histIdx = -1;
+let lastSnapshotJson = null;
 const forcedRefreshResume = consumeForcedRefreshState();
 const pushHistory = debounce(()=>{
   const snap = serialize();
+  const snapJson = JSON.stringify(snap);
+  if (snapJson === lastSnapshotJson) return;
+  lastSnapshotJson = snapJson;
   history = history.slice(0, histIdx + 1);
-  history.push(snap);
+  history.push(snapJson);
   if(history.length > 20){ history.shift(); }
   histIdx = history.length - 1;
-  try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
+  try{ localStorage.setItem(AUTO_KEY, snapJson); }catch(e){ console.error('Autosave failed', e); }
 }, 500);
 
 document.addEventListener('input', pushHistory);
 document.addEventListener('change', pushHistory);
 
 function undo(){
-  if(histIdx > 0){ histIdx--; deserialize(history[histIdx]); }
+  if(histIdx > 0){
+    histIdx--;
+    lastSnapshotJson = null;
+    deserialize(JSON.parse(history[histIdx]));
+  }
 }
 function redo(){
-  if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
+  if(histIdx < history.length - 1){
+    histIdx++;
+    lastSnapshotJson = null;
+    deserialize(JSON.parse(history[histIdx]));
+  }
 }
 
 (function(){
@@ -10391,9 +10403,11 @@ function redo(){
     deserialize(DEFAULT_STATE);
   }
   const snap = serialize();
-  history = [snap];
+  const snapJson = JSON.stringify(snap);
+  history = [snapJson];
   histIdx = 0;
-  try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
+  lastSnapshotJson = snapJson;
+  try{ localStorage.setItem(AUTO_KEY, snapJson); }catch(e){ console.error('Autosave failed', e); }
   if(forcedRefreshResume && typeof forcedRefreshResume.scrollY === 'number'){
     requestAnimationFrame(() => {
       try {
