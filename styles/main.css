@@ -882,7 +882,7 @@ main{
 main.is-animating-tabs{
   overflow:hidden;
 }
-fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:var(--card-padding,10px);margin-bottom:0;box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translate3d(0,0,0);cursor:default;pointer-events:none;will-change:opacity,filter;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent);position:absolute;inset:0;width:100%;max-width:100%;min-width:0;visibility:hidden;filter:blur(18px) saturate(1.2)}
+fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:var(--card-padding,10px);margin-bottom:0;box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translate3d(0,0,0);cursor:default;pointer-events:none;will-change:opacity,filter;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent);position:absolute;inset:0;width:100%;max-width:100%;min-width:0;visibility:hidden;filter:blur(18px) saturate(1.2);transition:filter 360ms cubic-bezier(.33,1,.68,1),opacity 360ms cubic-bezier(.33,1,.68,1)}
 fieldset[data-tab].card:not(.active):not(.animating){
   height:0;
   max-height:0;
