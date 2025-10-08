@@ -2782,6 +2782,18 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
   justify-self:stretch;
   min-width:0;
 }
+.dice-result-decrypted{
+  display:inline-flex;
+  align-items:inherit;
+  justify-content:inherit;
+  gap:inherit;
+  letter-spacing:inherit;
+}
+.dice-result-decrypted__char{
+  display:inline-flex;
+  align-items:inherit;
+  justify-content:inherit;
+}
 .dice-roll-grid .dice-breakdown{
   display:flex;
   flex-wrap:wrap;
