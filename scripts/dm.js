@@ -1224,6 +1224,14 @@ function initDMLogin(){
   function scheduleMenuHide(){
     clearMenuHideJobs();
     if (!menu) return;
+    const win = menu.ownerDocument?.defaultView;
+    const computed = typeof win?.getComputedStyle === 'function' ? win.getComputedStyle(menu) : null;
+    const transitionDuration = computed ? parseFloat(computed.transitionDuration || '0') : 0;
+    const transitionDelay = computed ? parseFloat(computed.transitionDelay || '0') : 0;
+    if (!transitionDuration && !transitionDelay) {
+      finalizeMenuHide();
+      return;
+    }
     menuTransitionHandler = event => {
       if (event?.target !== menu) return;
       finalizeMenuHide();
