@@ -5967,6 +5967,9 @@ renderLogs();
 renderFullLogs();
 const rollDiceButton = $('roll-dice');
 if (rollDiceButton) {
+  if (rollDiceButton.dataset) {
+    rollDiceButton.dataset.actionCue = 'dice-roll';
+  }
   rollDiceButton.addEventListener('click', ()=>{
     const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
     const out = $('dice-out');
@@ -5993,26 +5996,38 @@ if (rollDiceButton) {
       }
     }
     playDamageAnimation(sum);
-    playStatusCue('dm-roll');
+    const actionKey = rollDiceButton.dataset?.actionCue || 'dice-roll';
+    playActionCue(actionKey, 'dm-roll');
     logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
     window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
   });
 }
 const coinFlipButton = $('flip');
 if (coinFlipButton) {
+  if (coinFlipButton.dataset) {
+    coinFlipButton.dataset.actionCueHeads = 'coin-heads';
+    coinFlipButton.dataset.actionCueTails = 'coin-tails';
+  }
   coinFlipButton.addEventListener('click', ()=>{
     const v = Math.random()<.5 ? 'Heads' : 'Tails';
     $('flip-out').textContent = v;
     playCoinAnimation(v);
-    playStatusCue('coin-flip');
+    const actionKey = v === 'Heads'
+      ? coinFlipButton.dataset?.actionCueHeads || 'coin-heads'
+      : coinFlipButton.dataset?.actionCueTails || 'coin-tails';
+    playActionCue(actionKey, 'coin-flip');
     logAction(`Coin flip: ${v}`);
     window.dmNotify?.(`Coin flip: ${v}`);
   });
 }
 const dmRollButton = $('dm-roll');
 if (dmRollButton && dmRollButton !== rollDiceButton) {
+  if (dmRollButton.dataset) {
+    dmRollButton.dataset.actionCue = 'dm-roll';
+  }
   dmRollButton.addEventListener('click', ()=>{
-    playStatusCue('dm-roll');
+    const actionKey = dmRollButton.dataset?.actionCue || 'dm-roll';
+    playActionCue(actionKey, 'dm-roll');
   });
 }
 
@@ -6239,6 +6254,27 @@ function buildAudioBuffer(name){
 
   audioCueCache.set(name, buffer);
   return buffer;
+}
+
+function resolveActionCueKey(actionKey) {
+  if (typeof actionKey !== 'string') return null;
+  const normalized = actionKey.trim();
+  if (!normalized) return null;
+  if (Object.prototype.hasOwnProperty.call(AUDIO_CUE_SETTINGS, normalized)) {
+    return normalized;
+  }
+  if (typeof audioCueData?.has === 'function' && audioCueData.has(normalized)) {
+    return normalized;
+  }
+  return null;
+}
+
+function playActionCue(actionKey, fallbackCueName) {
+  const primary = resolveActionCueKey(actionKey);
+  const fallback = resolveActionCueKey(fallbackCueName);
+  const cue = primary || fallback || fallbackCueName || actionKey;
+  if (!cue) return;
+  playStatusCue(cue);
 }
 
 function playStatusCue(name){
