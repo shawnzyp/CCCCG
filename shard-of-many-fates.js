@@ -981,6 +981,143 @@
     };
   }
 
+  const DM_HIDDEN_EARCON_PRESETS = {
+    conceal: {
+      type: 'triangle',
+      volume: 0.24,
+      attack: 0.02,
+      release: 0.18,
+      steps: [
+        { frequency: 660, duration: 0.16 },
+        { frequency: 440, duration: 0.2 },
+      ],
+    },
+    reveal: {
+      type: 'sine',
+      volume: 0.26,
+      attack: 0.015,
+      release: 0.22,
+      steps: [
+        { frequency: 360, duration: 0.12 },
+        { frequency: 520, duration: 0.16 },
+        { frequency: 720, duration: 0.18 },
+      ],
+    },
+  };
+
+  function createHiddenStateEarcon(getElement) {
+    const fetchElement = typeof getElement === 'function' ? getElement : () => null;
+    if (typeof window === 'undefined') {
+      return { play() { return false; }, isEnabled: () => false };
+    }
+
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    let context = null;
+
+    const ensureContext = () => {
+      if (!AudioContextCtor) return null;
+      if (context) return context;
+      try {
+        context = new AudioContextCtor({ latencyHint: 'interactive' });
+      } catch (err) {
+        try { context = new AudioContextCtor(); }
+        catch { context = null; }
+      }
+      return context;
+    };
+
+    const shouldPlay = () => {
+      const el = fetchElement();
+      if (!el) return false;
+      const dataset = el.dataset || {};
+      if (dataset.sound === 'off' || dataset.enabled === 'false' || dataset.somfSound === 'off') return false;
+      if (dataset.muted === 'true') return false;
+      if (el.hasAttribute && el.hasAttribute('data-muted')) return false;
+      if (typeof el.muted === 'boolean' && el.muted) return false;
+      return true;
+    };
+
+    const fallbackPlay = () => {
+      const el = fetchElement();
+      if (!el || typeof el.play !== 'function' || !el.src) return false;
+      try { el.currentTime = 0; }
+      catch { /* ignore seek errors */ }
+      el.play().catch(() => {});
+      return true;
+    };
+
+    const playEarcon = mode => {
+      const preset = DM_HIDDEN_EARCON_PRESETS[mode];
+      if (!preset) return false;
+      if (!shouldPlay()) return false;
+      const ctx = ensureContext();
+      if (!ctx) {
+        return fallbackPlay();
+      }
+      try { ctx.resume?.(); }
+      catch { /* ignore resume errors */ }
+
+      try {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = preset.type || 'sine';
+        oscillator.connect(gain).connect(ctx.destination);
+
+        const attack = Math.max(0.005, Number(preset.attack ?? 0.02));
+        const release = Math.max(0.05, Number(preset.release ?? 0.18));
+        const volume = Number(preset.volume ?? 0.25);
+        const steps = Array.isArray(preset.steps) && preset.steps.length
+          ? preset.steps
+          : [{ frequency: Number(preset.frequency ?? 440), duration: Number(preset.duration ?? 0.2) }];
+
+        const start = ctx.currentTime + 0.02;
+        const rampStart = Math.max(ctx.currentTime, start - 0.01);
+        gain.gain.cancelScheduledValues(rampStart);
+        gain.gain.setValueAtTime(0, rampStart);
+        gain.gain.linearRampToValueAtTime(volume, start + attack);
+
+        let cursor = start;
+        let lastFrequency = Number(steps[0]?.frequency ?? steps[0]?.freq ?? 440);
+        oscillator.frequency.setValueAtTime(lastFrequency, start);
+
+        steps.forEach((step, index) => {
+          const freq = Number(step.frequency ?? step.freq ?? lastFrequency);
+          const duration = Math.max(0.05, Number(step.duration ?? preset.stepDuration ?? 0.12));
+          if (index > 0) {
+            oscillator.frequency.linearRampToValueAtTime(freq, cursor);
+          }
+          cursor += duration;
+          oscillator.frequency.setValueAtTime(freq, cursor);
+          lastFrequency = freq;
+        });
+
+        gain.gain.setValueAtTime(volume, cursor);
+        gain.gain.linearRampToValueAtTime(0, cursor + release);
+
+        const stopAt = cursor + release + 0.02;
+        oscillator.onended = () => {
+          try { oscillator.disconnect(); }
+          catch { /* ignore disconnect errors */ }
+          try { gain.disconnect(); }
+          catch { /* ignore disconnect errors */ }
+        };
+        oscillator.start(start);
+        oscillator.stop(stopAt);
+        return true;
+      } catch (err) {
+        console.error('Failed to play DM hidden-state earcon', err);
+        return fallbackPlay();
+      }
+    };
+
+    return {
+      play(mode) {
+        return playEarcon(mode);
+      },
+      isEnabled: shouldPlay,
+    };
+  }
+
   function normalizeHiddenValue(value) {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'string') {
@@ -3410,6 +3547,7 @@
       this.relatedNpcs = [];
       this.lastHiddenState = null;
       this.realtimeReady = this.runtime.hasRealtime();
+      this.hiddenEarcon = createHiddenStateEarcon(() => this.dom?.ping);
     }
 
     attach() {
@@ -3923,8 +4061,25 @@
       if (!this.ensureRealtime(hidden ? 'Connect before concealing the Shards.' : 'Connect before revealing the Shards.', () => this.restoreHiddenToggle())) {
         return;
       }
-      await this.runtime.setHidden(hidden);
+      try {
+        await this.runtime.setHidden(hidden);
+      } catch (err) {
+        console.error('Failed to update shard visibility', err);
+        this.restoreHiddenToggle();
+        return;
+      }
+      this.lastHiddenState = hidden;
+      this.playHiddenStateCue(hidden);
       if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+    }
+
+    playHiddenStateCue(hidden) {
+      if (!this.hiddenEarcon || typeof this.hiddenEarcon.play !== 'function') return;
+      try {
+        this.hiddenEarcon.play(hidden ? 'conceal' : 'reveal');
+      } catch (err) {
+        console.error('Unable to play DM hidden-state cue', err);
+      }
     }
 
     async resetDeck() {
