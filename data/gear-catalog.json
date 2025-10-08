@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-09-30T09:04:55.746Z",
+  "generatedAt": "2025-10-08T08:47:32.144Z",
   "source": {
     "master": "CatalystCore_Master_Book.csv",
     "prices": "CatalystCore_Items_Prices.csv",
@@ -2068,15 +2068,15 @@
       "price": 7500,
       "priceText": "₡7500",
       "priceRaw": "₡7500",
-      "perk": "+1 TC; pop 5 ft. cover 1 round.",
-      "description": "Portable defense module projecting micro-fields.",
-      "use": "Forearm mount; passive; some perks use a reaction.",
+      "perk": "+1 TC; reaction converts melee hit into 1d6 temp HP.",
+      "description": "Bracer channels incoming force into a momentary ablative cushion.",
+      "use": "Reaction when a melee hit lands; gain 1d6 temp HP before damage.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear shield kinetic bracer mk i t5 ₡7500 +1 tc; pop 5 ft. cover 1 round. portable defense module projecting micro-fields. forearm mount; passive; some perks use a reaction. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear shield kinetic bracer mk i t5 ₡7500 +1 tc; reaction converts melee hit into 1d6 temp hp. bracer channels incoming force into a momentary ablative cushion. reaction when a melee hit lands; gain 1d6 temp hp before damage. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2087,15 +2087,15 @@
       "price": 8300,
       "priceText": "₡8300",
       "priceRaw": "₡8300",
-      "perk": "+1 TC; pop 5 ft. cover 1 round.",
-      "description": "Portable defense module projecting micro-fields.",
-      "use": "Forearm mount; passive; some perks use a reaction.",
+      "perk": "+1 TC; once/scene bleed off 1d10 energy damage.",
+      "description": "Capacitor array absorbs a blast then dumps the charge safely.",
+      "use": "Reaction on lightning/energy hit; reduce damage by 1d10 and ignore riders.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear shield surge buffer mk i t5 ₡8300 +1 tc; pop 5 ft. cover 1 round. portable defense module projecting micro-fields. forearm mount; passive; some perks use a reaction. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear shield surge buffer mk i t5 ₡8300 +1 tc; once/scene bleed off 1d10 energy damage. capacitor array absorbs a blast then dumps the charge safely. reaction on lightning/energy hit; reduce damage by 1d10 and ignore riders. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2106,15 +2106,15 @@
       "price": 9100,
       "priceText": "₡9100",
       "priceRaw": "₡9100",
-      "perk": "+1 TC; pop 5 ft. cover 1 round.",
-      "description": "Portable defense module projecting micro-fields.",
-      "use": "Forearm mount; passive; some perks use a reaction.",
+      "perk": "+1 TC; reaction blink 10 ft. before ranged hit.",
+      "description": "Arc spines rip space to sidestep hostile fire.",
+      "use": "Reaction when targeted by ranged attack; teleport 10 ft. to seen space.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear shield displacement arc shield mk i t5 ₡9100 +1 tc; pop 5 ft. cover 1 round. portable defense module projecting micro-fields. forearm mount; passive; some perks use a reaction. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear shield displacement arc shield mk i t5 ₡9100 +1 tc; reaction blink 10 ft. before ranged hit. arc spines rip space to sidestep hostile fire. reaction when targeted by ranged attack; teleport 10 ft. to seen space. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2125,15 +2125,15 @@
       "price": 9800,
       "priceText": "₡9800",
       "priceRaw": "₡9800",
-      "perk": "+1 TC; pop 5 ft. cover 1 round.",
-      "description": "Portable defense module projecting micro-fields.",
-      "use": "Forearm mount; passive; some perks use a reaction.",
+      "perk": "+1 TC; once/scene raise 10 ft. bulwark 2 rounds.",
+      "description": "Projector extrudes a hulking hard-light rampart.",
+      "use": "Bonus action to deploy bulwark granting heavy cover; persists 2 rounds.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear shield titan barrier cuff mk i t5 ₡9800 +1 tc; pop 5 ft. cover 1 round. portable defense module projecting micro-fields. forearm mount; passive; some perks use a reaction. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear shield titan barrier cuff mk i t5 ₡9800 +1 tc; once/scene raise 10 ft. bulwark 2 rounds. projector extrudes a hulking hard-light rampart. bonus action to deploy bulwark granting heavy cover; persists 2 rounds. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
