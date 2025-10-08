@@ -5,6 +5,9 @@ import { fileURLToPath } from 'url';
 
 import {
   buildPriceIndex,
+  buildDmEntryFromPayload,
+  buildDmPowerPresetFromPayload,
+  normalizeDmCatalogPayload,
   normalizeCatalogRow,
   normalizePriceRow,
   parseCsv,
@@ -17,6 +20,7 @@ const OUTPUT_DIR = path.join(ROOT, 'data');
 const OUTPUT_PATH = path.join(OUTPUT_DIR, 'gear-catalog.json');
 const MASTER_CSV = path.join(ROOT, 'CatalystCore_Master_Book.csv');
 const PRICE_CSV = path.join(ROOT, 'CatalystCore_Items_Prices.csv');
+const DM_CATALOG_JSON = path.join(ROOT, 'data', 'dm-catalog.json');
 
 async function readTextFile(filePath) {
   try {
@@ -28,6 +32,22 @@ async function readTextFile(filePath) {
     }
     throw err;
   }
+}
+
+async function readJsonFile(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return null;
+    throw err;
+  }
+}
+
+function normalizeDmPayloads(list = []) {
+  return (Array.isArray(list) ? list : [])
+    .map(item => normalizeDmCatalogPayload(item))
+    .filter(Boolean);
 }
 
 function derivePriceEntries(entries = []) {
@@ -54,6 +74,7 @@ async function buildCatalog() {
     throw new Error(`Missing gear catalog source CSV at ${path.relative(ROOT, MASTER_CSV)}`);
   }
   const priceText = await readTextFile(PRICE_CSV);
+  const dmCatalogRaw = await readJsonFile(DM_CATALOG_JSON);
 
   const masterRows = parseCsv(masterText);
   const priceRowsRaw = priceText ? parseCsv(priceText) : [];
@@ -71,6 +92,23 @@ async function buildCatalog() {
     ? normalizedPrices
     : derivePriceEntries(normalizedEntries);
 
+  const dmPayloadCandidates = Array.isArray(dmCatalogRaw?.payloads)
+    ? dmCatalogRaw.payloads
+    : Array.isArray(dmCatalogRaw?.entries)
+      ? dmCatalogRaw.entries
+      : Array.isArray(dmCatalogRaw)
+        ? dmCatalogRaw
+        : Array.isArray(dmCatalogRaw?.dmCatalog?.payloads)
+          ? dmCatalogRaw.dmCatalog.payloads
+          : [];
+  const normalizedDmPayloads = normalizeDmPayloads(dmPayloadCandidates);
+  const dmCatalogEntries = normalizedDmPayloads
+    .map(buildDmEntryFromPayload)
+    .filter(Boolean);
+  const dmPowerPresets = normalizedDmPayloads
+    .map(buildDmPowerPresetFromPayload)
+    .filter(Boolean);
+
   const payload = {
     generatedAt: new Date().toISOString(),
     source: {
@@ -81,6 +119,11 @@ async function buildCatalog() {
     },
     entries: normalizedEntries,
     prices: resolvedPrices,
+    dmCatalog: {
+      payloads: normalizedDmPayloads,
+      entries: dmCatalogEntries,
+      powerPresets: dmPowerPresets,
+    },
   };
 
   const serialized = `${JSON.stringify(payload, null, 2)}\n`;

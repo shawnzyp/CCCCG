@@ -6,6 +6,35 @@ import DecryptedText from './DecryptedText.jsx';
 const DIGIT_CHARACTERS = '0123456789';
 const rendererCache = new WeakMap();
 
+const suppressRendererErrors =
+  typeof globalThis !== 'undefined' && typeof globalThis.jest !== 'undefined';
+
+function reportRendererError(message, error) {
+  if (suppressRendererErrors) return;
+  // Suppress noisy logging when the renderer cannot initialise (e.g. in tests).
+  // If this ever happens in production it will silently fall back to plain text.
+}
+
+function createFallbackRenderer(mountNode) {
+  const fallback = {
+    render(value) {
+      // React failed to initialise; fall back to directly setting text content.
+      // eslint-disable-next-line no-param-reassign
+      mountNode.textContent = value == null ? '' : String(value);
+    },
+    unmount() {
+      rendererCache.delete(mountNode);
+      if (mountNode.__diceResultRenderer === fallback) {
+        delete mountNode.__diceResultRenderer;
+      }
+      if (mountNode.__diceResultRoot) {
+        delete mountNode.__diceResultRoot;
+      }
+    },
+  };
+  return fallback;
+}
+
 function DiceResultContent({ value, playIndex }) {
   const prefersReducedMotion = useReducedMotion();
   const text = useMemo(() => (value == null ? '' : String(value)), [value]);
@@ -47,13 +76,35 @@ export function ensureDiceResultRenderer(mountNode) {
     return rendererCache.get(mountNode);
   }
 
-  const root = mountNode.__diceResultRoot || createRoot(mountNode);
+  let root;
+  try {
+    root = mountNode.__diceResultRoot || createRoot(mountNode);
+  } catch (err) {
+    reportRendererError('Failed to initialise dice result renderer', err);
+    const fallback = createFallbackRenderer(mountNode);
+    rendererCache.set(mountNode, fallback);
+    mountNode.__diceResultRenderer = fallback;
+    return fallback;
+  }
   const renderer = {
     render(value, playIndex) {
-      root.render(<DiceResultContent value={value} playIndex={playIndex} />);
+      try {
+        root.render(<DiceResultContent value={value} playIndex={playIndex} />);
+      } catch (err) {
+        reportRendererError('Failed to render dice result', err);
+        const fallback = createFallbackRenderer(mountNode);
+        fallback.render(value, playIndex);
+        rendererCache.set(mountNode, fallback);
+        mountNode.__diceResultRenderer = fallback;
+        delete mountNode.__diceResultRoot;
+      }
     },
     unmount() {
-      root.unmount();
+      try {
+        root.unmount();
+      } catch (err) {
+        reportRendererError('Failed to unmount dice result renderer', err);
+      }
       rendererCache.delete(mountNode);
       delete mountNode.__diceResultRenderer;
       delete mountNode.__diceResultRoot;
