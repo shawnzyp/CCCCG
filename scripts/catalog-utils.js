@@ -539,6 +539,8 @@ function buildDmEntryFromPayload(payload) {
   if (meta.description) descriptionParts.push(meta.description);
   if (meta.effect && meta.effect !== meta.description) descriptionParts.push(meta.effect);
   const description = descriptionParts.join(' ');
+  const storyHook = typeof meta.storyHook === 'string' ? meta.storyHook.trim() : '';
+  const unlockCondition = typeof meta.unlockCondition === 'string' ? meta.unlockCondition.trim() : '';
   const perkParts = [];
   if (meta.mechanics) perkParts.push(meta.mechanics);
   switch (type) {
@@ -585,6 +587,8 @@ function buildDmEntryFromPayload(payload) {
     perk,
     description,
     use,
+    storyHook,
+    unlockCondition,
     attunement: rarity,
     source: payload.label ? `${section} · ${payload.label}` : section,
     cardKind: inferCardKindFromType(baseType),

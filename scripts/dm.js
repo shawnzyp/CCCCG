@@ -340,6 +340,8 @@ function initDMLogin(){
   const CATALOG_BASE_LONG_FIELDS = [
     { key: 'description', label: 'Overview', kind: 'textarea', rows: 4, placeholder: 'Describe the entry and how it appears in play.' },
     { key: 'mechanics', label: 'Mechanical Effects', kind: 'textarea', rows: 3, placeholder: 'Summarize bonuses, checks, and rules interactions.' },
+    { key: 'storyHook', label: 'Mission/Story Hook', kind: 'textarea', rows: 3, placeholder: 'How this entry ties into operations, rumors, or scene framing.' },
+    { key: 'unlockCondition', label: 'Unlock Condition', kind: 'textarea', rows: 3, placeholder: 'Prerequisites, favors, or narrative beats required to access it.' },
     { key: 'dmNotes', label: 'DM Notes', kind: 'textarea', rows: 3, placeholder: 'Secret hooks, escalation paths, or reminders.', hint: 'Only visible to you when drafting entries.' },
   ];
 
