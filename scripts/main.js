@@ -2865,6 +2865,7 @@ const getNavigationType = () => {
 
 const TAB_ANIMATION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
 const TAB_ANIMATION_DURATION = 360;
+const TAB_ANIMATION_OFFSET = 12;
 const TAB_CONTAINER_CLASS = 'is-animating-tabs';
 const reduceMotionQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
   ? window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -2972,21 +2973,29 @@ function animateTabTransition(currentName, nextName, direction){
   targetPanel.style.zIndex = '4';
   prepareContainerForAnimation();
   targetPanel.style.opacity = '0';
-  const enteringOffset = direction === 'left' ? '16px' : direction === 'right' ? '-16px' : '0px';
-  const exitingOffset = direction === 'left' ? '-16px' : direction === 'right' ? '16px' : '0px';
-  const enteringTransform = direction ? `translateX(${enteringOffset}) scale(0.98)` : 'scale(0.98)';
-  const exitingTransform = direction ? `translateX(${exitingOffset}) scale(0.98)` : 'scale(0.98)';
+
+  const axis = direction === 'up' || direction === 'down' ? 'Y' : 'X';
+  const directionSign = direction === 'left' || direction === 'up' ? -1
+    : direction === 'right' || direction === 'down' ? 1
+      : 0;
+  const translateDistance = `${directionSign * TAB_ANIMATION_OFFSET}px`;
+  const zeroTranslate = `translate${axis}(0px)`;
+  const offsetTranslate = directionSign === 0 ? zeroTranslate : `translate${axis}(${translateDistance})`;
+  const enteringTransform = `${offsetTranslate} scale(0.98)`;
+  const exitingTransform = `${offsetTranslate} scale(0.98)`;
+  const neutralTransform = `${zeroTranslate} scale(1)`;
+
   targetPanel.style.transform = enteringTransform;
-  activePanel.style.transform = 'translateX(0px) scale(1)';
+  activePanel.style.transform = neutralTransform;
   targetPanel.style.visibility = 'visible';
 
   const animations = [
     targetPanel.animate([
       { opacity: 0, transform: enteringTransform },
-      { opacity: 1, transform: 'translateX(0px) scale(1)' }
+      { opacity: 1, transform: neutralTransform }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' }),
     activePanel.animate([
-      { opacity: 1, transform: 'translateX(0px) scale(1)' },
+      { opacity: 1, transform: neutralTransform },
       { opacity: 0, transform: exitingTransform }
     ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' })
   ];
