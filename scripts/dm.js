@@ -174,10 +174,6 @@ function initDMLogin(){
   const miniGamesRefreshBtn = document.getElementById('dm-mini-games-refresh');
   const miniGamesDeployments = document.getElementById('dm-mini-games-deployments');
 
-  if (menu) {
-    menu.setAttribute('aria-hidden', menu.hidden ? 'true' : 'false');
-  }
-
   if (!isAuthorizedDevice()) {
     dmBtn?.remove();
     dmToggleBtn?.remove();
@@ -187,6 +183,18 @@ function initDMLogin(){
     charModal?.remove();
     charViewModal?.remove();
     return;
+  }
+
+  const MENU_OPEN_CLASS = 'is-open';
+  let menuHideTimer = null;
+  let menuTransitionHandler = null;
+
+  if (menu) {
+    const isOpen = menu.classList.contains(MENU_OPEN_CLASS);
+    menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    if (dmToggleBtn) {
+      dmToggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
   }
 
   const miniGamesLibrary = listMiniGames();
@@ -1101,7 +1109,7 @@ function initDMLogin(){
     }
     if (dmToggleBtn) {
       dmToggleBtn.hidden = !loggedIn;
-      const expanded = loggedIn && menu && !menu.hidden;
+      const expanded = loggedIn && menu && menu.classList.contains(MENU_OPEN_CLASS);
       dmToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
   }
@@ -1192,11 +1200,47 @@ function initDMLogin(){
     if (typeof toast === 'function') toast('Logged out','info');
   }
 
+  function clearMenuHideJobs(){
+    if (menuTransitionHandler && menu) {
+      menu.removeEventListener('transitionend', menuTransitionHandler);
+    }
+    menuTransitionHandler = null;
+    if (menuHideTimer !== null) {
+      const clearTimer = typeof window !== 'undefined' && typeof window.clearTimeout === 'function'
+        ? window.clearTimeout
+        : clearTimeout;
+      clearTimer(menuHideTimer);
+      menuHideTimer = null;
+    }
+  }
+
+  function finalizeMenuHide(){
+    clearMenuHideJobs();
+    if (menu) {
+      menu.hidden = true;
+    }
+  }
+
+  function scheduleMenuHide(){
+    clearMenuHideJobs();
+    if (!menu) return;
+    menuTransitionHandler = event => {
+      if (event?.target !== menu) return;
+      finalizeMenuHide();
+    };
+    menu.addEventListener('transitionend', menuTransitionHandler);
+    const setTimer = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
+      ? window.setTimeout
+      : setTimeout;
+    menuHideTimer = setTimer(finalizeMenuHide, 360);
+  }
+
   function closeMenu(){
-    if (!menu || menu.hidden) return;
+    if (!menu || !menu.classList.contains(MENU_OPEN_CLASS)) return;
     const restoreToggleFocus = menu.contains(document.activeElement);
-    menu.hidden = true;
+    menu.classList.remove(MENU_OPEN_CLASS);
     menu.setAttribute('aria-hidden','true');
+    scheduleMenuHide();
     if (dmToggleBtn) {
       dmToggleBtn.setAttribute('aria-expanded', 'false');
       if (restoreToggleFocus && !dmToggleBtn.hidden && typeof dmToggleBtn.focus === 'function') {
@@ -1210,9 +1254,11 @@ function initDMLogin(){
   }
 
   function openMenu({ focusFirst = false } = {}){
-    if (!menu || !menu.hidden) return;
+    if (!menu || menu.classList.contains(MENU_OPEN_CLASS)) return;
+    clearMenuHideJobs();
     menu.hidden = false;
     menu.setAttribute('aria-hidden','false');
+    menu.classList.add(MENU_OPEN_CLASS);
     if (dmToggleBtn) {
       dmToggleBtn.setAttribute('aria-expanded', 'true');
     }
@@ -1230,10 +1276,10 @@ function initDMLogin(){
 
   function toggleMenu({ focusMenu = false } = {}){
     if (!menu) return;
-    if (menu.hidden) {
-      openMenu({ focusFirst: focusMenu });
-    } else {
+    if (menu.classList.contains(MENU_OPEN_CLASS)) {
       closeMenu();
+    } else {
+      openMenu({ focusFirst: focusMenu });
     }
   }
 
@@ -1484,7 +1530,7 @@ function initDMLogin(){
   }
 
   const closeMenuIfOutside = e => {
-    if (!menu || menu.hidden) return;
+    if (!menu || !menu.classList.contains(MENU_OPEN_CLASS)) return;
     if (!menu.contains(e.target) && !dmBtn?.contains(e.target) && !dmToggleBtn?.contains(e.target)) {
       closeMenu();
     }

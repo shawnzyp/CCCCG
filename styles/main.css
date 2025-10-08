@@ -2258,8 +2258,18 @@ select[required]:valid{
   box-shadow:var(--shadow);
   z-index:2000;
   backdrop-filter:blur(10px);
+  opacity:0;
+  transform:translate3d(0, 12px, 0) scale(.96);
+  pointer-events:none;
+  transition:opacity .28s ease, transform .28s ease;
+  will-change:opacity, transform;
 }
 .dm-tools-menu[hidden]{display:none}
+.dm-tools-menu.is-open{
+  opacity:1;
+  transform:translate3d(0, 0, 0) scale(1);
+  pointer-events:auto;
+}
 .dm-tools-menu button{
   background:transparent;
   color:var(--text);
