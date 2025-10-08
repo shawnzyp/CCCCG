@@ -29,9 +29,31 @@ describe('DM catalog utilities', () => {
         price: '₡120000',
         mechanics: 'Teleport allies.',
       },
+      recipient: null,
     });
     expect(typeof normalized.id).toBe('string');
     expect(normalized.id.length).toBeGreaterThan(0);
+  });
+
+  test('normalizeDmCatalogPayload carries recipient from metadata', () => {
+    const raw = {
+      type: 'Items',
+      label: 'Items',
+      metadata: {
+        name: 'Signal Beacon',
+        recipient: '  Echo  ',
+      },
+    };
+
+    const normalized = normalizeDmCatalogPayload(raw);
+    expect(normalized).toMatchObject({
+      type: 'items',
+      recipient: 'Echo',
+      metadata: {
+        name: 'Signal Beacon',
+        recipient: 'Echo',
+      },
+    });
   });
 
   test('buildDmEntryFromPayload marks entry as DM-owned and locked', () => {
@@ -55,8 +77,24 @@ describe('DM catalog utilities', () => {
       dmLock: true,
       section: 'DM Catalog',
       priceText: '₡5000',
+      dmRecipient: '',
     });
     expect(entry.search).toContain('phase beacon');
+  });
+
+  test('buildDmEntryFromPayload retains staged recipient', () => {
+    const payload = normalizeDmCatalogPayload({
+      type: 'items',
+      label: 'Items',
+      metadata: {
+        name: 'Med Patch',
+        recipient: 'Nova',
+      },
+    });
+
+    const entry = buildDmEntryFromPayload(payload);
+    expect(entry.dmRecipient).toBe('Nova');
+    expect(entry.search).toContain('nova');
   });
 
   test('buildDmPowerPresetFromPayload creates power preset metadata', () => {
@@ -77,6 +115,7 @@ describe('DM catalog utilities', () => {
     expect(preset).toMatchObject({
       dmEntry: true,
       locked: false,
+      dmRecipient: null,
     });
     expect(preset.data).toMatchObject({
       name: 'Solar Flare',
