@@ -10,6 +10,7 @@
     npcs: () => 'shardDeck/active_npcs',
     hidden: () => 'shardDeck/hidden',
     hiddenSignals: () => 'shardDeck/hidden_signals',
+    itemGifts: () => 'shardDeck/item_gifts',
   };
   const LOCAL_KEYS = {
     deck: cid => `somf_deck__${cid}`,
@@ -20,6 +21,7 @@
     lastNotice: cid => `somf_last_notice__${cid}`,
     hidden: cid => `somf_hidden__${cid}`,
     hiddenSignal: cid => `somf_hidden_signal__${cid}`,
+    itemGifts: cid => `somf_item_gifts__${cid}`,
   };
   const MAX_LOCAL_RECORDS = 120;
 
@@ -1964,6 +1966,13 @@
     allItems() {
       return Object.values(ITEM_BY_ID);
     },
+    itemById(id) {
+      if (typeof id !== 'string' || !id) return null;
+      return ITEM_BY_ID[id] || null;
+    },
+    itemName(id) {
+      return this.itemById(id)?.name || id;
+    },
     allNpcs() {
       return Object.values(NPC_BY_ID);
     },
@@ -2037,6 +2046,34 @@
     .filter(Boolean)
     .sort((a, b) => (b.ts || 0) - (a.ts || 0));
 
+  function createItemGiftRecord(detail = {}, options = {}) {
+    const includeKey = options?.includeKey !== false;
+    const itemId = typeof detail.itemId === 'string' && detail.itemId
+      ? detail.itemId
+      : (typeof detail.id === 'string' && detail.id ? detail.id : null);
+    const catalogItem = itemId ? Catalog.itemById(itemId) : null;
+    const name = typeof detail.name === 'string' && detail.name
+      ? detail.name
+      : (catalogItem?.name || itemId || 'Unknown item');
+    const type = typeof detail.type === 'string' && detail.type
+      ? detail.type
+      : (catalogItem?.type || null);
+    const recipient = typeof detail.recipient === 'string' ? detail.recipient.trim() : '';
+    const record = {
+      id: itemId,
+      name,
+      type,
+      recipient: recipient || 'Unassigned',
+      ts: normalizeTimestamp(detail.ts),
+    };
+    if (includeKey) {
+      record.key = typeof detail.key === 'string' && detail.key ? detail.key : localKey('gift');
+    }
+    if (detail.notes != null) record.notes = String(detail.notes);
+    if (detail.source != null) record.source = String(detail.source);
+    return record;
+  }
+
   function pushLocalLimited(key, entry, limit = MAX_LOCAL_RECORDS) {
     const list = readStorage(key, []);
     if (!Array.isArray(list)) {
@@ -2094,6 +2131,7 @@
       writeStorage(this.key('notices'), []);
       writeStorage(this.key('resolutions'), []);
       writeStorage(this.key('npcs'), []);
+      writeStorage(this.key('itemGifts'), []);
       dispatch('somf-local-deck', { action: 'reset' });
       dispatch('somf-local-notice', { action: 'reset' });
       dispatch('somf-local-resolution', { action: 'reset' });
@@ -2122,6 +2160,16 @@
       const entry = { ids: toStringList(ids), ts: Date.now(), key: localKey('resolution') };
       pushLocalLimited(this.key('resolutions'), entry, MAX_LOCAL_RECORDS);
       dispatch('somf-local-resolution', { entry });
+      return entry;
+    }
+
+    recordItemGift(detail) {
+      const entry = detail && typeof detail === 'object' && detail.name
+        ? { ...detail }
+        : createItemGiftRecord(detail);
+      if (!entry.key) entry.key = localKey('gift');
+      if (!Number.isFinite(entry.ts)) entry.ts = Date.now();
+      pushLocalLimited(this.key('itemGifts'), entry, MAX_LOCAL_RECORDS);
       return entry;
     }
 
@@ -2281,6 +2329,25 @@
         collected.push({ key: child.key, ids: toStringList(value?.ids), ts: normalizeTimestamp(value?.ts) });
       });
       return collected.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, limit);
+    }
+
+    async recordItemGift(detail) {
+      const base = detail && typeof detail === 'object' && detail.name
+        ? { ...detail }
+        : createItemGiftRecord(detail, { includeKey: false });
+      if (!Number.isFinite(base.ts)) base.ts = Date.now();
+      const ref = this.ref('itemGifts').push();
+      const payload = {
+        id: base.id || null,
+        name: base.name,
+        type: base.type || null,
+        recipient: base.recipient,
+        ts: this.db.ServerValue.TIMESTAMP,
+      };
+      if (base.notes != null) payload.notes = base.notes;
+      if (base.source != null) payload.source = base.source;
+      await ref.set(payload);
+      return { ...base, key: ref.key };
     }
 
     async setHidden(hidden) {
@@ -2591,6 +2658,24 @@
     async resetDeck() {
       const store = this.store();
       if (store.reset) await store.reset();
+    }
+
+    async recordItemGift(detail) {
+      const record = createItemGiftRecord(detail);
+      let stored = record;
+      try {
+        stored = this.localStore.recordItemGift(record);
+      } catch (err) {
+        console.error('Failed to store gifted item locally', err);
+      }
+      if (this.hasRealtime() && this.realtimeStore?.recordItemGift) {
+        try {
+          await this.realtimeStore.recordItemGift({ ...record });
+        } catch (err) {
+          console.error('Failed to store gifted item in realtime store', err);
+        }
+      }
+      return stored;
     }
 
     async deckCount() {
@@ -3649,6 +3734,7 @@
       this.relatedNpcs = [];
       this.lastHiddenState = null;
       this.realtimeReady = this.runtime.hasRealtime();
+      this.itemMetadata = new Map();
       this.hiddenEarcon = createHiddenStateEarcon(() => this.dom?.ping);
     }
 
@@ -3985,6 +4071,53 @@
       this.showNpcModal(this.relatedNpcs[0], this.relatedNpcs);
     }
 
+    async handleGiftItem(input) {
+      const item = this.resolveItemMetadata(input);
+      if (!item) {
+        console.warn('Unable to resolve item metadata for gifting action');
+        return;
+      }
+      if (typeof window.prompt !== 'function') {
+        console.warn('Gift prompt unavailable in this environment');
+        return;
+      }
+      const id = typeof item.id === 'string' && item.id ? item.id : null;
+      const label = item.name || Catalog.itemName(id) || id || 'this item';
+      const response = window.prompt(`Gift ${label} to which recipient?`);
+      if (typeof response !== 'string') return;
+      const recipient = response.trim();
+      if (!recipient) return;
+
+      const ts = Date.now();
+      const detail = {
+        id,
+        itemId: id,
+        name: label,
+        type: item.type || null,
+        recipient,
+        ts,
+        source: 'dm',
+      };
+
+      try {
+        await this.runtime.recordItemGift(detail);
+      } catch (err) {
+        console.error('Failed to record gifted item', err);
+      }
+
+      try {
+        window.dmNotify?.(
+          `Gifted ${label} to ${recipient}`,
+          {
+            ts,
+            item: { id, name: label, type: item.type || null, recipient },
+          }
+        );
+      } catch (err) {
+        console.error('Failed to notify gifted item', err);
+      }
+    }
+
     handleHiddenSignal(detail) {
       if (!detail || typeof detail.hidden !== 'boolean') return;
       const message = detail.hidden
@@ -4187,11 +4320,33 @@
       }
       if (this.dom.itemList) {
         this.dom.itemList.innerHTML = '';
+        if (this.itemMetadata instanceof Map) this.itemMetadata.clear();
         Catalog.allItems().forEach(item => {
+          this.cacheItemMetadata(item);
           const li = document.createElement('li');
           li.style.cssText = 'border-top:1px solid #1b2532;padding:8px 10px';
           if (!this.dom.itemList.children.length) li.style.borderTop = 'none';
-          li.innerHTML = `<strong>${item.name}</strong><div style="opacity:.8;font-size:12px">${sentenceCase(item.type || '')}</div>`;
+          li.dataset.itemId = this.itemKey(item) || '';
+
+          const body = document.createElement('div');
+          body.className = 'somf-dm__itemBody';
+          body.innerHTML = `<strong>${item.name}</strong><div style="opacity:.8;font-size:12px">${sentenceCase(item.type || '')}</div>`;
+
+          const actions = document.createElement('div');
+          actions.className = 'somf-dm__itemActions';
+          const gift = document.createElement('button');
+          gift.type = 'button';
+          gift.className = 'somf-btn somf-ghost';
+          gift.textContent = 'Gift';
+          gift.addEventListener('click', evt => {
+            evt.preventDefault();
+            evt.stopPropagation();
+            this.handleGiftItem(item);
+          });
+          actions.appendChild(gift);
+
+          li.appendChild(body);
+          li.appendChild(actions);
           this.dom.itemList.appendChild(li);
         });
       }
@@ -4215,6 +4370,42 @@
         });
       }
       this.activateTab('cards');
+    }
+
+    cacheItemMetadata(item) {
+      if (!item) return;
+      if (!(this.itemMetadata instanceof Map)) {
+        this.itemMetadata = new Map();
+      }
+      const key = this.itemKey(item);
+      if (!key) return;
+      this.itemMetadata.set(key, item);
+    }
+
+    itemKey(input) {
+      if (!input) return null;
+      if (typeof input === 'string') return input;
+      if (typeof input.id === 'string' && input.id) return input.id;
+      if (typeof input.name === 'string' && input.name) return input.name;
+      return null;
+    }
+
+    resolveItemMetadata(input) {
+      if (input && typeof input === 'object' && input.name) {
+        this.cacheItemMetadata(input);
+        return input;
+      }
+      const key = this.itemKey(input);
+      if (!key) return null;
+      if (this.itemMetadata instanceof Map && this.itemMetadata.has(key)) {
+        return this.itemMetadata.get(key);
+      }
+      const catalogItem = Catalog.itemById(key);
+      if (catalogItem) {
+        this.cacheItemMetadata(catalogItem);
+        return catalogItem;
+      }
+      return null;
     }
 
     showNpcModal(npc, related = []) {
