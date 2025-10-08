@@ -10363,6 +10363,7 @@ function deserialize(data){
 const AUTO_KEY = 'autosave';
 let history = [];
 let histIdx = -1;
+let cloudAutosaveDirty = false;
 const forcedRefreshResume = consumeForcedRefreshState();
 const pushHistory = debounce(()=>{
   const snap = serialize();
@@ -10370,6 +10371,7 @@ const pushHistory = debounce(()=>{
   history.push(snap);
   if(history.length > 20){ history.shift(); }
   histIdx = history.length - 1;
+  cloudAutosaveDirty = true;
   try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
 }, 500);
 
@@ -10411,12 +10413,14 @@ let scheduledAutoSaveInFlight = false;
 
 async function performScheduledAutoSave(){
   if(scheduledAutoSaveInFlight) return;
+  if(!cloudAutosaveDirty) return;
   const name = currentCharacter();
   if(!name) return;
   try {
     scheduledAutoSaveInFlight = true;
     const snapshot = serialize();
     await saveAutoBackup(snapshot, name);
+    cloudAutosaveDirty = false;
   } catch (err) {
     console.error('Scheduled auto save failed', err);
   } finally {
@@ -10465,6 +10469,7 @@ $('btn-save').addEventListener('click', async () => {
       }
       await saveCharacter(data, target);
     }
+    cloudAutosaveDirty = false;
     toast('Save successful', 'success');
     playSaveAnimation();
   } finally {
