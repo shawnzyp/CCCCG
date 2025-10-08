@@ -23,7 +23,22 @@
 :root.theme-alien{--bg-color:#004d40;--bg:var(--bg-color) url('../images/Alien:Extraterrestrial.PNG?v=2') center/cover no-repeat fixed;--surface:rgba(0,77,64,.8);--surface-2:rgba(27,20,60,.8);--text:#e0f2f1;--muted:#80cbc4;--accent:#00e5ff;--accent-2:#651fff;--line:rgba(255,255,255,.1);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#0e1117;--success:#4db6ac;--error:#ef5350;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%234db6ac' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ef5350' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E")}
 :root.theme-mystic{--bg-color:#311b92;--bg:var(--bg-color) url('../images/Mystical Being.PNG?v=2') center/cover no-repeat fixed;--surface:rgba(49,27,146,.8);--surface-2:rgba(35,20,100,.8);--text:#fff8e1;--muted:#ffe082;--accent:#d4af37;--accent-2:#7b1fa2;--line:rgba(255,255,255,.1);--shadow:0 8px 28px rgba(0,0,0,.35);--text-on-accent:#0e1117;--success:#fff59d;--error:#ef5350;--icon-success:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23fff59d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 10l3 3 7-7'/%3E%3C/svg%3E");--icon-error:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ef5350' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l8 8M6 14l8-8'/%3E%3C/svg%3E")}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
-*,*::before,*::after{box-sizing:border-box;transition:var(--transition)}
+*,*::before,*::after{box-sizing:border-box}
+
+.menu button,
+.card-menu__item,
+.field-value__expander,
+.dm-mini-games__knob-title,
+.dm-mini-games__knob-toggle,
+.cc-btn,
+.cc-tabs__nav button,
+.somf-btn,
+.somf-dm__tabs button,
+.somf-dm__list li,
+.somf-dm__link,
+.somf-dm__queue li,
+.power-preset-menu__group-title,
+.power-preset-menu__subgroup-title{transition:var(--transition)}
 img,video{max-width:100%;height:auto}
 html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
