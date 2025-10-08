@@ -2376,6 +2376,7 @@
       this.toastShownHandler = evt => this.onGlobalToastShown(evt);
       this.toastDismissHandler = () => this.onGlobalToastDismissed();
       this.modalIsOpen = false;
+      this.drawConfirmState = null;
     }
 
     attach() {
@@ -2396,6 +2397,11 @@
         modal: dom.one('#somf-min-modal'),
         backdrop: dom.one('#somf-min-modal [data-somf-dismiss]'),
         close: dom.one('#somf-min-close'),
+        drawConfirmOverlay: dom.one('#somf-confirm-draw'),
+        drawConfirmDialog: dom.one('#somf-confirm-draw .somf-confirm'),
+        drawConfirmCount: dom.one('#somf-confirm-count'),
+        drawConfirmAccept: dom.one('[data-somf-confirm-accept]'),
+        drawConfirmCancel: dom.one('[data-somf-confirm-cancel]'),
         image: dom.one('#somf-min-image'),
         details: dom.one('#somf-min-details'),
         name: dom.one('#somf-min-name'),
@@ -2977,11 +2983,159 @@
       return true;
     }
 
+    showDrawConfirmation(count) {
+      const overlay = this.dom.drawConfirmOverlay;
+      const dialog = this.dom.drawConfirmDialog;
+      const accept = this.dom.drawConfirmAccept;
+      const cancel = this.dom.drawConfirmCancel;
+      const countEl = this.dom.drawConfirmCount;
+      if (!overlay || !dialog || !accept || !cancel) {
+        const first = window.confirm('The Fates are fickle, are you sure you wish to draw from the Shards?');
+        if (!first) return Promise.resolve(false);
+        return Promise.resolve(window.confirm('This cannot be undone, do you really wish to tempt Fate?'));
+      }
+      if (this.drawConfirmState && this.drawConfirmState.active) {
+        return Promise.resolve(false);
+      }
+      const label = `${count} ${pluralize('Shard', count)}`;
+      if (countEl) countEl.textContent = `You are about to draw ${label}.`;
+      accept.textContent = `Draw ${label}`;
+      accept.setAttribute('aria-label', `Draw ${label} now`);
+      overlay.hidden = false;
+      overlay.classList.remove('hidden');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body?.classList?.add('modal-open');
+      const previouslyFocused = typeof document !== 'undefined' ? document.activeElement : null;
+      const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+      const focusElement = element => {
+        if (!element || typeof element.focus !== 'function') return;
+        try { element.focus({ preventScroll: true }); }
+        catch {
+          try { element.focus(); }
+          catch { /* ignore focus errors */ }
+        }
+      };
+      const isFocusable = element => {
+        if (!element || element.disabled) return false;
+        if (element.hidden) return false;
+        if (element.getAttribute('aria-hidden') === 'true') return false;
+        const tabindex = element.getAttribute('tabindex');
+        if (tabindex === '-1') return false;
+        if (typeof element.getClientRects === 'function') {
+          const rects = element.getClientRects();
+          if (rects && rects.length === 0) return false;
+        }
+        return true;
+      };
+      const getFocusable = () => Array.from(overlay.querySelectorAll(selectors)).filter(isFocusable);
+      const initialFocus = () => {
+        const focusable = getFocusable();
+        focusElement(accept || focusable[0] || dialog);
+      };
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(initialFocus);
+      } else {
+        setTimeout(initialFocus, 0);
+      }
+      return new Promise(resolve => {
+        this.drawConfirmState = { active: true };
+        let closing = false;
+        const cleanup = confirmed => {
+          if (closing) return;
+          closing = true;
+          overlay.removeEventListener('keydown', handleKeydown);
+          overlay.removeEventListener('click', handleBackdropClick);
+          document.removeEventListener('focusin', handleFocusIn, true);
+          cancel.removeEventListener('click', handleCancel);
+          accept.removeEventListener('click', handleAccept);
+          this.drawConfirmState = null;
+          document.body?.classList?.remove('modal-open');
+          overlay.classList.add('hidden');
+          overlay.setAttribute('aria-hidden', 'true');
+          const finalize = () => {
+            overlay.hidden = true;
+            if (typeof document !== 'undefined'
+              && previouslyFocused
+              && typeof previouslyFocused.focus === 'function'
+              && document.contains(previouslyFocused)) {
+              focusElement(previouslyFocused);
+            }
+            resolve(confirmed);
+          };
+          if (preferReducedMotion()) {
+            finalize();
+          } else {
+            let settled = false;
+            const onTransitionEnd = () => {
+              if (settled) return;
+              settled = true;
+              overlay.removeEventListener('transitionend', onTransitionEnd);
+              finalize();
+            };
+            overlay.addEventListener('transitionend', onTransitionEnd);
+            window.setTimeout(onTransitionEnd, 360);
+          }
+        };
+        const handleKeydown = event => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            cleanup(false);
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          const focusable = getFocusable();
+          if (!focusable.length) {
+            event.preventDefault();
+            focusElement(dialog);
+            return;
+          }
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          const active = document.activeElement;
+          if (event.shiftKey) {
+            if (active === first || !overlay.contains(active)) {
+              event.preventDefault();
+              focusElement(last);
+            }
+          } else if (active === last) {
+            event.preventDefault();
+            focusElement(first);
+          }
+        };
+        const handleFocusIn = event => {
+          if (closing) return;
+          if (!overlay.contains(event.target)) {
+            const focusable = getFocusable();
+            focusElement(focusable[0] || dialog);
+          }
+        };
+        const handleBackdropClick = event => {
+          if (event.target === overlay) {
+            event.preventDefault();
+            cleanup(false);
+          }
+        };
+        const handleCancel = event => {
+          event.preventDefault();
+          cleanup(false);
+        };
+        const handleAccept = event => {
+          event.preventDefault();
+          cleanup(true);
+        };
+        overlay.addEventListener('keydown', handleKeydown);
+        overlay.addEventListener('click', handleBackdropClick);
+        document.addEventListener('focusin', handleFocusIn, true);
+        cancel.addEventListener('click', handleCancel);
+        accept.addEventListener('click', handleAccept);
+      });
+    }
+
     async onDraw() {
       if (this.dom.count) this.dom.count.blur();
-      if (!confirm('The Fates are fickle, are you sure you wish to draw from the Shards?')) return;
-      if (!confirm('This cannot be undone, do you really wish to tempt Fate?')) return;
       const count = Math.max(1, Math.min(PLATES.length, Number(this.dom.count?.value) || 1));
+      const confirmed = await this.showDrawConfirmation(count);
+      if (!confirmed) return;
       try {
         const notice = await this.runtime.draw(count);
         if (notice) {

@@ -1918,6 +1918,22 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 .mini-game-invite__decline:focus-visible{outline:2px solid var(--error);outline-offset:2px}
 .mini-game-invite__accept{flex:1 1 160px;text-align:center;padding:12px 16px;font-weight:600}
 @media(max-width:540px){.mini-game-invite{padding:18px}.mini-game-invite__actions{flex-direction:column}.mini-game-invite__decline,.mini-game-invite__accept{flex:1 1 auto;width:100%}}
+#somf-confirm-draw .modal{max-width:min(420px,100%)}
+.somf-confirm{max-width:min(420px,100%);display:flex;flex-direction:column;gap:16px;padding:22px 24px}
+.somf-confirm__header{display:flex;flex-direction:column;gap:6px;text-align:center}
+.somf-confirm__title{margin:0;font-size:1.1rem;font-weight:700}
+.somf-confirm__description{margin:0;font-size:.9rem;color:var(--muted)}
+.somf-confirm__count{margin:0;font-size:1rem;font-weight:600;text-align:center}
+.somf-confirm__label{margin:0;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);text-align:center}
+.somf-confirm__list{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:.9rem;line-height:1.5;text-align:left}
+.somf-confirm__actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between}
+.somf-confirm__cancel{flex:1 1 140px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);padding:10px 12px;border-radius:var(--radius);font-weight:600;cursor:pointer;transition:var(--transition)}
+.theme-light .somf-confirm__cancel{background:rgba(0,0,0,.04)}
+.somf-confirm__cancel:hover{background:rgba(255,255,255,.08)}
+.theme-light .somf-confirm__cancel:hover{background:rgba(0,0,0,.08)}
+.somf-confirm__cancel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.somf-confirm__accept{flex:1 1 160px;text-align:center;padding:12px 16px;font-weight:600}
+@media(max-width:540px){.somf-confirm{padding:18px}.somf-confirm__actions{flex-direction:column}.somf-confirm__cancel,.somf-confirm__accept{flex:1 1 auto;width:100%}}
 #modal-help{align-items:flex-start;overflow-y:auto}
 #modal-help .modal{max-height:none}
 #modal-welcome .modal{font-size:.85rem;line-height:1.4}
@@ -1945,9 +1961,13 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 @media(max-width:520px){
   .overlay .modal{padding:16px 14px}
   .mini-game-invite{padding:16px}
+  .somf-confirm{padding:16px}
   .app-alert__card,
   .somf-reveal-alert__card{padding:24px 18px;border-radius:18px}
 }
+#somf-confirm-draw{transition:opacity .3s ease-in-out}
+#somf-confirm-draw .modal{transition:transform .3s ease-in-out,opacity .3s ease-in-out}
+@media (prefers-reduced-motion: reduce){#somf-confirm-draw{transition:none}#somf-confirm-draw .modal{transition:none}}
 #rules-text{white-space:pre-wrap}
 .toast{position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid var(--accent);padding:10px 12px;border-radius:var(--radius);opacity:0;transform:translateY(8px);transition:opacity .3s ease-in-out,transform .3s ease-in-out;z-index:2000;display:flex;align-items:center;gap:6px;pointer-events:none;will-change:transform,opacity}
 .toast::before{content:"";width:16px;height:16px;background-size:contain;background-repeat:no-repeat}
