@@ -2371,6 +2371,19 @@ function applyDeleteIcons(root=document){
   qsa('button[data-del], button[data-act="del"]', root).forEach(applyDeleteIcon);
 }
 
+function applyEditIcon(btn){
+  if(!btn) return;
+  btn.innerHTML = ICON_EDIT;
+  if(!btn.getAttribute('aria-label')){
+    btn.setAttribute('aria-label','Edit');
+  }
+  Object.assign(btn.style, DELETE_ICON_STYLE);
+}
+
+function applyEditIcons(root=document){
+  qsa('button[data-act="edit"]', root).forEach(applyEditIcon);
+}
+
 async function applyLockIcon(btn){
   if(!btn) return;
   const name = btn.dataset.lock;
@@ -5794,8 +5807,9 @@ function renderCampaignCollection(entries, targetId, emptyMessage){
   container.innerHTML = entries
     .slice()
     .reverse()
-    .map(entry=>`<div class="catalog-item" data-entry-id="${entry.id}"><div>${fmt(entry.t)} ${entry.name}</div><div>${entry.text}</div><div><button class="btn-sm" data-entry-id="${entry.id}" aria-label="Delete entry"></button></div></div>`)
+    .map(entry=>`<div class="catalog-item" data-entry-id="${entry.id}"><div>${fmt(entry.t)} ${entry.name}</div><div>${entry.text}</div><div class="catalog-item__controls"><button class="btn-sm" type="button" data-entry-id="${entry.id}" data-act="edit" aria-label="Edit entry"></button><button class="btn-sm" type="button" data-entry-id="${entry.id}" data-act="del" aria-label="Delete entry"></button></div></div>`)
     .join('');
+  applyEditIcons(container);
   applyDeleteIcons(container);
 }
 
@@ -5896,6 +5910,28 @@ function queueCampaignLogEntry(text, options = {}){
   })();
   return entry;
 }
+
+function updateCampaignLogEntry(id, text, options = {}){
+  if(typeof id !== 'string' || !id) return null;
+  const existing = campaignLogEntries.find(entry => entry.id === id);
+  if(!existing) return null;
+  const normalizedText = typeof text === 'string' ? text : '';
+  const updated = { ...existing, text: normalizedText };
+  mergeCampaignEntry(updated);
+  if(options.sync === false) return updated;
+  (async()=>{
+    try{
+      const saved = await appendCampaignLogEntry(updated);
+      if(saved) mergeCampaignEntry(saved);
+    }catch(err){
+      console.error('Failed to sync campaign log entry edit', err);
+      try{ toast('Failed to sync campaign log entry edit', 'error'); }catch{}
+    }
+  })();
+  return updated;
+}
+
+window.updateCampaignLogEntry = updateCampaignLogEntry;
 
 updateCampaignLogViews();
 const CONTENT_UPDATE_EVENT = 'cc:content-updated';
@@ -6808,11 +6844,57 @@ $('roll-death-save')?.addEventListener('click', ()=>{
   }
   checkDeathProgress();
 });
-async function handleCampaignLogDelete(e){
+let activeCampaignEditEntryId = null;
+
+function resetCampaignLogEditor(){
+  activeCampaignEditEntryId = null;
+  const field = $('campaign-edit-text');
+  if(field){
+    field.value = '';
+  }
+  const meta = $('campaign-edit-meta');
+  if(meta){
+    meta.textContent = '';
+  }
+}
+
+function openCampaignLogEditor(id){
+  const entry = campaignLogEntries.find(item => item.id === id);
+  if(!entry) return;
+  activeCampaignEditEntryId = id;
+  const field = $('campaign-edit-text');
+  if(field){
+    field.value = entry.text;
+  }
+  const meta = $('campaign-edit-meta');
+  if(meta){
+    meta.textContent = `${fmt(entry.t)} ${entry.name}`;
+  }
+  show('modal-campaign-edit');
+  if(typeof requestAnimationFrame === 'function'){
+    requestAnimationFrame(()=>{
+      const textarea = $('campaign-edit-text');
+      if(!textarea) return;
+      textarea.focus();
+      const end = textarea.value.length;
+      try{ textarea.setSelectionRange(end, end); }catch{}
+    });
+  }else if(field){
+    field.focus();
+  }
+}
+
+async function handleCampaignLogClick(e){
   const btn = e.target.closest('button[data-entry-id]');
   if(!btn) return;
   const id = btn.dataset.entryId;
   if(!id) return;
+  const action = btn.dataset.act || 'del';
+  if(action === 'edit'){
+    openCampaignLogEditor(id);
+    return;
+  }
+  if(action !== 'del') return;
   if(!confirm('Delete this entry?')) return;
   const removed = removeCampaignEntry(id);
   if(!removed) return;
@@ -6849,12 +6931,55 @@ if (btnCampaignAdd) {
 
 const campaignLogContainer = $('campaign-log');
 if(campaignLogContainer){
-  campaignLogContainer.addEventListener('click', handleCampaignLogDelete);
+  campaignLogContainer.addEventListener('click', handleCampaignLogClick);
 }
 
 const campaignBacklogContainer = $('campaign-backlog');
 if(campaignBacklogContainer){
-  campaignBacklogContainer.addEventListener('click', handleCampaignLogDelete);
+  campaignBacklogContainer.addEventListener('click', handleCampaignLogClick);
+}
+
+const campaignEditSave = $('campaign-edit-save');
+if(campaignEditSave){
+  campaignEditSave.addEventListener('click', ()=>{
+    if(!activeCampaignEditEntryId) return;
+    const field = $('campaign-edit-text');
+    if(!field) return;
+    const text = field.value.trim();
+    if(!text){
+      try{ toast('Campaign log text is required', 'error'); }catch{}
+      return;
+    }
+    const current = campaignLogEntries.find(entry => entry.id === activeCampaignEditEntryId);
+    if(!current){
+      hide('modal-campaign-edit');
+      resetCampaignLogEditor();
+      return;
+    }
+    if(current.text === text){
+      hide('modal-campaign-edit');
+      resetCampaignLogEditor();
+      return;
+    }
+    updateCampaignLogEntry(activeCampaignEditEntryId, text);
+    pushHistory();
+    try{ toast('Campaign log entry updated', 'success'); }catch{}
+    hide('modal-campaign-edit');
+    resetCampaignLogEditor();
+  });
+}
+
+qsa('#modal-campaign-edit [data-close]').forEach(btn=>{
+  btn.addEventListener('click', resetCampaignLogEditor);
+});
+
+const campaignEditOverlay = $('modal-campaign-edit');
+if(campaignEditOverlay){
+  campaignEditOverlay.addEventListener('click', event=>{
+    if(event.target === campaignEditOverlay){
+      resetCampaignLogEditor();
+    }
+  }, { capture: true });
 }
 
 const btnCampaignBacklog = $('campaign-view-backlog');
@@ -12664,6 +12789,7 @@ setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
 setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
 setupFactionRepTracker(handlePerkEffects, pushHistory);
 updateDerived();
+applyEditIcons();
 applyDeleteIcons();
 applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
