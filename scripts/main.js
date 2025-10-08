@@ -3189,11 +3189,33 @@ const CLASS_THEMES = {
 function bindClassificationTheme(id){
   const sel=$(id);
   if(!sel) return;
+  const helperClass='theme-transition';
+  let cleanupAnimation=null;
   const apply=()=>{
     const t=CLASS_THEMES[sel.value];
     if(t){
       localStorage.setItem('theme', t);
       applyTheme(t);
+      if(cleanupAnimation){
+        cleanupAnimation();
+        cleanupAnimation=null;
+      }
+      if(sel.classList.contains(helperClass)){
+        sel.classList.remove(helperClass);
+        void sel.offsetWidth;
+      }
+      const handleAnimationEnd=(event)=>{
+        if(event.target!==sel) return;
+        sel.classList.remove(helperClass);
+        sel.removeEventListener('animationend', handleAnimationEnd);
+        cleanupAnimation=null;
+      };
+      sel.addEventListener('animationend', handleAnimationEnd);
+      cleanupAnimation=()=>{
+        sel.classList.remove(helperClass);
+        sel.removeEventListener('animationend', handleAnimationEnd);
+      };
+      sel.classList.add(helperClass);
     }
   };
   sel.addEventListener('change', apply);

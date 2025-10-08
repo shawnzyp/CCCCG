@@ -1295,6 +1295,29 @@ input:not([type="checkbox"]),select,textarea{width:100%}
 
 select{background-image:var(--chevron);background-repeat:no-repeat;background-position:right calc(var(--control-padding-x) - var(--select-indicator-gap)) center;background-size:var(--select-indicator-size);padding-right:calc((var(--control-padding-x) * 2) + var(--select-indicator-size))}
 select option{color:var(--text);background:var(--surface-2)}
+#classification.theme-transition{
+  background-image:linear-gradient(var(--surface-2), var(--surface-2)),linear-gradient(135deg,color-mix(in srgb,var(--accent) 82%, transparent) 0%,color-mix(in srgb,var(--accent-2) 78%, transparent) 100%);
+  background-origin:border-box;
+  background-clip:padding-box,border-box;
+  background-size:100% 100%,100% 100%;
+  border-color:transparent;
+  border-image:linear-gradient(135deg,color-mix(in srgb,var(--accent) 85%, transparent) 0%,color-mix(in srgb,var(--accent-2) 75%, transparent) 100%) 1;
+  animation:classificationThemePulse .8s cubic-bezier(.22,1,.36,1);
+}
+@keyframes classificationThemePulse{
+  0%{
+    background-size:100% 100%,0% 100%;
+    box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%, transparent);
+  }
+  55%{
+    background-size:100% 100%,115% 115%;
+    box-shadow:0 0 16px 0 color-mix(in srgb,var(--accent) 40%, transparent);
+  }
+  to{
+    background-size:100% 100%,100% 100%;
+    box-shadow:0 0 0 0 transparent;
+  }
+}
 /* Hide number input spinners */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button{
