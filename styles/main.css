@@ -1105,9 +1105,35 @@ main{
   padding-left:env(safe-area-inset-left, 0px);
   padding-bottom:calc(4px + env(safe-area-inset-bottom, 0px));
   position:relative;
+  --swipe-progress:0;
 }
 main.is-animating-tabs{
   overflow:hidden;
+}
+main.is-swiping::before,
+main.is-swiping::after{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:min(120px, 18vw);
+  pointer-events:none;
+  opacity:calc(var(--swipe-progress, 0) * 0.85);
+  transform:scaleX(calc(0.85 + (var(--swipe-progress, 0) * 0.35)));
+  transition:opacity .24s cubic-bezier(.33,1,.68,1),transform .3s cubic-bezier(.22,1,.36,1);
+  will-change:opacity,transform;
+  filter:blur(14px);
+  mix-blend-mode:screen;
+}
+main.is-swiping::before{
+  left:0;
+  transform-origin:left center;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 82%, transparent) 0%,color-mix(in srgb,var(--accent) 42%, transparent) 55%,transparent 100%);
+}
+main.is-swiping::after{
+  right:0;
+  transform-origin:right center;
+  background:linear-gradient(270deg,color-mix(in srgb,var(--accent-2, var(--accent)) 82%, transparent) 0%,color-mix(in srgb,var(--accent-2, var(--accent)) 42%, transparent) 55%,transparent 100%);
 }
 fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:var(--card-padding,10px);margin-bottom:0;box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translate3d(0,0,0);cursor:default;pointer-events:none;will-change:opacity,filter;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent);position:absolute;inset:0;width:100%;max-width:100%;min-width:0;visibility:hidden;filter:blur(18px) saturate(1.2);transition:opacity .36s cubic-bezier(.33,1,.68,1),filter .36s cubic-bezier(.33,1,.68,1),-webkit-backdrop-filter .36s cubic-bezier(.33,1,.68,1),backdrop-filter .36s cubic-bezier(.33,1,.68,1)}
 fieldset[data-tab].card:not(.active):not(.animating){

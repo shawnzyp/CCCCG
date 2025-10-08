@@ -3649,6 +3649,7 @@ if(mainEl && TAB_ORDER.length){
     swipeState.lastDx = 0;
     swipeState.isActive = false;
     mainEl.classList.remove('is-swiping');
+    mainEl.style.removeProperty('--swipe-progress');
     isTabAnimating = false;
   };
 
@@ -3706,6 +3707,7 @@ if(mainEl && TAB_ORDER.length){
     }
     swipeState.progress = progress;
     swipeState.lastDx = clampedDx;
+    mainEl.style.setProperty('--swipe-progress', progress.toFixed(3));
   };
 
   const finishSwipe = shouldCommit => {
