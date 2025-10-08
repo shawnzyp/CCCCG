@@ -190,11 +190,6 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   justify-self:center;
 }
 
-.tabs-title__label{
-  display:inline-flex;
-  align-items:center;
-}
-
 .sync-status-badge{
   display:inline-flex;
   align-items:center;
