@@ -5681,6 +5681,8 @@ function playLoadAnimation(){
 const deathSuccesses = ['death-success-1','death-success-2','death-success-3'].map(id=>$(id));
 const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(id));
 const deathOut = $('death-save-out');
+const deathRollMode = $('death-save-mode');
+const deathModifierInput = $('death-save-mod');
 let deathState = null; // null, 'stable', 'dead'
 
 function markBoxes(arr, n){
@@ -5696,7 +5698,15 @@ function markBoxes(arr, n){
 function resetDeathSaves(){
   [...deathSuccesses, ...deathFailures].forEach(b=> b.checked=false);
   deathState=null;
-  if(deathOut) deathOut.textContent='';
+  if(deathOut){
+    deathOut.textContent='';
+    if (deathOut.dataset) {
+      delete deathOut.dataset.rollBreakdown;
+      delete deathOut.dataset.rollModifier;
+      delete deathOut.dataset.rollMode;
+      delete deathOut.dataset.rolls;
+    }
+  }
 }
 $('death-save-reset')?.addEventListener('click', resetDeathSaves);
 
@@ -5721,26 +5731,75 @@ async function checkDeathProgress(){
 [...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
 
 $('roll-death-save')?.addEventListener('click', ()=>{
-  rollWithBonus('Death save', 0, deathOut, {
-    type: 'death-save',
-    baseBonuses: [],
-    onRoll: ({ roll, total }) => {
-      if (roll === 20) {
-        resetDeathSaves();
-        toast('Critical success! You regain 1 HP and awaken.', 'success');
-        logAction('Death save critical success: regain 1 HP and awaken.');
-        return;
+  const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';
+  const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
+  const manualInputRaw = deathModifierInput ? deathModifierInput.value : '';
+  const manualNumeric = Number(manualInputRaw);
+  const hasManualModifier = deathModifierInput ? deathModifierInput.value !== '' : false;
+  const baseBonus = Number.isFinite(manualNumeric) ? manualNumeric : 0;
+  const baseBonuses = [];
+  if (hasManualModifier && Number.isFinite(manualNumeric)) {
+    baseBonuses.push({ label: 'Modifier', value: baseBonus, includeZero: true });
+  }
+  const rollOptions = { type: 'death-save', baseBonuses };
+  const sides = getRollSides(rollOptions);
+  const rollCount = normalizedMode === 'normal' ? 1 : 2;
+  const rolls = Array.from({ length: rollCount }, () => 1 + Math.floor(Math.random() * sides));
+  const chosenRoll = normalizedMode === 'advantage'
+    ? Math.max(...rolls)
+    : normalizedMode === 'disadvantage'
+      ? Math.min(...rolls)
+      : rolls[0];
+  const resolution = resolveRollBonus(baseBonus, rollOptions);
+  const numericBonus = Number(baseBonus);
+  const fallbackBonus = Number.isFinite(numericBonus) ? numericBonus : 0;
+  const modifier = resolution && Number.isFinite(resolution.modifier)
+    ? resolution.modifier
+    : fallbackBonus;
+  const total = chosenRoll + modifier;
+  if (deathOut) {
+    deathOut.textContent = total;
+    if (deathOut.dataset) {
+      if (resolution?.breakdown?.length) {
+        deathOut.dataset.rollBreakdown = resolution.breakdown.join(' | ');
+      } else if (deathOut.dataset.rollBreakdown) {
+        delete deathOut.dataset.rollBreakdown;
       }
-      if (roll === 1) {
-        markBoxes(deathFailures, 2);
-      } else if (total >= 10) {
-        markBoxes(deathSuccesses, 1);
+      deathOut.dataset.rollModifier = String(modifier);
+      if (normalizedMode !== 'normal') {
+        deathOut.dataset.rollMode = normalizedMode;
+        deathOut.dataset.rolls = rolls.join('/');
       } else {
-        markBoxes(deathFailures, 1);
+        delete deathOut.dataset.rollMode;
+        delete deathOut.dataset.rolls;
       }
-      checkDeathProgress();
-    },
-  });
+    }
+  }
+  const sign = modifier >= 0 ? '+' : '';
+  const modeLabel = normalizedMode === 'normal' ? '' : ` (${normalizedMode})`;
+  const rollDisplay = normalizedMode === 'normal'
+    ? String(chosenRoll)
+    : `${rolls.join('/')}→${chosenRoll}`;
+  let message = `Death save${modeLabel}: ${rollDisplay}${sign}${modifier} = ${total}`;
+  if (resolution?.breakdown?.length) {
+    message += ` [${resolution.breakdown.join(' | ')}]`;
+  }
+  logAction(message);
+
+  if (chosenRoll === 20) {
+    resetDeathSaves();
+    toast('Critical success! You regain 1 HP and awaken.', 'success');
+    logAction('Death save critical success: regain 1 HP and awaken.');
+    return;
+  }
+  if (chosenRoll === 1) {
+    markBoxes(deathFailures, 2);
+  } else if (total >= 10) {
+    markBoxes(deathSuccesses, 1);
+  } else {
+    markBoxes(deathFailures, 1);
+  }
+  checkDeathProgress();
 });
 async function handleCampaignLogDelete(e){
   const btn = e.target.closest('button[data-entry-id]');
