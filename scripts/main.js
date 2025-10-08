@@ -4359,7 +4359,12 @@ if (elPowerSaveAbility) {
 
 refreshCasterAbilitySuggestion({ force: true });
 
-if (elInitiativeRollBtn) {
+if (elInitiativeRollBtn && elInitiativeRollResult) {
+  const initiativeOutcomeClasses = ['initiative-roll--crit-high', 'initiative-roll--crit-low'];
+  const resetInitiativeAnimation = () => {
+    elInitiativeRollResult.classList.remove('initiative-roll--active');
+  };
+
   elInitiativeRollBtn.addEventListener('click', () => {
     const dexMod = mod(elDex.value);
     const wisMod = addWisToInitiative ? mod(elWis.value) : 0;
@@ -4371,7 +4376,32 @@ if (elInitiativeRollBtn) {
       base += wisMod;
       baseBonuses.push({ label: 'WIS mod', value: wisMod, includeZero: true });
     }
-    rollWithBonus('Initiative', base, elInitiativeRollResult, { type: 'initiative', baseBonuses });
+    let rollDetails = null;
+    rollWithBonus('Initiative', base, elInitiativeRollResult, {
+      type: 'initiative',
+      baseBonuses,
+      onRoll: details => {
+        rollDetails = details;
+      },
+    });
+
+    elInitiativeRollResult.classList.remove('initiative-roll--active', ...initiativeOutcomeClasses);
+
+    if (rollDetails) {
+      if (rollDetails.roll === rollDetails.sides) {
+        elInitiativeRollResult.classList.add('initiative-roll--crit-high');
+      } else if (rollDetails.roll === 1) {
+        elInitiativeRollResult.classList.add('initiative-roll--crit-low');
+      }
+    }
+
+    if (!animationsEnabled) {
+      return;
+    }
+
+    void elInitiativeRollResult.offsetWidth;
+    elInitiativeRollResult.classList.add('initiative-roll--active');
+    elInitiativeRollResult.addEventListener('animationend', resetInitiativeAnimation, { once: true });
   });
 }
 
