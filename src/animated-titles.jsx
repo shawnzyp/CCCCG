@@ -24,6 +24,7 @@ function AnimatedTitle({ text, playIndex }) {
 }
 
 const animatedTitles = new Map();
+let currentActiveGroup = null;
 
 function getGroupKey(element) {
   const fieldset = element.closest('fieldset[data-tab]');
@@ -130,10 +131,12 @@ function initializeTitles() {
   const elements = document.querySelectorAll('[data-animate-title]');
   elements.forEach(element => mountTitle(element));
 
+  const activeCard = document.querySelector('fieldset[data-tab].card.active');
+  const activeGroup = activeCard?.dataset.tab ?? null;
+  currentActiveGroup = activeGroup;
+
   requestAnimationFrame(() => {
     playGroup('global');
-    const activeCard = document.querySelector('fieldset[data-tab].card.active');
-    const activeGroup = activeCard?.dataset.tab;
     if (activeGroup) {
       playGroup(activeGroup);
     }
@@ -142,21 +145,44 @@ function initializeTitles() {
   const main = document.querySelector('main');
   if (main) {
     const observer = new MutationObserver(mutations => {
+      const previousActiveGroup = currentActiveGroup;
+      let nextActiveGroup = currentActiveGroup;
+      let shouldReplayGlobal = false;
+
       mutations.forEach(mutation => {
         if (
           mutation.type === 'attributes' &&
           mutation.attributeName === 'class' &&
           mutation.target instanceof HTMLElement &&
-          mutation.target.matches('fieldset[data-tab].card') &&
-          mutation.target.classList.contains('active')
+          mutation.target.matches('fieldset[data-tab].card')
         ) {
           const tabName = mutation.target.dataset.tab;
-          if (tabName) {
-            playGroup('global');
-            playGroup(tabName);
+          if (!tabName) return;
+
+          const isActive = mutation.target.classList.contains('active');
+
+          if (isActive) {
+            if (tabName !== nextActiveGroup) {
+              if (tabName !== previousActiveGroup) {
+                shouldReplayGlobal = true;
+              }
+              nextActiveGroup = tabName;
+            }
+          } else if (tabName === nextActiveGroup) {
+            nextActiveGroup = null;
           }
         }
       });
+
+      if (shouldReplayGlobal) {
+        playGroup('global');
+      }
+
+      if (nextActiveGroup && nextActiveGroup !== previousActiveGroup) {
+        playGroup(nextActiveGroup);
+      }
+
+      currentActiveGroup = nextActiveGroup;
     });
 
     observer.observe(main, {
