@@ -127,6 +127,24 @@ function installCoreMocks() {
     }
   }
 
+  function createSynchronousThenable(){
+    const chain = {
+      then(onFulfilled, onRejected){
+        try{
+          onFulfilled?.();
+        }catch(error){
+          onRejected?.(error);
+        }
+        return chain;
+      },
+      catch(onRejected){
+        onRejected?.();
+        return chain;
+      },
+    };
+    return chain;
+  }
+
   class AudioContextMock {
     constructor() {
       this.state = 'running';
@@ -137,7 +155,7 @@ function installCoreMocks() {
     }
     resume() {
       this.state = 'running';
-      return Promise.resolve();
+      return createSynchronousThenable();
     }
     createOscillator() {
       return new OscillatorNodeMock();

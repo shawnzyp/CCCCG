@@ -2375,9 +2375,17 @@ document.addEventListener('visibilitychange', () => {
     closeAudioContext();
   }
 });
-function playTone(type){
+async function playTone(type){
   try{
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(!audioCtx) return;
+    if(audioCtx.state === 'suspended'){
+      try{
+        await audioCtx.resume();
+      }catch(e){
+        /* noop */
+      }
+    }
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     const now = audioCtx.currentTime;
