@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-09-30T09:04:55.746Z",
+  "generatedAt": "2025-10-08T08:48:47.446Z",
   "source": {
     "master": "CatalystCore_Master_Book.csv",
     "prices": "CatalystCore_Items_Prices.csv",
@@ -2144,7 +2144,7 @@
       "price": 10600,
       "priceText": "₡10600",
       "priceRaw": "₡10600",
-      "perk": "Damage 1d61d10; apply a minor another creature once/scene.",
+      "perk": "Damage 1d6 + 1d10; apply a minor another creature once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2152,7 +2152,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon net launcher mk i t5 ₡10600 damage 1d61d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear weapon net launcher mk i t5 ₡10600 damage 1d6 + 1d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2163,7 +2163,7 @@
       "price": 11400,
       "priceText": "₡11400",
       "priceRaw": "₡11400",
-      "perk": "Damage 1d61d10; apply a minor another creature once/scene.",
+      "perk": "Damage 1d6 + 1d10; apply a minor another creature once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2171,7 +2171,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon arc bow mk i t5 ₡11400 damage 1d61d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear weapon arc bow mk i t5 ₡11400 damage 1d6 + 1d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2182,7 +2182,7 @@
       "price": 12200,
       "priceText": "₡12200",
       "priceRaw": "₡12200",
-      "perk": "Damage 1d61d10; apply a minor another creature once/scene.",
+      "perk": "Damage 1d6 + 1d10; apply a minor another creature once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2190,7 +2190,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon sonic pistol mk i t5 ₡12200 damage 1d61d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear weapon sonic pistol mk i t5 ₡12200 damage 1d6 + 1d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2201,7 +2201,7 @@
       "price": 13000,
       "priceText": "₡13000",
       "priceRaw": "₡13000",
-      "perk": "Damage 1d61d10; apply a minor another creature once/scene.",
+      "perk": "Damage 1d6 + 1d10; apply a minor another creature once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2209,7 +2209,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon gauss lance mk i t5 ₡13000 damage 1d61d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear weapon gauss lance mk i t5 ₡13000 damage 1d6 + 1d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2220,7 +2220,7 @@
       "price": 13800,
       "priceText": "₡13800",
       "priceRaw": "₡13800",
-      "perk": "Damage 1d61d10; apply a minor another creature once/scene.",
+      "perk": "Damage 1d6 + 1d10; apply a minor another creature once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2228,7 +2228,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon grav-axe mk i t5 ₡13800 damage 1d61d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear weapon grav-axe mk i t5 ₡13800 damage 1d6 + 1d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2239,7 +2239,7 @@
       "price": 14500,
       "priceText": "₡14500",
       "priceRaw": "₡14500",
-      "perk": "Damage 1d61d10; apply a minor another creature once/scene.",
+      "perk": "Damage 1d6 + 1d10; apply a minor another creature once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2247,7 +2247,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon rail pistol mk i t5 ₡14500 damage 1d61d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear weapon rail pistol mk i t5 ₡14500 damage 1d6 + 1d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2258,7 +2258,7 @@
       "price": 15300,
       "priceText": "₡15300",
       "priceRaw": "₡15300",
-      "perk": "Damage 1d61d10; apply a minor another creature once/scene.",
+      "perk": "Damage 1d6 + 1d10; apply a minor another creature once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2266,7 +2266,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon cryo lancer mk i t5 ₡15300 damage 1d61d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear weapon cryo lancer mk i t5 ₡15300 damage 1d6 + 1d10; apply a minor another creature once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2562,7 +2562,7 @@
       "price": 60500,
       "priceText": "₡60500",
       "priceRaw": "₡60500",
-      "perk": "Damage 1d81d10; ignore light cover 1/round.",
+      "perk": "Damage 1d8 + 1d10; ignore light cover 1/round.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2570,7 +2570,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon shock maul mk ii t4 ₡60500 damage 1d81d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear weapon shock maul mk ii t4 ₡60500 damage 1d8 + 1d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2581,7 +2581,7 @@
       "price": 64500,
       "priceText": "₡64500",
       "priceRaw": "₡64500",
-      "perk": "Damage 1d81d10; ignore light cover 1/round.",
+      "perk": "Damage 1d8 + 1d10; ignore light cover 1/round.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2589,7 +2589,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon coil carbine mk ii t4 ₡64500 damage 1d81d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear weapon coil carbine mk ii t4 ₡64500 damage 1d8 + 1d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2600,7 +2600,7 @@
       "price": 68400,
       "priceText": "₡68400",
       "priceRaw": "₡68400",
-      "perk": "Damage 1d81d10; ignore light cover 1/round.",
+      "perk": "Damage 1d8 + 1d10; ignore light cover 1/round.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2608,7 +2608,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon cryo sprayer mk ii t4 ₡68400 damage 1d81d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear weapon cryo sprayer mk ii t4 ₡68400 damage 1d8 + 1d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2619,7 +2619,7 @@
       "price": 72400,
       "priceText": "₡72400",
       "priceRaw": "₡72400",
-      "perk": "Damage 1d81d10; ignore light cover 1/round.",
+      "perk": "Damage 1d8 + 1d10; ignore light cover 1/round.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2627,7 +2627,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon monofilament whip mk ii t4 ₡72400 damage 1d81d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear weapon monofilament whip mk ii t4 ₡72400 damage 1d8 + 1d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2638,7 +2638,7 @@
       "price": 76300,
       "priceText": "₡76300",
       "priceRaw": "₡76300",
-      "perk": "Damage 1d81d10; ignore light cover 1/round.",
+      "perk": "Damage 1d8 + 1d10; ignore light cover 1/round.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2646,7 +2646,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon stun rifle mk ii t4 ₡76300 damage 1d81d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear weapon stun rifle mk ii t4 ₡76300 damage 1d8 + 1d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2657,7 +2657,7 @@
       "price": 80300,
       "priceText": "₡80300",
       "priceRaw": "₡80300",
-      "perk": "Damage 1d81d10; ignore light cover 1/round.",
+      "perk": "Damage 1d8 + 1d10; ignore light cover 1/round.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
@@ -2665,7 +2665,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon thermal pike mk ii t4 ₡80300 damage 1d81d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear weapon thermal pike mk ii t4 ₡80300 damage 1d8 + 1d10; ignore light cover 1/round. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2923,7 +2923,7 @@
       "price": 230300,
       "priceText": "₡230300",
       "priceRaw": "₡230300",
-      "perk": "Damage 1d102d8; line or cone special once/scene.",
+      "perk": "Damage 1d10 + 2d8; line or cone special once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Required: 30 minutes focus + 3 SP imprint. Max 3 active.",
@@ -2931,7 +2931,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon carbon hammer mk iii t3 ₡230300 damage 1d102d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
+      "search": "gear weapon carbon hammer mk iii t3 ₡230300 damage 1d10 + 2d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
     },
     {
       "section": "Gear",
@@ -2942,7 +2942,7 @@
       "price": 243400,
       "priceText": "₡243400",
       "priceRaw": "₡243400",
-      "perk": "Damage 1d102d8; line or cone special once/scene.",
+      "perk": "Damage 1d10 + 2d8; line or cone special once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Required: 30 minutes focus + 3 SP imprint. Max 3 active.",
@@ -2950,7 +2950,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon smart pistol mk iii t3 ₡243400 damage 1d102d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
+      "search": "gear weapon smart pistol mk iii t3 ₡243400 damage 1d10 + 2d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
     },
     {
       "section": "Gear",
@@ -2961,7 +2961,7 @@
       "price": 256600,
       "priceText": "₡256600",
       "priceRaw": "₡256600",
-      "perk": "Damage 1d102d8; line or cone special once/scene.",
+      "perk": "Damage 1d10 + 2d8; line or cone special once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Required: 30 minutes focus + 3 SP imprint. Max 3 active.",
@@ -2969,7 +2969,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon net launcher mk iii t3 ₡256600 damage 1d102d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
+      "search": "gear weapon net launcher mk iii t3 ₡256600 damage 1d10 + 2d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
     },
     {
       "section": "Gear",
@@ -2980,7 +2980,7 @@
       "price": 269700,
       "priceText": "₡269700",
       "priceRaw": "₡269700",
-      "perk": "Damage 1d102d8; line or cone special once/scene.",
+      "perk": "Damage 1d10 + 2d8; line or cone special once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Required: 30 minutes focus + 3 SP imprint. Max 3 active.",
@@ -2988,7 +2988,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon arc bow mk iii t3 ₡269700 damage 1d102d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
+      "search": "gear weapon arc bow mk iii t3 ₡269700 damage 1d10 + 2d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
     },
     {
       "section": "Gear",
@@ -2999,7 +2999,7 @@
       "price": 282900,
       "priceText": "₡282900",
       "priceRaw": "₡282900",
-      "perk": "Damage 1d102d8; line or cone special once/scene.",
+      "perk": "Damage 1d10 + 2d8; line or cone special once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Required: 30 minutes focus + 3 SP imprint. Max 3 active.",
@@ -3007,7 +3007,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon sonic pistol mk iii t3 ₡282900 damage 1d102d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
+      "search": "gear weapon sonic pistol mk iii t3 ₡282900 damage 1d10 + 2d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
     },
     {
       "section": "Gear",
@@ -3018,7 +3018,7 @@
       "price": 296100,
       "priceText": "₡296100",
       "priceRaw": "₡296100",
-      "perk": "Damage 1d102d8; line or cone special once/scene.",
+      "perk": "Damage 1d10 + 2d8; line or cone special once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Required: 30 minutes focus + 3 SP imprint. Max 3 active.",
@@ -3026,7 +3026,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon gauss lance mk iii t3 ₡296100 damage 1d102d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
+      "search": "gear weapon gauss lance mk iii t3 ₡296100 damage 1d10 + 2d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
     },
     {
       "section": "Gear",
@@ -3037,7 +3037,7 @@
       "price": 309200,
       "priceText": "₡309200",
       "priceRaw": "₡309200",
-      "perk": "Damage 1d102d8; line or cone special once/scene.",
+      "perk": "Damage 1d10 + 2d8; line or cone special once/scene.",
       "description": "Reliable combat tool engineered for Catalyst ops.",
       "use": "Standard attack rules; perk triggers as listed.",
       "attunement": "Required: 30 minutes focus + 3 SP imprint. Max 3 active.",
@@ -3045,7 +3045,7 @@
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear weapon grav-axe mk iii t3 ₡309200 damage 1d102d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
+      "search": "gear weapon grav-axe mk iii t3 ₡309200 damage 1d10 + 2d8; line or cone special once/scene. reliable combat tool engineered for catalyst ops. standard attack rules; perk triggers as listed. required: 30 minutes focus + 3 sp imprint. max 3 active. o.m.n.i. requisitions, greyline brokers, vetted private labs, reliquary dealers."
     },
     {
       "section": "Gear",
