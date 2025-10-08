@@ -42,6 +42,9 @@ describe('dm login', () => {
       deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
       fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
       subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
@@ -109,6 +112,9 @@ describe('dm login', () => {
       deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
       fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
       subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
@@ -159,6 +165,9 @@ describe('dm login', () => {
       deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
       fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
       subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
     }));
 
     await import('../scripts/dm.js');

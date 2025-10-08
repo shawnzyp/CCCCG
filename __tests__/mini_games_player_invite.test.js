@@ -162,6 +162,9 @@ async function initMainModule() {
     deleteCampaignLogEntry: async () => {},
     fetchCampaignLogEntries: async () => [],
     subscribeCampaignLog: () => () => {},
+    beginQueuedSyncFlush: () => {},
+    getLastSyncStatus: () => 'idle',
+    subscribeSyncStatus: () => () => {},
   }));
 
   jest.unstable_mockModule('../scripts/pin.js', () => ({
