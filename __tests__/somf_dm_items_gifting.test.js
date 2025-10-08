@@ -1,0 +1,160 @@
+import { jest } from '@jest/globals';
+
+function setupDom() {
+  document.body.innerHTML = `
+    <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
+      <section id="somf-dm" class="modal somf-dm">
+        <button id="somfDM-close"></button>
+        <header class="somf-dm__hdr">
+          <h3>DM • Shards <span id="somfDM-cardCount"></span></h3>
+          <div class="somf-dm__hdr-controls">
+            <div class="somf-dm__toggles">
+              <label class="somf-switch"><span id="somfDM-playerCard-state">Off</span><input id="somfDM-playerCard" type="checkbox"><span>Reveal Shards</span></label>
+            </div>
+            <div class="somf-dm__actions">
+              <button id="somfDM-reset" class="somf-btn">Reset</button>
+            </div>
+          </div>
+        </header>
+        <nav class="somf-dm__tabs">
+          <button data-tab="cards" class="somf-dm-tabbtn active">Shards List</button>
+          <button data-tab="resolve" class="somf-dm-tabbtn">Resolve</button>
+          <button data-tab="npcs" class="somf-dm-tabbtn">NPCs</button>
+          <button data-tab="items" class="somf-dm-tabbtn">Items</button>
+        </nav>
+        <section id="somfDM-tab-cards" class="somf-dm-tab somf-dm__tab active"></section>
+        <section id="somfDM-tab-resolve" class="somf-dm-tab somf-dm__tab">
+          <div class="somf-dm__resolve">
+            <aside class="somf-dm__left">
+              <h4>Incoming Draws</h4>
+              <ol id="somfDM-incoming" class="somf-dm__list"></ol>
+            </aside>
+            <main class="somf-dm__main">
+              <div id="somfDM-noticeView" class="somf-dm__card"></div>
+              <div class="somf-dm__actions">
+                <button id="somfDM-markResolved" class="somf-btn somf-primary" disabled>Mark Resolved</button>
+                <button id="somfDM-spawnNPC" class="somf-btn" disabled>Spawn Related NPC</button>
+              </div>
+            </main>
+          </div>
+          <h4>Resolution Methods</h4>
+          <ol id="somfDM-resolveOptions" class="somf-dm__list"></ol>
+        </section>
+        <section id="somfDM-tab-npcs" class="somf-dm-tab somf-dm__tab">
+          <ul id="somfDM-npcList" class="somf-dm__list"></ul>
+        </section>
+        <section id="somfDM-tab-items" class="somf-dm-tab somf-dm__tab">
+          <ul id="somfDM-itemList" class="somf-dm__list somf-dm__list--actions"></ul>
+        </section>
+      </section>
+    </div>
+    <div id="somfDM-toasts" class="somf-dm__toasts"></div>
+    <ul id="somfDM-notifications" class="somf-dm__queue"></ul>
+    <div id="somfDM-npcModal" class="overlay hidden" aria-hidden="true">
+      <section id="somfDM-npcModalCard" class="modal somf-dm"></section>
+    </div>
+    <audio id="somfDM-ping"></audio>
+  `;
+}
+
+class FakeAudioContext {
+  constructor() {
+    this.currentTime = 0;
+    this.destination = {};
+  }
+
+  createOscillator() {
+    return {
+      type: 'sine',
+      frequency: {
+        setValueAtTime: jest.fn(),
+        linearRampToValueAtTime: jest.fn(),
+      },
+      connect: jest.fn(target => target),
+      start: jest.fn(),
+      stop: jest.fn(),
+    };
+  }
+
+  createGain() {
+    return {
+      connect: jest.fn(() => ({ connect: jest.fn() })),
+      gain: {
+        cancelScheduledValues: jest.fn(),
+        setValueAtTime: jest.fn(),
+        linearRampToValueAtTime: jest.fn(),
+      },
+    };
+  }
+
+  resume = jest.fn();
+}
+
+class FakeBroadcastChannel {
+  constructor() {}
+  addEventListener() {}
+  postMessage() {}
+  close() {}
+}
+
+describe('DM item gifting flow', () => {
+  beforeEach(() => {
+    jest.resetModules();
+    localStorage.clear();
+    setupDom();
+
+    global.fetch = jest.fn();
+    global.toast = jest.fn();
+    global.dismissToast = jest.fn();
+    window.dmNotify = jest.fn();
+    window.prompt = jest.fn(() => 'Nova');
+
+    window.matchMedia = jest.fn(() => ({
+      matches: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+    }));
+
+    global.AudioContext = FakeAudioContext;
+    global.webkitAudioContext = FakeAudioContext;
+    global.BroadcastChannel = FakeBroadcastChannel;
+
+    window.requestAnimationFrame = cb => cb();
+    window.cancelAnimationFrame = jest.fn();
+    window._somf_db = null;
+  });
+
+  it('records gifted items and notifies the DM log', async () => {
+    await import('../shard-of-many-fates.js');
+    window.initSomfDM?.();
+
+    const itemList = document.getElementById('somfDM-itemList');
+    expect(itemList).toBeTruthy();
+    expect(itemList.children.length).toBeGreaterThan(0);
+
+    const firstItem = itemList.querySelector('li');
+    const itemName = firstItem.querySelector('strong').textContent;
+    const giftBtn = firstItem.querySelector('button');
+    expect(giftBtn).toBeTruthy();
+
+    giftBtn.click();
+    await Promise.resolve();
+
+    expect(window.prompt).toHaveBeenCalledWith(expect.stringContaining(itemName));
+
+    const notifyCall = window.dmNotify.mock.calls.find(([message]) => message.includes('Gifted'));
+    expect(notifyCall).toBeDefined();
+    expect(notifyCall[0]).toContain(itemName);
+    expect(notifyCall[0]).toContain('Nova');
+    expect(notifyCall[1]).toMatchObject({ item: expect.objectContaining({ recipient: 'Nova' }) });
+
+    const stored = JSON.parse(localStorage.getItem('somf_item_gifts__ccampaign-001'));
+    expect(Array.isArray(stored)).toBe(true);
+    expect(stored.length).toBeGreaterThan(0);
+    const lastGift = stored[stored.length - 1];
+    expect(lastGift.name).toBe(itemName);
+    expect(lastGift.recipient).toBe('Nova');
+  });
+});

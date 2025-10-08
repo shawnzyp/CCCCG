@@ -3234,6 +3234,10 @@ body:is(.modal-open, .dm-floating-covered) .dm-tools-menu{
 .somf-dm__list li{border-top:1px solid #1b2532;padding:8px 10px;cursor:pointer}
 .somf-dm__list li:first-child{border-top:none}
 .somf-dm__list li.active{background:#0b2a3a}
+.somf-dm__list--actions li{display:flex;align-items:flex-start;gap:12px}
+.somf-dm__itemBody{flex:1 1 auto}
+.somf-dm__itemActions{flex:0 0 auto;display:flex;gap:8px}
+.somf-dm__itemActions .somf-btn{white-space:nowrap}
 .somf-dm__noticeNames{opacity:.8}
 .somf-dm__link{color:#8fc7ff;background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline}
 .somf-dm__link:hover{color:#cfe7ff}
