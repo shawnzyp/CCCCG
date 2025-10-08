@@ -10364,13 +10364,19 @@ const AUTO_KEY = 'autosave';
 let history = [];
 let histIdx = -1;
 const forcedRefreshResume = consumeForcedRefreshState();
+let autoSaveDirty = false;
+let lastSyncedSnapshotJson = null;
+let pendingAutoSaveSnapshot = null;
+let pendingAutoSaveJson = null;
 const pushHistory = debounce(()=>{
   const snap = serialize();
+  const serialized = JSON.stringify(snap);
   history = history.slice(0, histIdx + 1);
   history.push(snap);
   if(history.length > 20){ history.shift(); }
   histIdx = history.length - 1;
-  try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
+  try{ localStorage.setItem(AUTO_KEY, serialized); }catch(e){ console.error('Autosave failed', e); }
+  markAutoSaveDirty(snap, serialized);
 }, 500);
 
 document.addEventListener('input', pushHistory);
@@ -10391,9 +10397,11 @@ function redo(){
     deserialize(DEFAULT_STATE);
   }
   const snap = serialize();
+  const serialized = JSON.stringify(snap);
   history = [snap];
   histIdx = 0;
-  try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
+  try{ localStorage.setItem(AUTO_KEY, serialized); }catch(e){ console.error('Autosave failed', e); }
+  markAutoSaveSynced(snap, serialized);
   if(forcedRefreshResume && typeof forcedRefreshResume.scrollY === 'number'){
     requestAnimationFrame(() => {
       try {
@@ -10411,28 +10419,77 @@ let scheduledAutoSaveInFlight = false;
 
 async function performScheduledAutoSave(){
   if(scheduledAutoSaveInFlight) return;
+  if(!autoSaveDirty || !pendingAutoSaveSnapshot) return;
+  if(typeof window !== 'undefined' && scheduledAutoSaveId !== null){
+    window.clearTimeout(scheduledAutoSaveId);
+    scheduledAutoSaveId = null;
+  }
   const name = currentCharacter();
-  if(!name) return;
+  if(!name){
+    scheduleAutoSave();
+    return;
+  }
   try {
     scheduledAutoSaveInFlight = true;
-    const snapshot = serialize();
+    const snapshot = pendingAutoSaveSnapshot;
     await saveAutoBackup(snapshot, name);
+    markAutoSaveSynced(snapshot, pendingAutoSaveJson);
   } catch (err) {
     console.error('Scheduled auto save failed', err);
   } finally {
     scheduledAutoSaveInFlight = false;
+    if(autoSaveDirty){
+      scheduleAutoSave();
+    }
   }
 }
 
-function ensureAutoSaveTimer(){
+function scheduleAutoSave(){
   if(typeof window === 'undefined') return;
-  if(scheduledAutoSaveId !== null) return;
-  scheduledAutoSaveId = window.setInterval(performScheduledAutoSave, CLOUD_AUTO_SAVE_INTERVAL_MS);
+  if(!autoSaveDirty) return;
+  if(scheduledAutoSaveId !== null){
+    window.clearTimeout(scheduledAutoSaveId);
+  }
+  scheduledAutoSaveId = window.setTimeout(()=>{
+    scheduledAutoSaveId = null;
+    performScheduledAutoSave();
+  }, CLOUD_AUTO_SAVE_INTERVAL_MS);
 }
 
-ensureAutoSaveTimer();
+function clearScheduledAutoSave(){
+  if(typeof window === 'undefined') return;
+  if(scheduledAutoSaveId !== null){
+    window.clearTimeout(scheduledAutoSaveId);
+    scheduledAutoSaveId = null;
+  }
+}
+
+function markAutoSaveDirty(snapshot, serialized){
+  pendingAutoSaveSnapshot = snapshot;
+  pendingAutoSaveJson = serialized ?? JSON.stringify(snapshot);
+  if(pendingAutoSaveJson !== lastSyncedSnapshotJson){
+    autoSaveDirty = true;
+    scheduleAutoSave();
+  } else {
+    autoSaveDirty = false;
+    clearScheduledAutoSave();
+  }
+}
+
+function markAutoSaveSynced(snapshot, serialized){
+  pendingAutoSaveSnapshot = snapshot;
+  pendingAutoSaveJson = serialized ?? JSON.stringify(snapshot);
+  lastSyncedSnapshotJson = pendingAutoSaveJson;
+  autoSaveDirty = false;
+  clearScheduledAutoSave();
+}
+
 if(typeof window !== 'undefined'){
-  window.addEventListener('focus', performScheduledAutoSave, { passive: true });
+  window.addEventListener('focus', () => {
+    if(autoSaveDirty){
+      performScheduledAutoSave();
+    }
+  }, { passive: true });
 }
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
@@ -10456,6 +10513,7 @@ $('btn-save').addEventListener('click', async () => {
   btn.classList.add('loading'); btn.disabled = true;
   try {
     const data = serialize();
+    const serialized = JSON.stringify(data);
     if (oldChar && vig && vig !== oldChar) {
       await renameCharacter(oldChar, vig, data);
     } else {
@@ -10465,6 +10523,7 @@ $('btn-save').addEventListener('click', async () => {
       }
       await saveCharacter(data, target);
     }
+    markAutoSaveSynced(data, serialized);
     toast('Save successful', 'success');
     playSaveAnimation();
   } finally {
@@ -10482,7 +10541,9 @@ if (heroInput) {
       setCurrentCharacter(name);
       syncMiniGamePlayerName();
       try {
-        await saveCharacter(serialize(), name);
+        const data = serialize();
+        await saveCharacter(data, name);
+        markAutoSaveSynced(data);
       } catch (e) {
         console.error('Autosave failed', e);
       }
