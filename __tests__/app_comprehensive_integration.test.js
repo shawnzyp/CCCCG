@@ -128,8 +128,11 @@ function installCoreMocks() {
   }
 
   class AudioContextMock {
+    static instances = [];
+
     constructor() {
       this.state = 'running';
+      AudioContextMock.instances.push(this);
     }
     close() {
       this.state = 'closed';
@@ -302,6 +305,9 @@ describe('Comprehensive app integration', () => {
     const toastEl = document.getElementById('toast');
     expect(toastEl).toBeTruthy();
 
+    expect(Array.isArray(window.AudioContext.instances)).toBe(true);
+    expect(window.AudioContext.instances).toHaveLength(0);
+
     let toastShownDetail = null;
     const toastListener = e => {
       toastShownDetail = e.detail?.message ?? null;
@@ -313,11 +319,28 @@ describe('Comprehensive app integration', () => {
     expect(toastEl.classList.contains('show')).toBe(true);
     expect(toastEl.textContent).toContain('System online');
     expect(toastShownDetail).toBe('System online');
+    expect(window.AudioContext.instances).toHaveLength(1);
+    const firstContext = window.AudioContext.instances[0];
+    expect(firstContext?.state).toBe('running');
 
     window.dismissToast();
     await flushAllTimers();
     expect(toastEl.classList.contains('show')).toBe(false);
     window.removeEventListener('cc:toast-shown', toastListener);
+
+    window.dispatchEvent(new Event('pagehide'));
+    await Promise.resolve();
+    expect(firstContext?.state).toBe('closed');
+    expect(window.AudioContext.instances).toHaveLength(1);
+
+    window.toast('System restored', { type: 'success', duration: 0 });
+    await flushAllTimers();
+    expect(window.AudioContext.instances).toHaveLength(2);
+    const secondContext = window.AudioContext.instances[1];
+    expect(secondContext).not.toBe(firstContext);
+    expect(secondContext?.state).toBe('running');
+    window.dismissToast();
+    await flushAllTimers();
 
     const { show, hide } = await import('../scripts/modal.js');
     show('modal-help');

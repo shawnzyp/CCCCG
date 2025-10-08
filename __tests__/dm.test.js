@@ -36,27 +36,34 @@ describe('dm tools bootstrap', () => {
   });
 
   test('reveals toggle when logged in and syncs menu expansion', async () => {
-    sessionStorage.setItem('dmLoggedIn', '1');
-    const module = await import('../scripts/dm.js');
-    expect(module).toBeDefined();
+    jest.useFakeTimers();
+    try {
+      sessionStorage.setItem('dmLoggedIn', '1');
+      const module = await import('../scripts/dm.js');
+      expect(module).toBeDefined();
 
-    const toggle = document.getElementById('dm-tools-toggle');
-    const menu = document.getElementById('dm-tools-menu');
+      const toggle = document.getElementById('dm-tools-toggle');
+      const menu = document.getElementById('dm-tools-menu');
 
-    expect(toggle.hidden).toBe(false);
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(menu.hidden).toBe(true);
+      expect(toggle.hidden).toBe(false);
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(menu.hidden).toBe(true);
 
-    toggle.click();
-    expect(menu.hidden).toBe(false);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      toggle.click();
+      expect(menu.hidden).toBe(false);
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
 
-    const pointerDownEvent = typeof PointerEvent === 'function'
-      ? new PointerEvent('pointerdown', { bubbles: true })
-      : new Event('pointerdown', { bubbles: true });
-    document.body.dispatchEvent(pointerDownEvent);
-    expect(menu.hidden).toBe(true);
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      const pointerDownEvent = typeof PointerEvent === 'function'
+        ? new PointerEvent('pointerdown', { bubbles: true })
+        : new Event('pointerdown', { bubbles: true });
+      document.body.dispatchEvent(pointerDownEvent);
+      jest.runOnlyPendingTimers();
+      await Promise.resolve();
+      expect(menu.hidden).toBe(true);
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   test('registers dmRequireLogin helper on window', async () => {

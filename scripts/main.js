@@ -2363,9 +2363,26 @@ function applyLockIcons(root=document){
   qsa('button[data-lock]', root).forEach(btn=>{ applyLockIcon(btn); });
 }
 let audioCtx = null;
-const closeAudioContext = () => {
-  if (audioCtx && typeof audioCtx.close === 'function') {
-    audioCtx.close();
+const closeAudioContext = async () => {
+  const ctx = audioCtx;
+  if (!ctx || typeof ctx.close !== 'function') {
+    audioCtx = null;
+    return;
+  }
+
+  let isClosed = ctx.state === 'closed';
+
+  try {
+    if (!isClosed) {
+      await ctx.close();
+      isClosed = ctx.state === 'closed';
+    }
+  } catch {
+    isClosed = ctx.state === 'closed';
+  } finally {
+    if (isClosed && audioCtx === ctx) {
+      audioCtx = null;
+    }
   }
 };
 
