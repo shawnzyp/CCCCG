@@ -2766,6 +2766,7 @@ function dismissToast(){
 // can display and control notifications.
 window.toast = toast;
 window.dismissToast = dismissToast;
+window.playTone = playTone;
 
 let funTipsPromise = null;
 let getNextTipFn = null;

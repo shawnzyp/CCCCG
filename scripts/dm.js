@@ -91,6 +91,146 @@ function loadStoredNotifications() {
 
 const notifications = loadStoredNotifications();
 
+const AUDIO_DISABLED_VALUES = new Set(['off', 'mute', 'muted', 'disabled', 'false', 'quiet', 'silent', 'none', '0']);
+const AUDIO_ENABLED_VALUES = new Set(['on', 'enabled', 'true', 'sound', 'audible', '1', 'default']);
+const AUDIO_PREFERENCE_STORAGE_KEYS = [
+  'cc:audio-preference',
+  'cc:audioPreference',
+  'cc:audio',
+  'ccccg:audio',
+];
+const DM_NOTIFICATION_TONE_DEBOUNCE_MS = 220;
+let lastNotificationToneAt = 0;
+let pendingNotificationTone = null;
+
+function interpretAudioPreference(value) {
+  if (value == null) return null;
+  if (typeof value === 'function') {
+    try {
+      const scoped = value('notifications');
+      const interpretedScoped = interpretAudioPreference(scoped);
+      if (interpretedScoped !== null) return interpretedScoped;
+    } catch {
+      /* ignore */
+    }
+    try {
+      return interpretAudioPreference(value());
+    } catch {
+      return null;
+    }
+  }
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+    return value > 0;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const normalized = trimmed.toLowerCase();
+    if (AUDIO_DISABLED_VALUES.has(normalized)) return false;
+    if (AUDIO_ENABLED_VALUES.has(normalized)) return true;
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        return interpretAudioPreference(JSON.parse(trimmed));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  if (typeof value === 'object') {
+    if ('notifications' in value) return interpretAudioPreference(value.notifications);
+    if ('enabled' in value) return interpretAudioPreference(value.enabled);
+    if ('sound' in value) return interpretAudioPreference(value.sound);
+    if ('audio' in value) return interpretAudioPreference(value.audio);
+    if ('value' in value) return interpretAudioPreference(value.value);
+  }
+  return null;
+}
+
+function getStoredAudioPreference() {
+  if (typeof localStorage === 'undefined') return null;
+  for (const key of AUDIO_PREFERENCE_STORAGE_KEYS) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (typeof raw !== 'string') continue;
+      const interpreted = interpretAudioPreference(raw);
+      if (interpreted !== null) return interpreted;
+    } catch {
+      /* ignore storage errors */
+    }
+  }
+  return null;
+}
+
+function shouldPlayNotificationTone() {
+  if (typeof window === 'undefined') return false;
+  const stored = getStoredAudioPreference();
+  if (stored === false) return false;
+  let hasExplicitPreference = stored !== null;
+  let allow = stored === true;
+  const sources = [
+    window.ccAudioPreference,
+    window.audioPreference,
+    window?.ccPreferences?.audio,
+  ];
+  for (const source of sources) {
+    const result = interpretAudioPreference(source);
+    if (result === null) continue;
+    hasExplicitPreference = true;
+    if (result === false) return false;
+    if (result === true) allow = true;
+  }
+  return hasExplicitPreference ? allow : true;
+}
+
+function getNotificationAudioHelper() {
+  if (typeof window === 'undefined') return null;
+  const candidates = [
+    window.ccPlayNotificationSound,
+    window.playNotificationSound,
+    window.dmPlayNotificationSound,
+    window.playTone,
+  ];
+  return candidates.find(fn => typeof fn === 'function') || null;
+}
+
+function now() {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function playNotificationTone() {
+  if (!shouldPlayNotificationTone()) return;
+  const helper = getNotificationAudioHelper();
+  if (!helper) return;
+  const invoke = () => {
+    pendingNotificationTone = null;
+    lastNotificationToneAt = now();
+    try {
+      helper('info');
+    } catch {
+      try {
+        helper();
+      } catch {
+        /* ignore helper errors */
+      }
+    }
+  };
+  const elapsed = now() - lastNotificationToneAt;
+  if (elapsed >= DM_NOTIFICATION_TONE_DEBOUNCE_MS) {
+    invoke();
+    return;
+  }
+  if (pendingNotificationTone) {
+    clearTimeout(pendingNotificationTone);
+  }
+  pendingNotificationTone = setTimeout(invoke, DM_NOTIFICATION_TONE_DEBOUNCE_MS - elapsed);
+}
+
 function persistNotifications() {
   if (typeof sessionStorage === 'undefined') return;
   try {
@@ -1029,6 +1169,7 @@ function initDMLogin(){
       const li = document.createElement('li');
       applyNotificationContent(li, entry);
       notifyList.prepend(li);
+      playNotificationTone();
     }
   }
 
