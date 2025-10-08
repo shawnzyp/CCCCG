@@ -1813,6 +1813,10 @@ progress::-moz-progress-bar{
 .sp-field #long-rest{width:100%;margin-top:8px;}
 .cap-field .cap-box{margin-top:8px;}
 .card{border:1px solid var(--line);border-radius:var(--radius);padding:var(--card-padding,8px);display:flex;flex-direction:column;gap:var(--card-gap,10px);transition:box-shadow .3s ease-in-out;background:color-mix(in srgb,var(--surface) 5%,transparent);background-color:color-mix(in srgb,var(--surface) 5%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);margin-left:auto;margin-right:auto;width:100%;max-width:var(--content-width);font-size:1.1rem}
+.credits-summary{display:flex;flex-wrap:wrap;gap:8px}
+.credits-summary .pill{font-size:var(--pill-font-size)}
+.gear-card-price{display:flex;justify-content:flex-end}
+.gear-card-price .pill{margin:0 0 4px auto}
 .card[hidden]{display:none !important}
 .gear-card .gear-card-title{margin:0}
 .gear-card .gear-card-action{align-self:flex-start}

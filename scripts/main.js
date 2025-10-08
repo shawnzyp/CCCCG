@@ -4324,6 +4324,8 @@ const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
+const elCreditsGearTotal = $('credits-gear-total');
+const elCreditsGearRemaining = $('credits-gear-remaining');
 
 if (elPowerStylePrimary) {
   elPowerStylePrimary.addEventListener('change', () => {
@@ -4692,6 +4694,7 @@ function updateDerived(){
     skillTarget.textContent = formatModifier(total);
     applyBreakdownMetadata(skillTarget, skillResolution?.breakdown, `${s.name} checks`);
   });
+  updateCreditsGearSummary();
   refreshPowerCards();
 }
 ABILS.forEach(a=> {
@@ -4721,8 +4724,52 @@ $('xp-submit').addEventListener('click', ()=>{
   setXP(num(elXP.value) + (mode==='add'? amt : -amt));
 });
 
+function formatCreditsValue(value) {
+  const safe = Number.isFinite(value) ? value : 0;
+  const abs = Math.abs(safe);
+  const formatted = `₡${abs.toLocaleString('en-US')}`;
+  return safe < 0 ? `-${formatted}` : formatted;
+}
+
+function calculateEquippedGearTotal() {
+  const gearLists = ['weapons', 'armors', 'items'];
+  let total = 0;
+  gearLists.forEach(id => {
+    const container = $(id);
+    if (!container) return;
+    qsa('.card', container).forEach(card => {
+      const priceValue = Number(card?.dataset?.price);
+      if (!Number.isFinite(priceValue) || priceValue <= 0) return;
+      if ((card?.dataset?.kind || '') === 'armor') {
+        const equippedField = qs("[data-f='equipped']", card);
+        if (equippedField && !equippedField.checked) return;
+      }
+      total += priceValue;
+    });
+  });
+  return total;
+}
+
+function updateCreditsGearSummary() {
+  if (!elCreditsGearTotal && !elCreditsGearRemaining) return;
+  const total = calculateEquippedGearTotal();
+  if (elCreditsGearTotal) {
+    elCreditsGearTotal.textContent = `Equipped Gear: ${formatCreditsValue(total)}`;
+  }
+  if (elCreditsGearRemaining) {
+    const available = elCredits ? num(elCredits.value) || 0 : 0;
+    const delta = available - total;
+    if (delta >= 0) {
+      elCreditsGearRemaining.textContent = `Remaining Credits: ${formatCreditsValue(delta)}`;
+    } else {
+      elCreditsGearRemaining.textContent = `Credits Shortfall: ${formatCreditsValue(Math.abs(delta))}`;
+    }
+  }
+}
+
 function updateCreditsDisplay(){
   if (elCreditsPill) elCreditsPill.textContent = num(elCredits.value)||0;
+  updateCreditsGearSummary();
 }
 
 function setCredits(v){
@@ -9588,6 +9635,72 @@ const CARD_CONFIG = {
   }
 };
 
+const GEAR_CARD_KINDS = new Set(['weapon', 'armor', 'item']);
+
+function isGearKind(kind) {
+  return GEAR_CARD_KINDS.has(kind);
+}
+
+function ensureGearPriceDisplay(card) {
+  if (!card || typeof card.querySelector !== 'function') return null;
+  let container = card.querySelector('.gear-card-price');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'gear-card-price';
+    const pill = document.createElement('span');
+    pill.className = 'pill pill-sm gear-card-price-pill';
+    pill.textContent = '';
+    container.appendChild(pill);
+    container.hidden = true;
+    card.insertBefore(container, card.firstChild || null);
+  }
+  const pill = container.querySelector('.gear-card-price-pill');
+  return { container, pill };
+}
+
+function updateGearPriceDisplay(card) {
+  if (!card || !isGearKind(card?.dataset?.kind || '')) return;
+  const refs = ensureGearPriceDisplay(card);
+  if (!refs) return;
+  const { container, pill } = refs;
+  const customDisplay = typeof card.dataset.priceDisplay === 'string'
+    ? card.dataset.priceDisplay.trim()
+    : '';
+  const priceValue = Number(card.dataset.price);
+  const hasNumericPrice = Number.isFinite(priceValue) && priceValue > 0;
+  const fallback = hasNumericPrice ? formatPrice(priceValue) : '';
+  const text = customDisplay || (fallback ? `Cost: ${fallback}` : '');
+  if (text) {
+    pill.textContent = text;
+    container.hidden = false;
+  } else {
+    pill.textContent = '';
+    container.hidden = true;
+  }
+}
+
+function applyGearPrice(card, { price = null, priceDisplay = '' } = {}) {
+  if (!card || !isGearKind(card?.dataset?.kind || '')) return;
+  const numericPrice = Number(price);
+  if (Number.isFinite(numericPrice) && numericPrice > 0) {
+    card.dataset.price = String(numericPrice);
+  } else {
+    delete card.dataset.price;
+  }
+  let displayText = typeof priceDisplay === 'string' ? priceDisplay.trim() : '';
+  if (!displayText && card.dataset.price) {
+    const fallback = formatPrice(Number(card.dataset.price));
+    displayText = fallback || '';
+  }
+  if (displayText) {
+    card.dataset.priceDisplay = displayText;
+  } else {
+    delete card.dataset.priceDisplay;
+  }
+  updateGearPriceDisplay(card);
+  updateCreditsGearSummary();
+}
+
 const pendingManualCards = { weapon: null, armor: null, item: null };
 
 function inferWeaponAttackAbility(pref = {}) {
@@ -9612,6 +9725,7 @@ function clearPendingManualCard(kind, { force = false } = {}){
     if (card.isConnected) {
       card.remove();
       if (kind === 'armor') updateDerived();
+      if (isGearKind(kind)) updateCreditsGearSummary();
     }
     pendingManualCards[kind] = null;
     return true;
@@ -9800,10 +9914,15 @@ function createCard(kind, pref = {}) {
     logAction(`${kind.charAt(0).toUpperCase()+kind.slice(1)} removed: ${name}`);
     card.remove();
     if (cfg.onDelete) cfg.onDelete();
+    if (isGearKind(kind)) updateCreditsGearSummary();
     pushHistory();
   });
   delWrap.appendChild(delBtn);
   card.appendChild(delWrap);
+  if (isGearKind(kind)) {
+    ensureGearPriceDisplay(card);
+    updateGearPriceDisplay(card);
+  }
   if (cfg.onChange) {
     qsa('input,select', card).forEach(el => el.addEventListener('input', cfg.onChange));
   }
@@ -9967,16 +10086,13 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
     list.appendChild(card);
   }
   const priceValue = getEntryPriceValue(entry);
+  const priceDisplay = getPriceDisplay(entry);
   const hasPrice = Number.isFinite(priceValue) && priceValue > 0;
-  const formattedPrice = hasPrice ? `₡${priceValue.toLocaleString('en-US')}` : '';
-  if (hasPrice) {
-    card.dataset.price = String(priceValue);
-    const priceDisplay = getPriceDisplay(entry);
-    if (priceDisplay) card.dataset.priceDisplay = priceDisplay;
-  } else {
-    delete card.dataset.price;
-    delete card.dataset.priceDisplay;
-  }
+  applyGearPrice(card, {
+    price: hasPrice ? priceValue : null,
+    priceDisplay,
+  });
+  const formattedPrice = hasPrice ? formatPrice(priceValue) : '';
   const isManualCard = !!(pending && pending.isConnected);
   let creditsDeducted = false;
   if (hasPrice && !isManualCard && typeof setCredits === 'function' && elCredits) {

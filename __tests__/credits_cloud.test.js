@@ -48,6 +48,9 @@ describe('credits autosave to cloud', () => {
       deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
       fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
       subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
     }));
 
     global.toast = jest.fn();

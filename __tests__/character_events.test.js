@@ -22,6 +22,9 @@ describe('character events', () => {
       deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
       fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
       subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
     }));
 
     const { saveCharacter, deleteCharacter } = await import('../scripts/characters.js');
