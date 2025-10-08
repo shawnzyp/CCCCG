@@ -1313,6 +1313,24 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="modal-campaign-edit" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Edit Campaign Entry</h3>
+    <div id="campaign-edit-meta" class="campaign-edit-meta" aria-live="polite"></div>
+    <label for="campaign-edit-text" class="sr-only">Campaign log entry text</label>
+    <textarea id="campaign-edit-text" data-view-allow rows="3"></textarea>
+    <div class="actions">
+      <button id="campaign-edit-save" class="btn-sm" type="button">Save Changes</button>
+      <button class="btn-sm" type="button" data-close>Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="modal-campaign-backlog" aria-hidden="true">
   <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
