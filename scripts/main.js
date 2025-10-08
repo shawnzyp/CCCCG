@@ -10364,22 +10364,107 @@ const AUTO_KEY = 'autosave';
 let history = [];
 let histIdx = -1;
 const forcedRefreshResume = consumeForcedRefreshState();
-const pushHistory = debounce(()=>{
+const HISTORY_IGNORE_TYPES = new Set(['button', 'submit', 'reset', 'file', 'image']);
+const historyDirtyFields = new Set();
+let pendingHistoryCallback = null;
+const historyIdleScope = typeof window !== 'undefined' ? window : globalThis;
+const scheduleHistoryIdle = typeof historyIdleScope.requestIdleCallback === 'function'
+  ? cb => historyIdleScope.requestIdleCallback(cb, { timeout: 1000 })
+  : cb => historyIdleScope.setTimeout(cb, 200);
+const cancelHistoryIdle = typeof historyIdleScope.cancelIdleCallback === 'function'
+  ? handle => historyIdleScope.cancelIdleCallback(handle)
+  : handle => historyIdleScope.clearTimeout(handle);
+
+function getHistoryControl(target){
+  if (!target || typeof target.closest !== 'function') return null;
+  const control = target.matches && target.matches('input,select,textarea')
+    ? target
+    : target.closest('input,select,textarea');
+  if (!control) return null;
+  if (control.disabled) return null;
+  if (control.matches('[data-history-ignore]')) return null;
+  if (control.dataset && control.dataset.historyIgnore === 'true') return null;
+  const type = (control.getAttribute('type') || '').toLowerCase();
+  if (HISTORY_IGNORE_TYPES.has(type)) return null;
+  if (control.id === 'xp-mode') return null;
+  if (!control.id && !(control.dataset && control.dataset.f) && !control.name) return null;
+  return control;
+}
+
+function getHistoryFieldKey(control){
+  if (!control) return null;
+  if (control.dataset && control.dataset.f){
+    const card = control.closest('[data-kind]');
+    if (card){
+      const siblings = card.parentNode ? Array.from(card.parentNode.children) : [];
+      const index = siblings.indexOf(card);
+      const kind = card.dataset.kind || 'card';
+      return `card:${kind}:${index}:${control.dataset.f}`;
+    }
+    return `field:${control.dataset.f}`;
+  }
+  if (control.id) return `#${control.id}`;
+  if (control.name) return `name:${control.name}`;
+  return null;
+}
+
+function scheduleHistorySnapshot(){
+  if (pendingHistoryCallback !== null) return;
+  pendingHistoryCallback = scheduleHistoryIdle(runHistorySnapshot);
+}
+
+function runHistorySnapshot(){
+  pendingHistoryCallback = null;
+  if (!historyDirtyFields.size) return;
+  historyDirtyFields.clear();
   const snap = serialize();
   history = history.slice(0, histIdx + 1);
   history.push(snap);
   if(history.length > 20){ history.shift(); }
   histIdx = history.length - 1;
   try{ localStorage.setItem(AUTO_KEY, JSON.stringify(snap)); }catch(e){ console.error('Autosave failed', e); }
-}, 500);
+}
 
-document.addEventListener('input', pushHistory);
-document.addEventListener('change', pushHistory);
+function flushPendingHistory(){
+  if (pendingHistoryCallback !== null){
+    try { cancelHistoryIdle(pendingHistoryCallback); } catch {}
+    pendingHistoryCallback = null;
+  }
+  if (historyDirtyFields.size) runHistorySnapshot();
+}
+
+function markHistoryDirty(control){
+  const key = getHistoryFieldKey(control);
+  if (!key) return;
+  historyDirtyFields.add(key);
+  scheduleHistorySnapshot();
+}
+
+function pushHistory(target){
+  if (target) {
+    markHistoryDirty(getHistoryControl(target));
+  } else {
+    // Manual invocation without a target should always schedule a snapshot.
+    historyDirtyFields.add('__manual__');
+    scheduleHistorySnapshot();
+  }
+}
+
+function handleCharacterEdit(event){
+  const control = getHistoryControl(event.target);
+  if (!control) return;
+  markHistoryDirty(control);
+}
+
+document.addEventListener('input', handleCharacterEdit, true);
+document.addEventListener('change', handleCharacterEdit, true);
 
 function undo(){
+  flushPendingHistory();
   if(histIdx > 0){ histIdx--; deserialize(history[histIdx]); }
 }
 function redo(){
+  flushPendingHistory();
   if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
 }
 
