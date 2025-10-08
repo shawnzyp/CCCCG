@@ -2382,19 +2382,26 @@ function playTone(type){
     const gain = audioCtx.createGain();
     const now = audioCtx.currentTime;
     const rampUpDuration = 0.015;
-    const totalDuration = 0.15;
-    const sustainEnd = now + totalDuration - 0.03;
+    const totalDuration = 0.2;
+    const releaseDuration = 0.03;
+    const releaseBuffer = 0.005;
+    const stopTime = now + totalDuration;
+    const sustainEnd = stopTime - (releaseDuration + releaseBuffer);
+    const releaseEnd = stopTime - releaseBuffer;
+    const sustainLevel = 0.1;
     osc.type = 'sine';
     osc.frequency.value = type==='error'?220:880;
+    gain.gain.value = 0;
     gain.gain.cancelScheduledValues(now);
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.1, now + rampUpDuration);
-    gain.gain.setValueAtTime(0.1, sustainEnd);
-    gain.gain.linearRampToValueAtTime(0, now + totalDuration);
+    gain.gain.linearRampToValueAtTime(sustainLevel, now + rampUpDuration);
+    gain.gain.setValueAtTime(sustainLevel, sustainEnd);
+    gain.gain.linearRampToValueAtTime(0, releaseEnd);
+    gain.gain.setValueAtTime(0, releaseEnd);
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     osc.start(now);
-    osc.stop(now + totalDuration);
+    osc.stop(stopTime);
   }catch(e){ /* noop */ }
 }
 let toastTimeout;

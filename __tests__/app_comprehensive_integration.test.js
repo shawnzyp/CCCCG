@@ -106,8 +106,10 @@ function installCoreMocks() {
   window.scrollTo = () => {};
 
   class AudioNodeMock {
-    connect() {}
-    disconnect() {}
+    constructor() {
+      this.connect = jest.fn();
+      this.disconnect = jest.fn();
+    }
   }
 
   class OscillatorNodeMock extends AudioNodeMock {
@@ -115,21 +117,34 @@ function installCoreMocks() {
       super();
       this.frequency = { value: 440 };
       this.type = 'sine';
+      this.start = jest.fn();
+      this.stop = jest.fn();
     }
-    start() {}
-    stop() {}
   }
 
   class GainNodeMock extends AudioNodeMock {
     constructor() {
       super();
-      this.gain = { value: 1 };
+      this.gain = {
+        value: 1,
+        cancelScheduledValues: jest.fn(),
+        setValueAtTime: jest.fn(function(value) {
+          this.value = value;
+        }),
+        linearRampToValueAtTime: jest.fn(function(value) {
+          this.value = value;
+        }),
+      };
     }
   }
 
   class AudioContextMock {
     constructor() {
       this.state = 'running';
+      this.currentTime = 0;
+      this.createdOscillators = [];
+      this.createdGains = [];
+      AudioContextMock.instances.push(this);
     }
     close() {
       this.state = 'closed';
@@ -140,10 +155,14 @@ function installCoreMocks() {
       return Promise.resolve();
     }
     createOscillator() {
-      return new OscillatorNodeMock();
+      const osc = new OscillatorNodeMock();
+      this.createdOscillators.push(osc);
+      return osc;
     }
     createGain() {
-      return new GainNodeMock();
+      const gain = new GainNodeMock();
+      this.createdGains.push(gain);
+      return gain;
     }
     createAnalyser() {
       return new AudioNodeMock();
@@ -151,6 +170,7 @@ function installCoreMocks() {
     destination = new AudioNodeMock();
   }
 
+  AudioContextMock.instances = [];
   window.AudioContext = AudioContextMock;
   window.webkitAudioContext = AudioContextMock;
 
@@ -313,6 +333,37 @@ describe('Comprehensive app integration', () => {
     expect(toastEl.classList.contains('show')).toBe(true);
     expect(toastEl.textContent).toContain('System online');
     expect(toastShownDetail).toBe('System online');
+
+    const audioContexts = window.AudioContext.instances;
+    expect(Array.isArray(audioContexts)).toBe(true);
+    expect(audioContexts.length).toBeGreaterThan(0);
+    const ctx = audioContexts[audioContexts.length - 1];
+    expect(ctx.createdGains.length).toBeGreaterThan(0);
+    expect(ctx.createdOscillators.length).toBeGreaterThan(0);
+    const gainNode = ctx.createdGains[ctx.createdGains.length - 1];
+    const oscNode = ctx.createdOscillators[ctx.createdOscillators.length - 1];
+    expect(gainNode.gain.value).toBe(0);
+    expect(gainNode.gain.cancelScheduledValues).toHaveBeenCalledWith(ctx.currentTime);
+    expect(gainNode.gain.setValueAtTime).toHaveBeenCalledWith(0, ctx.currentTime);
+    const setCalls = gainNode.gain.setValueAtTime.mock.calls;
+    expect(setCalls.some(([value]) => value === 0)).toBe(true);
+    const sustainCall = setCalls.find(([, time]) => time > ctx.currentTime);
+    expect(sustainCall?.[0]).toBeCloseTo(0.1, 5);
+    const releaseCall = setCalls[setCalls.length - 1];
+    expect(releaseCall?.[0]).toBe(0);
+    const rampCalls = gainNode.gain.linearRampToValueAtTime.mock.calls;
+    expect(rampCalls.length).toBeGreaterThanOrEqual(2);
+    expect(rampCalls[0][0]).toBeCloseTo(0.1, 5);
+    expect(rampCalls[0][1]).toBeCloseTo(ctx.currentTime + 0.015, 5);
+    const releaseRamp = rampCalls[rampCalls.length - 1];
+    const stopCall = oscNode.stop.mock.calls[0];
+    expect(Array.isArray(stopCall)).toBe(true);
+    const stopTime = stopCall[0];
+    expect(stopTime).toBeCloseTo(0.2, 5);
+    expect(releaseRamp[0]).toBeCloseTo(0, 5);
+    expect(releaseRamp[1]).toBeLessThan(stopTime);
+    expect(stopTime - releaseRamp[1]).toBeCloseTo(0.005, 3);
+    expect(oscNode.start).toHaveBeenCalledWith(ctx.currentTime);
 
     window.dismissToast();
     await flushAllTimers();
