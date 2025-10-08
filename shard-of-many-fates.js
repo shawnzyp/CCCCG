@@ -1414,51 +1414,109 @@
     window.SOMF_MIN.prepareHiddenRefresh = reason => HiddenSync.prepareRefresh(reason || 'hidden-sync');
   }
 
-  async function runLightningFlash() {
+  function createShardWhirl() {
     const flash = dom.one('#draw-flash');
     const lightning = dom.one('#draw-lightning');
-    if (!flash) return;
 
-    flash.classList.remove('show');
+    const hideOverlays = () => {
+      if (flash) {
+        flash.classList.remove('is-active');
+        flash.hidden = true;
+      }
+      if (lightning) {
+        lightning.classList.remove('is-active');
+        lightning.hidden = true;
+      }
+    };
+
+    if (!flash) {
+      hideOverlays();
+      return { promise: Promise.resolve(), cleanup: hideOverlays };
+    }
+
     if (preferReducedMotion()) {
-      flash.hidden = true;
-      if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
-      return;
+      hideOverlays();
+      return { promise: Promise.resolve(), cleanup: hideOverlays };
+    }
+
+    if (lightning) {
+      let field = lightning.querySelector('.shard-field');
+      if (!field) {
+        field = document.createElement('div');
+        field.className = 'shard-field';
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < 8; i += 1) {
+          const shard = document.createElement('span');
+          shard.className = 'shard';
+          frag.appendChild(shard);
+        }
+        field.appendChild(frag);
+        lightning.appendChild(field);
+      }
+      const shards = Array.from(field.querySelectorAll('.shard'));
+      shards.forEach((shard, index) => {
+        shard.style.setProperty('--start-angle', `${Math.random() * 360}deg`);
+        shard.style.setProperty('--orbit-radius', `${120 + Math.random() * 80}px`);
+        shard.style.setProperty('--shard-delay', `${index * 60}ms`);
+        shard.style.setProperty('--shard-duration', `${1200 + Math.random() * 420}ms`);
+      });
     }
 
     flash.hidden = false;
+    flash.classList.remove('is-active');
     if (lightning) {
       lightning.hidden = false;
-      lightning.innerHTML = '';
-      for (let i = 0; i < 3; i += 1) {
-        const bolt = document.createElement('div');
-        bolt.className = 'bolt';
-        bolt.style.left = `${10 + Math.random() * 80}%`;
-        bolt.style.top = `${Math.random() * 60}%`;
-        bolt.style.transform = `rotate(${Math.random() * 30 - 15}deg)`;
-        bolt.style.animationDelay = `${i * 0.1}s`;
-        lightning.appendChild(bolt);
-      }
+      lightning.classList.remove('is-active');
     }
 
-    await new Promise(resolve => {
-      let settled = false;
-      const cleanup = () => {
-        if (settled) return;
-        settled = true;
-        flash.classList.remove('show');
-        flash.hidden = true;
-        if (lightning) { lightning.hidden = true; lightning.innerHTML = ''; }
-        flash.removeEventListener('animationend', cleanup);
-        flash.removeEventListener('animationcancel', cleanup);
-        resolve();
-      };
-      flash.addEventListener('animationend', cleanup);
-      flash.addEventListener('animationcancel', cleanup);
-      void flash.offsetWidth;
-      flash.classList.add('show');
-      setTimeout(cleanup, 1100);
+    void flash.offsetWidth;
+    if (lightning) void lightning.offsetWidth;
+
+    let resolvePromise = () => {};
+    const promise = new Promise(resolve => {
+      resolvePromise = resolve;
     });
+    let settled = false;
+    let fallback = 0;
+    const settle = () => {
+      if (settled) return;
+      settled = true;
+      if (fallback) window.clearTimeout(fallback);
+      flash.removeEventListener('animationend', settle);
+      flash.removeEventListener('animationcancel', settle);
+      lightning?.removeEventListener('animationend', settle);
+      lightning?.removeEventListener('animationcancel', settle);
+      hideOverlays();
+      resolvePromise();
+    };
+
+    flash.addEventListener('animationend', settle);
+    flash.addEventListener('animationcancel', settle);
+    if (lightning) {
+      lightning.addEventListener('animationend', settle);
+      lightning.addEventListener('animationcancel', settle);
+    }
+
+    fallback = window.setTimeout(settle, 1800);
+
+    window.requestAnimationFrame(() => {
+      flash.classList.add('is-active');
+      if (lightning) lightning.classList.add('is-active');
+    });
+
+    return {
+      promise,
+      cleanup: settle,
+    };
+  }
+
+  async function runLightningFlash() {
+    const effect = createShardWhirl();
+    try {
+      await effect.promise;
+    } finally {
+      effect.cleanup();
+    }
   }
 
   function showShardRevealAlert() {
@@ -2669,6 +2727,7 @@
       this.modalIsOpen = false;
       this.drawConfirmState = null;
       this.suspenseSting = createSuspenseStingController();
+      this.pendingDrawAnimation = null;
     }
 
     attach() {
@@ -3433,38 +3492,57 @@
       if (this.dom.count) this.dom.count.blur();
       const count = Math.max(1, Math.min(PLATES.length, Number(this.dom.count?.value) || 1));
       const confirmed = await this.showDrawConfirmation(count);
-      if (!confirmed) return;
-      try {
-        const notice = await this.runtime.draw(count);
-        if (notice) {
-          const ids = toStringList(notice.ids);
-          const names = ids.map((id, idx) => notice.names?.[idx] || Catalog.shardName(id) || id);
-          const listCount = notice.count || ids.length || count;
-          const suffix = ' (unresolved)';
-          const plainList = names.length ? names.join(', ') : (Array.isArray(notice.names) ? notice.names.join(', ') : 'Unknown Shard');
-          const htmlList = (ids.length ? ids : notice.names || [])
-            .map((id, idx) => {
-              const label = names[idx] || notice.names?.[idx] || id;
-              return shardLinkMarkup({
-                id: typeof ids[idx] === 'string' ? ids[idx] : '',
-                label,
-                noticeKey: notice.key,
-                noticeIndex: idx,
-              });
-            })
-            .join(', ');
-          const plainMessage = `Drew ${listCount} Shard(s): ${plainList}${suffix}`;
-          const htmlMessage = `Drew ${listCount} Shard(s): ${htmlList || escapeHtml(plainList)}${suffix}`;
-          if (typeof window.logAction === 'function') {
-            window.logAction(htmlMessage);
-          }
-          if (typeof window.dmNotify === 'function') {
-            window.dmNotify(plainMessage, { html: htmlMessage, ts: notice.ts });
-          }
-          await this.playAnimation();
-          this.openModal();
-          await this.reloadNotices();
+      if (!confirmed) {
+        if (this.pendingDrawAnimation) {
+          this.pendingDrawAnimation.cleanup();
+          this.pendingDrawAnimation = null;
         }
+        return;
+      }
+
+      let notice = null;
+      try {
+        this.pendingDrawAnimation = createShardWhirl();
+        notice = await this.runtime.draw(count);
+      } catch (err) {
+        console.error('Shard draw failed', err);
+      }
+
+      try {
+        await this.playAnimation();
+      } catch (err) {
+        console.error('Shard draw animation failed', err);
+      }
+
+      if (!notice) return;
+
+      try {
+        const ids = toStringList(notice.ids);
+        const names = ids.map((id, idx) => notice.names?.[idx] || Catalog.shardName(id) || id);
+        const listCount = notice.count || ids.length || count;
+        const suffix = ' (unresolved)';
+        const plainList = names.length ? names.join(', ') : (Array.isArray(notice.names) ? notice.names.join(', ') : 'Unknown Shard');
+        const htmlList = (ids.length ? ids : notice.names || [])
+          .map((id, idx) => {
+            const label = names[idx] || notice.names?.[idx] || id;
+            return shardLinkMarkup({
+              id: typeof ids[idx] === 'string' ? ids[idx] : '',
+              label,
+              noticeKey: notice.key,
+              noticeIndex: idx,
+            });
+          })
+          .join(', ');
+        const plainMessage = `Drew ${listCount} Shard(s): ${plainList}${suffix}`;
+        const htmlMessage = `Drew ${listCount} Shard(s): ${htmlList || escapeHtml(plainList)}${suffix}`;
+        if (typeof window.logAction === 'function') {
+          window.logAction(htmlMessage);
+        }
+        if (typeof window.dmNotify === 'function') {
+          window.dmNotify(plainMessage, { html: htmlMessage, ts: notice.ts });
+        }
+        this.openModal();
+        await this.reloadNotices();
       } catch (err) {
         console.error('Shard draw failed', err);
       }
@@ -3504,6 +3582,17 @@
     }
 
     async playAnimation() {
+      const pending = this.pendingDrawAnimation;
+      this.pendingDrawAnimation = null;
+      if (pending && pending.promise && typeof pending.cleanup === 'function') {
+        try {
+          await pending.promise;
+        } finally {
+          try { pending.cleanup(); }
+          catch { /* ignore cleanup errors */ }
+        }
+        return;
+      }
       await runLightningFlash();
     }
 
