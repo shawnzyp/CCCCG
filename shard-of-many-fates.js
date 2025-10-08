@@ -2397,6 +2397,10 @@
         backdrop: dom.one('#somf-min-modal [data-somf-dismiss]'),
         close: dom.one('#somf-min-close'),
         image: dom.one('#somf-min-image'),
+        details: dom.one('#somf-min-details'),
+        name: dom.one('#somf-min-name'),
+        visual: dom.one('#somf-min-visual'),
+        effects: dom.one('#somf-min-effects'),
         revealInvite: dom.one('#somf-reveal-alert'),
         revealInviteCard: dom.one('#somf-reveal-alert .somf-reveal-alert__card'),
         revealInviteTitle: dom.one('#somf-reveal-title'),
@@ -2682,6 +2686,12 @@
       const entry = total ? this.queue[this.queueIndex] : null;
       let src = '';
       let label = '';
+      let visual = '';
+      let effects = [];
+      if (entry) {
+        visual = typeof entry.visual === 'string' ? entry.visual : '';
+        effects = Array.isArray(entry.player) ? entry.player : [];
+      }
       if (entry?.image) {
         src = entry.image;
         label = entry?.name || '';
@@ -2702,6 +2712,36 @@
         }
         const altLabel = label ? `${label} artwork` : 'Shard artwork';
         this.dom.image.alt = altLabel;
+      }
+      const detailName = entry?.name || this.tempArtwork?.name || '';
+      if (this.dom.name) {
+        this.dom.name.textContent = detailName;
+        this.dom.name.hidden = !detailName;
+      }
+      if (this.dom.visual) {
+        const text = typeof visual === 'string' ? visual.trim() : '';
+        this.dom.visual.textContent = text;
+        this.dom.visual.hidden = !text;
+      }
+      if (this.dom.effects) {
+        while (this.dom.effects.firstChild) {
+          this.dom.effects.removeChild(this.dom.effects.firstChild);
+        }
+        const normalizedEffects = Array.isArray(effects)
+          ? effects.map(line => (typeof line === 'string' ? line.trim() : '')).filter(Boolean)
+          : [];
+        normalizedEffects.forEach(line => {
+          const li = document.createElement('li');
+          li.textContent = line;
+          this.dom.effects.appendChild(li);
+        });
+        this.dom.effects.hidden = !normalizedEffects.length;
+      }
+      if (this.dom.details) {
+        const hasDetails = Boolean((this.dom.name && !this.dom.name.hidden)
+          || (this.dom.visual && !this.dom.visual.hidden)
+          || (this.dom.effects && !this.dom.effects.hidden));
+        this.dom.details.hidden = !hasDetails;
       }
     }
 

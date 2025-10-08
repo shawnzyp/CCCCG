@@ -2207,9 +2207,18 @@ select[required]:valid{
 .somf-modal { position:fixed; inset:0; z-index:9999; display:grid; place-items:center }
 .somf-modal__backdrop { position:absolute; inset:0; background:rgba(0,0,0,.5) }
 .somf-modal__card { position:relative; background:var(--surface); border:1px solid var(--line); color:var(--text); border-radius:var(--radius); width:min(var(--content-width),calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right))); max-width:min(var(--content-width),calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right))); max-height:min(88vh, calc(var(--vh,1vh)*100 - 32px - var(--safe-area-top) - var(--safe-area-bottom))); display:flex; flex-direction:column; box-shadow:var(--shadow); margin-inline:auto; overscroll-behavior:contain }
-.somf-modal__card--image{background:transparent;border:none;box-shadow:none;padding:0;display:block;width:auto;max-width:min(90vw,720px);max-height:90vh}
+.somf-modal__card--image{background:transparent;border:none;box-shadow:none;padding:0;display:flex;flex-direction:column;width:auto;max-width:min(90vw,720px);max-height:90vh;overflow:auto;gap:12px}
 .somf-modal__card--image .somf-modal__x{color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.6)}
 .somf-modal__art{display:block;width:100%;height:auto;max-width:min(90vw,720px);max-height:90vh;border-radius:var(--radius);box-shadow:var(--shadow)}
+.somf-modal__details{padding:16px;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface-2);color:var(--text);display:flex;flex-direction:column;gap:8px}
+.somf-modal__details[hidden]{display:none!important}
+.somf-modal__name{margin:0;font-size:1.3rem;font-weight:600;letter-spacing:.02em}
+.somf-modal__name[hidden]{display:none}
+.somf-modal__visual{margin:0;color:var(--muted);font-size:1rem;line-height:1.4}
+.somf-modal__visual[hidden]{display:none}
+.somf-modal__effects{margin:4px 0 0;padding-left:20px;font-size:1rem;line-height:1.45;display:flex;flex-direction:column;gap:6px}
+.somf-modal__effects[hidden]{display:none}
+.somf-modal__effects li{margin:0}
 .somf-modal__hdr, .somf-modal__ftr { display:flex; align-items:center; gap:8px; padding:6px 12px; border-bottom:1px solid var(--line) }
 .somf-modal__ftr { border-top:1px solid var(--line); border-bottom:none }
 .somf-modal__body { padding:12px; overflow:auto }
@@ -2221,6 +2230,8 @@ select[required]:valid{
 @media(max-width:640px){
   .somf-modal{align-items:flex-start;justify-content:center;padding:calc(12px + var(--safe-area-top)) calc(12px + var(--safe-area-right)) calc(12px + var(--safe-area-bottom)) calc(12px + var(--safe-area-left))}
   .somf-modal__card{width:calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right));max-width:calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right));max-height:calc(var(--vh,1vh)*100 - 24px - var(--safe-area-top) - var(--safe-area-bottom))}
+  .somf-modal__details{padding:12px;font-size:.95rem}
+  .somf-modal__name{font-size:1.15rem}
 }
 .somf-badge { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); opacity:.9 }
 .somf-subttl { margin:10px 0 6px 0; font-size:13px; color:var(--muted) }
