@@ -2375,18 +2375,69 @@ document.addEventListener('visibilitychange', () => {
     closeAudioContext();
   }
 });
+const DEFAULT_TOAST_TYPE = 'info';
+const TOAST_AUDIO_CUES = {
+  info: {
+    cueId: 'toast-info',
+    oscillator: {
+      type: 'sine',
+      frequency: 880,
+      gain: 0.08,
+      duration: 0.2
+    }
+  },
+  success: {
+    cueId: 'toast-success',
+    oscillator: {
+      type: 'triangle',
+      frequency: 660,
+      gain: 0.08,
+      duration: 0.22
+    }
+  },
+  warning: {
+    cueId: 'toast-warning',
+    oscillator: {
+      type: 'square',
+      frequency: 440,
+      gain: 0.1,
+      duration: 0.24
+    }
+  },
+  error: {
+    cueId: 'toast-error',
+    oscillator: {
+      type: 'sawtooth',
+      frequency: 220,
+      gain: 0.12,
+      duration: 0.26
+    }
+  }
+};
+
 function playTone(type){
+  const cue = TOAST_AUDIO_CUES[type] || TOAST_AUDIO_CUES[DEFAULT_TOAST_TYPE];
+  if (!cue) return;
+  const settings = cue.oscillator;
+  if (!settings) return;
   try{
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = type==='error'?220:880;
-    gain.gain.value = 0.1;
+    osc.type = settings.type || 'sine';
+    if (typeof settings.frequency === 'number') {
+      osc.frequency.value = settings.frequency;
+    }
+    if (typeof settings.detune === 'number') {
+      osc.detune.value = settings.detune;
+    }
+    const gainValue = typeof settings.gain === 'number' ? settings.gain : 0.1;
+    gain.gain.value = gainValue;
     osc.connect(gain);
     gain.connect(audioCtx.destination);
+    const duration = typeof settings.duration === 'number' ? settings.duration : 0.15;
     osc.start();
-    osc.stop(audioCtx.currentTime + 0.15);
+    osc.stop(audioCtx.currentTime + duration);
   }catch(e){ /* noop */ }
 }
 let toastTimeout;
@@ -2491,7 +2542,8 @@ function toast(msg, type = 'info'){
   }
   t.className = toastType ? `toast ${toastType}` : 'toast';
   t.classList.add('show');
-  playTone(toastType);
+  const toneType = TOAST_AUDIO_CUES[toastType] ? toastType : DEFAULT_TOAST_TYPE;
+  playTone(toneType);
   clearTimeout(toastTimeout);
   ensureToastFocusHandlers();
   const shouldTrap = !(document?.body?.classList?.contains('modal-open'));
