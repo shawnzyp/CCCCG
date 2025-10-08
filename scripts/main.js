@@ -10419,10 +10419,11 @@ async function performScheduledAutoSave(){
   try {
     scheduledAutoSaveInFlight = true;
     const snapshot = serialize();
-    await saveAutoBackup(snapshot, name);
     cloudAutosaveDirty = false;
+    await saveAutoBackup(snapshot, name);
   } catch (err) {
     console.error('Scheduled auto save failed', err);
+    cloudAutosaveDirty = true;
   } finally {
     scheduledAutoSaveInFlight = false;
   }
