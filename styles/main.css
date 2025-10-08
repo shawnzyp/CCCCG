@@ -25,7 +25,7 @@
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 @media (prefers-reduced-motion:reduce){
   fieldset[data-tab].card{
-    transition:opacity .36s cubic-bezier(.33,1,.68,1)!important,filter .36s cubic-bezier(.33,1,.68,1)!important,-webkit-backdrop-filter .36s cubic-bezier(.33,1,.68,1)!important,backdrop-filter .36s cubic-bezier(.33,1,.68,1)!important;
+    transition:opacity .36s cubic-bezier(.33,1,.68,1),filter .36s cubic-bezier(.33,1,.68,1),-webkit-backdrop-filter .36s cubic-bezier(.33,1,.68,1),backdrop-filter .36s cubic-bezier(.33,1,.68,1) !important;
   }
 }
 *,*::before,*::after{box-sizing:border-box}
