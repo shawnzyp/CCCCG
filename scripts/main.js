@@ -11178,6 +11178,10 @@ function redo(){
   if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
 }
 
+const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
+let scheduledAutoSaveId = null;
+let scheduledAutoSaveInFlight = false;
+
 (function(){
   try{ localStorage.removeItem(AUTO_KEY); }catch{}
   if(forcedRefreshResume && forcedRefreshResume.data){
