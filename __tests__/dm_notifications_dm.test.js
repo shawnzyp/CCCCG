@@ -113,3 +113,42 @@ describe('DM notifications visibility', () => {
   });
 });
 
+describe('DM notifications audio cues', () => {
+  afterEach(() => {
+    delete window.playTone;
+    delete window.audioPreference;
+  });
+
+  test('plays tone when logged in', async () => {
+    await initDmModule({ loggedIn: true });
+    window.playTone = jest.fn();
+
+    window.dmNotify('audio check');
+
+    expect(window.playTone).toHaveBeenCalledTimes(1);
+    expect(window.playTone).toHaveBeenCalledWith('info');
+  });
+
+  test('plays tone when processing queued notifications after login', async () => {
+    await initDmModule();
+    window.playTone = jest.fn();
+
+    window.dmNotify('queued tone');
+    expect(window.playTone).not.toHaveBeenCalled();
+
+    await completeLogin();
+
+    expect(window.playTone).toHaveBeenCalledTimes(1);
+  });
+
+  test('respects muted audio preference', async () => {
+    await initDmModule({ loggedIn: true });
+    window.playTone = jest.fn();
+    window.audioPreference = 'muted';
+
+    window.dmNotify('should stay quiet');
+
+    expect(window.playTone).not.toHaveBeenCalled();
+  });
+});
+
