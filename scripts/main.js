@@ -5307,10 +5307,13 @@ function setCredits(v){
   updateCreditsDisplay();
   const diff = total - prev;
   if(diff !== 0){
+    const actionKey = diff > 0 ? 'credits-gain' : 'credits-spend';
+    playActionCue(actionKey);
     window.dmNotify?.(`Credits ${diff>0?'gained':'spent'} ${Math.abs(diff)} (now ${total})`);
     pushHistory();
     const name = currentCharacter();
     if (name) {
+      playStatusCue('credits-save');
       saveCharacter(serialize(), name).catch(e => {
         console.error('Credits cloud save failed', e);
       });
@@ -6099,6 +6102,42 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 1, amplitude: 1 },
       { ratio: 2, amplitude: 0.35 },
       { ratio: 3, amplitude: 0.18 },
+    ],
+  },
+  'credits-gain': {
+    frequency: 740,
+    type: 'triangle',
+    duration: 0.28,
+    volume: 0.24,
+    attack: 0.005,
+    release: 0.16,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2, amplitude: 0.45 },
+    ],
+  },
+  'credits-save': {
+    frequency: 510,
+    type: 'sine',
+    duration: 0.32,
+    volume: 0.22,
+    attack: 0.01,
+    release: 0.18,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.5, amplitude: 0.4 },
+    ],
+  },
+  'credits-spend': {
+    frequency: 320,
+    type: 'sawtooth',
+    duration: 0.3,
+    volume: 0.24,
+    attack: 0.006,
+    release: 0.14,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 0.5, amplitude: 0.5 },
     ],
   },
   heal: {
