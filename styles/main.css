@@ -1294,6 +1294,13 @@ button:focus-visible,
   margin-inline-end:clamp(4px,1.2vw,8px);
 }
 
+.btn-icon__img{
+  width:1em;
+  height:1em;
+  display:block;
+  object-fit:contain;
+}
+
 button .btn-label{display:inline-flex;align-items:center}
 
 .inline{display:flex;align-items:center;gap:var(--control-gap);flex-wrap:wrap}
