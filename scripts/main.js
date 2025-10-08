@@ -11699,17 +11699,7 @@ function createCard(kind, pref = {}) {
 }
 
 setupPowerPresetMenu();
-$('add-sig').addEventListener('click', event => {
-  if (event && typeof event.preventDefault === 'function') event.preventDefault();
-  const list = $('sigs');
-  if (!list) return;
-  const card = createCard('sig');
-  const opened = openPowerEditor(card, { isNew: true, targetList: list });
-  if (!opened) {
-    list.appendChild(card);
-    pushHistory();
-  }
-});
+setupSignaturePresetMenu();
 
 /* ========= Gear ========= */
 $('add-weapon').addEventListener('click', () => {
