@@ -53,3 +53,17 @@ string, open the site on the allowed device and run
 value into `DM_DEVICE_FINGERPRINT`. The DM tools menu will be hidden on devices
 whose fingerprint does not match.
 
+## Audio cues
+
+Call `window.playTone(cueId)` to play lightweight feedback sounds across the
+app. The following cue identifiers are available for use in features:
+
+* `success`/`info` — success toast chime.
+* `warn`/`warning` — warning tone.
+* `error`/`danger`/`failure` — error buzzer.
+* `dm-roll` — confirmation ping for DM dice rolls.
+* `coin-flip` — staccato flip result tone.
+* `campaign-log:add` — soft chime when appending to the campaign log.
+
+Each cue is preloaded on first use so subsequent calls are instant.
+
