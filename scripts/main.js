@@ -4185,8 +4185,8 @@ const elPowerMetricToggle = $('power-range-metric');
 const elPowerTextCompact = $('power-text-compact');
 const elPowerStylePrimary = $('power-style');
 const elPowerStyleSecondary = $('power-style-2');
-const elSPMenuToggle = $('sp-menu-toggle');
-const elSPMenu = $('sp-menu');
+const elSPSettingsToggle = $('sp-settings-toggle');
+const spSettingsOverlay = $('modal-sp-settings');
 
 let casterAbilityManuallySet = false;
 let lastCasterAbilitySuggestions = [];
@@ -4923,7 +4923,7 @@ function changeSP(delta){
 }
 qsa('[data-sp]').forEach(b=> b.addEventListener('click', ()=> changeSP(num(b.dataset.sp)||0) ));
 $('long-rest').addEventListener('click', ()=>{
-  closeSpMenu({ restoreFocus: true });
+  closeSpSettings();
   if(!confirm('Take a long rest?')) return;
   setHP(num(elHPBar.max));
   setSP(num(elSPBar.max));
@@ -5003,112 +5003,42 @@ if (hpRollSaveButton) {
 }
 qsa('#modal-hp-settings [data-close]').forEach(b=> b.addEventListener('click', closeHpSettings));
 
-function adjustCardMenuBounds(menu){
-  if (!menu || typeof menu.style === 'undefined') return;
-  menu.style.removeProperty('--card-menu-offset-x');
-  menu.style.removeProperty('--card-menu-max-height');
-  requestAnimationFrame(()=>{
-    if (typeof menu.hasAttribute === 'function' && menu.hasAttribute('hidden')) return;
-    if (typeof menu.getBoundingClientRect !== 'function') return;
-    const rect = menu.getBoundingClientRect();
-    const viewportWidth = Math.max(document.documentElement?.clientWidth || 0, window.innerWidth || 0);
-    const viewportHeight = Math.max(document.documentElement?.clientHeight || 0, window.innerHeight || 0);
-    if (viewportWidth) {
-      if (rect.right > viewportWidth - 12) {
-        const offset = rect.right - (viewportWidth - 12);
-        menu.style.setProperty('--card-menu-offset-x', `${Math.ceil(offset)}px`);
-      } else if (rect.left < 12) {
-        const offset = rect.left - 12;
-        menu.style.setProperty('--card-menu-offset-x', `${Math.floor(offset)}px`);
-      }
-    }
-    if (viewportHeight && rect.bottom > viewportHeight - 12) {
-      const available = Math.max(120, viewportHeight - rect.top - 12);
-      menu.style.setProperty('--card-menu-max-height', `${Math.floor(available)}px`);
-    }
+function setSpSettingsExpanded(expanded){
+  if (!elSPSettingsToggle) return;
+  elSPSettingsToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
+function openSpSettings(){
+  show('modal-sp-settings');
+  setSpSettingsExpanded(true);
+  if (elSPTemp && typeof elSPTemp.focus === 'function') {
+    requestAnimationFrame(()=> elSPTemp.focus({ preventScroll: true }));
+  }
+}
+function closeSpSettings(){
+  hide('modal-sp-settings');
+  setSpSettingsExpanded(false);
+  if (elSPSettingsToggle && typeof elSPSettingsToggle.focus === 'function') {
+    requestAnimationFrame(()=> elSPSettingsToggle.focus({ preventScroll: true }));
+  }
+}
+if (elSPSettingsToggle) {
+  elSPSettingsToggle.addEventListener('click', openSpSettings);
+}
+if (typeof MutationObserver === 'function' && spSettingsOverlay instanceof Element) {
+  const observer = new MutationObserver(() => {
+    const expanded = !spSettingsOverlay.classList.contains('hidden');
+    setSpSettingsExpanded(expanded);
+  });
+  observer.observe(spSettingsOverlay, { attributes: true, attributeFilter: ['class'] });
+}
+const spSettingsSaveButton = $('sp-settings-save');
+if (spSettingsSaveButton) {
+  spSettingsSaveButton.addEventListener('click', ()=>{
+    updateDerived();
+    closeSpSettings();
   });
 }
-function isRealElement(node) {
-  if (!node) return false;
-  if (typeof Element !== 'undefined' && node instanceof Element) return true;
-  return typeof node === 'object'
-    && typeof node.removeAttribute === 'function'
-    && typeof node.setAttribute === 'function';
-}
-
-function openSpMenu(options = {}){
-  if (!isRealElement(elSPMenu) || !isRealElement(elSPMenuToggle)) return;
-  elSPMenu.removeAttribute('hidden');
-  elSPMenuToggle.setAttribute('aria-expanded', 'true');
-  adjustCardMenuBounds(elSPMenu);
-  if (options.focusFirst) {
-    requestAnimationFrame(()=>{
-      const first = typeof elSPMenu.querySelector === 'function'
-        ? elSPMenu.querySelector('button:not([disabled])')
-        : null;
-      if (first && typeof first.focus === 'function') {
-        first.focus({ preventScroll: true });
-      }
-    });
-  }
-}
-function closeSpMenu(options = {}){
-  if (!isRealElement(elSPMenu) || !isRealElement(elSPMenuToggle)) return;
-  const wasOpen = typeof elSPMenu.hasAttribute === 'function' ? !elSPMenu.hasAttribute('hidden') : true;
-  if (typeof elSPMenu.setAttribute === 'function' && typeof elSPMenu.hasAttribute === 'function' && !elSPMenu.hasAttribute('hidden')) {
-    elSPMenu.setAttribute('hidden', '');
-  }
-  if (typeof elSPMenuToggle.setAttribute === 'function') {
-    elSPMenuToggle.setAttribute('aria-expanded', 'false');
-  }
-  if (typeof elSPMenu.style !== 'undefined') {
-    elSPMenu.style.removeProperty('--card-menu-offset-x');
-    elSPMenu.style.removeProperty('--card-menu-max-height');
-  }
-  const shouldRestoreFocus = wasOpen && (
-    options.restoreFocus || (typeof elSPMenu.contains === 'function' && elSPMenu.contains(document.activeElement))
-  );
-  if (shouldRestoreFocus) {
-    requestAnimationFrame(()=>{
-      if (typeof elSPMenuToggle.focus === 'function') {
-        elSPMenuToggle.focus({ preventScroll: true });
-      }
-    });
-  }
-}
-if (isRealElement(elSPMenuToggle) && isRealElement(elSPMenu)) {
-  elSPMenuToggle.addEventListener('click', e => {
-    e.stopPropagation();
-    const isHidden = typeof elSPMenu.hasAttribute === 'function' ? elSPMenu.hasAttribute('hidden') : false;
-    if (isHidden) {
-      openSpMenu({ focusFirst: e.detail === 0 });
-    } else {
-      closeSpMenu();
-    }
-  });
-  elSPMenu.addEventListener('click', e => e.stopPropagation());
-  document.addEventListener('click', e => {
-    const containsTarget = typeof elSPMenu.contains === 'function' && elSPMenu.contains(e.target);
-    if (!containsTarget && e.target !== elSPMenuToggle) {
-      closeSpMenu();
-    }
-  });
-  document.addEventListener('keydown', e => {
-    const isHidden = typeof elSPMenu.hasAttribute === 'function' ? elSPMenu.hasAttribute('hidden') : false;
-    if (e.key === 'Escape' && !isHidden) {
-      e.stopPropagation();
-      closeSpMenu({ restoreFocus: true });
-    }
-  });
-  const handleSpMenuViewportChange = ()=>{
-    const isHidden = typeof elSPMenu.hasAttribute === 'function' ? elSPMenu.hasAttribute('hidden') : false;
-    if (!isHidden) {
-      adjustCardMenuBounds(elSPMenu);
-    }
-  };
-  window.addEventListener('resize', handleSpMenuViewportChange);
-  window.addEventListener('orientationchange', handleSpMenuViewportChange);
-}
+qsa('#modal-sp-settings [data-close]').forEach(b=> b.addEventListener('click', closeSpSettings));
 
 /* ========= Dice/Coin + Logs ========= */
 function safeParse(key){
