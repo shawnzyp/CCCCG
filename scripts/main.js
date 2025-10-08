@@ -2380,13 +2380,21 @@ function playTone(type){
     if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
+    const now = audioCtx.currentTime;
+    const rampUpDuration = 0.015;
+    const totalDuration = 0.15;
+    const sustainEnd = now + totalDuration - 0.03;
     osc.type = 'sine';
     osc.frequency.value = type==='error'?220:880;
-    gain.gain.value = 0.1;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.1, now + rampUpDuration);
+    gain.gain.setValueAtTime(0.1, sustainEnd);
+    gain.gain.linearRampToValueAtTime(0, now + totalDuration);
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.15);
+    osc.start(now);
+    osc.stop(now + totalDuration);
   }catch(e){ /* noop */ }
 }
 let toastTimeout;
