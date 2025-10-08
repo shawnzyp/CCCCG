@@ -1316,6 +1316,34 @@ progress::-moz-progress-bar{
   letter-spacing:.04em;
 }
 
+.credits-gear-summary{
+  margin-top:clamp(6px,2vw,12px);
+  display:flex;
+  flex-wrap:wrap;
+  gap:calc(var(--control-gap)*.75);
+}
+
+.credits-gear-summary .pill{
+  background:rgba(59,130,246,.2);
+  color:var(--accent);
+}
+
+.card-price{
+  margin-top:clamp(4px,1.8vw,10px);
+}
+
+.card-price-label{
+  font-size:clamp(.72rem,2.4vw,.88rem);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.card-price-chip{
+  background:rgba(59,130,246,.2);
+  color:var(--accent);
+}
+
 .credits-currency{
   flex:0 0 auto;
   font-size:1rem;

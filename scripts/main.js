@@ -4321,6 +4321,9 @@ const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
+const elCreditsGearSummary = $('credits-gear-summary');
+const elCreditsGearSpent = $('credits-gear-spent');
+const elCreditsGearRemaining = $('credits-gear-remaining');
 
 if (elPowerStylePrimary) {
   elPowerStylePrimary.addEventListener('change', () => {
@@ -4689,6 +4692,7 @@ function updateDerived(){
     skillTarget.textContent = formatModifier(total);
     applyBreakdownMetadata(skillTarget, skillResolution?.breakdown, `${s.name} checks`);
   });
+  updateGearCreditsSummary();
   refreshPowerCards();
 }
 ABILS.forEach(a=> {
@@ -4701,6 +4705,44 @@ ABILS.forEach(a=> {
 ['hp-temp','sp-temp','power-save-ability','xp'].forEach(id=> $(id).addEventListener('input', updateDerived));
 ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived));
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
+
+function formatCreditsValue(value){
+  if (!Number.isFinite(value)) return '₡0';
+  const isWhole = Number.isInteger(value);
+  const formatted = Math.abs(value).toLocaleString('en-US', {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+  return `${value < 0 ? '-' : ''}₡${formatted}`;
+}
+
+function updateGearCreditsSummary(){
+  if (!elCreditsGearSummary && !elCreditsGearSpent && !elCreditsGearRemaining) return;
+  const gearCards = qsa("[data-kind='weapon'],[data-kind='armor'],[data-kind='item']");
+  let total = 0;
+  let hasNumericPrice = false;
+  gearCards.forEach(card => {
+    if (!card || !card.dataset) return;
+    const price = Number(card.dataset.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      return;
+    }
+    hasNumericPrice = true;
+    const equippedField = qs("[data-f='equipped']", card);
+    if (equippedField && !equippedField.checked) return;
+    total += price;
+  });
+  const creditsAvailable = elCredits ? (num(elCredits.value) || 0) : 0;
+  if (elCreditsGearSpent) {
+    elCreditsGearSpent.textContent = `Gear Cost: ${formatCreditsValue(total)}`;
+  }
+  if (elCreditsGearRemaining) {
+    elCreditsGearRemaining.textContent = `Remaining: ${formatCreditsValue(creditsAvailable - total)}`;
+  }
+  if (elCreditsGearSummary) {
+    elCreditsGearSummary.hidden = !hasNumericPrice;
+  }
+}
 
 function setXP(v){
   const prev = num(elXP.value);
@@ -4719,7 +4761,10 @@ $('xp-submit').addEventListener('click', ()=>{
 });
 
 function updateCreditsDisplay(){
-  if (elCreditsPill) elCreditsPill.textContent = num(elCredits.value)||0;
+  if (elCreditsPill && elCredits) {
+    elCreditsPill.textContent = num(elCredits.value)||0;
+  }
+  updateGearCreditsSummary();
 }
 
 function setCredits(v){
@@ -9610,6 +9655,85 @@ function populateCardFromData(card, data){
   });
 }
 
+function updateCardPriceDisplay(card){
+  if (!card) return;
+  let wrap = qs("[data-role='card-price-wrap']", card);
+  let chip = wrap ? qs("[data-role='card-price-chip']", wrap) : null;
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'inline card-price';
+    wrap.dataset.role = 'card-price-wrap';
+    const label = document.createElement('span');
+    label.className = 'card-price-label';
+    label.textContent = 'Cost';
+    chip = document.createElement('span');
+    chip.className = 'pill pill-sm card-price-chip';
+    chip.dataset.role = 'card-price-chip';
+    wrap.append(label, chip);
+    wrap.hidden = true;
+    const controls = qs("[data-act='del']", card)?.parentElement;
+    if (controls && controls.parentElement === card) {
+      card.insertBefore(wrap, controls);
+    } else {
+      card.appendChild(wrap);
+    }
+  }
+  if (!chip) {
+    chip = document.createElement('span');
+    chip.className = 'pill pill-sm card-price-chip';
+    chip.dataset.role = 'card-price-chip';
+    wrap.appendChild(chip);
+  }
+  const datasetDisplay = (card.dataset.priceDisplay || '').trim();
+  const datasetPrice = Number(card.dataset.price);
+  const fallback = Number.isFinite(datasetPrice) && datasetPrice > 0
+    ? formatPrice(datasetPrice)
+    : '';
+  const display = datasetDisplay || fallback;
+  if (display) {
+    chip.textContent = display;
+    wrap.hidden = false;
+  } else {
+    chip.textContent = '';
+    wrap.hidden = true;
+  }
+}
+
+function setCardPriceDataset(card, priceValue, priceDisplay){
+  if (!card) return;
+  const numeric = Number(priceValue);
+  const hasNumeric = Number.isFinite(numeric) && numeric > 0;
+  if (hasNumeric) {
+    card.dataset.price = String(numeric);
+  } else {
+    delete card.dataset.price;
+  }
+  const displayText = typeof priceDisplay === 'string' && priceDisplay.trim()
+    ? priceDisplay.trim()
+    : (hasNumeric ? formatPrice(numeric) : '');
+  if (displayText) {
+    card.dataset.priceDisplay = displayText;
+  } else {
+    delete card.dataset.priceDisplay;
+  }
+  updateCardPriceDisplay(card);
+  updateGearCreditsSummary();
+}
+
+function applySerializedPriceToCard(card, data){
+  if (!card || !data) {
+    updateCardPriceDisplay(card);
+    return;
+  }
+  const priceValue = Number(data.price);
+  const displayText = typeof data.priceDisplay === 'string' ? data.priceDisplay : '';
+  if ((Number.isFinite(priceValue) && priceValue > 0) || displayText) {
+    setCardPriceDataset(card, Number.isFinite(priceValue) && priceValue > 0 ? priceValue : null, displayText);
+  } else {
+    setCardPriceDataset(card, null, '');
+  }
+}
+
 function createCard(kind, pref = {}) {
   if (kind === 'power' || kind === 'sig') {
     return createPowerCard(pref, { signature: kind === 'sig' });
@@ -9721,10 +9845,12 @@ function createCard(kind, pref = {}) {
     logAction(`${kind.charAt(0).toUpperCase()+kind.slice(1)} removed: ${name}`);
     card.remove();
     if (cfg.onDelete) cfg.onDelete();
+    updateGearCreditsSummary();
     pushHistory();
   });
   delWrap.appendChild(delBtn);
   card.appendChild(delWrap);
+  updateCardPriceDisplay(card);
   if (cfg.onChange) {
     qsa('input,select', card).forEach(el => el.addEventListener('input', cfg.onChange));
   }
@@ -9887,14 +10013,8 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
     list.appendChild(card);
   }
   const priceValue = getEntryPriceValue(entry);
-  if (Number.isFinite(priceValue) && priceValue > 0) {
-    card.dataset.price = String(priceValue);
-    const priceDisplay = getPriceDisplay(entry);
-    if (priceDisplay) card.dataset.priceDisplay = priceDisplay;
-  } else {
-    delete card.dataset.price;
-    delete card.dataset.priceDisplay;
-  }
+  const priceDisplay = getPriceDisplay(entry);
+  setCardPriceDataset(card, priceValue, priceDisplay);
   updateDerived();
   pushHistory();
   if (toastMessage) toast(toastMessage, 'success');
@@ -10816,22 +10936,43 @@ function serialize(){
     .map(card => serializePowerCard(card))
     .filter(Boolean)
     .map(sig => ({ ...sig, signature: true }));
-  data.weapons = qsa("[data-kind='weapon']").map(card => ({
-    name: getVal("[data-f='name']", card) || '',
-    damage: getVal("[data-f='damage']", card) || '',
-    range: getVal("[data-f='range']", card) || ''
-  }));
-  data.armor = qsa("[data-kind='armor']").map(card => ({
-    name: getVal("[data-f='name']", card) || '',
-    slot: getVal("[data-f='slot']", card) || 'Body',
-    bonus: Number(getVal("[data-f='bonus']", card) || 0),
-    equipped: !!getChecked("[data-f='equipped']", card)
-  }));
-  data.items = qsa("[data-kind='item']").map(card => ({
-    name: getVal("[data-f='name']", card) || '',
-    qty: Number(getVal("[data-f='qty']", card) || 1),
-    notes: getVal("[data-f='notes']", card) || ''
-  }));
+  data.weapons = qsa("[data-kind='weapon']").map(card => {
+    const weapon = {
+      name: getVal("[data-f='name']", card) || '',
+      damage: getVal("[data-f='damage']", card) || '',
+      range: getVal("[data-f='range']", card) || ''
+    };
+    const priceValue = Number(card.dataset?.price);
+    if (Number.isFinite(priceValue) && priceValue > 0) weapon.price = priceValue;
+    const displayText = (card.dataset?.priceDisplay || '').trim();
+    if (displayText) weapon.priceDisplay = displayText;
+    return weapon;
+  });
+  data.armor = qsa("[data-kind='armor']").map(card => {
+    const armor = {
+      name: getVal("[data-f='name']", card) || '',
+      slot: getVal("[data-f='slot']", card) || 'Body',
+      bonus: Number(getVal("[data-f='bonus']", card) || 0),
+      equipped: !!getChecked("[data-f='equipped']", card)
+    };
+    const priceValue = Number(card.dataset?.price);
+    if (Number.isFinite(priceValue) && priceValue > 0) armor.price = priceValue;
+    const displayText = (card.dataset?.priceDisplay || '').trim();
+    if (displayText) armor.priceDisplay = displayText;
+    return armor;
+  });
+  data.items = qsa("[data-kind='item']").map(card => {
+    const item = {
+      name: getVal("[data-f='name']", card) || '',
+      qty: Number(getVal("[data-f='qty']", card) || 1),
+      notes: getVal("[data-f='notes']", card) || ''
+    };
+    const priceValue = Number(card.dataset?.price);
+    if (Number.isFinite(priceValue) && priceValue > 0) item.price = priceValue;
+    const displayText = (card.dataset?.priceDisplay || '').trim();
+    if (displayText) item.priceDisplay = displayText;
+    return item;
+  });
   // Persist save and skill proficiencies explicitly so they restore reliably
   data.saveProfs = ABILS.filter(a => {
     const el = $('save-' + a + '-prof');
@@ -10895,9 +11036,27 @@ function deserialize(data){
  }
   (data && data.powers ? data.powers : []).forEach(p=> $('powers').appendChild(createCard('power', p)));
   (data && data.signatures ? data.signatures : []).forEach(s=> $('sigs').appendChild(createCard('sig', s)));
-  (data && data.weapons ? data.weapons : []).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
-  (data && data.armor ? data.armor : []).forEach(a=> $('armors').appendChild(createCard('armor', a)));
-  (data && data.items ? data.items : []).forEach(i=> $('items').appendChild(createCard('item', i)));
+  const weaponsList = $('weapons');
+  (data && data.weapons ? data.weapons : []).forEach(w => {
+    if (!weaponsList) return;
+    const card = createCard('weapon', w);
+    weaponsList.appendChild(card);
+    applySerializedPriceToCard(card, w);
+  });
+  const armorList = $('armors');
+  (data && data.armor ? data.armor : []).forEach(a => {
+    if (!armorList) return;
+    const card = createCard('armor', a);
+    armorList.appendChild(card);
+    applySerializedPriceToCard(card, a);
+  });
+  const itemsList = $('items');
+  (data && data.items ? data.items : []).forEach(i => {
+    if (!itemsList) return;
+    const card = createCard('item', i);
+    itemsList.appendChild(card);
+    applySerializedPriceToCard(card, i);
+  });
   refreshHammerspaceCards();
   const restoredCampaignLog = Array.isArray(data?.campaignLog) ? data.campaignLog : [];
   campaignLogEntries = normalizeCampaignLogEntries(restoredCampaignLog);
@@ -10935,6 +11094,9 @@ let autoSaveDirty = false;
 let lastSyncedSnapshotJson = null;
 let pendingAutoSaveSnapshot = null;
 let pendingAutoSaveJson = null;
+const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
+let scheduledAutoSaveId = null;
+let scheduledAutoSaveInFlight = false;
 const pushHistory = debounce(()=>{
   const snap = serialize();
   const serialized = JSON.stringify(snap);
@@ -10979,10 +11141,6 @@ function redo(){
     });
   }
 })();
-
-const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
-let scheduledAutoSaveId = null;
-let scheduledAutoSaveInFlight = false;
 
 async function performScheduledAutoSave(){
   if(scheduledAutoSaveInFlight) return;

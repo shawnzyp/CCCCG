@@ -63,6 +63,10 @@ describe('credits autosave to cloud', () => {
         <option value="subtract">Spend Credits</option>
       </select>
       <button id="credits-submit" type="button"></button>
+      <div id="credits-gear-summary">
+        <span id="credits-gear-spent"></span>
+        <span id="credits-gear-remaining"></span>
+      </div>
     `;
 
     const realGet = document.getElementById.bind(document);
