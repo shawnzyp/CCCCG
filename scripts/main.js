@@ -3235,12 +3235,21 @@ if (btnMenu && menuActions) {
     }
   };
 
+  const resetMenuButtonDelays = () => {
+    const buttons = menuActions.querySelectorAll('button');
+    buttons.forEach(btn => {
+      btn.style.removeProperty('--menu-item-index');
+      btn.style.removeProperty('animation-delay');
+    });
+  };
+
   const hideMenu = (options = {}) => {
     const immediate = options === true || options.immediate === true;
     if (!isMenuOpen && menuActions.hidden && !menuActions.classList.contains('show')) {
       return;
     }
     isMenuOpen = false;
+    resetMenuButtonDelays();
     const onTransitionEnd = event => {
       if (event.target === menuActions) finalizeHide();
     };
@@ -3263,6 +3272,15 @@ if (btnMenu && menuActions) {
     menuActions.hidden = false;
     const shouldFocusFirst = document.activeElement === btnMenu;
     requestAnimationFrame(() => {
+      const buttons = Array.from(menuActions.querySelectorAll('button')).filter(btn => {
+        if (btn.hidden) return false;
+        if (btn.getAttribute('aria-hidden') === 'true') return false;
+        const display = window.getComputedStyle(btn).display;
+        return display !== 'none';
+      });
+      buttons.forEach((btn, index) => {
+        btn.style.setProperty('--menu-item-index', index);
+      });
       menuActions.classList.add('show');
       if (shouldFocusFirst) {
         const firstFocusable = menuActions.querySelector('button, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');

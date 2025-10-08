@@ -97,11 +97,16 @@ header::before{content:none}
 .actions{display:flex;gap:var(--control-gap);flex-wrap:wrap}
 .actions.actions--center{justify-content:center}
 .dropdown{position:relative;display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto;justify-self:end;grid-area:menu;gap:clamp(8px,2vw,14px)}
-.menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-8px) scale(.99);visibility:hidden;transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1);pointer-events:none;transform-origin:top right;will-change:opacity,transform}
+.menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-8px) scale(.99);visibility:hidden;transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1);pointer-events:none;transform-origin:top right;will-change:opacity,transform;--menu-item-stagger:80ms}
 .menu.show{opacity:1;transform:translateY(0) scale(1);visibility:visible;pointer-events:auto}
-.menu button{background:transparent;color:var(--text);border:none;padding:clamp(6px,2.2vw,10px) clamp(10px,3.6vw,14px);text-align:left;font-weight:400;min-height:auto;white-space:nowrap}
+.menu button{background:transparent;color:var(--text);border:none;padding:clamp(6px,2.2vw,10px) clamp(10px,3.6vw,14px);text-align:left;font-weight:400;min-height:auto;white-space:nowrap;--menu-item-index:0;animation:menuItemDrop .3s cubic-bezier(.22,1,.36,1);animation-delay:calc(var(--menu-item-index, 0) * var(--menu-item-stagger, 80ms));animation-fill-mode:both;animation-play-state:paused}
+.menu.show button{animation-play-state:running}
 .menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 .menu .btn-sm{justify-content:flex-start}
+
+@keyframes menuItemDrop{0%{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+@media (prefers-reduced-motion:reduce){.menu button{animation:none!important;animation-delay:0s!important}}
 @media(max-width:600px){
   .actions{justify-content:center}
 }
