@@ -9896,7 +9896,7 @@ function buildCardInfo(entry){
   const priceNote = formatPriceNote(entry);
   const name = entry.name || 'Item';
   if (typeKey === 'weapon') {
-    const { damage, extras } = extractWeaponDetails(entry.perk);
+    const { damage, extras, range } = extractWeaponDetails(entry.perk);
     const damageParts = [];
     if (damage) damageParts.push(`Damage ${damage}`);
     extras.filter(Boolean).forEach(part => damageParts.push(part));
@@ -9910,7 +9910,8 @@ function buildCardInfo(entry){
       listId: 'weapons',
       data: {
         name,
-        damage: damageParts.join(' — ')
+        damage: damageParts.join(' — '),
+        ...(range ? { range } : {})
       }
     };
   }
@@ -10162,24 +10163,47 @@ function extractArmorDetails(perk){
 }
 
 function extractWeaponDetails(perk){
-  if (!perk) return { damage: '', extras: [] };
-  const segments = perk.split(/;|\./).map(p => p.trim()).filter(Boolean);
+  if (!perk) return { damage: '', extras: [], range: '' };
+  const segments = perk
+    .split(/;|\./)
+    .map(p => p.trim().replace(/^[-–—]\s*/, ''))
+    .filter(Boolean);
   let damage = '';
   const extras = [];
-  segments.forEach((seg, idx) => {
-    const match = seg.match(/^(?:Damage\s*)?(.*)$/i);
-    if (idx === 0 && /damage/i.test(seg)) {
-      damage = match && match[1] ? match[1].trim() : seg.trim();
-    } else if (idx === 0 && !/damage/i.test(seg)) {
-      extras.push(seg);
-    } else if (seg) {
-      extras.push(seg);
+  const rangeParts = [];
+  const isRangeSegment = seg => {
+    const lower = seg.toLowerCase();
+    if (!lower) return false;
+    if (/(^|\b)(melee|reach|touch|self|thrown|aura)\b/.test(lower)) return true;
+    if (/\b(?:narrative)\b/.test(lower) && lower.includes('range')) return true;
+    const hasDistance = /\b\d+\s*(?:ft|feet|yd|yard|m|meter|meters|mile|miles)\b/.test(lower);
+    if (hasDistance && /\b(range|line|cone|radius|sphere|burst|spray|beam|emanation|cylinder)\b/.test(lower)) {
+      return true;
     }
+    if (hasDistance && lower.includes('range')) return true;
+    return false;
+  };
+  segments.forEach((seg, idx) => {
+    if (!seg) return;
+    if (idx === 0 && /damage/i.test(seg)) {
+      const match = seg.match(/^(?:Damage\s*)?(.*)$/i);
+      damage = match && match[1] ? match[1].trim() : seg.trim();
+      return;
+    }
+    if (isRangeSegment(seg)) {
+      rangeParts.push(seg);
+      return;
+    }
+    if (idx === 0 && !damage) {
+      damage = seg.trim();
+      return;
+    }
+    extras.push(seg);
   });
   if (damage.toLowerCase().startsWith('damage')) {
     damage = damage.slice(6).trim();
   }
-  return { damage: formatDamageText(damage), extras };
+  return { damage: formatDamageText(damage), extras, range: rangeParts.join(' — ') };
 }
 
 function buildItemNotes(entry){
@@ -10432,7 +10456,15 @@ function ensureCatalogFilters(data){
   }
 }
 
-export { tierRank, sortCatalogRows, extractPriceValue, resolveRollBonus, rollBonusRegistry };
+export {
+  tierRank,
+  sortCatalogRows,
+  extractPriceValue,
+  resolveRollBonus,
+  rollBonusRegistry,
+  buildCardInfo,
+  extractWeaponDetails
+};
 
 function setCatalogFilters(filters = {}){
   if (styleSel && Object.prototype.hasOwnProperty.call(filters, 'style')) {
@@ -11132,6 +11164,10 @@ const pushHistory = debounce(()=>{
   markAutoSaveDirty(snap, serialized);
 }, 500);
 
+const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
+let scheduledAutoSaveId = null;
+let scheduledAutoSaveInFlight = false;
+
 document.addEventListener('input', pushHistory);
 document.addEventListener('change', pushHistory);
 
@@ -11165,10 +11201,6 @@ function redo(){
     });
   }
 })();
-
-const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
-let scheduledAutoSaveId = null;
-let scheduledAutoSaveInFlight = false;
 
 async function performScheduledAutoSave(){
   if(scheduledAutoSaveInFlight) return;
