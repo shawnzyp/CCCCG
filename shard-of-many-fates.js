@@ -840,6 +840,147 @@
     }
   }
 
+  function createSuspenseStingController() {
+    if (typeof window === 'undefined') {
+      return { play() {}, stop() {} };
+    }
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextCtor) {
+      return { play() {}, stop() {} };
+    }
+
+    let context = null;
+    let nodes = null;
+    let activeSource = null;
+    let stopTimer = null;
+
+    const MAX_DURATION = 2.4;
+
+    const ensureContext = () => {
+      if (context) return context;
+      try {
+        context = new AudioContextCtor({ latencyHint: 'interactive' });
+      } catch {
+        try { context = new AudioContextCtor(); }
+        catch { context = null; }
+      }
+      return context;
+    };
+
+    const clearTimer = () => {
+      if (stopTimer) {
+        window.clearTimeout(stopTimer);
+        stopTimer = null;
+      }
+    };
+
+    const cleanupNodes = () => {
+      if (!nodes) return;
+      const { oscillator, gain, filter } = nodes;
+      nodes = null;
+      activeSource = null;
+      clearTimer();
+      try { if (oscillator) { oscillator.onended = null; oscillator.disconnect(); } }
+      catch {}
+      try { if (filter) filter.disconnect(); }
+      catch {}
+      try { if (gain) gain.disconnect(); }
+      catch {}
+    };
+
+    const scheduleAutoStop = () => {
+      clearTimer();
+      stopTimer = window.setTimeout(() => {
+        stop();
+      }, Math.ceil(MAX_DURATION * 1000));
+    };
+
+    const startPlayback = (ctx, source) => {
+      const now = ctx.currentTime || 0;
+      const oscillator = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(360, now);
+      oscillator.frequency.exponentialRampToValueAtTime(110, now + 1.6);
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(320, now);
+      filter.Q.setValueAtTime(7, now);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.36, now + 0.12);
+      gain.gain.setValueAtTime(0.32, now + 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + MAX_DURATION);
+
+      oscillator.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      oscillator.start(now);
+      oscillator.stop(now + MAX_DURATION);
+
+      oscillator.onended = () => {
+        cleanupNodes();
+      };
+
+      nodes = { oscillator, filter, gain };
+      activeSource = source || null;
+      scheduleAutoStop();
+    };
+
+    const play = source => {
+      const ctx = ensureContext();
+      if (!ctx) return;
+      if (nodes) {
+        stop();
+      }
+      const resume = (ctx.state === 'suspended' && typeof ctx.resume === 'function')
+        ? ctx.resume().catch(() => {})
+        : null;
+      if (resume && typeof resume.then === 'function') {
+        resume.then(() => startPlayback(ctx, source)).catch(() => startPlayback(ctx, source));
+      } else {
+        startPlayback(ctx, source);
+      }
+    };
+
+    const stop = source => {
+      if (source && activeSource && source !== activeSource) return;
+      if (!nodes) {
+        activeSource = null;
+        clearTimer();
+        return;
+      }
+      const { oscillator, gain } = nodes;
+      const ctx = context;
+      clearTimer();
+      const now = ctx ? ctx.currentTime : 0;
+      if (gain?.gain) {
+        try {
+          gain.gain.cancelScheduledValues(now);
+          const current = Math.max(gain.gain.value || 0.0001, 0.0001);
+          gain.gain.setValueAtTime(current, now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+        } catch {}
+      }
+      if (oscillator) {
+        try {
+          oscillator.stop(now + 0.15);
+        } catch (err) {
+          try { oscillator.stop(); }
+          catch {}
+        }
+      }
+    };
+
+    return {
+      play,
+      stop,
+    };
+  }
+
   function normalizeHiddenValue(value) {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'string') {
@@ -2377,6 +2518,7 @@
       this.toastDismissHandler = () => this.onGlobalToastDismissed();
       this.modalIsOpen = false;
       this.drawConfirmState = null;
+      this.suspenseSting = createSuspenseStingController();
     }
 
     attach() {
@@ -2465,6 +2607,7 @@
       if (this.dom.revealInviteAccept) {
         this.dom.revealInviteAccept.textContent = 'Eeehhhhh…';
       }
+      this.suspenseSting?.play('reveal');
     }
 
     openRevealInvite() {
@@ -2514,6 +2657,7 @@
     closeRevealInvite() {
       const overlay = this.dom.revealInvite;
       if (!overlay) return;
+      this.suspenseSting?.stop('reveal');
       const state = this.revealInviteOverlayState || {};
       overlay.classList.remove('is-visible');
       overlay.setAttribute('aria-hidden', 'true');
@@ -2580,6 +2724,7 @@
     }
 
     dismissRevealInvite() {
+      this.suspenseSting?.stop('reveal');
       if (this.revealInviteActive) {
         this.revealInviteActive = null;
       }
@@ -2593,6 +2738,7 @@
         this.closeRevealInvite();
         return;
       }
+      this.suspenseSting?.stop('reveal');
       this.revealInviteAccepting = true;
       const acceptBtn = this.dom.revealInviteAccept;
       if (acceptBtn) acceptBtn.disabled = true;
@@ -3005,6 +3151,7 @@
       overlay.classList.remove('hidden');
       overlay.setAttribute('aria-hidden', 'false');
       document.body?.classList?.add('modal-open');
+      this.suspenseSting?.play('draw-confirm');
       const previouslyFocused = typeof document !== 'undefined' ? document.activeElement : null;
       const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
       const focusElement = element => {
@@ -3043,6 +3190,7 @@
         const cleanup = confirmed => {
           if (closing) return;
           closing = true;
+          this.suspenseSting?.stop('draw-confirm');
           overlay.removeEventListener('keydown', handleKeydown);
           overlay.removeEventListener('click', handleBackdropClick);
           document.removeEventListener('focusin', handleFocusIn, true);
