@@ -1575,6 +1575,24 @@
 <div id="load-animation" aria-hidden="true" hidden></div>
 <div id="draw-lightning" aria-hidden="true" hidden></div>
 <div id="draw-flash" aria-hidden="true" hidden></div>
+<div class="overlay hidden" id="somf-confirm-draw" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="somf-confirm-title" aria-describedby="somf-confirm-description somf-confirm-count somf-confirm-consequence-label">
+  <section class="modal somf-confirm" tabindex="-1">
+    <header class="somf-confirm__header">
+      <h3 id="somf-confirm-title" class="somf-confirm__title">Tempt Fate?</h3>
+      <p id="somf-confirm-description" class="somf-confirm__description">Drawing from the Shards of Many Fates invites unpredictable magic.</p>
+    </header>
+    <p id="somf-confirm-count" class="somf-confirm__count">You are about to draw 1 Shard.</p>
+    <p id="somf-confirm-consequence-label" class="somf-confirm__label">If you proceed, remember:</p>
+    <ul id="somf-confirm-consequences" class="somf-confirm__list">
+      <li>The Fates are fickle—outcomes may bless or curse.</li>
+      <li>Draws are permanent and cannot be undone.</li>
+    </ul>
+    <footer class="somf-confirm__actions">
+      <button type="button" class="btn-sm somf-confirm__cancel" data-somf-confirm-cancel>Not Now</button>
+      <button type="button" class="somf-btn somf-primary somf-confirm__accept" data-somf-confirm-accept>Draw 1 Shard</button>
+    </footer>
+  </section>
+</div>
 <div id="somf-reveal-alert" class="somf-reveal-alert" hidden role="alertdialog" aria-modal="true" aria-labelledby="somf-reveal-title" aria-describedby="somf-reveal-text" aria-hidden="true">
   <div class="somf-reveal-alert__card" tabindex="-1">
     <h3 id="somf-reveal-title" class="somf-reveal-alert__title">The Shards of Many Fates</h3>
