@@ -6542,12 +6542,19 @@ function playCoinAnimation(result){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('coin-animation');
   if(!anim) return Promise.resolve();
-  anim.textContent=result;
+  anim.dataset.result=result;
+  anim.classList.remove('is-heads','is-tails');
+  if(result==='Heads'){
+    anim.classList.add('is-heads');
+  }else if(result==='Tails'){
+    anim.classList.add('is-tails');
+  }
   anim.hidden=false;
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
       anim.classList.remove('show');
+      anim.classList.remove('is-heads','is-tails');
       anim.hidden=true;
       anim.removeEventListener('animationend', done);
       res();
