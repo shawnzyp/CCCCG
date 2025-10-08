@@ -281,6 +281,7 @@ function initDMLogin(){
   const notifyBtn = document.getElementById('dm-tools-notifications');
   const charBtn = document.getElementById('dm-tools-characters');
   const miniGamesBtn = document.getElementById('dm-tools-mini-games');
+  const catalogBtn = document.getElementById('dm-tools-catalog');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
@@ -313,6 +314,88 @@ function initDMLogin(){
   const miniGamesReadme = document.getElementById('dm-mini-games-readme');
   const miniGamesRefreshBtn = document.getElementById('dm-mini-games-refresh');
   const miniGamesDeployments = document.getElementById('dm-mini-games-deployments');
+  const catalogModal = document.getElementById('dm-catalog-modal');
+  const catalogClose = document.getElementById('dm-catalog-close');
+  const catalogTabs = document.getElementById('dm-catalog-tabs');
+  const catalogPanels = document.getElementById('dm-catalog-panels');
+
+  const CATALOG_TYPES = [
+    { id: 'gear', label: 'Gear', blurb: 'Outfit your operatives with surveillance, support, and survival tech.' },
+    { id: 'weapons', label: 'Weapons', blurb: 'Detail signature arsenals, from close-quarters tools to experimental ordnance.' },
+    { id: 'armor', label: 'Armor', blurb: 'Describe layered defenses, hardlight plating, and reactive shielding.' },
+    { id: 'items', label: 'Items', blurb: 'Track consumables, mission-critical widgets, and bespoke creations.' },
+    { id: 'powers', label: 'Powers', blurb: 'Capture advanced techniques, psionics, or shard-channeling abilities.' },
+    { id: 'signature-moves', label: 'Signature Moves', blurb: 'Script cinematic finishers and team-defining maneuvers.' },
+  ];
+
+  const CATALOG_BASE_SHORT_FIELDS = [
+    { key: 'name', label: 'Name', kind: 'input', type: 'text', required: true, placeholder: 'Entry name', autocomplete: 'off' },
+    { key: 'tier', label: 'Tier / Level', kind: 'input', type: 'text', placeholder: 'Tier or recommended level' },
+    { key: 'price', label: 'Price / Cost', kind: 'input', type: 'text', placeholder: 'Credits, barter, or opportunity cost' },
+    { key: 'rarity', label: 'Rarity', kind: 'input', type: 'text', placeholder: 'Common, rare, prototype…' },
+    { key: 'tags', label: 'Tags', kind: 'input', type: 'text', placeholder: 'Comma-separated keywords' },
+  ];
+
+  const CATALOG_BASE_LONG_FIELDS = [
+    { key: 'description', label: 'Overview', kind: 'textarea', rows: 4, placeholder: 'Describe the entry and how it appears in play.' },
+    { key: 'mechanics', label: 'Mechanical Effects', kind: 'textarea', rows: 3, placeholder: 'Summarize bonuses, checks, and rules interactions.' },
+    { key: 'dmNotes', label: 'DM Notes', kind: 'textarea', rows: 3, placeholder: 'Secret hooks, escalation paths, or reminders.', hint: 'Only visible to you when drafting entries.' },
+  ];
+
+  const CATALOG_TYPE_SHORT_FIELDS = {
+    gear: [
+      { key: 'function', label: 'Primary Function', kind: 'input', type: 'text', placeholder: 'Utility, infiltration, support, etc.' },
+      { key: 'availability', label: 'Availability', kind: 'input', type: 'text', placeholder: 'Common, restricted, prototype…' },
+    ],
+    weapons: [
+      { key: 'damage', label: 'Damage Profile', kind: 'input', type: 'text', placeholder: 'e.g. 2d6 kinetic + 1 burn' },
+      { key: 'range', label: 'Range', kind: 'input', type: 'text', placeholder: 'Reach, 20m, etc.' },
+    ],
+    armor: [
+      { key: 'defense', label: 'Defense Bonus', kind: 'input', type: 'text', placeholder: '+2 Guard, Resist Energy' },
+      { key: 'capacity', label: 'Capacity / Slots', kind: 'input', type: 'text', placeholder: 'Light, 2 slots, etc.' },
+    ],
+    items: [
+      { key: 'uses', label: 'Uses', kind: 'input', type: 'text', placeholder: 'Single-use, 3 charges, etc.' },
+      { key: 'size', label: 'Size / Carry', kind: 'input', type: 'text', placeholder: 'Handheld, pack, etc.' },
+    ],
+    powers: [
+      { key: 'cost', label: 'Cost / Resource', kind: 'input', type: 'text', placeholder: 'SP cost, cooldown, etc.' },
+      { key: 'duration', label: 'Duration', kind: 'input', type: 'text', placeholder: 'Instant, sustain, scene, etc.' },
+    ],
+    'signature-moves': [
+      { key: 'trigger', label: 'Trigger', kind: 'input', type: 'text', placeholder: 'Describe when the move activates' },
+      { key: 'reward', label: 'Reward / Impact', kind: 'input', type: 'text', placeholder: 'Damage, status, or story payoff' },
+    ],
+  };
+
+  const CATALOG_TYPE_LONG_FIELDS = {
+    gear: [
+      { key: 'operation', label: 'Operating Notes', kind: 'textarea', rows: 3, placeholder: 'Setup, requirements, and failure modes.' },
+    ],
+    weapons: [
+      { key: 'special', label: 'Special Rules', kind: 'textarea', rows: 3, placeholder: 'Alternate fire modes, reload steps, complications.' },
+    ],
+    armor: [
+      { key: 'coverage', label: 'Coverage & Traits', kind: 'textarea', rows: 3, placeholder: 'Systems protected, energy channels, or resistances.' },
+    ],
+    items: [
+      { key: 'usage', label: 'Usage Notes', kind: 'textarea', rows: 3, placeholder: 'How and when players can use this item.' },
+    ],
+    powers: [
+      { key: 'effect', label: 'Power Effect', kind: 'textarea', rows: 3, placeholder: 'Describe outcomes, saves, and failure states.' },
+    ],
+    'signature-moves': [
+      { key: 'narrative', label: 'Narrative Beats', kind: 'textarea', rows: 3, placeholder: 'Paint the cinematic moment for the move.' },
+    ],
+  };
+
+  const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));
+  let activeCatalogType = CATALOG_TYPES[0]?.id || null;
+  const catalogTabButtons = new Map();
+  const catalogPanelMap = new Map();
+  const catalogForms = new Map();
+  let catalogInitialized = false;
 
   if (!isAuthorizedDevice()) {
     dmBtn?.remove();
@@ -322,6 +405,8 @@ function initDMLogin(){
     notifyModal?.remove();
     charModal?.remove();
     charViewModal?.remove();
+    catalogBtn?.remove();
+    catalogModal?.remove();
     return;
   }
 
@@ -1109,6 +1194,371 @@ function initDMLogin(){
     hide('dm-mini-games-modal');
   }
 
+  function getCatalogFieldSets(typeId) {
+    const short = [...CATALOG_BASE_SHORT_FIELDS, ...(CATALOG_TYPE_SHORT_FIELDS[typeId] || [])];
+    const long = [...CATALOG_BASE_LONG_FIELDS, ...(CATALOG_TYPE_LONG_FIELDS[typeId] || [])];
+    return { short, long };
+  }
+
+  function sanitizeCatalogValue(value) {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    return '';
+  }
+
+  function createCatalogField(definition) {
+    const wrapper = document.createElement('label');
+    wrapper.className = 'dm-catalog__field';
+    wrapper.dataset.field = definition.key;
+
+    const title = document.createElement('span');
+    title.className = 'dm-catalog__field-label';
+    title.textContent = definition.label;
+    wrapper.appendChild(title);
+
+    let control;
+    if (definition.kind === 'textarea') {
+      control = document.createElement('textarea');
+      control.rows = definition.rows || 3;
+    } else {
+      control = document.createElement('input');
+      control.type = definition.type || 'text';
+      if (definition.autocomplete) control.autocomplete = definition.autocomplete;
+      if (definition.inputMode) control.inputMode = definition.inputMode;
+      if (definition.pattern) control.pattern = definition.pattern;
+    }
+    control.name = definition.key;
+    control.dataset.catalogField = definition.key;
+    if (definition.placeholder) control.placeholder = definition.placeholder;
+    if (definition.required) control.required = true;
+    if (definition.maxlength) control.maxLength = definition.maxlength;
+    if (definition.spellcheck === false) control.spellcheck = false;
+    wrapper.appendChild(control);
+
+    if (definition.hint) {
+      const hint = document.createElement('span');
+      hint.className = 'dm-catalog__hint';
+      hint.textContent = definition.hint;
+      wrapper.appendChild(hint);
+    }
+
+    return { wrapper, control };
+  }
+
+  function buildCatalogForm(typeId, form) {
+    if (!form || form.dataset.catalogBuilt === 'true') return;
+    const typeMeta = catalogTypeLookup.get(typeId);
+    const { short, long } = getCatalogFieldSets(typeId);
+    form.innerHTML = '';
+
+    const card = document.createElement('div');
+    card.className = 'dm-catalog__card';
+
+    const heading = document.createElement('h4');
+    heading.className = 'dm-catalog__panel-title';
+    heading.textContent = `${typeMeta?.label ?? 'Catalog'} Entry`;
+    card.appendChild(heading);
+
+    if (typeMeta?.blurb) {
+      const intro = document.createElement('p');
+      intro.className = 'dm-catalog__hint';
+      intro.textContent = typeMeta.blurb;
+      card.appendChild(intro);
+    }
+
+    if (short.length) {
+      const grid = document.createElement('div');
+      grid.className = 'dm-catalog__grid';
+      short.forEach(field => {
+        const { wrapper } = createCatalogField(field);
+        grid.appendChild(wrapper);
+      });
+      card.appendChild(grid);
+    }
+
+    long.forEach(field => {
+      const { wrapper } = createCatalogField(field);
+      card.appendChild(wrapper);
+    });
+
+    const lock = document.createElement('label');
+    lock.className = 'dm-catalog__lock';
+    const lockInput = document.createElement('input');
+    lockInput.type = 'checkbox';
+    lockInput.name = 'dmLock';
+    lockInput.value = 'locked';
+    lock.appendChild(lockInput);
+    const lockCopy = document.createElement('div');
+    lockCopy.className = 'dm-catalog__lock-copy';
+    const lockTitle = document.createElement('span');
+    lockTitle.className = 'dm-catalog__field-label';
+    lockTitle.textContent = 'DM lock this entry';
+    lockCopy.appendChild(lockTitle);
+    const lockHint = document.createElement('span');
+    lockHint.className = 'dm-catalog__hint';
+    lockHint.textContent = 'Prevent players from editing this entry after deployment.';
+    lockCopy.appendChild(lockHint);
+    lock.appendChild(lockCopy);
+    card.appendChild(lock);
+
+    const actions = document.createElement('div');
+    actions.className = 'dm-catalog__actions';
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'reset';
+    resetBtn.className = 'btn-sm';
+    resetBtn.textContent = 'Clear';
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'submit';
+    submitBtn.className = 'somf-btn somf-primary';
+    submitBtn.textContent = 'Create Entry';
+    actions.appendChild(resetBtn);
+    actions.appendChild(submitBtn);
+    card.appendChild(actions);
+
+    form.appendChild(card);
+    form.dataset.catalogBuilt = 'true';
+    form.addEventListener('submit', handleCatalogSubmit);
+    form.addEventListener('reset', handleCatalogReset);
+  }
+
+  function updateCatalogTabState() {
+    CATALOG_TYPES.forEach(type => {
+      const btn = catalogTabButtons.get(type.id);
+      const panel = catalogPanelMap.get(type.id);
+      const active = type.id === activeCatalogType;
+      if (btn) {
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        btn.tabIndex = active ? 0 : -1;
+      }
+      if (panel) {
+        panel.classList.toggle('is-active', active);
+        panel.setAttribute('aria-hidden', active ? 'false' : 'true');
+        panel.hidden = !active;
+      }
+    });
+  }
+
+  function focusCatalogForm() {
+    if (!catalogModal || catalogModal.classList.contains('hidden')) return;
+    const form = catalogForms.get(activeCatalogType);
+    if (!form) return;
+    const focusTarget = form.querySelector('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])');
+    if (!focusTarget || typeof focusTarget.focus !== 'function') return;
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch {
+      focusTarget.focus();
+    }
+  }
+
+  function getAdjacentCatalogType(currentId, offset) {
+    if (!CATALOG_TYPES.length) return currentId;
+    const index = CATALOG_TYPES.findIndex(type => type.id === currentId);
+    if (index === -1) {
+      return CATALOG_TYPES[0].id;
+    }
+    const nextIndex = (index + offset + CATALOG_TYPES.length) % CATALOG_TYPES.length;
+    return CATALOG_TYPES[nextIndex].id;
+  }
+
+  function setActiveCatalogTab(typeId, { focusTab = false, suppressPanelFocus = false } = {}) {
+    const hasType = typeId && catalogTypeLookup.has(typeId);
+    if (!hasType) {
+      typeId = CATALOG_TYPES[0]?.id || activeCatalogType;
+    }
+    if (!typeId) return;
+    activeCatalogType = typeId;
+    updateCatalogTabState();
+    if (focusTab) {
+      const btn = catalogTabButtons.get(typeId);
+      if (btn && typeof btn.focus === 'function') {
+        try {
+          btn.focus({ preventScroll: true });
+        } catch {
+          btn.focus();
+        }
+      }
+    }
+    if (!suppressPanelFocus) {
+      Promise.resolve().then(() => focusCatalogForm());
+    }
+  }
+
+  function ensureCatalogUI() {
+    if (!catalogTabs || !catalogPanels) return;
+    if (!catalogInitialized) {
+      const tabButtons = catalogTabs.querySelectorAll('button[data-tab]');
+      tabButtons.forEach(btn => {
+        const typeId = btn.dataset.tab;
+        if (!typeId) return;
+        catalogTabButtons.set(typeId, btn);
+        if (!activeCatalogType) activeCatalogType = typeId;
+      });
+      const panels = catalogPanels.querySelectorAll('[data-panel]');
+      panels.forEach(panel => {
+        const typeId = panel.dataset.panel;
+        if (!typeId) return;
+        catalogPanelMap.set(typeId, panel);
+        const form = panel.querySelector('form[data-catalog-form]');
+        if (form) {
+          catalogForms.set(typeId, form);
+          buildCatalogForm(typeId, form);
+        }
+      });
+      catalogTabs.addEventListener('click', handleCatalogTabClick);
+      catalogTabs.addEventListener('keydown', handleCatalogTabKeydown);
+      catalogInitialized = true;
+    } else {
+      catalogForms.forEach((form, typeId) => {
+        if (form && form.dataset.catalogBuilt !== 'true') {
+          buildCatalogForm(typeId, form);
+        }
+      });
+    }
+    if (!activeCatalogType || !catalogTypeLookup.has(activeCatalogType)) {
+      activeCatalogType = CATALOG_TYPES[0]?.id || null;
+    }
+    updateCatalogTabState();
+  }
+
+  function handleCatalogTabClick(event) {
+    const button = event.target.closest('button[data-tab]');
+    if (!button) return;
+    event.preventDefault();
+    const typeId = button.dataset.tab;
+    if (!typeId) return;
+    setActiveCatalogTab(typeId);
+  }
+
+  function handleCatalogTabKeydown(event) {
+    const button = event.target.closest('button[data-tab]');
+    if (!button) return;
+    const typeId = button.dataset.tab;
+    if (!typeId) return;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      const next = getAdjacentCatalogType(typeId, 1);
+      setActiveCatalogTab(next, { focusTab: true, suppressPanelFocus: true });
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const prev = getAdjacentCatalogType(typeId, -1);
+      setActiveCatalogTab(prev, { focusTab: true, suppressPanelFocus: true });
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      const first = CATALOG_TYPES[0]?.id;
+      if (first) {
+        setActiveCatalogTab(first, { focusTab: true, suppressPanelFocus: true });
+      }
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      const last = CATALOG_TYPES[CATALOG_TYPES.length - 1]?.id;
+      if (last) {
+        setActiveCatalogTab(last, { focusTab: true, suppressPanelFocus: true });
+      }
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setActiveCatalogTab(typeId);
+    }
+  }
+
+  function buildCatalogPayload(typeId, form) {
+    if (!form) return null;
+    const { short, long } = getCatalogFieldSets(typeId);
+    const fields = [...short, ...long];
+    const data = new FormData(form);
+    const metadata = {};
+    fields.forEach(field => {
+      const raw = data.get(field.key);
+      metadata[field.key] = sanitizeCatalogValue(raw);
+    });
+    metadata.category = typeId;
+    const typeMeta = catalogTypeLookup.get(typeId);
+    if (typeMeta?.label) metadata.categoryLabel = typeMeta.label;
+    const locked = data.get('dmLock') != null;
+    const payload = {
+      type: typeId,
+      label: typeMeta?.label || typeId,
+      metadata,
+      locked,
+      timestamp: new Date().toISOString(),
+    };
+    if (!metadata.name) return null;
+    return payload;
+  }
+
+  function emitCatalogPayload(payload) {
+    if (!payload) return;
+    if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
+      document.dispatchEvent(new CustomEvent('dm:catalog-submit', { detail: payload }));
+    }
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent('dm:catalog-submit', { detail: payload }));
+    }
+    const typeLabel = payload.label || payload.type;
+    const entryName = payload.metadata?.name || 'Untitled';
+    if (typeof toast === 'function') toast(`${typeLabel} entry staged: ${entryName}`, 'success');
+    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}`);
+    if (typeof console !== 'undefined' && typeof console.debug === 'function') {
+      console.debug('DM catalog payload prepared', payload);
+    }
+  }
+
+  function handleCatalogSubmit(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form) return;
+    const typeId = form.dataset.catalogForm;
+    if (!typeId) return;
+    if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+      return;
+    }
+    const payload = buildCatalogPayload(typeId, form);
+    if (!payload) return;
+    emitCatalogPayload(payload);
+    form.reset();
+    Promise.resolve().then(() => focusCatalogForm());
+  }
+
+  function handleCatalogReset(event) {
+    const form = event.currentTarget;
+    if (!form) return;
+    Promise.resolve().then(() => {
+      if (form.dataset.catalogForm === activeCatalogType) {
+        focusCatalogForm();
+      }
+    });
+  }
+
+  async function openCatalog() {
+    if (!catalogModal) return;
+    ensureCatalogUI();
+    if (!activeCatalogType || !catalogTypeLookup.has(activeCatalogType)) {
+      activeCatalogType = CATALOG_TYPES[0]?.id || null;
+    }
+    updateCatalogTabState();
+    show('dm-catalog-modal');
+    if (typeof catalogModal.scrollTo === 'function') {
+      catalogModal.scrollTo({ top: 0 });
+    } else {
+      catalogModal.scrollTop = 0;
+    }
+    const modalContent = catalogModal.querySelector('.modal');
+    if (modalContent) {
+      if (typeof modalContent.scrollTo === 'function') {
+        modalContent.scrollTo({ top: 0 });
+      } else {
+        modalContent.scrollTop = 0;
+      }
+    }
+    Promise.resolve().then(() => focusCatalogForm());
+  }
+
+  function closeCatalog() {
+    if (!catalogModal) return;
+    hide('dm-catalog-modal');
+  }
+
   if (loginPin) {
     loginPin.type = 'password';
     loginPin.autocomplete = 'one-time-code';
@@ -1337,6 +1787,14 @@ function initDMLogin(){
     clearLoggedIn();
     teardownMiniGameSubscription();
     closeMiniGames();
+    closeCatalog();
+    catalogForms.forEach(form => {
+      try {
+        form.reset();
+      } catch {
+        /* ignore reset errors */
+      }
+    });
     updateButtons();
     if (typeof toast === 'function') toast('Logged out','info');
   }
@@ -1716,7 +2174,20 @@ function initDMLogin(){
     });
   }
 
+  if (catalogBtn) {
+    catalogBtn.addEventListener('click', async () => {
+      closeMenu();
+      try {
+        await openCatalog();
+      } catch (err) {
+        console.error('Failed to open catalog builder', err);
+        if (typeof toast === 'function') toast('Failed to open catalog', 'error');
+      }
+    });
+  }
+
   miniGamesClose?.addEventListener('click', closeMiniGames);
+  catalogClose?.addEventListener('click', closeCatalog);
 
   miniGamesList?.addEventListener('click', e => {
     const button = e.target.closest('button[data-game-id]');
@@ -1788,6 +2259,7 @@ function initDMLogin(){
   charClose?.addEventListener('click', closeCharacters);
   charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });
   charViewClose?.addEventListener('click', closeCharacterView);
+  catalogModal?.addEventListener('click', e => { if (e.target === catalogModal) closeCatalog(); });
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {

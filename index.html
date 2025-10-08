@@ -1515,6 +1515,7 @@
       <button id="dm-tools-notifications" class="btn-sm">Notifications</button>
       <button id="dm-tools-characters" class="btn-sm">Characters</button>
       <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
+      <button id="dm-tools-catalog" class="btn-sm">Catalog Builder</button>
       <button id="dm-tools-logout" class="btn-sm">Logout</button>
     </div>
     <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu">
@@ -1632,6 +1633,46 @@
           <ul id="dm-mini-games-deployments" class="dm-mini-games__deployments"></ul>
         </section>
       </div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay hidden" id="dm-catalog-modal" aria-hidden="true">
+  <section class="modal dm-catalog" data-view-allow>
+    <button id="dm-catalog-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>Catalog Builder</h3>
+    <p class="dm-catalog__intro">Plan and launch custom gear, abilities, and signature moves for your table.</p>
+    <nav id="dm-catalog-tabs" class="dm-catalog__tabs" role="tablist" aria-label="Catalog entry types">
+      <button id="dm-catalog-tab-gear" class="dm-catalog__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-catalog-panel-gear" data-tab="gear" tabindex="0">Gear</button>
+      <button id="dm-catalog-tab-weapons" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-weapons" data-tab="weapons" tabindex="-1">Weapons</button>
+      <button id="dm-catalog-tab-armor" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-armor" data-tab="armor" tabindex="-1">Armor</button>
+      <button id="dm-catalog-tab-items" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-items" data-tab="items" tabindex="-1">Items</button>
+      <button id="dm-catalog-tab-powers" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-powers" data-tab="powers" tabindex="-1">Powers</button>
+      <button id="dm-catalog-tab-signature-moves" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-signature-moves" data-tab="signature-moves" tabindex="-1">Signature Moves</button>
+    </nav>
+    <div id="dm-catalog-panels" class="dm-catalog__panels">
+      <section id="dm-catalog-panel-gear" class="dm-catalog__panel is-active" role="tabpanel" aria-labelledby="dm-catalog-tab-gear" data-panel="gear">
+        <form class="dm-catalog__form" data-catalog-form="gear" novalidate></form>
+      </section>
+      <section id="dm-catalog-panel-weapons" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-weapons" data-panel="weapons" hidden>
+        <form class="dm-catalog__form" data-catalog-form="weapons" novalidate></form>
+      </section>
+      <section id="dm-catalog-panel-armor" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-armor" data-panel="armor" hidden>
+        <form class="dm-catalog__form" data-catalog-form="armor" novalidate></form>
+      </section>
+      <section id="dm-catalog-panel-items" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-items" data-panel="items" hidden>
+        <form class="dm-catalog__form" data-catalog-form="items" novalidate></form>
+      </section>
+      <section id="dm-catalog-panel-powers" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-powers" data-panel="powers" hidden>
+        <form class="dm-catalog__form" data-catalog-form="powers" novalidate></form>
+      </section>
+      <section id="dm-catalog-panel-signature-moves" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-signature-moves" data-panel="signature-moves" hidden>
+        <form class="dm-catalog__form" data-catalog-form="signature-moves" novalidate></form>
+      </section>
     </div>
   </section>
 </div>
