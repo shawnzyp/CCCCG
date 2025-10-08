@@ -1,5 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, revertAbilityScore } from './helpers.js';
+import { normalizeToastToneType, playToastToneForType } from './toast-audio.js';
 import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep, migratePublicOpinionSnapshot } from './faction.js';
 import {
   currentCharacter,
@@ -2377,24 +2378,10 @@ document.addEventListener('visibilitychange', () => {
 });
 function playTone(type){
   try{
-    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    const now = audioCtx.currentTime;
-    const rampUpDuration = 0.015;
-    const totalDuration = 0.15;
-    const sustainEnd = now + totalDuration - 0.03;
-    osc.type = 'sine';
-    osc.frequency.value = type==='error'?220:880;
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.1, now + rampUpDuration);
-    gain.gain.setValueAtTime(0.1, sustainEnd);
-    gain.gain.linearRampToValueAtTime(0, now + totalDuration);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start(now);
-    osc.stop(now + totalDuration);
+    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    if(!AudioContextCtor) return;
+    if(!audioCtx) audioCtx = new AudioContextCtor();
+    playToastToneForType(audioCtx, type);
   }catch(e){ /* noop */ }
 }
 let toastTimeout;
@@ -2492,6 +2479,7 @@ function toast(msg, type = 'info'){
   const toastType = typeof opts.type === 'string' && opts.type ? opts.type : 'info';
   const duration = typeof opts.duration === 'number' ? opts.duration : 5000;
   const html = typeof opts.html === 'string' ? opts.html : '';
+  const normalizedToastAudioType = normalizeToastToneType(toastType);
   if (html) {
     t.innerHTML = html;
   } else {
@@ -2499,7 +2487,7 @@ function toast(msg, type = 'info'){
   }
   t.className = toastType ? `toast ${toastType}` : 'toast';
   t.classList.add('show');
-  playTone(toastType);
+  playTone(normalizedToastAudioType);
   clearTimeout(toastTimeout);
   ensureToastFocusHandlers();
   const shouldTrap = !(document?.body?.classList?.contains('modal-open'));
