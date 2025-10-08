@@ -8944,6 +8944,8 @@ function setupPowerPresetMenu() {
   }
 }
 
+const ATTACK_ABILITY_OPTIONS = ABILS.map(a => ({ value: a, label: a.toUpperCase() }));
+
 const CARD_CONFIG = {
   sig: {
     rows: [
@@ -8961,7 +8963,9 @@ const CARD_CONFIG = {
       { class: 'inline', fields: [
         { f: 'name', placeholder: 'Name' },
         { f: 'damage', placeholder: 'Damage', style: 'max-width:140px' },
-        { f: 'range', placeholder: 'Range', style: 'max-width:160px' }
+        { f: 'range', placeholder: 'Range', style: 'max-width:160px' },
+        { tag: 'select', f: 'attackAbility', label: 'Attack Ability', style: 'max-width:160px', options: ATTACK_ABILITY_OPTIONS, default: 'str' },
+        { tag: 'checkbox', f: 'proficient', label: 'Proficient', style: 'gap:6px' }
       ]}
     ]
   },
@@ -8989,6 +8993,14 @@ const CARD_CONFIG = {
 };
 
 const pendingManualCards = { weapon: null, armor: null, item: null };
+
+function inferWeaponAttackAbility(pref = {}) {
+  const rangeValue = typeof pref.range === 'string' ? pref.range.trim().toLowerCase() : '';
+  if (!rangeValue) return 'str';
+  if (/(^|\b)(melee|reach|touch)\b/.test(rangeValue)) return 'str';
+  if (rangeValue.includes('thrown')) return 'str';
+  return 'dex';
+}
 
 function isCardEmpty(card){
   if (!card) return true;
@@ -9047,6 +9059,19 @@ function createCard(kind, pref = {}) {
   if (kind === 'power' || kind === 'sig') {
     return createPowerCard(pref, { signature: kind === 'sig' });
   }
+  pref = { ...pref };
+  if (kind === 'weapon') {
+    if (pref.attackAbility) {
+      pref.attackAbility = String(pref.attackAbility).toLowerCase();
+    } else {
+      pref.attackAbility = inferWeaponAttackAbility(pref);
+    }
+    if (pref.proficient === undefined) {
+      pref.proficient = true;
+    } else {
+      pref.proficient = !!pref.proficient;
+    }
+  }
   const cfg = CARD_CONFIG[kind];
   const card = document.createElement('div');
   card.className = 'card';
@@ -9061,10 +9086,29 @@ function createCard(kind, pref = {}) {
         if (f.tag === 'select') {
           const sel = document.createElement('select');
           sel.dataset.f = f.f;
-          (f.options || []).forEach(opt => sel.add(new Option(opt, opt)));
-          sel.value = pref[f.f] || f.default || '';
+          (f.options || []).forEach(opt => {
+            if (opt && typeof opt === 'object') {
+              const option = new Option(
+                opt.label ?? opt.value ?? '',
+                opt.value ?? opt.label ?? ''
+              );
+              sel.add(option);
+            } else {
+              sel.add(new Option(opt, opt));
+            }
+          });
           if (f.style) sel.style.cssText = f.style;
-          wrap.appendChild(sel);
+          const selectedValue = pref[f.f];
+          sel.value = selectedValue ?? f.default ?? '';
+          if (f.label) {
+            const label = document.createElement('label');
+            label.className = 'inline';
+            label.append(document.createTextNode(`${f.label} `));
+            label.appendChild(sel);
+            wrap.appendChild(label);
+          } else {
+            wrap.appendChild(sel);
+          }
         } else if (f.tag === 'checkbox') {
           const label = document.createElement('label');
           label.className = 'inline';
@@ -9115,13 +9159,19 @@ function createCard(kind, pref = {}) {
     hitBtn.addEventListener('click', () => {
       const pb = num(elProfBonus.value)||2;
       const rangeVal = qs("[data-f='range']", card)?.value || '';
-      const abilityKey = rangeVal ? 'dex' : 'str';
-      const abilityLabel = abilityKey.toUpperCase();
-      const abilityMod = mod(abilityKey === 'dex' ? elDex.value : elStr.value);
+      const abilityField = qs("[data-f='attackAbility']", card);
+      const selectedAbility = (abilityField?.value || '').toLowerCase();
+      const resolvedAbilityKey = selectedAbility || inferWeaponAttackAbility({ range: rangeVal });
+      const abilityLabel = resolvedAbilityKey ? resolvedAbilityKey.toUpperCase() : 'STR';
+      const abilityInput = resolvedAbilityKey ? $(resolvedAbilityKey) : null;
+      const abilityMod = abilityInput ? mod(abilityInput.value) : 0;
+      const proficientField = qs("[data-f='proficient']", card);
+      const isProficient = proficientField ? !!proficientField.checked : true;
+      const profBonus = isProficient ? pb : 0;
       const baseBonuses = [
         { label: `${abilityLabel} mod`, value: abilityMod, includeZero: true },
       ];
-      if (pb) baseBonuses.push({ label: 'Prof', value: pb });
+      if (profBonus) baseBonuses.push({ label: 'Prof', value: profBonus });
       const nameField = qs("[data-f='name']", card);
       const name = nameField?.value || (kind === 'sig' ? 'Signature Move' : (kind === 'power' ? 'Power' : 'Attack'));
       logAction(`${kind === 'weapon' ? 'Weapon' : kind === 'power' ? 'Power' : 'Signature move'} used: ${name}`);
@@ -9134,7 +9184,7 @@ function createCard(kind, pref = {}) {
           }
         };
       }
-      rollWithBonus(`${name} attack roll`, abilityMod + pb, out, opts);
+      rollWithBonus(`${name} attack roll`, abilityMod + profBonus, out, opts);
     });
     delWrap.appendChild(hitBtn);
     delWrap.appendChild(out);
@@ -10249,11 +10299,21 @@ function serialize(){
     .map(card => serializePowerCard(card))
     .filter(Boolean)
     .map(sig => ({ ...sig, signature: true }));
-  data.weapons = qsa("[data-kind='weapon']").map(card => ({
-    name: getVal("[data-f='name']", card) || '',
-    damage: getVal("[data-f='damage']", card) || '',
-    range: getVal("[data-f='range']", card) || ''
-  }));
+  data.weapons = qsa("[data-kind='weapon']").map(card => {
+    const name = getVal("[data-f='name']", card) || '';
+    const damage = getVal("[data-f='damage']", card) || '';
+    const range = getVal("[data-f='range']", card) || '';
+    const attackAbilityRaw = getVal("[data-f='attackAbility']", card) || '';
+    const attackAbility = attackAbilityRaw ? attackAbilityRaw.toLowerCase() : '';
+    const proficient = !!getChecked("[data-f='proficient']", card);
+    return {
+      name,
+      damage,
+      range,
+      attackAbility: attackAbility || inferWeaponAttackAbility({ range }),
+      proficient
+    };
+  });
   data.armor = qsa("[data-kind='armor']").map(card => ({
     name: getVal("[data-f='name']", card) || '',
     slot: getVal("[data-f='slot']", card) || 'Body',
