@@ -1150,6 +1150,22 @@
       <input id="enc-init" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Init"/>
       <button id="enc-add" class="btn-sm">Add</button>
     </fieldset>
+    <div class="encounter-readouts">
+      <div class="encounter-readout">
+        <span class="encounter-readout__label">Round</span>
+        <span id="enc-round" class="encounter-readout__value">&mdash;</span>
+      </div>
+      <div class="encounter-readout">
+        <span class="encounter-readout__label">Active</span>
+        <span
+          id="enc-active"
+          class="encounter-readout__value"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >No active combatant</span>
+      </div>
+    </div>
     <div id="enc-list" class="catalog" style="margin-top:8px"></div>
     <div class="actions">
       <button id="enc-prev" class="btn-sm">Prev Turn</button>

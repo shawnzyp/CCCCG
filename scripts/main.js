@@ -10178,14 +10178,47 @@ function saveEnc(){
   localStorage.setItem('enc-turn', String(turn));
 }
 function renderEnc(){
-  const list=$('enc-list'); list.innerHTML='';
-    roster.forEach((r,idx)=>{
-      const row=document.createElement('div');
-      row.className='catalog-item'+(idx===turn?' active':'');
-      row.innerHTML = `<div class="pill">${r.init}</div><div><b>${r.name}</b></div><div><button class="btn-sm" data-del="${idx}"></button></div>`;
-      list.appendChild(row);
-    });
-    applyDeleteIcons(list);
+  const list=$('enc-list');
+  if(!list) return;
+  const roundEl=$('enc-round');
+  const activeEl=$('enc-active');
+  const total=roster.length;
+  const safeRound = Math.max(1, Number.isFinite(Number(round)) ? Math.floor(Number(round)) : 1);
+  round = safeRound;
+  if(total){
+    const maxTurn = total - 1;
+    const numericTurn = Number.isFinite(Number(turn)) ? Math.floor(Number(turn)) : 0;
+    turn = Math.min(Math.max(0, numericTurn), maxTurn);
+  }else{
+    turn = 0;
+  }
+  list.innerHTML='';
+  const activeCombatant = total ? roster[turn] : null;
+  roster.forEach((r,idx)=>{
+    const row=document.createElement('div');
+    row.className='catalog-item';
+    if(idx===turn){
+      row.classList.add('active');
+      row.setAttribute('aria-current','true');
+    }
+    const initVal = Number.isFinite(Number(r.init)) ? Number(r.init) : '';
+    const nameVal = r && typeof r.name==='string' ? r.name : '';
+    row.innerHTML = `<div class="pill">${initVal}</div><div><b>${nameVal}</b></div><div><button class="btn-sm" data-del="${idx}"></button></div>`;
+    list.appendChild(row);
+  });
+  applyDeleteIcons(list);
+  if(roundEl){
+    roundEl.textContent = total ? String(round) : '—';
+  }
+  if(activeEl){
+    if(activeCombatant){
+      const name = activeCombatant.name ? String(activeCombatant.name) : 'Unnamed combatant';
+      const init = Number.isFinite(Number(activeCombatant.init)) ? Number(activeCombatant.init) : null;
+      activeEl.textContent = init !== null ? `${name} (Init ${init})` : name;
+    }else{
+      activeEl.textContent = 'No active combatant';
+    }
+  }
   qsa('[data-del]', list).forEach(b=> b.addEventListener('click', ()=>{
     const i=Number(b.dataset.del);
     roster.splice(i,1);
@@ -10275,6 +10308,20 @@ function serialize(){
     return el && el.checked ? i : null;
   }).filter(i => i !== null);
   data.campaignLog = campaignLogEntries;
+  const safeRound = Math.max(1, Number.isFinite(Number(round)) ? Math.floor(Number(round)) : 1);
+  const safeTurnBase = Number.isFinite(Number(turn)) ? Math.floor(Number(turn)) : 0;
+  const safeRoster = roster.map(entry => ({
+    name: typeof entry?.name === 'string' ? entry.name : '',
+    init: Number.isFinite(Number(entry?.init)) ? Number(entry.init) : 0
+  }));
+  const safeTurn = safeRoster.length
+    ? Math.min(Math.max(0, safeTurnBase), safeRoster.length - 1)
+    : 0;
+  data.encounter = {
+    round: safeRound,
+    turn: safeTurn,
+    roster: safeRoster
+  };
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
@@ -10353,6 +10400,28 @@ function deserialize(data){
       CC.RP.load(CC.partials.resonance);
     }
   }
+  const encounterData = data && data.encounter ? data.encounter : null;
+  const restoredRoster = Array.isArray(encounterData?.roster)
+    ? encounterData.roster
+        .map(entry => ({
+          name: typeof entry?.name === 'string' ? entry.name : '',
+          init: Number.isFinite(Number(entry?.init)) ? Number(entry.init) : 0
+        }))
+        .filter(entry => entry.name)
+    : [];
+  const restoredRound = Number.isFinite(Number(encounterData?.round)) ? Math.floor(Number(encounterData.round)) : 1;
+  const restoredTurnRaw = Number.isFinite(Number(encounterData?.turn)) ? Math.floor(Number(encounterData.turn)) : 0;
+  round = Math.max(1, restoredRound);
+  roster.length = 0;
+  restoredRoster.forEach(entry => roster.push(entry));
+  if(roster.length){
+    turn = Math.min(Math.max(0, restoredTurnRaw), roster.length - 1);
+  }else{
+    turn = 0;
+    round = 1;
+  }
+  renderEnc();
+  saveEnc();
   updateDerived();
   updateFactionRep(handlePerkEffects);
   updateCreditsDisplay();
