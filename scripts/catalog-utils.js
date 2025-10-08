@@ -1,3 +1,111 @@
+const CONTROLLED_CLASSIFICATION_TAGS = new Set([
+  'useful',
+  'gear',
+  'catalyst',
+  'weapon',
+  'armor',
+  'shield',
+  'utility',
+  'item',
+  'melee',
+  'ranged',
+  'offense',
+  'defense',
+  'support',
+  'healing',
+  'mobility',
+  'stealth',
+  'control',
+  'tech',
+  'magic',
+  'psionic',
+  'chemical',
+  'consumable',
+]);
+
+const SECTION_CLASSIFICATION_TAGS = new Map([
+  ['useful', 'useful'],
+  ['gear', 'gear'],
+  ['catalyst', 'catalyst'],
+]);
+
+const TYPE_CLASSIFICATION_TAGS = new Map([
+  ['weapon', 'weapon'],
+  ['armor', 'armor'],
+  ['shield', 'shield'],
+  ['utility', 'utility'],
+  ['item', 'item'],
+]);
+
+const WEAPON_MELEE_PATTERN = /\b(blade|sword|knife|dagger|gauntlet|fist|hammer|axe|staff|mace|club|spear|whip|lance|sabre|saber|claw|melee|punch|maul|baton)\b/i;
+const WEAPON_RANGED_PATTERN = /\b(bow|rifle|gun|pistol|sniper|launcher|cannon|project(?:or|ile)|shot|shoot|beam|crossbow|bolter|rail|throw|range|blaster)\b/i;
+
+const KEYWORD_CLASSIFICATION_RULES = [
+  { pattern: /(heal|medic|bandage|triage|stabil|reviv|restor|stim|wound|first aid)/i, tags: ['healing', 'support'] },
+  { pattern: /(dash|sprint|speed|teleport|blink|phase|step|jump|leap|flight|fly|hover|propul|grapnel|grapple|parkour|glide|rocket|boosters|jetpack)/i, tags: ['mobility'] },
+  { pattern: /(stealth|invis|camouflage|conceal|silent|quiet|shadow|cloak|veil|mask)/i, tags: ['stealth'] },
+  { pattern: /(stun|immobil|freeze|snare|trap|net|bind|restrain|slow|paraly|knock|disable|daze|disrupt|suppress|jam)/i, tags: ['control'] },
+  { pattern: /(ally|team|support|assist|aid|boost|grant|share|inspire|coordinat|buff)/i, tags: ['support'] },
+  { pattern: /(shield|barrier|deflect|absorb|resist|armor|cover|ward|protect|guard)/i, tags: ['defense'] },
+  { pattern: /(damage|attack|strike|shot|blast|hit|assault|charge)/i, tags: ['offense'] },
+  { pattern: /(tech|device|gadget|drone|bot|mech|circuit|cyber|digital|quantum|plasma|ion|magnet|nano|neural|holo|power cell|servo)/i, tags: ['tech'] },
+  { pattern: /(magic|arcane|spell|mystic|rune|enchanted|eldritch|occult|sorcer|ritual|mana|glyph)/i, tags: ['magic'] },
+  { pattern: /(psi|psychic|telepath|telekin|clairvoy|psion|mind|mental)/i, tags: ['psionic'] },
+  { pattern: /(chemical|toxin|poison|venom|acid|gas|serum|ampoule|vial|inject|pharma|compound)/i, tags: ['chemical'] },
+  { pattern: /(single use|one use|consum|\bcharges?\b|expended|expend|limited use|per use|dose)/i, tags: ['consumable'] },
+];
+
+function addClassificationTag(target, tag) {
+  const normalized = typeof tag === 'string' ? tag.trim().toLowerCase() : '';
+  if (!normalized || !CONTROLLED_CLASSIFICATION_TAGS.has(normalized)) return;
+  target.add(normalized);
+}
+
+function deriveCatalogClassifications(entry) {
+  const derived = new Set();
+  if (!entry || typeof entry !== 'object') return derived;
+  const normalizedSection = normalizeCatalogToken(entry.section || '');
+  if (SECTION_CLASSIFICATION_TAGS.has(normalizedSection)) {
+    addClassificationTag(derived, SECTION_CLASSIFICATION_TAGS.get(normalizedSection));
+  }
+  const normalizedType = normalizeCatalogToken(entry.type || entry.rawType || '');
+  if (TYPE_CLASSIFICATION_TAGS.has(normalizedType)) {
+    addClassificationTag(derived, TYPE_CLASSIFICATION_TAGS.get(normalizedType));
+  } else if (!normalizedType) {
+    addClassificationTag(derived, 'item');
+  }
+  const typeTag = normalizedType || '';
+  if (typeTag === 'weapon') {
+    addClassificationTag(derived, 'offense');
+  } else if (typeTag === 'armor' || typeTag === 'shield') {
+    addClassificationTag(derived, 'defense');
+  } else if (typeTag === 'utility') {
+    addClassificationTag(derived, 'support');
+  }
+  const textParts = [entry.name, entry.perk, entry.description, entry.use, entry.attunement];
+  const haystack = textParts
+    .filter(part => typeof part === 'string' && part.trim())
+    .map(part => part.toLowerCase())
+    .join(' ');
+  if (haystack) {
+    if (typeTag === 'weapon') {
+      if (WEAPON_RANGED_PATTERN.test(haystack)) {
+        addClassificationTag(derived, 'ranged');
+      }
+      if (WEAPON_MELEE_PATTERN.test(haystack)) {
+        addClassificationTag(derived, 'melee');
+      }
+    }
+    KEYWORD_CLASSIFICATION_RULES.forEach(rule => {
+      if (!rule || !rule.pattern || !Array.isArray(rule.tags)) return;
+      if (rule.pattern.test(haystack)) {
+        rule.tags.forEach(tag => addClassificationTag(derived, tag));
+      }
+    });
+  }
+  return derived;
+}
+
 function extractPriceValue(source) {
   if (source == null) return null;
   if (typeof source === 'number' && Number.isFinite(source) && source > 0) {
@@ -319,6 +427,14 @@ function normalizeCatalogRow(row, priceLookup = new Map()) {
     tierRestrictions,
     prerequisites,
   };
+  const derivedClassifications = deriveCatalogClassifications(entry);
+  if (derivedClassifications && derivedClassifications.size) {
+    const mergedClassifications = new Set([
+      ...(Array.isArray(entry.classifications) ? entry.classifications : []),
+      ...derivedClassifications,
+    ]);
+    entry.classifications = Array.from(mergedClassifications);
+  }
   entry.search = buildCatalogSearchText(entry);
   return entry;
 }
@@ -369,11 +485,17 @@ function sanitizeNormalizedCatalogEntry(entry) {
   sanitized.use = typeof entry.use === 'string' ? entry.use.trim() : '';
   sanitized.attunement = typeof entry.attunement === 'string' ? entry.attunement.trim() : '';
   sanitized.source = typeof entry.source === 'string' ? entry.source.trim() : '';
-  sanitized.classifications = Array.isArray(entry.classifications)
-    ? entry.classifications
-        .map(value => normalizeCatalogToken(value))
-        .filter(Boolean)
-    : [];
+  if (Array.isArray(entry.classifications)) {
+    const classificationSet = new Set();
+    entry.classifications.forEach(value => {
+      const token = normalizeCatalogToken(value);
+      if (token) classificationSet.add(token);
+    });
+    sanitized.classifications = Array.from(classificationSet)
+      .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  } else {
+    sanitized.classifications = [];
+  }
   sanitized.tierRestrictions = Array.isArray(entry.tierRestrictions)
     ? entry.tierRestrictions
         .map(value => {

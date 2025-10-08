@@ -18,6 +18,44 @@ regenerate the compiled assets before deploying. This pipeline will:
 If you only need to refresh the manifest, the legacy
 `npm run build:manifest` command is still available.
 
+## Gear classification vocabulary
+
+The catalog build normalizes every item into a controlled set of
+`classifications` so search, filters, and character gating can reason about the
+gear consistently. The script infers tags from the source CSV using section,
+type, and keyword heuristics. The available tags are:
+
+| Tag | Meaning |
+| --- | --- |
+| `useful` | Items that originate from the **Useful** section of the source CSV. |
+| `gear` | Entries from the **Gear** section. |
+| `catalyst` | Entries from the **Catalyst** section. |
+| `weapon` | Weapon-type gear (automatically also tagged `offense`). |
+| `armor` | Armor entries. |
+| `shield` | Shield entries. |
+| `utility` | Utility-type gear providing general tools or support. |
+| `item` | Generic items without a more specific type. |
+| `melee` | Weapons with close-combat language (blade, gauntlet, spear, etc.). |
+| `ranged` | Weapons that reference shots, launchers, bows, or other ranged cues. |
+| `offense` | Weapons or gear that emphasize dealing damage. |
+| `defense` | Protective equipment or entries that focus on shielding, resistance, or mitigation. |
+| `support` | Boons that assist allies, coordination, or buffs. |
+| `healing` | Medical and restorative equipment. |
+| `mobility` | Gear that enhances movement, teleportation, or traversal. |
+| `stealth` | Items that aid stealth, invisibility, or concealment. |
+| `control` | Effects that hinder, restrain, or disable foes. |
+| `tech` | Clearly technological gadgets, drones, or devices. |
+| `magic` | Items with explicitly arcane, mystical, or enchanted themes. |
+| `psionic` | Gear flavored around psychic or telepathic effects. |
+| `chemical` | Chemical, toxic, or pharmaceutical consumables. |
+| `consumable` | Single-use or charge-based entries that are expended on use. |
+
+When new items are added to the CSV, ensure their copy includes descriptive
+language that lets the build heuristics assign the right tags, or supply
+explicit classifications in the CSV to supplement the inferred values. These
+descriptors are treated as non-restrictive; gating only applies when a catalog
+entry lists additional classification tokens outside of this vocabulary.
+
 ## Storage
 
 Saved characters are stored locally in your browser using `localStorage` and synchronized through a Firebase Realtime Database.

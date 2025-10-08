@@ -10596,6 +10596,31 @@ function isCatalogPrerequisiteMet(prereq, playerState){
   return values.some(value => playerState.tags.has(value.normalized));
 }
 
+const GENERIC_CLASSIFICATION_TAGS = new Set([
+  'armor',
+  'catalyst',
+  'chemical',
+  'consumable',
+  'control',
+  'defense',
+  'gear',
+  'healing',
+  'item',
+  'magic',
+  'melee',
+  'mobility',
+  'offense',
+  'psionic',
+  'ranged',
+  'shield',
+  'stealth',
+  'support',
+  'tech',
+  'useful',
+  'utility',
+  'weapon',
+]);
+
 function isEntryAvailableToPlayer(entry, playerState){
   if (!entry || !playerState) return true;
   const playerTier = playerState.tierValue;
@@ -10610,8 +10635,11 @@ function isEntryAvailableToPlayer(entry, playerState){
     if (!tierOk) return false;
   }
   if (Array.isArray(entry.classifications) && entry.classifications.length) {
-    const classOk = entry.classifications.some(token => playerState.tags.has(token));
-    if (!classOk) return false;
+    const gatingTags = entry.classifications.filter(token => !GENERIC_CLASSIFICATION_TAGS.has(token));
+    if (gatingTags.length) {
+      const classOk = gatingTags.some(token => playerState.tags.has(token));
+      if (!classOk) return false;
+    }
   }
   if (Array.isArray(entry.prerequisites) && entry.prerequisites.length) {
     for (const prereq of entry.prerequisites) {
