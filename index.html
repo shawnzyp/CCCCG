@@ -375,10 +375,10 @@
             <button
               type="button"
               class="card-caret"
-              id="sp-menu-toggle"
-              aria-haspopup="true"
+              id="sp-settings-toggle"
+              aria-haspopup="dialog"
               aria-expanded="false"
-              aria-controls="sp-menu"
+              aria-controls="modal-sp-settings"
               aria-label="Edit SP options"
               title="Edit SP options"
             >
@@ -391,8 +391,6 @@
             <progress id="sp-bar" max="5" value="5"></progress>
             <span id="sp-pill">5/5</span>
           </div>
-          <label for="sp-temp" class="sr-only">Temp SP</label>
-          <input id="sp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
         </div>
         <div class="sp-grid">
           <button class="btn-sm" data-sp="-1">-1 SP</button>
@@ -401,9 +399,6 @@
           <button class="btn-sm" data-sp="-4">-4 SP</button>
           <button class="btn-sm" data-sp="-5">-5 SP</button>
           <button id="sp-full" class="btn-sm">Reset SP</button>
-        </div>
-        <div id="sp-menu" class="card-menu" role="menu" hidden>
-          <button id="long-rest" class="card-menu__item" role="menuitem" type="button">Long Rest</button>
         </div>
       </fieldset>
       <fieldset class="card cap-field">
@@ -1217,6 +1212,26 @@
   </div>
 </div>
 
+
+<div class="overlay hidden" id="modal-sp-settings" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <h3>SP Options</h3>
+    <div class="hp-settings__section">
+      <label for="sp-temp">Temporary SP</label>
+      <input id="sp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
+    </div>
+    <div class="actions hp-settings__actions">
+      <button id="long-rest" class="btn-sm" type="button">Long Rest</button>
+      <button id="sp-settings-save" class="btn-sm" type="button">Save</button>
+      <button class="btn-sm" data-close>Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- LOG MODAL -->
 <div class="overlay hidden" id="modal-log" aria-hidden="true">
