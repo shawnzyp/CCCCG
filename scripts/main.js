@@ -1610,6 +1610,26 @@ document.addEventListener('click', e=>{
   }
 }, true);
 
+let audioContextPrimed = false;
+let audioContextPrimedOnce = false;
+function handleAudioContextPriming(e){
+  if(audioContextPrimed) return;
+  if(e.type==='pointerdown'){
+    const interactive=e.target?.closest?.(INTERACTIVE_SEL);
+    if(!interactive) return;
+  }
+  audioContextPrimed = true;
+  document.removeEventListener('pointerdown', handleAudioContextPriming, true);
+  document.removeEventListener('keydown', handleAudioContextPriming, true);
+  try {
+    primeAudioContext();
+  } catch {
+    /* noop */
+  }
+}
+document.addEventListener('pointerdown', handleAudioContextPriming, true);
+document.addEventListener('keydown', handleAudioContextPriming, true);
+
 /* ========= view mode ========= */
 const VIEW_LOCK_SKIP_TYPES = new Set(['button','submit','reset','file','color','range','hidden','image']);
 const VIEW_EMPTY_PLACEHOLDER = '';
@@ -5584,6 +5604,48 @@ const AUDIO_CUE_SETTINGS = {
 
 let audioContext;
 const audioCueCache = new Map();
+
+function primeAudioContext(){
+  if(audioContextPrimedOnce){
+    const existing = ensureAudioContext();
+    if(existing) existing.__ccPrimed = true;
+    return existing;
+  }
+  audioContextPrimedOnce = true;
+  const ctx = ensureAudioContext();
+  if(!ctx) return null;
+  ctx.__ccPrimed = true;
+  try{
+    const oscillator = typeof ctx.createOscillator === 'function' ? ctx.createOscillator() : null;
+    if(!oscillator) return ctx;
+    const gain = typeof ctx.createGain === 'function' ? ctx.createGain() : null;
+    if(gain){
+      if(gain.gain){
+        try {
+          if(typeof gain.gain.setValueAtTime === 'function'){
+            gain.gain.setValueAtTime(0, ctx.currentTime ?? 0);
+          }else{
+            gain.gain.value = 0;
+          }
+        } catch {
+          gain.gain.value = 0;
+        }
+      }
+      oscillator.connect?.(gain);
+      gain.connect?.(ctx.destination);
+    }else{
+      oscillator.connect?.(ctx.destination);
+    }
+    const now = typeof ctx.currentTime === 'number' ? ctx.currentTime : 0;
+    oscillator.start?.(now);
+    oscillator.stop?.(now + 0.001);
+    oscillator.disconnect?.();
+    gain?.disconnect?.();
+  }catch{
+    /* noop */
+  }
+  return ctx;
+}
 
 function ensureAudioContext(){
   if(typeof window === 'undefined') return null;
