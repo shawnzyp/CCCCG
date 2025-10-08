@@ -165,6 +165,11 @@ async function initMainModule() {
     beginQueuedSyncFlush: () => {},
     getLastSyncStatus: () => 'idle',
     subscribeSyncStatus: () => () => {},
+    listQueuedCloudSaves: async () => [],
+    clearQueuedCloudSaves: async () => {},
+    deleteQueuedCloudSave: async () => {},
+    flushQueuedCloudSaves: async () => {},
+    getLastSyncTimestamp: () => null,
   }));
 
   jest.unstable_mockModule('../scripts/pin.js', () => ({

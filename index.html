@@ -155,18 +155,21 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
         </svg>
       </button>
-      <span
+      <button
         id="cloud-sync-status"
         class="sync-status-indicator"
         data-status="online"
-        role="status"
+        type="button"
         aria-live="polite"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="cloud-sync-panel"
         aria-label="Cloud sync status: Online"
         title="Online"
       >
         <span class="sync-status-indicator__light" aria-hidden="true"></span>
         <span class="sr-only" data-sync-status-label>Online</span>
-      </span>
+      </button>
       <div id="menu-actions" class="menu" hidden>
         <button id="btn-load" class="btn-sm">Load / Save</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
@@ -264,6 +267,46 @@
       </span>
       <div class="news-ticker__track news-ticker__track--m24n" data-m24n-ticker-track>
         <span class="news-ticker__text news-ticker__text--m24n" data-m24n-ticker-text>Loading MN24/7 feed…</span>
+      </div>
+    </div>
+  </div>
+  <div
+    id="cloud-sync-panel"
+    class="sync-panel"
+    role="dialog"
+    aria-modal="false"
+    aria-labelledby="cloud-sync-panel-title"
+    hidden
+  >
+    <div class="sync-panel__header">
+      <h2 id="cloud-sync-panel-title">Cloud sync</h2>
+      <button type="button" class="btn-sm" data-sync-panel-close>Close</button>
+    </div>
+    <div class="sync-panel__body">
+      <div class="sync-panel__status" data-sync-panel-status-container>
+        <p class="sync-panel__status-line">
+          <strong>Status:</strong>
+          <span data-sync-panel-status>Online</span>
+        </p>
+        <p class="sync-panel__last-sync">
+          <strong>Last sync:</strong>
+          <span data-sync-panel-last-sync>Never</span>
+        </p>
+      </div>
+      <div class="sync-panel__actions">
+        <button type="button" class="btn-sm" data-sync-panel-sync>Sync now</button>
+        <button type="button" class="btn-sm" data-sync-panel-clear-queue>Clear queue</button>
+        <button type="button" class="btn-sm" data-sync-panel-clear-errors>Clear issues</button>
+      </div>
+      <div class="sync-panel__section">
+        <h3 id="cloud-sync-panel-queue-title">Queued saves</h3>
+        <p class="sync-panel__empty" data-sync-panel-queue-empty>All changes are synced.</p>
+        <ul class="sync-panel__list" aria-labelledby="cloud-sync-panel-queue-title" data-sync-panel-queue></ul>
+      </div>
+      <div class="sync-panel__section">
+        <h3 id="cloud-sync-panel-errors-title">Sync issues</h3>
+        <p class="sync-panel__empty" data-sync-panel-errors-empty hidden>No sync issues logged.</p>
+        <ul class="sync-panel__list" aria-labelledby="cloud-sync-panel-errors-title" data-sync-panel-errors></ul>
       </div>
     </div>
   </div>

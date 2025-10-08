@@ -160,6 +160,23 @@ async function broadcast(message) {
   clients.forEach(client => client.postMessage(message));
 }
 
+function serializeError(err) {
+  if (!err) return { message: 'Unknown error' };
+  if (err instanceof Error) {
+    const { message, name, stack } = err;
+    return {
+      name,
+      message: message || name || 'Unknown error',
+      stack: typeof stack === 'string' ? stack : undefined,
+    };
+  }
+  if (typeof err === 'object') {
+    const message = typeof err.message === 'string' ? err.message : JSON.stringify(err);
+    return { ...err, message };
+  }
+  return { message: String(err) };
+}
+
 async function ensureLaunchVideoReset(videoUrl) {
   const normalizedUrl = (typeof videoUrl === 'string' && videoUrl) ? resolveAssetUrl(videoUrl) : null;
   if (normalizedUrl) {
@@ -252,7 +269,10 @@ async function flushOutbox() {
       getOutboxEntries(),
       getOutboxEntries(OUTBOX_PINS_STORE),
     ]);
-    if (!entries.length && !pinEntries.length) return;
+    if (!entries.length && !pinEntries.length) {
+      await broadcast({ type: 'cloud-sync-queue-updated' });
+      return;
+    }
 
     entries.sort((a, b) => {
       if (a.ts !== b.ts) return a.ts - b.ts;
@@ -271,6 +291,9 @@ async function flushOutbox() {
         synced = true;
       } catch (err) {
         console.error('Cloud outbox flush failed', err);
+        try {
+          await broadcast({ type: 'cloud-sync-error', stage: 'flush', error: serializeError(err) });
+        } catch {}
         if (self.registration?.sync && typeof self.registration.sync.register === 'function') {
           try {
             await self.registration.sync.register('cloud-save-sync');
@@ -307,10 +330,14 @@ async function flushOutbox() {
 
     if (synced) {
       await broadcast('cacheCloudSaves');
+      try {
+        await broadcast({ type: 'cloud-sync-success', timestamp: Date.now() });
+      } catch {}
     }
     if (pinsSynced) {
       await broadcast('pins-updated');
     }
+    await broadcast({ type: 'cloud-sync-queue-updated' });
   })().finally(() => {
     flushPromise = null;
   });
@@ -423,11 +450,18 @@ self.addEventListener('message', event => {
     const { name, payload, ts } = data;
     if (!name || typeof ts !== 'number') return;
     const entry = { name, payload, ts, queuedAt: Date.now() };
-    event.waitUntil(
-      addOutboxEntry(entry)
-        .then(() => flushOutbox())
-        .catch(err => console.error('Failed to queue cloud save', err))
-    );
+    event.waitUntil((async () => {
+      try {
+        await addOutboxEntry(entry);
+        await broadcast({ type: 'cloud-sync-queue-updated' });
+        await flushOutbox();
+      } catch (err) {
+        console.error('Failed to queue cloud save', err);
+        try {
+          await broadcast({ type: 'cloud-sync-error', stage: 'queue', error: serializeError(err) });
+        } catch {}
+      }
+    })());
   } else if (data.type === 'queue-pin') {
     const { name, hash = null, op } = data;
     if (!name || !op) return;
@@ -439,7 +473,12 @@ self.addEventListener('message', event => {
         .catch(err => console.error('Failed to queue cloud pin', err))
     );
   } else if (data.type === 'flush-cloud-saves') {
-    event.waitUntil(flushOutbox());
+    event.waitUntil(flushOutbox().catch(async err => {
+      console.error('Manual flush failed', err);
+      try {
+        await broadcast({ type: 'cloud-sync-error', stage: 'flush-request', error: serializeError(err) });
+      } catch {}
+    }));
   } else if (data.type === 'launch-video-played') {
     event.waitUntil(ensureLaunchVideoReset(data.videoUrl));
   }

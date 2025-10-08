@@ -49,6 +49,12 @@ const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/histo
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 const CLOUD_CAMPAIGN_LOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/campaignLogs';
 
+const OUTBOX_DB = 'cccg-cloud-outbox';
+const OUTBOX_VERSION = 2;
+const OUTBOX_STORE = 'cloud-saves';
+
+const LAST_SYNC_TS_KEY = 'cloud-sync-last-success';
+
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
 let offlineQueueToastShown = false;
@@ -81,6 +87,61 @@ try {
 } catch (err) {}
 
 const syncStatusListeners = new Set();
+
+function emitSyncEvent(type, detail = {}) {
+  if (typeof type !== 'string' || !type) return;
+  try {
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+      const payload = { ...detail };
+      if (typeof CustomEvent === 'function') {
+        window.dispatchEvent(new CustomEvent(`cloud-sync:${type}`, { detail: payload }));
+      }
+    }
+  } catch (err) {
+    console.error('Failed to emit sync event', err);
+  }
+}
+
+function serializeSyncError(err) {
+  if (!err) {
+    return { message: 'Unknown error' };
+  }
+  if (err instanceof Error) {
+    const { name, message, stack } = err;
+    return {
+      name,
+      message: message || name || 'Unknown error',
+      stack: typeof stack === 'string' ? stack : undefined,
+    };
+  }
+  if (typeof err === 'object') {
+    const message = typeof err.message === 'string' ? err.message : JSON.stringify(err);
+    return { ...err, message };
+  }
+  return { message: String(err) };
+}
+
+function setLastSyncTimestamp(ts = Date.now()) {
+  const value = Number.isFinite(ts) ? ts : Date.now();
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LAST_SYNC_TS_KEY, String(value));
+    }
+  } catch {}
+}
+
+export function getLastSyncTimestamp() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(LAST_SYNC_TS_KEY);
+      if (stored) {
+        const parsed = Number(stored);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+    }
+  } catch {}
+  return null;
+}
 
 function emitSyncStatus(status) {
   const normalized = normalizeSyncStatus(status, lastSyncStatus || 'online');
@@ -378,6 +439,125 @@ export function subscribeCampaignLog(onChange) {
   }
 }
 
+function openOutboxDb() {
+  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    let resolved = false;
+    const req = indexedDB.open(OUTBOX_DB, OUTBOX_VERSION);
+    req.onupgradeneeded = () => {
+      const { result: db } = req;
+      if (!db) return;
+      if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
+        db.createObjectStore(OUTBOX_STORE, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => {
+      resolved = true;
+      resolve(req.result || null);
+    };
+    req.onerror = () => {
+      if (!resolved) {
+        reject(req.error || new Error('Failed to open outbox database'));
+      }
+    };
+  });
+}
+
+function sortQueuedEntries(entries) {
+  return entries.sort((a, b) => {
+    if (a.ts !== b.ts) return a.ts - b.ts;
+    if (a.queuedAt && b.queuedAt && a.queuedAt !== b.queuedAt) return a.queuedAt - b.queuedAt;
+    if (a.id && b.id) return a.id - b.id;
+    return 0;
+  });
+}
+
+export async function listQueuedCloudSaves() {
+  try {
+    const db = await openOutboxDb();
+    if (!db) return [];
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(OUTBOX_STORE, 'readonly');
+      const store = tx.objectStore(OUTBOX_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const entries = Array.isArray(req.result) ? req.result.slice() : [];
+        resolve(sortQueuedEntries(entries));
+      };
+      req.onerror = () => reject(req.error || new Error('Failed to read queued saves'));
+    });
+  } catch (err) {
+    console.error('Failed to list queued cloud saves', err);
+    emitSyncEvent('error', { stage: 'list-queue', error: serializeSyncError(err) });
+    return [];
+  }
+}
+
+export async function deleteQueuedCloudSave(id) {
+  if (typeof id === 'undefined' || id === null) return;
+  try {
+    const db = await openOutboxDb();
+    if (!db) {
+      emitSyncEvent('queuechange', { action: 'delete', id });
+      return;
+    }
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(OUTBOX_STORE, 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error || new Error('Failed to delete queued save'));
+      tx.objectStore(OUTBOX_STORE).delete(id);
+    });
+    emitSyncEvent('queuechange', { action: 'delete', id });
+  } catch (err) {
+    console.error('Failed to delete queued cloud save', err);
+    emitSyncEvent('error', { stage: 'delete-queue', error: serializeSyncError(err) });
+    throw err;
+  }
+}
+
+export async function clearQueuedCloudSaves() {
+  try {
+    const db = await openOutboxDb();
+    if (!db) {
+      emitSyncEvent('queuechange', { action: 'clear' });
+      return;
+    }
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(OUTBOX_STORE, 'readwrite');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error || new Error('Failed to clear queued saves'));
+      tx.objectStore(OUTBOX_STORE).clear();
+    });
+    emitSyncEvent('queuechange', { action: 'clear' });
+  } catch (err) {
+    console.error('Failed to clear queued cloud saves', err);
+    emitSyncEvent('error', { stage: 'clear-queue', error: serializeSyncError(err) });
+    throw err;
+  }
+}
+
+export async function flushQueuedCloudSaves() {
+  try {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const worker = navigator.serviceWorker.controller || reg.active;
+    beginQueuedSyncFlush();
+    if (reg.sync && typeof reg.sync.register === 'function') {
+      try {
+        await reg.sync.register('cloud-save-sync');
+      } catch (err) {
+        // ignore sync registration failures, we'll still post a message below
+      }
+    }
+    worker?.postMessage({ type: 'flush-cloud-saves' });
+    emitSyncEvent('flush-requested', { timestamp: Date.now() });
+  } catch (err) {
+    console.error('Failed to request queued cloud save flush', err);
+    emitSyncEvent('error', { stage: 'flush-request', error: serializeSyncError(err) });
+    throw err;
+  }
+}
+
 async function enqueueCloudSave(name, payload, ts) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false;
   try {
@@ -394,12 +574,15 @@ async function enqueueCloudSave(name, payload, ts) {
     } catch {
       // Fall back to original payload if cloning fails.
     }
+    const queuedAt = Date.now();
     controller.postMessage({ type: 'queue-cloud-save', name, payload: data, ts });
     if (ready.sync && typeof ready.sync.register === 'function') {
       await ready.sync.register('cloud-save-sync');
     } else {
       controller.postMessage({ type: 'flush-cloud-saves' });
     }
+    emitSyncEvent('queued', { name, ts, queuedAt });
+    emitSyncEvent('queuechange', { action: 'add', name, ts, queuedAt });
     return true;
   } catch (e) {
     console.error('Failed to queue cloud save', e);
@@ -417,6 +600,9 @@ export async function saveCloud(name, payload) {
   try {
     await attemptCloudSave(name, payload, ts);
     resetOfflineNotices();
+    const now = Date.now();
+    setLastSyncTimestamp(now);
+    emitSyncEvent('success', { name, timestamp: now, source: 'save-cloud' });
     return 'saved';
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
@@ -425,6 +611,13 @@ export async function saveCloud(name, payload) {
     const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
     if (shouldQueue && (await enqueueCloudSave(name, payload, ts))) {
       notifySaveQueued();
+      emitSyncEvent('queued', {
+        name,
+        ts,
+        queuedAt: Date.now(),
+        source: 'save-cloud',
+        error: serializeSyncError(e),
+      });
       return 'queued';
     }
     if (shouldQueue) {
@@ -433,6 +626,7 @@ export async function saveCloud(name, payload) {
       setSyncStatus(previousStatus);
     }
     console.error('Cloud save failed', e);
+    emitSyncEvent('error', { stage: 'save-cloud', name, ts, error: serializeSyncError(e) });
     throw e;
   }
 }
@@ -647,6 +841,9 @@ export async function cacheCloudSaves(
       })
     );
     resetOfflineNotices();
+    const now = Date.now();
+    setLastSyncTimestamp(now);
+    emitSyncEvent('success', { timestamp: now, source: 'cache-cloud-saves' });
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;

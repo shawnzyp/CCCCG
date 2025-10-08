@@ -31,7 +31,11 @@ import {
   subscribeCampaignLog,
   subscribeSyncStatus,
   getLastSyncStatus,
-  beginQueuedSyncFlush,
+  listQueuedCloudSaves,
+  clearQueuedCloudSaves,
+  deleteQueuedCloudSave,
+  flushQueuedCloudSaves,
+  getLastSyncTimestamp,
 } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
@@ -12470,38 +12474,446 @@ if(typeof window !== 'undefined'){
   }, { passive: true });
 }
 
+const SYNC_STATUS_LABELS = {
+  online: 'Online',
+  syncing: 'Syncing…',
+  queued: 'Offline: save queued',
+  reconnecting: 'Syncing queued save',
+  offline: 'Offline',
+};
+const VALID_BADGE_STATUSES = new Set(Object.keys(SYNC_STATUS_LABELS));
+
 const syncStatusBadge = $('cloud-sync-status');
-if (syncStatusBadge) {
-  const SYNC_STATUS_LABELS = {
-    online: 'Online',
-    syncing: 'Syncing…',
-    queued: 'Offline: save queued',
-    reconnecting: 'Syncing queued save',
-    offline: 'Offline',
+const syncPanel = $('cloud-sync-panel');
+const syncPanelStatusEl = syncPanel?.querySelector('[data-sync-panel-status]');
+const syncPanelLastSyncEl = syncPanel?.querySelector('[data-sync-panel-last-sync]');
+const syncPanelQueueList = syncPanel?.querySelector('[data-sync-panel-queue]');
+const syncPanelQueueEmpty = syncPanel?.querySelector('[data-sync-panel-queue-empty]');
+const syncPanelErrorsList = syncPanel?.querySelector('[data-sync-panel-errors]');
+const syncPanelErrorsEmpty = syncPanel?.querySelector('[data-sync-panel-errors-empty]');
+const syncPanelCloseBtn = syncPanel?.querySelector('[data-sync-panel-close]');
+const syncPanelSyncBtn = syncPanel?.querySelector('[data-sync-panel-sync]');
+const syncPanelClearQueueBtn = syncPanel?.querySelector('[data-sync-panel-clear-queue]');
+const syncPanelClearErrorsBtn = syncPanel?.querySelector('[data-sync-panel-clear-errors]');
+
+let currentSyncStatus = getLastSyncStatus();
+let syncPanelOpen = false;
+let syncPanelQueue = [];
+let syncPanelErrors = [];
+let syncQueueDirty = true;
+let syncPanelErrorCounter = 0;
+let syncPanelLastSync = getLastSyncTimestamp();
+
+const absoluteDateFormatter = (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function')
+  ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  : null;
+
+function formatAbsoluteTimestamp(ts) {
+  if (!Number.isFinite(ts)) return 'Unknown';
+  const date = new Date(ts);
+  if (!date || Number.isNaN(date.getTime())) return 'Unknown';
+  try {
+    return absoluteDateFormatter ? absoluteDateFormatter.format(date) : date.toLocaleString();
+  } catch (err) {
+    try {
+      return date.toLocaleString();
+    } catch {
+      return date.toISOString();
+    }
+  }
+}
+
+function formatRelativeTimestamp(ts) {
+  if (!Number.isFinite(ts)) return '';
+  const now = Date.now();
+  const diff = now - ts;
+  if (!Number.isFinite(diff)) return '';
+  const absDiff = Math.abs(diff);
+  const sign = diff < 0 ? 1 : -1;
+  const SEC = 1000;
+  const MIN = 60 * SEC;
+  const HOUR = 60 * MIN;
+  const DAY = 24 * HOUR;
+  if (absDiff < 30 * SEC) return 'Just now';
+  if (absDiff < MIN) {
+    const value = Math.round(absDiff / SEC);
+    return `${Math.max(value, 1)} seconds ${sign < 0 ? 'from now' : 'ago'}`;
+  }
+  if (absDiff < HOUR) {
+    const value = Math.round(absDiff / MIN);
+    return `${Math.max(value, 1)} minute${value === 1 ? '' : 's'} ${sign < 0 ? 'from now' : 'ago'}`;
+  }
+  if (absDiff < DAY) {
+    const value = Math.round(absDiff / HOUR);
+    return `${Math.max(value, 1)} hour${value === 1 ? '' : 's'} ${sign < 0 ? 'from now' : 'ago'}`;
+  }
+  const value = Math.round(absDiff / DAY);
+  return `${Math.max(value, 1)} day${value === 1 ? '' : 's'} ${sign < 0 ? 'from now' : 'ago'}`;
+}
+
+function formatTimestampLabel(ts) {
+  if (!Number.isFinite(ts)) return 'Never';
+  const absolute = formatAbsoluteTimestamp(ts);
+  const relative = formatRelativeTimestamp(ts);
+  return relative && relative !== 'Just now'
+    ? `${relative} (${absolute})`
+    : relative || absolute;
+}
+
+function updateSyncPanelLastSync(ts = getLastSyncTimestamp()) {
+  syncPanelLastSync = Number.isFinite(ts) ? ts : null;
+  if (syncPanelLastSyncEl) {
+    syncPanelLastSyncEl.textContent = syncPanelLastSync ? formatTimestampLabel(syncPanelLastSync) : 'Never';
+  }
+}
+
+function updateSyncPanelStatus(status = currentSyncStatus) {
+  const label = SYNC_STATUS_LABELS[status] || SYNC_STATUS_LABELS.online;
+  if (syncPanelStatusEl) {
+    syncPanelStatusEl.textContent = label;
+  }
+}
+
+function renderSyncQueue() {
+  if (!syncPanelQueueList) return;
+  syncPanelQueueList.innerHTML = '';
+  if (syncPanelQueueEmpty) {
+    syncPanelQueueEmpty.hidden = syncPanelQueue.length > 0;
+  }
+  if (!syncPanelQueue.length) return;
+  syncPanelQueue.forEach(entry => {
+    const li = document.createElement('li');
+    li.className = 'sync-panel__item';
+    if (entry && typeof entry.id !== 'undefined') {
+      li.dataset.queueId = String(entry.id);
+    }
+    const details = document.createElement('div');
+    details.className = 'sync-panel__item-details';
+    const title = document.createElement('span');
+    title.className = 'sync-panel__item-title';
+    title.textContent = entry?.name || 'Queued save';
+    details.appendChild(title);
+    const meta = document.createElement('span');
+    meta.className = 'sync-panel__item-meta';
+    const queuedTs = Number.isFinite(entry?.queuedAt) ? entry.queuedAt : entry?.ts;
+    const parts = [];
+    if (Number.isFinite(queuedTs)) {
+      parts.push(`Queued ${formatTimestampLabel(queuedTs)}`);
+    }
+    if (Number.isFinite(entry?.ts) && entry.ts !== queuedTs) {
+      parts.push(`Last change ${formatAbsoluteTimestamp(entry.ts)}`);
+    }
+    meta.textContent = parts.join(' • ');
+    details.appendChild(meta);
+    li.appendChild(details);
+    const actions = document.createElement('div');
+    actions.className = 'sync-panel__item-actions';
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-sm';
+    removeBtn.dataset.action = 'remove-queued-save';
+    if (entry && typeof entry.id !== 'undefined') {
+      removeBtn.dataset.id = String(entry.id);
+    }
+    removeBtn.textContent = 'Remove';
+    actions.appendChild(removeBtn);
+    li.appendChild(actions);
+    syncPanelQueueList.appendChild(li);
+  });
+}
+
+function renderSyncErrors() {
+  if (!syncPanelErrorsList) return;
+  syncPanelErrorsList.innerHTML = '';
+  if (syncPanelErrorsEmpty) {
+    syncPanelErrorsEmpty.hidden = syncPanelErrors.length > 0;
+  }
+  if (!syncPanelErrors.length) return;
+  syncPanelErrors.forEach(err => {
+    const li = document.createElement('li');
+    li.className = 'sync-panel__item sync-panel__error';
+    li.dataset.errorId = err.id;
+    const details = document.createElement('div');
+    details.className = 'sync-panel__item-details';
+    const title = document.createElement('span');
+    title.className = 'sync-panel__item-title';
+    title.textContent = err.message || 'Sync error';
+    details.appendChild(title);
+    const meta = document.createElement('span');
+    meta.className = 'sync-panel__item-meta';
+    const parts = [];
+    if (err.stage) parts.push(err.stage);
+    if (err.name) parts.push(`Save: ${err.name}`);
+    if (Number.isFinite(err.timestamp)) parts.push(formatTimestampLabel(err.timestamp));
+    if (err.code) parts.push(`Code: ${err.code}`);
+    meta.textContent = parts.join(' • ');
+    details.appendChild(meta);
+    li.appendChild(details);
+    const actions = document.createElement('div');
+    actions.className = 'sync-panel__item-actions';
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'btn-sm';
+    retryBtn.dataset.action = 'retry-sync';
+    retryBtn.dataset.errorId = err.id;
+    retryBtn.textContent = 'Retry';
+    actions.appendChild(retryBtn);
+    const dismissBtn = document.createElement('button');
+    dismissBtn.type = 'button';
+    dismissBtn.className = 'btn-sm';
+    dismissBtn.dataset.action = 'dismiss-error';
+    dismissBtn.dataset.errorId = err.id;
+    dismissBtn.textContent = 'Dismiss';
+    actions.appendChild(dismissBtn);
+    li.appendChild(actions);
+    syncPanelErrorsList.appendChild(li);
+  });
+}
+
+async function refreshQueuedSaves({ force = false } = {}) {
+  if (!syncPanel) return;
+  if (!force && !syncPanelOpen && !syncQueueDirty) return;
+  syncQueueDirty = false;
+  try {
+    const entries = await listQueuedCloudSaves();
+    syncPanelQueue = Array.isArray(entries) ? entries.slice() : [];
+  } catch (err) {
+    addSyncError({ message: 'Failed to load queued saves', error: err, stage: 'list-queue' });
+  }
+  renderSyncQueue();
+}
+
+function markQueueDirty() {
+  syncQueueDirty = true;
+  if (syncPanelOpen) {
+    refreshQueuedSaves({ force: true });
+  }
+}
+
+function removeSyncErrorById(id) {
+  if (!id) return;
+  const idx = syncPanelErrors.findIndex(err => err.id === id);
+  if (idx >= 0) {
+    syncPanelErrors.splice(idx, 1);
+    renderSyncErrors();
+  }
+}
+
+function addSyncError(detail = {}) {
+  const base = detail?.error && typeof detail.error === 'object' ? detail.error : detail;
+  const message = typeof base?.message === 'string' && base.message.trim()
+    ? base.message.trim()
+    : 'An unknown sync error occurred.';
+  const entry = {
+    id: `sync-error-${++syncPanelErrorCounter}`,
+    message,
+    name: typeof detail?.name === 'string' ? detail.name : typeof base?.name === 'string' ? base.name : undefined,
+    stage: typeof detail?.stage === 'string' ? detail.stage : typeof base?.stage === 'string' ? base.stage : undefined,
+    code: typeof base?.code === 'string' ? base.code : undefined,
+    timestamp: Number.isFinite(detail?.timestamp) ? detail.timestamp : Date.now(),
   };
-  const VALID_BADGE_STATUSES = new Set(Object.keys(SYNC_STATUS_LABELS));
+  syncPanelErrors.unshift(entry);
+  if (syncPanelErrors.length > 12) {
+    syncPanelErrors.length = 12;
+  }
+  renderSyncErrors();
+}
+
+function openSyncPanel() {
+  if (!syncPanel || syncPanelOpen) return;
+  syncPanel.hidden = false;
+  syncPanelOpen = true;
+  if (syncStatusBadge) {
+    syncStatusBadge.setAttribute('aria-expanded', 'true');
+  }
+  updateSyncPanelStatus();
+  updateSyncPanelLastSync(syncPanelLastSync ?? getLastSyncTimestamp());
+  refreshQueuedSaves({ force: true });
+  renderSyncErrors();
+}
+
+function closeSyncPanel({ focus = false } = {}) {
+  if (!syncPanel || !syncPanelOpen) return;
+  syncPanel.hidden = true;
+  syncPanelOpen = false;
+  if (syncStatusBadge) {
+    syncStatusBadge.setAttribute('aria-expanded', 'false');
+  }
+  if (focus && syncStatusBadge && typeof syncStatusBadge.focus === 'function') {
+    syncStatusBadge.focus();
+  }
+}
+
+if (syncStatusBadge) {
   const labelEl = syncStatusBadge.querySelector('[data-sync-status-label]');
   const updateSyncBadge = status => {
     const normalized = typeof status === 'string' && VALID_BADGE_STATUSES.has(status)
       ? status
       : 'online';
+    currentSyncStatus = normalized;
     const label = SYNC_STATUS_LABELS[normalized] || SYNC_STATUS_LABELS.online;
     if (syncStatusBadge.dataset && typeof syncStatusBadge.dataset === 'object') {
       syncStatusBadge.dataset.status = normalized;
-    } else if (typeof syncStatusBadge.setAttribute === 'function') {
+    } else {
       syncStatusBadge.setAttribute('data-status', normalized);
     }
     if (labelEl) {
       labelEl.textContent = label;
     }
-    if (typeof syncStatusBadge.setAttribute === 'function') {
-      syncStatusBadge.setAttribute('aria-label', `Cloud sync status: ${label}`);
-      syncStatusBadge.setAttribute('title', label);
-    }
+    syncStatusBadge.setAttribute('aria-label', `Cloud sync status: ${label}`);
+    syncStatusBadge.setAttribute('title', label);
+    updateSyncPanelStatus(normalized);
   };
 
-  updateSyncBadge(getLastSyncStatus());
+  updateSyncBadge(currentSyncStatus);
   subscribeSyncStatus(updateSyncBadge);
+  syncStatusBadge.addEventListener('click', () => {
+    if (syncPanelOpen) {
+      closeSyncPanel();
+    } else {
+      openSyncPanel();
+    }
+  });
+}
+
+if (syncPanelCloseBtn) {
+  syncPanelCloseBtn.addEventListener('click', () => closeSyncPanel({ focus: true }));
+}
+
+if (syncPanelSyncBtn) {
+  syncPanelSyncBtn.addEventListener('click', async () => {
+    syncPanelSyncBtn.disabled = true;
+    try {
+      await flushQueuedCloudSaves();
+    } catch (err) {
+      addSyncError({ message: 'Failed to start sync', error: err, stage: 'flush-request' });
+    } finally {
+      syncPanelSyncBtn.disabled = false;
+    }
+  });
+}
+
+if (syncPanelClearQueueBtn) {
+  syncPanelClearQueueBtn.addEventListener('click', async () => {
+    if (typeof confirm === 'function') {
+      if (!confirm('Clear all queued saves? This will discard unsynced changes.')) {
+        return;
+      }
+    }
+    syncPanelClearQueueBtn.disabled = true;
+    try {
+      await clearQueuedCloudSaves();
+      syncPanelQueue = [];
+      renderSyncQueue();
+    } catch (err) {
+      addSyncError({ message: 'Failed to clear queued saves', error: err, stage: 'clear-queue' });
+    } finally {
+      syncPanelClearQueueBtn.disabled = false;
+      markQueueDirty();
+    }
+  });
+}
+
+if (syncPanelClearErrorsBtn) {
+  syncPanelClearErrorsBtn.addEventListener('click', () => {
+    syncPanelErrors = [];
+    renderSyncErrors();
+  });
+}
+
+if (syncPanelQueueList) {
+  syncPanelQueueList.addEventListener('click', async event => {
+    const btn = event.target instanceof HTMLElement ? event.target.closest('[data-action="remove-queued-save"]') : null;
+    if (!btn) return;
+    const { id } = btn.dataset;
+    if (!id) return;
+    btn.disabled = true;
+    try {
+      await deleteQueuedCloudSave(Number(id));
+      syncPanelQueue = syncPanelQueue.filter(entry => String(entry?.id) !== id);
+      renderSyncQueue();
+    } catch (err) {
+      addSyncError({ message: 'Failed to remove queued save', error: err, stage: 'delete-queue' });
+    } finally {
+      btn.disabled = false;
+      markQueueDirty();
+    }
+  });
+}
+
+if (syncPanelErrorsList) {
+  syncPanelErrorsList.addEventListener('click', async event => {
+    const btn = event.target instanceof HTMLElement ? event.target.closest('[data-action]') : null;
+    if (!btn) return;
+    const { action, errorId } = btn.dataset;
+    if (!errorId) return;
+    if (action === 'dismiss-error') {
+      removeSyncErrorById(errorId);
+      return;
+    }
+    if (action === 'retry-sync') {
+      btn.disabled = true;
+      try {
+        await flushQueuedCloudSaves();
+      } catch (err) {
+        addSyncError({ message: 'Failed to start sync', error: err, stage: 'flush-request' });
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  });
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && syncPanelOpen) {
+      closeSyncPanel({ focus: true });
+    }
+  });
+  document.addEventListener('pointerdown', event => {
+    if (!syncPanelOpen) return;
+    const target = event.target;
+    if (syncPanel && target instanceof Node) {
+      if (!syncPanel.contains(target) && (!syncStatusBadge || !syncStatusBadge.contains(target))) {
+        closeSyncPanel();
+      }
+    }
+  }, { capture: true });
+}
+
+updateSyncPanelStatus(currentSyncStatus);
+updateSyncPanelLastSync(syncPanelLastSync);
+renderSyncQueue();
+renderSyncErrors();
+
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('cloud-sync:success', event => {
+    const detail = event?.detail || {};
+    const ts = Number(detail.timestamp);
+    if (Number.isFinite(ts)) {
+      updateSyncPanelLastSync(ts);
+    } else {
+      updateSyncPanelLastSync();
+    }
+    markQueueDirty();
+  });
+  window.addEventListener('cloud-sync:queued', event => {
+    const detail = event?.detail || {};
+    if (detail?.error) {
+      addSyncError({ ...detail, stage: detail.stage || 'queued' });
+    }
+    markQueueDirty();
+  });
+  window.addEventListener('cloud-sync:error', event => {
+    addSyncError(event?.detail || {});
+    const stage = event?.detail?.stage;
+    if (stage === 'list-queue' || stage === 'delete-queue' || stage === 'clear-queue') {
+      markQueueDirty();
+    }
+  });
+  window.addEventListener('cloud-sync:queuechange', () => {
+    markQueueDirty();
+  });
 }
 
 $('btn-save').addEventListener('click', async () => {
@@ -12664,7 +13076,28 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     const type = typeof payload.type === 'string' ? payload.type : undefined;
     if (!type) return;
     if (type === 'cacheCloudSaves') {
-      cacheCloudSaves();
+      Promise.resolve(cacheCloudSaves())
+        .then(() => updateSyncPanelLastSync())
+        .catch(() => {});
+      return;
+    }
+    if (type === 'cloud-sync-success') {
+      const ts = Number(payload.timestamp);
+      if (Number.isFinite(ts)) {
+        updateSyncPanelLastSync(ts);
+      } else {
+        updateSyncPanelLastSync();
+      }
+      markQueueDirty();
+      return;
+    }
+    if (type === 'cloud-sync-queue-updated') {
+      markQueueDirty();
+      return;
+    }
+    if (type === 'cloud-sync-error') {
+      addSyncError({ ...payload, stage: payload?.stage || 'service-worker' });
+      markQueueDirty();
       return;
     }
     if (type === 'pins-updated') {
@@ -12686,18 +13119,11 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     }
   });
   navigator.serviceWorker.ready
-    .then(reg => {
+    .then(() => {
       const triggerFlush = () => {
-        const worker = navigator.serviceWorker.controller || reg.active;
-        if (getLastSyncStatus() === 'queued') {
-          beginQueuedSyncFlush();
-        }
-        if (reg.sync && typeof reg.sync.register === 'function') {
-          reg.sync.register('cloud-save-sync').catch(() => {
-            worker?.postMessage({ type: 'flush-cloud-saves' });
-          });
-        }
-        worker?.postMessage({ type: 'flush-cloud-saves' });
+        flushQueuedCloudSaves().catch(err => {
+          addSyncError({ message: 'Failed to request sync', error: err, stage: 'flush-request' });
+        });
       };
       triggerFlush();
       if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
