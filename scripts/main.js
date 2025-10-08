@@ -5487,42 +5487,56 @@ function rollWithBonus(name, bonus, out, opts = {}){
 }
 renderLogs();
 renderFullLogs();
-$('roll-dice').addEventListener('click', ()=>{
-  const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
-  const out = $('dice-out');
-  const breakdown = $('dice-breakdown');
-  out.classList.remove('rolling');
-  const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
-  const sum = rolls.reduce((a,b)=>a+b,0);
-  out.textContent = sum;
-  void out.offsetWidth; out.classList.add('rolling');
-  if (breakdown) {
-    breakdown.textContent = '';
-    if (c > 1) {
-      const fragment = document.createDocumentFragment();
-      rolls.forEach((roll, index) => {
-        const item = document.createElement('li');
-        item.textContent = String(roll);
-        item.setAttribute('aria-label', `Roll ${index + 1}: ${roll}`);
-        fragment.appendChild(item);
-      });
-      breakdown.appendChild(fragment);
-      breakdown.hidden = false;
-    } else {
-      breakdown.hidden = true;
+const rollDiceButton = $('roll-dice');
+if (rollDiceButton) {
+  rollDiceButton.addEventListener('click', ()=>{
+    const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
+    const out = $('dice-out');
+    const breakdown = $('dice-breakdown');
+    out.classList.remove('rolling');
+    const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
+    const sum = rolls.reduce((a,b)=>a+b,0);
+    out.textContent = sum;
+    void out.offsetWidth; out.classList.add('rolling');
+    if (breakdown) {
+      breakdown.textContent = '';
+      if (c > 1) {
+        const fragment = document.createDocumentFragment();
+        rolls.forEach((roll, index) => {
+          const item = document.createElement('li');
+          item.textContent = String(roll);
+          item.setAttribute('aria-label', `Roll ${index + 1}: ${roll}`);
+          fragment.appendChild(item);
+        });
+        breakdown.appendChild(fragment);
+        breakdown.hidden = false;
+      } else {
+        breakdown.hidden = true;
+      }
     }
-  }
-  playDamageAnimation(sum);
-  logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
-  window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
-});
-$('flip').addEventListener('click', ()=>{
-  const v = Math.random()<.5 ? 'Heads' : 'Tails';
-  $('flip-out').textContent = v;
-  playCoinAnimation(v);
-  logAction(`Coin flip: ${v}`);
-  window.dmNotify?.(`Coin flip: ${v}`);
-});
+    playDamageAnimation(sum);
+    playStatusCue('dm-roll');
+    logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
+    window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
+  });
+}
+const coinFlipButton = $('flip');
+if (coinFlipButton) {
+  coinFlipButton.addEventListener('click', ()=>{
+    const v = Math.random()<.5 ? 'Heads' : 'Tails';
+    $('flip-out').textContent = v;
+    playCoinAnimation(v);
+    playStatusCue('coin-flip');
+    logAction(`Coin flip: ${v}`);
+    window.dmNotify?.(`Coin flip: ${v}`);
+  });
+}
+const dmRollButton = $('dm-roll');
+if (dmRollButton && dmRollButton !== rollDiceButton) {
+  dmRollButton.addEventListener('click', ()=>{
+    playStatusCue('dm-roll');
+  });
+}
 
 function playDamageAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
@@ -5565,6 +5579,32 @@ const AUDIO_CUE_SETTINGS = {
     partials: [
       { ratio: 1, amplitude: 1 },
       { ratio: 2, amplitude: 0.45 },
+    ],
+  },
+  'dm-roll': {
+    frequency: 320,
+    type: 'triangle',
+    duration: 0.45,
+    volume: 0.28,
+    attack: 0.01,
+    release: 0.22,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.5, amplitude: 0.5 },
+      { ratio: 2, amplitude: 0.25 },
+    ],
+  },
+  'coin-flip': {
+    frequency: 920,
+    type: 'sine',
+    duration: 0.35,
+    volume: 0.26,
+    attack: 0.008,
+    release: 0.18,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 2, amplitude: 0.35 },
+      { ratio: 3, amplitude: 0.18 },
     ],
   },
   heal: {
