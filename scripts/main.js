@@ -5739,6 +5739,19 @@ function playSaveAnimation(){
   });
 }
 
+function cueSuccessfulSave(){
+  try {
+    const cue = playSaveAnimation();
+    if (cue && typeof cue.catch === 'function') {
+      cue.catch(err => console.error('Save confirmation cue failed', err));
+    }
+    return cue;
+  } catch (err) {
+    console.error('Save confirmation cue failed', err);
+    return Promise.resolve();
+  }
+}
+
 function playCoinAnimation(result){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('coin-animation');
@@ -11668,8 +11681,11 @@ $('btn-save').addEventListener('click', async () => {
       await saveCharacter(data, target);
     }
     markAutoSaveSynced(data, serialized);
+    cueSuccessfulSave();
     toast('Save successful', 'success');
-    playSaveAnimation();
+  } catch (e) {
+    console.error('Save failed', e);
+    toast('Save failed', 'error');
   } finally {
     btn.classList.remove('loading'); btn.disabled = false;
   }
@@ -11687,6 +11703,7 @@ if (heroInput) {
       try {
         const data = serialize();
         await saveCharacter(data, name);
+        cueSuccessfulSave();
         markAutoSaveSynced(data);
       } catch (e) {
         console.error('Autosave failed', e);
