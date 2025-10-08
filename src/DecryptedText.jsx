@@ -68,6 +68,9 @@ export default function DecryptedText({
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const measurementCacheRef = useRef(new Map());
   const measurementStringCacheRef = useRef(new Map());
+  const animationFrameRef = useRef(null);
+  const lastTimestampRef = useRef(null);
+  const accumulatedTimeRef = useRef(0);
 
   const textCharacters = useMemo(() => text.split(''), [text]);
   const filteredCandidateChars = useMemo(
@@ -245,8 +248,25 @@ export default function DecryptedText({
   }, [updateDimensions, updateMeasurementText]);
 
   useEffect(() => {
-    let interval;
     let currentIteration = 0;
+
+    const requestFrame =
+      typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : null;
+    const cancelFrame =
+      typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
+        ? window.cancelAnimationFrame.bind(window)
+        : null;
+
+    const stopAnimation = () => {
+      if (animationFrameRef.current !== null && cancelFrame) {
+        cancelFrame(animationFrameRef.current);
+      }
+      animationFrameRef.current = null;
+      lastTimestampRef.current = null;
+      accumulatedTimeRef.current = 0;
+    };
 
     const getNextIndex = revealedSet => {
       const textLength = textCharacters.length;
@@ -316,41 +336,125 @@ export default function DecryptedText({
     };
 
     if (isHovering) {
+      lastTimestampRef.current = null;
+      accumulatedTimeRef.current = 0;
+
+      if (!requestFrame) {
+        setIsScrambling(false);
+        return () => {
+          stopAnimation();
+        };
+      }
+
       setIsScrambling(true);
-      interval = setInterval(() => {
+
+      const step = timestamp => {
+        if (!isHovering) {
+          stopAnimation();
+          return;
+        }
+
+        if (lastTimestampRef.current === null) {
+          lastTimestampRef.current = timestamp;
+          animationFrameRef.current = requestFrame(step);
+          return;
+        }
+
+        const delta = timestamp - lastTimestampRef.current;
+        lastTimestampRef.current = timestamp;
+        accumulatedTimeRef.current += delta;
+
+        const intervalDuration = Math.max(speed, 0);
+        const ticks = intervalDuration === 0
+          ? 1
+          : Math.floor(accumulatedTimeRef.current / intervalDuration);
+
+        if (intervalDuration !== 0) {
+          accumulatedTimeRef.current -= ticks * intervalDuration;
+        } else {
+          accumulatedTimeRef.current = 0;
+        }
+
+        if (ticks <= 0) {
+          animationFrameRef.current = requestFrame(step);
+          return;
+        }
+
+        let animationCompleted = false;
+
         setRevealedIndices(prevRevealed => {
           if (sequential) {
-            if (prevRevealed.size < textCharacters.length) {
-              const nextIndex = getNextIndex(prevRevealed);
-              const newRevealed = new Set(prevRevealed);
-              newRevealed.add(nextIndex);
-              setDisplayText(shuffleText(newRevealed));
-              return newRevealed;
+            const updatedSet = new Set(prevRevealed);
+            let hasChanged = false;
+
+            for (let i = 0; i < ticks; i++) {
+              if (updatedSet.size >= textCharacters.length) {
+                animationCompleted = true;
+                break;
+              }
+
+              const nextIndex = getNextIndex(updatedSet);
+              updatedSet.add(nextIndex);
+              hasChanged = true;
             }
 
-            clearInterval(interval);
-            setIsScrambling(false);
-            return prevRevealed;
+            if (updatedSet.size >= textCharacters.length) {
+              animationCompleted = true;
+            }
+
+            if (hasChanged || animationCompleted) {
+              setDisplayText(animationCompleted ? text : shuffleText(updatedSet));
+            }
+
+            return updatedSet;
           }
 
-          setDisplayText(shuffleText(prevRevealed));
-          currentIteration++;
-          if (currentIteration >= maxIterations) {
-            clearInterval(interval);
-            setIsScrambling(false);
-            setDisplayText(text);
+          let completedIteration = false;
+          let finalDisplayText = null;
+
+          for (let i = 0; i < ticks; i++) {
+            finalDisplayText = shuffleText(prevRevealed);
+            currentIteration++;
+            if (currentIteration >= maxIterations) {
+              completedIteration = true;
+              finalDisplayText = text;
+              break;
+            }
           }
+
+          if (finalDisplayText !== null) {
+            setDisplayText(finalDisplayText);
+          }
+
+          if (completedIteration) {
+            animationCompleted = true;
+          }
+
           return prevRevealed;
         });
-      }, speed);
+
+        if (animationCompleted) {
+          setIsScrambling(false);
+          stopAnimation();
+          if (!sequential) {
+            setDisplayText(text);
+          }
+          return;
+        }
+
+        animationFrameRef.current = requestFrame(step);
+      };
+
+      animationFrameRef.current = requestFrame(step);
     } else {
+      stopAnimation();
       setDisplayText(text);
       setRevealedIndices(new Set());
       setIsScrambling(false);
     }
 
     return () => {
-      if (interval) clearInterval(interval);
+      stopAnimation();
     };
   }, [
     isHovering,
