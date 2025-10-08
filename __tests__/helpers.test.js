@@ -62,7 +62,7 @@ describe('calculateArmorBonus', () => {
     expect(calculateArmorBonus()).toBe(10);
   });
 
-  test('ignores negative armor bonuses', () => {
+  test('applies negative armor bonuses', () => {
     document.body.innerHTML = `
       <div data-kind="armor">
         <input type="checkbox" data-f="equipped" checked>
@@ -70,7 +70,23 @@ describe('calculateArmorBonus', () => {
         <select data-f="slot"><option>Head</option></select>
       </div>
     `;
-    expect(calculateArmorBonus()).toBe(0);
+    expect(calculateArmorBonus()).toBe(-5);
+  });
+
+  test('negative armor bonus lowers total TC', () => {
+    document.body.innerHTML = `
+      <div data-kind="armor">
+        <input type="checkbox" data-f="equipped" checked>
+        <input data-f="bonus" value="-2">
+        <select data-f="slot"><option>Body</option></select>
+      </div>
+    `;
+    const dexMod = mod(12); // +1
+    const armorBonus = calculateArmorBonus();
+    const totalTC = 10 + dexMod + armorBonus;
+
+    expect(armorBonus).toBe(-2);
+    expect(totalTC).toBe(9);
   });
 });
 
