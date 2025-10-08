@@ -9156,7 +9156,13 @@ function createCard(kind, pref = {}) {
   if (kind === 'weapon') {
     const rangeField = qs("[data-f='range']", card);
     const abilityField = qs("[data-f='attackAbility']", card);
-    const abilityShouldAutoSync = !attackAbilityWasProvided || !providedAttackAbilityRaw;
+    const normalizedProvidedAbility = providedAttackAbilityRaw
+      ? String(providedAttackAbilityRaw).trim().toLowerCase()
+      : '';
+    const inferredAbilityFromRange = inferWeaponAttackAbility({ range: pref.range });
+    const abilityShouldAutoSync = !attackAbilityWasProvided
+      || !normalizedProvidedAbility
+      || normalizedProvidedAbility === inferredAbilityFromRange;
     if (abilityField) {
       abilityField.dataset.autoSync = abilityShouldAutoSync ? 'true' : 'false';
       const markManualAbilitySelection = () => {
