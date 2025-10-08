@@ -26,6 +26,18 @@ function AnimatedTitle({ text, playIndex }) {
 const animatedTitles = new Map();
 let currentActiveGroup = null;
 
+const STAGGER_CONFIG = {
+  global: 140,
+  default: 60
+};
+
+function getStaggerDuration(instance, requestedGroup) {
+  if (requestedGroup === 'global' || instance.group === 'global') {
+    return STAGGER_CONFIG.global;
+  }
+  return STAGGER_CONFIG.default;
+}
+
 function getGroupKey(element) {
   const fieldset = element.closest('fieldset[data-tab]');
   return fieldset?.dataset.tab ?? 'global';
@@ -92,6 +104,27 @@ function renderInstance(instance) {
   instance.root.render(<AnimatedTitle text={instance.text} playIndex={instance.playIndex} />);
 }
 
+function clearPending(instance) {
+  if (instance.pendingTimeout) {
+    clearTimeout(instance.pendingTimeout);
+    instance.pendingTimeout = null;
+  }
+  if (instance.pendingFrame) {
+    cancelAnimationFrame(instance.pendingFrame);
+    instance.pendingFrame = null;
+  }
+}
+
+function cleanupInstance(instance) {
+  clearPending(instance);
+  instance.root.unmount();
+  if (instance.disconnectObserver) {
+    instance.disconnectObserver.disconnect();
+    instance.disconnectObserver = null;
+  }
+  animatedTitles.delete(instance.element);
+}
+
 function mountTitle(hostElement) {
   const targetElement = resolveAnimationTarget(hostElement);
   if (!targetElement) return;
@@ -111,18 +144,66 @@ function mountTitle(hostElement) {
     root,
     text,
     playIndex: 0,
-    group: getGroupKey(targetElement)
+    group: getGroupKey(targetElement),
+    pendingFrame: null,
+    pendingTimeout: null,
+    disconnectObserver: null
   };
 
   renderInstance(instance);
   animatedTitles.set(targetElement, instance);
+
+  const parentNode = hostElement.parentNode;
+  if (parentNode) {
+    const disconnectObserver = new MutationObserver(() => {
+      if (!hostElement.isConnected) {
+        cleanupInstance(instance);
+      }
+    });
+    disconnectObserver.observe(parentNode, { childList: true });
+    instance.disconnectObserver = disconnectObserver;
+  }
 }
 
 function playGroup(group) {
+  const instancesToPlay = [];
+
   animatedTitles.forEach(instance => {
+    if (!instance.host.isConnected) {
+      cleanupInstance(instance);
+      return;
+    }
+
     if (instance.group === group || (group !== 'global' && instance.group === 'global')) {
-      instance.playIndex += 1;
-      renderInstance(instance);
+      instancesToPlay.push(instance);
+    }
+  });
+
+  instancesToPlay.forEach((instance, index) => {
+    const stagger = getStaggerDuration(instance, group);
+    const delay = index * stagger;
+
+    clearPending(instance);
+    const schedule = () => {
+      instance.pendingFrame = requestAnimationFrame(() => {
+        instance.pendingFrame = null;
+        if (!instance.host.isConnected) {
+          cleanupInstance(instance);
+          return;
+        }
+
+        instance.playIndex += 1;
+        renderInstance(instance);
+      });
+    };
+
+    if (delay > 0) {
+      instance.pendingTimeout = setTimeout(() => {
+        instance.pendingTimeout = null;
+        schedule();
+      }, delay);
+    } else {
+      schedule();
     }
   });
 }
