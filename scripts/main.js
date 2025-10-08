@@ -3340,6 +3340,11 @@ const m24nTrack = qs('[data-m24n-ticker-track]');
 const m24nText = qs('[data-m24n-ticker-text]');
 if(m24nTrack && m24nText){
   const BASE_HEADLINE_DURATION = BASE_TICKER_DURATION_MS;
+  // Headline ticker scroll speed (px/sec). Adjust to tune readability.
+  const HEADLINE_SCROLL_SPEED_PX_PER_SECOND = DEVICE_INFO.isMobile ? 55 : 85;
+  if(typeof window !== 'undefined'){
+    window.mn24TickerSpeed = HEADLINE_SCROLL_SPEED_PX_PER_SECOND;
+  }
   const BUFFER_DURATION = 3000;
   const ROTATION_WINDOW = 10 * 60 * 1000;
   const HEADLINES_PER_ROTATION = Math.max(1, Math.floor(ROTATION_WINDOW / (BASE_HEADLINE_DURATION + BUFFER_DURATION)));
@@ -3377,7 +3382,14 @@ if(m24nTrack && m24nText){
     const viewportWidth = m24nTrack.parentElement?.clientWidth || m24nTrack.offsetWidth;
     const travelDistance = trackWidth + viewportWidth + gapValue;
     m24nTrack.style.setProperty('--ticker-distance', `${Math.round(travelDistance)}px`);
-    const durationMs = BASE_TICKER_DURATION_MS;
+    if(!Number.isFinite(travelDistance) || travelDistance <= 0){
+      m24nTrack.style.setProperty('--ticker-duration', `${Math.round(BASE_HEADLINE_DURATION)}ms`);
+      return BASE_HEADLINE_DURATION;
+    }
+    const durationMs = Math.max(
+      1000,
+      Math.round((travelDistance / HEADLINE_SCROLL_SPEED_PX_PER_SECOND) * 1000)
+    );
     m24nTrack.style.setProperty('--ticker-duration', `${Math.round(durationMs)}ms`);
     return durationMs;
   }
