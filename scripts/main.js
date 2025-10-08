@@ -4,7 +4,7 @@ import { ensureDiceResultRenderer } from './dice-result.js';
 import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep, migratePublicOpinionSnapshot } from './faction.js';
 import {
   currentCharacter,
-  setCurrentCharacter,
+  setCurrentCharacter as setCurrentCharacterBase,
   listCharacters,
   loadCharacter,
   loadBackup,
@@ -27,6 +27,10 @@ import {
   setServerDmCatalogPayloads,
   subscribeDmCatalog,
 } from './dm-catalog-sync.js';
+import {
+  subscribeCatalogGrants,
+  acknowledgeCatalogGrant,
+} from './dm-catalog-grants.js';
 import {
   cacheCloudSaves,
   subscribeCloudSaves,
@@ -57,7 +61,13 @@ import {
   sortCatalogRows,
   splitValueOptions,
   tierRank,
+  buildDmEntryFromPayload,
 } from './catalog-utils.js';
+
+function setCurrentCharacter(name) {
+  setCurrentCharacterBase(name);
+  updateCatalogGrantSubscription();
+}
 
 const POWER_STYLES = [
   'Physical Powerhouse',
@@ -11564,8 +11574,8 @@ function buildCardInfo(entry){
   };
 }
 
-function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverride = null } = {}){
-  if (entry?.dmLock && !isDmSessionActive()) {
+function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverride = null, ignoreDmLock = false } = {}){
+  if (entry?.dmLock && !ignoreDmLock && !isDmSessionActive()) {
     toast('This entry is locked by the DM.', 'error');
     return null;
   }
@@ -11626,6 +11636,60 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
   }
   return card;
 }
+
+function applyDmCatalogPayloadToSheet(payload, { toastMessage = 'Added to sheet', cardInfoOverride = null, ignoreDmLock = true } = {}) {
+  const entry = buildDmEntryFromPayload(payload);
+  if (!entry) return null;
+  return addEntryToSheet(entry, { toastMessage, cardInfoOverride, ignoreDmLock });
+}
+
+let activeCatalogGrantUnsubscribe = null;
+let activeCatalogGrantTarget = null;
+
+function handleIncomingCatalogGrant(grant) {
+  if (!grant || !grant.payload || !grant.id) return;
+  const entryName = grant.payload?.metadata?.name || 'Catalog entry';
+  const sourceLabel = grant.metadata?.source || grant.issuedBy || 'DM';
+  const toastLabel = `${entryName} granted by ${sourceLabel}`;
+  const card = applyDmCatalogPayloadToSheet(grant.payload, { toastMessage: null });
+  if (card) {
+    if (typeof toast === 'function') toast(toastLabel, 'success');
+    try { logAction(`DM granted ${entryName}${sourceLabel ? ` (${sourceLabel})` : ''}`); } catch {}
+    window.dmNotify?.(`Catalog grant received · ${entryName}`);
+  } else if (typeof toast === 'function') {
+    toast(`Grant from ${sourceLabel} could not be applied.`, 'error');
+  }
+  try {
+    acknowledgeCatalogGrant(grant.player || currentCharacter?.(), grant.id);
+  } catch (err) {
+    console.error('Failed to acknowledge catalog grant', err);
+  }
+}
+
+function updateCatalogGrantSubscription() {
+  const target = currentCharacter?.();
+  if (target === activeCatalogGrantTarget) return;
+  if (typeof activeCatalogGrantUnsubscribe === 'function') {
+    try { activeCatalogGrantUnsubscribe(); } catch {}
+    activeCatalogGrantUnsubscribe = null;
+  }
+  activeCatalogGrantTarget = target;
+  if (!target) return;
+  try {
+    activeCatalogGrantUnsubscribe = subscribeCatalogGrants(target, grant => {
+      try {
+        handleIncomingCatalogGrant(grant);
+      } catch (err) {
+        console.error('Catalog grant handler failed', err);
+      }
+    });
+  } catch (err) {
+    console.error('Failed to subscribe to catalog grants', err);
+    activeCatalogGrantUnsubscribe = null;
+  }
+}
+
+updateCatalogGrantSubscription();
 
 /* ========= Gear Catalog (CatalystCore_Master_Book integration) ========= */
 const CATALOG_JSON_SRC = './data/gear-catalog.json';
@@ -12124,7 +12188,8 @@ export {
   rollBonusRegistry,
   buildCardInfo,
   extractWeaponDetails,
-  addEntryToSheet
+  addEntryToSheet,
+  applyDmCatalogPayloadToSheet
 };
 
 function setCatalogFilters(filters = {}){

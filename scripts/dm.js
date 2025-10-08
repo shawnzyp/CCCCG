@@ -17,6 +17,7 @@ import {
   getStatusLabel,
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
+import { grantCatalogEntryToPlayer, loadPlayerNames, listCachedNames } from './dm-catalog-grants.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -396,6 +397,8 @@ function initDMLogin(){
   const catalogTabButtons = new Map();
   const catalogPanelMap = new Map();
   const catalogForms = new Map();
+  const catalogGrantControls = new WeakMap();
+  const catalogGrantSelects = new Set();
   let catalogInitialized = false;
 
   if (!isAuthorizedDevice()) {
@@ -1070,7 +1073,7 @@ function initDMLogin(){
     const previous = preserveSelection ? miniGamesPlayerSelect.value : '';
     miniGamesPlayerSelect.innerHTML = '<option value="">Loading…</option>';
     try {
-      const names = await listCharacters();
+      const names = await loadPlayerNames({ force: true });
       miniGamesPlayerSelect.innerHTML = '';
       const placeholder = document.createElement('option');
       placeholder.value = '';
@@ -1082,6 +1085,7 @@ function initDMLogin(){
         option.textContent = name;
         miniGamesPlayerSelect.appendChild(option);
       });
+      refreshAllCatalogGrantSelects();
       if (previous && names.includes(previous)) {
         miniGamesPlayerSelect.value = previous;
       }
@@ -1207,6 +1211,135 @@ function initDMLogin(){
     return '';
   }
 
+  let applyCatalogPayloadHelperPromise = null;
+
+  async function getApplyCatalogPayloadHelper() {
+    if (!applyCatalogPayloadHelperPromise) {
+      applyCatalogPayloadHelperPromise = import('./main.js')
+        .then(module => module?.applyDmCatalogPayloadToSheet || null)
+        .catch(err => {
+          console.error('Failed to load catalog payload helper', err);
+          return null;
+        });
+    }
+    return applyCatalogPayloadHelperPromise;
+  }
+
+  function populateCatalogGrantSelect(select, names = [], { preserveSelection = true } = {}) {
+    if (!select) return;
+    const previous = preserveSelection ? select.value : '';
+    select.innerHTML = '';
+    const list = Array.isArray(names) ? names : [];
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = list.length ? 'Select a player' : 'No players available';
+    select.appendChild(placeholder);
+    list.forEach(name => {
+      if (!name) return;
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+    if (previous && list.includes(previous)) {
+      select.value = previous;
+    } else {
+      select.value = '';
+    }
+  }
+
+  async function refreshCatalogGrantSelect(select, { force = false, preserveSelection = true } = {}) {
+    if (!select) return;
+    if (!force) {
+      const cached = listCachedNames();
+      if (cached.length) {
+        populateCatalogGrantSelect(select, cached, { preserveSelection });
+      } else {
+        select.innerHTML = '<option value="">Loading…</option>';
+      }
+    }
+    try {
+      const names = await loadPlayerNames({ force });
+      populateCatalogGrantSelect(select, names, { preserveSelection });
+    } catch (err) {
+      console.error('Failed to load players for catalog grant', err);
+      select.innerHTML = '<option value="">Unable to load players</option>';
+    }
+  }
+
+  function refreshAllCatalogGrantSelects({ force = false } = {}) {
+    catalogGrantSelects.forEach(select => {
+      refreshCatalogGrantSelect(select, { force, preserveSelection: true }).catch(() => {});
+    });
+  }
+
+  function getCatalogGrantRecipient(form) {
+    const controls = catalogGrantControls.get(form);
+    if (!controls) return '';
+    const custom = controls.input?.value?.trim();
+    if (custom) return custom;
+    const selected = controls.select?.value?.trim();
+    return selected || '';
+  }
+
+  async function handleCatalogGrant(form) {
+    if (!form) return;
+    const typeId = form.dataset.catalogForm;
+    if (!typeId) return;
+    const controls = catalogGrantControls.get(form);
+    if (!controls) return;
+    const { button } = controls;
+    const recipient = getCatalogGrantRecipient(form);
+    if (!recipient) {
+      if (typeof toast === 'function') toast('Select or enter a player to grant this entry', 'error');
+      return;
+    }
+    if (typeof form.reportValidity === 'function' && !form.reportValidity()) {
+      return;
+    }
+    const payload = buildCatalogPayload(typeId, form);
+    if (!payload) {
+      if (typeof toast === 'function') toast('Enter at least a name before granting', 'error');
+      return;
+    }
+    if (button) {
+      button.disabled = true;
+      button.dataset.pendingGrant = 'true';
+    }
+    try {
+      const grantMeta = {
+        source: payload.label || payload.type,
+        locked: !!payload.locked,
+      };
+      await grantCatalogEntryToPlayer({ player: recipient, payload, issuedBy: 'DM', metadata: grantMeta });
+      try {
+        storeDmCatalogPayload(payload);
+      } catch (err) {
+        console.error('Failed to persist granted catalog payload', err);
+      }
+      try {
+        const helper = await getApplyCatalogPayloadHelper();
+        if (typeof helper === 'function') {
+          helper(payload, { toastMessage: null });
+        }
+      } catch (err) {
+        console.error('Failed to apply catalog grant locally', err);
+      }
+      const entryName = payload.metadata?.name || 'Catalog entry';
+      const typeLabel = payload.label || payload.type;
+      if (typeof toast === 'function') toast(`Granted ${entryName} to ${recipient}`, 'success');
+      window.dmNotify?.(`Granted ${typeLabel}: ${entryName} → ${recipient}`);
+    } catch (err) {
+      console.error('Failed to grant catalog entry', err);
+      if (typeof toast === 'function') toast('Failed to grant catalog entry', 'error');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        delete button.dataset.pendingGrant;
+      }
+    }
+  }
+
   function createCatalogField(definition) {
     const wrapper = document.createElement('label');
     wrapper.className = 'dm-catalog__field';
@@ -1301,6 +1434,43 @@ function initDMLogin(){
     lockCopy.appendChild(lockHint);
     lock.appendChild(lockCopy);
     card.appendChild(lock);
+
+    const grantWrapper = document.createElement('div');
+    grantWrapper.className = 'dm-catalog__field dm-catalog__grant';
+    const grantLabel = document.createElement('span');
+    grantLabel.className = 'dm-catalog__field-label';
+    grantLabel.textContent = 'Grant to player';
+    grantWrapper.appendChild(grantLabel);
+    const grantRow = document.createElement('div');
+    grantRow.className = 'dm-catalog__grant-controls';
+    const grantSelect = document.createElement('select');
+    grantSelect.className = 'dm-catalog__grant-select';
+    grantRow.appendChild(grantSelect);
+    const grantInput = document.createElement('input');
+    grantInput.type = 'text';
+    grantInput.className = 'dm-catalog__grant-input';
+    grantInput.placeholder = 'Or enter player name';
+    grantInput.autocomplete = 'off';
+    grantRow.appendChild(grantInput);
+    const grantBtn = document.createElement('button');
+    grantBtn.type = 'button';
+    grantBtn.className = 'btn-sm somf-btn somf-accent';
+    grantBtn.textContent = 'Grant to player';
+    grantRow.appendChild(grantBtn);
+    grantWrapper.appendChild(grantRow);
+    const grantHint = document.createElement('span');
+    grantHint.className = 'dm-catalog__hint';
+    grantHint.textContent = 'Instantly add this entry to a player\'s sheet.';
+    grantWrapper.appendChild(grantHint);
+    card.appendChild(grantWrapper);
+
+    catalogGrantControls.set(form, { select: grantSelect, input: grantInput, button: grantBtn });
+    catalogGrantSelects.add(grantSelect);
+    populateCatalogGrantSelect(grantSelect, listCachedNames(), { preserveSelection: false });
+    refreshCatalogGrantSelect(grantSelect, { preserveSelection: false }).catch(() => {});
+    grantBtn.addEventListener('click', () => {
+      handleCatalogGrant(form).catch(err => console.error('Catalog grant failed', err));
+    });
 
     const actions = document.createElement('div');
     actions.className = 'dm-catalog__actions';
@@ -1539,6 +1709,7 @@ function initDMLogin(){
   async function openCatalog() {
     if (!catalogModal) return;
     ensureCatalogUI();
+    refreshAllCatalogGrantSelects();
     if (!activeCatalogType || !catalogTypeLookup.has(activeCatalogType)) {
       activeCatalogType = CATALOG_TYPES[0]?.id || null;
     }
@@ -1717,6 +1888,7 @@ function initDMLogin(){
     } catch (e) {
       console.error('Failed to init DM tools', e);
     }
+    refreshAllCatalogGrantSelects({ force: true });
   }
 
   function openLogin(){
