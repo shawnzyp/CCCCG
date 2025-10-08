@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-09-30T09:04:55.746Z",
+  "generatedAt": "2025-10-08T08:48:35.142Z",
   "source": {
     "master": "CatalystCore_Master_Book.csv",
     "prices": "CatalystCore_Items_Prices.csv",
@@ -2391,15 +2391,15 @@
       "price": 25000,
       "priceText": "₡25000",
       "priceRaw": "₡25000",
-      "perk": "+2 TC; first elemental hit 3.",
-      "description": "Protective wear with kinetic weave and responsive plating.",
-      "use": "Wear; passive protection; some reaction triggers.",
+      "perk": "+2 TC; first ballistic hit each scene reduced by 3.",
+      "description": "Up-armored streetwear with dense fiber plates and trauma webbing.",
+      "use": "Wear; passive; first ballistic or shrapnel hit each scene is reduced by 3.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV elite cases, licensed vendors, O.M.N.I. requisition with return clause.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear armor street mesh mk ii t4 ₡25000 +2 tc; first elemental hit 3. protective wear with kinetic weave and responsive plating. wear; passive protection; some reaction triggers. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear armor street mesh mk ii t4 ₡25000 +2 tc; first ballistic hit each scene reduced by 3. up-armored streetwear with dense fiber plates and trauma webbing. wear; passive; first ballistic or shrapnel hit each scene is reduced by 3. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2410,15 +2410,15 @@
       "price": 28900,
       "priceText": "₡28900",
       "priceRaw": "₡28900",
-      "perk": "+2 TC; first elemental hit 3.",
-      "description": "Protective wear with kinetic weave and responsive plating.",
-      "use": "Wear; passive protection; some reaction triggers.",
+      "perk": "+2 TC; gain 1 temp SP on first hit each round.",
+      "description": "Gel-backed panels redistribute blunt force, tightening around impact points.",
+      "use": "Wear; passive; first time you take damage each round, gain 1 temporary SP.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV elite cases, licensed vendors, O.M.N.I. requisition with return clause.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear armor kevlayer suit mk ii t4 ₡28900 +2 tc; first elemental hit 3. protective wear with kinetic weave and responsive plating. wear; passive protection; some reaction triggers. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear armor kevlayer suit mk ii t4 ₡28900 +2 tc; gain 1 temp sp on first hit each round. gel-backed panels redistribute blunt force, tightening around impact points. wear; passive; first time you take damage each round, gain 1 temporary sp. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2429,15 +2429,15 @@
       "price": 32900,
       "priceText": "₡32900",
       "priceRaw": "₡32900",
-      "perk": "+2 TC; first elemental hit 3.",
-      "description": "Protective wear with kinetic weave and responsive plating.",
-      "use": "Wear; passive protection; some reaction triggers.",
+      "perk": "+2 TC; arc 1 lightning to first melee attacker each scene.",
+      "description": "Capacitive harness routes impact into charged shoulder and spine pads.",
+      "use": "Wear; reaction on first melee hit each scene to deal 1 lightning to the attacker.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV elite cases, licensed vendors, O.M.N.I. requisition with return clause.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear armor shock-pad harness mk ii t4 ₡32900 +2 tc; first elemental hit 3. protective wear with kinetic weave and responsive plating. wear; passive protection; some reaction triggers. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear armor shock-pad harness mk ii t4 ₡32900 +2 tc; arc 1 lightning to first melee attacker each scene. capacitive harness routes impact into charged shoulder and spine pads. wear; reaction on first melee hit each scene to deal 1 lightning to the attacker. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2448,15 +2448,15 @@
       "price": 36800,
       "priceText": "₡36800",
       "priceRaw": "₡36800",
-      "perk": "+2 TC; first elemental hit 3.",
-      "description": "Protective wear with kinetic weave and responsive plating.",
-      "use": "Wear; passive protection; some reaction triggers.",
+      "perk": "+2 TC; shift 5 ft. after you dodge once/round.",
+      "description": "Servo-threaded vest pre-tensions muscle groups for rapid sidesteps.",
+      "use": "Wear; when you avoid damage from an attack, shift 5 ft. once per round.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV elite cases, licensed vendors, O.M.N.I. requisition with return clause.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear armor reflex stitch vest mk ii t4 ₡36800 +2 tc; first elemental hit 3. protective wear with kinetic weave and responsive plating. wear; passive protection; some reaction triggers. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear armor reflex stitch vest mk ii t4 ₡36800 +2 tc; shift 5 ft. after you dodge once/round. servo-threaded vest pre-tensions muscle groups for rapid sidesteps. wear; when you avoid damage from an attack, shift 5 ft. once per round. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2467,15 +2467,15 @@
       "price": 40800,
       "priceText": "₡40800",
       "priceRaw": "₡40800",
-      "perk": "+2 TC; first elemental hit 3.",
-      "description": "Protective wear with kinetic weave and responsive plating.",
-      "use": "Wear; passive protection; some reaction triggers.",
+      "perk": "+2 TC; ignore first environmental hazard check each scene.",
+      "description": "Adaptive surfaces blend urban tones and shed airborne irritants.",
+      "use": "Wear; passive; first environmental or weather hazard check each scene auto succeeds.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV elite cases, licensed vendors, O.M.N.I. requisition with return clause.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear armor enviro-matched suit mk ii t4 ₡40800 +2 tc; first elemental hit 3. protective wear with kinetic weave and responsive plating. wear; passive protection; some reaction triggers. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear armor enviro-matched suit mk ii t4 ₡40800 +2 tc; ignore first environmental hazard check each scene. adaptive surfaces blend urban tones and shed airborne irritants. wear; passive; first environmental or weather hazard check each scene auto succeeds. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
@@ -2486,15 +2486,15 @@
       "price": 44700,
       "priceText": "₡44700",
       "priceRaw": "₡44700",
-      "perk": "+2 TC; first elemental hit 3.",
-      "description": "Protective wear with kinetic weave and responsive plating.",
-      "use": "Wear; passive protection; some reaction triggers.",
+      "perk": "+2 TC; first cold damage each scene becomes 3 temp HP.",
+      "description": "Vacuum-baffled lining traps heat while venting freeze condensate.",
+      "use": "Wear; passive; first cold or freeze damage each scene converts to 3 temp HP.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV elite cases, licensed vendors, O.M.N.I. requisition with return clause.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear armor cryo-lined suit mk ii t4 ₡44700 +2 tc; first elemental hit 3. protective wear with kinetic weave and responsive plating. wear; passive protection; some reaction triggers. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
+      "search": "gear armor cryo-lined suit mk ii t4 ₡44700 +2 tc; first cold damage each scene becomes 3 temp hp. vacuum-baffled lining traps heat while venting freeze condensate. wear; passive; first cold or freeze damage each scene converts to 3 temp hp. optional: 10 minutes focus + 3 sp imprint. pfv elite cases, licensed vendors, o.m.n.i. requisition with return clause."
     },
     {
       "section": "Gear",
