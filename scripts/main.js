@@ -6076,47 +6076,114 @@ renderLogs();
 renderFullLogs();
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
+const diceSidesSelect = $('dice-sides');
+const diceCountInput = $('dice-count');
+const diceModeSelect = $('dice-mode');
+const diceModifierInput = $('dice-mod');
+const diceBreakdownList = $('dice-breakdown');
 const diceResultRenderer = ensureDiceResultRenderer(diceOutput);
 if (rollDiceButton) {
   if (rollDiceButton.dataset) {
     rollDiceButton.dataset.actionCue = 'dice-roll';
   }
   rollDiceButton.addEventListener('click', ()=>{
-    const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
     const out = diceOutput;
     if (!out) return;
-    const breakdown = $('dice-breakdown');
+    const sides = num(diceSidesSelect?.value) || 20;
+    const requestedCount = num(diceCountInput?.value) || 1;
+    const count = Math.max(1, Math.floor(requestedCount));
+    if (diceCountInput && count !== requestedCount) {
+      diceCountInput.value = String(count);
+    }
+    const modeRaw = typeof diceModeSelect?.value === 'string' ? diceModeSelect.value : 'normal';
+    const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
+    const modifierRaw = diceModifierInput ? diceModifierInput.value : '';
+    const trimmedModifier = typeof modifierRaw === 'string' ? modifierRaw.trim() : '';
+    const parsedModifier = Number(trimmedModifier);
+    const hasFiniteModifier = Number.isFinite(parsedModifier);
+    const modifier = hasFiniteModifier ? parsedModifier : 0;
+    const hasModifier = (trimmedModifier !== '' && hasFiniteModifier) || modifier !== 0;
+    const rollDetails = Array.from({ length: count }, () => {
+      const primary = 1 + Math.floor(Math.random() * sides);
+      if (normalizedMode === 'normal') {
+        return { primary, chosen: primary };
+      }
+      const secondary = 1 + Math.floor(Math.random() * sides);
+      const chosen = normalizedMode === 'advantage'
+        ? Math.max(primary, secondary)
+        : Math.min(primary, secondary);
+      return { primary, secondary, chosen };
+    });
+    const keptSum = rollDetails.reduce((total, detail) => total + detail.chosen, 0);
+    const total = keptSum + modifier;
+    const breakdownDisplay = rollDetails.map(detail => {
+      if (normalizedMode !== 'normal' && Number.isFinite(detail.secondary)) {
+        return `${detail.primary}/${detail.secondary}→${detail.chosen}`;
+      }
+      return String(detail.chosen);
+    });
     out.classList.remove('rolling');
-    const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
-    const sum = rolls.reduce((a,b)=>a+b,0);
     const playIndex = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
     if (diceResultRenderer && out) {
-      diceResultRenderer.render(sum, playIndex);
-    } else if (out) {
-      out.textContent = sum;
+      diceResultRenderer.render(total, playIndex);
+    } else {
+      out.textContent = total;
     }
     void out.offsetWidth; out.classList.add('rolling');
-    if (breakdown) {
-      breakdown.textContent = '';
-      if (c > 1) {
+    if (out.dataset) {
+      out.dataset.rollModifier = String(modifier);
+      out.dataset.rollSum = String(keptSum);
+      out.dataset.rollTotal = String(total);
+      if (normalizedMode !== 'normal') {
+        out.dataset.rollMode = normalizedMode;
+      } else if (out.dataset.rollMode) {
+        delete out.dataset.rollMode;
+      }
+      out.dataset.rolls = breakdownDisplay.join(', ');
+    }
+    if (diceBreakdownList) {
+      diceBreakdownList.textContent = '';
+      const shouldShowBreakdown = normalizedMode !== 'normal' || count > 1 || hasModifier;
+      if (shouldShowBreakdown) {
         const fragment = document.createDocumentFragment();
-        rolls.forEach((roll, index) => {
+        rollDetails.forEach((detail, index) => {
           const item = document.createElement('li');
-          item.textContent = String(roll);
-          item.setAttribute('aria-label', `Roll ${index + 1}: ${roll}`);
+          if (normalizedMode !== 'normal' && Number.isFinite(detail.secondary)) {
+            const secondary = detail.secondary;
+            item.textContent = `${detail.primary}/${secondary}→${detail.chosen}`;
+            item.setAttribute('aria-label', `Roll ${index + 1}: ${detail.primary} vs ${secondary}, kept ${detail.chosen}`);
+          } else {
+            item.textContent = String(detail.chosen);
+            item.setAttribute('aria-label', `Roll ${index + 1}: ${detail.chosen}`);
+          }
           fragment.appendChild(item);
         });
-        breakdown.appendChild(fragment);
-        breakdown.hidden = false;
+        if (hasModifier) {
+          const modItem = document.createElement('li');
+          const sign = modifier >= 0 ? '+' : '-';
+          modItem.textContent = `${sign}${Math.abs(modifier)} mod`;
+          modItem.setAttribute('aria-label', `Modifier ${sign}${Math.abs(modifier)}`);
+          fragment.appendChild(modItem);
+        }
+        diceBreakdownList.appendChild(fragment);
+        diceBreakdownList.hidden = false;
       } else {
-        breakdown.hidden = true;
+        diceBreakdownList.hidden = true;
       }
     }
-    playDamageAnimation(sum);
+    playDamageAnimation(total);
     const actionKey = rollDiceButton.dataset?.actionCue || 'dice-roll';
     playActionCue(actionKey, 'dm-roll');
-    logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
-    window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
+    const modeLabel = normalizedMode === 'normal' ? '' : ` (${normalizedMode})`;
+    const modifierText = hasModifier ? `${modifier >= 0 ? '+' : ''}${modifier}` : '';
+    const header = `${count}×d${sides}${modeLabel}`;
+    const headerWithModifier = modifierText ? `${header} ${modifierText}` : header;
+    const arithmetic = hasModifier
+      ? `${keptSum} ${modifier >= 0 ? '+' : '-'} ${Math.abs(modifier)} = ${total}`
+      : `${total}`;
+    const message = `${headerWithModifier}: ${breakdownDisplay.join(', ')} = ${arithmetic}`;
+    logAction(message);
+    window.dmNotify?.(`Rolled ${message}`);
   });
 }
 const coinFlipButton = $('flip');
