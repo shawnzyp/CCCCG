@@ -39,6 +39,7 @@ const dismissedReopenBtn = document.getElementById('mini-game-dismissed-reopen')
 const MINI_GAME_VIEWPORT_VAR = '--mini-game-vh';
 const MINI_GAME_TOAST_ID = 'mini-game-toast';
 let toastHideTimer = null;
+let activeMissionContext = null;
 
 function updateViewportUnit() {
   if (!rootDocument || typeof window === 'undefined') return;
@@ -118,7 +119,14 @@ function showToastMessage(message, { type = 'info', duration = 4000 } = {}) {
   } else if (normalizedType === 'error') {
     classNames.push('mini-game-toast--error');
   }
+  const cueIdentifiers = {
+    info: 'info',
+    success: 'success',
+    error: 'error',
+  };
+  const cueIdentifier = cueIdentifiers[normalizedType] || cueIdentifiers.info;
   el.className = classNames.join(' ');
+  activeMissionContext?.playCue?.(`toast-${cueIdentifier}`);
   el.textContent = text;
   try {
     el.focus({ preventScroll: true });
@@ -2627,6 +2635,22 @@ async function init() {
   let lastDismissMessage = '';
 
   const missionContext = { ...context };
+  const sharedCuePlayer = typeof window !== 'undefined' && typeof window.playTone === 'function'
+    ? window.playTone
+    : null;
+  const resolvedPlayCue = typeof context?.playCue === 'function'
+    ? context.playCue
+    : sharedCuePlayer
+      ? cue => {
+        if (typeof cue !== 'string') return;
+        const normalized = cue.startsWith('toast-') ? cue.slice(6) : cue;
+        sharedCuePlayer(normalized || 'info');
+      }
+      : null;
+  if (resolvedPlayCue) {
+    missionContext.playCue = resolvedPlayCue;
+  }
+  activeMissionContext = missionContext;
 
   const handleMissionComplete = (result = {}) => {
     missionStarted = false;
