@@ -12355,10 +12355,14 @@ function renderCatalog(){
     const buttonAttrs = [];
     if (entry.dmLock) buttonAttrs.push('data-dm-lock="true"');
     if (entry.dmEntry) buttonAttrs.push('data-dm-entry="true"');
+    const quantityValue = Number.parseInt(String(entry.qty ?? ''), 10);
+    const quantityText = entry.dmEntry && Number.isFinite(quantityValue) && quantityValue > 0
+      ? ` • Qty ×${escapeHtml(String(quantityValue))}`
+      : '';
     return `
     <div class="catalog-item">
       <div class="pill">${escapeHtml(entry.tier || '—')}</div>
-      <div><b>${escapeHtml(entry.name)}</b> <span class="small">— ${escapeHtml(entry.section)}${entry.type ? ` • ${escapeHtml(entry.type)}` : ''}${priceText ? ` • ${escapeHtml(priceText)}` : ''}</span>
+      <div><b>${escapeHtml(entry.name)}</b> <span class="small">— ${escapeHtml(entry.section)}${entry.type ? ` • ${escapeHtml(entry.type)}` : ''}${priceText ? ` • ${escapeHtml(priceText)}` : ''}${quantityText}</span>
         ${details.join('')}
       </div>
       <div><button class="btn-sm" data-add="${idx}"${buttonAttrs.length ? ' ' + buttonAttrs.join(' ') : ''}>Add</button></div>

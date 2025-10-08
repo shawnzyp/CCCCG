@@ -335,6 +335,18 @@ function initDMLogin(){
     { key: 'price', label: 'Price / Cost', kind: 'input', type: 'text', placeholder: 'Credits, barter, or opportunity cost' },
     { key: 'rarity', label: 'Rarity', kind: 'input', type: 'text', placeholder: 'Common, rare, prototype…' },
     { key: 'tags', label: 'Tags', kind: 'input', type: 'text', placeholder: 'Comma-separated keywords' },
+    {
+      key: 'quantity',
+      label: 'Quantity',
+      kind: 'input',
+      type: 'number',
+      inputMode: 'numeric',
+      min: 1,
+      step: 1,
+      required: true,
+      defaultValue: 1,
+      hint: 'How many copies should be added when this entry is deployed?'
+    },
   ];
 
   const CATALOG_BASE_LONG_FIELDS = [
@@ -1227,6 +1239,9 @@ function initDMLogin(){
       if (definition.autocomplete) control.autocomplete = definition.autocomplete;
       if (definition.inputMode) control.inputMode = definition.inputMode;
       if (definition.pattern) control.pattern = definition.pattern;
+      if (definition.min != null) control.min = definition.min;
+      if (definition.max != null) control.max = definition.max;
+      if (definition.step != null) control.step = definition.step;
     }
     control.name = definition.key;
     control.dataset.catalogField = definition.key;
@@ -1234,6 +1249,11 @@ function initDMLogin(){
     if (definition.required) control.required = true;
     if (definition.maxlength) control.maxLength = definition.maxlength;
     if (definition.spellcheck === false) control.spellcheck = false;
+    if (definition.defaultValue != null) {
+      const defaultValue = String(definition.defaultValue);
+      control.value = defaultValue;
+      control.defaultValue = defaultValue;
+    }
     wrapper.appendChild(control);
 
     if (definition.hint) {
@@ -1484,6 +1504,12 @@ function initDMLogin(){
       locked,
       timestamp: new Date().toISOString(),
     };
+    if (Object.prototype.hasOwnProperty.call(metadata, 'quantity')) {
+      const parsedQty = Number.parseInt(String(metadata.quantity), 10);
+      metadata.quantity = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1;
+    } else {
+      metadata.quantity = 1;
+    }
     if (!metadata.name) return null;
     return payload;
   }
@@ -1498,8 +1524,10 @@ function initDMLogin(){
     }
     const typeLabel = payload.label || payload.type;
     const entryName = payload.metadata?.name || 'Untitled';
-    if (typeof toast === 'function') toast(`${typeLabel} entry staged: ${entryName}`, 'success');
-    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}`);
+    const qtyValue = Number.parseInt(String(payload.metadata?.quantity ?? ''), 10);
+    const qty = Number.isFinite(qtyValue) && qtyValue > 0 ? qtyValue : 1;
+    if (typeof toast === 'function') toast(`${typeLabel} entry staged: ${entryName} ×${qty}`, 'success');
+    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName} ×${qty}`);
     if (typeof console !== 'undefined' && typeof console.debug === 'function') {
       console.debug('DM catalog payload prepared', payload);
     }

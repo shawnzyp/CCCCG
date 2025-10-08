@@ -573,6 +573,11 @@ function buildDmEntryFromPayload(payload) {
   const price = extractPriceValue(priceText);
   const tags = parseCatalogTags(meta.tags);
   const rarity = typeof meta.rarity === 'string' ? meta.rarity : '';
+  const quantitySource = meta.quantity ?? meta.qty;
+  const parsedQuantity = Number.parseInt(String(quantitySource ?? ''), 10);
+  const quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0
+    ? parsedQuantity
+    : 1;
   const entry = {
     customId: payload.id || `${type}-${Date.now()}`,
     section,
@@ -590,7 +595,7 @@ function buildDmEntryFromPayload(payload) {
     cardKind: inferCardKindFromType(baseType),
     slot: type === 'armor' ? 'Body' : '',
     bonus: 0,
-    qty: 1,
+    qty: quantity,
     hidden: false,
     classifications: tags,
     prerequisites: [],

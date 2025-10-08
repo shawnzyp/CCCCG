@@ -55,8 +55,25 @@ describe('DM catalog utilities', () => {
       dmLock: true,
       section: 'DM Catalog',
       priceText: '₡5000',
+      qty: 1,
     });
     expect(entry.search).toContain('phase beacon');
+  });
+
+  test('buildDmEntryFromPayload uses metadata quantity when provided', () => {
+    const payload = normalizeDmCatalogPayload({
+      type: 'items',
+      label: 'Items',
+      locked: false,
+      metadata: {
+        name: 'Stasis Capsule',
+        quantity: '3',
+      },
+    });
+
+    const entry = buildDmEntryFromPayload(payload);
+    expect(entry).not.toBeNull();
+    expect(entry.qty).toBe(3);
   });
 
   test('buildDmPowerPresetFromPayload creates power preset metadata', () => {
