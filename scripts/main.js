@@ -4742,6 +4742,15 @@ function setCredits(v){
 
 if (elCredits) updateCreditsDisplay();
 
+function notifyInsufficientCredits(message = "You don't have enough Credits for that.") {
+  try {
+    toast(message, 'error');
+  } catch {}
+  try {
+    logAction('Credits spend prevented: insufficient Credits.');
+  } catch {}
+}
+
 $('credits-submit').addEventListener('click', ()=>{
   const amt = num($('credits-amt').value)||0;
   if(!amt) return;
@@ -9904,7 +9913,9 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
     list.appendChild(card);
   }
   const priceValue = getEntryPriceValue(entry);
-  if (Number.isFinite(priceValue) && priceValue > 0) {
+  const hasPrice = Number.isFinite(priceValue) && priceValue > 0;
+  const formattedPrice = hasPrice ? `₡${priceValue.toLocaleString('en-US')}` : '';
+  if (hasPrice) {
     card.dataset.price = String(priceValue);
     const priceDisplay = getPriceDisplay(entry);
     if (priceDisplay) card.dataset.priceDisplay = priceDisplay;
@@ -9912,9 +9923,36 @@ function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverr
     delete card.dataset.price;
     delete card.dataset.priceDisplay;
   }
+  const isManualCard = !!(pending && pending.isConnected);
+  let creditsDeducted = false;
+  if (hasPrice && !isManualCard && typeof setCredits === 'function' && elCredits) {
+    let shouldDeduct = false;
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      const entryName = info?.data?.name || entry?.name || 'this item';
+      shouldDeduct = window.confirm(`Subtract ${formattedPrice} from Credits for ${entryName}?`);
+    }
+    if (shouldDeduct) {
+      const available = num(elCredits.value) || 0;
+      if (available < priceValue) {
+        notifyInsufficientCredits(`You don't have enough Credits to spend ${formattedPrice}.`);
+      } else {
+        setCredits(available - priceValue);
+        creditsDeducted = true;
+        const entryName = info?.data?.name || entry?.name || 'item';
+        try {
+          logAction(`Credits spent automatically: ${formattedPrice} on ${entryName}.`);
+        } catch {}
+      }
+    }
+  }
   updateDerived();
   pushHistory();
-  if (toastMessage) toast(toastMessage, 'success');
+  if (toastMessage) {
+    const message = creditsDeducted
+      ? `${toastMessage} (${formattedPrice} deducted automatically)`
+      : toastMessage;
+    toast(message, 'success');
+  }
   return card;
 }
 
@@ -10041,10 +10079,9 @@ function tryPurchaseEntry(entry){
   if (!elCredits) return true;
   const available = num(elCredits.value) || 0;
   if (available < cost) {
-    toast('You do not have enough Credits to purchase this item, come back when you have enough Credits.', 'error');
+    notifyInsufficientCredits('You do not have enough Credits to purchase this item, come back when you have enough Credits.');
     return false;
   }
-  setCredits(available - cost);
   return true;
 }
 
