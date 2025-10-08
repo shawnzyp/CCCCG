@@ -28,6 +28,9 @@ import {
   deleteCampaignLogEntry,
   fetchCampaignLogEntries,
   subscribeCampaignLog,
+  subscribeSyncStatus,
+  getLastSyncStatus,
+  beginQueuedSyncFlush,
 } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
@@ -11241,6 +11244,41 @@ if(typeof window !== 'undefined'){
     }
   }, { passive: true });
 }
+
+const syncStatusBadge = $('cloud-sync-status');
+if (syncStatusBadge) {
+  const SYNC_STATUS_LABELS = {
+    online: 'Online',
+    syncing: 'Syncing…',
+    queued: 'Offline: save queued',
+    reconnecting: 'Syncing queued save',
+    offline: 'Offline',
+  };
+  const VALID_BADGE_STATUSES = new Set(Object.keys(SYNC_STATUS_LABELS));
+  const labelEl = syncStatusBadge.querySelector('[data-sync-status-label]');
+  const updateSyncBadge = status => {
+    const normalized = typeof status === 'string' && VALID_BADGE_STATUSES.has(status)
+      ? status
+      : 'online';
+    const label = SYNC_STATUS_LABELS[normalized] || SYNC_STATUS_LABELS.online;
+    if (syncStatusBadge.dataset && typeof syncStatusBadge.dataset === 'object') {
+      syncStatusBadge.dataset.status = normalized;
+    } else if (typeof syncStatusBadge.setAttribute === 'function') {
+      syncStatusBadge.setAttribute('data-status', normalized);
+    }
+    if (labelEl) {
+      labelEl.textContent = label;
+    }
+    if (typeof syncStatusBadge.setAttribute === 'function') {
+      syncStatusBadge.setAttribute('aria-label', `Cloud sync status: ${label}`);
+      syncStatusBadge.setAttribute('title', label);
+    }
+  };
+
+  updateSyncBadge(getLastSyncStatus());
+  subscribeSyncStatus(updateSyncBadge);
+}
+
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
   let oldChar = currentCharacter();
@@ -11422,6 +11460,9 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     .then(reg => {
       const triggerFlush = () => {
         const worker = navigator.serviceWorker.controller || reg.active;
+        if (getLastSyncStatus() === 'queued') {
+          beginQueuedSyncFlush();
+        }
         if (reg.sync && typeof reg.sync.register === 'function') {
           reg.sync.register('cloud-save-sync').catch(() => {
             worker?.postMessage({ type: 'flush-cloud-saves' });

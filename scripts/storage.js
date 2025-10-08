@@ -52,6 +52,76 @@ const CLOUD_CAMPAIGN_LOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
 let offlineQueueToastShown = false;
+const SYNC_STATUS_STORAGE_KEY = 'cloud-sync-status';
+const VALID_SYNC_STATUSES = new Set(['online', 'syncing', 'queued', 'reconnecting', 'offline']);
+
+function normalizeSyncStatus(status, fallback = 'online') {
+  if (typeof status !== 'string') return fallback;
+  const normalized = status.trim().toLowerCase();
+  return VALID_SYNC_STATUSES.has(normalized) ? normalized : fallback;
+}
+
+let lastSyncStatus = (() => {
+  const fallback = isNavigatorOffline() ? 'offline' : 'online';
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem(SYNC_STATUS_STORAGE_KEY);
+      if (stored) {
+        return normalizeSyncStatus(stored, fallback);
+      }
+    }
+  } catch (err) {}
+  return fallback;
+})();
+
+try {
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(SYNC_STATUS_STORAGE_KEY, lastSyncStatus);
+  }
+} catch (err) {}
+
+const syncStatusListeners = new Set();
+
+function emitSyncStatus(status) {
+  const normalized = normalizeSyncStatus(status, lastSyncStatus || 'online');
+  if (normalized === lastSyncStatus) return;
+  lastSyncStatus = normalized;
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(SYNC_STATUS_STORAGE_KEY, normalized);
+    }
+  } catch (err) {}
+  syncStatusListeners.forEach(listener => {
+    try {
+      listener(normalized);
+    } catch (err) {
+      console.error('Sync status listener failed', err);
+    }
+  });
+}
+
+function setSyncStatus(status) {
+  emitSyncStatus(status);
+}
+
+export function subscribeSyncStatus(listener) {
+  if (typeof listener !== 'function') {
+    return () => {};
+  }
+  syncStatusListeners.add(listener);
+  try {
+    listener(lastSyncStatus);
+  } catch (err) {
+    console.error('Sync status listener failed', err);
+  }
+  return () => {
+    syncStatusListeners.delete(listener);
+  };
+}
+
+export function getLastSyncStatus() {
+  return lastSyncStatus;
+}
 let lastCampaignLogTimestamp = 0;
 
 function nextHistoryTimestamp() {
@@ -95,6 +165,7 @@ function notifySyncPaused() {
     showToast('Cloud sync paused while offline', 'info');
     offlineSyncToastShown = true;
   }
+  setSyncStatus('offline');
 }
 
 function notifySaveQueued() {
@@ -102,11 +173,19 @@ function notifySaveQueued() {
     showToast('Offline: changes will sync when you reconnect', 'info');
     offlineQueueToastShown = true;
   }
+  setSyncStatus('queued');
 }
 
 function resetOfflineNotices() {
   offlineSyncToastShown = false;
   offlineQueueToastShown = false;
+  setSyncStatus('online');
+}
+
+export function beginQueuedSyncFlush() {
+  if (lastSyncStatus === 'queued') {
+    setSyncStatus('reconnecting');
+  }
 }
 
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
@@ -333,8 +412,11 @@ export async function saveCloud(name, payload) {
     offlineQueueToastShown = false;
   }
   const ts = nextHistoryTimestamp();
+  const previousStatus = lastSyncStatus;
+  setSyncStatus('syncing');
   try {
     await attemptCloudSave(name, payload, ts);
+    resetOfflineNotices();
     return 'saved';
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
@@ -344,6 +426,11 @@ export async function saveCloud(name, payload) {
     if (shouldQueue && (await enqueueCloudSave(name, payload, ts))) {
       notifySaveQueued();
       return 'queued';
+    }
+    if (shouldQueue) {
+      setSyncStatus('offline');
+    } else {
+      setSyncStatus(previousStatus);
     }
     console.error('Cloud save failed', e);
     throw e;
@@ -559,6 +646,7 @@ export async function cacheCloudSaves(
         }
       })
     );
+    resetOfflineNotices();
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;
