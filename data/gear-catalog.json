@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2025-09-30T09:04:55.746Z",
+  "generatedAt": "2025-10-08T08:48:08.113Z",
   "source": {
     "master": "CatalystCore_Master_Book.csv",
     "prices": "CatalystCore_Items_Prices.csv",
@@ -2277,15 +2277,15 @@
       "price": 16100,
       "priceText": "₡16100",
       "priceRaw": "₡16100",
-      "perk": "+1 Initiative or +1 TC on round one.",
-      "description": "Personal focus apparatus channeling local resonance.",
-      "use": "Wear/deploy; bonus action to toggle unless noted.",
+      "perk": "Before rolling, gain +2 Initiative and grant one ally +1 once/scene.",
+      "description": "Heads-up visor anticipates threat vectors and paints a predictive glyph for a chosen teammate.",
+      "use": "Bonus action before an initiative roll to calibrate; pick an ally in sight to gain the +1 on that same roll once per scene.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear utility perception sync visor mk i t5 ₡16100 +1 initiative or +1 tc on round one. personal focus apparatus channeling local resonance. wear/deploy; bonus action to toggle unless noted. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear utility perception sync visor mk i t5 ₡16100 before rolling, gain +2 initiative and grant one ally +1 once/scene. heads-up visor anticipates threat vectors and paints a predictive glyph for a chosen teammate. bonus action before an initiative roll to calibrate; pick an ally in sight to gain the +1 on that same roll once per scene. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2296,15 +2296,15 @@
       "price": 16900,
       "priceText": "₡16900",
       "priceRaw": "₡16900",
-      "perk": "+1 Initiative or +1 TC on round one.",
-      "description": "Personal focus apparatus channeling local resonance.",
-      "use": "Wear/deploy; bonus action to toggle unless noted.",
+      "perk": "Once/scene after moving 10 ft., gain 3 temp HP and reduce forced move by 5 ft.",
+      "description": "Micro-thrusters lace your steps with a cushioning kinetic brace, stiffening against shoves.",
+      "use": "Free trigger after you move 10+ ft. on your turn; effect lasts until your next turn and can occur once per scene.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear utility kinetic assist boots mk i t5 ₡16900 +1 initiative or +1 tc on round one. personal focus apparatus channeling local resonance. wear/deploy; bonus action to toggle unless noted. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear utility kinetic assist boots mk i t5 ₡16900 once/scene after moving 10 ft., gain 3 temp hp and reduce forced move by 5 ft. micro-thrusters lace your steps with a cushioning kinetic brace, stiffening against shoves. free trigger after you move 10+ ft. on your turn; effect lasts until your next turn and can occur once per scene. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2315,15 +2315,15 @@
       "price": 17700,
       "priceText": "₡17700",
       "priceRaw": "₡17700",
-      "perk": "+1 Initiative or +1 TC on round one.",
-      "description": "Personal focus apparatus channeling local resonance.",
-      "use": "Wear/deploy; bonus action to toggle unless noted.",
+      "perk": "Reaction once/scene to swap places with a willing ally within 15 ft. when either is targeted.",
+      "description": "Prismatic charm folds a momentary gate that trades positions to foil incoming fire.",
+      "use": "Reaction after an attack or effect targets you or the ally; both must be willing and line of effect must exist.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear utility mirror-gate charm mk i t5 ₡17700 +1 initiative or +1 tc on round one. personal focus apparatus channeling local resonance. wear/deploy; bonus action to toggle unless noted. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear utility mirror-gate charm mk i t5 ₡17700 reaction once/scene to swap places with a willing ally within 15 ft. when either is targeted. prismatic charm folds a momentary gate that trades positions to foil incoming fire. reaction after an attack or effect targets you or the ally; both must be willing and line of effect must exist. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2334,15 +2334,15 @@
       "price": 18400,
       "priceText": "₡18400",
       "priceRaw": "₡18400",
-      "perk": "+1 Initiative or +1 TC on round one.",
-      "description": "Personal focus apparatus channeling local resonance.",
-      "use": "Wear/deploy; bonus action to toggle unless noted.",
+      "perk": "Action to grant up to two allies +1 on their next skill or save this scene.",
+      "description": "Resonant shard hums a harmony that steadies team focus for the next challenge.",
+      "use": "Action to emit the tone; choose up to two allies within 30 ft. to store the +1 bonus for their next roll before the scene ends.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear utility choir-shard focus mk i t5 ₡18400 +1 initiative or +1 tc on round one. personal focus apparatus channeling local resonance. wear/deploy; bonus action to toggle unless noted. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear utility choir-shard focus mk i t5 ₡18400 action to grant up to two allies +1 on their next skill or save this scene. resonant shard hums a harmony that steadies team focus for the next challenge. action to emit the tone; choose up to two allies within 30 ft. to store the +1 bonus for their next roll before the scene ends. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2353,15 +2353,15 @@
       "price": 19200,
       "priceText": "₡19200",
       "priceRaw": "₡19200",
-      "perk": "+1 Initiative or +1 TC on round one.",
-      "description": "Personal focus apparatus channeling local resonance.",
-      "use": "Wear/deploy; bonus action to toggle unless noted.",
+      "perk": "After initiative, swap places in the order with an ally; both gain +1 TC until next turns.",
+      "description": "Chronometric tag lets you trade time slots, shoring defenses while the exchange resolves.",
+      "use": "Free trigger immediately after initiative is set; choose a willing ally and apply the defensive boost until each of your next turns.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear utility time-slip marker mk i t5 ₡19200 +1 initiative or +1 tc on round one. personal focus apparatus channeling local resonance. wear/deploy; bonus action to toggle unless noted. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear utility time-slip marker mk i t5 ₡19200 after initiative, swap places in the order with an ally; both gain +1 tc until next turns. chronometric tag lets you trade time slots, shoring defenses while the exchange resolves. free trigger immediately after initiative is set; choose a willing ally and apply the defensive boost until each of your next turns. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
@@ -2372,15 +2372,15 @@
       "price": 20000,
       "priceText": "₡20000",
       "priceRaw": "₡20000",
-      "perk": "+1 Initiative or +1 TC on round one.",
-      "description": "Personal focus apparatus channeling local resonance.",
-      "use": "Wear/deploy; bonus action to toggle unless noted.",
+      "perk": "Reaction once/scene to give adjacent ally +2 TC vs one attack and 10 ft. free step.",
+      "description": "Bead detonates a reflex field, letting partners slip aside under your cover.",
+      "use": "Reaction when an adjacent ally is targeted; they may immediately move up to 10 ft. without provoking and gain the TC bonus.",
       "attunement": "Optional: 10 minutes focus + 3 SP imprint.",
       "source": "PFV quartermaster, neighborhood outfitters, city surplus auctions.",
       "classifications": [],
       "tierRestrictions": [],
       "prerequisites": [],
-      "search": "gear utility combat reflex bead mk i t5 ₡20000 +1 initiative or +1 tc on round one. personal focus apparatus channeling local resonance. wear/deploy; bonus action to toggle unless noted. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
+      "search": "gear utility combat reflex bead mk i t5 ₡20000 reaction once/scene to give adjacent ally +2 tc vs one attack and 10 ft. free step. bead detonates a reflex field, letting partners slip aside under your cover. reaction when an adjacent ally is targeted; they may immediately move up to 10 ft. without provoking and gain the tc bonus. optional: 10 minutes focus + 3 sp imprint. pfv quartermaster, neighborhood outfitters, city surplus auctions."
     },
     {
       "section": "Gear",
