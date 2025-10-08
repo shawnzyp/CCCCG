@@ -2638,6 +2638,35 @@ const THEME_LABELS = {
   alien: 'Alien',
   mystic: 'Mystic'
 };
+const tabIconImages = qsa('[data-tab-icon]');
+const DEFAULT_TAB_ICON_VARIANT = 'inverted';
+const TAB_ICON_THEME_VARIANTS = {
+  dark: 'inverted',
+  light: 'original',
+  high: 'inverted'
+};
+function setTabIconVariant(themeName){
+  const variant = TAB_ICON_THEME_VARIANTS[themeName] || DEFAULT_TAB_ICON_VARIANT;
+  if (variant) {
+    root.dataset.tabIconVariant = variant;
+  } else {
+    delete root.dataset.tabIconVariant;
+  }
+  tabIconImages.forEach(img => {
+    if (!img) return;
+    const originalSrc = img.getAttribute('data-icon-original') || img.getAttribute('src');
+    const invertedSrc = img.getAttribute('data-icon-inverted') || originalSrc;
+    const nextSrc = variant === 'inverted' ? (invertedSrc || originalSrc) : originalSrc;
+    if (nextSrc && img.getAttribute('src') !== nextSrc) {
+      img.setAttribute('src', nextSrc);
+    }
+    if (variant) {
+      img.setAttribute('data-icon-variant', variant);
+    } else {
+      img.removeAttribute('data-icon-variant');
+    }
+  });
+}
 /**
  * Apply a visual theme by toggling root classes and updating the button icon.
  * @param {string} t - theme identifier matching supported themes
@@ -2670,6 +2699,7 @@ function applyTheme(t, { animate = true } = {}){
       spinThemeToggle();
     }
   }
+  setTabIconVariant(themeName);
   activeTheme = themeName;
 }
 function loadTheme(){
