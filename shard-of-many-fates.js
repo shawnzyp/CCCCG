@@ -832,6 +832,19 @@
 
   const pluralize = (word, count) => (count === 1 ? word : `${word}s`);
 
+  function resolveAudioPreference(pref) {
+    if (typeof pref === 'boolean') return pref;
+    if (!pref || typeof pref !== 'object') return null;
+    if (typeof pref.enabled === 'boolean') return pref.enabled;
+    if (typeof pref.allow === 'boolean') return pref.allow;
+    if (typeof pref.allowed === 'boolean') return pref.allowed;
+    if (typeof pref.disabled === 'boolean') return !pref.disabled;
+    if (typeof pref.muted === 'boolean') return !pref.muted;
+    if (typeof pref.value === 'boolean') return pref.value;
+    if (typeof pref.audio === 'boolean') return pref.audio;
+    return null;
+  }
+
   function preferReducedMotion() {
     try {
       return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
@@ -3759,7 +3772,174 @@
       });
     }
 
-    toast() {}
+    toast(message, maybeCallback, maybeOptions) {
+      const html = typeof message === 'string' ? message : String(message ?? '');
+      const trimmed = html.trim();
+      if (!trimmed) {
+        this.runToastCallback(maybeCallback, maybeOptions);
+        return;
+      }
+
+      let callback = null;
+      if (typeof maybeCallback === 'function') callback = maybeCallback;
+      if (typeof maybeOptions === 'function') callback = maybeOptions;
+
+      let config = {};
+      if (maybeCallback && typeof maybeCallback === 'object') config = maybeCallback;
+      if (maybeOptions && typeof maybeOptions === 'object') config = maybeOptions;
+
+      const type = typeof config.type === 'string' && config.type ? config.type : 'info';
+      const duration = Number.isFinite(config.duration) ? config.duration : 6000;
+      const toastOptions = { type, duration, html };
+
+      let handled = false;
+      if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+        try {
+          window.toast(html, { type, duration, html });
+          handled = true;
+        } catch (err) {
+          console.error('Failed to dispatch DM toast via shared handler', err);
+        }
+      }
+
+      let displayed = handled;
+      if (!handled && this.runtime?.hasRealtime?.()) {
+        displayed = this.renderFallbackToast(html, toastOptions) || displayed;
+      }
+
+      if (displayed) {
+        this.playDmCue(type);
+        this.runToastCallback(callback);
+      }
+    }
+
+    runToastCallback(callbackCandidate, optionsCandidate) {
+      let callback = null;
+      if (typeof callbackCandidate === 'function') callback = callbackCandidate;
+      if (typeof optionsCandidate === 'function') callback = optionsCandidate;
+      if (!callback) return;
+      Promise.resolve().then(() => {
+        try { callback(); }
+        catch (err) { console.error('DM toast callback failed', err); }
+      });
+    }
+
+    renderFallbackToast(html, options = {}) {
+      const host = this.dom?.toasts || document.getElementById('somfDM-toasts');
+      if (!host) return false;
+      const toastEl = document.createElement('div');
+      toastEl.className = 'somf-dm__toast';
+      const type = typeof options.type === 'string' && options.type ? options.type : 'info';
+      toastEl.classList.add(`somf-dm__toast--${type}`);
+      toastEl.setAttribute('role', 'status');
+      toastEl.setAttribute('aria-live', 'polite');
+      toastEl.innerHTML = html;
+
+      while (host.children.length >= 4) {
+        host.removeChild(host.firstChild);
+      }
+
+      host.appendChild(toastEl);
+
+      const show = () => toastEl.classList.add('somf-dm__toast--show');
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(show);
+      } else {
+        setTimeout(show, 16);
+      }
+
+      const duration = Number.isFinite(options.duration) ? options.duration : 6000;
+      let hideTimer = null;
+      const removeToast = () => {
+        toastEl.classList.add('somf-dm__toast--hide');
+        const cleanup = () => {
+          toastEl.removeEventListener('transitionend', cleanup);
+          if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+        };
+        toastEl.addEventListener('transitionend', cleanup);
+        setTimeout(cleanup, 220);
+      };
+
+      if (Number.isFinite(duration) && duration > 0) {
+        hideTimer = setTimeout(removeToast, duration);
+      }
+
+      toastEl.addEventListener('click', () => {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+        removeToast();
+      });
+
+      return true;
+    }
+
+    shouldPlayDmAudio() {
+      if (typeof window === 'undefined') return false;
+
+      const preferenceSources = [
+        window.sharedAudioPreference,
+        window.ccAudioPreference,
+        window.toastAudioPreference,
+        window.catalystAudioPreference,
+        window.ccSharedAudioPreference,
+        window.ccPreferences?.audio,
+        window.toast?.audioPreference,
+      ];
+
+      for (const pref of preferenceSources) {
+        const resolved = resolveAudioPreference(pref);
+        if (resolved != null) return resolved;
+      }
+
+      const bodyPref = document?.body?.dataset?.ccAudio || document?.body?.dataset?.ccSound;
+      if (typeof bodyPref === 'string' && bodyPref) {
+        if (/^(off|false|muted|0)$/i.test(bodyPref)) return false;
+        if (/^(on|true|1)$/i.test(bodyPref)) return true;
+      }
+
+      const storageKeys = [
+        'cc:audio-muted',
+        'cc:audio-disabled',
+        'cc:sound-muted',
+        'cc:sound-disabled',
+        'cc:mute-audio',
+      ];
+      for (const key of storageKeys) {
+        try {
+          const stored = window.localStorage?.getItem(key) ?? window.sessionStorage?.getItem(key);
+          if (typeof stored !== 'string' || !stored) continue;
+          if (/^(1|true|yes|muted|off)$/i.test(stored)) return false;
+          if (/^(0|false|no|on)$/i.test(stored)) return true;
+        } catch {}
+      }
+
+      return true;
+    }
+
+    playDmCue(type = 'info') {
+      if (!this.shouldPlayDmAudio()) return;
+      const audioEl = this.dom?.ping || document.getElementById('somfDM-ping');
+      if (audioEl && typeof audioEl.play === 'function') {
+        try {
+          if (typeof audioEl.pause === 'function') audioEl.pause();
+          if (Number.isFinite(audioEl.currentTime)) audioEl.currentTime = 0;
+          const playback = audioEl.play();
+          if (playback && typeof playback.catch === 'function') {
+            playback.catch(() => {});
+          }
+          return;
+        } catch {}
+      }
+      const tone = typeof window !== 'undefined' && typeof window.playTone === 'function'
+        ? window.playTone
+        : null;
+      if (tone) {
+        try { tone(type); }
+        catch {}
+      }
+    }
 
     renderStaticLists() {
       if (this.dom.cardTab) {
