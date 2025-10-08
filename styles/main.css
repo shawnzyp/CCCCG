@@ -595,9 +595,11 @@ label[data-animate-title]{
   justify-content:center;
 }
 
-.tabs .tab .tab__icon svg{
+.tabs .tab .tab__icon svg,
+.tabs .tab .tab__icon img{
   width:var(--icon-size);
   height:var(--icon-size);
+  object-fit:contain;
 }
 
 .tabs .tab .tab__label{
