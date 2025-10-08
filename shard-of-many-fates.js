@@ -2397,6 +2397,12 @@
         backdrop: dom.one('#somf-min-modal [data-somf-dismiss]'),
         close: dom.one('#somf-min-close'),
         image: dom.one('#somf-min-image'),
+        prev: dom.one('#somf-min-prev'),
+        next: dom.one('#somf-min-next'),
+        counter: dom.one('#somf-min-counter'),
+        history: dom.one('#somf-min-history'),
+        historyList: dom.one('#somf-min-history-list'),
+        historyCount: dom.one('#somf-min-history-count'),
         revealInvite: dom.one('#somf-reveal-alert'),
         revealInviteCard: dom.one('#somf-reveal-alert .somf-reveal-alert__card'),
         revealInviteTitle: dom.one('#somf-reveal-title'),
@@ -2413,6 +2419,18 @@
       if (this.dom.close && !this.dom.close.__somfBound) {
         this.dom.close.addEventListener('click', () => this.dismissCurrent());
         this.dom.close.__somfBound = true;
+      }
+      if (this.dom.prev && !this.dom.prev.__somfBound) {
+        this.dom.prev.addEventListener('click', () => this.showPrevious());
+        this.dom.prev.__somfBound = true;
+      }
+      if (this.dom.next && !this.dom.next.__somfBound) {
+        this.dom.next.addEventListener('click', () => this.showNext());
+        this.dom.next.__somfBound = true;
+      }
+      if (this.dom.historyList && !this.dom.historyList.__somfBound) {
+        this.dom.historyList.addEventListener('click', evt => this.onHistoryClick(evt));
+        this.dom.historyList.__somfBound = true;
       }
       if (this.dom.modal && !this.dom.modal.__somfDismissBound) {
         this.dom.modal.addEventListener('click', evt => {
@@ -2703,6 +2721,54 @@
         const altLabel = label ? `${label} artwork` : 'Shard artwork';
         this.dom.image.alt = altLabel;
       }
+      if (this.dom.counter) {
+        this.dom.counter.textContent = total ? `${this.queueIndex + 1} / ${total}` : '0 / 0';
+        this.dom.counter.setAttribute('aria-hidden', total ? 'false' : 'true');
+      }
+      if (this.dom.prev) {
+        this.dom.prev.disabled = total <= 1 || this.queueIndex <= 0;
+      }
+      if (this.dom.next) {
+        this.dom.next.disabled = total <= 1 || this.queueIndex >= total - 1;
+      }
+      if (this.dom.history) {
+        const shouldShowHistory = total > 1;
+        this.dom.history.hidden = !shouldShowHistory;
+        if (!shouldShowHistory) {
+          this.dom.history.open = false;
+        }
+      }
+      if (this.dom.historyCount) {
+        if (total > 1) {
+          const shardLabel = `${total} shard${total === 1 ? '' : 's'}`;
+          this.dom.historyCount.textContent = shardLabel;
+        } else {
+          this.dom.historyCount.textContent = '';
+        }
+      }
+      if (this.dom.historyList) {
+        const activeSignature = entry ? `${entry._noticeKey || ''}:${entry._noticeIndex || 0}` : null;
+        this.dom.historyList.innerHTML = '';
+        if (total > 1) {
+          const frag = document.createDocumentFragment();
+          this.queue.forEach((item, index) => {
+            const li = document.createElement('li');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'somf-btn somf-ghost somf-modal__history-btn';
+            btn.dataset.somfHistoryIndex = String(index);
+            const labelText = item?.name || item?.id || `Shard ${index + 1}`;
+            btn.textContent = labelText;
+            const signature = `${item?._noticeKey || ''}:${item?._noticeIndex || 0}`;
+            if (activeSignature && signature === activeSignature) {
+              btn.setAttribute('aria-current', 'true');
+            }
+            li.appendChild(btn);
+            frag.appendChild(li);
+          });
+          this.dom.historyList.appendChild(frag);
+        }
+      }
     }
 
     bindToastHandlers() {
@@ -2980,13 +3046,7 @@
 
     openModal() {
       this.render();
-      if (this.dom.modal) this.dom.modal.hidden = false;
-      if (!this.modalIsOpen) {
-        this.modalIsOpen = true;
-        if (typeof window?.coverFloatingLauncher === 'function') {
-          window.coverFloatingLauncher();
-        }
-      }
+      this.ensureModalVisible();
     }
 
     closeModal() {
@@ -3000,6 +3060,16 @@
       this.tempArtwork = null;
     }
 
+    ensureModalVisible() {
+      if (this.dom.modal) this.dom.modal.hidden = false;
+      if (!this.modalIsOpen) {
+        this.modalIsOpen = true;
+        if (typeof window?.coverFloatingLauncher === 'function') {
+          window.coverFloatingLauncher();
+        }
+      }
+    }
+
     dismissCurrent() {
       if (this.queue.length) {
         if (this.queueIndex < this.queue.length - 1) {
@@ -3009,6 +3079,43 @@
         }
       }
       this.closeModal();
+    }
+
+    showPrevious() {
+      if (!this.queue.length) return;
+      if (this.queueIndex > 0) {
+        this.queueIndex -= 1;
+      }
+      this.render();
+      this.ensureModalVisible();
+    }
+
+    showNext() {
+      if (!this.queue.length) return;
+      if (this.queueIndex < this.queue.length - 1) {
+        this.queueIndex += 1;
+      }
+      this.render();
+      this.ensureModalVisible();
+    }
+
+    onHistoryClick(event) {
+      const rawTarget = event.target;
+      const target = rawTarget && typeof rawTarget.closest === 'function'
+        ? rawTarget.closest('[data-somf-history-index]')
+        : null;
+      if (!target) return;
+      const index = Number(target.dataset.somfHistoryIndex);
+      if (!Number.isFinite(index)) return;
+      event.preventDefault();
+      if (index < 0 || index >= this.queue.length) return;
+      this.queueIndex = index;
+      this.render();
+      this.ensureModalVisible();
+      if (this.dom.history) {
+        try { this.dom.history.open = false; }
+        catch {}
+      }
     }
 
     async playAnimation() {

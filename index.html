@@ -1341,7 +1341,21 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <img id="somf-min-image" class="somf-modal__art" alt="Shard artwork" loading="lazy">
+    <div class="somf-modal__content">
+      <img id="somf-min-image" class="somf-modal__art" alt="Shard artwork" loading="lazy">
+      <div class="somf-modal__controls" aria-live="polite">
+        <button id="somf-min-prev" class="somf-btn somf-ghost" type="button" aria-label="Previous shard">Previous</button>
+        <span id="somf-min-counter" class="somf-modal__counter somf-muted" aria-hidden="true">0 / 0</span>
+        <button id="somf-min-next" class="somf-btn somf-ghost" type="button" aria-label="Next shard">Next</button>
+      </div>
+      <details id="somf-min-history" class="somf-modal__history" hidden>
+        <summary class="somf-modal__history-summary">
+          <span class="somf-modal__history-title">Shard Queue</span>
+          <span id="somf-min-history-count" class="somf-modal__history-count somf-muted"></span>
+        </summary>
+        <ol id="somf-min-history-list" class="somf-modal__history-list"></ol>
+      </details>
+    </div>
   </div>
 </div>
 
