@@ -1,5 +1,6 @@
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, revertAbilityScore } from './helpers.js';
+import { ensureDiceResultRenderer } from './dice-result.js';
 import { setupFactionRepTracker, ACTION_HINTS, updateFactionRep, migratePublicOpinionSnapshot } from './faction.js';
 import {
   currentCharacter,
@@ -2722,18 +2723,18 @@ function preloadAudioCues(){
 
 preloadAudioCues();
 
-let audioCtx = null;
+let cueAudioCtx = null;
 
-function ensureAudioContext(){
-  if (audioCtx) return audioCtx;
+function ensureCueAudioContext(){
+  if (cueAudioCtx) return cueAudioCtx;
   const Ctor = window?.AudioContext || window?.webkitAudioContext;
   if (!Ctor) return null;
   try {
-    audioCtx = new Ctor();
+    cueAudioCtx = new Ctor();
   } catch {
-    audioCtx = null;
+    cueAudioCtx = null;
   }
-  return audioCtx;
+  return cueAudioCtx;
 }
 
 function resolveAudioCueType(type){
@@ -2781,10 +2782,10 @@ function getAudioCueBufferPromise(ctx, cue){
   return promise;
 }
 
-const closeAudioContext = () => {
-  if (audioCtx && typeof audioCtx.close === 'function') {
-    const ctx = audioCtx;
-    audioCtx = null;
+const closeCueAudioContext = () => {
+  if (cueAudioCtx && typeof cueAudioCtx.close === 'function') {
+    const ctx = cueAudioCtx;
+    cueAudioCtx = null;
     audioCueBufferPromises.clear();
     try {
       ctx.close();
@@ -2792,15 +2793,15 @@ const closeAudioContext = () => {
   }
 };
 
-window.addEventListener('pagehide', closeAudioContext, { once: true });
+window.addEventListener('pagehide', closeCueAudioContext, { once: true });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    closeAudioContext();
+    closeCueAudioContext();
   }
 });
 function playToneFallback(type){
   try {
-    const ctx = ensureAudioContext();
+    const ctx = ensureCueAudioContext();
     if (!ctx) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -2824,7 +2825,7 @@ function playToneFallback(type){
 
 function playTone(type){
   const cue = resolveAudioCueType(type);
-  const ctx = ensureAudioContext();
+  const ctx = ensureCueAudioContext();
   if (ctx && audioCueData.has(cue)) {
     if (typeof ctx.resume === 'function') {
       try { ctx.resume(); } catch {}
@@ -6011,18 +6012,26 @@ function rollWithBonus(name, bonus, out, opts = {}){
 renderLogs();
 renderFullLogs();
 const rollDiceButton = $('roll-dice');
+const diceOutput = $('dice-out');
+const diceResultRenderer = ensureDiceResultRenderer(diceOutput);
 if (rollDiceButton) {
   if (rollDiceButton.dataset) {
     rollDiceButton.dataset.actionCue = 'dice-roll';
   }
   rollDiceButton.addEventListener('click', ()=>{
     const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
-    const out = $('dice-out');
+    const out = diceOutput;
+    if (!out) return;
     const breakdown = $('dice-breakdown');
     out.classList.remove('rolling');
     const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
     const sum = rolls.reduce((a,b)=>a+b,0);
-    out.textContent = sum;
+    const playIndex = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+    if (diceResultRenderer && out) {
+      diceResultRenderer.render(sum, playIndex);
+    } else if (out) {
+      out.textContent = sum;
+    }
     void out.offsetWidth; out.classList.add('rolling');
     if (breakdown) {
       breakdown.textContent = '';
