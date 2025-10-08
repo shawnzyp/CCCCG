@@ -4917,8 +4917,14 @@ $('long-rest').addEventListener('click', ()=>{
   setSP(num(elSPBar.max));
   elHPTemp.value='';
   if (elSPTemp) elSPTemp.value='';
-  // clear all checkbox states on the page
-  qsa('input[type="checkbox"]').forEach(cb=>{
+  // clear combat-related checkbox states only
+  const combatCheckboxes = [
+    ...qsa('#death-saves input[type="checkbox"]'),
+    ...qsa('#statuses input[type="checkbox"]'),
+    ...qsa('#ongoing-effects input[type="checkbox"]'),
+  ];
+  if (elCAPCheck) combatCheckboxes.push(elCAPCheck);
+  combatCheckboxes.forEach(cb => {
     cb.checked = false;
     cb.removeAttribute('checked');
   });
