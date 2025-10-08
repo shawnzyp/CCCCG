@@ -155,18 +155,23 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
         </svg>
       </button>
-      <span
+      <button
         id="cloud-sync-status"
         class="sync-status-indicator"
+        type="button"
         data-status="online"
-        role="status"
-        aria-live="polite"
+        aria-haspopup="dialog"
+        aria-controls="cloud-sync-panel"
+        aria-expanded="false"
         aria-label="Cloud sync status: Online"
-        title="Online"
+        title="Cloud sync status: Online"
       >
         <span class="sync-status-indicator__light" aria-hidden="true"></span>
-        <span class="sr-only" data-sync-status-label>Online</span>
-      </span>
+        <span class="sr-only" role="status" aria-live="polite">
+          Cloud sync status:
+          <span data-sync-status-label>Online</span>
+        </span>
+      </button>
       <div id="menu-actions" class="menu" hidden>
         <button id="btn-load" class="btn-sm">Load / Save</button>
         <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
@@ -1712,6 +1717,57 @@
     </section>
   </section>
 </div>
+
+<div id="cloud-sync-panel-backdrop" class="sync-panel__backdrop" hidden aria-hidden="true"></div>
+<section
+  id="cloud-sync-panel"
+  class="sync-panel"
+  hidden
+  aria-hidden="true"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="cloud-sync-panel-title"
+  tabindex="-1"
+>
+  <header class="sync-panel__header">
+    <h2 id="cloud-sync-panel-title" class="sync-panel__title">Cloud sync</h2>
+    <button type="button" class="sync-panel__close" data-sync-close aria-label="Close cloud sync panel">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </header>
+  <div class="sync-panel__body">
+    <div class="sync-panel__status-group">
+      <span class="sync-panel__status-label">Status</span>
+      <span class="sync-panel__status-value" data-sync-panel-status>Online</span>
+    </div>
+    <div class="sync-panel__status-group">
+      <span class="sync-panel__status-label">Last sync</span>
+      <time class="sync-panel__status-value" data-sync-last datetime="">Never</time>
+    </div>
+    <div class="sync-panel__actions-row">
+      <button type="button" class="btn-sm" data-sync-now>Sync now</button>
+    </div>
+    <div class="sync-panel__section">
+      <div class="sync-panel__section-header">
+        <h3 class="sync-panel__section-title">Queued saves</h3>
+        <button type="button" class="btn-sm sync-panel__clear-queue" data-sync-clear-queue disabled>Clear queue</button>
+      </div>
+      <p class="sync-panel__empty" data-sync-queue-empty>No queued saves.</p>
+      <ul class="sync-panel__list" data-sync-queue-list hidden></ul>
+    </div>
+    <div class="sync-panel__section">
+      <div class="sync-panel__section-header">
+        <h3 class="sync-panel__section-title">Recent issues</h3>
+      </div>
+      <p class="sync-panel__empty" data-sync-error-empty>No sync issues logged.</p>
+      <ul class="sync-panel__list" data-sync-error-list hidden></ul>
+      <div class="sync-panel__actions">
+        <button type="button" class="btn-sm" data-sync-retry>Retry sync</button>
+        <button type="button" class="btn-sm" data-sync-clear-errors disabled>Clear issues</button>
+      </div>
+    </div>
+  </div>
+</section>
 
 <div class="overlay hidden" id="somfDM-npcModal" aria-hidden="true">
   <section id="somfDM-npcModalCard" class="modal somf-dm"></section>

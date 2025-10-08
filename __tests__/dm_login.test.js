@@ -45,6 +45,17 @@ describe('dm login', () => {
       beginQueuedSyncFlush: () => {},
       getLastSyncStatus: () => 'idle',
       subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
@@ -115,6 +126,17 @@ describe('dm login', () => {
       beginQueuedSyncFlush: () => {},
       getLastSyncStatus: () => 'idle',
       subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
     }));
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
@@ -168,6 +190,17 @@ describe('dm login', () => {
       beginQueuedSyncFlush: () => {},
       getLastSyncStatus: () => 'idle',
       subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
     }));
 
     await import('../scripts/dm.js');
