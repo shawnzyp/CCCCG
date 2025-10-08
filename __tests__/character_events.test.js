@@ -25,6 +25,17 @@ describe('character events', () => {
       beginQueuedSyncFlush: () => {},
       getLastSyncStatus: () => 'idle',
       subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
     }));
 
     const { saveCharacter, deleteCharacter } = await import('../scripts/characters.js');

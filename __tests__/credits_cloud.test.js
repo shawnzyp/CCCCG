@@ -51,6 +51,17 @@ describe('credits autosave to cloud', () => {
       beginQueuedSyncFlush: () => {},
       getLastSyncStatus: () => 'idle',
       subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
     }));
 
     global.toast = jest.fn();

@@ -32,6 +32,12 @@ import {
   subscribeSyncStatus,
   getLastSyncStatus,
   beginQueuedSyncFlush,
+  getQueuedCloudSaves,
+  clearQueuedCloudSaves,
+  subscribeSyncErrors,
+  subscribeSyncActivity,
+  subscribeSyncQueue,
+  getLastSyncActivity,
 } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
@@ -12846,39 +12852,441 @@ if(typeof window !== 'undefined'){
   }, { passive: true });
 }
 
-const syncStatusBadge = $('cloud-sync-status');
-if (syncStatusBadge) {
-  const SYNC_STATUS_LABELS = {
-    online: 'Online',
-    syncing: 'Syncing…',
-    queued: 'Offline: save queued',
-    reconnecting: 'Syncing queued save',
-    offline: 'Offline',
-  };
-  const VALID_BADGE_STATUSES = new Set(Object.keys(SYNC_STATUS_LABELS));
-  const labelEl = syncStatusBadge.querySelector('[data-sync-status-label]');
+// Cloud sync status + detail panel setup.
+const syncStatusTrigger = $('cloud-sync-status');
+const syncPanel = $('cloud-sync-panel');
+const syncPanelBackdrop = $('cloud-sync-panel-backdrop');
+const syncPanelStatusEl = syncPanel?.querySelector('[data-sync-panel-status]');
+const syncPanelLastEl = syncPanel?.querySelector('[data-sync-last]');
+const syncPanelQueueList = syncPanel?.querySelector('[data-sync-queue-list]');
+const syncPanelQueueEmptyEl = syncPanel?.querySelector('[data-sync-queue-empty]');
+const syncPanelErrorList = syncPanel?.querySelector('[data-sync-error-list]');
+const syncPanelErrorEmptyEl = syncPanel?.querySelector('[data-sync-error-empty]');
+const syncPanelSyncNowBtn = syncPanel?.querySelector('[data-sync-now]');
+const syncPanelRetryBtn = syncPanel?.querySelector('[data-sync-retry]');
+const syncPanelClearErrorsBtn = syncPanel?.querySelector('[data-sync-clear-errors]');
+const syncPanelClearQueueBtn = syncPanel?.querySelector('[data-sync-clear-queue]');
+const syncPanelCloseBtn = syncPanel?.querySelector('[data-sync-close]');
+
+const SYNC_STATUS_LABELS = {
+  online: 'Online',
+  syncing: 'Syncing…',
+  queued: 'Offline: save queued',
+  reconnecting: 'Syncing queued save',
+  offline: 'Offline',
+};
+const VALID_BADGE_STATUSES = new Set(Object.keys(SYNC_STATUS_LABELS));
+const relativeTimeFormatter = (typeof Intl !== 'undefined' && typeof Intl.RelativeTimeFormat === 'function')
+  ? new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  : null;
+const syncErrorLog = [];
+const SYNC_ERROR_LIMIT = 8;
+const manualSyncButtons = [syncPanelSyncNowBtn, syncPanelRetryBtn].filter(Boolean);
+let syncPanelOpen = false;
+let queueRefreshPromise = null;
+
+function setSyncButtonErrorState(hasErrors) {
+  if (!syncStatusTrigger) return;
+  if (hasErrors) {
+    syncStatusTrigger.setAttribute('data-has-errors', 'true');
+  } else {
+    syncStatusTrigger.removeAttribute('data-has-errors');
+  }
+}
+
+function formatDateTime(timestamp) {
+  if (!Number.isFinite(timestamp)) return '';
+  try {
+    return new Date(timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch (err) {
+    try {
+      return new Date(timestamp).toLocaleString();
+    } catch {
+      return new Date(timestamp).toString();
+    }
+  }
+}
+
+function formatRelativeTime(timestamp) {
+  if (!Number.isFinite(timestamp)) return '';
+  const now = Date.now();
+  const diff = timestamp - now;
+  const abs = Math.abs(diff);
+  if (abs < 15000) return 'just now';
+  const units = [
+    { limit: 60000, divisor: 1000, unit: 'second' },
+    { limit: 3600000, divisor: 60000, unit: 'minute' },
+    { limit: 86400000, divisor: 3600000, unit: 'hour' },
+    { limit: 604800000, divisor: 86400000, unit: 'day' },
+    { limit: Infinity, divisor: 604800000, unit: 'week' },
+  ];
+  for (const { limit, divisor, unit } of units) {
+    if (abs < limit) {
+      const value = Math.max(1, Math.round(abs / divisor));
+      if (relativeTimeFormatter) {
+        return relativeTimeFormatter.format(diff < 0 ? -value : value, unit);
+      }
+      const plural = value === 1 ? unit : `${unit}s`;
+      return diff < 0 ? `${value} ${plural} ago` : `in ${value} ${plural}`;
+    }
+  }
+  return '';
+}
+
+function updateLastSyncDisplay(timestamp = getLastSyncActivity()) {
+  if (!syncPanelLastEl) return;
+  if (!Number.isFinite(timestamp)) {
+    syncPanelLastEl.textContent = 'Never';
+    syncPanelLastEl.removeAttribute('datetime');
+    syncPanelLastEl.title = 'No successful sync yet';
+    return;
+  }
+  const relative = formatRelativeTime(timestamp);
+  const absolute = formatDateTime(timestamp);
+  syncPanelLastEl.textContent = relative || absolute || 'Unknown';
+  syncPanelLastEl.setAttribute('datetime', new Date(timestamp).toISOString());
+  if (absolute) {
+    syncPanelLastEl.title = absolute;
+  } else {
+    syncPanelLastEl.removeAttribute('title');
+  }
+}
+
+function renderSyncErrors() {
+  if (!syncPanelErrorList || !syncPanelErrorEmptyEl) {
+    setSyncButtonErrorState(Boolean(syncErrorLog.length));
+    return;
+  }
+  syncPanelErrorList.textContent = '';
+  if (!syncErrorLog.length) {
+    syncPanelErrorList.hidden = true;
+    syncPanelErrorEmptyEl.hidden = false;
+    if (syncPanelClearErrorsBtn) {
+      syncPanelClearErrorsBtn.disabled = true;
+    }
+    setSyncButtonErrorState(false);
+    return;
+  }
+  syncPanelErrorList.hidden = false;
+  syncPanelErrorEmptyEl.hidden = true;
+  if (syncPanelClearErrorsBtn) {
+    syncPanelClearErrorsBtn.disabled = false;
+  }
+  setSyncButtonErrorState(true);
+  syncErrorLog.forEach(entry => {
+    const item = document.createElement('li');
+    item.className = 'sync-panel__list-item sync-panel__list-item--error';
+    const title = document.createElement('span');
+    title.className = 'sync-panel__item-title';
+    title.textContent = entry.message || 'Cloud sync error';
+    item.appendChild(title);
+    if (entry.name) {
+      const note = document.createElement('span');
+      note.className = 'sync-panel__item-note';
+      note.textContent = `Character: ${entry.name}`;
+      item.appendChild(note);
+    }
+    if (entry.detail && entry.detail !== entry.message) {
+      const detail = document.createElement('span');
+      detail.className = 'sync-panel__item-detail';
+      detail.textContent = entry.detail;
+      item.appendChild(detail);
+    }
+    const meta = document.createElement('span');
+    meta.className = 'sync-panel__meta';
+    const absolute = formatDateTime(entry.timestamp);
+    const relative = formatRelativeTime(entry.timestamp);
+    meta.textContent = relative ? `Logged ${relative}` : 'Logged';
+    if (absolute) {
+      meta.title = absolute;
+    }
+    item.appendChild(meta);
+    syncPanelErrorList.appendChild(item);
+  });
+}
+
+function renderQueue(entries = []) {
+  const normalizedEntries = Array.isArray(entries) ? entries : [];
+  const queueCount = normalizedEntries.length;
+  if (!syncPanelQueueList || !syncPanelQueueEmptyEl) {
+    if (syncStatusTrigger) {
+      if (queueCount) {
+        const badgeLabel = queueCount > 9 ? '9+' : String(queueCount);
+        syncStatusTrigger.setAttribute('data-queue-count', badgeLabel);
+      } else {
+        syncStatusTrigger.removeAttribute('data-queue-count');
+      }
+    }
+    if (syncPanelClearQueueBtn) {
+      const isLoading = syncPanelClearQueueBtn.classList.contains('loading');
+      syncPanelClearQueueBtn.disabled = isLoading || queueCount === 0;
+    }
+    return;
+  }
+  syncPanelQueueList.textContent = '';
+  if (!queueCount) {
+    syncPanelQueueList.hidden = true;
+    syncPanelQueueEmptyEl.hidden = false;
+  } else {
+    syncPanelQueueList.hidden = false;
+    syncPanelQueueEmptyEl.hidden = true;
+    normalizedEntries.forEach(entry => {
+      const item = document.createElement('li');
+      item.className = 'sync-panel__list-item';
+      const title = document.createElement('span');
+      title.className = 'sync-panel__item-title';
+      title.textContent = entry.name || 'Unnamed save';
+      item.appendChild(title);
+      const meta = document.createElement('span');
+      meta.className = 'sync-panel__meta';
+      const timestamp = Number.isFinite(entry.queuedAt) ? entry.queuedAt : entry.ts;
+      const absolute = formatDateTime(timestamp);
+      const relative = formatRelativeTime(timestamp);
+      meta.textContent = relative ? `Queued ${relative}` : 'Queued';
+      if (absolute) {
+        meta.title = absolute;
+      }
+      item.appendChild(meta);
+      syncPanelQueueList.appendChild(item);
+    });
+  }
+  if (syncPanelClearQueueBtn) {
+    const isLoading = syncPanelClearQueueBtn.classList.contains('loading');
+    syncPanelClearQueueBtn.disabled = isLoading || queueCount === 0;
+  }
+  if (syncStatusTrigger) {
+    if (queueCount) {
+      const badgeLabel = queueCount > 9 ? '9+' : String(queueCount);
+      syncStatusTrigger.setAttribute('data-queue-count', badgeLabel);
+    } else {
+      syncStatusTrigger.removeAttribute('data-queue-count');
+    }
+  }
+}
+
+async function refreshSyncQueue() {
+  if (!syncPanelQueueList && !syncStatusTrigger) return;
+  if (queueRefreshPromise) return queueRefreshPromise;
+  queueRefreshPromise = (async () => {
+    try {
+      const entries = await getQueuedCloudSaves();
+      renderQueue(entries);
+    } catch (err) {
+      console.error('Failed to refresh queued cloud saves', err);
+    }
+  })().finally(() => {
+    queueRefreshPromise = null;
+  });
+  return queueRefreshPromise;
+}
+
+function toggleSyncPanel(forceOpen) {
+  if (!syncPanel) return;
+  const open = typeof forceOpen === 'boolean' ? forceOpen : !syncPanelOpen;
+  if (syncPanelOpen === open) return;
+  syncPanelOpen = open;
+  syncPanel.hidden = !open;
+  if (open) {
+    syncPanel.removeAttribute('aria-hidden');
+  } else {
+    syncPanel.setAttribute('aria-hidden', 'true');
+  }
+  if (syncPanelBackdrop) {
+    syncPanelBackdrop.hidden = !open;
+    if (open) {
+      syncPanelBackdrop.removeAttribute('aria-hidden');
+    } else {
+      syncPanelBackdrop.setAttribute('aria-hidden', 'true');
+    }
+  }
+  if (syncStatusTrigger) {
+    syncStatusTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  if (open) {
+    refreshSyncQueue();
+    renderSyncErrors();
+    updateLastSyncDisplay();
+    requestAnimationFrame(() => {
+      const focusTarget = syncPanelCloseBtn || syncPanel;
+      try { focusTarget.focus({ preventScroll: true }); } catch {}
+    });
+  } else if (syncStatusTrigger) {
+    try { syncStatusTrigger.focus({ preventScroll: true }); } catch {}
+  }
+}
+
+let manualSyncInFlight = false;
+async function triggerManualSync() {
+  if (manualSyncInFlight) return;
+  manualSyncInFlight = true;
+  manualSyncButtons.forEach(btn => {
+    btn.disabled = true;
+    btn.classList.add('loading');
+  });
+  try {
+    beginQueuedSyncFlush();
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg?.sync && typeof reg.sync.register === 'function') {
+          try { await reg.sync.register('cloud-save-sync'); } catch {}
+        }
+        const worker = navigator.serviceWorker.controller || reg.active;
+        worker?.postMessage({ type: 'flush-cloud-saves' });
+      } catch (swErr) {
+        console.error('Failed to notify service worker for manual sync', swErr);
+      }
+    }
+    await cacheCloudSaves();
+    await refreshSyncQueue();
+  } catch (err) {
+    console.error('Manual sync failed', err);
+    try { toast('Manual sync failed', 'error'); } catch {}
+  } finally {
+    manualSyncInFlight = false;
+    manualSyncButtons.forEach(btn => {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    });
+  }
+}
+
+if (syncStatusTrigger) {
+  const labelEl = syncStatusTrigger.querySelector('[data-sync-status-label]');
   const updateSyncBadge = status => {
     const normalized = typeof status === 'string' && VALID_BADGE_STATUSES.has(status)
       ? status
       : 'online';
     const label = SYNC_STATUS_LABELS[normalized] || SYNC_STATUS_LABELS.online;
-    if (syncStatusBadge.dataset && typeof syncStatusBadge.dataset === 'object') {
-      syncStatusBadge.dataset.status = normalized;
-    } else if (typeof syncStatusBadge.setAttribute === 'function') {
-      syncStatusBadge.setAttribute('data-status', normalized);
+    if (syncStatusTrigger.dataset && typeof syncStatusTrigger.dataset === 'object') {
+      syncStatusTrigger.dataset.status = normalized;
+    } else if (typeof syncStatusTrigger.setAttribute === 'function') {
+      syncStatusTrigger.setAttribute('data-status', normalized);
     }
     if (labelEl) {
       labelEl.textContent = label;
     }
-    if (typeof syncStatusBadge.setAttribute === 'function') {
-      syncStatusBadge.setAttribute('aria-label', `Cloud sync status: ${label}`);
-      syncStatusBadge.setAttribute('title', label);
+    if (typeof syncStatusTrigger.setAttribute === 'function') {
+      syncStatusTrigger.setAttribute('aria-label', `Cloud sync status: ${label}`);
+      syncStatusTrigger.setAttribute('title', label);
+    }
+    if (syncPanelStatusEl) {
+      syncPanelStatusEl.textContent = label;
     }
   };
 
   updateSyncBadge(getLastSyncStatus());
   subscribeSyncStatus(updateSyncBadge);
+  syncStatusTrigger.addEventListener('click', () => {
+    toggleSyncPanel(!syncPanelOpen);
+  });
 }
+
+if (syncPanelCloseBtn) {
+  syncPanelCloseBtn.addEventListener('click', () => toggleSyncPanel(false));
+}
+
+if (syncPanelBackdrop) {
+  syncPanelBackdrop.addEventListener('click', () => toggleSyncPanel(false));
+}
+
+document.addEventListener('keydown', e => {
+  if (!syncPanelOpen) return;
+  if (e.key === 'Escape' || e.key === 'Esc') {
+    toggleSyncPanel(false);
+  }
+});
+
+if (syncPanelSyncNowBtn) {
+  syncPanelSyncNowBtn.addEventListener('click', triggerManualSync);
+}
+
+if (syncPanelRetryBtn) {
+  syncPanelRetryBtn.addEventListener('click', triggerManualSync);
+}
+
+if (syncPanelClearErrorsBtn) {
+  syncPanelClearErrorsBtn.addEventListener('click', () => {
+    syncErrorLog.length = 0;
+    renderSyncErrors();
+  });
+}
+
+if (syncPanelClearQueueBtn) {
+  syncPanelClearQueueBtn.addEventListener('click', async () => {
+    if (syncPanelClearQueueBtn.classList.contains('loading')) return;
+    syncPanelClearQueueBtn.classList.add('loading');
+    syncPanelClearQueueBtn.disabled = true;
+    try {
+      const cleared = await clearQueuedCloudSaves({ includePins: true });
+      if (cleared) {
+        try { toast('Queued saves cleared', 'info'); } catch {}
+      } else {
+        try { toast('Failed to clear queued saves', 'error'); } catch {}
+      }
+    } catch (err) {
+      console.error('Failed to clear queued cloud saves', err);
+      try { toast('Failed to clear queued saves', 'error'); } catch {}
+    } finally {
+      await refreshSyncQueue();
+      syncPanelClearQueueBtn.classList.remove('loading');
+    }
+  });
+}
+
+subscribeSyncErrors(payload => {
+  if (!payload) return;
+  const timestamp = Number.isFinite(payload.timestamp) ? payload.timestamp : Date.now();
+  let message = 'Cloud sync error';
+  if (typeof payload === 'string' && payload) {
+    message = payload;
+  } else if (payload && typeof payload === 'object') {
+    if (typeof payload.message === 'string' && payload.message.trim()) {
+      message = payload.message.trim();
+    } else if (payload.error && typeof payload.error.message === 'string' && payload.error.message.trim()) {
+      message = payload.error.message.trim();
+    }
+  }
+  const detail = (() => {
+    if (payload && typeof payload === 'object') {
+      if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail.trim();
+      if (payload.error) {
+        if (typeof payload.error === 'string') return payload.error;
+        if (typeof payload.error.message === 'string') return payload.error.message;
+      }
+    }
+    return null;
+  })();
+  const name = payload && typeof payload === 'object' && typeof payload.name === 'string' && payload.name ? payload.name : null;
+  syncErrorLog.unshift({
+    id: `${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+    message,
+    detail,
+    timestamp,
+    name,
+  });
+  if (syncErrorLog.length > SYNC_ERROR_LIMIT) {
+    syncErrorLog.length = SYNC_ERROR_LIMIT;
+  }
+  renderSyncErrors();
+});
+
+subscribeSyncActivity(event => {
+  if (event && Number.isFinite(event.timestamp)) {
+    updateLastSyncDisplay(event.timestamp);
+  } else {
+    updateLastSyncDisplay();
+  }
+  refreshSyncQueue();
+});
+
+subscribeSyncQueue(() => {
+  refreshSyncQueue();
+});
+
+updateLastSyncDisplay(getLastSyncActivity());
+renderSyncErrors();
+refreshSyncQueue();
 
 $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
