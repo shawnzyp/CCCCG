@@ -5443,16 +5443,21 @@ function rollWithBonus(name, bonus, out, opts = {}){
 renderLogs();
 renderFullLogs();
 $('roll-dice').addEventListener('click', ()=>{
-  const s = num($('dice-sides').value), c=num($('dice-count').value)||1;
+  const s = num($('dice-sides').value), c = num($('dice-count').value)||1;
+  const modifierInput = $('dice-mod');
+  const modifier = modifierInput ? num(modifierInput.value) : 0;
   const out = $('dice-out');
   out.classList.remove('rolling');
   const rolls = Array.from({length:c}, ()=> 1+Math.floor(Math.random()*s));
   const sum = rolls.reduce((a,b)=>a+b,0);
-  out.textContent = sum;
+  const total = sum + modifier;
+  out.textContent = total;
   void out.offsetWidth; out.classList.add('rolling');
-  playDamageAnimation(sum);
-  logAction(`${c}×d${s}: ${rolls.join(', ')} = ${sum}`);
-  window.dmNotify?.(`Rolled ${c}d${s}: ${rolls.join(', ')} = ${sum}`);
+  playDamageAnimation(total);
+  const modifierLabel = modifier >= 0 ? `+${modifier}` : `${modifier}`;
+  const breakdown = modifier ? ` ${modifier >= 0 ? '+' : '-'} ${Math.abs(modifier)} = ${total}` : '';
+  logAction(`${c}×d${s}${modifier ? ` ${modifierLabel}` : ''}: ${rolls.join(', ')} = ${sum}${breakdown}`);
+  window.dmNotify?.(`Rolled ${c}d${s}${modifier ? ` ${modifierLabel}` : ''}: ${rolls.join(', ')} = ${sum}${breakdown}`);
 });
 $('flip').addEventListener('click', ()=>{
   const v = Math.random()<.5 ? 'Heads' : 'Tails';
