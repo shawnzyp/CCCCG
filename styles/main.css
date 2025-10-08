@@ -475,7 +475,10 @@ header .tab svg{
   justify-content:center;
   overflow:hidden;
   white-space:nowrap;
-  flex:0 0 auto;
+  flex:0 1 auto;
+  min-width:0;
+  inline-size:min(var(--header-title-width, 100%), var(--header-title-available, 100%));
+  max-inline-size:var(--header-title-available, 100%);
 }
 
 .header-title-react-root>.header-decrypted,
