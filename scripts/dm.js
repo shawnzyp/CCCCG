@@ -2,6 +2,17 @@ import { listCharacters, loadCharacter } from './characters.js';
 import { DM_PIN, DM_DEVICE_FINGERPRINT } from './dm-pin.js';
 import { show, hide } from './modal.js';
 import {
+  saveDmCatalogEntry,
+  listDmCatalogEntries,
+  subscribeDmCatalogEntries,
+  deleteDmCatalogEntry,
+} from './storage.js';
+import {
+  buildGearEntryFromMetadata,
+  buildPowerPresetFromMetadata,
+  buildSignaturePresetFromMetadata,
+} from './dm-catalog-utils.js';
+import {
   listMiniGames,
   getMiniGame,
   getDefaultConfig,
@@ -395,6 +406,14 @@ function initDMLogin(){
   const catalogTabButtons = new Map();
   const catalogPanelMap = new Map();
   const catalogForms = new Map();
+  const catalogListContainers = new Map();
+  const catalogSubmitButtons = new Map();
+  const catalogLockInputs = new Map();
+  let dmCatalogEntries = [];
+  const dmCatalogEntryIndex = new Map();
+  let dmCatalogSubscription = null;
+  let dmCatalogLoaded = false;
+  let dmCatalogLoading = false;
   let catalogInitialized = false;
 
   if (!isAuthorizedDevice()) {
@@ -408,6 +427,209 @@ function initDMLogin(){
     catalogBtn?.remove();
     catalogModal?.remove();
     return;
+  }
+
+  function generateDmCatalogEntryId() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      try {
+        return crypto.randomUUID();
+      } catch {}
+    }
+    return `dm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function formatCatalogTimestamp(value) {
+    if (!value) return '';
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return String(value);
+    }
+  }
+
+  function renderDmCatalogListForType(typeId) {
+    const container = catalogListContainers.get(typeId);
+    if (!container) return;
+    container.innerHTML = '';
+    const entries = dmCatalogEntries
+      .filter(entry => entry && entry.kind === typeId && entry.deleted !== true)
+      .slice()
+      .sort((a, b) => {
+        const nameA = (a.metadata?.name || a.label || '').toLowerCase();
+        const nameB = (b.metadata?.name || b.label || '').toLowerCase();
+        if (nameA && nameB && nameA !== nameB) return nameA.localeCompare(nameB);
+        return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+      });
+    if (!entries.length) {
+      const empty = document.createElement('p');
+      empty.className = 'dm-catalog__placeholder';
+      empty.textContent = 'No saved entries yet.';
+      container.appendChild(empty);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    entries.forEach(entry => {
+      const metadata = entry.metadata || {};
+      const item = document.createElement('div');
+      item.className = 'dm-catalog__saved-item';
+
+      const metaWrap = document.createElement('div');
+      metaWrap.className = 'dm-catalog__saved-meta';
+      const name = document.createElement('strong');
+      name.textContent = metadata.name || entry.label || 'Untitled Entry';
+      metaWrap.appendChild(name);
+
+      if (entry.dmLock) {
+        const lock = document.createElement('span');
+        lock.className = 'dm-catalog__lock-pill';
+        lock.textContent = 'DM Locked';
+        metaWrap.appendChild(lock);
+      }
+
+      const details = document.createElement('span');
+      const detailParts = [];
+      if (metadata.tier) detailParts.push(metadata.tier);
+      if (metadata.tags) detailParts.push(metadata.tags);
+      if (entry.updatedAt) detailParts.push(formatCatalogTimestamp(entry.updatedAt));
+      details.textContent = detailParts.join(' • ');
+      metaWrap.appendChild(details);
+
+      item.appendChild(metaWrap);
+
+      const actions = document.createElement('div');
+      actions.className = 'dm-catalog__saved-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn-sm';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', () => loadDmCatalogEntryIntoForm(typeId, entry.id));
+      actions.appendChild(editBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'btn-sm';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => confirmDmCatalogDelete(entry));
+      actions.appendChild(deleteBtn);
+
+      item.appendChild(actions);
+      frag.appendChild(item);
+    });
+    container.appendChild(frag);
+  }
+
+  function renderDmCatalogEntries() {
+    catalogListContainers.forEach((_, typeId) => renderDmCatalogListForType(typeId));
+  }
+
+  function setDmCatalogEntries(entries = []) {
+    dmCatalogEntries = Array.isArray(entries) ? entries.slice() : [];
+    dmCatalogEntryIndex.clear();
+    dmCatalogEntries.forEach(entry => {
+      if (entry && entry.id) dmCatalogEntryIndex.set(entry.id, entry);
+    });
+    renderDmCatalogEntries();
+  }
+
+  function clearCatalogFormState(typeId) {
+    if (!typeId) return;
+    const form = catalogForms.get(typeId);
+    if (form) {
+      delete form.dataset.catalogEntryId;
+    }
+    const submit = catalogSubmitButtons.get(typeId);
+    if (submit) submit.textContent = 'Create Entry';
+  }
+
+  function loadDmCatalogEntryIntoForm(typeId, entryId) {
+    if (!typeId || !entryId) return;
+    const form = catalogForms.get(typeId);
+    const entry = dmCatalogEntryIndex.get(entryId);
+    if (!form || !entry) return;
+    const metadata = entry.metadata || {};
+    const fields = form.querySelectorAll('[data-catalog-field]');
+    fields.forEach(field => {
+      const key = field.dataset.catalogField;
+      if (!key) return;
+      const value = metadata[key];
+      if (field.type === 'checkbox') {
+        field.checked = !!value;
+      } else {
+        field.value = value ?? '';
+      }
+    });
+    const lockInput = catalogLockInputs.get(typeId);
+    if (lockInput) {
+      lockInput.checked = !!entry.dmLock;
+    }
+    form.dataset.catalogEntryId = entry.id;
+    const submitBtn = catalogSubmitButtons.get(typeId);
+    if (submitBtn) submitBtn.textContent = 'Save Changes';
+    Promise.resolve().then(() => focusCatalogForm());
+    if (typeof toast === 'function') {
+      toast(`Loaded ${metadata.name || entry.label || 'entry'} for editing`, 'info');
+    }
+  }
+
+  async function confirmDmCatalogDelete(entry) {
+    if (!entry || !entry.id) return;
+    let allowDelete = true;
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      allowDelete = window.confirm(`Delete ${entry.metadata?.name || entry.label || 'this entry'} from the DM catalog?`);
+    }
+    if (!allowDelete) return;
+    try {
+      await deleteDmCatalogEntry(entry.id);
+      if (typeof toast === 'function') toast('Catalog entry deleted', 'success');
+      await refreshDmCatalogEntries({ silent: true });
+    } catch (err) {
+      console.error('Failed to delete DM catalog entry', err);
+      if (typeof toast === 'function') toast('Failed to delete entry', 'error');
+    }
+  }
+
+  function clearDmCatalogState() {
+    dmCatalogEntries = [];
+    dmCatalogEntryIndex.clear();
+    renderDmCatalogEntries();
+  }
+
+  async function refreshDmCatalogEntries({ silent = true } = {}) {
+    if (dmCatalogLoading) return;
+    dmCatalogLoading = true;
+    try {
+      const entries = await listDmCatalogEntries();
+      setDmCatalogEntries(entries);
+      dmCatalogLoaded = true;
+      if (!silent && typeof toast === 'function') {
+        toast('DM catalog synced', 'success');
+      }
+    } catch (err) {
+      console.error('Failed to load DM catalog entries', err);
+      if (!silent && typeof toast === 'function') {
+        toast('Failed to load DM catalog entries', 'error');
+      }
+    } finally {
+      dmCatalogLoading = false;
+    }
+  }
+
+  function ensureDmCatalogSubscription() {
+    if (dmCatalogSubscription) return;
+    try {
+      dmCatalogSubscription = subscribeDmCatalogEntries(() => refreshDmCatalogEntries({ silent: true }));
+    } catch (err) {
+      console.error('Failed to subscribe to DM catalog updates', err);
+      dmCatalogSubscription = null;
+    }
+  }
+
+  function teardownDmCatalogSubscription() {
+    if (dmCatalogSubscription && typeof dmCatalogSubscription.close === 'function') {
+      try { dmCatalogSubscription.close(); } catch {}
+    }
+    dmCatalogSubscription = null;
   }
 
   const MENU_OPEN_CLASS = 'is-open';
@@ -1288,6 +1510,7 @@ function initDMLogin(){
     lockInput.name = 'dmLock';
     lockInput.value = 'locked';
     lock.appendChild(lockInput);
+    catalogLockInputs.set(typeId, lockInput);
     const lockCopy = document.createElement('div');
     lockCopy.className = 'dm-catalog__lock-copy';
     const lockTitle = document.createElement('span');
@@ -1313,9 +1536,25 @@ function initDMLogin(){
     submitBtn.textContent = 'Create Entry';
     actions.appendChild(resetBtn);
     actions.appendChild(submitBtn);
+    catalogSubmitButtons.set(typeId, submitBtn);
     card.appendChild(actions);
 
     form.appendChild(card);
+
+    const saved = document.createElement('section');
+    saved.className = 'dm-catalog__saved';
+    const savedTitle = document.createElement('h5');
+    savedTitle.className = 'dm-catalog__saved-title';
+    savedTitle.textContent = 'Saved Entries';
+    saved.appendChild(savedTitle);
+    const savedList = document.createElement('div');
+    savedList.className = 'dm-catalog__saved-list';
+    savedList.dataset.catalogList = typeId;
+    saved.appendChild(savedList);
+    form.appendChild(saved);
+    catalogListContainers.set(typeId, savedList);
+    renderDmCatalogListForType(typeId);
+
     form.dataset.catalogBuilt = 'true';
     form.addEventListener('submit', handleCatalogSubmit);
     form.addEventListener('reset', handleCatalogReset);
@@ -1497,14 +1736,13 @@ function initDMLogin(){
     }
     const typeLabel = payload.label || payload.type;
     const entryName = payload.metadata?.name || 'Untitled';
-    if (typeof toast === 'function') toast(`${typeLabel} entry staged: ${entryName}`, 'success');
-    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}`);
+    window.dmNotify?.(`Catalog entry saved · ${typeLabel}: ${entryName}`);
     if (typeof console !== 'undefined' && typeof console.debug === 'function') {
       console.debug('DM catalog payload prepared', payload);
     }
   }
 
-  function handleCatalogSubmit(event) {
+  async function handleCatalogSubmit(event) {
     event.preventDefault();
     const form = event.currentTarget;
     if (!form) return;
@@ -1515,14 +1753,71 @@ function initDMLogin(){
     }
     const payload = buildCatalogPayload(typeId, form);
     if (!payload) return;
-    emitCatalogPayload(payload);
-    form.reset();
+    const existingId = form.dataset.catalogEntryId || '';
+    const existing = existingId ? dmCatalogEntryIndex.get(existingId) : null;
+    const now = new Date().toISOString();
+    const id = existing?.id || generateDmCatalogEntryId();
+    const record = {
+      id,
+      kind: typeId,
+      label: payload.label,
+      dmLock: payload.locked,
+      metadata: { ...payload.metadata },
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+    if (typeId === 'powers') {
+      const preset = buildPowerPresetFromMetadata(record.metadata, { entryId: id, dmLock: payload.locked, label: payload.label });
+      if (preset && preset.data) {
+        record.powerEntry = preset.data;
+        record.powerLabel = preset.label;
+      }
+    } else if (typeId === 'signature-moves') {
+      const preset = buildSignaturePresetFromMetadata(record.metadata, { entryId: id, dmLock: payload.locked, label: payload.label });
+      if (preset && preset.data) {
+        record.signatureEntry = preset.data;
+        record.signatureLabel = preset.label;
+      }
+    } else {
+      const gearEntry = buildGearEntryFromMetadata(typeId, record.metadata, {
+        entryId: id,
+        dmLock: payload.locked,
+        label: payload.label,
+        updatedAt: now,
+      });
+      if (!gearEntry) {
+        if (typeof toast === 'function') toast('Unable to save entry. Please provide a name.', 'error');
+        return;
+      }
+      record.gearEntry = gearEntry;
+    }
+    try {
+      await saveDmCatalogEntry(record);
+      emitCatalogPayload({ ...payload, id });
+      if (typeof toast === 'function') {
+        toast('Catalog entry saved to cloud', 'success');
+      }
+      form.reset();
+      clearCatalogFormState(typeId);
+      await refreshDmCatalogEntries({ silent: true });
+    } catch (err) {
+      console.error('Failed to save DM catalog entry', err);
+      if (typeof toast === 'function') toast('Failed to save catalog entry', 'error');
+    }
     Promise.resolve().then(() => focusCatalogForm());
   }
 
   function handleCatalogReset(event) {
     const form = event.currentTarget;
     if (!form) return;
+    const typeId = form.dataset.catalogForm;
+    if (typeId) {
+      clearCatalogFormState(typeId);
+      const lockInput = catalogLockInputs.get(typeId);
+      if (lockInput) {
+        lockInput.checked = false;
+      }
+    }
     Promise.resolve().then(() => {
       if (form.dataset.catalogForm === activeCatalogType) {
         focusCatalogForm();
@@ -1535,6 +1830,9 @@ function initDMLogin(){
     ensureCatalogUI();
     if (!activeCatalogType || !catalogTypeLookup.has(activeCatalogType)) {
       activeCatalogType = CATALOG_TYPES[0]?.id || null;
+    }
+    if (!dmCatalogLoaded && !dmCatalogLoading) {
+      refreshDmCatalogEntries({ silent: true });
     }
     updateCatalogTabState();
     show('dm-catalog-modal');
@@ -1786,6 +2084,10 @@ function initDMLogin(){
   function logout(){
     clearLoggedIn();
     teardownMiniGameSubscription();
+    teardownDmCatalogSubscription();
+    clearDmCatalogState();
+    dmCatalogLoaded = false;
+    dmCatalogLoading = false;
     closeMiniGames();
     closeCatalog();
     catalogForms.forEach(form => {
@@ -1897,6 +2199,8 @@ function initDMLogin(){
     updateButtons();
     drainPendingNotifications();
     ensureMiniGameSubscription();
+    ensureDmCatalogSubscription();
+    refreshDmCatalogEntries({ silent: true });
     initTools();
   }
 

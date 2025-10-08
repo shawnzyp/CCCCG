@@ -1479,6 +1479,7 @@ button:focus-visible,
 .btn-sm{min-height:var(--control-compact-min-height);padding:clamp(6px,2.2vw,10px) clamp(8px,3.4vw,12px);border-radius:var(--radius);font-size:clamp(.65rem,2.4vw,.9rem);display:flex;align-items:center;justify-content:center;white-space:nowrap}
 .btn-sm:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn-sm:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm.is-disabled,.btn-sm[aria-disabled="true"]{opacity:.55;cursor:not-allowed;pointer-events:none;filter:saturate(.4)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .card-toolbar{
   display:flex;
@@ -2255,6 +2256,9 @@ progress::-moz-progress-bar{
 .catalog-item:last-child{border-bottom:none}
 .catalog-item.active{background:var(--accent);color:var(--text-on-accent)}
 .catalog-item.active .pill{border-color:var(--text-on-accent);color:var(--text-on-accent)}
+.catalog-item__lock{display:inline-flex;align-items:center;gap:6px;margin-left:8px;padding:4px 8px;border-radius:999px;background:rgba(0,0,0,.2);color:var(--accent);font-size:.7rem;font-weight:700;border:1px solid color-mix(in srgb,var(--accent) 60%, transparent)}
+.theme-light .catalog-item__lock{background:rgba(0,0,0,.06)}
+.theme-high .catalog-item__lock{background:#111;color:#ff0;border-color:#ff0}
 .credits-reason{margin-top:10px}
 .credits-reason input{width:100%}
 .credits-ledger__filters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:12px}
@@ -2335,6 +2339,8 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 }
 
 .power-preset-menu{position:fixed;z-index:2000;display:flex;flex-direction:column;gap:var(--control-gap);padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);width:min(360px,calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right)));max-width:min(360px,calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right)));max-height:calc(var(--vh,1vh)*100 - 24px - var(--safe-area-top) - var(--safe-area-bottom));overflow:auto;touch-action:manipulation;overscroll-behavior:contain}
+.power-preset-menu__content{display:flex;flex-direction:column;gap:var(--control-gap);width:100%}
+.power-preset-menu__custom{display:flex;flex-direction:column;gap:6px;padding:0 12px}
 .power-preset-menu__btn{width:100%;margin:0}
 .power-preset-menu[data-placement="above"]{transform-origin:top center}
 .power-preset-menu[data-placement="below"]{transform-origin:bottom center}
@@ -2463,6 +2469,18 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 .dm-catalog__actions .somf-btn{order:1}
 .dm-catalog__actions button{min-width:120px}
 .dm-catalog__form footer{margin-top:auto}
+.dm-catalog__saved{display:flex;flex-direction:column;gap:12px}
+.dm-catalog__saved-title{margin:0;font-size:.95rem;font-weight:600;display:flex;align-items:center;gap:8px}
+.dm-catalog__saved-list{display:flex;flex-direction:column;gap:10px}
+.dm-catalog__saved-item{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:rgba(0,0,0,.1)}
+.theme-light .dm-catalog__saved-item{background:rgba(255,255,255,.08)}
+.dm-catalog__saved-meta{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dm-catalog__saved-meta strong{font-size:.95rem}
+.dm-catalog__saved-meta span{font-size:.8rem;color:var(--muted)}
+.dm-catalog__saved-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.dm-catalog__lock-pill{display:inline-flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid color-mix(in srgb,var(--accent) 60%, transparent);color:var(--accent)}
+.theme-light .dm-catalog__lock-pill{background:rgba(0,0,0,.08)}
+.dm-catalog__placeholder{margin:0;font-size:.85rem;color:var(--muted)}
 @media(max-width:960px){.dm-mini-games__layout{flex-direction:column}.dm-mini-games__sidebar{flex:0 0 auto}.dm-mini-games__list{max-height:180px}}
 @media(max-width:720px){#dm-mini-games-modal .modal.dm-mini-games{padding:16px}.dm-mini-games__header{flex-direction:column;align-items:flex-start}.dm-mini-games__deploy-form{grid-template-columns:1fr}#dm-catalog-modal .modal.dm-catalog{padding:16px}.dm-catalog__card{padding:14px}.dm-catalog__tabs{gap:6px}}
 

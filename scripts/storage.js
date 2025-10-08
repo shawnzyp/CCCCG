@@ -48,6 +48,7 @@ const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 const CLOUD_CAMPAIGN_LOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/campaignLogs';
+const CLOUD_DM_CATALOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/dmCatalog';
 
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
@@ -204,6 +205,46 @@ function encodePath(name) {
     .split('/')
     .map((s) => encodeURIComponent(s))
     .join('/');
+}
+
+function normalizeDmCatalogRecord(id, value) {
+  if (!id || !value || typeof value !== 'object') return null;
+  const kind = typeof value.kind === 'string' && value.kind.trim()
+    ? value.kind.trim()
+    : (typeof value.type === 'string' ? value.type.trim() : '');
+  const dmLock = value.dmLock === true || value.locked === true;
+  const metadata = value.metadata && typeof value.metadata === 'object' ? { ...value.metadata } : {};
+  const gearEntry = value.gearEntry && typeof value.gearEntry === 'object' ? { ...value.gearEntry } : null;
+  const powerEntry = value.powerEntry && typeof value.powerEntry === 'object' ? { ...value.powerEntry } : null;
+  const signatureEntry = value.signatureEntry && typeof value.signatureEntry === 'object' ? { ...value.signatureEntry } : null;
+  if (gearEntry) {
+    if (gearEntry.dmEntryId == null) gearEntry.dmEntryId = id;
+    if (gearEntry.dmLock == null) gearEntry.dmLock = dmLock;
+    if (gearEntry.dmKind == null) gearEntry.dmKind = kind;
+  }
+  if (powerEntry) {
+    if (powerEntry.dmEntryId == null) powerEntry.dmEntryId = id;
+    if (powerEntry.dmLock == null) powerEntry.dmLock = dmLock;
+  }
+  if (signatureEntry) {
+    if (signatureEntry.dmEntryId == null) signatureEntry.dmEntryId = id;
+    if (signatureEntry.dmLock == null) signatureEntry.dmLock = dmLock;
+  }
+  return {
+    id,
+    kind,
+    label: typeof value.label === 'string' ? value.label : '',
+    dmLock,
+    metadata,
+    gearEntry,
+    powerEntry,
+    powerLabel: typeof value.powerLabel === 'string' ? value.powerLabel : '',
+    signatureEntry,
+    signatureLabel: typeof value.signatureLabel === 'string' ? value.signatureLabel : '',
+    createdAt: typeof value.createdAt === 'string' ? value.createdAt : '',
+    updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
+    deleted: value.deleted === true,
+  };
 }
 
 async function saveHistoryEntry(baseUrl, name, payload, ts) {
@@ -371,6 +412,107 @@ export function subscribeCampaignLog(onChange) {
     return src;
   } catch (e) {
     console.error('Failed to subscribe to campaign log', e);
+    if (typeof onChange === 'function') {
+      try { onChange(); } catch {}
+    }
+    return null;
+  }
+}
+
+export async function saveDmCatalogEntry(entry = {}) {
+  if (!entry || typeof entry !== 'object') {
+    throw new Error('Invalid DM catalog entry payload');
+  }
+  const id = typeof entry.id === 'string' && entry.id ? entry.id : `dm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const payload = {
+    kind: typeof entry.kind === 'string' ? entry.kind : (typeof entry.type === 'string' ? entry.type : ''),
+    label: typeof entry.label === 'string' ? entry.label : '',
+    dmLock: entry.dmLock === true,
+    metadata: entry.metadata && typeof entry.metadata === 'object' ? { ...entry.metadata } : {},
+    gearEntry: entry.gearEntry && typeof entry.gearEntry === 'object' ? { ...entry.gearEntry } : null,
+    powerEntry: entry.powerEntry && typeof entry.powerEntry === 'object' ? { ...entry.powerEntry } : null,
+    powerLabel: typeof entry.powerLabel === 'string' ? entry.powerLabel : '',
+    signatureEntry: entry.signatureEntry && typeof entry.signatureEntry === 'object' ? { ...entry.signatureEntry } : null,
+    signatureLabel: typeof entry.signatureLabel === 'string' ? entry.signatureLabel : '',
+    createdAt: typeof entry.createdAt === 'string' && entry.createdAt ? entry.createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deleted: entry.deleted === true,
+  };
+  if (payload.gearEntry) {
+    if (payload.gearEntry.dmEntryId == null) payload.gearEntry.dmEntryId = id;
+    if (payload.gearEntry.dmLock == null) payload.gearEntry.dmLock = payload.dmLock;
+    if (payload.gearEntry.dmKind == null && payload.kind) payload.gearEntry.dmKind = payload.kind;
+  }
+  if (payload.powerEntry) {
+    if (payload.powerEntry.dmEntryId == null) payload.powerEntry.dmEntryId = id;
+    if (payload.powerEntry.dmLock == null) payload.powerEntry.dmLock = payload.dmLock;
+  }
+  if (payload.signatureEntry) {
+    if (payload.signatureEntry.dmEntryId == null) payload.signatureEntry.dmEntryId = id;
+    if (payload.signatureEntry.dmLock == null) payload.signatureEntry.dmLock = payload.dmLock;
+  }
+  const res = await cloudFetch(`${CLOUD_DM_CATALOG_URL}/${encodePath(id)}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return { ...payload, id };
+}
+
+export async function deleteDmCatalogEntry(id) {
+  if (typeof id !== 'string' || !id) return;
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const res = await cloudFetch(`${CLOUD_DM_CATALOG_URL}/${encodePath(id)}.json`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function listDmCatalogEntries() {
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  const res = await cloudFetch(`${CLOUD_DM_CATALOG_URL}.json`, { method: 'GET' });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data) return [];
+  const entries = Object.entries(data)
+    .map(([id, value]) => normalizeDmCatalogRecord(id, value))
+    .filter(Boolean);
+  entries.sort((a, b) => {
+    const aName = (a.metadata?.name || a.label || '').toLowerCase();
+    const bName = (b.metadata?.name || b.label || '').toLowerCase();
+    if (aName && bName && aName !== bName) return aName.localeCompare(bName);
+    const aUpdated = a.updatedAt || '';
+    const bUpdated = b.updatedAt || '';
+    return bUpdated.localeCompare(aUpdated);
+  });
+  return entries;
+}
+
+export function subscribeDmCatalogEntries(onChange) {
+  try {
+    if (typeof EventSource !== 'function') {
+      if (typeof onChange === 'function') {
+        onChange();
+      }
+      return null;
+    }
+    const src = new EventSource(`${CLOUD_DM_CATALOG_URL}.json`);
+    const handler = () => {
+      if (typeof onChange === 'function') {
+        onChange();
+      }
+    };
+    src.addEventListener('put', handler);
+    src.addEventListener('patch', handler);
+    src.onerror = () => {
+      try { src.close(); } catch {}
+      setTimeout(() => subscribeDmCatalogEntries(onChange), 2000);
+    };
+    if (typeof onChange === 'function') {
+      onChange();
+    }
+    return src;
+  } catch (err) {
+    console.error('Failed to subscribe to DM catalog entries', err);
     if (typeof onChange === 'function') {
       try { onChange(); } catch {}
     }

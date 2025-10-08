@@ -32,6 +32,7 @@ import {
   subscribeSyncStatus,
   getLastSyncStatus,
   beginQueuedSyncFlush,
+  listDmCatalogEntries,
 } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
@@ -47,6 +48,12 @@ import {
   splitValueOptions,
   tierRank,
 } from './catalog-utils.js';
+import {
+  processDmCatalogRecords,
+  derivePriceEntriesFromCatalog,
+  isDmEntryLocked as isDmEntryLockedPure,
+  canPlayerUseDmEntry as canPlayerUseDmEntryPure,
+} from './dm-entry-utils.js';
 
 const POWER_STYLES = [
   'Physical Powerhouse',
@@ -135,6 +142,28 @@ const POWER_STYLE_ATTACK_DEFAULTS = {
 
 const POWER_RANGE_UNITS = ['feet', 'narrative'];
 const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
+
+function isDmSessionActive() {
+  try {
+    return sessionStorage.getItem('dmLoggedIn') === '1';
+  } catch {
+    return false;
+  }
+}
+
+function isDmEntryLocked(entry) {
+  return isDmEntryLockedPure(entry);
+}
+
+function canPlayerUseDmEntry(entry) {
+  return canPlayerUseDmEntryPure(entry, { dmSessionActive: isDmSessionActive() });
+}
+
+function notifyDmLockedEntry(entry, context = 'item') {
+  if (typeof toast === 'function') {
+    toast(`Only the DM can grant this ${context}.`, 'info');
+  }
+}
 
 const POWER_SHAPE_RANGES = {
   Melee: ['Melee'],
@@ -10879,6 +10908,10 @@ function setupPowerPresetMenu() {
     return shallow;
   };
 
+  const menuContent = document.createElement('div');
+  menuContent.className = 'power-preset-menu__content';
+  menu.appendChild(menuContent);
+
   const createOptionButton = (label, data) => {
     const optionBtn = document.createElement('button');
     optionBtn.type = 'button';
@@ -10897,84 +10930,135 @@ function setupPowerPresetMenu() {
     return optionBtn;
   };
 
-  const groupsContainer = document.createElement('div');
-  groupsContainer.className = 'power-preset-menu__groups';
-
-  const intensityOrder = new Map(POWER_INTENSITIES.map((name, index) => [name, index]));
-
-  const groupedPresets = POWER_PRESETS.reduce((acc, preset) => {
-    if (!preset || typeof preset !== 'object') return acc;
-    const data = preset.data || {};
-    const labelParts = typeof preset.label === 'string' ? preset.label.split(':') : [];
-    const styleLabel = (data.style || (labelParts.length > 1 ? labelParts[0].trim() : '') || 'General').trim();
-    const effectLabel = (data.effectTag || data.secondaryTag || 'General').trim();
-    const optionLabel = (data.name || (labelParts.length ? labelParts[labelParts.length - 1].trim() : preset.label) || 'Preset').trim();
-    const styleKey = styleLabel || 'General';
-    const effectKey = effectLabel || 'General';
-
-    if (!acc.has(styleKey)) acc.set(styleKey, new Map());
-    const effectMap = acc.get(styleKey);
-    if (!effectMap.has(effectKey)) effectMap.set(effectKey, []);
-    effectMap.get(effectKey).push({
-      label: optionLabel,
-      data,
-      intensity: data.intensity || null,
-    });
-    return acc;
-  }, new Map());
-
-  const sortedGroups = Array.from(groupedPresets.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
-  menu.appendChild(createOptionButton('Custom Power', {}));
-  menu.appendChild(groupsContainer);
-
-  sortedGroups.forEach(([groupName, effectMap], index) => {
-    const group = document.createElement('details');
-    group.className = 'power-preset-menu__group';
-    if (index === 0) {
-      group.setAttribute('open', '');
+  const createDmPresetButton = preset => {
+    const optionBtn = document.createElement('button');
+    optionBtn.type = 'button';
+    optionBtn.className = 'btn-sm power-preset-menu__btn' + (preset.dmLock && !isDmSessionActive() ? ' is-disabled' : '');
+    optionBtn.textContent = preset.dmLock ? `🔒 ${preset.label}` : preset.label;
+    if (preset.dmLock && !isDmSessionActive()) {
+      optionBtn.title = 'Only the DM can grant this power.';
     }
-    const summary = document.createElement('summary');
-    summary.className = 'power-preset-menu__group-title';
-    summary.textContent = groupName;
-    group.appendChild(summary);
-    const subgroups = document.createElement('div');
-    subgroups.className = 'power-preset-menu__subgroups';
-
-    const sortedEffects = Array.from(effectMap.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-
-    sortedEffects.forEach(([effectName, items], effectIndex) => {
-      const subgroup = document.createElement('details');
-      subgroup.className = 'power-preset-menu__subgroup';
-      if (effectIndex === 0) {
-        subgroup.setAttribute('open', '');
+    optionBtn.addEventListener('click', () => {
+      if (preset.dmLock && !isDmSessionActive()) {
+        notifyDmLockedEntry(preset.data, 'power');
+        return;
       }
-      const subgroupSummary = document.createElement('summary');
-      subgroupSummary.className = 'power-preset-menu__subgroup-title';
-
-      const intensityLabels = Array.from(new Set(items.map(item => item.intensity).filter(Boolean)));
-      intensityLabels.sort((a, b) => {
-        const orderA = intensityOrder.has(a) ? intensityOrder.get(a) : Number.MAX_SAFE_INTEGER;
-        const orderB = intensityOrder.has(b) ? intensityOrder.get(b) : Number.MAX_SAFE_INTEGER;
-        return orderA - orderB || a.localeCompare(b, undefined, { sensitivity: 'base' });
-      });
-      const intensitySuffix = intensityLabels.length ? ` · ${intensityLabels.join(', ')}` : '';
-      subgroupSummary.textContent = `${effectName}${intensitySuffix}`;
-      subgroup.appendChild(subgroupSummary);
-
-      const grid = document.createElement('div');
-      grid.className = 'power-preset-menu__grid';
-      items.sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
-      items.forEach(item => {
-        grid.appendChild(createOptionButton(item.label, item.data));
-      });
-      subgroup.appendChild(grid);
-      subgroups.appendChild(subgroup);
+      const presetData = clonePresetData(preset.data);
+      if (preset.dmLock) presetData.dmLock = true;
+      if (preset.id && !presetData.dmEntryId) presetData.dmEntryId = preset.id;
+      const card = createCard('power', presetData);
+      hideMenu();
+      const opened = openPowerEditor(card, { isNew: true, targetList: list });
+      if (!opened) {
+        list.appendChild(card);
+        pushHistory();
+      }
+      try { addBtn.focus(); } catch {}
     });
+    return optionBtn;
+  };
 
-    group.appendChild(subgroups);
-    groupsContainer.appendChild(group);
-  });
+  const renderMenuContent = () => {
+    menuContent.innerHTML = '';
+    const customWrap = document.createElement('div');
+    customWrap.className = 'power-preset-menu__custom';
+    customWrap.appendChild(createOptionButton('Custom Power', {}));
+    menuContent.appendChild(customWrap);
+
+    if (dmCatalogPowerPresets.length) {
+      const dmGroup = document.createElement('details');
+      dmGroup.className = 'power-preset-menu__group';
+      dmGroup.setAttribute('open', '');
+      const dmSummary = document.createElement('summary');
+      dmSummary.className = 'power-preset-menu__group-title';
+      dmSummary.textContent = 'DM Catalog';
+      dmGroup.appendChild(dmSummary);
+      const dmGrid = document.createElement('div');
+      dmGrid.className = 'power-preset-menu__grid';
+      dmCatalogPowerPresets
+        .slice()
+        .sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }))
+        .forEach(preset => dmGrid.appendChild(createDmPresetButton(preset)));
+      dmGroup.appendChild(dmGrid);
+      menuContent.appendChild(dmGroup);
+    }
+
+    const groupsContainer = document.createElement('div');
+    groupsContainer.className = 'power-preset-menu__groups';
+    const intensityOrder = new Map(POWER_INTENSITIES.map((name, index) => [name, index]));
+    const groupedPresets = POWER_PRESETS.reduce((acc, preset) => {
+      if (!preset || typeof preset !== 'object') return acc;
+      const data = preset.data || {};
+      const labelParts = typeof preset.label === 'string' ? preset.label.split(':') : [];
+      const styleLabel = (data.style || (labelParts.length > 1 ? labelParts[0].trim() : '') || 'General').trim();
+      const effectLabel = (data.effectTag || data.secondaryTag || 'General').trim();
+      const optionLabel = (data.name || (labelParts.length ? labelParts[labelParts.length - 1].trim() : preset.label) || 'Preset').trim();
+      const styleKey = styleLabel || 'General';
+      const effectKey = effectLabel || 'General';
+      if (!acc.has(styleKey)) acc.set(styleKey, new Map());
+      const effectMap = acc.get(styleKey);
+      if (!effectMap.has(effectKey)) effectMap.set(effectKey, []);
+      effectMap.get(effectKey).push({
+        label: optionLabel,
+        data,
+        intensity: data.intensity || null,
+      });
+      return acc;
+    }, new Map());
+    const sortedGroups = Array.from(groupedPresets.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    sortedGroups.forEach(([groupName, effectMap], index) => {
+      const group = document.createElement('details');
+      group.className = 'power-preset-menu__group';
+      if (index === 0) {
+        group.setAttribute('open', '');
+      }
+      const summary = document.createElement('summary');
+      summary.className = 'power-preset-menu__group-title';
+      summary.textContent = groupName;
+      group.appendChild(summary);
+      const subgroups = document.createElement('div');
+      subgroups.className = 'power-preset-menu__subgroups';
+      const sortedEffects = Array.from(effectMap.entries()).sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      sortedEffects.forEach(([effectName, items], effectIndex) => {
+        const subgroup = document.createElement('details');
+        subgroup.className = 'power-preset-menu__subgroup';
+        if (effectIndex === 0) {
+          subgroup.setAttribute('open', '');
+        }
+        const subgroupSummary = document.createElement('summary');
+        subgroupSummary.className = 'power-preset-menu__subgroup-title';
+        const intensityLabels = Array.from(new Set(items.map(item => item.intensity).filter(Boolean)));
+        intensityLabels.sort((a, b) => {
+          const orderA = intensityOrder.has(a) ? intensityOrder.get(a) : Number.MAX_SAFE_INTEGER;
+          const orderB = intensityOrder.has(b) ? intensityOrder.get(b) : Number.MAX_SAFE_INTEGER;
+          return orderA - orderB || a.localeCompare(b, undefined, { sensitivity: 'base' });
+        });
+        const intensitySuffix = intensityLabels.length ? ` · ${intensityLabels.join(', ')}` : '';
+        subgroupSummary.textContent = `${effectName}${intensitySuffix}`;
+        subgroup.appendChild(subgroupSummary);
+
+        const grid = document.createElement('div');
+        grid.className = 'power-preset-menu__grid';
+        items.sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }));
+        items.forEach(item => {
+          grid.appendChild(createOptionButton(item.label, item.data));
+        });
+        subgroup.appendChild(grid);
+        subgroups.appendChild(subgroup);
+      });
+      group.appendChild(subgroups);
+      groupsContainer.appendChild(group);
+    });
+    menuContent.appendChild(groupsContainer);
+  };
+
+  renderMenuContent();
+  powerPresetMenuRefresh = () => {
+    renderMenuContent();
+    if (menu.dataset.open === 'true') {
+      positionMenu(addBtn.getBoundingClientRect());
+    }
+  };
 
   addBtn.addEventListener('click', event => {
     event.preventDefault();
@@ -10982,6 +11066,233 @@ function setupPowerPresetMenu() {
       hideMenu();
       return;
     }
+    renderMenuContent();
+    showMenu(addBtn.getBoundingClientRect());
+  });
+
+  document.addEventListener('click', event => {
+    if (menu.dataset.open !== 'true') return;
+    if ((addBtn && addBtn.contains(event.target)) || menu.contains(event.target)) return;
+    hideMenu();
+  });
+
+  window.addEventListener('blur', hideMenu);
+  window.addEventListener('resize', updateMenuPosition);
+  window.addEventListener('scroll', () => {
+    if (menu.dataset.open === 'true') hideMenu();
+  }, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateMenuPosition);
+    window.visualViewport.addEventListener('scroll', updateMenuPosition, { passive: true });
+  }
+}
+
+function setupSignaturePresetMenu() {
+  const addBtn = $('add-sig');
+  const list = $('sigs');
+  if (!addBtn || !list) return;
+  const menu = document.createElement('div');
+  menu.className = 'card power-preset-menu';
+  menu.style.display = 'none';
+  menu.dataset.open = 'false';
+  menu.dataset.role = 'signature-preset-menu';
+  menu.setAttribute('role', 'menu');
+  menu.setAttribute('data-view-allow', '');
+  document.body.appendChild(menu);
+
+  if (addBtn.type !== 'button') {
+    try { addBtn.type = 'button'; }
+    catch { addBtn.setAttribute('type', 'button'); }
+  }
+
+  const hideMenu = () => {
+    menu.style.display = 'none';
+    menu.style.visibility = '';
+    menu.style.left = '';
+    menu.style.top = '';
+    menu.style.maxWidth = '';
+    menu.dataset.open = 'false';
+    menu.removeAttribute('data-placement');
+  };
+
+  const positionMenu = anchorRect => {
+    if (!anchorRect) return;
+    const margin = 12;
+    const gap = 8;
+    const viewport = window.visualViewport;
+    const viewportWidth = viewport ? viewport.width : window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = viewport ? viewport.height : window.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportOffsetLeft = viewport ? viewport.offsetLeft : 0;
+    const viewportOffsetTop = viewport ? viewport.offsetTop : 0;
+    const initialLeft = Math.round(anchorRect.left + viewportOffsetLeft);
+    const initialTop = Math.round(anchorRect.bottom + gap + viewportOffsetTop);
+
+    menu.style.visibility = 'hidden';
+    menu.style.left = `${initialLeft}px`;
+    menu.style.top = `${initialTop}px`;
+
+    const schedulePosition = typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : callback => setTimeout(callback, 16);
+
+    schedulePosition(() => {
+      const menuRect = menu.getBoundingClientRect();
+      if (!menuRect.width || !menuRect.height) {
+        menu.style.visibility = 'visible';
+        return;
+      }
+      const minX = viewportOffsetLeft + margin;
+      const minY = viewportOffsetTop + margin;
+      const maxX = Math.max(minX, viewportOffsetLeft + viewportWidth - margin);
+      const maxY = Math.max(minY, viewportOffsetTop + viewportHeight - margin);
+      let left = initialLeft;
+      let top = initialTop;
+      let placement = 'below';
+      if (viewportWidth <= 560) {
+        left = minX;
+      } else {
+        const maxLeft = Math.max(minX, maxX - menuRect.width);
+        left = Math.min(Math.max(left, minX), maxLeft);
+      }
+      const anchorBottom = anchorRect.bottom + viewportOffsetTop;
+      const anchorTop = anchorRect.top + viewportOffsetTop;
+      const availableBelow = Math.max(0, maxY - anchorBottom);
+      const availableAbove = Math.max(0, anchorTop - minY);
+      if (menuRect.height + gap > availableBelow && availableAbove > availableBelow) {
+        top = anchorTop - menuRect.height - gap;
+        placement = 'above';
+      } else {
+        top = anchorBottom + gap;
+      }
+      const maxTop = Math.max(minY, maxY - menuRect.height);
+      top = Math.min(Math.max(top, minY), maxTop);
+      menu.style.left = `${Math.round(left)}px`;
+      menu.style.top = `${Math.round(top)}px`;
+      menu.dataset.placement = placement;
+      menu.style.visibility = 'visible';
+    });
+  };
+
+  const showMenu = anchorRect => {
+    menu.style.display = 'flex';
+    menu.dataset.open = 'true';
+    positionMenu(anchorRect);
+  };
+
+  const updateMenuPosition = () => {
+    if (menu.dataset.open !== 'true') return;
+    positionMenu(addBtn.getBoundingClientRect());
+  };
+
+  const cloneSignatureData = data => {
+    if (!data || typeof data !== 'object') return {};
+    try {
+      if (typeof structuredClone === 'function') {
+        return structuredClone(data);
+      }
+    } catch (error) {
+      console.error('Signature preset clone error (structuredClone):', error);
+    }
+    try {
+      return JSON.parse(JSON.stringify(data));
+    } catch (error) {
+      console.error('Signature preset clone error (JSON):', error);
+    }
+    const shallow = Array.isArray(data) ? [...data] : { ...data };
+    return shallow;
+  };
+
+  const menuContent = document.createElement('div');
+  menuContent.className = 'power-preset-menu__content';
+  menu.appendChild(menuContent);
+
+  const createCustomSignatureButton = () => {
+    const optionBtn = document.createElement('button');
+    optionBtn.type = 'button';
+    optionBtn.className = 'btn-sm power-preset-menu__btn';
+    optionBtn.textContent = 'Custom Signature';
+    optionBtn.addEventListener('click', () => {
+      const card = createCard('sig');
+      hideMenu();
+      const opened = openPowerEditor(card, { isNew: true, targetList: list });
+      if (!opened) {
+        list.appendChild(card);
+        pushHistory();
+      }
+      try { addBtn.focus(); } catch {}
+    });
+    return optionBtn;
+  };
+
+  const createDmSignatureButton = preset => {
+    const optionBtn = document.createElement('button');
+    optionBtn.type = 'button';
+    optionBtn.className = 'btn-sm power-preset-menu__btn' + (preset.dmLock && !isDmSessionActive() ? ' is-disabled' : '');
+    optionBtn.textContent = preset.dmLock ? `🔒 ${preset.label}` : preset.label;
+    if (preset.dmLock && !isDmSessionActive()) {
+      optionBtn.title = 'Only the DM can grant this signature move.';
+    }
+    optionBtn.addEventListener('click', () => {
+      if (preset.dmLock && !isDmSessionActive()) {
+        notifyDmLockedEntry(preset.data, 'signature move');
+        return;
+      }
+      const presetData = cloneSignatureData(preset.data);
+      if (preset.dmLock) presetData.dmLock = true;
+      presetData.signature = true;
+      if (preset.id && !presetData.dmEntryId) presetData.dmEntryId = preset.id;
+      const card = createCard('sig', presetData);
+      hideMenu();
+      const opened = openPowerEditor(card, { isNew: true, targetList: list });
+      if (!opened) {
+        list.appendChild(card);
+        pushHistory();
+      }
+      try { addBtn.focus(); } catch {}
+    });
+    return optionBtn;
+  };
+
+  const renderMenuContent = () => {
+    menuContent.innerHTML = '';
+    const customWrap = document.createElement('div');
+    customWrap.className = 'power-preset-menu__custom';
+    customWrap.appendChild(createCustomSignatureButton());
+    menuContent.appendChild(customWrap);
+    if (dmCatalogSignaturePresets.length) {
+      const dmGroup = document.createElement('details');
+      dmGroup.className = 'power-preset-menu__group';
+      dmGroup.setAttribute('open', '');
+      const dmSummary = document.createElement('summary');
+      dmSummary.className = 'power-preset-menu__group-title';
+      dmSummary.textContent = 'DM Catalog';
+      dmGroup.appendChild(dmSummary);
+      const dmGrid = document.createElement('div');
+      dmGrid.className = 'power-preset-menu__grid';
+      dmCatalogSignaturePresets
+        .slice()
+        .sort((a, b) => (a.label || '').localeCompare(b.label || '', undefined, { sensitivity: 'base' }))
+        .forEach(preset => dmGrid.appendChild(createDmSignatureButton(preset)));
+      dmGroup.appendChild(dmGrid);
+      menuContent.appendChild(dmGroup);
+    }
+  };
+
+  renderMenuContent();
+  signaturePresetMenuRefresh = () => {
+    renderMenuContent();
+    if (menu.dataset.open === 'true') {
+      positionMenu(addBtn.getBoundingClientRect());
+    }
+  };
+
+  addBtn.addEventListener('click', event => {
+    event.preventDefault();
+    if (menu.dataset.open === 'true') {
+      hideMenu();
+      return;
+    }
+    renderMenuContent();
     showMenu(addBtn.getBoundingClientRect());
   });
 
@@ -11521,6 +11832,10 @@ function buildCardInfo(entry){
 }
 
 function addEntryToSheet(entry, { toastMessage = 'Added to sheet', cardInfoOverride = null } = {}){
+  if (!canPlayerUseDmEntry(entry)) {
+    notifyDmLockedEntry(entry, 'item');
+    return null;
+  }
   const info = cardInfoOverride || buildCardInfo(entry);
   if (!info) return null;
   const list = $(info.listId);
@@ -11589,6 +11904,11 @@ let catalogPriceEntries = [];
 let catalogPriceIndex = new Map();
 let catalogError = null;
 let catalogFiltersInitialized = false;
+let dmCatalogGearEntries = [];
+let dmCatalogPowerPresets = [];
+let dmCatalogSignaturePresets = [];
+let powerPresetMenuRefresh = null;
+let signaturePresetMenuRefresh = null;
 
 const styleSel = $('catalog-filter-style');
 const typeSel = $('catalog-filter-type');
@@ -11644,22 +11964,24 @@ function rebuildCatalogPriceIndex(baseEntries = catalogPriceEntries){
   return catalogPriceIndex;
 }
 
-function derivePriceEntriesFromCatalog(entries = []){
-  return entries
-    .map(entry => {
-      if (!entry || !entry.name) return null;
-      const priceText = (entry.priceText || entry.priceRaw || '').trim();
-      const numericPrice = Number.isFinite(entry.price) && entry.price > 0 ? entry.price : null;
-      if (!priceText && !Number.isFinite(numericPrice)) {
-        return null;
-      }
-      return {
-        name: entry.name,
-        price: Number.isFinite(numericPrice) && numericPrice > 0 ? numericPrice : null,
-        priceText,
-      };
-    })
-    .filter(Boolean);
+async function appendDmCatalogEntries(baseEntries = [], basePrices = []) {
+  let records = [];
+  try {
+    records = await listDmCatalogEntries();
+  } catch (err) {
+    console.error('Failed to load DM catalog entries', err);
+    records = [];
+  }
+  const processed = processDmCatalogRecords(Array.isArray(records) ? records : [], baseEntries, basePrices);
+  dmCatalogGearEntries = processed.gearEntries;
+  dmCatalogPowerPresets = processed.powerPresets;
+  dmCatalogSignaturePresets = processed.signaturePresets;
+  if (typeof powerPresetMenuRefresh === 'function') powerPresetMenuRefresh();
+  if (typeof signaturePresetMenuRefresh === 'function') signaturePresetMenuRefresh();
+  return {
+    entries: processed.combinedEntries,
+    prices: processed.combinedPrices,
+  };
 }
 
 function escapeHtml(str){
@@ -12032,7 +12354,10 @@ export {
   resolveRollBonus,
   rollBonusRegistry,
   buildCardInfo,
-  extractWeaponDetails
+  extractWeaponDetails,
+  isDmEntryLocked,
+  canPlayerUseDmEntry,
+  appendDmCatalogEntries,
 };
 
 function setCatalogFilters(filters = {}){
@@ -12256,18 +12581,27 @@ function renderCatalog(){
     if (entry.use) details.push(`<div class="small">Use: ${escapeHtml(entry.use)}</div>`);
     if (entry.attunement) details.push(`<div class="small">Attunement: ${escapeHtml(entry.attunement)}</div>`);
     if (entry.description) details.push(`<div class="small">${escapeHtml(entry.description)}</div>`);
+    const locked = isDmEntryLocked(entry);
+    const canUse = canPlayerUseDmEntry(entry);
+    const lockBadge = locked ? '<span class="catalog-item__lock">DM Locked</span>' : '';
+    const addBtnClass = canUse ? 'btn-sm' : 'btn-sm is-disabled';
+    const addBtnAttrs = canUse ? '' : ' data-locked="true" aria-disabled="true"';
     return `
     <div class="catalog-item">
       <div class="pill">${escapeHtml(entry.tier || '—')}</div>
-      <div><b>${escapeHtml(entry.name)}</b> <span class="small">— ${escapeHtml(entry.section)}${entry.type ? ` • ${escapeHtml(entry.type)}` : ''}${priceText ? ` • ${escapeHtml(priceText)}` : ''}</span>
+      <div><b>${escapeHtml(entry.name)}</b> ${lockBadge}<span class="small"> — ${escapeHtml(entry.section)}${entry.type ? ` • ${escapeHtml(entry.type)}` : ''}${priceText ? ` • ${escapeHtml(priceText)}` : ''}</span>
         ${details.join('')}
       </div>
-      <div><button class="btn-sm" data-add="${idx}">Add</button></div>
+      <div><button class="${addBtnClass}" data-add="${idx}"${addBtnAttrs}>Add</button></div>
     </div>`;
   }).join('');
   qsa('[data-add]', catalogListEl).forEach(btn => btn.addEventListener('click', () => {
     const item = rows[Number(btn.dataset.add)];
     if (!item) return;
+    if (!canPlayerUseDmEntry(item)) {
+      notifyDmLockedEntry(item, 'item');
+      return;
+    }
     if (!tryPurchaseEntry(item)) return;
     addEntryToSheet(item);
   }));
@@ -12326,7 +12660,9 @@ async function ensureCatalog(){
         const derivedPrices = prebuiltEntries.prices && prebuiltEntries.prices.length
           ? prebuiltEntries.prices
           : derivePriceEntriesFromCatalog(catalogData);
-        catalogPriceEntries = derivedPrices;
+        const dmResult = await appendDmCatalogEntries(catalogData, derivedPrices);
+        catalogData = Array.isArray(dmResult.entries) ? dmResult.entries : catalogData;
+        catalogPriceEntries = Array.isArray(dmResult.prices) ? dmResult.prices : derivedPrices;
         rebuildCatalogPriceIndex(catalogPriceEntries);
         catalogError = null;
         rebuildCatalogFilterOptions();
@@ -12351,6 +12687,9 @@ async function ensureCatalog(){
       const priceIndex = rebuildCatalogPriceIndex(catalogPriceEntries);
       const normalized = parsedMaster.map(row => normalizeCatalogRow(row, priceIndex)).filter(Boolean);
       catalogData = normalized;
+      const dmResult = await appendDmCatalogEntries(catalogData, catalogPriceEntries);
+      catalogData = Array.isArray(dmResult.entries) ? dmResult.entries : catalogData;
+      catalogPriceEntries = Array.isArray(dmResult.prices) ? dmResult.prices : catalogPriceEntries;
       catalogError = null;
       rebuildCatalogFilterOptions();
       applyPendingCatalogFilters();
