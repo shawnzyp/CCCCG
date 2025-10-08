@@ -1944,7 +1944,7 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
   .somf-reveal-alert__card{padding:24px 18px;border-radius:18px}
 }
 #rules-text{white-space:pre-wrap}
-.toast{position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid var(--accent);padding:10px 12px;border-radius:var(--radius);opacity:0;transform:translateY(8px);transition:opacity .3s ease-in-out,transform .3s ease-in-out;z-index:2000;display:flex;align-items:center;gap:6px;pointer-events:none}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid var(--accent);padding:10px 12px;border-radius:var(--radius);opacity:0;transform:translateY(8px);transition:opacity .3s ease-in-out,transform .3s ease-in-out;z-index:2000;display:flex;align-items:center;gap:6px;pointer-events:none;will-change:transform,opacity}
 .toast::before{content:"";width:16px;height:16px;background-size:contain;background-repeat:no-repeat}
 .toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
 .toast.success{border-color:var(--success);color:var(--success)}
