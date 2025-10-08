@@ -89,6 +89,10 @@ function renderHeaderTitle() {
     }
   }
 
+  mountNode.style.removeProperty('width');
+  mountNode.style.removeProperty('minWidth');
+  mountNode.style.removeProperty('maxWidth');
+
   if (!rootInstance) {
     rootInstance = createRoot(mountNode);
   }
@@ -96,18 +100,54 @@ function renderHeaderTitle() {
   rootInstance.render(<HeaderTitle />);
 
   let widthRequestId = null;
+  let availableRequestId = null;
 
-  const lockWidth = width => {
+  const setWidthVariable = width => {
     if (!width) return;
 
     const roundedWidth = Math.ceil(width);
     const widthPx = `${roundedWidth}px`;
 
-    if (mountNode.style.width !== widthPx) {
-      mountNode.style.width = widthPx;
-      mountNode.style.minWidth = widthPx;
-      mountNode.style.maxWidth = widthPx;
+    if (mountNode.style.getPropertyValue('--header-title-width') !== widthPx) {
+      mountNode.style.setProperty('--header-title-width', widthPx);
     }
+  };
+
+  const measureAvailableWidth = () => {
+    if (!headerRow || !mountNode) return;
+
+    const rowRect = headerRow.getBoundingClientRect();
+    if (!rowRect) return;
+
+    const logoRect = logoButton?.getBoundingClientRect();
+    const menuRect = menuContainer?.getBoundingClientRect();
+
+    let availableWidth = rowRect.width;
+
+    if (logoRect && menuRect) {
+      availableWidth = menuRect.left - logoRect.right;
+    } else if (logoRect) {
+      availableWidth = rowRect.right - logoRect.right;
+    } else if (menuRect) {
+      availableWidth = menuRect.left - rowRect.left;
+    }
+
+    const buffer = 12;
+    const normalized = Math.max(0, Math.floor(availableWidth) - buffer);
+    const widthPx = `${normalized}px`;
+
+    if (mountNode.style.getPropertyValue('--header-title-available') !== widthPx) {
+      mountNode.style.setProperty('--header-title-available', widthPx);
+    }
+  };
+
+  const scheduleAvailableWidthMeasure = () => {
+    if (availableRequestId) return;
+
+    availableRequestId = window.requestAnimationFrame(() => {
+      availableRequestId = null;
+      measureAvailableWidth();
+    });
   };
 
   const measureAndLockWidth = () => {
@@ -117,7 +157,8 @@ function renderHeaderTitle() {
     if (!renderedText) return;
 
     const { width } = renderedText.getBoundingClientRect();
-    lockWidth(width);
+    setWidthVariable(width);
+    scheduleAvailableWidthMeasure();
   };
 
   const scheduleWidthLock = () => {
@@ -130,6 +171,7 @@ function renderHeaderTitle() {
   };
 
   scheduleWidthLock();
+  scheduleAvailableWidthMeasure();
 
   if ('ResizeObserver' in window) {
     const ensureResizeObserver = () => {
@@ -140,7 +182,8 @@ function renderHeaderTitle() {
       if (!observer) {
         observer = new ResizeObserver(entries => {
           entries.forEach(entry => {
-            lockWidth(entry.contentRect?.width ?? 0);
+            setWidthVariable(entry.contentRect?.width ?? 0);
+            scheduleAvailableWidthMeasure();
           });
         });
         mountNode.__headerTitleResizeObserver = observer;
@@ -158,6 +201,7 @@ function renderHeaderTitle() {
       if (prevObserved !== renderedText) {
         observer.observe(renderedText);
         mountNode.__headerTitleObservedEl = renderedText;
+        scheduleAvailableWidthMeasure();
       }
     };
 
@@ -166,18 +210,25 @@ function renderHeaderTitle() {
     if (!mountNode.__headerTitleMutationObserver) {
       const mutationObserver = new MutationObserver(() => {
         ensureResizeObserver();
+        scheduleAvailableWidthMeasure();
       });
       mutationObserver.observe(mountNode, { childList: true, subtree: true });
       mountNode.__headerTitleMutationObserver = mutationObserver;
     }
   } else {
     if (document.fonts?.ready) {
-      document.fonts.ready.then(scheduleWidthLock).catch(() => {});
+      document.fonts.ready
+        .then(() => {
+          scheduleWidthLock();
+          scheduleAvailableWidthMeasure();
+        })
+        .catch(() => {});
     }
 
     if (!mountNode.__headerTitleResizeHandler) {
       const handleResize = () => {
         scheduleWidthLock();
+        scheduleAvailableWidthMeasure();
       };
       window.addEventListener('resize', handleResize);
       mountNode.__headerTitleResizeHandler = handleResize;
