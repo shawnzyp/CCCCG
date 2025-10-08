@@ -128,8 +128,10 @@ function installCoreMocks() {
   }
 
   class AudioContextMock {
+    static instances = [];
     constructor() {
-      this.state = 'running';
+      this.state = 'suspended';
+      AudioContextMock.instances.push(this);
     }
     close() {
       this.state = 'closed';
@@ -153,6 +155,7 @@ function installCoreMocks() {
 
   window.AudioContext = AudioContextMock;
   window.webkitAudioContext = AudioContextMock;
+  globalThis.__AudioContextInstances = AudioContextMock.instances;
 
   const clipboard = {
     writeText: jest.fn().mockResolvedValue(),
@@ -284,6 +287,7 @@ function flushAllTimers() {
 
 describe('Comprehensive app integration', () => {
   beforeEach(() => {
+    jest.resetModules();
     jest.useFakeTimers();
     installDomScaffolding();
     installCoreMocks();
@@ -352,5 +356,40 @@ describe('Comprehensive app integration', () => {
     launchVideo.dispatchEvent(new Event('loadedmetadata'));
     await flushAllTimers();
     expect(launchVideo?.getAttribute('muted')).toBe('');
+  });
+
+  test('audio context is primed exactly once after a gesture', async () => {
+    const resumeSpy = jest.spyOn(window.AudioContext.prototype, 'resume');
+    await import('../scripts/main.js');
+    resumeSpy.mockClear();
+
+    const interactiveButton = document.createElement('button');
+    document.body.appendChild(interactiveButton);
+
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+
+    const contexts = globalThis.__AudioContextInstances ?? [];
+    const primedContexts = contexts.filter(ctx => ctx?.__ccPrimed);
+    expect(primedContexts.length).toBeGreaterThan(0);
+
+    const countsByInstance = new Map();
+    resumeSpy.mock.instances.forEach(instance => {
+      countsByInstance.set(instance, (countsByInstance.get(instance) ?? 0) + 1);
+    });
+    primedContexts.forEach(ctx => {
+      expect(countsByInstance.get(ctx)).toBe(1);
+    });
+
+    interactiveButton.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+
+    const countsAfterSecond = new Map();
+    resumeSpy.mock.instances.forEach(instance => {
+      countsAfterSecond.set(instance, (countsAfterSecond.get(instance) ?? 0) + 1);
+    });
+    primedContexts.forEach(ctx => {
+      expect(countsAfterSecond.get(ctx)).toBe(1);
+    });
+
+    resumeSpy.mockRestore();
   });
 });
