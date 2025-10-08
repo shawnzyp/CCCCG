@@ -55,9 +55,12 @@ function renderHeaderTitle() {
   if (!titleEl) return;
 
   const headerRow = titleEl.closest('.top');
+  let logoButton = null;
+  let menuContainer = null;
+
   if (headerRow) {
-    const logoButton = headerRow.querySelector('.logo-button');
-    const menuContainer = headerRow.querySelector('.dropdown');
+    logoButton = headerRow.querySelector('.logo-button');
+    menuContainer = headerRow.querySelector('.dropdown');
     if (logoButton && menuContainer) {
       if (logoButton.nextElementSibling !== titleEl) {
         headerRow.insertBefore(titleEl, menuContainer);
