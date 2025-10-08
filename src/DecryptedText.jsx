@@ -6,7 +6,7 @@ import React, {
   useRef,
   useMemo
 } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 
 const styles = {
   wrapper: {
@@ -57,6 +57,7 @@ export default function DecryptedText({
   animateOn = 'hover',
   ...props
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const [displayText, setDisplayText] = useState(text);
   const [measurementText, setMeasurementText] = useState(text);
   const [isHovering, setIsHovering] = useState(false);
@@ -416,11 +417,56 @@ export default function DecryptedText({
     maxHeight: dimensions.height ? `${dimensions.height}px` : undefined
   };
 
+  const animationVariants = useMemo(
+    () => ({
+      revealed: {
+        opacity: 1,
+        scale: 1,
+        '--scramble-blur': '0px'
+      },
+      scrambled: {
+        opacity: 0.75,
+        scale: 0.98,
+        '--scramble-blur': '4px'
+      }
+    }),
+    []
+  );
+
+  const animationState = prefersReducedMotion
+    ? 'revealed'
+    : isScrambling
+    ? 'scrambled'
+    : 'revealed';
+
+  const transition = useMemo(
+    () =>
+      prefersReducedMotion
+        ? { duration: 0 }
+        : {
+            duration: 0.25,
+            ease: 'easeOut'
+          },
+    [prefersReducedMotion]
+  );
+
   return (
     <motion.span
       className={parentClassName}
       ref={containerRef}
-      style={wrapperStyle}
+      style={{
+        ...wrapperStyle,
+        filter: 'blur(var(--scramble-blur, 0px))'
+      }}
+      variants={animationVariants}
+      initial="revealed"
+      animate={animationState}
+      whileHover={
+        prefersReducedMotion || (animateOn !== 'hover' && animateOn !== 'both')
+          ? undefined
+          : 'scrambled'
+      }
+      transition={transition}
       {...hoverProps}
       {...props}
     >
