@@ -882,7 +882,7 @@ main{
 main.is-animating-tabs{
   overflow:hidden;
 }
-fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:var(--card-padding,10px);margin-bottom:0;box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translate3d(0,0,0);cursor:default;pointer-events:none;will-change:opacity,filter;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent);position:absolute;inset:0;width:100%;max-width:100%;min-width:0;visibility:hidden;filter:blur(18px) saturate(1.2)}
+fieldset[data-tab].card{background:color-mix(in srgb,var(--surface) 5%,transparent);border:1px solid var(--line);border-radius:var(--radius);padding:var(--card-padding,10px);margin-bottom:0;box-shadow:var(--shadow);display:flex;flex-direction:column;opacity:0;transform:translate3d(0,0,0);cursor:default;pointer-events:none;will-change:opacity,filter;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);background-color:color-mix(in srgb,var(--surface) 5%,transparent);position:absolute;inset:0;width:100%;max-width:100%;min-width:0;visibility:hidden;filter:blur(18px) saturate(1.2);transition:opacity .3s cubic-bezier(.22,1,.36,1),filter .3s cubic-bezier(.22,1,.36,1),-webkit-backdrop-filter .3s cubic-bezier(.22,1,.36,1),backdrop-filter .3s cubic-bezier(.22,1,.36,1)}
 fieldset[data-tab].card:not(.active):not(.animating){
   height:0;
   max-height:0;
