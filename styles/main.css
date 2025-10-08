@@ -204,6 +204,7 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   --sync-indicator-size:clamp(10px,2.5vw,12px);
   --sync-indicator-color:var(--success);
   --sync-indicator-alt:var(--sync-indicator-color);
+  --sync-indicator-spark-size:calc(var(--sync-indicator-size) * .35);
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -216,6 +217,32 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   transition:background .3s ease,border-color .3s ease,box-shadow .3s ease;
   min-width:calc(var(--sync-indicator-size) + clamp(6px,1.4vw,10px));
   min-height:calc(var(--sync-indicator-size) + clamp(6px,1.4vw,10px));
+  position:relative;
+  overflow:visible;
+}
+
+.sync-status-indicator::before,
+.sync-status-indicator::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  margin:auto;
+  width:var(--sync-indicator-spark-size);
+  height:var(--sync-indicator-spark-size);
+  border-radius:999px;
+  background:var(--sync-indicator-alt);
+  box-shadow:0 0 10px color-mix(in srgb,var(--sync-indicator-alt) 60%, transparent);
+  opacity:0;
+  transform-origin:center;
+  animation:sync-status-orbit 1.6s linear infinite;
+  animation-play-state:paused;
+  pointer-events:none;
+}
+
+.sync-status-indicator::after{
+  animation:sync-status-orbit-alt 1.9s linear infinite;
+  animation-delay:-.35s;
+  background:color-mix(in srgb,var(--sync-indicator-alt) 70%, transparent);
 }
 
 .sync-status-indicator__light{
@@ -229,10 +256,12 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 
 .sync-status-indicator[data-status="online"]{
   --sync-indicator-color:var(--success);
+  --sync-indicator-alt:color-mix(in srgb,var(--success) 80%, white 20%);
 }
 
 .sync-status-indicator[data-status="syncing"]{
   --sync-indicator-color:var(--success);
+  --sync-indicator-alt:color-mix(in srgb,var(--success) 70%, var(--accent, #38bdf8) 30%);
 }
 
 .sync-status-indicator[data-status="queued"]{
@@ -252,9 +281,17 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 
 .sync-status-indicator[data-status="offline"]{
   --sync-indicator-color:var(--error);
+  --sync-indicator-alt:color-mix(in srgb,var(--error) 75%, white 25%);
   background:color-mix(in srgb,var(--error) 18%, transparent);
   border-color:color-mix(in srgb,var(--error) 54%, transparent);
   box-shadow:0 2px 8px color-mix(in srgb,var(--error) 32%, transparent);
+}
+
+.sync-status-indicator[data-status="syncing"]::before,
+.sync-status-indicator[data-status="syncing"]::after,
+.sync-status-indicator[data-status="reconnecting"]::before,
+.sync-status-indicator[data-status="reconnecting"]::after{
+  animation-play-state:running;
 }
 
 .sync-status-indicator[data-status="syncing"] .sync-status-indicator__light{
@@ -263,6 +300,16 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
 
 .sync-status-indicator[data-status="reconnecting"] .sync-status-indicator__light{
   animation:sync-status-alternate 1.1s ease-in-out infinite;
+}
+
+.sync-status-indicator[data-status="online"]::before,
+.sync-status-indicator[data-status="online"]::after,
+.sync-status-indicator[data-status="queued"]::before,
+.sync-status-indicator[data-status="queued"]::after,
+.sync-status-indicator[data-status="offline"]::before,
+.sync-status-indicator[data-status="offline"]::after{
+  animation-play-state:paused;
+  opacity:0;
 }
 
 @keyframes sync-status-pulse{
@@ -275,6 +322,46 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
     transform:scale(.7);
     opacity:.55;
     box-shadow:0 0 0 4px color-mix(in srgb,var(--sync-indicator-color) 25%, transparent),0 0 14px color-mix(in srgb,var(--sync-indicator-color) 55%, transparent);
+  }
+}
+
+@keyframes sync-status-orbit{
+  0%{
+    opacity:0;
+    transform:rotate(0deg) translateX(calc(var(--sync-indicator-size) * .9)) rotate(0deg);
+  }
+  10%{
+    opacity:1;
+  }
+  50%{
+    opacity:.85;
+  }
+  90%{
+    opacity:0;
+  }
+  100%{
+    opacity:0;
+    transform:rotate(360deg) translateX(calc(var(--sync-indicator-size) * .9)) rotate(-360deg);
+  }
+}
+
+@keyframes sync-status-orbit-alt{
+  0%{
+    opacity:0;
+    transform:rotate(0deg) translateX(calc(var(--sync-indicator-size) * -.9)) rotate(0deg);
+  }
+  15%{
+    opacity:1;
+  }
+  55%{
+    opacity:.9;
+  }
+  92%{
+    opacity:0;
+  }
+  100%{
+    opacity:0;
+    transform:rotate(-360deg) translateX(calc(var(--sync-indicator-size) * -.9)) rotate(360deg);
   }
 }
 
