@@ -2362,10 +2362,191 @@ async function applyLockIcon(btn){
 function applyLockIcons(root=document){
   qsa('button[data-lock]', root).forEach(btn=>{ applyLockIcon(btn); });
 }
+
+const AUDIO_CUE_SOURCES = {
+  success:
+    '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',
+  warn:
+    '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',
+  error:
+    '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'
+};
+
+const AUDIO_CUE_TYPE_MAP = {
+  success: 'success',
+  info: 'success',
+  warn: 'warn',
+  warning: 'warn',
+  error: 'error',
+  danger: 'error',
+  failure: 'error'
+};
+
+const audioCueData = new Map();
+const audioCueBufferPromises = new Map();
+
+function decodeBase64ToUint8Array(base64){
+  try {
+    if (typeof globalThis?.atob === 'function') {
+      const binary = globalThis.atob(base64);
+      const length = binary.length;
+      const bytes = new Uint8Array(length);
+      for (let i = 0; i < length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+    if (typeof globalThis?.Buffer === 'function') {
+      return Uint8Array.from(globalThis.Buffer.from(base64, 'base64'));
+    }
+  } catch {}
+  return new Uint8Array(0);
+}
+
+function preloadAudioCues(){
+  if (audioCueData.size) return;
+  try {
+    Object.entries(AUDIO_CUE_SOURCES).forEach(([key, value]) => {
+      const bytes = decodeBase64ToUint8Array(value);
+      if (bytes.length) {
+        audioCueData.set(key, bytes);
+      }
+    });
+  } catch {}
+}
+
+preloadAudioCues();
+
 let audioCtx = null;
+
+function ensureAudioContext(){
+  if (audioCtx) return audioCtx;
+  const Ctor = window?.AudioContext || window?.webkitAudioContext;
+  if (!Ctor) return null;
+  try {
+    audioCtx = new Ctor();
+  } catch {
+    audioCtx = null;
+  }
+  return audioCtx;
+}
+
+function resolveAudioCueType(type){
+  if (typeof type !== 'string') return 'success';
+  const normalized = type.toLowerCase();
+  return AUDIO_CUE_TYPE_MAP[normalized] || 'success';
+}
+
+function decodeAudioBuffer(ctx, arrayBuffer){
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const resolveOnce = buffer => {
+      if (settled) return;
+      settled = true;
+      resolve(buffer);
+    };
+    const rejectOnce = err => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    };
+    try {
+      const maybePromise = ctx.decodeAudioData(arrayBuffer, resolveOnce, rejectOnce);
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        maybePromise.then(resolveOnce, rejectOnce);
+      }
+    } catch (err) {
+      rejectOnce(err);
+    }
+  });
+}
+
+function getAudioCueBufferPromise(ctx, cue){
+  if (!ctx || !audioCueData.has(cue)) return null;
+  let promise = audioCueBufferPromises.get(cue);
+  if (!promise) {
+    const bytes = audioCueData.get(cue);
+    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    promise = decodeAudioBuffer(ctx, arrayBuffer).catch(err => {
+      audioCueBufferPromises.delete(cue);
+      throw err;
+    });
+    audioCueBufferPromises.set(cue, promise);
+  }
+  return promise;
+}
+
 const closeAudioContext = () => {
   if (audioCtx && typeof audioCtx.close === 'function') {
-    audioCtx.close();
+    const ctx = audioCtx;
+    audioCtx = null;
+    audioCueBufferPromises.clear();
+    try {
+      ctx.close();
+    } catch {}
   }
 };
 
@@ -2375,27 +2556,58 @@ document.addEventListener('visibilitychange', () => {
     closeAudioContext();
   }
 });
-function playTone(type){
-  try{
-    if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    const now = audioCtx.currentTime;
+function playToneFallback(type){
+  try {
+    const ctx = ensureAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
     const rampUpDuration = 0.015;
     const totalDuration = 0.15;
     const sustainEnd = now + totalDuration - 0.03;
     osc.type = 'sine';
-    osc.frequency.value = type==='error'?220:880;
+    osc.frequency.value = type === 'error' ? 220 : 880;
     gain.gain.cancelScheduledValues(now);
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.1, now + rampUpDuration);
     gain.gain.setValueAtTime(0.1, sustainEnd);
     gain.gain.linearRampToValueAtTime(0, now + totalDuration);
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ctx.destination);
     osc.start(now);
     osc.stop(now + totalDuration);
-  }catch(e){ /* noop */ }
+  } catch (e) { /* noop */ }
+}
+
+function playTone(type){
+  const cue = resolveAudioCueType(type);
+  const ctx = ensureAudioContext();
+  if (ctx && audioCueData.has(cue)) {
+    if (typeof ctx.resume === 'function') {
+      try { ctx.resume(); } catch {}
+    }
+    const bufferPromise = getAudioCueBufferPromise(ctx, cue);
+    if (bufferPromise) {
+      bufferPromise.then(buffer => {
+        try {
+          const source = ctx.createBufferSource();
+          const gain = ctx.createGain();
+          gain.gain.value = cue === 'error' ? 0.25 : 0.2;
+          source.buffer = buffer;
+          source.connect(gain);
+          gain.connect(ctx.destination);
+          source.start();
+        } catch {
+          playToneFallback(type);
+        }
+      }).catch(() => {
+        playToneFallback(type);
+      });
+      return;
+    }
+  }
+  playToneFallback(type);
 }
 let toastTimeout;
 let toastLastFocus = null;
