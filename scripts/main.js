@@ -6579,7 +6579,47 @@ function normalizePowerData(raw = {}) {
   if (normalized.duration === 'Sustained') {
     normalized.concentration = true;
   }
+  const usageTracker = normalizeUsageTracker(base.usageTracker, normalized.uses, normalized.cooldown);
+  if (usageTracker) {
+    normalized.usageTracker = usageTracker;
+  }
   return normalized;
+}
+
+function normalizeUsageTracker(rawTracker, uses, cooldown) {
+  if (!uses || uses === 'At-will') {
+    return null;
+  }
+  const asNumber = value => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : null;
+  };
+  const tracker = rawTracker && typeof rawTracker === 'object' ? { ...rawTracker } : {};
+  const normalizedCooldown = asNumber(cooldown);
+  const totalUses = asNumber(tracker.totalUses);
+  const remainingUses = asNumber(tracker.remainingUses);
+  const cooldownRemaining = asNumber(tracker.cooldownRemaining);
+  if (uses === 'Cooldown') {
+    return {
+      totalUses: null,
+      remainingUses: null,
+      cooldownRemaining: cooldownRemaining !== null
+        ? (normalizedCooldown !== null ? Math.min(cooldownRemaining, normalizedCooldown) : cooldownRemaining)
+        : 0,
+    };
+  }
+  const ensuredTotal = totalUses !== null && totalUses >= 0 ? totalUses : 1;
+  let ensuredRemaining = remainingUses !== null ? remainingUses : ensuredTotal;
+  if (ensuredTotal === 0) {
+    ensuredRemaining = 0;
+  } else {
+    ensuredRemaining = Math.min(Math.max(ensuredRemaining, 0), ensuredTotal);
+  }
+  return {
+    totalUses: ensuredTotal,
+    remainingUses: ensuredRemaining,
+    cooldownRemaining: null,
+  };
 }
 
 function formatPowerRange(power, settings) {
@@ -6852,6 +6892,12 @@ function serializePowerCard(card) {
   if (card?.dataset?.kind === 'sig') {
     power.signature = true;
   }
+  const tracker = ensureUsageTrackerForPower(state);
+  if (tracker) {
+    power.usageTracker = { ...tracker };
+  } else {
+    delete power.usageTracker;
+  }
   power.rulesText = composePowerRulesText(power, settings);
   return power;
 }
@@ -6862,7 +6908,16 @@ function applyPowerDataToCard(card, data = {}) {
   const isSignature = card?.dataset?.kind === 'sig';
   const source = isSignature ? { ...data, signature: true } : data;
   const normalized = normalizePowerData(source);
+  const normalizedTracker = normalized.usageTracker ? { ...normalized.usageTracker } : null;
+  if (normalizedTracker) {
+    normalized.usageTracker = normalizedTracker;
+  } else {
+    delete normalized.usageTracker;
+  }
   state.power = normalized;
+  state.usageTracker = normalizedTracker;
+  state.powerExhaustedByTracker = false;
+  state.usageExhaustedMessage = '';
   state.manualSpOverride = false;
   state.manualSaveAbility = false;
   state.manualOnSave = false;
@@ -6904,6 +6959,363 @@ function applyPowerDataToCard(card, data = {}) {
   if (elements.quickSpValue) elements.quickSpValue.textContent = `${normalized.spCost} SP`;
 
   updatePowerCardDerived(card);
+}
+
+function setButtonDisabled(button, disabled) {
+  if (!button) return;
+  button.disabled = !!disabled;
+  if (disabled) {
+    button.setAttribute('aria-disabled', 'true');
+  } else {
+    button.removeAttribute('aria-disabled');
+  }
+}
+
+function ensureUsageTrackerForPower(state) {
+  if (!state || !state.power) return null;
+  const normalized = normalizeUsageTracker(state.usageTracker || state.power.usageTracker, state.power.uses, state.power.cooldown);
+  if (!normalized) {
+    state.usageTracker = null;
+    if (state.power.usageTracker) delete state.power.usageTracker;
+    return null;
+  }
+  if (state.usageTracker && typeof state.usageTracker === 'object') {
+    state.usageTracker.totalUses = normalized.totalUses;
+    state.usageTracker.remainingUses = normalized.remainingUses;
+    state.usageTracker.cooldownRemaining = normalized.cooldownRemaining;
+    state.power.usageTracker = state.usageTracker;
+    return state.usageTracker;
+  }
+  state.usageTracker = { ...normalized };
+  state.power.usageTracker = state.usageTracker;
+  return state.usageTracker;
+}
+
+function formatUsageScope(uses) {
+  switch (uses) {
+    case 'Per Session':
+      return 'session';
+    case 'Per Encounter':
+    default:
+      return 'encounter';
+  }
+}
+
+function logPowerUsageChange(card, message) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const label = getPowerCardLabel(card);
+  const name = state.power?.name || label;
+  logAction(`${label} tracker — ${name}: ${message}`);
+}
+
+function applyPowerExhaustionState(card, exhausted) {
+  const state = powerCardStates.get(card);
+  if (!state || !state.elements) return;
+  const { elements } = state;
+  const targets = [
+    elements.useButton,
+    elements.rollAttackButton,
+    elements.rollDamageButton,
+    elements.rollSaveBtn,
+    elements.ongoingButton,
+    elements.boostButton,
+    elements.summaryRollHit,
+    elements.summaryRollDamage,
+    elements.summaryRollSave,
+    elements.signatureProxyButton,
+  ];
+  targets.forEach(btn => {
+    if (!btn) return;
+    if (exhausted) {
+      if (!btn.dataset.usageDisabledState) {
+        btn.dataset.usageDisabledState = btn.disabled ? '1' : '0';
+      }
+      btn.disabled = true;
+      btn.setAttribute('aria-disabled', 'true');
+    } else if (btn.dataset.usageDisabledState !== undefined) {
+      const wasDisabled = btn.dataset.usageDisabledState === '1';
+      delete btn.dataset.usageDisabledState;
+      btn.disabled = wasDisabled;
+      if (wasDisabled) {
+        btn.setAttribute('aria-disabled', 'true');
+      } else {
+        btn.removeAttribute('aria-disabled');
+      }
+    }
+  });
+  if (exhausted && !state.powerExhaustedByTracker) {
+    const label = state.power?.name || getPowerCardLabel(card);
+    const message = `${label} is exhausted. Reset the tracker to use it again.`;
+    state.usageExhaustedMessage = message;
+    showPowerMessage(card, message, 'warning');
+  } else if (!exhausted && state.powerExhaustedByTracker) {
+    const area = elements.messageArea;
+    if (area && area.textContent === state.usageExhaustedMessage) {
+      clearPowerMessage(card);
+    }
+    state.usageExhaustedMessage = '';
+  }
+  state.powerExhaustedByTracker = exhausted;
+}
+
+function updateUsageTrackerUI(card) {
+  const state = powerCardStates.get(card);
+  if (!state || !state.elements) return;
+  const { elements, power } = state;
+  const section = elements.usageTrackerSection;
+  const status = elements.usageStatus;
+  if (!section || !status) return;
+  const tracker = ensureUsageTrackerForPower(state);
+  const usesMode = power.uses;
+  const isCooldown = usesMode === 'Cooldown';
+  const usesActive = usesMode && usesMode !== 'At-will' && !isCooldown;
+
+  section.style.display = usesActive || isCooldown ? 'flex' : 'none';
+  if (elements.usageControls) elements.usageControls.style.display = usesActive ? 'flex' : 'none';
+  if (elements.cooldownControls) elements.cooldownControls.style.display = isCooldown ? 'flex' : 'none';
+
+  if (!usesActive && !isCooldown) {
+    status.textContent = '';
+    applyPowerExhaustionState(card, false);
+    return;
+  }
+
+  if (usesActive) {
+    const total = tracker ? tracker.totalUses ?? 0 : 0;
+    const remaining = tracker ? tracker.remainingUses ?? total : total;
+    if (elements.usageTotalInput) {
+      elements.usageTotalInput.value = String(total ?? 0);
+      elements.usageTotalInput.disabled = false;
+    }
+    const scope = formatUsageScope(usesMode);
+    if (total === 0) {
+      status.textContent = `No uses configured for this ${scope}.`;
+    } else {
+      status.textContent = `${remaining}/${total} uses remaining this ${scope}.`;
+    }
+    const exhausted = total === 0 || remaining <= 0;
+    setButtonDisabled(elements.usageSpendButton, exhausted || total === 0);
+    if (elements.usageRestoreButton) {
+      const restoreDisabled = total === 0 || remaining >= total;
+      setButtonDisabled(elements.usageRestoreButton, restoreDisabled);
+    }
+    setButtonDisabled(elements.usageResetButton, total === 0 && remaining === 0);
+    applyPowerExhaustionState(card, exhausted);
+  } else if (isCooldown) {
+    if (elements.usageTotalInput) {
+      elements.usageTotalInput.value = '';
+      elements.usageTotalInput.disabled = true;
+    }
+    const cooldownValue = Math.max(0, Number(power.cooldown) || 0);
+    const remaining = tracker ? tracker.cooldownRemaining ?? 0 : 0;
+    if (cooldownValue <= 0) {
+      status.textContent = 'Set a cooldown to enable tracking.';
+    } else if (remaining > 0) {
+      status.textContent = `Cooldown active: ${remaining} round${remaining === 1 ? '' : 's'} remaining.`;
+    } else {
+      status.textContent = 'Cooldown ready.';
+    }
+    setButtonDisabled(elements.startCooldownButton, cooldownValue <= 0);
+    setButtonDisabled(elements.tickCooldownButton, remaining <= 0);
+    setButtonDisabled(elements.resetCooldownButton, cooldownValue <= 0 && remaining <= 0);
+    applyPowerExhaustionState(card, cooldownValue > 0 && remaining > 0);
+  }
+}
+
+function handlePowerUsageTotalChange(card, rawValue) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const tracker = ensureUsageTrackerForPower(state);
+  if (!tracker || state.power.uses === 'Cooldown' || state.power.uses === 'At-will') {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  const fallback = tracker.totalUses ?? 0;
+  const nextTotal = readNumericInput(rawValue, { min: 0, fallback });
+  if (tracker.totalUses === nextTotal) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  tracker.totalUses = nextTotal;
+  if (nextTotal === 0) {
+    tracker.remainingUses = 0;
+  } else if (!Number.isFinite(tracker.remainingUses) || tracker.remainingUses > nextTotal) {
+    tracker.remainingUses = nextTotal;
+  }
+  const scope = formatUsageScope(state.power.uses);
+  logPowerUsageChange(card, `Total uses set to ${nextTotal} for this ${scope}.`);
+  updateUsageTrackerUI(card);
+  pushHistory();
+}
+
+function handleSpendPowerUse(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const usesMode = state.power?.uses;
+  if (!usesMode || usesMode === 'At-will' || usesMode === 'Cooldown') return;
+  const tracker = ensureUsageTrackerForPower(state);
+  if (!tracker) return;
+  if (!Number.isFinite(tracker.totalUses) || tracker.totalUses <= 0) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  const prev = Number.isFinite(tracker.remainingUses) ? tracker.remainingUses : tracker.totalUses;
+  const next = Math.max(0, prev - 1);
+  if (next === prev) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  tracker.remainingUses = next;
+  logPowerUsageChange(card, `Use spent. ${next}/${tracker.totalUses} remaining.`);
+  updateUsageTrackerUI(card);
+  pushHistory();
+}
+
+function handleRestorePowerUse(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const usesMode = state.power?.uses;
+  if (!usesMode || usesMode === 'At-will' || usesMode === 'Cooldown') return;
+  const tracker = ensureUsageTrackerForPower(state);
+  if (!tracker) return;
+  if (!Number.isFinite(tracker.totalUses) || tracker.totalUses <= 0) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  const prev = Number.isFinite(tracker.remainingUses) ? tracker.remainingUses : 0;
+  const next = Math.min(tracker.totalUses, prev + 1);
+  if (next === prev) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  tracker.remainingUses = next;
+  logPowerUsageChange(card, `Use restored. ${next}/${tracker.totalUses} remaining.`);
+  updateUsageTrackerUI(card);
+  pushHistory();
+}
+
+function handleResetPowerUses(card) {
+  const state = powerCardStates.get(card);
+  if (!state) return;
+  const usesMode = state.power?.uses;
+  if (!usesMode || usesMode === 'At-will' || usesMode === 'Cooldown') {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  const tracker = ensureUsageTrackerForPower(state);
+  if (!tracker) return;
+  const total = Number.isFinite(tracker.totalUses) ? tracker.totalUses : 0;
+  const prev = Number.isFinite(tracker.remainingUses) ? tracker.remainingUses : 0;
+  if (total === prev) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  tracker.remainingUses = total;
+  const scope = formatUsageScope(usesMode);
+  logPowerUsageChange(card, `Uses reset for this ${scope}. ${tracker.remainingUses}/${total} available.`);
+  updateUsageTrackerUI(card);
+  pushHistory();
+}
+
+function handleStartPowerCooldown(card) {
+  const state = powerCardStates.get(card);
+  if (!state || state.power?.uses !== 'Cooldown') return;
+  const tracker = ensureUsageTrackerForPower(state);
+  if (!tracker) return;
+  const cooldownValue = Math.max(0, Number(state.power.cooldown) || 0);
+  if (cooldownValue <= 0) {
+    showPowerMessage(card, 'Set a cooldown value before starting the tracker.', 'warning');
+    return;
+  }
+  tracker.cooldownRemaining = cooldownValue;
+  logPowerUsageChange(card, `Cooldown started: ${cooldownValue} round${cooldownValue === 1 ? '' : 's'} remaining.`);
+  updateUsageTrackerUI(card);
+  pushHistory();
+}
+
+function handleTickPowerCooldown(card) {
+  const state = powerCardStates.get(card);
+  if (!state || state.power?.uses !== 'Cooldown') return;
+  const tracker = ensureUsageTrackerForPower(state);
+  if (!tracker) return;
+  const prev = Number.isFinite(tracker.cooldownRemaining) ? tracker.cooldownRemaining : 0;
+  if (prev <= 0) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  const next = Math.max(0, prev - 1);
+  tracker.cooldownRemaining = next;
+  logPowerUsageChange(card, `Cooldown ticked: ${next} round${next === 1 ? '' : 's'} remaining.`);
+  updateUsageTrackerUI(card);
+  pushHistory();
+}
+
+function handleResetPowerCooldown(card) {
+  const state = powerCardStates.get(card);
+  if (!state || state.power?.uses !== 'Cooldown') return;
+  const tracker = ensureUsageTrackerForPower(state);
+  if (!tracker) return;
+  const prev = Number.isFinite(tracker.cooldownRemaining) ? tracker.cooldownRemaining : 0;
+  if (prev === 0) {
+    updateUsageTrackerUI(card);
+    return;
+  }
+  tracker.cooldownRemaining = 0;
+  logPowerUsageChange(card, 'Cooldown reset.');
+  updateUsageTrackerUI(card);
+  pushHistory();
+}
+
+function applyUsageAfterPowerActivation(card, power) {
+  const state = powerCardStates.get(card);
+  if (!state) return { text: `${power.name} activated.`, tone: 'success' };
+  const usesMode = state.power?.uses;
+  const tracker = ensureUsageTrackerForPower(state);
+  let tone = 'success';
+  let suffix = '';
+  let changed = false;
+
+  if (usesMode === 'Cooldown') {
+    if (tracker) {
+      const cooldownValue = Math.max(0, Number(state.power.cooldown) || 0);
+      if (cooldownValue > 0) {
+        tracker.cooldownRemaining = cooldownValue;
+        logPowerUsageChange(card, `Cooldown started: ${cooldownValue} round${cooldownValue === 1 ? '' : 's'} remaining.`);
+        suffix = `Cooldown started (${cooldownValue} round${cooldownValue === 1 ? '' : 's'} remaining).`;
+        tone = 'info';
+        changed = true;
+      }
+    }
+  } else if (usesMode && usesMode !== 'At-will') {
+    if (tracker) {
+      const total = Number.isFinite(tracker.totalUses) ? tracker.totalUses : 0;
+      if (total === 0) {
+        suffix = 'No uses configured. Reset the tracker after setting a total.';
+        tone = 'warning';
+        logPowerUsageChange(card, 'Use attempted but total uses is set to 0.');
+      } else {
+        const prev = Number.isFinite(tracker.remainingUses) ? tracker.remainingUses : total;
+        const next = Math.max(0, prev - 1);
+        tracker.remainingUses = next;
+        logPowerUsageChange(card, `Use spent. ${next}/${total} remaining.`);
+        changed = true;
+        if (next <= 0) {
+          suffix = 'No uses remaining. Reset to recover.';
+          tone = 'warning';
+        } else {
+          suffix = `${next}/${total} uses remaining.`;
+        }
+      }
+    }
+  }
+
+  if (changed) {
+    pushHistory();
+  }
+  updateUsageTrackerUI(card);
+  const baseMessage = `${power.name} activated.`;
+  return { text: suffix ? `${baseMessage} ${suffix}` : baseMessage, tone };
 }
 
 function updatePowerCardDerived(card) {
@@ -7188,6 +7600,7 @@ function updatePowerCardDerived(card) {
   if (elements.summaryRollDamage) elements.summaryRollDamage.disabled = !hasDamage;
   if (elements.summaryRollSave) elements.summaryRollSave.disabled = !power.requiresSave;
   updatePowerCardSummary(card, power, settings);
+  updateUsageTrackerUI(card);
 }
 const POWER_MESSAGE_COLORS = {
   info: '#58a6ff',
@@ -7256,7 +7669,12 @@ function finalizePowerUse(card, power) {
   } else if (activeConcentrationEffect && activeConcentrationEffect.card === card) {
     activeConcentrationEffect = null;
   }
-  showPowerMessage(card, `${power.name} activated.`, 'success');
+  const usageFeedback = applyUsageAfterPowerActivation(card, power);
+  if (usageFeedback && usageFeedback.text) {
+    showPowerMessage(card, usageFeedback.text, usageFeedback.tone || 'success');
+  } else {
+    showPowerMessage(card, `${power.name} activated.`, 'success');
+  }
 }
 
 function handleUsePower(card) {
@@ -7792,6 +8210,10 @@ function createPowerCard(pref = {}, options = {}) {
   if (isSignature) {
     power.signature = true;
   }
+  const initialUsageTracker = power.usageTracker ? { ...power.usageTracker } : null;
+  if (initialUsageTracker) {
+    power.usageTracker = initialUsageTracker;
+  }
   const card = document.createElement('div');
   card.className = 'card power-card';
   card.dataset.kind = isSignature ? 'sig' : 'power';
@@ -7889,6 +8311,9 @@ function createPowerCard(pref = {}, options = {}) {
   elements.summaryDamageResult = summaryDamage.result;
   elements.summaryRollSave = summarySave.button;
   elements.summarySaveResult = summarySave.result;
+  if (signatureUseProxy) {
+    elements.signatureProxyButton = signatureUseProxy;
+  }
 
   summaryAttack.button.addEventListener('click', event => {
     event.preventDefault();
@@ -7941,6 +8366,9 @@ function createPowerCard(pref = {}, options = {}) {
     lastSuggestedSp: suggestSpCost(power.intensity),
     lastHasDamage: !!power.damage,
     lastOnSaveSuggestion: power.damage ? suggestOnSaveBehavior(power.effectTag) : null,
+    usageTracker: initialUsageTracker,
+    powerExhaustedByTracker: false,
+    usageExhaustedMessage: '',
   };
   powerCardStates.set(card, state);
   activePowerCards.add(card);
@@ -8123,6 +8551,107 @@ function createPowerCard(pref = {}, options = {}) {
   usageRow.appendChild(scalingField.wrapper);
 
   card.appendChild(usageRow);
+
+  const usageTrackerSection = document.createElement('div');
+  usageTrackerSection.className = 'power-card__usage-tracker';
+  usageTrackerSection.style.display = 'none';
+  usageTrackerSection.style.flexDirection = 'column';
+  usageTrackerSection.style.gap = '6px';
+  usageTrackerSection.style.padding = '6px 8px';
+  usageTrackerSection.style.borderRadius = '8px';
+  usageTrackerSection.style.background = 'rgba(255,255,255,0.04)';
+
+  const usageHeader = document.createElement('div');
+  usageHeader.className = 'inline';
+  usageHeader.style.flexWrap = 'wrap';
+  usageHeader.style.gap = '6px';
+  usageHeader.style.alignItems = 'center';
+
+  const usageTitle = document.createElement('span');
+  usageTitle.style.fontSize = '12px';
+  usageTitle.style.fontWeight = '600';
+  usageTitle.textContent = 'Usage Tracker';
+
+  const usageStatus = document.createElement('span');
+  usageStatus.style.fontSize = '12px';
+  usageStatus.style.opacity = '0.85';
+  usageStatus.textContent = '';
+
+  usageHeader.append(usageTitle, usageStatus);
+  usageTrackerSection.appendChild(usageHeader);
+
+  const usesControls = document.createElement('div');
+  usesControls.className = 'inline';
+  usesControls.style.flexWrap = 'wrap';
+  usesControls.style.gap = '6px';
+  usesControls.style.alignItems = 'center';
+  usesControls.style.display = 'none';
+
+  const usesTotalLabel = document.createElement('label');
+  usesTotalLabel.className = 'inline';
+  usesTotalLabel.style.alignItems = 'center';
+  usesTotalLabel.style.gap = '4px';
+  const usesTotalText = document.createElement('span');
+  usesTotalText.style.fontSize = '12px';
+  usesTotalText.textContent = 'Total';
+  const usesTotalInput = document.createElement('input');
+  usesTotalInput.type = 'number';
+  usesTotalInput.min = '0';
+  usesTotalInput.step = '1';
+  usesTotalInput.inputMode = 'numeric';
+  usesTotalInput.style.width = '60px';
+  usesTotalInput.className = 'power-card__usage-input';
+  usesTotalLabel.append(usesTotalText, usesTotalInput);
+  usesControls.appendChild(usesTotalLabel);
+
+  const spendUseButton = document.createElement('button');
+  spendUseButton.type = 'button';
+  spendUseButton.className = 'btn-sm';
+  spendUseButton.textContent = 'Spend';
+  usesControls.appendChild(spendUseButton);
+
+  const restoreUseButton = document.createElement('button');
+  restoreUseButton.type = 'button';
+  restoreUseButton.className = 'btn-sm';
+  restoreUseButton.textContent = 'Restore';
+  usesControls.appendChild(restoreUseButton);
+
+  const resetUsesButton = document.createElement('button');
+  resetUsesButton.type = 'button';
+  resetUsesButton.className = 'btn-sm';
+  resetUsesButton.textContent = 'Reset';
+  usesControls.appendChild(resetUsesButton);
+
+  usageTrackerSection.appendChild(usesControls);
+
+  const cooldownControls = document.createElement('div');
+  cooldownControls.className = 'inline';
+  cooldownControls.style.flexWrap = 'wrap';
+  cooldownControls.style.gap = '6px';
+  cooldownControls.style.alignItems = 'center';
+  cooldownControls.style.display = 'none';
+
+  const startCooldownButton = document.createElement('button');
+  startCooldownButton.type = 'button';
+  startCooldownButton.className = 'btn-sm';
+  startCooldownButton.textContent = 'Start';
+  cooldownControls.appendChild(startCooldownButton);
+
+  const tickCooldownButton = document.createElement('button');
+  tickCooldownButton.type = 'button';
+  tickCooldownButton.className = 'btn-sm';
+  tickCooldownButton.textContent = '−1 Round';
+  cooldownControls.appendChild(tickCooldownButton);
+
+  const resetCooldownButton = document.createElement('button');
+  resetCooldownButton.type = 'button';
+  resetCooldownButton.className = 'btn-sm';
+  resetCooldownButton.textContent = 'Reset';
+  cooldownControls.appendChild(resetCooldownButton);
+
+  usageTrackerSection.appendChild(cooldownControls);
+
+  card.appendChild(usageTrackerSection);
 
   const damageSection = document.createElement('div');
   damageSection.style.display = 'flex';
@@ -8460,6 +8989,17 @@ function createPowerCard(pref = {}, options = {}) {
   elements.cooldownInput = cooldownInput;
   elements.cooldownField = cooldownField;
   elements.scalingSelect = scalingSelect;
+  elements.usageTrackerSection = usageTrackerSection;
+  elements.usageStatus = usageStatus;
+  elements.usageControls = usesControls;
+  elements.usageTotalInput = usesTotalInput;
+  elements.usageSpendButton = spendUseButton;
+  elements.usageRestoreButton = restoreUseButton;
+  elements.usageResetButton = resetUsesButton;
+  elements.cooldownControls = cooldownControls;
+  elements.startCooldownButton = startCooldownButton;
+  elements.tickCooldownButton = tickCooldownButton;
+  elements.resetCooldownButton = resetCooldownButton;
   elements.descriptionArea = descriptionArea;
   elements.specialArea = specialArea;
   elements.damageToggle = damageToggle;
@@ -8606,6 +9146,33 @@ function createPowerCard(pref = {}, options = {}) {
   cooldownInput.addEventListener('input', () => {
     power.cooldown = readNumericInput(cooldownInput.value, { min: 0, fallback: power.cooldown });
     updatePowerCardDerived(card);
+  });
+  usesTotalInput.addEventListener('input', () => {
+    handlePowerUsageTotalChange(card, usesTotalInput.value);
+  });
+  spendUseButton.addEventListener('click', event => {
+    event.preventDefault();
+    handleSpendPowerUse(card);
+  });
+  restoreUseButton.addEventListener('click', event => {
+    event.preventDefault();
+    handleRestorePowerUse(card);
+  });
+  resetUsesButton.addEventListener('click', event => {
+    event.preventDefault();
+    handleResetPowerUses(card);
+  });
+  startCooldownButton.addEventListener('click', event => {
+    event.preventDefault();
+    handleStartPowerCooldown(card);
+  });
+  tickCooldownButton.addEventListener('click', event => {
+    event.preventDefault();
+    handleTickPowerCooldown(card);
+  });
+  resetCooldownButton.addEventListener('click', event => {
+    event.preventDefault();
+    handleResetPowerCooldown(card);
   });
   scalingSelect.addEventListener('change', () => {
     power.scaling = scalingSelect.value;
