@@ -3627,6 +3627,13 @@ qsa('[data-roll-skill]').forEach(btn=>{
   });
 });
 
+const HIGH_STAKES_CUES = Object.freeze({
+  statusAdded: 'status-alert',
+  spExhausted: 'sp-exhausted',
+  playerDown: 'down',
+  deathFailure: 'death',
+});
+
 const STATUS_EFFECTS = [
   { id: 'blinded', name: 'Blinded', desc: 'A blinded creature cannot see and automatically fails any ability check that requires sight. Attack rolls against the creature have advantage, and the creature’s attack rolls have disadvantage.' },
   { id: 'charmed', name: 'Charmed', desc: 'A charmed creature can’t attack the charmer or target the charmer with harmful abilities or magical effects.' },
@@ -3660,6 +3667,7 @@ if (statusGrid) {
         if (cb.checked) {
           activeStatuses.add(s.name);
           toast(`${s.name}: ${s.desc}`, { type: 'info', duration: 8000 });
+          playStatusCue(HIGH_STAKES_CUES.statusAdded);
           logAction(`Status effect gained: ${s.name}`);
         } else {
           activeStatuses.delete(s.name);
@@ -4900,11 +4908,15 @@ async function setSP(v){
     window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     await playSPAnimation(diff);
-    pushHistory();
   }
-  if(prev > 0 && num(elSPBar.value) === 0) {
+  const reachedZero = num(elSPBar.value) === 0 && (prev > 0 || diff < 0);
+  if(reachedZero) {
+    playStatusCue(HIGH_STAKES_CUES.spExhausted);
     toast('Player is out of SP', 'warning');
     logAction('Player is out of SP.');
+  }
+  if(diff !== 0) {
+    pushHistory();
   }
   return true;
 }
@@ -5122,6 +5134,12 @@ function logAction(text){
 }
 window.logAction = logAction;
 window.queueCampaignLogEntry = queueCampaignLogEntry;
+if (typeof window !== 'undefined') {
+  window.__cccgTestHooks = window.__cccgTestHooks || {};
+  window.__cccgTestHooks.setSP = setSP;
+  window.__cccgTestHooks.playDownAnimation = playDownAnimation;
+  window.__cccgTestHooks.playDeathAnimation = playDeathAnimation;
+}
 
 function resolveActorName(name = currentCharacter()){
   if(typeof name === 'string'){
@@ -5543,7 +5561,7 @@ function playDamageAnimation(amount){
 }
 
 const AUDIO_CUE_SETTINGS = {
-  down: {
+  [HIGH_STAKES_CUES.playerDown]: {
     frequency: 110,
     type: 'sawtooth',
     duration: 0.55,
@@ -5555,7 +5573,7 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 0.5, amplitude: 0.6 },
     ],
   },
-  death: {
+  [HIGH_STAKES_CUES.deathFailure]: {
     frequency: 70,
     type: 'square',
     duration: 0.85,
@@ -5565,6 +5583,32 @@ const AUDIO_CUE_SETTINGS = {
     partials: [
       { ratio: 1, amplitude: 1 },
       { ratio: 2, amplitude: 0.45 },
+    ],
+  },
+  [HIGH_STAKES_CUES.statusAdded]: {
+    frequency: 880,
+    type: 'triangle',
+    duration: 0.35,
+    volume: 0.22,
+    attack: 0.005,
+    release: 0.2,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.5, amplitude: 0.4 },
+      { ratio: 2, amplitude: 0.15 },
+    ],
+  },
+  [HIGH_STAKES_CUES.spExhausted]: {
+    frequency: 320,
+    type: 'sawtooth',
+    duration: 0.6,
+    volume: 0.32,
+    attack: 0.01,
+    release: 0.28,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 0.5, amplitude: 0.35 },
+      { ratio: 2, amplitude: 0.2 },
     ],
   },
   heal: {
@@ -5655,6 +5699,22 @@ function buildAudioBuffer(name){
 }
 
 function playStatusCue(name){
+  if (typeof window !== 'undefined') {
+    if (typeof window.__cccgTestAudioHook === 'function') {
+      try {
+        window.__cccgTestAudioHook(name);
+      } catch (err) {
+        try {
+          console.error('Audio cue test hook failed', err);
+        } catch {}
+      }
+    }
+    if (typeof window.dispatchEvent === 'function' && typeof window.CustomEvent === 'function') {
+      try {
+        window.dispatchEvent(new CustomEvent('cccg:audio-cue', { detail: { cue: name } }));
+      } catch {}
+    }
+  }
   const ctx = ensureAudioContext();
   if(!ctx) return;
   const buffer = audioCueCache.get(name) ?? buildAudioBuffer(name);
@@ -5668,11 +5728,11 @@ function playStatusCue(name){
 }
 
 function playDownAnimation(){
+  playStatusCue(HIGH_STAKES_CUES.playerDown);
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('down-animation');
   if(!anim) return Promise.resolve();
   anim.hidden=false;
-  playStatusCue('down');
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
@@ -5686,11 +5746,11 @@ function playDownAnimation(){
 }
 
 function playDeathAnimation(){
+  playStatusCue(HIGH_STAKES_CUES.deathFailure);
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('death-animation');
   if(!anim) return Promise.resolve();
   anim.hidden=false;
-  playStatusCue('death');
   return new Promise(res=>{
     anim.classList.add('show');
     const done=()=>{
