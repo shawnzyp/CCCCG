@@ -4936,16 +4936,79 @@ if (elHPRoll) {
 }
 
 if (elCAPCheck && elCAPStatus) {
+  const capBox = elCAPCheck.closest('.cap-box');
+  const reduceMotionQuery = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : { matches: false };
+  const CAP_AURA_ANIMATION = 'capAuraCollapse';
+  const CAP_AURA_TIMEOUT_MS = 750;
+  let capAuraTimer = null;
+  let capAuraEndHandler = null;
+
+  const clearCapAuraCallbacks = () => {
+    if (capAuraTimer) {
+      clearTimeout(capAuraTimer);
+      capAuraTimer = null;
+    }
+    if (capAuraEndHandler && capBox) {
+      capBox.removeEventListener('animationend', capAuraEndHandler);
+      capAuraEndHandler = null;
+    }
+  };
+
+  const finalizeCAPSpend = () => {
+    clearCapAuraCallbacks();
+    if (!elCAPCheck.disabled) {
+      elCAPCheck.disabled = true;
+    }
+  };
+
+  const resetAuraState = () => {
+    clearCapAuraCallbacks();
+    if (!capBox) return;
+    capBox.classList.remove('cap-box--spent');
+    void capBox.offsetWidth;
+  };
+
   elCAPCheck.addEventListener('change', () => {
+    if (elCAPCheck.disabled) {
+      clearCapAuraCallbacks();
+      return;
+    }
+
     if (elCAPCheck.checked) {
       if (confirm('Use Cinematic Action Point?')) {
         const prev = elCAPStatus.textContent;
         elCAPStatus.textContent = 'Used';
-        elCAPCheck.disabled = true;
         window.dmNotify?.('Used Cinematic Action Point');
         logAction(`Cinematic Action Point: ${prev} -> Used`);
+
+        if (capBox) {
+          resetAuraState();
+          capBox.classList.add('cap-box--spent');
+        }
+
+        const shouldAnimateCapAura = Boolean(
+          capBox && animationsEnabled && !reduceMotionQuery.matches
+        );
+
+        if (shouldAnimateCapAura) {
+          capAuraEndHandler = event => {
+            if (event.animationName !== CAP_AURA_ANIMATION) {
+              return;
+            }
+            finalizeCAPSpend();
+          };
+          capBox.addEventListener('animationend', capAuraEndHandler);
+          capAuraTimer = setTimeout(finalizeCAPSpend, CAP_AURA_TIMEOUT_MS);
+        } else {
+          finalizeCAPSpend();
+        }
       } else {
         elCAPCheck.checked = false;
+        if (capBox) {
+          capBox.classList.remove('cap-box--spent');
+        }
       }
     } else {
       // Prevent clearing without long rest

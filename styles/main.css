@@ -572,6 +572,68 @@ label[data-animate-title]{
   margin-bottom:0;
 }
 
+.cap-box{
+  position:relative;
+  isolation:isolate;
+}
+
+.cap-box label{
+  position:relative;
+  z-index:1;
+}
+
+.cap-box--spent{
+  color:color-mix(in srgb,var(--muted) 70%, var(--text) 30%);
+}
+
+.cap-box--spent #cap-status{
+  font-weight:600;
+  color:var(--accent);
+}
+
+.cap-box--spent::before,
+.cap-box--spent::after{
+  content:"";
+  position:absolute;
+  inset:-12px;
+  border-radius:calc(var(--radius) * 1.6);
+  pointer-events:none;
+  opacity:0;
+  transform:scale(1);
+  transform-origin:center;
+  z-index:-1;
+}
+
+.cap-box--spent::before{
+  background:radial-gradient(circle at center,
+      color-mix(in srgb,var(--accent) 45%, transparent) 0%,
+      color-mix(in srgb,var(--accent) 25%, transparent) 35%,
+      transparent 70%);
+  animation:capAuraCollapse var(--cap-aura-duration,0.7s) ease-out forwards;
+}
+
+.cap-box--spent::after{
+  border:2px solid color-mix(in srgb,var(--accent) 70%, transparent);
+  box-shadow:0 0 24px color-mix(in srgb,var(--accent) 55%, transparent);
+  animation:capAuraCollapse var(--cap-aura-duration,0.7s) ease-out forwards;
+}
+
+@keyframes capAuraCollapse{
+  0%{
+    opacity:.9;
+    transform:scale(1.05);
+    filter:blur(0);
+  }
+  35%{
+    opacity:1;
+    transform:scale(1.1);
+  }
+  100%{
+    opacity:0;
+    transform:scale(0.55);
+  }
+}
+
 .card-info{
   font-size:.95rem;
   line-height:1.5;
