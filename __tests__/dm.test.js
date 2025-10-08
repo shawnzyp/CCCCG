@@ -55,6 +55,7 @@ describe('dm tools bootstrap', () => {
       ? new PointerEvent('pointerdown', { bubbles: true })
       : new Event('pointerdown', { bubbles: true });
     document.body.dispatchEvent(pointerDownEvent);
+    menu.dispatchEvent(new Event('transitionend'));
     expect(menu.hidden).toBe(true);
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
   });

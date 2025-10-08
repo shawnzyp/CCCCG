@@ -14,6 +14,7 @@ function createStubElement() {
       toggle: () => {},
     },
     setAttribute: () => {},
+    removeAttribute: () => {},
     getAttribute: () => null,
     addEventListener: () => {},
     removeEventListener: () => {},
@@ -22,6 +23,7 @@ function createStubElement() {
     contains: () => false,
     querySelector: () => null,
     querySelectorAll: () => [],
+    closest: () => null,
     focus: () => {},
     click: () => {},
     add: () => {},
@@ -45,6 +47,15 @@ function setupDom() {
     <div id="toast"></div>
     <div id="abil-grid"></div>
     <div id="saves"></div>
+    <div class="cap-box">
+      <input id="cap-check" type="checkbox" />
+      <span id="cap-status"></span>
+    </div>
+    <input id="hp-temp" />
+    <input id="sp-temp" />
+    <select id="power-save-ability"></select>
+    <input id="xp" value="0" />
+    <input id="tier" value="" />
     <div id="mini-game-invite" class="overlay hidden" aria-hidden="true">
       <section class="modal mini-game-invite">
         <header class="mini-game-invite__header">
@@ -198,6 +209,10 @@ async function initMainModule() {
     sortCatalogRows: (rows) => rows,
     splitValueOptions: () => [],
     tierRank: () => 0,
+    normalizeDmCatalogPayload: (payload) => payload,
+    makeDmPayloadKey: (payload) => payload?.id || payload?.metadata?.name || '',
+    buildDmEntryFromPayload: () => null,
+    buildDmPowerPresetFromPayload: () => null,
   }));
 
   await import('../scripts/main.js');
