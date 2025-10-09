@@ -2138,8 +2138,7 @@ progress::-moz-progress-bar{
 #coin-animation.show{
   animation:coinFlip3D 1s ease-in-out forwards;
 }
-#coin-animation::before,
-#coin-animation::after{
+#coin-animation .coin-face{
   position:absolute;
   top:50%;
   left:50%;
@@ -2162,16 +2161,14 @@ progress::-moz-progress-bar{
     inset 0 0.08em 0.22em rgba(255,255,255,.4),
     inset 0 0 0 0.035em var(--coin-rim);
 }
-#coin-animation::before{
-  content:attr(data-heads);
+#coin-animation .coin-face--heads{
   background:
     radial-gradient(circle at 48% 28%,rgba(255,255,255,.85)0%,rgba(255,255,255,0)62%),
     radial-gradient(circle at 52% 74%,rgba(0,0,0,.2)0%,rgba(0,0,0,0)68%),
     conic-gradient(from 20deg,#f5e9c5 0%,#d4af37 45%,#f2d88e 70%,#b8841e 100%);
   transform:translate(-50%,-50%) translateZ(calc(var(--coin-thickness)/2));
 }
-#coin-animation::after{
-  content:attr(data-tails);
+#coin-animation .coin-face--tails{
   background:
     radial-gradient(circle at 46% 26%,rgba(255,255,255,.65)0%,rgba(255,255,255,0)60%),
     radial-gradient(circle at 54% 72%,rgba(0,0,0,.28)0%,rgba(0,0,0,0)68%),

@@ -6848,6 +6848,14 @@ function playCoinAnimation(result){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('coin-animation');
   if(!anim) return Promise.resolve();
+  const headsFace = anim.querySelector('.coin-face--heads');
+  const tailsFace = anim.querySelector('.coin-face--tails');
+  if(headsFace){
+    headsFace.textContent = anim.dataset.heads || 'Heads';
+  }
+  if(tailsFace){
+    tailsFace.textContent = anim.dataset.tails || 'Tails';
+  }
   anim.dataset.result=result;
   anim.classList.remove('is-heads','is-tails');
   if(result==='Heads'){
