@@ -3595,3 +3595,16 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
 #initiative-roll-result.initiative-roll--active{animation:initiativeGlow .9s cubic-bezier(.33,1,.68,1);}
 #initiative-roll-result.initiative-roll--crit-high{--initiative-glow-color:var(--success);color:var(--success);border-color:color-mix(in srgb,var(--success) 60%, var(--surface-2) 40%);}
 #initiative-roll-result.initiative-roll--crit-low{--initiative-glow-color:var(--error);color:var(--error);border-color:color-mix(in srgb,var(--error) 60%, var(--surface-2) 40%);}
+.player-tools-drawer,.player-tools-tab{contain:layout style paint;}
+:root{--drawer-width:360px;--drawer-z:1200;--tab-width:44px;--tab-height:120px;--tab-size:var(--tab-width) var(--tab-height);--drawer-slide-direction:-1;}
+.player-tools-drawer{position:fixed;top:0;bottom:0;left:0;width:min(var(--drawer-width,360px),100vw);transform:translateX(calc(100%*var(--drawer-slide-direction,-1)));transition:transform 240ms ease;will-change:transform;z-index:var(--drawer-z,1200);pointer-events:none;display:flex;background:transparent;}
+.player-tools-drawer.is-open{transform:translateX(0);pointer-events:auto;}
+.player-tools-drawer__inner{inline-size:100%;block-size:100%;overflow-y:auto;overscroll-behavior:contain;background:rgba(8,10,16,.94);box-shadow:0 0 24px rgba(0,0,0,.45);padding:clamp(16px,4vw,32px);color:var(--text,rgba(242,244,255,.92));}
+.player-tools-drawer .roll-tools{grid-template-columns:1fr;}
+.player-tools-tab{position:fixed;top:50%;left:0;transform:translateY(-50%);inline-size:var(--tab-width,44px);block-size:var(--tab-height,120px);border-radius:0 999px 999px 0;border:1px solid rgba(255,255,255,.6);background:rgba(20,22,31,.92);color:var(--text,rgba(242,244,255,.92));box-shadow:0 6px 18px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-weight:600;letter-spacing:.02em;writing-mode:vertical-rl;text-orientation:mixed;cursor:pointer;z-index:calc(var(--drawer-z,1200) + 1);pointer-events:auto;-webkit-backdrop-filter:none;backdrop-filter:none;}
+.player-tools-tab__label{transform:none;}
+.player-tools-tab:focus-visible{outline:2px solid currentColor;outline-offset:2px;}
+.player-tools-tab.is-open{border-radius:999px 0 0 999px;}
+.player-tools-drawer__inner:focus-visible{outline:2px solid currentColor;outline-offset:0;}
+@media (prefers-contrast:more){.player-tools-tab{border-color:currentColor;box-shadow:0 0 0 2px currentColor;background:#000;color:#fff;}.player-tools-drawer__inner{box-shadow:0 0 0 2px currentColor;background:#000;}}
+@media (prefers-reduced-motion:reduce){.player-tools-drawer{transition-duration:1ms;}}
