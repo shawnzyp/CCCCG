@@ -3877,6 +3877,89 @@ if(mainEl && TAB_ORDER.length){
   }, { passive: true });
 }
 
+const tickerDrawer = qs('[data-ticker-drawer]');
+const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
+const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-toggle]') : null;
+if(tickerDrawer && tickerPanel && tickerToggle){
+  const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
+  const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
+  const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
+  const openIcon = tickerToggle.getAttribute('data-open-icon');
+  const closedIcon = tickerToggle.getAttribute('data-closed-icon');
+  let isOpen = tickerDrawer.getAttribute('data-state') !== 'closed';
+  let isAnimating = false;
+
+  const updateVisualState = nextOpen => {
+    tickerDrawer.setAttribute('data-state', nextOpen ? 'open' : 'closed');
+    tickerToggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+    tickerPanel.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
+    if(toggleLabel){
+      toggleLabel.textContent = nextOpen ? 'Hide live tickers' : 'Show live tickers';
+    }
+    if(toggleIcon){
+      const desired = nextOpen ? openIcon : closedIcon;
+      if(desired && toggleIcon.getAttribute('src') !== desired){
+        toggleIcon.setAttribute('src', desired);
+      }
+    }
+  };
+
+  const finalizeAnimation = () => {
+    tickerPanel.classList.remove('is-animating');
+    if(isOpen){
+      tickerPanel.style.height = '';
+    }else{
+      tickerPanel.style.height = '0px';
+    }
+    isAnimating = false;
+  };
+
+  const animateDrawer = nextOpen => {
+    if(isAnimating || nextOpen === isOpen){
+      return;
+    }
+    isAnimating = true;
+    const startHeight = tickerPanel.getBoundingClientRect().height;
+    const targetHeight = nextOpen
+      ? (panelInner ? panelInner.scrollHeight : tickerPanel.scrollHeight)
+      : 0;
+    tickerPanel.style.height = `${Math.max(0, Math.round(startHeight))}px`;
+    isOpen = nextOpen;
+    requestAnimationFrame(() => {
+      tickerPanel.classList.add('is-animating');
+      updateVisualState(nextOpen);
+      tickerPanel.style.height = `${Math.max(0, Math.round(targetHeight))}px`;
+      const prefersReduce = typeof window !== 'undefined'
+        && window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if(prefersReduce){
+        finalizeAnimation();
+      }
+    });
+  };
+
+  tickerPanel.addEventListener('transitionend', event => {
+    if(event.propertyName !== 'height'){
+      return;
+    }
+    finalizeAnimation();
+  });
+
+  tickerPanel.addEventListener('transitioncancel', finalizeAnimation);
+
+  tickerToggle.addEventListener('click', () => {
+    if(isAnimating){
+      return;
+    }
+    animateDrawer(!isOpen);
+  });
+
+  updateVisualState(isOpen);
+  if(!isOpen){
+    tickerPanel.style.height = '0px';
+  }
+}
+
 const tickerTrack = qs('[data-fun-ticker-track]');
 const tickerText = qs('[data-fun-ticker-text]');
 if(tickerTrack && tickerText){
