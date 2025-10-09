@@ -417,8 +417,8 @@
         </div>
       </div>
     </fieldset>
-    <div class="grid grid-1">
-      <fieldset class="card hp-field">
+    <div class="grid tracker-grid">
+      <fieldset class="card tracker-card hp-field">
         <legend class="card-legend card-legend--actions" data-animate-title>
           <span class="card-legend__content">
             <span class="card-legend__title">HP</span>
@@ -439,22 +439,26 @@
           </span>
         </legend>
         <input id="hp-roll" type="hidden" value="0"/>
-        <div class="inline">
-          <div class="bar-label">
-            <progress id="hp-bar" max="30" value="30"></progress>
-            <span id="hp-pill">30/30</span>
+        <div class="tracker-card__layout">
+          <div class="tracker-card__meter">
+            <div class="bar-label">
+              <progress id="hp-bar" max="30" value="30"></progress>
+              <span id="hp-pill">30/30</span>
+            </div>
+          </div>
+          <div class="tracker-card__controls">
+            <label for="hp-amt" class="tracker-card__label">Adjust HP</label>
+            <div class="tracker-card__input-group">
+              <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
+              <div class="tracker-card__actions">
+                <button id="hp-dmg" class="btn-sm">Damage</button>
+                <button id="hp-heal" class="btn-sm">Heal</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="inline">
-          <label for="hp-amt" class="sr-only">Amount</label>
-          <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-        </div>
-        <div class="inline">
-          <button id="hp-dmg" class="btn-sm">Damage</button>
-          <button id="hp-heal" class="btn-sm">Heal</button>
-        </div>
       </fieldset>
-      <fieldset class="card sp-field">
+      <fieldset class="card tracker-card sp-field">
         <legend class="card-legend card-legend--actions" data-animate-title>
           <span class="card-legend__content">
             <span class="card-legend__title">SP</span>
@@ -474,19 +478,24 @@
             </button>
           </span>
         </legend>
-        <div class="inline">
-          <div class="bar-label">
-            <progress id="sp-bar" max="5" value="5"></progress>
-            <span id="sp-pill">5/5</span>
+        <div class="tracker-card__layout">
+          <div class="tracker-card__meter">
+            <div class="bar-label">
+              <progress id="sp-bar" max="5" value="5"></progress>
+              <span id="sp-pill">5/5</span>
+            </div>
           </div>
-        </div>
-        <div class="sp-grid">
-          <button class="btn-sm" data-sp="-1">-1 SP</button>
-          <button class="btn-sm" data-sp="-2">-2 SP</button>
-          <button class="btn-sm" data-sp="-3">-3 SP</button>
-          <button class="btn-sm" data-sp="-4">-4 SP</button>
-          <button class="btn-sm" data-sp="-5">-5 SP</button>
-          <button id="sp-full" class="btn-sm">Reset SP</button>
+          <div class="tracker-card__controls">
+            <span class="tracker-card__label" id="sp-quick-label">Quick Adjust</span>
+            <div class="tracker-card__quick sp-grid" role="group" aria-labelledby="sp-quick-label">
+              <button class="btn-sm" data-sp="-1">-1 SP</button>
+              <button class="btn-sm" data-sp="-2">-2 SP</button>
+              <button class="btn-sm" data-sp="-3">-3 SP</button>
+              <button class="btn-sm" data-sp="-4">-4 SP</button>
+              <button class="btn-sm" data-sp="-5">-5 SP</button>
+              <button id="sp-full" class="btn-sm">Reset SP</button>
+            </div>
+          </div>
         </div>
       </fieldset>
       <fieldset class="card cap-field">
