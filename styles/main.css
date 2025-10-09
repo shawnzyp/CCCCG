@@ -707,9 +707,16 @@ header .tab svg{
 
 .theme-toggle__face--front::after{
   inset:0;
-  background-image:url("../images/logo-theme-toggle.svg");
-  background-size:contain;
+  background-image:url("../images/logo.png");
+  background-image:image-set(
+    url("../images/logo.png") 1x,
+    url("../images/logo.png") 2x
+  );
+  background-size:82%;
   background-position:center;
+  background-repeat:no-repeat;
+  image-rendering:-webkit-optimize-contrast;
+  image-rendering:auto;
   box-shadow:0 0 12px rgba(0,0,0,.35);
 }
 
