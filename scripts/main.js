@@ -3102,6 +3102,23 @@ document.addEventListener('input', e=>{
 });
 
 /* ========= theme ========= */
+const iconVariantSubscribers = new Set();
+function subscribeIconVariantChange(handler){
+  if(typeof handler !== 'function'){
+    return () => {};
+  }
+  iconVariantSubscribers.add(handler);
+  return () => {
+    iconVariantSubscribers.delete(handler);
+  };
+}
+function notifyIconVariantChange(variant){
+  iconVariantSubscribers.forEach(fn => {
+    try {
+      fn(variant);
+    } catch (err) {}
+  });
+}
 const root = document.documentElement;
 const themeToggleEl = qs('[data-theme-toggle]');
 const themeSpinnerEl = themeToggleEl ? themeToggleEl.querySelector('.theme-toggle__spinner') : null;
@@ -3154,6 +3171,7 @@ function setTabIconVariant(themeName){
       img.removeAttribute('data-icon-variant');
     }
   });
+  notifyIconVariantChange(variant);
 }
 /**
  * Apply a visual theme by toggling root classes and updating the button icon.
@@ -3884,10 +3902,40 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
   const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
-  const openIcon = tickerToggle.getAttribute('data-open-icon');
-  const closedIcon = tickerToggle.getAttribute('data-closed-icon');
+  const openIcons = {
+    original: tickerToggle.getAttribute('data-open-icon'),
+    inverted: tickerToggle.getAttribute('data-open-icon-inverted')
+  };
+  const closedIcons = {
+    original: tickerToggle.getAttribute('data-closed-icon'),
+    inverted: tickerToggle.getAttribute('data-closed-icon-inverted')
+  };
   let isOpen = tickerDrawer.getAttribute('data-state') !== 'closed';
   let isAnimating = false;
+
+  const resolveIconSource = (open, variant) => {
+    const icons = open ? openIcons : closedIcons;
+    if(!icons) return null;
+    if(variant && icons[variant]) return icons[variant];
+    const fallbackVariant = variant === 'original' ? 'inverted' : 'original';
+    return icons[fallbackVariant] || icons.original || icons.inverted || null;
+  };
+
+  const applyTickerIconVariant = (variant = root.dataset.tabIconVariant || DEFAULT_TAB_ICON_VARIANT) => {
+    if(!toggleIcon) return;
+    const nextSrc = resolveIconSource(isOpen, variant);
+    if(nextSrc && toggleIcon.getAttribute('src') !== nextSrc){
+      toggleIcon.setAttribute('src', nextSrc);
+    }
+    if(variant){
+      tickerToggle.setAttribute('data-icon-variant', variant);
+    }else{
+      tickerToggle.removeAttribute('data-icon-variant');
+    }
+  };
+
+  subscribeIconVariantChange(applyTickerIconVariant);
+  applyTickerIconVariant();
 
   const updateVisualState = nextOpen => {
     tickerDrawer.setAttribute('data-state', nextOpen ? 'open' : 'closed');
@@ -3896,12 +3944,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     if(toggleLabel){
       toggleLabel.textContent = nextOpen ? 'Hide live tickers' : 'Show live tickers';
     }
-    if(toggleIcon){
-      const desired = nextOpen ? openIcon : closedIcon;
-      if(desired && toggleIcon.getAttribute('src') !== desired){
-        toggleIcon.setAttribute('src', desired);
-      }
-    }
+    applyTickerIconVariant();
   };
 
   const finalizeAnimation = () => {
