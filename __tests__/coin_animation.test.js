@@ -74,7 +74,10 @@ describe('coin flip animation states', () => {
         <button id="dm-roll" type="button"></button>
         <button id="flip" type="button"></button>
         <span id="flip-out"></span>
-        <div id="coin-animation" data-heads="Heads" data-tails="Tails"></div>
+        <div id="coin-animation" data-heads="Heads" data-tails="Tails">
+          <span class="coin-face coin-face--heads" aria-hidden="true"></span>
+          <span class="coin-face coin-face--tails" aria-hidden="true"></span>
+        </div>
       </div>
       <div id="log-action"></div>
       <div id="full-log-action"></div>
@@ -144,6 +147,8 @@ describe('coin flip animation states', () => {
 
     expect(coinAnimation.classList.contains('is-heads')).toBe(true);
     expect(coinAnimation.classList.contains('is-tails')).toBe(false);
+    const headsFace = coinAnimation.querySelector('.coin-face--heads');
+    expect(headsFace?.textContent).toBe('Heads');
   });
 
   test('tails result applies tails animation class', async () => {
@@ -157,5 +162,7 @@ describe('coin flip animation states', () => {
 
     expect(coinAnimation.classList.contains('is-tails')).toBe(true);
     expect(coinAnimation.classList.contains('is-heads')).toBe(false);
+    const tailsFace = coinAnimation.querySelector('.coin-face--tails');
+    expect(tailsFace?.textContent).toBe('Tails');
   });
 });
