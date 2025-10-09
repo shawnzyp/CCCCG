@@ -292,7 +292,39 @@
     <fieldset class="card roll-tools-card">
       <legend data-animate-title>Player Tools</legend>
       <div class="roll-tools">
-        <div class="roll-tools__panel">
+        <div class="roll-tools__panel roll-tools__panel--initiative">
+          <h3 class="roll-tools__heading">Initiative</h3>
+          <div class="initiative-field">
+            <div class="initiative-field__row initiative-field__row--top">
+              <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
+              <div class="initiative-field__bonus">
+                <label for="initiative-bonus">Bonus</label>
+                <input
+                  id="initiative-bonus"
+                  type="number"
+                  inputmode="numeric"
+                  step="1"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div class="initiative-field__row initiative-field__row--bottom">
+              <div class="initiative-field__display">
+                <label for="initiative">Bonus to Initiative</label>
+                <input
+                  id="initiative"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="auto from DEX + bonuses"
+                  readonly
+                />
+              </div>
+              <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
+            </div>
+          </div>
+        </div>
+        <div class="roll-tools__panel roll-tools__panel--dice">
           <h3 class="roll-tools__heading">Dice Roll</h3>
           <div class="dice-roll-grid">
             <div class="dice-roll-grid__results">
@@ -326,43 +358,11 @@
             <button id="roll-dice" class="btn-sm">Roll</button>
           </div>
         </div>
-        <div class="roll-tools__panel">
+        <div class="roll-tools__panel roll-tools__panel--coin">
           <h3 class="roll-tools__heading">Coin Flip</h3>
           <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
           <div class="inline">
             <button id="flip" class="btn-sm">Flip</button>
-          </div>
-          <div class="roll-tools__initiative">
-            <h3 class="roll-tools__heading">Initiative</h3>
-            <div class="initiative-field">
-              <div class="initiative-field__row initiative-field__row--top">
-                <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
-                <div class="initiative-field__bonus">
-                  <label for="initiative-bonus">Bonus</label>
-                  <input
-                    id="initiative-bonus"
-                    type="number"
-                    inputmode="numeric"
-                    step="1"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div class="initiative-field__row initiative-field__row--bottom">
-                <div class="initiative-field__display">
-                  <label for="initiative">Bonus to Initiative</label>
-                  <input
-                    id="initiative"
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="auto from DEX + bonuses"
-                    readonly
-                  />
-                </div>
-                <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
