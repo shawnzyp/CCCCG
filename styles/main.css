@@ -1035,10 +1035,11 @@ label[data-animate-title]{
 .ticker-drawer{
   --ticker-tab-size:clamp(32px, 7vw, 42px);
   --ticker-tab-width:clamp(72px, 20vw, 122px);
+  --ticker-tab-overlap:clamp(2px, .8vw, 4px);
   position:relative;
   width:100%;
   margin:clamp(14px, 3vw, 24px) auto 0;
-  padding-bottom:calc((var(--ticker-tab-size) * .6) + clamp(4px, 1vw, 8px));
+  padding-bottom:calc(var(--ticker-tab-size) + clamp(6px, 1.6vw, 12px));
   max-width:100%;
   z-index:12;
 }
@@ -1065,8 +1066,8 @@ label[data-animate-title]{
 .ticker-drawer__pull{
   position:absolute;
   left:50%;
-  bottom:0;
-  transform:translate(-50%, 50%);
+  bottom:calc(-1 * (var(--ticker-tab-size) - var(--ticker-tab-overlap)));
+  transform:translate(-50%, 0);
   width:var(--ticker-tab-width);
   height:var(--ticker-tab-size);
   display:inline-flex;
@@ -1111,7 +1112,7 @@ label[data-animate-title]{
 }
 
 .ticker-drawer[data-state='closed'] .ticker-drawer__pull{
-  transform:translate(-50%, 28%);
+  transform:translate(-50%, 0);
   box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
