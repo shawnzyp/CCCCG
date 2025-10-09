@@ -4740,6 +4740,7 @@ const elHPRollInput = $('hp-roll-input');
 const elHPRollList = $('hp-roll-list');
 const hpSettingsOverlay = $('modal-hp-settings');
 const elInitiative = $('initiative');
+const elInitiativeBonus = $('initiative-bonus');
 const elInitiativeRollBtn = $('roll-initiative');
 const elInitiativeRollResult = $('initiative-roll-result');
 const elProfBonus = $('prof-bonus');
@@ -4958,9 +4959,14 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
       baseBonuses.push({ label: 'WIS mod', value: wisMod, includeZero: true });
     }
     let rollDetails = null;
+    const manualBonus = Number(elInitiativeBonus?.value);
+    const additionalBonuses = Number.isFinite(manualBonus) && manualBonus !== 0
+      ? [{ label: 'Bonus', value: manualBonus }]
+      : [];
     rollWithBonus('Initiative', base, elInitiativeRollResult, {
       type: 'initiative',
       baseBonuses,
+      additionalBonuses,
       onRoll: details => {
         rollDetails = details;
       },
