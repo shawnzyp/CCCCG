@@ -707,8 +707,8 @@ header .tab svg{
 
 .theme-toggle__face--front::after{
   inset:0;
-  background-image:url("../images/logo.png");
-  background-size:cover;
+  background-image:url("../images/logo-theme-toggle.svg");
+  background-size:contain;
   background-position:center;
   box-shadow:0 0 12px rgba(0,0,0,.35);
 }
