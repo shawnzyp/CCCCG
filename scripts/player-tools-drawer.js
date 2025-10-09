@@ -3,7 +3,13 @@
   const tab = document.getElementById('player-tools-tab');
   if (!drawer || !tab) return;
   const openClass = 'is-open';
-  const applyState = open => { drawer.classList.toggle(openClass, open); tab.setAttribute('aria-expanded', `${open}`); drawer.toggleAttribute('inert', !open); drawer.setAttribute('aria-hidden', `${!open}`); };
+  const applyState = open => {
+    drawer.classList.toggle(openClass, open);
+    tab.setAttribute('aria-expanded', `${open}`);
+    drawer.toggleAttribute('inert', !open);
+    drawer.setAttribute('aria-hidden', `${!open}`);
+    drawer.toggleAttribute('hidden', !open);
+  };
   const onKeyDown = event => {
     if (event.key === 'Escape' || event.key === 'Esc') {
       event.preventDefault();
