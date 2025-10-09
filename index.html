@@ -250,28 +250,46 @@
       <span class="tab__label">Story</span>
     </button>
   </nav>
-  <div class="news-ticker" role="status" aria-live="polite" aria-labelledby="news-ticker-label" data-expand-edge>
-    <div class="news-ticker__inner">
-      <span class="news-ticker__label" id="news-ticker-label">
-        <span class="news-ticker__logo" aria-hidden="true" role="presentation"></span>
-        <span class="sr-only">O.M.N.I tip ticker</span>
-      </span>
-      <div class="news-ticker__track" data-fun-ticker-track>
-        <span class="news-ticker__text" data-fun-ticker-text>Loading fun tips…</span>
+  <div class="ticker-drawer" data-ticker-drawer data-state="open">
+    <div class="ticker-drawer__panel" id="ticker-drawer-panel" data-ticker-panel>
+      <div class="ticker-drawer__panel-inner">
+        <div class="news-ticker" role="status" aria-live="polite" aria-labelledby="news-ticker-label" data-expand-edge>
+          <div class="news-ticker__inner">
+            <span class="news-ticker__label" id="news-ticker-label">
+              <span class="news-ticker__logo" aria-hidden="true" role="presentation"></span>
+              <span class="sr-only">O.M.N.I tip ticker</span>
+            </span>
+            <div class="news-ticker__track" data-fun-ticker-track>
+              <span class="news-ticker__text" data-fun-ticker-text>Loading fun tips…</span>
+            </div>
+          </div>
+        </div>
+        <div class="news-ticker news-ticker--m24n" role="status" aria-live="polite" aria-labelledby="m24n-ticker-label" data-expand-edge>
+          <div class="news-ticker__inner">
+            <span class="news-ticker__label news-ticker__label--m24n" id="m24n-ticker-label">
+              <span class="news-ticker__logo news-ticker__logo--m24n" aria-hidden="true">MN24/7:</span>
+              <span class="news-ticker__badge news-ticker__badge--live" aria-hidden="true">LIVE</span>
+              <span class="sr-only">MN24/7 breaking news ticker</span>
+            </span>
+            <div class="news-ticker__track news-ticker__track--m24n" data-m24n-ticker-track>
+              <span class="news-ticker__text news-ticker__text--m24n" data-m24n-ticker-text>Loading MN24/7 feed…</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="news-ticker news-ticker--m24n" role="status" aria-live="polite" aria-labelledby="m24n-ticker-label" data-expand-edge>
-    <div class="news-ticker__inner">
-      <span class="news-ticker__label news-ticker__label--m24n" id="m24n-ticker-label">
-        <span class="news-ticker__logo news-ticker__logo--m24n" aria-hidden="true">MN24/7:</span>
-        <span class="news-ticker__badge news-ticker__badge--live" aria-hidden="true">LIVE</span>
-        <span class="sr-only">MN24/7 breaking news ticker</span>
-      </span>
-      <div class="news-ticker__track news-ticker__track--m24n" data-m24n-ticker-track>
-        <span class="news-ticker__text news-ticker__text--m24n" data-m24n-ticker-text>Loading MN24/7 feed…</span>
-      </div>
-    </div>
+    <button
+      class="ticker-drawer__pull"
+      type="button"
+      data-ticker-toggle
+      aria-controls="ticker-drawer-panel"
+      aria-expanded="true"
+      data-open-icon="images/caret.png"
+      data-closed-icon="images/caret (1).png"
+    >
+      <img src="images/caret.png" alt="" aria-hidden="true" class="ticker-drawer__pull-icon" data-ticker-icon />
+      <span class="sr-only" data-ticker-toggle-label>Hide live tickers</span>
+    </button>
   </div>
 </header>
 
