@@ -332,14 +332,38 @@
           <div class="inline">
             <button id="flip" class="btn-sm">Flip</button>
           </div>
-        </div>
-      </div>
-      <div class="roll-tools__initiative">
-        <div class="initiative-field">
-          <label for="initiative">Initiative</label>
-          <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
-          <input id="initiative" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="auto from DEX + bonuses" readonly/>
-          <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
+          <div class="roll-tools__initiative">
+            <h3 class="roll-tools__heading">Initiative</h3>
+            <div class="initiative-field">
+              <div class="initiative-field__row initiative-field__row--top">
+                <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
+                <div class="initiative-field__bonus">
+                  <label for="initiative-bonus">Bonus</label>
+                  <input
+                    id="initiative-bonus"
+                    type="number"
+                    inputmode="numeric"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div class="initiative-field__row initiative-field__row--bottom">
+                <div class="initiative-field__display">
+                  <label for="initiative">Bonus to Initiative</label>
+                  <input
+                    id="initiative"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="auto from DEX + bonuses"
+                    readonly
+                  />
+                </div>
+                <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </fieldset>
