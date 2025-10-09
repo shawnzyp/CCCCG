@@ -73,6 +73,20 @@ function renderHeaderTitle() {
   const textNodes = Array.from(titleEl.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
   textNodes.forEach(node => titleEl.removeChild(node));
 
+  const legacyLabels = titleEl.querySelectorAll('.tabs-title__label');
+  legacyLabels.forEach(label => {
+    if (label.parentNode === titleEl) {
+      titleEl.removeChild(label);
+    }
+  });
+
+  const duplicateRoots = titleEl.querySelectorAll('.header-title-react-root');
+  duplicateRoots.forEach((node, index) => {
+    if (index > 0 && node.parentNode === titleEl) {
+      node.parentNode.removeChild(node);
+    }
+  });
+
   let mountNode = titleEl.querySelector('.header-title-react-root');
   if (!mountNode) {
     mountNode = document.createElement('span');
