@@ -3,33 +3,27 @@
   const tab = document.getElementById('player-tools-tab');
   if (!drawer || !tab) return;
   const openClass = 'is-open';
-  const setExpanded = value => tab.setAttribute('aria-expanded', String(value));
-  const focusDrawer = () => drawer.focus({ preventScroll: true });
-  function closeDrawer(returnFocus = true) {
-    if (!drawer.classList.contains(openClass)) return;
-    drawer.classList.remove(openClass);
-    setExpanded(false);
-    document.removeEventListener('keydown', handleEscape, true);
-    if (returnFocus) tab.focus({ preventScroll: true });
-  }
-  function openDrawer() {
-    if (drawer.classList.contains(openClass)) return;
-    drawer.classList.add(openClass);
-    setExpanded(true);
-    document.addEventListener('keydown', handleEscape, true);
-    requestAnimationFrame(focusDrawer);
-  }
-  function handleEscape(event) {
+  const applyState = open => { drawer.classList.toggle(openClass, open); tab.setAttribute('aria-expanded', `${open}`); drawer.toggleAttribute('inert', !open); drawer.setAttribute('aria-hidden', `${!open}`); };
+  const onKeyDown = event => {
     if (event.key === 'Escape' || event.key === 'Esc') {
       event.preventDefault();
       closeDrawer();
     }
-  }
+  };
+  const openDrawer = () => {
+    if (drawer.classList.contains(openClass)) return;
+    applyState(true);
+    document.addEventListener('keydown', onKeyDown, true);
+    requestAnimationFrame(() => drawer.focus({ preventScroll: true }));
+  };
+  const closeDrawer = (returnFocus = true) => {
+    if (!drawer.classList.contains(openClass)) return;
+    applyState(false);
+    document.removeEventListener('keydown', onKeyDown, true);
+    if (returnFocus) tab.focus({ preventScroll: true });
+  };
   tab.addEventListener('click', () => {
-    if (drawer.classList.contains(openClass)) {
-      closeDrawer();
-    } else {
-      openDrawer();
-    }
+    drawer.classList.contains(openClass) ? closeDrawer() : openDrawer();
   });
+  applyState(false);
 })();
