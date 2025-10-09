@@ -2902,6 +2902,9 @@ body.touch-controls-disabled .app-shell{pointer-events:none}
 #modal-welcome .welcome-modal__title{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:baseline}
 #modal-welcome .welcome-modal__title-break{display:inline}
 #modal-welcome .welcome-modal__tab-label{text-decoration:underline;text-decoration-thickness:.08em;text-decoration-skip-ink:auto}
+#modal-welcome .welcome-modal__preference{display:flex;justify-content:center;margin-bottom:var(--control-gap)}
+#modal-welcome .welcome-modal__preference-label{display:inline-flex;align-items:center;gap:8px;font-size:.8rem}
+#modal-welcome .welcome-modal__preference-label input{margin:0}
 @media(max-width:600px){#modal-welcome .welcome-modal__title{display:block}#modal-welcome .welcome-modal__title-break{display:block}}
 #modal-help .feature-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:90%}
 #modal-help .feature-list li{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
