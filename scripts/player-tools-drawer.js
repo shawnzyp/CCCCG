@@ -3,10 +3,15 @@
   const tab = document.getElementById('player-tools-tab');
   if (!drawer || !tab) return;
 
+  const body = document.body;
+
   const setOpenState = (open) => {
     const isOpen = typeof open === 'boolean' ? open : !drawer.classList.contains('is-open');
     drawer.classList.toggle('is-open', isOpen);
     tab.classList.toggle('is-open', isOpen);
+    if (body) {
+      body.classList.toggle('player-tools-open', isOpen);
+    }
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     if (isOpen) {
