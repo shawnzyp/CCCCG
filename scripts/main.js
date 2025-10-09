@@ -1106,12 +1106,19 @@ const LAUNCH_MIN_VISIBLE = 1800;
 const LAUNCH_MAX_WAIT = 12000;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
+const WELCOME_MODAL_PREFERENCE_KEY = 'cc:welcome-modal:hidden';
 const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
 const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
 let welcomeModalQueued = false;
 let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
+
+try {
+  if (typeof localStorage !== 'undefined') {
+    welcomeModalDismissed = localStorage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
+  }
+} catch {}
 
 function clearTouchUnlockTimer() {
   if (touchUnlockTimer) {
@@ -13617,6 +13624,23 @@ if (btnRules) {
 
 /* ========= Close + click-outside ========= */
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
+const welcomeHideToggle = $('welcome-hide-toggle');
+if (welcomeHideToggle) {
+  welcomeHideToggle.checked = welcomeModalDismissed;
+  welcomeHideToggle.addEventListener('change', () => {
+    const shouldHide = welcomeHideToggle.checked;
+    welcomeModalDismissed = shouldHide;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        if (shouldHide) {
+          localStorage.setItem(WELCOME_MODAL_PREFERENCE_KEY, 'true');
+        } else {
+          localStorage.removeItem(WELCOME_MODAL_PREFERENCE_KEY);
+        }
+      } catch {}
+    }
+  });
+}
 const welcomeCreate = $('welcome-create-character');
 if (welcomeCreate) {
   welcomeCreate.addEventListener('click', () => {
