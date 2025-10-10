@@ -21,6 +21,23 @@
 
   const isInertSupported = 'inert' in HTMLElement.prototype;
 
+  const updateTabOffset = () => {
+    const drawerWidth = Math.min(drawer.getBoundingClientRect().width, window.innerWidth || drawer.offsetWidth);
+    tab.style.setProperty('--player-tools-tab-offset', `${drawerWidth}px`);
+  };
+
+  const resetTabOffset = () => {
+    tab.style.removeProperty('--player-tools-tab-offset');
+  };
+
+  const handleResize = () => {
+    if (drawer.classList.contains('is-open')) {
+      updateTabOffset();
+    }
+  };
+
+  window.addEventListener('resize', handleResize);
+
   const setOpenState = (open) => {
     const isOpen = typeof open === 'boolean' ? open : !drawer.classList.contains('is-open');
     drawer.classList.toggle('is-open', isOpen);
@@ -31,6 +48,7 @@
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     if (isOpen) {
+      updateTabOffset();
       drawer.removeAttribute('inert');
       if (!isInertSupported) {
         drawer.querySelectorAll('[data-inert-tabindex]').forEach((element) => {
@@ -44,6 +62,7 @@
         });
       }
     } else {
+      resetTabOffset();
       drawer.setAttribute('inert', '');
       if (!isInertSupported) {
         drawer.querySelectorAll(focusableSelectors).forEach((element) => {
