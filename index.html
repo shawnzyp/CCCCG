@@ -729,23 +729,36 @@
         <label for="tier">Tier</label>
         <input id="tier" type="text" readonly/>
       </div>
-      <div class="card" style="grid-column:1/-1">
-        <label data-animate-title>Experience</label>
-        <input id="xp" type="hidden" value="0"/>
-        <div class="inline">
-          <div class="bar-label">
-            <progress id="xp-bar" max="2000" value="0"></progress>
-            <span id="xp-pill">0/2000</span>
+      <div class="card card--xp" style="grid-column:1/-1">
+        <div class="xp-tracker">
+          <div class="xp-tracker__header">
+            <label data-animate-title class="xp-tracker__title">Experience</label>
+            <span id="xp-pill" class="xp-tracker__pill">0 / 2,000</span>
           </div>
-        </div>
-        <div class="inline">
-          <label for="xp-amt" class="sr-only">Amount</label>
-          <input id="xp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-          <select id="xp-mode" data-view-allow style="max-width:160px">
-            <option value="add">Add XP</option>
-            <option value="remove">Remove XP</option>
-          </select>
-          <button id="xp-submit" class="btn-sm">Submit</button>
+          <input id="xp" type="hidden" value="0"/>
+          <progress id="xp-bar" class="xp-tracker__progress" max="2000" value="0"></progress>
+          <div class="xp-tracker__controls">
+            <div class="xp-tracker__inputs">
+              <label for="xp-amt" class="sr-only">Amount</label>
+              <input
+                id="xp-amt"
+                data-view-allow
+                type="number"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                placeholder="Amount"
+                class="xp-tracker__amount"
+              />
+              <label for="xp-mode" class="sr-only">Experience adjustment mode</label>
+              <div class="xp-tracker__mode">
+                <select id="xp-mode" data-view-allow>
+                  <option value="add">Add XP</option>
+                  <option value="remove">Remove XP</option>
+                </select>
+              </div>
+            </div>
+            <button id="xp-submit" type="button" class="xp-tracker__submit">Submit</button>
+          </div>
         </div>
       </div>
       <div class="card" data-view-lock>
