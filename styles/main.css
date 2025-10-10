@@ -2046,10 +2046,101 @@ progress::-moz-progress-bar{
 .pill.result{font-size:var(--pill-font-size-lg);font-weight:700;}
 .pill.result:empty::before{content:attr(data-placeholder);visibility:hidden;}
 .pill.result.rolling{animation:dicePop .6s ease-in-out;}
+#dice-out.dice-result--crit-success,
+#dice-out.dice-result--crit-failure{
+  position:relative;
+  overflow:visible;
+  z-index:0;
+}
+#dice-out.dice-result--crit-success{
+  --progress-color:var(--success);
+  color:var(--success);
+  box-shadow:0 0 18px color-mix(in srgb,var(--success) 55%,transparent);
+  text-shadow:0 0 12px color-mix(in srgb,var(--success) 70%,transparent),0 1px 2px rgba(0,0,0,.5);
+}
+#dice-out.dice-result--crit-failure{
+  --progress-color:var(--error);
+  color:var(--error);
+  box-shadow:0 0 18px color-mix(in srgb,var(--error) 55%,transparent);
+  text-shadow:0 0 12px color-mix(in srgb,var(--error) 70%,transparent),0 1px 2px rgba(0,0,0,.5);
+}
+#dice-out.dice-result--crit-success::before,
+#dice-out.dice-result--crit-success::after,
+#dice-out.dice-result--crit-failure::before,
+#dice-out.dice-result--crit-failure::after{
+  content:"";
+  position:absolute;
+  inset:calc(-1 * clamp(14px,4vw,22px));
+  border-radius:inherit;
+  pointer-events:none;
+  opacity:0;
+}
+#dice-out.dice-result--crit-success::before{
+  z-index:-1;
+  background:radial-gradient(circle at center,color-mix(in srgb,var(--success) 65%,transparent)0%,color-mix(in srgb,var(--success) 25%,transparent)55%,transparent 80%);
+}
+#dice-out.dice-result--crit-success::after{
+  z-index:-2;
+  background:
+    conic-gradient(from 0deg at 50% 50%,color-mix(in srgb,var(--success) 65%,transparent)0deg,color-mix(in srgb,var(--success) 10%,transparent)45deg,transparent 90deg,transparent 180deg,color-mix(in srgb,var(--success) 55%,transparent)225deg,color-mix(in srgb,var(--success) 10%,transparent)270deg,transparent 315deg,transparent 360deg);
+  filter:blur(2px);
+}
+#dice-out.dice-result--crit-failure::before{
+  z-index:-1;
+  background:radial-gradient(circle at center,color-mix(in srgb,var(--error) 65%,transparent)0%,color-mix(in srgb,var(--error) 25%,transparent)55%,transparent 80%);
+}
+#dice-out.dice-result--crit-failure::after{
+  z-index:-2;
+  background:
+    conic-gradient(from 15deg at 50% 50%,color-mix(in srgb,var(--error) 70%,transparent)0deg,transparent 60deg,color-mix(in srgb,var(--error) 45%,transparent)120deg,transparent 180deg,color-mix(in srgb,var(--error) 70%,transparent)240deg,transparent 300deg,color-mix(in srgb,var(--error) 45%,transparent)345deg,transparent 360deg);
+  filter:blur(2px);
+}
+#dice-out.dice-result--crit-success.rolling{animation:diceCritSuccess .72s cubic-bezier(.25,1,.4,1);}
+#dice-out.dice-result--crit-failure.rolling{animation:diceCritFailure .72s cubic-bezier(.45,.01,.55,.99);}
+#dice-out.dice-result--crit-success.rolling::before{animation:diceCritSuccessAura .78s ease-out;}
+#dice-out.dice-result--crit-success.rolling::after{animation:diceCritSuccessFlare .78s ease-out;}
+#dice-out.dice-result--crit-failure.rolling::before{animation:diceCritFailureAura .78s ease-out;}
+#dice-out.dice-result--crit-failure.rolling::after{animation:diceCritFailureFlare .78s ease-out;}
 @keyframes dicePop{
   0%{transform:scale(0);opacity:0;}
   50%{transform:scale(1.2);opacity:1;}
   100%{transform:scale(1);opacity:1;}
+}
+@keyframes diceCritSuccess{
+  0%{transform:scale(.6);opacity:0;}
+  24%{transform:scale(1.2);opacity:1;}
+  58%{transform:scale(.94);}
+  82%{transform:scale(1.06);}
+  100%{transform:scale(1);opacity:1;}
+}
+@keyframes diceCritFailure{
+  0%{transform:scale(.6) rotate(0deg);opacity:0;}
+  20%{transform:scale(1.15) rotate(-6deg);opacity:1;}
+  45%{transform:scale(1.05) rotate(5deg);}
+  70%{transform:scale(.97) rotate(-3deg);}
+  100%{transform:scale(1) rotate(0deg);opacity:1;}
+}
+@keyframes diceCritSuccessAura{
+  0%{opacity:.75;transform:scale(.7);}
+  45%{opacity:.45;transform:scale(1.35);}
+  100%{opacity:0;transform:scale(1.8);}
+}
+@keyframes diceCritSuccessFlare{
+  0%{opacity:.8;transform:rotate(0deg) scale(.6);}
+  40%{opacity:.6;transform:rotate(20deg) scale(1.05);}
+  100%{opacity:0;transform:rotate(40deg) scale(1.45);}
+}
+@keyframes diceCritFailureAura{
+  0%{opacity:.7;transform:scale(.75) rotate(0deg);}
+  30%{opacity:.45;transform:scale(1.2) rotate(3deg);}
+  65%{opacity:.35;transform:scale(1.35) rotate(-3deg);}
+  100%{opacity:0;transform:scale(1.45) rotate(0deg);}
+}
+@keyframes diceCritFailureFlare{
+  0%{opacity:.75;transform:scale(.65);}
+  25%{opacity:.6;transform:scale(1.1) skewX(-6deg);}
+  55%{opacity:.4;transform:scale(1.25) skewX(4deg);}
+  100%{opacity:0;transform:scale(1.45) skewX(0deg);}
 }
 #flip{flex:1;width:100%;display:block;}
 #credits-total-pill{
