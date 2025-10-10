@@ -118,29 +118,122 @@
 
   const updateTabOffset = () => {
     const rect = drawer.getBoundingClientRect();
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || rect.right || 0;
-    const drawerRight = rect.right || rect.left + rect.width || 0;
-    const clampedOffset = Math.max(0, Math.min(drawerRight, viewportWidth));
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const direction = getDrawerDirection();
+
+    const drawerRight = rect.right || rect.left + rect.width || 0;
+    const drawerLeft = rect.left || rect.right - rect.width || 0;
+    const offset = direction < 0 ? drawerRight : viewportWidth - drawerLeft;
+    const clampedOffset = Math.max(0, Math.min(offset, viewportWidth));
     const translatedOffset = clampedOffset * direction * -1;
-    tab.style.setProperty('--player-tools-tab-open-offset', `${translatedOffset}px`);
+
+    tab.style.setProperty('--player-tools-tab-translate', `${translatedOffset}px`);
   };
 
-  const resetTabOffset = () => {
-    tab.style.removeProperty('--player-tools-tab-open-offset');
-    tab.style.removeProperty('--player-tools-tab-translate');
+  let drawerAnimationFrame = null;
+  let drawerTrackingTimeout = null;
+
+  const parseTimeToMs = (value) => {
+    if (typeof value !== 'string') return 0;
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    const number = parseFloat(trimmed);
+    if (!Number.isFinite(number)) return 0;
+    return trimmed.endsWith('ms') ? number : number * 1000;
+  };
+
+  const getDrawerTransitionDuration = () => {
+    const styles = window.getComputedStyle(drawer);
+    const properties = styles.transitionProperty.split(',').map((value) => value.trim());
+    const durations = styles.transitionDuration.split(',').map(parseTimeToMs);
+    const delays = styles.transitionDelay.split(',').map(parseTimeToMs);
+    const count = Math.max(properties.length, durations.length, delays.length);
+    let maxDuration = 0;
+
+    for (let index = 0; index < count; index += 1) {
+      const property = properties[index] || properties[properties.length - 1] || '';
+      const duration = durations[index] || durations[durations.length - 1] || 0;
+      const delay = delays[index] || delays[delays.length - 1] || 0;
+      if (property === 'transform' || property === 'all') {
+        maxDuration = Math.max(maxDuration, duration + delay);
+      }
+    }
+
+    return maxDuration;
+  };
+
+  const clearDrawerTrackingTimeout = () => {
+    if (drawerTrackingTimeout === null) return;
+    window.clearTimeout(drawerTrackingTimeout);
+    drawerTrackingTimeout = null;
+  };
+
+  const trackDrawerOffset = () => {
+    updateTabOffset();
+    drawerAnimationFrame = window.requestAnimationFrame(trackDrawerOffset);
+  };
+
+  const startTrackingDrawer = () => {
+    if (drawerAnimationFrame === null) {
+      trackDrawerOffset();
+    }
+
+    clearDrawerTrackingTimeout();
+    const fallbackDuration = getDrawerTransitionDuration();
+    if (fallbackDuration <= 0) {
+      stopTrackingDrawer();
+      updateTabOffset();
+      return;
+    }
+
+    drawerTrackingTimeout = window.setTimeout(() => {
+      stopTrackingDrawer();
+      updateTabOffset();
+    }, fallbackDuration + 100);
+  };
+
+  const stopTrackingDrawer = () => {
+    if (drawerAnimationFrame !== null) {
+      window.cancelAnimationFrame(drawerAnimationFrame);
+      drawerAnimationFrame = null;
+    }
+
+    clearDrawerTrackingTimeout();
   };
 
   const handleResize = () => {
-    if (drawer.classList.contains('is-open')) {
-      updateTabOffset();
-    }
+    updateTabOffset();
   };
 
   window.addEventListener('resize', handleResize);
 
+  const isTransformTransition = (event) => event && event.propertyName === 'transform';
+
+  const handleDrawerTransitionStart = (event) => {
+    if (!isTransformTransition(event)) return;
+    startTrackingDrawer();
+  };
+
+  const handleDrawerTransitionEnd = (event) => {
+    if (!isTransformTransition(event)) return;
+    stopTrackingDrawer();
+    updateTabOffset();
+  };
+
+  drawer.addEventListener('transitionrun', handleDrawerTransitionStart);
+  drawer.addEventListener('transitionstart', handleDrawerTransitionStart);
+  drawer.addEventListener('transitionend', handleDrawerTransitionEnd);
+  drawer.addEventListener('transitioncancel', handleDrawerTransitionEnd);
+
   const setOpenState = (open) => {
-    const isOpen = typeof open === 'boolean' ? open : !drawer.classList.contains('is-open');
+    const currentlyOpen = drawer.classList.contains('is-open');
+    const isOpen = typeof open === 'boolean' ? open : !currentlyOpen;
+
+    if (isOpen === currentlyOpen) {
+      updateTabOffset();
+      return;
+    }
+
     drawer.classList.toggle('is-open', isOpen);
     tab.classList.toggle('is-open', isOpen);
     if (body) {
@@ -148,13 +241,14 @@
     }
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    updateTabOffset();
     if (isOpen) {
-      updateTabOffset();
+      startTrackingDrawer();
       removeElementInert(drawer);
       externalInertTargets = getExternalInertTargets();
       externalInertTargets.forEach(setElementInert);
     } else {
-      resetTabOffset();
+      startTrackingDrawer();
       externalInertTargets.forEach(removeElementInert);
       externalInertTargets = [];
       setElementInert(drawer);
@@ -228,4 +322,6 @@
   if (!drawer.classList.contains('is-open')) {
     setElementInert(drawer);
   }
+
+  updateTabOffset();
 })();
