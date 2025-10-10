@@ -1087,7 +1087,7 @@ label[data-animate-title]{
   left:50%;
   top:100%;
   bottom:auto;
-  transform:translateX(-50%);
+  transform:translate3d(-50%, 0, 0);
   transform-origin:center;
   width:var(--ticker-tab-width);
   height:var(--ticker-tab-size);
@@ -1101,7 +1101,7 @@ label[data-animate-title]{
   background:color-mix(in srgb, var(--surface) 95%, transparent);
   box-shadow:0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent);
   cursor:pointer;
-  transition:background 220ms ease, box-shadow 220ms ease, transform 320ms cubic-bezier(.22, 1, .36, 1);
+  transition:background 220ms ease, box-shadow 220ms ease;
 }
 
 .ticker-drawer__pull:hover{
@@ -1120,6 +1120,11 @@ label[data-animate-title]{
   display:block;
   filter:drop-shadow(0 2px 6px rgba(0, 0, 0, .28));
   transition:transform 320ms cubic-bezier(.22, 1, .36, 1);
+  transform:rotate(0deg);
+}
+
+[data-ticker-toggle][aria-expanded='false'] .ticker-drawer__pull-icon{
+  transform:rotate(180deg);
 }
 
 .ticker-drawer[data-state='closed'] .ticker-drawer__panel{
@@ -1133,7 +1138,7 @@ label[data-animate-title]{
 }
 
 .ticker-drawer[data-state='closed'] .ticker-drawer__pull{
-  transform:translateX(-50%);
+  transform:translate3d(-50%, 0, 0);
   box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 

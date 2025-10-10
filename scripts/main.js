@@ -3909,28 +3909,23 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
   const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
-  const openIcons = {
+  const iconSources = {
     original: tickerToggle.getAttribute('data-open-icon'),
     inverted: tickerToggle.getAttribute('data-open-icon-inverted')
-  };
-  const closedIcons = {
-    original: tickerToggle.getAttribute('data-closed-icon'),
-    inverted: tickerToggle.getAttribute('data-closed-icon-inverted')
   };
   let isOpen = tickerDrawer.getAttribute('data-state') !== 'closed';
   let isAnimating = false;
 
-  const resolveIconSource = (open, variant) => {
-    const icons = open ? openIcons : closedIcons;
-    if(!icons) return null;
-    if(variant && icons[variant]) return icons[variant];
+  const resolveIconSource = variant => {
+    if(!iconSources) return null;
+    if(variant && iconSources[variant]) return iconSources[variant];
     const fallbackVariant = variant === 'original' ? 'inverted' : 'original';
-    return icons[fallbackVariant] || icons.original || icons.inverted || null;
+    return iconSources[fallbackVariant] || iconSources.original || iconSources.inverted || null;
   };
 
   const applyTickerIconVariant = (variant = root.dataset.tabIconVariant || DEFAULT_TAB_ICON_VARIANT) => {
     if(!toggleIcon) return;
-    const nextSrc = resolveIconSource(isOpen, variant);
+    const nextSrc = resolveIconSource(variant);
     if(nextSrc && toggleIcon.getAttribute('src') !== nextSrc){
       toggleIcon.setAttribute('src', nextSrc);
     }
