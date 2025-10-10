@@ -110,13 +110,25 @@
   let externalInertTargets = [];
   let lastFocusWithin = null;
 
+  const getDrawerDirection = () => {
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    const directionValue = parseFloat(rootStyles.getPropertyValue('--drawer-slide-direction'));
+    return Number.isFinite(directionValue) && directionValue !== 0 ? directionValue : -1;
+  };
+
   const updateTabOffset = () => {
-    const drawerWidth = Math.min(drawer.getBoundingClientRect().width, window.innerWidth || drawer.offsetWidth);
-    tab.style.setProperty('--player-tools-tab-offset', `${drawerWidth}px`);
+    const rect = drawer.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || rect.right || 0;
+    const drawerRight = rect.right || rect.left + rect.width || 0;
+    const clampedOffset = Math.max(0, Math.min(drawerRight, viewportWidth));
+    const direction = getDrawerDirection();
+    const translatedOffset = clampedOffset * direction * -1;
+    tab.style.setProperty('--player-tools-tab-open-offset', `${translatedOffset}px`);
   };
 
   const resetTabOffset = () => {
-    tab.style.removeProperty('--player-tools-tab-offset');
+    tab.style.removeProperty('--player-tools-tab-open-offset');
+    tab.style.removeProperty('--player-tools-tab-translate');
   };
 
   const handleResize = () => {
