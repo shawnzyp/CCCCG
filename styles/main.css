@@ -1055,7 +1055,9 @@ label[data-animate-title]{
   max-width:100%;
   z-index:12;
 }
-.ticker-drawer[data-state='open']{margin-bottom:calc(var(--ticker-tab-size) + var(--ticker-tab-clearance));}
+.ticker-drawer[data-state='open'],
+.ticker-drawer[data-state='opening'],
+.ticker-drawer[data-state='closing']{margin-bottom:calc(var(--ticker-tab-size) + var(--ticker-tab-clearance));}
 .ticker-drawer[data-state='closed']{margin-bottom:var(--ticker-tab-clearance);}
 
 .ticker-drawer__panel{
