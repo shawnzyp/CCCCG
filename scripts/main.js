@@ -6391,6 +6391,7 @@ const diceModeSelect = $('dice-mode');
 const diceModifierInput = $('dice-mod');
 const diceBreakdownList = $('dice-breakdown');
 const diceResultRenderer = ensureDiceResultRenderer(diceOutput);
+const diceCriticalStateClasses = ['dice-result--crit-success', 'dice-result--crit-failure'];
 if (rollDiceButton) {
   if (rollDiceButton.dataset) {
     rollDiceButton.dataset.actionCue = 'dice-roll';
@@ -6423,6 +6424,15 @@ if (rollDiceButton) {
         : Math.min(primary, secondary);
       return { primary, secondary, chosen };
     });
+    let criticalState = '';
+    if (count === 1 && sides === 20) {
+      const chosen = rollDetails[0]?.chosen;
+      if (chosen === 20) {
+        criticalState = 'success';
+      } else if (chosen === 1) {
+        criticalState = 'failure';
+      }
+    }
     const keptSum = rollDetails.reduce((total, detail) => total + detail.chosen, 0);
     const total = keptSum + modifier;
     const breakdownDisplay = rollDetails.map(detail => {
@@ -6432,6 +6442,7 @@ if (rollDiceButton) {
       return String(detail.chosen);
     });
     out.classList.remove('rolling');
+    diceCriticalStateClasses.forEach(cls => out.classList.remove(cls));
     const playIndex = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
     if (diceResultRenderer && out) {
       diceResultRenderer.render(total, playIndex);
@@ -6449,6 +6460,16 @@ if (rollDiceButton) {
         delete out.dataset.rollMode;
       }
       out.dataset.rolls = breakdownDisplay.join(', ');
+      if (criticalState) {
+        out.dataset.rollCritical = criticalState;
+      } else if (out.dataset.rollCritical) {
+        delete out.dataset.rollCritical;
+      }
+    }
+    if (criticalState === 'success') {
+      out.classList.add('dice-result--crit-success');
+    } else if (criticalState === 'failure') {
+      out.classList.add('dice-result--crit-failure');
     }
     if (diceBreakdownList) {
       diceBreakdownList.textContent = '';
