@@ -1,17 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect x="3" y="6" width="26" height="20" rx="10" fill="url(#bg)"/>
-  <path
-    d="M12.8 12.2a1 1 0 0 1 1.4 0l1.2 1.2 1.1-1.1a1 1 0 0 1 1.42 0l.98.98a1 1 0 0 1 0 1.42L18.8 15l3.58 3.58a1 1 0 0 1 0 1.42l-.56.56a1 1 0 0 1-1.42 0L16.8 17l-1.78 1.78a1 1 0 0 1-1.42 0l-.56-.56a1 1 0 0 1 0-1.42L16.18 15l-1.1-1.1-1.2 1.2a1 1 0 0 1-1.42 0l-.98-.98a1 1 0 0 1 0-1.42l2.32-2.32Z"
-    fill="url(#fg)"
-  />
   <defs>
-    <linearGradient id="bg" x1="3" y1="6" x2="27" y2="26" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2D6BFF"/>
-      <stop offset="1" stop-color="#8A5BFF"/>
-    </linearGradient>
     <linearGradient id="fg" x1="11" y1="11" x2="21" y2="21" gradientUnits="userSpaceOnUse">
       <stop stop-color="#F5F7FF"/>
       <stop offset="1" stop-color="#C8D2FF"/>
     </linearGradient>
   </defs>
+  <g transform="translate(16 16) scale(1.35) translate(-16 -16)">
+    <rect x="10" y="10" width="12" height="12" rx="2.5" fill="url(#fg)"/>
+    <circle cx="12.75" cy="12.75" r="1.35" fill="#1C2F7A"/>
+    <circle cx="19.25" cy="12.75" r="1.35" fill="#1C2F7A"/>
+    <circle cx="16" cy="16" r="1.35" fill="#1C2F7A"/>
+    <circle cx="12.75" cy="19.25" r="1.35" fill="#1C2F7A"/>
+    <circle cx="19.25" cy="19.25" r="1.35" fill="#1C2F7A"/>
+  </g>
 </svg>
