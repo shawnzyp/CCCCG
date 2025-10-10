@@ -1,4 +1,5 @@
 (() => {
+  const container = document.getElementById('player-tools');
   const drawer = document.getElementById('player-tools-drawer');
   const tab = document.getElementById('player-tools-tab');
   if (!drawer || !tab) return;
@@ -25,6 +26,9 @@
     const isOpen = typeof open === 'boolean' ? open : !drawer.classList.contains('is-open');
     drawer.classList.toggle('is-open', isOpen);
     tab.classList.toggle('is-open', isOpen);
+    if (container) {
+      container.classList.toggle('is-open', isOpen);
+    }
     if (body) {
       body.classList.toggle('player-tools-open', isOpen);
     }
