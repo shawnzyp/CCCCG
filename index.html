@@ -1852,28 +1852,16 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
-<button
-  id="player-tools-tab"
-  class="player-tools-tab"
-  type="button"
-  aria-controls="player-tools-drawer"
-  aria-expanded="false"
-  aria-label="Toggle player tools drawer"
->
-  <span class="player-tools-tab__icon" aria-hidden="true">
-    <img src="images/player-tools-icon.svg" alt="" />
-  </span>
-</button>
-
-<div
-  id="player-tools-drawer"
-  class="player-tools-drawer"
-  role="complementary"
-  aria-label="Player Tools"
-  tabindex="-1"
-  aria-hidden="true"
->
-  <div class="player-tools-drawer__inner">
+<div id="player-tools" class="player-tools">
+  <div
+    id="player-tools-drawer"
+    class="player-tools-drawer"
+    role="complementary"
+    aria-label="Player Tools"
+    tabindex="-1"
+    aria-hidden="true"
+  >
+    <div class="player-tools-drawer__inner">
     <fieldset class="card roll-tools-card">
       <legend data-animate-title>Player Tools</legend>
       <div class="roll-tools">
@@ -1958,7 +1946,18 @@
         </section>
       </div>
     </fieldset>
+    </div>
   </div>
+  <button
+    id="player-tools-tab"
+    class="player-tools-tab"
+    type="button"
+    aria-controls="player-tools-drawer"
+    aria-expanded="false"
+    aria-label="Toggle player tools drawer"
+  >
+    <img src="images/player-tools-icon.svg" alt="" aria-hidden="true" />
+  </button>
 </div>
 <script type="module" src="scripts/header-title.js"></script>
 <script type="module" src="scripts/animated-titles.js"></script>
