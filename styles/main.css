@@ -1054,7 +1054,7 @@ label[data-animate-title]{
   --ticker-tab-overlap:0px;
   position:relative;
   width:100%;
-  margin:0 auto var(--ticker-tab-clearance);
+  margin:0 auto 0;
   padding-bottom:0;
   max-width:100%;
   z-index:12;
@@ -1063,6 +1063,10 @@ label[data-animate-title]{
 .ticker-drawer[data-state='opening'],
 .ticker-drawer[data-state='closing']{
   --ticker-tab-overlap:var(--ticker-tab-size);
+}
+
+.ticker-drawer[data-state='closed']{
+  margin-bottom:var(--ticker-tab-clearance);
 }
 
 .ticker-drawer__panel{
@@ -1086,10 +1090,13 @@ label[data-animate-title]{
 
 .ticker-drawer__pull{
   position:absolute;
-  left:50%;
+  left:0;
+  right:0;
+  inset-inline:0;
   top:100%;
   bottom:auto;
-  transform:translate3d(-50%, calc(-1 * var(--ticker-tab-overlap)), 0);
+  margin-inline:auto;
+  transform:translate3d(0, calc(-1 * var(--ticker-tab-overlap)), 0);
   transform-origin:center;
   width:var(--ticker-tab-width);
   height:var(--ticker-tab-size);
@@ -1103,7 +1110,7 @@ label[data-animate-title]{
   background:color-mix(in srgb, var(--surface) 95%, transparent);
   box-shadow:0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent);
   cursor:pointer;
-  transition:background 220ms ease, box-shadow 220ms ease;
+  transition:transform 420ms cubic-bezier(.22, 1, .36, 1), background 220ms ease, box-shadow 220ms ease;
 }
 
 .ticker-drawer__pull:hover{
@@ -1140,7 +1147,7 @@ label[data-animate-title]{
 }
 
 .ticker-drawer[data-state='closed'] .ticker-drawer__pull{
-  transform:translate3d(-50%, 0, 0);
+  transform:translate3d(0, 0, 0);
   box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
