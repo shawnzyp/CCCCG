@@ -1056,7 +1056,7 @@ label[data-animate-title]{
   z-index:12;
 }
 .ticker-drawer[data-state='open']{margin-bottom:calc(var(--ticker-tab-size) + var(--ticker-tab-clearance));}
-.ticker-drawer[data-state='closed']{margin-bottom:var(--ticker-tab-clearance);}
+.ticker-drawer[data-state='closed']{margin-bottom:calc(var(--ticker-tab-size) + var(--ticker-tab-clearance));}
 
 .ticker-drawer__panel{
   position:relative;
