@@ -5044,6 +5044,7 @@ powerDcModeRadios.forEach(radio => {
 const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
+const xpNumberFormatter = new Intl.NumberFormat();
 const elTier = $('tier');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
@@ -5390,11 +5391,11 @@ function updateXP(){
     const xpForNextTier = nextTier.xp - currentTierXP;
     elXPBar.max = xpForNextTier;
     elXPBar.value = xpIntoTier;
-    elXPPill.textContent = `${xpIntoTier}/${xpForNextTier}`;
+    elXPPill.textContent = `${xpNumberFormatter.format(xpIntoTier)} / ${xpNumberFormatter.format(xpForNextTier)}`;
   }else{
     elXPBar.max = 1;
     elXPBar.value = 1;
-    elXPPill.textContent = `${xp}+`;
+    elXPPill.textContent = `${xpNumberFormatter.format(xp)}+`;
   }
   if (typeof catalogRenderScheduler === 'function') {
     catalogRenderScheduler();
