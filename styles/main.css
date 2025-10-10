@@ -68,6 +68,7 @@ body.launching{overflow:hidden;height:100vh;height:100dvh;background:#000}
 body.launching .app-shell{opacity:0}
 body.player-tools-open{overflow:hidden}
 body.player-tools-open .app-shell{touch-action:none}
+body.player-tools-open>*:not(#player-tools-drawer):not(#player-tools-tab){pointer-events:none}
 body.player-tools-open .player-tools-drawer,
 body.player-tools-open .player-tools-drawer__inner{touch-action:pan-y}
 #launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:#000;z-index:2000;opacity:0;pointer-events:none;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;width:100vw;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box}
