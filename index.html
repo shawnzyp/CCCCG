@@ -358,9 +358,20 @@
         <legend class="card-legend card-legend--actions" data-animate-title>
           <span class="card-legend__content">
             <span class="card-legend__title">HP</span>
+          </span>
+        </legend>
+        <input id="hp-roll" type="hidden" value="0"/>
+        <div class="hp-field__layout">
+          <div class="hp-field__status">
+            <div class="hp-field__meter">
+              <progress id="hp-bar" max="30" value="30"></progress>
+              <span id="hp-pill" class="pill hp-field__pill">30/30</span>
+            </div>
+          </div>
+          <div class="hp-field__controls">
             <button
               type="button"
-              class="card-caret"
+              class="card-caret hp-field__settings"
               id="hp-settings-toggle"
               aria-haspopup="dialog"
               aria-expanded="false"
@@ -372,24 +383,11 @@
                 <img class="btn-icon__img" src="images/attribution-pencil (1).png" alt=""/>
               </span>
             </button>
-          </span>
-        </legend>
-        <input id="hp-roll" type="hidden" value="0"/>
-        <div class="tracker-card__layout">
-          <div class="tracker-card__meter">
-            <div class="bar-label">
-              <progress id="hp-bar" max="30" value="30"></progress>
-              <span id="hp-pill">30/30</span>
-            </div>
-          </div>
-          <div class="tracker-card__controls">
-            <label for="hp-amt" class="tracker-card__label">Adjust HP</label>
-            <div class="tracker-card__input-group">
-              <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-              <div class="tracker-card__actions">
-                <button id="hp-dmg" class="btn-sm">Damage</button>
-                <button id="hp-heal" class="btn-sm">Heal</button>
-              </div>
+            <label for="hp-amt" class="hp-field__label sr-only">Adjust HP</label>
+            <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
+            <div class="hp-field__actions">
+              <button id="hp-dmg" class="btn-sm hp-field__action hp-field__action--damage">Damage</button>
+              <button id="hp-heal" class="btn-sm hp-field__action hp-field__action--heal">Heal</button>
             </div>
           </div>
         </div>
