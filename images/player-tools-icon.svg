@@ -5,10 +5,12 @@
       <stop offset="1" stop-color="#C8D2FF"/>
     </linearGradient>
   </defs>
-  <g transform="translate(16 16) scale(1.4) translate(-16 -16)">
-    <path
-      d="M12.8 12.2a1 1 0 0 1 1.4 0l1.2 1.2 1.1-1.1a1 1 0 0 1 1.42 0l.98.98a1 1 0 0 1 0 1.42L18.8 15l3.58 3.58a1 1 0 0 1 0 1.42l-.56.56a1 1 0 0 1-1.42 0L16.8 17l-1.78 1.78a1 1 0 0 1-1.42 0l-.56-.56a1 1 0 0 1 0-1.42L16.18 15l-1.1-1.1-1.2 1.2a1 1 0 0 1-1.42 0l-.98-.98a1 1 0 0 1 0-1.42l2.32-2.32Z"
-      fill="url(#fg)"
-    />
+  <g transform="translate(16 16) scale(1.35) translate(-16 -16)">
+    <rect x="10" y="10" width="12" height="12" rx="2.5" fill="url(#fg)"/>
+    <circle cx="12.75" cy="12.75" r="1.35" fill="#1C2F7A"/>
+    <circle cx="19.25" cy="12.75" r="1.35" fill="#1C2F7A"/>
+    <circle cx="16" cy="16" r="1.35" fill="#1C2F7A"/>
+    <circle cx="12.75" cy="19.25" r="1.35" fill="#1C2F7A"/>
+    <circle cx="19.25" cy="19.25" r="1.35" fill="#1C2F7A"/>
   </g>
 </svg>
