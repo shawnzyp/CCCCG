@@ -4,6 +4,7 @@
   if (!drawer || !tab) return;
 
   const body = document.body;
+  const appShell = document.querySelector('.app-shell');
 
   const focusableSelectors = [
     'a[href]',
@@ -20,6 +21,105 @@
   ].join(',');
 
   const isInertSupported = 'inert' in HTMLElement.prototype;
+  const fallbackInertRecords = new WeakMap();
+
+  const applyInert = (element) => {
+    if (!element) return;
+    element.setAttribute('inert', '');
+    if (isInertSupported || fallbackInertRecords.has(element)) return;
+    const records = [];
+    element.querySelectorAll(focusableSelectors).forEach((focusable) => {
+      records.push({ element: focusable, tabIndex: focusable.getAttribute('tabindex') });
+      focusable.setAttribute('tabindex', '-1');
+    });
+    fallbackInertRecords.set(element, records);
+  };
+
+  const removeInert = (element) => {
+    if (!element) return;
+    element.removeAttribute('inert');
+    if (isInertSupported) return;
+    const records = fallbackInertRecords.get(element);
+    if (!records) return;
+    records.forEach(({ element: focusable, tabIndex }) => {
+      if (!focusable) return;
+      if (tabIndex === null) {
+        focusable.removeAttribute('tabindex');
+      } else {
+        focusable.setAttribute('tabindex', tabIndex);
+      }
+    });
+    fallbackInertRecords.delete(element);
+  };
+
+  const getDrawerFocusableElements = () => {
+    const elements = [drawer, ...drawer.querySelectorAll(focusableSelectors)];
+    const unique = new Set();
+    return elements.filter((element) => {
+      if (!element || typeof element.focus !== 'function') return false;
+      if (unique.has(element)) return false;
+      unique.add(element);
+      if (element.hasAttribute('disabled')) return false;
+      if (element.getAttribute('aria-hidden') === 'true') return false;
+      return true;
+    });
+  };
+
+  const getFocusTrapElements = () => {
+    const candidates = [tab, ...getDrawerFocusableElements()];
+    const unique = new Set();
+    return candidates.filter((element) => {
+      if (!element || typeof element.focus !== 'function') return false;
+      if (unique.has(element)) return false;
+      unique.add(element);
+      return true;
+    });
+  };
+
+  const focusFirstTrapElement = () => {
+    const trapElements = getFocusTrapElements();
+    if (!trapElements.length) return;
+    const first = trapElements[0];
+    try {
+      first.focus({ preventScroll: true });
+    } catch (err) {
+      // ignore focus errors
+    }
+  };
+
+  const handleFocusTrapKeydown = (event) => {
+    if (!drawer.classList.contains('is-open')) return;
+    if (event.key !== 'Tab' || event.altKey || event.metaKey || event.ctrlKey) return;
+    const trapElements = getFocusTrapElements();
+    if (!trapElements.length) return;
+    const activeElement = document.activeElement;
+    let currentIndex = trapElements.indexOf(activeElement);
+    if (event.shiftKey) {
+      if (currentIndex === -1) {
+        event.preventDefault();
+        trapElements[trapElements.length - 1].focus({ preventScroll: true });
+        return;
+      }
+      if (currentIndex === 0) {
+        event.preventDefault();
+        trapElements[trapElements.length - 1].focus({ preventScroll: true });
+      }
+      return;
+    }
+    if (currentIndex === -1 || currentIndex === trapElements.length - 1) {
+      event.preventDefault();
+      trapElements[0].focus({ preventScroll: true });
+    }
+  };
+
+  const handleFocusIn = (event) => {
+    if (!drawer.classList.contains('is-open')) return;
+    if (event.target === tab) return;
+    if (drawer.contains(event.target)) return;
+    window.requestAnimationFrame(() => {
+      focusFirstTrapElement();
+    });
+  };
 
   const updateTabOffset = () => {
     const drawerWidth = Math.min(drawer.getBoundingClientRect().width, window.innerWidth || drawer.offsetWidth);
@@ -49,37 +149,23 @@
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     if (isOpen) {
       updateTabOffset();
-      drawer.removeAttribute('inert');
-      if (!isInertSupported) {
-        drawer.querySelectorAll('[data-inert-tabindex]').forEach((element) => {
-          const originalTabIndex = element.getAttribute('data-inert-tabindex');
-          if (originalTabIndex === '') {
-            element.removeAttribute('tabindex');
-          } else {
-            element.setAttribute('tabindex', originalTabIndex);
-          }
-          element.removeAttribute('data-inert-tabindex');
-        });
+      removeInert(drawer);
+      if (appShell) {
+        applyInert(appShell);
+        appShell.setAttribute('aria-hidden', 'true');
       }
     } else {
       resetTabOffset();
-      drawer.setAttribute('inert', '');
-      if (!isInertSupported) {
-        drawer.querySelectorAll(focusableSelectors).forEach((element) => {
-          if (!element.hasAttribute('data-inert-tabindex')) {
-            const existingTabIndex = element.getAttribute('tabindex');
-            if (existingTabIndex !== null) {
-              element.setAttribute('data-inert-tabindex', existingTabIndex);
-            } else {
-              element.setAttribute('data-inert-tabindex', '');
-            }
-          }
-          element.setAttribute('tabindex', '-1');
-        });
+      applyInert(drawer);
+      if (appShell) {
+        removeInert(appShell);
+        appShell.removeAttribute('aria-hidden');
       }
     }
     if (isOpen) {
-      drawer.focus({ preventScroll: true });
+      const focusTargets = getDrawerFocusableElements().filter((element) => element !== drawer);
+      const initialFocus = focusTargets.length ? focusTargets[0] : drawer;
+      initialFocus.focus({ preventScroll: true });
     } else {
       tab.focus({ preventScroll: true });
     }
@@ -89,6 +175,9 @@
     setOpenState();
   });
 
+  document.addEventListener('keydown', handleFocusTrapKeydown);
+  document.addEventListener('focusin', handleFocusIn);
+
   drawer.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' || event.key === 'Esc') {
       event.stopPropagation();
@@ -96,4 +185,6 @@
       setOpenState(false);
     }
   });
+
+  applyInert(drawer);
 })();
