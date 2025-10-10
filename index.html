@@ -805,32 +805,49 @@
         </select>
         <ul id="origin-perks" class="perk-list"></ul>
       </div>
-      <div class="card">
-        <label for="credits" data-animate-title>Credits</label>
-        <div class="inline">
-          <span class="credits-currency" aria-hidden="true">₡</span>
-          <span id="credits-total-pill" class="pill">0</span>
+      <div class="card credits-card" data-view-lock>
+        <div class="credits-card__heading">
+          <label for="credits" data-animate-title>Credits</label>
         </div>
-        <div class="credits-summary">
+        <div class="credits-card__display" role="status" aria-live="polite">
+          <span class="credits-card__currency" aria-hidden="true">₡</span>
+          <span id="credits-total-pill" class="credits-card__total">0</span>
+        </div>
+        <div class="credits-card__summary">
           <span id="credits-gear-total" class="pill pill-sm">Equipped Gear: ₡0</span>
           <span id="credits-gear-remaining" class="pill pill-sm">Remaining Credits: ₡0</span>
         </div>
-        <div class="inline">
-          <label for="credits-amt" class="sr-only">Amount</label>
-          <input id="credits-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
-          <select id="credits-mode" data-view-allow>
-            <option value="add">Add Credits</option>
-            <option value="subtract">Spend Credits</option>
-          </select>
-          <button id="credits-submit" class="btn-sm" type="button">Apply</button>
+        <div class="credits-card__controls" data-view-allow>
+          <div class="credits-card__field">
+            <label for="credits-amt" class="credits-card__label">Amount</label>
+            <input
+              id="credits-amt"
+              data-view-allow
+              type="number"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              placeholder="0"
+            />
+          </div>
+          <div class="credits-card__field">
+            <label for="credits-mode" class="credits-card__label">Action</label>
+            <div class="credits-card__select">
+              <select id="credits-mode" data-view-allow>
+                <option value="add">Add Credits</option>
+                <option value="subtract">Spend Credits</option>
+              </select>
+              <span class="credits-card__select-icon" aria-hidden="true"></span>
+            </div>
+          </div>
         </div>
-        <div class="credits-reason">
-          <label for="credits-reason" class="sr-only">Reason</label>
+        <button id="credits-submit" class="credits-card__submit" type="button">Submit</button>
+        <div class="credits-card__reason">
+          <label for="credits-reason" class="credits-card__label">Reason</label>
           <input
             id="credits-reason"
             data-view-allow
             type="text"
-            placeholder="Reason (e.g., mission payout, equipment purchase)"
+            placeholder="Reason for this change"
             autocomplete="off"
           />
         </div>
