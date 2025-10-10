@@ -1119,17 +1119,20 @@ label[data-animate-title]{
   transition:transform 320ms cubic-bezier(.22, 1, .36, 1);
 }
 
-.ticker-drawer[data-state='closed'] .ticker-drawer__panel{
+.ticker-drawer[data-state='closed'] .ticker-drawer__panel,
+.ticker-drawer[data-state='closing'] .ticker-drawer__panel{
   box-shadow:none;
 }
 
-.ticker-drawer[data-state='closed'] .ticker-drawer__panel-inner{
+.ticker-drawer[data-state='closed'] .ticker-drawer__panel-inner,
+.ticker-drawer[data-state='closing'] .ticker-drawer__panel-inner{
   opacity:0;
   transform:translateY(16px);
   pointer-events:none;
 }
 
-.ticker-drawer[data-state='closed'] .ticker-drawer__pull{
+.ticker-drawer[data-state='closed'] .ticker-drawer__pull,
+.ticker-drawer[data-state='closing'] .ticker-drawer__pull{
   transform:translateX(-50%);
   box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 16%, transparent);
 }
