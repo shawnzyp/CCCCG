@@ -3944,18 +3944,27 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   subscribeIconVariantChange(applyTickerIconVariant);
   applyTickerIconVariant();
 
-  const updateVisualState = nextOpen => {
-    tickerDrawer.setAttribute('data-state', nextOpen ? 'open' : 'closed');
+  const setDrawerState = state => {
+    tickerDrawer.setAttribute('data-state', state);
+  };
+
+  const updateAccessibilityState = nextOpen => {
     tickerToggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
     tickerPanel.setAttribute('aria-hidden', nextOpen ? 'false' : 'true');
     if(toggleLabel){
       toggleLabel.textContent = nextOpen ? 'Hide live tickers' : 'Show live tickers';
     }
+  };
+
+  const updateToggleState = nextOpen => {
+    updateAccessibilityState(nextOpen);
     applyTickerIconVariant();
   };
 
   const finalizeAnimation = () => {
     tickerPanel.classList.remove('is-animating');
+    setDrawerState(isOpen ? 'open' : 'closed');
+    updateToggleState(isOpen);
     if(isOpen){
       tickerPanel.style.height = '';
     }else{
@@ -3977,7 +3986,8 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     isOpen = nextOpen;
     requestAnimationFrame(() => {
       tickerPanel.classList.add('is-animating');
-      updateVisualState(nextOpen);
+      updateToggleState(nextOpen);
+      setDrawerState(nextOpen ? 'opening' : 'closing');
       tickerPanel.style.height = `${Math.max(0, Math.round(targetHeight))}px`;
       const prefersReduce = typeof window !== 'undefined'
         && window.matchMedia
@@ -4004,7 +4014,8 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     animateDrawer(!isOpen);
   });
 
-  updateVisualState(isOpen);
+  setDrawerState(isOpen ? 'open' : 'closed');
+  updateToggleState(isOpen);
   if(!isOpen){
     tickerPanel.style.height = '0px';
   }
