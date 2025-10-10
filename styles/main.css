@@ -1051,7 +1051,9 @@ label[data-animate-title]{
   --ticker-tab-size:clamp(32px, 7vw, 42px);
   --ticker-tab-width:clamp(72px, 20vw, 122px);
   --ticker-tab-clearance:clamp(6px, 1.6vw, 12px);
-  --ticker-tab-overlap:0px;
+  --ticker-tab-open-offset:0px;
+  --ticker-tab-closed-offset:var(--ticker-tab-clearance);
+  --ticker-tab-offset:var(--ticker-tab-open-offset);
   position:relative;
   width:100%;
   margin:0 auto 0;
@@ -1062,11 +1064,12 @@ label[data-animate-title]{
 .ticker-drawer[data-state='open'],
 .ticker-drawer[data-state='opening'],
 .ticker-drawer[data-state='closing']{
-  --ticker-tab-overlap:var(--ticker-tab-size);
+  --ticker-tab-offset:var(--ticker-tab-open-offset);
 }
 
 .ticker-drawer[data-state='closed']{
   margin-bottom:var(--ticker-tab-clearance);
+  --ticker-tab-offset:var(--ticker-tab-closed-offset);
 }
 
 .ticker-drawer__panel{
@@ -1096,7 +1099,7 @@ label[data-animate-title]{
   top:100%;
   bottom:auto;
   margin-inline:auto;
-  transform:translate3d(0, calc(-1 * var(--ticker-tab-overlap)), 0);
+  transform:translate3d(0, var(--ticker-tab-offset), 0);
   transform-origin:center;
   width:var(--ticker-tab-width);
   height:var(--ticker-tab-size);
