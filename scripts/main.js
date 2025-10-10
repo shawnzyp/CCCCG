@@ -4868,10 +4868,16 @@ const elCha = $('cha');
 const elSPBar = $('sp-bar');
 const elSPPill = $('sp-pill');
 const elSPTemp = $('sp-temp');
+const elSPCurrent = $('sp-current');
+const elSPMax = $('sp-max');
+const elSPTempPill = $('sp-temp-pill');
 const elHPBar = $('hp-bar');
 const elHPPill = $('hp-pill');
 const elHPRoll = $('hp-roll');
 const elHPTemp = $('hp-temp');
+const elHPCurrent = $('hp-current');
+const elHPMax = $('hp-max');
+const elHPTempPill = $('hp-temp-pill');
 // Cache frequently accessed HP amount field to avoid repeated DOM queries
 const elHPAmt = $('hp-amt');
 const elHPSettingsToggle = $('hp-settings-toggle');
@@ -5292,12 +5298,45 @@ if(elTier){
 }
 
 /* ========= derived helpers ========= */
+function updateTempBadge(target, tempValue){
+  if (!target) return;
+  const numericTemp = Number.isFinite(tempValue) ? tempValue : Number(tempValue || 0);
+  if (Number.isFinite(numericTemp) && numericTemp !== 0){
+    const roundedTemp = Math.trunc(numericTemp);
+    const prefix = roundedTemp > 0 ? '+' : '';
+    target.textContent = `${prefix}${roundedTemp} Temp`;
+    target.hidden = false;
+  } else {
+    target.textContent = '';
+    target.hidden = true;
+  }
+}
+
+function updateHPDisplay({ current, max } = {}){
+  const currentValue = Number.isFinite(current) ? current : num(elHPBar.value);
+  const maxValue = Number.isFinite(max) ? max : num(elHPBar.max);
+  const tempValue = elHPTemp ? num(elHPTemp.value) : 0;
+  if (elHPCurrent) elHPCurrent.textContent = currentValue;
+  if (elHPMax) elHPMax.textContent = maxValue;
+  if (elHPPill) elHPPill.textContent = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  updateTempBadge(elHPTempPill, tempValue);
+}
+
+function updateSPDisplay({ current, max } = {}){
+  const currentValue = Number.isFinite(current) ? current : num(elSPBar.value);
+  const maxValue = Number.isFinite(max) ? max : num(elSPBar.max);
+  const tempValue = elSPTemp ? num(elSPTemp.value) : 0;
+  if (elSPCurrent) elSPCurrent.textContent = currentValue;
+  if (elSPMax) elSPMax.textContent = maxValue;
+  if (elSPPill) elSPPill.textContent = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  updateTempBadge(elSPTempPill, tempValue);
+}
+
 function updateSP(){
   const spMax = 5 + mod(elCon.value);
   elSPBar.max = spMax;
   if (elSPBar.value === '' || Number.isNaN(Number(elSPBar.value))) elSPBar.value = spMax;
-  const temp = elSPTemp ? num(elSPTemp.value) : 0;
-  elSPPill.textContent = `${num(elSPBar.value)}/${spMax}` + (temp ? ` (+${temp})` : ``);
+  updateSPDisplay({ current: num(elSPBar.value), max: spMax });
 }
 
 function updateDeathSaveAvailability(){
@@ -5318,7 +5357,7 @@ function updateHP(){
   const prevMax = num(elHPBar.max);
   elHPBar.max = Math.max(0, total);
   if (!num(elHPBar.value) || num(elHPBar.value) === prevMax) elHPBar.value = elHPBar.max;
-  elHPPill.textContent = `${num(elHPBar.value)}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+  updateHPDisplay({ current: num(elHPBar.value), max: num(elHPBar.max) });
   updateDeathSaveAvailability();
   if(num(elHPBar.value) > 0){
     try { resetDeathSaves(); } catch {}
@@ -5727,7 +5766,7 @@ function setHP(v){
   const prev = num(elHPBar.value);
   elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
   const current = num(elHPBar.value);
-  elHPPill.textContent = `${current}/${num(elHPBar.max)}` + (num(elHPTemp.value)?` (+${num(elHPTemp.value)})`:``);
+  updateHPDisplay({ current, max: num(elHPBar.max) });
   updateDeathSaveAvailability();
   const diff = current - prev;
   if(diff !== 0){
@@ -5766,8 +5805,7 @@ async function setSP(v){
   }
   elSPBar.value = Math.max(0, Math.min(num(elSPBar.max), target));
   const current = num(elSPBar.value);
-  const temp = elSPTemp ? num(elSPTemp.value) : 0;
-  elSPPill.textContent = `${current}/${num(elSPBar.max)}` + (temp ? ` (+${temp})` : ``);
+  updateSPDisplay({ current, max: num(elSPBar.max) });
   const diff = current - prev;
   if(diff !== 0) {
     if(diff < 0){
