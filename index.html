@@ -421,13 +421,31 @@
           </div>
           <div class="tracker-card__controls">
             <span class="tracker-card__label" id="sp-quick-label">Quick Adjust</span>
-            <div class="tracker-card__quick sp-grid" role="group" aria-labelledby="sp-quick-label">
-              <button class="btn-sm" data-sp="-1">-1 SP</button>
-              <button class="btn-sm" data-sp="-2">-2 SP</button>
-              <button class="btn-sm" data-sp="-3">-3 SP</button>
-              <button class="btn-sm" data-sp="-4">-4 SP</button>
-              <button class="btn-sm" data-sp="-5">-5 SP</button>
-              <button id="sp-full" class="btn-sm">Reset SP</button>
+            <div class="tracker-card__quick sp-keypad" role="group" aria-labelledby="sp-quick-label">
+              <div class="sp-keypad__grid">
+                <button class="btn-sm sp-keypad__btn" type="button" data-sp="-1">
+                  <span aria-hidden="true">1</span>
+                  <span class="sr-only">Spend 1 SP</span>
+                </button>
+                <button class="btn-sm sp-keypad__btn" type="button" data-sp="-2">
+                  <span aria-hidden="true">2</span>
+                  <span class="sr-only">Spend 2 SP</span>
+                </button>
+                <button class="btn-sm sp-keypad__btn" type="button" data-sp="-3">
+                  <span aria-hidden="true">3</span>
+                  <span class="sr-only">Spend 3 SP</span>
+                </button>
+                <button class="btn-sm sp-keypad__btn" type="button" data-sp="-4">
+                  <span aria-hidden="true">4</span>
+                  <span class="sr-only">Spend 4 SP</span>
+                </button>
+                <button class="btn-sm sp-keypad__btn" type="button" data-sp="-5">
+                  <span aria-hidden="true">5</span>
+                  <span class="sr-only">Spend 5 SP</span>
+                </button>
+                <span class="sp-keypad__spacer" aria-hidden="true"></span>
+              </div>
+              <button id="sp-full" class="btn-sm sp-keypad__reset" type="button">Reset SP</button>
             </div>
           </div>
         </div>
