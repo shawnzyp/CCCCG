@@ -5347,6 +5347,21 @@ function updateTempBadge(target, tempValue){
   }
 }
 
+function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
+  if (!progressEl) return;
+  const numericCurrent = Number(currentValue);
+  const numericMax = Number(maxValue);
+  const ratio = Number.isFinite(numericCurrent) && Number.isFinite(numericMax) && numericMax > 0
+    ? Math.min(Math.max(numericCurrent / numericMax, 0), 1)
+    : 0;
+  const hue = Math.round(120 * ratio);
+  const color = `hsl(${hue}deg 68% 46%)`;
+  progressEl.style.setProperty('--progress-color', color);
+  if (labelEl) {
+    labelEl.style.setProperty('--progress-color', color);
+  }
+}
+
 function updateHPDisplay({ current, max } = {}){
   const currentValue = Number.isFinite(current) ? current : num(elHPBar.value);
   const maxValue = Number.isFinite(max) ? max : num(elHPBar.max);
@@ -5356,6 +5371,7 @@ function updateHPDisplay({ current, max } = {}){
   const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
   if (elHPPill) elHPPill.textContent = hpDisplay;
   if (elHPBar) elHPBar.setAttribute('aria-valuetext', hpDisplay);
+  applyProgressGradient(elHPBar, elHPPill, currentValue, maxValue);
   updateTempBadge(elHPTempPill, tempValue);
 }
 
@@ -5368,6 +5384,7 @@ function updateSPDisplay({ current, max } = {}){
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
   if (elSPPill) elSPPill.textContent = spDisplay;
   if (elSPBar) elSPBar.setAttribute('aria-valuetext', spDisplay);
+  applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue);
   updateTempBadge(elSPTempPill, tempValue);
 }
 

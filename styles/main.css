@@ -2104,7 +2104,7 @@ button .btn-label{display:inline-flex;align-items:center}
   font-weight:600;
   letter-spacing:.08em;
   text-transform:uppercase;
-  color:var(--text);
+  color:color-mix(in srgb,var(--progress-color,var(--text)) 55%, var(--text));
   text-shadow:0 1px 1px rgba(0,0,0,.35);
 }
 
