@@ -11,6 +11,33 @@ function getInertTargets() {
   return Array.from(targets);
 }
 
+function getInertCount(el) {
+  if (!el) return 0;
+  const value = el.getAttribute('data-inert-count');
+  const count = value ? Number.parseInt(value, 10) : 0;
+  return Number.isNaN(count) ? 0 : count;
+}
+
+function incrementInert(el) {
+  if (!el) return;
+  const count = getInertCount(el);
+  if (count === 0) {
+    el.setAttribute('inert', '');
+  }
+  el.setAttribute('data-inert-count', String(count + 1));
+}
+
+function decrementInert(el) {
+  if (!el) return;
+  const count = getInertCount(el);
+  if (count <= 1) {
+    el.removeAttribute('data-inert-count');
+    el.removeAttribute('inert');
+  } else {
+    el.setAttribute('data-inert-count', String(count - 1));
+  }
+}
+
 let lastFocus = null;
 let openModals = 0;
 
@@ -71,7 +98,7 @@ export function show(id) {
   if (openModals === 0) {
     coverFloatingLauncher();
     document.body.classList.add('modal-open');
-    getInertTargets().forEach(e => e.setAttribute('inert', ''));
+    getInertTargets().forEach(incrementInert);
   }
   openModals++;
   el.style.display = 'flex';
@@ -104,6 +131,6 @@ export function hide(id) {
   if (openModals === 0) {
     releaseFloatingLauncher();
     document.body.classList.remove('modal-open');
-    getInertTargets().forEach(e => e.removeAttribute('inert'));
+    getInertTargets().forEach(decrementInert);
   }
 }

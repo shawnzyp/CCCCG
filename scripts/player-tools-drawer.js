@@ -66,16 +66,33 @@
     });
   };
 
-  const setElementInert = (element) => {
-    if (!element) return;
-    element.setAttribute('inert', '');
-    applyFallbackInert(element);
+  const getInertCount = (element) => {
+    if (!element) return 0;
+    const value = element.getAttribute('data-inert-count');
+    const count = value ? Number.parseInt(value, 10) : 0;
+    return Number.isNaN(count) ? 0 : count;
   };
 
-  const removeElementInert = (element) => {
+  const incrementInert = (element) => {
     if (!element) return;
-    element.removeAttribute('inert');
-    removeFallbackInert(element);
+    const count = getInertCount(element);
+    if (count === 0) {
+      element.setAttribute('inert', '');
+    }
+    applyFallbackInert(element);
+    element.setAttribute('data-inert-count', String(count + 1));
+  };
+
+  const decrementInert = (element) => {
+    if (!element) return;
+    const count = getInertCount(element);
+    if (count <= 1) {
+      element.removeAttribute('data-inert-count');
+      element.removeAttribute('inert');
+      removeFallbackInert(element);
+    } else {
+      element.setAttribute('data-inert-count', String(count - 1));
+    }
   };
 
   const getExternalInertTargets = () => {
@@ -138,14 +155,14 @@
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     if (isOpen) {
       updateTabOffset();
-      removeElementInert(drawer);
+      decrementInert(drawer);
       externalInertTargets = getExternalInertTargets();
-      externalInertTargets.forEach(setElementInert);
+      externalInertTargets.forEach(incrementInert);
     } else {
       resetTabOffset();
-      externalInertTargets.forEach(removeElementInert);
+      externalInertTargets.forEach(decrementInert);
       externalInertTargets = [];
-      setElementInert(drawer);
+      incrementInert(drawer);
     }
     if (isOpen) {
       drawer.focus({ preventScroll: true });
@@ -214,6 +231,6 @@
   document.addEventListener('focusin', handleFocusIn);
 
   if (!drawer.classList.contains('is-open')) {
-    setElementInert(drawer);
+    incrementInert(drawer);
   }
 })();
