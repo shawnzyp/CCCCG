@@ -841,12 +841,12 @@
           <span id="credits-total-pill" class="credits-card__total">0</span>
         </div>
         <div class="credits-card__summary">
-          <span id="credits-gear-total" class="pill pill-sm">Equipped Gear: ₡0</span>
-          <span id="credits-gear-remaining" class="pill pill-sm">Remaining Credits: ₡0</span>
+          <span id="credits-gear-total" class="credits-card__summary-item">Equipped Gear: ₡0</span>
+          <span id="credits-gear-remaining" class="credits-card__summary-item">Remaining Credits: ₡0</span>
         </div>
         <div class="credits-card__controls" data-view-allow>
-          <div class="credits-card__field">
-            <label for="credits-amt" class="credits-card__label">Amount</label>
+          <label class="credits-card__amount" for="credits-amt">
+            <span class="credits-card__amount-label">Amount</span>
             <input
               id="credits-amt"
               data-view-allow
@@ -855,17 +855,22 @@
               pattern="[0-9]*"
               placeholder="0"
             />
-          </div>
-          <div class="credits-card__field">
-            <label for="credits-mode" class="credits-card__label">Action</label>
-            <div class="credits-card__select">
-              <select id="credits-mode" data-view-allow>
-                <option value="add">Add Credits</option>
-                <option value="subtract">Spend Credits</option>
-              </select>
-              <span class="credits-card__select-icon" aria-hidden="true"></span>
-            </div>
-          </div>
+          </label>
+          <button
+            id="credits-mode-toggle"
+            class="credits-card__mode-btn"
+            type="button"
+            data-view-allow
+            data-mode="add"
+            aria-pressed="false"
+          >
+            <span data-mode-label>Add</span>
+            <span class="credits-card__mode-icon" data-mode-icon aria-hidden="true">✓</span>
+          </button>
+          <select id="credits-mode" data-view-allow class="sr-only" aria-hidden="true" tabindex="-1">
+            <option value="add">Add Credits</option>
+            <option value="subtract">Spend Credits</option>
+          </select>
         </div>
         <button id="credits-submit" class="credits-card__submit" type="button">Submit</button>
         <div class="credits-card__reason">
