@@ -180,8 +180,10 @@ a:hover,a:focus{color:var(--accent-2);text-decoration:underline}
   z-index:5;
   padding-left:env(safe-area-inset-left, 0px);
   padding-right:env(safe-area-inset-right, 0px);
+  padding-bottom:0;
   margin-left:calc(-1 * env(safe-area-inset-left, 0px));
   margin-right:calc(-1 * env(safe-area-inset-right, 0px));
+  margin-bottom:-2px;
   background:color-mix(in srgb,var(--surface) 94%, transparent);
   backdrop-filter:blur(8px);
   will-change:opacity,transform;
@@ -1053,7 +1055,9 @@ label[data-animate-title]{
   --ticker-tab-overlap:calc(var(--ticker-tab-size) * .45);
   position:relative;
   width:100%;
+  margin-top:0;
   margin:0 auto calc(var(--ticker-tab-overlap) - var(--ticker-tab-size));
+  padding-top:0;
   padding-bottom:0;
   max-width:100%;
   z-index:12;
@@ -1067,6 +1071,8 @@ label[data-animate-title]{
   position:relative;
   width:100%;
   height:auto;
+  margin-top:0;
+  padding-top:0;
   overflow-y:hidden;
   overflow-x:visible;
   box-shadow:0 10px 32px color-mix(in srgb, var(--accent) 14%, transparent);
