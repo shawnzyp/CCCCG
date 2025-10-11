@@ -1051,12 +1051,17 @@ label[data-animate-title]{
   --ticker-tab-size:clamp(32px, 7vw, 42px);
   --ticker-tab-width:clamp(72px, 20vw, 122px);
   --ticker-tab-overlap:0px;
+  --ticker-panel-offset:0px;
   position:relative;
   width:100%;
   margin:0 auto 0;
   padding-bottom:0;
   max-width:100%;
   z-index:12;
+}
+.ticker-drawer[data-state='opening'],
+.ticker-drawer[data-state='open']{
+  margin-bottom:var(--ticker-panel-offset, 0px);
 }
 .ticker-drawer[data-state='closing'],
 .ticker-drawer[data-state='closed']{
