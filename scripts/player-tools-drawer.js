@@ -4,6 +4,40 @@
   if (!drawer || !tab) return;
 
   const body = document.body;
+  const requestFrame =
+    typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame.bind(window)
+      : (callback) => window.setTimeout(callback, 16);
+
+  const applyTabTopProperty = () => {
+    if (!tab) return;
+    const viewport = window.visualViewport;
+    if (viewport) {
+      const centerY = viewport.offsetTop + viewport.height / 2;
+      tab.style.setProperty('--player-tools-tab-top', `${centerY}px`);
+    } else {
+      tab.style.removeProperty('--player-tools-tab-top');
+    }
+  };
+
+  let tabTopUpdateFrame = null;
+  const scheduleTabTopUpdate = () => {
+    if (tabTopUpdateFrame !== null) return;
+    tabTopUpdateFrame = requestFrame(() => {
+      tabTopUpdateFrame = null;
+      applyTabTopProperty();
+    });
+  };
+
+  if (window.visualViewport) {
+    applyTabTopProperty();
+    window.visualViewport.addEventListener('resize', scheduleTabTopUpdate);
+    window.visualViewport.addEventListener('scroll', scheduleTabTopUpdate);
+  } else {
+    applyTabTopProperty();
+    window.addEventListener('resize', scheduleTabTopUpdate);
+    window.addEventListener('orientationchange', scheduleTabTopUpdate);
+  }
 
   const focusableSelectors = [
     'a[href]',
@@ -113,6 +147,8 @@
   const setOpenState = (open) => {
     const currentlyOpen = drawer.classList.contains('is-open');
     const isOpen = typeof open === 'boolean' ? open : !currentlyOpen;
+
+    scheduleTabTopUpdate();
 
     if (isOpen === currentlyOpen) {
       return;
