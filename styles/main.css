@@ -1052,7 +1052,9 @@ label[data-animate-title]{
 .ticker-drawer{
   --ticker-tab-size:clamp(32px, 7vw, 42px);
   --ticker-tab-width:clamp(72px, 20vw, 122px);
-  --ticker-tab-overlap:calc(var(--ticker-tab-size) * .45);
+  --ticker-tab-border-width:2px;
+  --ticker-tab-border-color:color-mix(in srgb, #e84561 90%, rgba(7, 11, 19, .65));
+  --ticker-tab-overlap:calc(var(--ticker-tab-size) - var(--ticker-tab-border-width));
   position:relative;
   width:100%;
   margin-top:0;
@@ -1105,7 +1107,7 @@ label[data-animate-title]{
   justify-content:center;
   padding:0;
   border-radius:0 0 999px 999px;
-  border:1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border:var(--ticker-tab-border-width) solid var(--ticker-tab-border-color);
   border-top:none;
   background:color-mix(in srgb, var(--surface) 95%, transparent);
   box-shadow:0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent);
