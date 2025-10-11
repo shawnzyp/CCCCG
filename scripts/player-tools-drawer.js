@@ -23,7 +23,7 @@
     const halfTab = tabHeight / 2;
 
     if (viewport) {
-      const desiredCenter = viewport.offsetTop + viewport.height / 3;
+      const desiredCenter = viewport.offsetTop + viewport.height / 2;
       const minCenter = viewport.offsetTop + halfTab;
       const maxCenter = viewport.offsetTop + viewport.height - halfTab;
       const nextCenter = clamp(desiredCenter, minCenter, maxCenter);
@@ -39,7 +39,7 @@
       tab.style.removeProperty('--player-tools-tab-top');
       return;
     }
-    const desiredCenter = scrollTop + viewHeight / 3;
+    const desiredCenter = scrollTop + viewHeight / 2;
     const minCenter = scrollTop + halfTab;
     const maxCenter = scrollTop + viewHeight - halfTab;
     const nextCenter = clamp(desiredCenter, minCenter, maxCenter);
