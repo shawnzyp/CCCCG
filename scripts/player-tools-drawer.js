@@ -20,21 +20,39 @@
     }
   };
 
+  const getDrawerSlideDirection = () => {
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    const direction = parseFloat(rootStyles.getPropertyValue('--drawer-slide-direction'));
+    return Number.isFinite(direction) && direction !== 0 ? direction : -1;
+  };
+
+  const applyTabOffsetProperty = () => {
+    if (!tab || !drawer) return;
+    const drawerWidth = drawer.getBoundingClientRect().width;
+    if (!Number.isFinite(drawerWidth)) return;
+    const direction = getDrawerSlideDirection();
+    const offset = drawerWidth * direction * -1;
+    tab.style.setProperty('--player-tools-tab-offset', `${offset}px`);
+  };
+
   let tabTopUpdateFrame = null;
   const scheduleTabTopUpdate = () => {
     if (tabTopUpdateFrame !== null) return;
     tabTopUpdateFrame = requestFrame(() => {
       tabTopUpdateFrame = null;
       applyTabTopProperty();
+      applyTabOffsetProperty();
     });
   };
 
   if (window.visualViewport) {
     applyTabTopProperty();
+    applyTabOffsetProperty();
     window.visualViewport.addEventListener('resize', scheduleTabTopUpdate);
     window.visualViewport.addEventListener('scroll', scheduleTabTopUpdate);
   } else {
     applyTabTopProperty();
+    applyTabOffsetProperty();
     window.addEventListener('resize', scheduleTabTopUpdate);
     window.addEventListener('orientationchange', scheduleTabTopUpdate);
   }
