@@ -5146,7 +5146,17 @@ if (elHPRoll) {
   if (initial) hpRolls = [initial];
 }
 
-if (elCAPCheck instanceof HTMLElement && elCAPStatus instanceof HTMLElement) {
+const isElementNode = (node) => {
+  if (!node || typeof node !== 'object') {
+    return false;
+  }
+  if (typeof HTMLElement !== 'undefined') {
+    return node instanceof HTMLElement;
+  }
+  return node.nodeType === 1;
+};
+
+if (isElementNode(elCAPCheck) && isElementNode(elCAPStatus)) {
   const capBox = elCAPCheck.closest('.cap-box');
   const reduceMotionQuery = typeof window.matchMedia === 'function'
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
