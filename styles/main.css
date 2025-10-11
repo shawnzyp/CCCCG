@@ -1052,7 +1052,7 @@ label[data-animate-title]{
 .ticker-drawer{
   --ticker-tab-size:clamp(32px, 7vw, 42px);
   --ticker-tab-width:clamp(72px, 20vw, 122px);
-  --ticker-tab-overlap:calc(var(--ticker-tab-size) * .45);
+  --ticker-tab-overlap:calc(var(--ticker-tab-size) * .55);
   position:relative;
   width:100%;
   margin-top:0;
@@ -1062,6 +1062,7 @@ label[data-animate-title]{
   max-width:100%;
   z-index:12;
 }
+.ticker-drawer[data-state='open'],
 .ticker-drawer[data-state='closing'],
 .ticker-drawer[data-state='closed']{
   margin-bottom:calc(var(--ticker-tab-overlap) - var(--ticker-tab-size));
