@@ -374,8 +374,10 @@
               </div>
             </div>
             <span id="hp-temp-pill" class="hp-field__temp" hidden>+0 Temp</span>
-            <progress id="hp-bar" class="sr-only" max="30" value="30"></progress>
-            <span id="hp-pill" class="sr-only">30/30</span>
+            <div class="hp-field__progress tracker-progress bar-label">
+              <progress id="hp-bar" class="hp-field__progress-bar" max="30" value="30" aria-label="HP remaining"></progress>
+              <span id="hp-pill" class="hp-field__progress-label tracker-progress__label">30/30</span>
+            </div>
           </div>
           <div class="hp-field__controls">
             <button
@@ -418,8 +420,10 @@
               </div>
             </div>
             <span id="sp-temp-pill" class="sp-field__temp" hidden>+0 Temp</span>
-            <progress id="sp-bar" class="sr-only" max="5" value="5"></progress>
-            <span id="sp-pill" class="sr-only">5/5</span>
+            <div class="sp-field__progress tracker-progress bar-label">
+              <progress id="sp-bar" class="sp-field__progress-bar" max="5" value="5" aria-label="SP remaining"></progress>
+              <span id="sp-pill" class="sp-field__progress-label tracker-progress__label">5/5</span>
+            </div>
           </div>
           <div class="sp-field__controls">
             <button

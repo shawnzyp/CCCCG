@@ -2077,6 +2077,28 @@ button .btn-label{display:inline-flex;align-items:center}
   color:var(--accent);
 }
 
+.tracker-progress{
+  --progress-min-height:clamp(18px,4vw,24px);
+  width:100%;
+}
+
+.tracker-progress__label{
+  font-size:clamp(.75rem,2.2vw,.85rem);
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--text);
+  text-shadow:0 1px 1px rgba(0,0,0,.35);
+}
+
+.hp-field__progress{
+  --progress-color:var(--success);
+}
+
+.hp-field__progress-label{
+  letter-spacing:.08em;
+}
+
 .hp-field__controls{
   display:grid;
   gap:clamp(10px,3vw,14px);
@@ -3126,7 +3148,7 @@ progress::-moz-progress-bar{
 
 .sp-field__layout{
   display:grid;
-  grid-template-columns:minmax(0,95px) minmax(0,1fr);
+  grid-template-columns:minmax(0,110px) minmax(0,1fr);
   gap:clamp(12px,3vw,18px);
   align-items:stretch;
 }
@@ -3134,12 +3156,13 @@ progress::-moz-progress-bar{
 .sp-field__status{
   display:flex;
   flex-direction:column;
-  gap:clamp(10px,2.8vw,14px);
+  align-items:stretch;
+  gap:clamp(12px,3vw,16px);
 }
 
 .sp-field__values{
   display:grid;
-  gap:clamp(8px,2.4vw,12px);
+  gap:clamp(10px,2.8vw,14px);
 }
 
 .sp-field__value{
@@ -3148,26 +3171,26 @@ progress::-moz-progress-bar{
   align-items:center;
   justify-content:center;
   gap:6px;
-  min-height:clamp(48px,8vw,66px);
-  padding:clamp(8px,2vw,11px);
+  min-height:clamp(54px,9vw,74px);
+  padding:clamp(8px,2.2vw,12px);
   border-radius:var(--radius);
-  background:color-mix(in srgb,var(--surface-2) 60%, transparent);
+  background:color-mix(in srgb,var(--surface-2) 65%, transparent);
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line) 70%, transparent);
   text-align:center;
 }
 
 .sp-field__value--max{
-  background:color-mix(in srgb,var(--surface-2) 75%, transparent);
+  background:color-mix(in srgb,var(--surface-2) 80%, transparent);
 }
 
 .sp-field__value-number{
-  font-size:clamp(1.25rem,3.6vw,1.6rem);
+  font-size:clamp(1.45rem,4vw,1.85rem);
   font-weight:700;
   line-height:1;
 }
 
 .sp-field__value-label{
-  font-size:clamp(.65rem,2vw,.75rem);
+  font-size:clamp(.7rem,2.2vw,.78rem);
   text-transform:uppercase;
   letter-spacing:.12em;
   color:var(--muted);
@@ -3179,11 +3202,19 @@ progress::-moz-progress-bar{
   padding:4px 10px;
   border-radius:999px;
   background:color-mix(in srgb,var(--accent) 20%, transparent);
-  font-size:clamp(.68rem,2vw,.76rem);
+  font-size:clamp(.7rem,2vw,.78rem);
   font-weight:600;
   letter-spacing:.06em;
   text-transform:uppercase;
   color:var(--accent);
+}
+
+.sp-field__progress{
+  --progress-color:var(--accent);
+}
+
+.sp-field__progress-label{
+  letter-spacing:.08em;
 }
 
 .sp-field__controls{
