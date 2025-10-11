@@ -5353,7 +5353,9 @@ function updateHPDisplay({ current, max } = {}){
   const tempValue = elHPTemp ? num(elHPTemp.value) : 0;
   if (elHPCurrent) elHPCurrent.textContent = currentValue;
   if (elHPMax) elHPMax.textContent = maxValue;
-  if (elHPPill) elHPPill.textContent = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  if (elHPPill) elHPPill.textContent = hpDisplay;
+  if (elHPBar) elHPBar.setAttribute('aria-valuetext', hpDisplay);
   updateTempBadge(elHPTempPill, tempValue);
 }
 
@@ -5363,7 +5365,9 @@ function updateSPDisplay({ current, max } = {}){
   const tempValue = elSPTemp ? num(elSPTemp.value) : 0;
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
-  if (elSPPill) elSPPill.textContent = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  if (elSPPill) elSPPill.textContent = spDisplay;
+  if (elSPBar) elSPBar.setAttribute('aria-valuetext', spDisplay);
   updateTempBadge(elSPTempPill, tempValue);
 }
 
