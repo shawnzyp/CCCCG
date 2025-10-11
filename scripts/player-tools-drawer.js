@@ -20,24 +20,41 @@
     }
   };
 
-  let tabTopUpdateFrame = null;
-  const scheduleTabTopUpdate = () => {
-    if (tabTopUpdateFrame !== null) return;
-    tabTopUpdateFrame = requestFrame(() => {
-      tabTopUpdateFrame = null;
+  const applyTabOffsetProperty = () => {
+    if (!drawer || !tab) return;
+    const { width } = drawer.getBoundingClientRect();
+    if (width === 0) {
+      tab.style.removeProperty('--player-tools-tab-offset');
+      return;
+    }
+    const rootStyle = getComputedStyle(document.documentElement);
+    const slideDirection = parseFloat(rootStyle.getPropertyValue('--drawer-slide-direction')) || -1;
+    const offset = width * slideDirection;
+    tab.style.setProperty('--player-tools-tab-offset', `${offset}px`);
+  };
+
+  let tabMetricsUpdateFrame = null;
+  const scheduleTabMetricsUpdate = () => {
+    if (tabMetricsUpdateFrame !== null) return;
+    tabMetricsUpdateFrame = requestFrame(() => {
+      tabMetricsUpdateFrame = null;
       applyTabTopProperty();
+      applyTabOffsetProperty();
     });
   };
 
   if (window.visualViewport) {
     applyTabTopProperty();
-    window.visualViewport.addEventListener('resize', scheduleTabTopUpdate);
-    window.visualViewport.addEventListener('scroll', scheduleTabTopUpdate);
+    applyTabOffsetProperty();
+    window.visualViewport.addEventListener('resize', scheduleTabMetricsUpdate);
+    window.visualViewport.addEventListener('scroll', scheduleTabMetricsUpdate);
   } else {
     applyTabTopProperty();
-    window.addEventListener('resize', scheduleTabTopUpdate);
-    window.addEventListener('orientationchange', scheduleTabTopUpdate);
+    applyTabOffsetProperty();
   }
+
+  window.addEventListener('resize', scheduleTabMetricsUpdate);
+  window.addEventListener('orientationchange', scheduleTabMetricsUpdate);
 
   const focusableSelectors = [
     'a[href]',
@@ -148,7 +165,7 @@
     const currentlyOpen = drawer.classList.contains('is-open');
     const isOpen = typeof open === 'boolean' ? open : !currentlyOpen;
 
-    scheduleTabTopUpdate();
+    scheduleTabMetricsUpdate();
 
     if (isOpen === currentlyOpen) {
       return;
