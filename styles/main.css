@@ -1055,6 +1055,7 @@ label[data-animate-title]{
   --ticker-tab-border-width:2px;
   --ticker-tab-border-color:color-mix(in srgb, var(--accent) 65%, rgba(7, 11, 19, .55));
   --ticker-tab-offset:0px;
+  --ticker-tab-margin-adjust:0px;
   --ticker-tab-overlap:calc(var(--ticker-tab-size) - var(--ticker-tab-border-width));
   --ticker-tab-shadow:0 10px 26px color-mix(in srgb, var(--accent) 20%, transparent);
   --ticker-tab-shadow-hover:0 12px 30px color-mix(in srgb, var(--accent) 24%, transparent);
@@ -1063,7 +1064,7 @@ label[data-animate-title]{
   position:relative;
   width:100%;
   margin-top:0;
-  margin:0 auto calc(var(--ticker-tab-overlap) - var(--ticker-tab-size) - var(--ticker-tab-offset, 0px));
+  margin:0 auto calc(var(--ticker-tab-overlap) - var(--ticker-tab-size) - var(--ticker-tab-offset, 0px) + var(--ticker-tab-margin-adjust, 0px));
   padding-top:0;
   padding-bottom:0;
   max-width:100%;
@@ -1073,7 +1074,8 @@ label[data-animate-title]{
 .ticker-drawer--m24n{
   --ticker-tab-border-width:var(--m24n-line-width, 2px);
   --ticker-tab-border-color:var(--m24n-line-color, color-mix(in srgb, var(--m24n-highlight, #e84561) 90%, rgba(7, 11, 19, .65)));
-  --ticker-tab-offset:calc(var(--m24n-line-width, 2px) * -1);
+  --ticker-tab-offset:var(--ticker-tab-overlap);
+  --ticker-tab-margin-adjust:var(--ticker-tab-size);
   --ticker-tab-shadow:0 14px 34px color-mix(in srgb, var(--m24n-highlight, #e84561) 26%, rgba(7, 11, 19, .58));
   --ticker-tab-shadow-hover:0 16px 38px color-mix(in srgb, var(--m24n-highlight, #e84561) 32%, rgba(7, 11, 19, .52));
   --ticker-tab-shadow-closed:0 10px 24px color-mix(in srgb, var(--m24n-highlight, #e84561) 22%, rgba(7, 11, 19, .62));
@@ -1081,7 +1083,7 @@ label[data-animate-title]{
 }
 .ticker-drawer[data-state='closing'],
 .ticker-drawer[data-state='closed']{
-  margin-bottom:calc(var(--ticker-tab-overlap) - var(--ticker-tab-size) - var(--ticker-tab-offset, 0px));
+  margin-bottom:calc(var(--ticker-tab-overlap) - var(--ticker-tab-size) - var(--ticker-tab-offset, 0px) + var(--ticker-tab-margin-adjust, 0px));
 }
 
 .ticker-drawer__panel{
