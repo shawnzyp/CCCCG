@@ -5086,6 +5086,8 @@ const elCreditsPill = $('credits-total-pill');
 const elCreditsGearTotal = $('credits-gear-total');
 const elCreditsGearRemaining = $('credits-gear-remaining');
 const elCreditsReason = $('credits-reason');
+const elCreditsModeSelect = $('credits-mode');
+const elCreditsModeToggle = $('credits-mode-toggle');
 
 if (elPowerStylePrimary) {
   elPowerStylePrimary.addEventListener('change', () => {
@@ -5176,7 +5178,7 @@ if (elHPRoll) {
   if (initial) hpRolls = [initial];
 }
 
-if (elCAPCheck && elCAPStatus) {
+if (elCAPCheck instanceof HTMLElement && elCAPStatus instanceof HTMLElement) {
   const capBox = elCAPCheck.closest('.cap-box');
   const reduceMotionQuery = typeof window.matchMedia === 'function'
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -5279,7 +5281,7 @@ function getTierIndex(xp){
 let currentTierIdx = 0;
 let xpInitialized = false;
 let catalogRenderScheduler = null;
-if (elXP) {
+if (elXP instanceof HTMLElement) {
   const initXP = Math.max(0, num(elXP.value));
   currentTierIdx = getTierIndex(initXP);
 }
@@ -5792,6 +5794,31 @@ $('credits-submit').addEventListener('click', ()=>{
   if (amtField) amtField.value='';
   if (elCreditsReason) elCreditsReason.value='';
 });
+
+const isElement = (node, ctor) => typeof ctor !== 'undefined' && node instanceof ctor;
+
+const updateCreditsModeToggle = ()=>{
+  if (!isElement(elCreditsModeToggle, HTMLElement) || !isElement(elCreditsModeSelect, HTMLSelectElement)) {
+    return;
+  }
+  const mode = elCreditsModeSelect.value === 'subtract' ? 'subtract' : 'add';
+  const label = elCreditsModeToggle.querySelector('[data-mode-label]');
+  const icon = elCreditsModeToggle.querySelector('[data-mode-icon]');
+  elCreditsModeToggle.dataset.mode = mode;
+  elCreditsModeToggle.setAttribute('aria-pressed', mode === 'subtract' ? 'true' : 'false');
+  if (label) label.textContent = mode === 'add' ? 'Add' : 'Spend';
+  if (icon) icon.textContent = mode === 'add' ? '✓' : '−';
+};
+
+if (isElement(elCreditsModeToggle, HTMLElement) && isElement(elCreditsModeSelect, HTMLSelectElement)) {
+  elCreditsModeToggle.addEventListener('click', () => {
+    elCreditsModeSelect.value = elCreditsModeSelect.value === 'add' ? 'subtract' : 'add';
+    elCreditsModeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    updateCreditsModeToggle();
+  });
+  elCreditsModeSelect.addEventListener('change', updateCreditsModeToggle);
+  updateCreditsModeToggle();
+}
 
 
 /* ========= HP/SP controls ========= */
