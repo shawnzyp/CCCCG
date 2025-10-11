@@ -1050,17 +1050,17 @@ label[data-animate-title]{
 .ticker-drawer{
   --ticker-tab-size:clamp(32px, 7vw, 42px);
   --ticker-tab-width:clamp(72px, 20vw, 122px);
-  --ticker-tab-overlap:0px;
+  --ticker-tab-overlap:calc(var(--ticker-tab-size) * .45);
   position:relative;
   width:100%;
-  margin:0 auto 0;
+  margin:0 auto calc(var(--ticker-tab-overlap) - var(--ticker-tab-size));
   padding-bottom:0;
   max-width:100%;
   z-index:12;
 }
 .ticker-drawer[data-state='closing'],
 .ticker-drawer[data-state='closed']{
-  margin-bottom:0;
+  margin-bottom:calc(var(--ticker-tab-overlap) - var(--ticker-tab-size));
 }
 
 .ticker-drawer__panel{
