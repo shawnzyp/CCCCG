@@ -85,7 +85,9 @@ header{
   --header-padding-block:calc(4px * 1.15);
   position:sticky;
   top:0;
-  z-index:20;
+  left:0;
+  right:0;
+  z-index:200;
   background:var(--surface);
   box-shadow:var(--shadow);
   padding-top:calc(var(--header-padding-block) + env(safe-area-inset-top, 0px));
@@ -94,6 +96,9 @@ header{
   flex-direction:column;
   gap:0;
   isolation:isolate;
+  width:100%;
+  max-width:100%;
+  flex:0 0 auto;
 }
 header > .top{margin-bottom:calc(6px * 1.15);}
 header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-10px * 1.15))}
