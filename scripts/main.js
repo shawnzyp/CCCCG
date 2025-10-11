@@ -3913,6 +3913,34 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     original: tickerToggle.getAttribute('data-open-icon'),
     inverted: tickerToggle.getAttribute('data-open-icon-inverted')
   };
+  const setPanelOffset = value => {
+    const measuredHeight = typeof value === 'number'
+      ? value
+      : tickerPanel.getBoundingClientRect().height;
+    const nextHeight = Math.max(0, Math.round(measuredHeight || 0));
+    tickerDrawer.style.setProperty('--ticker-panel-offset', `${nextHeight}px`);
+  };
+  const initializePanelObserver = () => {
+    let resizeObserver = null;
+    if(typeof ResizeObserver === 'function'){
+      resizeObserver = new ResizeObserver(entries => {
+        for(const entry of entries){
+          if(entry?.target === tickerPanel){
+            const entryHeight = entry?.contentRect?.height;
+            setPanelOffset(typeof entryHeight === 'number' ? entryHeight : undefined);
+          }
+        }
+      });
+      resizeObserver.observe(tickerPanel);
+      tickerDrawer._tickerPanelResizeObserver = resizeObserver;
+    } else if(typeof window !== 'undefined'){
+      const handleResize = () => setPanelOffset();
+      window.addEventListener('resize', handleResize);
+      tickerDrawer._tickerPanelResizeHandler = handleResize;
+    }
+    setPanelOffset();
+  };
+  initializePanelObserver();
   let isOpen = tickerDrawer.getAttribute('data-state') !== 'closed';
   let isAnimating = false;
 
@@ -3965,6 +3993,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     }else{
       tickerPanel.style.height = '0px';
     }
+    setPanelOffset();
     isAnimating = false;
   };
 
@@ -3978,12 +4007,14 @@ if(tickerDrawer && tickerPanel && tickerToggle){
       ? (panelInner ? panelInner.scrollHeight : tickerPanel.scrollHeight)
       : 0;
     tickerPanel.style.height = `${Math.max(0, Math.round(startHeight))}px`;
+    setPanelOffset(startHeight);
     isOpen = nextOpen;
     requestAnimationFrame(() => {
       tickerPanel.classList.add('is-animating');
       updateToggleState(nextOpen);
       setDrawerState(nextOpen ? 'opening' : 'closing');
       tickerPanel.style.height = `${Math.max(0, Math.round(targetHeight))}px`;
+      setPanelOffset(targetHeight);
       const prefersReduce = typeof window !== 'undefined'
         && window.matchMedia
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -4014,6 +4045,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   if(!isOpen){
     tickerPanel.style.height = '0px';
   }
+  setPanelOffset();
 }
 
 const tickerTrack = qs('[data-fun-ticker-track]');
