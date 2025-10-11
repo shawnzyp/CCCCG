@@ -26,7 +26,7 @@
     return Number.isFinite(direction) && direction !== 0 ? direction : -1;
   };
 
-  const applyTabOffsetProperty = () => {
+  const updateTabOffset = () => {
     if (!tab || !drawer) return;
     const drawerWidth = drawer.getBoundingClientRect().width;
     if (!Number.isFinite(drawerWidth)) return;
@@ -41,18 +41,18 @@
     tabTopUpdateFrame = requestFrame(() => {
       tabTopUpdateFrame = null;
       applyTabTopProperty();
-      applyTabOffsetProperty();
+      updateTabOffset();
     });
   };
 
   if (window.visualViewport) {
     applyTabTopProperty();
-    applyTabOffsetProperty();
+    updateTabOffset();
     window.visualViewport.addEventListener('resize', scheduleTabTopUpdate);
     window.visualViewport.addEventListener('scroll', scheduleTabTopUpdate);
   } else {
     applyTabTopProperty();
-    applyTabOffsetProperty();
+    updateTabOffset();
     window.addEventListener('resize', scheduleTabTopUpdate);
     window.addEventListener('orientationchange', scheduleTabTopUpdate);
   }
