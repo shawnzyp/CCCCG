@@ -9,14 +9,42 @@
       ? window.requestAnimationFrame.bind(window)
       : (callback) => window.setTimeout(callback, 16);
 
+  const clamp = (value, min, max) => {
+    if (!Number.isFinite(value)) return value;
+    if (Number.isFinite(min) && value < min) return min;
+    if (Number.isFinite(max) && value > max) return max;
+    return value;
+  };
+
   const applyTabTopProperty = () => {
     if (!tab) return;
     const viewport = window.visualViewport;
+    const tabHeight = tab.getBoundingClientRect().height || 0;
+    const halfTab = tabHeight / 2;
+
     if (viewport) {
-      const centerY = viewport.offsetTop + viewport.height / 2;
-      tab.style.setProperty('--player-tools-tab-top', `${centerY}px`);
-    } else {
+      const desiredCenter = viewport.offsetTop + viewport.height / 3;
+      const minCenter = viewport.offsetTop + halfTab;
+      const maxCenter = viewport.offsetTop + viewport.height - halfTab;
+      const nextCenter = clamp(desiredCenter, minCenter, maxCenter);
+      if (Number.isFinite(nextCenter)) {
+        tab.style.setProperty('--player-tools-tab-top', `${nextCenter}px`);
+      }
+      return;
+    }
+
+    const viewHeight = window.innerHeight || document.documentElement?.clientHeight;
+    const scrollTop = window.pageYOffset || document.documentElement?.scrollTop || 0;
+    if (!Number.isFinite(viewHeight)) {
       tab.style.removeProperty('--player-tools-tab-top');
+      return;
+    }
+    const desiredCenter = scrollTop + viewHeight / 3;
+    const minCenter = scrollTop + halfTab;
+    const maxCenter = scrollTop + viewHeight - halfTab;
+    const nextCenter = clamp(desiredCenter, minCenter, maxCenter);
+    if (Number.isFinite(nextCenter)) {
+      tab.style.setProperty('--player-tools-tab-top', `${nextCenter}px`);
     }
   };
 
@@ -26,13 +54,15 @@
     return Number.isFinite(direction) && direction !== 0 ? direction : -1;
   };
 
-  const updateTabOffset = () => {
+  const updateTabOffset = (width) => {
     if (!tab || !drawer) return;
-    const drawerWidth = drawer.getBoundingClientRect().width;
+    const drawerWidth = typeof width === 'number' ? width : drawer.getBoundingClientRect().width;
     if (!Number.isFinite(drawerWidth)) return;
     const direction = getDrawerSlideDirection();
     const offset = drawerWidth * direction * -1;
-    tab.style.setProperty('--player-tools-tab-offset', `${offset}px`);
+    if (Number.isFinite(offset)) {
+      tab.style.setProperty('--player-tools-tab-offset', `${offset}px`);
+    }
   };
 
   let tabTopUpdateFrame = null;
@@ -45,17 +75,41 @@
     });
   };
 
-  if (window.visualViewport) {
+  const initializeTabTrackers = () => {
     applyTabTopProperty();
     updateTabOffset();
-    window.visualViewport.addEventListener('resize', scheduleTabTopUpdate);
-    window.visualViewport.addEventListener('scroll', scheduleTabTopUpdate);
-  } else {
-    applyTabTopProperty();
-    updateTabOffset();
-    window.addEventListener('resize', scheduleTabTopUpdate);
-    window.addEventListener('orientationchange', scheduleTabTopUpdate);
-  }
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', scheduleTabTopUpdate);
+      window.visualViewport.addEventListener('scroll', scheduleTabTopUpdate);
+    } else {
+      window.addEventListener('resize', scheduleTabTopUpdate);
+      window.addEventListener('orientationchange', scheduleTabTopUpdate);
+      window.addEventListener('scroll', scheduleTabTopUpdate, { passive: true });
+    }
+
+    if (typeof ResizeObserver === 'function') {
+      const drawerObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry?.target === drawer) {
+            const measuredWidth = entry?.contentRect?.width;
+            updateTabOffset(typeof measuredWidth === 'number' ? measuredWidth : undefined);
+            scheduleTabTopUpdate();
+          }
+        }
+      });
+      drawerObserver.observe(drawer);
+      drawer._playerToolsDrawerResizeObserver = drawerObserver;
+
+      const tabObserver = new ResizeObserver(() => {
+        scheduleTabTopUpdate();
+      });
+      tabObserver.observe(tab);
+      tab._playerToolsTabResizeObserver = tabObserver;
+    }
+  };
+
+  initializeTabTrackers();
 
   const focusableSelectors = [
     'a[href]',
