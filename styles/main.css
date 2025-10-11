@@ -1150,7 +1150,7 @@ label[data-animate-title]{
 }
 
 .ticker-drawer[data-state='closed'] .ticker-drawer__pull{
-  transform:translate3d(0, 0, 0);
+  transform:translate3d(0, var(--ticker-tab-offset), 0);
   box-shadow:0 6px 16px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
