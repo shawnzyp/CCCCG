@@ -3410,11 +3410,16 @@ body:not(.no-hover) .modal .x:hover{color:var(--accent)}
 .dm-credit__status--debit{color:var(--error)}
 .dm-credit__footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .dm-credit__timestamp{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.8rem}
-.dm-credit__submit{background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 45%, var(--text-on-accent) 55%));color:var(--surface);border:none;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 12px 28px rgba(2,6,23,.45);min-width:120px;transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
+.dm-credit__submit{background-color:var(--accent);background-image:linear-gradient(90deg,var(--accent),rgba(255,255,255,.28));color:var(--surface);border:none;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 12px 28px rgba(2,6,23,.45);min-width:120px;transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
+.dm-credit__submit:disabled{background-image:linear-gradient(90deg,var(--accent),rgba(255,255,255,.18))}
+@supports (color:color-mix(in srgb, red 50%, blue 50%)){
+  .dm-credit__submit{background-image:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 45%, var(--text-on-accent) 55%))}
+  .dm-credit__submit:disabled{background-image:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 35%, var(--text-on-accent) 65%))}
+}
 .dm-credit__submit:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 body:not(.no-hover) .dm-credit__submit:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(2,6,23,.5)}
 .dm-credit__submit:active{transform:translateY(0);box-shadow:0 10px 24px rgba(2,6,23,.4)}
-.dm-credit__submit:disabled{opacity:.6;cursor:default;box-shadow:none;transform:none}
+.dm-credit__submit:disabled{opacity:.6;cursor:default;box-shadow:none;transform:none;color:var(--surface)}
 .dm-credit__id{font-size:.8rem;color:var(--muted);font-family:ui-monospace,Menlo,Monaco,"SFMono-Regular",monospace}
 @media (min-width:720px){
   .dm-credit-card{gap:20px;padding:24px 22px}
