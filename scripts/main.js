@@ -12724,8 +12724,9 @@ async function ensureCatalog(){
   catalogPromise = (async () => {
     try {
       let prebuiltEntries = null;
+      let prebuilt = null;
       try {
-        const prebuilt = await fetchCatalogJson(CATALOG_JSON_SRC, 'Catalog JSON fetch failed');
+        prebuilt = await fetchCatalogJson(CATALOG_JSON_SRC, 'Catalog JSON fetch failed');
         if (prebuilt && typeof prebuilt === 'object' && Array.isArray(prebuilt.entries)) {
           const sanitized = prebuilt.entries
             .map(entry => sanitizeNormalizedCatalogEntry(entry))
