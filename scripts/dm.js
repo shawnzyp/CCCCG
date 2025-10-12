@@ -17,6 +17,7 @@ import {
   getStatusLabel,
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
+import { saveCloud } from './storage.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -319,6 +320,20 @@ function initDMLogin(){
   const catalogClose = document.getElementById('dm-catalog-close');
   const catalogTabs = document.getElementById('dm-catalog-tabs');
   const catalogPanels = document.getElementById('dm-catalog-panels');
+  const creditBtn = document.getElementById('dm-tools-credit');
+  const creditModal = document.getElementById('dm-credit-modal');
+  const creditClose = document.getElementById('dm-credit-close');
+  const creditCard = document.getElementById('dm-credit-card');
+  const creditAccountSelect = document.getElementById('dm-credit-account');
+  const creditTxnType = document.getElementById('dm-credit-type');
+  const creditAmountInput = document.getElementById('dm-credit-amount');
+  const creditSenderSelect = document.getElementById('dm-credit-sender');
+  const creditSubmit = document.getElementById('dm-credit-submit');
+  const creditRef = document.getElementById('dm-credit-ref');
+  const creditTxid = document.getElementById('dm-credit-txid');
+  const creditFooterDate = document.getElementById('dm-credit-footerDate');
+  const creditFooterTime = document.getElementById('dm-credit-footerTime');
+  const creditStatus = document.getElementById('dm-credit-status');
 
   const CATALOG_RECIPIENT_FIELD_KEY = 'recipient';
   const CATALOG_RECIPIENT_PLACEHOLDER = 'Assign to hero (optional)';
@@ -394,6 +409,420 @@ function initDMLogin(){
       { key: 'narrative', label: 'Narrative Beats', kind: 'textarea', rows: 3, placeholder: 'Paint the cinematic moment for the move.' },
     ],
   };
+
+  const creditAccountNumbers = new Map();
+  const creditAmountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const PLAYER_CREDIT_STORAGE_KEY = 'cc_dm_card';
+  const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
+  let playerCreditBroadcastChannel = null;
+
+  function creditPad(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function creditFormatDate(d) {
+    return `${creditPad(d.getMonth() + 1)}-${creditPad(d.getDate())}-${d.getFullYear()}`;
+  }
+
+  function creditFormatTime(d) {
+    return `${creditPad(d.getHours())}:${creditPad(d.getMinutes())}:${creditPad(d.getSeconds())}`;
+  }
+
+  function computeCreditAccountNumber(name = '') {
+    if (creditAccountNumbers.has(name)) {
+      return creditAccountNumbers.get(name);
+    }
+    const normalized = name.normalize?.('NFKD')?.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'PLAYER';
+    let hash = 1469598103934665603n;
+    const PRIME = 1099511628211n;
+    for (let i = 0; i < normalized.length; i += 1) {
+      hash ^= BigInt(normalized.charCodeAt(i));
+      hash = (hash * PRIME) % 10000000000000000n;
+    }
+    if (hash === 0n) {
+      hash = 982451653n;
+    }
+    const digits = hash.toString().padStart(16, '0');
+    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1-');
+    creditAccountNumbers.set(name, formatted);
+    return formatted;
+  }
+
+  function sanitizeCreditAmount(value) {
+    const stringValue = typeof value === 'string' ? value : value == null ? '' : String(value);
+    const cleaned = stringValue.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length <= 2) return cleaned;
+    return `${parts.shift()}.${parts.join('')}`;
+  }
+
+  function getCreditAmountNumber() {
+    if (!creditAmountInput) return 0;
+    const sanitized = sanitizeCreditAmount(creditAmountInput.value);
+    if (sanitized === '') return 0;
+    const num = Number(sanitized);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  function formatCreditAmountDisplay(value) {
+    const numeric = Number.isFinite(value) ? value : 0;
+    return creditAmountFormatter.format(numeric);
+  }
+
+  function updateCreditCardAmountDisplay(value) {
+    if (!creditCard) return;
+    const numeric = Number.isFinite(value) ? value : 0;
+    creditCard.setAttribute('data-amount', numeric.toFixed(2));
+  }
+
+  function ensurePlayerCreditBroadcastChannel() {
+    if (playerCreditBroadcastChannel || typeof BroadcastChannel !== 'function') {
+      return playerCreditBroadcastChannel;
+    }
+    try {
+      playerCreditBroadcastChannel = new BroadcastChannel(PLAYER_CREDIT_BROADCAST_CHANNEL);
+    } catch {
+      playerCreditBroadcastChannel = null;
+    }
+    return playerCreditBroadcastChannel;
+  }
+
+  function sanitizePlayerCreditPayload(payload = {}) {
+    const amountValue = Number(payload.amount);
+    const timestamp = (() => {
+      if (payload.timestamp instanceof Date) return payload.timestamp.toISOString();
+      if (typeof payload.timestamp === 'string' && payload.timestamp) {
+        const parsed = new Date(payload.timestamp);
+        if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+      }
+      return new Date().toISOString();
+    })();
+    return {
+      account: typeof payload.account === 'string' ? payload.account : '',
+      amount: Number.isFinite(amountValue) ? amountValue : 0,
+      type: typeof payload.type === 'string' ? payload.type : '',
+      sender: typeof payload.sender === 'string' ? payload.sender : '',
+      ref: typeof payload.ref === 'string' ? payload.ref : '',
+      txid: typeof payload.txid === 'string' ? payload.txid : '',
+      timestamp,
+      player: typeof payload.player === 'string' ? payload.player : '',
+    };
+  }
+
+  function broadcastPlayerCreditUpdate(payload) {
+    if (typeof window === 'undefined') return;
+    const sanitized = sanitizePlayerCreditPayload(payload);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(sanitized));
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+    const channel = ensurePlayerCreditBroadcastChannel();
+    if (channel) {
+      try {
+        channel.postMessage({ type: 'CC_PLAYER_UPDATE', payload: sanitized });
+      } catch {
+        /* ignore broadcast failures */
+      }
+    }
+    try {
+      const origin = window.location?.origin || '*';
+      window.postMessage({ type: 'CC_PLAYER_UPDATE', payload: sanitized }, origin);
+    } catch {
+      try {
+        window.postMessage({ type: 'CC_PLAYER_UPDATE', payload: sanitized }, '*');
+      } catch {
+        /* ignore postMessage failures */
+      }
+    }
+    if (typeof window.setPlayerTransaction === 'function') {
+      try {
+        window.setPlayerTransaction(sanitized, { reveal: false });
+      } catch {
+        /* ignore preview failures */
+      }
+    }
+  }
+
+  function applyCreditAccountSelection() {
+    if (!creditCard) return;
+    const option = creditAccountSelect?.selectedOptions?.[0] || null;
+    const player = option?.value?.trim() || '';
+    const accountNumber = option?.dataset?.accountNumber || '';
+    creditCard.setAttribute('data-player', player);
+    creditCard.setAttribute('data-account', accountNumber);
+  }
+
+  function updateCreditSubmitState() {
+    if (!creditSubmit) return;
+    const playerSelected = !!(creditAccountSelect && creditAccountSelect.value);
+    const amount = getCreditAmountNumber();
+    const isValidAmount = Number.isFinite(amount) && amount > 0;
+    creditSubmit.disabled = !(playerSelected && isValidAmount);
+  }
+
+  async function refreshCreditAccounts({ preserveSelection = true } = {}) {
+    if (!creditAccountSelect) return;
+    const previous = preserveSelection ? creditAccountSelect.value : '';
+    creditAccountSelect.disabled = true;
+    creditAccountSelect.innerHTML = '<option value="">Loading players…</option>';
+    applyCreditAccountSelection();
+    updateCreditSubmitState();
+    try {
+      const names = await listCharacters();
+      const seen = new Set();
+      const filtered = names
+        .filter(name => {
+          if (typeof name !== 'string') return false;
+          const trimmed = name.trim();
+          if (!trimmed || trimmed === 'The DM') return false;
+          if (seen.has(trimmed)) return false;
+          seen.add(trimmed);
+          return true;
+        })
+        .sort((a, b) => a.localeCompare(b));
+      creditAccountSelect.innerHTML = '';
+      if (!filtered.length) {
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = 'No players available';
+        none.disabled = true;
+        creditAccountSelect.appendChild(none);
+        creditAccountSelect.value = '';
+        creditAccountSelect.disabled = true;
+        applyCreditAccountSelection();
+        updateCreditSubmitState();
+        return;
+      }
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Select a player';
+      creditAccountSelect.appendChild(placeholder);
+      filtered.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        const accountNumber = computeCreditAccountNumber(name);
+        option.dataset.accountNumber = accountNumber;
+        option.textContent = `${name} — ${accountNumber}`;
+        creditAccountSelect.appendChild(option);
+      });
+      creditAccountSelect.disabled = false;
+      if (previous && filtered.includes(previous)) {
+        creditAccountSelect.value = previous;
+      } else {
+        creditAccountSelect.value = '';
+      }
+      applyCreditAccountSelection();
+      updateCreditSubmitState();
+    } catch (err) {
+      console.error('Failed to load characters for credit tool', err);
+      creditAccountSelect.innerHTML = '<option value="">Unable to load players</option>';
+      creditAccountSelect.value = '';
+      creditAccountSelect.disabled = true;
+      applyCreditAccountSelection();
+      updateCreditSubmitState();
+      if (typeof toast === 'function') {
+        toast('Unable to load players', 'error');
+      }
+    }
+  }
+
+  function captureCreditTimestamp() {
+    if (!creditCard) return;
+    const now = new Date();
+    if (creditFooterDate) creditFooterDate.textContent = creditFormatDate(now);
+    if (creditFooterTime) creditFooterTime.textContent = creditFormatTime(now);
+    creditCard.setAttribute('data-timestamp', now.toISOString());
+  }
+
+  function generateCreditReference(senderId) {
+    const map = { OMNI: 'OMNI', PFV: 'PFV', GREY: 'GREY', ANON: 'ANON' };
+    const prefix = map[senderId] || (senderId || 'DM').toUpperCase();
+    const now = new Date();
+    const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const randomPart = Math.floor(Math.random() * 900000) + 100000;
+    return `TXN-${prefix}-${datePart}-${randomPart}`;
+  }
+
+  function generateCreditTxid(senderId) {
+    const map = { OMNI: 'OMNI', PFV: 'PFV', GREY: 'GREY', ANON: 'ANON' };
+    const prefix = map[senderId] || (senderId || 'DM').toUpperCase();
+    const randomPart = Math.floor(Math.random() * 90000000) + 10000000;
+    return `ID-${prefix}-${randomPart}`;
+  }
+
+  function updateCreditSenderDataset() {
+    if (!creditCard) return;
+    creditCard.setAttribute('data-sender', creditSenderSelect?.value || '');
+  }
+
+  function randomizeCreditIdentifiers() {
+    if (!creditCard) return;
+    const senderId = creditSenderSelect?.value || '';
+    const ref = generateCreditReference(senderId);
+    const txId = generateCreditTxid(senderId);
+    if (creditRef) creditRef.textContent = ref;
+    if (creditTxid) creditTxid.textContent = txId;
+    creditCard.setAttribute('data-ref', ref);
+    creditCard.setAttribute('data-txid', txId);
+  }
+
+  function getCreditSenderLabel() {
+    const option = creditSenderSelect?.selectedOptions?.[0];
+    if (option && option.textContent) return option.textContent.trim();
+    if (creditSenderSelect && creditSenderSelect.value) return creditSenderSelect.value;
+    return 'DM';
+  }
+
+  function updateCreditTransactionType() {
+    if (!creditCard) return;
+    const type = creditTxnType?.value || 'Deposit';
+    creditCard.setAttribute('data-transaction-type', type);
+    if (creditStatus) {
+      const isDebit = type === 'Debit';
+      creditStatus.textContent = isDebit ? 'Debit Pending' : 'Completed';
+      creditStatus.classList.toggle('dm-credit__status--debit', isDebit);
+    }
+  }
+
+  function resetCreditForm({ preserveAccount = true } = {}) {
+    if (!preserveAccount && creditAccountSelect) {
+      creditAccountSelect.value = '';
+    }
+    applyCreditAccountSelection();
+    if (creditAmountInput) {
+      creditAmountInput.value = formatCreditAmountDisplay(0);
+    }
+    updateCreditCardAmountDisplay(0);
+    if (creditSubmit) {
+      creditSubmit.textContent = 'Submit';
+      creditSubmit.disabled = true;
+    }
+    updateCreditSenderDataset();
+    updateCreditTransactionType();
+    captureCreditTimestamp();
+    randomizeCreditIdentifiers();
+    if (creditCard) {
+      creditCard.removeAttribute('data-submitted');
+      creditCard.removeAttribute('data-submitted-at');
+    }
+    updateCreditSubmitState();
+  }
+
+  function parseStoredCredits(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const normalized = value.replace(/,/g, '').replace(/[^0-9.-]/g, '');
+      const num = Number(normalized);
+      return Number.isFinite(num) ? num : 0;
+    }
+    return 0;
+  }
+
+  async function handleCreditSubmit(event) {
+    if (event) event.preventDefault();
+    if (!creditSubmit || creditSubmit.disabled) return;
+    const player = creditAccountSelect?.value?.trim();
+    if (!player) {
+      if (typeof toast === 'function') toast('Select a player to target', 'error');
+      return;
+    }
+    const rawAmount = getCreditAmountNumber();
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
+      if (typeof toast === 'function') toast('Enter an amount greater than zero', 'error');
+      return;
+    }
+    const transactionType = creditTxnType?.value === 'Debit' ? 'Debit' : 'Deposit';
+    const delta = transactionType === 'Debit' ? -rawAmount : rawAmount;
+    const accountNumber = computeCreditAccountNumber(player);
+    const originalLabel = creditSubmit.textContent;
+    creditSubmit.disabled = true;
+    creditSubmit.textContent = 'Sending…';
+    try {
+      const save = await loadCharacter(player, { bypassPin: true });
+      const currentCredits = parseStoredCredits(save?.credits);
+      const nextTotal = Math.max(0, Math.round((currentCredits + delta) * 100) / 100);
+      save.credits = Number.isInteger(nextTotal) ? String(nextTotal) : nextTotal.toFixed(2);
+      const now = Date.now();
+      const senderLabel = getCreditSenderLabel();
+      const summary = `${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} via ${senderLabel}.`;
+      if (!Array.isArray(save.campaignLog)) {
+        save.campaignLog = [];
+      }
+      save.campaignLog.push({
+        id: `dm-credit-${now}-${Math.floor(Math.random() * 1e6)}`,
+        t: now,
+        name: 'DM Credit Transfer',
+        text: summary,
+      });
+      await saveCloud(player, save);
+      if (typeof toast === 'function') {
+        toast(`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} ${transactionType === 'Debit' ? 'from' : 'to'} ${player}`, 'success');
+      }
+      window.dmNotify?.(summary, { ts: new Date(now).toISOString(), char: player });
+      const nowDate = new Date(now);
+      const timestampIso = nowDate.toISOString();
+      if (creditFooterDate) creditFooterDate.textContent = creditFormatDate(nowDate);
+      if (creditFooterTime) creditFooterTime.textContent = creditFormatTime(nowDate);
+      if (creditCard) {
+        creditCard.setAttribute('data-timestamp', timestampIso);
+        creditCard.setAttribute('data-submitted', 'true');
+        creditCard.setAttribute('data-submitted-at', timestampIso);
+        creditCard.setAttribute('data-player', player);
+        creditCard.setAttribute('data-account', accountNumber);
+      }
+      const refValue = creditCard?.getAttribute('data-ref') || creditRef?.textContent || '';
+      const txidValue = creditCard?.getAttribute('data-txid') || creditTxid?.textContent || '';
+      broadcastPlayerCreditUpdate({
+        account: accountNumber,
+        amount: delta,
+        type: transactionType,
+        sender: senderLabel,
+        ref: refValue,
+        txid: txidValue,
+        timestamp: timestampIso,
+        player,
+      });
+      randomizeCreditIdentifiers();
+      updateCreditSenderDataset();
+      updateCreditTransactionType();
+      if (creditAmountInput) {
+        creditAmountInput.value = formatCreditAmountDisplay(0);
+      }
+      updateCreditCardAmountDisplay(0);
+      creditSubmit.textContent = 'Submit';
+      creditSubmit.disabled = true;
+      updateCreditSubmitState();
+    } catch (err) {
+      console.error('Failed to send credits', err);
+      if (typeof toast === 'function') {
+        toast('Failed to send credits', 'error');
+      } else if (typeof alert === 'function') {
+        alert('Failed to send credits');
+      }
+      creditSubmit.textContent = originalLabel || 'Submit';
+      creditSubmit.disabled = false;
+    }
+  }
+
+  async function openCreditTool() {
+    resetCreditForm({ preserveAccount: false });
+    await refreshCreditAccounts({ preserveSelection: false });
+    resetCreditForm({ preserveAccount: true });
+    if (creditModal) {
+      show('dm-credit-modal');
+    }
+    if (creditAmountInput) {
+      setTimeout(() => {
+        try {
+          creditAmountInput.focus();
+          creditAmountInput.select();
+        } catch {}
+      }, 0);
+    }
+  }
 
   const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));
   let activeCatalogType = CATALOG_TYPES[0]?.id || null;
@@ -2237,6 +2666,73 @@ function initDMLogin(){
   document.addEventListener('pointerdown', closeMenuIfOutside);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeMenu();
+  });
+
+  if (creditBtn) {
+    creditBtn.addEventListener('click', async () => {
+      closeMenu();
+      try {
+        await openCreditTool();
+      } catch (err) {
+        console.error('Failed to open credit tool', err);
+        if (typeof toast === 'function') toast('Failed to open credit tool', 'error');
+      }
+    });
+  }
+
+  creditClose?.addEventListener('click', () => {
+    hide('dm-credit-modal');
+  });
+
+  creditAccountSelect?.addEventListener('change', () => {
+    applyCreditAccountSelection();
+    updateCreditSubmitState();
+  });
+
+  creditAmountInput?.addEventListener('input', () => {
+    const amount = getCreditAmountNumber();
+    updateCreditCardAmountDisplay(amount);
+    updateCreditSubmitState();
+  });
+
+  creditAmountInput?.addEventListener('blur', () => {
+    const amount = getCreditAmountNumber();
+    if (creditAmountInput) creditAmountInput.value = formatCreditAmountDisplay(amount);
+    updateCreditCardAmountDisplay(amount);
+  });
+
+  creditAmountInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCreditSubmit(e);
+    }
+  });
+
+  creditSenderSelect?.addEventListener('change', () => {
+    randomizeCreditIdentifiers();
+    updateCreditSenderDataset();
+    captureCreditTimestamp();
+  });
+
+  creditTxnType?.addEventListener('change', () => {
+    updateCreditTransactionType();
+    updateCreditSubmitState();
+  });
+
+  creditSubmit?.addEventListener('click', handleCreditSubmit);
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && creditModal && !creditModal.classList.contains('hidden')) {
+      captureCreditTimestamp();
+      randomizeCreditIdentifiers();
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    if (creditModal && !creditModal.classList.contains('hidden')) {
+      captureCreditTimestamp();
+      randomizeCreditIdentifiers();
+    }
   });
 
   if (tsomfBtn) {
