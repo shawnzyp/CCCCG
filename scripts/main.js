@@ -4416,12 +4416,16 @@ const STATUS_EFFECTS = [
 const statusGrid = $('statuses');
 const activeStatuses = new Set();
 if (statusGrid) {
-  statusGrid.innerHTML = STATUS_EFFECTS.map(s => `
-    <label class="status-option" for="status-${s.id}">
-      <input type="checkbox" id="status-${s.id}" />
-      <span>${s.name}</span>
-    </label>
-  `).join('');
+  statusGrid.innerHTML = STATUS_EFFECTS.map(s => {
+    const checkboxId = `status-${s.id}`;
+    const labelId = `status-${s.id}-label`;
+    return `
+    <div class="status-option">
+      <input type="checkbox" id="${checkboxId}" aria-labelledby="${labelId}" />
+      <span id="${labelId}">${s.name}</span>
+    </div>
+  `;
+  }).join('');
   STATUS_EFFECTS.forEach(s => {
     const cb = $('status-' + s.id);
     if (cb) {
