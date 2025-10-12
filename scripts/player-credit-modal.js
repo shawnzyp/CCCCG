@@ -132,6 +132,7 @@ import { show, hide } from './modal.js';
   };
 
   let lastSignature = null;
+  let lastRevealMode = null;
 
   const signatureFor = (data) => {
     return JSON.stringify({
@@ -156,12 +157,18 @@ import { show, hide } from './modal.js';
     const ts = applyTimestamp(sanitized.timestamp);
     sanitized.timestamp = ts.toISOString();
     applyRevealAnimation();
+    const previousSignature = lastSignature;
     const signature = signatureFor(sanitized);
-    const isNew = signature !== lastSignature;
+    const isNew = signature !== previousSignature;
+    const previousMode = lastRevealMode;
     lastSignature = signature;
-    if (reveal && isNew && !isDmSession()) {
+    const shouldReveal = reveal
+      && !isDmSession()
+      && (isNew || previousMode === 'silent');
+    if (shouldReveal) {
       show('player-credit-modal');
     }
+    lastRevealMode = reveal ? 'reveal' : 'silent';
     return sanitized;
   };
 
