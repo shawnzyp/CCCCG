@@ -4004,10 +4004,15 @@ body:not(.no-hover) .dm-login-btn:hover,
   filter:drop-shadow(0 6px 12px rgba(0,0,0,.35));
 }
 .dm-tools-portal{
-  position:relative;
+  position:fixed;
+  bottom:0;
+  left:0;
+  width:0;
+  height:0;
+  z-index:2000;
 }
 .dm-tools-menu{
-  position:fixed;
+  position:absolute;
   bottom:calc(84px + env(safe-area-inset-bottom, 0px));
   left:calc(18px + env(safe-area-inset-left, 0px));
   display:flex;
@@ -4052,7 +4057,7 @@ body:not(.no-hover) .dm-tools-menu button:hover,
   color:var(--text-on-accent);
 }
 .dm-tools-toggle{
-  position:fixed;
+  position:absolute;
   bottom:calc(18px + env(safe-area-inset-bottom, 0px));
   left:calc(18px + env(safe-area-inset-left, 0px));
   display:inline-flex;
