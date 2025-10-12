@@ -81,8 +81,14 @@ test('player receives shard toast and logs entries', async () => {
     }),
   });
 
-  expect(window.logAction).toHaveBeenCalledWith('The Shards: Revealed shard: The Echo');
-  expect(window.queueCampaignLogEntry).toHaveBeenCalledWith('Revealed shard: The Echo', expect.objectContaining({ name: 'The Shards' }));
+  expect(window.logAction).toHaveBeenCalled();
+  const logged = window.logAction.mock.calls[0][0];
+  expect(logged).toContain('The Shards: Revealed shard: The Echo');
+  expect(logged.startsWith('[')).toBe(true);
+  expect(window.queueCampaignLogEntry).toHaveBeenCalledWith(
+    'Revealed shard: The Echo',
+    expect.objectContaining({ name: 'The Shards', timestamp: expect.any(Number) })
+  );
 
   const toastEl = document.getElementById('toast');
   expect(toastEl.dataset.somfShardId).toBe('ECHO');

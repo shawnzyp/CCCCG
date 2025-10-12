@@ -241,6 +241,38 @@
   const normalizePlayerKey = value => normalizePlayerName(value).toLowerCase();
   const UNIVERSAL_INVITE_KEYS = new Set(['all', 'everyone', '*']);
 
+  let characterModulePromise = null;
+
+  async function resolveCharacterListLoader() {
+    if (typeof window !== 'undefined') {
+      if (typeof window.somfListCharacters === 'function') return window.somfListCharacters;
+      if (typeof window.listCharacters === 'function') return window.listCharacters;
+    }
+    if (!characterModulePromise) {
+      try {
+        characterModulePromise = import('./scripts/characters.js');
+      } catch (err) {
+        console.error('Failed to import character utilities for Shards invites', err);
+        characterModulePromise = Promise.resolve(null);
+      }
+    }
+    const mod = await characterModulePromise;
+    if (mod && typeof mod.listCharacters === 'function') return mod.listCharacters;
+    return null;
+  }
+
+  async function fetchCloudPlayerNames() {
+    const loader = await resolveCharacterListLoader();
+    if (!loader) return [];
+    try {
+      const names = await loader();
+      return Array.isArray(names) ? names : [];
+    } catch (err) {
+      console.error('Failed to load cloud players for Shards invites', err);
+      return [];
+    }
+  }
+
   const isDmSessionActive = () => {
     try {
       return typeof sessionStorage !== 'undefined' && sessionStorage.getItem('dmLoggedIn') === '1';
@@ -2035,6 +2067,20 @@
     return Date.now();
   }
 
+  function formatLogTimestamp(ts) {
+    try {
+      const date = new Date(Number(ts));
+      if (Number.isNaN(date.getTime())) throw new Error('invalid date');
+      try {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      } catch {
+        return date.toLocaleTimeString();
+      }
+    } catch {
+      return new Date().toLocaleTimeString();
+    }
+  }
+
   function normalizeCount(value, fallback = 0) {
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? number : fallback;
@@ -2871,6 +2917,9 @@
       this.drawConfirmState = null;
       this.suspenseSting = createSuspenseStingController();
       this.pendingDrawAnimation = null;
+      this.inviteRosterNames = [];
+      this.inviteRosterLoadedAt = 0;
+      this.inviteRosterPromise = null;
     }
 
     attach() {
@@ -3402,8 +3451,9 @@
       });
       const logPrefix = displayNames.length > 1 ? 'Revealed shards' : 'Revealed shard';
       const logMessage = `${logPrefix}: ${displayNames.join(', ')}`;
-      this.logShardAnnouncement(logMessage);
-      this.recordLastProcessedNotice(noticeKey, notice.ts);
+      const timestamp = normalizeTimestamp(notice.ts);
+      this.logShardAnnouncement(logMessage, timestamp);
+      this.recordLastProcessedNotice(noticeKey, timestamp);
     }
 
     showPlayerToast({ message, id, name, noticeKey, noticeIndex }) {
@@ -3444,17 +3494,19 @@
       };
     }
 
-    logShardAnnouncement(text) {
+    logShardAnnouncement(text, ts) {
       const message = typeof text === 'string' ? text.trim() : '';
       if (!message) return;
+      const timestamp = normalizeTimestamp(ts);
+      const timeLabel = formatLogTimestamp(timestamp);
       try {
         if (typeof window.logAction === 'function') {
-          window.logAction(`The Shards: ${message}`);
+          window.logAction(`[${timeLabel}] The Shards: ${message}`);
         }
       } catch {}
       try {
         if (typeof window.queueCampaignLogEntry === 'function') {
-          window.queueCampaignLogEntry(message, { name: 'The Shards' });
+          window.queueCampaignLogEntry(message, { name: 'The Shards', timestamp });
         }
       } catch {}
     }
@@ -3846,6 +3898,11 @@
       this.setupWatchers();
       this.refresh();
       this.updateRealtimeState();
+      if (this.runtime.hasRealtime()) {
+        this.ensureInviteRoster();
+      } else {
+        this.renderInviteRoster([], { status: 'offline' });
+      }
       if (this.modeCleanup) this.modeCleanup();
       this.modeCleanup = this.runtime.onModeChange(() => this.handleModeChange());
     }
@@ -3873,6 +3930,8 @@
         inviteSend: dom.one('#somfDM-sendInvite'),
         concealAll: dom.one('#somfDM-concealAll'),
         hiddenStatus: dom.one('#somfDM-hiddenStatus'),
+        inviteOptions: dom.one('#somfDM-inviteOptions'),
+        inviteRoster: dom.one('#somfDM-inviteRoster'),
         resolveOptions: dom.one('#somfDM-resolveOptions'),
         queue: dom.one('#somfDM-notifications'),
         npcModal: dom.one('#somfDM-npcModal'),
@@ -3931,6 +3990,12 @@
       if (this.dom.reset) {
         this.dom.reset.disabled = !hasRealtime;
       }
+      const hasRosterData = Array.isArray(this.inviteRosterNames) && this.inviteRosterNames.length > 0;
+      if (!hasRealtime) {
+        this.renderInviteRoster([], { status: 'offline' });
+      } else if (!hasRosterData && !this.inviteRosterPromise) {
+        this.ensureInviteRoster();
+      }
       this.updateNoticeActions();
     }
 
@@ -3958,6 +4023,121 @@
       }
       this.updateRealtimeState();
       return false;
+    }
+
+    ensureInviteRoster() {
+      if (!this.runtime.hasRealtime()) {
+        this.renderInviteRoster([], { status: 'offline' });
+        return;
+      }
+      if (!Array.isArray(this.inviteRosterNames)) this.inviteRosterNames = [];
+      if (this.inviteRosterNames.length || this.inviteRosterPromise) return;
+      this.loadInviteRoster();
+    }
+
+    async loadInviteRoster({ force = false } = {}) {
+      if (!this.runtime.hasRealtime()) {
+        this.renderInviteRoster([], { status: 'offline' });
+        return [];
+      }
+      if (!this.dom.inviteOptions && !this.dom.inviteRoster) {
+        return [];
+      }
+      const now = Date.now();
+      if (!force && this.inviteRosterNames.length && (now - this.inviteRosterLoadedAt) < 60000) {
+        this.renderInviteRoster(this.inviteRosterNames);
+        return this.inviteRosterNames.slice();
+      }
+      this.renderInviteRoster([], { status: 'loading' });
+      if (this.inviteRosterPromise) return this.inviteRosterPromise;
+      const promise = (async () => {
+        try {
+          const rawNames = await fetchCloudPlayerNames();
+          const seen = new Set();
+          const normalized = [];
+          rawNames.forEach(name => {
+            const normalizedName = normalizePlayerName(name);
+            if (!normalizedName) return;
+            const key = normalizePlayerKey(normalizedName);
+            if (seen.has(key)) return;
+            seen.add(key);
+            normalized.push(normalizedName);
+          });
+          normalized.sort((a, b) => a.localeCompare(b));
+          this.inviteRosterNames = normalized;
+          this.inviteRosterLoadedAt = Date.now();
+          this.renderInviteRoster(normalized);
+          return normalized;
+        } catch (err) {
+          console.error('Failed to refresh Shards invite roster', err);
+          this.renderInviteRoster([], { status: 'error' });
+          return [];
+        } finally {
+          this.inviteRosterPromise = null;
+        }
+      })();
+      this.inviteRosterPromise = promise;
+      return promise;
+    }
+
+    renderInviteRoster(names, { status = 'ready' } = {}) {
+      const list = Array.isArray(names) ? names : [];
+      if (this.dom.inviteOptions) {
+        this.dom.inviteOptions.innerHTML = '';
+        if (status === 'ready') {
+          list.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            this.dom.inviteOptions.appendChild(option);
+          });
+        }
+      }
+      if (!this.dom.inviteRoster) return;
+      this.dom.inviteRoster.innerHTML = '';
+      if (status !== 'ready') {
+        const message = document.createElement('p');
+        message.className = 'somf-dm__inviteEmpty';
+        message.textContent = status === 'loading'
+          ? 'Loading players…'
+          : status === 'offline'
+            ? 'Connect to the cloud to load players.'
+            : 'Unable to load player list.';
+        this.dom.inviteRoster.appendChild(message);
+        return;
+      }
+      if (!list.length) {
+        const empty = document.createElement('p');
+        empty.className = 'somf-dm__inviteEmpty';
+        empty.textContent = 'No player saves found in the cloud.';
+        this.dom.inviteRoster.appendChild(empty);
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      list.forEach(name => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'somf-dm__inviteChip';
+        button.textContent = name;
+        button.setAttribute('data-player-name', name);
+        fragment.appendChild(button);
+      });
+      this.dom.inviteRoster.appendChild(fragment);
+    }
+
+    addInvitee(name) {
+      if (!this.dom.inviteInput) return;
+      const normalized = normalizePlayerName(name);
+      if (!normalized) return;
+      const current = String(this.dom.inviteInput.value || '');
+      const pieces = current.split(',').map(part => normalizePlayerName(part)).filter(Boolean);
+      const seen = new Set(pieces.map(part => normalizePlayerKey(part)));
+      const key = normalizePlayerKey(normalized);
+      if (!seen.has(key)) {
+        pieces.push(normalized);
+      }
+      this.dom.inviteInput.value = pieces.join(', ');
+      try { this.dom.inviteInput.focus(); }
+      catch {}
     }
 
     bindEvents() {
@@ -3992,6 +4172,19 @@
           }
         });
         this.dom.inviteInput.__somfEnterBound = true;
+      }
+      if (this.dom.inviteInput && !this.dom.inviteInput.__somfRosterBound) {
+        this.dom.inviteInput.addEventListener('focus', () => this.ensureInviteRoster());
+        this.dom.inviteInput.__somfRosterBound = true;
+      }
+      if (this.dom.inviteRoster && !this.dom.inviteRoster.__somfBound) {
+        this.dom.inviteRoster.addEventListener('click', evt => {
+          const chip = evt.target?.closest?.('.somf-dm__inviteChip[data-player-name]');
+          if (!chip) return;
+          const name = chip.getAttribute('data-player-name') || chip.textContent || '';
+          this.addInvitee(name);
+        });
+        this.dom.inviteRoster.__somfBound = true;
       }
       if (this.dom.concealAll && !this.dom.concealAll.__somfBound) {
         this.dom.concealAll.addEventListener('click', () => this.concealAll());
