@@ -1962,7 +1962,8 @@ button .btn-label{display:inline-flex;align-items:center}
 }
 
 .tracker-grid{
-  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));
+  gap:clamp(12px,2.5vw,20px);
   align-items:stretch;
 }
 
