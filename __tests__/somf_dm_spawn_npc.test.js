@@ -11,8 +11,13 @@ const overlayTemplate = () => `
   <section id="somf-min"></section>
   <div id="somf-min-modal" hidden></div>
   <div id="somfDM-toasts"></div>
-  <input id="somfDM-playerCard" type="checkbox">
-  <span id="somfDM-playerCard-state"></span>
+  <div class="somf-dm__toggles">
+    <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
+    <input id="somfDM-inviteTargets" class="somf-dm__inviteInput" type="text">
+    <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
+    <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
+    <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
+  </div>
   <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
     <section>
       <button id="somfDM-close"></button>
@@ -60,6 +65,7 @@ test('DM spawn NPC button stays disabled without realtime sync', async () => {
   localStorage.setItem('somf_notices__ccampaign-001', JSON.stringify(notice));
 
   document.body.innerHTML = overlayTemplate();
+  sessionStorage.setItem('dmLoggedIn', '1');
 
   await import('../shard-of-many-fates.js');
   document.dispatchEvent(new Event('DOMContentLoaded'));

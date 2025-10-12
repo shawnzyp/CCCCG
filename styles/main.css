@@ -4064,8 +4064,12 @@ body:is(.modal-open, .dm-floating-covered) .dm-tools-menu{
 .somf-dm__hdr{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:8px}
 .somf-dm__hdr-controls{display:flex;flex-direction:column;gap:8px}
 .somf-dm__toggles{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.somf-dm__inviteLabel{font-size:14px;opacity:.8}
+.somf-dm__inviteInput{flex:1 1 180px;min-width:160px;padding:6px 10px;border-radius:6px;border:1px solid #1b2532;background:#0c0f13;color:#e6f1ff}
+.somf-dm__inviteInput::placeholder{color:rgba(207,231,255,.6)}
+.somf-dm__inviteSend,.somf-dm__concealAll{white-space:nowrap}
+.somf-dm__hiddenStatus{font-size:13px;opacity:.7;padding-inline:6px}
 .somf-dm__actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
-.somf-switch{display:inline-flex;align-items:center;gap:6px}
 .somf-dm__tabs{display:flex;gap:6px;margin:8px 0}
 .somf-dm__tabs button{padding:6px 10px;border:1px solid #253247;background:#0d141c;color:#cfe7ff;border-radius:6px;cursor:pointer}
 .somf-dm__tabs button.active{background:#0b2a3a;border-color:#104a64}

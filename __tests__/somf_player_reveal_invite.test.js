@@ -59,6 +59,9 @@ test('player receives a shard reveal invite and can accept it', async () => {
             ts: Date.now(),
             signalId: data.signalId,
             source: data.source,
+            scope: data.scope,
+            targets: data.targets,
+            inviteTs: data.inviteTs,
           };
           hiddenSignalListeners.slice().forEach(listener => listener({ key, val: () => payload }));
         },
@@ -121,14 +124,39 @@ test('player receives a shard reveal invite and can accept it', async () => {
       </div>
     </div>
     <div id="somfDM-toasts"></div>
-    <input id="somfDM-playerCard" type="checkbox">
-    <span id="somfDM-playerCard-state"></span>
+    <div class="somf-dm__toggles">
+      <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
+      <input id="somfDM-inviteTargets" class="somf-dm__inviteInput" type="text">
+      <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
+      <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
+      <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
+    </div>
+    <div id="modal-somf-dm" class="overlay hidden" aria-hidden="true">
+      <section>
+        <button id="somfDM-close"></button>
+        <div id="somfDM-cardCount"></div>
+        <button id="somfDM-reset"></button>
+        <nav>
+          <button data-tab="cards" class="somf-dm-tabbtn"></button>
+          <button data-tab="resolve" class="somf-dm-tabbtn"></button>
+          <button data-tab="npcs" class="somf-dm-tabbtn"></button>
+          <button data-tab="items" class="somf-dm-tabbtn"></button>
+        </nav>
+        <section id="somfDM-tab-cards"></section>
+        <section id="somfDM-tab-resolve"></section>
+        <section id="somfDM-tab-npcs"></section>
+        <section id="somfDM-tab-items"></section>
+      </section>
+    </div>
+    <div id="somfDM-npcModal" class="hidden" aria-hidden="true"></div>
   `;
 
   window.toast = jest.fn();
   window.dismissToast = jest.fn();
   window.logAction = jest.fn();
   window.queueCampaignLogEntry = jest.fn();
+  sessionStorage.setItem('dmLoggedIn', '1');
+  window.currentCharacter = () => 'Nova';
   const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
   window.requestAnimationFrame = fn => fn();
 
@@ -137,9 +165,10 @@ test('player receives a shard reveal invite and can accept it', async () => {
   document.dispatchEvent(new Event('DOMContentLoaded'));
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  const toggle = document.getElementById('somfDM-playerCard');
-  toggle.checked = true;
-  toggle.dispatchEvent(new Event('change'));
+  const inviteInput = document.getElementById('somfDM-inviteTargets');
+  inviteInput.value = 'Nova';
+  const inviteButton = document.getElementById('somfDM-sendInvite');
+  inviteButton.click();
   await new Promise(resolve => setTimeout(resolve, 0));
 
   const invite = document.getElementById('somf-reveal-alert');
