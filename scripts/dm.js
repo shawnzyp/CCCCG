@@ -744,10 +744,12 @@ function initDMLogin(){
       const save = await loadCharacter(player, { bypassPin: true });
       const currentCredits = parseStoredCredits(save?.credits);
       const nextTotal = Math.max(0, Math.round((currentCredits + delta) * 100) / 100);
+      const appliedDelta = Math.round((nextTotal - currentCredits) * 100) / 100;
       save.credits = Number.isInteger(nextTotal) ? String(nextTotal) : nextTotal.toFixed(2);
       const now = Date.now();
       const senderLabel = getCreditSenderLabel();
-      const summary = `${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} via ${senderLabel}.`;
+      const summaryAmount = Math.abs(appliedDelta);
+      const summary = `${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(summaryAmount)} via ${senderLabel}.`;
       if (!Array.isArray(save.campaignLog)) {
         save.campaignLog = [];
       }
@@ -759,7 +761,7 @@ function initDMLogin(){
       });
       await saveCloud(player, save);
       if (typeof toast === 'function') {
-        toast(`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} ${transactionType === 'Debit' ? 'from' : 'to'} ${player}`, 'success');
+        toast(`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(summaryAmount)} ${transactionType === 'Debit' ? 'from' : 'to'} ${player}`, 'success');
       }
       window.dmNotify?.(summary, { ts: new Date(now).toISOString(), char: player });
       const nowDate = new Date(now);
@@ -777,7 +779,7 @@ function initDMLogin(){
       const txidValue = creditCard?.getAttribute('data-txid') || creditTxid?.textContent || '';
       broadcastPlayerCreditUpdate({
         account: accountNumber,
-        amount: delta,
+        amount: appliedDelta,
         type: transactionType,
         sender: senderLabel,
         ref: refValue,
