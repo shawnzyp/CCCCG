@@ -2505,11 +2505,12 @@ body:not(.no-hover) .xp-tracker__submit:hover,
   align-items:center;
   justify-content:space-between;
   gap:var(--control-gap);
-  min-height:var(--tracker-pill-height);
-  padding:var(--pill-padding-y) calc(var(--control-padding-x) * 1.2);
+  min-height:var(--form-control-height);
+  padding:var(--control-padding-y) var(--control-padding-x);
   border:1px solid var(--line);
   border-radius:var(--radius);
   background:color-mix(in srgb,var(--surface-2) 80%, transparent);
+  box-sizing:border-box;
 }
 
 .credits-card__currency{
@@ -2574,8 +2575,8 @@ body:not(.no-hover) .xp-tracker__submit:hover,
   align-items:center;
   justify-content:center;
   gap:8px;
-  min-height:var(--control-min-height);
-  padding:var(--control-padding-y) calc(var(--control-padding-x) * 1.1);
+  min-height:var(--form-control-height);
+  padding:var(--control-padding-y) var(--control-padding-x);
   border:1px solid var(--line);
   border-radius:var(--radius);
   background:var(--surface-2);
@@ -2586,6 +2587,7 @@ body:not(.no-hover) .xp-tracker__submit:hover,
   text-transform:uppercase;
   cursor:pointer;
   transition:var(--transition);
+  box-sizing:border-box;
 }
 
 body:not(.no-hover) .credits-card__mode-btn:hover,
