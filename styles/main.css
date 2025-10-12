@@ -3380,6 +3380,48 @@ body:not(.no-hover) .modal .x:hover{color:var(--accent)}
   scrollbar-gutter:stable both-edges;
 }
 
+.dm-credit-modal.modal{background:transparent;border:none;box-shadow:none;padding:0;max-width:min(520px,calc(100vw - 24px));width:100%}
+.dm-credit-card{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 92%, transparent),color-mix(in srgb,var(--surface-2) 96%, transparent));border-radius:16px;border:1px solid rgba(255,255,255,.12);border:1px solid color-mix(in srgb,var(--text) 12%, transparent);box-shadow:0 18px 36px rgba(2,6,23,.5);padding:20px 18px;color:var(--text);display:flex;flex-direction:column;gap:18px;position:relative;overflow:hidden}
+.theme-light .dm-credit-card{background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 96%, transparent),color-mix(in srgb,var(--surface-2) 98%, transparent));box-shadow:0 16px 28px rgba(15,23,42,.18);border-color:color-mix(in srgb,var(--text) 8%, transparent)}
+.dm-credit-modal.modal .x{color:var(--text)}
+.dm-credit__header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.dm-credit__headerMain{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0}
+.dm-credit__logo{width:52px;height:52px;border-radius:12px;padding:6px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02));box-shadow:0 8px 18px rgba(2,6,23,.45);border:1px solid rgba(255,255,255,.12);border:1px solid color-mix(in srgb,var(--text) 12%, transparent);color:var(--accent)}
+.theme-light .dm-credit__logo{background:linear-gradient(135deg,rgba(0,0,0,.08),rgba(255,255,255,.12));box-shadow:0 6px 16px rgba(15,23,42,.18);border-color:color-mix(in srgb,var(--text) 10%, transparent)}
+.dm-credit__logo svg{display:block;width:36px;height:36px}
+.dm-credit__titles{display:flex;flex-direction:column;gap:4px;min-width:0}
+.dm-credit__bank{font-weight:700;font-size:1rem;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-credit__subtitle{font-size:.85rem;color:var(--muted)}
+.dm-credit__reference{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto}
+.dm-credit__label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.dm-credit__chip{display:inline-block;padding:6px 10px;border-radius:10px;font-family:ui-monospace,Menlo,Monaco,"SFMono-Regular",monospace;font-size:.8rem;background:rgba(255,255,255,.08);background:color-mix(in srgb,var(--accent) 16%, transparent);color:var(--text);white-space:nowrap}
+.dm-credit__grid{display:grid;grid-template-columns:1fr;gap:14px}
+.dm-credit__field{display:flex;flex-direction:column;gap:6px}
+.dm-credit__value{font-size:1rem}
+.dm-credit__select{position:relative}
+.dm-credit__select select{width:100%;padding:10px 38px 10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.14);border:1px solid color-mix(in srgb,var(--text) 14%, transparent);background:rgba(15,23,42,.35);background:color-mix(in srgb,var(--surface-2) 88%, transparent);color:var(--text);font:inherit;appearance:none;outline:none}
+.theme-light .dm-credit__select select{background:color-mix(in srgb,#fff 85%, var(--surface-2) 15%);border-color:color-mix(in srgb,var(--text) 12%, transparent)}
+.dm-credit__select::after{content:'▾';position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);font-size:.85rem}
+.dm-credit__amount{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px dashed rgba(255,255,255,.18);border:1px dashed color-mix(in srgb,var(--text) 10%, transparent);background:rgba(15,23,42,.2);background:color-mix(in srgb,var(--surface-2) 90%, transparent)}
+.theme-light .dm-credit__amount{background:color-mix(in srgb,#fff 90%, var(--surface-2) 10%);border-color:color-mix(in srgb,var(--text) 14%, transparent)}
+.dm-credit__amount span{font-size:1rem;color:var(--muted)}
+.dm-credit__amount input{flex:1;background:transparent;border:none;color:inherit;font-size:1.4rem;font-weight:700;outline:none}
+.dm-credit__status{display:flex;align-items:center;gap:6px;font-weight:600;color:var(--success);font-size:.95rem}
+.dm-credit__status--debit{color:var(--error)}
+.dm-credit__footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dm-credit__timestamp{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.8rem}
+.dm-credit__submit{background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 45%, var(--text-on-accent) 55%));color:var(--surface);border:none;padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 12px 28px rgba(2,6,23,.45);min-width:120px;transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease}
+.dm-credit__submit:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+body:not(.no-hover) .dm-credit__submit:hover{transform:translateY(-1px);box-shadow:0 16px 32px rgba(2,6,23,.5)}
+.dm-credit__submit:active{transform:translateY(0);box-shadow:0 10px 24px rgba(2,6,23,.4)}
+.dm-credit__submit:disabled{opacity:.6;cursor:default;box-shadow:none;transform:none}
+.dm-credit__id{font-size:.8rem;color:var(--muted);font-family:ui-monospace,Menlo,Monaco,"SFMono-Regular",monospace}
+@media (min-width:720px){
+  .dm-credit-card{gap:20px;padding:24px 22px}
+  .dm-credit__bank{font-size:1.1rem}
+  .dm-credit__grid{gap:16px}
+}
+
 .power-preset-menu{position:fixed;z-index:2000;display:flex;flex-direction:column;gap:var(--control-gap);padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);width:min(360px,calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right)));max-width:min(360px,calc(100vw - 24px - var(--safe-area-left) - var(--safe-area-right)));max-height:calc(var(--vh,1vh)*100 - 24px - var(--safe-area-top) - var(--safe-area-bottom));overflow:auto;touch-action:manipulation;overscroll-behavior:contain}
 .power-preset-menu__btn{width:100%;margin:0}
 .power-preset-menu[data-placement="above"]{transform-origin:top center}

@@ -1568,6 +1568,7 @@
     <div id="dm-tools-menu" class="dm-tools-menu" hidden>
       <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
       <button id="dm-tools-notifications" class="btn-sm">Notifications</button>
+      <button id="dm-tools-credit" class="btn-sm">Credit Deposit</button>
       <button id="dm-tools-characters" class="btn-sm">Characters</button>
       <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
       <button id="dm-tools-catalog" class="btn-sm">Catalog Builder</button>
@@ -1600,6 +1601,116 @@
     </button>
     <h3>Notifications</h3>
     <ol id="dm-notifications-list"></ol>
+  </section>
+</div>
+<div class="overlay hidden" id="dm-credit-modal" aria-hidden="true">
+  <section class="modal dm-credit-modal" role="dialog" aria-modal="true" aria-labelledby="dm-credit-title">
+    <button id="dm-credit-close" class="x" type="button" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div
+      id="dm-credit-card"
+      class="dm-credit-card"
+      role="region"
+      aria-label="DM credit transfer card"
+      data-timestamp=""
+      data-amount="0.00"
+      data-ref=""
+      data-txid=""
+      data-player=""
+      data-account=""
+      data-transaction-type="Deposit"
+      data-sender="OMNI"
+    >
+      <header class="dm-credit__header">
+        <div class="dm-credit__headerMain">
+          <div class="dm-credit__logo" aria-hidden="true">
+            <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bank icon">
+              <defs>
+                <linearGradient id="dmCreditBankGrad" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stop-color="currentColor" />
+                  <stop offset="100%" stop-color="var(--accent)" />
+                </linearGradient>
+              </defs>
+              <path d="M8 24 L32 8 L56 24 Z" fill="url(#dmCreditBankGrad)" />
+              <rect x="10" y="26" width="44" height="26" rx="3" fill="rgba(255,255,255,0.08)" />
+              <g stroke="url(#dmCreditBankGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <rect x="16" y="30" width="6" height="18" rx="1" />
+                <rect x="29" y="30" width="6" height="18" rx="1" />
+                <rect x="42" y="30" width="6" height="18" rx="1" />
+              </g>
+              <rect x="12" y="48" width="40" height="4" rx="1" fill="url(#dmCreditBankGrad)" opacity="0.3" />
+            </svg>
+          </div>
+          <div class="dm-credit__titles">
+            <div class="dm-credit__bank" id="dm-credit-title">Manhattan Trust & Exchange</div>
+            <div class="dm-credit__subtitle">DM Credit Transfer</div>
+          </div>
+        </div>
+        <div class="dm-credit__reference">
+          <span class="dm-credit__label">Reference #:</span>
+          <span id="dm-credit-ref" class="dm-credit__chip" aria-live="polite">TXN-OMNI-000000</span>
+        </div>
+      </header>
+
+      <div class="dm-credit__grid">
+        <div class="dm-credit__field">
+          <label class="dm-credit__label" for="dm-credit-account">Account</label>
+          <div class="dm-credit__value dm-credit__select">
+            <select id="dm-credit-account" aria-label="Account select">
+              <option value="">Loading players…</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="dm-credit__field">
+          <label class="dm-credit__label" for="dm-credit-type">Transaction type</label>
+          <div class="dm-credit__value dm-credit__select">
+            <select id="dm-credit-type" aria-label="Transaction type">
+              <option value="Deposit">Deposit</option>
+              <option value="Debit">Debit</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="dm-credit__field">
+          <label class="dm-credit__label" for="dm-credit-amount">Amount</label>
+          <div class="dm-credit__value dm-credit__amount">
+            <span aria-hidden="true">₡</span>
+            <input id="dm-credit-amount" type="text" inputmode="decimal" pattern="[0-9,.]*" placeholder="0.00" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="dm-credit__field">
+          <label class="dm-credit__label" for="dm-credit-sender">Sender</label>
+          <div class="dm-credit__value dm-credit__select">
+            <select id="dm-credit-sender" aria-label="Sender select">
+              <option value="OMNI">O.M.N.I Payroll Department.</option>
+              <option value="PFV">P.F.V Accounts Paid.</option>
+              <option value="GREY">GREYLINE P.M.C Payroll.</option>
+              <option value="ANON">Anonymous.</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="dm-credit__field">
+          <span class="dm-credit__label">Transaction status</span>
+          <span id="dm-credit-status" class="dm-credit__status">Completed</span>
+        </div>
+      </div>
+
+      <footer class="dm-credit__footer">
+        <div class="dm-credit__timestamp">
+          <span id="dm-credit-footerDate">—</span>
+          <span aria-hidden="true">•</span>
+          <span id="dm-credit-footerTime">—</span>
+        </div>
+        <button id="dm-credit-submit" class="dm-credit__submit" type="button" disabled>Submit</button>
+        <div class="dm-credit__id">ID: <span id="dm-credit-txid">OMNI-000000</span></div>
+      </footer>
+    </div>
   </section>
 </div>
 <div class="overlay hidden" id="dm-characters-modal" aria-hidden="true">
