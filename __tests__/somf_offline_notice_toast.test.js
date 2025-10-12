@@ -29,8 +29,13 @@ function setupDom() {
     <ul id="somfDM-itemList"></ul>
     <div id="somfDM-npcModal" class="hidden"></div>
     <div id="somfDM-npcModalCard"></div>
-    <input id="somfDM-playerCard" type="checkbox">
-    <span id="somfDM-playerCard-state"></span>
+    <div class="somf-dm__toggles">
+      <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
+      <input id="somfDM-inviteTargets" class="somf-dm__inviteInput" type="text">
+      <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
+      <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
+      <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
+    </div>
     <ol id="somfDM-resolveOptions"></ol>
     <ol id="somfDM-notifications"></ol>
   `;
@@ -41,6 +46,7 @@ test('offline shard draw does not raise DM toast', async () => {
   localStorage.clear();
   sessionStorage.clear();
   setupDom();
+  sessionStorage.setItem('dmLoggedIn', '1');
 
   const module = await import(`../shard-of-many-fates.js?offline-toast=${Date.now()}`);
   expect(module).toBeDefined();

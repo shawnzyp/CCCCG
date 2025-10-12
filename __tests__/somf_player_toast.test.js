@@ -27,11 +27,7 @@ function setupDom() {
   `;
 }
 
-test('player receives shard toast and logs entries', async () => {
-  setupDom();
-  localStorage.setItem('somf_hidden__ccampaign-001', 'false');
-  localStorage.setItem('somf_notices__ccampaign-001', JSON.stringify([]));
-
+function mockToastSystem() {
   window.toast = jest.fn((message, opts = {}) => {
     const toastEl = document.getElementById('toast');
     if (toastEl) {
@@ -51,6 +47,14 @@ test('player receives shard toast and logs entries', async () => {
 
   window.logAction = jest.fn();
   window.queueCampaignLogEntry = jest.fn();
+}
+
+test('player receives shard toast and logs entries', async () => {
+  setupDom();
+  localStorage.setItem('somf_hidden__ccampaign-001', 'false');
+  localStorage.setItem('somf_notices__ccampaign-001', JSON.stringify([]));
+
+  mockToastSystem();
 
   await import(`../shard-of-many-fates.js?player-toast=${Date.now()}`);
 
@@ -81,8 +85,14 @@ test('player receives shard toast and logs entries', async () => {
     }),
   });
 
-  expect(window.logAction).toHaveBeenCalledWith('The Shards: Revealed shard: The Echo');
-  expect(window.queueCampaignLogEntry).toHaveBeenCalledWith('Revealed shard: The Echo', expect.objectContaining({ name: 'The Shards' }));
+  expect(window.logAction).toHaveBeenCalled();
+  const logged = window.logAction.mock.calls[0][0];
+  expect(logged).toContain('The Shards: Revealed shard: The Echo');
+  expect(logged.startsWith('[')).toBe(true);
+  expect(window.queueCampaignLogEntry).toHaveBeenCalledWith(
+    'Revealed shard: The Echo',
+    expect.objectContaining({ name: 'The Shards', timestamp: expect.any(Number) })
+  );
 
   const toastEl = document.getElementById('toast');
   expect(toastEl.dataset.somfShardId).toBe('ECHO');
@@ -93,4 +103,43 @@ test('player receives shard toast and logs entries', async () => {
   expect(window.dismissToast).toHaveBeenCalled();
   const modal = document.getElementById('somf-min-modal');
   expect(modal.hidden).toBe(false);
+});
+
+test('pending shard notices reveal in timestamp order once shown', async () => {
+  setupDom();
+  localStorage.setItem('somf_hidden__ccampaign-001', 'true');
+  localStorage.setItem('somf_notices__ccampaign-001', JSON.stringify([]));
+
+  mockToastSystem();
+
+  await import(`../shard-of-many-fates.js?player-toast-order=${Date.now()}`);
+
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const now = Date.now();
+  const notices = [
+    { key: 'third', count: 1, ids: ['THIRD'], names: ['Gamma'], ts: now + 2000 },
+    { key: 'first', count: 1, ids: ['FIRST'], names: ['Alpha'], ts: now },
+    { key: 'second', count: 1, ids: ['SECOND'], names: ['Beta'], ts: now + 1000 },
+  ];
+
+  notices.forEach(notice => {
+    window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: { action: 'add', notice } }));
+  });
+
+  expect(window.toast).not.toHaveBeenCalled();
+
+  window.dispatchEvent(new CustomEvent('somf-local-hidden', { detail: false }));
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const messages = window.toast.mock.calls.map(call => call[0]);
+  expect(messages.length).toBeGreaterThanOrEqual(3);
+  expect(messages.slice(0, 3)).toEqual([
+    'The Shards reveal Alpha.',
+    'The Shards reveal Beta.',
+    'The Shards reveal Gamma.',
+  ]);
 });

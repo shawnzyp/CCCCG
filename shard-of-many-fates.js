@@ -233,6 +233,54 @@
     .replace(/>/g, '&gt;')
     .replace(/'/g, '&#39;');
 
+  const normalizePlayerName = value => {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    return trimmed.replace(/\s+/g, ' ');
+  };
+
+  const normalizePlayerKey = value => normalizePlayerName(value).toLowerCase();
+  const UNIVERSAL_INVITE_KEYS = new Set(['all', 'everyone', '*']);
+
+  let characterModulePromise = null;
+
+  async function resolveCharacterListLoader() {
+    if (typeof window !== 'undefined') {
+      if (typeof window.somfListCharacters === 'function') return window.somfListCharacters;
+      if (typeof window.listCharacters === 'function') return window.listCharacters;
+    }
+    if (!characterModulePromise) {
+      try {
+        characterModulePromise = import('./scripts/characters.js');
+      } catch (err) {
+        console.error('Failed to import character utilities for Shards invites', err);
+        characterModulePromise = Promise.resolve(null);
+      }
+    }
+    const mod = await characterModulePromise;
+    if (mod && typeof mod.listCharacters === 'function') return mod.listCharacters;
+    return null;
+  }
+
+  async function fetchCloudPlayerNames() {
+    const loader = await resolveCharacterListLoader();
+    if (!loader) return [];
+    try {
+      const names = await loader();
+      return Array.isArray(names) ? names : [];
+    } catch (err) {
+      console.error('Failed to load cloud players for Shards invites', err);
+      return [];
+    }
+  }
+
+  const isDmSessionActive = () => {
+    try {
+      return typeof sessionStorage !== 'undefined' && sessionStorage.getItem('dmLoggedIn') === '1';
+    } catch {
+      return false;
+    }
+  };
+
   function shardLinkMarkup({ id, label, noticeKey, noticeIndex }) {
     if (typeof id !== 'string' || !id) return escapeHtml(label || id || '');
     const rawLabel = String(label || id || '');
@@ -2019,6 +2067,20 @@
     return Date.now();
   }
 
+  function formatLogTimestamp(ts) {
+    try {
+      const date = new Date(Number(ts));
+      if (Number.isNaN(date.getTime())) throw new Error('invalid date');
+      try {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      } catch {
+        return date.toLocaleTimeString();
+      }
+    } catch {
+      return new Date().toLocaleTimeString();
+    }
+  }
+
   function normalizeCount(value, fallback = 0) {
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? number : fallback;
@@ -2041,10 +2103,33 @@
     return { key, ids, names, ts, count };
   }
 
+  function compareNoticeChronologically(a, b) {
+    if (!a && !b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
+    const aTs = Number.isFinite(Number(a.ts)) ? Number(a.ts) : 0;
+    const bTs = Number.isFinite(Number(b.ts)) ? Number(b.ts) : 0;
+    if (aTs !== bTs) return aTs - bTs;
+    const aKey = typeof a.key === 'string' ? a.key : '';
+    const bKey = typeof b.key === 'string' ? b.key : '';
+    if (aKey && bKey && aKey !== bKey) return aKey.localeCompare(bKey);
+    if (aKey && !bKey) return -1;
+    if (!aKey && bKey) return 1;
+    const aIndex = Number.isFinite(Number(a._noticeIndex)) ? Number(a._noticeIndex) : 0;
+    const bIndex = Number.isFinite(Number(b._noticeIndex)) ? Number(b._noticeIndex) : 0;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return 0;
+  }
+
+  const compareNoticeNewestFirst = (a, b) => compareNoticeChronologically(b, a);
+
+  const sortNoticesChronologically = list => (Array.isArray(list) ? list.slice() : [])
+    .sort(compareNoticeChronologically);
+
   const normalizeNoticeList = list => (Array.isArray(list) ? list : [])
     .map(normalizeNotice)
     .filter(Boolean)
-    .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    .sort(compareNoticeNewestFirst);
 
   function createItemGiftRecord(detail = {}, options = {}) {
     const includeKey = options?.includeKey !== false;
@@ -2362,17 +2447,26 @@
       };
       const signalId = typeof payload.signalId === 'string' && payload.signalId ? payload.signalId : null;
       const source = typeof payload.source === 'string' && payload.source ? payload.source : null;
+      const scope = typeof payload.scope === 'string' && payload.scope ? payload.scope : null;
+      const targets = Array.isArray(payload.targets) ? payload.targets.filter(name => typeof name === 'string' && name) : [];
+      const inviteTs = payload.inviteTs;
       if (signalId) data.signalId = signalId;
       if (source) data.source = source;
+      if (scope) data.scope = scope;
+      if (targets.length) data.targets = targets;
+      if (Number.isFinite(inviteTs)) data.inviteTs = inviteTs;
       await signalsRef.set(data);
-      return {
-        key: signalsRef.key,
-        hidden: !!hidden,
-        ts: Date.now(),
-        signalId,
-        source,
-      };
-    }
+        return {
+          key: signalsRef.key,
+          hidden: !!hidden,
+          ts: Date.now(),
+          signalId,
+          source,
+          scope,
+          targets,
+          inviteTs: Number.isFinite(inviteTs) ? inviteTs : Date.now(),
+        };
+      }
 
     async getHidden() {
       const snap = await this.ref('hidden').get();
@@ -2444,6 +2538,9 @@
           ts: normalizeTimestamp(value.ts),
           source: typeof value.source === 'string' && value.source ? value.source : null,
           signalId: typeof value.signalId === 'string' && value.signalId ? value.signalId : null,
+          scope: typeof value.scope === 'string' && value.scope ? value.scope : null,
+          targets: toStringList(value.targets),
+          inviteTs: normalizeTimestamp(value.inviteTs),
         };
         handler(detail);
       });
@@ -2579,10 +2676,15 @@
       return true;
     }
 
-    async emitHiddenSignal(hidden, signalId) {
+    async emitHiddenSignal(hidden, payload = {}) {
       if (!this.hasRealtime() || !this.realtimeStore?.pushHiddenSignal) return;
+      const detail = { ...payload };
+      if (!detail.signalId) {
+        detail.signalId = `${this.hiddenSignalSource}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+      }
+      detail.source = this.hiddenSignalSource;
       try {
-        await this.realtimeStore.pushHiddenSignal(hidden, { signalId, source: this.hiddenSignalSource });
+        await this.realtimeStore.pushHiddenSignal(hidden, detail);
       } catch (err) {
         console.error('Failed to push hidden toggle signal', err);
       }
@@ -2613,6 +2715,9 @@
           ts: detail.ts || Date.now(),
           source: detail.source || null,
           signalId: typeof detail.signalId === 'string' && detail.signalId ? detail.signalId : null,
+          scope: typeof detail.scope === 'string' && detail.scope ? detail.scope : null,
+          targets: toStringList(detail.targets),
+          inviteTs: normalizeTimestamp(detail.inviteTs),
           transport: 'broadcast',
         });
       }));
@@ -2693,8 +2798,28 @@
       if (store.setHidden) await store.setHidden(normalized);
       const signalId = `${this.hiddenSignalSource}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
       writeStorage(LOCAL_KEYS.hidden(this.campaignId), normalized);
-      HiddenSync.broadcast(this.campaignId, normalized, { signalId });
-      await this.emitHiddenSignal(normalized, signalId);
+      const payload = { signalId, scope: 'global' };
+      HiddenSync.broadcast(this.campaignId, normalized, payload);
+      await this.emitHiddenSignal(normalized, payload);
+    }
+
+    async invitePlayers(targets) {
+      const list = Array.from(new Set(
+        toStringList(targets)
+          .map(normalizePlayerName)
+          .filter(Boolean)
+      ));
+      if (!list.length) return false;
+      const signalId = `${this.hiddenSignalSource}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
+      const payload = {
+        signalId,
+        scope: 'invite',
+        targets: list,
+        inviteTs: Date.now(),
+      };
+      HiddenSync.broadcast(this.campaignId, false, payload);
+      await this.emitHiddenSignal(false, payload);
+      return true;
     }
 
     async getHidden() {
@@ -2790,6 +2915,8 @@
       this.lastRevealSignalDetail = null;
       this.revealInviteOverlayState = null;
       this.revealInviteAccepting = false;
+      this.revealAccess = false;
+      this.lastEffectiveHidden = true;
       this.handleRevealInviteKeydown = event => this.onRevealInviteKeydown(event);
       const storedNotice = readStorage(LOCAL_KEYS.lastNotice(this.runtime.campaignId));
       if (storedNotice && typeof storedNotice === 'object') {
@@ -2813,6 +2940,9 @@
       this.drawConfirmState = null;
       this.suspenseSting = createSuspenseStingController();
       this.pendingDrawAnimation = null;
+      this.inviteRosterNames = [];
+      this.inviteRosterLoadedAt = 0;
+      this.inviteRosterPromise = null;
     }
 
     attach() {
@@ -2889,6 +3019,34 @@
         event.preventDefault();
         this.dismissRevealInvite();
       }
+    }
+
+    getCurrentPlayerName() {
+      try {
+        if (typeof window.currentCharacter === 'function') {
+          const name = window.currentCharacter();
+          return typeof name === 'string' ? name : '';
+        }
+      } catch {}
+      return '';
+    }
+
+    getCurrentPlayerKey() {
+      return normalizePlayerKey(this.getCurrentPlayerName());
+    }
+
+    isInviteForCurrentPlayer(detail = {}) {
+      const targets = Array.isArray(detail.targets) ? detail.targets : [];
+      if (!targets.length) return true;
+      const normalizedTargets = targets
+        .map(normalizePlayerKey)
+        .filter(Boolean);
+      if (normalizedTargets.some(key => UNIVERSAL_INVITE_KEYS.has(key))) return true;
+      const playerKey = this.getCurrentPlayerKey();
+      if (!playerKey) {
+        return normalizedTargets.includes('') || normalizedTargets.includes('player') || normalizedTargets.includes('unknown');
+      }
+      return normalizedTargets.includes(playerKey);
     }
 
     populateRevealInvite() {
@@ -3038,6 +3196,8 @@
       if (acceptBtn) acceptBtn.disabled = true;
       this.revealInviteActive = null;
       this.closeRevealInvite();
+      this.revealAccess = true;
+      this.applyHiddenState(this.lastHiddenState ?? true);
       try {
         await triggerShardRevealEffects({ showAlert: false });
       } catch (err) {
@@ -3098,8 +3258,9 @@
             .filter(key => typeof key === 'string' && key && !pendingKeys.has(key))
         );
       }
+      const orderedNotices = sortNoticesChronologically(this.notices);
       const nextQueue = [];
-      this.notices.forEach(notice => {
+      orderedNotices.forEach(notice => {
         const ids = toStringList(notice.ids);
         if (ids.length) {
           ids.forEach((id, index) => {
@@ -3281,12 +3442,13 @@
       const key = typeof notice.key === 'string' ? notice.key : null;
       if (key && this.pendingNoticeAdds.some(entry => entry && entry.key === key)) return;
       this.pendingNoticeAdds.push(notice);
+      this.pendingNoticeAdds.sort(compareNoticeChronologically);
     }
 
     flushPendingNoticeAdds() {
       if (!this.pendingNoticeAdds.length) return;
       if (this.lastHiddenState === true) return;
-      const pending = this.pendingNoticeAdds.splice(0);
+      const pending = this.pendingNoticeAdds.splice(0).sort(compareNoticeChronologically);
       pending.forEach(entry => this.processNoticeAdd(entry));
     }
 
@@ -3313,8 +3475,9 @@
       });
       const logPrefix = displayNames.length > 1 ? 'Revealed shards' : 'Revealed shard';
       const logMessage = `${logPrefix}: ${displayNames.join(', ')}`;
-      this.logShardAnnouncement(logMessage);
-      this.recordLastProcessedNotice(noticeKey, notice.ts);
+      const timestamp = normalizeTimestamp(notice.ts);
+      this.logShardAnnouncement(logMessage, timestamp);
+      this.recordLastProcessedNotice(noticeKey, timestamp);
     }
 
     showPlayerToast({ message, id, name, noticeKey, noticeIndex }) {
@@ -3355,17 +3518,19 @@
       };
     }
 
-    logShardAnnouncement(text) {
+    logShardAnnouncement(text, ts) {
       const message = typeof text === 'string' ? text.trim() : '';
       if (!message) return;
+      const timestamp = normalizeTimestamp(ts);
+      const timeLabel = formatLogTimestamp(timestamp);
       try {
         if (typeof window.logAction === 'function') {
-          window.logAction(`The Shards: ${message}`);
+          window.logAction(`[${timeLabel}] The Shards: ${message}`);
         }
       } catch {}
       try {
         if (typeof window.queueCampaignLogEntry === 'function') {
-          window.queueCampaignLogEntry(message, { name: 'The Shards' });
+          window.queueCampaignLogEntry(message, { name: 'The Shards', timestamp });
         }
       } catch {}
     }
@@ -3683,19 +3848,28 @@
 
     handleHiddenSignal(detail) {
       if (!detail || typeof detail.hidden !== 'boolean') return;
+      const scope = typeof detail.scope === 'string' ? detail.scope : null;
+      const isTargetedInvite = scope === 'invite';
+      const isForPlayer = isTargetedInvite ? this.isInviteForCurrentPlayer(detail) : true;
+      if (isTargetedInvite && !isForPlayer) return;
       if (detail.hidden === false) {
         this.lastRevealSignalDetail = detail;
         this.enqueueRevealInvite(detail);
       } else if (detail.hidden === true) {
+        if (!isForPlayer) return;
+        this.revealAccess = false;
         this.lastRevealSignalDetail = null;
         this.revealInviteQueue = [];
         this.revealInviteActive = null;
         this.closeRevealInvite();
-        try {
-          if (typeof window.toast === 'function') {
-            window.toast('The DM concealed the Shards of Many Fates', { type: 'info', duration: 4000 });
-          }
-        } catch {}
+        this.applyHiddenState(this.lastHiddenState ?? true);
+        if (!isTargetedInvite) {
+          try {
+            if (typeof window.toast === 'function') {
+              window.toast('The DM concealed the Shards of Many Fates', { type: 'info', duration: 4000 });
+            }
+          } catch {}
+        }
       }
     }
 
@@ -3703,21 +3877,22 @@
       const normalized = !!hidden;
       const previous = this.lastHiddenState;
       this.lastHiddenState = normalized;
-      if (this.dom.card) this.dom.card.hidden = normalized;
-      if (normalized) {
+      const effectiveHidden = normalized && !this.revealAccess;
+      if (this.dom.card) this.dom.card.hidden = effectiveHidden;
+      if (effectiveHidden) {
         this.closeModal();
         this.revealInviteQueue = [];
         this.revealInviteActive = null;
         this.closeRevealInvite();
+        this.lastRevealSignalDetail = null;
+      } else {
+        this.flushPendingNoticeAdds();
       }
       if (previous === true && normalized === false) {
         const detail = this.lastRevealSignalDetail || {};
         this.enqueueRevealInvite(detail);
       }
-      if (normalized === false) {
-        this.flushPendingNoticeAdds();
-      }
-      this.lastRevealSignalDetail = null;
+      this.lastEffectiveHidden = effectiveHidden;
     }
   }
 
@@ -3747,6 +3922,11 @@
       this.setupWatchers();
       this.refresh();
       this.updateRealtimeState();
+      if (this.runtime.hasRealtime()) {
+        this.ensureInviteRoster();
+      } else {
+        this.renderInviteRoster([], { status: 'offline' });
+      }
       if (this.modeCleanup) this.modeCleanup();
       this.modeCleanup = this.runtime.onModeChange(() => this.handleModeChange());
     }
@@ -3770,8 +3950,12 @@
         itemList: dom.one('#somfDM-itemList'),
         toasts: dom.one('#somfDM-toasts'),
         ping: dom.one('#somfDM-ping'),
-        playerToggle: dom.one('#somfDM-playerCard'),
-        playerState: dom.one('#somfDM-playerCard-state'),
+        inviteInput: dom.one('#somfDM-inviteTargets'),
+        inviteSend: dom.one('#somfDM-sendInvite'),
+        concealAll: dom.one('#somfDM-concealAll'),
+        hiddenStatus: dom.one('#somfDM-hiddenStatus'),
+        inviteOptions: dom.one('#somfDM-inviteOptions'),
+        inviteRoster: dom.one('#somfDM-inviteRoster'),
         resolveOptions: dom.one('#somfDM-resolveOptions'),
         queue: dom.one('#somfDM-notifications'),
         npcModal: dom.one('#somfDM-npcModal'),
@@ -3816,12 +4000,25 @@
 
     updateRealtimeState() {
       const hasRealtime = this.runtime.hasRealtime();
-      if (this.dom.playerToggle) {
-        this.dom.playerToggle.disabled = !hasRealtime;
-        this.dom.playerToggle.setAttribute('aria-disabled', hasRealtime ? 'false' : 'true');
+      if (this.dom.inviteSend) {
+        this.dom.inviteSend.disabled = !hasRealtime;
+        this.dom.inviteSend.setAttribute('aria-disabled', hasRealtime ? 'false' : 'true');
+      }
+      if (this.dom.inviteInput) {
+        this.dom.inviteInput.disabled = !hasRealtime;
+        this.dom.inviteInput.setAttribute('aria-disabled', hasRealtime ? 'false' : 'true');
+      }
+      if (this.dom.concealAll) {
+        this.dom.concealAll.disabled = !hasRealtime;
       }
       if (this.dom.reset) {
         this.dom.reset.disabled = !hasRealtime;
+      }
+      const hasRosterData = Array.isArray(this.inviteRosterNames) && this.inviteRosterNames.length > 0;
+      if (!hasRealtime) {
+        this.renderInviteRoster([], { status: 'offline' });
+      } else if (!hasRosterData && !this.inviteRosterPromise) {
+        this.ensureInviteRoster();
       }
       this.updateNoticeActions();
     }
@@ -3852,11 +4049,119 @@
       return false;
     }
 
-    restoreHiddenToggle() {
-      if (!this.dom.playerToggle) return;
-      const hidden = typeof this.lastHiddenState === 'boolean' ? this.lastHiddenState : true;
-      this.dom.playerToggle.checked = !hidden;
-      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+    ensureInviteRoster() {
+      if (!this.runtime.hasRealtime()) {
+        this.renderInviteRoster([], { status: 'offline' });
+        return;
+      }
+      if (!Array.isArray(this.inviteRosterNames)) this.inviteRosterNames = [];
+      if (this.inviteRosterNames.length || this.inviteRosterPromise) return;
+      this.loadInviteRoster();
+    }
+
+    async loadInviteRoster({ force = false } = {}) {
+      if (!this.runtime.hasRealtime()) {
+        this.renderInviteRoster([], { status: 'offline' });
+        return [];
+      }
+      if (!this.dom.inviteOptions && !this.dom.inviteRoster) {
+        return [];
+      }
+      const now = Date.now();
+      if (!force && this.inviteRosterNames.length && (now - this.inviteRosterLoadedAt) < 60000) {
+        this.renderInviteRoster(this.inviteRosterNames);
+        return this.inviteRosterNames.slice();
+      }
+      this.renderInviteRoster([], { status: 'loading' });
+      if (this.inviteRosterPromise) return this.inviteRosterPromise;
+      const promise = (async () => {
+        try {
+          const rawNames = await fetchCloudPlayerNames();
+          const seen = new Set();
+          const normalized = [];
+          rawNames.forEach(name => {
+            const normalizedName = normalizePlayerName(name);
+            if (!normalizedName) return;
+            const key = normalizePlayerKey(normalizedName);
+            if (seen.has(key)) return;
+            seen.add(key);
+            normalized.push(normalizedName);
+          });
+          normalized.sort((a, b) => a.localeCompare(b));
+          this.inviteRosterNames = normalized;
+          this.inviteRosterLoadedAt = Date.now();
+          this.renderInviteRoster(normalized);
+          return normalized;
+        } catch (err) {
+          console.error('Failed to refresh Shards invite roster', err);
+          this.renderInviteRoster([], { status: 'error' });
+          return [];
+        } finally {
+          this.inviteRosterPromise = null;
+        }
+      })();
+      this.inviteRosterPromise = promise;
+      return promise;
+    }
+
+    renderInviteRoster(names, { status = 'ready' } = {}) {
+      const list = Array.isArray(names) ? names : [];
+      if (this.dom.inviteOptions) {
+        this.dom.inviteOptions.innerHTML = '';
+        if (status === 'ready') {
+          list.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            this.dom.inviteOptions.appendChild(option);
+          });
+        }
+      }
+      if (!this.dom.inviteRoster) return;
+      this.dom.inviteRoster.innerHTML = '';
+      if (status !== 'ready') {
+        const message = document.createElement('p');
+        message.className = 'somf-dm__inviteEmpty';
+        message.textContent = status === 'loading'
+          ? 'Loading players…'
+          : status === 'offline'
+            ? 'Connect to the cloud to load players.'
+            : 'Unable to load player list.';
+        this.dom.inviteRoster.appendChild(message);
+        return;
+      }
+      if (!list.length) {
+        const empty = document.createElement('p');
+        empty.className = 'somf-dm__inviteEmpty';
+        empty.textContent = 'No player saves found in the cloud.';
+        this.dom.inviteRoster.appendChild(empty);
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      list.forEach(name => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'somf-dm__inviteChip';
+        button.textContent = name;
+        button.setAttribute('data-player-name', name);
+        fragment.appendChild(button);
+      });
+      this.dom.inviteRoster.appendChild(fragment);
+    }
+
+    addInvitee(name) {
+      if (!this.dom.inviteInput) return;
+      const normalized = normalizePlayerName(name);
+      if (!normalized) return;
+      const current = String(this.dom.inviteInput.value || '');
+      const pieces = current.split(',').map(part => normalizePlayerName(part)).filter(Boolean);
+      const seen = new Set(pieces.map(part => normalizePlayerKey(part)));
+      const key = normalizePlayerKey(normalized);
+      if (!seen.has(key)) {
+        pieces.push(normalized);
+      }
+      this.dom.inviteInput.value = pieces.join(', ');
+      try { this.dom.inviteInput.focus(); }
+      catch {}
     }
 
     bindEvents() {
@@ -3879,9 +4184,35 @@
         this.dom.reset.addEventListener('click', () => this.resetDeck());
         this.dom.reset.__somfBound = true;
       }
-      if (this.dom.playerToggle && !this.dom.playerToggle.__somfBound) {
-        this.dom.playerToggle.addEventListener('change', () => this.onToggleHidden());
-        this.dom.playerToggle.__somfBound = true;
+      if (this.dom.inviteSend && !this.dom.inviteSend.__somfBound) {
+        this.dom.inviteSend.addEventListener('click', () => this.sendInvites());
+        this.dom.inviteSend.__somfBound = true;
+      }
+      if (this.dom.inviteInput && !this.dom.inviteInput.__somfEnterBound) {
+        this.dom.inviteInput.addEventListener('keydown', evt => {
+          if (evt.key === 'Enter') {
+            evt.preventDefault();
+            this.sendInvites();
+          }
+        });
+        this.dom.inviteInput.__somfEnterBound = true;
+      }
+      if (this.dom.inviteInput && !this.dom.inviteInput.__somfRosterBound) {
+        this.dom.inviteInput.addEventListener('focus', () => this.ensureInviteRoster());
+        this.dom.inviteInput.__somfRosterBound = true;
+      }
+      if (this.dom.inviteRoster && !this.dom.inviteRoster.__somfBound) {
+        this.dom.inviteRoster.addEventListener('click', evt => {
+          const chip = evt.target?.closest?.('.somf-dm__inviteChip[data-player-name]');
+          if (!chip) return;
+          const name = chip.getAttribute('data-player-name') || chip.textContent || '';
+          this.addInvitee(name);
+        });
+        this.dom.inviteRoster.__somfBound = true;
+      }
+      if (this.dom.concealAll && !this.dom.concealAll.__somfBound) {
+        this.dom.concealAll.addEventListener('click', () => this.concealAll());
+        this.dom.concealAll.__somfBound = true;
       }
       if (this.dom.markResolved && !this.dom.markResolved.__somfBound) {
         this.dom.markResolved.addEventListener('click', () => this.resolveActiveNotice());
@@ -3909,7 +4240,7 @@
 
     async refresh() {
       await this.refreshCounts();
-      await this.refreshHiddenToggle();
+      await this.refreshHiddenState();
       await this.renderNotices();
     }
 
@@ -3924,16 +4255,16 @@
       }
     }
 
-    async refreshHiddenToggle() {
-      if (!this.dom.playerToggle) return;
+    async refreshHiddenState() {
       const hidden = await this.runtime.getHidden();
       this.lastHiddenState = !!hidden;
-      this.dom.playerToggle.checked = !hidden;
-      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+      if (this.dom.hiddenStatus) {
+        this.dom.hiddenStatus.textContent = hidden ? 'Concealed' : 'Revealed to All';
+      }
     }
 
     async renderNotices() {
-      this.notices = await this.runtime.loadNotices(30);
+      this.notices = sortNoticesChronologically(await this.runtime.loadNotices(30));
       if (this.dom.incoming) {
         this.dom.incoming.innerHTML = '';
         this.notices.forEach((notice, index) => {
@@ -3984,6 +4315,10 @@
     }
 
     focusShard(ref) {
+      if (!isDmSessionActive()) {
+        this.toast('<strong>DM Access Required</strong> Log in as the DM to inspect shard definitions.', { type: 'error', duration: 4000 });
+        return false;
+      }
       const shardId = this.resolveShardId(ref);
       if (!shardId) return false;
       this.activateTab('cards');
@@ -4515,22 +4850,84 @@
       this.dom.npcModal.setAttribute('aria-hidden', 'true');
     }
 
-    async onToggleHidden() {
-      if (!this.dom.playerToggle) return;
-      const hidden = !this.dom.playerToggle.checked;
-      if (!this.ensureRealtime(hidden ? 'Connect before concealing the Shards.' : 'Connect before revealing the Shards.', () => this.restoreHiddenToggle())) {
+    parseInviteTargets() {
+      if (!this.dom.inviteInput) return [];
+      const raw = String(this.dom.inviteInput.value || '');
+      return raw
+        .split(/[\n,;]+/)
+        .map(normalizePlayerName)
+        .filter(Boolean);
+    }
+
+    clearInviteInput() {
+      if (this.dom.inviteInput) {
+        this.dom.inviteInput.value = '';
+      }
+    }
+
+    async sendInvites() {
+      const targets = this.parseInviteTargets();
+      if (!targets.length) {
+        this.toast('<strong>No Players Selected</strong> Enter at least one name to invite.', { type: 'warning', duration: 4000 });
+        return;
+      }
+      if (!this.ensureRealtime('Connect before inviting players.')) {
+        return;
+      }
+
+      const normalizedKeys = targets.map(normalizePlayerKey);
+      const invitesAll = normalizedKeys.some(key => UNIVERSAL_INVITE_KEYS.has(key));
+      const now = Date.now();
+      if (invitesAll) {
+        try {
+          await this.runtime.setHidden(false);
+        } catch (err) {
+          console.error('Failed to reveal shards to all players', err);
+          this.toast('<strong>Invite Failed</strong> Unable to reveal the deck to everyone.', { type: 'error', duration: 5000 });
+          return;
+        }
+        this.toast('<strong>Shards Revealed</strong> All players can now see the deck.');
+        try {
+          window.dmNotify?.('Revealed the Shards to all players', { ts: now });
+        } catch {}
+        this.clearInviteInput();
+        return;
+      }
+
+      try {
+        await this.runtime.invitePlayers(targets);
+      } catch (err) {
+        console.error('Failed to invite players to reveal shards', err);
+        this.toast('<strong>Invite Failed</strong> Unable to deliver player invitations.', { type: 'error', duration: 5000 });
+        return;
+      }
+
+      const summary = joinWithConjunction(targets);
+      this.toast(`<strong>Invited</strong> ${escapeHtml(summary)}`);
+      try {
+        window.dmNotify?.(`Invited ${summary} to reveal the Shards`, {
+          ts: now,
+          html: `<strong>Invited</strong> ${escapeHtml(summary)}`,
+        });
+      } catch {}
+      this.clearInviteInput();
+    }
+
+    async concealAll() {
+      if (!this.ensureRealtime('Connect before concealing the Shards.')) {
         return;
       }
       try {
-        await this.runtime.setHidden(hidden);
+        await this.runtime.setHidden(true);
       } catch (err) {
-        console.error('Failed to update shard visibility', err);
-        this.restoreHiddenToggle();
+        console.error('Failed to conceal shards', err);
+        this.toast('<strong>Conceal Failed</strong> Unable to hide the deck.', { type: 'error', duration: 5000 });
         return;
       }
-      this.lastHiddenState = hidden;
-      this.playHiddenStateCue(hidden);
-      if (this.dom.playerState) this.dom.playerState.textContent = hidden ? 'Off' : 'On';
+      this.toast('<strong>Shards Concealed</strong> Players can no longer see the deck');
+      try {
+        window.dmNotify?.('Concealed the Shards of Many Fates', { ts: Date.now() });
+      } catch {}
     }
 
     playHiddenStateCue(hidden) {
@@ -4555,8 +4952,12 @@
       const normalized = !!hidden;
       const previous = this.lastHiddenState;
       this.lastHiddenState = normalized;
-      if (this.dom.playerToggle) this.dom.playerToggle.checked = !normalized;
-      if (this.dom.playerState) this.dom.playerState.textContent = normalized ? 'Off' : 'On';
+      if (this.dom.hiddenStatus) {
+        this.dom.hiddenStatus.textContent = normalized ? 'Concealed' : 'Revealed to All';
+      }
+      if (previous !== normalized) {
+        this.playHiddenStateCue(normalized);
+      }
     }
 
     open(opts = {}) {
