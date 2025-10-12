@@ -1744,7 +1744,7 @@ min-height:auto;
 background:none;
 border:none;
 border-radius:0;
-cursor:pointer;
+cursor:default;
 transition:color 0.2s ease
 }
 body:not(.no-hover) #statuses .status-option:hover,
@@ -1753,7 +1753,8 @@ color:var(--accent)
 }
 #statuses .status-option input{
 flex:0 0 auto;
-margin:0
+margin:0;
+cursor:pointer
 }
 #statuses .status-option span{flex:1}
 .status-effects{font-size:90%}
