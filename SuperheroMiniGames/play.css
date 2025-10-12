@@ -377,7 +377,7 @@ body {
   transition: color 140ms ease, text-shadow 140ms ease;
 }
 
-.tech-terminal__word:hover {
+body:not(.no-hover) .tech-terminal__word:hover {
   color: #ffffff;
   text-shadow: 0 0 12px rgba(59, 130, 246, 0.45);
 }
@@ -484,7 +484,7 @@ body {
   transition: transform 120ms ease, border-color 120ms ease;
 }
 
-.tech-terminal__drone:hover:not(:disabled) {
+body:not(.no-hover) .tech-terminal__drone:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: rgba(34, 197, 94, 0.8);
 }
@@ -522,7 +522,7 @@ body {
   box-shadow: 0 10px 18px rgba(14, 165, 233, 0.35);
 }
 
-.mg-button:hover {
+body:not(.no-hover) .mg-button:hover {
   transform: translateY(-1px);
   background: var(--accent-strong);
 }
@@ -1253,7 +1253,7 @@ body {
   transition: transform 0.15s ease, background 0.2s ease;
 }
 
-.stratagem-pad__button:hover,
+body:not(.no-hover) .stratagem-pad__button:hover,
 .stratagem-pad__button:focus-visible {
   background: rgba(59, 130, 246, 0.35);
   transform: translateY(-2px);
