@@ -5127,8 +5127,6 @@ const elDeathSaves = $('death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
 const elCreditsGearTotal = $('credits-gear-total');
-const elCreditsGearRemaining = $('credits-gear-remaining');
-const elCreditsReason = $('credits-reason');
 const elCreditsModeSelect = $('credits-mode');
 const elCreditsModeToggle = $('credits-mode-toggle');
 
@@ -5778,20 +5776,9 @@ function calculateEquippedGearTotal() {
 }
 
 function updateCreditsGearSummary() {
-  if (!elCreditsGearTotal && !elCreditsGearRemaining) return;
+  if (!elCreditsGearTotal) return;
   const total = calculateEquippedGearTotal();
-  if (elCreditsGearTotal) {
-    elCreditsGearTotal.textContent = `Equipped Gear: ${formatCreditsValue(total)}`;
-  }
-  if (elCreditsGearRemaining) {
-    const available = elCredits ? num(elCredits.value) || 0 : 0;
-    const delta = available - total;
-    if (delta >= 0) {
-      elCreditsGearRemaining.textContent = `Remaining Credits: ${formatCreditsValue(delta)}`;
-    } else {
-      elCreditsGearRemaining.textContent = `Credits Shortfall: ${formatCreditsValue(Math.abs(delta))}`;
-    }
-  }
+  elCreditsGearTotal.textContent = `Equipped Gear: ${formatCreditsValue(total)}`;
 }
 
 function updateCreditsDisplay(){
@@ -5849,14 +5836,9 @@ $('credits-submit').addEventListener('click', ()=>{
   const mode = $('credits-mode').value;
   const delta = mode==='add'? amt : -amt;
   const current = num(elCredits.value) || 0;
-  const providedReason = elCreditsReason && typeof elCreditsReason.value === 'string'
-    ? elCreditsReason.value.trim()
-    : '';
-  const defaultReason = mode==='add' ? 'Manual credit gain' : 'Manual credit spend';
-  const reason = providedReason || defaultReason;
+  const reason = mode==='add' ? 'Manual credit gain' : 'Manual credit spend';
   setCredits(current + delta, { reason });
   if (amtField) amtField.value='';
-  if (elCreditsReason) elCreditsReason.value='';
 });
 
 const isElement = (node, ctor) => typeof ctor !== 'undefined' && node instanceof ctor;
