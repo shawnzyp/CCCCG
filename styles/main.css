@@ -1861,8 +1861,9 @@ input[type="checkbox"]:checked{
   border-color:var(--accent, #222);
 }
 button{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--text-on-accent);border:none;font-weight:700;min-height:var(--control-min-height);cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2);touch-action:manipulation}
-button:hover{filter:brightness(1.1);transform:translateY(-1px)}
-button:active{transform:translateY(0)}
+button:hover{filter:brightness(1.1);}
+button:hover:not(.player-tools-tab){transform:translateY(-1px);}
+button:active:not(.player-tools-tab){transform:translateY(0);}
 button:disabled{background:var(--surface-2);color:var(--muted);cursor:not-allowed;opacity:.6;box-shadow:none;transform:none;filter:none;pointer-events:none}
 button.loading{opacity:.8;pointer-events:none;position:relative;padding-right:2.5em}
 button.loading::after{content:"";position:absolute;width:1em;height:1em;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;right:8px;top:50%;transform:translateY(-50%);animation:spin 1s linear infinite}
