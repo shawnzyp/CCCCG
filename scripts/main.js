@@ -3923,11 +3923,39 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     original: tickerToggle.getAttribute('data-open-icon'),
     inverted: tickerToggle.getAttribute('data-open-icon-inverted')
   };
+  const sanitizePanelHeight = value => {
+    if(typeof value === 'number' && Number.isFinite(value)){
+      return value;
+    }
+    if(typeof value === 'string'){
+      const parsed = Number.parseFloat(value);
+      if(Number.isFinite(parsed)){
+        return parsed;
+      }
+    }
+    return 0;
+  };
+  const formatPanelHeight = value => `${Math.max(0, Math.round(sanitizePanelHeight(value)))}px`;
+  const getClosedPanelHeight = () => {
+    if(!tickerPanel){
+      return 0;
+    }
+    if(typeof window !== 'undefined' && typeof window.getComputedStyle === 'function'){
+      const styles = window.getComputedStyle(tickerPanel);
+      const borderWidth = Number.parseFloat(styles.getPropertyValue('border-top-width')) || 0;
+      return Math.max(0, borderWidth);
+    }
+    const inlineBorder = Number.parseFloat(tickerPanel.style.borderTopWidth) || 0;
+    return Math.max(0, inlineBorder);
+  };
   const setPanelOffset = value => {
-    const measuredHeight = typeof value === 'number'
+    const measuredHeight = typeof value === 'number' && Number.isFinite(value)
       ? value
       : tickerPanel.getBoundingClientRect().height;
-    const nextHeight = Math.max(0, Math.round(measuredHeight || 0));
+    const fallbackHeight = Number.isFinite(measuredHeight) && measuredHeight > 0
+      ? measuredHeight
+      : getClosedPanelHeight();
+    const nextHeight = Math.max(0, Math.round((fallbackHeight || 0)));
     tickerDrawer.style.setProperty('--ticker-panel-offset', `${nextHeight}px`);
   };
   const initializePanelObserver = () => {
@@ -4001,7 +4029,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     if(isOpen){
       tickerPanel.style.height = '';
     }else{
-      tickerPanel.style.height = '0px';
+      tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
     }
     setPanelOffset();
     isAnimating = false;
@@ -4012,18 +4040,18 @@ if(tickerDrawer && tickerPanel && tickerToggle){
       return;
     }
     isAnimating = true;
-    const startHeight = tickerPanel.getBoundingClientRect().height;
+    const startHeight = sanitizePanelHeight(tickerPanel.getBoundingClientRect().height);
     const targetHeight = nextOpen
-      ? (panelInner ? panelInner.scrollHeight : tickerPanel.scrollHeight)
-      : 0;
-    tickerPanel.style.height = `${Math.max(0, Math.round(startHeight))}px`;
+      ? sanitizePanelHeight(panelInner ? panelInner.scrollHeight : tickerPanel.scrollHeight)
+      : getClosedPanelHeight();
+    tickerPanel.style.height = formatPanelHeight(startHeight);
     setPanelOffset(startHeight);
     isOpen = nextOpen;
     requestAnimationFrame(() => {
       tickerPanel.classList.add('is-animating');
       updateToggleState(nextOpen);
       setDrawerState(nextOpen ? 'opening' : 'closing');
-      tickerPanel.style.height = `${Math.max(0, Math.round(targetHeight))}px`;
+      tickerPanel.style.height = formatPanelHeight(targetHeight);
       setPanelOffset(targetHeight);
       const prefersReduce = typeof window !== 'undefined'
         && window.matchMedia
@@ -4053,7 +4081,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   setDrawerState(isOpen ? 'open' : 'closed');
   updateToggleState(isOpen);
   if(!isOpen){
-    tickerPanel.style.height = '0px';
+    tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
   }
   setPanelOffset();
 }
