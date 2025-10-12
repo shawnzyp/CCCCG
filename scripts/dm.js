@@ -412,6 +412,9 @@ function initDMLogin(){
 
   const creditAccountNumbers = new Map();
   const creditAmountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const PLAYER_CREDIT_STORAGE_KEY = 'cc_dm_card';
+  const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
+  let playerCreditBroadcastChannel = null;
 
   function creditPad(n) {
     return String(n).padStart(2, '0');
@@ -470,6 +473,77 @@ function initDMLogin(){
     if (!creditCard) return;
     const numeric = Number.isFinite(value) ? value : 0;
     creditCard.setAttribute('data-amount', numeric.toFixed(2));
+  }
+
+  function ensurePlayerCreditBroadcastChannel() {
+    if (playerCreditBroadcastChannel || typeof BroadcastChannel !== 'function') {
+      return playerCreditBroadcastChannel;
+    }
+    try {
+      playerCreditBroadcastChannel = new BroadcastChannel(PLAYER_CREDIT_BROADCAST_CHANNEL);
+    } catch {
+      playerCreditBroadcastChannel = null;
+    }
+    return playerCreditBroadcastChannel;
+  }
+
+  function sanitizePlayerCreditPayload(payload = {}) {
+    const amountValue = Number(payload.amount);
+    const timestamp = (() => {
+      if (payload.timestamp instanceof Date) return payload.timestamp.toISOString();
+      if (typeof payload.timestamp === 'string' && payload.timestamp) {
+        const parsed = new Date(payload.timestamp);
+        if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+      }
+      return new Date().toISOString();
+    })();
+    return {
+      account: typeof payload.account === 'string' ? payload.account : '',
+      amount: Number.isFinite(amountValue) ? amountValue : 0,
+      type: typeof payload.type === 'string' ? payload.type : '',
+      sender: typeof payload.sender === 'string' ? payload.sender : '',
+      ref: typeof payload.ref === 'string' ? payload.ref : '',
+      txid: typeof payload.txid === 'string' ? payload.txid : '',
+      timestamp,
+      player: typeof payload.player === 'string' ? payload.player : '',
+    };
+  }
+
+  function broadcastPlayerCreditUpdate(payload) {
+    if (typeof window === 'undefined') return;
+    const sanitized = sanitizePlayerCreditPayload(payload);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(sanitized));
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+    const channel = ensurePlayerCreditBroadcastChannel();
+    if (channel) {
+      try {
+        channel.postMessage({ type: 'CC_PLAYER_UPDATE', payload: sanitized });
+      } catch {
+        /* ignore broadcast failures */
+      }
+    }
+    try {
+      const origin = window.location?.origin || '*';
+      window.postMessage({ type: 'CC_PLAYER_UPDATE', payload: sanitized }, origin);
+    } catch {
+      try {
+        window.postMessage({ type: 'CC_PLAYER_UPDATE', payload: sanitized }, '*');
+      } catch {
+        /* ignore postMessage failures */
+      }
+    }
+    if (typeof window.setPlayerTransaction === 'function') {
+      try {
+        window.setPlayerTransaction(sanitized, { reveal: false });
+      } catch {
+        /* ignore preview failures */
+      }
+    }
   }
 
   function applyCreditAccountSelection() {
@@ -662,6 +736,7 @@ function initDMLogin(){
     }
     const transactionType = creditTxnType?.value === 'Debit' ? 'Debit' : 'Deposit';
     const delta = transactionType === 'Debit' ? -rawAmount : rawAmount;
+    const accountNumber = computeCreditAccountNumber(player);
     const originalLabel = creditSubmit.textContent;
     creditSubmit.disabled = true;
     creditSubmit.textContent = 'Sending…';
@@ -687,14 +762,32 @@ function initDMLogin(){
         toast(`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} ${transactionType === 'Debit' ? 'from' : 'to'} ${player}`, 'success');
       }
       window.dmNotify?.(summary, { ts: new Date(now).toISOString(), char: player });
-      captureCreditTimestamp();
+      const nowDate = new Date(now);
+      const timestampIso = nowDate.toISOString();
+      if (creditFooterDate) creditFooterDate.textContent = creditFormatDate(nowDate);
+      if (creditFooterTime) creditFooterTime.textContent = creditFormatTime(nowDate);
+      if (creditCard) {
+        creditCard.setAttribute('data-timestamp', timestampIso);
+        creditCard.setAttribute('data-submitted', 'true');
+        creditCard.setAttribute('data-submitted-at', timestampIso);
+        creditCard.setAttribute('data-player', player);
+        creditCard.setAttribute('data-account', accountNumber);
+      }
+      const refValue = creditCard?.getAttribute('data-ref') || creditRef?.textContent || '';
+      const txidValue = creditCard?.getAttribute('data-txid') || creditTxid?.textContent || '';
+      broadcastPlayerCreditUpdate({
+        account: accountNumber,
+        amount: delta,
+        type: transactionType,
+        sender: senderLabel,
+        ref: refValue,
+        txid: txidValue,
+        timestamp: timestampIso,
+        player,
+      });
       randomizeCreditIdentifiers();
       updateCreditSenderDataset();
       updateCreditTransactionType();
-      if (creditCard) {
-        creditCard.setAttribute('data-submitted', 'true');
-        creditCard.setAttribute('data-submitted-at', new Date(now).toISOString());
-      }
       if (creditAmountInput) {
         creditAmountInput.value = formatCreditAmountDisplay(0);
       }
