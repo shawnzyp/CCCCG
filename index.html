@@ -33,6 +33,7 @@
     <source src="images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
     Sorry, your browser does not support the launch animation video.
   </video>
+  <button type="button" class="launch-animation__skip" data-skip-launch>Skip</button>
 </div>
 <script>
   (function(){
@@ -81,6 +82,16 @@
         }
       }, timeout);
     };
+
+    const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
+
+    if(skipButton){
+      skipButton.addEventListener('click', event => {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('launch-animation-skip'));
+        hideLaunch();
+      });
+    }
 
     if(video){
       const ensureAttributes = () => {
