@@ -279,6 +279,15 @@ function initDMLogin(){
   const dmBtn = document.getElementById('dm-login');
   const dmToggleBtn = document.getElementById('dm-tools-toggle');
   const menu = document.getElementById('dm-tools-menu');
+  const dmPortal = document.querySelector('.dm-tools-portal');
+
+  if (dmPortal && document.body && dmPortal.parentElement !== document.body) {
+    try {
+      document.body.appendChild(dmPortal);
+    } catch (err) {
+      console.warn('Unable to reparent DM tools portal', err);
+    }
+  }
   const tsomfBtn = document.getElementById('dm-tools-tsomf');
   const notifyBtn = document.getElementById('dm-tools-notifications');
   const charBtn = document.getElementById('dm-tools-characters');
