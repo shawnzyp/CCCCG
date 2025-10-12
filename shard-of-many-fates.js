@@ -2103,10 +2103,33 @@
     return { key, ids, names, ts, count };
   }
 
+  function compareNoticeChronologically(a, b) {
+    if (!a && !b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
+    const aTs = Number.isFinite(Number(a.ts)) ? Number(a.ts) : 0;
+    const bTs = Number.isFinite(Number(b.ts)) ? Number(b.ts) : 0;
+    if (aTs !== bTs) return aTs - bTs;
+    const aKey = typeof a.key === 'string' ? a.key : '';
+    const bKey = typeof b.key === 'string' ? b.key : '';
+    if (aKey && bKey && aKey !== bKey) return aKey.localeCompare(bKey);
+    if (aKey && !bKey) return -1;
+    if (!aKey && bKey) return 1;
+    const aIndex = Number.isFinite(Number(a._noticeIndex)) ? Number(a._noticeIndex) : 0;
+    const bIndex = Number.isFinite(Number(b._noticeIndex)) ? Number(b._noticeIndex) : 0;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return 0;
+  }
+
+  const compareNoticeNewestFirst = (a, b) => compareNoticeChronologically(b, a);
+
+  const sortNoticesChronologically = list => (Array.isArray(list) ? list.slice() : [])
+    .sort(compareNoticeChronologically);
+
   const normalizeNoticeList = list => (Array.isArray(list) ? list : [])
     .map(normalizeNotice)
     .filter(Boolean)
-    .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    .sort(compareNoticeNewestFirst);
 
   function createItemGiftRecord(detail = {}, options = {}) {
     const includeKey = options?.includeKey !== false;
@@ -3235,7 +3258,7 @@
             .filter(key => typeof key === 'string' && key && !pendingKeys.has(key))
         );
       }
-      const orderedNotices = this.notices.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      const orderedNotices = sortNoticesChronologically(this.notices);
       const nextQueue = [];
       orderedNotices.forEach(notice => {
         const ids = toStringList(notice.ids);
@@ -3419,12 +3442,13 @@
       const key = typeof notice.key === 'string' ? notice.key : null;
       if (key && this.pendingNoticeAdds.some(entry => entry && entry.key === key)) return;
       this.pendingNoticeAdds.push(notice);
+      this.pendingNoticeAdds.sort(compareNoticeChronologically);
     }
 
     flushPendingNoticeAdds() {
       if (!this.pendingNoticeAdds.length) return;
       if (this.lastHiddenState === true) return;
-      const pending = this.pendingNoticeAdds.splice(0);
+      const pending = this.pendingNoticeAdds.splice(0).sort(compareNoticeChronologically);
       pending.forEach(entry => this.processNoticeAdd(entry));
     }
 
@@ -4240,7 +4264,7 @@
     }
 
     async renderNotices() {
-      this.notices = await this.runtime.loadNotices(30);
+      this.notices = sortNoticesChronologically(await this.runtime.loadNotices(30));
       if (this.dom.incoming) {
         this.dom.incoming.innerHTML = '';
         this.notices.forEach((notice, index) => {
