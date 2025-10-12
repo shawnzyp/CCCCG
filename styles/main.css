@@ -4241,8 +4241,6 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
 .roll-tool__field>select,
 .roll-tool__field :is(input,select){min-height:var(--roll-tools-control-height);font-size:var(--roll-tools-control-font-size);padding:clamp(4px,1.2vw,8px) clamp(8px,2.6vw,12px);width:100%}
 .roll-tool__field input[type="number"]{text-align:center}
-.roll-tool__split{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:calc(var(--roll-tools-gap)*.5);align-items:end}
-.roll-tool__split>.btn-sm{align-self:stretch}
 .roll-tool__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(var(--roll-tools-gap)*.5)}
 .roll-tool__grid>.roll-tool__field{height:100%}
 .roll-tool__grid select{text-align:left}
