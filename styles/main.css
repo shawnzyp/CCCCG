@@ -2190,21 +2190,21 @@ button .btn-label{display:inline-flex;align-items:center}
 }
 
 .hp-field__action--damage{
-  background:color-mix(in srgb,var(--error) 24%, var(--surface-2));
+  background:color-mix(in srgb,var(--error) 45%, var(--surface-2));
   color:var(--text);
 }
 
 body:not(.no-hover) .hp-field__action--damage:hover{
-  background:color-mix(in srgb,var(--error) 32%, var(--surface-2));
+  background:color-mix(in srgb,var(--error) 55%, var(--surface-2));
 }
 
 .hp-field__action--heal{
-  background:color-mix(in srgb,var(--success) 24%, var(--surface-2));
+  background:color-mix(in srgb,var(--success) 45%, var(--surface-2));
   color:var(--text);
 }
 
 body:not(.no-hover) .hp-field__action--heal:hover{
-  background:color-mix(in srgb,var(--success) 32%, var(--surface-2));
+  background:color-mix(in srgb,var(--success) 55%, var(--surface-2));
 }
 
 @media(max-width:560px){
