@@ -1642,6 +1642,7 @@ document.addEventListener('click', e=>{
   if(!animationsEnabled) return;
   const el=e.target.closest(INTERACTIVE_SEL);
   if(el){
+    if(el.id==='player-tools-tab') return;
     el.classList.add('action-anim');
     el.addEventListener('animationend', ()=>el.classList.remove('action-anim'), {once:true});
   }
