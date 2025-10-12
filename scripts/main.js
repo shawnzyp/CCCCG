@@ -1242,6 +1242,7 @@ function queueWelcomeModal({ immediate = false } = {}) {
 
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
+  const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let revealCalled = false;
@@ -1455,6 +1456,15 @@ function queueWelcomeModal({ immediate = false } = {}) {
     notifyServiceWorkerVideoPlayed();
     revealApp();
   };
+
+  if(skipButton){
+    skipButton.addEventListener('click', event => {
+      event.preventDefault();
+      finalizeLaunch();
+    });
+  }
+
+  window.addEventListener('launch-animation-skip', finalizeLaunch, { once: true });
 
   const scheduleFallback = delay => {
     fallbackTimer = clearTimer(fallbackTimer);
