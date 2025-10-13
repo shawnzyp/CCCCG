@@ -2190,21 +2190,31 @@ button .btn-label{display:inline-flex;align-items:center}
 }
 
 .hp-field__action--damage{
-  background:color-mix(in srgb,var(--error) 45%, var(--surface-2));
-  color:var(--text);
+  background:linear-gradient(135deg,
+      color-mix(in srgb,var(--error) 88%, white 12%),
+      color-mix(in srgb,var(--error) 72%, black 8%));
+  color:var(--text-on-accent);
+  box-shadow:0 6px 18px rgba(0,0,0,.25);
 }
 
 body:not(.no-hover) .hp-field__action--damage:hover{
-  background:color-mix(in srgb,var(--error) 55%, var(--surface-2));
+  background:linear-gradient(135deg,
+      color-mix(in srgb,var(--error) 92%, white 8%),
+      color-mix(in srgb,var(--error) 78%, black 10%));
 }
 
 .hp-field__action--heal{
-  background:color-mix(in srgb,var(--success) 45%, var(--surface-2));
-  color:var(--text);
+  background:linear-gradient(135deg,
+      color-mix(in srgb,var(--success) 88%, white 12%),
+      color-mix(in srgb,var(--success) 70%, black 6%));
+  color:var(--text-on-accent);
+  box-shadow:0 6px 18px rgba(0,0,0,.25);
 }
 
 body:not(.no-hover) .hp-field__action--heal:hover{
-  background:color-mix(in srgb,var(--success) 55%, var(--surface-2));
+  background:linear-gradient(135deg,
+      color-mix(in srgb,var(--success) 92%, white 8%),
+      color-mix(in srgb,var(--success) 76%, black 8%));
 }
 
 @media(max-width:560px){
