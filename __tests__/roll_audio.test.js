@@ -7,6 +7,7 @@ function createStubElement() {
     style: { setProperty: () => {}, getPropertyValue: () => '' },
     classList: { add: () => {}, remove: () => {}, contains: () => false, toggle: () => {} },
     setAttribute: () => {},
+    removeAttribute: () => {},
     getAttribute: () => null,
     add: () => {},
     addEventListener: () => {},
