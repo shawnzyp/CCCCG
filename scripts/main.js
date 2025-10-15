@@ -6739,6 +6739,19 @@ const AUDIO_CUE_SETTINGS = {
       { ratio: 2, amplitude: 0.45 },
     ],
   },
+  'dice-roll': {
+    frequency: 260,
+    type: 'sine',
+    duration: 0.4,
+    volume: 0.26,
+    attack: 0.012,
+    release: 0.2,
+    partials: [
+      { ratio: 1, amplitude: 1 },
+      { ratio: 1.25, amplitude: 0.5 },
+      { ratio: 1.75, amplitude: 0.22 },
+    ],
+  },
   'dm-roll': {
     frequency: 320,
     type: 'triangle',
