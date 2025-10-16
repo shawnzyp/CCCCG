@@ -35,8 +35,16 @@ import { show, hide } from './modal.js';
     return [window.location.origin];
   })();
 
-  const clampArray = (value) => (Array.isArray(value) ? value : []);
-  const allowedOriginsList = clampArray(allowedOrigins);
+  const toOriginList = (value) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string' && value) {
+      return [value];
+    }
+    return [];
+  };
+  const allowedOriginsList = toOriginList(allowedOrigins);
 
   const pad = (n) => String(n).padStart(2, '0');
   const formatDate = (date) => `${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${date.getFullYear()}`;
