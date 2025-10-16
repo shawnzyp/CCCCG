@@ -51,6 +51,7 @@ test('DM invite roster loads cloud player names', async () => {
     <div class="somf-dm__toggles">
       <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
       <input id="somfDM-inviteTargets" class="somf-dm__inviteInput" type="text" list="somfDM-inviteOptions">
+      <span id="somfDM-inviteSelected" class="somf-dm__inviteSelected">No players selected</span>
       <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
       <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
       <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
@@ -91,8 +92,18 @@ test('DM invite roster loads cloud player names', async () => {
   expect(rosterButtons).toEqual(['Hero One', 'Hero Two']);
 
   const inviteInput = document.getElementById('somfDM-inviteTargets');
-  document.querySelector('.somf-dm__inviteChip')?.click();
-  expect(inviteInput.value).toBe('Hero One');
+  const chip = document.querySelector('.somf-dm__inviteChip');
+  chip?.click();
+  expect(inviteInput.value).toBe('');
+
+  const selectedLabel = document.getElementById('somfDM-inviteSelected');
+  expect(selectedLabel.textContent).toBe('1 player selected');
+
+  expect(chip?.getAttribute('aria-pressed')).toBe('true');
+  expect(chip?.classList.contains('is-selected')).toBe(true);
+
+  const inviteButton = document.getElementById('somfDM-sendInvite');
+  expect(inviteButton.textContent).toBe('Send Invite (1)');
 
   expect(fetchMock).toHaveBeenCalledTimes(1);
 
