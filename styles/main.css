@@ -4811,3 +4811,7 @@ body.player-tools-open .player-tools-tab,
 .card--level-rewards[data-pending="true"]{
   box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%, transparent);
 }
+
+.card[data-level-choice]{
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%, transparent);
+}
