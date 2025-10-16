@@ -754,9 +754,24 @@
         <label for="publicIdentity">Public Identity</label>
         <select id="publicIdentity"><option value="Public">Public</option><option value="Secret" selected>Secret</option></select>
       </div>
-      <div class="card" data-view-lock>
+      <div class="card card--tier" data-view-lock>
         <label for="tier">Tier</label>
-        <input id="tier" type="text" readonly/>
+        <div class="tier-summary">
+          <input id="tier" type="text" readonly/>
+          <div class="tier-summary__details">
+            <div class="tier-summary__detail">
+              <span class="tier-summary__label">Level</span>
+              <span id="level-text" class="tier-summary__value">1</span>
+            </div>
+            <div class="tier-summary__detail">
+              <span class="tier-summary__label">Sub-tier</span>
+              <span id="sub-tier-text" class="tier-summary__value">A</span>
+            </div>
+          </div>
+          <p id="tier-gains" class="tier-summary__gains" hidden></p>
+        </div>
+        <input id="level" type="hidden" value="1"/>
+        <input id="sub-tier" type="hidden" value="A"/>
       </div>
       <div class="card card--xp" style="grid-column:1/-1">
         <div class="xp-tracker">

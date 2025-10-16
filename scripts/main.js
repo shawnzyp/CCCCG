@@ -58,6 +58,7 @@ import {
   splitValueOptions,
   tierRank,
 } from './catalog-utils.js';
+import { LEVELS } from './levels.js';
 
 const POWER_STYLES = [
   'Physical Powerhouse',
@@ -8218,6 +8219,11 @@ const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
 const xpNumberFormatter = new Intl.NumberFormat();
 const elTier = $('tier');
+const elLevelValue = $('level');
+const elLevelText = $('level-text');
+const elSubTierValue = $('sub-tier');
+const elSubTierText = $('sub-tier-text');
+const elTierGains = $('tier-gains');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
 const elDeathSaves = $('death-saves');
@@ -8398,30 +8404,59 @@ if (elCAPCheck instanceof HTMLElement && elCAPStatus instanceof HTMLElement) {
   });
 }
 
-const XP_TIERS = [
-  { xp: 0, label: 'Tier 5 – Rookie' },
-  { xp: 2000, label: 'Tier 4 – Emerging Vigilante' },
-  { xp: 6000, label: 'Tier 3 – Field-Tested Operative' },
-  { xp: 18000, label: 'Tier 2 – Respected Force' },
-  { xp: 54000, label: 'Tier 1 – Heroic Figure' },
-  { xp: 162000, label: 'Tier 0 – Transcendent / Legendary' }
-];
+const DEFAULT_LEVEL = {
+  level: 1,
+  tierNumber: 5,
+  tierLabel: 'Tier 5 – Rookie',
+  subTier: 'A',
+  xp: 0,
+  proficiencyBonus: 2,
+  gains: '',
+};
 
-const PROF_BONUS_TIERS = [2, 3, 4, 5, 6, 7];
+const LEVEL_TABLE = Array.isArray(LEVELS) && LEVELS.length
+  ? LEVELS.slice().sort((a, b) => (a?.xp ?? 0) - (b?.xp ?? 0))
+  : [DEFAULT_LEVEL];
 
-function getTierIndex(xp){
-  for(let i=XP_TIERS.length-1;i>=0;i--){
-    if(xp >= XP_TIERS[i].xp) return i;
+const MAX_LEVEL_INDEX = LEVEL_TABLE.length ? LEVEL_TABLE.length - 1 : 0;
+
+function getLevelEntry(idx) {
+  if (!LEVEL_TABLE.length) return DEFAULT_LEVEL;
+  if (!Number.isFinite(idx)) return LEVEL_TABLE[0] || DEFAULT_LEVEL;
+  const clamped = Math.min(Math.max(idx, 0), MAX_LEVEL_INDEX);
+  return LEVEL_TABLE[clamped] || LEVEL_TABLE[0] || DEFAULT_LEVEL;
+}
+
+function getLevelIndex(xp) {
+  const numericXp = Math.max(0, Number.isFinite(Number(xp)) ? Number(xp) : 0);
+  for (let i = LEVEL_TABLE.length - 1; i >= 0; i--) {
+    const threshold = Number(LEVEL_TABLE[i]?.xp ?? 0);
+    if (numericXp >= threshold) return i;
   }
   return 0;
 }
 
-let currentTierIdx = 0;
+function formatLevelLabel(entry) {
+  if (!entry) return '';
+  const levelText = Number.isFinite(Number(entry.level)) ? Number(entry.level) : '';
+  const subTierText = entry.subTier ? ` ${entry.subTier}` : '';
+  const tierText = entry.tierLabel ? ` – ${entry.tierLabel}` : '';
+  return `Level ${levelText}${subTierText}${tierText}`.trim();
+}
+
+function formatLevelShort(entry) {
+  if (!entry) return '';
+  const levelText = Number.isFinite(Number(entry.level)) ? Number(entry.level) : '';
+  const subTierText = entry.subTier ? ` ${entry.subTier}` : '';
+  return `Level ${levelText}${subTierText}`.trim();
+}
+
+let currentLevelIdx = 0;
 let xpInitialized = false;
 let catalogRenderScheduler = null;
 if (elXP instanceof HTMLElement) {
   const initXP = Math.max(0, num(elXP.value));
-  currentTierIdx = getTierIndex(initXP);
+  currentLevelIdx = getLevelIndex(initXP);
 }
 
 function launchConfetti(){
@@ -8466,9 +8501,11 @@ function launchFireworks(){
 }
 
 // set initial tier display
-if(elTier){
-  elTier.value = XP_TIERS[0].label;
+if (elTier) {
+  const initialLevel = getLevelEntry(currentLevelIdx);
+  elTier.value = initialLevel?.tierLabel || DEFAULT_LEVEL.tierLabel;
 }
+updateLevelOutputs(getLevelEntry(currentLevelIdx));
 
 /* ========= derived helpers ========= */
 function updateTempBadge(target, tempValue){
@@ -8558,34 +8595,60 @@ function updateHP(){
   }
 }
 
+function updateLevelOutputs(entry) {
+  const levelEntry = entry || getLevelEntry(currentLevelIdx);
+  const levelNumber = Number.isFinite(Number(levelEntry?.level)) ? String(levelEntry.level) : '';
+  const subTier = levelEntry?.subTier ? String(levelEntry.subTier) : '';
+  const tierLabel = levelEntry?.tierLabel ? String(levelEntry.tierLabel) : '';
+  const gainsText = levelEntry?.gains ? String(levelEntry.gains).trim() : '';
+  if (elTier) elTier.value = tierLabel;
+  if (elLevelValue) elLevelValue.value = levelNumber;
+  if (elLevelText) elLevelText.textContent = levelNumber || '—';
+  if (elSubTierValue) elSubTierValue.value = subTier;
+  if (elSubTierText) elSubTierText.textContent = subTier || '—';
+  if (elTierGains) {
+    elTierGains.textContent = gainsText;
+    elTierGains.hidden = !gainsText;
+  }
+}
+
 function updateXP(){
   const xp = Math.max(0, num(elXP.value));
-  const idx = getTierIndex(xp);
-  const prevIdx = currentTierIdx;
+  const idx = getLevelIndex(xp);
+  const prevIdx = currentLevelIdx;
+  const prevLevel = getLevelEntry(prevIdx);
+  const levelEntry = getLevelEntry(idx);
   if (xpInitialized && idx !== prevIdx) {
-    logAction(`Tier: ${XP_TIERS[prevIdx].label} -> ${XP_TIERS[idx].label}`);
+    logAction(`Level: ${formatLevelLabel(prevLevel)} -> ${formatLevelLabel(levelEntry)}`);
   }
-  if (xpInitialized && idx > currentTierIdx) {
+  if (xpInitialized && idx > prevIdx) {
     launchConfetti();
     launchFireworks();
-    toast(`Tier up! ${XP_TIERS[idx].label}. Director says: grab your 1d10 HP booster!`, 'success');
-    window.dmNotify?.(`Tier up to ${XP_TIERS[idx].label}`);
-  } else if(xpInitialized && idx < currentTierIdx){
-    window.dmNotify?.(`Tier down to ${XP_TIERS[idx].label}`);
+    const baseMessage = `Level up! ${formatLevelLabel(levelEntry)}`;
+    const toastMessage = levelEntry?.gains
+      ? `${baseMessage}. Gains: ${levelEntry.gains}.`
+      : `${baseMessage}.`;
+    toast(toastMessage, 'success');
+    window.dmNotify?.(`Level up to ${formatLevelLabel(levelEntry)}`);
+  } else if (xpInitialized && idx < prevIdx) {
+    window.dmNotify?.(`Level down to ${formatLevelLabel(levelEntry)}`);
   }
-  currentTierIdx = idx;
+  currentLevelIdx = idx;
   xpInitialized = true;
-  if(elTier) elTier.value = XP_TIERS[idx].label;
-  if(elProfBonus) elProfBonus.value = PROF_BONUS_TIERS[idx] || 2;
-  const nextTier = XP_TIERS[idx+1];
-  const currentTierXP = XP_TIERS[idx].xp;
-  if(nextTier){
-    const xpIntoTier = xp - currentTierXP;
-    const xpForNextTier = nextTier.xp - currentTierXP;
-    elXPBar.max = xpForNextTier;
-    elXPBar.value = xpIntoTier;
-    elXPPill.textContent = `${xpNumberFormatter.format(xpIntoTier)} / ${xpNumberFormatter.format(xpForNextTier)}`;
-  }else{
+  updateLevelOutputs(levelEntry);
+  if (elProfBonus) {
+    const pb = Number.isFinite(Number(levelEntry?.proficiencyBonus)) ? Number(levelEntry.proficiencyBonus) : DEFAULT_LEVEL.proficiencyBonus;
+    elProfBonus.value = pb;
+  }
+  const nextLevel = idx + 1 < LEVEL_TABLE.length ? LEVEL_TABLE[idx + 1] : null;
+  const currentLevelXP = Number(levelEntry?.xp ?? 0);
+  if (nextLevel) {
+    const xpIntoLevel = Math.max(0, xp - currentLevelXP);
+    const xpForNextLevel = Math.max(1, Number(nextLevel?.xp ?? 0) - currentLevelXP);
+    elXPBar.max = xpForNextLevel;
+    elXPBar.value = Math.min(xpForNextLevel, xpIntoLevel);
+    elXPPill.textContent = `${xpNumberFormatter.format(xpIntoLevel)} / ${xpNumberFormatter.format(xpForNextLevel)}`;
+  } else {
     elXPBar.max = 1;
     elXPBar.value = 1;
     elXPPill.textContent = `${xpNumberFormatter.format(xp)}+`;
@@ -8651,7 +8714,10 @@ function scheduleDerivedUpdate() {
 
 function updateDerived(){
   updateXP();
-  const pb = PROF_BONUS_TIERS[currentTierIdx] || 2;
+  const currentLevel = getLevelEntry(currentLevelIdx);
+  const pb = Number.isFinite(Number(currentLevel?.proficiencyBonus))
+    ? Number(currentLevel.proficiencyBonus)
+    : DEFAULT_LEVEL.proficiencyBonus;
   const wisMod = mod(elWis.value);
   const dexMod = mod(elDex.value);
   elPP.value = 10 + wisMod;
@@ -15600,12 +15666,18 @@ function getPlayerCatalogState(){
   if (secondaryStyleRaw && /^none$/i.test(secondaryStyleRaw)) secondaryStyleRaw = '';
   const originRaw = readValue('origin');
   const alignmentRaw = readValue('alignment');
-  const highestTierIndex = XP_TIERS.length ? XP_TIERS.length - 1 : 0;
-  const safeIdx = Number.isFinite(currentTierIdx) ? Math.min(Math.max(currentTierIdx, 0), XP_TIERS.length ? XP_TIERS.length - 1 : 0) : 0;
-  const tierNumber = Math.max(0, highestTierIndex - safeIdx);
-  const tierLabel = `T${tierNumber}`;
-  const tierValue = tierRank(tierLabel);
-  const tierLabelText = XP_TIERS[safeIdx]?.label || '';
+  const currentLevel = getLevelEntry(currentLevelIdx);
+  const tierNumber = Number.isFinite(Number(currentLevel?.tierNumber))
+    ? Number(currentLevel.tierNumber)
+    : null;
+  const tierLabel = Number.isFinite(tierNumber) ? `T${tierNumber}` : '';
+  const tierValue = tierLabel ? tierRank(tierLabel) : null;
+  const tierLabelText = currentLevel?.tierLabel ? String(currentLevel.tierLabel) : '';
+  const levelNumber = Number.isFinite(Number(currentLevel?.level))
+    ? Number(currentLevel.level)
+    : null;
+  const levelLabel = Number.isFinite(levelNumber) ? `Level ${levelNumber}` : '';
+  const subTierLabel = currentLevel?.subTier ? String(currentLevel.subTier) : '';
   const tags = new Set();
   const addTokens = value => {
     if (!value) return;
@@ -15625,9 +15697,18 @@ function getPlayerCatalogState(){
   addTokens(alignmentRaw);
   addTokens(tierLabelText);
   addTokens(tierLabel);
-  addTokens(`Tier ${tierNumber}`);
-  addTokens(String(tierNumber));
+  if (Number.isFinite(tierNumber)) {
+    addTokens(`Tier ${tierNumber}`);
+    addTokens(String(tierNumber));
+  }
   if (Number.isFinite(tierValue)) addTokens(String(tierValue));
+  addTokens(levelLabel);
+  if (Number.isFinite(levelNumber)) {
+    addTokens(`L${levelNumber}`);
+    addTokens(String(levelNumber));
+  }
+  addTokens(subTierLabel);
+  if (subTierLabel) addTokens(`Sub-Tier ${subTierLabel}`);
   const attributes = Object.create(null);
   const setAttr = (key, value) => {
     const normalizedKey = normalizeCatalogToken(key);
@@ -15649,16 +15730,31 @@ function getPlayerCatalogState(){
   setAttr('origin', originRaw);
   setAttr('origin story', originRaw);
   setAttr('alignment', alignmentRaw);
-  setAttr('tier', tierLabel);
-  setAttr('tier label', tierLabelText);
-  setAttr('tier level', `Tier ${tierNumber}`);
-  setAttr('tier number', String(tierNumber));
+  if (tierLabel) setAttr('tier', tierLabel);
+  if (tierLabelText) setAttr('tier label', tierLabelText);
+  if (Number.isFinite(tierNumber)) {
+    setAttr('tier level', `Tier ${tierNumber}`);
+    setAttr('tier number', String(tierNumber));
+  }
   if (Number.isFinite(tierValue)) {
     setAttr('tier rank', String(tierValue));
+  }
+  if (levelLabel) setAttr('level label', levelLabel);
+  if (Number.isFinite(levelNumber)) {
+    setAttr('level', String(levelNumber));
+    setAttr('level number', String(levelNumber));
+  }
+  if (subTierLabel) {
+    setAttr('sub tier', subTierLabel);
+    setAttr('sub-tier', subTierLabel);
+    setAttr('subtier', subTierLabel);
   }
   return {
     tierLabel,
     tierValue,
+    tierLabelText,
+    level: levelNumber,
+    subTier: subTierLabel,
     classification: attributes.classification || '',
     primaryStyle: attributes['power style'] || '',
     secondaryStyle: attributes['secondary power style'] || '',
@@ -16218,7 +16314,7 @@ function deserialize(data){
   if (xpModeEl) xpModeEl.value = 'add';
   if (elXP) {
     const xp = Math.max(0, num(elXP.value));
-    currentTierIdx = getTierIndex(xp);
+    currentLevelIdx = getLevelIndex(xp);
   }
   if(data && data.partials && window.CC){
     CC.partials = data.partials;
@@ -16423,9 +16519,13 @@ let queueRefreshPromise = null;
 function setSyncButtonErrorState(hasErrors) {
   if (!syncStatusTrigger) return;
   if (hasErrors) {
-    syncStatusTrigger.setAttribute('data-has-errors', 'true');
+    if (typeof syncStatusTrigger.setAttribute === 'function') {
+      syncStatusTrigger.setAttribute('data-has-errors', 'true');
+    }
   } else {
-    syncStatusTrigger.removeAttribute('data-has-errors');
+    if (typeof syncStatusTrigger.removeAttribute === 'function') {
+      syncStatusTrigger.removeAttribute('data-has-errors');
+    }
   }
 }
 
@@ -16547,8 +16647,10 @@ function renderQueue(entries = []) {
     if (syncStatusTrigger) {
       if (queueCount) {
         const badgeLabel = queueCount > 9 ? '9+' : String(queueCount);
-        syncStatusTrigger.setAttribute('data-queue-count', badgeLabel);
-      } else {
+        if (typeof syncStatusTrigger.setAttribute === 'function') {
+          syncStatusTrigger.setAttribute('data-queue-count', badgeLabel);
+        }
+      } else if (typeof syncStatusTrigger.removeAttribute === 'function') {
         syncStatusTrigger.removeAttribute('data-queue-count');
       }
     }
@@ -16592,8 +16694,10 @@ function renderQueue(entries = []) {
   if (syncStatusTrigger) {
     if (queueCount) {
       const badgeLabel = queueCount > 9 ? '9+' : String(queueCount);
-      syncStatusTrigger.setAttribute('data-queue-count', badgeLabel);
-    } else {
+      if (typeof syncStatusTrigger.setAttribute === 'function') {
+        syncStatusTrigger.setAttribute('data-queue-count', badgeLabel);
+      }
+    } else if (typeof syncStatusTrigger.removeAttribute === 'function') {
       syncStatusTrigger.removeAttribute('data-queue-count');
     }
   }
