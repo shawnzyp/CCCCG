@@ -5013,7 +5013,11 @@
   function initSomf() {
     runtime.setFirebase(window._somf_db || null);
     runtime.attachPlayer();
-    if (document.getElementById('somfDM-playerCard') || document.getElementById('modal-somf-dm')) {
+    if (
+      document.getElementById('somfDM-playerCard') ||
+      document.getElementById('modal-somf-dm') ||
+      document.querySelector('.somf-dm__toggles')
+    ) {
       runtime.ensureDM();
     }
   }

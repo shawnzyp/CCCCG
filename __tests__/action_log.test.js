@@ -129,14 +129,14 @@ describe('action log records key events', () => {
     delete window.confirm;
   });
 
-  test('logs tier changes', () => {
+  test('logs level changes', () => {
     const xp = document.getElementById('xp');
     // initialize XP processing
     xp.dispatchEvent(new Event('input'));
     xp.value = '2000';
     xp.dispatchEvent(new Event('input'));
     const log = JSON.parse(localStorage.getItem('action-log'));
-    expect(log.some((e) => e.text.includes('Tier:'))).toBe(true);
+    expect(log.some((e) => e.text.includes('Level:'))).toBe(true);
   });
 
   test('logs faction reputation rank changes', () => {
