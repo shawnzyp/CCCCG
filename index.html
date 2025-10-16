@@ -1382,6 +1382,17 @@
         >No active combatant</span>
       </div>
     </div>
+    <div class="encounter-presets" aria-labelledby="encounter-presets-heading">
+      <div class="encounter-presets__header">
+        <h4 id="encounter-presets-heading">Saved Rosters</h4>
+      </div>
+      <div class="encounter-presets__controls">
+        <label for="enc-preset-name" class="sr-only">Preset Name</label>
+        <input id="enc-preset-name" data-view-allow placeholder="Preset name" autocomplete="off" />
+        <button id="enc-preset-save" class="btn-sm" type="button" data-view-allow>Save Roster</button>
+      </div>
+      <div id="enc-preset-list" class="catalog encounter-presets__list" aria-live="polite"></div>
+    </div>
     <div id="enc-list" class="catalog" style="margin-top:8px"></div>
     <template id="encounter-combatant-template">
       <div class="catalog-item encounter-combatant" data-index>

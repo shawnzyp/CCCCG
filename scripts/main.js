@@ -17918,6 +17918,7 @@ function normalizeEncounterRoster(entries) {
 }
 
 const roster = normalizeEncounterRoster(safeParse('enc-roster'));
+const ENCOUNTER_PRESET_STORAGE_KEY = 'encounter-presets';
 let round = Number(localStorage.getItem('enc-round')||'1')||1;
 let turn = Number(localStorage.getItem('enc-turn')||'0')||0;
 
@@ -17926,6 +17927,159 @@ function saveEnc(){
   localStorage.setItem('enc-round', String(round));
   localStorage.setItem('enc-turn', String(turn));
 }
+
+function createSerializableEncounterStateFromSource(source = {}) {
+  const baseRoster = Array.isArray(source?.roster) ? source.roster : [];
+  const normalizedRoster = normalizeEncounterRoster(baseRoster);
+  const sanitizedRoster = normalizedRoster.map((entry, idx) => ({
+    id: typeof entry?.id === 'string' && entry.id ? entry.id : generateEncounterId(idx),
+    name: typeof entry?.name === 'string' ? entry.name : '',
+    init: Number.isFinite(entry?.init) ? Math.trunc(entry.init) : 0,
+    hpCurrent: Number.isFinite(entry?.hpCurrent) ? Math.trunc(entry.hpCurrent) : null,
+    hpMax: Number.isFinite(entry?.hpMax) ? Math.trunc(entry.hpMax) : null,
+    tc: Number.isFinite(entry?.tc) ? Math.trunc(entry.tc) : null,
+    notes: typeof entry?.notes === 'string' ? entry.notes : '',
+    conditions: Array.isArray(entry?.conditions)
+      ? entry.conditions.filter(id => ENCOUNTER_STATUS_IDS.has(id))
+      : [],
+    defeated: entry?.defeated === true,
+  }));
+  const baseRound = Number.isFinite(Number(source?.round)) ? Math.floor(Number(source.round)) : 1;
+  const safeRound = Math.max(1, baseRound);
+  const baseTurn = Number.isFinite(Number(source?.turn)) ? Math.floor(Number(source.turn)) : 0;
+  const safeTurn = sanitizedRoster.length
+    ? Math.min(Math.max(0, baseTurn), sanitizedRoster.length - 1)
+    : 0;
+  return {
+    round: safeRound,
+    turn: safeTurn,
+    roster: sanitizedRoster,
+  };
+}
+
+function getSerializableEncounterState(){
+  return createSerializableEncounterStateFromSource({ round, turn, roster });
+}
+
+function normalizeEncounterPresetEntry(entry){
+  if (!entry || typeof entry !== 'object') return null;
+  const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+  if (!name) return null;
+  const encounterSource = (entry.encounter && typeof entry.encounter === 'object')
+    ? entry.encounter
+    : entry.state && typeof entry.state === 'object'
+      ? entry.state
+      : {
+          round: entry.round,
+          turn: entry.turn,
+          roster: entry.roster,
+        };
+  const encounter = createSerializableEncounterStateFromSource(encounterSource);
+  return { name, encounter };
+}
+
+function loadEncounterPresetsFromStorage(){
+  try {
+    const raw = localStorage.getItem(ENCOUNTER_PRESET_STORAGE_KEY) || '[]';
+    const parsed = JSON.parse(raw);
+    const entries = Array.isArray(parsed) ? parsed : [];
+    const deduped = new Map();
+    entries.forEach(item => {
+      const normalized = normalizeEncounterPresetEntry(item);
+      if (!normalized) return;
+      deduped.set(normalized.name.toLowerCase(), normalized);
+    });
+    return Array.from(deduped.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  } catch (err) {
+    console.error('Failed to load encounter presets', err);
+    return [];
+  }
+}
+
+function persistEncounterPresets({ silent = false } = {}){
+  try {
+    const payload = encounterPresets.map(preset => ({
+      name: preset.name,
+      encounter: createSerializableEncounterStateFromSource(preset.encounter || {}),
+    }));
+    localStorage.setItem(ENCOUNTER_PRESET_STORAGE_KEY, JSON.stringify(payload));
+    return true;
+  } catch (err) {
+    console.error('Failed to persist encounter presets', err);
+    if (!silent) {
+      try { toast('Failed to update encounter presets', 'error'); } catch {}
+    }
+    return false;
+  }
+}
+
+function sortEncounterPresets(){
+  encounterPresets.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+}
+
+function isEncounterPresetInteractionLocked(){
+  return mode === 'view' && !isDmSessionActive();
+}
+
+function guardEncounterPresetInteraction(){
+  if (!isEncounterPresetInteractionLocked()) return false;
+  try { toast('Encounter presets are locked in View mode.', 'error'); } catch {}
+  return true;
+}
+
+function renderEncounterPresetList(){
+  const list = $('enc-preset-list');
+  if (!list) return;
+  if (!encounterPresets.length) {
+    list.innerHTML = '<div class="encounter-presets__empty">No saved rosters yet.</div>';
+    return;
+  }
+  const items = encounterPresets.map((preset, index) => {
+    const state = preset.encounter || {};
+    const rosterEntries = Array.isArray(state.roster) ? state.roster : [];
+    const count = rosterEntries.length;
+    const roundValue = Number.isFinite(state.round) && state.round > 0 ? Math.floor(state.round) : 1;
+    const turnIndex = Number.isFinite(state.turn) && count ? Math.min(Math.max(0, Math.floor(state.turn)), count - 1) : 0;
+    const activeNameRaw = count ? rosterEntries[turnIndex]?.name : '';
+    const activeName = typeof activeNameRaw === 'string' && activeNameRaw ? activeNameRaw : '';
+    const metaParts = [`${count} combatant${count === 1 ? '' : 's'}`, `Round ${roundValue}`];
+    if (activeName) metaParts.push(`Active: ${activeName}`);
+    const nameHtml = escapeHtml(preset.name);
+    const metaHtml = escapeHtml(metaParts.join(' • '));
+    return `
+      <div class="catalog-item encounter-preset" data-preset-index="${index}">
+        <div class="encounter-preset__info">
+          <div class="encounter-preset__name">${nameHtml}</div>
+          <div class="encounter-preset__meta">${metaHtml}</div>
+        </div>
+        <div class="encounter-preset__actions">
+          <button type="button" class="btn-sm" data-view-allow data-action="encounter-preset-load" data-preset-index="${index}">Load</button>
+          <button type="button" class="btn-sm" data-view-allow data-action="encounter-preset-delete" data-preset-index="${index}" aria-label="Delete preset ${nameHtml}">Delete</button>
+        </div>
+      </div>
+    `;
+  });
+  list.innerHTML = items.join('');
+}
+
+function applyEncounterPresetState(state){
+  const sanitized = createSerializableEncounterStateFromSource(state || {});
+  const normalizedRoster = normalizeEncounterRoster(sanitized.roster);
+  roster.length = 0;
+  normalizedRoster.forEach(entry => roster.push(entry));
+  round = sanitized.round;
+  if (!normalizedRoster.length) {
+    round = 1;
+    turn = 0;
+  } else {
+    turn = sanitized.turn;
+  }
+  renderEnc();
+  saveEnc();
+  return sanitized;
+}
+
+let encounterPresets = loadEncounterPresetsFromStorage();
 
 function formatCombatantHpText(combatant) {
   if (!combatant) return '—';
@@ -18232,6 +18386,123 @@ $('enc-reset').addEventListener('click', ()=>{
 });
 qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
+const encPresetNameInput = $('enc-preset-name');
+const encPresetSaveButton = $('enc-preset-save');
+const encPresetList = $('enc-preset-list');
+
+function normalizePresetName(name){
+  return name.trim().replace(/\s+/g, ' ');
+}
+
+function handleEncounterPresetSave(){
+  if (guardEncounterPresetInteraction()) return;
+  const rawName = encPresetNameInput ? encPresetNameInput.value || '' : '';
+  const normalizedName = normalizePresetName(rawName);
+  if (!normalizedName) {
+    toast('Enter a preset name', 'error');
+    return;
+  }
+  if (!roster.length) {
+    toast('Add at least one combatant before saving', 'error');
+    return;
+  }
+  const newState = createSerializableEncounterStateFromSource(getSerializableEncounterState());
+  const existingIndex = encounterPresets.findIndex(preset => preset.name.toLowerCase() === normalizedName.toLowerCase());
+  const entry = {
+    name: normalizedName,
+    encounter: newState,
+  };
+  if (existingIndex >= 0) {
+    encounterPresets[existingIndex] = entry;
+  } else {
+    encounterPresets.push(entry);
+  }
+  sortEncounterPresets();
+  if (!persistEncounterPresets()) {
+    encounterPresets = loadEncounterPresetsFromStorage();
+    renderEncounterPresetList();
+    return;
+  }
+  renderEncounterPresetList();
+  if (encPresetNameInput) encPresetNameInput.value = '';
+  const verb = existingIndex >= 0 ? 'Updated' : 'Saved';
+  const message = `${verb} roster preset: ${normalizedName}`;
+  toast(message, 'success');
+  logAction(`${verb} encounter preset: ${normalizedName}`);
+}
+
+function handleEncounterPresetLoad(index){
+  if (guardEncounterPresetInteraction()) return;
+  if (!Number.isInteger(index) || index < 0 || index >= encounterPresets.length) return;
+  const preset = encounterPresets[index];
+  if (!preset) return;
+  const applied = applyEncounterPresetState(preset.encounter || {});
+  if (applied) {
+    encounterPresets[index] = {
+      name: preset.name,
+      encounter: applied,
+    };
+  }
+  const activeName = preset.name || 'Preset';
+  toast(`Loaded roster preset: ${activeName}`, 'success');
+  logAction(`Loaded encounter preset: ${activeName}`);
+  if (applied && encPresetList) {
+    // ensure metadata (like active combatant text) stays current
+    renderEncounterPresetList();
+  }
+}
+
+function handleEncounterPresetDelete(index){
+  if (guardEncounterPresetInteraction()) return;
+  if (!Number.isInteger(index) || index < 0 || index >= encounterPresets.length) return;
+  const [removed] = encounterPresets.splice(index, 1);
+  if (!persistEncounterPresets()) {
+    encounterPresets = loadEncounterPresetsFromStorage();
+    renderEncounterPresetList();
+    return;
+  }
+  renderEncounterPresetList();
+  if (removed && removed.name) {
+    toast(`Deleted roster preset: ${removed.name}`, 'info');
+    logAction(`Deleted encounter preset: ${removed.name}`);
+  } else {
+    toast('Deleted roster preset', 'info');
+    logAction('Deleted encounter preset');
+  }
+}
+
+if (encPresetSaveButton) {
+  encPresetSaveButton.addEventListener('click', handleEncounterPresetSave);
+}
+
+if (encPresetNameInput) {
+  encPresetNameInput.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleEncounterPresetSave();
+    }
+  });
+}
+
+if (encPresetList) {
+  encPresetList.addEventListener('click', event => {
+    const button = event.target instanceof Element
+      ? event.target.closest('button[data-action][data-preset-index]')
+      : null;
+    if (!button) return;
+    const action = button.dataset.action;
+    const idx = Number(button.dataset.presetIndex);
+    if (!Number.isInteger(idx)) return;
+    if (action === 'encounter-preset-load') {
+      handleEncounterPresetLoad(idx);
+    } else if (action === 'encounter-preset-delete') {
+      handleEncounterPresetDelete(idx);
+    }
+  });
+}
+
+renderEncounterPresetList();
+
 /* ========= Save / Load ========= */
 function serialize(){
   const data={};
@@ -18286,28 +18557,25 @@ function serialize(){
     return el && el.checked ? i : null;
   }).filter(i => i !== null);
   data.campaignLog = campaignLogEntries;
-  const safeRound = Math.max(1, Number.isFinite(Number(round)) ? Math.floor(Number(round)) : 1);
-  const safeTurnBase = Number.isFinite(Number(turn)) ? Math.floor(Number(turn)) : 0;
-  const safeRoster = roster.map(entry => ({
-    id: typeof entry?.id === 'string' ? entry.id : '',
-    name: typeof entry?.name === 'string' ? entry.name : '',
-    init: Number.isFinite(entry?.init) ? Math.trunc(entry.init) : 0,
-    hpCurrent: Number.isFinite(entry?.hpCurrent) ? Math.trunc(entry.hpCurrent) : null,
-    hpMax: Number.isFinite(entry?.hpMax) ? Math.trunc(entry.hpMax) : null,
-    tc: Number.isFinite(entry?.tc) ? Math.trunc(entry.tc) : null,
-    notes: typeof entry?.notes === 'string' ? entry.notes : '',
-    conditions: Array.isArray(entry?.conditions)
-      ? entry.conditions.filter(id => ENCOUNTER_STATUS_IDS.has(id))
-      : [],
-    defeated: entry?.defeated === true,
-  }));
-  const safeTurn = safeRoster.length
-    ? Math.min(Math.max(0, safeTurnBase), safeRoster.length - 1)
-    : 0;
+  const encounterState = getSerializableEncounterState();
   data.encounter = {
-    round: safeRound,
-    turn: safeTurn,
-    roster: safeRoster
+    round: encounterState.round,
+    turn: encounterState.turn,
+    roster: Array.isArray(encounterState.roster)
+      ? encounterState.roster.map(entry => ({
+          id: typeof entry?.id === 'string' ? entry.id : '',
+          name: typeof entry?.name === 'string' ? entry.name : '',
+          init: Number.isFinite(entry?.init) ? Math.trunc(entry.init) : 0,
+          hpCurrent: Number.isFinite(entry?.hpCurrent) ? Math.trunc(entry.hpCurrent) : null,
+          hpMax: Number.isFinite(entry?.hpMax) ? Math.trunc(entry.hpMax) : null,
+          tc: Number.isFinite(entry?.tc) ? Math.trunc(entry.tc) : null,
+          notes: typeof entry?.notes === 'string' ? entry.notes : '',
+          conditions: Array.isArray(entry?.conditions)
+            ? entry.conditions.filter(id => ENCOUNTER_STATUS_IDS.has(id))
+            : [],
+          defeated: entry?.defeated === true,
+        }))
+      : [],
   };
   persistAugmentState({ silent: true });
   persistLevelProgressState({ silent: true });
