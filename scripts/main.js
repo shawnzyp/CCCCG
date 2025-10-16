@@ -8128,20 +8128,86 @@ if (statusGrid) {
   statusGrid.innerHTML = STATUS_EFFECTS.map(s => {
     const checkboxId = `status-${s.id}`;
     const labelId = `status-${s.id}-label`;
+    const descriptionId = `status-${s.id}-desc`;
     return `
     <div class="status-option">
       <input type="checkbox" id="${checkboxId}" aria-labelledby="${labelId}" />
-      <span id="${labelId}">${s.name}</span>
+      <div class="status-option__content">
+        <div class="status-option__header">
+          <span id="${labelId}" class="status-option__name">${s.name}</span>
+          <button
+            type="button"
+            class="status-option__toggle"
+            aria-expanded="false"
+            aria-controls="${descriptionId}"
+            aria-label="Show details for ${s.name}"
+            data-status-toggle="${s.id}"
+          >
+            <span aria-hidden="true" data-status-toggle-label>Info</span>
+          </button>
+        </div>
+        <div
+          id="${descriptionId}"
+          class="status-option__description"
+          hidden
+          aria-hidden="true"
+          tabindex="-1"
+        >${s.desc}</div>
+      </div>
     </div>
   `;
   }).join('');
   STATUS_EFFECTS.forEach(s => {
     const cb = $('status-' + s.id);
+    const toggle = statusGrid.querySelector(`[data-status-toggle="${s.id}"]`);
+    const desc = $('status-' + s.id + '-desc');
+    const toggleLabel = toggle?.querySelector('[data-status-toggle-label]');
+    const setDescriptionVisibility = expanded => {
+      if (!toggle || !desc) return;
+      const isExpanded = Boolean(expanded);
+      toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+      toggle.setAttribute('aria-label', `${isExpanded ? 'Hide' : 'Show'} details for ${s.name}`);
+      if (toggleLabel) toggleLabel.textContent = isExpanded ? 'Hide' : 'Info';
+      desc.hidden = !isExpanded;
+      desc.setAttribute('aria-hidden', isExpanded ? 'false' : 'true');
+      if (cb) {
+        if (isExpanded) {
+          cb.setAttribute('aria-describedby', desc.id);
+        } else {
+          cb.removeAttribute('aria-describedby');
+        }
+      }
+    };
+    if (desc) {
+      desc.setAttribute('aria-hidden', 'true');
+      desc.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setDescriptionVisibility(false);
+          toggle?.focus();
+        }
+      });
+    }
+    if (toggle && desc) {
+      toggle.addEventListener('click', event => {
+        const nextExpanded = toggle.getAttribute('aria-expanded') !== 'true';
+        setDescriptionVisibility(nextExpanded);
+        if (nextExpanded && event.detail === 0) {
+          desc.focus({ preventScroll: true });
+        }
+      });
+      toggle.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+          event.preventDefault();
+          setDescriptionVisibility(false);
+        }
+      });
+    }
     if (cb) {
       cb.addEventListener('change', () => {
         if (cb.checked) {
           activeStatuses.add(s.name);
-          toast(`${s.name}: ${s.desc}`, { type: 'info', duration: 8000 });
+          toast(`${s.name} gained. Toggle the info button for mechanics.`, { type: 'info', duration: 4000 });
           logAction(`Status effect gained: ${s.name}`);
           applyStatusEffectBonuses(s.id, true);
         } else {
@@ -8150,6 +8216,9 @@ if (statusGrid) {
           applyStatusEffectBonuses(s.id, false);
         }
       });
+      if (desc && toggle) {
+        setDescriptionVisibility(false);
+      }
     }
   });
   setTimeout(() => {
