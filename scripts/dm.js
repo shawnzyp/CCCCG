@@ -21,6 +21,118 @@ import { saveCloud } from './storage.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
+const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
+const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
+
+function loadStoredUnreadCount() {
+  if (typeof sessionStorage === 'undefined') return 0;
+  try {
+    const raw = sessionStorage.getItem(DM_UNREAD_NOTIFICATIONS_KEY);
+    if (!raw) return 0;
+    const parsed = parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return Math.min(DM_UNREAD_NOTIFICATIONS_LIMIT, parsed);
+  } catch {
+    return 0;
+  }
+}
+
+let unreadNotificationCount = loadStoredUnreadCount();
+let dmToggleButtonRef = null;
+let dmNotificationsButtonRef = null;
+let dmToggleBadgeRef = null;
+let dmNotificationsBadgeRef = null;
+let dmToggleBaseLabel = '';
+let dmNotificationsBaseLabel = '';
+let dmNotificationsHadExplicitAriaLabel = false;
+let notifyModalRef = null;
+
+function persistUnreadCount() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(DM_UNREAD_NOTIFICATIONS_KEY, String(unreadNotificationCount));
+  } catch {
+    /* ignore persistence errors */
+  }
+}
+
+function formatUnreadBadgeLabel(count) {
+  if (count <= 0) return '0';
+  return count > 99 ? '99+' : String(count);
+}
+
+function describeUnreadCount(count) {
+  if (count <= 0) return '';
+  return count === 1 ? '1 unread notification' : `${count} unread notifications`;
+}
+
+function updateUnreadIndicators() {
+  const attrValue = String(unreadNotificationCount);
+  const badgeLabel = formatUnreadBadgeLabel(unreadNotificationCount);
+  const ariaDescription = describeUnreadCount(unreadNotificationCount);
+  if (dmToggleButtonRef) {
+    dmToggleButtonRef.setAttribute('data-unread', attrValue);
+    const base = dmToggleBaseLabel || dmToggleButtonRef.getAttribute('aria-label') || 'DM tools menu';
+    if (ariaDescription) {
+      dmToggleButtonRef.setAttribute('aria-label', `${base} (${ariaDescription})`);
+    } else {
+      dmToggleButtonRef.setAttribute('aria-label', base);
+    }
+    if (dmToggleBadgeRef) {
+      if (unreadNotificationCount > 0) {
+        dmToggleBadgeRef.textContent = badgeLabel;
+        dmToggleBadgeRef.hidden = false;
+      } else {
+        dmToggleBadgeRef.textContent = '0';
+        dmToggleBadgeRef.hidden = true;
+      }
+    }
+  }
+  if (dmNotificationsButtonRef) {
+    dmNotificationsButtonRef.setAttribute('data-unread', attrValue);
+    const base = dmNotificationsBaseLabel || dmNotificationsButtonRef.getAttribute('aria-label') || dmNotificationsButtonRef.textContent?.trim() || 'Notifications';
+    if (ariaDescription) {
+      dmNotificationsButtonRef.setAttribute('aria-label', `${base} (${ariaDescription})`);
+    } else if (dmNotificationsHadExplicitAriaLabel) {
+      dmNotificationsButtonRef.setAttribute('aria-label', base);
+    } else {
+      dmNotificationsButtonRef.removeAttribute('aria-label');
+    }
+    if (dmNotificationsBadgeRef) {
+      if (unreadNotificationCount > 0) {
+        dmNotificationsBadgeRef.textContent = badgeLabel;
+        dmNotificationsBadgeRef.hidden = false;
+      } else {
+        dmNotificationsBadgeRef.textContent = '0';
+        dmNotificationsBadgeRef.hidden = true;
+      }
+    }
+  }
+}
+
+function setUnreadCount(value) {
+  let next = Number.isFinite(value) ? value : parseInt(value, 10);
+  if (!Number.isFinite(next) || next <= 0) {
+    next = 0;
+  }
+  next = Math.min(DM_UNREAD_NOTIFICATIONS_LIMIT, Math.max(0, Math.floor(next)));
+  unreadNotificationCount = next;
+  persistUnreadCount();
+  updateUnreadIndicators();
+}
+
+function incrementUnreadCount() {
+  setUnreadCount(unreadNotificationCount + 1);
+}
+
+function resetUnreadCountValue() {
+  setUnreadCount(0);
+}
+
+function isNotificationsModalHidden() {
+  if (!notifyModalRef) return true;
+  return notifyModalRef.classList.contains('hidden');
+}
 
 async function writeTextToClipboard(text) {
   if (typeof text !== 'string') text = String(text ?? '');
@@ -428,6 +540,22 @@ function initDMLogin(){
   const creditHistoryList = document.getElementById('dm-credit-history');
   const creditHistoryExportBtn = document.getElementById('dm-credit-history-export');
   const creditHistoryClearBtn = document.getElementById('dm-credit-history-clear');
+
+  dmToggleButtonRef = dmToggleBtn;
+  dmToggleBadgeRef = dmToggleBtn ? dmToggleBtn.querySelector('[data-role="dm-unread-badge"]') : null;
+  if (dmToggleBtn && !dmToggleBaseLabel) {
+    dmToggleBaseLabel = dmToggleBtn.getAttribute('aria-label') || 'DM tools menu';
+  }
+  dmNotificationsButtonRef = notifyBtn;
+  dmNotificationsBadgeRef = notifyBtn ? notifyBtn.querySelector('[data-role="dm-unread-badge"]') : null;
+  if (notifyBtn) {
+    dmNotificationsHadExplicitAriaLabel = notifyBtn.hasAttribute('aria-label');
+    if (!dmNotificationsBaseLabel) {
+      dmNotificationsBaseLabel = notifyBtn.getAttribute('aria-label') || notifyBtn.textContent?.trim() || 'Notifications';
+    }
+  }
+  notifyModalRef = notifyModal;
+  updateUnreadIndicators();
 
   const CATALOG_RECIPIENT_FIELD_KEY = 'recipient';
   const CATALOG_RECIPIENT_PLACEHOLDER = 'Assign to hero (optional)';
@@ -3420,7 +3548,12 @@ function initDMLogin(){
       const li = document.createElement('li');
       applyNotificationContent(li, entry);
       notifyList.prepend(li);
-      playNotificationTone();
+    }
+    playNotificationTone();
+    if (isNotificationsModalHidden()) {
+      incrementUnreadCount();
+    } else {
+      resetUnreadCountValue();
     }
   }
 
@@ -3687,6 +3820,7 @@ function initDMLogin(){
 
   function openNotifications(){
     if(!notifyModal) return;
+    resetUnreadCountValue();
     renderStoredNotifications();
     updateNotificationActionState();
     show('dm-notifications-modal');
@@ -3694,6 +3828,7 @@ function initDMLogin(){
 
   function closeNotifications(){
     if(!notifyModal) return;
+    resetUnreadCountValue();
     hide('dm-notifications-modal');
   }
 
@@ -4246,6 +4381,17 @@ function initDMLogin(){
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });
   notifyClose?.addEventListener('click', closeNotifications);
+  if (notifyModal && typeof MutationObserver !== 'undefined') {
+    const modalObserver = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && notifyModal.classList.contains('hidden')) {
+          resetUnreadCountValue();
+          break;
+        }
+      }
+    });
+    modalObserver.observe(notifyModal, { attributes: true, attributeFilter: ['class'] });
+  }
   charModal?.addEventListener('click', e => { if(e.target===charModal) closeCharacters(); });
   charClose?.addEventListener('click', closeCharacters);
   charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });

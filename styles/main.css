@@ -4219,6 +4219,10 @@ body:not(.no-hover) .dm-tools-menu button:hover,
   background:var(--accent);
   color:var(--text-on-accent);
 }
+.dm-tools-menu button[data-unread]{
+  position:relative;
+  padding-right:42px;
+}
 .dm-tools-toggle{
   position:absolute;
   bottom:calc(18px + env(safe-area-inset-bottom, 0px));
@@ -4270,6 +4274,40 @@ body:not(.no-hover) .dm-tools-toggle:hover,
   transition:transform .35s ease;
   transform-origin:50% 50%;
   transform:scale(var(--dm-tools-icon-scale)) rotate(var(--dm-tools-icon-rotation));
+}
+
+.dm-tools-badge{
+  position:absolute;
+  top:6px;
+  right:12px;
+  min-width:20px;
+  padding:2px 6px;
+  height:20px;
+  border-radius:999px;
+  background:var(--accent);
+  color:var(--text-on-accent);
+  font-size:11px;
+  font-weight:600;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+  box-shadow:0 0 0 1px rgba(0,0,0,.35);
+  font-variant-numeric:tabular-nums;
+}
+
+.dm-tools-badge[hidden]{
+  display:none;
+}
+
+.dm-tools-toggle__badge{
+  right:6px;
+}
+
+.dm-tools-menu__badge{
+  top:50%;
+  transform:translateY(-50%);
 }
 body:not(.no-hover) .dm-tools-toggle:hover .dm-tools-toggle__icon,
 .dm-tools-toggle:focus-visible .dm-tools-toggle__icon{
