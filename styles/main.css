@@ -2297,6 +2297,11 @@ progress::-moz-progress-bar{
   gap:clamp(4px,1.8vw,8px);
 }
 
+.tier-summary__detail--summary{
+  width:100%;
+  justify-content:space-between;
+}
+
 .tier-summary__label{
   font-size:clamp(.7rem,2.2vw,.8rem);
   letter-spacing:.08em;
@@ -2307,6 +2312,19 @@ progress::-moz-progress-bar{
 .tier-summary__value{
   font-size:clamp(.95rem,2.6vw,1.05rem);
   font-weight:700;
+}
+
+.tier-summary__value-input{
+  border:0;
+  background:none;
+  color:inherit;
+  font:inherit;
+  padding:0;
+  pointer-events:none;
+}
+
+.tier-summary__value-input:focus{
+  outline:none;
 }
 
 .tier-summary__gains{

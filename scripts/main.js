@@ -8938,9 +8938,14 @@ const elXPPill = $('xp-pill');
 const xpNumberFormatter = new Intl.NumberFormat();
 const elTier = $('tier');
 const elLevelValue = $('level');
-const elLevelText = $('level-text');
+const elLevelDisplay = $('level-display');
+const elLevelSummaryValue = $('level-summary');
+const elLevelSummaryText = $('level-summary-text');
 const elSubTierValue = $('sub-tier');
-const elSubTierText = $('sub-tier-text');
+const elSubTierDisplay = $('sub-tier-display');
+const elTierShortValue = $('tier-short');
+const elTierShortDisplay = $('tier-short-display');
+const elTierNumberValue = $('tier-number');
 const elTierGains = $('tier-gains');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
@@ -9488,10 +9493,6 @@ function launchFireworks(){
 }
 
 // set initial tier display
-if (elTier) {
-  const initialLevel = getLevelEntry(currentLevelIdx);
-  elTier.value = initialLevel?.tierLabel || DEFAULT_LEVEL.tierLabel;
-}
 updateLevelOutputs(getLevelEntry(currentLevelIdx));
 
 /* ========= derived helpers ========= */
@@ -10132,15 +10133,38 @@ function updateHP(){
 
 function updateLevelOutputs(entry) {
   const levelEntry = entry || getLevelEntry(currentLevelIdx);
-  const levelNumber = Number.isFinite(Number(levelEntry?.level)) ? String(levelEntry.level) : '';
-  const subTier = levelEntry?.subTier ? String(levelEntry.subTier) : '';
+  const numericLevel = Number.isFinite(Number(levelEntry?.level))
+    ? Number(levelEntry.level)
+    : null;
+  const levelNumber = Number.isFinite(numericLevel) ? String(numericLevel) : '';
+  const subTierRaw = levelEntry?.subTier;
+  const subTier = subTierRaw ? String(subTierRaw) : '';
+  const compactSubTier = subTier ? subTier.replace(/\s+/g, ' ').trim() : '';
   const tierLabel = levelEntry?.tierLabel ? String(levelEntry.tierLabel) : '';
+  const numericTier = Number.isFinite(Number(levelEntry?.tierNumber))
+    ? Number(levelEntry.tierNumber)
+    : null;
+  const tierNumber = Number.isFinite(numericTier) ? String(numericTier) : '';
+  const tierBase = tierNumber ? `Tier ${tierNumber}` : '';
+  const tierJoiner = compactSubTier && /^[A-Za-z]$/.test(compactSubTier) ? '' : ' ';
+  const tierShort = tierBase
+    ? `${tierBase}${compactSubTier ? `${tierJoiner}${compactSubTier}` : ''}`.trim()
+    : compactSubTier;
+  const levelSummaryParts = [];
+  if (levelNumber) levelSummaryParts.push(`Level ${levelNumber}`);
+  if (tierShort) levelSummaryParts.push(tierShort);
+  const levelSummary = levelSummaryParts.join(' – ');
   const gainsText = levelEntry?.gains ? String(levelEntry.gains).trim() : '';
   if (elTier) elTier.value = tierLabel;
   if (elLevelValue) elLevelValue.value = levelNumber;
-  if (elLevelText) elLevelText.textContent = levelNumber || '—';
+  if (elLevelDisplay) elLevelDisplay.value = levelNumber || '—';
+  if (elLevelSummaryValue) elLevelSummaryValue.value = levelSummary;
+  if (elLevelSummaryText) elLevelSummaryText.textContent = levelSummary || '—';
+  if (elTierShortValue) elTierShortValue.value = tierShort || '';
+  if (elTierShortDisplay) elTierShortDisplay.value = tierShort || '—';
+  if (elTierNumberValue) elTierNumberValue.value = tierNumber || '';
   if (elSubTierValue) elSubTierValue.value = subTier;
-  if (elSubTierText) elSubTierText.textContent = subTier || '—';
+  if (elSubTierDisplay) elSubTierDisplay.value = subTier || '—';
   if (elTierGains) {
     elTierGains.textContent = gainsText;
     elTierGains.hidden = !gainsText;
@@ -17426,6 +17450,16 @@ function getPlayerCatalogState(){
     : null;
   const levelLabel = Number.isFinite(levelNumber) ? `Level ${levelNumber}` : '';
   const subTierLabel = currentLevel?.subTier ? String(currentLevel.subTier) : '';
+  const compactSubTier = subTierLabel ? subTierLabel.replace(/\s+/g, ' ').trim() : '';
+  const tierBase = Number.isFinite(tierNumber) ? `Tier ${tierNumber}` : '';
+  const tierJoiner = compactSubTier && /^[A-Za-z]$/.test(compactSubTier) ? '' : ' ';
+  const tierShort = tierBase
+    ? `${tierBase}${compactSubTier ? `${tierJoiner}${compactSubTier}` : ''}`.trim()
+    : compactSubTier;
+  const levelSummaryParts = [];
+  if (Number.isFinite(levelNumber)) levelSummaryParts.push(`Level ${levelNumber}`);
+  if (tierShort) levelSummaryParts.push(tierShort);
+  const levelSummary = levelSummaryParts.join(' – ');
   const tags = new Set();
   const addTokens = value => {
     if (!value) return;
@@ -17445,12 +17479,14 @@ function getPlayerCatalogState(){
   addTokens(alignmentRaw);
   addTokens(tierLabelText);
   addTokens(tierLabel);
+  addTokens(tierShort);
   if (Number.isFinite(tierNumber)) {
     addTokens(`Tier ${tierNumber}`);
     addTokens(String(tierNumber));
   }
   if (Number.isFinite(tierValue)) addTokens(String(tierValue));
   addTokens(levelLabel);
+  addTokens(levelSummary);
   if (Number.isFinite(levelNumber)) {
     addTokens(`L${levelNumber}`);
     addTokens(String(levelNumber));
@@ -17480,6 +17516,7 @@ function getPlayerCatalogState(){
   setAttr('alignment', alignmentRaw);
   if (tierLabel) setAttr('tier', tierLabel);
   if (tierLabelText) setAttr('tier label', tierLabelText);
+  if (tierShort) setAttr('tier short', tierShort);
   if (Number.isFinite(tierNumber)) {
     setAttr('tier level', `Tier ${tierNumber}`);
     setAttr('tier number', String(tierNumber));
@@ -17487,6 +17524,7 @@ function getPlayerCatalogState(){
   if (Number.isFinite(tierValue)) {
     setAttr('tier rank', String(tierValue));
   }
+  if (levelSummary) setAttr('level summary', levelSummary);
   if (levelLabel) setAttr('level label', levelLabel);
   if (Number.isFinite(levelNumber)) {
     setAttr('level', String(levelNumber));
