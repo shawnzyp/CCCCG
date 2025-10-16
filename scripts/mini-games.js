@@ -236,10 +236,12 @@ const MINI_GAMES = [
 ];
 
 const STATUS_OPTIONS = [
+  { value: 'scheduled', label: 'Scheduled' },
   { value: 'pending', label: 'Pending' },
   { value: 'active', label: 'In Progress' },
   { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' }
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'expired', label: 'Expired' }
 ];
 
 const README_BASE_PATH = 'SuperheroMiniGames';
@@ -574,12 +576,25 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
   };
 }
 
-export async function deployMiniGame({ gameId, player, config = {}, notes = '', issuedBy = '' } = {}) {
+export async function deployMiniGame({
+  gameId,
+  player,
+  config = {},
+  notes = '',
+  issuedBy = '',
+  expiresAt = null,
+  scheduledFor = null,
+} = {}) {
   const game = ensureGame(gameId);
   const trimmedPlayer = sanitizePlayer(player);
   if (!trimmedPlayer) throw new Error('Player name is required');
   const deploymentId = randomId();
   const ts = Date.now();
+  const scheduleTimestamp = Number(scheduledFor);
+  const validScheduledFor = Number.isFinite(scheduleTimestamp) && scheduleTimestamp > 0 ? scheduleTimestamp : null;
+  const expiryTimestamp = Number(expiresAt);
+  const validExpiresAt = Number.isFinite(expiryTimestamp) && expiryTimestamp > ts ? expiryTimestamp : null;
+  const initialStatus = validScheduledFor && validScheduledFor > ts ? 'scheduled' : 'pending';
   const gameUrl = addQueryParams(game.url, {
     deployment: deploymentId,
     player: trimmedPlayer,
@@ -592,12 +607,18 @@ export async function deployMiniGame({ gameId, player, config = {}, notes = '', 
     gameUrl,
     config,
     player: trimmedPlayer,
-    status: 'pending',
+    status: initialStatus,
     notes: typeof notes === 'string' ? notes.trim() : '',
     issuedBy: issuedBy || 'DM',
     createdAt: ts,
-    updatedAt: ts
+    updatedAt: ts,
   };
+  if (validScheduledFor) {
+    payload.scheduledFor = validScheduledFor;
+  }
+  if (validExpiresAt) {
+    payload.expiresAt = validExpiresAt;
+  }
   const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(deploymentId)}.json`;
   const res = await fetch(url, {
     method: 'PUT',
