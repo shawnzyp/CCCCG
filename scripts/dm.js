@@ -325,6 +325,9 @@ function initDMLogin(){
   const miniGamesReadme = document.getElementById('dm-mini-games-readme');
   const miniGamesRefreshBtn = document.getElementById('dm-mini-games-refresh');
   const miniGamesDeployments = document.getElementById('dm-mini-games-deployments');
+  const miniGamesFiltersForm = document.getElementById('dm-mini-games-filters');
+  const miniGamesFilterStatus = document.getElementById('dm-mini-games-filter-status');
+  const miniGamesFilterAssignee = document.getElementById('dm-mini-games-filter-assignee');
   const catalogModal = document.getElementById('dm-catalog-modal');
   const catalogClose = document.getElementById('dm-catalog-close');
   const catalogTabs = document.getElementById('dm-catalog-tabs');
@@ -343,6 +346,9 @@ function initDMLogin(){
   const creditFooterDate = document.getElementById('dm-credit-footerDate');
   const creditFooterTime = document.getElementById('dm-credit-footerTime');
   const creditStatus = document.getElementById('dm-credit-status');
+  const creditMemoInput = document.getElementById('dm-credit-memo');
+  const creditMemoPreview = document.getElementById('dm-credit-memo-preview');
+  const creditMemoPreviewText = document.getElementById('dm-credit-memo-previewText');
 
   const CATALOG_RECIPIENT_FIELD_KEY = 'recipient';
   const CATALOG_RECIPIENT_PLACEHOLDER = 'Assign to hero (optional)';
@@ -423,6 +429,7 @@ function initDMLogin(){
   const creditAmountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const PLAYER_CREDIT_STORAGE_KEY = 'cc_dm_card';
   const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
+  const PLAYER_CREDIT_HISTORY_LIMIT = 10;
   let playerCreditBroadcastChannel = null;
 
   function creditPad(n) {
@@ -484,6 +491,23 @@ function initDMLogin(){
     creditCard.setAttribute('data-amount', numeric.toFixed(2));
   }
 
+  function sanitizeCreditMemo(value) {
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  function updateCreditMemoPreview(value) {
+    const memo = sanitizeCreditMemo(value);
+    if (creditCard) {
+      creditCard.setAttribute('data-memo', memo);
+    }
+    if (creditMemoPreviewText) {
+      creditMemoPreviewText.textContent = memo || '—';
+    }
+    if (creditMemoPreview) {
+      creditMemoPreview.hidden = memo === '';
+    }
+  }
+
   function ensurePlayerCreditBroadcastChannel() {
     if (playerCreditBroadcastChannel || typeof BroadcastChannel !== 'function') {
       return playerCreditBroadcastChannel;
@@ -515,19 +539,48 @@ function initDMLogin(){
       txid: typeof payload.txid === 'string' ? payload.txid : '',
       timestamp,
       player: typeof payload.player === 'string' ? payload.player : '',
+      memo: sanitizeCreditMemo(payload.memo),
     };
+  }
+
+  function parseStoredPlayerCreditHistory(raw) {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object') return [parsed];
+    } catch {
+      return [];
+    }
+    return [];
+  }
+
+  function playerCreditHistoryKey(entry = {}) {
+    return `${entry.txid || entry.ref || ''}|${entry.timestamp || ''}`;
+  }
+
+  function appendPlayerCreditHistory(entry) {
+    const base = [entry];
+    if (typeof localStorage === 'undefined') return base;
+    try {
+      const existingRaw = localStorage.getItem(PLAYER_CREDIT_STORAGE_KEY);
+      const existing = parseStoredPlayerCreditHistory(existingRaw);
+      const key = playerCreditHistoryKey(entry);
+      const filtered = existing.filter(item => playerCreditHistoryKey(item) !== key);
+      filtered.unshift(entry);
+      const limited = filtered.slice(0, PLAYER_CREDIT_HISTORY_LIMIT);
+      localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(limited));
+      return limited;
+    } catch {
+      /* ignore history persistence errors */
+      return base;
+    }
   }
 
   function broadcastPlayerCreditUpdate(payload) {
     if (typeof window === 'undefined') return;
     const sanitized = sanitizePlayerCreditPayload(payload);
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(sanitized));
-      }
-    } catch {
-      /* ignore storage errors */
-    }
+    appendPlayerCreditHistory(sanitized);
     const channel = ensurePlayerCreditBroadcastChannel();
     if (channel) {
       try {
@@ -713,6 +766,10 @@ function initDMLogin(){
     updateCreditTransactionType();
     captureCreditTimestamp();
     randomizeCreditIdentifiers();
+    if (creditMemoInput) {
+      creditMemoInput.value = '';
+    }
+    updateCreditMemoPreview('');
     if (creditCard) {
       creditCard.removeAttribute('data-submitted');
       creditCard.removeAttribute('data-submitted-at');
@@ -756,7 +813,13 @@ function initDMLogin(){
       save.credits = Number.isInteger(nextTotal) ? String(nextTotal) : nextTotal.toFixed(2);
       const now = Date.now();
       const senderLabel = getCreditSenderLabel();
-      const summary = `${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} via ${senderLabel}.`;
+      const memo = sanitizeCreditMemo(creditMemoInput?.value || '');
+      const summaryParts = [`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} via ${senderLabel}.`];
+      const memoLine = memo ? memo.replace(/\s*\n\s*/g, ' ').trim() : '';
+      if (memoLine) {
+        summaryParts.push(`Memo: ${memoLine}`);
+      }
+      const summary = summaryParts.join(' ');
       if (!Array.isArray(save.campaignLog)) {
         save.campaignLog = [];
       }
@@ -781,7 +844,9 @@ function initDMLogin(){
         creditCard.setAttribute('data-submitted-at', timestampIso);
         creditCard.setAttribute('data-player', player);
         creditCard.setAttribute('data-account', accountNumber);
+        creditCard.setAttribute('data-memo', memo);
       }
+      updateCreditMemoPreview(memo);
       const refValue = creditCard?.getAttribute('data-ref') || creditRef?.textContent || '';
       const txidValue = creditCard?.getAttribute('data-txid') || creditTxid?.textContent || '';
       broadcastPlayerCreditUpdate({
@@ -793,6 +858,7 @@ function initDMLogin(){
         txid: txidValue,
         timestamp: timestampIso,
         player,
+        memo,
       });
       randomizeCreditIdentifiers();
       updateCreditSenderDataset();
@@ -801,6 +867,10 @@ function initDMLogin(){
         creditAmountInput.value = formatCreditAmountDisplay(0);
       }
       updateCreditCardAmountDisplay(0);
+      if (creditMemoInput) {
+        creditMemoInput.value = '';
+      }
+      updateCreditMemoPreview('');
       creditSubmit.textContent = 'Submit';
       creditSubmit.disabled = true;
       updateCreditSubmitState();
@@ -867,6 +937,18 @@ function initDMLogin(){
 
   const miniGamesLibrary = listMiniGames();
   const knobStateByGame = new Map();
+  const knobPresetsByGame = new Map();
+  const KNOB_PRESETS_STORAGE_KEY = 'cc_dm_knob_presets';
+  const KNOB_PRESET_LIMIT = 20;
+  const MINI_GAME_FILTER_STORAGE_KEY = 'cc_dm_mini_game_filters';
+  const MINI_GAME_STALE_THRESHOLD_MS = 30 * 60 * 1000;
+  const MINI_GAME_STATUS_PRIORITY = new Map([
+    ['pending', 0],
+    ['active', 1],
+    ['completed', 2],
+    ['cancelled', 3],
+  ]);
+  let miniGameFilterState = { status: 'all', assignee: 'all' };
   miniGamesLibrary.forEach(game => {
     try {
       knobStateByGame.set(game.id, getDefaultConfig(game.id));
@@ -874,6 +956,140 @@ function initDMLogin(){
       knobStateByGame.set(game.id, {});
     }
   });
+  const sanitizePresetValues = (values) => {
+    if (!values || typeof values !== 'object') return {};
+    return Object.keys(values).reduce((acc, key) => {
+      acc[key] = values[key];
+      return acc;
+    }, {});
+  };
+
+  const loadKnobPresetsFromStorage = () => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(KNOB_PRESETS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      Object.entries(parsed).forEach(([gameId, list]) => {
+        if (!Array.isArray(list)) return;
+        const sanitized = list
+          .map(entry => {
+            if (!entry || typeof entry !== 'object') return null;
+            const id = typeof entry.id === 'string' ? entry.id : `preset-${Math.random().toString(36).slice(2)}`;
+            const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : 'Preset';
+            const values = sanitizePresetValues(entry.values);
+            return { id, name, values };
+          })
+          .filter(Boolean)
+          .slice(0, KNOB_PRESET_LIMIT);
+        if (sanitized.length) {
+          knobPresetsByGame.set(gameId, sanitized);
+        }
+      });
+    } catch {
+      /* ignore preset load errors */
+    }
+  };
+
+  const persistKnobPresets = () => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const payload = {};
+      knobPresetsByGame.forEach((list, gameId) => {
+        if (!Array.isArray(list) || !list.length) return;
+        payload[gameId] = list.slice(0, KNOB_PRESET_LIMIT).map(entry => ({
+          id: entry.id,
+          name: entry.name,
+          values: sanitizePresetValues(entry.values),
+        }));
+      });
+      localStorage.setItem(KNOB_PRESETS_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      /* ignore preset persistence errors */
+    }
+  };
+
+  const getKnobPresets = (gameId) => {
+    if (!gameId) return [];
+    const list = knobPresetsByGame.get(gameId);
+    if (!Array.isArray(list)) return [];
+    return list.slice();
+  };
+
+  const setKnobPresets = (gameId, presets) => {
+    if (!gameId) return;
+    const list = Array.isArray(presets) ? presets.slice(0, KNOB_PRESET_LIMIT) : [];
+    if (list.length) {
+      knobPresetsByGame.set(gameId, list);
+    } else {
+      knobPresetsByGame.delete(gameId);
+    }
+    persistKnobPresets();
+  };
+
+  const createPresetId = () => `preset-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+
+  loadKnobPresetsFromStorage();
+
+  const persistMiniGameFilterState = () => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(MINI_GAME_FILTER_STORAGE_KEY, JSON.stringify(miniGameFilterState));
+    } catch {
+      /* ignore filter persistence errors */
+    }
+  };
+
+  const loadMiniGameFilterState = () => {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(MINI_GAME_FILTER_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      const status = typeof parsed.status === 'string' ? parsed.status : 'all';
+      const assignee = typeof parsed.assignee === 'string' ? parsed.assignee : 'all';
+      miniGameFilterState = {
+        status: status || 'all',
+        assignee: assignee || 'all',
+      };
+    } catch {
+      miniGameFilterState = { status: 'all', assignee: 'all' };
+    }
+  };
+
+  loadMiniGameFilterState();
+
+  const applyFilterStateToControls = () => {
+    if (miniGamesFilterStatus) {
+      const allowedStatuses = new Set(['all', ...MINI_GAME_STATUS_OPTIONS.map(opt => opt.value)]);
+      if (!allowedStatuses.has(miniGameFilterState.status)) {
+        miniGameFilterState.status = 'all';
+      }
+      miniGamesFilterStatus.value = miniGameFilterState.status;
+    }
+    if (miniGamesFilterAssignee) {
+      const optionValues = Array.from(miniGamesFilterAssignee.options || []).map(opt => opt.value);
+      if (!optionValues.includes(miniGameFilterState.assignee)) {
+        miniGameFilterState.assignee = 'all';
+      }
+      miniGamesFilterAssignee.value = miniGameFilterState.assignee;
+    }
+  };
+
+  if (miniGamesFilterStatus) {
+    const existingValues = new Set(Array.from(miniGamesFilterStatus.options || []).map(opt => opt.value));
+    MINI_GAME_STATUS_OPTIONS.forEach(opt => {
+      if (existingValues.has(opt.value)) return;
+      const option = document.createElement('option');
+      option.value = opt.value;
+      option.textContent = opt.label;
+      miniGamesFilterStatus.appendChild(option);
+    });
+  }
+
+  applyFilterStateToControls();
   let selectedMiniGameId = miniGamesLibrary.length ? miniGamesLibrary[0].id : null;
   let miniGamesInitialized = false;
   let miniGamesUnsubscribe = null;
@@ -1099,6 +1315,158 @@ function initDMLogin(){
     const toolbarCopy = document.createElement('p');
     toolbarCopy.textContent = 'Every control shows its safe range and recommended defaults. Reset anything if you need to undo tweaks.';
     toolbar.appendChild(toolbarCopy);
+    const presetControls = document.createElement('div');
+    presetControls.className = 'dm-mini-games__preset-controls';
+    const savePresetBtn = document.createElement('button');
+    savePresetBtn.type = 'button';
+    savePresetBtn.className = 'btn-sm dm-mini-games__preset-save';
+    savePresetBtn.textContent = 'Save preset';
+    const loadPresetBtn = document.createElement('button');
+    loadPresetBtn.type = 'button';
+    loadPresetBtn.className = 'btn-sm dm-mini-games__preset-load';
+    loadPresetBtn.textContent = 'Load preset';
+    loadPresetBtn.setAttribute('aria-haspopup', 'true');
+    loadPresetBtn.setAttribute('aria-expanded', 'false');
+    const presetMenuId = `dm-mini-games-presets-${game.id}`;
+    loadPresetBtn.setAttribute('aria-controls', presetMenuId);
+    presetControls.appendChild(savePresetBtn);
+    presetControls.appendChild(loadPresetBtn);
+    toolbar.appendChild(presetControls);
+    const presetMenu = document.createElement('div');
+    presetMenu.id = presetMenuId;
+    presetMenu.className = 'dm-mini-games__preset-menu';
+    presetMenu.hidden = true;
+    presetMenu.tabIndex = -1;
+    presetMenu.setAttribute('role', 'menu');
+    presetMenu.setAttribute('aria-label', 'Saved presets');
+    toolbar.appendChild(presetMenu);
+    const closePresetMenu = () => {
+      loadPresetBtn.setAttribute('aria-expanded', 'false');
+      presetMenu.hidden = true;
+    };
+    const refreshPresetMenu = () => {
+      const presets = getKnobPresets(game.id);
+      loadPresetBtn.disabled = presets.length === 0;
+      loadPresetBtn.setAttribute('aria-disabled', loadPresetBtn.disabled ? 'true' : 'false');
+      presetMenu.innerHTML = '';
+      if (!presets.length) {
+        const empty = document.createElement('p');
+        empty.className = 'dm-mini-games__preset-empty';
+        empty.textContent = 'No presets saved yet.';
+        presetMenu.appendChild(empty);
+        return;
+      }
+      const list = document.createElement('ul');
+      list.className = 'dm-mini-games__preset-list';
+      presets.forEach(preset => {
+        const item = document.createElement('li');
+        item.className = 'dm-mini-games__preset-item';
+        const applyBtn = document.createElement('button');
+        applyBtn.type = 'button';
+        applyBtn.className = 'dm-mini-games__preset-apply';
+        applyBtn.dataset.presetId = preset.id;
+        applyBtn.dataset.presetAction = 'apply';
+        applyBtn.setAttribute('role', 'menuitem');
+        applyBtn.textContent = preset.name;
+        item.appendChild(applyBtn);
+        const actions = document.createElement('div');
+        actions.className = 'dm-mini-games__preset-actions';
+        const renameBtn = document.createElement('button');
+        renameBtn.type = 'button';
+        renameBtn.className = 'dm-mini-games__preset-rename';
+        renameBtn.dataset.presetId = preset.id;
+        renameBtn.dataset.presetAction = 'rename';
+        renameBtn.textContent = 'Rename';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'dm-mini-games__preset-delete';
+        deleteBtn.dataset.presetId = preset.id;
+        deleteBtn.dataset.presetAction = 'delete';
+        deleteBtn.textContent = 'Delete';
+        actions.appendChild(renameBtn);
+        actions.appendChild(deleteBtn);
+        item.appendChild(actions);
+        list.appendChild(item);
+      });
+      presetMenu.appendChild(list);
+    };
+    refreshPresetMenu();
+    savePresetBtn.addEventListener('click', () => {
+      const stateSnapshot = ensureKnobState(game.id);
+      const defaultsCount = getKnobPresets(game.id).length + 1;
+      const defaultName = `${game.name} preset ${defaultsCount}`;
+      const nameInput = typeof prompt === 'function' ? prompt('Name this preset', defaultName) : defaultName;
+      if (nameInput == null) return;
+      const trimmed = nameInput.trim();
+      if (!trimmed) {
+        if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+        return;
+      }
+      const newPreset = { id: createPresetId(), name: trimmed, values: sanitizePresetValues(stateSnapshot) };
+      const existing = getKnobPresets(game.id).filter(preset => preset.id !== newPreset.id && preset.name.toLowerCase() !== trimmed.toLowerCase());
+      const next = [newPreset, ...existing].slice(0, KNOB_PRESET_LIMIT);
+      setKnobPresets(game.id, next);
+      refreshPresetMenu();
+      closePresetMenu();
+      if (typeof toast === 'function') toast(`Saved preset "${trimmed}"`, 'success');
+    });
+    loadPresetBtn.addEventListener('click', () => {
+      if (loadPresetBtn.disabled) return;
+      const expanded = loadPresetBtn.getAttribute('aria-expanded') === 'true';
+      if (expanded) {
+        closePresetMenu();
+      } else {
+        refreshPresetMenu();
+        presetMenu.hidden = false;
+        loadPresetBtn.setAttribute('aria-expanded', 'true');
+        presetMenu.focus();
+      }
+    });
+    presetMenu.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closePresetMenu();
+        loadPresetBtn.focus();
+      }
+    });
+    presetMenu.addEventListener('click', (event) => {
+      const target = event.target.closest('button[data-preset-action]');
+      if (!target) return;
+      const action = target.dataset.presetAction;
+      const presetId = target.dataset.presetId;
+      const presets = getKnobPresets(game.id);
+      const preset = presets.find(entry => entry.id === presetId);
+      if (!preset) return;
+      if (action === 'apply') {
+        closePresetMenu();
+        writeKnobState(game.id, sanitizePresetValues(preset.values));
+        shouldFocusMiniGameKnobs = true;
+        renderMiniGameKnobs(game);
+        if (typeof toast === 'function') toast(`Loaded preset "${preset.name}"`, 'info');
+      } else if (action === 'rename') {
+        const nextName = typeof prompt === 'function' ? prompt('Rename preset', preset.name) : preset.name;
+        if (nextName == null) return;
+        const trimmed = nextName.trim();
+        if (!trimmed) {
+          if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+          return;
+        }
+        const updated = presets.map(entry => (entry.id === presetId ? { ...entry, name: trimmed } : entry));
+        setKnobPresets(game.id, updated);
+        refreshPresetMenu();
+        if (typeof toast === 'function') toast(`Renamed preset to "${trimmed}"`, 'info');
+      } else if (action === 'delete') {
+        const confirmed = typeof confirm === 'function' ? confirm(`Delete preset "${preset.name}"?`) : true;
+        if (!confirmed) return;
+        const remaining = presets.filter(entry => entry.id !== presetId);
+        setKnobPresets(game.id, remaining);
+        refreshPresetMenu();
+        if (!remaining.length) {
+          closePresetMenu();
+        }
+        if (typeof toast === 'function') toast(`Deleted preset "${preset.name}"`, 'info');
+      }
+    });
     resetAllButton = document.createElement('button');
     resetAllButton.type = 'button';
     resetAllButton.className = 'dm-mini-games__knob-reset dm-mini-games__knob-reset--all';
@@ -1394,24 +1762,116 @@ function initDMLogin(){
     }
   }
 
+  const getDeploymentTimestamp = (entry) => {
+    const raw = entry?.updatedAt ?? entry?.updated ?? entry?.createdAt ?? entry?.created ?? null;
+    if (raw instanceof Date) return raw.getTime();
+    if (typeof raw === 'string' && raw) {
+      const parsed = Date.parse(raw);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+    return Date.now();
+  };
+
+  const getDeploymentAssignee = (entry) => {
+    const raw = typeof entry?.player === 'string' && entry.player.trim()
+      ? entry.player
+      : typeof entry?.assignee === 'string'
+        ? entry.assignee
+        : '';
+    return raw.trim();
+  };
+
+  const filterDeployments = (entries = []) => {
+    return entries.filter(entry => {
+      const status = entry?.status || 'pending';
+      if (miniGameFilterState.status !== 'all' && status !== miniGameFilterState.status) {
+        return false;
+      }
+      if (miniGameFilterState.assignee !== 'all') {
+        const assignee = getDeploymentAssignee(entry);
+        if (assignee.toLowerCase() !== miniGameFilterState.assignee.toLowerCase()) {
+          return false;
+        }
+      }
+      return true;
+    });
+  };
+
+  const sortDeploymentsByUrgency = (entries = []) => {
+    return entries.slice().sort((a, b) => {
+      const priorityA = MINI_GAME_STATUS_PRIORITY.get(a?.status) ?? 99;
+      const priorityB = MINI_GAME_STATUS_PRIORITY.get(b?.status) ?? 99;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      const timeA = getDeploymentTimestamp(a);
+      const timeB = getDeploymentTimestamp(b);
+      return timeA - timeB;
+    });
+  };
+
+  const updateAssigneeFilterOptions = (entries = []) => {
+    if (!miniGamesFilterAssignee) return;
+    const selectedBefore = miniGameFilterState.assignee;
+    const names = Array.from(new Set(entries.map(getDeploymentAssignee).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    miniGamesFilterAssignee.innerHTML = '';
+    const allOption = document.createElement('option');
+    allOption.value = 'all';
+    allOption.textContent = 'All recipients';
+    miniGamesFilterAssignee.appendChild(allOption);
+    names.forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      miniGamesFilterAssignee.appendChild(option);
+    });
+    if (selectedBefore !== 'all' && !names.includes(selectedBefore)) {
+      miniGameFilterState.assignee = 'all';
+      persistMiniGameFilterState();
+    }
+    applyFilterStateToControls();
+  };
+
+  const isDeploymentStale = (entry) => {
+    const status = entry?.status;
+    if (status !== 'pending' && status !== 'active') return false;
+    const ts = getDeploymentTimestamp(entry);
+    return Number.isFinite(ts) && (Date.now() - ts) > MINI_GAME_STALE_THRESHOLD_MS;
+  };
+
   function renderMiniGameDeployments(entries = []) {
     if (!miniGamesDeployments) return;
-    if (!Array.isArray(entries) || entries.length === 0) {
-      miniGamesDeployments.innerHTML = '<li class="dm-mini-games__empty">Launched missions will appear here for quick status updates.</li>';
+    const arrayEntries = Array.isArray(entries) ? entries : [];
+    updateAssigneeFilterOptions(arrayEntries);
+    const filtered = filterDeployments(arrayEntries);
+    const sorted = sortDeploymentsByUrgency(filtered);
+    if (!sorted.length) {
+      miniGamesDeployments.innerHTML = arrayEntries.length
+        ? '<li class="dm-mini-games__empty">No deployments match the selected filters.</li>'
+        : '<li class="dm-mini-games__empty">Launched missions will appear here for quick status updates.</li>';
       return;
     }
     miniGamesDeployments.innerHTML = '';
-    entries.forEach(entry => {
+    sorted.forEach(entry => {
       const li = document.createElement('li');
       li.className = 'dm-mini-games__deployment';
       li.dataset.player = entry.player || '';
       li.dataset.deploymentId = entry.id || '';
       li.dataset.status = entry.status || 'pending';
+      const assignee = getDeploymentAssignee(entry);
+      if (assignee) {
+        li.dataset.assignee = assignee;
+      } else {
+        delete li.dataset.assignee;
+      }
+
+      const stale = isDeploymentStale(entry);
+      li.classList.toggle('dm-mini-games__deployment--stale', stale);
 
       const header = document.createElement('div');
       header.className = 'dm-mini-games__deployment-header';
       const title = document.createElement('strong');
       const gameName = entry.gameName || getMiniGame(entry.gameId)?.name || entry.gameId || 'Mini-game';
+      li.dataset.gameName = gameName;
       title.textContent = `${entry.player || 'Unknown'} • ${gameName}`;
       header.appendChild(title);
       const meta = document.createElement('div');
@@ -1419,10 +1879,15 @@ function initDMLogin(){
       const status = document.createElement('span');
       status.textContent = `Status: ${getStatusLabel(entry.status || 'pending')}`;
       meta.appendChild(status);
-      const tsLabel = formatTimestamp(entry.updatedAt ?? entry.createdAt);
+      const tsValue = getDeploymentTimestamp(entry);
+      const tsLabel = formatTimestamp(tsValue);
       if (tsLabel) {
         const tsSpan = document.createElement('span');
         tsSpan.textContent = `Updated: ${tsLabel}`;
+        tsSpan.className = 'dm-mini-games__deployment-time';
+        if (stale) {
+          tsSpan.classList.add('dm-mini-games__deployment-time--stale');
+        }
         meta.appendChild(tsSpan);
       }
       if (entry.issuedBy) {
@@ -1483,6 +1948,16 @@ function initDMLogin(){
         openLink.className = 'btn-sm';
         openLink.textContent = 'Open Player View';
         actions.appendChild(openLink);
+      }
+
+      if (typeof window.dmNotify === 'function' && assignee) {
+        const nudgeBtn = document.createElement('button');
+        nudgeBtn.type = 'button';
+        nudgeBtn.className = 'btn-sm dm-mini-games__deployment-nudge';
+        nudgeBtn.dataset.action = 'nudge';
+        nudgeBtn.textContent = 'Nudge Player';
+        nudgeBtn.setAttribute('aria-label', `Send a nudge to ${assignee}`);
+        actions.appendChild(nudgeBtn);
       }
 
       li.appendChild(actions);
@@ -2728,6 +3203,10 @@ function initDMLogin(){
     updateCreditSubmitState();
   });
 
+  creditMemoInput?.addEventListener('input', () => {
+    updateCreditMemoPreview(creditMemoInput.value);
+  });
+
   creditSubmit?.addEventListener('click', handleCreditSubmit);
 
   document.addEventListener('visibilitychange', () => {
@@ -2852,7 +3331,33 @@ function initDMLogin(){
         btn.disabled = false;
         await forceRefreshMiniGameDeployments();
       }
+    } else if (btn.dataset.action === 'nudge') {
+      btn.disabled = true;
+      try {
+        const playerName = item.dataset.player || item.dataset.assignee || 'player';
+        const missionName = item.dataset.gameName || 'mini-game';
+        if (typeof toast === 'function') {
+          toast(`Nudged ${playerName}`, 'info');
+        }
+        window.dmNotify?.(`Nudged ${playerName} about ${missionName}`);
+      } finally {
+        btn.disabled = false;
+      }
     }
+  });
+
+  miniGamesFilterStatus?.addEventListener('change', () => {
+    const value = miniGamesFilterStatus.value || 'all';
+    miniGameFilterState.status = value;
+    persistMiniGameFilterState();
+    renderMiniGameDeployments(miniGameDeploymentsCache);
+  });
+
+  miniGamesFilterAssignee?.addEventListener('change', () => {
+    const value = miniGamesFilterAssignee.value || 'all';
+    miniGameFilterState.assignee = value;
+    persistMiniGameFilterState();
+    renderMiniGameDeployments(miniGameDeploymentsCache);
   });
 
 

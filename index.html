@@ -1695,6 +1695,13 @@
           </div>
         </div>
 
+        <div class="dm-credit__field dm-credit__field--memo">
+          <label class="dm-credit__label" for="dm-credit-memo">Memo <span class="dm-credit__optional">(optional)</span></label>
+          <div class="dm-credit__value dm-credit__memo">
+            <textarea id="dm-credit-memo" rows="2" placeholder="Add a short note for the player"></textarea>
+          </div>
+        </div>
+
         <div class="dm-credit__field">
           <span class="dm-credit__label">Transaction status</span>
           <span id="dm-credit-status" class="dm-credit__status">Completed</span>
@@ -1710,6 +1717,10 @@
         <button id="dm-credit-submit" class="dm-credit__submit" type="button" disabled>Submit</button>
         <div class="dm-credit__id">ID: <span id="dm-credit-txid">OMNI-000000</span></div>
       </footer>
+      <div id="dm-credit-memo-preview" class="dm-credit__memo-preview" hidden>
+        <div class="dm-credit__label">Memo</div>
+        <p id="dm-credit-memo-previewText" class="dm-credit__memo-text">—</p>
+      </div>
     </div>
   </section>
 </div>
@@ -1787,6 +1798,11 @@
           <div class="player-credit__value" id="player-credit-sender">—</div>
         </div>
 
+        <div class="player-credit__field player-credit__field--memo" id="player-credit-memo-field" hidden>
+          <div class="player-credit__label">Memo</div>
+          <div class="player-credit__value" id="player-credit-memo">—</div>
+        </div>
+
         <footer class="player-credit__footer">
           <div class="player-credit__timestamp" id="player-credit-timestamp">
             <span id="player-credit-date">—</span>
@@ -1796,6 +1812,10 @@
           <div class="player-credit__id">ID: <span id="player-credit-txid">—</span></div>
         </footer>
       </div>
+      <section class="player-credit__history" aria-live="polite" hidden>
+        <h3 class="player-credit__history-title">Recent activity</h3>
+        <ol id="player-credit-history" class="player-credit__history-list" hidden></ol>
+      </section>
     </div>
   </section>
 </div>
@@ -1882,6 +1902,20 @@
               <button id="dm-mini-games-refresh" type="button" class="btn-sm">Refresh</button>
             </div>
           </div>
+          <form class="dm-mini-games__filters" id="dm-mini-games-filters" role="group" aria-label="Filter deployments">
+            <label class="dm-mini-games__filter">
+              <span>Status</span>
+              <select id="dm-mini-games-filter-status">
+                <option value="all">All statuses</option>
+              </select>
+            </label>
+            <label class="dm-mini-games__filter">
+              <span>Assignee</span>
+              <select id="dm-mini-games-filter-assignee">
+                <option value="all">All recipients</option>
+              </select>
+            </label>
+          </form>
           <ul id="dm-mini-games-deployments" class="dm-mini-games__deployments"></ul>
         </section>
       </div>
