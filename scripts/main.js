@@ -8738,6 +8738,11 @@ const elHPTemp = $('hp-temp');
 const elHPCurrent = $('hp-current');
 const elHPMax = $('hp-max');
 const elHPTempPill = $('hp-temp-pill');
+const elHPLevelBonusInput = $('hp-level-bonus');
+const elSPLevelBonusInput = $('sp-level-bonus');
+const elAbilityCard = $('card-abilities');
+const elStoryCard = $('card-story');
+const elPowersCard = document.querySelector('fieldset[data-tab="powers"]');
 // Cache frequently accessed HP amount field to avoid repeated DOM queries
 const elHPAmt = $('hp-amt');
 const elHPSettingsToggle = $('hp-settings-toggle');
@@ -9140,7 +9145,15 @@ function hydrateLevelProgressState(state, opts = {}) {
     }
   }
   levelProgressState = next;
+  setDerivedHighestLevel(next.highestAppliedLevel);
+  syncLevelBonusInputs();
   persistLevelProgressState({ silent: opts.silent });
+  if (opts.render !== false) {
+    renderLevelRewardReminders();
+  }
+  if (opts.schedule !== false) {
+    scheduleDerivedUpdate();
+  }
 }
 
 let hpRolls = [];
@@ -9279,6 +9292,13 @@ function formatLevelShort(entry) {
 }
 
 let currentLevelIdx = 0;
+const derivedLevelState = {
+  highestAppliedLevel: Math.max(1, Number(levelProgressState?.highestAppliedLevel) || 1),
+};
+
+function setDerivedHighestLevel(level) {
+  derivedLevelState.highestAppliedLevel = Math.max(1, Number(level) || 1);
+}
 let xpInitialized = false;
 let catalogRenderScheduler = null;
 if (elXP instanceof HTMLElement) {
@@ -9427,6 +9447,49 @@ function getLevelRewardTasksUpTo(levelNumber) {
   return tasks.sort((a, b) => a.level - b.level || a.label.localeCompare(b.label));
 }
 
+function describeLevelRewards(entry) {
+  if (!entry) return '';
+  const rewards = entry?.rewards || {};
+  const parts = [];
+  if (Number.isFinite(Number(rewards.hpBonus)) && Number(rewards.hpBonus) !== 0) {
+    parts.push(`+${Number(rewards.hpBonus)} HP`);
+  }
+  if (Number.isFinite(Number(rewards.spBonus)) && Number(rewards.spBonus) !== 0) {
+    parts.push(`+${Number(rewards.spBonus)} SP Max`);
+  }
+  if (Number.isFinite(Number(rewards.augmentSlots)) && Number(rewards.augmentSlots) !== 0) {
+    const slots = Number(rewards.augmentSlots);
+    const slotLabel = slots === 1 ? 'Augment slot' : 'Augment slots';
+    parts.push(`+${slots} ${slotLabel}`);
+  }
+  if (rewards.grantsStatIncrease) {
+    parts.push('+1 Stat');
+  }
+  if (rewards.grantsPowerEvolution) {
+    parts.push('Power Evolution');
+  }
+  if (rewards.powerEvolutionChoice || rewards.signatureEvolutionChoice) {
+    parts.push('Power/Signature Evolution choice');
+  }
+  if (rewards.grantsSignatureEvolution) {
+    parts.push('Signature Move Evolution');
+  }
+  if (rewards.grantsLegendaryGearAccess) {
+    parts.push('Legendary Gear Access');
+  }
+  if (rewards.grantsTranscendentTrait) {
+    parts.push('Transcendent Trait');
+  }
+  return parts.join(', ');
+}
+
+function formatLevelRewardSummary(entry) {
+  if (!entry) return '';
+  const base = formatLevelShort(entry);
+  const details = describeLevelRewards(entry);
+  return details ? `${base}: ${details}` : '';
+}
+
 function applyLevelProgress(targetLevel, opts = {}) {
   const previousState = levelProgressState || getDefaultLevelProgressState();
   const previousSlots = Number(previousState?.augmentSlotsEarned) || 0;
@@ -9464,6 +9527,8 @@ function applyLevelProgress(targetLevel, opts = {}) {
   }
   nextState.highestAppliedLevel = normalizedLevel;
   levelProgressState = nextState;
+  setDerivedHighestLevel(nextState.highestAppliedLevel);
+  syncLevelBonusInputs();
   persistLevelProgressState({ silent: opts.silent === true });
   const slotsDiff = nextState.augmentSlotsEarned - previousSlots;
   if (slotsDiff > 0 && !opts.suppressNotifications) {
@@ -9490,6 +9555,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
       logAction(`Level rewards unlocked: ${summary}`);
     }
   }
+  return { newLevelEntries, state: nextState };
 }
 
 function augmentMatchesFilters(augment, activeFilters) {
@@ -9709,6 +9775,31 @@ function refreshAugmentUI() {
   updateAugmentSlotSummary();
 }
 
+function updateLevelChoiceHighlights(pendingTasks = []) {
+  const pendingTypes = new Set(Array.isArray(pendingTasks) ? pendingTasks.map(task => task?.type).filter(Boolean) : []);
+  if (elAbilityCard) {
+    if (pendingTypes.has('stat')) {
+      elAbilityCard.setAttribute('data-level-choice', 'stat');
+    } else {
+      elAbilityCard.removeAttribute('data-level-choice');
+    }
+  }
+  if (elPowersCard) {
+    if (pendingTypes.has('power-evolution') || pendingTypes.has('evolution-choice') || pendingTypes.has('signature-evolution')) {
+      elPowersCard.setAttribute('data-level-choice', 'power');
+    } else {
+      elPowersCard.removeAttribute('data-level-choice');
+    }
+  }
+  if (elStoryCard) {
+    if (pendingTypes.has('transcendent-trait')) {
+      elStoryCard.setAttribute('data-level-choice', 'story');
+    } else {
+      elStoryCard.removeAttribute('data-level-choice');
+    }
+  }
+}
+
 function renderLevelRewardReminders() {
   if (!elLevelRewardList) return;
   elLevelRewardList.innerHTML = '';
@@ -9716,6 +9807,7 @@ function renderLevelRewardReminders() {
   const completed = levelProgressState?.completedRewardIds instanceof Set
     ? levelProgressState.completedRewardIds
     : new Set(Array.isArray(levelProgressState?.completedRewardIds) ? levelProgressState.completedRewardIds : []);
+  const pendingTasks = [];
   tasks.forEach(task => {
     const li = document.createElement('li');
     const label = document.createElement('label');
@@ -9740,6 +9832,7 @@ function renderLevelRewardReminders() {
     label.appendChild(text);
     li.appendChild(label);
     elLevelRewardList.appendChild(li);
+    if (!completed.has(task.id)) pendingTasks.push(task);
   });
 
   const hasTasks = tasks.length > 0;
@@ -9754,6 +9847,7 @@ function renderLevelRewardReminders() {
       elLevelRewardsCard.removeAttribute('data-pending');
     }
   }
+  updateLevelChoiceHighlights(pendingTasks);
 }
 
 function handleAugmentAdd(id) {
@@ -9832,8 +9926,20 @@ function updateSPDisplay({ current, max } = {}){
   updateTempBadge(elSPTempPill, tempValue);
 }
 
+function syncLevelBonusInputs() {
+  if (elHPLevelBonusInput) {
+    const hpBonus = Number(levelProgressState?.hpBonus) || 0;
+    elHPLevelBonusInput.value = String(hpBonus);
+  }
+  if (elSPLevelBonusInput) {
+    const spBonus = Number(levelProgressState?.spBonus) || 0;
+    elSPLevelBonusInput.value = String(spBonus);
+  }
+}
+
 function updateSP(){
   const levelBonus = Number(levelProgressState?.spBonus) || 0;
+  if (elSPLevelBonusInput) elSPLevelBonusInput.value = String(levelBonus);
   const spMax = 5 + mod(elCon.value) + levelBonus;
   elSPBar.max = spMax;
   if (elSPBar.value === '' || Number.isNaN(Number(elSPBar.value))) elSPBar.value = spMax;
@@ -9855,6 +9961,7 @@ function updateHP(){
   const base = 30;
   const conMod = elCon.value === '' ? 0 : mod(elCon.value);
   const levelBonus = Number(levelProgressState?.hpBonus) || 0;
+  if (elHPLevelBonusInput) elHPLevelBonusInput.value = String(levelBonus);
   const total = base + conMod + num(elHPRoll.value||0) + levelBonus;
   const prevMax = num(elHPBar.max);
   elHPBar.max = Math.max(0, total);
@@ -9890,7 +9997,12 @@ function updateXP(){
   const prevLevel = getLevelEntry(prevIdx);
   const levelEntry = getLevelEntry(idx);
   const levelNumber = Number.isFinite(Number(levelEntry?.level)) ? Number(levelEntry.level) : 1;
-  applyLevelProgress(levelNumber, { suppressNotifications: !xpInitialized, silent: !xpInitialized });
+  const appliedLevel = Math.max(1, Number(levelProgressState?.highestAppliedLevel) || 1);
+  const derivedHighest = Math.max(1, Number(derivedLevelState?.highestAppliedLevel) || appliedLevel);
+  const shouldApplyProgress = levelNumber !== appliedLevel || levelNumber !== derivedHighest;
+  const levelProgressResult = shouldApplyProgress
+    ? applyLevelProgress(levelNumber, { suppressNotifications: !xpInitialized, silent: !xpInitialized })
+    : null;
   if (xpInitialized && idx !== prevIdx) {
     logAction(`Level: ${formatLevelLabel(prevLevel)} -> ${formatLevelLabel(levelEntry)}`);
   }
@@ -9903,6 +10015,16 @@ function updateXP(){
       : `${baseMessage}.`;
     toast(toastMessage, 'success');
     window.dmNotify?.(`Level up to ${formatLevelLabel(levelEntry)}`);
+    if (levelProgressResult?.newLevelEntries?.length) {
+      const rewardSummary = levelProgressResult.newLevelEntries
+        .map(entry => formatLevelRewardSummary(entry))
+        .filter(Boolean)
+        .join('; ');
+      if (rewardSummary) {
+        window.dmNotify?.(`Level bonuses applied: ${rewardSummary}`);
+        logAction(`Level bonuses applied: ${rewardSummary}`);
+      }
+    }
   } else if (xpInitialized && idx < prevIdx) {
     window.dmNotify?.(`Level down to ${formatLevelLabel(levelEntry)}`);
   }
