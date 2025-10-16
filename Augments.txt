@@ -1,0 +1,206 @@
+Augments (Feats.)
+When Gained: Levels 3, 6, 9, 12, 15, and 19.
+Each Augment marks a permanent mutation, mastery, or shard resonance   the moment your Vigilante stops being ordinary.
+Unless noted otherwise, an Augment can only be chosen once.
+________________________________________
+A. CONTROL AUGMENTS
+  precision, strategy, and mastery over the battlefield  
+Tactical Genius
+You read probability like a language.
+•	Once per combat, you may reorder the initiative of all allies (declare after rolling).
+•	All allies gain +1 to attack rolls until the start of your next turn.
+Adaptive Armor Protocol
+Nanoweave plating learns from every hit.
+•	At the start of combat, choose one damage type: fire, cold, acid, lightning, psychic, or force.
+•	You gain resistance to that type until combat ends.
+Resilient Soul
+Even on your knees, you fight on.
+•	When reduced to 0 HP, remain conscious until the end of your next turn.
+•	You can still act, but collapse immediately afterward if not healed.
+Overwatch Specialist
+Nothing escapes your aim.
+•	Reaction: when an ally within 30 ft. is attacked, make one ranged power attack against the attacker.
+•	Once per round.
+Protocol Override
+You command the field itself.
+•	Once per session, declare “Override.”
+•	For one minute, all allies gain advantage on Tech and Investigation checks; all enemies within 30 ft. suffer disadvantage on Stealth checks.
+________________________________________
+
+
+
+
+
+
+
+B. PROTECTION AUGMENTS
+  guardianship, inspiration, and self-sacrifice  
+Inspire Resolve
+Your courage radiates like a beacon.
+•	Once per session, all allies within 30 ft. gain +1d4 to all rolls for one round.
+•	You gain +1 to CHA saves permanently.
+Protector’s Vow
+You always take the hit meant for another.
+•	Reaction: when an ally within 15 ft. is hit, halve the damage and take the remainder.
+•	Once per round.
+Field Medic
+A calm hand in the chaos.
+•	Spend 1 SP as a bonus action to heal an adjacent ally for 1d6 HP.
+•	Once per ally per combat.
+Public Icon
+Your name alone changes hearts.
+•	Add +2 to Persuasion checks involving civilians or sponsors.
+•	Once per session, reroll a failed Persuasion roll.
+Defender’s Rally
+When others fall, you rise higher.
+•	The first time an ally drops to 0 HP each combat, you regain 1d6 SP and all allies gain +2 TC until end of next round.
+________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+C. AGGRESSION AUGMENTS
+  speed, violence, and relentless momentum  
+Adrenal Surge
+You metabolize adrenaline into firepower.
+•	When you drop an enemy to 0 HP, regain 1d6 SP.
+•	Once per turn.
+Assassin’s Veil
+Vanishing is second nature.
+•	After disabling an enemy, become invisible until the start of your next turn.
+Power Syphon
+You feed on the backlash.
+•	When hit by an energy-type attack, regain 1 SP.
+•	If the attack misses, the attacker loses 1 SP instead.
+Suppressive Fire
+Fear is a weapon.
+•	Ranged powers impose disadvantage on enemy attack rolls** until your next turn.
+Nullpulse Reflex
+Pain makes you faster.
+•	When you fail a saving throw, immediately make a melee attack or cast a 1 SP power as a reaction.
+________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+D. TRANSCENDENCE AUGMENTS
+  cosmic resonance, time manipulation, and psychic mastery  
+Chrono Anchor
+You exist slightly out of sync.
+•	Once per session, rewind one round of your personal actions.
+•	Restore SP and HP to the state they were in then.
+Reality Fracture
+The world hesitates around you.
+•	Once per day, impose disadvantage on any one d20 roll after seeing the result.
+Catalyst Conduit
+Your body becomes the prism.
+•	Once per session, when reduced below half SP, instantly restore all SP.
+Astral Step
+You move between photons.
+•	Teleport up to 10 ft. as a bonus action each round if you have line of sight.
+Mind Fortress
+A perfect mind under cosmic symmetry.
+•	Gain advantage on WIS and INT saves vs. psychic or illusion effects.
+________________________________________
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+E. CUSTOMIZATION AUGMENTS
+  flexibility, ingenuity, and individuality  
+Battle Hardened
+•	Gain +1 to STR and CON saves.
+•	Once per day, reduce damage from one physical attack to 0.
+Evasive Footwork
+•	Gain +1 TC while moving 20+ ft. during your turn.
+Overcharge Matrix
+•	Once per combat, double the damage dice of one power. Costs +1 SP.
+Telepathic Coordination
+•	Allies within 30 ft. may reroll a single 1 on attack or save once per combat.
+Luck Vector
+•	Once per session, reroll any die (must keep the new result).
+Quickdraw
+•	You automatically act first in the first combat round unless surprised.
+Empathic Resonator
+•	When an ally within 10 ft. takes damage, you may take half and gain +1 SP.
+Elemental Amplifier
+•	Choose one damage type; once per combat, a power of that type deals +1 damage die.
+Legend in Motion
+•	Once per session, perform a cinematic stunt that would normally be impossible; it automatically succeeds within reason.
+Versatile Mind
+•	Gain proficiency in one new skill and one new language.
+________________________________________
+
+
+
+
+
+
+
+
+
+Availability Matrix
+Augment	Control	Protection	Aggression	Transcendence	Customization
+Tactical Genius	✓	X	X	X	X
+Adaptive Armor Protocol	✓	X	✓	X	X
+Resilient Soul	✓	X	X	X	✓
+Overwatch Specialist	✓	X	✓	X	X
+Protocol Override	✓	X	X	X	X
+Inspire Resolve	X	✓	X	X	✓
+Protector’s Vow	X	✓	X	X	X
+Field Medic	X	✓	X	X	X
+Public Icon	X	✓	X	X	X
+Defender’s Rally	X	✓	X	X	X
+Adrenal Surge	X	X	✓	X	X
+Assassin’s Veil	X	X	✓	X	X
+Power Syphon	✓	X	✓	X	X
+Suppressive Fire	X	X	✓	X	X
+Nullpulse Reflex	✓	X	✓	X	X
+Chrono Anchor	X	X	X	✓	X
+Reality Fracture	X	X	X	✓	X
+Catalyst Conduit	X	X	X	✓	X
+Astral Step	X	X	X	✓	X
+Mind Fortress	X	X	X	✓	X
+All “Customization” feats	✓	✓	✓	✓	✓
+
+
+
+Design Intent
+•	Control augments grant battlefield dominance and coordination.
+•	Protection augments emphasize defense, leadership, and morale.
+•	Aggression augments reward risk-taking and momentum.
+•	Transcendence augments bend time, space, or perception.
+•	Customization augments let any hero specialize further or express personality.
+
