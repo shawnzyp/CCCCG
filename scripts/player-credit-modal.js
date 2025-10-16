@@ -14,10 +14,17 @@ import { show, hide } from './modal.js';
   const amountEl = document.getElementById('player-credit-amount');
   const typeEl = document.getElementById('player-credit-type');
   const senderEl = document.getElementById('player-credit-sender');
+  const memoField = document.getElementById('player-credit-memo-field');
+  const memoEl = document.getElementById('player-credit-memo');
+  const historyList = document.getElementById('player-credit-history');
+  const historySection = historyList ? historyList.closest('.player-credit__history') : null;
 
   const STORAGE_KEY = 'cc_dm_card';
   const BROADCAST_CHANNEL_NAME = 'cc:player-credit';
   const MESSAGE_TYPE = 'CC_PLAYER_UPDATE';
+  const MAX_HISTORY = 10;
+
+  let transactionHistory = [];
 
   const amountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -94,8 +101,20 @@ import { show, hide } from './modal.js';
     const ref = typeof payload.ref === 'string' ? payload.ref : (typeof payload.reference === 'string' ? payload.reference : '');
     const txid = typeof payload.txid === 'string' ? payload.txid : '';
     const amount = Number(payload.amount);
-    const timestamp = typeof payload.timestamp === 'string' || payload.timestamp instanceof Date ? payload.timestamp : '';
+    const memo = typeof payload.memo === 'string' ? payload.memo.trim() : '';
     const player = typeof payload.player === 'string' ? payload.player : '';
+    const timestampDate = (() => {
+      if (payload.timestamp instanceof Date) {
+        return Number.isNaN(payload.timestamp.getTime()) ? new Date() : payload.timestamp;
+      }
+      if (typeof payload.timestamp === 'string' && payload.timestamp) {
+        const parsed = new Date(payload.timestamp);
+        if (!Number.isNaN(parsed.getTime())) {
+          return parsed;
+        }
+      }
+      return new Date();
+    })();
     return {
       account,
       type,
@@ -103,9 +122,144 @@ import { show, hide } from './modal.js';
       ref,
       txid,
       amount: Number.isFinite(amount) ? amount : 0,
-      timestamp,
+      memo,
+      timestamp: timestampDate.toISOString(),
       player,
     };
+  };
+
+  const historyKeyFor = (entry = {}) => `${entry.txid || entry.ref || ''}|${entry.timestamp || ''}`;
+
+  const sortHistory = (entries = []) => {
+    return entries
+      .slice()
+      .sort((a, b) => {
+        const timeA = new Date(a.timestamp || 0).getTime();
+        const timeB = new Date(b.timestamp || 0).getTime();
+        const safeA = Number.isFinite(timeA) ? timeA : 0;
+        const safeB = Number.isFinite(timeB) ? timeB : 0;
+        return safeB - safeA;
+      });
+  };
+
+  const persistHistory = () => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(transactionHistory));
+      }
+    } catch {
+      /* ignore persistence errors */
+    }
+  };
+
+  const replaceHistoryEntries = (entries = []) => {
+    const seen = new Set();
+    const normalized = [];
+    entries.forEach(entry => {
+      const sanitized = sanitizePayload(entry);
+      const key = historyKeyFor(sanitized);
+      if (seen.has(key)) return;
+      seen.add(key);
+      normalized.push(sanitized);
+    });
+    transactionHistory = sortHistory(normalized).slice(0, MAX_HISTORY);
+    return transactionHistory[0] || null;
+  };
+
+  const upsertHistoryEntry = (entry) => {
+    const sanitized = sanitizePayload(entry);
+    const key = historyKeyFor(sanitized);
+    const filtered = transactionHistory.filter(item => historyKeyFor(item) !== key);
+    filtered.unshift(sanitized);
+    transactionHistory = sortHistory(filtered).slice(0, MAX_HISTORY);
+    return transactionHistory[0] || null;
+  };
+
+  const renderHistory = (entries = []) => {
+    if (!historyList) return;
+    historyList.innerHTML = '';
+    const shouldCollapse = !entries.length || entries.length <= 1;
+    historyList.hidden = shouldCollapse;
+    if (historySection) {
+      historySection.hidden = shouldCollapse;
+      historySection.toggleAttribute('data-collapsed', shouldCollapse);
+    }
+    if (shouldCollapse) {
+      return;
+    }
+    entries.forEach((entry, index) => {
+      const item = document.createElement('li');
+      item.className = 'player-credit__history-item';
+      item.tabIndex = 0;
+      item.dataset.index = String(index);
+
+      const timestamp = new Date(entry.timestamp || Date.now());
+      const dateLabel = formatDate(timestamp);
+      const timeLabel = formatTime(timestamp);
+      const amountLabel = formatAmount(entry.amount);
+      const typeLabel = entry.type || 'Transaction';
+      const senderLabel = entry.sender || 'Unknown sender';
+      const memoText = entry.memo || '';
+
+      const ariaParts = [`${typeLabel} ${amountLabel}`.trim(), `from ${senderLabel}`.trim(), `on ${dateLabel} at ${timeLabel}`];
+      if (memoText) {
+        ariaParts.push(`Memo: ${memoText}`);
+      }
+      item.setAttribute('aria-label', ariaParts.join(', '));
+
+      const header = document.createElement('div');
+      header.className = 'player-credit__history-header';
+      const amountSpan = document.createElement('span');
+      amountSpan.className = 'player-credit__history-amount';
+      amountSpan.textContent = amountLabel;
+      header.appendChild(amountSpan);
+
+      const typeSpan = document.createElement('span');
+      typeSpan.className = 'player-credit__history-type';
+      typeSpan.textContent = typeLabel;
+      header.appendChild(typeSpan);
+      item.appendChild(header);
+
+      const senderLine = document.createElement('div');
+      senderLine.className = 'player-credit__history-sender';
+      senderLine.textContent = senderLabel ? `Sender: ${senderLabel}` : 'Sender: —';
+      item.appendChild(senderLine);
+
+      const meta = document.createElement('div');
+      meta.className = 'player-credit__history-meta';
+      meta.textContent = `${dateLabel} • ${timeLabel}`;
+      item.appendChild(meta);
+
+      if (memoText) {
+        const memoDiv = document.createElement('div');
+        memoDiv.className = 'player-credit__history-memo';
+        memoDiv.textContent = memoText;
+        item.appendChild(memoDiv);
+      }
+
+      historyList.appendChild(item);
+    });
+  };
+
+  const syncHistoryFromEntries = (entries = [], { reveal = false, persist = false } = {}) => {
+    const signatureBefore = lastSignature;
+    const latest = replaceHistoryEntries(entries);
+    if (!transactionHistory.length) {
+      renderHistory(transactionHistory);
+      if (persist) {
+        persistHistory();
+      }
+      return;
+    }
+    const target = latest || transactionHistory[0];
+    const rendered = renderPayload(target, { reveal });
+    renderHistory(transactionHistory);
+    if (persist) {
+      persistHistory();
+    }
+    if (!reveal && signatureBefore === null) {
+      lastSignature = signatureFor(rendered);
+    }
   };
 
   const setCardDatasets = (data) => {
@@ -115,6 +269,7 @@ import { show, hide } from './modal.js';
     card.dataset.type = data.type || '';
     card.dataset.sender = data.sender || '';
     card.dataset.player = data.player || '';
+    card.dataset.memo = data.memo || '';
   };
 
   const applyDisplay = (data) => {
@@ -122,6 +277,16 @@ import { show, hide } from './modal.js';
     if (amountEl) amountEl.textContent = formatAmount(data.amount);
     if (typeEl) typeEl.textContent = data.type || '—';
     if (senderEl) senderEl.textContent = data.sender || '—';
+    if (memoField && memoEl) {
+      const memoText = data.memo || '';
+      if (memoText) {
+        memoEl.textContent = memoText;
+        memoField.hidden = false;
+      } else {
+        memoEl.textContent = '—';
+        memoField.hidden = true;
+      }
+    }
   };
 
   const applyRevealAnimation = () => {
@@ -142,6 +307,7 @@ import { show, hide } from './modal.js';
       account: data.account,
       amount: Number.isFinite(data.amount) ? Number(data.amount) : 0,
       type: data.type,
+      memo: data.memo,
     });
   };
 
@@ -183,8 +349,15 @@ import { show, hide } from './modal.js';
 
   const handleUpdate = (payload, options = {}) => {
     const reveal = options.reveal !== false;
+    const persist = options.persist !== false;
     const signatureBefore = lastSignature;
-    const rendered = renderPayload(payload, { reveal });
+    upsertHistoryEntry(payload);
+    const latest = transactionHistory[0] || sanitizePayload(payload);
+    const rendered = renderPayload(latest, { reveal });
+    renderHistory(transactionHistory);
+    if (persist) {
+      persistHistory();
+    }
     if (reveal && isDmSession()) {
       hide('player-credit-modal');
     }
@@ -200,7 +373,11 @@ import { show, hide } from './modal.js';
     }
     const data = event?.data;
     if (!data || data.type !== MESSAGE_TYPE) return;
-    handleUpdate(data.payload, { reveal: true });
+    if (Array.isArray(data.payload)) {
+      syncHistoryFromEntries(data.payload, { reveal: true, persist: true });
+    } else {
+      handleUpdate(data.payload, { reveal: true });
+    }
   };
 
   if (closeBtn) {
@@ -212,8 +389,16 @@ import { show, hide } from './modal.js';
   window.addEventListener('storage', (event) => {
     if (event.key !== STORAGE_KEY) return;
     const parsed = safeParse(event.newValue);
-    if (!parsed) return;
-    handleUpdate(parsed, { reveal: true });
+    if (!parsed) {
+      transactionHistory = [];
+      renderHistory(transactionHistory);
+      return;
+    }
+    if (Array.isArray(parsed)) {
+      syncHistoryFromEntries(parsed, { reveal: true, persist: false });
+    } else {
+      handleUpdate(parsed, { reveal: true, persist: false });
+    }
   });
 
   if (typeof BroadcastChannel === 'function') {
@@ -233,8 +418,13 @@ import { show, hide } from './modal.js';
     try {
       const existing = localStorage.getItem(STORAGE_KEY);
       const parsed = safeParse(existing);
-      if (parsed) {
-        handleUpdate(parsed, { reveal: false });
+      if (Array.isArray(parsed)) {
+        syncHistoryFromEntries(parsed, { reveal: false, persist: false });
+      } else if (parsed) {
+        handleUpdate(parsed, { reveal: false, persist: false });
+        persistHistory();
+      } else {
+        renderHistory(transactionHistory);
       }
     } catch {
       /* ignore hydration errors */
