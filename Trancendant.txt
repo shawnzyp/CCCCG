@@ -1,0 +1,74 @@
+TRANSCENDENT TRAITS
+Level 20 • Ascendant Tier (Ω)
+Choose one Transcendent Trait upon reaching Level 20.
+You cannot change this choice. It defines your legend.
+________________________________________
+1. The Living Conduit (Elemental / Energy Masters)
+Your body becomes a stable bridge between realities. Energy flows through you like a planetary core.
+•	Effect: You gain immunity to one energy type (fire, cold, lightning, radiant, or necrotic).
+•	Once per day, you may channel that energy outward in a 60 ft. radius, dealing 10d10 damage of that type (DEX save for half, DC = 8 + your highest ability mod + proficiency).
+•	Narrative: The environment around you bends to your resonance lights flicker, metal hums, or water ripples as you walk.
+________________________________________
+2. The Timeless One (Speedsters, Chronokinetics, Telekinetics)
+Time no longer rules you; it merely negotiates.
+•	Effect: You gain a permanent extra turn each round, taken at your initiative –10 (you act twice).
+•	Once per long rest, you can reverse the last round for all creatures but yourself.
+•	Narrative: Clocks near you stop. Your voice sometimes overlaps itself by seconds.
+________________________________________
+3. The Unbroken Form (Physical Powerhouses)
+Matter bends but never breaks you.
+•	Effect: You gain damage reduction equal to your CON modifier (after resistances).
+•	When reduced to 0 HP, you instead explode in kinetic light, restoring yourself to half HP and pushing all creatures within 30 ft. back 20 ft. (no save). Once per long rest.
+•	Narrative: Bullets flatten against you; earthquakes buckle beneath your stance.
+________________________________________
+4. The Shepherd of Light (Protectors, Healers, Empaths)
+Your presence mends what reality cannot.
+•	Effect: Allies within 30 ft. automatically regain 5 HP at the start of each of your turns.
+•	Once per session, you can resurrect one fallen ally within 10 minutes of death, restoring them to full HP and SP.
+•	Narrative: Your aura manifests as wings, halos, or soft illumination that bends around you. The hopeless feel calm when you arrive.
+________________________________________
+5. The Echo Beyond (Psychics, Telepaths, Illusionists)
+You exist in multiple overlapping realities simultaneously.
+•	Effect: You are always considered to have three active mirror versions of yourself.
+o	Each time you take damage, roll 1d4 (on a 4, an echo is hit instead).
+•	Once per session, you may swap positions with any echo (even across worlds or dimensions).
+•	Narrative: Cameras capture you in several poses at once. Conversations with you echo before you speak.
+________________________________________
+6. The Architect of Fate (Control archetypes / O.M.N.I. ascendants)
+Causality recognizes your commands.
+•	Effect: Once per round, after any d20 roll within 60 ft., you may force a reroll (ally or enemy).
+•	Once per session, you may rewrite one event that occurred within the last hour (GM discretion cannot undo player death without consequence).
+•	Narrative: Probability bends near you. Strangers feel déjà vu in your presence.
+________________________________________
+7. The Singularity Heart (Aggression / Greyline archetypes)
+You are a walking gravitational event, a collapse given will.
+•	Effect: Enemies within 20 ft. take 2d6 force damage at the start of your turn.
+•	Once per combat, you can pull all creatures within 60 ft. toward you (STR save or be dragged to within 10 ft.).
+•	You are immune to forced movement and cannot be teleported against your will.
+•	Narrative: Air bends inward. Gravity whispers your name.
+________________________________________
+8. The Herald of the Catalyst (Transcendents / Conclave archetypes)
+You are the universe’s chosen iteration the metahuman ideal.
+•	Effect: You permanently gain +2 to all Ability Scores.
+•	Once per session, you can invoke Catalyst Resonance: for one minute, you and your allies deal double damage, regenerate 10 SP each round, and ignore disadvantage.
+•	Narrative: When you invoke your resonance, time freezes, the sky fractures, and your emblem glows as if the world itself remembers your story.
+________________________________________
+9. The Voice in the Static (Shadow archetypes / Morvox thematic)
+You no longer speak; reality translates your will.
+•	Effect: All enemies within 60 ft. must succeed a WIS save (DC 8 + CHA + prof) at the start of combat or become Silenced and Frightened for 1 round.
+•	You may speak through any screen, radio, or network within a mile.
+•	Once per session, you can overwrite an NPC’s mind for one hour as if they were your avatar (no roll).
+•	Narrative: Technology flickers when you pass. People hear your voice in their comms long before they see you.
+________________________________________
+10. The Paragon of the Core (Universal / Customization archetype)
+You are Catalyst energy made flesh the sum of every Tier achieved.
+•	Effect:
+o	Gain +1 SP Max, +20 HP, and +1 to all saves.
+o	Once per session, you may combine any two powers you know into a single fusion attack (damage + effects stack; cost = total SP + 2).
+o	You may choose one additional Transcendent Trait from another category but only at half potency.
+•	Narrative: Your aura hums like a reactor. Every power you use now leaves a shimmering imprint of your symbol in the air.
+________________________________________
+GM Guidelines
+•	These are endgame narrative powers. Encourage cinematic use; don’t reduce them to number trading.
+•	Every Trait should reshape the world’s perception of the Vigilante: governments react, factions adapt, and even Morvox takes note.
+•	Transcendent Traits stack with Augments but cannot be replaced, retrained, or suppressed except through narrative consequence (e.g., Catalyst fracture).

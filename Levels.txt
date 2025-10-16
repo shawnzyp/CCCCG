@@ -1,0 +1,41 @@
+CATALYST CORE, LEVELS, TIERS, AND SUB-TIERS XP PROGRESSION TABLE
+Level	Tier	Sub-Tier	XP Required	Tier	Gains Summary
+1	5	A	0	Tier 5 – Rookie	Character creation
+2	5	B	300		+5 HP and Power Evolution
+3	5	C	900		Augment 1
+4	5	D	2 700	Tier 4 Begins (+1 Stat)	Signature Move Evolution and +1 SP Max
+5	4	A	6 500		+5 HP and Power Evolution
+6	4	B	14 000		Augment 2
+7	4	C	23 000		+1 SP Max and Power Evolution
+8	4	D	34 000	Tier 3 Begins (+1 Stat)	Power or Signature Move Evolution
+9	3	A	48 000		Augment 3
+10	3	B	64 000		+5 HP and Power Evolution
+11	3	C	85 000		+1 SP Max
+12	3	D	100 000	Tier 2 Begins (+1 Stat &)	Augment 4
+13	2	A	120 000		+5 HP and Power Evolution
+14	2	B	140 000		+1 SP Max
+15	2	C	165 000		Augment 5
+16	2	D	195 000	Tier 1 Begins (+1 Stat)	Legendary Gear Access
+17	1	A	225 000		+5 HP and Power Evolution
+18	1	B	265 000		+1 SP Max
+19	1	C	305 000		Augment 6
+20	0	D (Ω)**	355 000	Ascendant Tier (+1 Stat)	Transcendent Trait
+
+
+
+
+
+
+Level Milestone	Reward
+3	Augment I
+4	Tier 4 unlock + 1 Stat
+6	Augment II
+8	Tier 3 unlock + 1 Stat
+9	Augment III
+12	Tier 2 unlock + 1 Stat + Augment IV
+15	Augment V
+16	Tier 1 unlock + 1 Stat
+19	Augment VI
+20	Tier 0 unlock (Ascendant Tier) + 1 Stat
+
+
