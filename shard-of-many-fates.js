@@ -3911,6 +3911,8 @@
       this.realtimeReady = this.runtime.hasRealtime();
       this.itemMetadata = new Map();
       this.hiddenEarcon = createHiddenStateEarcon(() => this.dom?.ping);
+      this.selectedInviteeIds = new Set();
+      this.inviteRosterIndex = new Map();
     }
 
     attach() {
@@ -3918,6 +3920,7 @@
       this.initialized = true;
       this.captureDom();
       this.bindEvents();
+      this.updateInviteSelectionUi();
       this.renderStaticLists();
       this.setupWatchers();
       this.refresh();
@@ -3956,6 +3959,7 @@
         hiddenStatus: dom.one('#somfDM-hiddenStatus'),
         inviteOptions: dom.one('#somfDM-inviteOptions'),
         inviteRoster: dom.one('#somfDM-inviteRoster'),
+        inviteSelected: dom.one('#somfDM-inviteSelected'),
         resolveOptions: dom.one('#somfDM-resolveOptions'),
         queue: dom.one('#somfDM-notifications'),
         npcModal: dom.one('#somfDM-npcModal'),
@@ -4109,9 +4113,15 @@
       if (this.dom.inviteOptions) {
         this.dom.inviteOptions.innerHTML = '';
         if (status === 'ready') {
+          const seen = new Set();
           list.forEach(name => {
+            const normalizedName = normalizePlayerName(name);
+            if (!normalizedName) return;
+            const key = normalizePlayerKey(normalizedName);
+            if (!key || seen.has(key)) return;
+            seen.add(key);
             const option = document.createElement('option');
-            option.value = name;
+            option.value = normalizedName;
             this.dom.inviteOptions.appendChild(option);
           });
         }
@@ -4119,6 +4129,8 @@
       if (!this.dom.inviteRoster) return;
       this.dom.inviteRoster.innerHTML = '';
       if (status !== 'ready') {
+        this.inviteRosterIndex = new Map();
+        this.clearInviteSelection();
         const message = document.createElement('p');
         message.className = 'somf-dm__inviteEmpty';
         message.textContent = status === 'loading'
@@ -4130,38 +4142,130 @@
         return;
       }
       if (!list.length) {
+        this.inviteRosterIndex = new Map();
+        this.clearInviteSelection();
         const empty = document.createElement('p');
         empty.className = 'somf-dm__inviteEmpty';
         empty.textContent = 'No player saves found in the cloud.';
         this.dom.inviteRoster.appendChild(empty);
         return;
       }
-      const fragment = document.createDocumentFragment();
+
+      const index = new Map();
       list.forEach(name => {
+        const normalizedName = normalizePlayerName(name);
+        if (!normalizedName) return;
+        const id = normalizePlayerKey(normalizedName);
+        if (!id || index.has(id)) return;
+        index.set(id, normalizedName);
+      });
+
+      if (!index.size) {
+        this.inviteRosterIndex = new Map();
+        this.clearInviteSelection();
+        const empty = document.createElement('p');
+        empty.className = 'somf-dm__inviteEmpty';
+        empty.textContent = 'No player saves found in the cloud.';
+        this.dom.inviteRoster.appendChild(empty);
+        return;
+      }
+
+      this.inviteRosterIndex = index;
+      const filteredSelected = new Set();
+      this.selectedInviteeIds.forEach(id => {
+        if (this.inviteRosterIndex.has(id)) filteredSelected.add(id);
+      });
+      this.selectedInviteeIds = filteredSelected;
+
+      const fragment = document.createDocumentFragment();
+      this.inviteRosterIndex.forEach((displayName, id) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'somf-dm__inviteChip';
-        button.textContent = name;
-        button.setAttribute('data-player-name', name);
+        button.textContent = displayName;
+        button.setAttribute('data-player-id', id);
+        button.setAttribute('data-player-name', displayName);
+        this.applyInviteChipState(button, this.selectedInviteeIds.has(id));
         fragment.appendChild(button);
       });
       this.dom.inviteRoster.appendChild(fragment);
+      this.updateInviteSelectionUi();
     }
 
-    addInvitee(name) {
-      if (!this.dom.inviteInput) return;
-      const normalized = normalizePlayerName(name);
-      if (!normalized) return;
-      const current = String(this.dom.inviteInput.value || '');
-      const pieces = current.split(',').map(part => normalizePlayerName(part)).filter(Boolean);
-      const seen = new Set(pieces.map(part => normalizePlayerKey(part)));
-      const key = normalizePlayerKey(normalized);
-      if (!seen.has(key)) {
-        pieces.push(normalized);
+    applyInviteChipState(chip, selected) {
+      if (!chip || !chip.classList) return;
+      chip.classList.toggle('is-selected', !!selected);
+      chip.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    }
+
+    syncInviteChipStates() {
+      if (!this.dom.inviteRoster) return;
+      const chips = this.dom.inviteRoster.querySelectorAll('.somf-dm__inviteChip[data-player-id]');
+      chips.forEach(chip => {
+        const id = chip.getAttribute('data-player-id');
+        const isSelected = !!(id && this.selectedInviteeIds.has(id));
+        this.applyInviteChipState(chip, isSelected);
+      });
+    }
+
+    toggleInviteSelection(id, chipElement = null) {
+      if (typeof id !== 'string' || !id) return;
+      const key = normalizePlayerKey(id);
+      if (!key || !this.inviteRosterIndex.has(key)) return;
+      if (this.selectedInviteeIds.has(key)) this.selectedInviteeIds.delete(key);
+      else this.selectedInviteeIds.add(key);
+      const selected = this.selectedInviteeIds.has(key);
+      if (chipElement) this.applyInviteChipState(chipElement, selected);
+      else this.syncInviteChipStates();
+      this.updateInviteSelectionUi();
+    }
+
+    handleInviteRosterClick(event) {
+      const chip = event.target?.closest?.('.somf-dm__inviteChip[data-player-id]');
+      if (!chip) return;
+      event.preventDefault();
+      const id = chip.getAttribute('data-player-id');
+      if (!id) return;
+      this.toggleInviteSelection(id, chip);
+    }
+
+    getSelectedInviteeNames() {
+      if (!this.selectedInviteeIds || !this.selectedInviteeIds.size) return [];
+      const names = [];
+      this.selectedInviteeIds.forEach(id => {
+        const name = this.inviteRosterIndex.get(id);
+        if (name) names.push(name);
+      });
+      return names;
+    }
+
+    clearInviteSelection() {
+      if (!this.selectedInviteeIds) this.selectedInviteeIds = new Set();
+      else this.selectedInviteeIds.clear();
+      this.updateInviteSelectionUi();
+      this.syncInviteChipStates();
+    }
+
+    formatInviteSelectionCount(count) {
+      if (!Number.isFinite(count) || count <= 0) return 'No players selected';
+      return count === 1 ? '1 player selected' : `${count} players selected`;
+    }
+
+    updateInviteSelectionUi() {
+      const count = this.selectedInviteeIds ? this.selectedInviteeIds.size : 0;
+      if (this.dom.inviteSelected) {
+        this.dom.inviteSelected.textContent = this.formatInviteSelectionCount(count);
       }
-      this.dom.inviteInput.value = pieces.join(', ');
-      try { this.dom.inviteInput.focus(); }
-      catch {}
+      if (this.dom.inviteSend) {
+        const baseLabel = 'Send Invite';
+        const label = count > 0 ? `${baseLabel} (${count})` : baseLabel;
+        const ariaLabel = count > 0
+          ? `Send invite to ${count} selected player${count === 1 ? '' : 's'}`
+          : 'Send invite';
+        this.dom.inviteSend.textContent = label;
+        this.dom.inviteSend.setAttribute('aria-label', ariaLabel);
+        this.dom.inviteSend.setAttribute('title', ariaLabel);
+      }
     }
 
     bindEvents() {
@@ -4202,12 +4306,7 @@
         this.dom.inviteInput.__somfRosterBound = true;
       }
       if (this.dom.inviteRoster && !this.dom.inviteRoster.__somfBound) {
-        this.dom.inviteRoster.addEventListener('click', evt => {
-          const chip = evt.target?.closest?.('.somf-dm__inviteChip[data-player-name]');
-          if (!chip) return;
-          const name = chip.getAttribute('data-player-name') || chip.textContent || '';
-          this.addInvitee(name);
-        });
+        this.dom.inviteRoster.addEventListener('click', evt => this.handleInviteRosterClick(evt));
         this.dom.inviteRoster.__somfBound = true;
       }
       if (this.dom.concealAll && !this.dom.concealAll.__somfBound) {
@@ -4851,12 +4950,28 @@
     }
 
     parseInviteTargets() {
-      if (!this.dom.inviteInput) return [];
-      const raw = String(this.dom.inviteInput.value || '');
-      return raw
-        .split(/[\n,;]+/)
-        .map(normalizePlayerName)
-        .filter(Boolean);
+      const targets = [];
+      const seen = new Set();
+      const pushName = name => {
+        const normalized = normalizePlayerName(name);
+        if (!normalized) return;
+        const key = normalizePlayerKey(normalized);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        targets.push(normalized);
+      };
+
+      const selected = this.getSelectedInviteeNames();
+      selected.forEach(pushName);
+
+      if (this.dom.inviteInput) {
+        const raw = String(this.dom.inviteInput.value || '');
+        raw
+          .split(/[\n,;]+/)
+          .forEach(pushName);
+      }
+
+      return targets;
     }
 
     clearInviteInput() {
@@ -4891,6 +5006,7 @@
           window.dmNotify?.('Revealed the Shards to all players', { ts: now });
         } catch {}
         this.clearInviteInput();
+        this.clearInviteSelection();
         return;
       }
 
@@ -4911,6 +5027,7 @@
         });
       } catch {}
       this.clearInviteInput();
+      this.clearInviteSelection();
     }
 
     async concealAll() {

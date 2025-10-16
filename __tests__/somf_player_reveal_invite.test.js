@@ -127,6 +127,7 @@ test('player receives a shard reveal invite and can accept it', async () => {
     <div class="somf-dm__toggles">
       <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
       <input id="somfDM-inviteTargets" class="somf-dm__inviteInput" type="text">
+      <span id="somfDM-inviteSelected" class="somf-dm__inviteSelected">No players selected</span>
       <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
       <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
       <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
