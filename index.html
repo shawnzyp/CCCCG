@@ -758,23 +758,37 @@
         <select id="publicIdentity"><option value="Public">Public</option><option value="Secret" selected>Secret</option></select>
       </div>
       <div class="card card--tier" data-view-lock>
-        <label for="tier">Tier</label>
+        <label for="level-display">Character Level</label>
         <div class="tier-summary">
-          <input id="tier" type="text" readonly/>
+          <div class="tier-summary__detail tier-summary__detail--summary">
+            <span class="tier-summary__label">Summary</span>
+            <span id="level-summary-text" class="tier-summary__value">Level 1 – Tier 5A</span>
+          </div>
+          <div class="tier-summary__detail">
+            <label for="tier" class="tier-summary__label">Tier Name</label>
+            <input id="tier" class="tier-summary__value tier-summary__value-input" type="text" readonly value="Tier 5 – Rookie"/>
+          </div>
           <div class="tier-summary__details">
             <div class="tier-summary__detail">
-              <span class="tier-summary__label">Level</span>
-              <span id="level-text" class="tier-summary__value">1</span>
+              <label for="level-display" class="tier-summary__label">Level</label>
+              <input id="level-display" class="tier-summary__value tier-summary__value-input" type="text" readonly value="1"/>
             </div>
             <div class="tier-summary__detail">
-              <span class="tier-summary__label">Sub-tier</span>
-              <span id="sub-tier-text" class="tier-summary__value">A</span>
+              <label for="sub-tier-display" class="tier-summary__label">Sub-tier</label>
+              <input id="sub-tier-display" class="tier-summary__value tier-summary__value-input" type="text" readonly value="A"/>
+            </div>
+            <div class="tier-summary__detail">
+              <label for="tier-short-display" class="tier-summary__label">Tier/Sub-tier</label>
+              <input id="tier-short-display" class="tier-summary__value tier-summary__value-input" type="text" readonly value="Tier 5A"/>
             </div>
           </div>
           <p id="tier-gains" class="tier-summary__gains" hidden></p>
         </div>
         <input id="level" type="hidden" value="1"/>
         <input id="sub-tier" type="hidden" value="A"/>
+        <input id="tier-short" type="hidden" value="Tier 5A"/>
+        <input id="level-summary" type="hidden" value="Level 1 – Tier 5A"/>
+        <input id="tier-number" type="hidden" value="5"/>
       </div>
       <div class="card card--xp" style="grid-column:1/-1">
         <div class="xp-tracker">
