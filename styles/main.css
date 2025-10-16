@@ -1904,6 +1904,7 @@ button:focus-visible,
   min-width:0;
 }
 .card-toolbar__title-text{flex:1 1 auto;min-width:0}
+.card-toolbar__badge{flex:0 0 auto;align-self:center;margin-left:12px}
 
 .card-toolbar__actions{
   display:flex;

@@ -8741,6 +8741,7 @@ const elHPTempPill = $('hp-temp-pill');
 const elHPLevelBonusInput = $('hp-level-bonus');
 const elSPLevelBonusInput = $('sp-level-bonus');
 const elAbilityCard = $('card-abilities');
+const elStatIncreaseReminder = $('stat-increase-reminder');
 const elStoryCard = $('card-story');
 const elPowersCard = document.querySelector('fieldset[data-tab="powers"]');
 // Cache frequently accessed HP amount field to avoid repeated DOM queries
@@ -9051,7 +9052,125 @@ function getDefaultLevelProgressState() {
     legendaryGearAccess: false,
     transcendentTrait: false,
     completedRewardIds: new Set(),
+    appliedRewardsByLevel: new Map(),
   };
+}
+
+function normalizeLevelRewardLedgerRecord(raw = {}) {
+  const toNumber = value => (Number.isFinite(Number(value)) ? Number(value) : 0);
+  const statCount = Number.isFinite(Number(raw?.statIncreases))
+    ? Number(raw.statIncreases)
+    : raw?.statIncrease === true || raw?.grantsStatIncrease === true
+      ? 1
+      : 0;
+  return {
+    hpBonus: toNumber(raw?.hpBonus),
+    spBonus: toNumber(raw?.spBonus),
+    augmentSlots: toNumber(raw?.augmentSlots),
+    statIncreases: statCount,
+    legendaryGearAccess: raw?.legendaryGearAccess === true,
+    transcendentTrait: raw?.transcendentTrait === true,
+  };
+}
+
+function parseStoredLevelRewardLedger(rawLedger) {
+  const ledger = new Map();
+  if (!rawLedger) return ledger;
+  if (rawLedger instanceof Map) {
+    rawLedger.forEach((value, level) => {
+      const numericLevel = Number(level);
+      if (!Number.isFinite(numericLevel) || numericLevel < 1) return;
+      ledger.set(numericLevel, normalizeLevelRewardLedgerRecord(value));
+    });
+    return ledger;
+  }
+  if (Array.isArray(rawLedger)) {
+    rawLedger.forEach(entry => {
+      if (!entry) return;
+      if (Array.isArray(entry) && entry.length >= 2) {
+        const numericLevel = Number(entry[0]);
+        if (!Number.isFinite(numericLevel) || numericLevel < 1) return;
+        ledger.set(numericLevel, normalizeLevelRewardLedgerRecord(entry[1]));
+        return;
+      }
+      const numericLevel = Number(entry.level);
+      if (!Number.isFinite(numericLevel) || numericLevel < 1) return;
+      ledger.set(numericLevel, normalizeLevelRewardLedgerRecord(entry));
+    });
+    return ledger;
+  }
+  if (rawLedger && typeof rawLedger === 'object') {
+    Object.entries(rawLedger).forEach(([key, value]) => {
+      const numericLevel = Number(key);
+      if (!Number.isFinite(numericLevel) || numericLevel < 1) return;
+      ledger.set(numericLevel, normalizeLevelRewardLedgerRecord(value));
+    });
+  }
+  return ledger;
+}
+
+function deriveLedgerRecordFromLevelEntry(entry) {
+  const rewards = entry?.rewards || {};
+  return {
+    hpBonus: Number.isFinite(Number(rewards.hpBonus)) ? Number(rewards.hpBonus) : 0,
+    spBonus: Number.isFinite(Number(rewards.spBonus)) ? Number(rewards.spBonus) : 0,
+    augmentSlots: Number.isFinite(Number(rewards.augmentSlots)) ? Number(rewards.augmentSlots) : 0,
+    statIncreases: rewards.grantsStatIncrease ? 1 : 0,
+    legendaryGearAccess: rewards.grantsLegendaryGearAccess === true,
+    transcendentTrait: rewards.grantsTranscendentTrait === true,
+  };
+}
+
+function mergeLedgerRecords(existing, baseline) {
+  if (!existing) return baseline;
+  return {
+    hpBonus: Number.isFinite(existing.hpBonus) ? existing.hpBonus : baseline.hpBonus,
+    spBonus: Number.isFinite(existing.spBonus) ? existing.spBonus : baseline.spBonus,
+    augmentSlots: Number.isFinite(existing.augmentSlots) ? existing.augmentSlots : baseline.augmentSlots,
+    statIncreases: Number.isFinite(existing.statIncreases) ? existing.statIncreases : baseline.statIncreases,
+    legendaryGearAccess: existing.legendaryGearAccess || baseline.legendaryGearAccess,
+    transcendentTrait: existing.transcendentTrait || baseline.transcendentTrait,
+  };
+}
+
+function buildLevelRewardLedgerUpTo(level, seedLedger) {
+  const normalizedLevel = Math.max(1, Number(level) || 1);
+  const ledger = new Map();
+  const sourceLedger = seedLedger instanceof Map ? seedLedger : null;
+  LEVEL_TABLE.forEach(entry => {
+    const entryLevel = Number(entry?.level);
+    if (!Number.isFinite(entryLevel) || entryLevel < 1 || entryLevel > normalizedLevel) return;
+    const baseline = deriveLedgerRecordFromLevelEntry(entry);
+    const existing = sourceLedger?.get(entryLevel) || null;
+    ledger.set(entryLevel, mergeLedgerRecords(existing, baseline));
+  });
+  return ledger;
+}
+
+function summarizeLevelRewardLedger(ledger, highestLevel) {
+  const limit = Math.max(1, Number(highestLevel) || 1);
+  const totals = {
+    hpBonus: 0,
+    spBonus: 0,
+    augmentSlotsEarned: 0,
+    statIncreases: 0,
+    legendaryGearAccess: false,
+    transcendentTrait: false,
+  };
+  if (!(ledger instanceof Map)) return totals;
+  for (let level = 1; level <= limit; level += 1) {
+    const rewards = ledger.get(level);
+    if (!rewards) continue;
+    totals.hpBonus += Number.isFinite(rewards.hpBonus) ? rewards.hpBonus : 0;
+    totals.spBonus += Number.isFinite(rewards.spBonus) ? rewards.spBonus : 0;
+    totals.augmentSlotsEarned += Number.isFinite(rewards.augmentSlots) ? rewards.augmentSlots : 0;
+    totals.statIncreases += Number.isFinite(rewards.statIncreases) ? rewards.statIncreases : 0;
+    if (rewards.legendaryGearAccess) totals.legendaryGearAccess = true;
+    if (rewards.transcendentTrait) totals.transcendentTrait = true;
+  }
+  const expectedSlots = AUGMENT_SLOT_LEVELS.filter(level => level <= limit).length;
+  totals.augmentSlotsEarned = Math.max(totals.augmentSlotsEarned, expectedSlots);
+  return totals;
 }
 
 let augmentState = getDefaultAugmentState();
@@ -9078,6 +9197,13 @@ function getSerializableLevelProgressState() {
     : Array.isArray(levelProgressState?.completedRewardIds)
       ? levelProgressState.completedRewardIds.filter(Boolean)
       : [];
+  const ledger = parseStoredLevelRewardLedger(levelProgressState?.appliedRewardsByLevel);
+  const ledgerEntries = ledger.size
+    ? Array.from(ledger.entries())
+        .map(([level, record]) => ({ level: Number(level), ...normalizeLevelRewardLedgerRecord(record) }))
+        .filter(entry => Number.isFinite(entry.level) && entry.level >= 1)
+        .sort((a, b) => a.level - b.level)
+    : [];
   return {
     highestAppliedLevel: Number(levelProgressState?.highestAppliedLevel) || 1,
     hpBonus: Number(levelProgressState?.hpBonus) || 0,
@@ -9087,6 +9213,7 @@ function getSerializableLevelProgressState() {
     legendaryGearAccess: levelProgressState?.legendaryGearAccess === true,
     transcendentTrait: levelProgressState?.transcendentTrait === true,
     completedRewardIds: completed,
+    appliedRewardsByLevel: ledgerEntries,
   };
 }
 
@@ -9134,15 +9261,28 @@ function hydrateLevelProgressState(state, opts = {}) {
     if (Number.isFinite(Number(state.highestAppliedLevel))) {
       next.highestAppliedLevel = Math.max(1, Number(state.highestAppliedLevel));
     }
-    if (Number.isFinite(Number(state.hpBonus))) next.hpBonus = Number(state.hpBonus);
-    if (Number.isFinite(Number(state.spBonus))) next.spBonus = Number(state.spBonus);
-    if (Number.isFinite(Number(state.augmentSlotsEarned))) next.augmentSlotsEarned = Number(state.augmentSlotsEarned);
-    if (Number.isFinite(Number(state.statIncreases))) next.statIncreases = Number(state.statIncreases);
     next.legendaryGearAccess = state.legendaryGearAccess === true;
     next.transcendentTrait = state.transcendentTrait === true;
     if (Array.isArray(state.completedRewardIds) && state.completedRewardIds.length) {
       next.completedRewardIds = new Set(state.completedRewardIds.filter(Boolean));
     }
+  }
+  const storedLedger = parseStoredLevelRewardLedger(state && (state.appliedRewardsByLevel || state.appliedRewards));
+  next.appliedRewardsByLevel = buildLevelRewardLedgerUpTo(next.highestAppliedLevel, storedLedger);
+  const totals = summarizeLevelRewardLedger(next.appliedRewardsByLevel, next.highestAppliedLevel);
+  next.hpBonus = totals.hpBonus;
+  next.spBonus = totals.spBonus;
+  next.augmentSlotsEarned = totals.augmentSlotsEarned;
+  next.statIncreases = totals.statIncreases;
+  next.legendaryGearAccess = totals.legendaryGearAccess || next.legendaryGearAccess;
+  next.transcendentTrait = totals.transcendentTrait || next.transcendentTrait;
+  if (next.completedRewardIds instanceof Set && next.completedRewardIds.size) {
+    next.completedRewardIds.forEach(id => {
+      const match = typeof id === 'string' ? id.match(/level-(\d+)-/i) : null;
+      if (match && Number(match[1]) > next.highestAppliedLevel) {
+        next.completedRewardIds.delete(id);
+      }
+    });
   }
   levelProgressState = next;
   setDerivedHighestLevel(next.highestAppliedLevel);
@@ -9506,26 +9646,23 @@ function applyLevelProgress(targetLevel, opts = {}) {
   });
   const nextState = getDefaultLevelProgressState();
   nextState.completedRewardIds = completed;
+  nextState.highestAppliedLevel = normalizedLevel;
+  nextState.appliedRewardsByLevel = buildLevelRewardLedgerUpTo(normalizedLevel);
+  const totals = summarizeLevelRewardLedger(nextState.appliedRewardsByLevel, normalizedLevel);
+  nextState.hpBonus = totals.hpBonus;
+  nextState.spBonus = totals.spBonus;
+  nextState.augmentSlotsEarned = totals.augmentSlotsEarned;
+  nextState.statIncreases = totals.statIncreases;
+  nextState.legendaryGearAccess = totals.legendaryGearAccess;
+  nextState.transcendentTrait = totals.transcendentTrait;
   const newLevelEntries = [];
   LEVEL_TABLE.forEach(entry => {
     const entryLevel = Number(entry?.level);
     if (!Number.isFinite(entryLevel) || entryLevel < 1 || entryLevel > normalizedLevel) return;
-    const rewards = entry?.rewards || {};
-    if (Number.isFinite(Number(rewards.hpBonus))) nextState.hpBonus += Number(rewards.hpBonus);
-    if (Number.isFinite(Number(rewards.spBonus))) nextState.spBonus += Number(rewards.spBonus);
-    if (Number.isFinite(Number(rewards.augmentSlots))) nextState.augmentSlotsEarned += Number(rewards.augmentSlots);
-    if (rewards.grantsStatIncrease) nextState.statIncreases += 1;
-    if (rewards.grantsLegendaryGearAccess) nextState.legendaryGearAccess = true;
-    if (rewards.grantsTranscendentTrait) nextState.transcendentTrait = true;
     if (entryLevel > previousHighest && entryLevel <= normalizedLevel) {
       newLevelEntries.push(entry);
     }
   });
-  const expectedSlots = AUGMENT_SLOT_LEVELS.filter(level => level <= normalizedLevel).length;
-  if (nextState.augmentSlotsEarned < expectedSlots) {
-    nextState.augmentSlotsEarned = expectedSlots;
-  }
-  nextState.highestAppliedLevel = normalizedLevel;
   levelProgressState = nextState;
   setDerivedHighestLevel(nextState.highestAppliedLevel);
   syncLevelBonusInputs();
@@ -9800,21 +9937,38 @@ function updateLevelChoiceHighlights(pendingTasks = []) {
   }
 }
 
+function updateStatIncreaseReminder(pending = 0) {
+  if (!elStatIncreaseReminder) return;
+  const count = Math.max(0, Number(pending) || 0);
+  if (count > 0) {
+    const label = count === 1 ? '1 Stat Increase Ready' : `${count} Stat Increases Ready`;
+    elStatIncreaseReminder.hidden = false;
+    elStatIncreaseReminder.textContent = label;
+  } else {
+    elStatIncreaseReminder.hidden = true;
+    elStatIncreaseReminder.textContent = '';
+  }
+}
+
 function renderLevelRewardReminders() {
-  if (!elLevelRewardList) return;
-  elLevelRewardList.innerHTML = '';
   const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
   const completed = levelProgressState?.completedRewardIds instanceof Set
     ? levelProgressState.completedRewardIds
     : new Set(Array.isArray(levelProgressState?.completedRewardIds) ? levelProgressState.completedRewardIds : []);
   const pendingTasks = [];
+  if (elLevelRewardList) {
+    elLevelRewardList.innerHTML = '';
+  }
   tasks.forEach(task => {
+    const isCompleted = completed.has(task.id);
+    if (!isCompleted) pendingTasks.push(task);
+    if (!elLevelRewardList) return;
     const li = document.createElement('li');
     const label = document.createElement('label');
     label.className = 'inline';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.checked = completed.has(task.id);
+    checkbox.checked = isCompleted;
     checkbox.dataset.rewardId = task.id;
     checkbox.setAttribute('data-view-allow', '');
     checkbox.addEventListener('change', () => {
@@ -9832,21 +9986,24 @@ function renderLevelRewardReminders() {
     label.appendChild(text);
     li.appendChild(label);
     elLevelRewardList.appendChild(li);
-    if (!completed.has(task.id)) pendingTasks.push(task);
   });
 
   const hasTasks = tasks.length > 0;
   if (elLevelRewardEmpty) {
     elLevelRewardEmpty.hidden = hasTasks;
   }
-  elLevelRewardList.hidden = !hasTasks;
+  if (elLevelRewardList) {
+    elLevelRewardList.hidden = !hasTasks;
+  }
   if (elLevelRewardsCard && typeof elLevelRewardsCard.setAttribute === 'function') {
-    if (hasTasks && tasks.some(task => !(levelProgressState.completedRewardIds instanceof Set && levelProgressState.completedRewardIds.has(task.id)))) {
+    if (hasTasks && pendingTasks.length) {
       elLevelRewardsCard.setAttribute('data-pending', 'true');
     } else if (typeof elLevelRewardsCard.removeAttribute === 'function') {
       elLevelRewardsCard.removeAttribute('data-pending');
     }
   }
+  const pendingStatCount = pendingTasks.filter(task => task.type === 'stat').length;
+  updateStatIncreaseReminder(pendingStatCount);
   updateLevelChoiceHighlights(pendingTasks);
 }
 
