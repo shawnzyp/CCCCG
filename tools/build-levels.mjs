@@ -17,6 +17,34 @@ const PROFICIENCY_BY_TIER = new Map([
   [0, 7],
 ]);
 
+const LEVEL_REWARD_OVERRIDES = new Map([
+  [2, { hpBonus: 5, grantsPowerEvolution: true }],
+  [3, { augmentSlots: 1 }],
+  [4, { spBonus: 1, grantsSignatureEvolution: true, grantsStatIncrease: true }],
+  [5, { hpBonus: 5, grantsPowerEvolution: true }],
+  [6, { augmentSlots: 1 }],
+  [7, { spBonus: 1, grantsPowerEvolution: true }],
+  [8, { powerEvolutionChoice: true, signatureEvolutionChoice: true, grantsStatIncrease: true }],
+  [9, { augmentSlots: 1 }],
+  [10, { hpBonus: 5, grantsPowerEvolution: true }],
+  [11, { spBonus: 1 }],
+  [12, { augmentSlots: 1, grantsStatIncrease: true }],
+  [13, { hpBonus: 5, grantsPowerEvolution: true }],
+  [14, { spBonus: 1 }],
+  [15, { augmentSlots: 1 }],
+  [16, { grantsLegendaryGearAccess: true, grantsStatIncrease: true }],
+  [17, { hpBonus: 5, grantsPowerEvolution: true }],
+  [18, { spBonus: 1 }],
+  [19, { augmentSlots: 1 }],
+  [20, { grantsTranscendentTrait: true, grantsStatIncrease: true }],
+]);
+
+function getRewardMetadata(level) {
+  const overrides = LEVEL_REWARD_OVERRIDES.get(level);
+  if (!overrides) return {};
+  return { ...overrides };
+}
+
 function parseLevels(text) {
   const lines = text.split(/\r?\n/);
   const entries = [];
@@ -40,6 +68,7 @@ function parseLevels(text) {
     lastTierLabel = tierLabel;
     const gains = gainsRaw.trim();
     const proficiencyBonus = PROFICIENCY_BY_TIER.get(tierNumber) || 2;
+    const rewards = getRewardMetadata(level);
     entries.push({
       level,
       tierNumber: Number.isFinite(tierNumber) ? tierNumber : null,
@@ -48,6 +77,7 @@ function parseLevels(text) {
       xp,
       proficiencyBonus,
       gains,
+      rewards,
     });
   }
   return entries;
@@ -55,7 +85,7 @@ function parseLevels(text) {
 
 function formatEntries(entries) {
   const lines = entries.map(entry => {
-    const { level, tierNumber, tierLabel, subTier, xp, proficiencyBonus, gains } = entry;
+    const { level, tierNumber, tierLabel, subTier, xp, proficiencyBonus, gains, rewards } = entry;
     const data = {
       level,
       tierNumber,
@@ -64,6 +94,7 @@ function formatEntries(entries) {
       xp,
       proficiencyBonus,
       gains,
+      rewards: rewards && typeof rewards === 'object' ? rewards : {},
     };
     const serialized = JSON.stringify(data, null, 2);
     return serialized;

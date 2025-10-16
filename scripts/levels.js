@@ -8,7 +8,8 @@ export const LEVELS = [
     "subTier": "A",
     "xp": 0,
     "proficiencyBonus": 2,
-    "gains": "Character creation"
+    "gains": "Character creation",
+    "rewards": {}
   },
   {
     "level": 2,
@@ -17,7 +18,11 @@ export const LEVELS = [
     "subTier": "B",
     "xp": 300,
     "proficiencyBonus": 2,
-    "gains": "+5 HP and Power Evolution"
+    "gains": "+5 HP and Power Evolution",
+    "rewards": {
+      "hpBonus": 5,
+      "grantsPowerEvolution": true
+    }
   },
   {
     "level": 3,
@@ -26,7 +31,10 @@ export const LEVELS = [
     "subTier": "C",
     "xp": 900,
     "proficiencyBonus": 2,
-    "gains": "Augment 1"
+    "gains": "Augment 1",
+    "rewards": {
+      "augmentSlots": 1
+    }
   },
   {
     "level": 4,
@@ -35,7 +43,12 @@ export const LEVELS = [
     "subTier": "D",
     "xp": 2700,
     "proficiencyBonus": 2,
-    "gains": "Signature Move Evolution and +1 SP Max"
+    "gains": "Signature Move Evolution and +1 SP Max",
+    "rewards": {
+      "spBonus": 1,
+      "grantsSignatureEvolution": true,
+      "grantsStatIncrease": true
+    }
   },
   {
     "level": 5,
@@ -44,7 +57,11 @@ export const LEVELS = [
     "subTier": "A",
     "xp": 6500,
     "proficiencyBonus": 3,
-    "gains": "+5 HP and Power Evolution"
+    "gains": "+5 HP and Power Evolution",
+    "rewards": {
+      "hpBonus": 5,
+      "grantsPowerEvolution": true
+    }
   },
   {
     "level": 6,
@@ -53,7 +70,10 @@ export const LEVELS = [
     "subTier": "B",
     "xp": 14000,
     "proficiencyBonus": 3,
-    "gains": "Augment 2"
+    "gains": "Augment 2",
+    "rewards": {
+      "augmentSlots": 1
+    }
   },
   {
     "level": 7,
@@ -62,7 +82,11 @@ export const LEVELS = [
     "subTier": "C",
     "xp": 23000,
     "proficiencyBonus": 3,
-    "gains": "+1 SP Max and Power Evolution"
+    "gains": "+1 SP Max and Power Evolution",
+    "rewards": {
+      "spBonus": 1,
+      "grantsPowerEvolution": true
+    }
   },
   {
     "level": 8,
@@ -71,7 +95,12 @@ export const LEVELS = [
     "subTier": "D",
     "xp": 34000,
     "proficiencyBonus": 3,
-    "gains": "Power or Signature Move Evolution"
+    "gains": "Power or Signature Move Evolution",
+    "rewards": {
+      "powerEvolutionChoice": true,
+      "signatureEvolutionChoice": true,
+      "grantsStatIncrease": true
+    }
   },
   {
     "level": 9,
@@ -80,7 +109,10 @@ export const LEVELS = [
     "subTier": "A",
     "xp": 48000,
     "proficiencyBonus": 4,
-    "gains": "Augment 3"
+    "gains": "Augment 3",
+    "rewards": {
+      "augmentSlots": 1
+    }
   },
   {
     "level": 10,
@@ -89,7 +121,11 @@ export const LEVELS = [
     "subTier": "B",
     "xp": 64000,
     "proficiencyBonus": 4,
-    "gains": "+5 HP and Power Evolution"
+    "gains": "+5 HP and Power Evolution",
+    "rewards": {
+      "hpBonus": 5,
+      "grantsPowerEvolution": true
+    }
   },
   {
     "level": 11,
@@ -98,7 +134,10 @@ export const LEVELS = [
     "subTier": "C",
     "xp": 85000,
     "proficiencyBonus": 4,
-    "gains": "+1 SP Max"
+    "gains": "+1 SP Max",
+    "rewards": {
+      "spBonus": 1
+    }
   },
   {
     "level": 12,
@@ -107,7 +146,11 @@ export const LEVELS = [
     "subTier": "D",
     "xp": 100000,
     "proficiencyBonus": 4,
-    "gains": "Augment 4"
+    "gains": "Augment 4",
+    "rewards": {
+      "augmentSlots": 1,
+      "grantsStatIncrease": true
+    }
   },
   {
     "level": 13,
@@ -116,7 +159,11 @@ export const LEVELS = [
     "subTier": "A",
     "xp": 120000,
     "proficiencyBonus": 5,
-    "gains": "+5 HP and Power Evolution"
+    "gains": "+5 HP and Power Evolution",
+    "rewards": {
+      "hpBonus": 5,
+      "grantsPowerEvolution": true
+    }
   },
   {
     "level": 14,
@@ -125,7 +172,10 @@ export const LEVELS = [
     "subTier": "B",
     "xp": 140000,
     "proficiencyBonus": 5,
-    "gains": "+1 SP Max"
+    "gains": "+1 SP Max",
+    "rewards": {
+      "spBonus": 1
+    }
   },
   {
     "level": 15,
@@ -134,7 +184,10 @@ export const LEVELS = [
     "subTier": "C",
     "xp": 165000,
     "proficiencyBonus": 5,
-    "gains": "Augment 5"
+    "gains": "Augment 5",
+    "rewards": {
+      "augmentSlots": 1
+    }
   },
   {
     "level": 16,
@@ -143,7 +196,11 @@ export const LEVELS = [
     "subTier": "D",
     "xp": 195000,
     "proficiencyBonus": 5,
-    "gains": "Legendary Gear Access"
+    "gains": "Legendary Gear Access",
+    "rewards": {
+      "grantsLegendaryGearAccess": true,
+      "grantsStatIncrease": true
+    }
   },
   {
     "level": 17,
@@ -152,7 +209,11 @@ export const LEVELS = [
     "subTier": "A",
     "xp": 225000,
     "proficiencyBonus": 6,
-    "gains": "+5 HP and Power Evolution"
+    "gains": "+5 HP and Power Evolution",
+    "rewards": {
+      "hpBonus": 5,
+      "grantsPowerEvolution": true
+    }
   },
   {
     "level": 18,
@@ -161,7 +222,10 @@ export const LEVELS = [
     "subTier": "B",
     "xp": 265000,
     "proficiencyBonus": 6,
-    "gains": "+1 SP Max"
+    "gains": "+1 SP Max",
+    "rewards": {
+      "spBonus": 1
+    }
   },
   {
     "level": 19,
@@ -170,7 +234,10 @@ export const LEVELS = [
     "subTier": "C",
     "xp": 305000,
     "proficiencyBonus": 6,
-    "gains": "Augment 6"
+    "gains": "Augment 6",
+    "rewards": {
+      "augmentSlots": 1
+    }
   },
   {
     "level": 20,
@@ -179,6 +246,10 @@ export const LEVELS = [
     "subTier": "D (Ω)**",
     "xp": 355000,
     "proficiencyBonus": 7,
-    "gains": "Transcendent Trait"
+    "gains": "Transcendent Trait",
+    "rewards": {
+      "grantsTranscendentTrait": true,
+      "grantsStatIncrease": true
+    }
   }
 ];

@@ -102,7 +102,7 @@ const AUDIO_PREFERENCE_STORAGE_KEYS = [
   'ccccg:audio',
 ];
 const DM_NOTIFICATION_TONE_DEBOUNCE_MS = 220;
-let lastNotificationToneAt = 0;
+let lastNotificationToneAt = Number.NEGATIVE_INFINITY;
 let pendingNotificationTone = null;
 
 function interpretAudioPreference(value) {

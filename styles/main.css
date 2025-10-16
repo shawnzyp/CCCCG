@@ -4534,3 +4534,208 @@ body.player-tools-open .player-tools-tab,
   }
 }
 @media (prefers-reduced-motion:reduce){:root{--player-tools-transition-duration:1ms;}}
+
+.card--level-rewards,
+.card--augments{
+  display:flex;
+  flex-direction:column;
+  gap:clamp(12px,3vw,16px);
+}
+
+.augment-slot-summary{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:calc(var(--pill-padding-y)*.6) calc(var(--pill-padding-x)*.9);
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:color-mix(in srgb,var(--surface-2) 85%, var(--accent) 15%);
+  font-size:clamp(.68rem,2vw,.8rem);
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.augment-selected,
+.augment-picker{
+  display:flex;
+  flex-direction:column;
+  gap:clamp(10px,3vw,14px);
+}
+
+.augment-selected__list,
+.augment-picker__list{
+  display:flex;
+  flex-direction:column;
+  gap:clamp(8px,2.4vw,12px);
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+
+.augment-picker__controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:var(--control-gap);
+  align-items:center;
+}
+
+.augment-picker__controls input[type="search"]{
+  flex:1 1 200px;
+  min-width:160px;
+}
+
+.augment-filters{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.augment-filter{
+  border-radius:999px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+
+.augment-filter[data-active="true"]{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--text-on-accent);
+}
+
+.augment-card{
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:clamp(10px,3vw,14px);
+  background:var(--surface-2);
+  display:flex;
+  flex-direction:column;
+  gap:clamp(8px,2vw,12px);
+}
+
+.augment-card__header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:clamp(6px,2vw,10px);
+}
+
+.augment-card__title{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.augment-card__name{
+  margin:0;
+  font-size:clamp(.95rem,2.6vw,1.05rem);
+  font-weight:700;
+}
+
+.augment-card__group{
+  margin:0;
+  font-size:clamp(.7rem,2vw,.8rem);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.augment-card__body{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.augment-card__summary{
+  margin:0;
+  color:var(--muted);
+  font-size:clamp(.75rem,2.2vw,.85rem);
+}
+
+.augment-card__effects{
+  margin:0;
+  padding-inline-start:20px;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.augment-card__effects li{
+  margin:0;
+  font-size:clamp(.75rem,2.2vw,.85rem);
+}
+
+.augment-card__tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:0;
+}
+
+.augment-card__tag{
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--accent) 35%, var(--line) 65%);
+  font-size:clamp(.65rem,1.8vw,.75rem);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:color-mix(in srgb,var(--accent) 65%, var(--text) 35%);
+}
+
+.augment-card__actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.augment-card__actions .btn-sm{
+  min-width:120px;
+}
+
+.augment-empty,
+.level-reward-empty{
+  margin:0;
+  font-size:clamp(.75rem,2.2vw,.85rem);
+  color:var(--muted);
+}
+
+.level-reward-list{
+  margin:0;
+  padding:0;
+  list-style:none;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.level-reward-list li{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:clamp(.8rem,2.3vw,.9rem);
+}
+
+.level-reward-list input[type="checkbox"]{
+  width:18px;
+  height:18px;
+}
+
+.level-reward-list label{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.level-reward-list label span{
+  flex:1;
+}
+
+.augment-slot-summary[data-over-limit="true"]{
+  background:color-mix(in srgb,var(--error) 20%, var(--surface-2) 80%);
+  border-color:color-mix(in srgb,var(--error) 55%, var(--line) 45%);
+  color:color-mix(in srgb,var(--error) 80%, var(--text-on-accent) 20%);
+}
+
+.card--level-rewards[data-pending="true"]{
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%, transparent);
+}
