@@ -7511,8 +7511,219 @@ const STATUS_EFFECTS = [
   { id: 'unconscious', name: 'Unconscious', desc: 'An unconscious creature is incapacitated, can’t move or speak, and is unaware of its surroundings.' }
 ];
 
+const STATUS_EFFECT_MECHANICS = {
+  blinded: {
+    badges: ['Attacks at disadvantage'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Blinded',
+        breakdown: 'Blinded (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Blinded' },
+      },
+    ],
+  },
+  frightened: {
+    badges: ['Disadvantage on attacks', 'Disadvantage on ability checks'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Frightened',
+        breakdown: 'Frightened (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Frightened' },
+      },
+      {
+        type: 'ability',
+        label: 'Frightened',
+        breakdown: 'Frightened (ability disadvantage)',
+        flags: { disadvantage: true, label: 'Frightened' },
+      },
+    ],
+  },
+  poisoned: {
+    badges: ['Disadvantage on attacks', 'Disadvantage on ability checks'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Poisoned',
+        breakdown: 'Poisoned (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Poisoned' },
+      },
+      {
+        type: 'ability',
+        label: 'Poisoned',
+        breakdown: 'Poisoned (ability disadvantage)',
+        flags: { disadvantage: true, label: 'Poisoned' },
+      },
+    ],
+  },
+  paralyzed: {
+    badges: ['Disadvantage on attacks', 'DEX saves at disadvantage'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Paralyzed',
+        breakdown: 'Paralyzed (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Paralyzed' },
+      },
+      {
+        type: 'save',
+        ability: 'DEX',
+        label: 'Paralyzed',
+        breakdown: 'Paralyzed (DEX save disadvantage)',
+        flags: { disadvantage: true, label: 'Paralyzed' },
+      },
+    ],
+  },
+  petrified: {
+    badges: ['Disadvantage on attacks', 'STR and DEX saves at disadvantage'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Petrified',
+        breakdown: 'Petrified (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Petrified' },
+      },
+      {
+        type: 'save',
+        abilities: ['STR', 'DEX'],
+        label: 'Petrified',
+        breakdown: 'Petrified (STR/DEX save disadvantage)',
+        flags: { disadvantage: true, label: 'Petrified' },
+      },
+    ],
+  },
+  prone: {
+    badges: ['Disadvantage on attacks'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Prone',
+        breakdown: 'Prone (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Prone' },
+      },
+    ],
+  },
+  restrained: {
+    badges: ['Disadvantage on attacks', 'DEX saves at disadvantage'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Restrained',
+        breakdown: 'Restrained (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Restrained' },
+      },
+      {
+        type: 'save',
+        ability: 'DEX',
+        label: 'Restrained',
+        breakdown: 'Restrained (DEX save disadvantage)',
+        flags: { disadvantage: true, label: 'Restrained' },
+      },
+    ],
+  },
+  stunned: {
+    badges: ['Disadvantage on attacks', 'Disadvantage on ability checks', 'STR and DEX saves at disadvantage'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Stunned',
+        breakdown: 'Stunned (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Stunned' },
+      },
+      {
+        type: 'ability',
+        label: 'Stunned',
+        breakdown: 'Stunned (ability disadvantage)',
+        flags: { disadvantage: true, label: 'Stunned' },
+      },
+      {
+        type: 'save',
+        abilities: ['STR', 'DEX'],
+        label: 'Stunned',
+        breakdown: 'Stunned (STR/DEX save disadvantage)',
+        flags: { disadvantage: true, label: 'Stunned' },
+      },
+    ],
+  },
+  unconscious: {
+    badges: ['Disadvantage on attacks', 'STR and DEX saves at disadvantage'],
+    registry: [
+      {
+        type: 'attack',
+        label: 'Unconscious',
+        breakdown: 'Unconscious (attack disadvantage)',
+        flags: { disadvantage: true, label: 'Unconscious' },
+      },
+      {
+        type: 'save',
+        abilities: ['STR', 'DEX'],
+        label: 'Unconscious',
+        breakdown: 'Unconscious (STR/DEX save disadvantage)',
+        flags: { disadvantage: true, label: 'Unconscious' },
+      },
+    ],
+  },
+};
+
 const statusGrid = $('statuses');
+const statusModifierBadges = $('status-modifiers');
 const activeStatuses = new Set();
+const statusEffectOwners = new Map();
+const statusModifierDescriptions = new Map();
+
+function getStatusEffectOwner(id) {
+  if (!statusEffectOwners.has(id)) {
+    statusEffectOwners.set(id, { id: `status-effect-${id}` });
+  }
+  return statusEffectOwners.get(id);
+}
+
+function updateStatusModifierBadges() {
+  if (!statusModifierBadges) return;
+  statusModifierBadges.innerHTML = '';
+  const entries = [];
+  statusModifierDescriptions.forEach(list => {
+    if (Array.isArray(list)) {
+      list.forEach(text => {
+        if (typeof text === 'string' && text.trim()) entries.push(text.trim());
+      });
+    }
+  });
+  if (!entries.length) {
+    statusModifierBadges.hidden = true;
+    return;
+  }
+  statusModifierBadges.hidden = false;
+  entries.forEach(text => {
+    const badge = document.createElement('span');
+    badge.className = 'status-modifiers__badge';
+    badge.textContent = text;
+    statusModifierBadges.appendChild(badge);
+  });
+}
+
+function applyStatusEffectBonuses(effectId, enabled) {
+  const mechanic = STATUS_EFFECT_MECHANICS[effectId];
+  if (mechanic?.registry?.length && typeof rollBonusRegistry?.register === 'function') {
+    const owner = getStatusEffectOwner(effectId);
+    if (enabled) {
+      rollBonusRegistry.register(owner, mechanic.registry);
+    } else {
+      rollBonusRegistry.release(owner);
+    }
+  } else if (!enabled && typeof rollBonusRegistry?.release === 'function') {
+    const owner = getStatusEffectOwner(effectId);
+    rollBonusRegistry.release(owner);
+  }
+  if (enabled && mechanic?.badges?.length) {
+    statusModifierDescriptions.set(effectId, mechanic.badges.slice());
+  } else {
+    statusModifierDescriptions.delete(effectId);
+  }
+  updateStatusModifierBadges();
+}
+
 if (statusGrid) {
   statusGrid.innerHTML = STATUS_EFFECTS.map(s => {
     const checkboxId = `status-${s.id}`;
@@ -7532,13 +7743,24 @@ if (statusGrid) {
           activeStatuses.add(s.name);
           toast(`${s.name}: ${s.desc}`, { type: 'info', duration: 8000 });
           logAction(`Status effect gained: ${s.name}`);
+          applyStatusEffectBonuses(s.id, true);
         } else {
           activeStatuses.delete(s.name);
           logAction(`Status effect removed: ${s.name}`);
+          applyStatusEffectBonuses(s.id, false);
         }
       });
     }
   });
+  setTimeout(() => {
+    STATUS_EFFECTS.forEach(s => {
+      const cb = $('status-' + s.id);
+      if (cb && cb.checked) {
+        activeStatuses.add(s.name);
+        applyStatusEffectBonuses(s.id, true);
+      }
+    });
+  }, 0);
 }
 
 const ACTION_BUTTONS = 'button:not(.tab), [role="button"], [data-roll-save], [data-roll-skill], [data-add], [data-del]';
@@ -7610,6 +7832,25 @@ const rollBonusRegistry = (() => {
   const ownerTokens = new Map();
   const globalOwner = Object.freeze({ id: 'global-roll-bonus-owner' });
 
+  const normalizeFlags = flags => {
+    if (!flags || typeof flags !== 'object') return null;
+    const normalized = {};
+    if (flags.advantage) normalized.advantage = true;
+    if (flags.disadvantage) normalized.disadvantage = true;
+    if (typeof flags.label === 'string' && flags.label.trim()) normalized.label = flags.label.trim();
+    if (typeof flags.breakdown === 'string' && flags.breakdown.trim()) normalized.breakdown = flags.breakdown.trim();
+    const notes = [];
+    if (Array.isArray(flags.notes)) {
+      flags.notes.forEach(note => {
+        if (typeof note === 'string' && note.trim()) notes.push(note.trim());
+      });
+    } else if (typeof flags.note === 'string' && flags.note.trim()) {
+      notes.push(flags.note.trim());
+    }
+    if (notes.length) normalized.notes = notes;
+    return Object.keys(normalized).length ? normalized : null;
+  };
+
   const normalizeSkill = value =>
     typeof value === 'string' ? value.trim().toLowerCase() : '';
 
@@ -7636,12 +7877,14 @@ const rollBonusRegistry = (() => {
   };
 
   const normalizeConfig = (owner, config) => {
-    if (!config || (config.value === undefined && typeof config.getValue !== 'function')) {
+    if (!config || (config.value === undefined && typeof config.getValue !== 'function' && !config.flags && typeof config.getFlags !== 'function')) {
       return null;
     }
     const getValue = typeof config.getValue === 'function' ? config.getValue : null;
     const staticValue = Number(config.value);
-    if (!getValue && (!Number.isFinite(staticValue) || staticValue === 0)) {
+    const staticFlags = normalizeFlags(config.flags);
+    const getFlags = typeof config.getFlags === 'function' ? config.getFlags : null;
+    if (!getValue && (!Number.isFinite(staticValue) || (staticValue === 0 && !staticFlags && !getFlags))) {
       return null;
     }
     const types = new Set();
@@ -7671,6 +7914,8 @@ const rollBonusRegistry = (() => {
       abilities,
       skills,
       matcher,
+      flags: staticFlags,
+      getFlags,
     };
   };
 
@@ -7709,6 +7954,7 @@ const rollBonusRegistry = (() => {
         entry,
         value,
         breakdown: breakdownText,
+        flags: entry.getFlags ? normalizeFlags(entry.getFlags(opts)) : entry.flags,
       });
     });
     return results;
@@ -7752,9 +7998,23 @@ function resolveRollBonus(baseBonus = 0, opts = {}) {
   let modifier = base;
   const registryBonuses = rollBonusRegistry.collect(opts);
   const bonusBreakdown = [];
-  registryBonuses.forEach(({ value, breakdown }) => {
+  const flagBreakdownSet = new Set();
+  const advantageSources = new Set();
+  const disadvantageSources = new Set();
+  registryBonuses.forEach(({ entry, value, breakdown, flags }) => {
     modifier += value;
     if (breakdown) bonusBreakdown.push(breakdown);
+    if (flags) {
+      const label = flags.label || entry.label || entry.source || breakdown || '';
+      if (flags.advantage && label) advantageSources.add(label);
+      if (flags.disadvantage && label) disadvantageSources.add(label);
+      if (flags.breakdown) flagBreakdownSet.add(flags.breakdown);
+      if (Array.isArray(flags.notes)) {
+        flags.notes.forEach(note => {
+          if (typeof note === 'string' && note.trim()) flagBreakdownSet.add(note.trim());
+        });
+      }
+    }
   });
 
   const additional = Array.isArray(opts.additionalBonuses) ? opts.additionalBonuses : [];
@@ -7766,8 +8026,8 @@ function resolveRollBonus(baseBonus = 0, opts = {}) {
     if (text) bonusBreakdown.push(text);
   });
 
-  const breakdown = [...baseBreakdown, ...bonusBreakdown];
-  const appliedBonuses = registryBonuses.map(({ entry, value, breakdown: text }) => ({
+  const breakdown = [...baseBreakdown, ...bonusBreakdown, ...Array.from(flagBreakdownSet)];
+  const appliedBonuses = registryBonuses.map(({ entry, value, breakdown: text, flags }) => ({
     value,
     breakdown: text,
     source: entry.source,
@@ -7775,7 +8035,30 @@ function resolveRollBonus(baseBonus = 0, opts = {}) {
     types: Array.from(entry.types),
     abilities: Array.from(entry.abilities),
     skills: Array.from(entry.skills),
+    flags: flags ? { ...flags } : null,
   }));
+
+  const requestedModeRaw = typeof opts.mode === 'string' ? opts.mode.toLowerCase() : '';
+  const requestedMode = requestedModeRaw === 'advantage' || requestedModeRaw === 'disadvantage'
+    ? requestedModeRaw
+    : 'normal';
+  const hasManualAdvantage = requestedMode === 'advantage';
+  const hasManualDisadvantage = requestedMode === 'disadvantage';
+  const advantageList = Array.from(advantageSources);
+  const disadvantageList = Array.from(disadvantageSources);
+  const finalAdvantage = advantageList.length + (hasManualAdvantage ? 1 : 0);
+  const finalDisadvantage = disadvantageList.length + (hasManualDisadvantage ? 1 : 0);
+  let mode = 'normal';
+  if (finalAdvantage && !finalDisadvantage) {
+    mode = 'advantage';
+  } else if (!finalAdvantage && finalDisadvantage) {
+    mode = 'disadvantage';
+  }
+  const modeSources = [];
+  if (hasManualAdvantage) modeSources.push('Advantage (manual)');
+  if (hasManualDisadvantage) modeSources.push('Disadvantage (manual)');
+  if (advantageList.length) modeSources.push(`Advantage: ${advantageList.join(', ')}`);
+  if (disadvantageList.length) modeSources.push(`Disadvantage: ${disadvantageList.join(', ')}`);
 
   return {
     modifier,
@@ -7784,6 +8067,11 @@ function resolveRollBonus(baseBonus = 0, opts = {}) {
     baseBreakdown,
     bonusBreakdown,
     appliedBonuses,
+    advantageSources: advantageList,
+    disadvantageSources: disadvantageList,
+    mode,
+    requestedMode,
+    modeSources,
   };
 }
 
@@ -9101,6 +9389,12 @@ $('long-rest').addEventListener('click', ()=>{
   if (elCAPCheck) elCAPCheck.disabled = false;
   if (elCAPStatus) elCAPStatus.textContent = 'Available';
   activeStatuses.clear();
+  statusModifierDescriptions.clear();
+  if (typeof rollBonusRegistry?.release === 'function') {
+    statusEffectOwners.forEach(owner => rollBonusRegistry.release(owner));
+  }
+  statusEffectOwners.clear();
+  updateStatusModifierBadges();
 });
 function renderHPRollList(){
   if(!elHPRollList) return;
@@ -9577,38 +9871,142 @@ function getRollSides(opts = {}) {
 
 function rollWithBonus(name, bonus, out, opts = {}){
   const sides = getRollSides(opts);
-  const roll = 1 + Math.floor(Math.random() * sides);
   const resolution = resolveRollBonus(bonus, opts);
   const numericBonus = Number(bonus);
   const fallbackBonus = Number.isFinite(numericBonus) ? numericBonus : 0;
   const modifier = resolution && Number.isFinite(resolution.modifier)
     ? resolution.modifier
     : fallbackBonus;
-  const total = roll + modifier;
-  if(out){
+
+  const normalizeDiceSet = set => {
+    if (!set) return null;
+    if (typeof set === 'string') {
+      const match = set.match(/(\d+)d(\d+)/i);
+      if (match) {
+        return {
+          count: Math.max(1, Math.floor(Number(match[1]))),
+          sides: Math.max(1, Math.floor(Number(match[2]))),
+        };
+      }
+      return null;
+    }
+    const countRaw = Number(set.count ?? set.qty ?? set.diceCount ?? set.number ?? 0);
+    const sidesRaw = Number(set.sides ?? set.die ?? set.faces ?? set.size ?? 0);
+    if (!Number.isFinite(countRaw) || countRaw <= 0) return null;
+    if (!Number.isFinite(sidesRaw) || sidesRaw <= 0) return null;
+    return {
+      count: Math.max(1, Math.floor(countRaw)),
+      sides: Math.max(1, Math.floor(sidesRaw)),
+    };
+  };
+
+  const diceSetsRaw = Array.isArray(opts.dice) ? opts.dice : [];
+  const diceSets = diceSetsRaw
+    .map(normalizeDiceSet)
+    .filter(Boolean);
+
+  const requestedCountRaw = Number(opts.diceCount);
+  const diceCount = Number.isFinite(requestedCountRaw) && requestedCountRaw > 1
+    ? Math.floor(requestedCountRaw)
+    : 1;
+
+  const breakdownParts = [];
+  const rollDetails = [];
+  let rollTotal = 0;
+  let rollMode = resolution?.mode || (typeof opts.mode === 'string' ? opts.mode.toLowerCase() : 'normal');
+  let attemptRolls = [];
+
+  if (diceSets.length) {
+    diceSets.forEach(({ count, sides: setSides }) => {
+      const rolls = Array.from({ length: count }, () => 1 + Math.floor(Math.random() * setSides));
+      rollDetails.push({ count, sides: setSides, rolls });
+      breakdownParts.push(`${count}d${setSides}: ${rolls.join(' + ')}`);
+      rollTotal += rolls.reduce((sum, value) => sum + value, 0);
+    });
+    rollMode = 'normal';
+  } else if (diceCount > 1) {
+    const rolls = Array.from({ length: diceCount }, () => 1 + Math.floor(Math.random() * sides));
+    rollDetails.push({ count: diceCount, sides, rolls });
+    breakdownParts.push(`${diceCount}d${sides}: ${rolls.join(' + ')}`);
+    rollTotal = rolls.reduce((sum, value) => sum + value, 0);
+    rollMode = 'normal';
+  } else {
+    const normalizedMode = rollMode === 'advantage' || rollMode === 'disadvantage' ? rollMode : 'normal';
+    rollMode = normalizedMode;
+    const attemptCount = rollMode === 'normal' ? 1 : 2;
+    attemptRolls = Array.from({ length: attemptCount }, () => 1 + Math.floor(Math.random() * sides));
+    const chosen = rollMode === 'advantage'
+      ? Math.max(...attemptRolls)
+      : rollMode === 'disadvantage'
+        ? Math.min(...attemptRolls)
+        : attemptRolls[0];
+    rollDetails.push({ count: 1, sides, rolls: attemptRolls.slice(), chosen });
+    rollTotal = chosen;
+    if (rollMode !== 'normal') {
+      breakdownParts.push(`d${sides}: ${attemptRolls.join(' / ')} ⇒ ${chosen}`);
+    } else {
+      breakdownParts.push(`d${sides}: ${chosen}`);
+    }
+  }
+
+  const total = rollTotal + modifier;
+
+  if (out) {
     out.textContent = total;
     if (out.dataset) {
-      if (resolution?.breakdown?.length) {
-        out.dataset.rollBreakdown = resolution.breakdown.join(' | ');
+      const combinedBreakdown = [
+        ...breakdownParts,
+        ...(resolution?.breakdown || []),
+      ].filter(Boolean);
+      if (combinedBreakdown.length) {
+        out.dataset.rollBreakdown = combinedBreakdown.join(' | ');
       } else if (out.dataset.rollBreakdown) {
         delete out.dataset.rollBreakdown;
       }
       out.dataset.rollModifier = String(modifier);
+      if (rollMode && rollMode !== 'normal') {
+        out.dataset.rollMode = rollMode;
+        if (attemptRolls.length) {
+          out.dataset.rolls = attemptRolls.join('/');
+        }
+      } else {
+        if (out.dataset.rollMode) delete out.dataset.rollMode;
+        if (out.dataset.rolls) delete out.dataset.rolls;
+      }
+      if (resolution?.modeSources?.length && rollMode !== 'normal') {
+        out.dataset.rollModeSources = resolution.modeSources.join(' | ');
+      } else if (out.dataset.rollModeSources) {
+        delete out.dataset.rollModeSources;
+      }
     }
   }
-  const sign = modifier >= 0 ? '+' : '';
-  let message = `${name}: ${roll}${sign}${modifier} = ${total}`;
+
+  const modifierSign = modifier >= 0 ? '+' : '';
+  const diceSummary = breakdownParts.length ? breakdownParts.join(' | ') : String(rollTotal);
+  let message = `${name}: ${diceSummary}`;
+  if (modifier) {
+    message += ` ${modifierSign}${modifier}`;
+  }
+  message += ` = ${total}`;
+  const metaSections = [];
+  if (rollMode && rollMode !== 'normal' && resolution?.modeSources?.length) {
+    metaSections.push(resolution.modeSources.join(' | '));
+  }
   if (resolution?.breakdown?.length) {
-    message += ` [${resolution.breakdown.join(' | ')}]`;
+    metaSections.push(resolution.breakdown.join(' | '));
+  }
+  if (metaSections.length) {
+    message += ` [${metaSections.join(' | ')}]`;
   }
   logAction(message);
+
   if (opts && typeof opts.onRoll === 'function') {
     try {
       const baseBonusValue = resolution && Number.isFinite(resolution.baseBonus)
         ? resolution.baseBonus
         : fallbackBonus;
       opts.onRoll({
-        roll,
+        roll: rollTotal,
         total,
         bonus: modifier,
         modifier,
@@ -9619,8 +10017,11 @@ function rollWithBonus(name, bonus, out, opts = {}){
         appliedBonuses: resolution?.appliedBonuses || [],
         name,
         output: out,
-        options: opts,
+        options: { ...opts, mode: rollMode },
         sides,
+        rolls: rollDetails,
+        rollMode,
+        modeSources: resolution?.modeSources || [],
       });
     } catch (err) {
       console.error('rollWithBonus onRoll handler failed', err);
@@ -10389,21 +10790,24 @@ $('roll-death-save')?.addEventListener('click', ()=>{
   if (hasManualModifier && Number.isFinite(manualNumeric)) {
     baseBonuses.push({ label: 'Modifier', value: baseBonus, includeZero: true });
   }
-  const rollOptions = { type: 'death-save', baseBonuses };
+  const rollOptions = { type: 'death-save', baseBonuses, mode: normalizedMode };
   const sides = getRollSides(rollOptions);
-  const rollCount = normalizedMode === 'normal' ? 1 : 2;
-  const rolls = Array.from({ length: rollCount }, () => 1 + Math.floor(Math.random() * sides));
-  const chosenRoll = normalizedMode === 'advantage'
-    ? Math.max(...rolls)
-    : normalizedMode === 'disadvantage'
-      ? Math.min(...rolls)
-      : rolls[0];
   const resolution = resolveRollBonus(baseBonus, rollOptions);
   const numericBonus = Number(baseBonus);
   const fallbackBonus = Number.isFinite(numericBonus) ? numericBonus : 0;
   const modifier = resolution && Number.isFinite(resolution.modifier)
     ? resolution.modifier
     : fallbackBonus;
+  const appliedMode = resolution?.mode === 'advantage' || resolution?.mode === 'disadvantage'
+    ? resolution.mode
+    : normalizedMode;
+  const rollCount = appliedMode === 'normal' ? 1 : 2;
+  const rolls = Array.from({ length: rollCount }, () => 1 + Math.floor(Math.random() * sides));
+  const chosenRoll = appliedMode === 'advantage'
+    ? Math.max(...rolls)
+    : appliedMode === 'disadvantage'
+      ? Math.min(...rolls)
+      : rolls[0];
   const total = chosenRoll + modifier;
   if (deathOut) {
     deathOut.textContent = total;
@@ -10414,23 +10818,33 @@ $('roll-death-save')?.addEventListener('click', ()=>{
         delete deathOut.dataset.rollBreakdown;
       }
       deathOut.dataset.rollModifier = String(modifier);
-      if (normalizedMode !== 'normal') {
-        deathOut.dataset.rollMode = normalizedMode;
+      if (appliedMode !== 'normal') {
+        deathOut.dataset.rollMode = appliedMode;
         deathOut.dataset.rolls = rolls.join('/');
       } else {
-        delete deathOut.dataset.rollMode;
-        delete deathOut.dataset.rolls;
+        if (deathOut.dataset.rollMode) delete deathOut.dataset.rollMode;
+        if (deathOut.dataset.rolls) delete deathOut.dataset.rolls;
+      }
+      if (resolution?.modeSources?.length && appliedMode !== 'normal') {
+        deathOut.dataset.rollModeSources = resolution.modeSources.join(' | ');
+      } else if (deathOut.dataset.rollModeSources) {
+        delete deathOut.dataset.rollModeSources;
       }
     }
   }
   const sign = modifier >= 0 ? '+' : '';
-  const modeLabel = normalizedMode === 'normal' ? '' : ` (${normalizedMode})`;
-  const rollDisplay = normalizedMode === 'normal'
+  const modeLabel = appliedMode === 'normal' ? '' : ` (${appliedMode})`;
+  const rollDisplay = appliedMode === 'normal'
     ? String(chosenRoll)
     : `${rolls.join('/')}→${chosenRoll}`;
   let message = `Death save${modeLabel}: ${rollDisplay}${sign}${modifier} = ${total}`;
   if (resolution?.breakdown?.length) {
-    message += ` [${resolution.breakdown.join(' | ')}]`;
+    const extra = resolution.modeSources?.length && appliedMode !== 'normal'
+      ? [...resolution.modeSources, ...resolution.breakdown]
+      : resolution.breakdown;
+    message += ` [${extra.join(' | ')}]`;
+  } else if (resolution?.modeSources?.length && appliedMode !== 'normal') {
+    message += ` [${resolution.modeSources.join(' | ')}]`;
   }
   logAction(message);
 
@@ -14653,6 +15067,22 @@ function populateCardFromData(card, data){
   });
 }
 
+function parseWeaponDamageFormula(text, { fallbackAbility } = {}) {
+  const raw = typeof text === 'string' ? text : '';
+  if (!raw.trim()) return null;
+  const diceMatches = Array.from(raw.matchAll(/(\d+)\s*d\s*(\d+)/gi));
+  if (!diceMatches.length) return null;
+  const dice = diceMatches.map(match => ({
+    count: Math.max(1, Number(match[1])),
+    sides: Math.max(1, Number(match[2])),
+  }));
+  const abilityMatch = raw.match(/\b(STR|DEX|CON|INT|WIS|CHA)\b/i);
+  const ability = abilityMatch ? abilityMatch[1].toLowerCase() : (fallbackAbility || null);
+  const modifierMatches = Array.from(raw.matchAll(/[+-]\s*\d+/g));
+  const staticModifier = modifierMatches.reduce((total, match) => total + Number(match[0].replace(/\s+/g, '')), 0);
+  return { dice, ability, staticModifier };
+}
+
 function createCard(kind, pref = {}) {
   if (kind === 'power' || kind === 'sig') {
     return createPowerCard(pref, { signature: kind === 'sig' });
@@ -14821,6 +15251,58 @@ function createCard(kind, pref = {}) {
     });
     delWrap.appendChild(hitBtn);
     delWrap.appendChild(out);
+  }
+  if (kind === 'weapon') {
+    const damageBtn = document.createElement('button');
+    damageBtn.className = 'btn-sm';
+    damageBtn.textContent = 'Roll Damage';
+    const damageOut = document.createElement('span');
+    damageOut.className = 'pill result';
+    damageOut.dataset.placeholder = 'Damage';
+    damageBtn.addEventListener('click', () => {
+      const damageField = qs("[data-f='damage']", card);
+      const rawDamage = damageField?.value || '';
+      const extracted = extractWeaponDetails(rawDamage);
+      const damageFormulaText = extracted.damage || rawDamage;
+      const abilityField = qs("[data-f='attackAbility']", card);
+      const selectedAbility = (abilityField?.value || '').toLowerCase();
+      const rangeValue = qs("[data-f='range']", card)?.value || '';
+      const inferredAbility = selectedAbility || inferWeaponAttackAbility({ range: rangeValue });
+      const parsed = parseWeaponDamageFormula(damageFormulaText, { fallbackAbility: inferredAbility });
+      if (!parsed || !Array.isArray(parsed.dice) || !parsed.dice.length) {
+        toast('Set damage dice before rolling damage.', 'error');
+        return;
+      }
+      const nameField = qs("[data-f='name']", card);
+      const weaponName = nameField?.value || 'Weapon';
+      const abilityKey = parsed.ability;
+      let abilityMod = 0;
+      const baseBonuses = [];
+      if (abilityKey) {
+        const abilityInput = $(abilityKey);
+        abilityMod = abilityInput ? mod(abilityInput.value) : 0;
+        baseBonuses.push({ label: `${abilityKey.toUpperCase()} mod`, value: abilityMod, includeZero: true });
+      }
+      const flatBonus = Number.isFinite(parsed.staticModifier) ? parsed.staticModifier : 0;
+      if (flatBonus) baseBonuses.push({ label: 'Flat', value: flatBonus });
+      const modifier = abilityMod + flatBonus;
+      const diceSets = parsed.dice.map(set => ({ count: Math.max(1, Number(set.count)), sides: Math.max(1, Number(set.sides)) }));
+      const outputs = [damageOut];
+      rollWithBonus(`${weaponName} damage`, modifier, damageOut, {
+        type: 'damage',
+        dice: diceSets,
+        baseBonuses,
+        onRoll: ({ total }) => {
+          outputs.forEach(outEl => {
+            if (!outEl) return;
+            outEl.textContent = total;
+          });
+          playDamageAnimation(total);
+        },
+      });
+    });
+    delWrap.appendChild(damageBtn);
+    delWrap.appendChild(damageOut);
   }
   const delBtn = document.createElement('button');
   delBtn.className = 'btn-sm';
@@ -15985,19 +16467,309 @@ function handleCustomItemTypeSelection(typeKey){
 }
 
 /* ========= Encounter / Initiative ========= */
+const ENCOUNTER_STATUS_IDS = new Set(STATUS_EFFECTS.map(effect => effect.id));
+const encounterTemplate = $('encounter-combatant-template');
+
+function generateEncounterId(seed = 0) {
+  return `enc-${Date.now()}-${seed}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeNullableNumber(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const numValue = Number(value);
+  if (!Number.isFinite(numValue)) return null;
+  return Math.trunc(numValue);
+}
+
+function normalizeEncounterCombatant(entry = {}, idx = 0) {
+  if (!entry || typeof entry !== 'object') return null;
+  const id = typeof entry.id === 'string' && entry.id ? entry.id : generateEncounterId(idx);
+  const name = typeof entry.name === 'string' ? entry.name : '';
+  const initRaw = Number(entry.init);
+  const init = Number.isFinite(initRaw) ? Math.trunc(initRaw) : 0;
+  const hpCurrentRaw = normalizeNullableNumber(entry.hpCurrent ?? entry.hp?.current);
+  const hpMaxRaw = normalizeNullableNumber(entry.hpMax ?? entry.hp?.max);
+  const tcRaw = normalizeNullableNumber(entry.tc ?? entry.ac);
+  const notes = typeof entry.notes === 'string' ? entry.notes : '';
+  const rawConditions = Array.isArray(entry.conditions) ? entry.conditions : [];
+  const normalizedConditions = Array.from(new Set(rawConditions.map(cond => {
+    const key = typeof cond === 'string' ? cond.toLowerCase() : '';
+    return ENCOUNTER_STATUS_IDS.has(key) ? key : null;
+  }).filter(Boolean)));
+  const current = hpCurrentRaw !== null ? Math.max(hpCurrentRaw, 0) : null;
+  const max = hpMaxRaw !== null ? Math.max(hpMaxRaw, 0) : null;
+  const defeated = entry.defeated === true || (current !== null && current <= 0);
+  return {
+    id,
+    name,
+    init,
+    hpCurrent: current,
+    hpMax: max,
+    tc: tcRaw !== null ? tcRaw : null,
+    notes,
+    conditions: normalizedConditions,
+    defeated,
+  };
+}
+
+function normalizeEncounterRoster(entries) {
+  if (!Array.isArray(entries)) return [];
+  return entries.map((entry, idx) => normalizeEncounterCombatant(entry, idx)).filter(Boolean);
+}
+
+const roster = normalizeEncounterRoster(safeParse('enc-roster'));
 let round = Number(localStorage.getItem('enc-round')||'1')||1;
 let turn = Number(localStorage.getItem('enc-turn')||'0')||0;
-const roster = safeParse('enc-roster');
+
 function saveEnc(){
   localStorage.setItem('enc-roster', JSON.stringify(roster));
   localStorage.setItem('enc-round', String(round));
   localStorage.setItem('enc-turn', String(turn));
 }
+
+function formatCombatantHpText(combatant) {
+  if (!combatant) return '—';
+  const current = Number.isFinite(combatant.hpCurrent) ? combatant.hpCurrent : null;
+  const max = Number.isFinite(combatant.hpMax) ? combatant.hpMax : null;
+  if (current === null && max === null) return '—';
+  if (current !== null && max !== null) return `${current}/${max}`;
+  if (current !== null) return String(current);
+  return `—/${max}`;
+}
+
+function updateCombatantActiveDisplay() {
+  const activeEl = $('enc-active');
+  if (!activeEl) return;
+  const activeCombatant = roster.length ? roster[turn] : null;
+  if (!activeCombatant) {
+    activeEl.textContent = 'No active combatant';
+    return;
+  }
+  const name = activeCombatant.name ? String(activeCombatant.name) : 'Unnamed combatant';
+  const init = Number.isFinite(activeCombatant.init) ? Math.trunc(activeCombatant.init) : null;
+  const hpText = formatCombatantHpText(activeCombatant);
+  const parts = [name];
+  if (init !== null) parts.push(`Init ${init}`);
+  if (hpText !== '—') parts.push(`HP ${hpText}`);
+  activeEl.textContent = parts.join(' • ');
+}
+
+function updateCombatantConditionsSummary(row, combatant) {
+  if (!row) return;
+  const summary = row.querySelector('.encounter-combatant__conditions summary');
+  if (!summary) return;
+  const count = Array.isArray(combatant?.conditions) ? combatant.conditions.length : 0;
+  summary.textContent = count ? `Conditions (${count})` : 'Conditions';
+}
+
+function updateCombatantRow(row, combatant) {
+  if (!row || !combatant) return;
+  const initPill = qs('[data-field="initiative"]', row);
+  if (initPill) initPill.textContent = Number.isFinite(combatant.init) ? String(combatant.init) : '—';
+  const initInput = qs('[data-field="init"]', row);
+  if (initInput) initInput.value = Number.isFinite(combatant.init) ? String(combatant.init) : '';
+  const nameInput = qs('[data-field="name"]', row);
+  if (nameInput && nameInput.value !== (combatant.name || '')) nameInput.value = combatant.name || '';
+  const hpCurrentInput = qs('[data-field="hpCurrent"]', row);
+  if (hpCurrentInput) hpCurrentInput.value = Number.isFinite(combatant.hpCurrent) ? String(combatant.hpCurrent) : '';
+  const hpMaxInput = qs('[data-field="hpMax"]', row);
+  if (hpMaxInput) hpMaxInput.value = Number.isFinite(combatant.hpMax) ? String(combatant.hpMax) : '';
+  const tcInput = qs('[data-field="tc"]', row);
+  if (tcInput) tcInput.value = Number.isFinite(combatant.tc) ? String(combatant.tc) : '';
+  const notesInput = qs('[data-field="notes"]', row);
+  if (notesInput && notesInput.value !== (combatant.notes || '')) notesInput.value = combatant.notes || '';
+  if (combatant.defeated) {
+    row.classList.add('encounter-combatant--defeated');
+    row.setAttribute('data-defeated', 'true');
+  } else {
+    row.classList.remove('encounter-combatant--defeated');
+    row.removeAttribute('data-defeated');
+  }
+  updateCombatantConditionsSummary(row, combatant);
+}
+
+function adjustCombatantHp(combatant, delta, { row } = {}) {
+  if (!combatant || !Number.isFinite(delta) || delta === 0) return;
+  const base = Number.isFinite(combatant.hpCurrent) ? combatant.hpCurrent : 0;
+  const max = Number.isFinite(combatant.hpMax) ? combatant.hpMax : null;
+  let next = base + delta;
+  if (max !== null && next > max) next = max;
+  if (next < 0) next = 0;
+  combatant.hpCurrent = next;
+  const wasDefeated = combatant.defeated === true;
+  combatant.defeated = next <= 0;
+  const name = combatant.name ? combatant.name : 'Unnamed combatant';
+  const summary = formatCombatantHpText(combatant);
+  if (delta < 0) {
+    const amount = Math.abs(delta);
+    const message = `${name} takes ${amount} damage (${summary})`;
+    toast(message, 'warning');
+    logAction(message);
+  } else if (delta > 0) {
+    const message = `${name} recovers ${delta} HP (${summary})`;
+    toast(message, 'success');
+    logAction(message);
+  }
+  if (combatant.defeated && !wasDefeated) {
+    const defeatMessage = `${name} is defeated.`;
+    toast(defeatMessage, 'error');
+    logAction(defeatMessage);
+  } else if (!combatant.defeated && wasDefeated && combatant.hpCurrent > 0) {
+    const backMessage = `${name} is back in the fight.`;
+    toast(backMessage, 'info');
+    logAction(backMessage);
+  }
+  if (row) updateCombatantRow(row, combatant);
+  updateCombatantActiveDisplay();
+  saveEnc();
+}
+
+function bindCombatantRow(row, combatant, idx) {
+  if (!row || !combatant) return;
+  row.dataset.index = String(idx);
+  const nameInput = qs('[data-field="name"]', row);
+  if (nameInput) {
+    nameInput.value = combatant.name || '';
+    nameInput.addEventListener('input', () => {
+      combatant.name = nameInput.value;
+      updateCombatantRow(row, combatant);
+      updateCombatantActiveDisplay();
+      saveEnc();
+    });
+  }
+  const initInput = qs('[data-field="init"]', row);
+  if (initInput) {
+    initInput.value = Number.isFinite(combatant.init) ? String(combatant.init) : '';
+    initInput.addEventListener('input', () => {
+      const value = normalizeNullableNumber(initInput.value);
+      combatant.init = value !== null ? value : 0;
+      updateCombatantRow(row, combatant);
+      saveEnc();
+    });
+    initInput.addEventListener('change', () => {
+      roster.sort((a,b)=>(Number.isFinite(b.init) ? b.init : 0)-(Number.isFinite(a.init) ? a.init : 0) || String(a.name).localeCompare(String(b.name)));
+      turn = Math.min(turn, roster.length ? roster.length - 1 : 0);
+      renderEnc();
+      saveEnc();
+    });
+  }
+  const hpCurrentInput = qs('[data-field="hpCurrent"]', row);
+  if (hpCurrentInput) {
+    hpCurrentInput.value = Number.isFinite(combatant.hpCurrent) ? String(combatant.hpCurrent) : '';
+    hpCurrentInput.addEventListener('input', () => {
+      const value = normalizeNullableNumber(hpCurrentInput.value);
+      combatant.hpCurrent = value !== null ? Math.max(value, 0) : null;
+      combatant.defeated = combatant.hpCurrent !== null && combatant.hpCurrent <= 0;
+      updateCombatantRow(row, combatant);
+      updateCombatantActiveDisplay();
+      saveEnc();
+    });
+  }
+  const hpMaxInput = qs('[data-field="hpMax"]', row);
+  if (hpMaxInput) {
+    hpMaxInput.value = Number.isFinite(combatant.hpMax) ? String(combatant.hpMax) : '';
+    hpMaxInput.addEventListener('input', () => {
+      const value = normalizeNullableNumber(hpMaxInput.value);
+      combatant.hpMax = value !== null ? Math.max(value, 0) : null;
+      if (Number.isFinite(combatant.hpCurrent) && Number.isFinite(combatant.hpMax) && combatant.hpCurrent > combatant.hpMax) {
+        combatant.hpCurrent = combatant.hpMax;
+      }
+      updateCombatantRow(row, combatant);
+      updateCombatantActiveDisplay();
+      saveEnc();
+    });
+  }
+  const tcInput = qs('[data-field="tc"]', row);
+  if (tcInput) {
+    tcInput.value = Number.isFinite(combatant.tc) ? String(combatant.tc) : '';
+    tcInput.addEventListener('input', () => {
+      const value = normalizeNullableNumber(tcInput.value);
+      combatant.tc = value !== null ? value : null;
+      saveEnc();
+    });
+  }
+  const notesInput = qs('[data-field="notes"]', row);
+  if (notesInput) {
+    notesInput.value = combatant.notes || '';
+    notesInput.addEventListener('input', () => {
+      combatant.notes = notesInput.value;
+      saveEnc();
+    });
+  }
+  const conditionsContainer = qs('[data-field="conditions"]', row);
+  if (conditionsContainer) {
+    conditionsContainer.innerHTML = '';
+    STATUS_EFFECTS.forEach(effect => {
+      const wrapper = document.createElement('label');
+      wrapper.className = 'inline';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.dataset.condition = effect.id;
+      checkbox.checked = combatant.conditions.includes(effect.id);
+      checkbox.addEventListener('change', () => {
+        const name = combatant.name ? combatant.name : 'Unnamed combatant';
+        if (checkbox.checked) {
+          if (!combatant.conditions.includes(effect.id)) combatant.conditions.push(effect.id);
+          toast(`${name} gains ${effect.name}`, 'info');
+          logAction(`${name} gains ${effect.name}`);
+        } else {
+          combatant.conditions = combatant.conditions.filter(id => id !== effect.id);
+          toast(`${name} is no longer ${effect.name}`, 'info');
+          logAction(`${name} is no longer ${effect.name}`);
+        }
+        updateCombatantConditionsSummary(row, combatant);
+        saveEnc();
+      });
+      wrapper.appendChild(checkbox);
+      const label = document.createElement('span');
+      label.textContent = ` ${effect.name}`;
+      wrapper.appendChild(label);
+      conditionsContainer.appendChild(wrapper);
+    });
+    updateCombatantConditionsSummary(row, combatant);
+  }
+  qsa('[data-action]', row).forEach(btn => {
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      const step = Number(btn.dataset.step);
+      if (!Number.isFinite(step) || step === 0) return;
+      adjustCombatantHp(combatant, step, { row });
+    });
+  });
+  const delBtn = row.querySelector('[data-del]');
+  if (delBtn) {
+    delBtn.dataset.del = String(idx);
+    delBtn.addEventListener('click', event => {
+      event.preventDefault();
+      const index = roster.indexOf(combatant);
+      if (index >= 0) {
+        roster.splice(index, 1);
+        if (turn >= roster.length) turn = roster.length ? Math.min(turn, roster.length - 1) : 0;
+        renderEnc();
+        saveEnc();
+      }
+    });
+    applyDeleteIcon(delBtn);
+  }
+  updateCombatantRow(row, combatant);
+}
+
+function createCombatantRow(combatant, idx) {
+  let row;
+  if (encounterTemplate?.content?.firstElementChild) {
+    row = encounterTemplate.content.firstElementChild.cloneNode(true);
+  } else {
+    row = document.createElement('div');
+    row.className = 'catalog-item encounter-combatant';
+  }
+  bindCombatantRow(row, combatant, idx);
+  return row;
+}
+
 function renderEnc(){
   const list=$('enc-list');
   if(!list) return;
   const roundEl=$('enc-round');
-  const activeEl=$('enc-active');
   const total=roster.length;
   const safeRound = Math.max(1, Number.isFinite(Number(round)) ? Math.floor(Number(round)) : 1);
   round = safeRound;
@@ -16009,47 +16781,27 @@ function renderEnc(){
     turn = 0;
   }
   list.innerHTML='';
-  const activeCombatant = total ? roster[turn] : null;
   roster.forEach((r,idx)=>{
-    const row=document.createElement('div');
-    row.className='catalog-item';
+    const row=createCombatantRow(r, idx);
     if(idx===turn){
       row.classList.add('active');
       row.setAttribute('aria-current','true');
     }
-    const initVal = Number.isFinite(Number(r.init)) ? Number(r.init) : '';
-    const nameVal = r && typeof r.name==='string' ? r.name : '';
-    row.innerHTML = `<div class="pill">${initVal}</div><div><b>${nameVal}</b></div><div><button class="btn-sm" data-del="${idx}"></button></div>`;
     list.appendChild(row);
   });
-  applyDeleteIcons(list);
   if(roundEl){
     roundEl.textContent = total ? String(round) : '—';
   }
-  if(activeEl){
-    if(activeCombatant){
-      const name = activeCombatant.name ? String(activeCombatant.name) : 'Unnamed combatant';
-      const init = Number.isFinite(Number(activeCombatant.init)) ? Number(activeCombatant.init) : null;
-      activeEl.textContent = init !== null ? `${name} (Init ${init})` : name;
-    }else{
-      activeEl.textContent = 'No active combatant';
-    }
-  }
-  qsa('[data-del]', list).forEach(b=> b.addEventListener('click', ()=>{
-    const i=Number(b.dataset.del);
-    roster.splice(i,1);
-    if(turn>=roster.length) turn=0;
-    renderEnc();
-    saveEnc();
-  }));
+  updateCombatantActiveDisplay();
 }
 $('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
 $('enc-add').addEventListener('click', ()=>{
   const name=$('enc-name').value.trim();
-  const init=Number($('enc-init').value||0);
+  const initValue=Number($('enc-init').value);
+  const init = Number.isFinite(initValue) ? Math.trunc(initValue) : 0;
   if(!name) return toast('Enter a name','error');
-  roster.push({name, init});
-  roster.sort((a,b)=>(b.init||0)-(a.init||0) || String(a.name).localeCompare(String(b.name)));
+  roster.push(normalizeEncounterCombatant({name, init}, roster.length));
+  roster.sort((a,b)=>(Number.isFinite(b.init) ? b.init : 0)-(Number.isFinite(a.init) ? a.init : 0) || String(a.name).localeCompare(String(b.name)));
   $('enc-name').value='';
   $('enc-init').value='';
   turn=0;
@@ -16137,8 +16889,17 @@ function serialize(){
   const safeRound = Math.max(1, Number.isFinite(Number(round)) ? Math.floor(Number(round)) : 1);
   const safeTurnBase = Number.isFinite(Number(turn)) ? Math.floor(Number(turn)) : 0;
   const safeRoster = roster.map(entry => ({
+    id: typeof entry?.id === 'string' ? entry.id : '',
     name: typeof entry?.name === 'string' ? entry.name : '',
-    init: Number.isFinite(Number(entry?.init)) ? Number(entry.init) : 0
+    init: Number.isFinite(entry?.init) ? Math.trunc(entry.init) : 0,
+    hpCurrent: Number.isFinite(entry?.hpCurrent) ? Math.trunc(entry.hpCurrent) : null,
+    hpMax: Number.isFinite(entry?.hpMax) ? Math.trunc(entry.hpMax) : null,
+    tc: Number.isFinite(entry?.tc) ? Math.trunc(entry.tc) : null,
+    notes: typeof entry?.notes === 'string' ? entry.notes : '',
+    conditions: Array.isArray(entry?.conditions)
+      ? entry.conditions.filter(id => ENCOUNTER_STATUS_IDS.has(id))
+      : [],
+    defeated: entry?.defeated === true,
   }));
   const safeTurn = safeRoster.length
     ? Math.min(Math.max(0, safeTurnBase), safeRoster.length - 1)
@@ -16226,15 +16987,8 @@ function deserialize(data){
       CC.RP.load(CC.partials.resonance);
     }
   }
-  const encounterData = data && data.encounter ? data.encounter : null;
-  const restoredRoster = Array.isArray(encounterData?.roster)
-    ? encounterData.roster
-        .map(entry => ({
-          name: typeof entry?.name === 'string' ? entry.name : '',
-          init: Number.isFinite(Number(entry?.init)) ? Number(entry.init) : 0
-        }))
-        .filter(entry => entry.name)
-    : [];
+  const encounterData = data?.encounter || null;
+  const restoredRoster = normalizeEncounterRoster(encounterData?.roster);
   const restoredRound = Number.isFinite(Number(encounterData?.round)) ? Math.floor(Number(encounterData.round)) : 1;
   const restoredTurnRaw = Number.isFinite(Number(encounterData?.turn)) ? Math.floor(Number(encounterData.turn)) : 0;
   round = Math.max(1, restoredRound);
