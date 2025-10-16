@@ -142,6 +142,7 @@ function showToastMessage(message, { type = 'info', duration = 4000 } = {}) {
 }
 
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
+const DEPLOYMENT_STATUS_VALUES = new Set(['pending', 'active', 'completed', 'cancelled', 'scheduled', 'expired']);
 
 function showError(message) {
   if (!errorEl) return;
@@ -301,6 +302,164 @@ async function fetchDeploymentPayload(player, deploymentId) {
   const data = await res.json();
   if (!data || typeof data !== 'object') return null;
   return data;
+}
+
+function sanitizeOutcomeMetadata(outcome = {}) {
+  const now = Date.now();
+  const cleanString = value => (typeof value === 'string' ? value.trim() : '');
+  const normalized = {
+    success: typeof outcome.success === 'boolean' ? outcome.success : null,
+    heading: cleanString(outcome.heading),
+    body: cleanString(outcome.body),
+    note: cleanString(outcome.note),
+    detail: cleanString(outcome.detail),
+    status: DEPLOYMENT_STATUS_VALUES.has(outcome.status) ? outcome.status : undefined,
+    recordedAt: typeof outcome.recordedAt === 'number' && Number.isFinite(outcome.recordedAt)
+      ? outcome.recordedAt
+      : now,
+  };
+  if (outcome.metrics && typeof outcome.metrics === 'object') {
+    normalized.metrics = JSON.parse(JSON.stringify(outcome.metrics));
+  }
+  if (!normalized.note) {
+    normalized.note = normalized.body || normalized.heading || '';
+  }
+  if (!normalized.detail) {
+    normalized.detail = normalized.body || normalized.note || '';
+  }
+  return normalized;
+}
+
+function stripUndefined(obj = {}) {
+  const entries = Object.entries(obj).filter(([, value]) => value !== undefined);
+  return Object.fromEntries(entries);
+}
+
+async function patchDeploymentStatus(player, deploymentId, patch = {}) {
+  const trimmedPlayer = sanitizePlayerName(player);
+  const trimmedDeployment = String(deploymentId ?? '').trim();
+  if (!trimmedPlayer || !trimmedDeployment) return false;
+  if (typeof fetch !== 'function') return false;
+  const payload = stripUndefined({ ...patch, updatedAt: Date.now() });
+  const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(trimmedDeployment)}.json`;
+  try {
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('Failed to update deployment status', err);
+    return false;
+  }
+}
+
+function createDeploymentReporter(context = {}) {
+  const player = sanitizePlayerName(context.player || '');
+  const deploymentId = String(context.deploymentId || '').trim();
+  if (!player || !deploymentId) return null;
+  let startedAt = null;
+  let finalized = false;
+  let lastOutcome = null;
+
+  const recordOutcome = (payload = {}) => {
+    if (finalized) return;
+    lastOutcome = sanitizeOutcomeMetadata(payload);
+  };
+
+  const startMission = () => {
+    if (finalized) return;
+    const now = Date.now();
+    startedAt = now;
+    patchDeploymentStatus(player, deploymentId, {
+      status: 'active',
+      startedAt: now,
+      lastClientUpdateAt: now,
+    }).catch(() => {});
+  };
+
+  const resolveFinalOutcome = (result = {}) => {
+    const now = Date.now();
+    const baseOutcome = lastOutcome ? { ...lastOutcome } : sanitizeOutcomeMetadata(result);
+    const resolvedSuccess = typeof baseOutcome.success === 'boolean'
+      ? baseOutcome.success
+      : typeof result.success === 'boolean'
+        ? result.success
+        : null;
+    baseOutcome.success = resolvedSuccess;
+    if (!baseOutcome.heading) {
+      baseOutcome.heading = typeof result.heading === 'string' ? result.heading.trim() : '';
+    }
+    if (!baseOutcome.body) {
+      baseOutcome.body = typeof result.body === 'string' ? result.body.trim() : '';
+    }
+    if (!baseOutcome.note) {
+      const fallbackNote = baseOutcome.body || baseOutcome.heading;
+      baseOutcome.note = fallbackNote ? fallbackNote.trim() : '';
+    }
+    if (!baseOutcome.detail) {
+      const fallbackDetail = baseOutcome.body || baseOutcome.note;
+      baseOutcome.detail = fallbackDetail ? fallbackDetail.trim() : '';
+    }
+    baseOutcome.completedAt = now;
+    if (startedAt && Number.isFinite(startedAt)) {
+      baseOutcome.durationMs = Math.max(0, now - startedAt);
+    }
+    const statusHint = baseOutcome.status && DEPLOYMENT_STATUS_VALUES.has(baseOutcome.status)
+      ? baseOutcome.status
+      : null;
+    const status = statusHint || 'completed';
+    const patch = {
+      status,
+      completedAt: status === 'completed' ? now : undefined,
+      cancelledAt: status === 'cancelled' ? now : undefined,
+      expiredAt: status === 'expired' ? now : undefined,
+      startedAt: startedAt || undefined,
+      lastClientUpdateAt: now,
+      outcome: baseOutcome,
+    };
+    patchDeploymentStatus(player, deploymentId, patch).catch(() => {});
+  };
+
+  const cancelMission = (reason = '') => {
+    if (finalized) return;
+    finalized = true;
+    const now = Date.now();
+    const payload = lastOutcome ? { ...lastOutcome } : {};
+    payload.status = 'cancelled';
+    payload.success = false;
+    payload.note = payload.note || reason || 'Mission dismissed before completion.';
+    payload.detail = payload.detail || payload.note;
+    payload.heading = payload.heading || 'Mission dismissed';
+    payload.recordedAt = now;
+    if (startedAt && Number.isFinite(startedAt)) {
+      payload.durationMs = Math.max(0, now - startedAt);
+    }
+    patchDeploymentStatus(player, deploymentId, {
+      status: 'cancelled',
+      cancelledAt: now,
+      startedAt: startedAt || undefined,
+      lastClientUpdateAt: now,
+      outcome: payload,
+    }).catch(() => {});
+  };
+
+  const completeMission = (result = {}) => {
+    if (finalized) return;
+    finalized = true;
+    resolveFinalOutcome(result);
+  };
+
+  return {
+    startMission,
+    recordOutcome,
+    completeMission,
+    cancelMission,
+    getMeta() {
+      return { player, deploymentId };
+    },
+  };
 }
 
 function formatKnobValue(knob, value) {
@@ -832,6 +991,22 @@ function setupClueTracker(root, context) {
       entry.data.disproveBtn.disabled = true;
     });
     updateProgress();
+    if (typeof context?.reportOutcome === 'function') {
+      const metrics = {
+        revealed: state.revealed,
+        confirmed: state.confirmed,
+        required: state.required,
+        redHerringsFlagged: state.disproved,
+      };
+      context.reportOutcome({
+        success,
+        heading: success ? 'Case closed' : 'Intel compromised',
+        body: message,
+        detail: message,
+        note: success ? successMessage : exhaustionMessage,
+        metrics,
+      });
+    }
     if (context?.completeMission) {
       const heading = success ? 'Case closed' : 'Intel compromised';
       context.completeMission({
@@ -1346,6 +1521,23 @@ function setupCodeBreaker(root, context) {
       display.textContent = secret;
       attemptsLabel.textContent = 'Console sealed. Attempt logged with HQ.';
     }
+    if (typeof context?.reportOutcome === 'function') {
+      const attemptsUsed = attempts - remaining;
+      context.reportOutcome({
+        success,
+        heading: success ? 'Access granted' : 'Console sealed',
+        body: detail
+          || (success
+            ? 'Override accepted. Sequence matched.'
+            : 'System lock engaged. The console logged the failed attempts.'),
+        note: detail,
+        detail: detail,
+        metrics: {
+          attemptsAllowed: attempts,
+          attemptsUsed: attemptsUsed >= 0 ? attemptsUsed : attempts,
+        },
+      });
+    }
     if (context?.completeMission) {
       const heading = success ? 'Access granted' : 'Console sealed';
       const body = detail
@@ -1576,6 +1768,23 @@ function setupLockdownOverride(root, context) {
       statusLabel.textContent = 'Status: Lockdown Engaged';
       statusLabel.style.background = 'rgba(248,113,113,0.25)';
     }
+    if (typeof context?.reportOutcome === 'function') {
+      const metrics = subsystems.reduce((acc, sub) => {
+        acc[sub.name] = Math.round(clamp(sub.value, 0, 100));
+        return acc;
+      }, {});
+      context.reportOutcome({
+        success,
+        heading: success ? 'Base stabilised' : 'Lockdown engaged',
+        body: detail
+          || (success
+            ? 'Stabilisation held through the countdown.'
+            : 'Subsystem instability triggered the lockdown.'),
+        note: detail,
+        detail: detail,
+        metrics,
+      });
+    }
     if (context?.completeMission) {
       context.completeMission({
         success,
@@ -1752,6 +1961,26 @@ function setupPowerSurge(root, context) {
       : 'rgba(248,113,113,0.2)';
     if (ticker) {
       ticker.textContent = success ? 'Surge telemetry nominal.' : 'Telemetry lost. Core spiking!';
+    }
+    if (typeof context?.reportOutcome === 'function') {
+      context.reportOutcome({
+        success,
+        heading: success ? 'Generator stabilised' : 'Containment failure',
+        body: detail
+          || (success
+            ? 'Generator output held within the safe band through every surge wave.'
+            : 'Energy output spiked beyond tolerance. Containment failed.'),
+        note: detail,
+        detail: detail,
+        metrics: {
+          target: target,
+          tolerance,
+          completedWaves,
+          totalWaves: surgeWaves,
+          stableSeconds,
+          energy: Math.round(energy),
+        },
+      });
     }
     if (context?.completeMission) {
       context.completeMission({
@@ -1936,7 +2165,7 @@ function setupStratagemHero(root, context) {
     });
   }
 
-  function endMission(message, background) {
+  function endMission(message, background, successValue = false) {
     if (missionComplete) return;
     missionComplete = true;
     report.textContent = message;
@@ -1946,13 +2175,27 @@ function setupStratagemHero(root, context) {
     pad.querySelectorAll('button').forEach(btn => {
       btn.disabled = true;
     });
+    if (typeof context?.reportOutcome === 'function') {
+      context.reportOutcome({
+        success: Boolean(successValue),
+        heading: successValue ? 'Transmission complete' : 'Signal collapsed',
+        body: message,
+        note: message,
+        detail: message,
+        metrics: {
+          callsRequired,
+          completedCalls,
+          strikesRemaining,
+        },
+      });
+    }
     cleanup();
   }
 
   function loadNextStratagem() {
     if (missionComplete) return;
     if (completedCalls >= callsRequired) {
-      endMission('Transmission complete. Reinforcements inbound!', 'rgba(34,197,94,0.2)');
+      endMission('Transmission complete. Reinforcements inbound!', 'rgba(34,197,94,0.2)', true);
       return;
     }
 
@@ -1991,7 +2234,7 @@ function setupStratagemHero(root, context) {
     strikesRemaining -= 1;
     updateTelemetry();
     if (strikesRemaining < 0) {
-      endMission('Signal collapsed. HQ cannot verify your stratagem codes.', 'rgba(248,113,113,0.2)');
+      endMission('Signal collapsed. HQ cannot verify your stratagem codes.', 'rgba(248,113,113,0.2)', false);
       sequence.querySelectorAll('.stratagem-sequence__step').forEach(step => {
         step.classList.remove('is-active');
       });
@@ -2318,6 +2561,23 @@ function setupTechLockpick(root, context) {
     input.disabled = true;
     if (droneBtn) droneBtn.disabled = true;
     appendLog(success ? 'ACCESS GRANTED. LOCK DISENGAGED.' : 'SECURITY LOCKOUT. COUNTERMEASURES DEPLOYED.', success ? 'success' : 'error');
+    if (typeof context?.reportOutcome === 'function') {
+      context.reportOutcome({
+        success,
+        heading: success ? 'Lock disengaged' : 'Lock sealed',
+        body: body
+          || (success
+            ? 'Console override accepted. The vault seal retracts.'
+            : 'All attempts exhausted. The system hardened the lock.'),
+        note: body,
+        detail: body,
+        metrics: {
+          attemptsRemaining,
+          lockComplexity: complexity,
+          droneAvailable,
+        },
+      });
+    }
     if (context?.completeMission) {
       context.completeMission({
         success,
@@ -2650,6 +2910,11 @@ async function init() {
   if (resolvedPlayCue) {
     missionContext.playCue = resolvedPlayCue;
   }
+  const deploymentReporter = createDeploymentReporter(missionContext);
+  if (deploymentReporter) {
+    missionContext.reportOutcome = deploymentReporter.recordOutcome;
+    missionContext.deployment = deploymentReporter.getMeta();
+  }
   activeMissionContext = missionContext;
 
   const handleMissionComplete = (result = {}) => {
@@ -2657,6 +2922,7 @@ async function init() {
     rootEl.innerHTML = '';
     rootEl.hidden = true;
     hideError();
+    deploymentReporter?.completeMission(result);
     const { success = null, heading = '', body = '', dismissMessage } = result;
     const { headingText, bodyText } = getOutcomeCopy({ success, heading, body });
     const shouldAutoDismiss = success === true || success === false;
@@ -2719,6 +2985,7 @@ async function init() {
     hideError();
     try {
       game.setup(rootEl, missionContext);
+      deploymentReporter?.startMission();
       rootEl.hidden = false;
       return true;
     } catch (err) {
@@ -2734,6 +3001,9 @@ async function init() {
 
   if (dismissButtonEl) {
     dismissButtonEl.addEventListener('click', () => {
+      if (deploymentReporter) {
+        deploymentReporter.cancelMission('Player dismissed the mission.');
+      }
       hideOutcome();
       showDismissedNotice(lastDismissMessage);
       if (launchEl) {

@@ -317,11 +317,18 @@ function initDMLogin(){
   const miniGamesKnobsHint = document.getElementById('dm-mini-games-knobs-hint');
   const miniGamesKnobs = document.getElementById('dm-mini-games-knobs');
   const miniGamesPlayerHint = document.getElementById('dm-mini-games-player-hint');
-  const miniGamesPlayerSelect = document.getElementById('dm-mini-games-player');
+  const miniGamesPlayerSelect = document.getElementById('dm-mini-games-player-select');
   const miniGamesPlayerCustom = document.getElementById('dm-mini-games-player-custom');
+  const miniGamesAddRecipientBtn = document.getElementById('dm-mini-games-add-recipient');
+  const miniGamesAddCustomBtn = document.getElementById('dm-mini-games-add-custom');
+  const miniGamesClearRecipientsBtn = document.getElementById('dm-mini-games-clear-recipients');
+  const miniGamesRecipientList = document.getElementById('dm-mini-games-recipients');
+  const miniGamesScheduledFor = document.getElementById('dm-mini-games-scheduled-for');
+  const miniGamesExpiry = document.getElementById('dm-mini-games-expiry');
   const miniGamesNotes = document.getElementById('dm-mini-games-notes');
   const miniGamesRefreshPlayers = document.getElementById('dm-mini-games-refresh-players');
   const miniGamesDeployBtn = document.getElementById('dm-mini-games-deploy');
+  const miniGamesDeployProgress = document.getElementById('dm-mini-games-deploy-progress');
   const miniGamesReadme = document.getElementById('dm-mini-games-readme');
   const miniGamesRefreshBtn = document.getElementById('dm-mini-games-refresh');
   const miniGamesDeployments = document.getElementById('dm-mini-games-deployments');
@@ -938,24 +945,222 @@ function initDMLogin(){
   const miniGamesLibrary = listMiniGames();
   const knobStateByGame = new Map();
   const knobPresetsByGame = new Map();
+  const KNOB_STATE_STORAGE_PREFIX = 'cc:mini-game:preset:';
   const KNOB_PRESETS_STORAGE_KEY = 'cc_dm_knob_presets';
   const KNOB_PRESET_LIMIT = 20;
   const MINI_GAME_FILTER_STORAGE_KEY = 'cc_dm_mini_game_filters';
   const MINI_GAME_STALE_THRESHOLD_MS = 30 * 60 * 1000;
   const MINI_GAME_STATUS_PRIORITY = new Map([
-    ['pending', 0],
-    ['active', 1],
-    ['completed', 2],
-    ['cancelled', 3],
+    ['active', 0],
+    ['pending', 1],
+    ['scheduled', 2],
+    ['expired', 3],
+    ['completed', 4],
+    ['cancelled', 5],
   ]);
+  const MINI_GAME_RECIPIENT_LIMIT = 20;
+  const DEPLOYMENT_BATCH_DELAY_MS = 350;
+  const MINI_GAME_AUTO_STATUS_INTERVAL_MS = 60 * 1000;
+  const deploymentRecipients = new Map();
+  const autoStatusTracker = new Map();
+  const FINAL_DEPLOYMENT_STATUSES = new Set(['completed', 'cancelled', 'expired']);
   let miniGameFilterState = { status: 'all', assignee: 'all' };
   miniGamesLibrary.forEach(game => {
+    if (!game || !game.id) return;
+    const stored = readKnobStateFromStorage(game.id);
+    if (stored) {
+      knobStateByGame.set(game.id, stored);
+      return;
+    }
     try {
-      knobStateByGame.set(game.id, getDefaultConfig(game.id));
+      const defaults = getDefaultConfig(game.id);
+      knobStateByGame.set(game.id, sanitizeKnobStateSnapshot(game.id, defaults));
     } catch {
       knobStateByGame.set(game.id, {});
     }
   });
+
+  const normalizeRecipientName = (name = '') => name.trim().replace(/\s+/g, ' ');
+  const getRecipientKey = name => normalizeRecipientName(name).toLowerCase();
+
+  const updateRecipientControlsState = () => {
+    const hasRecipients = deploymentRecipients.size > 0;
+    if (miniGamesDeployBtn) {
+      miniGamesDeployBtn.disabled = !hasRecipients;
+    }
+    if (miniGamesClearRecipientsBtn) {
+      miniGamesClearRecipientsBtn.disabled = !hasRecipients;
+      miniGamesClearRecipientsBtn.setAttribute('aria-disabled', hasRecipients ? 'false' : 'true');
+    }
+  };
+
+  const renderRecipientList = () => {
+    if (!miniGamesRecipientList) return;
+    miniGamesRecipientList.innerHTML = '';
+    const recipients = Array.from(deploymentRecipients.values());
+    if (!recipients.length) {
+      const empty = document.createElement('p');
+      empty.className = 'dm-mini-games__recipients-empty';
+      empty.textContent = 'No recipients added yet.';
+      miniGamesRecipientList.appendChild(empty);
+    } else {
+      const list = document.createElement('ul');
+      list.className = 'dm-mini-games__recipient-list';
+      recipients.forEach(entry => {
+        const item = document.createElement('li');
+        item.className = `dm-mini-games__recipient-chip dm-mini-games__recipient-chip--${entry.source || 'manual'}`;
+        item.dataset.recipientKey = entry.key;
+        const label = document.createElement('span');
+        label.className = 'dm-mini-games__recipient-name';
+        label.textContent = entry.name;
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'dm-mini-games__recipient-remove';
+        removeBtn.dataset.recipientKey = entry.key;
+        removeBtn.setAttribute('aria-label', `Remove ${entry.name}`);
+        removeBtn.textContent = '×';
+        item.append(label, removeBtn);
+        list.appendChild(item);
+      });
+      miniGamesRecipientList.appendChild(list);
+    }
+    updateRecipientControlsState();
+  };
+
+  const addRecipient = (name, { source = 'manual' } = {}) => {
+    const normalized = normalizeRecipientName(name);
+    if (!normalized) return false;
+    const key = getRecipientKey(normalized);
+    if (deploymentRecipients.has(key)) {
+      if (typeof toast === 'function') toast(`${normalized} is already queued`, 'info');
+      return false;
+    }
+    if (deploymentRecipients.size >= MINI_GAME_RECIPIENT_LIMIT) {
+      if (typeof toast === 'function') toast(`Recipient limit reached (${MINI_GAME_RECIPIENT_LIMIT})`, 'error');
+      return false;
+    }
+    deploymentRecipients.set(key, { key, name: normalized, source });
+    renderRecipientList();
+    return true;
+  };
+
+  const removeRecipientByKey = key => {
+    if (!key) return;
+    deploymentRecipients.delete(key);
+    renderRecipientList();
+  };
+
+  const clearRecipients = () => {
+    deploymentRecipients.clear();
+    renderRecipientList();
+  };
+
+  const getDeploymentRecipients = () => {
+    return Array.from(deploymentRecipients.values()).map(entry => entry.name);
+  };
+
+  renderRecipientList();
+  if (miniGamesDeployProgress) {
+    miniGamesDeployProgress.hidden = true;
+  }
+
+  function getKnobStateStorageKey(gameId) {
+    if (!gameId) return '';
+    return `${KNOB_STATE_STORAGE_PREFIX}${gameId}`;
+  }
+
+  function cloneKnobState(values) {
+    if (!values || typeof values !== 'object') return {};
+    return Object.keys(values).reduce((acc, key) => {
+      acc[key] = values[key];
+      return acc;
+    }, {});
+  }
+
+  function sanitizeKnobStateSnapshot(gameId, values) {
+    if (!gameId) return {};
+    const game = getMiniGame(gameId);
+    if (!game) {
+      return cloneKnobState(values);
+    }
+    const plain = cloneKnobState(values);
+    let defaults = {};
+    try {
+      defaults = getDefaultConfig(gameId);
+    } catch {
+      defaults = {};
+    }
+    if (!Array.isArray(game.knobs) || game.knobs.length === 0) {
+      return Object.keys(defaults).length ? { ...defaults } : plain;
+    }
+    const sanitized = {};
+    game.knobs.forEach(knob => {
+      const recommended = Object.prototype.hasOwnProperty.call(defaults, knob.key)
+        ? defaults[knob.key]
+        : undefined;
+      if (Object.prototype.hasOwnProperty.call(plain, knob.key)) {
+        sanitized[knob.key] = sanitizeKnobValue(knob, plain[knob.key], recommended);
+      } else if (Object.prototype.hasOwnProperty.call(defaults, knob.key)) {
+        sanitized[knob.key] = defaults[knob.key];
+      }
+    });
+    return sanitized;
+  }
+
+  function readKnobStateFromStorage(gameId) {
+    if (!gameId || typeof localStorage === 'undefined') return null;
+    try {
+      const key = getKnobStateStorageKey(gameId);
+      if (!key) return null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      return sanitizeKnobStateSnapshot(gameId, parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  function hasKnobStateChanged(prev = {}, next = {}) {
+    const prevKeys = Object.keys(prev || {});
+    const nextKeys = Object.keys(next || {});
+    if (prevKeys.length !== nextKeys.length) return true;
+    for (const key of nextKeys) {
+      if (!Object.prototype.hasOwnProperty.call(prev, key)) return true;
+      if (prev[key] !== next[key]) return true;
+    }
+    return false;
+  }
+
+  function persistKnobStateToStorage(gameId, state) {
+    if (!gameId || typeof localStorage === 'undefined') return;
+    const key = getKnobStateStorageKey(gameId);
+    if (!key) return;
+    try {
+      const snapshot = cloneKnobState(state);
+      const hasValues = Object.keys(snapshot).length > 0;
+      if (hasValues) {
+        let defaults = {};
+        try {
+          defaults = getDefaultConfig(gameId);
+        } catch {
+          defaults = {};
+        }
+        const defaultSnapshot = sanitizeKnobStateSnapshot(gameId, defaults);
+        if (!hasKnobStateChanged(defaultSnapshot, snapshot)) {
+          localStorage.removeItem(key);
+          return;
+        }
+        localStorage.setItem(key, JSON.stringify(snapshot));
+        return;
+      }
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore knob persistence errors */
+    }
+  }
+
   const sanitizePresetValues = (values) => {
     if (!values || typeof values !== 'object') return {};
     return Object.keys(values).reduce((acc, key) => {
@@ -1097,19 +1302,38 @@ function initDMLogin(){
 
   function ensureKnobState(gameId) {
     if (!gameId) return {};
-    if (!knobStateByGame.has(gameId)) {
+    const existing = knobStateByGame.get(gameId);
+    if (!existing) {
+      let base = {};
       try {
-        knobStateByGame.set(gameId, getDefaultConfig(gameId));
+        base = getDefaultConfig(gameId);
       } catch {
-        knobStateByGame.set(gameId, {});
+        base = {};
       }
+      const stored = readKnobStateFromStorage(gameId);
+      if (stored) {
+        base = { ...base, ...stored };
+      }
+      const normalized = sanitizeKnobStateSnapshot(gameId, base);
+      knobStateByGame.set(gameId, normalized);
+      persistKnobStateToStorage(gameId, normalized);
+      return { ...normalized };
     }
-    const stored = knobStateByGame.get(gameId) || {};
-    return { ...stored };
+    const normalized = sanitizeKnobStateSnapshot(gameId, existing);
+    const changed = hasKnobStateChanged(existing, normalized);
+    if (changed) {
+      knobStateByGame.set(gameId, normalized);
+      persistKnobStateToStorage(gameId, normalized);
+      return { ...normalized };
+    }
+    return { ...existing };
   }
 
   function writeKnobState(gameId, state) {
-    knobStateByGame.set(gameId, { ...state });
+    if (!gameId) return;
+    const normalized = sanitizeKnobStateSnapshot(gameId, state);
+    knobStateByGame.set(gameId, normalized);
+    persistKnobStateToStorage(gameId, normalized);
   }
 
   function updateMiniGameGuidance(game) {
@@ -1122,14 +1346,14 @@ function initDMLogin(){
     if (miniGamesKnobsHint) {
       miniGamesKnobsHint.textContent = game
         ? hasKnobs
-          ? 'Adjust these DM-only controls with confidence—every knob shows safe ranges and defaults.'
+          ? 'Adjust these DM-only controls with confidence—every knob shows safe ranges and defaults. Your tweaks auto-save for each mini-game, and "Save preset" keeps your favourite loadouts handy.'
           : 'This mission has no optional tuning—skip straight to sending it to a player.'
         : 'Choose a mini-game to unlock DM-only tuning controls.';
     }
     if (miniGamesPlayerHint) {
       miniGamesPlayerHint.textContent = game
-        ? 'Choose the hero to receive this mission and add any quick instructions before deploying.'
-        : 'Pick who should receive the mission once you have it tuned.';
+        ? 'Add one or more recipients, schedule the launch or set an expiry, then deploy.'
+        : 'Queue recipients once your mission is tuned, and plan a schedule or expiry window if needed.';
     }
   }
 
@@ -1763,7 +1987,29 @@ function initDMLogin(){
   }
 
   const getDeploymentTimestamp = (entry) => {
-    const raw = entry?.updatedAt ?? entry?.updated ?? entry?.createdAt ?? entry?.created ?? null;
+    const status = entry?.status;
+    const numeric = value => (typeof value === 'number' && Number.isFinite(value) ? value : null);
+    if (status === 'scheduled') {
+      const scheduled = numeric(entry?.scheduledFor);
+      if (scheduled) return scheduled;
+    }
+    if (status === 'active') {
+      const started = numeric(entry?.startedAt);
+      if (started) return started;
+    }
+    if (status === 'expired') {
+      const expired = numeric(entry?.expiredAt);
+      if (expired) return expired;
+    }
+    if (status === 'completed') {
+      const completed = numeric(entry?.completedAt);
+      if (completed) return completed;
+    }
+    if (status === 'cancelled') {
+      const cancelled = numeric(entry?.cancelledAt);
+      if (cancelled) return cancelled;
+    }
+    const raw = entry?.updatedAt ?? entry?.lastClientUpdateAt ?? entry?.updated ?? entry?.createdAt ?? entry?.created ?? null;
     if (raw instanceof Date) return raw.getTime();
     if (typeof raw === 'string' && raw) {
       const parsed = Date.parse(raw);
@@ -1856,16 +2102,30 @@ function initDMLogin(){
       li.className = 'dm-mini-games__deployment';
       li.dataset.player = entry.player || '';
       li.dataset.deploymentId = entry.id || '';
-      li.dataset.status = entry.status || 'pending';
+      const statusValue = entry.status || 'pending';
+      li.dataset.status = statusValue;
       const assignee = getDeploymentAssignee(entry);
       if (assignee) {
         li.dataset.assignee = assignee;
       } else {
         delete li.dataset.assignee;
       }
-
+      const scheduledForTs = Number(entry.scheduledFor);
+      const expiresAtTs = Number(entry.expiresAt);
+      const isScheduled = statusValue === 'scheduled';
+      const isExpired = statusValue === 'expired' || (Number.isFinite(expiresAtTs) && expiresAtTs <= Date.now());
+      if (isScheduled) {
+        li.classList.add('dm-mini-games__deployment--scheduled');
+        if (Number.isFinite(scheduledForTs) && scheduledForTs > Date.now() && (scheduledForTs - Date.now()) <= 60 * 60 * 1000) {
+          li.classList.add('dm-mini-games__deployment--upcoming');
+        }
+      }
+      if (isExpired) {
+        li.classList.add('dm-mini-games__deployment--expired');
+      }
       const stale = isDeploymentStale(entry);
       li.classList.toggle('dm-mini-games__deployment--stale', stale);
+      const outcome = entry.outcome && typeof entry.outcome === 'object' ? entry.outcome : null;
 
       const header = document.createElement('div');
       header.className = 'dm-mini-games__deployment-header';
@@ -1890,6 +2150,23 @@ function initDMLogin(){
         }
         meta.appendChild(tsSpan);
       }
+      if (Number.isFinite(scheduledForTs)) {
+        const scheduledSpan = document.createElement('span');
+        const scheduledLabel = formatTimestamp(scheduledForTs) || '—';
+        scheduledSpan.textContent = `${scheduledForTs > Date.now() ? 'Launches' : 'Scheduled'}: ${scheduledLabel}`;
+        scheduledSpan.className = 'dm-mini-games__deployment-time dm-mini-games__deployment-time--scheduled';
+        if (scheduledForTs > Date.now()) {
+          scheduledSpan.classList.add('dm-mini-games__deployment-time--upcoming');
+        }
+        meta.appendChild(scheduledSpan);
+      }
+      if (Number.isFinite(expiresAtTs)) {
+        const expiresSpan = document.createElement('span');
+        const expiresLabel = formatTimestamp(expiresAtTs) || '—';
+        expiresSpan.textContent = `${expiresAtTs <= Date.now() ? 'Expired' : 'Expires'}: ${expiresLabel}`;
+        expiresSpan.className = 'dm-mini-games__deployment-time dm-mini-games__deployment-time--expires';
+        meta.appendChild(expiresSpan);
+      }
       if (entry.issuedBy) {
         const issuer = document.createElement('span');
         issuer.textContent = `Issued by: ${entry.issuedBy}`;
@@ -1909,6 +2186,44 @@ function initDMLogin(){
         notes.className = 'dm-mini-games__deployment-notes';
         notes.textContent = `Notes: ${entry.notes}`;
         li.appendChild(notes);
+      }
+
+      if (outcome) {
+        const outcomeNote = typeof outcome.note === 'string' && outcome.note.trim()
+          ? outcome.note.trim()
+          : typeof outcome.detail === 'string' && outcome.detail.trim()
+            ? outcome.detail.trim()
+            : typeof outcome.body === 'string' && outcome.body.trim()
+              ? outcome.body.trim()
+              : '';
+        if (outcomeNote) {
+          const outcomeEl = document.createElement('div');
+          outcomeEl.className = 'dm-mini-games__deployment-outcome';
+          if (outcome.success === true) outcomeEl.classList.add('dm-mini-games__deployment-outcome--success');
+          else if (outcome.success === false) outcomeEl.classList.add('dm-mini-games__deployment-outcome--failure');
+          if (isExpired) outcomeEl.classList.add('dm-mini-games__deployment-outcome--expired');
+          const heading = typeof outcome.heading === 'string' && outcome.heading.trim()
+            ? outcome.heading.trim()
+            : outcome.success === true
+              ? 'Mission success'
+              : outcome.success === false
+                ? 'Mission failed'
+                : 'Mission update';
+          outcomeEl.innerHTML = `<strong>${escapeHtml(heading)}</strong>: ${escapeHtml(outcomeNote)}`;
+          const recordedAt = typeof outcome.recordedAt === 'number' && Number.isFinite(outcome.recordedAt)
+            ? outcome.recordedAt
+            : null;
+          if (recordedAt) {
+            const recordedLabel = formatTimestamp(recordedAt);
+            if (recordedLabel) {
+              const metaSpan = document.createElement('span');
+              metaSpan.className = 'dm-mini-games__deployment-outcome-meta';
+              metaSpan.textContent = recordedLabel;
+              outcomeEl.appendChild(metaSpan);
+            }
+          }
+          li.appendChild(outcomeEl);
+        }
       }
 
       const actions = document.createElement('div');
@@ -1969,6 +2284,7 @@ function initDMLogin(){
     if (miniGamesUnsubscribe) return;
     miniGamesUnsubscribe = subscribeMiniGameDeployments(entries => {
       miniGameDeploymentsCache = Array.isArray(entries) ? entries : [];
+      autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
       if (miniGamesModal && !miniGamesModal.classList.contains('hidden')) {
         renderMiniGameDeployments(miniGameDeploymentsCache);
       }
@@ -2001,6 +2317,8 @@ function initDMLogin(){
       });
       if (previous && names.includes(previous)) {
         miniGamesPlayerSelect.value = previous;
+      } else {
+        miniGamesPlayerSelect.value = '';
       }
     } catch (err) {
       console.error('Failed to load characters for mini-games', err);
@@ -2015,50 +2333,217 @@ function initDMLogin(){
       if (miniGamesModal && !miniGamesModal.classList.contains('hidden')) {
         renderMiniGameDeployments(miniGameDeploymentsCache);
       }
+      autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
     } catch (err) {
       console.error('Failed to refresh mini-game deployments', err);
       if (typeof toast === 'function') toast('Failed to refresh mini-games', 'error');
     }
   }
 
-  function getMiniGameTargetPlayer() {
-    const custom = miniGamesPlayerCustom?.value?.trim();
-    if (custom) return custom;
-    const selected = miniGamesPlayerSelect?.value?.trim();
-    return selected || '';
+  const markAutoStatus = (key, field, value) => {
+    const record = autoStatusTracker.get(key) || {};
+    record[field] = value;
+    autoStatusTracker.set(key, record);
+  };
+
+  const canAutoUpdateStatus = (key, field, now) => {
+    const record = autoStatusTracker.get(key);
+    const last = record?.[field] || 0;
+    return !last || (now - last) >= MINI_GAME_AUTO_STATUS_INTERVAL_MS;
+  };
+
+  function autoUpdateDeploymentStatuses(entries = []) {
+    const now = Date.now();
+    entries.forEach(entry => {
+      const player = typeof entry?.player === 'string' ? entry.player : '';
+      const deploymentId = typeof entry?.id === 'string' ? entry.id : '';
+      if (!player || !deploymentId) return;
+      const key = `${player}::${deploymentId}`;
+      const statusValue = entry?.status || 'pending';
+      const expiresAt = Number(entry?.expiresAt);
+      if (Number.isFinite(expiresAt) && expiresAt <= now && !FINAL_DEPLOYMENT_STATUSES.has(statusValue)) {
+        if (!canAutoUpdateStatus(key, 'expiredAt', now)) return;
+        markAutoStatus(key, 'expiredAt', now);
+        const outcomePayload = entry.outcome && typeof entry.outcome === 'object'
+          ? { ...entry.outcome }
+          : {};
+        if (!outcomePayload.note) {
+          outcomePayload.note = 'Mission expired before launch.';
+        }
+        if (!outcomePayload.heading) {
+          outcomePayload.heading = 'Mission expired';
+        }
+        outcomePayload.status = 'expired';
+        outcomePayload.success = false;
+        outcomePayload.recordedAt = now;
+        updateMiniGameDeployment(player, deploymentId, {
+          status: 'expired',
+          expiredAt: now,
+          outcome: outcomePayload,
+        }).catch(err => {
+          console.error('Failed to auto-expire deployment', err);
+          const record = autoStatusTracker.get(key) || {};
+          record.expiredAt = 0;
+          autoStatusTracker.set(key, record);
+        });
+        return;
+      }
+      if (statusValue === 'scheduled') {
+        const scheduledFor = Number(entry?.scheduledFor);
+        if (Number.isFinite(scheduledFor) && scheduledFor <= now) {
+          if (!canAutoUpdateStatus(key, 'releasedAt', now)) return;
+          markAutoStatus(key, 'releasedAt', now);
+          updateMiniGameDeployment(player, deploymentId, {
+            status: 'pending',
+            releasedAt: now,
+          }).catch(err => {
+            console.error('Failed to release scheduled deployment', err);
+            const record = autoStatusTracker.get(key) || {};
+            record.releasedAt = 0;
+            autoStatusTracker.set(key, record);
+          });
+        }
+      }
+    });
   }
+
+  const delay = ms => new Promise(resolve => setTimeout(resolve, Math.max(0, ms || 0)));
 
   async function handleMiniGameDeploy() {
     if (!selectedMiniGameId) {
       if (typeof toast === 'function') toast('Choose a mini-game first', 'error');
       return false;
     }
-    const playerName = getMiniGameTargetPlayer();
-    if (!playerName) {
-      if (typeof toast === 'function') toast('Select or enter a player target', 'error');
+    const recipients = getDeploymentRecipients();
+    if (!recipients.length) {
+      if (typeof toast === 'function') toast('Add at least one recipient', 'error');
       return false;
     }
     const config = ensureKnobState(selectedMiniGameId);
     const notes = miniGamesNotes?.value?.trim() || '';
+    let scheduledForTs = null;
+    if (miniGamesScheduledFor && miniGamesScheduledFor.value) {
+      const parsed = Date.parse(miniGamesScheduledFor.value);
+      if (Number.isNaN(parsed)) {
+        if (typeof toast === 'function') toast('Enter a valid scheduled time', 'error');
+        return false;
+      }
+      if (parsed > Date.now()) {
+        scheduledForTs = parsed;
+      }
+    }
+    let expiresAtTs = null;
+    const expiryValue = Number(miniGamesExpiry?.value || '');
+    if (Number.isFinite(expiryValue) && expiryValue > 0) {
+      const base = scheduledForTs && scheduledForTs > Date.now() ? scheduledForTs : Date.now();
+      expiresAtTs = base + expiryValue * 60 * 1000;
+    }
+    const progressEntries = recipients.map(name => ({ name, status: 'queued', message: '' }));
+    const renderProgress = () => {
+      if (!miniGamesDeployProgress) return;
+      miniGamesDeployProgress.innerHTML = '';
+      if (!progressEntries.length) {
+        miniGamesDeployProgress.hidden = true;
+        return;
+      }
+      miniGamesDeployProgress.hidden = false;
+      const list = document.createElement('ul');
+      list.className = 'dm-mini-games__deploy-progress-list';
+      progressEntries.forEach(entry => {
+        const item = document.createElement('li');
+        item.className = `dm-mini-games__deploy-progress-item dm-mini-games__deploy-progress-item--${entry.status}`;
+        const nameEl = document.createElement('span');
+        nameEl.className = 'dm-mini-games__deploy-progress-name';
+        nameEl.textContent = entry.name;
+        const statusEl = document.createElement('span');
+        statusEl.className = 'dm-mini-games__deploy-progress-status';
+        if (entry.message) {
+          statusEl.textContent = entry.message;
+        } else {
+          statusEl.textContent = entry.status === 'queued'
+            ? 'Queued'
+            : entry.status === 'sending'
+              ? 'Sending…'
+              : entry.status === 'success'
+                ? 'Sent'
+                : 'Failed';
+        }
+        item.append(nameEl, statusEl);
+        list.appendChild(item);
+      });
+      miniGamesDeployProgress.appendChild(list);
+    };
+    renderProgress();
+    let successCount = 0;
+    let failureCount = 0;
+    const succeededKeys = [];
     try {
       if (miniGamesDeployBtn) miniGamesDeployBtn.disabled = true;
-      await deployMiniGameToCloud({
-        gameId: selectedMiniGameId,
-        player: playerName,
-        config,
-        notes,
-        issuedBy: 'DM'
-      });
-      if (miniGamesNotes) miniGamesNotes.value = '';
-      if (typeof toast === 'function') toast('Mini-game deployed', 'success');
-      window.dmNotify?.(`Deployed ${selectedMiniGameId} to ${playerName}`);
-      return true;
+      const game = getMiniGame(selectedMiniGameId);
+      const gameName = game?.name || selectedMiniGameId;
+      for (let index = 0; index < recipients.length; index += 1) {
+        const name = recipients[index];
+        const key = getRecipientKey(name);
+        const entry = progressEntries[index];
+        entry.status = 'sending';
+        entry.message = scheduledForTs ? 'Scheduling…' : 'Sending…';
+        renderProgress();
+        if (index > 0) {
+          await delay(DEPLOYMENT_BATCH_DELAY_MS);
+        }
+        try {
+          await deployMiniGameToCloud({
+            gameId: selectedMiniGameId,
+            player: name,
+            config,
+            notes,
+            issuedBy: 'DM',
+            scheduledFor: scheduledForTs,
+            expiresAt: expiresAtTs,
+          });
+          entry.status = 'success';
+          entry.message = scheduledForTs
+            ? `Scheduled for ${formatTimestamp(scheduledForTs) || 'launch window set'}`
+            : 'Deployment sent';
+          successCount += 1;
+          succeededKeys.push(key);
+        } catch (err) {
+          entry.status = 'error';
+          entry.message = err?.message ? err.message : 'Request failed';
+          failureCount += 1;
+          console.error('Failed to deploy mini-game', err);
+        }
+        renderProgress();
+      }
+      if (successCount > 0) {
+        const successMsg = successCount === recipients.length && failureCount === 0
+          ? `Mini-game deployed to ${successCount} recipient${successCount === 1 ? '' : 's'}`
+          : `Mini-game deployed to ${successCount} of ${recipients.length} recipients`;
+        if (typeof toast === 'function') {
+          toast(successMsg, failureCount === 0 ? 'success' : 'info');
+        }
+        const notifyMsg = scheduledForTs
+          ? `Scheduled ${gameName} for ${successCount} recipient${successCount === 1 ? '' : 's'}`
+          : `Deployed ${gameName} to ${successCount} recipient${successCount === 1 ? '' : 's'}`;
+        window.dmNotify?.(notifyMsg);
+      }
+      if (failureCount > 0 && typeof toast === 'function') {
+        toast(`Failed to deploy to ${failureCount} recipient${failureCount === 1 ? '' : 's'}`, 'error');
+      }
+      if (successCount > 0) {
+        succeededKeys.forEach(removeRecipientByKey);
+        if (miniGamesNotes && failureCount === 0) {
+          miniGamesNotes.value = '';
+        }
+      }
+      return successCount > 0;
     } catch (err) {
       console.error('Failed to deploy mini-game', err);
       if (typeof toast === 'function') toast('Failed to deploy mini-game', 'error');
       return false;
     } finally {
       if (miniGamesDeployBtn) miniGamesDeployBtn.disabled = false;
+      renderProgress();
     }
   }
 
@@ -3280,6 +3765,50 @@ function initDMLogin(){
     renderMiniGameDetails();
   });
 
+  miniGamesPlayerSelect?.addEventListener('change', () => {
+    const value = miniGamesPlayerSelect.value;
+    if (value) {
+      addRecipient(value, { source: 'roster' });
+      miniGamesPlayerSelect.value = '';
+    }
+  });
+
+  miniGamesAddRecipientBtn?.addEventListener('click', () => {
+    const value = miniGamesPlayerSelect?.value || '';
+    if (value) {
+      addRecipient(value, { source: 'roster' });
+      miniGamesPlayerSelect.value = '';
+    }
+  });
+
+  miniGamesPlayerCustom?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const added = addRecipient(miniGamesPlayerCustom.value, { source: 'custom' });
+      if (added) {
+        miniGamesPlayerCustom.value = '';
+      }
+    }
+  });
+
+  miniGamesAddCustomBtn?.addEventListener('click', () => {
+    const added = addRecipient(miniGamesPlayerCustom?.value || '', { source: 'custom' });
+    if (added && miniGamesPlayerCustom) {
+      miniGamesPlayerCustom.value = '';
+    }
+  });
+
+  miniGamesClearRecipientsBtn?.addEventListener('click', () => {
+    clearRecipients();
+  });
+
+  miniGamesRecipientList?.addEventListener('click', event => {
+    const button = event.target.closest('button.dm-mini-games__recipient-remove');
+    if (!button) return;
+    const key = button.dataset.recipientKey;
+    removeRecipientByKey(key);
+  });
+
   miniGamesRefreshPlayers?.addEventListener('click', () => {
     refreshMiniGameCharacters({ preserveSelection: false });
   });
@@ -3294,6 +3823,12 @@ function initDMLogin(){
   miniGamesRefreshBtn?.addEventListener('click', () => {
     forceRefreshMiniGameDeployments();
   });
+
+  if (typeof window !== 'undefined' && typeof window.setInterval === 'function') {
+    window.setInterval(() => {
+      autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
+    }, MINI_GAME_AUTO_STATUS_INTERVAL_MS);
+  }
 
   miniGamesDeployments?.addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');

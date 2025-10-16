@@ -1884,17 +1884,44 @@
         </section>
         <section class="dm-mini-games__section">
           <h5 class="dm-mini-games__section-heading">Step 3 · Send to a Player</h5>
-          <p id="dm-mini-games-player-hint" class="dm-mini-games__hint">Pick who should receive the mission and add any quick instructions.</p>
+          <p id="dm-mini-games-player-hint" class="dm-mini-games__hint">Queue missions for one or more heroes, optionally schedule the launch, and add any quick instructions.</p>
           <div class="dm-mini-games__deploy-form">
+            <div class="dm-mini-games__field dm-mini-games__field--recipients">
+              <span>Add recipients</span>
+              <div class="dm-mini-games__recipient-controls">
+                <div class="dm-mini-games__recipient-row">
+                  <label class="sr-only" for="dm-mini-games-player-select">Select character</label>
+                  <select id="dm-mini-games-player-select">
+                    <option value="">Loading…</option>
+                  </select>
+                  <button id="dm-mini-games-add-recipient" type="button" class="btn-sm">Add</button>
+                </div>
+                <div class="dm-mini-games__recipient-row">
+                  <label class="sr-only" for="dm-mini-games-player-custom">Add custom recipient</label>
+                  <input id="dm-mini-games-player-custom" type="text" placeholder="Custom target name"/>
+                  <button id="dm-mini-games-add-custom" type="button" class="btn-sm">Add</button>
+                </div>
+              </div>
+              <div id="dm-mini-games-recipients" class="dm-mini-games__recipients" aria-live="polite"></div>
+              <div class="dm-mini-games__recipient-actions">
+                <button id="dm-mini-games-clear-recipients" type="button" class="btn-sm dm-mini-games__recipients-clear">Clear list</button>
+              </div>
+            </div>
             <label class="dm-mini-games__field">
-              <span>Select character</span>
-              <select id="dm-mini-games-player">
-                <option value="">Loading…</option>
-              </select>
+              <span>Schedule launch (optional)</span>
+              <input id="dm-mini-games-scheduled-for" type="datetime-local" />
             </label>
             <label class="dm-mini-games__field">
-              <span>Or enter name</span>
-              <input id="dm-mini-games-player-custom" type="text" placeholder="Custom target name"/>
+              <span>Expire mission after</span>
+              <select id="dm-mini-games-expiry">
+                <option value="">No expiry</option>
+                <option value="30">30 minutes</option>
+                <option value="60">1 hour</option>
+                <option value="120">2 hours</option>
+                <option value="240">4 hours</option>
+                <option value="480">8 hours</option>
+                <option value="1440">24 hours</option>
+              </select>
             </label>
             <label class="dm-mini-games__field">
               <span>DM notes (optional)</span>
@@ -1904,6 +1931,7 @@
               <button id="dm-mini-games-refresh-players" type="button" class="btn-sm">Refresh Characters</button>
               <button id="dm-mini-games-deploy" type="button" class="somf-btn somf-primary">Deploy Mini-Game</button>
             </div>
+            <div id="dm-mini-games-deploy-progress" class="dm-mini-games__deploy-progress" aria-live="polite"></div>
           </div>
         </section>
         <section class="dm-mini-games__section dm-mini-games__section--scroll">
