@@ -1726,6 +1726,10 @@
       </svg>
     </button>
     <h3>Notifications</h3>
+    <div class="dm-notifications__actions" role="group" aria-label="Notification log actions">
+      <button id="dm-notifications-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+      <button id="dm-notifications-clear" class="btn-sm" type="button" disabled>Clear log</button>
+    </div>
     <ol id="dm-notifications-list"></ol>
   </section>
 </div>
@@ -1847,6 +1851,16 @@
         <div class="dm-credit__label">Memo</div>
         <p id="dm-credit-memo-previewText" class="dm-credit__memo-text">—</p>
       </div>
+      <section class="dm-credit__history" aria-labelledby="dm-credit-history-heading">
+        <div class="dm-credit__historyHeader">
+          <h4 id="dm-credit-history-heading">Recent History</h4>
+          <div class="dm-credit__historyActions" role="group" aria-label="Credit history actions">
+            <button id="dm-credit-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+            <button id="dm-credit-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+          </div>
+        </div>
+        <ol id="dm-credit-history" class="dm-credit__historyList"></ol>
+      </section>
     </div>
   </section>
 </div>

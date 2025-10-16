@@ -22,6 +22,73 @@ const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
 
+async function writeTextToClipboard(text) {
+  if (typeof text !== 'string') text = String(text ?? '');
+  if (!text) return false;
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      /* fall back */
+    }
+  }
+  if (typeof document === 'undefined') return false;
+  const root = document.body || document.documentElement;
+  if (!root) return false;
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  textarea.style.top = '0';
+  textarea.style.left = '0';
+  root.appendChild(textarea);
+  let success = false;
+  try {
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    success = document.execCommand('copy');
+  } catch {
+    success = false;
+  }
+  root.removeChild(textarea);
+  return success;
+}
+
+function buildExportFilename(base) {
+  const prefix = typeof base === 'string' && base ? base : 'export';
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  return `${prefix}-${stamp}.txt`;
+}
+
+function downloadTextFile(filename, text) {
+  if (typeof document === 'undefined') return false;
+  const root = document.body || document.documentElement;
+  if (!root) return false;
+  try {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function')
+      ? URL.createObjectURL(blob)
+      : null;
+    if (!url) return false;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'export.txt';
+    link.style.display = 'none';
+    root.appendChild(link);
+    link.click();
+    root.removeChild(link);
+    if (typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(url);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function computeDeviceFingerprint() {
   if (typeof navigator === 'undefined') return '';
   const { userAgent = '', language = '', platform = '' } = navigator;
@@ -301,6 +368,8 @@ function initDMLogin(){
   const notifyModal = document.getElementById('dm-notifications-modal');
   const notifyList = document.getElementById('dm-notifications-list');
   const notifyClose = document.getElementById('dm-notifications-close');
+  const notifyExportBtn = document.getElementById('dm-notifications-export');
+  const notifyClearBtn = document.getElementById('dm-notifications-clear');
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
@@ -356,6 +425,9 @@ function initDMLogin(){
   const creditMemoInput = document.getElementById('dm-credit-memo');
   const creditMemoPreview = document.getElementById('dm-credit-memo-preview');
   const creditMemoPreviewText = document.getElementById('dm-credit-memo-previewText');
+  const creditHistoryList = document.getElementById('dm-credit-history');
+  const creditHistoryExportBtn = document.getElementById('dm-credit-history-export');
+  const creditHistoryClearBtn = document.getElementById('dm-credit-history-clear');
 
   const CATALOG_RECIPIENT_FIELD_KEY = 'recipient';
   const CATALOG_RECIPIENT_PLACEHOLDER = 'Assign to hero (optional)';
@@ -438,6 +510,8 @@ function initDMLogin(){
   const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
   const PLAYER_CREDIT_HISTORY_LIMIT = 10;
   let playerCreditBroadcastChannel = null;
+  let playerCreditBroadcastListenerAttached = false;
+  let playerCreditHistory = [];
 
   function creditPad(n) {
     return String(n).padStart(2, '0');
@@ -517,12 +591,28 @@ function initDMLogin(){
 
   function ensurePlayerCreditBroadcastChannel() {
     if (playerCreditBroadcastChannel || typeof BroadcastChannel !== 'function') {
+      if (playerCreditBroadcastChannel && !playerCreditBroadcastListenerAttached) {
+        try {
+          playerCreditBroadcastChannel.addEventListener('message', handlePlayerCreditBroadcastMessage);
+          playerCreditBroadcastListenerAttached = true;
+        } catch {
+          /* ignore listener failures */
+        }
+      }
       return playerCreditBroadcastChannel;
     }
     try {
       playerCreditBroadcastChannel = new BroadcastChannel(PLAYER_CREDIT_BROADCAST_CHANNEL);
     } catch {
       playerCreditBroadcastChannel = null;
+    }
+    if (playerCreditBroadcastChannel && !playerCreditBroadcastListenerAttached) {
+      try {
+        playerCreditBroadcastChannel.addEventListener('message', handlePlayerCreditBroadcastMessage);
+        playerCreditBroadcastListenerAttached = true;
+      } catch {
+        playerCreditBroadcastListenerAttached = false;
+      }
     }
     return playerCreditBroadcastChannel;
   }
@@ -562,32 +652,198 @@ function initDMLogin(){
     return [];
   }
 
+  function loadPlayerCreditHistoryFromStorage() {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(PLAYER_CREDIT_STORAGE_KEY);
+      const parsed = parseStoredPlayerCreditHistory(raw);
+      const normalized = parsed
+        .map(item => sanitizePlayerCreditPayload(item))
+        .filter(item => item && typeof item.timestamp === 'string');
+      return normalized.slice(0, PLAYER_CREDIT_HISTORY_LIMIT);
+    } catch {
+      return [];
+    }
+  }
+
   function playerCreditHistoryKey(entry = {}) {
     return `${entry.txid || entry.ref || ''}|${entry.timestamp || ''}`;
   }
 
-  function appendPlayerCreditHistory(entry) {
-    const base = [entry];
-    if (typeof localStorage === 'undefined') return base;
+  function persistPlayerCreditHistory(entries) {
+    if (typeof localStorage === 'undefined') return;
     try {
-      const existingRaw = localStorage.getItem(PLAYER_CREDIT_STORAGE_KEY);
-      const existing = parseStoredPlayerCreditHistory(existingRaw);
-      const key = playerCreditHistoryKey(entry);
-      const filtered = existing.filter(item => playerCreditHistoryKey(item) !== key);
-      filtered.unshift(entry);
-      const limited = filtered.slice(0, PLAYER_CREDIT_HISTORY_LIMIT);
-      localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(limited));
-      return limited;
+      if (!entries || !entries.length) {
+        localStorage.removeItem(PLAYER_CREDIT_STORAGE_KEY);
+      } else {
+        localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(entries));
+      }
     } catch {
-      /* ignore history persistence errors */
-      return base;
+      /* ignore persistence failures */
     }
+  }
+
+  function setPlayerCreditHistory(entries, { persist = true } = {}) {
+    const normalized = Array.isArray(entries) ? entries.map(item => sanitizePlayerCreditPayload(item)) : [];
+    const deduped = [];
+    const seen = new Set();
+    normalized.forEach(item => {
+      if (!item) return;
+      const key = playerCreditHistoryKey(item);
+      if (seen.has(key)) return;
+      seen.add(key);
+      deduped.push(item);
+    });
+    playerCreditHistory = deduped.slice(0, PLAYER_CREDIT_HISTORY_LIMIT);
+    if (persist) {
+      persistPlayerCreditHistory(playerCreditHistory);
+    }
+    return playerCreditHistory;
+  }
+
+  playerCreditHistory = loadPlayerCreditHistoryFromStorage();
+
+  function appendPlayerCreditHistory(entry) {
+    const sanitized = sanitizePlayerCreditPayload(entry);
+    const key = playerCreditHistoryKey(sanitized);
+    const filtered = playerCreditHistory.filter(item => playerCreditHistoryKey(item) !== key);
+    filtered.unshift(sanitized);
+    return setPlayerCreditHistory(filtered);
+  }
+
+  function formatCreditHistoryTimestamp(value) {
+    let date = null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      date = value;
+    } else if (typeof value === 'number' && Number.isFinite(value)) {
+      date = new Date(value);
+    } else if (typeof value === 'string' && value) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        date = parsed;
+      }
+    }
+    if (!date) {
+      return typeof value === 'string' && value ? value : new Date().toLocaleString();
+    }
+    return `${creditFormatDate(date)} • ${creditFormatTime(date)}`;
+  }
+
+  function formatCreditHistoryEntry(entry) {
+    if (!entry) return '';
+    const timestampLabel = formatCreditHistoryTimestamp(entry.timestamp);
+    const amountValue = Number(entry.amount);
+    const amount = Number.isFinite(amountValue) ? Math.abs(amountValue) : 0;
+    const type = entry.type === 'Debit' ? 'Debited' : 'Deposited';
+    const direction = entry.type === 'Debit' ? 'from' : 'to';
+    const playerName = entry.player ? entry.player : 'player';
+    const sender = entry.sender ? entry.sender : 'DM';
+    const memo = entry.memo ? entry.memo.replace(/\s+/g, ' ').trim() : '';
+    const memoSuffix = memo ? ` Memo: ${memo}` : '';
+    return `${timestampLabel} — ${type} ₡${formatCreditAmountDisplay(amount)} ${direction} ${playerName} via ${sender}.${memoSuffix}`;
+  }
+
+  function updateCreditHistoryActionState() {
+    const isEmpty = !playerCreditHistory.length;
+    if (creditHistoryClearBtn) creditHistoryClearBtn.disabled = isEmpty;
+    if (creditHistoryExportBtn) creditHistoryExportBtn.disabled = isEmpty;
+  }
+
+  function renderPlayerCreditHistory() {
+    if (!creditHistoryList) {
+      updateCreditHistoryActionState();
+      return;
+    }
+    creditHistoryList.innerHTML = '';
+    if (!playerCreditHistory.length) {
+      updateCreditHistoryActionState();
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    playerCreditHistory.forEach(entry => {
+      const item = document.createElement('li');
+      const description = formatCreditHistoryEntry(entry);
+      const text = document.createElement('span');
+      text.textContent = description;
+      item.appendChild(text);
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'btn-sm';
+      copyBtn.dataset.creditHistoryCopy = 'true';
+      copyBtn.dataset.creditHistoryText = description;
+      copyBtn.textContent = 'Copy';
+      copyBtn.setAttribute('aria-label', `Copy entry recorded ${formatCreditHistoryTimestamp(entry.timestamp)}`);
+      item.appendChild(copyBtn);
+      frag.appendChild(item);
+    });
+    creditHistoryList.appendChild(frag);
+    updateCreditHistoryActionState();
+  }
+
+  function clearPlayerCreditHistory({ announce = true } = {}) {
+    if (!playerCreditHistory.length) {
+      if (announce && typeof toast === 'function') {
+        toast('Credit history is already empty', 'info');
+      }
+      return false;
+    }
+    setPlayerCreditHistory([]);
+    renderPlayerCreditHistory();
+    if (announce && typeof toast === 'function') {
+      toast('Credit history cleared', 'info');
+    }
+    return true;
+  }
+
+  async function exportPlayerCreditHistory() {
+    if (!playerCreditHistory.length) {
+      if (typeof toast === 'function') toast('Credit history is empty', 'info');
+      return false;
+    }
+    const lines = playerCreditHistory.map(entry => formatCreditHistoryEntry(entry));
+    const payload = lines.join('\n');
+    if (!payload) {
+      if (typeof toast === 'function') toast('Nothing to export', 'info');
+      return false;
+    }
+    if (await writeTextToClipboard(payload)) {
+      if (typeof toast === 'function') toast('Credit history copied to clipboard', 'success');
+      return true;
+    }
+    if (downloadTextFile(buildExportFilename('dm-credit-history'), payload)) {
+      if (typeof toast === 'function') toast('Credit history exported', 'success');
+      return true;
+    }
+    if (typeof toast === 'function') toast('Unable to export credit history', 'error');
+    return false;
+  }
+
+  function handlePlayerCreditUpdateMessage(payload) {
+    if (!payload) return;
+    appendPlayerCreditHistory(payload);
+    renderPlayerCreditHistory();
+  }
+
+  function handlePlayerCreditBroadcastMessage(event) {
+    if (!event) return;
+    const data = event.data;
+    if (!data || data.type !== 'CC_PLAYER_UPDATE') return;
+    handlePlayerCreditUpdateMessage(data.payload);
+  }
+
+  function handlePlayerCreditWindowMessage(event) {
+    if (!event) return;
+    const data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type !== 'CC_PLAYER_UPDATE') return;
+    handlePlayerCreditUpdateMessage(data.payload);
   }
 
   function broadcastPlayerCreditUpdate(payload) {
     if (typeof window === 'undefined') return;
     const sanitized = sanitizePlayerCreditPayload(payload);
     appendPlayerCreditHistory(sanitized);
+    renderPlayerCreditHistory();
     const channel = ensurePlayerCreditBroadcastChannel();
     if (channel) {
       try {
@@ -897,6 +1153,7 @@ function initDMLogin(){
     resetCreditForm({ preserveAccount: false });
     await refreshCreditAccounts({ preserveSelection: false });
     resetCreditForm({ preserveAccount: true });
+    renderPlayerCreditHistory();
     if (creditModal) {
       show('dm-credit-modal');
     }
@@ -928,6 +1185,10 @@ function initDMLogin(){
     catalogBtn?.remove();
     catalogModal?.remove();
     return;
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('message', handlePlayerCreditWindowMessage);
   }
 
   const MENU_OPEN_CLASS = 'is-open';
@@ -3071,6 +3332,48 @@ function initDMLogin(){
     }
   }
 
+  function updateNotificationActionState() {
+    const isEmpty = notifications.length === 0;
+    if (notifyClearBtn) notifyClearBtn.disabled = isEmpty;
+    if (notifyExportBtn) notifyExportBtn.disabled = isEmpty;
+  }
+
+  function clearNotifications({ announce = true } = {}) {
+    if (notifications.length === 0) {
+      if (announce && typeof toast === 'function') toast('Notification log is already empty', 'info');
+      return false;
+    }
+    notifications.length = 0;
+    persistNotifications();
+    if (notifyList) notifyList.innerHTML = '';
+    updateNotificationActionState();
+    if (announce && typeof toast === 'function') toast('Notification log cleared', 'info');
+    return true;
+  }
+
+  async function exportNotifications() {
+    if (!notifications.length) {
+      if (typeof toast === 'function') toast('Notification log is empty', 'info');
+      return false;
+    }
+    const lines = [...notifications].reverse().map(entry => formatNotification(entry));
+    const payload = lines.join('\n');
+    if (!payload) {
+      if (typeof toast === 'function') toast('Nothing to export', 'info');
+      return false;
+    }
+    if (await writeTextToClipboard(payload)) {
+      if (typeof toast === 'function') toast('Notification log copied to clipboard', 'success');
+      return true;
+    }
+    if (downloadTextFile(buildExportFilename('dm-notifications'), payload)) {
+      if (typeof toast === 'function') toast('Notification log exported', 'success');
+      return true;
+    }
+    if (typeof toast === 'function') toast('Unable to export notifications', 'error');
+    return false;
+  }
+
   function renderStoredNotifications() {
     if (!notifyList || !isLoggedIn()) return;
     notifyList.innerHTML = '';
@@ -3079,6 +3382,7 @@ function initDMLogin(){
       applyNotificationContent(li, entry);
       notifyList.prepend(li);
     });
+    updateNotificationActionState();
   }
 
   function storePendingNotification(entry) {
@@ -3111,6 +3415,7 @@ function initDMLogin(){
       notifications.splice(0, notifications.length - MAX_STORED_NOTIFICATIONS);
     }
     persistNotifications();
+    updateNotificationActionState();
     if (notifyList) {
       const li = document.createElement('li');
       applyNotificationContent(li, entry);
@@ -3120,6 +3425,7 @@ function initDMLogin(){
   }
 
   persistNotifications();
+  updateNotificationActionState();
 
   window.dmNotify = function(detail, meta = {}) {
     const entry = buildNotification(detail, meta);
@@ -3173,6 +3479,7 @@ function initDMLogin(){
 
   function clearNotificationDisplay() {
     if (notifyList) notifyList.innerHTML = '';
+    updateNotificationActionState();
     closeNotifications();
   }
 
@@ -3380,6 +3687,8 @@ function initDMLogin(){
 
   function openNotifications(){
     if(!notifyModal) return;
+    renderStoredNotifications();
+    updateNotificationActionState();
     show('dm-notifications-modal');
   }
 
@@ -3694,6 +4003,37 @@ function initDMLogin(){
 
   creditSubmit?.addEventListener('click', handleCreditSubmit);
 
+  creditHistoryClearBtn?.addEventListener('click', () => {
+    clearPlayerCreditHistory();
+  });
+
+  creditHistoryExportBtn?.addEventListener('click', () => {
+    exportPlayerCreditHistory();
+  });
+
+  creditHistoryList?.addEventListener('click', async event => {
+    const button = event.target.closest('button[data-credit-history-copy]');
+    if (!button) return;
+    event.preventDefault();
+    const text = button.dataset.creditHistoryText || '';
+    if (!text) {
+      if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+      return;
+    }
+    if (await writeTextToClipboard(text)) {
+      if (typeof toast === 'function') toast('Entry copied to clipboard', 'success');
+      return;
+    }
+    if (downloadTextFile(buildExportFilename('dm-credit-entry'), text)) {
+      if (typeof toast === 'function') toast('Entry exported', 'success');
+      return;
+    }
+    if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+  });
+
+  renderPlayerCreditHistory();
+  ensurePlayerCreditBroadcastChannel();
+
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && creditModal && !creditModal.classList.contains('hidden')) {
       captureCreditTimestamp();
@@ -3721,6 +4061,14 @@ function initDMLogin(){
       openNotifications();
     });
   }
+
+  notifyClearBtn?.addEventListener('click', () => {
+    clearNotifications();
+  });
+
+  notifyExportBtn?.addEventListener('click', () => {
+    exportNotifications();
+  });
 
     if (charBtn) {
       charBtn.addEventListener('click', () => {
