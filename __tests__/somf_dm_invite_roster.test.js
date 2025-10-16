@@ -22,11 +22,16 @@ test('DM invite roster loads cloud player names', async () => {
   localStorage.clear();
   sessionStorage.clear();
 
+  const responses = [
+    { 'Hero%20Two': {}, 'Hero%20One': {} },
+    { 'Hero%20Three': {}, 'Hero%20One': {} },
+  ];
   const fetchMock = jest.fn(async (url) => {
     expect(url).toBe('https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves.json');
+    const payload = responses.length ? responses.shift() : {};
     return {
       ok: true,
-      json: async () => ({ 'Hero%20Two': {}, 'Hero%20One': {} }),
+      json: async () => payload,
     };
   });
   global.fetch = fetchMock;
@@ -52,6 +57,7 @@ test('DM invite roster loads cloud player names', async () => {
       <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
       <input id="somfDM-inviteTargets" class="somf-dm__inviteInput" type="text" list="somfDM-inviteOptions">
       <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
+      <button id="somfDM-refreshRoster" class="somf-btn somf-ghost somf-dm__inviteRefresh" type="button">Refresh roster</button>
       <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
       <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
     </div>
@@ -90,11 +96,106 @@ test('DM invite roster loads cloud player names', async () => {
   const rosterButtons = Array.from(document.querySelectorAll('.somf-dm__inviteChip')).map(btn => btn.textContent);
   expect(rosterButtons).toEqual(['Hero One', 'Hero Two']);
 
+  const refreshButton = document.getElementById('somfDM-refreshRoster');
+  expect(refreshButton).toBeTruthy();
+  expect(refreshButton.textContent).toBe('Refresh roster');
+  expect(refreshButton.disabled).toBe(false);
+  expect(refreshButton.getAttribute('aria-busy')).toBe('false');
+  expect(refreshButton.getAttribute('data-status')).toBe('ready');
+
   const inviteInput = document.getElementById('somfDM-inviteTargets');
   document.querySelector('.somf-dm__inviteChip')?.click();
   expect(inviteInput.value).toBe('Hero One');
 
   expect(fetchMock).toHaveBeenCalledTimes(1);
 
+  refreshButton.click();
+  expect(refreshButton.disabled).toBe(true);
+  expect(refreshButton.getAttribute('aria-busy')).toBe('true');
+  expect(refreshButton.textContent).toBe('Refreshing…');
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const updatedOptions = Array.from(datalist.children).map(option => option.value);
+  expect(updatedOptions).toEqual(['Hero One', 'Hero Three']);
+  const updatedRosterButtons = Array.from(document.querySelectorAll('.somf-dm__inviteChip')).map(btn => btn.textContent);
+  expect(updatedRosterButtons).toEqual(['Hero One', 'Hero Three']);
+
+  expect(refreshButton.disabled).toBe(false);
+  expect(refreshButton.getAttribute('aria-busy')).toBe('false');
+  expect(refreshButton.textContent).toBe('Refresh roster');
+  expect(refreshButton.getAttribute('data-status')).toBe('ready');
+
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+
+  document.querySelector('.somf-dm__inviteChip')?.click();
+  expect(inviteInput.value).toBe('Hero One');
+
   delete global.fetch;
+  delete window._somf_db;
+});
+
+test('DM invite roster refresh disabled when offline', async () => {
+  jest.resetModules();
+  localStorage.clear();
+  sessionStorage.clear();
+
+  delete window._somf_db;
+  window.toast = jest.fn();
+  window.logAction = jest.fn();
+  window.queueCampaignLogEntry = jest.fn();
+  window.dmNotify = jest.fn();
+  window.requestAnimationFrame = fn => fn();
+  sessionStorage.setItem('dmLoggedIn', '1');
+
+  document.body.innerHTML = `
+    <div id="toast"></div>
+    <section id="somf-min" hidden></section>
+    <div id="somf-min-modal" hidden></div>
+    <div id="somfDM-toasts"></div>
+    <div class="somf-dm__toggles">
+      <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
+      <input id="somfDM-inviteTargets" class="somf-dm__inviteInput" type="text" list="somfDM-inviteOptions">
+      <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
+      <button id="somfDM-refreshRoster" class="somf-btn somf-ghost somf-dm__inviteRefresh" type="button">Refresh roster</button>
+      <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
+      <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
+    </div>
+    <datalist id="somfDM-inviteOptions"></datalist>
+    <div id="somfDM-inviteRoster" class="somf-dm__inviteRoster" aria-live="polite"></div>
+    <div id="modal-somf-dm" class="overlay hidden" aria-hidden="true">
+      <section>
+        <button id="somfDM-close"></button>
+        <div id="somfDM-cardCount"></div>
+        <button id="somfDM-reset"></button>
+        <nav>
+          <button data-tab="cards" class="somf-dm-tabbtn"></button>
+          <button data-tab="resolve" class="somf-dm-tabbtn"></button>
+          <button data-tab="npcs" class="somf-dm-tabbtn"></button>
+          <button data-tab="items" class="somf-dm-tabbtn"></button>
+        </nav>
+        <section id="somfDM-tab-cards"></section>
+        <section id="somfDM-tab-resolve"></section>
+        <section id="somfDM-tab-npcs"></section>
+        <section id="somfDM-tab-items"></section>
+      </section>
+    </div>
+    <div id="somfDM-npcModal" class="hidden" aria-hidden="true"></div>
+  `;
+
+  await import(`../shard-of-many-fates.js?invite-roster-offline=${Date.now()}`);
+
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const rosterMessage = document.querySelector('#somfDM-inviteRoster .somf-dm__inviteEmpty');
+  expect(rosterMessage?.textContent).toBe('Connect to the cloud to load players.');
+
+  const refreshButton = document.getElementById('somfDM-refreshRoster');
+  expect(refreshButton.disabled).toBe(true);
+  expect(refreshButton.getAttribute('aria-busy')).toBe('false');
+  expect(refreshButton.textContent).toBe('Offline');
+  expect(refreshButton.getAttribute('data-status')).toBe('offline');
 });

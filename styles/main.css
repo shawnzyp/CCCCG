@@ -4191,6 +4191,8 @@ body:not(.no-hover) .somf-dm__inviteChip:hover,.somf-dm__inviteChip:focus-visibl
 .somf-dm__inviteChip:focus-visible{box-shadow:0 0 0 2px rgba(43,157,255,.35)}
 .somf-dm__inviteEmpty{font-size:13px;opacity:.75;margin:4px 0 8px}
 .somf-dm__inviteSend,.somf-dm__concealAll{white-space:nowrap}
+.somf-dm__inviteRefresh{white-space:nowrap}
+.somf-dm__inviteRefresh[aria-busy="true"]{cursor:wait}
 .somf-dm__hiddenStatus{font-size:13px;opacity:.7;padding-inline:6px}
 .somf-dm__actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .somf-dm__tabs{display:flex;gap:6px;margin:8px 0}

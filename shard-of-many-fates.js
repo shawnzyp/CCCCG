@@ -3911,6 +3911,7 @@
       this.realtimeReady = this.runtime.hasRealtime();
       this.itemMetadata = new Map();
       this.hiddenEarcon = createHiddenStateEarcon(() => this.dom?.ping);
+      this.inviteRosterStatus = 'ready';
     }
 
     attach() {
@@ -3952,6 +3953,7 @@
         ping: dom.one('#somfDM-ping'),
         inviteInput: dom.one('#somfDM-inviteTargets'),
         inviteSend: dom.one('#somfDM-sendInvite'),
+        inviteRefresh: dom.one('#somfDM-refreshRoster'),
         concealAll: dom.one('#somfDM-concealAll'),
         hiddenStatus: dom.one('#somfDM-hiddenStatus'),
         inviteOptions: dom.one('#somfDM-inviteOptions'),
@@ -4000,6 +4002,7 @@
 
     updateRealtimeState() {
       const hasRealtime = this.runtime.hasRealtime();
+      this.updateInviteRefreshControl();
       if (this.dom.inviteSend) {
         this.dom.inviteSend.disabled = !hasRealtime;
         this.dom.inviteSend.setAttribute('aria-disabled', hasRealtime ? 'false' : 'true');
@@ -4059,6 +4062,33 @@
       this.loadInviteRoster();
     }
 
+    updateInviteRefreshControl(status = this.inviteRosterStatus || 'ready') {
+      const refresh = this.dom?.inviteRefresh;
+      if (!refresh) return;
+      if (!refresh.dataset.defaultLabel) {
+        const base = (refresh.textContent || '').trim() || 'Refresh roster';
+        refresh.dataset.defaultLabel = base;
+      }
+      const normalizedStatus = status || 'ready';
+      const hasRealtime = this.runtime.hasRealtime();
+      const busy = normalizedStatus === 'loading';
+      const disabled = !hasRealtime || busy;
+      refresh.disabled = disabled;
+      refresh.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+      refresh.setAttribute('aria-busy', busy ? 'true' : 'false');
+      refresh.dataset.state = normalizedStatus;
+      refresh.setAttribute('data-status', normalizedStatus);
+      if (normalizedStatus === 'loading') {
+        refresh.textContent = 'Refreshing…';
+      } else if (normalizedStatus === 'error') {
+        refresh.textContent = 'Retry refresh';
+      } else if (normalizedStatus === 'offline') {
+        refresh.textContent = 'Offline';
+      } else {
+        refresh.textContent = refresh.dataset.defaultLabel || 'Refresh roster';
+      }
+    }
+
     async loadInviteRoster({ force = false } = {}) {
       if (!this.runtime.hasRealtime()) {
         this.renderInviteRoster([], { status: 'offline' });
@@ -4105,6 +4135,8 @@
     }
 
     renderInviteRoster(names, { status = 'ready' } = {}) {
+      this.inviteRosterStatus = status;
+      this.updateInviteRefreshControl(status);
       const list = Array.isArray(names) ? names : [];
       if (this.dom.inviteOptions) {
         this.dom.inviteOptions.innerHTML = '';
@@ -4117,6 +4149,8 @@
         }
       }
       if (!this.dom.inviteRoster) return;
+      this.dom.inviteRoster.setAttribute('data-status', status);
+      this.dom.inviteRoster.setAttribute('aria-busy', status === 'loading' ? 'true' : 'false');
       this.dom.inviteRoster.innerHTML = '';
       if (status !== 'ready') {
         const message = document.createElement('p');
@@ -4187,6 +4221,16 @@
       if (this.dom.inviteSend && !this.dom.inviteSend.__somfBound) {
         this.dom.inviteSend.addEventListener('click', () => this.sendInvites());
         this.dom.inviteSend.__somfBound = true;
+      }
+      if (this.dom.inviteRefresh && !this.dom.inviteRefresh.__somfBound) {
+        this.dom.inviteRefresh.addEventListener('click', () => {
+          if (!this.ensureRealtime('Reconnect to refresh the player roster.')) {
+            this.renderInviteRoster([], { status: 'offline' });
+            return;
+          }
+          this.loadInviteRoster({ force: true });
+        });
+        this.dom.inviteRefresh.__somfBound = true;
       }
       if (this.dom.inviteInput && !this.dom.inviteInput.__somfEnterBound) {
         this.dom.inviteInput.addEventListener('keydown', evt => {
