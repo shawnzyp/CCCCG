@@ -49,6 +49,48 @@ function setupDom() {
           <ul id="somfDM-npcList" class="somf-dm__list"></ul>
         </section>
         <section id="somfDM-tab-items" class="somf-dm-tab somf-dm__tab">
+          <div
+            id="somfDM-giftOverlay"
+            class="somf-dm__gift hidden"
+            aria-hidden="true"
+            hidden
+          >
+            <div
+              id="somfDM-giftDialog"
+              class="somf-dm__giftDialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="somfDM-giftTitle"
+              aria-describedby="somfDM-giftMessage"
+              tabindex="-1"
+            >
+              <h4 id="somfDM-giftTitle" class="somf-dm__giftTitle"></h4>
+              <p id="somfDM-giftMessage" class="somf-dm__giftSubtitle"></p>
+              <form id="somfDM-giftForm" class="somf-dm__giftForm" novalidate>
+                <div class="somf-dm__giftGroup">
+                  <label for="somfDM-giftSelect">Choose a recipient</label>
+                  <select id="somfDM-giftSelect" class="somf-dm__giftSelect" aria-describedby="somfDM-giftRosterStatus somfDM-giftError"></select>
+                  <p id="somfDM-giftRosterStatus" class="somf-dm__giftStatus" aria-live="polite"></p>
+                </div>
+                <div class="somf-dm__giftDivider" role="separator" aria-hidden="true"><span>or</span></div>
+                <div class="somf-dm__giftGroup">
+                  <label for="somfDM-giftCustom">Enter a custom name</label>
+                  <input
+                    id="somfDM-giftCustom"
+                    class="somf-dm__giftInput"
+                    type="text"
+                    autocomplete="off"
+                    aria-describedby="somfDM-giftError"
+                  >
+                </div>
+                <p id="somfDM-giftError" class="somf-dm__giftError" role="alert"></p>
+                <div class="somf-dm__giftActions">
+                  <button id="somfDM-giftSubmit" type="submit" class="somf-btn somf-primary">Gift Item</button>
+                  <button type="button" class="somf-btn somf-ghost" data-somf-gift-cancel>Cancel</button>
+                </div>
+              </form>
+            </div>
+          </div>
           <ul id="somfDM-itemList" class="somf-dm__list somf-dm__list--actions"></ul>
         </section>
       </section>
@@ -114,7 +156,7 @@ describe('DM item gifting flow', () => {
     global.toast = jest.fn();
     global.dismissToast = jest.fn();
     window.dmNotify = jest.fn();
-    window.prompt = jest.fn(() => 'Nova');
+    window.prompt = jest.fn(() => { throw new Error('prompt should not be called'); });
 
     window.matchMedia = jest.fn(() => ({
       matches: false,
@@ -149,13 +191,32 @@ describe('DM item gifting flow', () => {
     giftBtn.click();
     await Promise.resolve();
 
-    expect(window.prompt).toHaveBeenCalledWith(expect.stringContaining(itemName));
+    const giftOverlay = document.getElementById('somfDM-giftOverlay');
+    expect(giftOverlay).toBeTruthy();
+    expect(giftOverlay.hidden).toBe(false);
+
+    const giftInput = document.getElementById('somfDM-giftCustom');
+    expect(giftInput).toBeTruthy();
+    giftInput.value = 'Nova';
+
+    const giftForm = document.getElementById('somfDM-giftForm');
+    giftForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     const notifyCall = window.dmNotify.mock.calls.find(([message]) => message.includes('Gifted'));
     expect(notifyCall).toBeDefined();
     expect(notifyCall[0]).toContain(itemName);
     expect(notifyCall[0]).toContain('Nova');
     expect(notifyCall[1]).toMatchObject({ item: expect.objectContaining({ recipient: 'Nova' }) });
+
+    expect(window.toast).toHaveBeenCalledWith(
+      expect.stringContaining('<strong>Gifted</strong>'),
+      expect.objectContaining({ type: 'success', duration: 4000, html: expect.any(String) })
+    );
+
+    expect(window.prompt).not.toHaveBeenCalled();
 
     const stored = JSON.parse(localStorage.getItem('somf_item_gifts__ccampaign-001'));
     expect(Array.isArray(stored)).toBe(true);
