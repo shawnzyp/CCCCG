@@ -4304,6 +4304,25 @@ body:not(.no-hover) .somf-dm__inviteChip.is-selected:hover,.somf-dm__inviteChip.
 .somf-dm__itemBody{flex:1 1 auto}
 .somf-dm__itemActions{flex:0 0 auto;display:flex;gap:8px}
 .somf-dm__itemActions .somf-btn{white-space:nowrap}
+.somf-dm__tab{position:relative}
+.somf-dm__gift{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(7,11,22,.9);backdrop-filter:blur(2px);z-index:5}
+.somf-dm__gift.hidden{display:none}
+.somf-dm__giftDialog{width:min(420px,100%);max-width:100%;background:#0b1119;border:1px solid #1b2532;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 40px rgba(3,6,14,.6)}
+.somf-dm__giftTitle{margin:0;font-size:1.1rem}
+.somf-dm__giftSubtitle{margin:0;color:rgba(231,242,255,.8);font-size:.9rem}
+.somf-dm__giftForm{display:flex;flex-direction:column;gap:12px}
+.somf-dm__giftGroup{display:flex;flex-direction:column;gap:6px}
+.somf-dm__giftSelect,.somf-dm__giftInput{width:100%;min-height:var(--control-min-height);padding:8px 10px;border-radius:8px;border:1px solid #1b2532;background:#0c1017;color:#e6f1ff;font-size:.95rem}
+.somf-dm__giftSelect[aria-disabled="true"],.somf-dm__giftInput[aria-disabled="true"]{opacity:.6}
+.somf-dm__giftSelect:focus-visible,.somf-dm__giftInput:focus-visible{outline:2px solid #2b9dff;outline-offset:2px}
+.somf-dm__giftDivider{display:flex;align-items:center;justify-content:center;gap:12px;color:rgba(231,242,255,.6);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em}
+.somf-dm__giftDivider::before,.somf-dm__giftDivider::after{content:"";flex:1;height:1px;background:#1b2532}
+.somf-dm__giftActions{display:flex;gap:8px;justify-content:flex-end}
+.somf-dm__giftActions .somf-btn{flex:0 0 auto}
+.somf-dm__giftError{min-height:1.2em;margin:0;color:#f87171;font-size:.85rem}
+.somf-dm__giftStatus{margin:0;color:rgba(231,242,255,.75);font-size:.8rem;min-height:1.1em}
+.somf-dm__giftInput[aria-invalid="true"],.somf-dm__giftSelect[aria-invalid="true"]{border-color:#c75656}
+.somf-dm__giftDialog button{min-height:var(--control-compact-min-height)}
 .somf-dm__noticeNames{opacity:.8}
 .somf-dm__link{color:#8fc7ff;background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline}
 body:not(.no-hover) .somf-dm__link:hover{color:#cfe7ff}

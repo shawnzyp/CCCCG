@@ -3913,6 +3913,8 @@
       this.hiddenEarcon = createHiddenStateEarcon(() => this.dom?.ping);
       this.selectedInviteeIds = new Set();
       this.inviteRosterIndex = new Map();
+      this.inviteRosterStatus = 'idle';
+      this.giftDialogState = null;
     }
 
     attach() {
@@ -3920,6 +3922,7 @@
       this.initialized = true;
       this.captureDom();
       this.bindEvents();
+      this.setupGiftDialog();
       this.updateInviteSelectionUi();
       this.renderStaticLists();
       this.setupWatchers();
@@ -3964,6 +3967,17 @@
         queue: dom.one('#somfDM-notifications'),
         npcModal: dom.one('#somfDM-npcModal'),
         npcModalCard: dom.one('#somfDM-npcModalCard'),
+        giftOverlay: dom.one('#somfDM-giftOverlay'),
+        giftDialog: dom.one('#somfDM-giftDialog'),
+        giftTitle: dom.one('#somfDM-giftTitle'),
+        giftMessage: dom.one('#somfDM-giftMessage'),
+        giftForm: dom.one('#somfDM-giftForm'),
+        giftSelect: dom.one('#somfDM-giftSelect'),
+        giftStatus: dom.one('#somfDM-giftRosterStatus'),
+        giftInput: dom.one('#somfDM-giftCustom'),
+        giftError: dom.one('#somfDM-giftError'),
+        giftSubmit: dom.one('#somfDM-giftSubmit'),
+        giftCancel: dom.one('[data-somf-gift-cancel]'),
       };
     }
 
@@ -4110,6 +4124,12 @@
 
     renderInviteRoster(names, { status = 'ready' } = {}) {
       const list = Array.isArray(names) ? names : [];
+      this.inviteRosterStatus = status;
+      const notifyGiftDialog = () => {
+        if (this.giftDialogState?.active) {
+          this.renderGiftRosterOptions({ status });
+        }
+      };
       if (this.dom.inviteOptions) {
         this.dom.inviteOptions.innerHTML = '';
         if (status === 'ready') {
@@ -4139,6 +4159,7 @@
             ? 'Connect to the cloud to load players.'
             : 'Unable to load player list.';
         this.dom.inviteRoster.appendChild(message);
+        notifyGiftDialog();
         return;
       }
       if (!list.length) {
@@ -4148,6 +4169,7 @@
         empty.className = 'somf-dm__inviteEmpty';
         empty.textContent = 'No player saves found in the cloud.';
         this.dom.inviteRoster.appendChild(empty);
+        notifyGiftDialog();
         return;
       }
 
@@ -4190,6 +4212,7 @@
       });
       this.dom.inviteRoster.appendChild(fragment);
       this.updateInviteSelectionUi();
+      notifyGiftDialog();
     }
 
     applyInviteChipState(chip, selected) {
@@ -4320,6 +4343,32 @@
       if (this.dom.spawnNPC && !this.dom.spawnNPC.__somfBound) {
         this.dom.spawnNPC.addEventListener('click', () => this.handleSpawnNpc());
         this.dom.spawnNPC.__somfBound = true;
+      }
+    }
+
+    setupGiftDialog() {
+      const { giftForm, giftCancel, giftInput, giftSelect } = this.dom;
+      if (giftForm && !giftForm.__somfBound) {
+        giftForm.addEventListener('submit', event => {
+          event.preventDefault();
+          this.submitGiftDialog();
+        });
+        giftForm.__somfBound = true;
+      }
+      if (giftCancel && !giftCancel.__somfBound) {
+        giftCancel.addEventListener('click', event => {
+          event.preventDefault();
+          this.cancelGiftDialog();
+        });
+        giftCancel.__somfBound = true;
+      }
+      if (giftInput && !giftInput.__somfBound) {
+        giftInput.addEventListener('input', () => this.clearGiftDialogError());
+        giftInput.__somfBound = true;
+      }
+      if (giftSelect && !giftSelect.__somfBound) {
+        giftSelect.addEventListener('change', () => this.clearGiftDialogError());
+        giftSelect.__somfBound = true;
       }
     }
 
@@ -4511,15 +4560,20 @@
         console.warn('Unable to resolve item metadata for gifting action');
         return;
       }
-      if (typeof window.prompt !== 'function') {
-        console.warn('Gift prompt unavailable in this environment');
-        return;
-      }
       const id = typeof item.id === 'string' && item.id ? item.id : null;
       const label = item.name || Catalog.itemName(id) || id || 'this item';
-      const response = window.prompt(`Gift ${label} to which recipient?`);
-      if (typeof response !== 'string') return;
-      const recipient = response.trim();
+      let recipient = await this.showGiftDialog(item);
+      if (recipient === undefined) {
+        if (typeof window.prompt === 'function') {
+          const response = window.prompt(`Gift ${label} to which recipient?`);
+          if (typeof response === 'string') recipient = response.trim();
+        } else {
+          console.warn('Gift interface unavailable in this environment');
+          return;
+        }
+      }
+      if (typeof recipient !== 'string') return;
+      recipient = recipient.trim();
       if (!recipient) return;
 
       const ts = Date.now();
@@ -4550,6 +4604,278 @@
       } catch (err) {
         console.error('Failed to notify gifted item', err);
       }
+
+      try {
+        this.toast(
+          `<strong>Gifted</strong> ${escapeHtml(label)} to ${escapeHtml(recipient)}`,
+          { type: 'success', duration: 4000 }
+        );
+      } catch (err) {
+        console.error('Failed to show gift confirmation toast', err);
+      }
+    }
+
+    async showGiftDialog(item) {
+      const overlay = this.dom?.giftOverlay;
+      const dialog = this.dom?.giftDialog;
+      const form = this.dom?.giftForm;
+      const submit = this.dom?.giftSubmit;
+      if (!overlay || !dialog || !form) {
+        return undefined;
+      }
+      if (this.giftDialogState?.active) {
+        return undefined;
+      }
+
+      const id = typeof item?.id === 'string' && item.id ? item.id : null;
+      const label = item?.name || Catalog.itemName(id) || id || 'this item';
+
+      if (this.dom.giftTitle) this.dom.giftTitle.textContent = `Gift ${label}`;
+      if (this.dom.giftMessage) {
+        this.dom.giftMessage.textContent = `Choose a recipient from the roster or enter a custom name to receive ${label}.`;
+      }
+      if (submit) {
+        submit.textContent = `Gift ${label}`;
+        submit.setAttribute('aria-label', `Gift ${label}`);
+      }
+      if (this.dom.giftInput) {
+        this.dom.giftInput.value = '';
+        this.dom.giftInput.removeAttribute('aria-invalid');
+      }
+      if (this.dom.giftSelect) {
+        this.dom.giftSelect.value = '';
+        this.dom.giftSelect.removeAttribute('aria-invalid');
+      }
+      this.clearGiftDialogError();
+
+      let rosterStatus = this.runtime.hasRealtime() ? this.inviteRosterStatus : 'offline';
+      if (rosterStatus === 'idle') {
+        rosterStatus = this.inviteRosterIndex?.size ? 'ready' : 'loading';
+      }
+      if (this.inviteRosterPromise) rosterStatus = 'loading';
+      this.renderGiftRosterOptions({ status: rosterStatus });
+      if (this.runtime.hasRealtime() && !this.inviteRosterIndex?.size) {
+        this.prepareGiftRosterForDialog().catch(err => console.error('Failed to prepare gift roster', err));
+      }
+
+      overlay.hidden = false;
+      overlay.classList.remove('hidden');
+      overlay.setAttribute('aria-hidden', 'false');
+      dialog.setAttribute('aria-hidden', 'false');
+
+      const previouslyFocused = typeof document !== 'undefined' ? document.activeElement : null;
+      const selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+      const focusElement = element => {
+        if (!element || typeof element.focus !== 'function') return;
+        try { element.focus({ preventScroll: true }); }
+        catch {
+          try { element.focus(); }
+          catch { /* ignore focus errors */ }
+        }
+      };
+      const isFocusable = element => {
+        if (!element || element.disabled) return false;
+        if (element.hidden) return false;
+        if (element.getAttribute?.('aria-hidden') === 'true') return false;
+        const tabindex = element.getAttribute?.('tabindex');
+        if (tabindex === '-1') return false;
+        if (typeof element.getClientRects === 'function') {
+          const rects = element.getClientRects();
+          if (rects && rects.length === 0) return false;
+        }
+        return true;
+      };
+      const getFocusable = () => Array.from(dialog.querySelectorAll(selectors)).filter(isFocusable);
+      const focusInitial = () => {
+        const focusable = getFocusable();
+        const priority = [
+          this.dom.giftSelect && !this.dom.giftSelect.disabled ? this.dom.giftSelect : null,
+          this.dom.giftInput,
+          submit,
+          focusable[0],
+          dialog,
+        ].find(Boolean);
+        focusElement(priority);
+      };
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(focusInitial);
+      } else {
+        setTimeout(focusInitial, 0);
+      }
+
+      return new Promise(resolve => {
+        let closing = false;
+        const cleanup = value => {
+          if (closing) return;
+          closing = true;
+          overlay.removeEventListener('keydown', handleKeydown);
+          overlay.removeEventListener('click', handleBackdropClick);
+          document.removeEventListener('focusin', handleFocusIn, true);
+          this.giftDialogState = null;
+          dialog.setAttribute('aria-hidden', 'true');
+          overlay.classList.add('hidden');
+          overlay.setAttribute('aria-hidden', 'true');
+          overlay.hidden = true;
+          if (previouslyFocused && typeof previouslyFocused.focus === 'function' && document.contains(previouslyFocused)) {
+            focusElement(previouslyFocused);
+          }
+          resolve(value);
+        };
+        const handleKeydown = event => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            cleanup(null);
+            return;
+          }
+          if (event.key !== 'Tab') return;
+          const focusable = getFocusable();
+          if (!focusable.length) {
+            event.preventDefault();
+            focusElement(dialog);
+            return;
+          }
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey) {
+            if (document.activeElement === first || !dialog.contains(document.activeElement)) {
+              event.preventDefault();
+              focusElement(last);
+            }
+          } else if (document.activeElement === last) {
+            event.preventDefault();
+            focusElement(first);
+          }
+        };
+        const handleBackdropClick = event => {
+          if (event.target === overlay) {
+            event.preventDefault();
+            cleanup(null);
+          }
+        };
+        const handleFocusIn = event => {
+          if (!dialog.contains(event.target)) {
+            event.stopPropagation();
+            focusElement(dialog);
+          }
+        };
+
+        overlay.addEventListener('keydown', handleKeydown);
+        overlay.addEventListener('click', handleBackdropClick);
+        document.addEventListener('focusin', handleFocusIn, true);
+
+        this.giftDialogState = { active: true, cleanup };
+      });
+    }
+
+    async prepareGiftRosterForDialog() {
+      if (!this.giftDialogState?.active) return;
+      if (!this.runtime.hasRealtime()) {
+        this.renderGiftRosterOptions({ status: 'offline' });
+        return;
+      }
+      this.renderGiftRosterOptions({ status: 'loading' });
+      const names = await this.loadInviteRoster();
+      if (!this.giftDialogState?.active) return;
+      if (!this.runtime.hasRealtime()) {
+        this.renderGiftRosterOptions({ status: 'offline' });
+        return;
+      }
+      if (Array.isArray(names) && names.length) {
+        this.renderGiftRosterOptions({ status: 'ready' });
+      } else {
+        const status = this.inviteRosterStatus === 'error' ? 'error' : 'ready';
+        this.renderGiftRosterOptions({ status });
+      }
+    }
+
+    renderGiftRosterOptions({ status } = {}) {
+      const select = this.dom?.giftSelect;
+      const statusEl = this.dom?.giftStatus;
+      if (!select) return;
+
+      const previousValue = select.value;
+      select.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Select a player';
+      select.appendChild(placeholder);
+
+      let message = '';
+      let disableSelect = false;
+      const effectiveStatus = status || this.inviteRosterStatus || 'ready';
+
+      if (effectiveStatus === 'loading') {
+        disableSelect = true;
+        message = 'Loading players…';
+      } else if (effectiveStatus === 'offline') {
+        disableSelect = !this.inviteRosterIndex?.size;
+        message = disableSelect
+          ? 'Connect to the cloud to load players.'
+          : 'Player list unavailable while offline.';
+      } else if (effectiveStatus === 'error') {
+        disableSelect = !this.inviteRosterIndex?.size;
+        message = 'Unable to load player list.';
+      } else {
+        disableSelect = false;
+        if (this.inviteRosterIndex && this.inviteRosterIndex.size) {
+          this.inviteRosterIndex.forEach(name => {
+            const option = document.createElement('option');
+            option.value = name;
+            option.textContent = name;
+            select.appendChild(option);
+          });
+        } else {
+          message = 'No player saves found in the cloud.';
+        }
+      }
+
+      select.disabled = disableSelect;
+      select.setAttribute('aria-disabled', disableSelect ? 'true' : 'false');
+
+      if (!disableSelect && previousValue) {
+        const hasPrevious = Array.from(select.options).some(option => option.value === previousValue);
+        select.value = hasPrevious ? previousValue : '';
+      } else {
+        select.value = '';
+      }
+
+      if (statusEl) statusEl.textContent = message;
+    }
+
+    submitGiftDialog() {
+      if (!this.giftDialogState?.active) return;
+      const recipient = this.getGiftDialogRecipient();
+      if (!recipient) {
+        this.showGiftDialogError('Select a player or enter a custom name.');
+        return;
+      }
+      this.giftDialogState.cleanup(recipient);
+    }
+
+    cancelGiftDialog() {
+      if (!this.giftDialogState?.active) return;
+      this.giftDialogState.cleanup(null);
+    }
+
+    getGiftDialogRecipient() {
+      const select = this.dom?.giftSelect;
+      const input = this.dom?.giftInput;
+      const custom = typeof input?.value === 'string' ? input.value.trim() : '';
+      if (custom) return custom;
+      const roster = typeof select?.value === 'string' ? select.value.trim() : '';
+      return roster;
+    }
+
+    showGiftDialogError(message) {
+      if (this.dom?.giftError) this.dom.giftError.textContent = message;
+      if (this.dom?.giftInput) this.dom.giftInput.setAttribute('aria-invalid', 'true');
+      if (this.dom?.giftSelect) this.dom.giftSelect.setAttribute('aria-invalid', 'true');
+    }
+
+    clearGiftDialogError() {
+      if (this.dom?.giftError) this.dom.giftError.textContent = '';
+      if (this.dom?.giftInput) this.dom.giftInput.removeAttribute('aria-invalid');
+      if (this.dom?.giftSelect) this.dom.giftSelect.removeAttribute('aria-invalid');
     }
 
     handleHiddenSignal(detail) {

@@ -2180,6 +2180,48 @@
     </section>
 
     <section id="somfDM-tab-items" class="somf-dm-tab somf-dm__tab">
+      <div
+        id="somfDM-giftOverlay"
+        class="somf-dm__gift hidden"
+        aria-hidden="true"
+        hidden
+      >
+        <div
+          id="somfDM-giftDialog"
+          class="somf-dm__giftDialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="somfDM-giftTitle"
+          aria-describedby="somfDM-giftMessage"
+          tabindex="-1"
+        >
+          <h4 id="somfDM-giftTitle" class="somf-dm__giftTitle"></h4>
+          <p id="somfDM-giftMessage" class="somf-dm__giftSubtitle"></p>
+          <form id="somfDM-giftForm" class="somf-dm__giftForm" novalidate>
+            <div class="somf-dm__giftGroup">
+              <label for="somfDM-giftSelect">Choose a recipient</label>
+              <select id="somfDM-giftSelect" class="somf-dm__giftSelect" aria-describedby="somfDM-giftRosterStatus somfDM-giftError"></select>
+              <p id="somfDM-giftRosterStatus" class="somf-dm__giftStatus" aria-live="polite"></p>
+            </div>
+            <div class="somf-dm__giftDivider" role="separator" aria-hidden="true"><span>or</span></div>
+            <div class="somf-dm__giftGroup">
+              <label for="somfDM-giftCustom">Enter a custom name</label>
+              <input
+                id="somfDM-giftCustom"
+                class="somf-dm__giftInput"
+                type="text"
+                autocomplete="off"
+                aria-describedby="somfDM-giftError"
+              >
+            </div>
+            <p id="somfDM-giftError" class="somf-dm__giftError" role="alert"></p>
+            <div class="somf-dm__giftActions">
+              <button id="somfDM-giftSubmit" type="submit" class="somf-btn somf-primary">Gift Item</button>
+              <button type="button" class="somf-btn somf-ghost" data-somf-gift-cancel>Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
       <ul id="somfDM-itemList" class="somf-dm__list somf-dm__list--actions"></ul>
     </section>
   </section>
