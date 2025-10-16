@@ -512,6 +512,7 @@
         <div class="status-effects">
           <h3>Status Effects</h3>
           <div id="statuses" class="grid grid-1"></div>
+          <div id="status-modifiers" class="status-modifiers" aria-live="polite"></div>
           <div id="ongoing-effects" class="grid grid-1" aria-live="polite" style="margin-top:12px;gap:8px"></div>
         </div>
       </fieldset>
@@ -1318,6 +1319,52 @@
       </div>
     </div>
     <div id="enc-list" class="catalog" style="margin-top:8px"></div>
+    <template id="encounter-combatant-template">
+      <div class="catalog-item encounter-combatant" data-index>
+        <div class="encounter-combatant__header">
+          <div class="pill" data-field="initiative">0</div>
+          <div class="encounter-combatant__identity">
+            <label>
+              <span class="sr-only">Combatant Name</span>
+              <input type="text" data-field="name" placeholder="Name" />
+            </label>
+            <label>
+              <span class="sr-only">Initiative</span>
+              <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="init" placeholder="Init" />
+            </label>
+          </div>
+          <div class="encounter-combatant__quick-actions" role="group" aria-label="Quick HP adjustments">
+            <button type="button" class="btn-sm" data-action="damage" data-step="-5">-5</button>
+            <button type="button" class="btn-sm" data-action="damage" data-step="-1">-1</button>
+            <button type="button" class="btn-sm" data-action="heal" data-step="1">+1</button>
+            <button type="button" class="btn-sm" data-action="heal" data-step="5">+5</button>
+            <button type="button" class="btn-sm" data-del title="Remove combatant" aria-label="Remove combatant"></button>
+          </div>
+        </div>
+        <div class="encounter-combatant__stat-row">
+          <label class="encounter-combatant__hp" aria-label="Hit Points">
+            <span>HP</span>
+            <span class="encounter-combatant__hp-inputs">
+              <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="hpCurrent" placeholder="Current" />
+              <span aria-hidden="true">/</span>
+              <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="hpMax" placeholder="Max" />
+            </span>
+          </label>
+          <label class="encounter-combatant__tc">
+            <span>TC / AC</span>
+            <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="tc" placeholder="15" />
+          </label>
+        </div>
+        <label class="encounter-combatant__notes">
+          <span>Notes</span>
+          <textarea rows="2" data-field="notes" placeholder="Tactics, resistances, conditions..."></textarea>
+        </label>
+        <details class="encounter-combatant__conditions">
+          <summary>Conditions</summary>
+          <div class="encounter-combatant__conditions-list" data-field="conditions"></div>
+        </details>
+      </div>
+    </template>
     <div class="actions">
       <button id="enc-prev" class="btn-sm">Prev Turn</button>
       <button id="enc-next" class="btn-sm">Next Turn</button>
