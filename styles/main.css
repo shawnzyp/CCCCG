@@ -4834,3 +4834,71 @@ body.player-tools-open .player-tools-tab,
 .card[data-level-choice]{
   box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%, transparent);
 }
+
+.encounter-presets{
+  margin-top:16px;
+  padding-top:8px;
+  border-top:1px solid var(--line);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.encounter-presets__header h4{
+  margin:0;
+  font-size:clamp(.95rem,2.6vw,1.05rem);
+}
+
+.encounter-presets__controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.encounter-presets__controls input{
+  flex:1 1 180px;
+  min-width:140px;
+}
+
+.encounter-presets__list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.encounter-presets__empty{
+  padding:8px;
+  font-size:.85rem;
+  color:var(--muted);
+}
+
+.encounter-preset{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:center;
+}
+
+.encounter-preset__info{
+  flex:1 1 auto;
+  min-width:0;
+}
+
+.encounter-preset__name{
+  font-weight:600;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.encounter-preset__meta{
+  margin-top:2px;
+  font-size:.8rem;
+  color:var(--muted);
+}
+
+.encounter-preset__actions{
+  display:flex;
+  gap:8px;
+}
