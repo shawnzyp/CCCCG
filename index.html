@@ -806,6 +806,48 @@
           </div>
         </div>
       </div>
+      <div class="card card--level-rewards" data-view-lock id="card-level-rewards">
+        <div class="card-toolbar">
+          <h3 class="card-toolbar__title">Level Rewards</h3>
+        </div>
+        <input id="level-progress-state" type="hidden" value="{}"/>
+        <ul id="level-reward-reminders" class="perk-list level-reward-list" data-view-allow></ul>
+        <p id="level-reward-empty" class="level-reward-empty" aria-live="polite">No pending level bonuses.</p>
+      </div>
+      <div class="card card--augments" data-view-lock id="card-augments">
+        <div class="card-toolbar">
+          <h3 class="card-toolbar__title">Augments</h3>
+          <div class="card-toolbar__actions">
+            <span id="augment-slot-summary" class="augment-slot-summary" aria-live="polite">0 / 0 Slots</span>
+          </div>
+        </div>
+        <input id="augment-state" type="hidden" value="{}"/>
+        <div class="augment-selected">
+          <h4 class="card-subtitle">Selected Augments</h4>
+          <ul id="augment-selected-list" class="perk-list augment-selected__list"></ul>
+          <p id="augment-selected-empty" class="augment-empty" aria-live="polite">No augments selected yet.</p>
+        </div>
+        <div class="augment-picker" data-view-allow>
+          <div class="augment-picker__controls">
+            <label for="augment-search" class="sr-only">Search augments</label>
+            <input
+              id="augment-search"
+              type="search"
+              placeholder="Search augments"
+              autocomplete="off"
+            />
+            <div class="augment-filters" role="group" aria-label="Augment categories">
+              <button type="button" class="btn-sm augment-filter" data-augment-tag="Control" data-view-allow>Control</button>
+              <button type="button" class="btn-sm augment-filter" data-augment-tag="Protection" data-view-allow>Protection</button>
+              <button type="button" class="btn-sm augment-filter" data-augment-tag="Aggression" data-view-allow>Aggression</button>
+              <button type="button" class="btn-sm augment-filter" data-augment-tag="Transcendence" data-view-allow>Transcendence</button>
+              <button type="button" class="btn-sm augment-filter" data-augment-tag="Customization" data-view-allow>Customization</button>
+            </div>
+          </div>
+          <ul id="augment-available-list" class="augment-picker__list"></ul>
+          <p id="augment-available-empty" class="augment-empty" aria-live="polite">No augments match the filters.</p>
+        </div>
+      </div>
       <div class="card" data-view-lock>
         <label for="alignment">Alignment</label>
         <select id="alignment">

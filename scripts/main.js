@@ -192,6 +192,405 @@ const EFFECT_ON_SAVE_SUGGESTIONS = {
   Illusion: 'Negate',
 };
 
+const AUGMENT_CATEGORIES = ['Control', 'Protection', 'Aggression', 'Transcendence', 'Customization'];
+const AUGMENT_GROUP_ORDER = new Map(AUGMENT_CATEGORIES.map((category, index) => [category, index]));
+const AUGMENT_SLOT_LEVELS = [3, 6, 9, 12, 15, 19];
+
+const normalizeAugmentTag = tag => {
+  if (typeof tag !== 'string') return '';
+  const trimmed = tag.trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+  return AUGMENT_CATEGORIES.find(category => category.toLowerCase() === lower) || '';
+};
+
+const buildAugmentAvailability = tags => {
+  const availability = {};
+  const normalized = new Set((Array.isArray(tags) ? tags : []).map(normalizeAugmentTag).filter(Boolean));
+  AUGMENT_CATEGORIES.forEach(category => {
+    availability[category] = normalized.has(category);
+  });
+  return { availability, tags: Array.from(normalized) };
+};
+
+const createAugment = config => {
+  const name = typeof config?.name === 'string' ? config.name.trim() : '';
+  const group = typeof config?.group === 'string' ? config.group.trim() : '';
+  const summary = typeof config?.summary === 'string' ? config.summary.trim() : '';
+  const effects = Array.isArray(config?.effects)
+    ? config.effects.map(effect => (typeof effect === 'string' ? effect.trim() : '')).filter(Boolean)
+    : [];
+  const rawTags = Array.isArray(config?.tags) ? config.tags : [];
+  const { availability, tags } = buildAugmentAvailability(rawTags);
+  const id = typeof config?.id === 'string' && config.id.trim()
+    ? config.id.trim()
+    : name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `augment-${Math.random().toString(36).slice(2, 8)}`;
+  const searchParts = [name, group, summary, ...effects];
+  const searchText = searchParts
+    .map(part => (typeof part === 'string' ? part.toLowerCase() : ''))
+    .filter(Boolean)
+    .join(' ');
+  return {
+    id,
+    name,
+    group,
+    summary,
+    effects,
+    availability,
+    tags,
+    searchText,
+  };
+};
+
+const AUGMENTS = [
+  createAugment({
+    id: 'tactical-genius',
+    group: 'Control',
+    name: 'Tactical Genius',
+    summary: 'You read probability like a language.',
+    effects: [
+      'Once per combat, you may reorder the initiative of all allies (declare after rolling).',
+      'All allies gain +1 to attack rolls until the start of your next turn.',
+    ],
+    tags: ['Control'],
+  }),
+  createAugment({
+    id: 'adaptive-armor-protocol',
+    group: 'Control',
+    name: 'Adaptive Armor Protocol',
+    summary: 'Nanoweave plating learns from every hit.',
+    effects: [
+      'At the start of combat, choose one damage type: fire, cold, acid, lightning, psychic, or force.',
+      'You gain resistance to that type until combat ends.',
+    ],
+    tags: ['Control', 'Aggression'],
+  }),
+  createAugment({
+    id: 'resilient-soul',
+    group: 'Control',
+    name: 'Resilient Soul',
+    summary: 'Even on your knees, you fight on.',
+    effects: [
+      'When reduced to 0 HP, remain conscious until the end of your next turn.',
+      'You can still act, but collapse immediately afterward if not healed.',
+    ],
+    tags: ['Control', 'Customization'],
+  }),
+  createAugment({
+    id: 'overwatch-specialist',
+    group: 'Control',
+    name: 'Overwatch Specialist',
+    summary: 'Nothing escapes your aim.',
+    effects: [
+      'Reaction: when an ally within 30 ft. is attacked, make one ranged power attack against the attacker.',
+      'Once per round.',
+    ],
+    tags: ['Control', 'Aggression'],
+  }),
+  createAugment({
+    id: 'protocol-override',
+    group: 'Control',
+    name: 'Protocol Override',
+    summary: 'You command the field itself.',
+    effects: [
+      'Once per session, declare “Override.”',
+      'For one minute, all allies gain advantage on Tech and Investigation checks; all enemies within 30 ft. suffer disadvantage on Stealth checks.',
+    ],
+    tags: ['Control'],
+  }),
+  createAugment({
+    id: 'inspire-resolve',
+    group: 'Protection',
+    name: 'Inspire Resolve',
+    summary: 'Your courage radiates like a beacon.',
+    effects: [
+      'Once per session, all allies within 30 ft. gain +1d4 to all rolls for one round.',
+      'You gain +1 to CHA saves permanently.',
+    ],
+    tags: ['Protection', 'Customization'],
+  }),
+  createAugment({
+    id: 'protectors-vow',
+    group: 'Protection',
+    name: 'Protector’s Vow',
+    summary: 'You always take the hit meant for another.',
+    effects: [
+      'Reaction: when an ally within 15 ft. is hit, halve the damage and take the remainder.',
+      'Once per round.',
+    ],
+    tags: ['Protection'],
+  }),
+  createAugment({
+    id: 'field-medic',
+    group: 'Protection',
+    name: 'Field Medic',
+    summary: 'A calm hand in the chaos.',
+    effects: [
+      'Spend 1 SP as a bonus action to heal an adjacent ally for 1d6 HP.',
+      'Once per ally per combat.',
+    ],
+    tags: ['Protection'],
+  }),
+  createAugment({
+    id: 'public-icon',
+    group: 'Protection',
+    name: 'Public Icon',
+    summary: 'Your name alone changes hearts.',
+    effects: [
+      'Add +2 to Persuasion checks involving civilians or sponsors.',
+      'Once per session, reroll a failed Persuasion roll.',
+    ],
+    tags: ['Protection'],
+  }),
+  createAugment({
+    id: 'defenders-rally',
+    group: 'Protection',
+    name: 'Defender’s Rally',
+    summary: 'When others fall, you rise higher.',
+    effects: [
+      'The first time an ally drops to 0 HP each combat, you regain 1d6 SP and all allies gain +2 TC until end of next round.',
+    ],
+    tags: ['Protection'],
+  }),
+  createAugment({
+    id: 'adrenal-surge',
+    group: 'Aggression',
+    name: 'Adrenal Surge',
+    summary: 'You metabolize adrenaline into firepower.',
+    effects: [
+      'When you drop an enemy to 0 HP, regain 1d6 SP.',
+      'Once per turn.',
+    ],
+    tags: ['Aggression'],
+  }),
+  createAugment({
+    id: 'assassins-veil',
+    group: 'Aggression',
+    name: 'Assassin’s Veil',
+    summary: 'Vanishing is second nature.',
+    effects: [
+      'After disabling an enemy, become invisible until the start of your next turn.',
+    ],
+    tags: ['Aggression'],
+  }),
+  createAugment({
+    id: 'power-syphon',
+    group: 'Aggression',
+    name: 'Power Syphon',
+    summary: 'You feed on the backlash.',
+    effects: [
+      'When hit by an energy-type attack, regain 1 SP.',
+      'If the attack misses, the attacker loses 1 SP instead.',
+    ],
+    tags: ['Aggression', 'Control'],
+  }),
+  createAugment({
+    id: 'suppressive-fire',
+    group: 'Aggression',
+    name: 'Suppressive Fire',
+    summary: 'Fear is a weapon.',
+    effects: [
+      'Ranged powers impose disadvantage on enemy attack rolls until your next turn.',
+    ],
+    tags: ['Aggression'],
+  }),
+  createAugment({
+    id: 'nullpulse-reflex',
+    group: 'Aggression',
+    name: 'Nullpulse Reflex',
+    summary: 'Pain makes you faster.',
+    effects: [
+      'When you fail a saving throw, immediately make a melee attack or cast a 1 SP power as a reaction.',
+    ],
+    tags: ['Aggression', 'Control'],
+  }),
+  createAugment({
+    id: 'chrono-anchor',
+    group: 'Transcendence',
+    name: 'Chrono Anchor',
+    summary: 'You exist slightly out of sync.',
+    effects: [
+      'Once per session, rewind one round of your personal actions.',
+      'Restore SP and HP to the state they were in then.',
+    ],
+    tags: ['Transcendence'],
+  }),
+  createAugment({
+    id: 'reality-fracture',
+    group: 'Transcendence',
+    name: 'Reality Fracture',
+    summary: 'The world hesitates around you.',
+    effects: [
+      'Once per day, impose disadvantage on any one d20 roll after seeing the result.',
+    ],
+    tags: ['Transcendence'],
+  }),
+  createAugment({
+    id: 'catalyst-conduit',
+    group: 'Transcendence',
+    name: 'Catalyst Conduit',
+    summary: 'Your body becomes the prism.',
+    effects: [
+      'Once per session, when reduced below half SP, instantly restore all SP.',
+    ],
+    tags: ['Transcendence'],
+  }),
+  createAugment({
+    id: 'astral-step',
+    group: 'Transcendence',
+    name: 'Astral Step',
+    summary: 'You move between photons.',
+    effects: [
+      'Teleport up to 10 ft. as a bonus action each round if you have line of sight.',
+    ],
+    tags: ['Transcendence'],
+  }),
+  createAugment({
+    id: 'mind-fortress',
+    group: 'Transcendence',
+    name: 'Mind Fortress',
+    summary: 'A perfect mind under cosmic symmetry.',
+    effects: [
+      'Gain advantage on WIS and INT saves vs. psychic or illusion effects.',
+    ],
+    tags: ['Transcendence'],
+  }),
+  createAugment({
+    id: 'battle-hardened',
+    group: 'Customization',
+    name: 'Battle Hardened',
+    summary: '',
+    effects: [
+      'Gain +1 to STR and CON saves.',
+      'Once per day, reduce damage from one physical attack to 0.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'evasive-footwork',
+    group: 'Customization',
+    name: 'Evasive Footwork',
+    summary: '',
+    effects: [
+      'Gain +1 TC while moving 20+ ft. during your turn.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'overcharge-matrix',
+    group: 'Customization',
+    name: 'Overcharge Matrix',
+    summary: '',
+    effects: [
+      'Once per combat, double the damage dice of one power. Costs +1 SP.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'telepathic-coordination',
+    group: 'Customization',
+    name: 'Telepathic Coordination',
+    summary: '',
+    effects: [
+      'Allies within 30 ft. may reroll a single 1 on attack or save once per combat.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'luck-vector',
+    group: 'Customization',
+    name: 'Luck Vector',
+    summary: '',
+    effects: [
+      'Once per session, reroll any die (must keep the new result).',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'quickdraw',
+    group: 'Customization',
+    name: 'Quickdraw',
+    summary: '',
+    effects: [
+      'You automatically act first in the first combat round unless surprised.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'empathic-resonator',
+    group: 'Customization',
+    name: 'Empathic Resonator',
+    summary: '',
+    effects: [
+      'When an ally within 10 ft. takes damage, you may take half and gain +1 SP.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'elemental-amplifier',
+    group: 'Customization',
+    name: 'Elemental Amplifier',
+    summary: '',
+    effects: [
+      'Choose one damage type; once per combat, a power of that type deals +1 damage die.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'legend-in-motion',
+    group: 'Customization',
+    name: 'Legend in Motion',
+    summary: '',
+    effects: [
+      'Once per session, perform a cinematic stunt that would normally be impossible; it automatically succeeds within reason.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+  createAugment({
+    id: 'versatile-mind',
+    group: 'Customization',
+    name: 'Versatile Mind',
+    summary: '',
+    effects: [
+      'Gain proficiency in one new skill and one new language.',
+    ],
+    tags: AUGMENT_CATEGORIES,
+  }),
+];
+
+const AUGMENT_BY_ID = new Map(AUGMENTS.map(augment => [augment.id, augment]));
+
+function sortAugments(list) {
+  return list.slice().sort((a, b) => {
+    const groupA = AUGMENT_GROUP_ORDER.has(a.group) ? AUGMENT_GROUP_ORDER.get(a.group) : AUGMENT_CATEGORIES.length;
+    const groupB = AUGMENT_GROUP_ORDER.has(b.group) ? AUGMENT_GROUP_ORDER.get(b.group) : AUGMENT_CATEGORIES.length;
+    if (groupA !== groupB) return groupA - groupB;
+    return a.name.localeCompare(b.name, 'en-US', { sensitivity: 'base' });
+  });
+}
+
+function filterAugmentsByTags(tags = []) {
+  const normalized = new Set((Array.isArray(tags) ? tags : []).map(normalizeAugmentTag).filter(Boolean));
+  if (!normalized.size) return AUGMENTS.slice();
+  return AUGMENTS.filter(augment => augment.tags.some(tag => normalized.has(tag)));
+}
+
+function searchAugments(term = '', tags = []) {
+  const normalizedTerm = typeof term === 'string' ? term.trim().toLowerCase() : '';
+  const tagFiltered = filterAugmentsByTags(tags);
+  if (!normalizedTerm) return tagFiltered;
+  return tagFiltered.filter(augment => augment.searchText.includes(normalizedTerm));
+}
+
+if (typeof window !== 'undefined') {
+  window.AugmentLibrary = {
+    all: () => AUGMENTS.slice(),
+    categories: () => AUGMENT_CATEGORIES.slice(),
+    filterByTags: filterAugmentsByTags,
+    search: (term, tags) => searchAugments(term, tags),
+  };
+}
+
 const LEGACY_EFFECT_KEYWORDS = [
   { tag: 'Damage', patterns: [/damage/i, /blast/i, /strike/i, /hit/i] },
   { tag: 'Stun', patterns: [/stun/i, /daze/i, /paraly/i] },
@@ -8362,6 +8761,31 @@ const elPowerStylePrimary = $('power-style');
 const elPowerStyleSecondary = $('power-style-2');
 const elSPSettingsToggle = $('sp-settings-toggle');
 const spSettingsOverlay = $('modal-sp-settings');
+const elAugmentSelectedList = $('augment-selected-list');
+const elAugmentSelectedEmpty = $('augment-selected-empty');
+const elAugmentAvailableList = $('augment-available-list');
+const elAugmentAvailableEmpty = $('augment-available-empty');
+const elAugmentSlotSummary = $('augment-slot-summary');
+const elAugmentSearch = $('augment-search');
+const augmentFilterButtons = Array.from(qsa('.augment-filter'));
+const elAugmentStateInput = $('augment-state');
+const elLevelProgressInput = $('level-progress-state');
+const elLevelRewardList = $('level-reward-reminders');
+const elLevelRewardEmpty = $('level-reward-empty');
+const elLevelRewardsCard = $('card-level-rewards');
+
+if (elAugmentSearch) {
+  elAugmentSearch.addEventListener('input', event => {
+    augmentState.search = typeof event?.target?.value === 'string' ? event.target.value : '';
+    persistAugmentState();
+    refreshAugmentUI();
+  });
+}
+
+augmentFilterButtons.forEach(button => {
+  if (!button) return;
+  button.addEventListener('click', () => handleAugmentFilterToggle(button.dataset?.augmentTag));
+});
 
 let casterAbilityManuallySet = false;
 let lastCasterAbilitySuggestions = [];
@@ -8604,6 +9028,121 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
   });
 }
 
+function getDefaultAugmentState() {
+  return {
+    selected: [],
+    filters: new Set(AUGMENT_CATEGORIES),
+    search: '',
+  };
+}
+
+function getDefaultLevelProgressState() {
+  return {
+    highestAppliedLevel: 1,
+    hpBonus: 0,
+    spBonus: 0,
+    augmentSlotsEarned: 0,
+    statIncreases: 0,
+    legendaryGearAccess: false,
+    transcendentTrait: false,
+    completedRewardIds: new Set(),
+  };
+}
+
+let augmentState = getDefaultAugmentState();
+let levelProgressState = getDefaultLevelProgressState();
+
+function getAugmentSlotsEarned() {
+  return Number(levelProgressState?.augmentSlotsEarned) || 0;
+}
+
+function getSerializableAugmentState() {
+  const filters = augmentState?.filters instanceof Set
+    ? Array.from(augmentState.filters)
+    : [];
+  return {
+    selected: Array.isArray(augmentState?.selected) ? augmentState.selected.filter(id => AUGMENT_BY_ID.has(id)) : [],
+    filters: filters.length ? filters : AUGMENT_CATEGORIES.slice(),
+    search: typeof augmentState?.search === 'string' ? augmentState.search : '',
+  };
+}
+
+function getSerializableLevelProgressState() {
+  const completed = levelProgressState?.completedRewardIds instanceof Set
+    ? Array.from(levelProgressState.completedRewardIds)
+    : Array.isArray(levelProgressState?.completedRewardIds)
+      ? levelProgressState.completedRewardIds.filter(Boolean)
+      : [];
+  return {
+    highestAppliedLevel: Number(levelProgressState?.highestAppliedLevel) || 1,
+    hpBonus: Number(levelProgressState?.hpBonus) || 0,
+    spBonus: Number(levelProgressState?.spBonus) || 0,
+    augmentSlotsEarned: Number(levelProgressState?.augmentSlotsEarned) || 0,
+    statIncreases: Number(levelProgressState?.statIncreases) || 0,
+    legendaryGearAccess: levelProgressState?.legendaryGearAccess === true,
+    transcendentTrait: levelProgressState?.transcendentTrait === true,
+    completedRewardIds: completed,
+  };
+}
+
+function persistAugmentState(opts = {}) {
+  if (!elAugmentStateInput) return;
+  const serialized = JSON.stringify(getSerializableAugmentState());
+  if (elAugmentStateInput.value === serialized) return;
+  elAugmentStateInput.value = serialized;
+  if (!opts.silent && typeof elAugmentStateInput.dispatchEvent === 'function') {
+    elAugmentStateInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function persistLevelProgressState(opts = {}) {
+  if (!elLevelProgressInput) return;
+  const serialized = JSON.stringify(getSerializableLevelProgressState());
+  if (elLevelProgressInput.value === serialized) return;
+  elLevelProgressInput.value = serialized;
+  if (!opts.silent && typeof elLevelProgressInput.dispatchEvent === 'function') {
+    elLevelProgressInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function hydrateAugmentState(state, opts = {}) {
+  const next = getDefaultAugmentState();
+  if (state && typeof state === 'object') {
+    if (Array.isArray(state.selected)) {
+      next.selected = state.selected.filter(id => AUGMENT_BY_ID.has(id));
+    }
+    if (Array.isArray(state.filters) && state.filters.length) {
+      const filters = state.filters.map(normalizeAugmentTag).filter(Boolean);
+      if (filters.length) next.filters = new Set(filters);
+    }
+    if (typeof state.search === 'string') {
+      next.search = state.search;
+    }
+  }
+  augmentState = next;
+  persistAugmentState({ silent: opts.silent });
+}
+
+function hydrateLevelProgressState(state, opts = {}) {
+  const next = getDefaultLevelProgressState();
+  if (state && typeof state === 'object') {
+    if (Number.isFinite(Number(state.highestAppliedLevel))) {
+      next.highestAppliedLevel = Math.max(1, Number(state.highestAppliedLevel));
+    }
+    if (Number.isFinite(Number(state.hpBonus))) next.hpBonus = Number(state.hpBonus);
+    if (Number.isFinite(Number(state.spBonus))) next.spBonus = Number(state.spBonus);
+    if (Number.isFinite(Number(state.augmentSlotsEarned))) next.augmentSlotsEarned = Number(state.augmentSlotsEarned);
+    if (Number.isFinite(Number(state.statIncreases))) next.statIncreases = Number(state.statIncreases);
+    next.legendaryGearAccess = state.legendaryGearAccess === true;
+    next.transcendentTrait = state.transcendentTrait === true;
+    if (Array.isArray(state.completedRewardIds) && state.completedRewardIds.length) {
+      next.completedRewardIds = new Set(state.completedRewardIds.filter(Boolean));
+    }
+  }
+  levelProgressState = next;
+  persistLevelProgressState({ silent: opts.silent });
+}
+
 let hpRolls = [];
 if (elHPRoll) {
   const initial = num(elHPRoll.value);
@@ -8825,6 +9364,448 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
   }
 }
 
+function getAugmentById(id) {
+  return AUGMENT_BY_ID.get(id) || null;
+}
+
+function getLevelRewardTasksForLevel(entry) {
+  const levelNumber = Number(entry?.level);
+  if (!Number.isFinite(levelNumber) || levelNumber < 1) return [];
+  const rewards = entry?.rewards || {};
+  const tasks = [];
+  if (rewards.grantsStatIncrease) {
+    tasks.push({
+      id: `level-${levelNumber}-stat`,
+      level: levelNumber,
+      label: `Assign +1 Stat (Level ${levelNumber})`,
+      type: 'stat',
+    });
+  }
+  if (rewards.grantsPowerEvolution) {
+    tasks.push({
+      id: `level-${levelNumber}-power-evolution`,
+      level: levelNumber,
+      label: `Apply Power Evolution (Level ${levelNumber})`,
+      type: 'power-evolution',
+    });
+  }
+  if (rewards.powerEvolutionChoice || rewards.signatureEvolutionChoice) {
+    tasks.push({
+      id: `level-${levelNumber}-evolution-choice`,
+      level: levelNumber,
+      label: `Choose Power or Signature Move Evolution (Level ${levelNumber})`,
+      type: 'evolution-choice',
+    });
+  }
+  if (rewards.grantsSignatureEvolution) {
+    tasks.push({
+      id: `level-${levelNumber}-signature-evolution`,
+      level: levelNumber,
+      label: `Apply Signature Move Evolution (Level ${levelNumber})`,
+      type: 'signature-evolution',
+    });
+  }
+  if (rewards.grantsTranscendentTrait) {
+    tasks.push({
+      id: `level-${levelNumber}-transcendent-trait`,
+      level: levelNumber,
+      label: `Gain Transcendent Trait (Level ${levelNumber})`,
+      type: 'transcendent-trait',
+    });
+  }
+  return tasks;
+}
+
+function getLevelRewardTasksUpTo(levelNumber) {
+  const safeLevel = Math.max(1, Number(levelNumber) || 1);
+  const tasks = [];
+  LEVEL_TABLE.forEach(entry => {
+    const entryLevel = Number(entry?.level);
+    if (!Number.isFinite(entryLevel) || entryLevel < 1 || entryLevel > safeLevel) return;
+    tasks.push(...getLevelRewardTasksForLevel(entry));
+  });
+  return tasks.sort((a, b) => a.level - b.level || a.label.localeCompare(b.label));
+}
+
+function applyLevelProgress(targetLevel, opts = {}) {
+  const previousState = levelProgressState || getDefaultLevelProgressState();
+  const previousSlots = Number(previousState?.augmentSlotsEarned) || 0;
+  const previousHighest = Number(previousState?.highestAppliedLevel) || 1;
+  const completed = previousState?.completedRewardIds instanceof Set
+    ? new Set(previousState.completedRewardIds)
+    : new Set(Array.isArray(previousState?.completedRewardIds) ? previousState.completedRewardIds.filter(Boolean) : []);
+  const normalizedLevel = Math.max(1, Number(targetLevel) || 1);
+  completed.forEach(id => {
+    const match = typeof id === 'string' ? id.match(/level-(\d+)-/i) : null;
+    if (match && Number(match[1]) > normalizedLevel) {
+      completed.delete(id);
+    }
+  });
+  const nextState = getDefaultLevelProgressState();
+  nextState.completedRewardIds = completed;
+  const newLevelEntries = [];
+  LEVEL_TABLE.forEach(entry => {
+    const entryLevel = Number(entry?.level);
+    if (!Number.isFinite(entryLevel) || entryLevel < 1 || entryLevel > normalizedLevel) return;
+    const rewards = entry?.rewards || {};
+    if (Number.isFinite(Number(rewards.hpBonus))) nextState.hpBonus += Number(rewards.hpBonus);
+    if (Number.isFinite(Number(rewards.spBonus))) nextState.spBonus += Number(rewards.spBonus);
+    if (Number.isFinite(Number(rewards.augmentSlots))) nextState.augmentSlotsEarned += Number(rewards.augmentSlots);
+    if (rewards.grantsStatIncrease) nextState.statIncreases += 1;
+    if (rewards.grantsLegendaryGearAccess) nextState.legendaryGearAccess = true;
+    if (rewards.grantsTranscendentTrait) nextState.transcendentTrait = true;
+    if (entryLevel > previousHighest && entryLevel <= normalizedLevel) {
+      newLevelEntries.push(entry);
+    }
+  });
+  const expectedSlots = AUGMENT_SLOT_LEVELS.filter(level => level <= normalizedLevel).length;
+  if (nextState.augmentSlotsEarned < expectedSlots) {
+    nextState.augmentSlotsEarned = expectedSlots;
+  }
+  nextState.highestAppliedLevel = normalizedLevel;
+  levelProgressState = nextState;
+  persistLevelProgressState({ silent: opts.silent === true });
+  const slotsDiff = nextState.augmentSlotsEarned - previousSlots;
+  if (slotsDiff > 0 && !opts.suppressNotifications) {
+    const slotLabel = slotsDiff === 1 ? 'New Augment slot unlocked!' : `${slotsDiff} Augment slots unlocked!`;
+    toast(slotLabel, 'success');
+    window.dmNotify?.(slotLabel);
+    logAction(`Augment slots unlocked: ${previousSlots} -> ${nextState.augmentSlotsEarned}`);
+  }
+  if (slotsDiff < 0 && !opts.suppressNotifications) {
+    const selectedCount = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
+    if (selectedCount > nextState.augmentSlotsEarned) {
+      toast('Selected Augments exceed available slots for this level.', 'warning');
+    }
+  }
+  if (!opts.suppressNotifications && newLevelEntries.length) {
+    const unlocked = newLevelEntries
+      .map(entry => getLevelRewardTasksForLevel(entry))
+      .flat()
+      .filter(task => !completed.has(task.id));
+    if (unlocked.length) {
+      const summary = unlocked.map(task => task.label).join('; ');
+      toast(`Level rewards unlocked: ${summary}`, 'info');
+      window.dmNotify?.(`Level rewards unlocked: ${summary}`);
+      logAction(`Level rewards unlocked: ${summary}`);
+    }
+  }
+}
+
+function augmentMatchesFilters(augment, activeFilters) {
+  if (!(augment?.tags && Array.isArray(augment.tags))) return false;
+  if (!(activeFilters instanceof Set) || !activeFilters.size) return true;
+  return augment.tags.some(tag => activeFilters.has(tag));
+}
+
+function getAugmentSearchResults() {
+  const activeFilters = augmentState?.filters instanceof Set && augmentState.filters.size
+    ? augmentState.filters
+    : new Set(AUGMENT_CATEGORIES);
+  const query = typeof augmentState?.search === 'string' ? augmentState.search.trim().toLowerCase() : '';
+  const exclude = new Set(Array.isArray(augmentState?.selected) ? augmentState.selected : []);
+  const results = AUGMENTS.filter(augment => {
+    if (exclude.has(augment.id)) return false;
+    if (!augmentMatchesFilters(augment, activeFilters)) return false;
+    if (query && !augment.searchText.includes(query)) return false;
+    return true;
+  });
+  return sortAugments(results);
+}
+
+function updateAugmentSlotSummary() {
+  if (!elAugmentSlotSummary || typeof elAugmentSlotSummary.textContent === 'undefined') return;
+  const earned = getAugmentSlotsEarned();
+  const used = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
+  elAugmentSlotSummary.textContent = `${used} / ${earned} Slots`;
+  if (used > earned && earned >= 0) {
+    if (typeof elAugmentSlotSummary.setAttribute === 'function') {
+      elAugmentSlotSummary.setAttribute('data-over-limit', 'true');
+    }
+  } else if (typeof elAugmentSlotSummary.removeAttribute === 'function') {
+    elAugmentSlotSummary.removeAttribute('data-over-limit');
+  }
+}
+
+function renderSelectedAugments() {
+  if (!elAugmentSelectedList) return;
+  qsa('#augment-selected-list li').forEach(li => rollBonusRegistry.release(li));
+  elAugmentSelectedList.innerHTML = '';
+  const selected = Array.isArray(augmentState?.selected) ? augmentState.selected.map(id => getAugmentById(id)).filter(Boolean) : [];
+  if (selected.length !== (augmentState?.selected?.length || 0)) {
+    augmentState.selected = selected.map(augment => augment.id);
+    persistAugmentState();
+  }
+  const ordered = sortAugments(selected);
+  ordered.forEach(augment => {
+    const item = document.createElement('li');
+    item.className = 'augment-card';
+
+    const header = document.createElement('div');
+    header.className = 'augment-card__header';
+
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'augment-card__title';
+    const nameEl = document.createElement('h4');
+    nameEl.className = 'augment-card__name';
+    nameEl.textContent = augment.name;
+    const groupEl = document.createElement('p');
+    groupEl.className = 'augment-card__group';
+    groupEl.textContent = augment.group;
+    titleWrap.appendChild(nameEl);
+    titleWrap.appendChild(groupEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'augment-card__actions';
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-sm';
+    removeBtn.textContent = 'Remove';
+    removeBtn.setAttribute('data-view-allow', '');
+    removeBtn.addEventListener('click', () => handleAugmentRemove(augment.id));
+    actions.appendChild(removeBtn);
+
+    header.appendChild(titleWrap);
+    header.appendChild(actions);
+    item.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'augment-card__body';
+    if (augment.summary) {
+      const summary = document.createElement('p');
+      summary.className = 'augment-card__summary';
+      summary.textContent = augment.summary;
+      body.appendChild(summary);
+    }
+    const effectsList = document.createElement('ul');
+    effectsList.className = 'augment-card__effects';
+    augment.effects.forEach(effect => {
+      const effectItem = document.createElement('li');
+      effectItem.textContent = effect;
+      effectsList.appendChild(effectItem);
+      handlePerkEffects(effectItem, effect);
+    });
+    if (augment.effects.length) body.appendChild(effectsList);
+
+    const tagsWrap = document.createElement('div');
+    tagsWrap.className = 'augment-card__tags';
+    augment.tags.forEach(tag => {
+      const tagChip = document.createElement('span');
+      tagChip.className = 'augment-card__tag';
+      tagChip.textContent = tag;
+      tagsWrap.appendChild(tagChip);
+    });
+    body.appendChild(tagsWrap);
+
+    item.appendChild(body);
+    elAugmentSelectedList.appendChild(item);
+  });
+
+  if (elAugmentSelectedEmpty) {
+    elAugmentSelectedEmpty.hidden = ordered.length > 0;
+  }
+}
+
+function renderAugmentPicker() {
+  if (!elAugmentAvailableList) return;
+  elAugmentAvailableList.innerHTML = '';
+  const results = getAugmentSearchResults();
+  const earned = getAugmentSlotsEarned();
+  const used = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
+  const canSelectMore = earned > used;
+  results.forEach(augment => {
+    const item = document.createElement('li');
+    item.className = 'augment-card';
+
+    const header = document.createElement('div');
+    header.className = 'augment-card__header';
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'augment-card__title';
+    const nameEl = document.createElement('h4');
+    nameEl.className = 'augment-card__name';
+    nameEl.textContent = augment.name;
+    const groupEl = document.createElement('p');
+    groupEl.className = 'augment-card__group';
+    groupEl.textContent = augment.group;
+    titleWrap.appendChild(nameEl);
+    titleWrap.appendChild(groupEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'augment-card__actions';
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn-sm';
+    addBtn.textContent = canSelectMore ? 'Add Augment' : 'No Slots';
+    addBtn.disabled = !canSelectMore;
+    addBtn.setAttribute('data-view-allow', '');
+    addBtn.addEventListener('click', () => handleAugmentAdd(augment.id));
+    actions.appendChild(addBtn);
+
+    header.appendChild(titleWrap);
+    header.appendChild(actions);
+    item.appendChild(header);
+
+    const body = document.createElement('div');
+    body.className = 'augment-card__body';
+    if (augment.summary) {
+      const summary = document.createElement('p');
+      summary.className = 'augment-card__summary';
+      summary.textContent = augment.summary;
+      body.appendChild(summary);
+    }
+    if (augment.effects.length) {
+      const effectsList = document.createElement('ul');
+      effectsList.className = 'augment-card__effects';
+      augment.effects.forEach(effect => {
+        const effectItem = document.createElement('li');
+        effectItem.textContent = effect;
+        effectsList.appendChild(effectItem);
+      });
+      body.appendChild(effectsList);
+    }
+    const tagsWrap = document.createElement('div');
+    tagsWrap.className = 'augment-card__tags';
+    augment.tags.forEach(tag => {
+      const tagChip = document.createElement('span');
+      tagChip.className = 'augment-card__tag';
+      tagChip.textContent = tag;
+      tagsWrap.appendChild(tagChip);
+    });
+    body.appendChild(tagsWrap);
+    item.appendChild(body);
+
+    elAugmentAvailableList.appendChild(item);
+  });
+
+  if (elAugmentAvailableEmpty) {
+    elAugmentAvailableEmpty.hidden = results.length > 0;
+  }
+}
+
+function renderAugmentFilters() {
+  if (!augmentFilterButtons.length) return;
+  const active = augmentState?.filters instanceof Set ? augmentState.filters : new Set();
+  augmentFilterButtons.forEach(button => {
+    const tag = normalizeAugmentTag(button?.dataset?.augmentTag);
+    if (tag && active.has(tag)) {
+      button.setAttribute('data-active', 'true');
+      button.setAttribute('aria-pressed', 'true');
+    } else {
+      button.removeAttribute('data-active');
+      button.setAttribute('aria-pressed', 'false');
+    }
+  });
+}
+
+function refreshAugmentUI() {
+  if (elAugmentSearch && typeof augmentState?.search === 'string') {
+    if (elAugmentSearch.value !== augmentState.search) {
+      elAugmentSearch.value = augmentState.search;
+    }
+  }
+  renderAugmentFilters();
+  renderSelectedAugments();
+  renderAugmentPicker();
+  updateAugmentSlotSummary();
+}
+
+function renderLevelRewardReminders() {
+  if (!elLevelRewardList) return;
+  elLevelRewardList.innerHTML = '';
+  const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
+  const completed = levelProgressState?.completedRewardIds instanceof Set
+    ? levelProgressState.completedRewardIds
+    : new Set(Array.isArray(levelProgressState?.completedRewardIds) ? levelProgressState.completedRewardIds : []);
+  tasks.forEach(task => {
+    const li = document.createElement('li');
+    const label = document.createElement('label');
+    label.className = 'inline';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = completed.has(task.id);
+    checkbox.dataset.rewardId = task.id;
+    checkbox.setAttribute('data-view-allow', '');
+    checkbox.addEventListener('change', () => {
+      if (!(levelProgressState.completedRewardIds instanceof Set)) {
+        levelProgressState.completedRewardIds = new Set(Array.isArray(levelProgressState.completedRewardIds) ? levelProgressState.completedRewardIds : []);
+      }
+      if (checkbox.checked) levelProgressState.completedRewardIds.add(task.id);
+      else levelProgressState.completedRewardIds.delete(task.id);
+      persistLevelProgressState();
+      renderLevelRewardReminders();
+    });
+    const text = document.createElement('span');
+    text.textContent = task.label;
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    li.appendChild(label);
+    elLevelRewardList.appendChild(li);
+  });
+
+  const hasTasks = tasks.length > 0;
+  if (elLevelRewardEmpty) {
+    elLevelRewardEmpty.hidden = hasTasks;
+  }
+  elLevelRewardList.hidden = !hasTasks;
+  if (elLevelRewardsCard && typeof elLevelRewardsCard.setAttribute === 'function') {
+    if (hasTasks && tasks.some(task => !(levelProgressState.completedRewardIds instanceof Set && levelProgressState.completedRewardIds.has(task.id)))) {
+      elLevelRewardsCard.setAttribute('data-pending', 'true');
+    } else if (typeof elLevelRewardsCard.removeAttribute === 'function') {
+      elLevelRewardsCard.removeAttribute('data-pending');
+    }
+  }
+}
+
+function handleAugmentAdd(id) {
+  const augment = getAugmentById(id);
+  if (!augment) return;
+  if (!Array.isArray(augmentState.selected)) augmentState.selected = [];
+  if (augmentState.selected.includes(id)) return;
+  const earned = getAugmentSlotsEarned();
+  if (augmentState.selected.length >= earned) {
+    toast('No Augment slots available.', 'error');
+    return;
+  }
+  augmentState.selected.push(id);
+  persistAugmentState();
+  refreshAugmentUI();
+  scheduleDerivedUpdate();
+  window.dmNotify?.(`Selected Augment: ${augment.name}`);
+  logAction(`Augment selected: ${augment.name}`);
+}
+
+function handleAugmentRemove(id) {
+  if (!Array.isArray(augmentState.selected)) augmentState.selected = [];
+  const idx = augmentState.selected.indexOf(id);
+  if (idx === -1) return;
+  const augment = getAugmentById(id);
+  augmentState.selected.splice(idx, 1);
+  persistAugmentState();
+  refreshAugmentUI();
+  scheduleDerivedUpdate();
+  if (augment) {
+    window.dmNotify?.(`Removed Augment: ${augment.name}`);
+    logAction(`Augment removed: ${augment.name}`);
+  }
+}
+
+function handleAugmentFilterToggle(tag) {
+  const normalized = normalizeAugmentTag(tag);
+  if (!normalized) return;
+  if (!(augmentState.filters instanceof Set)) augmentState.filters = new Set(AUGMENT_CATEGORIES);
+  if (augmentState.filters.has(normalized)) {
+    if (augmentState.filters.size === 1) {
+      augmentState.filters = new Set(AUGMENT_CATEGORIES);
+    } else {
+      augmentState.filters.delete(normalized);
+    }
+  } else {
+    augmentState.filters.add(normalized);
+  }
+  persistAugmentState();
+  refreshAugmentUI();
+}
+
 function updateHPDisplay({ current, max } = {}){
   const currentValue = Number.isFinite(current) ? current : num(elHPBar.value);
   const maxValue = Number.isFinite(max) ? max : num(elHPBar.max);
@@ -8852,7 +9833,8 @@ function updateSPDisplay({ current, max } = {}){
 }
 
 function updateSP(){
-  const spMax = 5 + mod(elCon.value);
+  const levelBonus = Number(levelProgressState?.spBonus) || 0;
+  const spMax = 5 + mod(elCon.value) + levelBonus;
   elSPBar.max = spMax;
   if (elSPBar.value === '' || Number.isNaN(Number(elSPBar.value))) elSPBar.value = spMax;
   updateSPDisplay({ current: num(elSPBar.value), max: spMax });
@@ -8872,7 +9854,8 @@ function updateDeathSaveAvailability(){
 function updateHP(){
   const base = 30;
   const conMod = elCon.value === '' ? 0 : mod(elCon.value);
-  const total = base + conMod + num(elHPRoll.value||0);
+  const levelBonus = Number(levelProgressState?.hpBonus) || 0;
+  const total = base + conMod + num(elHPRoll.value||0) + levelBonus;
   const prevMax = num(elHPBar.max);
   elHPBar.max = Math.max(0, total);
   if (!num(elHPBar.value) || num(elHPBar.value) === prevMax) elHPBar.value = elHPBar.max;
@@ -8906,6 +9889,8 @@ function updateXP(){
   const prevIdx = currentLevelIdx;
   const prevLevel = getLevelEntry(prevIdx);
   const levelEntry = getLevelEntry(idx);
+  const levelNumber = Number.isFinite(Number(levelEntry?.level)) ? Number(levelEntry.level) : 1;
+  applyLevelProgress(levelNumber, { suppressNotifications: !xpInitialized, silent: !xpInitialized });
   if (xpInitialized && idx !== prevIdx) {
     logAction(`Level: ${formatLevelLabel(prevLevel)} -> ${formatLevelLabel(levelEntry)}`);
   }
@@ -8944,6 +9929,8 @@ function updateXP(){
   if (typeof catalogRenderScheduler === 'function') {
     catalogRenderScheduler();
   }
+  renderLevelRewardReminders();
+  refreshAugmentUI();
 }
 
 function formatModifier(value) {
@@ -17005,6 +17992,10 @@ function serialize(){
     turn: safeTurn,
     roster: safeRoster
   };
+  persistAugmentState({ silent: true });
+  persistLevelProgressState({ silent: true });
+  data.augmentState = getSerializableAugmentState();
+  data.levelProgressState = getSerializableLevelProgressState();
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
@@ -17013,6 +18004,10 @@ function serialize(){
 const DEFAULT_STATE = serialize();
 function deserialize(data){
   migratePublicOpinionSnapshot(data);
+  const storedLevelProgress = data && (data.levelProgressState || data.levelProgress);
+  const storedAugments = data && data.augmentState;
+  hydrateLevelProgressState(storedLevelProgress, { silent: true });
+  hydrateAugmentState(storedAugments, { silent: true });
   $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
   activePowerCards.forEach(card => powerCardStates.delete(card));
   activePowerCards.clear();
