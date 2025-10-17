@@ -471,7 +471,6 @@ function initDMLogin(){
   const notifyBtn = document.getElementById('dm-tools-notifications');
   const charBtn = document.getElementById('dm-tools-characters');
   const miniGamesBtn = document.getElementById('dm-tools-mini-games');
-  const catalogBtn = document.getElementById('dm-tools-catalog');
   const logoutBtn = document.getElementById('dm-tools-logout');
   const loginModal = document.getElementById('dm-login-modal');
   const loginPin = document.getElementById('dm-login-pin');
@@ -516,13 +515,13 @@ function initDMLogin(){
   const miniGamesFiltersForm = document.getElementById('dm-mini-games-filters');
   const miniGamesFilterStatus = document.getElementById('dm-mini-games-filter-status');
   const miniGamesFilterAssignee = document.getElementById('dm-mini-games-filter-assignee');
-  const catalogModal = document.getElementById('dm-catalog-modal');
-  const catalogClose = document.getElementById('dm-catalog-close');
+  const rewardsBtn = document.getElementById('dm-tools-rewards');
+  const rewardsModal = document.getElementById('dm-rewards-modal');
+  const rewardsClose = document.getElementById('dm-rewards-close');
+  const rewardsTabs = document.getElementById('dm-rewards-tabs');
+  const rewardsPanels = document.getElementById('dm-rewards-panels');
   const catalogTabs = document.getElementById('dm-catalog-tabs');
   const catalogPanels = document.getElementById('dm-catalog-panels');
-  const creditBtn = document.getElementById('dm-tools-credit');
-  const creditModal = document.getElementById('dm-credit-modal');
-  const creditClose = document.getElementById('dm-credit-close');
   const creditCard = document.getElementById('dm-credit-card');
   const creditAccountSelect = document.getElementById('dm-credit-account');
   const creditTxnType = document.getElementById('dm-credit-type');
@@ -540,6 +539,9 @@ function initDMLogin(){
   const creditHistoryList = document.getElementById('dm-credit-history');
   const creditHistoryExportBtn = document.getElementById('dm-credit-history-export');
   const creditHistoryClearBtn = document.getElementById('dm-credit-history-clear');
+  const rewardsTabButtons = new Map();
+  const rewardsPanelMap = new Map();
+  let activeRewardsTab = 'resource';
 
   dmToggleButtonRef = dmToggleBtn;
   dmToggleBadgeRef = dmToggleBtn ? dmToggleBtn.querySelector('[data-role="dm-unread-badge"]') : null;
@@ -556,6 +558,59 @@ function initDMLogin(){
   }
   notifyModalRef = notifyModal;
   updateUnreadIndicators();
+
+  if (rewardsTabs) {
+    rewardsTabs.querySelectorAll('[data-tab]').forEach(btn => {
+      const tabId = btn?.dataset?.tab;
+      if (!tabId) return;
+      rewardsTabButtons.set(tabId, btn);
+      if (btn.classList.contains('is-active')) {
+        activeRewardsTab = tabId;
+      }
+    });
+  }
+
+  if (rewardsPanels) {
+    rewardsPanels.querySelectorAll('[data-panel]').forEach(panel => {
+      const panelId = panel?.dataset?.panel;
+      if (!panelId) return;
+      rewardsPanelMap.set(panelId, panel);
+      if (panel.classList.contains('is-active')) {
+        activeRewardsTab = panelId;
+      }
+    });
+  }
+
+  if (!rewardsTabButtons.has(activeRewardsTab)) {
+    const firstTab = rewardsTabButtons.keys().next();
+    activeRewardsTab = firstTab?.value || 'resource';
+  }
+
+  updateRewardsTabState();
+
+  function updateRewardsTabState() {
+    rewardsTabButtons.forEach((btn, tabId) => {
+      const active = tabId === activeRewardsTab;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      btn.tabIndex = active ? 0 : -1;
+    });
+    rewardsPanelMap.forEach((panel, panelId) => {
+      const active = panelId === activeRewardsTab;
+      panel.classList.toggle('is-active', active);
+      panel.hidden = !active;
+      panel.setAttribute('aria-hidden', active ? 'false' : 'true');
+    });
+  }
+
+  function getAdjacentRewardsTab(currentId, offset) {
+    const keys = Array.from(rewardsTabButtons.keys());
+    if (!keys.length) return currentId;
+    let index = keys.indexOf(currentId);
+    if (index === -1) index = 0;
+    const nextIndex = (index + offset + keys.length) % keys.length;
+    return keys[nextIndex];
+  }
 
   const CATALOG_RECIPIENT_FIELD_KEY = 'recipient';
   const CATALOG_RECIPIENT_PLACEHOLDER = 'Assign to hero (optional)';
@@ -1277,23 +1332,105 @@ function initDMLogin(){
     }
   }
 
-  async function openCreditTool() {
-    resetCreditForm({ preserveAccount: false });
-    await refreshCreditAccounts({ preserveSelection: false });
-    resetCreditForm({ preserveAccount: true });
-    renderPlayerCreditHistory();
-    if (creditModal) {
-      show('dm-credit-modal');
-    }
-    if (creditAmountInput) {
-      setTimeout(() => {
+    function focusCreditAmountInput() {
+      if (!creditAmountInput) return;
+      try {
+        creditAmountInput.focus({ preventScroll: true });
+      } catch {
         try {
           creditAmountInput.focus();
-          creditAmountInput.select();
         } catch {}
-      }, 0);
+      }
+      try {
+        if (typeof creditAmountInput.select === 'function') {
+          creditAmountInput.select();
+        }
+      } catch {}
     }
-  }
+
+    function focusActiveRewardsContent(tabId = activeRewardsTab) {
+      if (tabId === 'resource') {
+        focusCreditAmountInput();
+      } else if (tabId === 'catalog') {
+        focusCatalogForm();
+      }
+    }
+
+    async function prepareCreditTab({ focusAmount = false, refreshAccounts = true } = {}) {
+      if (refreshAccounts) {
+        resetCreditForm({ preserveAccount: false });
+        await refreshCreditAccounts({ preserveSelection: false });
+      }
+      resetCreditForm({ preserveAccount: true });
+      renderPlayerCreditHistory();
+      if (focusAmount) {
+        setTimeout(() => {
+          focusCreditAmountInput();
+        }, 0);
+      }
+    }
+
+    async function prepareCatalogTab({ focusForm = false, refreshRecipients = true } = {}) {
+      ensureCatalogUI();
+      if (refreshRecipients) {
+        await populateCatalogRecipients();
+      }
+      if (!activeCatalogType || !catalogTypeLookup.has(activeCatalogType)) {
+        activeCatalogType = CATALOG_TYPES[0]?.id || null;
+      }
+      updateCatalogTabState();
+      if (focusForm) {
+        Promise.resolve().then(() => focusCatalogForm());
+      }
+    }
+
+    async function activateRewardsTab(tabId, { force = false } = {}) {
+      if (!rewardsTabButtons.size) return;
+      const defaultTab = rewardsTabButtons.keys().next().value || 'resource';
+      const normalized = rewardsTabButtons.has(tabId) ? tabId : defaultTab;
+      const isSame = normalized === activeRewardsTab;
+      activeRewardsTab = normalized;
+      updateRewardsTabState();
+      if (normalized === 'resource') {
+        if (force || !isSame) {
+          await prepareCreditTab({ focusAmount: false, refreshAccounts: force || !isSame });
+        }
+      } else if (normalized === 'catalog') {
+        if (force || !isSame) {
+          await prepareCatalogTab({ focusForm: false, refreshRecipients: force || !isSame });
+        }
+      }
+    }
+
+    async function openRewards({ tab = 'resource' } = {}) {
+      if (!rewardsModal) return;
+      const defaultTab = rewardsTabButtons.keys().next().value || 'resource';
+      const targetTab = rewardsTabButtons.has(tab) ? tab : defaultTab;
+      await activateRewardsTab(targetTab, { force: true });
+      show('dm-rewards-modal');
+      if (typeof rewardsModal.scrollTo === 'function') {
+        rewardsModal.scrollTo({ top: 0 });
+      } else {
+        rewardsModal.scrollTop = 0;
+      }
+      const activePanel = rewardsPanelMap.get(targetTab);
+      if (activePanel) {
+        const content = activePanel.querySelector('.dm-rewards__panelContent');
+        if (content) {
+          if (typeof content.scrollTo === 'function') {
+            content.scrollTo({ top: 0 });
+          } else {
+            content.scrollTop = 0;
+          }
+        }
+      }
+      Promise.resolve().then(() => focusActiveRewardsContent(targetTab));
+    }
+
+    function closeRewards() {
+      if (!rewardsModal) return;
+      hide('dm-rewards-modal');
+    }
 
   const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));
   let activeCatalogType = CATALOG_TYPES[0]?.id || null;
@@ -1302,18 +1439,18 @@ function initDMLogin(){
   const catalogForms = new Map();
   let catalogInitialized = false;
 
-  if (!isAuthorizedDevice()) {
-    dmBtn?.remove();
-    dmToggleBtn?.remove();
-    menu?.remove();
-    loginModal?.remove();
-    notifyModal?.remove();
-    charModal?.remove();
-    charViewModal?.remove();
-    catalogBtn?.remove();
-    catalogModal?.remove();
-    return;
-  }
+    if (!isAuthorizedDevice()) {
+      dmBtn?.remove();
+      dmToggleBtn?.remove();
+      menu?.remove();
+      loginModal?.remove();
+      notifyModal?.remove();
+      charModal?.remove();
+      charViewModal?.remove();
+      rewardsBtn?.remove();
+      rewardsModal?.remove();
+      return;
+    }
 
   if (typeof window !== 'undefined') {
     window.addEventListener('message', handlePlayerCreditWindowMessage);
@@ -3206,11 +3343,12 @@ function initDMLogin(){
     });
   }
 
-  function focusCatalogForm() {
-    if (!catalogModal || catalogModal.classList.contains('hidden')) return;
-    const form = catalogForms.get(activeCatalogType);
-    if (!form) return;
-    const focusTarget = form.querySelector('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])');
+    function focusCatalogForm() {
+      if (activeRewardsTab !== 'catalog') return;
+      if (!rewardsModal || rewardsModal.classList.contains('hidden')) return;
+      const form = catalogForms.get(activeCatalogType);
+      if (!form) return;
+      const focusTarget = form.querySelector('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])');
     if (!focusTarget || typeof focusTarget.focus !== 'function') return;
     try {
       focusTarget.focus({ preventScroll: true });
@@ -3415,33 +3553,11 @@ function initDMLogin(){
   }
 
   async function openCatalog() {
-    if (!catalogModal) return;
-    ensureCatalogUI();
-    await populateCatalogRecipients();
-    if (!activeCatalogType || !catalogTypeLookup.has(activeCatalogType)) {
-      activeCatalogType = CATALOG_TYPES[0]?.id || null;
-    }
-    updateCatalogTabState();
-    show('dm-catalog-modal');
-    if (typeof catalogModal.scrollTo === 'function') {
-      catalogModal.scrollTo({ top: 0 });
-    } else {
-      catalogModal.scrollTop = 0;
-    }
-    const modalContent = catalogModal.querySelector('.modal');
-    if (modalContent) {
-      if (typeof modalContent.scrollTo === 'function') {
-        modalContent.scrollTo({ top: 0 });
-      } else {
-        modalContent.scrollTop = 0;
-      }
-    }
-    Promise.resolve().then(() => focusCatalogForm());
+    await openRewards({ tab: 'catalog' });
   }
 
   function closeCatalog() {
-    if (!catalogModal) return;
-    hide('dm-catalog-modal');
+    closeRewards();
   }
 
   if (loginPin) {
@@ -3723,7 +3839,7 @@ function initDMLogin(){
     clearLoggedIn();
     teardownMiniGameSubscription();
     closeMiniGames();
-    closeCatalog();
+      closeRewards();
     catalogForms.forEach(form => {
       try {
         form.reset();
@@ -4081,22 +4197,6 @@ function initDMLogin(){
     if (e.key === 'Escape') closeMenu();
   });
 
-  if (creditBtn) {
-    creditBtn.addEventListener('click', async () => {
-      closeMenu();
-      try {
-        await openCreditTool();
-      } catch (err) {
-        console.error('Failed to open credit tool', err);
-        if (typeof toast === 'function') toast('Failed to open credit tool', 'error');
-      }
-    });
-  }
-
-  creditClose?.addEventListener('click', () => {
-    hide('dm-credit-modal');
-  });
-
   creditAccountSelect?.addEventListener('change', () => {
     applyCreditAccountSelection();
     updateCreditSubmitState();
@@ -4166,22 +4266,75 @@ function initDMLogin(){
     if (typeof toast === 'function') toast('Unable to copy entry', 'error');
   });
 
-  renderPlayerCreditHistory();
-  ensurePlayerCreditBroadcastChannel();
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && creditModal && !creditModal.classList.contains('hidden')) {
-      captureCreditTimestamp();
-      randomizeCreditIdentifiers();
+  rewardsTabs?.addEventListener('click', async event => {
+    const button = event.target.closest('[data-tab]');
+    if (!button) return;
+    const tabId = button.dataset.tab;
+    if (!tabId) return;
+    event.preventDefault();
+    try {
+      await activateRewardsTab(tabId);
+      focusActiveRewardsContent(tabId);
+    } catch (err) {
+      console.error('Failed to switch rewards tab', err);
     }
   });
 
-  window.addEventListener('focus', () => {
-    if (creditModal && !creditModal.classList.contains('hidden')) {
-      captureCreditTimestamp();
-      randomizeCreditIdentifiers();
+  rewardsTabs?.addEventListener('keydown', event => {
+    const currentButton = event.target.closest('[data-tab]');
+    if (!currentButton) return;
+    const currentId = currentButton.dataset.tab || activeRewardsTab;
+    let targetId = null;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      targetId = getAdjacentRewardsTab(currentId, -1);
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      targetId = getAdjacentRewardsTab(currentId, 1);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      const first = rewardsTabButtons.keys().next();
+      targetId = first?.value || currentId;
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      const keys = Array.from(rewardsTabButtons.keys());
+      targetId = keys[keys.length - 1] || currentId;
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      targetId = currentId;
     }
+    if (!targetId) return;
+    activateRewardsTab(targetId).then(() => {
+      const targetButton = rewardsTabButtons.get(targetId);
+      if (targetButton) {
+        try {
+          targetButton.focus({ preventScroll: true });
+        } catch {
+          targetButton.focus();
+        }
+      }
+      focusActiveRewardsContent(targetId);
+    }).catch(err => {
+      console.error('Failed to switch rewards tab', err);
+    });
   });
+
+    renderPlayerCreditHistory();
+    ensurePlayerCreditBroadcastChannel();
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && rewardsModal && !rewardsModal.classList.contains('hidden') && activeRewardsTab === 'resource') {
+        captureCreditTimestamp();
+        randomizeCreditIdentifiers();
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      if (rewardsModal && !rewardsModal.classList.contains('hidden') && activeRewardsTab === 'resource') {
+        captureCreditTimestamp();
+        randomizeCreditIdentifiers();
+      }
+    });
 
   if (tsomfBtn) {
     tsomfBtn.addEventListener('click', () => {
@@ -4224,20 +4377,20 @@ function initDMLogin(){
     });
   }
 
-  if (catalogBtn) {
-    catalogBtn.addEventListener('click', async () => {
-      closeMenu();
-      try {
-        await openCatalog();
-      } catch (err) {
-        console.error('Failed to open catalog builder', err);
-        if (typeof toast === 'function') toast('Failed to open catalog', 'error');
-      }
-    });
-  }
+    if (rewardsBtn) {
+      rewardsBtn.addEventListener('click', async () => {
+        closeMenu();
+        try {
+          await openRewards({ tab: 'resource' });
+        } catch (err) {
+          console.error('Failed to open rewards hub', err);
+          if (typeof toast === 'function') toast('Failed to open rewards hub', 'error');
+        }
+      });
+    }
 
-  miniGamesClose?.addEventListener('click', closeMiniGames);
-  catalogClose?.addEventListener('click', closeCatalog);
+    miniGamesClose?.addEventListener('click', closeMiniGames);
+    rewardsClose?.addEventListener('click', closeRewards);
 
   miniGamesList?.addEventListener('click', e => {
     const button = e.target.closest('button[data-game-id]');
@@ -4396,7 +4549,7 @@ function initDMLogin(){
   charClose?.addEventListener('click', closeCharacters);
   charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });
   charViewClose?.addEventListener('click', closeCharacterView);
-  catalogModal?.addEventListener('click', e => { if (e.target === catalogModal) closeCatalog(); });
+  rewardsModal?.addEventListener('click', e => { if (e.target === rewardsModal) closeRewards(); });
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
@@ -4416,6 +4569,8 @@ function initDMLogin(){
   });
 
   window.dmRequireLogin = requireLogin;
+  window.openRewards = openRewards;
+  window.closeRewards = closeRewards;
 }
 if (document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', initDMLogin);
