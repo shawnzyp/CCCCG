@@ -1709,16 +1709,20 @@
   <div class="dm-tools-portal">
     <div id="dm-tools-menu" class="dm-tools-menu" hidden>
       <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
-      <button id="dm-tools-notifications" class="btn-sm">Notifications</button>
+      <button id="dm-tools-notifications" class="btn-sm" data-unread="0">
+        Notifications
+        <span class="dm-tools-badge dm-tools-menu__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
+      </button>
       <button id="dm-tools-credit" class="btn-sm">Credit Deposit</button>
       <button id="dm-tools-characters" class="btn-sm">Characters</button>
       <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
       <button id="dm-tools-catalog" class="btn-sm">Catalog Builder</button>
       <button id="dm-tools-logout" class="btn-sm">Logout</button>
     </div>
-    <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu">
+    <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu" data-unread="0">
       <img class="dm-tools-toggle__icon" src="images/set-up-svgrepo-com.svg" alt="" aria-hidden="true" />
       <span class="sr-only">DM Tools</span>
+      <span class="dm-tools-badge dm-tools-toggle__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
     </button>
   </div>
 </footer>
