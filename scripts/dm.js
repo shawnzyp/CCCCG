@@ -624,6 +624,24 @@ function initDMLogin(){
     { id: 'signature-moves', label: 'Signature Moves', blurb: 'Script cinematic finishers and team-defining maneuvers.' },
   ];
 
+  const CATALOG_WEAPON_ABILITY_OPTIONS = [
+    { value: '', label: 'Auto (based on range)' },
+    { value: 'str', label: 'Strength' },
+    { value: 'dex', label: 'Dexterity' },
+    { value: 'con', label: 'Constitution' },
+    { value: 'int', label: 'Intelligence' },
+    { value: 'wis', label: 'Wisdom' },
+    { value: 'cha', label: 'Charisma' },
+  ];
+
+  const CATALOG_ARMOR_SLOT_OPTIONS = [
+    { value: 'Body', label: 'Body' },
+    { value: 'Head', label: 'Head' },
+    { value: 'Shield', label: 'Shield' },
+    { value: 'Accessory', label: 'Accessory' },
+    { value: 'Other', label: 'Other' },
+  ];
+
   const CATALOG_BASE_SHORT_FIELDS = [
     { key: 'name', label: 'Name', kind: 'input', type: 'text', required: true, placeholder: 'Entry name', autocomplete: 'off' },
     { key: 'tier', label: 'Tier / Level', kind: 'input', type: 'text', placeholder: 'Tier or recommended level' },
@@ -646,14 +664,20 @@ function initDMLogin(){
     weapons: [
       { key: 'damage', label: 'Damage Profile', kind: 'input', type: 'text', placeholder: 'e.g. 2d6 kinetic + 1 burn' },
       { key: 'range', label: 'Range', kind: 'input', type: 'text', placeholder: 'Reach, 20m, etc.' },
+      { key: 'attackAbility', label: 'Attack Ability', kind: 'select', options: CATALOG_WEAPON_ABILITY_OPTIONS, placeholder: 'Select ability (optional)' },
+      { key: 'proficient', label: 'Proficient', kind: 'input', type: 'checkbox', hint: 'Check if the hero is proficient with this weapon.' },
     ],
     armor: [
       { key: 'defense', label: 'Defense Bonus', kind: 'input', type: 'text', placeholder: '+2 Guard, Resist Energy' },
       { key: 'capacity', label: 'Capacity / Slots', kind: 'input', type: 'text', placeholder: 'Light, 2 slots, etc.' },
+      { key: 'slot', label: 'Armor Slot', kind: 'select', options: CATALOG_ARMOR_SLOT_OPTIONS, placeholder: 'Select slot' },
+      { key: 'bonusValue', label: 'Bonus Value', kind: 'input', type: 'number', inputMode: 'numeric', step: 1, placeholder: '0' },
+      { key: 'equipped', label: 'Mark Equipped', kind: 'input', type: 'checkbox', hint: 'Deliver equipped on receipt.' },
     ],
     items: [
       { key: 'uses', label: 'Uses', kind: 'input', type: 'text', placeholder: 'Single-use, 3 charges, etc.' },
       { key: 'size', label: 'Size / Carry', kind: 'input', type: 'text', placeholder: 'Handheld, pack, etc.' },
+      { key: 'quantity', label: 'Quantity', kind: 'input', type: 'number', inputMode: 'numeric', min: 1, step: 1, placeholder: '1' },
       { key: CATALOG_RECIPIENT_FIELD_KEY, label: 'Recipient', kind: 'select', placeholder: CATALOG_RECIPIENT_PLACEHOLDER },
     ],
     powers: [
@@ -691,9 +715,11 @@ function initDMLogin(){
   const creditAmountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const PLAYER_CREDIT_STORAGE_KEY = 'cc_dm_card';
   const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
+  const PLAYER_REWARD_BROADCAST_CHANNEL = 'cc:player-rewards';
   const PLAYER_CREDIT_HISTORY_LIMIT = 10;
   let playerCreditBroadcastChannel = null;
   let playerCreditBroadcastListenerAttached = false;
+  let playerRewardBroadcastChannel = null;
   let playerCreditHistory = [];
 
   function creditPad(n) {
@@ -1054,6 +1080,57 @@ function initDMLogin(){
     }
   }
 
+  function ensurePlayerRewardBroadcastChannel() {
+    if (playerRewardBroadcastChannel || typeof BroadcastChannel !== 'function') {
+      return playerRewardBroadcastChannel;
+    }
+    try {
+      playerRewardBroadcastChannel = new BroadcastChannel(PLAYER_REWARD_BROADCAST_CHANNEL);
+    } catch {
+      playerRewardBroadcastChannel = null;
+    }
+    return playerRewardBroadcastChannel;
+  }
+
+  function sanitizePlayerRewardPayload(payload = {}) {
+    const kind = typeof payload.kind === 'string' ? payload.kind : '';
+    const player = typeof payload.player === 'string' ? payload.player : '';
+    const message = typeof payload.message === 'string' ? payload.message : '';
+    const timestamp = (() => {
+      if (payload.timestamp instanceof Date) return payload.timestamp.toISOString();
+      if (typeof payload.timestamp === 'string' && payload.timestamp) {
+        const parsed = new Date(payload.timestamp);
+        if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+      }
+      return new Date().toISOString();
+    })();
+    const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
+    return { kind, player, message, timestamp, data };
+  }
+
+  function broadcastPlayerReward(payload) {
+    if (typeof window === 'undefined') return;
+    const sanitized = sanitizePlayerRewardPayload(payload);
+    const channel = ensurePlayerRewardBroadcastChannel();
+    if (channel) {
+      try {
+        channel.postMessage({ type: 'CC_REWARD_UPDATE', payload: sanitized });
+      } catch {
+        /* ignore broadcast failures */
+      }
+    }
+    try {
+      const origin = window.location?.origin || '*';
+      window.postMessage({ type: 'CC_REWARD_UPDATE', payload: sanitized }, origin);
+    } catch {
+      try {
+        window.postMessage({ type: 'CC_REWARD_UPDATE', payload: sanitized }, '*');
+      } catch {
+        /* ignore postMessage failures */
+      }
+    }
+  }
+
   function applyCreditAccountSelection() {
     if (!creditCard) return;
     const option = creditAccountSelect?.selectedOptions?.[0] || null;
@@ -1233,7 +1310,375 @@ function initDMLogin(){
     return 0;
   }
 
-  async function handleCreditSubmit(event) {
+  function createRewardLogEntry(prefix, timestamp, title, text) {
+    return {
+      id: `${prefix}-${timestamp}-${Math.floor(Math.random() * 1e6)}`,
+      t: timestamp,
+      name: title,
+      text,
+    };
+  }
+
+  async function executeRewardTransaction({ player, operations = [] } = {}) {
+    const target = typeof player === 'string' ? player.trim() : '';
+    if (!target) throw new Error('Select a player to target');
+    const normalizedOps = Array.isArray(operations)
+      ? operations.filter(op => op && typeof op.type === 'string')
+      : [];
+    if (!normalizedOps.length) throw new Error('No reward operations specified');
+    const save = await loadCharacter(target, { bypassPin: true });
+    const now = Date.now();
+    const timestampIso = new Date(now).toISOString();
+    const logEntries = [];
+    const postSaveActions = [];
+    const notifications = [];
+    const results = {};
+    let applied = false;
+
+    const ensureCampaignLog = () => {
+      if (!Array.isArray(save.campaignLog)) {
+        save.campaignLog = [];
+      }
+    };
+
+    normalizedOps.forEach(op => {
+      switch (op.type) {
+        case 'credits': {
+          const amount = Number(op.amount);
+          if (!Number.isFinite(amount) || amount <= 0) break;
+          const transactionType = op.transactionType === 'Debit' ? 'Debit' : 'Deposit';
+          const delta = transactionType === 'Debit' ? -Math.abs(amount) : Math.abs(amount);
+          const currentCredits = parseStoredCredits(save?.credits);
+          const nextTotal = Math.max(0, Math.round((currentCredits + delta) * 100) / 100);
+          save.credits = Number.isInteger(nextTotal) ? String(nextTotal) : nextTotal.toFixed(2);
+          applied = true;
+          const senderLabel = typeof op.senderLabel === 'string' && op.senderLabel
+            ? op.senderLabel
+            : (typeof op.sender === 'string' && op.sender ? op.sender : 'DM');
+          const memo = sanitizeCreditMemo(op.memo || '');
+          const summaryParts = [`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} ${transactionType === 'Debit' ? 'from' : 'to'} ${target}.`];
+          if (memo) summaryParts.push(`Memo: ${memo.replace(/\s*\n\s*/g, ' ').trim()}`);
+          const summary = summaryParts.join(' ');
+          logEntries.push(createRewardLogEntry('dm-credit', now, 'DM Credit Transfer', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') {
+            toast(summary, transactionType === 'Debit' ? 'info' : 'success');
+          }
+          const accountNumber = typeof op.accountNumber === 'string' && op.accountNumber
+            ? op.accountNumber
+            : computeCreditAccountNumber(target);
+          const refValue = typeof op.ref === 'string' ? op.ref : '';
+          const txidValue = typeof op.txid === 'string' ? op.txid : '';
+          postSaveActions.push(() => broadcastPlayerCreditUpdate({
+            account: accountNumber,
+            amount: delta,
+            type: transactionType,
+            sender: senderLabel,
+            ref: refValue,
+            txid: txidValue,
+            timestamp: timestampIso,
+            player: target,
+            memo,
+          }));
+          results.credits = {
+            total: nextTotal,
+            delta,
+            transactionType,
+            sender: senderLabel,
+            memo,
+            account: accountNumber,
+            ref: refValue,
+            txid: txidValue,
+          };
+          break;
+        }
+        case 'xp': {
+          const amount = Number(op.amount);
+          if (!Number.isFinite(amount) || Math.trunc(amount) === 0) break;
+          const delta = Math.trunc(amount);
+          const currentXp = parseCatalogInteger(save?.xp, 0);
+          let nextXp = currentXp + delta;
+          if (nextXp < 0) nextXp = 0;
+          save.xp = String(nextXp);
+          applied = true;
+          const summary = `${delta >= 0 ? 'Granted' : 'Removed'} ${Math.abs(delta).toLocaleString()} XP (Total: ${nextXp.toLocaleString()})`;
+          logEntries.push(createRewardLogEntry('dm-xp', now, 'DM XP Reward', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') {
+            toast(summary, delta >= 0 ? 'success' : 'info');
+          }
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'xp',
+            message: summary,
+            timestamp: timestampIso,
+            data: { delta, total: nextXp },
+          }));
+          results.xp = { total: nextXp, delta };
+          break;
+        }
+        case 'hp': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const prevCurrentRaw = Number(save?.['hp-bar']);
+          const prevCurrent = Number.isFinite(prevCurrentRaw) ? prevCurrentRaw : 0;
+          const prevTempRaw = Number(save?.['hp-temp']);
+          const prevTemp = Number.isFinite(prevTempRaw) ? prevTempRaw : 0;
+          let nextCurrent = prevCurrent;
+          if (Number.isFinite(data.delta)) nextCurrent = prevCurrent + Number(data.delta);
+          if (Number.isFinite(data.value)) nextCurrent = Number(data.value);
+          nextCurrent = Math.max(0, Math.round(nextCurrent));
+          let nextTemp = prevTemp;
+          if (Number.isFinite(data.tempDelta)) nextTemp = prevTemp + Number(data.tempDelta);
+          if (Number.isFinite(data.tempValue)) nextTemp = Number(data.tempValue);
+          nextTemp = Math.max(0, Math.round(nextTemp));
+          if (nextCurrent === prevCurrent && nextTemp === prevTemp) break;
+          save['hp-bar'] = nextCurrent;
+          save['hp-temp'] = nextTemp;
+          applied = true;
+          const label = typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'HP';
+          const summaryParts = [`${label}: ${nextCurrent}`];
+          if (nextTemp > 0) summaryParts.push(`Temp +${nextTemp}`);
+          const summary = summaryParts.join(' · ');
+          logEntries.push(createRewardLogEntry('dm-hp', now, 'DM HP Update', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') toast(summary, 'success');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'hp',
+            message: summary,
+            timestamp: timestampIso,
+            data: { current: nextCurrent, temp: nextTemp },
+          }));
+          results.hp = { current: nextCurrent, temp: nextTemp };
+          break;
+        }
+        case 'sp': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const prevCurrentRaw = Number(save?.['sp-bar']);
+          const prevCurrent = Number.isFinite(prevCurrentRaw) ? prevCurrentRaw : 0;
+          const prevTempRaw = Number(save?.['sp-temp']);
+          const prevTemp = Number.isFinite(prevTempRaw) ? prevTempRaw : 0;
+          let nextCurrent = prevCurrent;
+          if (Number.isFinite(data.delta)) nextCurrent = prevCurrent + Number(data.delta);
+          if (Number.isFinite(data.value)) nextCurrent = Number(data.value);
+          nextCurrent = Math.max(0, Math.round(nextCurrent));
+          let nextTemp = prevTemp;
+          if (Number.isFinite(data.tempDelta)) nextTemp = prevTemp + Number(data.tempDelta);
+          if (Number.isFinite(data.tempValue)) nextTemp = Number(data.tempValue);
+          nextTemp = Math.max(0, Math.round(nextTemp));
+          if (nextCurrent === prevCurrent && nextTemp === prevTemp) break;
+          save['sp-bar'] = nextCurrent;
+          save['sp-temp'] = nextTemp;
+          applied = true;
+          const label = typeof data.label === 'string' && data.label.trim() ? data.label.trim() : 'SP';
+          const summaryParts = [`${label}: ${nextCurrent}`];
+          if (nextTemp > 0) summaryParts.push(`Temp +${nextTemp}`);
+          const summary = summaryParts.join(' · ');
+          logEntries.push(createRewardLogEntry('dm-sp', now, 'DM SP Update', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') toast(summary, 'success');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'sp',
+            message: summary,
+            timestamp: timestampIso,
+            data: { current: nextCurrent, temp: nextTemp },
+          }));
+          results.sp = { current: nextCurrent, temp: nextTemp };
+          break;
+        }
+        case 'resonance': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const partials = save.partials && typeof save.partials === 'object' ? save.partials : {};
+          const existingRes = partials.resonance && typeof partials.resonance === 'object' ? partials.resonance : {};
+          let points = Number(existingRes.resonancePoints);
+          if (!Number.isFinite(points)) points = 0;
+          if (Number.isFinite(data.pointsDelta)) points += Number(data.pointsDelta);
+          if (Number.isFinite(data.points)) points = Number(data.points);
+          points = Math.max(0, Math.min(4, Math.round(points)));
+          let banked = Number(existingRes.resonanceBanked);
+          if (!Number.isFinite(banked)) banked = 0;
+          if (Number.isFinite(data.bankedDelta)) banked += Number(data.bankedDelta);
+          if (Number.isFinite(data.banked)) banked = Number(data.banked);
+          banked = Math.max(0, Math.round(banked));
+          const surgePrev = existingRes.resonanceSurge && typeof existingRes.resonanceSurge === 'object'
+            ? existingRes.resonanceSurge
+            : {};
+          const surgeData = data.surge && typeof data.surge === 'object' ? data.surge : {};
+          const surge = {
+            active: typeof surgeData.active === 'boolean' ? surgeData.active : !!surgePrev.active,
+            startedAt: surgeData.startedAt !== undefined ? surgeData.startedAt : (surgePrev.startedAt ?? null),
+            mode: typeof surgeData.mode === 'string' ? surgeData.mode : (surgePrev.mode || 'encounter'),
+            endsAt: surgeData.endsAt !== undefined ? surgeData.endsAt : (surgePrev.endsAt ?? null),
+            aftermathPending: typeof surgeData.aftermathPending === 'boolean' ? surgeData.aftermathPending : !!surgePrev.aftermathPending,
+          };
+          const nextPenalty = typeof data.nextCombatRegenPenalty === 'boolean'
+            ? data.nextCombatRegenPenalty
+            : !!existingRes.resonanceNextCombatRegenPenalty;
+          partials.resonance = {
+            resonancePoints: points,
+            resonanceBanked: banked,
+            resonanceSurge: surge,
+            resonanceNextCombatRegenPenalty: nextPenalty,
+          };
+          save.partials = partials;
+          applied = true;
+          const summary = `RP set to ${points} (Banked ${banked})`;
+          logEntries.push(createRewardLogEntry('dm-resonance', now, 'DM Resonance Update', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') toast(summary, 'success');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'resonance',
+            message: summary,
+            timestamp: timestampIso,
+            data: partials.resonance,
+          }));
+          results.resonance = { points, banked, surge, nextCombatRegenPenalty: nextPenalty };
+          break;
+        }
+        case 'item': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const name = typeof data.name === 'string' ? data.name.trim() : '';
+          if (!name) break;
+          const qty = Math.max(1, parseCatalogInteger(data.qty ?? data.quantity, 1));
+          const notes = typeof data.notes === 'string' ? data.notes.trim() : '';
+          if (!Array.isArray(save.items)) save.items = [];
+          save.items.push({ name, qty, notes });
+          applied = true;
+          const summary = `Granted item: ${name}${qty > 1 ? ` ×${qty}` : ''}`;
+          const summaryWithNotes = notes ? `${summary} — ${notes}` : summary;
+          logEntries.push(createRewardLogEntry('dm-item', now, 'DM Item Reward', summaryWithNotes));
+          notifications.push(summaryWithNotes);
+          if (typeof toast === 'function') toast(summary, 'success');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'item',
+            message: summaryWithNotes,
+            timestamp: timestampIso,
+            data: { name, qty, notes },
+          }));
+          results.item = { name, qty, notes };
+          break;
+        }
+        case 'weapon': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const name = typeof data.name === 'string' ? data.name.trim() : '';
+          if (!name) break;
+          const damage = typeof data.damage === 'string' ? data.damage.trim() : '';
+          const range = typeof data.range === 'string' ? data.range.trim() : '';
+          const attackAbility = sanitizeAttackAbility(data.attackAbility);
+          const proficient = getCatalogBoolean(data.proficient);
+          if (!Array.isArray(save.weapons)) save.weapons = [];
+          save.weapons.push({ name, damage, range, attackAbility, proficient });
+          applied = true;
+          const detailParts = [];
+          if (damage) detailParts.push(damage);
+          if (range) detailParts.push(range);
+          const detail = detailParts.length ? ` (${detailParts.join(' · ')})` : '';
+          const summary = `Granted weapon: ${name}${detail}`;
+          logEntries.push(createRewardLogEntry('dm-weapon', now, 'DM Weapon Reward', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') toast(summary, 'success');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'weapon',
+            message: summary,
+            timestamp: timestampIso,
+            data: { name, damage, range, attackAbility, proficient },
+          }));
+          results.weapon = { name, damage, range, attackAbility, proficient };
+          break;
+        }
+        case 'armor': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const name = typeof data.name === 'string' ? data.name.trim() : '';
+          if (!name) break;
+          const slot = typeof data.slot === 'string' && data.slot.trim() ? data.slot.trim() : 'Body';
+          const bonus = parseCatalogInteger(data.bonus ?? data.bonusValue, 0);
+          const equipped = getCatalogBoolean(data.equipped);
+          if (!Array.isArray(save.armor)) save.armor = [];
+          save.armor.push({ name, slot, bonus, equipped });
+          applied = true;
+          const summary = `Granted armor: ${name}${bonus ? ` (Bonus ${bonus})` : ''}`;
+          logEntries.push(createRewardLogEntry('dm-armor', now, 'DM Armor Reward', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') toast(summary, 'success');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'armor',
+            message: summary,
+            timestamp: timestampIso,
+            data: { name, slot, bonus, equipped },
+          }));
+          results.armor = { name, slot, bonus, equipped };
+          break;
+        }
+        case 'medal': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const medalName = typeof data.name === 'string' ? data.name.trim() : '';
+          if (!medalName) throw new Error('Medal name is required');
+          const description = typeof data.description === 'string' ? data.description.trim() : '';
+          const artwork = typeof data.artwork === 'string' && data.artwork.trim() ? data.artwork.trim() : null;
+          if (!Array.isArray(save.medals)) save.medals = [];
+          const medalEntry = {
+            id: data.id || `medal-${now}-${Math.floor(Math.random() * 1e6)}`,
+            name: medalName,
+            description,
+            artwork,
+            awardedAt: timestampIso,
+            awardedBy: typeof data.awardedBy === 'string' && data.awardedBy ? data.awardedBy : 'DM',
+          };
+          save.medals.push(medalEntry);
+          applied = true;
+          const summary = `Awarded medal: ${medalName}${description ? ` — ${description}` : ''}`;
+          logEntries.push(createRewardLogEntry('dm-medal', now, 'DM Medal', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') toast(summary, 'success');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'medal',
+            message: summary,
+            timestamp: timestampIso,
+            data: medalEntry,
+          }));
+          results.medal = medalEntry;
+          break;
+        }
+        default:
+          break;
+      }
+    });
+
+    if (!applied) {
+      throw new Error('No reward changes applied');
+    }
+
+    if (logEntries.length) {
+      ensureCampaignLog();
+      logEntries.forEach(entry => save.campaignLog.push(entry));
+    }
+
+    await saveCloud(target, save);
+
+    postSaveActions.forEach(action => {
+      try {
+        action();
+      } catch (err) {
+        console.error('Reward broadcast failed', err);
+      }
+    });
+
+    notifications.forEach(message => {
+      try {
+        window.dmNotify?.(message, { ts: timestampIso, char: target });
+      } catch {}
+    });
+
+    return { player: target, save, now, timestampIso, notifications, results };
+  }
+
+  async function handleCreditRewardSubmit(event) {
     if (event) event.preventDefault();
     if (!creditSubmit || creditSubmit.disabled) return;
     const player = creditAccountSelect?.value?.trim();
@@ -1247,43 +1692,35 @@ function initDMLogin(){
       return;
     }
     const transactionType = creditTxnType?.value === 'Debit' ? 'Debit' : 'Deposit';
-    const delta = transactionType === 'Debit' ? -rawAmount : rawAmount;
+    const amount = Math.abs(rawAmount);
     const accountNumber = computeCreditAccountNumber(player);
+    const senderLabel = getCreditSenderLabel();
+    const memo = sanitizeCreditMemo(creditMemoInput?.value || '');
+    const refValue = creditCard?.getAttribute('data-ref') || creditRef?.textContent || '';
+    const txidValue = creditCard?.getAttribute('data-txid') || creditTxid?.textContent || '';
     const originalLabel = creditSubmit.textContent;
     creditSubmit.disabled = true;
     creditSubmit.textContent = 'Sending…';
     try {
-      const save = await loadCharacter(player, { bypassPin: true });
-      const currentCredits = parseStoredCredits(save?.credits);
-      const nextTotal = Math.max(0, Math.round((currentCredits + delta) * 100) / 100);
-      save.credits = Number.isInteger(nextTotal) ? String(nextTotal) : nextTotal.toFixed(2);
-      const now = Date.now();
-      const senderLabel = getCreditSenderLabel();
-      const memo = sanitizeCreditMemo(creditMemoInput?.value || '');
-      const summaryParts = [`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} via ${senderLabel}.`];
-      const memoLine = memo ? memo.replace(/\s*\n\s*/g, ' ').trim() : '';
-      if (memoLine) {
-        summaryParts.push(`Memo: ${memoLine}`);
-      }
-      const summary = summaryParts.join(' ');
-      if (!Array.isArray(save.campaignLog)) {
-        save.campaignLog = [];
-      }
-      save.campaignLog.push({
-        id: `dm-credit-${now}-${Math.floor(Math.random() * 1e6)}`,
-        t: now,
-        name: 'DM Credit Transfer',
-        text: summary,
+      const result = await executeRewardTransaction({
+        player,
+        operations: [
+          {
+            type: 'credits',
+            amount,
+            transactionType,
+            memo,
+            senderLabel,
+            accountNumber,
+            ref: refValue,
+            txid: txidValue,
+          },
+        ],
       });
-      await saveCloud(player, save);
-      if (typeof toast === 'function') {
-        toast(`${transactionType === 'Debit' ? 'Debited' : 'Deposited'} ₡${formatCreditAmountDisplay(Math.abs(delta))} ${transactionType === 'Debit' ? 'from' : 'to'} ${player}`, 'success');
-      }
-      window.dmNotify?.(summary, { ts: new Date(now).toISOString(), char: player });
-      const nowDate = new Date(now);
-      const timestampIso = nowDate.toISOString();
-      if (creditFooterDate) creditFooterDate.textContent = creditFormatDate(nowDate);
-      if (creditFooterTime) creditFooterTime.textContent = creditFormatTime(nowDate);
+      const timestampIso = result?.timestampIso || new Date().toISOString();
+      const stampDate = new Date(timestampIso);
+      if (creditFooterDate) creditFooterDate.textContent = creditFormatDate(stampDate);
+      if (creditFooterTime) creditFooterTime.textContent = creditFormatTime(stampDate);
       if (creditCard) {
         creditCard.setAttribute('data-timestamp', timestampIso);
         creditCard.setAttribute('data-submitted', 'true');
@@ -1293,19 +1730,6 @@ function initDMLogin(){
         creditCard.setAttribute('data-memo', memo);
       }
       updateCreditMemoPreview(memo);
-      const refValue = creditCard?.getAttribute('data-ref') || creditRef?.textContent || '';
-      const txidValue = creditCard?.getAttribute('data-txid') || creditTxid?.textContent || '';
-      broadcastPlayerCreditUpdate({
-        account: accountNumber,
-        amount: delta,
-        type: transactionType,
-        sender: senderLabel,
-        ref: refValue,
-        txid: txidValue,
-        timestamp: timestampIso,
-        player,
-        memo,
-      });
       randomizeCreditIdentifiers();
       updateCreditSenderDataset();
       updateCreditTransactionType();
@@ -1321,14 +1745,15 @@ function initDMLogin(){
       creditSubmit.disabled = true;
       updateCreditSubmitState();
     } catch (err) {
-      console.error('Failed to send credits', err);
+      console.error('Failed to deliver rewards', err);
       if (typeof toast === 'function') {
-        toast('Failed to send credits', 'error');
+        toast('Failed to deliver rewards', 'error');
       } else if (typeof alert === 'function') {
-        alert('Failed to send credits');
+        alert('Failed to deliver rewards');
       }
       creditSubmit.textContent = originalLabel || 'Submit';
       creditSubmit.disabled = false;
+      updateCreditSubmitState();
     }
   }
 
@@ -3186,6 +3611,11 @@ function initDMLogin(){
     if (definition.required) control.required = true;
     if (definition.maxlength) control.maxLength = definition.maxlength;
     if (definition.spellcheck === false) control.spellcheck = false;
+    if (definition.min != null) control.min = String(definition.min);
+    if (definition.max != null) control.max = String(definition.max);
+    if (definition.step != null) control.step = String(definition.step);
+    if (definition.defaultValue != null) control.value = definition.defaultValue;
+    if (definition.type === 'checkbox' && definition.defaultChecked) control.checked = true;
     wrapper.appendChild(control);
 
     if (definition.hint) {
@@ -3496,6 +3926,130 @@ function initDMLogin(){
     return payload;
   }
 
+  function parseCatalogInteger(value, fallback = 0) {
+    if (Number.isFinite(value)) return Math.trunc(value);
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return fallback;
+      const match = trimmed.match(/-?\d+/);
+      if (match) {
+        const parsed = Number(match[0]);
+        if (Number.isFinite(parsed)) return Math.trunc(parsed);
+      }
+    }
+    return fallback;
+  }
+
+  function getCatalogBoolean(value) {
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized === 'on' || normalized === 'true' || normalized === 'yes' || normalized === 'y' || normalized === '1';
+    }
+    return Boolean(value);
+  }
+
+  function sanitizeAttackAbility(value) {
+    if (typeof value !== 'string') return '';
+    const normalized = value.trim().toLowerCase();
+    const allowed = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+    return allowed.includes(normalized) ? normalized : '';
+  }
+
+  function compileCatalogNotes(metadata = {}) {
+    const sections = [];
+    const pushSection = (label, value, { prefixLabel = true } = {}) => {
+      if (!value) return;
+      const text = String(value).trim();
+      if (!text) return;
+      sections.push(prefixLabel ? `${label}: ${text}` : text);
+    };
+    pushSection('Overview', metadata.description, { prefixLabel: false });
+    pushSection('Mechanical Effects', metadata.mechanics, { prefixLabel: false });
+    pushSection('Function', metadata.function);
+    pushSection('Availability', metadata.availability);
+    pushSection('Operation', metadata.operation);
+    pushSection('Usage', metadata.usage);
+    pushSection('Special', metadata.special);
+    pushSection('Coverage', metadata.coverage);
+    pushSection('Duration', metadata.duration);
+    pushSection('Tags', metadata.tags);
+    pushSection('Cost', metadata.price);
+    pushSection('Rarity', metadata.rarity);
+    pushSection('Tier', metadata.tier);
+    pushSection('Uses', metadata.uses);
+    return sections.join('\n\n').trim();
+  }
+
+  function convertCatalogPayloadToEquipment(payload) {
+    if (!payload || !payload.metadata) return null;
+    const { type, metadata } = payload;
+    const name = typeof metadata.name === 'string' ? metadata.name.trim() : '';
+    if (!name) return null;
+    if (type === 'items') {
+      const qty = Math.max(1, parseCatalogInteger(metadata.quantity ?? metadata.qty, 1));
+      const notes = compileCatalogNotes(metadata);
+      return {
+        type: 'item',
+        data: {
+          name,
+          qty,
+          notes,
+        },
+        metadata,
+      };
+    }
+    if (type === 'weapons') {
+      return {
+        type: 'weapon',
+        data: {
+          name,
+          damage: typeof metadata.damage === 'string' ? metadata.damage.trim() : '',
+          range: typeof metadata.range === 'string' ? metadata.range.trim() : '',
+          attackAbility: sanitizeAttackAbility(metadata.attackAbility),
+          proficient: getCatalogBoolean(metadata.proficient),
+        },
+        metadata,
+      };
+    }
+    if (type === 'armor') {
+      const bonus = parseCatalogInteger(metadata.bonusValue ?? metadata.defense, 0);
+      const slot = typeof metadata.slot === 'string' && metadata.slot.trim() ? metadata.slot.trim() : 'Body';
+      return {
+        type: 'armor',
+        data: {
+          name,
+          slot,
+          bonus,
+          equipped: getCatalogBoolean(metadata.equipped),
+        },
+        metadata,
+      };
+    }
+    return null;
+  }
+
+  async function deliverCatalogEquipment(payload) {
+    if (!payload || !payload.recipient) return null;
+    const equipment = convertCatalogPayloadToEquipment(payload);
+    if (!equipment) return null;
+    try {
+      return await executeRewardTransaction({
+        player: payload.recipient,
+        operations: [
+          {
+            type: equipment.type,
+            data: equipment.data,
+            metadata: equipment.metadata,
+            source: 'catalog',
+            label: payload.label || payload.type,
+          },
+        ],
+      });
+    } catch (err) {
+      throw err;
+    }
+  }
+
   function emitCatalogPayload(payload) {
     if (!payload) return;
     if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
@@ -3526,7 +4080,7 @@ function initDMLogin(){
     }
   }
 
-  function handleCatalogSubmit(event) {
+  async function handleCatalogSubmit(event) {
     event.preventDefault();
     const form = event.currentTarget;
     if (!form) return;
@@ -3538,6 +4092,16 @@ function initDMLogin(){
     const payload = buildCatalogPayload(typeId, form);
     if (!payload) return;
     emitCatalogPayload(payload);
+    if (payload.recipient && (payload.type === 'items' || payload.type === 'weapons' || payload.type === 'armor')) {
+      try {
+        await deliverCatalogEquipment(payload);
+      } catch (err) {
+        console.error('Failed to deliver catalog equipment', err);
+        if (typeof toast === 'function') {
+          toast('Failed to deliver catalog reward', 'error');
+        }
+      }
+    }
     form.reset();
     Promise.resolve().then(() => focusCatalogForm());
   }
@@ -4217,7 +4781,7 @@ function initDMLogin(){
   creditAmountInput?.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleCreditSubmit(e);
+      handleCreditRewardSubmit(e);
     }
   });
 
@@ -4236,7 +4800,7 @@ function initDMLogin(){
     updateCreditMemoPreview(creditMemoInput.value);
   });
 
-  creditSubmit?.addEventListener('click', handleCreditSubmit);
+  creditSubmit?.addEventListener('click', handleCreditRewardSubmit);
 
   creditHistoryClearBtn?.addEventListener('click', () => {
     clearPlayerCreditHistory();
