@@ -1713,10 +1713,9 @@
         Notifications
         <span class="dm-tools-badge dm-tools-menu__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
       </button>
-      <button id="dm-tools-credit" class="btn-sm">Credit Deposit</button>
+      <button id="dm-tools-rewards" class="btn-sm">Rewards &amp; Catalog</button>
       <button id="dm-tools-characters" class="btn-sm">Characters</button>
       <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
-      <button id="dm-tools-catalog" class="btn-sm">Catalog Builder</button>
       <button id="dm-tools-logout" class="btn-sm">Logout</button>
     </div>
     <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu" data-unread="0">
@@ -1753,404 +1752,187 @@
     <ol id="dm-notifications-list"></ol>
   </section>
 </div>
-<div class="overlay hidden" id="dm-credit-modal" aria-hidden="true">
-  <section class="modal dm-credit-modal" role="dialog" aria-modal="true" aria-labelledby="dm-credit-title">
-    <button id="dm-credit-close" class="x" type="button" aria-label="Close">
+<div class="overlay hidden" id="dm-rewards-modal" aria-hidden="true">
+  <section class="modal dm-rewards" role="dialog" aria-modal="true" aria-labelledby="dm-rewards-title" data-view-allow>
+    <button id="dm-rewards-close" class="x" type="button" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <div
-      id="dm-credit-card"
-      class="dm-credit-card"
-      role="region"
-      aria-label="DM credit transfer card"
-      data-timestamp=""
-      data-amount="0.00"
-      data-ref=""
-      data-txid=""
-      data-player=""
-      data-account=""
-      data-transaction-type="Deposit"
-      data-sender="OMNI"
-    >
-      <header class="dm-credit__header">
-        <div class="dm-credit__headerMain">
-          <div class="dm-credit__logo" aria-hidden="true">
-            <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bank icon">
-              <defs>
-                <linearGradient id="dmCreditBankGrad" x1="0" x2="1" y1="0" y2="1">
-                  <stop offset="0%" stop-color="currentColor" />
-                  <stop offset="100%" stop-color="var(--accent)" />
-                </linearGradient>
-              </defs>
-              <path d="M8 24 L32 8 L56 24 Z" fill="url(#dmCreditBankGrad)" />
-              <rect x="10" y="26" width="44" height="26" rx="3" fill="rgba(255,255,255,0.08)" />
-              <g stroke="url(#dmCreditBankGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
-                <rect x="16" y="30" width="6" height="18" rx="1" />
-                <rect x="29" y="30" width="6" height="18" rx="1" />
-                <rect x="42" y="30" width="6" height="18" rx="1" />
-              </g>
-              <rect x="12" y="48" width="40" height="4" rx="1" fill="url(#dmCreditBankGrad)" opacity="0.3" />
-            </svg>
-          </div>
-          <div class="dm-credit__titles">
-            <div class="dm-credit__bank" id="dm-credit-title">Manhattan Trust & Exchange</div>
-            <div class="dm-credit__subtitle">DM Credit Transfer</div>
-          </div>
-        </div>
-        <div class="dm-credit__reference">
-          <span class="dm-credit__label">Reference #:</span>
-          <span id="dm-credit-ref" class="dm-credit__chip" aria-live="polite">TXN-OMNI-000000</span>
-        </div>
-      </header>
-
-      <div class="dm-credit__grid">
-        <div class="dm-credit__field">
-          <label class="dm-credit__label" for="dm-credit-account">Account</label>
-          <div class="dm-credit__value dm-credit__select">
-            <select id="dm-credit-account" aria-label="Account select">
-              <option value="">Loading players…</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="dm-credit__field">
-          <label class="dm-credit__label" for="dm-credit-type">Transaction type</label>
-          <div class="dm-credit__value dm-credit__select">
-            <select id="dm-credit-type" aria-label="Transaction type">
-              <option value="Deposit">Deposit</option>
-              <option value="Debit">Debit</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="dm-credit__field">
-          <label class="dm-credit__label" for="dm-credit-amount">Amount</label>
-          <div class="dm-credit__value dm-credit__amount">
-            <span aria-hidden="true">₡</span>
-            <input id="dm-credit-amount" type="text" inputmode="decimal" pattern="[0-9,.]*" placeholder="0.00" autocomplete="off" />
-          </div>
-        </div>
-
-        <div class="dm-credit__field">
-          <label class="dm-credit__label" for="dm-credit-sender">Sender</label>
-          <div class="dm-credit__value dm-credit__select">
-            <select id="dm-credit-sender" aria-label="Sender select">
-              <option value="OMNI">O.M.N.I Payroll Department.</option>
-              <option value="PFV">P.F.V Accounts Paid.</option>
-              <option value="GREY">GREYLINE P.M.C Payroll.</option>
-              <option value="ANON">Anonymous.</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="dm-credit__field dm-credit__field--memo">
-          <label class="dm-credit__label" for="dm-credit-memo">Memo <span class="dm-credit__optional">(optional)</span></label>
-          <div class="dm-credit__value dm-credit__memo">
-            <textarea id="dm-credit-memo" rows="2" placeholder="Add a short note for the player"></textarea>
-          </div>
-        </div>
-
-        <div class="dm-credit__field">
-          <span class="dm-credit__label">Transaction status</span>
-          <span id="dm-credit-status" class="dm-credit__status">Completed</span>
-        </div>
-      </div>
-
-      <footer class="dm-credit__footer">
-        <div class="dm-credit__timestamp">
-          <span id="dm-credit-footerDate">—</span>
-          <span aria-hidden="true">•</span>
-          <span id="dm-credit-footerTime">—</span>
-        </div>
-        <button id="dm-credit-submit" class="dm-credit__submit" type="button" disabled>Submit</button>
-        <div class="dm-credit__id">ID: <span id="dm-credit-txid">OMNI-000000</span></div>
-      </footer>
-      <div id="dm-credit-memo-preview" class="dm-credit__memo-preview" hidden>
-        <div class="dm-credit__label">Memo</div>
-        <p id="dm-credit-memo-previewText" class="dm-credit__memo-text">—</p>
-      </div>
-      <section class="dm-credit__history" aria-labelledby="dm-credit-history-heading">
-        <div class="dm-credit__historyHeader">
-          <h4 id="dm-credit-history-heading">Recent History</h4>
-          <div class="dm-credit__historyActions" role="group" aria-label="Credit history actions">
-            <button id="dm-credit-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
-            <button id="dm-credit-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
-          </div>
-        </div>
-        <ol id="dm-credit-history" class="dm-credit__historyList"></ol>
-      </section>
-    </div>
-  </section>
-</div>
-<div class="overlay hidden" id="player-credit-modal" aria-hidden="true">
-  <section class="modal player-credit-modal" role="dialog" aria-modal="true" aria-labelledby="player-credit-title">
-    <button id="player-credit-close" class="x" type="button" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <div
-      id="player-credit-card"
-      class="player-credit-card"
-      role="region"
-      aria-label="Player bank transaction card"
-      data-account=""
-      data-amount=""
-      data-type=""
-      data-sender=""
-      data-ref=""
-      data-txid=""
-      data-timestamp=""
-      data-player=""
-    >
-      <header class="player-credit__header">
-        <div class="player-credit__left">
-          <div class="player-credit__logo" aria-hidden="true" title="Manhattan Trust &amp; Exchange">
-            <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bank icon">
-              <defs>
-                <linearGradient id="playerCreditBankGrad" x1="0" x2="1" y1="0" y2="1">
-                  <stop offset="0%" stop-color="var(--accent)" />
-                  <stop offset="100%" stop-color="#6fe7ff" />
-                </linearGradient>
-              </defs>
-              <path d="M8 24 L32 8 L56 24 Z" fill="url(#playerCreditBankGrad)" opacity="1" />
-              <rect x="10" y="26" width="44" height="26" rx="3" fill="rgba(255,255,255,0.03)" />
-              <g stroke="url(#playerCreditBankGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
-                <rect x="16" y="30" width="6" height="18" rx="1" />
-                <rect x="29" y="30" width="6" height="18" rx="1" />
-                <rect x="42" y="30" width="6" height="18" rx="1" />
-              </g>
-              <rect x="12" y="48" width="40" height="4" rx="1" fill="url(#playerCreditBankGrad)" opacity="0.3" />
-            </svg>
-          </div>
-          <div class="player-credit__titles">
-            <div class="player-credit__bank" id="player-credit-title">Manhattan Trust &amp; Exchange</div>
-            <div class="player-credit__subtitle">Bank Transaction</div>
-          </div>
-        </div>
-
-        <div class="player-credit__reference">
-          <span class="player-credit__label">Reference #:</span>
-          <span class="player-credit__chip" id="player-credit-ref" aria-live="polite">—</span>
-        </div>
-      </header>
-
-      <div class="player-credit__grid" id="player-credit-grid">
-        <div class="player-credit__field">
-          <div class="player-credit__label">Account</div>
-          <div class="player-credit__value" id="player-credit-account">—</div>
-        </div>
-
-        <div class="player-credit__field">
-          <div class="player-credit__label">Amount</div>
-          <div class="player-credit__value player-credit__amount" id="player-credit-amount">₡0.00</div>
-        </div>
-
-        <div class="player-credit__field">
-          <div class="player-credit__label">Transaction type</div>
-          <div class="player-credit__value" id="player-credit-type">—</div>
-        </div>
-
-        <div class="player-credit__field">
-          <div class="player-credit__label">Sender</div>
-          <div class="player-credit__value" id="player-credit-sender">—</div>
-        </div>
-
-        <div class="player-credit__field player-credit__field--memo" id="player-credit-memo-field" hidden>
-          <div class="player-credit__label">Memo</div>
-          <div class="player-credit__value" id="player-credit-memo">—</div>
-        </div>
-
-        <footer class="player-credit__footer">
-          <div class="player-credit__timestamp" id="player-credit-timestamp">
-            <span id="player-credit-date">—</span>
-            <span aria-hidden="true">•</span>
-            <span id="player-credit-time">—</span>
-          </div>
-          <div class="player-credit__id">ID: <span id="player-credit-txid">—</span></div>
-        </footer>
-      </div>
-      <section class="player-credit__history" aria-live="polite" hidden>
-        <h3 class="player-credit__history-title">Recent activity</h3>
-        <ol id="player-credit-history" class="player-credit__history-list" hidden></ol>
-      </section>
-    </div>
-  </section>
-</div>
-<div class="overlay hidden" id="dm-characters-modal" aria-hidden="true">
-  <section class="modal dm-characters">
-    <button id="dm-characters-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>All Characters</h3>
-    <ul id="dm-characters-list" class="dm-characters-list"></ul>
-  </section>
-</div>
-<div class="overlay hidden" id="dm-character-modal" aria-hidden="true">
-  <section class="modal dm-character">
-    <button id="dm-character-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <div id="dm-character-sheet" class="dm-character-sheet" title="Character Sheet"></div>
-  </section>
-</div>
-<div class="overlay hidden" id="dm-mini-games-modal" aria-hidden="true">
-  <section class="modal dm-mini-games" data-view-allow>
-    <button id="dm-mini-games-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Deploy Mini-Games</h3>
-    <p id="dm-mini-games-steps" class="dm-mini-games__intro">Step 1: Choose a mini-game from the library to get started.</p>
-    <div class="dm-mini-games__layout">
-      <aside class="dm-mini-games__sidebar">
-        <h4 class="dm-mini-games__section-title">Mini-Game Library</h4>
-        <ul id="dm-mini-games-list" class="dm-mini-games__list" role="listbox" aria-label="Mini-game library"></ul>
-      </aside>
-      <div class="dm-mini-games__content">
-        <header class="dm-mini-games__header">
-          <div class="dm-mini-games__heading">
-            <h4 id="dm-mini-games-title" class="dm-mini-games__title">Select a mini-game</h4>
-            <p id="dm-mini-games-tagline" class="dm-mini-games__tagline"></p>
-          </div>
-          <a id="dm-mini-games-launch" class="dm-mini-games__launch" href="#" target="_blank" rel="noopener" hidden>Open Player View</a>
-        </header>
-        <section class="dm-mini-games__section">
-          <h5 class="dm-mini-games__section-heading">Step 2 · Tune the Mission (DM only)</h5>
-          <p id="dm-mini-games-knobs-hint" class="dm-mini-games__hint">Choose a mini-game to unlock DM-only tuning controls. Safe ranges and defaults are highlighted for every knob.</p>
-          <div id="dm-mini-games-knobs" class="dm-mini-games__knobs"></div>
-        </section>
-        <section class="dm-mini-games__section">
-          <h5 class="dm-mini-games__section-heading">Step 3 · Send to a Player</h5>
-          <p id="dm-mini-games-player-hint" class="dm-mini-games__hint">Queue missions for one or more heroes, optionally schedule the launch, and add any quick instructions.</p>
-          <div class="dm-mini-games__deploy-form">
-            <div class="dm-mini-games__field dm-mini-games__field--recipients">
-              <span>Add recipients</span>
-              <div class="dm-mini-games__recipient-controls">
-                <div class="dm-mini-games__recipient-row">
-                  <label class="sr-only" for="dm-mini-games-player-select">Select character</label>
-                  <select id="dm-mini-games-player-select">
-                    <option value="">Loading…</option>
-                  </select>
-                  <button id="dm-mini-games-add-recipient" type="button" class="btn-sm">Add</button>
-                </div>
-                <div class="dm-mini-games__recipient-row">
-                  <label class="sr-only" for="dm-mini-games-player-custom">Add custom recipient</label>
-                  <input id="dm-mini-games-player-custom" type="text" placeholder="Custom target name"/>
-                  <button id="dm-mini-games-add-custom" type="button" class="btn-sm">Add</button>
-                </div>
-              </div>
-              <div id="dm-mini-games-recipients" class="dm-mini-games__recipients" aria-live="polite"></div>
-              <div class="dm-mini-games__recipient-actions">
-                <button id="dm-mini-games-clear-recipients" type="button" class="btn-sm dm-mini-games__recipients-clear">Clear list</button>
-              </div>
-            </div>
-            <label class="dm-mini-games__field">
-              <span>Schedule launch (optional)</span>
-              <input id="dm-mini-games-scheduled-for" type="datetime-local" />
-            </label>
-            <label class="dm-mini-games__field">
-              <span>Expire mission after</span>
-              <select id="dm-mini-games-expiry">
-                <option value="">No expiry</option>
-                <option value="30">30 minutes</option>
-                <option value="60">1 hour</option>
-                <option value="120">2 hours</option>
-                <option value="240">4 hours</option>
-                <option value="480">8 hours</option>
-                <option value="1440">24 hours</option>
-              </select>
-            </label>
-            <label class="dm-mini-games__field">
-              <span>DM notes (optional)</span>
-              <textarea id="dm-mini-games-notes" rows="2" placeholder="Add private context for the player"></textarea>
-            </label>
-            <div class="dm-mini-games__actions">
-              <button id="dm-mini-games-refresh-players" type="button" class="btn-sm">Refresh Characters</button>
-              <button id="dm-mini-games-deploy" type="button" class="somf-btn somf-primary">Deploy Mini-Game</button>
-            </div>
-            <div id="dm-mini-games-deploy-progress" class="dm-mini-games__deploy-progress" aria-live="polite"></div>
-          </div>
-        </section>
-        <section class="dm-mini-games__section dm-mini-games__section--scroll">
-          <h5 class="dm-mini-games__section-heading">Mission Briefing (Player View)</h5>
-          <pre id="dm-mini-games-readme" class="dm-mini-games__readme" tabindex="0">Select a mini-game to view its briefing.</pre>
-        </section>
-        <section class="dm-mini-games__section dm-mini-games__section--scroll">
-          <div class="dm-mini-games__section-header">
-            <h5 class="dm-mini-games__section-heading">Active Deployments</h5>
-            <div class="dm-mini-games__section-actions">
-              <button id="dm-mini-games-refresh" type="button" class="btn-sm">Refresh</button>
-            </div>
-          </div>
-          <form class="dm-mini-games__filters" id="dm-mini-games-filters" role="group" aria-label="Filter deployments">
-            <label class="dm-mini-games__filter">
-              <span>Status</span>
-              <select id="dm-mini-games-filter-status">
-                <option value="all">All statuses</option>
-              </select>
-            </label>
-            <label class="dm-mini-games__filter">
-              <span>Assignee</span>
-              <select id="dm-mini-games-filter-assignee">
-                <option value="all">All recipients</option>
-              </select>
-            </label>
-          </form>
-          <ul id="dm-mini-games-deployments" class="dm-mini-games__deployments"></ul>
-        </section>
-      </div>
-    </div>
-  </section>
-</div>
-
-<div class="overlay hidden" id="dm-catalog-modal" aria-hidden="true">
-  <section class="modal dm-catalog" data-view-allow>
-    <button id="dm-catalog-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Catalog Builder</h3>
-    <p class="dm-catalog__intro">Plan and launch custom gear, abilities, and signature moves for your table.</p>
-    <nav id="dm-catalog-tabs" class="dm-catalog__tabs" role="tablist" aria-label="Catalog entry types">
-      <button id="dm-catalog-tab-gear" class="dm-catalog__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-catalog-panel-gear" data-tab="gear" tabindex="0">Gear</button>
-      <button id="dm-catalog-tab-weapons" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-weapons" data-tab="weapons" tabindex="-1">Weapons</button>
-      <button id="dm-catalog-tab-armor" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-armor" data-tab="armor" tabindex="-1">Armor</button>
-      <button id="dm-catalog-tab-items" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-items" data-tab="items" tabindex="-1">Items</button>
-      <button id="dm-catalog-tab-powers" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-powers" data-tab="powers" tabindex="-1">Powers</button>
-      <button id="dm-catalog-tab-signature-moves" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-signature-moves" data-tab="signature-moves" tabindex="-1">Signature Moves</button>
+    <header class="dm-rewards__header">
+      <h3 id="dm-rewards-title">Rewards Hub</h3>
+      <p class="dm-rewards__intro">Deliver resource drops or stage catalog-driven gear for your table.</p>
+    </header>
+    <nav id="dm-rewards-tabs" class="dm-rewards__tabs" role="tablist" aria-label="Reward tools">
+      <button id="dm-rewards-tab-resource" class="dm-rewards__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-rewards-panel-resource" data-tab="resource" tabindex="0">Resource Rewards</button>
+      <button id="dm-rewards-tab-catalog" class="dm-rewards__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-rewards-panel-catalog" data-tab="catalog" tabindex="-1">Catalog Builder</button>
     </nav>
-    <div id="dm-catalog-panels" class="dm-catalog__panels">
-      <section id="dm-catalog-panel-gear" class="dm-catalog__panel is-active" role="tabpanel" aria-labelledby="dm-catalog-tab-gear" data-panel="gear">
-        <form class="dm-catalog__form" data-catalog-form="gear" novalidate></form>
+    <div id="dm-rewards-panels" class="dm-rewards__panels">
+      <section id="dm-rewards-panel-resource" class="dm-rewards__panel is-active" role="tabpanel" aria-labelledby="dm-rewards-tab-resource" data-panel="resource">
+        <div class="dm-rewards__panelContent">
+          <div
+            id="dm-credit-card"
+            class="dm-credit-card"
+            role="region"
+            aria-label="DM credit transfer card"
+            data-timestamp=""
+            data-amount="0.00"
+            data-ref=""
+            data-txid=""
+            data-player=""
+            data-account=""
+            data-transaction-type="Deposit"
+            data-sender="OMNI"
+          >
+            <header class="dm-credit__header">
+              <div class="dm-credit__headerMain">
+                <div class="dm-credit__logo" aria-hidden="true">
+                  <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bank icon">
+                    <defs>
+                      <linearGradient id="dmCreditBankGrad" x1="0" x2="1" y1="0" y2="1">
+                        <stop offset="0%" stop-color="currentColor" />
+                        <stop offset="100%" stop-color="var(--accent)" />
+                      </linearGradient>
+                    </defs>
+                    <path d="M8 24 L32 8 L56 24 Z" fill="url(#dmCreditBankGrad)" />
+                    <rect x="10" y="26" width="44" height="26" rx="3" fill="rgba(255,255,255,0.08)" />
+                    <g stroke="url(#dmCreditBankGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                      <rect x="16" y="30" width="6" height="18" rx="1" />
+                      <rect x="29" y="30" width="6" height="18" rx="1" />
+                      <rect x="42" y="30" width="6" height="18" rx="1" />
+                    </g>
+                    <rect x="12" y="48" width="40" height="4" rx="1" fill="url(#dmCreditBankGrad)" opacity="0.3" />
+                  </svg>
+                </div>
+                <div class="dm-credit__titles">
+                  <div class="dm-credit__bank" id="dm-credit-title">Manhattan Trust &amp; Exchange</div>
+                  <div class="dm-credit__subtitle">DM Credit Transfer</div>
+                </div>
+              </div>
+              <div class="dm-credit__reference">
+                <span class="dm-credit__label">Reference #:</span>
+                <span id="dm-credit-ref" class="dm-credit__chip" aria-live="polite">TXN-OMNI-000000</span>
+              </div>
+            </header>
+
+            <div class="dm-credit__grid">
+              <div class="dm-credit__field">
+                <label class="dm-credit__label" for="dm-credit-account">Account</label>
+                <div class="dm-credit__value dm-credit__select">
+                  <select id="dm-credit-account" aria-label="Account select">
+                    <option value="">Loading players…</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="dm-credit__field">
+                <label class="dm-credit__label" for="dm-credit-type">Transaction type</label>
+                <div class="dm-credit__value dm-credit__select">
+                  <select id="dm-credit-type" aria-label="Transaction type">
+                    <option value="Deposit">Deposit</option>
+                    <option value="Debit">Debit</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="dm-credit__field">
+                <label class="dm-credit__label" for="dm-credit-amount">Amount</label>
+                <div class="dm-credit__value dm-credit__amount">
+                  <span aria-hidden="true">₡</span>
+                  <input id="dm-credit-amount" type="text" inputmode="decimal" pattern="[0-9,.]*" placeholder="0.00" autocomplete="off" />
+                </div>
+              </div>
+
+              <div class="dm-credit__field">
+                <label class="dm-credit__label" for="dm-credit-sender">Sender</label>
+                <div class="dm-credit__value dm-credit__select">
+                  <select id="dm-credit-sender" aria-label="Sender select">
+                    <option value="OMNI">O.M.N.I Payroll Department.</option>
+                    <option value="PFV">P.F.V Accounts Paid.</option>
+                    <option value="GREY">GREYLINE P.M.C Payroll.</option>
+                    <option value="ANON">Anonymous.</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="dm-credit__field dm-credit__field--memo">
+                <label class="dm-credit__label" for="dm-credit-memo">Memo <span class="dm-credit__optional">(optional)</span></label>
+                <div class="dm-credit__value dm-credit__memo">
+                  <textarea id="dm-credit-memo" rows="2" placeholder="Add a short note for the player"></textarea>
+                </div>
+              </div>
+
+              <div class="dm-credit__field">
+                <span class="dm-credit__label">Transaction status</span>
+                <span id="dm-credit-status" class="dm-credit__status">Completed</span>
+              </div>
+            </div>
+
+            <footer class="dm-credit__footer">
+              <div class="dm-credit__timestamp">
+                <span id="dm-credit-footerDate">—</span>
+                <span aria-hidden="true">•</span>
+                <span id="dm-credit-footerTime">—</span>
+              </div>
+              <button id="dm-credit-submit" class="dm-credit__submit" type="button" disabled>Submit</button>
+              <div class="dm-credit__id">ID: <span id="dm-credit-txid">OMNI-000000</span></div>
+            </footer>
+            <div id="dm-credit-memo-preview" class="dm-credit__memo-preview" hidden>
+              <div class="dm-credit__label">Memo</div>
+              <p id="dm-credit-memo-previewText" class="dm-credit__memo-text">—</p>
+            </div>
+            <section class="dm-credit__history" aria-labelledby="dm-credit-history-heading">
+              <div class="dm-credit__historyHeader">
+                <h4 id="dm-credit-history-heading">Recent History</h4>
+                <div class="dm-credit__historyActions" role="group" aria-label="Credit history actions">
+                  <button id="dm-credit-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+                  <button id="dm-credit-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+                </div>
+              </div>
+              <ul id="dm-credit-history" class="dm-credit__historyList" aria-live="polite"></ul>
+            </section>
+          </div>
+        </div>
       </section>
-      <section id="dm-catalog-panel-weapons" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-weapons" data-panel="weapons" hidden>
-        <form class="dm-catalog__form" data-catalog-form="weapons" novalidate></form>
-      </section>
-      <section id="dm-catalog-panel-armor" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-armor" data-panel="armor" hidden>
-        <form class="dm-catalog__form" data-catalog-form="armor" novalidate></form>
-      </section>
-      <section id="dm-catalog-panel-items" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-items" data-panel="items" hidden>
-        <form class="dm-catalog__form" data-catalog-form="items" novalidate></form>
-      </section>
-      <section id="dm-catalog-panel-powers" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-powers" data-panel="powers" hidden>
-        <form class="dm-catalog__form" data-catalog-form="powers" novalidate></form>
-      </section>
-      <section id="dm-catalog-panel-signature-moves" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-signature-moves" data-panel="signature-moves" hidden>
-        <form class="dm-catalog__form" data-catalog-form="signature-moves" novalidate></form>
+      <section id="dm-rewards-panel-catalog" class="dm-rewards__panel dm-rewards__panel--catalog" role="tabpanel" aria-labelledby="dm-rewards-tab-catalog" data-panel="catalog" hidden>
+        <div class="dm-rewards__panelContent">
+          <div class="dm-catalog">
+            <h3>Catalog Builder</h3>
+            <p class="dm-catalog__intro">Plan and launch custom gear, abilities, and signature moves for your table.</p>
+            <nav id="dm-catalog-tabs" class="dm-catalog__tabs" role="tablist" aria-label="Catalog entry types">
+              <button id="dm-catalog-tab-gear" class="dm-catalog__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-catalog-panel-gear" data-tab="gear" tabindex="0">Gear</button>
+              <button id="dm-catalog-tab-weapons" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-weapons" data-tab="weapons" tabindex="-1">Weapons</button>
+              <button id="dm-catalog-tab-armor" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-armor" data-tab="armor" tabindex="-1">Armor</button>
+              <button id="dm-catalog-tab-items" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-items" data-tab="items" tabindex="-1">Items</button>
+              <button id="dm-catalog-tab-powers" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-powers" data-tab="powers" tabindex="-1">Powers</button>
+              <button id="dm-catalog-tab-signature-moves" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-signature-moves" data-tab="signature-moves" tabindex="-1">Signature Moves</button>
+            </nav>
+            <div id="dm-catalog-panels" class="dm-catalog__panels">
+              <section id="dm-catalog-panel-gear" class="dm-catalog__panel is-active" role="tabpanel" aria-labelledby="dm-catalog-tab-gear" data-panel="gear">
+                <form class="dm-catalog__form" data-catalog-form="gear" novalidate></form>
+              </section>
+              <section id="dm-catalog-panel-weapons" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-weapons" data-panel="weapons" hidden>
+                <form class="dm-catalog__form" data-catalog-form="weapons" novalidate></form>
+              </section>
+              <section id="dm-catalog-panel-armor" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-armor" data-panel="armor" hidden>
+                <form class="dm-catalog__form" data-catalog-form="armor" novalidate></form>
+              </section>
+              <section id="dm-catalog-panel-items" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-items" data-panel="items" hidden>
+                <form class="dm-catalog__form" data-catalog-form="items" novalidate></form>
+              </section>
+              <section id="dm-catalog-panel-powers" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-powers" data-panel="powers" hidden>
+                <form class="dm-catalog__form" data-catalog-form="powers" novalidate></form>
+              </section>
+              <section id="dm-catalog-panel-signature-moves" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-signature-moves" data-panel="signature-moves" hidden>
+                <form class="dm-catalog__form" data-catalog-form="signature-moves" novalidate></form>
+              </section>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   </section>
 </div>
-
 <div class="overlay hidden" id="mini-game-invite" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title" data-modal-static>
   <section class="modal mini-game-invite">
     <header class="mini-game-invite__header">
