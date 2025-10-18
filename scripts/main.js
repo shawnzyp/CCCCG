@@ -8728,6 +8728,50 @@ function handlePerkEffects(li, text){
   return bonus;
 }
 
+function escapeEmptyStateSelector(value = '') {
+  const str = typeof value === 'string' ? value : '';
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(str);
+  }
+  return str.replace(/([!"#$%&'()*+,./:;<=>?@[\]^`{|}~])/g, '\\$1');
+}
+
+function getEmptyStateElement(listEl) {
+  if (!listEl) return null;
+  const cached = listEl.__emptyStateEl;
+  if (cached && cached.isConnected) return cached;
+  const id = typeof listEl.id === 'string' ? listEl.id : '';
+  let emptyEl = null;
+  if (id) {
+    emptyEl = document.querySelector(`.empty-state[data-empty-for="${escapeEmptyStateSelector(id)}"]`);
+  }
+  if (!emptyEl) {
+    const parent = listEl.parentElement;
+    if (parent) {
+      emptyEl = Array.from(parent.children).find(child => child?.classList?.contains('empty-state')) || null;
+    }
+  }
+  if (emptyEl) {
+    listEl.__emptyStateEl = emptyEl;
+  }
+  return emptyEl;
+}
+
+function toggleEmptyState(listEl, hasItems) {
+  if (!listEl) return;
+  const emptyEl = getEmptyStateElement(listEl);
+  const showEmpty = !hasItems;
+  listEl.hidden = showEmpty;
+  if (emptyEl) {
+    emptyEl.hidden = !showEmpty;
+  }
+  if (showEmpty) {
+    listEl.setAttribute('data-empty', 'true');
+  } else {
+    listEl.removeAttribute('data-empty');
+  }
+}
+
 function setupPerkSelect(selId, perkId, data){
   const sel = $(selId);
   const perkEl = $(perkId);
@@ -8776,7 +8820,7 @@ function setupPerkSelect(selId, perkId, data){
       perkEl.appendChild(li);
       tcBonus += handlePerkEffects(li, text);
     });
-    perkEl.style.display = perks.length ? 'block' : 'none';
+    toggleEmptyState(perkEl, perks.length > 0);
     if(selId==='power-style') powerStyleTCBonus = tcBonus;
     if(selId==='origin') originTCBonus = tcBonus;
     if (typeof catalogRenderScheduler === 'function') {
@@ -8844,16 +8888,13 @@ const elPowerStyleSecondary = $('power-style-2');
 const elSPSettingsToggle = $('sp-settings-toggle');
 const spSettingsOverlay = $('modal-sp-settings');
 const elAugmentSelectedList = $('augment-selected-list');
-const elAugmentSelectedEmpty = $('augment-selected-empty');
 const elAugmentAvailableList = $('augment-available-list');
-const elAugmentAvailableEmpty = $('augment-available-empty');
 const elAugmentSlotSummary = $('augment-slot-summary');
 const elAugmentSearch = $('augment-search');
 const augmentFilterButtons = Array.from(qsa('.augment-filter'));
 const elAugmentStateInput = $('augment-state');
 const elLevelProgressInput = $('level-progress-state');
 const elLevelRewardList = $('level-reward-reminders');
-const elLevelRewardEmpty = $('level-reward-empty');
 const elLevelRewardsCard = $('card-level-rewards');
 
 if (elAugmentSearch) {
@@ -9881,8 +9922,8 @@ function renderSelectedAugments() {
     elAugmentSelectedList.appendChild(item);
   });
 
-  if (elAugmentSelectedEmpty) {
-    elAugmentSelectedEmpty.hidden = ordered.length > 0;
+  if (elAugmentSelectedList) {
+    toggleEmptyState(elAugmentSelectedList, ordered.length > 0);
   }
 }
 
@@ -9957,8 +9998,8 @@ function renderAugmentPicker() {
     elAugmentAvailableList.appendChild(item);
   });
 
-  if (elAugmentAvailableEmpty) {
-    elAugmentAvailableEmpty.hidden = results.length > 0;
+  if (elAugmentAvailableList) {
+    toggleEmptyState(elAugmentAvailableList, results.length > 0);
   }
 }
 
@@ -10066,11 +10107,8 @@ function renderLevelRewardReminders() {
   });
 
   const hasTasks = tasks.length > 0;
-  if (elLevelRewardEmpty) {
-    elLevelRewardEmpty.hidden = hasTasks;
-  }
   if (elLevelRewardList) {
-    elLevelRewardList.hidden = !hasTasks;
+    toggleEmptyState(elLevelRewardList, hasTasks);
   }
   if (elLevelRewardsCard && typeof elLevelRewardsCard.setAttribute === 'function') {
     if (hasTasks && pendingTasks.length) {
@@ -10847,7 +10885,7 @@ function renderHPRollList(){
     li.appendChild(btn);
     elHPRollList.appendChild(li);
   });
-  elHPRollList.style.display = hpRolls.length ? 'block' : 'none';
+  toggleEmptyState(elHPRollList, hpRolls.length > 0);
 }
 function setHpSettingsExpanded(expanded){
   if (!elHPSettingsToggle) return;

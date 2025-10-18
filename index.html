@@ -1176,7 +1176,14 @@
         </div>
         <input id="level-progress-state" type="hidden" value="{}"/>
         <ul id="level-reward-reminders" class="perk-list level-reward-list" data-view-allow></ul>
-        <p id="level-reward-empty" class="level-reward-empty" aria-live="polite">No pending level bonuses.</p>
+        <p
+          id="level-reward-empty"
+          class="empty-state level-reward-empty"
+          data-empty-for="level-reward-reminders"
+          aria-live="polite"
+        >
+          You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
+        </p>
       </div>
       <div class="card card--augments" data-view-lock id="card-augments">
         <div class="card-toolbar">
@@ -1189,7 +1196,14 @@
         <div class="augment-selected">
           <h4 class="card-subtitle">Selected Augments</h4>
           <ul id="augment-selected-list" class="perk-list augment-selected__list"></ul>
-          <p id="augment-selected-empty" class="augment-empty" aria-live="polite">No augments selected yet.</p>
+          <p
+            id="augment-selected-empty"
+            class="empty-state augment-empty"
+            data-empty-for="augment-selected-list"
+            aria-live="polite"
+          >
+            No augments selected yet. Tap “Add Augment” to slot in your signature tech.
+          </p>
         </div>
         <div class="augment-picker" data-view-allow>
           <div class="augment-picker__controls">
@@ -1209,7 +1223,14 @@
             </div>
           </div>
           <ul id="augment-available-list" class="augment-picker__list"></ul>
-          <p id="augment-available-empty" class="augment-empty" aria-live="polite">No augments match the filters.</p>
+          <p
+            id="augment-available-empty"
+            class="empty-state augment-empty"
+            data-empty-for="augment-available-list"
+            aria-live="polite"
+          >
+            Nothing matches these filters. Clear them or adjust your search to keep building your loadout.
+          </p>
         </div>
       </div>
       <div class="card" data-view-lock>
@@ -1227,6 +1248,9 @@
           <option>Renegade (Chaotic Shadow)</option>
         </select>
         <ul id="alignment-perks" class="perk-list"></ul>
+        <p class="empty-state" data-empty-for="alignment-perks" aria-live="polite">
+          Select an alignment to preview its signature perks.
+        </p>
       </div>
       <div class="card" data-view-lock>
         <label for="classification">Classification</label>
@@ -1234,6 +1258,9 @@
           <option value="">Select one</option><option>Mutant</option><option>Enhanced Human</option><option>Magic User</option><option>Alien/Extraterrestrial</option><option>Mystical Being</option>
         </select>
         <ul id="classification-perks" class="perk-list"></ul>
+        <p class="empty-state" data-empty-for="classification-perks" aria-live="polite">
+          Choose a classification to reveal its training perks.
+        </p>
       </div>
       <div class="card" data-view-lock>
         <label for="power-style">Primary Power Style</label>
@@ -1242,6 +1269,9 @@
           <option>Telekinetic/Psychic</option><option>Illusionist</option><option>Shape-shifter</option><option>Elemental Controller</option>
         </select>
         <ul id="power-style-perks" class="perk-list"></ul>
+        <p class="empty-state" data-empty-for="power-style-perks" aria-live="polite">
+          Pick a primary power style to load its tactical perks.
+        </p>
       </div>
       <div class="card" data-view-lock>
         <label for="power-style-2">Secondary Power Style</label>
@@ -1268,6 +1298,9 @@
           <option>The Redemption</option>
         </select>
         <ul id="origin-perks" class="perk-list"></ul>
+        <p class="empty-state" data-empty-for="origin-perks" aria-live="polite">
+          Select an origin story to unlock its narrative perks.
+        </p>
       </div>
       <div class="card card--medals" style="grid-column:1/-1">
         <div class="card-toolbar">
@@ -1828,6 +1861,9 @@
         <button id="hp-roll-save" class="btn-sm" type="button">Add</button>
       </div>
       <ul id="hp-roll-list"></ul>
+      <p class="empty-state" data-empty-for="hp-roll-list" aria-live="polite">
+        No tier bonuses logged yet. Hit Add after each roll to keep your total current.
+      </p>
     </div>
     <div class="actions hp-settings__actions">
       <button id="hp-full" class="btn-sm">Reset HP</button>

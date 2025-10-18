@@ -4960,12 +4960,23 @@ body.player-tools-open .player-tools-tab,
   min-width:120px;
 }
 
+.empty-state{
+  margin:12px 0 0;
+  font-size:clamp(.75rem,2.2vw,.9rem);
+  color:var(--muted);
+  line-height:1.5;
+}
+
+.empty-state a{
+  color:color-mix(in srgb,var(--accent) 80%, var(--text) 20%);
+  text-decoration:underline;
+  font-weight:600;
+}
+
 .augment-empty,
 .level-reward-empty,
 .medal-empty{
-  margin:0;
   font-size:clamp(.75rem,2.2vw,.85rem);
-  color:var(--muted);
 }
 
 .card--medals{
