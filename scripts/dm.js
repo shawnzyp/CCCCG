@@ -23,6 +23,7 @@ const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
+const CLOUD_DM_NOTIFICATIONS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/dm-notifications';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
 const DM_LOGIN_FLAG_KEY = 'dmLoggedIn';
 const DM_LOGIN_AT_KEY = 'dmLoggedInAt';
@@ -446,6 +447,40 @@ function normalizeTimestamp(value) {
   return new Date().toLocaleString();
 }
 
+function normalizeStoredNotification(entry, { id, fallbackCreatedAt } = {}) {
+  if (!entry || typeof entry.detail !== 'string') return null;
+  const ts = normalizeTimestamp(entry.ts);
+  const char = typeof entry.char === 'string' ? entry.char : '';
+  const html = typeof entry.html === 'string' ? entry.html : null;
+  const severityValue = typeof entry.severity === 'string' ? entry.severity.trim().toLowerCase() : '';
+  const resolved = entry.resolved === true
+    || entry.resolved === 'true'
+    || entry.resolved === 1;
+
+  let createdAt = null;
+  if (typeof entry.createdAt === 'number' && Number.isFinite(entry.createdAt)) {
+    createdAt = entry.createdAt;
+  } else if (typeof fallbackCreatedAt === 'number' && Number.isFinite(fallbackCreatedAt)) {
+    createdAt = fallbackCreatedAt;
+  } else if (typeof entry.ts === 'number' && Number.isFinite(entry.ts)) {
+    createdAt = entry.ts;
+  } else {
+    const parsed = typeof entry.ts === 'string' ? Date.parse(entry.ts) : Number(entry.createdAt);
+    if (Number.isFinite(parsed)) {
+      createdAt = parsed;
+    }
+  }
+  if (!Number.isFinite(createdAt) || createdAt <= 0) {
+    createdAt = Date.now();
+  }
+
+  const record = { ts, char, detail: entry.detail, resolved: Boolean(resolved), createdAt };
+  if (severityValue) record.severity = severityValue;
+  if (html) record.html = html;
+  if (typeof id === 'string' && id) record.id = id;
+  return record;
+}
+
 function loadStoredNotifications() {
   if (typeof sessionStorage === 'undefined') return [];
   try {
@@ -454,22 +489,7 @@ function loadStoredNotifications() {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const normalized = parsed
-      .map(entry => {
-        if (!entry || typeof entry.detail !== 'string') return null;
-        const ts = normalizeTimestamp(entry.ts);
-        const char = typeof entry.char === 'string' ? entry.char : '';
-        const html = typeof entry.html === 'string' ? entry.html : null;
-        const severity = typeof entry.severity === 'string'
-          ? entry.severity.trim().toLowerCase()
-          : '';
-        const resolved = entry.resolved === true
-          || entry.resolved === 'true'
-          || entry.resolved === 1;
-        const record = { ts, char, detail: entry.detail, resolved: Boolean(resolved) };
-        if (severity) record.severity = severity;
-        if (html) record.html = html;
-        return record;
-      })
+      .map(entry => normalizeStoredNotification(entry))
       .filter(Boolean);
     if (normalized.length > MAX_STORED_NOTIFICATIONS) {
       return normalized.slice(normalized.length - MAX_STORED_NOTIFICATIONS);
@@ -478,6 +498,23 @@ function loadStoredNotifications() {
   } catch {
     return [];
   }
+}
+
+const DM_NOTIFICATIONS_FORCE_CLOUD = typeof window !== 'undefined' && window.dmNotificationsForceCloud === true;
+const DM_NOTIFICATIONS_DISABLE_CLOUD = typeof window !== 'undefined' && window.dmNotificationsDisableCloud === true;
+
+function shouldUseCloudNotifications() {
+  if (DM_NOTIFICATIONS_FORCE_CLOUD) {
+    return typeof fetch === 'function';
+  }
+  if (DM_NOTIFICATIONS_DISABLE_CLOUD) {
+    return false;
+  }
+  if (typeof fetch !== 'function' || typeof window === 'undefined') {
+    return false;
+  }
+  const protocol = window.location?.protocol || '';
+  return protocol === 'http:' || protocol === 'https:';
 }
 
 function loadStoredNotificationFilters() {
@@ -697,6 +734,16 @@ function buildNotification(detail, meta = {}) {
   const ts = normalizeTimestamp(meta.ts);
   const char = typeof meta.char === 'string' && meta.char ? meta.char : deriveNotificationChar();
   const entry = { ts, char, detail: text };
+  let createdAt = null;
+  if (typeof meta.createdAt === 'number' && Number.isFinite(meta.createdAt)) {
+    createdAt = meta.createdAt;
+  } else if (typeof meta.ts === 'number' && Number.isFinite(meta.ts)) {
+    createdAt = meta.ts;
+  }
+  if (!Number.isFinite(createdAt) || createdAt <= 0) {
+    createdAt = Date.now();
+  }
+  entry.createdAt = createdAt;
   let resolved = false;
   if (typeof meta.resolved === 'string') {
     resolved = meta.resolved.trim().toLowerCase() === 'true';
@@ -1089,6 +1136,14 @@ function initDMLogin(){
   const notifyFilterSeverity = document.getElementById('dm-notifications-filter-severity');
   const notifyFilterResolved = document.getElementById('dm-notifications-filter-resolved');
   const notifyFilterSearch = document.getElementById('dm-notifications-filter-search');
+  const cloudNotificationsState = {
+    enabled: shouldUseCloudNotifications(),
+    available: false,
+    cache: new Map(),
+    subscription: null,
+    pruning: false,
+    initializing: false,
+  };
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
@@ -6894,6 +6949,9 @@ function initDMLogin(){
     persistNotifications();
     renderStoredNotifications();
     resetUnreadCountValue();
+    if (cloudNotificationsState.available) {
+      clearCloudNotificationsRemote().catch(() => {});
+    }
     if (announce && typeof toast === 'function') toast('Notification log cleared', 'info');
     return true;
   }
@@ -6955,6 +7013,9 @@ function initDMLogin(){
     persistNotifications();
     clampUnreadCountToUnresolved();
     renderStoredNotifications();
+    if (cloudNotificationsState.available) {
+      updateCloudNotification(entry);
+    }
     return true;
   }
 
@@ -7188,6 +7249,262 @@ function initDMLogin(){
     updateNotificationActionState();
   }
 
+  function rebuildNotificationsFromCloudCache({ fallback } = {}) {
+    const entries = Array.from(cloudNotificationsState.cache.values());
+    if (entries.length > 0) {
+      entries.sort((a, b) => {
+        const aCreated = Number.isFinite(a?.createdAt) ? a.createdAt : 0;
+        const bCreated = Number.isFinite(b?.createdAt) ? b.createdAt : 0;
+        if (aCreated !== bCreated) return aCreated - bCreated;
+        const aTs = typeof a?.ts === 'string' ? a.ts : '';
+        const bTs = typeof b?.ts === 'string' ? b.ts : '';
+        return aTs.localeCompare(bTs, undefined, { sensitivity: 'base' });
+      });
+      const trimmed = entries.slice(Math.max(0, entries.length - MAX_STORED_NOTIFICATIONS));
+      notifications.splice(0, notifications.length, ...trimmed);
+    } else if (Array.isArray(fallback) && fallback.length) {
+      const copy = fallback.slice(Math.max(0, fallback.length - MAX_STORED_NOTIFICATIONS));
+      notifications.splice(0, notifications.length, ...copy);
+    } else {
+      notifications.length = 0;
+    }
+    persistNotifications();
+    clampUnreadCountToUnresolved();
+    renderStoredNotifications();
+    updateNotificationActionState();
+  }
+
+  function applyCloudSnapshot(snapshot, { fallback } = {}) {
+    cloudNotificationsState.cache.clear();
+    if (snapshot && typeof snapshot === 'object') {
+      Object.entries(snapshot).forEach(([id, value]) => {
+        const normalized = normalizeStoredNotification(value, { id });
+        if (normalized) {
+          cloudNotificationsState.cache.set(id, normalized);
+        }
+      });
+    }
+    rebuildNotificationsFromCloudCache({ fallback });
+  }
+
+  function applyCloudDelta(path, data) {
+    if (!cloudNotificationsState.available) return;
+    if (!path || path === '/' || path === '') {
+      applyCloudSnapshot(data, { fallback: notifications.slice() });
+      return;
+    }
+    const key = path.replace(/^\/+/, '');
+    if (!key) {
+      applyCloudSnapshot(data, { fallback: notifications.slice() });
+      return;
+    }
+    if (data === null) {
+      cloudNotificationsState.cache.delete(key);
+    } else {
+      const normalized = normalizeStoredNotification(data, { id: key });
+      if (normalized) {
+        cloudNotificationsState.cache.set(key, normalized);
+      } else {
+        cloudNotificationsState.cache.delete(key);
+      }
+    }
+    rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
+  }
+
+  async function enforceCloudNotificationLimit() {
+    if (!cloudNotificationsState.available || cloudNotificationsState.pruning) return;
+    if (typeof fetch !== 'function') return;
+    const entries = Array.from(cloudNotificationsState.cache.entries());
+    if (entries.length <= MAX_STORED_NOTIFICATIONS) return;
+    cloudNotificationsState.pruning = true;
+    entries.sort((a, b) => {
+      const aCreated = Number.isFinite(a[1]?.createdAt) ? a[1].createdAt : 0;
+      const bCreated = Number.isFinite(b[1]?.createdAt) ? b[1].createdAt : 0;
+      if (aCreated !== bCreated) return aCreated - bCreated;
+      return String(a[0]).localeCompare(String(b[0]));
+    });
+    const overflow = entries.slice(0, entries.length - MAX_STORED_NOTIFICATIONS);
+    const removed = [];
+    overflow.forEach(([id, record]) => {
+      removed.push([id, record]);
+      cloudNotificationsState.cache.delete(id);
+    });
+    rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
+    try {
+      await Promise.all(removed.map(([id]) => fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(id)}.json`, { method: 'DELETE' })));
+    } catch (err) {
+      console.error('Failed to trim DM notifications in cloud', err);
+      removed.forEach(([id, record]) => {
+        cloudNotificationsState.cache.set(id, record);
+      });
+      rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
+    } finally {
+      cloudNotificationsState.pruning = false;
+    }
+  }
+
+  async function pushCloudNotification(entry) {
+    if (!cloudNotificationsState.available || typeof fetch !== 'function') return null;
+    if (!entry || typeof entry.detail !== 'string') return null;
+    const createdAt = Number.isFinite(entry.createdAt) ? entry.createdAt : Date.now();
+    entry.createdAt = createdAt;
+    const payload = {
+      ts: entry.ts,
+      char: entry.char,
+      detail: entry.detail,
+      resolved: entry.resolved === true,
+      createdAt,
+    };
+    if (typeof entry.severity === 'string' && entry.severity) payload.severity = entry.severity;
+    if (typeof entry.html === 'string' && entry.html) payload.html = entry.html;
+    try {
+      const res = await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const id = typeof data?.name === 'string' ? data.name : null;
+      if (id) {
+        const normalized = normalizeStoredNotification(payload, { id, fallbackCreatedAt: createdAt });
+        if (normalized) {
+          if (payload.html && !normalized.html) normalized.html = payload.html;
+          cloudNotificationsState.cache.set(id, normalized);
+          entry.id = id;
+          entry.createdAt = normalized.createdAt;
+          rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
+        }
+        await enforceCloudNotificationLimit();
+      }
+      return id;
+    } catch (err) {
+      console.error('Failed to write DM notification to cloud', err);
+      throw err;
+    }
+  }
+
+  async function updateCloudNotification(entry) {
+    if (!cloudNotificationsState.available || typeof fetch !== 'function') return;
+    if (!entry?.id) return;
+    try {
+      await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(entry.id)}.json`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolved: entry.resolved === true }),
+      });
+      const cached = cloudNotificationsState.cache.get(entry.id);
+      if (cached) {
+        cached.resolved = entry.resolved === true;
+        cloudNotificationsState.cache.set(entry.id, cached);
+        rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
+      }
+    } catch (err) {
+      console.error('Failed to update DM notification in cloud', err);
+    }
+  }
+
+  async function clearCloudNotificationsRemote() {
+    if (!cloudNotificationsState.available || typeof fetch !== 'function') return;
+    try {
+      await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to clear DM notifications in cloud', err);
+    } finally {
+      cloudNotificationsState.cache.clear();
+    }
+  }
+
+  function subscribeToCloudNotifications() {
+    if (!cloudNotificationsState.available) return null;
+    if (cloudNotificationsState.subscription || typeof EventSource !== 'function') {
+      return cloudNotificationsState.subscription;
+    }
+    try {
+      const src = new EventSource(`${CLOUD_DM_NOTIFICATIONS_URL}.json`);
+      const handler = event => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (!payload) return;
+          applyCloudDelta(payload.path, payload.data);
+          enforceCloudNotificationLimit().catch(err => {
+            console.error('Failed to enforce DM notification limit', err);
+          });
+        } catch (err) {
+          console.error('Failed to process DM notification update', err);
+        }
+      };
+      src.addEventListener('put', handler);
+      src.addEventListener('patch', handler);
+      src.onerror = () => {
+        try { src.close(); } catch {}
+        cloudNotificationsState.subscription = null;
+        setTimeout(() => {
+          if (cloudNotificationsState.available) {
+            subscribeToCloudNotifications();
+          }
+        }, 2000);
+      };
+      cloudNotificationsState.subscription = src;
+      return src;
+    } catch (err) {
+      console.error('Failed to subscribe to DM notifications', err);
+      return null;
+    }
+  }
+
+  async function migrateLegacyNotificationsToCloud(legacyEntries = []) {
+    if (!cloudNotificationsState.available || !Array.isArray(legacyEntries) || legacyEntries.length === 0) {
+      return false;
+    }
+    let migratedCount = 0;
+    for (const entry of legacyEntries) {
+      const normalized = normalizeStoredNotification(entry, { fallbackCreatedAt: entry?.createdAt });
+      if (!normalized) continue;
+      Object.assign(entry, normalized);
+      try {
+        const id = await pushCloudNotification(entry);
+        if (id) migratedCount += 1;
+      } catch (err) {
+        console.error('Failed to migrate legacy DM notification', err);
+      }
+    }
+    if (migratedCount > 0) {
+      try {
+        sessionStorage.removeItem(DM_NOTIFICATIONS_KEY);
+        persistNotifications();
+      } catch { /* ignore */ }
+    }
+    return migratedCount === legacyEntries.length;
+  }
+
+  async function initializeCloudNotifications() {
+    if (!cloudNotificationsState.enabled) return;
+    if (cloudNotificationsState.initializing) return;
+    if (typeof fetch !== 'function') return;
+    cloudNotificationsState.initializing = true;
+    const fallbackSnapshot = notifications.slice();
+    const legacyEntries = notifications.filter(entry => !entry?.id).map(entry => ({ ...entry }));
+    try {
+      const res = await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const snapshot = await res.json();
+      cloudNotificationsState.available = true;
+      applyCloudSnapshot(snapshot, { fallback: fallbackSnapshot });
+      await enforceCloudNotificationLimit();
+      if (legacyEntries.length) {
+        await migrateLegacyNotificationsToCloud(legacyEntries);
+      }
+      subscribeToCloudNotifications();
+    } catch (err) {
+      if (cloudNotificationsState.enabled) {
+        console.warn('Cloud DM notifications unavailable', err);
+      }
+    } finally {
+      cloudNotificationsState.initializing = false;
+    }
+  }
+
   function storePendingNotification(entry) {
     if (typeof sessionStorage === 'undefined') return;
     try {
@@ -7203,6 +7520,7 @@ function initDMLogin(){
         detail: entry.detail,
         severity: entry.severity,
         html: entry.html,
+        createdAt: entry.createdAt,
         resolved: entry.resolved === true,
       });
       const MAX_PENDING = 20;
@@ -7216,6 +7534,9 @@ function initDMLogin(){
   }
 
   function pushNotification(entry) {
+    if (cloudNotificationsState.enabled && !cloudNotificationsState.available) {
+      initializeCloudNotifications();
+    }
     if (!isLoggedIn()) {
       storePendingNotification(entry);
       return;
@@ -7241,11 +7562,19 @@ function initDMLogin(){
     }
     clampUnreadCountToUnresolved();
     updateNotificationActionState();
+    if (cloudNotificationsState.available) {
+      pushCloudNotification(entry).catch(err => {
+        console.error('Failed to sync DM notification to cloud', err);
+      });
+    }
   }
 
   persistNotifications();
   updateNotificationActionState();
   clampUnreadCountToUnresolved();
+  if (cloudNotificationsState.enabled) {
+    initializeCloudNotifications();
+  }
 
   window.dmNotify = function(detail, meta = {}) {
     const entry = buildNotification(detail, meta);
@@ -7268,6 +7597,7 @@ function initDMLogin(){
           char: item.char,
           severity: item.severity,
           html: item.html,
+          createdAt: item.createdAt,
           resolved: item.resolved,
         });
       });

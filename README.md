@@ -36,6 +36,10 @@ configure the database:
     "saves": {
       ".read": true,
       ".write": true
+    },
+    "dm-notifications": {
+      ".read": true,
+      ".write": true
     }
   }
 }
