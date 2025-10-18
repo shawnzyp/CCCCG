@@ -4868,10 +4868,91 @@ body.player-tools-open .player-tools-tab,
 }
 
 .augment-empty,
-.level-reward-empty{
+.level-reward-empty,
+.medal-empty{
   margin:0;
   font-size:clamp(.75rem,2.2vw,.85rem);
   color:var(--muted);
+}
+
+.card--medals{
+  gap:16px;
+}
+
+.medal-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:grid;
+  gap:12px;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+}
+
+.medal-list>.card{
+  height:100%;
+}
+
+.card--medal{
+  gap:12px;
+}
+
+.medal-card__header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.medal-card__icon{
+  width:52px;
+  height:52px;
+  border-radius:50%;
+  background:color-mix(in srgb,var(--surface-2) 70%, transparent);
+  border:1px solid color-mix(in srgb,var(--line) 65%, transparent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  flex-shrink:0;
+}
+
+.medal-card__icon-img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.medal-card__icon-fallback{
+  font-size:clamp(1.4rem,4.2vw,1.7rem);
+}
+
+.medal-card__meta{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.medal-card__title{
+  font-weight:600;
+  letter-spacing:.02em;
+}
+
+.medal-card__details{
+  font-size:clamp(.75rem,2.2vw,.9rem);
+  color:var(--muted);
+}
+
+.medal-card__details[data-empty='true']{
+  font-style:italic;
+}
+
+.medal-card__flavor{
+  margin:0;
+  font-size:clamp(.78rem,2.3vw,.95rem);
+  color:var(--muted);
+}
+
+.medal-card__flavor[data-empty='false']{
+  color:var(--text);
 }
 
 .level-reward-list{

@@ -927,6 +927,20 @@
         </select>
         <ul id="origin-perks" class="perk-list"></ul>
       </div>
+      <div class="card card--medals" style="grid-column:1/-1">
+        <div class="card-toolbar">
+          <h3 class="card-toolbar__title">Medals &amp; Honors</h3>
+          <div class="card-toolbar__actions">
+            <span id="medal-summary" class="pill pill-sm" aria-live="polite">0 Medals</span>
+            <button id="add-medal" class="btn-sm" type="button">
+              <span class="btn-icon" aria-hidden="true">🏅</span>
+              <span class="btn-label">Add Medal</span>
+            </button>
+          </div>
+        </div>
+        <ol id="medals" class="medal-list" data-view-allow></ol>
+        <p id="medal-empty" class="medal-empty" aria-live="polite">No medals awarded yet.</p>
+      </div>
       <div class="card credits-card" data-view-lock>
         <div class="credits-card__heading">
           <label for="credits" data-animate-title>Credits</label>
