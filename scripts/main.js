@@ -16353,8 +16353,215 @@ const CARD_CONFIG = {
         { f: 'notes', placeholder: 'Notes' }
       ]}
     ]
+  },
+  medal: {
+    rows: [
+      {
+        class: 'inline',
+        fields: [
+          { f: 'name', placeholder: 'Medal or Citation Name' },
+          { f: 'awardedAt', placeholder: 'Awarded On', type: 'date', style: 'max-width:170px' }
+        ]
+      },
+      {
+        class: 'inline',
+        fields: [
+          { f: 'awardedBy', placeholder: 'Presented By', style: 'max-width:220px' },
+          { f: 'artwork', placeholder: 'Icon or Artwork URL' }
+        ]
+      },
+      { tag: 'textarea', f: 'description', placeholder: 'Citation, story, or flavor text', rows: 3 }
+    ]
   }
 };
+
+const medalDisplayRefs = new WeakMap();
+
+function generateMedalId() {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).slice(2, 8);
+  return `medal-${timestamp}-${random}`;
+}
+
+function normalizeMedalDateValue(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return { raw: '', input: '' };
+  const dateMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (dateMatch) {
+    return { raw, input: dateMatch[1] };
+  }
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const iso = parsed.toISOString();
+    return { raw: iso, input: iso.slice(0, 10) };
+  }
+  return { raw, input: '' };
+}
+
+function prepareMedalPref(pref = {}) {
+  const clone = { ...(pref || {}) };
+  const normalizedName = typeof clone.name === 'string' ? clone.name : '';
+  const normalizedDescription = typeof clone.description === 'string' ? clone.description : '';
+  const normalizedArtwork = typeof clone.artwork === 'string' ? clone.artwork : '';
+  const normalizedAwarder = typeof clone.awardedBy === 'string' ? clone.awardedBy : '';
+  const { raw: rawDate, input: inputDate } = normalizeMedalDateValue(
+    clone.awardedAt || clone.awardedOn || clone.date || ''
+  );
+  const id = typeof clone.id === 'string' && clone.id.trim()
+    ? clone.id.trim()
+    : generateMedalId();
+  return {
+    pref: {
+      ...clone,
+      id,
+      name: normalizedName,
+      description: normalizedDescription,
+      artwork: normalizedArtwork,
+      awardedBy: normalizedAwarder,
+      awardedAt: inputDate,
+    },
+    rawDate,
+  };
+}
+
+function initializeMedalCard(card) {
+  if (!card) return;
+  card.classList.add('card--medal');
+  const header = document.createElement('div');
+  header.className = 'medal-card__header';
+  const iconWrap = document.createElement('div');
+  iconWrap.className = 'medal-card__icon';
+  const iconImg = document.createElement('img');
+  iconImg.className = 'medal-card__icon-img';
+  iconImg.alt = '';
+  iconImg.decoding = 'async';
+  iconImg.loading = 'lazy';
+  iconImg.hidden = true;
+  const iconFallback = document.createElement('span');
+  iconFallback.className = 'medal-card__icon-fallback';
+  iconFallback.textContent = '🏅';
+  iconWrap.appendChild(iconImg);
+  iconWrap.appendChild(iconFallback);
+  header.appendChild(iconWrap);
+  const meta = document.createElement('div');
+  meta.className = 'medal-card__meta';
+  const title = document.createElement('span');
+  title.className = 'medal-card__title';
+  title.textContent = 'Medal';
+  const details = document.createElement('span');
+  details.className = 'medal-card__details';
+  details.dataset.empty = 'true';
+  details.textContent = 'Details pending';
+  meta.appendChild(title);
+  meta.appendChild(details);
+  header.appendChild(meta);
+  const flavor = document.createElement('p');
+  flavor.className = 'medal-card__flavor';
+  flavor.dataset.empty = 'true';
+  flavor.textContent = 'No citation recorded yet.';
+  card.appendChild(header);
+  card.appendChild(flavor);
+  iconImg.addEventListener('error', () => {
+    iconImg.hidden = true;
+    iconImg.removeAttribute('src');
+    iconFallback.hidden = false;
+  });
+  iconImg.addEventListener('load', () => {
+    iconImg.hidden = false;
+    iconFallback.hidden = true;
+  });
+  medalDisplayRefs.set(card, {
+    title,
+    details,
+    flavor,
+    iconImg,
+    iconFallback,
+  });
+}
+
+function updateMedalCardDisplay(card) {
+  const refs = medalDisplayRefs.get(card);
+  if (!refs) return;
+  const nameField = qs("[data-f='name']", card);
+  const descriptionField = qs("[data-f='description']", card);
+  const dateField = qs("[data-f='awardedAt']", card);
+  const rawDateField = qs("[data-f='awardedAtRaw']", card);
+  const awarderField = qs("[data-f='awardedBy']", card);
+  const artworkField = qs("[data-f='artwork']", card);
+  const name = nameField && typeof nameField.value === 'string' && nameField.value.trim()
+    ? nameField.value.trim()
+    : 'Medal';
+  refs.title.textContent = name;
+  const description = descriptionField && typeof descriptionField.value === 'string'
+    ? descriptionField.value.trim()
+    : '';
+  refs.flavor.textContent = description || 'No citation recorded yet.';
+  refs.flavor.dataset.empty = description ? 'false' : 'true';
+  const rawDate = rawDateField && typeof rawDateField.value === 'string'
+    ? rawDateField.value.trim()
+    : '';
+  const dateValue = dateField && typeof dateField.value === 'string'
+    ? dateField.value.trim()
+    : '';
+  let dateLabel = '';
+  const displaySource = rawDate || dateValue;
+  if (displaySource) {
+    const parsed = new Date(displaySource);
+    if (!Number.isNaN(parsed.getTime())) {
+      dateLabel = parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(displaySource)) {
+      dateLabel = displaySource;
+    } else {
+      dateLabel = displaySource;
+    }
+  }
+  const awarder = awarderField && typeof awarderField.value === 'string'
+    ? awarderField.value.trim()
+    : '';
+  const detailParts = [];
+  if (dateLabel) detailParts.push(dateLabel);
+  if (awarder) detailParts.push(`by ${awarder}`);
+  refs.details.textContent = detailParts.length ? detailParts.join(' • ') : 'Details pending';
+  refs.details.dataset.empty = detailParts.length ? 'false' : 'true';
+  const artwork = artworkField && typeof artworkField.value === 'string'
+    ? artworkField.value.trim()
+    : '';
+  if (artwork) {
+    refs.iconFallback.hidden = true;
+    refs.iconImg.hidden = false;
+    refs.iconImg.src = artwork;
+  } else {
+    refs.iconImg.hidden = true;
+    refs.iconImg.removeAttribute('src');
+    refs.iconFallback.hidden = false;
+    const fallbackChar = name.charAt(0);
+    refs.iconFallback.textContent = fallbackChar ? fallbackChar.toUpperCase() : '🏅';
+  }
+}
+
+const elMedalList = $('medals');
+const elMedalEmpty = $('medal-empty');
+const elMedalSummary = $('medal-summary');
+
+function updateMedalSummary() {
+  if (!elMedalSummary) return;
+  const count = elMedalList ? elMedalList.querySelectorAll("[data-kind='medal']").length : 0;
+  elMedalSummary.textContent = count === 1 ? '1 Medal' : `${count} Medals`;
+  elMedalSummary.dataset.count = String(count);
+}
+
+function updateMedalEmptyState() {
+  if (!elMedalEmpty) return;
+  const hasMedal = !!(elMedalList && elMedalList.querySelector('.card'));
+  elMedalEmpty.hidden = hasMedal;
+}
+
+function updateMedalIndicators() {
+  updateMedalSummary();
+  updateMedalEmptyState();
+}
+
+updateMedalIndicators();
 
 const GEAR_CARD_KINDS = new Set(['weapon', 'armor', 'item']);
 
@@ -16490,6 +16697,9 @@ function populateCardFromData(card, data){
       field.value = value ?? '';
     }
   });
+  if (card?.dataset?.kind === 'medal') {
+    updateMedalCardDisplay(card);
+  }
 }
 
 function parseWeaponDamageFormula(text, { fallbackAbility } = {}) {
@@ -16513,6 +16723,7 @@ function createCard(kind, pref = {}) {
     return createPowerCard(pref, { signature: kind === 'sig' });
   }
   pref = { ...pref };
+  let medalMeta = null;
   let attackAbilityWasProvided = false;
   let providedAttackAbilityRaw;
   if (kind === 'weapon') {
@@ -16529,11 +16740,19 @@ function createCard(kind, pref = {}) {
       pref.proficient = !!pref.proficient;
     }
   }
+  if (kind === 'medal') {
+    medalMeta = prepareMedalPref(pref);
+    pref = medalMeta.pref;
+  }
   const cfg = CARD_CONFIG[kind];
-  const card = document.createElement('div');
+  const isMedalCard = kind === 'medal';
+  const card = document.createElement(isMedalCard ? 'li' : 'div');
   card.className = 'card';
   card.draggable = true;
   card.dataset.kind = kind;
+  if (isMedalCard) {
+    initializeMedalCard(card);
+  }
   if (!cfg) return card;
   (cfg.rows || []).forEach(row => {
     if (row.fields) {
@@ -16604,6 +16823,18 @@ function createCard(kind, pref = {}) {
       card.appendChild(ta);
     }
   });
+  if (kind === 'medal') {
+    const idInput = document.createElement('input');
+    idInput.type = 'hidden';
+    idInput.dataset.f = 'id';
+    idInput.value = pref.id || '';
+    card.appendChild(idInput);
+    const rawDateInput = document.createElement('input');
+    rawDateInput.type = 'hidden';
+    rawDateInput.dataset.f = 'awardedAtRaw';
+    rawDateInput.value = medalMeta?.rawDate || pref.awardedAt || '';
+    card.appendChild(rawDateInput);
+  }
   const delWrap = document.createElement('div');
   delWrap.className = 'inline';
   if (kind === 'weapon') {
@@ -16745,6 +16976,7 @@ function createCard(kind, pref = {}) {
     card.remove();
     if (cfg.onDelete) cfg.onDelete();
     if (isGearKind(kind)) updateCreditsGearSummary();
+    if (kind === 'medal') updateMedalIndicators();
     pushHistory();
   });
   delWrap.appendChild(delBtn);
@@ -16762,6 +16994,30 @@ function createCard(kind, pref = {}) {
       nameField.addEventListener('input', () => markHammerspaceState(card));
     }
     markHammerspaceState(card);
+  }
+  if (kind === 'medal') {
+    const dateField = qs("[data-f='awardedAt']", card);
+    const rawDateField = qs("[data-f='awardedAtRaw']", card);
+    const syncRawDate = () => {
+      if (!rawDateField) return;
+      const value = dateField && typeof dateField.value === 'string'
+        ? dateField.value.trim()
+        : '';
+      rawDateField.value = value || '';
+      updateMedalCardDisplay(card);
+    };
+    if (dateField) {
+      dateField.addEventListener('input', syncRawDate);
+      dateField.addEventListener('change', syncRawDate);
+    }
+    qsa('input[data-f],textarea[data-f],select[data-f]', card).forEach(el => {
+      if (el.type === 'hidden') return;
+      if (el === dateField) return;
+      const update = () => updateMedalCardDisplay(card);
+      el.addEventListener('input', update);
+      el.addEventListener('change', update);
+    });
+    updateMedalCardDisplay(card);
   }
   if (mode === 'view') applyViewLockState(card);
   return card;
@@ -16807,6 +17063,14 @@ $('add-item').addEventListener('click', () => {
   pushHistory();
   openCatalogWithFilters({ type: 'Item', style: '', tier: '' });
 });
+$('add-medal').addEventListener('click', () => {
+  const list = $('medals');
+  if (!list) return;
+  const card = createCard('medal');
+  list.appendChild(card);
+  updateMedalIndicators();
+  pushHistory();
+});
 
 /* ========= Drag & Drop ========= */
 function enableDragReorder(id){
@@ -16835,7 +17099,7 @@ function enableDragReorder(id){
   });
   list.addEventListener('drop', e=>{ e.preventDefault(); pushHistory(); });
 }
-['powers','sigs','weapons','armors','items'].forEach(enableDragReorder);
+['powers','sigs','weapons','armors','items','medals'].forEach(enableDragReorder);
 
 function buildCardInfo(entry){
   if (!entry) return null;
@@ -18616,6 +18880,25 @@ function serialize(){
     qty: Number(getVal("[data-f='qty']", card) || 1),
     notes: getVal("[data-f='notes']", card) || ''
   }));
+  data.medals = qsa("[data-kind='medal']").map(card => {
+    let id = getVal("[data-f='id']", card) || '';
+    if (!id) {
+      id = generateMedalId();
+      const idField = qs("[data-f='id']", card);
+      if (idField) idField.value = id;
+    }
+    const awardedAtRaw = getVal("[data-f='awardedAtRaw']", card)
+      || getVal("[data-f='awardedAt']", card)
+      || '';
+    return {
+      id,
+      name: getVal("[data-f='name']", card) || '',
+      description: getVal("[data-f='description']", card) || '',
+      artwork: getVal("[data-f='artwork']", card) || '',
+      awardedBy: getVal("[data-f='awardedBy']", card) || '',
+      awardedAt: awardedAtRaw,
+    };
+  });
   // Persist save and skill proficiencies explicitly so they restore reliably
   data.saveProfs = ABILS.filter(a => {
     const el = $('save-' + a + '-prof');
@@ -18662,7 +18945,7 @@ function deserialize(data){
   const storedAugments = data && data.augmentState;
   hydrateLevelProgressState(storedLevelProgress, { silent: true });
   hydrateAugmentState(storedAugments, { silent: true });
-  $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML='';
+  $('powers').innerHTML=''; $('sigs').innerHTML=''; $('weapons').innerHTML=''; $('armors').innerHTML=''; $('items').innerHTML=''; $('medals').innerHTML='';
   activePowerCards.forEach(card => powerCardStates.delete(card));
   activePowerCards.clear();
   const ongoingContainer = $('ongoing-effects');
@@ -18710,6 +18993,8 @@ function deserialize(data){
   (data && data.weapons ? data.weapons : []).forEach(w=> $('weapons').appendChild(createCard('weapon', w)));
   (data && data.armor ? data.armor : []).forEach(a=> $('armors').appendChild(createCard('armor', a)));
   (data && data.items ? data.items : []).forEach(i=> $('items').appendChild(createCard('item', i)));
+  (data && data.medals ? data.medals : []).forEach(m=> $('medals').appendChild(createCard('medal', m)));
+  updateMedalIndicators();
   refreshHammerspaceCards();
   const restoredCampaignLog = Array.isArray(data?.campaignLog) ? data.campaignLog : [];
   campaignLogEntries = normalizeCampaignLogEntries(restoredCampaignLog);
