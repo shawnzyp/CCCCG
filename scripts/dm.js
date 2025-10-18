@@ -979,6 +979,7 @@ function initDMLogin(){
   const miniGamesFiltersForm = document.getElementById('dm-mini-games-filters');
   const miniGamesFilterStatus = document.getElementById('dm-mini-games-filter-status');
   const miniGamesFilterAssignee = document.getElementById('dm-mini-games-filter-assignee');
+  const miniGamesFilterSearch = document.getElementById('dm-mini-games-filter-search');
   const rewardsBtn = document.getElementById('dm-tools-rewards');
   const rewardsModal = document.getElementById('dm-rewards-modal');
   const rewardsClose = document.getElementById('dm-rewards-close');
@@ -4243,7 +4244,7 @@ function initDMLogin(){
   const deploymentRecipients = new Map();
   const autoStatusTracker = new Map();
   const FINAL_DEPLOYMENT_STATUSES = new Set(['completed', 'cancelled', 'expired']);
-  let miniGameFilterState = { status: 'all', assignee: 'all' };
+  let miniGameFilterState = { status: 'all', assignee: 'all', query: '' };
   miniGamesLibrary.forEach(game => {
     if (!game || !game.id) return;
     const stored = readKnobStateFromStorage(game.id);
@@ -4624,12 +4625,14 @@ function initDMLogin(){
       if (!parsed || typeof parsed !== 'object') return;
       const status = typeof parsed.status === 'string' ? parsed.status : 'all';
       const assignee = typeof parsed.assignee === 'string' ? parsed.assignee : 'all';
+      const query = typeof parsed.query === 'string' ? parsed.query : '';
       miniGameFilterState = {
         status: status || 'all',
         assignee: assignee || 'all',
+        query: query || '',
       };
     } catch {
-      miniGameFilterState = { status: 'all', assignee: 'all' };
+      miniGameFilterState = { status: 'all', assignee: 'all', query: '' };
     }
   };
 
@@ -4649,6 +4652,9 @@ function initDMLogin(){
         miniGameFilterState.assignee = 'all';
       }
       miniGamesFilterAssignee.value = miniGameFilterState.assignee;
+    }
+    if (miniGamesFilterSearch) {
+      miniGamesFilterSearch.value = miniGameFilterState.query || '';
     }
   };
 
@@ -5406,6 +5412,28 @@ function initDMLogin(){
       if (miniGameFilterState.assignee !== 'all') {
         const assignee = getDeploymentAssignee(entry);
         if (assignee.toLowerCase() !== miniGameFilterState.assignee.toLowerCase()) {
+          return false;
+        }
+      }
+      const query = (miniGameFilterState.query || '').trim().toLowerCase();
+      if (query) {
+        const player = typeof entry?.player === 'string' ? entry.player : '';
+        const notes = typeof entry?.notes === 'string' ? entry.notes : '';
+        let gameName = '';
+        if (typeof entry?.gameName === 'string') {
+          gameName = entry.gameName;
+        } else if (typeof entry?.gameId === 'string' && entry.gameId) {
+          const game = getMiniGame(entry.gameId);
+          if (game && typeof game.name === 'string') {
+            gameName = game.name;
+          } else {
+            gameName = entry.gameId;
+          }
+        }
+        const haystacks = [player, gameName, notes]
+          .filter(value => typeof value === 'string' && value.trim() !== '')
+          .map(value => value.toLowerCase());
+        if (!haystacks.some(text => text.includes(query))) {
           return false;
         }
       }
@@ -8171,6 +8199,17 @@ function initDMLogin(){
     persistMiniGameFilterState();
     renderMiniGameDeployments(miniGameDeploymentsCache);
   });
+
+  const handleMiniGameFilterQuery = () => {
+    if (!miniGamesFilterSearch) return;
+    const value = miniGamesFilterSearch.value || '';
+    miniGameFilterState.query = value;
+    persistMiniGameFilterState();
+    renderMiniGameDeployments(miniGameDeploymentsCache);
+  };
+
+  miniGamesFilterSearch?.addEventListener('input', handleMiniGameFilterQuery);
+  miniGamesFilterSearch?.addEventListener('search', handleMiniGameFilterQuery);
 
 
   notifyModal?.addEventListener('click', e => { if(e.target===notifyModal) closeNotifications(); });

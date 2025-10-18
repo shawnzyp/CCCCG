@@ -24,6 +24,24 @@ function setupDom() {
         <div class="dm-mini-games__layout">
           <aside class="dm-mini-games__sidebar">
             <h4 class="dm-mini-games__section-title">Mini-Game Library</h4>
+            <form id="dm-mini-games-filters" class="dm-mini-games__filters">
+              <label>
+                <span>Status</span>
+                <select id="dm-mini-games-filter-status">
+                  <option value="all">All statuses</option>
+                </select>
+              </label>
+              <label>
+                <span>Recipient</span>
+                <select id="dm-mini-games-filter-assignee">
+                  <option value="all">All recipients</option>
+                </select>
+              </label>
+              <label>
+                <span>Search</span>
+                <input id="dm-mini-games-filter-search" type="search" />
+              </label>
+            </form>
             <ul id="dm-mini-games-list" class="dm-mini-games__list"></ul>
           </aside>
           <div class="dm-mini-games__content">
@@ -89,6 +107,11 @@ function setupDom() {
     </div>
   `;
 }
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
 async function initDmModule() {
   jest.resetModules();

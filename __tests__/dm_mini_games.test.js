@@ -36,6 +36,24 @@ function setupDom() {
         <div class="dm-mini-games__layout">
           <aside class="dm-mini-games__sidebar">
             <h4 class="dm-mini-games__section-title">Mini-Game Library</h4>
+            <form id="dm-mini-games-filters" class="dm-mini-games__filters">
+              <label>
+                <span>Status</span>
+                <select id="dm-mini-games-filter-status">
+                  <option value="all">All statuses</option>
+                </select>
+              </label>
+              <label>
+                <span>Recipient</span>
+                <select id="dm-mini-games-filter-assignee">
+                  <option value="all">All recipients</option>
+                </select>
+              </label>
+              <label>
+                <span>Search</span>
+                <input id="dm-mini-games-filter-search" type="search" />
+              </label>
+            </form>
             <ul id="dm-mini-games-list" class="dm-mini-games__list"></ul>
           </aside>
           <div class="dm-mini-games__content">
@@ -101,6 +119,11 @@ function setupDom() {
     </div>
   `;
 }
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+});
 
 async function initDmModule() {
   jest.resetModules();
@@ -326,5 +349,63 @@ describe('DM mini-game tooling', () => {
 
     expect(recipients.textContent).toContain('No recipients added yet.');
     expect(deployBtn.disabled).toBe(true);
+  });
+
+  test('filters deployments by search query', async () => {
+    const { getDeploymentsCallback } = await initDmModule();
+
+    await completeLogin();
+
+    document.getElementById('dm-tools-mini-games').dispatchEvent(new Event('click'));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const deploymentsCallback = getDeploymentsCallback();
+    const miniGamesModal = document.getElementById('dm-mini-games-modal');
+    miniGamesModal.classList.remove('hidden');
+    miniGamesModal.setAttribute('aria-hidden', 'false');
+
+    deploymentsCallback?.([
+      {
+        id: 'mg-alpha',
+        player: 'Alpha',
+        status: 'pending',
+        gameName: 'Signal Jammer',
+        notes: 'Check the uplink',
+        createdAt: Date.now(),
+      },
+      {
+        id: 'mg-bravo',
+        player: 'Bravo',
+        status: 'pending',
+        gameName: 'Cipher Run',
+        notes: 'Decode the vault access codes',
+        createdAt: Date.now(),
+      },
+      {
+        id: 'mg-charlie',
+        player: 'Charlie',
+        status: 'pending',
+        gameName: 'Shadow Chase',
+        notes: 'Track the gamma signature',
+        createdAt: Date.now(),
+      }
+    ]);
+
+    const deploymentsList = document.getElementById('dm-mini-games-deployments');
+    expect(deploymentsList.querySelectorAll('li').length).toBeGreaterThan(1);
+
+    const searchInput = document.getElementById('dm-mini-games-filter-search');
+    searchInput.value = 'CIPHER';
+    searchInput.dispatchEvent(new Event('input'));
+
+    expect(deploymentsList.querySelectorAll('li')).toHaveLength(1);
+    expect(deploymentsList.textContent).toContain('Bravo');
+
+    const storedFiltersRaw = localStorage.getItem('cc_dm_mini_game_filters');
+    expect(storedFiltersRaw).toBeTruthy();
+    const storedFilters = JSON.parse(storedFiltersRaw);
+    expect(storedFilters.query).toBe('CIPHER');
   });
 });
