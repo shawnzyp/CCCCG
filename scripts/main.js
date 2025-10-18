@@ -7410,6 +7410,69 @@ if(mainEl && TAB_ORDER.length){
   }, { passive: true });
 }
 
+const tickerDrawerPreferenceKeys = {
+  open: 'ticker-open',
+  initialized: 'ticker-preference-initialized',
+};
+
+const getTickerPreferenceStorage = () => {
+  try {
+    if(typeof window !== 'undefined' && 'localStorage' in window){
+      return window.localStorage;
+    }
+  } catch(err){
+    console.warn('Failed to access ticker preference storage', err);
+  }
+  return null;
+};
+
+const getStoredTickerPreference = () => {
+  const storage = getTickerPreferenceStorage();
+  if(!storage) return null;
+  try {
+    const raw = storage.getItem(tickerDrawerPreferenceKeys.open);
+    if(raw === null) return null;
+    if(raw === 'open' || raw === 'closed') return raw === 'open';
+    if(raw === 'true' || raw === 'false') return raw === 'true';
+    if(raw === '1' || raw === '0') return raw === '1';
+  } catch(err){
+    console.warn('Failed to read ticker preference', err);
+  }
+  return null;
+};
+
+const hasInitializedTickerPreference = () => {
+  const storage = getTickerPreferenceStorage();
+  if(!storage) return false;
+  try {
+    return storage.getItem(tickerDrawerPreferenceKeys.initialized) === '1';
+  } catch(err){
+    console.warn('Failed to read ticker preference initialization flag', err);
+    return false;
+  }
+};
+
+const markTickerPreferenceInitialized = () => {
+  const storage = getTickerPreferenceStorage();
+  if(!storage) return;
+  try {
+    storage.setItem(tickerDrawerPreferenceKeys.initialized, '1');
+  } catch(err){
+    console.warn('Failed to mark ticker preference initialization', err);
+  }
+};
+
+const persistTickerPreference = nextOpen => {
+  const storage = getTickerPreferenceStorage();
+  if(!storage) return;
+  try {
+    storage.setItem(tickerDrawerPreferenceKeys.open, nextOpen ? 'open' : 'closed');
+    storage.setItem(tickerDrawerPreferenceKeys.initialized, '1');
+  } catch(err){
+    console.warn('Failed to persist ticker preference', err);
+  }
+};
+
 const tickerDrawer = qs('[data-ticker-drawer]');
 const tickerPanel = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-panel]') : null;
 const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-toggle]') : null;
@@ -7477,7 +7540,26 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     setPanelOffset();
   };
   initializePanelObserver();
+  const storedTickerPreference = getStoredTickerPreference();
+  const preferenceInitialized = hasInitializedTickerPreference();
+  const mobileDefaultState = tickerDrawer.getAttribute('data-mobile-default-state');
+  const shouldApplyMobileDefault = !preferenceInitialized
+    && storedTickerPreference === null
+    && DEVICE_INFO?.isMobile
+    && mobileDefaultState;
+
   let isOpen = tickerDrawer.getAttribute('data-state') !== 'closed';
+  if(storedTickerPreference !== null){
+    isOpen = storedTickerPreference;
+    if(!preferenceInitialized){
+      markTickerPreferenceInitialized();
+    }
+  }else if(shouldApplyMobileDefault){
+    isOpen = mobileDefaultState !== 'closed';
+    persistTickerPreference(isOpen);
+  }else if(!preferenceInitialized){
+    markTickerPreferenceInitialized();
+  }
   let isAnimating = false;
 
   const resolveIconSource = variant => {
@@ -7573,7 +7655,9 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     if(isAnimating){
       return;
     }
-    animateDrawer(!isOpen);
+    const nextOpen = !isOpen;
+    animateDrawer(nextOpen);
+    persistTickerPreference(nextOpen);
   });
 
   setDrawerState(isOpen ? 'open' : 'closed');
