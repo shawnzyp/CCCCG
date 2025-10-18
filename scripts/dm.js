@@ -1265,14 +1265,39 @@ function initDMLogin(){
     return 'DM';
   }
 
+  function getCreditDebitState() {
+    if (!creditCard) return '';
+    return creditCard.getAttribute('data-debit-state') || '';
+  }
+
+  function setCreditDebitState(state) {
+    if (!creditCard) return;
+    if (!state) {
+      creditCard.removeAttribute('data-debit-state');
+      return;
+    }
+    creditCard.setAttribute('data-debit-state', state);
+  }
+
   function updateCreditTransactionType() {
     if (!creditCard) return;
     const type = creditTxnType?.value || 'Deposit';
     creditCard.setAttribute('data-transaction-type', type);
     if (creditStatus) {
-      const isDebit = type === 'Debit';
-      creditStatus.textContent = isDebit ? 'Debit Pending' : 'Completed';
-      creditStatus.classList.toggle('dm-credit__status--debit', isDebit);
+      if (type === 'Debit') {
+        let debitState = getCreditDebitState();
+        if (!debitState) {
+          debitState = 'pending';
+          setCreditDebitState(debitState);
+        }
+        const isCompleted = debitState === 'completed';
+        creditStatus.textContent = isCompleted ? 'Debit Completed' : 'Debit Pending';
+        creditStatus.classList.toggle('dm-credit__status--debit', !isCompleted);
+      } else {
+        setCreditDebitState('');
+        creditStatus.textContent = 'Completed';
+        creditStatus.classList.remove('dm-credit__status--debit');
+      }
     }
   }
 
@@ -1290,6 +1315,7 @@ function initDMLogin(){
       creditSubmit.disabled = true;
     }
     updateCreditSenderDataset();
+    setCreditDebitState('');
     updateCreditTransactionType();
     captureCreditTimestamp();
     randomizeCreditIdentifiers();
@@ -1739,6 +1765,13 @@ function initDMLogin(){
       updateCreditMemoPreview(memo);
       randomizeCreditIdentifiers();
       updateCreditSenderDataset();
+      if (creditCard) {
+        if (transactionType === 'Debit') {
+          setCreditDebitState('completed');
+        } else {
+          setCreditDebitState('');
+        }
+      }
       updateCreditTransactionType();
       if (creditAmountInput) {
         creditAmountInput.value = formatCreditAmountDisplay(0);
@@ -4816,6 +4849,11 @@ function initDMLogin(){
   });
 
   creditTxnType?.addEventListener('change', () => {
+    if (creditTxnType?.value === 'Debit') {
+      setCreditDebitState('pending');
+    } else {
+      setCreditDebitState('');
+    }
     updateCreditTransactionType();
     updateCreditSubmitState();
   });
