@@ -16547,7 +16547,9 @@ function updateMedalSummary() {
   if (!elMedalSummary) return;
   const count = elMedalList ? elMedalList.querySelectorAll("[data-kind='medal']").length : 0;
   elMedalSummary.textContent = count === 1 ? '1 Medal' : `${count} Medals`;
-  elMedalSummary.dataset.count = String(count);
+  if (elMedalSummary.dataset) {
+    elMedalSummary.dataset.count = String(count);
+  }
 }
 
 function updateMedalEmptyState() {

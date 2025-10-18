@@ -1906,6 +1906,139 @@
               <ul id="dm-credit-history" class="dm-credit__historyList" aria-live="polite"></ul>
             </section>
           </div>
+          <section class="dm-quickRewards" aria-labelledby="dm-quickRewards-heading">
+            <div class="dm-quickRewards__header">
+              <h4 id="dm-quickRewards-heading" class="dm-quickRewards__title">Quick Rewards</h4>
+              <div class="dm-quickRewards__target">
+                <label class="dm-quickRewards__label" for="dm-reward-target">Deliver to</label>
+                <div class="dm-quickRewards__select">
+                  <select id="dm-reward-target" aria-label="Quick reward target">
+                    <option value="">Loading players…</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="dm-quickRewards__grid">
+              <form id="dm-reward-xp-form" class="dm-quickRewards__card" novalidate>
+                <h5 class="dm-quickRewards__cardTitle">XP Boost</h5>
+                <div class="dm-quickRewards__field">
+                  <label class="dm-quickRewards__label" for="dm-reward-xp-mode">Mode</label>
+                  <div class="dm-quickRewards__control">
+                    <select id="dm-reward-xp-mode">
+                      <option value="add" selected>Add XP</option>
+                      <option value="remove">Remove XP</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="dm-quickRewards__field">
+                  <label class="dm-quickRewards__label" for="dm-reward-xp-amount">Amount</label>
+                  <input id="dm-reward-xp-amount" type="number" inputmode="numeric" step="1" min="1" placeholder="0" required>
+                </div>
+                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply XP</button>
+              </form>
+
+              <form id="dm-reward-hpsp-form" class="dm-quickRewards__card" novalidate>
+                <h5 class="dm-quickRewards__cardTitle">HP / SP</h5>
+                <fieldset class="dm-quickRewards__fieldset">
+                  <legend>HP</legend>
+                  <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                    <label class="dm-quickRewards__label" for="dm-reward-hp-mode">Change</label>
+                    <div class="dm-quickRewards__control">
+                      <select id="dm-reward-hp-mode">
+                        <option value="delta" selected>Adjust by</option>
+                        <option value="set">Set to</option>
+                      </select>
+                    </div>
+                    <input id="dm-reward-hp-value" type="number" inputmode="numeric" step="1" placeholder="0">
+                  </div>
+                  <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                    <label class="dm-quickRewards__label" for="dm-reward-hp-temp-mode">Temp</label>
+                    <div class="dm-quickRewards__control">
+                      <select id="dm-reward-hp-temp-mode">
+                        <option value="" selected>Leave unchanged</option>
+                        <option value="delta">Adjust by</option>
+                        <option value="set">Set to</option>
+                      </select>
+                    </div>
+                    <input id="dm-reward-hp-temp" type="number" inputmode="numeric" step="1" placeholder="0">
+                  </div>
+                </fieldset>
+                <fieldset class="dm-quickRewards__fieldset">
+                  <legend>SP</legend>
+                  <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                    <label class="dm-quickRewards__label" for="dm-reward-sp-mode">Change</label>
+                    <div class="dm-quickRewards__control">
+                      <select id="dm-reward-sp-mode">
+                        <option value="delta" selected>Adjust by</option>
+                        <option value="set">Set to</option>
+                      </select>
+                    </div>
+                    <input id="dm-reward-sp-value" type="number" inputmode="numeric" step="1" placeholder="0">
+                  </div>
+                  <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                    <label class="dm-quickRewards__label" for="dm-reward-sp-temp-mode">Temp</label>
+                    <div class="dm-quickRewards__control">
+                      <select id="dm-reward-sp-temp-mode">
+                        <option value="" selected>Leave unchanged</option>
+                        <option value="delta">Adjust by</option>
+                        <option value="set">Set to</option>
+                      </select>
+                    </div>
+                    <input id="dm-reward-sp-temp" type="number" inputmode="numeric" step="1" placeholder="0">
+                  </div>
+                </fieldset>
+                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply HP / SP</button>
+              </form>
+
+              <form id="dm-reward-resonance-form" class="dm-quickRewards__card" novalidate>
+                <h5 class="dm-quickRewards__cardTitle">Resonance</h5>
+                <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                  <label class="dm-quickRewards__label" for="dm-reward-resonance-points-mode">Points</label>
+                  <div class="dm-quickRewards__control">
+                    <select id="dm-reward-resonance-points-mode">
+                      <option value="delta" selected>Adjust by</option>
+                      <option value="set">Set to</option>
+                    </select>
+                  </div>
+                  <input id="dm-reward-resonance-points" type="number" inputmode="numeric" step="1" placeholder="0">
+                </div>
+                <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                  <label class="dm-quickRewards__label" for="dm-reward-resonance-banked-mode">Banked</label>
+                  <div class="dm-quickRewards__control">
+                    <select id="dm-reward-resonance-banked-mode">
+                      <option value="delta" selected>Adjust by</option>
+                      <option value="set">Set to</option>
+                    </select>
+                  </div>
+                  <input id="dm-reward-resonance-banked" type="number" inputmode="numeric" step="1" placeholder="0">
+                </div>
+                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply Resonance</button>
+              </form>
+
+              <form id="dm-reward-faction-form" class="dm-quickRewards__card" novalidate>
+                <h5 class="dm-quickRewards__cardTitle">Faction Reputation</h5>
+                <div class="dm-quickRewards__field">
+                  <label class="dm-quickRewards__label" for="dm-reward-faction-select">Faction</label>
+                  <div class="dm-quickRewards__control">
+                    <select id="dm-reward-faction-select">
+                      <option value="">Select a faction</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                  <label class="dm-quickRewards__label" for="dm-reward-faction-mode">Change</label>
+                  <div class="dm-quickRewards__control">
+                    <select id="dm-reward-faction-mode">
+                      <option value="delta" selected>Adjust by</option>
+                      <option value="set">Set to</option>
+                    </select>
+                  </div>
+                  <input id="dm-reward-faction-value" type="number" inputmode="numeric" step="5" placeholder="0">
+                </div>
+                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply Reputation</button>
+              </form>
+            </div>
+          </section>
         </div>
       </section>
       <section id="dm-rewards-panel-catalog" class="dm-rewards__panel dm-rewards__panel--catalog" role="tabpanel" aria-labelledby="dm-rewards-tab-catalog" data-panel="catalog" hidden>

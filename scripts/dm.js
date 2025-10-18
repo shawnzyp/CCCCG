@@ -18,11 +18,13 @@ import {
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
+import { FACTIONS } from './faction.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
+const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 
 function loadStoredUnreadCount() {
   if (typeof sessionStorage === 'undefined') return 0;
@@ -499,7 +501,8 @@ function initDMLogin(){
   const miniGamesKnobsHint = document.getElementById('dm-mini-games-knobs-hint');
   const miniGamesKnobs = document.getElementById('dm-mini-games-knobs');
   const miniGamesPlayerHint = document.getElementById('dm-mini-games-player-hint');
-  const miniGamesPlayerSelect = document.getElementById('dm-mini-games-player-select');
+  const miniGamesPlayerSelect = document.getElementById('dm-mini-games-player-select')
+    || document.getElementById('dm-mini-games-player');
   const miniGamesPlayerCustom = document.getElementById('dm-mini-games-player-custom');
   const miniGamesAddRecipientBtn = document.getElementById('dm-mini-games-add-recipient');
   const miniGamesAddCustomBtn = document.getElementById('dm-mini-games-add-custom');
@@ -541,6 +544,28 @@ function initDMLogin(){
   const creditHistoryList = document.getElementById('dm-credit-history');
   const creditHistoryExportBtn = document.getElementById('dm-credit-history-export');
   const creditHistoryClearBtn = document.getElementById('dm-credit-history-clear');
+  const quickRewardTargetSelect = document.getElementById('dm-reward-target');
+  const quickXpForm = document.getElementById('dm-reward-xp-form');
+  const quickXpMode = document.getElementById('dm-reward-xp-mode');
+  const quickXpAmount = document.getElementById('dm-reward-xp-amount');
+  const quickHpSpForm = document.getElementById('dm-reward-hpsp-form');
+  const quickHpMode = document.getElementById('dm-reward-hp-mode');
+  const quickHpValue = document.getElementById('dm-reward-hp-value');
+  const quickHpTempMode = document.getElementById('dm-reward-hp-temp-mode');
+  const quickHpTemp = document.getElementById('dm-reward-hp-temp');
+  const quickSpMode = document.getElementById('dm-reward-sp-mode');
+  const quickSpValue = document.getElementById('dm-reward-sp-value');
+  const quickSpTempMode = document.getElementById('dm-reward-sp-temp-mode');
+  const quickSpTemp = document.getElementById('dm-reward-sp-temp');
+  const quickResonanceForm = document.getElementById('dm-reward-resonance-form');
+  const quickResonancePointsMode = document.getElementById('dm-reward-resonance-points-mode');
+  const quickResonancePoints = document.getElementById('dm-reward-resonance-points');
+  const quickResonanceBankedMode = document.getElementById('dm-reward-resonance-banked-mode');
+  const quickResonanceBanked = document.getElementById('dm-reward-resonance-banked');
+  const quickFactionForm = document.getElementById('dm-reward-faction-form');
+  const quickFactionSelect = document.getElementById('dm-reward-faction-select');
+  const quickFactionMode = document.getElementById('dm-reward-faction-mode');
+  const quickFactionValue = document.getElementById('dm-reward-faction-value');
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -589,6 +614,8 @@ function initDMLogin(){
   }
 
   updateRewardsTabState();
+  populateFactionOptions();
+  updateQuickRewardFormsState();
 
   function updateRewardsTabState() {
     rewardsTabButtons.forEach((btn, tabId) => {
@@ -1152,17 +1179,73 @@ function initDMLogin(){
     creditSubmit.disabled = !(playerSelected && isValidAmount);
   }
 
-  async function refreshCreditAccounts({ preserveSelection = true } = {}) {
-    if (!creditAccountSelect) return;
-    const previous = preserveSelection ? creditAccountSelect.value : '';
-    creditAccountSelect.disabled = true;
-    creditAccountSelect.innerHTML = '<option value="">Loading players…</option>';
-    applyCreditAccountSelection();
-    updateCreditSubmitState();
+  function getRewardTarget() {
+    const value = quickRewardTargetSelect?.value;
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  function reportRewardError(message) {
+    if (typeof toast === 'function') {
+      toast(message, 'error');
+    } else if (typeof alert === 'function') {
+      alert(message);
+    }
+  }
+
+  function updateQuickRewardFormsState() {
+    const hasTarget = !!getRewardTarget();
+    const targetDisabled = !!quickRewardTargetSelect?.disabled;
+    [quickXpForm, quickHpSpForm, quickResonanceForm, quickFactionForm].forEach(form => {
+      if (!form) return;
+      if (form.dataset.pending === 'true') return;
+      const submit = form.querySelector('button[type="submit"]');
+      if (!submit) return;
+      submit.disabled = targetDisabled || !hasTarget;
+    });
+  }
+
+  function setRewardFormPending(form, pending) {
+    if (!form) return;
+    form.dataset.pending = pending ? 'true' : 'false';
+    const submit = form.querySelector('button[type="submit"]');
+    if (submit) {
+      if (pending) {
+        if (!submit.dataset.originalLabel) {
+          submit.dataset.originalLabel = submit.textContent || submit.value || 'Submit';
+        }
+        submit.textContent = 'Sending…';
+        submit.disabled = true;
+      } else {
+        const original = submit.dataset.originalLabel;
+        if (original) {
+          submit.textContent = original;
+        }
+        submit.disabled = false;
+        delete submit.dataset.originalLabel;
+        updateQuickRewardFormsState();
+      }
+    }
+  }
+
+  function focusQuickRewardTarget() {
+    if (!quickRewardTargetSelect || quickRewardTargetSelect.disabled) return false;
+    try {
+      quickRewardTargetSelect.focus({ preventScroll: true });
+    } catch {
+      try {
+        quickRewardTargetSelect.focus();
+      } catch {
+        return false;
+      }
+    }
+    return document.activeElement === quickRewardTargetSelect;
+  }
+
+  async function loadRewardRoster() {
     try {
       const names = await listCharacters();
       const seen = new Set();
-      const filtered = names
+      return names
         .filter(name => {
           if (typeof name !== 'string') return false;
           const trimmed = name.trim();
@@ -1172,8 +1255,29 @@ function initDMLogin(){
           return true;
         })
         .sort((a, b) => a.localeCompare(b));
+    } catch (err) {
+      console.error('Failed to load character roster', err);
+      if (typeof toast === 'function') {
+        toast('Unable to load players', 'error');
+      }
+      return [];
+    }
+  }
+
+  async function refreshCreditAccounts({ preserveSelection = true, roster: rosterInput = null } = {}) {
+    if (!creditAccountSelect) return Array.isArray(rosterInput) ? rosterInput : [];
+    const previous = preserveSelection ? creditAccountSelect.value : '';
+    creditAccountSelect.disabled = true;
+    creditAccountSelect.innerHTML = '<option value="">Loading players…</option>';
+    applyCreditAccountSelection();
+    updateCreditSubmitState();
+    let roster = Array.isArray(rosterInput) ? [...rosterInput] : null;
+    try {
+      if (!roster) {
+        roster = await loadRewardRoster();
+      }
       creditAccountSelect.innerHTML = '';
-      if (!filtered.length) {
+      if (!roster.length) {
         const none = document.createElement('option');
         none.value = '';
         none.textContent = 'No players available';
@@ -1183,13 +1287,13 @@ function initDMLogin(){
         creditAccountSelect.disabled = true;
         applyCreditAccountSelection();
         updateCreditSubmitState();
-        return;
+        return roster;
       }
       const placeholder = document.createElement('option');
       placeholder.value = '';
       placeholder.textContent = 'Select a player';
       creditAccountSelect.appendChild(placeholder);
-      filtered.forEach(name => {
+      roster.forEach(name => {
         const option = document.createElement('option');
         option.value = name;
         const accountNumber = computeCreditAccountNumber(name);
@@ -1198,13 +1302,14 @@ function initDMLogin(){
         creditAccountSelect.appendChild(option);
       });
       creditAccountSelect.disabled = false;
-      if (previous && filtered.includes(previous)) {
+      if (previous && roster.includes(previous)) {
         creditAccountSelect.value = previous;
       } else {
         creditAccountSelect.value = '';
       }
       applyCreditAccountSelection();
       updateCreditSubmitState();
+      return roster;
     } catch (err) {
       console.error('Failed to load characters for credit tool', err);
       creditAccountSelect.innerHTML = '<option value="">Unable to load players</option>';
@@ -1215,6 +1320,84 @@ function initDMLogin(){
       if (typeof toast === 'function') {
         toast('Unable to load players', 'error');
       }
+      return Array.isArray(roster) ? roster : [];
+    }
+  }
+
+  async function refreshQuickRewardTargets({ preserveSelection = true, roster: rosterInput = null } = {}) {
+    if (!quickRewardTargetSelect) return Array.isArray(rosterInput) ? rosterInput : [];
+    const previous = preserveSelection ? quickRewardTargetSelect.value : '';
+    quickRewardTargetSelect.disabled = true;
+    quickRewardTargetSelect.innerHTML = '<option value="">Loading players…</option>';
+    let roster = Array.isArray(rosterInput) ? [...rosterInput] : null;
+    try {
+      if (!roster) {
+        roster = await loadRewardRoster();
+      }
+      quickRewardTargetSelect.innerHTML = '';
+      if (!roster.length) {
+        const none = document.createElement('option');
+        none.value = '';
+        none.textContent = 'No players available';
+        none.disabled = true;
+        quickRewardTargetSelect.appendChild(none);
+        quickRewardTargetSelect.value = '';
+        quickRewardTargetSelect.disabled = true;
+        updateQuickRewardFormsState();
+        return roster;
+      }
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Select a player';
+      quickRewardTargetSelect.appendChild(placeholder);
+      roster.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        quickRewardTargetSelect.appendChild(option);
+      });
+      quickRewardTargetSelect.disabled = false;
+      if (previous && roster.includes(previous)) {
+        quickRewardTargetSelect.value = previous;
+      } else {
+        quickRewardTargetSelect.value = '';
+      }
+      updateQuickRewardFormsState();
+      return roster;
+    } catch (err) {
+      console.error('Failed to load characters for quick rewards', err);
+      quickRewardTargetSelect.innerHTML = '<option value="">Unable to load players</option>';
+      quickRewardTargetSelect.value = '';
+      quickRewardTargetSelect.disabled = true;
+      updateQuickRewardFormsState();
+      if (typeof toast === 'function') {
+        toast('Unable to load players', 'error');
+      }
+      return Array.isArray(roster) ? roster : [];
+    }
+  }
+
+  function populateFactionOptions() {
+    if (!quickFactionSelect) return;
+    const previous = quickFactionSelect.value;
+    const placeholderLabel = quickFactionSelect.querySelector('option[value=""]')?.textContent || 'Select a faction';
+    quickFactionSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = placeholderLabel;
+    quickFactionSelect.appendChild(placeholder);
+    const seen = new Set();
+    FACTIONS.forEach(faction => {
+      if (!faction || typeof faction.id !== 'string' || !faction.id) return;
+      if (seen.has(faction.id)) return;
+      seen.add(faction.id);
+      const option = document.createElement('option');
+      option.value = faction.id;
+      option.textContent = faction.name || faction.id;
+      quickFactionSelect.appendChild(option);
+    });
+    if (previous && seen.has(previous)) {
+      quickFactionSelect.value = previous;
     }
   }
 
@@ -1567,6 +1750,56 @@ function initDMLogin(){
           results.resonance = { points, banked, surge, nextCombatRegenPenalty: nextPenalty };
           break;
         }
+        case 'faction': {
+          const data = op.data && typeof op.data === 'object' ? op.data : op;
+          const factionId = typeof data.factionId === 'string' ? data.factionId.trim() : '';
+          if (!factionId) break;
+          const faction = FACTION_LOOKUP.get(factionId);
+          const partials = save.partials && typeof save.partials === 'object' ? save.partials : {};
+          const factions = partials.factions && typeof partials.factions === 'object' ? { ...partials.factions } : {};
+          const existing = factions[factionId] && typeof factions[factionId] === 'object' ? factions[factionId] : {};
+          const prevRaw = existing.value ?? existing.score ?? existing.rep ?? existing.amount;
+          let previous = Number(prevRaw);
+          if (!Number.isFinite(previous)) {
+            previous = faction && typeof faction.defaultValue === 'number' ? faction.defaultValue : 0;
+          }
+          if (!Number.isFinite(previous)) previous = 0;
+          let next = previous;
+          if (Number.isFinite(data.delta)) next = previous + Number(data.delta);
+          if (Number.isFinite(data.value)) next = Number(data.value);
+          if (faction && typeof faction.clamp === 'function') {
+            next = faction.clamp(next);
+          } else if (Number.isFinite(next)) {
+            next = Math.round(next);
+          }
+          if (!Number.isFinite(next)) next = previous;
+          next = Math.round(next);
+          const delta = next - previous;
+          if (delta === 0) break;
+          const name = faction?.name || existing.name || factionId;
+          factions[factionId] = {
+            value: next,
+            updatedAt: timestampIso,
+            name,
+          };
+          partials.factions = factions;
+          save.partials = partials;
+          applied = true;
+          const summary = `${name} reputation ${delta >= 0 ? '+' : ''}${delta} (Now ${next})`;
+          logEntries.push(createRewardLogEntry('dm-faction', now, 'DM Faction Reputation', summary));
+          notifications.push(summary);
+          if (typeof toast === 'function') toast(summary, delta >= 0 ? 'success' : 'info');
+          postSaveActions.push(() => broadcastPlayerReward({
+            player: target,
+            kind: 'faction',
+            message: summary,
+            timestamp: timestampIso,
+            data: { factionId, value: next, delta, name },
+          }));
+          if (!results.factions) results.factions = {};
+          results.factions[factionId] = { value: next, delta, name };
+          break;
+        }
         case 'item': {
           const data = op.data && typeof op.data === 'object' ? op.data : op;
           const name = typeof data.name === 'string' ? data.name.trim() : '';
@@ -1711,6 +1944,12 @@ function initDMLogin(){
     return { player: target, save, now, timestampIso, notifications, results };
   }
 
+  let rewardExecutor = executeRewardTransaction;
+
+  function setRewardExecutor(fn) {
+    rewardExecutor = typeof fn === 'function' ? fn : executeRewardTransaction;
+  }
+
   async function handleCreditRewardSubmit(event) {
     if (event) event.preventDefault();
     if (!creditSubmit || creditSubmit.disabled) return;
@@ -1735,7 +1974,7 @@ function initDMLogin(){
     creditSubmit.disabled = true;
     creditSubmit.textContent = 'Sending…';
     try {
-      const result = await executeRewardTransaction({
+      const result = await rewardExecutor({
         player,
         operations: [
           {
@@ -1815,27 +2054,316 @@ function initDMLogin(){
 
     function focusActiveRewardsContent(tabId = activeRewardsTab) {
       if (tabId === 'resource') {
-        focusCreditAmountInput();
+        if (!focusQuickRewardTarget()) {
+          focusCreditAmountInput();
+        }
       } else if (tabId === 'catalog') {
         focusCatalogForm();
       }
     }
 
     async function prepareCreditTab({ focusAmount = false, refreshAccounts = true } = {}) {
+      let roster = null;
       if (refreshAccounts) {
         resetCreditForm({ preserveAccount: false });
-        await refreshCreditAccounts({ preserveSelection: false });
+        roster = await refreshCreditAccounts({ preserveSelection: false });
       }
       resetCreditForm({ preserveAccount: true });
       renderPlayerCreditHistory();
+      await refreshQuickRewardTargets({ preserveSelection: true, roster: roster });
       if (focusAmount) {
         setTimeout(() => {
           focusCreditAmountInput();
         }, 0);
+      } else {
+        setTimeout(() => {
+          focusActiveRewardsContent('resource');
+        }, 0);
+    }
+  }
+
+  function readNumericInput(input) {
+    if (!input) return { empty: true, value: null };
+    const raw = typeof input.value === 'string' ? input.value.trim() : '';
+    if (!raw) return { empty: true, value: null };
+    const num = Number(raw);
+    if (!Number.isFinite(num)) return { empty: false, value: null };
+    return { empty: false, value: num };
+  }
+
+  async function handleQuickXpSubmit(event) {
+    if (event) event.preventDefault();
+    if (!quickXpForm) return;
+    const player = getRewardTarget();
+    if (!player) {
+      reportRewardError('Select a player to target');
+      return;
+    }
+    const amountInfo = readNumericInput(quickXpAmount);
+    if (amountInfo.empty || amountInfo.value === null) {
+      reportRewardError('Enter a valid XP amount');
+      return;
+    }
+    const rounded = Math.round(Math.abs(amountInfo.value));
+    if (rounded <= 0) {
+      reportRewardError('Enter an XP amount greater than zero');
+      return;
+    }
+    const multiplier = quickXpMode?.value === 'remove' ? -1 : 1;
+    setRewardFormPending(quickXpForm, true);
+    try {
+      await rewardExecutor({
+        player,
+        operations: [{ type: 'xp', amount: rounded * multiplier }],
+      });
+      quickXpForm.reset();
+      updateQuickRewardFormsState();
+      if (quickXpAmount) {
+        try {
+          quickXpAmount.focus({ preventScroll: true });
+        } catch {
+          quickXpAmount.focus?.();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to apply XP reward', err);
+      reportRewardError('Failed to apply XP reward');
+    } finally {
+      setRewardFormPending(quickXpForm, false);
+    }
+  }
+
+  async function handleQuickHpSpSubmit(event) {
+    if (event) event.preventDefault();
+    if (!quickHpSpForm) return;
+    const player = getRewardTarget();
+    if (!player) {
+      reportRewardError('Select a player to target');
+      return;
+    }
+    const hpData = {};
+    const hpInfo = readNumericInput(quickHpValue);
+    if (!hpInfo.empty) {
+      if (hpInfo.value === null) {
+        reportRewardError('Enter a valid HP value');
+        return;
+      }
+      const hpModeValue = quickHpMode?.value === 'set' ? 'set' : 'delta';
+      const roundedHp = Math.round(hpInfo.value);
+      if (hpModeValue === 'set') {
+        hpData.value = Math.max(0, roundedHp);
+      } else if (roundedHp !== 0) {
+        hpData.delta = roundedHp;
+      }
+    }
+    const hpTempModeValue = quickHpTempMode?.value || '';
+    const hpTempInfo = readNumericInput(quickHpTemp);
+    if (hpTempModeValue === 'set') {
+      if (!hpTempInfo.empty) {
+        if (hpTempInfo.value === null) {
+          reportRewardError('Enter a valid HP temp value');
+          return;
+        }
+        hpData.tempValue = Math.max(0, Math.round(hpTempInfo.value));
+      }
+    } else if (hpTempModeValue === 'delta') {
+      if (!hpTempInfo.empty) {
+        if (hpTempInfo.value === null) {
+          reportRewardError('Enter a valid HP temp value');
+          return;
+        }
+        const roundedTemp = Math.round(hpTempInfo.value);
+        if (roundedTemp !== 0) {
+          hpData.tempDelta = roundedTemp;
+        }
       }
     }
 
-    async function prepareCatalogTab({ focusForm = false, refreshRecipients = true } = {}) {
+    const spData = {};
+    const spInfo = readNumericInput(quickSpValue);
+    if (!spInfo.empty) {
+      if (spInfo.value === null) {
+        reportRewardError('Enter a valid SP value');
+        return;
+      }
+      const spModeValue = quickSpMode?.value === 'set' ? 'set' : 'delta';
+      const roundedSp = Math.round(spInfo.value);
+      if (spModeValue === 'set') {
+        spData.value = Math.max(0, roundedSp);
+      } else if (roundedSp !== 0) {
+        spData.delta = roundedSp;
+      }
+    }
+    const spTempModeValue = quickSpTempMode?.value || '';
+    const spTempInfo = readNumericInput(quickSpTemp);
+    if (spTempModeValue === 'set') {
+      if (!spTempInfo.empty) {
+        if (spTempInfo.value === null) {
+          reportRewardError('Enter a valid SP temp value');
+          return;
+        }
+        spData.tempValue = Math.max(0, Math.round(spTempInfo.value));
+      }
+    } else if (spTempModeValue === 'delta') {
+      if (!spTempInfo.empty) {
+        if (spTempInfo.value === null) {
+          reportRewardError('Enter a valid SP temp value');
+          return;
+        }
+        const roundedTemp = Math.round(spTempInfo.value);
+        if (roundedTemp !== 0) {
+          spData.tempDelta = roundedTemp;
+        }
+      }
+    }
+
+    const operations = [];
+    if (Object.keys(hpData).length) {
+      operations.push({ type: 'hp', data: hpData });
+    }
+    if (Object.keys(spData).length) {
+      operations.push({ type: 'sp', data: spData });
+    }
+    if (!operations.length) {
+      reportRewardError('Enter at least one HP or SP change');
+      return;
+    }
+    setRewardFormPending(quickHpSpForm, true);
+    try {
+      await rewardExecutor({ player, operations });
+      quickHpSpForm.reset();
+      updateQuickRewardFormsState();
+      if (quickHpValue) {
+        try {
+          quickHpValue.focus({ preventScroll: true });
+        } catch {
+          quickHpValue.focus?.();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to apply HP/SP reward', err);
+      reportRewardError('Failed to apply HP/SP reward');
+    } finally {
+      setRewardFormPending(quickHpSpForm, false);
+    }
+  }
+
+  async function handleQuickResonanceSubmit(event) {
+    if (event) event.preventDefault();
+    if (!quickResonanceForm) return;
+    const player = getRewardTarget();
+    if (!player) {
+      reportRewardError('Select a player to target');
+      return;
+    }
+    const data = {};
+    const pointsInfo = readNumericInput(quickResonancePoints);
+    if (!pointsInfo.empty) {
+      if (pointsInfo.value === null) {
+        reportRewardError('Enter a valid resonance points value');
+        return;
+      }
+      const pointsModeValue = quickResonancePointsMode?.value === 'set' ? 'set' : 'delta';
+      const roundedPoints = Math.round(pointsInfo.value);
+      if (pointsModeValue === 'set') {
+        data.points = Math.max(0, roundedPoints);
+      } else if (roundedPoints !== 0) {
+        data.pointsDelta = roundedPoints;
+      }
+    }
+    const bankedInfo = readNumericInput(quickResonanceBanked);
+    if (!bankedInfo.empty) {
+      if (bankedInfo.value === null) {
+        reportRewardError('Enter a valid resonance banked value');
+        return;
+      }
+      const bankedModeValue = quickResonanceBankedMode?.value === 'set' ? 'set' : 'delta';
+      const roundedBanked = Math.round(bankedInfo.value);
+      if (bankedModeValue === 'set') {
+        data.banked = Math.max(0, roundedBanked);
+      } else if (roundedBanked !== 0) {
+        data.bankedDelta = roundedBanked;
+      }
+    }
+    if (!('points' in data) && !('pointsDelta' in data) && !('banked' in data) && !('bankedDelta' in data)) {
+      reportRewardError('Enter a resonance change');
+      return;
+    }
+    setRewardFormPending(quickResonanceForm, true);
+    try {
+      await rewardExecutor({ player, operations: [{ type: 'resonance', data }] });
+      quickResonanceForm.reset();
+      updateQuickRewardFormsState();
+      if (quickResonancePoints) {
+        try {
+          quickResonancePoints.focus({ preventScroll: true });
+        } catch {
+          quickResonancePoints.focus?.();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to apply resonance reward', err);
+      reportRewardError('Failed to apply resonance reward');
+    } finally {
+      setRewardFormPending(quickResonanceForm, false);
+    }
+  }
+
+  async function handleQuickFactionSubmit(event) {
+    if (event) event.preventDefault();
+    if (!quickFactionForm) return;
+    const player = getRewardTarget();
+    if (!player) {
+      reportRewardError('Select a player to target');
+      return;
+    }
+    const factionId = typeof quickFactionSelect?.value === 'string' ? quickFactionSelect.value.trim() : '';
+    if (!factionId) {
+      reportRewardError('Select a faction');
+      return;
+    }
+    const valueInfo = readNumericInput(quickFactionValue);
+    if (valueInfo.empty || valueInfo.value === null) {
+      reportRewardError('Enter a valid reputation amount');
+      return;
+    }
+    const mode = quickFactionMode?.value === 'set' ? 'set' : 'delta';
+    const roundedValue = Math.round(valueInfo.value);
+    if (mode !== 'set' && roundedValue === 0) {
+      reportRewardError('Enter a non-zero reputation adjustment');
+      return;
+    }
+    const payload = { factionId };
+    if (mode === 'set') {
+      payload.value = roundedValue;
+    } else {
+      payload.delta = roundedValue;
+    }
+    const previousFaction = quickFactionSelect?.value || '';
+    setRewardFormPending(quickFactionForm, true);
+    try {
+      await rewardExecutor({ player, operations: [{ type: 'faction', data: payload }] });
+      quickFactionForm.reset();
+      if (previousFaction) {
+        quickFactionSelect.value = previousFaction;
+      }
+      updateQuickRewardFormsState();
+      if (quickFactionValue) {
+        try {
+          quickFactionValue.focus({ preventScroll: true });
+        } catch {
+          quickFactionValue.focus?.();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to apply faction reputation reward', err);
+      reportRewardError('Failed to apply faction reputation reward');
+    } finally {
+      setRewardFormPending(quickFactionForm, false);
+    }
+  }
+
+  async function prepareCatalogTab({ focusForm = false, refreshRecipients = true } = {}) {
       ensureCatalogUI();
       if (refreshRecipients) {
         await populateCatalogRecipients();
@@ -4090,7 +4618,7 @@ function initDMLogin(){
     const equipment = convertCatalogPayloadToEquipment(payload);
     if (!equipment) return null;
     try {
-      return await executeRewardTransaction({
+      return await rewardExecutor({
         player: payload.recipient,
         operations: [
           {
@@ -4864,6 +5392,15 @@ function initDMLogin(){
 
   creditSubmit?.addEventListener('click', handleCreditRewardSubmit);
 
+  quickRewardTargetSelect?.addEventListener('change', () => {
+    updateQuickRewardFormsState();
+  });
+
+  quickXpForm?.addEventListener('submit', handleQuickXpSubmit);
+  quickHpSpForm?.addEventListener('submit', handleQuickHpSpSubmit);
+  quickResonanceForm?.addEventListener('submit', handleQuickResonanceSubmit);
+  quickFactionForm?.addEventListener('submit', handleQuickFactionSubmit);
+
   creditHistoryClearBtn?.addEventListener('click', () => {
     clearPlayerCreditHistory();
   });
@@ -5175,6 +5712,7 @@ function initDMLogin(){
   charClose?.addEventListener('click', closeCharacters);
   charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });
   charViewClose?.addEventListener('click', closeCharacterView);
+  rewardsModal?.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeRewards(); } });
   rewardsModal?.addEventListener('click', e => { if (e.target === rewardsModal) closeRewards(); });
 
   if (logoutBtn) {
@@ -5208,6 +5746,7 @@ function initDMLogin(){
     CATALOG_RECIPIENT_PLACEHOLDER,
     compileCatalogNotes,
     convertCatalogPayloadToEquipment,
+    setRewardExecutor,
   };
 }
 if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {
