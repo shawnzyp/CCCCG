@@ -521,38 +521,86 @@ export default function DecryptedText({
     maxHeight: dimensions.height ? `${dimensions.height}px` : undefined
   };
 
-  const animationVariants = useMemo(
-    () => ({
-      revealed: {
+  const containerVariants = useMemo(() => {
+    if (prefersReducedMotion) {
+      return {
+        rest: {
+          opacity: 1,
+          scale: 1,
+          '--scramble-blur': '0px'
+        },
+        scramble: {
+          opacity: 0.75,
+          scale: 0.98,
+          '--scramble-blur': '4px'
+        }
+      };
+    }
+
+    const sharedTransition = {
+      ease: 'easeOut',
+      duration: 0.25,
+      staggerChildren: 0.035
+    };
+
+    return {
+      rest: {
         opacity: 1,
         scale: 1,
-        '--scramble-blur': '0px'
+        '--scramble-blur': '0px',
+        transition: {
+          ...sharedTransition,
+          delayChildren: 0.05,
+          staggerDirection: 1
+        }
       },
-      scrambled: {
+      scramble: {
         opacity: 0.75,
         scale: 0.98,
-        '--scramble-blur': '4px'
+        '--scramble-blur': '4px',
+        transition: {
+          ...sharedTransition,
+          staggerDirection: -1
+        }
       }
+    };
+  }, [prefersReducedMotion]);
+
+  const characterVariants = useMemo(
+    () => ({
+      rest: index => ({
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: prefersReducedMotion
+          ? { duration: 0 }
+          : {
+              duration: 0.25,
+              ease: 'easeOut',
+              delay: index * 0.003
+            }
+      }),
+      scramble: index => ({
+        opacity: 0.75,
+        y: -4,
+        scale: 0.98,
+        transition: prefersReducedMotion
+          ? { duration: 0 }
+          : {
+              duration: 0.2,
+              ease: 'easeInOut',
+              delay: index * 0.003
+            }
+      })
     }),
-    []
+    [prefersReducedMotion]
   );
 
   const animationState = prefersReducedMotion
-    ? 'revealed'
+    ? 'rest'
     : isScrambling
-    ? 'scrambled'
-    : 'revealed';
-
-  const transition = useMemo(
-    () =>
-      prefersReducedMotion
-        ? { duration: 0 }
-        : {
-            duration: 0.25,
-            ease: 'easeOut'
-          },
-    [prefersReducedMotion]
-  );
+    ? 'scramble'
+    : 'rest';
 
   return (
     <motion.span
@@ -562,15 +610,14 @@ export default function DecryptedText({
         ...wrapperStyle,
         filter: 'blur(var(--scramble-blur, 0px))'
       }}
-      variants={animationVariants}
-      initial="revealed"
+      variants={containerVariants}
+      initial="rest"
       animate={animationState}
       whileHover={
         prefersReducedMotion || (animateOn !== 'hover' && animateOn !== 'both')
           ? undefined
-          : 'scrambled'
+          : 'scramble'
       }
-      transition={transition}
       {...hoverProps}
       {...props}
     >
@@ -606,13 +653,15 @@ export default function DecryptedText({
           const isRevealedOrDone = revealedIndices.has(index) || !isScrambling || !isHovering;
 
           return (
-            <span
+            <motion.span
               key={index}
               className={isRevealedOrDone ? className : encryptedClassName}
               data-char={char === ' ' ? 'space' : char}
+              variants={characterVariants}
+              custom={index}
             >
               {char}
-            </span>
+            </motion.span>
           );
         })}
       </span>
