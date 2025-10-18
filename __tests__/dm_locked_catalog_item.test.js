@@ -122,6 +122,7 @@ function setupDom() {
     checked: false,
     hidden: false,
     removeAttribute: () => {},
+    dataset: {},
   });
   document.getElementById = (id) => {
     const el = realGet(id);
@@ -264,5 +265,50 @@ describe('DM catalog lock enforcement', () => {
     const card = addEntryToSheet(entry);
     expect(card).not.toBeNull();
     expect(items.children.length).toBe(1);
+    const editable = Array.from(card.querySelectorAll('input,select,textarea'))
+      .filter(field => field.type !== 'hidden');
+    expect(editable.every(field => field.disabled === false)).toBe(true);
+    const delBtn = card.querySelector('[data-act="del"]');
+    expect(delBtn).not.toBeNull();
+    expect(delBtn.hidden).toBe(false);
+    const badge = card.querySelector('[data-role="dm-lock-tag"]');
+    expect(badge).not.toBeNull();
+  });
+
+  test('locked DM catalog item is read-only without DM session', async () => {
+    const module = await import('../scripts/main.js');
+    const { addEntryToSheet } = module;
+    const entry = {
+      name: 'Locked Gadget',
+      section: 'DM Catalog',
+      type: 'Item',
+      tier: 'T1',
+      dmEntry: true,
+      dmLock: false,
+    };
+    const cardInfoOverride = {
+      kind: 'item',
+      listId: 'items',
+      data: {
+        name: 'Locked Gadget',
+        qty: 1,
+        notes: '',
+        dmLock: true,
+      },
+    };
+    const items = document.getElementById('items');
+    const card = addEntryToSheet(entry, { cardInfoOverride, toastMessage: null });
+    expect(card).not.toBeNull();
+    expect(items.children.length).toBe(1);
+    const editable = Array.from(card.querySelectorAll('input,select,textarea'))
+      .filter(field => field.type !== 'hidden');
+    expect(editable.length).toBeGreaterThan(0);
+    editable.forEach(field => expect(field.disabled).toBe(true));
+    const delBtn = card.querySelector('[data-act="del"]');
+    expect(delBtn).not.toBeNull();
+    expect(delBtn.hidden).toBe(true);
+    const badge = card.querySelector('[data-role="dm-lock-tag"]');
+    expect(badge).not.toBeNull();
+    expect(badge.textContent).toMatch(/locked/i);
   });
 });

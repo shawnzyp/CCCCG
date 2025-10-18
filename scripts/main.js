@@ -16686,6 +16686,59 @@ function cleanupPendingManualCards(){
   return removed;
 }
 
+function applyCardDmLockState(card, locked){
+  if (!card) return;
+  const isLocked = !!locked;
+  if (isLocked) {
+    card.dataset.dmLock = 'true';
+  } else {
+    delete card.dataset.dmLock;
+  }
+  let badge = card.querySelector('[data-role="dm-lock-tag"]');
+  if (isLocked) {
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.className = 'pill';
+      badge.dataset.role = 'dm-lock-tag';
+      badge.textContent = 'DM Locked';
+      card.insertBefore(badge, card.firstChild || null);
+    }
+    badge.hidden = false;
+  } else if (badge) {
+    badge.remove();
+  }
+  card.classList.toggle('card--dm-locked', isLocked);
+  const shouldDisable = isLocked && !isDmSessionActive();
+  const inputs = card.querySelectorAll('input,select,textarea');
+  inputs.forEach(input => {
+    if (shouldDisable) {
+      if (!input.dataset.dmLockDisabled) {
+        input.dataset.dmLockDisabled = input.disabled ? 'preserve' : 'locked';
+      }
+      input.disabled = true;
+    } else if (input.dataset.dmLockDisabled) {
+      if (input.dataset.dmLockDisabled === 'locked') {
+        input.disabled = false;
+      }
+      delete input.dataset.dmLockDisabled;
+    }
+  });
+  const delBtn = card.querySelector('[data-act="del"]');
+  if (delBtn) {
+    if (shouldDisable) {
+      if (!delBtn.dataset.dmLockHidden) {
+        delBtn.dataset.dmLockHidden = delBtn.hidden ? 'preserve' : 'locked';
+      }
+      delBtn.hidden = true;
+    } else if (delBtn.dataset.dmLockHidden) {
+      if (delBtn.dataset.dmLockHidden === 'locked') {
+        delBtn.hidden = false;
+      }
+      delete delBtn.dataset.dmLockHidden;
+    }
+  }
+}
+
 function populateCardFromData(card, data){
   if (!card || !data) return;
   Object.entries(data).forEach(([key, value]) => {
@@ -16699,6 +16752,9 @@ function populateCardFromData(card, data){
   });
   if (card?.dataset?.kind === 'medal') {
     updateMedalCardDisplay(card);
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'dmLock')) {
+    applyCardDmLockState(card, data.dmLock);
   }
 }
 
@@ -16723,6 +16779,7 @@ function createCard(kind, pref = {}) {
     return createPowerCard(pref, { signature: kind === 'sig' });
   }
   pref = { ...pref };
+  const dmLock = !!pref.dmLock;
   let medalMeta = null;
   let attackAbilityWasProvided = false;
   let providedAttackAbilityRaw;
@@ -17019,6 +17076,9 @@ function createCard(kind, pref = {}) {
     });
     updateMedalCardDisplay(card);
   }
+  if (dmLock) {
+    applyCardDmLockState(card, true);
+  }
   if (mode === 'view') applyViewLockState(card);
   return card;
 }
@@ -17117,13 +17177,15 @@ function buildCardInfo(entry){
     if (entry.use) damageParts.push(`Use: ${entry.use}`);
     if (entry.attunement) damageParts.push(`Attunement: ${entry.attunement}`);
     if (entry.source) damageParts.push(entry.source);
+    const dmLock = !!entry.dmLock;
     return {
       kind: 'weapon',
       listId: 'weapons',
       data: {
         name,
         damage: damageParts.join(' — '),
-        ...(range ? { range } : {})
+        ...(range ? { range } : {}),
+        dmLock,
       }
     };
   }
@@ -17139,6 +17201,7 @@ function buildCardInfo(entry){
     const slotBase = typeKey === 'shield' ? 'Shield' : 'Body';
     const slot = (entry.slot || slotBase || '').trim() || slotBase;
     const bonusValue = Number.isFinite(entry.bonus) ? entry.bonus : parsedBonus;
+    const dmLock = !!entry.dmLock;
     return {
       kind: 'armor',
       listId: 'armors',
@@ -17146,19 +17209,22 @@ function buildCardInfo(entry){
         name: nameParts.length ? `${name} — ${nameParts.join(' — ')}` : name,
         slot,
         bonus: Number.isFinite(bonusValue) ? bonusValue : 0,
-        equipped: true
+        equipped: true,
+        dmLock,
       }
     };
   }
   const notes = buildItemNotes(entry);
   const qty = Number.isFinite(entry.qty) && entry.qty > 0 ? entry.qty : 1;
+  const dmLock = !!entry.dmLock;
   return {
     kind: 'item',
     listId: 'items',
     data: {
       name,
       notes,
-      qty
+      qty,
+      dmLock,
     }
   };
 }
@@ -18861,24 +18927,28 @@ function serialize(){
     const attackAbilityRaw = getVal("[data-f='attackAbility']", card) || '';
     const attackAbility = attackAbilityRaw ? attackAbilityRaw.toLowerCase() : '';
     const proficient = !!getChecked("[data-f='proficient']", card);
+    const dmLock = card?.dataset?.dmLock === 'true';
     return {
       name,
       damage,
       range,
       attackAbility: attackAbility || inferWeaponAttackAbility({ range }),
-      proficient
+      proficient,
+      dmLock
     };
   });
   data.armor = qsa("[data-kind='armor']").map(card => ({
     name: getVal("[data-f='name']", card) || '',
     slot: getVal("[data-f='slot']", card) || 'Body',
     bonus: Number(getVal("[data-f='bonus']", card) || 0),
-    equipped: !!getChecked("[data-f='equipped']", card)
+    equipped: !!getChecked("[data-f='equipped']", card),
+    dmLock: card?.dataset?.dmLock === 'true'
   }));
   data.items = qsa("[data-kind='item']").map(card => ({
     name: getVal("[data-f='name']", card) || '',
     qty: Number(getVal("[data-f='qty']", card) || 1),
-    notes: getVal("[data-f='notes']", card) || ''
+    notes: getVal("[data-f='notes']", card) || '',
+    dmLock: card?.dataset?.dmLock === 'true'
   }));
   data.medals = qsa("[data-kind='medal']").map(card => {
     let id = getVal("[data-f='id']", card) || '';
