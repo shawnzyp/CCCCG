@@ -1012,19 +1012,34 @@ label[data-animate-title]{
   justify-content:center;
 }
 
-.tabs .tab .tab__icon svg,
-.tabs .tab .tab__icon img{
-  width:var(--tab-icon-size);
-  height:var(--tab-icon-size);
-  object-fit:contain;
+.tabs .tab{
+  --tab-icon-primary:var(--tab-fg);
+  --tab-icon-secondary:color-mix(in srgb, var(--tab-icon-primary) 72%, transparent);
+  --tab-icon-highlight:color-mix(in srgb, var(--tab-icon-primary) 86%, #ffffff 14%);
 }
 
-.tabs .tab .tab__icon img{
+.tabs .tab .tab__icon svg{
+  width:var(--tab-icon-size);
+  height:var(--tab-icon-size);
+  display:block;
+  object-fit:contain;
+  color:var(--tab-icon-primary);
   filter:var(--tab-icon-filter);
-  transition:filter .3s ease;
+  transition:filter .3s ease,color .3s ease;
 }
-.tabs .tab .tab__icon img[data-icon-variant='inverted']{
-  filter:var(--tab-icon-filter-inverted);
+
+.tabs .tab .tab__icon svg [data-secondary]{
+  color:var(--tab-icon-secondary);
+  opacity:0.82;
+}
+
+.tabs .tab .tab__icon svg [data-highlight]{
+  color:var(--tab-icon-highlight);
+}
+
+.tabs .tab .tab__icon svg path,
+.tabs .tab .tab__icon svg circle{
+  vector-effect:non-scaling-stroke;
 }
 
 .tabs .tab .tab__label{
@@ -1037,6 +1052,9 @@ body:not(.no-hover) .tabs .tab:hover{
   background:var(--tab-bg-hover);
   color:var(--tab-active-fg);
   transform:translateY(-1px);
+  --tab-icon-primary:var(--tab-active-fg);
+  --tab-icon-secondary:color-mix(in srgb, var(--tab-icon-primary) 72%, transparent);
+  --tab-icon-highlight:color-mix(in srgb, var(--tab-icon-primary) 88%, #ffffff 12%);
 }
 
 .tabs .tab:active{
@@ -1050,11 +1068,14 @@ body:not(.no-hover) .tabs .tab:hover{
   box-shadow:0 14px 32px color-mix(in srgb,var(--accent) 32%, transparent);
 }
 
-.tabs .tab.active .tab__icon img{
-  filter:var(--tab-icon-filter-active);
+.tabs .tab.active{
+  --tab-icon-primary:var(--tab-active-fg);
+  --tab-icon-secondary:color-mix(in srgb, var(--tab-icon-primary) 70%, transparent);
+  --tab-icon-highlight:color-mix(in srgb, var(--tab-icon-primary) 88%, #ffffff 12%);
 }
-.tabs .tab.active .tab__icon img[data-icon-variant='inverted']{
-  filter:var(--tab-icon-filter-inverted-active);
+
+.tabs .tab.active .tab__icon svg{
+  filter:var(--tab-icon-filter-active);
 }
 
 .ticker-drawer{
@@ -1167,10 +1188,12 @@ body:not(.no-hover) .ticker-drawer__pull:hover{
   filter:drop-shadow(0 2px 6px rgba(0, 0, 0, .28));
   transition:transform 320ms cubic-bezier(.22, 1, .36, 1);
   transform:rotate(0deg);
+  color:var(--tab-fg);
 }
 
 [data-ticker-toggle][aria-expanded='true'] .ticker-drawer__pull-icon{
   transform:rotate(180deg);
+  color:var(--tab-active-fg);
 }
 
 [data-ticker-toggle][aria-expanded='false'] .ticker-drawer__pull-icon{

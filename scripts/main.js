@@ -6617,23 +6617,6 @@ document.addEventListener('input', e=>{
 });
 
 /* ========= theme ========= */
-const iconVariantSubscribers = new Set();
-function subscribeIconVariantChange(handler){
-  if(typeof handler !== 'function'){
-    return () => {};
-  }
-  iconVariantSubscribers.add(handler);
-  return () => {
-    iconVariantSubscribers.delete(handler);
-  };
-}
-function notifyIconVariantChange(variant){
-  iconVariantSubscribers.forEach(fn => {
-    try {
-      fn(variant);
-    } catch (err) {}
-  });
-}
 const root = document.documentElement;
 const themeToggleEl = qs('[data-theme-toggle]');
 const themeSpinnerEl = themeToggleEl ? themeToggleEl.querySelector('.theme-toggle__spinner') : null;
@@ -6658,36 +6641,6 @@ const THEME_LABELS = {
   alien: 'Alien',
   mystic: 'Mystic'
 };
-const tabIconImages = qsa('[data-tab-icon]');
-const DEFAULT_TAB_ICON_VARIANT = 'inverted';
-const TAB_ICON_THEME_VARIANTS = {
-  dark: 'inverted',
-  light: 'original',
-  high: 'inverted'
-};
-function setTabIconVariant(themeName){
-  const variant = TAB_ICON_THEME_VARIANTS[themeName] || DEFAULT_TAB_ICON_VARIANT;
-  if (variant) {
-    root.dataset.tabIconVariant = variant;
-  } else {
-    delete root.dataset.tabIconVariant;
-  }
-  tabIconImages.forEach(img => {
-    if (!img) return;
-    const originalSrc = img.getAttribute('data-icon-original') || img.getAttribute('src');
-    const invertedSrc = img.getAttribute('data-icon-inverted') || originalSrc;
-    const nextSrc = variant === 'inverted' ? (invertedSrc || originalSrc) : originalSrc;
-    if (nextSrc && img.getAttribute('src') !== nextSrc) {
-      img.setAttribute('src', nextSrc);
-    }
-    if (variant) {
-      img.setAttribute('data-icon-variant', variant);
-    } else {
-      img.removeAttribute('data-icon-variant');
-    }
-  });
-  notifyIconVariantChange(variant);
-}
 /**
  * Apply a visual theme by toggling root classes and updating the button icon.
  * @param {string} t - theme identifier matching supported themes
@@ -6720,7 +6673,6 @@ function applyTheme(t, { animate = true } = {}){
       spinThemeToggle();
     }
   }
-  setTabIconVariant(themeName);
   activeTheme = themeName;
 }
 function loadTheme(){
@@ -7479,11 +7431,6 @@ const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-tog
 if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
-  const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
-  const iconSources = {
-    original: tickerToggle.getAttribute('data-open-icon'),
-    inverted: tickerToggle.getAttribute('data-open-icon-inverted')
-  };
   const sanitizePanelHeight = value => {
     if(typeof value === 'number' && Number.isFinite(value)){
       return value;
@@ -7562,29 +7509,6 @@ if(tickerDrawer && tickerPanel && tickerToggle){
   }
   let isAnimating = false;
 
-  const resolveIconSource = variant => {
-    if(!iconSources) return null;
-    if(variant && iconSources[variant]) return iconSources[variant];
-    const fallbackVariant = variant === 'original' ? 'inverted' : 'original';
-    return iconSources[fallbackVariant] || iconSources.original || iconSources.inverted || null;
-  };
-
-  const applyTickerIconVariant = (variant = root.dataset.tabIconVariant || DEFAULT_TAB_ICON_VARIANT) => {
-    if(!toggleIcon) return;
-    const nextSrc = resolveIconSource(variant);
-    if(nextSrc && toggleIcon.getAttribute('src') !== nextSrc){
-      toggleIcon.setAttribute('src', nextSrc);
-    }
-    if(variant){
-      tickerToggle.setAttribute('data-icon-variant', variant);
-    }else{
-      tickerToggle.removeAttribute('data-icon-variant');
-    }
-  };
-
-  subscribeIconVariantChange(applyTickerIconVariant);
-  applyTickerIconVariant();
-
   const setDrawerState = state => {
     tickerDrawer.setAttribute('data-state', state);
   };
@@ -7599,7 +7523,6 @@ if(tickerDrawer && tickerPanel && tickerToggle){
 
   const updateToggleState = nextOpen => {
     updateAccessibilityState(nextOpen);
-    applyTickerIconVariant();
   };
 
   const finalizeAnimation = () => {
