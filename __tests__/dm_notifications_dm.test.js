@@ -245,6 +245,36 @@ describe('DM notifications filtering', () => {
   });
 });
 
+describe('DM notification severity rendering', () => {
+  test('applies severity metadata and wraps HTML payloads', async () => {
+    const stored = [
+      { ts: '2025-01-01T00:00:00', char: 'DM', detail: 'Plain info', severity: 'info' },
+      { ts: '2025-01-02T00:00:00', char: 'Alex', detail: 'Escalated detail', severity: 'warning', html: '<em>Escalated detail</em>' },
+    ];
+
+    await initDmModule({ loggedIn: true, storedNotifications: stored });
+
+    const items = Array.from(document.querySelectorAll('#dm-notifications-list li'));
+    expect(items).toHaveLength(2);
+
+    const infoItem = items.find(node => node.textContent.includes('Plain info'));
+    expect(infoItem).toBeTruthy();
+    expect(infoItem?.getAttribute('data-severity')).toBe('info');
+    expect(infoItem?.classList.contains('dm-notifications__item--hasSeverity')).toBe(true);
+    expect(infoItem?.classList.contains('dm-notifications__item--severity-info')).toBe(true);
+    expect(infoItem?.querySelector('.dm-notifications__severityBadge')?.textContent).toBe('Info');
+
+    const warningItem = items.find(node => node.textContent.includes('Escalated detail'));
+    expect(warningItem).toBeTruthy();
+    expect(warningItem?.getAttribute('data-severity')).toBe('warning');
+    expect(warningItem?.classList.contains('dm-notifications__item--severity-warning')).toBe(true);
+
+    const htmlWrapper = warningItem?.querySelector('.dm-notifications__itemHtml');
+    expect(htmlWrapper).toBeTruthy();
+    expect(htmlWrapper?.innerHTML).toContain('<em>Escalated detail</em>');
+  });
+});
+
 describe('DM notifications mark read control', () => {
   test('clears unread badge without removing log entries', async () => {
     await initDmModule({ loggedIn: true });

@@ -4984,11 +4984,24 @@ function initDMLogin(){
     if (node.classList && typeof node.classList.toggle === 'function') {
       node.classList.toggle('dm-notifications__content--resolved', Boolean(entry?.resolved));
     }
+    node.innerHTML = '';
+
+    const message = document.createElement('div');
+    message.className = 'dm-notifications__itemMessage';
+
     if (entry?.html) {
-      node.innerHTML = formatNotification(entry, { html: true });
+      const htmlWrapper = document.createElement('div');
+      htmlWrapper.className = 'dm-notifications__itemHtml';
+      htmlWrapper.innerHTML = formatNotification(entry, { html: true });
+      message.appendChild(htmlWrapper);
     } else {
-      node.textContent = formatNotification(entry);
+      const textWrapper = document.createElement('div');
+      textWrapper.className = 'dm-notifications__itemText';
+      textWrapper.textContent = formatNotification(entry);
+      message.appendChild(textWrapper);
     }
+
+    node.appendChild(message);
   }
 
   function updateNotificationActionState() {
@@ -5217,15 +5230,36 @@ function initDMLogin(){
     });
 
     notifyList.innerHTML = '';
+    const buildSeverityModifier = severityValue => {
+      if (!severityValue) return '';
+      const sanitized = severityValue.replace(/[^a-z0-9_-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      return sanitized || 'custom';
+    };
+
     filteredNotifications.forEach(entry => {
       const li = document.createElement('li');
       li.classList.add('dm-notifications__item');
       li.classList.toggle('dm-notifications__item--resolved', Boolean(entry.resolved));
       li.setAttribute('data-resolved', entry.resolved ? '1' : '0');
 
+      const severityValue = typeof entry?.severity === 'string' ? entry.severity.trim().toLowerCase() : '';
+      if (severityValue) {
+        li.setAttribute('data-severity', severityValue);
+        const severityModifier = buildSeverityModifier(severityValue);
+        li.classList.add('dm-notifications__item--hasSeverity', `dm-notifications__item--severity-${severityModifier}`);
+      }
+
       const content = document.createElement('div');
       content.className = 'dm-notifications__itemContent';
       applyNotificationContent(content, entry);
+
+      if (severityValue) {
+        content.setAttribute('data-severity', severityValue);
+        const badge = document.createElement('span');
+        badge.className = 'dm-notifications__severityBadge';
+        badge.textContent = severityValue.charAt(0).toUpperCase() + severityValue.slice(1);
+        content.prepend(badge);
+      }
 
       const actions = document.createElement('div');
       actions.className = 'dm-notifications__itemActions';
