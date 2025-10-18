@@ -1748,6 +1748,9 @@
     </button>
     <h3>DM Login</h3>
     <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+    <p id="dm-login-lockout-message" class="dm-login__lockout" role="alert" hidden aria-hidden="true">
+      Too many incorrect attempts. Try again in <span id="dm-login-lockout-countdown"></span>.
+    </p>
     <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
   </section>
 </div>

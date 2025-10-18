@@ -24,7 +24,90 @@ const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
+const DM_LOGIN_LOCKOUT_STORAGE_KEY = 'cc:dm-login-lockout';
+const DM_LOGIN_LOCKOUT_THRESHOLD = 3;
+const DM_LOGIN_LOCKOUT_DURATION_MS = 30000;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
+
+function getDefaultLoginLockoutState() {
+  return { failedAttempts: 0, lockedUntil: 0 };
+}
+
+function loadLoginLockoutState() {
+  if (typeof sessionStorage === 'undefined') return getDefaultLoginLockoutState();
+  try {
+    const raw = sessionStorage.getItem(DM_LOGIN_LOCKOUT_STORAGE_KEY);
+    if (!raw) return getDefaultLoginLockoutState();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return getDefaultLoginLockoutState();
+    const failedAttempts = Number.isFinite(parsed.failedAttempts) ? Math.max(0, Math.floor(parsed.failedAttempts)) : 0;
+    const lockedUntil = Number.isFinite(parsed.lockedUntil) ? parsed.lockedUntil : 0;
+    return { failedAttempts, lockedUntil };
+  } catch {
+    return getDefaultLoginLockoutState();
+  }
+}
+
+function saveLoginLockoutState(state) {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(DM_LOGIN_LOCKOUT_STORAGE_KEY, JSON.stringify({
+      failedAttempts: Number.isFinite(state?.failedAttempts) ? Math.max(0, Math.floor(state.failedAttempts)) : 0,
+      lockedUntil: Number.isFinite(state?.lockedUntil) ? state.lockedUntil : 0,
+    }));
+  } catch {
+    /* ignore persistence errors */
+  }
+}
+
+function clearLoginLockoutState() {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.removeItem(DM_LOGIN_LOCKOUT_STORAGE_KEY);
+  } catch {
+    /* ignore persistence errors */
+  }
+}
+
+function getLoginLockoutState() {
+  const state = loadLoginLockoutState();
+  if (state.lockedUntil > 0 && state.lockedUntil <= Date.now()) {
+    clearLoginLockoutState();
+    return getDefaultLoginLockoutState();
+  }
+  return state;
+}
+
+function isLoginLockoutActive(state = getLoginLockoutState()) {
+  return !!(state && state.lockedUntil > Date.now());
+}
+
+function getLoginLockoutRemainingMs(state = getLoginLockoutState()) {
+  if (!isLoginLockoutActive(state)) return 0;
+  return Math.max(0, state.lockedUntil - Date.now());
+}
+
+function recordLoginFailure() {
+  const state = getLoginLockoutState();
+  let failedAttempts = (state.failedAttempts ?? 0) + 1;
+  let lockedUntil = 0;
+  if (failedAttempts >= DM_LOGIN_LOCKOUT_THRESHOLD) {
+    lockedUntil = Date.now() + DM_LOGIN_LOCKOUT_DURATION_MS;
+    failedAttempts = DM_LOGIN_LOCKOUT_THRESHOLD;
+  }
+  const nextState = { failedAttempts, lockedUntil };
+  if (nextState.failedAttempts <= 0 && nextState.lockedUntil <= 0) {
+    clearLoginLockoutState();
+  } else {
+    saveLoginLockoutState(nextState);
+  }
+  return nextState;
+}
+
+function recordLoginSuccess() {
+  clearLoginLockoutState();
+  return getDefaultLoginLockoutState();
+}
 
 function loadStoredUnreadCount() {
   if (typeof sessionStorage === 'undefined') return 0;
@@ -480,6 +563,9 @@ function initDMLogin(){
   const loginPin = document.getElementById('dm-login-pin');
   const loginSubmit = document.getElementById('dm-login-submit');
   const loginClose = document.getElementById('dm-login-close');
+  const loginLockoutMessage = document.getElementById('dm-login-lockout-message');
+  const loginLockoutCountdown = document.getElementById('dm-login-lockout-countdown');
+  let loginLockoutTimer = null;
   const notifyModal = document.getElementById('dm-notifications-modal');
   const notifyList = document.getElementById('dm-notifications-list');
   const notifyClose = document.getElementById('dm-notifications-close');
@@ -4932,14 +5018,98 @@ function initDMLogin(){
     }
   }
 
+  function formatLoginLockoutRemaining(ms) {
+    const seconds = Math.max(0, Math.ceil(ms / 1000));
+    if (seconds >= 60) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      if (remainingSeconds === 0) {
+        return `${minutes}m`;
+      }
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+    return `${seconds}s`;
+  }
+
+  function stopLoginLockoutTimer() {
+    if (loginLockoutTimer !== null) {
+      const clearTimer = typeof window !== 'undefined' && typeof window.clearInterval === 'function'
+        ? window.clearInterval
+        : clearInterval;
+      clearTimer(loginLockoutTimer);
+      loginLockoutTimer = null;
+    }
+  }
+
+  function ensureLoginLockoutTimer() {
+    if (loginLockoutTimer !== null) return;
+    const setTimer = typeof window !== 'undefined' && typeof window.setInterval === 'function'
+      ? window.setInterval
+      : setInterval;
+    loginLockoutTimer = setTimer(() => {
+      const state = getLoginLockoutState();
+      if (isLoginLockoutActive(state)) {
+        if (loginLockoutCountdown) {
+          loginLockoutCountdown.textContent = formatLoginLockoutRemaining(getLoginLockoutRemainingMs(state));
+        }
+      } else {
+        updateLoginLockoutUI(state);
+      }
+    }, 1000);
+  }
+
+  function updateLoginLockoutUI(state = getLoginLockoutState()) {
+    const locked = isLoginLockoutActive(state);
+    if (locked) {
+      if (loginLockoutMessage) {
+        loginLockoutMessage.hidden = false;
+        loginLockoutMessage.setAttribute('aria-hidden', 'false');
+      }
+      if (loginLockoutCountdown) {
+        loginLockoutCountdown.textContent = formatLoginLockoutRemaining(getLoginLockoutRemainingMs(state));
+      }
+      if (loginPin) {
+        loginPin.disabled = true;
+        loginPin.value = '';
+      }
+      if (loginSubmit) {
+        loginSubmit.disabled = true;
+      }
+      ensureLoginLockoutTimer();
+    } else {
+      if (loginLockoutMessage) {
+        loginLockoutMessage.hidden = true;
+        loginLockoutMessage.setAttribute('aria-hidden', 'true');
+      }
+      if (loginLockoutCountdown) {
+        loginLockoutCountdown.textContent = '';
+      }
+      if (loginPin) {
+        loginPin.disabled = false;
+      }
+      if (loginSubmit) {
+        loginSubmit.disabled = false;
+      }
+      stopLoginLockoutTimer();
+    }
+    return locked;
+  }
+
   function openLogin(){
-    if(!loginModal || !loginPin) return;
+    if(!loginModal) return false;
     show('dm-login-modal');
-    loginPin.value='';
-    loginPin.focus();
+    if (loginPin) {
+      loginPin.value='';
+    }
+    const locked = updateLoginLockoutUI();
+    if (!locked && loginPin) {
+      loginPin.focus();
+    }
+    return locked;
   }
 
   function closeLogin(){
+    stopLoginLockoutTimer();
     if(!loginModal) return;
     hide('dm-login-modal');
   }
@@ -4956,22 +5126,37 @@ function initDMLogin(){
       // the promise always resolves and loading doesn't hang.
       if (!loginModal || !loginPin || !loginSubmit) {
         (async () => {
+          const state = getLoginLockoutState();
+          if (isLoginLockoutActive(state)) {
+            if (typeof toast === 'function') toast('Too many login attempts. Try again soon.','error');
+            reject(new Error('locked'));
+            return;
+          }
           const entered = window.pinPrompt ? await window.pinPrompt('Enter DM PIN') : (typeof prompt === 'function' ? prompt('Enter DM PIN') : null);
           if (entered === DM_PIN) {
+            recordLoginSuccess();
             onLoginSuccess();
             if (typeof dismissToast === 'function') dismissToast();
             if (typeof toast === 'function') toast('DM tools unlocked','success');
             resolve(true);
           } else {
-            if (typeof toast === 'function') toast('Invalid PIN','error');
-            reject(new Error('Invalid PIN'));
+            const nextState = recordLoginFailure();
+            const locked = isLoginLockoutActive(nextState);
+            if (typeof toast === 'function') toast(locked ? 'Too many login attempts. Try again soon.' : 'Invalid PIN','error');
+            reject(new Error(locked ? 'locked' : 'Invalid PIN'));
           }
         })();
         return;
       }
 
-      openLogin();
-      if (typeof toast === 'function') toast('Enter DM PIN','info');
+      const lockedOnOpen = openLogin();
+      if (typeof toast === 'function') {
+        if (lockedOnOpen) {
+          toast('Too many login attempts. Try again soon.','error');
+        } else {
+          toast('Enter DM PIN','info');
+        }
+      }
       function cleanup(){
         loginSubmit?.removeEventListener('click', onSubmit);
         loginPin?.removeEventListener('keydown', onKey);
@@ -4979,7 +5164,14 @@ function initDMLogin(){
         loginClose?.removeEventListener('click', onCancel);
       }
       function onSubmit(){
+        const state = getLoginLockoutState();
+        if (isLoginLockoutActive(state)) {
+          updateLoginLockoutUI(state);
+          if (typeof toast === 'function') toast('Too many login attempts. Try again soon.','error');
+          return;
+        }
         if(loginPin.value === DM_PIN){
+          recordLoginSuccess();
           onLoginSuccess();
           closeLogin();
           if (typeof dismissToast === 'function') dismissToast();
@@ -4987,9 +5179,13 @@ function initDMLogin(){
           cleanup();
           resolve(true);
         } else {
-          loginPin.value='';
-          loginPin.focus();
-          if (typeof toast === 'function') toast('Invalid PIN','error');
+          const nextState = recordLoginFailure();
+          const locked = updateLoginLockoutUI(nextState);
+          if (!locked && loginPin) {
+            loginPin.value='';
+            loginPin.focus();
+          }
+          if (typeof toast === 'function') toast(locked ? 'Too many login attempts. Try again soon.' : 'Invalid PIN','error');
         }
       }
       function onKey(e){ if(e.key==='Enter') onSubmit(); }
