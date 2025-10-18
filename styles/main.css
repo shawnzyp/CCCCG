@@ -3509,6 +3509,7 @@ body:not(.no-hover) .modal .x:hover{color:var(--accent)}
 .dm-quickRewards__label{font-size:.75rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .dm-quickRewards__select,.dm-quickRewards__control{position:relative;width:100%}
 .dm-quickRewards__select select,.dm-quickRewards__control select,.dm-quickRewards__field input{width:100%;padding:8px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--text) 12%, transparent);background:color-mix(in srgb,var(--surface) 96%, transparent);color:inherit;font-size:.9rem;line-height:1.4;transition:var(--transition)}
+.dm-quickRewards__hint{margin:0;font-size:.75rem;color:var(--muted);line-height:1.3}
 body:not(.no-hover) .dm-quickRewards__select select:hover,body:not(.no-hover) .dm-quickRewards__control select:hover,body:not(.no-hover) .dm-quickRewards__field input:hover{border-color:var(--accent)}
 .dm-quickRewards__select select:focus-visible,.dm-quickRewards__control select:focus-visible,.dm-quickRewards__field input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .dm-quickRewards__grid{display:grid;gap:16px;width:100%;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}

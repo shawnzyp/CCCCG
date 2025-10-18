@@ -79,7 +79,8 @@ describe('dm quick rewards forms', () => {
                 <section class="dm-quickRewards">
                   <div class="dm-quickRewards__header">
                     <label for="dm-reward-target"></label>
-                    <select id="dm-reward-target"></select>
+                    <select id="dm-reward-target" multiple></select>
+                    <p id="dm-reward-target-hint"></p>
                   </div>
                   <div class="dm-quickRewards__grid">
                     <form id="dm-reward-xp-form">
@@ -235,7 +236,8 @@ describe('dm quick rewards forms', () => {
     const targetSelect = document.getElementById('dm-reward-target');
     targetSelect.innerHTML = '<option value="">Select</option><option value="Alpha">Alpha</option><option value="Bravo">Bravo</option>';
     targetSelect.disabled = false;
-    targetSelect.value = 'Alpha';
+    targetSelect.querySelector('option[value="Alpha"]').selected = true;
+    targetSelect.querySelector('option[value="Bravo"]').selected = true;
     targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
     const xpMode = document.getElementById('dm-reward-xp-mode');
@@ -247,7 +249,11 @@ describe('dm quick rewards forms', () => {
     xpForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await Promise.resolve();
     await new Promise(resolve => setTimeout(resolve, 0));
-    expect(rewardExecutor).toHaveBeenCalledWith({ player: 'Alpha', operations: [{ type: 'xp', amount: -5 }] });
+    expect(rewardExecutor).toHaveBeenCalledTimes(2);
+    expect(rewardExecutor).toHaveBeenNthCalledWith(1, { player: 'Alpha', operations: [{ type: 'xp', amount: -5 }] });
+    expect(rewardExecutor).toHaveBeenNthCalledWith(2, { player: 'Bravo', operations: [{ type: 'xp', amount: -5 }] });
+    expect(global.toast.mock.calls.some(([message, type]) => message === 'XP reward applied to Alpha and Bravo' && type === 'success')).toBe(true);
+    global.toast.mockClear();
     rewardExecutor.mockClear();
 
     document.getElementById('dm-reward-hp-mode').value = 'delta';
@@ -262,14 +268,29 @@ describe('dm quick rewards forms', () => {
     hpSpForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     await Promise.resolve();
     await new Promise(resolve => setTimeout(resolve, 0));
-    expect(rewardExecutor).toHaveBeenCalledWith({
+    expect(rewardExecutor).toHaveBeenCalledTimes(2);
+    expect(rewardExecutor).toHaveBeenNthCalledWith(1, {
       player: 'Alpha',
       operations: [
         { type: 'hp', data: { delta: 3, tempDelta: 5 } },
         { type: 'sp', data: { value: 10, tempValue: 2 } },
       ],
     });
+    expect(rewardExecutor).toHaveBeenNthCalledWith(2, {
+      player: 'Bravo',
+      operations: [
+        { type: 'hp', data: { delta: 3, tempDelta: 5 } },
+        { type: 'sp', data: { value: 10, tempValue: 2 } },
+      ],
+    });
+    expect(global.toast.mock.calls.some(([message, type]) => message === 'HP/SP update applied to Alpha and Bravo' && type === 'success')).toBe(true);
+    global.toast.mockClear();
     rewardExecutor.mockClear();
+
+    Array.from(targetSelect.options).forEach(option => {
+      option.selected = option.value === 'Alpha';
+    });
+    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
     document.getElementById('dm-reward-resonance-points-mode').value = 'delta';
     document.getElementById('dm-reward-resonance-points').value = '1';
@@ -359,7 +380,7 @@ describe('dm quick rewards forms', () => {
     const targetSelect = document.getElementById('dm-reward-target');
     targetSelect.innerHTML = '<option value="">Select</option><option value="Alpha">Alpha</option>';
     targetSelect.disabled = false;
-    targetSelect.value = 'Alpha';
+    targetSelect.querySelector('option[value="Alpha"]').selected = true;
     targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
     const xpAmount = document.getElementById('dm-reward-xp-amount');

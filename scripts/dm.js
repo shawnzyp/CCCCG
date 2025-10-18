@@ -1872,8 +1872,36 @@ function initDMLogin(){
   }
 
   function getRewardTarget() {
-    const value = quickRewardTargetSelect?.value;
-    return typeof value === 'string' ? value.trim() : '';
+    if (!quickRewardTargetSelect) return [];
+    const selectedOptions = quickRewardTargetSelect.selectedOptions;
+    const names = selectedOptions
+      ? Array.from(selectedOptions, option => (typeof option.value === 'string' ? option.value.trim() : ''))
+      : [typeof quickRewardTargetSelect.value === 'string' ? quickRewardTargetSelect.value.trim() : ''];
+    const unique = [];
+    names.forEach(name => {
+      if (!name) return;
+      if (!unique.includes(name)) unique.push(name);
+    });
+    return unique;
+  }
+
+  function cloneQuickRewardOperations(operations = []) {
+    return operations.map(operation => {
+      if (!operation || typeof operation !== 'object') return operation;
+      const clone = { ...operation };
+      if (operation.data && typeof operation.data === 'object') {
+        clone.data = { ...operation.data };
+      }
+      return clone;
+    });
+  }
+
+  function formatPlayerList(names = []) {
+    const filtered = names.filter(name => typeof name === 'string' && name.trim());
+    if (!filtered.length) return '';
+    if (filtered.length === 1) return filtered[0];
+    if (filtered.length === 2) return `${filtered[0]} and ${filtered[1]}`;
+    return `${filtered.slice(0, -1).join(', ')}, and ${filtered[filtered.length - 1]}`;
   }
 
   function reportRewardError(message) {
@@ -1885,7 +1913,7 @@ function initDMLogin(){
   }
 
   function updateQuickRewardFormsState() {
-    const hasTarget = !!getRewardTarget();
+    const hasTarget = getRewardTarget().length > 0;
     const targetDisabled = !!quickRewardTargetSelect?.disabled;
     [quickXpForm, quickHpSpForm, quickResonanceForm, quickFactionForm].forEach(form => {
       if (!form) return;
@@ -2018,7 +2046,7 @@ function initDMLogin(){
 
   async function refreshQuickRewardTargets({ preserveSelection = true, roster: rosterInput = null } = {}) {
     if (!quickRewardTargetSelect) return Array.isArray(rosterInput) ? rosterInput : [];
-    const previous = preserveSelection ? quickRewardTargetSelect.value : '';
+    const previousSelection = preserveSelection ? new Set(getRewardTarget()) : new Set();
     quickRewardTargetSelect.disabled = true;
     quickRewardTargetSelect.innerHTML = '<option value="">Loading players…</option>';
     let roster = Array.isArray(rosterInput) ? [...rosterInput] : null;
@@ -2032,34 +2060,38 @@ function initDMLogin(){
         none.value = '';
         none.textContent = 'No players available';
         none.disabled = true;
+        none.selected = true;
         quickRewardTargetSelect.appendChild(none);
-        quickRewardTargetSelect.value = '';
         quickRewardTargetSelect.disabled = true;
         updateQuickRewardFormsState();
         return roster;
       }
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = 'Select a player';
-      quickRewardTargetSelect.appendChild(placeholder);
+      let hasSelection = false;
       roster.forEach(name => {
         const option = document.createElement('option');
         option.value = name;
         option.textContent = name;
+        if (previousSelection.has(name)) {
+          option.selected = true;
+          hasSelection = true;
+        }
         quickRewardTargetSelect.appendChild(option);
       });
-      quickRewardTargetSelect.disabled = false;
-      if (previous && roster.includes(previous)) {
-        quickRewardTargetSelect.value = previous;
-      } else {
-        quickRewardTargetSelect.value = '';
+      if (!hasSelection) {
+        quickRewardTargetSelect.selectedIndex = -1;
       }
+      quickRewardTargetSelect.disabled = false;
       updateQuickRewardFormsState();
       return roster;
     } catch (err) {
       console.error('Failed to load characters for quick rewards', err);
-      quickRewardTargetSelect.innerHTML = '<option value="">Unable to load players</option>';
-      quickRewardTargetSelect.value = '';
+      quickRewardTargetSelect.innerHTML = '';
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'Unable to load players';
+      option.disabled = true;
+      option.selected = true;
+      quickRewardTargetSelect.appendChild(option);
       quickRewardTargetSelect.disabled = true;
       updateQuickRewardFormsState();
       if (typeof toast === 'function') {
@@ -2806,8 +2838,8 @@ function initDMLogin(){
   async function handleQuickXpSubmit(event) {
     if (event) event.preventDefault();
     if (!quickXpForm) return;
-    const player = getRewardTarget();
-    if (!player) {
+    const players = getRewardTarget();
+    if (!players.length) {
       reportRewardError('Select a player to target');
       return;
     }
@@ -2824,17 +2856,42 @@ function initDMLogin(){
     const multiplier = quickXpMode?.value === 'remove' ? -1 : 1;
     setRewardFormPending(quickXpForm, true);
     try {
-      await rewardExecutor({
-        player,
-        operations: [{ type: 'xp', amount: rounded * multiplier }],
-      });
-      quickXpForm.reset();
-      updateQuickRewardFormsState();
-      if (quickXpAmount) {
+      const successes = [];
+      const failures = [];
+      for (const player of players) {
         try {
-          quickXpAmount.focus({ preventScroll: true });
-        } catch {
-          quickXpAmount.focus?.();
+          await rewardExecutor({
+            player,
+            operations: [{ type: 'xp', amount: rounded * multiplier }],
+          });
+          successes.push(player);
+        } catch (err) {
+          console.error(`Failed to apply XP reward for ${player}`, err);
+          failures.push(player);
+        }
+      }
+      if (successes.length && players.length > 1 && typeof toast === 'function') {
+        toast(`XP reward applied to ${formatPlayerList(successes)}`, 'success');
+      }
+      if (failures.length) {
+        const message = failures.length === players.length
+          ? 'Failed to apply XP reward'
+          : `Unable to apply XP reward for ${formatPlayerList(failures)}`;
+        if (failures.length === players.length) {
+          reportRewardError(message);
+        } else if (typeof toast === 'function') {
+          toast(message, 'error');
+        }
+      }
+      if (failures.length === 0 && successes.length) {
+        quickXpForm.reset();
+        updateQuickRewardFormsState();
+        if (quickXpAmount) {
+          try {
+            quickXpAmount.focus({ preventScroll: true });
+          } catch {
+            quickXpAmount.focus?.();
+          }
         }
       }
     } catch (err) {
@@ -2848,8 +2905,8 @@ function initDMLogin(){
   async function handleQuickHpSpSubmit(event) {
     if (event) event.preventDefault();
     if (!quickHpSpForm) return;
-    const player = getRewardTarget();
-    if (!player) {
+    const players = getRewardTarget();
+    if (!players.length) {
       reportRewardError('Select a player to target');
       return;
     }
@@ -2942,14 +2999,39 @@ function initDMLogin(){
     }
     setRewardFormPending(quickHpSpForm, true);
     try {
-      await rewardExecutor({ player, operations });
-      quickHpSpForm.reset();
-      updateQuickRewardFormsState();
-      if (quickHpValue) {
+      const successes = [];
+      const failures = [];
+      for (const player of players) {
         try {
-          quickHpValue.focus({ preventScroll: true });
-        } catch {
-          quickHpValue.focus?.();
+          await rewardExecutor({ player, operations: cloneQuickRewardOperations(operations) });
+          successes.push(player);
+        } catch (err) {
+          console.error(`Failed to apply HP/SP reward for ${player}`, err);
+          failures.push(player);
+        }
+      }
+      if (successes.length && players.length > 1 && typeof toast === 'function') {
+        toast(`HP/SP update applied to ${formatPlayerList(successes)}`, 'success');
+      }
+      if (failures.length) {
+        const message = failures.length === players.length
+          ? 'Failed to apply HP/SP reward'
+          : `Unable to apply HP/SP reward for ${formatPlayerList(failures)}`;
+        if (failures.length === players.length) {
+          reportRewardError(message);
+        } else if (typeof toast === 'function') {
+          toast(message, 'error');
+        }
+      }
+      if (failures.length === 0 && successes.length) {
+        quickHpSpForm.reset();
+        updateQuickRewardFormsState();
+        if (quickHpValue) {
+          try {
+            quickHpValue.focus({ preventScroll: true });
+          } catch {
+            quickHpValue.focus?.();
+          }
         }
       }
     } catch (err) {
@@ -2963,8 +3045,8 @@ function initDMLogin(){
   async function handleQuickResonanceSubmit(event) {
     if (event) event.preventDefault();
     if (!quickResonanceForm) return;
-    const player = getRewardTarget();
-    if (!player) {
+    const players = getRewardTarget();
+    if (!players.length) {
       reportRewardError('Select a player to target');
       return;
     }
@@ -3003,14 +3085,39 @@ function initDMLogin(){
     }
     setRewardFormPending(quickResonanceForm, true);
     try {
-      await rewardExecutor({ player, operations: [{ type: 'resonance', data }] });
-      quickResonanceForm.reset();
-      updateQuickRewardFormsState();
-      if (quickResonancePoints) {
+      const successes = [];
+      const failures = [];
+      for (const player of players) {
         try {
-          quickResonancePoints.focus({ preventScroll: true });
-        } catch {
-          quickResonancePoints.focus?.();
+          await rewardExecutor({ player, operations: [{ type: 'resonance', data: { ...data } }] });
+          successes.push(player);
+        } catch (err) {
+          console.error(`Failed to apply resonance reward for ${player}`, err);
+          failures.push(player);
+        }
+      }
+      if (successes.length && players.length > 1 && typeof toast === 'function') {
+        toast(`Resonance update applied to ${formatPlayerList(successes)}`, 'success');
+      }
+      if (failures.length) {
+        const message = failures.length === players.length
+          ? 'Failed to apply resonance reward'
+          : `Unable to apply resonance reward for ${formatPlayerList(failures)}`;
+        if (failures.length === players.length) {
+          reportRewardError(message);
+        } else if (typeof toast === 'function') {
+          toast(message, 'error');
+        }
+      }
+      if (failures.length === 0 && successes.length) {
+        quickResonanceForm.reset();
+        updateQuickRewardFormsState();
+        if (quickResonancePoints) {
+          try {
+            quickResonancePoints.focus({ preventScroll: true });
+          } catch {
+            quickResonancePoints.focus?.();
+          }
         }
       }
     } catch (err) {
@@ -3024,8 +3131,8 @@ function initDMLogin(){
   async function handleQuickFactionSubmit(event) {
     if (event) event.preventDefault();
     if (!quickFactionForm) return;
-    const player = getRewardTarget();
-    if (!player) {
+    const players = getRewardTarget();
+    if (!players.length) {
       reportRewardError('Select a player to target');
       return;
     }
@@ -3054,17 +3161,42 @@ function initDMLogin(){
     const previousFaction = quickFactionSelect?.value || '';
     setRewardFormPending(quickFactionForm, true);
     try {
-      await rewardExecutor({ player, operations: [{ type: 'faction', data: payload }] });
-      quickFactionForm.reset();
-      if (previousFaction) {
-        quickFactionSelect.value = previousFaction;
-      }
-      updateQuickRewardFormsState();
-      if (quickFactionValue) {
+      const successes = [];
+      const failures = [];
+      for (const player of players) {
         try {
-          quickFactionValue.focus({ preventScroll: true });
-        } catch {
-          quickFactionValue.focus?.();
+          await rewardExecutor({ player, operations: cloneQuickRewardOperations([{ type: 'faction', data: payload }]) });
+          successes.push(player);
+        } catch (err) {
+          console.error(`Failed to apply faction reputation reward for ${player}`, err);
+          failures.push(player);
+        }
+      }
+      if (successes.length && players.length > 1 && typeof toast === 'function') {
+        toast(`Reputation update applied to ${formatPlayerList(successes)}`, 'success');
+      }
+      if (failures.length) {
+        const message = failures.length === players.length
+          ? 'Failed to apply faction reputation reward'
+          : `Unable to apply faction reputation reward for ${formatPlayerList(failures)}`;
+        if (failures.length === players.length) {
+          reportRewardError(message);
+        } else if (typeof toast === 'function') {
+          toast(message, 'error');
+        }
+      }
+      if (failures.length === 0 && successes.length) {
+        quickFactionForm.reset();
+        if (previousFaction) {
+          quickFactionSelect.value = previousFaction;
+        }
+        updateQuickRewardFormsState();
+        if (quickFactionValue) {
+          try {
+            quickFactionValue.focus({ preventScroll: true });
+          } catch {
+            quickFactionValue.focus?.();
+          }
         }
       }
     } catch (err) {
