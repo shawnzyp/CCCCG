@@ -25,12 +25,12 @@
     autoplay
     muted
     playsinline
-    preload="auto"
+    preload="none"
     webkit-playsinline
     data-src-webm="media/launch-animation.webm"
     data-src-mp4="media/launch-animation.mp4"
   >
-    <source src="images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
+    <source data-src="images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
     Sorry, your browser does not support the launch animation video.
   </video>
   <button type="button" class="launch-animation__skip" data-skip-launch>Skip</button>
@@ -120,17 +120,148 @@
           : DEFAULT_FALLBACK;
         scheduleFallback(durationMs);
       };
-      ensureAttributes();
+
+      const getConnection = () => {
+        const nav = typeof navigator !== 'undefined' ? navigator : null;
+        if(!nav){
+          return null;
+        }
+        return nav.connection || nav.mozConnection || nav.webkitConnection || null;
+      };
+
+      const prefersReducedData = (() => {
+        try {
+          return typeof window.matchMedia === 'function'
+            && window.matchMedia('(prefers-reduced-data: reduce)').matches;
+        } catch (err) {
+          return false;
+        }
+      })();
+
+      const connection = getConnection();
+      const shouldBypassVideo = (() => {
+        if(typeof navigator !== 'undefined' && navigator.onLine === false){
+          return true;
+        }
+        if(prefersReducedData){
+          return true;
+        }
+        if(!connection){
+          return false;
+        }
+        const effectiveType = typeof connection.effectiveType === 'string'
+          ? connection.effectiveType.toLowerCase()
+          : '';
+        if(connection.saveData === true){
+          return true;
+        }
+        if(effectiveType){
+          if(effectiveType.includes('2g')){
+            return true;
+          }
+          if(effectiveType === '3g'){
+            if(typeof connection.downlink === 'number' && connection.downlink > 0 && connection.downlink < 1){
+              return true;
+            }
+            if(typeof connection.rtt === 'number' && connection.rtt > 1200){
+              return true;
+            }
+          }
+        }
+        if(typeof connection.downlink === 'number' && connection.downlink > 0 && connection.downlink < 0.5){
+          return true;
+        }
+        if(typeof connection.rtt === 'number' && connection.rtt > 1500){
+          return true;
+        }
+        return false;
+      })();
+
+      if(shouldBypassVideo){
+        launchEl.setAttribute('data-bypassed', 'true');
+        try {
+          window.dispatchEvent(new CustomEvent('launch-animation-skip', { detail: { reason: 'network' } }));
+        } catch (err) {}
+        hideLaunch();
+        return;
+      }
+
+      let sourcesAssigned = false;
+      const assignVideoSources = () => {
+        if(sourcesAssigned){
+          return true;
+        }
+        let assigned = false;
+        const existingSources = Array.from(video.querySelectorAll('source'));
+        existingSources.forEach(source => {
+          const dataSrc = source.getAttribute('data-src');
+          if(dataSrc && source.getAttribute('src') !== dataSrc){
+            source.setAttribute('src', dataSrc);
+            assigned = true;
+          }
+        });
+        const webmSrc = video.getAttribute('data-src-webm');
+        if(webmSrc){
+          const hasWebm = existingSources.some(source => {
+            const type = source.getAttribute('type');
+            return type ? type.toLowerCase() === 'video/webm' : false;
+          });
+          if(!hasWebm){
+            const webmSource = document.createElement('source');
+            webmSource.setAttribute('src', webmSrc);
+            webmSource.setAttribute('type', 'video/webm');
+            video.insertBefore(webmSource, existingSources.length ? existingSources[0] : video.firstChild);
+            assigned = true;
+          }
+        }
+        const mp4Src = video.getAttribute('data-src-mp4');
+        if(mp4Src && !assigned){
+          video.setAttribute('src', mp4Src);
+          assigned = true;
+        }
+        sourcesAssigned = assigned;
+        return assigned;
+      };
+
+      let startedPlayback = false;
+      const startPlayback = () => {
+        if(startedPlayback){
+          return;
+        }
+        const assigned = assignVideoSources();
+        startedPlayback = true;
+        if(!assigned){
+          scheduleFallback(MIN_VISIBLE);
+          return;
+        }
+        ensureAttributes();
+        video.addEventListener('loadeddata', ensureAttributes, { once: true });
+        if(video.readyState >= 1){
+          handleReady();
+          return;
+        }
+        video.addEventListener('loadedmetadata', handleReady, { once: true });
+        scheduleFallback(DEFAULT_FALLBACK);
+        try { video.load(); } catch (err) {}
+      };
+
       video.addEventListener('ended', hideLaunch, { once: true });
       ['error','abort','stalled','suspend'].forEach(evt => {
         video.addEventListener(evt, () => scheduleFallback(MIN_VISIBLE), { once: true });
       });
-      video.addEventListener('loadeddata', ensureAttributes, { once: true });
-      if(video.readyState >= 1){
-        handleReady();
+
+      const requestStart = () => {
+        if(typeof window.requestAnimationFrame === 'function'){
+          window.requestAnimationFrame(() => startPlayback());
+        } else {
+          startPlayback();
+        }
+      };
+
+      if(document.readyState === 'complete' || document.readyState === 'interactive'){
+        requestStart();
       } else {
-        video.addEventListener('loadedmetadata', handleReady, { once: true });
-        scheduleFallback(DEFAULT_FALLBACK);
+        window.addEventListener('DOMContentLoaded', requestStart, { once: true });
       }
     }
 
