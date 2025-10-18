@@ -33,6 +33,7 @@ const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
 const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+const DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS = 60 * 1000;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 
 function parseSessionTimestamp(value) {
@@ -77,6 +78,22 @@ function getSessionTimeoutMs() {
     }
   }
   return DM_DEFAULT_SESSION_TIMEOUT_MS;
+}
+
+function getSessionWarningThresholdMs() {
+  if (typeof window !== 'undefined') {
+    const msCandidate = window?.dmSessionWarningThresholdMs;
+    const parsedMs = Number(msCandidate);
+    if (Number.isFinite(parsedMs)) {
+      return Math.max(0, parsedMs);
+    }
+    const secondsCandidate = window?.dmSessionWarningThresholdSeconds;
+    const parsedSeconds = Number(secondsCandidate);
+    if (Number.isFinite(parsedSeconds)) {
+      return Math.max(0, parsedSeconds * 1000);
+    }
+  }
+  return DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS;
 }
 
 function touchSessionActivity(timestamp = Date.now()) {
@@ -671,6 +688,7 @@ function initDMLogin(){
     ? window.clearInterval.bind(window)
     : clearInterval;
   let sessionStatusIntervalId = null;
+  let sessionWarningToastShown = false;
 
   function parseStoredNumber(value){
     if (typeof value !== 'string' || !value) return 0;
@@ -695,6 +713,7 @@ function initDMLogin(){
       sessionExtendBtn.hidden = true;
       sessionExtendBtn.disabled = true;
     }
+    sessionWarningToastShown = false;
   }
 
   function formatSessionRemaining(remainingMs) {
@@ -734,6 +753,17 @@ function initDMLogin(){
     if (!Number.isFinite(remaining) || remaining <= 0) {
       hideSessionStatus();
       return;
+    }
+    const warningThreshold = getSessionWarningThresholdMs();
+    if (
+      !sessionWarningToastShown &&
+      Number.isFinite(warningThreshold) &&
+      warningThreshold > 0 &&
+      remaining <= warningThreshold &&
+      typeof toast === 'function'
+    ) {
+      toast('DM session will expire soon. Extend to stay logged in.', 'warning');
+      sessionWarningToastShown = true;
     }
     sessionStatus.hidden = false;
     sessionStatus.textContent = formatSessionRemaining(remaining);
@@ -7074,6 +7104,7 @@ function initDMLogin(){
       sessionStorage.setItem(DM_LOGIN_FLAG_KEY,'1');
       setSessionTimestamp(DM_LOGIN_AT_KEY, now);
       touchSessionActivity(now);
+      sessionWarningToastShown = false;
     } catch {
       /* ignore */
     }
@@ -8247,6 +8278,7 @@ function initDMLogin(){
     }
     const now = Date.now();
     touchSessionActivity(now);
+    sessionWarningToastShown = false;
     updateSessionStatusDisplay({ loggedIn: true, now });
     ensureSessionStatusUpdates();
   });

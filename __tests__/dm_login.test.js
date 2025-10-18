@@ -170,6 +170,110 @@ describe('dm login', () => {
     delete window.dmLoginTimeoutMs;
   });
 
+  test('session warning toast triggers near expiration and resets after extend', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2020-01-01T00:00:00Z'));
+
+    document.body.innerHTML = `
+        <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
+        <div id="dm-tools-menu" hidden>
+          <div id="dm-session-status" hidden></div>
+          <button id="dm-session-extend" hidden></button>
+        </div>
+        <button id="dm-tools-tsomf"></button>
+        <button id="dm-tools-logout"></button>
+        <div id="dm-login-modal" class="hidden" aria-hidden="true">
+          <input id="dm-login-pin">
+          <button id="dm-login-submit"></button>
+        </div>
+      `;
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+    window.dmLoginTimeoutMs = 120000;
+    window.dmSessionWarningThresholdMs = 60000;
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    try {
+      const loginPromise = window.dmRequireLogin();
+      document.getElementById('dm-login-pin').value = '123123';
+      document.getElementById('dm-login-submit').click();
+      await loginPromise;
+
+      window.toast.mockClear();
+
+      const timeoutMs = Number(window.dmLoginTimeoutMs);
+      const thresholdMs = Number(window.dmSessionWarningThresholdMs);
+      const now = Date.now();
+      const elapsedBeyondThreshold = timeoutMs - thresholdMs + 5000;
+      sessionStorage.setItem('dmLoggedInLastActive', String(now - elapsedBeyondThreshold));
+
+      jest.advanceTimersByTime(1000);
+
+      const warningMessage = 'DM session will expire soon. Extend to stay logged in.';
+      expect(window.toast).toHaveBeenCalledTimes(1);
+      expect(window.toast).toHaveBeenCalledWith(warningMessage, 'warning');
+
+      jest.advanceTimersByTime(1000);
+      expect(window.toast).toHaveBeenCalledTimes(1);
+
+      document.getElementById('dm-session-extend').click();
+
+      window.toast.mockClear();
+
+      const afterExtendNow = Date.now();
+      sessionStorage.setItem('dmLoggedInLastActive', String(afterExtendNow - elapsedBeyondThreshold));
+
+      jest.advanceTimersByTime(1000);
+
+      expect(window.toast).toHaveBeenCalledTimes(1);
+      expect(window.toast).toHaveBeenCalledWith(warningMessage, 'warning');
+    } finally {
+      jest.useRealTimers();
+      delete window.toast;
+      delete window.dismissToast;
+      delete window.dmLoginTimeoutMs;
+      delete window.dmSessionWarningThresholdMs;
+    }
+  });
+
   test('login modal closes even if tools init fails', async () => {
     document.body.innerHTML = `
         <button id="dm-login"></button>
