@@ -849,9 +849,11 @@ header .tab svg{
 .animated-decrypted__char{
   color:inherit;
   opacity:1;
-  transform:translate3d(0,0,0);
-  transition:color .3s ease,text-shadow .3s ease,opacity .3s ease,transform .3s ease;
+  transform:translateZ(0);
+  transition:color .3s ease,text-shadow .3s ease,opacity .3s ease;
   will-change:opacity,transform;
+  transform-origin:center;
+  backface-visibility:hidden;
 }
 
 .header-decrypted__char,
@@ -883,7 +885,6 @@ header .tab svg{
   color:color-mix(in srgb,var(--muted) 65%,transparent);
   text-shadow:0 0 8px color-mix(in srgb,var(--accent) 55%,transparent);
   opacity:.75;
-  transform:translateY(-3px);
 }
 
 [data-animate-title]{
