@@ -1145,6 +1145,8 @@ function initDMLogin(){
   const creditFooterDate = document.getElementById('dm-credit-footerDate');
   const creditFooterTime = document.getElementById('dm-credit-footerTime');
   const creditStatus = document.getElementById('dm-credit-status');
+  const creditCurrentBalanceDisplay = document.getElementById('dm-credit-currentBalance');
+  const creditProjectedBalanceDisplay = document.getElementById('dm-credit-projectedBalance');
   const creditMemoInput = document.getElementById('dm-credit-memo');
   const creditMemoPreview = document.getElementById('dm-credit-memo-preview');
   const creditMemoPreviewText = document.getElementById('dm-credit-memo-previewText');
@@ -1385,6 +1387,8 @@ function initDMLogin(){
   const DEFAULT_CREDIT_HISTORY_FILTERS = Object.freeze({ character: '', type: '' });
   let creditHistoryFilters = { ...DEFAULT_CREDIT_HISTORY_FILTERS };
   let quickRewardHistory = [];
+  let creditSelectedPlayerBalance = null;
+  let creditBalanceRequestId = 0;
 
   function creditPad(n) {
     return String(n).padStart(2, '0');
@@ -1437,6 +1441,81 @@ function initDMLogin(){
   function formatCreditAmountDisplay(value) {
     const numeric = Number.isFinite(value) ? value : 0;
     return creditAmountFormatter.format(numeric);
+  }
+
+  function normalizeCreditBalance(value) {
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return Math.max(0, Math.round(numeric * 100) / 100);
+  }
+
+  function setCreditBalanceText(node, value) {
+    if (!node) return;
+    if (typeof value === 'string') {
+      node.textContent = value;
+      return;
+    }
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      node.textContent = `₡${formatCreditAmountDisplay(value)}`;
+      return;
+    }
+    node.textContent = '—';
+  }
+
+  function updateCreditBalanceDisplays({ current, projected } = {}) {
+    if (current !== undefined) {
+      setCreditBalanceText(creditCurrentBalanceDisplay, current);
+    }
+    if (projected !== undefined) {
+      setCreditBalanceText(creditProjectedBalanceDisplay, projected);
+    }
+  }
+
+  function computeProjectedCreditBalance(currentBalance) {
+    if (!Number.isFinite(currentBalance)) return null;
+    const amount = getCreditAmountNumber();
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return currentBalance;
+    }
+    const transactionType = creditTxnType?.value === 'Debit' ? 'Debit' : 'Deposit';
+    const delta = transactionType === 'Debit' ? -Math.abs(amount) : Math.abs(amount);
+    const projected = currentBalance + delta;
+    return Math.max(0, Math.round(projected * 100) / 100);
+  }
+
+  function updateCreditProjectedBalanceDisplay() {
+    if (!creditProjectedBalanceDisplay) return;
+    if (!Number.isFinite(creditSelectedPlayerBalance)) {
+      updateCreditBalanceDisplays({ projected: '—' });
+      return;
+    }
+    const projected = computeProjectedCreditBalance(creditSelectedPlayerBalance);
+    if (projected == null) {
+      updateCreditBalanceDisplays({ projected: '—' });
+    } else {
+      updateCreditBalanceDisplays({ projected });
+    }
+  }
+
+  async function loadSelectedCreditBalance(player, requestId) {
+    try {
+      const data = await loadCharacter(player, { bypassPin: true });
+      if (creditBalanceRequestId !== requestId) return;
+      const normalized = normalizeCreditBalance(parseStoredCredits(data?.credits));
+      creditSelectedPlayerBalance = typeof normalized === 'number' ? normalized : null;
+      if (creditSelectedPlayerBalance == null) {
+        updateCreditBalanceDisplays({ current: '—' });
+      } else {
+        updateCreditBalanceDisplays({ current: creditSelectedPlayerBalance });
+      }
+      updateCreditProjectedBalanceDisplay();
+    } catch (err) {
+      if (creditBalanceRequestId !== requestId) return;
+      creditSelectedPlayerBalance = null;
+      updateCreditBalanceDisplays({ current: '—', projected: '—' });
+      updateCreditProjectedBalanceDisplay();
+      console.error('Failed to load player credits', err);
+    }
   }
 
   function updateCreditCardAmountDisplay(value) {
@@ -2206,12 +2285,22 @@ function initDMLogin(){
   }
 
   function applyCreditAccountSelection() {
-    if (!creditCard) return;
     const option = creditAccountSelect?.selectedOptions?.[0] || null;
     const player = option?.value?.trim() || '';
     const accountNumber = option?.dataset?.accountNumber || '';
-    creditCard.setAttribute('data-player', player);
-    creditCard.setAttribute('data-account', accountNumber);
+    if (creditCard) {
+      creditCard.setAttribute('data-player', player);
+      creditCard.setAttribute('data-account', accountNumber);
+    }
+    const requestId = ++creditBalanceRequestId;
+    creditSelectedPlayerBalance = null;
+    if (player) {
+      updateCreditBalanceDisplays({ current: 'Loading…', projected: '—' });
+      loadSelectedCreditBalance(player, requestId);
+    } else {
+      updateCreditBalanceDisplays({ current: '—', projected: '—' });
+    }
+    updateCreditProjectedBalanceDisplay();
   }
 
   function updateCreditSubmitState() {
@@ -3796,6 +3885,11 @@ function initDMLogin(){
           },
         ],
       });
+      const resolvedTotal = normalizeCreditBalance(result?.results?.credits?.total);
+      if (typeof resolvedTotal === 'number') {
+        creditSelectedPlayerBalance = resolvedTotal;
+        updateCreditBalanceDisplays({ current: creditSelectedPlayerBalance });
+      }
       const timestampIso = result?.timestampIso || new Date().toISOString();
       const stampDate = new Date(timestampIso);
       if (creditFooterDate) creditFooterDate.textContent = creditFormatDate(stampDate);
@@ -3827,6 +3921,7 @@ function initDMLogin(){
         creditMemoInput.value = '';
       }
       updateCreditMemoPreview('');
+      updateCreditProjectedBalanceDisplay();
       creditSubmit.textContent = 'Submit';
       creditSubmit.disabled = true;
       updateCreditSubmitState();
@@ -7906,12 +8001,14 @@ function initDMLogin(){
     const amount = getCreditAmountNumber();
     updateCreditCardAmountDisplay(amount);
     updateCreditSubmitState();
+    updateCreditProjectedBalanceDisplay();
   });
 
   creditAmountInput?.addEventListener('blur', () => {
     const amount = getCreditAmountNumber();
     if (creditAmountInput) creditAmountInput.value = formatCreditAmountDisplay(amount);
     updateCreditCardAmountDisplay(amount);
+    updateCreditProjectedBalanceDisplay();
   });
 
   creditAmountInput?.addEventListener('keydown', e => {
@@ -7935,6 +8032,7 @@ function initDMLogin(){
     }
     updateCreditTransactionType();
     updateCreditSubmitState();
+    updateCreditProjectedBalanceDisplay();
   });
 
   creditMemoInput?.addEventListener('input', () => {
