@@ -2,6 +2,18 @@ import { listCharacters, loadCharacter } from './characters.js';
 import { DM_PIN, DM_DEVICE_FINGERPRINT } from './dm-pin.js';
 import { show, hide } from './modal.js';
 import {
+  buildCharacterExport,
+  copyCharacterJson,
+  downloadCharacterHtml,
+  downloadCharacterPdf,
+  renderCharacterHtml,
+} from './dm-character-export.js';
+import {
+  writeTextToClipboard,
+  buildExportFilename,
+  downloadTextFile,
+} from './dm-export-helpers.js';
+import {
   listMiniGames,
   getMiniGame,
   getDefaultConfig,
@@ -134,73 +146,6 @@ function resetUnreadCountValue() {
 function isNotificationsModalHidden() {
   if (!notifyModalRef) return true;
   return notifyModalRef.classList.contains('hidden');
-}
-
-async function writeTextToClipboard(text) {
-  if (typeof text !== 'string') text = String(text ?? '');
-  if (!text) return false;
-  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      /* fall back */
-    }
-  }
-  if (typeof document === 'undefined') return false;
-  const root = document.body || document.documentElement;
-  if (!root) return false;
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.setAttribute('readonly', '');
-  textarea.style.position = 'fixed';
-  textarea.style.opacity = '0';
-  textarea.style.pointerEvents = 'none';
-  textarea.style.top = '0';
-  textarea.style.left = '0';
-  root.appendChild(textarea);
-  let success = false;
-  try {
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-    success = document.execCommand('copy');
-  } catch {
-    success = false;
-  }
-  root.removeChild(textarea);
-  return success;
-}
-
-function buildExportFilename(base) {
-  const prefix = typeof base === 'string' && base ? base : 'export';
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `${prefix}-${stamp}.txt`;
-}
-
-function downloadTextFile(filename, text) {
-  if (typeof document === 'undefined') return false;
-  const root = document.body || document.documentElement;
-  if (!root) return false;
-  try {
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function')
-      ? URL.createObjectURL(blob)
-      : null;
-    if (!url) return false;
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename || 'export.txt';
-    link.style.display = 'none';
-    root.appendChild(link);
-    link.click();
-    root.removeChild(link);
-    if (typeof URL.revokeObjectURL === 'function') {
-      URL.revokeObjectURL(url);
-    }
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function computeDeviceFingerprint() {
@@ -5182,118 +5127,51 @@ function initDMLogin(){
     hide('dm-character-modal');
   }
 
-    function characterCard(data, name){
-      const card=document.createElement('div');
-      card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-      const labeled=(l,v)=>v?`<div><span style="opacity:.8;font-size:12px">${l}</span><div>${v}</div></div>`:'';
-      const abilityGrid=['STR','DEX','CON','INT','WIS','CHA']
-        .map(k=>labeled(k,data[k.toLowerCase()]||''))
-        .join('');
-      const perkGrid=[
-        ['Alignment', data.alignment],
-        ['Classification', data.classification],
-        ['Power Style', data['power-style']],
-        ['Origin', data.origin],
-        ['Tier', data.tier]
-      ]
-        .filter(([,v])=>v)
-        .map(([l,v])=>labeled(l,v))
-        .join('');
-      const statsGrid=[
-        ['Init', data.initiative],
-        ['Speed', data.speed],
-        ['PP', data.pp]
-      ]
-        .filter(([,v])=>v)
-        .map(([l,v])=>labeled(l,v))
-        .join('');
-      card.innerHTML=`
-        <div><strong>${name}</strong></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
-          ${labeled('HP', data['hp-bar']||'')}
-          ${labeled('TC', data.tc||'')}
-          ${labeled('SP', data['sp-bar']||'')}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
-        ${perkGrid?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">${perkGrid}</div>`:''}
-        ${statsGrid?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${statsGrid}</div>`:''}
-      `;
-      const renderList=(title, items)=>`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${items.join('')}</ul></div>`;
-      const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
-        if (entry && typeof entry === 'object') {
-          const isModern = (
-            entry.rulesText !== undefined
-            || entry.effectTag !== undefined
-            || entry.spCost !== undefined
-            || entry.intensity !== undefined
-            || entry.actionType !== undefined
-            || entry.signature
-          );
-          if (isModern) {
-            const costValue = Number(entry.spCost);
-            const costLabel = Number.isFinite(costValue) && costValue > 0 ? `${costValue} SP` : '';
-            return `<li>${
-              labeled('Name', entry.name || fallback)
-              + labeled('Style', entry.style)
-              + labeled('Action', entry.actionType)
-              + labeled('Intensity', entry.intensity)
-              + labeled('Uses', entry.uses)
-              + labeled('Cost', costLabel)
-              + labeled('Save', entry.requiresSave ? entry.saveAbilityTarget : '')
-              + labeled('Rules', entry.rulesText || '')
-              + labeled('Description', entry.description)
-              + labeled('Special', entry.special)
-            }</li>`;
+        function characterCard(data, name){
+      const exportData = buildCharacterExport(name, data);
+      const card = document.createElement('div');
+      card.className = 'dm-character-card';
+      card.style.cssText = 'border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
+      card.innerHTML = renderCharacterHtml(exportData);
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'dm-character-card__toolbar';
+      toolbar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px';
+
+      const actions = [
+        { label: 'Copy JSON', handler: () => copyCharacterJson(exportData), action: 'copy-json' },
+        { label: 'Download HTML', handler: () => downloadCharacterHtml(exportData), action: 'download-html' },
+        { label: 'Download PDF', handler: () => downloadCharacterPdf(exportData), action: 'download-pdf' },
+      ];
+
+      actions.forEach(({ label, handler, action }) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'dm-character-card__toolbar-button';
+        button.dataset.action = action;
+        button.textContent = label;
+        button.addEventListener('click', () => {
+          try {
+            const result = handler();
+            if (result && typeof result.then === 'function') {
+              result.catch(err => console.error('Failed to execute character export action', err));
+            }
+          } catch (err) {
+            console.error('Failed to execute character export action', err);
           }
-          const legacyDesc = entry.description ?? entry.desc;
-          return `<li>${labeled('Name', entry.name || fallback)}${labeled('SP', entry.sp)}${labeled('Save', entry.save)}${labeled('Special', entry.special)}${labeled('Description', legacyDesc)}</li>`;
-        }
-        return `<li>${labeled('Name', fallback)}</li>`;
-      };
-      if(data.powers?.length){
-        const powers=data.powers.map(p=>renderPowerEntry(p,{fallback:'Power'}));
-        card.innerHTML+=renderList('Powers',powers);
+        });
+        toolbar.appendChild(button);
+      });
+
+      if (card.firstChild) {
+        card.insertBefore(toolbar, card.firstChild);
+      } else {
+        card.appendChild(toolbar);
       }
-      if(data.signatures?.length){
-        const sigs=data.signatures.map(s=>renderPowerEntry(s,{fallback:'Signature'}));
-        card.innerHTML+=renderList('Signatures',sigs);
-      }
-      if(data.weapons?.length){
-        const weapons=data.weapons.map(w=>`<li>${labeled('Name',w.name)}${labeled('Damage',w.damage)}${labeled('Range',w.range)}</li>`);
-        card.innerHTML+=renderList('Weapons',weapons);
-      }
-      if(data.armor?.length){
-        const armor=data.armor.map(a=>`<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${a.bonus?labeled('Bonus',`+${a.bonus}`):''}${a.equipped?labeled('Equipped','Yes'):''}</li>`);
-        card.innerHTML+=renderList('Armor',armor);
-      }
-      if(data.items?.length){
-        const items=data.items.map(i=>`<li>${labeled('Name',i.name)}${labeled('Qty',i.qty)}${labeled('Notes',i.notes)}</li>`);
-        card.innerHTML+=renderList('Items',items);
-      }
-      if(data['story-notes']){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Backstory / Notes</span><div>${data['story-notes']}</div></div>`;
-      }
-      const qMap={
-        'q-mask':'Who are you behind the mask?',
-        'q-justice':'What does justice mean to you?',
-        'q-fear':'What is your biggest fear or unresolved trauma?',
-        'q-first-power':'What moment first defined your sense of power—was it thrilling, terrifying, or tragic?',
-        'q-origin-meaning':'What does your Origin Story mean to you now?',
-        'q-before-powers':'What was your life like before you had powers or before you remembered having them?',
-        'q-power-scare':'What is one way your powers scare even you?',
-        'q-signature-move':'What is your signature move or ability, and how does it reflect who you are?',
-        'q-emotional':'What happens to your powers when you are emotionally compromised?',
-        'q-no-line':'What line will you never cross even if the world burns around you?'
-      };
-      const qList=Object.entries(qMap)
-        .filter(([k])=>data[k])
-        .map(([k,q])=>`<li><strong>${q}</strong> ${data[k]}</li>`)
-        .join('');
-      if(qList){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Character Questions</span><ul style=\"margin:4px 0 0 18px;padding:0\">${qList}</ul></div>`;
-      }
+
       return card;
     }
+
 
     charList?.addEventListener('click', async e => {
       const trigger = e.target.closest('[data-character-name], a');

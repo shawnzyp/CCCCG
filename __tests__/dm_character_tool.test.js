@@ -14,7 +14,7 @@ describe('DM character viewer tool', () => {
     const currentCharacter = jest.fn(() => null);
     const setCurrentCharacter = jest.fn();
     const loadCharacter = jest.fn(async () => ({}));
-    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
+    await jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
@@ -59,7 +59,7 @@ describe('DM character viewer tool', () => {
     const currentCharacter = jest.fn(() => null);
     const setCurrentCharacter = jest.fn();
     const loadCharacter = jest.fn(async () => ({ str: 10 }));
-    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
+    await jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
@@ -152,7 +152,7 @@ describe('DM character viewer tool', () => {
     const currentCharacter = jest.fn(() => null);
     const setCurrentCharacter = jest.fn();
     const loadCharacter = jest.fn(async () => characterData);
-    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
+    await jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
@@ -200,5 +200,131 @@ describe('DM character viewer tool', () => {
     expect(text).toContain('Qty');
     expect(text).toContain('2');
     expect(text).toContain('healing');
+  });
+
+  test('character card export toolbar triggers helpers', async () => {
+    if (!window.matchMedia) {
+      window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
+    }
+
+    const copyCharacterJson = jest.fn(() => Promise.resolve(true));
+    const downloadCharacterHtml = jest.fn(() => true);
+    const downloadCharacterPdf = jest.fn(() => true);
+
+    const exportPayload = {
+      name: 'Hero',
+      health: { hp: '30/30', tc: '12', sp: '5/5' },
+      abilities: { STR: '10', DEX: '12', CON: '14', INT: '8', WIS: '11', CHA: '13' },
+      perks: { alignment: '', classification: '', powerStyle: '', origin: '', tier: '' },
+      stats: { init: '', speed: '', pp: '' },
+      powers: [],
+      signatures: [],
+      weapons: [{ name: 'Sword', damage: '1d8', range: 'melee' }],
+      armor: [],
+      items: [],
+      storyNotes: '',
+      questions: [],
+    };
+    const renderCharacterHtml = jest.fn(() => '<div>Hero</div>');
+    const buildCharacterExport = jest.fn(() => exportPayload);
+
+    await jest.unstable_mockModule('../scripts/dm-character-export.js', () => ({
+      buildCharacterExport,
+      renderCharacterHtml,
+      copyCharacterJson,
+      downloadCharacterHtml,
+      downloadCharacterPdf,
+    }));
+
+    const listCharacters = jest.fn(async () => ['Hero']);
+    const currentCharacter = jest.fn(() => null);
+    const setCurrentCharacter = jest.fn();
+    const loadCharacter = jest.fn(async () => ({
+      'hp-bar': '30/30',
+      tc: '12',
+      'sp-bar': '5/5',
+      str: 10,
+      dex: 12,
+      con: 14,
+      int: 8,
+      wis: 11,
+      cha: 13,
+      powers: [{
+        name: 'Fireball',
+        style: 'Pyro',
+        actionType: 'Action',
+        intensity: 'Core',
+        uses: 'At-will',
+        spCost: 2,
+        requiresSave: true,
+        saveAbilityTarget: 'DEX',
+        rulesText: 'Action • 30 ft • Cost: 2 SP',
+        description: 'boom',
+        special: 'Splash',
+      }],
+      weapons: [{ name: 'Sword', damage: '1d8', range: 'melee' }],
+    }));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
+
+    sessionStorage.setItem('dmLoggedIn', '1');
+
+    document.body.innerHTML = `
+      <div id="dm-tools-menu"></div>
+      <button id="dm-tools-tsomf"></button>
+      <button id="dm-tools-notifications"></button>
+      <button id="dm-tools-characters"></button>
+      <button id="dm-tools-logout"></button>
+      <div id="dm-login"></div>
+      <div id="dm-login-modal"></div>
+      <input id="dm-login-pin" />
+      <button id="dm-login-submit"></button>
+      <button id="dm-login-close"></button>
+      <div id="dm-notifications-modal"></div>
+      <div id="dm-notifications-list"></div>
+      <button id="dm-notifications-close"></button>
+      <div id="dm-characters-modal" class="overlay hidden" aria-hidden="true">
+        <section class="modal dm-characters">
+          <button id="dm-characters-close"></button>
+          <ul id="dm-characters-list"></ul>
+          <div id="dm-character-sheet"></div>
+        </section>
+      </div>
+      <div id="modal-load" class="overlay hidden" aria-hidden="true"></div>
+      <div id="modal-load-list" class="overlay hidden" aria-hidden="true"></div>
+      <div id="load-confirm-text"></div>
+    `;
+
+    await import('../scripts/dm.js');
+
+    document.getElementById('dm-tools-characters').click();
+    await new Promise(r => setTimeout(r, 0));
+    document.querySelector('#dm-characters-list a').click();
+    await new Promise(r => setTimeout(r, 0));
+
+    const toolbar = document.querySelector('.dm-character-card__toolbar');
+    expect(toolbar).not.toBeNull();
+    const copyBtn = toolbar.querySelector('[data-action="copy-json"]');
+    const htmlBtn = toolbar.querySelector('[data-action="download-html"]');
+    const pdfBtn = toolbar.querySelector('[data-action="download-pdf"]');
+
+    expect(copyBtn).not.toBeNull();
+    expect(htmlBtn).not.toBeNull();
+    expect(pdfBtn).not.toBeNull();
+
+    copyBtn.click();
+    await Promise.resolve();
+    htmlBtn.click();
+    pdfBtn.click();
+
+    expect(copyCharacterJson).toHaveBeenCalledTimes(1);
+    expect(downloadCharacterHtml).toHaveBeenCalledTimes(1);
+    expect(downloadCharacterPdf).toHaveBeenCalledTimes(1);
+
+    const exportArg = copyCharacterJson.mock.calls[0][0];
+    expect(exportArg.name).toBe('Hero');
+    expect(exportArg.abilities.STR).toBe('10');
+    expect(exportArg.health.hp).toBe('30/30');
+    expect(downloadCharacterHtml.mock.calls[0][0]).toBe(exportArg);
+    expect(downloadCharacterPdf.mock.calls[0][0]).toBe(exportArg);
   });
 });
