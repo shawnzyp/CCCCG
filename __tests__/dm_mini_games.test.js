@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import { DM_PIN } from '../scripts/dm-pin.js';
 
 function setupDom() {
   document.body.innerHTML = `
@@ -99,6 +98,7 @@ async function initDmModule() {
   global.fetch = jest.fn();
   global.toast = jest.fn();
   global.dismissToast = jest.fn();
+  global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
 
   const show = jest.fn();
   const hide = jest.fn();
@@ -177,17 +177,23 @@ async function initDmModule() {
 
 async function completeLogin() {
   const loginPromise = window.dmRequireLogin();
+  await Promise.resolve();
   const pinInput = document.getElementById('dm-login-pin');
-  pinInput.value = DM_PIN;
+  pinInput.value = global.__DM_CONFIG__?.pin ?? '';
   document.getElementById('dm-login-submit').dispatchEvent(new Event('click'));
   await loginPromise;
 }
+
+afterEach(() => {
+  delete global.__DM_CONFIG__;
+});
 
 describe('DM mini-game tooling', () => {
   test('deploys a mini-game to the selected character', async () => {
     const { show, listCharacters, deployMiniGame, getDeploymentsCallback } = await initDmModule();
 
     await completeLogin();
+    await Promise.resolve();
 
     const miniGamesBtn = document.getElementById('dm-tools-mini-games');
     miniGamesBtn.dispatchEvent(new Event('click'));
@@ -200,6 +206,7 @@ describe('DM mini-game tooling', () => {
 
     const playerSelect = document.getElementById('dm-mini-games-player');
     playerSelect.value = 'Hero One';
+    playerSelect.dispatchEvent(new Event('change', { bubbles: true }));
     const notesField = document.getElementById('dm-mini-games-notes');
     notesField.value = 'Bring backup';
 
@@ -215,7 +222,7 @@ describe('DM mini-game tooling', () => {
       player: 'Hero One',
       notes: 'Bring backup',
     });
-    expect(global.toast).toHaveBeenCalledWith('Mini-game deployed', 'success');
+    expect(global.toast).toHaveBeenCalledWith(expect.stringContaining('Mini-game deployed'), 'success');
 
     const deploymentsCallback = getDeploymentsCallback();
     const miniGamesModal = document.getElementById('dm-mini-games-modal');

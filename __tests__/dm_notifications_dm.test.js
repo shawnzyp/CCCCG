@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import { DM_PIN } from '../scripts/dm-pin.js';
 
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -23,6 +22,7 @@ async function initDmModule({ loggedIn = false, storedNotifications = null } = {
   jest.resetModules();
   localStorage.clear();
   sessionStorage.clear();
+  global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
   if (storedNotifications) {
     sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(storedNotifications));
   }
@@ -61,12 +61,17 @@ async function initDmModule({ loggedIn = false, storedNotifications = null } = {
 
 async function completeLogin() {
   const loginPromise = window.dmRequireLogin();
+  await Promise.resolve();
   const pinInput = document.getElementById('dm-login-pin');
-  pinInput.value = DM_PIN;
+  pinInput.value = global.__DM_CONFIG__?.pin ?? '';
   const submit = document.getElementById('dm-login-submit');
   submit.dispatchEvent(new Event('click'));
   await loginPromise;
 }
+
+afterEach(() => {
+  delete global.__DM_CONFIG__;
+});
 
 describe('dmNotify labels actions as DM when logged in', () => {
   beforeEach(async () => {

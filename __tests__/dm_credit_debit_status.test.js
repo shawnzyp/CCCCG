@@ -8,6 +8,7 @@ describe('dm credit debit status', () => {
     jest.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
+    global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
 
     const descriptor = Object.getOwnPropertyDescriptor(document, 'readyState');
     restoreReadyState = () => {
@@ -97,6 +98,7 @@ describe('dm credit debit status', () => {
     delete global.dmNotify;
     delete global.dismissToast;
     delete global.BroadcastChannel;
+    delete global.__DM_CONFIG__;
   });
 
   test('debit submission leaves status completed', async () => {

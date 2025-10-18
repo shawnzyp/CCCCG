@@ -1,5 +1,9 @@
 import { listCharacters, loadCharacter } from './characters.js';
-import { DM_PIN, DM_DEVICE_FINGERPRINT } from './dm-pin.js';
+import {
+  loadDmConfig,
+  getDmPinSync,
+  getDmDeviceFingerprintSync,
+} from './dm-pin.js';
 import { show, hide } from './modal.js';
 import {
   listMiniGames,
@@ -25,6 +29,18 @@ const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
+
+let dmConfigLoadPromise = null;
+
+function ensureDmConfigLoaded(options) {
+  if (!dmConfigLoadPromise) {
+    dmConfigLoadPromise = loadDmConfig(options).catch(error => {
+      dmConfigLoadPromise = null;
+      throw error;
+    });
+  }
+  return dmConfigLoadPromise;
+}
 
 function loadStoredUnreadCount() {
   if (typeof sessionStorage === 'undefined') return 0;
@@ -226,8 +242,9 @@ function computeDeviceFingerprint() {
 }
 
 function isAuthorizedDevice() {
-  if (!DM_DEVICE_FINGERPRINT) return true;
-  return computeDeviceFingerprint() === DM_DEVICE_FINGERPRINT;
+  const fingerprint = getDmDeviceFingerprintSync();
+  if (!fingerprint) return true;
+  return computeDeviceFingerprint() === fingerprint;
 }
 
 if (typeof window !== 'undefined' && !window.computeDmDeviceFingerprint) {
@@ -457,11 +474,15 @@ function formatNotification(entry, { html = false } = {}) {
 }
 
 let dmTestHooks = null;
+let dmLoginInitialized = false;
 
-function initDMLogin(){
-  const dmBtn = document.getElementById('dm-login');
-  const dmToggleBtn = document.getElementById('dm-tools-toggle');
-  const menu = document.getElementById('dm-tools-menu');
+function performDmLoginInit(){
+  if (dmLoginInitialized) return;
+  let initialized = false;
+  try {
+    const dmBtn = document.getElementById('dm-login');
+    const dmToggleBtn = document.getElementById('dm-tools-toggle');
+    const menu = document.getElementById('dm-tools-menu');
   const dmPortal = document.querySelector('.dm-tools-portal');
 
   if (dmPortal && document.body && dmPortal.parentElement !== document.body) {
@@ -2460,6 +2481,7 @@ function initDMLogin(){
       charViewModal?.remove();
       rewardsBtn?.remove();
       rewardsModal?.remove();
+      initialized = true;
       return;
     }
 
@@ -4944,20 +4966,41 @@ function initDMLogin(){
     hide('dm-login-modal');
   }
 
-  function requireLogin(){
+  async function requireLogin(){
+    let config;
+    try {
+      config = await ensureDmConfigLoaded();
+    } catch (error) {
+      console.error('Failed to load DM configuration', error);
+      if (typeof toast === 'function') toast('Unable to load DM PIN','error');
+      throw error;
+    }
+
+    const expectedPin = typeof config?.pin === 'string' && config.pin
+      ? config.pin
+      : getDmPinSync();
+
+    if (!expectedPin) {
+      if (typeof toast === 'function') toast('DM PIN unavailable','error');
+      throw new Error('DM PIN unavailable');
+    }
+
+    if (isLoggedIn()) {
+      updateButtons();
+      return true;
+    }
+
     return new Promise((resolve, reject) => {
-      if (isLoggedIn()) {
-        updateButtons();
-        resolve(true);
-        return;
-      }
+      const pinValue = expectedPin;
 
       // If the modal elements are missing, fall back to a simple prompt so
       // the promise always resolves and loading doesn't hang.
       if (!loginModal || !loginPin || !loginSubmit) {
         (async () => {
-          const entered = window.pinPrompt ? await window.pinPrompt('Enter DM PIN') : (typeof prompt === 'function' ? prompt('Enter DM PIN') : null);
-          if (entered === DM_PIN) {
+          const entered = window.pinPrompt
+            ? await window.pinPrompt('Enter DM PIN')
+            : (typeof prompt === 'function' ? prompt('Enter DM PIN') : null);
+          if (entered === pinValue) {
             onLoginSuccess();
             if (typeof dismissToast === 'function') dismissToast();
             if (typeof toast === 'function') toast('DM tools unlocked','success');
@@ -4979,7 +5022,7 @@ function initDMLogin(){
         loginClose?.removeEventListener('click', onCancel);
       }
       function onSubmit(){
-        if(loginPin.value === DM_PIN){
+        if(loginPin.value === pinValue){
           onLoginSuccess();
           closeLogin();
           if (typeof dismissToast === 'function') dismissToast();
@@ -5754,33 +5797,56 @@ function initDMLogin(){
   window.openRewards = openRewards;
   window.closeRewards = closeRewards;
 
-  dmTestHooks = {
-    populateCatalogRecipients,
-    buildCatalogPayload,
-    handleCatalogSubmit,
-    deliverCatalogEquipment,
-    catalogForms,
-    CATALOG_RECIPIENT_FIELD_KEY,
-    CATALOG_RECIPIENT_PLACEHOLDER,
-    compileCatalogNotes,
-    convertCatalogPayloadToEquipment,
-    executeRewardTransaction,
-    setRewardExecutor,
-  };
+    dmTestHooks = {
+      populateCatalogRecipients,
+      buildCatalogPayload,
+      handleCatalogSubmit,
+      deliverCatalogEquipment,
+      catalogForms,
+      CATALOG_RECIPIENT_FIELD_KEY,
+      CATALOG_RECIPIENT_PLACEHOLDER,
+      compileCatalogNotes,
+      convertCatalogPayloadToEquipment,
+      executeRewardTransaction,
+      setRewardExecutor,
+    };
+    initialized = true;
+  } finally {
+    dmLoginInitialized = initialized;
+  }
+}
+
+let initDmLoginPromise = null;
+
+async function initDMLogin() {
+  if (initDmLoginPromise) return initDmLoginPromise;
+  const run = (async () => {
+    try {
+      await ensureDmConfigLoaded();
+    } catch (error) {
+      console.error('Failed to load DM configuration', error);
+    }
+    performDmLoginInit();
+  })();
+  initDmLoginPromise = run.catch(error => {
+    initDmLoginPromise = null;
+    throw error;
+  });
+  return initDmLoginPromise;
 }
 if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {
   Object.defineProperty(window, '__dmTestHooks', {
     configurable: true,
     get() {
       if (!dmTestHooks) {
-        initDMLogin();
+        void initDMLogin();
       }
       return dmTestHooks;
     },
   });
 }
 if (document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', initDMLogin);
+  document.addEventListener('DOMContentLoaded', () => { void initDMLogin(); });
 } else {
-  initDMLogin();
+  void initDMLogin();
 }

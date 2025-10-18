@@ -8,6 +8,7 @@ describe('dm quick rewards forms', () => {
     jest.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
+    global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
 
     const descriptor = Object.getOwnPropertyDescriptor(document, 'readyState');
     restoreReadyState = () => {
@@ -172,6 +173,7 @@ describe('dm quick rewards forms', () => {
     delete global.dmNotify;
     delete global.dismissToast;
     delete global.BroadcastChannel;
+    delete global.__DM_CONFIG__;
   });
 
   test('submits quick reward operations', async () => {

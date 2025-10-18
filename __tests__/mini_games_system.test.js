@@ -1,6 +1,4 @@
 import { jest } from '@jest/globals';
-import { DM_PIN } from '../scripts/dm-pin.js';
-
 function setupDom() {
   document.body.innerHTML = `
     <button id="dm-login"></button>
@@ -85,6 +83,7 @@ async function initDmModule() {
   jest.resetModules();
   const actualMiniGames = await import('../scripts/mini-games.js');
   jest.resetModules();
+  global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
   setupDom();
   global.toast = jest.fn();
   global.dismissToast = jest.fn();
@@ -148,11 +147,16 @@ async function initDmModule() {
 
 async function completeLogin() {
   const loginPromise = window.dmRequireLogin();
+  await Promise.resolve();
   const pinInput = document.getElementById('dm-login-pin');
-  pinInput.value = DM_PIN;
+  pinInput.value = global.__DM_CONFIG__?.pin ?? '';
   document.getElementById('dm-login-submit').dispatchEvent(new Event('click'));
   await loginPromise;
 }
+
+afterEach(() => {
+  delete global.__DM_CONFIG__;
+});
 
 describe('mini-game system modals', () => {
   test('every mini-game renders fully inside the DM modal', async () => {
@@ -207,7 +211,7 @@ describe('mini-game system modals', () => {
       }
 
       expect(introEl.textContent).toContain(game.name);
-      expect(playerHintEl.textContent).toContain('mission');
+      expect(playerHintEl.textContent).toContain('deploy');
 
       const knobContainer = document.getElementById('dm-mini-games-knobs');
       if (Array.isArray(game.knobs) && game.knobs.length) {

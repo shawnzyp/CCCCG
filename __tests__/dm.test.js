@@ -16,6 +16,7 @@ describe('dm tools bootstrap', () => {
     jest.resetModules();
     sessionStorage.clear();
     localStorage.clear();
+    global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
     document.body.innerHTML = `
       <footer>
         <button id="dm-login"></button>
@@ -33,6 +34,7 @@ describe('dm tools bootstrap', () => {
     restoreReadyState();
     delete window.dmRequireLogin;
     delete window.computeDmDeviceFingerprint;
+    delete global.__DM_CONFIG__;
   });
 
   test('reveals toggle when logged in and syncs menu expansion', async () => {

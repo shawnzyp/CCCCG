@@ -10,6 +10,7 @@ describe('dm rewards executeRewardTransaction', () => {
     jest.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
+    global.__DM_CONFIG__ = { pin: '0000', deviceFingerprint: '' };
 
     const descriptor = Object.getOwnPropertyDescriptor(document, 'readyState');
     restoreReadyState = () => {
@@ -184,6 +185,7 @@ describe('dm rewards executeRewardTransaction', () => {
     delete window.dmNotify;
     delete global.BroadcastChannel;
     delete window.BroadcastChannel;
+    delete global.__DM_CONFIG__;
   });
 
   test('applies faction rewards and broadcasts results', async () => {
@@ -231,11 +233,6 @@ describe('dm rewards executeRewardTransaction', () => {
 
     const saveCloud = jest.fn(async () => {});
     jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
-
-    jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      DM_PIN: '0000',
-      DM_DEVICE_FINGERPRINT: '',
-    }));
 
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');

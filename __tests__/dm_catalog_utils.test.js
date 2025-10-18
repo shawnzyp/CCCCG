@@ -210,6 +210,7 @@ describe('DM catalog equipment delivery', () => {
   async function flushPromises() {
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
   }
 
   beforeEach(async () => {
@@ -283,11 +284,6 @@ describe('DM catalog equipment delivery', () => {
         partials: {},
       })),
     }));
-    jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      __esModule: true,
-      DM_PIN: '1234',
-      DM_DEVICE_FINGERPRINT: 'test-device',
-    }));
     jest.unstable_mockModule('../scripts/modal.js', () => ({
       __esModule: true,
       show: jest.fn(),
@@ -319,6 +315,8 @@ describe('DM catalog equipment delivery', () => {
     }));
 
     sessionStorage.setItem('dmLoggedIn', '1');
+
+    global.__DM_CONFIG__ = { pin: '1234', deviceFingerprint: 'test-device' };
 
     await import('../scripts/dm.js');
     if (typeof window.dmRequireLogin !== 'function') {
@@ -372,6 +370,7 @@ describe('DM catalog equipment delivery', () => {
     delete window.requestAnimationFrame;
     delete window.cancelAnimationFrame;
     delete global.BroadcastChannel;
+    delete global.__DM_CONFIG__;
   });
 
   test('populates roster recipients across catalog forms', async () => {

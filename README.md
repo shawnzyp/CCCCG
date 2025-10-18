@@ -45,13 +45,29 @@ The application communicates with the database using its public REST API.
 
 ## DM tools access
 
-The DM tools are protected by a shared PIN defined in `scripts/dm-pin.js`. You
-can further restrict access so the tools only appear on a single device by
-setting `DM_DEVICE_FINGERPRINT` in the same file. To generate the fingerprint
-string, open the site on the allowed device and run
-`window.computeDmDeviceFingerprint()` in the browser console. Copy the returned
-value into `DM_DEVICE_FINGERPRINT`. The DM tools menu will be hidden on devices
-whose fingerprint does not match.
+The DM tools read their shared credentials from a runtime configuration object
+instead of hard-coded values. Provide the configuration before the DM bundle is
+executed by setting `window.__DM_CONFIG__` (or `globalThis.__DM_CONFIG__` during
+tests) to an object with `pin` and optional `deviceFingerprint` properties. For
+example:
+
+```html
+<script>
+  window.__DM_CONFIG__ = {
+    pin: '123123',
+    deviceFingerprint: '',
+  };
+</script>
+<script type="module" src="scripts/dm.js"></script>
+```
+
+You can also embed JSON with `<script type="application/json" data-dm-config>
+{...}</script>` or expose `/dm-config.json`; `scripts/dm-pin.js` automatically
+loads whichever source is present at runtime. To generate a fingerprint value,
+open the site on the allowed device and run
+`window.computeDmDeviceFingerprint()` in the browser console. When a
+fingerprint is configured, the DM tools menu stays hidden on devices whose
+fingerprint does not match.
 
 ## Audio cues
 

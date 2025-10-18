@@ -2,6 +2,11 @@ import { jest } from '@jest/globals';
 
 beforeEach(() => {
   jest.resetModules();
+  global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
+});
+
+afterEach(() => {
+  delete global.__DM_CONFIG__;
 });
 
 describe('DM character viewer tool', () => {

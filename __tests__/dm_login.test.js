@@ -4,6 +4,11 @@ beforeEach(() => {
   jest.resetModules();
   sessionStorage.clear();
   localStorage.clear();
+  global.__DM_CONFIG__ = { pin: '123123', deviceFingerprint: '' };
+});
+
+afterEach(() => {
+  delete global.__DM_CONFIG__;
 });
 
 describe('dm login', () => {
@@ -61,6 +66,7 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     const promise = window.dmRequireLogin();
+    await Promise.resolve();
     const modal = document.getElementById('dm-login-modal');
     expect(modal.classList.contains('hidden')).toBe(false);
     expect(modal.style.display).toBe('flex');
@@ -142,6 +148,7 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     const promise = window.dmRequireLogin();
+    await Promise.resolve();
     const modal = document.getElementById('dm-login-modal');
     document.getElementById('dm-login-pin').value = '123123';
     document.getElementById('dm-login-submit').click();
