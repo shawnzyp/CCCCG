@@ -18,7 +18,7 @@ import {
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
-import { FACTIONS } from './faction.js';
+import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -1753,51 +1753,69 @@ function initDMLogin(){
         case 'faction': {
           const data = op.data && typeof op.data === 'object' ? op.data : op;
           const factionId = typeof data.factionId === 'string' ? data.factionId.trim() : '';
-          if (!factionId) break;
+          if (!factionId) throw new Error('Faction ID is required');
           const faction = FACTION_LOOKUP.get(factionId);
+          if (!faction) throw new Error(`Unknown faction: ${factionId}`);
+          const valueKey = `${faction.id}-rep`;
+          const progressKey = `${faction.id}-rep-bar`;
           const partials = save.partials && typeof save.partials === 'object' ? save.partials : {};
           const factions = partials.factions && typeof partials.factions === 'object' ? { ...partials.factions } : {};
           const existing = factions[factionId] && typeof factions[factionId] === 'object' ? factions[factionId] : {};
-          const prevRaw = existing.value ?? existing.score ?? existing.rep ?? existing.amount;
+          const name = faction.name || existing.name || (FACTION_NAME_MAP && FACTION_NAME_MAP[factionId]) || factionId;
+          const prevRaw = save?.[valueKey] ?? existing.value ?? existing.score ?? existing.rep ?? existing.amount;
           let previous = Number(prevRaw);
           if (!Number.isFinite(previous)) {
-            previous = faction && typeof faction.defaultValue === 'number' ? faction.defaultValue : 0;
+            previous = typeof faction.defaultValue === 'number' ? faction.defaultValue : 0;
           }
-          if (!Number.isFinite(previous)) previous = 0;
-          let next = previous;
-          if (Number.isFinite(data.delta)) next = previous + Number(data.delta);
-          if (Number.isFinite(data.value)) next = Number(data.value);
-          if (faction && typeof faction.clamp === 'function') {
-            next = faction.clamp(next);
-          } else if (Number.isFinite(next)) {
-            next = Math.round(next);
+          if (!Number.isFinite(previous)) {
+            previous = typeof faction.min === 'number' ? faction.min : 0;
           }
-          if (!Number.isFinite(next)) next = previous;
-          next = Math.round(next);
+          previous = Math.round(faction.clamp(previous));
+          const valueNumber = Number(data.value);
+          const deltaNumber = Number(data.delta);
+          const hasValue = Number.isFinite(valueNumber);
+          const hasDelta = Number.isFinite(deltaNumber);
+          if (!hasValue && !hasDelta) throw new Error('Invalid faction reputation change');
+          const candidate = hasValue ? valueNumber : previous + deltaNumber;
+          const next = Math.round(faction.clamp(candidate));
           const delta = next - previous;
           if (delta === 0) break;
-          const name = faction?.name || existing.name || factionId;
+          const tierInfo = faction.getTier(next) || {};
+          const tierName = typeof tierInfo.name === 'string' ? tierInfo.name : '';
+          const tierPerks = Array.isArray(tierInfo.perks) ? [...tierInfo.perks] : [];
+          save[valueKey] = String(next);
+          save[progressKey] = String(next);
           factions[factionId] = {
             value: next,
             updatedAt: timestampIso,
             name,
+            tier: tierName,
           };
           partials.factions = factions;
           save.partials = partials;
           applied = true;
-          const summary = `${name} reputation ${delta >= 0 ? '+' : ''}${delta} (Now ${next})`;
+          const summaryParts = [`${name} reputation ${delta >= 0 ? '+' : ''}${delta}`, `Now ${next}`];
+          if (tierName) summaryParts.push(tierName);
+          const summary = summaryParts.join(' — ');
           logEntries.push(createRewardLogEntry('dm-faction', now, 'DM Faction Reputation', summary));
           notifications.push(summary);
           if (typeof toast === 'function') toast(summary, delta >= 0 ? 'success' : 'info');
+          const payload = {
+            id: faction.id,
+            name,
+            value: next,
+            delta,
+            tier: { name: tierName, perks: tierPerks },
+          };
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'faction',
             message: summary,
             timestamp: timestampIso,
-            data: { factionId, value: next, delta, name },
+            data: payload,
           }));
-          if (!results.factions) results.factions = {};
-          results.factions[factionId] = { value: next, delta, name };
+          if (!results.faction) results.faction = [];
+          results.faction.push({ ...payload, previous });
           break;
         }
         case 'item': {
@@ -5746,6 +5764,7 @@ function initDMLogin(){
     CATALOG_RECIPIENT_PLACEHOLDER,
     compileCatalogNotes,
     convertCatalogPayloadToEquipment,
+    executeRewardTransaction,
     setRewardExecutor,
   };
 }
