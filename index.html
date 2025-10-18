@@ -1975,10 +1975,19 @@
               <div class="dm-quickRewards__target">
                 <label class="dm-quickRewards__label" for="dm-reward-target">Deliver to</label>
                 <div class="dm-quickRewards__select">
-                  <select id="dm-reward-target" aria-label="Quick reward target">
+                  <select
+                    id="dm-reward-target"
+                    aria-label="Quick reward targets"
+                    aria-describedby="dm-reward-target-hint"
+                    multiple
+                    size="6"
+                  >
                     <option value="">Loading players…</option>
                   </select>
                 </div>
+                <p id="dm-reward-target-hint" class="dm-quickRewards__hint">
+                  Select one or more players. Use Ctrl / Cmd + click (or Shift + arrows) to choose multiples.
+                </p>
               </div>
             </div>
             <div class="dm-quickRewards__grid">
