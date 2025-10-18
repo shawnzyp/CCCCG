@@ -21,10 +21,155 @@ import { saveCloud } from './storage.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
-const MAX_STORED_NOTIFICATIONS = 100;
+const DM_NOTIFICATIONS_LIMIT_KEY = 'cc:dm-notifications-limit';
+const DM_NOTIFICATIONS_ARCHIVE_KEY = 'cc:dm-notifications-archive';
+const DEFAULT_NOTIFICATION_RETENTION_LIMIT = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
+
+function parsePositiveInteger(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 0 ? Math.floor(value) : null;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed > 0 ? parsed : null;
+  }
+  return null;
+}
+
+function readNotificationLimitSource(read) {
+  try {
+    return read();
+  } catch {
+    return null;
+  }
+}
+
+function loadNotificationRetentionLimit() {
+  const sources = [
+    () => {
+      if (typeof localStorage === 'undefined') return null;
+      return localStorage.getItem(DM_NOTIFICATIONS_LIMIT_KEY);
+    },
+    () => {
+      if (typeof document === 'undefined') return null;
+      const el = document.documentElement;
+      if (!el || !el.dataset) return null;
+      return el.dataset.dmNotificationLimit ?? el.dataset.dmNotificationsLimit ?? null;
+    },
+    () => {
+      if (typeof window === 'undefined') return null;
+      if (window.DM_NOTIFICATION_RETENTION_LIMIT != null) return window.DM_NOTIFICATION_RETENTION_LIMIT;
+      if (window.DM_NOTIFICATION_LIMIT != null) return window.DM_NOTIFICATION_LIMIT;
+      if (window.dmNotificationLimit != null) return window.dmNotificationLimit;
+      return null;
+    },
+    () => {
+      if (typeof process === 'undefined' || !process?.env) return null;
+      if (process.env.DM_NOTIFICATION_RETENTION_LIMIT != null) return process.env.DM_NOTIFICATION_RETENTION_LIMIT;
+      if (process.env.DM_NOTIFICATION_LIMIT != null) return process.env.DM_NOTIFICATION_LIMIT;
+      return null;
+    },
+  ];
+
+  for (const read of sources) {
+    const candidate = readNotificationLimitSource(read);
+    const parsed = parsePositiveInteger(candidate);
+    if (parsed != null) return parsed;
+  }
+
+  return DEFAULT_NOTIFICATION_RETENTION_LIMIT;
+}
+
+let notificationRetentionLimit = loadNotificationRetentionLimit();
+
+function getNotificationRetentionLimit() {
+  return notificationRetentionLimit;
+}
+
+function storeNotificationRetentionLimit(limit) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (limit == null) {
+      localStorage.removeItem(DM_NOTIFICATIONS_LIMIT_KEY);
+    } else {
+      localStorage.setItem(DM_NOTIFICATIONS_LIMIT_KEY, String(limit));
+    }
+  } catch {
+    /* ignore persistence errors */
+  }
+}
+
+function setNotificationRetentionLimit(value, { persist = true, archive = true } = {}) {
+  const parsed = parsePositiveInteger(value);
+  const next = parsed ?? DEFAULT_NOTIFICATION_RETENTION_LIMIT;
+  notificationRetentionLimit = next;
+  if (persist) {
+    storeNotificationRetentionLimit(parsed != null ? next : null);
+  }
+  enforceNotificationRetentionLimit({ archive });
+  persistNotifications();
+  return notificationRetentionLimit;
+}
+
+function readArchiveStorage() {
+  if (typeof sessionStorage === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem(DM_NOTIFICATIONS_ARCHIVE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    /* ignore parse errors */
+  }
+  return [];
+}
+
+function appendToArchiveStorage(entries) {
+  if (typeof sessionStorage === 'undefined') return false;
+  try {
+    const archive = readArchiveStorage();
+    archive.push(...entries.map(entry => ({ ...entry })));
+    sessionStorage.setItem(DM_NOTIFICATIONS_ARCHIVE_KEY, JSON.stringify(archive));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function loadArchivedNotifications() {
+  return readArchiveStorage();
+}
+
+function archiveNotifications(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) return false;
+  appendToArchiveStorage(entries);
+  try {
+    const payload = entries.map(entry => formatNotification(entry)).join('\n');
+    if (!payload) return true;
+    return downloadTextFile(buildExportFilename('dm-notifications-archive'), payload);
+  } catch {
+    return false;
+  }
+}
+
+function enforceNotificationRetentionLimit({ archive = false } = {}) {
+  const limit = getNotificationRetentionLimit();
+  if (!Number.isFinite(limit) || limit <= 0) return [];
+  if (notifications.length <= limit) return [];
+  const excess = notifications.length - limit;
+  const archivedEntries = notifications.slice(0, excess);
+  if (archive) {
+    archiveNotifications(archivedEntries);
+  }
+  notifications.splice(0, excess);
+  return archivedEntries;
+}
 
 function loadStoredUnreadCount() {
   if (typeof sessionStorage === 'undefined') return 0;
@@ -263,8 +408,9 @@ function loadStoredNotifications() {
         return record;
       })
       .filter(Boolean);
-    if (normalized.length > MAX_STORED_NOTIFICATIONS) {
-      return normalized.slice(normalized.length - MAX_STORED_NOTIFICATIONS);
+    const limit = getNotificationRetentionLimit();
+    if (Number.isFinite(limit) && limit > 0 && normalized.length > limit) {
+      return normalized.slice(normalized.length - limit);
     }
     return normalized;
   } catch {
@@ -273,6 +419,7 @@ function loadStoredNotifications() {
 }
 
 const notifications = loadStoredNotifications();
+enforceNotificationRetentionLimit({ archive: false });
 
 const AUDIO_DISABLED_VALUES = new Set(['off', 'mute', 'muted', 'disabled', 'false', 'quiet', 'silent', 'none', '0']);
 const AUDIO_ENABLED_VALUES = new Set(['on', 'enabled', 'true', 'sound', 'audible', '1', 'default']);
@@ -417,8 +564,12 @@ function playNotificationTone() {
 function persistNotifications() {
   if (typeof sessionStorage === 'undefined') return;
   try {
-    const trimmed = notifications.slice(-MAX_STORED_NOTIFICATIONS);
-    sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(trimmed));
+    enforceNotificationRetentionLimit({ archive: false });
+    const limit = getNotificationRetentionLimit();
+    const stored = Number.isFinite(limit) && limit > 0
+      ? notifications.slice(-limit)
+      : [...notifications];
+    sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(stored));
   } catch {
     /* ignore persistence errors */
   }
@@ -4822,9 +4973,7 @@ function initDMLogin(){
       return;
     }
     notifications.push(entry);
-    if (notifications.length > MAX_STORED_NOTIFICATIONS) {
-      notifications.splice(0, notifications.length - MAX_STORED_NOTIFICATIONS);
-    }
+    enforceNotificationRetentionLimit({ archive: true });
     persistNotifications();
     updateNotificationActionState();
     if (notifyList) {
@@ -5753,6 +5902,9 @@ function initDMLogin(){
   window.dmRequireLogin = requireLogin;
   window.openRewards = openRewards;
   window.closeRewards = closeRewards;
+  window.dmSetNotificationLimit = value => setNotificationRetentionLimit(value);
+  window.dmGetNotificationLimit = () => getNotificationRetentionLimit();
+  window.dmGetNotificationArchive = () => loadArchivedNotifications();
 
   dmTestHooks = {
     populateCatalogRecipients,
@@ -5766,6 +5918,9 @@ function initDMLogin(){
     convertCatalogPayloadToEquipment,
     executeRewardTransaction,
     setRewardExecutor,
+    getNotificationRetentionLimit,
+    setNotificationRetentionLimit,
+    loadArchivedNotifications,
   };
 }
 if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {

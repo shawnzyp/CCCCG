@@ -3,6 +3,7 @@ import { DM_PIN } from '../scripts/dm-pin.js';
 
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
+const DM_NOTIFICATIONS_ARCHIVE_KEY = 'cc:dm-notifications-archive';
 
 function setupDom() {
   document.body.innerHTML = `
@@ -19,10 +20,18 @@ function setupDom() {
   `;
 }
 
-async function initDmModule({ loggedIn = false, storedNotifications = null } = {}) {
+async function initDmModule({ loggedIn = false, storedNotifications = null, envNotificationLimit } = {}) {
   jest.resetModules();
   localStorage.clear();
   sessionStorage.clear();
+  const originalEnvLimit = process.env.DM_NOTIFICATION_LIMIT;
+  if (envNotificationLimit !== undefined) {
+    if (envNotificationLimit === null) {
+      delete process.env.DM_NOTIFICATION_LIMIT;
+    } else {
+      process.env.DM_NOTIFICATION_LIMIT = String(envNotificationLimit);
+    }
+  }
   if (storedNotifications) {
     sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(storedNotifications));
   }
@@ -53,6 +62,14 @@ async function initDmModule({ loggedIn = false, storedNotifications = null } = {
 
   await import('../scripts/dm.js');
   document.dispatchEvent(new Event('DOMContentLoaded'));
+
+  if (envNotificationLimit !== undefined) {
+    if (originalEnvLimit === undefined) {
+      delete process.env.DM_NOTIFICATION_LIMIT;
+    } else {
+      process.env.DM_NOTIFICATION_LIMIT = originalEnvLimit;
+    }
+  }
 
   if (loggedIn) {
     await completeLogin();
@@ -149,6 +166,45 @@ describe('DM notifications audio cues', () => {
     window.dmNotify('should stay quiet');
 
     expect(window.playTone).not.toHaveBeenCalled();
+  });
+});
+
+describe('DM notifications retention', () => {
+  test('applies retention limit from environment variable', async () => {
+    await initDmModule({ loggedIn: true, envNotificationLimit: 2 });
+
+    window.dmNotify('first limit check');
+    window.dmNotify('second limit check');
+    window.dmNotify('third limit check');
+
+    const storedRaw = sessionStorage.getItem(DM_NOTIFICATIONS_KEY) || '[]';
+    const stored = JSON.parse(storedRaw);
+    expect(stored).toHaveLength(2);
+    expect(stored[0].detail).toBe('second limit check');
+    expect(stored[1].detail).toBe('third limit check');
+    expect(window.dmGetNotificationLimit()).toBe(2);
+  });
+
+  test('archives notifications before trimming when limit exceeded', async () => {
+    await initDmModule({ loggedIn: true });
+
+    window.dmSetNotificationLimit(2);
+
+    window.dmNotify('alpha');
+    window.dmNotify('beta');
+    window.dmNotify('gamma');
+
+    const storedRaw = sessionStorage.getItem(DM_NOTIFICATIONS_KEY) || '[]';
+    const stored = JSON.parse(storedRaw);
+    expect(stored).toHaveLength(2);
+    expect(stored[0].detail).toBe('beta');
+    expect(stored[1].detail).toBe('gamma');
+
+    const archiveRaw = sessionStorage.getItem(DM_NOTIFICATIONS_ARCHIVE_KEY) || '[]';
+    const archived = JSON.parse(archiveRaw);
+    expect(archived).toHaveLength(1);
+    expect(archived[0].detail).toBe('alpha');
+    expect(window.dmGetNotificationArchive()).toHaveLength(1);
   });
 });
 
