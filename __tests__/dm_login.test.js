@@ -215,6 +215,177 @@ describe('dm login', () => {
     delete window.prompt;
   });
 
+  test('throttles DM login after repeated failures', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2023-01-01T00:00:00Z'));
+
+    document.body.innerHTML = `
+        <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
+        <div id="dm-tools-menu" hidden></div>
+        <button id="dm-tools-tsomf"></button>
+        <button id="dm-tools-logout"></button>
+        <div id="dm-login-modal" class="hidden" aria-hidden="true">
+          <input id="dm-login-pin">
+          <div class="actions"><button id="dm-login-submit"></button></div>
+        </div>
+      `;
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    void window.dmRequireLogin();
+    const pin = document.getElementById('dm-login-pin');
+    const submit = document.getElementById('dm-login-submit');
+
+    for (let i = 0; i < 3; i += 1) {
+      pin.value = '000000';
+      submit.click();
+    }
+
+    const waitMessage = document.querySelector('[data-login-wait]');
+    expect(submit.disabled).toBe(true);
+    expect(pin.disabled).toBe(true);
+    expect(waitMessage).not.toBeNull();
+    expect(waitMessage.hidden).toBe(false);
+    expect(waitMessage.textContent).toContain('Too many failed attempts');
+    expect(sessionStorage.getItem('dmLoginLockUntil')).not.toBeNull();
+    expect(window.toast).toHaveBeenLastCalledWith(expect.stringContaining('Too many failed attempts'), 'error');
+
+    jest.useRealTimers();
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('successful DM login clears throttle after cooldown', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2023-01-01T00:00:00Z'));
+
+    document.body.innerHTML = `
+        <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
+        <div id="dm-tools-menu" hidden></div>
+        <button id="dm-tools-tsomf"></button>
+        <button id="dm-tools-logout"></button>
+        <div id="dm-login-modal" class="hidden" aria-hidden="true">
+          <input id="dm-login-pin">
+          <div class="actions"><button id="dm-login-submit"></button></div>
+        </div>
+      `;
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const loginPromise = window.dmRequireLogin();
+    const pin = document.getElementById('dm-login-pin');
+    const submit = document.getElementById('dm-login-submit');
+
+    for (let i = 0; i < 3; i += 1) {
+      pin.value = '000000';
+      submit.click();
+    }
+
+    expect(submit.disabled).toBe(true);
+    expect(pin.disabled).toBe(true);
+
+    jest.advanceTimersByTime(30_000);
+
+    expect(submit.disabled).toBe(false);
+    expect(pin.disabled).toBe(false);
+    const waitMessage = document.querySelector('[data-login-wait]');
+    expect(waitMessage).not.toBeNull();
+    expect(waitMessage.hidden).toBe(true);
+
+    pin.value = '123123';
+    submit.click();
+
+    await loginPromise;
+
+    expect(sessionStorage.getItem('dmLoginFailureCount')).toBeNull();
+    expect(sessionStorage.getItem('dmLoginLockUntil')).toBeNull();
+    expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
+
+    jest.useRealTimers();
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
   test('logout clears DM session but keeps last save', async () => {
     document.body.innerHTML = `
         <button id="dm-login"></button>
