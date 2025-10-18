@@ -472,6 +472,23 @@ describe('DM catalog equipment delivery', () => {
     expect(result?.results?.item?.notes).toContain('Capacity: 2 slots');
   });
 
+  test('deliverCatalogEquipment preserves accessory armor slot', async () => {
+    const result = await testHooks.deliverCatalogEquipment({
+      type: 'armor',
+      label: 'Armor',
+      recipient: 'Nova',
+      metadata: {
+        name: 'Neural Halo',
+        slot: 'Accessory',
+        bonusValue: '2',
+        equipped: 'true',
+      },
+    });
+
+    expect(result?.results?.armor?.slot).toBe('Accessory');
+    expect(result?.save?.armor?.[0]?.slot).toBe('Accessory');
+  });
+
   test('armor catalog submission with recipient delivers equipment', async () => {
     armorForm.reportValidity = jest.fn(() => true);
     armorForm.querySelector('input[name="name"]').value = 'Nova Shield';

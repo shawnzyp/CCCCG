@@ -45,13 +45,18 @@ describe('calculateArmorBonus', () => {
       </div>
       <div data-kind="armor">
         <input type="checkbox" data-f="equipped" checked>
-        <input data-f="bonus" value="3">
+        <input data-f="bonus" value="2">
         <select data-f="slot"><option>Shield</option></select>
       </div>
       <div data-kind="armor">
         <input type="checkbox" data-f="equipped" checked>
         <input data-f="bonus" value="2">
-        <select data-f="slot"><option>Misc</option></select>
+        <select data-f="slot"><option>Accessory</option></select>
+      </div>
+      <div data-kind="armor">
+        <input type="checkbox" data-f="equipped" checked>
+        <input data-f="bonus" value="1">
+        <select data-f="slot"><option>Other</option></select>
       </div>
       <div data-kind="armor">
         <input type="checkbox" data-f="equipped">

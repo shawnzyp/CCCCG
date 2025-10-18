@@ -26,11 +26,12 @@ export function calculateArmorBonus(){
     // still default to zero so optional fields don't break the calculation.
     const bonus = num(bonusEl ? bonusEl.value : 0);
     const slotEl = qs("select[data-f='slot']", card);
-    const slot = slotEl ? slotEl.value : 'Body';
+    const slotRaw = slotEl ? slotEl.value : 'Body';
+    const slot = typeof slotRaw === 'string' ? slotRaw.trim().toLowerCase() : 'body';
     if (eq && eq.checked){
-      if (slot==='Body') body.push(bonus);
-      else if (slot==='Head') head.push(bonus);
-      else if (slot==='Shield') shield += bonus;
+      if (slot === 'body') body.push(bonus);
+      else if (slot === 'head') head.push(bonus);
+      else if (slot === 'shield') shield += bonus;
       else misc += bonus;
     }
   });
