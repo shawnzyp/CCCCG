@@ -68,6 +68,12 @@ describe('dm credit debit status', () => {
       <div id="dm-credit-memo-preview" hidden>
         <span id="dm-credit-memo-previewText"></span>
       </div>
+      <select id="dm-credit-history-filter-character">
+        <option value="">All characters</option>
+      </select>
+      <select id="dm-credit-history-filter-type">
+        <option value="">All types</option>
+      </select>
       <ul id="dm-credit-history"></ul>
       <button id="dm-credit-history-export"></button>
       <button id="dm-credit-history-clear"></button>
