@@ -2851,18 +2851,25 @@
   </span>
 </button>
 
-<div
-  id="player-tools-drawer"
-  class="player-tools-drawer"
-  role="complementary"
-  aria-label="Player Tools"
-  tabindex="-1"
-  aria-hidden="true"
->
-  <div class="player-tools-drawer__inner">
-    <fieldset class="card roll-tools-card">
-      <legend data-animate-title>Player Tools</legend>
-      <div class="roll-tools">
+  <div
+    id="player-tools-drawer"
+    class="player-tools-drawer"
+    role="complementary"
+    aria-label="Player Tools"
+    tabindex="-1"
+    aria-hidden="true"
+  >
+    <div class="player-tools-drawer__inner">
+      <button
+        type="button"
+        class="player-tools-drawer__close"
+        aria-label="Close player tools"
+      >
+        <span class="player-tools-drawer__close-icon" aria-hidden="true">&times;</span>
+      </button>
+      <fieldset class="card roll-tools-card">
+        <legend data-animate-title>Player Tools</legend>
+        <div class="roll-tools">
         <section class="roll-tool roll-tool--initiative">
           <header class="roll-tool__header">
             <h3 class="roll-tool__heading">Initiative</h3>

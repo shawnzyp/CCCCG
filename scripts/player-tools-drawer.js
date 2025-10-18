@@ -2,6 +2,7 @@
   const drawer = document.getElementById('player-tools-drawer');
   const tab = document.getElementById('player-tools-tab');
   if (!drawer || !tab) return;
+  const closeButton = drawer.querySelector('.player-tools-drawer__close');
 
   const body = document.body;
   const requestFrame =
@@ -252,6 +253,12 @@
   tab.addEventListener('click', () => {
     setOpenState();
   });
+
+  if (closeButton) {
+    closeButton.addEventListener('click', () => {
+      setOpenState(false);
+    });
+  }
 
   drawer.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' || event.key === 'Esc') {
