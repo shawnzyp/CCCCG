@@ -105,6 +105,7 @@ let dmToggleBaseLabel = '';
 let dmNotificationsBaseLabel = '';
 let dmNotificationsHadExplicitAriaLabel = false;
 let notifyModalRef = null;
+let notifyExportFormatRef = null;
 
 function persistUnreadCount() {
   if (typeof sessionStorage === 'undefined') return;
@@ -228,18 +229,22 @@ async function writeTextToClipboard(text) {
   return success;
 }
 
-function buildExportFilename(base) {
+function buildExportFilename(base, extension = 'txt') {
   const prefix = typeof base === 'string' && base ? base : 'export';
+  const normalizedExtension = typeof extension === 'string' && extension
+    ? extension.replace(/^\.+/, '')
+    : 'txt';
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  return `${prefix}-${stamp}.txt`;
+  return `${prefix}-${stamp}.${normalizedExtension}`;
 }
 
-function downloadTextFile(filename, text) {
+function downloadTextFile(filename, text, options = {}) {
   if (typeof document === 'undefined') return false;
   const root = document.body || document.documentElement;
   if (!root) return false;
   try {
-    const blob = new Blob([text], { type: 'text/plain' });
+    const type = typeof options.type === 'string' && options.type ? options.type : 'text/plain';
+    const blob = new Blob([text], { type });
     const url = (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function')
       ? URL.createObjectURL(blob)
       : null;
@@ -584,6 +589,46 @@ function formatNotification(entry, { html = false } = {}) {
   return `[${entry.ts}] ${resolutionLabel}${prefix}${entry.detail}`;
 }
 
+const DEFAULT_NOTIFICATION_EXPORT_FORMAT = 'text';
+const NOTIFICATION_EXPORT_FORMATS = new Set(['text', 'csv', 'json']);
+const NOTIFICATION_EXPORT_META = {
+  text: { extension: 'txt', mimeType: 'text/plain', toastSuffix: '' },
+  csv: { extension: 'csv', mimeType: 'text/csv', toastSuffix: ' (CSV)' },
+  json: { extension: 'json', mimeType: 'application/json', toastSuffix: ' (JSON)' },
+};
+
+function normalizeNotificationExportFormat(value) {
+  if (typeof value !== 'string') return DEFAULT_NOTIFICATION_EXPORT_FORMAT;
+  const normalized = value.trim().toLowerCase();
+  return NOTIFICATION_EXPORT_FORMATS.has(normalized) ? normalized : DEFAULT_NOTIFICATION_EXPORT_FORMAT;
+}
+
+function getSelectedNotificationExportFormat() {
+  if (!notifyExportFormatRef) return DEFAULT_NOTIFICATION_EXPORT_FORMAT;
+  return normalizeNotificationExportFormat(notifyExportFormatRef.value);
+}
+
+function mapNotificationForStructuredExport(entry) {
+  if (!entry) {
+    return { ts: '', char: '', severity: '', detail: '' };
+  }
+  const ts = typeof entry.ts === 'string' ? entry.ts : String(entry.ts ?? '');
+  const char = typeof entry.char === 'string' ? entry.char : String(entry.char ?? '');
+  const severity = typeof entry.severity === 'string' ? entry.severity : String(entry.severity ?? '');
+  const detailValue = typeof entry.detail === 'string' ? entry.detail : String(entry.detail ?? '');
+  const prefix = entry.resolved ? '[resolved] ' : '';
+  const detail = prefix ? `${prefix}${detailValue}` : detailValue;
+  return { ts, char, severity, detail };
+}
+
+function escapeCsvValue(value) {
+  const stringValue = String(value ?? '');
+  if (/[",\n\r]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
+}
+
 let dmTestHooks = null;
 
 function initDMLogin(){
@@ -612,6 +657,7 @@ function initDMLogin(){
   const notifyList = document.getElementById('dm-notifications-list');
   const notifyClose = document.getElementById('dm-notifications-close');
   const notifyExportBtn = document.getElementById('dm-notifications-export');
+  notifyExportFormatRef = document.getElementById('dm-notifications-export-format');
   const notifyMarkReadBtn = document.getElementById('dm-notifications-mark-read');
   const notifyClearBtn = document.getElementById('dm-notifications-clear');
   const notifyFiltersForm = document.getElementById('dm-notifications-filters');
@@ -5009,6 +5055,7 @@ function initDMLogin(){
     const hasUnread = unreadNotificationCount > 0;
     if (notifyClearBtn) notifyClearBtn.disabled = isEmpty;
     if (notifyExportBtn) notifyExportBtn.disabled = isEmpty;
+    if (notifyExportFormatRef) notifyExportFormatRef.disabled = isEmpty;
     if (notifyMarkReadBtn) notifyMarkReadBtn.disabled = !hasUnread;
   }
 
@@ -5025,23 +5072,49 @@ function initDMLogin(){
     return true;
   }
 
-  async function exportNotifications() {
+  async function exportNotifications(formatOverride = null) {
     if (!notifications.length) {
       if (typeof toast === 'function') toast('Notification log is empty', 'info');
       return false;
     }
-    const lines = [...notifications].reverse().map(entry => formatNotification(entry));
-    const payload = lines.join('\n');
+    const format = normalizeNotificationExportFormat(
+      formatOverride != null ? formatOverride : getSelectedNotificationExportFormat()
+    );
+    const meta = NOTIFICATION_EXPORT_META[format] || NOTIFICATION_EXPORT_META.text;
+    const newestFirst = [...notifications].reverse();
+    let payload = '';
+
+    if (format === 'text') {
+      payload = newestFirst.map(entry => formatNotification(entry)).join('\n');
+    } else if (format === 'csv') {
+      const headers = ['ts', 'char', 'severity', 'detail'];
+      const rows = newestFirst
+        .map(entry => mapNotificationForStructuredExport(entry))
+        .map(record => headers.map(key => escapeCsvValue(record[key])));
+      const csvLines = [headers.join(','), ...rows.map(row => row.join(','))];
+      payload = csvLines.join('\n');
+    } else {
+      const rows = newestFirst.map(entry => mapNotificationForStructuredExport(entry));
+      payload = JSON.stringify(rows, ['ts', 'char', 'severity', 'detail'], 2);
+    }
+
     if (!payload) {
       if (typeof toast === 'function') toast('Nothing to export', 'info');
       return false;
     }
+
+    const toastSuffix = meta?.toastSuffix || '';
     if (await writeTextToClipboard(payload)) {
-      if (typeof toast === 'function') toast('Notification log copied to clipboard', 'success');
+      if (typeof toast === 'function') toast(`Notification log copied to clipboard${toastSuffix}`, 'success');
       return true;
     }
-    if (downloadTextFile(buildExportFilename('dm-notifications'), payload)) {
-      if (typeof toast === 'function') toast('Notification log exported', 'success');
+
+    const filename = buildExportFilename('dm-notifications', meta?.extension);
+    const downloadSucceeded = format === 'text'
+      ? downloadTextFile(filename, payload)
+      : downloadTextFile(filename, payload, { type: meta?.mimeType });
+    if (downloadSucceeded) {
+      if (typeof toast === 'function') toast(`Notification log exported${toastSuffix}`, 'success');
       return true;
     }
     if (typeof toast === 'function') toast('Unable to export notifications', 'error');
@@ -6497,6 +6570,7 @@ function initDMLogin(){
     convertCatalogPayloadToEquipment,
     executeRewardTransaction,
     setRewardExecutor,
+    exportNotifications,
   };
 }
 if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {
