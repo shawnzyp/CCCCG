@@ -2624,6 +2624,21 @@ function initDMLogin(){
 
   const normalizeRecipientName = (name = '') => name.trim().replace(/\s+/g, ' ');
   const getRecipientKey = name => normalizeRecipientName(name).toLowerCase();
+  const collectRecipientNames = input => {
+    if (Array.isArray(input)) {
+      return input.reduce((acc, value) => acc.concat(collectRecipientNames(value)), []);
+    }
+    if (input && typeof input === 'object' && typeof input[Symbol.iterator] === 'function') {
+      return Array.from(input).reduce((acc, value) => acc.concat(collectRecipientNames(value)), []);
+    }
+    if (typeof input === 'string') {
+      return input
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
 
   const updateRecipientControlsState = () => {
     const hasRecipients = deploymentRecipients.size > 0;
@@ -2669,21 +2684,79 @@ function initDMLogin(){
     updateRecipientControlsState();
   };
 
-  const addRecipient = (name, { source = 'manual' } = {}) => {
-    const normalized = normalizeRecipientName(name);
-    if (!normalized) return false;
-    const key = getRecipientKey(normalized);
-    if (deploymentRecipients.has(key)) {
-      if (typeof toast === 'function') toast(`${normalized} is already queued`, 'info');
-      return false;
+  const getRosterSelection = () => {
+    if (!miniGamesPlayerSelect) return [];
+    const selectedOptions = miniGamesPlayerSelect.selectedOptions
+      ? Array.from(miniGamesPlayerSelect.selectedOptions)
+      : [];
+    const values = selectedOptions
+      .map(option => option.value)
+      .filter(value => typeof value === 'string' && value.trim().length);
+    if (!values.length && !miniGamesPlayerSelect.multiple) {
+      const single = miniGamesPlayerSelect.value;
+      return single && single.trim() ? [single] : [];
     }
-    if (deploymentRecipients.size >= MINI_GAME_RECIPIENT_LIMIT) {
-      if (typeof toast === 'function') toast(`Recipient limit reached (${MINI_GAME_RECIPIENT_LIMIT})`, 'error');
-      return false;
+    return values;
+  };
+
+  const setRosterSelection = names => {
+    if (!miniGamesPlayerSelect) return;
+    const targetNames = Array.isArray(names) ? names : [];
+    if (!miniGamesPlayerSelect.multiple) {
+      miniGamesPlayerSelect.value = targetNames[0] || '';
+      return;
     }
-    deploymentRecipients.set(key, { key, name: normalized, source });
-    renderRecipientList();
-    return true;
+    const targetSet = new Set(targetNames);
+    Array.from(miniGamesPlayerSelect.options || []).forEach(option => {
+      if (!option) return;
+      option.selected = targetSet.has(option.value) && option.value !== '';
+    });
+  };
+
+  const clearRosterSelection = () => {
+    if (!miniGamesPlayerSelect) return;
+    if (miniGamesPlayerSelect.multiple) {
+      Array.from(miniGamesPlayerSelect.options || []).forEach(option => {
+        if (!option) return;
+        option.selected = false;
+      });
+    } else {
+      miniGamesPlayerSelect.value = '';
+    }
+  };
+
+  const addRecipient = (value, { source = 'manual' } = {}) => {
+    const rawNames = collectRecipientNames(value);
+    if (!rawNames.length) return false;
+    let addedAny = false;
+    let limitReached = false;
+    const duplicates = [];
+    for (const rawName of rawNames) {
+      const normalized = normalizeRecipientName(rawName);
+      if (!normalized) continue;
+      const key = getRecipientKey(normalized);
+      if (deploymentRecipients.has(key)) {
+        duplicates.push(normalized);
+        continue;
+      }
+      if (deploymentRecipients.size >= MINI_GAME_RECIPIENT_LIMIT) {
+        limitReached = true;
+        break;
+      }
+      deploymentRecipients.set(key, { key, name: normalized, source });
+      addedAny = true;
+    }
+    if (limitReached && typeof toast === 'function') {
+      toast(`Recipient limit reached (${MINI_GAME_RECIPIENT_LIMIT})`, 'error');
+    }
+    if (duplicates.length && typeof toast === 'function') {
+      const label = duplicates.join(', ');
+      toast(`${label} ${duplicates.length === 1 ? 'is' : 'are'} already queued`, 'info');
+    }
+    if (addedAny) {
+      renderRecipientList();
+    }
+    return addedAny;
   };
 
   const removeRecipientByKey = key => {
@@ -2692,9 +2765,26 @@ function initDMLogin(){
     renderRecipientList();
   };
 
-  const clearRecipients = () => {
-    deploymentRecipients.clear();
-    renderRecipientList();
+  const clearRecipients = value => {
+    if (typeof value === 'undefined') {
+      if (!deploymentRecipients.size) return false;
+      deploymentRecipients.clear();
+      renderRecipientList();
+      return true;
+    }
+    const rawNames = collectRecipientNames(value);
+    if (!rawNames.length) return false;
+    let removed = false;
+    rawNames.forEach(name => {
+      const key = getRecipientKey(name);
+      if (deploymentRecipients.delete(key)) {
+        removed = true;
+      }
+    });
+    if (removed) {
+      renderRecipientList();
+    }
+    return removed;
   };
 
   const getDeploymentRecipients = () => {
@@ -3942,25 +4032,36 @@ function initDMLogin(){
 
   async function refreshMiniGameCharacters({ preserveSelection = true } = {}) {
     if (!miniGamesPlayerSelect) return;
-    const previous = preserveSelection ? miniGamesPlayerSelect.value : '';
+    const previous = preserveSelection ? getRosterSelection() : [];
     miniGamesPlayerSelect.innerHTML = '<option value="">Loading…</option>';
     try {
       const names = await listCharacters();
       miniGamesPlayerSelect.innerHTML = '';
-      const placeholder = document.createElement('option');
-      placeholder.value = '';
-      placeholder.textContent = 'Select a character';
-      miniGamesPlayerSelect.appendChild(placeholder);
+      if (!miniGamesPlayerSelect.multiple || !names.length) {
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = miniGamesPlayerSelect.multiple ? 'No characters available' : 'Select a character';
+        if (miniGamesPlayerSelect.multiple) {
+          placeholder.disabled = true;
+          placeholder.hidden = true;
+        }
+        miniGamesPlayerSelect.appendChild(placeholder);
+      }
       names.forEach(name => {
         const option = document.createElement('option');
         option.value = name;
         option.textContent = name;
         miniGamesPlayerSelect.appendChild(option);
       });
-      if (previous && names.includes(previous)) {
-        miniGamesPlayerSelect.value = previous;
+      if (previous.length) {
+        const allowed = previous.filter(name => names.includes(name));
+        if (allowed.length) {
+          setRosterSelection(allowed);
+        } else {
+          clearRosterSelection();
+        }
       } else {
-        miniGamesPlayerSelect.value = '';
+        clearRosterSelection();
       }
     } catch (err) {
       console.error('Failed to load characters for mini-games', err);
@@ -6012,18 +6113,20 @@ function initDMLogin(){
   });
 
   miniGamesPlayerSelect?.addEventListener('change', () => {
-    const value = miniGamesPlayerSelect.value;
-    if (value) {
-      addRecipient(value, { source: 'roster' });
-      miniGamesPlayerSelect.value = '';
+    const values = getRosterSelection();
+    if (!values.length) return;
+    const added = addRecipient(values, { source: 'roster' });
+    if (added) {
+      clearRosterSelection();
     }
   });
 
   miniGamesAddRecipientBtn?.addEventListener('click', () => {
-    const value = miniGamesPlayerSelect?.value || '';
-    if (value) {
-      addRecipient(value, { source: 'roster' });
-      miniGamesPlayerSelect.value = '';
+    const values = getRosterSelection();
+    if (!values.length) return;
+    const added = addRecipient(values, { source: 'roster' });
+    if (added) {
+      clearRosterSelection();
     }
   });
 
@@ -6045,7 +6148,10 @@ function initDMLogin(){
   });
 
   miniGamesClearRecipientsBtn?.addEventListener('click', () => {
-    clearRecipients();
+    const cleared = clearRecipients();
+    if (cleared) {
+      clearRosterSelection();
+    }
   });
 
   miniGamesRecipientList?.addEventListener('click', event => {
