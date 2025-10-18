@@ -1,15 +1,55 @@
 import { jest } from '@jest/globals';
 
+function buildDom({ includeLoadModals = false } = {}) {
+  return `
+    <div id="dm-tools-menu"></div>
+    <button id="dm-tools-tsomf"></button>
+    <button id="dm-tools-notifications"></button>
+    <button id="dm-tools-characters"></button>
+    <button id="dm-tools-logout"></button>
+    <div id="dm-login"></div>
+    <div id="dm-login-modal"></div>
+    <input id="dm-login-pin" />
+    <button id="dm-login-submit"></button>
+    <button id="dm-login-close"></button>
+    <div id="dm-notifications-modal"></div>
+    <div id="dm-notifications-list"></div>
+    <button id="dm-notifications-close"></button>
+    <div id="dm-characters-modal" class="overlay hidden" aria-hidden="true">
+      <section class="modal dm-characters">
+        <button id="dm-characters-close"></button>
+        <header class="dm-characters__header">
+          <h3 id="dm-characters-title">Character Roster</h3>
+          <div class="dm-characters__controls">
+            <label class="sr-only" for="dm-characters-search">Search characters</label>
+            <input id="dm-characters-search" class="dm-characters__search" type="search" />
+            <div class="dm-characters__sort" role="group" aria-label="Sort characters">
+              <button id="dm-characters-sort-asc" data-char-sort="asc" aria-pressed="true"></button>
+              <button id="dm-characters-sort-desc" data-char-sort="desc" aria-pressed="false"></button>
+            </div>
+          </div>
+        </header>
+        <ul id="dm-characters-list"></ul>
+        <div id="dm-character-sheet"></div>
+      </section>
+    </div>
+    ${includeLoadModals ? `
+      <div id="modal-load" class="overlay hidden" aria-hidden="true"></div>
+      <div id="modal-load-list" class="overlay hidden" aria-hidden="true"></div>
+      <div id="load-confirm-text"></div>
+    ` : ''}
+  `;
+}
+
 beforeEach(() => {
   jest.resetModules();
+  if (!window.matchMedia) {
+    window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
+  }
 });
 
 describe('DM character viewer tool', () => {
   test('shows character modal from DM tools menu', async () => {
-    if (!window.matchMedia) {
-      window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
-    }
-
     const listCharacters = jest.fn(async () => ['The DM']);
     const currentCharacter = jest.fn(() => null);
     const setCurrentCharacter = jest.fn();
@@ -18,28 +58,7 @@ describe('DM character viewer tool', () => {
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
-    document.body.innerHTML = `
-      <div id="dm-tools-menu"></div>
-      <button id="dm-tools-tsomf"></button>
-      <button id="dm-tools-notifications"></button>
-      <button id="dm-tools-characters"></button>
-      <button id="dm-tools-logout"></button>
-      <div id="dm-login"></div>
-      <div id="dm-login-modal"></div>
-      <input id="dm-login-pin" />
-      <button id="dm-login-submit"></button>
-      <button id="dm-login-close"></button>
-      <div id="dm-notifications-modal"></div>
-      <div id="dm-notifications-list"></div>
-      <button id="dm-notifications-close"></button>
-      <div id="dm-characters-modal" class="overlay hidden" aria-hidden="true">
-        <section class="modal dm-characters">
-          <button id="dm-characters-close"></button>
-          <ul id="dm-characters-list"></ul>
-          <div id="dm-character-sheet"></div>
-        </section>
-      </div>
-    `;
+    document.body.innerHTML = buildDom();
 
     await import('../scripts/dm.js');
 
@@ -51,10 +70,6 @@ describe('DM character viewer tool', () => {
   });
 
   test('clicking a character opens the character modal', async () => {
-    if (!window.matchMedia) {
-      window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
-    }
-
     const listCharacters = jest.fn(async () => ['Test']);
     const currentCharacter = jest.fn(() => null);
     const setCurrentCharacter = jest.fn();
@@ -63,31 +78,7 @@ describe('DM character viewer tool', () => {
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
-    document.body.innerHTML = `
-      <div id="dm-tools-menu"></div>
-      <button id="dm-tools-tsomf"></button>
-      <button id="dm-tools-notifications"></button>
-      <button id="dm-tools-characters"></button>
-      <button id="dm-tools-logout"></button>
-      <div id="dm-login"></div>
-      <div id="dm-login-modal"></div>
-      <input id="dm-login-pin" />
-      <button id="dm-login-submit"></button>
-      <button id="dm-login-close"></button>
-      <div id="dm-notifications-modal"></div>
-      <div id="dm-notifications-list"></div>
-      <button id="dm-notifications-close"></button>
-      <div id="dm-characters-modal" class="overlay hidden" aria-hidden="true">
-        <section class="modal dm-characters">
-          <button id="dm-characters-close"></button>
-          <ul id="dm-characters-list"></ul>
-          <div id="dm-character-sheet"></div>
-        </section>
-      </div>
-      <div id="modal-load" class="overlay hidden" aria-hidden="true"></div>
-      <div id="modal-load-list" class="overlay hidden" aria-hidden="true"></div>
-      <div id="load-confirm-text"></div>
-    `;
+    document.body.innerHTML = buildDom({ includeLoadModals: true });
 
     await import('../scripts/dm.js');
 
@@ -102,10 +93,6 @@ describe('DM character viewer tool', () => {
   });
 
   test('character card displays all character data', async () => {
-    if (!window.matchMedia) {
-      window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
-    }
-
     const characterData = {
       'hp-bar': '30/30',
       tc: '12',
@@ -156,31 +143,7 @@ describe('DM character viewer tool', () => {
 
     sessionStorage.setItem('dmLoggedIn', '1');
 
-    document.body.innerHTML = `
-      <div id="dm-tools-menu"></div>
-      <button id="dm-tools-tsomf"></button>
-      <button id="dm-tools-notifications"></button>
-      <button id="dm-tools-characters"></button>
-      <button id="dm-tools-logout"></button>
-      <div id="dm-login"></div>
-      <div id="dm-login-modal"></div>
-      <input id="dm-login-pin" />
-      <button id="dm-login-submit"></button>
-      <button id="dm-login-close"></button>
-      <div id="dm-notifications-modal"></div>
-      <div id="dm-notifications-list"></div>
-      <button id="dm-notifications-close"></button>
-      <div id="dm-characters-modal" class="overlay hidden" aria-hidden="true">
-        <section class="modal dm-characters">
-          <button id="dm-characters-close"></button>
-          <ul id="dm-characters-list"></ul>
-          <div id="dm-character-sheet"></div>
-        </section>
-      </div>
-      <div id="modal-load" class="overlay hidden" aria-hidden="true"></div>
-      <div id="modal-load-list" class="overlay hidden" aria-hidden="true"></div>
-      <div id="load-confirm-text"></div>
-    `;
+    document.body.innerHTML = buildDom({ includeLoadModals: true });
 
     await import('../scripts/dm.js');
 
@@ -200,5 +163,63 @@ describe('DM character viewer tool', () => {
     expect(text).toContain('Qty');
     expect(text).toContain('2');
     expect(text).toContain('healing');
+  });
+
+  test('filters character list from search input', async () => {
+    const listCharacters = jest.fn(async () => ['Alpha', 'Beta', 'Gamma']);
+    const currentCharacter = jest.fn(() => null);
+    const setCurrentCharacter = jest.fn();
+    const loadCharacter = jest.fn(async () => ({}));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
+
+    sessionStorage.setItem('dmLoggedIn', '1');
+
+    document.body.innerHTML = buildDom();
+
+    await import('../scripts/dm.js');
+
+    document.getElementById('dm-tools-characters').click();
+    await new Promise(r => setTimeout(r, 0));
+
+    const search = document.getElementById('dm-characters-search');
+    search.value = 'ga';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const visibleNames = Array.from(document.querySelectorAll('#dm-characters-list .dm-characters__link')).map(link => link.textContent);
+    expect(visibleNames).toEqual(['Gamma']);
+
+    search.value = 'zzz';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(document.getElementById('dm-characters-list').textContent).toContain('No matching characters.');
+  });
+
+  test('preserves focus when resorting characters', async () => {
+    const listCharacters = jest.fn(async () => ['Alpha', 'Beta', 'Gamma']);
+    const currentCharacter = jest.fn(() => null);
+    const setCurrentCharacter = jest.fn();
+    const loadCharacter = jest.fn(async () => ({}));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({ listCharacters, currentCharacter, setCurrentCharacter, loadCharacter }));
+
+    sessionStorage.setItem('dmLoggedIn', '1');
+
+    document.body.innerHTML = buildDom();
+
+    await import('../scripts/dm.js');
+
+    document.getElementById('dm-tools-characters').click();
+    await new Promise(r => setTimeout(r, 0));
+
+    const links = Array.from(document.querySelectorAll('#dm-characters-list .dm-characters__link'));
+    links[1].focus();
+    expect(document.activeElement.dataset.characterName).toBe('Beta');
+
+    const sortDesc = document.querySelector('[data-char-sort="desc"]');
+    sortDesc.click();
+    await new Promise(r => setTimeout(r, 0));
+
+    expect(document.activeElement.dataset.characterName).toBe('Beta');
+    const ordered = Array.from(document.querySelectorAll('#dm-characters-list .dm-characters__link')).map(link => link.dataset.characterName);
+    expect(ordered).toEqual(['Gamma', 'Beta', 'Alpha']);
   });
 });
