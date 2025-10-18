@@ -311,4 +311,51 @@ describe('DM catalog lock enforcement', () => {
     expect(badge).not.toBeNull();
     expect(badge.textContent).toMatch(/locked/i);
   });
+
+  test('armor slot select supports accessory, other, and legacy misc values', async () => {
+    const module = await import('../scripts/main.js');
+    const { addEntryToSheet } = module;
+    const armors = document.getElementById('armors');
+    armors.innerHTML = '';
+
+    const baseEntry = {
+      name: 'Neural Halo',
+      section: 'DM Catalog',
+      type: 'Armor',
+      rawType: 'Armor',
+      perk: '',
+      dmEntry: true,
+    };
+
+    const accessoryCard = addEntryToSheet(
+      { ...baseEntry, slot: 'Accessory', bonus: 2 },
+      { toastMessage: null }
+    );
+    expect(accessoryCard).not.toBeNull();
+    const accessorySelect = accessoryCard.querySelector('select[data-f="slot"]');
+    expect(accessorySelect).toBeTruthy();
+    expect(accessorySelect.value).toBe('Accessory');
+    expect(Array.from(accessorySelect.options).map(opt => opt.value)).toEqual(
+      expect.arrayContaining(['Accessory', 'Other'])
+    );
+
+    const otherCard = addEntryToSheet(
+      { ...baseEntry, name: 'Utility Rig', slot: 'Other', bonus: 1 },
+      { toastMessage: null }
+    );
+    expect(otherCard).not.toBeNull();
+    const otherSelect = otherCard.querySelector('select[data-f="slot"]');
+    expect(otherSelect).toBeTruthy();
+    expect(otherSelect.value).toBe('Other');
+
+    const legacyCard = addEntryToSheet(
+      { ...baseEntry, name: 'Legacy Charm', slot: 'Misc', bonus: 0 },
+      { toastMessage: null }
+    );
+    expect(legacyCard).not.toBeNull();
+    const legacySelect = legacyCard.querySelector('select[data-f="slot"]');
+    expect(legacySelect).toBeTruthy();
+    expect(legacySelect.value).toBe('Misc');
+    expect(Array.from(legacySelect.options).some(opt => opt.value === 'Misc')).toBe(true);
+  });
 });

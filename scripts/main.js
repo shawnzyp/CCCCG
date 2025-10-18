@@ -16337,7 +16337,7 @@ const CARD_CONFIG = {
     rows: [
       { class: 'inline', fields: [
         { f: 'name', placeholder: 'Name' },
-        { tag: 'select', f: 'slot', style: 'max-width:140px', options: ['Body','Head','Shield','Misc'], default: 'Body' },
+        { tag: 'select', f: 'slot', style: 'max-width:140px', options: ['Body','Head','Shield','Accessory','Other'], default: 'Body' },
         { f: 'bonus', placeholder: 'Bonus', style: 'max-width:120px', type: 'number', inputmode: 'numeric', default: 0 },
         { tag: 'checkbox', f: 'equipped', label: 'Equipped', style: 'gap:6px' }
       ]}
@@ -16831,8 +16831,25 @@ function createCard(kind, pref = {}) {
             }
           });
           if (f.style) sel.style.cssText = f.style;
-          const selectedValue = pref[f.f];
-          sel.value = selectedValue ?? f.default ?? '';
+          const hasPrefValue = Object.prototype.hasOwnProperty.call(pref, f.f);
+          let normalizedValue = '';
+          if (hasPrefValue) {
+            const rawValue = pref[f.f];
+            normalizedValue = rawValue === null || rawValue === undefined
+              ? ''
+              : String(rawValue);
+          } else if (f.default !== undefined && f.default !== null) {
+            normalizedValue = String(f.default);
+          }
+          if (normalizedValue) {
+            const hasOption = Array.from(sel.options).some(option => option.value === normalizedValue);
+            if (!hasOption) {
+              sel.add(new Option(normalizedValue, normalizedValue));
+            }
+            sel.value = normalizedValue;
+          } else {
+            sel.value = '';
+          }
           if (f.label) {
             const label = document.createElement('label');
             label.className = 'inline';
