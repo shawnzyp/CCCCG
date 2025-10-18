@@ -70,6 +70,8 @@ describe('dm login', () => {
 
     expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
     expect(window.dismissToast).toHaveBeenCalled();
+    expect(sessionStorage.getItem('dmLoggedInAt')).not.toBeNull();
+    expect(sessionStorage.getItem('dmLoggedInLastActive')).not.toBeNull();
     expect(modal.classList.contains('hidden')).toBe(true);
     expect(modal.getAttribute('aria-hidden')).toBe('true');
     const dmBtn = document.getElementById('dm-login');
@@ -220,6 +222,8 @@ describe('dm login', () => {
         <button id="dm-tools-logout"></button>
       `;
     sessionStorage.setItem('dmLoggedIn', '1');
+    sessionStorage.setItem('dmLoggedInAt', String(Date.now() - 1000));
+    sessionStorage.setItem('dmLoggedInLastActive', String(Date.now() - 1000));
     localStorage.setItem('last-save', 'The DM');
 
     const { currentCharacter } = await import('../scripts/characters.js');
@@ -230,7 +234,72 @@ describe('dm login', () => {
     document.getElementById('dm-tools-logout').click();
 
     expect(sessionStorage.getItem('dmLoggedIn')).toBeNull();
+    expect(sessionStorage.getItem('dmLoggedInAt')).toBeNull();
+    expect(sessionStorage.getItem('dmLoggedInLastActive')).toBeNull();
     expect(currentCharacter()).toBeNull();
     expect(localStorage.getItem('last-save')).toBe('The DM');
+  });
+
+  test('expired DM session logs out and shows toast', async () => {
+    document.body.innerHTML = `
+        <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
+        <div id="dm-tools-menu" hidden></div>
+        <button id="dm-tools-tsomf"></button>
+        <button id="dm-tools-logout"></button>
+        <div id="somfDM-toasts"></div>
+      `;
+    window.toast = jest.fn();
+
+    const now = Date.now();
+    sessionStorage.setItem('dmLoggedIn', '1');
+    sessionStorage.setItem('dmLoggedInAt', String(now - 10_000));
+    sessionStorage.setItem('dmLoggedInLastActive', String(now - 10_000));
+    window.dmLoginTimeoutMs = 1000;
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    expect(sessionStorage.getItem('dmLoggedIn')).toBeNull();
+    expect(window.toast).toHaveBeenCalledWith('DM session expired. Please log in again.', 'warning');
+
+    delete window.toast;
+    delete window.dmLoginTimeoutMs;
   });
 });

@@ -24,7 +24,64 @@ const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
+const DM_LOGIN_FLAG_KEY = 'dmLoggedIn';
+const DM_LOGIN_AT_KEY = 'dmLoggedInAt';
+const DM_LOGIN_LAST_ACTIVE_KEY = 'dmLoggedInLastActive';
+const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
+
+function parseSessionTimestamp(value) {
+  if (typeof value !== 'string' || !value) return null;
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getSessionTimestamp(key) {
+  try {
+    return parseSessionTimestamp(sessionStorage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+
+function setSessionTimestamp(key, value) {
+  try {
+    sessionStorage.setItem(key, String(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearSessionTimestamp(key) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+function getSessionTimeoutMs() {
+  if (typeof window !== 'undefined') {
+    const candidate = window?.dmLoginTimeoutMs;
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+    if (candidate === 0 || candidate === '0') {
+      return 0;
+    }
+  }
+  return DM_DEFAULT_SESSION_TIMEOUT_MS;
+}
+
+function touchSessionActivity(timestamp = Date.now()) {
+  try {
+    if (sessionStorage.getItem(DM_LOGIN_FLAG_KEY) !== '1') return;
+    sessionStorage.setItem(DM_LOGIN_LAST_ACTIVE_KEY, String(timestamp));
+  } catch {
+    /* ignore */
+  }
+}
 
 function loadStoredUnreadCount() {
   if (typeof sessionStorage === 'undefined') return 0;
@@ -426,7 +483,7 @@ function persistNotifications() {
 
 function deriveNotificationChar() {
   try {
-    return sessionStorage.getItem('dmLoggedIn') === '1'
+    return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1'
       ? 'DM'
       : localStorage.getItem('last-save') || '';
   } catch {
@@ -4871,7 +4928,30 @@ function initDMLogin(){
 
   function isLoggedIn(){
     try {
-      return sessionStorage.getItem('dmLoggedIn') === '1';
+      if (sessionStorage.getItem(DM_LOGIN_FLAG_KEY) !== '1') return false;
+      const timeoutMs = getSessionTimeoutMs();
+      if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+        if (!getSessionTimestamp(DM_LOGIN_AT_KEY)) {
+          const now = Date.now();
+          setSessionTimestamp(DM_LOGIN_AT_KEY, now);
+          touchSessionActivity(now);
+        }
+        return true;
+      }
+      const lastActive = getSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY);
+      const loggedAt = getSessionTimestamp(DM_LOGIN_AT_KEY);
+      const reference = lastActive ?? loggedAt;
+      if (!reference) {
+        const now = Date.now();
+        setSessionTimestamp(DM_LOGIN_AT_KEY, now);
+        touchSessionActivity(now);
+        return true;
+      }
+      if (Date.now() - reference > timeoutMs) {
+        logout({ reason: 'expired' });
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }
@@ -4879,7 +4959,10 @@ function initDMLogin(){
 
   function setLoggedIn(){
     try {
-      sessionStorage.setItem('dmLoggedIn','1');
+      const now = Date.now();
+      sessionStorage.setItem(DM_LOGIN_FLAG_KEY,'1');
+      setSessionTimestamp(DM_LOGIN_AT_KEY, now);
+      touchSessionActivity(now);
     } catch {
       /* ignore */
     }
@@ -4887,7 +4970,9 @@ function initDMLogin(){
 
   function clearLoggedIn(){
     try {
-      sessionStorage.removeItem('dmLoggedIn');
+      sessionStorage.removeItem(DM_LOGIN_FLAG_KEY);
+      clearSessionTimestamp(DM_LOGIN_AT_KEY);
+      clearSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY);
     } catch {
       /* ignore */
     }
@@ -5002,7 +5087,19 @@ function initDMLogin(){
     });
   }
 
-  function logout(){
+  function logout(reason){
+    if (reason && typeof reason.preventDefault === 'function') {
+      try {
+        reason.preventDefault();
+      } catch {
+        /* ignore */
+      }
+    }
+    const cause = typeof reason === 'string'
+      ? reason
+      : typeof reason === 'object' && reason && typeof reason.reason === 'string'
+        ? reason.reason
+        : null;
     clearLoggedIn();
     teardownMiniGameSubscription();
     closeMiniGames();
@@ -5015,7 +5112,13 @@ function initDMLogin(){
       }
     });
     updateButtons();
-    if (typeof toast === 'function') toast('Logged out','info');
+    if (typeof toast === 'function') {
+      if (cause === 'expired') {
+        toast('DM session expired. Please log in again.', 'warning');
+      } else {
+        toast('Logged out','info');
+      }
+    }
   }
 
   function clearMenuHideJobs(){
@@ -5746,6 +5849,7 @@ function initDMLogin(){
   document.addEventListener('click', e => {
     const t = e.target.closest('button,a');
     if(!t) return;
+    touchSessionActivity();
     const id = t.id || t.textContent?.trim() || 'interaction';
     window.dmNotify?.(`Clicked ${id}`);
   });
