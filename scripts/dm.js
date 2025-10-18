@@ -315,7 +315,11 @@ function loadStoredNotifications() {
         const ts = normalizeTimestamp(entry.ts);
         const char = typeof entry.char === 'string' ? entry.char : '';
         const html = typeof entry.html === 'string' ? entry.html : null;
+        const severity = typeof entry.severity === 'string'
+          ? entry.severity.trim().toLowerCase()
+          : '';
         const record = { ts, char, detail: entry.detail };
+        if (severity) record.severity = severity;
         if (html) record.html = html;
         return record;
       })
@@ -329,7 +333,30 @@ function loadStoredNotifications() {
   }
 }
 
+function loadStoredNotificationFilters() {
+  const defaults = { ...NOTIFICATION_FILTER_DEFAULTS };
+  if (typeof localStorage === 'undefined') return defaults;
+  try {
+    const raw = localStorage.getItem(DM_NOTIFICATION_FILTER_STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return defaults;
+    const next = { ...defaults };
+    if (typeof parsed.character === 'string') next.character = parsed.character;
+    if (typeof parsed.severity === 'string') next.severity = parsed.severity;
+    if (typeof parsed.search === 'string') next.search = parsed.search;
+    return next;
+  } catch {
+    return defaults;
+  }
+}
+
 const notifications = loadStoredNotifications();
+
+const DM_NOTIFICATION_FILTER_STORAGE_KEY = 'cc_dm_notification_filters';
+const NOTIFICATION_FILTER_DEFAULTS = Object.freeze({ character: 'all', severity: 'all', search: '' });
+const KNOWN_NOTIFICATION_SEVERITIES = ['info', 'success', 'warning', 'error'];
+let notificationFilterState = loadStoredNotificationFilters();
 
 const AUDIO_DISABLED_VALUES = new Set(['off', 'mute', 'muted', 'disabled', 'false', 'quiet', 'silent', 'none', '0']);
 const AUDIO_ENABLED_VALUES = new Set(['on', 'enabled', 'true', 'sound', 'audible', '1', 'default']);
@@ -481,6 +508,15 @@ function persistNotifications() {
   }
 }
 
+function persistNotificationFilterState() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(DM_NOTIFICATION_FILTER_STORAGE_KEY, JSON.stringify(notificationFilterState));
+  } catch {
+    /* ignore persistence errors */
+  }
+}
+
 function deriveNotificationChar() {
   try {
     return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1'
@@ -497,6 +533,8 @@ function buildNotification(detail, meta = {}) {
   const ts = normalizeTimestamp(meta.ts);
   const char = typeof meta.char === 'string' && meta.char ? meta.char : deriveNotificationChar();
   const entry = { ts, char, detail: text };
+  const severity = typeof meta.severity === 'string' ? meta.severity.trim().toLowerCase() : '';
+  if (severity) entry.severity = severity;
   if (typeof meta.html === 'string' && meta.html) {
     entry.html = meta.html;
   }
@@ -542,6 +580,10 @@ function initDMLogin(){
   const notifyClose = document.getElementById('dm-notifications-close');
   const notifyExportBtn = document.getElementById('dm-notifications-export');
   const notifyClearBtn = document.getElementById('dm-notifications-clear');
+  const notifyFiltersForm = document.getElementById('dm-notifications-filters');
+  const notifyFilterCharacter = document.getElementById('dm-notifications-filter-character');
+  const notifyFilterSeverity = document.getElementById('dm-notifications-filter-severity');
+  const notifyFilterSearch = document.getElementById('dm-notifications-filter-search');
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
@@ -4813,8 +4855,7 @@ function initDMLogin(){
     }
     notifications.length = 0;
     persistNotifications();
-    if (notifyList) notifyList.innerHTML = '';
-    updateNotificationActionState();
+    renderStoredNotifications();
     if (announce && typeof toast === 'function') toast('Notification log cleared', 'info');
     return true;
   }
@@ -4843,9 +4884,134 @@ function initDMLogin(){
   }
 
   function renderStoredNotifications() {
-    if (!notifyList || !isLoggedIn()) return;
-    notifyList.innerHTML = '';
+    if (!notifyList || !isLoggedIn()) {
+      updateNotificationActionState();
+      return;
+    }
+    const characters = new Set();
+    let hasEmptySeverity = false;
+    const dynamicSeverities = new Set();
     notifications.forEach(entry => {
+      const charValue = typeof entry?.char === 'string' ? entry.char.trim() : '';
+      characters.add(charValue);
+      const severityValue = typeof entry?.severity === 'string' ? entry.severity.trim().toLowerCase() : '';
+      if (severityValue) {
+        dynamicSeverities.add(severityValue);
+      } else {
+        hasEmptySeverity = true;
+      }
+    });
+
+    const characterOptions = ['all', ...Array.from(characters).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))];
+    const severityOptions = Array.from(new Set([
+      'all',
+      ...KNOWN_NOTIFICATION_SEVERITIES,
+      ...Array.from(dynamicSeverities),
+      ...(hasEmptySeverity ? [''] : []),
+    ]));
+
+    const normalizedCharacter = typeof notificationFilterState.character === 'string'
+      ? notificationFilterState.character
+      : 'all';
+    const normalizedSeverity = typeof notificationFilterState.severity === 'string'
+      ? notificationFilterState.severity
+      : 'all';
+    const normalizedSearch = typeof notificationFilterState.search === 'string'
+      ? notificationFilterState.search
+      : '';
+
+    const characterSet = new Set(characterOptions);
+    const severitySet = new Set(severityOptions);
+
+    let selectedCharacter = characterSet.has(normalizedCharacter) ? normalizedCharacter : 'all';
+    let selectedSeverity = severitySet.has(normalizedSeverity) ? normalizedSeverity : 'all';
+    let selectedSearch = normalizedSearch;
+
+    const sanitizedStateChanged = (
+      selectedCharacter !== notificationFilterState.character
+      || selectedSeverity !== notificationFilterState.severity
+      || selectedSearch !== notificationFilterState.search
+    );
+
+    notificationFilterState = { character: selectedCharacter, severity: selectedSeverity, search: selectedSearch };
+    if (sanitizedStateChanged) {
+      persistNotificationFilterState();
+    }
+
+    if (notifyFilterCharacter) {
+      const fragment = document.createDocumentFragment();
+      characterOptions.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value === 'all' ? 'All characters' : (value || 'Unassigned');
+        fragment.appendChild(option);
+      });
+      notifyFilterCharacter.innerHTML = '';
+      notifyFilterCharacter.appendChild(fragment);
+      if (characterSet.has(notificationFilterState.character)) {
+        notifyFilterCharacter.value = notificationFilterState.character;
+      } else {
+        notifyFilterCharacter.value = 'all';
+        notificationFilterState.character = 'all';
+        persistNotificationFilterState();
+      }
+    }
+
+    if (notifyFilterSeverity) {
+      const fragment = document.createDocumentFragment();
+      severityOptions.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value === 'all'
+          ? 'All severities'
+          : (value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Unspecified');
+        fragment.appendChild(option);
+      });
+      notifyFilterSeverity.innerHTML = '';
+      notifyFilterSeverity.appendChild(fragment);
+      if (severitySet.has(notificationFilterState.severity)) {
+        notifyFilterSeverity.value = notificationFilterState.severity;
+      } else {
+        notifyFilterSeverity.value = 'all';
+        notificationFilterState.severity = 'all';
+        persistNotificationFilterState();
+      }
+    }
+
+    if (notifyFilterSearch && notifyFilterSearch.value !== notificationFilterState.search) {
+      notifyFilterSearch.value = notificationFilterState.search;
+    }
+
+    const trimmedSearch = notificationFilterState.search.trim().toLowerCase();
+    const filteredNotifications = notifications.filter(entry => {
+      const charValue = typeof entry?.char === 'string' ? entry.char.trim() : '';
+      if (notificationFilterState.character !== 'all' && charValue !== notificationFilterState.character) {
+        return false;
+      }
+      const severityValue = typeof entry?.severity === 'string' ? entry.severity.trim().toLowerCase() : '';
+      if (notificationFilterState.severity !== 'all' && severityValue !== notificationFilterState.severity) {
+        return false;
+      }
+      if (trimmedSearch) {
+        const haystack = [
+          entry.detail,
+          entry.html,
+          entry.char,
+          entry.severity,
+          entry.ts,
+        ]
+          .filter(value => typeof value === 'string' && value)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(trimmedSearch)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    notifyList.innerHTML = '';
+    filteredNotifications.forEach(entry => {
       const li = document.createElement('li');
       applyNotificationContent(li, entry);
       notifyList.prepend(li);
@@ -4883,12 +5049,7 @@ function initDMLogin(){
       notifications.splice(0, notifications.length - MAX_STORED_NOTIFICATIONS);
     }
     persistNotifications();
-    updateNotificationActionState();
-    if (notifyList) {
-      const li = document.createElement('li');
-      applyNotificationContent(li, entry);
-      notifyList.prepend(li);
-    }
+    renderStoredNotifications();
     playNotificationTone();
     if (isNotificationsModalHidden()) {
       incrementUnreadCount();
@@ -4916,7 +5077,12 @@ function initDMLogin(){
       if (!Array.isArray(parsed)) return;
       parsed.forEach(item => {
         if (!item || typeof item.detail !== 'string') return;
-        window.dmNotify(item.detail, { ts: item.ts, char: item.char });
+        window.dmNotify(item.detail, {
+          ts: item.ts,
+          char: item.char,
+          severity: item.severity,
+          html: item.html,
+        });
       });
       sessionStorage.removeItem(PENDING_DM_NOTIFICATIONS_KEY);
     } catch {
@@ -5641,6 +5807,37 @@ function initDMLogin(){
   notifyExportBtn?.addEventListener('click', () => {
     exportNotifications();
   });
+
+  notifyFiltersForm?.addEventListener('submit', event => {
+    event.preventDefault();
+  });
+
+  notifyFilterCharacter?.addEventListener('change', () => {
+    const value = notifyFilterCharacter.value || 'all';
+    if (notificationFilterState.character === value) return;
+    notificationFilterState = { ...notificationFilterState, character: value };
+    persistNotificationFilterState();
+    renderStoredNotifications();
+  });
+
+  notifyFilterSeverity?.addEventListener('change', () => {
+    const value = notifyFilterSeverity.value || 'all';
+    if (notificationFilterState.severity === value) return;
+    notificationFilterState = { ...notificationFilterState, severity: value };
+    persistNotificationFilterState();
+    renderStoredNotifications();
+  });
+
+  const handleNotificationSearchInput = () => {
+    const value = notifyFilterSearch?.value ?? '';
+    if (notificationFilterState.search === value) return;
+    notificationFilterState = { ...notificationFilterState, search: value };
+    persistNotificationFilterState();
+    renderStoredNotifications();
+  };
+
+  notifyFilterSearch?.addEventListener('input', handleNotificationSearchInput);
+  notifyFilterSearch?.addEventListener('search', handleNotificationSearchInput);
 
     if (charBtn) {
       charBtn.addEventListener('click', () => {

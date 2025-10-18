@@ -1763,6 +1763,24 @@
       <button id="dm-notifications-export" class="btn-sm" type="button" disabled>Copy / Export</button>
       <button id="dm-notifications-clear" class="btn-sm" type="button" disabled>Clear log</button>
     </div>
+    <form id="dm-notifications-filters" class="dm-notifications__filters" aria-label="Filter notifications">
+      <label class="dm-notifications__filter" for="dm-notifications-filter-character">
+        <span class="dm-notifications__filterLabel">Character</span>
+        <select id="dm-notifications-filter-character" name="dm-notifications-filter-character">
+          <option value="all">All characters</option>
+        </select>
+      </label>
+      <label class="dm-notifications__filter" for="dm-notifications-filter-severity">
+        <span class="dm-notifications__filterLabel">Severity</span>
+        <select id="dm-notifications-filter-severity" name="dm-notifications-filter-severity">
+          <option value="all">All severities</option>
+        </select>
+      </label>
+      <label class="dm-notifications__filter dm-notifications__filter--search" for="dm-notifications-filter-search">
+        <span class="dm-notifications__filterLabel">Search</span>
+        <input id="dm-notifications-filter-search" name="dm-notifications-filter-search" type="search" placeholder="Search notifications">
+      </label>
+    </form>
     <ol id="dm-notifications-list"></ol>
   </section>
 </div>
