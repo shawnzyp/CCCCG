@@ -19,6 +19,7 @@ function setupDom() {
         <button id="dm-notifications-close" type="button"></button>
         <div class="dm-notifications__actions">
           <button id="dm-notifications-export" type="button"></button>
+          <button id="dm-notifications-mark-read" type="button"></button>
           <button id="dm-notifications-clear" type="button"></button>
         </div>
         <form id="dm-notifications-filters">
@@ -241,6 +242,34 @@ describe('DM notifications filtering', () => {
     expect(document.getElementById('dm-notifications-filter-search').value).toBe('Gamma');
     expect(restoredItems).toHaveLength(1);
     expect(restoredItems[0]).toContain('Gamma update');
+  });
+});
+
+describe('DM notifications mark read control', () => {
+  test('clears unread badge without removing log entries', async () => {
+    await initDmModule({ loggedIn: true });
+
+    const markReadBtn = document.getElementById('dm-notifications-mark-read');
+    expect(markReadBtn.disabled).toBe(true);
+
+    window.dmNotify('First alert');
+    window.dmNotify('Second alert');
+
+    expect(markReadBtn.disabled).toBe(false);
+
+    const dmButton = document.getElementById('dm-tools-notifications');
+    expect(dmButton.getAttribute('data-unread')).toBe('2');
+
+    markReadBtn.dispatchEvent(new Event('click'));
+
+    expect(dmButton.getAttribute('data-unread')).toBe('0');
+    expect(markReadBtn.disabled).toBe(true);
+
+    const items = document.querySelectorAll('#dm-notifications-list li');
+    expect(items).toHaveLength(2);
+
+    const stored = JSON.parse(sessionStorage.getItem(DM_NOTIFICATIONS_KEY));
+    expect(stored).toHaveLength(2);
   });
 });
 
