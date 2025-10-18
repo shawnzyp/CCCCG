@@ -1547,8 +1547,9 @@ function initDMLogin(){
           if (!name) break;
           const qty = Math.max(1, parseCatalogInteger(data.qty ?? data.quantity, 1));
           const notes = typeof data.notes === 'string' ? data.notes.trim() : '';
+          const dmLock = getCatalogBoolean(data.dmLock);
           if (!Array.isArray(save.items)) save.items = [];
-          save.items.push({ name, qty, notes });
+          save.items.push({ name, qty, notes, dmLock });
           applied = true;
           const summary = `Granted item: ${name}${qty > 1 ? ` ×${qty}` : ''}`;
           const summaryWithNotes = notes ? `${summary} — ${notes}` : summary;
@@ -1560,9 +1561,9 @@ function initDMLogin(){
             kind: 'item',
             message: summaryWithNotes,
             timestamp: timestampIso,
-            data: { name, qty, notes },
+            data: { name, qty, notes, dmLock },
           }));
-          results.item = { name, qty, notes };
+          results.item = { name, qty, notes, dmLock };
           break;
         }
         case 'weapon': {
@@ -1573,8 +1574,9 @@ function initDMLogin(){
           const range = typeof data.range === 'string' ? data.range.trim() : '';
           const attackAbility = sanitizeAttackAbility(data.attackAbility);
           const proficient = getCatalogBoolean(data.proficient);
+          const dmLock = getCatalogBoolean(data.dmLock);
           if (!Array.isArray(save.weapons)) save.weapons = [];
-          save.weapons.push({ name, damage, range, attackAbility, proficient });
+          save.weapons.push({ name, damage, range, attackAbility, proficient, dmLock });
           applied = true;
           const detailParts = [];
           if (damage) detailParts.push(damage);
@@ -1589,9 +1591,9 @@ function initDMLogin(){
             kind: 'weapon',
             message: summary,
             timestamp: timestampIso,
-            data: { name, damage, range, attackAbility, proficient },
+            data: { name, damage, range, attackAbility, proficient, dmLock },
           }));
-          results.weapon = { name, damage, range, attackAbility, proficient };
+          results.weapon = { name, damage, range, attackAbility, proficient, dmLock };
           break;
         }
         case 'armor': {
@@ -1601,8 +1603,9 @@ function initDMLogin(){
           const slot = typeof data.slot === 'string' && data.slot.trim() ? data.slot.trim() : 'Body';
           const bonus = parseCatalogInteger(data.bonus ?? data.bonusValue, 0);
           const equipped = getCatalogBoolean(data.equipped);
+          const dmLock = getCatalogBoolean(data.dmLock);
           if (!Array.isArray(save.armor)) save.armor = [];
-          save.armor.push({ name, slot, bonus, equipped });
+          save.armor.push({ name, slot, bonus, equipped, dmLock });
           applied = true;
           const summary = `Granted armor: ${name}${bonus ? ` (Bonus ${bonus})` : ''}`;
           logEntries.push(createRewardLogEntry('dm-armor', now, 'DM Armor Reward', summary));
@@ -1613,9 +1616,9 @@ function initDMLogin(){
             kind: 'armor',
             message: summary,
             timestamp: timestampIso,
-            data: { name, slot, bonus, equipped },
+            data: { name, slot, bonus, equipped, dmLock },
           }));
-          results.armor = { name, slot, bonus, equipped };
+          results.armor = { name, slot, bonus, equipped, dmLock };
           break;
         }
         case 'medal': {
@@ -3997,6 +4000,8 @@ function initDMLogin(){
   function convertCatalogPayloadToEquipment(payload) {
     if (!payload || !payload.metadata) return null;
     const { type, metadata } = payload;
+    const dmLock = !!payload.locked;
+    const metadataWithLock = { ...metadata, dmLock };
     const name = typeof metadata.name === 'string' ? metadata.name.trim() : '';
     if (!name) return null;
     if (type === 'items') {
@@ -4008,8 +4013,9 @@ function initDMLogin(){
           name,
           qty,
           notes,
+          dmLock,
         },
-        metadata,
+        metadata: metadataWithLock,
       };
     }
     if (type === 'weapons') {
@@ -4021,8 +4027,9 @@ function initDMLogin(){
           range: typeof metadata.range === 'string' ? metadata.range.trim() : '',
           attackAbility: sanitizeAttackAbility(metadata.attackAbility),
           proficient: getCatalogBoolean(metadata.proficient),
+          dmLock,
         },
-        metadata,
+        metadata: metadataWithLock,
       };
     }
     if (type === 'armor') {
@@ -4035,8 +4042,9 @@ function initDMLogin(){
           slot,
           bonus,
           equipped: getCatalogBoolean(metadata.equipped),
+          dmLock,
         },
-        metadata,
+        metadata: metadataWithLock,
       };
     }
     return null;
