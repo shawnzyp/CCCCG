@@ -12188,6 +12188,44 @@ const deathOut = $('death-save-out');
 const deathRollMode = $('death-save-mode');
 const deathModifierInput = $('death-save-mod');
 let deathState = null; // null, 'stable', 'dead'
+const deathOutAnimationClass = 'death-save-result--pulse';
+
+function setDeathSaveOutput({ total, modifier, appliedMode, rolls, resolution }) {
+  if (!deathOut) return;
+  const dataset = deathOut.dataset;
+  if (dataset) {
+    if (resolution?.breakdown?.length) {
+      dataset.rollBreakdown = resolution.breakdown.join(' | ');
+    } else if (dataset.rollBreakdown) {
+      delete dataset.rollBreakdown;
+    }
+    dataset.rollModifier = String(modifier);
+    if (appliedMode !== 'normal') {
+      dataset.rollMode = appliedMode;
+      dataset.rolls = rolls.join('/');
+    } else {
+      if (dataset.rollMode) delete dataset.rollMode;
+      if (dataset.rolls) delete dataset.rolls;
+    }
+    if (resolution?.modeSources?.length && appliedMode !== 'normal') {
+      dataset.rollModeSources = resolution.modeSources.join(' | ');
+    } else if (dataset.rollModeSources) {
+      delete dataset.rollModeSources;
+    }
+  }
+  const nextText = String(total ?? '');
+  deathOut.textContent = nextText;
+  if (deathOut.classList) {
+    if (animationsEnabled && !prefersReducedMotion()) {
+      deathOut.classList.remove(deathOutAnimationClass);
+      // Force reflow so the animation replays on consecutive updates.
+      void deathOut.offsetWidth;
+      deathOut.classList.add(deathOutAnimationClass);
+    } else {
+      deathOut.classList.remove(deathOutAnimationClass);
+    }
+  }
+}
 
 function markBoxes(arr, n){
   for(const box of arr){
@@ -12204,11 +12242,15 @@ function resetDeathSaves(){
   deathState=null;
   if(deathOut){
     deathOut.textContent='';
+    if (deathOut.classList) {
+      deathOut.classList.remove(deathOutAnimationClass);
+    }
     if (deathOut.dataset) {
       delete deathOut.dataset.rollBreakdown;
       delete deathOut.dataset.rollModifier;
       delete deathOut.dataset.rollMode;
       delete deathOut.dataset.rolls;
+      delete deathOut.dataset.rollModeSources;
     }
   }
 }
@@ -12264,29 +12306,7 @@ $('roll-death-save')?.addEventListener('click', ()=>{
       ? Math.min(...rolls)
       : rolls[0];
   const total = chosenRoll + modifier;
-  if (deathOut) {
-    deathOut.textContent = total;
-    if (deathOut.dataset) {
-      if (resolution?.breakdown?.length) {
-        deathOut.dataset.rollBreakdown = resolution.breakdown.join(' | ');
-      } else if (deathOut.dataset.rollBreakdown) {
-        delete deathOut.dataset.rollBreakdown;
-      }
-      deathOut.dataset.rollModifier = String(modifier);
-      if (appliedMode !== 'normal') {
-        deathOut.dataset.rollMode = appliedMode;
-        deathOut.dataset.rolls = rolls.join('/');
-      } else {
-        if (deathOut.dataset.rollMode) delete deathOut.dataset.rollMode;
-        if (deathOut.dataset.rolls) delete deathOut.dataset.rolls;
-      }
-      if (resolution?.modeSources?.length && appliedMode !== 'normal') {
-        deathOut.dataset.rollModeSources = resolution.modeSources.join(' | ');
-      } else if (deathOut.dataset.rollModeSources) {
-        delete deathOut.dataset.rollModeSources;
-      }
-    }
-  }
+  setDeathSaveOutput({ total, modifier, appliedMode, rolls, resolution });
   const sign = modifier >= 0 ? '+' : '';
   const modeLabel = appliedMode === 'normal' ? '' : ` (${appliedMode})`;
   const rollDisplay = appliedMode === 'normal'
