@@ -1760,7 +1760,17 @@
     </button>
     <h3>Notifications</h3>
     <div class="dm-notifications__actions" role="group" aria-label="Notification log actions">
-      <button id="dm-notifications-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+      <div class="dm-notifications__exportControls">
+        <button id="dm-notifications-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+        <label class="dm-notifications__exportLabel" for="dm-notifications-export-format">
+          <span class="sr-only">Export format</span>
+          <select id="dm-notifications-export-format" name="dm-notifications-export-format" aria-label="Export format" disabled>
+            <option value="text" selected>Text</option>
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+          </select>
+        </label>
+      </div>
       <button id="dm-notifications-mark-read" class="btn-sm" type="button" disabled>Mark all read</button>
       <button id="dm-notifications-clear" class="btn-sm" type="button" disabled>Clear log</button>
     </div>

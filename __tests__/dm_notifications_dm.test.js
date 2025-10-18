@@ -18,7 +18,17 @@ function setupDom() {
       <section class="modal">
         <button id="dm-notifications-close" type="button"></button>
         <div class="dm-notifications__actions">
-          <button id="dm-notifications-export" type="button"></button>
+          <div class="dm-notifications__exportControls">
+            <button id="dm-notifications-export" type="button"></button>
+            <label for="dm-notifications-export-format">
+              Export format
+              <select id="dm-notifications-export-format" disabled>
+                <option value="text" selected>Text</option>
+                <option value="csv">CSV</option>
+                <option value="json">JSON</option>
+              </select>
+            </label>
+          </div>
           <button id="dm-notifications-mark-read" type="button"></button>
           <button id="dm-notifications-clear" type="button"></button>
         </div>
@@ -50,6 +60,7 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
   jest.resetModules();
   localStorage.clear();
   sessionStorage.clear();
+  delete window.__dmTestHooks;
   if (storedNotifications) {
     sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(storedNotifications));
   }
@@ -300,6 +311,87 @@ describe('DM notifications mark read control', () => {
 
     const stored = JSON.parse(sessionStorage.getItem(DM_NOTIFICATIONS_KEY));
     expect(stored).toHaveLength(2);
+  });
+});
+
+describe('DM notifications export formats', () => {
+  afterEach(() => {
+    try {
+      delete navigator.clipboard;
+    } catch (err) {
+      /* ignore */
+    }
+  });
+
+  test('exports CSV payload with headers and newest-first order', async () => {
+    await initDmModule({ loggedIn: true });
+
+    window.dmNotify('Older detail', {
+      ts: '2024-01-01T00:00:00',
+      char: 'Gamma',
+      severity: 'info',
+      resolved: true,
+    });
+    window.dmNotify('Newer detail', {
+      ts: '2024-01-02T00:00:00',
+      char: 'Beta',
+      severity: 'warning',
+    });
+
+    const storedState = JSON.parse(sessionStorage.getItem(DM_NOTIFICATIONS_KEY));
+    expect(storedState).toHaveLength(2);
+    expect(storedState.map(entry => entry.detail)).toEqual(['Older detail', 'Newer detail']);
+
+    const writeText = jest.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    const result = await window.__dmTestHooks.exportNotifications('csv');
+    expect(result).toBe(true);
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    const exported = writeText.mock.calls[0][0];
+    const lines = exported.split('\n');
+    expect(lines[0]).toBe('ts,char,severity,detail');
+    expect(lines[1]).toBe('2024-01-02T00:00:00,Beta,warning,Newer detail');
+    expect(lines[2]).toBe('2024-01-01T00:00:00,Gamma,info,[resolved] Older detail');
+  });
+
+  test('exports JSON payload with newest-first order', async () => {
+    await initDmModule({ loggedIn: true });
+
+    window.dmNotify('Older log', {
+      ts: '2024-02-01T10:00:00',
+      char: 'Vera',
+      severity: 'info',
+    });
+    window.dmNotify('New log', {
+      ts: '2024-02-02T11:00:00',
+      char: 'Nox',
+      severity: 'warning',
+    });
+
+    const storedState = JSON.parse(sessionStorage.getItem(DM_NOTIFICATIONS_KEY));
+    expect(storedState).toHaveLength(2);
+    expect(storedState.map(entry => entry.detail)).toEqual(['Older log', 'New log']);
+
+    const writeText = jest.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    const result = await window.__dmTestHooks.exportNotifications('json');
+    expect(result).toBe(true);
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    const payload = JSON.parse(writeText.mock.calls[0][0]);
+    expect(Array.isArray(payload)).toBe(true);
+    expect(payload).toHaveLength(2);
+    expect(payload[0]).toEqual({ ts: '2024-02-02T11:00:00', char: 'Nox', severity: 'warning', detail: 'New log' });
+    expect(payload[1]).toEqual({ ts: '2024-02-01T10:00:00', char: 'Vera', severity: 'info', detail: 'Older log' });
   });
 });
 
