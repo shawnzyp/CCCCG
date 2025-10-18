@@ -351,8 +351,8 @@ describe('DM catalog equipment delivery', () => {
 
     testHooks.catalogForms.clear();
     weaponForm = createCatalogForm('weapons', { fields: ['damage'] });
-    armorForm = createCatalogForm('armor', { fields: ['bonusValue'] });
-    itemForm = createCatalogForm('items', { fields: ['quantity'] });
+    armorForm = createCatalogForm('armor', { fields: ['bonusValue', 'capacity'] });
+    itemForm = createCatalogForm('items', { fields: ['uses', 'size', 'quantity'] });
 
     await testHooks.populateCatalogRecipients();
     await flushPromises();
@@ -407,6 +407,33 @@ describe('DM catalog equipment delivery', () => {
     expect(armorRecipient.value).toBe('Echo');
   });
 
+  test('compileCatalogNotes includes size and capacity sections', () => {
+    const notes = testHooks.compileCatalogNotes({
+      description: 'Compact field kit for infiltration teams.',
+      size: 'Backpack',
+      capacity: '2 slots',
+    });
+    expect(notes).toContain('Size: Backpack');
+    expect(notes).toContain('Capacity: 2 slots');
+  });
+
+  test('convertCatalogPayloadToEquipment includes size and capacity in item notes', () => {
+    const equipment = testHooks.convertCatalogPayloadToEquipment({
+      type: 'items',
+      metadata: {
+        name: 'Field Kit',
+        description: 'Compact field kit for infiltration teams.',
+        size: 'Backpack',
+        capacity: '2 slots',
+        uses: '3 charges',
+        quantity: '1',
+      },
+    });
+    expect(equipment).toBeTruthy();
+    expect(equipment?.data?.notes).toContain('Size: Backpack');
+    expect(equipment?.data?.notes).toContain('Capacity: 2 slots');
+  });
+
   test('weapon catalog submission with recipient delivers equipment', async () => {
     weaponForm.reportValidity = jest.fn(() => true);
     weaponForm.querySelector('input[name="name"]').value = 'Nova Blaster';
@@ -426,10 +453,30 @@ describe('DM catalog equipment delivery', () => {
     expect(global.toast).toHaveBeenCalledWith(expect.stringContaining('Granted weapon'), 'success');
   });
 
+  test('deliverCatalogEquipment returns item with notes including size and capacity', async () => {
+    const result = await testHooks.deliverCatalogEquipment({
+      type: 'items',
+      label: 'Items',
+      recipient: 'Nova',
+      metadata: {
+        name: 'Field Kit',
+        description: 'Compact field kit for infiltration teams.',
+        size: 'Backpack',
+        capacity: '2 slots',
+        uses: '3 charges',
+        quantity: '1',
+      },
+    });
+
+    expect(result?.results?.item?.notes).toContain('Size: Backpack');
+    expect(result?.results?.item?.notes).toContain('Capacity: 2 slots');
+  });
+
   test('armor catalog submission with recipient delivers equipment', async () => {
     armorForm.reportValidity = jest.fn(() => true);
     armorForm.querySelector('input[name="name"]').value = 'Nova Shield';
     armorForm.querySelector('input[name="bonusValue"]').value = '2';
+    armorForm.querySelector('input[name="capacity"]').value = '2 slots';
     const key = testHooks.CATALOG_RECIPIENT_FIELD_KEY;
     const armorRecipient = armorForm.querySelector(`select[data-catalog-field="${key}"]`);
     armorRecipient.value = 'Echo';

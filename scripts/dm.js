@@ -3994,6 +3994,8 @@ function initDMLogin(){
     pushSection('Rarity', metadata.rarity);
     pushSection('Tier', metadata.tier);
     pushSection('Uses', metadata.uses);
+    pushSection('Size', metadata.size);
+    pushSection('Capacity', metadata.capacity);
     return sections.join('\n\n').trim();
   }
 
@@ -5166,6 +5168,8 @@ function initDMLogin(){
     catalogForms,
     CATALOG_RECIPIENT_FIELD_KEY,
     CATALOG_RECIPIENT_PLACEHOLDER,
+    compileCatalogNotes,
+    convertCatalogPayloadToEquipment,
   };
 }
 if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {
