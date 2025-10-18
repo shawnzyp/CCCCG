@@ -3,6 +3,8 @@
   const tab = document.getElementById('player-tools-tab');
   if (!drawer || !tab) return;
 
+  const scrim = drawer.querySelector('.player-tools-drawer__scrim');
+
   const body = document.body;
   const requestFrame =
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
@@ -228,6 +230,9 @@
 
     drawer.classList.toggle('is-open', isOpen);
     tab.classList.toggle('is-open', isOpen);
+    if (scrim) {
+      scrim.hidden = !isOpen;
+    }
     if (body) {
       body.classList.toggle('player-tools-open', isOpen);
     }
@@ -252,6 +257,12 @@
   tab.addEventListener('click', () => {
     setOpenState();
   });
+
+  if (scrim) {
+    scrim.addEventListener('click', () => {
+      setOpenState(false);
+    });
+  }
 
   drawer.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' || event.key === 'Esc') {
