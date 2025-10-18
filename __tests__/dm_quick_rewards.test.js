@@ -84,6 +84,11 @@ describe('dm quick rewards forms', () => {
                   </div>
                   <div class="dm-quickRewards__grid">
                     <form id="dm-reward-xp-form">
+                      <div>
+                        <select id="dm-reward-xp-preset"></select>
+                        <button id="dm-reward-xp-preset-save" type="button">Save preset</button>
+                        <button id="dm-reward-xp-preset-delete" type="button" disabled>Delete preset</button>
+                      </div>
                       <select id="dm-reward-xp-mode">
                         <option value="add" selected>Add</option>
                         <option value="remove">Remove</option>
@@ -92,6 +97,11 @@ describe('dm quick rewards forms', () => {
                       <button type="submit">Apply XP</button>
                     </form>
                     <form id="dm-reward-hpsp-form">
+                      <div>
+                        <select id="dm-reward-hpsp-preset"></select>
+                        <button id="dm-reward-hpsp-preset-save" type="button">Save preset</button>
+                        <button id="dm-reward-hpsp-preset-delete" type="button" disabled>Delete preset</button>
+                      </div>
                       <select id="dm-reward-hp-mode">
                         <option value="delta" selected>Adjust</option>
                         <option value="set">Set</option>
@@ -117,6 +127,11 @@ describe('dm quick rewards forms', () => {
                       <button type="submit">Apply HP / SP</button>
                     </form>
                     <form id="dm-reward-resonance-form">
+                      <div>
+                        <select id="dm-reward-resonance-preset"></select>
+                        <button id="dm-reward-resonance-preset-save" type="button">Save preset</button>
+                        <button id="dm-reward-resonance-preset-delete" type="button" disabled>Delete preset</button>
+                      </div>
                       <select id="dm-reward-resonance-points-mode">
                         <option value="delta" selected>Adjust</option>
                         <option value="set">Set</option>
@@ -130,6 +145,11 @@ describe('dm quick rewards forms', () => {
                       <button type="submit">Apply Resonance</button>
                     </form>
                     <form id="dm-reward-faction-form">
+                      <div>
+                        <select id="dm-reward-faction-preset"></select>
+                        <button id="dm-reward-faction-preset-save" type="button">Save preset</button>
+                        <button id="dm-reward-faction-preset-delete" type="button" disabled>Delete preset</button>
+                      </div>
                       <select id="dm-reward-faction-select">
                         <option value="">Select</option>
                       </select>
@@ -183,6 +203,8 @@ describe('dm quick rewards forms', () => {
     delete global.dmNotify;
     delete global.dismissToast;
     delete global.BroadcastChannel;
+    delete global.prompt;
+    delete global.confirm;
   });
 
   test('submits quick reward operations', async () => {
@@ -423,5 +445,114 @@ describe('dm quick rewards forms', () => {
     const stored = JSON.parse(storedRaw);
     expect(Array.isArray(stored)).toBe(true);
     expect(stored.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('quick reward presets persist and respect target availability', async () => {
+    const show = jest.fn();
+    const hide = jest.fn();
+    jest.unstable_mockModule('../scripts/modal.js', () => ({ show, hide }));
+
+    const listCharacters = jest.fn(async () => ['Alpha', 'Bravo']);
+    const loadCharacter = jest.fn(async () => ({}));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({
+      listCharacters,
+      loadCharacter,
+    }));
+
+    const miniGameMocks = {
+      listMiniGames: jest.fn(() => []),
+      getMiniGame: jest.fn(),
+      getDefaultConfig: jest.fn(() => ({})),
+      loadMiniGameReadme: jest.fn(async () => ''),
+      formatKnobValue: jest.fn(),
+      subscribeToDeployments: jest.fn(() => () => {}),
+      refreshDeployments: jest.fn(async () => {}),
+      deployMiniGame: jest.fn(async () => {}),
+      updateDeployment: jest.fn(async () => {}),
+      deleteDeployment: jest.fn(async () => {}),
+      MINI_GAME_STATUS_OPTIONS: [],
+      summarizeConfig: jest.fn(() => ''),
+      getStatusLabel: jest.fn(() => ''),
+    };
+    jest.unstable_mockModule('../scripts/mini-games.js', () => miniGameMocks);
+
+    const storeDmCatalogPayload = jest.fn();
+    jest.unstable_mockModule('../scripts/dm-catalog-sync.js', () => ({
+      storeDmCatalogPayload,
+    }));
+
+    const saveCloud = jest.fn(async () => {});
+    jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    await window.openRewards({ tab: 'resource' });
+    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const targetSelect = document.getElementById('dm-reward-target');
+    targetSelect.innerHTML = '<option value="">Select</option><option value="Alpha">Alpha</option><option value="Bravo">Bravo</option>';
+    targetSelect.disabled = false;
+    targetSelect.querySelector('option[value="Alpha"]').selected = true;
+    targetSelect.querySelector('option[value="Bravo"]').selected = true;
+    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    document.getElementById('dm-reward-xp-mode').value = 'remove';
+    document.getElementById('dm-reward-xp-amount').value = '5';
+
+    global.prompt = jest.fn(() => 'Squad XP');
+    const xpSave = document.getElementById('dm-reward-xp-preset-save');
+    xpSave.click();
+
+    const { QUICK_REWARD_PRESETS_STORAGE_KEY } = window.__dmTestHooks;
+    const raw = localStorage.getItem(QUICK_REWARD_PRESETS_STORAGE_KEY);
+    expect(raw).toBeTruthy();
+    const storedPresets = JSON.parse(raw);
+    expect(storedPresets).toMatchObject({ version: 1 });
+    expect(storedPresets.cards?.xp?.[0]).toMatchObject({
+      name: 'Squad XP',
+      values: { mode: 'remove', amount: '5' },
+      targets: ['Alpha', 'Bravo'],
+    });
+
+    const xpPresetSelect = document.getElementById('dm-reward-xp-preset');
+    const savedId = xpPresetSelect.value;
+    expect(savedId).toBeTruthy();
+
+    document.getElementById('dm-reward-xp-mode').value = 'add';
+    document.getElementById('dm-reward-xp-amount').value = '12';
+
+    targetSelect.innerHTML = '<option value="Alpha">Alpha</option><option value="Charlie">Charlie</option>';
+    targetSelect.disabled = false;
+    Array.from(targetSelect.options).forEach(option => {
+      option.selected = option.value === 'Charlie';
+    });
+    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    global.toast.mockClear();
+
+    xpPresetSelect.value = savedId;
+    xpPresetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(document.getElementById('dm-reward-xp-mode').value).toBe('remove');
+    expect(document.getElementById('dm-reward-xp-amount').value).toBe('5');
+    const selectedTargets = Array.from(targetSelect.selectedOptions).map(option => option.value);
+    expect(selectedTargets).toEqual(['Alpha']);
+    expect(global.toast.mock.calls.some(([message, type]) => message === 'Loaded XP preset "Squad XP"' && type === 'info')).toBe(true);
+    expect(global.toast.mock.calls.some(([message, type]) => message === 'Some preset recipients are unavailable' && type === 'info')).toBe(true);
+
+    global.toast.mockClear();
+    const xpDelete = document.getElementById('dm-reward-xp-preset-delete');
+    expect(xpDelete.disabled).toBe(false);
+    global.confirm = jest.fn(() => true);
+
+    xpDelete.click();
+
+    expect(global.confirm).toHaveBeenCalledWith('Delete XP preset "Squad XP"?');
+    expect(localStorage.getItem(QUICK_REWARD_PRESETS_STORAGE_KEY)).toBeNull();
+    expect(xpPresetSelect.value).toBe('');
+    expect(xpDelete.disabled).toBe(true);
+    expect(global.toast.mock.calls.some(([message, type]) => message === 'Deleted XP preset "Squad XP"' && type === 'info')).toBe(true);
   });
 });

@@ -1028,6 +1028,18 @@ function initDMLogin(){
   const quickFactionSelect = document.getElementById('dm-reward-faction-select');
   const quickFactionMode = document.getElementById('dm-reward-faction-mode');
   const quickFactionValue = document.getElementById('dm-reward-faction-value');
+  const quickXpPresetSelect = document.getElementById('dm-reward-xp-preset');
+  const quickXpPresetSaveBtn = document.getElementById('dm-reward-xp-preset-save');
+  const quickXpPresetDeleteBtn = document.getElementById('dm-reward-xp-preset-delete');
+  const quickHpSpPresetSelect = document.getElementById('dm-reward-hpsp-preset');
+  const quickHpSpPresetSaveBtn = document.getElementById('dm-reward-hpsp-preset-save');
+  const quickHpSpPresetDeleteBtn = document.getElementById('dm-reward-hpsp-preset-delete');
+  const quickResonancePresetSelect = document.getElementById('dm-reward-resonance-preset');
+  const quickResonancePresetSaveBtn = document.getElementById('dm-reward-resonance-preset-save');
+  const quickResonancePresetDeleteBtn = document.getElementById('dm-reward-resonance-preset-delete');
+  const quickFactionPresetSelect = document.getElementById('dm-reward-faction-preset');
+  const quickFactionPresetSaveBtn = document.getElementById('dm-reward-faction-preset-save');
+  const quickFactionPresetDeleteBtn = document.getElementById('dm-reward-faction-preset-delete');
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -1924,6 +1936,714 @@ function initDMLogin(){
     });
   }
 
+  const QUICK_REWARD_PRESETS_STORAGE_KEY = 'cc:dm-quick-reward-presets';
+  const QUICK_REWARD_PRESET_VERSION = 1;
+  const QUICK_REWARD_PRESET_LIMIT = 20;
+  const QUICK_REWARD_MAX_TARGETS = 20;
+  const QUICK_REWARD_CARD_IDS = ['xp', 'hpsp', 'resonance', 'faction'];
+  const QUICK_REWARD_CARD_LABELS = new Map([
+    ['xp', 'XP'],
+    ['hpsp', 'HP/SP'],
+    ['resonance', 'Resonance'],
+    ['faction', 'Faction'],
+  ]);
+
+  const quickRewardPresetState = new Map();
+  QUICK_REWARD_CARD_IDS.forEach(cardId => {
+    quickRewardPresetState.set(cardId, []);
+  });
+
+  const quickRewardPresetConfig = {
+    xp: { form: quickXpForm, select: quickXpPresetSelect, saveBtn: quickXpPresetSaveBtn, deleteBtn: quickXpPresetDeleteBtn },
+    hpsp: { form: quickHpSpForm, select: quickHpSpPresetSelect, saveBtn: quickHpSpPresetSaveBtn, deleteBtn: quickHpSpPresetDeleteBtn },
+    resonance: {
+      form: quickResonanceForm,
+      select: quickResonancePresetSelect,
+      saveBtn: quickResonancePresetSaveBtn,
+      deleteBtn: quickResonancePresetDeleteBtn,
+    },
+    faction: {
+      form: quickFactionForm,
+      select: quickFactionPresetSelect,
+      saveBtn: quickFactionPresetSaveBtn,
+      deleteBtn: quickFactionPresetDeleteBtn,
+    },
+  };
+
+  const quickRewardPresetFormLookup = new Map();
+  Object.entries(quickRewardPresetConfig).forEach(([cardId, config]) => {
+    if (config.form) {
+      quickRewardPresetFormLookup.set(config.form, cardId);
+    }
+  });
+
+  function getQuickRewardPresetLabel(cardId) {
+    return QUICK_REWARD_CARD_LABELS.get(cardId) || 'Preset';
+  }
+
+  function sanitizeQuickRewardNumericValue(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+    if (typeof value !== 'string') return '';
+    const normalized = value.trim().replace(/,/g, '');
+    if (!normalized) return '';
+    const numeric = Number(normalized);
+    return Number.isFinite(numeric) ? normalized : '';
+  }
+
+  function sanitizeQuickRewardTargets(list) {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set();
+    const result = [];
+    list.forEach(value => {
+      if (typeof value !== 'string') return;
+      const trimmed = value.trim();
+      if (!trimmed || seen.has(trimmed)) return;
+      seen.add(trimmed);
+      result.push(trimmed);
+    });
+    return result.slice(0, QUICK_REWARD_MAX_TARGETS);
+  }
+
+  function sanitizeQuickRewardPresetName(name, fallback) {
+    const trimmed = typeof name === 'string' ? name.trim() : '';
+    if (trimmed) {
+      return trimmed.slice(0, 80);
+    }
+    return fallback || 'Preset';
+  }
+
+  function createQuickRewardPresetId() {
+    return `qrp-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  }
+
+  function sanitizeQuickRewardPresetValues(cardId, values) {
+    const data = values && typeof values === 'object' ? values : {};
+    switch (cardId) {
+      case 'xp': {
+        const amountRaw = sanitizeQuickRewardNumericValue(data.amount);
+        const amountNumeric = Number(amountRaw);
+        if (!Number.isFinite(amountNumeric)) return null;
+        const rounded = Math.round(Math.abs(amountNumeric));
+        if (rounded <= 0) return null;
+        return {
+          mode: data.mode === 'remove' ? 'remove' : 'add',
+          amount: String(rounded),
+        };
+      }
+      case 'hpsp': {
+        const hpModeValue = data.hpMode === 'set' ? 'set' : 'delta';
+        const hpRaw = sanitizeQuickRewardNumericValue(data.hpValue);
+        const hpNumeric = Number(hpRaw);
+        let hpValue = '';
+        if (hpRaw !== '' && Number.isFinite(hpNumeric)) {
+          const rounded = Math.round(hpNumeric);
+          if (hpModeValue === 'set') {
+            hpValue = String(Math.max(0, rounded));
+          } else if (rounded !== 0) {
+            hpValue = String(rounded);
+          }
+        }
+        const hpTempModeInput = data.hpTempMode === 'set' ? 'set' : data.hpTempMode === 'delta' ? 'delta' : '';
+        const hpTempRaw = sanitizeQuickRewardNumericValue(data.hpTempValue);
+        const hpTempNumeric = Number(hpTempRaw);
+        let hpTempModeValue = '';
+        let hpTempValue = '';
+        if (hpTempRaw !== '' && Number.isFinite(hpTempNumeric) && hpTempModeInput) {
+          const rounded = Math.round(hpTempNumeric);
+          if (hpTempModeInput === 'set') {
+            hpTempModeValue = 'set';
+            hpTempValue = String(Math.max(0, rounded));
+          } else if (rounded !== 0) {
+            hpTempModeValue = 'delta';
+            hpTempValue = String(rounded);
+          }
+        }
+        const spModeValue = data.spMode === 'set' ? 'set' : 'delta';
+        const spRaw = sanitizeQuickRewardNumericValue(data.spValue);
+        const spNumeric = Number(spRaw);
+        let spValue = '';
+        if (spRaw !== '' && Number.isFinite(spNumeric)) {
+          const rounded = Math.round(spNumeric);
+          if (spModeValue === 'set') {
+            spValue = String(Math.max(0, rounded));
+          } else if (rounded !== 0) {
+            spValue = String(rounded);
+          }
+        }
+        const spTempModeInput = data.spTempMode === 'set' ? 'set' : data.spTempMode === 'delta' ? 'delta' : '';
+        const spTempRaw = sanitizeQuickRewardNumericValue(data.spTempValue);
+        const spTempNumeric = Number(spTempRaw);
+        let spTempModeValue = '';
+        let spTempValue = '';
+        if (spTempRaw !== '' && Number.isFinite(spTempNumeric) && spTempModeInput) {
+          const rounded = Math.round(spTempNumeric);
+          if (spTempModeInput === 'set') {
+            spTempModeValue = 'set';
+            spTempValue = String(Math.max(0, rounded));
+          } else if (rounded !== 0) {
+            spTempModeValue = 'delta';
+            spTempValue = String(rounded);
+          }
+        }
+        if (!hpValue && !hpTempValue && !spValue && !spTempValue) return null;
+        return {
+          hpMode: hpModeValue,
+          hpValue,
+          hpTempMode: hpTempModeValue,
+          hpTempValue,
+          spMode: spModeValue,
+          spValue,
+          spTempMode: spTempModeValue,
+          spTempValue,
+        };
+      }
+      case 'resonance': {
+        const pointsModeInput = data.pointsMode === 'set' ? 'set' : 'delta';
+        const pointsRaw = sanitizeQuickRewardNumericValue(data.pointsValue ?? data.points);
+        const pointsNumeric = Number(pointsRaw);
+        let pointsModeValue = 'delta';
+        let pointsValue = '';
+        if (pointsRaw !== '' && Number.isFinite(pointsNumeric)) {
+          const rounded = Math.round(pointsNumeric);
+          if (pointsModeInput === 'set') {
+            pointsModeValue = 'set';
+            pointsValue = String(Math.max(0, rounded));
+          } else if (rounded !== 0) {
+            pointsModeValue = 'delta';
+            pointsValue = String(rounded);
+          }
+        }
+        const bankedModeInput = data.bankedMode === 'set' ? 'set' : 'delta';
+        const bankedRaw = sanitizeQuickRewardNumericValue(data.bankedValue ?? data.banked);
+        const bankedNumeric = Number(bankedRaw);
+        let bankedModeValue = 'delta';
+        let bankedValue = '';
+        if (bankedRaw !== '' && Number.isFinite(bankedNumeric)) {
+          const rounded = Math.round(bankedNumeric);
+          if (bankedModeInput === 'set') {
+            bankedModeValue = 'set';
+            bankedValue = String(Math.max(0, rounded));
+          } else if (rounded !== 0) {
+            bankedModeValue = 'delta';
+            bankedValue = String(rounded);
+          }
+        }
+        if (!pointsValue && !bankedValue) return null;
+        return {
+          pointsMode: pointsModeValue,
+          pointsValue,
+          bankedMode: bankedModeValue,
+          bankedValue,
+        };
+      }
+      case 'faction': {
+        const factionId = typeof data.factionId === 'string' ? data.factionId.trim() : '';
+        if (!factionId) return null;
+        const mode = data.mode === 'set' ? 'set' : 'delta';
+        const rawValue = sanitizeQuickRewardNumericValue(data.value);
+        const numeric = Number(rawValue);
+        if (!Number.isFinite(numeric)) return null;
+        const rounded = Math.round(numeric);
+        if (mode !== 'set' && rounded === 0) return null;
+        return {
+          factionId,
+          mode,
+          value: String(rounded),
+        };
+      }
+      default:
+        return null;
+    }
+  }
+
+  function sanitizeQuickRewardPresetEntry(cardId, entry) {
+    if (!entry || typeof entry !== 'object') return null;
+    const values = sanitizeQuickRewardPresetValues(cardId, entry.values || entry.data || {});
+    if (!values) return null;
+    const targets = sanitizeQuickRewardTargets(entry.targets || entry.players || []);
+    const name = sanitizeQuickRewardPresetName(entry.name, getQuickRewardPresetLabel(cardId));
+    const id = typeof entry.id === 'string' && entry.id ? entry.id : createQuickRewardPresetId();
+    return { id, name, targets, values };
+  }
+
+  function cloneQuickRewardPresetEntry(entry) {
+    if (!entry) return null;
+    return {
+      id: entry.id,
+      name: entry.name,
+      targets: Array.isArray(entry.targets) ? [...entry.targets] : [],
+      values: entry.values && typeof entry.values === 'object' ? { ...entry.values } : {},
+    };
+  }
+
+  function persistQuickRewardPresetState() {
+    if (typeof localStorage === 'undefined') return;
+    const payload = { version: QUICK_REWARD_PRESET_VERSION, cards: {} };
+    let hasAny = false;
+    QUICK_REWARD_CARD_IDS.forEach(cardId => {
+      const list = quickRewardPresetState.get(cardId) || [];
+      if (list.length) {
+        payload.cards[cardId] = list.map(entry => cloneQuickRewardPresetEntry(entry));
+        hasAny = true;
+      }
+    });
+    try {
+      if (hasAny) {
+        localStorage.setItem(QUICK_REWARD_PRESETS_STORAGE_KEY, JSON.stringify(payload));
+      } else {
+        localStorage.removeItem(QUICK_REWARD_PRESETS_STORAGE_KEY);
+      }
+    } catch (err) {
+      console.warn('Failed to persist quick reward presets', err);
+    }
+  }
+
+  function loadQuickRewardPresetsFromStorage() {
+    QUICK_REWARD_CARD_IDS.forEach(cardId => {
+      quickRewardPresetState.set(cardId, []);
+    });
+    if (typeof localStorage === 'undefined') return;
+    let raw;
+    try {
+      raw = localStorage.getItem(QUICK_REWARD_PRESETS_STORAGE_KEY);
+    } catch {
+      raw = null;
+    }
+    if (!raw) return;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    let container = null;
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.cards && typeof parsed.cards === 'object') {
+        container = parsed.cards;
+      } else if (parsed.presets && typeof parsed.presets === 'object') {
+        container = parsed.presets;
+      } else {
+        container = parsed;
+      }
+    }
+    if (!container || typeof container !== 'object') return;
+    QUICK_REWARD_CARD_IDS.forEach(cardId => {
+      const list = Array.isArray(container[cardId]) ? container[cardId] : [];
+      const sanitized = list
+        .map(entry => sanitizeQuickRewardPresetEntry(cardId, entry))
+        .filter(Boolean)
+        .slice(0, QUICK_REWARD_PRESET_LIMIT);
+      quickRewardPresetState.set(cardId, sanitized);
+    });
+  }
+
+  function updateQuickRewardPresetControls(cardId) {
+    const config = quickRewardPresetConfig[cardId];
+    if (!config) return;
+    const presets = quickRewardPresetState.get(cardId) || [];
+    const pending = config.form?.dataset?.pending === 'true';
+    if (config.select) {
+      config.select.disabled = pending || presets.length === 0;
+    }
+    if (config.saveBtn) {
+      config.saveBtn.disabled = pending;
+    }
+    if (config.deleteBtn) {
+      const hasSelection = !!(config.select && config.select.value);
+      config.deleteBtn.disabled = pending || !hasSelection;
+    }
+  }
+
+  function updateAllQuickRewardPresetControls() {
+    QUICK_REWARD_CARD_IDS.forEach(updateQuickRewardPresetControls);
+  }
+
+  function renderQuickRewardPresetOptions(cardId, { selectedId } = {}) {
+    const config = quickRewardPresetConfig[cardId];
+    if (!config?.select) {
+      updateQuickRewardPresetControls(cardId);
+      return;
+    }
+    const select = config.select;
+    const presets = quickRewardPresetState.get(cardId) || [];
+    const previousValue = typeof selectedId === 'string' ? selectedId : select.value;
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Load preset…';
+    select.appendChild(placeholder);
+    presets.forEach(preset => {
+      const option = document.createElement('option');
+      option.value = preset.id;
+      option.textContent = preset.name;
+      select.appendChild(option);
+    });
+    if (presets.some(entry => entry.id === previousValue)) {
+      select.value = previousValue;
+    } else {
+      select.value = '';
+    }
+    updateQuickRewardPresetControls(cardId);
+  }
+
+  function refreshQuickRewardPresets({ maintainSelection = false } = {}) {
+    const selections = new Map();
+    if (maintainSelection) {
+      QUICK_REWARD_CARD_IDS.forEach(cardId => {
+        const select = quickRewardPresetConfig[cardId]?.select;
+        if (select && select.value) {
+          selections.set(cardId, select.value);
+        }
+      });
+    }
+    loadQuickRewardPresetsFromStorage();
+    QUICK_REWARD_CARD_IDS.forEach(cardId => {
+      const selectedId = maintainSelection ? selections.get(cardId) : undefined;
+      renderQuickRewardPresetOptions(cardId, { selectedId });
+    });
+    updateAllQuickRewardPresetControls();
+  }
+
+  function buildQuickRewardPresetSnapshot(cardId) {
+    const targets = sanitizeQuickRewardTargets(getRewardTarget());
+    if (cardId === 'xp') {
+      const amountRaw = sanitizeQuickRewardNumericValue(quickXpAmount?.value ?? '');
+      const numeric = Number(amountRaw);
+      if (!Number.isFinite(numeric) || Math.round(Math.abs(numeric)) <= 0) {
+        reportRewardError('Set an XP amount greater than zero before saving a preset');
+        return null;
+      }
+      return {
+        targets,
+        values: {
+          mode: quickXpMode?.value === 'remove' ? 'remove' : 'add',
+          amount: String(Math.round(Math.abs(numeric))),
+        },
+      };
+    }
+    if (cardId === 'hpsp') {
+      const hpModeValue = quickHpMode?.value === 'set' ? 'set' : 'delta';
+      const hpRaw = sanitizeQuickRewardNumericValue(quickHpValue?.value ?? '');
+      const hpNumeric = Number(hpRaw);
+      let hpValue = '';
+      if (hpRaw !== '' && Number.isFinite(hpNumeric)) {
+        const rounded = Math.round(hpNumeric);
+        if (hpModeValue === 'set') {
+          hpValue = String(Math.max(0, rounded));
+        } else if (rounded !== 0) {
+          hpValue = String(rounded);
+        }
+      }
+      const hpTempModeInput = quickHpTempMode?.value === 'set' ? 'set' : quickHpTempMode?.value === 'delta' ? 'delta' : '';
+      const hpTempRaw = sanitizeQuickRewardNumericValue(quickHpTemp?.value ?? '');
+      const hpTempNumeric = Number(hpTempRaw);
+      let hpTempModeValue = '';
+      let hpTempValue = '';
+      if (hpTempRaw !== '' && Number.isFinite(hpTempNumeric) && hpTempModeInput) {
+        const rounded = Math.round(hpTempNumeric);
+        if (hpTempModeInput === 'set') {
+          hpTempModeValue = 'set';
+          hpTempValue = String(Math.max(0, rounded));
+        } else if (rounded !== 0) {
+          hpTempModeValue = 'delta';
+          hpTempValue = String(rounded);
+        }
+      }
+      const spModeValue = quickSpMode?.value === 'set' ? 'set' : 'delta';
+      const spRaw = sanitizeQuickRewardNumericValue(quickSpValue?.value ?? '');
+      const spNumeric = Number(spRaw);
+      let spValue = '';
+      if (spRaw !== '' && Number.isFinite(spNumeric)) {
+        const rounded = Math.round(spNumeric);
+        if (spModeValue === 'set') {
+          spValue = String(Math.max(0, rounded));
+        } else if (rounded !== 0) {
+          spValue = String(rounded);
+        }
+      }
+      const spTempModeInput = quickSpTempMode?.value === 'set' ? 'set' : quickSpTempMode?.value === 'delta' ? 'delta' : '';
+      const spTempRaw = sanitizeQuickRewardNumericValue(quickSpTemp?.value ?? '');
+      const spTempNumeric = Number(spTempRaw);
+      let spTempModeValue = '';
+      let spTempValue = '';
+      if (spTempRaw !== '' && Number.isFinite(spTempNumeric) && spTempModeInput) {
+        const rounded = Math.round(spTempNumeric);
+        if (spTempModeInput === 'set') {
+          spTempModeValue = 'set';
+          spTempValue = String(Math.max(0, rounded));
+        } else if (rounded !== 0) {
+          spTempModeValue = 'delta';
+          spTempValue = String(rounded);
+        }
+      }
+      if (!hpValue && !hpTempValue && !spValue && !spTempValue) {
+        reportRewardError('Set at least one HP or SP change before saving a preset');
+        return null;
+      }
+      return {
+        targets,
+        values: {
+          hpMode: hpModeValue,
+          hpValue,
+          hpTempMode: hpTempModeValue,
+          hpTempValue,
+          spMode: spModeValue,
+          spValue,
+          spTempMode: spTempModeValue,
+          spTempValue,
+        },
+      };
+    }
+    if (cardId === 'resonance') {
+      const pointsModeInput = quickResonancePointsMode?.value === 'set' ? 'set' : 'delta';
+      const pointsRaw = sanitizeQuickRewardNumericValue(quickResonancePoints?.value ?? '');
+      const pointsNumeric = Number(pointsRaw);
+      let pointsModeValue = 'delta';
+      let pointsValue = '';
+      if (pointsRaw !== '' && Number.isFinite(pointsNumeric)) {
+        const rounded = Math.round(pointsNumeric);
+        if (pointsModeInput === 'set') {
+          pointsModeValue = 'set';
+          pointsValue = String(Math.max(0, rounded));
+        } else if (rounded !== 0) {
+          pointsModeValue = 'delta';
+          pointsValue = String(rounded);
+        }
+      }
+      const bankedModeInput = quickResonanceBankedMode?.value === 'set' ? 'set' : 'delta';
+      const bankedRaw = sanitizeQuickRewardNumericValue(quickResonanceBanked?.value ?? '');
+      const bankedNumeric = Number(bankedRaw);
+      let bankedModeValue = 'delta';
+      let bankedValue = '';
+      if (bankedRaw !== '' && Number.isFinite(bankedNumeric)) {
+        const rounded = Math.round(bankedNumeric);
+        if (bankedModeInput === 'set') {
+          bankedModeValue = 'set';
+          bankedValue = String(Math.max(0, rounded));
+        } else if (rounded !== 0) {
+          bankedModeValue = 'delta';
+          bankedValue = String(rounded);
+        }
+      }
+      if (!pointsValue && !bankedValue) {
+        reportRewardError('Enter a resonance change before saving a preset');
+        return null;
+      }
+      return {
+        targets,
+        values: {
+          pointsMode: pointsModeValue,
+          pointsValue,
+          bankedMode: bankedModeValue,
+          bankedValue,
+        },
+      };
+    }
+    if (cardId === 'faction') {
+      const factionId = typeof quickFactionSelect?.value === 'string' ? quickFactionSelect.value.trim() : '';
+      if (!factionId) {
+        reportRewardError('Select a faction before saving a preset');
+        return null;
+      }
+      const mode = quickFactionMode?.value === 'set' ? 'set' : 'delta';
+      const rawValue = sanitizeQuickRewardNumericValue(quickFactionValue?.value ?? '');
+      const numeric = Number(rawValue);
+      if (!Number.isFinite(numeric)) {
+        reportRewardError('Enter a valid reputation amount before saving a preset');
+        return null;
+      }
+      const rounded = Math.round(numeric);
+      if (mode !== 'set' && rounded === 0) {
+        reportRewardError('Enter a non-zero reputation adjustment before saving a preset');
+        return null;
+      }
+      return {
+        targets,
+        values: {
+          factionId,
+          mode,
+          value: String(rounded),
+        },
+      };
+    }
+    return null;
+  }
+
+  function applyQuickRewardPresetValues(cardId, values) {
+    if (!values || typeof values !== 'object') return;
+    switch (cardId) {
+      case 'xp':
+        if (quickXpMode) quickXpMode.value = values.mode === 'remove' ? 'remove' : 'add';
+        if (quickXpAmount) quickXpAmount.value = typeof values.amount === 'string' ? values.amount : '';
+        break;
+      case 'hpsp':
+        if (quickHpMode) quickHpMode.value = values.hpMode === 'set' ? 'set' : 'delta';
+        if (quickHpValue) quickHpValue.value = typeof values.hpValue === 'string' ? values.hpValue : '';
+        if (quickHpTempMode) quickHpTempMode.value = values.hpTempMode === 'set' ? 'set' : values.hpTempMode === 'delta' ? 'delta' : '';
+        if (quickHpTemp) quickHpTemp.value = typeof values.hpTempValue === 'string' ? values.hpTempValue : '';
+        if (quickSpMode) quickSpMode.value = values.spMode === 'set' ? 'set' : 'delta';
+        if (quickSpValue) quickSpValue.value = typeof values.spValue === 'string' ? values.spValue : '';
+        if (quickSpTempMode) quickSpTempMode.value = values.spTempMode === 'set' ? 'set' : values.spTempMode === 'delta' ? 'delta' : '';
+        if (quickSpTemp) quickSpTemp.value = typeof values.spTempValue === 'string' ? values.spTempValue : '';
+        break;
+      case 'resonance':
+        if (quickResonancePointsMode) quickResonancePointsMode.value = values.pointsMode === 'set' ? 'set' : 'delta';
+        if (quickResonancePoints) quickResonancePoints.value = typeof values.pointsValue === 'string' ? values.pointsValue : '';
+        if (quickResonanceBankedMode) quickResonanceBankedMode.value = values.bankedMode === 'set' ? 'set' : 'delta';
+        if (quickResonanceBanked) quickResonanceBanked.value = typeof values.bankedValue === 'string' ? values.bankedValue : '';
+        break;
+      case 'faction':
+        if (quickFactionSelect) {
+          const desired = typeof values.factionId === 'string' ? values.factionId : '';
+          const option = desired
+            ? Array.from(quickFactionSelect.options || []).find(opt => opt.value === desired)
+            : null;
+          quickFactionSelect.value = option ? desired : '';
+        }
+        if (quickFactionMode) quickFactionMode.value = values.mode === 'set' ? 'set' : 'delta';
+        if (quickFactionValue) quickFactionValue.value = typeof values.value === 'string' ? values.value : '';
+        break;
+      default:
+        break;
+    }
+  }
+
+  function applyQuickRewardTargets(targets) {
+    if (!quickRewardTargetSelect) return { missing: [], hadOptions: false };
+    const sanitized = sanitizeQuickRewardTargets(targets);
+    const optionMap = new Map();
+    Array.from(quickRewardTargetSelect.options || []).forEach(option => {
+      if (typeof option.value === 'string' && option.value) {
+        optionMap.set(option.value, option);
+      }
+    });
+    const desired = new Set();
+    const missing = [];
+    sanitized.forEach(name => {
+      if (optionMap.has(name)) {
+        desired.add(name);
+      } else {
+        missing.push(name);
+      }
+    });
+    optionMap.forEach((option, value) => {
+      option.selected = desired.has(value);
+    });
+    if (!desired.size) {
+      quickRewardTargetSelect.selectedIndex = -1;
+    }
+    let dispatched = false;
+    try {
+      dispatched = quickRewardTargetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch {
+      updateQuickRewardFormsState();
+    }
+    if (!dispatched) {
+      updateQuickRewardFormsState();
+    }
+    return { missing, hadOptions: optionMap.size > 0 };
+  }
+
+  function applyQuickRewardPreset(cardId, preset) {
+    if (!preset) return;
+    const label = getQuickRewardPresetLabel(cardId);
+    const { missing, hadOptions } = applyQuickRewardTargets(preset.targets);
+    applyQuickRewardPresetValues(cardId, preset.values);
+    updateQuickRewardFormsState();
+    if (typeof toast === 'function') {
+      toast(`Loaded ${label} preset "${preset.name}"`, 'info');
+      if (hadOptions && missing.length) {
+        toast('Some preset recipients are unavailable', 'info');
+      }
+    } else if (hadOptions && missing.length) {
+      console.info('Missing preset recipients:', missing);
+    }
+  }
+
+  function handleQuickRewardPresetSave(cardId) {
+    const config = quickRewardPresetConfig[cardId];
+    if (!config) return;
+    if (config.form?.dataset?.pending === 'true') return;
+    const snapshot = buildQuickRewardPresetSnapshot(cardId);
+    if (!snapshot) return;
+    const label = getQuickRewardPresetLabel(cardId);
+    const existing = quickRewardPresetState.get(cardId) || [];
+    const defaultName = `${label} preset ${existing.length + 1}`;
+    const input = typeof prompt === 'function' ? prompt('Name this preset', defaultName) : defaultName;
+    if (input == null) return;
+    const name = sanitizeQuickRewardPresetName(input, defaultName);
+    if (!name) {
+      if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+      return;
+    }
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+      return;
+    }
+    const newPreset = {
+      id: createQuickRewardPresetId(),
+      name: normalizedName,
+      targets: snapshot.targets,
+      values: snapshot.values,
+    };
+    const next = [
+      newPreset,
+      ...existing.filter(entry => entry.name.toLowerCase() !== normalizedName.toLowerCase()),
+    ].slice(0, QUICK_REWARD_PRESET_LIMIT);
+    quickRewardPresetState.set(cardId, next);
+    persistQuickRewardPresetState();
+    renderQuickRewardPresetOptions(cardId, { selectedId: newPreset.id });
+    if (typeof toast === 'function') toast(`Saved ${label} preset "${normalizedName}"`, 'success');
+  }
+
+  function handleQuickRewardPresetDelete(cardId) {
+    const config = quickRewardPresetConfig[cardId];
+    if (!config?.select) return;
+    const presetId = config.select.value;
+    if (!presetId) return;
+    const presets = quickRewardPresetState.get(cardId) || [];
+    const preset = presets.find(entry => entry.id === presetId);
+    if (!preset) {
+      renderQuickRewardPresetOptions(cardId);
+      return;
+    }
+    const label = getQuickRewardPresetLabel(cardId);
+    const confirmed = typeof confirm === 'function'
+      ? confirm(`Delete ${label} preset "${preset.name}"?`)
+      : true;
+    if (!confirmed) return;
+    const remaining = presets.filter(entry => entry.id !== presetId);
+    quickRewardPresetState.set(cardId, remaining);
+    persistQuickRewardPresetState();
+    renderQuickRewardPresetOptions(cardId);
+    if (config.select) config.select.value = '';
+    updateQuickRewardPresetControls(cardId);
+    if (typeof toast === 'function') toast(`Deleted ${label} preset "${preset.name}"`, 'info');
+  }
+
+  function handleQuickRewardPresetSelection(cardId) {
+    const config = quickRewardPresetConfig[cardId];
+    if (!config?.select) return;
+    const presetId = config.select.value;
+    if (!presetId) {
+      updateQuickRewardPresetControls(cardId);
+      return;
+    }
+    const presets = quickRewardPresetState.get(cardId) || [];
+    const preset = presets.find(entry => entry.id === presetId);
+    if (!preset) {
+      renderQuickRewardPresetOptions(cardId);
+      return;
+    }
+    applyQuickRewardPreset(cardId, preset);
+    updateQuickRewardPresetControls(cardId);
+  }
+
+  refreshQuickRewardPresets();
+
   function setRewardFormPending(form, pending) {
     if (!form) return;
     form.dataset.pending = pending ? 'true' : 'false';
@@ -1944,6 +2664,10 @@ function initDMLogin(){
         delete submit.dataset.originalLabel;
         updateQuickRewardFormsState();
       }
+    }
+    const cardId = quickRewardPresetFormLookup.get(form);
+    if (cardId) {
+      updateQuickRewardPresetControls(cardId);
     }
   }
 
@@ -2807,6 +3531,7 @@ function initDMLogin(){
     }
 
     async function prepareCreditTab({ focusAmount = false, refreshAccounts = true } = {}) {
+      refreshQuickRewardPresets({ maintainSelection: true });
       let roster = null;
       if (refreshAccounts) {
         resetCreditForm({ preserveAccount: false });
@@ -6855,6 +7580,19 @@ function initDMLogin(){
     updateQuickRewardFormsState();
   });
 
+  quickXpPresetSaveBtn?.addEventListener('click', () => handleQuickRewardPresetSave('xp'));
+  quickXpPresetDeleteBtn?.addEventListener('click', () => handleQuickRewardPresetDelete('xp'));
+  quickXpPresetSelect?.addEventListener('change', () => handleQuickRewardPresetSelection('xp'));
+  quickHpSpPresetSaveBtn?.addEventListener('click', () => handleQuickRewardPresetSave('hpsp'));
+  quickHpSpPresetDeleteBtn?.addEventListener('click', () => handleQuickRewardPresetDelete('hpsp'));
+  quickHpSpPresetSelect?.addEventListener('change', () => handleQuickRewardPresetSelection('hpsp'));
+  quickResonancePresetSaveBtn?.addEventListener('click', () => handleQuickRewardPresetSave('resonance'));
+  quickResonancePresetDeleteBtn?.addEventListener('click', () => handleQuickRewardPresetDelete('resonance'));
+  quickResonancePresetSelect?.addEventListener('change', () => handleQuickRewardPresetSelection('resonance'));
+  quickFactionPresetSaveBtn?.addEventListener('click', () => handleQuickRewardPresetSave('faction'));
+  quickFactionPresetDeleteBtn?.addEventListener('click', () => handleQuickRewardPresetDelete('faction'));
+  quickFactionPresetSelect?.addEventListener('change', () => handleQuickRewardPresetSelection('faction'));
+
   quickXpForm?.addEventListener('submit', handleQuickXpSubmit);
   quickHpSpForm?.addEventListener('submit', handleQuickHpSpSubmit);
   quickResonanceForm?.addEventListener('submit', handleQuickResonanceSubmit);
@@ -7302,6 +8040,19 @@ function initDMLogin(){
     getQuickRewardHistory: () => [...quickRewardHistory],
     clearQuickRewardHistory,
     renderQuickRewardHistory,
+    getQuickRewardPresets: () => {
+      const snapshot = {};
+      quickRewardPresetState.forEach((list, cardId) => {
+        snapshot[cardId] = list.map(entry => ({
+          id: entry.id,
+          name: entry.name,
+          targets: Array.isArray(entry.targets) ? [...entry.targets] : [],
+          values: entry.values && typeof entry.values === 'object' ? { ...entry.values } : {},
+        }));
+      });
+      return snapshot;
+    },
+    QUICK_REWARD_PRESETS_STORAGE_KEY,
   };
 }
 if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {

@@ -3508,7 +3508,12 @@ body:not(.no-hover) .modal .x:hover{color:var(--accent)}
 .dm-quickRewards__target{display:flex;flex-direction:column;gap:6px;min-width:220px;flex:1 1 220px}
 .dm-quickRewards__label{font-size:.75rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
 .dm-quickRewards__select,.dm-quickRewards__control{position:relative;width:100%}
-.dm-quickRewards__select select,.dm-quickRewards__control select,.dm-quickRewards__field input{width:100%;padding:8px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--text) 12%, transparent);background:color-mix(in srgb,var(--surface) 96%, transparent);color:inherit;font-size:.9rem;line-height:1.4;transition:var(--transition)}
+.dm-quickRewards__select select,.dm-quickRewards__control select,.dm-quickRewards__presetSelect select,.dm-quickRewards__field input{width:100%;padding:8px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--text) 12%, transparent);background:color-mix(in srgb,var(--surface) 96%, transparent);color:inherit;font-size:.9rem;line-height:1.4;transition:var(--transition)}
+.dm-quickRewards__presets{display:flex;flex-direction:column;gap:6px}
+.dm-quickRewards__presetRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.dm-quickRewards__presetSelect{flex:1 1 180px}
+.dm-quickRewards__presetButtons{display:flex;gap:6px;flex-wrap:wrap}
+.dm-quickRewards__presetButtons .btn-sm{white-space:nowrap}
 .dm-quickRewards__hint{margin:0;font-size:.75rem;color:var(--muted);line-height:1.3}
 body:not(.no-hover) .dm-quickRewards__select select:hover,body:not(.no-hover) .dm-quickRewards__control select:hover,body:not(.no-hover) .dm-quickRewards__field input:hover{border-color:var(--accent)}
 .dm-quickRewards__select select:focus-visible,.dm-quickRewards__control select:focus-visible,.dm-quickRewards__field input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
