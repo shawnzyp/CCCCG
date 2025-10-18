@@ -8809,6 +8809,8 @@ const elSPMax = $('sp-max');
 const elSPTempPill = $('sp-temp-pill');
 const elHPBar = $('hp-bar');
 const elHPPill = $('hp-pill');
+const elSPProgress = document.querySelector('.sp-field__progress');
+const elHPProgress = document.querySelector('.hp-field__progress');
 const elHPRoll = $('hp-roll');
 const elHPTemp = $('hp-temp');
 const elHPCurrent = $('hp-current');
@@ -10134,15 +10136,60 @@ function handleAugmentFilterToggle(tag) {
   refreshAugmentUI();
 }
 
+const TRACKER_STATUS_CLASSES = ['is-empty', 'is-critical', 'is-low', 'is-stable', 'is-full'];
+
+function getTrackerStatusDetails(currentValue, maxValue){
+  const numericCurrent = Number.isFinite(currentValue) ? currentValue : Number(currentValue || 0);
+  const numericMax = Number.isFinite(maxValue) ? maxValue : Number(maxValue || 0);
+  const safeCurrent = Number.isFinite(numericCurrent) ? numericCurrent : 0;
+  const safeMax = Number.isFinite(numericMax) ? numericMax : 0;
+  if (safeMax <= 0) {
+    if (safeCurrent <= 0) {
+      return { ratio: 0, statusClass: 'is-empty', statusLabel: 'Depleted' };
+    }
+    return { ratio: 1, statusClass: 'is-full', statusLabel: 'Full' };
+  }
+  const ratio = Math.min(Math.max(safeCurrent / safeMax, 0), 1);
+  let statusClass = 'is-full';
+  let statusLabel = 'Full';
+  if (safeCurrent <= 0) {
+    statusClass = 'is-empty';
+    statusLabel = 'Depleted';
+  } else if (ratio <= 0.25) {
+    statusClass = 'is-critical';
+    statusLabel = 'Critical';
+  } else if (ratio <= 0.5) {
+    statusClass = 'is-low';
+    statusLabel = 'Low';
+  } else if (ratio < 1) {
+    statusClass = 'is-stable';
+    statusLabel = 'Stable';
+  }
+  return { ratio, statusClass, statusLabel };
+}
+
+function applyTrackerStatusClasses(statusClass, ...elements){
+  const filtered = elements.filter(Boolean);
+  if (!filtered.length) return;
+  filtered.forEach(element => {
+    element.classList.remove(...TRACKER_STATUS_CLASSES);
+    if (statusClass) element.classList.add(statusClass);
+  });
+}
+
 function updateHPDisplay({ current, max } = {}){
   const currentValue = Number.isFinite(current) ? current : num(elHPBar.value);
   const maxValue = Number.isFinite(max) ? max : num(elHPBar.max);
   const tempValue = elHPTemp ? num(elHPTemp.value) : 0;
   if (elHPCurrent) elHPCurrent.textContent = currentValue;
   if (elHPMax) elHPMax.textContent = maxValue;
-  const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  const { statusClass, statusLabel } = getTrackerStatusDetails(currentValue, maxValue);
+  const statusSuffix = statusLabel ? ` (${statusLabel})` : '';
+  const tempSuffix = tempValue ? ` (+${tempValue})` : '';
+  const hpDisplay = `${currentValue}/${maxValue}${statusSuffix}${tempSuffix}`;
   if (elHPPill) elHPPill.textContent = hpDisplay;
   if (elHPBar) elHPBar.setAttribute('aria-valuetext', hpDisplay);
+  applyTrackerStatusClasses(statusClass, elHPPill, elHPBar, elHPProgress);
   applyProgressGradient(elHPBar, elHPPill, currentValue, maxValue);
   updateTempBadge(elHPTempPill, tempValue);
 }
@@ -10153,9 +10200,13 @@ function updateSPDisplay({ current, max } = {}){
   const tempValue = elSPTemp ? num(elSPTemp.value) : 0;
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
-  const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  const { statusClass, statusLabel } = getTrackerStatusDetails(currentValue, maxValue);
+  const statusSuffix = statusLabel ? ` (${statusLabel})` : '';
+  const tempSuffix = tempValue ? ` (+${tempValue})` : '';
+  const spDisplay = `${currentValue}/${maxValue}${statusSuffix}${tempSuffix}`;
   if (elSPPill) elSPPill.textContent = spDisplay;
   if (elSPBar) elSPBar.setAttribute('aria-valuetext', spDisplay);
+  applyTrackerStatusClasses(statusClass, elSPPill, elSPBar, elSPProgress);
   applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue);
   updateTempBadge(elSPTempPill, tempValue);
 }

@@ -2201,6 +2201,118 @@ button .btn-label{display:inline-flex;align-items:center}
   letter-spacing:.08em;
 }
 
+.hp-field__progress,
+.sp-field__progress{
+  transition:box-shadow .35s ease, filter .35s ease;
+}
+
+.hp-field__progress-label,
+.sp-field__progress-label{
+  position:relative;
+  font-weight:700;
+  transition:color .25s ease, text-shadow .25s ease, transform .3s ease;
+}
+
+.tracker-progress{
+  transition:box-shadow .35s ease, filter .35s ease;
+}
+
+.hp-field__progress-label.is-full,
+.sp-field__progress-label.is-full,
+.hp-field__progress-label.is-stable,
+.sp-field__progress-label.is-stable{
+  color:color-mix(in srgb,var(--success, #22c55e) 78%, white 22%);
+  text-shadow:0 0 10px color-mix(in srgb,var(--success, #22c55e) 40%, transparent);
+}
+
+.hp-field__progress-label.is-low,
+.sp-field__progress-label.is-low{
+  color:color-mix(in srgb,var(--warning, #facc15) 88%, white 12%);
+  text-shadow:0 0 12px color-mix(in srgb,var(--warning, #facc15) 52%, transparent);
+}
+
+.hp-field__progress-label.is-critical,
+.sp-field__progress-label.is-critical,
+.hp-field__progress-label.is-empty,
+.sp-field__progress-label.is-empty{
+  color:color-mix(in srgb,#f87171 92%, white 8%);
+  text-shadow:0 0 14px color-mix(in srgb,currentColor 60%, transparent);
+  animation:tracker-label-pulse 1.15s ease-in-out infinite;
+}
+
+.hp-field__progress-label.is-empty,
+.sp-field__progress-label.is-empty{
+  animation-duration:.85s;
+  letter-spacing:.12em;
+}
+
+.tracker-progress.is-low{
+  --tracker-alert-color:color-mix(in srgb,var(--warning, #facc15) 42%, transparent);
+  box-shadow:0 0 0 2px var(--tracker-alert-color);
+}
+
+.tracker-progress.is-critical,
+.tracker-progress.is-empty{
+  --tracker-alert-color:color-mix(in srgb,#f87171 55%, transparent);
+  animation:tracker-progress-pulse 1.15s ease-in-out infinite;
+}
+
+.tracker-progress.is-empty{
+  animation-duration:.85s;
+}
+
+progress.is-full,
+progress.is-stable{
+  box-shadow:0 0 12px color-mix(in srgb,var(--success, #22c55e) 32%, transparent);
+}
+
+progress.is-low{
+  --tracker-alert-color:color-mix(in srgb,var(--warning, #facc15) 45%, transparent);
+  box-shadow:0 0 16px var(--tracker-alert-color);
+}
+
+progress.is-critical,
+progress.is-empty{
+  --tracker-alert-color:color-mix(in srgb,#f87171 55%, transparent);
+  animation:tracker-bar-pulse 1.15s ease-in-out infinite;
+}
+
+progress.is-empty{
+  animation-duration:.85s;
+  filter:saturate(.7) brightness(.92);
+}
+
+@keyframes tracker-label-pulse{
+  0%,100%{
+    text-shadow:0 0 12px color-mix(in srgb,currentColor 55%, transparent);
+    transform:translateY(0);
+  }
+  50%{
+    text-shadow:0 0 20px color-mix(in srgb,currentColor 85%, transparent);
+    transform:translateY(-1px);
+  }
+}
+
+@keyframes tracker-progress-pulse{
+  0%,100%{
+    box-shadow:0 0 0 2px var(--tracker-alert-color, transparent);
+  }
+  50%{
+    box-shadow:0 0 18px 4px var(--tracker-alert-color, transparent);
+  }
+}
+
+@keyframes tracker-bar-pulse{
+  0%,100%{
+    box-shadow:0 0 0 2px var(--tracker-alert-color, transparent);
+    filter:brightness(1);
+  }
+  50%{
+    box-shadow:0 0 18px 4px var(--tracker-alert-color, transparent);
+    filter:brightness(1.18);
+  }
+}
+
 .hp-field__controls{
   display:grid;
   gap:clamp(10px,3vw,14px);
@@ -2301,6 +2413,7 @@ progress{
   height:var(--progress-min-height);
   min-block-size:var(--progress-min-height);
   block-size:var(--progress-min-height);
+  transition:box-shadow .35s ease, filter .35s ease;
 }
 progress::-webkit-progress-bar{
   background:var(--surface-2);
