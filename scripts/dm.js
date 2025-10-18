@@ -641,6 +641,8 @@ function initDMLogin(){
   const dmToggleBtn = document.getElementById('dm-tools-toggle');
   const menu = document.getElementById('dm-tools-menu');
   const dmPortal = document.querySelector('.dm-tools-portal');
+  const sessionStatus = document.getElementById('dm-session-status');
+  const sessionExtendBtn = document.getElementById('dm-session-extend');
 
   if (dmPortal && document.body && dmPortal.parentElement !== document.body) {
     try {
@@ -668,11 +670,93 @@ function initDMLogin(){
   const clearIntervalFn = typeof window !== 'undefined' && typeof window.clearInterval === 'function'
     ? window.clearInterval.bind(window)
     : clearInterval;
+  let sessionStatusIntervalId = null;
 
   function parseStoredNumber(value){
     if (typeof value !== 'string' || !value) return 0;
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function stopSessionStatusUpdates() {
+    if (sessionStatusIntervalId !== null) {
+      clearIntervalFn(sessionStatusIntervalId);
+      sessionStatusIntervalId = null;
+    }
+  }
+
+  function hideSessionStatus() {
+    stopSessionStatusUpdates();
+    if (sessionStatus) {
+      sessionStatus.textContent = '';
+      sessionStatus.hidden = true;
+    }
+    if (sessionExtendBtn) {
+      sessionExtendBtn.hidden = true;
+      sessionExtendBtn.disabled = true;
+    }
+  }
+
+  function formatSessionRemaining(remainingMs) {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return `Session expires in ${hours}h ${minutes.toString().padStart(2, '0')}m`;
+    }
+    if (minutes > 0) {
+      return `Session expires in ${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+    }
+    return `Session expires in ${seconds}s`;
+  }
+
+  function updateSessionStatusDisplay({ loggedIn, now } = {}) {
+    if (!sessionStatus) return;
+    const resolvedLoggedIn = typeof loggedIn === 'boolean' ? loggedIn : isLoggedIn();
+    if (!resolvedLoggedIn) {
+      hideSessionStatus();
+      return;
+    }
+    const timeoutMs = getSessionTimeoutMs();
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      hideSessionStatus();
+      return;
+    }
+    const reference = getSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY) ?? getSessionTimestamp(DM_LOGIN_AT_KEY);
+    if (!Number.isFinite(reference)) {
+      hideSessionStatus();
+      return;
+    }
+    const currentTime = Number.isFinite(now) ? now : Date.now();
+    const elapsed = Math.max(0, currentTime - reference);
+    const remaining = timeoutMs - elapsed;
+    if (!Number.isFinite(remaining) || remaining <= 0) {
+      hideSessionStatus();
+      return;
+    }
+    sessionStatus.hidden = false;
+    sessionStatus.textContent = formatSessionRemaining(remaining);
+    if (sessionExtendBtn) {
+      sessionExtendBtn.hidden = false;
+      sessionExtendBtn.disabled = false;
+    }
+  }
+
+  function ensureSessionStatusUpdates(loggedIn) {
+    if (!sessionStatus) return;
+    const resolvedLoggedIn = typeof loggedIn === 'boolean' ? loggedIn : isLoggedIn();
+    const timeoutMs = getSessionTimeoutMs();
+    if (!resolvedLoggedIn || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      hideSessionStatus();
+      return;
+    }
+    updateSessionStatusDisplay({ loggedIn: resolvedLoggedIn });
+    if (sessionStatusIntervalId === null) {
+      sessionStatusIntervalId = setIntervalFn(() => {
+        updateSessionStatusDisplay();
+      }, 1000);
+    }
   }
 
   function readLoginFailureState(){
@@ -5727,6 +5811,7 @@ function initDMLogin(){
       const expanded = loggedIn && menu && menu.classList.contains(MENU_OPEN_CLASS);
       dmToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
+    ensureSessionStatusUpdates(loggedIn);
   }
 
   function initTools(){
@@ -6781,6 +6866,18 @@ function initDMLogin(){
       logout();
     });
   }
+
+  sessionExtendBtn?.addEventListener('click', event => {
+    try {
+      event?.preventDefault?.();
+    } catch {
+      /* ignore */
+    }
+    const now = Date.now();
+    touchSessionActivity(now);
+    updateSessionStatusDisplay({ loggedIn: true, now });
+    ensureSessionStatusUpdates();
+  });
 
   updateButtons();
   if (isLoggedIn()) initTools();
