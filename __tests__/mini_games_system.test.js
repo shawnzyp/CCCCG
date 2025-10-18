@@ -52,6 +52,22 @@ function setupDom() {
                   <input id="dm-mini-games-player-custom" type="text" />
                 </label>
                 <label class="dm-mini-games__field">
+                  <span>Schedule</span>
+                  <input id="dm-mini-games-scheduled-for" type="datetime-local" />
+                  <span id="dm-mini-games-timezone" class="dm-mini-games__timezone"></span>
+                </label>
+                <label class="dm-mini-games__field dm-mini-games__field--inline">
+                  <span>Expires After</span>
+                  <div class="dm-mini-games__expiry">
+                    <input id="dm-mini-games-expiry" type="number" inputmode="numeric" min="0" step="1" />
+                    <select id="dm-mini-games-expiry-unit">
+                      <option value="minutes" selected>Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="dm-mini-games__field">
                   <span>Notes</span>
                   <textarea id="dm-mini-games-notes"></textarea>
                 </label>
@@ -207,7 +223,7 @@ describe('mini-game system modals', () => {
       }
 
       expect(introEl.textContent).toContain(game.name);
-      expect(playerHintEl.textContent).toContain('mission');
+      expect(playerHintEl.textContent).toContain('recipients');
 
       const knobContainer = document.getElementById('dm-mini-games-knobs');
       if (Array.isArray(game.knobs) && game.knobs.length) {

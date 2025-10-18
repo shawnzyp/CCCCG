@@ -3699,6 +3699,11 @@ body:not(.no-hover) .dm-mini-games__knob-reset--all:hover{background:var(--accen
 .dm-mini-games__field{display:flex;flex-direction:column;gap:6px;font-size:.85rem}
 .dm-mini-games__field span{font-weight:600}
 .dm-mini-games__field textarea{min-height:64px;resize:vertical}
+.dm-mini-games__field--inline{gap:4px}
+.dm-mini-games__timezone{font-size:.7rem;color:var(--muted)}
+.dm-mini-games__expiry{display:flex;gap:8px;align-items:center}
+.dm-mini-games__expiry input{flex:1 1 80px}
+.dm-mini-games__expiry select{flex:1 1 120px;min-width:0}
 .dm-mini-games__field--recipients{grid-column:1/-1;display:flex;flex-direction:column;gap:8px}
 .dm-mini-games__recipient-controls{display:flex;flex-direction:column;gap:8px}
 .dm-mini-games__recipient-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}

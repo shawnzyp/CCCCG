@@ -64,6 +64,22 @@ function setupDom() {
                   <input id="dm-mini-games-player-custom" type="text" />
                 </label>
                 <label class="dm-mini-games__field">
+                  <span>Schedule</span>
+                  <input id="dm-mini-games-scheduled-for" type="datetime-local" />
+                  <span id="dm-mini-games-timezone" class="dm-mini-games__timezone"></span>
+                </label>
+                <label class="dm-mini-games__field dm-mini-games__field--inline">
+                  <span>Expires After</span>
+                  <div class="dm-mini-games__expiry">
+                    <input id="dm-mini-games-expiry" type="number" inputmode="numeric" min="0" step="1" />
+                    <select id="dm-mini-games-expiry-unit">
+                      <option value="minutes" selected>Minutes</option>
+                      <option value="hours">Hours</option>
+                      <option value="days">Days</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="dm-mini-games__field">
                   <span>Notes</span>
                   <textarea id="dm-mini-games-notes"></textarea>
                 </label>
@@ -91,6 +107,12 @@ function setupDom() {
       </section>
     </div>
   `;
+}
+
+function formatDateTimeLocal(date) {
+  const pad = value => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 async function initDmModule() {
@@ -200,8 +222,17 @@ describe('DM mini-game tooling', () => {
 
     const playerSelect = document.getElementById('dm-mini-games-player');
     playerSelect.value = 'Hero One';
+    playerSelect.dispatchEvent(new Event('change'));
     const notesField = document.getElementById('dm-mini-games-notes');
     notesField.value = 'Bring backup';
+    const scheduledInput = document.getElementById('dm-mini-games-scheduled-for');
+    const futureDate = new Date(Date.now() + 60 * 60 * 1000);
+    const scheduleValue = formatDateTimeLocal(futureDate);
+    scheduledInput.value = scheduleValue;
+    const expiryInput = document.getElementById('dm-mini-games-expiry');
+    const expiryUnit = document.getElementById('dm-mini-games-expiry-unit');
+    expiryInput.value = '2';
+    expiryUnit.value = 'hours';
 
     const deployBtn = document.getElementById('dm-mini-games-deploy');
     deployBtn.dispatchEvent(new Event('click'));
@@ -210,12 +241,19 @@ describe('DM mini-game tooling', () => {
     await Promise.resolve();
 
     expect(deployMiniGame).toHaveBeenCalledTimes(1);
-    expect(deployMiniGame.mock.calls[0][0]).toMatchObject({
+    const payload = deployMiniGame.mock.calls[0][0];
+    const expectedScheduled = Date.parse(scheduleValue);
+    expect(payload).toMatchObject({
       gameId: 'clue-tracker',
       player: 'Hero One',
       notes: 'Bring backup',
     });
-    expect(global.toast).toHaveBeenCalledWith('Mini-game deployed', 'success');
+    expect(payload.scheduledFor).toBe(expectedScheduled);
+    expect(payload.expiresAt).toBe(expectedScheduled + 2 * 60 * 60 * 1000);
+    expect(global.toast).toHaveBeenCalledWith(
+      expect.stringContaining('Mini-game deployed'),
+      expect.any(String)
+    );
 
     const deploymentsCallback = getDeploymentsCallback();
     const miniGamesModal = document.getElementById('dm-mini-games-modal');
@@ -234,5 +272,30 @@ describe('DM mini-game tooling', () => {
 
     const deploymentsList = document.getElementById('dm-mini-games-deployments');
     expect(deploymentsList.textContent).toContain('Hero One');
+  });
+
+  test('prevents deployment when expiry duration is invalid', async () => {
+    const { deployMiniGame } = await initDmModule();
+
+    await completeLogin();
+
+    document.getElementById('dm-tools-mini-games').dispatchEvent(new Event('click'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const playerSelect = document.getElementById('dm-mini-games-player');
+    playerSelect.value = 'Hero One';
+    playerSelect.dispatchEvent(new Event('change'));
+    const expiryInput = document.getElementById('dm-mini-games-expiry');
+    expiryInput.value = '-5';
+
+    global.toast.mockClear();
+
+    document.getElementById('dm-mini-games-deploy').dispatchEvent(new Event('click'));
+
+    await Promise.resolve();
+
+    expect(deployMiniGame).not.toHaveBeenCalled();
+    expect(global.toast).toHaveBeenCalledWith('Enter a valid expiry duration', 'error');
   });
 });

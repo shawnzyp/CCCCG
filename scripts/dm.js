@@ -510,6 +510,8 @@ function initDMLogin(){
   const miniGamesRecipientList = document.getElementById('dm-mini-games-recipients');
   const miniGamesScheduledFor = document.getElementById('dm-mini-games-scheduled-for');
   const miniGamesExpiry = document.getElementById('dm-mini-games-expiry');
+  const miniGamesExpiryUnit = document.getElementById('dm-mini-games-expiry-unit');
+  const miniGamesTimezone = document.getElementById('dm-mini-games-timezone');
   const miniGamesNotes = document.getElementById('dm-mini-games-notes');
   const miniGamesRefreshPlayers = document.getElementById('dm-mini-games-refresh-players');
   const miniGamesDeployBtn = document.getElementById('dm-mini-games-deploy');
@@ -569,6 +571,26 @@ function initDMLogin(){
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
+
+  if (miniGamesTimezone) {
+    let timezoneLabel = '';
+    try {
+      const formatter = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' });
+      const parts = formatter.formatToParts(new Date());
+      const shortName = parts.find(part => part.type === 'timeZoneName')?.value || '';
+      const resolvedTz = Intl.DateTimeFormat().resolvedOptions?.().timeZone || '';
+      const labelParts = [];
+      if (shortName) labelParts.push(shortName);
+      if (resolvedTz && resolvedTz !== shortName) labelParts.push(`(${resolvedTz})`);
+      timezoneLabel = labelParts.length ? `Local time: ${labelParts.join(' ')}` : '';
+      if (resolvedTz && !labelParts.length) {
+        timezoneLabel = `Local time: ${resolvedTz}`;
+      }
+    } catch {
+      timezoneLabel = 'Local time shown';
+    }
+    miniGamesTimezone.textContent = timezoneLabel || 'Local time shown';
+  }
 
   dmToggleButtonRef = dmToggleBtn;
   dmToggleBadgeRef = dmToggleBtn ? dmToggleBtn.querySelector('[data-role="dm-unread-badge"]') : null;
@@ -3959,21 +3981,45 @@ function initDMLogin(){
     const config = ensureKnobState(selectedMiniGameId);
     const notes = miniGamesNotes?.value?.trim() || '';
     let scheduledForTs = null;
-    if (miniGamesScheduledFor && miniGamesScheduledFor.value) {
-      const parsed = Date.parse(miniGamesScheduledFor.value);
-      if (Number.isNaN(parsed)) {
-        if (typeof toast === 'function') toast('Enter a valid scheduled time', 'error');
-        return false;
-      }
-      if (parsed > Date.now()) {
+    if (miniGamesScheduledFor) {
+      const rawScheduled = miniGamesScheduledFor.value?.trim?.() || '';
+      if (rawScheduled) {
+        const parsed = Date.parse(rawScheduled);
+        if (Number.isNaN(parsed)) {
+          if (typeof toast === 'function') toast('Enter a valid scheduled time', 'error');
+          return false;
+        }
+        if (parsed <= Date.now()) {
+          if (typeof toast === 'function') toast('Choose a future scheduled time', 'error');
+          return false;
+        }
         scheduledForTs = parsed;
       }
     }
     let expiresAtTs = null;
-    const expiryValue = Number(miniGamesExpiry?.value || '');
-    if (Number.isFinite(expiryValue) && expiryValue > 0) {
-      const base = scheduledForTs && scheduledForTs > Date.now() ? scheduledForTs : Date.now();
-      expiresAtTs = base + expiryValue * 60 * 1000;
+    if (miniGamesExpiry && miniGamesExpiry.value !== '') {
+      const expiryValue = Number(miniGamesExpiry.value);
+      if (!Number.isFinite(expiryValue) || expiryValue <= 0) {
+        if (typeof toast === 'function') toast('Enter a valid expiry duration', 'error');
+        return false;
+      }
+      const unitKey = typeof miniGamesExpiryUnit?.value === 'string'
+        ? miniGamesExpiryUnit.value.toLowerCase()
+        : 'minutes';
+      const unitMinutes = unitKey === 'days'
+        ? 24 * 60
+        : unitKey === 'hours'
+          ? 60
+          : 1;
+      const totalMinutes = expiryValue * unitMinutes;
+      if (!Number.isFinite(totalMinutes) || totalMinutes <= 0) {
+        if (typeof toast === 'function') toast('Enter a valid expiry duration', 'error');
+        return false;
+      }
+      const base = Number.isFinite(scheduledForTs) && scheduledForTs > Date.now()
+        ? scheduledForTs
+        : Date.now();
+      expiresAtTs = base + totalMinutes * 60 * 1000;
     }
     const progressEntries = recipients.map(name => ({ name, status: 'queued', message: '' }));
     const renderProgress = () => {
