@@ -730,7 +730,10 @@
             <span id="hp-temp-pill" class="hp-field__temp" hidden>+0 Temp</span>
             <div class="hp-field__progress tracker-progress bar-label">
               <progress id="hp-bar" class="hp-field__progress-bar" max="30" value="30" aria-label="HP remaining"></progress>
-              <span id="hp-pill" class="hp-field__progress-label tracker-progress__label">30/30</span>
+              <span id="hp-pill" class="hp-field__progress-label tracker-progress__label">
+                <span class="tracker-progress__value">30/30</span>
+                <span class="tracker-progress__status" aria-live="polite" role="status"></span>
+              </span>
             </div>
           </div>
           <div class="hp-field__controls">
@@ -777,7 +780,10 @@
             <span id="sp-temp-pill" class="sp-field__temp" hidden>+0 Temp</span>
             <div class="sp-field__progress tracker-progress bar-label">
               <progress id="sp-bar" class="sp-field__progress-bar" max="5" value="5" aria-label="SP remaining"></progress>
-              <span id="sp-pill" class="sp-field__progress-label tracker-progress__label">5/5</span>
+              <span id="sp-pill" class="sp-field__progress-label tracker-progress__label">
+                <span class="tracker-progress__value">5/5</span>
+                <span class="tracker-progress__status" aria-live="polite" role="status"></span>
+              </span>
             </div>
           </div>
           <div class="sp-field__controls">

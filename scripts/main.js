@@ -9586,6 +9586,12 @@ function updateTempBadge(target, tempValue){
   }
 }
 
+const TRACKER_STATUS_LABELS = {
+  healthy: 'Healthy',
+  wounded: 'Wounded',
+  critical: 'Critical',
+};
+
 function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
   if (!progressEl) return;
   const numericCurrent = Number(currentValue);
@@ -9596,8 +9602,17 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
   const hue = Math.round(120 * ratio);
   const color = `hsl(${hue}deg 68% 46%)`;
   progressEl.style.setProperty('--progress-color', color);
+  const status = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
+  progressEl.dataset.status = status;
   if (labelEl) {
     labelEl.style.setProperty('--progress-color', color);
+    labelEl.dataset.status = status;
+    const statusLabel = TRACKER_STATUS_LABELS[status] || '';
+    const statusEl = labelEl.querySelector('.tracker-progress__status');
+    if (statusEl) {
+      statusEl.textContent = statusLabel;
+      statusEl.dataset.status = status;
+    }
   }
 }
 
@@ -10141,7 +10156,11 @@ function updateHPDisplay({ current, max } = {}){
   if (elHPCurrent) elHPCurrent.textContent = currentValue;
   if (elHPMax) elHPMax.textContent = maxValue;
   const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
-  if (elHPPill) elHPPill.textContent = hpDisplay;
+  if (elHPPill) {
+    const valueEl = elHPPill.querySelector('.tracker-progress__value');
+    if (valueEl) valueEl.textContent = hpDisplay;
+    else elHPPill.textContent = hpDisplay;
+  }
   if (elHPBar) elHPBar.setAttribute('aria-valuetext', hpDisplay);
   applyProgressGradient(elHPBar, elHPPill, currentValue, maxValue);
   updateTempBadge(elHPTempPill, tempValue);
@@ -10154,7 +10173,11 @@ function updateSPDisplay({ current, max } = {}){
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
-  if (elSPPill) elSPPill.textContent = spDisplay;
+  if (elSPPill) {
+    const valueEl = elSPPill.querySelector('.tracker-progress__value');
+    if (valueEl) valueEl.textContent = spDisplay;
+    else elSPPill.textContent = spDisplay;
+  }
   if (elSPBar) elSPBar.setAttribute('aria-valuetext', spDisplay);
   applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue);
   updateTempBadge(elSPTempPill, tempValue);

@@ -2185,12 +2185,49 @@ button .btn-label{display:inline-flex;align-items:center}
 }
 
 .tracker-progress__label{
+  display:inline-flex;
+  align-items:center;
+  gap:clamp(6px,1.8vw,10px);
   font-size:clamp(.75rem,2.2vw,.85rem);
   font-weight:600;
   letter-spacing:.08em;
   text-transform:uppercase;
   color:color-mix(in srgb,var(--progress-color,var(--text)) 55%, var(--text));
   text-shadow:0 1px 1px rgba(0,0,0,.35);
+}
+
+.tracker-progress__value{
+  display:inline-flex;
+  align-items:center;
+}
+
+.tracker-progress__status{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid transparent;
+  font-size:clamp(.6rem,1.8vw,.72rem);
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  background:color-mix(in srgb,var(--status-color,var(--muted)) 18%, transparent);
+  border-color:color-mix(in srgb,var(--status-color,var(--muted)) 45%, transparent);
+  color:var(--status-color,var(--text));
+  min-width:fit-content;
+}
+
+.tracker-progress__status[data-status="healthy"]{
+  --status-color:var(--success,#22c55e);
+}
+
+.tracker-progress__status[data-status="wounded"]{
+  --status-color:var(--warning,#f59e0b);
+}
+
+.tracker-progress__status[data-status="critical"]{
+  --status-color:var(--error,#f87171);
 }
 
 .hp-field__progress{
