@@ -3,6 +3,7 @@ import { DM_PIN } from '../scripts/dm-pin.js';
 
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
+const DM_NOTIFICATION_FILTER_STORAGE_KEY = 'cc_dm_notification_filters';
 
 function setupDom() {
   document.body.innerHTML = `
@@ -13,18 +14,46 @@ function setupDom() {
     <input id="dm-login-pin" />
     <button id="dm-login-submit"></button>
     <button id="dm-login-close"></button>
-    <div id="dm-notifications-modal"></div>
-    <div id="dm-notifications-list"></div>
-    <button id="dm-notifications-close"></button>
+    <div id="dm-notifications-modal" class="overlay hidden" aria-hidden="true">
+      <section class="modal">
+        <button id="dm-notifications-close" type="button"></button>
+        <div class="dm-notifications__actions">
+          <button id="dm-notifications-export" type="button"></button>
+          <button id="dm-notifications-clear" type="button"></button>
+        </div>
+        <form id="dm-notifications-filters">
+          <label for="dm-notifications-filter-character">
+            Character
+            <select id="dm-notifications-filter-character">
+              <option value="all">All characters</option>
+            </select>
+          </label>
+          <label for="dm-notifications-filter-severity">
+            Severity
+            <select id="dm-notifications-filter-severity">
+              <option value="all">All severities</option>
+            </select>
+          </label>
+          <label for="dm-notifications-filter-search">
+            Search
+            <input id="dm-notifications-filter-search" type="search" />
+          </label>
+        </form>
+        <ol id="dm-notifications-list"></ol>
+      </section>
+    </div>
   `;
 }
 
-async function initDmModule({ loggedIn = false, storedNotifications = null } = {}) {
+async function initDmModule({ loggedIn = false, storedNotifications = null, notificationFilters = null } = {}) {
   jest.resetModules();
   localStorage.clear();
   sessionStorage.clear();
   if (storedNotifications) {
     sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(storedNotifications));
+  }
+  if (notificationFilters) {
+    localStorage.setItem(DM_NOTIFICATION_FILTER_STORAGE_KEY, JSON.stringify(notificationFilters));
   }
   if (!window.matchMedia) {
     window.matchMedia = () => ({ matches: false, addListener: () => {}, removeListener: () => {} });
@@ -149,6 +178,69 @@ describe('DM notifications audio cues', () => {
     window.dmNotify('should stay quiet');
 
     expect(window.playTone).not.toHaveBeenCalled();
+  });
+});
+
+describe('DM notifications filtering', () => {
+  test('filters notifications and restores state from storage', async () => {
+    const stored = [
+      { ts: '2025-01-01T00:00:00', char: 'DM', detail: 'Alpha event', severity: 'info' },
+      { ts: '2025-01-02T00:00:00', char: 'Hank', detail: 'Beta warning', severity: 'warning' },
+      { ts: '2025-01-03T00:00:00', char: 'Hank', detail: 'Gamma update', severity: 'info' },
+    ];
+
+    await initDmModule({ loggedIn: true, storedNotifications: stored });
+
+    const list = document.getElementById('dm-notifications-list');
+    const characterSelect = document.getElementById('dm-notifications-filter-character');
+    const severitySelect = document.getElementById('dm-notifications-filter-severity');
+    const searchInput = document.getElementById('dm-notifications-filter-search');
+
+    const readItems = () => Array.from(list.querySelectorAll('li')).map(li => li.textContent);
+
+    expect(readItems()).toHaveLength(3);
+
+    characterSelect.value = 'Hank';
+    characterSelect.dispatchEvent(new Event('change'));
+
+    let items = readItems();
+    expect(items).toHaveLength(2);
+    expect(items.every(text => text.includes('Hank'))).toBe(true);
+
+    severitySelect.value = 'warning';
+    severitySelect.dispatchEvent(new Event('change'));
+
+    items = readItems();
+    expect(items).toHaveLength(1);
+    expect(items[0]).toContain('Beta warning');
+
+    severitySelect.value = 'all';
+    severitySelect.dispatchEvent(new Event('change'));
+    searchInput.value = 'Gamma';
+    searchInput.dispatchEvent(new Event('input'));
+
+    items = readItems();
+    expect(items).toHaveLength(1);
+    expect(items[0]).toContain('Gamma update');
+
+    const savedFiltersRaw = localStorage.getItem(DM_NOTIFICATION_FILTER_STORAGE_KEY);
+    expect(savedFiltersRaw).toBeTruthy();
+    const savedFilters = JSON.parse(savedFiltersRaw);
+    expect(savedFilters).toMatchObject({ character: 'Hank', severity: 'all', search: 'Gamma' });
+
+    await initDmModule({
+      loggedIn: true,
+      storedNotifications: stored,
+      notificationFilters: savedFilters,
+    });
+
+    const restoredList = document.getElementById('dm-notifications-list');
+    const restoredItems = Array.from(restoredList.querySelectorAll('li')).map(li => li.textContent);
+
+    expect(document.getElementById('dm-notifications-filter-character').value).toBe('Hank');
+    expect(document.getElementById('dm-notifications-filter-search').value).toBe('Gamma');
+    expect(restoredItems).toHaveLength(1);
+    expect(restoredItems[0]).toContain('Gamma update');
   });
 });
 

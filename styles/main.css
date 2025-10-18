@@ -4488,6 +4488,16 @@ body:not(.no-hover) .somf-dm__link:hover{color:#cfe7ff}
 
 #dm-notifications-modal .modal{display:flex;flex-direction:column}
 #dm-notifications-modal #dm-notifications-list{flex:1;overflow:auto}
+#dm-notifications-modal .dm-notifications__filters{display:flex;flex-wrap:wrap;gap:12px;margin:12px 0 16px;padding:0;align-items:flex-end}
+#dm-notifications-modal .dm-notifications__filter{display:flex;flex-direction:column;gap:4px;min-width:160px;flex:1 1 140px}
+#dm-notifications-modal .dm-notifications__filter--search{flex:2 1 240px}
+#dm-notifications-modal .dm-notifications__filterLabel{font-size:.75rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+#dm-notifications-modal .dm-notifications__filters select,
+#dm-notifications-modal .dm-notifications__filters input{padding:8px 10px;border-radius:10px;border:1px solid color-mix(in srgb,var(--text) 12%, transparent);background:color-mix(in srgb,var(--surface) 96%, transparent);color:inherit;font-size:.9rem;line-height:1.4;transition:var(--transition)}
+body:not(.no-hover) #dm-notifications-modal .dm-notifications__filters select:hover,
+body:not(.no-hover) #dm-notifications-modal .dm-notifications__filters input:hover{border-color:var(--accent)}
+#dm-notifications-modal .dm-notifications__filters select:focus-visible,
+#dm-notifications-modal .dm-notifications__filters input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 @media (max-width:600px){
   .somf-dm__row{grid-template-columns:1fr}
