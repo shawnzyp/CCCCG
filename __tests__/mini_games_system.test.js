@@ -43,13 +43,22 @@ function setupDom() {
               <h5 class="dm-mini-games__section-heading">Step 3 · Send to a Player</h5>
               <p id="dm-mini-games-player-hint" class="dm-mini-games__hint"></p>
               <div class="dm-mini-games__deploy-form">
-                <label class="dm-mini-games__field">
-                  <span>Target</span>
-                  <select id="dm-mini-games-player"></select>
-                </label>
-                <label class="dm-mini-games__field">
-                  <span>Custom</span>
-                  <input id="dm-mini-games-player-custom" type="text" />
+                <label class="dm-mini-games__field dm-mini-games__field--recipients">
+                  <span>Recipients</span>
+                  <div class="dm-mini-games__recipient-controls">
+                    <div class="dm-mini-games__recipient-row">
+                      <select id="dm-mini-games-player" multiple></select>
+                      <button id="dm-mini-games-add-recipient" type="button" class="btn-sm">Queue Selected</button>
+                    </div>
+                    <div class="dm-mini-games__recipient-row">
+                      <input id="dm-mini-games-player-custom" type="text" />
+                      <button id="dm-mini-games-add-custom" type="button" class="btn-sm">Add Custom</button>
+                    </div>
+                    <div class="dm-mini-games__recipient-actions">
+                      <button id="dm-mini-games-clear-recipients" type="button" class="btn-sm dm-mini-games__recipients-clear">Clear All</button>
+                    </div>
+                  </div>
+                  <div id="dm-mini-games-recipients" class="dm-mini-games__recipients"></div>
                 </label>
                 <label class="dm-mini-games__field">
                   <span>Notes</span>
@@ -207,7 +216,7 @@ describe('mini-game system modals', () => {
       }
 
       expect(introEl.textContent).toContain(game.name);
-      expect(playerHintEl.textContent).toContain('mission');
+      expect(playerHintEl.textContent).toContain('recipients');
 
       const knobContainer = document.getElementById('dm-mini-games-knobs');
       if (Array.isArray(game.knobs) && game.knobs.length) {

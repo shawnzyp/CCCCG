@@ -55,13 +55,22 @@ function setupDom() {
               <h5 class="dm-mini-games__section-heading">Step 3 · Send to a Player</h5>
               <p id="dm-mini-games-player-hint" class="dm-mini-games__hint"></p>
               <div class="dm-mini-games__deploy-form">
-                <label class="dm-mini-games__field">
-                  <span>Target</span>
-                  <select id="dm-mini-games-player"></select>
-                </label>
-                <label class="dm-mini-games__field">
-                  <span>Custom</span>
-                  <input id="dm-mini-games-player-custom" type="text" />
+                <label class="dm-mini-games__field dm-mini-games__field--recipients">
+                  <span>Recipients</span>
+                  <div class="dm-mini-games__recipient-controls">
+                    <div class="dm-mini-games__recipient-row">
+                      <select id="dm-mini-games-player" multiple></select>
+                      <button id="dm-mini-games-add-recipient" type="button" class="btn-sm">Queue Selected</button>
+                    </div>
+                    <div class="dm-mini-games__recipient-row">
+                      <input id="dm-mini-games-player-custom" type="text" />
+                      <button id="dm-mini-games-add-custom" type="button" class="btn-sm">Add Custom</button>
+                    </div>
+                    <div class="dm-mini-games__recipient-actions">
+                      <button id="dm-mini-games-clear-recipients" type="button" class="btn-sm dm-mini-games__recipients-clear">Clear All</button>
+                    </div>
+                  </div>
+                  <div id="dm-mini-games-recipients" class="dm-mini-games__recipients"></div>
                 </label>
                 <label class="dm-mini-games__field">
                   <span>Notes</span>
@@ -199,7 +208,13 @@ describe('DM mini-game tooling', () => {
     expect(listCharacters).toHaveBeenCalled();
 
     const playerSelect = document.getElementById('dm-mini-games-player');
-    playerSelect.value = 'Hero One';
+    const heroOneOption = Array.from(playerSelect.options).find(option => option.value === 'Hero One');
+    expect(heroOneOption).toBeDefined();
+    heroOneOption.selected = true;
+    playerSelect.dispatchEvent(new Event('change'));
+
+    const recipientList = document.getElementById('dm-mini-games-recipients');
+    expect(recipientList.textContent).toContain('Hero One');
     const notesField = document.getElementById('dm-mini-games-notes');
     notesField.value = 'Bring backup';
 
@@ -215,7 +230,7 @@ describe('DM mini-game tooling', () => {
       player: 'Hero One',
       notes: 'Bring backup',
     });
-    expect(global.toast).toHaveBeenCalledWith('Mini-game deployed', 'success');
+    expect(global.toast).toHaveBeenCalledWith('Mini-game deployed to 1 recipient', 'success');
 
     const deploymentsCallback = getDeploymentsCallback();
     const miniGamesModal = document.getElementById('dm-mini-games-modal');
@@ -234,5 +249,82 @@ describe('DM mini-game tooling', () => {
 
     const deploymentsList = document.getElementById('dm-mini-games-deployments');
     expect(deploymentsList.textContent).toContain('Hero One');
+  });
+
+  test('queues multiple recipients from the roster at once', async () => {
+    await initDmModule();
+
+    await completeLogin();
+
+    document.getElementById('dm-tools-mini-games').dispatchEvent(new Event('click'));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const playerSelect = document.getElementById('dm-mini-games-player');
+    const options = Array.from(playerSelect.options).filter(option => option.value);
+    expect(options.length).toBeGreaterThanOrEqual(2);
+
+    options.forEach(option => {
+      option.selected = true;
+    });
+    playerSelect.dispatchEvent(new Event('change'));
+
+    const chips = document.querySelectorAll('#dm-mini-games-recipients .dm-mini-games__recipient-chip');
+    expect(chips).toHaveLength(options.length);
+    const deployBtn = document.getElementById('dm-mini-games-deploy');
+    expect(deployBtn.disabled).toBe(false);
+  });
+
+  test('prevents duplicates when adding comma-separated custom recipients', async () => {
+    await initDmModule();
+
+    await completeLogin();
+
+    document.getElementById('dm-tools-mini-games').dispatchEvent(new Event('click'));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const playerSelect = document.getElementById('dm-mini-games-player');
+    const heroOneOption = Array.from(playerSelect.options).find(option => option.value === 'Hero One');
+    expect(heroOneOption).toBeDefined();
+    heroOneOption.selected = true;
+    playerSelect.dispatchEvent(new Event('change'));
+
+    const customInput = document.getElementById('dm-mini-games-player-custom');
+    customInput.value = 'Hero One, Hero Three , Hero Four';
+    document.getElementById('dm-mini-games-add-custom').dispatchEvent(new Event('click'));
+
+    const chips = Array.from(document.querySelectorAll('#dm-mini-games-recipients .dm-mini-games__recipient-chip'));
+    const names = chips.map(chip => chip.querySelector('.dm-mini-games__recipient-name').textContent);
+    expect(names).toEqual(expect.arrayContaining(['Hero One', 'Hero Three', 'Hero Four']));
+    expect(names.filter(name => name === 'Hero One')).toHaveLength(1);
+    expect(global.toast).toHaveBeenCalledWith('Hero One is already queued', 'info');
+  });
+
+  test('clearing recipients empties the queue and disables deployment', async () => {
+    await initDmModule();
+
+    await completeLogin();
+
+    document.getElementById('dm-tools-mini-games').dispatchEvent(new Event('click'));
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const customInput = document.getElementById('dm-mini-games-player-custom');
+    customInput.value = 'Hero Three, Hero Four';
+    document.getElementById('dm-mini-games-add-custom').dispatchEvent(new Event('click'));
+
+    const recipients = document.getElementById('dm-mini-games-recipients');
+    expect(recipients.textContent).toContain('Hero Three');
+    const deployBtn = document.getElementById('dm-mini-games-deploy');
+    expect(deployBtn.disabled).toBe(false);
+
+    document.getElementById('dm-mini-games-clear-recipients').dispatchEvent(new Event('click'));
+
+    expect(recipients.textContent).toContain('No recipients added yet.');
+    expect(deployBtn.disabled).toBe(true);
   });
 });
