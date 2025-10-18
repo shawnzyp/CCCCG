@@ -1001,6 +1001,8 @@ function initDMLogin(){
   const creditMemoPreview = document.getElementById('dm-credit-memo-preview');
   const creditMemoPreviewText = document.getElementById('dm-credit-memo-previewText');
   const creditHistoryList = document.getElementById('dm-credit-history');
+  const creditHistoryFilterCharacter = document.getElementById('dm-credit-history-filter-character');
+  const creditHistoryFilterType = document.getElementById('dm-credit-history-filter-type');
   const creditHistoryExportBtn = document.getElementById('dm-credit-history-export');
   const creditHistoryClearBtn = document.getElementById('dm-credit-history-clear');
   const rewardHistoryList = document.getElementById('dm-reward-history');
@@ -1232,6 +1234,8 @@ function initDMLogin(){
   let playerCreditBroadcastListenerAttached = false;
   let playerRewardBroadcastChannel = null;
   let playerCreditHistory = [];
+  const DEFAULT_CREDIT_HISTORY_FILTERS = Object.freeze({ character: '', type: '' });
+  let creditHistoryFilters = { ...DEFAULT_CREDIT_HISTORY_FILTERS };
   let quickRewardHistory = [];
 
   function creditPad(n) {
@@ -1338,6 +1342,156 @@ function initDMLogin(){
     return playerCreditBroadcastChannel;
   }
 
+  function sanitizeCreditHistoryFilters(filters) {
+    const sanitized = { ...DEFAULT_CREDIT_HISTORY_FILTERS };
+    if (!filters || typeof filters !== 'object') return sanitized;
+    if (typeof filters.character === 'string') {
+      sanitized.character = filters.character.trim();
+    }
+    if (typeof filters.type === 'string') {
+      sanitized.type = filters.type.trim();
+    }
+    return sanitized;
+  }
+
+  function isDefaultCreditHistoryFilters(filters = creditHistoryFilters) {
+    if (!filters || typeof filters !== 'object') return true;
+    const normalized = sanitizeCreditHistoryFilters(filters);
+    return !normalized.character && !normalized.type;
+  }
+
+  function syncCreditHistoryFilterControls() {
+    if (creditHistoryFilterCharacter && creditHistoryFilterCharacter.value !== creditHistoryFilters.character) {
+      creditHistoryFilterCharacter.value = creditHistoryFilters.character;
+    }
+    if (creditHistoryFilterType && creditHistoryFilterType.value !== creditHistoryFilters.type) {
+      creditHistoryFilterType.value = creditHistoryFilters.type;
+    }
+  }
+
+  function setCreditHistoryFilters(updates = {}, { persist = true } = {}) {
+    if (!updates || typeof updates !== 'object') return creditHistoryFilters;
+    const next = { ...creditHistoryFilters };
+    let changed = false;
+    if (Object.prototype.hasOwnProperty.call(updates, 'character')) {
+      const value = typeof updates.character === 'string' ? updates.character.trim() : '';
+      if (next.character !== value) {
+        next.character = value;
+        changed = true;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'type')) {
+      const value = typeof updates.type === 'string' ? updates.type.trim() : '';
+      if (next.type !== value) {
+        next.type = value;
+        changed = true;
+      }
+    }
+    if (!changed) return creditHistoryFilters;
+    creditHistoryFilters = next;
+    if (persist) persistPlayerCreditHistory(playerCreditHistory);
+    syncCreditHistoryFilterControls();
+    return creditHistoryFilters;
+  }
+
+  function getFilteredPlayerCreditHistory() {
+    if (!Array.isArray(playerCreditHistory) || !playerCreditHistory.length) return [];
+    const { character, type } = creditHistoryFilters;
+    return playerCreditHistory.filter(entry => {
+      if (!entry) return false;
+      if (character && entry.player !== character) return false;
+      if (type && entry.type !== type) return false;
+      return true;
+    });
+  }
+
+  function reconcileCreditHistoryFiltersWithEntries({ persist = true } = {}) {
+    let changed = false;
+    const characterOptions = new Set();
+    playerCreditHistory.forEach(entry => {
+      if (entry && typeof entry.player === 'string' && entry.player) {
+        characterOptions.add(entry.player);
+      }
+    });
+    if (creditHistoryFilters.character && !characterOptions.has(creditHistoryFilters.character)) {
+      creditHistoryFilters = { ...creditHistoryFilters, character: DEFAULT_CREDIT_HISTORY_FILTERS.character };
+      changed = true;
+    }
+    const typeOptions = new Set(['Deposit', 'Debit']);
+    playerCreditHistory.forEach(entry => {
+      if (entry && typeof entry.type === 'string' && entry.type) {
+        typeOptions.add(entry.type);
+      }
+    });
+    if (creditHistoryFilters.type && !typeOptions.has(creditHistoryFilters.type)) {
+      creditHistoryFilters = { ...creditHistoryFilters, type: DEFAULT_CREDIT_HISTORY_FILTERS.type };
+      changed = true;
+    }
+    if (changed && persist) {
+      persistPlayerCreditHistory(playerCreditHistory);
+    }
+    return changed;
+  }
+
+  function updateCreditHistoryFilterOptions() {
+    let filtersAdjusted = false;
+    const playerOptions = new Set();
+    playerCreditHistory.forEach(entry => {
+      if (entry && typeof entry.player === 'string' && entry.player) {
+        playerOptions.add(entry.player);
+      }
+    });
+    if (creditHistoryFilterCharacter) {
+      creditHistoryFilterCharacter.innerHTML = '';
+      const allOption = document.createElement('option');
+      allOption.value = DEFAULT_CREDIT_HISTORY_FILTERS.character;
+      allOption.textContent = 'All characters';
+      creditHistoryFilterCharacter.appendChild(allOption);
+      Array.from(playerOptions)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+        .forEach(name => {
+          const option = document.createElement('option');
+          option.value = name;
+          option.textContent = name;
+          creditHistoryFilterCharacter.appendChild(option);
+        });
+      if (creditHistoryFilters.character && !playerOptions.has(creditHistoryFilters.character)) {
+        creditHistoryFilters = { ...creditHistoryFilters, character: DEFAULT_CREDIT_HISTORY_FILTERS.character };
+        filtersAdjusted = true;
+      }
+    }
+    const typeSet = new Set(['Deposit', 'Debit']);
+    playerCreditHistory.forEach(entry => {
+      if (entry && typeof entry.type === 'string' && entry.type) {
+        typeSet.add(entry.type);
+      }
+    });
+    if (creditHistoryFilters.type && !typeSet.has(creditHistoryFilters.type)) {
+      creditHistoryFilters = { ...creditHistoryFilters, type: DEFAULT_CREDIT_HISTORY_FILTERS.type };
+      filtersAdjusted = true;
+    }
+    if (creditHistoryFilterType) {
+      creditHistoryFilterType.innerHTML = '';
+      const allOption = document.createElement('option');
+      allOption.value = DEFAULT_CREDIT_HISTORY_FILTERS.type;
+      allOption.textContent = 'All types';
+      creditHistoryFilterType.appendChild(allOption);
+      Array.from(typeSet)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+        .forEach(type => {
+          const option = document.createElement('option');
+          option.value = type;
+          option.textContent = type === 'Debit' ? 'Debits' : type === 'Deposit' ? 'Deposits' : type;
+          creditHistoryFilterType.appendChild(option);
+        });
+    }
+    syncCreditHistoryFilterControls();
+    if (filtersAdjusted) {
+      persistPlayerCreditHistory(playerCreditHistory);
+    }
+  }
+
   function sanitizePlayerCreditPayload(payload = {}) {
     const amountValue = Number(payload.amount);
     const timestamp = (() => {
@@ -1362,28 +1516,48 @@ function initDMLogin(){
   }
 
   function parseStoredPlayerCreditHistory(raw) {
-    if (!raw) return [];
+    if (!raw) return { entries: [], filters: null };
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
-      if (parsed && typeof parsed === 'object') return [parsed];
+      if (Array.isArray(parsed)) {
+        return { entries: parsed, filters: null };
+      }
+      if (parsed && typeof parsed === 'object') {
+        if (Array.isArray(parsed.entries) || parsed.filters) {
+          const entries = Array.isArray(parsed.entries)
+            ? parsed.entries
+            : parsed.entries && typeof parsed.entries === 'object'
+              ? [parsed.entries]
+              : [];
+          return {
+            entries,
+            filters: parsed.filters && typeof parsed.filters === 'object' ? parsed.filters : null,
+          };
+        }
+        return { entries: [parsed], filters: null };
+      }
     } catch {
-      return [];
+      return { entries: [], filters: null };
     }
-    return [];
+    return { entries: [], filters: null };
   }
 
   function loadPlayerCreditHistoryFromStorage() {
-    if (typeof localStorage === 'undefined') return [];
+    if (typeof localStorage === 'undefined') {
+      return { entries: [], filters: sanitizeCreditHistoryFilters() };
+    }
     try {
       const raw = localStorage.getItem(PLAYER_CREDIT_STORAGE_KEY);
-      const parsed = parseStoredPlayerCreditHistory(raw);
-      const normalized = parsed
+      const { entries: storedEntries, filters } = parseStoredPlayerCreditHistory(raw);
+      const normalized = (Array.isArray(storedEntries) ? storedEntries : [])
         .map(item => sanitizePlayerCreditPayload(item))
         .filter(item => item && typeof item.timestamp === 'string');
-      return normalized.slice(0, PLAYER_CREDIT_HISTORY_LIMIT);
+      return {
+        entries: normalized.slice(0, PLAYER_CREDIT_HISTORY_LIMIT),
+        filters: sanitizeCreditHistoryFilters(filters),
+      };
     } catch {
-      return [];
+      return { entries: [], filters: sanitizeCreditHistoryFilters() };
     }
   }
 
@@ -1394,11 +1568,18 @@ function initDMLogin(){
   function persistPlayerCreditHistory(entries) {
     if (typeof localStorage === 'undefined') return;
     try {
-      if (!entries || !entries.length) {
+      const sanitizedFilters = sanitizeCreditHistoryFilters(creditHistoryFilters);
+      creditHistoryFilters = sanitizedFilters;
+      const hasEntries = Array.isArray(entries) && entries.length > 0;
+      if (!hasEntries && isDefaultCreditHistoryFilters(sanitizedFilters)) {
         localStorage.removeItem(PLAYER_CREDIT_STORAGE_KEY);
-      } else {
-        localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(entries));
+        return;
       }
+      const payload = {
+        entries: Array.isArray(entries) ? entries : [],
+        filters: sanitizedFilters,
+      };
+      localStorage.setItem(PLAYER_CREDIT_STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* ignore persistence failures */
     }
@@ -1416,13 +1597,18 @@ function initDMLogin(){
       deduped.push(item);
     });
     playerCreditHistory = deduped.slice(0, PLAYER_CREDIT_HISTORY_LIMIT);
+    reconcileCreditHistoryFiltersWithEntries({ persist: false });
     if (persist) {
       persistPlayerCreditHistory(playerCreditHistory);
     }
     return playerCreditHistory;
   }
 
-  playerCreditHistory = loadPlayerCreditHistoryFromStorage();
+  {
+    const storedCreditState = loadPlayerCreditHistoryFromStorage();
+    creditHistoryFilters = sanitizeCreditHistoryFilters(storedCreditState.filters);
+    playerCreditHistory = setPlayerCreditHistory(storedCreditState.entries, { persist: false });
+  }
 
   function appendPlayerCreditHistory(entry) {
     const sanitized = sanitizePlayerCreditPayload(entry);
@@ -1464,41 +1650,40 @@ function initDMLogin(){
     return `${timestampLabel} — ${type} ₡${formatCreditAmountDisplay(amount)} ${direction} ${playerName} via ${sender}.${memoSuffix}`;
   }
 
-  function updateCreditHistoryActionState() {
-    const isEmpty = !playerCreditHistory.length;
-    if (creditHistoryClearBtn) creditHistoryClearBtn.disabled = isEmpty;
-    if (creditHistoryExportBtn) creditHistoryExportBtn.disabled = isEmpty;
+  function updateCreditHistoryActionState(filteredEntries = getFilteredPlayerCreditHistory()) {
+    const hasEntries = Array.isArray(playerCreditHistory) && playerCreditHistory.length > 0;
+    const hasFilteredEntries = Array.isArray(filteredEntries) && filteredEntries.length > 0;
+    if (creditHistoryClearBtn) creditHistoryClearBtn.disabled = !hasEntries;
+    if (creditHistoryExportBtn) creditHistoryExportBtn.disabled = !hasFilteredEntries;
   }
 
   function renderPlayerCreditHistory() {
-    if (!creditHistoryList) {
-      updateCreditHistoryActionState();
-      return;
+    updateCreditHistoryFilterOptions();
+    const entries = getFilteredPlayerCreditHistory();
+    if (creditHistoryList) {
+      creditHistoryList.innerHTML = '';
+      if (entries.length) {
+        const frag = document.createDocumentFragment();
+        entries.forEach(entry => {
+          const item = document.createElement('li');
+          const description = formatCreditHistoryEntry(entry);
+          const text = document.createElement('span');
+          text.textContent = description;
+          item.appendChild(text);
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'btn-sm';
+          copyBtn.dataset.creditHistoryCopy = 'true';
+          copyBtn.dataset.creditHistoryText = description;
+          copyBtn.textContent = 'Copy';
+          copyBtn.setAttribute('aria-label', `Copy entry recorded ${formatCreditHistoryTimestamp(entry.timestamp)}`);
+          item.appendChild(copyBtn);
+          frag.appendChild(item);
+        });
+        creditHistoryList.appendChild(frag);
+      }
     }
-    creditHistoryList.innerHTML = '';
-    if (!playerCreditHistory.length) {
-      updateCreditHistoryActionState();
-      return;
-    }
-    const frag = document.createDocumentFragment();
-    playerCreditHistory.forEach(entry => {
-      const item = document.createElement('li');
-      const description = formatCreditHistoryEntry(entry);
-      const text = document.createElement('span');
-      text.textContent = description;
-      item.appendChild(text);
-      const copyBtn = document.createElement('button');
-      copyBtn.type = 'button';
-      copyBtn.className = 'btn-sm';
-      copyBtn.dataset.creditHistoryCopy = 'true';
-      copyBtn.dataset.creditHistoryText = description;
-      copyBtn.textContent = 'Copy';
-      copyBtn.setAttribute('aria-label', `Copy entry recorded ${formatCreditHistoryTimestamp(entry.timestamp)}`);
-      item.appendChild(copyBtn);
-      frag.appendChild(item);
-    });
-    creditHistoryList.appendChild(frag);
-    updateCreditHistoryActionState();
+    updateCreditHistoryActionState(entries);
   }
 
   function clearPlayerCreditHistory({ announce = true } = {}) {
@@ -1517,11 +1702,17 @@ function initDMLogin(){
   }
 
   async function exportPlayerCreditHistory() {
-    if (!playerCreditHistory.length) {
-      if (typeof toast === 'function') toast('Credit history is empty', 'info');
+    const entries = getFilteredPlayerCreditHistory();
+    if (!entries.length) {
+      if (typeof toast === 'function') {
+        const message = playerCreditHistory.length
+          ? 'No credit history entries match the current filters'
+          : 'Credit history is empty';
+        toast(message, 'info');
+      }
       return false;
     }
-    const lines = playerCreditHistory.map(entry => formatCreditHistoryEntry(entry));
+    const lines = entries.map(entry => formatCreditHistoryEntry(entry));
     const payload = lines.join('\n');
     if (!payload) {
       if (typeof toast === 'function') toast('Nothing to export', 'info');
@@ -7597,6 +7788,18 @@ function initDMLogin(){
   quickHpSpForm?.addEventListener('submit', handleQuickHpSpSubmit);
   quickResonanceForm?.addEventListener('submit', handleQuickResonanceSubmit);
   quickFactionForm?.addEventListener('submit', handleQuickFactionSubmit);
+
+  creditHistoryFilterCharacter?.addEventListener('change', event => {
+    const value = typeof event?.target?.value === 'string' ? event.target.value : '';
+    setCreditHistoryFilters({ character: value });
+    renderPlayerCreditHistory();
+  });
+
+  creditHistoryFilterType?.addEventListener('change', event => {
+    const value = typeof event?.target?.value === 'string' ? event.target.value : '';
+    setCreditHistoryFilters({ type: value });
+    renderPlayerCreditHistory();
+  });
 
   creditHistoryClearBtn?.addEventListener('click', () => {
     clearPlayerCreditHistory();

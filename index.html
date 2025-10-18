@@ -1960,10 +1960,34 @@
             </div>
             <section class="dm-credit__history" aria-labelledby="dm-credit-history-heading">
               <div class="dm-credit__historyHeader">
-                <h4 id="dm-credit-history-heading">Recent History</h4>
-                <div class="dm-credit__historyActions" role="group" aria-label="Credit history actions">
-                  <button id="dm-credit-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
-                  <button id="dm-credit-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+                <div class="dm-credit__historyHeaderRow">
+                  <h4 id="dm-credit-history-heading">Recent History</h4>
+                  <div class="dm-credit__historyActions" role="group" aria-label="Credit history actions">
+                    <button id="dm-credit-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+                    <button id="dm-credit-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+                  </div>
+                </div>
+                <div class="dm-credit__historyFilters" role="group" aria-label="Credit history filters">
+                  <label class="dm-credit__historyFilter">
+                    <span class="dm-credit__label">Character</span>
+                    <select
+                      id="dm-credit-history-filter-character"
+                      aria-label="Filter credit history by character"
+                    >
+                      <option value="">All characters</option>
+                    </select>
+                  </label>
+                  <label class="dm-credit__historyFilter">
+                    <span class="dm-credit__label">Type</span>
+                    <select
+                      id="dm-credit-history-filter-type"
+                      aria-label="Filter credit history by transaction type"
+                    >
+                      <option value="">All types</option>
+                      <option value="Deposit">Deposits</option>
+                      <option value="Debit">Debits</option>
+                    </select>
+                  </label>
                 </div>
               </div>
               <ul id="dm-credit-history" class="dm-credit__historyList" aria-live="polite"></ul>
