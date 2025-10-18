@@ -2787,6 +2787,8 @@ body:not(.no-hover) .credits-card__submit:hover,
 .death-save-group input[type="checkbox"]{margin:0;}
 #death-save-out.death-save-result{display:flex;align-items:center;justify-content:center;border:1px solid var(--accent);border-radius:var(--radius);width:64px;height:64px;font-weight:700;}
 #death-save-out.death-save-result:empty::before{content:attr(data-placeholder);visibility:hidden;}
+.death-save-result--pulse{animation:death-save-result-pulse 220ms ease-out;}
+@keyframes death-save-result-pulse{0%{transform:scale(0.96);box-shadow:0 0 0 0 rgba(255,255,255,0.3);}100%{transform:scale(1);box-shadow:0 0 0 12px rgba(255,255,255,0);}}
 .death-save-buttons{display:flex;flex-direction:column;gap:8px;}
 .death-save-controls{display:flex;flex-direction:column;gap:12px;}
 .death-save-control{display:flex;flex-direction:column;gap:4px;}
