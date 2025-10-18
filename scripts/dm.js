@@ -454,6 +454,8 @@ function formatNotification(entry, { html = false } = {}) {
   return `[${entry.ts}] ${prefix}${entry.detail}`;
 }
 
+let dmTestHooks = null;
+
 function initDMLogin(){
   const dmBtn = document.getElementById('dm-login');
   const dmToggleBtn = document.getElementById('dm-tools-toggle');
@@ -666,6 +668,7 @@ function initDMLogin(){
       { key: 'range', label: 'Range', kind: 'input', type: 'text', placeholder: 'Reach, 20m, etc.' },
       { key: 'attackAbility', label: 'Attack Ability', kind: 'select', options: CATALOG_WEAPON_ABILITY_OPTIONS, placeholder: 'Select ability (optional)' },
       { key: 'proficient', label: 'Proficient', kind: 'input', type: 'checkbox', hint: 'Check if the hero is proficient with this weapon.' },
+      { key: CATALOG_RECIPIENT_FIELD_KEY, label: 'Recipient', kind: 'select', placeholder: CATALOG_RECIPIENT_PLACEHOLDER },
     ],
     armor: [
       { key: 'defense', label: 'Defense Bonus', kind: 'input', type: 'text', placeholder: '+2 Guard, Resist Energy' },
@@ -673,6 +676,7 @@ function initDMLogin(){
       { key: 'slot', label: 'Armor Slot', kind: 'select', options: CATALOG_ARMOR_SLOT_OPTIONS, placeholder: 'Select slot' },
       { key: 'bonusValue', label: 'Bonus Value', kind: 'input', type: 'number', inputMode: 'numeric', step: 1, placeholder: '0' },
       { key: 'equipped', label: 'Mark Equipped', kind: 'input', type: 'checkbox', hint: 'Deliver equipped on receipt.' },
+      { key: CATALOG_RECIPIENT_FIELD_KEY, label: 'Recipient', kind: 'select', placeholder: CATALOG_RECIPIENT_PLACEHOLDER },
     ],
     items: [
       { key: 'uses', label: 'Uses', kind: 'input', type: 'text', placeholder: 'Single-use, 3 charges, etc.' },
@@ -3705,12 +3709,19 @@ function initDMLogin(){
   }
 
   async function populateCatalogRecipients() {
-    const form = catalogForms.get('items');
-    if (!form) return;
-    const select = form.querySelector(`select[data-catalog-field="${CATALOG_RECIPIENT_FIELD_KEY}"]`);
-    if (!select) return;
-    const previousValue = typeof select.value === 'string' ? select.value : '';
-    const placeholder = select.dataset.placeholder || CATALOG_RECIPIENT_PLACEHOLDER;
+    const recipientFields = [];
+    catalogForms.forEach(form => {
+      if (!form) return;
+      const selects = form.querySelectorAll(`select[data-catalog-field="${CATALOG_RECIPIENT_FIELD_KEY}"]`);
+      selects.forEach(select => {
+        recipientFields.push({
+          select,
+          previous: typeof select.value === 'string' ? select.value : '',
+          placeholder: select.dataset.placeholder || CATALOG_RECIPIENT_PLACEHOLDER,
+        });
+      });
+    });
+    if (!recipientFields.length) return;
     let characters = [];
     try {
       const listed = await listCharacters();
@@ -3729,30 +3740,33 @@ function initDMLogin(){
       seen.add(trimmed);
       uniqueNames.push(trimmed);
     });
-    const trimmedPrevious = previousValue.trim();
-    select.innerHTML = '';
-    const placeholderOption = document.createElement('option');
-    placeholderOption.value = '';
-    placeholderOption.textContent = placeholder || CATALOG_RECIPIENT_PLACEHOLDER;
-    select.appendChild(placeholderOption);
-    uniqueNames.forEach(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
-    });
-    if (trimmedPrevious && !seen.has(trimmedPrevious)) {
-      const retained = document.createElement('option');
-      retained.value = trimmedPrevious;
-      retained.textContent = trimmedPrevious;
-      select.appendChild(retained);
-    }
-    if (trimmedPrevious) {
-      select.value = trimmedPrevious;
-      if (select.value !== trimmedPrevious) {
-        select.value = '';
+    const rosterSet = new Set(uniqueNames);
+    recipientFields.forEach(({ select, previous, placeholder }) => {
+      const trimmedPrevious = typeof previous === 'string' ? previous.trim() : '';
+      select.innerHTML = '';
+      const placeholderOption = document.createElement('option');
+      placeholderOption.value = '';
+      placeholderOption.textContent = placeholder || CATALOG_RECIPIENT_PLACEHOLDER;
+      select.appendChild(placeholderOption);
+      uniqueNames.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        select.appendChild(option);
+      });
+      if (trimmedPrevious && !rosterSet.has(trimmedPrevious)) {
+        const retained = document.createElement('option');
+        retained.value = trimmedPrevious;
+        retained.textContent = trimmedPrevious;
+        select.appendChild(retained);
       }
-    }
+      if (trimmedPrevious) {
+        select.value = trimmedPrevious;
+        if (select.value !== trimmedPrevious) {
+          select.value = '';
+        }
+      }
+    });
   }
 
   function updateCatalogTabState() {
@@ -5135,6 +5149,27 @@ function initDMLogin(){
   window.dmRequireLogin = requireLogin;
   window.openRewards = openRewards;
   window.closeRewards = closeRewards;
+
+  dmTestHooks = {
+    populateCatalogRecipients,
+    buildCatalogPayload,
+    handleCatalogSubmit,
+    deliverCatalogEquipment,
+    catalogForms,
+    CATALOG_RECIPIENT_FIELD_KEY,
+    CATALOG_RECIPIENT_PLACEHOLDER,
+  };
+}
+if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {
+  Object.defineProperty(window, '__dmTestHooks', {
+    configurable: true,
+    get() {
+      if (!dmTestHooks) {
+        initDMLogin();
+      }
+      return dmTestHooks;
+    },
+  });
 }
 if (document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', initDMLogin);
