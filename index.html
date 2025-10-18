@@ -1891,6 +1891,28 @@
               <button id="dm-credit-submit" class="dm-credit__submit" type="button" disabled>Submit</button>
               <div class="dm-credit__id">ID: <span id="dm-credit-txid">OMNI-000000</span></div>
             </footer>
+            <div
+              id="dm-credit-confirmation"
+              class="dm-credit__confirm"
+              role="dialog"
+              aria-hidden="true"
+              aria-labelledby="dm-credit-confirmation-title"
+              hidden
+            >
+              <div class="dm-credit__confirmHeader">
+                <h4 id="dm-credit-confirmation-title">Confirm transfer</h4>
+                <p id="dm-credit-confirmation-message">Review the details before delivering this transfer.</p>
+              </div>
+              <dl id="dm-credit-confirmation-summary" class="dm-credit__confirmSummary"></dl>
+              <div class="dm-credit__confirmActions" role="group" aria-label="Confirm transfer actions">
+                <button id="dm-credit-confirmation-cancel" type="button" class="btn-sm dm-credit__confirmCancel">Cancel</button>
+                <button id="dm-credit-confirmation-approve" type="button" class="somf-btn somf-primary dm-credit__confirmApprove">Confirm transfer</button>
+              </div>
+            </div>
+            <div id="dm-credit-undo" class="dm-credit__undo" aria-hidden="true" hidden>
+              <div id="dm-credit-undo-text" class="dm-credit__undoText">—</div>
+              <button id="dm-credit-undo-button" type="button" class="btn-sm dm-credit__undoButton">Undo</button>
+            </div>
             <div id="dm-credit-memo-preview" class="dm-credit__memo-preview" hidden>
               <div class="dm-credit__label">Memo</div>
               <p id="dm-credit-memo-previewText" class="dm-credit__memo-text">—</p>

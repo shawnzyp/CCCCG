@@ -25,6 +25,8 @@ const MAX_STORED_NOTIFICATIONS = 100;
 const DM_UNREAD_NOTIFICATIONS_KEY = 'cc:dm-notifications-unread';
 const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
+const CREDIT_UNDO_STORAGE_KEY = 'cc:dm-credit-last-transaction';
+const CREDIT_UNDO_EXPIRY_MS = 2 * 60 * 1000;
 
 function loadStoredUnreadCount() {
   if (typeof sessionStorage === 'undefined') return 0;
@@ -544,6 +546,14 @@ function initDMLogin(){
   const creditHistoryList = document.getElementById('dm-credit-history');
   const creditHistoryExportBtn = document.getElementById('dm-credit-history-export');
   const creditHistoryClearBtn = document.getElementById('dm-credit-history-clear');
+  const creditConfirmContainer = document.getElementById('dm-credit-confirmation');
+  const creditConfirmTitle = document.getElementById('dm-credit-confirmation-title');
+  const creditConfirmSummary = document.getElementById('dm-credit-confirmation-summary');
+  const creditConfirmApprove = document.getElementById('dm-credit-confirmation-approve');
+  const creditConfirmCancel = document.getElementById('dm-credit-confirmation-cancel');
+  const creditUndoContainer = document.getElementById('dm-credit-undo');
+  const creditUndoText = document.getElementById('dm-credit-undo-text');
+  const creditUndoButton = document.getElementById('dm-credit-undo-button');
   const quickRewardTargetSelect = document.getElementById('dm-reward-target');
   const quickXpForm = document.getElementById('dm-reward-xp-form');
   const quickXpMode = document.getElementById('dm-reward-xp-mode');
@@ -569,6 +579,9 @@ function initDMLogin(){
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
+  let creditUndoState = null;
+  let creditUndoTimer = null;
+  let creditConfirmationState = null;
 
   dmToggleButtonRef = dmToggleBtn;
   dmToggleBadgeRef = dmToggleBtn ? dmToggleBtn.querySelector('[data-role="dm-unread-badge"]') : null;
@@ -1177,6 +1190,319 @@ function initDMLogin(){
     const amount = getCreditAmountNumber();
     const isValidAmount = Number.isFinite(amount) && amount > 0;
     creditSubmit.disabled = !(playerSelected && isValidAmount);
+  }
+
+  function describeCreditTransactionType(type) {
+    return type === 'Debit' ? 'Debit' : 'Deposit';
+  }
+
+  function buildCreditSummaryLine({ player, amount, transactionType }) {
+    const target = typeof player === 'string' && player ? player : 'player';
+    const formattedAmount = `₡${formatCreditAmountDisplay(Math.abs(Number(amount) || 0))}`;
+    const direction = transactionType === 'Debit' ? 'from' : 'to';
+    return `${describeCreditTransactionType(transactionType)} ${formattedAmount} ${direction} ${target}`;
+  }
+
+  function renderCreditConfirmationSummary(details) {
+    if (!creditConfirmSummary) return;
+    creditConfirmSummary.innerHTML = '';
+    const entries = [
+      ['Player', details.player || '—'],
+      ['Account', details.accountNumber || '—'],
+      ['Type', describeCreditTransactionType(details.transactionType)],
+      ['Amount', `₡${formatCreditAmountDisplay(details.amount)}`],
+      ['Sender', details.senderLabel || '—'],
+      ['Memo', details.memo ? details.memo : '—'],
+      ['Reference', details.refValue || '—'],
+      ['Transaction ID', details.txidValue || '—'],
+    ];
+    const fragment = document.createDocumentFragment();
+    entries.forEach(([label, value]) => {
+      const term = document.createElement('dt');
+      term.textContent = label;
+      const desc = document.createElement('dd');
+      desc.textContent = value || '—';
+      fragment.append(term, desc);
+    });
+    creditConfirmSummary.appendChild(fragment);
+  }
+
+  function hideCreditConfirmation() {
+    if (!creditConfirmContainer) return;
+    creditConfirmContainer.hidden = true;
+    creditConfirmContainer.setAttribute('aria-hidden', 'true');
+    creditConfirmContainer.removeAttribute('data-visible');
+    creditConfirmContainer.removeAttribute('data-state');
+    creditConfirmContainer.removeAttribute('data-transaction-type');
+    creditConfirmContainer.removeAttribute('data-player');
+    creditConfirmContainer.removeAttribute('data-amount');
+    if (creditConfirmSummary) {
+      creditConfirmSummary.innerHTML = '';
+    }
+  }
+
+  function finalizeCreditConfirmation(state, outcome) {
+    if (!state || state.resolved) return;
+    state.resolved = true;
+    state.cleanup?.();
+    if (creditConfirmationState === state) {
+      creditConfirmationState = null;
+    }
+    hideCreditConfirmation();
+    state.resolve(outcome);
+  }
+
+  function cancelPendingCreditConfirmation() {
+    if (!creditConfirmationState) return;
+    finalizeCreditConfirmation(creditConfirmationState, false);
+  }
+
+  function requestCreditTransferConfirmation(details) {
+    if (!creditConfirmContainer || !creditConfirmApprove || !creditConfirmCancel) {
+      const summary = buildCreditSummaryLine(details);
+      const memoNote = details.memo ? ` — Memo: ${details.memo}` : '';
+      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+        return Promise.resolve(window.confirm(`${summary}${memoNote}. Proceed?`));
+      }
+      return Promise.resolve(true);
+    }
+
+    cancelPendingCreditConfirmation();
+
+    return new Promise(resolve => {
+      const state = { resolved: false, resolve, cleanup: null };
+      const onApprove = () => finalizeCreditConfirmation(state, true);
+      const onCancel = () => finalizeCreditConfirmation(state, false);
+      const onKeydown = event => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          finalizeCreditConfirmation(state, false);
+        }
+      };
+      state.cleanup = () => {
+        creditConfirmApprove.removeEventListener('click', onApprove);
+        creditConfirmCancel.removeEventListener('click', onCancel);
+        creditConfirmContainer.removeEventListener('keydown', onKeydown);
+      };
+      creditConfirmationState = state;
+      renderCreditConfirmationSummary(details);
+      if (creditConfirmTitle) {
+        creditConfirmTitle.textContent = details.transactionType === 'Debit' ? 'Confirm debit' : 'Confirm deposit';
+      }
+      creditConfirmContainer.hidden = false;
+      creditConfirmContainer.setAttribute('aria-hidden', 'false');
+      creditConfirmContainer.setAttribute('data-visible', 'true');
+      creditConfirmContainer.setAttribute('data-state', 'pending');
+      creditConfirmContainer.setAttribute('data-transaction-type', details.transactionType);
+      creditConfirmContainer.setAttribute('data-player', details.player || '');
+      creditConfirmContainer.setAttribute('data-amount', String(details.amount));
+      creditConfirmApprove.disabled = false;
+      creditConfirmCancel.disabled = false;
+      creditConfirmApprove.addEventListener('click', onApprove, { once: true });
+      creditConfirmCancel.addEventListener('click', onCancel, { once: true });
+      creditConfirmContainer.addEventListener('keydown', onKeydown);
+      setTimeout(() => {
+        if (creditConfirmApprove) {
+          try {
+            creditConfirmApprove.focus({ preventScroll: true });
+          } catch {
+            creditConfirmApprove.focus?.();
+          }
+        }
+      }, 0);
+    });
+  }
+
+  function clearLastCreditTransaction() {
+    creditUndoState = null;
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(CREDIT_UNDO_STORAGE_KEY);
+      } catch {
+        /* ignore storage errors */
+      }
+    }
+  }
+
+  function storeLastCreditTransaction(details) {
+    const amount = Math.abs(Number(details.amount) || 0);
+    const record = {
+      player: details.player || '',
+      amount,
+      transactionType: describeCreditTransactionType(details.transactionType),
+      memo: sanitizeCreditMemo(details.memo || ''),
+      senderLabel: details.senderLabel || '',
+      sender: details.sender || '',
+      accountNumber: details.accountNumber || '',
+      ref: details.ref || '',
+      txid: details.txid || '',
+      timestampIso: details.timestampIso || '',
+      storedAt: Date.now(),
+    };
+    creditUndoState = { ...record };
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem(CREDIT_UNDO_STORAGE_KEY, JSON.stringify(record));
+      } catch {
+        /* ignore storage errors */
+      }
+    }
+    return { ...record };
+  }
+
+  function loadLastCreditTransaction() {
+    if (creditUndoState) {
+      const age = Date.now() - creditUndoState.storedAt;
+      if (age <= CREDIT_UNDO_EXPIRY_MS) {
+        return { ...creditUndoState };
+      }
+      creditUndoState = null;
+    }
+    if (typeof sessionStorage === 'undefined') return null;
+    try {
+      const raw = sessionStorage.getItem(CREDIT_UNDO_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const player = typeof parsed.player === 'string' ? parsed.player : '';
+      const amount = Number(parsed.amount);
+      const storedAt = Number(parsed.storedAt) || Date.now();
+      if (!player || !Number.isFinite(amount) || amount <= 0) return null;
+      if (Date.now() - storedAt > CREDIT_UNDO_EXPIRY_MS) {
+        clearLastCreditTransaction();
+        return null;
+      }
+      const record = {
+        player,
+        amount: Math.abs(amount),
+        transactionType: describeCreditTransactionType(parsed.transactionType),
+        memo: sanitizeCreditMemo(parsed.memo || ''),
+        senderLabel: typeof parsed.senderLabel === 'string' ? parsed.senderLabel : '',
+        sender: typeof parsed.sender === 'string' ? parsed.sender : '',
+        accountNumber: typeof parsed.accountNumber === 'string' ? parsed.accountNumber : '',
+        ref: typeof parsed.ref === 'string' ? parsed.ref : '',
+        txid: typeof parsed.txid === 'string' ? parsed.txid : '',
+        timestampIso: typeof parsed.timestampIso === 'string' ? parsed.timestampIso : '',
+        storedAt,
+      };
+      creditUndoState = { ...record };
+      return record;
+    } catch {
+      return null;
+    }
+  }
+
+  function hideCreditUndo({ retainRecord = false } = {}) {
+    if (creditUndoTimer) {
+      clearTimeout(creditUndoTimer);
+      creditUndoTimer = null;
+    }
+    if (creditUndoContainer) {
+      creditUndoContainer.hidden = true;
+      creditUndoContainer.setAttribute('aria-hidden', 'true');
+      delete creditUndoContainer.dataset.player;
+      delete creditUndoContainer.dataset.transactionType;
+      delete creditUndoContainer.dataset.amount;
+      delete creditUndoContainer.dataset.storedAt;
+      delete creditUndoContainer.dataset.expiresAt;
+    }
+    if (!retainRecord) {
+      clearLastCreditTransaction();
+    }
+    if (creditUndoButton) {
+      creditUndoButton.disabled = false;
+    }
+  }
+
+  function showCreditUndo(details) {
+    const record = { ...details };
+    if (!record.storedAt) {
+      record.storedAt = Date.now();
+    }
+    creditUndoState = { ...record };
+    if (creditUndoContainer) {
+      creditUndoContainer.hidden = false;
+      creditUndoContainer.setAttribute('aria-hidden', 'false');
+      creditUndoContainer.dataset.player = record.player || '';
+      creditUndoContainer.dataset.transactionType = record.transactionType || '';
+      creditUndoContainer.dataset.amount = String(record.amount);
+      creditUndoContainer.dataset.storedAt = String(record.storedAt);
+      const expiresAt = record.storedAt + CREDIT_UNDO_EXPIRY_MS;
+      creditUndoContainer.dataset.expiresAt = String(expiresAt);
+      if (creditUndoText) {
+        creditUndoText.textContent = `${buildCreditSummaryLine(record)} ready to undo.`;
+      }
+      if (creditUndoButton) {
+        creditUndoButton.disabled = false;
+      }
+      if (creditUndoTimer) {
+        clearTimeout(creditUndoTimer);
+      }
+      const delay = Math.max(0, expiresAt - Date.now());
+      creditUndoTimer = setTimeout(() => {
+        if (creditUndoState && creditUndoState.storedAt === record.storedAt) {
+          hideCreditUndo();
+        }
+      }, delay);
+    }
+  }
+
+  function restoreCreditUndoState() {
+    const record = loadLastCreditTransaction();
+    if (record) {
+      showCreditUndo(record);
+    } else {
+      hideCreditUndo();
+    }
+  }
+
+  async function handleCreditUndoClick(event) {
+    if (event) event.preventDefault();
+    if (!creditUndoButton || creditUndoButton.disabled) return;
+    const record = loadLastCreditTransaction();
+    if (!record) {
+      hideCreditUndo();
+      return;
+    }
+    creditUndoButton.disabled = true;
+    const inverseType = record.transactionType === 'Debit' ? 'Deposit' : 'Debit';
+    const memoBase = record.memo ? `Undo: ${record.memo}` : 'Undo last transfer';
+    const undoMemo = sanitizeCreditMemo(memoBase).slice(0, 240);
+    const senderLabel = record.senderLabel || getCreditSenderLabel();
+    const senderValue = record.sender || creditSenderSelect?.value || '';
+    const ref = record.ref ? `${record.ref}-UNDO` : generateCreditReference(senderValue);
+    const txid = record.txid ? `${record.txid}-UNDO` : generateCreditTxid(senderValue);
+    try {
+      await rewardExecutor({
+        player: record.player,
+        operations: [
+          {
+            type: 'credits',
+            amount: record.amount,
+            transactionType: inverseType,
+            memo: undoMemo,
+            senderLabel,
+            sender: senderValue,
+            accountNumber: record.accountNumber,
+            ref,
+            txid,
+          },
+        ],
+      });
+      hideCreditUndo();
+      randomizeCreditIdentifiers();
+      updateCreditSenderDataset();
+      captureCreditTimestamp();
+      if (typeof toast === 'function') {
+        toast('Transfer reversed', 'info');
+      }
+    } catch (err) {
+      console.error('Failed to undo credit transfer', err);
+      if (typeof toast === 'function') {
+        toast('Failed to undo transfer', 'error');
+      }
+      creditUndoButton.disabled = false;
+    }
   }
 
   function getRewardTarget() {
@@ -1984,13 +2310,33 @@ function initDMLogin(){
     const transactionType = creditTxnType?.value === 'Debit' ? 'Debit' : 'Deposit';
     const amount = Math.abs(rawAmount);
     const accountNumber = computeCreditAccountNumber(player);
+    const senderValue = creditSenderSelect?.value || '';
     const senderLabel = getCreditSenderLabel();
     const memo = sanitizeCreditMemo(creditMemoInput?.value || '');
     const refValue = creditCard?.getAttribute('data-ref') || creditRef?.textContent || '';
     const txidValue = creditCard?.getAttribute('data-txid') || creditTxid?.textContent || '';
-    const originalLabel = creditSubmit.textContent;
+    const originalLabel = creditSubmit.textContent || 'Submit';
     creditSubmit.disabled = true;
+    creditSubmit.textContent = originalLabel;
+    const confirmed = await requestCreditTransferConfirmation({
+      player,
+      amount,
+      transactionType,
+      memo,
+      senderLabel,
+      sender: senderValue,
+      accountNumber,
+      refValue,
+      txidValue,
+    });
+    if (!confirmed) {
+      creditSubmit.textContent = originalLabel;
+      creditSubmit.disabled = false;
+      updateCreditSubmitState();
+      return;
+    }
     creditSubmit.textContent = 'Sending…';
+    hideCreditUndo({ retainRecord: true });
     try {
       const result = await rewardExecutor({
         player,
@@ -2001,6 +2347,7 @@ function initDMLogin(){
             transactionType,
             memo,
             senderLabel,
+            sender: senderValue,
             accountNumber,
             ref: refValue,
             txid: txidValue,
@@ -2022,6 +2369,19 @@ function initDMLogin(){
       updateCreditMemoPreview(memo);
       randomizeCreditIdentifiers();
       updateCreditSenderDataset();
+      const storedRecord = storeLastCreditTransaction({
+        player,
+        amount,
+        transactionType,
+        memo,
+        senderLabel,
+        sender: senderValue,
+        accountNumber,
+        ref: refValue,
+        txid: txidValue,
+        timestampIso,
+      });
+      showCreditUndo(storedRecord);
       if (creditCard) {
         if (transactionType === 'Debit') {
           setCreditDebitState('completed');
@@ -2051,6 +2411,7 @@ function initDMLogin(){
       creditSubmit.textContent = originalLabel || 'Submit';
       creditSubmit.disabled = false;
       updateCreditSubmitState();
+      restoreCreditUndoState();
     }
   }
 
@@ -2088,6 +2449,7 @@ function initDMLogin(){
       }
       resetCreditForm({ preserveAccount: true });
       renderPlayerCreditHistory();
+      restoreCreditUndoState();
       await refreshQuickRewardTargets({ preserveSelection: true, roster: roster });
       if (focusAmount) {
         setTimeout(() => {
@@ -5367,18 +5729,21 @@ function initDMLogin(){
   creditAccountSelect?.addEventListener('change', () => {
     applyCreditAccountSelection();
     updateCreditSubmitState();
+    cancelPendingCreditConfirmation();
   });
 
   creditAmountInput?.addEventListener('input', () => {
     const amount = getCreditAmountNumber();
     updateCreditCardAmountDisplay(amount);
     updateCreditSubmitState();
+    cancelPendingCreditConfirmation();
   });
 
   creditAmountInput?.addEventListener('blur', () => {
     const amount = getCreditAmountNumber();
     if (creditAmountInput) creditAmountInput.value = formatCreditAmountDisplay(amount);
     updateCreditCardAmountDisplay(amount);
+    cancelPendingCreditConfirmation();
   });
 
   creditAmountInput?.addEventListener('keydown', e => {
@@ -5392,6 +5757,7 @@ function initDMLogin(){
     randomizeCreditIdentifiers();
     updateCreditSenderDataset();
     captureCreditTimestamp();
+    cancelPendingCreditConfirmation();
   });
 
   creditTxnType?.addEventListener('change', () => {
@@ -5402,11 +5768,15 @@ function initDMLogin(){
     }
     updateCreditTransactionType();
     updateCreditSubmitState();
+    cancelPendingCreditConfirmation();
   });
 
   creditMemoInput?.addEventListener('input', () => {
     updateCreditMemoPreview(creditMemoInput.value);
+    cancelPendingCreditConfirmation();
   });
+
+  creditUndoButton?.addEventListener('click', handleCreditUndoClick);
 
   creditSubmit?.addEventListener('click', handleCreditRewardSubmit);
 
