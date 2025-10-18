@@ -318,7 +318,10 @@ function loadStoredNotifications() {
         const severity = typeof entry.severity === 'string'
           ? entry.severity.trim().toLowerCase()
           : '';
-        const record = { ts, char, detail: entry.detail };
+        const resolved = entry.resolved === true
+          || entry.resolved === 'true'
+          || entry.resolved === 1;
+        const record = { ts, char, detail: entry.detail, resolved: Boolean(resolved) };
         if (severity) record.severity = severity;
         if (html) record.html = html;
         return record;
@@ -345,6 +348,7 @@ function loadStoredNotificationFilters() {
     if (typeof parsed.character === 'string') next.character = parsed.character;
     if (typeof parsed.severity === 'string') next.severity = parsed.severity;
     if (typeof parsed.search === 'string') next.search = parsed.search;
+    if (typeof parsed.resolved === 'string') next.resolved = parsed.resolved;
     return next;
   } catch {
     return defaults;
@@ -353,10 +357,26 @@ function loadStoredNotificationFilters() {
 
 const notifications = loadStoredNotifications();
 
+function countUnresolvedNotifications() {
+  return notifications.reduce((count, entry) => {
+    return count + (entry?.resolved ? 0 : 1);
+  }, 0);
+}
+
+function clampUnreadCountToUnresolved() {
+  const unresolvedCount = countUnresolvedNotifications();
+  if (unreadNotificationCount > unresolvedCount) {
+    setUnreadCount(unresolvedCount);
+  }
+  return unresolvedCount;
+}
+
 const DM_NOTIFICATION_FILTER_STORAGE_KEY = 'cc_dm_notification_filters';
-const NOTIFICATION_FILTER_DEFAULTS = Object.freeze({ character: 'all', severity: 'all', search: '' });
+const NOTIFICATION_FILTER_DEFAULTS = Object.freeze({ character: 'all', severity: 'all', search: '', resolved: 'all' });
 const KNOWN_NOTIFICATION_SEVERITIES = ['info', 'success', 'warning', 'error'];
 let notificationFilterState = loadStoredNotificationFilters();
+
+clampUnreadCountToUnresolved();
 
 const AUDIO_DISABLED_VALUES = new Set(['off', 'mute', 'muted', 'disabled', 'false', 'quiet', 'silent', 'none', '0']);
 const AUDIO_ENABLED_VALUES = new Set(['on', 'enabled', 'true', 'sound', 'audible', '1', 'default']);
@@ -533,6 +553,17 @@ function buildNotification(detail, meta = {}) {
   const ts = normalizeTimestamp(meta.ts);
   const char = typeof meta.char === 'string' && meta.char ? meta.char : deriveNotificationChar();
   const entry = { ts, char, detail: text };
+  let resolved = false;
+  if (typeof meta.resolved === 'string') {
+    resolved = meta.resolved.trim().toLowerCase() === 'true';
+  } else if (typeof meta.resolved === 'number') {
+    resolved = Number.isFinite(meta.resolved) ? meta.resolved !== 0 : Boolean(meta.resolved);
+  } else if (typeof meta.resolved === 'boolean') {
+    resolved = meta.resolved;
+  } else if (meta.resolved != null) {
+    resolved = Boolean(meta.resolved);
+  }
+  entry.resolved = resolved;
   const severity = typeof meta.severity === 'string' ? meta.severity.trim().toLowerCase() : '';
   if (severity) entry.severity = severity;
   if (typeof meta.html === 'string' && meta.html) {
@@ -543,12 +574,14 @@ function buildNotification(detail, meta = {}) {
 
 function formatNotification(entry, { html = false } = {}) {
   const prefix = entry.char ? `${entry.char}: ` : '';
+  const resolutionLabel = entry.resolved ? '[resolved] ' : '';
   if (html && entry.html) {
     const safeTs = escapeHtml(entry.ts);
     const safePrefix = escapeHtml(prefix);
-    return `[${safeTs}] ${safePrefix}${entry.html}`;
+    const safeResolution = escapeHtml(resolutionLabel);
+    return `[${safeTs}] ${safeResolution}${safePrefix}${entry.html}`;
   }
-  return `[${entry.ts}] ${prefix}${entry.detail}`;
+  return `[${entry.ts}] ${resolutionLabel}${prefix}${entry.detail}`;
 }
 
 let dmTestHooks = null;
@@ -583,6 +616,7 @@ function initDMLogin(){
   const notifyFiltersForm = document.getElementById('dm-notifications-filters');
   const notifyFilterCharacter = document.getElementById('dm-notifications-filter-character');
   const notifyFilterSeverity = document.getElementById('dm-notifications-filter-severity');
+  const notifyFilterResolved = document.getElementById('dm-notifications-filter-resolved');
   const notifyFilterSearch = document.getElementById('dm-notifications-filter-search');
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
@@ -4942,6 +4976,13 @@ function initDMLogin(){
 
   function applyNotificationContent(node, entry) {
     if (!node) return;
+    const resolvedValue = entry?.resolved ? '1' : '0';
+    if (typeof node.setAttribute === 'function') {
+      node.setAttribute('data-resolved', resolvedValue);
+    }
+    if (node.classList && typeof node.classList.toggle === 'function') {
+      node.classList.toggle('dm-notifications__content--resolved', Boolean(entry?.resolved));
+    }
     if (entry?.html) {
       node.innerHTML = formatNotification(entry, { html: true });
     } else {
@@ -4963,6 +5004,7 @@ function initDMLogin(){
     notifications.length = 0;
     persistNotifications();
     renderStoredNotifications();
+    resetUnreadCountValue();
     if (announce && typeof toast === 'function') toast('Notification log cleared', 'info');
     return true;
   }
@@ -4988,6 +5030,17 @@ function initDMLogin(){
     }
     if (typeof toast === 'function') toast('Unable to export notifications', 'error');
     return false;
+  }
+
+  function setNotificationResolved(entry, resolved) {
+    if (!entry) return false;
+    const next = Boolean(resolved);
+    if (!!entry.resolved === next) return false;
+    entry.resolved = next;
+    persistNotifications();
+    clampUnreadCountToUnresolved();
+    renderStoredNotifications();
+    return true;
   }
 
   function renderStoredNotifications() {
@@ -5016,6 +5069,7 @@ function initDMLogin(){
       ...Array.from(dynamicSeverities),
       ...(hasEmptySeverity ? [''] : []),
     ]));
+    const resolutionOptions = ['all', 'unresolved', 'resolved'];
 
     const normalizedCharacter = typeof notificationFilterState.character === 'string'
       ? notificationFilterState.character
@@ -5026,21 +5080,32 @@ function initDMLogin(){
     const normalizedSearch = typeof notificationFilterState.search === 'string'
       ? notificationFilterState.search
       : '';
+    const normalizedResolved = typeof notificationFilterState.resolved === 'string'
+      ? notificationFilterState.resolved
+      : 'all';
 
     const characterSet = new Set(characterOptions);
     const severitySet = new Set(severityOptions);
+    const resolutionSet = new Set(resolutionOptions);
 
     let selectedCharacter = characterSet.has(normalizedCharacter) ? normalizedCharacter : 'all';
     let selectedSeverity = severitySet.has(normalizedSeverity) ? normalizedSeverity : 'all';
     let selectedSearch = normalizedSearch;
+    let selectedResolved = resolutionSet.has(normalizedResolved) ? normalizedResolved : 'all';
 
     const sanitizedStateChanged = (
       selectedCharacter !== notificationFilterState.character
       || selectedSeverity !== notificationFilterState.severity
       || selectedSearch !== notificationFilterState.search
+      || selectedResolved !== notificationFilterState.resolved
     );
 
-    notificationFilterState = { character: selectedCharacter, severity: selectedSeverity, search: selectedSearch };
+    notificationFilterState = {
+      character: selectedCharacter,
+      severity: selectedSeverity,
+      search: selectedSearch,
+      resolved: selectedResolved,
+    };
     if (sanitizedStateChanged) {
       persistNotificationFilterState();
     }
@@ -5085,6 +5150,31 @@ function initDMLogin(){
       }
     }
 
+    if (notifyFilterResolved) {
+      const fragment = document.createDocumentFragment();
+      resolutionOptions.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        if (value === 'all') {
+          option.textContent = 'All notifications';
+        } else if (value === 'resolved') {
+          option.textContent = 'Resolved only';
+        } else {
+          option.textContent = 'Unresolved only';
+        }
+        fragment.appendChild(option);
+      });
+      notifyFilterResolved.innerHTML = '';
+      notifyFilterResolved.appendChild(fragment);
+      if (resolutionSet.has(notificationFilterState.resolved)) {
+        notifyFilterResolved.value = notificationFilterState.resolved;
+      } else {
+        notifyFilterResolved.value = 'all';
+        notificationFilterState.resolved = 'all';
+        persistNotificationFilterState();
+      }
+    }
+
     if (notifyFilterSearch && notifyFilterSearch.value !== notificationFilterState.search) {
       notifyFilterSearch.value = notificationFilterState.search;
     }
@@ -5097,6 +5187,12 @@ function initDMLogin(){
       }
       const severityValue = typeof entry?.severity === 'string' ? entry.severity.trim().toLowerCase() : '';
       if (notificationFilterState.severity !== 'all' && severityValue !== notificationFilterState.severity) {
+        return false;
+      }
+      if (notificationFilterState.resolved === 'resolved' && !entry.resolved) {
+        return false;
+      }
+      if (notificationFilterState.resolved === 'unresolved' && entry.resolved) {
         return false;
       }
       if (trimmedSearch) {
@@ -5120,7 +5216,37 @@ function initDMLogin(){
     notifyList.innerHTML = '';
     filteredNotifications.forEach(entry => {
       const li = document.createElement('li');
-      applyNotificationContent(li, entry);
+      li.classList.add('dm-notifications__item');
+      li.classList.toggle('dm-notifications__item--resolved', Boolean(entry.resolved));
+      li.setAttribute('data-resolved', entry.resolved ? '1' : '0');
+
+      const content = document.createElement('div');
+      content.className = 'dm-notifications__itemContent';
+      applyNotificationContent(content, entry);
+
+      const actions = document.createElement('div');
+      actions.className = 'dm-notifications__itemActions';
+
+      const status = document.createElement('span');
+      status.className = 'dm-notifications__itemStatus';
+      status.textContent = entry.resolved ? 'Resolved' : 'Unresolved';
+      status.classList.toggle('dm-notifications__itemStatus--resolved', Boolean(entry.resolved));
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'btn-sm dm-notifications__toggleResolved';
+      toggleBtn.textContent = entry.resolved ? 'Mark unresolved' : 'Mark resolved';
+      toggleBtn.setAttribute('aria-pressed', entry.resolved ? 'true' : 'false');
+      toggleBtn.setAttribute('aria-label', entry.resolved ? 'Mark notification unresolved' : 'Mark notification resolved');
+      toggleBtn.addEventListener('click', () => {
+        setNotificationResolved(entry, !entry.resolved);
+      });
+
+      actions.appendChild(status);
+      actions.appendChild(toggleBtn);
+
+      li.appendChild(content);
+      li.appendChild(actions);
+
       notifyList.prepend(li);
     });
     updateNotificationActionState();
@@ -5135,7 +5261,14 @@ function initDMLogin(){
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) pending = parsed;
       }
-      pending.push(entry);
+      pending.push({
+        ts: entry.ts,
+        char: entry.char,
+        detail: entry.detail,
+        severity: entry.severity,
+        html: entry.html,
+        resolved: entry.resolved === true,
+      });
       const MAX_PENDING = 20;
       if (pending.length > MAX_PENDING) {
         pending = pending.slice(pending.length - MAX_PENDING);
@@ -5151,22 +5284,31 @@ function initDMLogin(){
       storePendingNotification(entry);
       return;
     }
+    const resolved = entry?.resolved === true
+      || entry?.resolved === 'true'
+      || entry?.resolved === 1;
+    entry.resolved = Boolean(resolved);
     notifications.push(entry);
     if (notifications.length > MAX_STORED_NOTIFICATIONS) {
       notifications.splice(0, notifications.length - MAX_STORED_NOTIFICATIONS);
     }
     persistNotifications();
     renderStoredNotifications();
-    playNotificationTone();
-    if (isNotificationsModalHidden()) {
-      incrementUnreadCount();
-    } else {
-      resetUnreadCountValue();
+    const isResolved = entry.resolved === true;
+    if (!isResolved) {
+      playNotificationTone();
+      if (isNotificationsModalHidden()) {
+        incrementUnreadCount();
+      } else {
+        resetUnreadCountValue();
+      }
     }
+    clampUnreadCountToUnresolved();
   }
 
   persistNotifications();
   updateNotificationActionState();
+  clampUnreadCountToUnresolved();
 
   window.dmNotify = function(detail, meta = {}) {
     const entry = buildNotification(detail, meta);
@@ -5189,6 +5331,7 @@ function initDMLogin(){
           char: item.char,
           severity: item.severity,
           html: item.html,
+          resolved: item.resolved,
         });
       });
       sessionStorage.removeItem(PENDING_DM_NOTIFICATIONS_KEY);
@@ -6054,6 +6197,14 @@ function initDMLogin(){
     const value = notifyFilterSeverity.value || 'all';
     if (notificationFilterState.severity === value) return;
     notificationFilterState = { ...notificationFilterState, severity: value };
+    persistNotificationFilterState();
+    renderStoredNotifications();
+  });
+
+  notifyFilterResolved?.addEventListener('change', () => {
+    const value = notifyFilterResolved.value || 'all';
+    if (notificationFilterState.resolved === value) return;
+    notificationFilterState = { ...notificationFilterState, resolved: value };
     persistNotificationFilterState();
     renderStoredNotifications();
   });
