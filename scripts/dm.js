@@ -35,6 +35,123 @@ const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 
+const DM_PIN_DEFAULT_DIGEST = 'SHA-256';
+const DM_PIN_DEFAULT_KEY_LENGTH = 32;
+
+function isHashedDmPinConfig(candidate) {
+  return candidate && typeof candidate === 'object' && typeof candidate.hash === 'string' && typeof candidate.salt === 'string' && Number.isFinite(candidate.iterations);
+}
+
+function getSubtleCrypto() {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.subtle) {
+    return globalThis.crypto.subtle;
+  }
+  if (typeof window !== 'undefined' && window.crypto?.subtle) {
+    return window.crypto.subtle;
+  }
+  if (typeof crypto !== 'undefined' && crypto?.subtle) {
+    return crypto.subtle;
+  }
+  return null;
+}
+
+function encodeUtf8(value) {
+  const stringValue = typeof value === 'string' ? value : String(value ?? '');
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(stringValue);
+  }
+  const result = new Uint8Array(stringValue.length);
+  for (let i = 0; i < stringValue.length; i += 1) {
+    result[i] = stringValue.charCodeAt(i) & 0xff;
+  }
+  return result;
+}
+
+function base64ToUint8Array(value) {
+  if (typeof value !== 'string' || !value) return new Uint8Array();
+  if (typeof atob === 'function') {
+    const binary = atob(value);
+    const length = binary.length;
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Uint8Array.from(Buffer.from(value, 'base64'));
+  }
+  throw new Error('No base64 decoder available');
+}
+
+function uint8ArrayToBase64(bytes) {
+  if (!(bytes instanceof Uint8Array)) {
+    return '';
+  }
+  if (typeof btoa === 'function') {
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 1) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+  throw new Error('No base64 encoder available');
+}
+
+async function deriveDmPinHash(pin, config) {
+  const subtle = getSubtleCrypto();
+  if (!subtle) return null;
+  try {
+    const { salt, iterations } = config;
+    const keyLength = Number.isFinite(config.keyLength) && config.keyLength > 0 ? config.keyLength : DM_PIN_DEFAULT_KEY_LENGTH;
+    const digest = typeof config.digest === 'string' && config.digest ? config.digest : DM_PIN_DEFAULT_DIGEST;
+    const baseKey = await subtle.importKey('raw', encodeUtf8(pin), { name: 'PBKDF2' }, false, ['deriveBits']);
+    const derivedBits = await subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: base64ToUint8Array(salt),
+        iterations,
+        hash: digest,
+      },
+      baseKey,
+      keyLength * 8,
+    );
+    return uint8ArrayToBase64(new Uint8Array(derivedBits));
+  } catch (error) {
+    console.error('Failed to derive DM PIN hash', error);
+    return null;
+  }
+}
+
+function constantTimeEquals(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const length = Math.max(a.length, b.length);
+  let mismatch = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < length; i += 1) {
+    const aCode = i < a.length ? a.charCodeAt(i) : 0;
+    const bCode = i < b.length ? b.charCodeAt(i) : 0;
+    mismatch |= aCode ^ bCode;
+  }
+  return mismatch === 0;
+}
+
+async function verifyDmPin(candidate) {
+  const pinInput = typeof candidate === 'string' ? candidate.trim() : String(candidate ?? '');
+  if (!pinInput) return false;
+  if (isHashedDmPinConfig(DM_PIN)) {
+    const expectedHash = DM_PIN.hash;
+    const derived = await deriveDmPinHash(pinInput, DM_PIN);
+    if (!derived) {
+      return false;
+    }
+    return constantTimeEquals(derived, expectedHash);
+  }
+  return pinInput === DM_PIN;
+}
+
 function parseSessionTimestamp(value) {
   if (typeof value !== 'string' || !value) return null;
   const parsed = parseInt(value, 10);
@@ -7160,7 +7277,7 @@ function initDMLogin(){
         }
         (async () => {
           const entered = window.pinPrompt ? await window.pinPrompt('Enter DM PIN') : (typeof prompt === 'function' ? prompt('Enter DM PIN') : null);
-          if (entered === DM_PIN) {
+          if (await verifyDmPin(entered)) {
             resetLoginFailureState();
             clearLoginCooldownTimer();
             clearLoginCooldownUI();
@@ -7197,14 +7314,14 @@ function initDMLogin(){
         loginClose?.removeEventListener('click', onCancel);
         clearLoginCooldownTimer();
       }
-      function onSubmit(){
+      async function onSubmit(){
         const activeCooldown = getLoginCooldownRemainingMs();
         if (activeCooldown > 0) {
           startLoginCooldownCountdown(activeCooldown);
           notifyLoginCooldown(activeCooldown);
           return;
         }
-        if(loginPin.value === DM_PIN){
+        if(await verifyDmPin(loginPin.value)){
           resetLoginFailureState();
           clearLoginCooldownTimer();
           clearLoginCooldownUI();
