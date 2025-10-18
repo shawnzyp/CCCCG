@@ -612,6 +612,7 @@ function initDMLogin(){
   const notifyList = document.getElementById('dm-notifications-list');
   const notifyClose = document.getElementById('dm-notifications-close');
   const notifyExportBtn = document.getElementById('dm-notifications-export');
+  const notifyMarkReadBtn = document.getElementById('dm-notifications-mark-read');
   const notifyClearBtn = document.getElementById('dm-notifications-clear');
   const notifyFiltersForm = document.getElementById('dm-notifications-filters');
   const notifyFilterCharacter = document.getElementById('dm-notifications-filter-character');
@@ -4992,8 +4993,10 @@ function initDMLogin(){
 
   function updateNotificationActionState() {
     const isEmpty = notifications.length === 0;
+    const hasUnread = unreadNotificationCount > 0;
     if (notifyClearBtn) notifyClearBtn.disabled = isEmpty;
     if (notifyExportBtn) notifyExportBtn.disabled = isEmpty;
+    if (notifyMarkReadBtn) notifyMarkReadBtn.disabled = !hasUnread;
   }
 
   function clearNotifications({ announce = true } = {}) {
@@ -5304,6 +5307,7 @@ function initDMLogin(){
       }
     }
     clampUnreadCountToUnresolved();
+    updateNotificationActionState();
   }
 
   persistNotifications();
@@ -5631,6 +5635,7 @@ function initDMLogin(){
   function closeNotifications(){
     if(!notifyModal) return;
     resetUnreadCountValue();
+    updateNotificationActionState();
     hide('dm-notifications-modal');
   }
 
@@ -6172,6 +6177,11 @@ function initDMLogin(){
       openNotifications();
     });
   }
+
+  notifyMarkReadBtn?.addEventListener('click', () => {
+    resetUnreadCountValue();
+    updateNotificationActionState();
+  });
 
   notifyClearBtn?.addEventListener('click', () => {
     clearNotifications();

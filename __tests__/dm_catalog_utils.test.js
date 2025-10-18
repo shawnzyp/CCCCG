@@ -164,6 +164,7 @@ describe('DM catalog equipment delivery', () => {
         <section class="modal">
           <button id="dm-notifications-close" type="button"></button>
           <button id="dm-notifications-export" type="button"></button>
+          <button id="dm-notifications-mark-read" type="button"></button>
           <button id="dm-notifications-clear" type="button"></button>
           <ol id="dm-notifications-list"></ol>
         </section>
