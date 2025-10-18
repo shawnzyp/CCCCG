@@ -2101,6 +2101,16 @@
                 <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply Reputation</button>
               </form>
             </div>
+            <section class="dm-quickRewards__history" aria-labelledby="dm-reward-history-heading">
+              <div class="dm-quickRewards__historyHeader">
+                <h5 id="dm-reward-history-heading">Recent Activity</h5>
+                <div class="dm-quickRewards__historyActions" role="group" aria-label="Quick reward history actions">
+                  <button id="dm-reward-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+                  <button id="dm-reward-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+                </div>
+              </div>
+              <ul id="dm-reward-history" class="dm-quickRewards__historyList" aria-live="polite"></ul>
+            </section>
           </section>
         </div>
       </section>

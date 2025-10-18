@@ -1003,6 +1003,9 @@ function initDMLogin(){
   const creditHistoryList = document.getElementById('dm-credit-history');
   const creditHistoryExportBtn = document.getElementById('dm-credit-history-export');
   const creditHistoryClearBtn = document.getElementById('dm-credit-history-clear');
+  const rewardHistoryList = document.getElementById('dm-reward-history');
+  const rewardHistoryExportBtn = document.getElementById('dm-reward-history-export');
+  const rewardHistoryClearBtn = document.getElementById('dm-reward-history-clear');
   const quickRewardTargetSelect = document.getElementById('dm-reward-target');
   const quickXpForm = document.getElementById('dm-reward-xp-form');
   const quickXpMode = document.getElementById('dm-reward-xp-mode');
@@ -1211,10 +1214,13 @@ function initDMLogin(){
   const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
   const PLAYER_REWARD_BROADCAST_CHANNEL = 'cc:player-rewards';
   const PLAYER_CREDIT_HISTORY_LIMIT = 10;
+  const DM_REWARD_HISTORY_STORAGE_KEY = 'cc:dm-reward-history';
+  const DM_REWARD_HISTORY_LIMIT = 20;
   let playerCreditBroadcastChannel = null;
   let playerCreditBroadcastListenerAttached = false;
   let playerRewardBroadcastChannel = null;
   let playerCreditHistory = [];
+  let quickRewardHistory = [];
 
   function creditPad(n) {
     return String(n).padStart(2, '0');
@@ -1520,6 +1526,229 @@ function initDMLogin(){
     if (typeof toast === 'function') toast('Unable to export credit history', 'error');
     return false;
   }
+
+  function rewardHistoryKey(entry = {}) {
+    if (entry && typeof entry.id === 'string' && entry.id) {
+      return entry.id;
+    }
+    const timestamp = entry && (entry.t ?? entry.timestamp ?? '');
+    const name = entry && entry.name ? entry.name : '';
+    const text = entry && entry.text ? entry.text : '';
+    return `${timestamp}|${name}|${text}`;
+  }
+
+  function sanitizeQuickRewardHistoryEntry(entry = {}) {
+    if (!entry || typeof entry !== 'object') {
+      return null;
+    }
+    const id = typeof entry.id === 'string' && entry.id
+      ? entry.id
+      : `dm-reward-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    let timestamp = entry.t;
+    if (timestamp instanceof Date) {
+      timestamp = timestamp.getTime();
+    } else if (typeof timestamp === 'string' && timestamp) {
+      const numeric = Number(timestamp);
+      if (Number.isFinite(numeric)) {
+        timestamp = numeric;
+      } else {
+        const parsed = new Date(timestamp);
+        timestamp = Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+      }
+    } else if (!Number.isFinite(timestamp)) {
+      if (entry.timestamp instanceof Date) {
+        timestamp = entry.timestamp.getTime();
+      } else if (typeof entry.timestamp === 'string' && entry.timestamp) {
+        const parsed = new Date(entry.timestamp);
+        timestamp = Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+      } else if (Number.isFinite(entry.timestamp)) {
+        timestamp = Number(entry.timestamp);
+      } else {
+        timestamp = Date.now();
+      }
+    }
+    if (!Number.isFinite(timestamp)) {
+      timestamp = Date.now();
+    }
+    const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+    const text = typeof entry.text === 'string' ? entry.text.trim() : '';
+    return { id, t: timestamp, name, text };
+  }
+
+  function parseStoredQuickRewardHistory(raw) {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object') return [parsed];
+    } catch {
+      return [];
+    }
+    return [];
+  }
+
+  function loadQuickRewardHistoryFromStorage() {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(DM_REWARD_HISTORY_STORAGE_KEY);
+      const parsed = parseStoredQuickRewardHistory(raw);
+      const normalized = parsed
+        .map(item => sanitizeQuickRewardHistoryEntry(item))
+        .filter(Boolean);
+      return normalized.slice(0, DM_REWARD_HISTORY_LIMIT);
+    } catch {
+      return [];
+    }
+  }
+
+  function persistQuickRewardHistory(entries) {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      if (!entries || !entries.length) {
+        localStorage.removeItem(DM_REWARD_HISTORY_STORAGE_KEY);
+      } else {
+        localStorage.setItem(DM_REWARD_HISTORY_STORAGE_KEY, JSON.stringify(entries));
+      }
+    } catch {
+      /* ignore persistence failures */
+    }
+  }
+
+  function setQuickRewardHistory(entries, { persist = true } = {}) {
+    const normalized = Array.isArray(entries)
+      ? entries.map(item => sanitizeQuickRewardHistoryEntry(item)).filter(Boolean)
+      : [];
+    const deduped = [];
+    const seen = new Set();
+    normalized.forEach(item => {
+      if (!item) return;
+      const key = rewardHistoryKey(item);
+      if (seen.has(key)) return;
+      seen.add(key);
+      deduped.push(item);
+    });
+    quickRewardHistory = deduped.slice(0, DM_REWARD_HISTORY_LIMIT);
+    if (persist) {
+      persistQuickRewardHistory(quickRewardHistory);
+    }
+    return quickRewardHistory;
+  }
+
+  function appendQuickRewardHistory(entries, { persist = true } = {}) {
+    const list = Array.isArray(entries) ? entries : [entries];
+    const normalized = list
+      .map(item => sanitizeQuickRewardHistoryEntry(item))
+      .filter(Boolean);
+    if (!normalized.length) return quickRewardHistory;
+    return setQuickRewardHistory([...normalized, ...quickRewardHistory], { persist });
+  }
+
+  function formatQuickRewardHistoryTimestamp(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return `${creditFormatDate(value)} • ${creditFormatTime(value)}`;
+    }
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      const fromNumber = new Date(numeric);
+      if (!Number.isNaN(fromNumber.getTime())) {
+        return `${creditFormatDate(fromNumber)} • ${creditFormatTime(fromNumber)}`;
+      }
+    }
+    if (typeof value === 'string' && value) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return `${creditFormatDate(parsed)} • ${creditFormatTime(parsed)}`;
+      }
+      return value;
+    }
+    const now = new Date();
+    return `${creditFormatDate(now)} • ${creditFormatTime(now)}`;
+  }
+
+  function formatQuickRewardHistoryEntry(entry) {
+    if (!entry) return '';
+    const parts = [formatQuickRewardHistoryTimestamp(entry.t)];
+    if (entry.name) parts.push(entry.name);
+    if (entry.text) parts.push(entry.text);
+    return parts.join(' — ');
+  }
+
+  function updateQuickRewardHistoryActionState() {
+    const isEmpty = !quickRewardHistory.length;
+    if (rewardHistoryClearBtn) rewardHistoryClearBtn.disabled = isEmpty;
+    if (rewardHistoryExportBtn) rewardHistoryExportBtn.disabled = isEmpty;
+  }
+
+  function renderQuickRewardHistory() {
+    if (!rewardHistoryList) {
+      updateQuickRewardHistoryActionState();
+      return;
+    }
+    rewardHistoryList.innerHTML = '';
+    if (!quickRewardHistory.length) {
+      updateQuickRewardHistoryActionState();
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    quickRewardHistory.forEach(entry => {
+      const item = document.createElement('li');
+      const description = formatQuickRewardHistoryEntry(entry);
+      const text = document.createElement('span');
+      text.textContent = description;
+      item.appendChild(text);
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'btn-sm';
+      copyBtn.dataset.rewardHistoryCopy = 'true';
+      copyBtn.dataset.rewardHistoryText = description;
+      copyBtn.textContent = 'Copy';
+      copyBtn.setAttribute('aria-label', `Copy entry recorded ${formatQuickRewardHistoryTimestamp(entry.t)}`);
+      item.appendChild(copyBtn);
+      frag.appendChild(item);
+    });
+    rewardHistoryList.appendChild(frag);
+    updateQuickRewardHistoryActionState();
+  }
+
+  function clearQuickRewardHistory({ announce = true } = {}) {
+    if (!quickRewardHistory.length) {
+      if (announce && typeof toast === 'function') {
+        toast('Reward history is already empty', 'info');
+      }
+      return false;
+    }
+    setQuickRewardHistory([]);
+    renderQuickRewardHistory();
+    if (announce && typeof toast === 'function') {
+      toast('Reward history cleared', 'info');
+    }
+    return true;
+  }
+
+  async function exportQuickRewardHistory() {
+    if (!quickRewardHistory.length) {
+      if (typeof toast === 'function') toast('Reward history is empty', 'info');
+      return false;
+    }
+    const lines = quickRewardHistory.map(entry => formatQuickRewardHistoryEntry(entry));
+    const payload = lines.join('\n');
+    if (!payload) {
+      if (typeof toast === 'function') toast('Nothing to export', 'info');
+      return false;
+    }
+    if (await writeTextToClipboard(payload)) {
+      if (typeof toast === 'function') toast('Reward history copied to clipboard', 'success');
+      return true;
+    }
+    if (downloadTextFile(buildExportFilename('dm-reward-history'), payload)) {
+      if (typeof toast === 'function') toast('Reward history exported', 'success');
+      return true;
+    }
+    if (typeof toast === 'function') toast('Unable to export reward history', 'error');
+    return false;
+  }
+
+  quickRewardHistory = setQuickRewardHistory(loadQuickRewardHistoryFromStorage(), { persist: false });
 
   function handlePlayerCreditUpdateMessage(payload) {
     if (!payload) return;
@@ -2404,6 +2633,8 @@ function initDMLogin(){
     if (logEntries.length) {
       ensureCampaignLog();
       logEntries.forEach(entry => save.campaignLog.push(entry));
+      appendQuickRewardHistory(logEntries);
+      renderQuickRewardHistory();
     }
 
     await saveCloud(target, save);
@@ -6525,6 +6756,34 @@ function initDMLogin(){
     if (typeof toast === 'function') toast('Unable to copy entry', 'error');
   });
 
+  rewardHistoryClearBtn?.addEventListener('click', () => {
+    clearQuickRewardHistory();
+  });
+
+  rewardHistoryExportBtn?.addEventListener('click', () => {
+    exportQuickRewardHistory();
+  });
+
+  rewardHistoryList?.addEventListener('click', async event => {
+    const button = event.target.closest('button[data-reward-history-copy]');
+    if (!button) return;
+    event.preventDefault();
+    const text = button.dataset.rewardHistoryText || '';
+    if (!text) {
+      if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+      return;
+    }
+    if (await writeTextToClipboard(text)) {
+      if (typeof toast === 'function') toast('Entry copied to clipboard', 'success');
+      return;
+    }
+    if (downloadTextFile(buildExportFilename('dm-reward-entry'), text)) {
+      if (typeof toast === 'function') toast('Entry exported', 'success');
+      return;
+    }
+    if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+  });
+
   rewardsTabs?.addEventListener('click', async event => {
     const button = event.target.closest('[data-tab]');
     if (!button) return;
@@ -6579,6 +6838,7 @@ function initDMLogin(){
   });
 
     renderPlayerCreditHistory();
+    renderQuickRewardHistory();
     ensurePlayerCreditBroadcastChannel();
 
     document.addEventListener('visibilitychange', () => {
@@ -6907,6 +7167,9 @@ function initDMLogin(){
     executeRewardTransaction,
     setRewardExecutor,
     exportNotifications,
+    getQuickRewardHistory: () => [...quickRewardHistory],
+    clearQuickRewardHistory,
+    renderQuickRewardHistory,
   };
 }
 if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {

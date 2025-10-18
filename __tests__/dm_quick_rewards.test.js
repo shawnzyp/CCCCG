@@ -140,6 +140,16 @@ describe('dm quick rewards forms', () => {
                       <button type="submit">Apply Reputation</button>
                     </form>
                   </div>
+                  <section class="dm-quickRewards__history">
+                    <div class="dm-quickRewards__historyHeader">
+                      <h5 id="dm-reward-history-heading">Recent Activity</h5>
+                      <div class="dm-quickRewards__historyActions">
+                        <button id="dm-reward-history-export" type="button" disabled>Copy / Export</button>
+                        <button id="dm-reward-history-clear" type="button" disabled>Clear log</button>
+                      </div>
+                    </div>
+                    <ul id="dm-reward-history"></ul>
+                  </section>
                 </section>
               </div>
             </section>
@@ -294,5 +304,103 @@ describe('dm quick rewards forms', () => {
     });
 
     setRewardExecutor(null);
+  });
+
+  test('updates quick reward history after xp and hp rewards', async () => {
+    const show = jest.fn();
+    const hide = jest.fn();
+    jest.unstable_mockModule('../scripts/modal.js', () => ({ show, hide }));
+
+    const listCharacters = jest.fn(async () => ['Alpha']);
+    const loadCharacter = jest.fn(async () => ({
+      xp: '10',
+      'hp-bar': 8,
+      'hp-temp': 0,
+      'sp-bar': 6,
+      'sp-temp': 1,
+    }));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({
+      listCharacters,
+      loadCharacter,
+    }));
+
+    const miniGameMocks = {
+      listMiniGames: jest.fn(() => []),
+      getMiniGame: jest.fn(),
+      getDefaultConfig: jest.fn(() => ({})),
+      loadMiniGameReadme: jest.fn(async () => ''),
+      formatKnobValue: jest.fn(),
+      subscribeToDeployments: jest.fn(() => () => {}),
+      refreshDeployments: jest.fn(async () => {}),
+      deployMiniGame: jest.fn(async () => {}),
+      updateDeployment: jest.fn(async () => {}),
+      deleteDeployment: jest.fn(async () => {}),
+      MINI_GAME_STATUS_OPTIONS: [],
+      summarizeConfig: jest.fn(() => ''),
+      getStatusLabel: jest.fn(() => ''),
+    };
+    jest.unstable_mockModule('../scripts/mini-games.js', () => miniGameMocks);
+
+    const storeDmCatalogPayload = jest.fn();
+    jest.unstable_mockModule('../scripts/dm-catalog-sync.js', () => ({
+      storeDmCatalogPayload,
+    }));
+
+    const saveCloud = jest.fn(async () => {});
+    jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    await window.openRewards({ tab: 'resource' });
+    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const targetSelect = document.getElementById('dm-reward-target');
+    targetSelect.innerHTML = '<option value="">Select</option><option value="Alpha">Alpha</option>';
+    targetSelect.disabled = false;
+    targetSelect.value = 'Alpha';
+    targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const xpAmount = document.getElementById('dm-reward-xp-amount');
+    xpAmount.value = '5';
+    document.getElementById('dm-reward-xp-mode').value = 'add';
+    const xpForm = document.getElementById('dm-reward-xp-form');
+    xpForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const rewardHistory = document.getElementById('dm-reward-history');
+    expect(rewardHistory.children.length).toBeGreaterThan(0);
+    expect(rewardHistory.children[0].textContent).toContain('DM XP Reward');
+
+    document.getElementById('dm-reward-hp-mode').value = 'delta';
+    document.getElementById('dm-reward-hp-value').value = '4';
+    document.getElementById('dm-reward-hp-temp-mode').value = 'delta';
+    document.getElementById('dm-reward-hp-temp').value = '2';
+    document.getElementById('dm-reward-sp-mode').value = 'delta';
+    document.getElementById('dm-reward-sp-value').value = '3';
+    document.getElementById('dm-reward-sp-temp-mode').value = 'set';
+    document.getElementById('dm-reward-sp-temp').value = '5';
+    const hpForm = document.getElementById('dm-reward-hpsp-form');
+    hpForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(rewardHistory.children.length).toBeGreaterThanOrEqual(3);
+    expect(rewardHistory.children[0].textContent).toContain('DM HP Update');
+    expect(rewardHistory.children[1].textContent).toContain('DM SP Update');
+    expect(Array.from(rewardHistory.children).some(node => node.textContent.includes('DM XP Reward'))).toBe(true);
+
+    const rewardHistoryClear = document.getElementById('dm-reward-history-clear');
+    const rewardHistoryExport = document.getElementById('dm-reward-history-export');
+    expect(rewardHistoryClear.disabled).toBe(false);
+    expect(rewardHistoryExport.disabled).toBe(false);
+
+    const storedRaw = localStorage.getItem('cc:dm-reward-history');
+    expect(storedRaw).toBeTruthy();
+    const stored = JSON.parse(storedRaw);
+    expect(Array.isArray(stored)).toBe(true);
+    expect(stored.length).toBeGreaterThanOrEqual(3);
   });
 });
