@@ -1784,6 +1784,28 @@
     <ol id="dm-notifications-list"></ol>
   </section>
 </div>
+<div class="overlay hidden" id="dm-characters-modal" aria-hidden="true">
+  <section class="modal dm-characters" role="dialog" aria-modal="true" aria-labelledby="dm-characters-title">
+    <button id="dm-characters-close" class="x" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <header class="dm-characters__header">
+      <h3 id="dm-characters-title">Character Roster</h3>
+      <div class="dm-characters__controls">
+        <label class="sr-only" for="dm-characters-search">Search characters</label>
+        <input id="dm-characters-search" class="dm-characters__search" type="search" placeholder="Search characters" autocomplete="off">
+        <div class="dm-characters__sort" role="group" aria-label="Sort characters">
+          <button id="dm-characters-sort-asc" class="btn-sm" type="button" data-char-sort="asc" aria-pressed="true">A → Z</button>
+          <button id="dm-characters-sort-desc" class="btn-sm" type="button" data-char-sort="desc" aria-pressed="false">Z → A</button>
+        </div>
+      </div>
+    </header>
+    <ul id="dm-characters-list" class="dm-characters-list"></ul>
+    <div id="dm-character-sheet"></div>
+  </section>
+</div>
 <div class="overlay hidden" id="dm-rewards-modal" aria-hidden="true">
   <section class="modal dm-rewards" role="dialog" aria-modal="true" aria-labelledby="dm-rewards-title" data-view-allow>
     <button id="dm-rewards-close" class="x" type="button" aria-label="Close">

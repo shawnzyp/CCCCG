@@ -587,6 +587,8 @@ function initDMLogin(){
   const charModal = document.getElementById('dm-characters-modal');
   const charList = document.getElementById('dm-characters-list');
   const charClose = document.getElementById('dm-characters-close');
+  const charSearch = document.getElementById('dm-characters-search');
+  const charSortButtons = charModal ? Array.from(charModal.querySelectorAll('[data-char-sort]')) : [];
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
@@ -668,6 +670,10 @@ function initDMLogin(){
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
+  let allCharacters = [];
+  let activeCharacterFilter = '';
+  let activeCharacterSort = 'asc';
+  let lastFocusedCharacter = '';
 
   dmToggleButtonRef = dmToggleBtn;
   dmToggleBadgeRef = dmToggleBtn ? dmToggleBtn.querySelector('[data-role="dm-unread-badge"]') : null;
@@ -5392,6 +5398,125 @@ function initDMLogin(){
     initTools();
   }
 
+  const characterNameCollator = typeof Intl !== 'undefined' && typeof Intl.Collator === 'function'
+    ? new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
+    : null;
+
+  function updateCharacterSortButtons(){
+    if (!charSortButtons || !charSortButtons.length) return;
+    charSortButtons.forEach(btn => {
+      const mode = btn?.dataset?.charSort === 'desc' ? 'desc' : 'asc';
+      const isActive = mode === activeCharacterSort;
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+
+  function sortCharacterNames(names){
+    const list = Array.isArray(names) ? names.slice() : [];
+    if (characterNameCollator) {
+      list.sort((a, b) => characterNameCollator.compare(a, b));
+    } else {
+      list.sort((a, b) => String(a).localeCompare(String(b)));
+    }
+    if (activeCharacterSort === 'desc') {
+      list.reverse();
+    }
+    return list;
+  }
+
+  function focusCharacterLink(name){
+    if (!name || !charList) return false;
+    const links = Array.from(charList.querySelectorAll('.dm-characters__link'));
+    const target = links.find(link => (link.dataset?.characterName || link.textContent?.trim()) === name);
+    if (!target) return false;
+    lastFocusedCharacter = name;
+    if (typeof target.focus === 'function') {
+      try {
+        target.focus({ preventScroll: true });
+      } catch {
+        target.focus();
+      }
+    }
+    return true;
+  }
+
+  function renderCharacterList({ focus = 'auto' } = {}){
+    if (!charList) return;
+    const base = Array.isArray(allCharacters)
+      ? allCharacters.filter(name => typeof name === 'string' && name)
+      : [];
+    const query = activeCharacterFilter.trim().toLowerCase();
+    let filtered = base;
+    if (query) {
+      filtered = base.filter(name => name.toLowerCase().includes(query));
+    }
+    if (!filtered.length) {
+      const message = base.length
+        ? 'No matching characters.'
+        : 'No characters available.';
+      charList.innerHTML = `<li class="dm-characters__placeholder">${message}</li>`;
+      return;
+    }
+    const ordered = sortCharacterNames(filtered);
+    charList.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    ordered.forEach(name => {
+      const item = document.createElement('li');
+      item.className = 'dm-characters__item';
+      const link = document.createElement('a');
+      link.href = '#';
+      link.setAttribute('role', 'button');
+      link.className = 'dm-characters__link';
+      link.dataset.characterName = name;
+      link.textContent = name;
+      item.appendChild(link);
+      frag.appendChild(item);
+    });
+    charList.appendChild(frag);
+
+    if (document.activeElement === charSearch || focus === 'none') {
+      return;
+    }
+
+    if (focus === 'preserve' && lastFocusedCharacter) {
+      if (ordered.includes(lastFocusedCharacter) && focusCharacterLink(lastFocusedCharacter)) {
+        return;
+      }
+    }
+
+    if (ordered.length && (focus === 'first' || focus === 'auto' || focus === 'preserve')) {
+      focusCharacterLink(ordered[0]);
+    }
+  }
+
+  charList?.addEventListener('focusin', event => {
+    const link = event.target?.closest?.('.dm-characters__link');
+    if (!link) return;
+    const name = link.dataset?.characterName || link.textContent?.trim();
+    if (name) {
+      lastFocusedCharacter = name;
+    }
+  });
+
+  charSearch?.addEventListener('input', () => {
+    activeCharacterFilter = charSearch.value || '';
+    renderCharacterList({ focus: document.activeElement === charSearch ? 'none' : 'preserve' });
+  });
+
+  charSortButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn?.dataset?.charSort === 'desc' ? 'desc' : 'asc';
+      if (activeCharacterSort === mode) {
+        updateCharacterSortButtons();
+        renderCharacterList({ focus: 'preserve' });
+        return;
+      }
+      activeCharacterSort = mode;
+      updateCharacterSortButtons();
+      renderCharacterList({ focus: 'preserve' });
+    });
+  });
+
     async function openCharacters(){
       if(!charModal || !charList) return;
       closeCharacterView();
@@ -5404,36 +5529,40 @@ function initDMLogin(){
       catch(e){
         console.error('Failed to list characters', e);
         charList.innerHTML = '<li class="dm-characters__placeholder">Unable to load characters.</li>';
+        allCharacters = [];
+        activeCharacterFilter = '';
+        updateCharacterSortButtons();
         return;
       }
       if (!Array.isArray(names) || names.length === 0) {
         charList.innerHTML = '<li class="dm-characters__placeholder">No characters available.</li>';
+        allCharacters = [];
+        activeCharacterFilter = '';
+        if (charSearch) {
+          charSearch.value = '';
+        }
+        updateCharacterSortButtons();
         return;
       }
-      charList.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      names.forEach(n => {
-        if (!n) return;
-        const li = document.createElement('li');
-        li.className = 'dm-characters__item';
-        const link = document.createElement('a');
-        link.href = '#';
-        link.setAttribute('role', 'button');
-        link.className = 'dm-characters__link';
-        link.dataset.characterName = n;
-        link.textContent = n;
-        li.appendChild(link);
-        frag.appendChild(li);
-      });
-      charList.appendChild(frag);
-      const firstLink = charList.querySelector('.dm-characters__link');
-      if (firstLink && typeof firstLink.focus === 'function') {
-        try {
-          firstLink.focus({ preventScroll: true });
-        } catch {
-          firstLink.focus();
-        }
+      allCharacters = names
+        .map(name => {
+          if (typeof name === 'string') return name.trim();
+          if (name == null) return '';
+          return String(name).trim();
+        })
+        .filter(Boolean);
+      if (!allCharacters.length) {
+        charList.innerHTML = '<li class="dm-characters__placeholder">No characters available.</li>';
+        updateCharacterSortButtons();
+        return;
       }
+      activeCharacterFilter = '';
+      lastFocusedCharacter = '';
+      if (charSearch) {
+        charSearch.value = '';
+      }
+      updateCharacterSortButtons();
+      renderCharacterList({ focus: 'first' });
     }
 
   function closeCharacters(){
