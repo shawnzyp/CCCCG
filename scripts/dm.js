@@ -27,6 +27,11 @@ const DM_UNREAD_NOTIFICATIONS_LIMIT = 999;
 const DM_LOGIN_FLAG_KEY = 'dmLoggedIn';
 const DM_LOGIN_AT_KEY = 'dmLoggedInAt';
 const DM_LOGIN_LAST_ACTIVE_KEY = 'dmLoggedInLastActive';
+const DM_LOGIN_FAILURE_COUNT_KEY = 'dmLoginFailureCount';
+const DM_LOGIN_LAST_FAILURE_KEY = 'dmLoginLastFailureAt';
+const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
+const DM_LOGIN_MAX_FAILURES = 3;
+const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 
@@ -653,6 +658,194 @@ function initDMLogin(){
   const loginPin = document.getElementById('dm-login-pin');
   const loginSubmit = document.getElementById('dm-login-submit');
   const loginClose = document.getElementById('dm-login-close');
+  const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
+  const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
+  let loginCooldownTimerId = null;
+  let loginWaitMessageRef = null;
+  const setIntervalFn = typeof window !== 'undefined' && typeof window.setInterval === 'function'
+    ? window.setInterval.bind(window)
+    : setInterval;
+  const clearIntervalFn = typeof window !== 'undefined' && typeof window.clearInterval === 'function'
+    ? window.clearInterval.bind(window)
+    : clearInterval;
+
+  function parseStoredNumber(value){
+    if (typeof value !== 'string' || !value) return 0;
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function readLoginFailureState(){
+    if (typeof sessionStorage === 'undefined') {
+      return { count: 0, lastFailureAt: 0, lockUntil: 0 };
+    }
+    try {
+      return {
+        count: parseStoredNumber(sessionStorage.getItem(DM_LOGIN_FAILURE_COUNT_KEY)),
+        lastFailureAt: parseStoredNumber(sessionStorage.getItem(DM_LOGIN_LAST_FAILURE_KEY)),
+        lockUntil: parseStoredNumber(sessionStorage.getItem(DM_LOGIN_LOCK_UNTIL_KEY)),
+      };
+    } catch {
+      return { count: 0, lastFailureAt: 0, lockUntil: 0 };
+    }
+  }
+
+  function writeLoginFailureState({ count = 0, lastFailureAt = 0, lockUntil = 0 } = {}){
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      if (count > 0) {
+        sessionStorage.setItem(DM_LOGIN_FAILURE_COUNT_KEY, String(count));
+      } else {
+        sessionStorage.removeItem(DM_LOGIN_FAILURE_COUNT_KEY);
+      }
+      if (lastFailureAt > 0) {
+        sessionStorage.setItem(DM_LOGIN_LAST_FAILURE_KEY, String(lastFailureAt));
+      } else {
+        sessionStorage.removeItem(DM_LOGIN_LAST_FAILURE_KEY);
+      }
+      if (lockUntil > 0) {
+        sessionStorage.setItem(DM_LOGIN_LOCK_UNTIL_KEY, String(lockUntil));
+      } else {
+        sessionStorage.removeItem(DM_LOGIN_LOCK_UNTIL_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function resetLoginFailureState(){
+    writeLoginFailureState({ count: 0, lastFailureAt: 0, lockUntil: 0 });
+  }
+
+  function recordLoginFailure(){
+    const now = Date.now();
+    const state = readLoginFailureState();
+    const nextCount = Math.max(0, state.count) + 1;
+    const lockUntil = nextCount >= DM_LOGIN_MAX_FAILURES ? now + DM_LOGIN_COOLDOWN_MS : 0;
+    const nextState = {
+      count: nextCount,
+      lastFailureAt: now,
+      lockUntil,
+    };
+    writeLoginFailureState(nextState);
+    return nextState;
+  }
+
+  function getLoginCooldownRemainingMs(now = Date.now()){
+    const state = readLoginFailureState();
+    if (state.lockUntil && state.lockUntil > now) {
+      return state.lockUntil - now;
+    }
+    if (state.lockUntil && state.lockUntil <= now) {
+      resetLoginFailureState();
+    }
+    return 0;
+  }
+
+  function formatLoginCooldownMessage(remainingMs){
+    const seconds = Math.max(1, Math.ceil(remainingMs / 1000));
+    return `Too many failed attempts. Try again in ${seconds} second${seconds === 1 ? '' : 's'}.`;
+  }
+
+  function ensureLoginWaitMessage(){
+    if (!loginModal) return null;
+    if (loginWaitMessageRef?.isConnected) return loginWaitMessageRef;
+    const existing = loginModal.querySelector('[data-login-wait]');
+    if (existing) {
+      loginWaitMessageRef = existing;
+      return loginWaitMessageRef;
+    }
+    const node = document.createElement('p');
+    node.setAttribute('data-login-wait', '');
+    node.className = 'dm-login__wait';
+    node.hidden = true;
+    const actions = loginModal.querySelector('.actions');
+    if (actions && actions.parentNode) {
+      actions.parentNode.insertBefore(node, actions.nextSibling);
+    } else {
+      loginModal.appendChild(node);
+    }
+    loginWaitMessageRef = node;
+    return loginWaitMessageRef;
+  }
+
+  function setLoginWaitMessage(text){
+    const target = ensureLoginWaitMessage();
+    if (!target) return;
+    target.textContent = text || '';
+    target.hidden = !text;
+  }
+
+  function clearLoginCooldownTimer(){
+    if (loginCooldownTimerId !== null) {
+      clearIntervalFn(loginCooldownTimerId);
+      loginCooldownTimerId = null;
+    }
+  }
+
+  function updateLoginCooldownUI(remainingMs){
+    if (!loginModal) return;
+    const message = formatLoginCooldownMessage(remainingMs);
+    setLoginWaitMessage(message);
+    if (loginPin) {
+      loginPin.disabled = true;
+      loginPin.setAttribute('aria-disabled', 'true');
+    }
+    if (loginSubmit) {
+      loginSubmit.disabled = true;
+      loginSubmit.setAttribute('aria-disabled', 'true');
+      const seconds = Math.max(1, Math.ceil(remainingMs / 1000));
+      loginSubmit.textContent = `${loginSubmitBaseLabel} (${seconds}s)`;
+    }
+  }
+
+  function clearLoginCooldownUI(){
+    if (loginPin) {
+      loginPin.disabled = false;
+      loginPin.removeAttribute('aria-disabled');
+    }
+    if (loginSubmit) {
+      loginSubmit.disabled = false;
+      loginSubmit.removeAttribute('aria-disabled');
+      loginSubmit.textContent = loginSubmitBaseLabel;
+    }
+    setLoginWaitMessage('');
+  }
+
+  function startLoginCooldownCountdown(initialRemaining){
+    if (!initialRemaining || initialRemaining <= 0) {
+      clearLoginCooldownTimer();
+      clearLoginCooldownUI();
+      return;
+    }
+    updateLoginCooldownUI(initialRemaining);
+    clearLoginCooldownTimer();
+    loginCooldownTimerId = setIntervalFn(() => {
+      const remaining = getLoginCooldownRemainingMs();
+      if (remaining <= 0) {
+        clearLoginCooldownTimer();
+        clearLoginCooldownUI();
+        try {
+          if (loginPin && typeof loginPin.focus === 'function') {
+            loginPin.focus({ preventScroll: true });
+          }
+        } catch {
+          if (loginPin && typeof loginPin.focus === 'function') {
+            loginPin.focus();
+          }
+        }
+        return;
+      }
+      updateLoginCooldownUI(remaining);
+    }, 1000);
+  }
+
+  function notifyLoginCooldown(remainingMs){
+    if (typeof toast === 'function') {
+      toast(formatLoginCooldownMessage(remainingMs), 'error');
+    }
+  }
+
   const notifyModal = document.getElementById('dm-notifications-modal');
   const notifyList = document.getElementById('dm-notifications-list');
   const notifyClose = document.getElementById('dm-notifications-close');
@@ -5567,15 +5760,29 @@ function initDMLogin(){
       // If the modal elements are missing, fall back to a simple prompt so
       // the promise always resolves and loading doesn't hang.
       if (!loginModal || !loginPin || !loginSubmit) {
+        const remaining = getLoginCooldownRemainingMs();
+        if (remaining > 0) {
+          notifyLoginCooldown(remaining);
+          reject(new Error('throttled'));
+          return;
+        }
         (async () => {
           const entered = window.pinPrompt ? await window.pinPrompt('Enter DM PIN') : (typeof prompt === 'function' ? prompt('Enter DM PIN') : null);
           if (entered === DM_PIN) {
+            resetLoginFailureState();
+            clearLoginCooldownTimer();
+            clearLoginCooldownUI();
             onLoginSuccess();
             if (typeof dismissToast === 'function') dismissToast();
             if (typeof toast === 'function') toast('DM tools unlocked','success');
             resolve(true);
           } else {
+            recordLoginFailure();
             if (typeof toast === 'function') toast('Invalid PIN','error');
+            const cooldown = getLoginCooldownRemainingMs();
+            if (cooldown > 0) {
+              notifyLoginCooldown(cooldown);
+            }
             reject(new Error('Invalid PIN'));
           }
         })();
@@ -5583,15 +5790,32 @@ function initDMLogin(){
       }
 
       openLogin();
-      if (typeof toast === 'function') toast('Enter DM PIN','info');
+      const initialRemaining = getLoginCooldownRemainingMs();
+      if (initialRemaining > 0) {
+        startLoginCooldownCountdown(initialRemaining);
+        notifyLoginCooldown(initialRemaining);
+      } else {
+        clearLoginCooldownUI();
+        if (typeof toast === 'function') toast('Enter DM PIN','info');
+      }
       function cleanup(){
         loginSubmit?.removeEventListener('click', onSubmit);
         loginPin?.removeEventListener('keydown', onKey);
         loginModal?.removeEventListener('click', onOverlay);
         loginClose?.removeEventListener('click', onCancel);
+        clearLoginCooldownTimer();
       }
       function onSubmit(){
+        const activeCooldown = getLoginCooldownRemainingMs();
+        if (activeCooldown > 0) {
+          startLoginCooldownCountdown(activeCooldown);
+          notifyLoginCooldown(activeCooldown);
+          return;
+        }
         if(loginPin.value === DM_PIN){
+          resetLoginFailureState();
+          clearLoginCooldownTimer();
+          clearLoginCooldownUI();
           onLoginSuccess();
           closeLogin();
           if (typeof dismissToast === 'function') dismissToast();
@@ -5600,8 +5824,20 @@ function initDMLogin(){
           resolve(true);
         } else {
           loginPin.value='';
-          loginPin.focus();
+          if (!loginPin.disabled) {
+            try {
+              loginPin.focus({ preventScroll: true });
+            } catch {
+              if (typeof loginPin.focus === 'function') loginPin.focus();
+            }
+          }
           if (typeof toast === 'function') toast('Invalid PIN','error');
+          recordLoginFailure();
+          const cooldown = getLoginCooldownRemainingMs();
+          if (cooldown > 0) {
+            startLoginCooldownCountdown(cooldown);
+            notifyLoginCooldown(cooldown);
+          }
         }
       }
       function onKey(e){ if(e.key==='Enter') onSubmit(); }
@@ -5747,6 +5983,9 @@ function initDMLogin(){
   }
 
   function onLoginSuccess(){
+    resetLoginFailureState();
+    clearLoginCooldownTimer();
+    clearLoginCooldownUI();
     setLoggedIn();
     updateButtons();
     drainPendingNotifications();
