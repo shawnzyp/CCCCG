@@ -9633,26 +9633,68 @@ const TRACKER_STATUS_LABELS = {
   critical: 'Critical',
 };
 
-function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
-  if (!progressEl) return;
+const TRACKER_STATUS_CLASSES = Object.keys(TRACKER_STATUS_LABELS);
+
+function getTrackerRatio(currentValue, maxValue) {
   const numericCurrent = Number(currentValue);
   const numericMax = Number(maxValue);
-  const ratio = Number.isFinite(numericCurrent) && Number.isFinite(numericMax) && numericMax > 0
-    ? Math.min(Math.max(numericCurrent / numericMax, 0), 1)
-    : 0;
+  if (!Number.isFinite(numericCurrent) || !Number.isFinite(numericMax) || numericMax <= 0) {
+    return 0;
+  }
+  return Math.min(Math.max(numericCurrent / numericMax, 0), 1);
+}
+
+function getTrackerState(currentValue, maxValue) {
+  const ratio = getTrackerRatio(currentValue, maxValue);
+  const status = ratio < 0.25 ? 'critical' : ratio < 0.5 ? 'wounded' : 'healthy';
+  return { ratio, status };
+}
+
+function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, ratioOverride){
+  if (!progressEl) return 0;
+  const ratio = Number.isFinite(ratioOverride)
+    ? Math.min(Math.max(ratioOverride, 0), 1)
+    : getTrackerRatio(currentValue, maxValue);
   const hue = Math.round(120 * ratio);
   const color = `hsl(${hue}deg 68% 46%)`;
   progressEl.style.setProperty('--progress-color', color);
-  const status = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
-  progressEl.dataset.status = status;
   if (labelEl) {
     labelEl.style.setProperty('--progress-color', color);
-    labelEl.dataset.status = status;
-    const statusLabel = TRACKER_STATUS_LABELS[status] || '';
-    const statusEl = labelEl.querySelector('.tracker-progress__status');
+  }
+  return ratio;
+}
+
+function updateTrackerStatusIndicators({ pillEl, progressEl, status, statusLabel, ratio }) {
+  const trackerEl = pillEl?.closest?.('.tracker-progress') || progressEl?.closest?.('.tracker-progress') || null;
+  const targets = [trackerEl, progressEl, pillEl].filter(Boolean);
+  for (const target of targets) {
+    TRACKER_STATUS_CLASSES.forEach((key) => {
+      target.classList.toggle(`tracker-progress--${key}`, key === status);
+    });
+    if (status) {
+      target.dataset.status = status;
+    } else {
+      target.removeAttribute('data-status');
+    }
+    if (Number.isFinite(ratio)) {
+      target.dataset.ratio = ratio.toFixed(2);
+    } else {
+      delete target.dataset.ratio;
+    }
+  }
+
+  if (pillEl) {
+    const statusEl = pillEl.querySelector('.tracker-progress__status');
     if (statusEl) {
-      statusEl.textContent = statusLabel;
-      statusEl.dataset.status = status;
+      if (statusLabel) {
+        statusEl.hidden = false;
+        statusEl.textContent = statusLabel;
+        statusEl.dataset.status = status;
+      } else {
+        statusEl.hidden = true;
+        statusEl.textContent = '';
+        statusEl.removeAttribute('data-status');
+      }
     }
   }
 }
@@ -10194,13 +10236,25 @@ function updateHPDisplay({ current, max } = {}){
   if (elHPCurrent) elHPCurrent.textContent = currentValue;
   if (elHPMax) elHPMax.textContent = maxValue;
   const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  const { ratio, status } = getTrackerState(currentValue, maxValue);
+  const statusLabel = TRACKER_STATUS_LABELS[status] || '';
   if (elHPPill) {
     const valueEl = elHPPill.querySelector('.tracker-progress__value');
     if (valueEl) valueEl.textContent = hpDisplay;
     else elHPPill.textContent = hpDisplay;
   }
-  if (elHPBar) elHPBar.setAttribute('aria-valuetext', hpDisplay);
-  applyProgressGradient(elHPBar, elHPPill, currentValue, maxValue);
+  if (elHPBar) {
+    const ariaValueText = statusLabel ? `${hpDisplay} (${statusLabel})` : hpDisplay;
+    elHPBar.setAttribute('aria-valuetext', ariaValueText);
+  }
+  applyProgressGradient(elHPBar, elHPPill, currentValue, maxValue, ratio);
+  updateTrackerStatusIndicators({
+    pillEl: elHPPill,
+    progressEl: elHPBar,
+    status,
+    statusLabel,
+    ratio,
+  });
   updateTempBadge(elHPTempPill, tempValue);
 }
 
@@ -10211,13 +10265,25 @@ function updateSPDisplay({ current, max } = {}){
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
+  const { ratio, status } = getTrackerState(currentValue, maxValue);
+  const statusLabel = TRACKER_STATUS_LABELS[status] || '';
   if (elSPPill) {
     const valueEl = elSPPill.querySelector('.tracker-progress__value');
     if (valueEl) valueEl.textContent = spDisplay;
     else elSPPill.textContent = spDisplay;
   }
-  if (elSPBar) elSPBar.setAttribute('aria-valuetext', spDisplay);
-  applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue);
+  if (elSPBar) {
+    const ariaValueText = statusLabel ? `${spDisplay} (${statusLabel})` : spDisplay;
+    elSPBar.setAttribute('aria-valuetext', ariaValueText);
+  }
+  applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue, ratio);
+  updateTrackerStatusIndicators({
+    pillEl: elSPPill,
+    progressEl: elSPBar,
+    status,
+    statusLabel,
+    ratio,
+  });
   updateTempBadge(elSPTempPill, tempValue);
 }
 
