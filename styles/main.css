@@ -6472,6 +6472,7 @@ body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-s
   z-index: calc(var(--drawer-z, 1200) + 1);
   pointer-events: auto;
   backdrop-filter: blur(calc(10px + 6px * var(--player-tools-open-progress, 0))) saturate(160%);
+  overflow: hidden;
 }
 
 .player-tools-tab::before {
