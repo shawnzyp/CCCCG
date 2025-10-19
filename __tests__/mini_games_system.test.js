@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { DM_PIN } from '../scripts/dm-pin.js';
+import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
 
 function setupDom() {
   document.body.innerHTML = `
@@ -120,6 +120,12 @@ async function initDmModule() {
   setupDom();
   global.toast = jest.fn();
   global.dismissToast = jest.fn();
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ entries: [] }),
+    text: async () => '',
+  });
   window.dmNotify = jest.fn();
 
   const miniGamesModule = actualMiniGames;
@@ -181,7 +187,7 @@ async function initDmModule() {
 async function completeLogin() {
   const loginPromise = window.dmRequireLogin();
   const pinInput = document.getElementById('dm-login-pin');
-  pinInput.value = DM_PIN;
+  pinInput.value = TEST_DM_PIN;
   document.getElementById('dm-login-submit').dispatchEvent(new Event('click'));
   await loginPromise;
 }

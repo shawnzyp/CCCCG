@@ -22,7 +22,10 @@
     "ttf2woff2": "^8.0.0"
   },
   "jest": {
-    "testEnvironment": "jsdom"
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup-env.js"
+    ]
   },
   "dependencies": {
     "motion": "^12.23.18",

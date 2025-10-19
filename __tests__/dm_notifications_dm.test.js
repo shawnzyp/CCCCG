@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { DM_PIN } from '../scripts/dm-pin.js';
+import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
 
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -91,6 +91,12 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
   setupDom();
   global.toast = jest.fn();
   global.dismissToast = jest.fn();
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ entries: [] }),
+    text: async () => '',
+  });
 
   await import('../scripts/dm.js');
   document.dispatchEvent(new Event('DOMContentLoaded'));
@@ -103,7 +109,7 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
 async function completeLogin() {
   const loginPromise = window.dmRequireLogin();
   const pinInput = document.getElementById('dm-login-pin');
-  pinInput.value = DM_PIN;
+  pinInput.value = TEST_DM_PIN;
   const submit = document.getElementById('dm-login-submit');
   submit.dispatchEvent(new Event('click'));
   await loginPromise;

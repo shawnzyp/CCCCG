@@ -103,6 +103,15 @@ function installCoreMocks() {
     addEventListener: jest.fn(),
     removeEventListener: jest.fn(),
   }));
+  class IntersectionObserverMock {
+    constructor() {}
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() { return []; }
+  }
+  window.IntersectionObserver = IntersectionObserverMock;
+  globalThis.IntersectionObserver = IntersectionObserverMock;
   window.scrollTo = () => {};
 
   class AudioNodeMock {
