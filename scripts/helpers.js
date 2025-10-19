@@ -1,4 +1,14 @@
-export const $ = (id) => document.getElementById(id);
+export const $ = (id) => {
+  const node = document.getElementById(id);
+  if (!node) return null;
+  if (node instanceof Element) {
+    return node;
+  }
+  if (typeof node === 'object' && node !== null && typeof node.closest !== 'function') {
+    node.closest = () => null;
+  }
+  return node;
+};
 export const qs = (s, r=document) => r.querySelector(s);
 export const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
 export const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { useReducedMotion } from 'motion/react';
+import useSafeReducedMotion from './useSafeReducedMotion.js';
 import DecryptedText from './DecryptedText.jsx';
 
 const DIGIT_CHARACTERS = '0123456789';
@@ -76,7 +76,7 @@ function resolveCascadePreference(mountNode, ...optionSources) {
 }
 
 function DiceResultContent({ value, playIndex, cascadeEnabled }) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const text = useMemo(() => (value == null ? '' : String(value)), [value]);
 
   const shouldCascade = cascadeEnabled !== false;
