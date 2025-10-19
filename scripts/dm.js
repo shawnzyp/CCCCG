@@ -5825,6 +5825,7 @@ async function initDMLogin() {
       await ensureDmConfigLoaded();
     } catch (error) {
       console.error('Failed to load DM configuration', error);
+      throw error;
     }
     performDmLoginInit();
   })();
