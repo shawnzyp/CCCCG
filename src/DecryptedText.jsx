@@ -6,7 +6,8 @@ import React, {
   useRef,
   useMemo
 } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion } from 'motion/react';
+import useSafeReducedMotion from './useSafeReducedMotion.js';
 
 const styles = {
   wrapper: {
@@ -780,7 +781,7 @@ export default function DecryptedText(props) {
     onScrambleComplete,
     ...rest
   } = props;
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useSafeReducedMotion();
   const hasWindow = typeof window !== 'undefined';
   const hasDocument = typeof document !== 'undefined';
   const requiresInView = animateOn === 'view' || animateOn === 'both';

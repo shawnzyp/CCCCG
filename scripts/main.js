@@ -6864,8 +6864,10 @@ if (btnMenu && menuActions) {
   let hideMenuTimer = null;
   let pendingHideListener = null;
   let isMenuOpen = !menuActions.hidden;
-  const menuToggleContainer = btnMenu.closest('.menu-toggle');
-  const menuSurfaceContainer = menuActions.closest('.menu-surface');
+  const menuToggleContainer =
+    typeof btnMenu.closest === 'function' ? btnMenu.closest('.menu-toggle') : null;
+  const menuSurfaceContainer =
+    typeof menuActions.closest === 'function' ? menuActions.closest('.menu-surface') : null;
 
   const setMenuState = state => {
     [menuToggleContainer, menuSurfaceContainer, menuActions].forEach(el => {
