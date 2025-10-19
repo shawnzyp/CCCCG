@@ -2537,14 +2537,12 @@ button .btn-label{display:inline-flex;align-items:center}
 .hp-field__value>*{position:relative;z-index:1}
 
 @media (prefers-reduced-motion: reduce){
-  .tracker-gauge__arc,
-  .tracker-gauge__ticks,
   .hp-field__value::before,
   .hp-field__value::after{
     animation:none!important;
   }
-  .tracker-gauge__ticks{transform:none;}
   .hp-field__value::after{background-position:0 50%;}
+  .tracker-progress--death-roll::after{animation:none!important;}
 }
 
 .hp-field__value--max{
@@ -2577,149 +2575,183 @@ button .btn-label{display:inline-flex;align-items:center}
   color:var(--accent);
 }
 
-.tracker-gauge{
-  --gauge-size:clamp(104px,26vw,140px);
-  --gauge-thickness:clamp(14px,3.4vw,18px);
-  --gauge-ratio:clamp(0, var(--tracker-arc-length, var(--tracker-ratio, var(--progress-ratio, 0))), 1);
-  --gauge-start-angle:var(--tracker-start-angle, -135deg);
-  --gauge-color:var(--tracker-color, var(--progress-color, var(--accent)));
-  --tracker-status-color:var(--tracker-death-color, var(--tracker-color, var(--progress-color, var(--accent))));
-  --gauge-track-color:color-mix(in srgb,var(--tracker-status-color) 16%, transparent);
-  --gauge-glow-color:color-mix(in srgb,var(--tracker-status-color) 68%, transparent);
-  --gauge-label-color:color-mix(in srgb,var(--tracker-status-color) 55%, var(--text));
+.tracker-progress{
+  --progress-ratio-value:var(--progress-ratio, 0);
+  --progress-color-value:var(--tracker-status-color, var(--progress-color, var(--accent)));
+  --death-success-ratio-value:var(--death-success-ratio, 0);
+  --death-failure-ratio-value:var(--death-failure-ratio, 0);
   position:relative;
   display:grid;
   place-items:center;
-  inline-size:var(--gauge-size);
-  max-inline-size:100%;
-  aspect-ratio:1/1;
-  padding:calc(var(--gauge-thickness) * .45);
-  border-radius:50%;
-  margin-inline:auto;
-  background:
-    radial-gradient(circle at 50% 42%, color-mix(in srgb,var(--gauge-track-color) 85%, transparent) 0%, transparent 62%),
-    radial-gradient(circle at 50% 120%, color-mix(in srgb,var(--gauge-track-color) 70%, transparent) 0%, transparent 72%),
-    color-mix(in srgb,var(--surface-2) 86%, transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gauge-color) 35%, transparent);
+  min-height:clamp(74px, 22vw, 112px);
+  padding:clamp(12px,3vw,16px) clamp(14px,3.4vw,18px);
+  border-radius:calc(var(--progress-min-height) * .95);
+  background:color-mix(in srgb,var(--surface-2) 72%, transparent);
+  border:1px solid color-mix(in srgb,var(--progress-color-value) 42%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb,var(--progress-color-value) 18%, transparent),
+    0 12px 32px -22px color-mix(in srgb,var(--progress-color-value) 55%, transparent);
   overflow:hidden;
   isolation:isolate;
+  color:var(--text);
+  transition:background .35s ease, border-color .35s ease, box-shadow .35s ease;
 }
 
-.tracker-gauge::before{
+.tracker-progress::before{
   content:"";
   position:absolute;
-  inset:calc(var(--gauge-thickness) * .35);
+  inset:-18%;
   border-radius:inherit;
-  background:
-    radial-gradient(circle at 50% 45%, color-mix(in srgb,var(--gauge-color) 22%, transparent) 0%, transparent 58%),
-    radial-gradient(circle at 50% 100%, color-mix(in srgb,var(--gauge-color) 18%, transparent) 0%, transparent 74%);
-  opacity:.65;
-  filter:blur(2px);
+  background:radial-gradient(120% 120% at 50% 0%, color-mix(in srgb,var(--progress-color-value) 28%, transparent) 0%, transparent 72%);
+  opacity:.45;
   pointer-events:none;
+  filter:blur(22px);
+  transition:opacity .35s ease;
 }
 
-.tracker-gauge__arc{
+.tracker-progress::after{
+  content:"";
   position:absolute;
-  inset:calc(var(--gauge-thickness) * .65);
-  border-radius:50%;
-  background:
-    conic-gradient(from var(--gauge-start-angle),
-      var(--gauge-color) 0turn,
-      var(--gauge-color) calc(var(--gauge-ratio) * 1turn),
-      color-mix(in srgb,var(--gauge-color) 12%, transparent) calc(var(--gauge-ratio) * 1turn));
-  mask:radial-gradient(circle at 50% 50%, transparent calc(100% - var(--gauge-thickness)), #000 calc(100% - var(--gauge-thickness) + 1px));
-  box-shadow:0 0 calc(var(--gauge-thickness) * 1.4) calc(var(--gauge-thickness) * .35) var(--gauge-glow-color);
-  pointer-events:none;
-  animation:trackerGaugePulse 6s ease-in-out infinite;
-}
-
-.tracker-gauge__ticks{
-  position:absolute;
-  inset:calc(var(--gauge-thickness) * .2);
-  border-radius:50%;
-  background:
-    repeating-conic-gradient(from var(--gauge-start-angle),
-      color-mix(in srgb,var(--gauge-color) 75%, transparent) 0deg 6deg,
-      transparent 6deg 12deg);
-  mask:
-    radial-gradient(circle at 50% 50%, transparent calc(50% - var(--gauge-thickness) * 1.25), #000 calc(50% - var(--gauge-thickness) * 1.25 + 1px), #000 calc(50% - var(--gauge-thickness) * .8), transparent calc(50% - var(--gauge-thickness) * .8 + 1px));
-  filter:drop-shadow(0 0 12px color-mix(in srgb,var(--tracker-status-color, var(--gauge-color)) 35%, transparent));
-  opacity:.6;
-  will-change:transform;
-  transform:rotate(0deg);
-  pointer-events:none;
-  animation:trackerGaugeSweep var(--tracker-tick-duration, 9s) linear infinite;
-  animation-delay:var(--tracker-tick-delay, 0s);
-}
-
-.tracker-gauge__dial{
-  position:absolute;
-  inset:calc(var(--gauge-thickness) * 1.45);
+  inset:-4px;
   border-radius:inherit;
-  background:
-    radial-gradient(circle at 50% 30%, color-mix(in srgb,var(--gauge-color) 18%, transparent) 0%, transparent 62%),
-    color-mix(in srgb,var(--surface) 92%, transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gauge-color) 25%, transparent);
+  border:1px solid color-mix(in srgb,var(--progress-color-value) 42%, transparent);
+  opacity:0;
   pointer-events:none;
+  transform:scale(.94);
 }
 
-.tracker-gauge__labels{
-  position:relative;
-  display:grid;
-  place-items:center;
-  gap:clamp(4px,1.5vw,6px);
-  text-align:center;
-  color:var(--gauge-label-color);
-  text-shadow:0 1px 1px rgba(0,0,0,.4);
+.tracker-progress__bar{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  pointer-events:none;
+  z-index:0;
+}
+
+.tracker-progress__meter{
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  overflow:hidden;
+  pointer-events:none;
+  z-index:0;
+}
+
+.tracker-progress__fill{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg,
+      color-mix(in srgb,var(--progress-color-value) 80%, transparent) 0%,
+      color-mix(in srgb,var(--progress-color-value) 32%, transparent) 65%,
+      transparent 100%);
+  transform-origin:left center;
+  transform:scaleX(var(--progress-ratio-value));
+  opacity:.88;
+  transition:transform .55s cubic-bezier(.22,1,.36,1), opacity .35s ease;
+}
+
+.tracker-progress__death{
+  position:absolute;
+  inset-inline:clamp(12px,3.4vw,18px);
+  inset-block-end:clamp(10px,2.8vw,14px);
+  height:6px;
+  border-radius:999px;
+  opacity:0;
+  transform:scaleX(0);
+  pointer-events:none;
+  transition:opacity .35s ease, transform .45s cubic-bezier(.22,1,.36,1);
   z-index:1;
 }
 
-.tracker-gauge__labels-top,
-.tracker-gauge__labels-main,
-.tracker-gauge__labels-bottom{
+.tracker-progress__death--success{
+  background:linear-gradient(90deg,
+      color-mix(in srgb,var(--success,#22c55e) 80%, transparent),
+      color-mix(in srgb,var(--success,#22c55e) 55%, transparent));
+  transform-origin:left center;
+}
+
+.tracker-progress__death--failure{
+  background:linear-gradient(90deg,
+      color-mix(in srgb,var(--error,#f87171) 55%, transparent),
+      color-mix(in srgb,var(--error,#f87171) 80%, transparent));
+  transform-origin:right center;
+}
+
+.tracker-progress[data-death-state] .tracker-progress__death{
+  opacity:.7;
+}
+
+.tracker-progress[data-death-state] .tracker-progress__death--success{
+  transform:scaleX(var(--death-success-ratio-value));
+}
+
+.tracker-progress[data-death-state] .tracker-progress__death--failure{
+  transform:scaleX(var(--death-failure-ratio-value));
+}
+
+.tracker-progress__labels{
+  position:relative;
   display:grid;
-  gap:clamp(2px,1vw,4px);
+  gap:clamp(4px,1.6vw,6px);
   justify-items:center;
+  text-align:center;
+  z-index:2;
+  color:color-mix(in srgb,var(--text) 90%, var(--progress-color-value) 10%);
+  text-shadow:0 1px 1px rgba(0,0,0,.32);
 }
 
-.tracker-gauge__labels-top{order:-1;font-size:clamp(.55rem,1.5vw,.7rem);letter-spacing:.18em;text-transform:uppercase;opacity:.8;}
-.tracker-gauge__labels-bottom{font-size:clamp(.58rem,1.6vw,.72rem);letter-spacing:.12em;text-transform:uppercase;opacity:.75;}
-
-.tracker-gauge__label{
-  font-size:clamp(.65rem,1.8vw,.8rem);
-  text-transform:uppercase;
+.tracker-progress__label{
+  font-size:clamp(.6rem,1.6vw,.75rem);
   letter-spacing:.14em;
+  text-transform:uppercase;
   font-weight:600;
+  opacity:.8;
 }
 
-.tracker-gauge__value{
-  font-size:clamp(1.25rem,4vw,1.95rem);
+.tracker-progress__label--top{
+  font-size:clamp(.56rem,1.4vw,.7rem);
+  letter-spacing:.18em;
+}
+
+.tracker-progress__value{
+  font-size:clamp(1.35rem,4.2vw,1.95rem);
   font-weight:700;
   line-height:1;
 }
 
-.tracker-gauge__status{
+.tracker-progress__status{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   padding:2px 10px;
   border-radius:999px;
-  border:1px solid color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--gauge-color))) 40%, transparent);
-  background:color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--gauge-color))) 18%, transparent);
+  border:1px solid color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--progress-color-value))) 45%, transparent);
+  background:color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--progress-color-value))) 18%, transparent);
   font-size:clamp(.6rem,1.8vw,.72rem);
   font-weight:700;
   letter-spacing:.1em;
   text-transform:uppercase;
-  color:color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--gauge-color))) 70%, var(--text));
+  color:color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--progress-color-value))) 70%, var(--text));
   min-width:fit-content;
+  transition:background .35s ease, border-color .35s ease, color .35s ease;
 }
 
-.tracker-gauge__status[data-status="healthy"]{--status-color:var(--success,#22c55e);}
-.tracker-gauge__status[data-status="wounded"]{--status-color:var(--warning,#f59e0b);}
-.tracker-gauge__status[data-status="critical"]{--status-color:var(--error,#f87171);}
-.tracker-gauge__status[data-status="stable"]{--status-color:var(--success,#22c55e);}
-.tracker-gauge__status[data-status="unstable"]{--status-color:var(--warning,#f59e0b);}
-.tracker-gauge__status[data-status="dead"]{--status-color:var(--error,#f87171);}
+.tracker-progress__status[data-status="healthy"]{--status-color:var(--success,#22c55e);}
+.tracker-progress__status[data-status="wounded"]{--status-color:var(--warning,#f59e0b);}
+.tracker-progress__status[data-status="critical"]{--status-color:var(--error,#f87171);}
+.tracker-progress__status[data-status="stable"]{--status-color:var(--success,#22c55e);}
+.tracker-progress__status[data-status="unstable"]{--status-color:var(--warning,#f59e0b);}
+.tracker-progress__status[data-status="dead"]{--status-color:var(--error,#f87171);}
+
+.tracker-progress--death-roll::after{
+  animation:trackerProgressRollGlow 1.3s ease-out;
+}
+
+body:not(.no-hover) .tracker-progress:hover::before{
+  opacity:.55;
+}
 
 .hp-field__progress{
   --tracker-color:var(--success);
@@ -2851,20 +2883,9 @@ progress::-moz-progress-bar{
   100%{background-position:200% 50%;}
 }
 
-@keyframes trackerGaugePulse{
-  0%,100%{
-    opacity:.85;
-    box-shadow:0 0 calc(var(--gauge-thickness) * 1.2) calc(var(--gauge-thickness) * .3) var(--gauge-glow-color);
-  }
-  50%{
-    opacity:1;
-    box-shadow:0 0 calc(var(--gauge-thickness) * 1.8) calc(var(--gauge-thickness) * .5) var(--gauge-glow-color);
-  }
-}
-
-@keyframes trackerGaugeSweep{
-  0%{transform:rotate(0deg);}
-  100%{transform:rotate(360deg);}
+@keyframes trackerProgressRollGlow{
+  0%{opacity:.6;transform:scale(1);}
+  100%{opacity:0;transform:scale(1.22);}
 }
 
 .pill{
@@ -2888,7 +2909,7 @@ progress::-moz-progress-bar{
 }
 
 .bar-label{position:relative}
-.bar-label>progress{
+.bar-label>progress:not(.tracker-progress__bar){
   width:100%;
   height:var(--progress-min-height);
   min-block-size:var(--progress-min-height);
