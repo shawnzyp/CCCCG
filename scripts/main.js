@@ -9075,10 +9075,10 @@ const parseGaugeNumber = value => {
   return Number.isFinite(numeric) ? numeric : 0;
 };
 
-const elHPGauge = elHPBar ? elHPBar.closest('.tracker-gauge') : null;
-const elSPGauge = elSPBar ? elSPBar.closest('.tracker-gauge') : null;
-const elHPGaugeValue = elHPPill ? elHPPill.querySelector('.tracker-gauge__value') : null;
-const elSPGaugeValue = elSPPill ? elSPPill.querySelector('.tracker-gauge__value') : null;
+const elHPTracker = elHPBar ? elHPBar.closest('.tracker-progress') : null;
+const elSPTracker = elSPBar ? elSPBar.closest('.tracker-progress') : null;
+const elHPProgressValue = elHPPill ? elHPPill.querySelector('.tracker-progress__value') : null;
+const elSPProgressValue = elSPPill ? elSPPill.querySelector('.tracker-progress__value') : null;
 
 let hpGaugeMetrics = {
   current: elHPBar ? parseGaugeNumber(elHPBar.value) : 0,
@@ -9842,45 +9842,7 @@ const TRACKER_STATUS_COLORS = {
   dead: 'var(--error,#f87171)',
 };
 
-const TRACKER_GAUGE_RATIO_CLASS = 'tracker-gauge--ratio-change';
-const TRACKER_GAUGE_ROLL_CLASS = 'tracker-gauge--death-roll';
-const TRACKER_GAUGE_START_DEG = -135;
-const TRACKER_GAUGE_SWEEP_DEG = 270;
-const TRACKER_GAUGE_TICK_MIN = 6;
-const TRACKER_GAUGE_TICK_MAX = 11;
-const TRACKER_GAUGE_TICK_DELAY_SCALE = 1.6;
-
-const trackerGaugeAnimationTimers = new WeakMap();
-
-function signalGaugeRatioChange(gaugeEl, nextRatio){
-  if (!gaugeEl) return;
-  const normalized = Number.isFinite(nextRatio) ? nextRatio : 0;
-  const previousRaw = typeof gaugeEl.dataset?.gaugeRatio === 'string'
-    ? Number(gaugeEl.dataset.gaugeRatio)
-    : Number.NaN;
-  const changed = !Number.isFinite(previousRaw) || Math.abs(previousRaw - normalized) > 0.0001;
-  if (gaugeEl.dataset) {
-    gaugeEl.dataset.gaugeRatio = normalized.toFixed(4);
-  }
-  if (!changed) return;
-  if (!animationsEnabled || prefersReducedMotion()) return;
-  if (trackerGaugeAnimationTimers.has(gaugeEl)) {
-    clearTimeout(trackerGaugeAnimationTimers.get(gaugeEl));
-    trackerGaugeAnimationTimers.delete(gaugeEl);
-  }
-  if (gaugeEl.classList) {
-    gaugeEl.classList.remove(TRACKER_GAUGE_RATIO_CLASS);
-    void gaugeEl.offsetWidth;
-    gaugeEl.classList.add(TRACKER_GAUGE_RATIO_CLASS);
-  }
-  if (typeof window?.setTimeout === 'function') {
-    const timer = window.setTimeout(() => {
-      gaugeEl.classList?.remove(TRACKER_GAUGE_RATIO_CLASS);
-      trackerGaugeAnimationTimers.delete(gaugeEl);
-    }, 520);
-    trackerGaugeAnimationTimers.set(gaugeEl, timer);
-  }
-}
+const TRACKER_PROGRESS_ROLL_CLASS = 'tracker-progress--death-roll';
 
 function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts = {}){
   if (!progressEl) return;
@@ -9903,52 +9865,35 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts
   const statusColor = statusColorOverride || fallbackStatusColor || baseColor;
   const color = colorOverride || statusColorOverride || fallbackStatusColor || baseColor;
   const percentValue = Math.round(ratioValue * 100);
-  const gaugeEl = progressEl.closest('.tracker-gauge');
-  const gaugeStyle = gaugeEl?.style;
-  const arcAngle = TRACKER_GAUGE_SWEEP_DEG * ratioValue;
-  const arcLength = ratioValue;
-  const arcEndAngle = TRACKER_GAUGE_START_DEG + arcAngle;
-  const tickDuration = TRACKER_GAUGE_TICK_MIN + (1 - ratioValue) * (TRACKER_GAUGE_TICK_MAX - TRACKER_GAUGE_TICK_MIN);
-  const tickDelay = (1 - ratioValue) * TRACKER_GAUGE_TICK_DELAY_SCALE;
+  const trackerEl = progressEl.closest('.tracker-progress');
+  const progressContainer = progressEl.parentElement;
   const applyProgressVars = target => {
     if (!target || typeof target.style?.setProperty !== 'function') return;
     target.style.setProperty('--progress-color', color);
     target.style.setProperty('--progress-ratio', ratioValue.toFixed(4));
     target.style.setProperty('--progress-percent', `${percentValue}`);
     target.style.setProperty('--tracker-color', color);
-    target.style.setProperty('--tracker-ratio', ratioValue.toFixed(4));
-    target.style.setProperty('--gauge-color', color);
-    target.style.setProperty('--gauge-ratio', ratioValue.toFixed(4));
     target.style.setProperty('--tracker-status-color', statusColor);
   };
   applyProgressVars(progressEl);
-  progressEl.dataset.status = status;
-  const progressContainer = progressEl.parentElement;
-  if (progressContainer) {
+  if (progressEl.dataset) progressEl.dataset.status = status;
+  if (progressContainer && progressContainer !== progressEl) {
     applyProgressVars(progressContainer);
     progressContainer.dataset.status = status;
   }
-  if (gaugeStyle && typeof gaugeStyle.setProperty === 'function') {
-    gaugeStyle.setProperty('--tracker-start-angle', `${TRACKER_GAUGE_START_DEG}deg`);
-    gaugeStyle.setProperty('--tracker-arc-angle', `${arcAngle.toFixed(2)}deg`);
-    gaugeStyle.setProperty('--tracker-arc-length', arcLength.toFixed(4));
-    gaugeStyle.setProperty('--tracker-arc-end-angle', `${arcEndAngle.toFixed(2)}deg`);
-    gaugeStyle.setProperty('--tracker-tick-duration', `${tickDuration.toFixed(2)}s`);
-    gaugeStyle.setProperty('--tracker-tick-delay', `${tickDelay.toFixed(2)}s`);
-    gaugeStyle.setProperty('--tracker-status-color', statusColor);
-  }
-  if (gaugeEl?.dataset) {
-    gaugeEl.dataset.status = status;
-    gaugeEl.dataset.gaugeRatio = ratioValue.toFixed(4);
+  if (trackerEl && trackerEl !== progressContainer && trackerEl !== progressEl) {
+    applyProgressVars(trackerEl);
+    trackerEl.dataset.status = status;
   }
   if (labelEl) {
     applyProgressVars(labelEl);
     labelEl.dataset.status = status;
     const statusLabel = statusLabelOverride || TRACKER_STATUS_LABELS[status] || '';
-    const statusEl = labelEl.querySelector('.tracker-gauge__status');
+    const statusEl = labelEl.querySelector('.tracker-progress__status');
     if (statusEl) {
       statusEl.textContent = statusLabel;
       statusEl.dataset.status = status;
+      statusEl.hidden = statusLabel.length === 0;
       if (typeof statusEl.style?.setProperty === 'function') {
         statusEl.style.setProperty('--tracker-status-color', statusColor);
       }
@@ -9964,7 +9909,7 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts
     color,
     status,
     statusLabel: statusLabelOverride || TRACKER_STATUS_LABELS[status] || '',
-    gaugeEl,
+    trackerEl: trackerEl || progressContainer || null,
   };
 }
 
@@ -10505,8 +10450,8 @@ function updateHPDisplay({ current, max } = {}){
   if (elHPCurrent) elHPCurrent.textContent = currentValue;
   if (elHPMax) elHPMax.textContent = maxValue;
   const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
-  if (elHPGaugeValue) {
-    elHPGaugeValue.textContent = hpDisplay;
+  if (elHPProgressValue) {
+    elHPProgressValue.textContent = hpDisplay;
   } else if (elHPPill) {
     elHPPill.textContent = hpDisplay;
   }
@@ -10526,7 +10471,6 @@ function updateHPDisplay({ current, max } = {}){
   hpGaugeMetrics.current = currentValue;
   hpGaugeMetrics.max = maxValue;
   hpGaugeMetrics.ratio = nextRatio;
-  signalGaugeRatioChange(gaugeState?.gaugeEl || elHPGauge, nextRatio);
   updateTempBadge(elHPTempPill, tempValue);
 }
 
@@ -10537,8 +10481,8 @@ function updateSPDisplay({ current, max } = {}){
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
-  if (elSPGaugeValue) {
-    elSPGaugeValue.textContent = spDisplay;
+  if (elSPProgressValue) {
+    elSPProgressValue.textContent = spDisplay;
   } else if (elSPPill) {
     elSPPill.textContent = spDisplay;
   }
@@ -10548,8 +10492,6 @@ function updateSPDisplay({ current, max } = {}){
     elSPBar.setAttribute('aria-valuemax', `${maxValue}`);
   }
   const gaugeState = applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue);
-  const nextRatio = gaugeState?.ratio ?? (maxValue > 0 ? currentValue / maxValue : 0);
-  signalGaugeRatioChange(gaugeState?.gaugeEl || elSPGauge, nextRatio);
   updateTempBadge(elSPTempPill, tempValue);
 }
 
@@ -12666,12 +12608,12 @@ function applyDeathGaugeOverride(override){
 }
 
 function syncDeathSaveGauge({ lastRoll } = {}){
-  if (!elHPGauge || !elHPBar || !Array.isArray(deathSuccesses) || !Array.isArray(deathFailures)) return;
-  const gaugeEl = elHPGauge;
+  if (!elHPTracker || !elHPBar || !Array.isArray(deathSuccesses) || !Array.isArray(deathFailures)) return;
+  const trackerEl = elHPTracker;
   const { successes, failures } = getDeathSaveCounts();
   const total = successes + failures;
   const atZero = hpGaugeMetrics.current <= 0 && hpGaugeMetrics.max > 0;
-  const style = gaugeEl.style;
+  const style = trackerEl.style;
   if (style && typeof style.setProperty === 'function') {
     style.setProperty('--death-success-ratio', (successes / 3).toFixed(4));
     style.setProperty('--death-failure-ratio', (failures / 3).toFixed(4));
@@ -12684,11 +12626,11 @@ function syncDeathSaveGauge({ lastRoll } = {}){
     else if (total > 0) gaugeState = 'progress';
     else gaugeState = 'idle';
   }
-  if (gaugeEl.dataset) {
+  if (trackerEl.dataset) {
     if (gaugeState === 'inactive') {
-      delete gaugeEl.dataset.deathState;
+      delete trackerEl.dataset.deathState;
     } else {
-      gaugeEl.dataset.deathState = gaugeState;
+      trackerEl.dataset.deathState = gaugeState;
     }
   }
   if (!atZero) {
@@ -12716,29 +12658,24 @@ function syncDeathSaveGauge({ lastRoll } = {}){
   } else {
     applyDeathGaugeOverride(null);
   }
-  if (style && (!atZero || gaugeState === 'idle')) {
-    style.removeProperty('--tracker-death-color');
-  } else if (style && deathGaugeOverride?.statusColorOverride) {
-    style.setProperty('--tracker-death-color', deathGaugeOverride.statusColorOverride);
-  }
   if (!atZero) {
-    gaugeEl.classList?.remove(TRACKER_GAUGE_ROLL_CLASS);
-    if (gaugeEl.dataset) delete gaugeEl.dataset.deathLastRoll;
+    trackerEl.classList?.remove(TRACKER_PROGRESS_ROLL_CLASS);
+    if (trackerEl.dataset) delete trackerEl.dataset.deathLastRoll;
   }
   if (lastRoll && atZero) {
-    if (gaugeEl.dataset) gaugeEl.dataset.deathLastRoll = lastRoll;
-    if (animationsEnabled && !prefersReducedMotion() && gaugeEl.classList) {
-      gaugeEl.classList.remove(TRACKER_GAUGE_ROLL_CLASS);
-      void gaugeEl.offsetWidth;
-      gaugeEl.classList.add(TRACKER_GAUGE_ROLL_CLASS);
+    if (trackerEl.dataset) trackerEl.dataset.deathLastRoll = lastRoll;
+    if (animationsEnabled && !prefersReducedMotion() && trackerEl.classList) {
+      trackerEl.classList.remove(TRACKER_PROGRESS_ROLL_CLASS);
+      void trackerEl.offsetWidth;
+      trackerEl.classList.add(TRACKER_PROGRESS_ROLL_CLASS);
     }
     if (typeof window?.setTimeout === 'function') {
       clearTimeout(deathGaugeRollResetTimer);
       deathGaugeRollResetTimer = window.setTimeout(() => {
-        if (gaugeEl.dataset?.deathLastRoll === lastRoll) {
-          delete gaugeEl.dataset.deathLastRoll;
+        if (trackerEl.dataset?.deathLastRoll === lastRoll) {
+          delete trackerEl.dataset.deathLastRoll;
         }
-        gaugeEl.classList?.remove(TRACKER_GAUGE_ROLL_CLASS);
+        trackerEl.classList?.remove(TRACKER_PROGRESS_ROLL_CLASS);
       }, 1400);
     }
   }
