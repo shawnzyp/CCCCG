@@ -30,12 +30,52 @@ function createFallbackRenderer(mountNode) {
       if (mountNode.__diceResultRoot) {
         delete mountNode.__diceResultRoot;
       }
+      if (mountNode.__diceResultOptions) {
+        delete mountNode.__diceResultOptions;
+      }
     },
   };
   return fallback;
 }
 
-function DiceResultContent({ value, playIndex }) {
+function parseBooleanString(value) {
+  if (value == null) return null;
+  const normalised = String(value).trim().toLowerCase();
+  if (['false', '0', 'no', 'off'].includes(normalised)) return false;
+  if (['true', '1', 'yes', 'on'].includes(normalised)) return true;
+  return null;
+}
+
+function resolveCascadePreference(mountNode, ...optionSources) {
+  for (const options of optionSources) {
+    if (options && typeof options.cascade === 'boolean') {
+      return options.cascade;
+    }
+  }
+
+  if (mountNode && mountNode.dataset) {
+    const parsedDataset = parseBooleanString(mountNode.dataset.diceCascade);
+    if (parsedDataset != null) {
+      return parsedDataset;
+    }
+  }
+
+  if (typeof globalThis !== 'undefined') {
+    if (
+      typeof globalThis.__CCCCG_ENABLE_DICE_CASCADE__ !== 'undefined' &&
+      globalThis.__CCCCG_ENABLE_DICE_CASCADE__ != null
+    ) {
+      return Boolean(globalThis.__CCCCG_ENABLE_DICE_CASCADE__);
+    }
+    if (typeof globalThis.__CCCCG_DISABLE_DICE_CASCADE__ === 'boolean') {
+      return !globalThis.__CCCCG_DISABLE_DICE_CASCADE__;
+    }
+  }
+
+  return true;
+}
+
+function DiceResultContent({ value, playIndex, cascadeEnabled }) {
   const prefersReducedMotion = useReducedMotion();
   const text = useMemo(() => (value == null ? '' : String(value)), [value]);
 
@@ -47,35 +87,43 @@ function DiceResultContent({ value, playIndex }) {
     );
   }
 
-  return (
-    <DecryptedText
-      key={playIndex}
-      text={text}
-      speed={110}
-      maxIterations={18}
-      sequential
-      revealDirection="end"
-      characters={DIGIT_CHARACTERS}
-      useOriginalCharsOnly
-      animateOn="view"
-      parentClassName="dice-result-decrypted"
-      className="dice-result-decrypted__char"
-      encryptedClassName="dice-result-decrypted__char--scrambling"
-    />
-  );
+  const shouldCascade = cascadeEnabled !== false;
+
+  const decryptedTextProps = {
+    key: playIndex,
+    text,
+    speed: shouldCascade ? 90 : 110,
+    maxIterations: shouldCascade ? 22 : 18,
+    characters: DIGIT_CHARACTERS,
+    useOriginalCharsOnly: true,
+    animateOn: 'view',
+    parentClassName: 'dice-result-decrypted',
+    className: 'dice-result-decrypted__char',
+    encryptedClassName: 'dice-result-decrypted__char--scrambling',
+  };
+
+  if (shouldCascade) {
+    decryptedTextProps.sequential = true;
+    decryptedTextProps.revealDirection = 'end';
+  }
+
+  return <DecryptedText {...decryptedTextProps} />;
 }
 
-export function ensureDiceResultRenderer(mountNode) {
+export function ensureDiceResultRenderer(mountNode, baseOptions = {}) {
   if (!mountNode) return null;
 
   const existingRenderer = mountNode.__diceResultRenderer;
   if (existingRenderer) {
     rendererCache.set(mountNode, existingRenderer);
+    mountNode.__diceResultOptions = baseOptions;
     return existingRenderer;
   }
 
   if (rendererCache.has(mountNode)) {
-    return rendererCache.get(mountNode);
+    const cached = rendererCache.get(mountNode);
+    mountNode.__diceResultOptions = baseOptions;
+    return cached;
   }
 
   let root;
@@ -86,12 +134,24 @@ export function ensureDiceResultRenderer(mountNode) {
     const fallback = createFallbackRenderer(mountNode);
     rendererCache.set(mountNode, fallback);
     mountNode.__diceResultRenderer = fallback;
+    mountNode.__diceResultOptions = baseOptions;
     return fallback;
   }
   const renderer = {
-    render(value, playIndex) {
+    render(value, playIndex, renderOptions = {}) {
       try {
-        root.render(<DiceResultContent value={value} playIndex={playIndex} />);
+        const cascadeEnabled = resolveCascadePreference(
+          mountNode,
+          renderOptions,
+          mountNode.__diceResultOptions
+        );
+        root.render(
+          <DiceResultContent
+            value={value}
+            playIndex={playIndex}
+            cascadeEnabled={cascadeEnabled}
+          />
+        );
       } catch (err) {
         reportRendererError('Failed to render dice result', err);
         const fallback = createFallbackRenderer(mountNode);
@@ -99,6 +159,7 @@ export function ensureDiceResultRenderer(mountNode) {
         rendererCache.set(mountNode, fallback);
         mountNode.__diceResultRenderer = fallback;
         delete mountNode.__diceResultRoot;
+        mountNode.__diceResultOptions = baseOptions;
       }
     },
     unmount() {
@@ -110,11 +171,13 @@ export function ensureDiceResultRenderer(mountNode) {
       rendererCache.delete(mountNode);
       delete mountNode.__diceResultRenderer;
       delete mountNode.__diceResultRoot;
+      delete mountNode.__diceResultOptions;
     }
   };
 
   rendererCache.set(mountNode, renderer);
   mountNode.__diceResultRenderer = renderer;
   mountNode.__diceResultRoot = root;
+  mountNode.__diceResultOptions = baseOptions;
   return renderer;
 }

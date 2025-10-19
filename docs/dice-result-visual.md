@@ -3,6 +3,15 @@
 This snapshot documents the sequential end-to-start reveal applied to dice
 results rendered by `src/dice-result.jsx` via the `DecryptedText` component.
 
+## Feature flagging
+
+- Sequential cascading is enabled by default.
+- Disable it with `data-dice-cascade="false"` on the mount node, by passing
+  `{ cascade: false }` to `ensureDiceResultRenderer`, or via the global flag
+  `window.__CCCCG_DISABLE_DICE_CASCADE__ = true`.
+- Explicitly enabling the cascade is also supported through
+  `window.__CCCCG_ENABLE_DICE_CASCADE__ = true`.
+
 ## Scenario
 
 - Run `npm run build:dice` and open `docs/dice-result-demo.html` in a browser
@@ -13,5 +22,5 @@ results rendered by `src/dice-result.jsx` via the `DecryptedText` component.
 ## Visual reference
 
 A regression snapshot confirming the cascade is attached to the pull request
-(artifact: `browser:/invocations/utwvmzoe/artifacts/artifacts/dice-result-cascade.png`).
+(artifact: `browser:/invocations/dvmcexha/artifacts/artifacts/dice-result-cascade.png`).
 
