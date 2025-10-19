@@ -359,6 +359,38 @@ describe('DM notifications export formats', () => {
     expect(lines[2]).toBe('2024-01-01T00:00:00,Gamma,info,[resolved] Older detail');
   });
 
+  test('escapes leading formula characters when exporting CSV', async () => {
+    await initDmModule({ loggedIn: true });
+
+    window.dmNotify('@Old detail', {
+      ts: '2024-03-02T00:00:00',
+      char: '@Sneaky',
+      severity: 'warning',
+    });
+
+    window.dmNotify('=1+2', {
+      ts: '2024-03-03T00:00:00',
+      char: '+EvilMage',
+      severity: 'info',
+    });
+
+    const writeText = jest.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    const result = await window.__dmTestHooks.exportNotifications('csv');
+    expect(result).toBe(true);
+    expect(writeText).toHaveBeenCalledTimes(1);
+
+    const exported = writeText.mock.calls[0][0];
+    const lines = exported.split('\n');
+    expect(lines[0]).toBe('ts,char,severity,detail');
+    expect(lines[1]).toBe("2024-03-03T00:00:00,'+EvilMage,info,'=1+2");
+    expect(lines[2]).toBe("2024-03-02T00:00:00,'@Sneaky,warning,'@Old detail");
+  });
+
   test('exports JSON payload with newest-first order', async () => {
     await initDmModule({ loggedIn: true });
 

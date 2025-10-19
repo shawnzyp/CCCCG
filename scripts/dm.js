@@ -623,10 +623,14 @@ function mapNotificationForStructuredExport(entry) {
 
 function escapeCsvValue(value) {
   const stringValue = String(value ?? '');
-  if (/[",\n\r]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
+  const trimmed = stringValue.trimStart();
+  const sanitizedValue = /^[=+\-@]/.test(trimmed) ? `'${stringValue}` : stringValue;
+
+  if (/[",\n\r]/.test(sanitizedValue)) {
+    return `"${sanitizedValue.replace(/"/g, '""')}"`;
   }
-  return stringValue;
+
+  return sanitizedValue;
 }
 
 let dmTestHooks = null;
