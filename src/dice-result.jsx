@@ -51,8 +51,10 @@ function DiceResultContent({ value, playIndex }) {
     <DecryptedText
       key={playIndex}
       text={text}
-      speed={40}
-      maxIterations={12}
+      speed={110}
+      maxIterations={18}
+      sequential
+      revealDirection="end"
       characters={DIGIT_CHARACTERS}
       useOriginalCharsOnly
       animateOn="view"

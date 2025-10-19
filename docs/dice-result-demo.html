@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dice Result Cascade Demo</title>
+    <link rel="stylesheet" href="../styles/main.css" />
+    <style>
+      body {
+        background: #03030f;
+        color: #f1f2ff;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .demo-wrapper {
+        padding: 2rem;
+        border-radius: 16px;
+        background: rgba(14, 18, 49, 0.85);
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+        text-align: center;
+      }
+
+      .demo-title {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .demo-result {
+        font-size: 3rem;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="demo-wrapper">
+      <div class="demo-title">Sequential dice cascade</div>
+      <span id="dice-demo" class="demo-result" data-placeholder="000"></span>
+    </div>
+
+    <script type="module">
+      import { ensureDiceResultRenderer } from '../scripts/dice-result.js';
+
+      const mountNode = document.getElementById('dice-demo');
+      const renderer = ensureDiceResultRenderer(mountNode);
+
+      let playIndex = 0;
+      const roll = () => {
+        const value = 100 + Math.floor(Math.random() * 900);
+        renderer.render(value, playIndex++);
+      };
+
+      roll();
+      setInterval(roll, 2600);
+    </script>
+  </body>
+</html>
