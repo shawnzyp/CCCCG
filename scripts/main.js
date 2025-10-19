@@ -1533,7 +1533,12 @@ function clearTouchUnlockTimer() {
 }
 
 function getWelcomeModal() {
-  return document.getElementById(WELCOME_MODAL_ID);
+  if (typeof document === 'undefined' || !document) return null;
+  try {
+    return document.getElementById(WELCOME_MODAL_ID);
+  } catch {
+    return null;
+  }
 }
 
 function lockTouchControls() {

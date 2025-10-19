@@ -95,6 +95,7 @@ function setupDom() {
       removeEventListener: () => {},
       appendChild: () => {},
       contains: () => false,
+      closest: () => null,
       add: () => {},
       querySelector: () => null,
       querySelectorAll: () => [],
@@ -104,6 +105,8 @@ function setupDom() {
       disabled: false,
       checked: false,
       hidden: false,
+      removeAttribute: () => {},
+      dataset: {},
     };
 }
 

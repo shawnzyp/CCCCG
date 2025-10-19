@@ -112,6 +112,7 @@ function setupDom() {
     removeEventListener: () => {},
     appendChild: () => {},
     contains: () => false,
+    closest: () => null,
     add: () => {},
     querySelector: () => null,
     querySelectorAll: () => [],

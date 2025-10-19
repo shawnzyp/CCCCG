@@ -33,6 +33,7 @@ function stubMissingElements() {
       hidden: false,
       dataset: {},
       closest: () => null,
+      removeAttribute: () => {},
     };
   };
 }
