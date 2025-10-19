@@ -9809,6 +9809,10 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
     target.style.setProperty('--progress-color', color);
     target.style.setProperty('--progress-ratio', ratioValue.toFixed(4));
     target.style.setProperty('--progress-percent', `${percentValue}`);
+    target.style.setProperty('--tracker-color', color);
+    target.style.setProperty('--tracker-ratio', ratioValue.toFixed(4));
+    target.style.setProperty('--gauge-color', color);
+    target.style.setProperty('--gauge-ratio', ratioValue.toFixed(4));
   };
   applyProgressVars(progressEl);
   const status = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
@@ -9822,7 +9826,7 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
     applyProgressVars(labelEl);
     labelEl.dataset.status = status;
     const statusLabel = TRACKER_STATUS_LABELS[status] || '';
-    const statusEl = labelEl.querySelector('.tracker-progress__status');
+    const statusEl = labelEl.querySelector('.tracker-gauge__status');
     if (statusEl) {
       statusEl.textContent = statusLabel;
       statusEl.dataset.status = status;
@@ -10372,7 +10376,7 @@ function updateHPDisplay({ current, max } = {}){
   if (elHPMax) elHPMax.textContent = maxValue;
   const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
   if (elHPPill) {
-    const valueEl = elHPPill.querySelector('.tracker-progress__value');
+    const valueEl = elHPPill.querySelector('.tracker-gauge__value');
     if (valueEl) valueEl.textContent = hpDisplay;
     else elHPPill.textContent = hpDisplay;
   }
@@ -10389,7 +10393,7 @@ function updateSPDisplay({ current, max } = {}){
   if (elSPMax) elSPMax.textContent = maxValue;
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
   if (elSPPill) {
-    const valueEl = elSPPill.querySelector('.tracker-progress__value');
+    const valueEl = elSPPill.querySelector('.tracker-gauge__value');
     if (valueEl) valueEl.textContent = spDisplay;
     else elSPPill.textContent = spDisplay;
   }

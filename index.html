@@ -747,11 +747,19 @@
               </div>
             </div>
             <span id="hp-temp-pill" class="hp-field__temp" hidden>+0 Temp</span>
-            <div class="hp-field__progress tracker-progress bar-label">
+            <div class="hp-field__progress tracker-gauge bar-label">
               <progress id="hp-bar" class="hp-field__progress-bar" max="30" value="30" aria-label="HP remaining"></progress>
-              <span id="hp-pill" class="hp-field__progress-label tracker-progress__label">
-                <span class="tracker-progress__value">30/30</span>
-                <span class="tracker-progress__status" aria-live="polite" role="status"></span>
+              <span class="tracker-gauge__ticks" aria-hidden="true"></span>
+              <span class="tracker-gauge__arc" aria-hidden="true"></span>
+              <span class="tracker-gauge__dial" aria-hidden="true"></span>
+              <span id="hp-pill" class="hp-field__progress-label tracker-gauge__labels">
+                <span class="tracker-gauge__labels-top" aria-hidden="true">HP</span>
+                <span class="tracker-gauge__labels-main">
+                  <span class="tracker-gauge__value">30/30</span>
+                </span>
+                <span class="tracker-gauge__labels-bottom">
+                  <span class="tracker-gauge__status" aria-live="polite" role="status"></span>
+                </span>
               </span>
             </div>
           </div>
@@ -797,11 +805,19 @@
               </div>
             </div>
             <span id="sp-temp-pill" class="sp-field__temp" hidden>+0 Temp</span>
-            <div class="sp-field__progress tracker-progress bar-label">
+            <div class="sp-field__progress tracker-gauge bar-label">
               <progress id="sp-bar" class="sp-field__progress-bar" max="5" value="5" aria-label="SP remaining"></progress>
-              <span id="sp-pill" class="sp-field__progress-label tracker-progress__label">
-                <span class="tracker-progress__value">5/5</span>
-                <span class="tracker-progress__status" aria-live="polite" role="status"></span>
+              <span class="tracker-gauge__ticks" aria-hidden="true"></span>
+              <span class="tracker-gauge__arc" aria-hidden="true"></span>
+              <span class="tracker-gauge__dial" aria-hidden="true"></span>
+              <span id="sp-pill" class="sp-field__progress-label tracker-gauge__labels">
+                <span class="tracker-gauge__labels-top" aria-hidden="true">SP</span>
+                <span class="tracker-gauge__labels-main">
+                  <span class="tracker-gauge__value">5/5</span>
+                </span>
+                <span class="tracker-gauge__labels-bottom">
+                  <span class="tracker-gauge__status" aria-live="polite" role="status"></span>
+                </span>
               </span>
             </div>
           </div>
