@@ -142,11 +142,30 @@ import { show, hide } from './modal.js';
       });
   };
 
+  const parseStoredHistoryPayload = (payload) => {
+    if (Array.isArray(payload)) {
+      return { entries: payload, filters: null };
+    }
+    if (payload && typeof payload === 'object') {
+      const filters = payload.filters && typeof payload.filters === 'object' ? payload.filters : null;
+      if (Array.isArray(payload.entries)) {
+        return { entries: payload.entries, filters };
+      }
+      if (payload.entries && typeof payload.entries === 'object') {
+        return { entries: [payload.entries], filters };
+      }
+      return { entries: [payload], filters: null };
+    }
+    return { entries: [], filters: null };
+  };
+
   const persistHistory = () => {
     try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(transactionHistory));
-      }
+      if (typeof localStorage === 'undefined') return;
+      const existing = safeParse(localStorage.getItem(STORAGE_KEY));
+      const { filters } = parseStoredHistoryPayload(existing);
+      const payload = filters ? { entries: transactionHistory, filters } : transactionHistory;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch {
       /* ignore persistence errors */
     }
@@ -376,7 +395,12 @@ import { show, hide } from './modal.js';
     if (Array.isArray(data.payload)) {
       syncHistoryFromEntries(data.payload, { reveal: true, persist: true });
     } else {
-      handleUpdate(data.payload, { reveal: true });
+      const { entries } = parseStoredHistoryPayload(data.payload);
+      if (entries.length) {
+        syncHistoryFromEntries(entries, { reveal: true, persist: true });
+      } else {
+        handleUpdate(data.payload, { reveal: true });
+      }
     }
   };
 
@@ -394,10 +418,12 @@ import { show, hide } from './modal.js';
       renderHistory(transactionHistory);
       return;
     }
-    if (Array.isArray(parsed)) {
-      syncHistoryFromEntries(parsed, { reveal: true, persist: false });
+    const { entries } = parseStoredHistoryPayload(parsed);
+    if (entries.length) {
+      syncHistoryFromEntries(entries, { reveal: true, persist: false });
     } else {
-      handleUpdate(parsed, { reveal: true, persist: false });
+      transactionHistory = [];
+      renderHistory(transactionHistory);
     }
   });
 
@@ -418,11 +444,14 @@ import { show, hide } from './modal.js';
     try {
       const existing = localStorage.getItem(STORAGE_KEY);
       const parsed = safeParse(existing);
-      if (Array.isArray(parsed)) {
-        syncHistoryFromEntries(parsed, { reveal: false, persist: false });
-      } else if (parsed) {
-        handleUpdate(parsed, { reveal: false, persist: false });
-        persistHistory();
+      if (parsed) {
+        const { entries } = parseStoredHistoryPayload(parsed);
+        if (entries.length) {
+          syncHistoryFromEntries(entries, { reveal: false, persist: false });
+        } else {
+          transactionHistory = [];
+          renderHistory(transactionHistory);
+        }
       } else {
         renderHistory(transactionHistory);
       }
