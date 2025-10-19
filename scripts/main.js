@@ -6642,10 +6642,98 @@ const THEME_LABELS = {
   mystic: 'Mystic'
 };
 /**
+ * Map CSS custom properties touched by each theme so accent/glow assets stay in sync with overlay layers.
+ * Keep these lists aligned with styles/main.css :root.theme-* definitions when rotating art or gradients.
+ */
+const THEME_CSS_VARIABLES = Object.freeze({
+  dark: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Dark.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-dark-avif', '--bg-dark-webp'])
+    })
+  }),
+  light: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Light.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-light-avif', '--bg-light-webp'])
+    })
+  }),
+  high: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/High Contrast.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-high-contrast-avif', '--bg-high-contrast-webp'])
+    })
+  }),
+  forest: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Forest.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-forest-avif', '--bg-forest-webp'])
+    })
+  }),
+  ocean: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Ocean.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-ocean-avif', '--bg-ocean-webp'])
+    })
+  }),
+  mutant: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Mutant.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-mutant-avif', '--bg-mutant-webp'])
+    })
+  }),
+  enhanced: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Enhanced Human.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-enhanced-human-avif', '--bg-enhanced-human-webp'])
+    })
+  }),
+  magic: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Magic User.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-magic-user-avif', '--bg-magic-user-webp'])
+    })
+  }),
+  alien: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Alien:Extraterrestrial.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-alien-extraterrestrial-avif', '--bg-alien-extraterrestrial-webp'])
+    })
+  }),
+  mystic: Object.freeze({
+    accentVars: Object.freeze(['--accent', '--accent-2']),
+    glowVars: Object.freeze(['--accent', '--accent-2']),
+    overlay: Object.freeze({
+      backgroundImage: '../images/Mystical Being.PNG?v=2',
+      imageTokens: Object.freeze(['--bg', '--bg-mystical-being-avif', '--bg-mystical-being-webp'])
+    })
+  })
+});
+/**
  * Apply a visual theme by toggling root classes and updating the button icon.
  * @param {string} t - theme identifier matching supported themes
  */
 let activeTheme = null;
+// Theme accents drive overlay gradients (card glows, initiative pulses) and the image-set backgrounds listed in THEME_CSS_VARIABLES.
+// When updating theme art, ensure the accent variables remain aligned with the overlay tokens so background layers stay cohesive.
 function spinThemeToggle(){
   if(!themeSpinnerEl) return;
   if(reducedMotionQuery && reducedMotionQuery.matches) return;
@@ -6672,6 +6760,17 @@ function applyTheme(t, { animate = true } = {}){
     if (animate && themeChanged) {
       spinThemeToggle();
     }
+  }
+  const themeTokens = THEME_CSS_VARIABLES[themeName];
+  if (themeTokens && themeTokens.overlay) {
+    root.dataset.themeOverlayTokens = themeTokens.overlay.imageTokens.join(',');
+    root.dataset.themeOverlayImage = themeTokens.overlay.backgroundImage;
+  }
+  if (themeTokens && themeTokens.accentVars) {
+    root.dataset.themeAccentVars = themeTokens.accentVars.join(',');
+  }
+  if (themeTokens && themeTokens.glowVars) {
+    root.dataset.themeGlowVars = themeTokens.glowVars.join(',');
   }
   activeTheme = themeName;
 }
