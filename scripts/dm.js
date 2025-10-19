@@ -3738,6 +3738,7 @@ function initDMLogin(){
           },
         ],
       });
+      ++creditBalanceRequestId;
       const resolvedTotal = normalizeCreditBalance(result?.results?.credits?.total);
       if (typeof resolvedTotal === 'number') {
         creditSelectedPlayerBalance = resolvedTotal;
