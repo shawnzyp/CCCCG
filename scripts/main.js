@@ -8885,17 +8885,27 @@ const elWis = $('wis');
 const elCha = $('cha');
 const elSPBar = $('sp-bar');
 const elSPPill = $('sp-pill');
+const elSPGauge = $('sp-gauge');
 const elSPTemp = $('sp-temp');
 const elSPCurrent = $('sp-current');
 const elSPMax = $('sp-max');
 const elSPTempPill = $('sp-temp-pill');
 const elHPBar = $('hp-bar');
 const elHPPill = $('hp-pill');
+const elHPGauge = $('hp-gauge');
 const elHPRoll = $('hp-roll');
 const elHPTemp = $('hp-temp');
 const elHPCurrent = $('hp-current');
 const elHPMax = $('hp-max');
 const elHPTempPill = $('hp-temp-pill');
+const elHPPillValue = elHPPill ? elHPPill.querySelector('[data-progress-value]') : null;
+const elHPPillValueCurrent = elHPPill ? elHPPill.querySelector('[data-progress-current]') : null;
+const elHPPillValueMax = elHPPill ? elHPPill.querySelector('[data-progress-max]') : null;
+const elHPPillValueTemp = elHPPill ? elHPPill.querySelector('[data-progress-temp]') : null;
+const elSPPillValue = elSPPill ? elSPPill.querySelector('[data-progress-value]') : null;
+const elSPPillValueCurrent = elSPPill ? elSPPill.querySelector('[data-progress-current]') : null;
+const elSPPillValueMax = elSPPill ? elSPPill.querySelector('[data-progress-max]') : null;
+const elSPPillValueTemp = elSPPill ? elSPPill.querySelector('[data-progress-temp]') : null;
 const elHPLevelBonusInput = $('hp-level-bonus');
 const elSPLevelBonusInput = $('sp-level-bonus');
 const elAbilityCard = $('card-abilities');
@@ -9671,17 +9681,45 @@ const TRACKER_STATUS_LABELS = {
   critical: 'Critical',
 };
 
-function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
-  if (!progressEl) return;
+const TRACKER_STATUS_COLORS = {
+  healthy: 'var(--success,#22c55e)',
+  wounded: 'var(--warning,#f59e0b)',
+  critical: 'var(--error,#f87171)',
+};
+
+const TRACKER_GAUGE_START_ANGLE = -120;
+const TRACKER_GAUGE_SWEEP = 240;
+const TRACKER_GAUGE_TICK_DELAY_BASE = 0.25;
+const TRACKER_GAUGE_TICK_DELAY_RANGE = 0.75;
+
+function clampRatio(value){
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+function restartAnimation(target, className){
+  if (!target || !target.classList) return;
+  target.classList.remove(className);
+  // Force reflow so the animation restarts.
+  void target.offsetWidth;
+  target.classList.add(className);
+}
+
+function applyProgressGradient({ progressEl, labelEl, gaugeEl, currentValue, maxValue } = {}){
+  if (!progressEl) return { ratio: 0, status: 'critical', percent: 0, color: '', statusColor: '' };
   const numericCurrent = Number(currentValue);
   const numericMax = Number(maxValue);
   const ratio = Number.isFinite(numericCurrent) && Number.isFinite(numericMax) && numericMax > 0
-    ? Math.min(Math.max(numericCurrent / numericMax, 0), 1)
+    ? clampRatio(numericCurrent / numericMax)
     : 0;
   const hue = Math.round(120 * ratio);
   const color = `hsl(${hue}deg 68% 46%)`;
   const ratioValue = Number.isFinite(ratio) ? ratio : 0;
   const percentValue = Math.round(ratioValue * 100);
+  const status = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
+  const statusColor = TRACKER_STATUS_COLORS[status] || 'var(--accent)';
   const applyProgressVars = target => {
     if (!target || typeof target.style?.setProperty !== 'function') return;
     target.style.setProperty('--progress-color', color);
@@ -9689,12 +9727,16 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
     target.style.setProperty('--progress-percent', `${percentValue}`);
   };
   applyProgressVars(progressEl);
-  const status = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
   progressEl.dataset.status = status;
-  const progressContainer = progressEl.parentElement;
-  if (progressContainer) {
-    applyProgressVars(progressContainer);
-    progressContainer.dataset.status = status;
+  const barContainer = progressEl.parentElement;
+  if (barContainer) {
+    applyProgressVars(barContainer);
+    barContainer.dataset.status = status;
+  }
+  const trackerContainer = progressEl.closest('.tracker-progress');
+  if (trackerContainer) {
+    applyProgressVars(trackerContainer);
+    trackerContainer.dataset.status = status;
   }
   if (labelEl) {
     applyProgressVars(labelEl);
@@ -9704,11 +9746,63 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
     if (statusEl) {
       statusEl.textContent = statusLabel;
       statusEl.dataset.status = status;
+      if (statusEl.style?.setProperty) {
+        statusEl.style.setProperty('--status-color', statusColor);
+      }
     }
+  }
+  const resolvedGauge = gaugeEl || trackerContainer?.querySelector('.tracker-gauge');
+  if (resolvedGauge && resolvedGauge.style?.setProperty) {
+    applyProgressVars(resolvedGauge);
+    const arcLength = TRACKER_GAUGE_SWEEP * ratioValue;
+    const tickDelay = TRACKER_GAUGE_TICK_DELAY_BASE + TRACKER_GAUGE_TICK_DELAY_RANGE * ratioValue;
+    resolvedGauge.style.setProperty('--gauge-color', color);
+    resolvedGauge.style.setProperty('--gauge-status-color', statusColor);
+    resolvedGauge.style.setProperty('--gauge-start-angle', `${TRACKER_GAUGE_START_ANGLE}deg`);
+    resolvedGauge.style.setProperty('--gauge-arc-range', `${TRACKER_GAUGE_SWEEP}deg`);
+    resolvedGauge.style.setProperty('--gauge-arc-length', `${arcLength.toFixed(2)}deg`);
+    resolvedGauge.style.setProperty('--gauge-tick-delay', `${tickDelay.toFixed(3)}s`);
+    resolvedGauge.dataset.status = status;
   }
   const valueContainer = progressEl.closest('.hp-field__status, .sp-field__status');
   if (valueContainer) {
     valueContainer.querySelectorAll('.hp-field__value, .sp-field__value').forEach(applyProgressVars);
+  }
+  return { ratio: ratioValue, status, percent: percentValue, color, statusColor };
+}
+
+function updateTrackerValueNodes({
+  container,
+  valueContainer,
+  currentNode,
+  maxNode,
+  tempNode,
+  currentValue,
+  maxValue,
+  tempValue,
+  ratioText,
+}) {
+  if (!container) return;
+  if (currentNode) currentNode.textContent = currentValue;
+  if (maxNode) maxNode.textContent = maxValue;
+  if (tempNode) {
+    if (tempValue) {
+      tempNode.textContent = `(+${tempValue})`;
+      tempNode.hidden = false;
+    } else {
+      tempNode.textContent = '';
+      tempNode.hidden = true;
+    }
+  }
+  if (valueContainer) {
+    valueContainer.dataset.progressRatio = ratioText;
+  }
+  if (!currentNode && !maxNode) {
+    if (valueContainer) {
+      valueContainer.textContent = ratioText;
+    } else {
+      container.textContent = ratioText;
+    }
   }
 }
 
@@ -10243,36 +10337,106 @@ function handleAugmentFilterToggle(tag) {
 }
 
 function updateHPDisplay({ current, max } = {}){
-  const currentValue = Number.isFinite(current) ? current : num(elHPBar.value);
-  const maxValue = Number.isFinite(max) ? max : num(elHPBar.max);
+  const currentValue = Number.isFinite(current) ? current : num(elHPBar?.value);
+  const maxValue = Number.isFinite(max) ? max : num(elHPBar?.max);
   const tempValue = elHPTemp ? num(elHPTemp.value) : 0;
   if (elHPCurrent) elHPCurrent.textContent = currentValue;
   if (elHPMax) elHPMax.textContent = maxValue;
-  const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
-  if (elHPPill) {
-    const valueEl = elHPPill.querySelector('.tracker-progress__value');
-    if (valueEl) valueEl.textContent = hpDisplay;
-    else elHPPill.textContent = hpDisplay;
+  const ratioText = `${currentValue}/${maxValue}`;
+  const hpDisplay = tempValue ? `${ratioText} (+${tempValue})` : ratioText;
+  if (elHPBar) {
+    const normalizedCurrent = Number.isFinite(currentValue) ? Math.max(currentValue, 0) : 0;
+    const normalizedMax = Number.isFinite(maxValue) ? Math.max(maxValue, 0) : 0;
+    elHPBar.value = normalizedCurrent;
+    elHPBar.max = normalizedMax;
+    elHPBar.setAttribute('aria-valuetext', hpDisplay);
+    elHPBar.setAttribute('aria-valuenow', `${normalizedCurrent}`);
+    elHPBar.setAttribute('aria-valuemax', `${normalizedMax}`);
+    elHPBar.setAttribute('aria-valuemin', '0');
   }
-  if (elHPBar) elHPBar.setAttribute('aria-valuetext', hpDisplay);
-  applyProgressGradient(elHPBar, elHPPill, currentValue, maxValue);
+  updateTrackerValueNodes({
+    container: elHPPill,
+    valueContainer: elHPPillValue,
+    currentNode: elHPPillValueCurrent,
+    maxNode: elHPPillValueMax,
+    tempNode: elHPPillValueTemp,
+    currentValue,
+    maxValue,
+    tempValue,
+    ratioText,
+  });
+  const gradientState = applyProgressGradient({
+    progressEl: elHPBar,
+    labelEl: elHPPill,
+    gaugeEl: elHPGauge,
+    currentValue,
+    maxValue,
+  });
+  if (elHPBar && gradientState) {
+    const prevRatio = Number.parseFloat(elHPBar.dataset.prevRatio ?? '');
+    const ratioChanged = Number.isFinite(prevRatio) ? Math.abs(prevRatio - gradientState.ratio) > 0.0005 : false;
+    elHPBar.dataset.prevRatio = gradientState.ratio.toFixed(4);
+    if (ratioChanged) {
+      restartAnimation(elHPGauge, 'tracker-gauge--pulse');
+      restartAnimation(elHPPill, 'tracker-progress__label--pulse');
+      restartAnimation(elHPPillValue, 'tracker-progress__value--pulse');
+      if (elHPBar.parentElement) {
+        restartAnimation(elHPBar.parentElement, 'tracker-progress__bar--pulse');
+      }
+    }
+  }
   updateTempBadge(elHPTempPill, tempValue);
 }
 
 function updateSPDisplay({ current, max } = {}){
-  const currentValue = Number.isFinite(current) ? current : num(elSPBar.value);
-  const maxValue = Number.isFinite(max) ? max : num(elSPBar.max);
+  const currentValue = Number.isFinite(current) ? current : num(elSPBar?.value);
+  const maxValue = Number.isFinite(max) ? max : num(elSPBar?.max);
   const tempValue = elSPTemp ? num(elSPTemp.value) : 0;
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
-  const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
-  if (elSPPill) {
-    const valueEl = elSPPill.querySelector('.tracker-progress__value');
-    if (valueEl) valueEl.textContent = spDisplay;
-    else elSPPill.textContent = spDisplay;
+  const ratioText = `${currentValue}/${maxValue}`;
+  const spDisplay = tempValue ? `${ratioText} (+${tempValue})` : ratioText;
+  if (elSPBar) {
+    const normalizedCurrent = Number.isFinite(currentValue) ? Math.max(currentValue, 0) : 0;
+    const normalizedMax = Number.isFinite(maxValue) ? Math.max(maxValue, 0) : 0;
+    elSPBar.value = normalizedCurrent;
+    elSPBar.max = normalizedMax;
+    elSPBar.setAttribute('aria-valuetext', spDisplay);
+    elSPBar.setAttribute('aria-valuenow', `${normalizedCurrent}`);
+    elSPBar.setAttribute('aria-valuemax', `${normalizedMax}`);
+    elSPBar.setAttribute('aria-valuemin', '0');
   }
-  if (elSPBar) elSPBar.setAttribute('aria-valuetext', spDisplay);
-  applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue);
+  updateTrackerValueNodes({
+    container: elSPPill,
+    valueContainer: elSPPillValue,
+    currentNode: elSPPillValueCurrent,
+    maxNode: elSPPillValueMax,
+    tempNode: elSPPillValueTemp,
+    currentValue,
+    maxValue,
+    tempValue,
+    ratioText,
+  });
+  const gradientState = applyProgressGradient({
+    progressEl: elSPBar,
+    labelEl: elSPPill,
+    gaugeEl: elSPGauge,
+    currentValue,
+    maxValue,
+  });
+  if (elSPBar && gradientState) {
+    const prevRatio = Number.parseFloat(elSPBar.dataset.prevRatio ?? '');
+    const ratioChanged = Number.isFinite(prevRatio) ? Math.abs(prevRatio - gradientState.ratio) > 0.0005 : false;
+    elSPBar.dataset.prevRatio = gradientState.ratio.toFixed(4);
+    if (ratioChanged) {
+      restartAnimation(elSPGauge, 'tracker-gauge--pulse');
+      restartAnimation(elSPPill, 'tracker-progress__label--pulse');
+      restartAnimation(elSPPillValue, 'tracker-progress__value--pulse');
+      if (elSPBar.parentElement) {
+        restartAnimation(elSPBar.parentElement, 'tracker-progress__bar--pulse');
+      }
+    }
+  }
   updateTempBadge(elSPTempPill, tempValue);
 }
 
@@ -12301,8 +12465,54 @@ const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(i
 const deathOut = $('death-save-out');
 const deathRollMode = $('death-save-mode');
 const deathModifierInput = $('death-save-mod');
+const elDeathGauge = $('death-save-gauge');
+const elDeathGaugeContainer = document.querySelector('.death-save-gauge');
 let deathState = null; // null, 'stable', 'dead'
 const deathOutAnimationClass = 'death-save-result--pulse';
+
+function syncDeathGauge({ highlight = false } = {}) {
+  if (!elDeathGauge) return { successCount: 0, failureCount: 0, status: 'idle' };
+  const totalSuccess = deathSuccesses.length || 1;
+  const totalFailure = deathFailures.length || 1;
+  const successCount = deathSuccesses.filter(box => box?.checked).length;
+  const failureCount = deathFailures.filter(box => box?.checked).length;
+  const successRatio = clampRatio(successCount / totalSuccess);
+  const failureRatio = clampRatio(failureCount / totalFailure);
+  const arcLength = TRACKER_GAUGE_SWEEP * successRatio;
+  const secondaryLength = TRACKER_GAUGE_SWEEP * failureRatio;
+  const tickDelay = TRACKER_GAUGE_TICK_DELAY_BASE + TRACKER_GAUGE_TICK_DELAY_RANGE * Math.max(successRatio, failureRatio);
+  if (elDeathGauge.style?.setProperty) {
+    elDeathGauge.style.setProperty('--gauge-start-angle', `${TRACKER_GAUGE_START_ANGLE}deg`);
+    elDeathGauge.style.setProperty('--gauge-arc-range', `${TRACKER_GAUGE_SWEEP}deg`);
+    elDeathGauge.style.setProperty('--gauge-arc-length', `${arcLength.toFixed(2)}deg`);
+    elDeathGauge.style.setProperty('--gauge-secondary-length', `${secondaryLength.toFixed(2)}deg`);
+    elDeathGauge.style.setProperty('--gauge-tick-delay', `${tickDelay.toFixed(3)}s`);
+    elDeathGauge.style.setProperty('--gauge-color', 'var(--success,#22c55e)');
+    elDeathGauge.style.setProperty('--gauge-secondary-color', 'var(--error,#f87171)');
+    elDeathGauge.dataset.successes = String(successCount);
+    elDeathGauge.dataset.failures = String(failureCount);
+  }
+  let status = 'idle';
+  if (failureCount >= totalFailure) {
+    status = 'dead';
+  } else if (successCount >= totalSuccess) {
+    status = 'stable';
+  } else if (failureCount > successCount) {
+    status = 'danger';
+  } else if (successCount > 0) {
+    status = 'progress';
+  }
+  elDeathGauge.dataset.status = status;
+  if (elDeathGaugeContainer) {
+    elDeathGaugeContainer.dataset.state = status;
+  }
+  if (highlight) {
+    restartAnimation(elDeathGauge, 'tracker-gauge--pulse');
+  }
+  return { successCount, failureCount, status };
+}
+
+syncDeathGauge();
 
 function setDeathSaveOutput({ total, modifier, appliedMode, rolls, resolution }) {
   if (!deathOut) return;
@@ -12367,30 +12577,40 @@ function resetDeathSaves(){
       delete deathOut.dataset.rollModeSources;
     }
   }
+  syncDeathGauge();
 }
 $('death-save-reset')?.addEventListener('click', resetDeathSaves);
 
-async function checkDeathProgress(){
-  if(deathFailures.every(b=>b.checked)){
+async function checkDeathProgress(eventOrOptions){
+  const isEventArg = eventOrOptions && typeof eventOrOptions === 'object' && !Array.isArray(eventOrOptions)
+    && !('highlight' in eventOrOptions) && 'target' in eventOrOptions;
+  const opts = isEventArg ? {} : (eventOrOptions || {});
+  const highlight = opts.highlight === true;
+  const { successCount, failureCount, status } = syncDeathGauge({ highlight });
+  const totalFailures = deathFailures.length || 1;
+  const totalSuccesses = deathSuccesses.length || 1;
+  if (failureCount >= totalFailures) {
     if(deathState!=='dead'){
       deathState='dead';
       await playDeathAnimation();
       toast('You have fallen, your sacrifice will be remembered.', 'error');
       logAction('Death save failed: character has fallen.');
     }
-  }else if(deathSuccesses.every(b=>b.checked)){
+  }else if(successCount >= totalSuccesses){
     if(deathState!=='stable'){
       deathState='stable';
       toast('You are stable at 0 HP.', 'success');
       logAction('Death saves complete: character is stable at 0 HP.');
     }
   }else{
-    deathState=null;
+    if (deathState !== null && status !== 'dead' && status !== 'stable') {
+      deathState=null;
+    }
   }
 }
 [...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
 
-$('roll-death-save')?.addEventListener('click', ()=>{
+$('roll-death-save')?.addEventListener('click', async ()=>{
   const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';
   const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
   const manualInputRaw = deathModifierInput ? deathModifierInput.value : '';
@@ -12450,7 +12670,7 @@ $('roll-death-save')?.addEventListener('click', ()=>{
   } else {
     markBoxes(deathFailures, 1);
   }
-  checkDeathProgress();
+  await checkDeathProgress({ highlight: true });
 });
 let activeCampaignEditEntryId = null;
 

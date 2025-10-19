@@ -669,28 +669,47 @@
 
     <fieldset id="death-saves" class="card card__glow" hidden disabled>
       <legend data-animate-title>Death Saves</legend>
-      <div class="death-saves-grid">
-        <div class="death-save-tracks">
-          <div class="death-save-group">
-            <span>Successes</span>
-            <label for="death-success-1" class="sr-only">Success 1</label>
-            <input type="checkbox" id="death-success-1"/>
-            <label for="death-success-2" class="sr-only">Success 2</label>
-            <input type="checkbox" id="death-success-2"/>
-            <label for="death-success-3" class="sr-only">Success 3</label>
-            <input type="checkbox" id="death-success-3"/>
+        <div class="death-saves-grid">
+          <div class="death-save-tracks">
+            <div class="death-save-group">
+              <span>Successes</span>
+              <label for="death-success-1" class="sr-only">Success 1</label>
+              <input type="checkbox" id="death-success-1"/>
+              <label for="death-success-2" class="sr-only">Success 2</label>
+              <input type="checkbox" id="death-success-2"/>
+              <label for="death-success-3" class="sr-only">Success 3</label>
+              <input type="checkbox" id="death-success-3"/>
+            </div>
+            <div class="death-save-group">
+              <span>Failures</span>
+              <label for="death-fail-1" class="sr-only">Failure 1</label>
+              <input type="checkbox" id="death-fail-1"/>
+              <label for="death-fail-2" class="sr-only">Failure 2</label>
+              <input type="checkbox" id="death-fail-2"/>
+              <label for="death-fail-3" class="sr-only">Failure 3</label>
+              <input type="checkbox" id="death-fail-3"/>
+            </div>
           </div>
-          <div class="death-save-group">
-            <span>Failures</span>
-            <label for="death-fail-1" class="sr-only">Failure 1</label>
-            <input type="checkbox" id="death-fail-1"/>
-            <label for="death-fail-2" class="sr-only">Failure 2</label>
-            <input type="checkbox" id="death-fail-2"/>
-            <label for="death-fail-3" class="sr-only">Failure 3</label>
-            <input type="checkbox" id="death-fail-3"/>
+          <div class="death-save-gauge" aria-hidden="true">
+            <div id="death-save-gauge" class="tracker-gauge tracker-gauge--death" aria-hidden="true">
+              <div class="tracker-gauge__secondary" aria-hidden="true"></div>
+              <div class="tracker-gauge__ticks" aria-hidden="true">
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                <span class="tracker-gauge__tick" aria-hidden="true"></span>
+              </div>
+            </div>
           </div>
-        </div>
-        <span
+          <span
           id="death-save-out"
           class="death-save-result"
           data-placeholder="Roll"
@@ -739,9 +758,35 @@
             </div>
             <span id="hp-temp-pill" class="hp-field__temp" hidden>+0 Temp</span>
             <div class="hp-field__progress tracker-progress bar-label">
-              <progress id="hp-bar" class="hp-field__progress-bar" max="30" value="30" aria-label="HP remaining"></progress>
+              <div class="tracker-progress__visual">
+                <div class="tracker-progress__bar">
+                  <progress id="hp-bar" class="hp-field__progress-bar" max="30" value="30" aria-label="HP remaining"></progress>
+                </div>
+                <div id="hp-gauge" class="tracker-gauge tracker-gauge--meter" aria-hidden="true">
+                  <div class="tracker-gauge__secondary" aria-hidden="true"></div>
+                  <div class="tracker-gauge__ticks" aria-hidden="true">
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                  </div>
+                </div>
+              </div>
               <span id="hp-pill" class="hp-field__progress-label tracker-progress__label">
-                <span class="tracker-progress__value">30/30</span>
+                <span class="tracker-progress__value" data-progress-value>
+                  <span class="tracker-progress__value-current" data-progress-current>30</span>
+                  <span class="tracker-progress__value-separator" aria-hidden="true">/</span>
+                  <span class="tracker-progress__value-max" data-progress-max>30</span>
+                  <span class="tracker-progress__value-temp" data-progress-temp hidden></span>
+                </span>
                 <span class="tracker-progress__status" aria-live="polite" role="status"></span>
               </span>
             </div>
@@ -789,9 +834,35 @@
             </div>
             <span id="sp-temp-pill" class="sp-field__temp" hidden>+0 Temp</span>
             <div class="sp-field__progress tracker-progress bar-label">
-              <progress id="sp-bar" class="sp-field__progress-bar" max="5" value="5" aria-label="SP remaining"></progress>
+              <div class="tracker-progress__visual">
+                <div class="tracker-progress__bar">
+                  <progress id="sp-bar" class="sp-field__progress-bar" max="5" value="5" aria-label="SP remaining"></progress>
+                </div>
+                <div id="sp-gauge" class="tracker-gauge tracker-gauge--meter" aria-hidden="true">
+                  <div class="tracker-gauge__secondary" aria-hidden="true"></div>
+                  <div class="tracker-gauge__ticks" aria-hidden="true">
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                    <span class="tracker-gauge__tick" aria-hidden="true"></span>
+                  </div>
+                </div>
+              </div>
               <span id="sp-pill" class="sp-field__progress-label tracker-progress__label">
-                <span class="tracker-progress__value">5/5</span>
+                <span class="tracker-progress__value" data-progress-value>
+                  <span class="tracker-progress__value-current" data-progress-current>5</span>
+                  <span class="tracker-progress__value-separator" aria-hidden="true">/</span>
+                  <span class="tracker-progress__value-max" data-progress-max>5</span>
+                  <span class="tracker-progress__value-temp" data-progress-temp hidden></span>
+                </span>
                 <span class="tracker-progress__status" aria-live="polite" role="status"></span>
               </span>
             </div>

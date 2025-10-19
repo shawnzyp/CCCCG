@@ -2309,16 +2309,86 @@ button .btn-label{display:inline-flex;align-items:center}
 .hp-field__value>*{position:relative;z-index:1}
 
 @media (prefers-reduced-motion: reduce){
-  .tracker-progress::before,
-  .tracker-progress::after,
+  .tracker-progress__bar::before,
+  .tracker-progress__bar::after,
   .hp-field__value::before,
   .hp-field__value::after{
     animation:none!important;
   }
-  .tracker-progress::after,
+  .tracker-progress__bar::after,
   .hp-field__value::after{
     background-position:0 50%;
   }
+}
+
+.tracker-progress{
+  display:grid;
+  gap:clamp(12px,2vw,16px);
+}
+
+.tracker-progress__visual{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:clamp(12px,2vw,18px);
+  align-items:center;
+}
+
+.tracker-progress__visual + .tracker-progress__label{
+  justify-self:start;
+}
+
+.tracker-progress__bar{
+  --progress-min-height:clamp(18px,4vw,24px);
+  --progress-ratio-value:var(--progress-ratio, 0);
+  --progress-color-value:var(--progress-color, var(--accent));
+  --progress-fill-stop:calc(var(--progress-ratio-value) * 100%);
+  --progress-glow:color-mix(in srgb,var(--progress-color-value) 60%, transparent);
+  position:relative;
+  width:100%;
+  padding:2px;
+  border-radius:999px;
+  background:
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb,var(--progress-color-value) 14%, transparent) 0%, transparent 70%),
+    linear-gradient(135deg, color-mix(in srgb,var(--progress-color-value) 18%, var(--surface-2)) 0%, color-mix(in srgb,var(--progress-color-value) 6%, transparent) 100%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--progress-color-value) 30%, transparent);
+  overflow:hidden;
+  isolation:isolate;
+}
+
+.tracker-progress__bar::before,
+.tracker-progress__bar::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+}
+
+.tracker-progress__bar::before{
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb,var(--progress-color-value) 65%, transparent) 0%,
+      color-mix(in srgb,var(--progress-color-value) 55%, transparent) 50%,
+      color-mix(in srgb,var(--progress-color-value) 70%, transparent) 100%);
+  transform-origin:left center;
+  transform:scaleX(var(--progress-ratio-value));
+  filter:blur(calc(6px + 8px * var(--progress-ratio-value)));
+  box-shadow:0 0 calc(18px * var(--progress-ratio-value)) calc(5px * var(--progress-ratio-value)) var(--progress-glow);
+  opacity:.95;
+  animation:trackerPulse 4.5s ease-in-out infinite;
+}
+
+.tracker-progress__bar::after{
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 14px,
+      color-mix(in srgb,var(--progress-color-value) 45%, transparent) 14px 16px);
+  background-size:160% 100%;
+  mix-blend-mode:screen;
+  opacity:.55;
+  filter:blur(calc(1px + 6px * var(--progress-ratio-value)));
+  mask:linear-gradient(90deg,#000 0,var(--progress-fill-stop),transparent var(--progress-fill-stop));
+  animation:trackerCharge 6s linear infinite;
 }
 
 .hp-field__value--max{
@@ -2351,57 +2421,6 @@ button .btn-label{display:inline-flex;align-items:center}
   color:var(--accent);
 }
 
-.tracker-progress{
-  --progress-min-height:clamp(18px,4vw,24px);
-  --progress-ratio-value:var(--progress-ratio, 0);
-  --progress-color-value:var(--progress-color, var(--accent));
-  --progress-fill-stop:calc(var(--progress-ratio-value) * 100%);
-  --progress-glow:color-mix(in srgb,var(--progress-color-value) 60%, transparent);
-  position:relative;
-  width:100%;
-  padding:2px;
-  border-radius:999px;
-  background:
-    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb,var(--progress-color-value) 14%, transparent) 0%, transparent 70%),
-    linear-gradient(135deg, color-mix(in srgb,var(--progress-color-value) 18%, var(--surface-2)) 0%, color-mix(in srgb,var(--progress-color-value) 6%, transparent) 100%);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--progress-color-value) 30%, transparent);
-  overflow:hidden;
-  isolation:isolate;
-}
-.tracker-progress::before,
-.tracker-progress::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:inherit;
-  pointer-events:none;
-}
-.tracker-progress::before{
-  background:
-    linear-gradient(90deg,
-      color-mix(in srgb,var(--progress-color-value) 65%, transparent) 0%,
-      color-mix(in srgb,var(--progress-color-value) 55%, transparent) 50%,
-      color-mix(in srgb,var(--progress-color-value) 70%, transparent) 100%);
-  transform-origin:left center;
-  transform:scaleX(var(--progress-ratio-value));
-  filter:blur(calc(6px + 8px * var(--progress-ratio-value)));
-  box-shadow:0 0 calc(18px * var(--progress-ratio-value)) calc(5px * var(--progress-ratio-value)) var(--progress-glow);
-  opacity:.95;
-  animation:trackerPulse 4.5s ease-in-out infinite;
-}
-.tracker-progress::after{
-  background:
-    repeating-linear-gradient(90deg,
-      transparent 0 14px,
-      color-mix(in srgb,var(--progress-color-value) 45%, transparent) 14px 16px);
-  background-size:160% 100%;
-  mix-blend-mode:screen;
-  opacity:.55;
-  filter:blur(calc(1px + 6px * var(--progress-ratio-value)));
-  mask:linear-gradient(90deg,#000 0,var(--progress-fill-stop),transparent var(--progress-fill-stop));
-  animation:trackerCharge 6s linear infinite;
-}
-
 .tracker-progress__label{
   display:inline-flex;
   align-items:center;
@@ -2417,6 +2436,44 @@ button .btn-label{display:inline-flex;align-items:center}
 .tracker-progress__value{
   display:inline-flex;
   align-items:center;
+}
+
+.tracker-progress__value[data-progress-value]{
+  gap:clamp(2px,1vw,6px);
+}
+
+.tracker-progress__value-current,
+.tracker-progress__value-max{
+  font-variant-numeric:tabular-nums;
+}
+
+.tracker-progress__value-temp[hidden]{
+  display:none;
+}
+
+.tracker-progress__value-temp{
+  font-size:clamp(.65rem,1.9vw,.78rem);
+  font-weight:600;
+  letter-spacing:.04em;
+  color:color-mix(in srgb,var(--progress-color,var(--text)) 50%, var(--text));
+}
+
+.tracker-progress__value--pulse{
+  animation:trackerValueFlash .65s ease;
+}
+
+.tracker-progress__label--pulse{
+  animation:trackerValueFlash .65s ease;
+}
+
+.tracker-progress__bar--pulse::before{
+  animation-duration:2s;
+  animation-iteration-count:2;
+}
+
+.tracker-progress__bar--pulse::after{
+  animation-duration:3s;
+  animation-iteration-count:2;
 }
 
 .tracker-progress__status{
@@ -2567,6 +2624,172 @@ progress::-moz-progress-bar{
   background:transparent;
 }
 
+.tracker-progress__bar>progress{
+  width:100%;
+  height:var(--progress-min-height);
+  display:block;
+}
+
+.tracker-gauge{
+  --gauge-color:var(--progress-color,var(--accent));
+  --gauge-status-color:var(--gauge-color);
+  --gauge-secondary-color:var(--error,#f87171);
+  --gauge-track-color:color-mix(in srgb,var(--surface-2) 72%, transparent);
+  --gauge-start-angle:-120deg;
+  --gauge-arc-range:240deg;
+  --gauge-arc-length:0deg;
+  --gauge-secondary-length:0deg;
+  --gauge-tick-delay:.35s;
+  position:relative;
+  width:clamp(72px,9vw,88px);
+  aspect-ratio:1;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  filter:drop-shadow(0 8px 18px rgba(0,0,0,.28));
+  pointer-events:none;
+}
+
+.tracker-gauge::before{
+  content:"";
+  position:absolute;
+  inset:15%;
+  border-radius:50%;
+  background:
+    radial-gradient(circle,
+      color-mix(in srgb,var(--gauge-track-color) 65%, transparent) 0 54%,
+      color-mix(in srgb,var(--surface-1) 40%, transparent) 54% 70%,
+      transparent 70% 100%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb,var(--gauge-track-color) 80%, transparent),
+    inset 0 0 18px color-mix(in srgb,var(--gauge-track-color) 35%, transparent);
+}
+
+.tracker-gauge::after{
+  content:"";
+  position:absolute;
+  inset:15%;
+  border-radius:50%;
+  background:
+    conic-gradient(from var(--gauge-start-angle),
+      color-mix(in srgb,var(--gauge-color) 82%, transparent) 0 var(--gauge-arc-length),
+      transparent var(--gauge-arc-length) 360deg);
+  mask:
+    radial-gradient(circle,
+      transparent 0 54%,
+      #000 54% 100%);
+}
+
+.tracker-gauge__secondary{
+  position:absolute;
+  inset:15%;
+  border-radius:50%;
+  background:
+    conic-gradient(from var(--gauge-start-angle),
+      color-mix(in srgb,var(--gauge-secondary-color) 90%, transparent) 0 var(--gauge-secondary-length),
+      transparent var(--gauge-secondary-length) 360deg);
+  mask:
+    radial-gradient(circle,
+      transparent 0 54%,
+      #000 54% 100%);
+  mix-blend-mode:screen;
+}
+
+.tracker-gauge__ticks{
+  position:absolute;
+  inset:0;
+}
+
+.tracker-gauge__tick{
+  --tick-angle:-120deg;
+  --tick-index:0;
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:0;
+  height:0;
+  transform:rotate(var(--tick-angle));
+  transform-origin:center;
+}
+
+.tracker-gauge__tick::after{
+  content:"";
+  display:block;
+  width:3px;
+  height:18%;
+  margin-left:-1.5px;
+  border-radius:999px;
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb,var(--gauge-status-color) 12%, transparent) 0%,
+      color-mix(in srgb,var(--gauge-status-color) 65%, transparent) 60%,
+      color-mix(in srgb,var(--gauge-status-color) 90%, transparent) 100%);
+  transform-origin:center top;
+  transform:translateY(calc(-180%));
+  opacity:.4;
+  box-shadow:0 0 12px color-mix(in srgb,var(--gauge-status-color) 45%, transparent);
+  animation:trackerGaugeTick 3.8s ease-in-out infinite;
+  animation-delay:calc(var(--gauge-tick-delay, .35s) + var(--tick-index) * .08s);
+}
+
+.tracker-gauge__tick:nth-child(1){--tick-angle:-120deg;--tick-index:0;}
+.tracker-gauge__tick:nth-child(2){--tick-angle:-100deg;--tick-index:1;}
+.tracker-gauge__tick:nth-child(3){--tick-angle:-80deg;--tick-index:2;}
+.tracker-gauge__tick:nth-child(4){--tick-angle:-60deg;--tick-index:3;}
+.tracker-gauge__tick:nth-child(5){--tick-angle:-40deg;--tick-index:4;}
+.tracker-gauge__tick:nth-child(6){--tick-angle:-20deg;--tick-index:5;}
+.tracker-gauge__tick:nth-child(7){--tick-angle:0deg;--tick-index:6;}
+.tracker-gauge__tick:nth-child(8){--tick-angle:20deg;--tick-index:7;}
+.tracker-gauge__tick:nth-child(9){--tick-angle:40deg;--tick-index:8;}
+.tracker-gauge__tick:nth-child(10){--tick-angle:60deg;--tick-index:9;}
+.tracker-gauge__tick:nth-child(11){--tick-angle:80deg;--tick-index:10;}
+.tracker-gauge__tick:nth-child(12){--tick-angle:100deg;--tick-index:11;}
+
+.tracker-gauge--pulse{
+  animation:trackerGaugePulse .7s ease;
+}
+
+.tracker-gauge--death{
+  --gauge-color:var(--success,#22c55e);
+  --gauge-status-color:color-mix(in srgb,var(--gauge-color) 80%, white 10%);
+  width:clamp(84px,11vw,108px);
+}
+
+.death-save-gauge{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.death-save-gauge .tracker-gauge__secondary{
+  --gauge-secondary-color:var(--error,#f87171);
+}
+
+.death-save-gauge .tracker-gauge__tick::after{
+  animation-duration:4.4s;
+}
+
+.death-save-gauge[data-state="dead"] .tracker-gauge{
+  --gauge-status-color:var(--error,#f87171);
+}
+
+.death-save-gauge[data-state="stable"] .tracker-gauge{
+  --gauge-status-color:var(--success,#22c55e);
+}
+
+.death-save-gauge[data-state="danger"] .tracker-gauge{
+  --gauge-status-color:var(--warning,#f59e0b);
+}
+
+.death-save-gauge[data-state="progress"] .tracker-gauge{
+  --gauge-status-color:var(--success,#22c55e);
+}
+
+.death-save-gauge[data-state="idle"] .tracker-gauge{
+  --gauge-status-color:color-mix(in srgb,var(--accent) 65%, var(--text));
+}
+
 @keyframes trackerPulse{
   0%,100%{opacity:.75;}
   50%{opacity:1;}
@@ -2575,6 +2798,27 @@ progress::-moz-progress-bar{
 @keyframes trackerCharge{
   0%{background-position:0 50%;}
   100%{background-position:200% 50%;}
+}
+
+.tracker-gauge--pulse{
+  animation-fill-mode:forwards;
+}
+
+@keyframes trackerGaugeTick{
+  0%,100%{opacity:.35;}
+  40%{opacity:.9;}
+}
+
+@keyframes trackerGaugePulse{
+  0%{transform:scale(1); filter:drop-shadow(0 8px 18px rgba(0,0,0,.28));}
+  40%{transform:scale(1.04); filter:drop-shadow(0 12px 22px rgba(0,0,0,.32));}
+  100%{transform:scale(1); filter:drop-shadow(0 8px 18px rgba(0,0,0,.28));}
+}
+
+@keyframes trackerValueFlash{
+  0%{color:color-mix(in srgb,var(--progress-color,var(--text)) 48%, var(--text));}
+  40%{color:color-mix(in srgb,var(--progress-color,var(--text)) 85%, var(--text));}
+  100%{color:color-mix(in srgb,var(--progress-color,var(--text)) 48%, var(--text));}
 }
 
 .pill{
