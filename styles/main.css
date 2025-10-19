@@ -31,6 +31,65 @@
     transition:opacity .36s cubic-bezier(.33,1,.68,1)!important,filter .36s cubic-bezier(.33,1,.68,1)!important,-webkit-backdrop-filter .36s cubic-bezier(.33,1,.68,1)!important,backdrop-filter .36s cubic-bezier(.33,1,.68,1)!important;
   }
 }
+:root{
+  --bg-gradient:conic-gradient(from 140deg at 50% 50%,rgba(92 124 255/.05) 0deg,rgba(92 124 255/.38) 140deg,rgba(14 197 255/.24) 220deg,rgba(255 94 130/.38) 320deg,rgba(92 124 255/.05) 360deg);
+  --bg-gradient-opacity:.75;
+  --bg-gradient-scale:1.35;
+  --bg-gradient-duration:120s;
+  --bg-gradient-animation-timing:linear;
+  --bg-gradient-start-angle:0deg;
+  --bg-gradient-blend-mode:screen;
+  --bg-gradient-filter:blur(0) saturate(115%);
+  --bg-gradient-size:160% 160%;
+  --bg-gradient-position:center;
+  --bg-gradient-transition:opacity .6s ease,transform 1.6s ease;
+  --bg-overlay-mix-mode:screen;
+  --bg-particle-alpha-1:.4;
+  --bg-particle-alpha-2:.28;
+  --bg-particle-alpha-3:.2;
+  --bg-particles:radial-gradient(circle at 18% 22%,rgba(255 255 255/var(--bg-particle-alpha-1,.4)) 0 2px,transparent 60px),radial-gradient(circle at 75% 35%,rgba(112 198 255/var(--bg-particle-alpha-2,.28)) 0 1.5px,transparent 55px),radial-gradient(circle at 42% 78%,rgba(255 170 210/var(--bg-particle-alpha-3,.2)) 0 1px,transparent 48px);
+  --bg-particles-size:420px 420px,380px 380px,360px 360px;
+  --bg-particles-position:10% 18%,80% 20%,40% 75%;
+  --bg-particles-blend-mode:screen,screen,screen;
+  --bg-parallax-duration:70s;
+  --bg-parallax-easing:cubic-bezier(.37,.01,.28,1);
+  --bg-parallax-distance:28px;
+  --bg-grain-opacity:.12;
+  --bg-grain-shadow-opacity:.08;
+  --bg-grain:repeating-conic-gradient(from 0deg at 50% 50%,rgba(255 255 255/var(--bg-grain-opacity,.12)) 0deg 12deg,transparent 12deg 24deg),repeating-linear-gradient(135deg,rgba(0 0 0/var(--bg-grain-shadow-opacity,.08)) 0 1px,transparent 1px 3px);
+  --bg-grain-size:320px 320px,280px 280px;
+  --bg-grain-position:center,center;
+  --bg-grain-blend-mode:soft-light,overlay;
+  --bg-texture-filter:contrast(110%) brightness(105%);
+  --bg-texture-transition:opacity .6s ease,transform 2s ease;
+  --bg-overlay-opacity:.78;
+  --bg-gradient-opacity-reduced:.45;
+  --bg-overlay-opacity-reduced:.38;
+}
+:root.theme-light{
+  --bg-overlay-mix-mode:multiply;
+  --bg-gradient-opacity:.6;
+  --bg-particle-alpha-1:.26;
+  --bg-particle-alpha-2:.2;
+  --bg-particle-alpha-3:.16;
+  --bg-grain-opacity:.08;
+  --bg-grain-shadow-opacity:.05;
+  --bg-overlay-opacity:.58;
+  --bg-gradient-opacity-reduced:.38;
+  --bg-overlay-opacity-reduced:.3;
+}
+:root.theme-high{
+  --bg-overlay-mix-mode:screen;
+  --bg-gradient-opacity:.85;
+  --bg-particle-alpha-1:.5;
+  --bg-particle-alpha-2:.36;
+  --bg-particle-alpha-3:.28;
+  --bg-grain-opacity:.16;
+  --bg-grain-shadow-opacity:.12;
+  --bg-overlay-opacity:.86;
+  --bg-gradient-opacity-reduced:.55;
+  --bg-overlay-opacity-reduced:.45;
+}
 *,*::before,*::after{box-sizing:border-box}
 
 .menu button,
@@ -51,8 +110,17 @@ img,video{max-width:100%;height:auto}
 html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
 html{height:100%;background:var(--bg);background-position:center;background-size:cover;background-repeat:no-repeat;background-attachment:scroll;transition:var(--transition);scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}@supports (background-image:image-set(url('data:image/avif;base64,AA==') type('image/avif'))){html{background-image:var(--bg-image-set);}}@media (hover: hover) and (pointer: fine){html{background-attachment:var(--bg-attachment, fixed);}}@media (pointer: coarse){html{background-attachment:scroll;}}
-body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable both-edges;line-height:1.6;font-size:clamp(.95rem,2.2vw,1rem);transition:var(--transition);opacity:1;padding:0}
+body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable both-edges;line-height:1.6;font-size:clamp(.95rem,2.2vw,1rem);transition:var(--transition);opacity:1;padding:0;position:relative;isolation:isolate}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none;transition:opacity .6s ease;will-change:opacity,transform}
+body::before{z-index:-2;background-image:var(--bg-gradient);background-size:var(--bg-gradient-size,160% 160%);background-position:var(--bg-gradient-position,50% 50%);background-repeat:no-repeat;opacity:var(--bg-gradient-opacity,.75);mix-blend-mode:var(--bg-gradient-blend-mode,screen);filter:var(--bg-gradient-filter,blur(0));transform-origin:50% 50%;transform:rotate(var(--bg-gradient-start-angle,0deg)) scale(var(--bg-gradient-scale,1.35));transition:var(--bg-gradient-transition,opacity .6s ease,transform 1.6s ease);animation:bgConicRotate var(--bg-gradient-duration,120s) var(--bg-gradient-animation-timing,linear) infinite;will-change:transform,opacity}
+body::after{z-index:-1;background-image:var(--bg-particles),var(--bg-grain);background-size:var(--bg-particles-size,420px 420px,380px 380px,360px 360px),var(--bg-grain-size,320px 320px,280px 280px);background-position:var(--bg-particles-position,10% 18%,80% 20%,40% 75%),var(--bg-grain-position,center,center);background-repeat:repeat;background-blend-mode:var(--bg-particles-blend-mode,screen,screen,screen),var(--bg-grain-blend-mode,soft-light,overlay);mix-blend-mode:var(--bg-overlay-mix-mode,screen);filter:var(--bg-texture-filter,contrast(110%) brightness(105%));opacity:var(--bg-overlay-opacity,.78);transition:var(--bg-texture-transition,opacity .6s ease,transform 2s ease);transform:translate3d(0,0,0);animation:bgParallax var(--bg-parallax-duration,70s) var(--bg-parallax-easing,cubic-bezier(.37,.01,.28,1)) infinite alternate;will-change:transform,opacity}
 body.launching{overflow:hidden;height:100vh;height:100dvh;background:#000}
+@keyframes bgConicRotate{from{transform:rotate(var(--bg-gradient-start-angle,0deg)) scale(var(--bg-gradient-scale,1.35));}to{transform:rotate(calc(var(--bg-gradient-start-angle,0deg) + 1turn)) scale(var(--bg-gradient-scale,1.35));}}
+@keyframes bgParallax{0%{transform:translate3d(calc(0px - var(--bg-parallax-distance,28px)),calc(0px - var(--bg-parallax-distance,28px)),0);}50%{transform:translate3d(0,0,0);}100%{transform:translate3d(var(--bg-parallax-distance,28px),var(--bg-parallax-distance,28px),0);}}
+@media (prefers-reduced-motion:reduce){
+  body::before{opacity:var(--bg-gradient-opacity-reduced,.45);}
+  body::after{opacity:var(--bg-overlay-opacity-reduced,.38);transform:translate3d(0,0,0);}
+}
 .app-shell{
   --shell-width:100vw;
   opacity:1;
