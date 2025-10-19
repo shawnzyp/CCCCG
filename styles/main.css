@@ -4501,6 +4501,133 @@ select[required]:valid{
 .rp-track.maxed .rp-dot {
   opacity: 0.5;
 }
+.cc-btn,
+.btn-sm,
+.menu button,
+.theme-toggle__icon {
+  --interactive-accent: var(--accent);
+  --interactive-ripple-color: color-mix(in srgb, var(--interactive-accent) 70%, transparent);
+  --interactive-glow-color: color-mix(in srgb, var(--interactive-accent) 28%, transparent);
+  --interactive-shadow-soft: 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 26%, transparent);
+  --interactive-shadow-strong: 0 12px 28px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+  --interactive-shadow-inner: inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 18%, rgba(255, 255, 255, 0.06));
+  --interactive-ripple-duration: 620ms;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 0.22s ease, box-shadow 0.45s ease, color 0.35s ease, background 0.45s ease;
+  box-shadow: var(--interactive-shadow-soft), var(--interactive-shadow-strong), var(--interactive-shadow-inner);
+}
+
+.cc-btn::before,
+.btn-sm::before,
+.menu button::before,
+.theme-toggle__icon::before {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at center, var(--interactive-ripple-color) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0.45);
+  mix-blend-mode: screen;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  animation: none;
+}
+
+.btn-sm::after,
+.menu button::after,
+.theme-toggle__icon::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 25%, color-mix(in srgb, rgba(255, 255, 255, 0.6) 70%, transparent) 0%, transparent 68%),
+    radial-gradient(circle at center, color-mix(in srgb, var(--interactive-glow-color) 55%, transparent) 0%, transparent 80%);
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  mix-blend-mode: screen;
+}
+
+@keyframes interactive-ripple {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.48;
+  }
+  60% {
+    opacity: 0.24;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+}
+
+.btn-sm,
+.menu button,
+.theme-toggle__icon {
+  transform: translateZ(0);
+}
+
+body:not(.no-hover) .btn-sm:hover,
+body:not(.no-hover) .menu button:hover,
+body:not(.no-hover) .theme-toggle__icon:hover {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--interactive-accent) 38%, transparent),
+    0 16px 36px color-mix(in srgb, var(--interactive-accent) 24%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 20%, rgba(255, 255, 255, 0.08));
+}
+
+body:not(.no-hover) .btn-sm:hover::before,
+body:not(.no-hover) .menu button:hover::before,
+body:not(.no-hover) .theme-toggle__icon:hover::before {
+  opacity: 0.38;
+  transform: scale(0.9);
+}
+
+body:not(.no-hover) .btn-sm:hover::after,
+body:not(.no-hover) .menu button:hover::after,
+body:not(.no-hover) .theme-toggle__icon:hover::after {
+  opacity: 0.55;
+}
+
+.btn-sm:active,
+.menu button:active,
+.theme-toggle__icon:active,
+.btn-sm[data-state="pressed"],
+.menu button[data-state="pressed"],
+.theme-toggle__icon[data-state="pressed"] {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--interactive-accent) 32%, transparent),
+    0 10px 22px color-mix(in srgb, var(--interactive-accent) 20%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 24%, rgba(255, 255, 255, 0.12));
+}
+
+.btn-sm:active::before,
+.menu button:active::before,
+.theme-toggle__icon:active::before,
+.btn-sm[data-state="pressed"]::before,
+.menu button[data-state="pressed"]::before,
+.theme-toggle__icon[data-state="pressed"]::before {
+  opacity: 0.45;
+  transform: scale(1.05);
+  animation: interactive-ripple var(--interactive-ripple-duration) ease-out;
+}
+
+.btn-sm:active::after,
+.menu button:active::after,
+.theme-toggle__icon:active::after,
+.btn-sm[data-state="pressed"]::after,
+.menu button[data-state="pressed"]::after,
+.theme-toggle__icon[data-state="pressed"]::after {
+  opacity: 0.5;
+}
+
 .rp-surge-controls { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; margin: 10px 0; }
 .rp-divide { margin: 12px 0; }
 .rp-surge-status { margin: 6px 0 8px; }
@@ -4517,6 +4644,9 @@ select[required]:valid{
 #cc-shard .muted { opacity:.8; }
 .cc-btn {
   --cc-btn-accent: var(--accent);
+  --interactive-accent: var(--cc-btn-accent);
+  --interactive-ripple-color: color-mix(in srgb, var(--cc-btn-accent) 72%, transparent);
+  --interactive-glow-color: color-mix(in srgb, var(--cc-btn-accent) 32%, transparent);
   --cc-btn-border: color-mix(in srgb, var(--cc-btn-accent) 55%, transparent);
   --cc-btn-glow: color-mix(in srgb, var(--cc-btn-accent) 22%, transparent);
   padding: 8px 12px;
@@ -4529,6 +4659,7 @@ select[required]:valid{
       color-mix(in srgb, var(--cc-btn-accent) 38%, rgba(4, 9, 20, 0.94)) 100%);
   color: color-mix(in srgb, var(--text-on-accent) 88%, var(--text) 12%);
   box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 42%, transparent),
     0 14px 32px var(--cc-btn-glow),
     inset 0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 28%, rgba(255, 255, 255, 0.05));
   backdrop-filter: blur(14px) saturate(120%);
@@ -4546,7 +4677,7 @@ select[required]:valid{
   border-radius: inherit;
   pointer-events: none;
   background:
-    radial-gradient(circle at 30% -20%, color-mix(in srgb, var(--cc-btn-accent) 65%, transparent) 0%, transparent 60%),
+    radial-gradient(circle at 30% -20%, color-mix(in srgb, var(--interactive-glow-color) 80%, transparent) 0%, transparent 65%),
     linear-gradient(160deg, color-mix(in srgb, rgba(255, 255, 255, 0.45) 60%, transparent) 0%, transparent 50%);
   opacity: 0.32;
   mix-blend-mode: screen;
@@ -4560,18 +4691,41 @@ body:not(.no-hover) .cc-btn:hover {
       color-mix(in srgb, var(--cc-btn-accent) 56%, rgba(2, 6, 14, 0.96)) 100%);
   border-color: color-mix(in srgb, var(--cc-btn-accent) 68%, transparent);
   box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 54%, transparent),
     0 16px 40px color-mix(in srgb, var(--cc-btn-accent) 32%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 36%, rgba(255, 255, 255, 0.08));
   color: var(--text-on-accent);
-  transform: translateY(-1px);
+  transform: translateY(-1px) scale(1.02);
 }
 body:not(.no-hover) .cc-btn:hover::after {
   opacity: 0.6;
   transform: scale(1.05);
 }
+body:not(.no-hover) .cc-btn:hover::before {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
 .cc-btn:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.97);
   box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 46%, transparent),
+    0 10px 22px color-mix(in srgb, var(--cc-btn-accent) 24%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 28%, rgba(255, 255, 255, 0.07));
+}
+.cc-btn:active::before,
+.cc-btn[data-state="pressed"]::before {
+  opacity: 0.48;
+  transform: scale(1.08);
+  animation: interactive-ripple var(--interactive-ripple-duration) ease-out;
+}
+.cc-btn:active::after,
+.cc-btn[data-state="pressed"]::after {
+  opacity: 0.52;
+}
+.cc-btn[data-state="pressed"] {
+  transform: translateY(0) scale(0.99);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 46%, transparent),
     0 10px 22px color-mix(in srgb, var(--cc-btn-accent) 24%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 28%, rgba(255, 255, 255, 0.07));
 }
@@ -4586,6 +4740,7 @@ body:not(.no-hover) .cc-btn:hover::after {
   --cc-btn-accent: color-mix(in srgb, var(--accent) 38%, var(--surface-2) 62%);
   color: var(--text);
   box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 36%, transparent),
     0 12px 28px color-mix(in srgb, var(--accent) 16%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--cc-btn-accent) 18%, rgba(255, 255, 255, 0.04));
 }
