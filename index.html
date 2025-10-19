@@ -1509,82 +1509,98 @@
 
 
 <div class="overlay hidden" id="modal-load-list" aria-hidden="true">
-  <div class="modal modal--load-save" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>All Characters</h3>
-    <div id="char-list" class="catalog"></div>
-    <div class="actions actions--center modal--load-save__actions">
-      <button id="btn-save" class="btn-sm" type="button">Save</button>
-      <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
-      <button id="create-character" class="btn-sm" type="button">Create New</button>
+  <div class="modal-frame">
+    <div class="modal modal--load-save" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>All Characters</h3>
+      <div id="char-list" class="catalog"></div>
+      <div class="actions actions--center modal--load-save__actions">
+        <button id="btn-save" class="btn-sm" type="button">Save</button>
+        <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
+        <button id="create-character" class="btn-sm" type="button">Create New</button>
+      </div>
     </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-recover-char" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Select Character</h3>
-    <div id="recover-char-list" class="catalog"></div>
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Select Character</h3>
+      <div id="recover-char-list" class="catalog"></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-recover-list" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Recover Backup</h3>
-    <div id="recover-list" class="catalog"></div>
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Recover Backup</h3>
+      <div id="recover-list" class="catalog"></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-load" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <p id="load-confirm-text"></p>
-    <div class="actions">
-      <button id="load-cancel" class="btn-sm">Cancel</button>
-      <button id="load-accept" class="btn-sm">Accept</button>
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <p id="load-confirm-text"></p>
+      <div class="actions">
+        <button id="load-cancel" class="btn-sm">Cancel</button>
+        <button id="load-accept" class="btn-sm">Accept</button>
+      </div>
     </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-pin" aria-hidden="true" data-modal-accent-hue="32deg" data-modal-glow-strength="0.45">
-  <section class="modal">
-    <button id="pin-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3 id="pin-title">Enter PIN</h3>
-    <input id="pin-input" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
-    <div class="actions"><button id="pin-submit" class="somf-btn">OK</button></div>
-  </section>
+  <div class="modal-frame">
+    <section class="modal" role="dialog" aria-modal="true">
+      <button id="pin-close" class="x" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3 id="pin-title">Enter PIN</h3>
+      <input id="pin-input" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+      <div class="actions"><button id="pin-submit" class="somf-btn">OK</button></div>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 
 <!-- WELCOME MODAL -->
 <div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="288deg" data-modal-glow-strength="0.6">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
     <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
     <p><u>Create or Load Your Hero Profile</u><br>
     This is your Vigilante record. Without it, you don’t exist in the Core.</p>
@@ -1613,17 +1629,20 @@
       <button id="welcome-load-character" type="button">Load Character</button>
       <button id="welcome-skip" type="button">Skip</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <!-- HELP MODAL -->
 <div class="overlay hidden" id="modal-help" aria-hidden="true" data-modal-accent-hue="210deg" data-modal-glow-strength="0.5">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
     <h3>Catalyst Core Help</h3>
     <p>
       Keep this reference open while you play to understand what each tab, modal, and control in the current build is designed to
@@ -1757,11 +1776,14 @@
       </li>
     </ul>
   </div>
+  <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 
 <!-- INITIATIVE MODAL -->
 <div class="overlay hidden" id="modal-enc" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1855,11 +1877,14 @@
       <button id="enc-next" class="btn-sm">Next Turn</button>
       <button id="enc-reset" class="btn-sm">Reset</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-hp-settings" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1885,12 +1910,15 @@
       <button id="hp-full" class="btn-sm">Reset HP</button>
       <button class="btn-sm" data-close>Close</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 
 <div class="overlay hidden" id="modal-sp-settings" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1906,12 +1934,15 @@
       <button id="sp-settings-save" class="btn-sm" type="button">Save</button>
       <button class="btn-sm" data-close>Close</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <!-- LOG MODAL -->
 <div class="overlay hidden" id="modal-log" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1920,12 +1951,15 @@
     <h3>Action Log</h3>
     <div id="log-action" class="catalog"></div>
     <div class="actions"><button id="log-full" class="btn-sm">Full Log</button><button class="btn-sm" data-close>Close</button></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 
 <div class="overlay hidden" id="modal-credits-ledger" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1939,12 +1973,15 @@
     </div>
     <div id="credits-ledger-list" class="catalog" aria-live="polite"></div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 
 <div class="overlay hidden" id="modal-campaign" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1959,11 +1996,14 @@
     <div id="campaign-log" class="catalog"></div>
     <div class="actions actions--center"><button id="campaign-view-backlog" class="btn-sm" type="button" disabled aria-disabled="true">View Backlog</button></div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-campaign-edit" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1977,11 +2017,14 @@
       <button id="campaign-edit-save" class="btn-sm" type="button">Save Changes</button>
       <button class="btn-sm" type="button" data-close>Cancel</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-campaign-backlog" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -1990,11 +2033,14 @@
     <h3>Campaign Log Backlog</h3>
     <div id="campaign-backlog" class="catalog"></div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-log-full" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2003,11 +2049,14 @@
     <h3>Full Action Log</h3>
     <div id="full-log-action" class="catalog"></div>
     <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-faction-perk" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Faction Perk" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Faction Perk" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2015,13 +2064,16 @@
     </button>
     <h3>Faction Perk</h3>
     <ul id="modal-faction-perk-list" class="perk-list"></ul>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 
 <!-- GEAR CATALOG -->
 <div class="overlay hidden" id="modal-catalog" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2043,7 +2095,8 @@
 </div>
 
 <div class="overlay hidden" id="modal-custom-item" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+  <div class="modal-frame">
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
     <button class="x" data-close aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2061,11 +2114,16 @@
     <div class="actions">
       <button class="btn-sm" type="button" data-close>Cancel</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-power-editor" aria-hidden="true" data-modal-static data-view-allow>
-  <div class="modal modal-power-editor" role="dialog" aria-modal="true" aria-labelledby="power-editor-title" tabindex="-1" data-view-allow>
+  <div class="modal-frame">
+    <div class="modal modal-power-editor" role="dialog" aria-modal="true" aria-labelledby="power-editor-title" tabindex="-1" data-view-allow>
     <button class="x" type="button" data-power-editor-dismiss aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2077,18 +2135,23 @@
       <button class="btn-sm" type="button" data-power-editor-cancel>Cancel</button>
       <button class="btn-sm btn-primary" type="button" data-power-editor-save>Save</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <!-- RULES -->
 <div class="overlay hidden" id="modal-rules" aria-hidden="true">
-  <div class="modal modal-rules" role="dialog" aria-modal="true" aria-label="Rules Help" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <pre id="rules-text"></pre>
+  <div class="modal-frame">
+    <div class="modal modal-rules" role="dialog" aria-modal="true" aria-label="Rules Help" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <pre id="rules-text"></pre>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
@@ -2138,7 +2201,8 @@
   </div>
 </footer>
 <div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
-  <section class="modal">
+  <div class="modal-frame">
+    <section class="modal" role="dialog" aria-modal="true">
     <button id="dm-login-close" class="x" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2147,10 +2211,13 @@
     <h3>DM Login</h3>
     <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
     <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
-  </section>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 <div class="overlay hidden" id="dm-notifications-modal" aria-hidden="true" data-modal-accent-hue="164deg" data-modal-glow-strength="0.5">
-  <section class="modal">
+  <div class="modal-frame">
+    <section class="modal" role="dialog" aria-modal="true">
     <button id="dm-notifications-close" class="x" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2199,10 +2266,13 @@
       </label>
     </form>
     <ol id="dm-notifications-list"></ol>
-  </section>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 <div class="overlay hidden" id="dm-characters-modal" aria-hidden="true">
-  <section class="modal dm-characters" role="dialog" aria-modal="true" aria-labelledby="dm-characters-title">
+  <div class="modal-frame">
+    <section class="modal dm-characters" role="dialog" aria-modal="true" aria-labelledby="dm-characters-title">
     <button id="dm-characters-close" class="x" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2221,10 +2291,13 @@
     </header>
     <ul id="dm-characters-list" class="dm-characters-list"></ul>
     <div id="dm-character-sheet"></div>
-  </section>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 <div class="overlay hidden" id="dm-rewards-modal" aria-hidden="true">
-  <section class="modal dm-rewards" role="dialog" aria-modal="true" aria-labelledby="dm-rewards-title" data-view-allow>
+  <div class="modal-frame">
+    <section class="modal dm-rewards" role="dialog" aria-modal="true" aria-labelledby="dm-rewards-title" data-view-allow>
     <button id="dm-rewards-close" class="x" type="button" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2644,10 +2717,13 @@
         </div>
       </section>
     </div>
-  </section>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
-<div class="overlay hidden" id="mini-game-invite" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title" data-modal-static data-modal-accent-hue="128deg" data-modal-glow-strength="0.65">
-  <section class="modal mini-game-invite">
+<div class="overlay hidden" id="mini-game-invite" aria-hidden="true" data-modal-static data-modal-accent-hue="128deg" data-modal-glow-strength="0.65">
+  <div class="modal-frame">
+    <section class="modal mini-game-invite" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title">
     <header class="mini-game-invite__header">
       <h3 id="mini-game-invite-title" class="mini-game-invite__title">Incoming Mini-Game Assignment</h3>
       <p id="mini-game-invite-message" class="mini-game-invite__message"></p>
@@ -2665,10 +2741,13 @@
       <button id="mini-game-invite-decline" type="button" class="btn-sm mini-game-invite__decline">Not Now</button>
       <button id="mini-game-invite-accept" type="button" class="somf-btn somf-primary mini-game-invite__accept">Start Mission</button>
     </footer>
-  </section>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
-  <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
-  <section id="somf-dm" class="modal somf-dm">
+</div>
+<div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
+  <div class="modal-frame">
+    <section id="somf-dm" class="modal somf-dm" role="dialog" aria-modal="true">
     <button id="somfDM-close" class="x" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2775,7 +2854,9 @@
       </div>
       <ul id="somfDM-itemList" class="somf-dm__list somf-dm__list--actions"></ul>
     </section>
-  </section>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 
 <div id="cloud-sync-panel-backdrop" class="sync-panel__backdrop" hidden aria-hidden="true"></div>
@@ -2830,7 +2911,10 @@
 </section>
 
 <div class="overlay hidden" id="somfDM-npcModal" aria-hidden="true">
-  <section id="somfDM-npcModalCard" class="modal somf-dm"></section>
+  <div class="modal-frame">
+    <section id="somfDM-npcModalCard" class="modal somf-dm" role="dialog" aria-modal="true"></section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 
 <!-- Toasts + Tiny Ping -->
@@ -2855,8 +2939,9 @@
 <div id="load-animation" aria-hidden="true" hidden></div>
 <div id="draw-lightning" aria-hidden="true" hidden></div>
 <div id="draw-flash" aria-hidden="true" hidden></div>
-<div class="overlay hidden" id="somf-confirm-draw" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="somf-confirm-title" aria-describedby="somf-confirm-description somf-confirm-count somf-confirm-consequence-label">
-  <section class="modal somf-confirm" tabindex="-1">
+<div class="overlay hidden" id="somf-confirm-draw" aria-hidden="true">
+  <div class="modal-frame">
+    <section class="modal somf-confirm" role="dialog" aria-modal="true" aria-labelledby="somf-confirm-title" aria-describedby="somf-confirm-description somf-confirm-count somf-confirm-consequence-label" tabindex="-1">
     <header class="somf-confirm__header">
       <h3 id="somf-confirm-title" class="somf-confirm__title">Tempt Fate?</h3>
       <p id="somf-confirm-description" class="somf-confirm__description">Drawing from the Shards of Many Fates invites unpredictable magic.</p>
@@ -2871,7 +2956,9 @@
       <button type="button" class="btn-sm somf-confirm__cancel" data-somf-confirm-cancel>Not Now</button>
       <button type="button" class="somf-btn somf-primary somf-confirm__accept" data-somf-confirm-accept>Draw 1 Shard</button>
     </footer>
-  </section>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
 </div>
 <div id="somf-reveal-alert" class="somf-reveal-alert" hidden role="alertdialog" aria-modal="true" aria-labelledby="somf-reveal-title" aria-describedby="somf-reveal-text" aria-hidden="true">
   <div class="somf-reveal-alert__card" tabindex="-1">
