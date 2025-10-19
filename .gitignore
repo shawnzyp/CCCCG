@@ -20,3 +20,6 @@ __pycache__/
 # OS clutter
 .DS_Store
 Thumbs.db
+
+# Generated webfonts
+images/*.woff2
