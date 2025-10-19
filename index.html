@@ -650,7 +650,7 @@
 
 <main id="main">
   <!-- COMBAT -->
-  <fieldset data-tab="combat" class="card">
+  <fieldset data-tab="combat" class="card card__glow">
     <section id="somf-min" class="somf-card" hidden>
       <h3 class="somf-title">The Shards of Many Fates</h3>
       <div class="somf-row">
@@ -660,9 +660,9 @@
       </div>
     </section>
 
-    <h2 class="card-title">Combat</h2>
+    <h2 class="card-title card__frame">Combat</h2>
 
-    <fieldset id="death-saves" class="card" hidden disabled>
+    <fieldset id="death-saves" class="card card__glow" hidden disabled>
       <legend data-animate-title>Death Saves</legend>
       <div class="death-saves-grid">
         <div class="death-save-tracks">
@@ -712,10 +712,10 @@
       </div>
     </fieldset>
     <div class="grid tracker-grid">
-      <fieldset class="card tracker-card hp-field">
-        <legend class="card-legend card-legend--actions" data-animate-title>
-          <span class="card-legend__content">
-            <span class="card-legend__title">HP</span>
+      <fieldset class="card card__glow tracker-card hp-field">
+        <legend class="card-legend card-legend--actions card__frame" data-animate-title>
+          <span class="card-legend__content card__frame">
+            <span class="card-legend__title card__frame">HP</span>
           </span>
         </legend>
         <input id="hp-roll" type="hidden" value="0"/>
@@ -763,10 +763,10 @@
           </div>
         </div>
       </fieldset>
-      <fieldset class="card tracker-card sp-field">
-        <legend class="card-legend card-legend--actions" data-animate-title>
-          <span class="card-legend__content">
-            <span class="card-legend__title">SP</span>
+      <fieldset class="card card__glow tracker-card sp-field">
+        <legend class="card-legend card-legend--actions card__frame" data-animate-title>
+          <span class="card-legend__content card__frame">
+            <span class="card-legend__title card__frame">SP</span>
           </span>
         </legend>
         <input id="sp-level-bonus" type="hidden" value="0"/>
@@ -834,7 +834,7 @@
           </div>
         </div>
       </fieldset>
-      <fieldset class="card cap-field">
+      <fieldset class="card card__glow cap-field">
         <legend data-animate-title>Cinematic Action Point</legend>
         <p class="card-info">Each session grants one Cinematic Action Point. A wildcard for heroic stunts, clutch rerolls, or narrative swings. Check it when you spend the boost; it stays used until a Long Rest or session reset.</p>
         <div class="cap-box">
@@ -848,7 +848,7 @@
     </div>
 
     <div class="grid grid-1">
-      <fieldset class="card">
+      <fieldset class="card card__glow">
         <legend data-animate-title>Stats and Effects</legend>
         <div class="stat-trio">
           <div class="stat-trio__item">
@@ -872,7 +872,7 @@
         </div>
       </fieldset>
 
-      <fieldset id="resonance-points" class="card">
+      <fieldset id="resonance-points" class="card card__glow">
         <legend data-animate-title>Resonance Points (RP)</legend>
         <p>
           Resonance Points are awarded by the GM for truly heroic acts. At <strong>5 RP</strong>, trigger a Heroic Surge for temporary boosts.
@@ -932,19 +932,19 @@
   </fieldset>
 
   <!-- ABILITIES -->
-  <fieldset data-tab="abilities" class="card" id="card-abilities">
-    <div class="card-toolbar">
-      <h2 class="card-title card-toolbar__title card-toolbar__title--inline" id="card-abilities-title">
+  <fieldset data-tab="abilities" class="card card__glow" id="card-abilities">
+    <div class="card-toolbar card__frame">
+      <h2 class="card-title card-toolbar__title card-toolbar__title--inline card__frame" id="card-abilities-title">
         <span class="card-toolbar__title-text">Ability Scores</span>
         <span
           id="stat-increase-reminder"
-          class="card-toolbar__badge pill pill-sm"
+          class="card-toolbar__badge pill pill-sm card__frame"
           hidden
           aria-live="polite"
         ></span>
         <button
           type="button"
-          class="card-caret card-edit-toggle"
+          class="card-caret card-edit-toggle card__frame"
           data-view-target="#card-abilities"
           data-view-label="Ability Scores"
           aria-describedby="card-abilities-title"
@@ -957,7 +957,7 @@
       </h2>
     </div>
     <div id="abil-grid" class="grid ability-grid" data-view-lock></div>
-    <fieldset class="card">
+    <fieldset class="card card__glow">
       <legend data-animate-title>Proficiency and Power</legend>
       <div class="proficiency-card__grid">
         <div class="proficiency-card__field">
@@ -1008,21 +1008,21 @@
         </div>
       </div>
     </fieldset>
-    <fieldset class="card">
+    <fieldset class="card card__glow">
       <legend data-animate-title>Saving Throws</legend>
       <div id="saves" class="grid ability-grid"></div>
     </fieldset>
-    <fieldset class="card">
+    <fieldset class="card card__glow">
       <legend data-animate-title>Skills</legend>
       <div id="skills" class="grid ability-grid"></div>
     </fieldset>
   </fieldset>
 
   <!-- POWERS -->
-  <fieldset data-tab="powers" class="card">
-    <h2 class="card-title">Powers</h2>
-    <div class="card-toolbar">
-      <div class="card-toolbar__actions">
+  <fieldset data-tab="powers" class="card card__glow">
+    <h2 class="card-title card__frame">Powers</h2>
+    <div class="card-toolbar card__frame">
+      <div class="card-toolbar__actions card__frame">
         <button id="add-power" style="max-width:180px">
           <span class="btn-icon" aria-hidden="true">➕</span>
           <span class="btn-label">Add Power</span>
@@ -1032,8 +1032,8 @@
     <div class="grid grid-2" id="powers"></div>
 
     <h3 style="margin:16px 0 8px">Signature Moves</h3>
-    <div class="card-toolbar">
-      <div class="card-toolbar__actions">
+    <div class="card-toolbar card__frame">
+      <div class="card-toolbar__actions card__frame">
         <button id="add-sig" style="max-width:200px">
           <span class="btn-icon" aria-hidden="true">➕</span>
           <span class="btn-label">Add Signature Move</span>
@@ -1044,13 +1044,13 @@
   </fieldset>
 
   <!-- GEAR -->
-  <fieldset data-tab="gear" class="card">
-    <h2 class="card-title">Gear</h2>
+  <fieldset data-tab="gear" class="card card__glow">
+    <h2 class="card-title card__frame">Gear</h2>
     <div class="grid grid-2">
-      <div class="card gear-card">
-        <div class="card-toolbar">
-          <h3 class="gear-card-title card-toolbar__title">Weapons</h3>
-          <div class="card-toolbar__actions">
+      <div class="card card__glow gear-card">
+        <div class="card-toolbar card__frame">
+          <h3 class="gear-card-title card-toolbar__title card__frame">Weapons</h3>
+          <div class="card-toolbar__actions card__frame">
             <button id="add-weapon" class="btn-sm gear-card-action" style="max-width:140px">
               <span class="btn-icon" aria-hidden="true">➕</span>
               <span class="btn-label">Add Weapon</span>
@@ -1059,10 +1059,10 @@
         </div>
         <div id="weapons" class="grid grid-1"></div>
       </div>
-      <div class="card gear-card">
-        <div class="card-toolbar">
-          <h3 class="gear-card-title card-toolbar__title">Armor and Protection</h3>
-          <div class="card-toolbar__actions">
+      <div class="card card__glow gear-card">
+        <div class="card-toolbar card__frame">
+          <h3 class="gear-card-title card-toolbar__title card__frame">Armor and Protection</h3>
+          <div class="card-toolbar__actions card__frame">
             <button id="add-armor" class="btn-sm gear-card-action" style="max-width:160px">
               <span class="btn-icon" aria-hidden="true">➕</span>
               <span class="btn-label">Add Armor</span>
@@ -1071,10 +1071,10 @@
         </div>
         <div id="armors" class="grid grid-1"></div>
       </div>
-      <div class="card" style="grid-column:1/-1">
-        <div class="card-toolbar">
-          <h3 class="card-toolbar__title">Gear and Items</h3>
-          <div class="card-toolbar__actions">
+      <div class="card card__glow" style="grid-column:1/-1">
+        <div class="card-toolbar card__frame">
+          <h3 class="card-toolbar__title card__frame">Gear and Items</h3>
+          <div class="card-toolbar__actions card__frame">
             <button id="add-item" class="btn-sm" style="max-width:140px">
               <span class="btn-icon" aria-hidden="true">➕</span>
               <span class="btn-label">Add Item</span>
@@ -1091,13 +1091,13 @@
   </fieldset>
 
   <!-- STORY -->
-  <fieldset data-tab="story" class="card" id="card-story">
-    <div class="card-toolbar">
-      <h2 class="card-title card-toolbar__title card-toolbar__title--inline" id="card-story-title">
+  <fieldset data-tab="story" class="card card__glow" id="card-story">
+    <div class="card-toolbar card__frame">
+      <h2 class="card-title card-toolbar__title card-toolbar__title--inline card__frame" id="card-story-title">
         <span class="card-toolbar__title-text">Character and Story</span>
         <button
           type="button"
-          class="card-caret card-edit-toggle"
+          class="card-caret card-edit-toggle card__frame"
           data-view-target="#card-story"
           data-view-label="Character and Story"
           aria-describedby="card-story-title"
@@ -1110,13 +1110,13 @@
       </h2>
     </div>
     <div class="grid grid-2">
-      <div class="card" data-view-lock><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigilante Name"/></div>
-      <div class="card" data-view-lock><label for="secret">Secret Identity</label><input id="secret" placeholder="Real name"/></div>
-      <div class="card" data-view-lock>
+      <div class="card card__glow" data-view-lock><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigilante Name"/></div>
+      <div class="card card__glow" data-view-lock><label for="secret">Secret Identity</label><input id="secret" placeholder="Real name"/></div>
+      <div class="card card__glow" data-view-lock>
         <label for="publicIdentity">Public Identity</label>
         <select id="publicIdentity"><option value="Public">Public</option><option value="Secret" selected>Secret</option></select>
       </div>
-      <div class="card card--tier" data-view-lock>
+      <div class="card card__glow card--tier" data-view-lock>
         <label for="level-display">Character Level</label>
         <div class="tier-summary">
           <div class="tier-summary__detail tier-summary__detail--summary">
@@ -1149,7 +1149,7 @@
         <input id="level-summary" type="hidden" value="Level 1 – Tier 5A"/>
         <input id="tier-number" type="hidden" value="5"/>
       </div>
-      <div class="card card--xp" style="grid-column:1/-1">
+      <div class="card card__glow card--xp" style="grid-column:1/-1">
         <div class="xp-tracker">
           <div class="xp-tracker__header">
             <label data-animate-title class="xp-tracker__title">Experience</label>
@@ -1181,9 +1181,9 @@
           </div>
         </div>
       </div>
-      <div class="card card--level-rewards" data-view-lock id="card-level-rewards">
-        <div class="card-toolbar">
-          <h3 class="card-toolbar__title">Level Rewards</h3>
+      <div class="card card__glow card--level-rewards" data-view-lock id="card-level-rewards">
+        <div class="card-toolbar card__frame">
+          <h3 class="card-toolbar__title card__frame">Level Rewards</h3>
         </div>
         <input id="level-progress-state" type="hidden" value="{}"/>
         <ul id="level-reward-reminders" class="perk-list level-reward-list" data-view-allow></ul>
@@ -1196,10 +1196,10 @@
           You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
         </p>
       </div>
-      <div class="card card--augments" data-view-lock id="card-augments">
-        <div class="card-toolbar">
-          <h3 class="card-toolbar__title">Augments</h3>
-          <div class="card-toolbar__actions">
+      <div class="card card__glow card--augments" data-view-lock id="card-augments">
+        <div class="card-toolbar card__frame">
+          <h3 class="card-toolbar__title card__frame">Augments</h3>
+          <div class="card-toolbar__actions card__frame">
             <span id="augment-slot-summary" class="augment-slot-summary" aria-live="polite">0 / 0 Slots</span>
           </div>
         </div>
@@ -1244,7 +1244,7 @@
           </p>
         </div>
       </div>
-      <div class="card" data-view-lock>
+      <div class="card card__glow" data-view-lock>
         <label for="alignment">Alignment</label>
         <select id="alignment">
           <option value="">Select one</option>
@@ -1263,7 +1263,7 @@
           Select an alignment to preview its signature perks.
         </p>
       </div>
-      <div class="card" data-view-lock>
+      <div class="card card__glow" data-view-lock>
         <label for="classification">Classification</label>
         <select id="classification">
           <option value="">Select one</option><option>Mutant</option><option>Enhanced Human</option><option>Magic User</option><option>Alien/Extraterrestrial</option><option>Mystical Being</option>
@@ -1273,7 +1273,7 @@
           Choose a classification to reveal its training perks.
         </p>
       </div>
-      <div class="card" data-view-lock>
+      <div class="card card__glow" data-view-lock>
         <label for="power-style">Primary Power Style</label>
         <select id="power-style">
           <option value="">Select one</option><option>Physical Powerhouse</option><option>Energy Manipulator</option><option>Speedster</option>
@@ -1284,7 +1284,7 @@
           Pick a primary power style to load its tactical perks.
         </p>
       </div>
-      <div class="card" data-view-lock>
+      <div class="card card__glow" data-view-lock>
         <label for="power-style-2">Secondary Power Style</label>
         <select id="power-style-2">
           <option value="">Select one</option>
@@ -1293,7 +1293,7 @@
           <option>Telekinetic/Psychic</option><option>Illusionist</option><option>Shape-shifter</option><option>Elemental Controller</option>
         </select>
       </div>
-      <div class="card" data-view-lock>
+      <div class="card card__glow" data-view-lock>
         <label for="origin">Origin Story</label>
         <select id="origin">
           <option value="">Select one</option>
@@ -1313,10 +1313,10 @@
           Select an origin story to unlock its narrative perks.
         </p>
       </div>
-      <div class="card card--medals" style="grid-column:1/-1">
-        <div class="card-toolbar">
-          <h3 class="card-toolbar__title">Medals &amp; Honors</h3>
-          <div class="card-toolbar__actions">
+      <div class="card card__glow card--medals" style="grid-column:1/-1">
+        <div class="card-toolbar card__frame">
+          <h3 class="card-toolbar__title card__frame">Medals &amp; Honors</h3>
+          <div class="card-toolbar__actions card__frame">
             <span id="medal-summary" class="pill pill-sm" aria-live="polite">0 Medals</span>
             <button id="add-medal" class="btn-sm" type="button">
               <span class="btn-icon" aria-hidden="true">🏅</span>
@@ -1327,7 +1327,7 @@
         <ol id="medals" class="medal-list" data-view-allow></ol>
         <p id="medal-empty" class="medal-empty" aria-live="polite">No medals awarded yet.</p>
       </div>
-      <div class="card credits-card" data-view-lock>
+      <div class="card card__glow credits-card" data-view-lock>
         <div class="credits-card__heading">
           <label for="credits" data-animate-title>Credits</label>
         </div>
@@ -1369,7 +1369,7 @@
         <button id="credits-submit" class="credits-card__submit" type="button">Submit</button>
         <input id="credits" type="hidden" value="0"/>
       </div>
-      <div class="card card-wide">
+      <div class="card card__glow card-wide">
         <label data-animate-title>Faction Reputation</label>
         <div class="faction-rep">
           <div class="faction-rep__card">
@@ -1473,30 +1473,30 @@
 
     </div>
 
-    <div class="card" data-view-lock>
+    <div class="card card__glow" data-view-lock>
       <label for="story-notes" data-animate-title>Backstory / Notes</label>
       <textarea id="story-notes" rows="6" placeholder="Key events, allies, vulnerabilities, research/training notes, etc."></textarea>
     </div>
       <h3>Character Questions</h3>
     <div class="grid grid-1">
-      <div class="card" data-view-lock><label for="q-mask">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-justice">What does justice mean to you?</label><textarea id="q-justice" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-fear">What is your biggest fear or unresolved trauma?</label><textarea id="q-fear" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-first-power">What moment first defined your sense of power—was it thrilling, terrifying, or tragic?</label><textarea id="q-first-power" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-origin-meaning">What does your Origin Story mean to you now?</label><textarea id="q-origin-meaning" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-before-powers">What was your life like before you had powers or before you remembered having them?</label><textarea id="q-before-powers" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-power-scare">What is one way your powers scare even you?</label><textarea id="q-power-scare" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-signature-move">What is your signature move or ability, and how does it reflect who you are?</label><textarea id="q-signature-move" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-emotional">What happens to your powers when you are emotionally compromised?</label><textarea id="q-emotional" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-no-line">What line will you never cross even if the world burns around you?</label><textarea id="q-no-line" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-alignment-fear">Which Alignment do you identify with, and which do you fear becoming?</label><textarea id="q-alignment-fear" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-opinion">Whose opinion matters more to you—civilians, teammates, or your faction superiors? Why?</label><textarea id="q-opinion" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-drive">What drives you to fight—justice, guilt, revenge, legacy, redemption, or something else?</label><textarea id="q-drive" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-walk-away">What would make you walk away from this life for good?</label><textarea id="q-walk-away" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-secret">What is one major secret you are keeping from the rest of the team?</label><textarea id="q-secret" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-vulnerable">What situation leaves you the most vulnerable—physically, emotionally, or strategically?</label><textarea id="q-vulnerable" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-admire">Which teammate do you admire the most and what do they have that you lack?</label><textarea id="q-admire" rows="2"></textarea></div>
-      <div class="card" data-view-lock><label for="q-if-lost">If you lost your powers tomorrow, who would you still be?</label><textarea id="q-if-lost" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-mask">Who are you behind the mask?</label><textarea id="q-mask" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-justice">What does justice mean to you?</label><textarea id="q-justice" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-fear">What is your biggest fear or unresolved trauma?</label><textarea id="q-fear" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-first-power">What moment first defined your sense of power—was it thrilling, terrifying, or tragic?</label><textarea id="q-first-power" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-origin-meaning">What does your Origin Story mean to you now?</label><textarea id="q-origin-meaning" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-before-powers">What was your life like before you had powers or before you remembered having them?</label><textarea id="q-before-powers" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-power-scare">What is one way your powers scare even you?</label><textarea id="q-power-scare" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-signature-move">What is your signature move or ability, and how does it reflect who you are?</label><textarea id="q-signature-move" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-emotional">What happens to your powers when you are emotionally compromised?</label><textarea id="q-emotional" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-no-line">What line will you never cross even if the world burns around you?</label><textarea id="q-no-line" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-alignment-fear">Which Alignment do you identify with, and which do you fear becoming?</label><textarea id="q-alignment-fear" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-opinion">Whose opinion matters more to you—civilians, teammates, or your faction superiors? Why?</label><textarea id="q-opinion" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-drive">What drives you to fight—justice, guilt, revenge, legacy, redemption, or something else?</label><textarea id="q-drive" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-walk-away">What would make you walk away from this life for good?</label><textarea id="q-walk-away" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-secret">What is one major secret you are keeping from the rest of the team?</label><textarea id="q-secret" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-vulnerable">What situation leaves you the most vulnerable—physically, emotionally, or strategically?</label><textarea id="q-vulnerable" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-admire">Which teammate do you admire the most and what do they have that you lack?</label><textarea id="q-admire" rows="2"></textarea></div>
+      <div class="card card__glow" data-view-lock><label for="q-if-lost">If you lost your powers tomorrow, who would you still be?</label><textarea id="q-if-lost" rows="2"></textarea></div>
     </div>
   </fieldset>
 
@@ -2908,7 +2908,7 @@
 >
   <div class="player-tools-drawer__scrim" hidden></div>
   <div class="player-tools-drawer__inner">
-    <fieldset class="card roll-tools-card">
+    <fieldset class="card card__glow roll-tools-card">
       <legend data-animate-title>Player Tools</legend>
       <div class="roll-tools">
         <section class="roll-tool roll-tool--initiative">
