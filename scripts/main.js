@@ -9111,6 +9111,27 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
     elInitiativeRollResult.classList.remove('initiative-roll--active');
   };
 
+  const applyPlayerToolsCriticalState = (tone) => {
+    const controller = window.playerToolsDrawerController;
+    if (controller && typeof controller.setCriticalState === 'function') {
+      controller.setCriticalState(tone);
+      return;
+    }
+    const drawerEl = document.getElementById('player-tools-drawer');
+    const tabEl = document.getElementById('player-tools-tab');
+    const normalized = tone === null || tone === undefined || tone === '' ? '' : String(tone).toLowerCase();
+    const isCritical = normalized !== '';
+    [drawerEl, tabEl].forEach((element) => {
+      if (!element || !element.classList) return;
+      element.classList.toggle('is-critical', isCritical);
+      if (isCritical) {
+        element.dataset.criticalState = normalized;
+      } else {
+        element.removeAttribute('data-critical-state');
+      }
+    });
+  };
+
   elInitiativeRollBtn.addEventListener('click', () => {
     const dexMod = mod(elDex.value);
     const wisMod = addWisToInitiative ? mod(elWis.value) : 0;
@@ -9127,6 +9148,7 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
     const additionalBonuses = Number.isFinite(manualBonus) && manualBonus !== 0
       ? [{ label: 'Bonus', value: manualBonus }]
       : [];
+    applyPlayerToolsCriticalState(null);
     rollWithBonus('Initiative', base, elInitiativeRollResult, {
       type: 'initiative',
       baseBonuses,
@@ -9141,9 +9163,15 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
     if (rollDetails) {
       if (rollDetails.roll === rollDetails.sides) {
         elInitiativeRollResult.classList.add('initiative-roll--crit-high');
+        applyPlayerToolsCriticalState('success');
       } else if (rollDetails.roll === 1) {
         elInitiativeRollResult.classList.add('initiative-roll--crit-low');
+        applyPlayerToolsCriticalState('failure');
+      } else {
+        applyPlayerToolsCriticalState(null);
       }
+    } else {
+      applyPlayerToolsCriticalState(null);
     }
 
     if (!animationsEnabled) {

@@ -3295,6 +3295,23 @@
       let label = '';
       let visual = '';
       let effects = [];
+      const polarity = typeof entry?.polarity === 'string' ? entry.polarity.toLowerCase() : '';
+      const tone = polarity === 'good'
+        ? 'success'
+        : polarity === 'legendary'
+          ? 'success'
+          : polarity === 'bad' || polarity === 'danger'
+            ? 'failure'
+            : '';
+      if (this.dom.modal) {
+        const isCritical = tone !== '';
+        this.dom.modal.classList.toggle('is-critical', isCritical);
+        if (isCritical) {
+          this.dom.modal.dataset.criticalState = tone;
+        } else {
+          this.dom.modal.removeAttribute('data-critical-state');
+        }
+      }
       if (entry) {
         visual = typeof entry.visual === 'string' ? entry.visual : '';
         effects = Array.isArray(entry.player) ? entry.player : [];
@@ -3800,7 +3817,12 @@
 
     openModal() {
       this.render();
-      if (this.dom.modal) this.dom.modal.hidden = false;
+      if (this.dom.modal) {
+        this.dom.modal.hidden = false;
+        this.dom.modal.classList.add('is-open');
+        this.dom.modal.classList.remove('is-collapsed');
+        this.dom.modal.dataset.state = 'open';
+      }
       if (!this.modalIsOpen) {
         this.modalIsOpen = true;
         if (typeof window?.coverFloatingLauncher === 'function') {
@@ -3810,7 +3832,12 @@
     }
 
     closeModal() {
-      if (this.dom.modal) this.dom.modal.hidden = true;
+      if (this.dom.modal) {
+        this.dom.modal.hidden = true;
+        this.dom.modal.classList.remove('is-open');
+        this.dom.modal.classList.add('is-collapsed');
+        this.dom.modal.dataset.state = 'collapsed';
+      }
       if (this.modalIsOpen) {
         this.modalIsOpen = false;
         if (typeof window?.releaseFloatingLauncher === 'function') {

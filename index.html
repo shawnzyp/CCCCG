@@ -2089,7 +2089,7 @@
 
 <div id="somf-min-modal" class="somf-modal" hidden>
   <div class="somf-modal__backdrop" data-somf-dismiss></div>
-  <div class="somf-modal__card somf-modal__card--image">
+  <div class="somf-modal__card somf-modal__card--image modal__glass">
     <button id="somf-min-close" class="somf-modal__x" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -2887,7 +2887,7 @@
 
 <button
   id="player-tools-tab"
-  class="player-tools-tab"
+  class="player-tools-tab is-collapsed"
   type="button"
   aria-controls="player-tools-drawer"
   aria-expanded="false"
@@ -2900,17 +2900,18 @@
 
 <div
   id="player-tools-drawer"
-  class="player-tools-drawer"
+  class="player-tools-drawer is-collapsed"
   role="complementary"
   aria-label="Player Tools"
   tabindex="-1"
   aria-hidden="true"
 >
   <div class="player-tools-drawer__scrim" hidden></div>
-  <div class="player-tools-drawer__inner">
-    <fieldset class="card roll-tools-card">
-      <legend data-animate-title>Player Tools</legend>
-      <div class="roll-tools">
+  <div class="player-tools-drawer__frame drawer__frame">
+    <div class="player-tools-drawer__inner modal__glass">
+      <fieldset class="card roll-tools-card">
+        <legend data-animate-title>Player Tools</legend>
+        <div class="roll-tools">
         <section class="roll-tool roll-tool--initiative">
           <header class="roll-tool__header">
             <h3 class="roll-tool__heading">Initiative</h3>
@@ -2992,6 +2993,7 @@
         </section>
       </div>
     </fieldset>
+    </div>
   </div>
 </div>
 <script type="module" src="scripts/header-title.js"></script>

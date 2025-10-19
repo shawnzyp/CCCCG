@@ -5,6 +5,27 @@
 
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
 
+  const ensureStateClass = (element, isOpen) => {
+    if (!element || !element.classList) return;
+    element.classList.toggle('is-open', isOpen);
+    element.classList.toggle('is-collapsed', !isOpen);
+  };
+
+  const syncStateDataset = (isOpen) => {
+    const state = isOpen ? 'open' : 'collapsed';
+    drawer.dataset.state = state;
+    tab.dataset.state = state;
+  };
+
+  ensureStateClass(drawer, drawer.classList.contains('is-open'));
+  ensureStateClass(tab, tab.classList.contains('is-open'));
+  if (!drawer.dataset.state) {
+    syncStateDataset(drawer.classList.contains('is-open'));
+  }
+  if (!tab.dataset.state) {
+    tab.dataset.state = drawer.dataset.state;
+  }
+
   const body = document.body;
   const requestFrame =
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
@@ -228,8 +249,9 @@
       return;
     }
 
-    drawer.classList.toggle('is-open', isOpen);
-    tab.classList.toggle('is-open', isOpen);
+    ensureStateClass(drawer, isOpen);
+    ensureStateClass(tab, isOpen);
+    syncStateDataset(isOpen);
     if (scrim) {
       scrim.hidden = !isOpen;
     }
@@ -251,6 +273,33 @@
       drawer.focus({ preventScroll: true });
     } else {
       tab.focus({ preventScroll: true });
+    }
+  };
+
+  const normalizeCriticalTone = (value) => {
+    if (value === null || value === undefined) return '';
+    if (value === false) return '';
+    if (value === true) return 'critical';
+    const tone = String(value).trim().toLowerCase();
+    if (!tone) return '';
+    if (tone === 'crit-high' || tone === 'high' || tone === 'success') return 'success';
+    if (tone === 'crit-low' || tone === 'low' || tone === 'failure' || tone === 'fail') return 'failure';
+    if (tone === 'warning' || tone === 'alert') return 'warning';
+    if (tone === 'danger' || tone === 'critical') return 'critical';
+    return tone;
+  };
+
+  const setCriticalState = (state) => {
+    const tone = normalizeCriticalTone(state);
+    const isCritical = tone !== '';
+    drawer.classList.toggle('is-critical', isCritical);
+    tab.classList.toggle('is-critical', isCritical);
+    if (isCritical) {
+      drawer.dataset.criticalState = tone;
+      tab.dataset.criticalState = tone;
+    } else {
+      drawer.removeAttribute('data-critical-state');
+      tab.removeAttribute('data-critical-state');
     }
   };
 
@@ -322,4 +371,19 @@
   if (!drawer.classList.contains('is-open')) {
     setElementInert(drawer);
   }
+
+  drawer.addEventListener('player-tools:critical', (event) => {
+    setCriticalState(event?.detail);
+  });
+  tab.addEventListener('player-tools:critical', (event) => {
+    setCriticalState(event?.detail);
+  });
+
+  window.playerToolsDrawerController = {
+    setOpenState,
+    setCriticalState,
+    get state() {
+      return drawer.dataset.state || (drawer.classList.contains('is-open') ? 'open' : 'collapsed');
+    },
+  };
 })();
