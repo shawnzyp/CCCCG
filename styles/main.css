@@ -3578,7 +3578,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:0;
+  font-size:.22em;
   letter-spacing:0;
   color:transparent;
   text-shadow:none;
