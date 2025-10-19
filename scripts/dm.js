@@ -35,6 +35,7 @@ const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS = 60 * 1000;
+const DM_UNAUTHORIZED_DEVICE_ERROR_MESSAGE = 'This device is not authorized to access DM tools.';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 
 const DM_PIN_DEFAULT_DIGEST = 'SHA-256';
@@ -7715,7 +7716,35 @@ function initDMLogin(){
   }
 
   function requireLogin(){
+    const unauthorizedDeviceError = new Error('unauthorized-device');
+    unauthorizedDeviceError.name = 'DmUnauthorizedDeviceError';
     return new Promise((resolve, reject) => {
+      const notifyUnauthorizedDevice = () => {
+        if (typeof toast === 'function') {
+          toast(DM_UNAUTHORIZED_DEVICE_ERROR_MESSAGE, 'error');
+        }
+      };
+
+      const rejectUnauthorizedDevice = ({ close = false, cleanup } = {}) => {
+        notifyUnauthorizedDevice();
+        if (close) {
+          try {
+            cleanup?.();
+          } catch {
+            /* ignore cleanup errors */
+          }
+          clearLoginCooldownTimer();
+          clearLoginCooldownUI();
+          closeLogin();
+        }
+        reject(unauthorizedDeviceError);
+      };
+
+      if (!isAuthorizedDevice()) {
+        rejectUnauthorizedDevice();
+        return;
+      }
+
       if (isLoggedIn()) {
         updateButtons();
         resolve(true);
@@ -7732,6 +7761,10 @@ function initDMLogin(){
           return;
         }
         (async () => {
+          if (!isAuthorizedDevice()) {
+            rejectUnauthorizedDevice();
+            return;
+          }
           const entered = window.pinPrompt ? await window.pinPrompt('Enter DM PIN') : (typeof prompt === 'function' ? prompt('Enter DM PIN') : null);
           if (await verifyDmPin(entered)) {
             resetLoginFailureState();
@@ -7770,7 +7803,14 @@ function initDMLogin(){
         loginClose?.removeEventListener('click', onCancel);
         clearLoginCooldownTimer();
       }
+      const handleUnauthorizedDuringModal = () => {
+        rejectUnauthorizedDevice({ close: true, cleanup });
+      };
       async function onSubmit(){
+        if (!isAuthorizedDevice()) {
+          handleUnauthorizedDuringModal();
+          return;
+        }
         const activeCooldown = getLoginCooldownRemainingMs();
         if (activeCooldown > 0) {
           startLoginCooldownCountdown(activeCooldown);
