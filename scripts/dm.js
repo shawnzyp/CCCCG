@@ -248,7 +248,7 @@ function uint8ArrayToBase64(bytes) {
 
 const pinHashCache = new Map();
 
-function deriveDmPinHash(pin, config) {
+async function deriveDmPinHash(pin, config) {
   try {
     const { salt, iterations } = config;
     const keyLength = Number.isFinite(config.keyLength) && config.keyLength > 0 ? config.keyLength : DM_PIN_DEFAULT_KEY_LENGTH;
@@ -268,6 +268,35 @@ function deriveDmPinHash(pin, config) {
       return encoded;
     }
     const passwordBytes = encodeUtf8(pin);
+    const cryptoGlobal = (typeof globalThis !== 'undefined' ? globalThis.crypto : undefined)
+      || (typeof crypto !== 'undefined' ? crypto : undefined);
+    if (
+      cryptoGlobal?.subtle
+      && typeof cryptoGlobal.subtle.importKey === 'function'
+      && typeof cryptoGlobal.subtle.deriveBits === 'function'
+    ) {
+      const keyMaterial = await cryptoGlobal.subtle.importKey(
+        'raw',
+        passwordBytes,
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits'],
+      );
+      const derivedBits = await cryptoGlobal.subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt: saltBytes,
+          iterations,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        keyLength * 8,
+      );
+      const derivedBytes = new Uint8Array(derivedBits);
+      const encoded = uint8ArrayToBase64(derivedBytes);
+      pinHashCache.set(cacheKey, encoded);
+      return encoded;
+    }
     const derived = pbkdf2Sha256(passwordBytes, saltBytes, iterations, keyLength);
     const encoded = uint8ArrayToBase64(derived);
     pinHashCache.set(cacheKey, encoded);
@@ -290,12 +319,12 @@ function constantTimeEquals(a, b) {
   return mismatch === 0;
 }
 
-function verifyDmPin(candidate) {
+async function verifyDmPin(candidate) {
   const pinInput = typeof candidate === 'string' ? candidate.trim() : String(candidate ?? '');
   if (!pinInput) return false;
   if (isHashedDmPinConfig(DM_PIN)) {
     const expectedHash = DM_PIN.hash;
-    const derived = deriveDmPinHash(pinInput, DM_PIN);
+    const derived = await deriveDmPinHash(pinInput, DM_PIN);
     if (!derived) {
       return false;
     }
@@ -7963,7 +7992,7 @@ function initDMLogin(){
           return;
         }
         lockLoginControls();
-        const isValid = verifyDmPin(loginPin.value);
+        const isValid = await verifyDmPin(loginPin.value);
         if(isValid){
           resetLoginFailureState();
           clearLoginCooldownTimer();
