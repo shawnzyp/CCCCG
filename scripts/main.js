@@ -8912,6 +8912,7 @@ const elInitiative = $('initiative');
 const elInitiativeBonus = $('initiative-bonus');
 const elInitiativeRollBtn = $('roll-initiative');
 const elInitiativeRollResult = $('initiative-roll-result');
+const initiativeRollResultRenderer = elInitiativeRollResult ? ensureDiceResultRenderer(elInitiativeRollResult) : null;
 const elProfBonus = $('prof-bonus');
 const elPowerSaveAbility = $('power-save-ability');
 const elPowerSaveDC = $('power-save-dc');
@@ -9169,6 +9170,7 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
       type: 'initiative',
       baseBonuses,
       additionalBonuses,
+      resultRenderer: initiativeRollResultRenderer,
       onRoll: details => {
         rollDetails = details;
       },
@@ -11429,6 +11431,38 @@ function announceContentUpdate(payload = {}) {
 }
 
 
+function getNextDiceResultPlayIndex() {
+  return Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+}
+
+function renderDiceResultValue(target, value, { renderer = null, playIndex = null, renderOptions = null } = {}) {
+  if (!target) return;
+  const normalized = value == null ? '' : value;
+  const fallbackText = typeof normalized === 'string' ? normalized : String(normalized);
+  const resolvedRenderer = renderer || ensureDiceResultRenderer(target);
+  if (resolvedRenderer && typeof resolvedRenderer.render === 'function') {
+    const resolvedPlayIndex = Number.isFinite(playIndex) ? playIndex : getNextDiceResultPlayIndex();
+    resolvedRenderer.render(normalized, resolvedPlayIndex, renderOptions ?? undefined);
+    return;
+  }
+  target.textContent = fallbackText;
+}
+
+function createDiceResultListItem(text, { ariaLabel = '', renderOptions = null } = {}) {
+  const item = document.createElement('li');
+  if (ariaLabel) {
+    item.setAttribute('aria-label', ariaLabel);
+  }
+  const shell = document.createElement('span');
+  shell.className = 'dice-result__shell';
+  const valueEl = document.createElement('span');
+  valueEl.className = 'dice-result__value';
+  shell.appendChild(valueEl);
+  item.appendChild(shell);
+  renderDiceResultValue(valueEl, text, { renderOptions });
+  return item;
+}
+
 function getRollSides(opts = {}) {
   const candidate = opts && opts.sides !== undefined ? opts.sides : opts?.die;
   const parsed = Number(candidate);
@@ -11439,8 +11473,10 @@ function getRollSides(opts = {}) {
 }
 
 function rollWithBonus(name, bonus, out, opts = {}){
-  const sides = getRollSides(opts);
-  const resolution = resolveRollBonus(bonus, opts);
+  const options = opts && typeof opts === 'object' ? opts : {};
+  const { resultRenderer, ...rollOptions } = options;
+  const sides = getRollSides(rollOptions);
+  const resolution = resolveRollBonus(bonus, rollOptions);
   const numericBonus = Number(bonus);
   const fallbackBonus = Number.isFinite(numericBonus) ? numericBonus : 0;
   const modifier = resolution && Number.isFinite(resolution.modifier)
@@ -11469,12 +11505,12 @@ function rollWithBonus(name, bonus, out, opts = {}){
     };
   };
 
-  const diceSetsRaw = Array.isArray(opts.dice) ? opts.dice : [];
+  const diceSetsRaw = Array.isArray(rollOptions.dice) ? rollOptions.dice : [];
   const diceSets = diceSetsRaw
     .map(normalizeDiceSet)
     .filter(Boolean);
 
-  const requestedCountRaw = Number(opts.diceCount);
+  const requestedCountRaw = Number(rollOptions.diceCount);
   const diceCount = Number.isFinite(requestedCountRaw) && requestedCountRaw > 1
     ? Math.floor(requestedCountRaw)
     : 1;
@@ -11482,7 +11518,7 @@ function rollWithBonus(name, bonus, out, opts = {}){
   const breakdownParts = [];
   const rollDetails = [];
   let rollTotal = 0;
-  let rollMode = resolution?.mode || (typeof opts.mode === 'string' ? opts.mode.toLowerCase() : 'normal');
+  let rollMode = resolution?.mode || (typeof rollOptions.mode === 'string' ? rollOptions.mode.toLowerCase() : 'normal');
   let attemptRolls = [];
 
   if (diceSets.length) {
@@ -11521,7 +11557,8 @@ function rollWithBonus(name, bonus, out, opts = {}){
   const total = rollTotal + modifier;
 
   if (out) {
-    out.textContent = total;
+    const renderer = resultRenderer || ensureDiceResultRenderer(out);
+    renderDiceResultValue(out, total, { renderer });
     if (out.dataset) {
       const combinedBreakdown = [
         ...breakdownParts,
@@ -11569,12 +11606,12 @@ function rollWithBonus(name, bonus, out, opts = {}){
   }
   logAction(message);
 
-  if (opts && typeof opts.onRoll === 'function') {
+  if (typeof rollOptions.onRoll === 'function') {
     try {
       const baseBonusValue = resolution && Number.isFinite(resolution.baseBonus)
         ? resolution.baseBonus
         : fallbackBonus;
-      opts.onRoll({
+      rollOptions.onRoll({
         roll: rollTotal,
         total,
         bonus: modifier,
@@ -11586,7 +11623,7 @@ function rollWithBonus(name, bonus, out, opts = {}){
         appliedBonuses: resolution?.appliedBonuses || [],
         name,
         output: out,
-        options: { ...opts, mode: rollMode },
+        options: { ...rollOptions, mode: rollMode },
         sides,
         rolls: rollDetails,
         rollMode,
@@ -11660,12 +11697,8 @@ if (rollDiceButton) {
     });
     out.classList.remove('rolling');
     diceCriticalStateClasses.forEach(cls => out.classList.remove(cls));
-    const playIndex = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
-    if (diceResultRenderer && out) {
-      diceResultRenderer.render(total, playIndex);
-    } else {
-      out.textContent = total;
-    }
+    const playIndex = getNextDiceResultPlayIndex();
+    renderDiceResultValue(out, total, { renderer: diceResultRenderer, playIndex });
     void out.offsetWidth; out.classList.add('rolling');
     if (out.dataset) {
       out.dataset.rollModifier = String(modifier);
@@ -11694,22 +11727,21 @@ if (rollDiceButton) {
       if (shouldShowBreakdown) {
         const fragment = document.createDocumentFragment();
         rollDetails.forEach((detail, index) => {
-          const item = document.createElement('li');
-          if (normalizedMode !== 'normal' && Number.isFinite(detail.secondary)) {
-            const secondary = detail.secondary;
-            item.textContent = `${detail.primary}/${secondary}→${detail.chosen}`;
-            item.setAttribute('aria-label', `Roll ${index + 1}: ${detail.primary} vs ${secondary}, kept ${detail.chosen}`);
-          } else {
-            item.textContent = String(detail.chosen);
-            item.setAttribute('aria-label', `Roll ${index + 1}: ${detail.chosen}`);
-          }
+          const isContested = normalizedMode !== 'normal' && Number.isFinite(detail.secondary);
+          const display = isContested
+            ? `${detail.primary}/${detail.secondary}→${detail.chosen}`
+            : String(detail.chosen);
+          const ariaLabel = isContested
+            ? `Roll ${index + 1}: ${detail.primary} vs ${detail.secondary}, kept ${detail.chosen}`
+            : `Roll ${index + 1}: ${detail.chosen}`;
+          const item = createDiceResultListItem(display, { ariaLabel });
           fragment.appendChild(item);
         });
         if (hasModifier) {
-          const modItem = document.createElement('li');
           const sign = modifier >= 0 ? '+' : '-';
-          modItem.textContent = `${sign}${Math.abs(modifier)} mod`;
-          modItem.setAttribute('aria-label', `Modifier ${sign}${Math.abs(modifier)}`);
+          const display = `${sign}${Math.abs(modifier)} mod`;
+          const ariaLabel = `Modifier ${sign}${Math.abs(modifier)}`;
+          const modItem = createDiceResultListItem(display, { ariaLabel });
           fragment.appendChild(modItem);
         }
         diceBreakdownList.appendChild(fragment);
@@ -12299,6 +12331,7 @@ function playLoadAnimation(){
 const deathSuccesses = ['death-success-1','death-success-2','death-success-3'].map(id=>$(id));
 const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(id));
 const deathOut = $('death-save-out');
+const deathSaveResultRenderer = deathOut ? ensureDiceResultRenderer(deathOut) : null;
 const deathRollMode = $('death-save-mode');
 const deathModifierInput = $('death-save-mod');
 let deathState = null; // null, 'stable', 'dead'
@@ -12327,8 +12360,8 @@ function setDeathSaveOutput({ total, modifier, appliedMode, rolls, resolution })
       delete dataset.rollModeSources;
     }
   }
-  const nextText = String(total ?? '');
-  deathOut.textContent = nextText;
+  const nextValue = total == null ? '' : total;
+  renderDiceResultValue(deathOut, nextValue, { renderer: deathSaveResultRenderer });
   if (deathOut.classList) {
     if (animationsEnabled && !prefersReducedMotion()) {
       deathOut.classList.remove(deathOutAnimationClass);
@@ -12355,7 +12388,7 @@ function resetDeathSaves(){
   [...deathSuccesses, ...deathFailures].forEach(b=> b.checked=false);
   deathState=null;
   if(deathOut){
-    deathOut.textContent='';
+    renderDiceResultValue(deathOut, '', { renderer: deathSaveResultRenderer });
     if (deathOut.classList) {
       deathOut.classList.remove(deathOutAnimationClass);
     }
