@@ -79,14 +79,6 @@ function DiceResultContent({ value, playIndex, cascadeEnabled }) {
   const prefersReducedMotion = useReducedMotion();
   const text = useMemo(() => (value == null ? '' : String(value)), [value]);
 
-  if (prefersReducedMotion) {
-    return (
-      <span className="dice-result-decrypted" data-play-index={playIndex}>
-        <span className="dice-result-decrypted__char">{text}</span>
-      </span>
-    );
-  }
-
   const shouldCascade = cascadeEnabled !== false;
 
   const decryptedTextProps = {
@@ -107,7 +99,17 @@ function DiceResultContent({ value, playIndex, cascadeEnabled }) {
     decryptedTextProps.revealDirection = 'end';
   }
 
-  return <DecryptedText {...decryptedTextProps} />;
+  return (
+    <span className="dice-result__shell">
+      {prefersReducedMotion ? (
+        <span className="dice-result-decrypted" data-play-index={playIndex}>
+          <span className="dice-result-decrypted__char">{text}</span>
+        </span>
+      ) : (
+        <DecryptedText {...decryptedTextProps} />
+      )}
+    </span>
+  );
 }
 
 export function ensureDiceResultRenderer(mountNode, baseOptions = {}) {
