@@ -394,14 +394,19 @@ import { show, hide } from './modal.js';
     if (!data || data.type !== MESSAGE_TYPE) return;
     if (Array.isArray(data.payload)) {
       syncHistoryFromEntries(data.payload, { reveal: true, persist: true });
-    } else {
-      const { entries } = parseStoredHistoryPayload(data.payload);
-      if (entries.length) {
-        syncHistoryFromEntries(entries, { reveal: true, persist: true });
-      } else {
-        handleUpdate(data.payload, { reveal: true });
-      }
+      return;
     }
+
+    const hasEntriesProperty =
+      data.payload && typeof data.payload === 'object' && 'entries' in data.payload;
+    const { entries } = parseStoredHistoryPayload(data.payload);
+
+    if (entries.length || hasEntriesProperty) {
+      syncHistoryFromEntries(entries, { reveal: true, persist: true });
+      return;
+    }
+
+    handleUpdate(data.payload, { reveal: true });
   };
 
   if (closeBtn) {
