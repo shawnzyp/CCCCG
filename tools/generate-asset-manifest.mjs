@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { spawnSync } from 'child_process';
 
 const ROOT = process.cwd();
 const OUTPUT = path.join(ROOT, 'asset-manifest.json');
@@ -57,6 +58,26 @@ function shouldSkipDir(relativeDir) {
   return EXCLUDED_DIRECTORIES.has(topLevel);
 }
 
+function isGitIgnored(fullPath) {
+  const result = spawnSync('git', ['check-ignore', fullPath], {
+    stdio: 'pipe',
+    encoding: 'utf8',
+  });
+
+  if (result.status === 0) {
+    return true;
+  }
+
+  // When git returns 1 the path is not ignored. Other non-zero statuses indicate
+  // failures (e.g. running outside of a repo); fall back to treating the file as
+  // tracked so we never accidentally drop legitimate assets.
+  if (result.status && result.status !== 1) {
+    return false;
+  }
+
+  return false;
+}
+
 function collectFiles(dir, base = '') {
   const files = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -66,6 +87,10 @@ function collectFiles(dir, base = '') {
     }
     const fullPath = path.join(dir, entry.name);
     const relativePath = normalizePath(path.join(base, entry.name));
+    if (isGitIgnored(fullPath)) {
+      continue;
+    }
+
     if (entry.isDirectory()) {
       if (shouldSkipDir(relativePath)) continue;
       files.push(...collectFiles(fullPath, relativePath));
