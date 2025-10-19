@@ -75,6 +75,7 @@ describe('coin flip animation states', () => {
         <button id="flip" type="button"></button>
         <span id="flip-out"></span>
         <div id="coin-animation" data-heads="Heads" data-tails="Tails">
+          <span class="coin-result"></span>
           <span class="coin-face coin-face--heads" aria-hidden="true"></span>
           <span class="coin-face coin-face--tails" aria-hidden="true"></span>
         </div>
@@ -147,8 +148,10 @@ describe('coin flip animation states', () => {
 
     expect(coinAnimation.classList.contains('is-heads')).toBe(true);
     expect(coinAnimation.classList.contains('is-tails')).toBe(false);
+    const resultLabel = coinAnimation.querySelector('.coin-result');
+    expect(resultLabel?.textContent).toBe('Heads');
     const headsFace = coinAnimation.querySelector('.coin-face--heads');
-    expect(headsFace?.textContent).toBe('Heads');
+    expect(headsFace?.textContent).toBe('');
   });
 
   test('tails result applies tails animation class', async () => {
@@ -162,7 +165,9 @@ describe('coin flip animation states', () => {
 
     expect(coinAnimation.classList.contains('is-tails')).toBe(true);
     expect(coinAnimation.classList.contains('is-heads')).toBe(false);
+    const resultLabel = coinAnimation.querySelector('.coin-result');
+    expect(resultLabel?.textContent).toBe('Tails');
     const tailsFace = coinAnimation.querySelector('.coin-face--tails');
-    expect(tailsFace?.textContent).toBe('Tails');
+    expect(tailsFace?.textContent).toBe('');
   });
 });
