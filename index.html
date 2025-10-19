@@ -1933,6 +1933,101 @@
     </div>
   </section>
 </div>
+<div class="overlay hidden" id="player-credit-modal" aria-hidden="true">
+  <section class="modal player-credit-modal" role="dialog" aria-modal="true" aria-labelledby="player-credit-title">
+    <button id="player-credit-close" class="x" type="button" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div
+      id="player-credit-card"
+      class="player-credit-card"
+      role="region"
+      aria-label="Player bank transaction card"
+      data-account=""
+      data-amount=""
+      data-type=""
+      data-sender=""
+      data-ref=""
+      data-txid=""
+      data-timestamp=""
+      data-player=""
+    >
+      <header class="player-credit__header">
+        <div class="player-credit__left">
+          <div class="player-credit__logo" aria-hidden="true" title="Manhattan Trust &amp; Exchange">
+            <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bank icon">
+              <defs>
+                <linearGradient id="playerCreditBankGrad" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stop-color="var(--accent)" />
+                  <stop offset="100%" stop-color="#6fe7ff" />
+                </linearGradient>
+              </defs>
+              <path d="M8 24 L32 8 L56 24 Z" fill="url(#playerCreditBankGrad)" opacity="1" />
+              <rect x="10" y="26" width="44" height="26" rx="3" fill="rgba(255,255,255,0.03)" />
+              <g stroke="url(#playerCreditBankGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <rect x="16" y="30" width="6" height="18" rx="1" />
+                <rect x="29" y="30" width="6" height="18" rx="1" />
+                <rect x="42" y="30" width="6" height="18" rx="1" />
+              </g>
+              <rect x="12" y="48" width="40" height="4" rx="1" fill="url(#playerCreditBankGrad)" opacity="0.3" />
+            </svg>
+          </div>
+          <div class="player-credit__titles">
+            <div class="player-credit__bank" id="player-credit-title">Manhattan Trust &amp; Exchange</div>
+            <div class="player-credit__subtitle">Bank Transaction</div>
+          </div>
+        </div>
+
+        <div class="player-credit__reference">
+          <span class="player-credit__label">Reference #:</span>
+          <span class="player-credit__chip" id="player-credit-ref" aria-live="polite">—</span>
+        </div>
+      </header>
+
+      <div class="player-credit__grid" id="player-credit-grid">
+        <div class="player-credit__field">
+          <div class="player-credit__label">Account</div>
+          <div class="player-credit__value" id="player-credit-account">—</div>
+        </div>
+
+        <div class="player-credit__field">
+          <div class="player-credit__label">Amount</div>
+          <div class="player-credit__value player-credit__amount" id="player-credit-amount">₡0.00</div>
+        </div>
+
+        <div class="player-credit__field">
+          <div class="player-credit__label">Transaction type</div>
+          <div class="player-credit__value" id="player-credit-type">—</div>
+        </div>
+
+        <div class="player-credit__field">
+          <div class="player-credit__label">Sender</div>
+          <div class="player-credit__value" id="player-credit-sender">—</div>
+        </div>
+
+        <div class="player-credit__field player-credit__field--memo" id="player-credit-memo-field" hidden>
+          <div class="player-credit__label">Memo</div>
+          <div class="player-credit__value" id="player-credit-memo">—</div>
+        </div>
+
+        <footer class="player-credit__footer">
+          <div class="player-credit__timestamp" id="player-credit-timestamp">
+            <span id="player-credit-date">—</span>
+            <span aria-hidden="true">•</span>
+            <span id="player-credit-time">—</span>
+          </div>
+          <div class="player-credit__id">ID: <span id="player-credit-txid">—</span></div>
+        </footer>
+      </div>
+      <section class="player-credit__history" aria-live="polite" hidden>
+        <h3 class="player-credit__history-title">Recent activity</h3>
+        <ol id="player-credit-history" class="player-credit__history-list" hidden></ol>
+      </section>
+    </div>
+  </section>
+</div>
 <div class="overlay hidden" id="mini-game-invite" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title" data-modal-static>
   <section class="modal mini-game-invite">
     <header class="mini-game-invite__header">
