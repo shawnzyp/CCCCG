@@ -3,6 +3,7 @@
   const tab = document.getElementById('player-tools-tab');
   if (!drawer || !tab) return;
 
+  const root = document.documentElement;
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
 
   const body = document.body;
@@ -10,12 +11,108 @@
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
       ? window.requestAnimationFrame.bind(window)
       : (callback) => window.setTimeout(callback, 16);
+  const cancelFrame =
+    typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
+      ? window.cancelAnimationFrame.bind(window)
+      : (id) => window.clearTimeout(id);
 
   const clamp = (value, min, max) => {
     if (!Number.isFinite(value)) return value;
     if (Number.isFinite(min) && value < min) return min;
     if (Number.isFinite(max) && value > max) return max;
     return value;
+  };
+
+  const getMotionDuration = () => {
+    const styles = window.getComputedStyle(root);
+    const parsed = parseFloat(styles.getPropertyValue('--player-tools-motion-duration-ms'));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 420;
+  };
+
+  const readProgress = () => {
+    const styles = window.getComputedStyle(root);
+    const parsed = parseFloat(styles.getPropertyValue('--player-tools-open-progress'));
+    return Number.isFinite(parsed) ? clamp(parsed, 0, 1) : 0;
+  };
+
+  const applyProgress = (value) => {
+    const progress = clamp(value, 0, 1);
+    if (root) {
+      root.style.setProperty('--player-tools-open-progress', progress.toFixed(4));
+    }
+    if (tab) {
+      tab.style.setProperty('--player-tools-tab-progress', progress.toFixed(4));
+    }
+    return progress;
+  };
+
+  const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+  const prefersReducedMotion =
+    typeof window !== 'undefined' && 'matchMedia' in window
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
+
+  let animationFrameId = null;
+  let animationStartTime = null;
+  let animationStartValue = readProgress();
+  let animationTargetValue = animationStartValue;
+
+  const stopProgressAnimation = () => {
+    if (animationFrameId !== null) {
+      cancelFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    animationStartTime = null;
+  };
+
+  const updateProgress = (target) => {
+    const progress = applyProgress(target);
+    drawer.setAttribute('data-state', progress >= 1 ? 'open' : 'closed');
+    if (scrim) {
+      scrim.hidden = progress === 0;
+    }
+  };
+
+  const animateProgressTo = (target) => {
+    const goal = clamp(target, 0, 1);
+    const start = readProgress();
+    animationStartValue = start;
+    animationTargetValue = goal;
+
+    if (prefersReducedMotion?.matches) {
+      stopProgressAnimation();
+      updateProgress(goal);
+      return;
+    }
+
+    if (Math.abs(goal - start) < 0.001) {
+      stopProgressAnimation();
+      updateProgress(goal);
+      return;
+    }
+
+    const duration = getMotionDuration();
+    stopProgressAnimation();
+
+    const step = (timestamp) => {
+      if (animationStartTime === null) {
+        animationStartTime = timestamp;
+      }
+      const elapsed = clamp((timestamp - animationStartTime) / duration, 0, 1);
+      const eased = easeInOutCubic(elapsed);
+      const next = animationStartValue + (animationTargetValue - animationStartValue) * eased;
+      applyProgress(next);
+
+      if (elapsed < 1) {
+        animationFrameId = requestFrame(step);
+      } else {
+        stopProgressAnimation();
+        updateProgress(animationTargetValue);
+      }
+    };
+
+    animationFrameId = requestFrame(step);
   };
 
   const applyTabTopProperty = () => {
@@ -112,6 +209,10 @@
   };
 
   initializeTabTrackers();
+
+  const initialState = drawer.classList.contains('is-open');
+  drawer.setAttribute('data-state', initialState ? 'open' : 'closed');
+  updateProgress(initialState ? 1 : 0);
 
   const focusableSelectors = [
     'a[href]',
@@ -230,8 +331,11 @@
 
     drawer.classList.toggle('is-open', isOpen);
     tab.classList.toggle('is-open', isOpen);
+    drawer.setAttribute('data-state', isOpen ? 'opening' : 'closing');
     if (scrim) {
-      scrim.hidden = !isOpen;
+      if (isOpen) {
+        scrim.hidden = false;
+      }
     }
     if (body) {
       body.classList.toggle('player-tools-open', isOpen);
@@ -252,6 +356,8 @@
     } else {
       tab.focus({ preventScroll: true });
     }
+
+    animateProgressTo(isOpen ? 1 : 0);
   };
 
   tab.addEventListener('click', () => {
@@ -321,5 +427,19 @@
 
   if (!drawer.classList.contains('is-open')) {
     setElementInert(drawer);
+  }
+
+  if (prefersReducedMotion) {
+    const handleMotionPreferenceChange = () => {
+      stopProgressAnimation();
+      const open = drawer.classList.contains('is-open');
+      updateProgress(open ? 1 : 0);
+    };
+
+    if (typeof prefersReducedMotion.addEventListener === 'function') {
+      prefersReducedMotion.addEventListener('change', handleMotionPreferenceChange);
+    } else if (typeof prefersReducedMotion.addListener === 'function') {
+      prefersReducedMotion.addListener(handleMotionPreferenceChange);
+    }
   }
 })();

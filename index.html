@@ -2896,6 +2896,10 @@
   <span class="player-tools-tab__icon" aria-hidden="true">
     <img src="images/player-tools-icon.svg" alt="" />
   </span>
+  <span class="player-tools-tab__status" aria-hidden="true">
+    <span class="player-tools-tab__status-indicator"></span>
+    <span class="player-tools-tab__status-label">LIVE</span>
+  </span>
 </button>
 
 <div
@@ -2908,92 +2912,117 @@
 >
   <div class="player-tools-drawer__scrim" hidden></div>
   <div class="player-tools-drawer__inner">
-    <fieldset class="card roll-tools-card">
-      <legend data-animate-title>Player Tools</legend>
-      <div class="roll-tools">
-        <section class="roll-tool roll-tool--initiative">
-          <header class="roll-tool__header">
-            <h3 class="roll-tool__heading">Initiative</h3>
-            <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
-          </header>
-          <div class="roll-tool__body">
-            <div class="roll-tool__field">
-              <label for="initiative">Bonus to Initiative</label>
-              <input
-                id="initiative"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                placeholder="auto from DEX + bonuses"
-                readonly
-              />
-            </div>
-            <div class="roll-tool__field">
-              <label for="initiative-bonus">Bonus</label>
-              <input
-                id="initiative-bonus"
-                type="number"
-                inputmode="numeric"
-                step="1"
-                placeholder="0"
-              />
-            </div>
-            <div class="roll-tool__actions">
-              <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
-            </div>
-          </div>
-        </section>
-        <section class="roll-tool roll-tool--dice">
-          <header class="roll-tool__header">
-            <h3 class="roll-tool__heading">Dice Roll</h3>
-            <span class="pill result" id="dice-out" data-placeholder="000"></span>
-          </header>
-          <div class="roll-tool__body">
-            <ul id="dice-breakdown" class="dice-breakdown" aria-live="polite" hidden></ul>
-            <div class="roll-tool__grid">
-              <label class="roll-tool__field">
-                <span class="roll-tool__label">Sides</span>
-                <select id="dice-sides" data-view-allow>
-                  <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
-                </select>
-              </label>
-              <label class="roll-tool__field">
-                <span class="roll-tool__label">Count</span>
-                <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
-              </label>
-              <label class="roll-tool__field">
-                <span class="roll-tool__label">Roll mode</span>
-                <select id="dice-mode" data-view-allow>
-                  <option value="normal" selected>Normal</option>
-                  <option value="advantage">Advantage</option>
-                  <option value="disadvantage">Disadvantage</option>
-                </select>
-              </label>
-              <label class="roll-tool__field">
-                <span class="roll-tool__label">Modifier</span>
-                <input id="dice-mod" data-view-allow type="number" inputmode="numeric" step="1"/>
-              </label>
-            </div>
-            <div class="roll-tool__actions">
-              <button id="roll-dice" class="btn-sm">Roll</button>
-            </div>
-          </div>
-        </section>
-        <section class="roll-tool roll-tool--coin">
-          <header class="roll-tool__header">
-            <h3 class="roll-tool__heading">Coin Flip</h3>
-            <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
-          </header>
-          <div class="roll-tool__body">
-            <div class="roll-tool__actions">
-              <button id="flip" class="btn-sm">Flip</button>
-            </div>
-          </div>
-        </section>
+    <div class="player-tools-drawer__panel">
+      <div class="player-tools-drawer__decor" aria-hidden="true">
+        <span class="player-tools-drawer__light player-tools-drawer__light--primary"></span>
+        <span class="player-tools-drawer__light player-tools-drawer__light--secondary"></span>
+        <span class="player-tools-drawer__grid"></span>
       </div>
-    </fieldset>
+      <header class="player-tools-drawer__header">
+        <span class="player-tools-drawer__badge" role="status" aria-live="polite">
+          <span class="player-tools-drawer__badge-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+              <use href="#icon-tab-gear"></use>
+            </svg>
+          </span>
+          <span class="player-tools-drawer__badge-label">TOOLS ONLINE</span>
+        </span>
+      </header>
+      <div class="player-tools-drawer__content">
+        <fieldset class="card roll-tools-card">
+          <legend data-animate-title>Player Tools</legend>
+          <div class="roll-tools">
+            <section class="roll-tool roll-tool--initiative">
+              <header class="roll-tool__header">
+                <h3 class="roll-tool__heading">Initiative</h3>
+                <span id="initiative-roll-result" class="pill result" data-placeholder="Roll"></span>
+              </header>
+              <div class="roll-tool__body">
+                <div class="roll-tool__field">
+                  <label for="initiative">Bonus to Initiative</label>
+                  <input
+                    id="initiative"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="auto from DEX + bonuses"
+                    readonly
+                  />
+                </div>
+                <div class="roll-tool__field">
+                  <label for="initiative-bonus">Bonus</label>
+                  <input
+                    id="initiative-bonus"
+                    type="number"
+                    inputmode="numeric"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
+                <div class="roll-tool__actions">
+                  <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
+                </div>
+              </div>
+            </section>
+            <section class="roll-tool roll-tool--dice">
+              <header class="roll-tool__header">
+                <h3 class="roll-tool__heading">Dice Roll</h3>
+                <span class="pill result" id="dice-out" data-placeholder="000"></span>
+              </header>
+              <div class="roll-tool__body">
+                <ul id="dice-breakdown" class="dice-breakdown" aria-live="polite" hidden></ul>
+                <div class="roll-tool__grid">
+                  <label class="roll-tool__field">
+                    <span class="roll-tool__label">Sides</span>
+                    <select id="dice-sides" data-view-allow>
+                      <option value="4">d4</option>
+                      <option value="6">d6</option>
+                      <option value="8">d8</option>
+                      <option value="10">d10</option>
+                      <option value="12">d12</option>
+                      <option value="20" selected>d20</option>
+                      <option value="100">d100</option>
+                    </select>
+                  </label>
+                  <label class="roll-tool__field">
+                    <span class="roll-tool__label">Count</span>
+                    <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1" />
+                  </label>
+                  <label class="roll-tool__field">
+                    <span class="roll-tool__label">Roll mode</span>
+                    <select id="dice-mode" data-view-allow>
+                      <option value="normal" selected>Normal</option>
+                      <option value="advantage">Advantage</option>
+                      <option value="disadvantage">Disadvantage</option>
+                    </select>
+                  </label>
+                  <label class="roll-tool__field">
+                    <span class="roll-tool__label">Modifier</span>
+                    <input id="dice-mod" data-view-allow type="number" inputmode="numeric" step="1" />
+                  </label>
+                </div>
+                <div class="roll-tool__actions">
+                  <button id="roll-dice" class="btn-sm">Roll</button>
+                </div>
+              </div>
+            </section>
+            <section class="roll-tool roll-tool--coin">
+              <header class="roll-tool__header">
+                <h3 class="roll-tool__heading">Coin Flip</h3>
+                <span class="pill result" id="flip-out" data-placeholder="Heads"></span>
+              </header>
+              <div class="roll-tool__body">
+                <div class="roll-tool__actions">
+                  <button id="flip" class="btn-sm">Flip</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </fieldset>
+      </div>
+    </div>
   </div>
-</div>
+
 <script type="module" src="scripts/header-title.js"></script>
 <script type="module" src="scripts/animated-titles.js"></script>
 <script type="module" src="scripts/animated-title-spacing.js"></script>
