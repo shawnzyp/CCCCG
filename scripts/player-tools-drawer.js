@@ -4,18 +4,151 @@
   if (!drawer || !tab) return;
 
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
+  const content = drawer.querySelector('[data-player-tools-content]');
 
   const body = document.body;
   const requestFrame =
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
       ? window.requestAnimationFrame.bind(window)
-      : (callback) => window.setTimeout(callback, 16);
+      : (callback) =>
+          window.setTimeout(
+            () =>
+              callback(
+                typeof performance !== 'undefined' && typeof performance.now === 'function'
+                  ? performance.now()
+                  : Date.now()
+              ),
+            16
+          );
+
+  const cancelFrame =
+    typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function'
+      ? window.cancelAnimationFrame.bind(window)
+      : (handle) => window.clearTimeout(handle);
+
+  const motionPreference =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
 
   const clamp = (value, min, max) => {
     if (!Number.isFinite(value)) return value;
     if (Number.isFinite(min) && value < min) return min;
     if (Number.isFinite(max) && value > max) return max;
     return value;
+  };
+
+  const parseDuration = (value) => {
+    if (typeof value !== 'string') {
+      return Number.isFinite(value) ? Number(value) : 0;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    if (trimmed.endsWith('ms')) {
+      const parsed = parseFloat(trimmed.slice(0, -2));
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    if (trimmed.endsWith('s')) {
+      const parsed = parseFloat(trimmed.slice(0, -1));
+      return Number.isFinite(parsed) ? parsed * 1000 : 0;
+    }
+    const fallback = parseFloat(trimmed);
+    return Number.isFinite(fallback) ? fallback : 0;
+  };
+
+  const getTransitionDuration = () => {
+    const rootStyles = window.getComputedStyle(document.documentElement);
+    const raw = rootStyles.getPropertyValue('--player-tools-transition-duration');
+    const duration = parseDuration(raw);
+    return Number.isFinite(duration) && duration >= 0 ? duration : 0;
+  };
+
+  const easeOutCubic = (value) => {
+    const clamped = clamp(value, 0, 1);
+    const inverted = 1 - clamped;
+    return 1 - inverted * inverted * inverted;
+  };
+
+  let openProgress = 0;
+
+  const applyOpenProgress = (value) => {
+    const next = clamp(value, 0, 1);
+    openProgress = next;
+    drawer.style.setProperty('--player-tools-open-progress', `${next}`);
+    tab.style.setProperty('--player-tools-open-progress', `${next}`);
+    if (content) {
+      content.style.setProperty('--player-tools-open-progress', `${next}`);
+    }
+  };
+
+  let openAnimationFrame = null;
+  let openAnimationStart = null;
+  let openAnimationTarget = 0;
+  let openAnimationCompletion = null;
+
+  const stopOpenAnimation = (cancelled) => {
+    if (openAnimationFrame !== null) {
+      cancelFrame(openAnimationFrame);
+      openAnimationFrame = null;
+    }
+    openAnimationStart = null;
+    if (!cancelled && typeof openAnimationCompletion === 'function') {
+      openAnimationCompletion();
+    }
+    openAnimationCompletion = null;
+  };
+
+  const isMotionReduced = () => motionPreference?.matches === true;
+
+  const animateOpenProgress = (target, onComplete) => {
+    const destination = clamp(target, 0, 1);
+    stopOpenAnimation(true);
+
+    if (isMotionReduced()) {
+      applyOpenProgress(destination);
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
+      return;
+    }
+
+    const duration = getTransitionDuration();
+    const startValue = openProgress;
+    if (!Number.isFinite(duration) || duration <= 16 || Math.abs(startValue - destination) <= 0.001) {
+      applyOpenProgress(destination);
+      if (typeof onComplete === 'function') {
+        onComplete();
+      }
+      return;
+    }
+
+    openAnimationTarget = destination;
+    openAnimationCompletion = typeof onComplete === 'function' ? onComplete : null;
+    openAnimationStart = null;
+
+    const step = (timestamp) => {
+      if (openAnimationStart === null) {
+        openAnimationStart = timestamp;
+      }
+      const elapsed = timestamp - openAnimationStart;
+      const progress = clamp(duration === 0 ? 1 : elapsed / duration, 0, 1);
+      const eased = easeOutCubic(progress);
+      const value = startValue + (openAnimationTarget - startValue) * eased;
+      applyOpenProgress(value);
+      if (progress < 1) {
+        openAnimationFrame = requestFrame(step);
+        return;
+      }
+      openAnimationFrame = null;
+      openAnimationStart = null;
+      applyOpenProgress(openAnimationTarget);
+      if (typeof openAnimationCompletion === 'function') {
+        openAnimationCompletion();
+      }
+      openAnimationCompletion = null;
+    };
+
+    openAnimationFrame = requestFrame(step);
   };
 
   const applyTabTopProperty = () => {
@@ -112,6 +245,8 @@
   };
 
   initializeTabTrackers();
+
+  applyOpenProgress(drawer.classList.contains('is-open') ? 1 : 0);
 
   const focusableSelectors = [
     'a[href]',
@@ -210,6 +345,8 @@
     }
     if (focusables.length > 0) {
       focusables[0].focus({ preventScroll: true });
+    } else if (content) {
+      content.focus({ preventScroll: true });
     } else {
       drawer.focus({ preventScroll: true });
     }
@@ -230,8 +367,8 @@
 
     drawer.classList.toggle('is-open', isOpen);
     tab.classList.toggle('is-open', isOpen);
-    if (scrim) {
-      scrim.hidden = !isOpen;
+    if (scrim && isOpen) {
+      scrim.hidden = false;
     }
     if (body) {
       body.classList.toggle('player-tools-open', isOpen);
@@ -247,8 +384,14 @@
       externalInertTargets = [];
       setElementInert(drawer);
     }
+    animateOpenProgress(isOpen ? 1 : 0, () => {
+      if (!isOpen && scrim) {
+        scrim.hidden = true;
+      }
+    });
+
     if (isOpen) {
-      drawer.focus({ preventScroll: true });
+      focusWithinTrap();
     } else {
       tab.focus({ preventScroll: true });
     }
@@ -288,7 +431,7 @@
     const focusables = getFocusableElements();
     if (!focusables.length) {
       event.preventDefault();
-      drawer.focus({ preventScroll: true });
+      (content || drawer).focus({ preventScroll: true });
       return;
     }
     const first = focusables[0];
@@ -318,6 +461,23 @@
 
   document.addEventListener('keydown', handleKeydown, true);
   document.addEventListener('focusin', handleFocusIn);
+
+  const handleMotionPreferenceChange = () => {
+    const target = drawer.classList.contains('is-open') ? 1 : 0;
+    stopOpenAnimation(true);
+    applyOpenProgress(target);
+    if (!target && scrim) {
+      scrim.hidden = true;
+    }
+  };
+
+  if (motionPreference) {
+    if (typeof motionPreference.addEventListener === 'function') {
+      motionPreference.addEventListener('change', handleMotionPreferenceChange);
+    } else if (typeof motionPreference.addListener === 'function') {
+      motionPreference.addListener(handleMotionPreferenceChange);
+    }
+  }
 
   if (!drawer.classList.contains('is-open')) {
     setElementInert(drawer);
