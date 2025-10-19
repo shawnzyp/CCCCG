@@ -1509,586 +1509,670 @@
 
 
 <div class="overlay hidden" id="modal-load-list" aria-hidden="true">
-  <div class="modal modal--load-save" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>All Characters</h3>
-    <div id="char-list" class="catalog"></div>
-    <div class="actions actions--center modal--load-save__actions">
-      <button id="btn-save" class="btn-sm" type="button">Save</button>
-      <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
-      <button id="create-character" class="btn-sm" type="button">Create New</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal modal--load-save" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>All Characters</h3>
+      <div id="char-list" class="catalog"></div>
+      <div class="actions actions--center modal--load-save__actions">
+        <button id="btn-save" class="btn-sm" type="button">Save</button>
+        <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
+        <button id="create-character" class="btn-sm" type="button">Create New</button>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-recover-char" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Select Character</h3>
-    <div id="recover-char-list" class="catalog"></div>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Select Character</h3>
+      <div id="recover-char-list" class="catalog"></div>
+    </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-recover-list" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Recover Backup</h3>
-    <div id="recover-list" class="catalog"></div>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Recover Backup</h3>
+      <div id="recover-list" class="catalog"></div>
+    </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-load" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <p id="load-confirm-text"></p>
-    <div class="actions">
-      <button id="load-cancel" class="btn-sm">Cancel</button>
-      <button id="load-accept" class="btn-sm">Accept</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <p id="load-confirm-text"></p>
+      <div class="actions">
+        <button id="load-cancel" class="btn-sm">Cancel</button>
+        <button id="load-accept" class="btn-sm">Accept</button>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-pin" aria-hidden="true">
-  <section class="modal">
-    <button id="pin-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3 id="pin-title">Enter PIN</h3>
-    <input id="pin-input" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
-    <div class="actions"><button id="pin-submit" class="somf-btn">OK</button></div>
-  </section>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section class="modal">
+      <button id="pin-close" class="x" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3 id="pin-title">Enter PIN</h3>
+      <input id="pin-input" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+      <div class="actions"><button id="pin-submit" class="somf-btn">OK</button></div>
+    </section>
+  </div>
 </div>
 
 <!-- WELCOME MODAL -->
 <div class="overlay hidden" id="modal-welcome" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
-    <p><u>Create or Load Your Hero Profile</u><br>
-    This is your Vigilante record. Without it, you don’t exist in the Core.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Use the Tabs</u><br>
-    <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
-    <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
-    <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
-    <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
-    <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Save &amp; Sync</u><br>
-    Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><strong>O.M.N.I. Command</strong></p>
-    <div class="welcome-modal__preference">
-      <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
-        <input type="checkbox" id="welcome-hide-toggle">
-        Don't show this again
-      </label>
-    </div>
-    <div class="actions">
-      <button id="welcome-create-character" type="button">Create New Character</button>
-      <button id="welcome-load-character" type="button">Load Character</button>
-      <button id="welcome-skip" type="button">Skip</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
+      <p><u>Create or Load Your Hero Profile</u><br>
+      This is your Vigilante record. Without it, you don’t exist in the Core.</p>
+      <p aria-hidden="true">&nbsp;</p>
+      <p><u>Use the Tabs</u><br>
+      <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
+      <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
+      <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
+      <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
+      <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
+      <p aria-hidden="true">&nbsp;</p>
+      <p><u>Save &amp; Sync</u><br>
+      Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
+      <p aria-hidden="true">&nbsp;</p>
+      <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
+      <p aria-hidden="true">&nbsp;</p>
+      <p><strong>O.M.N.I. Command</strong></p>
+      <div class="welcome-modal__preference">
+        <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
+          <input type="checkbox" id="welcome-hide-toggle">
+          Don't show this again
+        </label>
+      </div>
+      <div class="actions">
+        <button id="welcome-create-character" type="button">Create New Character</button>
+        <button id="welcome-load-character" type="button">Load Character</button>
+        <button id="welcome-skip" type="button">Skip</button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- HELP MODAL -->
 <div class="overlay hidden" id="modal-help" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Catalyst Core Help</h3>
-    <p>
-      Keep this reference open while you play to understand what each tab, modal, and control in the current build is designed to
-      do.
-    </p>
-    <h4>Getting Started</h4>
-    <ul class="feature-list">
-      <li>
-        <b>Launch &amp; Welcome</b>
-        The intro video plays the first time you open the sheet during a visit. Tap <i>Skip</i> on the welcome modal or wait for the
-        clip to finish and the sheet unlocks automatically for the rest of the session.
-      </li>
-      <li>
-        <b>Create or Load</b>
-        Start from the welcome modal or open <i>Load / Save</i> from the menu to create a new hero, switch between existing records,
-        or recover a backup.
-      </li>
-      <li>
-        <b>Offline Ready</b>
-        Once your character data loads, the tracker continues working without a connection. Changes sync the next time you come
-        back online.
-      </li>
-    </ul>
-    <h4>Navigating the Sheet</h4>
-    <ul class="feature-list">
-      <li>
-        <b>Tabs</b>
-        Use the tab bar to swap between Combat, Abilities, Powers, Gear, and Story. Combat handles HP, SP, status tracking, dice
-        tools, and Resonance Points. Abilities keeps ability scores, saves, and skills linked to your proficiency bonus. Powers
-        stores reusable cards and Signature Moves. Gear tracks loadouts, credits, and catalog imports. Story captures identity
-        details, classifications, reputation, and notes.
-      </li>
-      <li>
-        <b>Main Menu</b>
-        The header menu button opens overlays for Load / Save, Encounter / Initiative, Action Log, Campaign Log, Rules,
-        and this Help screen. Each modal floats above the sheet so you never lose context, and you can close any of them with Esc
-        or by tapping outside.
-      </li>
-      <li>
-        <b>Themes &amp; Visibility</b>
-        Click the Catalyst Core logo to cycle through every available theme. Your selection is stored locally, and certain
-        Story-tab classifications apply their matching palette automatically.
-      </li>
-    </ul>
-    <h4>Managing Characters</h4>
-    <ul class="feature-list">
-      <li>
-        <b>Autosave &amp; Manual Saves</b>
-        Character changes write to local storage automatically while you edit. Use the <i>Save</i> button in Load / Save to create a
-        manual snapshot before big scenes.
-      </li>
-      <li>
-        <b>Recover Backups</b>
-        <i>Recover Save</i> lists recent autosaves and manual backups with timestamps. Restoring one replaces the sheet only after
-        you confirm, giving you a safe way to undo mistakes.
-      </li>
-      <li>
-        <b>PIN Protection</b>
-        Assign a numeric PIN to any character from the Load / Save manager. The sheet will request that code before loading or
-        editing that record on shared devices.
-      </li>
-    </ul>
-    <h4>Session Tools</h4>
-    <ul class="feature-list">
-      <li>
-        <b>Card Editing</b>
-        Use the edit buttons on the Ability Scores and Character and Story cards to unlock those sections for updates. Toggle the
-        button again to relock the cards and avoid accidental changes during play.
-      </li>
-      <li>
-        <b>Encounter / Initiative</b>
-        Add combatants with their initiative values, then step through turns with <i>Prev Turn</i> and <i>Next Turn</i>. Use <i>Reset</i>
-        when a fight ends.
-      </li>
-      <li>
-        <b>Action Log</b>
-        Automated events such as damage, healing, rests, and resource adjustments appear here. Open the full log for a
-        chronological history.
-      </li>
-      <li>
-        <b>Status Effects</b>
-        Use the <i>Info</i> button beside any status checkbox to expand or collapse its mechanics inline. The toggle stays handy
-        on mobile layouts and works with screen readers and keyboards alike.
-      </li>
-      <li>
-        <b>Campaign Log</b>
-        Capture session highlights as short entries. Each note stays tied to the active character and saves automatically.
-      </li>
-      <li>
-        <b>Rules Reference</b>
-        The Rules modal provides quick summaries of key mechanics while keeping the character sheet visible behind it.
-      </li>
-    </ul>
-    <h4>Frequently Asked Questions</h4>
-    <ul class="feature-list">
-      <li>
-        <b>How often does the sheet save?</b>
-        Autosave runs in the background while you edit. Use <i>Save</i> in the Load / Save modal any time you want to capture an
-        explicit checkpoint.
-      </li>
-      <li>
-        <b>How do I change the theme?</b>
-        Tap the Catalyst Core logo. Each press advances to the next palette, and Story classifications with theme tie-ins can set
-        their own look automatically.
-      </li>
-      <li>
-        <b>Where do I track Resonance Points?</b>
-        The Combat tab includes the Resonance Point track and Heroic Surge callouts so you can see current and aftermath states at
-        a glance.
-      </li>
-      <li>
-        <b>Can I work offline?</b>
-        Yes. After the app loads once, it functions offline. Any edits you make sync the next time you reconnect.
-      </li>
-      <li>
-        <b>How do I restore an earlier state?</b>
-        Use <i>Recover Save</i> to browse timestamps for autosaves and manual backups, then confirm the one you need.
-      </li>
-      <li>
-        <b>Where can I find gear options?</b>
-        Open the Gear tab and tap the catalog button to browse equipment from the bundled data files or add custom entries.
-      </li>
-      <li>
-        <b>How do I keep narrative notes?</b>
-        Pair the Story tab’s questions and freeform notes with the Campaign Log’s timestamped entries for a complete journal of the
-        character and the campaign.
-      </li>
-      <li>
-        <b>How do I secure my character on a shared device?</b>
-        Set a PIN in Load / Save. The sheet asks for that code before someone can open or edit the character.
-      </li>
-    </ul>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Catalyst Core Help</h3>
+      <p>
+        Keep this reference open while you play to understand what each tab, modal, and control in the current build is designed to
+        do.
+      </p>
+      <h4>Getting Started</h4>
+      <ul class="feature-list">
+        <li>
+          <b>Launch &amp; Welcome</b>
+          The intro video plays the first time you open the sheet during a visit. Tap <i>Skip</i> on the welcome modal or wait for the
+          clip to finish and the sheet unlocks automatically for the rest of the session.
+        </li>
+        <li>
+          <b>Create or Load</b>
+          Start from the welcome modal or open <i>Load / Save</i> from the menu to create a new hero, switch between existing records,
+          or recover a backup.
+        </li>
+        <li>
+          <b>Offline Ready</b>
+          Once your character data loads, the tracker continues working without a connection. Changes sync the next time you come
+          back online.
+        </li>
+      </ul>
+      <h4>Navigating the Sheet</h4>
+      <ul class="feature-list">
+        <li>
+          <b>Tabs</b>
+          Use the tab bar to swap between Combat, Abilities, Powers, Gear, and Story. Combat handles HP, SP, status tracking, dice
+          tools, and Resonance Points. Abilities keeps ability scores, saves, and skills linked to your proficiency bonus. Powers
+          stores reusable cards and Signature Moves. Gear tracks loadouts, credits, and catalog imports. Story captures identity
+          details, classifications, reputation, and notes.
+        </li>
+        <li>
+          <b>Main Menu</b>
+          The header menu button opens overlays for Load / Save, Encounter / Initiative, Action Log, Campaign Log, Rules,
+          and this Help screen. Each modal floats above the sheet so you never lose context, and you can close any of them with Esc
+          or by tapping outside.
+        </li>
+        <li>
+          <b>Themes &amp; Visibility</b>
+          Click the Catalyst Core logo to cycle through every available theme. Your selection is stored locally, and certain
+          Story-tab classifications apply their matching palette automatically.
+        </li>
+      </ul>
+      <h4>Managing Characters</h4>
+      <ul class="feature-list">
+        <li>
+          <b>Autosave &amp; Manual Saves</b>
+          Character changes write to local storage automatically while you edit. Use the <i>Save</i> button in Load / Save to create a
+          manual snapshot before big scenes.
+        </li>
+        <li>
+          <b>Recover Backups</b>
+          <i>Recover Save</i> lists recent autosaves and manual backups with timestamps. Restoring one replaces the sheet only after
+          you confirm, giving you a safe way to undo mistakes.
+        </li>
+        <li>
+          <b>PIN Protection</b>
+          Assign a numeric PIN to any character from the Load / Save manager. The sheet will request that code before loading or
+          editing that record on shared devices.
+        </li>
+      </ul>
+      <h4>Session Tools</h4>
+      <ul class="feature-list">
+        <li>
+          <b>Card Editing</b>
+          Use the edit buttons on the Ability Scores and Character and Story cards to unlock those sections for updates. Toggle the
+          button again to relock the cards and avoid accidental changes during play.
+        </li>
+        <li>
+          <b>Encounter / Initiative</b>
+          Add combatants with their initiative values, then step through turns with <i>Prev Turn</i> and <i>Next Turn</i>. Use <i>Reset</i>
+          when a fight ends.
+        </li>
+        <li>
+          <b>Action Log</b>
+          Automated events such as damage, healing, rests, and resource adjustments appear here. Open the full log for a
+          chronological history.
+        </li>
+        <li>
+          <b>Status Effects</b>
+          Use the <i>Info</i> button beside any status checkbox to expand or collapse its mechanics inline. The toggle stays handy
+          on mobile layouts and works with screen readers and keyboards alike.
+        </li>
+        <li>
+          <b>Campaign Log</b>
+          Capture session highlights as short entries. Each note stays tied to the active character and saves automatically.
+        </li>
+        <li>
+          <b>Rules Reference</b>
+          The Rules modal provides quick summaries of key mechanics while keeping the character sheet visible behind it.
+        </li>
+      </ul>
+      <h4>Frequently Asked Questions</h4>
+      <ul class="feature-list">
+        <li>
+          <b>How often does the sheet save?</b>
+          Autosave runs in the background while you edit. Use <i>Save</i> in the Load / Save modal any time you want to capture an
+          explicit checkpoint.
+        </li>
+        <li>
+          <b>How do I change the theme?</b>
+          Tap the Catalyst Core logo. Each press advances to the next palette, and Story classifications with theme tie-ins can set
+          their own look automatically.
+        </li>
+        <li>
+          <b>Where do I track Resonance Points?</b>
+          The Combat tab includes the Resonance Point track and Heroic Surge callouts so you can see current and aftermath states at
+          a glance.
+        </li>
+        <li>
+          <b>Can I work offline?</b>
+          Yes. After the app loads once, it functions offline. Any edits you make sync the next time you reconnect.
+        </li>
+        <li>
+          <b>How do I restore an earlier state?</b>
+          Use <i>Recover Save</i> to browse timestamps for autosaves and manual backups, then confirm the one you need.
+        </li>
+        <li>
+          <b>Where can I find gear options?</b>
+          Open the Gear tab and tap the catalog button to browse equipment from the bundled data files or add custom entries.
+        </li>
+        <li>
+          <b>How do I keep narrative notes?</b>
+          Pair the Story tab’s questions and freeform notes with the Campaign Log’s timestamped entries for a complete journal of the
+          character and the campaign.
+        </li>
+        <li>
+          <b>How do I secure my character on a shared device?</b>
+          Set a PIN in Load / Save. The sheet asks for that code before someone can open or edit the character.
+        </li>
+      </ul>
+    </div>
   </div>
 </div>
 
 <!-- INITIATIVE MODAL -->
 <div class="overlay hidden" id="modal-enc" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Encounter Tracker</h3>
-    <fieldset class="inline">
-      <legend class="sr-only">Add Combatant</legend>
-      <label for="enc-name" class="sr-only">Name</label>
-      <input id="enc-name" data-view-allow placeholder="Name"/>
-      <label for="enc-init" class="sr-only">Init</label>
-      <input id="enc-init" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Init"/>
-      <button id="enc-add" class="btn-sm">Add</button>
-    </fieldset>
-    <div class="encounter-readouts">
-      <div class="encounter-readout">
-        <span class="encounter-readout__label">Round</span>
-        <span id="enc-round" class="encounter-readout__value">&mdash;</span>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Encounter Tracker</h3>
+      <fieldset class="inline">
+        <legend class="sr-only">Add Combatant</legend>
+        <label for="enc-name" class="sr-only">Name</label>
+        <input id="enc-name" data-view-allow placeholder="Name"/>
+        <label for="enc-init" class="sr-only">Init</label>
+        <input id="enc-init" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Init"/>
+        <button id="enc-add" class="btn-sm">Add</button>
+      </fieldset>
+      <div class="encounter-readouts">
+        <div class="encounter-readout">
+          <span class="encounter-readout__label">Round</span>
+          <span id="enc-round" class="encounter-readout__value">&mdash;</span>
+        </div>
+        <div class="encounter-readout">
+          <span class="encounter-readout__label">Active</span>
+          <span
+            id="enc-active"
+            class="encounter-readout__value"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >No active combatant</span>
+        </div>
       </div>
-      <div class="encounter-readout">
-        <span class="encounter-readout__label">Active</span>
-        <span
-          id="enc-active"
-          class="encounter-readout__value"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >No active combatant</span>
+      <div class="encounter-presets" aria-labelledby="encounter-presets-heading">
+        <div class="encounter-presets__header">
+          <h4 id="encounter-presets-heading">Saved Rosters</h4>
+        </div>
+        <div class="encounter-presets__controls">
+          <label for="enc-preset-name" class="sr-only">Preset Name</label>
+          <input id="enc-preset-name" data-view-allow placeholder="Preset name" autocomplete="off" />
+          <button id="enc-preset-save" class="btn-sm" type="button" data-view-allow>Save Roster</button>
+        </div>
+        <div id="enc-preset-list" class="catalog encounter-presets__list" aria-live="polite"></div>
       </div>
-    </div>
-    <div class="encounter-presets" aria-labelledby="encounter-presets-heading">
-      <div class="encounter-presets__header">
-        <h4 id="encounter-presets-heading">Saved Rosters</h4>
-      </div>
-      <div class="encounter-presets__controls">
-        <label for="enc-preset-name" class="sr-only">Preset Name</label>
-        <input id="enc-preset-name" data-view-allow placeholder="Preset name" autocomplete="off" />
-        <button id="enc-preset-save" class="btn-sm" type="button" data-view-allow>Save Roster</button>
-      </div>
-      <div id="enc-preset-list" class="catalog encounter-presets__list" aria-live="polite"></div>
-    </div>
-    <div id="enc-list" class="catalog" style="margin-top:8px"></div>
-    <template id="encounter-combatant-template">
-      <div class="catalog-item encounter-combatant" data-index>
-        <div class="encounter-combatant__header">
-          <div class="pill" data-field="initiative">0</div>
-          <div class="encounter-combatant__identity">
-            <label>
-              <span class="sr-only">Combatant Name</span>
-              <input type="text" data-field="name" placeholder="Name" />
+      <div id="enc-list" class="catalog" style="margin-top:8px"></div>
+      <template id="encounter-combatant-template">
+        <div class="catalog-item encounter-combatant" data-index>
+          <div class="encounter-combatant__header">
+            <div class="pill" data-field="initiative">0</div>
+            <div class="encounter-combatant__identity">
+              <label>
+                <span class="sr-only">Combatant Name</span>
+                <input type="text" data-field="name" placeholder="Name" />
+              </label>
+              <label>
+                <span class="sr-only">Initiative</span>
+                <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="init" placeholder="Init" />
+              </label>
+            </div>
+            <div class="encounter-combatant__quick-actions" role="group" aria-label="Quick HP adjustments">
+              <button type="button" class="btn-sm" data-action="damage" data-step="-5">-5</button>
+              <button type="button" class="btn-sm" data-action="damage" data-step="-1">-1</button>
+              <button type="button" class="btn-sm" data-action="heal" data-step="1">+1</button>
+              <button type="button" class="btn-sm" data-action="heal" data-step="5">+5</button>
+              <button type="button" class="btn-sm" data-del title="Remove combatant" aria-label="Remove combatant"></button>
+            </div>
+          </div>
+          <div class="encounter-combatant__stat-row">
+            <label class="encounter-combatant__hp" aria-label="Hit Points">
+              <span>HP</span>
+              <span class="encounter-combatant__hp-inputs">
+                <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="hpCurrent" placeholder="Current" />
+                <span aria-hidden="true">/</span>
+                <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="hpMax" placeholder="Max" />
+              </span>
             </label>
-            <label>
-              <span class="sr-only">Initiative</span>
-              <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="init" placeholder="Init" />
+            <label class="encounter-combatant__tc">
+              <span>TC / AC</span>
+              <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="tc" placeholder="15" />
             </label>
           </div>
-          <div class="encounter-combatant__quick-actions" role="group" aria-label="Quick HP adjustments">
-            <button type="button" class="btn-sm" data-action="damage" data-step="-5">-5</button>
-            <button type="button" class="btn-sm" data-action="damage" data-step="-1">-1</button>
-            <button type="button" class="btn-sm" data-action="heal" data-step="1">+1</button>
-            <button type="button" class="btn-sm" data-action="heal" data-step="5">+5</button>
-            <button type="button" class="btn-sm" data-del title="Remove combatant" aria-label="Remove combatant"></button>
-          </div>
-        </div>
-        <div class="encounter-combatant__stat-row">
-          <label class="encounter-combatant__hp" aria-label="Hit Points">
-            <span>HP</span>
-            <span class="encounter-combatant__hp-inputs">
-              <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="hpCurrent" placeholder="Current" />
-              <span aria-hidden="true">/</span>
-              <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="hpMax" placeholder="Max" />
-            </span>
+          <label class="encounter-combatant__notes">
+            <span>Notes</span>
+            <textarea rows="2" data-field="notes" placeholder="Tactics, resistances, conditions..."></textarea>
           </label>
-          <label class="encounter-combatant__tc">
-            <span>TC / AC</span>
-            <input type="number" inputmode="numeric" pattern="[0-9]*" data-field="tc" placeholder="15" />
-          </label>
+          <details class="encounter-combatant__conditions">
+            <summary>Conditions</summary>
+            <div class="encounter-combatant__conditions-list" data-field="conditions"></div>
+          </details>
         </div>
-        <label class="encounter-combatant__notes">
-          <span>Notes</span>
-          <textarea rows="2" data-field="notes" placeholder="Tactics, resistances, conditions..."></textarea>
-        </label>
-        <details class="encounter-combatant__conditions">
-          <summary>Conditions</summary>
-          <div class="encounter-combatant__conditions-list" data-field="conditions"></div>
-        </details>
+      </template>
+      <div class="actions">
+        <button id="enc-prev" class="btn-sm">Prev Turn</button>
+        <button id="enc-next" class="btn-sm">Next Turn</button>
+        <button id="enc-reset" class="btn-sm">Reset</button>
       </div>
-    </template>
-    <div class="actions">
-      <button id="enc-prev" class="btn-sm">Prev Turn</button>
-      <button id="enc-next" class="btn-sm">Next Turn</button>
-      <button id="enc-reset" class="btn-sm">Reset</button>
     </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-hp-settings" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>HP Options</h3>
-    <div class="hp-settings__section">
-      <label for="hp-temp">Temporary HP</label>
-      <input id="hp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
-    </div>
-    <div class="hp-settings__section">
-      <label for="hp-roll-input">Tier HP Bonus</label>
-      <div class="hp-settings__row">
-        <input id="hp-roll-input" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Tier HP Bonus"/>
-        <button id="hp-roll-save" class="btn-sm" type="button">Add</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>HP Options</h3>
+      <div class="hp-settings__section">
+        <label for="hp-temp">Temporary HP</label>
+        <input id="hp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
       </div>
-      <ul id="hp-roll-list"></ul>
-      <p class="empty-state" data-empty-for="hp-roll-list" aria-live="polite">
-        No tier bonuses logged yet. Hit Add after each roll to keep your total current.
-      </p>
-    </div>
-    <div class="actions hp-settings__actions">
-      <button id="hp-full" class="btn-sm">Reset HP</button>
-      <button class="btn-sm" data-close>Close</button>
+      <div class="hp-settings__section">
+        <label for="hp-roll-input">Tier HP Bonus</label>
+        <div class="hp-settings__row">
+          <input id="hp-roll-input" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Tier HP Bonus"/>
+          <button id="hp-roll-save" class="btn-sm" type="button">Add</button>
+        </div>
+        <ul id="hp-roll-list"></ul>
+        <p class="empty-state" data-empty-for="hp-roll-list" aria-live="polite">
+          No tier bonuses logged yet. Hit Add after each roll to keep your total current.
+        </p>
+      </div>
+      <div class="actions hp-settings__actions">
+        <button id="hp-full" class="btn-sm">Reset HP</button>
+        <button class="btn-sm" data-close>Close</button>
+      </div>
     </div>
   </div>
 </div>
 
 
 <div class="overlay hidden" id="modal-sp-settings" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>SP Options</h3>
-    <div class="hp-settings__section">
-      <label for="sp-temp">Temporary SP</label>
-      <input id="sp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
-    </div>
-    <div class="actions hp-settings__actions">
-      <button id="long-rest" class="btn-sm" type="button">Long Rest</button>
-      <button id="sp-settings-save" class="btn-sm" type="button">Save</button>
-      <button class="btn-sm" data-close>Close</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>SP Options</h3>
+      <div class="hp-settings__section">
+        <label for="sp-temp">Temporary SP</label>
+        <input id="sp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
+      </div>
+      <div class="actions hp-settings__actions">
+        <button id="long-rest" class="btn-sm" type="button">Long Rest</button>
+        <button id="sp-settings-save" class="btn-sm" type="button">Save</button>
+        <button class="btn-sm" data-close>Close</button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- LOG MODAL -->
 <div class="overlay hidden" id="modal-log" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Action Log</h3>
-    <div id="log-action" class="catalog"></div>
-    <div class="actions"><button id="log-full" class="btn-sm">Full Log</button><button class="btn-sm" data-close>Close</button></div>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Action Log</h3>
+      <div id="log-action" class="catalog"></div>
+      <div class="actions"><button id="log-full" class="btn-sm">Full Log</button><button class="btn-sm" data-close>Close</button></div>
+    </div>
   </div>
 </div>
 
 
 <div class="overlay hidden" id="modal-credits-ledger" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Credits Ledger</h3>
-    <div class="credits-ledger__filters" role="group" aria-label="Filter credits ledger entries">
-      <button class="btn-sm" type="button" data-ledger-filter="all" aria-pressed="true">All</button>
-      <button class="btn-sm" type="button" data-ledger-filter="gain" aria-pressed="false">Gains</button>
-      <button class="btn-sm" type="button" data-ledger-filter="spend" aria-pressed="false">Spends</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Credits Ledger</h3>
+      <div class="credits-ledger__filters" role="group" aria-label="Filter credits ledger entries">
+        <button class="btn-sm" type="button" data-ledger-filter="all" aria-pressed="true">All</button>
+        <button class="btn-sm" type="button" data-ledger-filter="gain" aria-pressed="false">Gains</button>
+        <button class="btn-sm" type="button" data-ledger-filter="spend" aria-pressed="false">Spends</button>
+      </div>
+      <div id="credits-ledger-list" class="catalog" aria-live="polite"></div>
+      <div class="actions"><button class="btn-sm" data-close>Close</button></div>
     </div>
-    <div id="credits-ledger-list" class="catalog" aria-live="polite"></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
 
 
 <div class="overlay hidden" id="modal-campaign" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Campaign Log</h3>
-    <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
-    <textarea id="campaign-entry" data-view-allow rows="2" placeholder="Session notes..."></textarea>
-    <div class="actions">
-      <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Campaign Log</h3>
+      <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
+      <textarea id="campaign-entry" data-view-allow rows="2" placeholder="Session notes..."></textarea>
+      <div class="actions">
+        <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
+      </div>
+      <div id="campaign-log" class="catalog"></div>
+      <div class="actions actions--center"><button id="campaign-view-backlog" class="btn-sm" type="button" disabled aria-disabled="true">View Backlog</button></div>
+      <div class="actions"><button class="btn-sm" data-close>Close</button></div>
     </div>
-    <div id="campaign-log" class="catalog"></div>
-    <div class="actions actions--center"><button id="campaign-view-backlog" class="btn-sm" type="button" disabled aria-disabled="true">View Backlog</button></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-campaign-edit" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Edit Campaign Entry</h3>
-    <div id="campaign-edit-meta" class="campaign-edit-meta" aria-live="polite"></div>
-    <label for="campaign-edit-text" class="sr-only">Campaign log entry text</label>
-    <textarea id="campaign-edit-text" data-view-allow rows="3"></textarea>
-    <div class="actions">
-      <button id="campaign-edit-save" class="btn-sm" type="button">Save Changes</button>
-      <button class="btn-sm" type="button" data-close>Cancel</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Edit Campaign Entry</h3>
+      <div id="campaign-edit-meta" class="campaign-edit-meta" aria-live="polite"></div>
+      <label for="campaign-edit-text" class="sr-only">Campaign log entry text</label>
+      <textarea id="campaign-edit-text" data-view-allow rows="3"></textarea>
+      <div class="actions">
+        <button id="campaign-edit-save" class="btn-sm" type="button">Save Changes</button>
+        <button class="btn-sm" type="button" data-close>Cancel</button>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-campaign-backlog" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Campaign Log Backlog</h3>
-    <div id="campaign-backlog" class="catalog"></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Campaign Log Backlog</h3>
+      <div id="campaign-backlog" class="catalog"></div>
+      <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-log-full" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Full Action Log</h3>
-    <div id="full-log-action" class="catalog"></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Full Action Log</h3>
+      <div id="full-log-action" class="catalog"></div>
+      <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-faction-perk" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" aria-label="Faction Perk" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Faction Perk</h3>
-    <ul id="modal-faction-perk-list" class="perk-list"></ul>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Faction Perk" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Faction Perk</h3>
+      <ul id="modal-faction-perk-list" class="perk-list"></ul>
+    </div>
   </div>
 </div>
 
 
 <!-- GEAR CATALOG -->
 <div class="overlay hidden" id="modal-catalog" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Gear Catalog</h3>
-    <fieldset class="inline" style="margin:6px 0">
-      <legend class="sr-only">Filters</legend>
-      <label for="catalog-filter-style" class="sr-only">Style</label>
-      <select id="catalog-filter-style" data-view-allow style="max-width:260px"></select>
-      <label for="catalog-filter-type" class="sr-only">Type</label>
-      <select id="catalog-filter-type" data-view-allow style="max-width:180px"><option value="">All Types</option><option>Armor</option><option>Shield</option><option>Utility</option></select>
-      <label for="catalog-filter-rarity" class="sr-only">Rarity</label>
-      <select id="catalog-filter-rarity" data-view-allow style="max-width:160px"><option value="">All Rarities</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Elite</option><option>Legendary</option></select>
-      <button id="catalog-add-custom" class="btn-sm" type="button" data-view-allow>Add Custom Item</button>
-    </fieldset>
-    <div id="catalog-list" class="catalog"></div>
-</div>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Gear Catalog</h3>
+      <fieldset class="inline" style="margin:6px 0">
+        <legend class="sr-only">Filters</legend>
+        <label for="catalog-filter-style" class="sr-only">Style</label>
+        <select id="catalog-filter-style" data-view-allow style="max-width:260px"></select>
+        <label for="catalog-filter-type" class="sr-only">Type</label>
+        <select id="catalog-filter-type" data-view-allow style="max-width:180px"><option value="">All Types</option><option>Armor</option><option>Shield</option><option>Utility</option></select>
+        <label for="catalog-filter-rarity" class="sr-only">Rarity</label>
+        <select id="catalog-filter-rarity" data-view-allow style="max-width:160px"><option value="">All Rarities</option><option>Common</option><option>Uncommon</option><option>Rare</option><option>Elite</option><option>Legendary</option></select>
+        <button id="catalog-add-custom" class="btn-sm" type="button" data-view-allow>Add Custom Item</button>
+      </fieldset>
+      <div id="catalog-list" class="catalog"></div>
+  </div>
+  </div>
 </div>
 
 <div class="overlay hidden" id="modal-custom-item" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Create Custom Item</h3>
-    <p>Select the type of custom item to add.</p>
-    <div class="custom-type-grid">
-      <button class="btn-sm" type="button" data-custom-type="weapon">Weapon</button>
-      <button class="btn-sm" type="button" data-custom-type="armor">Armor</button>
-      <button class="btn-sm" type="button" data-custom-type="shield">Shield</button>
-      <button class="btn-sm" type="button" data-custom-type="utility">Utility</button>
-      <button class="btn-sm" type="button" data-custom-type="item">Item</button>
-    </div>
-    <div class="actions">
-      <button class="btn-sm" type="button" data-close>Cancel</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Create Custom Item</h3>
+      <p>Select the type of custom item to add.</p>
+      <div class="custom-type-grid">
+        <button class="btn-sm" type="button" data-custom-type="weapon">Weapon</button>
+        <button class="btn-sm" type="button" data-custom-type="armor">Armor</button>
+        <button class="btn-sm" type="button" data-custom-type="shield">Shield</button>
+        <button class="btn-sm" type="button" data-custom-type="utility">Utility</button>
+        <button class="btn-sm" type="button" data-custom-type="item">Item</button>
+      </div>
+      <div class="actions">
+        <button class="btn-sm" type="button" data-close>Cancel</button>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="overlay hidden" id="modal-power-editor" aria-hidden="true" data-modal-static data-view-allow>
-  <div class="modal modal-power-editor" role="dialog" aria-modal="true" aria-labelledby="power-editor-title" tabindex="-1" data-view-allow>
-    <button class="x" type="button" data-power-editor-dismiss aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3 id="power-editor-title">Edit Power</h3>
-    <div class="power-editor__content" data-role="power-editor-content" data-view-allow></div>
-    <div class="actions power-editor__actions">
-      <button class="btn-sm" type="button" data-power-editor-cancel>Cancel</button>
-      <button class="btn-sm btn-primary" type="button" data-power-editor-save>Save</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal modal-power-editor" role="dialog" aria-modal="true" aria-labelledby="power-editor-title" tabindex="-1" data-view-allow>
+      <button class="x" type="button" data-power-editor-dismiss aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3 id="power-editor-title">Edit Power</h3>
+      <div class="power-editor__content" data-role="power-editor-content" data-view-allow></div>
+      <div class="actions power-editor__actions">
+        <button class="btn-sm" type="button" data-power-editor-cancel>Cancel</button>
+        <button class="btn-sm btn-primary" type="button" data-power-editor-save>Save</button>
+      </div>
     </div>
   </div>
 </div>
 
 <!-- RULES -->
 <div class="overlay hidden" id="modal-rules" aria-hidden="true">
-  <div class="modal modal-rules" role="dialog" aria-modal="true" aria-label="Rules Help" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <pre id="rules-text"></pre>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <div class="modal modal-rules" role="dialog" aria-modal="true" aria-label="Rules Help" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <pre id="rules-text"></pre>
+    </div>
   </div>
 </div>
 
@@ -2138,644 +2222,668 @@
   </div>
 </footer>
 <div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
-  <section class="modal">
-    <button id="dm-login-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>DM Login</h3>
-    <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
-    <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
-  </section>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section class="modal">
+      <button id="dm-login-close" class="x" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>DM Login</h3>
+      <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+      <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
+    </section>
+  </div>
 </div>
 <div class="overlay hidden" id="dm-notifications-modal" aria-hidden="true">
-  <section class="modal">
-    <button id="dm-notifications-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Notifications</h3>
-    <div class="dm-notifications__actions" role="group" aria-label="Notification log actions">
-      <div class="dm-notifications__exportControls">
-        <button id="dm-notifications-export" class="btn-sm" type="button" disabled>Copy / Export</button>
-        <label class="dm-notifications__exportLabel" for="dm-notifications-export-format">
-          <span class="sr-only">Export format</span>
-          <select id="dm-notifications-export-format" name="dm-notifications-export-format" aria-label="Export format" disabled>
-            <option value="text" selected>Text</option>
-            <option value="csv">CSV</option>
-            <option value="json">JSON</option>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section class="modal">
+      <button id="dm-notifications-close" class="x" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3>Notifications</h3>
+      <div class="dm-notifications__actions" role="group" aria-label="Notification log actions">
+        <div class="dm-notifications__exportControls">
+          <button id="dm-notifications-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+          <label class="dm-notifications__exportLabel" for="dm-notifications-export-format">
+            <span class="sr-only">Export format</span>
+            <select id="dm-notifications-export-format" name="dm-notifications-export-format" aria-label="Export format" disabled>
+              <option value="text" selected>Text</option>
+              <option value="csv">CSV</option>
+              <option value="json">JSON</option>
+            </select>
+          </label>
+        </div>
+        <button id="dm-notifications-mark-read" class="btn-sm" type="button" disabled>Mark all read</button>
+        <button id="dm-notifications-clear" class="btn-sm" type="button" disabled>Clear log</button>
+      </div>
+      <form id="dm-notifications-filters" class="dm-notifications__filters" aria-label="Filter notifications">
+        <label class="dm-notifications__filter" for="dm-notifications-filter-character">
+          <span class="dm-notifications__filterLabel">Character</span>
+          <select id="dm-notifications-filter-character" name="dm-notifications-filter-character">
+            <option value="all">All characters</option>
           </select>
         </label>
-      </div>
-      <button id="dm-notifications-mark-read" class="btn-sm" type="button" disabled>Mark all read</button>
-      <button id="dm-notifications-clear" class="btn-sm" type="button" disabled>Clear log</button>
-    </div>
-    <form id="dm-notifications-filters" class="dm-notifications__filters" aria-label="Filter notifications">
-      <label class="dm-notifications__filter" for="dm-notifications-filter-character">
-        <span class="dm-notifications__filterLabel">Character</span>
-        <select id="dm-notifications-filter-character" name="dm-notifications-filter-character">
-          <option value="all">All characters</option>
-        </select>
-      </label>
-      <label class="dm-notifications__filter" for="dm-notifications-filter-severity">
-        <span class="dm-notifications__filterLabel">Severity</span>
-        <select id="dm-notifications-filter-severity" name="dm-notifications-filter-severity">
-          <option value="all">All severities</option>
-        </select>
-      </label>
-      <label class="dm-notifications__filter" for="dm-notifications-filter-resolved">
-        <span class="dm-notifications__filterLabel">Status</span>
-        <select id="dm-notifications-filter-resolved" name="dm-notifications-filter-resolved">
-          <option value="all">All notifications</option>
-          <option value="unresolved">Unresolved only</option>
-          <option value="resolved">Resolved only</option>
-        </select>
-      </label>
-      <label class="dm-notifications__filter dm-notifications__filter--search" for="dm-notifications-filter-search">
-        <span class="dm-notifications__filterLabel">Search</span>
-        <input id="dm-notifications-filter-search" name="dm-notifications-filter-search" type="search" placeholder="Search notifications">
-      </label>
-    </form>
-    <ol id="dm-notifications-list"></ol>
-  </section>
+        <label class="dm-notifications__filter" for="dm-notifications-filter-severity">
+          <span class="dm-notifications__filterLabel">Severity</span>
+          <select id="dm-notifications-filter-severity" name="dm-notifications-filter-severity">
+            <option value="all">All severities</option>
+          </select>
+        </label>
+        <label class="dm-notifications__filter" for="dm-notifications-filter-resolved">
+          <span class="dm-notifications__filterLabel">Status</span>
+          <select id="dm-notifications-filter-resolved" name="dm-notifications-filter-resolved">
+            <option value="all">All notifications</option>
+            <option value="unresolved">Unresolved only</option>
+            <option value="resolved">Resolved only</option>
+          </select>
+        </label>
+        <label class="dm-notifications__filter dm-notifications__filter--search" for="dm-notifications-filter-search">
+          <span class="dm-notifications__filterLabel">Search</span>
+          <input id="dm-notifications-filter-search" name="dm-notifications-filter-search" type="search" placeholder="Search notifications">
+        </label>
+      </form>
+      <ol id="dm-notifications-list"></ol>
+    </section>
+  </div>
 </div>
 <div class="overlay hidden" id="dm-characters-modal" aria-hidden="true">
-  <section class="modal dm-characters" role="dialog" aria-modal="true" aria-labelledby="dm-characters-title">
-    <button id="dm-characters-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <header class="dm-characters__header">
-      <h3 id="dm-characters-title">Character Roster</h3>
-      <div class="dm-characters__controls">
-        <label class="sr-only" for="dm-characters-search">Search characters</label>
-        <input id="dm-characters-search" class="dm-characters__search" type="search" placeholder="Search characters" autocomplete="off">
-        <div class="dm-characters__sort" role="group" aria-label="Sort characters">
-          <button id="dm-characters-sort-asc" class="btn-sm" type="button" data-char-sort="asc" aria-pressed="true">A → Z</button>
-          <button id="dm-characters-sort-desc" class="btn-sm" type="button" data-char-sort="desc" aria-pressed="false">Z → A</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section class="modal dm-characters" role="dialog" aria-modal="true" aria-labelledby="dm-characters-title">
+      <button id="dm-characters-close" class="x" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="dm-characters__header">
+        <h3 id="dm-characters-title">Character Roster</h3>
+        <div class="dm-characters__controls">
+          <label class="sr-only" for="dm-characters-search">Search characters</label>
+          <input id="dm-characters-search" class="dm-characters__search" type="search" placeholder="Search characters" autocomplete="off">
+          <div class="dm-characters__sort" role="group" aria-label="Sort characters">
+            <button id="dm-characters-sort-asc" class="btn-sm" type="button" data-char-sort="asc" aria-pressed="true">A → Z</button>
+            <button id="dm-characters-sort-desc" class="btn-sm" type="button" data-char-sort="desc" aria-pressed="false">Z → A</button>
+          </div>
         </div>
-      </div>
-    </header>
-    <ul id="dm-characters-list" class="dm-characters-list"></ul>
-    <div id="dm-character-sheet"></div>
-  </section>
+      </header>
+      <ul id="dm-characters-list" class="dm-characters-list"></ul>
+      <div id="dm-character-sheet"></div>
+    </section>
+  </div>
 </div>
 <div class="overlay hidden" id="dm-rewards-modal" aria-hidden="true">
-  <section class="modal dm-rewards" role="dialog" aria-modal="true" aria-labelledby="dm-rewards-title" data-view-allow>
-    <button id="dm-rewards-close" class="x" type="button" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <header class="dm-rewards__header">
-      <h3 id="dm-rewards-title">Rewards Hub</h3>
-      <p class="dm-rewards__intro">Deliver resource drops or stage catalog-driven gear for your table.</p>
-    </header>
-    <nav id="dm-rewards-tabs" class="dm-rewards__tabs" role="tablist" aria-label="Reward tools">
-      <button id="dm-rewards-tab-resource" class="dm-rewards__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-rewards-panel-resource" data-tab="resource" tabindex="0">Resource Rewards</button>
-      <button id="dm-rewards-tab-catalog" class="dm-rewards__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-rewards-panel-catalog" data-tab="catalog" tabindex="-1">Catalog Builder</button>
-    </nav>
-    <div id="dm-rewards-panels" class="dm-rewards__panels">
-      <section id="dm-rewards-panel-resource" class="dm-rewards__panel is-active" role="tabpanel" aria-labelledby="dm-rewards-tab-resource" data-panel="resource">
-        <div class="dm-rewards__panelContent">
-          <div
-            id="dm-credit-card"
-            class="dm-credit-card"
-            role="region"
-            aria-label="DM credit transfer card"
-            data-timestamp=""
-            data-amount="0.00"
-            data-ref=""
-            data-txid=""
-            data-player=""
-            data-account=""
-            data-transaction-type="Deposit"
-            data-sender="OMNI"
-          >
-            <header class="dm-credit__header">
-              <div class="dm-credit__headerMain">
-                <div class="dm-credit__logo" aria-hidden="true">
-                  <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bank icon">
-                    <defs>
-                      <linearGradient id="dmCreditBankGrad" x1="0" x2="1" y1="0" y2="1">
-                        <stop offset="0%" stop-color="currentColor" />
-                        <stop offset="100%" stop-color="var(--accent)" />
-                      </linearGradient>
-                    </defs>
-                    <path d="M8 24 L32 8 L56 24 Z" fill="url(#dmCreditBankGrad)" />
-                    <rect x="10" y="26" width="44" height="26" rx="3" fill="rgba(255,255,255,0.08)" />
-                    <g stroke="url(#dmCreditBankGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
-                      <rect x="16" y="30" width="6" height="18" rx="1" />
-                      <rect x="29" y="30" width="6" height="18" rx="1" />
-                      <rect x="42" y="30" width="6" height="18" rx="1" />
-                    </g>
-                    <rect x="12" y="48" width="40" height="4" rx="1" fill="url(#dmCreditBankGrad)" opacity="0.3" />
-                  </svg>
-                </div>
-                <div class="dm-credit__titles">
-                  <div class="dm-credit__bank" id="dm-credit-title">Manhattan Trust &amp; Exchange</div>
-                  <div class="dm-credit__subtitle">DM Credit Transfer</div>
-                </div>
-              </div>
-              <div class="dm-credit__reference">
-                <span class="dm-credit__label">Reference #:</span>
-                <span id="dm-credit-ref" class="dm-credit__chip" aria-live="polite">TXN-OMNI-000000</span>
-              </div>
-            </header>
-
-            <div class="dm-credit__grid">
-              <div class="dm-credit__field">
-                <label class="dm-credit__label" for="dm-credit-account">Account</label>
-                <div class="dm-credit__value dm-credit__select">
-                  <select id="dm-credit-account" aria-label="Account select">
-                    <option value="">Loading players…</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="dm-credit__field">
-                <label class="dm-credit__label" for="dm-credit-type">Transaction type</label>
-                <div class="dm-credit__value dm-credit__select">
-                  <select id="dm-credit-type" aria-label="Transaction type">
-                    <option value="Deposit">Deposit</option>
-                    <option value="Debit">Debit</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="dm-credit__field">
-                <label class="dm-credit__label" for="dm-credit-amount">Amount</label>
-                <div class="dm-credit__value dm-credit__amount">
-                  <span aria-hidden="true">₡</span>
-                  <input id="dm-credit-amount" type="text" inputmode="decimal" pattern="[0-9,.]*" placeholder="0.00" autocomplete="off" />
-                </div>
-              </div>
-
-              <div class="dm-credit__field">
-                <span class="dm-credit__label">Current balance</span>
-                <span id="dm-credit-currentBalance" class="dm-credit__value">—</span>
-              </div>
-
-              <div class="dm-credit__field">
-                <span class="dm-credit__label">Projected balance</span>
-                <span id="dm-credit-projectedBalance" class="dm-credit__value">—</span>
-              </div>
-
-              <div class="dm-credit__field">
-                <label class="dm-credit__label" for="dm-credit-sender">Sender</label>
-                <div class="dm-credit__value dm-credit__select">
-                  <select id="dm-credit-sender" aria-label="Sender select">
-                    <option value="OMNI">O.M.N.I Payroll Department.</option>
-                    <option value="PFV">P.F.V Accounts Paid.</option>
-                    <option value="GREY">GREYLINE P.M.C Payroll.</option>
-                    <option value="ANON">Anonymous.</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="dm-credit__field dm-credit__field--memo">
-                <label class="dm-credit__label" for="dm-credit-memo">Memo <span class="dm-credit__optional">(optional)</span></label>
-                <div class="dm-credit__value dm-credit__memo">
-                  <textarea id="dm-credit-memo" rows="2" placeholder="Add a short note for the player"></textarea>
-                </div>
-              </div>
-
-              <div class="dm-credit__field">
-                <span class="dm-credit__label">Transaction status</span>
-                <span id="dm-credit-status" class="dm-credit__status">Completed</span>
-              </div>
-            </div>
-
-            <footer class="dm-credit__footer">
-              <div class="dm-credit__timestamp">
-                <span id="dm-credit-footerDate">—</span>
-                <span aria-hidden="true">•</span>
-                <span id="dm-credit-footerTime">—</span>
-              </div>
-              <button id="dm-credit-submit" class="dm-credit__submit" type="button" disabled>Submit</button>
-              <div class="dm-credit__id">ID: <span id="dm-credit-txid">OMNI-000000</span></div>
-            </footer>
-            <div id="dm-credit-memo-preview" class="dm-credit__memo-preview" hidden>
-              <div class="dm-credit__label">Memo</div>
-              <p id="dm-credit-memo-previewText" class="dm-credit__memo-text">—</p>
-            </div>
-            <section class="dm-credit__history" aria-labelledby="dm-credit-history-heading">
-              <div class="dm-credit__historyHeader">
-                <div class="dm-credit__historyHeaderRow">
-                  <h4 id="dm-credit-history-heading">Recent History</h4>
-                  <div class="dm-credit__historyActions" role="group" aria-label="Credit history actions">
-                    <button id="dm-credit-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
-                    <button id="dm-credit-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section class="modal dm-rewards" role="dialog" aria-modal="true" aria-labelledby="dm-rewards-title" data-view-allow>
+      <button id="dm-rewards-close" class="x" type="button" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="dm-rewards__header">
+        <h3 id="dm-rewards-title">Rewards Hub</h3>
+        <p class="dm-rewards__intro">Deliver resource drops or stage catalog-driven gear for your table.</p>
+      </header>
+      <nav id="dm-rewards-tabs" class="dm-rewards__tabs" role="tablist" aria-label="Reward tools">
+        <button id="dm-rewards-tab-resource" class="dm-rewards__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-rewards-panel-resource" data-tab="resource" tabindex="0">Resource Rewards</button>
+        <button id="dm-rewards-tab-catalog" class="dm-rewards__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-rewards-panel-catalog" data-tab="catalog" tabindex="-1">Catalog Builder</button>
+      </nav>
+      <div id="dm-rewards-panels" class="dm-rewards__panels">
+        <section id="dm-rewards-panel-resource" class="dm-rewards__panel is-active" role="tabpanel" aria-labelledby="dm-rewards-tab-resource" data-panel="resource">
+          <div class="dm-rewards__panelContent">
+            <div
+              id="dm-credit-card"
+              class="dm-credit-card"
+              role="region"
+              aria-label="DM credit transfer card"
+              data-timestamp=""
+              data-amount="0.00"
+              data-ref=""
+              data-txid=""
+              data-player=""
+              data-account=""
+              data-transaction-type="Deposit"
+              data-sender="OMNI"
+            >
+              <header class="dm-credit__header">
+                <div class="dm-credit__headerMain">
+                  <div class="dm-credit__logo" aria-hidden="true">
+                    <svg width="40" height="40" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bank icon">
+                      <defs>
+                        <linearGradient id="dmCreditBankGrad" x1="0" x2="1" y1="0" y2="1">
+                          <stop offset="0%" stop-color="currentColor" />
+                          <stop offset="100%" stop-color="var(--accent)" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M8 24 L32 8 L56 24 Z" fill="url(#dmCreditBankGrad)" />
+                      <rect x="10" y="26" width="44" height="26" rx="3" fill="rgba(255,255,255,0.08)" />
+                      <g stroke="url(#dmCreditBankGrad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                        <rect x="16" y="30" width="6" height="18" rx="1" />
+                        <rect x="29" y="30" width="6" height="18" rx="1" />
+                        <rect x="42" y="30" width="6" height="18" rx="1" />
+                      </g>
+                      <rect x="12" y="48" width="40" height="4" rx="1" fill="url(#dmCreditBankGrad)" opacity="0.3" />
+                    </svg>
+                  </div>
+                  <div class="dm-credit__titles">
+                    <div class="dm-credit__bank" id="dm-credit-title">Manhattan Trust &amp; Exchange</div>
+                    <div class="dm-credit__subtitle">DM Credit Transfer</div>
                   </div>
                 </div>
-                <div class="dm-credit__historyFilters" role="group" aria-label="Credit history filters">
-                  <label class="dm-credit__historyFilter">
-                    <span class="dm-credit__label">Character</span>
-                    <select
-                      id="dm-credit-history-filter-character"
-                      aria-label="Filter credit history by character"
-                    >
-                      <option value="">All characters</option>
+                <div class="dm-credit__reference">
+                  <span class="dm-credit__label">Reference #:</span>
+                  <span id="dm-credit-ref" class="dm-credit__chip" aria-live="polite">TXN-OMNI-000000</span>
+                </div>
+              </header>
+
+              <div class="dm-credit__grid">
+                <div class="dm-credit__field">
+                  <label class="dm-credit__label" for="dm-credit-account">Account</label>
+                  <div class="dm-credit__value dm-credit__select">
+                    <select id="dm-credit-account" aria-label="Account select">
+                      <option value="">Loading players…</option>
                     </select>
-                  </label>
-                  <label class="dm-credit__historyFilter">
-                    <span class="dm-credit__label">Type</span>
-                    <select
-                      id="dm-credit-history-filter-type"
-                      aria-label="Filter credit history by transaction type"
-                    >
-                      <option value="">All types</option>
-                      <option value="Deposit">Deposits</option>
-                      <option value="Debit">Debits</option>
+                  </div>
+                </div>
+
+                <div class="dm-credit__field">
+                  <label class="dm-credit__label" for="dm-credit-type">Transaction type</label>
+                  <div class="dm-credit__value dm-credit__select">
+                    <select id="dm-credit-type" aria-label="Transaction type">
+                      <option value="Deposit">Deposit</option>
+                      <option value="Debit">Debit</option>
                     </select>
-                  </label>
+                  </div>
+                </div>
+
+                <div class="dm-credit__field">
+                  <label class="dm-credit__label" for="dm-credit-amount">Amount</label>
+                  <div class="dm-credit__value dm-credit__amount">
+                    <span aria-hidden="true">₡</span>
+                    <input id="dm-credit-amount" type="text" inputmode="decimal" pattern="[0-9,.]*" placeholder="0.00" autocomplete="off" />
+                  </div>
+                </div>
+
+                <div class="dm-credit__field">
+                  <span class="dm-credit__label">Current balance</span>
+                  <span id="dm-credit-currentBalance" class="dm-credit__value">—</span>
+                </div>
+
+                <div class="dm-credit__field">
+                  <span class="dm-credit__label">Projected balance</span>
+                  <span id="dm-credit-projectedBalance" class="dm-credit__value">—</span>
+                </div>
+
+                <div class="dm-credit__field">
+                  <label class="dm-credit__label" for="dm-credit-sender">Sender</label>
+                  <div class="dm-credit__value dm-credit__select">
+                    <select id="dm-credit-sender" aria-label="Sender select">
+                      <option value="OMNI">O.M.N.I Payroll Department.</option>
+                      <option value="PFV">P.F.V Accounts Paid.</option>
+                      <option value="GREY">GREYLINE P.M.C Payroll.</option>
+                      <option value="ANON">Anonymous.</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="dm-credit__field dm-credit__field--memo">
+                  <label class="dm-credit__label" for="dm-credit-memo">Memo <span class="dm-credit__optional">(optional)</span></label>
+                  <div class="dm-credit__value dm-credit__memo">
+                    <textarea id="dm-credit-memo" rows="2" placeholder="Add a short note for the player"></textarea>
+                  </div>
+                </div>
+
+                <div class="dm-credit__field">
+                  <span class="dm-credit__label">Transaction status</span>
+                  <span id="dm-credit-status" class="dm-credit__status">Completed</span>
                 </div>
               </div>
-              <ul id="dm-credit-history" class="dm-credit__historyList" aria-live="polite"></ul>
-            </section>
-          </div>
-          <section class="dm-quickRewards" aria-labelledby="dm-quickRewards-heading">
-            <div class="dm-quickRewards__header">
-              <h4 id="dm-quickRewards-heading" class="dm-quickRewards__title">Quick Rewards</h4>
-              <div class="dm-quickRewards__target">
-                <label class="dm-quickRewards__label" for="dm-reward-target">Deliver to</label>
-                <div class="dm-quickRewards__select">
-                  <select
-                    id="dm-reward-target"
-                    aria-label="Quick reward targets"
-                    aria-describedby="dm-reward-target-hint"
-                    multiple
-                    size="6"
-                  >
-                    <option value="">Loading players…</option>
-                  </select>
+
+              <footer class="dm-credit__footer">
+                <div class="dm-credit__timestamp">
+                  <span id="dm-credit-footerDate">—</span>
+                  <span aria-hidden="true">•</span>
+                  <span id="dm-credit-footerTime">—</span>
                 </div>
-                <p id="dm-reward-target-hint" class="dm-quickRewards__hint">
-                  Select one or more players. Use Ctrl / Cmd + click (or Shift + arrows) to choose multiples.
-                </p>
+                <button id="dm-credit-submit" class="dm-credit__submit" type="button" disabled>Submit</button>
+                <div class="dm-credit__id">ID: <span id="dm-credit-txid">OMNI-000000</span></div>
+              </footer>
+              <div id="dm-credit-memo-preview" class="dm-credit__memo-preview" hidden>
+                <div class="dm-credit__label">Memo</div>
+                <p id="dm-credit-memo-previewText" class="dm-credit__memo-text">—</p>
               </div>
-            </div>
-            <div class="dm-quickRewards__grid">
-              <form id="dm-reward-xp-form" class="dm-quickRewards__card" novalidate>
-                <h5 class="dm-quickRewards__cardTitle">XP Boost</h5>
-                <div class="dm-quickRewards__presets">
-                  <label class="dm-quickRewards__label" for="dm-reward-xp-preset">XP presets</label>
-                  <div class="dm-quickRewards__presetRow">
-                    <div class="dm-quickRewards__presetSelect">
-                      <select id="dm-reward-xp-preset">
-                        <option value="">Load preset…</option>
+              <section class="dm-credit__history" aria-labelledby="dm-credit-history-heading">
+                <div class="dm-credit__historyHeader">
+                  <div class="dm-credit__historyHeaderRow">
+                    <h4 id="dm-credit-history-heading">Recent History</h4>
+                    <div class="dm-credit__historyActions" role="group" aria-label="Credit history actions">
+                      <button id="dm-credit-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+                      <button id="dm-credit-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+                    </div>
+                  </div>
+                  <div class="dm-credit__historyFilters" role="group" aria-label="Credit history filters">
+                    <label class="dm-credit__historyFilter">
+                      <span class="dm-credit__label">Character</span>
+                      <select
+                        id="dm-credit-history-filter-character"
+                        aria-label="Filter credit history by character"
+                      >
+                        <option value="">All characters</option>
                       </select>
-                    </div>
-                    <div class="dm-quickRewards__presetButtons" role="group" aria-label="XP preset actions">
-                      <button type="button" id="dm-reward-xp-preset-save" class="btn-sm">Save preset</button>
-                      <button type="button" id="dm-reward-xp-preset-delete" class="btn-sm" disabled>Delete preset</button>
-                    </div>
+                    </label>
+                    <label class="dm-credit__historyFilter">
+                      <span class="dm-credit__label">Type</span>
+                      <select
+                        id="dm-credit-history-filter-type"
+                        aria-label="Filter credit history by transaction type"
+                      >
+                        <option value="">All types</option>
+                        <option value="Deposit">Deposits</option>
+                        <option value="Debit">Debits</option>
+                      </select>
+                    </label>
                   </div>
                 </div>
-                <div class="dm-quickRewards__field">
-                  <label class="dm-quickRewards__label" for="dm-reward-xp-mode">Mode</label>
-                  <div class="dm-quickRewards__control">
-                    <select id="dm-reward-xp-mode">
-                      <option value="add" selected>Add XP</option>
-                      <option value="remove">Remove XP</option>
+                <ul id="dm-credit-history" class="dm-credit__historyList" aria-live="polite"></ul>
+              </section>
+            </div>
+            <section class="dm-quickRewards" aria-labelledby="dm-quickRewards-heading">
+              <div class="dm-quickRewards__header">
+                <h4 id="dm-quickRewards-heading" class="dm-quickRewards__title">Quick Rewards</h4>
+                <div class="dm-quickRewards__target">
+                  <label class="dm-quickRewards__label" for="dm-reward-target">Deliver to</label>
+                  <div class="dm-quickRewards__select">
+                    <select
+                      id="dm-reward-target"
+                      aria-label="Quick reward targets"
+                      aria-describedby="dm-reward-target-hint"
+                      multiple
+                      size="6"
+                    >
+                      <option value="">Loading players…</option>
                     </select>
                   </div>
+                  <p id="dm-reward-target-hint" class="dm-quickRewards__hint">
+                    Select one or more players. Use Ctrl / Cmd + click (or Shift + arrows) to choose multiples.
+                  </p>
                 </div>
-                <div class="dm-quickRewards__field">
-                  <label class="dm-quickRewards__label" for="dm-reward-xp-amount">Amount</label>
-                  <input id="dm-reward-xp-amount" type="number" inputmode="numeric" step="1" min="1" placeholder="0" required>
-                </div>
-                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply XP</button>
-              </form>
-
-              <form id="dm-reward-hpsp-form" class="dm-quickRewards__card" novalidate>
-                <h5 class="dm-quickRewards__cardTitle">HP / SP</h5>
-                <div class="dm-quickRewards__presets">
-                  <label class="dm-quickRewards__label" for="dm-reward-hpsp-preset">HP / SP presets</label>
-                  <div class="dm-quickRewards__presetRow">
-                    <div class="dm-quickRewards__presetSelect">
-                      <select id="dm-reward-hpsp-preset">
-                        <option value="">Load preset…</option>
-                      </select>
-                    </div>
-                    <div class="dm-quickRewards__presetButtons" role="group" aria-label="HP and SP preset actions">
-                      <button type="button" id="dm-reward-hpsp-preset-save" class="btn-sm">Save preset</button>
-                      <button type="button" id="dm-reward-hpsp-preset-delete" class="btn-sm" disabled>Delete preset</button>
+              </div>
+              <div class="dm-quickRewards__grid">
+                <form id="dm-reward-xp-form" class="dm-quickRewards__card" novalidate>
+                  <h5 class="dm-quickRewards__cardTitle">XP Boost</h5>
+                  <div class="dm-quickRewards__presets">
+                    <label class="dm-quickRewards__label" for="dm-reward-xp-preset">XP presets</label>
+                    <div class="dm-quickRewards__presetRow">
+                      <div class="dm-quickRewards__presetSelect">
+                        <select id="dm-reward-xp-preset">
+                          <option value="">Load preset…</option>
+                        </select>
+                      </div>
+                      <div class="dm-quickRewards__presetButtons" role="group" aria-label="XP preset actions">
+                        <button type="button" id="dm-reward-xp-preset-save" class="btn-sm">Save preset</button>
+                        <button type="button" id="dm-reward-xp-preset-delete" class="btn-sm" disabled>Delete preset</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <fieldset class="dm-quickRewards__fieldset">
-                  <legend>HP</legend>
-                  <div class="dm-quickRewards__field dm-quickRewards__field--inline">
-                    <label class="dm-quickRewards__label" for="dm-reward-hp-mode">Change</label>
+                  <div class="dm-quickRewards__field">
+                    <label class="dm-quickRewards__label" for="dm-reward-xp-mode">Mode</label>
                     <div class="dm-quickRewards__control">
-                      <select id="dm-reward-hp-mode">
+                      <select id="dm-reward-xp-mode">
+                        <option value="add" selected>Add XP</option>
+                        <option value="remove">Remove XP</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="dm-quickRewards__field">
+                    <label class="dm-quickRewards__label" for="dm-reward-xp-amount">Amount</label>
+                    <input id="dm-reward-xp-amount" type="number" inputmode="numeric" step="1" min="1" placeholder="0" required>
+                  </div>
+                  <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply XP</button>
+                </form>
+
+                <form id="dm-reward-hpsp-form" class="dm-quickRewards__card" novalidate>
+                  <h5 class="dm-quickRewards__cardTitle">HP / SP</h5>
+                  <div class="dm-quickRewards__presets">
+                    <label class="dm-quickRewards__label" for="dm-reward-hpsp-preset">HP / SP presets</label>
+                    <div class="dm-quickRewards__presetRow">
+                      <div class="dm-quickRewards__presetSelect">
+                        <select id="dm-reward-hpsp-preset">
+                          <option value="">Load preset…</option>
+                        </select>
+                      </div>
+                      <div class="dm-quickRewards__presetButtons" role="group" aria-label="HP and SP preset actions">
+                        <button type="button" id="dm-reward-hpsp-preset-save" class="btn-sm">Save preset</button>
+                        <button type="button" id="dm-reward-hpsp-preset-delete" class="btn-sm" disabled>Delete preset</button>
+                      </div>
+                    </div>
+                  </div>
+                  <fieldset class="dm-quickRewards__fieldset">
+                    <legend>HP</legend>
+                    <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                      <label class="dm-quickRewards__label" for="dm-reward-hp-mode">Change</label>
+                      <div class="dm-quickRewards__control">
+                        <select id="dm-reward-hp-mode">
+                          <option value="delta" selected>Adjust by</option>
+                          <option value="set">Set to</option>
+                        </select>
+                      </div>
+                      <input id="dm-reward-hp-value" type="number" inputmode="numeric" step="1" placeholder="0">
+                    </div>
+                    <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                      <label class="dm-quickRewards__label" for="dm-reward-hp-temp-mode">Temp</label>
+                      <div class="dm-quickRewards__control">
+                        <select id="dm-reward-hp-temp-mode">
+                          <option value="" selected>Leave unchanged</option>
+                          <option value="delta">Adjust by</option>
+                          <option value="set">Set to</option>
+                        </select>
+                      </div>
+                      <input id="dm-reward-hp-temp" type="number" inputmode="numeric" step="1" placeholder="0">
+                    </div>
+                  </fieldset>
+                  <fieldset class="dm-quickRewards__fieldset">
+                    <legend>SP</legend>
+                    <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                      <label class="dm-quickRewards__label" for="dm-reward-sp-mode">Change</label>
+                      <div class="dm-quickRewards__control">
+                        <select id="dm-reward-sp-mode">
+                          <option value="delta" selected>Adjust by</option>
+                          <option value="set">Set to</option>
+                        </select>
+                      </div>
+                      <input id="dm-reward-sp-value" type="number" inputmode="numeric" step="1" placeholder="0">
+                    </div>
+                    <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                      <label class="dm-quickRewards__label" for="dm-reward-sp-temp-mode">Temp</label>
+                      <div class="dm-quickRewards__control">
+                        <select id="dm-reward-sp-temp-mode">
+                          <option value="" selected>Leave unchanged</option>
+                          <option value="delta">Adjust by</option>
+                          <option value="set">Set to</option>
+                        </select>
+                      </div>
+                      <input id="dm-reward-sp-temp" type="number" inputmode="numeric" step="1" placeholder="0">
+                    </div>
+                  </fieldset>
+                  <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply HP / SP</button>
+                </form>
+
+                <form id="dm-reward-resonance-form" class="dm-quickRewards__card" novalidate>
+                  <h5 class="dm-quickRewards__cardTitle">Resonance</h5>
+                  <div class="dm-quickRewards__presets">
+                    <label class="dm-quickRewards__label" for="dm-reward-resonance-preset">Resonance presets</label>
+                    <div class="dm-quickRewards__presetRow">
+                      <div class="dm-quickRewards__presetSelect">
+                        <select id="dm-reward-resonance-preset">
+                          <option value="">Load preset…</option>
+                        </select>
+                      </div>
+                      <div class="dm-quickRewards__presetButtons" role="group" aria-label="Resonance preset actions">
+                        <button type="button" id="dm-reward-resonance-preset-save" class="btn-sm">Save preset</button>
+                        <button type="button" id="dm-reward-resonance-preset-delete" class="btn-sm" disabled>Delete preset</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="dm-quickRewards__field dm-quickRewards__field--inline">
+                    <label class="dm-quickRewards__label" for="dm-reward-resonance-points-mode">Points</label>
+                    <div class="dm-quickRewards__control">
+                      <select id="dm-reward-resonance-points-mode">
                         <option value="delta" selected>Adjust by</option>
                         <option value="set">Set to</option>
                       </select>
                     </div>
-                    <input id="dm-reward-hp-value" type="number" inputmode="numeric" step="1" placeholder="0">
+                    <input id="dm-reward-resonance-points" type="number" inputmode="numeric" step="1" placeholder="0">
                   </div>
                   <div class="dm-quickRewards__field dm-quickRewards__field--inline">
-                    <label class="dm-quickRewards__label" for="dm-reward-hp-temp-mode">Temp</label>
+                    <label class="dm-quickRewards__label" for="dm-reward-resonance-banked-mode">Banked</label>
                     <div class="dm-quickRewards__control">
-                      <select id="dm-reward-hp-temp-mode">
-                        <option value="" selected>Leave unchanged</option>
-                        <option value="delta">Adjust by</option>
-                        <option value="set">Set to</option>
-                      </select>
-                    </div>
-                    <input id="dm-reward-hp-temp" type="number" inputmode="numeric" step="1" placeholder="0">
-                  </div>
-                </fieldset>
-                <fieldset class="dm-quickRewards__fieldset">
-                  <legend>SP</legend>
-                  <div class="dm-quickRewards__field dm-quickRewards__field--inline">
-                    <label class="dm-quickRewards__label" for="dm-reward-sp-mode">Change</label>
-                    <div class="dm-quickRewards__control">
-                      <select id="dm-reward-sp-mode">
+                      <select id="dm-reward-resonance-banked-mode">
                         <option value="delta" selected>Adjust by</option>
                         <option value="set">Set to</option>
                       </select>
                     </div>
-                    <input id="dm-reward-sp-value" type="number" inputmode="numeric" step="1" placeholder="0">
+                    <input id="dm-reward-resonance-banked" type="number" inputmode="numeric" step="1" placeholder="0">
+                  </div>
+                  <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply Resonance</button>
+                </form>
+
+                <form id="dm-reward-faction-form" class="dm-quickRewards__card" novalidate>
+                  <h5 class="dm-quickRewards__cardTitle">Faction Reputation</h5>
+                  <div class="dm-quickRewards__presets">
+                    <label class="dm-quickRewards__label" for="dm-reward-faction-preset">Faction presets</label>
+                    <div class="dm-quickRewards__presetRow">
+                      <div class="dm-quickRewards__presetSelect">
+                        <select id="dm-reward-faction-preset">
+                          <option value="">Load preset…</option>
+                        </select>
+                      </div>
+                      <div class="dm-quickRewards__presetButtons" role="group" aria-label="Faction preset actions">
+                        <button type="button" id="dm-reward-faction-preset-save" class="btn-sm">Save preset</button>
+                        <button type="button" id="dm-reward-faction-preset-delete" class="btn-sm" disabled>Delete preset</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="dm-quickRewards__field">
+                    <label class="dm-quickRewards__label" for="dm-reward-faction-select">Faction</label>
+                    <div class="dm-quickRewards__control">
+                      <select id="dm-reward-faction-select">
+                        <option value="">Select a faction</option>
+                      </select>
+                    </div>
                   </div>
                   <div class="dm-quickRewards__field dm-quickRewards__field--inline">
-                    <label class="dm-quickRewards__label" for="dm-reward-sp-temp-mode">Temp</label>
+                    <label class="dm-quickRewards__label" for="dm-reward-faction-mode">Change</label>
                     <div class="dm-quickRewards__control">
-                      <select id="dm-reward-sp-temp-mode">
-                        <option value="" selected>Leave unchanged</option>
-                        <option value="delta">Adjust by</option>
+                      <select id="dm-reward-faction-mode">
+                        <option value="delta" selected>Adjust by</option>
                         <option value="set">Set to</option>
                       </select>
                     </div>
-                    <input id="dm-reward-sp-temp" type="number" inputmode="numeric" step="1" placeholder="0">
+                    <input id="dm-reward-faction-value" type="number" inputmode="numeric" step="5" placeholder="0">
                   </div>
-                </fieldset>
-                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply HP / SP</button>
-              </form>
-
-              <form id="dm-reward-resonance-form" class="dm-quickRewards__card" novalidate>
-                <h5 class="dm-quickRewards__cardTitle">Resonance</h5>
-                <div class="dm-quickRewards__presets">
-                  <label class="dm-quickRewards__label" for="dm-reward-resonance-preset">Resonance presets</label>
-                  <div class="dm-quickRewards__presetRow">
-                    <div class="dm-quickRewards__presetSelect">
-                      <select id="dm-reward-resonance-preset">
-                        <option value="">Load preset…</option>
-                      </select>
-                    </div>
-                    <div class="dm-quickRewards__presetButtons" role="group" aria-label="Resonance preset actions">
-                      <button type="button" id="dm-reward-resonance-preset-save" class="btn-sm">Save preset</button>
-                      <button type="button" id="dm-reward-resonance-preset-delete" class="btn-sm" disabled>Delete preset</button>
-                    </div>
-                  </div>
-                </div>
-                <div class="dm-quickRewards__field dm-quickRewards__field--inline">
-                  <label class="dm-quickRewards__label" for="dm-reward-resonance-points-mode">Points</label>
-                  <div class="dm-quickRewards__control">
-                    <select id="dm-reward-resonance-points-mode">
-                      <option value="delta" selected>Adjust by</option>
-                      <option value="set">Set to</option>
-                    </select>
-                  </div>
-                  <input id="dm-reward-resonance-points" type="number" inputmode="numeric" step="1" placeholder="0">
-                </div>
-                <div class="dm-quickRewards__field dm-quickRewards__field--inline">
-                  <label class="dm-quickRewards__label" for="dm-reward-resonance-banked-mode">Banked</label>
-                  <div class="dm-quickRewards__control">
-                    <select id="dm-reward-resonance-banked-mode">
-                      <option value="delta" selected>Adjust by</option>
-                      <option value="set">Set to</option>
-                    </select>
-                  </div>
-                  <input id="dm-reward-resonance-banked" type="number" inputmode="numeric" step="1" placeholder="0">
-                </div>
-                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply Resonance</button>
-              </form>
-
-              <form id="dm-reward-faction-form" class="dm-quickRewards__card" novalidate>
-                <h5 class="dm-quickRewards__cardTitle">Faction Reputation</h5>
-                <div class="dm-quickRewards__presets">
-                  <label class="dm-quickRewards__label" for="dm-reward-faction-preset">Faction presets</label>
-                  <div class="dm-quickRewards__presetRow">
-                    <div class="dm-quickRewards__presetSelect">
-                      <select id="dm-reward-faction-preset">
-                        <option value="">Load preset…</option>
-                      </select>
-                    </div>
-                    <div class="dm-quickRewards__presetButtons" role="group" aria-label="Faction preset actions">
-                      <button type="button" id="dm-reward-faction-preset-save" class="btn-sm">Save preset</button>
-                      <button type="button" id="dm-reward-faction-preset-delete" class="btn-sm" disabled>Delete preset</button>
-                    </div>
-                  </div>
-                </div>
-                <div class="dm-quickRewards__field">
-                  <label class="dm-quickRewards__label" for="dm-reward-faction-select">Faction</label>
-                  <div class="dm-quickRewards__control">
-                    <select id="dm-reward-faction-select">
-                      <option value="">Select a faction</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="dm-quickRewards__field dm-quickRewards__field--inline">
-                  <label class="dm-quickRewards__label" for="dm-reward-faction-mode">Change</label>
-                  <div class="dm-quickRewards__control">
-                    <select id="dm-reward-faction-mode">
-                      <option value="delta" selected>Adjust by</option>
-                      <option value="set">Set to</option>
-                    </select>
-                  </div>
-                  <input id="dm-reward-faction-value" type="number" inputmode="numeric" step="5" placeholder="0">
-                </div>
-                <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply Reputation</button>
-              </form>
-            </div>
-            <section class="dm-quickRewards__history" aria-labelledby="dm-reward-history-heading">
-              <div class="dm-quickRewards__historyHeader">
-                <h5 id="dm-reward-history-heading">Recent Activity</h5>
-                <div class="dm-quickRewards__historyActions" role="group" aria-label="Quick reward history actions">
-                  <button id="dm-reward-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
-                  <button id="dm-reward-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
-                </div>
+                  <button type="submit" class="somf-btn somf-primary dm-quickRewards__submit">Apply Reputation</button>
+                </form>
               </div>
-              <ul id="dm-reward-history" class="dm-quickRewards__historyList" aria-live="polite"></ul>
+              <section class="dm-quickRewards__history" aria-labelledby="dm-reward-history-heading">
+                <div class="dm-quickRewards__historyHeader">
+                  <h5 id="dm-reward-history-heading">Recent Activity</h5>
+                  <div class="dm-quickRewards__historyActions" role="group" aria-label="Quick reward history actions">
+                    <button id="dm-reward-history-export" class="btn-sm" type="button" disabled>Copy / Export</button>
+                    <button id="dm-reward-history-clear" class="btn-sm" type="button" disabled>Clear log</button>
+                  </div>
+                </div>
+                <ul id="dm-reward-history" class="dm-quickRewards__historyList" aria-live="polite"></ul>
+              </section>
             </section>
-          </section>
-        </div>
-      </section>
-      <section id="dm-rewards-panel-catalog" class="dm-rewards__panel dm-rewards__panel--catalog" role="tabpanel" aria-labelledby="dm-rewards-tab-catalog" data-panel="catalog" hidden>
-        <div class="dm-rewards__panelContent">
-          <div class="dm-catalog">
-            <h3>Catalog Builder</h3>
-            <p class="dm-catalog__intro">Plan and launch custom gear, abilities, and signature moves for your table.</p>
-            <nav id="dm-catalog-tabs" class="dm-catalog__tabs" role="tablist" aria-label="Catalog entry types">
-              <button id="dm-catalog-tab-gear" class="dm-catalog__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-catalog-panel-gear" data-tab="gear" tabindex="0">Gear</button>
-              <button id="dm-catalog-tab-weapons" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-weapons" data-tab="weapons" tabindex="-1">Weapons</button>
-              <button id="dm-catalog-tab-armor" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-armor" data-tab="armor" tabindex="-1">Armor</button>
-              <button id="dm-catalog-tab-items" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-items" data-tab="items" tabindex="-1">Items</button>
-              <button id="dm-catalog-tab-powers" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-powers" data-tab="powers" tabindex="-1">Powers</button>
-              <button id="dm-catalog-tab-signature-moves" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-signature-moves" data-tab="signature-moves" tabindex="-1">Signature Moves</button>
-            </nav>
-            <div id="dm-catalog-panels" class="dm-catalog__panels">
-              <section id="dm-catalog-panel-gear" class="dm-catalog__panel is-active" role="tabpanel" aria-labelledby="dm-catalog-tab-gear" data-panel="gear">
-                <form class="dm-catalog__form" data-catalog-form="gear" novalidate></form>
-              </section>
-              <section id="dm-catalog-panel-weapons" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-weapons" data-panel="weapons" hidden>
-                <form class="dm-catalog__form" data-catalog-form="weapons" novalidate></form>
-              </section>
-              <section id="dm-catalog-panel-armor" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-armor" data-panel="armor" hidden>
-                <form class="dm-catalog__form" data-catalog-form="armor" novalidate></form>
-              </section>
-              <section id="dm-catalog-panel-items" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-items" data-panel="items" hidden>
-                <form class="dm-catalog__form" data-catalog-form="items" novalidate></form>
-              </section>
-              <section id="dm-catalog-panel-powers" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-powers" data-panel="powers" hidden>
-                <form class="dm-catalog__form" data-catalog-form="powers" novalidate></form>
-              </section>
-              <section id="dm-catalog-panel-signature-moves" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-signature-moves" data-panel="signature-moves" hidden>
-                <form class="dm-catalog__form" data-catalog-form="signature-moves" novalidate></form>
-              </section>
+          </div>
+        </section>
+        <section id="dm-rewards-panel-catalog" class="dm-rewards__panel dm-rewards__panel--catalog" role="tabpanel" aria-labelledby="dm-rewards-tab-catalog" data-panel="catalog" hidden>
+          <div class="dm-rewards__panelContent">
+            <div class="dm-catalog">
+              <h3>Catalog Builder</h3>
+              <p class="dm-catalog__intro">Plan and launch custom gear, abilities, and signature moves for your table.</p>
+              <nav id="dm-catalog-tabs" class="dm-catalog__tabs" role="tablist" aria-label="Catalog entry types">
+                <button id="dm-catalog-tab-gear" class="dm-catalog__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-catalog-panel-gear" data-tab="gear" tabindex="0">Gear</button>
+                <button id="dm-catalog-tab-weapons" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-weapons" data-tab="weapons" tabindex="-1">Weapons</button>
+                <button id="dm-catalog-tab-armor" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-armor" data-tab="armor" tabindex="-1">Armor</button>
+                <button id="dm-catalog-tab-items" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-items" data-tab="items" tabindex="-1">Items</button>
+                <button id="dm-catalog-tab-powers" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-powers" data-tab="powers" tabindex="-1">Powers</button>
+                <button id="dm-catalog-tab-signature-moves" class="dm-catalog__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-catalog-panel-signature-moves" data-tab="signature-moves" tabindex="-1">Signature Moves</button>
+              </nav>
+              <div id="dm-catalog-panels" class="dm-catalog__panels">
+                <section id="dm-catalog-panel-gear" class="dm-catalog__panel is-active" role="tabpanel" aria-labelledby="dm-catalog-tab-gear" data-panel="gear">
+                  <form class="dm-catalog__form" data-catalog-form="gear" novalidate></form>
+                </section>
+                <section id="dm-catalog-panel-weapons" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-weapons" data-panel="weapons" hidden>
+                  <form class="dm-catalog__form" data-catalog-form="weapons" novalidate></form>
+                </section>
+                <section id="dm-catalog-panel-armor" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-armor" data-panel="armor" hidden>
+                  <form class="dm-catalog__form" data-catalog-form="armor" novalidate></form>
+                </section>
+                <section id="dm-catalog-panel-items" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-items" data-panel="items" hidden>
+                  <form class="dm-catalog__form" data-catalog-form="items" novalidate></form>
+                </section>
+                <section id="dm-catalog-panel-powers" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-powers" data-panel="powers" hidden>
+                  <form class="dm-catalog__form" data-catalog-form="powers" novalidate></form>
+                </section>
+                <section id="dm-catalog-panel-signature-moves" class="dm-catalog__panel" role="tabpanel" aria-labelledby="dm-catalog-tab-signature-moves" data-panel="signature-moves" hidden>
+                  <form class="dm-catalog__form" data-catalog-form="signature-moves" novalidate></form>
+                </section>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
-  </section>
+        </section>
+      </div>
+    </section>
+  </div>
 </div>
-<div class="overlay hidden" id="mini-game-invite" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title" data-modal-static>
-  <section class="modal mini-game-invite">
-    <header class="mini-game-invite__header">
-      <h3 id="mini-game-invite-title" class="mini-game-invite__title">Incoming Mini-Game Assignment</h3>
-      <p id="mini-game-invite-message" class="mini-game-invite__message"></p>
-    </header>
-    <div class="mini-game-invite__game">
-      <div id="mini-game-invite-game" class="mini-game-invite__name"></div>
-      <p id="mini-game-invite-tagline" class="mini-game-invite__tagline"></p>
-    </div>
-    <div id="mini-game-invite-summary" class="mini-game-invite__summary"></div>
-    <div id="mini-game-invite-notes" class="mini-game-invite__notes" hidden>
-      <h4 class="mini-game-invite__notes-title">Briefing</h4>
-      <p id="mini-game-invite-notes-text" class="mini-game-invite__notes-text"></p>
-    </div>
-    <footer class="mini-game-invite__actions">
-      <button id="mini-game-invite-decline" type="button" class="btn-sm mini-game-invite__decline">Not Now</button>
-      <button id="mini-game-invite-accept" type="button" class="somf-btn somf-primary mini-game-invite__accept">Start Mission</button>
-    </footer>
-  </section>
+<div class="overlay hidden" id="mini-game-invite" aria-hidden="true" data-modal-static>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section class="modal mini-game-invite" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title">
+      <header class="mini-game-invite__header">
+        <h3 id="mini-game-invite-title" class="mini-game-invite__title">Incoming Mini-Game Assignment</h3>
+        <p id="mini-game-invite-message" class="mini-game-invite__message"></p>
+      </header>
+      <div class="mini-game-invite__game">
+        <div id="mini-game-invite-game" class="mini-game-invite__name"></div>
+        <p id="mini-game-invite-tagline" class="mini-game-invite__tagline"></p>
+      </div>
+      <div id="mini-game-invite-summary" class="mini-game-invite__summary"></div>
+      <div id="mini-game-invite-notes" class="mini-game-invite__notes" hidden>
+        <h4 class="mini-game-invite__notes-title">Briefing</h4>
+        <p id="mini-game-invite-notes-text" class="mini-game-invite__notes-text"></p>
+      </div>
+      <footer class="mini-game-invite__actions">
+        <button id="mini-game-invite-decline" type="button" class="btn-sm mini-game-invite__decline">Not Now</button>
+        <button id="mini-game-invite-accept" type="button" class="somf-btn somf-primary mini-game-invite__accept">Start Mission</button>
+      </footer>
+    </section>
+  </div>
   </div>
   <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
-  <section id="somf-dm" class="modal somf-dm">
-    <button id="somfDM-close" class="x" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <header class="somf-dm__hdr">
-      <h3>DM • Shards <span id="somfDM-cardCount"></span></h3>
-      <div class="somf-dm__hdr-controls">
-        <div class="somf-dm__toggles">
-          <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
-          <input
-            id="somfDM-inviteTargets"
-            class="somf-dm__inviteInput"
-            type="text"
-            placeholder="Type additional names (optional)"
-            list="somfDM-inviteOptions"
-          >
-          <span id="somfDM-inviteSelected" class="somf-dm__inviteSelected" aria-live="polite">No players selected</span>
-          <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
-          <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
-          <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
-        </div>
-        <datalist id="somfDM-inviteOptions"></datalist>
-        <div id="somfDM-inviteRoster" class="somf-dm__inviteRoster" aria-live="polite"></div>
-        <div class="somf-dm__actions">
-          <button id="somfDM-reset" class="somf-btn">Reset</button>
-        </div>
-      </div>
-    </header>
-
-    <nav class="somf-dm__tabs">
-      <button data-tab="cards" class="somf-dm-tabbtn active">Shards List</button>
-      <button data-tab="resolve" class="somf-dm-tabbtn">Resolve</button>
-      <button data-tab="npcs" class="somf-dm-tabbtn">NPCs</button>
-      <button data-tab="items" class="somf-dm-tabbtn">Items</button>
-    </nav>
-
-    <section id="somfDM-tab-cards" class="somf-dm-tab somf-dm__tab active"></section>
-
-    <section id="somfDM-tab-resolve" class="somf-dm-tab somf-dm__tab">
-      <div class="somf-dm__resolve">
-        <aside class="somf-dm__left">
-          <h4>Incoming Draws</h4>
-          <ol id="somfDM-incoming" class="somf-dm__list"></ol>
-        </aside>
-        <main class="somf-dm__main">
-          <div id="somfDM-noticeView" class="somf-dm__card"></div>
-          <div class="somf-dm__actions">
-            <button id="somfDM-markResolved" class="somf-btn somf-primary" disabled>Mark Resolved</button>
-            <button id="somfDM-spawnNPC" class="somf-btn" disabled>Spawn Related NPC</button>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section id="somf-dm" class="modal somf-dm">
+      <button id="somfDM-close" class="x" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="somf-dm__hdr">
+        <h3>DM • Shards <span id="somfDM-cardCount"></span></h3>
+        <div class="somf-dm__hdr-controls">
+          <div class="somf-dm__toggles">
+            <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
+            <input
+              id="somfDM-inviteTargets"
+              class="somf-dm__inviteInput"
+              type="text"
+              placeholder="Type additional names (optional)"
+              list="somfDM-inviteOptions"
+            >
+            <span id="somfDM-inviteSelected" class="somf-dm__inviteSelected" aria-live="polite">No players selected</span>
+            <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
+            <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
+            <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
           </div>
-        </main>
-      </div>
-      <h4>Resolution Methods</h4>
-      <ol id="somfDM-resolveOptions" class="somf-dm__list"></ol>
-    </section>
-
-    <section id="somfDM-tab-npcs" class="somf-dm-tab somf-dm__tab">
-      <ul id="somfDM-npcList" class="somf-dm__list"></ul>
-    </section>
-
-    <section id="somfDM-tab-items" class="somf-dm-tab somf-dm__tab">
-      <div
-        id="somfDM-giftOverlay"
-        class="somf-dm__gift hidden"
-        aria-hidden="true"
-        hidden
-      >
-        <div
-          id="somfDM-giftDialog"
-          class="somf-dm__giftDialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="somfDM-giftTitle"
-          aria-describedby="somfDM-giftMessage"
-          tabindex="-1"
-        >
-          <h4 id="somfDM-giftTitle" class="somf-dm__giftTitle"></h4>
-          <p id="somfDM-giftMessage" class="somf-dm__giftSubtitle"></p>
-          <form id="somfDM-giftForm" class="somf-dm__giftForm" novalidate>
-            <div class="somf-dm__giftGroup">
-              <label for="somfDM-giftSelect">Choose a recipient</label>
-              <select id="somfDM-giftSelect" class="somf-dm__giftSelect" aria-describedby="somfDM-giftRosterStatus somfDM-giftError"></select>
-              <p id="somfDM-giftRosterStatus" class="somf-dm__giftStatus" aria-live="polite"></p>
-            </div>
-            <div class="somf-dm__giftDivider" role="separator" aria-hidden="true"><span>or</span></div>
-            <div class="somf-dm__giftGroup">
-              <label for="somfDM-giftCustom">Enter a custom name</label>
-              <input
-                id="somfDM-giftCustom"
-                class="somf-dm__giftInput"
-                type="text"
-                autocomplete="off"
-                aria-describedby="somfDM-giftError"
-              >
-            </div>
-            <p id="somfDM-giftError" class="somf-dm__giftError" role="alert"></p>
-            <div class="somf-dm__giftActions">
-              <button id="somfDM-giftSubmit" type="submit" class="somf-btn somf-primary">Gift Item</button>
-              <button type="button" class="somf-btn somf-ghost" data-somf-gift-cancel>Cancel</button>
-            </div>
-          </form>
+          <datalist id="somfDM-inviteOptions"></datalist>
+          <div id="somfDM-inviteRoster" class="somf-dm__inviteRoster" aria-live="polite"></div>
+          <div class="somf-dm__actions">
+            <button id="somfDM-reset" class="somf-btn">Reset</button>
+          </div>
         </div>
-      </div>
-      <ul id="somfDM-itemList" class="somf-dm__list somf-dm__list--actions"></ul>
+      </header>
+
+      <nav class="somf-dm__tabs">
+        <button data-tab="cards" class="somf-dm-tabbtn active">Shards List</button>
+        <button data-tab="resolve" class="somf-dm-tabbtn">Resolve</button>
+        <button data-tab="npcs" class="somf-dm-tabbtn">NPCs</button>
+        <button data-tab="items" class="somf-dm-tabbtn">Items</button>
+      </nav>
+
+      <section id="somfDM-tab-cards" class="somf-dm-tab somf-dm__tab active"></section>
+
+      <section id="somfDM-tab-resolve" class="somf-dm-tab somf-dm__tab">
+        <div class="somf-dm__resolve">
+          <aside class="somf-dm__left">
+            <h4>Incoming Draws</h4>
+            <ol id="somfDM-incoming" class="somf-dm__list"></ol>
+          </aside>
+          <main class="somf-dm__main">
+            <div id="somfDM-noticeView" class="somf-dm__card"></div>
+            <div class="somf-dm__actions">
+              <button id="somfDM-markResolved" class="somf-btn somf-primary" disabled>Mark Resolved</button>
+              <button id="somfDM-spawnNPC" class="somf-btn" disabled>Spawn Related NPC</button>
+            </div>
+          </main>
+        </div>
+        <h4>Resolution Methods</h4>
+        <ol id="somfDM-resolveOptions" class="somf-dm__list"></ol>
+      </section>
+
+      <section id="somfDM-tab-npcs" class="somf-dm-tab somf-dm__tab">
+        <ul id="somfDM-npcList" class="somf-dm__list"></ul>
+      </section>
+
+      <section id="somfDM-tab-items" class="somf-dm-tab somf-dm__tab">
+        <div
+          id="somfDM-giftOverlay"
+          class="somf-dm__gift hidden"
+          aria-hidden="true"
+          hidden
+        >
+          <div
+            id="somfDM-giftDialog"
+            class="somf-dm__giftDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="somfDM-giftTitle"
+            aria-describedby="somfDM-giftMessage"
+            tabindex="-1"
+          >
+            <h4 id="somfDM-giftTitle" class="somf-dm__giftTitle"></h4>
+            <p id="somfDM-giftMessage" class="somf-dm__giftSubtitle"></p>
+            <form id="somfDM-giftForm" class="somf-dm__giftForm" novalidate>
+              <div class="somf-dm__giftGroup">
+                <label for="somfDM-giftSelect">Choose a recipient</label>
+                <select id="somfDM-giftSelect" class="somf-dm__giftSelect" aria-describedby="somfDM-giftRosterStatus somfDM-giftError"></select>
+                <p id="somfDM-giftRosterStatus" class="somf-dm__giftStatus" aria-live="polite"></p>
+              </div>
+              <div class="somf-dm__giftDivider" role="separator" aria-hidden="true"><span>or</span></div>
+              <div class="somf-dm__giftGroup">
+                <label for="somfDM-giftCustom">Enter a custom name</label>
+                <input
+                  id="somfDM-giftCustom"
+                  class="somf-dm__giftInput"
+                  type="text"
+                  autocomplete="off"
+                  aria-describedby="somfDM-giftError"
+                >
+              </div>
+              <p id="somfDM-giftError" class="somf-dm__giftError" role="alert"></p>
+              <div class="somf-dm__giftActions">
+                <button id="somfDM-giftSubmit" type="submit" class="somf-btn somf-primary">Gift Item</button>
+                <button type="button" class="somf-btn somf-ghost" data-somf-gift-cancel>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <ul id="somfDM-itemList" class="somf-dm__list somf-dm__list--actions"></ul>
+      </section>
     </section>
-  </section>
+  </div>
 </div>
 
 <div id="cloud-sync-panel-backdrop" class="sync-panel__backdrop" hidden aria-hidden="true"></div>
@@ -2830,7 +2938,11 @@
 </section>
 
 <div class="overlay hidden" id="somfDM-npcModal" aria-hidden="true">
-  <section id="somfDM-npcModalCard" class="modal somf-dm"></section>
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section id="somfDM-npcModalCard" class="modal somf-dm"></section>
+  </div>
 </div>
 
 <!-- Toasts + Tiny Ping -->
@@ -2855,23 +2967,27 @@
 <div id="load-animation" aria-hidden="true" hidden></div>
 <div id="draw-lightning" aria-hidden="true" hidden></div>
 <div id="draw-flash" aria-hidden="true" hidden></div>
-<div class="overlay hidden" id="somf-confirm-draw" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="somf-confirm-title" aria-describedby="somf-confirm-description somf-confirm-count somf-confirm-consequence-label">
-  <section class="modal somf-confirm" tabindex="-1">
-    <header class="somf-confirm__header">
-      <h3 id="somf-confirm-title" class="somf-confirm__title">Tempt Fate?</h3>
-      <p id="somf-confirm-description" class="somf-confirm__description">Drawing from the Shards of Many Fates invites unpredictable magic.</p>
-    </header>
-    <p id="somf-confirm-count" class="somf-confirm__count">You are about to draw 1 Shard.</p>
-    <p id="somf-confirm-consequence-label" class="somf-confirm__label">If you proceed, remember:</p>
-    <ul id="somf-confirm-consequences" class="somf-confirm__list">
-      <li>The Fates are fickle—outcomes may bless or curse.</li>
-      <li>Draws are permanent and cannot be undone.</li>
-    </ul>
-    <footer class="somf-confirm__actions">
-      <button type="button" class="btn-sm somf-confirm__cancel" data-somf-confirm-cancel>Not Now</button>
-      <button type="button" class="somf-btn somf-primary somf-confirm__accept" data-somf-confirm-accept>Draw 1 Shard</button>
-    </footer>
-  </section>
+<div class="overlay hidden" id="somf-confirm-draw" aria-hidden="true">
+  <div class="modal-frame">
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+    <div class="modal-frame__orb" aria-hidden="true"></div>
+    <section class="modal somf-confirm" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="somf-confirm-title" aria-describedby="somf-confirm-description somf-confirm-count somf-confirm-consequence-label">
+      <header class="somf-confirm__header">
+        <h3 id="somf-confirm-title" class="somf-confirm__title">Tempt Fate?</h3>
+        <p id="somf-confirm-description" class="somf-confirm__description">Drawing from the Shards of Many Fates invites unpredictable magic.</p>
+      </header>
+      <p id="somf-confirm-count" class="somf-confirm__count">You are about to draw 1 Shard.</p>
+      <p id="somf-confirm-consequence-label" class="somf-confirm__label">If you proceed, remember:</p>
+      <ul id="somf-confirm-consequences" class="somf-confirm__list">
+        <li>The Fates are fickle—outcomes may bless or curse.</li>
+        <li>Draws are permanent and cannot be undone.</li>
+      </ul>
+      <footer class="somf-confirm__actions">
+        <button type="button" class="btn-sm somf-confirm__cancel" data-somf-confirm-cancel>Not Now</button>
+        <button type="button" class="somf-btn somf-primary somf-confirm__accept" data-somf-confirm-accept>Draw 1 Shard</button>
+      </footer>
+    </section>
+  </div>
 </div>
 <div id="somf-reveal-alert" class="somf-reveal-alert" hidden role="alertdialog" aria-modal="true" aria-labelledby="somf-reveal-title" aria-describedby="somf-reveal-text" aria-hidden="true">
   <div class="somf-reveal-alert__card" tabindex="-1">
