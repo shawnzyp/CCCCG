@@ -98,10 +98,16 @@ function getSessionWarningThresholdMs() {
 
 function touchSessionActivity(timestamp = Date.now()) {
   try {
-    if (sessionStorage.getItem(DM_LOGIN_FLAG_KEY) !== '1') return;
-    sessionStorage.setItem(DM_LOGIN_LAST_ACTIVE_KEY, String(timestamp));
+    if (sessionStorage.getItem(DM_LOGIN_FLAG_KEY) !== '1') return false;
+    const normalizedTimestamp = Number.isFinite(timestamp) ? timestamp : Date.now();
+    const previousTimestamp = getSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY);
+    sessionStorage.setItem(DM_LOGIN_LAST_ACTIVE_KEY, String(normalizedTimestamp));
+    if (!Number.isFinite(previousTimestamp)) {
+      return true;
+    }
+    return normalizedTimestamp > previousTimestamp;
   } catch {
-    /* ignore */
+    return false;
   }
 }
 
@@ -7075,7 +7081,9 @@ function initDMLogin(){
         if (!getSessionTimestamp(DM_LOGIN_AT_KEY)) {
           const now = Date.now();
           setSessionTimestamp(DM_LOGIN_AT_KEY, now);
-          touchSessionActivity(now);
+          if (touchSessionActivity(now)) {
+            sessionWarningToastShown = false;
+          }
         }
         return true;
       }
@@ -7085,7 +7093,9 @@ function initDMLogin(){
       if (!reference) {
         const now = Date.now();
         setSessionTimestamp(DM_LOGIN_AT_KEY, now);
-        touchSessionActivity(now);
+        if (touchSessionActivity(now)) {
+          sessionWarningToastShown = false;
+        }
         return true;
       }
       if (Date.now() - reference > timeoutMs) {
@@ -8289,7 +8299,9 @@ function initDMLogin(){
   document.addEventListener('click', e => {
     const t = e.target.closest('button,a');
     if(!t) return;
-    touchSessionActivity();
+    if (touchSessionActivity()) {
+      sessionWarningToastShown = false;
+    }
     const id = t.id || t.textContent?.trim() || 'interaction';
     window.dmNotify?.(`Clicked ${id}`);
   });
