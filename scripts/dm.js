@@ -7722,6 +7722,17 @@ function initDMLogin(){
         return;
       }
 
+      if (!isAuthorizedDevice()) {
+        closeLogin();
+        const error = new Error('unauthorized-device');
+        error.code = 'unauthorized-device';
+        if (typeof toast === 'function') {
+          toast('This device is not authorized to access the DM tools.', 'error');
+        }
+        reject(error);
+        return;
+      }
+
       // If the modal elements are missing, fall back to a simple prompt so
       // the promise always resolves and loading doesn't hang.
       if (!loginModal || !loginPin || !loginSubmit) {
