@@ -11,13 +11,15 @@
     "build:header": "esbuild src/header-title.jsx --bundle --format=esm --minify --outfile=scripts/header-title.js",
     "build:titles": "esbuild src/animated-titles.jsx --bundle --format=esm --minify --outfile=scripts/animated-titles.js",
     "build:dice": "esbuild src/dice-result.jsx --bundle --format=esm --minify --outfile=scripts/dice-result.js",
-    "build": "npm run build:levels && npm run build:catalog && npm run build:header && npm run build:titles && npm run build:dice && npm run build:media && npm run build:manifest"
+    "build": "npm run build:levels && npm run build:catalog && npm run build:header && npm run build:titles && npm run build:dice && npm run build:media && npm run build:fonts && npm run build:manifest",
+    "build:fonts": "node tools/generate-fonts.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.0.5",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "ttf2woff2": "^8.0.0"
   },
   "jest": {
     "testEnvironment": "jsdom"
