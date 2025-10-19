@@ -9633,26 +9633,67 @@ const TRACKER_STATUS_LABELS = {
   critical: 'Critical',
 };
 
-function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
+function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, options = {}){
   if (!progressEl) return;
+  const { color: forcedColor = null, statusMap = TRACKER_STATUS_LABELS, statusResolver = null } = options;
+  const gaugeRoot = typeof progressEl.closest === 'function' ? progressEl.closest('.tracker-gauge') : null;
   const numericCurrent = Number(currentValue);
   const numericMax = Number(maxValue);
-  const ratio = Number.isFinite(numericCurrent) && Number.isFinite(numericMax) && numericMax > 0
-    ? Math.min(Math.max(numericCurrent / numericMax, 0), 1)
-    : 0;
-  const hue = Math.round(120 * ratio);
-  const color = `hsl(${hue}deg 68% 46%)`;
-  progressEl.style.setProperty('--progress-color', color);
-  const status = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
-  progressEl.dataset.status = status;
-  if (labelEl) {
-    labelEl.style.setProperty('--progress-color', color);
-    labelEl.dataset.status = status;
-    const statusLabel = TRACKER_STATUS_LABELS[status] || '';
-    const statusEl = labelEl.querySelector('.tracker-progress__status');
-    if (statusEl) {
-      statusEl.textContent = statusLabel;
-      statusEl.dataset.status = status;
+  const hasValidCurrent = Number.isFinite(numericCurrent);
+  const hasValidMax = Number.isFinite(numericMax) && numericMax > 0;
+  const safeCurrent = hasValidCurrent ? numericCurrent : 0;
+  const safeMax = hasValidMax ? numericMax : (hasValidCurrent ? Math.max(numericCurrent, 0) || 1 : 1);
+  const ratio = safeMax > 0 ? Math.min(Math.max(safeCurrent / safeMax, 0), 1) : 0;
+  const defaultHue = Math.round(120 * ratio);
+  const color = forcedColor || `hsl(${defaultHue}deg 68% 46%)`;
+
+  if (hasValidCurrent) progressEl.value = numericCurrent;
+  if (hasValidMax) progressEl.max = numericMax;
+
+  if (gaugeRoot) {
+    gaugeRoot.style.setProperty('--gauge-progress', Number.isFinite(ratio) ? ratio.toFixed(4) : '0');
+    gaugeRoot.style.setProperty('--gauge-color', color);
+  } else {
+    progressEl.style.setProperty('--progress-color', color);
+  }
+
+  let statusKey = '';
+  if (typeof statusResolver === 'function') {
+    statusKey = statusResolver({ ratio, current: safeCurrent, max: safeMax }) || '';
+  } else {
+    statusKey = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
+  }
+
+  if (gaugeRoot) {
+    if (statusKey) {
+      gaugeRoot.dataset.status = statusKey;
+    } else {
+      delete gaugeRoot.dataset.status;
+    }
+  }
+
+  if (statusKey) {
+    progressEl.dataset.status = statusKey;
+  } else if (progressEl.dataset && progressEl.dataset.status) {
+    delete progressEl.dataset.status;
+  }
+
+  if (!labelEl) return;
+  labelEl.style.setProperty('--gauge-color', color);
+  if (statusKey) {
+    labelEl.dataset.status = statusKey;
+  } else if (labelEl.dataset && labelEl.dataset.status) {
+    delete labelEl.dataset.status;
+  }
+
+  const statusEl = labelEl.querySelector('.tracker-progress__status, .tracker-gauge__status');
+  if (statusEl) {
+    const statusLabel = statusMap?.[statusKey] || (statusKey ? statusKey : '');
+    statusEl.textContent = statusLabel;
+    if (statusKey) {
+      statusEl.dataset.status = statusKey;
+    } else if (statusEl.dataset && statusEl.dataset.status) {
+      delete statusEl.dataset.status;
     }
   }
 }
@@ -10195,7 +10236,7 @@ function updateHPDisplay({ current, max } = {}){
   if (elHPMax) elHPMax.textContent = maxValue;
   const hpDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
   if (elHPPill) {
-    const valueEl = elHPPill.querySelector('.tracker-progress__value');
+    const valueEl = elHPPill.querySelector('.tracker-gauge__value, .tracker-progress__value');
     if (valueEl) valueEl.textContent = hpDisplay;
     else elHPPill.textContent = hpDisplay;
   }
@@ -10212,7 +10253,7 @@ function updateSPDisplay({ current, max } = {}){
   if (elSPMax) elSPMax.textContent = maxValue;
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
   if (elSPPill) {
-    const valueEl = elSPPill.querySelector('.tracker-progress__value');
+    const valueEl = elSPPill.querySelector('.tracker-gauge__value, .tracker-progress__value');
     if (valueEl) valueEl.textContent = spDisplay;
     else elSPPill.textContent = spDisplay;
   }
@@ -12225,6 +12266,10 @@ const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(i
 const deathOut = $('death-save-out');
 const deathRollMode = $('death-save-mode');
 const deathModifierInput = $('death-save-mod');
+const deathSuccessProgress = $('death-success-progress');
+const deathFailProgress = $('death-fail-progress');
+const deathSuccessPill = $('death-success-pill');
+const deathFailPill = $('death-fail-pill');
 let deathState = null; // null, 'stable', 'dead'
 const deathOutAnimationClass = 'death-save-result--pulse';
 
@@ -12265,6 +12310,41 @@ function setDeathSaveOutput({ total, modifier, appliedMode, rolls, resolution })
   }
 }
 
+function countCheckedBoxes(boxes = []){
+  return boxes.reduce((total, box) => total + (box && box.checked ? 1 : 0), 0);
+}
+
+function updateDeathGauge(progressEl, labelEl, count, { color, statusResolver } = {}){
+  if (!progressEl) return;
+  const totalRaw = Number(progressEl.max);
+  const total = Number.isFinite(totalRaw) && totalRaw > 0 ? totalRaw : 3;
+  const numericCount = Number(count);
+  const safeCount = Number.isFinite(numericCount)
+    ? Math.min(Math.max(numericCount, 0), total)
+    : 0;
+  progressEl.value = safeCount;
+  progressEl.setAttribute('aria-valuetext', `${safeCount} of ${total}`);
+  const valueTarget = labelEl ? labelEl.querySelector('.tracker-gauge__value, .tracker-progress__value') : null;
+  if (valueTarget) valueTarget.textContent = `${safeCount}/${total}`;
+  applyProgressGradient(progressEl, labelEl, safeCount, total, { color, statusResolver });
+}
+
+function syncDeathSaveVisuals(){
+  const successCount = countCheckedBoxes(deathSuccesses);
+  const failureCount = countCheckedBoxes(deathFailures);
+  if (deathSuccessProgress) {
+    updateDeathGauge(deathSuccessProgress, deathSuccessPill, successCount, {
+      color: 'var(--success,#22c55e)',
+    });
+  }
+  if (deathFailProgress) {
+    updateDeathGauge(deathFailProgress, deathFailPill, failureCount, {
+      color: 'var(--error,#f87171)',
+      statusResolver: ({ ratio }) => (ratio <= 0.33 ? 'healthy' : ratio <= 0.66 ? 'wounded' : 'critical'),
+    });
+  }
+}
+
 function markBoxes(arr, n){
   for(const box of arr){
     if(!box.checked){
@@ -12273,6 +12353,7 @@ function markBoxes(arr, n){
       if(n<=0) break;
     }
   }
+  syncDeathSaveVisuals();
 }
 
 function resetDeathSaves(){
@@ -12291,10 +12372,12 @@ function resetDeathSaves(){
       delete deathOut.dataset.rollModeSources;
     }
   }
+  syncDeathSaveVisuals();
 }
 $('death-save-reset')?.addEventListener('click', resetDeathSaves);
 
 async function checkDeathProgress(){
+  syncDeathSaveVisuals();
   if(deathFailures.every(b=>b.checked)){
     if(deathState!=='dead'){
       deathState='dead';
@@ -12311,8 +12394,10 @@ async function checkDeathProgress(){
   }else{
     deathState=null;
   }
+  syncDeathSaveVisuals();
 }
 [...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
+syncDeathSaveVisuals();
 
 $('roll-death-save')?.addEventListener('click', ()=>{
   const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';

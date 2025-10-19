@@ -666,23 +666,81 @@
       <legend data-animate-title>Death Saves</legend>
       <div class="death-saves-grid">
         <div class="death-save-tracks">
-          <div class="death-save-group">
-            <span>Successes</span>
-            <label for="death-success-1" class="sr-only">Success 1</label>
-            <input type="checkbox" id="death-success-1"/>
-            <label for="death-success-2" class="sr-only">Success 2</label>
-            <input type="checkbox" id="death-success-2"/>
-            <label for="death-success-3" class="sr-only">Success 3</label>
-            <input type="checkbox" id="death-success-3"/>
+          <div class="death-save-group" data-death-track="success">
+            <span class="death-save-group__title">Successes</span>
+            <div class="death-save-group__meter tracker-progress tracker-progress--linear">
+              <div class="tracker-gauge tracker-gauge--linear" data-progress-gauge>
+                <progress
+                  id="death-success-progress"
+                  class="tracker-gauge__progress"
+                  max="3"
+                  value="0"
+                  aria-label="Death save successes"
+                ></progress>
+                <div class="tracker-gauge__meter tracker-gauge__meter--bar" aria-hidden="true">
+                  <div class="tracker-gauge__arc tracker-gauge__arc--bar"></div>
+                  <div class="tracker-gauge__ticks"></div>
+                </div>
+                <div id="death-success-pill" class="tracker-gauge__labels">
+                  <span class="tracker-gauge__value tracker-progress__value">0/3</span>
+                </div>
+              </div>
+            </div>
+            <div class="death-save-track" role="group" aria-label="Death save successes">
+              <label class="death-save-pip">
+                <input type="checkbox" id="death-success-1"/>
+                <span class="death-save-pip__visual" aria-hidden="true"></span>
+                <span class="sr-only">Success 1</span>
+              </label>
+              <label class="death-save-pip">
+                <input type="checkbox" id="death-success-2"/>
+                <span class="death-save-pip__visual" aria-hidden="true"></span>
+                <span class="sr-only">Success 2</span>
+              </label>
+              <label class="death-save-pip">
+                <input type="checkbox" id="death-success-3"/>
+                <span class="death-save-pip__visual" aria-hidden="true"></span>
+                <span class="sr-only">Success 3</span>
+              </label>
+            </div>
           </div>
-          <div class="death-save-group">
-            <span>Failures</span>
-            <label for="death-fail-1" class="sr-only">Failure 1</label>
-            <input type="checkbox" id="death-fail-1"/>
-            <label for="death-fail-2" class="sr-only">Failure 2</label>
-            <input type="checkbox" id="death-fail-2"/>
-            <label for="death-fail-3" class="sr-only">Failure 3</label>
-            <input type="checkbox" id="death-fail-3"/>
+          <div class="death-save-group" data-death-track="failure">
+            <span class="death-save-group__title">Failures</span>
+            <div class="death-save-group__meter tracker-progress tracker-progress--linear">
+              <div class="tracker-gauge tracker-gauge--linear" data-progress-gauge>
+                <progress
+                  id="death-fail-progress"
+                  class="tracker-gauge__progress"
+                  max="3"
+                  value="0"
+                  aria-label="Death save failures"
+                ></progress>
+                <div class="tracker-gauge__meter tracker-gauge__meter--bar" aria-hidden="true">
+                  <div class="tracker-gauge__arc tracker-gauge__arc--bar"></div>
+                  <div class="tracker-gauge__ticks"></div>
+                </div>
+                <div id="death-fail-pill" class="tracker-gauge__labels">
+                  <span class="tracker-gauge__value tracker-progress__value">0/3</span>
+                </div>
+              </div>
+            </div>
+            <div class="death-save-track" role="group" aria-label="Death save failures">
+              <label class="death-save-pip">
+                <input type="checkbox" id="death-fail-1"/>
+                <span class="death-save-pip__visual" aria-hidden="true"></span>
+                <span class="sr-only">Failure 1</span>
+              </label>
+              <label class="death-save-pip">
+                <input type="checkbox" id="death-fail-2"/>
+                <span class="death-save-pip__visual" aria-hidden="true"></span>
+                <span class="sr-only">Failure 2</span>
+              </label>
+              <label class="death-save-pip">
+                <input type="checkbox" id="death-fail-3"/>
+                <span class="death-save-pip__visual" aria-hidden="true"></span>
+                <span class="sr-only">Failure 3</span>
+              </label>
+            </div>
           </div>
         </div>
         <span
@@ -733,12 +791,18 @@
               </div>
             </div>
             <span id="hp-temp-pill" class="hp-field__temp" hidden>+0 Temp</span>
-            <div class="hp-field__progress tracker-progress bar-label">
-              <progress id="hp-bar" class="hp-field__progress-bar" max="30" value="30" aria-label="HP remaining"></progress>
-              <span id="hp-pill" class="hp-field__progress-label tracker-progress__label">
-                <span class="tracker-progress__value">30/30</span>
-                <span class="tracker-progress__status" aria-live="polite" role="status"></span>
-              </span>
+            <div class="hp-field__progress tracker-progress">
+              <div class="tracker-gauge" data-progress-gauge>
+                <progress id="hp-bar" class="tracker-gauge__progress" max="30" value="30" aria-label="HP remaining"></progress>
+                <div class="tracker-gauge__meter" aria-hidden="true">
+                  <div class="tracker-gauge__arc"></div>
+                  <div class="tracker-gauge__ticks"></div>
+                </div>
+                <div id="hp-pill" class="tracker-gauge__labels">
+                  <span class="tracker-gauge__value tracker-progress__value">30/30</span>
+                  <span class="tracker-gauge__status tracker-progress__status" aria-live="polite" role="status"></span>
+                </div>
+              </div>
             </div>
           </div>
           <div class="hp-field__controls">
@@ -783,12 +847,18 @@
               </div>
             </div>
             <span id="sp-temp-pill" class="sp-field__temp" hidden>+0 Temp</span>
-            <div class="sp-field__progress tracker-progress bar-label">
-              <progress id="sp-bar" class="sp-field__progress-bar" max="5" value="5" aria-label="SP remaining"></progress>
-              <span id="sp-pill" class="sp-field__progress-label tracker-progress__label">
-                <span class="tracker-progress__value">5/5</span>
-                <span class="tracker-progress__status" aria-live="polite" role="status"></span>
-              </span>
+            <div class="sp-field__progress tracker-progress">
+              <div class="tracker-gauge" data-progress-gauge>
+                <progress id="sp-bar" class="tracker-gauge__progress" max="5" value="5" aria-label="SP remaining"></progress>
+                <div class="tracker-gauge__meter" aria-hidden="true">
+                  <div class="tracker-gauge__arc"></div>
+                  <div class="tracker-gauge__ticks"></div>
+                </div>
+                <div id="sp-pill" class="tracker-gauge__labels">
+                  <span class="tracker-gauge__value tracker-progress__value">5/5</span>
+                  <span class="tracker-gauge__status tracker-progress__status" aria-live="polite" role="status"></span>
+                </div>
+              </div>
             </div>
           </div>
           <div class="sp-field__controls">
