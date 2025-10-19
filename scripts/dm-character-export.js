@@ -64,13 +64,15 @@ function formatSpCost(spCost) {
   return `${value} SP`;
 }
 
-function normalizePowerEntry(entry = {}, fallback) {
+function normalizePowerEntry(entry, fallback) {
+  const source = entry && typeof entry === 'object' ? entry : {};
+
   const normalized = {
-    name: toDisplayValue(entry.name ?? fallback ?? ''),
-    style: toDisplayValue(entry.style ?? ''),
-    action: toDisplayValue(entry.actionType ?? entry.action ?? ''),
-    intensity: toDisplayValue(entry.intensity ?? ''),
-    uses: toDisplayValue(entry.uses ?? ''),
+    name: toDisplayValue(source.name ?? fallback ?? ''),
+    style: toDisplayValue(source.style ?? ''),
+    action: toDisplayValue(source.actionType ?? source.action ?? ''),
+    intensity: toDisplayValue(source.intensity ?? ''),
+    uses: toDisplayValue(source.uses ?? ''),
     cost: '',
     sp: '',
     save: '',
@@ -80,27 +82,27 @@ function normalizePowerEntry(entry = {}, fallback) {
   };
 
   const isModern = (
-    entry && typeof entry === 'object'
-    && (entry.rulesText !== undefined
-      || entry.effectTag !== undefined
-      || entry.spCost !== undefined
-      || entry.intensity !== undefined
-      || entry.actionType !== undefined
-      || entry.signature !== undefined)
+    source
+    && (source.rulesText !== undefined
+      || source.effectTag !== undefined
+      || source.spCost !== undefined
+      || source.intensity !== undefined
+      || source.actionType !== undefined
+      || source.signature !== undefined)
   );
 
   if (isModern) {
-    normalized.cost = toDisplayValue(entry.cost ?? formatSpCost(entry.spCost));
-    if (!normalized.cost) normalized.cost = formatSpCost(entry.spCost);
-    normalized.save = entry.requiresSave ? toDisplayValue(entry.saveAbilityTarget ?? entry.save ?? '') : '';
-    normalized.rules = toDisplayValue(entry.rulesText ?? '');
-    normalized.description = toDisplayValue(entry.description ?? '');
-    normalized.special = toDisplayValue(entry.special ?? '');
+    normalized.cost = toDisplayValue(source.cost ?? formatSpCost(source.spCost));
+    if (!normalized.cost) normalized.cost = formatSpCost(source.spCost);
+    normalized.save = source.requiresSave ? toDisplayValue(source.saveAbilityTarget ?? source.save ?? '') : '';
+    normalized.rules = toDisplayValue(source.rulesText ?? '');
+    normalized.description = toDisplayValue(source.description ?? '');
+    normalized.special = toDisplayValue(source.special ?? '');
   } else {
-    const legacyDesc = entry?.description ?? entry?.desc ?? '';
-    normalized.sp = toDisplayValue(entry?.sp ?? '');
-    normalized.save = toDisplayValue(entry?.save ?? '');
-    normalized.special = toDisplayValue(entry?.special ?? '');
+    const legacyDesc = source?.description ?? source?.desc ?? '';
+    normalized.sp = toDisplayValue(source?.sp ?? '');
+    normalized.save = toDisplayValue(source?.save ?? '');
+    normalized.special = toDisplayValue(source?.special ?? '');
     normalized.description = toDisplayValue(legacyDesc);
   }
 
