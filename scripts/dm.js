@@ -2633,8 +2633,11 @@ function initDMLogin(){
     if (logEntries.length) {
       ensureCampaignLog();
       logEntries.forEach(entry => save.campaignLog.push(entry));
-      appendQuickRewardHistory(logEntries);
-      renderQuickRewardHistory();
+      const historyEntries = logEntries.map(entry => ({ ...entry }));
+      postSaveActions.push(() => {
+        appendQuickRewardHistory(historyEntries);
+        renderQuickRewardHistory();
+      });
     }
 
     await saveCloud(target, save);
