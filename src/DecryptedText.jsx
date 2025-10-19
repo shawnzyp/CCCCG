@@ -54,7 +54,8 @@ const VARIANT_PRESETS = {
 
 const mergeClassNames = (...values) => values.filter(Boolean).join(' ');
 
-export default function DecryptedText({
+function ScramblingDecryptedText({
+  prefersReducedMotion,
   text,
   speed = 50,
   maxIterations = 10,
@@ -71,7 +72,6 @@ export default function DecryptedText({
   onScrambleComplete,
   ...props
 }) {
-  const prefersReducedMotion = useReducedMotion();
   const [displayText, setDisplayText] = useState(text);
   const [measurementText, setMeasurementText] = useState(text);
   const [isHovering, setIsHovering] = useState(false);
@@ -726,5 +726,89 @@ export default function DecryptedText({
         })}
       </span>
     </motion.span>
+  );
+}
+
+function StaticDecryptedText({
+  text,
+  className = '',
+  parentClassName = '',
+  encryptedClassName = '',
+  variant,
+  ...props
+}) {
+  const variantPreset = variant ? VARIANT_PRESETS[variant] ?? null : null;
+  const resolvedParentClassName = mergeClassNames(parentClassName, variantPreset?.parentClassName);
+  const resolvedClassName = mergeClassNames(className, variantPreset?.className);
+
+  return (
+    <span
+      className={resolvedParentClassName}
+      style={styles.wrapper}
+      {...props}
+      data-variant={variant ?? undefined}
+    >
+      <span style={styles.srOnly}>{text}</span>
+      <span
+        aria-hidden="true"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'inherit',
+          justifyContent: 'inherit',
+          gap: 'inherit',
+          letterSpacing: 'inherit'
+        }}
+      >
+        {text.split('').map((char, index) => (
+          <span
+            key={index}
+            className={resolvedClassName}
+            data-char={char === ' ' ? 'space' : char}
+          >
+            {char}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+export default function DecryptedText(props) {
+  const {
+    animateOn = 'hover',
+    onScrambleStart,
+    onScrambleComplete,
+    ...rest
+  } = props;
+  const prefersReducedMotion = useReducedMotion();
+  const hasWindow = typeof window !== 'undefined';
+  const hasDocument = typeof document !== 'undefined';
+  const requiresInView = animateOn === 'view' || animateOn === 'both';
+  const supportsIntersectionObserver =
+    !requiresInView || (hasWindow && typeof window.IntersectionObserver === 'function');
+  const canAnimate =
+    !prefersReducedMotion &&
+    hasWindow &&
+    hasDocument &&
+    supportsIntersectionObserver;
+
+  useEffect(() => {
+    if (!canAnimate && typeof onScrambleComplete === 'function') {
+      onScrambleComplete();
+    }
+  }, [canAnimate, onScrambleComplete]);
+
+  if (!canAnimate) {
+    return <StaticDecryptedText {...rest} />;
+  }
+
+  return (
+    <ScramblingDecryptedText
+      {...rest}
+      animateOn={animateOn}
+      onScrambleStart={onScrambleStart}
+      onScrambleComplete={onScrambleComplete}
+      prefersReducedMotion={prefersReducedMotion}
+    />
   );
 }
