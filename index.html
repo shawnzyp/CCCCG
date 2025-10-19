@@ -498,11 +498,13 @@
     </button>
     <span class="tabs-title"><span class="tabs-title__label">Catalyst Core</span></span>
     <div class="dropdown">
-      <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
-        </svg>
-      </button>
+      <div class="menu-toggle" data-state="closed">
+        <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
+          </svg>
+        </button>
+      </div>
       <button
         id="cloud-sync-status"
         class="sync-status-indicator"
@@ -520,14 +522,16 @@
           <span data-sync-status-label>Online</span>
         </span>
       </button>
-      <div id="menu-actions" class="menu" hidden>
-        <button id="btn-load" class="btn-sm">Load / Save</button>
-        <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
-        <button id="btn-log" class="btn-sm">Action Log</button>
-        <button id="btn-credits-ledger" class="btn-sm">Credits Ledger</button>
-        <button id="btn-campaign" class="btn-sm">Campaign Log</button>
-        <button id="btn-rules" class="btn-sm">Rules</button>
-        <button id="btn-help" class="btn-sm">Help</button>
+      <div class="menu-surface" data-state="closed">
+        <div id="menu-actions" class="menu" hidden data-state="closed">
+          <button id="btn-load" class="btn-sm">Load / Save</button>
+          <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
+          <button id="btn-log" class="btn-sm">Action Log</button>
+          <button id="btn-credits-ledger" class="btn-sm">Credits Ledger</button>
+          <button id="btn-campaign" class="btn-sm">Campaign Log</button>
+          <button id="btn-rules" class="btn-sm">Rules</button>
+          <button id="btn-help" class="btn-sm">Help</button>
+        </div>
       </div>
     </div>
   </div>
