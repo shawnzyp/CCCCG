@@ -4004,76 +4004,159 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 .ability-grid{display:grid;gap:clamp(10px,3vw,16px);grid-template-columns:repeat(auto-fit,minmax(clamp(140px,36vw,200px),1fr))}
 #abil-grid{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,26vw,140px),1fr))}
 
-.ability-box{
+.ability-card{
+  --ability-progress:.5;
   border:1px solid var(--line);
   border-radius:var(--radius);
   padding:8px;
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:6px;
-}
-
-.ability-box label,
-.ability-box .ability-label{
-  margin-bottom:0;
-}
-
-/* Ensure skill names like "Sleight of Hand" fit on one line */
-#skills{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,28vw,150px),1fr))}
-#skills .ability-box label,
-#skills .ability-box .ability-label{
-  font-size:0.8rem;
-  text-align:center;
-  white-space:normal;
-  line-height:1.2;
-}
-
-#saves{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,28vw,150px),1fr))}
-#saves .ability-box label,
-#saves .ability-box .ability-label{
-  font-size:0.8rem;
-  text-align:center;
-  white-space:normal;
-  line-height:1.2;
-}
-
-.ability-box .score{
+  gap:clamp(6px,1.8vw,10px);
+  background:var(--surface-2);
   position:relative;
-  width:100%;
+  transition:border-color .3s ease,box-shadow .3s ease,background .3s ease;
 }
 
-.ability-box select{
+.ability-card__label{
+  margin-bottom:0;
+  font-weight:600;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  text-align:center;
+}
+
+.ability-card__control{width:100%;}
+.ability-card__control select,
+.ability-card select{
   width:100%;
   height:72px;
   font-size:1.8rem;
   text-align:center;
 }
 
-.ability-box .score-val{
+.ability-card__dial{
+  position:relative;
+  width:100%;
+  min-height:64px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:var(--surface-1);
   display:flex;
   align-items:center;
   justify-content:center;
-  width:100%;
-  height:64px;
-  font-size:1.6rem;
-  border:1px solid var(--line);
-  border-radius:var(--radius);
+  overflow:hidden;
 }
+
+.ability-card__value{
+  font-size:1.6rem;
+  font-weight:600;
+  font-variant-numeric:tabular-nums;
+  position:relative;
+  z-index:1;
+}
+
+.ability-card__meta,
+.ability-card__action,
+.ability-card__result{width:100%;}
+
+.ability-card__action{align-self:stretch;}
+
+.ability-card__result{text-align:center;}
+
+/* Ensure skill names like "Sleight of Hand" fit on one line */
+#skills{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,28vw,150px),1fr))}
+#skills .ability-card__label{
+  font-size:.8rem;
+  text-align:center;
+  white-space:normal;
+  line-height:1.2;
+}
+
+#saves{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,28vw,150px),1fr))}
+#saves .ability-card__label{
+  font-size:.8rem;
+  text-align:center;
+  white-space:normal;
+  line-height:1.2;
+}
+
+.ability-card .score-val{display:flex;align-items:center;justify-content:center;width:100%;height:64px;font-size:1.6rem;}
 .proficiency-card__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--control-gap);margin-top:8px}
 .proficiency-card__field{display:flex;flex-direction:column;gap:6px}
 .proficiency-card__hidden{display:none}
 
-.ability-box .mod{
-  position:absolute;
-  bottom:4px;
-  right:4px;
-  padding:4px 6px;
-  border:1px solid var(--accent);
-  border-radius:var(--radius);
-  background:var(--surface-2);
-  color:var(--accent);
-  font-size:.85rem;
+@supports (background:conic-gradient(from 0deg,#000 0deg,#000 0deg)){
+  .ability-card{
+    --ability-progress-angle:calc(var(--ability-progress, .5)*360deg);
+    --ability-card-arc:rgba(136,186,255,.85);
+    --ability-card-glow:rgba(136,186,255,.3);
+    padding:12px;
+    border-radius:18px;
+    border:1px solid rgba(255,255,255,.18);
+    background:
+      linear-gradient(140deg,rgba(255,255,255,.22),rgba(255,255,255,0) 55%),
+      radial-gradient(120% 120% at 50% 0%,rgba(255,255,255,.12),rgba(255,255,255,0) 70%),
+      var(--surface-3, var(--surface-2));
+    box-shadow:0 12px 28px rgba(14,21,47,.28);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+  }
+
+  .ability-card__dial{
+    aspect-ratio:1/1;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.16);
+    background:rgba(14,21,47,.4);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 0 0 1px rgba(14,21,47,.2);
+  }
+
+  .ability-card__dial::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    background:
+      conic-gradient(var(--ability-card-arc) var(--ability-progress-angle),rgba(136,186,255,.12) var(--ability-progress-angle)),
+      radial-gradient(circle at 50% 50%,rgba(255,255,255,.25),rgba(255,255,255,0) 60%),
+      linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,0));
+    mix-blend-mode:screen;
+    transition:background .35s ease;
+  }
+
+  .ability-card__dial::after{
+    content:"";
+    position:absolute;
+    inset:14%;
+    border-radius:inherit;
+    background:radial-gradient(circle at 50% 50%,var(--ability-card-glow),rgba(255,255,255,0) 70%);
+    opacity:0;
+    transform:scale(.92);
+    transition:opacity .3s ease,transform .3s ease;
+    pointer-events:none;
+  }
+
+  .ability-card--buffed{--ability-card-arc:rgba(104,236,186,.9);--ability-card-glow:rgba(104,236,186,.4);border-color:rgba(104,236,186,.45);box-shadow:0 14px 32px rgba(40,210,150,.28);}
+  .ability-card--debuffed{--ability-card-arc:rgba(255,134,134,.9);--ability-card-glow:rgba(255,134,134,.36);border-color:rgba(255,134,134,.45);box-shadow:0 14px 32px rgba(220,64,64,.32);}
+
+  .ability-card--buffed .ability-card__dial::after,
+  .ability-card--debuffed .ability-card__dial::after{
+    opacity:1;
+    transform:scale(1);
+    animation:abilityCardPulse 1.6s ease-in-out infinite;
+  }
+
+  .ability-card__value{font-size:2rem;text-shadow:0 4px 12px rgba(0,0,0,.35);}
+}
+
+@keyframes abilityCardPulse{
+  0%,100%{opacity:.35;transform:scale(.92);}
+  50%{opacity:.95;transform:scale(1);}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .ability-card--buffed .ability-card__dial::after,
+  .ability-card--debuffed .ability-card__dial::after{animation-duration:3.2s;}
 }
 
 #hp-roll-list{
