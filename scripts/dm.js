@@ -509,9 +509,62 @@ function initDMLogin(){
   const PLAYER_CREDIT_STORAGE_KEY = 'cc_dm_card';
   const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
   const PLAYER_CREDIT_HISTORY_LIMIT = 10;
+  const PLAYER_CREDIT_ALLOWED_MESSAGE_ORIGINS = (() => {
+    if (typeof window === 'undefined') return new Set();
+    const configured = (() => {
+      if (Array.isArray(window.CC_DM_PLAYER_ALLOWED_ORIGINS) && window.CC_DM_PLAYER_ALLOWED_ORIGINS.length > 0) {
+        return window.CC_DM_PLAYER_ALLOWED_ORIGINS;
+      }
+      if (Array.isArray(window.CC_PLAYER_ALLOWED_ORIGINS) && window.CC_PLAYER_ALLOWED_ORIGINS.length > 0) {
+        return window.CC_PLAYER_ALLOWED_ORIGINS;
+      }
+      return null;
+    })();
+    const origins = [];
+    const pushOrigin = (origin) => {
+      const normalized = normalizePlayerCreditOrigin(origin);
+      if (normalized) {
+        origins.push(normalized);
+      }
+    };
+    if (Array.isArray(configured)) {
+      configured.forEach(pushOrigin);
+    }
+    if (!origins.length && window.location && typeof window.location.origin === 'string') {
+      pushOrigin(window.location.origin);
+    }
+    if (!origins.length && window.location && window.location.origin === 'null') {
+      pushOrigin('null');
+    }
+    return new Set(origins);
+  })();
   let playerCreditBroadcastChannel = null;
   let playerCreditBroadcastListenerAttached = false;
   let playerCreditHistory = [];
+
+  function normalizePlayerCreditOrigin(origin) {
+    if (typeof origin !== 'string') return '';
+    const trimmed = origin.trim();
+    if (!trimmed || trimmed === '*') return '';
+    if (trimmed === 'null') return 'null';
+    try {
+      return new URL(trimmed, typeof window !== 'undefined' ? window.location.href : undefined).origin;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  function isTrustedPlayerCreditMessage(event) {
+    if (!event || typeof window === 'undefined') return false;
+    if (event.source !== window) return false;
+    const origin = normalizePlayerCreditOrigin(event.origin || '');
+    if (!origin) return false;
+    if (!PLAYER_CREDIT_ALLOWED_MESSAGE_ORIGINS.size) {
+      const fallback = normalizePlayerCreditOrigin(window.location?.origin || '');
+      return origin === fallback && fallback !== '';
+    }
+    return PLAYER_CREDIT_ALLOWED_MESSAGE_ORIGINS.has(origin);
+  }
 
   function creditPad(n) {
     return String(n).padStart(2, '0');
@@ -832,7 +885,7 @@ function initDMLogin(){
   }
 
   function handlePlayerCreditWindowMessage(event) {
-    if (!event) return;
+    if (!event || !isTrustedPlayerCreditMessage(event)) return;
     const data = event.data;
     if (!data || typeof data !== 'object') return;
     if (data.type !== 'CC_PLAYER_UPDATE') return;
