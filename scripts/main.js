@@ -6746,6 +6746,20 @@ if (btnMenu && menuActions) {
   let hideMenuTimer = null;
   let pendingHideListener = null;
   let isMenuOpen = !menuActions.hidden;
+  const menuToggleContainer = btnMenu.closest('.menu-toggle');
+  const menuSurfaceContainer = menuActions.closest('.menu-surface');
+
+  const setMenuState = state => {
+    [menuToggleContainer, menuSurfaceContainer, menuActions].forEach(el => {
+      if (!el) return;
+      el.dataset.state = state;
+      if (state === 'open' || state === 'closed') {
+        el.removeAttribute('data-loading');
+      }
+    });
+  };
+
+  setMenuState(isMenuOpen ? 'open' : 'closed');
 
   const clearHideMenuCleanup = () => {
     if (pendingHideListener) {
@@ -6766,6 +6780,7 @@ if (btnMenu && menuActions) {
     menuActions.hidden = true;
     btnMenu.setAttribute('aria-expanded', 'false');
     btnMenu.classList.remove('open');
+    setMenuState('closed');
     if (shouldRestoreFocus && typeof btnMenu.focus === 'function') {
       try {
         btnMenu.focus({ preventScroll: true });
@@ -6790,6 +6805,7 @@ if (btnMenu && menuActions) {
     }
     isMenuOpen = false;
     resetMenuButtonDelays();
+    setMenuState(immediate ? 'closed' : 'closing');
     const onTransitionEnd = event => {
       if (event.target === menuActions) finalizeHide();
     };
@@ -6810,6 +6826,7 @@ if (btnMenu && menuActions) {
     clearHideMenuCleanup();
     isMenuOpen = true;
     menuActions.hidden = false;
+    setMenuState('opening');
     const shouldFocusFirst = document.activeElement === btnMenu;
     requestAnimationFrame(() => {
       const buttons = Array.from(menuActions.querySelectorAll('button')).filter(btn => {
@@ -6822,6 +6839,10 @@ if (btnMenu && menuActions) {
         btn.style.setProperty('--menu-item-index', index);
       });
       menuActions.classList.add('show');
+      requestAnimationFrame(() => {
+        if (!isMenuOpen) return;
+        setMenuState('open');
+      });
       if (shouldFocusFirst) {
         const firstFocusable = menuActions.querySelector('button, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
         if (firstFocusable && typeof firstFocusable.focus === 'function') {

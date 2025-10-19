@@ -113,10 +113,12 @@ header::before{content:none}
 .actions{display:flex;gap:var(--control-gap);flex-wrap:wrap}
 .actions.actions--center{justify-content:center}
 .dropdown{position:relative;display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto;justify-self:end;grid-area:menu;gap:clamp(8px,2vw,14px)}
+.menu-toggle{display:flex;align-items:center;flex:0 0 auto}
+.menu-surface{position:relative;flex:0 0 auto}
 .menu{position:absolute;top:calc(100% + 4px);right:0;display:flex;flex-direction:column;background:var(--surface-2);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);z-index:50;opacity:0;transform:translateY(-8px) scale(.99);visibility:hidden;transition:opacity .24s cubic-bezier(.22,1,.36,1),transform .24s cubic-bezier(.22,1,.36,1);pointer-events:none;transform-origin:top right;will-change:opacity,transform;--menu-item-stagger:80ms}
-.menu.show{opacity:1;transform:translateY(0) scale(1);visibility:visible;pointer-events:auto}
+.menu.show,.menu[data-state="opening"],.menu[data-state="open"]{opacity:1;transform:translateY(0) scale(1);visibility:visible;pointer-events:auto}
 .menu button{background:transparent;color:var(--text);border:none;padding:clamp(6px,2.2vw,10px) clamp(10px,3.6vw,14px);text-align:left;font-weight:400;min-height:auto;white-space:nowrap;--menu-item-index:0;animation:menuItemDrop .3s cubic-bezier(.22,1,.36,1);animation-delay:calc(var(--menu-item-index, 0) * var(--menu-item-stagger, 80ms));animation-fill-mode:both;animation-play-state:paused}
-.menu.show button{animation-play-state:running}
+.menu.show button,.menu[data-state="opening"] button,.menu[data-state="open"] button{animation-play-state:running}
 body:not(.no-hover) .menu button:hover{background:var(--accent);color:var(--text-on-accent)}
 .menu .btn-sm{justify-content:flex-start}
 
@@ -135,7 +137,7 @@ body:not(.no-hover) .menu button:hover{background:var(--accent);color:var(--text
 .icon svg,.tab svg{width:var(--icon-size);height:var(--icon-size)}
 .modal .x svg{width:18px;height:18px}
 .icon svg{transition:transform .3s ease}
-#btn-menu.open svg{transform:rotate(90deg)}
+.menu-toggle[data-state="opening"] svg,.menu-toggle[data-state="open"] svg,.menu-toggle[data-state="closing"] svg{transform:rotate(90deg)}
 body:not(.no-hover) .icon:hover,body:not(.no-hover) .tab:hover{background:var(--accent);color:var(--text-on-accent);transform:translateY(-1px)}
 .icon:active{transform:translateY(1px)}
 .modal .x:focus-visible,a:focus-visible{outline:2px solid var(--modal-accent-color,var(--accent));outline-offset:2px}
