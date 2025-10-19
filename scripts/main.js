@@ -12524,15 +12524,25 @@ function playCoinAnimation(result){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('coin-animation');
   if(!anim) return Promise.resolve();
+  const resultLabel = anim.querySelector('.coin-result');
   const headsFace = anim.querySelector('.coin-face--heads');
   const tailsFace = anim.querySelector('.coin-face--tails');
   if(headsFace){
-    headsFace.textContent = anim.dataset.heads || 'Heads';
+    headsFace.textContent='';
   }
   if(tailsFace){
-    tailsFace.textContent = anim.dataset.tails || 'Tails';
+    tailsFace.textContent='';
   }
-  anim.dataset.result=result;
+  const headsLabel = anim.dataset.heads || 'Heads';
+  const tailsLabel = anim.dataset.tails || 'Tails';
+  if(resultLabel){
+    const label = result === 'Heads'
+      ? headsLabel
+      : result === 'Tails'
+        ? tailsLabel
+        : result;
+    resultLabel.textContent = label;
+  }
   anim.classList.remove('is-heads','is-tails');
   if(result==='Heads'){
     anim.classList.add('is-heads');
