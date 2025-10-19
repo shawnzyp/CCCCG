@@ -845,17 +845,40 @@ header .tab svg{
   gap:var(--title-character-gap);
   letter-spacing:var(--title-letter-spacing);
   word-spacing:var(--title-word-spacing);
+  position:relative;
+  --decrypted-text-color:var(--title-text-color,currentColor);
+  --decrypted-gradient:var(--title-gradient,none);
+  --decrypted-gradient-size:var(--title-gradient-size,160% 160%);
+  --decrypted-gradient-position:var(--title-gradient-position,50% 50%);
+  --decrypted-background-clip:var(--title-background-clip,border-box);
+  --decrypted-text-fill-color:var(--title-text-fill-color,currentColor);
+  --decrypted-text-shadow:var(--title-text-shadow,0 0 0 transparent);
+  --decrypted-filter:var(--title-filter,none);
+  --decrypted-scramble-text-shadow:var(--title-scramble-text-shadow,0 0 8px color-mix(in srgb,var(--accent) 55%,transparent));
+  --decrypted-scramble-filter:var(--title-scramble-filter,none);
+  --decrypted-scramble-opacity:var(--title-scramble-opacity,.75);
+  --decrypted-scramble-color:var(--title-scramble-color,color-mix(in srgb,var(--muted) 65%,transparent));
 }
 
 .header-decrypted__char,
 .animated-decrypted__char{
-  color:inherit;
+  position:relative;
+  color:var(--decrypted-text-color,inherit);
   opacity:1;
   transform:translateZ(0);
-  transition:color .3s ease,text-shadow .3s ease,opacity .3s ease;
-  will-change:opacity,transform;
+  transition:color .3s ease,text-shadow .3s ease,opacity .3s ease,background-position .6s ease,filter .3s ease;
+  will-change:opacity,transform,filter;
   transform-origin:center;
   backface-visibility:hidden;
+  background-image:var(--decrypted-gradient,none);
+  background-size:var(--decrypted-gradient-size,100% 100%);
+  background-position:var(--decrypted-gradient-position,50% 50%);
+  background-repeat:no-repeat;
+  -webkit-background-clip:var(--decrypted-background-clip,border-box);
+  background-clip:var(--decrypted-background-clip,border-box);
+  -webkit-text-fill-color:var(--decrypted-text-fill-color,currentColor);
+  text-shadow:var(--decrypted-text-shadow,0 0 0 transparent);
+  filter:var(--decrypted-filter,none);
 }
 
 .header-decrypted__char,
@@ -884,9 +907,50 @@ header .tab svg{
 
 .header-decrypted__char--scrambling,
 .animated-decrypted__char--scrambling{
-  color:color-mix(in srgb,var(--muted) 65%,transparent);
-  text-shadow:0 0 8px color-mix(in srgb,var(--accent) 55%,transparent);
-  opacity:.75;
+  color:var(--decrypted-scramble-color,color-mix(in srgb,var(--muted) 65%,transparent));
+  text-shadow:var(--decrypted-scramble-text-shadow,0 0 8px color-mix(in srgb,var(--accent) 55%,transparent));
+  filter:var(--decrypted-scramble-filter,var(--decrypted-filter,none));
+  opacity:var(--decrypted-scramble-opacity,.75);
+}
+
+.decrypted-variant{
+  --decrypted-background-clip:text;
+  --decrypted-text-fill-color:transparent;
+}
+
+.decrypted-variant__char{
+  isolation:isolate;
+}
+
+.decrypted-variant__char--scrambling{
+  position:relative;
+}
+
+.decrypted-variant__char--holographic,
+.decrypted-variant__char--holographic-scrambling{
+  position:relative;
+}
+
+.decrypted-variant--holographic{
+  --decrypted-text-color:color-mix(in srgb,var(--text) 25%,var(--accent) 75%);
+  --decrypted-gradient:linear-gradient(
+    128deg,
+    color-mix(in srgb,var(--accent) 85%,transparent) 0%,
+    color-mix(in srgb,var(--accent) 70%,var(--text) 20%) 32%,
+    color-mix(in srgb,var(--accent) 65%,var(--muted) 25%) 56%,
+    color-mix(in srgb,var(--accent) 90%,transparent) 100%
+  );
+  --decrypted-gradient-size:280% 280%;
+  --decrypted-text-shadow:
+    0 0 10px color-mix(in srgb,var(--accent) 55%,transparent),
+    0 0 24px color-mix(in srgb,var(--accent) 45%,transparent),
+    0 0 48px color-mix(in srgb,var(--accent) 35%,transparent);
+  --decrypted-filter:drop-shadow(0 0 18px color-mix(in srgb,var(--accent) 50%,transparent)) drop-shadow(0 0 38px color-mix(in srgb,var(--accent) 35%,transparent));
+  --decrypted-scramble-text-shadow:
+    0 0 14px color-mix(in srgb,var(--accent) 65%,transparent),
+    0 0 34px color-mix(in srgb,var(--accent) 45%,transparent);
+  --decrypted-scramble-filter:drop-shadow(0 0 24px color-mix(in srgb,var(--accent) 55%,transparent));
+  --decrypted-scramble-opacity:.68;
 }
 
 [data-animate-title]{

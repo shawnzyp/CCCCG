@@ -43,6 +43,17 @@ const styles = {
   }
 };
 
+const VARIANT_PRESETS = {
+  holographic: {
+    parentClassName: 'decrypted-variant decrypted-variant--holographic',
+    className: 'decrypted-variant__char decrypted-variant__char--holographic',
+    encryptedClassName:
+      'decrypted-variant__char--scrambling decrypted-variant__char--holographic-scrambling'
+  }
+};
+
+const mergeClassNames = (...values) => values.filter(Boolean).join(' ');
+
 export default function DecryptedText({
   text,
   speed = 50,
@@ -55,6 +66,9 @@ export default function DecryptedText({
   parentClassName = '',
   encryptedClassName = '',
   animateOn = 'hover',
+  variant,
+  onScrambleStart,
+  onScrambleComplete,
   ...props
 }) {
   const prefersReducedMotion = useReducedMotion();
@@ -72,6 +86,8 @@ export default function DecryptedText({
   const animationFrameRef = useRef(null);
   const lastTimestampRef = useRef(null);
   const accumulatedTimeRef = useRef(0);
+  const animationCompletedRef = useRef(false);
+  const previousScramblingRef = useRef(false);
 
   const textCharacters = useMemo(() => text.split(''), [text]);
   const filteredCandidateChars = useMemo(
@@ -337,6 +353,7 @@ export default function DecryptedText({
     };
 
     if (isHovering) {
+      animationCompletedRef.current = false;
       lastTimestampRef.current = null;
       accumulatedTimeRef.current = 0;
 
@@ -435,6 +452,7 @@ export default function DecryptedText({
         });
 
         if (animationCompleted) {
+          animationCompletedRef.current = true;
           setIsScrambling(false);
           stopAnimation();
           if (!sequential) {
@@ -448,6 +466,7 @@ export default function DecryptedText({
 
       animationFrameRef.current = requestFrame(step);
     } else {
+      animationCompletedRef.current = false;
       stopAnimation();
       setDisplayText(text);
       setRevealedIndices(new Set());
@@ -602,9 +621,47 @@ export default function DecryptedText({
     ? 'scramble'
     : 'rest';
 
+  const variantPreset = variant ? VARIANT_PRESETS[variant] ?? null : null;
+  const resolvedParentClassName = useMemo(
+    () => mergeClassNames(parentClassName, variantPreset?.parentClassName),
+    [parentClassName, variantPreset]
+  );
+  const resolvedClassName = useMemo(
+    () => mergeClassNames(className, variantPreset?.className),
+    [className, variantPreset]
+  );
+  const resolvedEncryptedClassName = useMemo(
+    () =>
+      mergeClassNames(
+        encryptedClassName,
+        variantPreset?.encryptedClassName
+      ),
+    [encryptedClassName, variantPreset]
+  );
+
+  useEffect(() => {
+    const wasScrambling = previousScramblingRef.current;
+
+    if (!wasScrambling && isScrambling) {
+      previousScramblingRef.current = true;
+      animationCompletedRef.current = false;
+      if (typeof onScrambleStart === 'function') {
+        onScrambleStart();
+      }
+      return;
+    }
+
+    if (wasScrambling && !isScrambling) {
+      previousScramblingRef.current = false;
+      if (animationCompletedRef.current && typeof onScrambleComplete === 'function') {
+        onScrambleComplete();
+      }
+    }
+  }, [isScrambling, onScrambleStart, onScrambleComplete]);
+
   return (
     <motion.span
-      className={parentClassName}
+      className={resolvedParentClassName}
       ref={containerRef}
       style={{
         ...wrapperStyle,
@@ -620,17 +677,18 @@ export default function DecryptedText({
       }
       {...hoverProps}
       {...props}
+      data-variant={variant ?? undefined}
     >
       <span
         aria-hidden="true"
         ref={measureRef}
-        className={parentClassName}
+        className={resolvedParentClassName}
         style={styles.measure}
       >
         {measurementText.split('').map((char, index) => (
           <span
             key={`measure-${index}`}
-            className={className}
+            className={resolvedClassName}
             data-char={char === ' ' ? 'space' : char}
           >
             {char}
@@ -655,7 +713,9 @@ export default function DecryptedText({
           return (
             <motion.span
               key={index}
-              className={isRevealedOrDone ? className : encryptedClassName}
+              className={
+                isRevealedOrDone ? resolvedClassName : resolvedEncryptedClassName
+              }
               data-char={char === ' ' ? 'space' : char}
               variants={characterVariants}
               custom={index}
