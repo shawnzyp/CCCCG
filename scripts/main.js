@@ -1761,23 +1761,37 @@ function queueWelcomeModal({ immediate = false } = {}) {
     for (const { key, type } of candidates) {
       const url = vid.dataset?.[key];
       if(!url) continue;
-      if(!canProbe) continue;
-      if(manifestAssets){
+
+      let manifestMissing = false;
+      if(manifestAssets && manifestAssets.size > 0){
         const normalized = url.replace(/^\.\//, '').replace(/^\//, '');
         const manifestKey = `./${normalized}`;
-        if(!manifestAssets.has(manifestKey)){
-          continue;
-        }
+        manifestMissing = !manifestAssets.has(manifestKey);
       }
+
+      if(manifestMissing && !canProbe){
+        continue;
+      }
+
       let ok = false;
-      try {
-        const response = await fetch(url, { method: 'HEAD' });
-        ok = response && (response.ok || response.status === 405);
-      } catch (err) {
-        ok = false;
+      if(canProbe){
+        try {
+          const response = await fetch(url, { method: 'HEAD' });
+          ok = response && (response.ok || response.status === 405);
+        } catch (err) {
+          ok = false;
+        }
+      } else if(!manifestMissing){
+        ok = true;
       }
+
       if(!ok) continue;
-      const source = document.createElement('source');
+
+      const doc = vid.ownerDocument || (typeof document !== 'undefined' ? document : null);
+      if(!doc || typeof doc.createElement !== 'function'){
+        continue;
+      }
+      const source = doc.createElement('source');
       source.src = url;
       if(type){
         source.type = type;
