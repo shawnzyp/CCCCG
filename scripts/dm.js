@@ -7059,7 +7059,15 @@ function initDMLogin(){
     if (data === null) {
       cloudNotificationsState.cache.delete(key);
     } else {
-      const normalized = normalizeStoredNotification(data, { id: key });
+      const cached = cloudNotificationsState.cache.get(key);
+      let candidate = data;
+      if (cached && data && typeof data === 'object') {
+        candidate = { ...cached, ...data };
+      }
+      const normalized = normalizeStoredNotification(candidate, {
+        id: key,
+        fallbackCreatedAt: cached?.createdAt,
+      });
       if (normalized) {
         cloudNotificationsState.cache.set(key, normalized);
       } else {
