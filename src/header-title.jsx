@@ -7,6 +7,9 @@ const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567
 
 function HeaderTitle() {
   const characters = useMemo(() => CHARACTERS, []);
+  const glowId = useMemo(() => `header-glow-${Math.random().toString(36).slice(2, 9)}`, []);
+  const strokeId = `${glowId}-stroke`;
+  const fillId = `${glowId}-fill`;
   const [playKey, setPlayKey] = useState(0);
 
   useEffect(() => {
@@ -33,18 +36,55 @@ function HeaderTitle() {
   }, []);
 
   return (
-    <DecryptedText
-      key={playKey}
-      text={TITLE_TEXT}
-      speed={55}
-      maxIterations={18}
-      characters={characters}
-      revealDirection="center"
-      animateOn="both"
-      parentClassName="header-decrypted"
-      className="header-decrypted__char"
-      encryptedClassName="header-decrypted__char--scrambling"
-    />
+    <>
+      <span className="tabs-title__glow" aria-hidden="true">
+        <span className="tabs-title__glow-ambient"></span>
+        <svg
+          className="tabs-title__glow-svg"
+          viewBox="0 0 320 120"
+          preserveAspectRatio="none"
+          role="presentation"
+        >
+          <defs>
+            <linearGradient id={strokeId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.85" />
+              <stop offset="50%" stopColor="var(--accent-2)" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.85" />
+            </linearGradient>
+            <radialGradient id={fillId} cx="50%" cy="50%" r="0.82">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.2" />
+              <stop offset="80%" stopColor="var(--accent)" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="transparent" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <rect
+            x="2"
+            y="2"
+            width="316"
+            height="116"
+            rx="46"
+            ry="46"
+            fill={`url(#${fillId})`}
+            stroke={`url(#${strokeId})`}
+            strokeWidth="2.5"
+          />
+        </svg>
+      </span>
+      <span className="tabs-title__content">
+        <DecryptedText
+          key={playKey}
+          text={TITLE_TEXT}
+          speed={55}
+          maxIterations={18}
+          characters={characters}
+          revealDirection="center"
+          animateOn="both"
+          parentClassName="header-decrypted"
+          className="header-decrypted__char"
+          encryptedClassName="header-decrypted__char--scrambling"
+        />
+      </span>
+    </>
   );
 }
 

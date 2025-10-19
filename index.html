@@ -486,118 +486,119 @@
 
 
 <header>
-  <div class="top">
-    <button class="logo-button" type="button" aria-label="Cycle theme" title="Cycle theme" data-theme-toggle>
-      <span class="theme-toggle__icon" aria-hidden="true">
-        <span class="theme-toggle__spinner">
-          <span class="theme-toggle__face theme-toggle__face--front"></span>
-          <span class="theme-toggle__face theme-toggle__face--back"></span>
+  <div class="header-shell">
+    <div class="top">
+      <button class="logo-button" type="button" aria-label="Cycle theme" title="Cycle theme" data-theme-toggle>
+        <span class="theme-toggle__icon" aria-hidden="true">
+          <span class="theme-toggle__spinner">
+            <span class="theme-toggle__face theme-toggle__face--front"></span>
+            <span class="theme-toggle__face theme-toggle__face--back"></span>
+          </span>
         </span>
-      </span>
-      <span class="theme-toggle__label sr-only">Theme</span>
-    </button>
-    <span class="tabs-title"><span class="tabs-title__label">Catalyst Core</span></span>
-    <div class="dropdown">
-      <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
-        </svg>
+        <span class="theme-toggle__label sr-only">Theme</span>
       </button>
-      <button
-        id="cloud-sync-status"
-        class="sync-status-indicator"
-        type="button"
-        data-status="online"
-        aria-haspopup="dialog"
-        aria-controls="cloud-sync-panel"
-        aria-expanded="false"
-        aria-label="Cloud sync status: Online"
-        title="Cloud sync status: Online"
-      >
-        <span class="sync-status-indicator__light" aria-hidden="true"></span>
-        <span class="sr-only" role="status" aria-live="polite">
-          Cloud sync status:
-          <span data-sync-status-label>Online</span>
-        </span>
-      </button>
-      <div id="menu-actions" class="menu" hidden>
-        <button id="btn-load" class="btn-sm">Load / Save</button>
-        <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
-        <button id="btn-log" class="btn-sm">Action Log</button>
-        <button id="btn-credits-ledger" class="btn-sm">Credits Ledger</button>
-        <button id="btn-campaign" class="btn-sm">Campaign Log</button>
-        <button id="btn-rules" class="btn-sm">Rules</button>
-        <button id="btn-help" class="btn-sm">Help</button>
+      <span class="tabs-title"><span class="tabs-title__label">Catalyst Core</span></span>
+      <div class="dropdown">
+        <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
+          </svg>
+        </button>
+        <button
+          id="cloud-sync-status"
+          class="sync-status-indicator"
+          type="button"
+          data-status="online"
+          aria-haspopup="dialog"
+          aria-controls="cloud-sync-panel"
+          aria-expanded="false"
+          aria-label="Cloud sync status: Online"
+          title="Cloud sync status: Online"
+        >
+          <span class="sync-status-indicator__light" aria-hidden="true"></span>
+          <span class="sr-only" role="status" aria-live="polite">
+            Cloud sync status:
+            <span data-sync-status-label>Online</span>
+          </span>
+        </button>
+        <div id="menu-actions" class="menu" hidden>
+          <button id="btn-load" class="btn-sm">Load / Save</button>
+          <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
+          <button id="btn-log" class="btn-sm">Action Log</button>
+          <button id="btn-credits-ledger" class="btn-sm">Credits Ledger</button>
+          <button id="btn-campaign" class="btn-sm">Campaign Log</button>
+          <button id="btn-rules" class="btn-sm">Rules</button>
+          <button id="btn-help" class="btn-sm">Help</button>
       </div>
     </div>
+    <nav class="tabs" role="tablist" aria-label="Primary">
+      <button class="tab active" data-go="combat" aria-label="Combat" title="Combat" role="tab" aria-current="page" type="button">
+        <span class="tab__icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            role="presentation"
+            focusable="false"
+            data-tab-icon="combat"
+          >
+            <use href="#icon-tab-combat"></use>
+          </svg>
+        </span>
+        <span class="tab__label">Combat</span>
+      </button>
+      <button class="tab" data-go="abilities" aria-label="Abilities" title="Abilities" role="tab" type="button">
+        <span class="tab__icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            role="presentation"
+            focusable="false"
+            data-tab-icon="abilities"
+          >
+            <use href="#icon-tab-abilities"></use>
+          </svg>
+        </span>
+        <span class="tab__label">Abilities</span>
+      </button>
+      <button class="tab" data-go="powers" aria-label="Powers" title="Powers" role="tab" type="button">
+        <span class="tab__icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            role="presentation"
+            focusable="false"
+            data-tab-icon="powers"
+          >
+            <use href="#icon-tab-powers"></use>
+          </svg>
+        </span>
+        <span class="tab__label">Powers</span>
+      </button>
+      <button class="tab" data-go="gear" aria-label="Gear" title="Gear" role="tab" type="button">
+        <span class="tab__icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            role="presentation"
+            focusable="false"
+            data-tab-icon="gear"
+          >
+            <use href="#icon-tab-gear"></use>
+          </svg>
+        </span>
+        <span class="tab__label">Gear</span>
+      </button>
+      <button class="tab" data-go="story" aria-label="Story" title="Story" role="tab" type="button">
+        <span class="tab__icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            role="presentation"
+            focusable="false"
+            data-tab-icon="story"
+          >
+            <use href="#icon-tab-story"></use>
+          </svg>
+        </span>
+        <span class="tab__label">Story</span>
+      </button>
+    </nav>
   </div>
-  <nav class="tabs" role="tablist" aria-label="Primary">
-    <button class="tab active" data-go="combat" aria-label="Combat" title="Combat" role="tab" aria-current="page" type="button">
-      <span class="tab__icon" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          role="presentation"
-          focusable="false"
-          data-tab-icon="combat"
-        >
-          <use href="#icon-tab-combat"></use>
-        </svg>
-      </span>
-      <span class="tab__label">Combat</span>
-    </button>
-    <button class="tab" data-go="abilities" aria-label="Abilities" title="Abilities" role="tab" type="button">
-      <span class="tab__icon" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          role="presentation"
-          focusable="false"
-          data-tab-icon="abilities"
-        >
-          <use href="#icon-tab-abilities"></use>
-        </svg>
-      </span>
-      <span class="tab__label">Abilities</span>
-    </button>
-    <button class="tab" data-go="powers" aria-label="Powers" title="Powers" role="tab" type="button">
-      <span class="tab__icon" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          role="presentation"
-          focusable="false"
-          data-tab-icon="powers"
-        >
-          <use href="#icon-tab-powers"></use>
-        </svg>
-      </span>
-      <span class="tab__label">Powers</span>
-    </button>
-    <button class="tab" data-go="gear" aria-label="Gear" title="Gear" role="tab" type="button">
-      <span class="tab__icon" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          role="presentation"
-          focusable="false"
-          data-tab-icon="gear"
-        >
-          <use href="#icon-tab-gear"></use>
-        </svg>
-      </span>
-      <span class="tab__label">Gear</span>
-    </button>
-    <button class="tab" data-go="story" aria-label="Story" title="Story" role="tab" type="button">
-      <span class="tab__icon" aria-hidden="true">
-        <svg
-          viewBox="0 0 24 24"
-          role="presentation"
-          focusable="false"
-          data-tab-icon="story"
-        >
-          <use href="#icon-tab-story"></use>
-        </svg>
-      </span>
-      <span class="tab__label">Story</span>
-    </button>
-  </nav>
   <div class="ticker-drawer ticker-drawer--m24n" data-ticker-drawer data-state="open" data-mobile-default-state="closed">
     <div class="ticker-drawer__panel" id="ticker-drawer-panel" data-ticker-panel>
       <div class="ticker-drawer__panel-inner">
