@@ -155,7 +155,7 @@ function mountTitle(hostElement) {
   animatedTitles.set(targetElement, instance);
 
   const parentNode = hostElement.parentNode;
-  if (parentNode) {
+  if (parentNode && typeof MutationObserver === 'function') {
     const disconnectObserver = new MutationObserver(() => {
       if (!hostElement.isConnected) {
         cleanupInstance(instance);
@@ -225,7 +225,7 @@ function initializeTitles() {
   });
 
   const main = document.querySelector('main');
-  if (main) {
+  if (main && typeof MutationObserver === 'function') {
     const observer = new MutationObserver(mutations => {
       const previousActiveGroup = currentActiveGroup;
       let nextActiveGroup = currentActiveGroup;
