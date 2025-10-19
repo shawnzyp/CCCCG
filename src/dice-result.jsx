@@ -2,8 +2,7 @@ import React, { useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useReducedMotion } from 'motion/react';
 import DecryptedText from './DecryptedText.jsx';
-
-const DIGIT_CHARACTERS = '0123456789';
+import { DICE_DECRYPTED_TEXT_BASE_PROPS } from './dice-result.config.js';
 const rendererCache = new WeakMap();
 
 const suppressRendererErrors =
@@ -35,32 +34,24 @@ function createFallbackRenderer(mountNode) {
   return fallback;
 }
 
-function DiceResultContent({ value, playIndex }) {
+export function DiceResultContent({ value, playIndex }) {
   const prefersReducedMotion = useReducedMotion();
   const text = useMemo(() => (value == null ? '' : String(value)), [value]);
 
   if (prefersReducedMotion) {
-    return (
-      <span className="dice-result-decrypted" data-play-index={playIndex}>
-        <span className="dice-result-decrypted__char">{text}</span>
-      </span>
+    return React.createElement(
+      'span',
+      { className: 'dice-result-decrypted', 'data-play-index': playIndex },
+      React.createElement('span', { className: 'dice-result-decrypted__char' }, text)
     );
   }
 
-  return (
-    <DecryptedText
-      key={playIndex}
-      text={text}
-      speed={40}
-      maxIterations={12}
-      characters={DIGIT_CHARACTERS}
-      useOriginalCharsOnly
-      animateOn="view"
-      parentClassName="dice-result-decrypted"
-      className="dice-result-decrypted__char"
-      encryptedClassName="dice-result-decrypted__char--scrambling"
-    />
-  );
+  return React.createElement(DecryptedText, {
+    ...DICE_DECRYPTED_TEXT_BASE_PROPS,
+    key: playIndex,
+    text,
+    'data-play-index': playIndex
+  });
 }
 
 export function ensureDiceResultRenderer(mountNode) {
@@ -89,7 +80,9 @@ export function ensureDiceResultRenderer(mountNode) {
   const renderer = {
     render(value, playIndex) {
       try {
-        root.render(<DiceResultContent value={value} playIndex={playIndex} />);
+        root.render(
+          React.createElement(DiceResultContent, { value, playIndex })
+        );
       } catch (err) {
         reportRendererError('Failed to render dice result', err);
         const fallback = createFallbackRenderer(mountNode);
