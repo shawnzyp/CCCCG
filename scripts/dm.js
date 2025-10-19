@@ -5849,6 +5849,7 @@ function initDMLogin(){
   document.addEventListener('click', e => {
     const t = e.target.closest('button,a');
     if(!t) return;
+    if (!isLoggedIn()) return;
     touchSessionActivity();
     const id = t.id || t.textContent?.trim() || 'interaction';
     window.dmNotify?.(`Clicked ${id}`);
