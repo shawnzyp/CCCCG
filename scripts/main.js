@@ -9642,11 +9642,24 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
     : 0;
   const hue = Math.round(120 * ratio);
   const color = `hsl(${hue}deg 68% 46%)`;
-  progressEl.style.setProperty('--progress-color', color);
+  const ratioValue = Number.isFinite(ratio) ? ratio : 0;
+  const percentValue = Math.round(ratioValue * 100);
+  const applyProgressVars = target => {
+    if (!target || typeof target.style?.setProperty !== 'function') return;
+    target.style.setProperty('--progress-color', color);
+    target.style.setProperty('--progress-ratio', ratioValue.toFixed(4));
+    target.style.setProperty('--progress-percent', `${percentValue}`);
+  };
+  applyProgressVars(progressEl);
   const status = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
   progressEl.dataset.status = status;
+  const progressContainer = progressEl.parentElement;
+  if (progressContainer) {
+    applyProgressVars(progressContainer);
+    progressContainer.dataset.status = status;
+  }
   if (labelEl) {
-    labelEl.style.setProperty('--progress-color', color);
+    applyProgressVars(labelEl);
     labelEl.dataset.status = status;
     const statusLabel = TRACKER_STATUS_LABELS[status] || '';
     const statusEl = labelEl.querySelector('.tracker-progress__status');
@@ -9654,6 +9667,10 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue){
       statusEl.textContent = statusLabel;
       statusEl.dataset.status = status;
     }
+  }
+  const valueContainer = progressEl.closest('.hp-field__status, .sp-field__status');
+  if (valueContainer) {
+    valueContainer.querySelectorAll('.hp-field__value, .sp-field__value').forEach(applyProgressVars);
   }
 }
 

@@ -2136,6 +2136,9 @@ button .btn-label{display:inline-flex;align-items:center}
 }
 
 .hp-field__value{
+  --progress-ratio-value:var(--progress-ratio, 0);
+  --progress-color-value:var(--progress-color, var(--success));
+  --progress-fill-stop:calc(var(--progress-ratio-value) * 100%);
   position:relative;
   display:flex;
   flex-direction:column;
@@ -2145,9 +2148,52 @@ button .btn-label{display:inline-flex;align-items:center}
   min-height:clamp(54px,9vw,74px);
   padding:clamp(8px,2.2vw,12px);
   border-radius:var(--radius);
-  background:color-mix(in srgb,var(--surface-2) 65%, transparent);
-  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line) 70%, transparent);
+  background:color-mix(in srgb,var(--surface-2) 45%, transparent);
+  border:1px solid color-mix(in srgb,var(--progress-color-value) 28%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb,var(--progress-color-value) 18%, transparent),
+    0 0 calc(18px * var(--progress-ratio-value)) 0 color-mix(in srgb,var(--progress-color-value) 34%, transparent);
+  overflow:hidden;
+  isolation:isolate;
   text-align:center;
+}
+.hp-field__value::before,
+.hp-field__value::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+}
+.hp-field__value::before{
+  background:radial-gradient(120% 120% at 50% 0%, color-mix(in srgb,var(--progress-color-value) 32%, transparent) 0%, transparent 70%);
+  opacity:.85;
+  filter:blur(calc(6px + 10px * var(--progress-ratio-value)));
+  transform:translateY(calc((1 - var(--progress-ratio-value)) * 12%));
+  animation:trackerPulse 5s ease-in-out infinite;
+}
+.hp-field__value::after{
+  background:repeating-linear-gradient(90deg, transparent 0 16px, color-mix(in srgb,var(--progress-color-value) 45%, transparent) 16px 18px);
+  background-size:170% 100%;
+  opacity:.4;
+  mix-blend-mode:screen;
+  filter:blur(calc(2px + 8px * var(--progress-ratio-value)));
+  mask:linear-gradient(90deg,#000 0,var(--progress-fill-stop),transparent var(--progress-fill-stop));
+  animation:trackerCharge 8s linear infinite;
+}
+.hp-field__value>*{position:relative;z-index:1}
+
+@media (prefers-reduced-motion: reduce){
+  .tracker-progress::before,
+  .tracker-progress::after,
+  .hp-field__value::before,
+  .hp-field__value::after{
+    animation:none!important;
+  }
+  .tracker-progress::after,
+  .hp-field__value::after{
+    background-position:0 50%;
+  }
 }
 
 .hp-field__value--max{
@@ -2182,7 +2228,53 @@ button .btn-label{display:inline-flex;align-items:center}
 
 .tracker-progress{
   --progress-min-height:clamp(18px,4vw,24px);
+  --progress-ratio-value:var(--progress-ratio, 0);
+  --progress-color-value:var(--progress-color, var(--accent));
+  --progress-fill-stop:calc(var(--progress-ratio-value) * 100%);
+  --progress-glow:color-mix(in srgb,var(--progress-color-value) 60%, transparent);
+  position:relative;
   width:100%;
+  padding:2px;
+  border-radius:999px;
+  background:
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb,var(--progress-color-value) 14%, transparent) 0%, transparent 70%),
+    linear-gradient(135deg, color-mix(in srgb,var(--progress-color-value) 18%, var(--surface-2)) 0%, color-mix(in srgb,var(--progress-color-value) 6%, transparent) 100%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--progress-color-value) 30%, transparent);
+  overflow:hidden;
+  isolation:isolate;
+}
+.tracker-progress::before,
+.tracker-progress::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+}
+.tracker-progress::before{
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb,var(--progress-color-value) 65%, transparent) 0%,
+      color-mix(in srgb,var(--progress-color-value) 55%, transparent) 50%,
+      color-mix(in srgb,var(--progress-color-value) 70%, transparent) 100%);
+  transform-origin:left center;
+  transform:scaleX(var(--progress-ratio-value));
+  filter:blur(calc(6px + 8px * var(--progress-ratio-value)));
+  box-shadow:0 0 calc(18px * var(--progress-ratio-value)) calc(5px * var(--progress-ratio-value)) var(--progress-glow);
+  opacity:.95;
+  animation:trackerPulse 4.5s ease-in-out infinite;
+}
+.tracker-progress::after{
+  background:
+    repeating-linear-gradient(90deg,
+      transparent 0 14px,
+      color-mix(in srgb,var(--progress-color-value) 45%, transparent) 14px 16px);
+  background-size:160% 100%;
+  mix-blend-mode:screen;
+  opacity:.55;
+  filter:blur(calc(1px + 6px * var(--progress-ratio-value)));
+  mask:linear-gradient(90deg,#000 0,var(--progress-fill-stop),transparent var(--progress-fill-stop));
+  animation:trackerCharge 6s linear infinite;
 }
 
 .tracker-progress__label{
@@ -2341,15 +2433,23 @@ progress{
   block-size:var(--progress-min-height);
 }
 progress::-webkit-progress-bar{
-  background:var(--surface-2);
+  background:transparent;
 }
 progress::-webkit-progress-value{
-  background:var(--progress-color);
-  transition:width .4s ease;
+  background:transparent;
 }
 progress::-moz-progress-bar{
-  background:var(--progress-color);
-  transition:width .4s ease;
+  background:transparent;
+}
+
+@keyframes trackerPulse{
+  0%,100%{opacity:.75;}
+  50%{opacity:1;}
+}
+
+@keyframes trackerCharge{
+  0%{background-position:0 50%;}
+  100%{background-position:200% 50%;}
 }
 
 .pill{
@@ -2373,8 +2473,21 @@ progress::-moz-progress-bar{
 }
 
 .bar-label{position:relative}
-.bar-label>progress{width:100%;height:var(--progress-min-height);min-block-size:var(--progress-min-height);block-size:var(--progress-min-height)}
-.bar-label>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;padding:0}
+.bar-label>progress{
+  width:100%;
+  height:var(--progress-min-height);
+  min-block-size:var(--progress-min-height);
+  block-size:var(--progress-min-height);
+  appearance:none;
+  -webkit-appearance:none;
+  background:transparent;
+  border:none;
+  color:inherit;
+  opacity:0;
+  position:relative;
+  z-index:1;
+}
+.bar-label>span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:.85rem;pointer-events:none;padding:0;z-index:2}
 .card--tier .tier-summary{
   display:flex;
   flex-direction:column;
