@@ -2422,12 +2422,13 @@ button .btn-label{display:inline-flex;align-items:center}
 .tracker-gauge{
   --gauge-size:clamp(104px,26vw,140px);
   --gauge-thickness:clamp(14px,3.4vw,18px);
-  --gauge-ratio:clamp(0, var(--tracker-ratio, var(--progress-ratio, 0)), 1);
+  --gauge-ratio:clamp(0, var(--tracker-arc-length, var(--tracker-ratio, var(--progress-ratio, 0))), 1);
   --gauge-start-angle:var(--tracker-start-angle, -135deg);
   --gauge-color:var(--tracker-color, var(--progress-color, var(--accent)));
-  --gauge-track-color:color-mix(in srgb,var(--gauge-color) 16%, transparent);
-  --gauge-glow-color:color-mix(in srgb,var(--gauge-color) 68%, transparent);
-  --gauge-label-color:color-mix(in srgb,var(--gauge-color) 55%, var(--text));
+  --tracker-status-color:var(--tracker-death-color, var(--tracker-color, var(--progress-color, var(--accent))));
+  --gauge-track-color:color-mix(in srgb,var(--tracker-status-color) 16%, transparent);
+  --gauge-glow-color:color-mix(in srgb,var(--tracker-status-color) 68%, transparent);
+  --gauge-label-color:color-mix(in srgb,var(--tracker-status-color) 55%, var(--text));
   position:relative;
   display:grid;
   place-items:center;
@@ -2484,12 +2485,13 @@ button .btn-label{display:inline-flex;align-items:center}
       transparent 6deg 12deg);
   mask:
     radial-gradient(circle at 50% 50%, transparent calc(50% - var(--gauge-thickness) * 1.25), #000 calc(50% - var(--gauge-thickness) * 1.25 + 1px), #000 calc(50% - var(--gauge-thickness) * .8), transparent calc(50% - var(--gauge-thickness) * .8 + 1px));
-  filter:drop-shadow(0 0 12px color-mix(in srgb,var(--gauge-color) 35%, transparent));
+  filter:drop-shadow(0 0 12px color-mix(in srgb,var(--tracker-status-color, var(--gauge-color)) 35%, transparent));
   opacity:.6;
   will-change:transform;
   transform:rotate(0deg);
   pointer-events:none;
-  animation:trackerGaugeSweep 9s linear infinite;
+  animation:trackerGaugeSweep var(--tracker-tick-duration, 9s) linear infinite;
+  animation-delay:var(--tracker-tick-delay, 0s);
 }
 
 .tracker-gauge__dial{
@@ -2544,19 +2546,22 @@ button .btn-label{display:inline-flex;align-items:center}
   justify-content:center;
   padding:2px 10px;
   border-radius:999px;
-  border:1px solid color-mix(in srgb,var(--status-color,var(--gauge-color)) 40%, transparent);
-  background:color-mix(in srgb,var(--status-color,var(--gauge-color)) 18%, transparent);
+  border:1px solid color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--gauge-color))) 40%, transparent);
+  background:color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--gauge-color))) 18%, transparent);
   font-size:clamp(.6rem,1.8vw,.72rem);
   font-weight:700;
   letter-spacing:.1em;
   text-transform:uppercase;
-  color:color-mix(in srgb,var(--status-color,var(--gauge-color)) 70%, var(--text));
+  color:color-mix(in srgb,var(--status-color,var(--tracker-status-color,var(--gauge-color))) 70%, var(--text));
   min-width:fit-content;
 }
 
 .tracker-gauge__status[data-status="healthy"]{--status-color:var(--success,#22c55e);}
 .tracker-gauge__status[data-status="wounded"]{--status-color:var(--warning,#f59e0b);}
 .tracker-gauge__status[data-status="critical"]{--status-color:var(--error,#f87171);}
+.tracker-gauge__status[data-status="stable"]{--status-color:var(--success,#22c55e);}
+.tracker-gauge__status[data-status="unstable"]{--status-color:var(--warning,#f59e0b);}
+.tracker-gauge__status[data-status="dead"]{--status-color:var(--error,#f87171);}
 
 .hp-field__progress{
   --tracker-color:var(--success);
