@@ -2432,13 +2432,13 @@ progress{
   min-block-size:var(--progress-min-height);
   block-size:var(--progress-min-height);
 }
-progress::-webkit-progress-bar{
+.tracker-progress progress::-webkit-progress-bar{
   background:transparent;
 }
-progress::-webkit-progress-value{
+.tracker-progress progress::-webkit-progress-value{
   background:transparent;
 }
-progress::-moz-progress-bar{
+.tracker-progress progress::-moz-progress-bar{
   background:transparent;
 }
 
