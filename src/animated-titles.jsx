@@ -19,7 +19,6 @@ function AnimatedTitle({ text, playIndex }) {
       parentClassName="animated-decrypted"
       className="animated-decrypted__char"
       encryptedClassName="animated-decrypted__char--scrambling"
-      variant="holographic"
     />
   );
 }
