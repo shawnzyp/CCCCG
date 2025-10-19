@@ -14,6 +14,41 @@ function getInertTargets() {
 let lastFocus = null;
 let openModals = 0;
 
+const MODAL_STYLE_PROPS = [
+  ['modalAccentHue', '--modal-accent-hue'],
+  ['modalGlowStrength', '--modal-glow-strength'],
+];
+
+function applyModalStyles(overlay) {
+  if (!overlay) return;
+  const modal = overlay.querySelector('.modal');
+  const sources = [];
+  if (modal) sources.push(modal.dataset);
+  sources.push(overlay.dataset);
+  MODAL_STYLE_PROPS.forEach(([dataKey, cssVar]) => {
+    const value = sources
+      .map(source => (source ? source[dataKey] : undefined))
+      .find(v => v !== undefined && v !== '');
+    if (value !== undefined && value !== '') {
+      overlay.style.setProperty(cssVar, value);
+    } else {
+      overlay.style.removeProperty(cssVar);
+    }
+  });
+}
+
+function clearModalStyles(overlay) {
+  if (!overlay) return;
+  MODAL_STYLE_PROPS.forEach(([, cssVar]) => overlay.style.removeProperty(cssVar));
+}
+
+function cancelModalStyleReset(overlay) {
+  if (overlay && overlay._modalStyleTimer) {
+    clearTimeout(overlay._modalStyleTimer);
+    overlay._modalStyleTimer = null;
+  }
+}
+
 // Helper to keep focus within an open modal
 function trapFocus(el) {
   const handler = (e) => {
@@ -74,6 +109,8 @@ export function show(id) {
     getInertTargets().forEach(e => e.setAttribute('inert', ''));
   }
   openModals++;
+  cancelModalStyleReset(el);
+  applyModalStyles(el);
   el.style.display = 'flex';
   el.classList.remove('hidden');
   el.setAttribute('aria-hidden', 'false');
@@ -87,13 +124,20 @@ export function show(id) {
 export function hide(id) {
   const el = $(id);
   if (!el || el.classList.contains('hidden')) return;
+  cancelModalStyleReset(el);
   const onEnd = (e) => {
     if (e.target === el && e.propertyName === 'opacity') {
       el.style.display = 'none';
+      clearModalStyles(el);
+      cancelModalStyleReset(el);
       el.removeEventListener('transitionend', onEnd);
     }
   };
   el.addEventListener('transitionend', onEnd);
+  el._modalStyleTimer = setTimeout(() => {
+    clearModalStyles(el);
+    cancelModalStyleReset(el);
+  }, 400);
   el.classList.add('hidden');
   el.setAttribute('aria-hidden', 'true');
   removeTrapFocus(el);
