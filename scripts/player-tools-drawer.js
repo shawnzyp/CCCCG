@@ -248,6 +248,166 @@
 
   applyOpenProgress(drawer.classList.contains('is-open') ? 1 : 0);
 
+  const batteryBadge = drawer.querySelector('[data-player-tools-battery]');
+  const batteryIcon = batteryBadge?.querySelector('[data-player-tools-battery-icon]');
+  const batteryText = batteryBadge?.querySelector('[data-player-tools-battery-text]');
+  const batteryLabel = batteryBadge?.querySelector('[data-player-tools-battery-label]');
+
+  const batteryIcons = batteryBadge
+    ? {
+        empty: new URL('../images/vertical-battery-0-svgrepo-com.svg', import.meta.url).toString(),
+        low: new URL('../images/vertical-battery-25-svgrepo-com.svg', import.meta.url).toString(),
+        medium: new URL('../images/vertical-battery-50-svgrepo-com.svg', import.meta.url).toString(),
+        high: new URL('../images/vertical-battery-75-svgrepo-com.svg', import.meta.url).toString(),
+        full: new URL('../images/vertical-battery-100-svgrepo-com.svg', import.meta.url).toString(),
+        charging: new URL('../images/vertical-charging-battery-svgrepo-com.svg', import.meta.url).toString()
+      }
+    : null;
+
+  const setBatteryLabel = (message) => {
+    if (!batteryLabel || typeof message !== 'string') return;
+    batteryLabel.textContent = message;
+  };
+
+  const setBatteryText = (value) => {
+    if (!batteryText || typeof value !== 'string') return;
+    batteryText.textContent = value;
+  };
+
+  const setBatteryIcon = (key) => {
+    if (!batteryIcon || !batteryIcons || !key) return;
+    const next = batteryIcons[key];
+    if (!next) return;
+    if (batteryIcon.getAttribute('src') !== next) {
+      batteryIcon.setAttribute('src', next);
+    }
+  };
+
+  const setBatteryState = (state, { text, icon, announcement } = {}) => {
+    if (!batteryBadge) return;
+    if (state) {
+      batteryBadge.dataset.batteryState = state;
+    } else {
+      batteryBadge.removeAttribute('data-battery-state');
+    }
+    if (typeof text === 'string') {
+      setBatteryText(text);
+    }
+    if (typeof icon === 'string') {
+      setBatteryIcon(icon);
+    }
+    if (typeof announcement === 'string') {
+      setBatteryLabel(announcement);
+    }
+  };
+
+  const describeBatteryAnnouncement = (percent, charging) => {
+    if (!Number.isFinite(percent)) {
+      return 'Battery status unavailable';
+    }
+    const rounded = clamp(Math.round(percent), 0, 100);
+    if (charging) {
+      return `Battery charging, ${rounded} percent available`;
+    }
+    if (rounded >= 100) {
+      return 'Battery fully charged';
+    }
+    return `Battery at ${rounded} percent`;
+  };
+
+  const getBatteryStateFromLevel = (level) => {
+    if (!Number.isFinite(level)) return 'unavailable';
+    const clamped = clamp(level, 0, 1);
+    const percent = clamped * 100;
+    if (percent >= 95) return 'full';
+    if (percent >= 75) return 'high';
+    if (percent >= 45) return 'medium';
+    if (percent >= 15) return 'low';
+    return 'empty';
+  };
+
+  const updateBatteryFromManager = (batteryManager) => {
+    if (!batteryManager) {
+      setBatteryState('unavailable', {
+        text: 'Unavailable',
+        icon: 'empty',
+        announcement: 'Battery status unavailable'
+      });
+      return;
+    }
+
+    const level = Number.isFinite(batteryManager.level) ? batteryManager.level : null;
+    const charging = batteryManager.charging === true;
+    if (level === null) {
+      setBatteryState('unavailable', {
+        text: charging ? 'Charging' : 'Unavailable',
+        icon: charging ? 'charging' : 'empty',
+        announcement: 'Battery status unavailable'
+      });
+      return;
+    }
+
+    const clampedLevel = clamp(level, 0, 1);
+    const percent = clamp(Math.round(clampedLevel * 100), 0, 100);
+    const state = charging ? 'charging' : getBatteryStateFromLevel(clampedLevel);
+    const iconKey = charging ? 'charging' : state;
+    const text = charging ? `Charging ${percent}%` : `${percent}%`;
+    const announcement = describeBatteryAnnouncement(percent, charging);
+
+    setBatteryState(state, {
+      text,
+      icon: iconKey,
+      announcement
+    });
+  };
+
+  if (batteryBadge) {
+    setBatteryState('unavailable', {
+      text: 'Unavailable',
+      icon: 'empty',
+      announcement: 'Battery status unavailable'
+    });
+
+    const supportsBatteryApi =
+      typeof navigator !== 'undefined' && typeof navigator.getBattery === 'function';
+
+    if (supportsBatteryApi) {
+      navigator
+        .getBattery()
+        .then((batteryManager) => {
+          if (!batteryManager) {
+            setBatteryState('unavailable', {
+              text: 'Unavailable',
+              icon: 'empty',
+              announcement: 'Battery status unavailable'
+            });
+            return;
+          }
+
+          const handleBatteryChange = () => {
+            updateBatteryFromManager(batteryManager);
+          };
+
+          updateBatteryFromManager(batteryManager);
+
+          batteryManager.addEventListener('levelchange', handleBatteryChange);
+          batteryManager.addEventListener('chargingchange', handleBatteryChange);
+
+          batteryBadge._playerToolsBatteryCleanup = () => {
+            batteryManager.removeEventListener('levelchange', handleBatteryChange);
+            batteryManager.removeEventListener('chargingchange', handleBatteryChange);
+          };
+        })
+        .catch(() => {
+          setBatteryState('unavailable', {
+            text: 'Unavailable',
+            icon: 'empty',
+            announcement: 'Battery status unavailable'
+          });
+        });
+    }
+  }
+
   const focusableSelectors = [
     'a[href]',
     'area[href]',

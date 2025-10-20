@@ -9,6 +9,42 @@
 <link rel="preload" href="images/6a78d5b9-619a-4670-a141-271387532fdb.svg" as="image" type="image/svg+xml"/>
 <link rel="preload" href="images/death-animation.svg" as="image" type="image/svg+xml"/>
 <link rel="preload" href="images/player-tools-icon.svg" as="image" type="image/svg+xml"/>
+<link
+  rel="preload"
+  href="images/vertical-battery-0-svgrepo-com.svg"
+  as="image"
+  type="image/svg+xml"
+/>
+<link
+  rel="preload"
+  href="images/vertical-battery-25-svgrepo-com.svg"
+  as="image"
+  type="image/svg+xml"
+/>
+<link
+  rel="preload"
+  href="images/vertical-battery-50-svgrepo-com.svg"
+  as="image"
+  type="image/svg+xml"
+/>
+<link
+  rel="preload"
+  href="images/vertical-battery-75-svgrepo-com.svg"
+  as="image"
+  type="image/svg+xml"
+/>
+<link
+  rel="preload"
+  href="images/vertical-battery-100-svgrepo-com.svg"
+  as="image"
+  type="image/svg+xml"
+/>
+<link
+  rel="preload"
+  href="images/vertical-charging-battery-svgrepo-com.svg"
+  as="image"
+  type="image/svg+xml"
+/>
 <link rel="icon" type="image/png" sizes="1024x1024" href="images/logo.png"/>
 <link rel="apple-touch-icon" sizes="180x180" href="images/logo.png"/>
 <link rel="shortcut icon" type="image/png" sizes="1024x1024" href="images/logo.png"/>
@@ -2967,18 +3003,35 @@
       </div>
     </div>
     <div class="player-tools-drawer__content" data-player-tools-content tabindex="-1">
-      <div class="player-tools-drawer__status" aria-hidden="true">
-        <span class="player-tools-drawer__badge player-tools-drawer__badge--online">
+      <div class="player-tools-drawer__status">
+        <span class="player-tools-drawer__badge player-tools-drawer__badge--online" aria-hidden="true">
           <span class="player-tools-drawer__badge-dot" aria-hidden="true"></span>
           Systems Online
         </span>
-        <span class="player-tools-drawer__badge player-tools-drawer__badge--signal">
+        <span class="player-tools-drawer__badge player-tools-drawer__badge--signal" aria-hidden="true">
           <span class="player-tools-drawer__badge-signal" aria-hidden="true">
             <span></span>
             <span></span>
             <span></span>
           </span>
           Link Stable
+        </span>
+        <span
+          class="player-tools-drawer__badge player-tools-drawer__badge--battery"
+          data-player-tools-battery
+          aria-live="polite"
+          role="status"
+        >
+          <span class="sr-only" data-player-tools-battery-label>Battery status unavailable</span>
+          <span class="player-tools-drawer__badge-icon" aria-hidden="true">
+            <img
+              src="images/vertical-battery-0-svgrepo-com.svg"
+              alt=""
+              data-player-tools-battery-icon
+              decoding="async"
+            />
+          </span>
+          <span class="player-tools-drawer__badge-text" data-player-tools-battery-text>Unavailable</span>
         </span>
       </div>
       <fieldset class="card card__glow roll-tools-card">
