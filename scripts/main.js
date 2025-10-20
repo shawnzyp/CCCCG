@@ -10643,18 +10643,40 @@ function updateLevelRewardReminderUI(count) {
   if (elLevelRewardReminderTrigger) {
     if (pendingCount > 0) {
       elLevelRewardReminderTrigger.hidden = false;
-      elLevelRewardReminderTrigger.removeAttribute('aria-hidden');
-      elLevelRewardReminderTrigger.setAttribute('data-pending', 'true');
+      if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
+        elLevelRewardReminderTrigger.removeAttribute('aria-hidden');
+      } else if (elLevelRewardReminderTrigger?.dataset) {
+        delete elLevelRewardReminderTrigger.dataset.ariaHidden;
+      }
+      if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
+        elLevelRewardReminderTrigger.setAttribute('data-pending', 'true');
+      } else if (elLevelRewardReminderTrigger?.dataset) {
+        elLevelRewardReminderTrigger.dataset.pending = 'true';
+      }
       const label = pendingCount === 1
         ? 'Level rewards (1 pending)'
         : `Level rewards (${pendingCount} pending)`;
-      elLevelRewardReminderTrigger.setAttribute('aria-label', label);
+      if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
+        elLevelRewardReminderTrigger.setAttribute('aria-label', label);
+      } else if (elLevelRewardReminderTrigger) {
+        elLevelRewardReminderTrigger.ariaLabel = label;
+      }
     } else {
       elLevelRewardReminderTrigger.hidden = true;
-      elLevelRewardReminderTrigger.setAttribute('aria-hidden', 'true');
-      elLevelRewardReminderTrigger.removeAttribute('data-pending');
-      elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
-      elLevelRewardReminderTrigger.setAttribute('aria-label', 'Level rewards');
+      if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
+        elLevelRewardReminderTrigger.setAttribute('aria-hidden', 'true');
+        elLevelRewardReminderTrigger.setAttribute('aria-label', 'Level rewards');
+      } else if (elLevelRewardReminderTrigger) {
+        elLevelRewardReminderTrigger.ariaHidden = 'true';
+        elLevelRewardReminderTrigger.ariaLabel = 'Level rewards';
+      }
+      if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
+        elLevelRewardReminderTrigger.removeAttribute('data-pending');
+        elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+      } else if (elLevelRewardReminderTrigger?.dataset) {
+        delete elLevelRewardReminderTrigger.dataset.pending;
+        delete elLevelRewardReminderTrigger.dataset.drawerOpen;
+      }
     }
   }
   if (elLevelRewardAcknowledge) {
