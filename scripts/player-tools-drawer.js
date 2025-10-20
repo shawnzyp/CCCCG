@@ -6,6 +6,59 @@
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
   const content = drawer.querySelector('[data-player-tools-content]');
 
+  const scriptBaseUrl = (() => {
+    if (typeof document === 'undefined') return null;
+    const script = document.querySelector('script[type="module"][src*="player-tools-drawer.js"]');
+    if (script && script.src) {
+      try {
+        return new URL(script.src, document.baseURI);
+      } catch (error) {
+        /* ignore resolution errors and fall back below */
+      }
+    }
+    if (typeof window !== 'undefined' && window.location?.href) {
+      try {
+        return new URL(window.location.href);
+      } catch (error) {
+        /* ignore location parsing errors */
+      }
+    }
+    return null;
+  })();
+
+  const resolveAssetUrl = relativePath => {
+    if (typeof relativePath !== 'string') return relativePath;
+    const trimmed = relativePath.trim();
+    if (!trimmed) return trimmed;
+
+    if (scriptBaseUrl) {
+      try {
+        return new URL(trimmed, scriptBaseUrl).toString();
+      } catch (error) {
+        /* fall back to document base */
+      }
+    }
+
+    if (typeof window !== 'undefined' && window.location?.href) {
+      try {
+        const locationBase = new URL(window.location.href);
+        if (!locationBase.pathname.endsWith('/')) {
+          locationBase.pathname = locationBase.pathname.replace(/[^/]*$/, '');
+        }
+        const withoutLeadingDots = trimmed
+          .replace(/^(\.\/)+/, '')
+          .replace(/^(\.\.\/)+/, '');
+        return new URL(withoutLeadingDots, locationBase).toString();
+      } catch (error) {
+        /* ignore and fall through */
+      }
+    }
+
+    return trimmed
+      .replace(/^(\.\/)+/, '')
+      .replace(/^(\.\.\/)+/, '');
+  };
+
   const body = document.body;
   const requestFrame =
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
@@ -255,12 +308,12 @@
 
   const batteryIcons = batteryBadge
     ? {
-        empty: new URL('../images/vertical-battery-0-svgrepo-com.svg', import.meta.url).toString(),
-        low: new URL('../images/vertical-battery-25-svgrepo-com.svg', import.meta.url).toString(),
-        medium: new URL('../images/vertical-battery-50-svgrepo-com.svg', import.meta.url).toString(),
-        high: new URL('../images/vertical-battery-75-svgrepo-com.svg', import.meta.url).toString(),
-        full: new URL('../images/vertical-battery-100-svgrepo-com.svg', import.meta.url).toString(),
-        charging: new URL('../images/vertical-charging-battery-svgrepo-com.svg', import.meta.url).toString()
+        empty: resolveAssetUrl('../images/vertical-battery-0-svgrepo-com.svg'),
+        low: resolveAssetUrl('../images/vertical-battery-25-svgrepo-com.svg'),
+        medium: resolveAssetUrl('../images/vertical-battery-50-svgrepo-com.svg'),
+        high: resolveAssetUrl('../images/vertical-battery-75-svgrepo-com.svg'),
+        full: resolveAssetUrl('../images/vertical-battery-100-svgrepo-com.svg'),
+        charging: resolveAssetUrl('../images/vertical-charging-battery-svgrepo-com.svg')
       }
     : null;
 
