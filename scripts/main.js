@@ -7048,6 +7048,336 @@ if (themeToggleEl) {
 }
 
 /* ========= tabs ========= */
+const TAB_ICON_SELECTOR = '[data-tab-icon]';
+const TAB_ICON_PLAY_COUNT = 2;
+const TAB_ICON_DEFAULT_DURATION = 1200;
+const TAB_ICON_MIN_DURATION = 200;
+const tabIconStates = new WeakMap();
+const tabIconDurationCache = new Map();
+const tabIconDurationRequests = new Map();
+
+function parseDimension(value){
+  if(typeof value !== 'string' || !value.trim()) return NaN;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function setupTabIconAnimations(){
+  const iconImages = Array.from(qsa(TAB_ICON_SELECTOR));
+  iconImages.forEach(img => prepareTabIcon(img));
+}
+
+function prepareTabIcon(img){
+  if(!img) return;
+  const container = img.closest('.tab__icon');
+  if(!container || tabIconStates.has(container)) return;
+
+  const srcAttribute = img.getAttribute('src');
+  const absoluteSrc = (() => {
+    if(typeof img.currentSrc === 'string' && img.currentSrc) return img.currentSrc;
+    if(typeof img.src === 'string' && img.src) return img.src;
+    if(srcAttribute){
+      try { return new URL(srcAttribute, window.location.href).toString(); }
+      catch { return srcAttribute; }
+    }
+    return '';
+  })();
+
+  if(!srcAttribute && !absoluteSrc) return;
+
+  const widthAttr = parseDimension(img.getAttribute('width'));
+  const heightAttr = parseDimension(img.getAttribute('height'));
+  const initialWidth = Number.isFinite(widthAttr) ? widthAttr : (img.naturalWidth || 48);
+  const initialHeight = Number.isFinite(heightAttr) ? heightAttr : (img.naturalHeight || initialWidth);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = initialWidth;
+  canvas.height = initialHeight;
+  canvas.style.width = 'var(--tab-icon-size)';
+  canvas.style.height = 'var(--tab-icon-size)';
+  canvas.setAttribute('aria-hidden', 'true');
+  canvas.dataset.tabIconStill = 'true';
+  container.insertBefore(canvas, img);
+
+  const template = img.cloneNode(false);
+  template.removeAttribute('data-tab-icon');
+  template.setAttribute('aria-hidden', 'true');
+
+  const state = {
+    container,
+    gifSrcAttribute: srcAttribute || absoluteSrc,
+    gifSrcAbsolute: absoluteSrc || srcAttribute,
+    width: initialWidth,
+    height: initialHeight,
+    canvas,
+    template,
+    durationMs: null,
+    durationPromise: null,
+    animationTimer: null,
+    activePlayer: null,
+  };
+
+  const drawStill = source => {
+    if(!source) return;
+    const ctx = canvas.getContext('2d');
+    if(!ctx) return;
+    const naturalWidth = source.naturalWidth || initialWidth;
+    const naturalHeight = source.naturalHeight || initialHeight;
+    if(naturalWidth && naturalHeight){
+      if(canvas.width !== naturalWidth || canvas.height !== naturalHeight){
+        canvas.width = naturalWidth;
+        canvas.height = naturalHeight;
+      }
+      state.width = naturalWidth;
+      state.height = naturalHeight;
+      try { ctx.clearRect(0, 0, canvas.width, canvas.height); } catch (err) {}
+      try { ctx.drawImage(source, 0, 0, canvas.width, canvas.height); } catch (err) {}
+    }
+  };
+
+  const finalizeStill = () => {
+    drawStill(img);
+    try { img.remove(); } catch (err) {}
+  };
+
+  const handleDecodeError = () => {
+    img.style.visibility = '';
+    try { canvas.remove(); } catch (err) {}
+    tabIconStates.delete(container);
+  };
+
+  img.style.visibility = 'hidden';
+  if(typeof img.decode === 'function'){
+    img.decode().then(finalizeStill).catch(() => {
+      if(img.complete && img.naturalWidth) finalizeStill();
+    });
+  }
+
+  if(img.complete && img.naturalWidth){
+    finalizeStill();
+  } else {
+    img.addEventListener('load', finalizeStill, { once: true });
+    img.addEventListener('error', handleDecodeError, { once: true });
+  }
+
+  tabIconStates.set(container, state);
+}
+
+function ensureTabIconDuration(state){
+  if(!state) return Promise.resolve(TAB_ICON_DEFAULT_DURATION);
+  if(state.durationMs != null){
+    return Promise.resolve(state.durationMs);
+  }
+  if(state.durationPromise){
+    return state.durationPromise;
+  }
+  const src = state.gifSrcAbsolute || state.gifSrcAttribute;
+  const promise = fetchGifDuration(src).then(duration => {
+    state.durationMs = duration;
+    state.durationPromise = null;
+    return duration;
+  }).catch(() => {
+    state.durationMs = TAB_ICON_DEFAULT_DURATION;
+    state.durationPromise = null;
+    return TAB_ICON_DEFAULT_DURATION;
+  });
+  state.durationPromise = promise;
+  return promise;
+}
+
+function triggerTabIconAnimation(container){
+  if(!container) return;
+  const state = tabIconStates.get(container);
+  if(!state || !state.template || !state.gifSrcAttribute) return;
+
+  if(state.animationTimer){
+    window.clearTimeout(state.animationTimer);
+    state.animationTimer = null;
+  }
+  if(state.activePlayer){
+    try { state.activePlayer.remove(); } catch (err) {}
+    state.activePlayer = null;
+  }
+
+  const player = state.template.cloneNode(false);
+  player.removeAttribute('data-tab-icon');
+  player.setAttribute('aria-hidden', 'true');
+  player.dataset.tabIconPlayer = 'true';
+  player.decoding = 'async';
+  player.width = state.width;
+  player.height = state.height;
+  player.style.width = 'var(--tab-icon-size)';
+  player.style.height = 'var(--tab-icon-size)';
+  player.src = state.gifSrcAttribute;
+  container.appendChild(player);
+  state.activePlayer = player;
+  container.classList.add('tab__icon--animating');
+
+  const clearPlayer = () => {
+    if(state.activePlayer === player){
+      try { player.remove(); } catch (err) {}
+      state.activePlayer = null;
+    }
+    container.classList.remove('tab__icon--animating');
+    if(state.animationTimer){
+      window.clearTimeout(state.animationTimer);
+      state.animationTimer = null;
+    }
+  };
+
+  const scheduleStop = duration => {
+    const normalized = Math.max(Number.isFinite(duration) ? duration : 0, TAB_ICON_MIN_DURATION);
+    const total = (normalized * TAB_ICON_PLAY_COUNT);
+    if(state.animationTimer){
+      window.clearTimeout(state.animationTimer);
+    }
+    state.animationTimer = window.setTimeout(clearPlayer, total);
+  };
+
+  const begin = () => {
+    ensureTabIconDuration(state)
+      .then(duration => {
+        if(state.activePlayer === player) scheduleStop(duration);
+      })
+      .catch(() => {
+        if(state.activePlayer === player) scheduleStop(TAB_ICON_DEFAULT_DURATION);
+      });
+  };
+
+  if(player.complete && player.naturalWidth){
+    begin();
+  } else {
+    player.addEventListener('load', begin, { once: true });
+    player.addEventListener('error', () => {
+      clearPlayer();
+    }, { once: true });
+  }
+}
+
+function fetchGifDuration(src){
+  if(!src) return Promise.resolve(TAB_ICON_DEFAULT_DURATION);
+  const key = src;
+  if(tabIconDurationCache.has(key)){
+    return Promise.resolve(tabIconDurationCache.get(key));
+  }
+  if(tabIconDurationRequests.has(key)){
+    return tabIconDurationRequests.get(key);
+  }
+  let requestSrc = src;
+  try {
+    requestSrc = new URL(src, window.location.href).toString();
+  } catch (err) {}
+  const request = fetch(requestSrc)
+    .then(response => {
+      if(!response.ok) throw new Error('Failed to load GIF');
+      return response.arrayBuffer();
+    })
+    .then(buffer => {
+      const duration = parseGifDuration(buffer);
+      const normalized = duration > 0 ? duration : TAB_ICON_DEFAULT_DURATION;
+      tabIconDurationCache.set(key, normalized);
+      tabIconDurationRequests.delete(key);
+      return normalized;
+    })
+    .catch(() => {
+      tabIconDurationRequests.delete(key);
+      tabIconDurationCache.set(key, TAB_ICON_DEFAULT_DURATION);
+      return TAB_ICON_DEFAULT_DURATION;
+    });
+  tabIconDurationRequests.set(key, request);
+  return request;
+}
+
+function parseGifDuration(buffer){
+  if(!buffer) return 0;
+  const view = new DataView(buffer);
+  if(view.byteLength < 20) return 0;
+  const header = String.fromCharCode(
+    view.getUint8(0), view.getUint8(1), view.getUint8(2),
+    view.getUint8(3), view.getUint8(4), view.getUint8(5)
+  );
+  if(header !== 'GIF87a' && header !== 'GIF89a') return 0;
+
+  let offset = 6;
+  offset += 2; // canvas width
+  offset += 2; // canvas height
+  if(offset >= view.byteLength) return 0;
+  const packedFields = view.getUint8(offset); offset += 1;
+  offset += 2; // background + pixel aspect
+
+  if(packedFields & 0x80){
+    const tableSize = 3 * (2 ** ((packedFields & 0x07) + 1));
+    offset += tableSize;
+  }
+
+  let total = 0;
+  let lastDelay = 10; // hundredths of a second
+
+  while(offset < view.byteLength){
+    const blockId = view.getUint8(offset); offset += 1;
+    if(blockId === 0x3B){
+      break;
+    }
+    if(blockId === 0x2C){
+      offset += 8; // left, top, width, height
+      if(offset >= view.byteLength) break;
+      const localPacked = view.getUint8(offset); offset += 1;
+      if(localPacked & 0x80){
+        const tableSize = 3 * (2 ** ((localPacked & 0x07) + 1));
+        offset += tableSize;
+      }
+      if(offset >= view.byteLength) break;
+      offset += 1; // LZW minimum code size
+      offset = skipGifSubBlocks(view, offset);
+      const frameDelay = lastDelay === 0 ? 1 : lastDelay;
+      total += frameDelay * 10;
+      lastDelay = 10;
+    } else if(blockId === 0x21){
+      if(offset >= view.byteLength) break;
+      const label = view.getUint8(offset); offset += 1;
+      if(label === 0xF9){
+        if(offset >= view.byteLength) break;
+        const blockSize = view.getUint8(offset); offset += 1;
+        if(blockSize === 4){
+          offset += 1; // packed fields
+          if(offset + 2 > view.byteLength){
+            lastDelay = 10;
+            offset = Math.min(offset + 2, view.byteLength);
+          } else {
+            lastDelay = view.getUint16(offset, true);
+            offset += 2;
+          }
+          offset += 1; // transparent index
+          if(offset < view.byteLength) offset += 1; // terminator
+        } else {
+          offset += blockSize;
+          offset = skipGifSubBlocks(view, offset);
+        }
+      } else if(label === 0xFF || label === 0x01){
+        if(offset >= view.byteLength) break;
+        const blockSize = view.getUint8(offset); offset += 1;
+        offset += blockSize;
+        offset = skipGifSubBlocks(view, offset);
+      } else {
+        offset = skipGifSubBlocks(view, offset);
+      }
+    } else {
+      offset = skipGifSubBlocks(view, offset);
+    }
+  }
+
+  return total;
+}
+
+function skipGifSubBlocks(view, offset){
+  while(offset < view.byteLength){
+    const size = view.getUint8(offset); offset += 1;
+    if(size === 0) break;
+    offset += size;
+  }
+  return offset;
+}
+
 function setTab(name){
   qsa('fieldset[data-tab]').forEach(s=> {
     const active = s.getAttribute('data-tab') === name;
@@ -7072,6 +7402,8 @@ function setTab(name){
 
 const tabButtons = Array.from(qsa('.tab'));
 const TAB_ORDER = tabButtons.map(btn => btn.getAttribute('data-go')).filter(Boolean);
+
+setupTabIconAnimations();
 
 const getNavigationType = () => {
   if (typeof performance === 'undefined') return null;
@@ -7294,6 +7626,8 @@ const switchTab = (name, options = {}) => {
 tabButtons.forEach(btn => btn.addEventListener('click', () => {
   const target = btn.getAttribute('data-go');
   if(target) switchTab(target);
+  const iconContainer = btn.querySelector('.tab__icon');
+  if(iconContainer) triggerTabIconAnimation(iconContainer);
 }));
 const navigationType = getNavigationType();
 const shouldForceCombatTab = navigationType === 'navigate' || navigationType === 'reload' || navigationType === null;
@@ -7614,6 +7948,9 @@ const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-tog
 if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
+  const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
+  const TICKER_ICON_OPEN_SRC = 'images/caret (1).png';
+  const TICKER_ICON_CLOSED_SRC = 'images/caret.png';
   const sanitizePanelHeight = value => {
     if(typeof value === 'number' && Number.isFinite(value)){
       return value;
@@ -7704,8 +8041,19 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     }
   };
 
+  const setToggleIcon = nextOpen => {
+    if(!toggleIcon){
+      return;
+    }
+    const nextSrc = nextOpen ? TICKER_ICON_OPEN_SRC : TICKER_ICON_CLOSED_SRC;
+    if(toggleIcon.getAttribute('src') !== nextSrc){
+      toggleIcon.setAttribute('src', nextSrc);
+    }
+  };
+
   const updateToggleState = nextOpen => {
     updateAccessibilityState(nextOpen);
+    setToggleIcon(nextOpen);
   };
 
   const finalizeAnimation = () => {
