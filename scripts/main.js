@@ -86,6 +86,13 @@ import {
   getRangeOptionsForShape,
 } from './power-metadata.js';
 import { toast } from './notifications.js';
+import {
+  ensureOfflineAssets,
+  getStoredOfflineManifestTimestamp,
+  getStoredOfflineManifestVersion,
+  setStoredOfflineManifestVersion,
+  supportsOfflineCaching,
+} from './offline-cache.js';
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 
@@ -15979,6 +15986,207 @@ function formatRelativeTime(timestamp) {
   return '';
 }
 
+const syncPanelOfflineBtn = syncPanel?.querySelector('[data-sync-prefetch]');
+const syncPanelOfflineStatusEl = syncPanel?.querySelector('[data-sync-prefetch-status]');
+const offlineDownloadDefaultLabel = syncPanelOfflineBtn?.textContent?.trim() || 'Download offline assets';
+let offlineDownloadInProgress = false;
+let offlineDownloadScheduled = false;
+let offlineDownloadRetryPending = false;
+let offlineDownloadAbortController = null;
+
+function setOfflineDownloadButtonLabel(label) {
+  if (!syncPanelOfflineBtn || typeof label !== 'string') return;
+  syncPanelOfflineBtn.textContent = label;
+}
+
+function setOfflineDownloadButtonLoading(isLoading) {
+  if (!syncPanelOfflineBtn) return;
+  if (isLoading) {
+    syncPanelOfflineBtn.classList.add('loading');
+    syncPanelOfflineBtn.disabled = true;
+    syncPanelOfflineBtn.setAttribute('aria-busy', 'true');
+  } else {
+    syncPanelOfflineBtn.classList.remove('loading');
+    syncPanelOfflineBtn.removeAttribute('aria-busy');
+    syncPanelOfflineBtn.disabled = !supportsOfflineCaching();
+  }
+}
+
+function updateOfflineDownloadStatus(message, state) {
+  if (!syncPanelOfflineStatusEl) return;
+  if (!message) {
+    syncPanelOfflineStatusEl.hidden = true;
+    syncPanelOfflineStatusEl.textContent = '';
+    syncPanelOfflineStatusEl.removeAttribute('data-state');
+    syncPanelOfflineStatusEl.removeAttribute('title');
+    return;
+  }
+  syncPanelOfflineStatusEl.hidden = false;
+  syncPanelOfflineStatusEl.textContent = message;
+  if (state) {
+    syncPanelOfflineStatusEl.setAttribute('data-state', state);
+  } else {
+    syncPanelOfflineStatusEl.removeAttribute('data-state');
+  }
+}
+
+function scheduleOfflinePrefetch(delay = 2000) {
+  if (!supportsOfflineCaching()) return;
+  if (offlineDownloadInProgress || offlineDownloadScheduled) return;
+  offlineDownloadScheduled = true;
+  const launch = () => {
+    offlineDownloadScheduled = false;
+    runOfflineDownload({ forceReload: false, triggeredByUser: false });
+  };
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(launch, { timeout: delay });
+  } else if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+    window.setTimeout(launch, delay);
+  } else {
+    launch();
+  }
+}
+
+async function runOfflineDownload({ forceReload = false, triggeredByUser = false } = {}) {
+  if (offlineDownloadInProgress) return;
+  if (!supportsOfflineCaching()) {
+    updateOfflineDownloadStatus('Offline caching is not supported on this browser.', 'error');
+    if (syncPanelOfflineBtn) {
+      syncPanelOfflineBtn.disabled = true;
+      syncPanelOfflineBtn.setAttribute('aria-disabled', 'true');
+      syncPanelOfflineBtn.title = 'Offline caching is not supported on this browser.';
+    }
+    return;
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    offlineDownloadRetryPending = true;
+    updateOfflineDownloadStatus('Connect to the internet to download offline assets.', 'error');
+    return;
+  }
+  offlineDownloadRetryPending = false;
+  offlineDownloadInProgress = true;
+  setOfflineDownloadButtonLoading(true);
+  updateOfflineDownloadStatus('Preparing offline download…');
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  offlineDownloadAbortController = controller;
+  try {
+    const result = await ensureOfflineAssets({
+      forceReload,
+      signal: controller?.signal,
+      onProgress(progress) {
+        if (!progress) return;
+        const total = Number.isFinite(progress.total) ? progress.total : 0;
+        const completed = Math.min(
+          Number.isFinite(progress.completed) ? progress.completed : 0,
+          total
+        );
+        if (total > 0) {
+          updateOfflineDownloadStatus(`Caching assets… ${completed} / ${total}`);
+        } else {
+          updateOfflineDownloadStatus('Caching assets…');
+        }
+      },
+    });
+    const failures = Array.isArray(result?.failed) ? result.failed : [];
+    if (failures.length > 0) {
+      updateOfflineDownloadStatus(
+        `Cached ${result.fetched || 0} assets, ${failures.length} failed.`,
+        'error'
+      );
+    } else {
+      const now = Date.now();
+      setStoredOfflineManifestVersion(result.manifestVersion, now);
+      const relative = formatRelativeTime(now);
+      const absolute = formatDateTime(now);
+      if (syncPanelOfflineStatusEl) {
+        if (absolute) {
+          syncPanelOfflineStatusEl.title = `Updated ${absolute}`;
+        } else {
+          syncPanelOfflineStatusEl.removeAttribute('title');
+        }
+      }
+      let successMessage;
+      if (result.total > 0) {
+        if (result.fetched > 0) {
+          successMessage = `Offline ready! Downloaded ${result.fetched} new assets (${result.total} total).`;
+        } else {
+          successMessage = `Offline ready! All ${result.total} assets already cached.`;
+        }
+      } else {
+        successMessage = 'Offline ready! Asset cache is current.';
+      }
+      if (relative) {
+        successMessage += ` (updated ${relative})`;
+      }
+      updateOfflineDownloadStatus(successMessage, 'success');
+      setOfflineDownloadButtonLabel('Refresh offline assets');
+    }
+  } catch (err) {
+    if (err?.name === 'AbortError') {
+      updateOfflineDownloadStatus('Offline download canceled.', 'error');
+    } else {
+      console.error('Offline asset download failed', err);
+      updateOfflineDownloadStatus('Offline download failed. Please try again.', 'error');
+    }
+  } finally {
+    offlineDownloadInProgress = false;
+    setOfflineDownloadButtonLoading(false);
+    offlineDownloadAbortController = null;
+  }
+}
+
+if (syncPanelOfflineBtn) {
+  if (supportsOfflineCaching()) {
+    syncPanelOfflineBtn.disabled = false;
+    syncPanelOfflineBtn.removeAttribute('aria-disabled');
+    syncPanelOfflineBtn.title = 'Download all assets for offline use';
+  } else {
+    syncPanelOfflineBtn.disabled = true;
+    syncPanelOfflineBtn.setAttribute('aria-disabled', 'true');
+    syncPanelOfflineBtn.title = 'Offline caching is not supported on this browser.';
+    updateOfflineDownloadStatus('Offline caching is not supported on this browser.', 'error');
+  }
+  syncPanelOfflineBtn.addEventListener('click', event => {
+    const forceReload = Boolean(event?.metaKey || event?.ctrlKey || event?.shiftKey);
+    runOfflineDownload({ forceReload, triggeredByUser: true });
+  });
+  if (!syncPanelOfflineBtn.textContent?.trim()) {
+    setOfflineDownloadButtonLabel(offlineDownloadDefaultLabel);
+  }
+}
+
+(function initOfflineCacheStatus() {
+  const storedVersion = getStoredOfflineManifestVersion();
+  const storedTimestamp = getStoredOfflineManifestTimestamp();
+  if (storedVersion && syncPanelOfflineStatusEl) {
+    const absolute = storedTimestamp ? formatDateTime(storedTimestamp) : '';
+    const relative = storedTimestamp ? formatRelativeTime(storedTimestamp) : '';
+    let message = 'Offline assets ready.';
+    if (relative) {
+      message = `Offline assets ready (updated ${relative}).`;
+    }
+    updateOfflineDownloadStatus(message, 'success');
+    if (absolute) {
+      syncPanelOfflineStatusEl.title = `Updated ${absolute}`;
+    }
+    setOfflineDownloadButtonLabel('Refresh offline assets');
+  }
+  if (supportsOfflineCaching()) {
+    if (typeof window !== 'undefined') {
+      if (document.readyState === 'complete') {
+        scheduleOfflinePrefetch(2000);
+      } else {
+        window.addEventListener('load', () => scheduleOfflinePrefetch(2000), { once: true });
+      }
+      window.addEventListener('online', () => {
+        if (offlineDownloadRetryPending || !getStoredOfflineManifestVersion()) {
+          scheduleOfflinePrefetch(1500);
+        }
+      });
+    }
+  }
+})();
+
 function updateLastSyncDisplay(timestamp = getLastSyncActivity()) {
   if (!syncPanelLastEl) return;
   if (!Number.isFinite(timestamp)) {
@@ -16544,6 +16752,8 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     }
     if (type === 'sw-updated') {
       announceContentUpdate(payload);
+      scheduleOfflinePrefetch(1500);
+      return;
     }
   });
   navigator.serviceWorker.ready
@@ -16559,6 +16769,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
           });
         }
         worker?.postMessage({ type: 'flush-cloud-saves' });
+        scheduleOfflinePrefetch(2000);
       };
       triggerFlush();
       if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {

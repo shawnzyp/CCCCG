@@ -36,6 +36,7 @@ const ALLOWED_EXTENSIONS = new Set([
   '.mp4',
   '.wav',
   '.webm',
+  '.mov',
 ]);
 
 const ALWAYS_INCLUDE = new Set([

@@ -5,7 +5,10 @@ Hosted version of the mobile-optimized character sheet for GitHub Pages.
 ## Offline support
 
 The service worker pre-caches every asset listed in `asset-manifest.json` so the
-app is fully available after a user's first visit. Run `npm run build` to
+app is fully available after a user's first visit. On load, the app now
+preloads the entire manifest into the Cache Storage API and surfaces a
+**Download offline assets** button inside the cloud sync panel so players can
+manually refresh their local bundle at any time. Run `npm run build` to
 regenerate the compiled assets before deploying. This pipeline will:
 
 1. Normalize the gear catalog CSV exports into `data/gear-catalog.json` via
