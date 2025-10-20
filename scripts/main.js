@@ -20666,8 +20666,17 @@ applyEditIcons();
 applyDeleteIcons();
 applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  const swUrl = new URL('../sw.js', import.meta.url);
-  navigator.serviceWorker.register(swUrl.href).catch(e => console.error('SW reg failed', e));
+  let swUrl = 'sw.js';
+  try {
+    if (typeof document !== 'undefined' && document.baseURI) {
+      swUrl = new URL('sw.js', document.baseURI).href;
+    } else if (typeof window !== 'undefined' && window.location?.href) {
+      swUrl = new URL('sw.js', window.location.href).href;
+    }
+  } catch (error) {
+    swUrl = 'sw.js';
+  }
+  navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
   let hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (serviceWorkerUpdateHandled) return;
