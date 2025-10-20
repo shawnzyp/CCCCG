@@ -59,6 +59,29 @@ import {
   tierRank,
 } from './catalog-utils.js';
 import { LEVELS } from './levels.js';
+import {
+  POWER_ACTION_TYPES,
+  POWER_DAMAGE_DICE,
+  POWER_DAMAGE_TYPES,
+  POWER_DURATIONS,
+  POWER_EFFECT_TAGS,
+  POWER_INTENSITIES,
+  POWER_ON_SAVE_OPTIONS,
+  POWER_RANGE_QUICK_VALUES,
+  POWER_RANGE_UNITS,
+  POWER_SAVE_ABILITIES,
+  POWER_SCALING_OPTIONS,
+  POWER_SHAPE_RANGES,
+  POWER_STYLES,
+  POWER_STYLE_ATTACK_DEFAULTS,
+  POWER_STYLE_CASTER_SAVE_DEFAULTS,
+  POWER_SUGGESTION_STRENGTHS,
+  POWER_TARGET_SHAPES,
+  POWER_USES,
+  EFFECT_ON_SAVE_SUGGESTIONS,
+  EFFECT_SAVE_SUGGESTIONS,
+  getRangeOptionsForShape,
+} from './power-metadata.js';
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 
@@ -95,70 +118,6 @@ if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
   };
 }
 
-const POWER_STYLES = [
-  'Physical Powerhouse',
-  'Energy Manipulator',
-  'Speedster',
-  'Telekinetic/Psychic',
-  'Illusionist',
-  'Shape-shifter',
-  'Elemental Controller',
-];
-
-const POWER_ACTION_TYPES = ['Action', 'Bonus', 'Reaction', 'Out-of-Combat'];
-const POWER_TARGET_SHAPES = ['Melee', 'Ranged Single', 'Cone', 'Line', 'Radius', 'Self', 'Aura'];
-const POWER_EFFECT_TAGS = [
-  'Damage',
-  'Stun',
-  'Blind',
-  'Weaken',
-  'Push/Pull',
-  'Burn',
-  'Freeze',
-  'Slow',
-  'Charm',
-  'Shield',
-  'Heal',
-  'Teleport/Phase',
-  'Summon/Clone',
-  'Terrain',
-  'Dispel/Nullify',
-];
-const POWER_INTENSITIES = ['Minor', 'Core', 'AoE', 'Control', 'Ultimate'];
-const POWER_SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
-const POWER_DURATIONS = [
-  'Instant',
-  'End of Target’s Next Turn',
-  '1 Round',
-  'Sustained',
-  'Scene',
-  'Session',
-];
-const POWER_USES = ['At-will', 'Per Encounter', 'Per Session', 'Cooldown'];
-const POWER_ON_SAVE_OPTIONS = ['Full', 'Half', 'Negate'];
-const POWER_DAMAGE_TYPES = [
-  'Kinetic',
-  'Fire',
-  'Cold',
-  'Lightning',
-  'Psychic',
-  'Force',
-  'Radiant',
-  'Necrotic',
-  'Acid',
-];
-const POWER_SCALING_OPTIONS = ['Static', 'Level-based', 'Ability-based'];
-const POWER_DAMAGE_DICE = ['1d6', '2d6', '3d6', '4d6', '5d6', '6d6'];
-
-const POWER_RANGE_QUICK_VALUES = [
-  'Melee',
-  '10 ft',
-  '30 ft',
-  '60 ft',
-  '90 ft',
-  '120 ft',
-  'Unlimited (narrative)',
-];
 
 function isDmSessionActive() {
   try {
@@ -168,64 +127,6 @@ function isDmSessionActive() {
   }
 }
 
-const POWER_STYLE_CASTER_SAVE_DEFAULTS = {
-  'Physical Powerhouse': ['STR'],
-  'Energy Manipulator': ['INT', 'CON'],
-  Speedster: ['DEX'],
-  'Telekinetic/Psychic': ['WIS', 'INT'],
-  Illusionist: ['CHA'],
-  'Shape-shifter': ['CON', 'DEX'],
-  'Elemental Controller': ['WIS', 'CON'],
-};
-
-const POWER_STYLE_ATTACK_DEFAULTS = {
-  'Physical Powerhouse': 'str',
-  'Energy Manipulator': 'int',
-  Speedster: 'dex',
-  'Telekinetic/Psychic': 'wis',
-  Illusionist: 'cha',
-  'Shape-shifter': 'con',
-  'Elemental Controller': 'wis',
-};
-
-const POWER_RANGE_UNITS = ['feet', 'narrative'];
-const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
-
-const POWER_SHAPE_RANGES = {
-  Melee: ['Melee'],
-  Cone: ['15 ft', '30 ft', '60 ft'],
-  Line: ['30 ft', '60 ft', '120 ft'],
-  Radius: ['10 ft', '15 ft', '20 ft', '30 ft'],
-  Self: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
-  Aura: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
-  'Ranged Single': ['10 ft', '30 ft', '60 ft', '90 ft', '120 ft', 'Unlimited (narrative)'],
-};
-
-const EFFECT_SAVE_SUGGESTIONS = {
-  Stun: ['WIS'],
-  Charm: ['WIS'],
-  Blind: ['CON', 'WIS'],
-  Weaken: ['CON', 'WIS'],
-  'Push/Pull': ['STR', 'DEX'],
-  Burn: ['DEX', 'CON'],
-  Freeze: ['DEX', 'CON'],
-  Slow: ['DEX', 'CON'],
-  Illusion: ['WIS'],
-  Fear: ['WIS'],
-};
-
-const EFFECT_ON_SAVE_SUGGESTIONS = {
-  Damage: 'Half',
-  Stun: 'Negate',
-  Charm: 'Negate',
-  Blind: 'Negate',
-  Weaken: 'Half',
-  'Push/Pull': 'Negate',
-  Burn: 'Half',
-  Freeze: 'Half',
-  Slow: 'Half',
-  Illusion: 'Negate',
-};
 
 const AUGMENT_CATEGORIES = ['Control', 'Protection', 'Aggression', 'Transcendence', 'Customization'];
 const AUGMENT_GROUP_ORDER = new Map(AUGMENT_CATEGORIES.map((category, index) => [category, index]));
@@ -13971,12 +13872,6 @@ function generatePowerId() {
     try { return crypto.randomUUID(); } catch {}
   }
   return `power-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
-
-function getRangeOptionsForShape(shape) {
-  const options = POWER_SHAPE_RANGES[shape];
-  if (options && options.length) return options;
-  return POWER_RANGE_QUICK_VALUES.filter(value => value !== 'Melee');
 }
 
 function parseFeetValue(rangeValue) {
