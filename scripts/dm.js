@@ -18,6 +18,7 @@ import {
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
+import { toast, dismissToast } from './notifications.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -1105,8 +1106,7 @@ function initDMLogin(){
       !sessionWarningToastShown &&
       Number.isFinite(warningThreshold) &&
       warningThreshold > 0 &&
-      remaining <= warningThreshold &&
-      typeof toast === 'function'
+      remaining <= warningThreshold
     ) {
       toast('DM session will expire soon. Extend to stay logged in.', 'warning');
       sessionWarningToastShown = true;
@@ -1325,9 +1325,7 @@ function initDMLogin(){
   }
 
   function notifyLoginCooldown(remainingMs){
-    if (typeof toast === 'function') {
-      toast(formatLoginCooldownMessage(remainingMs), 'error');
-    }
+    toast(formatLoginCooldownMessage(remainingMs), 'error');
   }
 
   const notifyModal = document.getElementById('dm-notifications-modal');
@@ -2176,14 +2174,14 @@ function initDMLogin(){
 
   function clearPlayerCreditHistory({ announce = true } = {}) {
     if (!playerCreditHistory.length) {
-      if (announce && typeof toast === 'function') {
+      if (announce) {
         toast('Credit history is already empty', 'info');
       }
       return false;
     }
     setPlayerCreditHistory([]);
     renderPlayerCreditHistory();
-    if (announce && typeof toast === 'function') {
+    if (announce) {
       toast('Credit history cleared', 'info');
     }
     return true;
@@ -2192,29 +2190,27 @@ function initDMLogin(){
   async function exportPlayerCreditHistory() {
     const entries = getFilteredPlayerCreditHistory();
     if (!entries.length) {
-      if (typeof toast === 'function') {
-        const message = playerCreditHistory.length
-          ? 'No credit history entries match the current filters'
-          : 'Credit history is empty';
-        toast(message, 'info');
-      }
+      const message = playerCreditHistory.length
+        ? 'No credit history entries match the current filters'
+        : 'Credit history is empty';
+      toast(message, 'info');
       return false;
     }
     const lines = entries.map(entry => formatCreditHistoryEntry(entry));
     const payload = lines.join('\n');
     if (!payload) {
-      if (typeof toast === 'function') toast('Nothing to export', 'info');
+      toast('Nothing to export', 'info');
       return false;
     }
     if (await writeTextToClipboard(payload)) {
-      if (typeof toast === 'function') toast('Credit history copied to clipboard', 'success');
+      toast('Credit history copied to clipboard', 'success');
       return true;
     }
     if (downloadTextFile(buildExportFilename('dm-credit-history'), payload)) {
-      if (typeof toast === 'function') toast('Credit history exported', 'success');
+      toast('Credit history exported', 'success');
       return true;
     }
-    if (typeof toast === 'function') toast('Unable to export credit history', 'error');
+    toast('Unable to export credit history', 'error');
     return false;
   }
 
@@ -2403,14 +2399,14 @@ function initDMLogin(){
 
   function clearQuickRewardHistory({ announce = true } = {}) {
     if (!quickRewardHistory.length) {
-      if (announce && typeof toast === 'function') {
+      if (announce) {
         toast('Reward history is already empty', 'info');
       }
       return false;
     }
     setQuickRewardHistory([]);
     renderQuickRewardHistory();
-    if (announce && typeof toast === 'function') {
+    if (announce) {
       toast('Reward history cleared', 'info');
     }
     return true;
@@ -2418,24 +2414,24 @@ function initDMLogin(){
 
   async function exportQuickRewardHistory() {
     if (!quickRewardHistory.length) {
-      if (typeof toast === 'function') toast('Reward history is empty', 'info');
+      toast('Reward history is empty', 'info');
       return false;
     }
     const lines = quickRewardHistory.map(entry => formatQuickRewardHistoryEntry(entry));
     const payload = lines.join('\n');
     if (!payload) {
-      if (typeof toast === 'function') toast('Nothing to export', 'info');
+      toast('Nothing to export', 'info');
       return false;
     }
     if (await writeTextToClipboard(payload)) {
-      if (typeof toast === 'function') toast('Reward history copied to clipboard', 'success');
+      toast('Reward history copied to clipboard', 'success');
       return true;
     }
     if (downloadTextFile(buildExportFilename('dm-reward-history'), payload)) {
-      if (typeof toast === 'function') toast('Reward history exported', 'success');
+      toast('Reward history exported', 'success');
       return true;
     }
-    if (typeof toast === 'function') toast('Unable to export reward history', 'error');
+    toast('Unable to export reward history', 'error');
     return false;
   }
 
@@ -2606,11 +2602,7 @@ function initDMLogin(){
   }
 
   function reportRewardError(message) {
-    if (typeof toast === 'function') {
-      toast(message, 'error');
-    } else if (typeof alert === 'function') {
-      alert(message);
-    }
+    toast(message, 'error');
   }
 
   function updateQuickRewardFormsState() {
@@ -3241,12 +3233,9 @@ function initDMLogin(){
     const { missing, hadOptions } = applyQuickRewardTargets(preset.targets);
     applyQuickRewardPresetValues(cardId, preset.values);
     updateQuickRewardFormsState();
-    if (typeof toast === 'function') {
-      toast(`Loaded ${label} preset "${preset.name}"`, 'info');
-      if (hadOptions && missing.length) {
-        toast('Some preset recipients are unavailable', 'info');
-      }
-    } else if (hadOptions && missing.length) {
+    toast(`Loaded ${label} preset "${preset.name}"`, 'info');
+    if (hadOptions && missing.length) {
+      toast('Some preset recipients are unavailable', 'info');
       console.info('Missing preset recipients:', missing);
     }
   }
@@ -3264,12 +3253,12 @@ function initDMLogin(){
     if (input == null) return;
     const name = sanitizeQuickRewardPresetName(input, defaultName);
     if (!name) {
-      if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+      toast('Preset name cannot be empty', 'error');
       return;
     }
     const normalizedName = name.trim();
     if (!normalizedName) {
-      if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+      toast('Preset name cannot be empty', 'error');
       return;
     }
     const newPreset = {
@@ -3285,7 +3274,7 @@ function initDMLogin(){
     quickRewardPresetState.set(cardId, next);
     persistQuickRewardPresetState();
     renderQuickRewardPresetOptions(cardId, { selectedId: newPreset.id });
-    if (typeof toast === 'function') toast(`Saved ${label} preset "${normalizedName}"`, 'success');
+    toast(`Saved ${label} preset "${normalizedName}"`, 'success');
   }
 
   function handleQuickRewardPresetDelete(cardId) {
@@ -3310,7 +3299,7 @@ function initDMLogin(){
     renderQuickRewardPresetOptions(cardId);
     if (config.select) config.select.value = '';
     updateQuickRewardPresetControls(cardId);
-    if (typeof toast === 'function') toast(`Deleted ${label} preset "${preset.name}"`, 'info');
+    toast(`Deleted ${label} preset "${preset.name}"`, 'info');
   }
 
   function handleQuickRewardPresetSelection(cardId) {
@@ -3390,9 +3379,7 @@ function initDMLogin(){
         .sort((a, b) => a.localeCompare(b));
     } catch (err) {
       console.error('Failed to load character roster', err);
-      if (typeof toast === 'function') {
-        toast('Unable to load players', 'error');
-      }
+      toast('Unable to load players', 'error');
       return [];
     }
   }
@@ -3450,9 +3437,7 @@ function initDMLogin(){
       creditAccountSelect.disabled = true;
       applyCreditAccountSelection();
       updateCreditSubmitState();
-      if (typeof toast === 'function') {
-        toast('Unable to load players', 'error');
-      }
+      toast('Unable to load players', 'error');
       return Array.isArray(roster) ? roster : [];
     }
   }
@@ -3507,9 +3492,7 @@ function initDMLogin(){
       quickRewardTargetSelect.appendChild(option);
       quickRewardTargetSelect.disabled = true;
       updateQuickRewardFormsState();
-      if (typeof toast === 'function') {
-        toast('Unable to load players', 'error');
-      }
+      toast('Unable to load players', 'error');
       return Array.isArray(roster) ? roster : [];
     }
   }
@@ -3711,9 +3694,7 @@ function initDMLogin(){
           const summary = summaryParts.join(' ');
           logEntries.push(createRewardLogEntry('dm-credit', now, 'DM Credit Transfer', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') {
-            toast(summary, transactionType === 'Debit' ? 'info' : 'success');
-          }
+          toast(summary, transactionType === 'Debit' ? 'info' : 'success');
           const accountNumber = typeof op.accountNumber === 'string' && op.accountNumber
             ? op.accountNumber
             : computeCreditAccountNumber(target);
@@ -3754,9 +3735,7 @@ function initDMLogin(){
           const summary = `${delta >= 0 ? 'Granted' : 'Removed'} ${Math.abs(delta).toLocaleString()} XP (Total: ${nextXp.toLocaleString()})`;
           logEntries.push(createRewardLogEntry('dm-xp', now, 'DM XP Reward', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') {
-            toast(summary, delta >= 0 ? 'success' : 'info');
-          }
+          toast(summary, delta >= 0 ? 'success' : 'info');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'xp',
@@ -3791,7 +3770,7 @@ function initDMLogin(){
           const summary = summaryParts.join(' · ');
           logEntries.push(createRewardLogEntry('dm-hp', now, 'DM HP Update', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') toast(summary, 'success');
+          toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'hp',
@@ -3826,7 +3805,7 @@ function initDMLogin(){
           const summary = summaryParts.join(' · ');
           logEntries.push(createRewardLogEntry('dm-sp', now, 'DM SP Update', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') toast(summary, 'success');
+          toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'sp',
@@ -3876,7 +3855,7 @@ function initDMLogin(){
           const summary = `RP set to ${points} (Banked ${banked})`;
           logEntries.push(createRewardLogEntry('dm-resonance', now, 'DM Resonance Update', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') toast(summary, 'success');
+          toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'resonance',
@@ -3936,7 +3915,7 @@ function initDMLogin(){
           const summary = summaryParts.join(' — ');
           logEntries.push(createRewardLogEntry('dm-faction', now, 'DM Faction Reputation', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') toast(summary, delta >= 0 ? 'success' : 'info');
+          toast(summary, delta >= 0 ? 'success' : 'info');
           const payload = {
             id: faction.id,
             name,
@@ -3969,7 +3948,7 @@ function initDMLogin(){
           const summaryWithNotes = notes ? `${summary} — ${notes}` : summary;
           logEntries.push(createRewardLogEntry('dm-item', now, 'DM Item Reward', summaryWithNotes));
           notifications.push(summaryWithNotes);
-          if (typeof toast === 'function') toast(summary, 'success');
+          toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'item',
@@ -3999,7 +3978,7 @@ function initDMLogin(){
           const summary = `Granted weapon: ${name}${detail}`;
           logEntries.push(createRewardLogEntry('dm-weapon', now, 'DM Weapon Reward', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') toast(summary, 'success');
+          toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'weapon',
@@ -4024,7 +4003,7 @@ function initDMLogin(){
           const summary = `Granted armor: ${name}${bonus ? ` (Bonus ${bonus})` : ''}`;
           logEntries.push(createRewardLogEntry('dm-armor', now, 'DM Armor Reward', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') toast(summary, 'success');
+          toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'armor',
@@ -4055,7 +4034,7 @@ function initDMLogin(){
           const summary = `Awarded medal: ${medalName}${description ? ` — ${description}` : ''}`;
           logEntries.push(createRewardLogEntry('dm-medal', now, 'DM Medal', summary));
           notifications.push(summary);
-          if (typeof toast === 'function') toast(summary, 'success');
+          toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
             player: target,
             kind: 'medal',
@@ -4112,12 +4091,12 @@ function initDMLogin(){
     if (!creditSubmit || creditSubmit.disabled) return;
     const player = creditAccountSelect?.value?.trim();
     if (!player) {
-      if (typeof toast === 'function') toast('Select a player to target', 'error');
+      toast('Select a player to target', 'error');
       return;
     }
     const rawAmount = getCreditAmountNumber();
     if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
-      if (typeof toast === 'function') toast('Enter an amount greater than zero', 'error');
+      toast('Enter an amount greater than zero', 'error');
       return;
     }
     const transactionType = creditTxnType?.value === 'Debit' ? 'Debit' : 'Deposit';
@@ -4188,11 +4167,7 @@ function initDMLogin(){
       updateCreditSubmitState();
     } catch (err) {
       console.error('Failed to deliver rewards', err);
-      if (typeof toast === 'function') {
-        toast('Failed to deliver rewards', 'error');
-      } else if (typeof alert === 'function') {
-        alert('Failed to deliver rewards');
-      }
+      toast('Failed to deliver rewards', 'error');
       creditSubmit.textContent = originalLabel || 'Submit';
       creditSubmit.disabled = false;
       updateCreditSubmitState();
@@ -4290,7 +4265,7 @@ function initDMLogin(){
           failures.push(player);
         }
       }
-      if (successes.length && players.length > 1 && typeof toast === 'function') {
+      if (successes.length && players.length > 1) {
         toast(`XP reward applied to ${formatPlayerList(successes)}`, 'success');
       }
       if (failures.length) {
@@ -4299,7 +4274,7 @@ function initDMLogin(){
           : `Unable to apply XP reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
           reportRewardError(message);
-        } else if (typeof toast === 'function') {
+        } else {
           toast(message, 'error');
         }
       }
@@ -4430,7 +4405,7 @@ function initDMLogin(){
           failures.push(player);
         }
       }
-      if (successes.length && players.length > 1 && typeof toast === 'function') {
+      if (successes.length && players.length > 1) {
         toast(`HP/SP update applied to ${formatPlayerList(successes)}`, 'success');
       }
       if (failures.length) {
@@ -4439,7 +4414,7 @@ function initDMLogin(){
           : `Unable to apply HP/SP reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
           reportRewardError(message);
-        } else if (typeof toast === 'function') {
+        } else {
           toast(message, 'error');
         }
       }
@@ -4516,7 +4491,7 @@ function initDMLogin(){
           failures.push(player);
         }
       }
-      if (successes.length && players.length > 1 && typeof toast === 'function') {
+      if (successes.length && players.length > 1) {
         toast(`Resonance update applied to ${formatPlayerList(successes)}`, 'success');
       }
       if (failures.length) {
@@ -4525,7 +4500,7 @@ function initDMLogin(){
           : `Unable to apply resonance reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
           reportRewardError(message);
-        } else if (typeof toast === 'function') {
+        } else {
           toast(message, 'error');
         }
       }
@@ -4592,7 +4567,7 @@ function initDMLogin(){
           failures.push(player);
         }
       }
-      if (successes.length && players.length > 1 && typeof toast === 'function') {
+      if (successes.length && players.length > 1) {
         toast(`Reputation update applied to ${formatPlayerList(successes)}`, 'success');
       }
       if (failures.length) {
@@ -4601,7 +4576,7 @@ function initDMLogin(){
           : `Unable to apply faction reputation reward for ${formatPlayerList(failures)}`;
         if (failures.length === players.length) {
           reportRewardError(message);
-        } else if (typeof toast === 'function') {
+        } else {
           toast(message, 'error');
         }
       }
@@ -4887,10 +4862,10 @@ function initDMLogin(){
       deploymentRecipients.set(key, { key, name: normalized, source });
       addedAny = true;
     }
-    if (limitReached && typeof toast === 'function') {
+    if (limitReached) {
       toast(`Recipient limit reached (${MINI_GAME_RECIPIENT_LIMIT})`, 'error');
     }
-    if (duplicates.length && typeof toast === 'function') {
+    if (duplicates.length) {
       const label = duplicates.join(', ');
       toast(`${label} ${duplicates.length === 1 ? 'is' : 'are'} already queued`, 'info');
     }
@@ -5501,7 +5476,7 @@ function initDMLogin(){
       if (nameInput == null) return;
       const trimmed = nameInput.trim();
       if (!trimmed) {
-        if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+        toast('Preset name cannot be empty', 'error');
         return;
       }
       const newPreset = { id: createPresetId(), name: trimmed, values: sanitizePresetValues(stateSnapshot) };
@@ -5510,7 +5485,7 @@ function initDMLogin(){
       setKnobPresets(game.id, next);
       refreshPresetMenu();
       closePresetMenu();
-      if (typeof toast === 'function') toast(`Saved preset "${trimmed}"`, 'success');
+      toast(`Saved preset "${trimmed}"`, 'success');
     });
     loadPresetBtn.addEventListener('click', () => {
       if (loadPresetBtn.disabled) return;
@@ -5544,19 +5519,19 @@ function initDMLogin(){
         writeKnobState(game.id, sanitizePresetValues(preset.values));
         shouldFocusMiniGameKnobs = true;
         renderMiniGameKnobs(game);
-        if (typeof toast === 'function') toast(`Loaded preset "${preset.name}"`, 'info');
+        toast(`Loaded preset "${preset.name}"`, 'info');
       } else if (action === 'rename') {
         const nextName = typeof prompt === 'function' ? prompt('Rename preset', preset.name) : preset.name;
         if (nextName == null) return;
         const trimmed = nextName.trim();
         if (!trimmed) {
-          if (typeof toast === 'function') toast('Preset name cannot be empty', 'error');
+          toast('Preset name cannot be empty', 'error');
           return;
         }
         const updated = presets.map(entry => (entry.id === presetId ? { ...entry, name: trimmed } : entry));
         setKnobPresets(game.id, updated);
         refreshPresetMenu();
-        if (typeof toast === 'function') toast(`Renamed preset to "${trimmed}"`, 'info');
+        toast(`Renamed preset to "${trimmed}"`, 'info');
       } else if (action === 'delete') {
         const confirmed = typeof confirm === 'function' ? confirm(`Delete preset "${preset.name}"?`) : true;
         if (!confirmed) return;
@@ -5566,7 +5541,7 @@ function initDMLogin(){
         if (!remaining.length) {
           closePresetMenu();
         }
-        if (typeof toast === 'function') toast(`Deleted preset "${preset.name}"`, 'info');
+        toast(`Deleted preset "${preset.name}"`, 'info');
       }
     });
     resetAllButton = document.createElement('button');
@@ -6247,7 +6222,7 @@ function initDMLogin(){
       autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
     } catch (err) {
       console.error('Failed to refresh mini-game deployments', err);
-      if (typeof toast === 'function') toast('Failed to refresh mini-games', 'error');
+      toast('Failed to refresh mini-games', 'error');
     }
   }
 
@@ -6322,12 +6297,12 @@ function initDMLogin(){
 
   async function handleMiniGameDeploy() {
     if (!selectedMiniGameId) {
-      if (typeof toast === 'function') toast('Choose a mini-game first', 'error');
+      toast('Choose a mini-game first', 'error');
       return false;
     }
     const recipients = getDeploymentRecipients();
     if (!recipients.length) {
-      if (typeof toast === 'function') toast('Add at least one recipient', 'error');
+      toast('Add at least one recipient', 'error');
       return false;
     }
     const config = ensureKnobState(selectedMiniGameId);
@@ -6336,7 +6311,7 @@ function initDMLogin(){
     if (miniGamesScheduledFor && miniGamesScheduledFor.value) {
       const parsed = Date.parse(miniGamesScheduledFor.value);
       if (Number.isNaN(parsed)) {
-        if (typeof toast === 'function') toast('Enter a valid scheduled time', 'error');
+        toast('Enter a valid scheduled time', 'error');
         return false;
       }
       if (parsed > Date.now()) {
@@ -6430,15 +6405,13 @@ function initDMLogin(){
         const successMsg = successCount === recipients.length && failureCount === 0
           ? `Mini-game deployed to ${successCount} recipient${successCount === 1 ? '' : 's'}`
           : `Mini-game deployed to ${successCount} of ${recipients.length} recipients`;
-        if (typeof toast === 'function') {
-          toast(successMsg, failureCount === 0 ? 'success' : 'info');
-        }
+        toast(successMsg, failureCount === 0 ? 'success' : 'info');
         const notifyMsg = scheduledForTs
           ? `Scheduled ${gameName} for ${successCount} recipient${successCount === 1 ? '' : 's'}`
           : `Deployed ${gameName} to ${successCount} recipient${successCount === 1 ? '' : 's'}`;
         window.dmNotify?.(notifyMsg, { actionScope: 'major' });
       }
-      if (failureCount > 0 && typeof toast === 'function') {
+      if (failureCount > 0) {
         toast(`Failed to deploy to ${failureCount} recipient${failureCount === 1 ? '' : 's'}`, 'error');
       }
       if (successCount > 0) {
@@ -6450,7 +6423,7 @@ function initDMLogin(){
       return successCount > 0;
     } catch (err) {
       console.error('Failed to deploy mini-game', err);
-      if (typeof toast === 'function') toast('Failed to deploy mini-game', 'error');
+      toast('Failed to deploy mini-game', 'error');
       return false;
     } finally {
       if (miniGamesDeployBtn) miniGamesDeployBtn.disabled = false;
@@ -7043,9 +7016,7 @@ function initDMLogin(){
         ? payload.metadata[CATALOG_RECIPIENT_FIELD_KEY].trim()
         : '');
     const recipientSuffix = recipientName ? ` → ${recipientName}` : '';
-    if (typeof toast === 'function') {
-      toast(`${typeLabel} entry staged: ${entryName}${recipientSuffix}`, 'success');
-    }
+    toast(`${typeLabel} entry staged: ${entryName}${recipientSuffix}`, 'success');
     window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}${recipientSuffix}`, {
       actionScope: 'minor',
     });
@@ -7076,9 +7047,7 @@ function initDMLogin(){
         await deliverCatalogEquipment(payload);
       } catch (err) {
         console.error('Failed to deliver catalog equipment', err);
-        if (typeof toast === 'function') {
-          toast('Failed to deliver catalog reward', 'error');
-        }
+        toast('Failed to deliver catalog reward', 'error');
       }
     }
     form.reset();
@@ -7150,7 +7119,7 @@ function initDMLogin(){
 
   function clearNotifications({ announce = true } = {}) {
     if (notifications.length === 0) {
-      if (announce && typeof toast === 'function') toast('Notification log is already empty', 'info');
+      if (announce) toast('Notification log is already empty', 'info');
       return false;
     }
     notifications.length = 0;
@@ -7160,13 +7129,13 @@ function initDMLogin(){
     if (cloudNotificationsState.available) {
       clearCloudNotificationsRemote().catch(() => {});
     }
-    if (announce && typeof toast === 'function') toast('Notification log cleared', 'info');
+    if (announce) toast('Notification log cleared', 'info');
     return true;
   }
 
   async function exportNotifications(formatOverride = null) {
     if (!notifications.length) {
-      if (typeof toast === 'function') toast('Notification log is empty', 'info');
+      toast('Notification log is empty', 'info');
       return false;
     }
     const format = normalizeNotificationExportFormat(
@@ -7191,13 +7160,13 @@ function initDMLogin(){
     }
 
     if (!payload) {
-      if (typeof toast === 'function') toast('Nothing to export', 'info');
+      toast('Nothing to export', 'info');
       return false;
     }
 
     const toastSuffix = meta?.toastSuffix || '';
     if (await writeTextToClipboard(payload)) {
-      if (typeof toast === 'function') toast(`Notification log copied to clipboard${toastSuffix}`, 'success');
+      toast(`Notification log copied to clipboard${toastSuffix}`, 'success');
       return true;
     }
 
@@ -7206,10 +7175,10 @@ function initDMLogin(){
       ? downloadTextFile(filename, payload)
       : downloadTextFile(filename, payload, { type: meta?.mimeType });
     if (downloadSucceeded) {
-      if (typeof toast === 'function') toast(`Notification log exported${toastSuffix}`, 'success');
+      toast(`Notification log exported${toastSuffix}`, 'success');
       return true;
     }
-    if (typeof toast === 'function') toast('Unable to export notifications', 'error');
+    toast('Unable to export notifications', 'error');
     return false;
   }
 
@@ -7942,9 +7911,7 @@ function initDMLogin(){
         closeLogin();
         const error = new Error('unauthorized-device');
         error.code = 'unauthorized-device';
-        if (typeof toast === 'function') {
-          toast('This device is not authorized to access the DM tools.', 'error');
-        }
+        toast('This device is not authorized to access the DM tools.', 'error');
         reject(error);
         return;
       }
@@ -7965,12 +7932,12 @@ function initDMLogin(){
             clearLoginCooldownTimer();
             clearLoginCooldownUI();
             onLoginSuccess();
-            if (typeof dismissToast === 'function') dismissToast();
-            if (typeof toast === 'function') toast('DM tools unlocked','success');
+            dismissToast();
+            toast('DM tools unlocked','success');
             resolve(true);
           } else {
             recordLoginFailure();
-            if (typeof toast === 'function') toast('Invalid PIN','error');
+            toast('Invalid PIN','error');
             const cooldown = getLoginCooldownRemainingMs();
             if (cooldown > 0) {
               notifyLoginCooldown(cooldown);
@@ -7988,7 +7955,7 @@ function initDMLogin(){
         notifyLoginCooldown(initialRemaining);
       } else {
         clearLoginCooldownUI();
-        if (typeof toast === 'function') toast('Enter DM PIN','info');
+        toast('Enter DM PIN','info');
       }
       function cleanup(){
         loginSubmit?.removeEventListener('click', onSubmit);
@@ -8012,8 +7979,8 @@ function initDMLogin(){
           clearLoginCooldownUI();
           onLoginSuccess();
           closeLogin();
-          if (typeof dismissToast === 'function') dismissToast();
-          if (typeof toast === 'function') toast('DM tools unlocked','success');
+          dismissToast();
+          toast('DM tools unlocked','success');
           cleanup();
           resolve(true);
         } else {
@@ -8025,7 +7992,7 @@ function initDMLogin(){
               if (typeof loginPin.focus === 'function') loginPin.focus();
             }
           }
-          if (typeof toast === 'function') toast('Invalid PIN','error');
+          toast('Invalid PIN','error');
           const failureState = recordLoginFailure();
           const cooldown = failureState.lockUntil > Date.now()
             ? failureState.lockUntil - Date.now()
@@ -8073,12 +8040,10 @@ function initDMLogin(){
       }
     });
     updateButtons();
-    if (typeof toast === 'function') {
-      if (cause === 'expired') {
-        toast('DM session expired. Please log in again.', 'warning');
-      } else {
-        toast('Logged out','info');
-      }
+    if (cause === 'expired') {
+      toast('DM session expired. Please log in again.', 'warning');
+    } else {
+      toast('Logged out','info');
     }
   }
 
@@ -8652,18 +8617,18 @@ function initDMLogin(){
     event.preventDefault();
     const text = button.dataset.creditHistoryText || '';
     if (!text) {
-      if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+      toast('Unable to copy entry', 'error');
       return;
     }
     if (await writeTextToClipboard(text)) {
-      if (typeof toast === 'function') toast('Entry copied to clipboard', 'success');
+      toast('Entry copied to clipboard', 'success');
       return;
     }
     if (downloadTextFile(buildExportFilename('dm-credit-entry'), text)) {
-      if (typeof toast === 'function') toast('Entry exported', 'success');
+      toast('Entry exported', 'success');
       return;
     }
-    if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+    toast('Unable to copy entry', 'error');
   });
 
   rewardHistoryClearBtn?.addEventListener('click', () => {
@@ -8680,18 +8645,18 @@ function initDMLogin(){
     event.preventDefault();
     const text = button.dataset.rewardHistoryText || '';
     if (!text) {
-      if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+      toast('Unable to copy entry', 'error');
       return;
     }
     if (await writeTextToClipboard(text)) {
-      if (typeof toast === 'function') toast('Entry copied to clipboard', 'success');
+      toast('Entry copied to clipboard', 'success');
       return;
     }
     if (downloadTextFile(buildExportFilename('dm-reward-entry'), text)) {
-      if (typeof toast === 'function') toast('Entry exported', 'success');
+      toast('Entry exported', 'success');
       return;
     }
-    if (typeof toast === 'function') toast('Unable to copy entry', 'error');
+    toast('Unable to copy entry', 'error');
   });
 
   rewardsTabs?.addEventListener('click', async event => {
@@ -8845,7 +8810,7 @@ function initDMLogin(){
         await openMiniGames();
       } catch (err) {
         console.error('Failed to open mini-games', err);
-        if (typeof toast === 'function') toast('Failed to open mini-games', 'error');
+        toast('Failed to open mini-games', 'error');
       }
     });
   }
@@ -8857,7 +8822,7 @@ function initDMLogin(){
           await openRewards({ tab: 'resource' });
         } catch (err) {
           console.error('Failed to open rewards hub', err);
-          if (typeof toast === 'function') toast('Failed to open rewards hub', 'error');
+          toast('Failed to open rewards hub', 'error');
         }
       });
     }
@@ -8958,11 +8923,11 @@ function initDMLogin(){
       btn.disabled = true;
       try {
         await updateMiniGameDeployment(player, deploymentId, { status });
-        if (typeof toast === 'function') toast('Mini-game updated', 'success');
+        toast('Mini-game updated', 'success');
         window.dmNotify?.(`Updated mini-game ${deploymentId} to ${status}`, { actionScope: 'major' });
       } catch (err) {
         console.error('Failed to update mini-game deployment', err);
-        if (typeof toast === 'function') toast('Failed to update mini-game', 'error');
+        toast('Failed to update mini-game', 'error');
       } finally {
         btn.disabled = false;
         await forceRefreshMiniGameDeployments();
@@ -8971,11 +8936,11 @@ function initDMLogin(){
       btn.disabled = true;
       try {
         await deleteMiniGameDeployment(player, deploymentId);
-        if (typeof toast === 'function') toast('Mini-game deployment removed', 'info');
+        toast('Mini-game deployment removed', 'info');
         window.dmNotify?.(`Removed mini-game ${deploymentId}`, { actionScope: 'major' });
       } catch (err) {
         console.error('Failed to remove mini-game deployment', err);
-        if (typeof toast === 'function') toast('Failed to remove mini-game', 'error');
+        toast('Failed to remove mini-game', 'error');
       } finally {
         btn.disabled = false;
         await forceRefreshMiniGameDeployments();
@@ -8985,9 +8950,7 @@ function initDMLogin(){
       try {
         const playerName = item.dataset.player || item.dataset.assignee || 'player';
         const missionName = item.dataset.gameName || 'mini-game';
-        if (typeof toast === 'function') {
-          toast(`Nudged ${playerName}`, 'info');
-        }
+        toast(`Nudged ${playerName}`, 'info');
         window.dmNotify?.(`Nudged ${playerName} about ${missionName}`, { actionScope: 'minor' });
       } finally {
         btn.disabled = false;

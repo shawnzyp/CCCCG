@@ -16,6 +16,7 @@ import {
   deleteCloud,
 } from './storage.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
+import { toast, dismissToast } from './notifications.js';
 import {
   POWER_ACTION_TYPES,
   POWER_DAMAGE_DICE,
@@ -530,26 +531,19 @@ async function verifyPin(name) {
   await syncPin(name);
   if (!hasPin(name)) return;
 
-  const toastFn = typeof window !== 'undefined' && typeof window.toast === 'function'
-    ? window.toast
-    : null;
-  const dismissFn = typeof window !== 'undefined' && typeof window.dismissToast === 'function'
-    ? window.dismissToast
-    : null;
   let showedToast = false;
 
   const showToast = (message, type = 'info') => {
-    if (!toastFn) return;
     try {
-      toastFn(message, { type, duration: 0 });
+      toast(message, { type, duration: 0 });
       showedToast = true;
     } catch {}
   };
 
   const hideToast = () => {
-    if (!showedToast || !dismissFn) return;
+    if (!showedToast) return;
     try {
-      dismissFn();
+      dismissToast();
     } catch {}
     showedToast = false;
   };
