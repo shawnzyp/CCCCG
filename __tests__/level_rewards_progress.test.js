@@ -179,7 +179,7 @@ describe('level reward progression', () => {
     const badgeValue = Number.parseInt(badge.textContent, 10);
     expect(Number.isNaN(badgeValue) ? 0 : badgeValue).toBeGreaterThan(0);
 
-    const modalList = document.getElementById('level-reward-modal-list');
+    const modalList = document.getElementById('level-reward-reminders');
     const checkboxes = Array.from(modalList.querySelectorAll('input[type="checkbox"]'));
     expect(checkboxes.length).toBeGreaterThan(0);
     const pendingIds = checkboxes.map(input => input.dataset.rewardId).filter(Boolean);

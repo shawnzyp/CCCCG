@@ -9294,7 +9294,7 @@ const augmentFilterButtons = augmentPickerOverlay
 const augmentPickerTrigger = $('augment-picker-trigger');
 const elAugmentStateInput = $('augment-state');
 const elLevelProgressInput = $('level-progress-state');
-const elLevelRewardModalList = $('level-reward-modal-list');
+const elLevelRewardReminderList = $('level-reward-reminders');
 const elLevelRewardReminderTrigger = $('level-reward-reminder-trigger');
 const elLevelRewardReminderBadge = elLevelRewardReminderTrigger
   ? elLevelRewardReminderTrigger.querySelector('[data-level-reward-count]')
@@ -10648,13 +10648,13 @@ function renderLevelRewardReminders() {
     ? levelProgressState.completedRewardIds
     : new Set(Array.isArray(levelProgressState?.completedRewardIds) ? levelProgressState.completedRewardIds : []);
   const pendingTasks = [];
-  if (elLevelRewardModalList) {
-    elLevelRewardModalList.innerHTML = '';
+  if (elLevelRewardReminderList) {
+    elLevelRewardReminderList.innerHTML = '';
   }
   tasks.forEach(task => {
     const isCompleted = completed.has(task.id);
     if (!isCompleted) pendingTasks.push(task);
-    if (!elLevelRewardModalList) return;
+    if (!elLevelRewardReminderList) return;
     const li = document.createElement('li');
     const label = document.createElement('label');
     label.className = 'inline';
@@ -10677,12 +10677,12 @@ function renderLevelRewardReminders() {
     label.appendChild(checkbox);
     label.appendChild(text);
     li.appendChild(label);
-    elLevelRewardModalList.appendChild(li);
+    elLevelRewardReminderList.appendChild(li);
   });
 
   const hasTasks = tasks.length > 0;
-  if (elLevelRewardModalList) {
-    toggleEmptyState(elLevelRewardModalList, hasTasks);
+  if (elLevelRewardReminderList) {
+    toggleEmptyState(elLevelRewardReminderList, hasTasks);
   }
 
   updateLevelRewardReminderUI(pendingTasks.length);
