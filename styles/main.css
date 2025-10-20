@@ -840,6 +840,20 @@ body:not(.no-hover) .sync-panel__close:hover,
   color:color-mix(in srgb,var(--muted) 80%, transparent);
 }
 
+.sync-panel__note{
+  margin:0;
+  font-size:clamp(.8rem,2.2vw,.95rem);
+  color:color-mix(in srgb,var(--muted) 70%, transparent);
+}
+
+.sync-panel__note[data-state="success"]{
+  color:color-mix(in srgb,var(--accent) 65%, var(--text) 35%);
+}
+
+.sync-panel__note[data-state="error"]{
+  color:color-mix(in srgb,var(--warn) 80%, var(--text) 20%);
+}
+
 .sync-panel__actions{
   display:flex;
   flex-wrap:wrap;
