@@ -1,49 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { createRoot } from 'react-dom/client';
 import DecryptedText from './DecryptedText.jsx';
 
 const TITLE_TEXT = 'Catalyst Core';
-const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=';
 
 function HeaderTitle() {
-  const characters = useMemo(() => CHARACTERS, []);
-  const [playKey, setPlayKey] = useState(0);
-
-  useEffect(() => {
-    let timeoutId;
-
-    const scheduleNext = () => {
-      const minDelay = 12000;
-      const maxDelay = 28000;
-      const delay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
-
-      timeoutId = window.setTimeout(() => {
-        setPlayKey(prev => prev + 1);
-        scheduleNext();
-      }, delay);
-    };
-
-    scheduleNext();
-
-    return () => {
-      if (timeoutId) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, []);
-
   return (
     <DecryptedText
-      key={playKey}
       text={TITLE_TEXT}
-      speed={55}
-      maxIterations={18}
-      characters={characters}
-      revealDirection="center"
-      animateOn="both"
       parentClassName="header-decrypted"
       className="header-decrypted__char"
-      encryptedClassName="header-decrypted__char--scrambling"
     />
   );
 }

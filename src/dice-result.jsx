@@ -1,9 +1,6 @@
 import React, { useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import useSafeReducedMotion from './useSafeReducedMotion.js';
 import DecryptedText from './DecryptedText.jsx';
-
-const DIGIT_CHARACTERS = '0123456789';
 const rendererCache = new WeakMap();
 
 const suppressRendererErrors =
@@ -38,76 +35,18 @@ function createFallbackRenderer(mountNode) {
   return fallback;
 }
 
-function parseBooleanString(value) {
-  if (value == null) return null;
-  const normalised = String(value).trim().toLowerCase();
-  if (['false', '0', 'no', 'off'].includes(normalised)) return false;
-  if (['true', '1', 'yes', 'on'].includes(normalised)) return true;
-  return null;
-}
-
-function resolveCascadePreference(mountNode, ...optionSources) {
-  for (const options of optionSources) {
-    if (options && typeof options.cascade === 'boolean') {
-      return options.cascade;
-    }
-  }
-
-  if (mountNode && mountNode.dataset) {
-    const parsedDataset = parseBooleanString(mountNode.dataset.diceCascade);
-    if (parsedDataset != null) {
-      return parsedDataset;
-    }
-  }
-
-  if (typeof globalThis !== 'undefined') {
-    if (
-      typeof globalThis.__CCCCG_ENABLE_DICE_CASCADE__ !== 'undefined' &&
-      globalThis.__CCCCG_ENABLE_DICE_CASCADE__ != null
-    ) {
-      return Boolean(globalThis.__CCCCG_ENABLE_DICE_CASCADE__);
-    }
-    if (typeof globalThis.__CCCCG_DISABLE_DICE_CASCADE__ === 'boolean') {
-      return !globalThis.__CCCCG_DISABLE_DICE_CASCADE__;
-    }
-  }
-
-  return true;
-}
-
-function DiceResultContent({ value, playIndex, cascadeEnabled }) {
-  const prefersReducedMotion = useSafeReducedMotion();
+function DiceResultContent({ value, playIndex }) {
   const text = useMemo(() => (value == null ? '' : String(value)), [value]);
-
-  const shouldCascade = cascadeEnabled !== false;
-
-  const decryptedTextProps = {
-    key: playIndex,
-    text,
-    speed: shouldCascade ? 90 : 110,
-    maxIterations: shouldCascade ? 22 : 18,
-    characters: DIGIT_CHARACTERS,
-    useOriginalCharsOnly: true,
-    animateOn: 'view',
-    parentClassName: 'dice-result-decrypted',
-    className: 'dice-result-decrypted__char',
-    encryptedClassName: 'dice-result-decrypted__char--scrambling',
-  };
-
-  if (shouldCascade) {
-    decryptedTextProps.sequential = true;
-    decryptedTextProps.revealDirection = 'end';
-  }
 
   return (
     <span className="dice-result__shell">
-      {prefersReducedMotion ? (
-        <span className="dice-result-decrypted" data-play-index={playIndex}>
-          <span className="dice-result-decrypted__char">{text}</span>
-        </span>
-      ) : (
-        <DecryptedText {...decryptedTextProps} />
-      )}
+      <DecryptedText
+        key={playIndex}
+        text={text}
+        parentClassName="dice-result-decrypted"
+        className="dice-result-decrypted__char"
+        data-play-index={playIndex}
+      />
     </span>
   );
 }
@@ -140,19 +79,11 @@ export function ensureDiceResultRenderer(mountNode, baseOptions = {}) {
     return fallback;
   }
   const renderer = {
-    render(value, playIndex, renderOptions = {}) {
+    render(value, playIndex, _renderOptions = {}) {
       try {
-        const cascadeEnabled = resolveCascadePreference(
-          mountNode,
-          renderOptions,
-          mountNode.__diceResultOptions
-        );
+        void _renderOptions;
         root.render(
-          <DiceResultContent
-            value={value}
-            playIndex={playIndex}
-            cascadeEnabled={cascadeEnabled}
-          />
+          <DiceResultContent value={value} playIndex={playIndex} />
         );
       } catch (err) {
         reportRendererError('Failed to render dice result', err);
