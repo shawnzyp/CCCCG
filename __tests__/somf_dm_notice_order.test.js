@@ -51,6 +51,20 @@ test('DM incoming and queue lists respect chronological order', async () => {
   localStorage.clear();
   sessionStorage.clear();
 
+  const toastMock = jest.fn();
+  const dismissToastMock = jest.fn();
+  const playToneMock = jest.fn();
+  const hasAudioCueMock = jest.fn();
+  jest.unstable_mockModule('../scripts/notifications.js', () => ({
+    toast: toastMock,
+    dismissToast: dismissToastMock,
+    playTone: playToneMock,
+    hasAudioCue: hasAudioCueMock,
+  }));
+  await import('../scripts/notifications.js');
+  window.toast = toastMock;
+  window.dismissToast = dismissToastMock;
+
   const now = Date.now();
   const notices = [
     { key: 'late', count: 1, ids: ['LATE'], names: ['Gamma'], ts: now + 2000 },
@@ -62,7 +76,6 @@ test('DM incoming and queue lists respect chronological order', async () => {
 
   setupDom();
 
-  window.toast = jest.fn();
   window.logAction = jest.fn();
   window.queueCampaignLogEntry = jest.fn();
   window.dmNotify = jest.fn();

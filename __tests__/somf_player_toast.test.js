@@ -1,15 +1,30 @@
 import { jest } from '@jest/globals';
 
-beforeEach(() => {
+let notifications;
+let toastMock;
+let dismissToastMock;
+let playToneMock;
+let hasAudioCueMock;
+
+beforeEach(async () => {
   jest.resetModules();
   jest.useRealTimers();
   localStorage.clear();
   sessionStorage.clear();
   document.body.innerHTML = '';
-  delete window.toast;
-  delete window.dismissToast;
   delete window.logAction;
   delete window.queueCampaignLogEntry;
+  toastMock = jest.fn();
+  dismissToastMock = jest.fn();
+  playToneMock = jest.fn();
+  hasAudioCueMock = jest.fn();
+  jest.unstable_mockModule('../scripts/notifications.js', () => ({
+    toast: toastMock,
+    dismissToast: dismissToastMock,
+    playTone: playToneMock,
+    hasAudioCue: hasAudioCueMock,
+  }));
+  notifications = await import('../scripts/notifications.js');
 });
 
 function setupDom() {
@@ -28,7 +43,9 @@ function setupDom() {
 }
 
 function mockToastSystem() {
-  window.toast = jest.fn((message, opts = {}) => {
+  window.toast = toastMock;
+  window.dismissToast = dismissToastMock;
+  toastMock.mockImplementation((message, opts = {}) => {
     const toastEl = document.getElementById('toast');
     if (toastEl) {
       toastEl.textContent = message;
@@ -37,7 +54,7 @@ function mockToastSystem() {
     window.dispatchEvent(new CustomEvent('cc:toast-shown', { detail: { message, options: opts } }));
   });
 
-  window.dismissToast = jest.fn(() => {
+  dismissToastMock.mockImplementation(() => {
     const toastEl = document.getElementById('toast');
     if (toastEl) {
       toastEl.classList.remove('show');
@@ -72,8 +89,8 @@ test('player receives shard toast and logs entries', async () => {
   window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: { action: 'add', notice } }));
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  expect(window.toast).toHaveBeenCalled();
-  const [message, options] = window.toast.mock.calls[0];
+  expect(toastMock).toHaveBeenCalled();
+  const [message, options] = toastMock.mock.calls[0];
   expect(message).toBe('The Shards reveal The Echo.');
   expect(options).toMatchObject({
     type: 'info',
@@ -100,7 +117,7 @@ test('player receives shard toast and logs entries', async () => {
   toastEl.click();
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  expect(window.dismissToast).toHaveBeenCalled();
+  expect(dismissToastMock).toHaveBeenCalled();
   const modal = document.getElementById('somf-min-modal');
   expect(modal.hidden).toBe(false);
 });
@@ -128,14 +145,14 @@ test('pending shard notices reveal in timestamp order once shown', async () => {
     window.dispatchEvent(new CustomEvent('somf-local-notice', { detail: { action: 'add', notice } }));
   });
 
-  expect(window.toast).not.toHaveBeenCalled();
+  expect(toastMock).not.toHaveBeenCalled();
 
   window.dispatchEvent(new CustomEvent('somf-local-hidden', { detail: false }));
 
   await new Promise(resolve => setTimeout(resolve, 0));
   await new Promise(resolve => setTimeout(resolve, 0));
 
-  const messages = window.toast.mock.calls.map(call => call[0]);
+  const messages = toastMock.mock.calls.map(call => call[0]);
   expect(messages.length).toBeGreaterThanOrEqual(3);
   expect(messages.slice(0, 3)).toEqual([
     'The Shards reveal Alpha.',

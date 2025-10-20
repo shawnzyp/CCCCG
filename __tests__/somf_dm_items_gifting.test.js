@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
 
+let notifications;
+let toastMock;
+let dismissToastMock;
+let playToneMock;
+let hasAudioCueMock;
+
 function setupDom() {
   document.body.innerHTML = `
     <div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
@@ -145,16 +151,28 @@ class FakeBroadcastChannel {
 }
 
 describe('DM item gifting flow', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.resetModules();
     localStorage.clear();
     sessionStorage.clear();
     setupDom();
     sessionStorage.setItem('dmLoggedIn', '1');
 
+    toastMock = jest.fn();
+    dismissToastMock = jest.fn();
+    playToneMock = jest.fn();
+    hasAudioCueMock = jest.fn();
+    jest.unstable_mockModule('../scripts/notifications.js', () => ({
+      toast: toastMock,
+      dismissToast: dismissToastMock,
+      playTone: playToneMock,
+      hasAudioCue: hasAudioCueMock,
+    }));
+    notifications = await import('../scripts/notifications.js');
+    window.toast = toastMock;
+    window.dismissToast = dismissToastMock;
+
     global.fetch = jest.fn();
-    global.toast = jest.fn();
-    global.dismissToast = jest.fn();
     window.dmNotify = jest.fn();
     window.prompt = jest.fn(() => { throw new Error('prompt should not be called'); });
 
@@ -214,7 +232,7 @@ describe('DM item gifting flow', () => {
       item: expect.objectContaining({ recipient: 'Nova' }),
     });
 
-    expect(window.toast).toHaveBeenCalledWith(
+    expect(toastMock).toHaveBeenCalledWith(
       expect.stringContaining('<strong>Gifted</strong>'),
       expect.objectContaining({ type: 'success', duration: 4000, html: expect.any(String) })
     );

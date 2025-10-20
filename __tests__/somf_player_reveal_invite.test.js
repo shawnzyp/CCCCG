@@ -20,6 +20,20 @@ test('player receives a shard reveal invite and can accept it', async () => {
   localStorage.clear();
   sessionStorage.clear();
 
+  const toastMock = jest.fn();
+  const dismissToastMock = jest.fn();
+  const playToneMock = jest.fn();
+  const hasAudioCueMock = jest.fn();
+  jest.unstable_mockModule('../scripts/notifications.js', () => ({
+    toast: toastMock,
+    dismissToast: dismissToastMock,
+    playTone: playToneMock,
+    hasAudioCue: hasAudioCueMock,
+  }));
+  await import('../scripts/notifications.js');
+  window.toast = toastMock;
+  window.dismissToast = dismissToastMock;
+
   const hiddenListeners = [];
   let hiddenValue = true;
   const hiddenRef = {
@@ -152,8 +166,6 @@ test('player receives a shard reveal invite and can accept it', async () => {
     <div id="somfDM-npcModal" class="hidden" aria-hidden="true"></div>
   `;
 
-  window.toast = jest.fn();
-  window.dismissToast = jest.fn();
   window.logAction = jest.fn();
   window.queueCampaignLogEntry = jest.fn();
   sessionStorage.setItem('dmLoggedIn', '1');

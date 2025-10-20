@@ -1,9 +1,28 @@
 import { jest } from '@jest/globals';
 
-beforeEach(() => {
+let notifications;
+let toastMock;
+let dismissToastMock;
+let playToneMock;
+let hasAudioCueMock;
+
+beforeEach(async () => {
   jest.resetModules();
   sessionStorage.clear();
   localStorage.clear();
+  toastMock = jest.fn();
+  dismissToastMock = jest.fn();
+  playToneMock = jest.fn();
+  hasAudioCueMock = jest.fn();
+  jest.unstable_mockModule('../scripts/notifications.js', () => ({
+    toast: toastMock,
+    dismissToast: dismissToastMock,
+    playTone: playToneMock,
+    hasAudioCue: hasAudioCueMock,
+  }));
+  notifications = await import('../scripts/notifications.js');
+  window.toast = toastMock;
+  window.dismissToast = dismissToastMock;
 });
 
 describe('dm login', () => {
@@ -22,8 +41,6 @@ describe('dm login', () => {
           <button id="dm-login-submit"></button>
         </div>
       `;
-    window.toast = jest.fn();
-    window.dismissToast = jest.fn();
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
       saveLocal: jest.fn(),
@@ -71,8 +88,8 @@ describe('dm login', () => {
     document.getElementById('dm-login-submit').click();
     await promise;
 
-    expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
-    expect(window.dismissToast).toHaveBeenCalled();
+    expect(toastMock).toHaveBeenCalledWith('DM tools unlocked','success');
+    expect(dismissToastMock).toHaveBeenCalled();
     expect(sessionStorage.getItem('dmLoggedInAt')).not.toBeNull();
     expect(sessionStorage.getItem('dmLoggedInLastActive')).not.toBeNull();
     expect(modal.classList.contains('hidden')).toBe(true);
@@ -88,8 +105,6 @@ describe('dm login', () => {
     toggle.click();
     expect(menu.hidden).toBe(false);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    delete window.toast;
-    delete window.dismissToast;
   });
 
   test('session status hides when logged out', async () => {
@@ -107,8 +122,6 @@ describe('dm login', () => {
           <button id="dm-login-submit"></button>
         </div>
       `;
-    window.toast = jest.fn();
-    window.dismissToast = jest.fn();
     window.dmLoginTimeoutMs = 60000;
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
@@ -165,8 +178,6 @@ describe('dm login', () => {
     expect(status.hidden).toBe(true);
     expect(extend.hidden).toBe(true);
 
-    delete window.toast;
-    delete window.dismissToast;
     delete window.dmLoginTimeoutMs;
   });
 
@@ -188,8 +199,6 @@ describe('dm login', () => {
           <button id="dm-login-submit"></button>
         </div>
       `;
-    window.toast = jest.fn();
-    window.dismissToast = jest.fn();
     window.dmLoginTimeoutMs = 120000;
     window.dmSessionWarningThresholdMs = 60000;
 
@@ -237,7 +246,7 @@ describe('dm login', () => {
       document.getElementById('dm-login-submit').click();
       await loginPromise;
 
-      window.toast.mockClear();
+      toastMock.mockClear();
 
       const timeoutMs = Number(window.dmLoginTimeoutMs);
       const thresholdMs = Number(window.dmSessionWarningThresholdMs);
@@ -248,28 +257,26 @@ describe('dm login', () => {
       jest.advanceTimersByTime(1000);
 
       const warningMessage = 'DM session will expire soon. Extend to stay logged in.';
-      expect(window.toast).toHaveBeenCalledTimes(1);
-      expect(window.toast).toHaveBeenCalledWith(warningMessage, 'warning');
+      expect(toastMock).toHaveBeenCalledTimes(1);
+      expect(toastMock).toHaveBeenCalledWith(warningMessage, 'warning');
 
       jest.advanceTimersByTime(1000);
-      expect(window.toast).toHaveBeenCalledTimes(1);
+      expect(toastMock).toHaveBeenCalledTimes(1);
 
       document.getElementById('dm-session-extend').click();
 
-      window.toast.mockClear();
+      toastMock.mockClear();
 
       const afterExtendNow = Date.now();
       sessionStorage.setItem('dmLoggedInLastActive', String(afterExtendNow - elapsedBeyondThreshold));
 
       jest.advanceTimersByTime(1000);
 
-      expect(window.toast).toHaveBeenCalledTimes(1);
-      expect(window.toast).toHaveBeenCalledWith(warningMessage, 'warning');
+      expect(toastMock).toHaveBeenCalledTimes(1);
+      expect(toastMock).toHaveBeenCalledWith(warningMessage, 'warning');
     } finally {
       jest.useRealTimers();
-      delete window.toast;
-      delete window.dismissToast;
-      delete window.dmLoginTimeoutMs;
+          delete window.dmLoginTimeoutMs;
       delete window.dmSessionWarningThresholdMs;
     }
   });
@@ -289,8 +296,6 @@ describe('dm login', () => {
           <button id="dm-login-submit"></button>
         </div>
       `;
-    window.toast = jest.fn();
-    window.dismissToast = jest.fn();
     window.initSomfDM = jest.fn(() => { throw new Error('fail'); });
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
@@ -347,14 +352,11 @@ describe('dm login', () => {
     expect(menu.hidden).toBe(true);
     toggle.click();
     expect(menu.hidden).toBe(false);
-    delete window.toast;
-    delete window.dismissToast;
     delete window.initSomfDM;
   });
 
   test('falls back to prompt when modal elements missing', async () => {
     document.body.innerHTML = '';
-    window.toast = jest.fn();
     window.prompt = jest.fn(() => '123123');
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
@@ -398,8 +400,7 @@ describe('dm login', () => {
     await window.dmRequireLogin();
 
     expect(window.prompt).toHaveBeenCalled();
-    expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
-    delete window.toast;
+    expect(toastMock).toHaveBeenCalledWith('DM tools unlocked','success');
     delete window.prompt;
   });
 
@@ -421,8 +422,6 @@ describe('dm login', () => {
           <div class="actions"><button id="dm-login-submit"></button></div>
         </div>
       `;
-    window.toast = jest.fn();
-    window.dismissToast = jest.fn();
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
       saveLocal: jest.fn(),
@@ -479,11 +478,9 @@ describe('dm login', () => {
     expect(waitMessage.hidden).toBe(false);
     expect(waitMessage.textContent).toContain('Too many failed attempts');
     expect(sessionStorage.getItem('dmLoginLockUntil')).not.toBeNull();
-    expect(window.toast).toHaveBeenLastCalledWith(expect.stringContaining('Too many failed attempts'), 'error');
+    expect(toastMock).toHaveBeenLastCalledWith(expect.stringContaining('Too many failed attempts'), 'error');
 
     jest.useRealTimers();
-    delete window.toast;
-    delete window.dismissToast;
   });
 
   test('successful DM login clears throttle after cooldown', async () => {
@@ -504,8 +501,6 @@ describe('dm login', () => {
           <div class="actions"><button id="dm-login-submit"></button></div>
         </div>
       `;
-    window.toast = jest.fn();
-    window.dismissToast = jest.fn();
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
       saveLocal: jest.fn(),
@@ -573,11 +568,9 @@ describe('dm login', () => {
 
     expect(sessionStorage.getItem('dmLoginFailureCount')).toBeNull();
     expect(sessionStorage.getItem('dmLoginLockUntil')).toBeNull();
-    expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
+    expect(toastMock).toHaveBeenCalledWith('DM tools unlocked','success');
 
     jest.useRealTimers();
-    delete window.toast;
-    delete window.dismissToast;
   });
 
   test('logout clears DM session but keeps last save', async () => {
@@ -620,7 +613,6 @@ describe('dm login', () => {
         <button id="dm-tools-logout"></button>
         <div id="somfDM-toasts"></div>
       `;
-    window.toast = jest.fn();
 
     const now = Date.now();
     sessionStorage.setItem('dmLoggedIn', '1');
@@ -668,9 +660,8 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     expect(sessionStorage.getItem('dmLoggedIn')).toBeNull();
-    expect(window.toast).toHaveBeenCalledWith('DM session expired. Please log in again.', 'warning');
+    expect(toastMock).toHaveBeenCalledWith('DM session expired. Please log in again.', 'warning');
 
-    delete window.toast;
     delete window.dmLoginTimeoutMs;
   });
 });

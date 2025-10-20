@@ -6,6 +6,7 @@ import {
   stratagemLibrary,
   techLockpickLibrary,
 } from './library.js';
+import { playTone as sharedPlayTone } from '../scripts/notifications.js';
 
 const STORAGE_PREFIX = 'cc:mini-game:deployment:';
 const LAST_DEPLOYMENT_KEY = 'cc:mini-game:last-deployment';
@@ -2895,9 +2896,11 @@ async function init() {
   let lastDismissMessage = '';
 
   const missionContext = { ...context };
-  const sharedCuePlayer = typeof window !== 'undefined' && typeof window.playTone === 'function'
-    ? window.playTone
-    : null;
+  const sharedCuePlayer = typeof sharedPlayTone === 'function'
+    ? sharedPlayTone
+    : (typeof window !== 'undefined' && typeof window.playTone === 'function'
+      ? window.playTone
+      : null);
   const resolvedPlayCue = typeof context?.playCue === 'function'
     ? context.playCue
     : sharedCuePlayer

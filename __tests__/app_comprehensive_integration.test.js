@@ -321,13 +321,14 @@ describe('Comprehensive app integration', () => {
     };
     window.addEventListener('cc:toast-shown', toastListener);
 
-    window.toast('System online', { type: 'success', duration: 0 });
+    const notifications = await import('../scripts/notifications.js');
+    notifications.toast('System online', { type: 'success', duration: 0 });
     await flushAllTimers();
     expect(toastEl.classList.contains('show')).toBe(true);
     expect(toastEl.textContent).toContain('System online');
     expect(toastShownDetail).toBe('System online');
 
-    window.dismissToast();
+    notifications.dismissToast();
     await flushAllTimers();
     expect(toastEl.classList.contains('show')).toBe(false);
     window.removeEventListener('cc:toast-shown', toastListener);

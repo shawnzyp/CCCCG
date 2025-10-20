@@ -1,6 +1,12 @@
 import { jest } from '@jest/globals';
 import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
 
+let notificationsModule;
+let toastMock;
+let dismissToastMock;
+let playToneMock;
+let hasAudioCueMock;
+
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const DM_NOTIFICATION_FILTER_STORAGE_KEY = 'cc_dm_notification_filters';
@@ -77,6 +83,10 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
   const loadCharacter = jest.fn(async () => ({}));
   const show = jest.fn();
   const hide = jest.fn();
+  toastMock = jest.fn();
+  dismissToastMock = jest.fn();
+  playToneMock = jest.fn();
+  hasAudioCueMock = jest.fn();
   jest.unstable_mockModule('../scripts/modal.js', () => ({
     show,
     hide,
@@ -87,10 +97,17 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
     setCurrentCharacter,
     loadCharacter,
   }));
+  jest.unstable_mockModule('../scripts/notifications.js', () => ({
+    toast: toastMock,
+    dismissToast: dismissToastMock,
+    playTone: playToneMock,
+    hasAudioCue: hasAudioCueMock,
+  }));
 
   setupDom();
-  global.toast = jest.fn();
-  global.dismissToast = jest.fn();
+  notificationsModule = await import('../scripts/notifications.js');
+  window.toast = toastMock;
+  window.dismissToast = dismissToastMock;
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -163,40 +180,35 @@ describe('DM notifications visibility', () => {
 
 describe('DM notifications audio cues', () => {
   afterEach(() => {
-    delete window.playTone;
     delete window.audioPreference;
+    playToneMock?.mockReset();
   });
 
   test('plays tone when logged in', async () => {
     await initDmModule({ loggedIn: true });
-    window.playTone = jest.fn();
-
     window.dmNotify('audio check', { actionScope: 'major' });
 
-    expect(window.playTone).toHaveBeenCalledTimes(1);
-    expect(window.playTone).toHaveBeenCalledWith('info');
+    expect(playToneMock).toHaveBeenCalledTimes(1);
+    expect(playToneMock).toHaveBeenCalledWith('info');
   });
 
   test('plays tone when processing queued notifications after login', async () => {
     await initDmModule();
-    window.playTone = jest.fn();
-
     window.dmNotify('queued tone', { actionScope: 'major' });
-    expect(window.playTone).not.toHaveBeenCalled();
+    expect(playToneMock).not.toHaveBeenCalled();
 
     await completeLogin();
 
-    expect(window.playTone).toHaveBeenCalledTimes(1);
+    expect(playToneMock).toHaveBeenCalledTimes(1);
   });
 
   test('respects muted audio preference', async () => {
     await initDmModule({ loggedIn: true });
-    window.playTone = jest.fn();
     window.audioPreference = 'muted';
 
     window.dmNotify('should stay quiet', { actionScope: 'major' });
 
-    expect(window.playTone).not.toHaveBeenCalled();
+    expect(playToneMock).not.toHaveBeenCalled();
   });
 });
 

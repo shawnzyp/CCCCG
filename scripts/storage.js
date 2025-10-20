@@ -1,3 +1,5 @@
+import { toast } from './notifications.js';
+
 export async function saveLocal(name, payload) {
   try {
     localStorage.setItem('save:' + name, JSON.stringify(payload));
@@ -323,11 +325,7 @@ function isNavigatorOffline() {
 }
 
 function showToast(message, type = 'info') {
-  if (typeof window !== 'undefined' && typeof window.toast === 'function') {
-    window.toast(message, type);
-  } else if (typeof toast === 'function') {
-    toast(message, type);
-  }
+  toast(message, type);
 }
 
 function notifySyncPaused() {

@@ -22,6 +22,20 @@ test('DM invite roster loads cloud player names', async () => {
   localStorage.clear();
   sessionStorage.clear();
 
+  const toastMock = jest.fn();
+  const dismissToastMock = jest.fn();
+  const playToneMock = jest.fn();
+  const hasAudioCueMock = jest.fn();
+  jest.unstable_mockModule('../scripts/notifications.js', () => ({
+    toast: toastMock,
+    dismissToast: dismissToastMock,
+    playTone: playToneMock,
+    hasAudioCue: hasAudioCueMock,
+  }));
+  await import('../scripts/notifications.js');
+  window.toast = toastMock;
+  window.dismissToast = dismissToastMock;
+
   const fetchMock = jest.fn(async (url) => {
     expect(url).toBe('https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves.json');
     return {
@@ -36,7 +50,6 @@ test('DM invite roster loads cloud player names', async () => {
     ref() { return createNoopRef(); },
   };
 
-  window.toast = jest.fn();
   window.logAction = jest.fn();
   window.queueCampaignLogEntry = jest.fn();
   window.dmNotify = jest.fn();
