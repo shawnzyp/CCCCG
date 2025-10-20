@@ -611,6 +611,12 @@
     } else {
       tab.focus({ preventScroll: true });
     }
+
+    if (typeof document?.dispatchEvent === 'function') {
+      const detail = { open: isOpen };
+      document.dispatchEvent(new CustomEvent('player-tools-drawer-toggle', { detail }));
+      document.dispatchEvent(new CustomEvent(isOpen ? 'player-tools-drawer-open' : 'player-tools-drawer-close', { detail }));
+    }
   };
 
   tab.addEventListener('click', () => {

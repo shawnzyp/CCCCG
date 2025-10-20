@@ -987,21 +987,7 @@
           </div>
         </div>
       </div>
-      <div class="card card__glow card--level-rewards" data-view-lock id="card-level-rewards">
-        <div class="card-toolbar card__frame">
-          <h3 class="card-toolbar__title card__frame">Level Rewards</h3>
-        </div>
-        <input id="level-progress-state" type="hidden" value="{}"/>
-        <ul id="level-reward-reminders" class="perk-list level-reward-list" data-view-allow></ul>
-        <p
-          id="level-reward-empty"
-          class="empty-state level-reward-empty"
-          data-empty-for="level-reward-reminders"
-          aria-live="polite"
-        >
-          You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
-        </p>
-      </div>
+      <input id="level-progress-state" type="hidden" value="{}"/>
       <div class="card card__glow card--augments" data-view-lock id="card-augments">
         <div class="card-toolbar card__frame">
           <h3 class="card-toolbar__title card__frame">Augments</h3>
@@ -1428,6 +1414,35 @@
       <button id="welcome-load-character" type="button">Load Character</button>
       <button id="welcome-skip" type="button">Skip</button>
     </div>
+    </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-level-rewards" aria-hidden="true" data-modal-accent-hue="42deg" data-modal-glow-strength="0.55">
+  <div class="modal-frame">
+    <div class="modal modal--level-rewards" role="dialog" aria-modal="true" aria-labelledby="level-reward-modal-title" tabindex="-1">
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <h3 id="level-reward-modal-title">Level Rewards</h3>
+      <p class="level-reward-modal__intro">
+        Review your newly unlocked upgrades and mark them complete so the tracker can stay in sync with your character sheet.
+      </p>
+      <ul id="level-reward-modal-list" class="level-reward-list" data-view-allow></ul>
+      <p
+        id="level-reward-modal-empty"
+        class="empty-state level-reward-empty"
+        data-empty-for="level-reward-modal-list"
+        aria-live="polite"
+      >
+        You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
+      </p>
+      <div class="level-reward-modal__actions">
+        <button type="button" id="level-reward-acknowledge" class="btn">Acknowledged</button>
+      </div>
     </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
@@ -2857,6 +2872,21 @@
           <fieldset class="card card__glow roll-tools-card">
         <legend data-animate-title>Player Tools</legend>
         <div class="roll-tools">
+          <div class="player-tools-reminder" data-level-reward-reminder>
+            <button
+              type="button"
+              id="level-reward-reminder-trigger"
+              class="player-tools-reminder__trigger"
+              hidden
+              aria-controls="modal-level-rewards"
+            >
+              <span class="player-tools-reminder__content">
+                <span class="player-tools-reminder__title">Level Rewards</span>
+                <span class="player-tools-reminder__subtitle">Pending upgrades ready</span>
+              </span>
+              <span class="player-tools-reminder__badge" data-level-reward-count hidden>0</span>
+            </button>
+          </div>
           <section class="roll-tool roll-tool--initiative">
             <header class="roll-tool__header">
               <h3 class="roll-tool__heading">Initiative</h3>
