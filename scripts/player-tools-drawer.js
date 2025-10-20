@@ -6,59 +6,6 @@
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
   const content = drawer.querySelector('[data-player-tools-content]');
 
-  const scriptBaseUrl = (() => {
-    if (typeof document === 'undefined') return null;
-    const script = document.querySelector('script[type="module"][src*="player-tools-drawer.js"]');
-    if (script && script.src) {
-      try {
-        return new URL(script.src, document.baseURI);
-      } catch (error) {
-        /* ignore resolution errors and fall back below */
-      }
-    }
-    if (typeof window !== 'undefined' && window.location?.href) {
-      try {
-        return new URL(window.location.href);
-      } catch (error) {
-        /* ignore location parsing errors */
-      }
-    }
-    return null;
-  })();
-
-  const resolveAssetUrl = relativePath => {
-    if (typeof relativePath !== 'string') return relativePath;
-    const trimmed = relativePath.trim();
-    if (!trimmed) return trimmed;
-
-    if (scriptBaseUrl) {
-      try {
-        return new URL(trimmed, scriptBaseUrl).toString();
-      } catch (error) {
-        /* fall back to document base */
-      }
-    }
-
-    if (typeof window !== 'undefined' && window.location?.href) {
-      try {
-        const locationBase = new URL(window.location.href);
-        if (!locationBase.pathname.endsWith('/')) {
-          locationBase.pathname = locationBase.pathname.replace(/[^/]*$/, '');
-        }
-        const withoutLeadingDots = trimmed
-          .replace(/^(\.\/)+/, '')
-          .replace(/^(\.\.\/)+/, '');
-        return new URL(withoutLeadingDots, locationBase).toString();
-      } catch (error) {
-        /* ignore and fall through */
-      }
-    }
-
-    return trimmed
-      .replace(/^(\.\/)+/, '')
-      .replace(/^(\.\.\/)+/, '');
-  };
-
   const body = document.body;
   const requestFrame =
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
@@ -302,20 +249,9 @@
   applyOpenProgress(drawer.classList.contains('is-open') ? 1 : 0);
 
   const batteryBadge = drawer.querySelector('[data-player-tools-battery]');
-  const batteryIcon = batteryBadge?.querySelector('[data-player-tools-battery-icon]');
+  const batteryFill = batteryBadge?.querySelector('[data-player-tools-battery-fill]');
   const batteryText = batteryBadge?.querySelector('[data-player-tools-battery-text]');
   const batteryLabel = batteryBadge?.querySelector('[data-player-tools-battery-label]');
-
-  const batteryIcons = batteryBadge
-    ? {
-        empty: resolveAssetUrl('../images/vertical-battery-0-svgrepo-com.svg'),
-        low: resolveAssetUrl('../images/vertical-battery-25-svgrepo-com.svg'),
-        medium: resolveAssetUrl('../images/vertical-battery-50-svgrepo-com.svg'),
-        high: resolveAssetUrl('../images/vertical-battery-75-svgrepo-com.svg'),
-        full: resolveAssetUrl('../images/vertical-battery-100-svgrepo-com.svg'),
-        charging: resolveAssetUrl('../images/vertical-charging-battery-svgrepo-com.svg')
-      }
-    : null;
 
   const setBatteryLabel = (message) => {
     if (!batteryLabel || typeof message !== 'string') return;
@@ -327,16 +263,17 @@
     batteryText.textContent = value;
   };
 
-  const setBatteryIcon = (key) => {
-    if (!batteryIcon || !batteryIcons || !key) return;
-    const next = batteryIcons[key];
-    if (!next) return;
-    if (batteryIcon.getAttribute('src') !== next) {
-      batteryIcon.setAttribute('src', next);
+  const setBatteryFill = (percent) => {
+    if (!batteryFill) return;
+    if (!Number.isFinite(percent)) {
+      batteryFill.style.setProperty('--player-tools-meter-fill', '0%');
+      return;
     }
+    const clamped = clamp(Math.round(percent), 0, 100);
+    batteryFill.style.setProperty('--player-tools-meter-fill', `${clamped}%`);
   };
 
-  const setBatteryState = (state, { text, icon, announcement } = {}) => {
+  const setBatteryState = (state, { text, fill, announcement } = {}) => {
     if (!batteryBadge) return;
     if (state) {
       batteryBadge.dataset.batteryState = state;
@@ -346,8 +283,11 @@
     if (typeof text === 'string') {
       setBatteryText(text);
     }
-    if (typeof icon === 'string') {
-      setBatteryIcon(icon);
+    if (Number.isFinite(fill)) {
+      setBatteryFill(fill);
+    }
+    if (fill === null) {
+      setBatteryFill(0);
     }
     if (typeof announcement === 'string') {
       setBatteryLabel(announcement);
@@ -383,7 +323,7 @@
     if (!batteryManager) {
       setBatteryState('unavailable', {
         text: 'Unavailable',
-        icon: 'empty',
+        fill: 0,
         announcement: 'Battery status unavailable'
       });
       return;
@@ -394,7 +334,7 @@
     if (level === null) {
       setBatteryState('unavailable', {
         text: charging ? 'Charging' : 'Unavailable',
-        icon: charging ? 'charging' : 'empty',
+        fill: charging ? 50 : 0,
         announcement: 'Battery status unavailable'
       });
       return;
@@ -403,13 +343,12 @@
     const clampedLevel = clamp(level, 0, 1);
     const percent = clamp(Math.round(clampedLevel * 100), 0, 100);
     const state = charging ? 'charging' : getBatteryStateFromLevel(clampedLevel);
-    const iconKey = charging ? 'charging' : state;
     const text = charging ? `Charging ${percent}%` : `${percent}%`;
     const announcement = describeBatteryAnnouncement(percent, charging);
 
     setBatteryState(state, {
       text,
-      icon: iconKey,
+      fill: percent,
       announcement
     });
   };
@@ -417,7 +356,7 @@
   if (batteryBadge) {
     setBatteryState('unavailable', {
       text: 'Unavailable',
-      icon: 'empty',
+      fill: 0,
       announcement: 'Battery status unavailable'
     });
 
@@ -431,7 +370,7 @@
           if (!batteryManager) {
             setBatteryState('unavailable', {
               text: 'Unavailable',
-              icon: 'empty',
+              fill: 0,
               announcement: 'Battery status unavailable'
             });
             return;
@@ -454,10 +393,74 @@
         .catch(() => {
           setBatteryState('unavailable', {
             text: 'Unavailable',
-            icon: 'empty',
+            fill: 0,
             announcement: 'Battery status unavailable'
           });
         });
+    }
+  }
+
+  const clockElement = drawer.querySelector('[data-player-tools-clock]');
+  let clockTimer = null;
+
+  const clearClockTimer = () => {
+    if (clockTimer !== null && typeof window !== 'undefined') {
+      window.clearTimeout(clockTimer);
+      clockTimer = null;
+    }
+  };
+
+  const formatClockValue = (date) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    try {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const pad = (value) => String(value).padStart(2, '0');
+      return `${pad(hours)}:${pad(minutes)}`;
+    }
+  };
+
+  const updateClock = () => {
+    if (!clockElement) return;
+    const now = new Date();
+    const formatted = formatClockValue(now);
+    if (formatted) {
+      clockElement.textContent = formatted;
+    }
+    if (clockElement.setAttribute && Number.isFinite(now.getTime())) {
+      clockElement.setAttribute('datetime', now.toISOString());
+    }
+  };
+
+  const scheduleClockTick = () => {
+    if (!clockElement || typeof window === 'undefined') return;
+    clearClockTimer();
+    const now = new Date();
+    const secondsRemaining = 60 - now.getSeconds() - now.getMilliseconds() / 1000;
+    const delay = Math.max(500, Math.round(secondsRemaining * 1000));
+    clockTimer = window.setTimeout(() => {
+      clockTimer = null;
+      updateClock();
+      scheduleClockTick();
+    }, delay);
+  };
+
+  if (clockElement) {
+    updateClock();
+    scheduleClockTick();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pagehide', clearClockTimer, { once: true });
+      window.addEventListener('beforeunload', clearClockTimer, { once: true });
+    }
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          updateClock();
+          scheduleClockTick();
+        }
+      });
     }
   }
 
