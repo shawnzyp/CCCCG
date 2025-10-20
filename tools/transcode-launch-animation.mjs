@@ -48,11 +48,27 @@ async function transcodeLaunchAnimation() {
     throw new Error(`Source launch animation not found at ${path.relative(ROOT, SOURCE)}`);
   }
 
+  let ffmpegAvailable = true;
   try {
     await checkFfmpeg();
   } catch (err) {
+    ffmpegAvailable = false;
     const details = err && err.message ? ` (${err.message})` : '';
-    throw new Error(`ffmpeg is required to transcode the launch animation${details}`);
+    console.warn(`ffmpeg not available, skipping launch animation transcoding${details}`);
+  }
+
+  if (!ffmpegAvailable) {
+    const fallbackMp4 = OUTPUTS.find(({ file }) => path.extname(file).toLowerCase() === '.mp4');
+    if (fallbackMp4) {
+      try {
+        await fs.mkdir(path.dirname(fallbackMp4.file), { recursive: true });
+        await fs.copyFile(SOURCE, fallbackMp4.file);
+        console.warn(`Copied source animation to ${path.relative(ROOT, fallbackMp4.file)} as a fallback.`);
+      } catch (copyErr) {
+        console.warn(`Failed to create fallback launch animation copy: ${copyErr.message}`);
+      }
+    }
+    return;
   }
 
   for (const { file, args } of OUTPUTS) {
