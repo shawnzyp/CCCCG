@@ -5752,7 +5752,82 @@ body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-s
 .card--augments{
   display:flex;
   flex-direction:column;
-  gap:clamp(12px,3vw,16px);
+  gap:clamp(10px,2.5vw,14px);
+  align-items:stretch;
+}
+
+.card--augments .card-toolbar{
+  margin-bottom:clamp(2px,.6vw,4px);
+}
+
+.card--augments .augment-selected{
+  gap:clamp(8px,2vw,12px);
+}
+
+.augment-picker-trigger{
+  align-self:flex-start;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:calc(var(--pill-padding-y,.45em)*.85) calc(var(--pill-padding-x,1.2em)*1.05);
+  border-radius:999px;
+  border:1px solid color-mix(in srgb,var(--accent) 18%, var(--line) 82%);
+  background:color-mix(in srgb,var(--surface-2) 80%, var(--accent) 20%);
+  color:var(--text);
+  font-size:clamp(.72rem,2vw,.82rem);
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  transition:transform .25s ease,box-shadow .25s ease,border-color .25s ease,background .25s ease;
+  box-shadow:0 6px 22px -18px color-mix(in srgb,var(--accent) 65%,transparent);
+}
+
+.augment-picker-trigger:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:3px;
+}
+
+body:not(.no-hover) .augment-picker-trigger:hover{
+  transform:translateY(-1px);
+  background:color-mix(in srgb,var(--accent) 35%, var(--surface-2) 65%);
+  border-color:color-mix(in srgb,var(--accent) 55%, var(--line) 45%);
+  box-shadow:0 10px 28px -18px color-mix(in srgb,var(--accent) 70%,transparent);
+}
+
+.modal--augment-picker{
+  --modal-width:clamp(320px,92vw,780px);
+  display:flex;
+  flex-direction:column;
+  gap:clamp(12px,3vw,18px);
+  overflow:hidden;
+}
+
+.modal--augment-picker__subtitle{
+  margin:0;
+  color:var(--muted);
+  font-size:clamp(.75rem,2.1vw,.88rem);
+}
+
+.modal--augment-picker__content{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+  margin-inline:calc(var(--modal-padding-inline,20px)*-1);
+  padding:0 calc(var(--modal-padding-inline,20px));
+  padding-bottom:calc(var(--modal-padding-block,14px));
+}
+
+.modal--augment-picker__content .augment-picker{
+  flex:1 1 auto;
+  height:100%;
+}
+
+.modal--augment-picker__content .augment-picker__list{
+  flex:1 1 auto;
+  min-height:0;
+  overflow:auto;
+  padding-right:4px;
 }
 
 .augment-slot-summary{
