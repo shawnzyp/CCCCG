@@ -9280,8 +9280,14 @@ const handlePlayerCreditEventDetail = (detail) => {
   const signature = computePlayerCreditSignature(detail);
   if (detail.meta?.source === 'hydrate') {
     playerCreditLatestSignature = signature;
-    acknowledgePlayerCredit(signature);
-    return;
+    if (!signature) {
+      acknowledgePlayerCredit('');
+      return;
+    }
+    if (signature === playerCreditAcknowledgedSignature) {
+      acknowledgePlayerCredit(signature);
+      return;
+    }
   }
   const history = Array.isArray(detail.history) ? detail.history : [];
   if (!history.length) {
