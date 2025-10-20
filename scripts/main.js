@@ -9258,6 +9258,8 @@ const elSPSettingsToggle = $('sp-settings-toggle');
 const spSettingsOverlay = $('modal-sp-settings');
 const elAugmentSelectedList = $('augment-selected-list');
 const elAugmentAvailableList = $('augment-available-list');
+const elAugmentPickerOverlay = $('modal-augment-picker');
+const elAugmentPickerOpenButton = $('augment-picker-open');
 
 const parseGaugeNumber = value => {
   const numeric = Number(value);
@@ -9307,6 +9309,26 @@ augmentFilterButtons.forEach(button => {
   if (!button) return;
   button.addEventListener('click', () => handleAugmentFilterToggle(button.dataset?.augmentTag));
 });
+
+if (elAugmentPickerOpenButton) {
+  elAugmentPickerOpenButton.addEventListener('click', () => {
+    show('modal-augment-picker');
+    renderAugmentPicker();
+  });
+}
+
+if (
+  typeof MutationObserver === 'function'
+  && typeof Element !== 'undefined'
+  && elAugmentPickerOverlay instanceof Element
+) {
+  const augmentPickerObserver = new MutationObserver(() => {
+    if (!elAugmentPickerOverlay.classList.contains('hidden') && augmentPickerNeedsRender) {
+      renderAugmentPicker();
+    }
+  });
+  augmentPickerObserver.observe(elAugmentPickerOverlay, { attributes: true, attributeFilter: ['class'] });
+}
 
 if (elLevelRewardReminderTrigger) {
   elLevelRewardReminderTrigger.addEventListener('click', () => {
@@ -9720,6 +9742,7 @@ function summarizeLevelRewardLedger(ledger, highestLevel) {
 }
 
 let augmentState = getDefaultAugmentState();
+let augmentPickerNeedsRender = true;
 let levelProgressState = getDefaultLevelProgressState();
 
 function getAugmentSlotsEarned() {
@@ -10358,6 +10381,9 @@ function updateAugmentSlotSummary() {
   } else if (typeof elAugmentSlotSummary.removeAttribute === 'function') {
     elAugmentSlotSummary.removeAttribute('data-over-limit');
   }
+  if (elAugmentPickerOpenButton) {
+    elAugmentPickerOpenButton.disabled = used >= earned;
+  }
 }
 
 function renderSelectedAugments() {
@@ -10439,13 +10465,20 @@ function renderSelectedAugments() {
   }
 }
 
-function renderAugmentPicker() {
+function renderAugmentPicker(options = {}) {
   if (!elAugmentAvailableList) return;
+  const { force = false } = options;
+  const overlayHidden = elAugmentPickerOverlay && elAugmentPickerOverlay.classList.contains('hidden');
+  if (!force && overlayHidden) {
+    augmentPickerNeedsRender = true;
+    return;
+  }
+  augmentPickerNeedsRender = false;
   elAugmentAvailableList.innerHTML = '';
   const results = getAugmentSearchResults();
-  const earned = getAugmentSlotsEarned();
   const used = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
-  const canSelectMore = earned > used;
+  const earned = getAugmentSlotsEarned();
+  const canSelectMore = used < earned;
   results.forEach(augment => {
     const item = document.createElement('li');
     item.className = 'augment-card';
@@ -10606,20 +10639,55 @@ function updateLevelRewardReminderUI(count) {
     }
   }
   if (elLevelRewardReminderTrigger) {
+    const trigger = elLevelRewardReminderTrigger;
+    const setTriggerAttr = (name, value) => {
+      if (typeof trigger.setAttribute === 'function') {
+        trigger.setAttribute(name, value);
+        return;
+      }
+      if (!trigger.dataset) trigger.dataset = {};
+      if (name === 'aria-hidden') {
+        trigger.ariaHidden = value;
+      } else if (name === 'aria-label') {
+        trigger.ariaLabel = value;
+      } else if (name.startsWith('data-')) {
+        const key = name.slice(5).replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+        trigger.dataset[key] = value;
+      }
+    };
+    const removeTriggerAttr = (name) => {
+      if (typeof trigger.removeAttribute === 'function') {
+        trigger.removeAttribute(name);
+        return;
+      }
+      if (name === 'aria-hidden') {
+        delete trigger.ariaHidden;
+        return;
+      }
+      if (name === 'aria-label') {
+        delete trigger.ariaLabel;
+        return;
+      }
+      if (name.startsWith('data-') && trigger.dataset) {
+        const key = name.slice(5).replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+        delete trigger.dataset[key];
+      }
+    };
+
     if (pendingCount > 0) {
-      elLevelRewardReminderTrigger.hidden = false;
-      elLevelRewardReminderTrigger.removeAttribute('aria-hidden');
-      elLevelRewardReminderTrigger.setAttribute('data-pending', 'true');
+      trigger.hidden = false;
+      removeTriggerAttr('aria-hidden');
+      setTriggerAttr('data-pending', 'true');
       const label = pendingCount === 1
         ? 'Level rewards (1 pending)'
         : `Level rewards (${pendingCount} pending)`;
-      elLevelRewardReminderTrigger.setAttribute('aria-label', label);
+      setTriggerAttr('aria-label', label);
     } else {
-      elLevelRewardReminderTrigger.hidden = true;
-      elLevelRewardReminderTrigger.setAttribute('aria-hidden', 'true');
-      elLevelRewardReminderTrigger.removeAttribute('data-pending');
-      elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
-      elLevelRewardReminderTrigger.setAttribute('aria-label', 'Level rewards');
+      trigger.hidden = true;
+      setTriggerAttr('aria-hidden', 'true');
+      removeTriggerAttr('data-pending');
+      removeTriggerAttr('data-drawer-open');
+      setTriggerAttr('aria-label', 'Level rewards');
     }
   }
   if (elLevelRewardAcknowledge) {

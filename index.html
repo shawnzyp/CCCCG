@@ -1008,32 +1008,15 @@
             No augments selected yet. Tap “Add Augment” to slot in your signature tech.
           </p>
         </div>
-        <div class="augment-picker" data-view-allow>
-          <div class="augment-picker__controls">
-            <label for="augment-search" class="sr-only">Search augments</label>
-            <input
-              id="augment-search"
-              type="search"
-              placeholder="Search augments"
-              autocomplete="off"
-            />
-            <div class="augment-filters" role="group" aria-label="Augment categories">
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Control" data-view-allow>Control</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Protection" data-view-allow>Protection</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Aggression" data-view-allow>Aggression</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Transcendence" data-view-allow>Transcendence</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Customization" data-view-allow>Customization</button>
-            </div>
-          </div>
-          <ul id="augment-available-list" class="augment-picker__list"></ul>
-          <p
-            id="augment-available-empty"
-            class="empty-state augment-empty"
-            data-empty-for="augment-available-list"
-            aria-live="polite"
+        <div class="augment-card__actions augment-picker__trigger">
+          <button
+            id="augment-picker-open"
+            class="btn-sm augment-picker__open"
+            type="button"
+            data-view-allow
           >
-            Nothing matches these filters. Clear them or adjust your search to keep building your loadout.
-          </p>
+            Add Augment
+          </button>
         </div>
       </div>
       <div class="card card__glow" data-view-lock>
@@ -2727,6 +2710,59 @@
 <div class="overlay hidden" id="somfDM-npcModal" aria-hidden="true">
   <div class="modal-frame">
     <section id="somfDM-npcModalCard" class="modal somf-dm" role="dialog" aria-modal="true"></section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-augment-picker" aria-hidden="true">
+  <div class="modal-frame">
+    <div
+      class="modal modal--augment-picker"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="augment-picker-title"
+      tabindex="-1"
+    >
+      <button class="x" data-close aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <div class="augment-modal__header">
+        <h3 id="augment-picker-title">Add Augment</h3>
+        <p class="augment-modal__subtitle">
+          Browse signature tech by category or search to slot new upgrades.
+        </p>
+      </div>
+      <div class="augment-modal__actions">
+        <label for="augment-search" class="sr-only">Search augments</label>
+        <input
+          id="augment-search"
+          type="search"
+          placeholder="Search augments"
+          autocomplete="off"
+          data-view-allow
+        />
+        <div class="augment-filters" role="group" aria-label="Augment categories">
+          <button type="button" class="btn-sm augment-filter" data-augment-tag="Control" data-view-allow>Control</button>
+          <button type="button" class="btn-sm augment-filter" data-augment-tag="Protection" data-view-allow>Protection</button>
+          <button type="button" class="btn-sm augment-filter" data-augment-tag="Aggression" data-view-allow>Aggression</button>
+          <button type="button" class="btn-sm augment-filter" data-augment-tag="Transcendence" data-view-allow>Transcendence</button>
+          <button type="button" class="btn-sm augment-filter" data-augment-tag="Customization" data-view-allow>Customization</button>
+        </div>
+      </div>
+      <div class="augment-modal__body">
+        <ul id="augment-available-list" class="augment-picker__list"></ul>
+        <p
+          id="augment-available-empty"
+          class="empty-state augment-empty"
+          data-empty-for="augment-available-list"
+          aria-live="polite"
+        >
+          Nothing matches these filters. Clear them or adjust your search to keep building your loadout.
+        </p>
+      </div>
+    </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
