@@ -1,4 +1,5 @@
 import { show, hide } from './modal.js';
+import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 
 (() => {
   const overlay = document.getElementById('player-credit-modal');
@@ -25,6 +26,27 @@ import { show, hide } from './modal.js';
   const MAX_HISTORY = 10;
 
   let transactionHistory = [];
+
+  const cloneHistory = () => transactionHistory.map(item => ({ ...item }));
+  const buildEventDetail = (type, payload, meta = {}) => ({
+    payload: payload ? { ...payload } : null,
+    history: cloneHistory(),
+    meta: {
+      event: type,
+      ...meta,
+    },
+  });
+
+  const dispatchPlayerCreditEvent = (type, payload, meta = {}) => {
+    if (typeof CustomEvent !== 'function') return;
+    const detail = buildEventDetail(type, payload, meta);
+    if (typeof document?.dispatchEvent === 'function') {
+      document.dispatchEvent(new CustomEvent(type, { detail }));
+    }
+    if (typeof window?.dispatchEvent === 'function') {
+      window.dispatchEvent(new CustomEvent(type, { detail }));
+    }
+  };
 
   const amountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -241,25 +263,36 @@ import { show, hide } from './modal.js';
     });
   };
 
-  const syncHistoryFromEntries = (entries = [], { reveal = false, persist = false } = {}) => {
+  const syncHistoryFromEntries = (entries = [], { reveal = false, persist = false, source = 'sync' } = {}) => {
     const signatureBefore = lastSignature;
     const latest = replaceHistoryEntries(entries);
+    let rendered = null;
     if (!transactionHistory.length) {
       renderHistory(transactionHistory);
       if (persist) {
         persistHistory();
       }
-      return;
+    } else {
+      const target = latest || transactionHistory[0];
+      rendered = renderPayload(target, { reveal });
+      renderHistory(transactionHistory);
+      if (persist) {
+        persistHistory();
+      }
+      if (!reveal && signatureBefore === null) {
+        lastSignature = signatureFor(rendered);
+      }
     }
-    const target = latest || transactionHistory[0];
-    const rendered = renderPayload(target, { reveal });
-    renderHistory(transactionHistory);
-    if (persist) {
-      persistHistory();
-    }
-    if (!reveal && signatureBefore === null) {
-      lastSignature = signatureFor(rendered);
-    }
+    dispatchPlayerCreditEvent(
+      PLAYER_CREDIT_EVENTS.SYNC,
+      rendered || latest || null,
+      {
+        reveal,
+        persist,
+        source,
+        dmSession: isDmSession(),
+      },
+    );
   };
 
   const setCardDatasets = (data) => {
@@ -350,6 +383,7 @@ import { show, hide } from './modal.js';
   const handleUpdate = (payload, options = {}) => {
     const reveal = options.reveal !== false;
     const persist = options.persist !== false;
+    const source = typeof options.source === 'string' ? options.source : 'update';
     const signatureBefore = lastSignature;
     upsertHistoryEntry(payload);
     const latest = transactionHistory[0] || sanitizePayload(payload);
@@ -358,6 +392,16 @@ import { show, hide } from './modal.js';
     if (persist) {
       persistHistory();
     }
+    dispatchPlayerCreditEvent(
+      PLAYER_CREDIT_EVENTS.UPDATE,
+      rendered,
+      {
+        reveal,
+        persist,
+        source,
+        dmSession: isDmSession(),
+      },
+    );
     if (reveal && isDmSession()) {
       hide('player-credit-modal');
     }
@@ -374,9 +418,9 @@ import { show, hide } from './modal.js';
     const data = event?.data;
     if (!data || data.type !== MESSAGE_TYPE) return;
     if (Array.isArray(data.payload)) {
-      syncHistoryFromEntries(data.payload, { reveal: true, persist: true });
+      syncHistoryFromEntries(data.payload, { reveal: true, persist: true, source: 'message' });
     } else {
-      handleUpdate(data.payload, { reveal: true });
+      handleUpdate(data.payload, { reveal: true, source: 'message' });
     }
   };
 
@@ -402,13 +446,23 @@ import { show, hide } from './modal.js';
     if (!parsed) {
       transactionHistory = [];
       renderHistory(transactionHistory);
+      dispatchPlayerCreditEvent(
+        PLAYER_CREDIT_EVENTS.SYNC,
+        null,
+        {
+          reveal: true,
+          persist: false,
+          source: 'storage',
+          dmSession: isDmSession(),
+        },
+      );
       return;
     }
     const entries = extractHistoryEntries(parsed);
     if (entries) {
-      syncHistoryFromEntries(entries, { reveal: true, persist: false });
+      syncHistoryFromEntries(entries, { reveal: true, persist: false, source: 'storage' });
     } else {
-      handleUpdate(parsed, { reveal: true, persist: false });
+      handleUpdate(parsed, { reveal: true, persist: false, source: 'storage' });
     }
   });
 
@@ -417,7 +471,7 @@ import { show, hide } from './modal.js';
       const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
       channel.addEventListener('message', (event) => {
         if (!event?.data || event.data.type !== MESSAGE_TYPE) return;
-        handleUpdate(event.data.payload, { reveal: true });
+        handleUpdate(event.data.payload, { reveal: true, source: 'broadcast' });
       });
       overlay._playerCreditChannel = channel;
     } catch {
@@ -431,9 +485,9 @@ import { show, hide } from './modal.js';
       const parsed = safeParse(existing);
       const entries = extractHistoryEntries(parsed);
       if (entries) {
-        syncHistoryFromEntries(entries, { reveal: false, persist: false });
+        syncHistoryFromEntries(entries, { reveal: false, persist: false, source: 'hydrate' });
       } else if (parsed) {
-        handleUpdate(parsed, { reveal: false, persist: false });
+        handleUpdate(parsed, { reveal: false, persist: false, source: 'hydrate' });
         persistHistory();
       } else {
         renderHistory(transactionHistory);

@@ -17,6 +17,7 @@ import {
 } from './characters.js';
 import { show, hide } from './modal.js';
 import { subscribe as subscribePlayerToolsDrawer } from './player-tools-drawer.js';
+import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
   getMiniGame as getMiniGameDefinition,
@@ -9200,6 +9201,124 @@ const elAugmentAvailableList = augmentPickerOverlay
   ? augmentPickerOverlay.querySelector('#augment-available-list')
   : $('augment-available-list');
 
+const PLAYER_CREDIT_LAST_VIEWED_KEY = 'player-credit:last-viewed';
+
+const readPlayerCreditAcknowledgedSignature = () => {
+  try {
+    if (typeof localStorage === 'undefined') return '';
+    return localStorage.getItem(PLAYER_CREDIT_LAST_VIEWED_KEY) || '';
+  } catch {
+    return '';
+  }
+};
+
+const writePlayerCreditAcknowledgedSignature = (value) => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (value) {
+      localStorage.setItem(PLAYER_CREDIT_LAST_VIEWED_KEY, value);
+    } else {
+      localStorage.removeItem(PLAYER_CREDIT_LAST_VIEWED_KEY);
+    }
+  } catch {
+    /* ignore persistence errors */
+  }
+};
+
+const computePlayerCreditSignature = (detail) => {
+  if (!detail || typeof detail !== 'object') return '';
+  const payload = detail.payload && typeof detail.payload === 'object' ? detail.payload : null;
+  const history = Array.isArray(detail.history) ? detail.history : [];
+  const candidate = payload || history[0] || null;
+  if (!candidate || typeof candidate !== 'object') return '';
+  const id = typeof candidate.txid === 'string' && candidate.txid
+    ? candidate.txid
+    : (typeof candidate.ref === 'string' ? candidate.ref : '');
+  const timestamp = typeof candidate.timestamp === 'string' ? candidate.timestamp : '';
+  return `${id}|${timestamp}`;
+};
+
+const elPlayerToolsTab = $('player-tools-tab');
+const playerToolsTabDefaultLabel = elPlayerToolsTab?.getAttribute('aria-label') || 'Toggle player tools drawer';
+let playerCreditBadge = null;
+let playerCreditLatestSignature = '';
+let playerCreditAcknowledgedSignature = readPlayerCreditAcknowledgedSignature();
+
+if (playerCreditAcknowledgedSignature) {
+  playerCreditLatestSignature = playerCreditAcknowledgedSignature;
+}
+
+const clearPlayerCreditBadge = () => {
+  if (!elPlayerToolsTab || !playerCreditBadge) return;
+  playerCreditBadge.hidden = true;
+  playerCreditBadge.textContent = '!';
+  elPlayerToolsTab.removeAttribute('data-player-credit');
+  if (playerToolsTabDefaultLabel) {
+    elPlayerToolsTab.setAttribute('aria-label', playerToolsTabDefaultLabel);
+  }
+};
+
+const showPlayerCreditBadge = () => {
+  if (!elPlayerToolsTab || !playerCreditBadge) return;
+  playerCreditBadge.hidden = false;
+  playerCreditBadge.textContent = '!';
+  elPlayerToolsTab.setAttribute('data-player-credit', 'pending');
+  if (playerToolsTabDefaultLabel) {
+    elPlayerToolsTab.setAttribute('aria-label', `${playerToolsTabDefaultLabel} (new credit update)`);
+  }
+};
+
+const acknowledgePlayerCredit = (signature = playerCreditLatestSignature) => {
+  clearPlayerCreditBadge();
+  playerCreditAcknowledgedSignature = signature || '';
+  writePlayerCreditAcknowledgedSignature(playerCreditAcknowledgedSignature);
+};
+
+const handlePlayerCreditEventDetail = (detail) => {
+  if (!elPlayerToolsTab || !detail || typeof detail !== 'object') return;
+  if (detail.meta?.dmSession) return;
+  const signature = computePlayerCreditSignature(detail);
+  if (detail.meta?.source === 'hydrate') {
+    playerCreditLatestSignature = signature;
+    acknowledgePlayerCredit(signature);
+    return;
+  }
+  const history = Array.isArray(detail.history) ? detail.history : [];
+  if (!history.length) {
+    playerCreditLatestSignature = '';
+    acknowledgePlayerCredit('');
+    return;
+  }
+  if (signature) {
+    playerCreditLatestSignature = signature;
+  } else {
+    playerCreditLatestSignature = '';
+  }
+  if (detail.meta?.reveal === false) {
+    return;
+  }
+  if (signature && signature === playerCreditAcknowledgedSignature) {
+    return;
+  }
+  showPlayerCreditBadge();
+};
+
+if (elPlayerToolsTab) {
+  playerCreditBadge = document.createElement('span');
+  playerCreditBadge.className = 'player-tools-tab__badge';
+  playerCreditBadge.hidden = true;
+  playerCreditBadge.setAttribute('aria-hidden', 'true');
+  playerCreditBadge.textContent = '!';
+  elPlayerToolsTab.appendChild(playerCreditBadge);
+
+  document.addEventListener(PLAYER_CREDIT_EVENTS.UPDATE, event => {
+    handlePlayerCreditEventDetail(event?.detail);
+  });
+  document.addEventListener(PLAYER_CREDIT_EVENTS.SYNC, event => {
+    handlePlayerCreditEventDetail(event?.detail);
+  });
+}
+
 const parseGaugeNumber = value => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : 0;
@@ -9275,11 +9394,15 @@ if (elLevelRewardAcknowledge) {
 
 if (typeof subscribePlayerToolsDrawer === 'function') {
   subscribePlayerToolsDrawer(({ open }) => {
-    if (!elLevelRewardReminderTrigger) return;
-    if (open && levelRewardPendingCount > 0) {
-      elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
-    } else {
-      elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+    if (elLevelRewardReminderTrigger) {
+      if (open && levelRewardPendingCount > 0) {
+        elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
+      } else {
+        elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+      }
+    }
+    if (open) {
+      acknowledgePlayerCredit();
     }
   });
 }
