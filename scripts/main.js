@@ -9256,8 +9256,11 @@ const elPowerStylePrimary = $('power-style');
 const elPowerStyleSecondary = $('power-style-2');
 const elSPSettingsToggle = $('sp-settings-toggle');
 const spSettingsOverlay = $('modal-sp-settings');
+const augmentPickerOverlay = $('modal-augment-picker');
 const elAugmentSelectedList = $('augment-selected-list');
-const elAugmentAvailableList = $('augment-available-list');
+const elAugmentAvailableList = augmentPickerOverlay
+  ? augmentPickerOverlay.querySelector('#augment-available-list')
+  : $('augment-available-list');
 
 const parseGaugeNumber = value => {
   const numeric = Number(value);
@@ -9282,8 +9285,13 @@ let hpGaugeMetrics = {
 let deathGaugeOverride = null;
 let deathGaugeRollResetTimer = null;
 const elAugmentSlotSummary = $('augment-slot-summary');
-const elAugmentSearch = $('augment-search');
-const augmentFilterButtons = Array.from(qsa('.augment-filter'));
+const elAugmentSearch = augmentPickerOverlay
+  ? augmentPickerOverlay.querySelector('#augment-search')
+  : $('augment-search');
+const augmentFilterButtons = augmentPickerOverlay
+  ? Array.from(augmentPickerOverlay.querySelectorAll('.augment-filter'))
+  : Array.from(qsa('.augment-filter'));
+const augmentPickerTrigger = $('augment-picker-trigger');
 const elAugmentStateInput = $('augment-state');
 const elLevelProgressInput = $('level-progress-state');
 const elLevelRewardModalList = $('level-reward-modal-list');
@@ -9307,6 +9315,12 @@ augmentFilterButtons.forEach(button => {
   if (!button) return;
   button.addEventListener('click', () => handleAugmentFilterToggle(button.dataset?.augmentTag));
 });
+
+if (augmentPickerTrigger) {
+  augmentPickerTrigger.addEventListener('click', () => {
+    show('modal-augment-picker');
+  });
+}
 
 if (elLevelRewardReminderTrigger) {
   elLevelRewardReminderTrigger.addEventListener('click', () => {
@@ -10302,6 +10316,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
     toast(slotLabel, 'success');
     window.dmNotify?.(slotLabel);
     logAction(`Augment slots unlocked: ${previousSlots} -> ${nextState.augmentSlotsEarned}`);
+    show('modal-augment-picker');
   }
   if (slotsDiff < 0 && !opts.suppressNotifications) {
     const selectedCount = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
