@@ -2810,18 +2810,24 @@
       </div>
     </div>
     <div class="player-tools-drawer__content" data-player-tools-content tabindex="-1">
-      <div class="player-tools-drawer__status">
-        <span class="player-tools-drawer__badge player-tools-drawer__badge--online" aria-hidden="true">
+      <div class="player-tools-drawer__status" role="presentation">
+        <span
+          class="player-tools-drawer__badge player-tools-drawer__badge--online"
+          role="img"
+          aria-label="Systems online"
+        >
           <span class="player-tools-drawer__badge-dot" aria-hidden="true"></span>
-          Systems Online
         </span>
-        <span class="player-tools-drawer__badge player-tools-drawer__badge--signal" aria-hidden="true">
+        <span
+          class="player-tools-drawer__badge player-tools-drawer__badge--signal"
+          role="img"
+          aria-label="Link stable"
+        >
           <span class="player-tools-drawer__badge-signal" aria-hidden="true">
             <span></span>
             <span></span>
             <span></span>
           </span>
-          Link Stable
         </span>
         <span
           class="player-tools-drawer__badge player-tools-drawer__badge--battery"
@@ -2838,7 +2844,7 @@
               decoding="async"
             />
           </span>
-          <span class="player-tools-drawer__badge-text" data-player-tools-battery-text>Unavailable</span>
+          <span class="player-tools-drawer__badge-text sr-only" data-player-tools-battery-text>Unavailable</span>
         </span>
       </div>
       <fieldset class="card card__glow roll-tools-card">
