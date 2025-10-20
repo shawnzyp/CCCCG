@@ -44,7 +44,6 @@ function HeaderTitle() {
       parentClassName="header-decrypted"
       className="header-decrypted__char"
       encryptedClassName="header-decrypted__char--scrambling"
-      variant="holographic"
     />
   );
 }
