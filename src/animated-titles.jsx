@@ -1,24 +1,14 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { createRoot } from 'react-dom/client';
 import DecryptedText from './DecryptedText.jsx';
 
-const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=';
-
 function AnimatedTitle({ text, playIndex }) {
-  const characters = useMemo(() => CHARACTERS, []);
-
   return (
     <DecryptedText
       key={playIndex}
       text={text}
-      speed={55}
-      maxIterations={18}
-      characters={characters}
-      revealDirection="center"
-      animateOn="both"
       parentClassName="animated-decrypted"
       className="animated-decrypted__char"
-      encryptedClassName="animated-decrypted__char--scrambling"
     />
   );
 }
