@@ -26,10 +26,6 @@
       ? window.cancelAnimationFrame.bind(window)
       : (handle) => window.clearTimeout(handle);
 
-  const motionPreference =
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia('(prefers-reduced-motion: reduce)')
-      : null;
 
   const clamp = (value, min, max) => {
     if (!Number.isFinite(value)) return value;
@@ -98,7 +94,7 @@
     openAnimationCompletion = null;
   };
 
-  const isMotionReduced = () => motionPreference?.matches === true;
+  const isMotionReduced = () => false;
 
   const animateOpenProgress = (target, onComplete) => {
     const destination = clamp(target, 0, 1);
