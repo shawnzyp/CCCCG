@@ -7080,6 +7080,14 @@ function removeCanvasBackground(canvas){
   const { data } = imageData;
   if(!data || data.length < 4) return;
 
+  const originalData = new Uint8ClampedArray(data);
+  let visibleBefore = 0;
+  for(let i = 3; i < originalData.length; i += 4){
+    if(originalData[i] > 0){
+      visibleBefore += 1;
+    }
+  }
+
   const sampleIndices = [0, (width - 1) * 4, (width * (height - 1)) * 4, ((width * height) - 1) * 4]
     .filter(index => index >= 0 && index + 3 < data.length);
   if(!sampleIndices.length) return;
@@ -7107,6 +7115,18 @@ function removeCanvasBackground(canvas){
     const distance = Math.sqrt((r - baseR) ** 2 + (g - baseG) ** 2 + (b - baseB) ** 2);
     if(distance <= tolerance || intensity >= baseIntensity + tolerance){
       data[i + 3] = 0;
+    }
+  }
+
+  if(visibleBefore > 0){
+    let visibleAfter = 0;
+    for(let i = 3; i < data.length; i += 4){
+      if(data[i] > 0){
+        visibleAfter += 1;
+      }
+    }
+    if(visibleAfter <= visibleBefore * 0.05){
+      data.set(originalData);
     }
   }
 
