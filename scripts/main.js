@@ -1680,7 +1680,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
   const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reduceMotionQuery = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
 
   let revealCalled = false;
   let playbackStartedAt = null;
@@ -1843,9 +1843,21 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     return hasExistingSource || appended;
   };
 
-  if(!video || prefersReducedMotion){
+  if(!video){
     revealApp();
     return;
+  }
+
+  if(reduceMotionQuery){
+    const handleMotionChange = event => {
+      if(event.matches || revealCalled) return;
+      attemptPlayback();
+    };
+    if(typeof reduceMotionQuery.addEventListener === 'function'){
+      reduceMotionQuery.addEventListener('change', handleMotionChange);
+    } else if(typeof reduceMotionQuery.addListener === 'function'){
+      reduceMotionQuery.addListener(handleMotionChange);
+    }
   }
 
   const hasLaunchVideo = await ensureLaunchVideoSources(video);
