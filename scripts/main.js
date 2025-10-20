@@ -8149,27 +8149,23 @@ if(m24nTrack && m24nText){
 const ABILS = ['str','dex','con','int','wis','cha'];
 const abilGrid = $('abil-grid');
 abilGrid.innerHTML = ABILS.map(a=>`
-  <div class="ability-card ability-card--score" data-ability="${a}">
-    <label class="ability-card__label" for="${a}">${a.toUpperCase()}</label>
-    <div class="ability-card__control">
+  <div class="ability-box">
+    <label for="${a}">${a.toUpperCase()}</label>
+    <div class="score">
       <select id="${a}"></select>
-    </div>
-    <div class="ability-card__dial">
-      <span class="ability-card__value mod" id="${a}-mod">+0</span>
+      <span class="mod" id="${a}-mod">+0</span>
     </div>
   </div>`).join('');
 ABILS.forEach(a=>{ const sel=$(a); for(let v=10; v<=28; v++) sel.add(new Option(v,v)); sel.value='10'; });
 
 const saveGrid = $('saves');
 saveGrid.innerHTML = ABILS.map(a=>`
-  <div class="ability-card ability-card--save" data-ability="${a}">
-    <span class="ability-card__label ability-label">${a.toUpperCase()}</span>
-    <div class="ability-card__dial">
-      <span class="ability-card__value score-val" id="save-${a}">+0</span>
-    </div>
-    <label class="inline ability-card__meta"><input type="checkbox" id="save-${a}-prof"/> Proficient</label>
-    <button class="btn-sm ability-card__action" data-roll-save="${a}">Roll</button>
-    <span class="pill result ability-card__result" id="save-${a}-res" data-placeholder="000"></span>
+  <div class="ability-box">
+    <span class="ability-label">${a.toUpperCase()}</span>
+    <div class="score"><span class="score-val" id="save-${a}">+0</span></div>
+    <label class="inline"><input type="checkbox" id="save-${a}-prof"/> Proficient</label>
+    <button class="btn-sm" data-roll-save="${a}">Roll</button>
+    <span class="pill result" id="save-${a}-res" data-placeholder="000"></span>
   </div>
 `).join('');
 
@@ -8204,49 +8200,14 @@ const ABILITY_FULL_NAMES = {
 };
 const skillGrid = $('skills');
 skillGrid.innerHTML = SKILLS.map((s,i)=>`
-  <div class="ability-card ability-card--skill" data-ability="${s.abil}" data-skill-index="${i}">
-    <span class="ability-card__label ability-label">${s.name}</span>
-    <div class="ability-card__dial">
-      <span class="ability-card__value score-val" id="skill-${i}">+0</span>
-    </div>
-    <label class="inline ability-card__meta"><input type="checkbox" id="skill-${i}-prof"/> Proficient</label>
-    <button class="btn-sm ability-card__action" data-roll-skill="${i}">Roll</button>
-    <span class="pill result ability-card__result" id="skill-${i}-res" data-placeholder="000"></span>
+  <div class="ability-box">
+    <span class="ability-label">${s.name}</span>
+    <div class="score"><span class="score-val" id="skill-${i}">+0</span></div>
+    <label class="inline"><input type="checkbox" id="skill-${i}-prof"/> Proficient</label>
+    <button class="btn-sm" data-roll-skill="${i}">Roll</button>
+    <span class="pill result" id="skill-${i}-res" data-placeholder="000"></span>
   </div>
 `).join('');
-
-const clampAbilityVisualValue = (value, min, max) => {
-  if (!Number.isFinite(value)) return min;
-  return Math.min(Math.max(value, min), max);
-};
-
-function updateAbilityCardVisualState(targetEl, {
-  baseValue = 0,
-  totalValue = 0,
-  progressValue = totalValue,
-  progressMin = -5,
-  progressMax = 20,
-} = {}) {
-  if (!targetEl || typeof targetEl.closest !== 'function') return;
-  const card = targetEl.closest('.ability-card');
-  if (!card) return;
-
-  const delta = totalValue - baseValue;
-  card.classList.remove('ability-card--buffed', 'ability-card--debuffed');
-  if (delta > 0.0001) {
-    card.classList.add('ability-card--buffed');
-  } else if (delta < -0.0001) {
-    card.classList.add('ability-card--debuffed');
-  }
-
-  const safeMin = Number.isFinite(progressMin) ? progressMin : 0;
-  const safeMax = Number.isFinite(progressMax) ? progressMax : safeMin + 1;
-  const range = Math.max(safeMax - safeMin, 0.0001);
-  const clamped = clampAbilityVisualValue(progressValue, safeMin, safeMax);
-  const normalized = (clamped - safeMin) / range;
-  card.style.setProperty('--ability-progress', normalized.toFixed(3));
-}
-
 qsa('[data-roll-save]').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const a = btn.dataset.rollSave;
@@ -11021,13 +10982,6 @@ function updateDerived(){
     if (abilityTarget) {
       abilityTarget.textContent = formatModifier(abilityTotal);
       applyBreakdownMetadata(abilityTarget, abilityResolution?.breakdown, `${abilityLabel} ability checks`);
-      updateAbilityCardVisualState(abilityTarget, {
-        baseValue: abilityMod,
-        totalValue: abilityTotal,
-        progressValue: Number(abilityInput.value) || 0,
-        progressMin: 8,
-        progressMax: 28,
-      });
     }
     const saveProfEl = $('save-'+a+'-prof');
     const isProficient = !!(saveProfEl && saveProfEl.checked);
@@ -11046,13 +11000,6 @@ function updateDerived(){
     if (saveTarget) {
       saveTarget.textContent = formatModifier(saveTotal);
       applyBreakdownMetadata(saveTarget, saveResolution?.breakdown, `${abilityLabel} saves`);
-      updateAbilityCardVisualState(saveTarget, {
-        baseValue: saveBase,
-        totalValue: saveTotal,
-        progressValue: saveTotal,
-        progressMin: -5,
-        progressMax: 20,
-      });
     }
   });
   SKILLS.forEach((s,i)=>{
@@ -11075,13 +11022,6 @@ function updateDerived(){
       : base;
     skillTarget.textContent = formatModifier(total);
     applyBreakdownMetadata(skillTarget, skillResolution?.breakdown, `${s.name} checks`);
-    updateAbilityCardVisualState(skillTarget, {
-      baseValue: base,
-      totalValue: total,
-      progressValue: total,
-      progressMin: -5,
-      progressMax: 20,
-    });
   });
   updateCreditsGearSummary();
   refreshPowerCards();
