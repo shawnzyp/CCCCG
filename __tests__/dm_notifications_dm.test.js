@@ -121,7 +121,7 @@ describe('dmNotify labels actions as DM when logged in', () => {
   });
 
   test('uses DM tag', () => {
-    window.dmNotify('testing');
+    window.dmNotify('testing', { actionScope: 'major' });
     const list = document.getElementById('dm-notifications-list');
     expect(list.textContent).toContain('DM: testing');
   });
@@ -131,7 +131,7 @@ describe('DM notifications visibility', () => {
   test('does not render notifications when logged out', async () => {
     await initDmModule();
     const list = document.getElementById('dm-notifications-list');
-    window.dmNotify('testing visibility');
+    window.dmNotify('testing visibility', { actionScope: 'major' });
     expect(list.textContent).toBe('');
     const raw = sessionStorage.getItem(PENDING_DM_NOTIFICATIONS_KEY);
     const pending = raw ? JSON.parse(raw) : [];
@@ -139,12 +139,13 @@ describe('DM notifications visibility', () => {
   });
 
   test('renders stored and pending notifications after login', async () => {
-    const stored = [{ ts: '2025-01-01 00:00', char: 'System', detail: 'Stored entry' }];
-    await initDmModule({ storedNotifications: stored });
+    const stored = [{ ts: '2025-01-01 00:00', char: 'System', detail: 'Stored entry', actionScope: 'major' }];
+    await initDmModule();
+    window.__dmTestHooks.setStoredNotifications(stored);
     const list = document.getElementById('dm-notifications-list');
     expect(list.textContent).toBe('');
 
-    window.dmNotify('Queued while logged out');
+    window.dmNotify('Queued while logged out', { actionScope: 'major' });
     let pending = JSON.parse(sessionStorage.getItem(PENDING_DM_NOTIFICATIONS_KEY));
     expect(pending).toHaveLength(1);
 
@@ -170,7 +171,7 @@ describe('DM notifications audio cues', () => {
     await initDmModule({ loggedIn: true });
     window.playTone = jest.fn();
 
-    window.dmNotify('audio check');
+    window.dmNotify('audio check', { actionScope: 'major' });
 
     expect(window.playTone).toHaveBeenCalledTimes(1);
     expect(window.playTone).toHaveBeenCalledWith('info');
@@ -180,7 +181,7 @@ describe('DM notifications audio cues', () => {
     await initDmModule();
     window.playTone = jest.fn();
 
-    window.dmNotify('queued tone');
+    window.dmNotify('queued tone', { actionScope: 'major' });
     expect(window.playTone).not.toHaveBeenCalled();
 
     await completeLogin();
@@ -193,7 +194,7 @@ describe('DM notifications audio cues', () => {
     window.playTone = jest.fn();
     window.audioPreference = 'muted';
 
-    window.dmNotify('should stay quiet');
+    window.dmNotify('should stay quiet', { actionScope: 'major' });
 
     expect(window.playTone).not.toHaveBeenCalled();
   });
@@ -202,12 +203,13 @@ describe('DM notifications audio cues', () => {
 describe('DM notifications filtering', () => {
   test('filters notifications and restores state from storage', async () => {
     const stored = [
-      { ts: '2025-01-01T00:00:00', char: 'DM', detail: 'Alpha event', severity: 'info' },
-      { ts: '2025-01-02T00:00:00', char: 'Hank', detail: 'Beta warning', severity: 'warning' },
-      { ts: '2025-01-03T00:00:00', char: 'Hank', detail: 'Gamma update', severity: 'info' },
+      { ts: '2025-01-01T00:00:00', char: 'DM', detail: 'Alpha event', severity: 'info', actionScope: 'major' },
+      { ts: '2025-01-02T00:00:00', char: 'Hank', detail: 'Beta warning', severity: 'warning', actionScope: 'major' },
+      { ts: '2025-01-03T00:00:00', char: 'Hank', detail: 'Gamma update', severity: 'info', actionScope: 'minor' },
     ];
 
-    await initDmModule({ loggedIn: true, storedNotifications: stored });
+    await initDmModule({ loggedIn: true });
+    window.__dmTestHooks.setStoredNotifications(stored);
 
     const list = document.getElementById('dm-notifications-list');
     const characterSelect = document.getElementById('dm-notifications-filter-character');
@@ -248,9 +250,10 @@ describe('DM notifications filtering', () => {
 
     await initDmModule({
       loggedIn: true,
-      storedNotifications: stored,
       notificationFilters: savedFilters,
     });
+    window.__dmTestHooks.setStoredNotifications(stored);
+    window.__dmTestHooks.setNotificationFilters(savedFilters);
 
     const restoredList = document.getElementById('dm-notifications-list');
     const restoredItems = Array.from(restoredList.querySelectorAll('li')).map(li => li.textContent);
@@ -265,11 +268,12 @@ describe('DM notifications filtering', () => {
 describe('DM notification severity rendering', () => {
   test('applies severity metadata and wraps HTML payloads', async () => {
     const stored = [
-      { ts: '2025-01-01T00:00:00', char: 'DM', detail: 'Plain info', severity: 'info' },
-      { ts: '2025-01-02T00:00:00', char: 'Alex', detail: 'Escalated detail', severity: 'warning', html: '<em>Escalated detail</em>' },
+      { ts: '2025-01-01T00:00:00', char: 'DM', detail: 'Plain info', severity: 'info', actionScope: 'minor' },
+      { ts: '2025-01-02T00:00:00', char: 'Alex', detail: 'Escalated detail', severity: 'warning', html: '<em>Escalated detail</em>', actionScope: 'major' },
     ];
 
-    await initDmModule({ loggedIn: true, storedNotifications: stored });
+    await initDmModule({ loggedIn: true });
+    window.__dmTestHooks.setStoredNotifications(stored);
 
     const items = Array.from(document.querySelectorAll('#dm-notifications-list li'));
     expect(items).toHaveLength(2);
@@ -299,8 +303,8 @@ describe('DM notifications mark read control', () => {
     const markReadBtn = document.getElementById('dm-notifications-mark-read');
     expect(markReadBtn.disabled).toBe(true);
 
-    window.dmNotify('First alert');
-    window.dmNotify('Second alert');
+    window.dmNotify('First alert', { actionScope: 'major' });
+    window.dmNotify('Second alert', { actionScope: 'major' });
 
     expect(markReadBtn.disabled).toBe(false);
 
@@ -337,11 +341,13 @@ describe('DM notifications export formats', () => {
       char: 'Gamma',
       severity: 'info',
       resolved: true,
+      actionScope: 'minor',
     });
     window.dmNotify('Newer detail', {
       ts: '2024-01-02T00:00:00',
       char: 'Beta',
       severity: 'warning',
+      actionScope: 'major',
     });
 
     const storedState = JSON.parse(sessionStorage.getItem(DM_NOTIFICATIONS_KEY));
@@ -372,11 +378,13 @@ describe('DM notifications export formats', () => {
       ts: '2024-02-01T10:00:00',
       char: 'Vera',
       severity: 'info',
+      actionScope: 'minor',
     });
     window.dmNotify('New log', {
       ts: '2024-02-02T11:00:00',
       char: 'Nox',
       severity: 'warning',
+      actionScope: 'major',
     });
 
     const storedState = JSON.parse(sessionStorage.getItem(DM_NOTIFICATIONS_KEY));

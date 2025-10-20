@@ -209,7 +209,10 @@ describe('DM item gifting flow', () => {
     expect(notifyCall).toBeDefined();
     expect(notifyCall[0]).toContain(itemName);
     expect(notifyCall[0]).toContain('Nova');
-    expect(notifyCall[1]).toMatchObject({ item: expect.objectContaining({ recipient: 'Nova' }) });
+    expect(notifyCall[1]).toMatchObject({
+      actionScope: 'major',
+      item: expect.objectContaining({ recipient: 'Nova' }),
+    });
 
     expect(window.toast).toHaveBeenCalledWith(
       expect.stringContaining('<strong>Gifted</strong>'),

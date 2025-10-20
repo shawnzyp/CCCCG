@@ -3789,7 +3789,11 @@
           window.logAction(htmlMessage);
         }
         if (typeof window.dmNotify === 'function') {
-          window.dmNotify(plainMessage, { html: htmlMessage, ts: notice.ts });
+          window.dmNotify(plainMessage, {
+            html: htmlMessage,
+            ts: notice.ts,
+            actionScope: 'major',
+          });
         }
         this.openModal();
         await this.reloadNotices();
@@ -4599,6 +4603,7 @@
           {
             ts,
             item: { id, name: label, type: item.type || null, recipient },
+            actionScope: 'major',
           }
         );
       } catch (err) {
@@ -5329,7 +5334,7 @@
         }
         this.toast('<strong>Shards Revealed</strong> All players can now see the deck.');
         try {
-          window.dmNotify?.('Revealed the Shards to all players', { ts: now });
+          window.dmNotify?.('Revealed the Shards to all players', { ts: now, actionScope: 'major' });
         } catch {}
         this.clearInviteInput();
         this.clearInviteSelection();
@@ -5350,6 +5355,7 @@
         window.dmNotify?.(`Invited ${summary} to reveal the Shards`, {
           ts: now,
           html: `<strong>Invited</strong> ${escapeHtml(summary)}`,
+          actionScope: 'minor',
         });
       } catch {}
       this.clearInviteInput();
@@ -5369,7 +5375,10 @@
       }
       this.toast('<strong>Shards Concealed</strong> Players can no longer see the deck');
       try {
-        window.dmNotify?.('Concealed the Shards of Many Fates', { ts: Date.now() });
+        window.dmNotify?.('Concealed the Shards of Many Fates', {
+          ts: Date.now(),
+          actionScope: 'major',
+        });
       } catch {}
     }
 

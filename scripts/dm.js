@@ -624,7 +624,13 @@ function normalizeStoredNotification(entry, { id, fallbackCreatedAt } = {}) {
     createdAt = Date.now();
   }
 
-  const record = { ts, char, detail: entry.detail, resolved: Boolean(resolved), createdAt };
+  let actionScope = normalizeNotificationActionScope(
+    entry.actionScope ?? entry.scope ?? entry.kind ?? entry.actionType,
+    entry.detail,
+  );
+  if (!actionScope) actionScope = 'major';
+
+  const record = { ts, char, detail: entry.detail, resolved: Boolean(resolved), createdAt, actionScope };
   if (severityValue) record.severity = severityValue;
   if (html) record.html = html;
   if (typeof id === 'string' && id) record.id = id;
@@ -705,6 +711,26 @@ function clampUnreadCountToUnresolved() {
 const DM_NOTIFICATION_FILTER_STORAGE_KEY = 'cc_dm_notification_filters';
 const NOTIFICATION_FILTER_DEFAULTS = Object.freeze({ character: 'all', severity: 'all', search: '', resolved: 'all' });
 const KNOWN_NOTIFICATION_SEVERITIES = ['info', 'success', 'warning', 'error'];
+const DM_NOTIFICATION_ACTION_SCOPES = new Set(['major', 'minor']);
+
+function normalizeNotificationActionScope(value, detail = '') {
+  let scope = '';
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (DM_NOTIFICATION_ACTION_SCOPES.has(normalized)) {
+      scope = normalized;
+    }
+  }
+  if (!scope && typeof detail === 'string' && detail) {
+    const lowered = detail.trim().toLowerCase();
+    if (lowered.includes('major action')) {
+      scope = 'major';
+    } else if (lowered.includes('minor action')) {
+      scope = 'minor';
+    }
+  }
+  return scope;
+}
 let notificationFilterState = loadStoredNotificationFilters();
 
 clampUnreadCountToUnresolved();
@@ -910,6 +936,12 @@ function buildNotification(detail, meta = {}) {
   if (typeof meta.html === 'string' && meta.html) {
     entry.html = meta.html;
   }
+  const actionScope = normalizeNotificationActionScope(
+    meta.actionScope ?? meta.scope ?? meta.kind ?? meta.actionType,
+    text,
+  );
+  if (!actionScope) return null;
+  entry.actionScope = actionScope;
   return entry;
 }
 
@@ -4062,7 +4094,7 @@ function initDMLogin(){
 
     notifications.forEach(message => {
       try {
-        window.dmNotify?.(message, { ts: timestampIso, char: target });
+        window.dmNotify?.(message, { ts: timestampIso, char: target, actionScope: 'major' });
       } catch {}
     });
 
@@ -6404,7 +6436,7 @@ function initDMLogin(){
         const notifyMsg = scheduledForTs
           ? `Scheduled ${gameName} for ${successCount} recipient${successCount === 1 ? '' : 's'}`
           : `Deployed ${gameName} to ${successCount} recipient${successCount === 1 ? '' : 's'}`;
-        window.dmNotify?.(notifyMsg);
+        window.dmNotify?.(notifyMsg, { actionScope: 'major' });
       }
       if (failureCount > 0 && typeof toast === 'function') {
         toast(`Failed to deploy to ${failureCount} recipient${failureCount === 1 ? '' : 's'}`, 'error');
@@ -7014,7 +7046,9 @@ function initDMLogin(){
     if (typeof toast === 'function') {
       toast(`${typeLabel} entry staged: ${entryName}${recipientSuffix}`, 'success');
     }
-    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}${recipientSuffix}`);
+    window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}${recipientSuffix}`, {
+      actionScope: 'minor',
+    });
     if (typeof console !== 'undefined' && typeof console.debug === 'function') {
       console.debug('DM catalog payload prepared', payload);
     }
@@ -7696,6 +7730,7 @@ function initDMLogin(){
         html: entry.html,
         createdAt: entry.createdAt,
         resolved: entry.resolved === true,
+        actionScope: entry.actionScope,
       });
       const MAX_PENDING = 20;
       if (pending.length > MAX_PENDING) {
@@ -7708,6 +7743,12 @@ function initDMLogin(){
   }
 
   function pushNotification(entry) {
+    const actionScope = normalizeNotificationActionScope(
+      entry?.actionScope ?? entry?.scope ?? entry?.kind ?? entry?.actionType,
+      entry?.detail,
+    );
+    if (!actionScope) return;
+    entry.actionScope = actionScope;
     if (cloudNotificationsState.enabled && !cloudNotificationsState.available) {
       initializeCloudNotifications();
     }
@@ -7773,6 +7814,7 @@ function initDMLogin(){
           html: item.html,
           createdAt: item.createdAt,
           resolved: item.resolved,
+          actionScope: item.actionScope,
         });
       });
       sessionStorage.removeItem(PENDING_DM_NOTIFICATIONS_KEY);
@@ -8917,7 +8959,7 @@ function initDMLogin(){
       try {
         await updateMiniGameDeployment(player, deploymentId, { status });
         if (typeof toast === 'function') toast('Mini-game updated', 'success');
-        window.dmNotify?.(`Updated mini-game ${deploymentId} to ${status}`);
+        window.dmNotify?.(`Updated mini-game ${deploymentId} to ${status}`, { actionScope: 'major' });
       } catch (err) {
         console.error('Failed to update mini-game deployment', err);
         if (typeof toast === 'function') toast('Failed to update mini-game', 'error');
@@ -8930,7 +8972,7 @@ function initDMLogin(){
       try {
         await deleteMiniGameDeployment(player, deploymentId);
         if (typeof toast === 'function') toast('Mini-game deployment removed', 'info');
-        window.dmNotify?.(`Removed mini-game ${deploymentId}`);
+        window.dmNotify?.(`Removed mini-game ${deploymentId}`, { actionScope: 'major' });
       } catch (err) {
         console.error('Failed to remove mini-game deployment', err);
         if (typeof toast === 'function') toast('Failed to remove mini-game', 'error');
@@ -8946,7 +8988,7 @@ function initDMLogin(){
         if (typeof toast === 'function') {
           toast(`Nudged ${playerName}`, 'info');
         }
-        window.dmNotify?.(`Nudged ${playerName} about ${missionName}`);
+        window.dmNotify?.(`Nudged ${playerName} about ${missionName}`, { actionScope: 'minor' });
       } finally {
         btn.disabled = false;
       }
@@ -9026,8 +9068,6 @@ function initDMLogin(){
     const t = e.target.closest('button,a');
     if(!t) return;
     touchSessionActivity();
-    const id = t.id || t.textContent?.trim() || 'interaction';
-    window.dmNotify?.(`Clicked ${id}`);
   });
 
   window.dmRequireLogin = requireLogin;
@@ -9061,6 +9101,35 @@ function initDMLogin(){
         }));
       });
       return snapshot;
+    },
+    setStoredNotifications(entries = []) {
+      notifications.length = 0;
+      if (Array.isArray(entries)) {
+        entries.forEach((entry, idx) => {
+          const normalized = normalizeStoredNotification(entry, {
+            fallbackCreatedAt: Date.now() + idx,
+          });
+          if (normalized) notifications.push(normalized);
+        });
+      }
+      if (notifications.length > MAX_STORED_NOTIFICATIONS) {
+        notifications.splice(0, notifications.length - MAX_STORED_NOTIFICATIONS);
+      }
+      persistNotifications();
+      renderStoredNotifications();
+      updateNotificationActionState();
+    },
+    setNotificationFilters(filters = {}) {
+      const next = {
+        character: typeof filters.character === 'string' ? filters.character : 'all',
+        severity: typeof filters.severity === 'string' ? filters.severity : 'all',
+        search: typeof filters.search === 'string' ? filters.search : '',
+        resolved: typeof filters.resolved === 'string' ? filters.resolved : 'all',
+      };
+      notificationFilterState = next;
+      persistNotificationFilterState();
+      renderStoredNotifications();
+      updateNotificationActionState();
     },
     QUICK_REWARD_PRESETS_STORAGE_KEY,
   };
