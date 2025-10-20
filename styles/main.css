@@ -6545,11 +6545,11 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__clock {
-  font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: rgba(230, 240, 255, 0.95);
-  text-transform: uppercase;
+  white-space: nowrap;
   text-shadow: 0 0 12px rgba(110, 180, 255, 0.35);
 }
 
@@ -6571,13 +6571,14 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   scrollbar-gutter: stable both-edges;
 }
 
+
 .player-tools-status {
   --player-tools-meter-fill: 100%;
   --player-tools-meter-color: rgba(140, 210, 255, 0.95);
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: clamp(6px, 1.8vw, 10px);
+  gap: clamp(6px, 1.6vw, 9px);
   font-size: clamp(0.75rem, 1.9vw, 0.875rem);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -6585,52 +6586,157 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-status__icon {
-  inline-size: clamp(18px, 3.6vw, 22px);
-  block-size: clamp(18px, 3.6vw, 22px);
+  position: relative;
+  inline-size: clamp(22px, 3.8vw, 26px);
+  block-size: clamp(16px, 3vw, 18px);
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.25));
+  color: rgba(210, 235, 255, 0.92);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.3));
 }
 
-.player-tools-status__icon img {
-  display: block;
-  inline-size: 100%;
-  block-size: auto;
+.player-tools-status__icon::before,
+.player-tools-status__icon::after {
+  pointer-events: none;
+}
+
+.player-tools-status__icon--signal {
+  --signal-bar-1: rgba(150, 200, 255, 0.45);
+  --signal-bar-2: rgba(160, 210, 255, 0.55);
+  --signal-bar-3: rgba(170, 220, 255, 0.65);
+  --signal-bar-4: rgba(185, 230, 255, 0.78);
+  --signal-bar-5: rgba(205, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--signal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  inline-size: 86%;
+  block-size: 100%;
+  transform: translateX(-7%);
+  background:
+    linear-gradient(to top, var(--signal-bar-1) 0%, var(--signal-bar-1) 100%) 0% 100% / 14% 32% no-repeat,
+    linear-gradient(to top, var(--signal-bar-2) 0%, var(--signal-bar-2) 100%) 24% 100% / 14% 48% no-repeat,
+    linear-gradient(to top, var(--signal-bar-3) 0%, var(--signal-bar-3) 100%) 48% 100% / 14% 66% no-repeat,
+    linear-gradient(to top, var(--signal-bar-4) 0%, var(--signal-bar-4) 100%) 72% 100% / 14% 84% no-repeat,
+    linear-gradient(to top, var(--signal-bar-5) 0%, var(--signal-bar-5) 100%) 96% 100% / 14% 100% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.32));
+}
+
+.player-tools-status__icon--wifi {
+  --wifi-arc-color-1: rgba(150, 205, 255, 0.48);
+  --wifi-arc-color-2: rgba(165, 215, 255, 0.62);
+  --wifi-arc-color-3: rgba(185, 230, 255, 0.78);
+  --wifi-dot-color: rgba(215, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--wifi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 95%, var(--wifi-dot-color) 0 7%, transparent 8%) center bottom / 16% 16% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 32%, var(--wifi-arc-color-1) 33% 35%, transparent 36%) center bottom / 52% 52% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 52%, var(--wifi-arc-color-2) 53% 55%, transparent 56%) center bottom / 74% 74% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 72%, var(--wifi-arc-color-3) 73% 75%, transparent 76%) center bottom / 96% 96% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.3));
+}
+
+.player-tools-status__icon--battery {
+  inline-size: clamp(44px, 8.6vw, 56px);
+  block-size: clamp(18px, 3.6vw, 20px);
+  align-items: center;
+  justify-content: center;
 }
 
 .player-tools-status__meter {
   position: relative;
-  inline-size: clamp(58px, 12vw, 72px);
-  block-size: clamp(16px, 3.6vw, 20px);
-  border-radius: 999px;
-  overflow: hidden;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.22));
+  display: block;
 }
 
 .player-tools-status__meter-base,
 .player-tools-status__meter-fill {
   position: absolute;
   inset: 0;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-  -webkit-mask: url('../images/signal-status.png') center / contain no-repeat;
-  mask: url('../images/signal-status.png') center / contain no-repeat;
-}
-
-.player-tools-status__meter-base {
-  background-color: rgba(120, 150, 190, 0.28);
-  filter: brightness(0.9);
 }
 
 .player-tools-status__meter-fill {
+  transition: background-color 200ms ease;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter {
+  --battery-gap: clamp(2px, 0.6vw, 3px);
+  --battery-radius: clamp(5px, 1.4vw, 6px);
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: var(--battery-radius);
+  background: rgba(10, 18, 28, 0.72);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.28));
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid rgba(160, 215, 255, 0.8);
+  box-shadow:
+    inset 0 0 0 1px rgba(8, 14, 24, 0.65),
+    0 0 10px rgba(110, 200, 255, 0.25);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * clamp(3px, 0.9vw, 4px));
+  transform: translateY(-50%);
+  inline-size: clamp(4px, 1.2vw, 5px);
+  block-size: clamp(8px, 1.9vw, 10px);
+  border-radius: clamp(2px, 0.6vw, 3px);
+  background: rgba(160, 215, 255, 0.85);
+  box-shadow: 0 0 8px rgba(110, 200, 255, 0.32);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-base {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  background: rgba(120, 150, 190, 0.25);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.45);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  overflow: hidden;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   inline-size: var(--player-tools-meter-fill, 100%);
-  inset-inline-end: auto;
-  background-color: var(--player-tools-meter-color, rgba(140, 210, 255, 0.95));
-  transition:
-    inline-size 240ms ease,
-    background-color 200ms ease;
+  block-size: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 0%, rgba(255, 255, 255, 0.75) 40%, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 100%);
+  box-shadow:
+    inset 0 0 8px rgba(8, 16, 24, 0.4),
+    0 0 10px rgba(110, 200, 255, 0.32);
+  transition: inline-size 240ms ease;
+}
+
+.player-tools-status--battery[data-battery-state='charging'] .player-tools-status__meter-fill::after {
+  content: '';
+  position: absolute;
+  inset-block: 18%;
+  inset-inline-start: 46%;
+  inline-size: clamp(10px, 2.8vw, 12px);
+  block-size: calc(100% - 36%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(160, 255, 230, 0.92));
+  clip-path: polygon(42% 0%, 0% 60%, 30% 60%, 10% 100%, 68% 44%, 38% 44%);
+  filter: drop-shadow(0 0 6px rgba(160, 255, 230, 0.55));
 }
 
 .player-tools-status.player-tools-status--wifi {
@@ -6879,11 +6985,11 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__clock {
-  font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: rgba(230, 240, 255, 0.95);
-  text-transform: uppercase;
+  white-space: nowrap;
   text-shadow: 0 0 12px rgba(110, 180, 255, 0.35);
 }
 
@@ -6911,7 +7017,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: clamp(6px, 1.8vw, 10px);
+  gap: clamp(6px, 1.6vw, 9px);
   font-size: clamp(0.75rem, 1.9vw, 0.875rem);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -6919,52 +7025,157 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-status__icon {
-  inline-size: clamp(18px, 3.6vw, 22px);
-  block-size: clamp(18px, 3.6vw, 22px);
+  position: relative;
+  inline-size: clamp(22px, 3.8vw, 26px);
+  block-size: clamp(16px, 3vw, 18px);
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.25));
+  color: rgba(210, 235, 255, 0.92);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.3));
 }
 
-.player-tools-status__icon img {
-  display: block;
-  inline-size: 100%;
-  block-size: auto;
+.player-tools-status__icon::before,
+.player-tools-status__icon::after {
+  pointer-events: none;
+}
+
+.player-tools-status__icon--signal {
+  --signal-bar-1: rgba(150, 200, 255, 0.45);
+  --signal-bar-2: rgba(160, 210, 255, 0.55);
+  --signal-bar-3: rgba(170, 220, 255, 0.65);
+  --signal-bar-4: rgba(185, 230, 255, 0.78);
+  --signal-bar-5: rgba(205, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--signal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  inline-size: 86%;
+  block-size: 100%;
+  transform: translateX(-7%);
+  background:
+    linear-gradient(to top, var(--signal-bar-1) 0%, var(--signal-bar-1) 100%) 0% 100% / 14% 32% no-repeat,
+    linear-gradient(to top, var(--signal-bar-2) 0%, var(--signal-bar-2) 100%) 24% 100% / 14% 48% no-repeat,
+    linear-gradient(to top, var(--signal-bar-3) 0%, var(--signal-bar-3) 100%) 48% 100% / 14% 66% no-repeat,
+    linear-gradient(to top, var(--signal-bar-4) 0%, var(--signal-bar-4) 100%) 72% 100% / 14% 84% no-repeat,
+    linear-gradient(to top, var(--signal-bar-5) 0%, var(--signal-bar-5) 100%) 96% 100% / 14% 100% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.32));
+}
+
+.player-tools-status__icon--wifi {
+  --wifi-arc-color-1: rgba(150, 205, 255, 0.48);
+  --wifi-arc-color-2: rgba(165, 215, 255, 0.62);
+  --wifi-arc-color-3: rgba(185, 230, 255, 0.78);
+  --wifi-dot-color: rgba(215, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--wifi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 95%, var(--wifi-dot-color) 0 7%, transparent 8%) center bottom / 16% 16% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 32%, var(--wifi-arc-color-1) 33% 35%, transparent 36%) center bottom / 52% 52% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 52%, var(--wifi-arc-color-2) 53% 55%, transparent 56%) center bottom / 74% 74% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 72%, var(--wifi-arc-color-3) 73% 75%, transparent 76%) center bottom / 96% 96% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.3));
+}
+
+.player-tools-status__icon--battery {
+  inline-size: clamp(44px, 8.6vw, 56px);
+  block-size: clamp(18px, 3.6vw, 20px);
+  align-items: center;
+  justify-content: center;
 }
 
 .player-tools-status__meter {
   position: relative;
-  inline-size: clamp(58px, 12vw, 72px);
-  block-size: clamp(16px, 3.6vw, 20px);
-  border-radius: 999px;
-  overflow: hidden;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.22));
+  display: block;
 }
 
 .player-tools-status__meter-base,
 .player-tools-status__meter-fill {
   position: absolute;
   inset: 0;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-  -webkit-mask: url('../images/signal-status.png') center / contain no-repeat;
-  mask: url('../images/signal-status.png') center / contain no-repeat;
-}
-
-.player-tools-status__meter-base {
-  background-color: rgba(120, 150, 190, 0.28);
-  filter: brightness(0.9);
 }
 
 .player-tools-status__meter-fill {
+  transition: background-color 200ms ease;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter {
+  --battery-gap: clamp(2px, 0.6vw, 3px);
+  --battery-radius: clamp(5px, 1.4vw, 6px);
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: var(--battery-radius);
+  background: rgba(10, 18, 28, 0.72);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.28));
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid rgba(160, 215, 255, 0.8);
+  box-shadow:
+    inset 0 0 0 1px rgba(8, 14, 24, 0.65),
+    0 0 10px rgba(110, 200, 255, 0.25);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * clamp(3px, 0.9vw, 4px));
+  transform: translateY(-50%);
+  inline-size: clamp(4px, 1.2vw, 5px);
+  block-size: clamp(8px, 1.9vw, 10px);
+  border-radius: clamp(2px, 0.6vw, 3px);
+  background: rgba(160, 215, 255, 0.85);
+  box-shadow: 0 0 8px rgba(110, 200, 255, 0.32);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-base {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  background: rgba(120, 150, 190, 0.25);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.45);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  overflow: hidden;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   inline-size: var(--player-tools-meter-fill, 100%);
-  inset-inline-end: auto;
-  background-color: var(--player-tools-meter-color, rgba(140, 210, 255, 0.95));
-  transition:
-    inline-size 240ms ease,
-    background-color 200ms ease;
+  block-size: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 0%, rgba(255, 255, 255, 0.75) 40%, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 100%);
+  box-shadow:
+    inset 0 0 8px rgba(8, 16, 24, 0.4),
+    0 0 10px rgba(110, 200, 255, 0.32);
+  transition: inline-size 240ms ease;
+}
+
+.player-tools-status--battery[data-battery-state='charging'] .player-tools-status__meter-fill::after {
+  content: '';
+  position: absolute;
+  inset-block: 18%;
+  inset-inline-start: 46%;
+  inline-size: clamp(10px, 2.8vw, 12px);
+  block-size: calc(100% - 36%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(160, 255, 230, 0.92));
+  clip-path: polygon(42% 0%, 0% 60%, 30% 60%, 10% 100%, 68% 44%, 38% 44%);
+  filter: drop-shadow(0 0 6px rgba(160, 255, 230, 0.55));
 }
 
 .player-tools-status.player-tools-status--wifi {
@@ -7213,11 +7424,11 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__clock {
-  font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: rgba(230, 240, 255, 0.95);
-  text-transform: uppercase;
+  white-space: nowrap;
   text-shadow: 0 0 12px rgba(110, 180, 255, 0.35);
 }
 
@@ -7245,7 +7456,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: clamp(6px, 1.8vw, 10px);
+  gap: clamp(6px, 1.6vw, 9px);
   font-size: clamp(0.75rem, 1.9vw, 0.875rem);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -7253,52 +7464,157 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-status__icon {
-  inline-size: clamp(18px, 3.6vw, 22px);
-  block-size: clamp(18px, 3.6vw, 22px);
+  position: relative;
+  inline-size: clamp(22px, 3.8vw, 26px);
+  block-size: clamp(16px, 3vw, 18px);
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.25));
+  color: rgba(210, 235, 255, 0.92);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.3));
 }
 
-.player-tools-status__icon img {
-  display: block;
-  inline-size: 100%;
-  block-size: auto;
+.player-tools-status__icon::before,
+.player-tools-status__icon::after {
+  pointer-events: none;
+}
+
+.player-tools-status__icon--signal {
+  --signal-bar-1: rgba(150, 200, 255, 0.45);
+  --signal-bar-2: rgba(160, 210, 255, 0.55);
+  --signal-bar-3: rgba(170, 220, 255, 0.65);
+  --signal-bar-4: rgba(185, 230, 255, 0.78);
+  --signal-bar-5: rgba(205, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--signal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  inline-size: 86%;
+  block-size: 100%;
+  transform: translateX(-7%);
+  background:
+    linear-gradient(to top, var(--signal-bar-1) 0%, var(--signal-bar-1) 100%) 0% 100% / 14% 32% no-repeat,
+    linear-gradient(to top, var(--signal-bar-2) 0%, var(--signal-bar-2) 100%) 24% 100% / 14% 48% no-repeat,
+    linear-gradient(to top, var(--signal-bar-3) 0%, var(--signal-bar-3) 100%) 48% 100% / 14% 66% no-repeat,
+    linear-gradient(to top, var(--signal-bar-4) 0%, var(--signal-bar-4) 100%) 72% 100% / 14% 84% no-repeat,
+    linear-gradient(to top, var(--signal-bar-5) 0%, var(--signal-bar-5) 100%) 96% 100% / 14% 100% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.32));
+}
+
+.player-tools-status__icon--wifi {
+  --wifi-arc-color-1: rgba(150, 205, 255, 0.48);
+  --wifi-arc-color-2: rgba(165, 215, 255, 0.62);
+  --wifi-arc-color-3: rgba(185, 230, 255, 0.78);
+  --wifi-dot-color: rgba(215, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--wifi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 95%, var(--wifi-dot-color) 0 7%, transparent 8%) center bottom / 16% 16% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 32%, var(--wifi-arc-color-1) 33% 35%, transparent 36%) center bottom / 52% 52% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 52%, var(--wifi-arc-color-2) 53% 55%, transparent 56%) center bottom / 74% 74% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 72%, var(--wifi-arc-color-3) 73% 75%, transparent 76%) center bottom / 96% 96% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.3));
+}
+
+.player-tools-status__icon--battery {
+  inline-size: clamp(44px, 8.6vw, 56px);
+  block-size: clamp(18px, 3.6vw, 20px);
+  align-items: center;
+  justify-content: center;
 }
 
 .player-tools-status__meter {
   position: relative;
-  inline-size: clamp(58px, 12vw, 72px);
-  block-size: clamp(16px, 3.6vw, 20px);
-  border-radius: 999px;
-  overflow: hidden;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.22));
+  display: block;
 }
 
 .player-tools-status__meter-base,
 .player-tools-status__meter-fill {
   position: absolute;
   inset: 0;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-  -webkit-mask: url('../images/signal-status.png') center / contain no-repeat;
-  mask: url('../images/signal-status.png') center / contain no-repeat;
-}
-
-.player-tools-status__meter-base {
-  background-color: rgba(120, 150, 190, 0.28);
-  filter: brightness(0.9);
 }
 
 .player-tools-status__meter-fill {
+  transition: background-color 200ms ease;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter {
+  --battery-gap: clamp(2px, 0.6vw, 3px);
+  --battery-radius: clamp(5px, 1.4vw, 6px);
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: var(--battery-radius);
+  background: rgba(10, 18, 28, 0.72);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.28));
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid rgba(160, 215, 255, 0.8);
+  box-shadow:
+    inset 0 0 0 1px rgba(8, 14, 24, 0.65),
+    0 0 10px rgba(110, 200, 255, 0.25);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * clamp(3px, 0.9vw, 4px));
+  transform: translateY(-50%);
+  inline-size: clamp(4px, 1.2vw, 5px);
+  block-size: clamp(8px, 1.9vw, 10px);
+  border-radius: clamp(2px, 0.6vw, 3px);
+  background: rgba(160, 215, 255, 0.85);
+  box-shadow: 0 0 8px rgba(110, 200, 255, 0.32);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-base {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  background: rgba(120, 150, 190, 0.25);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.45);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  overflow: hidden;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   inline-size: var(--player-tools-meter-fill, 100%);
-  inset-inline-end: auto;
-  background-color: var(--player-tools-meter-color, rgba(140, 210, 255, 0.95));
-  transition:
-    inline-size 240ms ease,
-    background-color 200ms ease;
+  block-size: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 0%, rgba(255, 255, 255, 0.75) 40%, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 100%);
+  box-shadow:
+    inset 0 0 8px rgba(8, 16, 24, 0.4),
+    0 0 10px rgba(110, 200, 255, 0.32);
+  transition: inline-size 240ms ease;
+}
+
+.player-tools-status--battery[data-battery-state='charging'] .player-tools-status__meter-fill::after {
+  content: '';
+  position: absolute;
+  inset-block: 18%;
+  inset-inline-start: 46%;
+  inline-size: clamp(10px, 2.8vw, 12px);
+  block-size: calc(100% - 36%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(160, 255, 230, 0.92));
+  clip-path: polygon(42% 0%, 0% 60%, 30% 60%, 10% 100%, 68% 44%, 38% 44%);
+  filter: drop-shadow(0 0 6px rgba(160, 255, 230, 0.55));
 }
 
 .player-tools-status.player-tools-status--wifi {
@@ -7547,11 +7863,11 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__clock {
-  font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: rgba(230, 240, 255, 0.95);
-  text-transform: uppercase;
+  white-space: nowrap;
   text-shadow: 0 0 12px rgba(110, 180, 255, 0.35);
 }
 
@@ -7579,7 +7895,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: clamp(6px, 1.8vw, 10px);
+  gap: clamp(6px, 1.6vw, 9px);
   font-size: clamp(0.75rem, 1.9vw, 0.875rem);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -7587,52 +7903,157 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-status__icon {
-  inline-size: clamp(18px, 3.6vw, 22px);
-  block-size: clamp(18px, 3.6vw, 22px);
+  position: relative;
+  inline-size: clamp(22px, 3.8vw, 26px);
+  block-size: clamp(16px, 3vw, 18px);
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.25));
+  color: rgba(210, 235, 255, 0.92);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.3));
 }
 
-.player-tools-status__icon img {
-  display: block;
-  inline-size: 100%;
-  block-size: auto;
+.player-tools-status__icon::before,
+.player-tools-status__icon::after {
+  pointer-events: none;
+}
+
+.player-tools-status__icon--signal {
+  --signal-bar-1: rgba(150, 200, 255, 0.45);
+  --signal-bar-2: rgba(160, 210, 255, 0.55);
+  --signal-bar-3: rgba(170, 220, 255, 0.65);
+  --signal-bar-4: rgba(185, 230, 255, 0.78);
+  --signal-bar-5: rgba(205, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--signal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  inline-size: 86%;
+  block-size: 100%;
+  transform: translateX(-7%);
+  background:
+    linear-gradient(to top, var(--signal-bar-1) 0%, var(--signal-bar-1) 100%) 0% 100% / 14% 32% no-repeat,
+    linear-gradient(to top, var(--signal-bar-2) 0%, var(--signal-bar-2) 100%) 24% 100% / 14% 48% no-repeat,
+    linear-gradient(to top, var(--signal-bar-3) 0%, var(--signal-bar-3) 100%) 48% 100% / 14% 66% no-repeat,
+    linear-gradient(to top, var(--signal-bar-4) 0%, var(--signal-bar-4) 100%) 72% 100% / 14% 84% no-repeat,
+    linear-gradient(to top, var(--signal-bar-5) 0%, var(--signal-bar-5) 100%) 96% 100% / 14% 100% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.32));
+}
+
+.player-tools-status__icon--wifi {
+  --wifi-arc-color-1: rgba(150, 205, 255, 0.48);
+  --wifi-arc-color-2: rgba(165, 215, 255, 0.62);
+  --wifi-arc-color-3: rgba(185, 230, 255, 0.78);
+  --wifi-dot-color: rgba(215, 240, 255, 0.92);
+}
+
+.player-tools-status__icon--wifi::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 95%, var(--wifi-dot-color) 0 7%, transparent 8%) center bottom / 16% 16% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 32%, var(--wifi-arc-color-1) 33% 35%, transparent 36%) center bottom / 52% 52% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 52%, var(--wifi-arc-color-2) 53% 55%, transparent 56%) center bottom / 74% 74% no-repeat,
+    radial-gradient(circle at 50% 100%, transparent 0 72%, var(--wifi-arc-color-3) 73% 75%, transparent 76%) center bottom / 96% 96% no-repeat;
+  filter: drop-shadow(0 0 8px rgba(110, 200, 255, 0.3));
+}
+
+.player-tools-status__icon--battery {
+  inline-size: clamp(44px, 8.6vw, 56px);
+  block-size: clamp(18px, 3.6vw, 20px);
+  align-items: center;
+  justify-content: center;
 }
 
 .player-tools-status__meter {
   position: relative;
-  inline-size: clamp(58px, 12vw, 72px);
-  block-size: clamp(16px, 3.6vw, 20px);
-  border-radius: 999px;
-  overflow: hidden;
-  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.22));
+  display: block;
 }
 
 .player-tools-status__meter-base,
 .player-tools-status__meter-fill {
   position: absolute;
   inset: 0;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: contain;
-  -webkit-mask: url('../images/signal-status.png') center / contain no-repeat;
-  mask: url('../images/signal-status.png') center / contain no-repeat;
-}
-
-.player-tools-status__meter-base {
-  background-color: rgba(120, 150, 190, 0.28);
-  filter: brightness(0.9);
 }
 
 .player-tools-status__meter-fill {
+  transition: background-color 200ms ease;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter {
+  --battery-gap: clamp(2px, 0.6vw, 3px);
+  --battery-radius: clamp(5px, 1.4vw, 6px);
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: var(--battery-radius);
+  background: rgba(10, 18, 28, 0.72);
+  filter: drop-shadow(0 0 8px rgba(110, 180, 255, 0.28));
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid rgba(160, 215, 255, 0.8);
+  box-shadow:
+    inset 0 0 0 1px rgba(8, 14, 24, 0.65),
+    0 0 10px rgba(110, 200, 255, 0.25);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * clamp(3px, 0.9vw, 4px));
+  transform: translateY(-50%);
+  inline-size: clamp(4px, 1.2vw, 5px);
+  block-size: clamp(8px, 1.9vw, 10px);
+  border-radius: clamp(2px, 0.6vw, 3px);
+  background: rgba(160, 215, 255, 0.85);
+  box-shadow: 0 0 8px rgba(110, 200, 255, 0.32);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-base {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  background: rgba(120, 150, 190, 0.25);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.45);
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill {
+  inset: var(--battery-gap);
+  border-radius: calc(var(--battery-radius) - var(--battery-gap));
+  overflow: hidden;
+}
+
+.player-tools-status__icon--battery .player-tools-status__meter-fill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   inline-size: var(--player-tools-meter-fill, 100%);
-  inset-inline-end: auto;
-  background-color: var(--player-tools-meter-color, rgba(140, 210, 255, 0.95));
-  transition:
-    inline-size 240ms ease,
-    background-color 200ms ease;
+  block-size: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 0%, rgba(255, 255, 255, 0.75) 40%, var(--player-tools-meter-color, rgba(140, 210, 255, 0.95)) 100%);
+  box-shadow:
+    inset 0 0 8px rgba(8, 16, 24, 0.4),
+    0 0 10px rgba(110, 200, 255, 0.32);
+  transition: inline-size 240ms ease;
+}
+
+.player-tools-status--battery[data-battery-state='charging'] .player-tools-status__meter-fill::after {
+  content: '';
+  position: absolute;
+  inset-block: 18%;
+  inset-inline-start: 46%;
+  inline-size: clamp(10px, 2.8vw, 12px);
+  block-size: calc(100% - 36%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(160, 255, 230, 0.92));
+  clip-path: polygon(42% 0%, 0% 60%, 30% 60%, 10% 100%, 68% 44%, 38% 44%);
+  filter: drop-shadow(0 0 6px rgba(160, 255, 230, 0.55));
 }
 
 .player-tools-status.player-tools-status--wifi {
