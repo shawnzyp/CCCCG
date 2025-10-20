@@ -6452,10 +6452,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -6493,7 +6490,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -6512,7 +6508,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(12px, 2.4vw, 20px);
+  top: var(--player-tools-safe-top, max(8px, env(safe-area-inset-top)));
+  margin-block-end: var(--player-tools-screen-gap, clamp(12px, 2.4vw, 18px));
   z-index: 2;
   isolation: isolate;
 }
@@ -6554,12 +6551,17 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-top: max(8px, env(safe-area-inset-top));
+  --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-gap: clamp(12px, 2.4vw, 18px);
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
-  padding: clamp(14px, 2.8vw, 22px);
+  gap: var(--player-tools-screen-gap);
+  padding: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
+  scroll-padding-top: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -6794,8 +6796,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -6827,7 +6828,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -6846,7 +6846,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(12px, 2.4vw, 20px);
+  top: var(--player-tools-safe-top, max(8px, env(safe-area-inset-top)));
+  margin-block-end: var(--player-tools-screen-gap, clamp(12px, 2.4vw, 18px));
   z-index: 2;
   isolation: isolate;
 }
@@ -6888,12 +6889,17 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-top: max(8px, env(safe-area-inset-top));
+  --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-gap: clamp(12px, 2.4vw, 18px);
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
-  padding: clamp(14px, 2.8vw, 22px);
+  gap: var(--player-tools-screen-gap);
+  padding: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
+  scroll-padding-top: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -7128,8 +7134,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -7161,7 +7166,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -7180,7 +7184,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(12px, 2.4vw, 20px);
+  top: var(--player-tools-safe-top, max(8px, env(safe-area-inset-top)));
+  margin-block-end: var(--player-tools-screen-gap, clamp(12px, 2.4vw, 18px));
   z-index: 2;
   isolation: isolate;
 }
@@ -7222,12 +7227,17 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-top: max(8px, env(safe-area-inset-top));
+  --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-gap: clamp(12px, 2.4vw, 18px);
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
-  padding: clamp(14px, 2.8vw, 22px);
+  gap: var(--player-tools-screen-gap);
+  padding: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
+  scroll-padding-top: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -7462,8 +7472,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -7495,7 +7504,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -7514,7 +7522,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(12px, 2.4vw, 20px);
+  top: var(--player-tools-safe-top, max(8px, env(safe-area-inset-top)));
+  margin-block-end: var(--player-tools-screen-gap, clamp(12px, 2.4vw, 18px));
   z-index: 2;
   isolation: isolate;
 }
@@ -7556,12 +7565,17 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-top: max(8px, env(safe-area-inset-top));
+  --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-gap: clamp(12px, 2.4vw, 18px);
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 2.4vw, 18px);
-  padding: clamp(14px, 2.8vw, 22px);
+  gap: var(--player-tools-screen-gap);
+  padding: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
+  scroll-padding-top: calc(var(--player-tools-screen-padding) + var(--player-tools-safe-top));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
