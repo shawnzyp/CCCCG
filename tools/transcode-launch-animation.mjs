@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
+import ffmpegStatic from 'ffmpeg-static';
 import { fileURLToPath } from 'url';
 
 const CURRENT_FILE = fileURLToPath(import.meta.url);
@@ -18,9 +19,11 @@ const OUTPUTS = [
   },
 ];
 
+const FFMPEG_BIN = ffmpegStatic || 'ffmpeg';
+
 async function checkFfmpeg() {
   return new Promise((resolve, reject) => {
-    const proc = spawn('ffmpeg', ['-version'], { stdio: 'ignore' });
+    const proc = spawn(FFMPEG_BIN, ['-version'], { stdio: 'ignore' });
     proc.on('error', reject);
     proc.on('exit', code => {
       if (code === 0) resolve();
@@ -32,7 +35,7 @@ async function checkFfmpeg() {
 async function runFfmpeg(args, outputFile) {
   await fs.mkdir(path.dirname(outputFile), { recursive: true });
   return new Promise((resolve, reject) => {
-    const proc = spawn('ffmpeg', ['-y', '-i', SOURCE, ...args, outputFile], { stdio: 'inherit' });
+    const proc = spawn(FFMPEG_BIN, ['-y', '-i', SOURCE, ...args, outputFile], { stdio: 'inherit' });
     proc.on('error', reject);
     proc.on('exit', code => {
       if (code === 0) resolve();
@@ -58,16 +61,7 @@ async function transcodeLaunchAnimation() {
   }
 
   if (!ffmpegAvailable) {
-    const fallbackMp4 = OUTPUTS.find(({ file }) => path.extname(file).toLowerCase() === '.mp4');
-    if (fallbackMp4) {
-      try {
-        await fs.mkdir(path.dirname(fallbackMp4.file), { recursive: true });
-        await fs.copyFile(SOURCE, fallbackMp4.file);
-        console.warn(`Copied source animation to ${path.relative(ROOT, fallbackMp4.file)} as a fallback.`);
-      } catch (copyErr) {
-        console.warn(`Failed to create fallback launch animation copy: ${copyErr.message}`);
-      }
-    }
+    console.warn('Launch animation transcode skipped; install ffmpeg to generate mp4/webm outputs.');
     return;
   }
 
