@@ -3391,65 +3391,43 @@ body:not(.no-hover) .credits-card__submit:hover,
 #down-animation{
   position:fixed;
   inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   pointer-events:none;
-  overflow:hidden;
   opacity:0;
   z-index:3000;
-  will-change:transform,opacity;
+  will-change:opacity;
   background:radial-gradient(circle at 50% -20%,rgba(120,0,0,.35) 0,transparent 60%);
 }
-#down-animation::before,
-#down-animation::after{
-  content:"";
-  position:absolute;
-  left:0;
-  width:100%;
-  background-repeat:no-repeat;
-  transform:translateY(-120%);
-}
-#down-animation::before{
-  top:-10%;
-  height:160%;
-  background:linear-gradient(180deg,rgba(120,0,0,.95) 0%,rgba(90,0,0,.92) 35%,rgba(45,0,0,.85) 100%);
-  clip-path:polygon(0 0,100% 0,100% 65%,92% 75%,85% 68%,72% 82%,62% 68%,50% 84%,40% 66%,28% 82%,18% 68%,8% 78%,0 62%);
-  box-shadow:0 20px 30px rgba(0,0,0,.45);
-}
-#down-animation::after{
-  top:-18%;
-  height:180%;
-  background:
-    radial-gradient(40% 35% at 15% 20%,rgba(200,0,0,.95) 0%,rgba(200,0,0,.6) 65%,transparent 70%),
-    radial-gradient(30% 35% at 50% 8%,rgba(160,0,0,.9) 0%,rgba(160,0,0,.55) 70%,transparent 75%),
-    radial-gradient(35% 40% at 82% 18%,rgba(185,0,0,.92) 0%,rgba(185,0,0,.6) 70%,transparent 78%),
-    linear-gradient(180deg,rgba(140,0,0,.9) 0%,rgba(90,0,0,.85) 60%,rgba(55,0,0,.95) 100%);
-  background-size:28% 38%,22% 40%,24% 38%,100% 100%;
-  background-position:12% -10%,47% -18%,82% -12%,50% 0%;
-  filter:drop-shadow(0 10px 16px rgba(0,0,0,.5));
+#down-animation img{
+  display:block;
+  width:min(40vmin,300px);
+  max-width:70%;
+  height:auto;
+  opacity:0;
+  transform:scale(0.6) rotate(-12deg);
+  filter:drop-shadow(0 0 1.5rem rgba(120,0,0,.6));
+  will-change:transform,opacity;
 }
 #down-animation.show{
-  animation:bloodCurtainFade 2s ease-in-out forwards;
+  animation:downVeil 1.8s ease-in-out forwards;
 }
-#down-animation.show::before{
-  animation:bloodCurtainDrop 2s cubic-bezier(.3,.02,.22,.99) forwards;
+#down-animation.show img{
+  animation:downPulse 1.8s ease-in-out forwards;
 }
-#down-animation.show::after{
-  animation:bloodDripFall 2s cubic-bezier(.3,.02,.22,.99) forwards;
-}
-@keyframes bloodCurtainFade{
+@keyframes downVeil{
   0%{opacity:0;}
-  10%{opacity:.95;}
-  75%{opacity:.85;}
+  12%{opacity:1;}
+  70%{opacity:.9;}
   100%{opacity:0;}
 }
-@keyframes bloodCurtainDrop{
-  0%{transform:translateY(-120%);}
-  55%{transform:translateY(0%);}
-  100%{transform:translateY(120%);}
-}
-@keyframes bloodDripFall{
-  0%{transform:translateY(-130%);opacity:1;}
-  60%{transform:translateY(5%);opacity:1;}
-  100%{transform:translateY(130%);opacity:0;}
+@keyframes downPulse{
+  0%{opacity:0;transform:scale(0.55) rotate(-18deg);}
+  20%{opacity:1;transform:scale(1.05) rotate(-4deg);}
+  55%{opacity:1;transform:scale(1) rotate(0deg);}
+  80%{opacity:.9;transform:scale(0.92) rotate(-6deg);}
+  100%{opacity:0;transform:scale(0.85) rotate(-10deg);}
 }
 #death-animation{
   position:fixed;
