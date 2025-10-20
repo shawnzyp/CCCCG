@@ -5633,7 +5633,7 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
   .power-card__roll-output{min-height:26px;font-size:.78rem}
 }
 #dice-count{text-align:center;}
-.roll-tools-card{--roll-tools-gap:clamp(6px,1.6vw,12px);--roll-tools-heading-size:clamp(.75rem,1.9vw,.95rem);--roll-tools-control-font-size:clamp(.92rem,2vw,1.05rem);--roll-tools-pill-font-size:clamp(.68rem,1.7vw,.85rem);--roll-tools-control-height:clamp(24px,4.8vw,32px);--roll-tools-pill-height:clamp(22px,4.4vw,30px);--roll-tools-section-padding:clamp(6px,2vw,12px);display:flex;flex-direction:column;gap:calc(var(--roll-tools-gap)*1.4)}
+.roll-tools-card{--roll-tools-gap:clamp(6px,1.6vw,12px);--roll-tools-heading-size:clamp(.75rem,1.9vw,.95rem);--roll-tools-control-font-size:clamp(.92rem,2vw,1.05rem);--roll-tools-pill-font-size:clamp(.68rem,1.7vw,.85rem);--roll-tools-control-height:clamp(24px,4.8vw,32px);--roll-tools-pill-height:clamp(22px,4.4vw,30px);--roll-tools-section-padding:clamp(8px,2.4vw,16px);display:flex;flex-direction:column;gap:calc(var(--roll-tools-gap)*1.4)}
 .roll-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--roll-tools-gap)}
 .roll-tool{display:flex;flex-direction:column;gap:calc(var(--roll-tools-gap)*.6);padding:var(--roll-tools-section-padding);border-radius:calc(var(--radius)*.75);background:var(--surface-2);border:1px solid rgba(255,255,255,.05);min-width:0}
 .roll-tool__header{display:flex;align-items:center;justify-content:space-between;gap:calc(var(--roll-tools-gap)*.5)}
@@ -6456,7 +6456,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   scrollbar-width: none;
   -ms-overflow-style: none;
   overscroll-behavior: contain;
-  padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
+  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -6493,7 +6493,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 26px);
+  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -6512,7 +6512,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: clamp(12px, 2.4vw, 20px);
   z-index: 2;
   isolation: isolate;
 }
@@ -6558,8 +6558,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
-  padding: clamp(20px, 4.2vw, 30px);
+  gap: clamp(12px, 2.4vw, 18px);
+  padding: clamp(14px, 2.8vw, 22px);
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -6796,7 +6796,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   block-size: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
+  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -6827,7 +6827,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 26px);
+  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -6846,7 +6846,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: clamp(12px, 2.4vw, 20px);
   z-index: 2;
   isolation: isolate;
 }
@@ -6892,8 +6892,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
-  padding: clamp(20px, 4.2vw, 30px);
+  gap: clamp(12px, 2.4vw, 18px);
+  padding: clamp(14px, 2.8vw, 22px);
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -7130,7 +7130,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   block-size: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
+  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -7161,7 +7161,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 26px);
+  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -7180,7 +7180,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: clamp(12px, 2.4vw, 20px);
   z-index: 2;
   isolation: isolate;
 }
@@ -7226,8 +7226,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
-  padding: clamp(20px, 4.2vw, 30px);
+  gap: clamp(12px, 2.4vw, 18px);
+  padding: clamp(14px, 2.8vw, 22px);
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -7464,7 +7464,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   block-size: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
+  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -7495,7 +7495,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 26px);
+  gap: clamp(12px, 2.4vw, 18px);
   min-block-size: 100%;
   flex: 1;
 }
@@ -7514,7 +7514,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: clamp(12px, 2.4vw, 20px);
   z-index: 2;
   isolation: isolate;
 }
@@ -7560,8 +7560,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
-  padding: clamp(20px, 4.2vw, 30px);
+  gap: clamp(12px, 2.4vw, 18px);
+  padding: clamp(14px, 2.8vw, 22px);
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
