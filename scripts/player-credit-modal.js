@@ -405,7 +405,7 @@ import { show, hide } from './modal.js';
       return;
     }
     const entries = extractHistoryEntries(parsed);
-    if (entries) {
+    if (entries !== null) {
       syncHistoryFromEntries(entries, { reveal: true, persist: false });
     } else {
       handleUpdate(parsed, { reveal: true, persist: false });
@@ -430,7 +430,7 @@ import { show, hide } from './modal.js';
       const existing = localStorage.getItem(STORAGE_KEY);
       const parsed = safeParse(existing);
       const entries = extractHistoryEntries(parsed);
-      if (entries) {
+      if (entries !== null) {
         syncHistoryFromEntries(entries, { reveal: false, persist: false });
       } else if (parsed) {
         handleUpdate(parsed, { reveal: false, persist: false });
