@@ -7049,12 +7049,8 @@ if (themeToggleEl) {
 
 /* ========= tabs ========= */
 const TAB_ICON_SELECTOR = '[data-tab-icon]';
-const TAB_ICON_PLAY_COUNT = 2;
-const TAB_ICON_DEFAULT_DURATION = 1200;
-const TAB_ICON_MIN_DURATION = 200;
+const TAB_ICON_ANIMATION_DURATION = 600;
 const tabIconStates = new WeakMap();
-const tabIconDurationCache = new Map();
-const tabIconDurationRequests = new Map();
 
 function parseDimension(value){
   if(typeof value !== 'string' || !value.trim()) return NaN;
@@ -7067,23 +7063,62 @@ function setupTabIconAnimations(){
   iconImages.forEach(img => prepareTabIcon(img));
 }
 
+function removeCanvasBackground(canvas){
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+  const { width, height } = canvas;
+  if(!width || !height) return;
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, width, height);
+  } catch (err) {
+    return;
+  }
+
+  const { data } = imageData;
+  if(!data || data.length < 4) return;
+
+  const sampleIndices = [0, (width - 1) * 4, (width * (height - 1)) * 4, ((width * height) - 1) * 4]
+    .filter(index => index >= 0 && index + 3 < data.length);
+  if(!sampleIndices.length) return;
+
+  let baseR = 0;
+  let baseG = 0;
+  let baseB = 0;
+  sampleIndices.forEach(index => {
+    baseR += data[index];
+    baseG += data[index + 1];
+    baseB += data[index + 2];
+  });
+  baseR /= sampleIndices.length;
+  baseG /= sampleIndices.length;
+  baseB /= sampleIndices.length;
+
+  const tolerance = 40;
+  const baseIntensity = (baseR + baseG + baseB) / 3;
+
+  for(let i = 0; i < data.length; i += 4){
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const intensity = (r + g + b) / 3;
+    const distance = Math.sqrt((r - baseR) ** 2 + (g - baseG) ** 2 + (b - baseB) ** 2);
+    if(distance <= tolerance || intensity >= baseIntensity + tolerance){
+      data[i + 3] = 0;
+    }
+  }
+
+  try {
+    ctx.putImageData(imageData, 0, 0);
+  } catch (err) {}
+}
+
 function prepareTabIcon(img){
   if(!img) return;
   const container = img.closest('.tab__icon');
   if(!container || tabIconStates.has(container)) return;
-
-  const srcAttribute = img.getAttribute('src');
-  const absoluteSrc = (() => {
-    if(typeof img.currentSrc === 'string' && img.currentSrc) return img.currentSrc;
-    if(typeof img.src === 'string' && img.src) return img.src;
-    if(srcAttribute){
-      try { return new URL(srcAttribute, window.location.href).toString(); }
-      catch { return srcAttribute; }
-    }
-    return '';
-  })();
-
-  if(!srcAttribute && !absoluteSrc) return;
 
   const widthAttr = parseDimension(img.getAttribute('width'));
   const heightAttr = parseDimension(img.getAttribute('height'));
@@ -7099,22 +7134,10 @@ function prepareTabIcon(img){
   canvas.dataset.tabIconStill = 'true';
   container.insertBefore(canvas, img);
 
-  const template = img.cloneNode(false);
-  template.removeAttribute('data-tab-icon');
-  template.setAttribute('aria-hidden', 'true');
-
   const state = {
     container,
-    gifSrcAttribute: srcAttribute || absoluteSrc,
-    gifSrcAbsolute: absoluteSrc || srcAttribute,
-    width: initialWidth,
-    height: initialHeight,
     canvas,
-    template,
-    durationMs: null,
-    durationPromise: null,
     animationTimer: null,
-    activePlayer: null,
   };
 
   const drawStill = source => {
@@ -7128,10 +7151,9 @@ function prepareTabIcon(img){
         canvas.width = naturalWidth;
         canvas.height = naturalHeight;
       }
-      state.width = naturalWidth;
-      state.height = naturalHeight;
       try { ctx.clearRect(0, 0, canvas.width, canvas.height); } catch (err) {}
       try { ctx.drawImage(source, 0, 0, canvas.width, canvas.height); } catch (err) {}
+      removeCanvasBackground(canvas);
     }
   };
 
@@ -7163,219 +7185,25 @@ function prepareTabIcon(img){
   tabIconStates.set(container, state);
 }
 
-function ensureTabIconDuration(state){
-  if(!state) return Promise.resolve(TAB_ICON_DEFAULT_DURATION);
-  if(state.durationMs != null){
-    return Promise.resolve(state.durationMs);
-  }
-  if(state.durationPromise){
-    return state.durationPromise;
-  }
-  const src = state.gifSrcAbsolute || state.gifSrcAttribute;
-  const promise = fetchGifDuration(src).then(duration => {
-    state.durationMs = duration;
-    state.durationPromise = null;
-    return duration;
-  }).catch(() => {
-    state.durationMs = TAB_ICON_DEFAULT_DURATION;
-    state.durationPromise = null;
-    return TAB_ICON_DEFAULT_DURATION;
-  });
-  state.durationPromise = promise;
-  return promise;
-}
-
 function triggerTabIconAnimation(container){
   if(!container) return;
   const state = tabIconStates.get(container);
-  if(!state || !state.template || !state.gifSrcAttribute) return;
-
-  if(state.animationTimer){
+  if(state && state.animationTimer){
     window.clearTimeout(state.animationTimer);
     state.animationTimer = null;
   }
-  if(state.activePlayer){
-    try { state.activePlayer.remove(); } catch (err) {}
-    state.activePlayer = null;
-  }
 
-  const player = state.template.cloneNode(false);
-  player.removeAttribute('data-tab-icon');
-  player.setAttribute('aria-hidden', 'true');
-  player.dataset.tabIconPlayer = 'true';
-  player.decoding = 'async';
-  player.width = state.width;
-  player.height = state.height;
-  player.style.width = 'var(--tab-icon-size)';
-  player.style.height = 'var(--tab-icon-size)';
-  player.src = state.gifSrcAttribute;
-  container.appendChild(player);
-  state.activePlayer = player;
+  container.classList.remove('tab__icon--animating');
+  // eslint-disable-next-line no-unused-expressions
+  container.offsetWidth;
   container.classList.add('tab__icon--animating');
 
-  const clearPlayer = () => {
-    if(state.activePlayer === player){
-      try { player.remove(); } catch (err) {}
-      state.activePlayer = null;
-    }
-    container.classList.remove('tab__icon--animating');
-    if(state.animationTimer){
-      window.clearTimeout(state.animationTimer);
+  if(state){
+    state.animationTimer = window.setTimeout(() => {
+      container.classList.remove('tab__icon--animating');
       state.animationTimer = null;
-    }
-  };
-
-  const scheduleStop = duration => {
-    const normalized = Math.max(Number.isFinite(duration) ? duration : 0, TAB_ICON_MIN_DURATION);
-    const total = (normalized * TAB_ICON_PLAY_COUNT);
-    if(state.animationTimer){
-      window.clearTimeout(state.animationTimer);
-    }
-    state.animationTimer = window.setTimeout(clearPlayer, total);
-  };
-
-  const begin = () => {
-    ensureTabIconDuration(state)
-      .then(duration => {
-        if(state.activePlayer === player) scheduleStop(duration);
-      })
-      .catch(() => {
-        if(state.activePlayer === player) scheduleStop(TAB_ICON_DEFAULT_DURATION);
-      });
-  };
-
-  if(player.complete && player.naturalWidth){
-    begin();
-  } else {
-    player.addEventListener('load', begin, { once: true });
-    player.addEventListener('error', () => {
-      clearPlayer();
-    }, { once: true });
+    }, TAB_ICON_ANIMATION_DURATION);
   }
-}
-
-function fetchGifDuration(src){
-  if(!src) return Promise.resolve(TAB_ICON_DEFAULT_DURATION);
-  const key = src;
-  if(tabIconDurationCache.has(key)){
-    return Promise.resolve(tabIconDurationCache.get(key));
-  }
-  if(tabIconDurationRequests.has(key)){
-    return tabIconDurationRequests.get(key);
-  }
-  let requestSrc = src;
-  try {
-    requestSrc = new URL(src, window.location.href).toString();
-  } catch (err) {}
-  const request = fetch(requestSrc)
-    .then(response => {
-      if(!response.ok) throw new Error('Failed to load GIF');
-      return response.arrayBuffer();
-    })
-    .then(buffer => {
-      const duration = parseGifDuration(buffer);
-      const normalized = duration > 0 ? duration : TAB_ICON_DEFAULT_DURATION;
-      tabIconDurationCache.set(key, normalized);
-      tabIconDurationRequests.delete(key);
-      return normalized;
-    })
-    .catch(() => {
-      tabIconDurationRequests.delete(key);
-      tabIconDurationCache.set(key, TAB_ICON_DEFAULT_DURATION);
-      return TAB_ICON_DEFAULT_DURATION;
-    });
-  tabIconDurationRequests.set(key, request);
-  return request;
-}
-
-function parseGifDuration(buffer){
-  if(!buffer) return 0;
-  const view = new DataView(buffer);
-  if(view.byteLength < 20) return 0;
-  const header = String.fromCharCode(
-    view.getUint8(0), view.getUint8(1), view.getUint8(2),
-    view.getUint8(3), view.getUint8(4), view.getUint8(5)
-  );
-  if(header !== 'GIF87a' && header !== 'GIF89a') return 0;
-
-  let offset = 6;
-  offset += 2; // canvas width
-  offset += 2; // canvas height
-  if(offset >= view.byteLength) return 0;
-  const packedFields = view.getUint8(offset); offset += 1;
-  offset += 2; // background + pixel aspect
-
-  if(packedFields & 0x80){
-    const tableSize = 3 * (2 ** ((packedFields & 0x07) + 1));
-    offset += tableSize;
-  }
-
-  let total = 0;
-  let lastDelay = 10; // hundredths of a second
-
-  while(offset < view.byteLength){
-    const blockId = view.getUint8(offset); offset += 1;
-    if(blockId === 0x3B){
-      break;
-    }
-    if(blockId === 0x2C){
-      offset += 8; // left, top, width, height
-      if(offset >= view.byteLength) break;
-      const localPacked = view.getUint8(offset); offset += 1;
-      if(localPacked & 0x80){
-        const tableSize = 3 * (2 ** ((localPacked & 0x07) + 1));
-        offset += tableSize;
-      }
-      if(offset >= view.byteLength) break;
-      offset += 1; // LZW minimum code size
-      offset = skipGifSubBlocks(view, offset);
-      const frameDelay = lastDelay === 0 ? 1 : lastDelay;
-      total += frameDelay * 10;
-      lastDelay = 10;
-    } else if(blockId === 0x21){
-      if(offset >= view.byteLength) break;
-      const label = view.getUint8(offset); offset += 1;
-      if(label === 0xF9){
-        if(offset >= view.byteLength) break;
-        const blockSize = view.getUint8(offset); offset += 1;
-        if(blockSize === 4){
-          offset += 1; // packed fields
-          if(offset + 2 > view.byteLength){
-            lastDelay = 10;
-            offset = Math.min(offset + 2, view.byteLength);
-          } else {
-            lastDelay = view.getUint16(offset, true);
-            offset += 2;
-          }
-          offset += 1; // transparent index
-          if(offset < view.byteLength) offset += 1; // terminator
-        } else {
-          offset += blockSize;
-          offset = skipGifSubBlocks(view, offset);
-        }
-      } else if(label === 0xFF || label === 0x01){
-        if(offset >= view.byteLength) break;
-        const blockSize = view.getUint8(offset); offset += 1;
-        offset += blockSize;
-        offset = skipGifSubBlocks(view, offset);
-      } else {
-        offset = skipGifSubBlocks(view, offset);
-      }
-    } else {
-      offset = skipGifSubBlocks(view, offset);
-    }
-  }
-
-  return total;
-}
-
-function skipGifSubBlocks(view, offset){
-  while(offset < view.byteLength){
-    const size = view.getUint8(offset); offset += 1;
-    if(size === 0) break;
-    offset += size;
-  }
-  return offset;
 }
 
 function setTab(name){
