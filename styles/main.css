@@ -1292,10 +1292,12 @@ label[data-animate-title]{
   display:flex;
   align-items:center;
   justify-content:center;
+  position:relative;
 }
 
 .tabs .tab .tab__icon svg,
-.tabs .tab .tab__icon img{
+.tabs .tab .tab__icon img,
+.tabs .tab .tab__icon canvas{
   width:var(--tab-icon-size);
   height:var(--tab-icon-size);
   display:block;
@@ -1303,6 +1305,19 @@ label[data-animate-title]{
   color:var(--tab-icon-primary);
   filter:drop-shadow(0 4px 12px var(--tab-icon-glow));
   transition:color var(--transition-duration-medium) var(--transition-ease),filter var(--transition-duration-medium) var(--transition-ease),transform var(--transition-duration-medium) var(--transition-ease);
+}
+
+.tabs .tab .tab__icon canvas{
+  pointer-events:none;
+}
+
+.tabs .tab .tab__icon [data-tab-icon-player]{
+  position:absolute;
+  inset:0;
+  width:var(--tab-icon-size);
+  height:var(--tab-icon-size);
+  display:block;
+  pointer-events:none;
 }
 
 .tabs .tab .tab__icon svg [data-secondary]{
@@ -1357,7 +1372,8 @@ body:not(.no-hover) .tabs .tab:hover .tabs__indicator{
 }
 
 body:not(.no-hover) .tabs .tab:hover .tab__icon svg,
-body:not(.no-hover) .tabs .tab:hover .tab__icon img{
+body:not(.no-hover) .tabs .tab:hover .tab__icon img,
+body:not(.no-hover) .tabs .tab:hover .tab__icon canvas{
   transform:translateY(-1px);
   filter:drop-shadow(0 8px 18px var(--tab-icon-glow));
 }
@@ -1383,7 +1399,8 @@ body:not(.no-hover) .tabs .tab:hover .tab__icon img{
 }
 
 .tabs .tab.active .tab__icon svg,
-.tabs .tab.active .tab__icon img{
+.tabs .tab.active .tab__icon img,
+.tabs .tab.active .tab__icon canvas{
   transform:translateY(-1px);
   filter:drop-shadow(0 8px 20px var(--tab-icon-glow));
 }
@@ -1395,6 +1412,7 @@ body:not(.no-hover) .tabs .tab:hover .tab__icon img{
   .tabs .tab,
   .tabs .tab .tab__icon svg,
   .tabs .tab .tab__icon img,
+  .tabs .tab .tab__icon canvas,
   .tabs .tab .tab__label,
   .tabs .tab .tabs__indicator{
     transition:none!important;
