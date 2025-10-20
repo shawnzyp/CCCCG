@@ -16,6 +16,25 @@ import {
   deleteCloud,
 } from './storage.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
+import {
+  POWER_ACTION_TYPES,
+  POWER_DAMAGE_DICE,
+  POWER_DAMAGE_TYPES,
+  POWER_DURATIONS,
+  POWER_EFFECT_TAGS,
+  POWER_INTENSITIES,
+  POWER_ON_SAVE_OPTIONS,
+  POWER_RANGE_QUICK_VALUES,
+  POWER_RANGE_UNITS,
+  POWER_SAVE_ABILITIES,
+  POWER_SCALING_OPTIONS,
+  POWER_SHAPE_RANGES,
+  POWER_STYLES,
+  POWER_SUGGESTION_STRENGTHS,
+  POWER_TARGET_SHAPES,
+  POWER_USES,
+  getRangeOptionsForShape,
+} from './power-metadata.js';
 
 // Migrate legacy DM saves to the new "The DM" name.
 // Older versions stored the DM character under names like "Shawn",
@@ -37,80 +56,6 @@ try {
   }
 } catch {}
 
-const POWER_STYLES = [
-  'Physical Powerhouse',
-  'Energy Manipulator',
-  'Speedster',
-  'Telekinetic/Psychic',
-  'Illusionist',
-  'Shape-shifter',
-  'Elemental Controller',
-];
-
-const POWER_ACTION_TYPES = ['Action', 'Bonus', 'Reaction', 'Out-of-Combat'];
-const POWER_TARGET_SHAPES = ['Melee', 'Ranged Single', 'Cone', 'Line', 'Radius', 'Self', 'Aura'];
-const POWER_EFFECT_TAGS = [
-  'Damage',
-  'Stun',
-  'Blind',
-  'Weaken',
-  'Push/Pull',
-  'Burn',
-  'Freeze',
-  'Slow',
-  'Charm',
-  'Shield',
-  'Heal',
-  'Teleport/Phase',
-  'Summon/Clone',
-  'Terrain',
-  'Dispel/Nullify',
-];
-const POWER_INTENSITIES = ['Minor', 'Core', 'AoE', 'Control', 'Ultimate'];
-const POWER_SAVE_ABILITIES = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
-const POWER_DURATIONS = [
-  'Instant',
-  'End of Target’s Next Turn',
-  '1 Round',
-  'Sustained',
-  'Scene',
-  'Session',
-];
-const POWER_USES = ['At-will', 'Per Encounter', 'Per Session', 'Cooldown'];
-const POWER_ON_SAVE_OPTIONS = ['Full', 'Half', 'Negate'];
-const POWER_DAMAGE_TYPES = [
-  'Kinetic',
-  'Fire',
-  'Cold',
-  'Lightning',
-  'Psychic',
-  'Force',
-  'Radiant',
-  'Necrotic',
-  'Acid',
-];
-const POWER_SCALING_OPTIONS = ['Static', 'Level-based', 'Ability-based'];
-const POWER_DAMAGE_DICE = ['1d6', '2d6', '3d6', '4d6', '5d6', '6d6'];
-const POWER_RANGE_QUICK_VALUES = [
-  'Melee',
-  '10 ft',
-  '30 ft',
-  '60 ft',
-  '90 ft',
-  '120 ft',
-  'Unlimited (narrative)',
-];
-const POWER_RANGE_UNITS = ['feet', 'narrative'];
-const POWER_SUGGESTION_STRENGTHS = ['off', 'conservative', 'assertive'];
-const POWER_SHAPE_RANGES = {
-  Melee: ['Melee'],
-  Cone: ['15 ft', '30 ft', '60 ft'],
-  Line: ['30 ft', '60 ft', '120 ft'],
-  Radius: ['10 ft', '15 ft', '20 ft', '30 ft'],
-  Self: ['Self'],
-  Aura: ['Self', '5 ft', '10 ft', '15 ft', '20 ft'],
-  'Ranged Single': ['30 ft', '60 ft', '90 ft', '120 ft'],
-};
 
 const LEGACY_EFFECT_KEYWORDS = [
   { tag: 'Damage', patterns: [/damage/i, /blast/i, /strike/i, /hit/i] },
@@ -180,12 +125,6 @@ function generatePowerId() {
     } catch {}
   }
   return `power-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
-
-function getRangeOptionsForShape(shape) {
-  const options = POWER_SHAPE_RANGES[shape];
-  if (options && options.length) return options;
-  return POWER_RANGE_QUICK_VALUES.filter(value => value !== 'Melee');
 }
 
 function normalizeRangeForShape(shape, range) {
