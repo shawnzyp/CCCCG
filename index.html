@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="preload" href="images/6a78d5b9-619a-4670-a141-271387532fdb.svg" as="image" type="image/svg+xml"/>
-<link rel="preload" href="images/death-animation.svg" as="image" type="image/svg+xml"/>
-<link rel="preload" href="images/player-tools-icon.svg" as="image" type="image/svg+xml"/>
+<link rel="preload" href="images/death-animation.png" as="image" type="image/png"/>
+<link rel="preload" href="images/player-tools-icon.png" as="image" type="image/png"/>
 <link
   rel="preload"
   href="images/vertical-battery-0-svgrepo-com.svg"
@@ -327,7 +327,7 @@
     <button class="tab active" data-go="combat" aria-label="Combat" title="Combat" role="tab" aria-current="page" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/sword.gif"
+          src="images/sword (2).png"
           width="48"
           height="48"
           alt=""
@@ -340,7 +340,7 @@
     <button class="tab" data-go="abilities" aria-label="Abilities" title="Abilities" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/skills.gif"
+          src="images/skills (1).png"
           width="48"
           height="48"
           alt=""
@@ -353,7 +353,7 @@
     <button class="tab" data-go="powers" aria-label="Powers" title="Powers" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/brain-lightning.gif"
+          src="images/dna.png"
           width="48"
           height="48"
           alt=""
@@ -366,7 +366,7 @@
     <button class="tab" data-go="gear" aria-label="Gear" title="Gear" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/shield-badge.gif"
+          src="images/badge.png"
           width="48"
           height="48"
           alt=""
@@ -379,7 +379,7 @@
     <button class="tab" data-go="story" aria-label="Story" title="Story" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/plates.gif"
+          src="images/plates.png"
           width="48"
           height="48"
           alt=""
@@ -1995,7 +1995,7 @@
       <button id="dm-tools-logout" class="btn-sm">Logout</button>
     </div>
     <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu" data-unread="0">
-      <img class="dm-tools-toggle__icon" src="images/set-up-svgrepo-com.svg" alt="" aria-hidden="true" />
+      <img class="dm-tools-toggle__icon" src="images/settings.png" alt="" aria-hidden="true" />
       <span class="sr-only">DM Tools</span>
       <span class="dm-tools-badge dm-tools-toggle__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
     </button>
@@ -2723,9 +2723,11 @@
 <div id="somfDM-toasts" class="somf-dm__toasts"></div>
 <audio id="somfDM-ping" preload="auto"></audio>
 
-<div id="down-animation" aria-hidden="true" hidden></div>
+<div id="down-animation" aria-hidden="true" hidden>
+  <img src="images/skull.png" alt="" decoding="async" loading="lazy" />
+</div>
 <div id="death-animation" aria-hidden="true" hidden>
-  <img src="images/death-animation.svg" alt="" decoding="async" loading="lazy" />
+  <img src="images/death-animation.png" alt="" decoding="async" loading="lazy" />
 </div>
 <div id="damage-animation" aria-hidden="true" hidden></div>
 <div id="heal-animation" aria-hidden="true" hidden></div>
@@ -2788,7 +2790,7 @@
   aria-label="Toggle player tools drawer"
 >
   <span class="player-tools-tab__icon" aria-hidden="true">
-    <img src="images/player-tools-icon.svg" alt="" />
+    <img src="images/player-tools-icon.png" alt="" />
   </span>
 </button>
 
