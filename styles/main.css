@@ -5908,6 +5908,18 @@ body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-s
   font-size:clamp(.75rem,2.2vw,.85rem);
 }
 
+.recognition-grid{
+  display:grid;
+  gap:clamp(12px,3vw,24px);
+}
+
+@media(min-width:960px){
+  .recognition-grid{
+    grid-template-columns:minmax(260px,320px) minmax(0,1fr);
+    align-items:start;
+  }
+}
+
 .card--medals{
   gap:16px;
 }

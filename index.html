@@ -1119,61 +1119,59 @@
           Select an origin story to unlock its narrative perks.
         </p>
       </div>
-      <div class="card card__glow card--medals" style="grid-column:1/-1">
-        <div class="card-toolbar card__frame">
-          <h3 class="card-toolbar__title card__frame">Medals &amp; Honors</h3>
-          <div class="card-toolbar__actions card__frame">
-            <span id="medal-summary" class="pill pill-sm" aria-live="polite">0 Medals</span>
-            <button id="add-medal" class="btn-sm" type="button">
-              <span class="btn-icon" aria-hidden="true">🏅</span>
-              <span class="btn-label">Add Medal</span>
-            </button>
+      <div class="grid recognition-grid">
+        <div class="card card__glow credits-card" data-view-lock>
+          <div class="credits-card__heading">
+            <label for="credits" data-animate-title>Credits</label>
           </div>
-        </div>
-        <ol id="medals" class="medal-list" data-view-allow></ol>
-        <p id="medal-empty" class="medal-empty" aria-live="polite">No medals awarded yet.</p>
-      </div>
-      <div class="card card__glow credits-card" data-view-lock>
-        <div class="credits-card__heading">
-          <label for="credits" data-animate-title>Credits</label>
-        </div>
-        <div class="credits-card__display" role="status" aria-live="polite">
-          <span class="credits-card__currency" aria-hidden="true">₡</span>
-          <span id="credits-total-pill" class="credits-card__total">0</span>
-        </div>
-        <div class="credits-card__summary">
-          <span id="credits-gear-total" class="credits-card__summary-item">Equipped Gear: ₡0</span>
-        </div>
-        <div class="credits-card__controls" data-view-allow>
-          <label class="credits-card__amount" for="credits-amt">
-            <span class="credits-card__amount-label">Amount</span>
-            <input
-              id="credits-amt"
+          <div class="credits-card__display" role="status" aria-live="polite">
+            <span class="credits-card__currency" aria-hidden="true">₡</span>
+            <span id="credits-total-pill" class="credits-card__total">0</span>
+          </div>
+          <div class="credits-card__summary">
+            <span id="credits-gear-total" class="credits-card__summary-item">Equipped Gear: ₡0</span>
+          </div>
+          <div class="credits-card__controls" data-view-allow>
+            <label class="credits-card__amount" for="credits-amt">
+              <span class="credits-card__amount-label">Amount</span>
+              <input
+                id="credits-amt"
+                data-view-allow
+                type="number"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                placeholder="0"
+              />
+            </label>
+            <button
+              id="credits-mode-toggle"
+              class="credits-card__mode-btn"
+              type="button"
               data-view-allow
-              type="number"
-              inputmode="numeric"
-              pattern="[0-9]*"
-              placeholder="0"
-            />
-          </label>
-          <button
-            id="credits-mode-toggle"
-            class="credits-card__mode-btn"
-            type="button"
-            data-view-allow
-            data-mode="add"
-            aria-pressed="false"
-          >
-            <span data-mode-label>Add</span>
-            <span class="credits-card__mode-icon" data-mode-icon aria-hidden="true">✓</span>
-          </button>
-          <select id="credits-mode" data-view-allow class="sr-only" aria-hidden="true" tabindex="-1">
-            <option value="add">Add Credits</option>
-            <option value="subtract">Spend Credits</option>
-          </select>
+              data-mode="add"
+              aria-pressed="false"
+            >
+              <span data-mode-label>Add</span>
+              <span class="credits-card__mode-icon" data-mode-icon aria-hidden="true">✓</span>
+            </button>
+            <select id="credits-mode" data-view-allow class="sr-only" aria-hidden="true" tabindex="-1">
+              <option value="add">Add Credits</option>
+              <option value="subtract">Spend Credits</option>
+            </select>
+          </div>
+          <button id="credits-submit" class="credits-card__submit" type="button">Submit</button>
+          <input id="credits" type="hidden" value="0"/>
         </div>
-        <button id="credits-submit" class="credits-card__submit" type="button">Submit</button>
-        <input id="credits" type="hidden" value="0"/>
+        <div class="card card__glow card--medals" data-view-lock>
+          <div class="card-toolbar card__frame">
+            <h3 class="card-toolbar__title card__frame">Medals &amp; Honors</h3>
+            <div class="card-toolbar__actions card__frame">
+              <span id="medal-summary" class="pill pill-sm" aria-live="polite">0 Medals</span>
+            </div>
+          </div>
+          <ol id="medals" class="medal-list"></ol>
+          <p id="medal-empty" class="medal-empty" aria-live="polite">No medals awarded yet.</p>
+        </div>
       </div>
       <div class="card card__glow card-wide">
         <label data-animate-title>Faction Reputation</label>

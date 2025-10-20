@@ -17552,7 +17552,7 @@ function createCard(kind, pref = {}) {
   const isMedalCard = kind === 'medal';
   const card = document.createElement(isMedalCard ? 'li' : 'div');
   card.className = 'card';
-  card.draggable = true;
+  card.draggable = !isMedalCard;
   card.dataset.kind = kind;
   if (isMedalCard) {
     initializeMedalCard(card);
@@ -17887,15 +17887,6 @@ $('add-item').addEventListener('click', () => {
   pushHistory();
   openCatalogWithFilters({ type: 'Item', style: '', tier: '' });
 });
-$('add-medal').addEventListener('click', () => {
-  const list = $('medals');
-  if (!list) return;
-  const card = createCard('medal');
-  list.appendChild(card);
-  updateMedalIndicators();
-  pushHistory();
-});
-
 /* ========= Drag & Drop ========= */
 function enableDragReorder(id){
   const list = $(id);
