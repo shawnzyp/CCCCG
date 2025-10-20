@@ -60,6 +60,41 @@ import {
 } from './catalog-utils.js';
 import { LEVELS } from './levels.js';
 
+const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
+
+if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+  const originalMatchMedia = window.matchMedia.bind(window);
+  window.matchMedia = query => {
+    if (typeof query === 'string' && query.includes(REDUCED_MOTION_TOKEN)) {
+      const noop = () => {};
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: noop,
+        removeEventListener: noop,
+        addListener: noop,
+        removeListener: noop,
+        dispatchEvent: () => false,
+      };
+    }
+    try {
+      return originalMatchMedia(query);
+    } catch (err) {
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      };
+    }
+  };
+}
+
 const POWER_STYLES = [
   'Physical Powerhouse',
   'Energy Manipulator',
@@ -982,12 +1017,7 @@ function setupPriorityTransmissionAlert(){
     overlay.setAttribute('aria-hidden', 'true');
     document.body?.classList?.remove('app-alert-active');
 
-    const prefersReducedMotion =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (!prefersReducedMotion && typeof window?.getComputedStyle === 'function') {
+    if (typeof window?.getComputedStyle === 'function') {
       const styles = window.getComputedStyle(overlay);
       const transitionDuration = parseFloat(styles.transitionDuration || '0');
       const transitionDelay = parseFloat(styles.transitionDelay || '0');
@@ -1680,8 +1710,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
   const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-  const reduceMotionQuery = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
-
   let revealCalled = false;
   let playbackStartedAt = null;
   let fallbackTimer = null;
@@ -1846,18 +1874,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   if(!video){
     revealApp();
     return;
-  }
-
-  if(reduceMotionQuery){
-    const handleMotionChange = event => {
-      if(event.matches || revealCalled) return;
-      attemptPlayback();
-    };
-    if(typeof reduceMotionQuery.addEventListener === 'function'){
-      reduceMotionQuery.addEventListener('change', handleMotionChange);
-    } else if(typeof reduceMotionQuery.addListener === 'function'){
-      reduceMotionQuery.addListener(handleMotionChange);
-    }
   }
 
   const hasLaunchVideo = await ensureLaunchVideoSources(video);
@@ -6691,9 +6707,6 @@ document.addEventListener('input', e=>{
 const root = document.documentElement;
 const themeToggleEl = qs('[data-theme-toggle]');
 const themeSpinnerEl = themeToggleEl ? themeToggleEl.querySelector('.theme-toggle__spinner') : null;
-const reducedMotionQuery = typeof window.matchMedia === 'function'
-  ? window.matchMedia('(prefers-reduced-motion: reduce)')
-  : null;
 if (themeSpinnerEl) {
   themeSpinnerEl.addEventListener('animationend', () => {
     themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
@@ -6807,7 +6820,6 @@ let activeTheme = null;
 // When updating theme art, ensure the accent variables remain aligned with the overlay tokens so background layers stay cohesive.
 function spinThemeToggle(){
   if(!themeSpinnerEl) return;
-  if(reducedMotionQuery && reducedMotionQuery.matches) return;
   themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
   void themeSpinnerEl.offsetWidth;
   themeSpinnerEl.classList.add('theme-toggle__spinner--spinning');
@@ -7296,12 +7308,9 @@ const TAB_ANIMATION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
 const TAB_ANIMATION_DURATION = 360;
 const TAB_ANIMATION_OFFSET = 12;
 const TAB_CONTAINER_CLASS = 'is-animating-tabs';
-const reduceMotionQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(prefers-reduced-motion: reduce)')
-  : null;
 let isTabAnimating = false;
 
-const prefersReducedMotion = () => reduceMotionQuery ? reduceMotionQuery.matches : false;
+const prefersReducedMotion = () => false;
 
 function getActiveTabName(){
   const activeBtn = qs('.tab.active');
@@ -7947,12 +7956,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
       setDrawerState(nextOpen ? 'opening' : 'closing');
       tickerPanel.style.height = formatPanelHeight(targetHeight);
       setPanelOffset(targetHeight);
-      const prefersReduce = typeof window !== 'undefined'
-        && window.matchMedia
-        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if(prefersReduce){
-        finalizeAnimation();
-      }
+      // Always allow the transition to play through so drawer motion is consistent.
     });
   };
 
@@ -9896,9 +9900,6 @@ if (elHPRoll) {
 
 if (elCAPCheck instanceof HTMLElement && elCAPStatus instanceof HTMLElement) {
   const capBox = elCAPCheck.closest('.cap-box');
-  const reduceMotionQuery = typeof window.matchMedia === 'function'
-    ? window.matchMedia('(prefers-reduced-motion: reduce)')
-    : { matches: false };
   const CAP_AURA_ANIMATION = 'capAuraCollapse';
   const CAP_AURA_TIMEOUT_MS = 750;
   let capAuraTimer = null;
@@ -9948,7 +9949,7 @@ if (elCAPCheck instanceof HTMLElement && elCAPStatus instanceof HTMLElement) {
         }
 
         const shouldAnimateCapAura = Boolean(
-          capBox && animationsEnabled && !reduceMotionQuery.matches
+          capBox && animationsEnabled
         );
 
         if (shouldAnimateCapAura) {
@@ -10039,9 +10040,7 @@ if (elXP instanceof HTMLElement) {
 }
 
 function launchConfetti(){
-  if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return;
-  }
+    
   loadConfetti().then(fn => {
     try {
       fn({
@@ -10059,9 +10058,6 @@ function launchConfetti(){
 }
 
 function launchFireworks(){
-  if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return;
-  }
   loadConfetti().then(fn => {
     const firework = () => {
       try {
