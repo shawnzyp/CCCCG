@@ -44,14 +44,7 @@ const styles = {
   }
 };
 
-const VARIANT_PRESETS = {
-  holographic: {
-    parentClassName: 'decrypted-variant decrypted-variant--holographic',
-    className: 'decrypted-variant__char decrypted-variant__char--holographic',
-    encryptedClassName:
-      'decrypted-variant__char--scrambling decrypted-variant__char--holographic-scrambling'
-  }
-};
+const VARIANT_PRESETS = {};
 
 const mergeClassNames = (...values) => values.filter(Boolean).join(' ');
 
