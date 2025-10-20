@@ -16,6 +16,7 @@ import {
   saveAutoBackup,
 } from './characters.js';
 import { show, hide } from './modal.js';
+import { subscribe as subscribePlayerToolsDrawer } from './player-tools-drawer.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
   getMiniGame as getMiniGameDefinition,
@@ -9371,17 +9372,16 @@ if (elLevelRewardAcknowledge) {
   });
 }
 
-document.addEventListener('player-tools-drawer-open', () => {
-  if (elLevelRewardReminderTrigger && levelRewardPendingCount > 0) {
-    elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
-  }
-});
-
-document.addEventListener('player-tools-drawer-close', () => {
-  if (elLevelRewardReminderTrigger) {
-    elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
-  }
-});
+if (typeof subscribePlayerToolsDrawer === 'function') {
+  subscribePlayerToolsDrawer(({ open }) => {
+    if (!elLevelRewardReminderTrigger) return;
+    if (open && levelRewardPendingCount > 0) {
+      elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
+    } else {
+      elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+    }
+  });
+}
 
 let casterAbilityManuallySet = false;
 let lastCasterAbilitySuggestions = [];

@@ -1,7 +1,67 @@
-(() => {
+const createEventTarget = () => {
+  if (typeof globalThis !== 'undefined' && typeof globalThis.EventTarget === 'function') {
+    return new globalThis.EventTarget();
+  }
+  const listeners = new Map();
+  return {
+    addEventListener(type, callback) {
+      if (typeof callback !== 'function') return;
+      if (!listeners.has(type)) {
+        listeners.set(type, new Set());
+      }
+      listeners.get(type).add(callback);
+    },
+    removeEventListener(type, callback) {
+      const set = listeners.get(type);
+      if (!set) return;
+      set.delete(callback);
+      if (set.size === 0) {
+        listeners.delete(type);
+      }
+    },
+    dispatchEvent(event) {
+      if (!event || typeof event.type !== 'string') return true;
+      const set = listeners.get(event.type);
+      if (!set) return true;
+      set.forEach((listener) => {
+        listener.call(undefined, event);
+      });
+      return true;
+    }
+  };
+};
+
+const createCustomEvent = (type, detail) => {
+  if (typeof globalThis !== 'undefined' && typeof globalThis.CustomEvent === 'function') {
+    return new globalThis.CustomEvent(type, { detail });
+  }
+  return { type, detail };
+};
+
+const stateEvents = createEventTarget();
+
+let controllerInstance = null;
+
+function createPlayerToolsDrawer() {
   const drawer = document.getElementById('player-tools-drawer');
   const tab = document.getElementById('player-tools-tab');
-  if (!drawer || !tab) return;
+  if (!drawer || !tab) {
+    return {
+      open() {},
+      close() {},
+      toggle() {},
+      subscribe(listener) {
+        if (typeof listener === 'function') {
+          listener({ open: false });
+        }
+        return () => {};
+      }
+    };
+  }
+
+  const dispatchStateChange = (isOpen) => {
+    stateEvents.dispatchEvent(createCustomEvent('change', { open: isOpen }));
+  };
 
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
   const content = drawer.querySelector('[data-player-tools-content]');
@@ -613,6 +673,8 @@
       document.dispatchEvent(new CustomEvent('player-tools-drawer-toggle', { detail }));
       document.dispatchEvent(new CustomEvent(isOpen ? 'player-tools-drawer-open' : 'player-tools-drawer-close', { detail }));
     }
+
+    dispatchStateChange(isOpen);
   };
 
   tab.addEventListener('click', () => {
@@ -700,4 +762,73 @@
   if (!drawer.classList.contains('is-open')) {
     setElementInert(drawer);
   }
-})();
+
+  dispatchStateChange(drawer.classList.contains('is-open'));
+
+  const subscribe = (listener) => {
+    if (typeof listener !== 'function') {
+      return () => {};
+    }
+    const handler = (event) => {
+      const detail = event?.detail;
+      if (detail && typeof detail.open === 'boolean') {
+        listener(detail);
+      } else {
+        listener({ open: drawer.classList.contains('is-open') });
+      }
+    };
+    stateEvents.addEventListener('change', handler);
+    listener({ open: drawer.classList.contains('is-open') });
+    return () => {
+      stateEvents.removeEventListener('change', handler);
+    };
+  };
+
+  return {
+    open: () => setOpenState(true),
+    close: () => setOpenState(false),
+    toggle: () => setOpenState(),
+    subscribe
+  };
+}
+
+export function initializePlayerToolsDrawer() {
+  if (!controllerInstance) {
+    controllerInstance = createPlayerToolsDrawer();
+  }
+  return controllerInstance;
+}
+
+export const open = () => {
+  const controller = initializePlayerToolsDrawer();
+  if (controller) {
+    controller.open();
+  }
+};
+
+export const close = () => {
+  const controller = initializePlayerToolsDrawer();
+  if (controller) {
+    controller.close();
+  }
+};
+
+export const toggle = () => {
+  const controller = initializePlayerToolsDrawer();
+  if (controller) {
+    controller.toggle();
+  }
+};
+
+export const subscribe = (listener) => {
+  const controller = initializePlayerToolsDrawer();
+  if (controller && typeof controller.subscribe === 'function') {
+    return controller.subscribe(listener);
+  }
+  if (typeof listener === 'function') {
+    listener({ open: false });
+  }
+  return () => {};
+};
+
+initializePlayerToolsDrawer();
