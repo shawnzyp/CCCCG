@@ -1,5 +1,10 @@
 import { show, hide } from './modal.js';
 
+export const PLAYER_CREDIT_EVENTS = Object.freeze({
+  UPDATE: 'player-credit:update',
+  SYNC: 'player-credit:sync',
+});
+
 (() => {
   const overlay = document.getElementById('player-credit-modal');
   if (!overlay) return;
@@ -23,6 +28,17 @@ import { show, hide } from './modal.js';
   const BROADCAST_CHANNEL_NAME = 'cc:player-credit';
   const MESSAGE_TYPE = 'CC_PLAYER_UPDATE';
   const MAX_HISTORY = 10;
+
+  const dispatchPlayerCreditEvent = (type, detail) => {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    try {
+      window.dispatchEvent(new CustomEvent(type, { detail }));
+    } catch {
+      /* ignore dispatch errors */
+    }
+  };
+
+  const snapshotHistory = () => transactionHistory.map(entry => ({ ...entry }));
 
   let transactionHistory = [];
 
@@ -249,6 +265,10 @@ import { show, hide } from './modal.js';
       if (persist) {
         persistHistory();
       }
+      dispatchPlayerCreditEvent(PLAYER_CREDIT_EVENTS.SYNC, {
+        history: snapshotHistory(),
+        latest: latest || null,
+      });
       return;
     }
     const target = latest || transactionHistory[0];
@@ -260,6 +280,10 @@ import { show, hide } from './modal.js';
     if (!reveal && signatureBefore === null) {
       lastSignature = signatureFor(rendered);
     }
+    dispatchPlayerCreditEvent(PLAYER_CREDIT_EVENTS.SYNC, {
+      history: snapshotHistory(),
+      latest: rendered || null,
+    });
   };
 
   const setCardDatasets = (data) => {
@@ -364,6 +388,10 @@ import { show, hide } from './modal.js';
     if (!reveal && signatureBefore === null) {
       lastSignature = signatureFor(rendered);
     }
+    dispatchPlayerCreditEvent(PLAYER_CREDIT_EVENTS.UPDATE, {
+      payload: rendered,
+      history: snapshotHistory(),
+    });
   };
 
   const receiveMessage = (event) => {
