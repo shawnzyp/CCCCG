@@ -6250,6 +6250,8 @@ body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-s
   inline-size: 100%;
   block-size: 100%;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   overscroll-behavior: contain;
   padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
   border-radius: var(--player-tools-glass-radius, 30px);
@@ -6267,6 +6269,12 @@ body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-s
     transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
     box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
     backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
+}
+
+.player-tools-drawer__content::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .player-tools-drawer__content:focus-visible {
