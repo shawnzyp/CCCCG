@@ -3741,7 +3741,10 @@ function installGlobalNotificationAccessors() {
   };
 
   define('toast', () => toastOverride || toast, value => {
-    if (typeof value === 'function') {
+    if (value === toast) {
+      toastOverride = null;
+      toastImpl = realToast;
+    } else if (typeof value === 'function') {
       toastOverride = value;
       toastImpl = value;
     } else {
@@ -3749,12 +3752,20 @@ function installGlobalNotificationAccessors() {
       toastImpl = realToast;
     }
   }, fn => {
-    toastOverride = fn;
-    toastImpl = fn;
+    if (fn === toast) {
+      toastOverride = null;
+      toastImpl = realToast;
+    } else {
+      toastOverride = fn;
+      toastImpl = fn;
+    }
   });
 
   define('dismissToast', () => dismissToastOverride || dismissToast, value => {
-    if (typeof value === 'function') {
+    if (value === dismissToast) {
+      dismissToastOverride = null;
+      dismissToastImpl = hideToastElement;
+    } else if (typeof value === 'function') {
       dismissToastOverride = value;
       dismissToastImpl = value;
     } else {
@@ -3762,8 +3773,13 @@ function installGlobalNotificationAccessors() {
       dismissToastImpl = hideToastElement;
     }
   }, fn => {
-    dismissToastOverride = fn;
-    dismissToastImpl = fn;
+    if (fn === dismissToast) {
+      dismissToastOverride = null;
+      dismissToastImpl = hideToastElement;
+    } else {
+      dismissToastOverride = fn;
+      dismissToastImpl = fn;
+    }
   });
 
   define('playTone', () => playToneOverride || playTone, value => {
