@@ -158,19 +158,22 @@ function triggerTabIconAnimation(container) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  const stillImg = container.querySelector('img[data-tab-icon-still]');
-  const animatedImg = container.querySelector('img[data-tab-icon-animated]');
+  const stillImg = container.querySelector('img[data-tab-icon-still]')
+    || container.querySelector('img[data-tab-icon]');
+  const animatedImg = container.querySelector('img[data-tab-icon-animated]')
+    || container.querySelector('img[data-tab-icon]');
   if (!animatedImg) return;
 
   const drawStill = () => {
-    if (stillImg && stillImg.complete && stillImg.naturalWidth) {
+    const source = stillImg || animatedImg;
+    if (source && source.complete && source.naturalWidth) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const ratio = Math.min(canvas.width / stillImg.naturalWidth, canvas.height / stillImg.naturalHeight, 1);
-      const width = Math.max(1, Math.round(stillImg.naturalWidth * ratio));
-      const height = Math.max(1, Math.round(stillImg.naturalHeight * ratio));
+      const ratio = Math.min(canvas.width / source.naturalWidth, canvas.height / source.naturalHeight, 1);
+      const width = Math.max(1, Math.round(source.naturalWidth * ratio));
+      const height = Math.max(1, Math.round(source.naturalHeight * ratio));
       const offsetX = Math.floor((canvas.width - width) / 2);
       const offsetY = Math.floor((canvas.height - height) / 2);
-      ctx.drawImage(stillImg, offsetX, offsetY, width, height);
+      ctx.drawImage(source, offsetX, offsetY, width, height);
       removeCanvasBackground(canvas);
     }
   };
