@@ -10645,8 +10645,12 @@ function updateLevelRewardReminderUI(count) {
       elLevelRewardReminderTrigger.hidden = false;
       if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
         elLevelRewardReminderTrigger.removeAttribute('aria-hidden');
-      } else if (elLevelRewardReminderTrigger?.dataset) {
-        delete elLevelRewardReminderTrigger.dataset.ariaHidden;
+      } else if (elLevelRewardReminderTrigger) {
+        if ('ariaHidden' in elLevelRewardReminderTrigger) {
+          elLevelRewardReminderTrigger.ariaHidden = null;
+        } else {
+          elLevelRewardReminderTrigger['aria-hidden'] = null;
+        }
       }
       if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
         elLevelRewardReminderTrigger.setAttribute('data-pending', 'true');
