@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { PLAYER_CREDIT_EVENTS } from '../scripts/player-credit-events.js';
 
 describe('player credit modal display', () => {
   beforeEach(() => {
@@ -41,6 +42,12 @@ describe('player credit modal display', () => {
 
     expect(typeof window.setPlayerTransaction).toBe('function');
 
+    const updateEvents = [];
+    const handleUpdate = (event) => {
+      updateEvents.push(event?.detail);
+    };
+    document.addEventListener(PLAYER_CREDIT_EVENTS.UPDATE, handleUpdate);
+
     const payload = {
       account: '1234-5678-9012-3456',
       amount: 50,
@@ -52,15 +59,36 @@ describe('player credit modal display', () => {
       player: 'Test Hero',
     };
 
-    window.setPlayerTransaction(payload, { reveal: false });
-    expect(show).not.toHaveBeenCalled();
+    try {
+      window.setPlayerTransaction(payload, { reveal: false });
+      expect(show).not.toHaveBeenCalled();
 
-    window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'CC_PLAYER_UPDATE', payload },
-      origin: window.location.origin,
-    }));
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'CC_PLAYER_UPDATE', payload },
+        origin: window.location.origin,
+      }));
 
-    expect(show).toHaveBeenCalledWith('player-credit-modal');
+      expect(show).toHaveBeenCalledWith('player-credit-modal');
+
+      expect(updateEvents).toHaveLength(2);
+      const [previewEvent, broadcastEvent] = updateEvents;
+      expect(previewEvent?.meta?.reveal).toBe(false);
+      expect(previewEvent?.meta?.source).toBe('update');
+      expect(previewEvent?.payload?.ref).toBe(payload.ref);
+      expect(previewEvent?.payload?.timestamp).toBe(payload.timestamp);
+
+      expect(broadcastEvent?.meta?.event).toBe(PLAYER_CREDIT_EVENTS.UPDATE);
+      expect(broadcastEvent?.meta?.source).toBe('message');
+      expect(broadcastEvent?.meta?.reveal).toBe(true);
+      expect(Array.isArray(broadcastEvent?.history)).toBe(true);
+      expect(broadcastEvent?.history).toHaveLength(1);
+      const sanitizedTxid = payload.ref.replace(/^TXN-/, '');
+      expect(broadcastEvent?.payload?.txid).toBe(sanitizedTxid);
+      expect(broadcastEvent?.history?.[0]?.txid).toBe(payload.txid);
+      expect(broadcastEvent?.meta?.dmSession).toBe(false);
+    } finally {
+      document.removeEventListener(PLAYER_CREDIT_EVENTS.UPDATE, handleUpdate);
+    }
   });
 
   test('hydrates player modal from DM localStorage state', async () => {
@@ -85,21 +113,39 @@ describe('player credit modal display', () => {
 
     window.localStorage.setItem('cc_dm_card', JSON.stringify(dmState));
 
-    await import('../scripts/player-credit-modal.js');
+    const syncEvents = [];
+    const handleSync = (event) => {
+      syncEvents.push(event?.detail);
+    };
+    document.addEventListener(PLAYER_CREDIT_EVENTS.SYNC, handleSync);
 
-    const card = document.getElementById('player-credit-card');
-    expect(card?.dataset?.ref).toBe(payload.ref);
-    expect(card?.dataset?.txid).toBe(payload.ref.replace(/^TXN-/, ''));
+    try {
+      await import('../scripts/player-credit-modal.js');
 
-    const amount = document.getElementById('player-credit-amount');
-    expect(amount?.textContent).toBe('₡75.50');
+      const card = document.getElementById('player-credit-card');
+      expect(card?.dataset?.ref).toBe(payload.ref);
+      expect(card?.dataset?.txid).toBe(payload.ref.replace(/^TXN-/, ''));
 
-    const account = document.getElementById('player-credit-account');
-    expect(account?.textContent).toBe(payload.account);
+      const amount = document.getElementById('player-credit-amount');
+      expect(amount?.textContent).toBe('₡75.50');
 
-    const sender = document.getElementById('player-credit-sender');
-    expect(sender?.textContent).toBe(payload.sender);
+      const account = document.getElementById('player-credit-account');
+      expect(account?.textContent).toBe(payload.account);
 
-    expect(show).not.toHaveBeenCalled();
+      const sender = document.getElementById('player-credit-sender');
+      expect(sender?.textContent).toBe(payload.sender);
+
+      expect(show).not.toHaveBeenCalled();
+
+      expect(syncEvents).toHaveLength(1);
+      const [hydrateEvent] = syncEvents;
+      expect(hydrateEvent?.meta?.source).toBe('hydrate');
+      expect(hydrateEvent?.meta?.reveal).toBe(false);
+      expect(hydrateEvent?.payload?.memo).toBe(payload.memo);
+      expect(Array.isArray(hydrateEvent?.history)).toBe(true);
+      expect(hydrateEvent?.history).toHaveLength(1);
+    } finally {
+      document.removeEventListener(PLAYER_CREDIT_EVENTS.SYNC, handleSync);
+    }
   });
 });

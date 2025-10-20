@@ -33,3 +33,19 @@ This reference describes the GM-facing credit deposit modal that lives in `index
 
 A regression snapshot of the modal was captured for this change and is attached to the pull
 request (artifact: `browser:/invocations/cuhwhqbb/artifacts/artifacts/dm-credit-modal.png`).
+
+## Player credit events
+
+The player-facing modal now emits DOM events so other UI features can respond when new
+transactions arrive.
+
+- `PLAYER_CREDIT_EVENTS.UPDATE` (`player-credit:update`) fires after any single payload is
+  rendered through `handleUpdate`. The event `detail` contains the sanitized `payload`, a
+  cloned `history` array, and a `meta` object describing the trigger (e.g. `source`, `reveal`,
+  `persist`, and `dmSession`).
+- `PLAYER_CREDIT_EVENTS.SYNC` (`player-credit:sync`) fires whenever batches of history entries
+  are hydrated or synchronized (including storage events that clear history).
+
+Consumers can import the constant from `scripts/player-credit-events.js` and listen on
+`document` or `window`. See `scripts/main.js` for an example that highlights the
+player-tools drawer tab until the player opens it.
