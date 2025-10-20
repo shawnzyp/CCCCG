@@ -276,7 +276,10 @@ describe('dm rewards executeRewardTransaction', () => {
 
     expect(result.notifications[0]).toContain('O.M.N.I.');
     expect(global.toast).toHaveBeenCalledWith(expect.stringContaining('O.M.N.I.'), 'success');
-    expect(dmNotifyMock).toHaveBeenCalledWith(expect.stringContaining('O.M.N.I.'), expect.objectContaining({ char: 'Alpha' }));
+    expect(dmNotifyMock).toHaveBeenCalledWith(
+      expect.stringContaining('O.M.N.I.'),
+      expect.objectContaining({ char: 'Alpha', actionScope: 'major' }),
+    );
 
     expect(result.results.faction).toEqual(expect.arrayContaining([
       expect.objectContaining({

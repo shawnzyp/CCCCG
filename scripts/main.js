@@ -9194,7 +9194,7 @@ function setupPerkSelect(selId, perkId, data){
         if (cb && status) {
           cb.addEventListener('change', () => {
             status.textContent = cb.checked ? 'Used' : 'Available';
-            window.dmNotify?.(`${text} ${cb.checked ? 'used' : 'reset'}`);
+            window.dmNotify?.(`${text} ${cb.checked ? 'used' : 'reset'}`, { actionScope: 'minor' });
             logAction(`${text} perk ${cb.checked ? 'used' : 'reset'}`);
           });
         }
@@ -9927,7 +9927,7 @@ if (elCAPCheck instanceof HTMLElement && elCAPStatus instanceof HTMLElement) {
       if (confirm('Use Cinematic Action Point?')) {
         const prev = elCAPStatus.textContent;
         elCAPStatus.textContent = 'Used';
-        window.dmNotify?.('Used Cinematic Action Point');
+        window.dmNotify?.('Used Cinematic Action Point', { actionScope: 'major' });
         logAction(`Cinematic Action Point: ${prev} -> Used`);
 
         if (capBox) {
@@ -10334,7 +10334,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
   if (slotsDiff > 0 && !opts.suppressNotifications) {
     const slotLabel = slotsDiff === 1 ? 'New Augment slot unlocked!' : `${slotsDiff} Augment slots unlocked!`;
     toast(slotLabel, 'success');
-    window.dmNotify?.(slotLabel);
+    window.dmNotify?.(slotLabel, { actionScope: 'major' });
     logAction(`Augment slots unlocked: ${previousSlots} -> ${nextState.augmentSlotsEarned}`);
     show('modal-augment-picker');
   }
@@ -10353,7 +10353,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
       renderLevelRewardReminders();
       show('modal-level-rewards');
       const summary = unlocked.map(task => task.label).join('; ');
-      window.dmNotify?.(`Level rewards unlocked: ${summary}`);
+      window.dmNotify?.(`Level rewards unlocked: ${summary}`, { actionScope: 'major' });
       logAction(`Level rewards unlocked: ${summary}`);
     }
   }
@@ -10769,7 +10769,7 @@ function handleAugmentAdd(id) {
   persistAugmentState();
   refreshAugmentUI();
   scheduleDerivedUpdate();
-  window.dmNotify?.(`Selected Augment: ${augment.name}`);
+  window.dmNotify?.(`Selected Augment: ${augment.name}`, { actionScope: 'major' });
   logAction(`Augment selected: ${augment.name}`);
 }
 
@@ -10783,7 +10783,7 @@ function handleAugmentRemove(id) {
   refreshAugmentUI();
   scheduleDerivedUpdate();
   if (augment) {
-    window.dmNotify?.(`Removed Augment: ${augment.name}`);
+    window.dmNotify?.(`Removed Augment: ${augment.name}`, { actionScope: 'major' });
     logAction(`Augment removed: ${augment.name}`);
   }
 }
@@ -10969,19 +10969,19 @@ function updateXP(){
       ? `${baseMessage}. Gains: ${levelEntry.gains}.`
       : `${baseMessage}.`;
     toast(toastMessage, 'success');
-    window.dmNotify?.(`Level up to ${formatLevelLabel(levelEntry)}`);
+    window.dmNotify?.(`Level up to ${formatLevelLabel(levelEntry)}`, { actionScope: 'major' });
     if (levelProgressResult?.newLevelEntries?.length) {
       const rewardSummary = levelProgressResult.newLevelEntries
         .map(entry => formatLevelRewardSummary(entry))
         .filter(Boolean)
         .join('; ');
       if (rewardSummary) {
-        window.dmNotify?.(`Level bonuses applied: ${rewardSummary}`);
+        window.dmNotify?.(`Level bonuses applied: ${rewardSummary}`, { actionScope: 'major' });
         logAction(`Level bonuses applied: ${rewardSummary}`);
       }
     }
   } else if (xpInitialized && idx < prevIdx) {
-    window.dmNotify?.(`Level down to ${formatLevelLabel(levelEntry)}`);
+    window.dmNotify?.(`Level down to ${formatLevelLabel(levelEntry)}`, { actionScope: 'major' });
   }
   currentLevelIdx = idx;
   xpInitialized = true;
@@ -11170,7 +11170,7 @@ function updateDerived(){
 ABILS.forEach(a=> {
   const el = $(a);
   el.addEventListener('change', () => {
-    window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`);
+    window.dmNotify?.(`${a.toUpperCase()} set to ${el.value}`, { actionScope: 'major' });
     updateDerived();
   });
 });
@@ -11184,7 +11184,7 @@ function setXP(v){
   updateDerived();
   const diff = num(elXP.value) - prev;
   if(diff !== 0){
-    window.dmNotify?.(`XP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elXP.value})`);
+    window.dmNotify?.(`XP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elXP.value})`, { actionScope: 'major' });
   }
 }
 $('xp-submit').addEventListener('click', ()=>{
@@ -11310,7 +11310,7 @@ function setCredits(v, options = {}){
   if(diff !== 0){
     const actionKey = diff > 0 ? 'credits-gain' : 'credits-spend';
     playActionCue(actionKey);
-    window.dmNotify?.(`Credits ${diff>0?'gained':'spent'} ${Math.abs(diff)} (now ${total})`);
+    window.dmNotify?.(`Credits ${diff>0?'gained':'spent'} ${Math.abs(diff)} (now ${total})`, { actionScope: 'major' });
     const providedReason = typeof options === 'object' && options !== null ? options.reason : undefined;
     const entryReason = typeof providedReason === 'string' && providedReason.trim()
       ? providedReason.trim()
@@ -11396,7 +11396,7 @@ function setHP(v){
     }else{
       playActionCue('hp-heal');
     }
-    window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
+    window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`, { actionScope: 'minor' });
     logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
   }
   const down = prev > 0 && current === 0;
@@ -11434,7 +11434,7 @@ async function setSP(v){
     }else{
       playActionCue('sp-gain');
     }
-    window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
+    window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`, { actionScope: 'minor' });
     logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
     await playSPAnimation(diff);
     pushHistory();
@@ -11882,6 +11882,10 @@ function queueDmNotification(message, meta = {}) {
     if (typeof meta.html === 'string' && meta.html) {
       record.html = meta.html;
     }
+    const scopeCandidate = meta.actionScope ?? meta.scope ?? meta.kind ?? meta.actionType;
+    if (typeof scopeCandidate === 'string' && scopeCandidate) {
+      record.actionScope = scopeCandidate;
+    }
     pending.push(record);
     const MAX_PENDING = 20;
     if (pending.length > MAX_PENDING) {
@@ -12315,7 +12319,7 @@ if (rollDiceButton) {
       : `${total}`;
     const message = `${headerWithModifier}: ${breakdownDisplay.join(', ')} = ${arithmetic}`;
     logAction(message);
-    window.dmNotify?.(`Rolled ${message}`);
+    window.dmNotify?.(`Rolled ${message}`, { actionScope: 'minor' });
   });
 }
 const coinFlipButton = $('flip');
@@ -12333,7 +12337,7 @@ if (coinFlipButton) {
       : coinFlipButton.dataset?.actionCueTails || 'coin-tails';
     playActionCue(actionKey, 'coin-flip');
     logAction(`Coin flip: ${v}`);
-    window.dmNotify?.(`Coin flip: ${v}`);
+    window.dmNotify?.(`Coin flip: ${v}`, { actionScope: 'minor' });
   });
 }
 const dmRollButton = $('dm-roll');
@@ -13921,7 +13925,11 @@ function showHammerspaceResult(roll) {
     logAction(`${HAMMERSPACE_POWER_NAME} result (${normalizedRoll}): ${entry.title}`);
   } catch {}
   try {
-    window.dmNotify?.(message.text, { ts: Date.now(), char: currentCharacter?.() || 'Hank' });
+    window.dmNotify?.(message.text, {
+      ts: Date.now(),
+      char: currentCharacter?.() || 'Hank',
+      actionScope: 'minor',
+    });
   } catch {}
 }
 
@@ -20890,7 +20898,7 @@ CC.RP = (function () {
     if (state.rp !== prev.rp || state.banked !== prev.banked) {
       const prevTotal = prev.rp + prev.banked * 5;
       const newTotal = state.rp + state.banked * 5;
-      window.dmNotify?.(`RP ${state.rp} (bank ${state.banked})`);
+      window.dmNotify?.(`RP ${state.rp} (bank ${state.banked})`, { actionScope: 'minor' });
       logAction(`RP: ${prevTotal} -> ${newTotal}`);
     }
   }
@@ -20908,9 +20916,9 @@ CC.RP = (function () {
     applyStateToUI();
     save();
     dispatch("rp:surge:start", { mode: state.surgeMode, startedAt: state.surgeStartedAt, endsAt: state.surgeEndsAt });
-    window.dmNotify?.(`Heroic Surge activated (${mode})`);
+    window.dmNotify?.(`Heroic Surge activated (${mode})`, { actionScope: 'major' });
     if (state.banked !== prevBank) {
-      window.dmNotify?.(`RP bank ${state.banked}`);
+      window.dmNotify?.(`RP bank ${state.banked}`, { actionScope: 'minor' });
     }
   }
 
@@ -20924,7 +20932,7 @@ CC.RP = (function () {
     applyStateToUI();
     save();
     dispatch("rp:surge:end", { reason });
-    window.dmNotify?.(`Heroic Surge ended (${reason})`);
+    window.dmNotify?.(`Heroic Surge ended (${reason})`, { actionScope: 'major' });
   }
 
   function clearAftermath() {
@@ -20932,7 +20940,7 @@ CC.RP = (function () {
     applyStateToUI();
     save();
     dispatch("rp:aftermath:cleared", {});
-    window.dmNotify?.("Heroic Surge aftermath cleared");
+    window.dmNotify?.("Heroic Surge aftermath cleared", { actionScope: 'minor' });
   }
 
   function tick(now = Date.now()) {
