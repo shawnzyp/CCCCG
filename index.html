@@ -9,42 +9,6 @@
 <link rel="preload" href="images/6a78d5b9-619a-4670-a141-271387532fdb.svg" as="image" type="image/svg+xml"/>
 <link rel="preload" href="images/death-animation.png" as="image" type="image/png"/>
 <link rel="preload" href="images/player-tools-icon.png" as="image" type="image/png"/>
-<link
-  rel="preload"
-  href="images/vertical-battery-0-svgrepo-com.svg"
-  as="image"
-  type="image/svg+xml"
-/>
-<link
-  rel="preload"
-  href="images/vertical-battery-25-svgrepo-com.svg"
-  as="image"
-  type="image/svg+xml"
-/>
-<link
-  rel="preload"
-  href="images/vertical-battery-50-svgrepo-com.svg"
-  as="image"
-  type="image/svg+xml"
-/>
-<link
-  rel="preload"
-  href="images/vertical-battery-75-svgrepo-com.svg"
-  as="image"
-  type="image/svg+xml"
-/>
-<link
-  rel="preload"
-  href="images/vertical-battery-100-svgrepo-com.svg"
-  as="image"
-  type="image/svg+xml"
-/>
-<link
-  rel="preload"
-  href="images/vertical-charging-battery-svgrepo-com.svg"
-  as="image"
-  type="image/svg+xml"
-/>
 <link rel="icon" type="image/png" sizes="1024x1024" href="images/logo.png"/>
 <link rel="apple-touch-icon" sizes="180x180" href="images/logo.png"/>
 <link rel="shortcut icon" type="image/png" sizes="1024x1024" href="images/logo.png"/>
@@ -2857,13 +2821,7 @@
           <div class="player-tools-phone__status-group player-tools-phone__status-group--left">
             <span class="player-tools-status player-tools-status--satellite" role="img" aria-label="Satellite uplink stable">
               <span class="sr-only">Satellite uplink stable</span>
-              <span class="player-tools-status__icon" aria-hidden="true">
-                <img src="images/satellite.png" alt="" decoding="async" loading="eager" />
-              </span>
-              <span class="player-tools-status__meter" aria-hidden="true">
-                <span class="player-tools-status__meter-base"></span>
-                <span class="player-tools-status__meter-fill" style="--player-tools-meter-fill: 78%"></span>
-              </span>
+              <span class="player-tools-status__icon player-tools-status__icon--signal" aria-hidden="true"></span>
             </span>
           </div>
           <div class="player-tools-phone__status-group player-tools-phone__status-group--center">
@@ -2872,13 +2830,7 @@
           <div class="player-tools-phone__status-group player-tools-phone__status-group--right">
             <span class="player-tools-status player-tools-status--wifi" role="img" aria-label="Wi-Fi signal strong">
               <span class="sr-only">Wi-Fi signal strong</span>
-              <span class="player-tools-status__icon" aria-hidden="true">
-                <img src="images/internet.png" alt="" decoding="async" loading="eager" />
-              </span>
-              <span class="player-tools-status__meter" aria-hidden="true">
-                <span class="player-tools-status__meter-base"></span>
-                <span class="player-tools-status__meter-fill" style="--player-tools-meter-fill: 86%"></span>
-              </span>
+              <span class="player-tools-status__icon player-tools-status__icon--wifi" aria-hidden="true"></span>
             </span>
             <span
               class="player-tools-status player-tools-status--battery"
@@ -2887,9 +2839,11 @@
               role="status"
             >
               <span class="sr-only" data-player-tools-battery-label>Battery status unavailable</span>
-              <span class="player-tools-status__meter" aria-hidden="true">
-                <span class="player-tools-status__meter-base"></span>
-                <span class="player-tools-status__meter-fill" data-player-tools-battery-fill></span>
+              <span class="player-tools-status__icon player-tools-status__icon--battery" aria-hidden="true">
+                <span class="player-tools-status__meter" aria-hidden="true">
+                  <span class="player-tools-status__meter-base"></span>
+                  <span class="player-tools-status__meter-fill" data-player-tools-battery-fill></span>
+                </span>
               </span>
               <span class="player-tools-status__text sr-only" data-player-tools-battery-text>Unavailable</span>
             </span>
