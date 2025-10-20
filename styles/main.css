@@ -2388,6 +2388,13 @@ button .btn-label{display:inline-flex;align-items:center}
   align-items:stretch;
 }
 
+@media(min-width:1024px){
+  .tracker-grid{
+    grid-template-columns:repeat(auto-fit,minmax(420px,1fr));
+    gap:clamp(20px,3vw,36px);
+  }
+}
+
 .tracker-grid .cap-field{
   grid-column:1 / -1;
 }
