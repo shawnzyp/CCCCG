@@ -25,21 +25,66 @@ function applyModalStyles(overlay) {
   const sources = [];
   if (modal) sources.push(modal.dataset);
   sources.push(overlay.dataset);
+  const style = overlay.style;
+  const setStyleProperty = style && typeof style.setProperty === 'function'
+    ? (prop, value) => {
+        try {
+          style.setProperty(prop, value);
+        } catch {}
+      }
+    : (prop, value) => {
+        try {
+          if (style) {
+            style[prop] = value;
+          }
+        } catch {}
+      };
+  const removeStyleProperty = style && typeof style.removeProperty === 'function'
+    ? prop => {
+        try {
+          style.removeProperty(prop);
+        } catch {}
+      }
+    : prop => {
+        if (!style) return;
+        try {
+          if (Object.prototype.hasOwnProperty.call(style, prop)) {
+            delete style[prop];
+          } else {
+            style[prop] = '';
+          }
+        } catch {}
+      };
   MODAL_STYLE_PROPS.forEach(([dataKey, cssVar]) => {
     const value = sources
       .map(source => (source ? source[dataKey] : undefined))
       .find(v => v !== undefined && v !== '');
     if (value !== undefined && value !== '') {
-      overlay.style.setProperty(cssVar, value);
+      setStyleProperty(cssVar, value);
     } else {
-      overlay.style.removeProperty(cssVar);
+      removeStyleProperty(cssVar);
     }
   });
 }
 
 function clearModalStyles(overlay) {
   if (!overlay) return;
-  MODAL_STYLE_PROPS.forEach(([, cssVar]) => overlay.style.removeProperty(cssVar));
+  const { style } = overlay;
+  MODAL_STYLE_PROPS.forEach(([, cssVar]) => {
+    if (style && typeof style.removeProperty === 'function') {
+      try {
+        style.removeProperty(cssVar);
+      } catch {}
+    } else if (style) {
+      try {
+        if (Object.prototype.hasOwnProperty.call(style, cssVar)) {
+          delete style[cssVar];
+        } else {
+          style[cssVar] = '';
+        }
+      } catch {}
+    }
+  });
 }
 
 function cancelModalStyleReset(overlay) {

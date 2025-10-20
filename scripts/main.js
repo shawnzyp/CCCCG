@@ -17321,7 +17321,7 @@ function initializeMedalCard(card) {
   iconImg.className = 'medal-card__icon-img';
   iconImg.alt = '';
   iconImg.decoding = 'async';
-  iconImg.loading = 'lazy';
+  iconImg.loading = 'eager';
   iconImg.hidden = true;
   const iconFallback = document.createElement('span');
   iconFallback.className = 'medal-card__icon-fallback';
@@ -19159,6 +19159,69 @@ function handleCustomItemTypeSelection(typeKey){
     nameInput.focus();
   }
   toast('Custom item card added. Fill in the details to add it to the catalog.', 'success');
+}
+
+const shouldScheduleBackgroundPreloads = !(
+  typeof process !== 'undefined'
+  && process?.env?.NODE_ENV === 'test'
+);
+
+const backgroundPreloadTasks = [];
+
+if (shouldScheduleBackgroundPreloads && rulesEl && !rulesLoaded) {
+  backgroundPreloadTasks.push(() => renderRules());
+}
+
+if (shouldScheduleBackgroundPreloads && typeof ensureCatalog === 'function') {
+  backgroundPreloadTasks.push(() => ensureCatalog().then(() => {
+    try {
+      renderCatalog();
+    } catch (err) {
+      console.warn('Background catalog render failed', err);
+    }
+  }));
+}
+
+function runBackgroundPreloads() {
+  if (!shouldScheduleBackgroundPreloads || !backgroundPreloadTasks.length) return;
+  while (backgroundPreloadTasks.length) {
+    const task = backgroundPreloadTasks.shift();
+    if (typeof task !== 'function') {
+      continue;
+    }
+    try {
+      const result = task();
+      if (result && typeof result.then === 'function') {
+        result.catch(err => console.warn('Background preload failed', err));
+      }
+    } catch (err) {
+      console.warn('Background preload failed', err);
+    }
+  }
+}
+
+function scheduleBackgroundPreloads() {
+  if (!shouldScheduleBackgroundPreloads || !backgroundPreloadTasks.length) return;
+  const runTasks = () => runBackgroundPreloads();
+  if (typeof window !== 'undefined') {
+    if (typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(() => runTasks(), { timeout: 2000 });
+    } else {
+      window.setTimeout(runTasks, 300);
+    }
+  } else {
+    setTimeout(runTasks, 300);
+  }
+}
+
+if (shouldScheduleBackgroundPreloads) {
+  if (typeof document !== 'undefined' && document.readyState === 'complete') {
+    scheduleBackgroundPreloads();
+  } else if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('load', scheduleBackgroundPreloads, { once: true });
+  } else {
+    scheduleBackgroundPreloads();
+  }
 }
 
 /* ========= Encounter / Initiative ========= */
