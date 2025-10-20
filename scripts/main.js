@@ -9258,6 +9258,19 @@ const elSPSettingsToggle = $('sp-settings-toggle');
 const spSettingsOverlay = $('modal-sp-settings');
 const elAugmentSelectedList = $('augment-selected-list');
 const elAugmentAvailableList = $('augment-available-list');
+const elAugmentManageButton = $('augment-manage');
+const elAugmentActionsNote = document.querySelector('.augment-actions__note');
+const elAugmentModalClose = $('augment-modal-close');
+const elLevelUpReminderTray = $('level-up-reminder-tray');
+const elLevelUpReminderText = $('level-up-reminder-text');
+const elLevelUpReminderOpen = $('level-up-reminder-open');
+const elLevelUpSummary = $('level-up-summary');
+const elLevelUpHighlightsSection = $('level-up-highlights-section');
+const elLevelUpHighlights = $('level-up-highlights');
+const elLevelUpAcknowledge = $('level-up-acknowledge');
+const elLevelUpDismiss = $('level-up-dismiss');
+const elLevelUpClose = $('level-up-close');
+const elPlayerToolsTab = $('player-tools-tab');
 
 const parseGaugeNumber = value => {
   const numeric = Number(value);
@@ -9287,7 +9300,6 @@ const augmentFilterButtons = Array.from(qsa('.augment-filter'));
 const elAugmentStateInput = $('augment-state');
 const elLevelProgressInput = $('level-progress-state');
 const elLevelRewardList = $('level-reward-reminders');
-const elLevelRewardsCard = $('card-level-rewards');
 
 if (elAugmentSearch) {
   elAugmentSearch.addEventListener('input', event => {
@@ -9301,6 +9313,31 @@ augmentFilterButtons.forEach(button => {
   if (!button) return;
   button.addEventListener('click', () => handleAugmentFilterToggle(button.dataset?.augmentTag));
 });
+
+let augmentManageDefaultLabel = typeof elAugmentManageButton?.textContent === 'string'
+  ? elAugmentManageButton.textContent.trim()
+  : 'Browse Augments';
+
+if (elAugmentManageButton) {
+  elAugmentManageButton.addEventListener('click', () => show('modal-augments'));
+}
+
+if (elAugmentModalClose) {
+  elAugmentModalClose.addEventListener('click', () => hide('modal-augments'));
+}
+
+if (elLevelUpReminderOpen) {
+  elLevelUpReminderOpen.addEventListener('click', () => show('modal-level-up'));
+}
+
+[elLevelUpDismiss, elLevelUpClose].forEach(button => {
+  if (!button) return;
+  button.addEventListener('click', () => hide('modal-level-up'));
+});
+
+if (elLevelUpAcknowledge) {
+  elLevelUpAcknowledge.addEventListener('click', () => acknowledgeLevelRewards());
+}
 
 let casterAbilityManuallySet = false;
 let lastCasterAbilitySuggestions = [];
@@ -9690,6 +9727,9 @@ function summarizeLevelRewardLedger(ledger, highestLevel) {
 
 let augmentState = getDefaultAugmentState();
 let levelProgressState = getDefaultLevelProgressState();
+let pendingLevelUpHighlights = new Set();
+let shouldOpenLevelUpModal = false;
+const levelRewardRenderState = { hasPending: false, pendingCount: 0, pendingLevels: new Set() };
 
 function getAugmentSlotsEarned() {
   return Number(levelProgressState?.augmentSlotsEarned) || 0;
@@ -9920,6 +9960,12 @@ function getLevelEntry(idx) {
   if (!Number.isFinite(idx)) return LEVEL_TABLE[0] || DEFAULT_LEVEL;
   const clamped = Math.min(Math.max(idx, 0), MAX_LEVEL_INDEX);
   return LEVEL_TABLE[clamped] || LEVEL_TABLE[0] || DEFAULT_LEVEL;
+}
+
+function getLevelEntryByLevel(level) {
+  const numeric = Number(level);
+  if (!Number.isFinite(numeric)) return null;
+  return LEVEL_TABLE.find(entry => Number(entry?.level) === numeric) || null;
 }
 
 function getLevelIndex(xp) {
@@ -10328,6 +10374,41 @@ function updateAugmentSlotSummary() {
   }
 }
 
+function updateAugmentManageButton() {
+  if (!elAugmentManageButton) return;
+  const earned = getAugmentSlotsEarned();
+  const used = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
+  const openSlots = Math.max(0, earned - used);
+  const overLimit = used > earned && earned >= 0;
+  if (openSlots > 0) {
+    if (typeof elAugmentManageButton.setAttribute === 'function') {
+      elAugmentManageButton.setAttribute('data-ready', 'true');
+    }
+    if (typeof elAugmentManageButton.textContent !== 'undefined') {
+      elAugmentManageButton.textContent = openSlots === 1 ? 'Slot Augment' : 'Slot Augments';
+    }
+  } else {
+    if (typeof elAugmentManageButton.removeAttribute === 'function') {
+      elAugmentManageButton.removeAttribute('data-ready');
+    }
+    if (augmentManageDefaultLabel && typeof elAugmentManageButton.textContent !== 'undefined') {
+      elAugmentManageButton.textContent = augmentManageDefaultLabel;
+    }
+  }
+  if (elAugmentActionsNote) {
+    if (overLimit) {
+      elAugmentActionsNote.textContent = 'Selected augments exceed available slots. Remove one to stay within limit.';
+    } else if (openSlots > 0) {
+      const label = openSlots === 1 ? '1 augment slot is open.' : `${openSlots} augment slots are open.`;
+      elAugmentActionsNote.textContent = `${label} Browse the catalog to fill it.`;
+    } else if (earned > 0) {
+      elAugmentActionsNote.textContent = 'All augment slots are filled. Remove one to try a different build.';
+    } else {
+      elAugmentActionsNote.textContent = 'Review available augments and slot new tech from the picker.';
+    }
+  }
+}
+
 function renderSelectedAugments() {
   if (!elAugmentSelectedList) return;
   qsa('#augment-selected-list li').forEach(li => rollBonusRegistry.release(li));
@@ -10508,6 +10589,7 @@ function refreshAugmentUI() {
   renderSelectedAugments();
   renderAugmentPicker();
   updateAugmentSlotSummary();
+  updateAugmentManageButton();
 }
 
 function updateLevelChoiceHighlights(pendingTasks = []) {
@@ -10561,7 +10643,8 @@ function updateStatIncreaseReminder(pending = 0) {
 }
 
 function renderLevelRewardReminders() {
-  const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
+  const highestLevel = Math.max(1, Number(levelProgressState?.highestAppliedLevel) || 1);
+  const tasks = getLevelRewardTasksUpTo(highestLevel);
   const completed = levelProgressState?.completedRewardIds instanceof Set
     ? levelProgressState.completedRewardIds
     : new Set(Array.isArray(levelProgressState?.completedRewardIds) ? levelProgressState.completedRewardIds : []);
@@ -10602,16 +10685,130 @@ function renderLevelRewardReminders() {
   if (elLevelRewardList) {
     toggleEmptyState(elLevelRewardList, hasTasks);
   }
-  if (elLevelRewardsCard && typeof elLevelRewardsCard.setAttribute === 'function') {
-    if (hasTasks && pendingTasks.length) {
-      elLevelRewardsCard.setAttribute('data-pending', 'true');
-    } else if (typeof elLevelRewardsCard.removeAttribute === 'function') {
-      elLevelRewardsCard.removeAttribute('data-pending');
+
+  const pendingLevels = new Set(pendingTasks.map(task => task.level));
+  if (!(pendingLevelUpHighlights instanceof Set)) pendingLevelUpHighlights = new Set();
+  Array.from(pendingLevelUpHighlights).forEach(level => {
+    if (!pendingLevels.has(level)) pendingLevelUpHighlights.delete(level);
+  });
+  const highlightLevels = Array.from(pendingLevelUpHighlights).sort((a, b) => a - b);
+  const highlightSummaries = highlightLevels
+    .map(level => formatLevelRewardSummary(getLevelEntryByLevel(level)))
+    .filter(Boolean);
+  if (elLevelUpHighlights) {
+    elLevelUpHighlights.innerHTML = '';
+    highlightSummaries.forEach(summary => {
+      const item = document.createElement('li');
+      item.textContent = summary;
+      elLevelUpHighlights.appendChild(item);
+    });
+  }
+  if (elLevelUpHighlightsSection) {
+    elLevelUpHighlightsSection.hidden = !highlightSummaries.length;
+  }
+
+  const highestEntry = getLevelEntryByLevel(highestLevel);
+  const pendingSummaryEntries = Array.from(pendingLevels)
+    .sort((a, b) => a - b)
+    .map(level => formatLevelRewardSummary(getLevelEntryByLevel(level)))
+    .filter(Boolean);
+  if (elLevelUpSummary) {
+    const summary = highlightSummaries.length
+      ? `New rewards unlocked: ${highlightSummaries.join('; ')}`
+      : pendingSummaryEntries.length
+        ? `Pending upgrades: ${pendingSummaryEntries.join('; ')}`
+        : formatLevelRewardSummary(highestEntry) || 'Your upgrades are applied.';
+    elLevelUpSummary.textContent = summary;
+  }
+
+  const pendingCount = pendingTasks.length;
+  const pendingText = pendingSummaryEntries.length
+    ? pendingSummaryEntries.join(' • ')
+    : pendingCount > 0
+      ? (pendingCount === 1 ? '1 upgrade ready to apply.' : `${pendingCount} upgrades ready to apply.`)
+      : 'Your upgrades are applied.';
+
+  if (elLevelUpReminderText) {
+    elLevelUpReminderText.textContent = pendingText;
+  }
+  if (elLevelUpReminderTray) {
+    if (pendingCount > 0) {
+      if ('hidden' in elLevelUpReminderTray) {
+        elLevelUpReminderTray.hidden = false;
+      }
+      if (typeof elLevelUpReminderTray.setAttribute === 'function') {
+        elLevelUpReminderTray.setAttribute('data-state', 'pending');
+        elLevelUpReminderTray.setAttribute('data-pending-count', `${pendingCount}`);
+      } else if (elLevelUpReminderTray.dataset) {
+        elLevelUpReminderTray.dataset.state = 'pending';
+        elLevelUpReminderTray.dataset.pendingCount = `${pendingCount}`;
+      }
+    } else {
+      if ('hidden' in elLevelUpReminderTray) {
+        elLevelUpReminderTray.hidden = true;
+      }
+      if (typeof elLevelUpReminderTray.removeAttribute === 'function') {
+        elLevelUpReminderTray.removeAttribute('data-state');
+        elLevelUpReminderTray.removeAttribute('data-pending-count');
+      } else if (elLevelUpReminderTray.dataset) {
+        delete elLevelUpReminderTray.dataset.state;
+        delete elLevelUpReminderTray.dataset.pendingCount;
+      }
     }
   }
+  if (elPlayerToolsTab) {
+    if (pendingCount > 0) {
+      if (typeof elPlayerToolsTab.setAttribute === 'function') {
+        elPlayerToolsTab.setAttribute('data-alert', 'level-up');
+      } else if (elPlayerToolsTab.dataset) {
+        elPlayerToolsTab.dataset.alert = 'level-up';
+      }
+    } else {
+      if (typeof elPlayerToolsTab.removeAttribute === 'function') {
+        elPlayerToolsTab.removeAttribute('data-alert');
+      } else if (elPlayerToolsTab.dataset) {
+        delete elPlayerToolsTab.dataset.alert;
+      }
+    }
+  }
+
   const pendingStatCount = pendingTasks.filter(task => task.type === 'stat').length;
   updateStatIncreaseReminder(pendingStatCount);
   updateLevelChoiceHighlights(pendingTasks);
+
+  levelRewardRenderState.hasPending = pendingCount > 0;
+  levelRewardRenderState.pendingCount = pendingCount;
+  levelRewardRenderState.pendingLevels = new Set(pendingLevels);
+}
+
+function acknowledgeLevelRewards() {
+  const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
+  if (!(levelProgressState.completedRewardIds instanceof Set)) {
+    levelProgressState.completedRewardIds = new Set(Array.isArray(levelProgressState.completedRewardIds) ? levelProgressState.completedRewardIds : []);
+  }
+  tasks.forEach(task => levelProgressState.completedRewardIds.add(task.id));
+  pendingLevelUpHighlights = new Set();
+  shouldOpenLevelUpModal = false;
+  persistLevelProgressState();
+  renderLevelRewardReminders();
+  hide('modal-level-up');
+  toast('Level upgrades marked as applied.', 'success');
+  window.dmNotify?.('Level upgrades acknowledged');
+  logAction('Level upgrades acknowledged');
+}
+
+function registerLevelUpHighlights(entries = []) {
+  if (!(pendingLevelUpHighlights instanceof Set)) pendingLevelUpHighlights = new Set();
+  let added = false;
+  entries.forEach(entry => {
+    const level = Number(entry?.level);
+    if (!Number.isFinite(level) || level < 1) return;
+    if (!pendingLevelUpHighlights.has(level)) added = true;
+    pendingLevelUpHighlights.add(level);
+  });
+  if (added) {
+    shouldOpenLevelUpModal = true;
+  }
 }
 
 function handleAugmentAdd(id) {
@@ -10830,6 +11027,7 @@ function updateXP(){
     toast(toastMessage, 'success');
     window.dmNotify?.(`Level up to ${formatLevelLabel(levelEntry)}`);
     if (levelProgressResult?.newLevelEntries?.length) {
+      registerLevelUpHighlights(levelProgressResult.newLevelEntries);
       const rewardSummary = levelProgressResult.newLevelEntries
         .map(entry => formatLevelRewardSummary(entry))
         .filter(Boolean)
@@ -10866,6 +11064,12 @@ function updateXP(){
     catalogRenderScheduler();
   }
   renderLevelRewardReminders();
+  if (shouldOpenLevelUpModal) {
+    if (levelRewardRenderState.hasPending) {
+      show('modal-level-up');
+    }
+    shouldOpenLevelUpModal = false;
+  }
   refreshAugmentUI();
 }
 

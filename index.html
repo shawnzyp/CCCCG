@@ -327,7 +327,7 @@
     <button class="tab active" data-go="combat" aria-label="Combat" title="Combat" role="tab" aria-current="page" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/sword.gif"
+          src="images/tab-combat.svg"
           width="48"
           height="48"
           alt=""
@@ -340,7 +340,7 @@
     <button class="tab" data-go="abilities" aria-label="Abilities" title="Abilities" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/skills.gif"
+          src="images/tab-abilities.svg"
           width="48"
           height="48"
           alt=""
@@ -353,7 +353,7 @@
     <button class="tab" data-go="powers" aria-label="Powers" title="Powers" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/brain-lightning.gif"
+          src="images/tab-powers.svg"
           width="48"
           height="48"
           alt=""
@@ -366,7 +366,7 @@
     <button class="tab" data-go="gear" aria-label="Gear" title="Gear" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/shield-badge.gif"
+          src="images/tab-gear.svg"
           width="48"
           height="48"
           alt=""
@@ -379,7 +379,7 @@
     <button class="tab" data-go="story" aria-label="Story" title="Story" role="tab" type="button">
       <span class="tab__icon" aria-hidden="true">
         <img
-          src="images/plates.gif"
+          src="images/tab-story.svg"
           width="48"
           height="48"
           alt=""
@@ -987,21 +987,6 @@
           </div>
         </div>
       </div>
-      <div class="card card__glow card--level-rewards" data-view-lock id="card-level-rewards">
-        <div class="card-toolbar card__frame">
-          <h3 class="card-toolbar__title card__frame">Level Rewards</h3>
-        </div>
-        <input id="level-progress-state" type="hidden" value="{}"/>
-        <ul id="level-reward-reminders" class="perk-list level-reward-list" data-view-allow></ul>
-        <p
-          id="level-reward-empty"
-          class="empty-state level-reward-empty"
-          data-empty-for="level-reward-reminders"
-          aria-live="polite"
-        >
-          You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
-        </p>
-      </div>
       <div class="card card__glow card--augments" data-view-lock id="card-augments">
         <div class="card-toolbar card__frame">
           <h3 class="card-toolbar__title card__frame">Augments</h3>
@@ -1022,32 +1007,9 @@
             No augments selected yet. Tap “Add Augment” to slot in your signature tech.
           </p>
         </div>
-        <div class="augment-picker" data-view-allow>
-          <div class="augment-picker__controls">
-            <label for="augment-search" class="sr-only">Search augments</label>
-            <input
-              id="augment-search"
-              type="search"
-              placeholder="Search augments"
-              autocomplete="off"
-            />
-            <div class="augment-filters" role="group" aria-label="Augment categories">
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Control" data-view-allow>Control</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Protection" data-view-allow>Protection</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Aggression" data-view-allow>Aggression</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Transcendence" data-view-allow>Transcendence</button>
-              <button type="button" class="btn-sm augment-filter" data-augment-tag="Customization" data-view-allow>Customization</button>
-            </div>
-          </div>
-          <ul id="augment-available-list" class="augment-picker__list"></ul>
-          <p
-            id="augment-available-empty"
-            class="empty-state augment-empty"
-            data-empty-for="augment-available-list"
-            aria-live="polite"
-          >
-            Nothing matches these filters. Clear them or adjust your search to keep building your loadout.
-          </p>
+        <div class="augment-actions">
+          <button id="augment-manage" type="button" class="btn" data-view-allow>Browse Augments</button>
+          <p class="augment-actions__note" aria-live="polite">Review available augments and slot new tech from the picker.</p>
         </div>
       </div>
       <div class="card card__glow" data-view-lock>
@@ -1679,6 +1641,89 @@
       <button id="enc-reset" class="btn-sm">Reset</button>
     </div>
     </div>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-level-up" aria-hidden="true" data-modal-accent-hue="210">
+  <div class="modal-frame">
+    <section class="modal modal--level-up" role="dialog" aria-modal="true" aria-labelledby="level-up-title" tabindex="-1">
+      <button id="level-up-close" class="x" type="button" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="modal--level-up__header">
+        <h3 id="level-up-title">Level Up Checklist</h3>
+        <p id="level-up-summary" class="modal--level-up__summary">Your upgrades are applied.</p>
+      </header>
+      <div class="modal--level-up__body">
+        <section id="level-up-highlights-section" class="level-up-highlights" aria-labelledby="level-up-highlights-heading" hidden>
+          <h4 id="level-up-highlights-heading" class="level-up-highlights__title">New unlocks</h4>
+          <ul id="level-up-highlights" class="level-up-highlights__list"></ul>
+        </section>
+        <input id="level-progress-state" type="hidden" value="{}"/>
+        <h4 id="level-up-checklist-heading" class="modal--level-up__subheading">Upgrade checklist</h4>
+        <p class="modal--level-up__hint">Check off each reward as you apply it so nothing gets missed.</p>
+        <ul id="level-reward-reminders" class="level-reward-list" aria-labelledby="level-up-checklist-heading"></ul>
+        <p
+          id="level-reward-empty"
+          class="empty-state level-reward-empty"
+          data-empty-for="level-reward-reminders"
+          aria-live="polite"
+        >
+          You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
+        </p>
+      </div>
+      <footer class="modal--level-up__footer">
+        <button id="level-up-acknowledge" type="button" class="btn">Mark upgrades applied</button>
+        <button id="level-up-dismiss" type="button" class="btn-sm">Close</button>
+      </footer>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-augments" aria-hidden="true" data-modal-accent-hue="280">
+  <div class="modal-frame">
+    <section class="modal modal--augment-picker" role="dialog" aria-modal="true" aria-labelledby="augment-modal-title" tabindex="-1">
+      <button id="augment-modal-close" class="x" type="button" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="modal--augment-picker__header">
+        <h3 id="augment-modal-title">Select Augments</h3>
+        <p class="modal--augment-picker__intro">Browse available augments and slot new tech into your loadout.</p>
+      </header>
+      <div class="augment-picker" data-view-allow>
+        <div class="augment-picker__controls">
+          <label for="augment-search" class="sr-only">Search augments</label>
+          <input
+            id="augment-search"
+            type="search"
+            placeholder="Search augments"
+            autocomplete="off"
+          />
+          <div class="augment-filters" role="group" aria-label="Augment categories">
+            <button type="button" class="btn-sm augment-filter" data-augment-tag="Control" data-view-allow>Control</button>
+            <button type="button" class="btn-sm augment-filter" data-augment-tag="Protection" data-view-allow>Protection</button>
+            <button type="button" class="btn-sm augment-filter" data-augment-tag="Aggression" data-view-allow>Aggression</button>
+            <button type="button" class="btn-sm augment-filter" data-augment-tag="Transcendence" data-view-allow>Transcendence</button>
+            <button type="button" class="btn-sm augment-filter" data-augment-tag="Customization" data-view-allow>Customization</button>
+          </div>
+        </div>
+        <ul id="augment-available-list" class="augment-picker__list"></ul>
+        <p
+          id="augment-available-empty"
+          class="empty-state augment-empty"
+          data-empty-for="augment-available-list"
+          aria-live="polite"
+        >
+          Nothing matches these filters. Clear them or adjust your search to keep building your loadout.
+        </p>
+      </div>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
@@ -2847,6 +2892,23 @@
           <span class="player-tools-drawer__badge-text sr-only" data-player-tools-battery-text>Unavailable</span>
         </span>
       </div>
+      <section
+        id="level-up-reminder-tray"
+        class="player-tools-reminder"
+        role="region"
+        aria-live="polite"
+        aria-label="Level up reminder"
+        hidden
+      >
+        <div class="player-tools-reminder__icon" aria-hidden="true">⬆️</div>
+        <div class="player-tools-reminder__content">
+          <h3 class="player-tools-reminder__title">Level Up Checklist</h3>
+          <p id="level-up-reminder-text" class="player-tools-reminder__text">Your upgrades are applied.</p>
+          <div class="player-tools-reminder__actions">
+            <button id="level-up-reminder-open" class="btn-sm" type="button">Review upgrades</button>
+          </div>
+        </div>
+      </section>
       <fieldset class="card card__glow roll-tools-card">
         <legend data-animate-title>Player Tools</legend>
         <div class="roll-tools">
