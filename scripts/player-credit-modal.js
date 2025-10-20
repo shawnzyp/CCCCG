@@ -386,6 +386,16 @@ import { show, hide } from './modal.js';
 
   window.addEventListener('message', receiveMessage, false);
 
+  const extractHistoryEntries = (value) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (value && typeof value === 'object' && Array.isArray(value.entries)) {
+      return value.entries;
+    }
+    return null;
+  };
+
   window.addEventListener('storage', (event) => {
     if (event.key !== STORAGE_KEY) return;
     const parsed = safeParse(event.newValue);
@@ -394,8 +404,9 @@ import { show, hide } from './modal.js';
       renderHistory(transactionHistory);
       return;
     }
-    if (Array.isArray(parsed)) {
-      syncHistoryFromEntries(parsed, { reveal: true, persist: false });
+    const entries = extractHistoryEntries(parsed);
+    if (entries) {
+      syncHistoryFromEntries(entries, { reveal: true, persist: false });
     } else {
       handleUpdate(parsed, { reveal: true, persist: false });
     }
@@ -418,8 +429,9 @@ import { show, hide } from './modal.js';
     try {
       const existing = localStorage.getItem(STORAGE_KEY);
       const parsed = safeParse(existing);
-      if (Array.isArray(parsed)) {
-        syncHistoryFromEntries(parsed, { reveal: false, persist: false });
+      const entries = extractHistoryEntries(parsed);
+      if (entries) {
+        syncHistoryFromEntries(entries, { reveal: false, persist: false });
       } else if (parsed) {
         handleUpdate(parsed, { reveal: false, persist: false });
         persistHistory();

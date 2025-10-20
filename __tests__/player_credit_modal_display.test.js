@@ -23,6 +23,7 @@ describe('player credit modal display', () => {
       </div>
     `;
     window.sessionStorage?.clear?.();
+    window.localStorage?.clear?.();
     jest.clearAllMocks();
   });
 
@@ -60,5 +61,45 @@ describe('player credit modal display', () => {
     }));
 
     expect(show).toHaveBeenCalledWith('player-credit-modal');
+  });
+
+  test('hydrates player modal from DM localStorage state', async () => {
+    const { show } = await importWithModalMock();
+
+    const payload = {
+      account: '9876-5432-1098-7654',
+      amount: 75.5,
+      type: 'Transfer',
+      sender: 'Grey Subnet',
+      ref: 'TXN-GREY-20240321-654321',
+      txid: 'ID-GREY-87654321',
+      timestamp: new Date('2024-03-21T04:05:06Z').toISOString(),
+      player: 'Hydration Tester',
+      memo: 'DM hydrated entry',
+    };
+
+    const dmState = {
+      entries: [payload],
+      filters: { account: payload.account },
+    };
+
+    window.localStorage.setItem('cc_dm_card', JSON.stringify(dmState));
+
+    await import('../scripts/player-credit-modal.js');
+
+    const card = document.getElementById('player-credit-card');
+    expect(card?.dataset?.ref).toBe(payload.ref);
+    expect(card?.dataset?.txid).toBe(payload.ref.replace(/^TXN-/, ''));
+
+    const amount = document.getElementById('player-credit-amount');
+    expect(amount?.textContent).toBe('₡75.50');
+
+    const account = document.getElementById('player-credit-account');
+    expect(account?.textContent).toBe(payload.account);
+
+    const sender = document.getElementById('player-credit-sender');
+    expect(sender?.textContent).toBe(payload.sender);
+
+    expect(show).not.toHaveBeenCalled();
   });
 });
