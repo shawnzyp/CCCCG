@@ -162,4 +162,42 @@ describe('level reward progression', () => {
     const ledgerLevels = restoredState.appliedRewardsByLevel.map(entry => entry.level);
     expect(ledgerLevels).toEqual(expect.arrayContaining([2, 4, 5, 7, 8, 10]));
   });
+
+  test('level reward reminder surfaces pending tasks and acknowledgement clears them', async () => {
+    await initializeApp();
+
+    setXp(300);
+    await Promise.resolve();
+
+    const reminderTrigger = document.getElementById('level-reward-reminder-trigger');
+    expect(reminderTrigger).toBeTruthy();
+    expect(reminderTrigger.hidden).toBe(false);
+
+    const badge = reminderTrigger.querySelector('[data-level-reward-count]');
+    expect(badge).toBeTruthy();
+    expect(badge.hidden).toBe(false);
+    const badgeValue = Number.parseInt(badge.textContent, 10);
+    expect(Number.isNaN(badgeValue) ? 0 : badgeValue).toBeGreaterThan(0);
+
+    const modalList = document.getElementById('level-reward-modal-list');
+    const checkboxes = Array.from(modalList.querySelectorAll('input[type="checkbox"]'));
+    expect(checkboxes.length).toBeGreaterThan(0);
+    const pendingIds = checkboxes.map(input => input.dataset.rewardId).filter(Boolean);
+
+    const stateBefore = JSON.parse(document.getElementById('level-progress-state').value);
+    pendingIds.forEach(id => {
+      expect(stateBefore.completedRewardIds).not.toContain(id);
+    });
+
+    const acknowledgeButton = document.getElementById('level-reward-acknowledge');
+    acknowledgeButton.click();
+    await Promise.resolve();
+
+    const stateAfter = JSON.parse(document.getElementById('level-progress-state').value);
+    pendingIds.forEach(id => {
+      expect(stateAfter.completedRewardIds).toContain(id);
+    });
+
+    expect(reminderTrigger.hidden).toBe(true);
+  });
 });

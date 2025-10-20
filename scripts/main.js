@@ -9286,8 +9286,14 @@ const elAugmentSearch = $('augment-search');
 const augmentFilterButtons = Array.from(qsa('.augment-filter'));
 const elAugmentStateInput = $('augment-state');
 const elLevelProgressInput = $('level-progress-state');
-const elLevelRewardList = $('level-reward-reminders');
-const elLevelRewardsCard = $('card-level-rewards');
+const elLevelRewardModalList = $('level-reward-modal-list');
+const elLevelRewardReminderTrigger = $('level-reward-reminder-trigger');
+const elLevelRewardReminderBadge = elLevelRewardReminderTrigger
+  ? elLevelRewardReminderTrigger.querySelector('[data-level-reward-count]')
+  : null;
+const elLevelRewardAcknowledge = $('level-reward-acknowledge');
+
+let levelRewardPendingCount = 0;
 
 if (elAugmentSearch) {
   elAugmentSearch.addEventListener('input', event => {
@@ -9300,6 +9306,31 @@ if (elAugmentSearch) {
 augmentFilterButtons.forEach(button => {
   if (!button) return;
   button.addEventListener('click', () => handleAugmentFilterToggle(button.dataset?.augmentTag));
+});
+
+if (elLevelRewardReminderTrigger) {
+  elLevelRewardReminderTrigger.addEventListener('click', () => {
+    renderLevelRewardReminders();
+    show('modal-level-rewards');
+  });
+}
+
+if (elLevelRewardAcknowledge) {
+  elLevelRewardAcknowledge.addEventListener('click', () => {
+    acknowledgePendingLevelRewards();
+  });
+}
+
+document.addEventListener('player-tools-drawer-open', () => {
+  if (elLevelRewardReminderTrigger && levelRewardPendingCount > 0) {
+    elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
+  }
+});
+
+document.addEventListener('player-tools-drawer-close', () => {
+  if (elLevelRewardReminderTrigger) {
+    elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+  }
 });
 
 let casterAbilityManuallySet = false;
@@ -10284,8 +10315,9 @@ function applyLevelProgress(targetLevel, opts = {}) {
       .flat()
       .filter(task => !completed.has(task.id));
     if (unlocked.length) {
+      renderLevelRewardReminders();
+      show('modal-level-rewards');
       const summary = unlocked.map(task => task.label).join('; ');
-      toast(`Level rewards unlocked: ${summary}`, 'info');
       window.dmNotify?.(`Level rewards unlocked: ${summary}`);
       logAction(`Level rewards unlocked: ${summary}`);
     }
@@ -10560,19 +10592,54 @@ function updateStatIncreaseReminder(pending = 0) {
   }
 }
 
+function updateLevelRewardReminderUI(count) {
+  const pendingCount = Math.max(0, Number(count) || 0);
+  levelRewardPendingCount = pendingCount;
+  if (elLevelRewardReminderBadge) {
+    if (pendingCount > 0) {
+      const label = pendingCount > 99 ? '99+' : String(pendingCount);
+      elLevelRewardReminderBadge.textContent = label;
+      elLevelRewardReminderBadge.hidden = false;
+    } else {
+      elLevelRewardReminderBadge.textContent = '0';
+      elLevelRewardReminderBadge.hidden = true;
+    }
+  }
+  if (elLevelRewardReminderTrigger) {
+    if (pendingCount > 0) {
+      elLevelRewardReminderTrigger.hidden = false;
+      elLevelRewardReminderTrigger.removeAttribute('aria-hidden');
+      elLevelRewardReminderTrigger.setAttribute('data-pending', 'true');
+      const label = pendingCount === 1
+        ? 'Level rewards (1 pending)'
+        : `Level rewards (${pendingCount} pending)`;
+      elLevelRewardReminderTrigger.setAttribute('aria-label', label);
+    } else {
+      elLevelRewardReminderTrigger.hidden = true;
+      elLevelRewardReminderTrigger.setAttribute('aria-hidden', 'true');
+      elLevelRewardReminderTrigger.removeAttribute('data-pending');
+      elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+      elLevelRewardReminderTrigger.setAttribute('aria-label', 'Level rewards');
+    }
+  }
+  if (elLevelRewardAcknowledge) {
+    elLevelRewardAcknowledge.disabled = pendingCount === 0;
+  }
+}
+
 function renderLevelRewardReminders() {
   const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
   const completed = levelProgressState?.completedRewardIds instanceof Set
     ? levelProgressState.completedRewardIds
     : new Set(Array.isArray(levelProgressState?.completedRewardIds) ? levelProgressState.completedRewardIds : []);
   const pendingTasks = [];
-  if (elLevelRewardList) {
-    elLevelRewardList.innerHTML = '';
+  if (elLevelRewardModalList) {
+    elLevelRewardModalList.innerHTML = '';
   }
   tasks.forEach(task => {
     const isCompleted = completed.has(task.id);
     if (!isCompleted) pendingTasks.push(task);
-    if (!elLevelRewardList) return;
+    if (!elLevelRewardModalList) return;
     const li = document.createElement('li');
     const label = document.createElement('label');
     label.className = 'inline';
@@ -10595,23 +10662,40 @@ function renderLevelRewardReminders() {
     label.appendChild(checkbox);
     label.appendChild(text);
     li.appendChild(label);
-    elLevelRewardList.appendChild(li);
+    elLevelRewardModalList.appendChild(li);
   });
 
   const hasTasks = tasks.length > 0;
-  if (elLevelRewardList) {
-    toggleEmptyState(elLevelRewardList, hasTasks);
+  if (elLevelRewardModalList) {
+    toggleEmptyState(elLevelRewardModalList, hasTasks);
   }
-  if (elLevelRewardsCard && typeof elLevelRewardsCard.setAttribute === 'function') {
-    if (hasTasks && pendingTasks.length) {
-      elLevelRewardsCard.setAttribute('data-pending', 'true');
-    } else if (typeof elLevelRewardsCard.removeAttribute === 'function') {
-      elLevelRewardsCard.removeAttribute('data-pending');
-    }
-  }
+
+  updateLevelRewardReminderUI(pendingTasks.length);
+
   const pendingStatCount = pendingTasks.filter(task => task.type === 'stat').length;
   updateStatIncreaseReminder(pendingStatCount);
   updateLevelChoiceHighlights(pendingTasks);
+}
+
+function acknowledgePendingLevelRewards() {
+  const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
+  if (!(levelProgressState.completedRewardIds instanceof Set)) {
+    levelProgressState.completedRewardIds = new Set(
+      Array.isArray(levelProgressState.completedRewardIds) ? levelProgressState.completedRewardIds : []
+    );
+  }
+  let updated = false;
+  tasks.forEach(task => {
+    if (!levelProgressState.completedRewardIds.has(task.id)) {
+      levelProgressState.completedRewardIds.add(task.id);
+      updated = true;
+    }
+  });
+  if (updated) {
+    persistLevelProgressState();
+  }
+  renderLevelRewardReminders();
+  hide('modal-level-rewards');
 }
 
 function handleAugmentAdd(id) {
