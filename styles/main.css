@@ -6452,10 +6452,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  overscroll-behavior: contain;
   padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -6512,7 +6508,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: var(--player-tools-safe-area, max(8px, env(safe-area-inset-top)));
   z-index: 2;
   isolation: isolate;
 }
@@ -6554,12 +6550,14 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-area: max(8px, env(safe-area-inset-top));
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
   padding: clamp(20px, 4.2vw, 30px);
+  padding-block-start: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
+  scroll-padding-top: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -6794,8 +6792,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -6846,7 +6842,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: var(--player-tools-safe-area, max(8px, env(safe-area-inset-top)));
   z-index: 2;
   isolation: isolate;
 }
@@ -6888,12 +6884,14 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-area: max(8px, env(safe-area-inset-top));
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
   padding: clamp(20px, 4.2vw, 30px);
+  padding-block-start: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
+  scroll-padding-top: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -7128,8 +7126,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -7180,7 +7176,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: var(--player-tools-safe-area, max(8px, env(safe-area-inset-top)));
   z-index: 2;
   isolation: isolate;
 }
@@ -7222,12 +7218,14 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-area: max(8px, env(safe-area-inset-top));
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
   padding: clamp(20px, 4.2vw, 30px);
+  padding-block-start: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
+  scroll-padding-top: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
@@ -7462,8 +7460,6 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   padding: clamp(20px, 4vw, 34px) clamp(18px, 4vw, 28px);
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
@@ -7514,7 +7510,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   backdrop-filter: blur(18px) saturate(160%);
   color: rgba(214, 230, 255, 0.92);
   position: sticky;
-  top: clamp(20px, 4vw, 34px);
+  top: var(--player-tools-safe-area, max(8px, env(safe-area-inset-top)));
   z-index: 2;
   isolation: isolate;
 }
@@ -7556,12 +7552,14 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 .player-tools-phone__screen {
+  --player-tools-safe-area: max(8px, env(safe-area-inset-top));
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 3.6vw, 24px);
   padding: clamp(20px, 4.2vw, 30px);
+  padding-block-start: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
+  scroll-padding-top: calc(clamp(20px, 4.2vw, 30px) + var(--player-tools-safe-area));
   border-radius: clamp(26px, 6vw, 34px);
   background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
   box-shadow:
