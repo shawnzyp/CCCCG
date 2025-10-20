@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const CURRENT_FILE = fileURLToPath(import.meta.url);
 const ROOT = process.cwd();
-const SOURCE = path.join(ROOT, 'images', 'b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4');
+const SOURCE = path.join(ROOT, 'images', 'b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mov');
 const OUTPUT_DIR = path.join(ROOT, 'media');
 const OUTPUTS = [
   {
