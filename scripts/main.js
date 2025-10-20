@@ -7614,6 +7614,9 @@ const tickerToggle = tickerDrawer ? tickerDrawer.querySelector('[data-ticker-tog
 if(tickerDrawer && tickerPanel && tickerToggle){
   const panelInner = tickerPanel.querySelector('.ticker-drawer__panel-inner');
   const toggleLabel = tickerToggle.querySelector('[data-ticker-toggle-label]');
+  const toggleIcon = tickerToggle.querySelector('[data-ticker-icon]');
+  const TICKER_ICON_OPEN_SRC = 'images/caret (1).png';
+  const TICKER_ICON_CLOSED_SRC = 'images/caret.png';
   const sanitizePanelHeight = value => {
     if(typeof value === 'number' && Number.isFinite(value)){
       return value;
@@ -7704,8 +7707,19 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     }
   };
 
+  const setToggleIcon = nextOpen => {
+    if(!toggleIcon){
+      return;
+    }
+    const nextSrc = nextOpen ? TICKER_ICON_OPEN_SRC : TICKER_ICON_CLOSED_SRC;
+    if(toggleIcon.getAttribute('src') !== nextSrc){
+      toggleIcon.setAttribute('src', nextSrc);
+    }
+  };
+
   const updateToggleState = nextOpen => {
     updateAccessibilityState(nextOpen);
+    setToggleIcon(nextOpen);
   };
 
   const finalizeAnimation = () => {
