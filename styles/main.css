@@ -1154,33 +1154,6 @@ header .tab svg{
   position:relative;
 }
 
-.decrypted-variant__char--holographic,
-.decrypted-variant__char--holographic-scrambling{
-  position:relative;
-}
-
-.decrypted-variant--holographic{
-  --decrypted-text-color:color-mix(in srgb,var(--text) 25%,var(--accent) 75%);
-  --decrypted-gradient:linear-gradient(
-    128deg,
-    color-mix(in srgb,var(--accent) 85%,transparent) 0%,
-    color-mix(in srgb,var(--accent) 70%,var(--text) 20%) 32%,
-    color-mix(in srgb,var(--accent) 65%,var(--muted) 25%) 56%,
-    color-mix(in srgb,var(--accent) 90%,transparent) 100%
-  );
-  --decrypted-gradient-size:280% 280%;
-  --decrypted-text-shadow:
-    0 0 10px color-mix(in srgb,var(--accent) 55%,transparent),
-    0 0 24px color-mix(in srgb,var(--accent) 45%,transparent),
-    0 0 48px color-mix(in srgb,var(--accent) 35%,transparent);
-  --decrypted-filter:drop-shadow(0 0 18px color-mix(in srgb,var(--accent) 50%,transparent)) drop-shadow(0 0 38px color-mix(in srgb,var(--accent) 35%,transparent));
-  --decrypted-scramble-text-shadow:
-    0 0 14px color-mix(in srgb,var(--accent) 65%,transparent),
-    0 0 34px color-mix(in srgb,var(--accent) 45%,transparent);
-  --decrypted-scramble-filter:drop-shadow(0 0 24px color-mix(in srgb,var(--accent) 55%,transparent));
-  --decrypted-scramble-opacity:.68;
-}
-
 [data-animate-title]{
   font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);word-spacing:var(--title-word-spacing);
 }
