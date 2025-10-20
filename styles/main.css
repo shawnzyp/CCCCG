@@ -4571,6 +4571,16 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 .ability-grid{display:grid;gap:clamp(10px,3vw,16px);grid-template-columns:repeat(auto-fit,minmax(clamp(140px,36vw,200px),1fr))}
 #abil-grid{grid-template-columns:repeat(auto-fit,minmax(clamp(96px,26vw,140px),1fr))}
 
+/* Ensure abilities tab cards remain opaque against the background art */
+fieldset[data-tab="abilities"].card,
+fieldset[data-tab="abilities"].card .card{
+  background:linear-gradient(155deg,var(--surface-2) 0%,var(--surface) 82%);
+}
+
+fieldset[data-tab="abilities"] .ability-box{
+  background:linear-gradient(160deg,var(--surface-2) 0%,var(--surface) 100%);
+}
+
 .ability-box{
   border:1px solid var(--line);
   border-radius:var(--radius);
