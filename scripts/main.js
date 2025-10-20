@@ -9258,6 +9258,8 @@ const elSPSettingsToggle = $('sp-settings-toggle');
 const spSettingsOverlay = $('modal-sp-settings');
 const elAugmentSelectedList = $('augment-selected-list');
 const elAugmentAvailableList = $('augment-available-list');
+const elAugmentPickerOverlay = $('modal-augment-picker');
+const elAugmentPickerOpenButton = $('augment-picker-open');
 
 const parseGaugeNumber = value => {
   const numeric = Number(value);
@@ -9283,8 +9285,9 @@ let deathGaugeOverride = null;
 let deathGaugeRollResetTimer = null;
 const elAugmentSlotSummary = $('augment-slot-summary');
 const elAugmentSearch = $('augment-search');
-const augmentFilterButtons = Array.from(qsa('.augment-filter'));
+const augmentFilterButtons = Array.from(qsa('#modal-augment-picker .augment-filter'));
 const elAugmentStateInput = $('augment-state');
+let augmentPickerDirty = true;
 const elLevelProgressInput = $('level-progress-state');
 const elLevelRewardList = $('level-reward-reminders');
 const elLevelRewardsCard = $('card-level-rewards');
@@ -9301,6 +9304,22 @@ augmentFilterButtons.forEach(button => {
   if (!button) return;
   button.addEventListener('click', () => handleAugmentFilterToggle(button.dataset?.augmentTag));
 });
+
+if (elAugmentPickerOpenButton) {
+  elAugmentPickerOpenButton.addEventListener('click', () => {
+    show('modal-augment-picker');
+    renderAugmentPicker(true);
+    elAugmentPickerOpenButton.setAttribute('aria-expanded', 'true');
+  });
+}
+
+if (elAugmentPickerOverlay && elAugmentPickerOpenButton) {
+  elAugmentPickerOverlay.addEventListener('transitionend', event => {
+    if (event.target === elAugmentPickerOverlay && elAugmentPickerOverlay.classList.contains('hidden')) {
+      elAugmentPickerOpenButton.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
 
 let casterAbilityManuallySet = false;
 let lastCasterAbilitySuggestions = [];
@@ -10407,8 +10426,13 @@ function renderSelectedAugments() {
   }
 }
 
-function renderAugmentPicker() {
+function renderAugmentPicker(force = false) {
   if (!elAugmentAvailableList) return;
+  if (!force && !augmentPickerDirty) return;
+  if (!force && elAugmentPickerOverlay && elAugmentPickerOverlay.classList.contains('hidden')) {
+    return;
+  }
+  augmentPickerDirty = false;
   elAugmentAvailableList.innerHTML = '';
   const results = getAugmentSearchResults();
   const earned = getAugmentSlotsEarned();
@@ -10483,6 +10507,22 @@ function renderAugmentPicker() {
   }
 }
 
+function markAugmentPickerDirty() {
+  augmentPickerDirty = true;
+  if (elAugmentPickerOverlay && !elAugmentPickerOverlay.classList.contains('hidden')) {
+    renderAugmentPicker();
+  }
+}
+
+function updateAugmentPickerTrigger() {
+  if (!elAugmentPickerOpenButton) return;
+  const earned = getAugmentSlotsEarned();
+  const used = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
+  const canSelectMore = earned > used;
+  elAugmentPickerOpenButton.disabled = !canSelectMore;
+  elAugmentPickerOpenButton.textContent = canSelectMore ? 'Add Augment' : 'No Slots';
+}
+
 function renderAugmentFilters() {
   if (!augmentFilterButtons.length) return;
   const active = augmentState?.filters instanceof Set ? augmentState.filters : new Set();
@@ -10506,8 +10546,9 @@ function refreshAugmentUI() {
   }
   renderAugmentFilters();
   renderSelectedAugments();
-  renderAugmentPicker();
   updateAugmentSlotSummary();
+  updateAugmentPickerTrigger();
+  markAugmentPickerDirty();
 }
 
 function updateLevelChoiceHighlights(pendingTasks = []) {
