@@ -1502,8 +1502,9 @@ const FUN_TICKER_DURATION_MS = Math.round(BASE_TICKER_DURATION_MS * FUN_TICKER_S
 
 const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 
-const LAUNCH_MIN_VISIBLE = 1800;
-const LAUNCH_MAX_WAIT = 12000;
+const LAUNCH_DURATION_MS = 8000;
+const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
+const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
 const WELCOME_MODAL_PREFERENCE_KEY = 'cc:welcome-modal:hidden';
@@ -1511,6 +1512,7 @@ const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
 const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
 let welcomeModalQueued = false;
+let welcomeModalPrepared = false;
 let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
 
@@ -1539,6 +1541,20 @@ function getWelcomeModal() {
   } catch {
     return null;
   }
+}
+
+function prepareWelcomeModal() {
+  const modal = getWelcomeModal();
+  if (!modal) return null;
+  if (!welcomeModalPrepared) {
+    welcomeModalPrepared = true;
+    try {
+      void modal.offsetHeight;
+    } catch {
+      /* ignore reflow errors */
+    }
+  }
+  return modal;
 }
 
 function lockTouchControls() {
@@ -1589,14 +1605,21 @@ function unlockTouchControls({ immediate = false } = {}) {
   }
 }
 
-function maybeShowWelcomeModal() {
-  const modal = getWelcomeModal();
+function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
+  const modal = prepareWelcomeModal();
   if (!modal) {
     unlockTouchControls({ immediate: true });
     return;
   }
   if (welcomeModalDismissed) {
     unlockTouchControls({ immediate: true });
+    return;
+  }
+  if (backgroundOnly) {
+    return;
+  }
+  const body = typeof document !== 'undefined' ? document.body : null;
+  if (body && body.classList.contains('launching')) {
     return;
   }
   const wasHidden = modal.classList.contains('hidden');
@@ -1615,10 +1638,19 @@ function dismissWelcomeModal() {
   unlockTouchControls();
 }
 
-function queueWelcomeModal({ immediate = false } = {}) {
+function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   if (welcomeModalDismissed) {
-    unlockTouchControls();
+    const body = typeof document !== 'undefined' ? document.body : null;
+    if (!body || !body.classList.contains('launching')) {
+      unlockTouchControls();
+    }
     return;
+  }
+  if (preload) {
+    maybeShowWelcomeModal({ backgroundOnly: true });
+    if (!immediate) {
+      return;
+    }
   }
   if (immediate) {
     maybeShowWelcomeModal();
@@ -1643,7 +1675,7 @@ function queueWelcomeModal({ immediate = false } = {}) {
   }
 
   lockTouchControls();
-  queueWelcomeModal({ immediate: true });
+  queueWelcomeModal({ preload: true });
 
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
@@ -1695,6 +1727,7 @@ function queueWelcomeModal({ immediate = false } = {}) {
 
   const finalizeReveal = () => {
     body.classList.remove('launching');
+    queueWelcomeModal({ immediate: true });
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
       window.setTimeout(cleanupLaunchShell, 1000);
@@ -1706,7 +1739,6 @@ function queueWelcomeModal({ immediate = false } = {}) {
     revealCalled = true;
     detachMessaging();
     cleanupUserGestures();
-    queueWelcomeModal({ immediate: true });
     if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
       try {
         delete window.__resetLaunchVideo;
@@ -1872,6 +1904,11 @@ function queueWelcomeModal({ immediate = false } = {}) {
   const finalizeLaunch = () => {
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
+    try {
+      video.pause();
+    } catch {
+      /* ignore inability to pause */
+    }
     notifyServiceWorkerVideoPlayed();
     revealApp();
   };
@@ -1886,8 +1923,10 @@ function queueWelcomeModal({ immediate = false } = {}) {
   window.addEventListener('launch-animation-skip', finalizeLaunch, { once: true });
 
   const scheduleFallback = delay => {
+    const rawDelay = typeof delay === 'number' && Number.isFinite(delay) ? delay : LAUNCH_MIN_VISIBLE;
+    const clampedDelay = Math.min(Math.max(rawDelay, LAUNCH_MIN_VISIBLE), LAUNCH_MAX_WAIT);
     fallbackTimer = clearTimer(fallbackTimer);
-    fallbackTimer = window.setTimeout(finalizeLaunch, delay);
+    fallbackTimer = window.setTimeout(finalizeLaunch, clampedDelay);
   };
 
   function attemptPlayback(){
@@ -1947,9 +1986,10 @@ function queueWelcomeModal({ immediate = false } = {}) {
       playbackStartedAt = performance.now();
     }
     cleanupUserGestures();
-    const durationMs = Number.isFinite(video.duration) && video.duration > 0 ? (video.duration * 1000) + 500 : LAUNCH_MAX_WAIT;
-    const fallbackDelay = Math.max(durationMs, LAUNCH_MAX_WAIT);
-    scheduleFallback(fallbackDelay);
+    const naturalDuration = Number.isFinite(video.duration) && video.duration > 0
+      ? (video.duration * 1000) + 500
+      : LAUNCH_MAX_WAIT;
+    scheduleFallback(naturalDuration);
   };
 
   const handlePause = () => {
@@ -6871,9 +6911,11 @@ if (btnMenu && menuActions) {
 
   const setMenuState = state => {
     [menuToggleContainer, menuSurfaceContainer, menuActions].forEach(el => {
-      if (!el) return;
-      el.dataset.state = state;
-      if (state === 'open' || state === 'closed') {
+      if (!el || typeof el !== 'object') return;
+      if (el.dataset) {
+        el.dataset.state = state;
+      }
+      if ((state === 'open' || state === 'closed') && typeof el.removeAttribute === 'function') {
         el.removeAttribute('data-loading');
       }
     });
@@ -8009,7 +8051,7 @@ function updateAbilityCardVisualState(targetEl, {
   progressMin = -5,
   progressMax = 20,
 } = {}) {
-  if (!targetEl) return;
+  if (!targetEl || typeof targetEl.closest !== 'function') return;
   const card = targetEl.closest('.ability-card');
   if (!card) return;
 
@@ -8940,14 +8982,24 @@ function toggleEmptyState(listEl, hasItems) {
   if (!listEl) return;
   const emptyEl = getEmptyStateElement(listEl);
   const showEmpty = !hasItems;
-  listEl.hidden = showEmpty;
-  if (emptyEl) {
+  if ('hidden' in listEl) {
+    listEl.hidden = showEmpty;
+  }
+  if (emptyEl && 'hidden' in emptyEl) {
     emptyEl.hidden = !showEmpty;
   }
   if (showEmpty) {
-    listEl.setAttribute('data-empty', 'true');
+    if (typeof listEl.setAttribute === 'function') {
+      listEl.setAttribute('data-empty', 'true');
+    } else if (listEl.dataset) {
+      listEl.dataset.empty = 'true';
+    }
   } else {
-    listEl.removeAttribute('data-empty');
+    if (typeof listEl.removeAttribute === 'function') {
+      listEl.removeAttribute('data-empty');
+    } else if (listEl.dataset) {
+      delete listEl.dataset.empty;
+    }
   }
 }
 
@@ -9075,10 +9127,14 @@ const parseGaugeNumber = value => {
   return Number.isFinite(numeric) ? numeric : 0;
 };
 
-const elHPTracker = elHPBar ? elHPBar.closest('.tracker-progress') : null;
-const elSPTracker = elSPBar ? elSPBar.closest('.tracker-progress') : null;
-const elHPProgressValue = elHPPill ? elHPPill.querySelector('.tracker-progress__value') : null;
-const elSPProgressValue = elSPPill ? elSPPill.querySelector('.tracker-progress__value') : null;
+const resolveTracker = el => (el && typeof el.closest === 'function') ? el.closest('.tracker-progress') : null;
+const resolveProgressValue = el => (el && typeof el.querySelector === 'function')
+  ? el.querySelector('.tracker-progress__value')
+  : null;
+const elHPTracker = resolveTracker(elHPBar);
+const elSPTracker = resolveTracker(elSPBar);
+const elHPProgressValue = resolveProgressValue(elHPPill);
+const elSPProgressValue = resolveProgressValue(elSPPill);
 
 let hpGaugeMetrics = {
   current: elHPBar ? parseGaugeNumber(elHPBar.value) : 0,
@@ -9865,8 +9921,12 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts
   const statusColor = statusColorOverride || fallbackStatusColor || baseColor;
   const color = colorOverride || statusColorOverride || fallbackStatusColor || baseColor;
   const percentValue = Math.round(ratioValue * 100);
-  const trackerEl = progressEl.closest('.tracker-progress');
-  const progressContainer = progressEl.parentElement;
+  const trackerEl = resolveTracker ? resolveTracker(progressEl) : (progressEl && typeof progressEl.closest === 'function'
+    ? progressEl.closest('.tracker-progress')
+    : null);
+  const progressContainer = progressEl && typeof progressEl.parentElement !== 'undefined'
+    ? progressEl.parentElement
+    : null;
   const applyProgressVars = target => {
     if (!target || typeof target.style?.setProperty !== 'function') return;
     target.style.setProperty('--progress-color', color);
@@ -9879,28 +9939,40 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts
   if (progressEl.dataset) progressEl.dataset.status = status;
   if (progressContainer && progressContainer !== progressEl) {
     applyProgressVars(progressContainer);
-    progressContainer.dataset.status = status;
+    if (progressContainer.dataset) {
+      progressContainer.dataset.status = status;
+    }
   }
   if (trackerEl && trackerEl !== progressContainer && trackerEl !== progressEl) {
     applyProgressVars(trackerEl);
-    trackerEl.dataset.status = status;
+    if (trackerEl.dataset) {
+      trackerEl.dataset.status = status;
+    }
   }
   if (labelEl) {
     applyProgressVars(labelEl);
-    labelEl.dataset.status = status;
+    if (labelEl.dataset) {
+      labelEl.dataset.status = status;
+    }
     const statusLabel = statusLabelOverride || TRACKER_STATUS_LABELS[status] || '';
     const statusEl = labelEl.querySelector('.tracker-progress__status');
     if (statusEl) {
       statusEl.textContent = statusLabel;
-      statusEl.dataset.status = status;
-      statusEl.hidden = statusLabel.length === 0;
+      if (statusEl.dataset) {
+        statusEl.dataset.status = status;
+      }
+      if ('hidden' in statusEl) {
+        statusEl.hidden = statusLabel.length === 0;
+      }
       if (typeof statusEl.style?.setProperty === 'function') {
         statusEl.style.setProperty('--tracker-status-color', statusColor);
       }
     }
   }
-  const valueContainer = progressEl.closest('.hp-field__status, .sp-field__status');
-  if (valueContainer) {
+  const valueContainer = progressEl && typeof progressEl.closest === 'function'
+    ? progressEl.closest('.hp-field__status, .sp-field__status')
+    : null;
+  if (valueContainer && typeof valueContainer.querySelectorAll === 'function') {
     valueContainer.querySelectorAll('.hp-field__value, .sp-field__value').forEach(applyProgressVars);
   }
   return {
@@ -10305,23 +10377,35 @@ function updateLevelChoiceHighlights(pendingTasks = []) {
   const pendingTypes = new Set(Array.isArray(pendingTasks) ? pendingTasks.map(task => task?.type).filter(Boolean) : []);
   if (elAbilityCard) {
     if (pendingTypes.has('stat')) {
-      elAbilityCard.setAttribute('data-level-choice', 'stat');
+      if (typeof elAbilityCard.setAttribute === 'function') {
+        elAbilityCard.setAttribute('data-level-choice', 'stat');
+      }
     } else {
-      elAbilityCard.removeAttribute('data-level-choice');
+      if (typeof elAbilityCard.removeAttribute === 'function') {
+        elAbilityCard.removeAttribute('data-level-choice');
+      }
     }
   }
   if (elPowersCard) {
     if (pendingTypes.has('power-evolution') || pendingTypes.has('evolution-choice') || pendingTypes.has('signature-evolution')) {
-      elPowersCard.setAttribute('data-level-choice', 'power');
+      if (typeof elPowersCard.setAttribute === 'function') {
+        elPowersCard.setAttribute('data-level-choice', 'power');
+      }
     } else {
-      elPowersCard.removeAttribute('data-level-choice');
+      if (typeof elPowersCard.removeAttribute === 'function') {
+        elPowersCard.removeAttribute('data-level-choice');
+      }
     }
   }
   if (elStoryCard) {
     if (pendingTypes.has('transcendent-trait')) {
-      elStoryCard.setAttribute('data-level-choice', 'story');
+      if (typeof elStoryCard.setAttribute === 'function') {
+        elStoryCard.setAttribute('data-level-choice', 'story');
+      }
     } else {
-      elStoryCard.removeAttribute('data-level-choice');
+      if (typeof elStoryCard.removeAttribute === 'function') {
+        elStoryCard.removeAttribute('data-level-choice');
+      }
     }
   }
 }
@@ -11553,12 +11637,6 @@ function queueDmNotification(message, meta = {}) {
 }
 
 function stashForcedRefreshState() {
-  try {
-    sessionStorage.setItem(SKIP_LAUNCH_STORAGE_KEY, '1');
-  } catch (err) {
-    // ignore storage errors but continue capturing state when possible
-  }
-
   let snapshot = null;
   try {
     snapshot = serialize();
