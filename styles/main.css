@@ -1281,6 +1281,7 @@ label[data-animate-title]{
   --tab-icon-secondary:color-mix(in srgb,var(--tab-icon-primary) 72%, transparent);
   --tab-icon-highlight:color-mix(in srgb,var(--tab-icon-primary) 86%, #ffffff 14%);
   --tab-icon-glow:color-mix(in srgb,var(--tab-icon-primary) 42%, transparent);
+  --tab-icon-click-duration:.6s;
 }
 
 .tabs .tab:focus-visible{
@@ -1311,13 +1312,8 @@ label[data-animate-title]{
   pointer-events:none;
 }
 
-.tabs .tab .tab__icon [data-tab-icon-player]{
-  position:absolute;
-  inset:0;
-  width:var(--tab-icon-size);
-  height:var(--tab-icon-size);
-  display:block;
-  pointer-events:none;
+.tabs .tab .tab__icon.tab__icon--animating canvas{
+  animation:tabIconClick var(--tab-icon-click-duration) var(--transition-ease-emphasized) forwards;
 }
 
 .tabs .tab .tab__icon svg [data-secondary]{
@@ -1403,6 +1399,25 @@ body:not(.no-hover) .tabs .tab:hover .tab__icon canvas{
 .tabs .tab.active .tab__icon canvas{
   transform:translateY(-1px);
   filter:drop-shadow(0 8px 20px var(--tab-icon-glow));
+}
+
+@keyframes tabIconClick{
+  0%{
+    transform:translateY(-1px) scale(1);
+    filter:drop-shadow(0 8px 20px var(--tab-icon-glow));
+  }
+  40%{
+    transform:translateY(-4px) scale(1.12);
+    filter:drop-shadow(0 16px 26px var(--tab-icon-glow));
+  }
+  65%{
+    transform:translateY(0) scale(.94);
+    filter:drop-shadow(0 6px 12px var(--tab-icon-glow));
+  }
+  100%{
+    transform:translateY(-1px) scale(1);
+    filter:drop-shadow(0 8px 20px var(--tab-icon-glow));
+  }
 }
 
 @media (prefers-reduced-motion:reduce){
