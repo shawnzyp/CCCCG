@@ -2919,6 +2919,33 @@ if (themeSpinnerEl) {
     themeSpinnerEl.classList.remove('theme-toggle__spinner--spinning');
   });
 }
+const themeOverlayStyle = root ? root.style : null;
+
+const normalizeThemeOverlayUrl = imagePath => {
+  if (typeof imagePath !== 'string') return null;
+  const trimmed = imagePath.trim();
+  if (!trimmed) return null;
+  if (/^url\(/i.test(trimmed)) return trimmed;
+  const escaped = trimmed.replace(/["'\\)]/g, match => `\\${match}`);
+  return `url('${escaped}')`;
+};
+
+const applyThemeOverlayStyles = (imagePath, tokens = []) => {
+  if (!themeOverlayStyle) return;
+  const urlValue = normalizeThemeOverlayUrl(imagePath);
+  if (!urlValue) return;
+  const backgroundValue = `var(--bg-color) ${urlValue} center/cover no-repeat`;
+  themeOverlayStyle.setProperty('--bg-image-set', `image-set(${urlValue} type('image/png') 1x)`);
+  tokens.forEach(token => {
+    if (typeof token !== 'string' || !token.startsWith('--bg')) return;
+    if (token === '--bg') {
+      themeOverlayStyle.setProperty(token, backgroundValue);
+    } else {
+      themeOverlayStyle.setProperty(token, urlValue);
+    }
+  });
+};
+
 const THEMES = ['dark', 'light', 'high', 'forest', 'ocean', 'mutant', 'enhanced', 'magic', 'alien', 'mystic'];
 const THEME_LABELS = {
   dark: 'Dark',
@@ -3055,6 +3082,7 @@ function applyTheme(t, { animate = true } = {}){
   if (themeTokens && themeTokens.overlay) {
     root.dataset.themeOverlayTokens = themeTokens.overlay.imageTokens.join(',');
     root.dataset.themeOverlayImage = themeTokens.overlay.backgroundImage;
+    applyThemeOverlayStyles(themeTokens.overlay.backgroundImage, themeTokens.overlay.imageTokens);
   }
   if (themeTokens && themeTokens.accentVars) {
     root.dataset.themeAccentVars = themeTokens.accentVars.join(',');
