@@ -28,6 +28,10 @@ function processNode(node) {
 function initializeSpaceSupport() {
   processNode(document.body);
 
+  if (typeof MutationObserver !== 'function') {
+    return;
+  }
+
   const observer = new MutationObserver(mutations => {
     for (const mutation of mutations) {
       if (mutation.type === 'characterData') {
