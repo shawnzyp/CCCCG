@@ -66,6 +66,11 @@ function createPlayerToolsDrawer() {
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
   const content = drawer.querySelector('[data-player-tools-content]');
 
+  const motionPreference =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-reduced-motion: reduce)')
+      : null;
+
   const body = document.body;
   const requestFrame =
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
@@ -154,7 +159,7 @@ function createPlayerToolsDrawer() {
     openAnimationCompletion = null;
   };
 
-  const isMotionReduced = () => false;
+  const isMotionReduced = () => motionPreference?.matches === true;
 
   const animateOpenProgress = (target, onComplete) => {
     const destination = clamp(target, 0, 1);
@@ -210,7 +215,8 @@ function createPlayerToolsDrawer() {
   const applyTabTopProperty = () => {
     if (!tab) return;
     const viewport = window.visualViewport;
-    const tabHeight = tab.getBoundingClientRect().height || 0;
+    const rect = typeof tab.getBoundingClientRect === 'function' ? tab.getBoundingClientRect() : null;
+    const tabHeight = rect?.height || 0;
     const halfTab = tabHeight / 2;
 
     if (viewport) {
@@ -247,7 +253,8 @@ function createPlayerToolsDrawer() {
 
   const updateTabOffset = (width) => {
     if (!tab || !drawer) return;
-    const drawerWidth = typeof width === 'number' ? width : drawer.getBoundingClientRect().width;
+    const rect = typeof drawer.getBoundingClientRect === 'function' ? drawer.getBoundingClientRect() : null;
+    const drawerWidth = typeof width === 'number' ? width : rect?.width;
     if (!Number.isFinite(drawerWidth)) return;
     const direction = getDrawerSlideDirection();
     const offset = drawerWidth * direction * -1;

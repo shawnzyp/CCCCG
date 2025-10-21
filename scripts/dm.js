@@ -7020,9 +7020,6 @@ function initDMLogin(){
     window.dmNotify?.(`Catalog entry staged · ${typeLabel}: ${entryName}${recipientSuffix}`, {
       actionScope: 'minor',
     });
-    if (typeof console !== 'undefined' && typeof console.debug === 'function') {
-      console.debug('DM catalog payload prepared', payload);
-    }
     try {
       storeDmCatalogPayload(payload);
     } catch (err) {
@@ -7540,8 +7537,12 @@ function initDMLogin(){
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const ok = typeof res?.ok === 'boolean' ? res.ok : true;
+      if (!ok) {
+        const status = typeof res?.status === 'number' ? res.status : 'unknown';
+        throw new Error(`HTTP ${status}`);
+      }
+      const data = typeof res?.json === 'function' ? await res.json() : null;
       const id = typeof data?.name === 'string' ? data.name : null;
       if (id) {
         const normalized = normalizeStoredNotification(payload, { id, fallbackCreatedAt: createdAt });
@@ -7664,8 +7665,12 @@ function initDMLogin(){
     const legacyEntries = notifications.filter(entry => !entry?.id).map(entry => ({ ...entry }));
     try {
       const res = await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const snapshot = await res.json();
+      const ok = typeof res?.ok === 'boolean' ? res.ok : true;
+      if (!ok) {
+        const status = typeof res?.status === 'number' ? res.status : 'unknown';
+        throw new Error(`HTTP ${status}`);
+      }
+      const snapshot = typeof res?.json === 'function' ? await res.json() : null;
       cloudNotificationsState.available = true;
       applyCloudSnapshot(snapshot, { fallback: fallbackSnapshot });
       await enforceCloudNotificationLimit();

@@ -3565,11 +3565,16 @@ function realPlayTone(type){
   }
   playToneFallback(type);
 }
-let playToneOverride = null;
-let playToneImpl = realPlayTone;
-
 export function playTone(type) {
-  return playToneImpl(type);
+  const overrideFn = getOverrideFunction('playTone', playTone);
+  if (overrideFn) {
+    try {
+      return overrideFn(type);
+    } catch {
+      return undefined;
+    }
+  }
+  return realPlayTone(type);
 }
 let toastTimeout;
 let toastLastFocus = null;
@@ -3700,84 +3705,64 @@ function realToast(msg, type = 'info'){
   dispatchToastEvent('cc:toast-shown', { message: msg, options: opts });
 }
 
-let toastOverride = null;
-let toastImpl = realToast;
-
 export function toast(msg, type = 'info') {
-  return toastImpl(msg, type);
+  const result = realToast(msg, type);
+  const overrideFn = getOverrideFunction('toast', toast);
+  if (overrideFn) {
+    try {
+      overrideFn(msg, type);
+    } catch {
+      /* ignore override failures */
+    }
+  }
+  return result;
 }
 
-let dismissToastOverride = null;
-let dismissToastImpl = hideToastElement;
-
 export function dismissToast() {
-  return dismissToastImpl();
+  const overrideFn = getOverrideFunction('dismissToast', dismissToast);
+  if (overrideFn) {
+    try {
+      return overrideFn();
+    } catch {
+      return undefined;
+    }
+  }
+  return hideToastElement();
 }
 
 export default toast;
+function getOverrideFunction(name, original) {
+  if (typeof globalThis === 'undefined') return null;
+  const candidate = globalThis[name];
+  if (typeof candidate !== 'function') return null;
+  if (candidate === original) return null;
+  return candidate;
+}
 
-function installGlobalNotificationAccessors() {
-  const target = typeof window !== 'undefined'
-    ? window
-    : typeof globalThis !== 'undefined'
-      ? globalThis
-      : null;
-  if (!target) return;
-
-  const define = (name, getter, setter, assignExisting) => {
-    const existing = typeof target[name] === 'function' ? target[name] : null;
-    try {
-      Object.defineProperty(target, name, {
-        configurable: true,
-        get: getter,
-        set: setter,
-      });
-    } catch {
-      target[name] = getter();
+function ensureGlobalFunction(name, fn) {
+  const targets = [];
+  if (typeof window !== 'undefined') targets.push(window);
+  if (typeof globalThis !== 'undefined') targets.push(globalThis);
+  const seen = new Set();
+  targets.forEach(target => {
+    if (!target || seen.has(target)) return;
+    seen.add(target);
+    if (typeof target[name] !== 'function') {
+      try {
+        target[name] = fn;
+      } catch {
+        try {
+          Object.defineProperty(target, name, {
+            configurable: true,
+            writable: true,
+            value: fn,
+          });
+        } catch {}
+      }
     }
-    if (assignExisting && existing) {
-      assignExisting(existing);
-    }
-  };
-
-  define('toast', () => toastOverride || toast, value => {
-    if (typeof value === 'function') {
-      toastOverride = value;
-      toastImpl = value;
-    } else {
-      toastOverride = null;
-      toastImpl = realToast;
-    }
-  }, fn => {
-    toastOverride = fn;
-    toastImpl = fn;
-  });
-
-  define('dismissToast', () => dismissToastOverride || dismissToast, value => {
-    if (typeof value === 'function') {
-      dismissToastOverride = value;
-      dismissToastImpl = value;
-    } else {
-      dismissToastOverride = null;
-      dismissToastImpl = hideToastElement;
-    }
-  }, fn => {
-    dismissToastOverride = fn;
-    dismissToastImpl = fn;
-  });
-
-  define('playTone', () => playToneOverride || playTone, value => {
-    if (typeof value === 'function') {
-      playToneOverride = value;
-      playToneImpl = value;
-    } else {
-      playToneOverride = null;
-      playToneImpl = realPlayTone;
-    }
-  }, fn => {
-    playToneOverride = fn;
-    playToneImpl = fn;
   });
 }
 
-installGlobalNotificationAccessors();
+ensureGlobalFunction('toast', toast);
+ensureGlobalFunction('dismissToast', dismissToast);
+ensureGlobalFunction('playTone', playTone);

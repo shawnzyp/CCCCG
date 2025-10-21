@@ -5065,9 +5065,17 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
   subscribePlayerToolsDrawer(({ open }) => {
     if (elLevelRewardReminderTrigger) {
       if (open && levelRewardPendingCount > 0) {
-        elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
+        if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
+          elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
+        } else if (elLevelRewardReminderTrigger.dataset) {
+          elLevelRewardReminderTrigger.dataset.drawerOpen = 'true';
+        }
       } else {
-        elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+        if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
+          elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+        } else if (elLevelRewardReminderTrigger?.dataset) {
+          delete elLevelRewardReminderTrigger.dataset.drawerOpen;
+        }
       }
     }
     if (open) {
@@ -8405,7 +8413,8 @@ function resolveActionCueKey(actionKey) {
   if (Object.prototype.hasOwnProperty.call(AUDIO_CUE_SETTINGS, normalized)) {
     return normalized;
   }
-  if (typeof audioCueData?.has === 'function' && audioCueData.has(normalized)) {
+  const cueRegistry = typeof globalThis !== 'undefined' ? globalThis.audioCueData : undefined;
+  if (typeof cueRegistry?.has === 'function' && cueRegistry.has(normalized)) {
     return normalized;
   }
   return null;
