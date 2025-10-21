@@ -2,6 +2,14 @@
 
 (function(){
   const DEFAULT_CAMPAIGN_ID = 'ccampaign-001';
+  const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+  const canInvokeMedia = (el, method) => {
+    if (!el || typeof method !== 'string') return false;
+    const fn = el[method];
+    if (typeof fn !== 'function') return false;
+    if (IS_JSDOM_ENV) return false;
+    return true;
+  };
   const REALTIME_PATHS = {
     deck: () => 'shardDeck/deck',
     audits: () => 'shardDeck/audits',
@@ -1102,7 +1110,7 @@
 
     const fallbackPlay = () => {
       const el = fetchElement();
-      if (!el || typeof el.play !== 'function' || !el.src) return false;
+      if (!el || !canInvokeMedia(el, 'play') || !el.src) return false;
       try { el.currentTime = 0; }
       catch { /* ignore seek errors */ }
       el.play().catch(() => {});
@@ -2455,18 +2463,31 @@
       if (scope) data.scope = scope;
       if (targets.length) data.targets = targets;
       if (Number.isFinite(inviteTs)) data.inviteTs = inviteTs;
-      await signalsRef.set(data);
+      const ts = Date.now();
+      if (!signalsRef || typeof signalsRef.set !== 'function') {
         return {
-          key: signalsRef.key,
+          key: signalsRef && typeof signalsRef === 'object' && 'key' in signalsRef ? signalsRef.key : null,
           hidden: !!hidden,
-          ts: Date.now(),
+          ts,
           signalId,
           source,
           scope,
           targets,
-          inviteTs: Number.isFinite(inviteTs) ? inviteTs : Date.now(),
+          inviteTs: Number.isFinite(inviteTs) ? inviteTs : ts,
         };
       }
+      await signalsRef.set(data);
+      return {
+        key: signalsRef.key,
+        hidden: !!hidden,
+        ts,
+        signalId,
+        source,
+        scope,
+        targets,
+        inviteTs: Number.isFinite(inviteTs) ? inviteTs : ts,
+      };
+    }
 
     async getHidden() {
       const snap = await this.ref('hidden').get();
@@ -5046,9 +5067,9 @@
     playDmCue(type = 'info') {
       if (!this.shouldPlayDmAudio()) return;
       const audioEl = this.dom?.ping || document.getElementById('somfDM-ping');
-      if (audioEl && typeof audioEl.play === 'function') {
+      if (canInvokeMedia(audioEl, 'play')) {
         try {
-          if (typeof audioEl.pause === 'function') audioEl.pause();
+          if (canInvokeMedia(audioEl, 'pause')) audioEl.pause();
           if (Number.isFinite(audioEl.currentTime)) audioEl.currentTime = 0;
           const playback = audioEl.play();
           if (playback && typeof playback.catch === 'function') {

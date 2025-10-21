@@ -95,6 +95,7 @@ import {
 } from './offline-cache.js';
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
+const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
 
 if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
   const originalMatchMedia = window.matchMedia.bind(window);
@@ -1607,6 +1608,11 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   });
 }
 (async function setupLaunchAnimation(){
+  if (typeof document === 'undefined' || IS_JSDOM_ENV) {
+    unlockTouchControls();
+    queueWelcomeModal({ immediate: true });
+    return;
+  }
   const body = document.body;
   if(!body || !body.classList.contains('launching')){
     unlockTouchControls();
@@ -1770,7 +1776,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       appended = true;
     }
 
-    if(appended){
+    if(appended && !IS_JSDOM_ENV && typeof vid.load === 'function'){
       try {
         vid.load();
       } catch (err) {
@@ -1842,12 +1848,14 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   const finalizeLaunch = () => {
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
-    try {
-      video.pause();
-    } catch {
-      /* ignore inability to pause */
+    if(!IS_JSDOM_ENV){
+      try {
+        video.pause();
+      } catch {
+        /* ignore inability to pause */
+      }
+      notifyServiceWorkerVideoPlayed();
     }
-    notifyServiceWorkerVideoPlayed();
     revealApp();
   };
 
@@ -1898,10 +1906,12 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   }
 
   const resetPlayback = () => {
-    try {
-      video.pause();
-    } catch (err) {
-      // ignore inability to pause
+    if(!IS_JSDOM_ENV){
+      try {
+        video.pause();
+      } catch (err) {
+        // ignore inability to pause
+      }
     }
     try {
       if(video.readyState > 0){
@@ -3693,9 +3703,15 @@ if(m24nTrack && m24nText){
 
   async function loadHeadlines(){
     try{
+      if(typeof fetch !== 'function'){
+        throw new Error('fetch not supported');
+      }
       const res = await fetch('News.txt', { cache: 'no-store' });
-      if(!res || !res.ok){
-        throw new Error(`Failed to fetch headlines (${res ? res.status : 'no response'})`);
+      if(!res || typeof res.ok !== 'boolean'){
+        throw new TypeError('invalid response');
+      }
+      if(!res.ok){
+        throw new Error(`Failed to fetch headlines (${res.status})`);
       }
       const rawText = await res.text();
       const sets = [];
@@ -3728,7 +3744,9 @@ if(m24nTrack && m24nText){
       }
       buildRotation();
     }catch(err){
-      console.error('Failed to load MN24/7 ticker', err);
+      if(!err || (err.message !== 'fetch not supported' && err.name !== 'TypeError')){
+        console.error('Failed to load MN24/7 ticker', err);
+      }
       m24nText.textContent = 'MN24/7 feed temporarily offline.';
     }
   }
