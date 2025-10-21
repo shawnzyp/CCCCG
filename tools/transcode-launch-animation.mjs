@@ -48,7 +48,10 @@ async function transcodeLaunchAnimation() {
   try {
     await fs.access(SOURCE);
   } catch (err) {
-    throw new Error(`Source launch animation not found at ${path.relative(ROOT, SOURCE)}`);
+    const relativePath = path.relative(ROOT, SOURCE);
+    const details = err && err.message ? ` (${err.message})` : '';
+    console.warn(`Launch animation source missing at ${relativePath}, skipping transcode${details}.`);
+    return;
   }
 
   let ffmpegAvailable = true;

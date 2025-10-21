@@ -27,7 +27,8 @@ for (const { input, output } of FONTS) {
   const outputPath = path.join(OUTPUT_DIR, output);
 
   if (!fs.existsSync(inputPath)) {
-    throw new Error(`Missing source font: ${input}`);
+    console.warn(`Source font missing (${input}); skipping conversion.`);
+    continue;
   }
 
   const sourceBuffer = fs.readFileSync(inputPath);
