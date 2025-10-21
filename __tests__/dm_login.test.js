@@ -352,6 +352,85 @@ describe('dm login', () => {
     delete window.initSomfDM;
   });
 
+  test('async DM tool initialization failure is handled', async () => {
+    document.body.innerHTML = `
+        <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
+        <div id="dm-tools-menu" hidden>
+          <div id="dm-session-status" hidden></div>
+          <button id="dm-session-extend" hidden></button>
+        </div>
+        <button id="dm-tools-tsomf"></button>
+        <button id="dm-tools-logout"></button>
+        <div id="dm-login-modal" class="hidden" aria-hidden="true">
+          <input id="dm-login-pin">
+          <button id="dm-login-submit"></button>
+        </div>
+      `;
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+    const rejection = new Error('async fail');
+    window.initSomfDM = jest.fn(() => Promise.reject(rejection));
+
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      jest.unstable_mockModule('../scripts/storage.js', () => ({
+        saveLocal: jest.fn(),
+        loadLocal: jest.fn(async () => ({})),
+        listLocalSaves: jest.fn(() => []),
+        deleteSave: jest.fn(),
+        saveCloud: jest.fn(),
+        loadCloud: jest.fn(async () => ({})),
+        listCloudSaves: jest.fn(async () => []),
+        listCloudBackups: jest.fn(async () => []),
+        listCloudBackupNames: jest.fn(async () => []),
+        loadCloudBackup: jest.fn(async () => ({})),
+        saveCloudAutosave: jest.fn(),
+        listCloudAutosaves: jest.fn(async () => []),
+        listCloudAutosaveNames: jest.fn(async () => []),
+        loadCloudAutosave: jest.fn(async () => ({})),
+        deleteCloud: jest.fn(),
+        appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+        deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+        fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+        subscribeCampaignLog: () => null,
+        beginQueuedSyncFlush: () => {},
+        getLastSyncStatus: () => 'idle',
+        subscribeSyncStatus: () => () => {},
+        getQueuedCloudSaves: async () => [],
+        clearQueuedCloudSaves: async () => true,
+        subscribeSyncErrors: () => () => {},
+        subscribeSyncActivity: () => () => {},
+        subscribeSyncQueue: (cb) => {
+          if (typeof cb === 'function') {
+            try { cb(); } catch {}
+          }
+          return () => {};
+        },
+        getLastSyncActivity: () => null,
+      }));
+
+      await import('../scripts/modal.js');
+      await import('../scripts/dm.js');
+
+      const loginPromise = window.dmRequireLogin();
+      document.getElementById('dm-login-pin').value = '123123';
+      document.getElementById('dm-login-submit').click();
+      await loginPromise;
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(window.initSomfDM).toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledWith('Failed to init DM tools', rejection);
+    } finally {
+      consoleError.mockRestore();
+      delete window.toast;
+      delete window.dismissToast;
+      delete window.initSomfDM;
+    }
+  });
+
   test('falls back to prompt when modal elements missing', async () => {
     document.body.innerHTML = '';
     window.toast = jest.fn();
