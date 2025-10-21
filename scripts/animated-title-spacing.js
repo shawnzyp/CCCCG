@@ -26,7 +26,19 @@ function processNode(node) {
 }
 
 function initializeSpaceSupport() {
-  processNode(document.body);
+  const root = document.body;
+  if (!root) {
+    if (document.readyState !== 'loading') {
+      if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(initializeSpaceSupport);
+      } else if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') {
+        window.setTimeout(initializeSpaceSupport, 0);
+      }
+    }
+    return;
+  }
+
+  processNode(root);
 
   if (typeof MutationObserver !== 'function') {
     return;
@@ -47,7 +59,7 @@ function initializeSpaceSupport() {
     }
   });
 
-  observer.observe(document.body, {
+  observer.observe(root, {
     subtree: true,
     childList: true,
     characterData: true
