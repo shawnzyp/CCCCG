@@ -11468,8 +11468,20 @@ function handleDeletePower(card) {
 
 function createPowerEditorOverlay() {
   if (typeof document === 'undefined') return null;
-  if (document.getElementById('modal-power-editor')) {
-    return document.getElementById('modal-power-editor');
+  const existing = document.getElementById('modal-power-editor');
+  const isElement = typeof Element !== 'undefined' && existing instanceof Element;
+  if (existing && isElement) {
+    return existing;
+  }
+  if (existing && typeof existing === 'object' && 'parentNode' in existing) {
+    try {
+      const parent = existing.parentNode;
+      if (parent && typeof parent.removeChild === 'function') {
+        parent.removeChild(existing);
+      }
+    } catch {
+      /* ignore invalid cached nodes */
+    }
   }
   const body = document.body;
   if (!body) return null;
@@ -11530,7 +11542,8 @@ function createPowerEditorOverlay() {
 function ensurePowerEditorElements() {
   if (powerEditorState.overlay) return true;
   let overlay = $('modal-power-editor');
-  if (!overlay) {
+  const overlayIsElement = typeof Element !== 'undefined' && overlay instanceof Element;
+  if (!overlay || !overlayIsElement || typeof overlay.querySelector !== 'function') {
     overlay = createPowerEditorOverlay();
   }
   if (!overlay) return false;
@@ -11667,6 +11680,41 @@ function openPowerEditor(card, { isNew = false, targetList = null } = {}) {
   }
   const body = card.querySelector('.power-card__body');
   if (!body) return false;
+  if (!card._powerQuerySelector) {
+    const originalQuerySelector = card.querySelector.bind(card);
+    const originalQuerySelectorAll = card.querySelectorAll.bind(card);
+    Object.defineProperty(card, '_powerQuerySelector', {
+      value: {
+        query: originalQuerySelector,
+        queryAll: originalQuerySelectorAll,
+      },
+      configurable: true,
+      writable: true,
+    });
+    card.querySelector = function powerCardQuerySelector(selector) {
+      const direct = card._powerQuerySelector.query(selector);
+      if (direct) return direct;
+      if (powerEditorState.card === card && powerEditorState.content) {
+        return powerEditorState.content.querySelector(selector);
+      }
+      return null;
+    };
+    card.querySelectorAll = function powerCardQuerySelectorAll(selector) {
+      const combined = Array.from(card._powerQuerySelector.queryAll(selector));
+      if (powerEditorState.card === card && powerEditorState.content) {
+        const overlayMatches = powerEditorState.content.querySelectorAll(selector);
+        overlayMatches.forEach(node => {
+          if (!combined.includes(node)) {
+            combined.push(node);
+          }
+        });
+      }
+      if (typeof combined.item !== 'function') {
+        combined.item = index => combined[index] ?? null;
+      }
+      return combined;
+    };
+  }
   if (powerEditorState.card && powerEditorState.card !== card) {
     handlePowerEditorCancel();
   }
@@ -12904,10 +12952,12 @@ function setupPowerPresetMenu() {
         return;
       }
       const card = createCard('power', clonePresetData(data));
+      if (list && !card.isConnected) {
+        list.appendChild(card);
+      }
       hideMenu();
       const opened = openPowerEditor(card, { isNew: true, targetList: list });
       if (!opened) {
-        list.appendChild(card);
         pushHistory();
       }
       try { addBtn.focus(); } catch {}
@@ -13830,9 +13880,11 @@ $('add-sig').addEventListener('click', event => {
   const list = $('sigs');
   if (!list) return;
   const card = createCard('sig');
+  if (!card.isConnected) {
+    list.appendChild(card);
+  }
   const opened = openPowerEditor(card, { isNew: true, targetList: list });
   if (!opened) {
-    list.appendChild(card);
     pushHistory();
   }
 });
