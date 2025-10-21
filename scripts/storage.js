@@ -364,7 +364,25 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 
 // Direct fetch helper used by cloud save functions.
 async function cloudFetch(url, options = {}) {
-  return fetch(url, options);
+  const res = await fetch(url, options);
+  const ok = typeof res?.ok === 'boolean' ? res.ok : true;
+  const status = typeof res?.status === 'number' ? res.status : 200;
+  const json = typeof res?.json === 'function' ? res.json.bind(res) : async () => null;
+  const text = typeof res?.text === 'function' ? res.text.bind(res) : async () => '';
+  const arrayBuffer =
+    typeof res?.arrayBuffer === 'function' ? res.arrayBuffer.bind(res) : async () => new ArrayBuffer(0);
+  const blob = typeof res?.blob === 'function' ? res.blob.bind(res) : async () => new Blob();
+  const clone = typeof res?.clone === 'function' ? res.clone.bind(res) : undefined;
+  const headers = res?.headers ?? null;
+
+  const normalized = { ok, status, json, text, arrayBuffer, blob, headers, raw: res ?? null };
+  if (clone) {
+    normalized.clone = clone;
+  }
+  if (res?.url) {
+    normalized.url = res.url;
+  }
+  return normalized;
 }
 
 // Encode each path segment separately so callers can supply hierarchical
