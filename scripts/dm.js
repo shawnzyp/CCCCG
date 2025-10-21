@@ -36,6 +36,7 @@ const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS = 60 * 1000;
+const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 
 const DM_PIN_DEFAULT_DIGEST = 'SHA-256';
@@ -7886,6 +7887,16 @@ function initDMLogin(){
 
   function logDmInitError(error) {
     console.error('Failed to init DM tools', error);
+    try {
+      dismissToast();
+    } catch {
+      /* ignore */
+    }
+    try {
+      toast(DM_INIT_ERROR_MESSAGE, 'error');
+    } catch {
+      /* ignore */
+    }
   }
 
   function initTools(){

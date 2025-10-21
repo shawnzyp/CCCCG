@@ -347,6 +347,8 @@ describe('dm login', () => {
     expect(menu.hidden).toBe(true);
     toggle.click();
     expect(menu.hidden).toBe(false);
+    expect(window.toast).toHaveBeenCalledWith('Unable to initialize DM tools. Please try again.', 'error');
+    expect(window.dismissToast).toHaveBeenCalled();
     delete window.toast;
     delete window.dismissToast;
     delete window.initSomfDM;
@@ -423,6 +425,8 @@ describe('dm login', () => {
 
       expect(window.initSomfDM).toHaveBeenCalled();
       expect(consoleError).toHaveBeenCalledWith('Failed to init DM tools', rejection);
+      expect(window.toast).toHaveBeenCalledWith('Unable to initialize DM tools. Please try again.', 'error');
+      expect(window.dismissToast).toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
       delete window.toast;
