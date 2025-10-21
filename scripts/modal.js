@@ -3,7 +3,7 @@ import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launc
 
 function getInertTargets() {
   const targets = new Set();
-  qsa('body > :not(.overlay):not([data-launch-shell])').forEach(el => targets.add(el));
+  qsa('body > :not(.overlay):not([data-launch-shell]):not(#launch-animation)').forEach(el => targets.add(el));
   const shell = document.querySelector('[data-launch-shell]');
   if (shell) {
     qsa(':scope > :not(.overlay):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
