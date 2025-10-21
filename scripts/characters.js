@@ -624,7 +624,13 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
   const { data: normalized, changed } = normalizeCharacterData(data);
   if (changed) {
     try { await saveLocal(name, normalized); } catch {}
-    try { await saveCloud(name, normalized); } catch (e) { console.error('Cloud save failed', e); }
+    try {
+      await saveCloud(name, normalized);
+    } catch (e) {
+      if (e && e.message !== 'fetch not supported') {
+        console.error('Cloud save failed', e);
+      }
+    }
   }
   return normalized;
 }
@@ -637,7 +643,9 @@ export async function saveCharacter(data, name = currentCharacter()) {
   try {
     await saveCloud(name, normalized);
   } catch (e) {
-    console.error('Cloud save failed', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud save failed', e);
+    }
   }
   try {
     document.dispatchEvent(new CustomEvent('character-saved', { detail: name }));
@@ -656,7 +664,9 @@ export async function renameCharacter(oldName, newName, data) {
   try {
     await saveCloud(newName, normalized);
   } catch (e) {
-    console.error('Cloud save failed', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud save failed', e);
+    }
   }
   await movePin(oldName, newName);
   await deleteSave(oldName);
@@ -684,14 +694,22 @@ export async function deleteCharacter(name) {
     try { data = await loadCloud(name); } catch {}
   }
   if (data !== null) {
-    try { await saveCloud(name, data); } catch (e) { console.error('Cloud backup failed', e); }
+    try {
+      await saveCloud(name, data);
+    } catch (e) {
+      if (e && e.message !== 'fetch not supported') {
+        console.error('Cloud backup failed', e);
+      }
+    }
   }
   await deleteSave(name);
   await clearPin(name);
   try {
     await deleteCloud(name);
   } catch (e) {
-    console.error('Cloud delete failed', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Cloud delete failed', e);
+    }
   }
   try {
     document.dispatchEvent(new CustomEvent('character-deleted', { detail: name }));
@@ -723,7 +741,13 @@ export async function loadBackup(name, ts, type = 'manual') {
   const { data: normalized, changed } = normalizeCharacterData(data);
   try { await saveLocal(name, normalized); } catch {}
   if (changed) {
-    try { await saveCloud(name, normalized); } catch (e) { console.error('Cloud save failed', e); }
+    try {
+      await saveCloud(name, normalized);
+    } catch (e) {
+      if (e && e.message !== 'fetch not supported') {
+        console.error('Cloud save failed', e);
+      }
+    }
   }
   return normalized;
 }
@@ -737,7 +761,9 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
     } catch {}
     return ts;
   } catch (e) {
-    console.error('Failed to autosave character', e);
+    if (e && e.message !== 'fetch not supported') {
+      console.error('Failed to autosave character', e);
+    }
     return null;
   }
 }

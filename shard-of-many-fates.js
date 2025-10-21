@@ -5046,7 +5046,10 @@
     playDmCue(type = 'info') {
       if (!this.shouldPlayDmAudio()) return;
       const audioEl = this.dom?.ping || document.getElementById('somfDM-ping');
-      if (audioEl && typeof audioEl.play === 'function') {
+      const playbackUnsupported = typeof navigator !== 'undefined'
+        && typeof navigator.userAgent === 'string'
+        && /jsdom/i.test(navigator.userAgent);
+      if (!playbackUnsupported && audioEl && typeof audioEl.play === 'function') {
         try {
           if (typeof audioEl.pause === 'function') audioEl.pause();
           if (Number.isFinite(audioEl.currentTime)) audioEl.currentTime = 0;

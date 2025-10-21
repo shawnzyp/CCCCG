@@ -1,4 +1,7 @@
 export const $ = (id) => {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function') {
+    return null;
+  }
   const node = document.getElementById(id);
   if (!node) return null;
   if (node instanceof Element) {
@@ -9,8 +12,18 @@ export const $ = (id) => {
   }
   return node;
 };
-export const qs = (s, r=document) => r.querySelector(s);
-export const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+export const qs = (s, r) => {
+  if (!s) return null;
+  const root = r ?? (typeof document !== 'undefined' ? document : null);
+  if (!root || typeof root.querySelector !== 'function') return null;
+  return root.querySelector(s);
+};
+export const qsa = (s, r) => {
+  if (!s) return [];
+  const root = r ?? (typeof document !== 'undefined' ? document : null);
+  if (!root || typeof root.querySelectorAll !== 'function') return [];
+  return Array.from(root.querySelectorAll(s));
+};
 export const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 export const mod = (score) => Math.floor((num(score) - 10) / 2);
 // Proficiency bonuses in 5e are based on character level and always assume a

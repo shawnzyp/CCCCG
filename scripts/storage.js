@@ -362,9 +362,20 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
   window.addEventListener('online', resetOfflineNotices);
 }
 
+function validateFetchResponse(res) {
+  if (!res || typeof res !== 'object' || typeof res.ok !== 'boolean') {
+    throw new Error('fetch not supported');
+  }
+  return res;
+}
+
 // Direct fetch helper used by cloud save functions.
 async function cloudFetch(url, options = {}) {
-  return fetch(url, options);
+  if (typeof fetch !== 'function') {
+    throw new Error('fetch not supported');
+  }
+  const res = await fetch(url, options);
+  return validateFetchResponse(res);
 }
 
 // Encode each path segment separately so callers can supply hierarchical

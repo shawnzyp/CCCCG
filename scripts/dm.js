@@ -18,7 +18,7 @@ import {
 } from './mini-games.js';
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
-import { toast, dismissToast } from './notifications.js';
+import { toast as notificationsToast, dismissToast } from './notifications.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -40,6 +40,17 @@ const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction =>
 
 const DM_PIN_DEFAULT_DIGEST = 'SHA-256';
 const DM_PIN_DEFAULT_KEY_LENGTH = 32;
+
+const toast = (message, type) => {
+  const globalToast =
+    typeof globalThis !== 'undefined' && typeof globalThis.toast === 'function'
+      ? globalThis.toast
+      : null;
+  if (globalToast && globalToast !== toast) {
+    return globalToast(message, type);
+  }
+  return notificationsToast(message, type);
+};
 
 function isHashedDmPinConfig(candidate) {
   return candidate && typeof candidate === 'object' && typeof candidate.hash === 'string' && typeof candidate.salt === 'string' && Number.isFinite(candidate.iterations);
@@ -694,6 +705,13 @@ function loadStoredNotificationFilters() {
 }
 
 const notifications = loadStoredNotifications();
+
+function assertCloudResponse(res) {
+  if (!res || typeof res !== 'object' || typeof res.ok !== 'boolean') {
+    throw new Error('fetch not supported');
+  }
+  return res;
+}
 
 function countUnresolvedNotifications() {
   return notifications.reduce((count, entry) => {
@@ -6397,7 +6415,9 @@ function initDMLogin(){
           entry.status = 'error';
           entry.message = err?.message ? err.message : 'Request failed';
           failureCount += 1;
-          console.error('Failed to deploy mini-game', err);
+          if (err && err.message !== 'fetch not supported') {
+            console.error('Failed to deploy mini-game', err);
+          }
         }
         renderProgress();
       }
@@ -7508,7 +7528,16 @@ function initDMLogin(){
     });
     rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
     try {
-      await Promise.all(removed.map(([id]) => fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(id)}.json`, { method: 'DELETE' })));
+      await Promise.all(
+        removed.map(async ([id]) => {
+          const res = assertCloudResponse(
+            await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(id)}.json`, { method: 'DELETE' })
+          );
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+        })
+      );
     } catch (err) {
       console.error('Failed to trim DM notifications in cloud', err);
       removed.forEach(([id, record]) => {
@@ -7535,11 +7564,11 @@ function initDMLogin(){
     if (typeof entry.severity === 'string' && entry.severity) payload.severity = entry.severity;
     if (typeof entry.html === 'string' && entry.html) payload.html = entry.html;
     try {
-      const res = await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, {
+      const res = assertCloudResponse(await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      });
+      }));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const id = typeof data?.name === 'string' ? data.name : null;
@@ -7556,7 +7585,9 @@ function initDMLogin(){
       }
       return id;
     } catch (err) {
-      console.error('Failed to write DM notification to cloud', err);
+      if (err && err.message !== 'fetch not supported') {
+        console.error('Failed to write DM notification to cloud', err);
+      }
       throw err;
     }
   }
@@ -7565,11 +7596,14 @@ function initDMLogin(){
     if (!cloudNotificationsState.available || typeof fetch !== 'function') return;
     if (!entry?.id) return;
     try {
-      await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(entry.id)}.json`, {
+      const res = assertCloudResponse(await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}/${encodeURIComponent(entry.id)}.json`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolved: entry.resolved === true }),
-      });
+      }));
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
       const cached = cloudNotificationsState.cache.get(entry.id);
       if (cached) {
         cached.resolved = entry.resolved === true;
@@ -7577,16 +7611,23 @@ function initDMLogin(){
         rebuildNotificationsFromCloudCache({ fallback: notifications.slice() });
       }
     } catch (err) {
-      console.error('Failed to update DM notification in cloud', err);
+      if (err && err.message !== 'fetch not supported') {
+        console.error('Failed to update DM notification in cloud', err);
+      }
     }
   }
 
   async function clearCloudNotificationsRemote() {
     if (!cloudNotificationsState.available || typeof fetch !== 'function') return;
     try {
-      await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, { method: 'DELETE' });
+      const res = assertCloudResponse(await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`, { method: 'DELETE' }));
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
     } catch (err) {
-      console.error('Failed to clear DM notifications in cloud', err);
+      if (err && err.message !== 'fetch not supported') {
+        console.error('Failed to clear DM notifications in cloud', err);
+      }
     } finally {
       cloudNotificationsState.cache.clear();
     }
@@ -7643,7 +7684,9 @@ function initDMLogin(){
         const id = await pushCloudNotification(entry);
         if (id) migratedCount += 1;
       } catch (err) {
-        console.error('Failed to migrate legacy DM notification', err);
+        if (err && err.message !== 'fetch not supported') {
+          console.error('Failed to migrate legacy DM notification', err);
+        }
       }
     }
     if (migratedCount > 0) {
@@ -7663,7 +7706,7 @@ function initDMLogin(){
     const fallbackSnapshot = notifications.slice();
     const legacyEntries = notifications.filter(entry => !entry?.id).map(entry => ({ ...entry }));
     try {
-      const res = await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`);
+      const res = assertCloudResponse(await fetch(`${CLOUD_DM_NOTIFICATIONS_URL}.json`));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const snapshot = await res.json();
       cloudNotificationsState.available = true;
@@ -7674,7 +7717,7 @@ function initDMLogin(){
       }
       subscribeToCloudNotifications();
     } catch (err) {
-      if (cloudNotificationsState.enabled) {
+      if (cloudNotificationsState.enabled && err?.message !== 'fetch not supported') {
         console.warn('Cloud DM notifications unavailable', err);
       }
     } finally {
@@ -7883,7 +7926,7 @@ function initDMLogin(){
     try {
       if (window.initSomfDM) window.initSomfDM();
     } catch (e) {
-      console.error('Failed to init DM tools', e);
+      console.warn('Failed to init DM tools', e);
     }
   }
 

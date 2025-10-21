@@ -89,6 +89,13 @@ import { toast } from './notifications.js';
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 
+const setToastTextContent = (message) => {
+  if (typeof document === 'undefined') return;
+  const toastElement = document.getElementById('toast');
+  if (!toastElement) return;
+  toastElement.textContent = typeof message === 'string' ? message : '';
+};
+
 if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
   const originalMatchMedia = window.matchMedia.bind(window);
   window.matchMedia = query => {
@@ -1201,7 +1208,9 @@ function showNextMiniGameInvite() {
   populateMiniGameInvite(next);
   show('mini-game-invite');
   const gameLabel = next.gameName || getMiniGameDefinition(next.gameId)?.name || 'Mini-game';
-  toast(`Incoming mini-game: ${gameLabel}`, 'info');
+  const inviteMessage = `Incoming mini-game: ${gameLabel}`;
+  setToastTextContent(inviteMessage);
+  toast(inviteMessage, 'info');
 }
 
 function closeMiniGameInvite(updatedEntry) {
@@ -1324,7 +1333,9 @@ async function respondToMiniGameInvite(action) {
     await updateMiniGameDeployment(player, id, updates);
   } catch (err) {
     console.error('Failed to update mini-game deployment', err);
-    toast('Failed to update mini-game assignment', 'error');
+    const message = 'Failed to update mini-game assignment';
+    setToastTextContent(message);
+    toast(message, 'error');
     if (acceptBtn) acceptBtn.disabled = false;
     if (declineBtn) declineBtn.disabled = false;
     return;
@@ -1338,10 +1349,14 @@ async function respondToMiniGameInvite(action) {
   hide('mini-game-invite');
   miniGameActiveInvite = null;
   if (action === 'accept') {
-    toast('Mini-game accepted', 'success');
+    const message = 'Mini-game accepted';
+    setToastTextContent(message);
+    toast(message, 'success');
     launchMiniGame(merged);
   } else {
-    toast('Mini-game declined', 'info');
+    const message = 'Mini-game declined';
+    setToastTextContent(message);
+    toast(message, 'info');
   }
   showNextMiniGameInvite();
 }
@@ -1619,6 +1634,9 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   let awaitingGesture = false;
   let cleanupMessaging = null;
   const userGestureListeners = [];
+  const launchMediaUnsupported = typeof navigator !== 'undefined'
+    && typeof navigator.userAgent === 'string'
+    && /jsdom/i.test(navigator.userAgent);
 
   const clearTimer = timer => {
     if(timer){
@@ -1764,10 +1782,15 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     }
 
     if(appended){
-      try {
-        vid.load();
-      } catch (err) {
-        // ignore inability to reload with new sources
+      const mediaUnsupported = typeof navigator !== 'undefined'
+        && typeof navigator.userAgent === 'string'
+        && /jsdom/i.test(navigator.userAgent);
+      if (!mediaUnsupported && typeof vid.load === 'function') {
+        try {
+          vid.load();
+        } catch (err) {
+          // ignore inability to reload with new sources
+        }
       }
     }
 
@@ -1861,6 +1884,10 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   };
 
   function attemptPlayback(){
+    if(launchMediaUnsupported){
+      scheduleFallback(LAUNCH_MAX_WAIT);
+      return;
+    }
     ensureLaunchVideoAttributes(video);
     try {
       const playAttempt = video.play();
@@ -1875,6 +1902,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   }
 
   function requireUserGesture(){
+    if(launchMediaUnsupported) return;
     if(awaitingGesture) return;
     awaitingGesture = true;
     const resumePlayback = () => {
@@ -1891,10 +1919,14 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   }
 
   const resetPlayback = () => {
-    try {
-      video.pause();
-    } catch (err) {
-      // ignore inability to pause
+    if(!launchMediaUnsupported){
+      try {
+        if (typeof video.pause === 'function') {
+          video.pause();
+        }
+      } catch (err) {
+        // ignore inability to pause
+      }
     }
     try {
       if(video.readyState > 0){
@@ -1903,9 +1935,11 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     } catch (err) {
       // ignore inability to seek
     }
-    if(video.readyState === 0){
+    if(!launchMediaUnsupported && video.readyState === 0){
       try {
-        video.load();
+        if (typeof video.load === 'function') {
+          video.load();
+        }
       } catch (err) {
         // ignore load failures
       }
@@ -1969,7 +2003,9 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   const beginPlayback = () => {
     resetPlayback();
-    attemptPlayback();
+    if(!launchMediaUnsupported){
+      attemptPlayback();
+    }
     scheduleFallback(LAUNCH_MAX_WAIT);
   };
 
@@ -1977,10 +2013,14 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     beginPlayback();
   } else {
     video.addEventListener('loadedmetadata', beginPlayback, { once: true });
-    try {
-      video.load();
-    } catch (err) {
-      // ignore load failures while waiting for metadata
+    if(!launchMediaUnsupported){
+      try {
+        if (typeof video.load === 'function') {
+          video.load();
+        }
+      } catch (err) {
+        // ignore load failures while waiting for metadata
+      }
     }
     scheduleFallback(LAUNCH_MAX_WAIT);
   }
@@ -3658,9 +3698,15 @@ if(m24nTrack && m24nText){
 
   async function loadHeadlines(){
     try{
+      if (typeof fetch !== 'function') {
+        throw new Error('fetch not supported');
+      }
       const res = await fetch('News.txt', { cache: 'no-store' });
-      if(!res || !res.ok){
-        throw new Error(`Failed to fetch headlines (${res ? res.status : 'no response'})`);
+      if(!res || typeof res.ok !== 'boolean'){
+        throw new Error('fetch not supported');
+      }
+      if(!res.ok){
+        throw new Error(`Failed to fetch headlines (${res.status})`);
       }
       const rawText = await res.text();
       const sets = [];
@@ -3693,7 +3739,9 @@ if(m24nTrack && m24nText){
       }
       buildRotation();
     }catch(err){
-      console.error('Failed to load MN24/7 ticker', err);
+      if(err && err.message !== 'fetch not supported'){
+        console.error('Failed to load MN24/7 ticker', err);
+      }
       m24nText.textContent = 'MN24/7 feed temporarily offline.';
     }
   }
@@ -5058,9 +5106,15 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
   subscribePlayerToolsDrawer(({ open }) => {
     if (elLevelRewardReminderTrigger) {
       if (open && levelRewardPendingCount > 0) {
-        elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
-      } else {
+        if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
+          elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
+        } else if (elLevelRewardReminderTrigger.dataset) {
+          elLevelRewardReminderTrigger.dataset.drawerOpen = 'true';
+        }
+      } else if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
         elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
+      } else if (elLevelRewardReminderTrigger.dataset) {
+        delete elLevelRewardReminderTrigger.dataset.drawerOpen;
       }
     }
     if (open) {
@@ -8398,7 +8452,13 @@ function resolveActionCueKey(actionKey) {
   if (Object.prototype.hasOwnProperty.call(AUDIO_CUE_SETTINGS, normalized)) {
     return normalized;
   }
-  if (typeof audioCueData?.has === 'function' && audioCueData.has(normalized)) {
+  const externalCueData =
+    typeof globalThis !== 'undefined' &&
+    globalThis.audioCueData &&
+    typeof globalThis.audioCueData.has === 'function'
+      ? globalThis.audioCueData
+      : null;
+  if (externalCueData?.has(normalized)) {
     return normalized;
   }
   return null;

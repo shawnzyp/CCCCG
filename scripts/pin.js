@@ -29,12 +29,14 @@ async function saveCloudPin(name, hash) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(hash)
   });
+  if (!res || typeof res.ok !== 'boolean') throw new Error('fetch not supported');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 async function loadCloudPin(name) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(name)}.json`);
+  if (!res || typeof res.ok !== 'boolean') throw new Error('fetch not supported');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -42,6 +44,7 @@ async function loadCloudPin(name) {
 async function deleteCloudPin(name) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(name)}.json`, { method: 'DELETE' });
+  if (!res || typeof res.ok !== 'boolean') throw new Error('fetch not supported');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 

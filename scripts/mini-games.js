@@ -250,6 +250,13 @@ const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/mi
 const POLL_INTERVAL_MS = 15000;
 const PLAYER_POLL_INTERVAL_MS = 7000;
 
+function assertFetchResponse(res) {
+  if (!res || typeof res !== 'object' || typeof res.ok !== 'boolean') {
+    throw new Error('fetch not supported');
+  }
+  return res;
+}
+
 const readmeCache = new Map();
 const listeners = new Set();
 let pollTimer = null;
@@ -383,7 +390,7 @@ async function fetchReadme(game) {
     return readmeCache.get(game.id);
   }
   try {
-    const res = await fetch(`${README_BASE_PATH}/${game.folder}/${README_FILENAME}`);
+    const res = assertFetchResponse(await fetch(`${README_BASE_PATH}/${game.folder}/${README_FILENAME}`));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
     readmeCache.set(game.id, text);
@@ -391,7 +398,9 @@ async function fetchReadme(game) {
   } catch (err) {
     const fallback = 'README unavailable.';
     readmeCache.set(game.id, fallback);
-    console.error(`Failed to load README for ${game.name}`, err);
+    if (err && err.message !== 'fetch not supported') {
+      console.error(`Failed to load README for ${game.name}`, err);
+    }
     return fallback;
   }
 }
@@ -402,7 +411,7 @@ export async function loadMiniGameReadme(id) {
 }
 
 async function fetchDeploymentsFromCloud() {
-  const res = await fetch(`${CLOUD_MINI_GAMES_URL}.json`);
+  const res = assertFetchResponse(await fetch(`${CLOUD_MINI_GAMES_URL}.json`));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   return data || {};
@@ -532,7 +541,7 @@ async function fetchPlayerDeployments(player) {
   const trimmed = sanitizePlayer(player);
   if (!trimmed) return [];
   const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmed)}.json`;
-  const res = await fetch(url);
+  const res = assertFetchResponse(await fetch(url));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   return transformPlayerDeploymentData(trimmed, data || {});
@@ -558,7 +567,11 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
       const entries = await fetchPlayerDeployments(trimmed);
       callback(entries);
     } catch (err) {
-      console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
+      if (err && err.message === 'fetch not supported') {
+        callback([]);
+      } else {
+        console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
+      }
     } finally {
       if (!active) return;
       timer = setTimeout(poll, Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS));
@@ -620,11 +633,11 @@ export async function deployMiniGame({
     payload.expiresAt = validExpiresAt;
   }
   const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(deploymentId)}.json`;
-  const res = await fetch(url, {
+  const res = assertFetchResponse(await fetch(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  });
+  }));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   await pollDeployments(true);
   return payload;
@@ -638,11 +651,11 @@ export async function updateDeployment(player, id, updates = {}) {
     updatedAt: Date.now()
   };
   const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(id)}.json`;
-  const res = await fetch(url, {
+  const res = assertFetchResponse(await fetch(url, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch)
-  });
+  }));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   await pollDeployments(true);
 }
@@ -651,7 +664,7 @@ export async function deleteDeployment(player, id) {
   const trimmedPlayer = sanitizePlayer(player);
   if (!trimmedPlayer || !id) throw new Error('Invalid deployment reference');
   const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmedPlayer)}/${encodePath(id)}.json`;
-  const res = await fetch(url, { method: 'DELETE' });
+  const res = assertFetchResponse(await fetch(url, { method: 'DELETE' }));
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   await pollDeployments(true);
 }
