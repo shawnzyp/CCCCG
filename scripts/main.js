@@ -5827,6 +5827,7 @@ const TRACKER_STATUS_LABELS = {
   wounded: 'Wounded',
   critical: 'Critical',
   full: 'Full',
+  steady: 'Steady',
   low: 'Low',
   depleted: 'Depleted',
   stable: 'Stable',
@@ -5839,7 +5840,9 @@ const TRACKER_STATUS_COLORS = {
   unstable: 'var(--warning,#f59e0b)',
   dead: 'var(--error,#f87171)',
   full: 'var(--success,#22c55e)',
+  steady: 'var(--accent,#6366f1)',
   low: 'var(--warning,#f59e0b)',
+  critical: 'var(--error,#f87171)',
   depleted: 'var(--error,#f87171)',
 };
 
@@ -6618,6 +6621,21 @@ function updateSPDisplay({ current, max } = {}){
   const currentValue = Number.isFinite(current) ? current : num(elSPBar.value);
   const maxValue = Number.isFinite(max) ? max : num(elSPBar.max);
   const tempValue = elSPTemp ? num(elSPTemp.value) : 0;
+  const ratio = Number.isFinite(maxValue) && maxValue > 0
+    ? Math.min(Math.max(currentValue / maxValue, 0), 1)
+    : 0;
+  let status = 'depleted';
+  if (Number.isFinite(maxValue) && maxValue > 0) {
+    if (ratio >= 0.8) {
+      status = 'full';
+    } else if (ratio >= 0.5) {
+      status = 'steady';
+    } else if (ratio >= 0.25) {
+      status = 'low';
+    } else if (currentValue > 0) {
+      status = 'critical';
+    }
+  }
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
@@ -6637,19 +6655,19 @@ function updateSPDisplay({ current, max } = {}){
     currentValue,
     maxValue,
     {
-      statusRemap: {
-        healthy: 'full',
-        wounded: 'low',
-        critical: 'depleted',
-      },
+      statusOverride: status,
       statusLabels: {
         full: 'Full',
+        steady: 'Steady',
         low: 'Low',
+        critical: 'Critical',
         depleted: 'Depleted',
       },
       statusColors: {
         full: 'var(--success,#22c55e)',
+        steady: 'var(--accent,#6366f1)',
         low: 'var(--warning,#f59e0b)',
+        critical: 'var(--error,#f87171)',
         depleted: 'var(--error,#f87171)',
       },
     },
