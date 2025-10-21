@@ -6267,7 +6267,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: 360px;
+  --drawer-width: clamp(320px, 42vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -6391,6 +6391,9 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -6429,6 +6432,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex-direction: column;
   min-block-size: 100%;
   flex: 1;
+  inline-size: min(100%, clamp(320px, 80vw, 460px));
+  margin-inline: auto;
 }
 
 .player-tools-phone__status-bar {
@@ -6718,7 +6723,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: 360px;
+  --drawer-width: clamp(320px, 42vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -6840,6 +6845,9 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   block-size: 100%;
   overflow: visible;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -6872,6 +6880,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex-direction: column;
   min-block-size: 100%;
   flex: 1;
+  inline-size: min(100%, clamp(320px, 80vw, 460px));
+  margin-inline: auto;
 }
 
 .player-tools-phone__status-bar {
@@ -7160,7 +7170,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: 360px;
+  --drawer-width: clamp(320px, 42vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -7282,6 +7292,9 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   block-size: 100%;
   overflow: visible;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -7314,6 +7327,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex-direction: column;
   min-block-size: 100%;
   flex: 1;
+  inline-size: min(100%, clamp(320px, 80vw, 460px));
+  margin-inline: auto;
 }
 
 .player-tools-phone__status-bar {
@@ -7602,7 +7617,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: 360px;
+  --drawer-width: clamp(320px, 42vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -7724,6 +7739,9 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   block-size: 100%;
   overflow: visible;
   padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   border-radius: var(--player-tools-glass-radius, 30px);
   background: linear-gradient(180deg, rgba(13, 20, 32, 0.96), rgba(8, 12, 21, 0.98) 65%, rgba(6, 10, 18, 0.98));
   box-shadow:
@@ -7756,6 +7774,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   flex-direction: column;
   min-block-size: 100%;
   flex: 1;
+  inline-size: min(100%, clamp(320px, 80vw, 460px));
+  margin-inline: auto;
 }
 
 .player-tools-phone__status-bar {
