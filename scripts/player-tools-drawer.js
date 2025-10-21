@@ -215,33 +215,34 @@ function createPlayerToolsDrawer() {
   const applyTabTopProperty = () => {
     if (!tab) return;
     const viewport = window.visualViewport;
-    const rect = typeof tab.getBoundingClientRect === 'function' ? tab.getBoundingClientRect() : null;
-    const tabHeight = rect?.height || 0;
-    const halfTab = tabHeight / 2;
 
     if (viewport) {
-      const desiredCenter = viewport.offsetTop + viewport.height / 2;
-      const minCenter = viewport.offsetTop + halfTab;
-      const maxCenter = viewport.offsetTop + viewport.height - halfTab;
-      const nextCenter = clamp(desiredCenter, minCenter, maxCenter);
-      if (Number.isFinite(nextCenter)) {
-        tab.style.setProperty('--player-tools-tab-top', `${nextCenter}px`);
+      const viewportHeight = Number.isFinite(viewport.height) ? viewport.height : 0;
+      const viewportTop = Number.isFinite(viewport.offsetTop)
+        ? viewport.offsetTop
+        : Number.isFinite(viewport.pageTop)
+          ? viewport.pageTop
+          : 0;
+      const desiredCenter = viewportTop + viewportHeight / 2;
+      if (Number.isFinite(desiredCenter) && viewportHeight > 0) {
+        tab.style.setProperty('--player-tools-tab-top', `${desiredCenter}px`);
+      } else {
+        tab.style.removeProperty('--player-tools-tab-top');
       }
       return;
     }
 
     const viewHeight = window.innerHeight || document.documentElement?.clientHeight;
     const scrollTop = window.pageYOffset || document.documentElement?.scrollTop || 0;
-    if (!Number.isFinite(viewHeight)) {
+    if (!Number.isFinite(viewHeight) || viewHeight <= 0) {
       tab.style.removeProperty('--player-tools-tab-top');
       return;
     }
     const desiredCenter = scrollTop + viewHeight / 2;
-    const minCenter = scrollTop + halfTab;
-    const maxCenter = scrollTop + viewHeight - halfTab;
-    const nextCenter = clamp(desiredCenter, minCenter, maxCenter);
-    if (Number.isFinite(nextCenter)) {
-      tab.style.setProperty('--player-tools-tab-top', `${nextCenter}px`);
+    if (Number.isFinite(desiredCenter)) {
+      tab.style.setProperty('--player-tools-tab-top', `${desiredCenter}px`);
+    } else {
+      tab.style.removeProperty('--player-tools-tab-top');
     }
   };
 
@@ -254,12 +255,37 @@ function createPlayerToolsDrawer() {
   const updateTabOffset = (width) => {
     if (!tab || !drawer) return;
     const rect = typeof drawer.getBoundingClientRect === 'function' ? drawer.getBoundingClientRect() : null;
-    const drawerWidth = typeof width === 'number' ? width : rect?.width;
-    if (!Number.isFinite(drawerWidth)) return;
+    let drawerWidth = Number.isFinite(width) ? width : rect?.width;
+    if (!Number.isFinite(drawerWidth) || drawerWidth <= 0) {
+      const fallbackWidth = drawer.offsetWidth || drawer.clientWidth;
+      if (Number.isFinite(fallbackWidth) && fallbackWidth > 0) {
+        drawerWidth = fallbackWidth;
+      }
+    }
+    const tabStyle = tab?.style;
+    const clearTabOffset = () => {
+      if (!tabStyle) return;
+      if (typeof tabStyle.removeProperty === 'function') {
+        tabStyle.removeProperty('--player-tools-tab-offset');
+        return;
+      }
+      if (typeof tabStyle.setProperty === 'function') {
+        tabStyle.setProperty('--player-tools-tab-offset', '0px');
+      }
+    };
+
+    if (!Number.isFinite(drawerWidth) || drawerWidth <= 0) {
+      clearTabOffset();
+      return;
+    }
     const direction = getDrawerSlideDirection();
     const offset = drawerWidth * direction * -1;
     if (Number.isFinite(offset)) {
-      tab.style.setProperty('--player-tools-tab-offset', `${offset}px`);
+      if (tabStyle && typeof tabStyle.setProperty === 'function') {
+        tabStyle.setProperty('--player-tools-tab-offset', `${offset}px`);
+      }
+    } else {
+      clearTabOffset();
     }
   };
 
