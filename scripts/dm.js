@@ -38,6 +38,63 @@ const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS = 60 * 1000;
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
+const DM_USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
+const DM_IS_JSDOM_ENV = /jsdom/i.test(DM_USER_AGENT);
+const DM_CAN_USE_WINDOW_INTERVAL = typeof window !== 'undefined'
+  && typeof window.setInterval === 'function'
+  && typeof window.clearInterval === 'function';
+const DM_GLOBAL_SCOPE = typeof globalThis === 'object' && globalThis
+  ? globalThis
+  : (typeof window !== 'undefined' ? window : {});
+const DM_INTERVAL_REGISTRY_KEY = '__ccccg_dm_active_intervals__';
+const DM_PREVIOUS_INTERVALS = Array.isArray(DM_GLOBAL_SCOPE[DM_INTERVAL_REGISTRY_KEY])
+  ? DM_GLOBAL_SCOPE[DM_INTERVAL_REGISTRY_KEY]
+  : null;
+if (DM_PREVIOUS_INTERVALS && typeof clearInterval === 'function') {
+  DM_PREVIOUS_INTERVALS.forEach(id => {
+    try { clearInterval(id); } catch {}
+  });
+}
+const DM_ACTIVE_INTERVALS = new Set();
+DM_GLOBAL_SCOPE[DM_INTERVAL_REGISTRY_KEY] = [];
+
+function registerDmInterval(id) {
+  if (id !== null && id !== undefined) {
+    DM_ACTIVE_INTERVALS.add(id);
+    const registry = DM_GLOBAL_SCOPE[DM_INTERVAL_REGISTRY_KEY];
+    if (Array.isArray(registry)) {
+      registry.push(id);
+    }
+  }
+  return id;
+}
+
+function dmSetInterval(callback, delay, ...args) {
+  if (DM_CAN_USE_WINDOW_INTERVAL) {
+    return registerDmInterval(window.setInterval(callback, delay, ...args));
+  }
+  if (typeof setInterval === 'function') {
+    return registerDmInterval(setInterval(callback, delay, ...args));
+  }
+  return 0;
+}
+
+function dmClearInterval(id) {
+  if (DM_ACTIVE_INTERVALS.delete(id)) {
+    const registry = DM_GLOBAL_SCOPE[DM_INTERVAL_REGISTRY_KEY];
+    if (Array.isArray(registry)) {
+      const idx = registry.indexOf(id);
+      if (idx !== -1) {
+        registry.splice(idx, 1);
+      }
+    }
+  }
+  if (DM_CAN_USE_WINDOW_INTERVAL) {
+    window.clearInterval(id);
+  } else if (typeof clearInterval === 'function') {
+    clearInterval(id);
+  }
+}
 
 const DM_PIN_DEFAULT_DIGEST = 'SHA-256';
 const DM_PIN_DEFAULT_KEY_LENGTH = 32;
@@ -1029,12 +1086,8 @@ function initDMLogin(){
   const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
   let loginCooldownTimerId = null;
   let loginWaitMessageRef = null;
-  const setIntervalFn = typeof window !== 'undefined' && typeof window.setInterval === 'function'
-    ? window.setInterval.bind(window)
-    : setInterval;
-  const clearIntervalFn = typeof window !== 'undefined' && typeof window.clearInterval === 'function'
-    ? window.clearInterval.bind(window)
-    : clearInterval;
+  const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
+  const clearIntervalFn = id => dmClearInterval(id);
   let sessionStatusIntervalId = null;
   let sessionWarningToastShown = false;
 
@@ -8927,11 +8980,9 @@ function initDMLogin(){
     forceRefreshMiniGameDeployments();
   });
 
-  if (typeof window !== 'undefined' && typeof window.setInterval === 'function') {
-    window.setInterval(() => {
-      autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
-    }, MINI_GAME_AUTO_STATUS_INTERVAL_MS);
-  }
+  dmSetInterval(() => {
+    autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
+  }, MINI_GAME_AUTO_STATUS_INTERVAL_MS);
 
   miniGamesDeployments?.addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');

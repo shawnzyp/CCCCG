@@ -249,6 +249,9 @@ const README_FILENAME = 'README.txt';
 const CLOUD_MINI_GAMES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/miniGames';
 const POLL_INTERVAL_MS = 15000;
 const PLAYER_POLL_INTERVAL_MS = 7000;
+const USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
+const IS_JSDOM_ENV = /jsdom/i.test(USER_AGENT);
+const CAN_USE_INTERVAL = typeof window !== 'undefined' && typeof window.setInterval === 'function' && !IS_JSDOM_ENV;
 
 const readmeCache = new Map();
 const listeners = new Set();
@@ -491,14 +494,19 @@ async function pollDeployments(force = false) {
 function startPolling() {
   if (pollTimer !== null) return;
   pollDeployments(true).catch(() => {});
-  pollTimer = setInterval(() => {
+  if (!CAN_USE_INTERVAL) {
+    return;
+  }
+  pollTimer = window.setInterval(() => {
     pollDeployments(false).catch(() => {});
   }, POLL_INTERVAL_MS);
 }
 
 function stopPolling() {
   if (pollTimer !== null) {
-    clearInterval(pollTimer);
+    if (CAN_USE_INTERVAL) {
+      clearInterval(pollTimer);
+    }
     pollTimer = null;
   }
 }

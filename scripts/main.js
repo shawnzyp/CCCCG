@@ -1366,8 +1366,15 @@ function setupMiniGamePlayerSync() {
   syncMiniGamePlayerName();
   if (typeof window !== 'undefined') {
     window.addEventListener('focus', () => syncMiniGamePlayerName(), { passive: true });
-    if (miniGamePlayerCheckTimer === null) {
-      miniGamePlayerCheckTimer = window.setInterval(syncMiniGamePlayerName, MINI_GAME_PLAYER_CHECK_INTERVAL_MS);
+    if (
+      miniGamePlayerCheckTimer === null
+      && typeof window.setInterval === 'function'
+      && !IS_JSDOM_ENV
+    ) {
+      miniGamePlayerCheckTimer = window.setInterval(
+        syncMiniGamePlayerName,
+        MINI_GAME_PLAYER_CHECK_INTERVAL_MS,
+      );
     }
   }
   if (typeof document !== 'undefined') {
@@ -16935,6 +16942,9 @@ CC.RP = (function () {
   const els = {};
   function q(id) { return document.getElementById(id); }
 
+  let surgeTimerId = null;
+  const SURGE_TICK_INTERVAL_MS = 1000 * 10;
+
   function init() {
     const root = document.getElementById("resonance-points");
     if (!root) return;
@@ -16956,8 +16966,12 @@ CC.RP = (function () {
     applyStateToUI();
     exposeHooks();
     installIntegrations();
-    // Optional background timer for timed surges
-    setInterval(tick, 1000 * 10); // 10s cadence is fine for coarse timers
+    // Optional background timer for timed surges. In testing environments like
+    // jsdom the perpetual interval prevents Jest from exiting, so only install
+    // it when we're running in a real browser context.
+    if (!IS_JSDOM_ENV && surgeTimerId === null && typeof setInterval === 'function') {
+      surgeTimerId = setInterval(tick, SURGE_TICK_INTERVAL_MS);
+    }
   }
 
   function wireEvents() {
