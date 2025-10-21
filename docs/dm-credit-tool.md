@@ -19,7 +19,7 @@ This reference describes the GM-facing credit deposit modal that lives in `index
 
 ## Manual QA recipe
 
-1. Run `npx http-server . -p 4174` and open `http://127.0.0.1:4174/index.html` in a browser.
+1. Run `node tools/dev-server.mjs --port 4174` and open `http://127.0.0.1:4174/index.html` in a browser.
 2. Unlock the DM tools (`DM PIN` is `123123`), open the DM menu, and choose
    **Credit Deposit**.
 3. Verify the account dropdown populates with player saves. Select a player and confirm
