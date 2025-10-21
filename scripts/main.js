@@ -3119,19 +3119,36 @@ function applyTheme(t, { animate = true } = {}){
   }
   activeTheme = themeName;
 }
+function getStoredTheme(){
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return localStorage.getItem('theme');
+  } catch (error) {
+    console.warn('Failed to read stored theme', error);
+    return null;
+  }
+}
+function setStoredTheme(value){
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem('theme', value);
+  } catch (error) {
+    console.warn('Failed to persist theme preference', error);
+  }
+}
 function loadTheme(){
-  const stored = localStorage.getItem('theme');
+  const stored = getStoredTheme();
   const theme = stored && THEMES.includes(stored) ? stored : 'dark';
-  if (stored && !THEMES.includes(stored)) localStorage.setItem('theme', theme);
+  if (stored && !THEMES.includes(stored)) setStoredTheme(theme);
   applyTheme(theme, { animate: false });
 }
 loadTheme();
 
 function toggleTheme(){
-  const curr = localStorage.getItem('theme') || 'dark';
+  const curr = getStoredTheme() || 'dark';
   const index = THEMES.includes(curr) ? THEMES.indexOf(curr) : 0;
   const next = THEMES[(index + 1) % THEMES.length];
-  localStorage.setItem('theme', next);
+  setStoredTheme(next);
   applyTheme(next);
 }
 
@@ -3155,7 +3172,7 @@ function bindClassificationTheme(id){
   const apply=()=>{
     const t=CLASS_THEMES[sel.value];
     if(t){
-      localStorage.setItem('theme', t);
+      setStoredTheme(t);
       applyTheme(t);
       if(cleanupAnimation){
         cleanupAnimation();
@@ -15194,15 +15211,40 @@ function normalizeEncounterRoster(entries) {
   return entries.map((entry, idx) => normalizeEncounterCombatant(entry, idx)).filter(Boolean);
 }
 
-const roster = normalizeEncounterRoster(safeParse('enc-roster'));
+const ENCOUNTER_ROSTER_STORAGE_KEY = 'enc-roster';
+const roster = normalizeEncounterRoster(safeParse(ENCOUNTER_ROSTER_STORAGE_KEY));
 const ENCOUNTER_PRESET_STORAGE_KEY = 'encounter-presets';
-let round = Number(localStorage.getItem('enc-round')||'1')||1;
-let turn = Number(localStorage.getItem('enc-turn')||'0')||0;
+const ENCOUNTER_ROUND_STORAGE_KEY = 'enc-round';
+const ENCOUNTER_TURN_STORAGE_KEY = 'enc-turn';
+
+function readEncounterNumber(key, fallback){
+  if (typeof localStorage === 'undefined') return fallback;
+  try {
+    const value = Number(localStorage.getItem(key));
+    return Number.isFinite(value) ? value : fallback;
+  } catch (error) {
+    console.warn('Failed to read encounter value from storage', error);
+    return fallback;
+  }
+}
+let round = readEncounterNumber(ENCOUNTER_ROUND_STORAGE_KEY, 1);
+if (!Number.isFinite(round) || round < 1) round = 1;
+let turn = readEncounterNumber(ENCOUNTER_TURN_STORAGE_KEY, 0);
+if (!Number.isFinite(turn) || turn < 0) turn = 0;
+
+function writeEncounterValue(key, value){
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn('Failed to persist encounter value', error);
+  }
+}
 
 function saveEnc(){
-  localStorage.setItem('enc-roster', JSON.stringify(roster));
-  localStorage.setItem('enc-round', String(round));
-  localStorage.setItem('enc-turn', String(turn));
+  writeEncounterValue(ENCOUNTER_ROSTER_STORAGE_KEY, JSON.stringify(roster));
+  writeEncounterValue(ENCOUNTER_ROUND_STORAGE_KEY, String(round));
+  writeEncounterValue(ENCOUNTER_TURN_STORAGE_KEY, String(turn));
 }
 
 function createSerializableEncounterStateFromSource(source = {}) {
