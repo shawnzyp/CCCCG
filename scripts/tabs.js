@@ -5,6 +5,40 @@ const TAB_ICON_SELECTOR = '[data-tab-icon]';
 const TAB_ICON_ANIMATION_DURATION = 600;
 const tabIconStates = new WeakMap();
 
+const resolveAssetUrl = relativePath => {
+  try {
+    return new URL(relativePath, import.meta.url).href;
+  } catch (err) {
+    return relativePath;
+  }
+};
+
+const TAB_ICON_SOURCE_OVERRIDES = new Map([
+  ['combat', resolveAssetUrl('../images/sword (2).png')],
+  ['abilities', resolveAssetUrl('../images/skills (1).png')],
+]);
+
+const normalizeIconSrc = src => {
+  if (!src) return '';
+  if (typeof document === 'undefined') return src;
+  try {
+    return new URL(src, document.baseURI).href;
+  } catch (err) {
+    return src;
+  }
+};
+
+const ensureTabIconSource = img => {
+  if (!img) return;
+  const key = img.getAttribute('data-tab-icon');
+  if (!key) return;
+  const override = TAB_ICON_SOURCE_OVERRIDES.get(key);
+  if (!override) return;
+  const currentSrc = normalizeIconSrc(img.getAttribute('src'));
+  if (currentSrc === override) return;
+  img.setAttribute('src', override);
+};
+
 const headerEl = qs('header');
 
 function parseDimension(value) {
@@ -87,6 +121,7 @@ function removeCanvasBackground(canvas) {
 
 function prepareTabIcon(img) {
   if (!img) return;
+  ensureTabIconSource(img);
   const container = img.closest('.tab__icon');
   if (!container || tabIconStates.has(container)) return;
 
