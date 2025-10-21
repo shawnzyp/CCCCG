@@ -8076,7 +8076,8 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
     transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
     box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
     backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    border-color var(--player-tools-transition-duration) var(--player-tools-transition-timing);
+    border-color var(--player-tools-transition-duration) var(--player-tools-transition-timing),
+    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
   inline-size: var(--player-tools-tab-size);
   block-size: var(--player-tools-tab-height);
   border-radius: 0 calc(var(--player-tools-glass-radius, 30px) * 0.9) calc(var(--player-tools-glass-radius, 30px) * 0.9) 0;
@@ -8095,6 +8096,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   pointer-events: auto;
   backdrop-filter: blur(calc(10px + 6px * var(--player-tools-open-progress, 0))) saturate(160%);
   overflow: hidden;
+  opacity: calc(0.75 + 0.25 * var(--player-tools-open-progress, 0));
 }
 
 .player-tools-tab[data-player-credit='pending'] {
@@ -8183,8 +8185,9 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 
 .player-tools-tab__icon img {
   display: block;
-  inline-size: 100%;
-  block-size: 100%;
+  inline-size: 80%;
+  block-size: 80%;
+  margin: auto;
   object-fit: contain;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.28));
 }
