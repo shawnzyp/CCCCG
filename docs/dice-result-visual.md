@@ -15,7 +15,7 @@ results rendered by `src/dice-result.jsx` via the `DecryptedText` component.
 ## Scenario
 
 - Run `npm run build:dice` and open `docs/dice-result-demo.html` in a browser
-  (e.g. via `npx http-server . -p 4173`).
+  (e.g. via `node tools/dev-server.mjs --port 4173`).
 - Watch the looping rolls to confirm the digits cascade from right to left as
   they settle.
 
