@@ -1261,6 +1261,14 @@ label[data-animate-title]{
 .tabs .tab .tab__icon canvas{
   pointer-events:none;
 }
+.tabs .tab .tab__icon.tab__icon--prepared img[data-tab-icon-source]{
+  position:absolute;
+  inset:0;
+  width:var(--tab-icon-size);
+  height:var(--tab-icon-size);
+  opacity:0;
+  pointer-events:none;
+}
 
 .tabs .tab .tab__icon.tab__icon--animating canvas{
   animation:tabIconClick var(--tab-icon-click-duration) var(--transition-ease-emphasized) forwards;

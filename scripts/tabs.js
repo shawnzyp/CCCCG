@@ -104,6 +104,13 @@ function prepareTabIcon(img) {
   canvas.dataset.tabIconStill = 'true';
   container.insertBefore(canvas, img);
 
+  if (!img.hasAttribute('data-tab-icon-still')) {
+    img.dataset.tabIconStill = 'true';
+  }
+  img.dataset.tabIconSource = 'true';
+  img.setAttribute('aria-hidden', 'true');
+  container.classList.add('tab__icon--prepared');
+
   const state = {
     container,
     canvas,
@@ -413,7 +420,10 @@ const activateTab = (name, options = {}) => {
 
   const performSwitch = () => {
     const currentName = activeTabName || readActiveTabFromDom();
-    if (currentName === name) return;
+    if (currentName === name) {
+      setTab(name);
+      return;
+    }
     const desiredDirection = options.direction || inferTabDirection(currentName, name);
     if (!animateTabTransition(currentName, name, desiredDirection)) {
       setTab(name);
