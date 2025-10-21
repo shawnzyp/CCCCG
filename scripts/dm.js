@@ -7884,11 +7884,19 @@ function initDMLogin(){
     ensureSessionStatusUpdates(loggedIn);
   }
 
+  function logDmInitError(error) {
+    console.error('Failed to init DM tools', error);
+  }
+
   function initTools(){
     try {
-      if (window.initSomfDM) window.initSomfDM();
+      if (typeof window.initSomfDM !== 'function') return;
+      const maybePromise = window.initSomfDM();
+      if (maybePromise && typeof maybePromise.then === 'function') {
+        Promise.resolve(maybePromise).catch(logDmInitError);
+      }
     } catch (e) {
-      console.error('Failed to init DM tools', e);
+      logDmInitError(e);
     }
   }
 
