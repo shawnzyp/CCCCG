@@ -5844,6 +5844,10 @@ const TRACKER_STATUS_LABELS = {
   healthy: 'Healthy',
   wounded: 'Wounded',
   critical: 'Critical',
+  full: 'Full',
+  steady: 'Steady',
+  low: 'Low',
+  depleted: 'Depleted',
   stable: 'Stable',
   unstable: 'Unstable',
   dead: 'Fallen',
@@ -5853,6 +5857,11 @@ const TRACKER_STATUS_COLORS = {
   stable: 'var(--success,#22c55e)',
   unstable: 'var(--warning,#f59e0b)',
   dead: 'var(--error,#f87171)',
+  full: 'var(--success,#22c55e)',
+  steady: 'var(--accent,#6366f1)',
+  low: 'var(--warning,#f59e0b)',
+  critical: 'var(--error,#f87171)',
+  depleted: 'var(--error,#f87171)',
 };
 
 const TRACKER_PROGRESS_ROLL_CLASS = 'tracker-progress--death-roll';
@@ -5868,15 +5877,40 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts
   const hue = Math.round(120 * ratioValue);
   const baseColor = `hsl(${hue}deg 68% 46%)`;
   const statusOverride = typeof opts.statusOverride === 'string' ? opts.statusOverride : null;
-  const status = statusOverride || (ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical');
+  const baseStatus = ratio >= 0.7 ? 'healthy' : ratio >= 0.3 ? 'wounded' : 'critical';
+  const statusBeforeRemap = statusOverride || baseStatus;
+  const statusRemap = opts && typeof opts.statusRemap === 'object' && opts.statusRemap !== null
+    ? opts.statusRemap
+    : null;
+  const statusAfterRemap = statusOverride
+    ? statusBeforeRemap
+    : (statusRemap?.[statusBeforeRemap] || statusBeforeRemap);
   const statusLabelOverride = typeof opts.statusLabelOverride === 'string' ? opts.statusLabelOverride : null;
   const statusColorOverride = typeof opts.statusColorOverride === 'string' ? opts.statusColorOverride : null;
   const colorOverride = typeof opts.colorOverride === 'string' ? opts.colorOverride : null;
-  const fallbackStatusColor = typeof TRACKER_STATUS_COLORS[status] === 'string'
-    ? TRACKER_STATUS_COLORS[status]
+  const statusLabels = opts && typeof opts.statusLabels === 'object' && opts.statusLabels !== null
+    ? opts.statusLabels
     : null;
-  const statusColor = statusColorOverride || fallbackStatusColor || baseColor;
-  const color = colorOverride || statusColorOverride || fallbackStatusColor || baseColor;
+  const statusColors = opts && typeof opts.statusColors === 'object' && opts.statusColors !== null
+    ? opts.statusColors
+    : null;
+  const fallbackStatusColor = typeof TRACKER_STATUS_COLORS[statusAfterRemap] === 'string'
+    ? TRACKER_STATUS_COLORS[statusAfterRemap]
+    : typeof TRACKER_STATUS_COLORS[statusBeforeRemap] === 'string'
+      ? TRACKER_STATUS_COLORS[statusBeforeRemap]
+      : null;
+  const derivedStatusColor = statusColors?.[statusAfterRemap]
+    ?? statusColors?.[statusBeforeRemap]
+    ?? null;
+  const statusColor = statusColorOverride
+    || derivedStatusColor
+    || fallbackStatusColor
+    || baseColor;
+  const color = colorOverride
+    || statusColorOverride
+    || derivedStatusColor
+    || fallbackStatusColor
+    || baseColor;
   const percentValue = Math.round(ratioValue * 100);
   const trackerEl = resolveTracker ? resolveTracker(progressEl) : (progressEl && typeof progressEl.closest === 'function'
     ? progressEl.closest('.tracker-progress')
@@ -5893,30 +5927,35 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts
     target.style.setProperty('--tracker-status-color', statusColor);
   };
   applyProgressVars(progressEl);
-  if (progressEl.dataset) progressEl.dataset.status = status;
+  if (progressEl.dataset) progressEl.dataset.status = statusAfterRemap;
   if (progressContainer && progressContainer !== progressEl) {
     applyProgressVars(progressContainer);
     if (progressContainer.dataset) {
-      progressContainer.dataset.status = status;
+      progressContainer.dataset.status = statusAfterRemap;
     }
   }
   if (trackerEl && trackerEl !== progressContainer && trackerEl !== progressEl) {
     applyProgressVars(trackerEl);
     if (trackerEl.dataset) {
-      trackerEl.dataset.status = status;
+      trackerEl.dataset.status = statusAfterRemap;
     }
   }
   if (labelEl) {
     applyProgressVars(labelEl);
     if (labelEl.dataset) {
-      labelEl.dataset.status = status;
+      labelEl.dataset.status = statusAfterRemap;
     }
-    const statusLabel = statusLabelOverride || TRACKER_STATUS_LABELS[status] || '';
+    const statusLabel = statusLabelOverride
+      || statusLabels?.[statusAfterRemap]
+      || statusLabels?.[statusBeforeRemap]
+      || TRACKER_STATUS_LABELS[statusAfterRemap]
+      || TRACKER_STATUS_LABELS[statusBeforeRemap]
+      || '';
     const statusEl = labelEl.querySelector('.tracker-progress__status');
     if (statusEl) {
       statusEl.textContent = statusLabel;
       if (statusEl.dataset) {
-        statusEl.dataset.status = status;
+        statusEl.dataset.status = statusAfterRemap;
       }
       if ('hidden' in statusEl) {
         statusEl.hidden = statusLabel.length === 0;
@@ -5936,8 +5975,13 @@ function applyProgressGradient(progressEl, labelEl, currentValue, maxValue, opts
     ratio: ratioValue,
     percent: percentValue,
     color,
-    status,
-    statusLabel: statusLabelOverride || TRACKER_STATUS_LABELS[status] || '',
+    status: statusAfterRemap,
+    statusLabel: statusLabelOverride
+      || statusLabels?.[statusAfterRemap]
+      || statusLabels?.[statusBeforeRemap]
+      || TRACKER_STATUS_LABELS[statusAfterRemap]
+      || TRACKER_STATUS_LABELS[statusBeforeRemap]
+      || '',
     trackerEl: trackerEl || progressContainer || null,
   };
 }
@@ -6595,6 +6639,21 @@ function updateSPDisplay({ current, max } = {}){
   const currentValue = Number.isFinite(current) ? current : num(elSPBar.value);
   const maxValue = Number.isFinite(max) ? max : num(elSPBar.max);
   const tempValue = elSPTemp ? num(elSPTemp.value) : 0;
+  const ratio = Number.isFinite(maxValue) && maxValue > 0
+    ? Math.min(Math.max(currentValue / maxValue, 0), 1)
+    : 0;
+  let status = 'depleted';
+  if (Number.isFinite(maxValue) && maxValue > 0) {
+    if (ratio >= 0.8) {
+      status = 'full';
+    } else if (ratio >= 0.5) {
+      status = 'steady';
+    } else if (ratio >= 0.25) {
+      status = 'low';
+    } else if (currentValue > 0) {
+      status = 'critical';
+    }
+  }
   if (elSPCurrent) elSPCurrent.textContent = currentValue;
   if (elSPMax) elSPMax.textContent = maxValue;
   const spDisplay = `${currentValue}/${maxValue}` + (tempValue ? ` (+${tempValue})` : ``);
@@ -6608,7 +6667,29 @@ function updateSPDisplay({ current, max } = {}){
     elSPBar.setAttribute('aria-valuenow', `${currentValue}`);
     elSPBar.setAttribute('aria-valuemax', `${maxValue}`);
   }
-  const gaugeState = applyProgressGradient(elSPBar, elSPPill, currentValue, maxValue);
+  const gaugeState = applyProgressGradient(
+    elSPBar,
+    elSPPill,
+    currentValue,
+    maxValue,
+    {
+      statusOverride: status,
+      statusLabels: {
+        full: 'Full',
+        steady: 'Steady',
+        low: 'Low',
+        critical: 'Critical',
+        depleted: 'Depleted',
+      },
+      statusColors: {
+        full: 'var(--success,#22c55e)',
+        steady: 'var(--accent,#6366f1)',
+        low: 'var(--warning,#f59e0b)',
+        critical: 'var(--error,#f87171)',
+        depleted: 'var(--error,#f87171)',
+      },
+    },
+  );
   updateTempBadge(elSPTempPill, tempValue);
 }
 

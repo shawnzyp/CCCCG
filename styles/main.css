@@ -2713,6 +2713,10 @@ button .btn-label{display:inline-flex;align-items:center}
 .tracker-progress__status[data-status="healthy"]{--status-color:var(--success,#22c55e);}
 .tracker-progress__status[data-status="wounded"]{--status-color:var(--warning,#f59e0b);}
 .tracker-progress__status[data-status="critical"]{--status-color:var(--error,#f87171);}
+.tracker-progress__status[data-status="full"]{--status-color:var(--success,#22c55e);}
+.tracker-progress__status[data-status="steady"]{--status-color:var(--accent,#6366f1);}
+.tracker-progress__status[data-status="low"]{--status-color:var(--warning,#f59e0b);}
+.tracker-progress__status[data-status="depleted"]{--status-color:var(--error,#f87171);}
 .tracker-progress__status[data-status="stable"]{--status-color:var(--success,#22c55e);}
 .tracker-progress__status[data-status="unstable"]{--status-color:var(--warning,#f59e0b);}
 .tracker-progress__status[data-status="dead"]{--status-color:var(--error,#f87171);}
