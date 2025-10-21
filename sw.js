@@ -78,6 +78,28 @@ async function getCacheAndManifest() {
   return { cache, manifest };
 }
 
+async function precacheManifestAssets(cache, manifest) {
+  if (!manifest || !Array.isArray(manifest.assets) || !cache) return;
+
+  const skippedAssets = [];
+  const assets = manifest.assets.filter(asset => typeof asset === 'string' && asset);
+
+  await Promise.all(
+    assets.map(async asset => {
+      try {
+        await cache.add(asset);
+      } catch (err) {
+        skippedAssets.push({ asset, error: err });
+      }
+    })
+  );
+
+  if (skippedAssets.length && typeof console !== 'undefined' && console?.warn) {
+    const failed = skippedAssets.map(entry => entry.asset);
+    console.warn('Skipped precaching assets due to fetch failures:', failed);
+  }
+}
+
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
@@ -323,7 +345,7 @@ self.addEventListener('install', e => {
   e.waitUntil(
     (async () => {
       const { cache, manifest } = await getCacheAndManifest();
-      await cache.addAll(manifest.assets);
+      await precacheManifestAssets(cache, manifest);
     })()
   );
 });
