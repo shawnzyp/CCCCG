@@ -1563,15 +1563,25 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
     unlockTouchControls({ immediate: true });
     return;
   }
+  const wasHidden = modal.classList.contains('hidden');
   if (backgroundOnly) {
     return;
   }
   const body = typeof document !== 'undefined' ? document.body : null;
-  if (body && body.classList.contains('launching')) {
+  const isLaunching = !!(body && body.classList.contains('launching'));
+  show(WELCOME_MODAL_ID);
+
+  if (isLaunching) {
+    if (wasHidden) {
+      const skipButton = body ? body.querySelector('[data-skip-launch]') : null;
+      if (skipButton && typeof skipButton.focus === 'function') {
+        try {
+          skipButton.focus();
+        } catch {}
+      }
+    }
     return;
   }
-  const wasHidden = modal.classList.contains('hidden');
-  show(WELCOME_MODAL_ID);
 
   if (!wasHidden) {
     unlockTouchControls();
