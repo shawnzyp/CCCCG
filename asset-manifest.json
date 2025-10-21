@@ -1,6 +1,6 @@
 {
-  "version": "cccg-cache-1c683bb3a433e106",
-  "generatedAt": "2025-10-20T23:21:47.879Z",
+  "version": "cccg-cache-6eed181b2f4a959b",
+  "generatedAt": "2025-10-21T12:56:06.016Z",
   "assets": [
     "./",
     "./Augments.txt",
@@ -9,6 +9,7 @@
     "./CatalystCore_Master_Book.csv",
     "./Levels.txt",
     "./News.txt",
+    "./Race Sport.ttf",
     "./Race Sport.woff2",
     "./SuperheroMiniGames/ClueTracker/ClueTracker.html",
     "./SuperheroMiniGames/ClueTracker/README.txt",
@@ -64,7 +65,6 @@
     "./images/The Shards of Many Fates Art/The Wanderer.png",
     "./images/The Shards of Many Fates Art/The Wraith.png",
     "./images/XoVrom.png",
-    "./images/b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mov",
     "./images/badge.png",
     "./images/caret (1).png",
     "./images/caret.png",
@@ -73,6 +73,7 @@
     "./images/dna.png",
     "./images/hammer.png",
     "./images/hypertension.png",
+    "./images/images_b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4",
     "./images/internet.png",
     "./images/logo-theme-toggle.svg",
     "./images/logo.png",
