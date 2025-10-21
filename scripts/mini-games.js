@@ -532,7 +532,9 @@ async function fetchPlayerDeployments(player) {
   const trimmed = sanitizePlayer(player);
   if (!trimmed) return [];
   const url = `${CLOUD_MINI_GAMES_URL}/${encodePath(trimmed)}.json`;
+  if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await fetch(url);
+  if (!res || typeof res.ok !== 'boolean') throw new TypeError('invalid response');
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   return transformPlayerDeploymentData(trimmed, data || {});
@@ -558,7 +560,9 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
       const entries = await fetchPlayerDeployments(trimmed);
       callback(entries);
     } catch (err) {
-      console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
+      if (!err || (err.message !== 'fetch not supported' && err.name !== 'TypeError')) {
+        console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
+      }
     } finally {
       if (!active) return;
       timer = setTimeout(poll, Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS));

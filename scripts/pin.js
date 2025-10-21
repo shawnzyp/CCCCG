@@ -29,12 +29,18 @@ async function saveCloudPin(name, hash) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(hash)
   });
+  if (!res || typeof res.ok !== 'boolean') {
+    throw new TypeError('invalid response');
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 async function loadCloudPin(name) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(name)}.json`);
+  if (!res || typeof res.ok !== 'boolean') {
+    throw new TypeError('invalid response');
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -42,6 +48,9 @@ async function loadCloudPin(name) {
 async function deleteCloudPin(name) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(name)}.json`, { method: 'DELETE' });
+  if (!res || typeof res.ok !== 'boolean') {
+    throw new TypeError('invalid response');
+  }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
@@ -92,7 +101,7 @@ export async function syncPin(name) {
       localStorage.setItem(key(name), hash);
     }
   } catch (e) {
-    if (e && e.message !== 'fetch not supported') {
+    if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
       console.error('Cloud pin load failed', e);
     }
   }
@@ -106,7 +115,7 @@ export async function setPin(name, pin) {
   } catch (e) {
     if (e && e.message === 'fetch not supported') return;
     const queued = shouldQueuePinError(e) && (await enqueueCloudPin('set', name, hash));
-    if (!queued) {
+    if (!queued && (e && e.name !== 'TypeError')) {
       console.error('Cloud pin save failed', e);
     }
   }
@@ -130,7 +139,7 @@ export async function clearPin(name) {
   } catch (e) {
     if (e && e.message === 'fetch not supported') return;
     const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', name));
-    if (!queued) {
+    if (!queued && (e && e.name !== 'TypeError')) {
       console.error('Cloud pin delete failed', e);
     }
   }
@@ -146,7 +155,7 @@ export async function movePin(oldName, newName) {
     try {
       await saveCloudPin(newName, val);
     } catch (e) {
-      if (e && e.message !== 'fetch not supported') {
+      if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
         const queued = shouldQueuePinError(e) && (await enqueueCloudPin('set', newName, val));
         if (!queued) {
           console.error('Cloud pin move failed', e);
@@ -156,7 +165,7 @@ export async function movePin(oldName, newName) {
     try {
       await deleteCloudPin(oldName);
     } catch (e) {
-      if (e && e.message !== 'fetch not supported') {
+      if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
         const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', oldName));
         if (!queued) {
           console.error('Cloud pin move failed', e);
