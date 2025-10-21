@@ -7952,13 +7952,10 @@ function initDMLogin(){
     }
   }
 
-  function initTools(){
+  async function initTools(){
     try {
       if (typeof window.initSomfDM !== 'function') return;
-      const maybePromise = window.initSomfDM();
-      if (maybePromise && typeof maybePromise.then === 'function') {
-        Promise.resolve(maybePromise).catch(logDmInitError);
-      }
+      await window.initSomfDM();
     } catch (e) {
       logDmInitError(e);
     }
