@@ -5289,7 +5289,17 @@ powerDcModeRadios.forEach(radio => {
 const elXP = $('xp');
 const elXPBar = $('xp-bar');
 const elXPPill = $('xp-pill');
-const xpNumberFormatter = new Intl.NumberFormat();
+const xpNumberFormatter = (typeof Intl !== 'undefined' && typeof Intl.NumberFormat === 'function')
+  ? new Intl.NumberFormat()
+  : {
+      format(value) {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+          return String(numeric);
+        }
+        return String(value ?? '');
+      }
+    };
 const elTier = $('tier');
 const elLevelValue = $('level');
 const elLevelDisplay = $('level-display');
