@@ -18,6 +18,8 @@ const TAB_ICON_SOURCE_OVERRIDES = new Map([
   ['abilities', resolveAssetUrl('../images/skills (1).png')],
 ]);
 
+const TAB_ICONS_USE_ORIGINAL_SOURCE = new Set(['combat', 'abilities']);
+
 const normalizeIconSrc = src => {
   if (!src) return '';
   if (typeof document === 'undefined') return src;
@@ -124,6 +126,22 @@ function prepareTabIcon(img) {
   ensureTabIconSource(img);
   const container = img.closest('.tab__icon');
   if (!container || tabIconStates.has(container)) return;
+
+  const key = img.getAttribute('data-tab-icon');
+  const useOriginalSource = key && TAB_ICONS_USE_ORIGINAL_SOURCE.has(key);
+
+  if (useOriginalSource) {
+    img.removeAttribute('aria-hidden');
+    img.dataset.tabIconStill = 'true';
+    tabIconStates.set(container, {
+      container,
+      canvas: null,
+      animationTimer: null,
+      useOriginalSource: true,
+    });
+    container.classList.add('tab__icon--original-source');
+    return;
+  }
 
   const widthAttr = parseDimension(img.getAttribute('width'));
   const heightAttr = parseDimension(img.getAttribute('height'));
