@@ -5589,7 +5589,19 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
   overflow:hidden;
   transition:box-shadow .35s ease,transform .35s ease;
 }
-:is(.pill.result,.dice-result__shell,#death-save-out.death-save-result)::after{
+.dice-result__value{
+  position:relative;
+  z-index:0;
+  display:inherit;
+  align-items:inherit;
+  justify-content:inherit;
+  border-radius:inherit;
+  overflow:hidden;
+  isolation:isolate;
+}
+.dice-result__shell>.dice-result__value{width:100%;}
+.dice-result__value>*{position:relative;z-index:0;}
+.dice-result__value::after{
   content:"";
   position:absolute;
   inset:-25% -45%;
@@ -5600,10 +5612,12 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
   pointer-events:none;
   mix-blend-mode:screen;
   animation:diceResultShellGlint 5.4s ease-in-out infinite;
+  z-index:1;
 }
 body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-save-result):hover{box-shadow:var(--dice-result-depth-shadow),0 0 26px -6px color-mix(in srgb,var(--dice-result-accent,var(--accent)) 70%,transparent),0 0 18px -4px var(--dice-result-glow-secondary);transform:translateY(-1px)}
-body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-save-result):hover::after{opacity:.55}
-.pill.result.rolling::after,.dice-result__shell.rolling::after,#death-save-out.death-save-result.rolling::after{opacity:.8;animation-duration:2.6s}
+body:not(.no-hover) :is(.pill.result,.dice-result__shell,#death-save-out.death-save-result):hover .dice-result__value::after,
+body:not(.no-hover) :is(.pill.result.dice-result__value,#death-save-out.death-save-result):hover::after{opacity:.55}
+.dice-result__value.rolling::after,.dice-result__shell.rolling .dice-result__value::after,#death-save-out.death-save-result.rolling::after{opacity:.8;animation-duration:2.6s}
 .roll-tool .pill.result{margin:0;font-size:var(--roll-tools-pill-font-size);min-height:var(--roll-tools-pill-height);padding:clamp(3px,1.1vw,6px) clamp(8px,2.2vw,12px);--dice-result-fill:color-mix(in srgb,var(--surface-2) 88%,var(--surface-3) 12%)}
 .roll-tool .dice-breakdown{display:flex;flex-wrap:wrap;gap:calc(var(--roll-tools-gap)*.35);margin:0;padding:0;list-style:none;font-size:calc(var(--roll-tools-pill-font-size)*.9);color:var(--muted)}
 .roll-tool .dice-breakdown[hidden]{display:none}
