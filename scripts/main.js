@@ -1743,6 +1743,26 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   const ensureLaunchVideoSources = async vid => {
     if(!vid) return false;
 
+    let modified = false;
+    const normalizeDataSource = source => {
+      const dataSrc = source.getAttribute('data-src');
+      if(!dataSrc) return;
+      if(source.getAttribute('src') === dataSrc) return;
+      source.setAttribute('src', dataSrc);
+      modified = true;
+    };
+
+    const existingSources = vid.querySelectorAll('source');
+    existingSources.forEach(normalizeDataSource);
+
+    if(!vid.getAttribute('src')){
+      const inlineSrc = vid.getAttribute('data-src');
+      if(inlineSrc){
+        vid.setAttribute('src', inlineSrc);
+        modified = true;
+      }
+    }
+
     const hasExistingSource = !!vid.querySelector('source[src]');
     let appended = false;
     const canProbe = typeof fetch === 'function';
@@ -1795,7 +1815,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       appended = true;
     }
 
-    if(appended && !IS_JSDOM_ENV && typeof vid.load === 'function'){
+    if((modified || appended) && !IS_JSDOM_ENV && typeof vid.load === 'function'){
       try {
         vid.load();
       } catch (err) {
@@ -1803,7 +1823,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       }
     }
 
-    return hasExistingSource || appended;
+    return hasExistingSource || appended || modified;
   };
 
   if(!video){
