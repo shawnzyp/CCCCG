@@ -1639,6 +1639,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   lockTouchControls();
   queueWelcomeModal({ preload: true });
+  queueWelcomeModal({ immediate: true });
 
   const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
@@ -1648,6 +1649,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   let fallbackTimer = null;
   let awaitingGesture = false;
   let cleanupMessaging = null;
+  let bypassLaunchMinimum = false;
   const userGestureListeners = [];
 
   const clearTimer = timer => {
@@ -1707,7 +1709,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
         window.__resetLaunchVideo = undefined;
       }
     }
-    if(playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
+    if(!bypassLaunchMinimum && playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
       const elapsed = performance.now() - playbackStartedAt;
       const remaining = Math.max(0, LAUNCH_MIN_VISIBLE - elapsed);
       if(remaining > 0){
@@ -1879,11 +1881,15 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   if(skipButton){
     skipButton.addEventListener('click', event => {
       event.preventDefault();
+      bypassLaunchMinimum = true;
       finalizeLaunch();
     });
   }
 
-  window.addEventListener('launch-animation-skip', finalizeLaunch, { once: true });
+  window.addEventListener('launch-animation-skip', () => {
+    bypassLaunchMinimum = true;
+    finalizeLaunch();
+  }, { once: true });
 
   const scheduleFallback = delay => {
     const rawDelay = typeof delay === 'number' && Number.isFinite(delay) ? delay : LAUNCH_MIN_VISIBLE;
