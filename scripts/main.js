@@ -95,39 +95,80 @@ import {
 } from './offline-cache.js';
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
+const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
+const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
 
-if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-  const originalMatchMedia = window.matchMedia.bind(window);
-  window.matchMedia = query => {
-    if (typeof query === 'string' && query.includes(REDUCED_MOTION_TOKEN)) {
-      const noop = () => {};
-      return {
-        matches: false,
-        media: query,
-        onchange: null,
-        addEventListener: noop,
-        removeEventListener: noop,
-        addListener: noop,
-        removeListener: noop,
-        dispatchEvent: () => false,
-      };
-    }
+if (typeof window !== 'undefined') {
+  if (typeof window.matchMedia === 'function') {
+    const originalMatchMedia = window.matchMedia.bind(window);
+    const suppressedTokens = [REDUCED_MOTION_TOKEN, REDUCED_DATA_TOKEN, SAVE_DATA_TOKEN];
+    window.matchMedia = query => {
+      if (typeof query === 'string' && suppressedTokens.some(token => query.includes(token))) {
+        const noop = () => {};
+        return {
+          matches: false,
+          media: query,
+          onchange: null,
+          addEventListener: noop,
+          removeEventListener: noop,
+          addListener: noop,
+          removeListener: noop,
+          dispatchEvent: () => false,
+        };
+      }
+      try {
+        return originalMatchMedia(query);
+      } catch (err) {
+        return {
+          matches: false,
+          media: query,
+          onchange: null,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          dispatchEvent: () => false,
+        };
+      }
+    };
+  }
+
+  const disableSaveDataPreference = () => {
     try {
-      return originalMatchMedia(query);
-    } catch (err) {
-      return {
-        matches: false,
-        media: query,
-        onchange: null,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        addListener: () => {},
-        removeListener: () => {},
-        dispatchEvent: () => false,
+      if (typeof navigator === 'undefined') {
+        return;
+      }
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (!connection) {
+        return;
+      }
+      const forceValue = target => {
+        try {
+          Object.defineProperty(target, 'saveData', { configurable: true, enumerable: true, value: false, writable: true });
+        } catch (err) {
+          try {
+            target.saveData = false;
+          } catch (err2) {
+            /* ignore inability to override */
+          }
+        }
       };
+      forceValue(connection);
+      if (typeof connection.addEventListener === 'function') {
+        const handler = () => forceValue(connection);
+        try {
+          connection.addEventListener('change', handler);
+        } catch (err) {
+          /* ignore listener failures */
+        }
+      }
+    } catch (err) {
+      /* ignore inability to override data saver */
     }
   };
+
+  disableSaveDataPreference();
 }
 
 
@@ -1845,17 +1886,42 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       // ignore attribute failures
     }
     try {
+      vid.playsInline = true;
+    } catch (err) {
+      // ignore inability to set playsInline property
+    }
+    try {
+      vid.webkitPlaysInline = true;
+    } catch (err) {
+      // ignore inability to set legacy inline playback
+    }
+    try {
       if(!vid.hasAttribute('muted')){
         vid.setAttribute('muted', '');
       }
       vid.muted = true;
+      vid.defaultMuted = true;
     } catch (err) {
       // ignore inability to force muted playback
     }
     try {
       vid.autoplay = true;
+      if(!vid.hasAttribute('autoplay')){
+        vid.setAttribute('autoplay', '');
+      }
     } catch (err) {
       // ignore inability to set autoplay
+    }
+    try {
+      vid.volume = 0;
+    } catch (err) {
+      // ignore inability to adjust volume
+    }
+    try {
+      vid.removeAttribute('controls');
+      vid.controls = false;
+    } catch (err) {
+      // ignore inability to disable controls
     }
   };
 
@@ -1887,6 +1953,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   const finalizeLaunch = () => {
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
+    playbackRetryTimer = clearTimer(playbackRetryTimer);
     if(!IS_JSDOM_ENV){
       try {
         video.pause();
@@ -1918,34 +1985,41 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     fallbackTimer = window.setTimeout(finalizeLaunch, clampedDelay);
   };
 
+  let playbackRetryTimer = null;
+  const schedulePlaybackRetry = () => {
+    playbackRetryTimer = clearTimer(playbackRetryTimer);
+    playbackRetryTimer = window.setTimeout(() => {
+      playbackRetryTimer = clearTimer(playbackRetryTimer);
+      attemptPlayback();
+    }, 250);
+  };
+
   function attemptPlayback(){
     ensureLaunchVideoAttributes(video);
     try {
       const playAttempt = video.play();
       if(playAttempt && typeof playAttempt.then === 'function'){
-        playAttempt.catch(() => {
-          requireUserGesture();
+        playAttempt.then(() => {
+          playbackRetryTimer = clearTimer(playbackRetryTimer);
+        }).catch(() => {
+          if(video.paused){
+            schedulePlaybackRetry();
+          } else {
+            playbackRetryTimer = clearTimer(playbackRetryTimer);
+          }
         });
+      } else if(video.paused){
+        schedulePlaybackRetry();
+      } else {
+        playbackRetryTimer = clearTimer(playbackRetryTimer);
       }
     } catch (err) {
-      requireUserGesture();
+      if(video.paused){
+        schedulePlaybackRetry();
+      } else {
+        playbackRetryTimer = clearTimer(playbackRetryTimer);
+      }
     }
-  }
-
-  function requireUserGesture(){
-    if(awaitingGesture) return;
-    awaitingGesture = true;
-    const resumePlayback = () => {
-      cleanupUserGestures();
-      attemptPlayback();
-    };
-    const addGesture = event => {
-      const handler = () => resumePlayback();
-      const capture = true;
-      window.addEventListener(event, handler, { once: true, passive: true, capture });
-      userGestureListeners.push({ target: window, event, handler, capture });
-    };
-    ['pointerdown','touchstart','keydown'].forEach(addGesture);
   }
 
   const resetPlayback = () => {
@@ -1977,6 +2051,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       playbackStartedAt = performance.now();
     }
     cleanupUserGestures();
+    playbackRetryTimer = clearTimer(playbackRetryTimer);
     const naturalDuration = Number.isFinite(video.duration) && video.duration > 0
       ? (video.duration * 1000) + 500
       : LAUNCH_MAX_WAIT;
