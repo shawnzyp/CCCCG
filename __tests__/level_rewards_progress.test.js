@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { jest } from '@jest/globals';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8');
+const TEST_DIR = path.dirname(__filename);
+const html = fs.readFileSync(path.resolve(TEST_DIR, '../index.html'), 'utf8');
 
 function createStorageMock() {
   const store = new Map();
