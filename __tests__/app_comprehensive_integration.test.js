@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 import { Response } from 'node-fetch';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const TEST_DIR = path.dirname(__filename);
 
 if (typeof globalThis.window !== 'undefined' && globalThis.window?.document) {
   globalThis.document = globalThis.window.document;
@@ -60,7 +60,7 @@ class EventSourceMock {
 }
 
 function installDomScaffolding() {
-  const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8');
+  const html = fs.readFileSync(path.resolve(TEST_DIR, '../index.html'), 'utf8');
   document.documentElement.innerHTML = html;
   document.querySelector('[data-m24n-ticker-track]')?.remove();
   document.querySelector('[data-m24n-ticker-text]')?.remove();
