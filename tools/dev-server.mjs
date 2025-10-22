@@ -4,11 +4,75 @@ import { createReadStream } from 'node:fs';
 import { access, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import mime from 'mime-types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const defaultRoot = path.resolve(__dirname, '..');
 const FALLBACK_FILE = 'index.html';
+
+function createFallbackMimeLookup() {
+  const fallbackTypes = new Map([
+    ['.html', 'text/html; charset=utf-8'],
+    ['.htm', 'text/html; charset=utf-8'],
+    ['.js', 'application/javascript; charset=utf-8'],
+    ['.mjs', 'application/javascript; charset=utf-8'],
+    ['.cjs', 'application/javascript; charset=utf-8'],
+    ['.css', 'text/css; charset=utf-8'],
+    ['.json', 'application/json; charset=utf-8'],
+    ['.map', 'application/json; charset=utf-8'],
+    ['.wasm', 'application/wasm'],
+    ['.txt', 'text/plain; charset=utf-8'],
+    ['.csv', 'text/csv; charset=utf-8'],
+    ['.svg', 'image/svg+xml; charset=utf-8'],
+    ['.png', 'image/png'],
+    ['.jpg', 'image/jpeg'],
+    ['.jpeg', 'image/jpeg'],
+    ['.gif', 'image/gif'],
+    ['.webp', 'image/webp'],
+    ['.avif', 'image/avif'],
+    ['.ico', 'image/x-icon'],
+    ['.bmp', 'image/bmp'],
+    ['.mp4', 'video/mp4'],
+    ['.webm', 'video/webm'],
+    ['.mp3', 'audio/mpeg'],
+    ['.ogg', 'audio/ogg'],
+    ['.wav', 'audio/wav'],
+    ['.woff', 'font/woff'],
+    ['.woff2', 'font/woff2'],
+    ['.ttf', 'font/ttf'],
+    ['.otf', 'font/otf'],
+    ['.eot', 'application/vnd.ms-fontobject'],
+    ['.pdf', 'application/pdf'],
+    ['.xml', 'application/xml; charset=utf-8'],
+    ['.zip', 'application/zip'],
+  ]);
+
+  return (filePath) => fallbackTypes.get(path.extname(filePath).toLowerCase())
+    ?? 'application/octet-stream';
+}
+
+const fallbackMimeLookup = createFallbackMimeLookup();
+
+const lookupMimeType = await import('mime-types').then(
+  (module) => {
+    const mimeModule = module.default ?? module;
+    if (mimeModule && typeof mimeModule.lookup === 'function') {
+      return (filePath) => mimeModule.lookup(filePath) || fallbackMimeLookup(filePath);
+    }
+
+    return fallbackMimeLookup;
+  },
+  (error) => {
+    if (
+      (error?.code === 'ERR_MODULE_NOT_FOUND' || error?.code === 'MODULE_NOT_FOUND')
+      && error.message.includes("'mime-types'")
+    ) {
+      console.warn('Optional dependency "mime-types" not found. Falling back to built-in MIME map.');
+      return fallbackMimeLookup;
+    }
+
+    throw error;
+  },
+);
 
 function parseOptions() {
   const options = {
@@ -157,7 +221,7 @@ function startServer({ host, port, root }) {
     }
 
     const { filePath, fileStat } = resolved;
-    const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+    const mimeType = lookupMimeType(filePath);
 
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Length', fileStat.size);
