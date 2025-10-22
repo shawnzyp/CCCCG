@@ -48,6 +48,8 @@
     playsinline
     preload="auto"
     webkit-playsinline
+    controlslist="nodownload nofullscreen noremoteplayback"
+    disablepictureinpicture
     data-src-mp4="images/images_b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4"
   >
     <source
@@ -159,6 +161,10 @@
         try { video.setAttribute('webkit-playsinline', ''); } catch (err) {}
         try { video.playsInline = true; } catch (err) {}
         try { video.webkitPlaysInline = true; } catch (err) {}
+        try { video.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback'); } catch (err) {}
+        try { video.controlsList = 'nodownload nofullscreen noremoteplayback'; } catch (err) {}
+        try { video.setAttribute('disablepictureinpicture', ''); } catch (err) {}
+        try { video.disablePictureInPicture = true; } catch (err) {}
         try {
           if(!video.hasAttribute('muted')){
             video.setAttribute('muted', '');
