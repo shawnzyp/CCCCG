@@ -165,6 +165,8 @@
         try { video.controlsList = 'nodownload nofullscreen noremoteplayback'; } catch (err) {}
         try { video.setAttribute('disablepictureinpicture', ''); } catch (err) {}
         try { video.disablePictureInPicture = true; } catch (err) {}
+        try { video.setAttribute('preload', 'auto'); } catch (err) {}
+        try { video.preload = 'auto'; } catch (err) {}
         try {
           if(!video.hasAttribute('muted')){
             video.setAttribute('muted', '');
@@ -177,6 +179,7 @@
         try { video.volume = 0; } catch (err) {}
         try { video.removeAttribute('controls'); video.controls = false; } catch (err) {}
       };
+      ensureAttributes();
       const schedulePlayRetry = () => {
         if(playRetryTimer){
           window.clearTimeout(playRetryTimer);
