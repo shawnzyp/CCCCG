@@ -5839,22 +5839,86 @@ if (elXP instanceof HTMLElement) {
   currentLevelIdx = getLevelIndex(initXP);
 }
 
-function launchConfetti(){
-    
+function fireConfettiBursts(schedule = []) {
+  if (!Array.isArray(schedule) || !schedule.length) return;
   loadConfetti().then(fn => {
-    try {
-      fn({
-        particleCount: 100,
-        spread: 70,
-        origin: { x: 0, y: 0 }
-      });
-      fn({
-        particleCount: 100,
-        spread: 70,
-        origin: { x: 1, y: 0 }
-      });
-    } catch {}
+    schedule.forEach(entry => {
+      if (!entry || typeof entry !== 'object') return;
+      const { delay = 0, options } = entry;
+      if (!options || typeof options !== 'object') return;
+      const trigger = () => {
+        try {
+          fn(options);
+        } catch {}
+      };
+      if (delay > 0) {
+        setTimeout(trigger, delay);
+      } else {
+        trigger();
+      }
+    });
   });
+}
+
+function launchSubTierConfetti(){
+  fireConfettiBursts([
+    {
+      options: {
+        particleCount: 60,
+        spread: 55,
+        startVelocity: 38,
+        decay: 0.92,
+        scalar: 0.7,
+        origin: { x: 0.25, y: 0.9 }
+      }
+    },
+    {
+      options: {
+        particleCount: 60,
+        spread: 55,
+        startVelocity: 38,
+        decay: 0.92,
+        scalar: 0.7,
+        origin: { x: 0.75, y: 0.9 }
+      }
+    }
+  ]);
+}
+
+function launchTierConfetti(){
+  fireConfettiBursts([
+    {
+      options: {
+        particleCount: 160,
+        spread: 85,
+        startVelocity: 48,
+        decay: 0.9,
+        scalar: 1,
+        origin: { x: 0.2, y: 0.6 }
+      }
+    },
+    {
+      options: {
+        particleCount: 160,
+        spread: 85,
+        startVelocity: 48,
+        decay: 0.9,
+        scalar: 1,
+        origin: { x: 0.8, y: 0.6 }
+      }
+    },
+    {
+      delay: 250,
+      options: {
+        particleCount: 220,
+        spread: 120,
+        startVelocity: 55,
+        decay: 0.88,
+        scalar: 1.1,
+        origin: { x: 0.5, y: 0.4 }
+      }
+    }
+  ]);
 }
 
 function launchFireworks(){
@@ -5877,6 +5941,39 @@ function launchFireworks(){
 
 // set initial tier display
 updateLevelOutputs(getLevelEntry(currentLevelIdx));
+
+function getLevelCelebrationType(prevIdx, nextIdx) {
+  if (!Number.isFinite(prevIdx) || !Number.isFinite(nextIdx) || nextIdx <= prevIdx) {
+    return 'none';
+  }
+  let sawTierIncrease = false;
+  let sawSubTierIncrease = false;
+  for (let i = prevIdx + 1; i <= nextIdx; i++) {
+    const current = getLevelEntry(i);
+    const previous = getLevelEntry(i - 1);
+    if (!current || !previous) continue;
+    if (!sawTierIncrease) {
+      const prevTierNumber = Number.isFinite(Number(previous.tierNumber)) ? Number(previous.tierNumber) : null;
+      const currentTierNumber = Number.isFinite(Number(current.tierNumber)) ? Number(current.tierNumber) : null;
+      const prevTierLabel = previous.tierLabel ? String(previous.tierLabel).trim() : '';
+      const currentTierLabel = current.tierLabel ? String(current.tierLabel).trim() : '';
+      if (currentTierNumber !== prevTierNumber || currentTierLabel !== prevTierLabel) {
+        sawTierIncrease = true;
+      }
+    }
+    if (!sawSubTierIncrease) {
+      const prevSubTier = previous.subTier ? String(previous.subTier).trim() : '';
+      const currentSubTier = current.subTier ? String(current.subTier).trim() : '';
+      if (currentSubTier && currentSubTier !== prevSubTier) {
+        sawSubTierIncrease = true;
+      }
+    }
+    if (sawTierIncrease && sawSubTierIncrease) break;
+  }
+  if (sawTierIncrease) return 'tier';
+  if (sawSubTierIncrease) return 'subTier';
+  return 'none';
+}
 
 /* ========= derived helpers ========= */
 function updateTempBadge(target, tempValue){
@@ -6851,7 +6948,17 @@ function updateXP(){
     logAction(`Level: ${formatLevelLabel(prevLevel)} -> ${formatLevelLabel(levelEntry)}`);
   }
   if (xpInitialized && idx > prevIdx) {
-    launchConfetti();
+    const celebrationType = getLevelCelebrationType(prevIdx, idx);
+    if (celebrationType === 'tier') {
+      launchTierConfetti();
+    } else if (celebrationType === 'subTier') {
+      // Dedicated sub-tier celebration for standard level gains.
+      launchSubTierConfetti();
+    } else {
+      // Fallback to the smaller celebration if tier data is missing but a
+      // level was still gained.
+      launchSubTierConfetti();
+    }
     launchFireworks();
     const baseMessage = `Level up! ${formatLevelLabel(levelEntry)}`;
     const toastMessage = levelEntry?.gains
