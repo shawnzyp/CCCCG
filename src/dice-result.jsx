@@ -40,13 +40,15 @@ function DiceResultContent({ value, playIndex }) {
 
   return (
     <span className="dice-result__shell">
-      <DecryptedText
-        key={playIndex}
-        text={text}
-        parentClassName="dice-result-decrypted"
-        className="dice-result-decrypted__char"
-        data-play-index={playIndex}
-      />
+      <span className="dice-result__value">
+        <DecryptedText
+          key={playIndex}
+          text={text}
+          parentClassName="dice-result-decrypted"
+          className="dice-result-decrypted__char"
+          data-play-index={playIndex}
+        />
+      </span>
     </span>
   );
 }
