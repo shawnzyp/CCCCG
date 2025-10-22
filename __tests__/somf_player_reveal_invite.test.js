@@ -95,7 +95,7 @@ test('player receives a shard reveal invite and can accept it', async () => {
   };
 
   window.matchMedia = jest.fn().mockImplementation(query => ({
-    matches: query === '(prefers-reduced-motion: reduce)',
+    matches: false,
     media: query,
     onchange: null,
     addListener: jest.fn(),
@@ -182,7 +182,7 @@ test('player receives a shard reveal invite and can accept it', async () => {
   const accept = invite.querySelector('[data-somf-reveal-dismiss]');
   expect(accept.textContent).toBe('Eeehhhhh…');
   accept.click();
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 500));
 
   expect(invite.hidden).toBe(true);
   expect(invite.getAttribute('aria-hidden')).toBe('true');
