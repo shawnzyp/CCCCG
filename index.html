@@ -69,7 +69,38 @@
       return;
     }
 
+    const disableSaveDataPreference = () => {
+      try {
+        if (typeof navigator === 'undefined') {
+          return;
+        }
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!connection) {
+          return;
+        }
+        const forceValue = target => {
+          try {
+            Object.defineProperty(target, 'saveData', { configurable: true, enumerable: true, value: false, writable: true });
+          } catch (err) {
+            try {
+              target.saveData = false;
+            } catch (err2) {}
+          }
+        };
+        forceValue(connection);
+        if (typeof connection.addEventListener === 'function') {
+          const handler = () => forceValue(connection);
+          try {
+            connection.addEventListener('change', handler);
+          } catch (err) {}
+        }
+      } catch (err) {}
+    };
+
+    disableSaveDataPreference();
+
     let fallbackTimer = null;
+    let playRetryTimer = null;
     const clearFallback = () => {
       if(fallbackTimer){
         window.clearTimeout(fallbackTimer);
@@ -82,6 +113,10 @@
         return;
       }
       clearFallback();
+      if(playRetryTimer){
+        window.clearTimeout(playRetryTimer);
+        playRetryTimer = null;
+      }
       try { if(video) video.pause(); } catch (err) {}
       body.classList.remove('launching');
       launchEl.setAttribute('data-hidden', 'true');
@@ -122,20 +157,58 @@
       const ensureAttributes = () => {
         try { video.setAttribute('playsinline', ''); } catch (err) {}
         try { video.setAttribute('webkit-playsinline', ''); } catch (err) {}
+        try { video.playsInline = true; } catch (err) {}
+        try { video.webkitPlaysInline = true; } catch (err) {}
         try {
           if(!video.hasAttribute('muted')){
             video.setAttribute('muted', '');
           }
           video.muted = true;
+          video.defaultMuted = true;
         } catch (err) {}
+        try { if(!video.hasAttribute('autoplay')){ video.setAttribute('autoplay', ''); } } catch (err) {}
+        try { video.autoplay = true; } catch (err) {}
+        try { video.volume = 0; } catch (err) {}
+        try { video.removeAttribute('controls'); video.controls = false; } catch (err) {}
+      };
+      const schedulePlayRetry = () => {
+        if(playRetryTimer){
+          window.clearTimeout(playRetryTimer);
+        }
+        playRetryTimer = window.setTimeout(() => {
+          playRetryTimer = null;
+          attemptPlay();
+        }, 250);
       };
       const attemptPlay = () => {
         ensureAttributes();
         if(typeof video.play === 'function'){
           const playAttempt = video.play();
           if(playAttempt && typeof playAttempt.catch === 'function'){
-            playAttempt.catch(() => {});
+            playAttempt.then(() => {
+              if(playRetryTimer){
+                window.clearTimeout(playRetryTimer);
+                playRetryTimer = null;
+              }
+            }).catch(() => {
+              if(video.paused){
+                schedulePlayRetry();
+              } else if(playRetryTimer){
+                window.clearTimeout(playRetryTimer);
+                playRetryTimer = null;
+              }
+            });
+          } else if(video.paused){
+            schedulePlayRetry();
+          } else if(playRetryTimer){
+            window.clearTimeout(playRetryTimer);
+            playRetryTimer = null;
           }
+        } else if(video.paused){
+          schedulePlayRetry();
+        } else if(playRetryTimer){
+          window.clearTimeout(playRetryTimer);
+          playRetryTimer = null;
         }
       };
       const handleReady = () => {
@@ -196,6 +269,10 @@
         }
         ensureAttributes();
         video.addEventListener('loadeddata', ensureAttributes, { once: true });
+        if(playRetryTimer){
+          window.clearTimeout(playRetryTimer);
+          playRetryTimer = null;
+        }
         if(video.readyState >= 1){
           handleReady();
           return;
@@ -206,6 +283,12 @@
       };
 
       video.addEventListener('ended', hideLaunch, { once: true });
+      video.addEventListener('playing', () => {
+        if(playRetryTimer){
+          window.clearTimeout(playRetryTimer);
+          playRetryTimer = null;
+        }
+      });
       ['error','abort','stalled','suspend'].forEach(evt => {
         video.addEventListener(evt, () => scheduleFallback(MIN_VISIBLE), { once: true });
       });
