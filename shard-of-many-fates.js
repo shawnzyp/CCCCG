@@ -904,11 +904,7 @@
   }
 
   function preferReducedMotion() {
-    try {
-      return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
-    } catch {
-      return false;
-    }
+    return false;
   }
 
   function createSuspenseStingController() {

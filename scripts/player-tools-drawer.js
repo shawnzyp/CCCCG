@@ -66,10 +66,7 @@ function createPlayerToolsDrawer() {
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
   const content = drawer.querySelector('[data-player-tools-content]');
 
-  const motionPreference =
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia('(prefers-reduced-motion: reduce)')
-      : null;
+  const motionPreference = null;
 
   const body = document.body;
   const requestFrame =
@@ -159,7 +156,7 @@ function createPlayerToolsDrawer() {
     openAnimationCompletion = null;
   };
 
-  const isMotionReduced = () => motionPreference?.matches === true;
+  const isMotionReduced = () => false;
 
   const animateOpenProgress = (target, onComplete) => {
     const destination = clamp(target, 0, 1);
