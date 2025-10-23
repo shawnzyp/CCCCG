@@ -1,6 +1,6 @@
 {
-  "version": "cccg-cache-6eed181b2f4a959b",
-  "generatedAt": "2025-10-21T12:56:06.016Z",
+  "version": "cccg-cache-d1e173005c37a426",
+  "generatedAt": "2025-10-23T10:41:39.205Z",
   "assets": [
     "./",
     "./Augments.txt",
@@ -42,6 +42,7 @@
     "./images/Mutant.PNG",
     "./images/Mystical Being.PNG",
     "./images/Ocean.PNG",
+    "./images/Race Sport.woff2",
     "./images/The Shards of Many Fates Art/The Catalyst.png",
     "./images/The Shards of Many Fates Art/The Chronicile.png",
     "./images/The Shards of Many Fates Art/The Comet.png",
@@ -123,6 +124,7 @@
     "./scripts/player-credit-events.js",
     "./scripts/player-credit-modal.js",
     "./scripts/player-tools-drawer.js",
+    "./scripts/polyfills.js",
     "./scripts/power-metadata.js",
     "./scripts/somf-firebase.js",
     "./scripts/storage.js",
