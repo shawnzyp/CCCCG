@@ -85,7 +85,7 @@ import {
   EFFECT_SAVE_SUGGESTIONS,
   getRangeOptionsForShape,
 } from './power-metadata.js';
-import { toast } from './notifications.js';
+import { toast, dismissToast } from './notifications.js';
 import {
   ensureOfflineAssets,
   getStoredOfflineManifestTimestamp,
@@ -4255,6 +4255,70 @@ const statusModifierBadges = $('status-modifiers');
 const activeStatuses = new Set();
 const statusEffectOwners = new Map();
 const statusModifierDescriptions = new Map();
+const STATUS_INFO_TOAST_SOURCE = 'status-info';
+const statusInfoLayoutQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(max-width: 600px)')
+  : null;
+const statusInfoPointerDismissEvents = typeof window !== 'undefined'
+  ? ('PointerEvent' in window ? ['pointerdown'] : ['touchstart', 'mousedown'])
+  : [];
+let statusInfoToastActive = false;
+let statusInfoPointerDismissListener = null;
+const statusInfoPointerDismissOptions = { passive: true };
+
+function isStatusInfoToastMode() {
+  return statusInfoLayoutQuery ? statusInfoLayoutQuery.matches : false;
+}
+
+function detachStatusInfoPointerDismiss() {
+  if (!statusInfoPointerDismissListener || typeof window === 'undefined') return;
+  statusInfoPointerDismissEvents.forEach(eventName => {
+    window.removeEventListener(eventName, statusInfoPointerDismissListener, statusInfoPointerDismissOptions);
+  });
+  statusInfoPointerDismissListener = null;
+}
+
+function attachStatusInfoPointerDismiss() {
+  if (!statusInfoToastActive || statusInfoPointerDismissListener || typeof window === 'undefined') return;
+  statusInfoPointerDismissListener = () => {
+    if (!statusInfoToastActive) return;
+    detachStatusInfoPointerDismiss();
+    dismissToast();
+  };
+  statusInfoPointerDismissEvents.forEach(eventName => {
+    window.addEventListener(eventName, statusInfoPointerDismissListener, statusInfoPointerDismissOptions);
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('cc:toast-shown', event => {
+    const detail = event?.detail || {};
+    const options = detail.options || {};
+    const source = options?.meta?.source;
+    if (source === STATUS_INFO_TOAST_SOURCE) {
+      statusInfoToastActive = true;
+      setTimeout(() => {
+        if (statusInfoToastActive) attachStatusInfoPointerDismiss();
+      }, 0);
+    } else {
+      statusInfoToastActive = false;
+      detachStatusInfoPointerDismiss();
+    }
+  });
+  window.addEventListener('cc:toast-dismissed', () => {
+    statusInfoToastActive = false;
+    detachStatusInfoPointerDismiss();
+  });
+}
+
+function showStatusInfoToast(status) {
+  if (!status) return;
+  const name = escapeHtml(status.name);
+  const desc = escapeHtml(status.desc);
+  const html = `<div class="toast-body toast-status"><strong class="toast-status__name">${name}</strong><p class="toast-status__desc">${desc}</p></div>`;
+  statusInfoToastActive = true;
+  toast('', { type: 'info', duration: 15000, html, meta: { source: STATUS_INFO_TOAST_SOURCE } });
+}
 
 function getStatusEffectOwner(id) {
   if (!statusEffectOwners.has(id)) {
@@ -4374,6 +4438,12 @@ if (statusGrid) {
     }
     if (toggle && desc) {
       toggle.addEventListener('click', event => {
+        if (isStatusInfoToastMode()) {
+          event.preventDefault();
+          setDescriptionVisibility(false);
+          showStatusInfoToast(s);
+          return;
+        }
         const nextExpanded = toggle.getAttribute('aria-expanded') !== 'true';
         setDescriptionVisibility(nextExpanded);
         if (nextExpanded && event.detail === 0) {
