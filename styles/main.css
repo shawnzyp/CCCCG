@@ -1490,7 +1490,7 @@ body:not(.no-hover) .ticker-drawer__pull:hover{
   width:clamp(18px, 5vw, 26px);
   height:auto;
   display:block;
-  filter:drop-shadow(0 2px 6px rgba(0, 0, 0, .28));
+  filter:drop-shadow(0 2px 6px rgba(0, 0, 0, .28)) drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
   transition:opacity var(--transition-duration-medium) var(--transition-ease);
 }
 
