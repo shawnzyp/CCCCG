@@ -98,6 +98,14 @@ async function precacheManifestAssets(cache, manifest) {
     const failed = skippedAssets.map(entry => entry.asset);
     console.warn('Skipped precaching assets due to fetch failures:', failed);
   }
+
+  if (skippedAssets.length) {
+    const failedAssets = skippedAssets.map(entry => entry.asset).join(', ');
+    const error = new Error(`Failed to precache assets: ${failedAssets}`);
+    error.name = 'PrecacheError';
+    error.skippedAssets = skippedAssets;
+    throw error;
+  }
 }
 
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
