@@ -2279,6 +2279,68 @@ button:focus-visible,
 
 .card-toolbar__actions>*{flex:0 0 auto}
 
+.ability-reminder-button{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(6px,2vw,10px);
+  padding:clamp(6px,2.2vw,11px) clamp(10px,3.4vw,16px);
+  border-radius:var(--radius);
+  border:1px solid color-mix(in srgb,var(--line) 75%, transparent);
+  background:color-mix(in srgb,var(--surface-2) 92%, transparent);
+  color:inherit;
+  font-weight:600;
+  font-size:clamp(.72rem,2.3vw,.88rem);
+  line-height:1;
+  white-space:nowrap;
+  transition:box-shadow .28s ease,border-color .28s ease,background .28s ease,transform .28s ease;
+}
+
+.ability-reminder-button[data-pending="true"]{
+  border-color:color-mix(in srgb,var(--accent) 60%, var(--line) 40%);
+  background:color-mix(in srgb,var(--accent) 14%, var(--surface-2) 86%);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 38%, transparent);
+}
+
+.ability-reminder-button:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+body:not(.no-hover) .ability-reminder-button:hover{
+  transform:translateY(-1px);
+}
+
+.ability-reminder-button__label{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(4px,1.8vw,6px);
+}
+
+.ability-reminder-button__badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:clamp(20px,4vw,26px);
+  padding:clamp(2px,1vw,4px) clamp(5px,1.8vw,8px);
+  border-radius:999px;
+  background:var(--accent);
+  color:var(--text-on-accent);
+  font-size:clamp(.65rem,1.8vw,.78rem);
+  font-weight:700;
+  line-height:1;
+}
+
+.ability-reminder-button__badge[hidden]{
+  display:none !important;
+}
+
+.ability-reminder-button[hidden]{
+  display:none !important;
+}
+
 @media(max-width:600px){
   .card-toolbar{justify-content:flex-start}
   .card-toolbar__title,

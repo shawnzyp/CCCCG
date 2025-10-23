@@ -811,12 +811,20 @@
     <div class="card-toolbar card__frame">
       <h2 class="card-title card-toolbar__title card-toolbar__title--inline card__frame" id="card-abilities-title">
         <span class="card-toolbar__title-text">Ability Scores</span>
-        <span
-          id="stat-increase-reminder"
-          class="card-toolbar__badge pill pill-sm card__frame"
+      </h2>
+      <div class="card-toolbar__actions card__frame">
+        <button
+          type="button"
+          id="ability-stat-reminder"
+          class="ability-reminder-button card__frame"
           hidden
-          aria-live="polite"
-        ></span>
+          data-view-allow
+          aria-describedby="card-abilities-title"
+          aria-label="Stat increase reminders"
+        >
+          <span class="ability-reminder-button__label">Stat Reminder</span>
+          <span class="ability-reminder-button__badge" data-ability-reminder-count hidden>0</span>
+        </button>
         <button
           type="button"
           class="card-caret card-edit-toggle card__frame"
@@ -829,7 +837,7 @@
           </span>
           <span class="btn-label card-edit-toggle__label sr-only">Edit</span>
         </button>
-      </h2>
+      </div>
     </div>
     <div id="abil-grid" class="grid ability-grid" data-view-lock></div>
     <fieldset class="card card__glow">

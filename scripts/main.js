@@ -5118,7 +5118,10 @@ const elHPTempPill = $('hp-temp-pill');
 const elHPLevelBonusInput = $('hp-level-bonus');
 const elSPLevelBonusInput = $('sp-level-bonus');
 const elAbilityCard = $('card-abilities');
-const elStatIncreaseReminder = $('stat-increase-reminder');
+const elAbilityStatReminderButton = $('ability-stat-reminder');
+const elAbilityStatReminderBadge = elAbilityStatReminderButton
+  ? elAbilityStatReminderButton.querySelector('[data-ability-reminder-count]')
+  : null;
 const elStoryCard = $('card-story');
 const elPowersCard = document.querySelector('fieldset[data-tab="powers"]');
 // Cache frequently accessed HP amount field to avoid repeated DOM queries
@@ -5309,6 +5312,7 @@ const elLevelRewardReminderBadge = elLevelRewardReminderTrigger
 const elLevelRewardAcknowledge = $('level-reward-acknowledge');
 
 let levelRewardPendingCount = 0;
+let pendingStatReminderTasks = [];
 
 if (elAugmentSearch) {
   elAugmentSearch.addEventListener('input', event => {
@@ -5339,6 +5343,12 @@ if (elLevelRewardReminderTrigger) {
 if (elLevelRewardAcknowledge) {
   elLevelRewardAcknowledge.addEventListener('click', () => {
     acknowledgePendingLevelRewards();
+  });
+}
+
+if (elAbilityStatReminderButton) {
+  elAbilityStatReminderButton.addEventListener('click', () => {
+    showStatIncreaseReminderToast();
   });
 }
 
@@ -6758,22 +6768,18 @@ function updateLevelChoiceHighlights(pendingTasks = []) {
   }
 }
 
-function updateStatIncreaseReminder(pending = 0) {
-  if (!elStatIncreaseReminder) return;
-  const count = Math.max(0, Number(pending) || 0);
-  if (count > 0) {
-    const label = count === 1 ? '1 Stat Increase Ready' : `${count} Stat Increases Ready`;
-    elStatIncreaseReminder.hidden = false;
-    elStatIncreaseReminder.textContent = label;
-  } else {
-    elStatIncreaseReminder.hidden = true;
-    elStatIncreaseReminder.textContent = '';
-  }
-}
-
-function updateLevelRewardReminderUI(count) {
-  const pendingCount = Math.max(0, Number(count) || 0);
+function updateLevelRewardReminderUI(pendingTasks = []) {
+  const tasks = Array.isArray(pendingTasks) ? pendingTasks : [];
+  const pendingCount = Math.max(0, tasks.length);
+  const statTasks = tasks.filter(task => task && task.type === 'stat');
+  const statCount = statTasks.length;
   levelRewardPendingCount = pendingCount;
+  pendingStatReminderTasks = statTasks.map(task => ({
+    id: task?.id,
+    label: task?.label,
+    level: task?.level,
+  }));
+
   if (elLevelRewardReminderBadge) {
     if (pendingCount > 0) {
       const label = pendingCount > 99 ? '99+' : String(pendingCount);
@@ -6784,6 +6790,7 @@ function updateLevelRewardReminderUI(count) {
       elLevelRewardReminderBadge.hidden = true;
     }
   }
+
   if (elLevelRewardReminderTrigger) {
     if (pendingCount > 0) {
       elLevelRewardReminderTrigger.hidden = false;
@@ -6823,9 +6830,74 @@ function updateLevelRewardReminderUI(count) {
       }
     }
   }
+
+  if (elAbilityStatReminderBadge) {
+    if (statCount > 0) {
+      const label = statCount > 99 ? '99+' : String(statCount);
+      elAbilityStatReminderBadge.textContent = label;
+      elAbilityStatReminderBadge.hidden = false;
+    } else {
+      elAbilityStatReminderBadge.textContent = '0';
+      elAbilityStatReminderBadge.hidden = true;
+    }
+  }
+
+  if (elAbilityStatReminderButton) {
+    if (statCount > 0) {
+      elAbilityStatReminderButton.hidden = false;
+      if (typeof elAbilityStatReminderButton.removeAttribute === 'function') {
+        elAbilityStatReminderButton.removeAttribute('aria-hidden');
+      } else if (elAbilityStatReminderButton?.ariaHidden !== undefined) {
+        elAbilityStatReminderButton.ariaHidden = 'false';
+      }
+      if (typeof elAbilityStatReminderButton.setAttribute === 'function') {
+        elAbilityStatReminderButton.setAttribute('data-pending', 'true');
+      } else if (elAbilityStatReminderButton?.dataset) {
+        elAbilityStatReminderButton.dataset.pending = 'true';
+      }
+      const label = statCount === 1
+        ? '1 stat increase pending'
+        : `${statCount} stat increases pending`;
+      if (typeof elAbilityStatReminderButton.setAttribute === 'function') {
+        elAbilityStatReminderButton.setAttribute('aria-label', `${label}. View reminder.`);
+      } else if (elAbilityStatReminderButton) {
+        elAbilityStatReminderButton.ariaLabel = `${label}. View reminder.`;
+      }
+    } else {
+      elAbilityStatReminderButton.hidden = true;
+      if (typeof elAbilityStatReminderButton.setAttribute === 'function') {
+        elAbilityStatReminderButton.setAttribute('aria-hidden', 'true');
+        elAbilityStatReminderButton.setAttribute('aria-label', 'Stat increase reminders');
+      } else if (elAbilityStatReminderButton) {
+        elAbilityStatReminderButton.ariaHidden = 'true';
+        elAbilityStatReminderButton.ariaLabel = 'Stat increase reminders';
+      }
+      if (typeof elAbilityStatReminderButton.removeAttribute === 'function') {
+        elAbilityStatReminderButton.removeAttribute('data-pending');
+      } else if (elAbilityStatReminderButton?.dataset) {
+        delete elAbilityStatReminderButton.dataset.pending;
+      }
+    }
+  }
+
   if (elLevelRewardAcknowledge) {
     elLevelRewardAcknowledge.disabled = pendingCount === 0;
   }
+}
+
+function showStatIncreaseReminderToast() {
+  const tasks = Array.isArray(pendingStatReminderTasks) ? pendingStatReminderTasks : [];
+  if (!tasks.length) {
+    toast('No stat increases pending.', { type: 'info', duration: 4000 });
+    return;
+  }
+  const lines = tasks.map(task => task?.label).filter(Boolean);
+  const text = lines.length
+    ? `Stat increases pending: ${lines.join(', ')}`
+    : 'Stat increases pending';
+  const htmlLines = lines.map(line => `<span class="toast-line">• ${escapeHtml(line)}</span>`);
+  const html = `<div class="toast-body"><strong>Stat increases pending</strong>${htmlLines.join('')}</div>`;
+  toast(text, { type: 'info', duration: 0, html });
 }
 
 function renderLevelRewardReminders() {
@@ -6871,10 +6943,8 @@ function renderLevelRewardReminders() {
     toggleEmptyState(elLevelRewardReminderList, hasTasks);
   }
 
-  updateLevelRewardReminderUI(pendingTasks.length);
+  updateLevelRewardReminderUI(pendingTasks);
 
-  const pendingStatCount = pendingTasks.filter(task => task.type === 'stat').length;
-  updateStatIncreaseReminder(pendingStatCount);
   updateLevelChoiceHighlights(pendingTasks);
 }
 
