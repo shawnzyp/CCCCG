@@ -91,6 +91,36 @@ async function initializeApp({ snapshot } = {}) {
   document.dispatchEvent(new Event('DOMContentLoaded'));
 }
 
+async function initializeAppWithLevels(levels, { snapshot } = {}) {
+  jest.resetModules();
+  const actualLevelsModule = await import('../scripts/levels.js');
+  document.documentElement.innerHTML = html;
+  installBaseMocks();
+  if (snapshot) {
+    const payload = {
+      data: snapshot,
+      ts: Date.now(),
+      scrollY: 0,
+    };
+    window.sessionStorage.setItem('cc:forced-refresh-state', JSON.stringify(payload));
+  }
+  jest.unstable_mockModule('../scripts/levels.js', () => ({
+    LEVELS: levels,
+  }));
+  global.fetch = jest.fn().mockResolvedValue({ text: async () => '' });
+  window.fetch = global.fetch;
+  window.confirm = jest.fn(() => true);
+  window.prompt = jest.fn(() => '');
+
+  await import('../scripts/main.js');
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+
+  return () => {
+    jest.resetModules();
+    jest.unstable_mockModule('../scripts/levels.js', () => actualLevelsModule);
+  };
+}
+
 function setXp(value) {
   const xpInput = document.getElementById('xp');
   xpInput.value = String(value);
@@ -138,6 +168,14 @@ describe('level reward progression', () => {
     expect(statReminderButton).toBeTruthy();
     expect(statReminderButton.hidden).toBe(false);
 
+    const storyReminderButton = document.getElementById('story-reward-reminder');
+    expect(storyReminderButton).toBeTruthy();
+    expect(storyReminderButton.hidden).toBe(false);
+
+    const combatReminderButton = document.getElementById('combat-reward-reminder');
+    expect(combatReminderButton).toBeTruthy();
+    expect(combatReminderButton.hidden).toBe(false);
+
     const statBadge = statReminderButton.querySelector('[data-ability-reminder-count]');
     expect(statBadge).toBeTruthy();
     expect(statBadge.hidden).toBe(false);
@@ -149,9 +187,84 @@ describe('level reward progression', () => {
     statReminderButton.click();
     await Promise.resolve();
     expect(toastEl.classList.contains('show')).toBe(true);
-    expect(toastEl.innerHTML).toContain('Stat increases pending');
+    expect(toastEl.innerHTML).toContain('Ability updates pending');
     expect(toastEl.innerHTML).toContain('Assign +1 Stat');
     window.dismissToast?.();
+
+    storyReminderButton.click();
+    await Promise.resolve();
+    expect(toastEl.classList.contains('show')).toBe(true);
+    expect(toastEl.innerHTML).toContain('Story rewards pending');
+    window.dismissToast?.();
+
+    combatReminderButton.click();
+    await Promise.resolve();
+    expect(toastEl.classList.contains('show')).toBe(true);
+    expect(toastEl.innerHTML).toContain('Combat rewards pending');
+    window.dismissToast?.();
+  });
+
+  test('story reminders include xp, credits, faction, medals, and honors', async () => {
+    const customLevels = [
+      {
+        level: 1,
+        tierNumber: 5,
+        tierLabel: 'Tier 5 – Rookie',
+        subTier: 'A',
+        xp: 0,
+        proficiencyBonus: 2,
+        gains: 'Character creation',
+        rewards: {},
+      },
+      {
+        level: 2,
+        tierNumber: 5,
+        tierLabel: 'Tier 5 – Rookie',
+        subTier: 'B',
+        xp: 100,
+        proficiencyBonus: 2,
+        gains: 'Narrative unlocks',
+        rewards: {
+          credits: 7500,
+          factionReputation: [{ faction: 'O.M.N.I.', delta: 15 }],
+          medals: [{ name: 'Silver Star' }],
+          honors: [{ name: 'Valor Commendation' }],
+        },
+      },
+    ];
+
+    const restoreLevels = await initializeAppWithLevels(customLevels);
+
+    setXp(100);
+    await Promise.resolve();
+
+    const storyReminderButton = document.getElementById('story-reward-reminder');
+    expect(storyReminderButton).toBeTruthy();
+    expect(storyReminderButton.hidden).toBe(false);
+
+    const storyBadge = storyReminderButton.querySelector('[data-story-reminder-count]');
+    expect(storyBadge).toBeTruthy();
+    expect(storyBadge.hidden).toBe(false);
+    const pendingValue = Number.parseInt(storyBadge.textContent, 10);
+    expect(Number.isNaN(pendingValue) ? 0 : pendingValue).toBeGreaterThanOrEqual(5);
+
+    const toastEl = document.getElementById('toast');
+    expect(toastEl).toBeTruthy();
+
+    storyReminderButton.click();
+    await Promise.resolve();
+
+    expect(toastEl.classList.contains('show')).toBe(true);
+    const toastHtml = toastEl.innerHTML;
+    expect(toastHtml).toContain('Story rewards pending');
+    expect(toastHtml).toContain('Log 100 XP (Level 2)');
+    expect(toastHtml).toMatch(/Log [^<]*Credits \(Level 2\)/);
+    expect(toastHtml).toContain('Update faction reputation for O.M.N.I.');
+    expect(toastHtml).toContain('Record medal: Silver Star');
+    expect(toastHtml).toContain('Record honor: Valor Commendation');
+
+    window.dismissToast?.();
+    restoreLevels();
   });
 
   test('persists level reward ledger across reload', async () => {
@@ -166,6 +279,7 @@ describe('level reward progression', () => {
       levelProgressState: JSON.parse(levelStateValue),
       augmentState: { selected: [], filters: [], search: '' },
     };
+
 
     await initializeApp({ snapshot });
 
@@ -202,6 +316,14 @@ describe('level reward progression', () => {
     expect(statReminderButton).toBeTruthy();
     expect(statReminderButton.hidden).toBe(false);
 
+    const storyReminderButton = document.getElementById('story-reward-reminder');
+    expect(storyReminderButton).toBeTruthy();
+    expect(storyReminderButton.hidden).toBe(false);
+
+    const combatReminderButton = document.getElementById('combat-reward-reminder');
+    expect(combatReminderButton).toBeTruthy();
+    expect(combatReminderButton.hidden).toBe(false);
+
     const statBadge = statReminderButton.querySelector('[data-ability-reminder-count]');
     expect(statBadge).toBeTruthy();
     expect(statBadge.hidden).toBe(false);
@@ -228,5 +350,7 @@ describe('level reward progression', () => {
     expect(reminderTrigger.hidden).toBe(true);
     expect(statReminderButton.hidden).toBe(true);
     expect(statBadge.hidden).toBe(true);
+    expect(storyReminderButton.hidden).toBe(true);
+    expect(combatReminderButton.hidden).toBe(true);
   });
 });

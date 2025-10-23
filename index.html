@@ -511,7 +511,7 @@
 
 <main id="main">
   <!-- COMBAT -->
-  <fieldset data-tab="combat" class="card card__glow">
+  <fieldset data-tab="combat" class="card card__glow" id="card-combat">
     <section id="somf-min" class="somf-card" hidden>
       <h3 class="somf-title">The Shards of Many Fates</h3>
       <div class="somf-row">
@@ -521,7 +521,38 @@
       </div>
     </section>
 
-    <h2 class="card-title card__frame">Combat</h2>
+    <div class="card-toolbar card__frame">
+      <h2 class="card-title card-toolbar__title card-toolbar__title--inline card__frame" id="card-combat-title">
+        <span class="card-toolbar__title-text">Combat</span>
+      </h2>
+      <div class="card-toolbar__actions card__frame">
+        <button
+          type="button"
+          id="combat-reward-reminder"
+          class="level-reminder-button card__frame"
+          hidden
+          aria-describedby="card-combat-title"
+          aria-label="Combat reward reminders"
+        >
+          <span class="level-reminder-button__label">Combat Rewards</span>
+          <span class="level-reminder-button__badge" data-combat-reminder-count hidden>0</span>
+        </button>
+        <button
+          type="button"
+          class="card-caret card-edit-toggle card__frame"
+          data-view-target="#card-combat-edit-toggle-scope"
+          data-view-label="Combat"
+          aria-describedby="card-combat-title"
+        >
+          <span class="btn-icon" aria-hidden="true">
+            <img class="btn-icon__img" src="images/pencil.png" alt=""/>
+          </span>
+          <span class="btn-label card-edit-toggle__label sr-only">Edit</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="card-combat-edit-toggle-scope" data-view-lock hidden aria-hidden="true"></div>
 
     <fieldset id="death-saves" class="card card__glow" hidden disabled>
       <legend data-animate-title>Death Saves</legend>
@@ -816,14 +847,14 @@
         <button
           type="button"
           id="ability-stat-reminder"
-          class="ability-reminder-button card__frame"
+          class="level-reminder-button card__frame"
           hidden
           data-view-allow
           aria-describedby="card-abilities-title"
-          aria-label="Stat increase reminders"
+          aria-label="Ability reward reminders"
         >
-          <span class="ability-reminder-button__label">Stat Reminder</span>
-          <span class="ability-reminder-button__badge" data-ability-reminder-count hidden>0</span>
+          <span class="level-reminder-button__label">Ability Updates</span>
+          <span class="level-reminder-button__badge" data-ability-reminder-count hidden>0</span>
         </button>
         <button
           type="button"
@@ -978,6 +1009,19 @@
     <div class="card-toolbar card__frame">
       <h2 class="card-title card-toolbar__title card-toolbar__title--inline card__frame" id="card-story-title">
         <span class="card-toolbar__title-text">Character and Story</span>
+      </h2>
+      <div class="card-toolbar__actions card__frame">
+        <button
+          type="button"
+          id="story-reward-reminder"
+          class="level-reminder-button card__frame"
+          hidden
+          aria-describedby="card-story-title"
+          aria-label="Story reward reminders"
+        >
+          <span class="level-reminder-button__label">Story Rewards</span>
+          <span class="level-reminder-button__badge" data-story-reminder-count hidden>0</span>
+        </button>
         <button
           type="button"
           class="card-caret card-edit-toggle card__frame"
@@ -990,7 +1034,7 @@
           </span>
           <span class="btn-label card-edit-toggle__label sr-only">Edit</span>
         </button>
-      </h2>
+      </div>
     </div>
     <div class="grid grid-2">
       <div class="card card__glow" data-view-lock><label for="superhero">Superhero Identity</label><input id="superhero" placeholder="Vigilante Name"/></div>
