@@ -168,7 +168,8 @@ describe('dm rewards executeRewardTransaction', () => {
 
     broadcastInstances = [];
     global.BroadcastChannel = class {
-      constructor() {
+      constructor(name) {
+        this.name = name;
         this.postMessage = jest.fn();
         this.addEventListener = jest.fn();
         this.close = jest.fn();
@@ -298,7 +299,133 @@ describe('dm rewards executeRewardTransaction', () => {
         kind: 'faction',
         player: 'Alpha',
         data: expect.objectContaining({ id: 'omni', value: 215, delta: 15 }),
+        historyEntry: expect.objectContaining({
+          name: 'DM Faction Reputation',
+          text: expect.stringContaining('O.M.N.I.'),
+        }),
+      }),
+      historyEntry: expect.objectContaining({
+        name: 'DM Faction Reputation',
+        text: expect.stringContaining('O.M.N.I.'),
       }),
     }), window.location.origin);
+  });
+
+  test('receives reward broadcasts and updates history', async () => {
+    const show = jest.fn();
+    const hide = jest.fn();
+    jest.unstable_mockModule('../scripts/modal.js', () => ({ show, hide }));
+
+    const listCharacters = jest.fn(async () => ['Alpha']);
+    const loadCharacter = jest.fn(async () => ({ campaignLog: [] }));
+    jest.unstable_mockModule('../scripts/characters.js', () => ({
+      listCharacters,
+      loadCharacter,
+    }));
+
+    const miniGameMocks = {
+      listMiniGames: jest.fn(() => []),
+      getMiniGame: jest.fn(),
+      getDefaultConfig: jest.fn(() => ({})),
+      loadMiniGameReadme: jest.fn(async () => ''),
+      formatKnobValue: jest.fn(),
+      subscribeToDeployments: jest.fn(() => () => {}),
+      refreshDeployments: jest.fn(async () => {}),
+      deployMiniGame: jest.fn(async () => {}),
+      updateDeployment: jest.fn(async () => {}),
+      deleteDeployment: jest.fn(async () => {}),
+      MINI_GAME_STATUS_OPTIONS: [],
+      summarizeConfig: jest.fn(() => ''),
+      getStatusLabel: jest.fn(() => ''),
+    };
+    jest.unstable_mockModule('../scripts/mini-games.js', () => miniGameMocks);
+
+    const storeDmCatalogPayload = jest.fn();
+    jest.unstable_mockModule('../scripts/dm-catalog-sync.js', () => ({
+      storeDmCatalogPayload,
+    }));
+
+    const saveCloud = jest.fn(async () => {});
+    jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
+
+    jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
+      DM_PIN: '0000',
+      DM_DEVICE_FINGERPRINT: '',
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    await window.openRewards({ tab: 'resource' });
+    await Promise.resolve();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const rewardChannels = broadcastInstances.filter(channel => channel.name === 'cc:player-rewards');
+    expect(rewardChannels.length).toBeGreaterThan(0);
+    const rewardChannel = rewardChannels[rewardChannels.length - 1];
+    expect(rewardChannel.addEventListener).toHaveBeenCalled();
+    const listenerEntry = rewardChannel.addEventListener.mock.calls.find(call => call[0] === 'message');
+    expect(listenerEntry).toBeDefined();
+    const broadcastHandler = listenerEntry?.[1];
+    expect(typeof broadcastHandler).toBe('function');
+
+    const { clearQuickRewardHistory, getQuickRewardHistory } = window.__dmTestHooks;
+    clearQuickRewardHistory({ announce: false });
+    expect(getQuickRewardHistory()).toHaveLength(0);
+
+    const timestampIso = '2024-05-01T00:00:00.000Z';
+    const xpHistoryEntry = {
+      id: 'dm-xp-test',
+      t: Date.parse(timestampIso),
+      name: 'DM XP Reward',
+      text: 'Granted 500 XP (Total: 500)',
+    };
+    broadcastHandler({
+      data: {
+        type: 'CC_REWARD_UPDATE',
+        payload: {
+          kind: 'xp',
+          player: 'Bravo',
+          message: 'Granted 500 XP (Total: 500)',
+          timestamp: timestampIso,
+          historyEntry: xpHistoryEntry,
+        },
+        historyEntry: xpHistoryEntry,
+      },
+    });
+
+    await Promise.resolve();
+    const storedRaw = localStorage.getItem('cc:dm-reward-history');
+    expect(storedRaw).toBeTruthy();
+    const storedHistory = JSON.parse(storedRaw ?? '[]');
+    expect(storedHistory.length).toBeGreaterThan(0);
+    expect(storedHistory.some(entry => entry.name === 'DM XP Reward' && entry.text.includes('500'))).toBe(true);
+
+    const messageTimestamp = '2024-05-02T00:00:00.000Z';
+    const itemHistoryEntry = {
+      id: 'dm-item-test',
+      t: Date.parse(messageTimestamp),
+      name: 'DM Item Reward',
+      text: 'Granted item: Jet Boots',
+    };
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'CC_REWARD_UPDATE',
+        payload: {
+          kind: 'item',
+          player: 'Charlie',
+          message: 'Granted item: Jet Boots',
+          timestamp: messageTimestamp,
+          historyEntry: itemHistoryEntry,
+        },
+        historyEntry: itemHistoryEntry,
+      },
+    }));
+
+    await Promise.resolve();
+    const updatedRaw = localStorage.getItem('cc:dm-reward-history');
+    expect(updatedRaw).toBeTruthy();
+    const updatedHistory = JSON.parse(updatedRaw ?? '[]');
+    expect(updatedHistory.some(entry => entry.name === 'DM Item Reward' && entry.text.includes('Jet Boots'))).toBe(true);
   });
 });

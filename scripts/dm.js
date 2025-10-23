@@ -1696,6 +1696,18 @@ function initDMLogin(){
   let playerCreditBroadcastChannel = null;
   let playerCreditBroadcastListenerAttached = false;
   let playerRewardBroadcastChannel = null;
+  let playerRewardBroadcastListenerAttached = false;
+  const PLAYER_REWARD_KIND_LABELS = new Map([
+    ['xp', 'DM XP Reward'],
+    ['hp', 'DM HP Update'],
+    ['sp', 'DM SP Update'],
+    ['resonance', 'DM Resonance Update'],
+    ['faction', 'DM Faction Reputation'],
+    ['item', 'DM Item Reward'],
+    ['weapon', 'DM Weapon Reward'],
+    ['armor', 'DM Armor Reward'],
+    ['medal', 'DM Medal'],
+  ]);
   let playerCreditHistory = [];
   const DEFAULT_CREDIT_HISTORY_FILTERS = Object.freeze({ character: '', type: '' });
   let creditHistoryFilters = { ...DEFAULT_CREDIT_HISTORY_FILTERS };
@@ -2316,6 +2328,54 @@ function initDMLogin(){
     return { id, t: timestamp, name, text };
   }
 
+  function rewardHistoryLabelForKind(kind) {
+    const key = typeof kind === 'string' ? kind.toLowerCase() : '';
+    return PLAYER_REWARD_KIND_LABELS.get(key) || 'DM Reward';
+  }
+
+  function buildRewardHistoryEntryFromPayload(payload = {}, historyEntry = null) {
+    const sourceEntry = historyEntry || payload.historyEntry || payload.history;
+    if (sourceEntry) {
+      const sanitized = sanitizeQuickRewardHistoryEntry(sourceEntry);
+      if (sanitized) return sanitized;
+    }
+    const message = typeof payload.message === 'string' ? payload.message.trim() : '';
+    const timestampSource = payload.timestamp ?? payload.t ?? payload.timestampMs;
+    let timestamp = null;
+    if (timestampSource instanceof Date && !Number.isNaN(timestampSource.getTime())) {
+      timestamp = timestampSource.getTime();
+    } else if (typeof timestampSource === 'string' && timestampSource) {
+      const parsed = new Date(timestampSource);
+      if (!Number.isNaN(parsed.getTime())) {
+        timestamp = parsed.getTime();
+      }
+    } else if (Number.isFinite(timestampSource)) {
+      timestamp = Number(timestampSource);
+    }
+    if (!Number.isFinite(timestamp)) {
+      timestamp = Date.now();
+    }
+    const title = rewardHistoryLabelForKind(payload.kind);
+    const idSource = (() => {
+      if (sourceEntry && typeof sourceEntry.id === 'string' && sourceEntry.id) {
+        return sourceEntry.id;
+      }
+      if (payload && typeof payload.historyId === 'string' && payload.historyId) {
+        return payload.historyId;
+      }
+      if (payload && payload.data && typeof payload.data.id === 'string' && payload.data.id) {
+        return payload.data.id;
+      }
+      return `${payload.kind || 'reward'}|${timestamp}|${message}`;
+    })();
+    return sanitizeQuickRewardHistoryEntry({
+      id: idSource,
+      timestamp,
+      name: title,
+      text: message,
+    });
+  }
+
   function parseStoredQuickRewardHistory(raw) {
     if (!raw) return [];
     try {
@@ -2512,6 +2572,31 @@ function initDMLogin(){
     handlePlayerCreditUpdateMessage(data.payload);
   }
 
+  function handlePlayerRewardUpdateMessage(payload, historyEntry = null) {
+    if (!payload) return;
+    const entry = buildRewardHistoryEntryFromPayload(payload, historyEntry);
+    if (!entry) return;
+    appendQuickRewardHistory(entry);
+    renderQuickRewardHistory();
+  }
+
+  function handlePlayerRewardBroadcastMessage(event) {
+    if (!event) return;
+    const data = event.data;
+    if (!data || data.type !== 'CC_REWARD_UPDATE') return;
+    const historyEntry = data.historyEntry ?? data.payload?.historyEntry ?? null;
+    handlePlayerRewardUpdateMessage(data.payload, historyEntry);
+  }
+
+  function handlePlayerRewardWindowMessage(event) {
+    if (!event) return;
+    const data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type !== 'CC_REWARD_UPDATE') return;
+    const historyEntry = data.historyEntry ?? data.payload?.historyEntry ?? null;
+    handlePlayerRewardUpdateMessage(data.payload, historyEntry);
+  }
+
   function broadcastPlayerCreditUpdate(payload) {
     if (typeof window === 'undefined') return;
     const sanitized = sanitizePlayerCreditPayload(payload);
@@ -2546,6 +2631,14 @@ function initDMLogin(){
 
   function ensurePlayerRewardBroadcastChannel() {
     if (playerRewardBroadcastChannel || typeof BroadcastChannel !== 'function') {
+      if (playerRewardBroadcastChannel && !playerRewardBroadcastListenerAttached) {
+        try {
+          playerRewardBroadcastChannel.addEventListener('message', handlePlayerRewardBroadcastMessage);
+          playerRewardBroadcastListenerAttached = true;
+        } catch {
+          playerRewardBroadcastListenerAttached = false;
+        }
+      }
       return playerRewardBroadcastChannel;
     }
     try {
@@ -2553,13 +2646,21 @@ function initDMLogin(){
     } catch {
       playerRewardBroadcastChannel = null;
     }
+    if (playerRewardBroadcastChannel && !playerRewardBroadcastListenerAttached) {
+      try {
+        playerRewardBroadcastChannel.addEventListener('message', handlePlayerRewardBroadcastMessage);
+        playerRewardBroadcastListenerAttached = true;
+      } catch {
+        playerRewardBroadcastListenerAttached = false;
+      }
+    }
     return playerRewardBroadcastChannel;
   }
 
   function sanitizePlayerRewardPayload(payload = {}) {
     const kind = typeof payload.kind === 'string' ? payload.kind : '';
     const player = typeof payload.player === 'string' ? payload.player : '';
-    const message = typeof payload.message === 'string' ? payload.message : '';
+    const message = typeof payload.message === 'string' ? payload.message.trim() : '';
     const timestamp = (() => {
       if (payload.timestamp instanceof Date) return payload.timestamp.toISOString();
       if (typeof payload.timestamp === 'string' && payload.timestamp) {
@@ -2569,26 +2670,39 @@ function initDMLogin(){
       return new Date().toISOString();
     })();
     const data = payload.data && typeof payload.data === 'object' ? payload.data : {};
-    return { kind, player, message, timestamp, data };
+    const sanitizedPayload = { kind, player, message, timestamp, data };
+    const historyEntry = buildRewardHistoryEntryFromPayload({
+      ...sanitizedPayload,
+      historyEntry: payload.historyEntry,
+    });
+    if (historyEntry) {
+      sanitizedPayload.historyEntry = historyEntry;
+    }
+    return sanitizedPayload;
   }
 
   function broadcastPlayerReward(payload) {
     if (typeof window === 'undefined') return;
     const sanitized = sanitizePlayerRewardPayload(payload);
+    const message = {
+      type: 'CC_REWARD_UPDATE',
+      payload: sanitized,
+      historyEntry: sanitized.historyEntry ?? null,
+    };
     const channel = ensurePlayerRewardBroadcastChannel();
     if (channel) {
       try {
-        channel.postMessage({ type: 'CC_REWARD_UPDATE', payload: sanitized });
+        channel.postMessage(message);
       } catch {
         /* ignore broadcast failures */
       }
     }
     try {
       const origin = window.location?.origin || '*';
-      window.postMessage({ type: 'CC_REWARD_UPDATE', payload: sanitized }, origin);
+      window.postMessage(message, origin);
     } catch {
       try {
-        window.postMessage({ type: 'CC_REWARD_UPDATE', payload: sanitized }, '*');
+        window.postMessage(message, '*');
       } catch {
         /* ignore postMessage failures */
       }
@@ -3787,7 +3901,8 @@ function initDMLogin(){
           save.xp = String(nextXp);
           applied = true;
           const summary = `${delta >= 0 ? 'Granted' : 'Removed'} ${Math.abs(delta).toLocaleString()} XP (Total: ${nextXp.toLocaleString()})`;
-          logEntries.push(createRewardLogEntry('dm-xp', now, 'DM XP Reward', summary));
+          const xpLogEntry = createRewardLogEntry('dm-xp', now, 'DM XP Reward', summary);
+          logEntries.push(xpLogEntry);
           notifications.push(summary);
           toast(summary, delta >= 0 ? 'success' : 'info');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -3796,6 +3911,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: { delta, total: nextXp },
+            historyEntry: xpLogEntry,
           }));
           results.xp = { total: nextXp, delta };
           break;
@@ -3822,7 +3938,8 @@ function initDMLogin(){
           const summaryParts = [`${label}: ${nextCurrent}`];
           if (nextTemp > 0) summaryParts.push(`Temp +${nextTemp}`);
           const summary = summaryParts.join(' · ');
-          logEntries.push(createRewardLogEntry('dm-hp', now, 'DM HP Update', summary));
+          const hpLogEntry = createRewardLogEntry('dm-hp', now, 'DM HP Update', summary);
+          logEntries.push(hpLogEntry);
           notifications.push(summary);
           toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -3831,6 +3948,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: { current: nextCurrent, temp: nextTemp },
+            historyEntry: hpLogEntry,
           }));
           results.hp = { current: nextCurrent, temp: nextTemp };
           break;
@@ -3857,7 +3975,8 @@ function initDMLogin(){
           const summaryParts = [`${label}: ${nextCurrent}`];
           if (nextTemp > 0) summaryParts.push(`Temp +${nextTemp}`);
           const summary = summaryParts.join(' · ');
-          logEntries.push(createRewardLogEntry('dm-sp', now, 'DM SP Update', summary));
+          const spLogEntry = createRewardLogEntry('dm-sp', now, 'DM SP Update', summary);
+          logEntries.push(spLogEntry);
           notifications.push(summary);
           toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -3866,6 +3985,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: { current: nextCurrent, temp: nextTemp },
+            historyEntry: spLogEntry,
           }));
           results.sp = { current: nextCurrent, temp: nextTemp };
           break;
@@ -3907,7 +4027,8 @@ function initDMLogin(){
           save.partials = partials;
           applied = true;
           const summary = `RP set to ${points} (Banked ${banked})`;
-          logEntries.push(createRewardLogEntry('dm-resonance', now, 'DM Resonance Update', summary));
+          const resonanceLogEntry = createRewardLogEntry('dm-resonance', now, 'DM Resonance Update', summary);
+          logEntries.push(resonanceLogEntry);
           notifications.push(summary);
           toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -3916,6 +4037,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: partials.resonance,
+            historyEntry: resonanceLogEntry,
           }));
           results.resonance = { points, banked, surge, nextCombatRegenPenalty: nextPenalty };
           break;
@@ -3967,7 +4089,8 @@ function initDMLogin(){
           const summaryParts = [`${name} reputation ${delta >= 0 ? '+' : ''}${delta}`, `Now ${next}`];
           if (tierName) summaryParts.push(tierName);
           const summary = summaryParts.join(' — ');
-          logEntries.push(createRewardLogEntry('dm-faction', now, 'DM Faction Reputation', summary));
+          const factionLogEntry = createRewardLogEntry('dm-faction', now, 'DM Faction Reputation', summary);
+          logEntries.push(factionLogEntry);
           notifications.push(summary);
           toast(summary, delta >= 0 ? 'success' : 'info');
           const payload = {
@@ -3983,6 +4106,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: payload,
+            historyEntry: factionLogEntry,
           }));
           if (!results.faction) results.faction = [];
           results.faction.push({ ...payload, previous });
@@ -4000,7 +4124,8 @@ function initDMLogin(){
           applied = true;
           const summary = `Granted item: ${name}${qty > 1 ? ` ×${qty}` : ''}`;
           const summaryWithNotes = notes ? `${summary} — ${notes}` : summary;
-          logEntries.push(createRewardLogEntry('dm-item', now, 'DM Item Reward', summaryWithNotes));
+          const itemLogEntry = createRewardLogEntry('dm-item', now, 'DM Item Reward', summaryWithNotes);
+          logEntries.push(itemLogEntry);
           notifications.push(summaryWithNotes);
           toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -4009,6 +4134,7 @@ function initDMLogin(){
             message: summaryWithNotes,
             timestamp: timestampIso,
             data: { name, qty, notes, dmLock },
+            historyEntry: itemLogEntry,
           }));
           results.item = { name, qty, notes, dmLock };
           break;
@@ -4030,7 +4156,8 @@ function initDMLogin(){
           if (range) detailParts.push(range);
           const detail = detailParts.length ? ` (${detailParts.join(' · ')})` : '';
           const summary = `Granted weapon: ${name}${detail}`;
-          logEntries.push(createRewardLogEntry('dm-weapon', now, 'DM Weapon Reward', summary));
+          const weaponLogEntry = createRewardLogEntry('dm-weapon', now, 'DM Weapon Reward', summary);
+          logEntries.push(weaponLogEntry);
           notifications.push(summary);
           toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -4039,6 +4166,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: { name, damage, range, attackAbility, proficient, dmLock },
+            historyEntry: weaponLogEntry,
           }));
           results.weapon = { name, damage, range, attackAbility, proficient, dmLock };
           break;
@@ -4055,7 +4183,8 @@ function initDMLogin(){
           save.armor.push({ name, slot, bonus, equipped, dmLock });
           applied = true;
           const summary = `Granted armor: ${name}${bonus ? ` (Bonus ${bonus})` : ''}`;
-          logEntries.push(createRewardLogEntry('dm-armor', now, 'DM Armor Reward', summary));
+          const armorLogEntry = createRewardLogEntry('dm-armor', now, 'DM Armor Reward', summary);
+          logEntries.push(armorLogEntry);
           notifications.push(summary);
           toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -4064,6 +4193,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: { name, slot, bonus, equipped, dmLock },
+            historyEntry: armorLogEntry,
           }));
           results.armor = { name, slot, bonus, equipped, dmLock };
           break;
@@ -4086,7 +4216,8 @@ function initDMLogin(){
           save.medals.push(medalEntry);
           applied = true;
           const summary = `Awarded medal: ${medalName}${description ? ` — ${description}` : ''}`;
-          logEntries.push(createRewardLogEntry('dm-medal', now, 'DM Medal', summary));
+          const medalLogEntry = createRewardLogEntry('dm-medal', now, 'DM Medal', summary);
+          logEntries.push(medalLogEntry);
           notifications.push(summary);
           toast(summary, 'success');
           postSaveActions.push(() => broadcastPlayerReward({
@@ -4095,6 +4226,7 @@ function initDMLogin(){
             message: summary,
             timestamp: timestampIso,
             data: medalEntry,
+            historyEntry: medalLogEntry,
           }));
           results.medal = medalEntry;
           break;
@@ -4740,6 +4872,7 @@ function initDMLogin(){
 
   if (typeof window !== 'undefined') {
     window.addEventListener('message', handlePlayerCreditWindowMessage);
+    window.addEventListener('message', handlePlayerRewardWindowMessage);
   }
 
   const MENU_OPEN_CLASS = 'is-open';
@@ -8790,6 +8923,7 @@ function initDMLogin(){
     renderPlayerCreditHistory();
     renderQuickRewardHistory();
     ensurePlayerCreditBroadcastChannel();
+    ensurePlayerRewardBroadcastChannel();
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && rewardsModal && !rewardsModal.classList.contains('hidden') && activeRewardsTab === 'resource') {

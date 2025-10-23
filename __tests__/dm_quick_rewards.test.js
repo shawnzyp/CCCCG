@@ -437,9 +437,10 @@ describe('dm quick rewards forms', () => {
     await new Promise(resolve => setTimeout(resolve, 0));
 
     expect(rewardHistory.children.length).toBeGreaterThanOrEqual(3);
-    expect(rewardHistory.children[0].textContent).toContain('DM HP Update');
-    expect(rewardHistory.children[1].textContent).toContain('DM SP Update');
-    expect(Array.from(rewardHistory.children).some(node => node.textContent.includes('DM XP Reward'))).toBe(true);
+    const rewardHistoryEntries = Array.from(rewardHistory.children).map(node => node.textContent);
+    expect(rewardHistoryEntries.some(text => text.includes('DM HP Update'))).toBe(true);
+    expect(rewardHistoryEntries.some(text => text.includes('DM SP Update'))).toBe(true);
+    expect(rewardHistoryEntries.some(text => text.includes('DM XP Reward'))).toBe(true);
 
     const rewardHistoryClear = document.getElementById('dm-reward-history-clear');
     const rewardHistoryExport = document.getElementById('dm-reward-history-export');
