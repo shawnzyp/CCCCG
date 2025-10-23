@@ -2279,7 +2279,7 @@ button:focus-visible,
 
 .card-toolbar__actions>*{flex:0 0 auto}
 
-.ability-reminder-button{
+.level-reminder-button{
   position:relative;
   display:inline-flex;
   align-items:center;
@@ -2297,29 +2297,29 @@ button:focus-visible,
   transition:box-shadow .28s ease,border-color .28s ease,background .28s ease,transform .28s ease;
 }
 
-.ability-reminder-button[data-pending="true"]{
+.level-reminder-button[data-pending="true"]{
   border-color:color-mix(in srgb,var(--accent) 60%, var(--line) 40%);
   background:color-mix(in srgb,var(--accent) 14%, var(--surface-2) 86%);
   box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 38%, transparent);
 }
 
-.ability-reminder-button:focus-visible{
+.level-reminder-button:focus-visible{
   outline:2px solid var(--accent);
   outline-offset:2px;
 }
 
-body:not(.no-hover) .ability-reminder-button:hover{
+body:not(.no-hover) .level-reminder-button:hover{
   transform:translateY(-1px);
 }
 
-.ability-reminder-button__label{
+.level-reminder-button__label{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:clamp(4px,1.8vw,6px);
 }
 
-.ability-reminder-button__badge{
+.level-reminder-button__badge{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -2333,11 +2333,11 @@ body:not(.no-hover) .ability-reminder-button:hover{
   line-height:1;
 }
 
-.ability-reminder-button__badge[hidden]{
+.level-reminder-button__badge[hidden]{
   display:none !important;
 }
 
-.ability-reminder-button[hidden]{
+.level-reminder-button[hidden]{
   display:none !important;
 }
 

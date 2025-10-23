@@ -5122,8 +5122,17 @@ const elAbilityStatReminderButton = $('ability-stat-reminder');
 const elAbilityStatReminderBadge = elAbilityStatReminderButton
   ? elAbilityStatReminderButton.querySelector('[data-ability-reminder-count]')
   : null;
+const elStoryRewardReminderButton = $('story-reward-reminder');
+const elStoryRewardReminderBadge = elStoryRewardReminderButton
+  ? elStoryRewardReminderButton.querySelector('[data-story-reminder-count]')
+  : null;
+const elCombatRewardReminderButton = $('combat-reward-reminder');
+const elCombatRewardReminderBadge = elCombatRewardReminderButton
+  ? elCombatRewardReminderButton.querySelector('[data-combat-reminder-count]')
+  : null;
 const elStoryCard = $('card-story');
 const elPowersCard = document.querySelector('fieldset[data-tab="powers"]');
+const elCombatCard = $('card-combat');
 // Cache frequently accessed HP amount field to avoid repeated DOM queries
 const elHPAmt = $('hp-amt');
 const elHPSettingsToggle = $('hp-settings-toggle');
@@ -5312,7 +5321,9 @@ const elLevelRewardReminderBadge = elLevelRewardReminderTrigger
 const elLevelRewardAcknowledge = $('level-reward-acknowledge');
 
 let levelRewardPendingCount = 0;
-let pendingStatReminderTasks = [];
+let pendingAbilityReminderTasks = [];
+let pendingStoryReminderTasks = [];
+let pendingCombatReminderTasks = [];
 
 if (elAugmentSearch) {
   elAugmentSearch.addEventListener('input', event => {
@@ -5348,7 +5359,19 @@ if (elLevelRewardAcknowledge) {
 
 if (elAbilityStatReminderButton) {
   elAbilityStatReminderButton.addEventListener('click', () => {
-    showStatIncreaseReminderToast();
+    showLevelRewardReminderToast('abilities');
+  });
+}
+
+if (elStoryRewardReminderButton) {
+  elStoryRewardReminderButton.addEventListener('click', () => {
+    showLevelRewardReminderToast('story');
+  });
+}
+
+if (elCombatRewardReminderButton) {
+  elCombatRewardReminderButton.addEventListener('click', () => {
+    showLevelRewardReminderToast('combat');
   });
 }
 
@@ -5531,6 +5554,10 @@ const xpNumberFormatter = (typeof Intl !== 'undefined' && typeof Intl.NumberForm
         return String(value ?? '');
       },
     };
+
+const rewardNumberFormatter = (typeof Intl !== 'undefined' && typeof Intl.NumberFormat === 'function')
+  ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
+  : null;
 const elTier = $('tier');
 const elLevelValue = $('level');
 const elLevelDisplay = $('level-display');
@@ -6345,50 +6372,464 @@ function getAugmentById(id) {
   return AUGMENT_BY_ID.get(id) || null;
 }
 
+const LEVEL_REWARD_CATEGORIES = {
+  ABILITIES: 'abilities',
+  STORY: 'story',
+  COMBAT: 'combat',
+};
+
+const LEVEL_REWARD_CATEGORY_CONFIG = {
+  [LEVEL_REWARD_CATEGORIES.ABILITIES]: {
+    emptyMessage: 'No ability updates pending.',
+    heading: 'Ability updates pending',
+    ariaLabel: count => (count === 1 ? '1 ability update pending' : `${count} ability updates pending`),
+    defaultAriaLabel: 'Ability reward reminders',
+  },
+  [LEVEL_REWARD_CATEGORIES.STORY]: {
+    emptyMessage: 'No story rewards pending.',
+    heading: 'Story rewards pending',
+    ariaLabel: count => (count === 1 ? '1 story reward pending' : `${count} story rewards pending`),
+    defaultAriaLabel: 'Story reward reminders',
+  },
+  [LEVEL_REWARD_CATEGORIES.COMBAT]: {
+    emptyMessage: 'No combat rewards pending.',
+    heading: 'Combat rewards pending',
+    ariaLabel: count => (count === 1 ? '1 combat reward pending' : `${count} combat rewards pending`),
+    defaultAriaLabel: 'Combat reward reminders',
+  },
+};
+
+const LEVEL_REWARD_CATEGORY_BY_TYPE = new Map([
+  ['stat', LEVEL_REWARD_CATEGORIES.ABILITIES],
+  ['ability-score', LEVEL_REWARD_CATEGORIES.ABILITIES],
+  ['saving-throw', LEVEL_REWARD_CATEGORIES.ABILITIES],
+  ['skill', LEVEL_REWARD_CATEGORIES.ABILITIES],
+  ['xp', LEVEL_REWARD_CATEGORIES.STORY],
+  ['credit', LEVEL_REWARD_CATEGORIES.STORY],
+  ['credits', LEVEL_REWARD_CATEGORIES.STORY],
+  ['faction', LEVEL_REWARD_CATEGORIES.STORY],
+  ['faction-rep', LEVEL_REWARD_CATEGORIES.STORY],
+  ['faction-reputation', LEVEL_REWARD_CATEGORIES.STORY],
+  ['medal', LEVEL_REWARD_CATEGORIES.STORY],
+  ['medals', LEVEL_REWARD_CATEGORIES.STORY],
+  ['honor', LEVEL_REWARD_CATEGORIES.STORY],
+  ['honors', LEVEL_REWARD_CATEGORIES.STORY],
+  ['honour', LEVEL_REWARD_CATEGORIES.STORY],
+  ['honours', LEVEL_REWARD_CATEGORIES.STORY],
+]);
+
+function normalizeLevelRewardCategory(type, category) {
+  const normalizedCategory = typeof category === 'string' ? category : '';
+  if (normalizedCategory === LEVEL_REWARD_CATEGORIES.ABILITIES
+    || normalizedCategory === LEVEL_REWARD_CATEGORIES.STORY
+    || normalizedCategory === LEVEL_REWARD_CATEGORIES.COMBAT) {
+    return normalizedCategory;
+  }
+  const normalizedType = typeof type === 'string' ? type : '';
+  return LEVEL_REWARD_CATEGORY_BY_TYPE.get(normalizedType) || LEVEL_REWARD_CATEGORIES.COMBAT;
+}
+
+function createLevelRewardTask({ id, level, label, type, category }) {
+  const normalizedType = typeof type === 'string' ? type : '';
+  return {
+    id,
+    level,
+    label,
+    type: normalizedType,
+    category: normalizeLevelRewardCategory(normalizedType, category),
+  };
+}
+
+function normalizeRewardEntries(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw;
+  return [raw];
+}
+
+function extractNumericReward(value) {
+  if (Number.isFinite(value)) return Number(value);
+  if (typeof value === 'string') {
+    const normalized = Number(value.replace(/[^0-9+\-.]/g, ''));
+    if (Number.isFinite(normalized)) return normalized;
+  }
+  return null;
+}
+
+function parseCreditRewardEntries(rawCredits) {
+  const entries = [];
+  normalizeRewardEntries(rawCredits).forEach(entry => {
+    if (entry == null) return;
+    if (typeof entry === 'object' && !Array.isArray(entry)) {
+      const amount = extractNumericReward(
+        entry.amount ?? entry.value ?? entry.delta ?? entry.credits ?? entry.quantity ?? entry.total,
+      );
+      const note = [entry.reason, entry.note, entry.label, entry.description, entry.summary]
+        .find(text => typeof text === 'string' && text.trim());
+      if (Number.isFinite(amount) && amount !== 0) {
+        entries.push({ amount, note: note ? note.trim() : '' });
+      } else if (note) {
+        entries.push({ amount: null, note: note.trim() });
+      }
+      return;
+    }
+    const amount = extractNumericReward(entry);
+    if (Number.isFinite(amount) && amount !== 0) {
+      entries.push({ amount, note: '' });
+    } else if (typeof entry === 'string' && entry.trim()) {
+      entries.push({ amount: null, note: entry.trim() });
+    }
+  });
+  return entries;
+}
+
+function parseFactionRewardEntries(rawFactions) {
+  const entries = [];
+  normalizeRewardEntries(rawFactions).forEach(entry => {
+    if (entry == null) return;
+    if (typeof entry === 'object' && !Array.isArray(entry)) {
+      const name = [entry.name, entry.factionName, entry.faction, entry.factionId, entry.id]
+        .find(text => typeof text === 'string' && text.trim());
+      const delta = extractNumericReward(entry.delta ?? entry.value ?? entry.change ?? entry.amount);
+      const note = [entry.reason, entry.note, entry.label, entry.description]
+        .find(text => typeof text === 'string' && text.trim());
+      if (name || Number.isFinite(delta) || note) {
+        entries.push({
+          name: name ? name.trim() : '',
+          delta: Number.isFinite(delta) ? delta : null,
+          note: note ? note.trim() : '',
+        });
+      }
+      return;
+    }
+    if (typeof entry === 'string' && entry.trim()) {
+      entries.push({ name: entry.trim(), delta: null, note: '' });
+    }
+  });
+  return entries;
+}
+
+function parseMedalRewardEntries(rawMedals) {
+  const entries = [];
+  normalizeRewardEntries(rawMedals).forEach(entry => {
+    if (entry == null) return;
+    if (typeof entry === 'object' && !Array.isArray(entry)) {
+      const name = [entry.name, entry.title, entry.label]
+        .find(text => typeof text === 'string' && text.trim());
+      const note = [entry.reason, entry.note, entry.description]
+        .find(text => typeof text === 'string' && text.trim());
+      if (name || note) {
+        entries.push({
+          name: name ? name.trim() : '',
+          note: note ? note.trim() : '',
+        });
+      }
+      return;
+    }
+    if (typeof entry === 'string' && entry.trim()) {
+      entries.push({ name: entry.trim(), note: '' });
+    }
+  });
+  return entries;
+}
+
+function parseHonorRewardEntries(rawHonors) {
+  const entries = [];
+  normalizeRewardEntries(rawHonors).forEach(entry => {
+    if (entry == null) return;
+    if (typeof entry === 'object' && !Array.isArray(entry)) {
+      const name = [entry.name, entry.title, entry.label]
+        .find(text => typeof text === 'string' && text.trim());
+      const note = [entry.reason, entry.note, entry.description]
+        .find(text => typeof text === 'string' && text.trim());
+      if (name || note) {
+        entries.push({
+          name: name ? name.trim() : '',
+          note: note ? note.trim() : '',
+        });
+      }
+      return;
+    }
+    if (typeof entry === 'string' && entry.trim()) {
+      entries.push({ name: entry.trim(), note: '' });
+    }
+  });
+  return entries;
+}
+
+function updateReminderButtonUI(button, badge, count, categoryKey) {
+  const numericCount = Number.isFinite(Number(count)) ? Number(count) : 0;
+  if (badge) {
+    if (numericCount > 0) {
+      const label = numericCount > 99 ? '99+' : String(numericCount);
+      badge.textContent = label;
+      badge.hidden = false;
+    } else {
+      badge.textContent = '0';
+      badge.hidden = true;
+    }
+  }
+
+  if (!button) return;
+
+  const config = LEVEL_REWARD_CATEGORY_CONFIG[categoryKey] || LEVEL_REWARD_CATEGORY_CONFIG[LEVEL_REWARD_CATEGORIES.COMBAT];
+
+  if (numericCount > 0) {
+    button.hidden = false;
+    if (typeof button.removeAttribute === 'function' && typeof button.setAttribute === 'function') {
+      button.removeAttribute('aria-hidden');
+      button.setAttribute('data-pending', 'true');
+      button.setAttribute('aria-label', `${config.ariaLabel(numericCount)}. View reminder.`);
+    } else {
+      button.ariaHidden = 'false';
+      if (button?.dataset) button.dataset.pending = 'true';
+      button.ariaLabel = `${config.ariaLabel(numericCount)}. View reminder.`;
+    }
+  } else {
+    button.hidden = true;
+    if (typeof button.setAttribute === 'function') {
+      button.setAttribute('aria-hidden', 'true');
+      button.setAttribute('aria-label', config.defaultAriaLabel);
+      if (typeof button.removeAttribute === 'function') {
+        button.removeAttribute('data-pending');
+      } else if (button?.dataset) {
+        delete button.dataset.pending;
+      }
+    } else {
+      button.ariaHidden = 'true';
+      if (button?.dataset) delete button.dataset.pending;
+      button.ariaLabel = config.defaultAriaLabel;
+    }
+  }
+}
+
+function getPendingTasksForCategory(category) {
+  if (category === LEVEL_REWARD_CATEGORIES.ABILITIES) return pendingAbilityReminderTasks;
+  if (category === LEVEL_REWARD_CATEGORIES.STORY) return pendingStoryReminderTasks;
+  return pendingCombatReminderTasks;
+}
+
+function showLevelRewardReminderToast(categoryKey) {
+  const category = normalizeLevelRewardCategory(null, categoryKey);
+  const config = LEVEL_REWARD_CATEGORY_CONFIG[category] || LEVEL_REWARD_CATEGORY_CONFIG[LEVEL_REWARD_CATEGORIES.COMBAT];
+  const tasks = Array.isArray(getPendingTasksForCategory(category)) ? getPendingTasksForCategory(category) : [];
+  if (!tasks.length) {
+    toast(config.emptyMessage, { type: 'info', duration: 4000 });
+    return;
+  }
+  const lines = tasks.map(task => task?.label).filter(Boolean);
+  const heading = config.heading;
+  const summaryText = lines.length ? `${heading}: ${lines.join(', ')}` : heading;
+  const htmlLines = lines.map(line => `<span class="toast-line">• ${escapeHtml(line)}</span>`);
+  const html = `<div class="toast-body"><strong>${escapeHtml(heading)}</strong>${htmlLines.join('')}</div>`;
+  toast(summaryText, { type: 'info', duration: 0, html });
+}
+
 function getLevelRewardTasksForLevel(entry) {
   const levelNumber = Number(entry?.level);
   if (!Number.isFinite(levelNumber) || levelNumber < 1) return [];
   const rewards = entry?.rewards || {};
   const tasks = [];
+  const levelIndex = LEVEL_TABLE.findIndex(candidate => Number(candidate?.level) === levelNumber);
+  const previousEntry = levelIndex > 0 ? LEVEL_TABLE[levelIndex - 1] : null;
+
+  const previousXp = Number.isFinite(Number(previousEntry?.xp)) ? Number(previousEntry.xp) : 0;
+  const currentXp = Number(entry?.xp);
+  const xpGain = Number.isFinite(currentXp) ? Math.max(0, currentXp - Math.max(0, previousXp)) : 0;
+  if (xpGain > 0) {
+    const formattedGain = xpNumberFormatter ? xpNumberFormatter.format(xpGain) : String(xpGain);
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-xp`,
+      level: levelNumber,
+      label: `Log ${formattedGain} XP (Level ${levelNumber})`,
+      type: 'xp',
+      category: LEVEL_REWARD_CATEGORIES.STORY,
+    }));
+  }
+
+  const creditRewards = parseCreditRewardEntries(rewards.credits ?? rewards.credit ?? rewards.storyCredits);
+  creditRewards.forEach((reward, index) => {
+    const suffix = creditRewards.length > 1 ? `-${index + 1}` : '';
+    const amount = Number.isFinite(reward.amount) ? Number(reward.amount) : null;
+    const formattedAmount = Number.isFinite(amount)
+      ? (rewardNumberFormatter ? rewardNumberFormatter.format(Math.abs(amount)) : String(Math.abs(amount)))
+      : '';
+    const sign = Number.isFinite(amount) ? (amount >= 0 ? '+' : '−') : '';
+    const baseLabel = Number.isFinite(amount)
+      ? `Log ${sign}${formattedAmount} Credits (Level ${levelNumber})`
+      : `Log Credits reward (Level ${levelNumber})`;
+    const label = reward.note ? `${baseLabel} — ${reward.note}` : baseLabel;
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-credits${suffix}`,
+      level: levelNumber,
+      label,
+      type: 'credits',
+      category: LEVEL_REWARD_CATEGORIES.STORY,
+    }));
+  });
+
+  const factionRewards = parseFactionRewardEntries(
+    rewards.factionReputation ?? rewards.factionRep ?? rewards.factions ?? rewards.storyFactions,
+  );
+  factionRewards.forEach((reward, index) => {
+    const suffix = factionRewards.length > 1 ? `-${index + 1}` : '';
+    const factionName = reward.name || 'Faction';
+    const delta = Number.isFinite(reward.delta) ? Number(reward.delta) : null;
+    const deltaLabel = Number.isFinite(delta)
+      ? ` (${delta >= 0 ? '+' : ''}${delta})`
+      : '';
+    const baseLabel = `Update faction reputation for ${factionName}${deltaLabel} (Level ${levelNumber})`;
+    const label = reward.note ? `${baseLabel} — ${reward.note}` : baseLabel;
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-faction-rep${suffix}`,
+      level: levelNumber,
+      label,
+      type: 'faction-rep',
+      category: LEVEL_REWARD_CATEGORIES.STORY,
+    }));
+  });
+
+  const medalRewards = parseMedalRewardEntries(rewards.medals ?? rewards.medal ?? rewards.medallions);
+  medalRewards.forEach((reward, index) => {
+    const suffix = medalRewards.length > 1 ? `-${index + 1}` : '';
+    const medalName = reward.name || 'Medal';
+    const baseLabel = `Record medal: ${medalName} (Level ${levelNumber})`;
+    const label = reward.note ? `${baseLabel} — ${reward.note}` : baseLabel;
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-medal${suffix}`,
+      level: levelNumber,
+      label,
+      type: 'medal',
+      category: LEVEL_REWARD_CATEGORIES.STORY,
+    }));
+  });
+
+  const honorRewards = parseHonorRewardEntries(
+    rewards.honors ?? rewards.honor ?? rewards.honours ?? rewards.honour,
+  );
+  honorRewards.forEach((reward, index) => {
+    const suffix = honorRewards.length > 1 ? `-${index + 1}` : '';
+    const honorName = reward.name || 'Honor';
+    const baseLabel = `Record honor: ${honorName} (Level ${levelNumber})`;
+    const label = reward.note ? `${baseLabel} — ${reward.note}` : baseLabel;
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-honor${suffix}`,
+      level: levelNumber,
+      label,
+      type: 'honor',
+      category: LEVEL_REWARD_CATEGORIES.STORY,
+    }));
+  });
+
+  const previousProf = Number(previousEntry?.proficiencyBonus);
+  const currentProf = Number(entry?.proficiencyBonus);
+  if (Number.isFinite(currentProf) && Number.isFinite(previousProf) && currentProf > previousProf) {
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-saving-throws`,
+      level: levelNumber,
+      label: `Update saving throws for proficiency ${currentProf} (Level ${levelNumber})`,
+      type: 'saving-throw',
+      category: LEVEL_REWARD_CATEGORIES.ABILITIES,
+    }));
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-skills`,
+      level: levelNumber,
+      label: `Update skill bonuses for proficiency ${currentProf} (Level ${levelNumber})`,
+      type: 'skill',
+      category: LEVEL_REWARD_CATEGORIES.ABILITIES,
+    }));
+  }
+
+  const hpBonus = Number(rewards.hpBonus);
+  if (Number.isFinite(hpBonus) && hpBonus !== 0) {
+    const sign = hpBonus > 0 ? '+' : '';
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-hp-bonus`,
+      level: levelNumber,
+      label: `Apply ${sign}${hpBonus} HP Bonus (Level ${levelNumber})`,
+      type: 'hp-bonus',
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
+  }
+
+  const spBonus = Number(rewards.spBonus);
+  if (Number.isFinite(spBonus) && spBonus !== 0) {
+    const sign = spBonus > 0 ? '+' : '';
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-sp-bonus`,
+      level: levelNumber,
+      label: `Update SP Max by ${sign}${spBonus} (Level ${levelNumber})`,
+      type: 'sp-bonus',
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
+  }
+
+  const augmentSlots = Number(rewards.augmentSlots);
+  if (Number.isFinite(augmentSlots) && augmentSlots !== 0) {
+    const slotsLabel = augmentSlots === 1
+      ? 'Assign +1 Augment Slot'
+      : `Assign +${augmentSlots} Augment Slots`;
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-augment-slot`,
+      level: levelNumber,
+      label: `${slotsLabel} (Level ${levelNumber})`,
+      type: 'augment-slot',
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
+  }
+
   if (rewards.grantsStatIncrease) {
-    tasks.push({
+    tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-stat`,
       level: levelNumber,
       label: `Assign +1 Stat (Level ${levelNumber})`,
       type: 'stat',
-    });
+      category: LEVEL_REWARD_CATEGORIES.ABILITIES,
+    }));
   }
   if (rewards.grantsPowerEvolution) {
-    tasks.push({
+    tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-power-evolution`,
       level: levelNumber,
       label: `Apply Power Evolution (Level ${levelNumber})`,
       type: 'power-evolution',
-    });
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
   }
   if (rewards.powerEvolutionChoice || rewards.signatureEvolutionChoice) {
-    tasks.push({
+    tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-evolution-choice`,
       level: levelNumber,
       label: `Choose Power or Signature Move Evolution (Level ${levelNumber})`,
       type: 'evolution-choice',
-    });
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
   }
   if (rewards.grantsSignatureEvolution) {
-    tasks.push({
+    tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-signature-evolution`,
       level: levelNumber,
       label: `Apply Signature Move Evolution (Level ${levelNumber})`,
       type: 'signature-evolution',
-    });
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
+  }
+  if (rewards.grantsLegendaryGearAccess) {
+    tasks.push(createLevelRewardTask({
+      id: `level-${levelNumber}-legendary-gear`,
+      level: levelNumber,
+      label: `Unlock Legendary Gear Access (Level ${levelNumber})`,
+      type: 'legendary-gear',
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
   }
   if (rewards.grantsTranscendentTrait) {
-    tasks.push({
+    tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-transcendent-trait`,
       level: levelNumber,
       label: `Gain Transcendent Trait (Level ${levelNumber})`,
       type: 'transcendent-trait',
-    });
+      category: LEVEL_REWARD_CATEGORIES.COMBAT,
+    }));
   }
   return tasks;
 }
@@ -6436,6 +6877,60 @@ function describeLevelRewards(entry) {
   }
   if (rewards.grantsTranscendentTrait) {
     parts.push('Transcendent Trait');
+  }
+  const creditRewards = parseCreditRewardEntries(rewards.credits ?? rewards.credit ?? rewards.storyCredits);
+  if (creditRewards.length) {
+    const totalCredits = creditRewards
+      .map(entry => (Number.isFinite(entry.amount) ? Number(entry.amount) : 0))
+      .reduce((sum, value) => sum + value, 0);
+    if (Number.isFinite(totalCredits) && totalCredits !== 0) {
+      const formatted = rewardNumberFormatter
+        ? rewardNumberFormatter.format(Math.abs(totalCredits))
+        : String(Math.abs(totalCredits));
+      const sign = totalCredits >= 0 ? '+' : '−';
+      parts.push(`${sign}${formatted} Credits`);
+    } else {
+      parts.push('Credits reward');
+    }
+  }
+  const factionRewards = parseFactionRewardEntries(
+    rewards.factionReputation ?? rewards.factionRep ?? rewards.factions ?? rewards.storyFactions,
+  );
+  if (factionRewards.length) {
+    const names = factionRewards.map(entry => entry.name).filter(Boolean);
+    if (names.length === 1) {
+      const delta = Number.isFinite(factionRewards[0].delta) ? Number(factionRewards[0].delta) : null;
+      const deltaText = Number.isFinite(delta) && delta !== 0 ? ` (${delta > 0 ? '+' : ''}${delta})` : '';
+      parts.push(`Faction rep: ${names[0]}${deltaText}`);
+    } else if (names.length > 1) {
+      parts.push('Faction rep updates');
+    } else {
+      parts.push('Faction reputation change');
+    }
+  }
+  const medalRewards = parseMedalRewardEntries(rewards.medals ?? rewards.medal ?? rewards.medallions);
+  if (medalRewards.length) {
+    const names = medalRewards.map(entry => entry.name).filter(Boolean);
+    if (names.length === 1) {
+      parts.push(`Medal: ${names[0]}`);
+    } else if (names.length > 1) {
+      parts.push('Medals awarded');
+    } else {
+      parts.push('Medal awarded');
+    }
+  }
+  const honorRewards = parseHonorRewardEntries(
+    rewards.honors ?? rewards.honor ?? rewards.honours ?? rewards.honour,
+  );
+  if (honorRewards.length) {
+    const names = honorRewards.map(entry => entry.name).filter(Boolean);
+    if (names.length === 1) {
+      parts.push(`Honor: ${names[0]}`);
+    } else if (names.length > 1) {
+      parts.push('Honors awarded');
+    } else {
+      parts.push('Honor awarded');
+    }
   }
   return parts.join(', ');
 }
@@ -6732,16 +7227,17 @@ function refreshAugmentUI() {
 }
 
 function updateLevelChoiceHighlights(pendingTasks = []) {
-  const pendingTypes = new Set(Array.isArray(pendingTasks) ? pendingTasks.map(task => task?.type).filter(Boolean) : []);
+  const taskList = Array.isArray(pendingTasks) ? pendingTasks : [];
+  const pendingTypes = new Set(taskList.map(task => task?.type).filter(Boolean));
+  const pendingCategories = new Set(taskList.map(task => normalizeLevelRewardCategory(task?.type, task?.category)));
+
   if (elAbilityCard) {
-    if (pendingTypes.has('stat')) {
+    if (pendingCategories.has(LEVEL_REWARD_CATEGORIES.ABILITIES)) {
       if (typeof elAbilityCard.setAttribute === 'function') {
         elAbilityCard.setAttribute('data-level-choice', 'stat');
       }
-    } else {
-      if (typeof elAbilityCard.removeAttribute === 'function') {
-        elAbilityCard.removeAttribute('data-level-choice');
-      }
+    } else if (typeof elAbilityCard.removeAttribute === 'function') {
+      elAbilityCard.removeAttribute('data-level-choice');
     }
   }
   if (elPowersCard) {
@@ -6749,21 +7245,26 @@ function updateLevelChoiceHighlights(pendingTasks = []) {
       if (typeof elPowersCard.setAttribute === 'function') {
         elPowersCard.setAttribute('data-level-choice', 'power');
       }
-    } else {
-      if (typeof elPowersCard.removeAttribute === 'function') {
-        elPowersCard.removeAttribute('data-level-choice');
-      }
+    } else if (typeof elPowersCard.removeAttribute === 'function') {
+      elPowersCard.removeAttribute('data-level-choice');
     }
   }
   if (elStoryCard) {
-    if (pendingTypes.has('transcendent-trait')) {
+    if (pendingCategories.has(LEVEL_REWARD_CATEGORIES.STORY) || pendingTypes.has('transcendent-trait')) {
       if (typeof elStoryCard.setAttribute === 'function') {
         elStoryCard.setAttribute('data-level-choice', 'story');
       }
-    } else {
-      if (typeof elStoryCard.removeAttribute === 'function') {
-        elStoryCard.removeAttribute('data-level-choice');
+    } else if (typeof elStoryCard.removeAttribute === 'function') {
+      elStoryCard.removeAttribute('data-level-choice');
+    }
+  }
+  if (elCombatCard) {
+    if (pendingCategories.has(LEVEL_REWARD_CATEGORIES.COMBAT)) {
+      if (typeof elCombatCard.setAttribute === 'function') {
+        elCombatCard.setAttribute('data-level-choice', 'combat');
       }
+    } else if (typeof elCombatCard.removeAttribute === 'function') {
+      elCombatCard.removeAttribute('data-level-choice');
     }
   }
 }
@@ -6771,14 +7272,37 @@ function updateLevelChoiceHighlights(pendingTasks = []) {
 function updateLevelRewardReminderUI(pendingTasks = []) {
   const tasks = Array.isArray(pendingTasks) ? pendingTasks : [];
   const pendingCount = Math.max(0, tasks.length);
-  const statTasks = tasks.filter(task => task && task.type === 'stat');
-  const statCount = statTasks.length;
   levelRewardPendingCount = pendingCount;
-  pendingStatReminderTasks = statTasks.map(task => ({
+
+  const tasksByCategory = {
+    abilities: [],
+    story: [],
+    combat: [],
+  };
+
+  tasks.forEach(task => {
+    if (!task) return;
+    const category = normalizeLevelRewardCategory(task.type, task.category);
+    if (category === LEVEL_REWARD_CATEGORIES.ABILITIES) {
+      tasksByCategory.abilities.push(task);
+    } else if (category === LEVEL_REWARD_CATEGORIES.STORY) {
+      tasksByCategory.story.push(task);
+    } else {
+      tasksByCategory.combat.push(task);
+    }
+  });
+
+  const serializeTasks = (collection = []) => collection.map(task => ({
     id: task?.id,
     label: task?.label,
     level: task?.level,
+    type: task?.type,
+    category: task?.category,
   }));
+
+  pendingAbilityReminderTasks = serializeTasks(tasksByCategory.abilities);
+  pendingStoryReminderTasks = serializeTasks(tasksByCategory.story);
+  pendingCombatReminderTasks = serializeTasks(tasksByCategory.combat);
 
   if (elLevelRewardReminderBadge) {
     if (pendingCount > 0) {
@@ -6831,73 +7355,28 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
     }
   }
 
-  if (elAbilityStatReminderBadge) {
-    if (statCount > 0) {
-      const label = statCount > 99 ? '99+' : String(statCount);
-      elAbilityStatReminderBadge.textContent = label;
-      elAbilityStatReminderBadge.hidden = false;
-    } else {
-      elAbilityStatReminderBadge.textContent = '0';
-      elAbilityStatReminderBadge.hidden = true;
-    }
-  }
-
-  if (elAbilityStatReminderButton) {
-    if (statCount > 0) {
-      elAbilityStatReminderButton.hidden = false;
-      if (typeof elAbilityStatReminderButton.removeAttribute === 'function') {
-        elAbilityStatReminderButton.removeAttribute('aria-hidden');
-      } else if (elAbilityStatReminderButton?.ariaHidden !== undefined) {
-        elAbilityStatReminderButton.ariaHidden = 'false';
-      }
-      if (typeof elAbilityStatReminderButton.setAttribute === 'function') {
-        elAbilityStatReminderButton.setAttribute('data-pending', 'true');
-      } else if (elAbilityStatReminderButton?.dataset) {
-        elAbilityStatReminderButton.dataset.pending = 'true';
-      }
-      const label = statCount === 1
-        ? '1 stat increase pending'
-        : `${statCount} stat increases pending`;
-      if (typeof elAbilityStatReminderButton.setAttribute === 'function') {
-        elAbilityStatReminderButton.setAttribute('aria-label', `${label}. View reminder.`);
-      } else if (elAbilityStatReminderButton) {
-        elAbilityStatReminderButton.ariaLabel = `${label}. View reminder.`;
-      }
-    } else {
-      elAbilityStatReminderButton.hidden = true;
-      if (typeof elAbilityStatReminderButton.setAttribute === 'function') {
-        elAbilityStatReminderButton.setAttribute('aria-hidden', 'true');
-        elAbilityStatReminderButton.setAttribute('aria-label', 'Stat increase reminders');
-      } else if (elAbilityStatReminderButton) {
-        elAbilityStatReminderButton.ariaHidden = 'true';
-        elAbilityStatReminderButton.ariaLabel = 'Stat increase reminders';
-      }
-      if (typeof elAbilityStatReminderButton.removeAttribute === 'function') {
-        elAbilityStatReminderButton.removeAttribute('data-pending');
-      } else if (elAbilityStatReminderButton?.dataset) {
-        delete elAbilityStatReminderButton.dataset.pending;
-      }
-    }
-  }
+  updateReminderButtonUI(
+    elAbilityStatReminderButton,
+    elAbilityStatReminderBadge,
+    tasksByCategory.abilities.length,
+    LEVEL_REWARD_CATEGORIES.ABILITIES,
+  );
+  updateReminderButtonUI(
+    elStoryRewardReminderButton,
+    elStoryRewardReminderBadge,
+    tasksByCategory.story.length,
+    LEVEL_REWARD_CATEGORIES.STORY,
+  );
+  updateReminderButtonUI(
+    elCombatRewardReminderButton,
+    elCombatRewardReminderBadge,
+    tasksByCategory.combat.length,
+    LEVEL_REWARD_CATEGORIES.COMBAT,
+  );
 
   if (elLevelRewardAcknowledge) {
     elLevelRewardAcknowledge.disabled = pendingCount === 0;
   }
-}
-
-function showStatIncreaseReminderToast() {
-  const tasks = Array.isArray(pendingStatReminderTasks) ? pendingStatReminderTasks : [];
-  if (!tasks.length) {
-    toast('No stat increases pending.', { type: 'info', duration: 4000 });
-    return;
-  }
-  const lines = tasks.map(task => task?.label).filter(Boolean);
-  const text = lines.length
-    ? `Stat increases pending: ${lines.join(', ')}`
-    : 'Stat increases pending';
-  const htmlLines = lines.map(line => `<span class="toast-line">• ${escapeHtml(line)}</span>`);
-  const html = `<div class="toast-body"><strong>Stat increases pending</strong>${htmlLines.join('')}</div>`;
-  toast(text, { type: 'info', duration: 0, html });
 }
 
 function renderLevelRewardReminders() {
