@@ -6286,7 +6286,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: clamp(320px, 42vw, 520px);
+  --drawer-width: clamp(360px, 92vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -6641,7 +6641,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: clamp(320px, 42vw, 520px);
+  --drawer-width: clamp(360px, 92vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -6964,7 +6964,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: clamp(320px, 42vw, 520px);
+  --drawer-width: clamp(360px, 92vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -7287,7 +7287,7 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
 }
 
 :root {
-  --drawer-width: clamp(320px, 42vw, 520px);
+  --drawer-width: clamp(360px, 92vw, 520px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -7793,11 +7793,4 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
     backdrop-filter: none;
   }
 }
-
-@media (max-width: 600px) {
-  .player-tools-drawer {
-    inline-size: min(max(360px, 92vw), 100vw);
-  }
-}
-
 
