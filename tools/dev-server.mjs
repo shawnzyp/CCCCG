@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
-import { access, stat } from 'node:fs/promises';
+import { access, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import mime from 'mime-types';
@@ -86,14 +86,15 @@ async function resolveFile(requestPath, root) {
   }
 
   try {
-    let fileStat = await stat(filePath);
-    if (fileStat.isDirectory()) {
-      const directoryIndex = path.join(filePath, FALLBACK_FILE);
-      fileStat = await stat(directoryIndex);
-      return { filePath: directoryIndex, fileStat };
+    const resolved = await resolveExistingPath(filePath, root);
+    if (resolved.fileStat.isDirectory()) {
+      return await resolveExistingPath(path.join(resolved.filePath, FALLBACK_FILE), root);
     }
-    return { filePath, fileStat };
+    return resolved;
   } catch (error) {
+    if (error.statusCode === 403) {
+      throw error;
+    }
     if (error.code !== 'ENOENT') {
       throw error;
     }
@@ -108,14 +109,30 @@ async function resolveFile(requestPath, root) {
     const fallbackPath = path.join(root, FALLBACK_FILE);
     try {
       await access(fallbackPath);
-      const fallbackStat = await stat(fallbackPath);
-      return { filePath: fallbackPath, fileStat: fallbackStat };
-    } catch {
+      return await resolveExistingPath(fallbackPath, root);
+    } catch (fallbackError) {
+      if (fallbackError.statusCode === 403) {
+        throw fallbackError;
+      }
+      if (fallbackError.code !== 'ENOENT') {
+        throw fallbackError;
+      }
       const notFound = new Error('Not Found');
       notFound.statusCode = 404;
       throw notFound;
     }
   }
+}
+
+async function resolveExistingPath(candidatePath, root) {
+  const canonicalPath = await realpath(candidatePath);
+
+  if (!isPathInside(root, canonicalPath) && canonicalPath !== root) {
+    throw Object.assign(new Error('Forbidden'), { statusCode: 403 });
+  }
+
+  const fileStat = await stat(canonicalPath);
+  return { filePath: canonicalPath, fileStat };
 }
 
 function handleError(res, error) {
