@@ -2710,10 +2710,22 @@ body:not(.no-hover) .tracker-progress:hover::before{
 .hp-field__progress{
   --tracker-color:var(--success);
   --progress-color:var(--success);
+  --progress-min-height:var(--control-min-height);
+  min-height:var(--control-min-height);
+  padding:clamp(6px,1.8vw,10px) clamp(12px,3vw,16px);
+  border-radius:calc(var(--control-min-height)/2);
 }
 
 .hp-field__progress-label{
   letter-spacing:.08em;
+  display:flex;
+  align-items:center;
+  gap:clamp(8px,2.4vw,12px);
+  justify-content:flex-start;
+  text-align:left;
+  width:100%;
+  align-self:center;
+  justify-self:stretch;
 }
 
 .hp-field__controls{
@@ -3880,10 +3892,47 @@ body:not(.no-hover) .credits-card__submit:hover,
 .sp-field__progress{
   --tracker-color:var(--accent);
   --progress-color:var(--accent);
+  --progress-min-height:var(--control-min-height);
+  min-height:var(--control-min-height);
+  padding:clamp(6px,1.8vw,10px) clamp(12px,3vw,16px);
+  border-radius:calc(var(--control-min-height)/2);
 }
 
 .sp-field__progress-label{
   letter-spacing:.08em;
+  display:flex;
+  align-items:center;
+  gap:clamp(8px,2.4vw,12px);
+  justify-content:flex-start;
+  text-align:left;
+  width:100%;
+  align-self:center;
+  justify-self:stretch;
+}
+
+.hp-field__progress-label .tracker-progress__label,
+.sp-field__progress-label .tracker-progress__label,
+.hp-field__progress-label .tracker-progress__value,
+.sp-field__progress-label .tracker-progress__value{
+  flex:0 0 auto;
+  line-height:1;
+  white-space:nowrap;
+}
+.hp-field__progress-label .tracker-progress__label--top,
+.sp-field__progress-label .tracker-progress__label--top{
+  font-size:clamp(.55rem,1.4vw,.7rem);
+  letter-spacing:.16em;
+}
+.hp-field__progress-label .tracker-progress__value,
+.sp-field__progress-label .tracker-progress__value{
+  font-size:clamp(1.05rem,3vw,1.35rem);
+}
+.hp-field__progress-label .tracker-progress__status,
+.sp-field__progress-label .tracker-progress__status{
+  margin-left:auto;
+  padding:clamp(2px,0.8vw,4px) clamp(6px,1.6vw,10px);
+  font-size:clamp(.55rem,1.6vw,.7rem);
+  white-space:nowrap;
 }
 
 .sp-field__controls{
