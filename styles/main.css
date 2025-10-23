@@ -291,11 +291,19 @@ body.launching #launch-animation{opacity:1;visibility:visible;pointer-events:aut
 #launch-animation video{width:calc(100% + constant(safe-area-inset-left) + constant(safe-area-inset-right));height:calc(100% + constant(safe-area-inset-top) + constant(safe-area-inset-bottom));margin-left:calc(-1 * constant(safe-area-inset-left));margin-right:calc(-1 * constant(safe-area-inset-right));margin-top:calc(-1 * constant(safe-area-inset-top));margin-bottom:calc(-1 * constant(safe-area-inset-bottom));width:calc(100% + env(safe-area-inset-left) + env(safe-area-inset-right));height:calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));margin-left:calc(-1 * env(safe-area-inset-left));margin-right:calc(-1 * env(safe-area-inset-right));margin-top:calc(-1 * env(safe-area-inset-top));margin-bottom:calc(-1 * env(safe-area-inset-bottom));max-width:none;max-height:none;display:block;object-fit:cover;pointer-events:none;-webkit-appearance:none;appearance:none}
 #launch-animation video::-webkit-media-controls{display:none!important}
 #launch-animation video::-webkit-media-controls-start-playback-button{display:none!important}
-#launch-animation video::-webkit-media-controls-enclosure{display:none!important}
 #launch-animation video::-webkit-media-controls-overlay-play-button{display:none!important}
 #launch-animation video::-webkit-media-controls-panel{display:none!important}
-.launch-animation__skip{position:absolute;left:50%;bottom:20px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:none;border:none;color:rgba(255,255,255,.85);font:inherit;text-transform:none;letter-spacing:normal;text-shadow:none;text-decoration:underline;text-decoration-thickness:.08em;text-underline-offset:.2em;padding:0;cursor:pointer;pointer-events:auto;z-index:1;touch-action:manipulation}
-.launch-animation__skip:focus-visible{outline:2px solid var(--modal-accent-color,var(--accent));outline-offset:4px}
+#launch-animation video::-webkit-media-controls-enclosure{display:none!important}
+#launch-animation video::-webkit-media-controls-play-button{display:none!important}
+#launch-animation video::-webkit-media-controls-fullscreen-button{display:none!important}
+#launch-animation video::-webkit-media-controls-background{display:none!important}
+#launch-animation video::-webkit-media-controls-volume-slider{display:none!important}
+#launch-animation video::-webkit-media-controls-timeline{display:none!important}
+#launch-animation video::-webkit-media-controls-current-time-display{display:none!important}
+#launch-animation video::-webkit-media-controls-time-remaining-display{display:none!important}
+#launch-animation video::-webkit-media-controls-mute-button{display:none!important}
+.launch-animation__skip{position:absolute;left:50%;bottom:20px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:none;border:none;color:rgba(255,255,255,.85);font:inherit;text-transform:none;letter-spacing:normal;text-shadow:none;text-decoration:underline;text-decoration-thickness:.08em;text-underline-offset:.2em;padding:0;cursor:pointer;pointer-events:auto;z-index:1;touch-action:manipulation;-webkit-appearance:none;appearance:none;border-radius:0;-webkit-tap-highlight-color:transparent}
+.launch-animation__skip:focus-visible{outline:none;text-decoration-thickness:.12em;text-underline-offset:.18em;color:var(--accent)}
 body:not(.no-hover) .launch-animation__skip:hover{color:var(--accent)}
 ::selection{background:var(--accent);color:var(--text-on-accent)}
 h1,h2,h3,h4{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);word-spacing:var(--title-word-spacing);line-height:1.25;margin:0 0 .5em}

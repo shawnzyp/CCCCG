@@ -1918,6 +1918,36 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       // ignore inability to adjust volume
     }
     try {
+      vid.setAttribute('disablepictureinpicture', '');
+      vid.disablePictureInPicture = true;
+    } catch (err) {
+      // ignore inability to disable picture-in-picture
+    }
+    try {
+      vid.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback noplaybackrate');
+    } catch (err) {
+      // ignore inability to set the controls list attribute
+    }
+    try {
+      if (vid.controlsList && typeof vid.controlsList.add === 'function') {
+        ['nodownload', 'nofullscreen', 'noremoteplayback', 'noplaybackrate'].forEach(token => {
+          try {
+            vid.controlsList.add(token);
+          } catch (errToken) {
+            // ignore failures to register token
+          }
+        });
+      }
+    } catch (err) {
+      // ignore inability to manipulate the controlsList API
+    }
+    try {
+      vid.setAttribute('disableremoteplayback', '');
+      vid.disableRemotePlayback = true;
+    } catch (err) {
+      // ignore inability to disable remote playback
+    }
+    try {
       vid.removeAttribute('controls');
       vid.controls = false;
     } catch (err) {
