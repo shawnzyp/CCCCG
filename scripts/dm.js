@@ -7977,6 +7977,7 @@ function initDMLogin(){
     return new Promise((resolve, reject) => {
       if (isLoggedIn()) {
         updateButtons();
+        initTools();
         resolve(true);
         return;
       }
