@@ -1987,6 +1987,10 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   let playbackRetryTimer = null;
   const schedulePlaybackRetry = () => {
+    if(revealCalled){
+      playbackRetryTimer = clearTimer(playbackRetryTimer);
+      return;
+    }
     playbackRetryTimer = clearTimer(playbackRetryTimer);
     playbackRetryTimer = window.setTimeout(() => {
       playbackRetryTimer = clearTimer(playbackRetryTimer);
@@ -1995,6 +1999,10 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   };
 
   function attemptPlayback(){
+    if(revealCalled){
+      playbackRetryTimer = clearTimer(playbackRetryTimer);
+      return;
+    }
     ensureLaunchVideoAttributes(video);
     try {
       const playAttempt = video.play();
