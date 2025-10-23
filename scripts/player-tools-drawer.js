@@ -276,13 +276,71 @@ function createPlayerToolsDrawer() {
       return;
     }
     const direction = getDrawerSlideDirection();
-    const offset = drawerWidth * direction * -1;
-    if (Number.isFinite(offset)) {
-      if (tabStyle && typeof tabStyle.setProperty === 'function') {
-        tabStyle.setProperty('--player-tools-tab-offset', `${offset}px`);
-      }
-    } else {
+    const baseOffset = drawerWidth * direction * -1;
+    if (!Number.isFinite(baseOffset)) {
       clearTabOffset();
+      return;
+    }
+
+    let offset = baseOffset;
+
+    const computeViewportWidth = () => {
+      const measurements = [];
+      const viewport = window.visualViewport;
+      const viewportWidth = viewport?.width;
+      if (Number.isFinite(viewportWidth) && viewportWidth > 0) {
+        measurements.push(viewportWidth);
+      }
+
+      const innerWidth = window.innerWidth;
+      if (Number.isFinite(innerWidth) && innerWidth > 0) {
+        measurements.push(innerWidth);
+      }
+
+      const docElement = document.documentElement;
+      const docClientWidth = docElement?.clientWidth;
+      if (Number.isFinite(docClientWidth) && docClientWidth > 0) {
+        measurements.push(docClientWidth);
+      }
+
+      const bodyClientWidth = document.body?.clientWidth;
+      if (Number.isFinite(bodyClientWidth) && bodyClientWidth > 0) {
+        measurements.push(bodyClientWidth);
+      }
+
+      if (!measurements.length) return null;
+      return Math.min(...measurements);
+    };
+
+    const computeTabWidth = () => {
+      if (!tab) return null;
+      if (typeof tab.getBoundingClientRect === 'function') {
+        const rect = tab.getBoundingClientRect();
+        if (rect && Number.isFinite(rect.width) && rect.width > 0) {
+          return rect.width;
+        }
+      }
+      const fallbackWidth = tab.offsetWidth || tab.clientWidth;
+      if (Number.isFinite(fallbackWidth) && fallbackWidth > 0) {
+        return fallbackWidth;
+      }
+      return null;
+    };
+
+    const viewportWidth = computeViewportWidth();
+    const tabWidth = computeTabWidth();
+
+    if (Number.isFinite(viewportWidth) && viewportWidth > 0 && Number.isFinite(tabWidth) && tabWidth > 0) {
+      const availableDistance = Math.max(0, viewportWidth - tabWidth);
+      if (offset > 0) {
+        offset = Math.min(offset, availableDistance);
+      } else if (offset < 0) {
+        offset = Math.max(offset, -availableDistance);
+      }
+    }
+
+    if (tabStyle && typeof tabStyle.setProperty === 'function') {
+      tabStyle.setProperty('--player-tools-tab-offset', `${offset}px`);
     }
   };
 
