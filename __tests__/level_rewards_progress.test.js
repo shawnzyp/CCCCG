@@ -130,9 +130,28 @@ describe('level reward progression', () => {
     expect(document.getElementById('hp-max').textContent).toBe('45');
     expect(document.getElementById('sp-max').textContent).toBe('7');
 
-    const statReminder = document.getElementById('stat-increase-reminder');
-    expect(statReminder.hidden).toBe(false);
-    expect(statReminder.textContent).toContain('2');
+    const abilityCard = document.getElementById('card-abilities');
+    expect(abilityCard).toBeTruthy();
+    expect(abilityCard.dataset.levelChoice).toBe('stat');
+
+    const statReminderButton = document.getElementById('ability-stat-reminder');
+    expect(statReminderButton).toBeTruthy();
+    expect(statReminderButton.hidden).toBe(false);
+
+    const statBadge = statReminderButton.querySelector('[data-ability-reminder-count]');
+    expect(statBadge).toBeTruthy();
+    expect(statBadge.hidden).toBe(false);
+    const statBadgeValue = Number.parseInt(statBadge.textContent, 10);
+    expect(Number.isNaN(statBadgeValue) ? 0 : statBadgeValue).toBeGreaterThan(0);
+
+    const toastEl = document.getElementById('toast');
+    expect(toastEl).toBeTruthy();
+    statReminderButton.click();
+    await Promise.resolve();
+    expect(toastEl.classList.contains('show')).toBe(true);
+    expect(toastEl.innerHTML).toContain('Stat increases pending');
+    expect(toastEl.innerHTML).toContain('Assign +1 Stat');
+    window.dismissToast?.();
   });
 
   test('persists level reward ledger across reload', async () => {
@@ -153,9 +172,9 @@ describe('level reward progression', () => {
     expect(document.getElementById('hp-max').textContent).toBe('45');
     expect(document.getElementById('sp-max').textContent).toBe('7');
 
-    const reminder = document.getElementById('stat-increase-reminder');
-    expect(reminder.hidden).toBe(false);
-    expect(reminder.textContent).toContain('2');
+    const abilityCard = document.getElementById('card-abilities');
+    expect(abilityCard).toBeTruthy();
+    expect(abilityCard.dataset.levelChoice).toBe('stat');
 
     const restoredState = JSON.parse(document.getElementById('level-progress-state').value);
     expect(restoredState.hpBonus).toBe(15);
@@ -166,7 +185,7 @@ describe('level reward progression', () => {
   test('level reward reminder surfaces pending tasks and acknowledgement clears them', async () => {
     await initializeApp();
 
-    setXp(300);
+    setXp(34000);
     await Promise.resolve();
 
     const reminderTrigger = document.getElementById('level-reward-reminder-trigger');
@@ -178,6 +197,14 @@ describe('level reward progression', () => {
     expect(badge.hidden).toBe(false);
     const badgeValue = Number.parseInt(badge.textContent, 10);
     expect(Number.isNaN(badgeValue) ? 0 : badgeValue).toBeGreaterThan(0);
+
+    const statReminderButton = document.getElementById('ability-stat-reminder');
+    expect(statReminderButton).toBeTruthy();
+    expect(statReminderButton.hidden).toBe(false);
+
+    const statBadge = statReminderButton.querySelector('[data-ability-reminder-count]');
+    expect(statBadge).toBeTruthy();
+    expect(statBadge.hidden).toBe(false);
 
     const modalList = document.getElementById('level-reward-reminders');
     const checkboxes = Array.from(modalList.querySelectorAll('input[type="checkbox"]'));
@@ -199,5 +226,7 @@ describe('level reward progression', () => {
     });
 
     expect(reminderTrigger.hidden).toBe(true);
+    expect(statReminderButton.hidden).toBe(true);
+    expect(statBadge.hidden).toBe(true);
   });
 });
