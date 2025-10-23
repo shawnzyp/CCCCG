@@ -7794,4 +7794,10 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   }
 }
 
+@media (max-width: 600px) {
+  .player-tools-drawer {
+    inline-size: min(max(360px, 92vw), 100vw);
+  }
+}
+
 
