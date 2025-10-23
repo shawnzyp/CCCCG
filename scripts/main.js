@@ -1659,6 +1659,58 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     return null;
   };
 
+  const notifyServiceWorkerVideoPlayed = () => {
+    if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
+      return;
+    }
+    const videoUrl = video.currentSrc || video.getAttribute('src') || null;
+    const payload = { type: 'launch-video-played', videoUrl };
+    const postToWorker = worker => {
+      if(!worker) return;
+      try {
+        worker.postMessage(payload);
+      } catch (err) {
+        // ignore messaging failures
+      }
+    };
+    postToWorker(navigator.serviceWorker.controller);
+    navigator.serviceWorker.ready
+      .then(reg => {
+        const worker = navigator.serviceWorker.controller || reg.active;
+        if(worker){
+          postToWorker(worker);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const finalizeLaunch = () => {
+    if(revealCalled) return;
+    fallbackTimer = clearTimer(fallbackTimer);
+    if(!IS_JSDOM_ENV){
+      try {
+        video.pause();
+      } catch {
+        /* ignore inability to pause */
+      }
+      notifyServiceWorkerVideoPlayed();
+    }
+    revealApp();
+  };
+
+  if(skipButton){
+    skipButton.addEventListener('click', event => {
+      event.preventDefault();
+      bypassLaunchMinimum = true;
+      finalizeLaunch();
+    });
+  }
+
+  window.addEventListener('launch-animation-skip', () => {
+    bypassLaunchMinimum = true;
+    finalizeLaunch();
+  }, { once: true });
+
   const cleanupUserGestures = () => {
     while(userGestureListeners.length){
       const { target, event, handler, capture } = userGestureListeners.pop();
@@ -1838,58 +1890,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       // ignore inability to set autoplay
     }
   };
-
-  const notifyServiceWorkerVideoPlayed = () => {
-    if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
-      return;
-    }
-    const videoUrl = video.currentSrc || video.getAttribute('src') || null;
-    const payload = { type: 'launch-video-played', videoUrl };
-    const postToWorker = worker => {
-      if(!worker) return;
-      try {
-        worker.postMessage(payload);
-      } catch (err) {
-        // ignore messaging failures
-      }
-    };
-    postToWorker(navigator.serviceWorker.controller);
-    navigator.serviceWorker.ready
-      .then(reg => {
-        const worker = navigator.serviceWorker.controller || reg.active;
-        if(worker){
-          postToWorker(worker);
-        }
-      })
-      .catch(() => {});
-  };
-
-  const finalizeLaunch = () => {
-    if(revealCalled) return;
-    fallbackTimer = clearTimer(fallbackTimer);
-    if(!IS_JSDOM_ENV){
-      try {
-        video.pause();
-      } catch {
-        /* ignore inability to pause */
-      }
-      notifyServiceWorkerVideoPlayed();
-    }
-    revealApp();
-  };
-
-  if(skipButton){
-    skipButton.addEventListener('click', event => {
-      event.preventDefault();
-      bypassLaunchMinimum = true;
-      finalizeLaunch();
-    });
-  }
-
-  window.addEventListener('launch-animation-skip', () => {
-    bypassLaunchMinimum = true;
-    finalizeLaunch();
-  }, { once: true });
 
   const scheduleFallback = delay => {
     const rawDelay = typeof delay === 'number' && Number.isFinite(delay) ? delay : LAUNCH_MIN_VISIBLE;
