@@ -4391,7 +4391,8 @@ if (statusGrid) {
             aria-label="Show details for ${s.name}"
             data-status-toggle="${s.id}"
           >
-            <span aria-hidden="true" data-status-toggle-label>Info</span>
+            <span aria-hidden="true" class="status-option__toggle-icon">i</span>
+            <span aria-hidden="true" class="status-option__toggle-text" data-status-toggle-label>Info</span>
           </button>
         </div>
         <div
