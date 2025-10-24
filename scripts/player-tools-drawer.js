@@ -468,6 +468,55 @@ function createPlayerToolsDrawer() {
     }
   };
 
+  const applyBatteryStatus = ({ percent, charging, state, text, announcement } = {}) => {
+    if (!batteryBadge) return;
+
+    const numericPercent = Number.isFinite(percent) ? clamp(Math.round(percent), 0, 100) : null;
+    const explicitState = typeof state === 'string' && state.trim() ? state.trim() : '';
+    const chargingProvided = charging === true || charging === false;
+    const isCharging =
+      charging === true || (!chargingProvided && explicitState === 'charging');
+
+    const resolvedState = (() => {
+      if (explicitState) {
+        if (explicitState === 'charging' && !isCharging) {
+          if (numericPercent === null) {
+            return 'unavailable';
+          }
+          return getBatteryStateFromLevel(numericPercent / 100);
+        }
+        return explicitState;
+      }
+      if (numericPercent === null) {
+        return isCharging ? 'charging' : 'unavailable';
+      }
+      if (isCharging) {
+        return 'charging';
+      }
+      return getBatteryStateFromLevel(numericPercent / 100);
+    })();
+
+    let resolvedText = typeof text === 'string' ? text.trim() : '';
+    if (!resolvedText) {
+      if (numericPercent === null) {
+        resolvedText = isCharging ? 'Charging' : 'Unavailable';
+      } else {
+        resolvedText = isCharging ? `Charging ${numericPercent}%` : `${numericPercent}%`;
+      }
+    }
+
+    const resolvedAnnouncement =
+      typeof announcement === 'string' && announcement.trim()
+        ? announcement
+        : describeBatteryAnnouncement(numericPercent, isCharging);
+
+    setBatteryState(resolvedState, {
+      text: resolvedText,
+      fill: numericPercent,
+      announcement: resolvedAnnouncement
+    });
+  };
+
   const describeBatteryAnnouncement = (percent, charging) => {
     if (!Number.isFinite(percent)) {
       return 'Battery status unavailable';
@@ -495,9 +544,11 @@ function createPlayerToolsDrawer() {
 
   const updateBatteryFromManager = (batteryManager) => {
     if (!batteryManager) {
-      setBatteryState('unavailable', {
+      applyBatteryStatus({
+        percent: null,
+        charging: false,
+        state: 'unavailable',
         text: 'Unavailable',
-        fill: 0,
         announcement: 'Battery status unavailable'
       });
       return;
@@ -506,9 +557,11 @@ function createPlayerToolsDrawer() {
     const level = Number.isFinite(batteryManager.level) ? batteryManager.level : null;
     const charging = batteryManager.charging === true;
     if (level === null) {
-      setBatteryState('unavailable', {
+      applyBatteryStatus({
+        percent: charging ? 50 : null,
+        charging,
+        state: 'unavailable',
         text: charging ? 'Charging' : 'Unavailable',
-        fill: charging ? 50 : 0,
         announcement: 'Battery status unavailable'
       });
       return;
@@ -516,21 +569,91 @@ function createPlayerToolsDrawer() {
 
     const clampedLevel = clamp(level, 0, 1);
     const percent = clamp(Math.round(clampedLevel * 100), 0, 100);
-    const state = charging ? 'charging' : getBatteryStateFromLevel(clampedLevel);
-    const text = charging ? `Charging ${percent}%` : `${percent}%`;
-    const announcement = describeBatteryAnnouncement(percent, charging);
+    applyBatteryStatus({ percent, charging });
+  };
 
-    setBatteryState(state, {
-      text,
-      fill: percent,
-      announcement
+  const parseBatteryNumber = (value) => {
+    if (Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const match = value.match(/-?\d+(?:\.\d+)?/);
+      if (match) {
+        const parsed = parseFloat(match[0]);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  };
+
+  const parseBatteryCharging = (value) => {
+    if (value === true) return true;
+    if (value === false) return false;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (['true', '1', 'yes', 'y', 'on', 'charging'].includes(normalized)) return true;
+      if (['false', '0', 'no', 'n', 'off'].includes(normalized)) return false;
+    }
+    return null;
+  };
+
+  const updateBatteryFromDetail = (detail) => {
+    if (!detail || typeof detail !== 'object') return;
+
+    const percentValue = (() => {
+      const explicitPercent = parseBatteryNumber(detail.percent);
+      if (Number.isFinite(explicitPercent)) {
+        return explicitPercent;
+      }
+      const fill = parseBatteryNumber(detail.fill);
+      if (Number.isFinite(fill)) {
+        return fill;
+      }
+      const level = parseBatteryNumber(detail.level);
+      if (Number.isFinite(level)) {
+        return level > 1 ? level : level * 100;
+      }
+      return null;
+    })();
+
+    const chargingValue = parseBatteryCharging(detail.charging);
+    const stateValue = typeof detail.state === 'string' ? detail.state : undefined;
+    const textValue = typeof detail.text === 'string' ? detail.text : undefined;
+    const announcementValue =
+      typeof detail.announcement === 'string'
+        ? detail.announcement
+        : typeof detail.label === 'string'
+          ? detail.label
+          : undefined;
+
+    if (stateValue === 'unavailable' && percentValue === null && chargingValue === null) {
+      applyBatteryStatus({
+        percent: null,
+        charging: false,
+        state: 'unavailable',
+        text: textValue,
+        announcement: announcementValue
+      });
+      return;
+    }
+
+    applyBatteryStatus({
+      percent: percentValue,
+      charging: chargingValue,
+      state: stateValue,
+      text: textValue,
+      announcement: announcementValue
     });
   };
 
   if (batteryBadge) {
-    setBatteryState('unavailable', {
+    applyBatteryStatus({
+      percent: null,
+      charging: false,
+      state: 'unavailable',
       text: 'Unavailable',
-      fill: 0,
       announcement: 'Battery status unavailable'
     });
 
@@ -542,9 +665,11 @@ function createPlayerToolsDrawer() {
         .getBattery()
         .then((batteryManager) => {
           if (!batteryManager) {
-            setBatteryState('unavailable', {
+            applyBatteryStatus({
+              percent: null,
+              charging: false,
+              state: 'unavailable',
               text: 'Unavailable',
-              fill: 0,
               announcement: 'Battery status unavailable'
             });
             return;
@@ -559,19 +684,69 @@ function createPlayerToolsDrawer() {
           batteryManager.addEventListener('levelchange', handleBatteryChange);
           batteryManager.addEventListener('chargingchange', handleBatteryChange);
 
+          const previousCleanup =
+            typeof batteryBadge._playerToolsBatteryCleanup === 'function'
+              ? batteryBadge._playerToolsBatteryCleanup
+              : null;
+
           batteryBadge._playerToolsBatteryCleanup = () => {
             batteryManager.removeEventListener('levelchange', handleBatteryChange);
             batteryManager.removeEventListener('chargingchange', handleBatteryChange);
+            if (previousCleanup) {
+              previousCleanup();
+            }
           };
         })
         .catch(() => {
-          setBatteryState('unavailable', {
+          applyBatteryStatus({
+            percent: null,
+            charging: false,
+            state: 'unavailable',
             text: 'Unavailable',
-            fill: 0,
             announcement: 'Battery status unavailable'
           });
         });
     }
+
+    const handleBatteryEvent = (event) => {
+      if (!event) return;
+      updateBatteryFromDetail(event.detail);
+    };
+
+    let removeBatteryEventListener = null;
+
+    if (typeof document !== 'undefined') {
+      const removeExisting =
+        typeof document.removeEventListener === 'function'
+          ? document.removeEventListener.bind(document, 'player-tools-battery-update')
+          : null;
+      if (removeExisting && batteryBadge._playerToolsBatteryEventHandler) {
+        removeExisting(batteryBadge._playerToolsBatteryEventHandler);
+      }
+      if (typeof document.addEventListener === 'function') {
+        document.addEventListener('player-tools-battery-update', handleBatteryEvent);
+        removeBatteryEventListener = document.removeEventListener
+          ? () => document.removeEventListener('player-tools-battery-update', handleBatteryEvent)
+          : null;
+      }
+    }
+
+    batteryBadge._playerToolsBatteryDetail = updateBatteryFromDetail;
+    batteryBadge._playerToolsBatteryEventHandler = handleBatteryEvent;
+
+    const existingCleanup =
+      typeof batteryBadge._playerToolsBatteryCleanup === 'function'
+        ? batteryBadge._playerToolsBatteryCleanup
+        : null;
+
+    batteryBadge._playerToolsBatteryCleanup = () => {
+      if (removeBatteryEventListener) {
+        removeBatteryEventListener();
+      }
+      if (existingCleanup) {
+        existingCleanup();
+      }
+    };
   }
 
   const clockElement = drawer.querySelector('[data-player-tools-clock]');
@@ -906,7 +1081,10 @@ function createPlayerToolsDrawer() {
     open: () => setOpenState(true),
     close: () => setOpenState(false),
     toggle: () => setOpenState(),
-    subscribe
+    subscribe,
+    setBatteryStatus: (detail) => {
+      updateBatteryFromDetail(detail);
+    }
   };
 }
 
@@ -935,6 +1113,13 @@ export const toggle = () => {
   const controller = initializePlayerToolsDrawer();
   if (controller) {
     controller.toggle();
+  }
+};
+
+export const setBatteryStatus = (detail) => {
+  const controller = initializePlayerToolsDrawer();
+  if (controller && typeof controller.setBatteryStatus === 'function') {
+    controller.setBatteryStatus(detail);
   }
 };
 
