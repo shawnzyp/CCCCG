@@ -3020,19 +3020,31 @@
               <legend data-animate-title>Player Tools</legend>
               <div class="roll-tools">
                 <div class="player-tools-reminder" data-level-reward-reminder>
-                  <button
-                    type="button"
-                    id="level-reward-reminder-trigger"
-                    class="player-tools-reminder__trigger"
-                    hidden
-                    aria-controls="modal-level-rewards"
-                  >
-                    <span class="player-tools-reminder__content">
-                      <span class="player-tools-reminder__title">Level Rewards</span>
-                      <span class="player-tools-reminder__subtitle">Pending upgrades ready</span>
-                    </span>
-                    <span class="player-tools-reminder__badge" data-level-reward-count hidden>0</span>
-                  </button>
+                  <div class="player-tools-reminder__actions">
+                    <button
+                      type="button"
+                      id="level-reward-reminder-trigger"
+                      class="player-tools-reminder__trigger"
+                      hidden
+                      aria-controls="modal-level-rewards"
+                    >
+                      <span class="player-tools-reminder__content">
+                        <span class="player-tools-reminder__title">Rewards</span>
+                        <span class="player-tools-reminder__subtitle">Level-up reminders ready</span>
+                      </span>
+                      <span class="player-tools-reminder__badge" data-level-reward-count hidden>0</span>
+                    </button>
+                    <button
+                      type="button"
+                      id="level-reward-info-trigger"
+                      class="player-tools-reminder__info"
+                      data-tip="How rewards reminders work"
+                      aria-label="How rewards reminders work"
+                      hidden
+                    >
+                      <span class="player-tools-reminder__info-icon" aria-hidden="true">i</span>
+                    </button>
+                  </div>
                 </div>
                 <section class="roll-tool roll-tool--initiative">
                   <header class="roll-tool__header">

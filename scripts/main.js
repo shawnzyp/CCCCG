@@ -5316,6 +5316,7 @@ const elAugmentStateInput = $('augment-state');
 const elLevelProgressInput = $('level-progress-state');
 const elLevelRewardReminderList = $('level-reward-reminders');
 const elLevelRewardReminderTrigger = $('level-reward-reminder-trigger');
+const elLevelRewardInfoTrigger = $('level-reward-info-trigger');
 const elLevelRewardReminderBadge = elLevelRewardReminderTrigger
   ? elLevelRewardReminderTrigger.querySelector('[data-level-reward-count]')
   : null;
@@ -5349,6 +5350,15 @@ if (elLevelRewardReminderTrigger) {
   elLevelRewardReminderTrigger.addEventListener('click', () => {
     renderLevelRewardReminders();
     show('modal-level-rewards');
+  });
+}
+
+if (elLevelRewardInfoTrigger) {
+  elLevelRewardInfoTrigger.addEventListener('click', () => {
+    toast(
+      'This is where reminders to apply level-up rewards are populated. Be sure to check the Combat, Abilities, and Story tabs for other rewards notifications.',
+      { type: 'info', duration: 15000 },
+    );
   });
 }
 
@@ -7330,8 +7340,8 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
         elLevelRewardReminderTrigger.dataset.pending = 'true';
       }
       const label = pendingCount === 1
-        ? 'Level rewards (1 pending)'
-        : `Level rewards (${pendingCount} pending)`;
+        ? 'Rewards (1 pending)'
+        : `Rewards (${pendingCount} pending)`;
       if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
         elLevelRewardReminderTrigger.setAttribute('aria-label', label);
       } else if (elLevelRewardReminderTrigger) {
@@ -7341,10 +7351,10 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
       elLevelRewardReminderTrigger.hidden = true;
       if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
         elLevelRewardReminderTrigger.setAttribute('aria-hidden', 'true');
-        elLevelRewardReminderTrigger.setAttribute('aria-label', 'Level rewards');
+        elLevelRewardReminderTrigger.setAttribute('aria-label', 'Rewards');
       } else if (elLevelRewardReminderTrigger) {
         elLevelRewardReminderTrigger.ariaHidden = 'true';
-        elLevelRewardReminderTrigger.ariaLabel = 'Level rewards';
+        elLevelRewardReminderTrigger.ariaLabel = 'Rewards';
       }
       if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
         elLevelRewardReminderTrigger.removeAttribute('data-pending');
@@ -7352,6 +7362,24 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
       } else if (elLevelRewardReminderTrigger?.dataset) {
         delete elLevelRewardReminderTrigger.dataset.pending;
         delete elLevelRewardReminderTrigger.dataset.drawerOpen;
+      }
+    }
+  }
+
+  if (elLevelRewardInfoTrigger) {
+    if (pendingCount > 0) {
+      elLevelRewardInfoTrigger.hidden = false;
+      if (typeof elLevelRewardInfoTrigger.removeAttribute === 'function') {
+        elLevelRewardInfoTrigger.removeAttribute('aria-hidden');
+      } else if ('ariaHidden' in elLevelRewardInfoTrigger) {
+        delete elLevelRewardInfoTrigger.ariaHidden;
+      }
+    } else {
+      elLevelRewardInfoTrigger.hidden = true;
+      if (typeof elLevelRewardInfoTrigger.setAttribute === 'function') {
+        elLevelRewardInfoTrigger.setAttribute('aria-hidden', 'true');
+      } else {
+        elLevelRewardInfoTrigger.ariaHidden = 'true';
       }
     }
   }

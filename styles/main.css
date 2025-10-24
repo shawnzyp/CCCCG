@@ -6187,6 +6187,13 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   margin-bottom:clamp(8px,2.6vw,12px);
 }
 
+.player-tools-reminder__actions{
+  display:flex;
+  align-items:stretch;
+  gap:clamp(8px,2.6vw,12px);
+  width:100%;
+}
+
 .player-tools-reminder__trigger{
   width:100%;
   display:flex;
@@ -6249,8 +6256,59 @@ body:not(.no-hover) .player-tools-reminder__trigger:hover{
   transform:translateY(-1px);
 }
 
+.player-tools-reminder__info{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  padding:clamp(10px,3vw,14px);
+  border-radius:var(--radius);
+  border:1px solid color-mix(in srgb,var(--line) 75%, transparent);
+  background:color-mix(in srgb,var(--surface-2) 92%, transparent);
+  color:inherit;
+  font-weight:700;
+  font-size:clamp(.8rem,2.4vw,.9rem);
+  transition:box-shadow .28s ease,border-color .28s ease,background .28s ease,transform .28s ease;
+  min-width:clamp(38px,4vw,44px);
+}
+
+.player-tools-reminder__info[hidden]{
+  display:none !important;
+}
+
+body:not(.no-hover) .player-tools-reminder__info:hover{
+  transform:translateY(-1px);
+}
+
+.player-tools-reminder__info:focus-visible{
+  outline:2px solid color-mix(in srgb,var(--accent) 65%, transparent);
+  outline-offset:2px;
+}
+
+.player-tools-reminder__trigger[data-pending="true"] + .player-tools-reminder__info{
+  border-color:color-mix(in srgb,var(--accent) 60%, var(--line) 40%);
+  background:color-mix(in srgb,var(--accent) 14%, var(--surface-2) 86%);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 35%, transparent);
+  --tip-glow-color:color-mix(in srgb,var(--accent) 70%, transparent);
+}
+
+.player-tools-reminder__info-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:clamp(.85rem,2.6vw,1rem);
+  font-weight:700;
+  text-transform:uppercase;
+  line-height:1;
+  letter-spacing:.05em;
+}
+
 @media (max-width:480px){
   .player-tools-reminder__trigger{
+    padding:clamp(9px,4vw,12px);
+  }
+  .player-tools-reminder__info{
     padding:clamp(9px,4vw,12px);
   }
 }
