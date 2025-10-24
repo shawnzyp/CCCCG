@@ -7330,6 +7330,16 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
     if (pendingCount > 0) {
       elLevelRewardReminderTrigger.hidden = false;
       if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
+        elLevelRewardReminderTrigger.removeAttribute('disabled');
+        elLevelRewardReminderTrigger.removeAttribute('aria-disabled');
+      } else {
+        elLevelRewardReminderTrigger.disabled = false;
+        if ('ariaDisabled' in elLevelRewardReminderTrigger) {
+          elLevelRewardReminderTrigger.ariaDisabled = 'false';
+        }
+      }
+      elLevelRewardReminderTrigger.disabled = false;
+      if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
         elLevelRewardReminderTrigger.removeAttribute('aria-hidden');
       } else if (elLevelRewardReminderTrigger?.dataset) {
         delete elLevelRewardReminderTrigger.dataset.ariaHidden;
@@ -7349,12 +7359,19 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
       }
     } else {
       elLevelRewardReminderTrigger.hidden = true;
+      elLevelRewardReminderTrigger.disabled = true;
       if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
         elLevelRewardReminderTrigger.setAttribute('aria-hidden', 'true');
         elLevelRewardReminderTrigger.setAttribute('aria-label', 'Rewards');
+        elLevelRewardReminderTrigger.setAttribute('disabled', '');
+        elLevelRewardReminderTrigger.setAttribute('aria-disabled', 'true');
       } else if (elLevelRewardReminderTrigger) {
         elLevelRewardReminderTrigger.ariaHidden = 'true';
         elLevelRewardReminderTrigger.ariaLabel = 'Rewards';
+        elLevelRewardReminderTrigger.disabled = true;
+        if ('ariaDisabled' in elLevelRewardReminderTrigger) {
+          elLevelRewardReminderTrigger.ariaDisabled = 'true';
+        }
       }
       if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
         elLevelRewardReminderTrigger.removeAttribute('data-pending');
