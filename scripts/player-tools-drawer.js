@@ -394,17 +394,6 @@ function createPlayerToolsDrawer() {
 
   const batteryBadge = drawer.querySelector('[data-player-tools-battery]');
   const batteryFill = batteryBadge?.querySelector('[data-player-tools-battery-fill]');
-  const batteryIcon = batteryBadge?.querySelector('[data-player-tools-battery-icon]');
-
-  const BATTERY_ICON_PATHS = {
-    charging: 'images/vertical-charging-battery-svgrepo-com.svg',
-    full: 'images/vertical-battery-100-svgrepo-com.svg',
-    high: 'images/vertical-battery-75-svgrepo-com.svg',
-    medium: 'images/vertical-battery-50-svgrepo-com.svg',
-    low: 'images/vertical-battery-25-svgrepo-com.svg',
-    empty: 'images/vertical-battery-0-svgrepo-com.svg',
-    unavailable: 'images/vertical-battery-0-svgrepo-com.svg'
-  };
   const batteryText = batteryBadge?.querySelector('[data-player-tools-battery-text]');
   const batteryLabel = batteryBadge?.querySelector('[data-player-tools-battery-label]');
 
@@ -428,14 +417,6 @@ function createPlayerToolsDrawer() {
     batteryFill.style.setProperty('--player-tools-meter-fill', `${clamped}%`);
   };
 
-  const setBatteryIcon = (state) => {
-    if (!batteryIcon) return;
-    const iconPath = BATTERY_ICON_PATHS[state] ?? BATTERY_ICON_PATHS.unavailable;
-    if (batteryIcon.getAttribute('src') !== iconPath) {
-      batteryIcon.setAttribute('src', iconPath);
-    }
-  };
-
   const setBatteryState = (state, { text, fill, announcement } = {}) => {
     if (!batteryBadge) return;
     if (state) {
@@ -443,7 +424,6 @@ function createPlayerToolsDrawer() {
     } else {
       batteryBadge.removeAttribute('data-battery-state');
     }
-    setBatteryIcon(state ?? 'unavailable');
     if (typeof text === 'string') {
       setBatteryText(text);
     }
