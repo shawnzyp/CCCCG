@@ -395,6 +395,7 @@ function createPlayerToolsDrawer() {
   const batteryBadge = drawer.querySelector('[data-player-tools-battery]');
   const batteryFill = batteryBadge?.querySelector('[data-player-tools-battery-fill]');
   const batteryText = batteryBadge?.querySelector('[data-player-tools-battery-text]');
+  const batteryPercent = batteryBadge?.querySelector('[data-player-tools-battery-percent]');
   const batteryLabel = batteryBadge?.querySelector('[data-player-tools-battery-label]');
 
   const setBatteryLabel = (message) => {
@@ -405,6 +406,32 @@ function createPlayerToolsDrawer() {
   const setBatteryText = (value) => {
     if (!batteryText || typeof value !== 'string') return;
     batteryText.textContent = value;
+  };
+
+  const setBatteryPercent = (value, state) => {
+    if (!batteryPercent) return;
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    const match = trimmed.match(/(\d{1,3})/);
+    if (!match) {
+      batteryPercent.textContent = '';
+      batteryPercent.setAttribute('hidden', '');
+      batteryPercent.removeAttribute('data-charging');
+      return;
+    }
+
+    const parsed = parseInt(match[1], 10);
+    const clamped = Number.isNaN(parsed)
+      ? match[1]
+      : String(Math.max(0, Math.min(parsed, 100)));
+
+    batteryPercent.textContent = clamped;
+    batteryPercent.removeAttribute('hidden');
+
+    if (state === 'charging') {
+      batteryPercent.dataset.charging = 'true';
+    } else {
+      batteryPercent.removeAttribute('data-charging');
+    }
   };
 
   const setBatteryFill = (percent) => {
@@ -426,6 +453,9 @@ function createPlayerToolsDrawer() {
     }
     if (typeof text === 'string') {
       setBatteryText(text);
+      setBatteryPercent(text, state);
+    } else {
+      setBatteryPercent('', state);
     }
     if (Number.isFinite(fill)) {
       setBatteryFill(fill);

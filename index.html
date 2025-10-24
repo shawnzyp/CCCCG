@@ -2978,15 +2978,18 @@
       <div class="player-tools-phone" data-player-tools-phone>
         <div class="player-tools-phone__status-bar" role="presentation">
             <div class="player-tools-phone__status-group player-tools-phone__status-group--left">
-              <span class="player-tools-status player-tools-status--satellite" role="img" aria-label="Satellite uplink stable">
-                <span class="sr-only">Satellite uplink stable</span>
-                <span class="player-tools-status__icon player-tools-status__icon--signal" aria-hidden="true"></span>
-              </span>
-            </div>
-            <div class="player-tools-phone__status-group player-tools-phone__status-group--center">
               <time class="player-tools-phone__clock" data-player-tools-clock aria-live="polite">12:00</time>
             </div>
+            <div class="player-tools-phone__status-group player-tools-phone__status-group--center" aria-hidden="true">
+              <span class="player-tools-phone__dynamic-island">
+                <span class="player-tools-phone__camera"></span>
+              </span>
+            </div>
             <div class="player-tools-phone__status-group player-tools-phone__status-group--right">
+              <span class="player-tools-status player-tools-status--signal" role="img" aria-label="Cell signal strong">
+                <span class="sr-only">Cell signal strong</span>
+                <span class="player-tools-status__icon player-tools-status__icon--signal" aria-hidden="true"></span>
+              </span>
               <span class="player-tools-status player-tools-status--wifi" role="img" aria-label="Wi-Fi signal strong">
                 <span class="sr-only">Wi-Fi signal strong</span>
                 <span class="player-tools-status__icon player-tools-status__icon--wifi" aria-hidden="true"></span>
@@ -3006,6 +3009,7 @@
                     ></span>
                   </span>
                 </span>
+                <span class="player-tools-status__percent" data-player-tools-battery-percent aria-hidden="true">100</span>
                 <span class="player-tools-status__text sr-only" data-player-tools-battery-text>Unavailable</span>
               </span>
             </div>
