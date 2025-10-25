@@ -264,7 +264,7 @@ img,video{max-width:100%;height:auto}
 html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 body,h1,h2,h3,h4,p,figure,blockquote,dl,dd{margin:0}
 html{height:100%;background:var(--bg);background-position:center;background-size:cover;background-repeat:no-repeat;background-attachment:var(--bg-attachment,scroll);transition:var(--transition);scroll-behavior:smooth;-webkit-tap-highlight-color:transparent}@supports (background-image:image-set(url('data:image/avif;base64,AA==') type('image/avif'))){html{background-image:var(--bg-image-set);}}@media (hover: hover) and (pointer: fine){html{background-attachment:var(--bg-attachment, fixed);}}@media (pointer: coarse){html{background-attachment:scroll;}}
-body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;overflow-y:auto;touch-action:pan-y;overscroll-behavior-x:none;overscroll-behavior-y:none;scrollbar-gutter:stable both-edges;line-height:1.6;font-size:clamp(.95rem,2.2vw,1rem);transition:var(--transition);opacity:1;padding:0;position:relative;isolation:isolate}
+body{min-height:100%;margin:0;background:transparent;color:var(--text);font-family:'Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;overflow-y:auto;touch-action:pan-y pinch-zoom;overscroll-behavior-x:none;overscroll-behavior-y:none;scrollbar-gutter:stable both-edges;line-height:1.6;font-size:clamp(.95rem,2.2vw,1rem);transition:var(--transition);opacity:1;padding:0;position:relative;isolation:isolate}
 body::before,body::after{content:none;display:none}
 body.launching{overflow:hidden;height:100vh;height:100dvh;background:#000}
 
@@ -1916,7 +1916,7 @@ main{
   padding-bottom:calc(4px + env(safe-area-inset-bottom, 0px));
   scroll-padding-top:calc(var(--ticker-tab-clearance, clamp(44px, 9vw, 60px)) + env(safe-area-inset-top, 0px) + clamp(16px, 4vw, 22px));
   position:relative;
-  touch-action:pan-y;
+  touch-action:pan-y pinch-zoom;
   overscroll-behavior-x:none;
   overscroll-behavior-y:none;
   --swipe-progress:0;
