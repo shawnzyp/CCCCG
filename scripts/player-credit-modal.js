@@ -100,8 +100,15 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
       const ts = typeof card.dataset.timestamp === 'string' ? card.dataset.timestamp : '';
       const txid = typeof card.dataset.txid === 'string' ? card.dataset.txid : '';
       const ref = typeof card.dataset.ref === 'string' ? card.dataset.ref : '';
+      const id = (() => {
+        if (!txid) return ref;
+        if (ref && /^TXN-/i.test(ref) && ref.replace(/^TXN-/i, '') === txid) {
+          return ref;
+        }
+        return txid;
+      })();
       if (ts) {
-        return `${txid || ref || ''}|${ts}`;
+        return `${id || ''}|${ts}`;
       }
     }
     if (transactionHistory.length) {
