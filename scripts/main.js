@@ -1068,6 +1068,32 @@ const miniGameInviteNotes = typeof document !== 'undefined' ? $('mini-game-invit
 const miniGameInviteNotesText = typeof document !== 'undefined' ? $('mini-game-invite-notes-text') : null;
 const miniGameInviteAccept = typeof document !== 'undefined' ? $('mini-game-invite-accept') : null;
 const miniGameInviteDecline = typeof document !== 'undefined' ? $('mini-game-invite-decline') : null;
+const MINI_GAME_INVITE_ANIMATION_CLASS = 'mini-game-invite--animate';
+const MINI_GAME_INVITE_REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+function shouldAnimateMiniGameInvite() {
+  if (!miniGameInviteOverlay) return false;
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+  try {
+    return !window.matchMedia(MINI_GAME_INVITE_REDUCED_MOTION_QUERY).matches;
+  } catch {
+    return true;
+  }
+}
+
+function prepareMiniGameInviteAnimation() {
+  if (!miniGameInviteOverlay) return;
+  miniGameInviteOverlay.classList.remove(MINI_GAME_INVITE_ANIMATION_CLASS);
+  if (!shouldAnimateMiniGameInvite()) return;
+  void miniGameInviteOverlay.offsetWidth;
+  miniGameInviteOverlay.classList.add(MINI_GAME_INVITE_ANIMATION_CLASS);
+}
+
+function clearMiniGameInviteAnimation() {
+  if (!miniGameInviteOverlay) return;
+  miniGameInviteOverlay.classList.remove(MINI_GAME_INVITE_ANIMATION_CLASS);
+}
+
 const MINI_GAME_STORAGE_KEY_PREFIX = 'cc:mini-game:deployment:';
 const MINI_GAME_LAST_DEPLOYMENT_KEY = 'cc:mini-game:last-deployment';
 const hasMiniGameInviteUi = Boolean(miniGameInviteOverlay && miniGameInviteAccept && miniGameInviteDecline);
@@ -1131,6 +1157,7 @@ function resetMiniGameInvites() {
   miniGameInviteQueue.length = 0;
   miniGameActiveInvite = null;
   if (hasMiniGameInviteUi) {
+    clearMiniGameInviteAnimation();
     hide('mini-game-invite');
   }
 }
@@ -1248,6 +1275,7 @@ function showNextMiniGameInvite() {
   const next = miniGameInviteQueue.shift();
   miniGameActiveInvite = next;
   populateMiniGameInvite(next);
+  prepareMiniGameInviteAnimation();
   show('mini-game-invite');
   const gameLabel = next.gameName || getMiniGameDefinition(next.gameId)?.name || 'Mini-game';
   toast(`Incoming mini-game: ${gameLabel}`, 'info');
@@ -1255,6 +1283,7 @@ function showNextMiniGameInvite() {
 
 function closeMiniGameInvite(updatedEntry) {
   if (!hasMiniGameInviteUi) return;
+  clearMiniGameInviteAnimation();
   hide('mini-game-invite');
   if (updatedEntry?.id) {
     miniGameKnownDeployments.set(updatedEntry.id, updatedEntry);
@@ -1384,6 +1413,7 @@ async function respondToMiniGameInvite(action) {
   removeMiniGameQueueEntry(id);
   if (acceptBtn) acceptBtn.disabled = false;
   if (declineBtn) declineBtn.disabled = false;
+  clearMiniGameInviteAnimation();
   hide('mini-game-invite');
   miniGameActiveInvite = null;
   if (action === 'accept') {
