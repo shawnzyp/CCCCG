@@ -3847,7 +3847,15 @@ function renderToastRequest(request) {
   if (!toastControlsBound) {
     toastControlsBound = true;
     t.addEventListener('keydown', e => {
-      if (e.key === 'Escape' || e.key === 'Esc' || e.key === 'Enter' || e.key === ' ') {
+      const { key, target } = e;
+      if (key === 'Enter' || key === ' ') {
+        const interactiveTarget =
+          target && target !== t && target.closest('button, [role="button"], a[href], input, select, textarea');
+        if (interactiveTarget) {
+          return;
+        }
+      }
+      if (key === 'Escape' || key === 'Esc' || key === 'Enter' || key === ' ') {
         e.preventDefault();
         hideToastElement();
       }
