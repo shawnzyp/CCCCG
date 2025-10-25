@@ -5771,32 +5771,95 @@ const computePlayerCreditSignature = (detail) => {
 
 const elPlayerToolsTab = $('player-tools-tab');
 const playerToolsTabDefaultLabel = elPlayerToolsTab?.getAttribute('aria-label') || 'Toggle player tools drawer';
-let playerCreditBadge = null;
+const playerToolsBadgeReasons = new Set();
+const PLAYER_TOOLS_BADGE_REASON_LABELS = {
+  credit: 'new credit update',
+  reward: 'new reward',
+};
+let playerToolsTabBadge = null;
 let playerCreditLatestSignature = '';
 let playerCreditAcknowledgedSignature = readPlayerCreditAcknowledgedSignature();
+
+const formatPlayerToolsBadgeLabel = (labels) => {
+  if (!Array.isArray(labels) || labels.length === 0) {
+    return '';
+  }
+  if (labels.length === 1) {
+    return labels[0];
+  }
+  if (labels.length === 2) {
+    return `${labels[0]} and ${labels[1]}`;
+  }
+  const head = labels.slice(0, -1);
+  const tail = labels[labels.length - 1];
+  return `${head.join(', ')}, and ${tail}`;
+};
+
+const syncPlayerToolsTabBadge = () => {
+  if (!elPlayerToolsTab || !playerToolsTabBadge) return;
+  const hasReasons = playerToolsBadgeReasons.size > 0;
+  const hasCredit = playerToolsBadgeReasons.has('credit');
+  const hasReward = playerToolsBadgeReasons.has('reward');
+
+  playerToolsTabBadge.hidden = !hasReasons;
+  if (hasReasons) {
+    playerToolsTabBadge.textContent = '!';
+  }
+
+  if (hasCredit) {
+    elPlayerToolsTab.setAttribute('data-player-credit', 'pending');
+  } else {
+    elPlayerToolsTab.removeAttribute('data-player-credit');
+  }
+
+  if (hasReward) {
+    elPlayerToolsTab.setAttribute('data-player-reward', 'pending');
+  } else {
+    elPlayerToolsTab.removeAttribute('data-player-reward');
+  }
+
+  if (playerToolsTabDefaultLabel) {
+    const labels = Array.from(playerToolsBadgeReasons)
+      .map(reason => PLAYER_TOOLS_BADGE_REASON_LABELS[reason])
+      .filter(Boolean);
+    if (labels.length) {
+      elPlayerToolsTab.setAttribute('aria-label', `${playerToolsTabDefaultLabel} (${formatPlayerToolsBadgeLabel(labels)})`);
+    } else {
+      elPlayerToolsTab.setAttribute('aria-label', playerToolsTabDefaultLabel);
+    }
+  }
+};
+
+const addPlayerToolsBadgeReason = (reason) => {
+  if (!reason) return;
+  playerToolsBadgeReasons.add(reason);
+  syncPlayerToolsTabBadge();
+};
+
+const removePlayerToolsBadgeReason = (reason) => {
+  if (!reason) return;
+  playerToolsBadgeReasons.delete(reason);
+  syncPlayerToolsTabBadge();
+};
 
 if (playerCreditAcknowledgedSignature) {
   playerCreditLatestSignature = playerCreditAcknowledgedSignature;
 }
 
 const clearPlayerCreditBadge = () => {
-  if (!elPlayerToolsTab || !playerCreditBadge) return;
-  playerCreditBadge.hidden = true;
-  playerCreditBadge.textContent = '!';
-  elPlayerToolsTab.removeAttribute('data-player-credit');
-  if (playerToolsTabDefaultLabel) {
-    elPlayerToolsTab.setAttribute('aria-label', playerToolsTabDefaultLabel);
-  }
+  removePlayerToolsBadgeReason('credit');
 };
 
 const showPlayerCreditBadge = () => {
-  if (!elPlayerToolsTab || !playerCreditBadge) return;
-  playerCreditBadge.hidden = false;
-  playerCreditBadge.textContent = '!';
-  elPlayerToolsTab.setAttribute('data-player-credit', 'pending');
-  if (playerToolsTabDefaultLabel) {
-    elPlayerToolsTab.setAttribute('aria-label', `${playerToolsTabDefaultLabel} (new credit update)`);
-  }
+  addPlayerToolsBadgeReason('credit');
+};
+
+const clearPlayerRewardBadge = () => {
+  removePlayerToolsBadgeReason('reward');
+};
+
+const showPlayerRewardBadge = () => {
+  addPlayerToolsBadgeReason('reward');
 };
 
 const acknowledgePlayerCredit = (signature = playerCreditLatestSignature) => {
@@ -5838,12 +5901,13 @@ const handlePlayerCreditEventDetail = (detail) => {
 };
 
 if (elPlayerToolsTab) {
-  playerCreditBadge = document.createElement('span');
-  playerCreditBadge.className = 'player-tools-tab__badge';
-  playerCreditBadge.hidden = true;
-  playerCreditBadge.setAttribute('aria-hidden', 'true');
-  playerCreditBadge.textContent = '!';
-  elPlayerToolsTab.appendChild(playerCreditBadge);
+  playerToolsTabBadge = document.createElement('span');
+  playerToolsTabBadge.className = 'player-tools-tab__badge';
+  playerToolsTabBadge.hidden = true;
+  playerToolsTabBadge.setAttribute('aria-hidden', 'true');
+  playerToolsTabBadge.textContent = '!';
+  elPlayerToolsTab.appendChild(playerToolsTabBadge);
+  syncPlayerToolsTabBadge();
 
   document.addEventListener(PLAYER_CREDIT_EVENTS.UPDATE, event => {
     handlePlayerCreditEventDetail(event?.detail);
@@ -5898,6 +5962,391 @@ let isPlayerToolsDrawerOpen = false;
 let pendingAbilityReminderTasks = [];
 let pendingStoryReminderTasks = [];
 let pendingCombatReminderTasks = [];
+
+const PLAYER_REWARD_HISTORY_STORAGE_KEY = 'cc:player-reward-history';
+const PLAYER_REWARD_LAST_VIEWED_KEY = 'player-reward:last-viewed';
+const PLAYER_REWARD_HISTORY_LIMIT = 10;
+const PLAYER_REWARD_CHANNEL_NAMES = ['cc:player-rewards', PLAYER_CREDIT_BROADCAST_CHANNEL];
+const PLAYER_REWARD_EVENTS = Object.freeze({
+  UPDATE: 'player-reward:update',
+  SYNC: 'player-reward:sync',
+});
+
+let playerRewardHistory = [];
+let playerRewardLatestSignature = '';
+let playerRewardAcknowledgedSignature = (() => {
+  try {
+    if (typeof localStorage === 'undefined') return '';
+    return localStorage.getItem(PLAYER_REWARD_LAST_VIEWED_KEY) || '';
+  } catch {
+    return '';
+  }
+})();
+
+const playerRewardChannelSubscriptions = new Map();
+
+const allowedRewardOriginsList = (() => {
+  try {
+    if (Array.isArray(window.CC_PLAYER_ALLOWED_ORIGINS) && window.CC_PLAYER_ALLOWED_ORIGINS.length > 0) {
+      return window.CC_PLAYER_ALLOWED_ORIGINS;
+    }
+  } catch {
+    /* ignore origin detection errors */
+  }
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    return [window.location.origin];
+  }
+  return ['*'];
+})();
+
+const isAllowedRewardOrigin = (origin) => {
+  if (!origin) return true;
+  if (!Array.isArray(allowedRewardOriginsList) || allowedRewardOriginsList.length === 0) return true;
+  if (allowedRewardOriginsList.includes('*')) return true;
+  return allowedRewardOriginsList.includes(origin);
+};
+
+const sanitizeRewardData = (data) => {
+  if (!data || typeof data !== 'object') return null;
+  try {
+    const clone = JSON.parse(JSON.stringify(data));
+    if (clone && typeof clone === 'object' && Object.keys(clone).length === 0) {
+      return null;
+    }
+    return clone;
+  } catch {
+    return null;
+  }
+};
+
+const toRewardIsoString = (value) => {
+  let date = null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    date = value;
+  } else if (typeof value === 'string' && value) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      date = parsed;
+    }
+  } else if (Number.isFinite(value)) {
+    const parsed = new Date(Number(value));
+    if (!Number.isNaN(parsed.getTime())) {
+      date = parsed;
+    }
+  }
+  if (!date) {
+    date = new Date();
+  }
+  return date.toISOString();
+};
+
+const sanitizePlayerRewardHistoryItem = (item = {}) => {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+  const kind = typeof item.kind === 'string' ? item.kind.trim() : '';
+  const player = typeof item.player === 'string' ? item.player.trim() : '';
+  const message = typeof item.message === 'string' ? item.message.trim() : '';
+  const name = (() => {
+    if (typeof item.name === 'string' && item.name.trim()) {
+      return item.name.trim();
+    }
+    if (kind) {
+      return `Reward: ${kind}`;
+    }
+    return 'Reward update';
+  })();
+  const text = typeof item.text === 'string' && item.text.trim() ? item.text.trim() : (message || name);
+  const timestamp = toRewardIsoString(item.timestamp ?? item.t ?? item.time ?? item.ts ?? Date.now());
+  const id = typeof item.id === 'string' && item.id.trim()
+    ? item.id.trim()
+    : `reward-${timestamp}-${Math.floor(Math.random() * 1e6)}`;
+  return {
+    id,
+    timestamp,
+    name,
+    text,
+    kind,
+    player,
+    message: message || text,
+    data: sanitizeRewardData(item.data),
+  };
+};
+
+const playerRewardHistoryKey = (entry = {}) => {
+  if (!entry || typeof entry !== 'object') return '';
+  if (typeof entry.id === 'string' && entry.id) {
+    return entry.id;
+  }
+  const timestamp = typeof entry.timestamp === 'string' ? entry.timestamp : '';
+  const name = typeof entry.name === 'string' ? entry.name : '';
+  const text = typeof entry.text === 'string' ? entry.text : '';
+  return `${timestamp}|${name}|${text}`;
+};
+
+const loadPlayerRewardHistory = () => {
+  if (typeof localStorage === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PLAYER_REWARD_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const list = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
+    return list
+      .map(entry => sanitizePlayerRewardHistoryItem(entry))
+      .filter(Boolean)
+      .slice(0, PLAYER_REWARD_HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+};
+
+const persistPlayerRewardHistory = (entries) => {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    if (!entries || !entries.length) {
+      localStorage.removeItem(PLAYER_REWARD_HISTORY_STORAGE_KEY);
+    } else {
+      localStorage.setItem(PLAYER_REWARD_HISTORY_STORAGE_KEY, JSON.stringify(entries));
+    }
+  } catch {
+    /* ignore persistence failures */
+  }
+};
+
+const addPlayerRewardHistoryEntry = (entry, { persist = true } = {}) => {
+  const sanitized = sanitizePlayerRewardHistoryItem(entry);
+  if (!sanitized) {
+    return { entry: null, isNew: false };
+  }
+  const key = playerRewardHistoryKey(sanitized);
+  const existed = key ? playerRewardHistory.some(item => playerRewardHistoryKey(item) === key) : false;
+  const filtered = key
+    ? playerRewardHistory.filter(item => playerRewardHistoryKey(item) !== key)
+    : playerRewardHistory.slice();
+  filtered.unshift(sanitized);
+  playerRewardHistory = filtered.slice(0, PLAYER_REWARD_HISTORY_LIMIT);
+  if (persist) {
+    persistPlayerRewardHistory(playerRewardHistory);
+  }
+  return { entry: sanitized, isNew: !existed };
+};
+
+const writePlayerRewardAcknowledgedSignature = (value) => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (value) {
+      localStorage.setItem(PLAYER_REWARD_LAST_VIEWED_KEY, value);
+    } else {
+      localStorage.removeItem(PLAYER_REWARD_LAST_VIEWED_KEY);
+    }
+  } catch {
+    /* ignore persistence errors */
+  }
+};
+
+const acknowledgePlayerReward = (signature = playerRewardLatestSignature) => {
+  clearPlayerRewardBadge();
+  playerRewardAcknowledgedSignature = signature || '';
+  writePlayerRewardAcknowledgedSignature(playerRewardAcknowledgedSignature);
+};
+
+const cloneRewardEntry = (entry) => ({ ...entry });
+
+const dispatchPlayerRewardEvent = (type, entry, meta = {}) => {
+  if (typeof CustomEvent !== 'function') return;
+  const detail = {
+    entry: entry ? cloneRewardEntry(entry) : null,
+    history: playerRewardHistory.map(item => cloneRewardEntry(item)),
+    meta: { ...meta },
+  };
+  if (typeof document?.dispatchEvent === 'function') {
+    try {
+      document.dispatchEvent(new CustomEvent(type, { detail }));
+    } catch {
+      /* ignore dispatch failures */
+    }
+  }
+  if (typeof window?.dispatchEvent === 'function') {
+    try {
+      window.dispatchEvent(new CustomEvent(type, { detail }));
+    } catch {
+      /* ignore dispatch failures */
+    }
+  }
+};
+
+const buildPlayerRewardHistoryEntryFromPayload = (payload = {}, historyEntry = null) => {
+  const source = historyEntry && typeof historyEntry === 'object'
+    ? historyEntry
+    : (payload && typeof payload === 'object' && (payload.historyEntry || payload.history) && typeof (payload.historyEntry || payload.history) === 'object'
+      ? (payload.historyEntry || payload.history)
+      : {});
+  const record = {
+    ...source,
+    kind: typeof payload?.kind === 'string' ? payload.kind : (typeof source.kind === 'string' ? source.kind : ''),
+    player: typeof payload?.player === 'string' ? payload.player : (typeof source.player === 'string' ? source.player : ''),
+    message: typeof payload?.message === 'string' ? payload.message : (typeof source.message === 'string' ? source.message : ''),
+    timestamp: payload?.timestamp ?? payload?.timestampMs ?? source.timestamp ?? source.t ?? source.time ?? Date.now(),
+    data: payload?.data ?? source.data ?? null,
+  };
+  return sanitizePlayerRewardHistoryItem(record);
+};
+
+const handlePlayerRewardUpdate = (payload = {}, historyEntry = null, { source = 'update', reveal = true } = {}) => {
+  if (isDmSessionActive()) return;
+  const entry = buildPlayerRewardHistoryEntryFromPayload(payload, historyEntry);
+  if (!entry) return;
+  const { entry: added, isNew } = addPlayerRewardHistoryEntry(entry);
+  if (!added) return;
+  const signature = playerRewardHistoryKey(added);
+  if (signature) {
+    playerRewardLatestSignature = signature;
+  } else {
+    playerRewardLatestSignature = '';
+  }
+
+  const alreadyAcknowledged = signature && signature === playerRewardAcknowledgedSignature;
+
+  dispatchPlayerRewardEvent(PLAYER_REWARD_EVENTS.UPDATE, added, {
+    source,
+    reveal,
+    dmSession: isDmSessionActive(),
+  });
+
+  if (!alreadyAcknowledged && reveal !== false && isNew) {
+    const message = added.message || added.text || added.name;
+    if (message) {
+      try {
+        toast(message, {
+          type: 'success',
+          meta: {
+            source: 'player-reward',
+            kind: added.kind || undefined,
+            player: added.player || undefined,
+          },
+        });
+      } catch {
+        /* ignore toast failures */
+      }
+    }
+  }
+
+  if (signature) {
+    if (alreadyAcknowledged) {
+      if (isPlayerToolsDrawerOpen) {
+        clearPlayerRewardBadge();
+      }
+      return;
+    }
+    if (isPlayerToolsDrawerOpen) {
+      acknowledgePlayerReward(signature);
+    } else if (source !== 'hydrate' && isNew) {
+      showPlayerRewardBadge();
+    }
+  } else if (!isPlayerToolsDrawerOpen && source !== 'hydrate' && isNew) {
+    showPlayerRewardBadge();
+  }
+};
+
+const handlePlayerRewardEnvelope = (data, options = {}) => {
+  if (!data || typeof data !== 'object') return;
+  if (data.type !== 'CC_REWARD_UPDATE') return;
+  const payload = data.payload && typeof data.payload === 'object' ? data.payload : {};
+  const historyEntry = data.historyEntry ?? payload.historyEntry ?? payload.history ?? null;
+  handlePlayerRewardUpdate(payload, historyEntry, options);
+};
+
+const ensurePlayerRewardBroadcastChannel = (name) => {
+  if (!name || playerRewardChannelSubscriptions.has(name)) {
+    return playerRewardChannelSubscriptions.get(name)?.channel ?? null;
+  }
+  if (typeof BroadcastChannel !== 'function') {
+    return null;
+  }
+  try {
+    const channel = new BroadcastChannel(name);
+    const handler = (event) => {
+      handlePlayerRewardEnvelope(event?.data, { source: 'broadcast', channel: name, reveal: true });
+    };
+    try {
+      if (typeof channel.addEventListener === 'function') {
+        channel.addEventListener('message', handler);
+      } else {
+        channel.onmessage = handler;
+      }
+    } catch {
+      channel.onmessage = handler;
+    }
+    playerRewardChannelSubscriptions.set(name, { channel, handler });
+    return channel;
+  } catch {
+    return null;
+  }
+};
+
+PLAYER_REWARD_CHANNEL_NAMES.forEach(ensurePlayerRewardBroadcastChannel);
+
+const hydratePlayerRewardHistory = () => {
+  if (isDmSessionActive()) return;
+  playerRewardHistory = loadPlayerRewardHistory();
+  playerRewardLatestSignature = playerRewardHistoryKey(playerRewardHistory[0] || null);
+  dispatchPlayerRewardEvent(PLAYER_REWARD_EVENTS.SYNC, playerRewardHistory[0] || null, {
+    source: 'hydrate',
+    reveal: false,
+    dmSession: isDmSessionActive(),
+  });
+  if (playerRewardLatestSignature && playerRewardLatestSignature !== playerRewardAcknowledgedSignature) {
+    showPlayerRewardBadge();
+  } else if (!playerRewardHistory.length) {
+    acknowledgePlayerReward('');
+  }
+};
+
+hydratePlayerRewardHistory();
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('message', (event) => {
+    if (isDmSessionActive()) return;
+    const origin = event?.origin || '';
+    if (origin && !isAllowedRewardOrigin(origin)) return;
+    handlePlayerRewardEnvelope(event?.data, { source: 'message', reveal: true });
+  }, false);
+
+  window.addEventListener('storage', (event) => {
+    if (isDmSessionActive()) return;
+    if (event.key !== PLAYER_REWARD_HISTORY_STORAGE_KEY) return;
+    const next = (() => {
+      if (!event.newValue) return [];
+      try {
+        const parsed = JSON.parse(event.newValue);
+        return Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
+      } catch {
+        return [];
+      }
+    })();
+    playerRewardHistory = next
+      .map(entry => sanitizePlayerRewardHistoryItem(entry))
+      .filter(Boolean)
+      .slice(0, PLAYER_REWARD_HISTORY_LIMIT);
+    playerRewardLatestSignature = playerRewardHistoryKey(playerRewardHistory[0] || null);
+    dispatchPlayerRewardEvent(PLAYER_REWARD_EVENTS.SYNC, playerRewardHistory[0] || null, {
+      source: 'storage',
+      reveal: true,
+      dmSession: isDmSessionActive(),
+    });
+    if (!playerRewardHistory.length) {
+      acknowledgePlayerReward('');
+      return;
+    }
+    if (playerRewardLatestSignature && playerRewardLatestSignature !== playerRewardAcknowledgedSignature) {
+      if (isPlayerToolsDrawerOpen) {
+        acknowledgePlayerReward(playerRewardLatestSignature);
+      } else {
+        showPlayerRewardBadge();
+      }
+    }
+  });
+}
 
 if (elAugmentSearch) {
   elAugmentSearch.addEventListener('input', event => {
@@ -5990,6 +6439,7 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
     syncLevelRewardReminderAnimation();
     if (open) {
       acknowledgePlayerCredit();
+      acknowledgePlayerReward();
     }
   });
 }
