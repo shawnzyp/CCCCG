@@ -3190,6 +3190,35 @@
                     </div>
                   </div>
                 </section>
+                <section class="roll-tool roll-tool--toast-history" data-toast-history hidden>
+                  <header class="roll-tool__header toast-history__header">
+                    <h3 class="roll-tool__heading">Toast History</h3>
+                    <div class="toast-history__actions" data-toast-history-actions hidden>
+                      <span class="toast-history__badge" data-toast-history-unread hidden>0</span>
+                      <button
+                        type="button"
+                        class="btn-sm"
+                        data-toast-history-mark-read
+                        hidden
+                        aria-label="Mark toast history as read"
+                      >
+                        Mark read
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-sm"
+                        data-toast-history-clear
+                        hidden
+                        aria-label="Clear toast history"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </header>
+                  <div class="roll-tool__body">
+                    <ul class="toast-history__list" data-toast-history-list></ul>
+                  </div>
+                </section>
               </div>
             </fieldset>
           </div>
