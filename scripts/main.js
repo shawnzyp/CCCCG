@@ -8999,6 +8999,19 @@ function renderLevelRewardReminders() {
   updateLevelChoiceHighlights(pendingTasks);
 }
 
+registerContentRefreshTask(() => {
+  try {
+    renderLevelRewardReminders();
+  } catch (err) {
+    console.warn('Failed to refresh level reward reminders', err);
+  }
+  try {
+    syncPlayerToolsTabBadge();
+  } catch (err) {
+    /* ignore badge sync failures */
+  }
+});
+
 function acknowledgePendingLevelRewards() {
   const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
   if (!(levelProgressState.completedRewardIds instanceof Set)) {
