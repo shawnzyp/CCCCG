@@ -46,6 +46,6 @@ transactions arrive.
 - `PLAYER_CREDIT_EVENTS.SYNC` (`player-credit:sync`) fires whenever batches of history entries
   are hydrated or synchronized (including storage events that clear history).
 
-Consumers can import the constant from `scripts/player-credit-events.js` and listen on
-`document` or `window`. See `scripts/main.js` for an example that highlights the
-player-tools drawer tab until the player opens it.
+Consumers should import the constant from `scripts/player-credit-events.js` and register
+with the shared event bus via `scripts/event-bus.js`. See `scripts/main.js` for an
+example that highlights the player-tools drawer tab until the player opens it.

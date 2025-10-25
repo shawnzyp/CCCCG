@@ -19,6 +19,7 @@ import {
 import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
 import { toast, dismissToast } from './notifications.js';
+import { publish } from './event-bus.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -7189,12 +7190,7 @@ function initDMLogin(){
 
   function emitCatalogPayload(payload) {
     if (!payload) return;
-    if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
-      document.dispatchEvent(new CustomEvent('dm:catalog-submit', { detail: payload }));
-    }
-    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-      window.dispatchEvent(new CustomEvent('dm:catalog-submit', { detail: payload }));
-    }
+    publish('dm:catalog-submit', payload);
     const typeLabel = payload.label || payload.type;
     const entryName = payload.metadata?.name || 'Untitled';
     const recipientName = typeof payload.recipient === 'string' && payload.recipient.trim()

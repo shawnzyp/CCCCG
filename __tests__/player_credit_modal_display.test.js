@@ -46,7 +46,8 @@ describe('player credit modal display', () => {
     const handleUpdate = (event) => {
       updateEvents.push(event?.detail);
     };
-    document.addEventListener(PLAYER_CREDIT_EVENTS.UPDATE, handleUpdate);
+    const { subscribe } = await import('../scripts/event-bus.js');
+    const unsubscribe = subscribe(PLAYER_CREDIT_EVENTS.UPDATE, handleUpdate);
 
     const payload = {
       account: '1234-5678-9012-3456',
@@ -87,7 +88,7 @@ describe('player credit modal display', () => {
       expect(broadcastEvent?.history?.[0]?.txid).toBe(payload.txid);
       expect(broadcastEvent?.meta?.dmSession).toBe(false);
     } finally {
-      document.removeEventListener(PLAYER_CREDIT_EVENTS.UPDATE, handleUpdate);
+      unsubscribe();
     }
   });
 
@@ -117,7 +118,8 @@ describe('player credit modal display', () => {
     const handleSync = (event) => {
       syncEvents.push(event?.detail);
     };
-    document.addEventListener(PLAYER_CREDIT_EVENTS.SYNC, handleSync);
+    const { subscribe } = await import('../scripts/event-bus.js');
+    const unsubscribe = subscribe(PLAYER_CREDIT_EVENTS.SYNC, handleSync);
 
     try {
       await import('../scripts/player-credit-modal.js');
@@ -145,7 +147,7 @@ describe('player credit modal display', () => {
       expect(Array.isArray(hydrateEvent?.history)).toBe(true);
       expect(hydrateEvent?.history).toHaveLength(1);
     } finally {
-      document.removeEventListener(PLAYER_CREDIT_EVENTS.SYNC, handleSync);
+      unsubscribe();
     }
   });
 });

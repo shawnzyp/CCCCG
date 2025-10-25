@@ -1,5 +1,6 @@
 import { show, hide } from './modal.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
+import { publish } from './event-bus.js';
 
 (() => {
   const overlay = document.getElementById('player-credit-modal');
@@ -38,14 +39,8 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
   });
 
   const dispatchPlayerCreditEvent = (type, payload, meta = {}) => {
-    if (typeof CustomEvent !== 'function') return;
     const detail = buildEventDetail(type, payload, meta);
-    if (typeof document?.dispatchEvent === 'function') {
-      document.dispatchEvent(new CustomEvent(type, { detail }));
-    }
-    if (typeof window?.dispatchEvent === 'function') {
-      window.dispatchEvent(new CustomEvent(type, { detail }));
-    }
+    publish(type, detail);
   };
 
   const amountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });

@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { subscribe } from '../scripts/event-bus.js';
 
 describe('character events', () => {
   test('dispatches events on save and delete', async () => {
@@ -41,13 +42,16 @@ describe('character events', () => {
     const { saveCharacter, deleteCharacter } = await import('../scripts/characters.js');
 
     const saveSpy = jest.fn();
-    document.addEventListener('character-saved', saveSpy);
+    const unsubscribeSave = subscribe('character-saved', saveSpy);
     await saveCharacter({}, 'Alice');
     expect(saveSpy).toHaveBeenCalled();
 
     const delSpy = jest.fn();
-    document.addEventListener('character-deleted', delSpy);
+    const unsubscribeDelete = subscribe('character-deleted', delSpy);
     await deleteCharacter('Alice');
     expect(delSpy).toHaveBeenCalled();
+
+    unsubscribeSave();
+    unsubscribeDelete();
   });
 });

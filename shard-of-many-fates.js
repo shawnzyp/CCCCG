@@ -3377,8 +3377,14 @@
         toastEl.__somfPlayerBound = true;
       }
       if (!this.toastEventsBound) {
-        window.addEventListener('cc:toast-shown', this.toastShownHandler);
-        window.addEventListener('cc:toast-dismissed', this.toastDismissHandler);
+        const bus = typeof globalThis !== 'undefined' ? globalThis.ccEventBus : null;
+        if (bus && typeof bus.subscribe === 'function') {
+          this.toastShownUnsubscribe = bus.subscribe('cc:toast-shown', this.toastShownHandler);
+          this.toastDismissUnsubscribe = bus.subscribe('cc:toast-dismissed', this.toastDismissHandler);
+        } else {
+          window.addEventListener('cc:toast-shown', this.toastShownHandler);
+          window.addEventListener('cc:toast-dismissed', this.toastDismissHandler);
+        }
         this.toastEventsBound = true;
       }
     }

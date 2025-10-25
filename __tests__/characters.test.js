@@ -207,11 +207,12 @@ describe('character storage', () => {
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null })
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
 
+    const { subscribe } = await import('../scripts/event-bus.js');
     const { saveAutoBackup, setCurrentCharacter } = await import('../scripts/characters.js');
 
     setCurrentCharacter('Hero');
     const listener = jest.fn();
-    document.addEventListener('character-autosaved', listener);
+    const unsubscribe = subscribe('character-autosaved', listener);
 
     const ts = await saveAutoBackup({ hp: 12 });
 
@@ -220,7 +221,7 @@ describe('character storage', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener.mock.calls[0][0].detail.name).toBe('Hero');
 
-    document.removeEventListener('character-autosaved', listener);
+    unsubscribe();
   });
 
   test('loading a pinned character can bypass pin prompt', async () => {

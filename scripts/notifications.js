@@ -1,4 +1,5 @@
 import { $ } from './helpers.js';
+import { publish } from './event-bus.js';
 
 const AUDIO_CUE_SOURCES = {
   success:
@@ -3651,10 +3652,7 @@ function hideToastElement(options = {}) {
 }
 
 function dispatchToastEvent(name, detail = {}) {
-  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
-  try {
-    window.dispatchEvent(new CustomEvent(name, { detail }));
-  } catch {}
+  publish(name, detail || {});
 }
 
 function realToast(msg, type = 'info'){

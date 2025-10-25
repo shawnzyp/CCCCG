@@ -19,6 +19,7 @@ import { show, hide } from './modal.js';
 import { activateTab, getActiveTab, getNavigationType, onTabChange, scrollToTopOfCombat, triggerTabIconAnimation } from './tabs.js';
 import { subscribe as subscribePlayerToolsDrawer } from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
+import { publish, subscribe } from './event-bus.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
   getMiniGame as getMiniGameDefinition,
@@ -1418,9 +1419,7 @@ function setupMiniGamePlayerSync() {
       );
     }
   }
-  if (typeof document !== 'undefined') {
-    document.addEventListener('character-saved', syncMiniGamePlayerName);
-  }
+  subscribe('character-saved', () => syncMiniGamePlayerName());
 }
 
 if (typeof document !== 'undefined') {
@@ -4290,26 +4289,24 @@ function attachStatusInfoPointerDismiss() {
   });
 }
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('cc:toast-shown', event => {
-    const detail = event?.detail || {};
-    const options = detail.options || {};
-    const source = options?.meta?.source;
-    if (source === STATUS_INFO_TOAST_SOURCE) {
-      statusInfoToastActive = true;
-      setTimeout(() => {
-        if (statusInfoToastActive) attachStatusInfoPointerDismiss();
-      }, 0);
-    } else {
-      statusInfoToastActive = false;
-      detachStatusInfoPointerDismiss();
-    }
-  });
-  window.addEventListener('cc:toast-dismissed', () => {
+subscribe('cc:toast-shown', event => {
+  const detail = event?.detail || {};
+  const options = detail.options || {};
+  const source = options?.meta?.source;
+  if (source === STATUS_INFO_TOAST_SOURCE) {
+    statusInfoToastActive = true;
+    setTimeout(() => {
+      if (statusInfoToastActive) attachStatusInfoPointerDismiss();
+    }, 0);
+  } else {
     statusInfoToastActive = false;
     detachStatusInfoPointerDismiss();
-  });
-}
+  }
+});
+subscribe('cc:toast-dismissed', () => {
+  statusInfoToastActive = false;
+  detachStatusInfoPointerDismiss();
+});
 
 function showStatusInfoToast(status) {
   if (!status) return;
@@ -5274,10 +5271,10 @@ if (elPlayerToolsTab) {
   playerCreditBadge.textContent = '!';
   elPlayerToolsTab.appendChild(playerCreditBadge);
 
-  document.addEventListener(PLAYER_CREDIT_EVENTS.UPDATE, event => {
+  subscribe(PLAYER_CREDIT_EVENTS.UPDATE, event => {
     handlePlayerCreditEventDetail(event?.detail);
   });
-  document.addEventListener(PLAYER_CREDIT_EVENTS.SYNC, event => {
+  subscribe(PLAYER_CREDIT_EVENTS.SYNC, event => {
     handlePlayerCreditEventDetail(event?.detail);
   });
 }
@@ -8045,11 +8042,7 @@ function recordCreditsLedgerEntry(entry) {
   const next = getCreditsLedgerEntries();
   next.push(normalized);
   persistCreditsLedgerEntries(next);
-  if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
-    try {
-      document.dispatchEvent(new CustomEvent('credits-ledger-updated', { detail: normalized }));
-    } catch {}
-  }
+  publish('credits-ledger-updated', normalized);
 }
 
 creditsLedgerEntries = loadCreditsLedgerEntries();
@@ -10183,7 +10176,7 @@ if (btnCreditsLedger) {
   });
 }
 
-document.addEventListener('credits-ledger-updated', () => {
+subscribe('credits-ledger-updated', () => {
   renderCreditsLedger();
 });
 
@@ -10238,8 +10231,8 @@ async function renderCharacterList(){
   selectedChar = current;
 }
 
-document.addEventListener('character-saved', renderCharacterList);
-document.addEventListener('character-deleted', renderCharacterList);
+subscribe('character-saved', () => renderCharacterList());
+subscribe('character-deleted', () => renderCharacterList());
 window.addEventListener('storage', renderCharacterList);
 
 async function renderRecoverCharList(){

@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.resetModules();
   jest.useRealTimers();
   localStorage.clear();
@@ -10,6 +10,7 @@ beforeEach(() => {
   delete window.dismissToast;
   delete window.logAction;
   delete window.queueCampaignLogEntry;
+  await import('../scripts/event-bus.js');
 });
 
 function setupDom() {
@@ -34,7 +35,12 @@ function mockToastSystem() {
       toastEl.textContent = message;
       toastEl.classList.add('show');
     }
-    window.dispatchEvent(new CustomEvent('cc:toast-shown', { detail: { message, options: opts } }));
+    const bus = globalThis.ccEventBus;
+    if (bus && typeof bus.publish === 'function') {
+      bus.publish('cc:toast-shown', { message, options: opts });
+    } else {
+      window.dispatchEvent(new CustomEvent('cc:toast-shown', { detail: { message, options: opts } }));
+    }
   });
 
   window.dismissToast = jest.fn(() => {
@@ -42,7 +48,12 @@ function mockToastSystem() {
     if (toastEl) {
       toastEl.classList.remove('show');
     }
-    window.dispatchEvent(new CustomEvent('cc:toast-dismissed'));
+    const bus = globalThis.ccEventBus;
+    if (bus && typeof bus.publish === 'function') {
+      bus.publish('cc:toast-dismissed', {});
+    } else {
+      window.dispatchEvent(new CustomEvent('cc:toast-dismissed'));
+    }
   });
 
   window.logAction = jest.fn();

@@ -310,6 +310,7 @@ describe('Comprehensive app integration', () => {
   });
 
   test('core UI and cloud features function cohesively', async () => {
+    const { subscribe } = await import('../scripts/event-bus.js');
     await import('../scripts/main.js');
 
     const toastEl = document.getElementById('toast');
@@ -319,7 +320,7 @@ describe('Comprehensive app integration', () => {
     const toastListener = e => {
       toastShownDetail = e.detail?.message ?? null;
     };
-    window.addEventListener('cc:toast-shown', toastListener);
+    const unsubscribeToast = subscribe('cc:toast-shown', toastListener);
 
     window.toast('System online', { type: 'success', duration: 0 });
     await flushAllTimers();
@@ -330,7 +331,7 @@ describe('Comprehensive app integration', () => {
     window.dismissToast();
     await flushAllTimers();
     expect(toastEl.classList.contains('show')).toBe(false);
-    window.removeEventListener('cc:toast-shown', toastListener);
+    unsubscribeToast();
 
     const { show, hide } = await import('../scripts/modal.js');
     show('modal-help');

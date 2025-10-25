@@ -17,6 +17,7 @@ import {
 } from './storage.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
 import { toast, dismissToast } from './notifications.js';
+import { publish } from './event-bus.js';
 import {
   POWER_ACTION_TYPES,
   POWER_DAMAGE_DICE,
@@ -640,7 +641,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
     console.error('Cloud save failed', e);
   }
   try {
-    document.dispatchEvent(new CustomEvent('character-saved', { detail: name }));
+    publish('character-saved', name);
   } catch {}
 }
 
@@ -667,7 +668,7 @@ export async function renameCharacter(oldName, newName, data) {
   }
   setCurrentCharacter(newName);
   try {
-    document.dispatchEvent(new CustomEvent('character-saved', { detail: newName }));
+    publish('character-saved', newName);
   } catch {}
 }
 
@@ -694,7 +695,7 @@ export async function deleteCharacter(name) {
     console.error('Cloud delete failed', e);
   }
   try {
-    document.dispatchEvent(new CustomEvent('character-deleted', { detail: name }));
+    publish('character-deleted', name);
   } catch {}
 }
 
@@ -733,7 +734,7 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
   try {
     const ts = await saveCloudAutosave(name, data);
     try {
-      document.dispatchEvent(new CustomEvent('character-autosaved', { detail: { name, ts } }));
+      publish('character-autosaved', { name, ts });
     } catch {}
     return ts;
   } catch (e) {

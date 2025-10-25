@@ -71,7 +71,8 @@ describe('character list displays names with quotes', () => {
   });
 
   test('renders quoted character names', async () => {
-    document.dispatchEvent(new CustomEvent('character-saved', { detail: 'Nico "Specter" Alvarez' }));
+    const { publish } = await import('../scripts/event-bus.js');
+    publish('character-saved', 'Nico "Specter" Alvarez');
     await new Promise(res => setTimeout(res, 0));
     const anchor = Array.from(document.querySelectorAll('[data-char]')).find(
       el => el.dataset.char === 'Nico "Specter" Alvarez'
