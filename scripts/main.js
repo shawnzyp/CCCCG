@@ -17,7 +17,7 @@ import {
 } from './characters.js';
 import { show, hide } from './modal.js';
 import { activateTab, getActiveTab, getNavigationType, onTabChange, scrollToTopOfCombat, triggerTabIconAnimation } from './tabs.js';
-import { subscribe as subscribePlayerToolsDrawer } from './player-tools-drawer.js';
+import { subscribe as subscribePlayerToolsDrawer, onDrawerChange as onPlayerToolsDrawerChange } from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
@@ -5990,6 +5990,55 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
     syncLevelRewardReminderAnimation();
     if (open) {
       acknowledgePlayerCredit();
+    }
+  });
+}
+
+const pauseActiveTabIconAnimations = () => {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('.tab__icon--animating').forEach(container => {
+    container.classList.remove('tab__icon--animating');
+  });
+};
+
+let modeLiveRegionAriaLiveDefault = null;
+
+const updateDrawerLiveRegionState = (isOpen) => {
+  if (!modeLiveRegion || !modeLiveRegion.isConnected) return;
+  if (modeLiveRegionAriaLiveDefault === null) {
+    modeLiveRegionAriaLiveDefault = modeLiveRegion.getAttribute('aria-live');
+  }
+  if (isOpen) {
+    modeLiveRegion.setAttribute('aria-live', 'off');
+  } else if (modeLiveRegionAriaLiveDefault && modeLiveRegionAriaLiveDefault.length > 0) {
+    modeLiveRegion.setAttribute('aria-live', modeLiveRegionAriaLiveDefault);
+  } else {
+    modeLiveRegion.removeAttribute('aria-live');
+  }
+};
+
+const collapseOverlaysForDrawer = () => {
+  const overlayIds = [
+    hpSettingsOverlay?.id,
+    spSettingsOverlay?.id,
+    augmentPickerOverlay?.id,
+    miniGameInviteOverlay?.id,
+    'modal-campaign-edit',
+    'modal-catalog',
+  ].filter(Boolean);
+  overlayIds.forEach(id => {
+    const overlay = $(id);
+    if (!overlay || overlay.classList.contains('hidden')) return;
+    hide(id);
+  });
+};
+
+if (typeof onPlayerToolsDrawerChange === 'function') {
+  onPlayerToolsDrawerChange(({ open }) => {
+    updateDrawerLiveRegionState(open);
+    if (open) {
+      pauseActiveTabIconAnimations();
+      collapseOverlaysForDrawer();
     }
   });
 }
