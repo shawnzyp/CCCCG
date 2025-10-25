@@ -6528,13 +6528,14 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 :root {
-  --drawer-width: clamp(320px, 42vw, 520px);
+  --drawer-width: clamp(360px, 56vw, 640px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
   --player-tools-transition-timing: cubic-bezier(0.24, 0.82, 0.28, 1);
   --player-tools-open-progress: 0;
   --player-tools-glass-radius: 30px;
+  --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(0px, 1.8vw, 18px));
 }
 
 .player-tools-drawer {
@@ -6581,7 +6582,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   padding-block: clamp(18px, 4vw, 32px);
-  padding-inline: clamp(16px, 4vw, 28px);
+  padding-inline-start: var(--player-tools-left-gutter);
+  padding-inline-end: clamp(16px, 4vw, 28px);
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -6589,7 +6591,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-drawer__panel {
   position: absolute;
-  inset: clamp(14px, 4vw, 24px) clamp(10px, 4vw, 18px);
+  top: clamp(14px, 4vw, 24px);
+  bottom: clamp(14px, 4vw, 24px);
+  right: clamp(10px, 4vw, 18px);
+  left: calc(var(--player-tools-left-gutter) + clamp(6px, 2.4vw, 20px));
   border-radius: calc(var(--player-tools-glass-radius, 30px) + 10px);
   background: linear-gradient(165deg, rgba(88, 160, 255, 0.28), rgba(11, 18, 30, 0.95) 38%, rgba(6, 10, 18, 0.98) 88%);
   box-shadow:
@@ -6652,7 +6657,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   overflow: visible;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  padding-block: clamp(12px, 2.4vw, 20px);
+  padding-inline-start: clamp(10px, 2.2vw, 20px);
+  padding-inline-end: clamp(12px, 2.8vw, 22px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -6699,8 +6706,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   flex-direction: column;
   min-block-size: 100%;
   flex: 1;
-  inline-size: min(100%, clamp(340px, 82vw, 480px));
-  margin-inline: auto;
+  inline-size: min(100%, clamp(360px, 92vw, 560px));
+  margin-inline-start: 0;
+  margin-inline-end: auto;
 }
 
 .player-tools-phone__status-bar {
@@ -8290,22 +8298,24 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 @media (max-width: 600px) {
   .player-tools-drawer {
-    inline-size: min(max(360px, 92vw), 100vw);
+    inline-size: min(max(360px, 96vw), 100vw);
   }
 
   .player-tools-drawer__inner {
-    padding-inline-start: 20px;
+    padding-inline-start: max(env(safe-area-inset-left, 0px), 12px);
+    padding-inline-end: clamp(14px, 6vw, 28px);
   }
 
   .player-tools-drawer__content {
-    padding-inline-start: 0;
+    padding-inline-start: clamp(6px, 4vw, 18px);
   }
 
   .player-tools-phone,
   .player-tools-phone__status-bar {
     inline-size: 100%;
     max-inline-size: none;
-    margin-inline: 0;
+    margin-inline-start: 0;
+    margin-inline-end: 0;
   }
 }
 
