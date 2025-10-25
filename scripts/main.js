@@ -4079,20 +4079,183 @@ qsa('[data-roll-skill]').forEach(btn=>{
 });
 
 const STATUS_EFFECTS = [
-  { id: 'blinded', name: 'Blinded', desc: 'A blinded creature cannot see and automatically fails any ability check that requires sight. Attack rolls against the creature have advantage, and the creature’s attack rolls have disadvantage.' },
-  { id: 'charmed', name: 'Charmed', desc: 'A charmed creature can’t attack the charmer or target the charmer with harmful abilities or magical effects.' },
-  { id: 'deafened', name: 'Deafened', desc: 'A deafened creature can’t hear and automatically fails any ability check that requires hearing.' },
-  { id: 'frightened', name: 'Frightened', desc: 'A frightened creature has disadvantage on ability checks and attack rolls while the source of its fear is within line of sight.' },
-  { id: 'grappled', name: 'Grappled', desc: 'A grappled creature’s speed becomes 0, and it can’t benefit from any bonus to its speed.' },
-  { id: 'incapacitated', name: 'Incapacitated', desc: 'An incapacitated creature can’t take actions or reactions.' },
-  { id: 'invisible', name: 'Invisible', desc: 'An invisible creature is impossible to see without the aid of magic or a special sense.' },
-  { id: 'paralyzed', name: 'Paralyzed', desc: 'A paralyzed creature is incapacitated and can’t move or speak.' },
-  { id: 'petrified', name: 'Petrified', desc: 'A petrified creature is transformed, along with any nonmagical object it is wearing or carrying, into a solid inanimate substance.' },
-  { id: 'poisoned', name: 'Poisoned', desc: 'A poisoned creature has disadvantage on attack rolls and ability checks.' },
-  { id: 'prone', name: 'Prone', desc: 'A prone creature’s only movement option is to crawl unless it stands up.' },
-  { id: 'restrained', name: 'Restrained', desc: 'A restrained creature’s speed becomes 0, and it can’t benefit from any bonus to its speed.' },
-  { id: 'stunned', name: 'Stunned', desc: 'A stunned creature is incapacitated, can’t move, and can speak only falteringly.' },
-  { id: 'unconscious', name: 'Unconscious', desc: 'An unconscious creature is incapacitated, can’t move or speak, and is unaware of its surroundings.' }
+  {
+    id: 'blinded',
+    name: 'Blinded',
+    desc: 'A blinded creature cannot see and automatically fails any ability check that requires sight. Attack rolls against the creature have advantage, and the creature’s attack rolls have disadvantage.',
+    highlights: [
+      'Perception checks that rely on sight automatically fail.',
+      'Attack rolls against the creature have advantage.',
+      'The creature’s attack rolls have disadvantage.',
+    ],
+    remedies: [
+      'End the effect or restore sight with magic such as lesser restoration.',
+    ],
+  },
+  {
+    id: 'charmed',
+    name: 'Charmed',
+    desc: 'A charmed creature can’t attack the charmer or target the charmer with harmful abilities or magical effects.',
+    highlights: [
+      'The creature can’t target the charmer with harmful abilities or magical effects.',
+      'The charmer has advantage on social ability checks to interact with the creature.',
+    ],
+    remedies: [
+      'End the charm with features or spells such as calm emotions, dispel magic, or remove curse.',
+    ],
+  },
+  {
+    id: 'deafened',
+    name: 'Deafened',
+    desc: 'A deafened creature can’t hear and automatically fails any ability check that requires hearing.',
+    highlights: [
+      'Automatically fails ability checks that rely on hearing.',
+      'The creature cannot hear spoken commands or verbal warnings.',
+    ],
+    remedies: [
+      'End the effect or restore hearing with magic such as lesser restoration.',
+    ],
+  },
+  {
+    id: 'frightened',
+    name: 'Frightened',
+    desc: 'A frightened creature has disadvantage on ability checks and attack rolls while the source of its fear is within line of sight.',
+    highlights: [
+      'The creature cannot willingly move closer to the source of its fear.',
+      'Disadvantage applies to attacks and ability checks while the source is visible.',
+    ],
+    remedies: [
+      'End the effect, succeed on the required saving throw, or use features and spells that end the frightened condition.',
+    ],
+  },
+  {
+    id: 'grappled',
+    name: 'Grappled',
+    desc: 'A grappled creature’s speed becomes 0, and it can’t benefit from any bonus to its speed.',
+    highlights: [
+      'The condition ends if the grappler is incapacitated.',
+      'The creature is freed if moved out of the grappler’s reach or restraining effect.',
+    ],
+    remedies: [
+      'Use an action to escape (usually opposed by the grappler) or force movement that breaks the grapple.',
+    ],
+  },
+  {
+    id: 'incapacitated',
+    name: 'Incapacitated',
+    desc: 'An incapacitated creature can’t take actions or reactions.',
+    highlights: [
+      'The creature cannot take actions, bonus actions, or reactions.',
+      'Being incapacitated causes concentration on spells to end.',
+    ],
+    remedies: [
+      'End the source effect or restore the creature with appropriate magic.',
+    ],
+  },
+  {
+    id: 'invisible',
+    name: 'Invisible',
+    desc: 'An invisible creature is impossible to see without the aid of magic or a special sense.',
+    highlights: [
+      'The creature is considered heavily obscured for hiding.',
+      'Attack rolls against the creature have disadvantage.',
+      'The creature’s attack rolls have advantage.',
+    ],
+    remedies: [
+      'Reveal the creature with effects such as see invisibility, faerie fire, or end the invisible effect.',
+    ],
+  },
+  {
+    id: 'paralyzed',
+    name: 'Paralyzed',
+    desc: 'A paralyzed creature is incapacitated and can’t move or speak.',
+    highlights: [
+      'Automatically fails Strength and Dexterity saving throws.',
+      'Attack rolls against the creature have advantage.',
+      'Any attack that hits the creature is a critical hit if the attacker is within 5 feet.',
+    ],
+    remedies: [
+      'End the effect or use potent restoration magic such as greater restoration.',
+    ],
+  },
+  {
+    id: 'petrified',
+    name: 'Petrified',
+    desc: 'A petrified creature is transformed, along with any nonmagical object it is wearing or carrying, into a solid inanimate substance.',
+    highlights: [
+      'The creature is incapacitated, can’t move or speak, and is unaware of its surroundings.',
+      'Attack rolls against the creature have advantage.',
+      'The creature automatically fails Strength and Dexterity saving throws.',
+      'The creature has resistance to all damage and immunity to poison and disease, though ongoing effects aren’t suspended.',
+    ],
+    remedies: [
+      'Reverse the transformation with powerful magic such as greater restoration or wish.',
+    ],
+  },
+  {
+    id: 'poisoned',
+    name: 'Poisoned',
+    desc: 'A poisoned creature has disadvantage on attack rolls and ability checks.',
+    highlights: [
+      'Disadvantage applies to all attack rolls made by the creature.',
+      'Disadvantage applies to all ability checks the creature attempts.',
+    ],
+    remedies: [
+      'End the effect naturally or neutralize it with spells such as protection from poison.',
+    ],
+  },
+  {
+    id: 'prone',
+    name: 'Prone',
+    desc: 'A prone creature’s only movement option is to crawl unless it stands up.',
+    highlights: [
+      'The creature has disadvantage on attack rolls.',
+      'Attack rolls against the creature have advantage if the attacker is within 5 feet.',
+      'Attack rolls against the creature have disadvantage if the attacker is farther than 5 feet.',
+    ],
+    remedies: [
+      'Spend half movement to stand up or be moved to a standing position.',
+    ],
+  },
+  {
+    id: 'restrained',
+    name: 'Restrained',
+    desc: 'A restrained creature’s speed becomes 0, and it can’t benefit from any bonus to its speed.',
+    highlights: [
+      'Attack rolls against the creature have advantage.',
+      'The creature’s attack rolls have disadvantage.',
+      'The creature has disadvantage on Dexterity saving throws.',
+    ],
+    remedies: [
+      'Escape with a successful Strength or Dexterity check, or break the restraining effect.',
+    ],
+  },
+  {
+    id: 'stunned',
+    name: 'Stunned',
+    desc: 'A stunned creature is incapacitated, can’t move, and can speak only falteringly.',
+    highlights: [
+      'The creature automatically fails Strength and Dexterity saving throws.',
+      'Attack rolls against the creature have advantage.',
+    ],
+    remedies: [
+      'Wait for the effect to end or use strong restorative magic to break the stun.',
+    ],
+  },
+  {
+    id: 'unconscious',
+    name: 'Unconscious',
+    desc: 'An unconscious creature is incapacitated, can’t move or speak, and is unaware of its surroundings.',
+    highlights: [
+      'The creature drops whatever it is holding and falls prone.',
+      'The creature automatically fails Strength and Dexterity saving throws.',
+      'Attack rolls against the creature have advantage.',
+      'Any attack that hits the creature is a critical hit if the attacker is within 5 feet.',
+    ],
+    remedies: [
+      'Regain hit points, receive healing, or otherwise be revived and stabilized.',
+    ],
+  },
 ];
 
 const STATUS_EFFECT_MECHANICS = {
@@ -4250,6 +4413,79 @@ const STATUS_EFFECT_MECHANICS = {
   },
 };
 
+const STATUS_INFO_REMEDIES_LABEL = 'Remedies';
+
+function combineClassNames(...names) {
+  return names
+    .map(name => (typeof name === 'string' ? name.trim() : ''))
+    .filter(Boolean)
+    .join(' ');
+}
+
+function normalizeStatusDetailList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map(item => {
+        if (typeof item === 'string') return item.trim();
+        if (typeof item === 'number') return String(item).trim();
+        return '';
+      })
+      .filter(Boolean);
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const text = String(value).trim();
+    return text ? [text] : [];
+  }
+  return [];
+}
+
+function renderStatusDetailsHtml(status, classes = {}) {
+  if (!status) return '';
+  const descText = typeof status.desc === 'string' ? status.desc : '';
+  const highlights = normalizeStatusDetailList(status.highlights);
+  const remedies = normalizeStatusDetailList(status.remedies);
+  const parts = [];
+  if (descText.trim()) {
+    parts.push(
+      `<p class="${combineClassNames('status-info__desc', classes.descClass)}">${escapeHtml(descText)}</p>`
+    );
+  }
+  if (highlights.length) {
+    const listClassName = combineClassNames(
+      'status-info__list',
+      'status-info__list--highlights',
+      classes.listClass,
+      classes.highlightsListClass
+    );
+    const itemClassName = combineClassNames('status-info__list-item', classes.listItemClass);
+    const highlightItems = highlights
+      .map(item => `<li class="${itemClassName}">${escapeHtml(item)}</li>`)
+      .join('');
+    parts.push(`<ul class="${listClassName}">${highlightItems}</ul>`);
+  }
+  if (remedies.length) {
+    const sectionClassName = combineClassNames('status-info__section', classes.sectionClass);
+    const labelClassName = combineClassNames('status-info__section-label', classes.sectionLabelClass);
+    const remedyListClassName = combineClassNames(
+      'status-info__list',
+      'status-info__list--remedies',
+      classes.listClass,
+      classes.remediesListClass
+    );
+    const itemClassName = combineClassNames('status-info__list-item', classes.listItemClass);
+    const remedyItems = remedies
+      .map(item => `<li class="${itemClassName}">${escapeHtml(item)}</li>`)
+      .join('');
+    parts.push(
+      `<div class="${sectionClassName}"><span class="${labelClassName}">${escapeHtml(
+        STATUS_INFO_REMEDIES_LABEL
+      )}</span><ul class="${remedyListClassName}">${remedyItems}</ul></div>`
+    );
+  }
+  return parts.join('');
+}
+
 const statusGrid = $('statuses');
 const statusModifierBadges = $('status-modifiers');
 const activeStatuses = new Set();
@@ -4314,8 +4550,16 @@ if (typeof window !== 'undefined') {
 function showStatusInfoToast(status) {
   if (!status) return;
   const name = escapeHtml(status.name);
-  const desc = escapeHtml(status.desc);
-  const html = `<div class="toast-body toast-status"><strong class="toast-status__name">${name}</strong><p class="toast-status__desc">${desc}</p></div>`;
+  const details = renderStatusDetailsHtml(status, {
+    descClass: 'toast-status__desc',
+    listClass: 'toast-status__list',
+    listItemClass: 'toast-status__list-item',
+    highlightsListClass: 'toast-status__highlights',
+    remediesListClass: 'toast-status__remedies',
+    sectionClass: 'toast-status__section',
+    sectionLabelClass: 'toast-status__section-label',
+  });
+  const html = `<div class="toast-body toast-status"><strong class="toast-status__name">${name}</strong>${details}</div>`;
   statusInfoToastActive = true;
   toast('', { type: 'info', duration: 15000, html, meta: { source: STATUS_INFO_TOAST_SOURCE } });
 }
@@ -4401,7 +4645,15 @@ if (statusGrid) {
           hidden
           aria-hidden="true"
           tabindex="-1"
-        >${s.desc}</div>
+        >${renderStatusDetailsHtml(s, {
+          descClass: 'status-option__desc',
+          listClass: 'status-option__list',
+          listItemClass: 'status-option__list-item',
+          highlightsListClass: 'status-option__highlights',
+          remediesListClass: 'status-option__remedies',
+          sectionClass: 'status-option__section',
+          sectionLabelClass: 'status-option__section-label',
+        })}</div>
       </div>
     </div>
   `;

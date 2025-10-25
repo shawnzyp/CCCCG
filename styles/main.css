@@ -2143,6 +2143,23 @@ color:var(--muted);
 border-top:1px solid var(--line);
 padding-top:6px
 }
+#statuses .status-option__description p{
+margin:0 0 6px
+}
+#statuses .status-option__description ul{
+margin:0 0 6px;
+padding-left:1.25em
+}
+#statuses .status-option__description li{
+margin:0 0 4px
+}
+#statuses .status-option__description .status-info__section{
+margin-top:10px
+}
+#statuses .status-option__description .status-info__section-label{
+color:var(--text);
+font-size:.7rem
+}
 .status-effects{font-size:90%}
 label{display:block;font-weight:700;margin-bottom:6px;font-size:clamp(.9rem,2.4vw,1rem)}
 .stat-trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
@@ -4635,6 +4652,15 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 .toast-status{display:flex;flex-direction:column;gap:4px}
 .toast-status__name{font-size:1.05em}
 .toast-status__desc{margin:0;font-size:.85em;line-height:1.4}
+.toast-status__list{margin:0;padding-left:1.25em;font-size:.85em;line-height:1.4;list-style:disc}
+.toast-status__list-item{margin:.25em 0}
+.toast-status__section{margin-top:6px}
+.toast-status__section-label{display:block;margin-bottom:4px;font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.status-info__desc{margin:0}
+.status-info__list{margin:0;padding-left:1.25em;list-style:disc}
+.status-info__list-item{margin:.25em 0}
+.status-info__section{margin-top:8px}
+.status-info__section-label{display:block;margin-bottom:4px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 
 
 /* ability grid */
