@@ -5195,6 +5195,43 @@ const elAugmentAvailableList = augmentPickerOverlay
   : $('augment-available-list');
 
 const PLAYER_CREDIT_LAST_VIEWED_KEY = 'player-credit:last-viewed';
+const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
+
+let playerCreditAckBroadcastChannel = null;
+
+const ensurePlayerCreditAckBroadcastChannel = () => {
+  if (playerCreditAckBroadcastChannel || typeof BroadcastChannel !== 'function') {
+    return playerCreditAckBroadcastChannel;
+  }
+  try {
+    playerCreditAckBroadcastChannel = new BroadcastChannel(PLAYER_CREDIT_BROADCAST_CHANNEL);
+  } catch {
+    playerCreditAckBroadcastChannel = null;
+  }
+  return playerCreditAckBroadcastChannel;
+};
+
+const postPlayerCreditAcknowledgement = (signature) => {
+  if (!signature || typeof window === 'undefined') return;
+  const channel = ensurePlayerCreditAckBroadcastChannel();
+  if (channel) {
+    try {
+      channel.postMessage({ type: 'CC_PLAYER_ACK', signature });
+    } catch {
+      /* ignore broadcast failures */
+    }
+  }
+  try {
+    const origin = window.location?.origin || '*';
+    window.postMessage({ type: 'CC_PLAYER_ACK', signature }, origin);
+  } catch {
+    try {
+      window.postMessage({ type: 'CC_PLAYER_ACK', signature }, '*');
+    } catch {
+      /* ignore postMessage failures */
+    }
+  }
+};
 
 const readPlayerCreditAcknowledgedSignature = () => {
   try {
@@ -5265,6 +5302,9 @@ const acknowledgePlayerCredit = (signature = playerCreditLatestSignature) => {
   clearPlayerCreditBadge();
   playerCreditAcknowledgedSignature = signature || '';
   writePlayerCreditAcknowledgedSignature(playerCreditAcknowledgedSignature);
+  if (signature) {
+    postPlayerCreditAcknowledgement(signature);
+  }
 };
 
 const handlePlayerCreditEventDetail = (detail) => {

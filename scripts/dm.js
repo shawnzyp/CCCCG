@@ -1689,6 +1689,7 @@ function initDMLogin(){
   const creditAmountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const PLAYER_CREDIT_STORAGE_KEY = 'cc_dm_card';
   const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
+  const PLAYER_CREDIT_ACK_MESSAGE = 'CC_PLAYER_ACK';
   const PLAYER_REWARD_BROADCAST_CHANNEL = 'cc:player-rewards';
   const PLAYER_CREDIT_HISTORY_LIMIT = 10;
   const DM_REWARD_HISTORY_STORAGE_KEY = 'cc:dm-reward-history';
@@ -2557,19 +2558,36 @@ function initDMLogin(){
     renderPlayerCreditHistory();
   }
 
+  function handlePlayerCreditAcknowledgement(signature) {
+    if (typeof signature !== 'string' || signature === '') return;
+    const remaining = playerCreditHistory.filter(entry => playerCreditHistoryKey(entry) !== signature);
+    if (remaining.length === playerCreditHistory.length) return;
+    playerCreditHistory = setPlayerCreditHistory(remaining);
+    renderPlayerCreditHistory();
+  }
+
   function handlePlayerCreditBroadcastMessage(event) {
     if (!event) return;
     const data = event.data;
-    if (!data || data.type !== 'CC_PLAYER_UPDATE') return;
-    handlePlayerCreditUpdateMessage(data.payload);
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'CC_PLAYER_UPDATE') {
+      handlePlayerCreditUpdateMessage(data.payload);
+    } else if (data.type === PLAYER_CREDIT_ACK_MESSAGE) {
+      handlePlayerCreditAcknowledgement(data.signature);
+    }
   }
 
   function handlePlayerCreditWindowMessage(event) {
     if (!event) return;
     const data = event.data;
     if (!data || typeof data !== 'object') return;
-    if (data.type !== 'CC_PLAYER_UPDATE') return;
-    handlePlayerCreditUpdateMessage(data.payload);
+    if (data.type === 'CC_PLAYER_UPDATE') {
+      handlePlayerCreditUpdateMessage(data.payload);
+      return;
+    }
+    if (data.type === PLAYER_CREDIT_ACK_MESSAGE) {
+      handlePlayerCreditAcknowledgement(data.signature);
+    }
   }
 
   function handlePlayerRewardUpdateMessage(payload, historyEntry = null) {
