@@ -23,9 +23,13 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
   const STORAGE_KEY = 'cc_dm_card';
   const BROADCAST_CHANNEL_NAME = 'cc:player-credit';
   const MESSAGE_TYPE = 'CC_PLAYER_UPDATE';
+  const ACK_MESSAGE_TYPE = 'CC_PLAYER_ACK';
   const MAX_HISTORY = 10;
 
   let transactionHistory = [];
+  let broadcastChannel = null;
+  let broadcastListenerAttached = false;
+  let modalVisible = !overlay.classList.contains('hidden');
 
   const cloneHistory = () => transactionHistory.map(item => ({ ...item }));
   const buildEventDetail = (type, payload, meta = {}) => ({
@@ -46,6 +50,118 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
     if (typeof window?.dispatchEvent === 'function') {
       window.dispatchEvent(new CustomEvent(type, { detail }));
     }
+  };
+
+  const handleBroadcastChannelMessage = (event) => {
+    if (!event?.data || event.data.type !== MESSAGE_TYPE) return;
+    handleUpdate(event.data.payload, { reveal: true, source: 'broadcast' });
+  };
+
+  const ensureBroadcastChannel = () => {
+    if (broadcastChannel && broadcastListenerAttached) {
+      return broadcastChannel;
+    }
+    if (typeof BroadcastChannel !== 'function') {
+      return null;
+    }
+    try {
+      if (!broadcastChannel) {
+        broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+        overlay._playerCreditChannel = broadcastChannel;
+      }
+      if (!broadcastListenerAttached) {
+        broadcastChannel.addEventListener('message', handleBroadcastChannelMessage);
+        broadcastListenerAttached = true;
+      }
+    } catch {
+      broadcastChannel = null;
+      broadcastListenerAttached = false;
+    }
+    return broadcastChannel;
+  };
+
+  const signatureFromEntry = (entry) => {
+    if (!entry || typeof entry !== 'object') return '';
+    const txid = typeof entry.txid === 'string' ? entry.txid : '';
+    const ref = typeof entry.ref === 'string' ? entry.ref : '';
+    const id = txid || ref;
+    let timestamp = '';
+    if (typeof entry.timestamp === 'string' && entry.timestamp) {
+      timestamp = entry.timestamp;
+    } else if (entry.timestamp instanceof Date && !Number.isNaN(entry.timestamp.getTime())) {
+      timestamp = entry.timestamp.toISOString();
+    }
+    if (!timestamp) return '';
+    return `${id}|${timestamp}`;
+  };
+
+  const buildAcknowledgementSignature = () => {
+    if (card && card.dataset) {
+      const ts = typeof card.dataset.timestamp === 'string' ? card.dataset.timestamp : '';
+      const txid = typeof card.dataset.txid === 'string' ? card.dataset.txid : '';
+      const ref = typeof card.dataset.ref === 'string' ? card.dataset.ref : '';
+      if (ts) {
+        return `${txid || ref || ''}|${ts}`;
+      }
+    }
+    if (transactionHistory.length) {
+      const signature = signatureFromEntry(transactionHistory[0]);
+      if (signature) {
+        return signature;
+      }
+    }
+    return '';
+  };
+
+  const dispatchAcknowledgement = () => {
+    const signature = buildAcknowledgementSignature();
+    if (!signature) return;
+    const channel = ensureBroadcastChannel();
+    if (channel) {
+      try {
+        channel.postMessage({ type: ACK_MESSAGE_TYPE, signature });
+      } catch {
+        /* ignore broadcast failures */
+      }
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const origin = window.location?.origin || '*';
+        window.postMessage({ type: ACK_MESSAGE_TYPE, signature }, origin);
+      } catch {
+        try {
+          window.postMessage({ type: ACK_MESSAGE_TYPE, signature }, '*');
+        } catch {
+          /* ignore postMessage failures */
+        }
+      }
+    }
+  };
+
+  const observeModalVisibility = () => {
+    if (!overlay) return;
+    if (typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(() => {
+        const isVisible = !overlay.classList.contains('hidden');
+        if (isVisible !== modalVisible) {
+          modalVisible = isVisible;
+          if (!isVisible) {
+            dispatchAcknowledgement();
+          }
+        }
+      });
+      observer.observe(overlay, { attributes: true, attributeFilter: ['class', 'aria-hidden'] });
+      return;
+    }
+    overlay.addEventListener('transitionend', (event) => {
+      if (event?.target !== overlay) return;
+      const isVisible = !overlay.classList.contains('hidden');
+      if (isVisible === modalVisible) return;
+      modalVisible = isVisible;
+      if (!isVisible) {
+        dispatchAcknowledgement();
+      }
+    });
   };
 
   const amountFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -425,7 +541,11 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
   };
 
   if (closeBtn) {
-    closeBtn.addEventListener('click', () => hide('player-credit-modal'));
+    closeBtn.addEventListener('click', () => {
+      dispatchAcknowledgement();
+      modalVisible = false;
+      hide('player-credit-modal');
+    });
   }
 
   window.addEventListener('message', receiveMessage, false);
@@ -466,18 +586,9 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
     }
   });
 
-  if (typeof BroadcastChannel === 'function') {
-    try {
-      const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
-      channel.addEventListener('message', (event) => {
-        if (!event?.data || event.data.type !== MESSAGE_TYPE) return;
-        handleUpdate(event.data.payload, { reveal: true, source: 'broadcast' });
-      });
-      overlay._playerCreditChannel = channel;
-    } catch {
-      /* ignore broadcast errors */
-    }
-  }
+  ensureBroadcastChannel();
+
+  observeModalVisibility();
 
   const hydrateFromStorage = () => {
     try {
