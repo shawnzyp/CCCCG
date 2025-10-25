@@ -3393,12 +3393,25 @@ AUDIO_CUE_SOURCES['sp-empty'] = AUDIO_CUE_SOURCES.error;
 
 const AUDIO_CUE_TYPE_MAP = {
   success: 'success',
-  info: 'success',
+  info: 'info',
   warn: 'warn',
   warning: 'warn',
   error: 'error',
   danger: 'error',
   failure: 'error'
+};
+
+const TOAST_TYPE_ALIASES = {
+  warn: 'warning',
+  danger: 'error',
+  failure: 'error'
+};
+
+const TOAST_TYPE_CONFIG = {
+  info: { tone: 'info', className: 'info', icon: 'info' },
+  success: { tone: 'success', className: 'success', icon: 'success' },
+  warning: { tone: 'warn', className: 'warning', icon: 'warning' },
+  error: { tone: 'error', className: 'error', icon: 'error' }
 };
 
 const audioCueData = new Map();
@@ -3512,22 +3525,33 @@ document.addEventListener('visibilitychange', () => {
     closeCueAudioContext();
   }
 });
+const FALLBACK_TONE_CONFIG = {
+  success: { frequency: 880, gain: 0.1, duration: 0.15, ramp: 0.015, wave: 'sine' },
+  info: { frequency: 660, gain: 0.095, duration: 0.16, ramp: 0.015, wave: 'sine' },
+  warn: { frequency: 440, gain: 0.12, duration: 0.18, ramp: 0.02, wave: 'triangle' },
+  error: { frequency: 220, gain: 0.15, duration: 0.2, ramp: 0.02, wave: 'sine' }
+};
+
 function playToneFallback(type){
   try {
+    const cue = resolveAudioCueType(type);
+    const settings = FALLBACK_TONE_CONFIG[cue] || FALLBACK_TONE_CONFIG.success;
     const ctx = ensureCueAudioContext();
     if (!ctx) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     const now = ctx.currentTime;
-    const rampUpDuration = 0.015;
-    const totalDuration = 0.15;
-    const sustainEnd = now + totalDuration - 0.03;
-    osc.type = 'sine';
-    osc.frequency.value = type === 'error' ? 220 : 880;
+    const totalDuration = Math.max(settings.duration, 0.12);
+    const rampUpDuration = Math.max(0.01, Math.min(settings.ramp ?? 0.015, totalDuration * 0.5));
+    const releasePadding = Math.max(rampUpDuration, 0.03);
+    const sustainEnd = Math.max(now + rampUpDuration, now + totalDuration - releasePadding);
+    const peakGain = settings.gain ?? 0.1;
+    osc.type = settings.wave || 'sine';
+    osc.frequency.value = settings.frequency;
     gain.gain.cancelScheduledValues(now);
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.1, now + rampUpDuration);
-    gain.gain.setValueAtTime(0.1, sustainEnd);
+    gain.gain.linearRampToValueAtTime(peakGain, now + rampUpDuration);
+    gain.gain.setValueAtTime(peakGain, sustainEnd);
     gain.gain.linearRampToValueAtTime(0, now + totalDuration);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -3535,6 +3559,13 @@ function playToneFallback(type){
     osc.stop(now + totalDuration);
   } catch (e) { /* noop */ }
 }
+
+const AUDIO_CUE_GAIN = {
+  error: 0.25,
+  warn: 0.22,
+  info: 0.2,
+  success: 0.2
+};
 
 function realPlayTone(type){
   const cue = resolveAudioCueType(type);
@@ -3549,7 +3580,7 @@ function realPlayTone(type){
         try {
           const source = ctx.createBufferSource();
           const gain = ctx.createGain();
-          gain.gain.value = cue === 'error' ? 0.25 : 0.2;
+          gain.gain.value = AUDIO_CUE_GAIN[cue] ?? AUDIO_CUE_GAIN.success;
           source.buffer = buffer;
           source.connect(gain);
           gain.connect(ctx.destination);
@@ -3662,23 +3693,49 @@ function realToast(msg, type = 'info'){
   if(!t) return;
   let opts;
   if (typeof type === 'object' && type !== null) {
-    opts = type;
+    opts = { ...type };
   } else if (typeof type === 'number') {
     opts = { type: 'info', duration: type };
   } else {
     opts = { type, duration: 5000 };
   }
-  const toastType = typeof opts.type === 'string' && opts.type ? opts.type : 'info';
-  const duration = typeof opts.duration === 'number' ? opts.duration : 5000;
+  const requestedType = typeof opts.type === 'string' && opts.type ? opts.type.toLowerCase() : '';
+  const normalizedType = TOAST_TYPE_CONFIG[requestedType]
+    ? requestedType
+    : (TOAST_TYPE_ALIASES[requestedType] || 'info');
+  const typeConfig = TOAST_TYPE_CONFIG[normalizedType] || TOAST_TYPE_CONFIG.info;
+  const duration = Number.isFinite(opts.duration) ? opts.duration : 5000;
   const html = typeof opts.html === 'string' ? opts.html : '';
-  if (html) {
+  const hasHtml = Boolean(html);
+  const providedIcon = typeof opts.icon === 'string' && opts.icon ? opts.icon : '';
+  const icon = hasHtml ? (providedIcon || typeConfig.icon) : providedIcon;
+  opts.type = normalizedType;
+  opts.duration = duration;
+  if (hasHtml) {
     t.innerHTML = html;
+    opts.html = html;
   } else {
     t.textContent = msg ?? '';
+    if ('html' in opts) delete opts.html;
   }
-  t.className = toastType ? `toast ${toastType}` : 'toast';
+  if (icon) {
+    opts.icon = icon;
+    if (hasHtml) {
+      t.setAttribute('data-icon', icon);
+    } else {
+      t.removeAttribute('data-icon');
+    }
+  } else {
+    if ('icon' in opts) delete opts.icon;
+    t.removeAttribute('data-icon');
+  }
+  t.className = 'toast';
+  if (typeConfig.className) {
+    t.classList.add(typeConfig.className);
+  }
+  const toneId = typeConfig.tone;
   t.classList.add('show');
-  playTone(toastType);
+  playTone(toneId);
   clearTimeout(toastTimeout);
   ensureToastFocusHandlers();
   const shouldTrap = !(document?.body?.classList?.contains('modal-open'));
@@ -3702,7 +3759,7 @@ function realToast(msg, type = 'info'){
   } else {
     toastTimeout = null;
   }
-  dispatchToastEvent('cc:toast-shown', { message: msg, options: opts });
+  dispatchToastEvent('cc:toast-shown', { message: msg, options: opts, tone: toneId });
 }
 
 export function toast(msg, type = 'info') {
