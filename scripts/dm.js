@@ -1697,6 +1697,44 @@ function initDMLogin(){
   let playerCreditBroadcastListenerAttached = false;
   let playerRewardBroadcastChannel = null;
   let playerRewardBroadcastListenerAttached = false;
+  function teardownPlayerBroadcastChannels() {
+    if (playerCreditBroadcastChannel) {
+      try {
+        if (typeof playerCreditBroadcastChannel.removeEventListener === 'function') {
+          playerCreditBroadcastChannel.removeEventListener('message', handlePlayerCreditBroadcastMessage);
+        }
+      } catch {
+        /* ignore listener removal errors */
+      }
+      try {
+        if (typeof playerCreditBroadcastChannel.close === 'function') {
+          playerCreditBroadcastChannel.close();
+        }
+      } catch {
+        /* ignore close errors */
+      }
+    }
+    playerCreditBroadcastChannel = null;
+    playerCreditBroadcastListenerAttached = false;
+    if (playerRewardBroadcastChannel) {
+      try {
+        if (typeof playerRewardBroadcastChannel.removeEventListener === 'function') {
+          playerRewardBroadcastChannel.removeEventListener('message', handlePlayerRewardBroadcastMessage);
+        }
+      } catch {
+        /* ignore listener removal errors */
+      }
+      try {
+        if (typeof playerRewardBroadcastChannel.close === 'function') {
+          playerRewardBroadcastChannel.close();
+        }
+      } catch {
+        /* ignore close errors */
+      }
+    }
+    playerRewardBroadcastChannel = null;
+    playerRewardBroadcastListenerAttached = false;
+  }
   const PLAYER_REWARD_KIND_LABELS = new Map([
     ['xp', 'DM XP Reward'],
     ['hp', 'DM HP Update'],
@@ -8049,6 +8087,7 @@ function initDMLogin(){
     const loggedIn = isLoggedIn();
     if (!loggedIn) closeMenu();
     if (!loggedIn) {
+      teardownPlayerBroadcastChannels();
       clearNotificationDisplay();
     } else {
       renderStoredNotifications();
@@ -8237,6 +8276,7 @@ function initDMLogin(){
         ? reason.reason
         : null;
     clearLoggedIn();
+    teardownPlayerBroadcastChannels();
     teardownMiniGameSubscription();
     closeMiniGames();
       closeRewards();
