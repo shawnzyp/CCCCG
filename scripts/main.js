@@ -5323,6 +5323,7 @@ const elLevelRewardReminderBadge = elLevelRewardReminderTrigger
 const elLevelRewardAcknowledge = $('level-reward-acknowledge');
 
 let levelRewardPendingCount = 0;
+let isPlayerToolsDrawerOpen = false;
 let pendingAbilityReminderTasks = [];
 let pendingStoryReminderTasks = [];
 let pendingCombatReminderTasks = [];
@@ -5388,6 +5389,7 @@ if (elCombatRewardReminderButton) {
 
 if (typeof subscribePlayerToolsDrawer === 'function') {
   subscribePlayerToolsDrawer(({ open }) => {
+    isPlayerToolsDrawerOpen = Boolean(open);
     if (elLevelRewardReminderTrigger) {
       if (open && levelRewardPendingCount > 0) {
         if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
@@ -5403,6 +5405,7 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
         }
       }
     }
+    syncLevelRewardReminderAnimation();
     if (open) {
       acknowledgePlayerCredit();
     }
@@ -6589,10 +6592,14 @@ function updateReminderButtonUI(button, badge, count, categoryKey) {
     if (typeof button.removeAttribute === 'function' && typeof button.setAttribute === 'function') {
       button.removeAttribute('aria-hidden');
       button.setAttribute('data-pending', 'true');
+      button.setAttribute('data-animate', 'true');
       button.setAttribute('aria-label', `${config.ariaLabel(numericCount)}. View reminder.`);
     } else {
       button.ariaHidden = 'false';
-      if (button?.dataset) button.dataset.pending = 'true';
+      if (button?.dataset) {
+        button.dataset.pending = 'true';
+        button.dataset.animate = 'true';
+      }
       button.ariaLabel = `${config.ariaLabel(numericCount)}. View reminder.`;
     }
   } else {
@@ -6602,12 +6609,17 @@ function updateReminderButtonUI(button, badge, count, categoryKey) {
       button.setAttribute('aria-label', config.defaultAriaLabel);
       if (typeof button.removeAttribute === 'function') {
         button.removeAttribute('data-pending');
+        button.removeAttribute('data-animate');
       } else if (button?.dataset) {
         delete button.dataset.pending;
+        delete button.dataset.animate;
       }
     } else {
       button.ariaHidden = 'true';
-      if (button?.dataset) delete button.dataset.pending;
+      if (button?.dataset) {
+        delete button.dataset.pending;
+        delete button.dataset.animate;
+      }
       button.ariaLabel = config.defaultAriaLabel;
     }
   }
@@ -7375,9 +7387,11 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
       }
       if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
         elLevelRewardReminderTrigger.removeAttribute('data-pending');
+        elLevelRewardReminderTrigger.removeAttribute('data-animate');
         elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
       } else if (elLevelRewardReminderTrigger?.dataset) {
         delete elLevelRewardReminderTrigger.dataset.pending;
+        delete elLevelRewardReminderTrigger.dataset.animate;
         delete elLevelRewardReminderTrigger.dataset.drawerOpen;
       }
     }
@@ -7422,6 +7436,38 @@ function updateLevelRewardReminderUI(pendingTasks = []) {
 
   if (elLevelRewardAcknowledge) {
     elLevelRewardAcknowledge.disabled = pendingCount === 0;
+  }
+
+  syncLevelRewardReminderAnimation();
+}
+
+function syncLevelRewardReminderAnimation() {
+  if (!elLevelRewardReminderTrigger) return;
+
+  const hasPending = levelRewardPendingCount > 0;
+  const hasDisabledAttr = typeof elLevelRewardReminderTrigger.hasAttribute === 'function'
+    && elLevelRewardReminderTrigger.hasAttribute('disabled');
+  const ariaDisabled = typeof elLevelRewardReminderTrigger.getAttribute === 'function'
+    && elLevelRewardReminderTrigger.getAttribute('aria-disabled') === 'true';
+  const isDisabled = elLevelRewardReminderTrigger.disabled === true || ariaDisabled || hasDisabledAttr;
+  const shouldAnimate = hasPending && !isPlayerToolsDrawerOpen && !isDisabled;
+
+  if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
+    if (shouldAnimate) {
+      elLevelRewardReminderTrigger.setAttribute('data-animate', 'true');
+    } else if (hasPending) {
+      elLevelRewardReminderTrigger.setAttribute('data-animate', 'false');
+    } else if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
+      elLevelRewardReminderTrigger.removeAttribute('data-animate');
+    }
+  } else if (elLevelRewardReminderTrigger?.dataset) {
+    if (shouldAnimate) {
+      elLevelRewardReminderTrigger.dataset.animate = 'true';
+    } else if (hasPending) {
+      elLevelRewardReminderTrigger.dataset.animate = 'false';
+    } else {
+      delete elLevelRewardReminderTrigger.dataset.animate;
+    }
   }
 }
 
