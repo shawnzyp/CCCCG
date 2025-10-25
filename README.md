@@ -82,3 +82,26 @@ app. The following cue identifiers are available for use in features:
 
 Each cue is preloaded on first use so subsequent calls are instant.
 
+### Toast notifications
+
+Use the global `toast(message, options)` helper to surface inline notifications. Toasts
+are queued and shown sequentially: if one is already visible, the next call waits until
+the current toast is dismissed before rendering. The helper accepts either a numeric
+duration (in milliseconds) or an options object with the following properties:
+
+* `type` – Applies the visual style and tone (`'info'`, `'success'`, `'error'`, etc.).
+* `duration` – Auto-dismiss timer in milliseconds. Set to `0` (or any non-positive or
+  non-finite value) to require manual dismissal.
+* `icon` – Optional icon name or CSS value. Provide a short name such as `'info'` or
+  `'success'` to map to the corresponding `--icon-*` token, `'none'` to hide the icon, or
+  any valid `url(...)`/`var(...)` string for custom artwork.
+* `html` – Custom markup for the toast body. When omitted, the provided message is
+  rendered as plain text.
+* `action` – Primary action descriptor. Supply an object with a `label` and `callback`
+  function (invoked with `{ message, options }`). Optional `ariaLabel` and
+  `dismissOnAction` (default `true`) keys are supported for accessibility and
+  persistence control.
+
+The convenience method `dismissToast()` immediately hides the active toast and advances
+the queue.
+
