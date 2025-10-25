@@ -6224,12 +6224,39 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   box-shadow:none;
   cursor:default;
   opacity:.7;
+  animation:none;
 }
 
 .player-tools-reminder__trigger[data-pending="true"]{
   border-color:color-mix(in srgb,var(--accent) 60%, var(--line) 40%);
   background:color-mix(in srgb,var(--accent) 14%, var(--surface-2) 86%);
   box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%, transparent);
+}
+
+.player-tools-reminder__trigger[data-pending="true"][data-animate="true"]{
+  animation:playerToolsReminderPendingPulse 2.4s ease-in-out infinite;
+}
+
+.player-tools-reminder__trigger[data-pending="true"][data-animate="false"]{
+  animation:none;
+}
+
+@keyframes playerToolsReminderPendingPulse{
+  0%,100%{
+    box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%, transparent),0 0 0 rgba(0,0,0,0);
+    transform:translate3d(0,0,0);
+  }
+  50%{
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 55%, transparent),0 6px 18px rgba(0,0,0,.14);
+    background:color-mix(in srgb,var(--accent) 20%, var(--surface-2) 80%);
+    transform:translate3d(0,-1px,0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .player-tools-reminder__trigger[data-pending="true"]{
+    animation:none !important;
+  }
 }
 
 .player-tools-reminder__trigger[data-pending="true"][data-drawer-open="true"]{
