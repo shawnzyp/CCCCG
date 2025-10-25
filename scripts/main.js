@@ -5428,7 +5428,18 @@ if (elLevelRewardInfoTrigger) {
   elLevelRewardInfoTrigger.addEventListener('click', () => {
     toast(
       'This is where reminders to apply level-up rewards are populated. Be sure to check the Combat, Abilities, and Story tabs for other rewards notifications.',
-      { type: 'info', duration: 15000 },
+      {
+        type: 'info',
+        duration: 15000,
+        icon: 'info',
+        action: {
+          label: 'Review rewards',
+          callback: () => {
+            renderLevelRewardReminders();
+            show('modal-level-rewards');
+          },
+        },
+      },
     );
   });
 }

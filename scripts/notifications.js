@@ -3581,6 +3581,14 @@ let toastLastFocus = null;
 let toastFocusGuardActive = false;
 let toastFocusHandlersBound = false;
 let toastControlsBound = false;
+const toastQueue = [];
+let toastActive = false;
+const TOAST_TYPE_DEFAULT_ICONS = {
+  success: 'var(--icon-success)',
+  error: 'var(--icon-error)',
+  danger: 'var(--icon-error)',
+  failure: 'var(--icon-error)',
+};
 
 function focusToastElement(el, { preserveSource = true } = {}) {
   if (!el) return;
@@ -3645,8 +3653,12 @@ function hideToastElement(options = {}) {
   } else {
     toastLastFocus = null;
   }
+  toastActive = false;
   if (wasShown) {
     dispatchToastEvent('cc:toast-dismissed');
+  }
+  if (toastQueue.length) {
+    setTimeout(processToastQueue, 0);
   }
 }
 
@@ -3657,12 +3669,79 @@ function dispatchToastEvent(name, detail = {}) {
   } catch {}
 }
 
-function realToast(msg, type = 'info'){
-  const t = $('toast');
-  if(!t) return;
+function normalizeToastIcon(rawIcon) {
+  if (typeof rawIcon !== 'string') return null;
+  const trimmed = rawIcon.trim();
+  if (!trimmed) return null;
+  const lowered = trimmed.toLowerCase();
+  if (lowered === 'none' || lowered === 'hide') return 'none';
+  if (lowered === 'auto' || lowered === 'default') return null;
+  if (/^(url|var)\(/i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('--')) return `var(${trimmed})`;
+  if (/^data:/i.test(trimmed)) return trimmed.startsWith('url(') ? trimmed : `url(${trimmed})`;
+  if (/^[a-z0-9_-]+$/i.test(trimmed)) return `var(--icon-${trimmed})`;
+  return trimmed;
+}
+
+function resolveToastIcon(iconOverride, toastType) {
+  if (iconOverride === 'none') return 'none';
+  if (typeof iconOverride === 'string' && iconOverride) return iconOverride;
+  const key = typeof toastType === 'string' ? toastType.toLowerCase() : '';
+  if (key && TOAST_TYPE_DEFAULT_ICONS[key]) return TOAST_TYPE_DEFAULT_ICONS[key];
+  return 'none';
+}
+
+function normalizeToastAction(opts = {}) {
+  const candidate = opts.primaryAction ?? opts.action ?? null;
+  let callback = null;
+  let label = null;
+  let ariaLabel = null;
+  let dismissOnAction = true;
+
+  if (typeof candidate === 'function') {
+    callback = candidate;
+  } else if (candidate && typeof candidate === 'object') {
+    if (typeof candidate.callback === 'function') callback = candidate.callback;
+    else if (typeof candidate.onSelect === 'function') callback = candidate.onSelect;
+    else if (typeof candidate.handler === 'function') callback = candidate.handler;
+    if (typeof candidate.label === 'string' && candidate.label.trim()) label = candidate.label.trim();
+    if (typeof candidate.ariaLabel === 'string' && candidate.ariaLabel.trim()) ariaLabel = candidate.ariaLabel.trim();
+    if (candidate.dismiss === false || candidate.dismissOnAction === false) {
+      dismissOnAction = false;
+    } else if (candidate.dismiss === true || candidate.dismissOnAction === true) {
+      dismissOnAction = true;
+    }
+  }
+
+  if (!callback) {
+    const fallback = opts.onPrimaryAction ?? opts.onAction ?? null;
+    if (typeof fallback === 'function') callback = fallback;
+  }
+
+  if (!label) {
+    const fallbackLabel = opts.primaryActionLabel ?? opts.actionLabel ?? opts.actionText;
+    if (typeof fallbackLabel === 'string' && fallbackLabel.trim()) label = fallbackLabel.trim();
+  }
+
+  if (!ariaLabel) {
+    const fallbackAria = opts.primaryActionAriaLabel ?? opts.actionAriaLabel;
+    if (typeof fallbackAria === 'string' && fallbackAria.trim()) ariaLabel = fallbackAria.trim();
+  }
+
+  if (!callback) return null;
+
+  return {
+    label: label && label.trim() ? label.trim() : 'View',
+    ariaLabel: ariaLabel && ariaLabel.trim() ? ariaLabel.trim() : null,
+    callback,
+    dismissOnAction,
+  };
+}
+
+function normalizeToastRequest(message, type) {
   let opts;
   if (typeof type === 'object' && type !== null) {
-    opts = type;
+    opts = { ...type };
   } else if (typeof type === 'number') {
     opts = { type: 'info', duration: type };
   } else {
@@ -3671,12 +3750,93 @@ function realToast(msg, type = 'info'){
   const toastType = typeof opts.type === 'string' && opts.type ? opts.type : 'info';
   const duration = typeof opts.duration === 'number' ? opts.duration : 5000;
   const html = typeof opts.html === 'string' ? opts.html : '';
-  if (html) {
-    t.innerHTML = html;
-  } else {
-    t.textContent = msg ?? '';
+  const iconSource = opts.icon ?? opts.iconName ?? null;
+  const iconOverride = normalizeToastIcon(iconSource);
+  const icon = resolveToastIcon(iconOverride, toastType);
+  const action = normalizeToastAction(opts);
+  const normalized = {
+    ...opts,
+    type: toastType,
+    duration,
+    html,
+    icon,
+  };
+  if (iconSource !== undefined) normalized.iconName = iconSource;
+  if (action) normalized.action = action;
+  else if (normalized.action) delete normalized.action;
+  return { message, options: normalized };
+}
+
+function processToastQueue() {
+  if (toastActive) return;
+  const next = toastQueue.shift();
+  if (!next) return;
+  toastActive = true;
+  renderToastRequest(next);
+}
+
+function renderToastRequest(request) {
+  const t = $('toast');
+  if (!t) {
+    toastActive = false;
+    setTimeout(processToastQueue, 0);
+    return;
   }
+
+  const { message, options } = request;
+  const toastType = options.type;
+  const duration = options.duration;
+  const html = options.html;
+  const icon = typeof options.icon === 'string' ? options.icon : 'none';
+  const action = options.action;
+
   t.className = toastType ? `toast ${toastType}` : 'toast';
+  if (icon && icon !== 'none') {
+    t.style.setProperty('--toast-icon-image', icon);
+    t.classList.remove('toast--no-icon');
+  } else {
+    t.style.setProperty('--toast-icon-image', 'none');
+    t.classList.add('toast--no-icon');
+  }
+
+  t.innerHTML = '';
+  const body = document.createElement('div');
+  body.className = 'toast__body';
+  if (html) {
+    body.innerHTML = html;
+  } else {
+    const messageEl = document.createElement('div');
+    messageEl.className = 'toast__message';
+    messageEl.textContent = message ?? '';
+    body.appendChild(messageEl);
+  }
+  t.appendChild(body);
+
+  if (action) {
+    const actions = document.createElement('div');
+    actions.className = 'toast__actions';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'toast__actionButton';
+    button.textContent = action.label;
+    if (action.ariaLabel) {
+      button.setAttribute('aria-label', action.ariaLabel);
+    }
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      try {
+        action.callback({ message, options });
+      } catch (err) {
+        console.error('Failed to execute toast action', err);
+      }
+      if (action.dismissOnAction !== false) {
+        hideToastElement();
+      }
+    });
+    actions.appendChild(button);
+    t.appendChild(actions);
+  }
+
   t.classList.add('show');
   playTone(toastType);
   clearTimeout(toastTimeout);
@@ -3695,14 +3855,20 @@ function realToast(msg, type = 'info'){
     t.addEventListener('click', () => hideToastElement());
   }
   if (Number.isFinite(duration) && duration > 0) {
-    toastTimeout = setTimeout(()=>{
+    toastTimeout = setTimeout(() => {
       toastTimeout = null;
       hideToastElement();
     }, duration);
   } else {
     toastTimeout = null;
   }
-  dispatchToastEvent('cc:toast-shown', { message: msg, options: opts });
+  dispatchToastEvent('cc:toast-shown', { message, options });
+}
+
+function realToast(msg, type = 'info') {
+  const request = normalizeToastRequest(msg, type);
+  toastQueue.push(request);
+  processToastQueue();
 }
 
 export function toast(msg, type = 'info') {
