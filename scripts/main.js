@@ -5981,7 +5981,48 @@ const computePlayerCreditSignature = (detail) => {
 };
 
 const elPlayerToolsTab = $('player-tools-tab');
-const playerToolsTabDefaultLabel = elPlayerToolsTab?.getAttribute('aria-label') || 'Toggle player tools drawer';
+
+const getPlayerToolsTabAttribute = (name, fallback = null) => {
+  if (!elPlayerToolsTab) return fallback;
+  const getter = typeof elPlayerToolsTab.getAttribute === 'function'
+    ? elPlayerToolsTab.getAttribute.bind(elPlayerToolsTab)
+    : null;
+  if (!getter) return fallback;
+  try {
+    const value = getter(name);
+    return value == null ? fallback : value;
+  } catch {
+    return fallback;
+  }
+};
+
+const setPlayerToolsTabAttribute = (name, value) => {
+  if (!elPlayerToolsTab) return;
+  const setter = typeof elPlayerToolsTab.setAttribute === 'function'
+    ? elPlayerToolsTab.setAttribute.bind(elPlayerToolsTab)
+    : null;
+  if (!setter) return;
+  try {
+    setter(name, value);
+  } catch {}
+};
+
+const removePlayerToolsTabAttribute = (name) => {
+  if (!elPlayerToolsTab) return;
+  if (typeof elPlayerToolsTab.removeAttribute === 'function') {
+    try {
+      elPlayerToolsTab.removeAttribute(name);
+      return;
+    } catch {}
+  }
+  if (typeof elPlayerToolsTab.setAttribute === 'function') {
+    try {
+      elPlayerToolsTab.setAttribute(name, '');
+    } catch {}
+  }
+};
+
+const playerToolsTabDefaultLabel = getPlayerToolsTabAttribute('aria-label') || 'Toggle player tools drawer';
 const playerToolsBadgeReasons = new Set();
 const PLAYER_TOOLS_BADGE_REASON_LABELS = {
   credit: 'new credit update',
@@ -6018,15 +6059,15 @@ const syncPlayerToolsTabBadge = () => {
   }
 
   if (hasCredit) {
-    elPlayerToolsTab.setAttribute('data-player-credit', 'pending');
+    setPlayerToolsTabAttribute('data-player-credit', 'pending');
   } else {
-    elPlayerToolsTab.removeAttribute('data-player-credit');
+    removePlayerToolsTabAttribute('data-player-credit');
   }
 
   if (hasReward) {
-    elPlayerToolsTab.setAttribute('data-player-reward', 'pending');
+    setPlayerToolsTabAttribute('data-player-reward', 'pending');
   } else {
-    elPlayerToolsTab.removeAttribute('data-player-reward');
+    removePlayerToolsTabAttribute('data-player-reward');
   }
 
   if (playerToolsTabDefaultLabel) {
@@ -6034,9 +6075,9 @@ const syncPlayerToolsTabBadge = () => {
       .map(reason => PLAYER_TOOLS_BADGE_REASON_LABELS[reason])
       .filter(Boolean);
     if (labels.length) {
-      elPlayerToolsTab.setAttribute('aria-label', `${playerToolsTabDefaultLabel} (${formatPlayerToolsBadgeLabel(labels)})`);
+      setPlayerToolsTabAttribute('aria-label', `${playerToolsTabDefaultLabel} (${formatPlayerToolsBadgeLabel(labels)})`);
     } else {
-      elPlayerToolsTab.setAttribute('aria-label', playerToolsTabDefaultLabel);
+      setPlayerToolsTabAttribute('aria-label', playerToolsTabDefaultLabel);
     }
   }
 };
@@ -6111,7 +6152,7 @@ const handlePlayerCreditEventDetail = (detail) => {
   showPlayerCreditBadge();
 };
 
-if (elPlayerToolsTab) {
+if (elPlayerToolsTab && typeof elPlayerToolsTab.appendChild === 'function') {
   playerToolsTabBadge = document.createElement('span');
   playerToolsTabBadge.className = 'player-tools-tab__badge';
   playerToolsTabBadge.hidden = true;
