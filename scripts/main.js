@@ -1068,8 +1068,29 @@ const miniGameInviteNotes = typeof document !== 'undefined' ? $('mini-game-invit
 const miniGameInviteNotesText = typeof document !== 'undefined' ? $('mini-game-invite-notes-text') : null;
 const miniGameInviteAccept = typeof document !== 'undefined' ? $('mini-game-invite-accept') : null;
 const miniGameInviteDecline = typeof document !== 'undefined' ? $('mini-game-invite-decline') : null;
+const miniGameReminderCard = typeof document !== 'undefined'
+  ? document.querySelector('[data-mini-game-reminder]')
+  : null;
+const miniGameReminderSummary = typeof document !== 'undefined'
+  ? document.querySelector('[data-mini-game-reminder-summary]')
+  : null;
+const miniGameReminderGame = typeof document !== 'undefined'
+  ? document.querySelector('[data-mini-game-reminder-game]')
+  : null;
+const miniGameReminderStatus = typeof document !== 'undefined'
+  ? document.querySelector('[data-mini-game-reminder-status]')
+  : null;
+const miniGameReminderMeta = typeof document !== 'undefined'
+  ? document.querySelector('[data-mini-game-reminder-meta]')
+  : null;
+const miniGameReminderAction = typeof document !== 'undefined'
+  ? document.querySelector('[data-mini-game-reminder-action]')
+  : null;
 const MINI_GAME_INVITE_ANIMATION_CLASS = 'mini-game-invite--animate';
 const MINI_GAME_INVITE_REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+const MINI_GAME_REMINDER_ELIGIBLE_STATUSES = new Set(['pending', 'active']);
+const MINI_GAME_REMINDER_STATUS_PRIORITY = { pending: 0, active: 1 };
 
 function shouldAnimateMiniGameInvite() {
   if (!miniGameInviteOverlay) return false;
@@ -1100,6 +1121,7 @@ const hasMiniGameInviteUi = Boolean(miniGameInviteOverlay && miniGameInviteAccep
 let miniGameActivePlayer = '';
 let miniGameUnsubscribe = null;
 let miniGamePlayerCheckTimer = null;
+let isPlayerToolsDrawerOpen = false;
 const MINI_GAME_BROADCAST_CHANNEL = 'cc:mini-games';
 const miniGameKnownDeployments = new Map();
 const miniGamePromptedDeployments = new Set();
@@ -1108,6 +1130,7 @@ let miniGameActiveInvite = null;
 let miniGameSyncInitialized = false;
 
 let miniGameBroadcastChannel = null;
+let miniGameReminderEntryId = '';
 
 function ensureMiniGameBroadcastChannel() {
   if (miniGameBroadcastChannel || typeof BroadcastChannel !== 'function') {
@@ -1164,6 +1187,179 @@ function miniGameTimestamp(entry) {
   return 0;
 }
 
+function normalizeMiniGameStatus(status) {
+  if (typeof status !== 'string') return '';
+  return status.trim().toLowerCase();
+}
+
+function isMiniGameReminderStatus(status) {
+  return MINI_GAME_REMINDER_ELIGIBLE_STATUSES.has(normalizeMiniGameStatus(status));
+}
+
+function miniGameReminderPriority(entry) {
+  const status = normalizeMiniGameStatus(entry?.status);
+  if (Object.prototype.hasOwnProperty.call(MINI_GAME_REMINDER_STATUS_PRIORITY, status)) {
+    return MINI_GAME_REMINDER_STATUS_PRIORITY[status];
+  }
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function resolveMiniGameReminderEntry(id) {
+  if (!id) return null;
+  if (miniGameActiveInvite && miniGameActiveInvite.id === id) {
+    return miniGameActiveInvite;
+  }
+  if (miniGameKnownDeployments.has(id)) {
+    return miniGameKnownDeployments.get(id);
+  }
+  for (let i = 0; i < miniGameInviteQueue.length; i++) {
+    const queued = miniGameInviteQueue[i];
+    if (queued && queued.id === id) {
+      return queued;
+    }
+  }
+  return null;
+}
+
+function findMiniGameReminderEntry() {
+  if (!hasMiniGameInviteUi) return null;
+  if (!miniGameReminderCard && !miniGameReminderSummary && !miniGameReminderAction) return null;
+  const overlayOpen = miniGameInviteOverlay && !miniGameInviteOverlay.classList.contains('hidden');
+  const activeStatus = normalizeMiniGameStatus(miniGameActiveInvite?.status);
+  const skipPendingId = overlayOpen && activeStatus === 'pending' ? miniGameActiveInvite?.id : null;
+  const candidates = new Map();
+  const addCandidate = (entry) => {
+    if (!entry || !entry.id) return;
+    if (!isMiniGameReminderStatus(entry.status)) return;
+    if (skipPendingId && entry.id === skipPendingId) return;
+    if (!candidates.has(entry.id)) {
+      candidates.set(entry.id, entry);
+    }
+  };
+  if (miniGameActiveInvite) addCandidate(miniGameActiveInvite);
+  for (let i = 0; i < miniGameInviteQueue.length; i++) {
+    addCandidate(miniGameInviteQueue[i]);
+  }
+  miniGameKnownDeployments.forEach(entry => addCandidate(entry));
+  if (candidates.size === 0) {
+    return null;
+  }
+  const sorted = Array.from(candidates.values()).sort((a, b) => {
+    const statusDelta = miniGameReminderPriority(a) - miniGameReminderPriority(b);
+    if (statusDelta !== 0) return statusDelta;
+    const timeDelta = miniGameTimestamp(a) - miniGameTimestamp(b);
+    if (timeDelta !== 0) return timeDelta;
+    return (a.id || '').localeCompare(b.id || '');
+  });
+  return sorted[0] || null;
+}
+
+function formatMiniGameReminderStatus(status) {
+  const normalized = normalizeMiniGameStatus(status);
+  if (!normalized) return 'Pending';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatMiniGameReminderMeta(entry) {
+  if (!entry) return '';
+  const tagline = typeof entry.tagline === 'string' ? entry.tagline.trim() : '';
+  if (tagline) return tagline;
+  const issuer = typeof entry.issuedBy === 'string' ? entry.issuedBy.trim() : '';
+  if (issuer) return `From ${issuer}`;
+  return '';
+}
+
+function updateMiniGameReminder() {
+  if (!miniGameReminderCard) return;
+  const entry = findMiniGameReminderEntry();
+  miniGameReminderEntryId = entry?.id || '';
+  if (!entry) {
+    miniGameReminderCard.hidden = true;
+    miniGameReminderCard.setAttribute('hidden', '');
+    if (miniGameReminderSummary) {
+      miniGameReminderSummary.removeAttribute('data-pending');
+      miniGameReminderSummary.removeAttribute('data-animate');
+      miniGameReminderSummary.removeAttribute('data-drawer-open');
+    }
+    if (miniGameReminderAction) {
+      miniGameReminderAction.disabled = true;
+      miniGameReminderAction.setAttribute('aria-disabled', 'true');
+      miniGameReminderAction.setAttribute('aria-label', 'Resume mini-game mission');
+    }
+    return;
+  }
+
+  const status = normalizeMiniGameStatus(entry.status);
+  const gameName = entry.gameName || getMiniGameDefinition(entry.gameId)?.name || 'Mini-game';
+  const overlayOpen = miniGameInviteOverlay && !miniGameInviteOverlay.classList.contains('hidden');
+  const actionAvailable = status === 'pending' || (status === 'active' && typeof entry.gameUrl === 'string' && entry.gameUrl.length > 0);
+
+  miniGameReminderCard.hidden = false;
+  miniGameReminderCard.removeAttribute('hidden');
+
+  if (miniGameReminderGame) {
+    miniGameReminderGame.textContent = gameName;
+  }
+  if (miniGameReminderStatus) {
+    miniGameReminderStatus.textContent = `Status: ${formatMiniGameReminderStatus(status)}`;
+  }
+  if (miniGameReminderMeta) {
+    const metaText = formatMiniGameReminderMeta(entry);
+    if (metaText) {
+      miniGameReminderMeta.textContent = metaText;
+      miniGameReminderMeta.hidden = false;
+    } else {
+      miniGameReminderMeta.textContent = '';
+      miniGameReminderMeta.hidden = true;
+    }
+  }
+  if (miniGameReminderSummary) {
+    if (status === 'pending') {
+      miniGameReminderSummary.setAttribute('data-pending', 'true');
+      miniGameReminderSummary.setAttribute('data-animate', overlayOpen ? 'false' : 'true');
+      if (isPlayerToolsDrawerOpen) {
+        miniGameReminderSummary.setAttribute('data-drawer-open', 'true');
+      } else {
+        miniGameReminderSummary.removeAttribute('data-drawer-open');
+      }
+    } else {
+      miniGameReminderSummary.setAttribute('data-pending', 'false');
+      miniGameReminderSummary.setAttribute('data-animate', 'false');
+      miniGameReminderSummary.removeAttribute('data-drawer-open');
+    }
+  }
+  if (miniGameReminderAction) {
+    miniGameReminderAction.disabled = !actionAvailable;
+    miniGameReminderAction.setAttribute('aria-disabled', actionAvailable ? 'false' : 'true');
+    miniGameReminderAction.textContent = 'Resume';
+    const labelSuffix = actionAvailable ? ` ${gameName}` : '';
+    miniGameReminderAction.setAttribute('aria-label', `Resume${labelSuffix}`.trim());
+  }
+}
+
+function handleMiniGameReminderAction() {
+  if (!hasMiniGameInviteUi || !miniGameReminderEntryId) return;
+  const entry = resolveMiniGameReminderEntry(miniGameReminderEntryId);
+  if (!entry) {
+    updateMiniGameReminder();
+    return;
+  }
+  const status = normalizeMiniGameStatus(entry.status);
+  if (status === 'pending') {
+    miniGameActiveInvite = entry;
+    removeMiniGameQueueEntry(entry.id);
+    populateMiniGameInvite(entry);
+    prepareMiniGameInviteAnimation();
+    show('mini-game-invite');
+    updateMiniGameReminder();
+    return;
+  }
+  if (status === 'active') {
+    launchMiniGame(entry);
+    updateMiniGameReminder();
+  }
+}
+
 function resolveMiniGamePlayerName() {
   try {
     const current = sanitizeMiniGamePlayerName(typeof currentCharacter === 'function' ? currentCharacter() : '');
@@ -1186,10 +1382,15 @@ function resolveMiniGamePlayerName() {
 
 function removeMiniGameQueueEntry(id) {
   if (!id || !miniGameInviteQueue.length) return;
+  let removed = false;
   for (let i = miniGameInviteQueue.length - 1; i >= 0; i--) {
     if (miniGameInviteQueue[i]?.id === id) {
       miniGameInviteQueue.splice(i, 1);
+      removed = true;
     }
+  }
+  if (removed) {
+    updateMiniGameReminder();
   }
 }
 
@@ -1202,6 +1403,7 @@ function resetMiniGameInvites() {
     clearMiniGameInviteAnimation();
     hide('mini-game-invite');
   }
+  updateMiniGameReminder();
 }
 
 function applyMiniGamePlayerName(name) {
@@ -1308,6 +1510,7 @@ function enqueueMiniGameInvite(entry) {
   if (miniGameInviteQueue.some(item => item.id === entry.id)) return;
   miniGameInviteQueue.push(entry);
   miniGameInviteQueue.sort((a, b) => miniGameTimestamp(a) - miniGameTimestamp(b));
+  updateMiniGameReminder();
 }
 
 function showNextMiniGameInvite() {
@@ -1321,6 +1524,7 @@ function showNextMiniGameInvite() {
   show('mini-game-invite');
   const gameLabel = next.gameName || getMiniGameDefinition(next.gameId)?.name || 'Mini-game';
   toast(`Incoming mini-game: ${gameLabel}`, 'info');
+  updateMiniGameReminder();
 }
 
 function closeMiniGameInvite(updatedEntry) {
@@ -1332,6 +1536,7 @@ function closeMiniGameInvite(updatedEntry) {
   }
   miniGameActiveInvite = null;
   showNextMiniGameInvite();
+  updateMiniGameReminder();
 }
 
 function handleMiniGameDeployments(entries = []) {
@@ -1386,6 +1591,7 @@ function handleMiniGameDeployments(entries = []) {
   }
 
   showNextMiniGameInvite();
+  updateMiniGameReminder();
 }
 
 function persistMiniGameLaunch(entry) {
@@ -1466,6 +1672,7 @@ async function respondToMiniGameInvite(action) {
     toast('Mini-game declined', 'info');
   }
   showNextMiniGameInvite();
+  updateMiniGameReminder();
 }
 
 function setupMiniGamePlayerSync() {
@@ -1498,6 +1705,10 @@ function setupMiniGamePlayerSync() {
 
 if (typeof document !== 'undefined') {
   setupMiniGamePlayerSync();
+  if (miniGameReminderAction) {
+    miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
+  }
+  updateMiniGameReminder();
 }
 
 function detectPlatform(){
@@ -5958,7 +6169,6 @@ const elLevelRewardReminderBadge = elLevelRewardReminderTrigger
 const elLevelRewardAcknowledge = $('level-reward-acknowledge');
 
 let levelRewardPendingCount = 0;
-let isPlayerToolsDrawerOpen = false;
 let pendingAbilityReminderTasks = [];
 let pendingStoryReminderTasks = [];
 let pendingCombatReminderTasks = [];
@@ -6441,6 +6651,7 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
       acknowledgePlayerCredit();
       acknowledgePlayerReward();
     }
+    updateMiniGameReminder();
   });
 }
 
@@ -6490,6 +6701,7 @@ if (typeof onPlayerToolsDrawerChange === 'function') {
       pauseActiveTabIconAnimations();
       collapseOverlaysForDrawer();
     }
+    updateMiniGameReminder();
   });
 }
 
