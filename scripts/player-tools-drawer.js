@@ -40,7 +40,10 @@ const createCustomEvent = (type, detail) => {
 
 const stateEvents = createEventTarget();
 
+const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
+
 let controllerInstance = null;
+let lastKnownState = { open: false, progress: 0 };
 
 function createPlayerToolsDrawer() {
   const drawer = document.getElementById('player-tools-drawer');
@@ -52,7 +55,7 @@ function createPlayerToolsDrawer() {
       toggle() {},
       subscribe(listener) {
         if (typeof listener === 'function') {
-          listener({ open: false });
+          listener({ open: false, progress: 0 });
         }
         return () => {};
       }
@@ -60,7 +63,23 @@ function createPlayerToolsDrawer() {
   }
 
   const dispatchStateChange = (isOpen) => {
-    stateEvents.dispatchEvent(createCustomEvent('change', { open: isOpen }));
+    const progress = clamp(openProgress, 0, 1);
+    const detail = { open: Boolean(isOpen), progress };
+    lastKnownState = detail;
+    stateEvents.dispatchEvent(createCustomEvent('change', detail));
+    if (typeof document?.dispatchEvent === 'function') {
+      const CustomEventCtor =
+        (typeof globalThis !== 'undefined' && typeof globalThis.CustomEvent === 'function')
+          ? globalThis.CustomEvent
+          : (typeof CustomEvent === 'function' ? CustomEvent : null);
+      if (CustomEventCtor) {
+        try {
+          document.dispatchEvent(new CustomEventCtor(DRAWER_CHANGE_EVENT, { detail }));
+        } catch (err) {
+          /* ignore dispatch failures */
+        }
+      }
+    }
   };
 
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
@@ -137,6 +156,7 @@ function createPlayerToolsDrawer() {
     if (content) {
       content.style.setProperty('--player-tools-open-progress', `${next}`);
     }
+    lastKnownState = { open: lastKnownState.open, progress: next };
   };
 
   let openAnimationFrame = null;
@@ -1065,13 +1085,17 @@ function createPlayerToolsDrawer() {
     const handler = (event) => {
       const detail = event?.detail;
       if (detail && typeof detail.open === 'boolean') {
-        listener(detail);
+        const progress = typeof detail.progress === 'number' ? detail.progress : detail.open ? 1 : 0;
+        listener({ open: detail.open, progress });
       } else {
-        listener({ open: drawer.classList.contains('is-open') });
+        const open = drawer.classList.contains('is-open');
+        const progress = clamp(openProgress, 0, 1);
+        listener({ open, progress });
       }
     };
     stateEvents.addEventListener('change', handler);
-    listener({ open: drawer.classList.contains('is-open') });
+    const initial = lastKnownState || { open: drawer.classList.contains('is-open'), progress: clamp(openProgress, 0, 1) };
+    listener({ open: Boolean(initial.open), progress: typeof initial.progress === 'number' ? initial.progress : clamp(openProgress, 0, 1) });
     return () => {
       stateEvents.removeEventListener('change', handler);
     };
@@ -1129,9 +1153,38 @@ export const subscribe = (listener) => {
     return controller.subscribe(listener);
   }
   if (typeof listener === 'function') {
-    listener({ open: false });
+    listener({ open: false, progress: 0 });
   }
   return () => {};
+};
+
+export const onDrawerChange = (listener) => {
+  if (typeof listener !== 'function') {
+    return () => {};
+  }
+
+  initializePlayerToolsDrawer();
+
+  const handler = (event) => {
+    const detail = event?.detail;
+    if (detail && typeof detail.open === 'boolean') {
+      const progress = typeof detail.progress === 'number' ? detail.progress : detail.open ? 1 : 0;
+      listener({ open: detail.open, progress });
+    }
+  };
+
+  if (typeof document?.addEventListener === 'function') {
+    document.addEventListener(DRAWER_CHANGE_EVENT, handler);
+  }
+
+  const snapshot = lastKnownState;
+  listener({ open: Boolean(snapshot.open), progress: typeof snapshot.progress === 'number' ? snapshot.progress : 0 });
+
+  return () => {
+    if (typeof document?.removeEventListener === 'function') {
+      document.removeEventListener(DRAWER_CHANGE_EVENT, handler);
+    }
+  };
 };
 
 initializePlayerToolsDrawer();
