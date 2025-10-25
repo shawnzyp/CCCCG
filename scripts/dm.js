@@ -5339,17 +5339,17 @@ function initDMLogin(){
   let miniGamesInitialized = false;
   let miniGamesUnsubscribe = null;
   let miniGameDeploymentsCache = [];
-  const MINI_GAME_BROADCAST_CHANNEL = 'cc:mini-games';
-  let miniGameBroadcastChannel = null;
-  let miniGameBroadcastListenerAttached = false;
+  const MINI_GAME_BROADCAST_CHANNEL_PREFIX = 'cc:mini-games:';
+  const miniGameBroadcastChannels = new Map();
 
-  function handleMiniGameBroadcastMessage(event) {
+  function handleMiniGameBroadcastMessage(token, event) {
     const data = event?.data;
     if (!data || typeof data !== 'object') return;
     if (data.type && data.type !== 'mini-game-deployment-update') return;
-    const player = typeof data.player === 'string' ? data.player : '';
+    const payloadToken = typeof data.token === 'string' ? data.token.trim() : '';
+    if (payloadToken && token !== payloadToken) return;
     const deploymentId = typeof data.deploymentId === 'string' ? data.deploymentId : '';
-    if (!player || !deploymentId || !Array.isArray(miniGameDeploymentsCache) || !miniGameDeploymentsCache.length) {
+    if (!deploymentId || !Array.isArray(miniGameDeploymentsCache) || !miniGameDeploymentsCache.length) {
       return;
     }
     const updates = data.updates && typeof data.updates === 'object' ? { ...data.updates } : {};
@@ -5359,7 +5359,11 @@ function initDMLogin(){
     if (!Object.keys(updates).length) return;
     let changed = false;
     const nextCache = miniGameDeploymentsCache.map(entry => {
-      if ((entry?.player || '') !== player || (entry?.id || '') !== deploymentId) {
+      if ((entry?.id || '') !== deploymentId) {
+        return entry;
+      }
+      const entryToken = typeof entry?.responseToken === 'string' ? entry.responseToken.trim() : '';
+      if (entryToken && token && entryToken !== token) {
         return entry;
       }
       const merged = { ...entry };
@@ -5380,23 +5384,58 @@ function initDMLogin(){
     }
   }
 
-  function ensureMiniGameBroadcastChannel() {
-    if (miniGameBroadcastChannel || typeof BroadcastChannel !== 'function') {
-      if (miniGameBroadcastChannel && !miniGameBroadcastListenerAttached) {
-        miniGameBroadcastChannel.addEventListener('message', handleMiniGameBroadcastMessage);
-        miniGameBroadcastListenerAttached = true;
-      }
-      return miniGameBroadcastChannel;
-    }
+  function closeMiniGameBroadcastChannel(token) {
+    const record = miniGameBroadcastChannels.get(token);
+    if (!record) return;
+    miniGameBroadcastChannels.delete(token);
+    const { channel, listener } = record;
     try {
-      miniGameBroadcastChannel = new BroadcastChannel(MINI_GAME_BROADCAST_CHANNEL);
+      if (channel && typeof channel.removeEventListener === 'function' && typeof listener === 'function') {
+        channel.removeEventListener('message', listener);
+      }
+      if (channel && typeof channel.close === 'function') {
+        channel.close();
+      }
     } catch (err) {
-      miniGameBroadcastChannel = null;
+      /* ignore teardown errors */
+    }
+  }
+
+  function ensureMiniGameBroadcastChannel(token) {
+    if (typeof BroadcastChannel !== 'function') return null;
+    const normalized = typeof token === 'string' ? token.trim() : '';
+    if (!normalized) return null;
+    const existing = miniGameBroadcastChannels.get(normalized);
+    if (existing) {
+      return existing.channel;
+    }
+    const name = `${MINI_GAME_BROADCAST_CHANNEL_PREFIX}${normalized}`;
+    try {
+      const channel = new BroadcastChannel(name);
+      const listener = event => handleMiniGameBroadcastMessage(normalized, event);
+      channel.addEventListener('message', listener);
+      miniGameBroadcastChannels.set(normalized, { channel, listener });
+      return channel;
+    } catch (err) {
+      miniGameBroadcastChannels.set(normalized, { channel: null, listener: null });
       return null;
     }
-    miniGameBroadcastChannel.addEventListener('message', handleMiniGameBroadcastMessage);
-    miniGameBroadcastListenerAttached = true;
-    return miniGameBroadcastChannel;
+  }
+
+  function syncMiniGameBroadcastSubscriptions() {
+    if (typeof BroadcastChannel !== 'function') return;
+    const activeTokens = new Set();
+    (Array.isArray(miniGameDeploymentsCache) ? miniGameDeploymentsCache : []).forEach(entry => {
+      const token = typeof entry?.responseToken === 'string' ? entry.responseToken.trim() : '';
+      if (!token) return;
+      activeTokens.add(token);
+      ensureMiniGameBroadcastChannel(token);
+    });
+    Array.from(miniGameBroadcastChannels.keys()).forEach(token => {
+      if (!activeTokens.has(token)) {
+        closeMiniGameBroadcastChannel(token);
+      }
+    });
   }
 
   function ensureKnobState(gameId) {
@@ -6405,6 +6444,7 @@ function initDMLogin(){
     if (miniGamesUnsubscribe) return;
     miniGamesUnsubscribe = subscribeMiniGameDeployments(entries => {
       miniGameDeploymentsCache = Array.isArray(entries) ? entries : [];
+      syncMiniGameBroadcastSubscriptions();
       autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
       if (miniGamesModal && !miniGamesModal.classList.contains('hidden')) {
         renderMiniGameDeployments(miniGameDeploymentsCache);
@@ -6462,6 +6502,7 @@ function initDMLogin(){
     try {
       const entries = await refreshMiniGameDeployments();
       miniGameDeploymentsCache = Array.isArray(entries) ? entries : [];
+      syncMiniGameBroadcastSubscriptions();
       if (miniGamesModal && !miniGamesModal.classList.contains('hidden')) {
         renderMiniGameDeployments(miniGameDeploymentsCache);
       }
@@ -9171,7 +9212,7 @@ function initDMLogin(){
     forceRefreshMiniGameDeployments();
   });
 
-  ensureMiniGameBroadcastChannel();
+  syncMiniGameBroadcastSubscriptions();
 
   dmSetInterval(() => {
     autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
