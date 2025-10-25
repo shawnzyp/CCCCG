@@ -3896,6 +3896,13 @@ export function dismissToast() {
   return hideToastElement();
 }
 
+export function clearToastQueue({ dismissActive = true, restoreFocus = false } = {}) {
+  toastQueue.length = 0;
+  if (dismissActive) {
+    hideToastElement({ restoreFocus });
+  }
+}
+
 export default toast;
 function getOverrideFunction(name, original) {
   if (typeof globalThis === 'undefined') return null;
@@ -3932,3 +3939,4 @@ function ensureGlobalFunction(name, fn) {
 ensureGlobalFunction('toast', toast);
 ensureGlobalFunction('dismissToast', dismissToast);
 ensureGlobalFunction('playTone', playTone);
+ensureGlobalFunction('clearToastQueue', clearToastQueue);

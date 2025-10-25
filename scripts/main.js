@@ -925,6 +925,107 @@ CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
 
+const contentRefreshHandlers = new Set();
+
+function registerContentRefreshTask(handler) {
+  if (typeof handler !== 'function') {
+    return () => {};
+  }
+  contentRefreshHandlers.add(handler);
+  return () => contentRefreshHandlers.delete(handler);
+}
+
+function runContentRefreshHandlers(detail) {
+  const handlers = Array.from(contentRefreshHandlers);
+  if (!handlers.length) {
+    return Promise.resolve({ executed: false, failed: false });
+  }
+  const outcomes = handlers.map(handler => {
+    try {
+      const result = handler(detail);
+      if (result && typeof result.then === 'function') {
+        return result
+          .then(() => ({ failed: false }))
+          .catch(error => {
+            console.error('Content refresh task failed', error);
+            return { failed: true };
+          });
+      }
+      return Promise.resolve({ failed: false });
+    } catch (error) {
+      console.error('Content refresh task failed', error);
+      return Promise.resolve({ failed: true });
+    }
+  });
+  return Promise.all(outcomes).then(results => ({
+    executed: true,
+    failed: results.some(result => result.failed),
+  }));
+}
+
+CC.registerContentRefreshTask = registerContentRefreshTask;
+
+function resetToastNotifications({ restoreFocus = false } = {}) {
+  const candidates = [];
+  if (typeof globalThis !== 'undefined') {
+    const globalFn = globalThis.clearToastQueue;
+    if (typeof globalFn === 'function') {
+      candidates.push(globalFn);
+    }
+  }
+  if (typeof window !== 'undefined' && typeof window.clearToastQueue === 'function') {
+    const bound = window.clearToastQueue.bind(window);
+    candidates.push(bound);
+  }
+  for (const fn of candidates) {
+    try {
+      fn({ restoreFocus });
+      return true;
+    } catch (err) {
+      /* ignore failures and try fallbacks */
+    }
+  }
+  try {
+    dismissToast();
+  } catch (err) {
+    /* ignore dismissal failures */
+  }
+  return false;
+}
+
+function ensureToastContent(message) {
+  if (typeof document === 'undefined') return;
+  const toastEl = document.getElementById('toast');
+  if (!toastEl || typeof message !== 'string') return;
+  const apply = () => {
+    try {
+      const messageNode = toastEl.querySelector('.toast__message');
+      const currentText = messageNode && typeof messageNode.textContent === 'string'
+        ? messageNode.textContent.trim()
+        : typeof toastEl.textContent === 'string'
+          ? toastEl.textContent.trim()
+          : '';
+      if (!currentText) {
+        if (messageNode) {
+          messageNode.textContent = message;
+        } else {
+          toastEl.textContent = message;
+        }
+      }
+    } catch (err) {
+      /* ignore inability to coerce toast content */
+    }
+  };
+  apply();
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(apply);
+    return;
+  }
+  Promise.resolve()
+    .then(apply)
+    .catch(apply);
+}
+
 const PRIORITY_ALERT_TITLE = 'O.M.N.I: Priority Transmission';
 setupPriorityTransmissionAlert();
 
@@ -1665,11 +1766,23 @@ async function respondToMiniGameInvite(action) {
   clearMiniGameInviteAnimation();
   hide('mini-game-invite');
   miniGameActiveInvite = null;
+  let hadToastContent = false;
+  if (typeof document !== 'undefined') {
+    const toastEl = document.getElementById('toast');
+    if (toastEl && typeof toastEl.textContent === 'string') {
+      hadToastContent = toastEl.textContent.trim().length > 0;
+    }
+  }
+  if (hadToastContent) {
+    resetToastNotifications({ restoreFocus: false });
+  }
   if (action === 'accept') {
     toast('Mini-game accepted', 'success');
+    ensureToastContent('Mini-game accepted');
     launchMiniGame(merged);
   } else {
     toast('Mini-game declined', 'info');
+    ensureToastContent('Mini-game declined');
   }
   showNextMiniGameInvite();
   updateMiniGameReminder();
@@ -3228,6 +3341,21 @@ async function renderRules(){
   }
 }
 
+registerContentRefreshTask(async () => {
+  if (!rulesEl) return;
+  rulesLoaded = false;
+  try {
+    rulesEl.textContent = 'Loading latest rules…';
+  } catch (err) {
+    /* ignore text update failures */
+  }
+  try {
+    await renderRules();
+  } catch (err) {
+    console.warn('Failed to refresh rules content', err);
+  }
+});
+
 const DELETE_ICON_STYLE = {
   width: '15px',
   height: '15px',
@@ -4244,6 +4372,23 @@ if(m24nTrack && m24nText){
       resetTrack();
     }else if(headlines.length && !animationTimer && !bufferTimer){
       bufferTimer = window.setTimeout(scheduleNextHeadline, BUFFER_DURATION);
+    }
+  });
+
+  registerContentRefreshTask(async () => {
+    clearTimers();
+    resetTrack();
+    headlines = [];
+    rotationItems = [];
+    rotationIndex = 0;
+    rotationStart = 0;
+    try {
+      await loadHeadlines();
+      if (rotationItems.length) {
+        scheduleNextHeadline();
+      }
+    } catch (err) {
+      console.warn('Failed to refresh MN24/7 ticker', err);
     }
   });
 }
@@ -7969,6 +8114,7 @@ function showLevelRewardReminderToast(categoryKey) {
   const category = normalizeLevelRewardCategory(null, categoryKey);
   const config = LEVEL_REWARD_CATEGORY_CONFIG[category] || LEVEL_REWARD_CATEGORY_CONFIG[LEVEL_REWARD_CATEGORIES.COMBAT];
   const tasks = Array.isArray(getPendingTasksForCategory(category)) ? getPendingTasksForCategory(category) : [];
+  resetToastNotifications({ restoreFocus: false });
   if (!tasks.length) {
     toast(config.emptyMessage, { type: 'info', duration: 4000 });
     return;
@@ -10118,7 +10264,10 @@ function announceContentUpdate(payload = {}) {
     typeof payload.message === 'string' && payload.message.trim()
       ? payload.message.trim()
       : 'New Codex content is available.';
-  const message = /refresh/i.test(baseMessage) ? baseMessage : `${baseMessage} Refreshing to apply the latest data.`;
+  const normalizedMessage = baseMessage.replace(/\s+/g, ' ').trim();
+  const message = /background|apply|update/i.test(normalizedMessage)
+    ? normalizedMessage
+    : `${normalizedMessage} Applying updates in the background.`;
   const updatedAt = typeof payload.updatedAt === 'number' ? payload.updatedAt : Date.now();
   const detail = {
     ...payload,
@@ -10140,6 +10289,8 @@ function announceContentUpdate(payload = {}) {
   } catch {
     /* ignore toast errors */
   }
+  const refreshOutcomePromise = runContentRefreshHandlers(detail);
+  detail.refreshPromise = refreshOutcomePromise;
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     try {
       window.dispatchEvent(new CustomEvent(CONTENT_UPDATE_EVENT, { detail }));
@@ -10147,10 +10298,24 @@ function announceContentUpdate(payload = {}) {
       /* ignore event errors */
     }
   }
-  stashForcedRefreshState();
-  setTimeout(() => {
-    window.location.reload();
-  }, 750);
+  if (refreshOutcomePromise && typeof refreshOutcomePromise.then === 'function') {
+    refreshOutcomePromise
+      .then(({ executed, failed }) => {
+        if (!executed) return;
+        try {
+          if (failed) {
+            toast('Some Codex updates could not be applied automatically. Please refresh manually.', 'error');
+          } else {
+            toast('Codex content updated in the background.', 'success');
+          }
+        } catch (err) {
+          /* ignore toast failures */
+        }
+      })
+      .catch(err => {
+        console.error('Content refresh processing failed', err);
+      });
+  }
 }
 
 
@@ -16867,6 +17032,17 @@ if (customCatalogEntries.length) {
   requestCatalogRender();
 }
 
+function invalidateCatalogCache() {
+  catalogData = null;
+  catalogPromise = null;
+  catalogError = null;
+  catalogPriceEntries = [];
+  catalogPriceIndex = new Map();
+  rebuildCatalogPriceIndex();
+  catalogFiltersInitialized = false;
+  requestCatalogRender();
+}
+
 function ensureCatalogFilters(data){
   if (catalogFiltersInitialized) return;
   catalogFiltersInitialized = true;
@@ -17305,6 +17481,15 @@ async function ensureCatalog(){
   })();
   return catalogPromise;
 }
+
+registerContentRefreshTask(async () => {
+  invalidateCatalogCache();
+  try {
+    await ensureCatalog();
+  } catch (err) {
+    console.warn('Gear catalog refresh failed', err);
+  }
+});
 
 if (styleSel) styleSel.addEventListener('input', renderCatalog);
 if (typeSel) typeSel.addEventListener('input', renderCatalog);
