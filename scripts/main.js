@@ -4265,6 +4265,31 @@ const statusInfoPointerDismissEvents = typeof window !== 'undefined'
 let statusInfoToastActive = false;
 let statusInfoPointerDismissListener = null;
 const statusInfoPointerDismissOptions = { passive: true };
+const TOAST_HISTORY_LIMIT = 50;
+const toastHistory = [];
+let toastHistoryActiveId = null;
+let toastHistoryEntryCounter = 0;
+const toastHistoryElements = typeof document !== 'undefined'
+  ? {
+      panel: document.querySelector('[data-toast-history]'),
+      list: document.querySelector('[data-toast-history-list]'),
+      actions: document.querySelector('[data-toast-history-actions]'),
+      markRead: document.querySelector('[data-toast-history-mark-read]'),
+      clear: document.querySelector('[data-toast-history-clear]'),
+      unread: document.querySelector('[data-toast-history-unread]'),
+    }
+  : {
+      panel: null,
+      list: null,
+      actions: null,
+      markRead: null,
+      clear: null,
+      unread: null,
+    };
+const toastHistoryTimeFormatter =
+  typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function'
+    ? new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
+    : null;
 
 function isStatusInfoToastMode() {
   return statusInfoLayoutQuery ? statusInfoLayoutQuery.matches : false;
@@ -4290,6 +4315,185 @@ function attachStatusInfoPointerDismiss() {
   });
 }
 
+function extractToastHistoryMessage(message, options = {}) {
+  if (typeof message === 'string') {
+    const trimmed = message.trim();
+    if (trimmed) return trimmed;
+  }
+  const html = typeof options.html === 'string' ? options.html.trim() : '';
+  if (html && typeof document !== 'undefined') {
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    const textContent = container.textContent || '';
+    const normalized = textContent.replace(/\s+/g, ' ').trim();
+    if (normalized) return normalized;
+  }
+  return 'Notification';
+}
+
+function normalizeToastHistoryType(type) {
+  if (typeof type !== 'string') return 'info';
+  const cleaned = type.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  return cleaned || 'info';
+}
+
+function formatToastHistoryTypeLabel(type) {
+  if (!type) return 'Info';
+  return type
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .map(segment => (segment ? segment[0].toUpperCase() + segment.slice(1) : segment))
+    .join(' ');
+}
+
+function formatToastHistoryTimestamp(timestamp) {
+  if (!Number.isFinite(timestamp)) {
+    return { iso: '', label: '' };
+  }
+  const date = new Date(timestamp);
+  const label = toastHistoryTimeFormatter
+    ? toastHistoryTimeFormatter.format(date)
+    : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return { iso: date.toISOString(), label };
+}
+
+function normalizeToastHistoryEntry(detail) {
+  if (!detail || typeof detail !== 'object') return null;
+  const options = detail.options || {};
+  const meta = options.meta || {};
+  if (meta && meta.silent) {
+    return null;
+  }
+  const message = extractToastHistoryMessage(detail.message, options);
+  const type = normalizeToastHistoryType(options.type);
+  const timestamp = Date.now();
+  toastHistoryEntryCounter += 1;
+  return {
+    id: `toast-history-${timestamp}-${toastHistoryEntryCounter}`,
+    message,
+    type,
+    typeLabel: formatToastHistoryTypeLabel(type),
+    timestamp,
+    read: false,
+  };
+}
+
+function markActiveToastHistoryEntryRead() {
+  if (!toastHistoryActiveId) return false;
+  const existing = toastHistory.find(entry => entry.id === toastHistoryActiveId);
+  if (existing && !existing.read) {
+    existing.read = true;
+    return true;
+  }
+  return false;
+}
+
+function renderToastHistory() {
+  const { panel, list, actions, markRead, clear, unread } = toastHistoryElements;
+  if (!panel || !list) return;
+
+  if (!toastHistory.length) {
+    panel.setAttribute('hidden', 'true');
+    list.innerHTML = '';
+    if (actions) actions.setAttribute('hidden', 'true');
+    if (markRead) markRead.setAttribute('hidden', 'true');
+    if (clear) clear.setAttribute('hidden', 'true');
+    if (unread) unread.setAttribute('hidden', 'true');
+    return;
+  }
+
+  panel.removeAttribute('hidden');
+  if (actions) actions.removeAttribute('hidden');
+  if (clear) clear.removeAttribute('hidden');
+
+  const unreadCount = toastHistory.reduce((count, entry) => (entry.read ? count : count + 1), 0);
+  if (markRead) {
+    if (unreadCount > 0) {
+      markRead.textContent = unreadCount === 1 ? 'Mark read' : 'Mark all read';
+      markRead.removeAttribute('hidden');
+    } else {
+      markRead.setAttribute('hidden', 'true');
+    }
+  }
+  if (unread) {
+    if (unreadCount > 0) {
+      unread.textContent = unreadCount > 99 ? '99+' : `${unreadCount}`;
+      unread.removeAttribute('hidden');
+    } else {
+      unread.setAttribute('hidden', 'true');
+    }
+  }
+
+  const items = toastHistory
+    .map(entry => {
+      const classes = ['toast-history__item'];
+      if (!entry.read) classes.push('toast-history__item--unread');
+      const typeClass = `toast-history__type--${entry.type}`;
+      const { iso, label } = formatToastHistoryTimestamp(entry.timestamp);
+      const timeHtml = label
+        ? `<time class="toast-history__time" datetime="${escapeHtml(iso)}">${escapeHtml(label)}</time>`
+        : '';
+      return `\n        <li class="${classes.join(' ')}">\n          <div class="toast-history__meta">\n            <span class="toast-history__type ${typeClass}">${escapeHtml(entry.typeLabel)}</span>\n            ${timeHtml}\n          </div>\n          <p class="toast-history__message">${escapeHtml(entry.message)}</p>\n        </li>\n      `;
+    })
+    .join('');
+
+  list.innerHTML = items;
+}
+
+function handleToastHistoryShown(detail) {
+  const hadActive = toastHistoryActiveId;
+  const updatedPrevious = markActiveToastHistoryEntryRead();
+  if (hadActive) {
+    toastHistoryActiveId = null;
+  }
+  const entry = normalizeToastHistoryEntry(detail);
+  if (!entry) {
+    if (updatedPrevious) {
+      renderToastHistory();
+    }
+    return;
+  }
+  toastHistory.unshift(entry);
+  if (toastHistory.length > TOAST_HISTORY_LIMIT) {
+    toastHistory.length = TOAST_HISTORY_LIMIT;
+  }
+  toastHistoryActiveId = entry.id;
+  renderToastHistory();
+}
+
+function handleToastHistoryDismissed() {
+  const updated = markActiveToastHistoryEntryRead();
+  toastHistoryActiveId = null;
+  if (updated) {
+    renderToastHistory();
+  }
+}
+
+if (toastHistoryElements.markRead) {
+  toastHistoryElements.markRead.addEventListener('click', () => {
+    let changed = false;
+    toastHistory.forEach(entry => {
+      if (!entry.read) {
+        entry.read = true;
+        changed = true;
+      }
+    });
+    toastHistoryActiveId = null;
+    if (changed) {
+      renderToastHistory();
+    }
+  });
+}
+
+if (toastHistoryElements.clear) {
+  toastHistoryElements.clear.addEventListener('click', () => {
+    if (!toastHistory.length) return;
+    toastHistory.length = 0;
+    toastHistoryActiveId = null;
+    renderToastHistory();
+  });
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('cc:toast-shown', event => {
     const detail = event?.detail || {};
@@ -4304,10 +4508,12 @@ if (typeof window !== 'undefined') {
       statusInfoToastActive = false;
       detachStatusInfoPointerDismiss();
     }
+    handleToastHistoryShown(detail);
   });
   window.addEventListener('cc:toast-dismissed', () => {
     statusInfoToastActive = false;
     detachStatusInfoPointerDismiss();
+    handleToastHistoryDismissed();
   });
 }
 
