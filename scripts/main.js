@@ -1100,11 +1100,53 @@ const hasMiniGameInviteUi = Boolean(miniGameInviteOverlay && miniGameInviteAccep
 let miniGameActivePlayer = '';
 let miniGameUnsubscribe = null;
 let miniGamePlayerCheckTimer = null;
+const MINI_GAME_BROADCAST_CHANNEL = 'cc:mini-games';
 const miniGameKnownDeployments = new Map();
 const miniGamePromptedDeployments = new Set();
 const miniGameInviteQueue = [];
 let miniGameActiveInvite = null;
 let miniGameSyncInitialized = false;
+
+let miniGameBroadcastChannel = null;
+
+function ensureMiniGameBroadcastChannel() {
+  if (miniGameBroadcastChannel || typeof BroadcastChannel !== 'function') {
+    return miniGameBroadcastChannel;
+  }
+  try {
+    miniGameBroadcastChannel = new BroadcastChannel(MINI_GAME_BROADCAST_CHANNEL);
+  } catch (err) {
+    miniGameBroadcastChannel = null;
+  }
+  return miniGameBroadcastChannel;
+}
+
+function broadcastMiniGameDeploymentUpdate(entry, updates = {}) {
+  const channel = ensureMiniGameBroadcastChannel();
+  if (!channel) return;
+  const player = typeof entry?.player === 'string' ? entry.player : '';
+  const deploymentId = typeof entry?.id === 'string' ? entry.id : '';
+  if (!player || !deploymentId) return;
+  const status = typeof updates?.status === 'string'
+    ? updates.status
+    : typeof entry?.status === 'string'
+      ? entry.status
+      : '';
+  const payload = {
+    type: 'mini-game-deployment-update',
+    player,
+    deploymentId,
+    status,
+  };
+  if (updates && typeof updates === 'object' && Object.keys(updates).length) {
+    payload.updates = { ...updates };
+  }
+  try {
+    channel.postMessage(payload);
+  } catch (err) {
+    /* ignore broadcast errors */
+  }
+}
 
 function sanitizeMiniGamePlayerName(name = '') {
   if (typeof name !== 'string') return '';
@@ -1411,6 +1453,7 @@ async function respondToMiniGameInvite(action) {
   miniGameKnownDeployments.set(id, merged);
   miniGamePromptedDeployments.delete(id);
   removeMiniGameQueueEntry(id);
+  broadcastMiniGameDeploymentUpdate(merged, updates);
   if (acceptBtn) acceptBtn.disabled = false;
   if (declineBtn) declineBtn.disabled = false;
   clearMiniGameInviteAnimation();

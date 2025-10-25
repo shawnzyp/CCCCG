@@ -5395,6 +5395,65 @@ function initDMLogin(){
   let miniGamesInitialized = false;
   let miniGamesUnsubscribe = null;
   let miniGameDeploymentsCache = [];
+  const MINI_GAME_BROADCAST_CHANNEL = 'cc:mini-games';
+  let miniGameBroadcastChannel = null;
+  let miniGameBroadcastListenerAttached = false;
+
+  function handleMiniGameBroadcastMessage(event) {
+    const data = event?.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type && data.type !== 'mini-game-deployment-update') return;
+    const player = typeof data.player === 'string' ? data.player : '';
+    const deploymentId = typeof data.deploymentId === 'string' ? data.deploymentId : '';
+    if (!player || !deploymentId || !Array.isArray(miniGameDeploymentsCache) || !miniGameDeploymentsCache.length) {
+      return;
+    }
+    const updates = data.updates && typeof data.updates === 'object' ? { ...data.updates } : {};
+    if (typeof data.status === 'string' && !updates.status) {
+      updates.status = data.status;
+    }
+    if (!Object.keys(updates).length) return;
+    let changed = false;
+    const nextCache = miniGameDeploymentsCache.map(entry => {
+      if ((entry?.player || '') !== player || (entry?.id || '') !== deploymentId) {
+        return entry;
+      }
+      const merged = { ...entry };
+      Object.keys(updates).forEach(key => {
+        const value = updates[key];
+        if (merged[key] !== value) {
+          merged[key] = value;
+          changed = true;
+        }
+      });
+      return merged;
+    });
+    if (!changed) return;
+    miniGameDeploymentsCache = nextCache;
+    autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
+    if (miniGamesModal && !miniGamesModal.classList.contains('hidden')) {
+      renderMiniGameDeployments(miniGameDeploymentsCache);
+    }
+  }
+
+  function ensureMiniGameBroadcastChannel() {
+    if (miniGameBroadcastChannel || typeof BroadcastChannel !== 'function') {
+      if (miniGameBroadcastChannel && !miniGameBroadcastListenerAttached) {
+        miniGameBroadcastChannel.addEventListener('message', handleMiniGameBroadcastMessage);
+        miniGameBroadcastListenerAttached = true;
+      }
+      return miniGameBroadcastChannel;
+    }
+    try {
+      miniGameBroadcastChannel = new BroadcastChannel(MINI_GAME_BROADCAST_CHANNEL);
+    } catch (err) {
+      miniGameBroadcastChannel = null;
+      return null;
+    }
+    miniGameBroadcastChannel.addEventListener('message', handleMiniGameBroadcastMessage);
+    miniGameBroadcastListenerAttached = true;
+    return miniGameBroadcastChannel;
+  }
 
   function ensureKnobState(gameId) {
     if (!gameId) return {};
@@ -9169,6 +9228,8 @@ function initDMLogin(){
   miniGamesRefreshBtn?.addEventListener('click', () => {
     forceRefreshMiniGameDeployments();
   });
+
+  ensureMiniGameBroadcastChannel();
 
   dmSetInterval(() => {
     autoUpdateDeploymentStatuses(miniGameDeploymentsCache);
