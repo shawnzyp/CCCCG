@@ -46,6 +46,7 @@ import {
   subscribeSyncActivity,
   subscribeSyncQueue,
   getLastSyncActivity,
+  loadLocal,
 } from './storage.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
@@ -1781,6 +1782,318 @@ const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
 
 const WELCOME_MODAL_ID = 'modal-welcome';
 const WELCOME_MODAL_PREFERENCE_KEY = 'cc:welcome-modal:hidden';
+const WELCOME_GREETING_STORAGE_KEY = 'cc:welcome-modal:greeting';
+const DEFAULT_WELCOME_GREETING = {
+  characterName: '',
+  heroAlias: '',
+  heroTier: '',
+  lastSyncTimestamp: null,
+  lastSyncRelative: '',
+  lastSyncAbsolute: '',
+  display: {
+    heroName: 'No hero selected',
+    heroTier: 'Tier pending',
+    lastSync: 'Never',
+    lastSyncTitle: '',
+  },
+};
+
+function sanitizeWelcomeText(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function computeWelcomeRelativeTime(timestamp) {
+  if (!Number.isFinite(timestamp)) return '';
+  const now = Date.now();
+  const diff = timestamp - now;
+  const abs = Math.abs(diff);
+  if (abs < 15000) return 'just now';
+  const units = [
+    { limit: 60000, divisor: 1000, unit: 'second' },
+    { limit: 3600000, divisor: 60000, unit: 'minute' },
+    { limit: 86400000, divisor: 3600000, unit: 'hour' },
+    { limit: 604800000, divisor: 86400000, unit: 'day' },
+    { limit: Infinity, divisor: 604800000, unit: 'week' },
+  ];
+  for (const { limit, divisor, unit } of units) {
+    if (abs < limit) {
+      const value = Math.max(1, Math.round(abs / divisor));
+      try {
+        if (typeof Intl !== 'undefined' && typeof Intl.RelativeTimeFormat === 'function') {
+          const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+          return formatter.format(diff < 0 ? -value : value, unit);
+        }
+      } catch {}
+      const plural = value === 1 ? unit : `${unit}s`;
+      return diff < 0 ? `${value} ${plural} ago` : `in ${value} ${plural}`;
+    }
+  }
+  return '';
+}
+
+function extractTierFromSheetData(data) {
+  if (!data || typeof data !== 'object') return '';
+  const tierLabel = sanitizeWelcomeText(data.tier);
+  if (tierLabel) return tierLabel;
+  const tierShortDisplay = sanitizeWelcomeText(data['tier-short-display']);
+  if (tierShortDisplay) return tierShortDisplay;
+  const tierShort = sanitizeWelcomeText(data['tier-short'] ?? data.tierShort);
+  if (tierShort) return tierShort;
+  const tierNumberRaw = sanitizeWelcomeText(data['tier-number'] ?? data.tierNumber);
+  const tierNumber = Number(tierNumberRaw);
+  if (Number.isFinite(tierNumber)) {
+    const subTier = sanitizeWelcomeText(data['sub-tier'] ?? data.subTier);
+    const joiner = subTier && /^[A-Za-z]$/.test(subTier) ? '' : ' ';
+    return `Tier ${tierNumber}${subTier ? `${joiner}${subTier}` : ''}`.trim();
+  }
+  return '';
+}
+
+function extractTierFromDom() {
+  const tierField = $('tier');
+  const tierDisplay = tierField && typeof tierField.value === 'string' ? tierField.value.trim() : '';
+  if (tierDisplay) return tierDisplay;
+  const tierShortDisplay = $('tier-short-display');
+  if (tierShortDisplay && typeof tierShortDisplay.value === 'string') {
+    const shortValue = tierShortDisplay.value.trim();
+    if (shortValue) return shortValue;
+  }
+  const tierShort = $('tier-short');
+  if (tierShort && typeof tierShort.value === 'string') {
+    const short = tierShort.value.trim();
+    if (short) return short;
+  }
+  const tierNumberInput = $('tier-number');
+  const subTierDisplay = $('sub-tier-display');
+  if (tierNumberInput && typeof tierNumberInput.value === 'string') {
+    const tierNumber = Number(tierNumberInput.value);
+    if (Number.isFinite(tierNumber)) {
+      const subTier = subTierDisplay && typeof subTierDisplay.value === 'string'
+        ? subTierDisplay.value.trim()
+        : '';
+      const joiner = subTier && /^[A-Za-z]$/.test(subTier) ? '' : ' ';
+      return `Tier ${tierNumber}${subTier ? `${joiner}${subTier}` : ''}`.trim();
+    }
+  }
+  return '';
+}
+
+function normalizeWelcomeGreeting(data) {
+  const base = {
+    ...DEFAULT_WELCOME_GREETING,
+    display: { ...DEFAULT_WELCOME_GREETING.display },
+  };
+  if (!data || typeof data !== 'object') {
+    return base;
+  }
+  base.characterName = sanitizeWelcomeText(data.characterName) || '';
+  base.heroAlias = sanitizeWelcomeText(data.heroAlias) || '';
+  base.heroTier = sanitizeWelcomeText(data.heroTier) || '';
+  const timestamp = Number.isFinite(data.lastSyncTimestamp) ? data.lastSyncTimestamp : null;
+  base.lastSyncTimestamp = timestamp;
+  const storedRelative = sanitizeWelcomeText(data.lastSyncRelative) || '';
+  const storedAbsolute = sanitizeWelcomeText(data.lastSyncAbsolute) || '';
+  const relative = storedRelative || (timestamp !== null ? computeWelcomeRelativeTime(timestamp) : '');
+  const absolute = storedAbsolute || (timestamp !== null ? formatDateTime(timestamp) : '');
+  base.lastSyncRelative = relative;
+  base.lastSyncAbsolute = absolute;
+  const heroNameDisplay = sanitizeWelcomeText(data.display?.heroName)
+    || base.heroAlias
+    || base.characterName
+    || DEFAULT_WELCOME_GREETING.display.heroName;
+  const heroTierDisplay = sanitizeWelcomeText(data.display?.heroTier)
+    || base.heroTier
+    || DEFAULT_WELCOME_GREETING.display.heroTier;
+  const lastSyncDisplay = sanitizeWelcomeText(data.display?.lastSync)
+    || relative
+    || absolute
+    || DEFAULT_WELCOME_GREETING.display.lastSync;
+  const lastSyncTitle = sanitizeWelcomeText(data.display?.lastSyncTitle)
+    || (absolute ? `Last synced ${absolute}` : '');
+  base.display = {
+    heroName: heroNameDisplay,
+    heroTier: heroTierDisplay,
+    lastSync: lastSyncDisplay,
+    lastSyncTitle,
+  };
+  base.computedAt = Number.isFinite(data.computedAt) ? data.computedAt : Date.now();
+  return base;
+}
+
+function loadStoredWelcomeGreeting() {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(WELCOME_GREETING_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return normalizeWelcomeGreeting(parsed);
+  } catch (err) {
+    return null;
+  }
+}
+
+const welcomeGreetingElements = typeof document !== 'undefined'
+  ? {
+      container: document.querySelector('[data-welcome-greeting]'),
+      heroName: document.querySelector('[data-welcome-hero-name]'),
+      heroTier: document.querySelector('[data-welcome-hero-tier]'),
+      lastSync: document.querySelector('[data-welcome-last-sync]'),
+    }
+  : { container: null, heroName: null, heroTier: null, lastSync: null };
+
+let welcomeGreetingData = null;
+let welcomeGreetingPromise = null;
+
+function getWelcomeGreetingData() {
+  if (welcomeGreetingData) return welcomeGreetingData;
+  const stored = loadStoredWelcomeGreeting();
+  if (stored) {
+    welcomeGreetingData = stored;
+  }
+  return welcomeGreetingData;
+}
+
+function presentWelcomeGreeting(greeting) {
+  if (!welcomeGreetingElements.heroName && !welcomeGreetingElements.heroTier && !welcomeGreetingElements.lastSync) {
+    return;
+  }
+  const normalized = greeting ? normalizeWelcomeGreeting(greeting) : normalizeWelcomeGreeting(DEFAULT_WELCOME_GREETING);
+  if (welcomeGreetingElements.container) {
+    welcomeGreetingElements.container.hidden = false;
+    if (normalized.heroAlias || normalized.characterName) {
+      welcomeGreetingElements.container.setAttribute('data-has-hero', 'true');
+    } else {
+      welcomeGreetingElements.container.removeAttribute('data-has-hero');
+    }
+  }
+  if (welcomeGreetingElements.heroName) {
+    welcomeGreetingElements.heroName.textContent = normalized.display.heroName;
+  }
+  if (welcomeGreetingElements.heroTier) {
+    welcomeGreetingElements.heroTier.textContent = normalized.display.heroTier;
+  }
+  if (welcomeGreetingElements.lastSync) {
+    welcomeGreetingElements.lastSync.textContent = normalized.display.lastSync;
+    if (normalized.display.lastSyncTitle) {
+      welcomeGreetingElements.lastSync.title = normalized.display.lastSyncTitle;
+    } else {
+      welcomeGreetingElements.lastSync.removeAttribute('title');
+    }
+  }
+}
+
+function setWelcomeGreeting(data, { present = true } = {}) {
+  if (!data || typeof data !== 'object') {
+    welcomeGreetingData = null;
+    if (typeof sessionStorage !== 'undefined') {
+      try { sessionStorage.removeItem(WELCOME_GREETING_STORAGE_KEY); } catch {}
+    }
+    if (present) presentWelcomeGreeting(null);
+    return null;
+  }
+  const normalized = normalizeWelcomeGreeting(data);
+  welcomeGreetingData = normalized;
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      sessionStorage.setItem(WELCOME_GREETING_STORAGE_KEY, JSON.stringify(normalized));
+    } catch {}
+  }
+  if (present) presentWelcomeGreeting(normalized);
+  return normalized;
+}
+
+function applyWelcomeGreetingUpdate(updates = {}, { present = true, replace = false } = {}) {
+  if (!updates || typeof updates !== 'object') {
+    return getWelcomeGreetingData();
+  }
+  const current = replace ? DEFAULT_WELCOME_GREETING : (getWelcomeGreetingData() || DEFAULT_WELCOME_GREETING);
+  const merged = {
+    ...current,
+    ...updates,
+  };
+  return setWelcomeGreeting(merged, { present });
+}
+
+async function resolveWelcomeGreetingMetadata() {
+  const candidateNames = [];
+  try {
+    const current = typeof currentCharacter === 'function' ? currentCharacter() : '';
+    const normalizedCurrent = sanitizeWelcomeText(current);
+    if (normalizedCurrent) candidateNames.push(normalizedCurrent);
+  } catch {}
+  try {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('last-save') : null;
+    const normalizedStored = sanitizeWelcomeText(stored || '');
+    if (normalizedStored && !candidateNames.includes(normalizedStored)) {
+      candidateNames.push(normalizedStored);
+    }
+  } catch {}
+  try {
+    const names = await listCharacters();
+    names.forEach(name => {
+      const normalized = sanitizeWelcomeText(name);
+      if (normalized && !candidateNames.includes(normalized)) {
+        candidateNames.push(normalized);
+      }
+    });
+  } catch (err) {
+    if (!err || err.message !== 'fetch not supported') {
+      console.error('Failed to list characters for welcome greeting', err);
+    }
+  }
+  const characterName = candidateNames.find(Boolean) || '';
+  let sheetData = null;
+  if (characterName) {
+    try {
+      sheetData = await loadLocal(characterName);
+    } catch (err) {
+      if (!err || err.message !== 'No save found') {
+        console.error('Welcome greeting could not load local data', err);
+      }
+    }
+  }
+  const heroAlias = (() => {
+    const aliasFromData = sanitizeWelcomeText(sheetData?.superhero);
+    if (aliasFromData) return aliasFromData;
+    const heroField = $('superhero');
+    if (heroField && typeof heroField.value === 'string') {
+      const domAlias = heroField.value.trim();
+      if (domAlias) return domAlias;
+    }
+    return characterName;
+  })();
+  const heroTier = extractTierFromSheetData(sheetData) || extractTierFromDom();
+  const lastSyncTimestamp = getLastSyncActivity();
+  const normalizedTimestamp = Number.isFinite(lastSyncTimestamp) ? lastSyncTimestamp : null;
+  return {
+    characterName,
+    heroAlias,
+    heroTier,
+    lastSyncTimestamp: normalizedTimestamp,
+    computedAt: Date.now(),
+  };
+}
+
+function ensureWelcomeGreeting() {
+  if (welcomeGreetingPromise) return welcomeGreetingPromise;
+  welcomeGreetingPromise = (async () => {
+    try {
+      const metadata = await resolveWelcomeGreetingMetadata();
+      if (metadata) {
+        return applyWelcomeGreetingUpdate(metadata, { present: true, replace: true });
+      }
+    } catch (err) {
+      console.error('Failed to resolve welcome greeting metadata', err);
+    }
+    return getWelcomeGreetingData() || null;
+  })().finally(() => {
+    welcomeGreetingPromise = null;
+  });
+  return welcomeGreetingPromise;
+}
+
+presentWelcomeGreeting(getWelcomeGreetingData());
 const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
 const TOUCH_UNLOCK_DELAY_MS = 250;
 let welcomeModalDismissed = false;
@@ -1816,9 +2129,14 @@ function getWelcomeModal() {
   }
 }
 
-function prepareWelcomeModal() {
+function prepareWelcomeModal(greeting = null) {
   const modal = getWelcomeModal();
   if (!modal) return null;
+  if (greeting) {
+    presentWelcomeGreeting(greeting);
+  } else {
+    presentWelcomeGreeting(getWelcomeGreetingData());
+  }
   if (!welcomeModalPrepared) {
     welcomeModalPrepared = true;
     try {
@@ -1878,8 +2196,8 @@ function unlockTouchControls({ immediate = false } = {}) {
   }
 }
 
-function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
-  const modal = prepareWelcomeModal();
+function maybeShowWelcomeModal({ backgroundOnly = false, greeting = null } = {}) {
+  const modal = prepareWelcomeModal(greeting);
   if (!modal) {
     unlockTouchControls({ immediate: true });
     return;
@@ -1929,16 +2247,27 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     }
     return;
   }
+
+  const run = ({ backgroundOnly = false } = {}) => {
+    const greeting = getWelcomeGreetingData();
+    maybeShowWelcomeModal({ backgroundOnly, greeting });
+    return ensureWelcomeGreeting();
+  };
+
   if (preload) {
-    maybeShowWelcomeModal({ backgroundOnly: true });
+    run({ backgroundOnly: true });
     if (!immediate) {
       return;
     }
-  }
-  if (immediate) {
-    maybeShowWelcomeModal();
+    run();
     return;
   }
+
+  if (immediate) {
+    run();
+    return;
+  }
+
   if (welcomeModalQueued) return;
   welcomeModalQueued = true;
   const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
@@ -1946,7 +2275,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     : (cb => setTimeout(cb, 0));
   schedule(() => {
     welcomeModalQueued = false;
-    maybeShowWelcomeModal();
+    run();
   });
 }
 (async function setupLaunchAnimation(){
@@ -11621,6 +11950,9 @@ async function renderCharacterList(){
 document.addEventListener('character-saved', renderCharacterList);
 document.addEventListener('character-deleted', renderCharacterList);
 window.addEventListener('storage', renderCharacterList);
+document.addEventListener('character-saved', () => { ensureWelcomeGreeting(); });
+document.addEventListener('character-deleted', () => { ensureWelcomeGreeting(); });
+window.addEventListener('storage', () => { ensureWelcomeGreeting(); });
 
 async function renderRecoverCharList(){
   const list = $('recover-char-list');
@@ -19073,11 +19405,13 @@ subscribeSyncErrors(payload => {
 });
 
 subscribeSyncActivity(event => {
-  if (event && Number.isFinite(event.timestamp)) {
-    updateLastSyncDisplay(event.timestamp);
+  const timestamp = event && Number.isFinite(event.timestamp) ? event.timestamp : null;
+  if (timestamp !== null) {
+    updateLastSyncDisplay(timestamp);
   } else {
     updateLastSyncDisplay();
   }
+  applyWelcomeGreetingUpdate({ lastSyncTimestamp: timestamp });
   refreshSyncQueue();
 });
 
@@ -19085,7 +19419,9 @@ subscribeSyncQueue(() => {
   refreshSyncQueue();
 });
 
-updateLastSyncDisplay(getLastSyncActivity());
+const initialLastSync = getLastSyncActivity();
+updateLastSyncDisplay(initialLastSync);
+applyWelcomeGreetingUpdate({ lastSyncTimestamp: Number.isFinite(initialLastSync) ? initialLastSync : null });
 renderSyncErrors();
 refreshSyncQueue();
 
@@ -19137,7 +19473,10 @@ if (heroInput) {
   heroInput.addEventListener('change', async () => {
     refreshHammerspaceCards();
     const name = heroInput.value.trim();
-    if (!name) return;
+    if (!name) {
+      ensureWelcomeGreeting();
+      return;
+    }
     if (!currentCharacter()) {
       setCurrentCharacter(name);
       syncMiniGamePlayerName();
@@ -19150,6 +19489,7 @@ if (heroInput) {
         console.error('Autosave failed', e);
       }
     }
+    ensureWelcomeGreeting();
   });
 }
 
