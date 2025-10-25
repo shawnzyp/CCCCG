@@ -532,6 +532,24 @@ function randomId() {
   return `mg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function generateResponseToken() {
+  if (typeof crypto !== 'undefined') {
+    if (typeof crypto.randomUUID === 'function') {
+      try {
+        return crypto.randomUUID();
+      } catch {}
+    }
+    if (typeof crypto.getRandomValues === 'function') {
+      try {
+        const array = new Uint8Array(16);
+        crypto.getRandomValues(array);
+        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+      } catch {}
+    }
+  }
+  return `token-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function sanitizePlayer(player = '') {
   return player.trim().replace(/\s+/g, ' ');
 }
@@ -612,6 +630,7 @@ export async function deployMiniGame({
     player: trimmedPlayer,
     ts,
   });
+  const responseToken = generateResponseToken();
   const payload = {
     id: deploymentId,
     gameId: game.id,
@@ -624,6 +643,7 @@ export async function deployMiniGame({
     issuedBy: issuedBy || 'DM',
     createdAt: ts,
     updatedAt: ts,
+    responseToken,
   };
   if (validScheduledFor) {
     payload.scheduledFor = validScheduledFor;

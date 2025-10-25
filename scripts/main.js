@@ -1074,43 +1074,54 @@ const hasMiniGameInviteUi = Boolean(miniGameInviteOverlay && miniGameInviteAccep
 let miniGameActivePlayer = '';
 let miniGameUnsubscribe = null;
 let miniGamePlayerCheckTimer = null;
-const MINI_GAME_BROADCAST_CHANNEL = 'cc:mini-games';
+const MINI_GAME_BROADCAST_CHANNEL_PREFIX = 'cc:mini-games:';
 const miniGameKnownDeployments = new Map();
 const miniGamePromptedDeployments = new Set();
 const miniGameInviteQueue = [];
 let miniGameActiveInvite = null;
 let miniGameSyncInitialized = false;
 
-let miniGameBroadcastChannel = null;
+const miniGameBroadcastChannels = new Map();
 
-function ensureMiniGameBroadcastChannel() {
-  if (miniGameBroadcastChannel || typeof BroadcastChannel !== 'function') {
-    return miniGameBroadcastChannel;
+function getMiniGameBroadcastChannelName(token) {
+  const normalized = typeof token === 'string' ? token.trim() : '';
+  if (!normalized) return '';
+  return `${MINI_GAME_BROADCAST_CHANNEL_PREFIX}${normalized}`;
+}
+
+function ensureMiniGameBroadcastChannel(token) {
+  if (typeof BroadcastChannel !== 'function') return null;
+  const name = getMiniGameBroadcastChannelName(token);
+  if (!name) return null;
+  if (miniGameBroadcastChannels.has(name)) {
+    return miniGameBroadcastChannels.get(name);
   }
   try {
-    miniGameBroadcastChannel = new BroadcastChannel(MINI_GAME_BROADCAST_CHANNEL);
+    const channel = new BroadcastChannel(name);
+    miniGameBroadcastChannels.set(name, channel);
+    return channel;
   } catch (err) {
-    miniGameBroadcastChannel = null;
+    miniGameBroadcastChannels.set(name, null);
+    return null;
   }
-  return miniGameBroadcastChannel;
 }
 
 function broadcastMiniGameDeploymentUpdate(entry, updates = {}) {
-  const channel = ensureMiniGameBroadcastChannel();
-  if (!channel) return;
-  const player = typeof entry?.player === 'string' ? entry.player : '';
   const deploymentId = typeof entry?.id === 'string' ? entry.id : '';
-  if (!player || !deploymentId) return;
+  const token = typeof entry?.responseToken === 'string' ? entry.responseToken : '';
+  if (!deploymentId || !token) return;
   const status = typeof updates?.status === 'string'
     ? updates.status
     : typeof entry?.status === 'string'
       ? entry.status
       : '';
+  const channel = ensureMiniGameBroadcastChannel(token);
+  if (!channel) return;
   const payload = {
     type: 'mini-game-deployment-update',
-    player,
     deploymentId,
     status,
+    token,
   };
   if (updates && typeof updates === 'object' && Object.keys(updates).length) {
     payload.updates = { ...updates };
@@ -1373,6 +1384,7 @@ function persistMiniGameLaunch(entry) {
       player: entry.player || '',
       issuedBy: entry.issuedBy || '',
       tagline: entry.tagline || '',
+      responseToken: typeof entry.responseToken === 'string' ? entry.responseToken : '',
       storedAt: Date.now(),
     };
     localStorage.setItem(`${MINI_GAME_STORAGE_KEY_PREFIX}${entry.id}`, JSON.stringify(payload));
