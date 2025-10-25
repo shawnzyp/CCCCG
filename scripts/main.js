@@ -19,6 +19,8 @@ import { show, hide } from './modal.js';
 import { activateTab, getActiveTab, getNavigationType, onTabChange, scrollToTopOfCombat, triggerTabIconAnimation } from './tabs.js';
 import { subscribe as subscribePlayerToolsDrawer } from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
+import { PLAYER_REWARD_EVENTS } from './player-reward-events.js';
+import './player-reward-listener.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
   getMiniGame as getMiniGameDefinition,
@@ -5165,6 +5167,7 @@ const elAugmentAvailableList = augmentPickerOverlay
   : $('augment-available-list');
 
 const PLAYER_CREDIT_LAST_VIEWED_KEY = 'player-credit:last-viewed';
+const PLAYER_REWARD_LAST_VIEWED_KEY = 'player-reward:last-viewed';
 
 const readPlayerCreditAcknowledgedSignature = () => {
   try {
@@ -5188,6 +5191,28 @@ const writePlayerCreditAcknowledgedSignature = (value) => {
   }
 };
 
+const readPlayerRewardAcknowledgedSignature = () => {
+  try {
+    if (typeof localStorage === 'undefined') return '';
+    return localStorage.getItem(PLAYER_REWARD_LAST_VIEWED_KEY) || '';
+  } catch {
+    return '';
+  }
+};
+
+const writePlayerRewardAcknowledgedSignature = (value) => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (value) {
+      localStorage.setItem(PLAYER_REWARD_LAST_VIEWED_KEY, value);
+    } else {
+      localStorage.removeItem(PLAYER_REWARD_LAST_VIEWED_KEY);
+    }
+  } catch {
+    /* ignore persistence errors */
+  }
+};
+
 const computePlayerCreditSignature = (detail) => {
   if (!detail || typeof detail !== 'object') return '';
   const payload = detail.payload && typeof detail.payload === 'object' ? detail.payload : null;
@@ -5201,44 +5226,144 @@ const computePlayerCreditSignature = (detail) => {
   return `${id}|${timestamp}`;
 };
 
+const computePlayerRewardSignature = (detail) => {
+  if (!detail || typeof detail !== 'object') return '';
+  const payload = detail.payload && typeof detail.payload === 'object' ? detail.payload : null;
+  const history = Array.isArray(detail.history) ? detail.history : [];
+  const candidate = payload || history[0] || null;
+  if (!candidate || typeof candidate !== 'object') return '';
+  const historyEntry = candidate.historyEntry && typeof candidate.historyEntry === 'object'
+    ? candidate.historyEntry
+    : null;
+  const id = typeof candidate.id === 'string' && candidate.id
+    ? candidate.id
+    : (typeof historyEntry?.id === 'string' ? historyEntry.id : '');
+  let timestamp = '';
+  if (typeof candidate.timestamp === 'string' && candidate.timestamp) {
+    timestamp = candidate.timestamp;
+  } else if (historyEntry) {
+    const numeric = Number(historyEntry.t);
+    if (Number.isFinite(numeric)) {
+      timestamp = String(numeric);
+    }
+  }
+  return `${id}|${timestamp}`;
+};
+
+const buildPlayerRewardToastMessage = (detail) => {
+  const payload = detail?.payload && typeof detail.payload === 'object' ? detail.payload : null;
+  if (payload) {
+    const payloadMessage = typeof payload.message === 'string' ? payload.message.trim() : '';
+    if (payloadMessage) return payloadMessage;
+    const payloadHistory = payload.historyEntry && typeof payload.historyEntry === 'object'
+      ? payload.historyEntry
+      : null;
+    if (payloadHistory) {
+      const historyText = typeof payloadHistory.text === 'string' ? payloadHistory.text.trim() : '';
+      if (historyText) return historyText;
+      const historyName = typeof payloadHistory.name === 'string' ? payloadHistory.name.trim() : '';
+      if (historyName) return `Reward update: ${historyName}`;
+    }
+    const kindLabel = typeof payload.kind === 'string' ? payload.kind.trim() : '';
+    if (kindLabel) return `Reward update: ${kindLabel}`;
+  }
+  const history = Array.isArray(detail?.history) ? detail.history : [];
+  if (history.length) {
+    const first = history[0];
+    if (first && typeof first === 'object') {
+      const entryMessage = typeof first.message === 'string' ? first.message.trim() : '';
+      if (entryMessage) return entryMessage;
+      const firstHistory = first.historyEntry && typeof first.historyEntry === 'object' ? first.historyEntry : null;
+      if (firstHistory) {
+        const historyText = typeof firstHistory.text === 'string' ? firstHistory.text.trim() : '';
+        if (historyText) return historyText;
+        const historyName = typeof firstHistory.name === 'string' ? firstHistory.name.trim() : '';
+        if (historyName) return `Reward update: ${historyName}`;
+      }
+    }
+  }
+  return 'Reward update received. Open Player Tools for details.';
+};
+
 const elPlayerToolsTab = $('player-tools-tab');
 const playerToolsTabDefaultLabel = elPlayerToolsTab?.getAttribute('aria-label') || 'Toggle player tools drawer';
-let playerCreditBadge = null;
+let playerToolsBadge = null;
+const playerToolsBadgeReasons = new Set();
+
 let playerCreditLatestSignature = '';
 let playerCreditAcknowledgedSignature = readPlayerCreditAcknowledgedSignature();
-
 if (playerCreditAcknowledgedSignature) {
   playerCreditLatestSignature = playerCreditAcknowledgedSignature;
 }
 
-const clearPlayerCreditBadge = () => {
-  if (!elPlayerToolsTab || !playerCreditBadge) return;
-  playerCreditBadge.hidden = true;
-  playerCreditBadge.textContent = '!';
-  elPlayerToolsTab.removeAttribute('data-player-credit');
-  if (playerToolsTabDefaultLabel) {
-    elPlayerToolsTab.setAttribute('aria-label', playerToolsTabDefaultLabel);
+let playerRewardLatestSignature = '';
+let playerRewardAcknowledgedSignature = readPlayerRewardAcknowledgedSignature();
+if (playerRewardAcknowledgedSignature) {
+  playerRewardLatestSignature = playerRewardAcknowledgedSignature;
+}
+
+const updatePlayerToolsBadge = () => {
+  if (!playerToolsBadge) {
+    return;
+  }
+  const hasPending = playerToolsBadgeReasons.size > 0;
+  playerToolsBadge.hidden = !hasPending;
+  playerToolsBadge.textContent = '!';
+  if (!elPlayerToolsTab) {
+    return;
+  }
+  if (hasPending) {
+    elPlayerToolsTab.setAttribute('data-player-credit', 'pending');
+    if (playerToolsTabDefaultLabel) {
+      const hasCredit = playerToolsBadgeReasons.has('credit');
+      const hasReward = playerToolsBadgeReasons.has('reward');
+      let suffix = ' (new updates available)';
+      if (hasCredit && hasReward) {
+        suffix = ' (new credit and reward updates)';
+      } else if (hasCredit) {
+        suffix = ' (new credit update)';
+      } else if (hasReward) {
+        suffix = ' (new reward update)';
+      }
+      elPlayerToolsTab.setAttribute('aria-label', `${playerToolsTabDefaultLabel}${suffix}`);
+    }
+  } else {
+    elPlayerToolsTab.removeAttribute('data-player-credit');
+    if (playerToolsTabDefaultLabel) {
+      elPlayerToolsTab.setAttribute('aria-label', playerToolsTabDefaultLabel);
+    }
   }
 };
 
-const showPlayerCreditBadge = () => {
-  if (!elPlayerToolsTab || !playerCreditBadge) return;
-  playerCreditBadge.hidden = false;
-  playerCreditBadge.textContent = '!';
-  elPlayerToolsTab.setAttribute('data-player-credit', 'pending');
-  if (playerToolsTabDefaultLabel) {
-    elPlayerToolsTab.setAttribute('aria-label', `${playerToolsTabDefaultLabel} (new credit update)`);
+const showPlayerToolsBadge = (reason) => {
+  if (!reason) return;
+  playerToolsBadgeReasons.add(reason);
+  updatePlayerToolsBadge();
+};
+
+const clearPlayerToolsBadge = (reason) => {
+  if (!reason) {
+    playerToolsBadgeReasons.clear();
+  } else {
+    playerToolsBadgeReasons.delete(reason);
   }
+  updatePlayerToolsBadge();
 };
 
 const acknowledgePlayerCredit = (signature = playerCreditLatestSignature) => {
-  clearPlayerCreditBadge();
+  clearPlayerToolsBadge('credit');
   playerCreditAcknowledgedSignature = signature || '';
   writePlayerCreditAcknowledgedSignature(playerCreditAcknowledgedSignature);
 };
 
+const acknowledgePlayerReward = (signature = playerRewardLatestSignature) => {
+  clearPlayerToolsBadge('reward');
+  playerRewardAcknowledgedSignature = signature || '';
+  writePlayerRewardAcknowledgedSignature(playerRewardAcknowledgedSignature);
+};
+
 const handlePlayerCreditEventDetail = (detail) => {
-  if (!elPlayerToolsTab || !detail || typeof detail !== 'object') return;
+  if (!detail || typeof detail !== 'object') return;
   if (detail.meta?.dmSession) return;
   const signature = computePlayerCreditSignature(detail);
   if (detail.meta?.source === 'hydrate') {
@@ -5252,35 +5377,71 @@ const handlePlayerCreditEventDetail = (detail) => {
     acknowledgePlayerCredit('');
     return;
   }
-  if (signature) {
-    playerCreditLatestSignature = signature;
-  } else {
-    playerCreditLatestSignature = '';
-  }
+  playerCreditLatestSignature = signature || '';
   if (detail.meta?.reveal === false) {
     return;
   }
   if (signature && signature === playerCreditAcknowledgedSignature) {
     return;
   }
-  showPlayerCreditBadge();
+  showPlayerToolsBadge('credit');
+};
+
+const handlePlayerRewardEventDetail = (detail) => {
+  if (!detail || typeof detail !== 'object') return;
+  if (detail.meta?.dmSession) return;
+  const signature = computePlayerRewardSignature(detail);
+  if (detail.meta?.source === 'hydrate') {
+    playerRewardLatestSignature = signature;
+    acknowledgePlayerReward(signature);
+    return;
+  }
+  const history = Array.isArray(detail.history) ? detail.history : [];
+  if (!history.length) {
+    playerRewardLatestSignature = '';
+    acknowledgePlayerReward('');
+    return;
+  }
+  playerRewardLatestSignature = signature || '';
+  if (detail.meta?.reveal === false) {
+    return;
+  }
+  if (signature && signature === playerRewardAcknowledgedSignature) {
+    return;
+  }
+  showPlayerToolsBadge('reward');
+  const toastMessage = buildPlayerRewardToastMessage(detail);
+  if (toastMessage) {
+    try {
+      toast(toastMessage, 'success');
+    } catch {
+      /* ignore toast errors */
+    }
+  }
 };
 
 if (elPlayerToolsTab) {
-  playerCreditBadge = document.createElement('span');
-  playerCreditBadge.className = 'player-tools-tab__badge';
-  playerCreditBadge.hidden = true;
-  playerCreditBadge.setAttribute('aria-hidden', 'true');
-  playerCreditBadge.textContent = '!';
-  elPlayerToolsTab.appendChild(playerCreditBadge);
-
-  document.addEventListener(PLAYER_CREDIT_EVENTS.UPDATE, event => {
-    handlePlayerCreditEventDetail(event?.detail);
-  });
-  document.addEventListener(PLAYER_CREDIT_EVENTS.SYNC, event => {
-    handlePlayerCreditEventDetail(event?.detail);
-  });
+  playerToolsBadge = document.createElement('span');
+  playerToolsBadge.className = 'player-tools-tab__badge';
+  playerToolsBadge.hidden = true;
+  playerToolsBadge.setAttribute('aria-hidden', 'true');
+  playerToolsBadge.textContent = '!';
+  elPlayerToolsTab.appendChild(playerToolsBadge);
+  updatePlayerToolsBadge();
 }
+
+document.addEventListener(PLAYER_CREDIT_EVENTS.UPDATE, event => {
+  handlePlayerCreditEventDetail(event?.detail);
+});
+document.addEventListener(PLAYER_CREDIT_EVENTS.SYNC, event => {
+  handlePlayerCreditEventDetail(event?.detail);
+});
+document.addEventListener(PLAYER_REWARD_EVENTS.UPDATE, event => {
+  handlePlayerRewardEventDetail(event?.detail);
+});
+document.addEventListener(PLAYER_REWARD_EVENTS.SYNC, event => {
+  handlePlayerRewardEventDetail(event?.detail);
+});
 
 const parseGaugeNumber = value => {
   const numeric = Number(value);
@@ -5405,6 +5566,7 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
     }
     if (open) {
       acknowledgePlayerCredit();
+      acknowledgePlayerReward();
     }
   });
 }
