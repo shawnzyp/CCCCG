@@ -8126,7 +8126,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   opacity: calc(0.75 + 0.25 * var(--player-tools-open-progress, 0));
 }
 
-.player-tools-tab[data-player-credit='pending'] {
+.player-tools-tab[data-player-credit='pending'],
+.player-tools-tab[data-player-reward='pending'] {
   border-color: color-mix(in srgb, var(--accent, #38bdf8) 55%, transparent);
 }
 
@@ -8190,7 +8191,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: grid;
 }
 
-.player-tools-tab[data-player-credit='pending'] .player-tools-tab__badge {
+.player-tools-tab[data-player-credit='pending'] .player-tools-tab__badge,
+.player-tools-tab[data-player-reward='pending'] .player-tools-tab__badge {
   animation: playerToolsCreditPulse 1.8s ease-in-out infinite;
 }
 
