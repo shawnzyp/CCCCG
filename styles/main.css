@@ -281,6 +281,7 @@ body.launching{overflow:hidden;height:100vh;height:100dvh;background:#000}
   margin:0;
 }
 body.launching .app-shell{opacity:0}
+html.player-tools-open{overflow:hidden;overscroll-behavior:none}
 body.player-tools-open{overflow:hidden}
 body.player-tools-open .app-shell{touch-action:none}
 body.player-tools-open .player-tools-drawer,

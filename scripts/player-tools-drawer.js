@@ -88,6 +88,98 @@ function createPlayerToolsDrawer() {
   const motionPreference = null;
 
   const body = document.body;
+  const root = document.documentElement;
+
+  let scrollLockState = null;
+
+  const getScrollOffsets = () => {
+    if (typeof window === 'undefined') {
+      const doc = document.documentElement;
+      return {
+        top: Number.isFinite(doc?.scrollTop) ? doc.scrollTop : 0,
+        left: Number.isFinite(doc?.scrollLeft) ? doc.scrollLeft : 0
+      };
+    }
+    const top = window.pageYOffset || document.documentElement?.scrollTop || body?.scrollTop || 0;
+    const left = window.pageXOffset || document.documentElement?.scrollLeft || body?.scrollLeft || 0;
+    return {
+      top: Number.isFinite(top) ? top : 0,
+      left: Number.isFinite(left) ? left : 0
+    };
+  };
+
+  const lockDocumentScroll = () => {
+    if (!body) return;
+
+    if (!scrollLockState) {
+      const offsets = getScrollOffsets();
+      scrollLockState = {
+        position: body.style.position || '',
+        top: body.style.top || '',
+        left: body.style.left || '',
+        width: body.style.width || '',
+        paddingRight: body.style.paddingRight || '',
+        scrollTop: offsets.top,
+        scrollLeft: offsets.left
+      };
+
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : null;
+      const docWidth = document.documentElement?.clientWidth;
+      const scrollbarWidth =
+        Number.isFinite(viewportWidth) && Number.isFinite(docWidth)
+          ? Math.max(0, viewportWidth - docWidth)
+          : 0;
+
+      body.style.position = 'fixed';
+      body.style.top = `-${scrollLockState.scrollTop}px`;
+      body.style.left = `-${scrollLockState.scrollLeft}px`;
+      body.style.width = '100%';
+
+      if (scrollbarWidth > 0) {
+        body.style.paddingRight = `${scrollbarWidth}px`;
+      }
+    }
+
+    body.classList.add('player-tools-open');
+    if (root) {
+      root.classList.add('player-tools-open');
+    }
+  };
+
+  const unlockDocumentScroll = () => {
+    if (body) {
+      body.classList.remove('player-tools-open');
+    }
+    if (root) {
+      root.classList.remove('player-tools-open');
+    }
+
+    if (!body || !scrollLockState) {
+      scrollLockState = null;
+      return;
+    }
+
+    const { position, top, left, width, paddingRight, scrollTop, scrollLeft } = scrollLockState;
+
+    body.style.position = position;
+    body.style.top = top;
+    body.style.left = left;
+    body.style.width = width;
+    body.style.paddingRight = paddingRight;
+
+    scrollLockState = null;
+
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      window.scrollTo(scrollLeft || 0, scrollTop || 0);
+    } else if (document.documentElement) {
+      if (Number.isFinite(scrollTop)) {
+        document.documentElement.scrollTop = scrollTop;
+      }
+      if (Number.isFinite(scrollLeft)) {
+        document.documentElement.scrollLeft = scrollLeft;
+      }
+    }
+  };
   const requestFrame =
     typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
       ? window.requestAnimationFrame.bind(window)
@@ -918,8 +1010,22 @@ function createPlayerToolsDrawer() {
     const drawerFocusables = Array.from(drawer.querySelectorAll(focusableSelectors)).filter((element) =>
       isElementFocusable(element)
     );
-    const focusables = [tab, ...drawerFocusables];
-    return focusables.filter((element, index) => element && focusables.indexOf(element) === index);
+    const ordered = [];
+    const addUnique = (element) => {
+      if (element && !ordered.includes(element)) {
+        ordered.push(element);
+      }
+    };
+
+    if (drawer.classList.contains('is-open')) {
+      drawerFocusables.forEach(addUnique);
+      addUnique(tab);
+    } else {
+      addUnique(tab);
+      drawerFocusables.forEach(addUnique);
+    }
+
+    return ordered;
   };
 
   const focusWithinTrap = (preferred) => {
@@ -928,13 +1034,20 @@ function createPlayerToolsDrawer() {
       preferred.focus({ preventScroll: true });
       return;
     }
+    const primaryTargets = focusables.filter((element) => element && element !== tab);
+    if (primaryTargets.length > 0) {
+      primaryTargets[0].focus({ preventScroll: true });
+      return;
+    }
     if (focusables.length > 0) {
       focusables[0].focus({ preventScroll: true });
-    } else if (content) {
-      content.focus({ preventScroll: true });
-    } else {
-      drawer.focus({ preventScroll: true });
+      return;
     }
+    if (content) {
+      content.focus({ preventScroll: true });
+      return;
+    }
+    drawer.focus({ preventScroll: true });
   };
 
   let externalInertTargets = [];
@@ -955,8 +1068,10 @@ function createPlayerToolsDrawer() {
     if (scrim && isOpen) {
       scrim.hidden = false;
     }
-    if (body) {
-      body.classList.toggle('player-tools-open', isOpen);
+    if (isOpen) {
+      lockDocumentScroll();
+    } else {
+      unlockDocumentScroll();
     }
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
