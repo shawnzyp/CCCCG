@@ -1142,17 +1142,31 @@ function createPlayerToolsDrawer() {
       (content || drawer).focus({ preventScroll: true });
       return;
     }
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
     const active = document.activeElement;
+    const inDrawer = focusables.filter((element) => element && element !== tab);
+    const hasDrawerTargets = inDrawer.length > 0;
+    const first = hasDrawerTargets ? inDrawer[0] : focusables[0];
+    const last = hasDrawerTargets ? inDrawer[inDrawer.length - 1] : focusables[focusables.length - 1];
+    const tabContainsActive = tab && tab.contains(active);
+    const isWithinTrap = drawer.contains(active) || active === tab || tabContainsActive;
     if (event.shiftKey) {
-      if (active === first || (!drawer.contains(active) && active !== tab)) {
+      const shouldWrap =
+        active === first ||
+        (!isWithinTrap && active !== last) ||
+        (hasDrawerTargets && (active === tab || tabContainsActive));
+      if (shouldWrap) {
         event.preventDefault();
         last.focus({ preventScroll: true });
       }
-    } else if (active === last) {
-      event.preventDefault();
-      first.focus({ preventScroll: true });
+    } else {
+      const shouldWrap =
+        active === last ||
+        (!isWithinTrap && active !== first) ||
+        (hasDrawerTargets && (active === tab || tabContainsActive));
+      if (shouldWrap) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     }
   };
 
