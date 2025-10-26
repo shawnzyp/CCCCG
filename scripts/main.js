@@ -1667,7 +1667,15 @@ function showNextMiniGameInvite() {
   prepareMiniGameInviteAnimation();
   show('mini-game-invite');
   const gameLabel = next.gameName || getMiniGameDefinition(next.gameId)?.name || 'Mini-game';
-  toast(`Incoming mini-game: ${gameLabel}`, 'info');
+  toast(`Incoming mini-game: ${gameLabel}`, {
+    type: 'info',
+    meta: {
+      source: 'mini-game',
+      importance: 'high',
+      action: 'invite',
+      log: true,
+    },
+  });
   updateMiniGameReminder();
 }
 
@@ -1794,7 +1802,15 @@ async function respondToMiniGameInvite(action) {
     await updateMiniGameDeployment(player, id, updates);
   } catch (err) {
     console.error('Failed to update mini-game deployment', err);
-    toast('Failed to update mini-game assignment', 'error');
+    toast('Failed to update mini-game assignment', {
+      type: 'error',
+      meta: {
+        source: 'mini-game',
+        importance: 'critical',
+        action: 'update-failed',
+        log: true,
+      },
+    });
     if (acceptBtn) acceptBtn.disabled = false;
     if (declineBtn) declineBtn.disabled = false;
     return;
@@ -1820,11 +1836,27 @@ async function respondToMiniGameInvite(action) {
     resetToastNotifications({ restoreFocus: false });
   }
   if (action === 'accept') {
-    toast('Mini-game accepted', 'success');
+    toast('Mini-game accepted', {
+      type: 'success',
+      meta: {
+        source: 'mini-game',
+        importance: 'high',
+        action: 'accepted',
+        log: true,
+      },
+    });
     ensureToastContent('Mini-game accepted');
     launchMiniGame(merged);
   } else {
-    toast('Mini-game declined', 'info');
+    toast('Mini-game declined', {
+      type: 'info',
+      meta: {
+        source: 'mini-game',
+        importance: 'high',
+        action: 'declined',
+        log: true,
+      },
+    });
     ensureToastContent('Mini-game declined');
   }
   showNextMiniGameInvite();
@@ -5068,11 +5100,42 @@ function formatToastHistoryTimestamp(timestamp) {
   return { iso: date.toISOString(), label };
 }
 
+const IMPORTANT_TOAST_META_SOURCES = new Set(['player-reward', 'mini-game', 'level-reward']);
+const IMPORTANT_TOAST_META_IMPORTANCE = new Set(['critical', 'high']);
+
+function shouldLogToastMeta(meta) {
+  if (!meta || typeof meta !== 'object') {
+    return false;
+  }
+  if (meta.log === false) {
+    return false;
+  }
+  if (meta.log === true) {
+    return true;
+  }
+  const source = typeof meta.source === 'string' ? meta.source.trim().toLowerCase() : '';
+  if (source && IMPORTANT_TOAST_META_SOURCES.has(source)) {
+    return true;
+  }
+  const importance = typeof meta.importance === 'string' ? meta.importance.trim().toLowerCase() : '';
+  if (importance && IMPORTANT_TOAST_META_IMPORTANCE.has(importance)) {
+    return true;
+  }
+  const category = typeof meta.category === 'string' ? meta.category.trim().toLowerCase() : '';
+  if (category === 'gameplay') {
+    return true;
+  }
+  return false;
+}
+
 function normalizeToastHistoryEntry(detail) {
   if (!detail || typeof detail !== 'object') return null;
   const options = detail.options || {};
-  const meta = options.meta || {};
+  const meta = options && typeof options.meta === 'object' ? options.meta : null;
   if (meta && meta.silent) {
+    return null;
+  }
+  if (!shouldLogToastMeta(meta)) {
     return null;
   }
   const message = extractToastHistoryMessage(detail.message, options);
@@ -8231,7 +8294,17 @@ function showLevelRewardReminderToast(categoryKey) {
   const summaryText = lines.length ? `${heading}: ${lines.join(', ')}` : heading;
   const htmlLines = lines.map(line => `<span class="toast-line">• ${escapeHtml(line)}</span>`);
   const html = `<div class="toast-body"><strong>${escapeHtml(heading)}</strong>${htmlLines.join('')}</div>`;
-  toast(summaryText, { type: 'info', duration: 0, html });
+  toast(summaryText, {
+    type: 'info',
+    duration: 0,
+    html,
+    meta: {
+      source: 'level-reward',
+      importance: 'high',
+      category: 'gameplay',
+      log: true,
+    },
+  });
 }
 
 function getLevelRewardTasksForLevel(entry) {
