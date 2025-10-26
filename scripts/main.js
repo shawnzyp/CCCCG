@@ -1159,6 +1159,39 @@ function setupPriorityTransmissionAlert(){
 
 /* ========= Mini-Game Player Sync ========= */
 const MINI_GAME_PLAYER_CHECK_INTERVAL_MS = 10000;
+function schedulePlayerToolsBadgeSync(callback) {
+  if (typeof callback !== 'function') return;
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(() => {
+      try {
+        callback();
+      } catch {
+        /* ignore badge sync errors */
+      }
+    });
+    return;
+  }
+  if (typeof Promise === 'function') {
+    Promise.resolve().then(() => {
+      try {
+        callback();
+      } catch {
+        /* ignore badge sync errors */
+      }
+    });
+    return;
+  }
+  if (typeof setTimeout === 'function') {
+    setTimeout(() => {
+      try {
+        callback();
+      } catch {
+        /* ignore badge sync errors */
+      }
+    }, 0);
+  }
+}
+
 const miniGameInviteOverlay = typeof document !== 'undefined' ? $('mini-game-invite') : null;
 const miniGameInviteTitle = typeof document !== 'undefined' ? $('mini-game-invite-title') : null;
 const miniGameInviteMessage = typeof document !== 'undefined' ? $('mini-game-invite-message') : null;
@@ -1387,6 +1420,7 @@ function updateMiniGameReminder() {
       miniGameReminderAction.setAttribute('aria-disabled', 'true');
       miniGameReminderAction.setAttribute('aria-label', 'Resume mini-game mission');
     }
+    schedulePlayerToolsBadgeSync(() => removePlayerToolsBadgeReason('mini-game'));
     return;
   }
 
@@ -1397,6 +1431,14 @@ function updateMiniGameReminder() {
 
   miniGameReminderCard.hidden = false;
   miniGameReminderCard.removeAttribute('hidden');
+  const shouldShowMiniGameBadge = actionAvailable;
+  schedulePlayerToolsBadgeSync(() => {
+    if (shouldShowMiniGameBadge) {
+      addPlayerToolsBadgeReason('mini-game');
+    } else {
+      removePlayerToolsBadgeReason('mini-game');
+    }
+  });
 
   if (miniGameReminderGame) {
     miniGameReminderGame.textContent = gameName;
@@ -1432,9 +1474,10 @@ function updateMiniGameReminder() {
   if (miniGameReminderAction) {
     miniGameReminderAction.disabled = !actionAvailable;
     miniGameReminderAction.setAttribute('aria-disabled', actionAvailable ? 'false' : 'true');
-    miniGameReminderAction.textContent = 'Resume';
+    const actionLabel = status === 'pending' ? 'Accept' : 'Resume';
+    miniGameReminderAction.textContent = actionLabel;
     const labelSuffix = actionAvailable ? ` ${gameName}` : '';
-    miniGameReminderAction.setAttribute('aria-label', `Resume${labelSuffix}`.trim());
+    miniGameReminderAction.setAttribute('aria-label', `${actionLabel}${labelSuffix}`.trim());
   }
 }
 
@@ -5060,16 +5103,23 @@ function renderToastHistory() {
   const { panel, list, actions, markRead, clear, unread } = toastHistoryElements;
   if (!panel || !list) return;
 
-  if (!toastHistory.length) {
+  const hidePanel = () => {
+    panel.hidden = true;
     panel.setAttribute('hidden', 'true');
     list.innerHTML = '';
     if (actions) actions.setAttribute('hidden', 'true');
     if (markRead) markRead.setAttribute('hidden', 'true');
     if (clear) clear.setAttribute('hidden', 'true');
     if (unread) unread.setAttribute('hidden', 'true');
+    schedulePlayerToolsBadgeSync(() => removePlayerToolsBadgeReason('notification'));
+  };
+
+  if (!toastHistory.length) {
+    hidePanel();
     return;
   }
 
+  panel.hidden = false;
   panel.removeAttribute('hidden');
   if (actions) actions.removeAttribute('hidden');
   if (clear) clear.removeAttribute('hidden');
@@ -5092,6 +5142,15 @@ function renderToastHistory() {
     }
   }
 
+  const hasUnread = unreadCount > 0;
+  schedulePlayerToolsBadgeSync(() => {
+    if (hasUnread) {
+      addPlayerToolsBadgeReason('notification');
+    } else {
+      removePlayerToolsBadgeReason('notification');
+    }
+  });
+
   const items = toastHistory
     .map(entry => {
       const classes = ['toast-history__item'];
@@ -5101,7 +5160,9 @@ function renderToastHistory() {
       const timeHtml = label
         ? `<time class="toast-history__time" datetime="${escapeHtml(iso)}">${escapeHtml(label)}</time>`
         : '';
-      return `\n        <li class="${classes.join(' ')}">\n          <div class="toast-history__meta">\n            <span class="toast-history__type ${typeClass}">${escapeHtml(entry.typeLabel)}</span>\n            ${timeHtml}\n          </div>\n          <p class="toast-history__message">${escapeHtml(entry.message)}</p>\n        </li>\n      `;
+      const dismissLabel = escapeHtml(`Dismiss notification: ${entry.message}`);
+      const entryId = escapeHtml(entry.id);
+      return `\n        <li>\n          <button type="button" class="${classes.join(' ')}" data-toast-history-entry="${entryId}" aria-label="${dismissLabel}">\n            <div class="toast-history__meta">\n              <span class="toast-history__type ${typeClass}">${escapeHtml(entry.typeLabel)}</span>\n              ${timeHtml}\n            </div>\n            <p class="toast-history__message">${escapeHtml(entry.message)}</p>\n          </button>\n        </li>\n      `;
     })
     .join('');
 
@@ -5137,6 +5198,21 @@ function handleToastHistoryDismissed() {
   }
 }
 
+function dismissToastHistoryEntry(id) {
+  if (!id) return false;
+  const index = toastHistory.findIndex(entry => entry.id === id);
+  if (index === -1) return false;
+  const [removed] = toastHistory.splice(index, 1);
+  if (toastHistoryActiveId === id) {
+    toastHistoryActiveId = null;
+  }
+  if (removed && !removed.read) {
+    removed.read = true;
+  }
+  renderToastHistory();
+  return true;
+}
+
 if (toastHistoryElements.markRead) {
   toastHistoryElements.markRead.addEventListener('click', () => {
     let changed = false;
@@ -5159,6 +5235,32 @@ if (toastHistoryElements.clear) {
     toastHistory.length = 0;
     toastHistoryActiveId = null;
     renderToastHistory();
+  });
+}
+
+if (toastHistoryElements.list) {
+  toastHistoryElements.list.addEventListener('click', event => {
+    const target = event?.target;
+    const button = target && typeof target.closest === 'function'
+      ? target.closest('[data-toast-history-entry]')
+      : null;
+    if (!button) return;
+    const entryId = button.getAttribute('data-toast-history-entry')
+      || (button.dataset ? button.dataset.toastHistoryEntry : '')
+      || '';
+    if (!entryId) return;
+    event.preventDefault();
+    const dismissed = dismissToastHistoryEntry(entryId);
+    if (dismissed) {
+      if (typeof button.blur === 'function') {
+        button.blur();
+      }
+      try {
+        dismissToast();
+      } catch {
+        /* ignore toast dismissal failures */
+      }
+    }
   });
 }
 
@@ -6175,6 +6277,8 @@ const playerToolsBadgeReasons = new Set();
 const PLAYER_TOOLS_BADGE_REASON_LABELS = {
   credit: 'new credit update',
   reward: 'new reward',
+  'mini-game': 'mini-game mission ready',
+  notification: 'new notification',
 };
 let playerToolsTabBadge = null;
 let playerCreditLatestSignature = '';
