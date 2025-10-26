@@ -5914,7 +5914,7 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   display:flex;
   flex-direction:column;
   gap:clamp(12px,3vw,18px);
-  overflow:hidden;
+  overflow:hidden auto;
 }
 
 .modal--augment-picker__subtitle{
@@ -5926,7 +5926,9 @@ body:not(.no-hover) .augment-picker-trigger:hover{
 .modal--augment-picker__content{
   flex:1 1 auto;
   min-height:0;
-  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden auto;
   margin-inline:calc(var(--modal-padding-inline,20px)*-1);
   padding:0 calc(var(--modal-padding-inline,20px));
   padding-bottom:calc(var(--modal-padding-block,14px));

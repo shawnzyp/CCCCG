@@ -9072,15 +9072,23 @@ function handleAugmentRemove(id) {
 function handleAugmentFilterToggle(tag) {
   const normalized = normalizeAugmentTag(tag);
   if (!normalized) return;
-  if (!(augmentState.filters instanceof Set)) augmentState.filters = new Set(AUGMENT_CATEGORIES);
-  if (augmentState.filters.has(normalized)) {
-    if (augmentState.filters.size === 1) {
-      augmentState.filters = new Set(AUGMENT_CATEGORIES);
-    } else {
-      augmentState.filters.delete(normalized);
-    }
+  const totalCategories = AUGMENT_CATEGORIES.length;
+  const currentFilters = augmentState.filters instanceof Set
+    ? new Set(augmentState.filters)
+    : new Set(AUGMENT_CATEGORIES);
+  const allActive = currentFilters.size === totalCategories
+    && AUGMENT_CATEGORIES.every(category => currentFilters.has(category));
+
+  if (allActive) {
+    augmentState.filters = new Set([normalized]);
+  } else if (currentFilters.size === 1 && currentFilters.has(normalized)) {
+    augmentState.filters = new Set(AUGMENT_CATEGORIES);
+  } else if (currentFilters.has(normalized)) {
+    currentFilters.delete(normalized);
+    augmentState.filters = currentFilters.size ? currentFilters : new Set(AUGMENT_CATEGORIES);
   } else {
-    augmentState.filters.add(normalized);
+    currentFilters.add(normalized);
+    augmentState.filters = currentFilters;
   }
   persistAugmentState();
   refreshAugmentUI();
