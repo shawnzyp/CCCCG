@@ -9073,14 +9073,21 @@ function handleAugmentFilterToggle(tag) {
   const normalized = normalizeAugmentTag(tag);
   if (!normalized) return;
   if (!(augmentState.filters instanceof Set)) augmentState.filters = new Set(AUGMENT_CATEGORIES);
-  if (augmentState.filters.has(normalized)) {
-    if (augmentState.filters.size === 1) {
+  const currentFilters = augmentState.filters;
+  const totalCategories = AUGMENT_CATEGORIES.length;
+  const allActive = currentFilters.size >= totalCategories
+    && AUGMENT_CATEGORIES.every(category => currentFilters.has(category));
+
+  if (allActive) {
+    augmentState.filters = new Set([normalized]);
+  } else if (currentFilters.has(normalized)) {
+    if (currentFilters.size === 1) {
       augmentState.filters = new Set(AUGMENT_CATEGORIES);
     } else {
-      augmentState.filters.delete(normalized);
+      currentFilters.delete(normalized);
     }
   } else {
-    augmentState.filters.add(normalized);
+    currentFilters.add(normalized);
   }
   persistAugmentState();
   refreshAugmentUI();
