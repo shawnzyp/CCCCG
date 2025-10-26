@@ -10273,6 +10273,9 @@ function consumeForcedRefreshState() {
 function announceContentUpdate(payload = {}) {
   if (serviceWorkerUpdateHandled) return;
   serviceWorkerUpdateHandled = true;
+  const finalizeUpdateHandling = () => {
+    serviceWorkerUpdateHandled = false;
+  };
   const baseMessage =
     typeof payload.message === 'string' && payload.message.trim()
       ? payload.message.trim()
@@ -10302,7 +10305,14 @@ function announceContentUpdate(payload = {}) {
   } catch {
     /* ignore toast errors */
   }
-  const refreshOutcomePromise = runContentRefreshHandlers(detail);
+  let refreshOutcomePromise;
+  try {
+    refreshOutcomePromise = runContentRefreshHandlers(detail);
+  } catch (err) {
+    finalizeUpdateHandling();
+    console.error('Content refresh processing failed', err);
+    return;
+  }
   detail.refreshPromise = refreshOutcomePromise;
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     try {
@@ -10327,8 +10337,13 @@ function announceContentUpdate(payload = {}) {
       })
       .catch(err => {
         console.error('Content refresh processing failed', err);
+      })
+      .finally(() => {
+        finalizeUpdateHandling();
       });
+    return;
   }
+  finalizeUpdateHandling();
 }
 
 
