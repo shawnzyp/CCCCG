@@ -1159,6 +1159,39 @@ function setupPriorityTransmissionAlert(){
 
 /* ========= Mini-Game Player Sync ========= */
 const MINI_GAME_PLAYER_CHECK_INTERVAL_MS = 10000;
+function schedulePlayerToolsBadgeSync(callback) {
+  if (typeof callback !== 'function') return;
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(() => {
+      try {
+        callback();
+      } catch {
+        /* ignore badge sync errors */
+      }
+    });
+    return;
+  }
+  if (typeof Promise === 'function') {
+    Promise.resolve().then(() => {
+      try {
+        callback();
+      } catch {
+        /* ignore badge sync errors */
+      }
+    });
+    return;
+  }
+  if (typeof setTimeout === 'function') {
+    setTimeout(() => {
+      try {
+        callback();
+      } catch {
+        /* ignore badge sync errors */
+      }
+    }, 0);
+  }
+}
+
 const miniGameInviteOverlay = typeof document !== 'undefined' ? $('mini-game-invite') : null;
 const miniGameInviteTitle = typeof document !== 'undefined' ? $('mini-game-invite-title') : null;
 const miniGameInviteMessage = typeof document !== 'undefined' ? $('mini-game-invite-message') : null;
@@ -1387,6 +1420,7 @@ function updateMiniGameReminder() {
       miniGameReminderAction.setAttribute('aria-disabled', 'true');
       miniGameReminderAction.setAttribute('aria-label', 'Resume mini-game mission');
     }
+    schedulePlayerToolsBadgeSync(() => removePlayerToolsBadgeReason('mini-game'));
     return;
   }
 
@@ -1397,6 +1431,14 @@ function updateMiniGameReminder() {
 
   miniGameReminderCard.hidden = false;
   miniGameReminderCard.removeAttribute('hidden');
+  const shouldShowMiniGameBadge = actionAvailable;
+  schedulePlayerToolsBadgeSync(() => {
+    if (shouldShowMiniGameBadge) {
+      addPlayerToolsBadgeReason('mini-game');
+    } else {
+      removePlayerToolsBadgeReason('mini-game');
+    }
+  });
 
   if (miniGameReminderGame) {
     miniGameReminderGame.textContent = gameName;
@@ -1432,9 +1474,10 @@ function updateMiniGameReminder() {
   if (miniGameReminderAction) {
     miniGameReminderAction.disabled = !actionAvailable;
     miniGameReminderAction.setAttribute('aria-disabled', actionAvailable ? 'false' : 'true');
-    miniGameReminderAction.textContent = 'Resume';
+    const actionLabel = status === 'pending' ? 'Accept' : 'Resume';
+    miniGameReminderAction.textContent = actionLabel;
     const labelSuffix = actionAvailable ? ` ${gameName}` : '';
-    miniGameReminderAction.setAttribute('aria-label', `Resume${labelSuffix}`.trim());
+    miniGameReminderAction.setAttribute('aria-label', `${actionLabel}${labelSuffix}`.trim());
   }
 }
 
@@ -1624,7 +1667,15 @@ function showNextMiniGameInvite() {
   prepareMiniGameInviteAnimation();
   show('mini-game-invite');
   const gameLabel = next.gameName || getMiniGameDefinition(next.gameId)?.name || 'Mini-game';
-  toast(`Incoming mini-game: ${gameLabel}`, 'info');
+  toast(`Incoming mini-game: ${gameLabel}`, {
+    type: 'info',
+    meta: {
+      source: 'mini-game',
+      importance: 'high',
+      action: 'invite',
+      log: true,
+    },
+  });
   updateMiniGameReminder();
 }
 
@@ -1751,7 +1802,15 @@ async function respondToMiniGameInvite(action) {
     await updateMiniGameDeployment(player, id, updates);
   } catch (err) {
     console.error('Failed to update mini-game deployment', err);
-    toast('Failed to update mini-game assignment', 'error');
+    toast('Failed to update mini-game assignment', {
+      type: 'error',
+      meta: {
+        source: 'mini-game',
+        importance: 'critical',
+        action: 'update-failed',
+        log: true,
+      },
+    });
     if (acceptBtn) acceptBtn.disabled = false;
     if (declineBtn) declineBtn.disabled = false;
     return;
@@ -1777,11 +1836,27 @@ async function respondToMiniGameInvite(action) {
     resetToastNotifications({ restoreFocus: false });
   }
   if (action === 'accept') {
-    toast('Mini-game accepted', 'success');
+    toast('Mini-game accepted', {
+      type: 'success',
+      meta: {
+        source: 'mini-game',
+        importance: 'high',
+        action: 'accepted',
+        log: true,
+      },
+    });
     ensureToastContent('Mini-game accepted');
     launchMiniGame(merged);
   } else {
-    toast('Mini-game declined', 'info');
+    toast('Mini-game declined', {
+      type: 'info',
+      meta: {
+        source: 'mini-game',
+        importance: 'high',
+        action: 'declined',
+        log: true,
+      },
+    });
     ensureToastContent('Mini-game declined');
   }
   showNextMiniGameInvite();
@@ -5025,11 +5100,42 @@ function formatToastHistoryTimestamp(timestamp) {
   return { iso: date.toISOString(), label };
 }
 
+const IMPORTANT_TOAST_META_SOURCES = new Set(['player-reward', 'mini-game', 'level-reward']);
+const IMPORTANT_TOAST_META_IMPORTANCE = new Set(['critical', 'high']);
+
+function shouldLogToastMeta(meta) {
+  if (!meta || typeof meta !== 'object') {
+    return false;
+  }
+  if (meta.log === false) {
+    return false;
+  }
+  if (meta.log === true) {
+    return true;
+  }
+  const source = typeof meta.source === 'string' ? meta.source.trim().toLowerCase() : '';
+  if (source && IMPORTANT_TOAST_META_SOURCES.has(source)) {
+    return true;
+  }
+  const importance = typeof meta.importance === 'string' ? meta.importance.trim().toLowerCase() : '';
+  if (importance && IMPORTANT_TOAST_META_IMPORTANCE.has(importance)) {
+    return true;
+  }
+  const category = typeof meta.category === 'string' ? meta.category.trim().toLowerCase() : '';
+  if (category === 'gameplay') {
+    return true;
+  }
+  return false;
+}
+
 function normalizeToastHistoryEntry(detail) {
   if (!detail || typeof detail !== 'object') return null;
   const options = detail.options || {};
-  const meta = options.meta || {};
+  const meta = options && typeof options.meta === 'object' ? options.meta : null;
   if (meta && meta.silent) {
+    return null;
+  }
+  if (!shouldLogToastMeta(meta)) {
     return null;
   }
   const message = extractToastHistoryMessage(detail.message, options);
@@ -5060,16 +5166,23 @@ function renderToastHistory() {
   const { panel, list, actions, markRead, clear, unread } = toastHistoryElements;
   if (!panel || !list) return;
 
-  if (!toastHistory.length) {
+  const hidePanel = () => {
+    panel.hidden = true;
     panel.setAttribute('hidden', 'true');
     list.innerHTML = '';
     if (actions) actions.setAttribute('hidden', 'true');
     if (markRead) markRead.setAttribute('hidden', 'true');
     if (clear) clear.setAttribute('hidden', 'true');
     if (unread) unread.setAttribute('hidden', 'true');
+    schedulePlayerToolsBadgeSync(() => removePlayerToolsBadgeReason('notification'));
+  };
+
+  if (!toastHistory.length) {
+    hidePanel();
     return;
   }
 
+  panel.hidden = false;
   panel.removeAttribute('hidden');
   if (actions) actions.removeAttribute('hidden');
   if (clear) clear.removeAttribute('hidden');
@@ -5092,6 +5205,15 @@ function renderToastHistory() {
     }
   }
 
+  const hasUnread = unreadCount > 0;
+  schedulePlayerToolsBadgeSync(() => {
+    if (hasUnread) {
+      addPlayerToolsBadgeReason('notification');
+    } else {
+      removePlayerToolsBadgeReason('notification');
+    }
+  });
+
   const items = toastHistory
     .map(entry => {
       const classes = ['toast-history__item'];
@@ -5101,7 +5223,9 @@ function renderToastHistory() {
       const timeHtml = label
         ? `<time class="toast-history__time" datetime="${escapeHtml(iso)}">${escapeHtml(label)}</time>`
         : '';
-      return `\n        <li class="${classes.join(' ')}">\n          <div class="toast-history__meta">\n            <span class="toast-history__type ${typeClass}">${escapeHtml(entry.typeLabel)}</span>\n            ${timeHtml}\n          </div>\n          <p class="toast-history__message">${escapeHtml(entry.message)}</p>\n        </li>\n      `;
+      const dismissLabel = escapeHtml(`Dismiss notification: ${entry.message}`);
+      const entryId = escapeHtml(entry.id);
+      return `\n        <li>\n          <button type="button" class="${classes.join(' ')}" data-toast-history-entry="${entryId}" aria-label="${dismissLabel}">\n            <div class="toast-history__meta">\n              <span class="toast-history__type ${typeClass}">${escapeHtml(entry.typeLabel)}</span>\n              ${timeHtml}\n            </div>\n            <p class="toast-history__message">${escapeHtml(entry.message)}</p>\n          </button>\n        </li>\n      `;
     })
     .join('');
 
@@ -5137,6 +5261,21 @@ function handleToastHistoryDismissed() {
   }
 }
 
+function dismissToastHistoryEntry(id) {
+  if (!id) return false;
+  const index = toastHistory.findIndex(entry => entry.id === id);
+  if (index === -1) return false;
+  const [removed] = toastHistory.splice(index, 1);
+  if (toastHistoryActiveId === id) {
+    toastHistoryActiveId = null;
+  }
+  if (removed && !removed.read) {
+    removed.read = true;
+  }
+  renderToastHistory();
+  return true;
+}
+
 if (toastHistoryElements.markRead) {
   toastHistoryElements.markRead.addEventListener('click', () => {
     let changed = false;
@@ -5159,6 +5298,32 @@ if (toastHistoryElements.clear) {
     toastHistory.length = 0;
     toastHistoryActiveId = null;
     renderToastHistory();
+  });
+}
+
+if (toastHistoryElements.list) {
+  toastHistoryElements.list.addEventListener('click', event => {
+    const target = event?.target;
+    const button = target && typeof target.closest === 'function'
+      ? target.closest('[data-toast-history-entry]')
+      : null;
+    if (!button) return;
+    const entryId = button.getAttribute('data-toast-history-entry')
+      || (button.dataset ? button.dataset.toastHistoryEntry : '')
+      || '';
+    if (!entryId) return;
+    event.preventDefault();
+    const dismissed = dismissToastHistoryEntry(entryId);
+    if (dismissed) {
+      if (typeof button.blur === 'function') {
+        button.blur();
+      }
+      try {
+        dismissToast();
+      } catch {
+        /* ignore toast dismissal failures */
+      }
+    }
   });
 }
 
@@ -6175,6 +6340,8 @@ const playerToolsBadgeReasons = new Set();
 const PLAYER_TOOLS_BADGE_REASON_LABELS = {
   credit: 'new credit update',
   reward: 'new reward',
+  'mini-game': 'mini-game mission ready',
+  notification: 'new notification',
 };
 let playerToolsTabBadge = null;
 let playerCreditLatestSignature = '';
@@ -8127,7 +8294,17 @@ function showLevelRewardReminderToast(categoryKey) {
   const summaryText = lines.length ? `${heading}: ${lines.join(', ')}` : heading;
   const htmlLines = lines.map(line => `<span class="toast-line">• ${escapeHtml(line)}</span>`);
   const html = `<div class="toast-body"><strong>${escapeHtml(heading)}</strong>${htmlLines.join('')}</div>`;
-  toast(summaryText, { type: 'info', duration: 0, html });
+  toast(summaryText, {
+    type: 'info',
+    duration: 0,
+    html,
+    meta: {
+      source: 'level-reward',
+      importance: 'high',
+      category: 'gameplay',
+      log: true,
+    },
+  });
 }
 
 function getLevelRewardTasksForLevel(entry) {
