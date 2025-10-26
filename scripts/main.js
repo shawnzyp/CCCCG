@@ -18606,6 +18606,19 @@ async function restoreLastLoadedCharacter(){
     return;
   }
   if (!data) return;
+  const normalizedStoredName = typeof storedName === 'string' ? storedName.trim().toLowerCase() : '';
+  const activeName = typeof currentCharacter === 'function' ? currentCharacter() : '';
+  const normalizedActiveName = typeof activeName === 'string' ? activeName.trim().toLowerCase() : '';
+  const heroField = typeof document !== 'undefined' ? document.getElementById('superhero') : null;
+  const heroFieldValue = heroField && typeof heroField.value === 'string'
+    ? heroField.value.trim().toLowerCase()
+    : '';
+  const heroChanged = heroFieldValue
+    && heroFieldValue !== normalizedStoredName
+    && heroFieldValue !== normalizedActiveName;
+  if ((normalizedActiveName && normalizedActiveName !== normalizedStoredName) || heroChanged) {
+    return;
+  }
   const previousMode = useViewMode();
   setCurrentCharacter(storedName);
   syncMiniGamePlayerName();
