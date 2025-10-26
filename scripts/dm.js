@@ -2114,8 +2114,20 @@ function initDMLogin(){
     }
   }
 
+  function resolveCreditIdentifier(txid, ref) {
+    const normalizedTxid = typeof txid === 'string' ? txid : '';
+    const normalizedRef = typeof ref === 'string' ? ref : '';
+    if (!normalizedTxid) return normalizedRef;
+    if (normalizedRef && /^TXN-/i.test(normalizedRef) && normalizedRef.replace(/^TXN-/i, '') === normalizedTxid) {
+      return normalizedRef;
+    }
+    return normalizedTxid;
+  }
+
   function playerCreditHistoryKey(entry = {}) {
-    return `${entry.txid || entry.ref || ''}|${entry.timestamp || ''}`;
+    const id = resolveCreditIdentifier(entry.txid, entry.ref) || '';
+    const timestamp = typeof entry.timestamp === 'string' ? entry.timestamp : entry.timestamp || '';
+    return `${id}|${timestamp}`;
   }
 
   function persistPlayerCreditHistory(entries) {
