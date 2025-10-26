@@ -80,11 +80,19 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
     return broadcastChannel;
   };
 
+  const resolveCreditIdentifier = (txid, ref) => {
+    const normalizedTxid = typeof txid === 'string' ? txid : '';
+    const normalizedRef = typeof ref === 'string' ? ref : '';
+    if (!normalizedTxid) return normalizedRef;
+    if (normalizedRef && /^TXN-/i.test(normalizedRef) && normalizedRef.replace(/^TXN-/i, '') === normalizedTxid) {
+      return normalizedRef;
+    }
+    return normalizedTxid;
+  };
+
   const signatureFromEntry = (entry) => {
     if (!entry || typeof entry !== 'object') return '';
-    const txid = typeof entry.txid === 'string' ? entry.txid : '';
-    const ref = typeof entry.ref === 'string' ? entry.ref : '';
-    const id = txid || ref;
+    const id = resolveCreditIdentifier(entry.txid, entry.ref);
     let timestamp = '';
     if (typeof entry.timestamp === 'string' && entry.timestamp) {
       timestamp = entry.timestamp;
@@ -98,15 +106,7 @@ import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
   const buildAcknowledgementSignature = () => {
     if (card && card.dataset) {
       const ts = typeof card.dataset.timestamp === 'string' ? card.dataset.timestamp : '';
-      const txid = typeof card.dataset.txid === 'string' ? card.dataset.txid : '';
-      const ref = typeof card.dataset.ref === 'string' ? card.dataset.ref : '';
-      const id = (() => {
-        if (!txid) return ref;
-        if (ref && /^TXN-/i.test(ref) && ref.replace(/^TXN-/i, '') === txid) {
-          return ref;
-        }
-        return txid;
-      })();
+      const id = resolveCreditIdentifier(card.dataset.txid, card.dataset.ref);
       if (ts) {
         return `${id || ''}|${ts}`;
       }
