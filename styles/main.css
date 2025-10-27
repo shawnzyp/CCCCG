@@ -6245,6 +6245,10 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   margin-bottom:clamp(8px,2.6vw,12px);
 }
 
+.player-tools-reminder[hidden]{
+  display:none !important;
+}
+
 .player-tools-reminder__actions{
   display:flex;
   align-items:stretch;
