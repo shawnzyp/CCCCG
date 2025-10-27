@@ -2644,6 +2644,8 @@ function loadConfetti() {
 const rulesEl = qs('#rules-text');
 const RULES_SRC = './ruleshelp.txt';
 let rulesLoaded = false;
+let rulesLoadPromise = null;
+let hasOpenedRulesModal = false;
 
 // ----- animation lock -----
 // Animations should only run after an explicit user action. To prevent them
@@ -3407,14 +3409,27 @@ const ICON_UNLOCK = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="
 const ICON_EDIT = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.651-1.65a1.5 1.5 0 112.121 2.12l-9.9 9.9a4.5 4.5 0 01-1.591.99l-3.26 1.087 1.088-3.26a4.5 4.5 0 01.99-1.59l9.9-9.9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M18 8l-2-2"/></svg>';
 
 async function renderRules(){
-  if (!rulesEl || rulesLoaded) return;
+  if (!rulesEl) return;
+  if (rulesLoaded) return;
+  if (rulesLoadPromise) return rulesLoadPromise;
   try {
-    const res = await fetch(RULES_SRC);
-    rulesEl.textContent = await res.text();
-    rulesLoaded = true;
-  } catch (e) {
-    rulesEl.textContent = 'Failed to load rules.';
-  }
+    const current = typeof rulesEl.textContent === 'string' ? rulesEl.textContent.trim() : '';
+    if (!current || current === 'Failed to load rules.') {
+      rulesEl.textContent = 'Loading rules…';
+    }
+  } catch {}
+  rulesLoadPromise = (async () => {
+    try {
+      const res = await fetch(RULES_SRC);
+      rulesEl.textContent = await res.text();
+      rulesLoaded = true;
+    } catch (e) {
+      rulesEl.textContent = 'Failed to load rules.';
+    } finally {
+      rulesLoadPromise = null;
+    }
+  })();
+  return rulesLoadPromise;
 }
 
 registerContentRefreshTask(async () => {
@@ -16867,6 +16882,7 @@ const tierSel = $('catalog-filter-rarity');
 const catalogCustomBtn = $('catalog-add-custom');
 const catalogListEl = $('catalog-list');
 let pendingCatalogFilters = null;
+let hasOpenedCatalogModal = false;
 const CUSTOM_CATALOG_KEY = 'custom-catalog';
 let customCatalogEntries = loadCustomCatalogEntries();
 const initialDmCatalogState = getDmCatalogState();
@@ -17867,6 +17883,7 @@ if (customTypeButtons.length) {
 
 function openCatalogWithFilters(filters = {}){
   pendingCatalogFilters = filters;
+  hasOpenedCatalogModal = true;
   show('modal-catalog');
   renderCatalog();
   ensureCatalog().then(() => {
@@ -17876,6 +17893,8 @@ function openCatalogWithFilters(filters = {}){
     toast('Failed to load gear catalog', 'error');
     pendingCatalogFilters = null;
     renderCatalog();
+  }).finally(() => {
+    queueCatalogIdlePrefetch();
   });
 }
 
@@ -17931,19 +17950,24 @@ const shouldScheduleBackgroundPreloads = !(
 );
 
 const backgroundPreloadTasks = [];
+let rulesIdlePrefetchQueued = false;
+let catalogIdlePrefetchQueued = false;
 
-if (shouldScheduleBackgroundPreloads && rulesEl && !rulesLoaded) {
-  backgroundPreloadTasks.push(() => renderRules());
+function queueRulesIdlePrefetch() {
+  if (!hasOpenedRulesModal || rulesIdlePrefetchQueued || !shouldScheduleBackgroundPreloads) return;
+  rulesIdlePrefetchQueued = true;
+  backgroundPreloadTasks.push(() => rulesLoadPromise || renderRules());
+  scheduleBackgroundPreloads();
 }
 
-if (shouldScheduleBackgroundPreloads && typeof ensureCatalog === 'function') {
-  backgroundPreloadTasks.push(() => ensureCatalog().then(() => {
-    try {
-      renderCatalog();
-    } catch (err) {
-      console.warn('Background catalog render failed', err);
-    }
-  }));
+function queueCatalogIdlePrefetch() {
+  if (!hasOpenedCatalogModal || catalogIdlePrefetchQueued || !shouldScheduleBackgroundPreloads) return;
+  catalogIdlePrefetchQueued = true;
+  backgroundPreloadTasks.push(() => {
+    if (catalogData) return null;
+    return catalogPromise || ensureCatalog();
+  });
+  scheduleBackgroundPreloads();
 }
 
 function runBackgroundPreloads() {
@@ -19770,9 +19794,15 @@ if (secretInput) {
 /* ========= Rules ========= */
 const btnRules = $('btn-rules');
 if (btnRules) {
-  btnRules.addEventListener('click', ()=>{
-    renderRules();
+  btnRules.addEventListener('click', () => {
+    hasOpenedRulesModal = true;
+    const loadRules = renderRules();
     show('modal-rules');
+    if (loadRules && typeof loadRules.then === 'function') {
+      loadRules.finally(() => queueRulesIdlePrefetch());
+    } else {
+      queueRulesIdlePrefetch();
+    }
   });
 }
 
