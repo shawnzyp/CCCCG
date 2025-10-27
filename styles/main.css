@@ -4567,7 +4567,6 @@ body:not(.no-hover) .dm-catalog__tab:not(.is-active):hover,body:not(.no-hover) .
 #mini-game-invite .modal{--mini-game-invite-animation-duration:.44s;animation-duration:var(--mini-game-invite-animation-duration);animation-fill-mode:both;animation-timing-function:cubic-bezier(.22,1,.36,1);animation-name:none}
 #mini-game-invite:not(.hidden).mini-game-invite--animate .modal{animation-name:mini-game-invite-modal-in}
 @keyframes mini-game-invite-modal-in{0%{opacity:0;transform:translateY(16px) scale(.94)}60%{opacity:1}100%{opacity:1;transform:translateY(0) scale(1)}}
-@media (prefers-reduced-motion:reduce){#mini-game-invite .modal{animation:none}}
 .mini-game-invite{max-width:min(420px,100%);display:flex;flex-direction:column;gap:16px;padding:20px 24px}
 .mini-game-invite__header{display:flex;flex-direction:column;gap:6px;text-align:center}
 .mini-game-invite__title{margin:0;font-size:1.05rem}
@@ -6308,11 +6307,6 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   }
 }
 
-@media (prefers-reduced-motion: reduce){
-  .player-tools-reminder__trigger[data-pending="true"]{
-    animation:none !important;
-  }
-}
 
 .player-tools-reminder__trigger[data-pending="true"][data-drawer-open="true"]{
   box-shadow:0 6px 22px rgba(0,0,0,.18),0 0 0 2px color-mix(in srgb,var(--accent) 55%, transparent);

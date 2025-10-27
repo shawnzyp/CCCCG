@@ -95,6 +95,8 @@ import {
 } from './offline-cache.js';
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
+const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
+const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
@@ -102,34 +104,34 @@ const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator
 if (typeof window !== 'undefined') {
   if (typeof window.matchMedia === 'function') {
     const originalMatchMedia = window.matchMedia.bind(window);
-    const suppressedTokens = [REDUCED_MOTION_TOKEN, REDUCED_DATA_TOKEN, SAVE_DATA_TOKEN];
+    const suppressedTokens = [REDUCED_DATA_TOKEN, SAVE_DATA_TOKEN];
+    const noop = () => {};
+    const createSuppressedMediaQueryList = (queryString, matches) => ({
+      matches,
+      media: queryString,
+      onchange: null,
+      addEventListener: noop,
+      removeEventListener: noop,
+      addListener: noop,
+      removeListener: noop,
+      dispatchEvent: () => false,
+    });
     window.matchMedia = query => {
-      if (typeof query === 'string' && suppressedTokens.some(token => query.includes(token))) {
-        const noop = () => {};
-        return {
-          matches: false,
-          media: query,
-          onchange: null,
-          addEventListener: noop,
-          removeEventListener: noop,
-          addListener: noop,
-          removeListener: noop,
-          dispatchEvent: () => false,
-        };
+      if (typeof query === 'string') {
+        const normalizedQuery = query.toLowerCase();
+        if (normalizedQuery.includes(REDUCED_MOTION_TOKEN)) {
+          const hasNoPreference = REDUCED_MOTION_NO_PREFERENCE_PATTERN.test(normalizedQuery);
+          const shouldMatch = hasNoPreference || !REDUCED_MOTION_REDUCE_PATTERN.test(normalizedQuery);
+          return createSuppressedMediaQueryList(query, shouldMatch);
+        }
+        if (suppressedTokens.some(token => normalizedQuery.includes(token))) {
+          return createSuppressedMediaQueryList(query, false);
+        }
       }
       try {
         return originalMatchMedia(query);
       } catch (err) {
-        return {
-          matches: false,
-          media: query,
-          onchange: null,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          addListener: () => {},
-          removeListener: () => {},
-          dispatchEvent: () => false,
-        };
+        return createSuppressedMediaQueryList(query, false);
       }
     };
   }
@@ -1221,19 +1223,12 @@ const miniGameReminderAction = typeof document !== 'undefined'
   ? document.querySelector('[data-mini-game-reminder-action]')
   : null;
 const MINI_GAME_INVITE_ANIMATION_CLASS = 'mini-game-invite--animate';
-const MINI_GAME_INVITE_REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const MINI_GAME_REMINDER_ELIGIBLE_STATUSES = new Set(['pending', 'active']);
 const MINI_GAME_REMINDER_STATUS_PRIORITY = { pending: 0, active: 1 };
 
 function shouldAnimateMiniGameInvite() {
-  if (!miniGameInviteOverlay) return false;
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
-  try {
-    return !window.matchMedia(MINI_GAME_INVITE_REDUCED_MOTION_QUERY).matches;
-  } catch {
-    return true;
-  }
+  return Boolean(miniGameInviteOverlay);
 }
 
 function prepareMiniGameInviteAnimation() {
@@ -3976,14 +3971,50 @@ if (themeToggleEl) {
 const tabButtons = Array.from(qsa('.tab'));
 let lastClickedTab = null;
 
-tabButtons.forEach(btn => btn.addEventListener('click', () => {
-  const target = btn.getAttribute('data-go');
-  if (!target) return;
+const pointerActivationThreshold = 400;
+const pointerEventTypes = new Set(['touch', 'pen']);
+const getPointerTimestamp = () =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+
+const isInstantPointerEvent = (event) =>
+  event
+  && typeof event.pointerType === 'string'
+  && pointerEventTypes.has(event.pointerType);
+
+const handleTabActivation = (btn, target) => {
   lastClickedTab = target;
   activateTab(target);
   const iconContainer = btn.querySelector('.tab__icon');
   if (iconContainer) triggerTabIconAnimation(iconContainer);
-}));
+};
+
+let lastInstantTabTarget = '';
+let lastInstantTabTime = 0;
+
+tabButtons.forEach(btn => {
+  btn.addEventListener('pointerdown', event => {
+    if (!isInstantPointerEvent(event)) return;
+    const target = btn.getAttribute('data-go');
+    if (!target) return;
+    lastInstantTabTarget = target;
+    lastInstantTabTime = getPointerTimestamp();
+    handleTabActivation(btn, target);
+  });
+
+  btn.addEventListener('click', () => {
+    const target = btn.getAttribute('data-go');
+    if (!target) return;
+    const now = getPointerTimestamp();
+    if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
+      lastInstantTabTarget = '';
+      lastInstantTabTime = 0;
+      return;
+    }
+    handleTabActivation(btn, target);
+  });
+});
 
 let hasAnimatedInitialTab = false;
 onTabChange(name => {

@@ -1143,12 +1143,53 @@ function createPlayerToolsDrawer() {
     dispatchStateChange(isOpen);
   };
 
+  const getPointerTimestamp = () =>
+    typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+
+  const isInstantPointerEvent = (event) =>
+    event
+    && typeof event.pointerType === 'string'
+    && (event.pointerType === 'touch' || event.pointerType === 'pen');
+
+  let lastInstantTabToggle = 0;
+  let lastInstantScrimToggle = 0;
+
+  tab.addEventListener('pointerdown', (event) => {
+    if (!isInstantPointerEvent(event)) return;
+    if (typeof event.preventDefault === 'function') {
+      event.preventDefault();
+    }
+    lastInstantTabToggle = getPointerTimestamp();
+    setOpenState();
+  });
+
   tab.addEventListener('click', () => {
+    const now = getPointerTimestamp();
+    if (lastInstantTabToggle && now - lastInstantTabToggle < 400) {
+      lastInstantTabToggle = 0;
+      return;
+    }
     setOpenState();
   });
 
   if (scrim) {
+    scrim.addEventListener('pointerdown', (event) => {
+      if (!isInstantPointerEvent(event)) return;
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      lastInstantScrimToggle = getPointerTimestamp();
+      setOpenState(false);
+    });
+
     scrim.addEventListener('click', () => {
+      const now = getPointerTimestamp();
+      if (lastInstantScrimToggle && now - lastInstantScrimToggle < 400) {
+        lastInstantScrimToggle = 0;
+        return;
+      }
       setOpenState(false);
     });
   }
