@@ -93,6 +93,7 @@ import {
   setStoredOfflineManifestVersion,
   supportsOfflineCaching,
 } from './offline-cache.js';
+import { createVirtualizedList } from './virtualized-list.js';
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
@@ -6251,6 +6252,25 @@ const elAugmentSelectedList = $('augment-selected-list');
 const elAugmentAvailableList = augmentPickerOverlay
   ? augmentPickerOverlay.querySelector('#augment-available-list')
   : $('augment-available-list');
+const augmentPickerScrollContainer = augmentPickerOverlay
+  ? augmentPickerOverlay.querySelector('.modal--augment-picker__content')
+  : null;
+const augmentPickerRenderContext = { canSelectMore: true };
+const augmentPickerVirtualList = createVirtualizedList(elAugmentAvailableList, {
+  scrollContainer: augmentPickerScrollContainer,
+  estimateItemHeight: 240,
+  initialRenderCount: 6,
+  getItemKey: (augment, index) => (augment && augment.id ? augment.id : `augment-${index}`),
+  measureScrollFps: true,
+  fpsThreshold: 5000,
+  onMetrics: metrics => {
+    if (typeof window !== 'undefined') {
+      window.__ccVirtualMetrics = window.__ccVirtualMetrics || {};
+      window.__ccVirtualMetrics.augment = metrics;
+    }
+  },
+  renderItem: (augment, renderContext) => renderAugmentPickerVirtualItem(augment, renderContext),
+});
 
 const PLAYER_CREDIT_LAST_VIEWED_KEY = 'player-credit:last-viewed';
 const PLAYER_CREDIT_BROADCAST_CHANNEL = 'cc:player-credit';
@@ -8839,80 +8859,105 @@ function renderSelectedAugments() {
   }
 }
 
+function renderAugmentPickerVirtualItem(augment, { placeholder, context } = {}) {
+  if (!augment || !placeholder) return null;
+  const canSelectMore = context && context.canSelectMore === true;
+  const card = document.createElement('div');
+  card.className = 'augment-card';
+
+  const header = document.createElement('div');
+  header.className = 'augment-card__header';
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'augment-card__title';
+
+  const nameEl = document.createElement('h4');
+  nameEl.className = 'augment-card__name';
+  nameEl.textContent = augment.name || 'Augment';
+
+  const groupEl = document.createElement('p');
+  groupEl.className = 'augment-card__group';
+  groupEl.textContent = augment.group || '';
+
+  titleWrap.append(nameEl, groupEl);
+
+  const actions = document.createElement('div');
+  actions.className = 'augment-card__actions';
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'btn-sm';
+  addBtn.textContent = canSelectMore ? 'Add Augment' : 'No Slots';
+  addBtn.disabled = !canSelectMore;
+  addBtn.dataset.focusId = 'augment-add';
+  addBtn.setAttribute('data-view-allow', '');
+  addBtn.addEventListener('click', () => handleAugmentAdd(augment.id));
+
+  actions.appendChild(addBtn);
+  header.append(titleWrap, actions);
+
+  const body = document.createElement('div');
+  body.className = 'augment-card__body';
+
+  if (augment.summary) {
+    const summary = document.createElement('p');
+    summary.className = 'augment-card__summary';
+    summary.textContent = augment.summary;
+    body.appendChild(summary);
+  }
+
+  const effects = Array.isArray(augment.effects) ? augment.effects : [];
+  if (effects.length) {
+    const effectsList = document.createElement('ul');
+    effectsList.className = 'augment-card__effects';
+    effects.forEach(effect => {
+      const effectItem = document.createElement('li');
+      effectItem.textContent = effect;
+      effectsList.appendChild(effectItem);
+    });
+    body.appendChild(effectsList);
+  }
+
+  const tagsWrap = document.createElement('div');
+  tagsWrap.className = 'augment-card__tags';
+  const tags = Array.isArray(augment.tags) ? augment.tags : [];
+  tags.forEach(tag => {
+    const tagChip = document.createElement('span');
+    tagChip.className = 'augment-card__tag';
+    tagChip.textContent = tag;
+    tagsWrap.appendChild(tagChip);
+  });
+  body.appendChild(tagsWrap);
+
+  card.append(header, body);
+  if (augment.id) {
+    placeholder.setAttribute('data-augment-id', augment.id);
+  } else {
+    if (typeof placeholder.removeAttribute === 'function') {
+      placeholder.removeAttribute('data-augment-id');
+    } else if (placeholder.dataset) {
+      delete placeholder.dataset.augmentId;
+    }
+  }
+  if (typeof placeholder.replaceChildren === 'function') {
+    placeholder.replaceChildren(card);
+  } else {
+    placeholder.innerHTML = '';
+    placeholder.appendChild(card);
+  }
+  return card;
+}
+
 function renderAugmentPicker() {
   if (!elAugmentAvailableList) return;
-  elAugmentAvailableList.innerHTML = '';
   const results = getAugmentSearchResults();
   const earned = getAugmentSlotsEarned();
   const used = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
   const canSelectMore = earned > used;
-  results.forEach(augment => {
-    const item = document.createElement('li');
-    item.className = 'augment-card';
-
-    const header = document.createElement('div');
-    header.className = 'augment-card__header';
-    const titleWrap = document.createElement('div');
-    titleWrap.className = 'augment-card__title';
-    const nameEl = document.createElement('h4');
-    nameEl.className = 'augment-card__name';
-    nameEl.textContent = augment.name;
-    const groupEl = document.createElement('p');
-    groupEl.className = 'augment-card__group';
-    groupEl.textContent = augment.group;
-    titleWrap.appendChild(nameEl);
-    titleWrap.appendChild(groupEl);
-
-    const actions = document.createElement('div');
-    actions.className = 'augment-card__actions';
-    const addBtn = document.createElement('button');
-    addBtn.type = 'button';
-    addBtn.className = 'btn-sm';
-    addBtn.textContent = canSelectMore ? 'Add Augment' : 'No Slots';
-    addBtn.disabled = !canSelectMore;
-    addBtn.setAttribute('data-view-allow', '');
-    addBtn.addEventListener('click', () => handleAugmentAdd(augment.id));
-    actions.appendChild(addBtn);
-
-    header.appendChild(titleWrap);
-    header.appendChild(actions);
-    item.appendChild(header);
-
-    const body = document.createElement('div');
-    body.className = 'augment-card__body';
-    if (augment.summary) {
-      const summary = document.createElement('p');
-      summary.className = 'augment-card__summary';
-      summary.textContent = augment.summary;
-      body.appendChild(summary);
-    }
-    if (augment.effects.length) {
-      const effectsList = document.createElement('ul');
-      effectsList.className = 'augment-card__effects';
-      augment.effects.forEach(effect => {
-        const effectItem = document.createElement('li');
-        effectItem.textContent = effect;
-        effectsList.appendChild(effectItem);
-      });
-      body.appendChild(effectsList);
-    }
-    const tagsWrap = document.createElement('div');
-    tagsWrap.className = 'augment-card__tags';
-    augment.tags.forEach(tag => {
-      const tagChip = document.createElement('span');
-      tagChip.className = 'augment-card__tag';
-      tagChip.textContent = tag;
-      tagsWrap.appendChild(tagChip);
-    });
-    body.appendChild(tagsWrap);
-    item.appendChild(body);
-
-    elAugmentAvailableList.appendChild(item);
-  });
-
-  if (elAugmentAvailableList) {
-    toggleEmptyState(elAugmentAvailableList, results.length > 0);
-  }
+  augmentPickerRenderContext.canSelectMore = canSelectMore;
+  augmentPickerVirtualList.update(results, augmentPickerRenderContext);
+  augmentPickerVirtualList.refresh(augmentPickerRenderContext);
+  toggleEmptyState(elAugmentAvailableList, results.length > 0);
 }
 
 function renderAugmentFilters() {
@@ -16837,6 +16882,22 @@ const customTypeModal = $('modal-custom-item');
 const customTypeButtons = customTypeModal ? qsa('[data-custom-type]', customTypeModal) : [];
 const requestCatalogRender = debounce(() => renderCatalog(), 100);
 catalogRenderScheduler = () => requestCatalogRender();
+const catalogRenderContext = { onAdd: () => {} };
+const catalogVirtualList = createVirtualizedList(catalogListEl, {
+  scrollContainer: catalogListEl,
+  estimateItemHeight: 108,
+  initialRenderCount: 8,
+  getItemKey: (entry, index) => getCatalogVirtualKey(entry, index),
+  measureScrollFps: true,
+  fpsThreshold: 5000,
+  onMetrics: metrics => {
+    if (typeof window !== 'undefined') {
+      window.__ccVirtualMetrics = window.__ccVirtualMetrics || {};
+      window.__ccVirtualMetrics.catalog = metrics;
+    }
+  },
+  renderItem: (entry, renderContext) => renderCatalogVirtualItem(entry, renderContext),
+});
 subscribeDmCatalog(state => {
   dmCatalogEntries = Array.isArray(state.catalogEntries) ? state.catalogEntries.slice() : [];
   dmPowerPresets = Array.isArray(state.powerPresets) ? state.powerPresets.slice() : [];
@@ -17547,16 +17608,99 @@ function isEntryAvailableToPlayer(entry, playerState){
   return true;
 }
 
+function getCatalogVirtualKey(entry, index){
+  if (!entry) return `catalog-${index}`;
+  if (entry.customId) return `custom:${entry.customId}`;
+  if (entry.dmEntry && entry.id) return `dm:${entry.id}`;
+  if (entry.id) return String(entry.id);
+  const section = (entry.section || 'gear').toLowerCase();
+  const type = (entry.type || '').toLowerCase();
+  const name = (entry.name || `item-${index}`).toLowerCase();
+  return `${section}:${type}:${name}:${index}`;
+}
+
+function renderCatalogVirtualItem(entry, { placeholder, context, index } = {}){
+  if (!entry || !placeholder) return null;
+  const card = document.createElement('div');
+  card.className = 'catalog-item';
+
+  const pill = document.createElement('div');
+  pill.className = 'pill';
+  pill.textContent = entry.tier || '—';
+
+  const info = document.createElement('div');
+  const nameEl = document.createElement('b');
+  nameEl.textContent = entry.name || 'Item';
+  info.appendChild(nameEl);
+
+  const metaSpan = document.createElement('span');
+  metaSpan.className = 'small';
+  const metaParts = [`— ${entry.section || 'Gear'}`];
+  if (entry.type) metaParts.push(` • ${entry.type}`);
+  const priceText = formatPriceNote(entry);
+  if (priceText) metaParts.push(` • ${priceText}`);
+  metaSpan.textContent = metaParts.join('');
+  info.appendChild(metaSpan);
+
+  const details = [];
+  if (entry.perk) details.push(entry.perk);
+  if (entry.use) details.push(`Use: ${entry.use}`);
+  if (entry.attunement) details.push(`Attunement: ${entry.attunement}`);
+  if (entry.description) details.push(entry.description);
+  if (entry.dmRecipient) details.push(`Recipient: ${entry.dmRecipient}`);
+  if (entry.dmEntry) details.push('DM catalog entry');
+  if (entry.dmLock) details.push('Locked by DM');
+  details.forEach(detail => {
+    const detailEl = document.createElement('div');
+    detailEl.className = 'small';
+    detailEl.textContent = detail;
+    info.appendChild(detailEl);
+  });
+
+  const actions = document.createElement('div');
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'btn-sm';
+  addBtn.textContent = 'Add';
+  addBtn.dataset.focusId = 'catalog-add';
+  addBtn.setAttribute('data-view-allow', '');
+  if (entry.dmLock) addBtn.dataset.dmLock = 'true';
+  if (entry.dmEntry) addBtn.dataset.dmEntry = 'true';
+  if (Number.isFinite(index)) {
+    addBtn.dataset.add = String(index);
+  } else if (addBtn.dataset) {
+    delete addBtn.dataset.add;
+  }
+  addBtn.addEventListener('click', () => {
+    if (context && typeof context.onAdd === 'function') {
+      context.onAdd(entry);
+    }
+  });
+  actions.appendChild(addBtn);
+
+  card.append(pill, info, actions);
+
+  if (typeof placeholder.replaceChildren === 'function') {
+    placeholder.replaceChildren(card);
+  } else {
+    placeholder.innerHTML = '';
+    placeholder.appendChild(card);
+  }
+  return card;
+}
+
 function renderCatalog(){
   if (!catalogListEl) return;
   const visibleCustom = getVisibleCustomCatalogEntries();
   if (catalogError && !visibleCustom.length) {
-    catalogListEl.innerHTML = '<div class="catalog-empty">Failed to load gear catalog.</div>';
+    catalogListEl.hidden = false;
+    catalogVirtualList.showMessage('Failed to load gear catalog.', { tone: 'error' });
     return;
   }
   const baseLoaded = Array.isArray(catalogData);
   if (!baseLoaded && !visibleCustom.length) {
-    catalogListEl.innerHTML = '<div class="catalog-empty">Loading gear catalog...</div>';
+    catalogListEl.hidden = false;
+    catalogVirtualList.showMessage('Loading gear catalog...');
     return;
   }
   const style = styleSel ? styleSel.value : '';
@@ -17573,41 +17717,24 @@ function renderCatalog(){
     isEntryAvailableToPlayer(entry, playerState)
   )));
   if (!rows.length) {
-    catalogListEl.innerHTML = '<div class="catalog-empty">No matching gear found.</div>';
+    catalogListEl.hidden = false;
+    catalogVirtualList.showMessage('No matching gear found.');
     return;
   }
-  catalogListEl.innerHTML = rows.map((entry, idx) => {
-    const priceText = formatPriceNote(entry);
-    const details = [];
-    if (entry.perk) details.push(`<div class="small">${escapeHtml(entry.perk)}</div>`);
-    if (entry.use) details.push(`<div class="small">Use: ${escapeHtml(entry.use)}</div>`);
-    if (entry.attunement) details.push(`<div class="small">Attunement: ${escapeHtml(entry.attunement)}</div>`);
-    if (entry.description) details.push(`<div class="small">${escapeHtml(entry.description)}</div>`);
-    if (entry.dmRecipient) details.push(`<div class="small">Recipient: ${escapeHtml(entry.dmRecipient)}</div>`);
-    if (entry.dmEntry) details.push('<div class="small">DM catalog entry</div>');
-    if (entry.dmLock) details.push('<div class="small">Locked by DM</div>');
-    const buttonAttrs = [];
-    if (entry.dmLock) buttonAttrs.push('data-dm-lock="true"');
-    if (entry.dmEntry) buttonAttrs.push('data-dm-entry="true"');
-    return `
-    <div class="catalog-item">
-      <div class="pill">${escapeHtml(entry.tier || '—')}</div>
-      <div><b>${escapeHtml(entry.name)}</b> <span class="small">— ${escapeHtml(entry.section)}${entry.type ? ` • ${escapeHtml(entry.type)}` : ''}${priceText ? ` • ${escapeHtml(priceText)}` : ''}</span>
-        ${details.join('')}
-      </div>
-      <div><button class="btn-sm" data-add="${idx}"${buttonAttrs.length ? ' ' + buttonAttrs.join(' ') : ''}>Add</button></div>
-    </div>`;
-  }).join('');
-  qsa('[data-add]', catalogListEl).forEach(btn => btn.addEventListener('click', () => {
-    const item = rows[Number(btn.dataset.add)];
-    if (!item) return;
-    if (item.dmLock && !isDmSessionActive()) {
-      toast('This entry is locked by the DM.', 'error');
-      return;
-    }
-    if (!tryPurchaseEntry(item)) return;
-    addEntryToSheet(item);
-  }));
+  catalogListEl.hidden = false;
+  catalogRenderContext.onAdd = handleCatalogEntryAdd;
+  catalogVirtualList.update(rows, catalogRenderContext);
+  catalogVirtualList.refresh(catalogRenderContext);
+}
+
+function handleCatalogEntryAdd(entry){
+  if (!entry) return;
+  if (entry.dmLock && !isDmSessionActive()) {
+    toast('This entry is locked by the DM.', 'error');
+    return;
+  }
+  if (!tryPurchaseEntry(entry)) return;
+  addEntryToSheet(entry);
 }
 
 async function fetchCatalogText(url, errorMessage = 'Catalog fetch failed'){
