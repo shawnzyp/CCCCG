@@ -256,7 +256,19 @@ const TAB_ANIMATION_EASING = 'cubic-bezier(0.33, 1, 0.68, 1)';
 const TAB_ANIMATION_DURATION = 360;
 const TAB_ANIMATION_OFFSET = 12;
 const TAB_CONTAINER_CLASS = 'is-animating-tabs';
+const TAB_SCROLL_TIMEOUT = 480;
 let isTabAnimating = false;
+
+const isPlayerToolsDrawerActive = () => {
+  if (typeof document === 'undefined') return false;
+  const body = document.body;
+  if (!body || typeof body.classList === 'undefined') return false;
+  try {
+    return body.classList.contains('player-tools-open');
+  } catch (err) {
+    return false;
+  }
+};
 
 const tabChangeListeners = new Set();
 
@@ -483,23 +495,69 @@ const activateTab = (name, options = {}) => {
     }
   };
 
-  if (headerEl && window.scrollY > 0) {
+  if (isPlayerToolsDrawerActive()) {
+    performSwitch();
+    return;
+  }
+
+  if (headerEl && typeof window !== 'undefined' && typeof window.scrollY === 'number' && window.scrollY > 0) {
     headerEl.classList.add('hide-tabs');
-    const showTabs = () => {
-      if (headerEl.classList.contains('hide-tabs')) {
-        headerEl.classList.remove('hide-tabs');
-        performSwitch();
-      }
-      window.removeEventListener('scroll', onScroll);
-    };
+    let fallbackTimer = null;
+
     const onScroll = () => {
+      if (typeof window === 'undefined') return;
       if (window.scrollY <= 1) {
         showTabs();
       }
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(showTabs, 600);
+
+    const showTabs = () => {
+      if (fallbackTimer !== null) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      if (headerEl.classList.contains('hide-tabs')) {
+        headerEl.classList.remove('hide-tabs');
+        performSwitch();
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('scroll', onScroll);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      const attemptSmoothScroll = () => {
+        if (typeof window.scrollTo !== 'function') {
+          showTabs();
+          return;
+        }
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+          window.scrollTo(0, 0);
+          showTabs();
+          return;
+        }
+        try {
+          window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        } catch (err) {
+          window.scrollTo(0, 0);
+        }
+      };
+
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(attemptSmoothScroll);
+      } else {
+        attemptSmoothScroll();
+      }
+
+      if (window.scrollY <= 1) {
+        showTabs();
+        return;
+      }
+
+      fallbackTimer = setTimeout(showTabs, TAB_SCROLL_TIMEOUT);
+    }
   } else {
     performSwitch();
   }

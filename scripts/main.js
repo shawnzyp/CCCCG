@@ -3974,14 +3974,50 @@ if (themeToggleEl) {
 const tabButtons = Array.from(qsa('.tab'));
 let lastClickedTab = null;
 
-tabButtons.forEach(btn => btn.addEventListener('click', () => {
-  const target = btn.getAttribute('data-go');
-  if (!target) return;
+const pointerActivationThreshold = 400;
+const pointerEventTypes = new Set(['touch', 'pen']);
+const getPointerTimestamp = () =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+
+const isInstantPointerEvent = (event) =>
+  event
+  && typeof event.pointerType === 'string'
+  && pointerEventTypes.has(event.pointerType);
+
+const handleTabActivation = (btn, target) => {
   lastClickedTab = target;
   activateTab(target);
   const iconContainer = btn.querySelector('.tab__icon');
   if (iconContainer) triggerTabIconAnimation(iconContainer);
-}));
+};
+
+let lastInstantTabTarget = '';
+let lastInstantTabTime = 0;
+
+tabButtons.forEach(btn => {
+  btn.addEventListener('pointerdown', event => {
+    if (!isInstantPointerEvent(event)) return;
+    const target = btn.getAttribute('data-go');
+    if (!target) return;
+    lastInstantTabTarget = target;
+    lastInstantTabTime = getPointerTimestamp();
+    handleTabActivation(btn, target);
+  });
+
+  btn.addEventListener('click', () => {
+    const target = btn.getAttribute('data-go');
+    if (!target) return;
+    const now = getPointerTimestamp();
+    if (target === lastInstantTabTarget && now - lastInstantTabTime < pointerActivationThreshold) {
+      lastInstantTabTarget = '';
+      lastInstantTabTime = 0;
+      return;
+    }
+    handleTabActivation(btn, target);
+  });
+});
 
 let hasAnimatedInitialTab = false;
 onTabChange(name => {
