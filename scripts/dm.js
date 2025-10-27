@@ -1057,6 +1057,8 @@ function escapeCsvValue(value) {
 }
 
 let dmTestHooks = null;
+let dmInitialized = false;
+let dmInitPromise = null;
 
 function initDMLogin(){
   const dmBtn = document.getElementById('dm-login');
@@ -9423,19 +9425,59 @@ function initDMLogin(){
     QUICK_REWARD_PRESETS_STORAGE_KEY,
   };
 }
-if (typeof window !== 'undefined' && !Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {
+function ensureDmTestHooksAccessor() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (Object.getOwnPropertyDescriptor(window, '__dmTestHooks')) {
+    return;
+  }
   Object.defineProperty(window, '__dmTestHooks', {
     configurable: true,
     get() {
-      if (!dmTestHooks) {
-        initDMLogin();
-      }
       return dmTestHooks;
     },
   });
 }
-if (document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', initDMLogin);
-} else {
-  initDMLogin();
+
+function waitForDomReady() {
+  if (typeof document === 'undefined' || document.readyState !== 'loading') {
+    return Promise.resolve();
+  }
+  return new Promise(resolve => {
+    document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
+  });
+}
+
+function ensureDmInitialized() {
+  if (!dmInitialized) {
+    initDMLogin();
+    dmInitialized = true;
+  }
+}
+
+ensureDmTestHooksAccessor();
+
+export function initializeDmTools() {
+  if (dmInitPromise) {
+    return dmInitPromise;
+  }
+  dmInitPromise = (async () => {
+    ensureDmTestHooksAccessor();
+    try {
+      const module = await import('./somf-firebase.js');
+      if (module && typeof module.ensureSomfFirebase === 'function') {
+        await module.ensureSomfFirebase();
+      }
+    } catch (err) {
+      console.error('Failed to load Firebase dependencies for DM tools', err);
+      throw err;
+    }
+    await waitForDomReady();
+    ensureDmInitialized();
+  })().catch(err => {
+    dmInitPromise = null;
+    throw err;
+  });
+  return dmInitPromise;
 }

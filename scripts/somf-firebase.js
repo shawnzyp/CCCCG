@@ -1,11 +1,13 @@
-async function loadFirebaseCompat(){
+let firebaseInitPromise = null;
+
+async function loadFirebaseCompat() {
   if (window.firebase?.database) {
     return window.firebase;
   }
 
   await Promise.all([
     import('https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js'),
-    import('https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js')
+    import('https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js'),
   ]);
 
   if (!window.firebase?.database) {
@@ -26,20 +28,25 @@ function attachDatabase(db) {
   }
 }
 
-async function initializeFirebase() {
-  try {
-    const firebase = await loadFirebaseCompat();
+async function initializeFirebaseInternal() {
+  const firebase = await loadFirebaseCompat();
 
-    const firebaseConfig = {
-      databaseURL: 'https://ccccg-7d6b6-default-rtdb.firebaseio.com'
-    };
+  const firebaseConfig = {
+    databaseURL: 'https://ccccg-7d6b6-default-rtdb.firebaseio.com',
+  };
 
-    const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
-    const db = firebase.database(app);
-    attachDatabase(db);
-  } catch (err) {
-    console.error('Failed to initialize SOMF Firebase', err);
-  }
+  const app = firebase.apps?.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+  const db = firebase.database(app);
+  attachDatabase(db);
 }
 
-initializeFirebase();
+export function ensureSomfFirebase() {
+  if (!firebaseInitPromise) {
+    firebaseInitPromise = initializeFirebaseInternal().catch(err => {
+      console.error('Failed to initialize SOMF Firebase', err);
+      firebaseInitPromise = null;
+      throw err;
+    });
+  }
+  return firebaseInitPromise;
+}

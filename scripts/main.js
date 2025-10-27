@@ -184,6 +184,60 @@ function isDmSessionActive() {
 }
 
 
+let dmBootstrapPromise = null;
+
+function ensureDmToolsLoaded() {
+  if (!dmBootstrapPromise) {
+    dmBootstrapPromise = import('./dm.js')
+      .then(module => {
+        if (module && typeof module.initializeDmTools === 'function') {
+          return module.initializeDmTools();
+        }
+        return null;
+      })
+      .catch(err => {
+        dmBootstrapPromise = null;
+        console.error('Failed to load DM tools module', err);
+        throw err;
+      });
+  }
+  return dmBootstrapPromise;
+}
+
+function attachDmBootstrapHandler(element) {
+  if (!element) {
+    return;
+  }
+  const handler = () => {
+    ensureDmToolsLoaded()
+      .then(() => {
+        if (!element.isConnected) {
+          return;
+        }
+        if (typeof element.click === 'function') {
+          element.click();
+        }
+      })
+      .catch(error => {
+        console.error('Failed to initialize DM tools', error);
+      });
+  };
+  element.addEventListener('click', handler, { once: true });
+}
+
+function bootstrapDmToolsOnDemand() {
+  if (isDmSessionActive()) {
+    ensureDmToolsLoaded().catch(err => {
+      console.error('Failed to preload DM tools for active session', err);
+    });
+  }
+  attachDmBootstrapHandler($('dm-login'));
+  attachDmBootstrapHandler($('dm-tools-toggle'));
+}
+
+bootstrapDmToolsOnDemand();
+
+
 const AUGMENT_CATEGORIES = ['Control', 'Protection', 'Aggression', 'Transcendence', 'Customization'];
 const AUGMENT_GROUP_ORDER = new Map(AUGMENT_CATEGORIES.map((category, index) => [category, index]));
 const AUGMENT_SLOT_LEVELS = [3, 6, 9, 12, 15, 19];
