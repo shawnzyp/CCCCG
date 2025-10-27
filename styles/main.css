@@ -4114,6 +4114,11 @@ body:not(.no-hover) .sp-field .sp-keypad__reset:hover{background:color-mix(in sr
 .catalog-item:last-child{border-bottom:none}
 .catalog-item.active{background:var(--accent);color:var(--text-on-accent)}
 .catalog-item.active .pill{border-color:var(--text-on-accent);color:var(--text-on-accent)}
+.virtualized-list{position:relative}
+.virtualized-list__item{position:relative;min-height:var(--virtual-estimate,220px);content-visibility:auto;contain:layout paint;contain-intrinsic-size:var(--virtual-estimate,220px);pointer-events:auto}
+.virtualized-list__item[data-virtual-materialized="false"]{pointer-events:none}
+.virtualized-list__message{padding:14px;text-align:center;color:var(--muted);font-size:clamp(.75rem,2vw,.9rem)}
+.virtualized-list__message--error{color:var(--danger,#ff4d4f)}
 .credits-ledger__filters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:12px}
 .credits-ledger__filters .btn-sm[aria-pressed="true"]{background:var(--accent);color:var(--text-on-accent)}
 .catalog-item.credits-ledger__entry{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
