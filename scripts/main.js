@@ -1410,6 +1410,7 @@ function updateMiniGameReminder() {
   if (!entry) {
     miniGameReminderCard.hidden = true;
     miniGameReminderCard.setAttribute('hidden', '');
+    miniGameReminderCard.setAttribute('aria-hidden', 'true');
     if (miniGameReminderSummary) {
       miniGameReminderSummary.removeAttribute('data-pending');
       miniGameReminderSummary.removeAttribute('data-animate');
@@ -1431,6 +1432,7 @@ function updateMiniGameReminder() {
 
   miniGameReminderCard.hidden = false;
   miniGameReminderCard.removeAttribute('hidden');
+  miniGameReminderCard.setAttribute('aria-hidden', 'false');
   const shouldShowMiniGameBadge = actionAvailable;
   schedulePlayerToolsBadgeSync(() => {
     if (shouldShowMiniGameBadge) {
