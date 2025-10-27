@@ -6905,35 +6905,39 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --battery-cap-width: clamp(4px, 1vw, 6px);
 }
 
-.player-tools-status--battery[data-battery-state='full'],
-.player-tools-status--battery[data-battery-state='high'] {
-  --battery-fill-color-start: rgba(130, 240, 255, 0.92);
-  --battery-fill-color-end: rgba(70, 185, 255, 0.96);
-  --battery-fill-glow: rgba(110, 230, 255, 0.48);
+.player-tools-status--battery[data-battery-state='green'] {
+  --battery-frame-color: rgba(170, 255, 214, 0.85);
+  --battery-fill-color-start: rgba(170, 255, 214, 0.92);
+  --battery-fill-color-end: rgba(60, 225, 120, 0.96);
+  --battery-fill-glow: rgba(120, 255, 190, 0.48);
 }
 
-.player-tools-status--battery[data-battery-state='medium'] {
-  --battery-fill-color-start: rgba(255, 214, 140, 0.92);
-  --battery-fill-color-end: rgba(255, 172, 70, 0.96);
-  --battery-fill-glow: rgba(255, 190, 90, 0.45);
+.player-tools-status--battery[data-battery-state='orange'] {
+  --battery-frame-color: rgba(255, 205, 170, 0.85);
+  --battery-fill-color-start: rgba(255, 212, 170, 0.92);
+  --battery-fill-color-end: rgba(255, 150, 70, 0.96);
+  --battery-fill-glow: rgba(255, 185, 120, 0.45);
 }
 
-.player-tools-status--battery[data-battery-state='low'],
-.player-tools-status--battery[data-battery-state='empty'] {
-  --battery-frame-color: rgba(255, 170, 170, 0.8);
+.player-tools-status--battery[data-battery-state='yellow'] {
+  --battery-frame-color: rgba(255, 236, 170, 0.85);
+  --battery-fill-color-start: rgba(255, 243, 170, 0.92);
+  --battery-fill-color-end: rgba(255, 214, 70, 0.96);
+  --battery-fill-glow: rgba(255, 224, 110, 0.45);
+}
+
+.player-tools-status--battery[data-battery-state='red'] {
+  --battery-frame-color: rgba(255, 170, 170, 0.82);
   --battery-fill-color-start: rgba(255, 140, 140, 0.92);
-  --battery-fill-color-end: rgba(255, 88, 88, 0.96);
+  --battery-fill-color-end: rgba(255, 70, 70, 0.96);
   --battery-fill-glow: rgba(255, 96, 96, 0.55);
 }
 
-.player-tools-status--battery[data-battery-state='empty'] {
-  --battery-level-opacity: 0.35;
-}
-
-.player-tools-status--battery[data-battery-state='charging'] {
-  --battery-fill-color-start: rgba(130, 255, 214, 0.94);
-  --battery-fill-color-end: rgba(90, 205, 255, 0.96);
-  --battery-fill-glow: rgba(120, 225, 255, 0.55);
+.player-tools-status--battery[data-battery-state='critical'] {
+  --battery-frame-color: rgba(255, 140, 140, 0.88);
+  --battery-fill-color-start: rgba(255, 105, 105, 0.92);
+  --battery-fill-color-end: rgba(255, 40, 40, 0.96);
+  --battery-fill-glow: rgba(255, 80, 80, 0.65);
 }
 
 .player-tools-status--battery[data-battery-state='unavailable'] {
@@ -6993,7 +6997,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   filter: none;
 }
 
-.player-tools-status--battery[data-battery-state='charging'] .player-tools-status__battery-level {
+.player-tools-status--battery[data-battery-charging='true'] .player-tools-status__battery-level {
   background-image:
     linear-gradient(90deg, var(--battery-fill-color-start), var(--battery-fill-color-end)),
     repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 6px, rgba(255, 255, 255, 0) 6px 12px);
@@ -7003,6 +7007,30 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-status--battery[data-battery-state='unavailable'] .player-tools-status__battery-level {
   animation: none;
+}
+
+.player-tools-status__battery-warning {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(10px, 2.8vw, 14px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.65);
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+
+.player-tools-status--battery[data-battery-state='critical'] .player-tools-status__battery-warning::before {
+  content: '!';
+}
+
+.player-tools-status--battery[data-battery-state='critical'] .player-tools-status__battery-warning {
+  opacity: 1;
+  transform: scale(1);
 }
 
 @keyframes player-tools-battery-charge {
@@ -7333,26 +7361,39 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-.player-tools-status--battery[data-battery-state='low'],
-.player-tools-status--battery[data-battery-state='empty'] {
+.player-tools-status--battery[data-battery-state='green'] {
+  background: rgba(96, 250, 186, 0.16);
+  --battery-frame-color: rgba(170, 255, 214, 0.9);
+  --battery-fill-color-start: rgba(170, 255, 214, 0.92);
+  --battery-fill-color-end: rgba(60, 225, 120, 0.96);
+}
+
+.player-tools-status--battery[data-battery-state='orange'] {
+  background: rgba(255, 196, 140, 0.16);
+  --battery-frame-color: rgba(255, 205, 170, 0.88);
+  --battery-fill-color-start: rgba(255, 212, 170, 0.92);
+  --battery-fill-color-end: rgba(255, 150, 70, 0.96);
+}
+
+.player-tools-status--battery[data-battery-state='yellow'] {
+  background: rgba(255, 235, 150, 0.16);
+  --battery-frame-color: rgba(255, 236, 170, 0.88);
+  --battery-fill-color-start: rgba(255, 243, 170, 0.92);
+  --battery-fill-color-end: rgba(255, 214, 70, 0.96);
+}
+
+.player-tools-status--battery[data-battery-state='red'] {
   background: rgba(255, 120, 120, 0.16);
-  --battery-frame-color: rgba(255, 180, 180, 0.9);
+  --battery-frame-color: rgba(255, 170, 170, 0.88);
   --battery-fill-color-start: rgba(255, 140, 140, 0.92);
-  --battery-fill-color-end: rgba(255, 110, 110, 0.92);
+  --battery-fill-color-end: rgba(255, 70, 70, 0.96);
 }
 
-.player-tools-status--battery[data-battery-state='medium'] {
-  background: rgba(255, 214, 140, 0.16);
-  --battery-frame-color: rgba(255, 214, 140, 0.82);
-  --battery-fill-color-start: rgba(255, 214, 140, 0.94);
-  --battery-fill-color-end: rgba(255, 188, 96, 0.94);
-}
-
-.player-tools-status--battery[data-battery-state='charging'] {
-  background: rgba(120, 220, 255, 0.18);
-  --battery-frame-color: rgba(150, 235, 255, 0.9);
-  --battery-fill-color-start: rgba(130, 235, 255, 0.96);
-  --battery-fill-color-end: rgba(90, 205, 255, 0.96);
+.player-tools-status--battery[data-battery-state='critical'] {
+  background: rgba(255, 90, 90, 0.2);
+  --battery-frame-color: rgba(255, 140, 140, 0.92);
+  --battery-fill-color-start: rgba(255, 105, 105, 0.92);
+  --battery-fill-color-end: rgba(255, 40, 40, 0.96);
 }
 
 .player-tools-status--battery[data-battery-state='unavailable'] {
@@ -7361,6 +7402,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --battery-fill-color-start: rgba(180, 192, 212, 0.4);
   --battery-fill-color-end: rgba(180, 192, 212, 0.4);
   --battery-level-opacity: 0.35;
+}
+
+.player-tools-status--battery[data-battery-charging='true'] {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+    0 12px 28px rgba(20, 40, 60, 0.35);
 }
 
 .player-tools-status__icon--battery {
@@ -8067,26 +8114,39 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-.player-tools-status--battery[data-battery-state='low'],
-.player-tools-status--battery[data-battery-state='empty'] {
+.player-tools-status--battery[data-battery-state='green'] {
+  background: rgba(96, 250, 186, 0.16);
+  --battery-frame-color: rgba(170, 255, 214, 0.9);
+  --battery-fill-color-start: rgba(170, 255, 214, 0.92);
+  --battery-fill-color-end: rgba(60, 225, 120, 0.96);
+}
+
+.player-tools-status--battery[data-battery-state='orange'] {
+  background: rgba(255, 196, 140, 0.16);
+  --battery-frame-color: rgba(255, 205, 170, 0.88);
+  --battery-fill-color-start: rgba(255, 212, 170, 0.92);
+  --battery-fill-color-end: rgba(255, 150, 70, 0.96);
+}
+
+.player-tools-status--battery[data-battery-state='yellow'] {
+  background: rgba(255, 235, 150, 0.16);
+  --battery-frame-color: rgba(255, 236, 170, 0.88);
+  --battery-fill-color-start: rgba(255, 243, 170, 0.92);
+  --battery-fill-color-end: rgba(255, 214, 70, 0.96);
+}
+
+.player-tools-status--battery[data-battery-state='red'] {
   background: rgba(255, 120, 120, 0.16);
-  --battery-frame-color: rgba(255, 180, 180, 0.9);
+  --battery-frame-color: rgba(255, 170, 170, 0.88);
   --battery-fill-color-start: rgba(255, 140, 140, 0.92);
-  --battery-fill-color-end: rgba(255, 110, 110, 0.92);
+  --battery-fill-color-end: rgba(255, 70, 70, 0.96);
 }
 
-.player-tools-status--battery[data-battery-state='medium'] {
-  background: rgba(255, 214, 140, 0.16);
-  --battery-frame-color: rgba(255, 214, 140, 0.82);
-  --battery-fill-color-start: rgba(255, 214, 140, 0.94);
-  --battery-fill-color-end: rgba(255, 188, 96, 0.94);
-}
-
-.player-tools-status--battery[data-battery-state='charging'] {
-  background: rgba(120, 220, 255, 0.18);
-  --battery-frame-color: rgba(150, 235, 255, 0.9);
-  --battery-fill-color-start: rgba(130, 235, 255, 0.96);
-  --battery-fill-color-end: rgba(90, 205, 255, 0.96);
+.player-tools-status--battery[data-battery-state='critical'] {
+  background: rgba(255, 90, 90, 0.2);
+  --battery-frame-color: rgba(255, 140, 140, 0.92);
+  --battery-fill-color-start: rgba(255, 105, 105, 0.92);
+  --battery-fill-color-end: rgba(255, 40, 40, 0.96);
 }
 
 .player-tools-status--battery[data-battery-state='unavailable'] {

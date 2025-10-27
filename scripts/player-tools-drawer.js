@@ -520,7 +520,7 @@ function createPlayerToolsDrawer() {
     batteryText.textContent = value;
   };
 
-  const setBatteryPercent = (value, state) => {
+  const setBatteryPercent = (value, { charging } = {}) => {
     if (!batteryPercent) return;
     const trimmed = typeof value === 'string' ? value.trim() : '';
     const match = trimmed.match(/(\d{1,3})/);
@@ -539,7 +539,7 @@ function createPlayerToolsDrawer() {
     batteryPercent.textContent = clamped;
     batteryPercent.removeAttribute('hidden');
 
-    if (state === 'charging') {
+    if (charging === true) {
       batteryPercent.dataset.charging = 'true';
     } else {
       batteryPercent.removeAttribute('data-charging');
@@ -556,18 +556,24 @@ function createPlayerToolsDrawer() {
     batteryFill.style.setProperty('--player-tools-meter-fill', `${clamped}%`);
   };
 
-  const setBatteryState = (state, { text, fill, announcement } = {}) => {
+  const setBatteryState = (state, { text, fill, announcement, charging } = {}) => {
     if (!batteryBadge) return;
     if (state) {
       batteryBadge.dataset.batteryState = state;
     } else {
       batteryBadge.removeAttribute('data-battery-state');
     }
+    const isCharging = charging === true;
+    if (isCharging) {
+      batteryBadge.setAttribute('data-battery-charging', 'true');
+    } else {
+      batteryBadge.removeAttribute('data-battery-charging');
+    }
     if (typeof text === 'string') {
       setBatteryText(text);
-      setBatteryPercent(text, state);
+      setBatteryPercent(text, { charging: isCharging });
     } else {
-      setBatteryPercent('', state);
+      setBatteryPercent('', { charging: isCharging });
     }
     if (Number.isFinite(fill)) {
       setBatteryFill(fill);
@@ -580,6 +586,32 @@ function createPlayerToolsDrawer() {
     }
   };
 
+  const normalizeBatteryState = (state) => {
+    if (typeof state !== 'string') return '';
+    const trimmed = state.trim().toLowerCase();
+    switch (trimmed) {
+      case 'full':
+      case 'high':
+      case 'green':
+        return 'green';
+      case 'medium':
+      case 'orange':
+        return 'orange';
+      case 'yellow':
+        return 'yellow';
+      case 'low':
+      case 'red':
+        return 'red';
+      case 'empty':
+      case 'critical':
+        return 'critical';
+      case 'unavailable':
+        return 'unavailable';
+      default:
+        return '';
+    }
+  };
+
   const applyBatteryStatus = ({ percent, charging, state, text, announcement } = {}) => {
     if (!batteryBadge) return;
 
@@ -589,21 +621,20 @@ function createPlayerToolsDrawer() {
     const isCharging =
       charging === true || (!chargingProvided && explicitState === 'charging');
 
+    const normalizedState = normalizeBatteryState(explicitState);
+
     const resolvedState = (() => {
-      if (explicitState) {
-        if (explicitState === 'charging' && !isCharging) {
-          if (numericPercent === null) {
-            return 'unavailable';
-          }
-          return getBatteryStateFromLevel(numericPercent / 100);
+      if (normalizedState) {
+        return normalizedState;
+      }
+      if (explicitState === 'charging' && !isCharging) {
+        if (numericPercent === null) {
+          return 'unavailable';
         }
-        return explicitState;
+        return getBatteryStateFromLevel(numericPercent / 100);
       }
       if (numericPercent === null) {
-        return isCharging ? 'charging' : 'unavailable';
-      }
-      if (isCharging) {
-        return 'charging';
+        return 'unavailable';
       }
       return getBatteryStateFromLevel(numericPercent / 100);
     })();
@@ -625,7 +656,8 @@ function createPlayerToolsDrawer() {
     setBatteryState(resolvedState, {
       text: resolvedText,
       fill: numericPercent,
-      announcement: resolvedAnnouncement
+      announcement: resolvedAnnouncement,
+      charging: isCharging
     });
   };
 
@@ -640,6 +672,12 @@ function createPlayerToolsDrawer() {
     if (rounded >= 100) {
       return 'Battery fully charged';
     }
+    if (rounded <= 9) {
+      return `Battery critically low, ${rounded} percent remaining`;
+    }
+    if (rounded <= 34) {
+      return `Battery low, ${rounded} percent remaining`;
+    }
     return `Battery at ${rounded} percent`;
   };
 
@@ -647,11 +685,11 @@ function createPlayerToolsDrawer() {
     if (!Number.isFinite(level)) return 'unavailable';
     const clamped = clamp(level, 0, 1);
     const percent = clamped * 100;
-    if (percent >= 95) return 'full';
-    if (percent >= 75) return 'high';
-    if (percent >= 45) return 'medium';
-    if (percent >= 15) return 'low';
-    return 'empty';
+    if (percent >= 75) return 'green';
+    if (percent >= 50) return 'orange';
+    if (percent >= 35) return 'yellow';
+    if (percent >= 10) return 'red';
+    return 'critical';
   };
 
   const updateBatteryFromManager = (batteryManager) => {
