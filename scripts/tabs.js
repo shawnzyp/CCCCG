@@ -377,107 +377,120 @@ const animateTabTransition = (currentName, nextName, direction) => {
   const container = activePanel.parentElement;
   const activePanelHeight = activePanel.offsetHeight || activePanel.scrollHeight || 0;
 
-  isTabAnimating = true;
-
   let cleanupContainer = null;
 
-  const prepareContainerForAnimation = () => {
-    if (!container || !(container instanceof HTMLElement)) return;
-    let activeHeight = activePanelHeight;
-    if (activeHeight <= 0) {
-      const activeRect = activePanel.getBoundingClientRect();
-      activeHeight = activeRect.height || activePanel.scrollHeight || 0;
-    }
+  try {
+    isTabAnimating = true;
 
-    const prevHeight = container.style.height;
-    const prevTransition = container.style.transition;
-    const prevOverflow = container.style.overflow;
-    const prevWillChange = container.style.willChange;
+    const prepareContainerForAnimation = () => {
+      if (!container || !(container instanceof HTMLElement)) return;
+      let activeHeight = activePanelHeight;
+      if (activeHeight <= 0) {
+        const activeRect = activePanel.getBoundingClientRect();
+        activeHeight = activeRect.height || activePanel.scrollHeight || 0;
+      }
 
-    const measureTargetHeight = () => {
-      const rect = targetPanel.getBoundingClientRect();
-      return rect.height || targetPanel.offsetHeight || targetPanel.scrollHeight || activeHeight;
-    };
-    let targetHeight = measureTargetHeight();
-    if (targetHeight <= 0) {
-      targetHeight = activeHeight;
-    }
+      const prevHeight = container.style.height;
+      const prevTransition = container.style.transition;
+      const prevOverflow = container.style.overflow;
+      const prevWillChange = container.style.willChange;
 
-    container.classList.add(TAB_CONTAINER_CLASS);
-    container.style.height = `${activeHeight}px`;
-    container.style.transition = `height ${TAB_ANIMATION_DURATION}ms ${TAB_ANIMATION_EASING}`;
-    container.style.overflow = 'hidden';
-    container.style.willChange = 'height';
+      const measureTargetHeight = () => {
+        const rect = targetPanel.getBoundingClientRect();
+        return rect.height || targetPanel.offsetHeight || targetPanel.scrollHeight || activeHeight;
+      };
+      let targetHeight = measureTargetHeight();
+      if (targetHeight <= 0) {
+        targetHeight = activeHeight;
+      }
 
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => {
+      container.classList.add(TAB_CONTAINER_CLASS);
+      container.style.height = `${activeHeight}px`;
+      container.style.transition = `height ${TAB_ANIMATION_DURATION}ms ${TAB_ANIMATION_EASING}`;
+      container.style.overflow = 'hidden';
+      container.style.willChange = 'height';
+
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          container.style.height = `${targetHeight}px`;
+        });
+      } else {
         container.style.height = `${targetHeight}px`;
-      });
-    } else {
-      container.style.height = `${targetHeight}px`;
+      }
+
+      cleanupContainer = () => {
+        container.classList.remove(TAB_CONTAINER_CLASS);
+        if (prevHeight) container.style.height = prevHeight;
+        else container.style.removeProperty('height');
+        if (prevTransition) container.style.transition = prevTransition;
+        else container.style.removeProperty('transition');
+        if (prevOverflow) container.style.overflow = prevOverflow;
+        else container.style.removeProperty('overflow');
+        if (prevWillChange) container.style.willChange = prevWillChange;
+        else container.style.removeProperty('will-change');
+      };
+    };
+
+    prepareContainerForAnimation();
+    targetPanel.style.opacity = '0';
+
+    const axis = direction === 'up' || direction === 'down' ? 'Y' : 'X';
+    const directionSign = direction === 'left' || direction === 'up' ? -1
+      : direction === 'right' || direction === 'down' ? 1
+        : 0;
+    const translateDistance = `${directionSign * TAB_ANIMATION_OFFSET}px`;
+    const zeroTranslate = `translate${axis}(0px)`;
+    const offsetTranslate = directionSign === 0 ? zeroTranslate : `translate${axis}(${translateDistance})`;
+    const enteringTransform = `${offsetTranslate} scale(0.98)`;
+    const exitingTransform = `${offsetTranslate} scale(0.98)`;
+    const neutralTransform = `${zeroTranslate} scale(1)`;
+
+    targetPanel.style.transform = enteringTransform;
+    activePanel.style.transform = neutralTransform;
+    targetPanel.style.visibility = 'visible';
+
+    const animations = [
+      targetPanel.animate([
+        { opacity: 0, transform: enteringTransform },
+        { opacity: 1, transform: neutralTransform }
+      ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' }),
+      activePanel.animate([
+        { opacity: 1, transform: neutralTransform },
+        { opacity: 0, transform: exitingTransform }
+      ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' })
+    ];
+
+    Promise.all(animations.map(anim => anim.finished.catch(() => {}))).then(() => {
+      setTab(nextName);
+    }).finally(() => {
+      const finishCleanup = () => {
+        cleanupPanelAnimation(activePanel);
+        cleanupPanelAnimation(targetPanel);
+        animations.forEach(anim => {
+          try {
+            if (typeof anim.cancel === 'function') anim.cancel();
+          } catch (err) {}
+        });
+        if (typeof cleanupContainer === 'function') cleanupContainer();
+        isTabAnimating = false;
+      };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(finishCleanup);
+      else finishCleanup();
+    });
+
+    return true;
+  } catch (err) {
+    console.error('Failed to animate tab transition', err);
+    if (typeof cleanupContainer === 'function') {
+      try {
+        cleanupContainer();
+      } catch (cleanupErr) {}
     }
-
-    cleanupContainer = () => {
-      container.classList.remove(TAB_CONTAINER_CLASS);
-      if (prevHeight) container.style.height = prevHeight;
-      else container.style.removeProperty('height');
-      if (prevTransition) container.style.transition = prevTransition;
-      else container.style.removeProperty('transition');
-      if (prevOverflow) container.style.overflow = prevOverflow;
-      else container.style.removeProperty('overflow');
-      if (prevWillChange) container.style.willChange = prevWillChange;
-      else container.style.removeProperty('will-change');
-    };
-  };
-
-  prepareContainerForAnimation();
-  targetPanel.style.opacity = '0';
-
-  const axis = direction === 'up' || direction === 'down' ? 'Y' : 'X';
-  const directionSign = direction === 'left' || direction === 'up' ? -1
-    : direction === 'right' || direction === 'down' ? 1
-      : 0;
-  const translateDistance = `${directionSign * TAB_ANIMATION_OFFSET}px`;
-  const zeroTranslate = `translate${axis}(0px)`;
-  const offsetTranslate = directionSign === 0 ? zeroTranslate : `translate${axis}(${translateDistance})`;
-  const enteringTransform = `${offsetTranslate} scale(0.98)`;
-  const exitingTransform = `${offsetTranslate} scale(0.98)`;
-  const neutralTransform = `${zeroTranslate} scale(1)`;
-
-  targetPanel.style.transform = enteringTransform;
-  activePanel.style.transform = neutralTransform;
-  targetPanel.style.visibility = 'visible';
-
-  const animations = [
-    targetPanel.animate([
-      { opacity: 0, transform: enteringTransform },
-      { opacity: 1, transform: neutralTransform }
-    ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' }),
-    activePanel.animate([
-      { opacity: 1, transform: neutralTransform },
-      { opacity: 0, transform: exitingTransform }
-    ], { duration: TAB_ANIMATION_DURATION, easing: TAB_ANIMATION_EASING, fill: 'forwards' })
-  ];
-
-  Promise.all(animations.map(anim => anim.finished.catch(() => {}))).then(() => {
-    setTab(nextName);
-  }).finally(() => {
-    const finishCleanup = () => {
-      cleanupPanelAnimation(activePanel);
-      cleanupPanelAnimation(targetPanel);
-      animations.forEach(anim => {
-        try {
-          if (typeof anim.cancel === 'function') anim.cancel();
-        } catch (err) {}
-      });
-      if (typeof cleanupContainer === 'function') cleanupContainer();
-      isTabAnimating = false;
-    };
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(finishCleanup);
-    else finishCleanup();
-  });
-
-  return true;
+    cleanupPanelAnimation(activePanel);
+    cleanupPanelAnimation(targetPanel);
+    isTabAnimating = false;
+    return false;
+  }
 };
 
 const activateTab = (name, options = {}) => {
