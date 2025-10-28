@@ -185,18 +185,24 @@ function isDmSessionActive() {
 
 
 let dmBootstrapPromise = null;
+let dmToolsInitialized = false;
 
 function ensureDmToolsLoaded() {
   if (!dmBootstrapPromise) {
     dmBootstrapPromise = import('./dm.js')
       .then(module => {
         if (module && typeof module.initializeDmTools === 'function') {
-          return module.initializeDmTools();
+          return Promise.resolve(module.initializeDmTools()).then(result => {
+            dmToolsInitialized = true;
+            return result;
+          });
         }
+        dmToolsInitialized = true;
         return null;
       })
       .catch(err => {
         dmBootstrapPromise = null;
+        dmToolsInitialized = false;
         console.error('Failed to load DM tools module', err);
         throw err;
       });
@@ -209,8 +215,12 @@ function attachDmBootstrapHandler(element) {
     return;
   }
   const handler = () => {
+    const alreadyInitialized = dmToolsInitialized;
     ensureDmToolsLoaded()
       .then(() => {
+        if (alreadyInitialized) {
+          return;
+        }
         if (!element.isConnected) {
           return;
         }
