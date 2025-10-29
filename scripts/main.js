@@ -2038,12 +2038,18 @@ let welcomeModalQueued = false;
 let welcomeModalPrepared = false;
 let touchUnlockTimer = null;
 let waitingForTouchUnlock = false;
+let launchSequenceComplete = false;
+let welcomeSequenceComplete = false;
+let pendingPinnedAutoLoad = null;
+let pendingPinPromptActive = false;
 
 try {
   if (typeof localStorage !== 'undefined') {
     welcomeModalDismissed = localStorage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
   }
 } catch {}
+
+welcomeSequenceComplete = welcomeModalDismissed;
 
 function clearTouchUnlockTimer() {
   if (touchUnlockTimer) {
@@ -2132,10 +2138,12 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   const modal = prepareWelcomeModal();
   if (!modal) {
     unlockTouchControls({ immediate: true });
+    markWelcomeSequenceComplete();
     return;
   }
   if (welcomeModalDismissed) {
     unlockTouchControls({ immediate: true });
+    markWelcomeSequenceComplete();
     return;
   }
   const wasHidden = modal.classList.contains('hidden');
@@ -2169,6 +2177,7 @@ function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hide(WELCOME_MODAL_ID);
   unlockTouchControls();
+  markWelcomeSequenceComplete();
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
@@ -2206,12 +2215,14 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   if (typeof document === 'undefined' || IS_JSDOM_ENV) {
     unlockTouchControls();
     queueWelcomeModal({ immediate: true });
+    markLaunchSequenceComplete();
     return;
   }
   const body = document.body;
   if(!body || !body.classList.contains('launching')){
     unlockTouchControls();
     queueWelcomeModal({ immediate: true });
+    markLaunchSequenceComplete();
     return;
   }
 
@@ -2268,6 +2279,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   const finalizeReveal = () => {
     body.classList.remove('launching');
+    markLaunchSequenceComplete();
     queueWelcomeModal({ immediate: true });
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
@@ -19052,6 +19064,16 @@ async function restoreLastLoadedCharacter(){
   }
   if (!data) return;
   const previousMode = useViewMode();
+  try {
+    await syncPin(storedName);
+  } catch (err) {
+    console.error('Failed to sync PIN before auto-restore', err);
+  }
+  if (hasPin(storedName)) {
+    pendingPinnedAutoLoad = { name: storedName, data, previousMode };
+    attemptPendingPinPrompt();
+    return;
+  }
   setCurrentCharacter(storedName);
   syncMiniGamePlayerName();
   deserialize(data);
@@ -19147,6 +19169,139 @@ if(typeof window !== 'undefined'){
       performScheduledAutoSave();
     }
   }, { passive: true });
+}
+
+function markLaunchSequenceComplete(){
+  if(launchSequenceComplete) return;
+  launchSequenceComplete = true;
+  attemptPendingPinPrompt();
+}
+
+function markWelcomeSequenceComplete(){
+  if(welcomeSequenceComplete) return;
+  welcomeSequenceComplete = true;
+  attemptPendingPinPrompt();
+}
+
+async function attemptPendingPinPrompt(){
+  if(pendingPinPromptActive) return;
+  if(!pendingPinnedAutoLoad) return;
+  if(!launchSequenceComplete || !welcomeSequenceComplete) return;
+  pendingPinPromptActive = true;
+  try {
+    await promptForPendingPinnedCharacter();
+  } catch (err) {
+    console.error('Failed to prompt for PIN unlock', err);
+  } finally {
+    pendingPinPromptActive = false;
+  }
+}
+
+async function promptForPendingPinnedCharacter(){
+  const payload = pendingPinnedAutoLoad;
+  if(!payload) return;
+  const { name } = payload;
+  try {
+    await syncPin(name);
+  } catch (err) {
+    console.error('Failed to sync PIN for auto-restore', err);
+  }
+  if(!pendingPinnedAutoLoad || pendingPinnedAutoLoad.name !== name){
+    return;
+  }
+  if(!hasPin(name)){
+    const unlocked = pendingPinnedAutoLoad;
+    pendingPinnedAutoLoad = null;
+    applyPendingPinnedCharacter(unlocked);
+    return;
+  }
+
+  let showedToast = false;
+  const showToastMessage = (message, type = 'info') => {
+    try {
+      toast(message, { type, duration: 0 });
+      showedToast = true;
+    } catch {}
+  };
+  const hideToastMessage = () => {
+    if(!showedToast) return;
+    try { dismissToast(); }
+    catch {}
+    showedToast = false;
+  };
+
+  const promptLabel = 'Enter PIN';
+  const suffix = typeof name === 'string' && name ? ` for ${name}` : '';
+  showToastMessage(`${promptLabel}${suffix}`, 'info');
+
+  while(pendingPinnedAutoLoad && pendingPinnedAutoLoad.name === name){
+    if(!hasPin(name)){
+      hideToastMessage();
+      const unlocked = pendingPinnedAutoLoad;
+      pendingPinnedAutoLoad = null;
+      applyPendingPinnedCharacter(unlocked);
+      return;
+    }
+
+    const pin = await pinPrompt(promptLabel);
+    if(!pendingPinnedAutoLoad || pendingPinnedAutoLoad.name !== name){
+      hideToastMessage();
+      return;
+    }
+    if(pin === null){
+      hideToastMessage();
+      pendingPinnedAutoLoad = null;
+      try {
+        const result = openCharacterList();
+        if(result && typeof result.then === 'function'){
+          result.catch(err => console.error('Failed to open load list after PIN cancel', err));
+        }
+      } catch (err) {
+        console.error('Failed to open load list after PIN cancel', err);
+      }
+      return;
+    }
+
+    let verified = false;
+    try {
+      verified = await verifyStoredPin(name, pin);
+    } catch (err) {
+      console.error('Failed to verify PIN', err);
+    }
+    if(verified){
+      hideToastMessage();
+      const unlocked = pendingPinnedAutoLoad;
+      pendingPinnedAutoLoad = null;
+      applyPendingPinnedCharacter(unlocked);
+      return;
+    }
+    showToastMessage('Invalid PIN. Try again.', 'error');
+  }
+
+  hideToastMessage();
+}
+
+function applyPendingPinnedCharacter(payload){
+  if(!payload) return;
+  const { name, data, previousMode } = payload;
+  if(!name || !data) return;
+  setCurrentCharacter(name);
+  syncMiniGamePlayerName();
+  deserialize(data);
+  applyViewLockState();
+  if(previousMode === 'view'){
+    setMode('view', { skipPersist: true });
+  }
+  const snapshot = serialize();
+  const serialized = JSON.stringify(snapshot);
+  history = [snapshot];
+  histIdx = 0;
+  try {
+    localStorage.setItem(AUTO_KEY, serialized);
+  } catch (err) {
+    console.error('Autosave failed', err);
+  }
+  markAutoSaveSynced(snapshot, serialized);
 }
 
 // Cloud sync status + detail panel setup.
@@ -19928,11 +20083,13 @@ if (welcomeOverlay) {
   welcomeOverlay.addEventListener('click', event => {
     if (event.target === welcomeOverlay) {
       welcomeModalDismissed = true;
+      markWelcomeSequenceComplete();
     }
   }, { capture: true });
   qsa('#modal-welcome [data-close]').forEach(btn => {
     btn.addEventListener('click', () => {
       welcomeModalDismissed = true;
+      markWelcomeSequenceComplete();
     }, { capture: true });
   });
 }
@@ -19941,6 +20098,7 @@ document.addEventListener('keydown', event => {
     const modal = getWelcomeModal();
     if (modal && !modal.classList.contains('hidden')) {
       welcomeModalDismissed = true;
+      markWelcomeSequenceComplete();
     }
   }
 });
