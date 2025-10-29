@@ -5,6 +5,44 @@ function key(name) {
   return KEY_PREFIX + name;
 }
 
+function safeLocalStorageGet(itemKey) {
+  try {
+    if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
+      return null;
+    }
+    return localStorage.getItem(itemKey);
+  } catch (err) {
+    console.error(`Failed to read localStorage key ${itemKey}`, err);
+    return null;
+  }
+}
+
+function safeLocalStorageSet(itemKey, value) {
+  try {
+    if (typeof localStorage === 'undefined' || typeof localStorage.setItem !== 'function') {
+      return false;
+    }
+    localStorage.setItem(itemKey, value);
+    return true;
+  } catch (err) {
+    console.error(`Failed to persist localStorage key ${itemKey}`, err);
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(itemKey) {
+  try {
+    if (typeof localStorage === 'undefined' || typeof localStorage.removeItem !== 'function') {
+      return false;
+    }
+    localStorage.removeItem(itemKey);
+    return true;
+  } catch (err) {
+    console.error(`Failed to remove localStorage key ${itemKey}`, err);
+    return false;
+  }
+}
+
 function encodeName(name) {
   return name
     .split('/')
@@ -94,64 +132,83 @@ function shouldQueuePinError(err) {
 }
 
 export async function syncPin(name) {
-  if (hasPin(name)) return;
+  if (hasPin(name)) return true;
   try {
     const hash = await loadCloudPin(name);
     if (typeof hash === 'string' && hash) {
-      localStorage.setItem(key(name), hash);
+      return safeLocalStorageSet(key(name), hash);
     }
   } catch (e) {
     if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
       console.error('Cloud pin load failed', e);
     }
   }
+  return false;
 }
 
 export async function setPin(name, pin) {
-  const hash = await hashPin(pin);
-  localStorage.setItem(key(name), hash);
   try {
-    await saveCloudPin(name, hash);
-  } catch (e) {
-    if (e && e.message === 'fetch not supported') return;
-    const queued = shouldQueuePinError(e) && (await enqueueCloudPin('set', name, hash));
-    if (!queued && (e && e.name !== 'TypeError')) {
-      console.error('Cloud pin save failed', e);
+    const hash = await hashPin(pin);
+    const stored = safeLocalStorageSet(key(name), hash);
+    try {
+      await saveCloudPin(name, hash);
+    } catch (e) {
+      if (e && e.message === 'fetch not supported') return stored;
+      const queued = shouldQueuePinError(e) && (await enqueueCloudPin('set', name, hash));
+      if (!queued && (e && e.name !== 'TypeError')) {
+        console.error('Cloud pin save failed', e);
+      }
     }
+    return stored;
+  } catch (err) {
+    console.error(`Failed to set PIN for ${name}`, err);
+    return false;
   }
 }
 
 export function hasPin(name) {
-  return localStorage.getItem(key(name)) !== null;
+  return safeLocalStorageGet(key(name)) !== null;
 }
 
 export async function verifyPin(name, pin) {
-  const stored = localStorage.getItem(key(name));
+  const stored = safeLocalStorageGet(key(name));
   if (!stored) return false;
-  const hash = await hashPin(pin);
-  return stored === hash;
+  try {
+    const hash = await hashPin(pin);
+    return stored === hash;
+  } catch (err) {
+    console.error(`Failed to verify PIN for ${name}`, err);
+    return false;
+  }
 }
 
 export async function clearPin(name) {
-  localStorage.removeItem(key(name));
+  const removed = safeLocalStorageRemove(key(name));
   try {
     await deleteCloudPin(name);
   } catch (e) {
-    if (e && e.message === 'fetch not supported') return;
+    if (e && e.message === 'fetch not supported') return removed;
     const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', name));
     if (!queued && (e && e.name !== 'TypeError')) {
       console.error('Cloud pin delete failed', e);
     }
   }
+  return removed;
 }
 
 export async function movePin(oldName, newName) {
-  await syncPin(oldName);
-  const oldKey = key(oldName);
-  const val = localStorage.getItem(oldKey);
-  if (val) {
-    localStorage.setItem(key(newName), val);
-    localStorage.removeItem(oldKey);
+  try {
+    await syncPin(oldName);
+    const oldKey = key(oldName);
+    const val = safeLocalStorageGet(oldKey);
+    if (!val) {
+      return false;
+    }
+    const stored = safeLocalStorageSet(key(newName), val);
+    if (!stored) {
+      return false;
+    }
+    safeLocalStorageRemove(oldKey);
     try {
       await saveCloudPin(newName, val);
     } catch (e) {
@@ -172,5 +229,9 @@ export async function movePin(oldName, newName) {
         }
       }
     }
+    return true;
+  } catch (err) {
+    console.error(`Failed to move PIN from ${oldName} to ${newName}`, err);
+    return false;
   }
 }

@@ -145,54 +145,94 @@ document.addEventListener('keydown', e => {
 });
 
 export function show(id) {
-  const el = $(id);
-  if (!el || !el.classList.contains('hidden')) return;
-  lastFocus = document.activeElement;
-  if (openModals === 0) {
-    coverFloatingLauncher();
-    document.body.classList.add('modal-open');
-    getInertTargets().forEach(e => e.setAttribute('inert', ''));
-  }
-  openModals++;
-  cancelModalStyleReset(el);
-  applyModalStyles(el);
-  el.style.display = 'flex';
-  el.classList.remove('hidden');
-  el.setAttribute('aria-hidden', 'false');
-  trapFocus(el);
-  const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
-  if (focusEl && typeof focusEl.focus === 'function') {
-    focusEl.focus();
+  try {
+    const el = $(id);
+    if (!el || !el.classList.contains('hidden')) return false;
+    lastFocus = document.activeElement;
+    if (openModals === 0) {
+      coverFloatingLauncher();
+      try {
+        document.body.classList.add('modal-open');
+      } catch (err) {
+        console.error('Failed to update body class when showing modal', err);
+      }
+      getInertTargets().forEach(e => {
+        try {
+          e.setAttribute('inert', '');
+        } catch (err) {
+          console.error('Failed to set inert attribute', err);
+        }
+      });
+    }
+    openModals++;
+    cancelModalStyleReset(el);
+    applyModalStyles(el);
+    el.style.display = 'flex';
+    el.classList.remove('hidden');
+    el.setAttribute('aria-hidden', 'false');
+    trapFocus(el);
+    const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
+    if (focusEl && typeof focusEl.focus === 'function') {
+      try {
+        focusEl.focus();
+      } catch (err) {
+        console.error('Failed to focus modal element', err);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error(`Failed to show modal ${id}`, err);
+    return false;
   }
 }
 
 export function hide(id) {
-  const el = $(id);
-  if (!el || el.classList.contains('hidden')) return;
-  cancelModalStyleReset(el);
-  const onEnd = (e) => {
-    if (e.target === el && e.propertyName === 'opacity') {
-      el.style.display = 'none';
+  try {
+    const el = $(id);
+    if (!el || el.classList.contains('hidden')) return false;
+    cancelModalStyleReset(el);
+    const onEnd = (e) => {
+      if (e.target === el && e.propertyName === 'opacity') {
+        el.style.display = 'none';
+        clearModalStyles(el);
+        cancelModalStyleReset(el);
+        el.removeEventListener('transitionend', onEnd);
+      }
+    };
+    el.addEventListener('transitionend', onEnd);
+    el._modalStyleTimer = setTimeout(() => {
       clearModalStyles(el);
       cancelModalStyleReset(el);
-      el.removeEventListener('transitionend', onEnd);
+    }, 400);
+    el.classList.add('hidden');
+    el.setAttribute('aria-hidden', 'true');
+    removeTrapFocus(el);
+    if (lastFocus && typeof lastFocus.focus === 'function') {
+      try {
+        lastFocus.focus();
+      } catch (err) {
+        console.error('Failed to restore focus after closing modal', err);
+      }
     }
-  };
-  el.addEventListener('transitionend', onEnd);
-  el._modalStyleTimer = setTimeout(() => {
-    clearModalStyles(el);
-    cancelModalStyleReset(el);
-  }, 400);
-  el.classList.add('hidden');
-  el.setAttribute('aria-hidden', 'true');
-  removeTrapFocus(el);
-  if (lastFocus && typeof lastFocus.focus === 'function') {
-    lastFocus.focus();
-  }
-  openModals = Math.max(0, openModals - 1);
-  if (openModals === 0) {
-    releaseFloatingLauncher();
-    document.body.classList.remove('modal-open');
-    getInertTargets().forEach(e => e.removeAttribute('inert'));
+    openModals = Math.max(0, openModals - 1);
+    if (openModals === 0) {
+      releaseFloatingLauncher();
+      try {
+        document.body.classList.remove('modal-open');
+      } catch (err) {
+        console.error('Failed to update body class when hiding modal', err);
+      }
+      getInertTargets().forEach(e => {
+        try {
+          e.removeAttribute('inert');
+        } catch (err) {
+          console.error('Failed to remove inert attribute', err);
+        }
+      });
+    }
+    return true;
+  } catch (err) {
+    console.error(`Failed to hide modal ${id}`, err);
+    return false;
   }
 }

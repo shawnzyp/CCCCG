@@ -17,6 +17,33 @@ import {
 } from './storage.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
 import { toast, dismissToast } from './notifications.js';
+
+function safeToast(message, type = 'error', options = {}) {
+  if (!message) return;
+  try {
+    const normalizedOptions = typeof options === 'object' && options !== null ? options : {};
+    const payload = {
+      duration: 5000,
+      ...normalizedOptions,
+      type: type || normalizedOptions.type || 'error',
+    };
+    toast(message, payload);
+  } catch (err) {
+    console.error('Failed to display toast', err);
+  }
+}
+
+function reportCharacterError(err, contextMessage) {
+  const baseError = err instanceof Error ? err : new Error(String(err));
+  const context = contextMessage || 'Character operation failed';
+  const detail = baseError.message && !baseError.message.startsWith(context)
+    ? `${context}: ${baseError.message}`
+    : context;
+  baseError.message = detail;
+  console.error(detail, err);
+  safeToast(detail, 'error');
+  return baseError;
+}
 import {
   POWER_ACTION_TYPES,
   POWER_DAMAGE_DICE,
@@ -607,95 +634,178 @@ export async function listRecoverableCharacters() {
 }
 
 export async function loadCharacter(name, { bypassPin = false } = {}) {
-  if (!bypassPin) {
-    await verifyPin(name);
-  }
-  let data;
   try {
-    data = await loadLocal(name);
-  } catch {}
-  if (!data) {
-    data = await loadCloud(name);
+    if (!bypassPin) {
+      await verifyPin(name);
+    }
+
+    let data = null;
     try {
-      await saveLocal(name, data);
-    } catch {}
+      data = await loadLocal(name);
+    } catch (err) {
+      console.error(`Failed to load local data for ${name}`, err);
+    }
+
+    if (!data) {
+      try {
+        data = await loadCloud(name);
+      } catch (err) {
+        console.error(`Failed to load cloud data for ${name}`, err);
+        throw err;
+      }
+      if (data) {
+        try {
+          await saveLocal(name, data);
+        } catch (err) {
+          console.error(`Failed to persist cloud data locally for ${name}`, err);
+        }
+      }
+    }
+
+    if (!data) {
+      throw new Error('Character data not found');
+    }
+
+    try {
+      window.dmNotify?.(`Loaded character ${name}`);
+    } catch (err) {
+      console.error('Failed to notify DM about character load', err);
+    }
+
+    const { data: normalized, changed } = normalizeCharacterData(data);
+    if (changed) {
+      try {
+        await saveLocal(name, normalized);
+      } catch (err) {
+        console.error(`Failed to normalize local data for ${name}`, err);
+      }
+      try {
+        await saveCloud(name, normalized);
+      } catch (err) {
+        console.error('Cloud save failed', err);
+      }
+    }
+
+    return normalized;
+  } catch (err) {
+    throw reportCharacterError(err, `Failed to load character "${name}"`);
   }
-  window.dmNotify?.(`Loaded character ${name}`);
-  const { data: normalized, changed } = normalizeCharacterData(data);
-  if (changed) {
-    try { await saveLocal(name, normalized); } catch {}
-    try { await saveCloud(name, normalized); } catch (e) { console.error('Cloud save failed', e); }
-  }
-  return normalized;
 }
 
 export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
-  const { data: normalized } = normalizeCharacterData(data);
-  await verifyPin(name);
-  await saveLocal(name, normalized);
   try {
-    await saveCloud(name, normalized);
-  } catch (e) {
-    console.error('Cloud save failed', e);
+    const { data: normalized } = normalizeCharacterData(data);
+    await verifyPin(name);
+    try {
+      await saveLocal(name, normalized);
+    } catch (err) {
+      console.error(`Failed to persist local save for ${name}`, err);
+      throw err;
+    }
+    try {
+      await saveCloud(name, normalized);
+    } catch (err) {
+      console.error('Cloud save failed', err);
+    }
+    try {
+      document.dispatchEvent(new CustomEvent('character-saved', { detail: name }));
+    } catch (err) {
+      console.error('Failed to dispatch character-saved event', err);
+    }
+    return true;
+  } catch (err) {
+    throw reportCharacterError(err, `Failed to save character "${name}"`);
   }
-  try {
-    document.dispatchEvent(new CustomEvent('character-saved', { detail: name }));
-  } catch {}
 }
 
 export async function renameCharacter(oldName, newName, data) {
-  const { data: normalized } = normalizeCharacterData(data);
-  if (!oldName || oldName === newName) {
+  try {
+    const { data: normalized } = normalizeCharacterData(data);
+    if (!oldName || oldName === newName) {
+      setCurrentCharacter(newName);
+      await saveCharacter(normalized, newName);
+      return true;
+    }
+    await verifyPin(oldName);
+    try {
+      await saveLocal(newName, normalized);
+    } catch (err) {
+      console.error(`Failed to persist renamed character ${newName} locally`, err);
+      throw err;
+    }
+    try {
+      await saveCloud(newName, normalized);
+    } catch (err) {
+      console.error('Cloud save failed', err);
+    }
+    const moved = await movePin(oldName, newName);
+    if (!moved) {
+      console.warn(`PIN move skipped for ${oldName} -> ${newName}`);
+    }
+    await deleteSave(oldName);
+    try {
+      await deleteCloud(oldName);
+    } catch (err) {
+      console.error('Cloud delete failed', err);
+    }
     setCurrentCharacter(newName);
-    await saveCharacter(normalized, newName);
-    return;
+    try {
+      document.dispatchEvent(new CustomEvent('character-saved', { detail: newName }));
+    } catch (err) {
+      console.error('Failed to dispatch character-saved event after rename', err);
+    }
+    return true;
+  } catch (err) {
+    throw reportCharacterError(err, `Failed to rename character "${oldName}"`);
   }
-  await verifyPin(oldName);
-  await saveLocal(newName, normalized);
-  try {
-    await saveCloud(newName, normalized);
-  } catch (e) {
-    console.error('Cloud save failed', e);
-  }
-  await movePin(oldName, newName);
-  await deleteSave(oldName);
-  try {
-    await deleteCloud(oldName);
-  } catch (e) {
-    console.error('Cloud delete failed', e);
-  }
-  setCurrentCharacter(newName);
-  try {
-    document.dispatchEvent(new CustomEvent('character-saved', { detail: newName }));
-  } catch {}
 }
 
 export async function deleteCharacter(name) {
   if (name === 'The DM') {
     throw new Error('Cannot delete The DM');
   }
-  await verifyPin(name);
-  let data = null;
   try {
-    data = await loadLocal(name);
-  } catch {}
-  if (data === null) {
-    try { data = await loadCloud(name); } catch {}
+    await verifyPin(name);
+    let data = null;
+    try {
+      data = await loadLocal(name);
+    } catch (err) {
+      console.error(`Failed to read local data before deleting ${name}`, err);
+    }
+    if (data === null) {
+      try {
+        data = await loadCloud(name);
+      } catch (err) {
+        console.error(`Failed to read cloud data before deleting ${name}`, err);
+      }
+    }
+    if (data !== null) {
+      try {
+        await saveCloud(name, data);
+      } catch (err) {
+        console.error('Cloud backup failed', err);
+      }
+    }
+    await deleteSave(name);
+    const cleared = await clearPin(name);
+    if (!cleared) {
+      console.warn(`PIN clear skipped for ${name}`);
+    }
+    try {
+      await deleteCloud(name);
+    } catch (err) {
+      console.error('Cloud delete failed', err);
+    }
+    try {
+      document.dispatchEvent(new CustomEvent('character-deleted', { detail: name }));
+    } catch (err) {
+      console.error('Failed to dispatch character-deleted event', err);
+    }
+    return true;
+  } catch (err) {
+    throw reportCharacterError(err, `Failed to delete character "${name}"`);
   }
-  if (data !== null) {
-    try { await saveCloud(name, data); } catch (e) { console.error('Cloud backup failed', e); }
-  }
-  await deleteSave(name);
-  await clearPin(name);
-  try {
-    await deleteCloud(name);
-  } catch (e) {
-    console.error('Cloud delete failed', e);
-  }
-  try {
-    document.dispatchEvent(new CustomEvent('character-deleted', { detail: name }));
-  } catch {}
 }
 
 export async function listBackups(name) {
@@ -718,14 +828,26 @@ export async function listBackups(name) {
 }
 
 export async function loadBackup(name, ts, type = 'manual') {
-  const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
-  const data = await loader(name, ts);
-  const { data: normalized, changed } = normalizeCharacterData(data);
-  try { await saveLocal(name, normalized); } catch {}
-  if (changed) {
-    try { await saveCloud(name, normalized); } catch (e) { console.error('Cloud save failed', e); }
+  try {
+    const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
+    const data = await loader(name, ts);
+    const { data: normalized, changed } = normalizeCharacterData(data);
+    try {
+      await saveLocal(name, normalized);
+    } catch (err) {
+      console.error(`Failed to persist recovered data for ${name}`, err);
+    }
+    if (changed) {
+      try {
+        await saveCloud(name, normalized);
+      } catch (err) {
+        console.error('Cloud save failed', err);
+      }
+    }
+    return normalized;
+  } catch (err) {
+    throw reportCharacterError(err, `Failed to load backup for "${name}"`);
   }
-  return normalized;
 }
 
 export async function saveAutoBackup(data, name = currentCharacter()) {
@@ -734,10 +856,12 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
     const ts = await saveCloudAutosave(name, data);
     try {
       document.dispatchEvent(new CustomEvent('character-autosaved', { detail: { name, ts } }));
-    } catch {}
+    } catch (err) {
+      console.error('Failed to dispatch character-autosaved event', err);
+    }
     return ts;
-  } catch (e) {
-    console.error('Failed to autosave character', e);
+  } catch (err) {
+    reportCharacterError(err, `Failed to autosave character "${name}"`);
     return null;
   }
 }

@@ -11066,34 +11066,50 @@ function realToast(msg, type = 'info') {
 }
 
 export function toast(msg, type = 'info') {
-  const result = realToast(msg, type);
-  const overrideFn = getOverrideFunction('toast', toast);
-  if (overrideFn) {
-    try {
-      overrideFn(msg, type);
-    } catch {
-      /* ignore override failures */
+  try {
+    const result = realToast(msg, type);
+    const overrideFn = getOverrideFunction('toast', toast);
+    if (overrideFn) {
+      try {
+        overrideFn(msg, type);
+      } catch {
+        /* ignore override failures */
+      }
     }
+    return result;
+  } catch (err) {
+    console.error('Failed to display toast', err);
+    return null;
   }
-  return result;
 }
 
 export function dismissToast() {
-  const overrideFn = getOverrideFunction('dismissToast', dismissToast);
-  if (overrideFn) {
-    try {
-      return overrideFn();
-    } catch {
-      return undefined;
+  try {
+    const overrideFn = getOverrideFunction('dismissToast', dismissToast);
+    if (overrideFn) {
+      try {
+        return overrideFn();
+      } catch {
+        return undefined;
+      }
     }
+    return hideToastElement();
+  } catch (err) {
+    console.error('Failed to dismiss toast', err);
+    return undefined;
   }
-  return hideToastElement();
 }
 
 export function clearToastQueue({ dismissActive = true, restoreFocus = false } = {}) {
-  toastQueue.length = 0;
-  if (dismissActive) {
-    hideToastElement({ restoreFocus });
+  try {
+    toastQueue.length = 0;
+    if (dismissActive) {
+      hideToastElement({ restoreFocus });
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to clear toast queue', err);
+    return false;
   }
 }
 
