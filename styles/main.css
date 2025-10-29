@@ -8204,8 +8204,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
     transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
     box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
     backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    border-color var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
+    border-color var(--player-tools-transition-duration) var(--player-tools-transition-timing);
   inline-size: var(--player-tools-tab-size);
   block-size: var(--player-tools-tab-height);
   border-radius: 0 calc(var(--player-tools-glass-radius, 30px) * 0.9) calc(var(--player-tools-glass-radius, 30px) * 0.9) 0;
@@ -8224,7 +8223,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   pointer-events: auto;
   backdrop-filter: blur(calc(10px + 6px * var(--player-tools-open-progress, 0))) saturate(160%);
   overflow: hidden;
-  opacity: calc(0.75 + 0.25 * var(--player-tools-open-progress, 0));
+  opacity: 0.1;
+}
+
+.player-tools-tab[aria-expanded='true'] {
+  opacity: 1;
 }
 
 .player-tools-tab[data-player-credit='pending'],

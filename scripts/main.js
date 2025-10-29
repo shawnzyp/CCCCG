@@ -2043,6 +2043,31 @@ let welcomeSequenceComplete = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 
+let playerToolsTabElement = null;
+
+function getPlayerToolsTabElement() {
+  if (playerToolsTabElement && playerToolsTabElement.isConnected) {
+    return playerToolsTabElement;
+  }
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  const tab = document.getElementById('player-tools-tab');
+  if (tab) {
+    playerToolsTabElement = tab;
+  }
+  return tab;
+}
+
+function setPlayerToolsTabHidden(hidden) {
+  const tab = getPlayerToolsTabElement();
+  if (!tab) return;
+  if (tab.hidden !== hidden) {
+    tab.hidden = hidden;
+  }
+  tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+}
+
 try {
   if (typeof localStorage !== 'undefined') {
     welcomeModalDismissed = localStorage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
@@ -2153,6 +2178,9 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   const body = typeof document !== 'undefined' ? document.body : null;
   const isLaunching = !!(body && body.classList.contains('launching'));
   show(WELCOME_MODAL_ID);
+  if (wasHidden) {
+    setPlayerToolsTabHidden(true);
+  }
 
   if (isLaunching) {
     if (wasHidden) {
@@ -2176,6 +2204,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hide(WELCOME_MODAL_ID);
+  setPlayerToolsTabHidden(false);
   unlockTouchControls();
   markWelcomeSequenceComplete();
 }
@@ -6438,6 +6467,10 @@ const computePlayerCreditSignature = (detail) => {
 };
 
 const elPlayerToolsTab = $('player-tools-tab');
+if (elPlayerToolsTab) {
+  playerToolsTabElement = elPlayerToolsTab;
+  setPlayerToolsTabHidden(elPlayerToolsTab.hidden);
+}
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
   if (!elPlayerToolsTab) return fallback;
@@ -20092,6 +20125,25 @@ if (welcomeOverlay) {
       markWelcomeSequenceComplete();
     }, { capture: true });
   });
+  const updatePlayerToolsTabForWelcome = () => {
+    const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
+    setPlayerToolsTabHidden(shouldHideTab);
+  };
+  updatePlayerToolsTabForWelcome();
+  if (typeof MutationObserver === 'function') {
+    const welcomeModalObserver = new MutationObserver(mutations => {
+      if (mutations.some(mutation => mutation.type === 'attributes')) {
+        updatePlayerToolsTabForWelcome();
+      }
+    });
+    welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
+  } else {
+    welcomeOverlay.addEventListener('transitionend', event => {
+      if (event.target === welcomeOverlay) {
+        updatePlayerToolsTabForWelcome();
+      }
+    });
+  }
 }
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
