@@ -20120,7 +20120,14 @@ if (welcomeSkip) {
   welcomeSkip.addEventListener('click', () => { dismissWelcomeModal(); });
 }
 const welcomeOverlay = getWelcomeModal();
-if (welcomeOverlay) {
+const welcomeOverlayIsElement = Boolean(
+  welcomeOverlay &&
+  typeof welcomeOverlay === 'object' &&
+  typeof welcomeOverlay.addEventListener === 'function' &&
+  typeof welcomeOverlay.classList?.contains === 'function' &&
+  typeof welcomeOverlay.nodeType === 'number'
+);
+if (welcomeOverlayIsElement) {
   welcomeOverlay.addEventListener('click', event => {
     if (event.target === welcomeOverlay) {
       welcomeModalDismissed = true;
@@ -20144,7 +20151,17 @@ if (welcomeOverlay) {
         updatePlayerToolsTabForWelcome();
       }
     });
-    welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
+    try {
+      welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
+    } catch (err) {
+      // jsdom may provide a mock that is not a fully qualified Node instance
+      console.warn('Unable to observe welcome overlay mutations; falling back to transition listener.', err);
+      welcomeOverlay.addEventListener('transitionend', event => {
+        if (event.target === welcomeOverlay) {
+          updatePlayerToolsTabForWelcome();
+        }
+      });
+    }
   } else {
     welcomeOverlay.addEventListener('transitionend', event => {
       if (event.target === welcomeOverlay) {
