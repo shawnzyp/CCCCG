@@ -9458,6 +9458,24 @@ function ensureDmInitialized() {
 
 ensureDmTestHooksAccessor();
 
+function safeEnsureDmInitialized() {
+  try {
+    ensureDmInitialized();
+  } catch (error) {
+    console.error('Failed to initialize DM tools', error);
+  }
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', safeEnsureDmInitialized, { once: true });
+  } else {
+    safeEnsureDmInitialized();
+  }
+} else {
+  safeEnsureDmInitialized();
+}
+
 export function initializeDmTools() {
   if (dmInitPromise) {
     return dmInitPromise;
