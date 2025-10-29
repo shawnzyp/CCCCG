@@ -204,49 +204,55 @@ function setupTabIconAnimations() {
 }
 
 function triggerTabIconAnimation(container) {
-  if (!container) return;
-  const state = tabIconStates.get(container);
-  if (!state) return;
-  if (state.animationTimer) {
-    clearTimeout(state.animationTimer);
-    state.animationTimer = null;
-  }
-
-  const canvas = state.canvas;
-  if (!canvas) return;
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const stillImg = container.querySelector('img[data-tab-icon-still]');
-  const animatedImg = container.querySelector('img[data-tab-icon-animated]');
-  if (!animatedImg) return;
-
-  const drawStill = () => {
-    if (stillImg && stillImg.complete && stillImg.naturalWidth) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const ratio = Math.min(canvas.width / stillImg.naturalWidth, canvas.height / stillImg.naturalHeight, 1);
-      const width = Math.max(1, Math.round(stillImg.naturalWidth * ratio));
-      const height = Math.max(1, Math.round(stillImg.naturalHeight * ratio));
-      const offsetX = Math.floor((canvas.width - width) / 2);
-      const offsetY = Math.floor((canvas.height - height) / 2);
-      ctx.drawImage(stillImg, offsetX, offsetY, width, height);
-      removeCanvasBackground(canvas);
-    }
-  };
-
-  const handleAnimationEnd = () => {
-    container.classList.remove('tab__icon--animating');
-    drawStill();
+  try {
+    if (!container) return false;
+    const state = tabIconStates.get(container);
+    if (!state) return false;
     if (state.animationTimer) {
       clearTimeout(state.animationTimer);
       state.animationTimer = null;
     }
-  };
 
-  drawStill();
-  container.classList.add('tab__icon--animating');
-  state.animationTimer = setTimeout(handleAnimationEnd, TAB_ICON_ANIMATION_DURATION);
+    const canvas = state.canvas;
+    if (!canvas) return false;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return false;
+
+    const stillImg = container.querySelector('img[data-tab-icon-still]');
+    const animatedImg = container.querySelector('img[data-tab-icon-animated]');
+    if (!animatedImg) return false;
+
+    const drawStill = () => {
+      if (stillImg && stillImg.complete && stillImg.naturalWidth) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const ratio = Math.min(canvas.width / stillImg.naturalWidth, canvas.height / stillImg.naturalHeight, 1);
+        const width = Math.max(1, Math.round(stillImg.naturalWidth * ratio));
+        const height = Math.max(1, Math.round(stillImg.naturalHeight * ratio));
+        const offsetX = Math.floor((canvas.width - width) / 2);
+        const offsetY = Math.floor((canvas.height - height) / 2);
+        ctx.drawImage(stillImg, offsetX, offsetY, width, height);
+        removeCanvasBackground(canvas);
+      }
+    };
+
+    const handleAnimationEnd = () => {
+      container.classList.remove('tab__icon--animating');
+      drawStill();
+      if (state.animationTimer) {
+        clearTimeout(state.animationTimer);
+        state.animationTimer = null;
+      }
+    };
+
+    drawStill();
+    container.classList.add('tab__icon--animating');
+    state.animationTimer = setTimeout(handleAnimationEnd, TAB_ICON_ANIMATION_DURATION);
+    return true;
+  } catch (err) {
+    console.error('Failed to trigger tab icon animation', err);
+    return false;
+  }
 }
 
 const tabButtons = Array.from(qsa('.tab'));
@@ -494,85 +500,91 @@ const animateTabTransition = (currentName, nextName, direction) => {
 };
 
 const activateTab = (name, options = {}) => {
-  if (!name || isTabAnimating) return;
+  try {
+    if (!name || isTabAnimating) return false;
 
-  const performSwitch = () => {
-    const currentName = activeTabName || readActiveTabFromDom();
-    if (currentName === name) {
-      setTab(name);
-      return;
-    }
-    const desiredDirection = options.direction || inferTabDirection(currentName, name);
-    if (!animateTabTransition(currentName, name, desiredDirection)) {
-      setTab(name);
-    }
-  };
-
-  if (isPlayerToolsDrawerActive()) {
-    performSwitch();
-    return;
-  }
-
-  if (headerEl && typeof window !== 'undefined' && typeof window.scrollY === 'number' && window.scrollY > 0) {
-    headerEl.classList.add('hide-tabs');
-    let fallbackTimer = null;
-
-    const onScroll = () => {
-      if (typeof window === 'undefined') return;
-      if (window.scrollY <= 1) {
-        showTabs();
+    const performSwitch = () => {
+      const currentName = activeTabName || readActiveTabFromDom();
+      if (currentName === name) {
+        setTab(name);
+        return;
+      }
+      const desiredDirection = options.direction || inferTabDirection(currentName, name);
+      if (!animateTabTransition(currentName, name, desiredDirection)) {
+        setTab(name);
       }
     };
 
-    const showTabs = () => {
-      if (fallbackTimer !== null) {
-        clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-      if (headerEl.classList.contains('hide-tabs')) {
-        headerEl.classList.remove('hide-tabs');
-        performSwitch();
-      }
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('scroll', onScroll);
-      }
-    };
+    if (isPlayerToolsDrawerActive()) {
+      performSwitch();
+      return true;
+    }
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('scroll', onScroll, { passive: true });
+    if (headerEl && typeof window !== 'undefined' && typeof window.scrollY === 'number' && window.scrollY > 0) {
+      headerEl.classList.add('hide-tabs');
+      let fallbackTimer = null;
 
-      const attemptSmoothScroll = () => {
-        if (typeof window.scrollTo !== 'function') {
+      const onScroll = () => {
+        if (typeof window === 'undefined') return;
+        if (window.scrollY <= 1) {
           showTabs();
-          return;
-        }
-        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-          window.scrollTo(0, 0);
-          showTabs();
-          return;
-        }
-        try {
-          window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-        } catch (err) {
-          window.scrollTo(0, 0);
         }
       };
 
-      if (typeof window.requestAnimationFrame === 'function') {
-        window.requestAnimationFrame(attemptSmoothScroll);
-      } else {
-        attemptSmoothScroll();
-      }
+      const showTabs = () => {
+        if (fallbackTimer !== null) {
+          clearTimeout(fallbackTimer);
+          fallbackTimer = null;
+        }
+        if (headerEl.classList.contains('hide-tabs')) {
+          headerEl.classList.remove('hide-tabs');
+          performSwitch();
+        }
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('scroll', onScroll);
+        }
+      };
 
-      if (window.scrollY <= 1) {
-        showTabs();
-        return;
-      }
+      if (typeof window !== 'undefined') {
+        window.addEventListener('scroll', onScroll, { passive: true });
 
-      fallbackTimer = setTimeout(showTabs, TAB_SCROLL_TIMEOUT);
+        const attemptSmoothScroll = () => {
+          if (typeof window.scrollTo !== 'function') {
+            showTabs();
+            return;
+          }
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+            window.scrollTo(0, 0);
+            showTabs();
+            return;
+          }
+          try {
+            window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+          } catch (err) {
+            window.scrollTo(0, 0);
+          }
+        };
+
+        if (typeof window.requestAnimationFrame === 'function') {
+          window.requestAnimationFrame(attemptSmoothScroll);
+        } else {
+          attemptSmoothScroll();
+        }
+
+        if (window.scrollY <= 1) {
+          showTabs();
+          return true;
+        }
+
+        fallbackTimer = setTimeout(showTabs, TAB_SCROLL_TIMEOUT);
+      }
+    } else {
+      performSwitch();
     }
-  } else {
-    performSwitch();
+    return true;
+  } catch (err) {
+    console.error(`Failed to activate tab ${name}`, err);
+    return false;
   }
 };
 
@@ -592,16 +604,22 @@ const getAdjacentTab = offset => {
 // to function as before.
 
 const scrollToTopOfCombat = () => {
-  if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') return;
-  const scroll = () => {
-    try {
-      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-    } catch (err) {
-      window.scrollTo(0, 0);
-    }
-  };
-  if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(scroll);
-  else scroll();
+  try {
+    if (typeof window === 'undefined' || typeof window.scrollTo !== 'function') return false;
+    const scroll = () => {
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      } catch (err) {
+        window.scrollTo(0, 0);
+      }
+    };
+    if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(scroll);
+    else scroll();
+    return true;
+  } catch (err) {
+    console.error('Failed to scroll to top of combat', err);
+    return false;
+  }
 };
 
 const getActiveTab = () => activeTabName || readActiveTabFromDom();

@@ -12273,9 +12273,13 @@ if(charList){
         if(pin !== null){
           const ok = await verifyStoredPin(ch, pin);
           if(ok){
-            await clearPin(ch);
-            applyLockIcon(lockBtn);
-            toast('PIN disabled','info');
+            const cleared = await clearPin(ch);
+            if(cleared){
+              applyLockIcon(lockBtn);
+              toast('PIN disabled','info');
+            }else{
+              toast('Failed to disable PIN','error');
+            }
           }else{
             toast('Invalid PIN','error');
           }
@@ -12285,9 +12289,13 @@ if(charList){
         if(pin1){
           const pin2 = await pinPrompt('Confirm PIN');
           if(pin1 === pin2){
-            await setPin(ch, pin1);
-            applyLockIcon(lockBtn);
-            toast('PIN enabled','success');
+            const stored = await setPin(ch, pin1);
+            if(stored){
+              applyLockIcon(lockBtn);
+              toast('PIN enabled','success');
+            }else{
+              toast('Failed to enable PIN','error');
+            }
           }else if(pin2 !== null){
             toast('PINs did not match','error');
           }
