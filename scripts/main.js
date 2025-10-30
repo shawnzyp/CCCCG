@@ -12963,6 +12963,9 @@ function normalizePowerData(raw = {}) {
   const scaling = POWER_SCALING_OPTIONS.includes(base.scaling) ? base.scaling : 'Static';
   const duration = POWER_DURATIONS.includes(base.duration) ? base.duration : 'Instant';
   const concentration = duration === 'Sustained' ? true : !!base.concentration;
+  const description = typeof base.description === 'string'
+    ? base.description
+    : (typeof base.desc === 'string' ? base.desc : '');
   const normalized = {
     id: typeof base.id === 'string' && base.id ? base.id : generatePowerId(),
     name: base.name || '',
@@ -12976,7 +12979,7 @@ function normalizePowerData(raw = {}) {
     requiresSave,
     saveAbilityTarget,
     duration,
-    description: base.description || '',
+    description,
     damage: damage || undefined,
     secondaryTag: secondaryTag || undefined,
     concentration,
