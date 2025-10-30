@@ -8223,7 +8223,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   pointer-events: auto;
   backdrop-filter: blur(calc(10px + 6px * var(--player-tools-open-progress, 0))) saturate(160%);
   overflow: hidden;
-  opacity: 0.1;
+  opacity: 0.25;
 }
 
 .player-tools-tab[aria-expanded='true'] {
