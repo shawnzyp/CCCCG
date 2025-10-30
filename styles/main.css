@@ -6427,8 +6427,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .level-reward-list li{
   display:flex;
-  align-items:center;
-  gap:10px;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
   font-size:clamp(.8rem,2.3vw,.9rem);
 }
 
@@ -6445,6 +6446,46 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .level-reward-list label span{
   flex:1;
+}
+
+.level-reward-list__title{
+  margin:0;
+  font-weight:600;
+  font-size:clamp(.8rem,2.3vw,.95rem);
+}
+
+.level-reward-list__details{
+  margin:0;
+  padding-left:1.2rem;
+  list-style:disc;
+  display:grid;
+  gap:4px;
+  font-size:clamp(.75rem,2.1vw,.85rem);
+  color:color-mix(in srgb,var(--muted) 70%, var(--text) 30%);
+}
+
+.level-reward-list__control{
+  width:100%;
+}
+
+.level-reward-list__stat-select{
+  width:100%;
+  padding:8px 10px;
+  border-radius:6px;
+  border:1px solid var(--line);
+  background:var(--surface-2);
+  color:var(--text);
+  font:inherit;
+}
+
+.level-reward-list__action--automatic span,
+.level-reward-list__action--complete span{
+  color:color-mix(in srgb,var(--muted) 60%, var(--text) 40%);
+}
+
+.level-reward-list__action--automatic input,
+.level-reward-list__action--complete input{
+  opacity:.65;
 }
 
 .augment-slot-summary[data-over-limit="true"]{
