@@ -12888,6 +12888,24 @@ function migrateLegacyPower(raw = {}) {
   };
 }
 
+function resolvePowerDescription(source = {}) {
+  const candidates = [
+    source.description,
+    source.desc,
+    source.summary,
+    source.flavor,
+    source.legacyText,
+    source.originalText,
+    source.effect,
+  ];
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
 function normalizeSignatureData(raw = {}) {
   if (!raw || typeof raw !== 'object') {
     return { signature: true };
@@ -12922,7 +12940,7 @@ function normalizeSignatureData(raw = {}) {
     requiresSave,
     saveAbilityTarget: saveAbility,
     special: raw.special || '',
-    description: raw.description || raw.desc || '',
+    description: resolvePowerDescription(raw),
     signature: true,
   };
 }
@@ -12963,9 +12981,7 @@ function normalizePowerData(raw = {}) {
   const scaling = POWER_SCALING_OPTIONS.includes(base.scaling) ? base.scaling : 'Static';
   const duration = POWER_DURATIONS.includes(base.duration) ? base.duration : 'Instant';
   const concentration = duration === 'Sustained' ? true : !!base.concentration;
-  const description = typeof base.description === 'string'
-    ? base.description
-    : (typeof base.desc === 'string' ? base.desc : '');
+  const description = resolvePowerDescription(base);
   const normalized = {
     id: typeof base.id === 'string' && base.id ? base.id : generatePowerId(),
     name: base.name || '',
@@ -15179,6 +15195,7 @@ function createPowerCard(pref = {}, options = {}) {
   descriptionArea.placeholder = 'Description / Flavor text';
   descriptionArea.value = power.description || '';
   descriptionArea.style.resize = 'vertical';
+  descriptionArea.removeAttribute('maxlength');
   const descriptionField = createFieldContainer('Description', descriptionArea, { flex: '1', minWidth: '100%' });
   card.appendChild(descriptionField.wrapper);
 
