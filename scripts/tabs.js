@@ -301,6 +301,25 @@ const notifyTabChange = (previous, next) => {
   });
 };
 
+const dispatchTabWillChange = (previous, next) => {
+  if (!next || previous === next) {
+    return;
+  }
+  if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function') {
+    return;
+  }
+  try {
+    document.dispatchEvent(new CustomEvent('dm-tab-will-change', {
+      detail: {
+        from: previous || null,
+        to: next,
+      }
+    }));
+  } catch (err) {
+    console.error('Failed to dispatch tab pre-change event', err);
+  }
+};
+
 function setTab(name) {
   const previousTab = activeTabName;
   qsa('fieldset[data-tab]').forEach(s => {
@@ -509,6 +528,7 @@ const activateTab = (name, options = {}) => {
         setTab(name);
         return;
       }
+      dispatchTabWillChange(currentName, name);
       const desiredDirection = options.direction || inferTabDirection(currentName, name);
       if (!animateTabTransition(currentName, name, desiredDirection)) {
         setTab(name);
