@@ -9650,6 +9650,9 @@ function updateLevelOutputs(entry) {
 }
 
 function updateXP(){
+  if (!elXP || typeof elXP.value === 'undefined') {
+    return;
+  }
   const xp = Math.max(0, num(elXP.value));
   const idx = getLevelIndex(xp);
   const prevIdx = currentLevelIdx;
@@ -9709,13 +9712,21 @@ function updateXP(){
   if (nextLevel) {
     const xpIntoLevel = Math.max(0, xp - currentLevelXP);
     const xpForNextLevel = Math.max(1, Number(nextLevel?.xp ?? 0) - currentLevelXP);
-    elXPBar.max = xpForNextLevel;
-    elXPBar.value = Math.min(xpForNextLevel, xpIntoLevel);
-    elXPPill.textContent = `${xpNumberFormatter.format(xpIntoLevel)} / ${xpNumberFormatter.format(xpForNextLevel)}`;
+    if (elXPBar) {
+      elXPBar.max = xpForNextLevel;
+      elXPBar.value = Math.min(xpForNextLevel, xpIntoLevel);
+    }
+    if (elXPPill) {
+      elXPPill.textContent = `${xpNumberFormatter.format(xpIntoLevel)} / ${xpNumberFormatter.format(xpForNextLevel)}`;
+    }
   } else {
-    elXPBar.max = 1;
-    elXPBar.value = 1;
-    elXPPill.textContent = `${xpNumberFormatter.format(xp)}+`;
+    if (elXPBar) {
+      elXPBar.max = 1;
+      elXPBar.value = 1;
+    }
+    if (elXPPill) {
+      elXPPill.textContent = `${xpNumberFormatter.format(xp)}+`;
+    }
   }
   if (typeof catalogRenderScheduler === 'function') {
     catalogRenderScheduler();
@@ -9893,6 +9904,9 @@ ABILS.forEach(a=> $('save-'+a+'-prof').addEventListener('change', updateDerived)
 SKILLS.forEach((s,i)=> $('skill-'+i+'-prof').addEventListener('change', updateDerived));
 
 function setXP(v){
+  if (!elXP || typeof elXP.value === 'undefined') {
+    return;
+  }
   const prev = num(elXP.value);
   elXP.value = Math.max(0, v);
   updateDerived();
