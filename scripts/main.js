@@ -19053,15 +19053,49 @@ let autoSaveDirty = false;
 let lastSyncedSnapshotJson = null;
 let pendingAutoSaveSnapshot = null;
 let pendingAutoSaveJson = null;
-const pushHistory = debounce(()=>{
-  const snap = serialize();
-  const serialized = JSON.stringify(snap);
+
+function captureAutosaveSnapshot(options = {}) {
+  const { markSynced = false } = options;
+  let snapshot;
+  try {
+    snapshot = serialize();
+  } catch (err) {
+    console.error('Failed to capture autosave snapshot', err);
+    return null;
+  }
+
+  let serialized;
+  try {
+    serialized = JSON.stringify(snapshot);
+  } catch (err) {
+    console.error('Failed to serialize autosave snapshot', err);
+    return null;
+  }
+
   history = history.slice(0, histIdx + 1);
-  history.push(snap);
-  if(history.length > 20){ history.shift(); }
+  history.push(snapshot);
+  if (history.length > 20) {
+    history.shift();
+  }
   histIdx = history.length - 1;
-  try{ localStorage.setItem(AUTO_KEY, serialized); }catch(e){ console.error('Autosave failed', e); }
-  markAutoSaveDirty(snap, serialized);
+
+  try {
+    localStorage.setItem(AUTO_KEY, serialized);
+  } catch (e) {
+    console.error('Autosave failed', e);
+  }
+
+  if (markSynced) {
+    markAutoSaveSynced(snapshot, serialized);
+  } else {
+    markAutoSaveDirty(snapshot, serialized);
+  }
+
+  return { snapshot, serialized };
+}
+
+const pushHistory = debounce(() => {
+  captureAutosaveSnapshot();
 }, 500);
 
 const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
@@ -19070,6 +19104,27 @@ let scheduledAutoSaveInFlight = false;
 
 document.addEventListener('input', pushHistory);
 document.addEventListener('change', pushHistory);
+document.addEventListener('dm-tab-will-change', () => {
+  captureAutosaveSnapshot();
+});
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushAutosave('visibilitychange');
+    }
+  }, { passive: true });
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', event => {
+    if (event && event.persisted) return;
+    flushAutosave('pagehide');
+  }, { capture: true });
+  window.addEventListener('beforeunload', () => {
+    captureAutosaveSnapshot();
+  });
+}
 
 function undo(){
   if(histIdx > 0){ histIdx--; deserialize(history[histIdx]); }
@@ -19085,13 +19140,10 @@ function redo(){
   } else {
     deserialize(DEFAULT_STATE);
   }
-  const snap = serialize();
-  const serialized = JSON.stringify(snap);
-  history = [snap];
-  histIdx = 0;
-  try{ localStorage.setItem(AUTO_KEY, serialized); }catch(e){ console.error('Autosave failed', e); }
-  markAutoSaveSynced(snap, serialized);
-  if(forcedRefreshResume && typeof forcedRefreshResume.scrollY === 'number'){
+  history = [];
+  histIdx = -1;
+  const initialCapture = captureAutosaveSnapshot({ markSynced: true });
+  if(forcedRefreshResume && typeof forcedRefreshResume.scrollY === 'number' && initialCapture){
     requestAnimationFrame(() => {
       try {
         window.scrollTo({ top: forcedRefreshResume.scrollY, behavior: 'auto' });
@@ -19156,13 +19208,9 @@ async function restoreLastLoadedCharacter(){
   if (previousMode === 'view') {
     setMode('view', { skipPersist: true });
   }
-  const snapshot = serialize();
-  const serialized = JSON.stringify(snapshot);
-  history = [snapshot];
-  histIdx = 0;
-  try { localStorage.setItem(AUTO_KEY, serialized); }
-  catch (err) { console.error('Autosave failed', err); }
-  markAutoSaveSynced(snapshot, serialized);
+  history = [];
+  histIdx = -1;
+  captureAutosaveSnapshot({ markSynced: true });
 }
 
 if (typeof window !== 'undefined') {
@@ -19236,6 +19284,26 @@ function markAutoSaveSynced(snapshot, serialized){
   lastSyncedSnapshotJson = pendingAutoSaveJson;
   autoSaveDirty = false;
   clearScheduledAutoSave();
+}
+
+function flushAutosave(reason){
+  const captured = captureAutosaveSnapshot();
+  if (!captured && !autoSaveDirty) {
+    return;
+  }
+  if (!autoSaveDirty || !currentCharacter()) {
+    return;
+  }
+  try {
+    const maybePromise = performScheduledAutoSave();
+    if (maybePromise && typeof maybePromise.catch === 'function') {
+      maybePromise.catch(err => {
+        console.error('Autosave flush failed', reason, err);
+      });
+    }
+  } catch (err) {
+    console.error('Autosave flush failed', reason, err);
+  }
 }
 
 if(typeof window !== 'undefined'){
@@ -19367,16 +19435,9 @@ function applyPendingPinnedCharacter(payload){
   if(previousMode === 'view'){
     setMode('view', { skipPersist: true });
   }
-  const snapshot = serialize();
-  const serialized = JSON.stringify(snapshot);
-  history = [snapshot];
-  histIdx = 0;
-  try {
-    localStorage.setItem(AUTO_KEY, serialized);
-  } catch (err) {
-    console.error('Autosave failed', err);
-  }
-  markAutoSaveSynced(snapshot, serialized);
+  history = [];
+  histIdx = -1;
+  captureAutosaveSnapshot({ markSynced: true });
 }
 
 // Cloud sync status + detail panel setup.
@@ -19769,14 +19830,21 @@ function renderQueue(entries = []) {
       item.className = 'sync-panel__list-item';
       const title = document.createElement('span');
       title.className = 'sync-panel__item-title';
-      title.textContent = entry.name || 'Unnamed save';
+      const label = entry.name || 'Unnamed save';
+      const isAutosave = entry.kind === 'autosave';
+      title.textContent = isAutosave ? `${label} (Autosave)` : label;
+      item.dataset.queueKind = isAutosave ? 'autosave' : 'manual';
       item.appendChild(title);
       const meta = document.createElement('span');
       meta.className = 'sync-panel__meta';
       const timestamp = Number.isFinite(entry.queuedAt) ? entry.queuedAt : entry.ts;
       const absolute = formatDateTime(timestamp);
       const relative = formatRelativeTime(timestamp);
-      meta.textContent = relative ? `Queued ${relative}` : 'Queued';
+      if (isAutosave) {
+        meta.textContent = relative ? `Autosave queued ${relative}` : 'Autosave queued';
+      } else {
+        meta.textContent = relative ? `Queued ${relative}` : 'Queued';
+      }
       if (absolute) {
         meta.title = absolute;
       }

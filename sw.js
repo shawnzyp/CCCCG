@@ -102,6 +102,7 @@ async function precacheManifestAssets(cache, manifest) {
 
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
+const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
 const OUTBOX_DB = 'cccg-cloud-outbox';
 const OUTBOX_VERSION = 2;
@@ -212,9 +213,21 @@ async function ensureLaunchVideoReset(videoUrl) {
   }
 }
 
-async function pushQueuedSave({ name, payload, ts }) {
+async function pushQueuedSave({ name, payload, ts, kind }) {
   const encoded = encodePath(name);
   const body = JSON.stringify(payload);
+  const entryKind = kind === 'autosave' ? 'autosave' : 'manual';
+
+  if (entryKind === 'autosave') {
+    const autosaveRes = await fetch(`${CLOUD_AUTOSAVES_URL}/${encoded}/${ts}.json`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!autosaveRes.ok) throw new Error(`HTTP ${autosaveRes.status}`);
+    return;
+  }
+
   const res = await fetch(`${CLOUD_SAVES_URL}/${encoded}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -444,7 +457,8 @@ self.addEventListener('message', event => {
   if (data.type === 'queue-cloud-save') {
     const { name, payload, ts } = data;
     if (!name || typeof ts !== 'number') return;
-    const entry = { name, payload, ts, queuedAt: Date.now() };
+    const kind = data.kind === 'autosave' ? 'autosave' : 'manual';
+    const entry = { name, payload, ts, queuedAt: Date.now(), kind };
     event.waitUntil(
       addOutboxEntry(entry)
         .then(() => flushOutbox())

@@ -178,6 +178,7 @@ export async function getQueuedCloudSaves() {
         name: typeof entry?.name === 'string' ? entry.name : '',
         ts: Number(entry?.ts),
         queuedAt: Number(entry?.queuedAt),
+        kind: entry?.kind === 'autosave' ? 'autosave' : 'manual',
       }))
       .sort((a, b) => {
         if (Number.isFinite(a.queuedAt) && Number.isFinite(b.queuedAt) && a.queuedAt !== b.queuedAt) {
@@ -566,7 +567,7 @@ export function subscribeCampaignLog(onChange) {
   }
 }
 
-async function enqueueCloudSave(name, payload, ts) {
+async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false;
   try {
     const ready = await navigator.serviceWorker.ready;
@@ -582,7 +583,7 @@ async function enqueueCloudSave(name, payload, ts) {
     } catch {
       // Fall back to original payload if cloning fails.
     }
-    controller.postMessage({ type: 'queue-cloud-save', name, payload: data, ts });
+    controller.postMessage({ type: 'queue-cloud-save', name, payload: data, ts, kind });
     emitSyncQueueUpdate();
     if (ready.sync && typeof ready.sync.register === 'function') {
       await ready.sync.register('cloud-save-sync');
@@ -644,10 +645,19 @@ export async function saveCloudAutosave(name, payload) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     await saveHistoryEntry(CLOUD_AUTOSAVES_URL, name, payload, ts);
+    resetOfflineNotices();
+    emitSyncActivity({ type: 'cloud-autosave', name, queued: false, timestamp: Date.now() });
+    emitSyncQueueUpdate();
     return ts;
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;
+    }
+    const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
+    if (shouldQueue && (await enqueueCloudSave(name, payload, ts, { kind: 'autosave' }))) {
+      notifySaveQueued();
+      emitSyncActivity({ type: 'cloud-autosave', name, queued: true, timestamp: Date.now() });
+      return ts;
     }
     console.error('Cloud autosave failed', e);
     throw e;
