@@ -188,7 +188,7 @@ describe('level reward progression', () => {
     await Promise.resolve();
     expect(toastEl.classList.contains('show')).toBe(true);
     expect(toastEl.innerHTML).toContain('Ability updates pending');
-    expect(toastEl.innerHTML).toContain('Assign +1 Stat');
+    expect(toastEl.innerHTML).toContain('Assign +1 Ability Score');
     window.dismissToast?.();
 
     storyReminderButton.click();

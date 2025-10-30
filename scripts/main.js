@@ -4678,6 +4678,34 @@ const ABILITY_FULL_NAMES = {
   wis: 'Wisdom',
   cha: 'Charisma',
 };
+
+const MAX_ABILITY_SCORE = 30;
+
+function applyStatIncreaseToAbility(abilityKey) {
+  const normalized = typeof abilityKey === 'string' ? abilityKey.trim().toLowerCase() : '';
+  if (!normalized || !ABILS.includes(normalized)) {
+    return { success: false, reason: 'invalid' };
+  }
+  const abilitySelect = $(normalized);
+  if (!(abilitySelect instanceof HTMLSelectElement)) {
+    return { success: false, reason: 'missing' };
+  }
+  const currentValue = Number(abilitySelect.value);
+  if (!Number.isFinite(currentValue)) {
+    return { success: false, reason: 'invalid' };
+  }
+  if (currentValue >= MAX_ABILITY_SCORE) {
+    return { success: false, reason: 'max' };
+  }
+  const nextValue = currentValue + 1;
+  const hasOption = Array.from(abilitySelect.options).some(option => Number(option.value) === nextValue);
+  if (!hasOption) {
+    abilitySelect.add(new Option(String(nextValue), String(nextValue)));
+  }
+  abilitySelect.value = String(nextValue);
+  abilitySelect.dispatchEvent(new Event('change', { bubbles: true }));
+  return { success: true, newValue: nextValue };
+}
 const skillGrid = $('skills');
 skillGrid.innerHTML = SKILLS.map((s,i)=>`
   <div class="ability-box">
@@ -7520,8 +7548,52 @@ function getDefaultLevelProgressState() {
     legendaryGearAccess: false,
     transcendentTrait: false,
     completedRewardIds: new Set(),
+    statAssignments: new Map(),
     appliedRewardsByLevel: new Map(),
   };
+}
+
+function normalizeStatAssignments(rawAssignments) {
+  const map = new Map();
+  if (!rawAssignments) return map;
+  if (rawAssignments instanceof Map) {
+    rawAssignments.forEach((ability, rewardId) => {
+      if (typeof rewardId === 'string' && typeof ability === 'string' && ability) {
+        map.set(rewardId, ability);
+      }
+    });
+    return map;
+  }
+  const assignEntry = (rewardId, ability) => {
+    if (typeof rewardId !== 'string' || !rewardId) return;
+    if (typeof ability !== 'string' || !ability) return;
+    map.set(rewardId, ability);
+  };
+  if (Array.isArray(rawAssignments)) {
+    rawAssignments.forEach(entry => {
+      if (Array.isArray(entry) && entry.length >= 2) {
+        assignEntry(entry[0], entry[1]);
+      } else if (entry && typeof entry === 'object') {
+        assignEntry(entry.rewardId ?? entry.id, entry.ability ?? entry.value);
+      }
+    });
+    return map;
+  }
+  if (typeof rawAssignments === 'object') {
+    Object.entries(rawAssignments).forEach(([rewardId, ability]) => {
+      assignEntry(rewardId, ability);
+    });
+  }
+  return map;
+}
+
+function ensureStatAssignmentMap() {
+  if (levelProgressState?.statAssignments instanceof Map) {
+    return levelProgressState.statAssignments;
+  }
+  const normalized = normalizeStatAssignments(levelProgressState?.statAssignments);
+  levelProgressState.statAssignments = normalized;
+  return normalized;
 }
 
 function normalizeLevelRewardLedgerRecord(raw = {}) {
@@ -7672,6 +7744,16 @@ function getSerializableLevelProgressState() {
         .filter(entry => Number.isFinite(entry.level) && entry.level >= 1)
         .sort((a, b) => a.level - b.level)
     : [];
+  const statAssignments = [];
+  if (levelProgressState?.statAssignments instanceof Map) {
+    levelProgressState.statAssignments.forEach((ability, rewardId) => {
+      if (typeof rewardId !== 'string' || !rewardId) return;
+      if (typeof ability !== 'string' || !ability) return;
+      if (completed.includes(rewardId)) {
+        statAssignments.push([rewardId, ability]);
+      }
+    });
+  }
   return {
     highestAppliedLevel: Number(levelProgressState?.highestAppliedLevel) || 1,
     hpBonus: Number(levelProgressState?.hpBonus) || 0,
@@ -7682,6 +7764,7 @@ function getSerializableLevelProgressState() {
     transcendentTrait: levelProgressState?.transcendentTrait === true,
     completedRewardIds: completed,
     appliedRewardsByLevel: ledgerEntries,
+    statAssignments,
   };
 }
 
@@ -7735,6 +7818,7 @@ function hydrateLevelProgressState(state, opts = {}) {
       next.completedRewardIds = new Set(state.completedRewardIds.filter(Boolean));
     }
   }
+  next.statAssignments = normalizeStatAssignments(state?.statAssignments);
   const storedLedger = parseStoredLevelRewardLedger(state && (state.appliedRewardsByLevel || state.appliedRewards));
   next.appliedRewardsByLevel = buildLevelRewardLedgerUpTo(next.highestAppliedLevel, storedLedger);
   const totals = summarizeLevelRewardLedger(next.appliedRewardsByLevel, next.highestAppliedLevel);
@@ -7749,6 +7833,13 @@ function hydrateLevelProgressState(state, opts = {}) {
       const match = typeof id === 'string' ? id.match(/level-(\d+)-/i) : null;
       if (match && Number(match[1]) > next.highestAppliedLevel) {
         next.completedRewardIds.delete(id);
+      }
+    });
+  }
+  if (next.statAssignments instanceof Map && next.statAssignments.size) {
+    next.statAssignments.forEach((value, rewardId) => {
+      if (!next.completedRewardIds.has(rewardId)) {
+        next.statAssignments.delete(rewardId);
       }
     });
   }
@@ -8269,7 +8360,7 @@ function normalizeLevelRewardCategory(type, category) {
   return LEVEL_REWARD_CATEGORY_BY_TYPE.get(normalizedType) || LEVEL_REWARD_CATEGORIES.COMBAT;
 }
 
-function createLevelRewardTask({ id, level, label, type, category }) {
+function createLevelRewardTask({ id, level, label, type, category, autoComplete = false, details = [] }) {
   const normalizedType = typeof type === 'string' ? type : '';
   return {
     id,
@@ -8277,6 +8368,8 @@ function createLevelRewardTask({ id, level, label, type, category }) {
     label,
     type: normalizedType,
     category: normalizeLevelRewardCategory(normalizedType, category),
+    autoComplete: autoComplete === true,
+    details: normalizeTaskDetails(details),
   };
 }
 
@@ -8284,6 +8377,17 @@ function normalizeRewardEntries(raw) {
   if (raw == null) return [];
   if (Array.isArray(raw)) return raw;
   return [raw];
+}
+
+function normalizeTaskDetails(details) {
+  if (!details) return [];
+  const entries = Array.isArray(details) ? details : [details];
+  return entries
+    .map(entry => {
+      if (typeof entry === 'string') return entry.trim();
+      return '';
+    })
+    .filter(Boolean);
 }
 
 function extractNumericReward(value) {
@@ -8605,9 +8709,11 @@ function getLevelRewardTasksForLevel(entry) {
     tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-hp-bonus`,
       level: levelNumber,
-      label: `Apply ${sign}${hpBonus} HP Bonus (Level ${levelNumber})`,
+      label: `Max HP ${sign}${hpBonus} (Level ${levelNumber})`,
       type: 'hp-bonus',
       category: LEVEL_REWARD_CATEGORIES.COMBAT,
+      autoComplete: true,
+      details: `Your maximum HP was automatically adjusted by ${sign}${hpBonus}.`,
     }));
   }
 
@@ -8617,9 +8723,11 @@ function getLevelRewardTasksForLevel(entry) {
     tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-sp-bonus`,
       level: levelNumber,
-      label: `Update SP Max by ${sign}${spBonus} (Level ${levelNumber})`,
+      label: `SP Max ${sign}${spBonus} (Level ${levelNumber})`,
       type: 'sp-bonus',
       category: LEVEL_REWARD_CATEGORIES.COMBAT,
+      autoComplete: true,
+      details: `Your SP maximum was automatically adjusted by ${sign}${spBonus}.`,
     }));
   }
 
@@ -8641,9 +8749,13 @@ function getLevelRewardTasksForLevel(entry) {
     tasks.push(createLevelRewardTask({
       id: `level-${levelNumber}-stat`,
       level: levelNumber,
-      label: `Assign +1 Stat (Level ${levelNumber})`,
+      label: `Assign +1 Ability Score (Level ${levelNumber})`,
       type: 'stat',
       category: LEVEL_REWARD_CATEGORIES.ABILITIES,
+      details: [
+        'Choose which ability score gains +1 using the dropdown.',
+        'The selected score will be increased on your sheet automatically.',
+      ],
     }));
   }
   if (rewards.grantsPowerEvolution) {
@@ -8653,6 +8765,11 @@ function getLevelRewardTasksForLevel(entry) {
       label: `Apply Power Evolution (Level ${levelNumber})`,
       type: 'power-evolution',
       category: LEVEL_REWARD_CATEGORIES.COMBAT,
+      details: [
+        'Add +1 damage die to a power.',
+        'Reduce a DC or target number by 1.',
+        'Reduce the SP cost of a power by 1 (minimum 0).',
+      ],
     }));
   }
   if (rewards.powerEvolutionChoice || rewards.signatureEvolutionChoice) {
@@ -8662,6 +8779,10 @@ function getLevelRewardTasksForLevel(entry) {
       label: `Choose Power or Signature Move Evolution (Level ${levelNumber})`,
       type: 'evolution-choice',
       category: LEVEL_REWARD_CATEGORIES.COMBAT,
+      details: [
+        'Decide whether to evolve a power or your signature move.',
+        'Coordinate with your GM to document the new effect or upgrade.',
+      ],
     }));
   }
   if (rewards.grantsSignatureEvolution) {
@@ -8671,6 +8792,10 @@ function getLevelRewardTasksForLevel(entry) {
       label: `Apply Signature Move Evolution (Level ${levelNumber})`,
       type: 'signature-evolution',
       category: LEVEL_REWARD_CATEGORIES.COMBAT,
+      details: [
+        'Enhance your signature move with a new effect, extra damage, or reduced cost.',
+        'Record the evolution on the Signature Move card.',
+      ],
     }));
   }
   if (rewards.grantsLegendaryGearAccess) {
@@ -8680,6 +8805,7 @@ function getLevelRewardTasksForLevel(entry) {
       label: `Unlock Legendary Gear Access (Level ${levelNumber})`,
       type: 'legendary-gear',
       category: LEVEL_REWARD_CATEGORIES.COMBAT,
+      details: 'You can requisition Legendary gear from the catalog going forward.',
     }));
   }
   if (rewards.grantsTranscendentTrait) {
@@ -8689,6 +8815,7 @@ function getLevelRewardTasksForLevel(entry) {
       label: `Gain Transcendent Trait (Level ${levelNumber})`,
       type: 'transcendent-trait',
       category: LEVEL_REWARD_CATEGORIES.COMBAT,
+      details: 'Select a Transcendent Trait and add it to your Story tab.',
     }));
   }
   return tasks;
@@ -8809,6 +8936,9 @@ function applyLevelProgress(targetLevel, opts = {}) {
   const completed = previousState?.completedRewardIds instanceof Set
     ? new Set(previousState.completedRewardIds)
     : new Set(Array.isArray(previousState?.completedRewardIds) ? previousState.completedRewardIds.filter(Boolean) : []);
+  const previousAssignments = previousState?.statAssignments instanceof Map
+    ? new Map(previousState.statAssignments)
+    : normalizeStatAssignments(previousState?.statAssignments);
   const normalizedLevel = Math.max(1, Number(targetLevel) || 1);
   completed.forEach(id => {
     const match = typeof id === 'string' ? id.match(/level-(\d+)-/i) : null;
@@ -8816,8 +8946,19 @@ function applyLevelProgress(targetLevel, opts = {}) {
       completed.delete(id);
     }
   });
+  previousAssignments.forEach((value, rewardId) => {
+    if (!completed.has(rewardId)) {
+      previousAssignments.delete(rewardId);
+      return;
+    }
+    const match = typeof rewardId === 'string' ? rewardId.match(/level-(\d+)-/i) : null;
+    if (match && Number(match[1]) > normalizedLevel) {
+      previousAssignments.delete(rewardId);
+    }
+  });
   const nextState = getDefaultLevelProgressState();
   nextState.completedRewardIds = completed;
+  nextState.statAssignments = previousAssignments;
   nextState.highestAppliedLevel = normalizedLevel;
   nextState.appliedRewardsByLevel = buildLevelRewardLedgerUpTo(normalizedLevel);
   const totals = summarizeLevelRewardLedger(nextState.appliedRewardsByLevel, normalizedLevel);
@@ -9333,22 +9474,160 @@ function syncLevelRewardReminderAnimation() {
   }
 }
 
+function appendLevelRewardDetails(container, details = []) {
+  if (!container || !Array.isArray(details) || !details.length) return;
+  const list = document.createElement('ul');
+  list.className = 'level-reward-list__details';
+  details.forEach(detail => {
+    if (typeof detail !== 'string' || !detail.trim()) return;
+    const item = document.createElement('li');
+    item.textContent = detail.trim();
+    list.appendChild(item);
+  });
+  if (list.childNodes.length) {
+    container.appendChild(list);
+  }
+}
+
 function renderLevelRewardReminders() {
   const tasks = getLevelRewardTasksUpTo(levelProgressState?.highestAppliedLevel || 1);
-  const completed = levelProgressState?.completedRewardIds instanceof Set
-    ? levelProgressState.completedRewardIds
-    : new Set(Array.isArray(levelProgressState?.completedRewardIds) ? levelProgressState.completedRewardIds : []);
+  let completed = levelProgressState?.completedRewardIds;
+  if (!(completed instanceof Set)) {
+    const prior = Array.isArray(levelProgressState?.completedRewardIds)
+      ? levelProgressState.completedRewardIds.filter(Boolean)
+      : [];
+    completed = new Set(prior);
+    levelProgressState.completedRewardIds = completed;
+  }
+  const statAssignments = ensureStatAssignmentMap();
   const pendingTasks = [];
+  let stateMutated = false;
   if (elLevelRewardReminderList) {
     elLevelRewardReminderList.innerHTML = '';
   }
   tasks.forEach(task => {
-    const isCompleted = completed.has(task.id);
-    if (!isCompleted) pendingTasks.push(task);
+    if (!task) return;
+    let isCompleted = completed.has(task.id);
+    if (task.type === 'stat' && !isCompleted) {
+      const assigned = statAssignments.get(task.id);
+      if (assigned) {
+        completed.add(task.id);
+        isCompleted = true;
+        stateMutated = true;
+      }
+    }
+    if (task.autoComplete === true && !isCompleted) {
+      completed.add(task.id);
+      isCompleted = true;
+      stateMutated = true;
+    }
+    const needsAction = !isCompleted && task.autoComplete !== true;
+    if (task.type === 'stat' && !isCompleted) {
+      pendingTasks.push(task);
+    } else if (needsAction) {
+      pendingTasks.push(task);
+    }
     if (!elLevelRewardReminderList) return;
+
     const li = document.createElement('li');
+    li.className = 'level-reward-list__item';
+    if (typeof task.type === 'string' && task.type) {
+      li.dataset.rewardType = task.type;
+    }
+
+    if (task.autoComplete === true) {
+      const label = document.createElement('label');
+      label.className = 'inline level-reward-list__action level-reward-list__action--automatic';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = true;
+      checkbox.disabled = true;
+      checkbox.setAttribute('aria-hidden', 'true');
+      label.appendChild(checkbox);
+      const text = document.createElement('span');
+      text.textContent = task.label;
+      label.appendChild(text);
+      li.appendChild(label);
+      appendLevelRewardDetails(li, task.details);
+      elLevelRewardReminderList.appendChild(li);
+      return;
+    }
+
+    if (task.type === 'stat') {
+      const assignedAbility = statAssignments.get(task.id) || '';
+      if (isCompleted) {
+        const label = document.createElement('label');
+        label.className = 'inline level-reward-list__action level-reward-list__action--complete';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.disabled = true;
+        checkbox.setAttribute('aria-hidden', 'true');
+        label.appendChild(checkbox);
+        const abilityName = ABILITY_FULL_NAMES?.[assignedAbility] || assignedAbility.toUpperCase() || 'Ability Score';
+        const text = document.createElement('span');
+        text.textContent = `${task.label} — ${abilityName}`;
+        label.appendChild(text);
+        li.appendChild(label);
+        appendLevelRewardDetails(li, task.details);
+        elLevelRewardReminderList.appendChild(li);
+        return;
+      }
+
+      const title = document.createElement('p');
+      title.className = 'level-reward-list__title';
+      title.textContent = task.label;
+      li.appendChild(title);
+      appendLevelRewardDetails(li, task.details);
+
+      const control = document.createElement('div');
+      control.className = 'level-reward-list__control';
+      const select = document.createElement('select');
+      select.className = 'level-reward-list__stat-select';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Choose ability';
+      select.appendChild(placeholder);
+      ABILS.forEach(abilityKey => {
+        const option = document.createElement('option');
+        option.value = abilityKey;
+        option.textContent = ABILITY_FULL_NAMES?.[abilityKey] || abilityKey.toUpperCase();
+        select.appendChild(option);
+      });
+      select.addEventListener('change', () => {
+        const ability = typeof select.value === 'string' ? select.value : '';
+        if (!ability) return;
+        select.disabled = true;
+        const result = applyStatIncreaseToAbility(ability);
+        if (!result.success) {
+          select.disabled = false;
+          select.value = '';
+          const abilityName = ABILITY_FULL_NAMES?.[ability] || ability.toUpperCase();
+          if (result.reason === 'max') {
+            toast(`${abilityName} is already at the maximum score.`, 'error');
+          } else {
+            toast('Unable to apply the stat increase. Try again.', 'error');
+          }
+          return;
+        }
+        const abilityName = ABILITY_FULL_NAMES?.[ability] || ability.toUpperCase();
+        ensureStatAssignmentMap().set(task.id, ability);
+        completed.add(task.id);
+        levelProgressState.completedRewardIds = completed;
+        persistLevelProgressState();
+        toast(`+1 ${abilityName} applied`, { type: 'success', meta: { source: 'level-reward' } });
+        window.dmNotify?.(`Level reward applied: +1 ${abilityName}`, { actionScope: 'major' });
+        logAction(`Level reward applied: +1 ${abilityName}`);
+        renderLevelRewardReminders();
+      });
+      control.appendChild(select);
+      li.appendChild(control);
+      elLevelRewardReminderList.appendChild(li);
+      return;
+    }
+
     const label = document.createElement('label');
-    label.className = 'inline';
+    label.className = 'inline level-reward-list__action';
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = isCompleted;
@@ -9368,8 +9647,13 @@ function renderLevelRewardReminders() {
     label.appendChild(checkbox);
     label.appendChild(text);
     li.appendChild(label);
+    appendLevelRewardDetails(li, task.details);
     elLevelRewardReminderList.appendChild(li);
   });
+
+  if (stateMutated) {
+    persistLevelProgressState({ silent: true });
+  }
 
   const hasTasks = tasks.length > 0;
   if (elLevelRewardReminderList) {
