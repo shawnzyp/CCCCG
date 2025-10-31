@@ -38,6 +38,50 @@ const createCustomEvent = (type, detail) => {
   return { type, detail };
 };
 
+const getCustomEventCtor = () => {
+  if (typeof globalThis !== 'undefined' && typeof globalThis.CustomEvent === 'function') {
+    return globalThis.CustomEvent;
+  }
+  if (typeof CustomEvent === 'function') {
+    return CustomEvent;
+  }
+  return null;
+};
+
+const createDocumentEvent = (type, detail) => {
+  const CustomEventCtor = getCustomEventCtor();
+  if (!CustomEventCtor) {
+    return { type, detail };
+  }
+  try {
+    return new CustomEventCtor(type, { detail });
+  } catch (err) {
+    return { type, detail };
+  }
+};
+
+const dispatchDocumentEvent = (type, detail) => {
+  if (typeof document === 'undefined' || typeof document.dispatchEvent !== 'function') {
+    return;
+  }
+
+  const event = createDocumentEvent(type, detail);
+
+  try {
+    document.dispatchEvent(event);
+  } catch (err) {
+    const handlerName = `on${type}`;
+    const handler = document[handlerName];
+    if (typeof handler === 'function') {
+      try {
+        handler.call(document, event);
+      } catch (handlerErr) {
+        /* ignore handler failures */
+      }
+    }
+  }
+};
+
 const stateEvents = createEventTarget();
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
@@ -67,19 +111,7 @@ function createPlayerToolsDrawer() {
     const detail = { open: Boolean(isOpen), progress };
     lastKnownState = detail;
     stateEvents.dispatchEvent(createCustomEvent('change', detail));
-    if (typeof document?.dispatchEvent === 'function') {
-      const CustomEventCtor =
-        (typeof globalThis !== 'undefined' && typeof globalThis.CustomEvent === 'function')
-          ? globalThis.CustomEvent
-          : (typeof CustomEvent === 'function' ? CustomEvent : null);
-      if (CustomEventCtor) {
-        try {
-          document.dispatchEvent(new CustomEventCtor(DRAWER_CHANGE_EVENT, { detail }));
-        } catch (err) {
-          /* ignore dispatch failures */
-        }
-      }
-    }
+    dispatchDocumentEvent(DRAWER_CHANGE_EVENT, detail);
   };
 
   const scrim = drawer.querySelector('.player-tools-drawer__scrim');
@@ -1134,11 +1166,9 @@ function createPlayerToolsDrawer() {
       tab.focus({ preventScroll: true });
     }
 
-    if (typeof document?.dispatchEvent === 'function') {
-      const detail = { open: isOpen };
-      document.dispatchEvent(new CustomEvent('player-tools-drawer-toggle', { detail }));
-      document.dispatchEvent(new CustomEvent(isOpen ? 'player-tools-drawer-open' : 'player-tools-drawer-close', { detail }));
-    }
+    const detail = { open: isOpen };
+    dispatchDocumentEvent('player-tools-drawer-toggle', detail);
+    dispatchDocumentEvent(isOpen ? 'player-tools-drawer-open' : 'player-tools-drawer-close', detail);
 
     dispatchStateChange(isOpen);
   };
