@@ -13471,17 +13471,146 @@ const powerEditorState = {
   saveButton: null,
   cancelButton: null,
   card: null,
-  body: null,
-  placeholder: null,
-  parent: null,
   targetList: null,
   initialData: null,
   isNew: false,
   bindingsInitialized: false,
+  steps: ['intro', 'type', 'subtype', 'details'],
+  stepIndex: 0,
+  workingPower: null,
+  moveType: null,
+  subtype: null,
+  wizardElements: {},
 };
 let activeConcentrationEffect = null;
 const ongoingEffectTrackers = new Map();
 let ongoingEffectCounter = 0;
+
+const POWER_WIZARD_TYPES = {
+  attack: {
+    label: 'Attack',
+    description: 'Direct offensive abilities that deal damage or impose conditions.',
+    defaultIntensity: 'Core',
+    subtypes: {
+      melee: {
+        label: 'Melee Strike',
+        description: 'Close-quarters blows, grapples, and brutal finishers.',
+        shapes: ['Melee'],
+        effectTags: ['Damage', 'Push/Pull', 'Weaken', 'Stun'],
+        showDamage: true,
+        allowSave: true,
+        defaultEffect: 'Damage',
+      },
+      ranged: {
+        label: 'Ranged Assault',
+        description: 'Single target shots or blasts at a distance.',
+        shapes: ['Ranged Single'],
+        effectTags: ['Damage', 'Burn', 'Freeze', 'Blind'],
+        showDamage: true,
+        allowSave: true,
+        defaultEffect: 'Damage',
+      },
+      area: {
+        label: 'Area Control',
+        description: 'Cones, lines, and zones that strike multiple foes.',
+        shapes: ['Cone', 'Line', 'Radius', 'Aura'],
+        effectTags: ['Damage', 'Slow', 'Weaken', 'Burn'],
+        showDamage: true,
+        allowSave: true,
+        defaultEffect: 'Damage',
+        defaultIntensity: 'AoE',
+      },
+    },
+  },
+  utility: {
+    label: 'Utility',
+    description: 'Support, battlefield control, and problem-solving powers.',
+    defaultIntensity: 'Minor',
+    subtypes: {
+      support: {
+        label: 'Support Buff',
+        description: 'Bolster allies or provide protection.',
+        shapes: ['Self', 'Aura', 'Ranged Single'],
+        effectTags: ['Heal', 'Shield', 'Summon/Clone'],
+        showDamage: false,
+        allowSave: false,
+        defaultEffect: 'Heal',
+      },
+      control: {
+        label: 'Control / Debuff',
+        description: 'Impose debilitating conditions or reshape the battlefield.',
+        shapes: ['Cone', 'Line', 'Radius', 'Ranged Single'],
+        effectTags: ['Stun', 'Blind', 'Weaken', 'Slow', 'Charm', 'Dispel/Nullify'],
+        showDamage: false,
+        allowSave: true,
+        defaultEffect: 'Stun',
+      },
+      mobility: {
+        label: 'Mobility / Movement',
+        description: 'Teleportation, repositioning, and traversal tricks.',
+        shapes: ['Self', 'Ranged Single'],
+        effectTags: ['Teleport/Phase', 'Push/Pull', 'Terrain'],
+        showDamage: false,
+        allowSave: false,
+        defaultEffect: 'Teleport/Phase',
+      },
+    },
+  },
+  signature: {
+    label: 'Signature',
+    description: 'Iconic moves that define the hero’s style.',
+    defaultIntensity: 'Ultimate',
+    subtypes: {
+      finisher: {
+        label: 'Signature Finisher',
+        description: 'A devastating signature attack or combo.',
+        shapes: ['Melee', 'Ranged Single', 'Cone', 'Radius'],
+        effectTags: ['Damage', 'Stun', 'Weaken'],
+        showDamage: true,
+        allowSave: true,
+        defaultEffect: 'Damage',
+        enforceSignature: true,
+      },
+      showcase: {
+        label: 'Showcase Utility',
+        description: 'A flashy, narrative-defining utility move.',
+        shapes: ['Self', 'Aura', 'Ranged Single'],
+        effectTags: ['Shield', 'Heal', 'Teleport/Phase', 'Summon/Clone'],
+        showDamage: false,
+        allowSave: true,
+        defaultEffect: 'Shield',
+        enforceSignature: true,
+      },
+    },
+  },
+  cinematic: {
+    label: 'Cinematic',
+    description: 'Set-piece powers for dramatic moments and ultimate gambits.',
+    defaultIntensity: 'Ultimate',
+    subtypes: {
+      moment: {
+        label: 'Heroic Moment',
+        description: 'A sweeping narrative beat that protects or inspires.',
+        shapes: ['Self', 'Aura', 'Radius'],
+        effectTags: ['Shield', 'Heal', 'Terrain', 'Summon/Clone'],
+        showDamage: false,
+        allowSave: false,
+        defaultEffect: 'Shield',
+        cinematic: true,
+      },
+      devastation: {
+        label: 'Devastating Assault',
+        description: 'A massive, battlefield-altering strike.',
+        shapes: ['Cone', 'Line', 'Radius', 'Ranged Single'],
+        effectTags: ['Damage', 'Burn', 'Freeze', 'Push/Pull'],
+        showDamage: true,
+        allowSave: true,
+        defaultEffect: 'Damage',
+        cinematic: true,
+      },
+    },
+  },
+};
 
 function getOngoingEffectsContainer() {
   return $('ongoing-effects');
@@ -14831,23 +14960,7 @@ function ensurePowerEditorElements() {
 }
 
 function restorePowerEditorCard() {
-  const { body, placeholder, parent, content, card } = powerEditorState;
-  if (body && content && content.contains(body)) {
-    content.removeChild(body);
-  }
-  if (body && parent) {
-    if (placeholder && parent.contains(placeholder)) {
-      parent.insertBefore(body, placeholder);
-    } else {
-      parent.appendChild(body);
-    }
-  }
-  if (placeholder && placeholder.parentNode) {
-    placeholder.parentNode.removeChild(placeholder);
-  }
-  if (body) {
-    body.classList.remove('power-card__body--editing');
-  }
+  const { card, content } = powerEditorState;
   if (card) {
     card.classList.remove('power-card--editing');
     const existingState = powerCardStates.get(card);
@@ -14858,9 +14971,7 @@ function restorePowerEditorCard() {
   if (content) {
     content.innerHTML = '';
   }
-  powerEditorState.body = null;
-  powerEditorState.placeholder = null;
-  powerEditorState.parent = null;
+  powerEditorState.wizardElements = {};
 }
 
 function resetPowerEditorState() {
@@ -14868,6 +14979,11 @@ function resetPowerEditorState() {
   powerEditorState.targetList = null;
   powerEditorState.initialData = null;
   powerEditorState.isNew = false;
+  powerEditorState.stepIndex = 0;
+  powerEditorState.workingPower = null;
+  powerEditorState.moveType = null;
+  powerEditorState.subtype = null;
+  powerEditorState.wizardElements = {};
 }
 
 function handlePowerEditorSave(event) {
@@ -14879,11 +14995,21 @@ function handlePowerEditorSave(event) {
     hide('modal-power-editor');
     return;
   }
-  restorePowerEditorCard();
+  if (!isPowerEditorValid()) {
+    updatePowerEditorSaveState();
+    return;
+  }
+  const compiled = compilePowerEditorResult();
+  if (!compiled) {
+    updatePowerEditorSaveState();
+    return;
+  }
+  applyPowerDataToCard(card, compiled);
   if (isNew && targetList && !card.isConnected) {
     targetList.appendChild(card);
   }
   updatePowerCardDerived(card);
+  restorePowerEditorCard();
   hide('modal-power-editor');
   if (typeof pushHistory === 'function') pushHistory();
   const editButton = powerCardStates.get(card)?.elements?.summaryEdit;
@@ -14922,8 +15048,8 @@ function openPowerEditor(card, { isNew = false, targetList = null } = {}) {
     console.warn('Power editor modal unavailable.');
     return false;
   }
-  const body = card.querySelector('.power-card__body');
-  if (!body) return false;
+  const cardState = powerCardStates.get(card);
+  if (!cardState) return false;
   if (!card._powerQuerySelector) {
     const originalQuerySelector = card.querySelector.bind(card);
     const originalQuerySelectorAll = card.querySelectorAll.bind(card);
@@ -14962,39 +15088,839 @@ function openPowerEditor(card, { isNew = false, targetList = null } = {}) {
   if (powerEditorState.card && powerEditorState.card !== card) {
     handlePowerEditorCancel();
   }
-  const placeholder = document.createComment('power-card-body');
-  const parent = body.parentNode;
-  if (parent) {
-    parent.insertBefore(placeholder, body);
-  }
-  if (powerEditorState.content) {
-    powerEditorState.content.innerHTML = '';
-    powerEditorState.content.appendChild(body);
-    powerEditorState.content.scrollTop = 0;
-  }
-  body.classList.add('power-card__body--editing');
+  const isSignature = card?.dataset?.kind === 'sig';
+  const label = isSignature ? 'Signature Move' : 'Power';
   card.classList.add('power-card--editing');
-  powerEditorState.body = body;
-  powerEditorState.placeholder = placeholder;
-  powerEditorState.parent = parent;
   powerEditorState.card = card;
   powerEditorState.targetList = targetList || card.parentNode;
   powerEditorState.isNew = !!isNew;
   powerEditorState.initialData = serializePowerCard(card);
-  const currentState = powerCardStates.get(card);
-  if (currentState?.elements?.summaryEdit) {
-    currentState.elements.summaryEdit.disabled = true;
+  powerEditorState.workingPower = clonePowerForEditor(cardState.power);
+  powerEditorState.moveType = inferPowerMoveType(card, powerEditorState.workingPower);
+  powerEditorState.subtype = inferPowerSubtype(powerEditorState.moveType, powerEditorState.workingPower);
+  applyMoveTypeDefaults(powerEditorState.moveType);
+  applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
+  const detailsIndex = (powerEditorState.steps || []).indexOf('details');
+  powerEditorState.stepIndex = detailsIndex >= 0 ? detailsIndex : 0;
+  powerEditorState.wizardElements = {};
+  if (cardState?.elements?.summaryEdit) {
+    cardState.elements.summaryEdit.disabled = true;
   }
-  const isSignature = card?.dataset?.kind === 'sig';
-  const label = isSignature ? 'Signature Move' : 'Power';
   if (powerEditorState.title) {
     powerEditorState.title.textContent = `${isNew ? 'Create' : 'Edit'} ${label}`;
   }
   if (powerEditorState.saveButton) {
     powerEditorState.saveButton.textContent = isNew ? `Save ${label}` : 'Save Changes';
   }
+  renderPowerEditorStep();
   show('modal-power-editor');
   return true;
+}
+
+function clonePowerForEditor(power) {
+  const fallback = normalizePowerData({});
+  if (!power || typeof power !== 'object') {
+    return { ...fallback };
+  }
+  try {
+    const clone = typeof structuredClone === 'function' ? structuredClone(power) : JSON.parse(JSON.stringify(power));
+    return clone || { ...fallback };
+  } catch {
+    return { ...power };
+  }
+}
+
+function inferPowerMoveType(card, power = {}) {
+  if (card?.dataset?.kind === 'sig' || power.signature) return 'signature';
+  if (power.intensity === 'Ultimate' || power.uses === 'Cooldown') {
+    return power.damage ? 'cinematic' : 'signature';
+  }
+  if (power.damage) return 'attack';
+  return 'utility';
+}
+
+function getMoveTypeConfig(moveType) {
+  return POWER_WIZARD_TYPES[moveType] || null;
+}
+
+function getSubtypeConfig(moveType, subtype) {
+  const moveConfig = getMoveTypeConfig(moveType);
+  if (!moveConfig || !moveConfig.subtypes) return null;
+  return moveConfig.subtypes[subtype] || null;
+}
+
+function inferPowerSubtype(moveType, power = {}) {
+  const config = getMoveTypeConfig(moveType);
+  if (!config) return null;
+  const subtypeEntries = Object.entries(config.subtypes || {});
+  if (!subtypeEntries.length) return null;
+  if (moveType === 'attack') {
+    if (power.shape === 'Melee') return 'melee';
+    if (['Cone', 'Line', 'Radius', 'Aura'].includes(power.shape)) return 'area';
+    return 'ranged';
+  }
+  if (moveType === 'utility') {
+    if (['Heal', 'Shield', 'Summon/Clone'].includes(power.effectTag)) return 'support';
+    if (['Teleport/Phase', 'Terrain', 'Push/Pull'].includes(power.effectTag)) return 'mobility';
+    if (power.requiresSave || ['Stun', 'Blind', 'Weaken', 'Slow', 'Charm', 'Dispel/Nullify'].includes(power.effectTag)) {
+      return 'control';
+    }
+    return subtypeEntries[0][0];
+  }
+  if (moveType === 'signature') {
+    if (power.damage) return 'finisher';
+    return 'showcase';
+  }
+  if (moveType === 'cinematic') {
+    if (power.damage) return 'devastation';
+    return 'moment';
+  }
+  return subtypeEntries[0][0];
+}
+
+function applyMoveTypeDefaults(moveType) {
+  const working = powerEditorState.workingPower;
+  const config = getMoveTypeConfig(moveType);
+  if (!working || !config) return;
+  if (config.defaultIntensity && (!POWER_INTENSITIES.includes(working.intensity) || working.intensity === '')) {
+    working.intensity = config.defaultIntensity;
+  }
+  if (moveType === 'signature') {
+    working.signature = true;
+    if (!POWER_INTENSITIES.includes(working.intensity)) working.intensity = 'Ultimate';
+  } else if (moveType !== 'signature' && !config.enforceSignature) {
+    delete working.signature;
+  }
+  if (moveType === 'cinematic') {
+    working.intensity = 'Ultimate';
+    working.uses = 'Cooldown';
+    working.cooldown = Math.max(Number(working.cooldown) || 10, 1);
+  }
+}
+
+function applySubtypeDefaults(moveType, subtype) {
+  const working = powerEditorState.workingPower;
+  if (!working) return;
+  const config = getSubtypeConfig(moveType, subtype);
+  if (!config) return;
+  const shapes = (config.shapes || []).filter(shape => POWER_TARGET_SHAPES.includes(shape));
+  if (shapes.length) {
+    if (!shapes.includes(working.shape)) {
+      [working.shape] = shapes;
+    }
+    const settings = typeof getCharacterPowerSettings === 'function' ? getCharacterPowerSettings() : null;
+    working.range = ensureRangeForShape(working.shape, working.range, settings);
+  }
+  const effectOptions = (config.effectTags || []).filter(tag => POWER_EFFECT_TAGS.includes(tag));
+  if (effectOptions.length) {
+    if (!effectOptions.includes(working.effectTag)) {
+      working.effectTag = config.defaultEffect || effectOptions[0];
+    }
+  }
+  if (config.defaultIntensity && POWER_INTENSITIES.includes(config.defaultIntensity)) {
+    if (!POWER_INTENSITIES.includes(working.intensity)) {
+      working.intensity = config.defaultIntensity;
+    }
+  }
+  if (config.showDamage) {
+    if (!working.damage || typeof working.damage !== 'object') {
+      working.damage = {
+        dice: POWER_DAMAGE_DICE[0],
+        type: defaultDamageType(working.style) || POWER_DAMAGE_TYPES[0],
+        onSave: 'Half',
+      };
+    } else {
+      if (!POWER_DAMAGE_DICE.includes(working.damage.dice)) {
+        working.damage.dice = POWER_DAMAGE_DICE[0];
+      }
+      const fallbackType = defaultDamageType(working.style) || POWER_DAMAGE_TYPES[0];
+      if (!POWER_DAMAGE_TYPES.includes(working.damage.type)) {
+        working.damage.type = fallbackType;
+      }
+      if (!POWER_ON_SAVE_OPTIONS.includes(working.damage.onSave)) {
+        working.damage.onSave = 'Half';
+      }
+    }
+  } else {
+    delete working.damage;
+  }
+  if (!config.allowSave) {
+    working.requiresSave = false;
+    delete working.saveAbilityTarget;
+  } else if (working.requiresSave && !POWER_SAVE_ABILITIES.includes(working.saveAbilityTarget)) {
+    working.saveAbilityTarget = POWER_SAVE_ABILITIES[0];
+  }
+  if (config.enforceSignature) {
+    working.signature = true;
+  }
+  if (config.cinematic) {
+    working.intensity = 'Ultimate';
+    working.uses = 'Cooldown';
+    working.cooldown = Math.max(Number(working.cooldown) || 10, 1);
+  }
+  if (!Number.isFinite(Number(working.spCost)) || Number(working.spCost) <= 0) {
+    working.spCost = suggestSpCost(working.intensity || 'Core');
+  }
+}
+
+function goToWizardStep(step) {
+  const steps = powerEditorState.steps || [];
+  const maxIndex = Math.max(0, steps.length - 1);
+  const nextIndex = Math.min(Math.max(step, 0), maxIndex);
+  powerEditorState.stepIndex = nextIndex;
+  renderPowerEditorStep();
+}
+
+function renderPowerEditorStep() {
+  const { content, steps, stepIndex } = powerEditorState;
+  if (!content) return;
+  if (!powerEditorState.wizardElements || typeof powerEditorState.wizardElements !== 'object') {
+    powerEditorState.wizardElements = {};
+  }
+  powerEditorState.wizardElements.details = null;
+  powerEditorState.wizardElements.detailsNavNext = null;
+  powerEditorState.wizardElements.typeNavNext = null;
+  powerEditorState.wizardElements.subtypeNavNext = null;
+  content.innerHTML = '';
+  content.scrollTop = 0;
+  const stepKey = steps?.[stepIndex] || 'intro';
+  switch (stepKey) {
+    case 'intro':
+      renderPowerWizardIntro(content);
+      break;
+    case 'type':
+      renderPowerWizardType(content);
+      break;
+    case 'subtype':
+      renderPowerWizardSubtype(content);
+      break;
+    case 'details':
+      renderPowerWizardDetails(content);
+      break;
+    default:
+      renderPowerWizardIntro(content);
+      break;
+  }
+  updatePowerEditorSaveState();
+}
+
+function renderPowerWizardIntro(container) {
+  const intro = document.createElement('div');
+  intro.className = 'power-editor__wizard-step';
+  const heading = document.createElement('h4');
+  heading.textContent = 'Power Builder';
+  const blurb = document.createElement('p');
+  blurb.textContent = 'Answer a few questions to shape this power. You can always fine-tune the details on the final step.';
+  const summaryList = document.createElement('ul');
+  summaryList.className = 'power-editor__wizard-summary';
+  const working = powerEditorState.workingPower || {};
+  const summaryItems = [
+    working.name ? `Current name: ${working.name}` : 'No name yet.',
+    working.effectTag ? `Focus: ${working.effectTag}` : 'Focus not selected.',
+    working.intensity ? `Intensity: ${working.intensity}` : 'Intensity pending.',
+  ];
+  summaryItems.forEach(text => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    summaryList.appendChild(item);
+  });
+  const nav = createWizardNav({
+    showBack: false,
+    nextLabel: 'Start',
+    onNext: () => goToWizardStep(powerEditorState.stepIndex + 1),
+  });
+  intro.append(heading, blurb, summaryList, nav);
+  container.appendChild(intro);
+}
+
+function renderPowerWizardType(container) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'power-editor__wizard-step';
+  const heading = document.createElement('h4');
+  heading.textContent = 'What type of power is this?';
+  const options = document.createElement('div');
+  options.className = 'power-editor__wizard-options';
+  const currentType = powerEditorState.moveType;
+  Object.entries(POWER_WIZARD_TYPES).forEach(([key, config]) => {
+    const option = document.createElement('label');
+    option.className = 'power-editor__wizard-option';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'power-editor-type';
+    radio.value = key;
+    radio.checked = currentType === key;
+    radio.addEventListener('change', () => {
+      powerEditorState.moveType = key;
+      applyMoveTypeDefaults(key);
+      powerEditorState.subtype = inferPowerSubtype(key, powerEditorState.workingPower);
+      applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
+      updatePowerEditorSaveState();
+      const nextButton = powerEditorState.wizardElements?.typeNavNext;
+      if (nextButton) nextButton.disabled = false;
+    });
+    const title = document.createElement('span');
+    title.className = 'power-editor__wizard-option-title';
+    title.textContent = config.label;
+    const desc = document.createElement('span');
+    desc.className = 'power-editor__wizard-option-desc';
+    desc.textContent = config.description;
+    option.append(radio, title, desc);
+    options.appendChild(option);
+  });
+  const nav = createWizardNav({
+    showBack: true,
+    onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
+    nextLabel: 'Choose subtype',
+    nextDisabled: !powerEditorState.moveType,
+    onNext: () => {
+      if (!powerEditorState.moveType) return;
+      if (!powerEditorState.subtype) {
+        powerEditorState.subtype = inferPowerSubtype(powerEditorState.moveType, powerEditorState.workingPower);
+        applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
+      }
+      goToWizardStep(powerEditorState.stepIndex + 1);
+    },
+  });
+  wrapper.append(heading, options, nav);
+  container.appendChild(wrapper);
+  powerEditorState.wizardElements.typeOptions = options;
+  const navNext = nav.querySelector('[data-wizard-next]');
+  powerEditorState.wizardElements.typeNavNext = navNext || null;
+  if (navNext) {
+    navNext.disabled = !powerEditorState.moveType;
+  }
+}
+
+function renderPowerWizardSubtype(container) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'power-editor__wizard-step';
+  const heading = document.createElement('h4');
+  heading.textContent = 'How does it express that power?';
+  const moveConfig = getMoveTypeConfig(powerEditorState.moveType);
+  if (!moveConfig) {
+    const info = document.createElement('p');
+    info.textContent = 'Select a power type first to view subtype options.';
+    const nav = createWizardNav({
+      showBack: true,
+      onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
+      nextLabel: 'Next',
+      nextDisabled: true,
+    });
+    wrapper.append(heading, info, nav);
+    container.appendChild(wrapper);
+    return;
+  }
+  const options = document.createElement('div');
+  options.className = 'power-editor__wizard-options';
+  const currentSubtype = powerEditorState.subtype;
+  Object.entries(moveConfig.subtypes || {}).forEach(([key, config]) => {
+    const option = document.createElement('label');
+    option.className = 'power-editor__wizard-option';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'power-editor-subtype';
+    radio.value = key;
+    radio.checked = currentSubtype === key;
+    radio.addEventListener('change', () => {
+      powerEditorState.subtype = key;
+      applySubtypeDefaults(powerEditorState.moveType, key);
+      updatePowerEditorSaveState();
+      const nextButton = powerEditorState.wizardElements?.subtypeNavNext;
+      if (nextButton) nextButton.disabled = false;
+    });
+    const title = document.createElement('span');
+    title.className = 'power-editor__wizard-option-title';
+    title.textContent = config.label;
+    const desc = document.createElement('span');
+    desc.className = 'power-editor__wizard-option-desc';
+    desc.textContent = config.description;
+    option.append(radio, title, desc);
+    options.appendChild(option);
+  });
+  const nav = createWizardNav({
+    showBack: true,
+    onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
+    nextLabel: 'Details',
+    nextDisabled: !powerEditorState.subtype,
+    onNext: () => {
+      if (!powerEditorState.subtype) return;
+      applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
+      goToWizardStep(powerEditorState.stepIndex + 1);
+    },
+  });
+  wrapper.append(heading, options, nav);
+  container.appendChild(wrapper);
+  powerEditorState.wizardElements.subtypeOptions = options;
+  const navNext = nav.querySelector('[data-wizard-next]');
+  powerEditorState.wizardElements.subtypeNavNext = navNext || null;
+  if (navNext) {
+    navNext.disabled = !powerEditorState.subtype;
+  }
+}
+
+function renderPowerWizardDetails(container) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'power-editor__wizard-step power-editor__wizard-step--details';
+  const config = getSubtypeConfig(powerEditorState.moveType, powerEditorState.subtype);
+  if (!config) {
+    const info = document.createElement('p');
+    info.textContent = 'Choose a subtype before editing details.';
+    const nav = createWizardNav({
+      showBack: true,
+      onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
+      nextLabel: 'Save',
+      nextDisabled: true,
+    });
+    wrapper.append(info, nav);
+    container.appendChild(wrapper);
+    return;
+  }
+  const working = powerEditorState.workingPower || {};
+  const moveConfig = getMoveTypeConfig(powerEditorState.moveType);
+  const summaryBar = document.createElement('div');
+  summaryBar.className = 'power-editor__wizard-summary-bar';
+  const summaryText = document.createElement('div');
+  summaryText.className = 'power-editor__wizard-summary-text';
+  summaryText.textContent = `Type: ${moveConfig?.label || '—'} • Subtype: ${config.label}`;
+  const summaryActions = document.createElement('div');
+  summaryActions.className = 'power-editor__wizard-summary-actions';
+  const changeTypeBtn = document.createElement('button');
+  changeTypeBtn.type = 'button';
+  changeTypeBtn.className = 'btn-sm';
+  changeTypeBtn.textContent = 'Change type';
+  changeTypeBtn.addEventListener('click', () => {
+    const typeIndex = (powerEditorState.steps || []).indexOf('type');
+    if (typeIndex >= 0) goToWizardStep(typeIndex);
+  });
+  const changeSubtypeBtn = document.createElement('button');
+  changeSubtypeBtn.type = 'button';
+  changeSubtypeBtn.className = 'btn-sm';
+  changeSubtypeBtn.textContent = 'Change subtype';
+  changeSubtypeBtn.addEventListener('click', () => {
+    const subtypeIndex = (powerEditorState.steps || []).indexOf('subtype');
+    if (subtypeIndex >= 0) goToWizardStep(subtypeIndex);
+  });
+  summaryActions.append(changeTypeBtn, changeSubtypeBtn);
+  summaryBar.append(summaryText, summaryActions);
+  const helperText = document.createElement('p');
+  helperText.className = 'power-editor__wizard-helper';
+  helperText.textContent = 'Adjust guided choices with the buttons above or fine-tune the details below.';
+  wrapper.append(summaryBar, helperText);
+  const fields = document.createElement('div');
+  fields.className = 'power-editor__details-grid';
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.value = working.name || '';
+  nameInput.addEventListener('input', () => {
+    working.name = nameInput.value.trim();
+    updatePowerEditorSaveState();
+  });
+  fields.appendChild(createFieldContainer('Power Name', nameInput, { minWidth: '220px' }).wrapper);
+
+  const styleSelect = document.createElement('select');
+  setSelectOptions(styleSelect, POWER_STYLES, working.style, { includeEmpty: true });
+  styleSelect.addEventListener('change', () => {
+    working.style = styleSelect.value;
+    if (working.damage && config.showDamage) {
+      working.damage.type = defaultDamageType(working.style) || working.damage.type;
+      updateDetailsDamageFields();
+    }
+  });
+  fields.appendChild(createFieldContainer('Style', styleSelect, { minWidth: '200px' }).wrapper);
+
+  const actionSelect = document.createElement('select');
+  setSelectOptions(actionSelect, POWER_ACTION_TYPES, working.actionType || POWER_ACTION_TYPES[0]);
+  actionSelect.addEventListener('change', () => {
+    working.actionType = actionSelect.value;
+  });
+  fields.appendChild(createFieldContainer('Action Economy', actionSelect, { minWidth: '180px' }).wrapper);
+
+  const intensitySelect = document.createElement('select');
+  setSelectOptions(intensitySelect, POWER_INTENSITIES, working.intensity || (config.defaultIntensity || 'Core'));
+  intensitySelect.addEventListener('change', () => {
+    working.intensity = intensitySelect.value;
+    if (!Number.isFinite(Number(working.spCost)) || Number(working.spCost) <= 0) {
+      working.spCost = suggestSpCost(working.intensity);
+      spInput.value = working.spCost;
+    }
+    updatePowerEditorSaveState();
+  });
+  fields.appendChild(createFieldContainer('Intensity', intensitySelect, { minWidth: '160px' }).wrapper);
+
+  const shapeSelect = document.createElement('select');
+  const shapeOptions = (config.shapes || []).filter(shape => POWER_TARGET_SHAPES.includes(shape));
+  const allowedShapes = shapeOptions.length ? shapeOptions : POWER_TARGET_SHAPES;
+  if (!allowedShapes.includes(working.shape)) {
+    working.shape = allowedShapes[0];
+  }
+  setSelectOptions(shapeSelect, allowedShapes, working.shape);
+  shapeSelect.addEventListener('change', () => {
+    working.shape = shapeSelect.value;
+    const settings = typeof getCharacterPowerSettings === 'function' ? getCharacterPowerSettings() : null;
+    working.range = ensureRangeForShape(working.shape, working.range, settings);
+    updateRangeOptions();
+  });
+  fields.appendChild(createFieldContainer('Target Shape', shapeSelect, { minWidth: '160px' }).wrapper);
+
+  const rangeSelect = document.createElement('select');
+  const updateRangeOptions = () => {
+    const rangeOptions = getRangeOptionsForShape(working.shape);
+    setSelectOptions(rangeSelect, rangeOptions, working.range || rangeOptions[0]);
+    working.range = rangeSelect.value;
+  };
+  updateRangeOptions();
+  rangeSelect.addEventListener('change', () => {
+    working.range = rangeSelect.value;
+  });
+  fields.appendChild(createFieldContainer('Range', rangeSelect, { minWidth: '160px' }).wrapper);
+
+  const effectOptions = (config.effectTags || []).filter(tag => POWER_EFFECT_TAGS.includes(tag));
+  const resolvedEffectOptions = effectOptions.length ? effectOptions : POWER_EFFECT_TAGS;
+  if (!resolvedEffectOptions.includes(working.effectTag)) {
+    working.effectTag = config.defaultEffect || resolvedEffectOptions[0];
+  }
+  const effectSelect = document.createElement('select');
+  setSelectOptions(effectSelect, resolvedEffectOptions, working.effectTag);
+  effectSelect.addEventListener('change', () => {
+    working.effectTag = effectSelect.value;
+  });
+  fields.appendChild(createFieldContainer('Primary Effect', effectSelect, { minWidth: '180px' }).wrapper);
+
+  const secondarySelect = document.createElement('select');
+  setSelectOptions(secondarySelect, POWER_EFFECT_TAGS, working.secondaryTag, { includeEmpty: true });
+  secondarySelect.addEventListener('change', () => {
+    const value = secondarySelect.value;
+    working.secondaryTag = value || undefined;
+  });
+  fields.appendChild(createFieldContainer('Secondary Effect (optional)', secondarySelect, { minWidth: '200px' }).wrapper);
+
+  const spInput = document.createElement('input');
+  spInput.type = 'number';
+  spInput.min = '1';
+  spInput.value = Number.isFinite(Number(working.spCost)) ? Number(working.spCost) : suggestSpCost(working.intensity || 'Core');
+  working.spCost = Number(spInput.value) || suggestSpCost(working.intensity || 'Core');
+  spInput.addEventListener('input', () => {
+    const value = Math.max(1, Math.floor(Number(spInput.value) || 1));
+    spInput.value = value;
+    working.spCost = value;
+  });
+  fields.appendChild(createFieldContainer('SP Cost', spInput, { minWidth: '120px' }).wrapper);
+
+  let damageFieldsWrapper = null;
+  let damageDiceSelect = null;
+  let damageTypeSelect = null;
+  let damageSaveSelect = null;
+
+  if (config.showDamage) {
+    damageFieldsWrapper = document.createElement('div');
+    damageFieldsWrapper.className = 'power-editor__damage-fields';
+
+    damageDiceSelect = document.createElement('select');
+    setSelectOptions(damageDiceSelect, POWER_DAMAGE_DICE, working.damage?.dice || POWER_DAMAGE_DICE[0]);
+    damageDiceSelect.addEventListener('change', () => {
+      if (!working.damage) working.damage = {};
+      working.damage.dice = damageDiceSelect.value;
+      updatePowerEditorSaveState();
+    });
+    damageFieldsWrapper.appendChild(createFieldContainer('Damage Dice', damageDiceSelect, { minWidth: '140px' }).wrapper);
+
+    damageTypeSelect = document.createElement('select');
+    const fallbackType = defaultDamageType(working.style) || POWER_DAMAGE_TYPES[0];
+    setSelectOptions(damageTypeSelect, POWER_DAMAGE_TYPES, working.damage?.type || fallbackType);
+    damageTypeSelect.addEventListener('change', () => {
+      if (!working.damage) working.damage = {};
+      working.damage.type = damageTypeSelect.value;
+    });
+    damageFieldsWrapper.appendChild(createFieldContainer('Damage Type', damageTypeSelect, { minWidth: '160px' }).wrapper);
+
+    damageSaveSelect = document.createElement('select');
+    setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, working.damage?.onSave || 'Half');
+    damageSaveSelect.addEventListener('change', () => {
+      if (!working.damage) working.damage = {};
+      working.damage.onSave = damageSaveSelect.value;
+    });
+    damageFieldsWrapper.appendChild(createFieldContainer('On Save', damageSaveSelect, { minWidth: '140px' }).wrapper);
+
+    fields.appendChild(damageFieldsWrapper);
+  }
+
+  let saveToggle = null;
+  let saveAbilitySelect = null;
+
+  if (config.allowSave) {
+    saveToggle = document.createElement('label');
+    saveToggle.className = 'power-editor__toggle';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !!working.requiresSave;
+    checkbox.addEventListener('change', () => {
+      working.requiresSave = checkbox.checked;
+      if (working.requiresSave && !POWER_SAVE_ABILITIES.includes(working.saveAbilityTarget)) {
+        working.saveAbilityTarget = POWER_SAVE_ABILITIES[0];
+      }
+      updateSaveVisibility();
+      updatePowerEditorSaveState();
+    });
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = 'Requires Saving Throw';
+    saveToggle.append(checkbox, labelSpan);
+    fields.appendChild(saveToggle);
+
+    saveAbilitySelect = document.createElement('select');
+    setSelectOptions(saveAbilitySelect, POWER_SAVE_ABILITIES, working.saveAbilityTarget || POWER_SAVE_ABILITIES[0]);
+    saveAbilitySelect.addEventListener('change', () => {
+      working.saveAbilityTarget = saveAbilitySelect.value;
+    });
+    const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { minWidth: '160px' });
+    saveAbilityField.wrapper.dataset.powerEditorSaveAbility = 'true';
+    fields.appendChild(saveAbilityField.wrapper);
+  } else {
+    working.requiresSave = false;
+    delete working.saveAbilityTarget;
+  }
+
+  const durationSelect = document.createElement('select');
+  setSelectOptions(durationSelect, POWER_DURATIONS, working.duration || POWER_DURATIONS[0]);
+  durationSelect.addEventListener('change', () => {
+    working.duration = durationSelect.value;
+    if (working.duration === 'Sustained') {
+      working.concentration = true;
+    }
+    updatePowerEditorSaveState();
+  });
+  fields.appendChild(createFieldContainer('Duration', durationSelect, { minWidth: '160px' }).wrapper);
+
+  const concentrationLabel = document.createElement('label');
+  concentrationLabel.className = 'power-editor__toggle';
+  const concentrationToggle = document.createElement('input');
+  concentrationToggle.type = 'checkbox';
+  concentrationToggle.checked = !!working.concentration;
+  concentrationToggle.addEventListener('change', () => {
+    working.concentration = concentrationToggle.checked;
+  });
+  const concentrationSpan = document.createElement('span');
+  concentrationSpan.textContent = 'Requires Concentration';
+  concentrationLabel.append(concentrationToggle, concentrationSpan);
+  fields.appendChild(concentrationLabel);
+
+  const usesSelect = document.createElement('select');
+  setSelectOptions(usesSelect, POWER_USES, working.uses || POWER_USES[0]);
+  usesSelect.addEventListener('change', () => {
+    working.uses = usesSelect.value;
+    if (working.uses !== 'Cooldown') {
+      working.cooldown = 0;
+      cooldownInput.value = '0';
+    } else if (!Number.isFinite(Number(working.cooldown)) || Number(working.cooldown) <= 0) {
+      working.cooldown = 1;
+      cooldownInput.value = '1';
+    }
+    updatePowerEditorSaveState();
+  });
+  fields.appendChild(createFieldContainer('Uses', usesSelect, { minWidth: '160px' }).wrapper);
+
+  const cooldownInput = document.createElement('input');
+  cooldownInput.type = 'number';
+  cooldownInput.min = '0';
+  cooldownInput.value = Number.isFinite(Number(working.cooldown)) ? Number(working.cooldown) : 0;
+  cooldownInput.addEventListener('input', () => {
+    const value = Math.max(0, Math.floor(Number(cooldownInput.value) || 0));
+    cooldownInput.value = value;
+    working.cooldown = value;
+  });
+  fields.appendChild(createFieldContainer('Cooldown (rounds)', cooldownInput, { minWidth: '160px' }).wrapper);
+
+  const scalingSelect = document.createElement('select');
+  setSelectOptions(scalingSelect, POWER_SCALING_OPTIONS, working.scaling || POWER_SCALING_OPTIONS[0]);
+  scalingSelect.addEventListener('change', () => {
+    working.scaling = scalingSelect.value;
+  });
+  fields.appendChild(createFieldContainer('Scaling', scalingSelect, { minWidth: '160px' }).wrapper);
+
+  const descriptionArea = document.createElement('textarea');
+  descriptionArea.rows = 3;
+  descriptionArea.value = working.description || '';
+  descriptionArea.addEventListener('input', () => {
+    working.description = descriptionArea.value;
+  });
+  fields.appendChild(createFieldContainer('Description', descriptionArea, { minWidth: '100%' }).wrapper);
+
+  const specialArea = document.createElement('textarea');
+  specialArea.rows = 2;
+  specialArea.value = working.special || '';
+  specialArea.addEventListener('input', () => {
+    working.special = specialArea.value;
+  });
+  fields.appendChild(createFieldContainer('Special Notes', specialArea, { minWidth: '100%' }).wrapper);
+
+  wrapper.appendChild(fields);
+
+  const nav = createWizardNav({
+    showBack: true,
+    onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
+    nextLabel: 'Review & Save',
+    nextDisabled: false,
+    onNext: () => {
+      updatePowerEditorSaveState();
+      if (!isPowerEditorValid()) return;
+      handlePowerEditorSave();
+    },
+  });
+  wrapper.appendChild(nav);
+  container.appendChild(wrapper);
+
+  const navNext = nav.querySelector('[data-wizard-next]');
+  powerEditorState.wizardElements.detailsNavNext = navNext || null;
+  if (navNext) {
+    navNext.disabled = !isPowerEditorValid();
+  }
+
+  powerEditorState.wizardElements.details = {
+    saveAbilitySelect,
+    saveToggle,
+    damageFieldsWrapper,
+    damageDiceSelect,
+    damageTypeSelect,
+    damageSaveSelect,
+  };
+
+  function updateSaveVisibility() {
+    const { details } = powerEditorState.wizardElements;
+    if (!details) return;
+    const requiresSave = !!working.requiresSave;
+    if (details.saveAbilitySelect) {
+      const field = details.saveAbilitySelect.closest('[data-power-editor-save-ability]') || details.saveAbilitySelect.parentElement;
+      if (field) {
+        field.style.display = requiresSave ? '' : 'none';
+      }
+    }
+  }
+
+  function updateDetailsDamageFields() {
+    if (!config.showDamage) return;
+    const { details } = powerEditorState.wizardElements;
+    if (!details) return;
+    if (details.damageTypeSelect && working.damage) {
+      const fallbackType = defaultDamageType(working.style) || POWER_DAMAGE_TYPES[0];
+      if (!POWER_DAMAGE_TYPES.includes(working.damage.type)) {
+        working.damage.type = fallbackType;
+      }
+      details.damageTypeSelect.value = working.damage.type;
+    }
+  }
+
+  updateSaveVisibility();
+  updateDetailsDamageFields();
+
+  powerEditorState.wizardElements.updateSaveVisibility = updateSaveVisibility;
+  powerEditorState.wizardElements.updateDamageFields = updateDetailsDamageFields;
+  updatePowerEditorSaveState();
+}
+
+function createWizardNav({ showBack = false, onBack, nextLabel = 'Next', nextDisabled = false, onNext }) {
+  const nav = document.createElement('div');
+  nav.className = 'power-editor__wizard-nav';
+  if (showBack) {
+    const backBtn = document.createElement('button');
+    backBtn.type = 'button';
+    backBtn.className = 'btn-sm';
+    backBtn.textContent = 'Back';
+    backBtn.addEventListener('click', () => {
+      if (typeof onBack === 'function') onBack();
+    });
+    nav.appendChild(backBtn);
+  }
+  const nextBtn = document.createElement('button');
+  nextBtn.type = 'button';
+  nextBtn.className = 'btn-sm btn-primary';
+  nextBtn.textContent = nextLabel;
+  nextBtn.dataset.wizardNext = 'true';
+  nextBtn.disabled = !!nextDisabled;
+  nextBtn.addEventListener('click', () => {
+    if (nextBtn.disabled) return;
+    if (typeof onNext === 'function') onNext();
+  });
+  nav.appendChild(nextBtn);
+  return nav;
+}
+
+function isPowerEditorValid() {
+  const working = powerEditorState.workingPower;
+  const moveType = powerEditorState.moveType;
+  const subtype = powerEditorState.subtype;
+  if (!working || !moveType || !subtype) return false;
+  if (!working.name || !working.name.trim()) return false;
+  if (!working.effectTag) return false;
+  if (!working.shape || !working.range) return false;
+  const config = getSubtypeConfig(moveType, subtype);
+  if (config?.showDamage) {
+    if (!working.damage || !POWER_DAMAGE_DICE.includes(working.damage.dice) || !POWER_DAMAGE_TYPES.includes(working.damage.type)) {
+      return false;
+    }
+  }
+  if (config?.allowSave && working.requiresSave && !POWER_SAVE_ABILITIES.includes(working.saveAbilityTarget)) {
+    return false;
+  }
+  return true;
+}
+
+function updatePowerEditorSaveState() {
+  const { saveButton, steps, stepIndex } = powerEditorState;
+  if (!saveButton) return;
+  const stepKey = steps?.[stepIndex];
+  const isDetailsStep = stepKey === 'details';
+  const valid = isPowerEditorValid();
+  saveButton.disabled = !isDetailsStep || !valid;
+  if (saveButton.disabled) {
+    saveButton.setAttribute('aria-disabled', 'true');
+  } else {
+    saveButton.removeAttribute('aria-disabled');
+  }
+  const nextButton = powerEditorState.wizardElements?.detailsNavNext;
+  if (nextButton) {
+    nextButton.disabled = !valid;
+  }
+}
+
+function compilePowerEditorResult() {
+  const working = powerEditorState.workingPower;
+  if (!working) return null;
+  const cloned = clonePowerForEditor(working);
+  if (cloned.damage) {
+    cloned.damage = { ...cloned.damage };
+  } else {
+    delete cloned.damage;
+  }
+  if (!cloned.secondaryTag) {
+    delete cloned.secondaryTag;
+  }
+  if (!cloned.requiresSave) {
+    cloned.requiresSave = false;
+    delete cloned.saveAbilityTarget;
+  }
+  cloned.name = (cloned.name || '').trim();
+  cloned.cooldown = Math.max(0, Math.floor(Number(cloned.cooldown) || 0));
+  cloned.spCost = Math.max(1, Math.floor(Number(cloned.spCost) || suggestSpCost(cloned.intensity || 'Core')));
+  if (!POWER_INTENSITIES.includes(cloned.intensity)) {
+    cloned.intensity = 'Core';
+  }
+  if (!POWER_ACTION_TYPES.includes(cloned.actionType)) {
+    cloned.actionType = POWER_ACTION_TYPES[0];
+  }
+  if (!POWER_USES.includes(cloned.uses)) {
+    cloned.uses = POWER_USES[0];
+  }
+  if (!POWER_TARGET_SHAPES.includes(cloned.shape)) {
+    cloned.shape = 'Ranged Single';
+  }
+  if (!cloned.range) {
+    const settings = typeof getCharacterPowerSettings === 'function' ? getCharacterPowerSettings() : null;
+    cloned.range = ensureRangeForShape(cloned.shape, '', settings);
+  }
+  if (!POWER_DURATIONS.includes(cloned.duration)) {
+    cloned.duration = POWER_DURATIONS[0];
+  }
+  return cloned;
 }
 
 function createPowerCard(pref = {}, options = {}) {
