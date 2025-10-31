@@ -13717,6 +13717,46 @@ function setButtonDisabled(button, disabled) {
   }
 }
 
+function setSummaryRollVisibility(wrapper, button, result, visible) {
+  const target = wrapper || button;
+  if (!target) return;
+  const show = !!visible;
+  if (wrapper) {
+    wrapper.hidden = !show;
+    if (show) {
+      wrapper.removeAttribute('aria-hidden');
+    } else {
+      wrapper.setAttribute('aria-hidden', 'true');
+    }
+  } else if (button) {
+    button.hidden = !show;
+  }
+  if (button) {
+    if (show) {
+      button.removeAttribute('aria-hidden');
+    } else {
+      button.setAttribute('aria-hidden', 'true');
+    }
+  }
+  if (result) {
+    if (show) {
+      result.removeAttribute('aria-hidden');
+    } else {
+      result.setAttribute('aria-hidden', 'true');
+    }
+  }
+  if (!show && result) {
+    if (result.dataset && result.dataset.placeholder) {
+      result.textContent = result.dataset.placeholder;
+    } else {
+      result.textContent = '';
+    }
+    if (result.dataset && result.dataset.rollBreakdown) {
+      delete result.dataset.rollBreakdown;
+    }
+  }
+}
+
 function ensureUsageTrackerForPower(state) {
   if (!state || !state.power) return null;
   const normalized = normalizeUsageTracker(state.usageTracker || state.power.usageTracker, state.power.uses, state.power.cooldown);
@@ -14164,10 +14204,6 @@ function updatePowerCardDerived(card) {
         ? `Suggested: ${saveSuggestions.join(' or ')}`
         : '';
   }
-  if (elements.rollSaveBtn) {
-    elements.rollSaveBtn.disabled = !power.requiresSave;
-  }
-
   if (elements.saveDcOutput) {
     elements.saveDcOutput.value = power.requiresSave ? computeSaveDc(settings) : '';
   }
@@ -14340,11 +14376,31 @@ function updatePowerCardDerived(card) {
     }
   }
   const attackEnabled = shouldEnablePowerAttack(power);
-  if (elements.rollAttackButton) elements.rollAttackButton.disabled = !attackEnabled;
-  if (elements.summaryRollHit) elements.summaryRollHit.disabled = !attackEnabled;
-  if (elements.rollDamageButton) elements.rollDamageButton.disabled = !hasDamage;
-  if (elements.summaryRollDamage) elements.summaryRollDamage.disabled = !hasDamage;
-  if (elements.summaryRollSave) elements.summaryRollSave.disabled = !power.requiresSave;
+  setButtonDisabled(elements.rollAttackButton, !attackEnabled);
+  setButtonDisabled(elements.summaryRollHit, !attackEnabled);
+  setSummaryRollVisibility(
+    elements.summaryRollHitWrapper,
+    elements.summaryRollHit,
+    elements.summaryHitResult,
+    attackEnabled,
+  );
+  setButtonDisabled(elements.rollDamageButton, !hasDamage);
+  setButtonDisabled(elements.summaryRollDamage, !hasDamage);
+  setSummaryRollVisibility(
+    elements.summaryRollDamageWrapper,
+    elements.summaryRollDamage,
+    elements.summaryDamageResult,
+    hasDamage,
+  );
+  const saveEnabled = !!power.requiresSave;
+  setButtonDisabled(elements.summaryRollSave, !saveEnabled);
+  setSummaryRollVisibility(
+    elements.summaryRollSaveWrapper,
+    elements.summaryRollSave,
+    elements.summarySaveResult,
+    saveEnabled,
+  );
+  setButtonDisabled(elements.rollSaveBtn, !saveEnabled);
   updatePowerCardSummary(card, power, settings);
   updateUsageTrackerUI(card);
 }
@@ -14618,13 +14674,19 @@ function updatePowerCardSummary(card, power, settings) {
     elements.summaryEdit.setAttribute('title', accessibleLabel);
   }
   if (elements.summarySp) elements.summarySp.textContent = `${power.spCost} SP`;
-  const descriptionParts = [];
-  if (power.description) descriptionParts.push(power.description);
-  if (power.special) descriptionParts.push(power.special);
-  const descriptionText = descriptionParts.join(' ');
+  const descriptionParts = [power.description, power.special]
+    .map(part => (typeof part === 'string' ? part.trim() : ''))
+    .filter(Boolean);
+  const hasDescription = descriptionParts.length > 0;
+  const descriptionText = hasDescription ? descriptionParts.join(' ') : 'No description provided.';
   if (elements.summaryDescription) {
-    elements.summaryDescription.textContent = descriptionText || '';
-    elements.summaryDescription.hidden = !descriptionText;
+    elements.summaryDescription.textContent = descriptionText;
+    elements.summaryDescription.hidden = false;
+    if (hasDescription) {
+      elements.summaryDescription.removeAttribute('data-placeholder');
+    } else {
+      elements.summaryDescription.setAttribute('data-placeholder', 'true');
+    }
   }
   const statsContainer = elements.summaryStats;
   if (statsContainer) {
@@ -15065,16 +15127,20 @@ function createPowerCard(pref = {}, options = {}) {
   function createSummaryRoll(label) {
     const wrap = document.createElement('div');
     wrap.className = 'power-card__summary-roll';
+    wrap.hidden = true;
+    wrap.setAttribute('aria-hidden', 'true');
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'btn-sm power-card__summary-roll-btn';
     button.textContent = label;
+    button.setAttribute('aria-hidden', 'true');
     const result = document.createElement('span');
     result.className = 'pill result power-card__roll-output';
     result.dataset.placeholder = label;
+    result.setAttribute('aria-hidden', 'true');
     wrap.append(button, result);
     summaryRolls.appendChild(wrap);
-    return { button, result };
+    return { button, result, wrap };
   }
 
   const summaryAttack = createSummaryRoll('Roll to Hit');
@@ -15100,10 +15166,13 @@ function createPowerCard(pref = {}, options = {}) {
   elements.summaryDescription = summaryDescription;
   elements.summaryStats = summaryStats;
   elements.summaryRollHit = summaryAttack.button;
+  elements.summaryRollHitWrapper = summaryAttack.wrap;
   elements.summaryHitResult = summaryAttack.result;
   elements.summaryRollDamage = summaryDamage.button;
+  elements.summaryRollDamageWrapper = summaryDamage.wrap;
   elements.summaryDamageResult = summaryDamage.result;
   elements.summaryRollSave = summarySave.button;
+  elements.summaryRollSaveWrapper = summarySave.wrap;
   elements.summarySaveResult = summarySave.result;
   if (signatureUseProxy) {
     elements.signatureProxyButton = signatureUseProxy;
