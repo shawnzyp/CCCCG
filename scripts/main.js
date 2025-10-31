@@ -4105,10 +4105,15 @@ const isInstantPointerEvent = (event) =>
   && pointerEventTypes.has(event.pointerType);
 
 const handleTabActivation = (btn, target) => {
+  if (!target) return false;
+  const activated = activateTab(target);
+  if (!activated) {
+    return false;
+  }
   lastClickedTab = target;
-  activateTab(target);
   const iconContainer = btn.querySelector('.tab__icon');
   if (iconContainer) triggerTabIconAnimation(iconContainer);
+  return true;
 };
 
 let lastInstantTabTarget = '';
@@ -4119,9 +4124,10 @@ tabButtons.forEach(btn => {
     if (!isInstantPointerEvent(event)) return;
     const target = btn.getAttribute('data-go');
     if (!target) return;
-    lastInstantTabTarget = target;
-    lastInstantTabTime = getPointerTimestamp();
-    handleTabActivation(btn, target);
+    if (handleTabActivation(btn, target)) {
+      lastInstantTabTarget = target;
+      lastInstantTabTime = getPointerTimestamp();
+    }
   });
 
   btn.addEventListener('click', () => {
@@ -4133,7 +4139,10 @@ tabButtons.forEach(btn => {
       lastInstantTabTime = 0;
       return;
     }
-    handleTabActivation(btn, target);
+    if (!handleTabActivation(btn, target)) {
+      lastInstantTabTarget = '';
+      lastInstantTabTime = 0;
+    }
   });
 });
 
