@@ -181,7 +181,13 @@ if (typeof window !== 'undefined' && !window[CRASH_HANDLER_KEY]) {
 
   function trackReloadPermission() {
     const storage = getSessionStorageSafe();
-    if (!storage) return { allowed: true, count: 1 };
+    if (!storage) {
+      return {
+        allowed: false,
+        count: 0,
+        reason: 'persistence-unavailable',
+      };
+    }
     try {
       const now = Date.now();
       const raw = storage.getItem(CRASH_RELOAD_STATE_KEY);
@@ -205,10 +211,18 @@ if (typeof window !== 'undefined' && !window[CRASH_HANDLER_KEY]) {
       state.count += 1;
       state.lastCrashAt = now;
       storage.setItem(CRASH_RELOAD_STATE_KEY, JSON.stringify(state));
-      return { allowed: state.count <= CRASH_MAX_RELOADS, count: state.count };
+      return {
+        allowed: state.count <= CRASH_MAX_RELOADS,
+        count: state.count,
+        reason: state.count <= CRASH_MAX_RELOADS ? null : 'reload-limit-exceeded',
+      };
     } catch (err) {
       console.error('Failed to track crash reload attempts', err);
-      return { allowed: true, count: 1 };
+      return {
+        allowed: false,
+        count: 0,
+        reason: 'persistence-error',
+      };
     }
   }
 
@@ -269,9 +283,16 @@ if (typeof window !== 'undefined' && !window[CRASH_HANDLER_KEY]) {
     const timestampIso = nowIso();
     const env = getEnvironmentInfo();
     const reloadState = trackReloadPermission();
-    const reloadNote = reloadState.allowed
-      ? `Page will reload in ${Math.round(RELOAD_DELAY_MS / 100) / 10}s (attempt ${reloadState.count})`
-      : `Reload skipped after ${reloadState.count} crash attempts in ${Math.round(CRASH_RELOAD_WINDOW_MS / 1000)}s window`;
+    let reloadNote;
+    if (reloadState.allowed) {
+      reloadNote = `Page will reload in ${Math.round(RELOAD_DELAY_MS / 100) / 10}s (attempt ${reloadState.count})`;
+    } else if (reloadState.reason === 'persistence-unavailable') {
+      reloadNote = 'Reload skipped because crash state could not be persisted';
+    } else if (reloadState.reason === 'persistence-error') {
+      reloadNote = 'Reload skipped after crash state persistence failed';
+    } else {
+      reloadNote = `Reload skipped after ${reloadState.count} crash attempts in ${Math.round(CRASH_RELOAD_WINDOW_MS / 1000)}s window`;
+    }
 
     const reasonSummary = info.reasonSummary ? truncate(info.reasonSummary, MAX_DETAIL_LENGTH) : '';
     const reasonDetail = info.reasonDetail ? truncate(info.reasonDetail, MAX_DETAIL_LENGTH) : '';
