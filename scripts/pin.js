@@ -5,15 +5,27 @@ function key(name) {
   return KEY_PREFIX + name;
 }
 
+function createStorageUnavailableError(method, cause = null) {
+  const error = new Error(`localStorage ${method} unavailable`);
+  error.name = 'LocalStorageUnavailableError';
+  if (cause && !error.cause) {
+    error.cause = cause;
+  }
+  return error;
+}
+
 function safeLocalStorageGet(itemKey) {
+  if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
+    const err = createStorageUnavailableError('getItem');
+    console.error(`Failed to read localStorage key ${itemKey}`, err);
+    throw err;
+  }
   try {
-    if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
-      return null;
-    }
     return localStorage.getItem(itemKey);
   } catch (err) {
-    console.error(`Failed to read localStorage key ${itemKey}`, err);
-    return null;
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error(`Failed to read localStorage key ${itemKey}`, error);
+    throw error;
   }
 }
 
@@ -167,7 +179,15 @@ export async function setPin(name, pin) {
 }
 
 export function hasPin(name) {
-  return safeLocalStorageGet(key(name)) !== null;
+  try {
+    return safeLocalStorageGet(key(name)) !== null;
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    if (!error.message) {
+      error.message = 'Failed to access PIN storage';
+    }
+    throw error;
+  }
 }
 
 export async function verifyPin(name, pin) {

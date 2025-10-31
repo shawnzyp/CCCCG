@@ -79,3 +79,14 @@ test('queues pin updates when offline', async () => {
   }));
   expect(register).toHaveBeenCalledWith('cloud-save-sync');
 });
+
+test('surface localStorage failures when checking for a pin', async () => {
+  await setPin('Carol', '4321');
+  const spy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('storage blocked');
+  });
+
+  expect(() => hasPin('Carol')).toThrow('storage blocked');
+
+  spy.mockRestore();
+});
