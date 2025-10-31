@@ -255,6 +255,8 @@ function createPlayerToolsDrawer() {
   let openAnimationStart = null;
   let openAnimationTarget = 0;
   let openAnimationCompletion = null;
+  let isTransitioning = false;
+  let pendingOpenState = null;
 
   const stopOpenAnimation = (cancelled) => {
     if (openAnimationFrame !== null) {
@@ -1095,11 +1097,26 @@ function createPlayerToolsDrawer() {
     const currentlyOpen = drawer.classList.contains('is-open');
     const isOpen = typeof open === 'boolean' ? open : !currentlyOpen;
 
+    if (isTransitioning) {
+      pendingOpenState = isOpen;
+      return;
+    }
+
     scheduleTabTopUpdate();
 
     if (isOpen === currentlyOpen) {
       return;
     }
+
+    const finalizeTransition = () => {
+      isTransitioning = false;
+      if (pendingOpenState === null) {
+        return;
+      }
+      const nextState = pendingOpenState;
+      pendingOpenState = null;
+      setOpenState(nextState);
+    };
 
     drawer.classList.toggle('is-open', isOpen);
     tab.classList.toggle('is-open', isOpen);
@@ -1122,10 +1139,12 @@ function createPlayerToolsDrawer() {
       externalInertTargets = [];
       setElementInert(drawer);
     }
+    isTransitioning = true;
     animateOpenProgress(isOpen ? 1 : 0, () => {
       if (!isOpen && scrim) {
         scrim.hidden = true;
       }
+      finalizeTransition();
     });
 
     if (isOpen) {
