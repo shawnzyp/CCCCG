@@ -150,6 +150,19 @@ function createFetchResponse({ json = null } = {}) {
   };
 }
 
+function createFetchErrorResponse({ status = 500 } = {}) {
+  const response = {
+    ok: false,
+    status,
+    json: jest.fn().mockResolvedValue(null),
+    text: jest.fn().mockResolvedValue(''),
+    arrayBuffer: jest.fn().mockResolvedValue(new ArrayBuffer(0)),
+    blob: jest.fn().mockResolvedValue(new Blob()),
+  };
+  response.clone = () => createFetchErrorResponse({ status });
+  return response;
+}
+
 async function importStorageWithMocks() {
   jest.resetModules();
   jest.unstable_mockModule('../scripts/notifications.js', () => notificationsMock);
@@ -194,6 +207,32 @@ test('queues cloud saves locally when no service worker is available', async () 
   const queued = await getQueuedCloudSaves();
   expect(queued).toHaveLength(1);
   expect(queued[0].name).toBe('Test Hero');
+});
+
+test('saveCloud resolves when history update fails', async () => {
+  const fetchMock = jest.fn((url) => {
+    if (String(url).includes('/history/')) {
+      return Promise.resolve(createFetchErrorResponse({ status: 503 }));
+    }
+    return Promise.resolve(createFetchResponse());
+  });
+  global.fetch = fetchMock;
+
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  const { saveCloud, subscribeSyncErrors } = await importStorageWithMocks();
+  const emitted = [];
+  const unsubscribe = subscribeSyncErrors((payload) => {
+    emitted.push(payload);
+  });
+
+  await expect(saveCloud('History Hero', { level: 4 })).resolves.toBe('saved');
+
+  unsubscribe();
+  warnSpy.mockRestore();
+
+  expect(fetchMock).toHaveBeenCalled();
+  expect(emitted.some((event) => event?.message === 'Failed to update cloud save history after successful save' && event?.severity === 'warning')).toBe(true);
 });
 
 test('stores pending save when controller is absent and flushes once available', async () => {
