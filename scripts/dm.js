@@ -9088,6 +9088,9 @@ function initDMLogin(){
       const resourceFields = [
         { term: 'HP', value: formatResource(data?.['hp-bar'], data?.['hp-temp']) },
         { term: 'SP', value: formatResource(data?.['sp-bar'], data?.['sp-temp']) },
+        { term: 'Initiative', value: formatNumber(data?.initiative) },
+        { term: 'Speed', value: formatNumber(data?.speed) },
+        { term: 'Passive Perception (PP)', value: formatNumber(data?.pp) },
         { term: 'Team Credits (TC)', value: formatNumber(data?.tc) },
         { term: 'Credits', value: creditsValue },
       ];
