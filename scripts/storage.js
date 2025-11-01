@@ -880,7 +880,7 @@ export async function cacheCloudSaves(
     }
     offlineSyncToastShown = false;
     abortController = getCacheNavigationAbortController();
-    const signal = abortController?.signal ?? null;
+    const signal = abortController?.signal;
 
     const keys = await listFn();
 
@@ -901,7 +901,8 @@ export async function cacheCloudSaves(
           }
 
           try {
-            const data = await loadFn(k, { signal });
+            const loadOptions = signal ? { signal } : undefined;
+            const data = await loadFn(k, loadOptions);
             if (signal?.aborted) {
               return;
             }
