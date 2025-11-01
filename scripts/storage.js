@@ -54,8 +54,14 @@ const CLOUD_CAMPAIGN_LOG_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/
 let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
 let offlineQueueToastShown = false;
+let cloudSyncUnavailable = false;
+let cloudSyncDisabled = false;
+let cloudSyncDisabledReason = '';
+let cloudCapabilityNoticeShown = false;
 const SYNC_STATUS_STORAGE_KEY = 'cloud-sync-status';
-const VALID_SYNC_STATUSES = new Set(['online', 'syncing', 'queued', 'reconnecting', 'offline']);
+const CLOUD_SYNC_UNAVAILABLE_STATUS = 'unavailable';
+const CLOUD_SYNC_UNAVAILABLE_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
+const VALID_SYNC_STATUSES = new Set(['online', 'syncing', 'queued', 'reconnecting', 'offline', CLOUD_SYNC_UNAVAILABLE_STATUS]);
 const OUTBOX_DB_NAME = 'cccg-cloud-outbox';
 const OUTBOX_VERSION = 2;
 const OUTBOX_STORE = 'cloud-saves';
@@ -274,6 +280,10 @@ function emitSyncStatus(status) {
 }
 
 function setSyncStatus(status) {
+  if (cloudSyncUnavailable && status !== CLOUD_SYNC_UNAVAILABLE_STATUS) {
+    emitSyncStatus(CLOUD_SYNC_UNAVAILABLE_STATUS);
+    return;
+  }
   emitSyncStatus(status);
 }
 
@@ -332,6 +342,9 @@ function showToast(message, type = 'info') {
 }
 
 function notifySyncPaused() {
+  if (cloudSyncUnavailable) {
+    return;
+  }
   if (!offlineSyncToastShown) {
     showToast('Cloud sync paused while offline', 'info');
     offlineSyncToastShown = true;
@@ -340,6 +353,9 @@ function notifySyncPaused() {
 }
 
 function notifySaveQueued() {
+  if (cloudSyncUnavailable) {
+    return;
+  }
   if (!offlineQueueToastShown) {
     showToast('Offline: changes will sync when you reconnect', 'info');
     offlineQueueToastShown = true;
@@ -350,18 +366,67 @@ function notifySaveQueued() {
 function resetOfflineNotices() {
   offlineSyncToastShown = false;
   offlineQueueToastShown = false;
-  setSyncStatus('online');
+  if (cloudSyncUnavailable) {
+    setSyncStatus(CLOUD_SYNC_UNAVAILABLE_STATUS);
+  } else {
+    setSyncStatus('online');
+  }
 }
 
 export function beginQueuedSyncFlush() {
+  if (cloudSyncUnavailable) {
+    return;
+  }
   if (lastSyncStatus === 'queued') {
     setSyncStatus('reconnecting');
   }
 }
 
+function markCloudSyncUnavailable(reason, { disable = false } = {}) {
+  const normalizedReason = typeof reason === 'string' && reason ? reason : 'unsupported';
+  const wasUnavailable = cloudSyncUnavailable;
+  const wasDisabled = cloudSyncDisabled;
+  cloudSyncUnavailable = true;
+  if (disable) {
+    cloudSyncDisabled = true;
+  }
+  if (cloudSyncDisabled && !cloudSyncDisabledReason) {
+    cloudSyncDisabledReason = normalizedReason;
+  }
+  if (!cloudCapabilityNoticeShown) {
+    showToast(CLOUD_SYNC_UNAVAILABLE_MESSAGE, 'info');
+    cloudCapabilityNoticeShown = true;
+  }
+  setSyncStatus(CLOUD_SYNC_UNAVAILABLE_STATUS);
+  if (!wasUnavailable || (!wasDisabled && cloudSyncDisabled)) {
+    emitSyncError({
+      message: 'Cloud sync unavailable',
+      detail: 'Required browser features are missing.',
+      reason: normalizedReason,
+      timestamp: Date.now(),
+    });
+  }
+}
+
+function ensureCloudCapabilities() {
+  if (cloudSyncDisabled) {
+    return false;
+  }
+  if (typeof fetch !== 'function') {
+    markCloudSyncUnavailable('missing-fetch', { disable: true });
+    return false;
+  }
+  if (typeof EventSource !== 'function') {
+    markCloudSyncUnavailable('missing-eventsource');
+  }
+  return !cloudSyncDisabled;
+}
+
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('online', resetOfflineNotices);
 }
+
+ensureCloudCapabilities();
 
 // Direct fetch helper used by cloud save functions.
 async function cloudFetch(url, options = {}) {
@@ -568,6 +633,9 @@ export function subscribeCampaignLog(onChange) {
 }
 
 async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
+  if (!ensureCloudCapabilities()) {
+    return false;
+  }
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false;
   try {
     const ready = await navigator.serviceWorker.ready;
@@ -603,6 +671,9 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
 }
 
 export async function saveCloud(name, payload) {
+  if (!ensureCloudCapabilities()) {
+    return CLOUD_SYNC_UNAVAILABLE_STATUS;
+  }
   if (!isNavigatorOffline()) {
     offlineQueueToastShown = false;
   }
@@ -641,6 +712,9 @@ export async function saveCloud(name, payload) {
 }
 
 export async function saveCloudAutosave(name, payload) {
+  if (!ensureCloudCapabilities()) {
+    return null;
+  }
   const ts = nextHistoryTimestamp();
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
@@ -837,6 +911,9 @@ export async function cacheCloudSaves(
   loadFn = loadCloud,
   saveFn = saveLocal
 ) {
+  if (!ensureCloudCapabilities()) {
+    return;
+  }
   try {
     if (isNavigatorOffline()) {
       notifySyncPaused();
@@ -878,6 +955,9 @@ export async function cacheCloudSaves(
 // locally. This keeps all open tabs in sync without manual refreshes.
 export function subscribeCloudSaves(onChange = cacheCloudSaves) {
   try {
+    if (!ensureCloudCapabilities()) {
+      return null;
+    }
     if (typeof EventSource !== 'function') return null;
 
     const src = new EventSource(`${CLOUD_SAVES_URL}.json`);

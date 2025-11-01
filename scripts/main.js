@@ -20750,6 +20750,7 @@ const SYNC_STATUS_LABELS = {
   queued: 'Offline: save queued',
   reconnecting: 'Syncing queued save',
   offline: 'Offline',
+  unavailable: 'Cloud sync unavailable',
 };
 const VALID_BADGE_STATUSES = new Set(Object.keys(SYNC_STATUS_LABELS));
 const relativeTimeFormatter = (typeof Intl !== 'undefined' && typeof Intl.RelativeTimeFormat === 'function')

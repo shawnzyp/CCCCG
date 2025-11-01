@@ -873,6 +873,9 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
   if (!name) return null;
   try {
     const ts = await saveCloudAutosave(name, data);
+    if (!Number.isFinite(ts)) {
+      return null;
+    }
     try {
       document.dispatchEvent(new CustomEvent('character-autosaved', { detail: { name, ts } }));
     } catch (err) {
