@@ -8893,9 +8893,10 @@ function initDMLogin(){
     function characterCard(data, name){
       const card=document.createElement('div');
       card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-      const labeled=(l,v)=>v?`<div><span style="opacity:.8;font-size:12px">${l}</span><div>${v}</div></div>`:'';
+      const hasDisplayValue = value => value !== null && value !== undefined && String(value).trim() !== '';
+      const labeled=(l,v)=>hasDisplayValue(v)?`<div><span style="opacity:.8;font-size:12px">${l}</span><div>${v}</div></div>`:'';
       const abilityGrid=['STR','DEX','CON','INT','WIS','CHA']
-        .map(k=>labeled(k,data[k.toLowerCase()]||''))
+        .map(k=>labeled(k,data[k.toLowerCase()]))
         .join('');
       const perkGrid=[
         ['Alignment', data.alignment],
@@ -8904,7 +8905,7 @@ function initDMLogin(){
         ['Origin', data.origin],
         ['Tier', data.tier]
       ]
-        .filter(([,v])=>v)
+        .filter(([,v])=>hasDisplayValue(v))
         .map(([l,v])=>labeled(l,v))
         .join('');
       const statsGrid=[
@@ -8912,15 +8913,15 @@ function initDMLogin(){
         ['Speed', data.speed],
         ['PP', data.pp]
       ]
-        .filter(([,v])=>v)
+        .filter(([,v])=>hasDisplayValue(v))
         .map(([l,v])=>labeled(l,v))
         .join('');
       card.innerHTML=`
         <div><strong>${name}</strong></div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
-          ${labeled('HP', data['hp-bar']||'')}
-          ${labeled('TC', data.tc||'')}
-          ${labeled('SP', data['sp-bar']||'')}
+          ${labeled('HP', data['hp-bar'])}
+          ${labeled('TC', data.tc)}
+          ${labeled('SP', data['sp-bar'])}
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
         ${perkGrid?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">${perkGrid}</div>`:''}
@@ -8938,8 +8939,11 @@ function initDMLogin(){
             || entry.signature
           );
           if (isModern) {
-            const costValue = Number(entry.spCost);
-            const costLabel = Number.isFinite(costValue) && costValue > 0 ? `${costValue} SP` : '';
+            let costLabel = '';
+            if (hasDisplayValue(entry.spCost)) {
+              const costValue = Number(entry.spCost);
+              costLabel = Number.isFinite(costValue) ? `${costValue} SP` : entry.spCost;
+            }
             return `<li>${
               labeled('Name', entry.name || fallback)
               + labeled('Style', entry.style)
@@ -8971,7 +8975,10 @@ function initDMLogin(){
         card.innerHTML+=renderList('Weapons',weapons);
       }
       if(data.armor?.length){
-        const armor=data.armor.map(a=>`<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${a.bonus?labeled('Bonus',`+${a.bonus}`):''}${a.equipped?labeled('Equipped','Yes'):''}</li>`);
+        const armor=data.armor.map(a=>{
+          const bonusLabel = hasDisplayValue(a.bonus) ? labeled('Bonus', `+${a.bonus}`) : '';
+          return `<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${bonusLabel}${a.equipped?labeled('Equipped','Yes'):''}</li>`;
+        });
         card.innerHTML+=renderList('Armor',armor);
       }
       if(data.items?.length){
