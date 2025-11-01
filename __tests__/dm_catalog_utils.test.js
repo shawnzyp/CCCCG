@@ -286,7 +286,13 @@ describe('DM catalog equipment delivery', () => {
     }));
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
       __esModule: true,
-      DM_PIN: '1234',
+      DM_PIN: { storageKey: '__dm__' },
+      ensureDmPinReady: jest.fn(async () => true),
+      verifyDmPin: jest.fn(async () => true),
+      setDmPin: jest.fn(async () => true),
+      syncDmPin: jest.fn(async () => true),
+      hasDmPin: jest.fn(() => true),
+      getDmPinStorageKey: () => '__dm__',
     }));
     jest.unstable_mockModule('../scripts/modal.js', () => ({
       __esModule: true,

@@ -24,3 +24,16 @@ export function resolveTestDmPin() {
 }
 
 export const TEST_DM_PIN = resolveTestDmPin();
+
+export const TEST_DM_PIN_HASH = '96cae35ce8a9b0244178bf28e4966c2ce1b8385723a96a6b838858cdd6ca0a1e';
+
+export function seedTestDmPin() {
+  if (typeof localStorage === 'undefined' || typeof localStorage.setItem !== 'function') {
+    return;
+  }
+  try {
+    localStorage.setItem('pin:__dm__', TEST_DM_PIN);
+  } catch {
+    /* ignore storage seed failures in tests */
+  }
+}

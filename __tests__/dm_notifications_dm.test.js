@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
+import { TEST_DM_PIN, seedTestDmPin } from '../tests/helpers/dm-pin.js';
 
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -60,6 +60,7 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
   jest.resetModules();
   localStorage.clear();
   sessionStorage.clear();
+  seedTestDmPin();
   delete window.__dmTestHooks;
   if (storedNotifications) {
     sessionStorage.setItem(DM_NOTIFICATIONS_KEY, JSON.stringify(storedNotifications));
