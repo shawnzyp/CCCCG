@@ -819,13 +819,34 @@ async function attemptCloudSave(name, payload, ts) {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
   try {
-    localStorage.setItem('last-save', name);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('last-save', name);
+    }
   } catch (err) {
     console.warn('Failed to update last-save pointer after cloud save', err);
+    emitSyncError({
+      message: 'Failed to update last-save pointer after cloud save',
+      error: err,
+      name,
+      severity: 'warning',
+      timestamp: Date.now(),
+    });
   }
 
-  await saveHistoryEntry(CLOUD_HISTORY_URL, name, payload, ts);
+  try {
+    await saveHistoryEntry(CLOUD_HISTORY_URL, name, payload, ts);
+  } catch (err) {
+    console.warn('Failed to update cloud save history after successful save', err);
+    emitSyncError({
+      message: 'Failed to update cloud save history after successful save',
+      error: err,
+      name,
+      severity: 'warning',
+      timestamp: Date.now(),
+    });
+  }
 }
 
 export async function appendCampaignLogEntry(entry = {}) {
