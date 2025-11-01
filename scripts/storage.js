@@ -389,9 +389,41 @@ async function cloudFetch(url, options = {}) {
 // Encode each path segment separately so callers can supply hierarchical
 // keys like `Alice/hero1` without worrying about Firebase escaping.
 function encodePath(name) {
+  if (typeof name !== 'string' || !name) return '';
   return name
     .split('/')
-    .map((s) => encodeURIComponent(s))
+    .map(segment => (typeof segment === 'string' ? segment : ''))
+    .filter(segment => segment.length > 0)
+    .map(segment => {
+      if (segment === '.' || segment === '..') {
+        return encodeURIComponent(segment.replace(/\./g, '%2E'));
+      }
+      return encodeURIComponent(segment);
+    })
+    .join('/');
+}
+
+function decodePath(name) {
+  if (typeof name !== 'string' || !name) return '';
+  return name
+    .split('/')
+    .map(segment => {
+      if (typeof segment !== 'string' || segment.length === 0) {
+        return null;
+      }
+      try {
+        let decoded = decodeURIComponent(segment);
+        if (decoded === '%2E' || decoded === '%2E%2E') {
+          try {
+            decoded = decodeURIComponent(decoded);
+          } catch {}
+        }
+        return decoded;
+      } catch {
+        return segment;
+      }
+    })
+    .filter((segment) => typeof segment === 'string' && segment.length > 0)
     .join('/');
 }
 
@@ -708,7 +740,7 @@ export async function listCloudSaves() {
     const val = await res.json();
     // Keys in the realtime database are URL-encoded because we escape them when
     // saving. Decode them here so callers receive the original character names.
-    return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
+    return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;
@@ -770,7 +802,7 @@ export async function listCloudBackupNames() {
     const res = await cloudFetch(`${CLOUD_HISTORY_URL}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
-    return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
+    return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;
@@ -786,7 +818,7 @@ export async function listCloudAutosaveNames() {
     const res = await cloudFetch(`${CLOUD_AUTOSAVES_URL}.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
-    return val ? Object.keys(val).map(k => decodeURIComponent(k)) : [];
+    return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
       throw e;
