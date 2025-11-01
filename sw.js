@@ -494,12 +494,14 @@ self.addEventListener('message', event => {
           respond({ ok: false, error: serializeError(err) });
           return;
         }
+
+        respond({ ok: true });
+
         try {
           await flushOutbox();
         } catch (err) {
           console.error('Failed to flush cloud outbox after queueing save', err);
         }
-        respond({ ok: true });
       })()
     );
   } else if (data.type === 'queue-pin') {
