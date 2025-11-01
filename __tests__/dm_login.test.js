@@ -22,6 +22,7 @@ const defaultFetchImplementation = async (url, options = {}) => {
 
 let verifyDmCredentialMock;
 let upsertDmCredentialPinMock;
+let getDmCredentialMock;
 let fetchMock;
 
 beforeEach(() => {
@@ -36,10 +37,11 @@ beforeEach(() => {
     digest: 'SHA-256',
     updatedAt: Date.now(),
   }));
+  getDmCredentialMock = jest.fn(async () => null);
   jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
     verifyDmCredential: verifyDmCredentialMock,
     upsertDmCredentialPin: upsertDmCredentialPinMock,
-    getDmCredential: jest.fn(async () => null),
+    getDmCredential: getDmCredentialMock,
     loadDmCredentialRecords: jest.fn(async () => new Map()),
     resetDmCredentialCache: jest.fn(),
   }));
@@ -668,6 +670,9 @@ describe('dm login', () => {
     document.getElementById('dm-login-confirm-pin').value = ALT_DM_PIN;
     document.getElementById('dm-login-confirm-submit').click();
     await Promise.resolve();
+    await Promise.resolve();
+
+    expect(getDmCredentialMock).toHaveBeenCalledWith(TEST_DM_USERNAME, expect.objectContaining({ forceRefresh: true }));
 
     expect(setPinEvents).toEqual([
       expect.objectContaining({
@@ -750,6 +755,86 @@ describe('dm login', () => {
     expect(setPinSpy).not.toHaveBeenCalled();
     expect(modal.querySelector('[data-login-view="confirm"]').hidden).toBe(false);
     expect(modal.querySelector('[data-login-view="login"]').hidden).toBe(true);
+
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('DM profile creation prevents duplicate usernames', async () => {
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const modal = document.getElementById('dm-login-modal');
+
+    void window.dmRequireLogin();
+    await Promise.resolve();
+
+    modal.querySelector('[data-login-action="start-create"]').click();
+    document.getElementById('dm-login-new-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-new-pin').value = ALT_DM_PIN;
+    document.getElementById('dm-login-create-submit').click();
+
+    expect(modal.querySelector('[data-login-view="confirm"]').hidden).toBe(false);
+
+    getDmCredentialMock.mockResolvedValueOnce({ username: TEST_DM_USERNAME });
+
+    document.getElementById('dm-login-confirm-pin').value = ALT_DM_PIN;
+    document.getElementById('dm-login-confirm-submit').click();
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(getDmCredentialMock).toHaveBeenCalledWith(TEST_DM_USERNAME, expect.objectContaining({ forceRefresh: true }));
+    expect(upsertDmCredentialPinMock).not.toHaveBeenCalled();
+
+    const error = modal.querySelector('[data-login-error]');
+    expect(error.hidden).toBe(false);
+    expect(error.textContent).toContain('already registered');
+
+    const createView = modal.querySelector('[data-login-view="create"]');
+    expect(createView.hidden).toBe(false);
+    expect(modal.querySelector('[data-login-view="confirm"]').hidden).toBe(true);
+    expect(document.getElementById('dm-login-new-username').value).toBe(TEST_DM_USERNAME);
 
     delete window.toast;
     delete window.dismissToast;

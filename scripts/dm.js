@@ -1,5 +1,5 @@
 import { listCharacters, loadCharacter } from './characters.js';
-import { verifyDmCredential, upsertDmCredentialPin } from './dm-pin.js';
+import { verifyDmCredential, upsertDmCredentialPin, getDmCredential } from './dm-pin.js';
 import { show, hide } from './modal.js';
 import {
   listMiniGames,
@@ -1339,8 +1339,32 @@ function initDMLogin(){
       loginConfirmSubmit.disabled = true;
       loginConfirmSubmit.setAttribute('aria-disabled', 'true');
     }
-    setLoginWaitMessage('Saving PIN...');
     try {
+      if (mode === LOGIN_FLOW_MODE_CREATE) {
+        setLoginWaitMessage('Checking username...');
+        let existingRecord = null;
+        try {
+          existingRecord = await getDmCredential(finalUsername, { forceRefresh: true });
+        } catch (availabilityError) {
+          console.error('Failed to verify DM username availability', availabilityError);
+          showLoginError('Unable to verify username availability. Check your connection and try again.');
+          queueLoginFocus(loginConfirmPin);
+          return;
+        }
+        if (existingRecord) {
+          if (loginConfirmPin) {
+            loginConfirmPin.value = '';
+          }
+          setLoginView(LOGIN_VIEW_CREATE, { focus: false });
+          showLoginError('That DM username is already registered. Choose another name.');
+          if (loginNewUsername) {
+            loginNewUsername.value = finalUsername;
+            queueLoginFocus(loginNewUsername);
+          }
+          return;
+        }
+      }
+      setLoginWaitMessage('Saving PIN...');
       const record = await upsertDmCredentialPin(finalUsername, finalPin);
       dispatchLoginEvent('dm-login:set-pin', { username: finalUsername, pin: finalPin, mode, record });
       resetLoginFlow({ focus: false });
