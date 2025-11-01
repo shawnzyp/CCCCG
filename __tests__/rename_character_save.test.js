@@ -68,4 +68,23 @@ describe('rename save to vigilante name', () => {
     expect(localStorage.getItem('save:Batman')).not.toBeNull();
     expect(localStorage.getItem('save:Bruce')).toBeNull();
   });
+
+  test('rename aborts when cloud save fails and keeps original cloud entry', async () => {
+    const { renameCharacter } = await import('../scripts/characters.js');
+
+    fetch
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => null })
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => null });
+
+    await expect(renameCharacter('Bruce', 'Batman', {})).rejects.toThrow(
+      'Failed to rename character "Bruce"'
+    );
+
+    expect(localStorage.getItem('save:Bruce')).toBe('{}');
+    expect(localStorage.getItem('save:Batman')).toBeNull();
+    expect(localStorage.getItem('last-save')).toBe('Bruce');
+    expect(
+      fetch.mock.calls.some(([, options]) => options && options.method === 'DELETE')
+    ).toBe(false);
+  });
 });
