@@ -459,10 +459,44 @@ self.addEventListener('message', event => {
     if (!name || typeof ts !== 'number') return;
     const kind = data.kind === 'autosave' ? 'autosave' : 'manual';
     const entry = { name, payload, ts, queuedAt: Date.now(), kind };
+    const requestId = typeof data.requestId === 'string' ? data.requestId : null;
+    const port = event.ports && event.ports[0] ? event.ports[0] : null;
+
+    const postReply = message => {
+      const payload = requestId ? { ...message, requestId } : message;
+      if (port) {
+        try {
+          port.postMessage(payload);
+        } catch (err) {
+          console.error('Failed to post MessageChannel reply', err);
+        }
+      } else if (event.source && typeof event.source.postMessage === 'function') {
+        try {
+          event.source.postMessage({ type: 'queue-cloud-save-result', ...payload });
+        } catch (err) {
+          console.error('Failed to post message reply', err);
+        }
+      }
+    };
+
     event.waitUntil(
-      addOutboxEntry(entry)
-        .then(() => flushOutbox())
-        .catch(err => console.error('Failed to queue cloud save', err))
+      (async () => {
+        try {
+          await addOutboxEntry(entry);
+        } catch (err) {
+          console.error('Failed to queue cloud save', err);
+          postReply({ ok: false, error: err?.message || 'Failed to queue cloud save' });
+          throw err;
+        }
+
+        postReply({ ok: true });
+
+        try {
+          await flushOutbox();
+        } catch (err) {
+          console.error('Failed to flush cloud save queue', err);
+        }
+      })()
     );
   } else if (data.type === 'queue-pin') {
     const { name, hash = null, op } = data;

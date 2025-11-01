@@ -20522,8 +20522,12 @@ async function performScheduledAutoSave(){
   try {
     scheduledAutoSaveInFlight = true;
     const snapshot = pendingAutoSaveSnapshot;
-    await saveAutoBackup(snapshot, name);
-    markAutoSaveSynced(snapshot, pendingAutoSaveJson);
+    const result = await saveAutoBackup(snapshot, name);
+    if (Number.isFinite(result)) {
+      markAutoSaveSynced(snapshot, pendingAutoSaveJson);
+    } else {
+      autoSaveDirty = true;
+    }
   } catch (err) {
     console.error('Scheduled auto save failed', err);
   } finally {

@@ -583,7 +583,105 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
     } catch {
       // Fall back to original payload if cloning fails.
     }
-    controller.postMessage({ type: 'queue-cloud-save', name, payload: data, ts, kind });
+
+    const requestId = `queue-cloud-save:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+    const supportsMessageChannel = typeof MessageChannel === 'function';
+
+    const waitForAck = () => {
+      return new Promise(resolve => {
+        let port1 = null;
+        let handleMessage = null;
+        let settled = false;
+        let timeoutId = null;
+
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+          }
+          if (supportsMessageChannel) {
+            try {
+              if (port1) {
+                port1.onmessage = null;
+              }
+            } catch {}
+            try {
+              if (port1 && typeof port1.close === 'function') {
+                port1.close();
+              }
+            } catch {}
+          } else {
+            try {
+              navigator.serviceWorker.removeEventListener('message', handleMessage);
+            } catch {}
+          }
+        };
+
+        timeoutId = setTimeout(() => {
+          cleanup();
+          resolve({ ok: false, error: 'Timed out waiting for queue acknowledgement' });
+        }, 10000);
+
+        if (supportsMessageChannel) {
+          const channel = new MessageChannel();
+          port1 = channel.port1;
+          port1.onmessage = event => {
+            cleanup();
+            resolve(event?.data && typeof event.data === 'object' ? event.data : { ok: false });
+          };
+          try {
+            controller.postMessage(
+              { type: 'queue-cloud-save', name, payload: data, ts, kind, requestId },
+              [channel.port2]
+            );
+          } catch (err) {
+            cleanup();
+            resolve({ ok: false, error: err?.message || 'Failed to communicate with service worker' });
+          }
+        } else {
+          handleMessage = event => {
+            const payload = event?.data;
+            if (!payload || typeof payload !== 'object') return;
+            if (payload.type !== 'queue-cloud-save-result') return;
+            if (payload.requestId !== requestId) return;
+            cleanup();
+            resolve(payload);
+          };
+          navigator.serviceWorker.addEventListener('message', handleMessage);
+          try {
+            controller.postMessage({ type: 'queue-cloud-save', name, payload: data, ts, kind, requestId });
+          } catch (err) {
+            cleanup();
+            resolve({ ok: false, error: err?.message || 'Failed to communicate with service worker' });
+          }
+        }
+      });
+    };
+
+    const ack = await waitForAck();
+
+    const defaultMessage = kind === 'autosave'
+      ? 'Failed to queue cloud autosave'
+      : 'Failed to queue cloud save';
+
+    if (!ack || ack.ok !== true) {
+      const errorMessage = typeof ack?.error === 'string' && ack.error
+        ? ack.error
+        : defaultMessage;
+      const error = ack && ack.error instanceof Error ? ack.error : new Error(errorMessage);
+      console.error('Failed to queue cloud save', ack);
+      showToast(errorMessage, 'error');
+      emitSyncError({
+        message: errorMessage,
+        error,
+        timestamp: Date.now(),
+        name,
+        kind,
+      });
+      return false;
+    }
+
     emitSyncQueueUpdate();
     if (ready.sync && typeof ready.sync.register === 'function') {
       await ready.sync.register('cloud-save-sync');
@@ -592,12 +690,18 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
     }
     return true;
   } catch (e) {
+    const defaultMessage = kind === 'autosave'
+      ? 'Failed to queue cloud autosave'
+      : 'Failed to queue cloud save';
     console.error('Failed to queue cloud save', e);
     emitSyncError({
-      message: 'Failed to queue cloud save',
+      message: defaultMessage,
       error: e,
       timestamp: Date.now(),
+      name,
+      kind,
     });
+    showToast(defaultMessage, 'error');
     return false;
   }
 }
