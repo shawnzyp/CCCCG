@@ -916,10 +916,34 @@ export async function loadBackup(name, ts, type = 'manual') {
   }
 }
 
+const AUTOSAVE_ERROR_THROTTLE_MS = 60_000;
+let lastAutosaveErrorKey = null;
+let lastAutosaveErrorTime = 0;
+
+function buildAutosaveErrorKey(err, contextMessage) {
+  const parts = [contextMessage || 'Autosave failed'];
+  if (err) {
+    if (err instanceof Error && err.message) {
+      parts.push(err.message);
+    } else if (typeof err === 'object') {
+      try {
+        parts.push(JSON.stringify(err));
+      } catch {
+        parts.push(String(err));
+      }
+    } else {
+      parts.push(String(err));
+    }
+  }
+  return parts.join('::');
+}
+
 export async function saveAutoBackup(data, name = currentCharacter()) {
   if (!name) return null;
   try {
     const ts = await saveCloudAutosave(name, data);
+    lastAutosaveErrorKey = null;
+    lastAutosaveErrorTime = 0;
     try {
       document.dispatchEvent(new CustomEvent('character-autosaved', { detail: { name, ts } }));
     } catch (err) {
@@ -927,7 +951,16 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
     }
     return ts;
   } catch (err) {
-    reportCharacterError(err, `Failed to autosave character "${name}"`);
+    const contextMessage = `Failed to autosave character "${name}"`;
+    const errorKey = buildAutosaveErrorKey(err, contextMessage);
+    const now = Date.now();
+    if (lastAutosaveErrorKey !== errorKey || now - lastAutosaveErrorTime > AUTOSAVE_ERROR_THROTTLE_MS) {
+      lastAutosaveErrorKey = errorKey;
+      lastAutosaveErrorTime = now;
+      reportCharacterError(err, contextMessage);
+    } else {
+      console.error(contextMessage, err);
+    }
     return null;
   }
 }
