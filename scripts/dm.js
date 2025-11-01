@@ -8935,7 +8935,10 @@ function initDMLogin(){
       : typeof reason === 'object' && reason && typeof reason.reason === 'string'
         ? reason.reason
         : null;
-    invalidatePersistentSession({ reason: cause || 'logout' });
+    const normalizedCause = cause || 'logout';
+    if (normalizedCause !== 'expired') {
+      invalidatePersistentSession({ reason: normalizedCause });
+    }
     clearLoggedIn();
     teardownPlayerBroadcastChannels();
     teardownMiniGameSubscription();
@@ -8949,7 +8952,7 @@ function initDMLogin(){
       }
     });
     updateButtons();
-    if (cause === 'expired') {
+    if (normalizedCause === 'expired') {
       toast('DM session expired. Please log in again.', 'warning');
     } else {
       toast('Logged out','info');
