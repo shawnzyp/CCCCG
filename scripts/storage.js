@@ -1,4 +1,13 @@
 import { toast } from './notifications.js';
+import {
+  addOutboxEntry,
+  createCloudSaveOutboxEntry,
+  deleteOutboxEntry,
+  getOutboxEntries,
+  openOutboxDb,
+  OUTBOX_PINS_STORE,
+  OUTBOX_STORE,
+} from './cloud-outbox.js';
 
 export async function saveLocal(name, payload) {
   try {
@@ -56,11 +65,6 @@ let offlineSyncToastShown = false;
 let offlineQueueToastShown = false;
 const SYNC_STATUS_STORAGE_KEY = 'cloud-sync-status';
 const VALID_SYNC_STATUSES = new Set(['online', 'syncing', 'queued', 'reconnecting', 'offline']);
-const OUTBOX_DB_NAME = 'cccg-cloud-outbox';
-const OUTBOX_VERSION = 2;
-const OUTBOX_STORE = 'cloud-saves';
-const OUTBOX_PINS_STORE = 'cloud-pins';
-
 const syncErrorListeners = new Set();
 const syncActivityListeners = new Set();
 const syncQueueListeners = new Set();
@@ -141,37 +145,10 @@ export function subscribeSyncQueue(listener) {
   };
 }
 
-function openOutboxDb() {
-  if (typeof indexedDB === 'undefined') {
-    return Promise.reject(new Error('indexedDB not supported'));
-  }
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(OUTBOX_DB_NAME, OUTBOX_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
-        db.createObjectStore(OUTBOX_STORE, { keyPath: 'id', autoIncrement: true });
-      }
-      if (!db.objectStoreNames.contains(OUTBOX_PINS_STORE)) {
-        db.createObjectStore(OUTBOX_PINS_STORE, { keyPath: 'id', autoIncrement: true });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
 export async function getQueuedCloudSaves() {
   if (typeof indexedDB === 'undefined') return [];
   try {
-    const db = await openOutboxDb();
-    const entries = await new Promise((resolve, reject) => {
-      const tx = db.transaction(OUTBOX_STORE, 'readonly');
-      const store = tx.objectStore(OUTBOX_STORE);
-      const req = store.getAll();
-      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
-      req.onerror = () => reject(req.error);
-    });
+    const entries = await getOutboxEntries(OUTBOX_STORE);
     return entries
       .map(entry => ({
         id: entry?.id,
@@ -351,6 +328,157 @@ function resetOfflineNotices() {
   offlineSyncToastShown = false;
   offlineQueueToastShown = false;
   setSyncStatus('online');
+}
+
+let controllerFlushListenerAttached = false;
+let localOutboxFlushPromise = null;
+let localOutboxOnlineListenerAttached = false;
+
+function scheduleControllerFlush(registration) {
+  if (typeof navigator === 'undefined' || !navigator.serviceWorker) return;
+  const flush = () => {
+    try {
+      const worker =
+        navigator.serviceWorker.controller ||
+        registration?.active ||
+        registration?.waiting ||
+        registration?.installing ||
+        null;
+      worker?.postMessage({ type: 'flush-cloud-saves' });
+    } catch (err) {
+      console.error('Failed to request outbox flush', err);
+    }
+  };
+
+  flush();
+
+  if (navigator.serviceWorker.controller) {
+    controllerFlushListenerAttached = false;
+    return;
+  }
+
+  if (controllerFlushListenerAttached) return;
+  if (typeof navigator.serviceWorker.addEventListener !== 'function') return;
+
+  controllerFlushListenerAttached = true;
+  const handler = () => {
+    controllerFlushListenerAttached = false;
+    try {
+      if (typeof navigator.serviceWorker.removeEventListener === 'function') {
+        navigator.serviceWorker.removeEventListener('controllerchange', handler);
+      }
+    } catch {}
+    flush();
+  };
+  try {
+    navigator.serviceWorker.addEventListener('controllerchange', handler);
+  } catch (err) {
+    controllerFlushListenerAttached = false;
+    console.error('Failed to observe controller changes', err);
+  }
+}
+
+async function pushQueuedAutosaveLocally({ name, payload, ts }) {
+  const encoded = encodePath(name);
+  const res = await cloudFetch(`${CLOUD_AUTOSAVES_URL}/${encoded}/${ts}.json`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+async function flushLocalCloudOutbox() {
+  if (typeof indexedDB === 'undefined') return;
+  if (localOutboxFlushPromise) return localOutboxFlushPromise;
+  if (isNavigatorOffline()) return;
+
+  localOutboxFlushPromise = (async () => {
+    const entries = await getOutboxEntries(OUTBOX_STORE).catch(() => []);
+    if (!entries.length) return;
+
+    entries.sort((a, b) => {
+      if (Number.isFinite(a.ts) && Number.isFinite(b.ts) && a.ts !== b.ts) {
+        return a.ts - b.ts;
+      }
+      if (Number.isFinite(a.queuedAt) && Number.isFinite(b.queuedAt) && a.queuedAt !== b.queuedAt) {
+        return a.queuedAt - b.queuedAt;
+      }
+      if (Number.isFinite(a.id) && Number.isFinite(b.id)) {
+        return a.id - b.id;
+      }
+      return 0;
+    });
+
+    let syncedAny = false;
+    let lastSyncedEntry = null;
+    for (const entry of entries) {
+      try {
+        if (entry?.kind === 'autosave') {
+          await pushQueuedAutosaveLocally(entry);
+        } else {
+          await attemptCloudSave(entry.name, entry.payload, entry.ts);
+        }
+        if (entry?.id !== undefined) {
+          await deleteOutboxEntry(entry.id, OUTBOX_STORE);
+        }
+        syncedAny = true;
+        lastSyncedEntry = entry;
+      } catch (err) {
+        console.error('Local cloud outbox flush failed', err);
+        break;
+      }
+    }
+
+    if (syncedAny) {
+      const activity = {
+        type: lastSyncedEntry?.kind === 'autosave' ? 'cloud-autosave' : 'cloud-save',
+        name: lastSyncedEntry?.name,
+        queued: false,
+        timestamp: Date.now(),
+      };
+      emitSyncActivity(activity);
+      emitSyncQueueUpdate();
+    }
+  })()
+    .catch(() => {})
+    .finally(() => {
+      localOutboxFlushPromise = null;
+    });
+
+  return localOutboxFlushPromise;
+}
+
+function ensureLocalOutboxOnlineListener() {
+  if (localOutboxOnlineListenerAttached) return;
+  if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+
+  const handler = () => {
+    flushLocalCloudOutbox().catch(() => {});
+  };
+  window.addEventListener('online', handler);
+  localOutboxOnlineListenerAttached = true;
+}
+
+async function queueCloudSaveLocally(entry) {
+  if (typeof indexedDB === 'undefined') return false;
+  try {
+    await addOutboxEntry(entry, OUTBOX_STORE);
+    emitSyncQueueUpdate();
+    ensureLocalOutboxOnlineListener();
+    if (!isNavigatorOffline()) {
+      flushLocalCloudOutbox().catch(() => {});
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to queue cloud save locally', err);
+    emitSyncError({
+      message: 'Failed to queue cloud save locally',
+      error: err,
+      timestamp: Date.now(),
+    });
+    return false;
+  }
 }
 
 export function beginQueuedSyncFlush() {
@@ -568,27 +696,57 @@ export function subscribeCampaignLog(onChange) {
 }
 
 async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
-  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return false;
+  let data = payload;
+  try {
+    if (typeof structuredClone === 'function') {
+      data = structuredClone(payload);
+    } else {
+      data = JSON.parse(JSON.stringify(payload));
+    }
+  } catch {
+    // Fall back to original payload if cloning fails.
+  }
+
+  let entry;
+  try {
+    entry = createCloudSaveOutboxEntry({ name, payload: data, ts, kind });
+  } catch (err) {
+    console.error('Failed to prepare cloud save entry', err);
+    return false;
+  }
+
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    return queueCloudSaveLocally(entry);
+  }
+
   try {
     const ready = await navigator.serviceWorker.ready;
-    const controller = navigator.serviceWorker.controller || ready.active;
-    if (!controller) return false;
-    let data = payload;
-    try {
-      if (typeof structuredClone === 'function') {
-        data = structuredClone(payload);
-      } else {
-        data = JSON.parse(JSON.stringify(payload));
+    const controller = navigator.serviceWorker.controller || null;
+    const activeWorker = ready?.active || null;
+    if (!controller) {
+      const queued = await queueCloudSaveLocally(entry);
+      if (ready?.sync && typeof ready.sync.register === 'function') {
+        try {
+          await ready.sync.register('cloud-save-sync');
+        } catch {}
       }
-    } catch {
-      // Fall back to original payload if cloning fails.
+      scheduleControllerFlush(ready);
+      return queued;
     }
-    controller.postMessage({ type: 'queue-cloud-save', name, payload: data, ts, kind });
+
+    controller.postMessage({
+      type: 'queue-cloud-save',
+      name,
+      payload: entry.payload,
+      ts: entry.ts,
+      kind: entry.kind,
+      queuedAt: entry.queuedAt,
+    });
     emitSyncQueueUpdate();
     if (ready.sync && typeof ready.sync.register === 'function') {
       await ready.sync.register('cloud-save-sync');
     } else {
-      controller.postMessage({ type: 'flush-cloud-saves' });
+      (controller || activeWorker)?.postMessage({ type: 'flush-cloud-saves' });
     }
     return true;
   } catch (e) {
@@ -598,6 +756,9 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
       error: e,
       timestamp: Date.now(),
     });
+    if (typeof indexedDB !== 'undefined') {
+      return queueCloudSaveLocally(entry);
+    }
     return false;
   }
 }

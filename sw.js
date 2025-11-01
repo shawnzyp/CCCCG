@@ -1,3 +1,22 @@
+importScripts('./scripts/cloud-outbox-shared.js');
+
+const {
+  OUTBOX_DB_NAME,
+  OUTBOX_VERSION,
+  OUTBOX_STORE,
+  OUTBOX_PINS_STORE,
+  openOutboxDb,
+  addOutboxEntry,
+  getOutboxEntries,
+  deleteOutboxEntry,
+  createCloudSaveOutboxEntry,
+  createCloudPinOutboxEntry,
+} = self.cccgCloudOutbox || {};
+
+if (!OUTBOX_DB_NAME || !openOutboxDb) {
+  throw new Error('Cloud outbox helpers unavailable in service worker');
+}
+
 const MANIFEST_PATH = 'asset-manifest.json';
 
 function resolveAssetUrl(pathname) {
@@ -104,11 +123,6 @@ const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
-const OUTBOX_DB = 'cccg-cloud-outbox';
-const OUTBOX_VERSION = 2;
-const OUTBOX_STORE = 'cloud-saves';
-const OUTBOX_PINS_STORE = 'cloud-pins';
-
 let flushPromise = null;
 let notifyClientsOnActivate = false;
 
@@ -125,54 +139,6 @@ function isSwOffline() {
     Object.prototype.hasOwnProperty.call(self.navigator, 'onLine') &&
     self.navigator.onLine === false
   );
-}
-
-function openOutboxDb() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(OUTBOX_DB, OUTBOX_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
-        db.createObjectStore(OUTBOX_STORE, { keyPath: 'id', autoIncrement: true });
-      }
-      if (!db.objectStoreNames.contains(OUTBOX_PINS_STORE)) {
-        db.createObjectStore(OUTBOX_PINS_STORE, { keyPath: 'id', autoIncrement: true });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function addOutboxEntry(entry, storeName = OUTBOX_STORE) {
-  const db = await openOutboxDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.objectStore(storeName).add(entry);
-  });
-}
-
-async function getOutboxEntries(storeName = OUTBOX_STORE) {
-  const db = await openOutboxDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result || []);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function deleteOutboxEntry(id, storeName = OUTBOX_STORE) {
-  const db = await openOutboxDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.objectStore(storeName).delete(id);
-  });
 }
 
 async function broadcast(message) {
@@ -457,8 +423,19 @@ self.addEventListener('message', event => {
   if (data.type === 'queue-cloud-save') {
     const { name, payload, ts } = data;
     if (!name || typeof ts !== 'number') return;
-    const kind = data.kind === 'autosave' ? 'autosave' : 'manual';
-    const entry = { name, payload, ts, queuedAt: Date.now(), kind };
+    let entry;
+    try {
+      entry = createCloudSaveOutboxEntry({
+        name,
+        payload,
+        ts,
+        kind: data.kind === 'autosave' ? 'autosave' : 'manual',
+        queuedAt: data.queuedAt,
+      });
+    } catch (err) {
+      console.error('Failed to normalize cloud save entry', err);
+      return;
+    }
     event.waitUntil(
       addOutboxEntry(entry)
         .then(() => flushOutbox())
@@ -467,8 +444,13 @@ self.addEventListener('message', event => {
   } else if (data.type === 'queue-pin') {
     const { name, hash = null, op } = data;
     if (!name || !op) return;
-    if (op !== 'set' && op !== 'delete') return;
-    const entry = { name, hash, op, queuedAt: Date.now() };
+    let entry;
+    try {
+      entry = createCloudPinOutboxEntry({ name, hash, op, queuedAt: data.queuedAt });
+    } catch (err) {
+      console.error('Failed to normalize cloud pin entry', err);
+      return;
+    }
     event.waitUntil(
       addOutboxEntry(entry, OUTBOX_PINS_STORE)
         .then(() => flushOutbox())
