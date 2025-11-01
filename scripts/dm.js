@@ -8968,6 +8968,15 @@ function initDMLogin(){
         if (!list.length) return '';
         return `<ul class="dm-characterEntries">${list.join('')}</ul>`;
       };
+      const pushBlock = (blocks, subtitle, body) => {
+        if (!Array.isArray(blocks) || !body) return;
+        blocks.push(`
+          <div class="dm-characterSection__block">
+            <h5 class="dm-characterSection__subtitle">${escapeHtml(subtitle)}</h5>
+            ${body}
+          </div>
+        `);
+      };
       const abilityKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
       const card = document.createElement('article');
       card.className = 'dm-characterSheet';
@@ -9009,23 +9018,9 @@ function initDMLogin(){
 
       const abilityBlocks = [];
       const abilityList = renderDefinitionList(abilityFields, { className: 'dm-characterList--abilities' });
-      if (abilityList) {
-        abilityBlocks.push(`
-          <div class="dm-characterSection__block">
-            <h5 class="dm-characterSection__subtitle">Ability Scores</h5>
-            ${abilityList}
-          </div>
-        `);
-      }
+      pushBlock(abilityBlocks, 'Ability Scores', abilityList);
       const saveList = renderDefinitionList(saveFields, { className: 'dm-characterList--saves' });
-      if (saveList) {
-        abilityBlocks.push(`
-          <div class="dm-characterSection__block">
-            <h5 class="dm-characterSection__subtitle">Saving Throws</h5>
-            ${saveList}
-          </div>
-        `);
-      }
+      pushBlock(abilityBlocks, 'Saving Throws', saveList);
       const casterFields = [];
       if (profBonus !== null) {
         casterFields.push({ term: 'Proficiency Bonus', value: formatModifier(profBonus) });
@@ -9037,14 +9032,7 @@ function initDMLogin(){
         casterFields.push({ term: 'Power Save DC', value: powerSaveDc });
       }
       const casterList = renderDefinitionList(casterFields);
-      if (casterList) {
-        abilityBlocks.push(`
-          <div class="dm-characterSection__block">
-            <h5 class="dm-characterSection__subtitle">Caster Stats</h5>
-            ${casterList}
-          </div>
-        `);
-      }
+      pushBlock(abilityBlocks, 'Caster Stats', casterList);
 
       const identityFields = [
         { term: 'Superhero Identity', value: data?.superhero },
@@ -9063,9 +9051,112 @@ function initDMLogin(){
         { term: 'Tier', value: data?.tier },
         { term: 'Sub-tier', value: data?.['sub-tier'] },
         { term: 'Tier (Short)', value: data?.['tier-short'] },
-        { term: 'Experience', value: formatNumber(data?.xp) },
+        { term: 'XP', value: formatNumber(data?.xp) },
       ];
-      const levelContent = renderDefinitionList(levelFields);
+      const levelBlocks = [];
+      const levelSummaryList = renderDefinitionList(levelFields, { className: 'dm-characterList--level' });
+      pushBlock(levelBlocks, 'Level Summary', levelSummaryList);
+
+      const parseJsonField = (raw, fallback = null) => {
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw === 'string' && raw.trim()) {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return fallback;
+          }
+        }
+        return fallback;
+      };
+
+      const levelProgressState = parseJsonField(data?.levelProgressState, null)
+        || parseJsonField(data?.['level-progress-state'], null);
+
+      const levelProgressFields = [];
+      const hpBonus = toNumber(levelProgressState?.hpBonus);
+      if (hpBonus !== null) {
+        levelProgressFields.push({ term: 'HP Bonus', value: hpBonus });
+      }
+      const spBonus = toNumber(levelProgressState?.spBonus);
+      if (spBonus !== null) {
+        levelProgressFields.push({ term: 'SP Bonus', value: spBonus });
+      }
+      const statIncreaseCount = toNumber(levelProgressState?.statIncreases);
+      if (statIncreaseCount !== null) {
+        levelProgressFields.push({ term: 'Stat Increases', value: statIncreaseCount });
+      }
+      if (levelProgressState?.legendaryGearAccess) {
+        levelProgressFields.push({ term: 'Legendary Gear Access', value: 'Unlocked', allowZero: false });
+      }
+      if (levelProgressState?.transcendentTrait) {
+        levelProgressFields.push({ term: 'Transcendent Trait', value: 'Unlocked', allowZero: false });
+      }
+      const progressList = renderDefinitionList(levelProgressFields, { className: 'dm-characterList--level' });
+      pushBlock(levelBlocks, 'Progress Rewards', progressList);
+
+      const statAssignmentEntries = Array.isArray(levelProgressState?.statAssignments)
+        ? levelProgressState.statAssignments
+            .map(entry => {
+              if (!Array.isArray(entry) || entry.length < 2) return '';
+              const [rewardId, ability] = entry;
+              if (!hasMeaningfulValue(ability) || !hasMeaningfulValue(rewardId)) return '';
+              const abilityLabel = typeof ability === 'string' ? ability.toUpperCase() : String(ability);
+              const rewardLabel = typeof rewardId === 'string'
+                ? rewardId.replace(/[-_]+/g, ' ')
+                : formatNumber(rewardId);
+              return `<li>${escapeHtml(`${abilityLabel} — ${rewardLabel}`)}</li>`;
+            })
+            .filter(Boolean)
+        : [];
+      if (statAssignmentEntries.length) {
+        pushBlock(levelBlocks, 'Stat Assignments', `<ul class="dm-characterBulletList">${statAssignmentEntries.join('')}</ul>`);
+      }
+
+      const levelRewardEntries = Array.isArray(levelProgressState?.appliedRewardsByLevel)
+        ? levelProgressState.appliedRewardsByLevel
+            .map(entry => {
+              if (!entry || typeof entry !== 'object') return '';
+              const levelValue = toNumber(entry.level);
+              if (levelValue === null) return '';
+              const rewardDetails = [];
+              const rewardHp = toNumber(entry.hpBonus);
+              if (rewardHp !== null && rewardHp !== 0) {
+                rewardDetails.push(`HP +${formatNumber(rewardHp)}`);
+              }
+              const rewardSp = toNumber(entry.spBonus);
+              if (rewardSp !== null && rewardSp !== 0) {
+                rewardDetails.push(`SP +${formatNumber(rewardSp)}`);
+              }
+              const rewardAugments = toNumber(entry.augmentSlots);
+              if (rewardAugments !== null && rewardAugments !== 0) {
+                rewardDetails.push(`Augment Slots +${formatNumber(rewardAugments)}`);
+              }
+              const rewardStats = toNumber(entry.statIncreases);
+              if (rewardStats !== null && rewardStats !== 0) {
+                rewardDetails.push(`Stat Increases +${formatNumber(rewardStats)}`);
+              }
+              if (entry.legendaryGearAccess) {
+                rewardDetails.push('Legendary Gear Access');
+              }
+              if (entry.transcendentTrait) {
+                rewardDetails.push('Transcendent Trait');
+              }
+              if (!rewardDetails.length) return '';
+              const summary = rewardDetails.join(', ');
+              return `
+                <li class="dm-characterEntry">
+                  <h5 class="dm-characterEntry__title">Level ${escapeHtml(formatNumber(levelValue))} Reward</h5>
+                  <p class="dm-characterEntry__content">${escapeHtml(summary)}</p>
+                </li>
+              `;
+            })
+            .filter(Boolean)
+        : [];
+      if (levelRewardEntries.length) {
+        pushBlock(levelBlocks, 'Level Rewards', `<ul class="dm-characterEntries">${levelRewardEntries.join('')}</ul>`);
+      }
+
+      const levelContent = levelBlocks.length ? levelBlocks.join('') : '';
 
       const formatResource = (current, temp) => {
         const currentValue = toNumber(current);
@@ -9095,6 +9186,42 @@ function initDMLogin(){
 
       const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
         const fields = [];
+        const addField = (term, value, options = {}) => {
+          fields.push({ term, value, ...options });
+        };
+        const formatCooldown = value => {
+          const numeric = toNumber(value);
+          if (numeric === null) return '';
+          const unit = Math.abs(numeric) === 1 ? 'round' : 'rounds';
+          return `${formatNumber(numeric)} ${unit}`;
+        };
+        const formatDamage = damage => {
+          if (!damage || typeof damage !== 'object') return '';
+          const parts = [];
+          if (hasMeaningfulValue(damage.dice)) parts.push(String(damage.dice));
+          if (hasMeaningfulValue(damage.type)) parts.push(String(damage.type));
+          return parts.join(' ');
+        };
+        const formatUsageTracker = tracker => {
+          if (!tracker || typeof tracker !== 'object') return '';
+          const total = toNumber(tracker.totalUses);
+          const remaining = toNumber(tracker.remainingUses);
+          const cooldownRemaining = toNumber(tracker.cooldownRemaining);
+          const parts = [];
+          if (remaining !== null && total !== null) {
+            parts.push(`${formatNumber(remaining)} of ${formatNumber(total)} uses remaining`);
+          } else if (total !== null) {
+            parts.push(`${formatNumber(total)} uses total`);
+          } else if (remaining !== null) {
+            parts.push(`${formatNumber(remaining)} uses remaining`);
+          }
+          if (cooldownRemaining !== null) {
+            const unit = Math.abs(cooldownRemaining) === 1 ? 'round' : 'rounds';
+            parts.push(`Cooldown: ${formatNumber(cooldownRemaining)} ${unit}`);
+          }
+          return parts.join(' • ');
+        };
+
         if (entry && typeof entry === 'object') {
           const isModern = (
             entry.rulesText !== undefined
@@ -9110,28 +9237,52 @@ function initDMLogin(){
               const costValue = toNumber(entry.spCost);
               costLabel = Number.isFinite(costValue) ? `${formatNumber(costValue)} SP` : String(entry.spCost);
             }
-            fields.push({ term: 'Name', value: entry.name || fallback });
-            fields.push({ term: 'Style', value: entry.style });
-            fields.push({ term: 'Action', value: entry.actionType });
-            fields.push({ term: 'Intensity', value: entry.intensity });
-            fields.push({ term: 'Uses', value: entry.uses });
-            fields.push({ term: 'Cost', value: costLabel });
+            addField('Name', entry.name || fallback);
+            addField('Style', entry.style);
+            addField('Effect', entry.effectTag);
+            addField('Secondary Effect', entry.secondaryTag);
+            addField('Action', entry.actionType);
+            addField('Range', entry.range);
+            addField('Shape', entry.shape);
+            addField('Intensity', entry.intensity);
+            addField('Uses', entry.uses);
+            addField('Cooldown', formatCooldown(entry.cooldown));
+            addField('Cost', costLabel);
+            addField('Duration', entry.duration);
+            addField('Scaling', entry.scaling);
             if (entry.requiresSave) {
-              fields.push({ term: 'Save', value: entry.saveAbilityTarget });
+              addField('Save', entry.saveAbilityTarget);
             }
-            fields.push({ term: 'Rules', value: entry.rulesText, multiline: true });
-            fields.push({ term: 'Description', value: entry.description, multiline: true });
-            fields.push({ term: 'Special', value: entry.special, multiline: true });
+            if (entry.concentration) {
+              addField('Concentration', 'Yes', { allowZero: false });
+            }
+            const damageLabel = formatDamage(entry.damage);
+            if (damageLabel) {
+              addField('Damage', damageLabel);
+            }
+            if (entry?.damage?.onSave) {
+              addField('On Save', entry.damage.onSave);
+            }
+            const usageSummary = formatUsageTracker(entry.usageTracker);
+            if (usageSummary) {
+              addField('Usage Tracker', usageSummary);
+            }
+            addField('Rules', entry.rulesText, { multiline: true });
+            addField('Description', entry.description, { multiline: true });
+            addField('Special', entry.special, { multiline: true });
+            if (hasMeaningfulValue(entry.legacyText)) {
+              addField('Legacy Notes', entry.legacyText, { multiline: true });
+            }
           } else {
             const legacyDesc = entry.description ?? entry.desc;
-            fields.push({ term: 'Name', value: entry.name || fallback });
-            fields.push({ term: 'SP Cost', value: entry.sp });
-            fields.push({ term: 'Save', value: entry.save });
-            fields.push({ term: 'Special', value: entry.special, multiline: true });
-            fields.push({ term: 'Description', value: legacyDesc, multiline: true });
+            addField('Name', entry.name || fallback);
+            addField('SP Cost', entry.sp);
+            addField('Save', entry.save);
+            addField('Special', entry.special, { multiline: true });
+            addField('Description', legacyDesc, { multiline: true });
           }
         } else {
-          fields.push({ term: 'Name', value: fallback });
+          addField('Name', fallback);
         }
         const details = renderDefinitionList(fields, { layout: 'stack' });
         if (!details) return '';
@@ -9170,6 +9321,9 @@ function initDMLogin(){
               if (toBoolean(weapon.proficient)) {
                 fields.push({ term: 'Proficient', value: 'Yes', allowZero: false });
               }
+              if (toBoolean(weapon.dmLock)) {
+                fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+              }
               return renderInventoryEntry(fields);
             }).filter(Boolean)
           : []
@@ -9190,6 +9344,9 @@ function initDMLogin(){
               if (toBoolean(entry.equipped)) {
                 fields.push({ term: 'Equipped', value: 'Yes', allowZero: false });
               }
+              if (toBoolean(entry.dmLock)) {
+                fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+              }
               return renderInventoryEntry(fields);
             }).filter(Boolean)
           : []
@@ -9204,25 +9361,15 @@ function initDMLogin(){
                 { term: 'Qty', value: item.qty },
                 { term: 'Notes', value: item.notes, multiline: true },
               ];
+              if (toBoolean(item.dmLock)) {
+                fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+              }
               return renderInventoryEntry(fields);
             }).filter(Boolean)
           : []
       );
 
-      const parseJsonField = (raw, fallback = null) => {
-        if (raw && typeof raw === 'object') return raw;
-        if (typeof raw === 'string' && raw.trim()) {
-          try {
-            return JSON.parse(raw);
-          } catch {
-            return fallback;
-          }
-        }
-        return fallback;
-      };
-
       const augmentState = parseJsonField(data?.augmentState, null) || parseJsonField(data?.['augment-state'], null);
-      const levelProgressState = parseJsonField(data?.levelProgressState, null) || parseJsonField(data?.['level-progress-state'], null);
 
       const augmentFields = [];
       const augmentSlotsEarned = toNumber(levelProgressState?.augmentSlotsEarned);
@@ -9262,8 +9409,12 @@ function initDMLogin(){
                 { term: 'Name', value: medal.name || 'Medal' },
                 { term: 'Awarded By', value: medal.awardedBy },
                 { term: 'Awarded', value: formatDate(medal.awardedAt) },
+                { term: 'Artwork', value: medal.artwork },
                 { term: 'Description', value: medal.description, multiline: true },
               ];
+              if (toBoolean(medal.dmLock)) {
+                fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+              }
               return renderInventoryEntry(fields);
             }).filter(Boolean)
           : []
