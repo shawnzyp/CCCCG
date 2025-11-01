@@ -109,6 +109,15 @@ const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
 
+function isCharacterSaveQuotaError(err) {
+  if (!err) return false;
+  if (err.code === 'character-save-quota-exceeded') return true;
+  if (err.name === 'CharacterSaveQuotaError') return true;
+  if (err.isQuotaExceeded === true) return true;
+  if (err.originalError && err.originalError.code === 'local-storage-quota-exceeded') return true;
+  return false;
+}
+
 if (typeof window !== 'undefined') {
   if (typeof window.matchMedia === 'function') {
     const originalMatchMedia = window.matchMedia.bind(window);
@@ -21356,7 +21365,15 @@ $('btn-save').addEventListener('click', async () => {
     toast('Save successful', 'success');
   } catch (e) {
     console.error('Save failed', e);
-    toast('Save failed', 'error');
+    if (isCharacterSaveQuotaError(e)) {
+      try {
+        await openCharacterList();
+      } catch (modalErr) {
+        console.error('Failed to open Load/Save panel after quota error', modalErr);
+      }
+    } else {
+      toast('Save failed', 'error');
+    }
   } finally {
     btn.classList.remove('loading'); btn.disabled = false;
   }
