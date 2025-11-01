@@ -9026,6 +9026,14 @@ function initDMLogin(){
         return undefined;
       };
 
+      const getRootSheetValue = rawPath => {
+        const pathParts = normalizePath(rawPath);
+        if (!pathParts.length) return undefined;
+        const rootSource = sheetSources[sheetSources.length - 1];
+        if (!rootSource || typeof rootSource !== 'object') return undefined;
+        return getNestedValue(rootSource, pathParts);
+      };
+
       const renderDefinitionList = (fields = [], { layout = 'grid', className = '' } = {}) => {
         const entries = fields
           .map(field => {
@@ -9384,10 +9392,11 @@ function initDMLogin(){
       ];
       const identityContent = renderDefinitionList(identityFields);
 
+      const levelValue = getSheetValue(['level', 'level'], ['progress', 'level']) ?? getRootSheetValue('level');
       const levelFields = [
         {
           term: 'Level',
-          value: formatNumber(getSheetValue(['level', 'level'], ['progress', 'level'], 'level')),
+          value: formatNumber(levelValue),
         },
         { term: 'Tier', value: getSheetValue(['level', 'tier'], ['progress', 'tier'], 'tier') },
         {
