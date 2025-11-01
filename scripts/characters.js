@@ -783,7 +783,7 @@ export async function renameCharacter(oldName, newName, data) {
     let cloudStatus;
     try {
       const result = await saveCloud(newName, normalized);
-      if (result !== 'saved' && result !== 'queued') {
+      if (result !== 'saved' && result !== 'queued' && result !== 'disabled') {
         throw new Error(`Unexpected cloud save status: ${result ?? 'unknown'}`);
       }
       cloudStatus = result;
@@ -803,16 +803,18 @@ export async function renameCharacter(oldName, newName, data) {
       }
       throw err;
     }
-    if (cloudStatus === 'saved' || cloudStatus === 'queued') {
+    if (cloudStatus === 'saved' || cloudStatus === 'queued' || cloudStatus === 'disabled') {
       const moved = await movePin(oldName, newName);
       if (!moved) {
         console.warn(`PIN move skipped for ${oldName} -> ${newName}`);
       }
       await deleteSave(oldName);
-      try {
-        await deleteCloud(oldName);
-      } catch (err) {
-        console.error('Cloud delete failed', err);
+      if (cloudStatus === 'saved' || cloudStatus === 'queued') {
+        try {
+          await deleteCloud(oldName);
+        } catch (err) {
+          console.error('Cloud delete failed', err);
+        }
       }
     }
     setCurrentCharacter(newName);

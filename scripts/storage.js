@@ -10,6 +10,32 @@ import {
 } from './cloud-outbox.js';
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
+const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
+const FETCH_SUPPORTED = typeof fetch === 'function';
+const EVENTSOURCE_SUPPORTED = typeof EventSource === 'function';
+let cloudSyncDisabled = !FETCH_SUPPORTED;
+let cloudSyncUnsupported = !FETCH_SUPPORTED || !EVENTSOURCE_SUPPORTED;
+let cloudSyncDisabledReason = (() => {
+  if (!FETCH_SUPPORTED && !EVENTSOURCE_SUPPORTED) {
+    return 'Cloud sync requires fetch and EventSource support.';
+  }
+  if (!FETCH_SUPPORTED) {
+    return 'Cloud sync requires fetch support.';
+  }
+  if (!EVENTSOURCE_SUPPORTED) {
+    return 'Cloud sync requires EventSource support.';
+  }
+  return '';
+})();
+let cloudSyncSupportToastShown = false;
+
+if (cloudSyncUnsupported) {
+  if (cloudSyncDisabledReason) {
+    console.warn('Cloud sync disabled:', cloudSyncDisabledReason);
+  } else {
+    console.warn('Cloud sync disabled');
+  }
+}
 
 function isQuotaExceededError(err) {
   if (!err) return false;
@@ -175,7 +201,14 @@ let lastHistoryTimestamp = 0;
 let offlineSyncToastShown = false;
 let offlineQueueToastShown = false;
 const SYNC_STATUS_STORAGE_KEY = 'cloud-sync-status';
-const VALID_SYNC_STATUSES = new Set(['online', 'syncing', 'queued', 'reconnecting', 'offline']);
+const VALID_SYNC_STATUSES = new Set([
+  'online',
+  'syncing',
+  'queued',
+  'reconnecting',
+  'offline',
+  'unsupported',
+]);
 const syncErrorListeners = new Set();
 const syncActivityListeners = new Set();
 const syncQueueListeners = new Set();
@@ -323,8 +356,20 @@ function normalizeSyncStatus(status, fallback = 'online') {
   return VALID_SYNC_STATUSES.has(normalized) ? normalized : fallback;
 }
 
+const INITIAL_SYNC_STATUS = (() => {
+  if (cloudSyncUnsupported) return 'unsupported';
+  if (
+    typeof navigator !== 'undefined' &&
+    Object.prototype.hasOwnProperty.call(navigator, 'onLine') &&
+    navigator.onLine === false
+  ) {
+    return 'offline';
+  }
+  return 'online';
+})();
+
 let lastSyncStatus = (() => {
-  const fallback = isNavigatorOffline() ? 'offline' : 'online';
+  const fallback = INITIAL_SYNC_STATUS;
   try {
     if (typeof sessionStorage !== 'undefined') {
       const stored = sessionStorage.getItem(SYNC_STATUS_STORAGE_KEY);
@@ -345,7 +390,7 @@ try {
 const syncStatusListeners = new Set();
 
 function emitSyncStatus(status) {
-  const normalized = normalizeSyncStatus(status, lastSyncStatus || 'online');
+  const normalized = normalizeSyncStatus(status, lastSyncStatus || INITIAL_SYNC_STATUS);
   if (normalized === lastSyncStatus) return;
   lastSyncStatus = normalized;
   try {
@@ -363,6 +408,10 @@ function emitSyncStatus(status) {
 }
 
 function setSyncStatus(status) {
+  if (cloudSyncUnsupported && status !== 'unsupported') {
+    emitSyncStatus('unsupported');
+    return;
+  }
   emitSyncStatus(status);
 }
 
@@ -375,6 +424,9 @@ export function subscribeSyncStatus(listener) {
     listener(lastSyncStatus);
   } catch (err) {
     console.error('Sync status listener failed', err);
+  }
+  if (cloudSyncUnsupported) {
+    showCloudSyncUnsupportedNotice();
   }
   return () => {
     syncStatusListeners.delete(listener);
@@ -414,13 +466,42 @@ function isNavigatorOffline() {
   );
 }
 
+function isCloudSyncAvailable() {
+  return cloudSyncDisabled === false;
+}
+
 function showToast(message, type = 'info') {
   try {
     toast(message, type);
   } catch {}
 }
 
+function showCloudSyncUnsupportedNotice() {
+  if (!cloudSyncUnsupported || cloudSyncSupportToastShown) return;
+  cloudSyncSupportToastShown = true;
+  try {
+    toast(CLOUD_SYNC_SUPPORT_MESSAGE, { type: 'warning', duration: 10000 });
+  } catch (err) {
+    console.error('Failed to display cloud sync support notice', err);
+  }
+}
+
+function disableCloudSync(reason) {
+  if (cloudSyncDisabled) return;
+  cloudSyncDisabled = true;
+  cloudSyncUnsupported = true;
+  cloudSyncDisabledReason = typeof reason === 'string' ? reason : '';
+  if (cloudSyncDisabledReason) {
+    console.warn('Cloud sync disabled:', cloudSyncDisabledReason);
+  } else {
+    console.warn('Cloud sync disabled');
+  }
+  emitSyncStatus('unsupported');
+  showCloudSyncUnsupportedNotice();
+}
+
 function notifySyncPaused() {
+  if (cloudSyncDisabled) return;
   if (!offlineSyncToastShown) {
     showToast('Cloud sync paused while offline', 'info');
     offlineSyncToastShown = true;
@@ -429,6 +510,7 @@ function notifySyncPaused() {
 }
 
 function notifySaveQueued() {
+  if (cloudSyncDisabled) return;
   if (!offlineQueueToastShown) {
     showToast('Offline: changes will sync when you reconnect', 'info');
     offlineQueueToastShown = true;
@@ -439,7 +521,9 @@ function notifySaveQueued() {
 function resetOfflineNotices() {
   offlineSyncToastShown = false;
   offlineQueueToastShown = false;
-  setSyncStatus('online');
+  if (!cloudSyncDisabled) {
+    setSyncStatus('online');
+  }
 }
 
 let controllerFlushListenerAttached = false;
@@ -594,6 +678,9 @@ async function queueCloudSaveLocally(entry) {
 }
 
 export function beginQueuedSyncFlush() {
+  if (cloudSyncDisabled) {
+    return;
+  }
   if (lastSyncStatus === 'queued') {
     setSyncStatus('reconnecting');
   }
@@ -1013,6 +1100,14 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
 }
 
 export async function saveCloud(name, payload) {
+  if (!isCloudSyncAvailable()) {
+    showCloudSyncUnsupportedNotice();
+    return 'disabled';
+  }
+  if (typeof fetch !== 'function') {
+    disableCloudSync('fetch not supported');
+    return 'disabled';
+  }
   if (!isNavigatorOffline()) {
     offlineQueueToastShown = false;
   }
@@ -1027,7 +1122,8 @@ export async function saveCloud(name, payload) {
     return 'saved';
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
-      throw e;
+      disableCloudSync('fetch not supported');
+      return 'disabled';
     }
     const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
     if (shouldQueue && (await enqueueCloudSave(name, payload, ts))) {
@@ -1051,9 +1147,16 @@ export async function saveCloud(name, payload) {
 }
 
 export async function saveCloudAutosave(name, payload) {
+  if (!isCloudSyncAvailable()) {
+    showCloudSyncUnsupportedNotice();
+    return null;
+  }
+  if (typeof fetch !== 'function') {
+    disableCloudSync('fetch not supported');
+    return null;
+  }
   const ts = nextHistoryTimestamp();
   try {
-    if (typeof fetch !== 'function') throw new Error('fetch not supported');
     await saveHistoryEntry(CLOUD_AUTOSAVES_URL, name, payload, ts);
     resetOfflineNotices();
     emitSyncActivity({ type: 'cloud-autosave', name, queued: false, timestamp: Date.now() });
@@ -1061,7 +1164,8 @@ export async function saveCloudAutosave(name, payload) {
     return ts;
   } catch (e) {
     if (e && e.message === 'fetch not supported') {
-      throw e;
+      disableCloudSync('fetch not supported');
+      return null;
     }
     const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
     if (shouldQueue && (await enqueueCloudSave(name, payload, ts, { kind: 'autosave' }))) {
@@ -1282,6 +1386,10 @@ export async function cacheCloudSaves(
   loadFn = loadCloud,
   saveFn = saveLocal
 ) {
+  if (cloudSyncDisabled) {
+    showCloudSyncUnsupportedNotice();
+    return;
+  }
   let abortController = null;
   try {
     if (isNavigatorOffline()) {
@@ -1360,7 +1468,12 @@ export async function cacheCloudSaves(
 // locally. This keeps all open tabs in sync without manual refreshes.
 export function subscribeCloudSaves(onChange = cacheCloudSaves) {
   try {
-    if (typeof EventSource !== 'function') return null;
+    if (cloudSyncDisabled || typeof EventSource !== 'function') {
+      if (cloudSyncUnsupported) {
+        showCloudSyncUnsupportedNotice();
+      }
+      return null;
+    }
 
     const src = new EventSource(`${CLOUD_SAVES_URL}.json`);
     const handler = () => onChange();

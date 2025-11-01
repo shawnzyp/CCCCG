@@ -20799,6 +20799,7 @@ const SYNC_STATUS_LABELS = {
   queued: 'Offline: save queued',
   reconnecting: 'Syncing queued save',
   offline: 'Offline',
+  unsupported: 'Cloud sync unavailable',
 };
 const VALID_BADGE_STATUSES = new Set(Object.keys(SYNC_STATUS_LABELS));
 const relativeTimeFormatter = (typeof Intl !== 'undefined' && typeof Intl.RelativeTimeFormat === 'function')
@@ -21284,6 +21285,13 @@ function toggleSyncPanel(forceOpen) {
 let manualSyncInFlight = false;
 async function triggerManualSync() {
   if (manualSyncInFlight) return;
+  if (getLastSyncStatus() === 'unsupported') {
+    manualSyncButtons.forEach(btn => {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    });
+    return;
+  }
   manualSyncInFlight = true;
   manualSyncButtons.forEach(btn => {
     btn.disabled = true;
