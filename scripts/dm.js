@@ -8926,58 +8926,109 @@ function initDMLogin(){
         ${perkGrid?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">${perkGrid}</div>`:''}
         ${statsGrid?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${statsGrid}</div>`:''}
       `;
-      const renderList=(title, items)=>`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${items.join('')}</ul></div>`;
-      const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
-        if (entry && typeof entry === 'object') {
-          const isModern = (
-            entry.rulesText !== undefined
-            || entry.effectTag !== undefined
-            || entry.spCost !== undefined
-            || entry.intensity !== undefined
-            || entry.actionType !== undefined
-            || entry.signature
-          );
-          if (isModern) {
-            const costValue = Number(entry.spCost);
-            const costLabel = Number.isFinite(costValue) && costValue > 0 ? `${costValue} SP` : '';
-            return `<li>${
-              labeled('Name', entry.name || fallback)
-              + labeled('Style', entry.style)
-              + labeled('Action', entry.actionType)
-              + labeled('Intensity', entry.intensity)
-              + labeled('Uses', entry.uses)
-              + labeled('Cost', costLabel)
-              + labeled('Save', entry.requiresSave ? entry.saveAbilityTarget : '')
-              + labeled('Rules', entry.rulesText || '')
-              + labeled('Description', entry.description)
-              + labeled('Special', entry.special)
-            }</li>`;
-          }
-          const legacyDesc = entry.description ?? entry.desc;
-          return `<li>${labeled('Name', entry.name || fallback)}${labeled('SP', entry.sp)}${labeled('Save', entry.save)}${labeled('Special', entry.special)}${labeled('Description', legacyDesc)}</li>`;
-        }
-        return `<li>${labeled('Name', fallback)}</li>`;
+      const normalizeTextValue = value => (typeof value === 'string' ? value.trim() : value);
+      const hasMeaningfulField = (entry, fields = []) => {
+        const keys = fields.length ? fields : Object.keys(entry);
+        return keys.some(key => {
+          const value = entry[key];
+          if (typeof value === 'string') return value.length > 0;
+          if (typeof value === 'number') return Number.isFinite(value);
+          if (typeof value === 'boolean') return value;
+          return value != null;
+        });
       };
-      if(data.powers?.length){
-        const powers=data.powers.map(p=>renderPowerEntry(p,{fallback:'Power'}));
-        card.innerHTML+=renderList('Powers',powers);
-      }
-      if(data.signatures?.length){
-        const sigs=data.signatures.map(s=>renderPowerEntry(s,{fallback:'Signature'}));
-        card.innerHTML+=renderList('Signatures',sigs);
-      }
-      if(data.weapons?.length){
-        const weapons=data.weapons.map(w=>`<li>${labeled('Name',w.name)}${labeled('Damage',w.damage)}${labeled('Range',w.range)}</li>`);
-        card.innerHTML+=renderList('Weapons',weapons);
-      }
-      if(data.armor?.length){
-        const armor=data.armor.map(a=>`<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${a.bonus?labeled('Bonus',`+${a.bonus}`):''}${a.equipped?labeled('Equipped','Yes'):''}</li>`);
-        card.innerHTML+=renderList('Armor',armor);
-      }
-      if(data.items?.length){
-        const items=data.items.map(i=>`<li>${labeled('Name',i.name)}${labeled('Qty',i.qty)}${labeled('Notes',i.notes)}</li>`);
-        card.innerHTML+=renderList('Items',items);
-      }
+      const normalizeCollection = (collection, meaningfulFields = []) => {
+        if (!Array.isArray(collection)) return [];
+        return collection
+          .map(entry => {
+            if (!entry || typeof entry !== 'object') return null;
+            const normalized = {};
+            for (const [key, value] of Object.entries(entry)) {
+              const normalizedValue = normalizeTextValue(value);
+              normalized[key] = normalizedValue;
+            }
+            return hasMeaningfulField(normalized, meaningfulFields) ? normalized : null;
+          })
+          .filter(Boolean);
+      };
+      const renderList=(title, items)=>{
+        const safeItems=items.filter(item=>{
+          if(typeof item!=='string')return false;
+          const trimmed=item.trim();
+          if(!trimmed)return false;
+          return !/^<li>\s*<\/li>$/.test(trimmed);
+        });
+        if(!safeItems.length)return '';
+        return `<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${safeItems.join('')}</ul></div>`;
+      };
+      const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const normalizedEntry = {};
+        let hasMeaningful = false;
+        for (const [key, value] of Object.entries(entry)) {
+          const normalizedValue = normalizeTextValue(value);
+          normalizedEntry[key] = normalizedValue;
+          if (!hasMeaningful) {
+            if (typeof normalizedValue === 'string') {
+              hasMeaningful = normalizedValue.length > 0;
+            } else if (typeof normalizedValue === 'number') {
+              hasMeaningful = Number.isFinite(normalizedValue);
+            } else if (typeof normalizedValue === 'boolean') {
+              hasMeaningful = normalizedValue;
+            } else if (normalizedValue != null) {
+              hasMeaningful = true;
+            }
+          }
+        }
+        if (!hasMeaningful) return null;
+        const isModern = (
+          normalizedEntry.rulesText !== undefined
+          || normalizedEntry.effectTag !== undefined
+          || normalizedEntry.spCost !== undefined
+          || normalizedEntry.intensity !== undefined
+          || normalizedEntry.actionType !== undefined
+          || normalizedEntry.signature
+        );
+        if (isModern) {
+          const costValue = Number(normalizedEntry.spCost);
+          const costLabel = Number.isFinite(costValue) && costValue > 0 ? `${costValue} SP` : '';
+          const requiresSave = normalizedEntry.requiresSave;
+          return `<li>${
+            labeled('Name', normalizedEntry.name || fallback)
+            + labeled('Style', normalizedEntry.style)
+            + labeled('Action', normalizedEntry.actionType)
+            + labeled('Intensity', normalizedEntry.intensity)
+            + labeled('Uses', normalizedEntry.uses)
+            + labeled('Cost', costLabel)
+            + labeled('Save', requiresSave ? normalizedEntry.saveAbilityTarget : '')
+            + labeled('Rules', normalizedEntry.rulesText || '')
+            + labeled('Description', normalizedEntry.description)
+            + labeled('Special', normalizedEntry.special)
+          }</li>`;
+        }
+        const legacyDesc = normalizedEntry.description ?? normalizedEntry.desc;
+        return `<li>${labeled('Name', normalizedEntry.name || fallback)}${labeled('SP', normalizedEntry.sp)}${labeled('Save', normalizedEntry.save)}${labeled('Special', normalizedEntry.special)}${labeled('Description', legacyDesc)}</li>`;
+      };
+      const normalizedPowers=normalizeCollection(data.powers);
+      const normalizedSignatures=normalizeCollection(data.signatures);
+      const normalizedWeapons=normalizeCollection(data.weapons,['name','damage','range','notes']);
+      const normalizedArmor=normalizeCollection(data.armor,['name','slot','bonus','equipped']);
+      const normalizedItems=normalizeCollection(data.items,['name','qty','notes']);
+      const powerEntries=normalizedPowers.map(p=>renderPowerEntry(p,{fallback:'Power'})).filter(Boolean);
+      const signatureEntries=normalizedSignatures.map(s=>renderPowerEntry(s,{fallback:'Signature'})).filter(Boolean);
+      const weaponEntries=normalizedWeapons.map(w=>`<li>${labeled('Name',w.name)}${labeled('Damage',w.damage)}${labeled('Range',w.range)}${labeled('Notes',w.notes)}</li>`);
+      const armorEntries=normalizedArmor.map(a=>`<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${a.bonus?labeled('Bonus',`+${a.bonus}`):''}${a.equipped?labeled('Equipped','Yes'):''}</li>`);
+      const itemEntries=normalizedItems.map(i=>`<li>${labeled('Name',i.name)}${labeled('Qty',i.qty)}${labeled('Notes',i.notes)}</li>`);
+      const powerList=renderList('Powers',powerEntries);
+      if(powerList)card.innerHTML+=powerList;
+      const signatureList=renderList('Signatures',signatureEntries);
+      if(signatureList)card.innerHTML+=signatureList;
+      const weaponList=renderList('Weapons',weaponEntries);
+      if(weaponList)card.innerHTML+=weaponList;
+      const armorList=renderList('Armor',armorEntries);
+      if(armorList)card.innerHTML+=armorList;
+      const itemList=renderList('Items',itemEntries);
+      if(itemList)card.innerHTML+=itemList;
       if(data['story-notes']){
         card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Backstory / Notes</span><div>${data['story-notes']}</div></div>`;
       }
