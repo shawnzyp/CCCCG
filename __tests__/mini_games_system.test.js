@@ -1,6 +1,8 @@
 import { jest } from '@jest/globals';
 import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
 
+const DM_PIN_4_DIGIT = TEST_DM_PIN.slice(0, 4);
+
 function setupDom() {
   document.body.innerHTML = `
     <button id="dm-login"></button>
@@ -13,6 +15,7 @@ function setupDom() {
       <button id="dm-tools-logout"></button>
     </div>
     <div id="dm-login-modal" class="hidden" aria-hidden="true">
+      <input id="dm-login-username" />
       <input id="dm-login-pin" />
       <button id="dm-login-submit"></button>
       <button id="dm-login-close"></button>
@@ -165,6 +168,25 @@ async function initDmModule() {
     setCurrentCharacter,
   }));
 
+  const verifyDmCredential = jest.fn(async (username, pin) => pin === DM_PIN_4_DIGIT);
+  const upsertDmCredentialPin = jest.fn(async (username, pin) => ({
+    username,
+    hash: `hash-${pin}`,
+    salt: 'salt-value',
+    iterations: 120000,
+    keyLength: 32,
+    digest: 'SHA-256',
+    updatedAt: Date.now(),
+  }));
+
+  jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
+    verifyDmCredential,
+    upsertDmCredentialPin,
+    getDmCredential: jest.fn(async () => null),
+    loadDmCredentialRecords: jest.fn(async () => new Map()),
+    resetDmCredentialCache: jest.fn(),
+  }));
+
   const show = jest.fn();
   const hide = jest.fn();
   jest.unstable_mockModule('../scripts/modal.js', () => ({ show, hide }));
@@ -186,8 +208,10 @@ async function initDmModule() {
 
 async function completeLogin() {
   const loginPromise = window.dmRequireLogin();
+  const usernameInput = document.getElementById('dm-login-username');
+  usernameInput.value = 'TestDM';
   const pinInput = document.getElementById('dm-login-pin');
-  pinInput.value = TEST_DM_PIN;
+  pinInput.value = DM_PIN_4_DIGIT;
   document.getElementById('dm-login-submit').dispatchEvent(new Event('click'));
   await loginPromise;
 }

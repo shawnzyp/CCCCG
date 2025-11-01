@@ -151,7 +151,19 @@ describe('dm credit history filters', () => {
     }));
 
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      DM_PIN: '0000',
+      verifyDmCredential: jest.fn(async () => true),
+      upsertDmCredentialPin: jest.fn(async (username, pin) => ({
+        username,
+        hash: `hash-${pin}`,
+        salt: 'salt-value',
+        iterations: 120000,
+        keyLength: 32,
+        digest: 'SHA-256',
+        updatedAt: Date.now(),
+      })),
+      getDmCredential: jest.fn(async () => null),
+      loadDmCredentialRecords: jest.fn(async () => new Map()),
+      resetDmCredentialCache: jest.fn(),
     }));
 
     jest.unstable_mockModule('../scripts/faction.js', () => ({

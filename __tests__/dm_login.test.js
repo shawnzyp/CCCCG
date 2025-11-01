@@ -4,9 +4,28 @@ const TEST_DM_USERNAME = 'TestDM';
 const TEST_DM_PIN = '1234';
 const ALT_DM_PIN = '5678';
 
+let verifyDmCredentialMock;
+let upsertDmCredentialPinMock;
+
 beforeEach(() => {
   jest.resetModules();
-  jest.unstable_mockModule('../scripts/dm-pin.js', () => ({ DM_PIN: TEST_DM_PIN }));
+  verifyDmCredentialMock = jest.fn(async (username, pin) => pin === TEST_DM_PIN);
+  upsertDmCredentialPinMock = jest.fn(async (username, pin) => ({
+    username,
+    hash: `hash-${pin}`,
+    salt: 'salt-value',
+    iterations: 120000,
+    keyLength: 32,
+    digest: 'SHA-256',
+    updatedAt: Date.now(),
+  }));
+  jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
+    verifyDmCredential: verifyDmCredentialMock,
+    upsertDmCredentialPin: upsertDmCredentialPinMock,
+    getDmCredential: jest.fn(async () => null),
+    loadDmCredentialRecords: jest.fn(async () => new Map()),
+    resetDmCredentialCache: jest.fn(),
+  }));
   sessionStorage.clear();
   localStorage.clear();
 });
@@ -270,6 +289,7 @@ describe('dm login', () => {
     modal.addEventListener('dm-login:set-pin', event => setPinEvents.push(event.detail));
 
     void window.dmRequireLogin();
+    await Promise.resolve();
 
     modal.querySelector('[data-login-action="start-create"]').click();
 
@@ -285,8 +305,16 @@ describe('dm login', () => {
 
     document.getElementById('dm-login-confirm-pin').value = ALT_DM_PIN;
     document.getElementById('dm-login-confirm-submit').click();
+    await Promise.resolve();
 
-    expect(setPinEvents).toEqual([{ username: TEST_DM_USERNAME, pin: ALT_DM_PIN, mode: 'create' }]);
+    expect(setPinEvents).toEqual([
+      expect.objectContaining({
+        username: TEST_DM_USERNAME,
+        pin: ALT_DM_PIN,
+        mode: 'create',
+        record: expect.objectContaining({ username: TEST_DM_USERNAME, hash: expect.any(String) }),
+      }),
+    ]);
     const loginView = modal.querySelector('[data-login-view="login"]');
     expect(loginView.hidden).toBe(false);
     expect(document.getElementById('dm-login-username').value).toBe(TEST_DM_USERNAME);
@@ -439,8 +467,16 @@ describe('dm login', () => {
 
     document.getElementById('dm-login-confirm-pin').value = ALT_DM_PIN;
     document.getElementById('dm-login-confirm-submit').click();
+    await Promise.resolve();
 
-    expect(setPinEvents).toEqual([{ username: updatedUsername, pin: ALT_DM_PIN, mode: 'reset' }]);
+    expect(setPinEvents).toEqual([
+      expect.objectContaining({
+        username: updatedUsername,
+        pin: ALT_DM_PIN,
+        mode: 'reset',
+        record: expect.objectContaining({ username: updatedUsername, hash: expect.any(String) }),
+      }),
+    ]);
     expect(document.getElementById('dm-login-username').value).toBe(updatedUsername);
     expect(document.getElementById('dm-login-pin').value).toBe(ALT_DM_PIN);
 
@@ -558,6 +594,7 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     const loginPromise = window.dmRequireLogin();
+    await Promise.resolve();
     document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
     document.getElementById('dm-login-pin').value = TEST_DM_PIN;
     document.getElementById('dm-login-submit').click();
@@ -972,25 +1009,23 @@ describe('dm login', () => {
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
 
+    const lockUntil = Date.now() + 30_000;
+    sessionStorage.setItem('dmLoginFailureCount', '3');
+    sessionStorage.setItem('dmLoginLockUntil', String(lockUntil));
+
     void window.dmRequireLogin();
+    await Promise.resolve();
+
     const username = document.getElementById('dm-login-username');
     const pin = document.getElementById('dm-login-pin');
     const submit = document.getElementById('dm-login-submit');
-
-    username.value = TEST_DM_USERNAME;
-
-    for (let i = 0; i < 3; i += 1) {
-      pin.value = '0000';
-      submit.click();
-    }
-
     const waitMessage = document.querySelector('[data-login-wait]');
+
     expect(submit.disabled).toBe(true);
     expect(pin.disabled).toBe(true);
     expect(waitMessage).not.toBeNull();
     expect(waitMessage.hidden).toBe(false);
     expect(waitMessage.textContent).toContain('Too many failed attempts');
-    expect(sessionStorage.getItem('dmLoginLockUntil')).not.toBeNull();
     expect(window.toast).toHaveBeenLastCalledWith(expect.stringContaining('Too many failed attempts'), 'error');
 
     jest.useRealTimers();
@@ -1068,12 +1103,14 @@ describe('dm login', () => {
     for (let i = 0; i < 3; i += 1) {
       pin.value = '0000';
       submit.click();
+      await Promise.resolve();
     }
 
     expect(submit.disabled).toBe(true);
     expect(pin.disabled).toBe(true);
 
     jest.advanceTimersByTime(30_000);
+    await Promise.resolve();
 
     expect(submit.disabled).toBe(false);
     expect(pin.disabled).toBe(false);

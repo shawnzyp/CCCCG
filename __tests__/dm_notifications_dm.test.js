@@ -1,6 +1,8 @@
 import { jest } from '@jest/globals';
 import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
 
+const DM_PIN_4_DIGIT = TEST_DM_PIN.slice(0, 4);
+
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const DM_NOTIFICATION_FILTER_STORAGE_KEY = 'cc_dm_notification_filters';
@@ -10,10 +12,12 @@ function setupDom() {
     <div id="dm-tools-menu"></div>
     <button id="dm-tools-notifications"></button>
     <button id="dm-login"></button>
-    <div id="dm-login-modal"></div>
-    <input id="dm-login-pin" />
-    <button id="dm-login-submit"></button>
-    <button id="dm-login-close"></button>
+    <div id="dm-login-modal" class="hidden" aria-hidden="true">
+      <input id="dm-login-username" />
+      <input id="dm-login-pin" />
+      <button id="dm-login-submit"></button>
+      <button id="dm-login-close"></button>
+    </div>
     <div id="dm-notifications-modal" class="overlay hidden" aria-hidden="true">
       <section class="modal">
         <button id="dm-notifications-close" type="button"></button>
@@ -88,6 +92,25 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
     loadCharacter,
   }));
 
+  const verifyDmCredential = jest.fn(async (username, pin) => pin === DM_PIN_4_DIGIT);
+  const upsertDmCredentialPin = jest.fn(async (username, pin) => ({
+    username,
+    hash: `hash-${pin}`,
+    salt: 'salt-value',
+    iterations: 120000,
+    keyLength: 32,
+    digest: 'SHA-256',
+    updatedAt: Date.now(),
+  }));
+
+  jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
+    verifyDmCredential,
+    upsertDmCredentialPin,
+    getDmCredential: jest.fn(async () => null),
+    loadDmCredentialRecords: jest.fn(async () => new Map()),
+    resetDmCredentialCache: jest.fn(),
+  }));
+
   setupDom();
   global.toast = jest.fn();
   global.dismissToast = jest.fn();
@@ -108,8 +131,10 @@ async function initDmModule({ loggedIn = false, storedNotifications = null, noti
 
 async function completeLogin() {
   const loginPromise = window.dmRequireLogin();
+  const usernameInput = document.getElementById('dm-login-username');
+  usernameInput.value = 'TestDM';
   const pinInput = document.getElementById('dm-login-pin');
-  pinInput.value = TEST_DM_PIN;
+  pinInput.value = DM_PIN_4_DIGIT;
   const submit = document.getElementById('dm-login-submit');
   submit.dispatchEvent(new Event('click'));
   await loginPromise;
