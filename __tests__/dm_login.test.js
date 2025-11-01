@@ -1,53 +1,74 @@
 import { jest } from '@jest/globals';
 
+const TEST_DM_USERNAME = 'TestDM';
+const TEST_DM_PIN = '1234';
+const ALT_DM_PIN = '5678';
+
 beforeEach(() => {
   jest.resetModules();
+  jest.unstable_mockModule('../scripts/dm-pin.js', () => ({ DM_PIN: TEST_DM_PIN }));
   sessionStorage.clear();
   localStorage.clear();
 });
 
 const DM_LOGIN_MODAL_MARKUP = `
-  <div id="dm-login-modal" class="hidden" aria-hidden="true">
-    <div class="modal-frame">
-      <section class="modal dm-login" role="dialog" aria-modal="true" aria-labelledby="dm-login-title">
-        <button id="dm-login-close" class="x" aria-label="Close"></button>
-        <div class="dm-login__content">
-          <div class="dm-login__view" data-login-view="login">
-            <h3 id="dm-login-title">DM Login</h3>
-            <p class="dm-login__description">Enter your DM PIN to access the tools.</p>
-            <input id="dm-login-pin">
-            <div class="actions">
-              <button id="dm-login-submit" type="button"></button>
+  <div id=\"dm-login-modal\" class=\"hidden\" aria-hidden=\"true\">
+    <div class=\"modal-frame\">
+      <section class=\"modal dm-login\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"dm-login-title\">
+        <button id=\"dm-login-close\" class=\"x\" aria-label=\"Close\"></button>
+        <div class=\"dm-login__content\">
+          <div class=\"dm-login__view\" data-login-view=\"login\">
+            <h3 id=\"dm-login-title\">DM Login</h3>
+            <p class=\"dm-login__description\">Enter your DM username and 4-digit PIN to access the tools.</p>
+            <input id=\"dm-login-username\">
+            <input id=\"dm-login-pin\">
+            <div class=\"actions\">
+              <button id=\"dm-login-submit\" type=\"button\"></button>
             </div>
-            <div class="dm-login__links">
-              <button type="button" data-login-action="start-create"></button>
-              <button type="button" data-login-action="forgot"></button>
-            </div>
-          </div>
-          <div class="dm-login__view" data-login-view="create" hidden aria-hidden="true">
-            <input id="dm-login-new-pin">
-            <div class="actions">
-              <button id="dm-login-create-submit" type="button"></button>
-            </div>
-            <button type="button" data-login-action="back-to-login"></button>
-          </div>
-          <div class="dm-login__view" data-login-view="confirm" hidden aria-hidden="true">
-            <input id="dm-login-confirm-pin">
-            <p data-login-error hidden></p>
-            <div class="actions">
-              <button id="dm-login-confirm-submit" type="button"></button>
-            </div>
-            <button type="button" data-login-action="back-to-create"></button>
-          </div>
-          <div class="dm-login__view" data-login-view="recovery" hidden aria-hidden="true">
-            <div class="actions">
-              <button type="button" data-login-action="back-to-login"></button>
+            <div class=\"dm-login__links\">
+              <button type=\"button\" data-login-action=\"start-create\"></button>
+              <button type=\"button\" data-login-action=\"start-reset\"></button>
+              <button type=\"button\" data-login-action=\"forgot\"></button>
             </div>
           </div>
+          <div class=\"dm-login__view\" data-login-view=\"create\" hidden aria-hidden=\"true\">
+            <input id=\"dm-login-new-username\">
+            <input id=\"dm-login-new-pin\">
+            <div class=\"actions\">
+              <button id=\"dm-login-create-submit\" type=\"button\"></button>
+            </div>
+            <button type=\"button\" data-login-action=\"back-to-login\"></button>
+          </div>
+          <div class=\"dm-login__view\" data-login-view=\"reset\" hidden aria-hidden=\"true\">
+            <input id=\"dm-login-reset-username\">
+            <input id=\"dm-login-reset-pin\">
+            <div class=\"actions\">
+              <button id=\"dm-login-reset-submit\" type=\"button\"></button>
+            </div>
+            <button type=\"button\" data-login-action=\"back-to-login\"></button>
+          </div>
+          <div class=\"dm-login__view\" data-login-view=\"confirm\" hidden aria-hidden=\"true\">
+            <p data-login-confirm-description></p>
+            <p data-login-confirm-summary hidden></p>
+            <input id=\"dm-login-confirm-pin\">
+            <div class=\"actions\">
+              <button id=\"dm-login-confirm-submit\" type=\"button\"></button>
+            </div>
+            <div class=\"dm-login__links dm-login__links--back\">
+              <button type=\"button\" data-login-action=\"back-to-create\" hidden aria-hidden=\"true\"></button>
+              <button type=\"button\" data-login-action=\"back-to-reset\" hidden aria-hidden=\"true\"></button>
+            </div>
+          </div>
+          <div class=\"dm-login__view\" data-login-view=\"recovery\" hidden aria-hidden=\"true\">
+            <div class=\"actions\">
+              <button type=\"button\" data-login-action=\"back-to-login\"></button>
+            </div>
+          </div>
+          <p class=\"dm-login__error\" data-login-error hidden></p>
           <p data-login-wait hidden></p>
         </div>
       </section>
-      <div class="modal-frame__halo" aria-hidden="true"></div>
+      <div class=\"modal-frame__halo\" aria-hidden=\"true\"></div>
     </div>
   </div>
 `;
@@ -115,7 +136,8 @@ describe('dm login', () => {
     const modal = document.getElementById('dm-login-modal');
     expect(modal.classList.contains('hidden')).toBe(false);
     expect(modal.style.display).toBe('flex');
-    document.getElementById('dm-login-pin').value = '123123';
+    document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-pin').value = TEST_DM_PIN;
     document.getElementById('dm-login-submit').click();
     await promise;
 
@@ -185,7 +207,8 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     const promise = window.dmRequireLogin();
-    document.getElementById('dm-login-pin').value = '123123';
+    document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-pin').value = TEST_DM_PIN;
     document.getElementById('dm-login-submit').click();
 
     await expect(promise).resolves.toBe(true);
@@ -253,19 +276,21 @@ describe('dm login', () => {
     const createView = modal.querySelector('[data-login-view="create"]');
     expect(createView.hidden).toBe(false);
 
-    document.getElementById('dm-login-new-pin').value = '246810';
+    document.getElementById('dm-login-new-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-new-pin').value = ALT_DM_PIN;
     document.getElementById('dm-login-create-submit').click();
 
     const confirmView = modal.querySelector('[data-login-view="confirm"]');
     expect(confirmView.hidden).toBe(false);
 
-    document.getElementById('dm-login-confirm-pin').value = '246810';
+    document.getElementById('dm-login-confirm-pin').value = ALT_DM_PIN;
     document.getElementById('dm-login-confirm-submit').click();
 
-    expect(setPinEvents).toEqual([{ pin: '246810' }]);
+    expect(setPinEvents).toEqual([{ username: TEST_DM_USERNAME, pin: ALT_DM_PIN, mode: 'create' }]);
     const loginView = modal.querySelector('[data-login-view="login"]');
     expect(loginView.hidden).toBe(false);
-    expect(document.getElementById('dm-login-pin').value).toBe('246810');
+    expect(document.getElementById('dm-login-username').value).toBe(TEST_DM_USERNAME);
+    expect(document.getElementById('dm-login-pin').value).toBe(ALT_DM_PIN);
 
     delete window.toast;
     delete window.dismissToast;
@@ -322,10 +347,11 @@ describe('dm login', () => {
     void window.dmRequireLogin();
 
     modal.querySelector('[data-login-action="start-create"]').click();
-    document.getElementById('dm-login-new-pin').value = '13579';
+    document.getElementById('dm-login-new-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-new-pin').value = TEST_DM_PIN;
     document.getElementById('dm-login-create-submit').click();
 
-    document.getElementById('dm-login-confirm-pin').value = '97531';
+    document.getElementById('dm-login-confirm-pin').value = ALT_DM_PIN;
     document.getElementById('dm-login-confirm-submit').click();
 
     const error = modal.querySelector('[data-login-error]');
@@ -334,6 +360,89 @@ describe('dm login', () => {
     expect(setPinSpy).not.toHaveBeenCalled();
     expect(modal.querySelector('[data-login-view="confirm"]').hidden).toBe(false);
     expect(modal.querySelector('[data-login-view="login"]').hidden).toBe(true);
+
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('DM reset flow updates username and PIN', async () => {
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const modal = document.getElementById('dm-login-modal');
+    const setPinEvents = [];
+    modal.addEventListener('dm-login:set-pin', event => setPinEvents.push(event.detail));
+
+    void window.dmRequireLogin();
+
+    const updatedUsername = `${TEST_DM_USERNAME}-Prime`;
+    modal.querySelector('[data-login-action="start-reset"]').click();
+
+    const resetView = modal.querySelector('[data-login-view="reset"]');
+    expect(resetView.hidden).toBe(false);
+
+    document.getElementById('dm-login-reset-username').value = updatedUsername;
+    document.getElementById('dm-login-reset-pin').value = ALT_DM_PIN;
+    document.getElementById('dm-login-reset-submit').click();
+
+    const confirmView = modal.querySelector('[data-login-view="confirm"]');
+    expect(confirmView.hidden).toBe(false);
+
+    const backToReset = confirmView.querySelector('[data-login-action="back-to-reset"]');
+    const backToCreate = confirmView.querySelector('[data-login-action="back-to-create"]');
+    expect(backToReset.hidden).toBe(false);
+    expect(backToCreate.hidden).toBe(true);
+
+    const summary = modal.querySelector('[data-login-confirm-summary]');
+    expect(summary.hidden).toBe(false);
+    expect(summary.textContent).toContain(updatedUsername);
+
+    document.getElementById('dm-login-confirm-pin').value = ALT_DM_PIN;
+    document.getElementById('dm-login-confirm-submit').click();
+
+    expect(setPinEvents).toEqual([{ username: updatedUsername, pin: ALT_DM_PIN, mode: 'reset' }]);
+    expect(document.getElementById('dm-login-username').value).toBe(updatedUsername);
+    expect(document.getElementById('dm-login-pin').value).toBe(ALT_DM_PIN);
 
     delete window.toast;
     delete window.dismissToast;
@@ -449,7 +558,8 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     const loginPromise = window.dmRequireLogin();
-    document.getElementById('dm-login-pin').value = '123123';
+    document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-pin').value = TEST_DM_PIN;
     document.getElementById('dm-login-submit').click();
     await loginPromise;
 
@@ -519,7 +629,8 @@ describe('dm login', () => {
 
     try {
       const loginPromise = window.dmRequireLogin();
-      document.getElementById('dm-login-pin').value = '123123';
+      document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+      document.getElementById('dm-login-pin').value = TEST_DM_PIN;
       document.getElementById('dm-login-submit').click();
       await loginPromise;
 
@@ -606,7 +717,8 @@ describe('dm login', () => {
 
     const promise = window.dmRequireLogin();
     const modal = document.getElementById('dm-login-modal');
-    document.getElementById('dm-login-pin').value = '123123';
+    document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-pin').value = TEST_DM_PIN;
     document.getElementById('dm-login-submit').click();
     await promise;
 
@@ -677,7 +789,8 @@ describe('dm login', () => {
       await import('../scripts/dm.js');
 
       const loginPromise = window.dmRequireLogin();
-      document.getElementById('dm-login-pin').value = '123123';
+      document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+      document.getElementById('dm-login-pin').value = TEST_DM_PIN;
       document.getElementById('dm-login-submit').click();
       await loginPromise;
       await Promise.resolve();
@@ -760,7 +873,11 @@ describe('dm login', () => {
   test('falls back to prompt when modal elements missing', async () => {
     document.body.innerHTML = '';
     window.toast = jest.fn();
-    window.prompt = jest.fn(() => '123123');
+    const promptMock = jest
+      .fn()
+      .mockImplementationOnce(() => TEST_DM_USERNAME)
+      .mockImplementationOnce(() => TEST_DM_PIN);
+    window.prompt = promptMock;
 
     jest.unstable_mockModule('../scripts/storage.js', () => ({
       saveLocal: jest.fn(),
@@ -802,7 +919,7 @@ describe('dm login', () => {
 
     await window.dmRequireLogin();
 
-    expect(window.prompt).toHaveBeenCalled();
+    expect(window.prompt).toHaveBeenCalledTimes(2);
     expect(window.toast).toHaveBeenCalledWith('DM tools unlocked','success');
     delete window.toast;
     delete window.prompt;
@@ -856,11 +973,14 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     void window.dmRequireLogin();
+    const username = document.getElementById('dm-login-username');
     const pin = document.getElementById('dm-login-pin');
     const submit = document.getElementById('dm-login-submit');
 
+    username.value = TEST_DM_USERNAME;
+
     for (let i = 0; i < 3; i += 1) {
-      pin.value = '000000';
+      pin.value = '0000';
       submit.click();
     }
 
@@ -892,6 +1012,7 @@ describe('dm login', () => {
         <button id="dm-tools-tsomf"></button>
         <button id="dm-tools-logout"></button>
         <div id="dm-login-modal" class="hidden" aria-hidden="true">
+          <input id="dm-login-username">
           <input id="dm-login-pin">
           <div class="actions"><button id="dm-login-submit"></button></div>
         </div>
@@ -939,11 +1060,13 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     const loginPromise = window.dmRequireLogin();
+    const username = document.getElementById('dm-login-username');
     const pin = document.getElementById('dm-login-pin');
     const submit = document.getElementById('dm-login-submit');
 
+    username.value = TEST_DM_USERNAME;
     for (let i = 0; i < 3; i += 1) {
-      pin.value = '000000';
+      pin.value = '0000';
       submit.click();
     }
 
@@ -958,7 +1081,8 @@ describe('dm login', () => {
     expect(waitMessage).not.toBeNull();
     expect(waitMessage.hidden).toBe(true);
 
-    pin.value = '123123';
+    username.value = TEST_DM_USERNAME;
+    pin.value = TEST_DM_PIN;
     submit.click();
 
     await loginPromise;
