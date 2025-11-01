@@ -1,5 +1,5 @@
 import { listCharacters, loadCharacter } from './characters.js';
-import { verifyDmCredential, upsertDmCredentialPin } from './dm-pin.js';
+import { verifyDmCredential, upsertDmCredentialPin, loadDmCredentialRecords } from './dm-pin.js';
 import { show, hide } from './modal.js';
 import {
   listMiniGames,
@@ -8587,6 +8587,9 @@ function initDMLogin(){
           }
           queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
           toast('Invalid username or PIN','error');
+          loadDmCredentialRecords({ forceRefresh: true }).catch(refreshError => {
+            console.warn('Failed to refresh DM credential cache after invalid login', refreshError);
+          });
           const failureState = recordLoginFailure();
           const cooldown = failureState.lockUntil > Date.now()
             ? failureState.lockUntil - Date.now()
