@@ -1,9 +1,11 @@
 import { jest } from '@jest/globals';
+import { seedTestDmPin } from '../tests/helpers/dm-pin.js';
 
 beforeEach(() => {
   jest.resetModules();
   sessionStorage.clear();
   localStorage.clear();
+  seedTestDmPin();
 });
 
 const DM_LOGIN_MODAL_MARKUP = `
@@ -65,6 +67,24 @@ function buildBaseDom(extra = '') {
     ${DM_LOGIN_MODAL_MARKUP}
     ${extra}
   `;
+}
+
+async function flushAsyncQueue(iterations = 5) {
+  for (let i = 0; i < iterations; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.resolve();
+  }
+}
+
+async function waitForEnabled(target, { attempts = 10 } = {}) {
+  for (let i = 0; i < attempts; i += 1) {
+    if (!target.disabled) {
+      return true;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await flushAsyncQueue();
+  }
+  return !target.disabled;
 }
 
 describe('dm login', () => {
@@ -862,6 +882,11 @@ describe('dm login', () => {
     for (let i = 0; i < 3; i += 1) {
       pin.value = '000000';
       submit.click();
+      await flushAsyncQueue();
+      if (i < 2) {
+        expect(await waitForEnabled(submit)).toBe(true);
+        expect(await waitForEnabled(pin)).toBe(true);
+      }
     }
 
     const waitMessage = document.querySelector('[data-login-wait]');
@@ -945,12 +970,20 @@ describe('dm login', () => {
     for (let i = 0; i < 3; i += 1) {
       pin.value = '000000';
       submit.click();
+      await flushAsyncQueue();
+      if (i < 2) {
+        expect(await waitForEnabled(submit)).toBe(true);
+        expect(await waitForEnabled(pin)).toBe(true);
+      }
     }
 
     expect(submit.disabled).toBe(true);
     expect(pin.disabled).toBe(true);
 
     jest.advanceTimersByTime(30_000);
+    await flushAsyncQueue();
+    await waitForEnabled(submit);
+    await waitForEnabled(pin);
 
     expect(submit.disabled).toBe(false);
     expect(pin.disabled).toBe(false);

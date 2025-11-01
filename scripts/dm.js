@@ -1,5 +1,5 @@
 import { listCharacters, loadCharacter } from './characters.js';
-import { DM_PIN } from './dm-pin.js';
+import { ensureDmPinReady, verifyDmPin as verifyStoredDmPin, setDmPin as persistDmPin } from './dm-pin.js';
 import { show, hide } from './modal.js';
 import {
   listMiniGames,
@@ -96,271 +96,26 @@ function dmClearInterval(id) {
   }
 }
 
-const DM_PIN_DEFAULT_DIGEST = 'SHA-256';
-const DM_PIN_DEFAULT_KEY_LENGTH = 32;
-
-function isHashedDmPinConfig(candidate) {
-  return candidate && typeof candidate === 'object' && typeof candidate.hash === 'string' && typeof candidate.salt === 'string' && Number.isFinite(candidate.iterations);
-}
-
-const SHA256_INITIAL_HASH = new Uint32Array([
-  0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
-  0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-]);
-
-const SHA256_K = new Uint32Array([
-  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
-]);
-
-function rightRotate(value, amount) {
-  return (value >>> amount) | (value << (32 - amount));
-}
-
-function sha256(bytes) {
-  const length = bytes.length;
-  const bitLength = length * 8;
-  const paddedLength = (((length + 9) + 63) & ~63);
-  const buffer = new Uint8Array(paddedLength);
-  buffer.set(bytes);
-  buffer[length] = 0x80;
-  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-  view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000), false);
-  view.setUint32(paddedLength - 4, bitLength & 0xffffffff, false);
-
-  const hash = new Uint32Array(SHA256_INITIAL_HASH);
-  const w = new Uint32Array(64);
-
-  for (let offset = 0; offset < paddedLength; offset += 64) {
-    for (let i = 0; i < 16; i += 1) {
-      w[i] = view.getUint32(offset + i * 4, false);
-    }
-    for (let i = 16; i < 64; i += 1) {
-      const s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
-      const s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
-      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
-    }
-
-    let a = hash[0];
-    let b = hash[1];
-    let c = hash[2];
-    let d = hash[3];
-    let e = hash[4];
-    let f = hash[5];
-    let g = hash[6];
-    let h = hash[7];
-
-    for (let i = 0; i < 64; i += 1) {
-      const S1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
-      const ch = (e & f) ^ ((~e) & g);
-      const temp1 = (h + S1 + ch + SHA256_K[i] + w[i]) >>> 0;
-      const S0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
-      const maj = (a & b) ^ (a & c) ^ (b & c);
-      const temp2 = (S0 + maj) >>> 0;
-
-      h = g;
-      g = f;
-      f = e;
-      e = (d + temp1) >>> 0;
-      d = c;
-      c = b;
-      b = a;
-      a = (temp1 + temp2) >>> 0;
-    }
-
-    hash[0] = (hash[0] + a) >>> 0;
-    hash[1] = (hash[1] + b) >>> 0;
-    hash[2] = (hash[2] + c) >>> 0;
-    hash[3] = (hash[3] + d) >>> 0;
-    hash[4] = (hash[4] + e) >>> 0;
-    hash[5] = (hash[5] + f) >>> 0;
-    hash[6] = (hash[6] + g) >>> 0;
-    hash[7] = (hash[7] + h) >>> 0;
-  }
-
-  const output = new Uint8Array(32);
-  for (let i = 0; i < 8; i += 1) {
-    output[i * 4] = hash[i] >>> 24;
-    output[i * 4 + 1] = (hash[i] >>> 16) & 0xff;
-    output[i * 4 + 2] = (hash[i] >>> 8) & 0xff;
-    output[i * 4 + 3] = hash[i] & 0xff;
-  }
-  return output;
-}
-
-function hmacSha256(keyBytes, dataBytes) {
-  const blockSize = 64;
-  let key = keyBytes;
-  if (key.length > blockSize) {
-    key = sha256(key);
-  }
-  const oKeyPad = new Uint8Array(blockSize);
-  const iKeyPad = new Uint8Array(blockSize);
-  for (let i = 0; i < blockSize; i += 1) {
-    const byte = key[i] ?? 0;
-    oKeyPad[i] = byte ^ 0x5c;
-    iKeyPad[i] = byte ^ 0x36;
-  }
-  const inner = new Uint8Array(blockSize + dataBytes.length);
-  inner.set(iKeyPad);
-  inner.set(dataBytes, blockSize);
-  const innerHash = sha256(inner);
-  const outer = new Uint8Array(blockSize + innerHash.length);
-  outer.set(oKeyPad);
-  outer.set(innerHash, blockSize);
-  return sha256(outer);
-}
-
-function pbkdf2Sha256(passwordBytes, saltBytes, iterations, keyLength) {
-  const hLen = 32;
-  const blockCount = Math.ceil(keyLength / hLen);
-  const result = new Uint8Array(blockCount * hLen);
-  const blockSalt = new Uint8Array(saltBytes.length + 4);
-  blockSalt.set(saltBytes);
-
-  for (let block = 1; block <= blockCount; block += 1) {
-    blockSalt[saltBytes.length] = (block >>> 24) & 0xff;
-    blockSalt[saltBytes.length + 1] = (block >>> 16) & 0xff;
-    blockSalt[saltBytes.length + 2] = (block >>> 8) & 0xff;
-    blockSalt[saltBytes.length + 3] = block & 0xff;
-    let u = hmacSha256(passwordBytes, blockSalt);
-    const t = new Uint8Array(u);
-    for (let i = 1; i < iterations; i += 1) {
-      u = hmacSha256(passwordBytes, u);
-      for (let j = 0; j < hLen; j += 1) {
-        t[j] ^= u[j];
-      }
-    }
-    result.set(t, (block - 1) * hLen);
-  }
-
-  return result.slice(0, keyLength);
-}
-
-let nodePbkdf2Sync = null;
-if (typeof process !== 'undefined' && process?.versions?.node) {
-  try {
-    const getRequire = Function('try { return (1,eval)("require"); } catch (e) { return null; }');
-    const req = getRequire();
-    if (req) {
-      const nodeCrypto = req('node:crypto');
-      if (nodeCrypto && typeof nodeCrypto.pbkdf2Sync === 'function') {
-        nodePbkdf2Sync = nodeCrypto.pbkdf2Sync;
-      }
-    }
-  } catch {
-    nodePbkdf2Sync = null;
-  }
-}
-
-function encodeUtf8(value) {
-  const stringValue = typeof value === 'string' ? value : String(value ?? '');
-  if (typeof TextEncoder !== 'undefined') {
-    return new TextEncoder().encode(stringValue);
-  }
-  const result = new Uint8Array(stringValue.length);
-  for (let i = 0; i < stringValue.length; i += 1) {
-    result[i] = stringValue.charCodeAt(i) & 0xff;
-  }
-  return result;
-}
-
-function base64ToUint8Array(value) {
-  if (typeof value !== 'string' || !value) return new Uint8Array();
-  if (typeof atob === 'function') {
-    const binary = atob(value);
-    const length = binary.length;
-    const bytes = new Uint8Array(length);
-    for (let i = 0; i < length; i += 1) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Uint8Array.from(Buffer.from(value, 'base64'));
-  }
-  throw new Error('No base64 decoder available');
-}
-
-function uint8ArrayToBase64(bytes) {
-  if (!(bytes instanceof Uint8Array)) {
-    return '';
-  }
-  if (typeof btoa === 'function') {
-    let binary = '';
-    for (let i = 0; i < bytes.length; i += 1) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(bytes).toString('base64');
-  }
-  throw new Error('No base64 encoder available');
-}
-
-const pinHashCache = new Map();
-
-function deriveDmPinHash(pin, config) {
-  try {
-    const { salt, iterations } = config;
-    const keyLength = Number.isFinite(config.keyLength) && config.keyLength > 0 ? config.keyLength : DM_PIN_DEFAULT_KEY_LENGTH;
-    const digest = typeof config.digest === 'string' && config.digest ? config.digest : DM_PIN_DEFAULT_DIGEST;
-    if (digest && digest.toUpperCase() !== 'SHA-256') {
-      throw new Error(`Unsupported DM PIN digest: ${digest}`);
-    }
-    const cacheKey = `${digest}|${config.hash}|${pin}`;
-    if (pinHashCache.has(cacheKey)) {
-      return pinHashCache.get(cacheKey);
-    }
-    const saltBytes = base64ToUint8Array(salt);
-    if (nodePbkdf2Sync && typeof Buffer !== 'undefined') {
-      const derivedBuffer = nodePbkdf2Sync(pin, Buffer.from(saltBytes), iterations, keyLength, 'sha256');
-      const encoded = Buffer.from(derivedBuffer).toString('base64');
-      pinHashCache.set(cacheKey, encoded);
-      return encoded;
-    }
-    const passwordBytes = encodeUtf8(pin);
-    const derived = pbkdf2Sha256(passwordBytes, saltBytes, iterations, keyLength);
-    const encoded = uint8ArrayToBase64(derived);
-    pinHashCache.set(cacheKey, encoded);
-    return encoded;
-  } catch (error) {
-    console.error('Failed to derive DM PIN hash', error);
-    return null;
-  }
-}
-
-function constantTimeEquals(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const length = Math.max(a.length, b.length);
-  let mismatch = a.length === b.length ? 0 : 1;
-  for (let i = 0; i < length; i += 1) {
-    const aCode = i < a.length ? a.charCodeAt(i) : 0;
-    const bCode = i < b.length ? b.charCodeAt(i) : 0;
-    mismatch |= aCode ^ bCode;
-  }
-  return mismatch === 0;
-}
-
-function verifyDmPin(candidate) {
+async function verifyDmPin(candidate) {
   const pinInput = typeof candidate === 'string' ? candidate.trim() : String(candidate ?? '');
-  if (!pinInput) return false;
-  if (isHashedDmPinConfig(DM_PIN)) {
-    const expectedHash = DM_PIN.hash;
-    const derived = deriveDmPinHash(pinInput, DM_PIN);
-    if (!derived) {
+  if (!pinInput) {
+    return false;
+  }
+  try {
+    const ready = await ensureDmPinReady();
+    if (!ready) {
       return false;
     }
-    return constantTimeEquals(derived, expectedHash);
+  } catch (error) {
+    console.error('Failed to prepare DM PIN verification', error);
+    return false;
   }
-  return pinInput === DM_PIN;
+  try {
+    return await verifyStoredDmPin(pinInput);
+  } catch (error) {
+    console.error('Failed to verify DM PIN', error);
+    return false;
+  }
 }
 
 function parseSessionTimestamp(value) {
@@ -1333,6 +1088,30 @@ function initDMLogin(){
       }
     });
   }
+
+  async function handleSetPinEvent(event) {
+    const rawPin = event?.detail?.pin;
+    const nextPin = typeof rawPin === 'string' ? rawPin.trim() : '';
+    if (!nextPin) {
+      return;
+    }
+    try {
+      const stored = await persistDmPin(nextPin);
+      if (stored) {
+        toast('DM PIN updated', 'success');
+      } else {
+        toast('Failed to update DM PIN', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to update DM PIN', error);
+      toast('Failed to update DM PIN', 'error');
+    }
+  }
+
+  if (loginModal) {
+    loginModal.addEventListener('dm-login:set-pin', handleSetPinEvent);
+  }
+
   const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
   const clearIntervalFn = id => dmClearInterval(id);
   let sessionStatusIntervalId = null;
@@ -1483,7 +1262,7 @@ function initDMLogin(){
         sessionStorage.removeItem(DM_LOGIN_LOCK_UNTIL_KEY);
       }
     } catch {
-      /* ignore */
+      /* ignore storage write failures */
     }
   }
 
@@ -8503,6 +8282,11 @@ function initDMLogin(){
 
       resetLoginFlow({ focus: false });
       openLogin();
+      try {
+        ensureDmPinReady().catch(() => {});
+      } catch {
+        /* ignore readiness errors */
+      }
       const initialRemaining = getLoginCooldownRemainingMs();
       if (initialRemaining > 0) {
         startLoginCooldownCountdown(initialRemaining);
@@ -8526,7 +8310,12 @@ function initDMLogin(){
           return;
         }
         lockLoginControls();
-        const isValid = verifyDmPin(loginPin.value);
+        let isValid = false;
+        try {
+          isValid = await verifyDmPin(loginPin.value);
+        } catch (error) {
+          console.error('DM PIN check failed', error);
+        }
         if(isValid){
           resetLoginFailureState();
           clearLoginCooldownTimer();

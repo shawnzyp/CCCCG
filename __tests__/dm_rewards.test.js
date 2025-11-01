@@ -240,7 +240,14 @@ describe('dm rewards executeRewardTransaction', () => {
     jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
 
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      DM_PIN: '0000',
+      __esModule: true,
+      DM_PIN: { storageKey: '__dm__' },
+      ensureDmPinReady: jest.fn(async () => true),
+      verifyDmPin: jest.fn(async () => true),
+      setDmPin: jest.fn(async () => true),
+      syncDmPin: jest.fn(async () => true),
+      hasDmPin: jest.fn(() => true),
+      getDmPinStorageKey: () => '__dm__',
     }));
 
     await import('../scripts/modal.js');
@@ -348,7 +355,14 @@ describe('dm rewards executeRewardTransaction', () => {
     jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
 
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      DM_PIN: '0000',
+      __esModule: true,
+      DM_PIN: { storageKey: '__dm__' },
+      ensureDmPinReady: jest.fn(async () => true),
+      verifyDmPin: jest.fn(async () => true),
+      setDmPin: jest.fn(async () => true),
+      syncDmPin: jest.fn(async () => true),
+      hasDmPin: jest.fn(() => true),
+      getDmPinStorageKey: () => '__dm__',
     }));
 
     await import('../scripts/modal.js');

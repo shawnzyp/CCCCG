@@ -52,16 +52,16 @@ The application communicates with the database using its public REST API.
 
 ## DM tools access
 
-The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash
-in `scripts/dm-pin.js`.
+The DM tools are protected by a shared PIN that is hashed on the client and
+stored both locally and in the Firebase realtime database. The helper module at
+`scripts/dm-pin.js` manages retrieving, verifying, and updating the shared hash.
 
 ### Rotating the DM PIN
 
-1. Run `node tools/generate-dm-pin.js <new-pin>` to print a new hash
-   configuration (optional second argument overrides the default 120000 PBKDF2
-   iterations).
-2. Replace the `DM_PIN` export in `scripts/dm-pin.js` with the generated JSON.
-3. Commit the change and redeploy the site.
+1. Open the DM login modal and choose **Create PIN** to enter the new shared PIN.
+2. Confirm the entry; the app will hash the value locally, persist it to
+   `localStorage`, and sync the hash to the cloud so other devices stay in sync.
+3. Redeploy the site if any cached bundles need the latest logic.
 
 ## Audio cues
 

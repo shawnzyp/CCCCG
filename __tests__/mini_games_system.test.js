@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
+import { TEST_DM_PIN, seedTestDmPin } from '../tests/helpers/dm-pin.js';
 
 function setupDom() {
   document.body.innerHTML = `
@@ -111,6 +111,7 @@ function setupDom() {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
+  seedTestDmPin();
 });
 
 async function initDmModule() {
