@@ -36,6 +36,9 @@ const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
 const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 const DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS = 60 * 1000;
+const DM_PERSISTENT_SESSION_KEY = 'cc:dm:persistent-session';
+const DM_PERSISTENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const CLOUD_DM_SESSIONS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/dm-sessions';
 const DM_INIT_ERROR_MESSAGE = 'Unable to initialize DM tools. Please try again.';
 const FACTION_LOOKUP = new Map(Array.isArray(FACTIONS) ? FACTIONS.map(faction => [faction.id, faction]) : []);
 const DM_USER_AGENT = typeof navigator === 'object' && navigator ? (navigator.userAgent || '') : '';
@@ -168,6 +171,204 @@ function clearSessionTimestamp(key) {
     sessionStorage.removeItem(key);
   } catch {
     /* ignore */
+  }
+}
+
+function parsePersistentSessionRecord(raw) {
+  if (typeof raw !== 'string' || !raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const refreshToken = typeof parsed.refreshToken === 'string'
+      ? parsed.refreshToken.trim()
+      : '';
+    if (!refreshToken) return null;
+    const username = typeof parsed.username === 'string'
+      ? sanitizeDmUsername(parsed.username)
+      : '';
+    const issuedAt = Number(parsed.issuedAt);
+    const lastValidatedAt = Number(parsed.lastValidatedAt);
+    return {
+      refreshToken,
+      username,
+      issuedAt: Number.isFinite(issuedAt) ? issuedAt : null,
+      lastValidatedAt: Number.isFinite(lastValidatedAt) ? lastValidatedAt : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function loadPersistentSessionRecord() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DM_PERSISTENT_SESSION_KEY);
+    return parsePersistentSessionRecord(raw);
+  } catch {
+    return null;
+  }
+}
+
+function storePersistentSessionRecord(record) {
+  if (typeof localStorage === 'undefined') return;
+  if (!record || typeof record !== 'object') return;
+  const refreshToken = typeof record.refreshToken === 'string'
+    ? record.refreshToken.trim()
+    : '';
+  if (!refreshToken) return;
+  const username = sanitizeDmUsername(record.username || '');
+  const issuedAt = Number(record.issuedAt);
+  const lastValidatedAt = Number(record.lastValidatedAt);
+  const payload = {
+    refreshToken,
+    username,
+    issuedAt: Number.isFinite(issuedAt) ? issuedAt : Date.now(),
+    lastValidatedAt: Number.isFinite(lastValidatedAt) ? lastValidatedAt : Date.now(),
+  };
+  try {
+    localStorage.setItem(DM_PERSISTENT_SESSION_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn('Failed to persist DM session token', err);
+  }
+}
+
+function clearPersistentSessionRecord() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.removeItem(DM_PERSISTENT_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function generatePersistentSessionToken() {
+  try {
+    if (typeof crypto === 'object' && crypto && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch {
+    /* ignore */
+  }
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 32; i++) {
+    const idx = Math.floor(Math.random() * alphabet.length);
+    token += alphabet.charAt(idx);
+  }
+  return token;
+}
+
+async function putPersistentSessionRecord(token, payload) {
+  if (!token || typeof fetch !== 'function') return null;
+  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res?.ok) {
+    const status = typeof res?.status === 'number' ? res.status : 'unknown';
+    throw new Error(`HTTP ${status}`);
+  }
+  if (typeof res.json === 'function') {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function patchPersistentSessionRecord(token, updates) {
+  if (!token || typeof fetch !== 'function') return null;
+  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res?.ok) {
+    const status = typeof res?.status === 'number' ? res.status : 'unknown';
+    throw new Error(`HTTP ${status}`);
+  }
+  if (typeof res.json === 'function') {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function deletePersistentSessionRecord(token) {
+  if (!token || typeof fetch !== 'function') return;
+  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
+  const res = await fetch(url, { method: 'DELETE' });
+  if (!res?.ok && res?.status !== 404) {
+    const status = typeof res?.status === 'number' ? res.status : 'unknown';
+    throw new Error(`HTTP ${status}`);
+  }
+}
+
+async function fetchPersistentSessionRecord(token) {
+  if (!token || typeof fetch !== 'function') return null;
+  const url = `${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`;
+  const res = await fetch(url);
+  if (!res?.ok) {
+    if (res?.status === 404) return null;
+    const status = typeof res?.status === 'number' ? res.status : 'unknown';
+    throw new Error(`HTTP ${status}`);
+  }
+  if (typeof res.json === 'function') {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function registerPersistentSession(username) {
+  const normalized = sanitizeDmUsername(username || '');
+  const refreshToken = generatePersistentSessionToken();
+  const now = Date.now();
+  storePersistentSessionRecord({
+    refreshToken,
+    username: normalized,
+    issuedAt: now,
+    lastValidatedAt: now,
+  });
+  if (typeof fetch === 'function') {
+    const payload = {
+      username: normalized,
+      issuedAt: now,
+      lastValidatedAt: now,
+      expiresAt: now + DM_PERSISTENT_SESSION_MAX_AGE_MS,
+      userAgent: DM_USER_AGENT.slice(0, 160),
+    };
+    try {
+      await putPersistentSessionRecord(refreshToken, payload);
+    } catch (err) {
+      console.error('Failed to register persistent DM session', err);
+    }
+  }
+  return refreshToken;
+}
+
+async function invalidatePersistentSession({ reason } = {}) {
+  const stored = loadPersistentSessionRecord();
+  clearPersistentSessionRecord();
+  if (!stored || !stored.refreshToken) return;
+  if (typeof fetch !== 'function') return;
+  try {
+    await deletePersistentSessionRecord(stored.refreshToken);
+  } catch (err) {
+    if (reason !== 'silent') {
+      console.warn('Failed to invalidate DM persistent session', err);
+    }
   }
 }
 
@@ -8385,9 +8586,93 @@ function initDMLogin(){
       sessionStorage.removeItem(DM_LOGIN_FLAG_KEY);
       clearSessionTimestamp(DM_LOGIN_AT_KEY);
       clearSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY);
+      sessionStorage.removeItem('dmLastUsername');
     } catch {
       /* ignore */
     }
+  }
+
+  function activateLoggedInState({ username, source } = {}) {
+    setLoggedIn();
+    if (username) {
+      try {
+        sessionStorage.setItem('dmLastUsername', sanitizeDmUsername(username));
+      } catch {
+        /* ignore */
+      }
+    }
+    updateButtons();
+    drainPendingNotifications();
+    ensureMiniGameSubscription();
+    initTools();
+  }
+
+  let persistentSessionRestorePromise = null;
+
+  function attemptPersistentSessionRestore({ force = false, silent = false } = {}) {
+    if (!force && persistentSessionRestorePromise) {
+      return persistentSessionRestorePromise;
+    }
+    const stored = loadPersistentSessionRecord();
+    if (!stored || !stored.refreshToken) {
+      if (!stored) {
+        clearPersistentSessionRecord();
+      }
+      return Promise.resolve(false);
+    }
+    const token = stored.refreshToken;
+    const executor = async () => {
+      if (typeof fetch !== 'function') return false;
+      let remoteRecord = null;
+      try {
+        remoteRecord = await fetchPersistentSessionRecord(token);
+      } catch (err) {
+        if (!silent) {
+          console.warn('Failed to validate DM persistent session', err);
+        }
+        return false;
+      }
+      if (!remoteRecord || typeof remoteRecord !== 'object') {
+        clearPersistentSessionRecord();
+        return false;
+      }
+      const now = Date.now();
+      const expiresAt = Number(remoteRecord.expiresAt);
+      if (Number.isFinite(expiresAt) && expiresAt <= now) {
+        try {
+          await deletePersistentSessionRecord(token);
+        } catch (err) {
+          if (!silent) {
+            console.warn('Failed to revoke expired DM session', err);
+          }
+        }
+        clearPersistentSessionRecord();
+        return false;
+      }
+      const username = sanitizeDmUsername(remoteRecord.username || stored.username || '');
+      storePersistentSessionRecord({
+        refreshToken: token,
+        username,
+        issuedAt: Number.isFinite(stored.issuedAt) ? stored.issuedAt : now,
+        lastValidatedAt: now,
+      });
+      try {
+        await patchPersistentSessionRecord(token, {
+          lastValidatedAt: now,
+          expiresAt: now + DM_PERSISTENT_SESSION_MAX_AGE_MS,
+        });
+      } catch (err) {
+        if (!silent) {
+          console.warn('Failed to extend DM session', err);
+        }
+      }
+      activateLoggedInState({ source: 'restore', username });
+      return true;
+    };
+    persistentSessionRestorePromise = executor().finally(() => {
+      persistentSessionRestorePromise = null;
+    });
+    return persistentSessionRestorePromise;
   }
 
   function clearNotificationDisplay() {
@@ -8466,147 +8751,174 @@ function initDMLogin(){
 
   function requireLogin(){
     return new Promise((resolve, reject) => {
-      if (isLoggedIn()) {
+      const completeWithActiveSession = () => {
         updateButtons();
         initTools();
         resolve(true);
-        return;
-      }
+      };
 
-      // If the modal elements are missing, fall back to a simple prompt so
-      // the promise always resolves and loading doesn't hang.
-      if (!loginModal || !loginPin || !loginSubmit || !loginUsername) {
-        const remaining = getLoginCooldownRemainingMs();
-        if (remaining > 0) {
-          notifyLoginCooldown(remaining);
-          reject(new Error('throttled'));
+      const startInteractiveFlow = () => {
+        // If the modal elements are missing, fall back to a simple prompt so
+        // the promise always resolves and loading doesn't hang.
+        if (!loginModal || !loginPin || !loginSubmit || !loginUsername) {
+          const remaining = getLoginCooldownRemainingMs();
+          if (remaining > 0) {
+            notifyLoginCooldown(remaining);
+            reject(new Error('throttled'));
+            return;
+          }
+          (async () => {
+            const usernamePrompt = typeof window.dmUsernamePrompt === 'function'
+              ? window.dmUsernamePrompt
+              : null;
+            const enteredUsername = usernamePrompt
+              ? await usernamePrompt('Enter DM username')
+              : (typeof prompt === 'function' ? prompt('Enter DM username') : null);
+            const pinPrompt = typeof window.pinPrompt === 'function'
+              ? window.pinPrompt
+              : null;
+            const enteredPin = pinPrompt
+              ? await pinPrompt('Enter DM PIN (4 digits)')
+              : (typeof prompt === 'function' ? prompt('Enter DM PIN (4 digits)') : null);
+            const sanitizedUsername = sanitizeDmUsername(enteredUsername || '');
+            const sanitizedPin = sanitizeDmPin(enteredPin || '');
+            if (await verifyDmCredentials({ username: sanitizedUsername, pin: sanitizedPin })) {
+              resetLoginFailureState();
+              clearLoginCooldownTimer();
+              clearLoginCooldownUI();
+              onLoginSuccess({ username: sanitizedUsername });
+              dismissToast();
+              toast('DM tools unlocked','success');
+              resolve(true);
+            } else {
+              recordLoginFailure();
+              toast('Invalid username or PIN','error');
+              const cooldown = getLoginCooldownRemainingMs();
+              if (cooldown > 0) {
+                notifyLoginCooldown(cooldown);
+              }
+              reject(new Error('Invalid PIN'));
+            }
+          })();
           return;
         }
-        (async () => {
-          const usernamePrompt = typeof window.dmUsernamePrompt === 'function'
-            ? window.dmUsernamePrompt
-            : null;
-          const enteredUsername = usernamePrompt
-            ? await usernamePrompt('Enter DM username')
-            : (typeof prompt === 'function' ? prompt('Enter DM username') : null);
-          const pinPrompt = typeof window.pinPrompt === 'function'
-            ? window.pinPrompt
-            : null;
-          const enteredPin = pinPrompt
-            ? await pinPrompt('Enter DM PIN (4 digits)')
-            : (typeof prompt === 'function' ? prompt('Enter DM PIN (4 digits)') : null);
-          if (await verifyDmCredentials({ username: enteredUsername, pin: enteredPin })) {
+
+        resetLoginFlow({ focus: false });
+        openLogin();
+        const initialRemaining = getLoginCooldownRemainingMs();
+        if (initialRemaining > 0) {
+          startLoginCooldownCountdown(initialRemaining);
+          notifyLoginCooldown(initialRemaining);
+        } else {
+          clearLoginCooldownUI();
+          toast('Enter DM username and PIN','info');
+        }
+        function cleanup(){
+          loginSubmit?.removeEventListener('click', onSubmit);
+          loginUsername?.removeEventListener('keydown', onKey);
+          loginPin?.removeEventListener('keydown', onKey);
+          loginModal?.removeEventListener('click', onOverlay);
+          loginClose?.removeEventListener('click', onCancel);
+          clearLoginCooldownTimer();
+        }
+        async function onSubmit(){
+          const activeCooldown = getLoginCooldownRemainingMs();
+          if (activeCooldown > 0) {
+            startLoginCooldownCountdown(activeCooldown);
+            notifyLoginCooldown(activeCooldown);
+            return;
+          }
+          const usernameValue = sanitizeDmUsername(loginUsername?.value || '');
+          const pinValue = sanitizeDmPin(loginPin?.value || '');
+          if (loginUsername) {
+            loginUsername.value = usernameValue;
+          }
+          if (loginPin) {
+            loginPin.value = pinValue;
+          }
+          if (!isValidDmUsername(usernameValue)) {
+            showLoginError('Enter your DM username.');
+            queueLoginFocus(loginUsername);
+            return;
+          }
+          if (!isValidDmPinFormat(pinValue)) {
+            showLoginError('Enter your 4-digit PIN.');
+            queueLoginFocus(loginPin);
+            return;
+          }
+          clearLoginError();
+          lockLoginControls();
+          let isValid = false;
+          try {
+            isValid = await verifyDmCredentials({ username: usernameValue, pin: pinValue });
+          } catch (error) {
+            console.error('Failed to verify DM credentials', error);
+            showLoginError('Unable to verify credentials. Check your connection and try again.');
+            clearLoginCooldownUI();
+            queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
+            return;
+          }
+          if(isValid){
             resetLoginFailureState();
             clearLoginCooldownTimer();
             clearLoginCooldownUI();
-            onLoginSuccess();
+            onLoginSuccess({ username: usernameValue });
+            closeLogin();
             dismissToast();
             toast('DM tools unlocked','success');
+            cleanup();
             resolve(true);
           } else {
-            recordLoginFailure();
-            toast('Invalid username or PIN','error');
-            const cooldown = getLoginCooldownRemainingMs();
-            if (cooldown > 0) {
-              notifyLoginCooldown(cooldown);
+            if (loginPin) {
+              loginPin.value='';
             }
-            reject(new Error('Invalid PIN'));
+            queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
+            toast('Invalid username or PIN','error');
+            const failureState = recordLoginFailure();
+            const cooldown = failureState.lockUntil > Date.now()
+              ? failureState.lockUntil - Date.now()
+              : getLoginCooldownRemainingMs();
+            if (cooldown > 0) {
+              startLoginCooldownCountdown(cooldown);
+              notifyLoginCooldown(cooldown);
+            } else {
+              clearLoginCooldownUI();
+            }
           }
-        })();
+        }
+        function onKey(e){ if(e.key==='Enter') onSubmit(); }
+        function onCancel(){ closeLogin(); cleanup(); reject(new Error('cancel')); }
+        function onOverlay(e){ if(e.target===loginModal) onCancel(); }
+        loginSubmit?.addEventListener('click', onSubmit);
+        loginUsername?.addEventListener('keydown', onKey);
+        loginPin?.addEventListener('keydown', onKey);
+        loginModal?.addEventListener('click', onOverlay);
+        loginClose?.addEventListener('click', onCancel);
+      };
+
+      if (isLoggedIn()) {
+        completeWithActiveSession();
         return;
       }
 
-      resetLoginFlow({ focus: false });
-      openLogin();
-      const initialRemaining = getLoginCooldownRemainingMs();
-      if (initialRemaining > 0) {
-        startLoginCooldownCountdown(initialRemaining);
-        notifyLoginCooldown(initialRemaining);
-      } else {
-        clearLoginCooldownUI();
-        toast('Enter DM username and PIN','info');
+      const storedPersistent = loadPersistentSessionRecord();
+      if (!storedPersistent || !storedPersistent.refreshToken) {
+        startInteractiveFlow();
+        return;
       }
-      function cleanup(){
-        loginSubmit?.removeEventListener('click', onSubmit);
-        loginUsername?.removeEventListener('keydown', onKey);
-        loginPin?.removeEventListener('keydown', onKey);
-        loginModal?.removeEventListener('click', onOverlay);
-        loginClose?.removeEventListener('click', onCancel);
-        clearLoginCooldownTimer();
-      }
-      async function onSubmit(){
-        const activeCooldown = getLoginCooldownRemainingMs();
-        if (activeCooldown > 0) {
-          startLoginCooldownCountdown(activeCooldown);
-          notifyLoginCooldown(activeCooldown);
-          return;
-        }
-        const usernameValue = sanitizeDmUsername(loginUsername?.value || '');
-        const pinValue = sanitizeDmPin(loginPin?.value || '');
-        if (loginUsername) {
-          loginUsername.value = usernameValue;
-        }
-        if (loginPin) {
-          loginPin.value = pinValue;
-        }
-        if (!isValidDmUsername(usernameValue)) {
-          showLoginError('Enter your DM username.');
-          queueLoginFocus(loginUsername);
-          return;
-        }
-        if (!isValidDmPinFormat(pinValue)) {
-          showLoginError('Enter your 4-digit PIN.');
-          queueLoginFocus(loginPin);
-          return;
-        }
-        clearLoginError();
-        lockLoginControls();
-        let isValid = false;
-        try {
-          isValid = await verifyDmCredentials({ username: usernameValue, pin: pinValue });
-        } catch (error) {
-          console.error('Failed to verify DM credentials', error);
-          showLoginError('Unable to verify credentials. Check your connection and try again.');
-          clearLoginCooldownUI();
-          queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
-          return;
-        }
-        if(isValid){
-          resetLoginFailureState();
-          clearLoginCooldownTimer();
-          clearLoginCooldownUI();
-          onLoginSuccess();
-          closeLogin();
-          dismissToast();
-          toast('DM tools unlocked','success');
-          cleanup();
-          resolve(true);
-        } else {
-          if (loginPin) {
-            loginPin.value='';
+
+      attemptPersistentSessionRestore({ silent: false })
+        .then(() => {
+          if (isLoggedIn()) {
+            completeWithActiveSession();
+            return;
           }
-          queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
-          toast('Invalid username or PIN','error');
-          const failureState = recordLoginFailure();
-          const cooldown = failureState.lockUntil > Date.now()
-            ? failureState.lockUntil - Date.now()
-            : getLoginCooldownRemainingMs();
-          if (cooldown > 0) {
-            startLoginCooldownCountdown(cooldown);
-            notifyLoginCooldown(cooldown);
-          } else {
-            clearLoginCooldownUI();
-          }
-        }
-      }
-      function onKey(e){ if(e.key==='Enter') onSubmit(); }
-      function onCancel(){ closeLogin(); cleanup(); reject(new Error('cancel')); }
-      function onOverlay(e){ if(e.target===loginModal) onCancel(); }
-      loginSubmit?.addEventListener('click', onSubmit);
-      loginUsername?.addEventListener('keydown', onKey);
-      loginPin?.addEventListener('keydown', onKey);
-      loginModal?.addEventListener('click', onOverlay);
-      loginClose?.addEventListener('click', onCancel);
+          startInteractiveFlow();
+        })
+        .catch(err => {
+          console.warn('Failed to restore DM persistent session', err);
+          startInteractiveFlow();
+        });
     });
   }
 
@@ -8623,6 +8935,7 @@ function initDMLogin(){
       : typeof reason === 'object' && reason && typeof reason.reason === 'string'
         ? reason.reason
         : null;
+    invalidatePersistentSession({ reason: cause || 'logout' });
     clearLoggedIn();
     teardownPlayerBroadcastChannels();
     teardownMiniGameSubscription();
@@ -8741,15 +9054,12 @@ function initDMLogin(){
     hide('dm-notifications-modal');
   }
 
-  function onLoginSuccess(){
+  function onLoginSuccess({ username } = {}){
     resetLoginFailureState();
     clearLoginCooldownTimer();
     clearLoginCooldownUI();
-    setLoggedIn();
-    updateButtons();
-    drainPendingNotifications();
-    ensureMiniGameSubscription();
-    initTools();
+    activateLoggedInState({ username, source: 'login' });
+    registerPersistentSession(username);
   }
 
   const characterNameCollator = typeof Intl !== 'undefined' && typeof Intl.Collator === 'function'
@@ -10709,6 +11019,10 @@ function initDMLogin(){
     sessionWarningToastShown = false;
     updateSessionStatusDisplay({ loggedIn: true, now });
     ensureSessionStatusUpdates();
+  });
+
+  attemptPersistentSessionRestore({ silent: true }).catch(err => {
+    console.warn('Failed to bootstrap DM persistent session', err);
   });
 
   updateButtons();

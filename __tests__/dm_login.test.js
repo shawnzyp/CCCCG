@@ -4,8 +4,25 @@ const TEST_DM_USERNAME = 'TestDM';
 const TEST_DM_PIN = '1234';
 const ALT_DM_PIN = '5678';
 
+const ORIGINAL_FETCH = global.fetch;
+
+const defaultFetchImplementation = async (url, options = {}) => {
+  const method = typeof options?.method === 'string' ? options.method.toUpperCase() : 'GET';
+  return {
+    ok: true,
+    status: 200,
+    json: async () => {
+      if (method === 'GET') {
+        return {};
+      }
+      return {};
+    },
+  };
+};
+
 let verifyDmCredentialMock;
 let upsertDmCredentialPinMock;
+let fetchMock;
 
 beforeEach(() => {
   jest.resetModules();
@@ -26,8 +43,18 @@ beforeEach(() => {
     loadDmCredentialRecords: jest.fn(async () => new Map()),
     resetDmCredentialCache: jest.fn(),
   }));
+  fetchMock = jest.fn(defaultFetchImplementation);
+  global.fetch = fetchMock;
   sessionStorage.clear();
   localStorage.clear();
+});
+
+afterEach(() => {
+  if (ORIGINAL_FETCH === undefined) {
+    delete global.fetch;
+  } else {
+    global.fetch = ORIGINAL_FETCH;
+  }
 });
 
 const DM_LOGIN_MODAL_MARKUP = `
@@ -164,6 +191,17 @@ describe('dm login', () => {
     expect(window.dismissToast).toHaveBeenCalled();
     expect(sessionStorage.getItem('dmLoggedInAt')).not.toBeNull();
     expect(sessionStorage.getItem('dmLoggedInLastActive')).not.toBeNull();
+    const persistedRaw = localStorage.getItem('cc:dm:persistent-session');
+    expect(persistedRaw).not.toBeNull();
+    const persisted = JSON.parse(persistedRaw);
+    expect(persisted.refreshToken).toEqual(expect.any(String));
+    expect(persisted.username).toBe(TEST_DM_USERNAME);
+    const putSessionCalls = fetchMock.mock.calls.filter(([url, options]) => (
+      typeof url === 'string'
+        && url.includes('/dm-sessions/')
+        && String(options?.method || 'GET').toUpperCase() === 'PUT'
+    ));
+    expect(putSessionCalls.length).toBeGreaterThan(0);
     expect(modal.classList.contains('hidden')).toBe(true);
     expect(modal.getAttribute('aria-hidden')).toBe('true');
     const dmBtn = document.getElementById('dm-login');
@@ -177,6 +215,333 @@ describe('dm login', () => {
     toggle.click();
     expect(menu.hidden).toBe(false);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('restores persistent DM session on load', async () => {
+    const refreshToken = 'restore-token';
+    const issuedAt = Date.now() - 10_000;
+    const futureExpiry = Date.now() + 5 * 60 * 1000;
+    localStorage.setItem('cc:dm:persistent-session', JSON.stringify({
+      refreshToken,
+      username: TEST_DM_USERNAME,
+      issuedAt,
+      lastValidatedAt: issuedAt,
+    }));
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      const method = String(options?.method || 'GET').toUpperCase();
+      if (method === 'GET') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ username: TEST_DM_USERNAME, expiresAt: futureExpiry }),
+        };
+      }
+      if (method === 'PATCH') {
+        return { ok: true, status: 200, json: async () => ({}) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(sessionStorage.getItem('dmLoggedIn')).toBe('1');
+    const modal = document.getElementById('dm-login-modal');
+    expect(modal.classList.contains('hidden')).toBe(true);
+    const getCall = fetchMock.mock.calls.find(([url, options]) => (
+      typeof url === 'string'
+        && url.includes(refreshToken)
+        && String(options?.method || 'GET').toUpperCase() === 'GET'
+    ));
+    expect(getCall).toBeTruthy();
+    const patchCall = fetchMock.mock.calls.find(([url, options]) => (
+      typeof url === 'string'
+        && url.includes(refreshToken)
+        && String(options?.method || 'GET').toUpperCase() === 'PATCH'
+    ));
+    expect(patchCall).toBeTruthy();
+    const updatedRecord = JSON.parse(localStorage.getItem('cc:dm:persistent-session'));
+    expect(updatedRecord.lastValidatedAt).toBeGreaterThanOrEqual(updatedRecord.issuedAt);
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('logout invalidates persistent DM session token', async () => {
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const loginPromise = window.dmRequireLogin();
+    document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-pin').value = TEST_DM_PIN;
+    document.getElementById('dm-login-submit').click();
+    await loginPromise;
+
+    const persistedRecord = JSON.parse(localStorage.getItem('cc:dm:persistent-session'));
+    expect(persistedRecord.refreshToken).toEqual(expect.any(String));
+
+    fetchMock.mockClear();
+    document.getElementById('dm-tools-logout').click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sessionStorage.getItem('dmLoggedIn')).not.toBe('1');
+    expect(localStorage.getItem('cc:dm:persistent-session')).toBeNull();
+    const deleteCall = fetchMock.mock.calls.find(([url, options]) => (
+      typeof url === 'string'
+        && url.includes(persistedRecord.refreshToken)
+        && String(options?.method || 'GET').toUpperCase() === 'DELETE'
+    ));
+    expect(deleteCall).toBeTruthy();
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('expired persistent session token forces reauthentication', async () => {
+    const refreshToken = 'expired-token';
+    const issuedAt = Date.now() - 60_000;
+    localStorage.setItem('cc:dm:persistent-session', JSON.stringify({
+      refreshToken,
+      username: TEST_DM_USERNAME,
+      issuedAt,
+      lastValidatedAt: issuedAt,
+    }));
+    fetchMock.mockImplementation(async (url, options = {}) => {
+      const method = String(options?.method || 'GET').toUpperCase();
+      if (method === 'GET') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ username: TEST_DM_USERNAME, expiresAt: issuedAt - 1 }),
+        };
+      }
+      if (method === 'DELETE') {
+        return { ok: true, status: 200, json: async () => ({}) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    });
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(sessionStorage.getItem('dmLoggedIn')).not.toBe('1');
+    expect(localStorage.getItem('cc:dm:persistent-session')).toBeNull();
+    const deleteCall = fetchMock.mock.calls.find(([url, options]) => (
+      typeof url === 'string'
+        && url.includes(refreshToken)
+        && String(options?.method || 'GET').toUpperCase() === 'DELETE'
+    ));
+    expect(deleteCall).toBeTruthy();
+    const loginButton = document.getElementById('dm-login');
+    expect(loginButton.hidden).toBe(false);
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('multiple logins register independent DM session tokens', async () => {
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const firstLoginPromise = window.dmRequireLogin();
+    document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-pin').value = TEST_DM_PIN;
+    document.getElementById('dm-login-submit').click();
+    await firstLoginPromise;
+
+    const firstRecord = JSON.parse(localStorage.getItem('cc:dm:persistent-session'));
+    expect(firstRecord.refreshToken).toEqual(expect.any(String));
+    const firstToken = firstRecord.refreshToken;
+
+    sessionStorage.clear();
+    localStorage.clear();
+
+    const secondLoginPromise = window.dmRequireLogin();
+    const modal = document.getElementById('dm-login-modal');
+    expect(modal.classList.contains('hidden')).toBe(false);
+    document.getElementById('dm-login-username').value = TEST_DM_USERNAME;
+    document.getElementById('dm-login-pin').value = TEST_DM_PIN;
+    document.getElementById('dm-login-submit').click();
+    await secondLoginPromise;
+
+    const secondRecord = JSON.parse(localStorage.getItem('cc:dm:persistent-session'));
+    expect(secondRecord.refreshToken).toEqual(expect.any(String));
+    const secondToken = secondRecord.refreshToken;
+    expect(secondToken).not.toBe(firstToken);
+
+    const registeredTokens = fetchMock.mock.calls
+      .filter(([url, options]) => (
+        typeof url === 'string'
+          && url.includes('/dm-sessions/')
+          && String(options?.method || 'GET').toUpperCase() === 'PUT'
+      ))
+      .map(([url]) => {
+        const match = /dm-sessions\/(.+)\.json/.exec(url);
+        return match ? match[1] : url;
+      });
+    expect(registeredTokens).toEqual(expect.arrayContaining([firstToken, secondToken]));
+    const deleteCalls = fetchMock.mock.calls.filter(([url, options]) => (
+      typeof url === 'string'
+        && url.includes('/dm-sessions/')
+        && String(options?.method || 'GET').toUpperCase() === 'DELETE'
+    ));
+    expect(deleteCalls.length).toBe(0);
     delete window.toast;
     delete window.dismissToast;
   });
