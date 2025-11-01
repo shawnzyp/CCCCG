@@ -33,6 +33,9 @@ function safeToast(message, type = 'error', options = {}) {
   }
 }
 
+const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
+const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
+
 function reportCharacterError(err, contextMessage) {
   const baseError = err instanceof Error ? err : new Error(String(err));
   const context = contextMessage || 'Character operation failed';
@@ -41,8 +44,32 @@ function reportCharacterError(err, contextMessage) {
     : context;
   baseError.message = detail;
   console.error(detail, err);
-  safeToast(detail, 'error');
+  if (baseError.toastShown !== true) {
+    safeToast(detail, 'error');
+    baseError.toastShown = true;
+  }
   return baseError;
+}
+
+function normalizeLocalSaveError(err) {
+  if (
+    err &&
+    (
+      err.code === LOCAL_STORAGE_QUOTA_ERROR_CODE ||
+      err.name === 'LocalStorageQuotaError' ||
+      err.isQuotaExceeded === true
+    )
+  ) {
+    const quotaError = new Error('Local storage is full. Open Load/Save to export or delete old saves, then try again.');
+    quotaError.name = 'CharacterSaveQuotaError';
+    quotaError.code = CHARACTER_SAVE_QUOTA_ERROR_CODE;
+    quotaError.isQuotaExceeded = true;
+    quotaError.cause = err instanceof Error ? err : undefined;
+    quotaError.toastShown = err && err.toastShown === true;
+    quotaError.originalError = err;
+    return quotaError;
+  }
+  return err;
 }
 import {
   POWER_ACTION_TYPES,
@@ -720,7 +747,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
       await saveLocal(name, normalized);
     } catch (err) {
       console.error(`Failed to persist local save for ${name}`, err);
-      throw err;
+      throw normalizeLocalSaveError(err);
     }
     try {
       await saveCloud(name, normalized);

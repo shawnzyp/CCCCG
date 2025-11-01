@@ -1,12 +1,123 @@
 import { toast } from './notifications.js';
 
-export async function saveLocal(name, payload) {
+const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
+
+function isQuotaExceededError(err) {
+  if (!err) return false;
+  const code = typeof err.code === 'number' ? err.code : null;
+  if (code === 22 || code === 1014) return true;
+  const name = typeof err.name === 'string' ? err.name : '';
+  const message = typeof err.message === 'string' ? err.message : '';
+  if (/quotaexceedederror/i.test(name)) return true;
+  if (/ns_error_dom_quota_reached/i.test(name)) return true;
+  if (/quota/i.test(message) || /ns_error_dom_quota_reached/i.test(message)) return true;
+  return false;
+}
+
+function pruneOldestLocalSave({ excludeKeys = new Set() } = {}) {
+  if (typeof localStorage === 'undefined') return null;
+  const candidates = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('save:')) continue;
+    if (excludeKeys.has(key)) continue;
+    candidates.push({ key, name: key.slice(5), order: candidates.length });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => {
+    if (a.order !== b.order) return a.order - b.order;
+    return a.name.localeCompare(b.name);
+  });
+  const target = candidates[0];
   try {
-    localStorage.setItem('save:' + name, JSON.stringify(payload));
-    localStorage.setItem('last-save', name);
+    localStorage.removeItem(target.key);
+  } catch (err) {
+    console.error('Failed to prune local save', err);
+    return null;
+  }
+  try {
+    if (localStorage.getItem('last-save') === target.name) {
+      localStorage.removeItem('last-save');
+    }
+  } catch (err) {
+    console.error('Failed to update last-save after pruning', err);
+  }
+  return target.name;
+}
+
+export async function saveLocal(name, payload) {
+  const storageKey = 'save:' + name;
+  let serialized;
+  try {
+    serialized = JSON.stringify(payload);
+  } catch (err) {
+    console.error('Failed to serialize local save payload', err);
+    throw err;
+  }
+  const attemptPersist = () => {
+    localStorage.setItem(storageKey, serialized);
+    try {
+      localStorage.setItem('last-save', name);
+    } catch (err) {
+      console.warn('Failed to update last-save pointer', err);
+    }
+  };
+  try {
+    attemptPersist();
+    return;
   } catch (e) {
-    console.error('Local save failed', e);
-    throw e;
+    if (!isQuotaExceededError(e)) {
+      console.error('Local save failed', e);
+      throw e;
+    }
+    const excludedKeys = new Set([storageKey]);
+    const prunedNames = [];
+    let lastError = e;
+    while (true) {
+      const prunedName = pruneOldestLocalSave({ excludeKeys: excludedKeys });
+      if (!prunedName) break;
+      prunedNames.push(prunedName);
+      excludedKeys.add('save:' + prunedName);
+      try {
+        attemptPersist();
+        if (prunedNames.length > 0) {
+          try {
+            const detail = prunedNames.length === 1
+              ? `Removed the oldest save (${prunedNames[0]}) to free up space.`
+              : `Removed the oldest saves (${prunedNames.join(', ')}) to free up space.`;
+            toast(`Local storage was full. ${detail}`, {
+              type: 'warning',
+              duration: 8000,
+            });
+          } catch (toastErr) {
+            console.error('Failed to display quota recovery toast', toastErr);
+          }
+        }
+        return;
+      } catch (err) {
+        lastError = err;
+        if (!isQuotaExceededError(err)) break;
+      }
+    }
+    const quotaError = new Error('Local storage is full. Open Load/Save to export or delete old saves, then try again.');
+    quotaError.name = 'LocalStorageQuotaError';
+    quotaError.code = LOCAL_STORAGE_QUOTA_ERROR_CODE;
+    quotaError.isQuotaExceeded = true;
+    quotaError.pruned = prunedNames;
+    quotaError.cause = lastError instanceof Error ? lastError : e;
+    let quotaToastShown = false;
+    try {
+      toast('Local storage is full. Open Load/Save to export or delete old saves, then try again.', {
+        type: 'error',
+        duration: 8000,
+      });
+      quotaToastShown = true;
+    } catch (toastErr) {
+      console.error('Failed to display quota error toast', toastErr);
+    }
+    quotaError.toastShown = quotaToastShown;
+    console.error('Local save failed', quotaError);
+    throw quotaError;
   }
 }
 
