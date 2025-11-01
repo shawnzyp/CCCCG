@@ -972,12 +972,12 @@ export async function saveCloudAutosave(name, payload) {
   }
 }
 
-export async function loadCloud(name) {
+export async function loadCloud(name, { signal } = {}) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await cloudFetch(
       `${CLOUD_SAVES_URL}/${encodePath(name)}.json`,
-      { method: 'GET' }
+      { method: 'GET', signal }
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const val = await res.json();
@@ -1140,36 +1140,104 @@ export async function loadCloudAutosave(name, ts) {
   throw new Error('No backup found');
 }
 
+const CACHE_CLOUD_BATCH_SIZE = 5; // Limit concurrent cloud fetches per batch.
+let cacheNavigationAbortController = null;
+let cacheNavigationAbortListenersAttached = false;
+
+function getCacheNavigationAbortController() {
+  if (typeof AbortController !== 'function') return null;
+
+  if (
+    !cacheNavigationAbortListenersAttached &&
+    typeof window !== 'undefined' &&
+    typeof window.addEventListener === 'function'
+  ) {
+    const abortActiveCache = () => {
+      cacheNavigationAbortController?.abort();
+    };
+
+    window.addEventListener('pagehide', abortActiveCache);
+    window.addEventListener('beforeunload', abortActiveCache);
+    window.addEventListener('visibilitychange', () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        abortActiveCache();
+      }
+    });
+
+    cacheNavigationAbortListenersAttached = true;
+  }
+
+  if (cacheNavigationAbortController && !cacheNavigationAbortController.signal.aborted) {
+    cacheNavigationAbortController.abort();
+  }
+
+  cacheNavigationAbortController = new AbortController();
+  return cacheNavigationAbortController;
+}
+
 export async function cacheCloudSaves(
   listFn = listCloudSaves,
   loadFn = loadCloud,
   saveFn = saveLocal
 ) {
+  let abortController = null;
   try {
     if (isNavigatorOffline()) {
       notifySyncPaused();
       return;
     }
     offlineSyncToastShown = false;
+    abortController = getCacheNavigationAbortController();
+    const signal = abortController?.signal ?? null;
+
     const keys = await listFn();
-    // Cache all available saves so local storage reflects the cloud state.
-    await Promise.all(
-      keys.map(async k => {
-        try {
-          const data = await loadFn(k);
-          await saveFn(k, data);
-        } catch (e) {
-          if (e && e.message === 'fetch not supported') {
-            throw e;
+
+    if (signal?.aborted) {
+      return;
+    }
+
+    for (let i = 0; i < keys.length; i += CACHE_CLOUD_BATCH_SIZE) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      const batch = keys.slice(i, i + CACHE_CLOUD_BATCH_SIZE);
+      await Promise.all(
+        batch.map(async k => {
+          if (signal?.aborted) {
+            return;
           }
-          console.error('Failed to cache', k, e);
-        }
-      })
-    );
+
+          try {
+            const data = await loadFn(k, { signal });
+            if (signal?.aborted) {
+              return;
+            }
+            await saveFn(k, data);
+          } catch (e) {
+            if (e?.name === 'AbortError' || signal?.aborted) {
+              throw e;
+            }
+            if (e && e.message === 'fetch not supported') {
+              throw e;
+            }
+            console.error('Failed to cache', k, e);
+          }
+        })
+      );
+    }
+
+    if (signal?.aborted) {
+      return;
+    }
+
     resetOfflineNotices();
     emitSyncActivity({ type: 'cache-refresh', timestamp: Date.now() });
     emitSyncQueueUpdate();
   } catch (e) {
+    if (e?.name === 'AbortError') {
+      return;
+    }
     if (e && e.message === 'fetch not supported') {
       throw e;
     }
@@ -1179,6 +1247,10 @@ export async function cacheCloudSaves(
       error: e,
       timestamp: Date.now(),
     });
+  } finally {
+    if (abortController && cacheNavigationAbortController === abortController) {
+      cacheNavigationAbortController = null;
+    }
   }
 }
 
