@@ -287,7 +287,6 @@ describe('DM catalog equipment delivery', () => {
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
       __esModule: true,
       DM_PIN: '1234',
-      DM_DEVICE_FINGERPRINT: 'test-device',
     }));
     jest.unstable_mockModule('../scripts/modal.js', () => ({
       __esModule: true,

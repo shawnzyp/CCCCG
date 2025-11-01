@@ -53,12 +53,7 @@ The application communicates with the database using its public REST API.
 ## DM tools access
 
 The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash
-in `scripts/dm-pin.js`. You can further restrict access so the tools only appear
-on a single device by setting `DM_DEVICE_FINGERPRINT` in the same file. To
-generate the fingerprint string, open the site on the allowed device and run
-`window.computeDmDeviceFingerprint()` in the browser console. Copy the returned
-value into `DM_DEVICE_FINGERPRINT`. The DM tools menu will be hidden on devices
-whose fingerprint does not match.
+in `scripts/dm-pin.js`.
 
 ### Rotating the DM PIN
 
