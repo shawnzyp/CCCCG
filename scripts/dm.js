@@ -1657,6 +1657,9 @@ function initDMLogin(){
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
+  if (charView && typeof charView.classList?.add === 'function') {
+    charView.classList.add('dm-character-sheet');
+  }
   const miniGamesModal = document.getElementById('dm-mini-games-modal');
   const miniGamesClose = document.getElementById('dm-mini-games-close');
   const miniGamesList = document.getElementById('dm-mini-games-list');
@@ -8890,45 +8893,208 @@ function initDMLogin(){
     hide('dm-character-modal');
   }
 
-    function characterCard(data, name){
-      const card=document.createElement('div');
-      card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-      const hasDisplayValue = value => value !== null && value !== undefined && String(value).trim() !== '';
-      const labeled=(l,v)=>hasDisplayValue(v)?`<div><span style="opacity:.8;font-size:12px">${l}</span><div>${v}</div></div>`:'';
-      const abilityGrid=['STR','DEX','CON','INT','WIS','CHA']
-        .map(k=>labeled(k,data[k.toLowerCase()]))
-        .join('');
-      const perkGrid=[
-        ['Alignment', data.alignment],
-        ['Classification', data.classification],
-        ['Power Style', data['power-style']],
-        ['Origin', data.origin],
-        ['Tier', data.tier]
-      ]
-        .filter(([,v])=>hasDisplayValue(v))
-        .map(([l,v])=>labeled(l,v))
-        .join('');
-      const statsGrid=[
-        ['Init', data.initiative],
-        ['Speed', data.speed],
-        ['PP', data.pp]
-      ]
-        .filter(([,v])=>hasDisplayValue(v))
-        .map(([l,v])=>labeled(l,v))
-        .join('');
-      card.innerHTML=`
-        <div><strong>${name}</strong></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
-          ${labeled('HP', data['hp-bar'])}
-          ${labeled('TC', data.tc)}
-          ${labeled('SP', data['sp-bar'])}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
-        ${perkGrid?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">${perkGrid}</div>`:''}
-        ${statsGrid?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${statsGrid}</div>`:''}
-      `;
-      const renderList=(title, items)=>`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${items.join('')}</ul></div>`;
+
+    function characterCard(data, name) {
+      const numberFormatter = (typeof Intl !== 'undefined' && typeof Intl.NumberFormat === 'function')
+        ? new Intl.NumberFormat()
+        : null;
+      const formatNumber = value => {
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+          return numberFormatter ? numberFormatter.format(numeric) : String(numeric);
+        }
+        if (value === null || value === undefined) return '';
+        return String(value);
+      };
+      const toNumber = value => {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : null;
+      };
+      const formatModifier = value => (Number.isFinite(value) && value >= 0 ? `+${value}` : String(value ?? ''));
+      const toBoolean = value => value === true || value === 'true' || value === '1' || value === 1 || value === 'on';
+      const hasMeaningfulValue = (value, { allowZero = true } = {}) => {
+        if (value === null || value === undefined) return false;
+        if (typeof value === 'number') {
+          if (!Number.isFinite(value)) return false;
+          return allowZero || value !== 0;
+        }
+        if (typeof value === 'boolean') {
+          return value;
+        }
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (!trimmed) return false;
+          if (!allowZero) {
+            const numeric = Number(trimmed);
+            if (!Number.isNaN(numeric) && numeric === 0) return false;
+          }
+          return true;
+        }
+        return true;
+      };
+      const renderDefinitionList = (fields = [], { layout = 'grid', className = '' } = {}) => {
+        const entries = fields
+          .map(field => {
+            if (!field || typeof field !== 'object') return null;
+            const { term, value, allowZero = true, multiline = false } = field;
+            if (!hasMeaningfulValue(value, { allowZero })) return null;
+            const safeTerm = escapeHtml(term ?? '');
+            const rawValue = typeof value === 'number' ? formatNumber(value) : String(value ?? '');
+            const safeValue = multiline
+              ? escapeHtml(rawValue).split('\n').join('<br />')
+              : escapeHtml(rawValue);
+            return `<div class="dm-characterField"><dt>${safeTerm}</dt><dd>${safeValue}</dd></div>`;
+          })
+          .filter(Boolean)
+          .join('');
+        if (!entries) return '';
+        const classes = ['dm-characterList', layout === 'stack' ? 'dm-characterList--stack' : 'dm-characterList--grid'];
+        if (className) classes.push(className);
+        return `<dl class="${classes.join(' ')}">${entries}</dl>`;
+      };
+      const renderSection = (title, body) => {
+        if (!body) return '';
+        return `
+          <section class="dm-characterSection">
+            <h4 class="dm-characterSection__title">${escapeHtml(title)}</h4>
+            ${body}
+          </section>
+        `;
+      };
+      const renderEntryList = (entries = []) => {
+        const list = entries
+          .map(entry => (typeof entry === 'string' ? entry.trim() : ''))
+          .filter(Boolean);
+        if (!list.length) return '';
+        return `<ul class="dm-characterEntries">${list.join('')}</ul>`;
+      };
+      const abilityKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+      const card = document.createElement('article');
+      card.className = 'dm-characterSheet';
+
+      const abilityMods = new Map();
+      const abilityFields = abilityKeys
+        .map(key => {
+          const score = toNumber(data?.[key]);
+          if (score === null) return null;
+          const mod = Math.floor((score - 10) / 2);
+          abilityMods.set(key, mod);
+          return {
+            term: key.toUpperCase(),
+            value: `${formatNumber(score)} (${formatModifier(mod)})`,
+          };
+        })
+        .filter(Boolean);
+
+      const profBonus = toNumber(data?.['prof-bonus']);
+      const powerSaveAbility = typeof data?.['power-save-ability'] === 'string'
+        ? data['power-save-ability'].toUpperCase()
+        : '';
+      const powerSaveDc = toNumber(data?.['power-save-dc']);
+
+      const saveFields = abilityKeys
+        .map(key => {
+          const baseMod = abilityMods.get(key);
+          if (!Number.isFinite(baseMod)) return null;
+          const proficient = toBoolean(data?.[`save-${key}-prof`]);
+          const bonus = proficient && profBonus !== null ? profBonus : 0;
+          const total = Number.isFinite(baseMod + bonus) ? baseMod + bonus : baseMod;
+          const suffix = proficient && profBonus !== null ? ' (Proficient)' : '';
+          return {
+            term: `${key.toUpperCase()} Save`,
+            value: `${formatModifier(total)}${suffix}`,
+          };
+        })
+        .filter(Boolean);
+
+      const abilityBlocks = [];
+      const abilityList = renderDefinitionList(abilityFields, { className: 'dm-characterList--abilities' });
+      if (abilityList) {
+        abilityBlocks.push(`
+          <div class="dm-characterSection__block">
+            <h5 class="dm-characterSection__subtitle">Ability Scores</h5>
+            ${abilityList}
+          </div>
+        `);
+      }
+      const saveList = renderDefinitionList(saveFields, { className: 'dm-characterList--saves' });
+      if (saveList) {
+        abilityBlocks.push(`
+          <div class="dm-characterSection__block">
+            <h5 class="dm-characterSection__subtitle">Saving Throws</h5>
+            ${saveList}
+          </div>
+        `);
+      }
+      const casterFields = [];
+      if (profBonus !== null) {
+        casterFields.push({ term: 'Proficiency Bonus', value: formatModifier(profBonus) });
+      }
+      if (powerSaveAbility) {
+        casterFields.push({ term: 'Power Save Ability', value: powerSaveAbility });
+      }
+      if (powerSaveDc !== null) {
+        casterFields.push({ term: 'Power Save DC', value: powerSaveDc });
+      }
+      const casterList = renderDefinitionList(casterFields);
+      if (casterList) {
+        abilityBlocks.push(`
+          <div class="dm-characterSection__block">
+            <h5 class="dm-characterSection__subtitle">Caster Stats</h5>
+            ${casterList}
+          </div>
+        `);
+      }
+
+      const identityFields = [
+        { term: 'Superhero Identity', value: data?.superhero },
+        { term: 'Secret Identity', value: data?.secret },
+        { term: 'Public Identity', value: data?.publicIdentity },
+        { term: 'Alignment', value: data?.alignment },
+        { term: 'Classification', value: data?.classification },
+        { term: 'Primary Power Style', value: data?.['power-style'] },
+        { term: 'Secondary Power Style', value: data?.['power-style-2'] },
+        { term: 'Origin Story', value: data?.origin },
+      ];
+      const identityContent = renderDefinitionList(identityFields);
+
+      const levelFields = [
+        { term: 'Level', value: data?.level },
+        { term: 'Tier', value: data?.tier },
+        { term: 'Sub-tier', value: data?.['sub-tier'] },
+        { term: 'Tier (Short)', value: data?.['tier-short'] },
+        { term: 'Experience', value: formatNumber(data?.xp) },
+      ];
+      const levelContent = renderDefinitionList(levelFields);
+
+      const formatResource = (current, temp) => {
+        const currentValue = toNumber(current);
+        const tempValue = toNumber(temp);
+        const parts = [];
+        if (currentValue !== null) {
+          parts.push(formatNumber(currentValue));
+        }
+        if (tempValue !== null && tempValue !== 0) {
+          const prefix = tempValue > 0 ? '+' : '';
+          parts.push(`${prefix}${formatNumber(tempValue)} Temp`);
+        }
+        return parts.join(' ');
+      };
+
+      const creditsValue = hasMeaningfulValue(data?.credits)
+        ? `₡${formatNumber(data.credits)}`
+        : '';
+
+      const resourceFields = [
+        { term: 'HP', value: formatResource(data?.['hp-bar'], data?.['hp-temp']) },
+        { term: 'SP', value: formatResource(data?.['sp-bar'], data?.['sp-temp']) },
+        { term: 'Team Credits (TC)', value: formatNumber(data?.tc) },
+        { term: 'Credits', value: creditsValue },
+      ];
+      const resourceContent = renderDefinitionList(resourceFields);
+
       const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
+        const fields = [];
         if (entry && typeof entry === 'object') {
           const isModern = (
             entry.rulesText !== undefined
@@ -8940,73 +9106,271 @@ function initDMLogin(){
           );
           if (isModern) {
             let costLabel = '';
-            if (hasDisplayValue(entry.spCost)) {
-              const costValue = Number(entry.spCost);
-              costLabel = Number.isFinite(costValue) ? `${costValue} SP` : entry.spCost;
+            if (hasMeaningfulValue(entry.spCost)) {
+              const costValue = toNumber(entry.spCost);
+              costLabel = Number.isFinite(costValue) ? `${formatNumber(costValue)} SP` : String(entry.spCost);
             }
-            return `<li>${
-              labeled('Name', entry.name || fallback)
-              + labeled('Style', entry.style)
-              + labeled('Action', entry.actionType)
-              + labeled('Intensity', entry.intensity)
-              + labeled('Uses', entry.uses)
-              + labeled('Cost', costLabel)
-              + labeled('Save', entry.requiresSave ? entry.saveAbilityTarget : '')
-              + labeled('Rules', entry.rulesText || '')
-              + labeled('Description', entry.description)
-              + labeled('Special', entry.special)
-            }</li>`;
+            fields.push({ term: 'Name', value: entry.name || fallback });
+            fields.push({ term: 'Style', value: entry.style });
+            fields.push({ term: 'Action', value: entry.actionType });
+            fields.push({ term: 'Intensity', value: entry.intensity });
+            fields.push({ term: 'Uses', value: entry.uses });
+            fields.push({ term: 'Cost', value: costLabel });
+            if (entry.requiresSave) {
+              fields.push({ term: 'Save', value: entry.saveAbilityTarget });
+            }
+            fields.push({ term: 'Rules', value: entry.rulesText, multiline: true });
+            fields.push({ term: 'Description', value: entry.description, multiline: true });
+            fields.push({ term: 'Special', value: entry.special, multiline: true });
+          } else {
+            const legacyDesc = entry.description ?? entry.desc;
+            fields.push({ term: 'Name', value: entry.name || fallback });
+            fields.push({ term: 'SP Cost', value: entry.sp });
+            fields.push({ term: 'Save', value: entry.save });
+            fields.push({ term: 'Special', value: entry.special, multiline: true });
+            fields.push({ term: 'Description', value: legacyDesc, multiline: true });
           }
-          const legacyDesc = entry.description ?? entry.desc;
-          return `<li>${labeled('Name', entry.name || fallback)}${labeled('SP', entry.sp)}${labeled('Save', entry.save)}${labeled('Special', entry.special)}${labeled('Description', legacyDesc)}</li>`;
+        } else {
+          fields.push({ term: 'Name', value: fallback });
         }
-        return `<li>${labeled('Name', fallback)}</li>`;
+        const details = renderDefinitionList(fields, { layout: 'stack' });
+        if (!details) return '';
+        return `<li class="dm-characterEntry">${details}</li>`;
       };
-      if(data.powers?.length){
-        const powers=data.powers.map(p=>renderPowerEntry(p,{fallback:'Power'}));
-        card.innerHTML+=renderList('Powers',powers);
-      }
-      if(data.signatures?.length){
-        const sigs=data.signatures.map(s=>renderPowerEntry(s,{fallback:'Signature'}));
-        card.innerHTML+=renderList('Signatures',sigs);
-      }
-      if(data.weapons?.length){
-        const weapons=data.weapons.map(w=>`<li>${labeled('Name',w.name)}${labeled('Damage',w.damage)}${labeled('Range',w.range)}</li>`);
-        card.innerHTML+=renderList('Weapons',weapons);
-      }
-      if(data.armor?.length){
-        const armor=data.armor.map(a=>{
-          const bonusLabel = hasDisplayValue(a.bonus) ? labeled('Bonus', `+${a.bonus}`) : '';
-          return `<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${bonusLabel}${a.equipped?labeled('Equipped','Yes'):''}</li>`;
-        });
-        card.innerHTML+=renderList('Armor',armor);
-      }
-      if(data.items?.length){
-        const items=data.items.map(i=>`<li>${labeled('Name',i.name)}${labeled('Qty',i.qty)}${labeled('Notes',i.notes)}</li>`);
-        card.innerHTML+=renderList('Items',items);
-      }
-      if(data['story-notes']){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Backstory / Notes</span><div>${data['story-notes']}</div></div>`;
-      }
-      const qMap={
-        'q-mask':'Who are you behind the mask?',
-        'q-justice':'What does justice mean to you?',
-        'q-fear':'What is your biggest fear or unresolved trauma?',
-        'q-first-power':'What moment first defined your sense of power—was it thrilling, terrifying, or tragic?',
-        'q-origin-meaning':'What does your Origin Story mean to you now?',
-        'q-before-powers':'What was your life like before you had powers or before you remembered having them?',
-        'q-power-scare':'What is one way your powers scare even you?',
-        'q-signature-move':'What is your signature move or ability, and how does it reflect who you are?',
-        'q-emotional':'What happens to your powers when you are emotionally compromised?',
-        'q-no-line':'What line will you never cross even if the world burns around you?'
+
+      const renderInventoryEntry = (fields = []) => {
+        const details = renderDefinitionList(fields, { layout: 'stack' });
+        if (!details) return '';
+        return `<li class="dm-characterEntry">${details}</li>`;
       };
-      const qList=Object.entries(qMap)
-        .filter(([k])=>data[k])
-        .map(([k,q])=>`<li><strong>${q}</strong> ${data[k]}</li>`)
-        .join('');
-      if(qList){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Character Questions</span><ul style=\"margin:4px 0 0 18px;padding:0\">${qList}</ul></div>`;
+
+      const powersContent = renderEntryList(
+        Array.isArray(data?.powers)
+          ? data.powers.map(power => renderPowerEntry(power, { fallback: 'Power' })).filter(Boolean)
+          : []
+      );
+      const signaturesContent = renderEntryList(
+        Array.isArray(data?.signatures)
+          ? data.signatures.map(sig => renderPowerEntry(sig, { fallback: 'Signature' })).filter(Boolean)
+          : []
+      );
+
+      const weaponsContent = renderEntryList(
+        Array.isArray(data?.weapons)
+          ? data.weapons.map(weapon => {
+              if (!weapon || typeof weapon !== 'object') return '';
+              const fields = [
+                { term: 'Name', value: weapon.name || 'Weapon' },
+                { term: 'Damage', value: weapon.damage },
+                { term: 'Range', value: weapon.range },
+              ];
+              if (hasMeaningfulValue(weapon.attackAbility)) {
+                fields.push({ term: 'Attack Ability', value: String(weapon.attackAbility).toUpperCase() });
+              }
+              if (toBoolean(weapon.proficient)) {
+                fields.push({ term: 'Proficient', value: 'Yes', allowZero: false });
+              }
+              return renderInventoryEntry(fields);
+            }).filter(Boolean)
+          : []
+      );
+
+      const armorContent = renderEntryList(
+        Array.isArray(data?.armor)
+          ? data.armor.map(entry => {
+              if (!entry || typeof entry !== 'object') return '';
+              const bonus = toNumber(entry.bonus);
+              const fields = [
+                { term: 'Name', value: entry.name || 'Armor' },
+                { term: 'Slot', value: entry.slot },
+              ];
+              if (bonus !== null) {
+                fields.push({ term: 'Bonus', value: bonus >= 0 ? `+${formatNumber(bonus)}` : formatNumber(bonus) });
+              }
+              if (toBoolean(entry.equipped)) {
+                fields.push({ term: 'Equipped', value: 'Yes', allowZero: false });
+              }
+              return renderInventoryEntry(fields);
+            }).filter(Boolean)
+          : []
+      );
+
+      const itemsContent = renderEntryList(
+        Array.isArray(data?.items)
+          ? data.items.map(item => {
+              if (!item || typeof item !== 'object') return '';
+              const fields = [
+                { term: 'Name', value: item.name || 'Item' },
+                { term: 'Qty', value: item.qty },
+                { term: 'Notes', value: item.notes, multiline: true },
+              ];
+              return renderInventoryEntry(fields);
+            }).filter(Boolean)
+          : []
+      );
+
+      const parseJsonField = (raw, fallback = null) => {
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw === 'string' && raw.trim()) {
+          try {
+            return JSON.parse(raw);
+          } catch {
+            return fallback;
+          }
+        }
+        return fallback;
+      };
+
+      const augmentState = parseJsonField(data?.augmentState, null) || parseJsonField(data?.['augment-state'], null);
+      const levelProgressState = parseJsonField(data?.levelProgressState, null) || parseJsonField(data?.['level-progress-state'], null);
+
+      const augmentFields = [];
+      const augmentSlotsEarned = toNumber(levelProgressState?.augmentSlotsEarned);
+      if (augmentSlotsEarned !== null) {
+        augmentFields.push({ term: 'Slots Earned', value: augmentSlotsEarned });
       }
+      const augmentList = Array.isArray(augmentState?.selected)
+        ? augmentState.selected
+            .map(id => {
+              if (!hasMeaningfulValue(id)) return '';
+              return `<li class="dm-characterEntry"><p class="dm-characterEntry__content">${escapeHtml(String(id))}</p></li>`;
+            })
+            .filter(Boolean)
+        : [];
+      const augmentSummary = renderDefinitionList(augmentFields);
+      const augmentEntryList = augmentList.length ? `<ul class="dm-characterEntries">${augmentList.join('')}</ul>` : '';
+      const augmentContent = [augmentSummary, augmentEntryList].filter(Boolean).join('');
+
+      const formatDate = value => {
+        if (!hasMeaningfulValue(value)) return '';
+        const parsed = new Date(value);
+        if (!Number.isNaN(parsed.getTime())) {
+          try {
+            return parsed.toLocaleDateString();
+          } catch {
+            return parsed.toISOString().slice(0, 10);
+          }
+        }
+        return String(value);
+      };
+
+      const medalsContent = renderEntryList(
+        Array.isArray(data?.medals)
+          ? data.medals.map(medal => {
+              if (!medal || typeof medal !== 'object') return '';
+              const fields = [
+                { term: 'Name', value: medal.name || 'Medal' },
+                { term: 'Awarded By', value: medal.awardedBy },
+                { term: 'Awarded', value: formatDate(medal.awardedAt) },
+                { term: 'Description', value: medal.description, multiline: true },
+              ];
+              return renderInventoryEntry(fields);
+            }).filter(Boolean)
+          : []
+      );
+
+      const factionEntries = [];
+      FACTIONS.forEach(faction => {
+        const repValueRaw = data?.[`${faction.id}-rep`];
+        if (!hasMeaningfulValue(repValueRaw)) return;
+        const repValue = toNumber(repValueRaw);
+        const tier = Number.isFinite(repValue) && typeof faction.getTier === 'function'
+          ? faction.getTier(repValue)
+          : null;
+        const fields = [];
+        if (repValue !== null) {
+          fields.push({ term: 'Reputation', value: repValue });
+        }
+        if (tier?.name) {
+          fields.push({ term: 'Tier', value: tier.name });
+        }
+        const perksList = Array.isArray(tier?.perks) && tier.perks.length
+          ? `<ul class="dm-characterBulletList">${tier.perks.map(perk => `<li>${escapeHtml(perk)}</li>`).join('')}</ul>`
+          : '';
+        const factionDetails = [renderDefinitionList(fields, { layout: 'stack' }), perksList].filter(Boolean).join('');
+        if (!factionDetails) return;
+        factionEntries.push(`
+          <li class="dm-characterEntry">
+            <h5 class="dm-characterEntry__title">${escapeHtml(FACTION_NAME_MAP?.[faction.id] || faction.name || faction.id)}</h5>
+            ${factionDetails}
+          </li>
+        `);
+      });
+      const factionContent = factionEntries.length
+        ? `<ul class="dm-characterEntries">${factionEntries.join('')}</ul>`
+        : '';
+
+      const storyNotes = hasMeaningfulValue(data?.['story-notes'])
+        ? `<div class="dm-characterNotes">${escapeHtml(String(data['story-notes'])).split('\n').join('<br />')}</div>`
+        : '';
+
+      const questionPrompts = [
+        { id: 'q-mask', prompt: 'Who are you behind the mask?' },
+        { id: 'q-justice', prompt: 'What does justice mean to you?' },
+        { id: 'q-fear', prompt: 'What is your biggest fear or unresolved trauma?' },
+        { id: 'q-first-power', prompt: 'What moment first defined your sense of power—was it thrilling, terrifying, or tragic?' },
+        { id: 'q-origin-meaning', prompt: 'What does your Origin Story mean to you now?' },
+        { id: 'q-before-powers', prompt: 'What was your life like before you had powers or before you remembered having them?' },
+        { id: 'q-power-scare', prompt: 'What is one way your powers scare even you?' },
+        { id: 'q-signature-move', prompt: 'What is your signature move or ability, and how does it reflect who you are?' },
+        { id: 'q-emotional', prompt: 'What happens to your powers when you are emotionally compromised?' },
+        { id: 'q-no-line', prompt: 'What line will you never cross even if the world burns around you?' },
+        { id: 'q-alignment-fear', prompt: 'Which Alignment do you identify with, and which do you fear becoming?' },
+        { id: 'q-opinion', prompt: 'Whose opinion matters more to you—civilians, teammates, or your faction superiors? Why?' },
+        { id: 'q-drive', prompt: 'What drives you to fight—justice, guilt, revenge, legacy, redemption, or something else?' },
+        { id: 'q-walk-away', prompt: 'What would make you walk away from this life for good?' },
+        { id: 'q-secret', prompt: 'What is one major secret you are keeping from the rest of the team?' },
+        { id: 'q-vulnerable', prompt: 'What situation leaves you the most vulnerable—physically, emotionally, or strategically?' },
+        { id: 'q-admire', prompt: 'Which teammate do you admire the most and what do they have that you lack?' },
+        { id: 'q-if-lost', prompt: 'If you lost your powers tomorrow, who would you still be?' },
+      ];
+      const questionEntries = questionPrompts
+        .map(({ id, prompt }) => {
+          const answer = data?.[id];
+          if (!hasMeaningfulValue(answer)) return '';
+          return `
+            <li class="dm-characterEntry">
+              <h5 class="dm-characterEntry__title">${escapeHtml(prompt)}</h5>
+              <p class="dm-characterEntry__content">${escapeHtml(String(answer)).split('\n').join('<br />')}</p>
+            </li>
+          `;
+        })
+        .filter(Boolean);
+      const questionsContent = questionEntries.length
+        ? `<ul class="dm-characterEntries">${questionEntries.join('')}</ul>`
+        : '';
+
+      const sections = [];
+      if (identityContent) sections.push(renderSection('Identity', identityContent));
+      if (levelContent) sections.push(renderSection('Level & Progression', levelContent));
+      if (resourceContent) sections.push(renderSection('Resources', resourceContent));
+      if (abilityBlocks.length) {
+        sections.push(renderSection('Abilities & Saves', abilityBlocks.join('')));
+      }
+      if (powersContent) sections.push(renderSection('Powers', powersContent));
+      if (signaturesContent) sections.push(renderSection('Signatures', signaturesContent));
+      if (weaponsContent) sections.push(renderSection('Weapons', weaponsContent));
+      if (armorContent) sections.push(renderSection('Armor', armorContent));
+      if (itemsContent) sections.push(renderSection('Items', itemsContent));
+      if (augmentContent) sections.push(renderSection('Augments', augmentContent));
+      if (medalsContent) sections.push(renderSection('Medals & Honors', medalsContent));
+      if (factionContent) sections.push(renderSection('Faction Reputation', factionContent));
+      if (storyNotes) sections.push(renderSection('Story Notes', storyNotes));
+      if (questionsContent) sections.push(renderSection('Character Questions', questionsContent));
+
+      const levelSummary = typeof data?.['level-summary'] === 'string' ? data['level-summary'] : '';
+      const headerSummary = levelSummary ? `<p class="dm-characterSheet__subtitle">${escapeHtml(levelSummary)}</p>` : '';
+      const bodyContent = sections.length
+        ? sections.join('')
+        : '<p class="dm-characterSheet__empty">No character details available.</p>';
+
+      card.innerHTML = `
+        <header class="dm-characterSheet__header">
+          <h3 class="dm-characterSheet__title">${escapeHtml(name)}</h3>
+          ${headerSummary}
+        </header>
+        ${bodyContent}
+      `;
       return card;
     }
 
