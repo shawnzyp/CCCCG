@@ -6660,7 +6660,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   block-size: 100%;
   padding-block: clamp(18px, 4vw, 32px);
   padding-inline-start: var(--player-tools-left-gutter);
-  padding-inline-end: clamp(16px, 4vw, 28px);
+  padding-inline-end: clamp(8px, 2.6vw, 18px);
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -6736,7 +6736,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   -ms-overflow-style: none;
   padding-block: clamp(12px, 2.4vw, 20px);
   padding-inline-start: clamp(10px, 2.2vw, 20px);
-  padding-inline-end: clamp(12px, 2.8vw, 22px);
+  padding-inline-end: clamp(10px, 2.2vw, 20px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -6807,9 +6807,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   flex-direction: column;
   min-block-size: 100%;
   flex: 1;
-  inline-size: min(100%, clamp(360px, 92vw, 560px));
-  margin-inline-start: 0;
-  margin-inline-end: auto;
+  inline-size: 100%;
+  max-inline-size: clamp(360px, 92vw, 560px);
+  margin-inline: 0 auto;
 }
 
 .player-tools-phone__status-bar {
