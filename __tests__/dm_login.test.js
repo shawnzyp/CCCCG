@@ -6,6 +6,93 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+function mockStorageModule() {
+  jest.unstable_mockModule('../scripts/storage.js', () => ({
+    saveLocal: jest.fn(),
+    loadLocal: jest.fn(async () => ({})),
+    listLocalSaves: jest.fn(() => []),
+    deleteSave: jest.fn(),
+    saveCloud: jest.fn(),
+    loadCloud: jest.fn(async () => ({})),
+    listCloudSaves: jest.fn(async () => []),
+    listCloudBackups: jest.fn(async () => []),
+    listCloudBackupNames: jest.fn(async () => []),
+    loadCloudBackup: jest.fn(async () => ({})),
+    saveCloudAutosave: jest.fn(),
+    listCloudAutosaves: jest.fn(async () => []),
+    listCloudAutosaveNames: jest.fn(async () => []),
+    loadCloudAutosave: jest.fn(async () => ({})),
+    deleteCloud: jest.fn(),
+    appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+    deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+    fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+    subscribeCampaignLog: () => null,
+    beginQueuedSyncFlush: () => {},
+    getLastSyncStatus: () => 'idle',
+    subscribeSyncStatus: () => () => {},
+    getQueuedCloudSaves: async () => [],
+    clearQueuedCloudSaves: async () => true,
+    subscribeSyncErrors: () => () => {},
+    subscribeSyncActivity: () => () => {},
+    subscribeSyncQueue: (cb) => {
+      if (typeof cb === 'function') {
+        try { cb(); } catch {}
+      }
+      return () => {};
+    },
+    getLastSyncActivity: () => null,
+  }));
+}
+
+function getAdvancedLoginModalMarkup() {
+  return `
+        <div class="overlay hidden" id="dm-login-modal" aria-hidden="true" data-login-state="login">
+          <div class="modal-frame">
+            <section class="modal" role="dialog" aria-modal="true">
+              <button id="dm-login-close"></button>
+              <div data-login-state-root>
+                <div id="dm-login-message" data-login-message hidden></div>
+                <div data-login-view="login">
+                  <input id="dm-login-pin">
+                  <button id="dm-login-submit"></button>
+                  <button id="dm-login-start-new-pin" type="button"></button>
+                  <button id="dm-login-start-recovery" type="button"></button>
+                </div>
+                <div data-login-view="create" hidden>
+                  <input id="dm-login-new-pin">
+                  <button id="dm-login-create-next" type="button"></button>
+                  <button id="dm-login-create-cancel" type="button"></button>
+                </div>
+                <div data-login-view="confirm" hidden>
+                  <input id="dm-login-confirm-pin">
+                  <button id="dm-login-confirm-submit" type="button"></button>
+                  <button id="dm-login-confirm-back" type="button"></button>
+                </div>
+                <div data-login-view="recovery" hidden>
+                  <button id="dm-login-recovery-submit" type="button"></button>
+                  <button id="dm-login-recovery-back" type="button"></button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+  `;
+}
+
+function renderAdvancedLoginDom() {
+  document.body.innerHTML = `
+        <button id="dm-login"></button>
+        <button id="dm-tools-toggle" hidden></button>
+        <div id="dm-tools-menu" hidden>
+          <div id="dm-session-status" hidden></div>
+          <button id="dm-session-extend" hidden></button>
+        </div>
+        <button id="dm-tools-tsomf"></button>
+        <button id="dm-tools-logout"></button>
+        ${getAdvancedLoginModalMarkup()}
+      `;
+}
+
 describe('dm login', () => {
   test('DM login unlocks tools', async () => {
     document.body.innerHTML = `
@@ -88,6 +175,112 @@ describe('dm login', () => {
     toggle.click();
     expect(menu.hidden).toBe(false);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('DM login modal new PIN flow routes through confirmation', async () => {
+    renderAdvancedLoginDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+    const pinCreationHandler = jest.fn();
+    window.dmHandlePinCreation = pinCreationHandler;
+
+    mockStorageModule();
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    window.dmRequireLogin();
+    const modal = document.getElementById('dm-login-modal');
+    expect(modal.classList.contains('hidden')).toBe(false);
+    expect(modal.getAttribute('data-login-state')).toBe('login');
+    const message = document.getElementById('dm-login-message');
+    expect(message.hidden).toBe(false);
+    expect(message.textContent).toMatch(/enter your dm pin/i);
+
+    document.getElementById('dm-login-start-new-pin').click();
+    expect(modal.getAttribute('data-login-state')).toBe('create');
+    expect(message.textContent).toMatch(/new dm pin/i);
+
+    const newPinInput = document.getElementById('dm-login-new-pin');
+    newPinInput.value = '2468';
+    document.getElementById('dm-login-create-next').click();
+
+    expect(modal.getAttribute('data-login-state')).toBe('confirm');
+    expect(message.textContent).toMatch(/re-enter/i);
+
+    const confirmInput = document.getElementById('dm-login-confirm-pin');
+    confirmInput.value = '2468';
+    document.getElementById('dm-login-confirm-submit').click();
+
+    expect(pinCreationHandler).toHaveBeenCalledWith('2468');
+    expect(modal.getAttribute('data-login-state')).toBe('login');
+    expect(message.textContent).toMatch(/new pin captured/i);
+
+    delete window.dmHandlePinCreation;
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('DM login modal prompts when PIN confirmation mismatches', async () => {
+    renderAdvancedLoginDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    mockStorageModule();
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    window.dmRequireLogin();
+    const modal = document.getElementById('dm-login-modal');
+    document.getElementById('dm-login-start-new-pin').click();
+
+    const newPinInput = document.getElementById('dm-login-new-pin');
+    const confirmInput = document.getElementById('dm-login-confirm-pin');
+    newPinInput.value = '1357';
+    document.getElementById('dm-login-create-next').click();
+    expect(modal.getAttribute('data-login-state')).toBe('confirm');
+
+    confirmInput.value = '9999';
+    document.getElementById('dm-login-confirm-submit').click();
+
+    expect(window.toast).toHaveBeenCalledWith('PINs do not match','error');
+    expect(modal.getAttribute('data-login-state')).toBe('create');
+    const message = document.getElementById('dm-login-message');
+    expect(message.textContent).toMatch(/do not match/i);
+    expect(newPinInput.value).toBe('');
+    expect(confirmInput.value).toBe('');
+
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('DM login modal recovery flow triggers handler', async () => {
+    renderAdvancedLoginDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+    const recoveryHandler = jest.fn();
+    window.dmHandlePinRecovery = recoveryHandler;
+
+    mockStorageModule();
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    window.dmRequireLogin();
+    const modal = document.getElementById('dm-login-modal');
+    document.getElementById('dm-login-start-recovery').click();
+
+    expect(modal.getAttribute('data-login-state')).toBe('recovery');
+    const message = document.getElementById('dm-login-message');
+    expect(message.textContent).toMatch(/request assistance/i);
+
+    document.getElementById('dm-login-recovery-submit').click();
+
+    expect(recoveryHandler).toHaveBeenCalled();
+    expect(modal.getAttribute('data-login-state')).toBe('login');
+    expect(message.textContent).toMatch(/recovery initiated/i);
+
+    delete window.dmHandlePinRecovery;
     delete window.toast;
     delete window.dismissToast;
   });

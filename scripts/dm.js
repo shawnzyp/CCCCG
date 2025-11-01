@@ -1084,14 +1084,304 @@ function initDMLogin(){
   const loginPin = document.getElementById('dm-login-pin');
   const loginSubmit = document.getElementById('dm-login-submit');
   const loginClose = document.getElementById('dm-login-close');
+  const loginStateRoot = loginModal?.querySelector('[data-login-state-root]') ?? null;
+  const loginStateViews = loginStateRoot
+    ? Array.from(loginStateRoot.querySelectorAll('[data-login-view]'))
+    : [];
+  const loginStateViewMap = new Map(
+    loginStateViews
+      .map(view => {
+        const key = view?.getAttribute?.('data-login-view');
+        return key ? [key, view] : null;
+      })
+      .filter(entry => Array.isArray(entry))
+  );
+  const loginMessage = loginModal?.querySelector('[data-login-message]') ?? null;
+  const loginCreateLink = document.getElementById('dm-login-start-new-pin');
+  const loginCreateCancel = document.getElementById('dm-login-create-cancel');
+  const loginCreateNext = document.getElementById('dm-login-create-next');
+  const loginNewPin = document.getElementById('dm-login-new-pin');
+  const loginConfirmBack = document.getElementById('dm-login-confirm-back');
+  const loginConfirmSubmit = document.getElementById('dm-login-confirm-submit');
+  const loginConfirmPin = document.getElementById('dm-login-confirm-pin');
+  const loginRecoveryLink = document.getElementById('dm-login-start-recovery');
+  const loginRecoveryBack = document.getElementById('dm-login-recovery-back');
+  const loginRecoverySubmit = document.getElementById('dm-login-recovery-submit');
+  const hasLoginStates = loginStateViewMap.size > 0;
+  const DM_LOGIN_STATES = Object.freeze({
+    LOGIN: 'login',
+    CREATE: 'create',
+    CONFIRM: 'confirm',
+    RECOVERY: 'recovery',
+  });
+  const DM_LOGIN_DEFAULT_MESSAGES = {
+    [DM_LOGIN_STATES.LOGIN]: 'Enter your DM PIN to unlock the tools.',
+    [DM_LOGIN_STATES.CREATE]: 'Enter a new DM PIN to continue.',
+    [DM_LOGIN_STATES.CONFIRM]: 'Re-enter your new DM PIN.',
+    [DM_LOGIN_STATES.RECOVERY]: 'Request assistance with your DM PIN.',
+  };
   const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
   const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
   let loginCooldownTimerId = null;
   let loginWaitMessageRef = null;
+  let pendingPinCreationValue = '';
   const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
   const clearIntervalFn = id => dmClearInterval(id);
   let sessionStatusIntervalId = null;
   let sessionWarningToastShown = false;
+
+  function setLoginMessage(message, tone = 'info') {
+    if (!loginMessage) return;
+    if (!message) {
+      loginMessage.textContent = '';
+      loginMessage.hidden = true;
+      loginMessage.removeAttribute('data-tone');
+      return;
+    }
+    loginMessage.textContent = message;
+    loginMessage.hidden = false;
+    loginMessage.setAttribute('data-tone', tone);
+  }
+
+  function focusLoginElement(element) {
+    if (!element || typeof element.focus !== 'function') return;
+    const focusTarget = () => {
+      try {
+        element.focus({ preventScroll: true });
+      } catch {
+        try { element.focus(); } catch {}
+      }
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(focusTarget);
+    } else {
+      focusTarget();
+    }
+  }
+
+  function getLoginStateFocusTarget(state) {
+    switch (state) {
+      case DM_LOGIN_STATES.CREATE:
+        return loginNewPin || loginPin;
+      case DM_LOGIN_STATES.CONFIRM:
+        return loginConfirmPin || loginNewPin || loginPin;
+      case DM_LOGIN_STATES.RECOVERY:
+        return loginRecoverySubmit || loginRecoveryBack || loginPin;
+      case DM_LOGIN_STATES.LOGIN:
+      default:
+        return loginPin;
+    }
+  }
+
+  function applyLoginStateToDom(state) {
+    if (!hasLoginStates) return;
+    loginStateViewMap.forEach((view, key) => {
+      const isActive = key === state;
+      if (!view) return;
+      if (isActive) {
+        view.hidden = false;
+        view.removeAttribute('aria-hidden');
+      } else {
+        view.hidden = true;
+        view.setAttribute('aria-hidden', 'true');
+      }
+    });
+  }
+
+  function setLoginState(nextState, options = {}) {
+    const desired = typeof nextState === 'string' && nextState ? nextState : DM_LOGIN_STATES.LOGIN;
+    const normalized = hasLoginStates && loginStateViewMap.has(desired)
+      ? desired
+      : DM_LOGIN_STATES.LOGIN;
+    if (loginModal) {
+      try {
+        loginModal.setAttribute('data-login-state', normalized);
+      } catch {}
+    }
+    applyLoginStateToDom(normalized);
+    if (!options.skipMessage) {
+      const defaultMessage = DM_LOGIN_DEFAULT_MESSAGES[normalized] || '';
+      if (defaultMessage) {
+        setLoginMessage(defaultMessage, 'info');
+      } else {
+        setLoginMessage('');
+      }
+    }
+    if (options.focus !== false) {
+      focusLoginElement(getLoginStateFocusTarget(normalized));
+    }
+    return normalized;
+  }
+
+  function resetPinCreationFlow() {
+    pendingPinCreationValue = '';
+    if (loginNewPin) {
+      loginNewPin.value = '';
+    }
+    if (loginConfirmPin) {
+      loginConfirmPin.value = '';
+    }
+  }
+
+  function startPinCreationFlow() {
+    if (!hasLoginStates) return;
+    resetPinCreationFlow();
+    setLoginState(DM_LOGIN_STATES.CREATE);
+  }
+
+  function returnToLogin(options = {}) {
+    if (!hasLoginStates) return;
+    resetPinCreationFlow();
+    setLoginState(DM_LOGIN_STATES.LOGIN, options);
+  }
+
+  function startRecoveryFlow() {
+    if (!hasLoginStates) return;
+    resetPinCreationFlow();
+    setLoginState(DM_LOGIN_STATES.RECOVERY);
+  }
+
+  function handleCreateNext(event) {
+    if (event && typeof event.preventDefault === 'function') {
+      try { event.preventDefault(); } catch {}
+    }
+    if (!hasLoginStates) return;
+    const candidate = (loginNewPin?.value ?? '').trim();
+    if (!candidate) {
+      setLoginMessage(DM_LOGIN_DEFAULT_MESSAGES[DM_LOGIN_STATES.CREATE] || 'Enter a new DM PIN to continue.', 'error');
+    } else {
+      pendingPinCreationValue = candidate;
+      if (loginConfirmPin) {
+        loginConfirmPin.value = '';
+      }
+      setLoginState(DM_LOGIN_STATES.CONFIRM);
+      return;
+    }
+    focusLoginElement(loginNewPin);
+  }
+
+  function handleConfirmBack(event) {
+    if (event && typeof event.preventDefault === 'function') {
+      try { event.preventDefault(); } catch {}
+    }
+    if (!hasLoginStates) return;
+    setLoginState(DM_LOGIN_STATES.CREATE);
+  }
+
+  function handleConfirmSubmit(event) {
+    if (event && typeof event.preventDefault === 'function') {
+      try { event.preventDefault(); } catch {}
+    }
+    if (!hasLoginStates) return;
+    const confirmation = (loginConfirmPin?.value ?? '').trim();
+    if (!pendingPinCreationValue) {
+      setLoginMessage(DM_LOGIN_DEFAULT_MESSAGES[DM_LOGIN_STATES.CREATE] || 'Enter a new DM PIN to continue.', 'error');
+      setLoginState(DM_LOGIN_STATES.CREATE, { skipMessage: true });
+      focusLoginElement(loginNewPin);
+      return;
+    }
+    if (!confirmation) {
+      setLoginMessage(DM_LOGIN_DEFAULT_MESSAGES[DM_LOGIN_STATES.CONFIRM] || 'Re-enter your new DM PIN.', 'error');
+      focusLoginElement(loginConfirmPin);
+      return;
+    }
+    if (confirmation !== pendingPinCreationValue) {
+      pendingPinCreationValue = '';
+      if (loginNewPin) {
+        loginNewPin.value = '';
+      }
+      if (loginConfirmPin) {
+        loginConfirmPin.value = '';
+      }
+      try {
+        toast('PINs do not match','error');
+      } catch {}
+      setLoginMessage('PINs do not match. Try again.', 'error');
+      setLoginState(DM_LOGIN_STATES.CREATE, { skipMessage: true });
+      focusLoginElement(loginNewPin);
+      return;
+    }
+    const finalPin = confirmation;
+    pendingPinCreationValue = '';
+    if (loginNewPin) {
+      loginNewPin.value = '';
+    }
+    if (loginConfirmPin) {
+      loginConfirmPin.value = '';
+    }
+    const handler = typeof window !== 'undefined' ? window?.dmHandlePinCreation : undefined;
+    if (typeof handler === 'function') {
+      try {
+        handler(finalPin);
+      } catch (err) {
+        console.error('DM PIN creation handler failed', err);
+      }
+    }
+    setLoginMessage('New PIN captured. Update your configuration to apply it.', 'success');
+    setLoginState(DM_LOGIN_STATES.LOGIN, { skipMessage: true });
+  }
+
+  function handleRecoveryBack(event) {
+    if (event && typeof event.preventDefault === 'function') {
+      try { event.preventDefault(); } catch {}
+    }
+    if (!hasLoginStates) return;
+    setLoginState(DM_LOGIN_STATES.LOGIN);
+  }
+
+  function handleRecoverySubmit(event) {
+    if (event && typeof event.preventDefault === 'function') {
+      try { event.preventDefault(); } catch {}
+    }
+    if (!hasLoginStates) return;
+    const handler = typeof window !== 'undefined' ? window?.dmHandlePinRecovery : undefined;
+    if (typeof handler === 'function') {
+      try {
+        handler();
+      } catch (err) {
+        console.error('DM PIN recovery handler failed', err);
+      }
+    }
+    setLoginMessage('Recovery initiated. Follow the instructions provided.', 'success');
+    setLoginState(DM_LOGIN_STATES.LOGIN, { skipMessage: true });
+  }
+
+  if (hasLoginStates) {
+    if (loginCreateLink) {
+      loginCreateLink.addEventListener('click', startPinCreationFlow);
+    }
+    if (loginCreateCancel) {
+      loginCreateCancel.addEventListener('click', event => {
+        if (event && typeof event.preventDefault === 'function') {
+          try { event.preventDefault(); } catch {}
+        }
+        returnToLogin({ skipMessage: false });
+      });
+    }
+    if (loginCreateNext) {
+      loginCreateNext.addEventListener('click', handleCreateNext);
+    }
+    if (loginConfirmBack) {
+      loginConfirmBack.addEventListener('click', handleConfirmBack);
+    }
+    if (loginConfirmSubmit) {
+      loginConfirmSubmit.addEventListener('click', handleConfirmSubmit);
+    }
+    if (loginRecoveryLink) {
+      loginRecoveryLink.addEventListener('click', event => {
+        if (event && typeof event.preventDefault === 'function') {
+          try { event.preventDefault(); } catch {}
+        }
+        startRecoveryFlow();
+      });
+    }
+    if (loginRecoveryBack) {
+      loginRecoveryBack.addEventListener('click', handleRecoveryBack);
+    }
+    if (loginRecoverySubmit) {
+      loginRecoverySubmit.addEventListener('click', handleRecoverySubmit);
+    }
+  }
 
   function parseStoredNumber(value){
     if (typeof value !== 'string' || !value) return 0;
@@ -8215,13 +8505,17 @@ function initDMLogin(){
   function openLogin(){
     if(!loginModal || !loginPin) return;
     show('dm-login-modal');
+    resetPinCreationFlow();
     loginPin.value='';
-    loginPin.focus();
+    setLoginState(DM_LOGIN_STATES.LOGIN);
   }
 
   function closeLogin(){
     if(!loginModal) return;
     hide('dm-login-modal');
+    resetPinCreationFlow();
+    setLoginState(DM_LOGIN_STATES.LOGIN, { skipMessage: true, focus: false });
+    setLoginMessage('');
   }
 
   function requireLogin(){

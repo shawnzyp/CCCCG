@@ -2219,17 +2219,47 @@
     </button>
   </div>
 </footer>
-<div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
+<div class="overlay hidden" id="dm-login-modal" aria-hidden="true" data-login-state="login">
   <div class="modal-frame">
-    <section class="modal" role="dialog" aria-modal="true">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="dm-login-title">
     <button id="dm-login-close" class="x" aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>DM Login</h3>
-    <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
-    <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
+    <div class="dm-login" data-login-state-root>
+      <div id="dm-login-message" class="dm-login__message" data-login-message role="status" aria-live="polite" hidden></div>
+      <div class="dm-login__view" data-login-view="login">
+        <h3 id="dm-login-title">DM Login</h3>
+        <p class="dm-login__description">Enter your DM PIN to unlock the tools.</p>
+        <input id="dm-login-pin" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+        <div class="actions"><button id="dm-login-submit" class="somf-btn">Enter</button></div>
+        <div class="dm-login__links" role="group" aria-label="DM login options">
+          <button type="button" id="dm-login-start-new-pin" class="dm-login__link">Set new PIN</button>
+          <button type="button" id="dm-login-start-recovery" class="dm-login__link">Forgot PIN?</button>
+        </div>
+      </div>
+      <div class="dm-login__view" data-login-view="create" hidden>
+        <h3>Set new PIN</h3>
+        <p class="dm-login__description">Enter a new DM PIN to continue.</p>
+        <input id="dm-login-new-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+        <div class="actions"><button id="dm-login-create-next" class="somf-btn">Continue</button></div>
+        <button type="button" id="dm-login-create-cancel" class="dm-login__link">Back to login</button>
+      </div>
+      <div class="dm-login__view" data-login-view="confirm" hidden>
+        <h3>Confirm PIN</h3>
+        <p class="dm-login__description">Re-enter your new DM PIN.</p>
+        <input id="dm-login-confirm-pin" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+        <div class="actions"><button id="dm-login-confirm-submit" class="somf-btn">Save PIN</button></div>
+        <button type="button" id="dm-login-confirm-back" class="dm-login__link">Back</button>
+      </div>
+      <div class="dm-login__view" data-login-view="recovery" hidden>
+        <h3>Forgot PIN?</h3>
+        <p class="dm-login__description">Request assistance with your DM PIN.</p>
+        <div class="actions"><button id="dm-login-recovery-submit" class="somf-btn">Start recovery</button></div>
+        <button type="button" id="dm-login-recovery-back" class="dm-login__link">Back to login</button>
+      </div>
+    </div>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
