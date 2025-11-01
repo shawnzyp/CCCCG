@@ -1,15 +1,17 @@
 import { jest } from '@jest/globals';
+import { setupTestDmCredentials, ensureTestDmPin } from '../tests/helpers/dm-pin.js';
 
 describe('dm rewards executeRewardTransaction', () => {
   let restoreReadyState;
   let originalPostMessage;
   let broadcastInstances;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
+    await setupTestDmCredentials();
 
     const descriptor = Object.getOwnPropertyDescriptor(document, 'readyState');
     restoreReadyState = () => {
@@ -239,9 +241,7 @@ describe('dm rewards executeRewardTransaction', () => {
     const saveCloud = jest.fn(async () => {});
     jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
 
-    jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      DM_PIN: '0000',
-    }));
+    await ensureTestDmPin('0000');
 
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');
@@ -347,9 +347,7 @@ describe('dm rewards executeRewardTransaction', () => {
     const saveCloud = jest.fn(async () => {});
     jest.unstable_mockModule('../scripts/storage.js', () => ({ saveCloud }));
 
-    jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      DM_PIN: '0000',
-    }));
+    await ensureTestDmPin('0000');
 
     await import('../scripts/modal.js');
     await import('../scripts/dm.js');

@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, jest } from '@jest/globals';
+import { setupTestDmCredentials, ensureTestDmPin } from '../tests/helpers/dm-pin.js';
 
 import {
   buildDmEntryFromPayload,
@@ -284,10 +285,8 @@ describe('DM catalog equipment delivery', () => {
         partials: {},
       })),
     }));
-    jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      __esModule: true,
-      DM_PIN: '1234',
-    }));
+    await setupTestDmCredentials();
+    await ensureTestDmPin('1234');
     jest.unstable_mockModule('../scripts/modal.js', () => ({
       __esModule: true,
       show: jest.fn(),

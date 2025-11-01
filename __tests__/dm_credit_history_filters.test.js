@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { setupTestDmCredentials, ensureTestDmPin } from '../tests/helpers/dm-pin.js';
 
 describe('dm credit history filters', () => {
   let restoreReadyState;
@@ -111,6 +112,8 @@ describe('dm credit history filters', () => {
     global.BroadcastChannel = MockBroadcastChannel;
     window.BroadcastChannel = MockBroadcastChannel;
 
+    await setupTestDmCredentials();
+
     originalPostMessage = window.postMessage;
     window.postMessage = jest.fn();
 
@@ -150,9 +153,7 @@ describe('dm credit history filters', () => {
       saveCloud: jest.fn(async () => {}),
     }));
 
-    jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
-      DM_PIN: '0000',
-    }));
+    await ensureTestDmPin('0000');
 
     jest.unstable_mockModule('../scripts/faction.js', () => ({
       FACTIONS: [],

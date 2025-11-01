@@ -67,6 +67,22 @@ function buildBaseDom(extra = '') {
   `;
 }
 
+async function flushAsync() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+async function waitForCondition(predicate, attempts = 20) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (predicate()) {
+      return true;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await flushAsync();
+  }
+  return predicate();
+}
+
 describe('dm login', () => {
   test('DM login unlocks tools', async () => {
     document.body.innerHTML = buildBaseDom();
@@ -247,10 +263,13 @@ describe('dm login', () => {
     modal.addEventListener('dm-login:set-pin', event => setPinEvents.push(event.detail));
 
     void window.dmRequireLogin();
+    await flushAsync();
+    await flushAsync();
 
     modal.querySelector('[data-login-action="start-create"]').click();
 
     const createView = modal.querySelector('[data-login-view="create"]');
+    await waitForCondition(() => !createView.hidden);
     expect(createView.hidden).toBe(false);
 
     document.getElementById('dm-login-new-pin').value = '246810';
@@ -261,8 +280,9 @@ describe('dm login', () => {
 
     document.getElementById('dm-login-confirm-pin').value = '246810';
     document.getElementById('dm-login-confirm-submit').click();
+    await waitForCondition(() => setPinEvents.length > 0);
 
-    expect(setPinEvents).toEqual([{ pin: '246810' }]);
+    expect(setPinEvents).toEqual([{ pin: '246810', mode: 'reset' }]);
     const loginView = modal.querySelector('[data-login-view="login"]');
     expect(loginView.hidden).toBe(false);
     expect(document.getElementById('dm-login-pin').value).toBe('246810');
@@ -320,6 +340,7 @@ describe('dm login', () => {
     modal.addEventListener('dm-login:set-pin', setPinSpy);
 
     void window.dmRequireLogin();
+    await flushAsync();
 
     modal.querySelector('[data-login-action="start-create"]').click();
     document.getElementById('dm-login-new-pin').value = '13579';
@@ -856,15 +877,24 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     void window.dmRequireLogin();
+    await flushAsync();
     const pin = document.getElementById('dm-login-pin');
     const submit = document.getElementById('dm-login-submit');
 
     for (let i = 0; i < 3; i += 1) {
       pin.value = '000000';
       submit.click();
+      if (i < 2) {
+        await waitForCondition(() => submit.disabled === false);
+      }
+      await flushAsync();
     }
 
+    await waitForCondition(() => Boolean(sessionStorage.getItem('dmLoginLockUntil')));
     const waitMessage = document.querySelector('[data-login-wait]');
+    await waitForCondition(() => Boolean(waitMessage) && waitMessage.hidden === false);
+    await waitForCondition(() => submit.disabled === true);
+    await waitForCondition(() => pin.disabled === true);
     expect(submit.disabled).toBe(true);
     expect(pin.disabled).toBe(true);
     expect(waitMessage).not.toBeNull();
@@ -939,18 +969,28 @@ describe('dm login', () => {
     await import('../scripts/dm.js');
 
     const loginPromise = window.dmRequireLogin();
+    await flushAsync();
     const pin = document.getElementById('dm-login-pin');
     const submit = document.getElementById('dm-login-submit');
 
     for (let i = 0; i < 3; i += 1) {
       pin.value = '000000';
       submit.click();
+      if (i < 2) {
+        await waitForCondition(() => submit.disabled === false);
+      }
+      await flushAsync();
     }
 
+    await waitForCondition(() => Boolean(sessionStorage.getItem('dmLoginLockUntil')));
+    await waitForCondition(() => submit.disabled === true);
+    await waitForCondition(() => pin.disabled === true);
     expect(submit.disabled).toBe(true);
     expect(pin.disabled).toBe(true);
 
     jest.advanceTimersByTime(30_000);
+    jest.setSystemTime(Date.now() + 30_000);
+    await waitForCondition(() => submit.disabled === false);
 
     expect(submit.disabled).toBe(false);
     expect(pin.disabled).toBe(false);

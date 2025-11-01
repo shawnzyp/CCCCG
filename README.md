@@ -52,16 +52,21 @@ The application communicates with the database using its public REST API.
 
 ## DM tools access
 
-The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash
-in `scripts/dm-pin.js`.
+The DM tools are protected by a shared PIN stored as a salted PBKDF2 hash in
+a dedicated credential store that `scripts/dm-pin.js` synchronizes with the
+cloud backend.
 
 ### Rotating the DM PIN
 
 1. Run `node tools/generate-dm-pin.js <new-pin>` to print a new hash
    configuration (optional second argument overrides the default 120000 PBKDF2
    iterations).
-2. Replace the `DM_PIN` export in `scripts/dm-pin.js` with the generated JSON.
-3. Commit the change and redeploy the site.
+2. Upload the generated credential JSON to the DM credential path in the
+   database (`/dmCredentials/<username>`). The app will pull the new value and
+   update its local cache automatically.
+3. (Optional) Update the bootstrap record in `scripts/dm-pin.js` if you want a
+   new default for offline development.
+4. Commit the change and redeploy the site.
 
 ## Audio cues
 

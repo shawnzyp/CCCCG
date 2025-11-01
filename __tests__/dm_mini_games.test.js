@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
+import { setupTestDmCredentials, TEST_DM_PIN } from '../tests/helpers/dm-pin.js';
 
 function setupDom() {
   document.body.innerHTML = `
@@ -194,6 +194,8 @@ async function initDmModule() {
   }));
 
   window.dmNotify = jest.fn();
+
+  await setupTestDmCredentials();
 
   await import('../scripts/dm.js');
   document.dispatchEvent(new Event('DOMContentLoaded'));
