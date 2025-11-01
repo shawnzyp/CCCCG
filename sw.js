@@ -429,8 +429,48 @@ self.addEventListener('message', event => {
   const data = event.data;
   if (!data || typeof data !== 'object') return;
   if (data.type === 'queue-cloud-save') {
-    const { name, payload, ts } = data;
-    if (!name || typeof ts !== 'number') return;
+    const { name, payload, ts, requestId = null } = data;
+    const port = Array.isArray(event.ports) && event.ports.length ? event.ports[0] : null;
+    const respond = message => {
+      if (!message || typeof message !== 'object') return;
+      const payload = { ...message };
+      if (requestId !== null && !Object.prototype.hasOwnProperty.call(payload, 'requestId')) {
+        payload.requestId = requestId;
+      }
+      if (port && typeof port.postMessage === 'function') {
+        try {
+          port.postMessage(payload);
+        } catch {}
+        return;
+      }
+      if (event.source && typeof event.source.postMessage === 'function') {
+        try {
+          event.source.postMessage({
+            type: 'queue-cloud-save-result',
+            ...payload,
+          });
+        } catch {}
+      }
+    };
+
+    const serializeError = err => {
+      if (!err) return { message: 'Unknown error' };
+      if (err instanceof Error) {
+        const { name: errorName = 'Error', message = 'Error', stack = '' } = err;
+        return { name: errorName, message, stack };
+      }
+      if (typeof err === 'object') {
+        try {
+          return { ...err };
+        } catch {}
+      }
+      return { message: String(err) };
+    };
+
+    if (!name || typeof ts !== 'number') {
+      respond({ ok: false, error: { message: 'Invalid cloud save payload' } });
+      return;
+    }
     let entry;
     try {
       entry = createCloudSaveOutboxEntry({
@@ -442,12 +482,25 @@ self.addEventListener('message', event => {
       });
     } catch (err) {
       console.error('Failed to normalize cloud save entry', err);
+      respond({ ok: false, error: serializeError(err) });
       return;
     }
     event.waitUntil(
-      addOutboxEntry(entry)
-        .then(() => flushOutbox())
-        .catch(err => console.error('Failed to queue cloud save', err))
+      (async () => {
+        try {
+          await addOutboxEntry(entry);
+        } catch (err) {
+          console.error('Failed to queue cloud save', err);
+          respond({ ok: false, error: serializeError(err) });
+          return;
+        }
+        try {
+          await flushOutbox();
+        } catch (err) {
+          console.error('Failed to flush cloud outbox after queueing save', err);
+        }
+        respond({ ok: true });
+      })()
     );
   } else if (data.type === 'queue-pin') {
     const { name, hash = null, op } = data;
