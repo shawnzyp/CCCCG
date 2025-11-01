@@ -1,5 +1,5 @@
 import { listCharacters, loadCharacter } from './characters.js';
-import { DM_PIN, DM_DEVICE_FINGERPRINT } from './dm-pin.js';
+import { DM_PIN } from './dm-pin.js';
 import { show, hide } from './modal.js';
 import {
   listMiniGames,
@@ -612,37 +612,6 @@ function downloadTextFile(filename, text, options = {}) {
   } catch {
     return false;
   }
-}
-
-function computeDeviceFingerprint() {
-  if (typeof navigator === 'undefined') return '';
-  const { userAgent = '', language = '', platform = '' } = navigator;
-  let screenInfo = '';
-  if (typeof screen !== 'undefined') {
-    const { width = '', height = '', colorDepth = '' } = screen;
-    screenInfo = `${width}x${height}x${colorDepth}`;
-  }
-  let timeZone = '';
-  try {
-    timeZone = Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone || '';
-  } catch {
-    timeZone = '';
-  }
-  const raw = [userAgent, language, platform, screenInfo, timeZone].join('||');
-  try {
-    return btoa(raw);
-  } catch {
-    return raw;
-  }
-}
-
-function isAuthorizedDevice() {
-  if (!DM_DEVICE_FINGERPRINT) return true;
-  return computeDeviceFingerprint() === DM_DEVICE_FINGERPRINT;
-}
-
-if (typeof window !== 'undefined' && !window.computeDmDeviceFingerprint) {
-  window.computeDmDeviceFingerprint = computeDeviceFingerprint;
 }
 
 const escapeHtml = value => String(value ?? '')
@@ -4915,19 +4884,6 @@ function initDMLogin(){
   const catalogForms = new Map();
   let catalogInitialized = false;
 
-    if (!isAuthorizedDevice()) {
-      dmBtn?.remove();
-      dmToggleBtn?.remove();
-      menu?.remove();
-      loginModal?.remove();
-      notifyModal?.remove();
-      charModal?.remove();
-      charViewModal?.remove();
-      rewardsBtn?.remove();
-      rewardsModal?.remove();
-      return;
-    }
-
   if (typeof window !== 'undefined') {
     window.addEventListener('message', handlePlayerCreditWindowMessage);
     window.addEventListener('message', handlePlayerRewardWindowMessage);
@@ -8230,15 +8186,6 @@ function initDMLogin(){
         updateButtons();
         initTools();
         resolve(true);
-        return;
-      }
-
-      if (!isAuthorizedDevice()) {
-        closeLogin();
-        const error = new Error('unauthorized-device');
-        error.code = 'unauthorized-device';
-        toast('This device is not authorized to access the DM tools.', 'error');
-        reject(error);
         return;
       }
 

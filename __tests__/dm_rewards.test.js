@@ -241,7 +241,6 @@ describe('dm rewards executeRewardTransaction', () => {
 
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
       DM_PIN: '0000',
-      DM_DEVICE_FINGERPRINT: '',
     }));
 
     await import('../scripts/modal.js');
@@ -350,7 +349,6 @@ describe('dm rewards executeRewardTransaction', () => {
 
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
       DM_PIN: '0000',
-      DM_DEVICE_FINGERPRINT: '',
     }));
 
     await import('../scripts/modal.js');

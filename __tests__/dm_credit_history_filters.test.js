@@ -152,7 +152,6 @@ describe('dm credit history filters', () => {
 
     jest.unstable_mockModule('../scripts/dm-pin.js', () => ({
       DM_PIN: '0000',
-      DM_DEVICE_FINGERPRINT: '',
     }));
 
     jest.unstable_mockModule('../scripts/faction.js', () => ({
