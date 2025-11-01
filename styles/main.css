@@ -8486,7 +8486,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 /* Player Tools tray redesign */
 :root {
   --drawer-width: clamp(320px, 48vw, 560px);
-  --player-tools-left-gutter: clamp(12px, 4vw, 28px);
+  --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(12px, 4vw, 28px));
   --player-tools-glass-radius: 36px;
 }
 
