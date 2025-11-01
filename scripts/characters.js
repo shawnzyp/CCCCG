@@ -753,20 +753,40 @@ export async function renameCharacter(oldName, newName, data) {
       console.error(`Failed to persist renamed character ${newName} locally`, err);
       throw err;
     }
+    let cloudStatus;
     try {
-      await saveCloud(newName, normalized);
+      const result = await saveCloud(newName, normalized);
+      if (result !== 'saved' && result !== 'queued') {
+        throw new Error(`Unexpected cloud save status: ${result ?? 'unknown'}`);
+      }
+      cloudStatus = result;
     } catch (err) {
       console.error('Cloud save failed', err);
+      try {
+        await deleteSave(newName);
+      } catch (rollbackErr) {
+        console.error('Failed to roll back local rename after cloud save failure', rollbackErr);
+      }
+      if (oldName) {
+        try {
+          localStorage.setItem('last-save', oldName);
+        } catch (restoreErr) {
+          console.error('Failed to restore last save after rename failure', restoreErr);
+        }
+      }
+      throw err;
     }
-    const moved = await movePin(oldName, newName);
-    if (!moved) {
-      console.warn(`PIN move skipped for ${oldName} -> ${newName}`);
-    }
-    await deleteSave(oldName);
-    try {
-      await deleteCloud(oldName);
-    } catch (err) {
-      console.error('Cloud delete failed', err);
+    if (cloudStatus === 'saved' || cloudStatus === 'queued') {
+      const moved = await movePin(oldName, newName);
+      if (!moved) {
+        console.warn(`PIN move skipped for ${oldName} -> ${newName}`);
+      }
+      await deleteSave(oldName);
+      try {
+        await deleteCloud(oldName);
+      } catch (err) {
+        console.error('Cloud delete failed', err);
+      }
     }
     setCurrentCharacter(newName);
     try {
