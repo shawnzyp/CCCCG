@@ -369,6 +369,9 @@ const INITIAL_SYNC_STATUS = (() => {
 
 let lastSyncStatus = (() => {
   const fallback = INITIAL_SYNC_STATUS;
+  if (fallback === 'unsupported') {
+    return fallback;
+  }
   try {
     if (typeof sessionStorage !== 'undefined') {
       const stored = sessionStorage.getItem(SYNC_STATUS_STORAGE_KEY);
