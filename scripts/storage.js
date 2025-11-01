@@ -460,7 +460,11 @@ async function attemptCloudSave(name, payload, ts) {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  localStorage.setItem('last-save', name);
+  try {
+    localStorage.setItem('last-save', name);
+  } catch (err) {
+    console.warn('Failed to update last-save pointer after cloud save', err);
+  }
 
   await saveHistoryEntry(CLOUD_HISTORY_URL, name, payload, ts);
 }
