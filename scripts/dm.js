@@ -8968,6 +8968,62 @@ function initDMLogin(){
         if (!list.length) return '';
         return `<ul class="dm-characterEntries">${list.join('')}</ul>`;
       };
+
+      const normalizeRecord = (record = {}) => {
+        if (!record || typeof record !== 'object') return {};
+        const normalized = {};
+        Object.keys(record).forEach(key => {
+          const value = record[key];
+          if (typeof value === 'string') {
+            normalized[key] = value.trim();
+          } else if (Array.isArray(value)) {
+            normalized[key] = value.map(item => (typeof item === 'string' ? item.trim() : item));
+          } else {
+            normalized[key] = value;
+          }
+        });
+        return normalized;
+      };
+
+      const hasAnyMeaningfulField = (record, keys = []) => keys.some(key => hasMeaningfulValue(record?.[key]));
+
+      const normalizeCollection = (entries, { meaningfulKeys = [], additionalCheck } = {}) => {
+        if (!Array.isArray(entries)) return [];
+        return entries
+          .map(entry => {
+            if (typeof entry === 'string') {
+              const trimmed = entry.trim();
+              if (!trimmed) return null;
+              entry = { name: trimmed };
+            }
+            if (!entry || typeof entry !== 'object') return null;
+            const normalized = normalizeRecord(entry);
+            const hasMeaningful = meaningfulKeys.length
+              ? hasAnyMeaningfulField(normalized, meaningfulKeys)
+              : false;
+            const passesAdditional = typeof additionalCheck === 'function' ? additionalCheck(normalized) : false;
+            if (!hasMeaningful && !passesAdditional) return null;
+            return normalized;
+          })
+          .filter(Boolean);
+      };
+
+      const POWER_MEANINGFUL_FIELDS = [
+        'name',
+        'style',
+        'actionType',
+        'intensity',
+        'uses',
+        'spCost',
+        'sp',
+        'rulesText',
+        'description',
+        'desc',
+        'special',
+        'effectTag',
+        'save',
+        'saveAbilityTarget',
+      ];
       const abilityKeys = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
       const card = document.createElement('article');
       card.className = 'dm-characterSheet';
@@ -9094,119 +9150,133 @@ function initDMLogin(){
       const resourceContent = renderDefinitionList(resourceFields);
 
       const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const hasDetails = hasAnyMeaningfulField(entry, POWER_MEANINGFUL_FIELDS);
+        if (!hasDetails) return null;
         const fields = [];
-        if (entry && typeof entry === 'object') {
-          const isModern = (
-            entry.rulesText !== undefined
-            || entry.effectTag !== undefined
-            || entry.spCost !== undefined
-            || entry.intensity !== undefined
-            || entry.actionType !== undefined
-            || entry.signature
-          );
-          if (isModern) {
-            let costLabel = '';
-            if (hasMeaningfulValue(entry.spCost)) {
-              const costValue = toNumber(entry.spCost);
-              costLabel = Number.isFinite(costValue) ? `${formatNumber(costValue)} SP` : String(entry.spCost);
-            }
-            fields.push({ term: 'Name', value: entry.name || fallback });
-            fields.push({ term: 'Style', value: entry.style });
-            fields.push({ term: 'Action', value: entry.actionType });
-            fields.push({ term: 'Intensity', value: entry.intensity });
-            fields.push({ term: 'Uses', value: entry.uses });
-            fields.push({ term: 'Cost', value: costLabel });
-            if (entry.requiresSave) {
-              fields.push({ term: 'Save', value: entry.saveAbilityTarget });
-            }
-            fields.push({ term: 'Rules', value: entry.rulesText, multiline: true });
-            fields.push({ term: 'Description', value: entry.description, multiline: true });
-            fields.push({ term: 'Special', value: entry.special, multiline: true });
-          } else {
-            const legacyDesc = entry.description ?? entry.desc;
-            fields.push({ term: 'Name', value: entry.name || fallback });
-            fields.push({ term: 'SP Cost', value: entry.sp });
-            fields.push({ term: 'Save', value: entry.save });
-            fields.push({ term: 'Special', value: entry.special, multiline: true });
-            fields.push({ term: 'Description', value: legacyDesc, multiline: true });
+        const isModern = (
+          entry.rulesText !== undefined
+          || entry.effectTag !== undefined
+          || entry.spCost !== undefined
+          || entry.intensity !== undefined
+          || entry.actionType !== undefined
+          || entry.signature
+        );
+        if (isModern) {
+          let costLabel = '';
+          if (hasMeaningfulValue(entry.spCost)) {
+            const costValue = toNumber(entry.spCost);
+            costLabel = Number.isFinite(costValue) ? `${formatNumber(costValue)} SP` : String(entry.spCost);
           }
+          fields.push({ term: 'Name', value: entry.name || fallback });
+          fields.push({ term: 'Style', value: entry.style });
+          fields.push({ term: 'Action', value: entry.actionType });
+          fields.push({ term: 'Intensity', value: entry.intensity });
+          fields.push({ term: 'Uses', value: entry.uses });
+          fields.push({ term: 'Cost', value: costLabel });
+          if (entry.requiresSave) {
+            fields.push({ term: 'Save', value: entry.saveAbilityTarget });
+          }
+          fields.push({ term: 'Rules', value: entry.rulesText, multiline: true });
+          fields.push({ term: 'Description', value: entry.description, multiline: true });
+          fields.push({ term: 'Special', value: entry.special, multiline: true });
         } else {
-          fields.push({ term: 'Name', value: fallback });
+          const legacyDesc = entry.description ?? entry.desc;
+          fields.push({ term: 'Name', value: entry.name || fallback });
+          fields.push({ term: 'SP Cost', value: entry.sp });
+          fields.push({ term: 'Save', value: entry.save });
+          fields.push({ term: 'Special', value: entry.special, multiline: true });
+          fields.push({ term: 'Description', value: legacyDesc, multiline: true });
         }
         const details = renderDefinitionList(fields, { layout: 'stack' });
-        if (!details) return '';
+        if (!details) return null;
         return `<li class="dm-characterEntry">${details}</li>`;
       };
 
       const renderInventoryEntry = (fields = []) => {
         const details = renderDefinitionList(fields, { layout: 'stack' });
-        if (!details) return '';
+        if (!details) return null;
         return `<li class="dm-characterEntry">${details}</li>`;
       };
 
+      const normalizedPowers = normalizeCollection(data?.powers, {
+        meaningfulKeys: POWER_MEANINGFUL_FIELDS,
+      });
+      const normalizedSignatures = normalizeCollection(data?.signatures, {
+        meaningfulKeys: POWER_MEANINGFUL_FIELDS,
+      });
+      const normalizedWeapons = normalizeCollection(data?.weapons, {
+        meaningfulKeys: ['name', 'damage', 'range', 'notes'],
+        additionalCheck: entry => hasMeaningfulValue(entry.attackAbility) || toBoolean(entry.proficient),
+      });
+      const normalizedArmor = normalizeCollection(data?.armor, {
+        meaningfulKeys: ['name', 'slot'],
+        additionalCheck: entry => hasMeaningfulValue(entry.bonus) || toBoolean(entry.equipped),
+      });
+      const normalizedItems = normalizeCollection(data?.items, {
+        meaningfulKeys: ['name', 'notes'],
+        additionalCheck: entry => hasMeaningfulValue(entry.qty),
+      });
+      const normalizedMedals = normalizeCollection(data?.medals, {
+        meaningfulKeys: ['name', 'awardedBy', 'awardedAt', 'description'],
+      });
+
       const powersContent = renderEntryList(
-        Array.isArray(data?.powers)
-          ? data.powers.map(power => renderPowerEntry(power, { fallback: 'Power' })).filter(Boolean)
-          : []
+        normalizedPowers.map(power => renderPowerEntry(power, { fallback: 'Power' })).filter(Boolean)
       );
       const signaturesContent = renderEntryList(
-        Array.isArray(data?.signatures)
-          ? data.signatures.map(sig => renderPowerEntry(sig, { fallback: 'Signature' })).filter(Boolean)
-          : []
+        normalizedSignatures.map(sig => renderPowerEntry(sig, { fallback: 'Signature' })).filter(Boolean)
       );
 
       const weaponsContent = renderEntryList(
-        Array.isArray(data?.weapons)
-          ? data.weapons.map(weapon => {
-              if (!weapon || typeof weapon !== 'object') return '';
-              const fields = [
-                { term: 'Name', value: weapon.name || 'Weapon' },
-                { term: 'Damage', value: weapon.damage },
-                { term: 'Range', value: weapon.range },
-              ];
-              if (hasMeaningfulValue(weapon.attackAbility)) {
-                fields.push({ term: 'Attack Ability', value: String(weapon.attackAbility).toUpperCase() });
-              }
-              if (toBoolean(weapon.proficient)) {
-                fields.push({ term: 'Proficient', value: 'Yes', allowZero: false });
-              }
-              return renderInventoryEntry(fields);
-            }).filter(Boolean)
-          : []
+        normalizedWeapons
+          .map(weapon => {
+            const fields = [
+              { term: 'Name', value: weapon.name || 'Weapon' },
+              { term: 'Damage', value: weapon.damage },
+              { term: 'Range', value: weapon.range },
+            ];
+            if (hasMeaningfulValue(weapon.attackAbility)) {
+              fields.push({ term: 'Attack Ability', value: String(weapon.attackAbility).toUpperCase() });
+            }
+            if (toBoolean(weapon.proficient)) {
+              fields.push({ term: 'Proficient', value: 'Yes', allowZero: false });
+            }
+            return renderInventoryEntry(fields);
+          })
+          .filter(Boolean)
       );
 
       const armorContent = renderEntryList(
-        Array.isArray(data?.armor)
-          ? data.armor.map(entry => {
-              if (!entry || typeof entry !== 'object') return '';
-              const bonus = toNumber(entry.bonus);
-              const fields = [
-                { term: 'Name', value: entry.name || 'Armor' },
-                { term: 'Slot', value: entry.slot },
-              ];
-              if (bonus !== null) {
-                fields.push({ term: 'Bonus', value: bonus >= 0 ? `+${formatNumber(bonus)}` : formatNumber(bonus) });
-              }
-              if (toBoolean(entry.equipped)) {
-                fields.push({ term: 'Equipped', value: 'Yes', allowZero: false });
-              }
-              return renderInventoryEntry(fields);
-            }).filter(Boolean)
-          : []
+        normalizedArmor
+          .map(entry => {
+            const bonus = toNumber(entry.bonus);
+            const fields = [
+              { term: 'Name', value: entry.name || 'Armor' },
+              { term: 'Slot', value: entry.slot },
+            ];
+            if (bonus !== null) {
+              fields.push({ term: 'Bonus', value: bonus >= 0 ? `+${formatNumber(bonus)}` : formatNumber(bonus) });
+            }
+            if (toBoolean(entry.equipped)) {
+              fields.push({ term: 'Equipped', value: 'Yes', allowZero: false });
+            }
+            return renderInventoryEntry(fields);
+          })
+          .filter(Boolean)
       );
 
       const itemsContent = renderEntryList(
-        Array.isArray(data?.items)
-          ? data.items.map(item => {
-              if (!item || typeof item !== 'object') return '';
-              const fields = [
-                { term: 'Name', value: item.name || 'Item' },
-                { term: 'Qty', value: item.qty },
-                { term: 'Notes', value: item.notes, multiline: true },
-              ];
-              return renderInventoryEntry(fields);
-            }).filter(Boolean)
-          : []
+        normalizedItems
+          .map(item => {
+            const fields = [
+              { term: 'Name', value: item.name || 'Item' },
+              { term: 'Qty', value: item.qty },
+              { term: 'Notes', value: item.notes, multiline: true },
+            ];
+            return renderInventoryEntry(fields);
+          })
+          .filter(Boolean)
       );
 
       const parseJsonField = (raw, fallback = null) => {
@@ -9255,18 +9325,17 @@ function initDMLogin(){
       };
 
       const medalsContent = renderEntryList(
-        Array.isArray(data?.medals)
-          ? data.medals.map(medal => {
-              if (!medal || typeof medal !== 'object') return '';
-              const fields = [
-                { term: 'Name', value: medal.name || 'Medal' },
-                { term: 'Awarded By', value: medal.awardedBy },
-                { term: 'Awarded', value: formatDate(medal.awardedAt) },
-                { term: 'Description', value: medal.description, multiline: true },
-              ];
-              return renderInventoryEntry(fields);
-            }).filter(Boolean)
-          : []
+        normalizedMedals
+          .map(medal => {
+            const fields = [
+              { term: 'Name', value: medal.name || 'Medal' },
+              { term: 'Awarded By', value: medal.awardedBy },
+              { term: 'Awarded', value: formatDate(medal.awardedAt) },
+              { term: 'Description', value: medal.description, multiline: true },
+            ];
+            return renderInventoryEntry(fields);
+          })
+          .filter(Boolean)
       );
 
       const factionEntries = [];
