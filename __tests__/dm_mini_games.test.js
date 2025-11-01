@@ -24,13 +24,14 @@ function setupDom() {
       <ul id="dm-notifications-list"></ul>
       <button id="dm-notifications-close"></button>
     </div>
-    <div id="dm-characters-modal" class="hidden" aria-hidden="true">
+    <div id="dm-characters-modal" class="overlay hidden" aria-hidden="true">
       <ul id="dm-characters-list"></ul>
       <button id="dm-characters-close"></button>
     </div>
-    <div id="dm-character-modal" class="hidden" aria-hidden="true">
-      <div id="dm-character-sheet"></div>
+    <div id="dm-character-modal" class="overlay hidden" aria-hidden="true">
       <button id="dm-character-close"></button>
+      <h3 id="dm-character-title"></h3>
+      <div id="dm-character-sheet"></div>
     </div>
     <div id="dm-mini-games-modal" class="overlay hidden" aria-hidden="true">
       <section class="modal dm-mini-games" data-view-allow>
