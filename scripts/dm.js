@@ -8968,6 +8968,164 @@ function initDMLogin(){
         if (!list.length) return '';
         return `<ul class="dm-characterEntries">${list.join('')}</ul>`;
       };
+
+      const isPlainObject = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+      const normalizeValue = value => {
+        if (typeof value === 'string') return value.trim();
+        if (Array.isArray(value)) return value.map(normalizeValue);
+        if (isPlainObject(value)) {
+          return Object.entries(value).reduce((acc, [key, val]) => {
+            acc[key] = normalizeValue(val);
+            return acc;
+          }, {});
+        }
+        return value;
+      };
+      const normalizeCollection = (collection, { coerceEntry, isMeaningful } = {}) => {
+        if (!Array.isArray(collection)) return [];
+        return collection
+          .map(rawEntry => {
+            const coerced = typeof coerceEntry === 'function' ? coerceEntry(rawEntry) : rawEntry;
+            if (coerced === null || coerced === undefined) return null;
+            if (typeof coerced === 'string') {
+              const trimmed = coerced.trim();
+              return trimmed ? trimmed : null;
+            }
+            if (isPlainObject(coerced) || Array.isArray(coerced)) {
+              return normalizeValue(coerced);
+            }
+            return coerced;
+          })
+          .filter(entry => {
+            if (!entry) return false;
+            if (typeof entry === 'string') return entry !== '';
+            if (isPlainObject(entry)) {
+              return typeof isMeaningful === 'function' ? isMeaningful(entry) : true;
+            }
+            return true;
+          });
+      };
+      const coerceInventoryEntry = entry => {
+        if (typeof entry === 'string') {
+          const trimmed = entry.trim();
+          return trimmed ? { name: trimmed } : null;
+        }
+        return isPlainObject(entry) ? entry : null;
+      };
+      const coercePowerEntry = entry => {
+        if (typeof entry === 'string') {
+          const trimmed = entry.trim();
+          return trimmed ? { name: trimmed } : null;
+        }
+        return isPlainObject(entry) ? entry : null;
+      };
+      const getWeaponDamageLabel = weapon => {
+        const { damage } = weapon || {};
+        if (!damage) return '';
+        if (isPlainObject(damage)) {
+          const parts = [];
+          if (hasMeaningfulValue(damage.dice)) parts.push(String(damage.dice));
+          if (hasMeaningfulValue(damage.type)) parts.push(String(damage.type));
+          if (hasMeaningfulValue(damage.bonus)) {
+            const bonusValue = toNumber(damage.bonus);
+            const bonusLabel = Number.isFinite(bonusValue) ? formatNumber(bonusValue) : String(damage.bonus);
+            parts.push(bonusValue !== null && bonusValue > 0 ? `+${bonusLabel}` : bonusLabel);
+          }
+          return parts.join(' ');
+        }
+        if (typeof damage === 'number') {
+          return formatNumber(damage);
+        }
+        return typeof damage === 'string' ? damage : '';
+      };
+      const hasWeaponContent = weapon => {
+        if (!isPlainObject(weapon)) return false;
+        const damageLabel = getWeaponDamageLabel(weapon);
+        return (
+          hasMeaningfulValue(weapon.name)
+          || hasMeaningfulValue(damageLabel)
+          || hasMeaningfulValue(weapon.range)
+          || hasMeaningfulValue(weapon.notes)
+          || hasMeaningfulValue(weapon.attackAbility)
+          || toBoolean(weapon.proficient)
+          || toBoolean(weapon.dmLock)
+        );
+      };
+      const hasArmorContent = armor => {
+        if (!isPlainObject(armor)) return false;
+        if (hasMeaningfulValue(armor.name)) return true;
+        if (hasMeaningfulValue(armor.slot)) return true;
+        const bonusValue = toNumber(armor.bonus);
+        if (bonusValue !== null) return true;
+        if (toBoolean(armor.equipped)) return true;
+        if (toBoolean(armor.dmLock)) return true;
+        return false;
+      };
+      const hasItemContent = item => {
+        if (!isPlainObject(item)) return false;
+        if (hasMeaningfulValue(item.name)) return true;
+        if (hasMeaningfulValue(item.notes)) return true;
+        const qtyValue = toNumber(item.qty);
+        if (qtyValue !== null) {
+          if (qtyValue !== 0) return true;
+        } else if (hasMeaningfulValue(item.qty)) {
+          return true;
+        }
+        if (toBoolean(item.dmLock)) return true;
+        return false;
+      };
+      const hasPowerContent = entry => {
+        if (!isPlainObject(entry)) return false;
+        const textFields = [
+          'name',
+          'style',
+          'effectTag',
+          'secondaryTag',
+          'actionType',
+          'range',
+          'shape',
+          'intensity',
+          'uses',
+          'duration',
+          'scaling',
+          'rulesText',
+          'description',
+          'special',
+          'legacyText',
+          'effect',
+          'notes',
+          'summary',
+          'save',
+          'saveAbilityTarget',
+          'type',
+        ];
+        if (textFields.some(key => hasMeaningfulValue(entry[key]))) return true;
+        if (hasMeaningfulValue(entry.spCost)) return true;
+        if (hasMeaningfulValue(entry.sp)) return true;
+        if (hasMeaningfulValue(entry.cooldown)) return true;
+        if (entry.requiresSave === true || entry.concentration === true || entry.signature === true) return true;
+        if (isPlainObject(entry.damage)) {
+          if (
+            hasMeaningfulValue(entry.damage.dice)
+            || hasMeaningfulValue(entry.damage.type)
+            || hasMeaningfulValue(entry.damage.onSave)
+          ) {
+            return true;
+          }
+        } else if (hasMeaningfulValue(entry.damage)) {
+          return true;
+        }
+        if (isPlainObject(entry.usageTracker)) {
+          if (
+            hasMeaningfulValue(entry.usageTracker.totalUses)
+            || hasMeaningfulValue(entry.usageTracker.remainingUses)
+            || hasMeaningfulValue(entry.usageTracker.cooldownRemaining)
+          ) {
+            return true;
+          }
+        }
+        return false;
+      };
       const pushBlock = (blocks, subtitle, body) => {
         if (!Array.isArray(blocks) || !body) return;
         blocks.push(`
@@ -9184,10 +9342,27 @@ function initDMLogin(){
       ];
       const resourceContent = renderDefinitionList(resourceFields);
 
-      const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
+      const renderPowerEntry = (rawEntry, { fallback = 'Power' } = {}) => {
+        if (rawEntry === null || rawEntry === undefined) return null;
+        let entry = rawEntry;
+        if (typeof entry === 'string') {
+          const trimmedName = entry.trim();
+          if (!trimmedName) return null;
+          entry = { name: trimmedName };
+        }
+        if (!isPlainObject(entry)) return null;
+        const normalizedEntry = normalizeValue(entry);
+        if (!isPlainObject(normalizedEntry)) return null;
         const fields = [];
+        let hasDetailContent = false;
         const addField = (term, value, options = {}) => {
-          fields.push({ term, value, ...options });
+          const allowZero = options.allowZero ?? true;
+          const normalizedValue = normalizeValue(value);
+          if (!hasMeaningfulValue(normalizedValue, { allowZero })) return;
+          fields.push({ term, value: normalizedValue, ...options });
+          if (term !== 'Name') {
+            hasDetailContent = true;
+          }
         };
         const formatCooldown = value => {
           const numeric = toNumber(value);
@@ -9222,151 +9397,179 @@ function initDMLogin(){
           return parts.join(' • ');
         };
 
-        if (entry && typeof entry === 'object') {
+        if (normalizedEntry && typeof normalizedEntry === 'object') {
           const isModern = (
-            entry.rulesText !== undefined
-            || entry.effectTag !== undefined
-            || entry.spCost !== undefined
-            || entry.intensity !== undefined
-            || entry.actionType !== undefined
-            || entry.signature
+            normalizedEntry.rulesText !== undefined
+            || normalizedEntry.effectTag !== undefined
+            || normalizedEntry.spCost !== undefined
+            || normalizedEntry.intensity !== undefined
+            || normalizedEntry.actionType !== undefined
+            || normalizedEntry.signature
           );
           if (isModern) {
             let costLabel = '';
-            if (hasMeaningfulValue(entry.spCost)) {
-              const costValue = toNumber(entry.spCost);
-              costLabel = Number.isFinite(costValue) ? `${formatNumber(costValue)} SP` : String(entry.spCost);
+            if (hasMeaningfulValue(normalizedEntry.spCost)) {
+              const costValue = toNumber(normalizedEntry.spCost);
+              costLabel = Number.isFinite(costValue) ? `${formatNumber(costValue)} SP` : String(normalizedEntry.spCost);
             }
-            addField('Name', entry.name || fallback);
-            addField('Style', entry.style);
-            addField('Effect', entry.effectTag);
-            addField('Secondary Effect', entry.secondaryTag);
-            addField('Action', entry.actionType);
-            addField('Range', entry.range);
-            addField('Shape', entry.shape);
-            addField('Intensity', entry.intensity);
-            addField('Uses', entry.uses);
-            addField('Cooldown', formatCooldown(entry.cooldown));
+            addField('Style', normalizedEntry.style);
+            addField('Effect', normalizedEntry.effectTag);
+            addField('Secondary Effect', normalizedEntry.secondaryTag);
+            addField('Action', normalizedEntry.actionType);
+            addField('Range', normalizedEntry.range);
+            addField('Shape', normalizedEntry.shape);
+            addField('Intensity', normalizedEntry.intensity);
+            addField('Uses', normalizedEntry.uses);
+            addField('Cooldown', formatCooldown(normalizedEntry.cooldown));
             addField('Cost', costLabel);
-            addField('Duration', entry.duration);
-            addField('Scaling', entry.scaling);
-            if (entry.requiresSave) {
-              addField('Save', entry.saveAbilityTarget);
+            addField('Duration', normalizedEntry.duration);
+            addField('Scaling', normalizedEntry.scaling);
+            if (normalizedEntry.requiresSave) {
+              addField('Save', normalizedEntry.saveAbilityTarget);
             }
-            if (entry.concentration) {
+            if (normalizedEntry.concentration) {
               addField('Concentration', 'Yes', { allowZero: false });
             }
-            const damageLabel = formatDamage(entry.damage);
+            const damageLabel = formatDamage(normalizedEntry.damage);
             if (damageLabel) {
               addField('Damage', damageLabel);
             }
-            if (entry?.damage?.onSave) {
-              addField('On Save', entry.damage.onSave);
+            if (normalizedEntry?.damage?.onSave) {
+              addField('On Save', normalizedEntry.damage.onSave);
             }
-            const usageSummary = formatUsageTracker(entry.usageTracker);
+            const usageSummary = formatUsageTracker(normalizedEntry.usageTracker);
             if (usageSummary) {
               addField('Usage Tracker', usageSummary);
             }
-            addField('Rules', entry.rulesText, { multiline: true });
-            addField('Description', entry.description, { multiline: true });
-            addField('Special', entry.special, { multiline: true });
-            if (hasMeaningfulValue(entry.legacyText)) {
-              addField('Legacy Notes', entry.legacyText, { multiline: true });
+            addField('Rules', normalizedEntry.rulesText, { multiline: true });
+            addField('Description', normalizedEntry.description, { multiline: true });
+            addField('Special', normalizedEntry.special, { multiline: true });
+            if (hasMeaningfulValue(normalizedEntry.legacyText)) {
+              addField('Legacy Notes', normalizedEntry.legacyText, { multiline: true });
             }
           } else {
-            const legacyDesc = entry.description ?? entry.desc;
-            addField('Name', entry.name || fallback);
-            addField('SP Cost', entry.sp);
-            addField('Save', entry.save);
-            addField('Special', entry.special, { multiline: true });
+            const legacyDesc = normalizedEntry.description ?? normalizedEntry.desc;
+            addField('SP Cost', normalizedEntry.sp);
+            addField('Save', normalizedEntry.save);
+            addField('Special', normalizedEntry.special, { multiline: true });
             addField('Description', legacyDesc, { multiline: true });
           }
-        } else {
-          addField('Name', fallback);
         }
+        const nameValue = hasMeaningfulValue(normalizedEntry.name) ? normalizedEntry.name : '';
+        if (!hasDetailContent && !nameValue) {
+          return null;
+        }
+        const displayName = nameValue || fallback;
+        fields.unshift({ term: 'Name', value: displayName });
         const details = renderDefinitionList(fields, { layout: 'stack' });
-        if (!details) return '';
+        if (!details) return null;
         return `<li class="dm-characterEntry">${details}</li>`;
       };
 
       const renderInventoryEntry = (fields = []) => {
         const details = renderDefinitionList(fields, { layout: 'stack' });
-        if (!details) return '';
+        if (!details) return null;
         return `<li class="dm-characterEntry">${details}</li>`;
       };
 
       const powersContent = renderEntryList(
-        Array.isArray(data?.powers)
-          ? data.powers.map(power => renderPowerEntry(power, { fallback: 'Power' })).filter(Boolean)
-          : []
+        normalizeCollection(data?.powers, { coerceEntry: coercePowerEntry, isMeaningful: hasPowerContent })
+          .map(power => renderPowerEntry(power, { fallback: 'Power' }))
+          .filter(Boolean)
       );
       const signaturesContent = renderEntryList(
-        Array.isArray(data?.signatures)
-          ? data.signatures.map(sig => renderPowerEntry(sig, { fallback: 'Signature' })).filter(Boolean)
-          : []
+        normalizeCollection(data?.signatures, { coerceEntry: coercePowerEntry, isMeaningful: hasPowerContent })
+          .map(sig => renderPowerEntry(sig, { fallback: 'Signature' }))
+          .filter(Boolean)
       );
 
       const weaponsContent = renderEntryList(
-        Array.isArray(data?.weapons)
-          ? data.weapons.map(weapon => {
-              if (!weapon || typeof weapon !== 'object') return '';
-              const fields = [
-                { term: 'Name', value: weapon.name || 'Weapon' },
-                { term: 'Damage', value: weapon.damage },
-                { term: 'Range', value: weapon.range },
-              ];
-              if (hasMeaningfulValue(weapon.attackAbility)) {
-                fields.push({ term: 'Attack Ability', value: String(weapon.attackAbility).toUpperCase() });
-              }
-              if (toBoolean(weapon.proficient)) {
-                fields.push({ term: 'Proficient', value: 'Yes', allowZero: false });
-              }
-              if (toBoolean(weapon.dmLock)) {
-                fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
-              }
-              return renderInventoryEntry(fields);
-            }).filter(Boolean)
-          : []
+        normalizeCollection(data?.weapons, { coerceEntry: coerceInventoryEntry, isMeaningful: hasWeaponContent })
+          .map(weapon => {
+            if (!isPlainObject(weapon)) return null;
+            const nameValue = hasMeaningfulValue(weapon.name) ? weapon.name : '';
+            const damageLabel = getWeaponDamageLabel(weapon);
+            const fields = [];
+            if (hasMeaningfulValue(damageLabel)) {
+              fields.push({ term: 'Damage', value: damageLabel });
+            }
+            if (hasMeaningfulValue(weapon.range)) {
+              fields.push({ term: 'Range', value: weapon.range });
+            }
+            if (hasMeaningfulValue(weapon.attackAbility)) {
+              fields.push({ term: 'Attack Ability', value: String(weapon.attackAbility).toUpperCase() });
+            }
+            if (hasMeaningfulValue(weapon.notes)) {
+              fields.push({ term: 'Notes', value: weapon.notes, multiline: true });
+            }
+            if (toBoolean(weapon.proficient)) {
+              fields.push({ term: 'Proficient', value: 'Yes', allowZero: false });
+            }
+            if (toBoolean(weapon.dmLock)) {
+              fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+            }
+            if (!hasMeaningfulValue(nameValue) && !fields.length) return null;
+            const displayName = hasMeaningfulValue(nameValue) ? nameValue : 'Weapon';
+            return renderInventoryEntry([{ term: 'Name', value: displayName }, ...fields]);
+          })
+          .filter(Boolean)
       );
 
       const armorContent = renderEntryList(
-        Array.isArray(data?.armor)
-          ? data.armor.map(entry => {
-              if (!entry || typeof entry !== 'object') return '';
-              const bonus = toNumber(entry.bonus);
-              const fields = [
-                { term: 'Name', value: entry.name || 'Armor' },
-                { term: 'Slot', value: entry.slot },
-              ];
-              if (bonus !== null) {
-                fields.push({ term: 'Bonus', value: bonus >= 0 ? `+${formatNumber(bonus)}` : formatNumber(bonus) });
-              }
-              if (toBoolean(entry.equipped)) {
-                fields.push({ term: 'Equipped', value: 'Yes', allowZero: false });
-              }
-              if (toBoolean(entry.dmLock)) {
-                fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
-              }
-              return renderInventoryEntry(fields);
-            }).filter(Boolean)
-          : []
+        normalizeCollection(data?.armor, { coerceEntry: coerceInventoryEntry, isMeaningful: hasArmorContent })
+          .map(entry => {
+            if (!isPlainObject(entry)) return null;
+            const nameValue = hasMeaningfulValue(entry.name) ? entry.name : '';
+            const bonus = toNumber(entry.bonus);
+            const fields = [];
+            if (hasMeaningfulValue(entry.slot)) {
+              fields.push({ term: 'Slot', value: entry.slot });
+            }
+            if (bonus !== null) {
+              fields.push({ term: 'Bonus', value: bonus >= 0 ? `+${formatNumber(bonus)}` : formatNumber(bonus) });
+            }
+            if (toBoolean(entry.equipped)) {
+              fields.push({ term: 'Equipped', value: 'Yes', allowZero: false });
+            }
+            if (toBoolean(entry.dmLock)) {
+              fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+            }
+            if (!hasMeaningfulValue(nameValue) && !fields.length) return null;
+            const displayName = hasMeaningfulValue(nameValue) ? nameValue : 'Armor';
+            return renderInventoryEntry([{ term: 'Name', value: displayName }, ...fields]);
+          })
+          .filter(Boolean)
       );
 
       const itemsContent = renderEntryList(
-        Array.isArray(data?.items)
-          ? data.items.map(item => {
-              if (!item || typeof item !== 'object') return '';
-              const fields = [
-                { term: 'Name', value: item.name || 'Item' },
-                { term: 'Qty', value: item.qty },
-                { term: 'Notes', value: item.notes, multiline: true },
-              ];
-              if (toBoolean(item.dmLock)) {
-                fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+        normalizeCollection(data?.items, { coerceEntry: coerceInventoryEntry, isMeaningful: hasItemContent })
+          .map(item => {
+            if (!isPlainObject(item)) return null;
+            const nameValue = hasMeaningfulValue(item.name) ? item.name : '';
+            const qtyNumber = toNumber(item.qty);
+            let qtyLabel = '';
+            if (qtyNumber !== null) {
+              if (qtyNumber !== 0) {
+                qtyLabel = formatNumber(qtyNumber);
               }
-              return renderInventoryEntry(fields);
-            }).filter(Boolean)
-          : []
+            } else if (hasMeaningfulValue(item.qty)) {
+              qtyLabel = String(item.qty);
+            }
+            const fields = [];
+            if (qtyLabel) {
+              fields.push({ term: 'Qty', value: qtyLabel });
+            }
+            if (hasMeaningfulValue(item.notes)) {
+              fields.push({ term: 'Notes', value: item.notes, multiline: true });
+            }
+            if (toBoolean(item.dmLock)) {
+              fields.push({ term: 'DM Locked', value: 'Yes', allowZero: false });
+            }
+            if (!hasMeaningfulValue(nameValue) && !fields.length) return null;
+            const displayName = hasMeaningfulValue(nameValue) ? nameValue : 'Item';
+            return renderInventoryEntry([{ term: 'Name', value: displayName }, ...fields]);
+          })
+          .filter(Boolean)
       );
 
       const augmentState = parseJsonField(data?.augmentState, null) || parseJsonField(data?.['augment-state'], null);
