@@ -460,9 +460,22 @@ async function attemptCloudSave(name, payload, ts) {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  localStorage.setItem('last-save', name);
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem('last-save', name);
+    } catch (err) {
+      console.error('Failed to record last cloud save locally', err);
+      emitSyncError({
+        message: 'Failed to record last cloud save locally',
+        error: err,
+        name,
+        timestamp: Date.now(),
+      });
+    }
+  }
 
   await saveHistoryEntry(CLOUD_HISTORY_URL, name, payload, ts);
+  return res;
 }
 
 export async function appendCampaignLogEntry(entry = {}) {
