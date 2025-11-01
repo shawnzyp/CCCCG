@@ -20341,6 +20341,62 @@ let autoSaveDirty = false;
 let lastSyncedSnapshotJson = null;
 let pendingAutoSaveSnapshot = null;
 let pendingAutoSaveJson = null;
+const pendingAutosaveStorageErrors = [];
+let recordAutosaveStorageError = entry => {
+  pendingAutosaveStorageErrors.push(entry);
+};
+
+const AUTOSAVE_STORAGE_ERROR_TOAST_INTERVAL = 120000;
+let lastAutosaveStorageErrorToastAt = 0;
+let lastAutosaveStorageErrorLoggedAt = 0;
+
+function isLocalStorageQuotaError(err) {
+  if (!err) return false;
+  const name = typeof err.name === 'string' ? err.name : '';
+  const code = typeof err.code === 'number' ? err.code : null;
+  if (name === 'QuotaExceededError' || name === 'NS_ERROR_DOM_QUOTA_REACHED') return true;
+  if (code === 22 || code === 1014) return true;
+  if (typeof DOMException !== 'undefined' && err instanceof DOMException) {
+    if (err.code === DOMException.QUOTA_EXCEEDED_ERR) return true;
+  }
+  return false;
+}
+
+function isLocalStorageSecurityError(err) {
+  if (!err) return false;
+  const name = typeof err.name === 'string' ? err.name : '';
+  const code = typeof err.code === 'number' ? err.code : null;
+  return name === 'SecurityError' || code === 18;
+}
+
+function handleAutosaveStorageError(err) {
+  const quotaError = isLocalStorageQuotaError(err);
+  const securityError = !quotaError && isLocalStorageSecurityError(err);
+  if (!quotaError && !securityError) {
+    return;
+  }
+  const now = Date.now();
+  const message = quotaError
+    ? 'Autosave paused: local storage is full. Free up space to resume.'
+    : 'Autosave paused: local storage is unavailable. Free up space or enable storage to resume.';
+  if (now - lastAutosaveStorageErrorToastAt > AUTOSAVE_STORAGE_ERROR_TOAST_INTERVAL) {
+    lastAutosaveStorageErrorToastAt = now;
+    try {
+      toast(message, { type: 'error', duration: 10000, meta: { source: 'autosave-storage' } });
+    } catch {}
+  }
+  if (now - lastAutosaveStorageErrorLoggedAt > AUTOSAVE_STORAGE_ERROR_TOAST_INTERVAL) {
+    lastAutosaveStorageErrorLoggedAt = now;
+    const errorMessage = err && typeof err.message === 'string' ? err.message : null;
+    const detail = errorMessage && errorMessage !== message ? errorMessage : null;
+    recordAutosaveStorageError({
+      message,
+      detail,
+      timestamp: now,
+      name: currentCharacter() || null,
+    });
+  }
+}
 
 function captureAutosaveSnapshot(options = {}) {
   const { markSynced = false } = options;
@@ -20371,6 +20427,7 @@ function captureAutosaveSnapshot(options = {}) {
     localStorage.setItem(AUTO_KEY, serialized);
   } catch (e) {
     console.error('Autosave failed', e);
+    handleAutosaveStorageError(e);
   }
 
   if (markSynced) {
@@ -20757,6 +20814,32 @@ const relativeTimeFormatter = (typeof Intl !== 'undefined' && typeof Intl.Relati
   : null;
 const syncErrorLog = [];
 const SYNC_ERROR_LIMIT = 8;
+
+function appendSyncErrorEntry(entry = {}) {
+  const timestamp = Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now();
+  const message = typeof entry.message === 'string' && entry.message.trim()
+    ? entry.message.trim()
+    : 'Cloud sync error';
+  const detail = typeof entry.detail === 'string' && entry.detail.trim() ? entry.detail.trim() : null;
+  const name = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : null;
+  syncErrorLog.unshift({
+    id: `${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+    message,
+    detail,
+    timestamp,
+    name,
+  });
+  if (syncErrorLog.length > SYNC_ERROR_LIMIT) {
+    syncErrorLog.length = SYNC_ERROR_LIMIT;
+  }
+  renderSyncErrors();
+}
+
+recordAutosaveStorageError = entry => appendSyncErrorEntry(entry);
+if (pendingAutosaveStorageErrors.length) {
+  const queuedEntries = pendingAutosaveStorageErrors.splice(0, pendingAutosaveStorageErrors.length);
+  queuedEntries.forEach(appendSyncErrorEntry);
+}
 const manualSyncButtons = [syncPanelSyncNowBtn, syncPanelRetryBtn].filter(Boolean);
 let syncPanelOpen = false;
 let queueRefreshPromise = null;
@@ -21350,17 +21433,7 @@ subscribeSyncErrors(payload => {
     return null;
   })();
   const name = payload && typeof payload === 'object' && typeof payload.name === 'string' && payload.name ? payload.name : null;
-  syncErrorLog.unshift({
-    id: `${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
-    message,
-    detail,
-    timestamp,
-    name,
-  });
-  if (syncErrorLog.length > SYNC_ERROR_LIMIT) {
-    syncErrorLog.length = SYNC_ERROR_LIMIT;
-  }
-  renderSyncErrors();
+  appendSyncErrorEntry({ message, detail, timestamp, name });
 });
 
 subscribeSyncActivity(event => {
