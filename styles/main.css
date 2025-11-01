@@ -6798,7 +6798,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone {
   --player-tools-safe-area-top: max(10px, env(safe-area-inset-top));
-  --player-tools-status-bar-height: clamp(66px, 15vw, 88px);
+  --player-tools-status-bar-height: clamp(54px, 13vw, 70px);
   --player-tools-status-bar-offset: calc(
     var(--player-tools-status-bar-height) + var(--player-tools-safe-area-top)
   );
@@ -6813,28 +6813,44 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-phone__status-bar {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(10px, 2.6vw, 18px);
-  padding: clamp(12px, 3vw, 18px) clamp(18px, 4.6vw, 26px);
-  inline-size: min(100%, clamp(340px, 92vw, 520px));
-  margin-inline: auto;
-  border-radius: clamp(18px, 5vw, 28px);
-  background: linear-gradient(180deg, rgba(7, 9, 14, 0.98), rgba(4, 6, 12, 0.98));
+  gap: clamp(12px, 3.2vw, 20px);
+  padding-inline: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(10px, 2.8vw, 16px));
+  padding-block-end: clamp(10px, 2.8vw, 16px);
+  min-block-size: calc(var(--player-tools-safe-area-top) + var(--player-tools-status-bar-height));
+  color: rgba(214, 230, 255, 0.94);
+  background: var(
+    --player-tools-screen-glass,
+    linear-gradient(205deg, rgba(20, 32, 48, 0.95), rgba(10, 16, 28, 0.98))
+  );
   box-shadow:
-    0 16px 34px rgba(3, 6, 12, 0.6),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  color: rgba(245, 247, 255, 0.96);
-  position: sticky;
-  top: var(--player-tools-safe-area-top);
-  z-index: 3;
-  isolation: isolate;
-  margin-block-end: clamp(12px, 2.4vw, 18px);
+    inset 0 -1px 0 rgba(110, 170, 255, 0.25),
+    inset 0 1px 0 rgba(5, 8, 14, 0.6);
+  backdrop-filter: inherit;
 }
 
 .player-tools-phone__status-bar::after {
-  content: none;
+  content: '';
+  position: absolute;
+  inset-inline: calc(var(--player-tools-screen-padding) + clamp(10px, 2.6vw, 16px));
+  inset-block-end: clamp(4px, 1.2vw, 8px);
+  block-size: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(120, 190, 255, 0),
+    rgba(120, 190, 255, 0.55),
+    rgba(120, 190, 255, 0)
+  );
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .player-tools-phone__status-group {
@@ -6890,13 +6906,19 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone__screen {
   --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-glass: linear-gradient(
+    205deg,
+    rgba(20, 32, 48, 0.95),
+    rgba(12, 18, 30, 0.98)
+  );
   position: relative;
   flex: 1;
   display: flex;
   border-radius: clamp(26px, 6vw, 34px);
-  background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
+  background: var(--player-tools-screen-glass);
   box-shadow:
-    inset 0 0 0 1px rgba(110, 170, 255, 0.2),
+    inset 0 0 0 1px rgba(110, 170, 255, 0.22),
+    inset 0 -1px 0 rgba(6, 10, 18, 0.6),
     0 22px 52px rgba(2, 6, 12, 0.65);
   backdrop-filter: blur(22px) saturate(170%);
   overflow: hidden;
@@ -6909,7 +6931,6 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   flex: 1;
   padding: var(--player-tools-screen-padding);
   padding-block-start: calc(var(--player-tools-screen-padding) + var(--player-tools-status-bar-offset));
-  margin-block-start: calc(-1 * var(--player-tools-status-bar-offset));
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
@@ -7302,7 +7323,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone {
   --player-tools-safe-area-top: max(10px, env(safe-area-inset-top));
-  --player-tools-status-bar-height: clamp(66px, 15vw, 88px);
+  --player-tools-status-bar-height: clamp(54px, 13vw, 70px);
   --player-tools-status-bar-offset: calc(
     var(--player-tools-status-bar-height) + var(--player-tools-safe-area-top)
   );
@@ -7316,35 +7337,42 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-phone__status-bar {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(14px, 3.6vw, 24px);
-  padding: clamp(16px, 3.8vw, 22px) clamp(24px, 5vw, 32px);
-  inline-size: min(100%, clamp(340px, 88vw, 500px));
-  margin-inline: auto;
-  border-radius: clamp(28px, 6vw, 36px);
-  background: linear-gradient(180deg, rgba(16, 24, 36, 0.92), rgba(10, 16, 26, 0.95));
-  box-shadow:
-    0 20px 44px rgba(3, 8, 18, 0.6),
-    inset 0 0 0 1px rgba(108, 168, 255, 0.22);
-  backdrop-filter: blur(18px) saturate(170%);
+  gap: clamp(14px, 3.4vw, 22px);
+  padding-inline: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(12px, 3.2vw, 18px));
+  padding-block-end: clamp(12px, 3.2vw, 18px);
+  min-block-size: calc(var(--player-tools-safe-area-top) + var(--player-tools-status-bar-height));
   color: rgba(214, 230, 255, 0.94);
-  position: sticky;
-  top: var(--player-tools-safe-area-top);
-  z-index: 3;
-  isolation: isolate;
-  margin-block-end: clamp(10px, 2.2vw, 16px);
+  background: var(
+    --player-tools-screen-glass,
+    linear-gradient(205deg, rgba(20, 32, 48, 0.95), rgba(10, 16, 28, 0.98))
+  );
+  box-shadow:
+    inset 0 -1px 0 rgba(110, 170, 255, 0.25),
+    inset 0 1px 0 rgba(5, 8, 14, 0.6);
+  backdrop-filter: inherit;
 }
 
 .player-tools-phone__status-bar::after {
   content: '';
   position: absolute;
-  inset-inline: clamp(18px, 4vw, 30px);
+  inset-inline: calc(var(--player-tools-screen-padding) + clamp(12px, 3vw, 18px));
   inset-block-end: clamp(6px, 1.6vw, 12px);
   block-size: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(120, 190, 255, 0), rgba(120, 190, 255, 0.55), rgba(120, 190, 255, 0));
+  background: linear-gradient(
+    90deg,
+    rgba(120, 190, 255, 0),
+    rgba(120, 190, 255, 0.55),
+    rgba(120, 190, 255, 0)
+  );
   opacity: 0.7;
   pointer-events: none;
 }
@@ -7375,13 +7403,19 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone__screen {
   --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-glass: linear-gradient(
+    205deg,
+    rgba(20, 32, 48, 0.95),
+    rgba(12, 18, 30, 0.98)
+  );
   position: relative;
   flex: 1;
   display: flex;
   border-radius: clamp(26px, 6vw, 34px);
-  background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
+  background: var(--player-tools-screen-glass);
   box-shadow:
-    inset 0 0 0 1px rgba(110, 170, 255, 0.2),
+    inset 0 0 0 1px rgba(110, 170, 255, 0.22),
+    inset 0 -1px 0 rgba(6, 10, 18, 0.6),
     0 22px 52px rgba(2, 6, 12, 0.65);
   backdrop-filter: blur(22px) saturate(170%);
   overflow: hidden;
@@ -7715,7 +7749,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone {
   --player-tools-safe-area-top: max(10px, env(safe-area-inset-top));
-  --player-tools-status-bar-height: clamp(66px, 15vw, 88px);
+  --player-tools-status-bar-height: clamp(54px, 13vw, 70px);
   --player-tools-status-bar-offset: calc(
     var(--player-tools-status-bar-height) + var(--player-tools-safe-area-top)
   );
@@ -7729,35 +7763,42 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-phone__status-bar {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(14px, 3.6vw, 24px);
-  padding: clamp(16px, 3.8vw, 22px) clamp(24px, 5vw, 32px);
-  inline-size: min(100%, clamp(340px, 88vw, 500px));
-  margin-inline: auto;
-  border-radius: clamp(28px, 6vw, 36px);
-  background: linear-gradient(180deg, rgba(16, 24, 36, 0.92), rgba(10, 16, 26, 0.95));
-  box-shadow:
-    0 20px 44px rgba(3, 8, 18, 0.6),
-    inset 0 0 0 1px rgba(108, 168, 255, 0.22);
-  backdrop-filter: blur(18px) saturate(170%);
+  gap: clamp(14px, 3.4vw, 22px);
+  padding-inline: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(12px, 3.2vw, 18px));
+  padding-block-end: clamp(12px, 3.2vw, 18px);
+  min-block-size: calc(var(--player-tools-safe-area-top) + var(--player-tools-status-bar-height));
   color: rgba(214, 230, 255, 0.94);
-  position: sticky;
-  top: var(--player-tools-safe-area-top);
-  z-index: 3;
-  isolation: isolate;
-  margin-block-end: clamp(10px, 2.2vw, 16px);
+  background: var(
+    --player-tools-screen-glass,
+    linear-gradient(205deg, rgba(20, 32, 48, 0.95), rgba(10, 16, 28, 0.98))
+  );
+  box-shadow:
+    inset 0 -1px 0 rgba(110, 170, 255, 0.25),
+    inset 0 1px 0 rgba(5, 8, 14, 0.6);
+  backdrop-filter: inherit;
 }
 
 .player-tools-phone__status-bar::after {
   content: '';
   position: absolute;
-  inset-inline: clamp(18px, 4vw, 30px);
+  inset-inline: calc(var(--player-tools-screen-padding) + clamp(12px, 3vw, 18px));
   inset-block-end: clamp(6px, 1.6vw, 12px);
   block-size: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(120, 190, 255, 0), rgba(120, 190, 255, 0.55), rgba(120, 190, 255, 0));
+  background: linear-gradient(
+    90deg,
+    rgba(120, 190, 255, 0),
+    rgba(120, 190, 255, 0.55),
+    rgba(120, 190, 255, 0)
+  );
   opacity: 0.7;
   pointer-events: none;
 }
@@ -7788,13 +7829,19 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone__screen {
   --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-glass: linear-gradient(
+    205deg,
+    rgba(20, 32, 48, 0.95),
+    rgba(12, 18, 30, 0.98)
+  );
   position: relative;
   flex: 1;
   display: flex;
   border-radius: clamp(26px, 6vw, 34px);
-  background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
+  background: var(--player-tools-screen-glass);
   box-shadow:
-    inset 0 0 0 1px rgba(110, 170, 255, 0.2),
+    inset 0 0 0 1px rgba(110, 170, 255, 0.22),
+    inset 0 -1px 0 rgba(6, 10, 18, 0.6),
     0 22px 52px rgba(2, 6, 12, 0.65);
   backdrop-filter: blur(22px) saturate(170%);
   overflow: hidden;
@@ -8038,7 +8085,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone {
   --player-tools-safe-area-top: max(10px, env(safe-area-inset-top));
-  --player-tools-status-bar-height: clamp(66px, 15vw, 88px);
+  --player-tools-status-bar-height: clamp(54px, 13vw, 70px);
   --player-tools-status-bar-offset: calc(
     var(--player-tools-status-bar-height) + var(--player-tools-safe-area-top)
   );
@@ -8052,28 +8099,44 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-phone__status-bar {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: clamp(10px, 2.6vw, 18px);
-  padding: clamp(12px, 3vw, 18px) clamp(18px, 4.6vw, 26px);
-  inline-size: min(100%, clamp(340px, 92vw, 520px));
-  margin-inline: auto;
-  border-radius: clamp(18px, 5vw, 28px);
-  background: linear-gradient(180deg, rgba(7, 9, 14, 0.98), rgba(4, 6, 12, 0.98));
-  box-shadow:
-    0 16px 34px rgba(3, 6, 12, 0.6),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding-inline: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(10px, 2.8vw, 16px));
+  padding-block-end: clamp(10px, 2.8vw, 16px);
+  min-block-size: calc(var(--player-tools-safe-area-top) + var(--player-tools-status-bar-height));
   color: rgba(245, 247, 255, 0.96);
-  position: sticky;
-  top: var(--player-tools-safe-area-top);
-  z-index: 3;
-  isolation: isolate;
-  margin-block-end: clamp(12px, 2.4vw, 18px);
+  background: var(
+    --player-tools-screen-glass,
+    linear-gradient(205deg, rgba(20, 32, 48, 0.95), rgba(10, 16, 28, 0.98))
+  );
+  box-shadow:
+    inset 0 -1px 0 rgba(110, 170, 255, 0.25),
+    inset 0 1px 0 rgba(5, 8, 14, 0.6);
+  backdrop-filter: inherit;
 }
 
 .player-tools-phone__status-bar::after {
-  content: none;
+  content: '';
+  position: absolute;
+  inset-inline: calc(var(--player-tools-screen-padding) + clamp(10px, 2.6vw, 16px));
+  inset-block-end: clamp(4px, 1.2vw, 8px);
+  block-size: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(120, 190, 255, 0),
+    rgba(120, 190, 255, 0.55),
+    rgba(120, 190, 255, 0)
+  );
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .player-tools-phone__status-group {
@@ -8128,13 +8191,19 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 .player-tools-phone__screen {
   --player-tools-screen-padding: clamp(14px, 2.8vw, 22px);
+  --player-tools-screen-glass: linear-gradient(
+    205deg,
+    rgba(20, 32, 48, 0.95),
+    rgba(12, 18, 30, 0.98)
+  );
   position: relative;
   flex: 1;
   display: flex;
   border-radius: clamp(26px, 6vw, 34px);
-  background: linear-gradient(200deg, rgba(20, 32, 48, 0.92), rgba(12, 18, 30, 0.96));
+  background: var(--player-tools-screen-glass);
   box-shadow:
-    inset 0 0 0 1px rgba(110, 170, 255, 0.2),
+    inset 0 0 0 1px rgba(110, 170, 255, 0.22),
+    inset 0 -1px 0 rgba(6, 10, 18, 0.6),
     0 22px 52px rgba(2, 6, 12, 0.65);
   backdrop-filter: blur(22px) saturate(170%);
   overflow: hidden;
@@ -8528,6 +8597,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-phone {
   --player-tools-frame-radius: clamp(34px, 8vw, 44px);
   --player-tools-frame-padding: clamp(12px, 3vw, 18px);
+  --player-tools-safe-area-top: max(10px, env(safe-area-inset-top));
+  --player-tools-status-bar-height: clamp(54px, 13vw, 70px);
+  --player-tools-status-bar-offset: calc(
+    var(--player-tools-status-bar-height) + var(--player-tools-safe-area-top)
+  );
   position: relative;
   display: flex;
   flex-direction: column;
@@ -8562,45 +8636,58 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone__screen {
   --player-tools-screen-padding: clamp(18px, 4vw, 26px);
+  --player-tools-screen-glass: linear-gradient(
+    205deg,
+    rgba(18, 30, 48, 0.96),
+    rgba(8, 12, 24, 0.98)
+  );
+  position: relative;
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: clamp(18px, 3vw, 24px);
-  padding: var(--player-tools-screen-padding);
   border-radius: calc(var(--player-tools-frame-radius) - clamp(10px, 2.6vw, 16px));
-  background: linear-gradient(200deg, rgba(18, 30, 48, 0.96), rgba(8, 12, 24, 0.98));
+  background: var(--player-tools-screen-glass);
   box-shadow:
-    inset 0 0 0 1px rgba(118, 180, 255, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px rgba(118, 180, 255, 0.2),
+    inset 0 -1px 0 rgba(6, 10, 18, 0.55),
     0 14px 30px rgba(2, 6, 18, 0.55);
+  backdrop-filter: blur(22px) saturate(170%);
+  overflow: hidden;
 }
 
 .player-tools-phone__status-bar {
-  position: sticky;
+  position: absolute;
+  inset-inline: 0;
   top: 0;
   z-index: 2;
-  isolation: isolate;
-  margin-inline: auto;
-  inline-size: 100%;
-  margin-block-end: 0;
-  border-radius: clamp(18px, 4.8vw, 28px);
-  background: linear-gradient(180deg, rgba(14, 20, 32, 0.95), rgba(6, 8, 18, 0.94));
-  box-shadow:
-    inset 0 0 0 1px rgba(132, 196, 255, 0.22),
-    inset 0 -12px 16px rgba(0, 0, 0, 0.35),
-    0 12px 22px rgba(2, 6, 18, 0.45);
-  padding: clamp(12px, 2.8vw, 18px) clamp(20px, 4.4vw, 30px);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
   gap: clamp(12px, 3vw, 18px);
+  padding-inline: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(12px, 3vw, 18px));
+  padding-block-end: clamp(12px, 3vw, 18px);
+  min-block-size: calc(var(--player-tools-safe-area-top) + var(--player-tools-status-bar-height));
+  color: rgba(230, 240, 255, 0.97);
+  background: var(--player-tools-screen-glass);
+  box-shadow:
+    inset 0 -1px 0 rgba(132, 196, 255, 0.24),
+    inset 0 1px 0 rgba(6, 10, 18, 0.6);
+  backdrop-filter: inherit;
 }
 
 .player-tools-phone__status-bar::after {
   content: '';
   position: absolute;
-  inset-inline: clamp(24px, 5vw, 36px);
-  inset-block-end: clamp(5px, 1vw, 9px);
-  height: 2px;
+  inset-inline: calc(var(--player-tools-screen-padding) + clamp(12px, 3vw, 18px));
+  inset-block-end: clamp(6px, 1.2vw, 10px);
+  block-size: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(120, 200, 255, 0), rgba(120, 200, 255, 0.75), rgba(120, 200, 255, 0));
+  background: linear-gradient(
+    90deg,
+    rgba(120, 200, 255, 0),
+    rgba(120, 200, 255, 0.75),
+    rgba(120, 200, 255, 0)
+  );
   opacity: 0.7;
   pointer-events: none;
 }
@@ -8626,21 +8713,21 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone__viewport {
   flex: 1;
-  overflow-y: auto;
-  margin: 0;
   display: flex;
   flex-direction: column;
   gap: clamp(18px, 3vw, 24px);
-  padding: clamp(18px, 3.6vw, 26px);
+  padding: var(--player-tools-screen-padding);
+  padding-block-start: calc(var(--player-tools-screen-padding) + var(--player-tools-status-bar-offset));
+  overflow-y: auto;
   border-radius: clamp(20px, 5vw, 28px);
   background: linear-gradient(200deg, rgba(10, 16, 28, 0.68), rgba(10, 16, 26, 0.92));
   box-shadow:
     inset 0 0 0 1px rgba(112, 176, 255, 0.16),
     inset 0 0 24px rgba(26, 42, 70, 0.28);
-  scroll-padding-top: clamp(18px, 3vw, 24px);
-  padding-block-start: clamp(18px, 3.6vw, 26px);
-  margin-block-start: 0;
+  scroll-padding-top: calc(var(--player-tools-screen-padding) + var(--player-tools-status-bar-offset));
   backdrop-filter: blur(18px) saturate(160%);
+  scrollbar-gutter: stable both-edges;
+  overscroll-behavior: contain;
 }
 
 .player-tools-phone .roll-tools-card {
@@ -8690,11 +8777,14 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 
   .player-tools-phone__status-bar {
-    padding: clamp(10px, 5vw, 16px) clamp(16px, 6vw, 24px);
+    gap: clamp(10px, 4vw, 18px);
+    padding-inline: clamp(16px, 6vw, 24px);
+    padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(10px, 5vw, 16px));
+    padding-block-end: clamp(10px, 5vw, 16px);
   }
 
   .player-tools-phone__viewport {
-    padding: clamp(16px, 6vw, 22px);
+    gap: clamp(16px, 5vw, 22px);
   }
 }
 
