@@ -34,8 +34,6 @@ const DM_LOGIN_LAST_FAILURE_KEY = 'dmLoginLastFailureAt';
 const DM_LOGIN_LOCK_UNTIL_KEY = 'dmLoginLockUntil';
 const DM_LOGIN_MAX_FAILURES = 3;
 const DM_LOGIN_COOLDOWN_MS = 30_000;
-const DM_DEFAULT_SESSION_TIMEOUT_MS = 60 * 60 * 1000;
-const DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS = 60 * 1000;
 const DM_PERSISTENT_SESSION_KEY = 'cc:dm:persistent-session';
 const DM_PERSISTENT_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const CLOUD_DM_SESSIONS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/dm-sessions';
@@ -369,45 +367,6 @@ async function invalidatePersistentSession({ reason } = {}) {
     if (reason !== 'silent') {
       console.warn('Failed to invalidate DM persistent session', err);
     }
-  }
-}
-
-function getSessionTimeoutMs() {
-  if (typeof window !== 'undefined') {
-    const candidate = window?.dmLoginTimeoutMs;
-    const parsed = Number(candidate);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
-    }
-    if (candidate === 0 || candidate === '0') {
-      return 0;
-    }
-  }
-  return DM_DEFAULT_SESSION_TIMEOUT_MS;
-}
-
-function getSessionWarningThresholdMs() {
-  if (typeof window !== 'undefined') {
-    const msCandidate = window?.dmSessionWarningThresholdMs;
-    const parsedMs = Number(msCandidate);
-    if (Number.isFinite(parsedMs)) {
-      return Math.max(0, parsedMs);
-    }
-    const secondsCandidate = window?.dmSessionWarningThresholdSeconds;
-    const parsedSeconds = Number(secondsCandidate);
-    if (Number.isFinite(parsedSeconds)) {
-      return Math.max(0, parsedSeconds * 1000);
-    }
-  }
-  return DM_DEFAULT_SESSION_WARNING_THRESHOLD_MS;
-}
-
-function touchSessionActivity(timestamp = Date.now()) {
-  try {
-    if (sessionStorage.getItem(DM_LOGIN_FLAG_KEY) !== '1') return;
-    sessionStorage.setItem(DM_LOGIN_LAST_ACTIVE_KEY, String(timestamp));
-  } catch {
-    /* ignore */
   }
 }
 
@@ -1013,8 +972,6 @@ function initDMLogin(){
   const dmToggleBtn = document.getElementById('dm-tools-toggle');
   const menu = document.getElementById('dm-tools-menu');
   const dmPortal = document.querySelector('.dm-tools-portal');
-  const sessionStatus = document.getElementById('dm-session-status');
-  const sessionExtendBtn = document.getElementById('dm-session-extend');
 
   if (dmPortal && document.body && dmPortal.parentElement !== document.body) {
     try {
@@ -1527,105 +1484,11 @@ function initDMLogin(){
   }
   const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
   const clearIntervalFn = id => dmClearInterval(id);
-  let sessionStatusIntervalId = null;
-  let sessionWarningToastShown = false;
 
   function parseStoredNumber(value){
     if (typeof value !== 'string' || !value) return 0;
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  function stopSessionStatusUpdates() {
-    if (sessionStatusIntervalId !== null) {
-      clearIntervalFn(sessionStatusIntervalId);
-      sessionStatusIntervalId = null;
-    }
-  }
-
-  function hideSessionStatus() {
-    stopSessionStatusUpdates();
-    if (sessionStatus) {
-      sessionStatus.textContent = '';
-      sessionStatus.hidden = true;
-    }
-    if (sessionExtendBtn) {
-      sessionExtendBtn.hidden = true;
-      sessionExtendBtn.disabled = true;
-    }
-    sessionWarningToastShown = false;
-  }
-
-  function formatSessionRemaining(remainingMs) {
-    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    if (hours > 0) {
-      return `Session expires in ${hours}h ${minutes.toString().padStart(2, '0')}m`;
-    }
-    if (minutes > 0) {
-      return `Session expires in ${minutes}m ${seconds.toString().padStart(2, '0')}s`;
-    }
-    return `Session expires in ${seconds}s`;
-  }
-
-  function updateSessionStatusDisplay({ loggedIn, now } = {}) {
-    if (!sessionStatus) return;
-    const resolvedLoggedIn = typeof loggedIn === 'boolean' ? loggedIn : isLoggedIn();
-    if (!resolvedLoggedIn) {
-      hideSessionStatus();
-      return;
-    }
-    const timeoutMs = getSessionTimeoutMs();
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-      hideSessionStatus();
-      return;
-    }
-    const reference = getSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY) ?? getSessionTimestamp(DM_LOGIN_AT_KEY);
-    if (!Number.isFinite(reference)) {
-      hideSessionStatus();
-      return;
-    }
-    const currentTime = Number.isFinite(now) ? now : Date.now();
-    const elapsed = Math.max(0, currentTime - reference);
-    const remaining = timeoutMs - elapsed;
-    if (!Number.isFinite(remaining) || remaining <= 0) {
-      hideSessionStatus();
-      return;
-    }
-    const warningThreshold = getSessionWarningThresholdMs();
-    if (
-      !sessionWarningToastShown &&
-      Number.isFinite(warningThreshold) &&
-      warningThreshold > 0 &&
-      remaining <= warningThreshold
-    ) {
-      toast('DM session will expire soon. Extend to stay logged in.', 'warning');
-      sessionWarningToastShown = true;
-    }
-    sessionStatus.hidden = false;
-    sessionStatus.textContent = formatSessionRemaining(remaining);
-    if (sessionExtendBtn) {
-      sessionExtendBtn.hidden = false;
-      sessionExtendBtn.disabled = false;
-    }
-  }
-
-  function ensureSessionStatusUpdates(loggedIn) {
-    if (!sessionStatus) return;
-    const resolvedLoggedIn = typeof loggedIn === 'boolean' ? loggedIn : isLoggedIn();
-    const timeoutMs = getSessionTimeoutMs();
-    if (!resolvedLoggedIn || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-      hideSessionStatus();
-      return;
-    }
-    updateSessionStatusDisplay({ loggedIn: resolvedLoggedIn });
-    if (sessionStatusIntervalId === null) {
-      sessionStatusIntervalId = setIntervalFn(() => {
-        updateSessionStatusDisplay();
-      }, 1000);
-    }
   }
 
   function normalizeLoginFailureState(state = {}) {
@@ -8540,30 +8403,7 @@ function initDMLogin(){
 
   function isLoggedIn(){
     try {
-      if (sessionStorage.getItem(DM_LOGIN_FLAG_KEY) !== '1') return false;
-      const timeoutMs = getSessionTimeoutMs();
-      if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-        if (!getSessionTimestamp(DM_LOGIN_AT_KEY)) {
-          const now = Date.now();
-          setSessionTimestamp(DM_LOGIN_AT_KEY, now);
-          touchSessionActivity(now);
-        }
-        return true;
-      }
-      const lastActive = getSessionTimestamp(DM_LOGIN_LAST_ACTIVE_KEY);
-      const loggedAt = getSessionTimestamp(DM_LOGIN_AT_KEY);
-      const reference = lastActive ?? loggedAt;
-      if (!reference) {
-        const now = Date.now();
-        setSessionTimestamp(DM_LOGIN_AT_KEY, now);
-        touchSessionActivity(now);
-        return true;
-      }
-      if (Date.now() - reference > timeoutMs) {
-        logout({ reason: 'expired' });
-        return false;
-      }
-      return true;
+      return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1';
     } catch {
       return false;
     }
@@ -8574,8 +8414,6 @@ function initDMLogin(){
       const now = Date.now();
       sessionStorage.setItem(DM_LOGIN_FLAG_KEY,'1');
       setSessionTimestamp(DM_LOGIN_AT_KEY, now);
-      touchSessionActivity(now);
-      sessionWarningToastShown = false;
     } catch {
       /* ignore */
     }
@@ -8705,7 +8543,6 @@ function initDMLogin(){
       const expanded = loggedIn && menu && menu.classList.contains(MENU_OPEN_CLASS);
       dmToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
-    ensureSessionStatusUpdates(loggedIn);
   }
 
   function logDmInitError(error) {
@@ -11008,31 +10845,12 @@ function initDMLogin(){
     });
   }
 
-  sessionExtendBtn?.addEventListener('click', event => {
-    try {
-      event?.preventDefault?.();
-    } catch {
-      /* ignore */
-    }
-    const now = Date.now();
-    touchSessionActivity(now);
-    sessionWarningToastShown = false;
-    updateSessionStatusDisplay({ loggedIn: true, now });
-    ensureSessionStatusUpdates();
-  });
-
   attemptPersistentSessionRestore({ silent: true }).catch(err => {
     console.warn('Failed to bootstrap DM persistent session', err);
   });
 
   updateButtons();
   if (isLoggedIn()) initTools();
-
-  document.addEventListener('click', e => {
-    const t = e.target.closest('button,a');
-    if(!t) return;
-    touchSessionActivity();
-  });
 
   window.dmRequireLogin = requireLogin;
   window.openRewards = openRewards;
