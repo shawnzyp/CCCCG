@@ -20354,6 +20354,99 @@ let history = [];
 let histIdx = -1;
 const forcedRefreshResume = consumeForcedRefreshState();
 
+const AUTOSAVE_STORAGE_ERROR_TOAST_INTERVAL_MS = 60000;
+let lastAutosaveStorageErrorToastAt = 0;
+let lastAutosaveStorageErrorLogAt = 0;
+
+function isAutosaveLocalStorageQuotaError(err) {
+  if (!err) return false;
+  const code = typeof err.code === 'number' ? err.code : null;
+  if (code === 22 || code === 1014) return true;
+  const name = typeof err.name === 'string' ? err.name : '';
+  if (/quotaexceedederror/i.test(name)) return true;
+  if (/ns_error_dom_quota_reached/i.test(name)) return true;
+  const message = typeof err.message === 'string' ? err.message : '';
+  if (/quota/i.test(message) || /ns_error_dom_quota_reached/i.test(message)) return true;
+  if (err && typeof err === 'object' && err.originalError && err.originalError !== err) {
+    return isAutosaveLocalStorageQuotaError(err.originalError);
+  }
+  return false;
+}
+
+function isAutosaveLocalStorageSecurityError(err) {
+  if (!err) return false;
+  const code = typeof err.code === 'number' ? err.code : null;
+  if (code === 18) return true;
+  const name = typeof err.name === 'string' ? err.name : '';
+  if (/securityerror/i.test(name)) return true;
+  const message = typeof err.message === 'string' ? err.message : '';
+  if (/security/i.test(message) || /denied/i.test(message)) return true;
+  if (err && typeof err === 'object' && err.originalError && err.originalError !== err) {
+    return isAutosaveLocalStorageSecurityError(err.originalError);
+  }
+  return false;
+}
+
+function isAutosaveStoragePersistenceError(err) {
+  return isAutosaveLocalStorageQuotaError(err) || isAutosaveLocalStorageSecurityError(err);
+}
+
+function getAutosaveStorageErrorMessage(err) {
+  if (isAutosaveLocalStorageQuotaError(err)) {
+    return 'Autosave paused. Browser storage is full. Free up space to resume.';
+  }
+  if (isAutosaveLocalStorageSecurityError(err)) {
+    return 'Autosave paused. Browser storage access is blocked. Allow storage to resume.';
+  }
+  return 'Autosave paused. Browser storage is unavailable. Free up space to resume.';
+}
+
+function enqueueSyncPanelErrorEntry(entry) {
+  if (!entry) return;
+  const payload = { ...entry };
+  const runner = () => appendSyncPanelErrorEntry(payload);
+  if (typeof queueMicrotask === 'function') {
+    try { queueMicrotask(runner); } catch { setTimeout(runner, 0); }
+  } else {
+    setTimeout(runner, 0);
+  }
+}
+
+function notifyAutosaveStorageFailure(err) {
+  const now = Date.now();
+  const message = getAutosaveStorageErrorMessage(err);
+  if (!lastAutosaveStorageErrorToastAt || now - lastAutosaveStorageErrorToastAt >= AUTOSAVE_STORAGE_ERROR_TOAST_INTERVAL_MS) {
+    lastAutosaveStorageErrorToastAt = now;
+    try {
+      toast(message, 'error');
+    } catch (toastErr) {
+      console.error('Failed to display autosave storage error toast', toastErr);
+    }
+  }
+  if (!lastAutosaveStorageErrorLogAt || now - lastAutosaveStorageErrorLogAt >= AUTOSAVE_STORAGE_ERROR_TOAST_INTERVAL_MS) {
+    lastAutosaveStorageErrorLogAt = now;
+    const detailParts = [];
+    if (isAutosaveLocalStorageQuotaError(err)) {
+      detailParts.push('Autosave could not write to local storage because the browser is out of space.');
+    } else if (isAutosaveLocalStorageSecurityError(err)) {
+      detailParts.push('Autosave could not access local storage due to browser security settings.');
+    } else {
+      detailParts.push('Autosave could not write to local storage.');
+    }
+    if (err && typeof err.message === 'string' && err.message.trim()) {
+      detailParts.push(err.message.trim());
+    }
+    enqueueSyncPanelErrorEntry({
+      message: 'Autosave paused (local storage)',
+      detail: detailParts.join(' '),
+      timestamp: now,
+      name: (() => {
+        try { return currentCharacter() || null; } catch { return null; }
+      })(),
+    });
+  }
+}
+
 initializeAutosaveController({
   getCurrentCharacter: currentCharacter,
   saveAutoBackup,
@@ -20384,13 +20477,23 @@ function captureAutosaveSnapshot(options = {}) {
   }
   histIdx = history.length - 1;
 
+  let localPersisted = false;
   try {
     localStorage.setItem(AUTO_KEY, serialized);
+    localPersisted = true;
   } catch (e) {
     console.error('Autosave failed', e);
+    if (isAutosaveStoragePersistenceError(e)) {
+      notifyAutosaveStorageFailure(e);
+    }
   }
 
-  if (markSynced) {
+  if (localPersisted) {
+    lastAutosaveStorageErrorToastAt = 0;
+    lastAutosaveStorageErrorLogAt = 0;
+  }
+
+  if (markSynced && localPersisted) {
     markAutoSaveSynced(snapshot, serialized);
   } else {
     markAutoSaveDirty(snapshot, serialized);
@@ -20706,6 +20809,31 @@ const SYNC_ERROR_LIMIT = 8;
 const manualSyncButtons = [syncPanelSyncNowBtn, syncPanelRetryBtn].filter(Boolean);
 let syncPanelOpen = false;
 let queueRefreshPromise = null;
+
+function appendSyncPanelErrorEntry(entry) {
+  if (!entry || !Array.isArray(syncErrorLog)) return;
+  const timestamp = Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now();
+  const message = typeof entry.message === 'string' && entry.message.trim()
+    ? entry.message.trim()
+    : 'Cloud sync error';
+  const detail = typeof entry.detail === 'string' && entry.detail.trim()
+    ? entry.detail.trim()
+    : null;
+  const name = typeof entry.name === 'string' && entry.name.trim()
+    ? entry.name.trim()
+    : null;
+  syncErrorLog.unshift({
+    id: `${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+    message,
+    detail,
+    timestamp,
+    name,
+  });
+  if (syncErrorLog.length > SYNC_ERROR_LIMIT) {
+    syncErrorLog.length = SYNC_ERROR_LIMIT;
+  }
+  renderSyncErrors();
+}
 
 function setSyncButtonErrorState(hasErrors) {
   if (!syncStatusTrigger) return;
@@ -21296,17 +21424,12 @@ subscribeSyncErrors(payload => {
     return null;
   })();
   const name = payload && typeof payload === 'object' && typeof payload.name === 'string' && payload.name ? payload.name : null;
-  syncErrorLog.unshift({
-    id: `${timestamp}-${Math.random().toString(36).slice(2, 8)}`,
+  appendSyncPanelErrorEntry({
     message,
     detail,
     timestamp,
     name,
   });
-  if (syncErrorLog.length > SYNC_ERROR_LIMIT) {
-    syncErrorLog.length = SYNC_ERROR_LIMIT;
-  }
-  renderSyncErrors();
 });
 
 subscribeSyncActivity(event => {
