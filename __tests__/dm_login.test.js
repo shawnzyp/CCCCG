@@ -71,10 +71,10 @@ const DM_LOGIN_MODAL_MARKUP = `
             <input id=\"dm-login-username\">
             <input id=\"dm-login-pin\">
             <div class=\"actions\">
+              <button type=\"button\" data-login-action=\"start-create\"></button>
               <button id=\"dm-login-submit\" type=\"button\"></button>
             </div>
             <div class=\"dm-login__links\">
-              <button type=\"button\" data-login-action=\"start-create\"></button>
               <button type=\"button\" data-login-action=\"start-reset\"></button>
               <button type=\"button\" data-login-action=\"forgot\"></button>
             </div>
