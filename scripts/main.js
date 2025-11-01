@@ -15,6 +15,13 @@ import {
   listRecoverableCharacters,
   saveAutoBackup,
 } from './characters.js';
+import {
+  initializeAutosaveController,
+  markAutoSaveDirty,
+  markAutoSaveSynced,
+  performScheduledAutoSave,
+  isAutoSaveDirty,
+} from './autosave-controller.js';
 import { show, hide } from './modal.js';
 import { activateTab, getActiveTab, getNavigationType, onTabChange, scrollToTopOfCombat, triggerTabIconAnimation } from './tabs.js';
 import { subscribe as subscribePlayerToolsDrawer, onDrawerChange as onPlayerToolsDrawerChange } from './player-tools-drawer.js';
@@ -20337,10 +20344,11 @@ const AUTO_KEY = 'autosave';
 let history = [];
 let histIdx = -1;
 const forcedRefreshResume = consumeForcedRefreshState();
-let autoSaveDirty = false;
-let lastSyncedSnapshotJson = null;
-let pendingAutoSaveSnapshot = null;
-let pendingAutoSaveJson = null;
+
+initializeAutosaveController({
+  getCurrentCharacter: currentCharacter,
+  saveAutoBackup,
+});
 
 function captureAutosaveSnapshot(options = {}) {
   const { markSynced = false } = options;
@@ -20385,10 +20393,6 @@ function captureAutosaveSnapshot(options = {}) {
 const pushHistory = debounce(() => {
   captureAutosaveSnapshot();
 }, 500);
-
-const CLOUD_AUTO_SAVE_INTERVAL_MS = 2 * 60 * 1000;
-let scheduledAutoSaveId = null;
-let scheduledAutoSaveInFlight = false;
 
 document.addEventListener('input', pushHistory);
 document.addEventListener('change', pushHistory);
@@ -20507,79 +20511,12 @@ if (typeof window !== 'undefined') {
   });
 }
 
-async function performScheduledAutoSave(){
-  if(scheduledAutoSaveInFlight) return;
-  if(!autoSaveDirty || !pendingAutoSaveSnapshot) return;
-  if(typeof window !== 'undefined' && scheduledAutoSaveId !== null){
-    window.clearTimeout(scheduledAutoSaveId);
-    scheduledAutoSaveId = null;
-  }
-  const name = currentCharacter();
-  if(!name){
-    scheduleAutoSave();
-    return;
-  }
-  try {
-    scheduledAutoSaveInFlight = true;
-    const snapshot = pendingAutoSaveSnapshot;
-    await saveAutoBackup(snapshot, name);
-    markAutoSaveSynced(snapshot, pendingAutoSaveJson);
-  } catch (err) {
-    console.error('Scheduled auto save failed', err);
-  } finally {
-    scheduledAutoSaveInFlight = false;
-    if(autoSaveDirty){
-      scheduleAutoSave();
-    }
-  }
-}
-
-function scheduleAutoSave(){
-  if(typeof window === 'undefined') return;
-  if(!autoSaveDirty) return;
-  if(scheduledAutoSaveId !== null){
-    window.clearTimeout(scheduledAutoSaveId);
-  }
-  scheduledAutoSaveId = window.setTimeout(()=>{
-    scheduledAutoSaveId = null;
-    performScheduledAutoSave();
-  }, CLOUD_AUTO_SAVE_INTERVAL_MS);
-}
-
-function clearScheduledAutoSave(){
-  if(typeof window === 'undefined') return;
-  if(scheduledAutoSaveId !== null){
-    window.clearTimeout(scheduledAutoSaveId);
-    scheduledAutoSaveId = null;
-  }
-}
-
-function markAutoSaveDirty(snapshot, serialized){
-  pendingAutoSaveSnapshot = snapshot;
-  pendingAutoSaveJson = serialized ?? JSON.stringify(snapshot);
-  if(pendingAutoSaveJson !== lastSyncedSnapshotJson){
-    autoSaveDirty = true;
-    scheduleAutoSave();
-  } else {
-    autoSaveDirty = false;
-    clearScheduledAutoSave();
-  }
-}
-
-function markAutoSaveSynced(snapshot, serialized){
-  pendingAutoSaveSnapshot = snapshot;
-  pendingAutoSaveJson = serialized ?? JSON.stringify(snapshot);
-  lastSyncedSnapshotJson = pendingAutoSaveJson;
-  autoSaveDirty = false;
-  clearScheduledAutoSave();
-}
-
 function flushAutosave(reason){
   const captured = captureAutosaveSnapshot();
-  if (!captured && !autoSaveDirty) {
+  if (!captured && !isAutoSaveDirty()) {
     return;
   }
-  if (!autoSaveDirty || !currentCharacter()) {
+  if (!isAutoSaveDirty() || !currentCharacter()) {
     return;
   }
   try {
@@ -20596,7 +20533,7 @@ function flushAutosave(reason){
 
 if(typeof window !== 'undefined'){
   window.addEventListener('focus', () => {
-    if(autoSaveDirty){
+    if(isAutoSaveDirty()){
       performScheduledAutoSave();
     }
   }, { passive: true });
