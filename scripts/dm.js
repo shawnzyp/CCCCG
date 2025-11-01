@@ -8932,6 +8932,100 @@ function initDMLogin(){
         }
         return true;
       };
+      const sheetSources = [];
+      const sheetSourceSet = new Set();
+      const registerSheetSource = candidate => {
+        if (!candidate || typeof candidate !== 'object') return;
+        if (sheetSourceSet.has(candidate)) return;
+        sheetSourceSet.add(candidate);
+        const nested = [];
+        const nestedKeys = [
+          'sheet',
+          'characterSheet',
+          'serializedSheet',
+          'serializedCharacter',
+          'sheetData',
+          'sheetState',
+          'dmView',
+          'profile',
+          'snapshot',
+          'sheetSnapshot',
+          'state',
+          'data',
+          'details',
+          'content',
+          'payload',
+        ];
+        nestedKeys.forEach(key => {
+          const value = candidate?.[key];
+          if (value && typeof value === 'object') {
+            nested.push(value);
+          }
+        });
+        const collectionKeys = ['sections', 'tabs', 'sheets', 'panels', 'groups', 'views'];
+        collectionKeys.forEach(key => {
+          const value = candidate?.[key];
+          if (Array.isArray(value)) {
+            value.forEach(item => { if (item && typeof item === 'object') nested.push(item); });
+          } else if (value && typeof value === 'object') {
+            Object.values(value).forEach(item => {
+              if (item && typeof item === 'object') nested.push(item);
+            });
+          }
+        });
+        nested.forEach(registerSheetSource);
+        sheetSources.push(candidate);
+      };
+      registerSheetSource(data);
+
+      const getNestedValue = (source, pathParts) => {
+        if (!source || typeof source !== 'object') return undefined;
+        if (!Array.isArray(pathParts) || !pathParts.length) return undefined;
+        let current = source;
+        for (const rawPart of pathParts) {
+          const key = typeof rawPart === 'number' ? rawPart : String(rawPart);
+          if (Array.isArray(current)) {
+            const index = typeof rawPart === 'number'
+              ? rawPart
+              : (/^-?\d+$/.test(key) ? Number.parseInt(key, 10) : Number.NaN);
+            if (!Number.isNaN(index) && index >= 0 && index < current.length) {
+              current = current[index];
+              continue;
+            }
+          }
+          if (!current || typeof current !== 'object') return undefined;
+          if (!Object.prototype.hasOwnProperty.call(current, key)) return undefined;
+          current = current[key];
+        }
+        return current;
+      };
+
+      const normalizePath = path => {
+        if (Array.isArray(path)) return path.filter(part => part !== null && part !== undefined);
+        if (typeof path === 'string') {
+          return path
+            .split('.')
+            .map(part => part.trim())
+            .filter(part => part);
+        }
+        if (path === null || path === undefined) return [];
+        return [path];
+      };
+
+      const getSheetValue = (...paths) => {
+        for (const rawPath of paths) {
+          const pathParts = normalizePath(rawPath);
+          if (!pathParts.length) continue;
+          for (const source of sheetSources) {
+            const candidateValue = getNestedValue(source, pathParts);
+            if (candidateValue !== undefined) {
+              return candidateValue;
+            }
+          }
+        }
+        return undefined;
+      };
+
       const renderDefinitionList = (fields = [], { layout = 'grid', className = '' } = {}) => {
         const entries = fields
           .map(field => {
@@ -9142,7 +9236,16 @@ function initDMLogin(){
       const abilityMods = new Map();
       const abilityFields = abilityKeys
         .map(key => {
-          const score = toNumber(data?.[key]);
+          const scoreSource = getSheetValue(
+            ['abilities', key, 'score'],
+            ['abilities', key, 'value'],
+            ['abilityScores', key, 'score'],
+            ['abilityScores', key, 'value'],
+            ['stats', key, 'score'],
+            ['stats', key, 'value'],
+            key
+          );
+          const score = toNumber(scoreSource);
           if (score === null) return null;
           const mod = Math.floor((score - 10) / 2);
           abilityMods.set(key, mod);
@@ -9153,17 +9256,42 @@ function initDMLogin(){
         })
         .filter(Boolean);
 
-      const profBonus = toNumber(data?.['prof-bonus']);
-      const powerSaveAbility = typeof data?.['power-save-ability'] === 'string'
-        ? data['power-save-ability'].toUpperCase()
+      const profBonus = toNumber(getSheetValue(
+        ['abilities', 'proficiencyBonus'],
+        ['proficiency', 'bonus'],
+        ['proficiency', 'value'],
+        'prof-bonus',
+        'proficiencyBonus'
+      ));
+      const rawPowerSaveAbility = getSheetValue(
+        ['abilities', 'powerSaveAbility'],
+        ['powers', 'saveAbility'],
+        ['powers', 'save', 'ability'],
+        'power-save-ability',
+        'powerSaveAbility'
+      );
+      const powerSaveAbility = typeof rawPowerSaveAbility === 'string'
+        ? rawPowerSaveAbility.toUpperCase()
         : '';
-      const powerSaveDc = toNumber(data?.['power-save-dc']);
+      const powerSaveDc = toNumber(getSheetValue(
+        ['abilities', 'powerSaveDc'],
+        ['powers', 'saveDc'],
+        ['powers', 'save', 'dc'],
+        'power-save-dc',
+        'powerSaveDc'
+      ));
 
       const saveFields = abilityKeys
         .map(key => {
           const baseMod = abilityMods.get(key);
           if (!Number.isFinite(baseMod)) return null;
-          const proficient = toBoolean(data?.[`save-${key}-prof`]);
+          const proficient = toBoolean(getSheetValue(
+            ['saves', key, 'proficient'],
+            ['saves', key, 'trained'],
+            ['savingThrows', key, 'proficient'],
+            ['savingThrows', key, 'trained'],
+            `save-${key}-prof`
+          ));
           const bonus = proficient && profBonus !== null ? profBonus : 0;
           const total = Number.isFinite(baseMod + bonus) ? baseMod + bonus : baseMod;
           const suffix = proficient && profBonus !== null ? ' (Proficient)' : '';
@@ -9193,23 +9321,93 @@ function initDMLogin(){
       pushBlock(abilityBlocks, 'Caster Stats', casterList);
 
       const identityFields = [
-        { term: 'Superhero Identity', value: data?.superhero },
-        { term: 'Secret Identity', value: data?.secret },
-        { term: 'Public Identity', value: data?.publicIdentity },
-        { term: 'Alignment', value: data?.alignment },
-        { term: 'Classification', value: data?.classification },
-        { term: 'Primary Power Style', value: data?.['power-style'] },
-        { term: 'Secondary Power Style', value: data?.['power-style-2'] },
-        { term: 'Origin Story', value: data?.origin },
+        {
+          term: 'Superhero Identity',
+          value: getSheetValue(
+            ['identity', 'superhero'],
+            ['identity', 'superheroIdentity'],
+            ['identity', 'hero'],
+            ['profile', 'superhero'],
+            'superhero'
+          ),
+        },
+        {
+          term: 'Secret Identity',
+          value: getSheetValue(
+            ['identity', 'secret'],
+            ['identity', 'secretIdentity'],
+            ['profile', 'secret'],
+            'secret'
+          ),
+        },
+        {
+          term: 'Public Identity',
+          value: getSheetValue(
+            ['identity', 'public'],
+            ['identity', 'publicIdentity'],
+            ['profile', 'publicIdentity'],
+            'publicIdentity'
+          ),
+        },
+        {
+          term: 'Alignment',
+          value: getSheetValue(['identity', 'alignment'], ['profile', 'alignment'], 'alignment'),
+        },
+        {
+          term: 'Classification',
+          value: getSheetValue(['identity', 'classification'], ['profile', 'classification'], 'classification'),
+        },
+        {
+          term: 'Primary Power Style',
+          value: getSheetValue(
+            ['identity', 'primaryPowerStyle'],
+            ['powers', 'primaryStyle'],
+            ['powers', 'primary'],
+            'power-style',
+            'primaryPowerStyle'
+          ),
+        },
+        {
+          term: 'Secondary Power Style',
+          value: getSheetValue(
+            ['identity', 'secondaryPowerStyle'],
+            ['powers', 'secondaryStyle'],
+            ['powers', 'secondary'],
+            'power-style-2',
+            'secondaryPowerStyle'
+          ),
+        },
+        {
+          term: 'Origin Story',
+          value: getSheetValue(['story', 'origin'], ['originStory'], 'origin'),
+        },
       ];
       const identityContent = renderDefinitionList(identityFields);
 
       const levelFields = [
-        { term: 'Level', value: data?.level },
-        { term: 'Tier', value: data?.tier },
-        { term: 'Sub-tier', value: data?.['sub-tier'] },
-        { term: 'Tier (Short)', value: data?.['tier-short'] },
-        { term: 'XP', value: formatNumber(data?.xp) },
+        {
+          term: 'Level',
+          value: formatNumber(getSheetValue(['level', 'level'], ['progress', 'level'], 'level')),
+        },
+        { term: 'Tier', value: getSheetValue(['level', 'tier'], ['progress', 'tier'], 'tier') },
+        {
+          term: 'Sub-tier',
+          value: getSheetValue(['level', 'subTier'], ['level', 'sub-tier'], ['progress', 'subTier'], 'sub-tier', 'subTier'),
+        },
+        {
+          term: 'Tier (Short)',
+          value: getSheetValue(
+            ['level', 'tierShort'],
+            ['level', 'tier-short'],
+            ['progress', 'tierShort'],
+            'tier-short',
+            'tierShort'
+          ),
+        },
+        {
+          term: 'XP',
+          value: formatNumber(getSheetValue(['level', 'xp'], ['experience', 'xp'], ['xp', 'total'], 'xp')),
+        },
       ];
       const levelBlocks = [];
       const levelSummaryList = renderDefinitionList(levelFields, { className: 'dm-characterList--level' });
@@ -9227,8 +9425,16 @@ function initDMLogin(){
         return fallback;
       };
 
-      const levelProgressState = parseJsonField(data?.levelProgressState, null)
-        || parseJsonField(data?.['level-progress-state'], null);
+      const levelProgressState = parseJsonField(
+        getSheetValue(
+          ['level', 'progressState'],
+          ['level', 'progress'],
+          ['progress', 'state'],
+          'levelProgressState',
+          'level-progress-state'
+        ),
+        null
+      ) || parseJsonField(getSheetValue(['progress', 'level'], ['progress', 'data']), null);
 
       const levelProgressFields = [];
       const hpBonus = toNumber(levelProgressState?.hpBonus);
@@ -9330,14 +9536,68 @@ function initDMLogin(){
         return parts.join(' ');
       };
 
-      const creditsValue = hasMeaningfulValue(data?.credits)
-        ? `₡${formatNumber(data.credits)}`
-        : '';
+      const hpCurrent = getSheetValue(
+        ['resources', 'hp', 'current'],
+        ['resources', 'hp', 'value'],
+        ['resources', 'hp', 'currentValue'],
+        ['stats', 'hp', 'current'],
+        'hp-bar',
+        'hp'
+      );
+      const hpTemp = getSheetValue(
+        ['resources', 'hp', 'temp'],
+        ['resources', 'hp', 'temporary'],
+        ['stats', 'hp', 'temp'],
+        'hp-temp',
+        'hpTemp'
+      );
+      const spCurrent = getSheetValue(
+        ['resources', 'sp', 'current'],
+        ['resources', 'sp', 'value'],
+        ['resources', 'sp', 'currentValue'],
+        ['stats', 'sp', 'current'],
+        'sp-bar',
+        'sp'
+      );
+      const spTemp = getSheetValue(
+        ['resources', 'sp', 'temp'],
+        ['resources', 'sp', 'temporary'],
+        ['stats', 'sp', 'temp'],
+        'sp-temp',
+        'spTemp'
+      );
+      const tcValue = getSheetValue(
+        ['resources', 'teamCredits'],
+        ['resources', 'team-credits'],
+        ['resources', 'tc'],
+        ['teamCredits', 'current'],
+        'tc'
+      );
+      const creditsRaw = getSheetValue(
+        ['resources', 'credits'],
+        ['wealth', 'credits'],
+        ['credits', 'current'],
+        ['credits', 'total'],
+        'credits'
+      );
+      const teamCreditsValue = (() => {
+        const numeric = toNumber(tcValue);
+        if (numeric !== null) return formatNumber(numeric);
+        if (hasMeaningfulValue(tcValue)) return String(tcValue);
+        return '';
+      })();
+      const creditsDisplay = (() => {
+        const numeric = toNumber(creditsRaw);
+        if (numeric !== null) return formatNumber(numeric);
+        if (hasMeaningfulValue(creditsRaw)) return String(creditsRaw);
+        return '';
+      })();
+      const creditsValue = creditsDisplay ? `₡${creditsDisplay}` : '';
 
       const resourceFields = [
-        { term: 'HP', value: formatResource(data?.['hp-bar'], data?.['hp-temp']) },
-        { term: 'SP', value: formatResource(data?.['sp-bar'], data?.['sp-temp']) },
-        { term: 'Team Credits (TC)', value: formatNumber(data?.tc) },
+        { term: 'HP', value: formatResource(hpCurrent, hpTemp) },
+        { term: 'SP', value: formatResource(spCurrent, spTemp) },
+        { term: 'Team Credits (TC)', value: teamCreditsValue },
         { term: 'Credits', value: creditsValue },
       ];
       const resourceContent = renderDefinitionList(resourceFields);
@@ -9473,18 +9733,27 @@ function initDMLogin(){
       };
 
       const powersContent = renderEntryList(
-        normalizeCollection(data?.powers, { coerceEntry: coercePowerEntry, isMeaningful: hasPowerContent })
+        normalizeCollection(
+          getSheetValue(['powers', 'list'], ['powers', 'powers'], 'powers'),
+          { coerceEntry: coercePowerEntry, isMeaningful: hasPowerContent }
+        )
           .map(power => renderPowerEntry(power, { fallback: 'Power' }))
           .filter(Boolean)
       );
       const signaturesContent = renderEntryList(
-        normalizeCollection(data?.signatures, { coerceEntry: coercePowerEntry, isMeaningful: hasPowerContent })
+        normalizeCollection(
+          getSheetValue(['powers', 'signatures'], ['signatures', 'list'], ['powers', 'signaturePowers'], 'signatures'),
+          { coerceEntry: coercePowerEntry, isMeaningful: hasPowerContent }
+        )
           .map(sig => renderPowerEntry(sig, { fallback: 'Signature' }))
           .filter(Boolean)
       );
 
       const weaponsContent = renderEntryList(
-        normalizeCollection(data?.weapons, { coerceEntry: coerceInventoryEntry, isMeaningful: hasWeaponContent })
+        normalizeCollection(
+          getSheetValue(['inventory', 'weapons'], ['weapons', 'list'], 'weapons'),
+          { coerceEntry: coerceInventoryEntry, isMeaningful: hasWeaponContent }
+        )
           .map(weapon => {
             if (!isPlainObject(weapon)) return null;
             const nameValue = hasMeaningfulValue(weapon.name) ? weapon.name : '';
@@ -9516,7 +9785,10 @@ function initDMLogin(){
       );
 
       const armorContent = renderEntryList(
-        normalizeCollection(data?.armor, { coerceEntry: coerceInventoryEntry, isMeaningful: hasArmorContent })
+        normalizeCollection(
+          getSheetValue(['inventory', 'armor'], ['armor', 'list'], 'armor'),
+          { coerceEntry: coerceInventoryEntry, isMeaningful: hasArmorContent }
+        )
           .map(entry => {
             if (!isPlainObject(entry)) return null;
             const nameValue = hasMeaningfulValue(entry.name) ? entry.name : '';
@@ -9542,7 +9814,10 @@ function initDMLogin(){
       );
 
       const itemsContent = renderEntryList(
-        normalizeCollection(data?.items, { coerceEntry: coerceInventoryEntry, isMeaningful: hasItemContent })
+        normalizeCollection(
+          getSheetValue(['inventory', 'items'], ['items', 'list'], 'items'),
+          { coerceEntry: coerceInventoryEntry, isMeaningful: hasItemContent }
+        )
           .map(item => {
             if (!isPlainObject(item)) return null;
             const nameValue = hasMeaningfulValue(item.name) ? item.name : '';
@@ -9572,7 +9847,26 @@ function initDMLogin(){
           .filter(Boolean)
       );
 
-      const augmentState = parseJsonField(data?.augmentState, null) || parseJsonField(data?.['augment-state'], null);
+      const augmentContainer = getSheetValue(['inventory', 'augments'], ['augments']);
+      let augmentState = parseJsonField(
+        getSheetValue(
+          ['inventory', 'augments', 'state'],
+          ['augments', 'state'],
+          'augmentState',
+          'augment-state'
+        ),
+        null
+      );
+      if (!augmentState) {
+        const parsedAugments = parseJsonField(augmentContainer, null);
+        if (parsedAugments && typeof parsedAugments === 'object') {
+          if (parsedAugments.state && typeof parsedAugments.state === 'object') {
+            augmentState = parsedAugments.state;
+          } else {
+            augmentState = parsedAugments;
+          }
+        }
+      }
 
       const augmentFields = [];
       const augmentSlotsEarned = toNumber(levelProgressState?.augmentSlotsEarned);
@@ -9604,9 +9898,13 @@ function initDMLogin(){
         return String(value);
       };
 
+      const medalsRaw = parseJsonField(
+        getSheetValue(['inventory', 'medals'], ['medals', 'list'], 'medals'),
+        null
+      );
       const medalsContent = renderEntryList(
-        Array.isArray(data?.medals)
-          ? data.medals.map(medal => {
+        Array.isArray(medalsRaw)
+          ? medalsRaw.map(medal => {
               if (!medal || typeof medal !== 'object') return '';
               const fields = [
                 { term: 'Name', value: medal.name || 'Medal' },
@@ -9623,9 +9921,29 @@ function initDMLogin(){
           : []
       );
 
+      const factionCollection = parseJsonField(
+        getSheetValue(['factions'], ['reputation', 'factions']),
+        null
+      );
       const factionEntries = [];
       FACTIONS.forEach(faction => {
-        const repValueRaw = data?.[`${faction.id}-rep`];
+        const factionRecord = Array.isArray(factionCollection)
+          ? factionCollection.find(entry => (
+            entry
+            && typeof entry === 'object'
+            && (entry.id === faction.id || entry.factionId === faction.id || entry.slug === faction.id)
+          ))
+          : null;
+        const repValueRaw = factionRecord?.reputation
+          ?? factionRecord?.rep
+          ?? factionRecord?.value
+          ?? getSheetValue(
+            ['factions', faction.id, 'reputation'],
+            ['factions', faction.id, 'rep'],
+            ['factions', faction.id, 'value'],
+            ['reputation', faction.id],
+            `${faction.id}-rep`
+          );
         if (!hasMeaningfulValue(repValueRaw)) return;
         const repValue = toNumber(repValueRaw);
         const tier = Number.isFinite(repValue) && typeof faction.getTier === 'function'
@@ -9654,9 +9972,52 @@ function initDMLogin(){
         ? `<ul class="dm-characterEntries">${factionEntries.join('')}</ul>`
         : '';
 
-      const storyNotes = hasMeaningfulValue(data?.['story-notes'])
-        ? `<div class="dm-characterNotes">${escapeHtml(String(data['story-notes'])).split('\n').join('<br />')}</div>`
+      const storyNotesRaw = getSheetValue(
+        ['story', 'notes'],
+        ['story', 'notes', 'value'],
+        ['notes', 'story'],
+        'story-notes',
+        'storyNotes'
+      );
+      const storyNotes = hasMeaningfulValue(storyNotesRaw)
+        ? `<div class="dm-characterNotes">${escapeHtml(String(storyNotesRaw)).split('\n').join('<br />')}</div>`
         : '';
+
+      const questionCollectionRaw = parseJsonField(
+        getSheetValue(['story', 'questions'], ['questions']),
+        null
+      );
+      const getQuestionAnswer = id => {
+        const direct = getSheetValue(
+          ['story', 'questions', id],
+          ['story', 'questions', 'answers', id],
+          ['questions', id],
+          ['questions', 'answers', id],
+          id
+        );
+        if (direct !== undefined) return direct;
+        if (Array.isArray(questionCollectionRaw)) {
+          const match = questionCollectionRaw.find(entry => (
+            entry
+            && typeof entry === 'object'
+            && (entry.id === id || entry.key === id || entry.questionId === id)
+          ));
+          if (match) {
+            if (match.answer !== undefined) return match.answer;
+            if (match.response !== undefined) return match.response;
+            if (match.value !== undefined) return match.value;
+          }
+        } else if (questionCollectionRaw && typeof questionCollectionRaw === 'object') {
+          if (Object.prototype.hasOwnProperty.call(questionCollectionRaw, id)) {
+            return questionCollectionRaw[id];
+          }
+          const nestedAnswers = questionCollectionRaw.answers;
+          if (nestedAnswers && typeof nestedAnswers === 'object' && Object.prototype.hasOwnProperty.call(nestedAnswers, id)) {
+            return nestedAnswers[id];
+          }
+        }
+        return undefined;
+      };
 
       const questionPrompts = [
         { id: 'q-mask', prompt: 'Who are you behind the mask?' },
@@ -9680,7 +10041,7 @@ function initDMLogin(){
       ];
       const questionEntries = questionPrompts
         .map(({ id, prompt }) => {
-          const answer = data?.[id];
+          const answer = getQuestionAnswer(id);
           if (!hasMeaningfulValue(answer)) return '';
           return `
             <li class="dm-characterEntry">
@@ -9712,7 +10073,14 @@ function initDMLogin(){
       if (storyNotes) sections.push(renderSection('Story Notes', storyNotes));
       if (questionsContent) sections.push(renderSection('Character Questions', questionsContent));
 
-      const levelSummary = typeof data?.['level-summary'] === 'string' ? data['level-summary'] : '';
+      const rawLevelSummary = getSheetValue(
+        ['level', 'summary'],
+        ['level', 'tagline'],
+        ['progress', 'summary'],
+        'level-summary',
+        'levelSummary'
+      );
+      const levelSummary = typeof rawLevelSummary === 'string' ? rawLevelSummary : '';
       const headerSummary = levelSummary ? `<p class="dm-characterSheet__subtitle">${escapeHtml(levelSummary)}</p>` : '';
       const bodyContent = sections.length
         ? sections.join('')
