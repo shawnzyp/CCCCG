@@ -30,6 +30,12 @@ function buildDom({ includeLoadModals = false } = {}) {
           </div>
         </header>
         <ul id="dm-characters-list"></ul>
+      </section>
+    </div>
+    <div id="dm-character-modal" class="overlay hidden" aria-hidden="true">
+      <section class="modal dm-character" role="dialog" aria-modal="true" aria-labelledby="dm-character-title">
+        <button id="dm-character-close"></button>
+        <h3 id="dm-character-title"></h3>
         <div id="dm-character-sheet"></div>
       </section>
     </div>
@@ -88,7 +94,9 @@ describe('DM character viewer tool', () => {
     link.click();
     await new Promise(r => setTimeout(r, 0));
     const view = document.getElementById('dm-character-sheet');
+    const viewModal = document.getElementById('dm-character-modal');
     expect(loadCharacter).toHaveBeenCalledWith('Test', { bypassPin: true });
+    expect(viewModal.classList.contains('hidden')).toBe(false);
     expect(view.textContent).toContain('Test');
   });
 
