@@ -539,7 +539,6 @@ async function updateRemoteSessionHeartbeat(token, { deviceId, lastActive, expir
     deviceId,
     lastActive,
     expiresAt: Number.isFinite(expiresAt) ? expiresAt : null,
-    revoked: false,
   };
   const res = await fetch(`${CLOUD_DM_SESSIONS_URL}/${encodeURIComponent(token)}.json`, {
     method: 'PATCH',
