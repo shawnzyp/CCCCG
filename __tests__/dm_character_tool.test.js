@@ -97,12 +97,20 @@ describe('DM character viewer tool', () => {
       'hp-bar': '30/30',
       tc: '12',
       'sp-bar': '5/5',
+      credits: '50',
+      superhero: 'Star Sentinel',
+      secret: 'Taylor Rowe',
+      publicIdentity: 'Secret',
       str: 10,
       dex: 12,
       con: 14,
       int: 8,
       wis: 11,
       cha: 13,
+      'story-notes': 'Seasoned veteran of the Omni wars.',
+      'q-mask': 'A humble engineer.',
+      'q-alignment-fear': 'I walk the line between justice and vengeance.',
+      'q-if-lost': 'I would still protect the city.',
       powers: [{
         name: 'Fireball',
         style: 'Pyro',
@@ -153,8 +161,14 @@ describe('DM character viewer tool', () => {
     link.click();
     await new Promise(r => setTimeout(r, 0));
     const view = document.getElementById('dm-character-sheet');
+    const card = view.querySelector('.dm-character-card');
     const text = view.textContent;
     expect(loadCharacter).toHaveBeenCalledWith('Hero', { bypassPin: true });
+    expect(card).not.toBeNull();
+    const sectionTitles = Array.from(card.querySelectorAll('.dm-character-card__sectionTitle')).map(el => el.textContent.trim());
+    expect(sectionTitles).toEqual(expect.arrayContaining(['Identity', 'Resources', 'Character Questions']));
+    expect(card.querySelector('.dm-character-card__qa')).not.toBeNull();
+    expect(text).toContain('50');
     expect(text).toContain('Fireball');
     expect(text).toContain('Signature');
     expect(text).toContain('Sword');

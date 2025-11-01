@@ -1657,6 +1657,9 @@ function initDMLogin(){
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
+  if (charView && !charView.classList.contains('dm-character-sheet')) {
+    charView.classList.add('dm-character-sheet');
+  }
   const miniGamesModal = document.getElementById('dm-mini-games-modal');
   const miniGamesClose = document.getElementById('dm-mini-games-close');
   const miniGamesList = document.getElementById('dm-mini-games-list');
@@ -8890,118 +8893,541 @@ function initDMLogin(){
     hide('dm-character-modal');
   }
 
-    function characterCard(data, name){
-      const card=document.createElement('div');
-      card.style.cssText='border:1px solid #1b2532;border-radius:8px;background:#0c1017;padding:8px';
-      const labeled=(l,v)=>v?`<div><span style="opacity:.8;font-size:12px">${l}</span><div>${v}</div></div>`:'';
-      const abilityGrid=['STR','DEX','CON','INT','WIS','CHA']
-        .map(k=>labeled(k,data[k.toLowerCase()]||''))
-        .join('');
-      const perkGrid=[
-        ['Alignment', data.alignment],
-        ['Classification', data.classification],
-        ['Power Style', data['power-style']],
-        ['Origin', data.origin],
-        ['Tier', data.tier]
-      ]
-        .filter(([,v])=>v)
-        .map(([l,v])=>labeled(l,v))
-        .join('');
-      const statsGrid=[
-        ['Init', data.initiative],
-        ['Speed', data.speed],
-        ['PP', data.pp]
-      ]
-        .filter(([,v])=>v)
-        .map(([l,v])=>labeled(l,v))
-        .join('');
-      card.innerHTML=`
-        <div><strong>${name}</strong></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
-          ${labeled('HP', data['hp-bar']||'')}
-          ${labeled('TC', data.tc||'')}
-          ${labeled('SP', data['sp-bar']||'')}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${abilityGrid}</div>
-        ${perkGrid?`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:6px">${perkGrid}</div>`:''}
-        ${statsGrid?`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${statsGrid}</div>`:''}
-      `;
-      const renderList=(title, items)=>`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">${title}</span><ul style=\"margin:4px 0 0 18px;padding:0\">${items.join('')}</ul></div>`;
-      const renderPowerEntry = (entry, { fallback = 'Power' } = {}) => {
-        if (entry && typeof entry === 'object') {
-          const isModern = (
-            entry.rulesText !== undefined
-            || entry.effectTag !== undefined
-            || entry.spCost !== undefined
-            || entry.intensity !== undefined
-            || entry.actionType !== undefined
-            || entry.signature
+    const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+    const ABILITY_NAME_MAP = {
+      str: 'Strength',
+      dex: 'Dexterity',
+      con: 'Constitution',
+      int: 'Intelligence',
+      wis: 'Wisdom',
+      cha: 'Charisma',
+    };
+    const QUESTION_PROMPTS = [
+      ['q-mask', 'Who are you behind the mask?'],
+      ['q-justice', 'What does justice mean to you?'],
+      ['q-fear', 'What is your biggest fear or unresolved trauma?'],
+      ['q-first-power', 'What moment first defined your sense of power—was it thrilling, terrifying, or tragic?'],
+      ['q-origin-meaning', 'What does your Origin Story mean to you now?'],
+      ['q-before-powers', 'What was your life like before you had powers or before you remembered having them?'],
+      ['q-power-scare', 'What is one way your powers scare even you?'],
+      ['q-signature-move', 'What is your signature move or ability, and how does it reflect who you are?'],
+      ['q-emotional', 'What happens to your powers when you are emotionally compromised?'],
+      ['q-no-line', 'What line will you never cross even if the world burns around you?'],
+      ['q-alignment-fear', 'Which Alignment do you identify with, and which do you fear becoming?'],
+      ['q-opinion', 'Whose opinion matters more to you—civilians, teammates, or your faction superiors? Why?'],
+      ['q-drive', 'What drives you to fight—justice, guilt, revenge, legacy, redemption, or something else?'],
+      ['q-walk-away', 'What would make you walk away from this life for good?'],
+      ['q-secret', 'What is one major secret you are keeping from the rest of the team?'],
+      ['q-vulnerable', 'What situation leaves you the most vulnerable—physically, emotionally, or strategically?'],
+      ['q-admire', 'Which teammate do you admire the most and what do they have that you lack?'],
+      ['q-if-lost', 'If you lost your powers tomorrow, who would you still be?'],
+    ];
+    
+    const hasContent = value => {
+      if (value === null || value === undefined) return false;
+      if (typeof value === 'number') return Number.isFinite(value);
+      if (typeof value === 'boolean') return true;
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'object') return Object.keys(value).length > 0;
+      return false;
+    };
+    
+    const toDisplayString = value => {
+      if (value === null || value === undefined) return '';
+      if (Array.isArray(value)) {
+        return value
+          .filter(item => hasContent(item))
+          .map(item => toDisplayString(item))
+          .join(', ');
+      }
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? String(value) : '';
+      }
+      if (typeof value === 'boolean') {
+        return value ? 'Yes' : 'No';
+      }
+      return String(value);
+    };
+    
+    const formatModifier = value => {
+      if (!Number.isFinite(value)) return '';
+      return value > 0 ? `+${value}` : String(value);
+    };
+    
+    const createDefinitionList = (entries, { className = 'dm-character-card__definitions', nested = false } = {}) => {
+      if (!Array.isArray(entries)) return null;
+      const normalized = entries
+        .map(entry => {
+          if (!entry || typeof entry !== 'object') return null;
+          const { label, value, formatter } = entry;
+          if (!label) return null;
+          const effectiveValue = typeof formatter === 'function' ? formatter(value) : value;
+          if (!hasContent(effectiveValue)) return null;
+          return { label, value: toDisplayString(effectiveValue) };
+        })
+        .filter(Boolean);
+      if (!normalized.length) return null;
+      const dl = document.createElement('dl');
+      dl.className = className;
+      if (!nested) {
+        dl.classList.add('dm-character-card__sectionContent');
+      }
+      normalized.forEach(({ label, value }) => {
+        const row = document.createElement('div');
+        row.className = nested
+          ? 'dm-character-card__definition dm-character-card__definition--nested'
+          : 'dm-character-card__definition';
+        const dt = document.createElement('dt');
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.textContent = value;
+        row.appendChild(dt);
+        row.appendChild(dd);
+        dl.appendChild(row);
+      });
+      return dl;
+    };
+    
+    const createList = (items, { nested = false } = {}) => {
+      if (!Array.isArray(items)) return null;
+      const filtered = items.filter(Boolean);
+      if (!filtered.length) return null;
+      const list = document.createElement('ul');
+      list.className = nested
+        ? 'dm-character-card__list dm-character-card__list--nested'
+        : 'dm-character-card__list';
+      if (!nested) {
+        list.classList.add('dm-character-card__sectionContent');
+      }
+      filtered.forEach(item => list.appendChild(item));
+      return list;
+    };
+    
+    const createSection = (title, content) => {
+      if (!content) return null;
+      if (content instanceof DocumentFragment && !content.childNodes.length) return null;
+      if (content instanceof HTMLElement && !content.childElementCount && !content.textContent.trim()) return null;
+      const section = document.createElement('section');
+      section.className = 'dm-character-card__section';
+      const heading = document.createElement('h3');
+      heading.className = 'dm-character-card__sectionTitle';
+      heading.textContent = title;
+      section.appendChild(heading);
+      section.appendChild(content);
+      return section;
+    };
+    
+    const buildAbilityTable = data => {
+      if (!data || typeof data !== 'object') return null;
+      const proficiencyBonus = Number(data['prof-bonus']);
+      const profBonus = Number.isFinite(proficiencyBonus) ? proficiencyBonus : 0;
+      const saveProfs = Array.isArray(data.saveProfs)
+        ? data.saveProfs
+            .map(value => (typeof value === 'string' ? value.toLowerCase() : ''))
+            .filter(Boolean)
+        : [];
+      const rows = ABILITY_KEYS.map(key => {
+        const rawScore = Number(data[key]);
+        if (!Number.isFinite(rawScore)) return null;
+        const mod = Math.floor((rawScore - 10) / 2);
+        const proficient = saveProfs.includes(key);
+        const saveModifier = mod + (proficient ? profBonus : 0);
+        return { key, score: rawScore, mod, save: saveModifier, proficient };
+      }).filter(Boolean);
+      if (!rows.length) return null;
+      const table = document.createElement('table');
+      table.className = 'dm-character-card__table';
+      const thead = table.createTHead();
+      const headRow = thead.insertRow();
+      ['Ability', 'Score', 'Modifier', 'Save', 'Proficient'].forEach(label => {
+        const th = document.createElement('th');
+        th.scope = 'col';
+        th.textContent = label;
+        headRow.appendChild(th);
+      });
+      const tbody = table.createTBody();
+      rows.forEach(row => {
+        const tr = tbody.insertRow();
+        const headingCell = document.createElement('th');
+        headingCell.scope = 'row';
+        headingCell.textContent = `${ABILITY_NAME_MAP[row.key] ?? row.key.toUpperCase()} (${row.key.toUpperCase()})`;
+        tr.appendChild(headingCell);
+        const scoreCell = tr.insertCell();
+        scoreCell.textContent = toDisplayString(row.score);
+        const modCell = tr.insertCell();
+        modCell.textContent = formatModifier(row.mod);
+        const saveCell = tr.insertCell();
+        saveCell.textContent = formatModifier(row.save);
+        const profCell = tr.insertCell();
+        profCell.textContent = row.proficient ? 'Yes' : 'No';
+      });
+      return table;
+    };
+    
+    const renderPowerEntry = (entry, fallback = 'Power') => {
+      if (!entry || typeof entry !== 'object') return null;
+      const item = document.createElement('li');
+      item.className = 'dm-character-card__listItem';
+      const title = document.createElement('p');
+      title.className = 'dm-character-card__itemTitle';
+      title.textContent = entry.name || fallback;
+      item.appendChild(title);
+      const isModern =
+        entry.rulesText !== undefined ||
+        entry.effectTag !== undefined ||
+        entry.spCost !== undefined ||
+        entry.intensity !== undefined ||
+        entry.actionType !== undefined ||
+        entry.signature;
+      if (isModern) {
+        const costFormatter = value => {
+          if (value === null || value === undefined || value === '') return '';
+          const numeric = Number(value);
+          if (Number.isFinite(numeric)) return `${numeric} SP`;
+          return value;
+        };
+        const saveAbility = entry.requiresSave ? entry.saveAbilityTarget || entry.saveAbility : '';
+        const details = createDefinitionList(
+          [
+            { label: 'Style', value: entry.style },
+            { label: 'Action', value: entry.actionType },
+            { label: 'Intensity', value: entry.intensity },
+            { label: 'Uses', value: entry.uses },
+            { label: 'Cost', value: entry.spCost, formatter: costFormatter },
+            { label: 'Save', value: typeof saveAbility === 'string' ? saveAbility.toUpperCase() : saveAbility },
+            { label: 'Rules', value: entry.rulesText },
+            { label: 'Description', value: entry.description },
+            { label: 'Special', value: entry.special },
+          ],
+          { className: 'dm-character-card__subDefinitions', nested: true },
+        );
+        if (details) item.appendChild(details);
+        return item;
+      }
+      const details = createDefinitionList(
+        [
+          { label: 'SP', value: entry.sp },
+          { label: 'Save', value: entry.save },
+          { label: 'Special', value: entry.special },
+          { label: 'Description', value: entry.description ?? entry.desc },
+        ],
+        { className: 'dm-character-card__subDefinitions', nested: true },
+      );
+      if (details) item.appendChild(details);
+      return item;
+    };
+    
+    function characterCard(data, name) {
+      const card = document.createElement('article');
+      card.className = 'dm-character-card';
+    
+      const header = document.createElement('header');
+      header.className = 'dm-character-card__header';
+      const title = document.createElement('h2');
+      title.className = 'dm-character-card__title';
+      const displayTitle = hasContent(data?.superhero) ? String(data.superhero) : name || 'Character';
+      title.textContent = displayTitle;
+      header.appendChild(title);
+      if (name && name !== displayTitle) {
+        const subtitle = document.createElement('p');
+        subtitle.className = 'dm-character-card__subtitle';
+        subtitle.textContent = `Saved as ${name}`;
+        header.appendChild(subtitle);
+      }
+      card.appendChild(header);
+    
+      const identityDetails = createDefinitionList([
+        { label: 'Superhero Identity', value: data?.superhero },
+        { label: 'Secret Identity', value: data?.secret },
+        { label: 'Public Identity', value: data?.publicIdentity },
+        { label: 'Alignment', value: data?.alignment },
+        { label: 'Classification', value: data?.classification },
+        { label: 'Power Style', value: data?.['power-style'] },
+        { label: 'Origin', value: data?.origin },
+      ]);
+      const identitySection = createSection('Identity', identityDetails);
+      if (identitySection) card.appendChild(identitySection);
+    
+      const levelDetails = createDefinitionList([
+        { label: 'Level', value: data?.level ?? data?.['level-display'] },
+        { label: 'Tier', value: data?.tier ?? data?.['tier-short'] },
+        { label: 'Sub-tier', value: data?.['sub-tier'] ?? data?.['sub-tier-display'] },
+        { label: 'Tier Number', value: data?.['tier-number'] },
+        { label: 'Level Summary', value: data?.['level-summary'] },
+        { label: 'Experience', value: data?.xp },
+        { label: 'XP Progress', value: data?.['xp-bar'] },
+      ]);
+      const levelSection = createSection('Level & Experience', levelDetails);
+      if (levelSection) card.appendChild(levelSection);
+    
+      const resourceDetails = createDefinitionList([
+        { label: 'HP', value: data?.['hp-bar'] },
+        { label: 'Temp HP', value: data?.['hp-temp'] },
+        { label: 'SP', value: data?.['sp-bar'] },
+        { label: 'Temp SP', value: data?.['sp-temp'] },
+        { label: 'TC', value: data?.tc },
+        { label: 'PP', value: data?.pp },
+        { label: 'Credits', value: data?.credits },
+      ]);
+      const resourceSection = createSection('Resources', resourceDetails);
+      if (resourceSection) card.appendChild(resourceSection);
+    
+      const abilityTable = buildAbilityTable(data);
+      const casterAbilityRaw = data?.powerSettings?.casterSaveAbility || data?.['power-save-ability'];
+      const casterAbilityLabel = (() => {
+        if (!casterAbilityRaw || typeof casterAbilityRaw !== 'string') return '';
+        const key = casterAbilityRaw.toLowerCase();
+        const full = ABILITY_NAME_MAP[key];
+        return full ? `${full} (${key.toUpperCase()})` : casterAbilityRaw.toUpperCase();
+      })();
+      const abilityDetails = createDefinitionList(
+        [
+          { label: 'Proficiency Bonus', value: data?.['prof-bonus'] },
+          { label: 'Initiative', value: data?.initiative },
+          { label: 'Speed', value: data?.speed },
+          { label: 'Power Save Ability', value: casterAbilityLabel },
+          { label: 'Power Save DC', value: data?.['power-save-dc'] },
+          { label: 'Save DC Formula', value: data?.powerSettings?.dcFormula },
+        ],
+        { nested: true },
+      );
+      const abilityContent = document.createElement('div');
+      abilityContent.className = 'dm-character-card__stack dm-character-card__sectionContent';
+      if (abilityTable) abilityContent.appendChild(abilityTable);
+      if (abilityDetails) abilityContent.appendChild(abilityDetails);
+      const abilitySection = abilityContent.childElementCount ? createSection('Abilities & Saves', abilityContent) : null;
+      if (abilitySection) card.appendChild(abilitySection);
+    
+      const renderPowerList = (entries, fallback) => {
+        if (!Array.isArray(entries) || !entries.length) return null;
+        const items = entries.map(entry => renderPowerEntry(entry, fallback)).filter(Boolean);
+        return createList(items, { nested: false });
+      };
+    
+      const powersSection = createSection('Powers', renderPowerList(data?.powers || [], 'Power'));
+      if (powersSection) card.appendChild(powersSection);
+    
+      const signatureSection = createSection('Signature Moves', renderPowerList(data?.signatures || [], 'Signature'));
+      if (signatureSection) card.appendChild(signatureSection);
+    
+      const weaponList = (() => {
+        if (!Array.isArray(data?.weapons)) return null;
+        const entries = data.weapons.map(weapon => {
+          if (!weapon || typeof weapon !== 'object') return null;
+          const item = document.createElement('li');
+          item.className = 'dm-character-card__listItem';
+          const titleEl = document.createElement('p');
+          titleEl.className = 'dm-character-card__itemTitle';
+          titleEl.textContent = weapon.name || 'Weapon';
+          item.appendChild(titleEl);
+          const details = createDefinitionList(
+            [
+              { label: 'Damage', value: weapon.damage },
+              { label: 'Range', value: weapon.range },
+              { label: 'Attack Ability', value: typeof weapon.attackAbility === 'string' ? weapon.attackAbility.toUpperCase() : weapon.attackAbility },
+              { label: 'Proficient', value: typeof weapon.proficient === 'boolean' ? weapon.proficient : null },
+            ],
+            { className: 'dm-character-card__subDefinitions', nested: true },
           );
-          if (isModern) {
-            const costValue = Number(entry.spCost);
-            const costLabel = Number.isFinite(costValue) && costValue > 0 ? `${costValue} SP` : '';
-            return `<li>${
-              labeled('Name', entry.name || fallback)
-              + labeled('Style', entry.style)
-              + labeled('Action', entry.actionType)
-              + labeled('Intensity', entry.intensity)
-              + labeled('Uses', entry.uses)
-              + labeled('Cost', costLabel)
-              + labeled('Save', entry.requiresSave ? entry.saveAbilityTarget : '')
-              + labeled('Rules', entry.rulesText || '')
-              + labeled('Description', entry.description)
-              + labeled('Special', entry.special)
-            }</li>`;
+          if (details) item.appendChild(details);
+          return item;
+        }).filter(Boolean);
+        return createList(entries, { nested: true });
+      })();
+    
+      const armorList = (() => {
+        if (!Array.isArray(data?.armor)) return null;
+        const entries = data.armor.map(armor => {
+          if (!armor || typeof armor !== 'object') return null;
+          const item = document.createElement('li');
+          item.className = 'dm-character-card__listItem';
+          const titleEl = document.createElement('p');
+          titleEl.className = 'dm-character-card__itemTitle';
+          titleEl.textContent = armor.name || 'Armor';
+          item.appendChild(titleEl);
+          const details = createDefinitionList(
+            [
+              { label: 'Slot', value: armor.slot },
+              {
+                label: 'Bonus',
+                value: armor.bonus,
+                formatter: value => {
+                  if (value === null || value === undefined || value === '') return '';
+                  const numeric = Number(value);
+                  if (Number.isFinite(numeric)) return formatModifier(numeric);
+                  return value;
+                },
+              },
+              { label: 'Equipped', value: typeof armor.equipped === 'boolean' ? armor.equipped : null },
+            ],
+            { className: 'dm-character-card__subDefinitions', nested: true },
+          );
+          if (details) item.appendChild(details);
+          return item;
+        }).filter(Boolean);
+        return createList(entries, { nested: true });
+      })();
+    
+      const itemList = (() => {
+        if (!Array.isArray(data?.items)) return null;
+        const entries = data.items.map(entry => {
+          if (!entry || typeof entry !== 'object') return null;
+          const item = document.createElement('li');
+          item.className = 'dm-character-card__listItem';
+          const titleEl = document.createElement('p');
+          titleEl.className = 'dm-character-card__itemTitle';
+          titleEl.textContent = entry.name || 'Item';
+          item.appendChild(titleEl);
+          const details = createDefinitionList(
+            [
+              { label: 'Qty', value: entry.qty },
+              { label: 'Notes', value: entry.notes },
+            ],
+            { className: 'dm-character-card__subDefinitions', nested: true },
+          );
+          if (details) item.appendChild(details);
+          return item;
+        }).filter(Boolean);
+        return createList(entries, { nested: true });
+      })();
+    
+      const augmentSummary = (() => {
+        const state = (() => {
+          if (data?.augmentState && typeof data.augmentState === 'object') return data.augmentState;
+          if (typeof data?.['augment-state'] === 'string' && data['augment-state']) {
+            try {
+              const parsed = JSON.parse(data['augment-state']);
+              if (parsed && typeof parsed === 'object') return parsed;
+            } catch {}
           }
-          const legacyDesc = entry.description ?? entry.desc;
-          return `<li>${labeled('Name', entry.name || fallback)}${labeled('SP', entry.sp)}${labeled('Save', entry.save)}${labeled('Special', entry.special)}${labeled('Description', legacyDesc)}</li>`;
-        }
-        return `<li>${labeled('Name', fallback)}</li>`;
-      };
-      if(data.powers?.length){
-        const powers=data.powers.map(p=>renderPowerEntry(p,{fallback:'Power'}));
-        card.innerHTML+=renderList('Powers',powers);
+          return null;
+        })();
+        if (!state) return null;
+        const selected = Array.isArray(state.selected) ? state.selected.filter(Boolean) : [];
+        const filters = Array.isArray(state.filters) ? state.filters.filter(Boolean) : [];
+        return createDefinitionList(
+          [
+            { label: 'Selected Augments', value: selected },
+            { label: 'Active Filters', value: filters },
+            { label: 'Search Query', value: state.search },
+          ],
+          { className: 'dm-character-card__subDefinitions', nested: true },
+        );
+      })();
+    
+      const medalList = (() => {
+        if (!Array.isArray(data?.medals)) return null;
+        const entries = data.medals.map(medal => {
+          if (!medal || typeof medal !== 'object') return null;
+          const item = document.createElement('li');
+          item.className = 'dm-character-card__listItem';
+          const titleEl = document.createElement('p');
+          titleEl.className = 'dm-character-card__itemTitle';
+          titleEl.textContent = medal.name || 'Medal';
+          item.appendChild(titleEl);
+          const details = createDefinitionList(
+            [
+              { label: 'Description', value: medal.description },
+              { label: 'Awarded By', value: medal.awardedBy },
+              { label: 'Awarded On', value: medal.awardedAt },
+              { label: 'Artwork', value: medal.artwork },
+            ],
+            { className: 'dm-character-card__subDefinitions', nested: true },
+          );
+          if (details) item.appendChild(details);
+          return item;
+        }).filter(Boolean);
+        return createList(entries, { nested: true });
+      })();
+    
+      const gearGroups = [];
+      if (weaponList) gearGroups.push(['Weapons', weaponList]);
+      if (armorList) gearGroups.push(['Armor', armorList]);
+      if (itemList) gearGroups.push(['Items', itemList]);
+      if (augmentSummary) gearGroups.push(['Augments', augmentSummary]);
+      if (medalList) gearGroups.push(['Medals', medalList]);
+    
+      if (gearGroups.length) {
+        const gearContainer = document.createElement('div');
+        gearContainer.className = 'dm-character-card__stack dm-character-card__sectionContent';
+        gearGroups.forEach(([label, content]) => {
+          const group = document.createElement('div');
+          group.className = 'dm-character-card__group';
+          const heading = document.createElement('h4');
+          heading.className = 'dm-character-card__groupTitle';
+          heading.textContent = label;
+          group.appendChild(heading);
+          if (content) group.appendChild(content);
+          gearContainer.appendChild(group);
+        });
+        const gearSection = createSection('Gear & Assets', gearContainer);
+        if (gearSection) card.appendChild(gearSection);
       }
-      if(data.signatures?.length){
-        const sigs=data.signatures.map(s=>renderPowerEntry(s,{fallback:'Signature'}));
-        card.innerHTML+=renderList('Signatures',sigs);
+    
+      const factionContent = (() => {
+        if (!data || typeof data !== 'object') return null;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'dm-character-card__stack dm-character-card__sectionContent';
+        let rendered = 0;
+        FACTIONS.forEach(faction => {
+          const key = faction?.id;
+          if (!key) return;
+          const scoreRaw = data[`${key}-rep`] ?? data[`${key}-rep-bar`];
+          const scoreNumber = Number(scoreRaw);
+          if (!Number.isFinite(scoreNumber) && !hasContent(scoreRaw)) return;
+          const factionBlock = document.createElement('div');
+          factionBlock.className = 'dm-character-card__group';
+          const heading = document.createElement('h4');
+          heading.className = 'dm-character-card__groupTitle';
+          heading.textContent = FACTION_NAME_MAP[key] || key;
+          factionBlock.appendChild(heading);
+          const config = FACTION_LOOKUP.get(key);
+          const tierInfo = config && Number.isFinite(scoreNumber) ? config.getTier(scoreNumber) : null;
+          const factionDetails = createDefinitionList(
+            [
+              { label: 'Score', value: Number.isFinite(scoreNumber) ? scoreNumber : scoreRaw },
+              { label: 'Tier', value: tierInfo?.name },
+              { label: 'Perks', value: tierInfo?.perks && tierInfo.perks.length ? tierInfo.perks.join('\n') : null },
+            ],
+            { className: 'dm-character-card__subDefinitions', nested: true },
+          );
+          if (factionDetails) factionBlock.appendChild(factionDetails);
+          wrapper.appendChild(factionBlock);
+          rendered += 1;
+        });
+        return rendered ? wrapper : null;
+      })();
+      const factionSection = createSection('Faction Reputations', factionContent);
+      if (factionSection) card.appendChild(factionSection);
+    
+      if (hasContent(data?.['story-notes'])) {
+        const storySection = document.createElement('section');
+        storySection.className = 'dm-character-card__section';
+        const heading = document.createElement('h3');
+        heading.className = 'dm-character-card__sectionTitle';
+        heading.textContent = 'Backstory & Notes';
+        storySection.appendChild(heading);
+        const text = document.createElement('p');
+        text.className = 'dm-character-card__text dm-character-card__sectionContent';
+        text.textContent = String(data['story-notes']);
+        storySection.appendChild(text);
+        card.appendChild(storySection);
       }
-      if(data.weapons?.length){
-        const weapons=data.weapons.map(w=>`<li>${labeled('Name',w.name)}${labeled('Damage',w.damage)}${labeled('Range',w.range)}</li>`);
-        card.innerHTML+=renderList('Weapons',weapons);
-      }
-      if(data.armor?.length){
-        const armor=data.armor.map(a=>`<li>${labeled('Name',a.name)}${labeled('Slot',a.slot)}${a.bonus?labeled('Bonus',`+${a.bonus}`):''}${a.equipped?labeled('Equipped','Yes'):''}</li>`);
-        card.innerHTML+=renderList('Armor',armor);
-      }
-      if(data.items?.length){
-        const items=data.items.map(i=>`<li>${labeled('Name',i.name)}${labeled('Qty',i.qty)}${labeled('Notes',i.notes)}</li>`);
-        card.innerHTML+=renderList('Items',items);
-      }
-      if(data['story-notes']){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Backstory / Notes</span><div>${data['story-notes']}</div></div>`;
-      }
-      const qMap={
-        'q-mask':'Who are you behind the mask?',
-        'q-justice':'What does justice mean to you?',
-        'q-fear':'What is your biggest fear or unresolved trauma?',
-        'q-first-power':'What moment first defined your sense of power—was it thrilling, terrifying, or tragic?',
-        'q-origin-meaning':'What does your Origin Story mean to you now?',
-        'q-before-powers':'What was your life like before you had powers or before you remembered having them?',
-        'q-power-scare':'What is one way your powers scare even you?',
-        'q-signature-move':'What is your signature move or ability, and how does it reflect who you are?',
-        'q-emotional':'What happens to your powers when you are emotionally compromised?',
-        'q-no-line':'What line will you never cross even if the world burns around you?'
-      };
-      const qList=Object.entries(qMap)
-        .filter(([k])=>data[k])
-        .map(([k,q])=>`<li><strong>${q}</strong> ${data[k]}</li>`)
-        .join('');
-      if(qList){
-        card.innerHTML+=`<div style="margin-top:6px"><span style=\"opacity:.8;font-size:12px\">Character Questions</span><ul style=\"margin:4px 0 0 18px;padding:0\">${qList}</ul></div>`;
-      }
+    
+      const questionEntries = QUESTION_PROMPTS.map(([key, prompt]) => ({
+        label: prompt,
+        value: data?.[key],
+      }));
+      const questionList = createDefinitionList(questionEntries, {
+        className: 'dm-character-card__definitions dm-character-card__qa',
+      });
+      const questionSection = createSection('Character Questions', questionList);
+      if (questionSection) card.appendChild(questionSection);
+    
       return card;
     }
+
 
     charList?.addEventListener('click', async e => {
       const trigger = e.target.closest('[data-character-name], a');

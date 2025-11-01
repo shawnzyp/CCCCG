@@ -4375,7 +4375,45 @@ body:not(.no-hover) #dm-characters-modal .dm-characters__link:hover{border-color
 #dm-characters-modal .dm-characters__link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #dm-characters-modal .dm-characters__placeholder{padding:12px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:var(--radius);margin:12px}
 #dm-character-modal .modal.dm-character{max-width:none;width:100%;height:100%;max-height:none;display:flex;flex-direction:column}
-#dm-character-modal .dm-character-sheet{flex:1;overflow:auto}
+#dm-character-modal .dm-character-sheet{flex:1;overflow:auto;padding:16px;box-sizing:border-box;display:flex;justify-content:center}
+#dm-character-modal .dm-character-sheet:empty{justify-content:flex-start}
+.dm-character-card{width:100%;max-width:960px;background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 96%, transparent),color-mix(in srgb,var(--surface-2) 98%, transparent));border:1px solid color-mix(in srgb,var(--text) 12%, transparent);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:20px;box-shadow:0 18px 36px rgba(2,6,23,.45);color:inherit}
+.theme-light .dm-character-card{background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 99%, transparent),color-mix(in srgb,var(--surface-2) 99%, transparent));box-shadow:0 14px 26px rgba(15,23,42,.18);border-color:color-mix(in srgb,var(--text) 10%, transparent)}
+.dm-character-card__header{display:flex;flex-direction:column;gap:6px}
+.dm-character-card__title{margin:0;font-size:1.35rem;line-height:1.25;font-weight:700}
+.dm-character-card__subtitle{margin:0;font-size:.9rem;color:var(--muted)}
+.dm-character-card__section{display:flex;flex-direction:column;gap:12px}
+.dm-character-card__sectionTitle{margin:0;font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.dm-character-card__sectionContent{display:flex;flex-direction:column;gap:12px}
+.dm-character-card__definitions{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 20px;margin:0}
+.dm-character-card__definition{display:flex;flex-direction:column;gap:4px}
+.dm-character-card__definition dt{margin:0;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dm-character-card__definition dd{margin:0;font-size:.95rem;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.dm-character-card__definition--nested dt{font-size:.7rem}
+.dm-character-card__definition--nested dd{font-size:.9rem}
+.dm-character-card__list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.dm-character-card__list--nested{gap:10px}
+.dm-character-card__listItem{border:1px solid color-mix(in srgb,var(--text) 14%, transparent);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:color-mix(in srgb,var(--surface) 94%, transparent)}
+.theme-light .dm-character-card__listItem{background:color-mix(in srgb,#fff 92%, var(--surface-2) 8%);border-color:color-mix(in srgb,var(--text) 12%, transparent)}
+.dm-character-card__itemTitle{margin:0;font-weight:600;font-size:.95rem}
+.dm-character-card__stack{display:flex;flex-direction:column;gap:16px}
+.dm-character-card__group{display:flex;flex-direction:column;gap:10px}
+.dm-character-card__groupTitle{margin:0;font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.dm-character-card__table{width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden;font-size:.95rem;background:color-mix(in srgb,var(--surface) 98%, transparent)}
+.dm-character-card__table thead tr{background:rgba(255,255,255,.05)}
+.theme-light .dm-character-card__table thead tr{background:rgba(0,0,0,.04)}
+.dm-character-card__table th,.dm-character-card__table td{padding:10px 12px;text-align:left;border-bottom:1px solid color-mix(in srgb,var(--text) 10%, transparent)}
+.dm-character-card__table tbody tr:last-child th,.dm-character-card__table tbody tr:last-child td{border-bottom:none}
+.dm-character-card__table th{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.dm-character-card__table td{font-size:.95rem}
+.dm-character-card__text{margin:0;font-size:.95rem;line-height:1.6;white-space:pre-wrap}
+.dm-character-card__qa{display:flex;flex-direction:column;gap:14px}
+.dm-character-card__qa .dm-character-card__definition{border:1px solid color-mix(in srgb,var(--text) 12%, transparent);border-radius:12px;padding:12px 14px;background:color-mix(in srgb,var(--surface) 96%, transparent)}
+.theme-light .dm-character-card__qa .dm-character-card__definition{background:color-mix(in srgb,#fff 94%, var(--surface-2) 6%);border-color:color-mix(in srgb,var(--text) 10%, transparent)}
+.dm-character-card__qa .dm-character-card__definition dt{font-size:.8rem;color:var(--muted)}
+.dm-character-card__qa .dm-character-card__definition dd{font-size:.95rem}
+@media(max-width:720px){#dm-character-modal .dm-character-sheet{padding:12px}.dm-character-card{padding:20px}}
+@media(max-width:480px){.dm-character-card{padding:16px}.dm-character-card__definitions{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
 #dm-mini-games-modal .modal.dm-mini-games{max-width:min(1080px,100%);width:100%;height:100%;max-height:none;display:flex;flex-direction:column;gap:16px;overflow:hidden}
 .dm-mini-games__layout{display:flex;gap:16px;flex:1 1 auto;min-height:0}
 .dm-mini-games__sidebar{flex:0 0 240px;display:flex;flex-direction:column;gap:8px;min-height:0}
