@@ -14,6 +14,10 @@ function createStorageUnavailableError(method, cause = null) {
   return error;
 }
 
+function isLocalStorageUnavailableError(err) {
+  return err instanceof Error && err.name === 'LocalStorageUnavailableError';
+}
+
 function safeLocalStorageGet(itemKey) {
   if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
     const err = createStorageUnavailableError('getItem');
@@ -24,6 +28,9 @@ function safeLocalStorageGet(itemKey) {
     return localStorage.getItem(itemKey);
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
+    if (error.name !== 'LocalStorageUnavailableError') {
+      error.name = 'LocalStorageUnavailableError';
+    }
     console.error(`Failed to read localStorage key ${itemKey}`, error);
     throw error;
   }
@@ -144,7 +151,10 @@ function shouldQueuePinError(err) {
 }
 
 export async function syncPin(name) {
-  if (hasPin(name)) return true;
+  const status = getPinStatus(name);
+  if (status.hasPin || !status.storageAvailable) {
+    return status.hasPin;
+  }
   try {
     const hash = await loadCloudPin(name);
     if (typeof hash === 'string' && hash) {
@@ -183,6 +193,9 @@ export function hasPin(name) {
     return safeLocalStorageGet(key(name)) !== null;
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
+    if (error.name !== 'LocalStorageUnavailableError') {
+      error.name = 'LocalStorageUnavailableError';
+    }
     if (!error.message) {
       error.message = 'Failed to access PIN storage';
     }
@@ -190,8 +203,29 @@ export function hasPin(name) {
   }
 }
 
+export function getPinStatus(name) {
+  try {
+    return { hasPin: hasPin(name), storageAvailable: true, error: null };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    if (isLocalStorageUnavailableError(error)) {
+      return { hasPin: false, storageAvailable: false, error };
+    }
+    throw error;
+  }
+}
+
 export async function verifyPin(name, pin) {
-  const stored = safeLocalStorageGet(key(name));
+  let stored;
+  try {
+    stored = safeLocalStorageGet(key(name));
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    if (isLocalStorageUnavailableError(error)) {
+      return false;
+    }
+    throw error;
+  }
   if (!stored) return false;
   try {
     const hash = await hashPin(pin);

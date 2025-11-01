@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { setPin, hasPin, verifyPin, clearPin, movePin, syncPin } from '../scripts/pin.js';
+import { setPin, hasPin, verifyPin, clearPin, movePin, syncPin, getPinStatus } from '../scripts/pin.js';
 
 beforeEach(() => {
   localStorage.clear();
@@ -87,6 +87,22 @@ test('surface localStorage failures when checking for a pin', async () => {
   });
 
   expect(() => hasPin('Carol')).toThrow('storage blocked');
+
+  spy.mockRestore();
+});
+
+test('getPinStatus reports blocked storage without throwing', async () => {
+  await setPin('Dana', '1357');
+  const spy = jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('storage blocked');
+  });
+
+  const status = getPinStatus('Dana');
+
+  expect(status.storageAvailable).toBe(false);
+  expect(status.hasPin).toBe(false);
+  expect(status.error).toBeInstanceOf(Error);
+  expect(status.error?.message).toBe('storage blocked');
 
   spy.mockRestore();
 });
