@@ -6,22 +6,70 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+const DM_LOGIN_MODAL_MARKUP = `
+  <div id="dm-login-modal" class="hidden" aria-hidden="true">
+    <div class="modal-frame">
+      <section class="modal dm-login" role="dialog" aria-modal="true" aria-labelledby="dm-login-title">
+        <button id="dm-login-close" class="x" aria-label="Close"></button>
+        <div class="dm-login__content">
+          <div class="dm-login__view" data-login-view="login">
+            <h3 id="dm-login-title">DM Login</h3>
+            <p class="dm-login__description">Enter your DM PIN to access the tools.</p>
+            <input id="dm-login-pin">
+            <div class="actions">
+              <button id="dm-login-submit" type="button"></button>
+            </div>
+            <div class="dm-login__links">
+              <button type="button" data-login-action="start-create"></button>
+              <button type="button" data-login-action="forgot"></button>
+            </div>
+          </div>
+          <div class="dm-login__view" data-login-view="create" hidden aria-hidden="true">
+            <input id="dm-login-new-pin">
+            <div class="actions">
+              <button id="dm-login-create-submit" type="button"></button>
+            </div>
+            <button type="button" data-login-action="back-to-login"></button>
+          </div>
+          <div class="dm-login__view" data-login-view="confirm" hidden aria-hidden="true">
+            <input id="dm-login-confirm-pin">
+            <p data-login-error hidden></p>
+            <div class="actions">
+              <button id="dm-login-confirm-submit" type="button"></button>
+            </div>
+            <button type="button" data-login-action="back-to-create"></button>
+          </div>
+          <div class="dm-login__view" data-login-view="recovery" hidden aria-hidden="true">
+            <div class="actions">
+              <button type="button" data-login-action="back-to-login"></button>
+            </div>
+          </div>
+          <p data-login-wait hidden></p>
+        </div>
+      </section>
+      <div class="modal-frame__halo" aria-hidden="true"></div>
+    </div>
+  </div>
+`;
+
+function buildBaseDom(extra = '') {
+  return `
+    <button id="dm-login"></button>
+    <button id="dm-tools-toggle" hidden></button>
+    <div id="dm-tools-menu" hidden>
+      <div id="dm-session-status" hidden></div>
+      <button id="dm-session-extend" hidden></button>
+    </div>
+    <button id="dm-tools-tsomf"></button>
+    <button id="dm-tools-logout"></button>
+    ${DM_LOGIN_MODAL_MARKUP}
+    ${extra}
+  `;
+}
+
 describe('dm login', () => {
   test('DM login unlocks tools', async () => {
-    document.body.innerHTML = `
-        <button id="dm-login"></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <button id="dm-login-submit"></button>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
     window.toast = jest.fn();
     window.dismissToast = jest.fn();
 
@@ -93,20 +141,7 @@ describe('dm login', () => {
   });
 
   test('requireLogin succeeds without device fingerprint restriction', async () => {
-    document.body.innerHTML = `
-        <button id="dm-login"></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <button id="dm-login-submit"></button>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
     window.toast = jest.fn();
     window.dismissToast = jest.fn();
 
@@ -163,21 +198,214 @@ describe('dm login', () => {
     delete window.dismissToast;
   });
 
+  test('DM login supports creating a new PIN', async () => {
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const modal = document.getElementById('dm-login-modal');
+    const setPinEvents = [];
+    modal.addEventListener('dm-login:set-pin', event => setPinEvents.push(event.detail));
+
+    void window.dmRequireLogin();
+
+    modal.querySelector('[data-login-action="start-create"]').click();
+
+    const createView = modal.querySelector('[data-login-view="create"]');
+    expect(createView.hidden).toBe(false);
+
+    document.getElementById('dm-login-new-pin').value = '246810';
+    document.getElementById('dm-login-create-submit').click();
+
+    const confirmView = modal.querySelector('[data-login-view="confirm"]');
+    expect(confirmView.hidden).toBe(false);
+
+    document.getElementById('dm-login-confirm-pin').value = '246810';
+    document.getElementById('dm-login-confirm-submit').click();
+
+    expect(setPinEvents).toEqual([{ pin: '246810' }]);
+    const loginView = modal.querySelector('[data-login-view="login"]');
+    expect(loginView.hidden).toBe(false);
+    expect(document.getElementById('dm-login-pin').value).toBe('246810');
+
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('DM login mismatched confirmation shows error', async () => {
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const modal = document.getElementById('dm-login-modal');
+    const setPinSpy = jest.fn();
+    modal.addEventListener('dm-login:set-pin', setPinSpy);
+
+    void window.dmRequireLogin();
+
+    modal.querySelector('[data-login-action="start-create"]').click();
+    document.getElementById('dm-login-new-pin').value = '13579';
+    document.getElementById('dm-login-create-submit').click();
+
+    document.getElementById('dm-login-confirm-pin').value = '97531';
+    document.getElementById('dm-login-confirm-submit').click();
+
+    const error = modal.querySelector('[data-login-error]');
+    expect(error.hidden).toBe(false);
+    expect(error.textContent).toContain('PINs do not match');
+    expect(setPinSpy).not.toHaveBeenCalled();
+    expect(modal.querySelector('[data-login-view="confirm"]').hidden).toBe(false);
+    expect(modal.querySelector('[data-login-view="login"]').hidden).toBe(true);
+
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
+  test('DM login recovery flow is accessible', async () => {
+    document.body.innerHTML = buildBaseDom();
+    window.toast = jest.fn();
+    window.dismissToast = jest.fn();
+
+    jest.unstable_mockModule('../scripts/storage.js', () => ({
+      saveLocal: jest.fn(),
+      loadLocal: jest.fn(async () => ({})),
+      listLocalSaves: jest.fn(() => []),
+      deleteSave: jest.fn(),
+      saveCloud: jest.fn(),
+      loadCloud: jest.fn(async () => ({})),
+      listCloudSaves: jest.fn(async () => []),
+      listCloudBackups: jest.fn(async () => []),
+      listCloudBackupNames: jest.fn(async () => []),
+      loadCloudBackup: jest.fn(async () => ({})),
+      saveCloudAutosave: jest.fn(),
+      listCloudAutosaves: jest.fn(async () => []),
+      listCloudAutosaveNames: jest.fn(async () => []),
+      loadCloudAutosave: jest.fn(async () => ({})),
+      deleteCloud: jest.fn(),
+      appendCampaignLogEntry: jest.fn().mockResolvedValue({ id: 'test', t: Date.now(), name: '', text: '' }),
+      deleteCampaignLogEntry: jest.fn().mockResolvedValue(),
+      fetchCampaignLogEntries: jest.fn().mockResolvedValue([]),
+      subscribeCampaignLog: () => null,
+      beginQueuedSyncFlush: () => {},
+      getLastSyncStatus: () => 'idle',
+      subscribeSyncStatus: () => () => {},
+      getQueuedCloudSaves: async () => [],
+      clearQueuedCloudSaves: async () => true,
+      subscribeSyncErrors: () => () => {},
+      subscribeSyncActivity: () => () => {},
+      subscribeSyncQueue: (cb) => {
+        if (typeof cb === 'function') {
+          try { cb(); } catch {}
+        }
+        return () => {};
+      },
+      getLastSyncActivity: () => null,
+    }));
+
+    await import('../scripts/modal.js');
+    await import('../scripts/dm.js');
+
+    const modal = document.getElementById('dm-login-modal');
+    const recoveryEvents = [];
+    modal.addEventListener('dm-login:forgot-pin', event => recoveryEvents.push(event.detail));
+
+    void window.dmRequireLogin();
+
+    modal.querySelector('[data-login-action="forgot"]').click();
+
+    const recoveryView = modal.querySelector('[data-login-view="recovery"]');
+    expect(recoveryView.hidden).toBe(false);
+    expect(recoveryEvents).toEqual([{ view: 'recovery' }]);
+
+    const backButton = recoveryView.querySelector('[data-login-action="back-to-login"]');
+    backButton.click();
+
+    expect(modal.querySelector('[data-login-view="login"]').hidden).toBe(false);
+
+    delete window.toast;
+    delete window.dismissToast;
+  });
+
   test('session status hides when logged out', async () => {
-    document.body.innerHTML = `
-        <button id="dm-login"></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <button id="dm-login-submit"></button>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
     window.toast = jest.fn();
     window.dismissToast = jest.fn();
     window.dmLoginTimeoutMs = 60000;
@@ -245,20 +473,7 @@ describe('dm login', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2020-01-01T00:00:00Z'));
 
-    document.body.innerHTML = `
-        <button id="dm-login"></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <button id="dm-login-submit"></button>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
     window.toast = jest.fn();
     window.dismissToast = jest.fn();
     window.dmLoginTimeoutMs = 120000;
@@ -346,20 +561,7 @@ describe('dm login', () => {
   });
 
   test('login modal closes even if tools init fails', async () => {
-    document.body.innerHTML = `
-        <button id="dm-login"></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <button id="dm-login-submit"></button>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
     window.toast = jest.fn();
     window.dismissToast = jest.fn();
     window.initSomfDM = jest.fn(() => { throw new Error('fail'); });
@@ -426,20 +628,7 @@ describe('dm login', () => {
   });
 
   test('async DM tool initialization failure is handled', async () => {
-    document.body.innerHTML = `
-        <button id="dm-login"></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <button id="dm-login-submit"></button>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
     window.toast = jest.fn();
     window.dismissToast = jest.fn();
     const rejection = new Error('async fail');
@@ -507,20 +696,8 @@ describe('dm login', () => {
   });
 
   test('existing DM session reinitializes tools', async () => {
-    document.body.innerHTML = `
-        <button id="dm-login" hidden></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <button id="dm-login-submit"></button>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
+    document.getElementById('dm-login').hidden = true;
 
     const now = Date.now();
     sessionStorage.setItem('dmLoggedIn', '1');
@@ -635,20 +812,7 @@ describe('dm login', () => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2023-01-01T00:00:00Z'));
 
-    document.body.innerHTML = `
-        <button id="dm-login"></button>
-        <button id="dm-tools-toggle" hidden></button>
-        <div id="dm-tools-menu" hidden>
-          <div id="dm-session-status" hidden></div>
-          <button id="dm-session-extend" hidden></button>
-        </div>
-        <button id="dm-tools-tsomf"></button>
-        <button id="dm-tools-logout"></button>
-        <div id="dm-login-modal" class="hidden" aria-hidden="true">
-          <input id="dm-login-pin">
-          <div class="actions"><button id="dm-login-submit"></button></div>
-        </div>
-      `;
+    document.body.innerHTML = buildBaseDom();
     window.toast = jest.fn();
     window.dismissToast = jest.fn();
 

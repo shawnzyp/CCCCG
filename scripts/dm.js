@@ -1055,8 +1055,284 @@ function initDMLogin(){
   const loginClose = document.getElementById('dm-login-close');
   const loginSubmitDefaultLabel = loginSubmit?.textContent ?? '';
   const loginSubmitBaseLabel = loginSubmitDefaultLabel || 'Enter';
+  const loginViews = loginModal ? Array.from(loginModal.querySelectorAll('[data-login-view]')) : [];
+  const loginViewMap = new Map();
+  loginViews.forEach(node => {
+    if (!node) return;
+    const key = node.getAttribute('data-login-view');
+    if (typeof key === 'string' && key) {
+      loginViewMap.set(key, node);
+    }
+  });
+  const loginActionButtons = loginModal ? Array.from(loginModal.querySelectorAll('[data-login-action]')) : [];
+  const loginSetPinTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'start-create');
+  const loginForgotTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'forgot');
+  const loginBackToLoginTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'back-to-login');
+  const loginBackToCreateTriggers = loginActionButtons.filter(btn => btn?.getAttribute('data-login-action') === 'back-to-create');
+  const loginCreateSubmit = document.getElementById('dm-login-create-submit');
+  const loginConfirmSubmit = document.getElementById('dm-login-confirm-submit');
+  const loginNewPin = document.getElementById('dm-login-new-pin');
+  const loginConfirmPin = document.getElementById('dm-login-confirm-pin');
+  const loginErrorMessage = loginModal ? loginModal.querySelector('[data-login-error]') : null;
+  const loginWaitMessageDefault = loginModal ? loginModal.querySelector('[data-login-wait]') : null;
+  const LOGIN_VIEW_LOGIN = 'login';
+  const LOGIN_VIEW_CREATE = 'create';
+  const LOGIN_VIEW_CONFIRM = 'confirm';
+  const LOGIN_VIEW_RECOVERY = 'recovery';
+  const loginFlowState = {
+    currentView: LOGIN_VIEW_LOGIN,
+    draftPin: '',
+  };
   let loginCooldownTimerId = null;
-  let loginWaitMessageRef = null;
+  let loginWaitMessageRef = loginWaitMessageDefault;
+
+  function createLoginEvent(type, detail) {
+    if (typeof type !== 'string' || !type) {
+      return null;
+    }
+    if (typeof CustomEvent === 'function') {
+      return new CustomEvent(type, { bubbles: false, cancelable: false, detail });
+    }
+    if (typeof document !== 'undefined' && typeof document.createEvent === 'function') {
+      try {
+        const evt = document.createEvent('CustomEvent');
+        if (evt && typeof evt.initCustomEvent === 'function') {
+          evt.initCustomEvent(type, false, false, detail);
+          return evt;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return null;
+  }
+
+  function dispatchLoginEvent(type, detail) {
+    const target = loginModal || (typeof document !== 'undefined' ? document : null);
+    if (!target || typeof target.dispatchEvent !== 'function') {
+      return;
+    }
+    const event = createLoginEvent(type, detail);
+    if (!event) return;
+    try {
+      target.dispatchEvent(event);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function getLoginViewTarget(name) {
+    if (typeof name !== 'string' || !name) return null;
+    return loginViewMap.get(name) || null;
+  }
+
+  function queueLoginFocus(target) {
+    if (!target || typeof target.focus !== 'function') return;
+    const focus = () => {
+      try {
+        target.focus({ preventScroll: true });
+      } catch {
+        try {
+          target.focus();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => focus());
+      return;
+    }
+    if (typeof setTimeout === 'function') {
+      setTimeout(() => focus(), 0);
+      return;
+    }
+    focus();
+  }
+
+  function clearLoginError() {
+    if (!loginErrorMessage) return;
+    loginErrorMessage.textContent = '';
+    loginErrorMessage.hidden = true;
+  }
+
+  function showLoginError(message) {
+    if (!loginErrorMessage) return;
+    loginErrorMessage.textContent = message || '';
+    loginErrorMessage.hidden = !message;
+  }
+
+  function getDefaultFocusForView(view) {
+    if (view === LOGIN_VIEW_CREATE) {
+      if (loginNewPin) return loginNewPin;
+    } else if (view === LOGIN_VIEW_CONFIRM) {
+      if (loginConfirmPin) return loginConfirmPin;
+    } else if (view === LOGIN_VIEW_RECOVERY) {
+      const recoveryView = getLoginViewTarget(LOGIN_VIEW_RECOVERY);
+      if (recoveryView) {
+        const button = recoveryView.querySelector('[data-login-action="back-to-login"]');
+        if (button) return button;
+      }
+    }
+    return loginPin;
+  }
+
+  function setLoginView(nextView, { focus = true } = {}) {
+    const resolved = loginViewMap.has(nextView) ? nextView : LOGIN_VIEW_LOGIN;
+    loginFlowState.currentView = resolved;
+    loginViewMap.forEach((node, key) => {
+      if (!node) return;
+      const isActive = key === resolved;
+      node.hidden = !isActive;
+      node.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+    if (resolved !== LOGIN_VIEW_CONFIRM) {
+      clearLoginError();
+    }
+    if (resolved !== LOGIN_VIEW_LOGIN) {
+      setLoginWaitMessage('');
+    }
+    dispatchLoginEvent('dm-login:view-change', { view: resolved });
+    if (focus) {
+      queueLoginFocus(getDefaultFocusForView(resolved));
+    }
+  }
+
+  function resetLoginFlow({ focus = false } = {}) {
+    loginFlowState.draftPin = '';
+    if (loginNewPin) loginNewPin.value = '';
+    if (loginConfirmPin) loginConfirmPin.value = '';
+    clearLoginError();
+    setLoginView(LOGIN_VIEW_LOGIN, { focus });
+  }
+
+  function showCreatePinView({ preserveDraft = false } = {}) {
+    if (!preserveDraft) {
+      loginFlowState.draftPin = '';
+      if (loginNewPin) loginNewPin.value = '';
+    } else if (loginNewPin && !loginNewPin.value) {
+      loginNewPin.value = loginFlowState.draftPin;
+    }
+    if (loginConfirmPin) {
+      loginConfirmPin.value = '';
+    }
+    clearLoginError();
+    setLoginView(LOGIN_VIEW_CREATE);
+  }
+
+  function startPinConfirmationFlow() {
+    if (!loginNewPin) {
+      loginFlowState.draftPin = '';
+      setLoginView(LOGIN_VIEW_CONFIRM);
+      return;
+    }
+    const nextPin = (loginNewPin.value || '').trim();
+    if (!nextPin) {
+      queueLoginFocus(loginNewPin);
+      return;
+    }
+    loginFlowState.draftPin = nextPin;
+    if (loginConfirmPin) {
+      loginConfirmPin.value = '';
+    }
+    clearLoginError();
+    setLoginView(LOGIN_VIEW_CONFIRM);
+  }
+
+  function completePinCreation() {
+    const candidate = (loginConfirmPin?.value || '').trim();
+    if (!candidate) {
+      if (loginConfirmPin) {
+        queueLoginFocus(loginConfirmPin);
+      }
+      return;
+    }
+    if (candidate !== loginFlowState.draftPin) {
+      showLoginError('PINs do not match. Try again.');
+      if (loginConfirmPin && typeof loginConfirmPin.select === 'function') {
+        try {
+          loginConfirmPin.select();
+        } catch {
+          /* ignore */
+        }
+      }
+      queueLoginFocus(loginConfirmPin);
+      return;
+    }
+    const finalPin = candidate;
+    dispatchLoginEvent('dm-login:set-pin', { pin: finalPin });
+    resetLoginFlow({ focus: false });
+    if (loginPin) {
+      loginPin.value = finalPin;
+    }
+    setLoginView(LOGIN_VIEW_LOGIN, { focus: true });
+  }
+
+  function startRecoveryFlow() {
+    dispatchLoginEvent('dm-login:forgot-pin', { view: LOGIN_VIEW_RECOVERY });
+    setLoginView(LOGIN_VIEW_RECOVERY);
+  }
+
+  if (loginSetPinTriggers.length > 0) {
+    loginSetPinTriggers.forEach(btn => {
+      btn?.addEventListener('click', event => {
+        try { event?.preventDefault?.(); } catch { /* ignore */ }
+        showCreatePinView();
+      });
+    });
+  }
+  if (loginForgotTriggers.length > 0) {
+    loginForgotTriggers.forEach(btn => {
+      btn?.addEventListener('click', event => {
+        try { event?.preventDefault?.(); } catch { /* ignore */ }
+        startRecoveryFlow();
+      });
+    });
+  }
+  if (loginBackToLoginTriggers.length > 0) {
+    loginBackToLoginTriggers.forEach(btn => {
+      btn?.addEventListener('click', event => {
+        try { event?.preventDefault?.(); } catch { /* ignore */ }
+        resetLoginFlow({ focus: true });
+      });
+    });
+  }
+  if (loginBackToCreateTriggers.length > 0) {
+    loginBackToCreateTriggers.forEach(btn => {
+      btn?.addEventListener('click', event => {
+        try { event?.preventDefault?.(); } catch { /* ignore */ }
+        showCreatePinView({ preserveDraft: true });
+      });
+    });
+  }
+  if (loginCreateSubmit) {
+    loginCreateSubmit.addEventListener('click', event => {
+      try { event?.preventDefault?.(); } catch { /* ignore */ }
+      startPinConfirmationFlow();
+    });
+  }
+  if (loginConfirmSubmit) {
+    loginConfirmSubmit.addEventListener('click', event => {
+      try { event?.preventDefault?.(); } catch { /* ignore */ }
+      completePinCreation();
+    });
+  }
+  if (loginNewPin) {
+    loginNewPin.addEventListener('keydown', event => {
+      if (event?.key === 'Enter') {
+        try { event.preventDefault(); } catch { /* ignore */ }
+        startPinConfirmationFlow();
+      }
+    });
+  }
+  if (loginConfirmPin) {
+    loginConfirmPin.addEventListener('keydown', event => {
+      if (event?.key === 'Enter') {
+        try { event.preventDefault(); } catch { /* ignore */ }
+        completePinCreation();
+      }
+    });
+  }
   const setIntervalFn = (fn, ms, ...args) => dmSetInterval(fn, ms, ...args);
   const clearIntervalFn = id => dmClearInterval(id);
   let sessionStatusIntervalId = null;
@@ -8177,6 +8453,7 @@ function initDMLogin(){
 
   function closeLogin(){
     if(!loginModal) return;
+    resetLoginFlow({ focus: false });
     hide('dm-login-modal');
   }
 
@@ -8221,6 +8498,7 @@ function initDMLogin(){
         return;
       }
 
+      resetLoginFlow({ focus: false });
       openLogin();
       const initialRemaining = getLoginCooldownRemainingMs();
       if (initialRemaining > 0) {
