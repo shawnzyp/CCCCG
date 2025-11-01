@@ -15,7 +15,7 @@ import {
   loadCloudAutosave,
   deleteCloud,
 } from './storage.js';
-import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
+import { getPinStatus, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
 import { toast, dismissToast } from './notifications.js';
 
 function safeToast(message, type = 'error', options = {}) {
@@ -556,7 +556,12 @@ function getPinPrompt(message) {
 
 async function verifyPin(name) {
   await syncPin(name);
-  if (!hasPin(name)) return;
+  const status = getPinStatus(name);
+  if (!status.storageAvailable) {
+    console.warn('PIN storage unavailable while verifying character PIN; skipping verification.');
+    return;
+  }
+  if (!status.hasPin) return;
 
   let showedToast = false;
 

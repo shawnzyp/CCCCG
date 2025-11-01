@@ -47,7 +47,7 @@ import {
   subscribeSyncQueue,
   getLastSyncActivity,
 } from './storage.js';
-import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
+import { getPinStatus, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
   buildPriceIndex,
   decodeCatalogBuffer,
@@ -3588,8 +3588,22 @@ async function applyLockIcon(btn){
   if(!btn) return;
   const name = btn.dataset.lock;
   await syncPin(name);
-  btn.innerHTML = hasPin(name) ? ICON_LOCK : ICON_UNLOCK;
-  btn.setAttribute('aria-label','Toggle PIN');
+  const status = getPinStatus(name);
+  if(!status.storageAvailable){
+    btn.innerHTML = ICON_UNLOCK;
+    btn.setAttribute('aria-label','PIN unavailable');
+    btn.setAttribute('aria-disabled','true');
+    btn.disabled = true;
+    btn.dataset.pinUnavailable = 'true';
+    btn.title = 'PIN features are unavailable because storage access is blocked.';
+  } else {
+    btn.innerHTML = status.hasPin ? ICON_LOCK : ICON_UNLOCK;
+    btn.setAttribute('aria-label','Toggle PIN');
+    btn.removeAttribute('aria-disabled');
+    btn.disabled = false;
+    delete btn.dataset.pinUnavailable;
+    btn.removeAttribute('title');
+  }
   Object.assign(btn.style, DELETE_ICON_STYLE);
 }
 
@@ -12268,7 +12282,13 @@ if(charList){
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
       await syncPin(ch);
-      if(hasPin(ch)){
+      const status = getPinStatus(ch);
+      if(!status.storageAvailable){
+        await applyLockIcon(lockBtn);
+        toast('PIN features are unavailable because storage access is blocked.','error');
+        return;
+      }
+      if(status.hasPin){
         const pin = await pinPrompt('Enter PIN to disable protection');
         if(pin !== null){
           const ok = await verifyStoredPin(ch, pin);
@@ -19110,10 +19130,14 @@ async function restoreLastLoadedCharacter(){
   } catch (err) {
     console.error('Failed to sync PIN before auto-restore', err);
   }
-  if (hasPin(storedName)) {
+  const storedPinStatus = getPinStatus(storedName);
+  if (storedPinStatus.storageAvailable && storedPinStatus.hasPin) {
     pendingPinnedAutoLoad = { name: storedName, data, previousMode };
     attemptPendingPinPrompt();
     return;
+  }
+  if(!storedPinStatus.storageAvailable){
+    console.warn('PIN storage unavailable during auto-restore; continuing without PIN enforcement.');
   }
   setCurrentCharacter(storedName);
   syncMiniGamePlayerName();
@@ -19250,7 +19274,15 @@ async function promptForPendingPinnedCharacter(){
   if(!pendingPinnedAutoLoad || pendingPinnedAutoLoad.name !== name){
     return;
   }
-  if(!hasPin(name)){
+  let status = getPinStatus(name);
+  if(!status.storageAvailable){
+    console.warn('PIN storage unavailable while prompting for auto-restore; continuing without PIN enforcement.');
+    const unlocked = pendingPinnedAutoLoad;
+    pendingPinnedAutoLoad = null;
+    applyPendingPinnedCharacter(unlocked);
+    return;
+  }
+  if(!status.hasPin){
     const unlocked = pendingPinnedAutoLoad;
     pendingPinnedAutoLoad = null;
     applyPendingPinnedCharacter(unlocked);
@@ -19276,7 +19308,16 @@ async function promptForPendingPinnedCharacter(){
   showToastMessage(`${promptLabel}${suffix}`, 'info');
 
   while(pendingPinnedAutoLoad && pendingPinnedAutoLoad.name === name){
-    if(!hasPin(name)){
+    status = getPinStatus(name);
+    if(!status.storageAvailable){
+      console.warn('PIN storage unavailable while waiting for PIN entry; unlocking character.');
+      hideToastMessage();
+      const unlocked = pendingPinnedAutoLoad;
+      pendingPinnedAutoLoad = null;
+      applyPendingPinnedCharacter(unlocked);
+      return;
+    }
+    if(!status.hasPin){
       hideToastMessage();
       const unlocked = pendingPinnedAutoLoad;
       pendingPinnedAutoLoad = null;
