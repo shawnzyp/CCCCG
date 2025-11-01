@@ -180,6 +180,7 @@ const syncErrorListeners = new Set();
 const syncActivityListeners = new Set();
 const syncQueueListeners = new Set();
 let lastSyncActivityAt = null;
+let nextCloudQueueRequestId = 1;
 
 function emitSyncError(payload = {}) {
   syncErrorListeners.forEach(listener => {
@@ -881,14 +882,115 @@ async function enqueueCloudSave(name, payload, ts, { kind = 'manual' } = {}) {
       return queued;
     }
 
-    controller.postMessage({
+    const requestId = nextCloudQueueRequestId++;
+    const message = {
       type: 'queue-cloud-save',
       name,
       payload: entry.payload,
       ts: entry.ts,
       kind: entry.kind,
       queuedAt: entry.queuedAt,
-    });
+      requestId,
+    };
+
+    const ackTimeoutMs = 5000;
+    const waitForAck = () => {
+      if (typeof MessageChannel === 'function') {
+        const channel = new MessageChannel();
+        const { port1, port2 } = channel;
+        return new Promise(resolve => {
+          let settled = false;
+          const cleanup = () => {
+            settled = true;
+            try { port1.onmessage = null; } catch {}
+            try { port1.close(); } catch {}
+          };
+          const timeoutId = setTimeout(() => {
+            if (settled) return;
+            cleanup();
+            resolve({ ok: false, error: { message: 'Timed out waiting for service worker' }, timeout: true });
+          }, ackTimeoutMs);
+          port1.onmessage = event => {
+            if (settled) return;
+            clearTimeout(timeoutId);
+            cleanup();
+            resolve(event?.data ?? null);
+          };
+          controller.postMessage(message, [port2]);
+        });
+      }
+
+      return new Promise(resolve => {
+        let settled = false;
+        let timeoutId = null;
+        const cleanup = () => {
+          if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          if (typeof navigator?.serviceWorker?.removeEventListener === 'function') {
+            try { navigator.serviceWorker.removeEventListener('message', handler); } catch {}
+          }
+        };
+        const handler = event => {
+          const detail = event?.data;
+          if (!detail || typeof detail !== 'object') return;
+          if (detail.type !== 'queue-cloud-save-result') return;
+          if (detail.requestId !== requestId) return;
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve(detail);
+        };
+        if (typeof navigator?.serviceWorker?.addEventListener === 'function') {
+          try { navigator.serviceWorker.addEventListener('message', handler, { once: false }); } catch {}
+        }
+        timeoutId = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve({ ok: false, error: { message: 'Timed out waiting for service worker' }, timeout: true });
+        }, ackTimeoutMs);
+        try {
+          controller.postMessage(message);
+        } catch (err) {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          resolve({ ok: false, error: err });
+        }
+      });
+    };
+
+    const response = await waitForAck();
+    if (!response || response.ok !== true) {
+      const responseError = response?.error ?? null;
+      const normalizedError = (() => {
+        if (responseError instanceof Error) return responseError;
+        if (responseError && typeof responseError === 'object') {
+          const err = new Error(responseError.message || 'Failed to queue cloud save');
+          Object.assign(err, responseError);
+          return err;
+        }
+        if (typeof responseError === 'string') {
+          return new Error(responseError);
+        }
+        if (response?.timeout) {
+          return new Error('Timed out waiting for service worker to queue save');
+        }
+        return new Error('Failed to queue cloud save');
+      })();
+      console.error('Service worker failed to queue cloud save', normalizedError);
+      emitSyncError({
+        message: 'Failed to queue cloud save',
+        error: normalizedError,
+        name,
+        timestamp: Date.now(),
+      });
+      showToast('Failed to queue cloud save. Changes will retry when possible.', 'error');
+      return false;
+    }
+
     emitSyncQueueUpdate();
     if (ready.sync && typeof ready.sync.register === 'function') {
       await ready.sync.register('cloud-save-sync');
