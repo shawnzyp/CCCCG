@@ -4391,6 +4391,9 @@ body:not(.no-hover) #dm-characters-modal .dm-characters__link:hover{border-color
 #dm-character-modal .dm-characterList{margin:0;padding:0;list-style:none}
 #dm-character-modal .dm-characterList--grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 #dm-character-modal .dm-characterList--stack{display:flex;flex-direction:column;gap:10px}
+#dm-character-modal .dm-characterList--abilities{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
+#dm-character-modal .dm-characterList--saves{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+#dm-character-modal .dm-characterList--level{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 #dm-character-modal .dm-characterField{display:flex;flex-direction:column;gap:4px}
 #dm-character-modal .dm-characterField dt{margin:0;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 #dm-character-modal .dm-characterField dd{margin:0;font-size:.96rem;line-height:1.5;white-space:pre-wrap}
