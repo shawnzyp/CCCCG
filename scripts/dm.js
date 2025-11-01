@@ -107,8 +107,19 @@ const DM_CREDENTIAL_USERNAME = DM_CREDENTIAL_DEFAULT_USERNAME;
 async function verifyDmPin(candidate) {
   const pinInput = typeof candidate === 'string' ? candidate.trim() : String(candidate ?? '');
   if (!pinInput) return false;
+  const attemptVerification = () => verifyDmCredentialPin({ username: DM_CREDENTIAL_USERNAME, pin: pinInput });
   try {
-    return await verifyDmCredentialPin({ username: DM_CREDENTIAL_USERNAME, pin: pinInput });
+    let isValid = await attemptVerification();
+    if (isValid) {
+      return true;
+    }
+    try {
+      await refreshDmCredentialCache();
+    } catch (refreshError) {
+      console.error('Failed to refresh DM credential cache', refreshError);
+      return false;
+    }
+    return await attemptVerification();
   } catch (error) {
     console.error('Failed to verify DM PIN', error);
     return false;
