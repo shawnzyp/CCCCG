@@ -5709,6 +5709,18 @@ body:not(.no-hover) .power-card__summary-edit:hover,.power-card__summary-edit:fo
 .power-editor__content{flex:1 1 auto;overflow:auto;padding:0 12px 0 0;margin-right:-12px}
 .power-editor__content>.power-card__body{padding-right:12px}
 .power-editor__actions{display:flex;justify-content:flex-end;gap:var(--control-gap);padding-top:4px;border-top:1px solid var(--line)}
+.power-editor__wizard-step--types,.power-editor__wizard-step--concept{display:flex;flex-direction:column;gap:var(--control-gap)}
+.power-editor__wizard-type-grid{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--control-gap)}
+.power-editor__wizard-summary-card{display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:var(--radius);border:1px solid var(--line);background:rgba(148,163,184,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.power-editor__wizard-summary-card strong{font-size:.9rem;letter-spacing:.02em}
+.power-editor__wizard-summary-card p{margin:0;font-size:.8rem;line-height:1.4;color:var(--muted)}
+.power-editor__field-helper{margin:0;font-size:.75rem;line-height:1.35;color:var(--muted)}
+.power-editor__concept-list{display:flex;flex-direction:column;gap:calc(var(--control-gap)*.8)}
+.power-editor__concept-field{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface-2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
+.power-editor__concept-label{font-weight:600;font-size:.9rem;line-height:1.35}
+.power-editor__concept-field textarea{width:100%;min-height:84px;resize:vertical;background:rgba(148,163,184,.12);border:1px solid rgba(148,163,184,.25);border-radius:8px;padding:10px 12px;color:inherit;font-size:.9rem;line-height:1.4}
+.power-editor__concept-field textarea:focus-visible{outline:2px solid rgba(79,70,229,.55);outline-offset:2px}
+
 .power-card__summary{display:flex;flex-direction:column;gap:calc(var(--control-gap)*.6);padding:8px 0;border-bottom:1px solid var(--line)}
 .power-card__summary-header{display:flex;align-items:center;justify-content:space-between;gap:calc(var(--control-gap)*.75)}
 .power-card__summary-name{font-weight:700;font-size:.95rem;line-height:1.2}
@@ -5754,6 +5766,7 @@ body.is-view-mode .power-editor__content .power-card__body{display:flex}
 .power-card__action-roll .btn-sm{width:100%}
 
 @media (max-width:640px){
+  .power-editor__wizard-type-grid{flex-direction:column}
   .power-card__summary{gap:5px}
   .power-card__summary-name{font-size:.9rem}
   .power-card__summary-rolls{grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:5px}
