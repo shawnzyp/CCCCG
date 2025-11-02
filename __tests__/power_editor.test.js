@@ -116,7 +116,31 @@ describe('power editor accessibility', () => {
 
     const content = overlay.querySelector('.power-editor__content');
     expect(content).not.toBeNull();
-    const selects = content.querySelectorAll('select');
+
+    const typeStep = content.querySelector('.power-editor__wizard-step--types');
+    expect(typeStep).not.toBeNull();
+    const typeSelects = typeStep.querySelectorAll('select');
+    expect(typeSelects.length).toBe(2);
+    const primarySelect = typeSelects[0];
+    const secondarySelect = typeSelects[1];
+    primarySelect.value = 'attack';
+    primarySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    secondarySelect.value = 'melee';
+    secondarySelect.dispatchEvent(new Event('change', { bubbles: true }));
+    const typeNext = typeStep.querySelector('[data-wizard-next]');
+    expect(typeNext).not.toBeNull();
+    expect(typeNext.disabled).toBe(false);
+    typeNext.click();
+
+    const conceptStep = content.querySelector('.power-editor__wizard-step--concept');
+    expect(conceptStep).not.toBeNull();
+    const conceptNext = conceptStep.querySelector('[data-wizard-next]');
+    expect(conceptNext).not.toBeNull();
+    conceptNext.click();
+
+    const detailStep = content.querySelector('.power-editor__wizard-step--details');
+    expect(detailStep).not.toBeNull();
+    const selects = detailStep.querySelectorAll('select');
     expect(selects.length).toBeGreaterThan(5);
     const styleSelect = Array.from(selects).find(sel => Array.from(sel.options).some(opt => opt.value === 'Physical Powerhouse'));
     expect(styleSelect).toBeDefined();
@@ -144,13 +168,34 @@ describe('power editor accessibility', () => {
     const content = overlay.querySelector('.power-editor__content');
     expect(content).not.toBeNull();
 
-    const inputs = content.querySelectorAll('input, select, textarea');
+    const typeStep = content.querySelector('.power-editor__wizard-step--types');
+    expect(typeStep).not.toBeNull();
+    const typeSelects = typeStep.querySelectorAll('select');
+    expect(typeSelects.length).toBe(2);
+    typeSelects[0].value = 'signature';
+    typeSelects[0].dispatchEvent(new Event('change', { bubbles: true }));
+    typeSelects[1].value = 'finisher';
+    typeSelects[1].dispatchEvent(new Event('change', { bubbles: true }));
+    const typeNext = typeStep.querySelector('[data-wizard-next]');
+    expect(typeNext).not.toBeNull();
+    typeNext.click();
+
+    const conceptStep = content.querySelector('.power-editor__wizard-step--concept');
+    expect(conceptStep).not.toBeNull();
+    const conceptNext = conceptStep.querySelector('[data-wizard-next]');
+    expect(conceptNext).not.toBeNull();
+    conceptNext.click();
+
+    const detailStep = content.querySelector('.power-editor__wizard-step--details');
+    expect(detailStep).not.toBeNull();
+
+    const inputs = detailStep.querySelectorAll('input, select, textarea');
     expect(inputs.length).toBeGreaterThan(5);
-    const nameInput = content.querySelector('input[type="text"]');
+    const nameInput = detailStep.querySelector('input[type="text"]');
     expect(nameInput).not.toBeNull();
-    const intensitySelect = Array.from(content.querySelectorAll('select')).find(sel => Array.from(sel.options).some(opt => opt.value === 'Ultimate'));
+    const intensitySelect = Array.from(detailStep.querySelectorAll('select')).find(sel => Array.from(sel.options).some(opt => opt.value === 'Ultimate'));
     expect(intensitySelect).toBeDefined();
-    const descriptionArea = content.querySelector('textarea');
+    const descriptionArea = detailStep.querySelector('textarea');
     expect(descriptionArea).not.toBeNull();
 
     overlay.querySelector('[data-power-editor-cancel]').click();

@@ -13491,12 +13491,16 @@ const powerEditorState = {
   initialData: null,
   isNew: false,
   bindingsInitialized: false,
-  steps: ['intro', 'type', 'subtype', 'details'],
+  steps: ['type-select', 'concept', 'details'],
   stepIndex: 0,
   workingPower: null,
   moveType: null,
   subtype: null,
   wizardElements: {},
+  conceptResponses: {},
+  currentConceptQuestions: [],
+  detailsTouched: false,
+  conceptSeed: null,
 };
 let activeConcentrationEffect = null;
 const ongoingEffectTrackers = new Map();
@@ -13625,6 +13629,238 @@ const POWER_WIZARD_TYPES = {
         cinematic: true,
       },
     },
+  },
+};
+
+const POWER_WIZARD_CONCEPT_FALLBACK = [
+  {
+    id: 'concept-visual-core',
+    prompt: 'What does it look and sound like when this power activates?',
+    helper: 'Paint the cinematic picture for the table.',
+    assign: 'description',
+  },
+  {
+    id: 'concept-impact-core',
+    prompt: 'What lasting impression or change does it leave behind?',
+    helper: 'Think about the battlefield, NPC reactions, or story beats.',
+    assign: 'description',
+  },
+  {
+    id: 'concept-cost-core',
+    prompt: 'What cost, risk, or complication keeps the power interesting?',
+    helper: 'Consequences help the move stay dramatic.',
+    assign: 'special',
+  },
+];
+
+const POWER_WIZARD_CONCEPT_QUESTIONS = {
+  attack: {
+    melee: [
+      {
+        id: 'attack-melee-visual',
+        prompt: 'How does your close-quarters technique look in action?',
+        helper: 'Detail stance, weapon, or martial flourish.',
+        assign: 'description',
+      },
+      {
+        id: 'attack-melee-identity',
+        prompt: 'What unmistakable signature makes the attack yours?',
+        helper: 'Consider sound, catchphrases, or energy trails.',
+        assign: 'description',
+      },
+      {
+        id: 'attack-melee-risk',
+        prompt: 'What risk do you embrace when you close the distance?',
+        helper: 'Describe danger, openings, or cost.',
+        assign: 'special',
+      },
+    ],
+    ranged: [
+      {
+        id: 'attack-ranged-visual',
+        prompt: 'What form does the projectile or blast take?',
+        helper: 'Describe energy, ammo, or delivery method.',
+        assign: 'description',
+      },
+      {
+        id: 'attack-ranged-aim',
+        prompt: 'How do you aim or adapt it under pressure?',
+        helper: 'Show the technique, tech, or instincts at play.',
+        assign: 'description',
+      },
+      {
+        id: 'attack-ranged-cost',
+        prompt: 'What collateral effect or cost comes with unleashing it?',
+        helper: 'Think about recoil, ammo drain, or attention drawn.',
+        assign: 'special',
+      },
+    ],
+    area: [
+      {
+        id: 'attack-area-scope',
+        prompt: 'How does this power spread across multiple targets?',
+        helper: 'Define the shape, reach, and visual cues.',
+        assign: 'description',
+      },
+      {
+        id: 'attack-area-control',
+        prompt: 'What lets you shape or steer the area of effect?',
+        helper: 'Mention positioning, focus, or gadgets.',
+        assign: 'description',
+      },
+      {
+        id: 'attack-area-aftermath',
+        prompt: 'What aftermath or lingering danger remains afterward?',
+        helper: 'Lingering flames, tremors, or narrative shifts.',
+        assign: 'special',
+      },
+    ],
+  },
+  utility: {
+    support: [
+      {
+        id: 'utility-support-focus',
+        prompt: 'Who or what do you bolster when this power flares?',
+        helper: 'Call out allies, gear, or situations.',
+        assign: 'description',
+      },
+      {
+        id: 'utility-support-sense',
+        prompt: 'What sensory cues show the support taking hold?',
+        helper: 'Glowing aura, harmonic notes, clever gadgets, etc.',
+        assign: 'description',
+      },
+      {
+        id: 'utility-support-tradeoff',
+        prompt: 'What tradeoff keeps the support dramatic or costly?',
+        helper: 'Maybe exhaustion, resource drain, or narrative stakes.',
+        assign: 'special',
+      },
+    ],
+    control: [
+      {
+        id: 'utility-control-shape',
+        prompt: 'How do you twist the battlefield or an opponent’s senses?',
+        helper: 'Describe illusions, restraints, or elemental manipulation.',
+        assign: 'description',
+      },
+      {
+        id: 'utility-control-warning',
+        prompt: 'What warns foes that your control is taking hold?',
+        helper: 'Show the omen or build-up before it snaps shut.',
+        assign: 'description',
+      },
+      {
+        id: 'utility-control-cost',
+        prompt: 'What complications arise if the control slips?',
+        helper: 'Think backlash, collateral effects, or vulnerabilities.',
+        assign: 'special',
+      },
+    ],
+    mobility: [
+      {
+        id: 'utility-mobility-motion',
+        prompt: 'What motion, teleport, or traversal does the power create?',
+        helper: 'Describe the physics or magic behind it.',
+        assign: 'description',
+      },
+      {
+        id: 'utility-mobility-signal',
+        prompt: 'How do allies know where you will end up?',
+        helper: 'Trail markers, comms, or instinctual cues.',
+        assign: 'description',
+      },
+      {
+        id: 'utility-mobility-limit',
+        prompt: 'What limitation or cost balances the movement?',
+        helper: 'Maybe momentum, cooldown, or disorientation.',
+        assign: 'special',
+      },
+    ],
+  },
+  signature: {
+    finisher: [
+      {
+        id: 'signature-finisher-flourish',
+        prompt: 'What legendary flourish defines this finisher?',
+        helper: 'Describe poses, callouts, or cinematic beats.',
+        assign: 'description',
+      },
+      {
+        id: 'signature-finisher-escalation',
+        prompt: 'How does it eclipse your everyday techniques?',
+        helper: 'Bigger stakes, brighter energy, louder fanfare.',
+        assign: 'description',
+      },
+      {
+        id: 'signature-finisher-price',
+        prompt: 'What toll does this ultimate strike take?',
+        helper: 'Fatigue, collateral damage, or story fallout.',
+        assign: 'special',
+      },
+    ],
+    showcase: [
+      {
+        id: 'signature-showcase-spectacle',
+        prompt: 'What spectacle makes this signature move iconic?',
+        helper: 'Think special effects, narration, or crowd reaction.',
+        assign: 'description',
+      },
+      {
+        id: 'signature-showcase-theme',
+        prompt: 'How does it reinforce your hero’s core theme?',
+        helper: 'Tie it to origins, ideals, or motifs.',
+        assign: 'description',
+      },
+      {
+        id: 'signature-showcase-requirement',
+        prompt: 'What setup or narrative cost unlocks the move?',
+        helper: 'Maybe allies, time, or scarce resources.',
+        assign: 'special',
+      },
+    ],
+  },
+  cinematic: {
+    moment: [
+      {
+        id: 'cinematic-moment-visual',
+        prompt: 'What set-piece visuals define this heroic moment?',
+        helper: 'Slow motion shots, comic panels, or sweeping music.',
+        assign: 'description',
+      },
+      {
+        id: 'cinematic-moment-support',
+        prompt: 'How does it protect, inspire, or rally others?',
+        helper: 'Focus on allies, civilians, or the world reacting.',
+        assign: 'description',
+      },
+      {
+        id: 'cinematic-moment-consequence',
+        prompt: 'What consequences linger once the scene shifts?',
+        helper: 'Think debts, promises, or vulnerability.',
+        assign: 'special',
+      },
+    ],
+    devastation: [
+      {
+        id: 'cinematic-devastation-scale',
+        prompt: 'Describe the awe-inspiring scale of destruction.',
+        helper: 'Cracking skies, shockwaves, or reality warping.',
+        assign: 'description',
+      },
+      {
+        id: 'cinematic-devastation-build',
+        prompt: 'What dramatic beat signals the attack is coming?',
+        helper: 'Foreshadow with dialogue, visuals, or tension.',
+        assign: 'description',
+      },
+      {
+        id: 'cinematic-devastation-fallout',
+        prompt: 'What price or aftermath balances such power?',
+        helper: 'Maybe collateral, depletion, or narrative debt.',
+        assign: 'special',
+      },
+    ],
   },
 };
 
@@ -15062,6 +15298,10 @@ function resetPowerEditorState() {
   powerEditorState.moveType = null;
   powerEditorState.subtype = null;
   powerEditorState.wizardElements = {};
+  powerEditorState.conceptResponses = {};
+  powerEditorState.currentConceptQuestions = [];
+  powerEditorState.detailsTouched = false;
+  powerEditorState.conceptSeed = null;
 }
 
 function handlePowerEditorSave(event) {
@@ -15178,9 +15418,15 @@ function openPowerEditor(card, { isNew = false, targetList = null } = {}) {
   powerEditorState.subtype = inferPowerSubtype(powerEditorState.moveType, powerEditorState.workingPower);
   applyMoveTypeDefaults(powerEditorState.moveType);
   applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
-  const detailsIndex = (powerEditorState.steps || []).indexOf('details');
-  powerEditorState.stepIndex = detailsIndex >= 0 ? detailsIndex : 0;
   powerEditorState.wizardElements = {};
+  powerEditorState.detailsTouched = false;
+  powerEditorState.conceptResponses = {};
+  powerEditorState.currentConceptQuestions = [];
+  powerEditorState.conceptSeed = extractConceptSeed(powerEditorState.workingPower);
+  const steps = powerEditorState.steps || [];
+  const startKey = isNew ? 'type-select' : 'details';
+  const startIndex = steps.indexOf(startKey);
+  powerEditorState.stepIndex = startIndex >= 0 ? startIndex : 0;
   if (cardState?.elements?.summaryEdit) {
     cardState.elements.summaryEdit.disabled = true;
   }
@@ -15358,182 +15604,360 @@ function renderPowerEditorStep() {
   powerEditorState.wizardElements.details = null;
   powerEditorState.wizardElements.detailsNavNext = null;
   powerEditorState.wizardElements.typeNavNext = null;
-  powerEditorState.wizardElements.subtypeNavNext = null;
+  powerEditorState.wizardElements.conceptNavNext = null;
   content.innerHTML = '';
   content.scrollTop = 0;
-  const stepKey = steps?.[stepIndex] || 'intro';
+  const stepKey = steps?.[stepIndex] || 'type-select';
   switch (stepKey) {
-    case 'intro':
-      renderPowerWizardIntro(content);
+    case 'type-select':
+      renderPowerWizardTypeSelect(content);
       break;
-    case 'type':
-      renderPowerWizardType(content);
-      break;
-    case 'subtype':
-      renderPowerWizardSubtype(content);
+    case 'concept':
+      renderPowerWizardConcept(content);
       break;
     case 'details':
       renderPowerWizardDetails(content);
       break;
     default:
-      renderPowerWizardIntro(content);
+      renderPowerWizardTypeSelect(content);
       break;
   }
   updatePowerEditorSaveState();
 }
 
-function renderPowerWizardIntro(container) {
-  const intro = document.createElement('div');
-  intro.className = 'power-editor__wizard-step';
+function renderPowerWizardTypeSelect(container) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'power-editor__wizard-step power-editor__wizard-step--types';
   const heading = document.createElement('h4');
-  heading.textContent = 'Power Builder';
-  const blurb = document.createElement('p');
-  blurb.textContent = 'Answer a few questions to shape this power. You can always fine-tune the details on the final step.';
-  const summaryList = document.createElement('ul');
-  summaryList.className = 'power-editor__wizard-summary';
-  const working = powerEditorState.workingPower || {};
-  const summaryItems = [
-    working.name ? `Current name: ${working.name}` : 'No name yet.',
-    working.effectTag ? `Focus: ${working.effectTag}` : 'Focus not selected.',
-    working.intensity ? `Intensity: ${working.intensity}` : 'Intensity pending.',
-  ];
-  summaryItems.forEach(text => {
-    const item = document.createElement('li');
-    item.textContent = text;
-    summaryList.appendChild(item);
+  heading.textContent = 'Power type setup';
+  const intro = document.createElement('p');
+  intro.className = 'power-editor__wizard-helper';
+  intro.textContent = 'Pick a primary power type and a complementary focus. These choices unlock tailored questions and presets on the next steps.';
+
+  const form = document.createElement('div');
+  form.className = 'power-editor__wizard-type-grid';
+
+  const primarySelect = document.createElement('select');
+  setSelectOptions(primarySelect, Object.keys(POWER_WIZARD_TYPES), powerEditorState.moveType || '', {
+    includeEmpty: true,
+    formatDisplay: key => POWER_WIZARD_TYPES[key]?.label || key,
   });
+  if (primarySelect.options.length) {
+    primarySelect.options[0].textContent = 'Select a primary type…';
+  }
+  const primaryField = createFieldContainer('Primary power type', primarySelect, { minWidth: '260px' });
+  const primaryHelper = document.createElement('p');
+  primaryHelper.className = 'power-editor__field-helper';
+  primaryField.wrapper.appendChild(primaryHelper);
+
+  const secondarySelect = document.createElement('select');
+  const secondaryField = createFieldContainer('Secondary focus', secondarySelect, { minWidth: '260px' });
+  const secondaryHelper = document.createElement('p');
+  secondaryHelper.className = 'power-editor__field-helper';
+  secondaryField.wrapper.appendChild(secondaryHelper);
+
+  form.append(primaryField.wrapper, secondaryField.wrapper);
+
+  const summaryCard = document.createElement('div');
+  summaryCard.className = 'power-editor__wizard-summary-card';
+  const summaryTitle = document.createElement('strong');
+  summaryTitle.textContent = 'What you will shape next';
+  const summaryBody = document.createElement('p');
+  summaryCard.append(summaryTitle, summaryBody);
+
+  wrapper.append(heading, intro, form, summaryCard);
+
   const nav = createWizardNav({
     showBack: false,
-    nextLabel: 'Start',
-    onNext: () => goToWizardStep(powerEditorState.stepIndex + 1),
-  });
-  intro.append(heading, blurb, summaryList, nav);
-  container.appendChild(intro);
-}
-
-function renderPowerWizardType(container) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'power-editor__wizard-step';
-  const heading = document.createElement('h4');
-  heading.textContent = 'What type of power is this?';
-  const options = document.createElement('div');
-  options.className = 'power-editor__wizard-options';
-  const currentType = powerEditorState.moveType;
-  Object.entries(POWER_WIZARD_TYPES).forEach(([key, config]) => {
-    const option = document.createElement('label');
-    option.className = 'power-editor__wizard-option';
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'power-editor-type';
-    radio.value = key;
-    radio.checked = currentType === key;
-    radio.addEventListener('change', () => {
-      powerEditorState.moveType = key;
-      applyMoveTypeDefaults(key);
-      powerEditorState.subtype = inferPowerSubtype(key, powerEditorState.workingPower);
-      applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
-      updatePowerEditorSaveState();
-      const nextButton = powerEditorState.wizardElements?.typeNavNext;
-      if (nextButton) nextButton.disabled = false;
-    });
-    const title = document.createElement('span');
-    title.className = 'power-editor__wizard-option-title';
-    title.textContent = config.label;
-    const desc = document.createElement('span');
-    desc.className = 'power-editor__wizard-option-desc';
-    desc.textContent = config.description;
-    option.append(radio, title, desc);
-    options.appendChild(option);
-  });
-  const nav = createWizardNav({
-    showBack: true,
-    onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
-    nextLabel: 'Choose subtype',
-    nextDisabled: !powerEditorState.moveType,
+    nextLabel: 'Continue',
+    nextDisabled: true,
     onNext: () => {
-      if (!powerEditorState.moveType) return;
-      if (!powerEditorState.subtype) {
-        powerEditorState.subtype = inferPowerSubtype(powerEditorState.moveType, powerEditorState.workingPower);
-        applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
-      }
+      syncConceptResponsesToPower();
       goToWizardStep(powerEditorState.stepIndex + 1);
     },
   });
-  wrapper.append(heading, options, nav);
+  wrapper.appendChild(nav);
   container.appendChild(wrapper);
-  powerEditorState.wizardElements.typeOptions = options;
+
   const navNext = nav.querySelector('[data-wizard-next]');
   powerEditorState.wizardElements.typeNavNext = navNext || null;
-  if (navNext) {
-    navNext.disabled = !powerEditorState.moveType;
+
+  function updateSummary() {
+    const primaryKey = primarySelect.value;
+    const subtypeKey = secondarySelect.value;
+    const moveConfig = getMoveTypeConfig(primaryKey);
+    const subtypeConfig = getSubtypeConfig(primaryKey, subtypeKey);
+    primaryHelper.textContent = moveConfig?.description || 'Select a primary power type to continue.';
+    secondaryHelper.textContent = subtypeConfig?.description || (primaryKey ? 'Choose a complementary focus for this power.' : 'Pick a primary type first.');
+    if (primaryKey && subtypeConfig) {
+      summaryBody.textContent = `${moveConfig?.label || 'Power'} • ${subtypeConfig.label}`;
+    } else if (primaryKey) {
+      summaryBody.textContent = `${moveConfig?.label || 'Power'} • Secondary focus pending`;
+    } else {
+      summaryBody.textContent = 'Start by picking your primary power type.';
+    }
+    const disableNext = !primaryKey || !subtypeConfig;
+    if (navNext) {
+      navNext.disabled = disableNext;
+      if (disableNext) {
+        navNext.setAttribute('aria-disabled', 'true');
+      } else {
+        navNext.removeAttribute('aria-disabled');
+      }
+    }
   }
+
+  function updateSecondaryOptions() {
+    const primaryKey = primarySelect.value;
+    secondarySelect.innerHTML = '';
+    if (!primaryKey || !POWER_WIZARD_TYPES[primaryKey]) {
+      secondarySelect.disabled = true;
+      secondarySelect.appendChild(new Option('Select a primary type first', ''));
+      powerEditorState.subtype = null;
+      updateSummary();
+      return;
+    }
+    secondarySelect.disabled = false;
+    const subtypeEntries = Object.entries(POWER_WIZARD_TYPES[primaryKey].subtypes || {});
+    if (!subtypeEntries.length) {
+      secondarySelect.appendChild(new Option('No secondary options available', ''));
+      powerEditorState.subtype = null;
+      updateSummary();
+      return;
+    }
+    subtypeEntries.forEach(([value, config]) => {
+      secondarySelect.appendChild(new Option(config.label, value));
+    });
+    const desired = subtypeEntries.some(([key]) => key === powerEditorState.subtype)
+      ? powerEditorState.subtype
+      : subtypeEntries[0][0];
+    secondarySelect.value = desired;
+    powerEditorState.subtype = secondarySelect.value || null;
+    if (powerEditorState.subtype) {
+      applySubtypeDefaults(primaryKey, powerEditorState.subtype);
+    }
+    updateSummary();
+  }
+
+  primarySelect.addEventListener('change', () => {
+    const primaryKey = primarySelect.value;
+    powerEditorState.conceptResponses = {};
+    powerEditorState.currentConceptQuestions = [];
+    powerEditorState.detailsTouched = false;
+    powerEditorState.conceptSeed = extractConceptSeed(powerEditorState.workingPower);
+    if (primaryKey && POWER_WIZARD_TYPES[primaryKey]) {
+      powerEditorState.moveType = primaryKey;
+      applyMoveTypeDefaults(primaryKey);
+      powerEditorState.subtype = inferPowerSubtype(primaryKey, powerEditorState.workingPower);
+    } else {
+      powerEditorState.moveType = null;
+      powerEditorState.subtype = null;
+    }
+    updateSecondaryOptions();
+    updatePowerEditorSaveState();
+  });
+
+  secondarySelect.addEventListener('change', () => {
+    const subtypeKey = secondarySelect.value;
+    powerEditorState.conceptResponses = {};
+    powerEditorState.currentConceptQuestions = [];
+    powerEditorState.detailsTouched = false;
+    powerEditorState.subtype = subtypeKey || null;
+    if (powerEditorState.moveType && powerEditorState.subtype) {
+      applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
+    }
+    updateSummary();
+    updatePowerEditorSaveState();
+  });
+
+  updateSecondaryOptions();
+  updateSummary();
 }
 
-function renderPowerWizardSubtype(container) {
+function renderPowerWizardConcept(container) {
   const wrapper = document.createElement('div');
-  wrapper.className = 'power-editor__wizard-step';
-  const heading = document.createElement('h4');
-  heading.textContent = 'How does it express that power?';
-  const moveConfig = getMoveTypeConfig(powerEditorState.moveType);
-  if (!moveConfig) {
+  wrapper.className = 'power-editor__wizard-step power-editor__wizard-step--concept';
+  const moveType = powerEditorState.moveType;
+  const subtype = powerEditorState.subtype;
+  const moveConfig = getMoveTypeConfig(moveType);
+  const subtypeConfig = getSubtypeConfig(moveType, subtype);
+  if (!moveConfig || !subtypeConfig) {
     const info = document.createElement('p');
-    info.textContent = 'Select a power type first to view subtype options.';
+    info.textContent = 'Select a primary and secondary type before outlining your concept.';
     const nav = createWizardNav({
       showBack: true,
-      onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
-      nextLabel: 'Next',
+      onBack: () => goToWizardStep(Math.max(powerEditorState.stepIndex - 1, 0)),
+      nextLabel: 'Continue',
       nextDisabled: true,
     });
-    wrapper.append(heading, info, nav);
+    wrapper.append(info, nav);
     container.appendChild(wrapper);
     return;
   }
-  const options = document.createElement('div');
-  options.className = 'power-editor__wizard-options';
-  const currentSubtype = powerEditorState.subtype;
-  Object.entries(moveConfig.subtypes || {}).forEach(([key, config]) => {
-    const option = document.createElement('label');
-    option.className = 'power-editor__wizard-option';
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'power-editor-subtype';
-    radio.value = key;
-    radio.checked = currentSubtype === key;
-    radio.addEventListener('change', () => {
-      powerEditorState.subtype = key;
-      applySubtypeDefaults(powerEditorState.moveType, key);
-      updatePowerEditorSaveState();
-      const nextButton = powerEditorState.wizardElements?.subtypeNavNext;
-      if (nextButton) nextButton.disabled = false;
-    });
-    const title = document.createElement('span');
-    title.className = 'power-editor__wizard-option-title';
-    title.textContent = config.label;
-    const desc = document.createElement('span');
-    desc.className = 'power-editor__wizard-option-desc';
-    desc.textContent = config.description;
-    option.append(radio, title, desc);
-    options.appendChild(option);
+
+  const heading = document.createElement('h4');
+  heading.textContent = 'Flesh out your power concept';
+
+  const summaryBar = document.createElement('div');
+  summaryBar.className = 'power-editor__wizard-summary-bar';
+  const summaryText = document.createElement('div');
+  summaryText.className = 'power-editor__wizard-summary-text';
+  summaryText.textContent = `Primary: ${moveConfig.label} • Secondary: ${subtypeConfig.label}`;
+  const summaryActions = document.createElement('div');
+  summaryActions.className = 'power-editor__wizard-summary-actions';
+  const changeTypesBtn = document.createElement('button');
+  changeTypesBtn.type = 'button';
+  changeTypesBtn.className = 'btn-sm';
+  changeTypesBtn.textContent = 'Change types';
+  changeTypesBtn.addEventListener('click', () => {
+    const index = (powerEditorState.steps || []).indexOf('type-select');
+    if (index >= 0) goToWizardStep(index);
   });
+  summaryActions.appendChild(changeTypesBtn);
+  summaryBar.append(summaryText, summaryActions);
+
+  const intro = document.createElement('p');
+  intro.className = 'power-editor__wizard-helper';
+  intro.textContent = 'Use these prompts to capture the visuals, tone, and costs of your move. Your answers flow into the detailed fields next.';
+
+  const questionsWrap = document.createElement('div');
+  questionsWrap.className = 'power-editor__concept-list';
+  const questions = getConceptQuestionsForSelection(moveType, subtype);
+  powerEditorState.currentConceptQuestions = questions;
+  ensureConceptResponsesState(questions);
+
+  questions.forEach(question => {
+    const field = document.createElement('div');
+    field.className = 'power-editor__concept-field';
+    const textareaId = `concept-${question.id}`;
+    const label = document.createElement('label');
+    label.className = 'power-editor__concept-label';
+    label.setAttribute('for', textareaId);
+    label.textContent = question.prompt;
+    const helper = question.helper ? document.createElement('p') : null;
+    if (helper) {
+      helper.className = 'power-editor__field-helper';
+      helper.textContent = question.helper;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.id = textareaId;
+    textarea.rows = 3;
+    textarea.placeholder = 'Describe the story beat...';
+    textarea.value = powerEditorState.conceptResponses?.[question.id] || '';
+    textarea.addEventListener('input', () => {
+      if (!powerEditorState.conceptResponses || typeof powerEditorState.conceptResponses !== 'object') {
+        powerEditorState.conceptResponses = {};
+      }
+      powerEditorState.conceptResponses[question.id] = textarea.value;
+      syncConceptResponsesToPower();
+      updatePowerEditorSaveState();
+    });
+    field.append(label);
+    if (helper) field.appendChild(helper);
+    field.appendChild(textarea);
+    questionsWrap.appendChild(field);
+  });
+
+  wrapper.append(heading, summaryBar, intro, questionsWrap);
+
   const nav = createWizardNav({
     showBack: true,
     onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
-    nextLabel: 'Details',
-    nextDisabled: !powerEditorState.subtype,
+    nextLabel: 'Go to details',
     onNext: () => {
-      if (!powerEditorState.subtype) return;
-      applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
+      syncConceptResponsesToPower();
       goToWizardStep(powerEditorState.stepIndex + 1);
     },
   });
-  wrapper.append(heading, options, nav);
+  wrapper.appendChild(nav);
   container.appendChild(wrapper);
-  powerEditorState.wizardElements.subtypeOptions = options;
+
   const navNext = nav.querySelector('[data-wizard-next]');
-  powerEditorState.wizardElements.subtypeNavNext = navNext || null;
-  if (navNext) {
-    navNext.disabled = !powerEditorState.subtype;
+  powerEditorState.wizardElements.conceptNavNext = navNext || null;
+
+  syncConceptResponsesToPower();
+}
+
+
+function getConceptQuestionsForSelection(moveType, subtype) {
+  const moveConfig = POWER_WIZARD_CONCEPT_QUESTIONS[moveType] || null;
+  const templates = moveConfig?.[subtype] || moveConfig?.default || POWER_WIZARD_CONCEPT_FALLBACK;
+  return Array.isArray(templates) ? templates.map(template => ({ ...template })) : POWER_WIZARD_CONCEPT_FALLBACK.map(template => ({ ...template }));
+}
+
+function ensureConceptResponsesState(questions) {
+  if (!Array.isArray(questions)) return;
+  if (!powerEditorState.conceptResponses || typeof powerEditorState.conceptResponses !== 'object') {
+    powerEditorState.conceptResponses = {};
   }
+  const responses = powerEditorState.conceptResponses;
+  const hasExistingContent = Object.values(responses).some(value => typeof value === 'string' && value.trim());
+  if (!powerEditorState.conceptSeed) {
+    powerEditorState.conceptSeed = extractConceptSeed(powerEditorState.workingPower);
+  }
+  const seed = powerEditorState.conceptSeed || { description: [], special: [] };
+  let descriptionIndex = 0;
+  let specialIndex = 0;
+  questions.forEach(question => {
+    if (responses[question.id] !== undefined) return;
+    if (!hasExistingContent) {
+      if (question.assign === 'special') {
+        responses[question.id] = seed.special?.[specialIndex++] || '';
+      } else {
+        responses[question.id] = seed.description?.[descriptionIndex++] || '';
+      }
+    } else {
+      responses[question.id] = '';
+    }
+  });
+}
+
+function syncConceptResponsesToPower() {
+  const working = powerEditorState.workingPower;
+  if (!working) return;
+  const questions = Array.isArray(powerEditorState.currentConceptQuestions)
+    ? powerEditorState.currentConceptQuestions
+    : [];
+  const responses = powerEditorState.conceptResponses;
+  if (!responses || typeof responses !== 'object') return;
+  if (powerEditorState.detailsTouched) return;
+  const descriptionParts = [];
+  const specialParts = [];
+  questions.forEach(question => {
+    const raw = responses[question.id];
+    if (typeof raw !== 'string') return;
+    const value = raw.trim();
+    if (!value) return;
+    if (question.assign === 'special') {
+      specialParts.push(value);
+    } else {
+      descriptionParts.push(value);
+    }
+  });
+  if (descriptionParts.length) {
+    working.description = descriptionParts.join('\n\n');
+  }
+  if (specialParts.length) {
+    working.special = specialParts.join('\n\n');
+  }
+}
+
+function extractConceptSeed(power) {
+  const seed = { description: [], special: [] };
+  if (!power || typeof power !== 'object') return seed;
+  if (typeof power.description === 'string' && power.description.trim()) {
+    seed.description = power.description
+      .split(/\n\s*\n/)
+      .map(part => part.trim())
+      .filter(Boolean);
+  }
+  if (typeof power.special === 'string' && power.special.trim()) {
+    seed.special = power.special
+      .split(/\n+/)
+      .map(part => part.trim())
+      .filter(Boolean);
+  }
+  return seed;
 }
 
 function renderPowerWizardDetails(container) {
@@ -15553,36 +15977,37 @@ function renderPowerWizardDetails(container) {
     container.appendChild(wrapper);
     return;
   }
+  syncConceptResponsesToPower();
   const working = powerEditorState.workingPower || {};
   const moveConfig = getMoveTypeConfig(powerEditorState.moveType);
   const summaryBar = document.createElement('div');
   summaryBar.className = 'power-editor__wizard-summary-bar';
   const summaryText = document.createElement('div');
   summaryText.className = 'power-editor__wizard-summary-text';
-  summaryText.textContent = `Type: ${moveConfig?.label || '—'} • Subtype: ${config.label}`;
+  summaryText.textContent = `Primary: ${moveConfig?.label || '—'} • Secondary: ${config.label}`;
   const summaryActions = document.createElement('div');
   summaryActions.className = 'power-editor__wizard-summary-actions';
-  const changeTypeBtn = document.createElement('button');
-  changeTypeBtn.type = 'button';
-  changeTypeBtn.className = 'btn-sm';
-  changeTypeBtn.textContent = 'Change type';
-  changeTypeBtn.addEventListener('click', () => {
-    const typeIndex = (powerEditorState.steps || []).indexOf('type');
+  const changeTypesBtn = document.createElement('button');
+  changeTypesBtn.type = 'button';
+  changeTypesBtn.className = 'btn-sm';
+  changeTypesBtn.textContent = 'Change types';
+  changeTypesBtn.addEventListener('click', () => {
+    const typeIndex = (powerEditorState.steps || []).indexOf('type-select');
     if (typeIndex >= 0) goToWizardStep(typeIndex);
   });
-  const changeSubtypeBtn = document.createElement('button');
-  changeSubtypeBtn.type = 'button';
-  changeSubtypeBtn.className = 'btn-sm';
-  changeSubtypeBtn.textContent = 'Change subtype';
-  changeSubtypeBtn.addEventListener('click', () => {
-    const subtypeIndex = (powerEditorState.steps || []).indexOf('subtype');
-    if (subtypeIndex >= 0) goToWizardStep(subtypeIndex);
+  const reviewConceptBtn = document.createElement('button');
+  reviewConceptBtn.type = 'button';
+  reviewConceptBtn.className = 'btn-sm';
+  reviewConceptBtn.textContent = 'Review prompts';
+  reviewConceptBtn.addEventListener('click', () => {
+    const conceptIndex = (powerEditorState.steps || []).indexOf('concept');
+    if (conceptIndex >= 0) goToWizardStep(conceptIndex);
   });
-  summaryActions.append(changeTypeBtn, changeSubtypeBtn);
+  summaryActions.append(changeTypesBtn, reviewConceptBtn);
   summaryBar.append(summaryText, summaryActions);
   const helperText = document.createElement('p');
   helperText.className = 'power-editor__wizard-helper';
-  helperText.textContent = 'Adjust guided choices with the buttons above or fine-tune the details below.';
+  helperText.textContent = 'Adjust your selections above or fine-tune the mechanical details below.';
   wrapper.append(summaryBar, helperText);
   const fields = document.createElement('div');
   fields.className = 'power-editor__details-grid';
@@ -15819,6 +16244,7 @@ function renderPowerWizardDetails(container) {
   descriptionArea.rows = 3;
   descriptionArea.value = working.description || '';
   descriptionArea.addEventListener('input', () => {
+    powerEditorState.detailsTouched = true;
     working.description = descriptionArea.value;
   });
   fields.appendChild(createFieldContainer('Description', descriptionArea, { minWidth: '100%' }).wrapper);
@@ -15827,6 +16253,7 @@ function renderPowerWizardDetails(container) {
   specialArea.rows = 2;
   specialArea.value = working.special || '';
   specialArea.addEventListener('input', () => {
+    powerEditorState.detailsTouched = true;
     working.special = specialArea.value;
   });
   fields.appendChild(createFieldContainer('Special Notes', specialArea, { minWidth: '100%' }).wrapper);
