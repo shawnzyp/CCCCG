@@ -95,9 +95,16 @@ describe('DM character viewer tool', () => {
     await new Promise(r => setTimeout(r, 0));
     const view = document.getElementById('dm-character-sheet');
     const viewModal = document.getElementById('dm-character-modal');
+    const rosterModal = document.getElementById('dm-characters-modal');
     expect(loadCharacter).toHaveBeenCalledWith('Test', { bypassPin: true });
     expect(viewModal.classList.contains('hidden')).toBe(false);
+    expect(rosterModal.classList.contains('hidden')).toBe(true);
     expect(view.textContent).toContain('Test');
+
+    document.getElementById('dm-character-close').click();
+    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => setTimeout(r, 0));
+    expect(rosterModal.classList.contains('hidden')).toBe(false);
   });
 
   test('character card displays all character data', async () => {
