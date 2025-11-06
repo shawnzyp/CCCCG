@@ -1744,6 +1744,7 @@ function initDMLogin(){
   const charViewModal = document.getElementById('dm-character-modal');
   const charViewClose = document.getElementById('dm-character-close');
   const charView = document.getElementById('dm-character-sheet');
+  let shouldRestoreCharacterModal = false;
   if (charView && typeof charView.classList?.add === 'function') {
     charView.classList.add('dm-character-sheet');
   }
@@ -9097,12 +9098,24 @@ function initDMLogin(){
 
   function openCharacterView(){
     if(!charViewModal) return;
+    shouldRestoreCharacterModal = false;
+    if(charModal && !charModal.classList.contains('hidden')){
+      shouldRestoreCharacterModal = true;
+      hide('dm-characters-modal');
+    }
     show('dm-character-modal');
   }
 
   function closeCharacterView(){
     if(!charViewModal) return;
     hide('dm-character-modal');
+  }
+
+  function handleCharacterViewHidden(){
+    if(shouldRestoreCharacterModal && charModal && charModal.classList.contains('hidden')){
+      show('dm-characters-modal');
+    }
+    shouldRestoreCharacterModal = false;
   }
 
 
@@ -10857,6 +10870,17 @@ function initDMLogin(){
   }
   charModal?.addEventListener('click', e => { if(e.target===charModal) closeCharacters(); });
   charClose?.addEventListener('click', closeCharacters);
+  if(charViewModal && typeof MutationObserver === 'function'){
+    const observer = new MutationObserver(mutations => {
+      for(const mutation of mutations){
+        if(mutation.attributeName === 'class' && charViewModal.classList.contains('hidden')){
+          handleCharacterViewHidden();
+          break;
+        }
+      }
+    });
+    observer.observe(charViewModal, { attributes: true, attributeFilter: ['class'] });
+  }
   charViewModal?.addEventListener('click', e => { if(e.target===charViewModal) closeCharacterView(); });
   charViewClose?.addEventListener('click', closeCharacterView);
   rewardsModal?.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeRewards(); } });
