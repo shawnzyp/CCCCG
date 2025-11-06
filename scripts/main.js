@@ -15923,23 +15923,42 @@ function syncConceptResponsesToPower() {
   if (powerEditorState.detailsTouched) return;
   const descriptionParts = [];
   const specialParts = [];
+  let descriptionPromptCount = 0;
+  let specialPromptCount = 0;
   questions.forEach(question => {
     const raw = responses[question.id];
-    if (typeof raw !== 'string') return;
-    const value = raw.trim();
-    if (!value) return;
+    const value = typeof raw === 'string' ? raw.trim() : '';
     if (question.assign === 'special') {
-      specialParts.push(value);
+      specialPromptCount += 1;
+      if (value) {
+        specialParts.push(value);
+      }
     } else {
-      descriptionParts.push(value);
+      descriptionPromptCount += 1;
+      if (value) {
+        descriptionParts.push(value);
+      }
     }
   });
-  if (descriptionParts.length) {
-    working.description = descriptionParts.join('\n\n');
+  const seed = powerEditorState.conceptSeed || extractConceptSeed(working);
+  const leftoverDescription = Array.isArray(seed?.description)
+    ? seed.description.slice(descriptionPromptCount)
+    : [];
+  const leftoverSpecial = Array.isArray(seed?.special)
+    ? seed.special.slice(specialPromptCount)
+    : [];
+
+  const nextDescription = descriptionParts.concat(leftoverDescription);
+  const nextSpecial = specialParts.concat(leftoverSpecial);
+
+  if (nextDescription.length) {
+    working.description = nextDescription.join('\n\n');
   }
-  if (specialParts.length) {
-    working.special = specialParts.join('\n\n');
+  if (nextSpecial.length) {
+    working.special = nextSpecial.join('\n\n');
   }
+
+  powerEditorState.conceptSeed = extractConceptSeed(working);
 }
 
 function extractConceptSeed(power) {
