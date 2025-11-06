@@ -43,12 +43,21 @@ let activeMissionContext = null;
 
 function updateViewportUnit() {
   if (!rootDocument || typeof window === 'undefined') return;
-  const innerHeight = window.innerHeight;
-  if (typeof innerHeight !== 'number' || !Number.isFinite(innerHeight) || innerHeight <= 0) {
+  const docEl = rootDocument.documentElement;
+  const style = docEl?.style;
+  if (!docEl || !style || typeof style.setProperty !== 'function') {
     return;
   }
-  const vhUnit = (innerHeight * 0.01).toFixed(4);
-  rootDocument.documentElement.style.setProperty(MINI_GAME_VIEWPORT_VAR, `${vhUnit}px`);
+  const innerHeight = window.innerHeight;
+  const fallbackHeight = typeof docEl.clientHeight === 'number' ? docEl.clientHeight : 0;
+  const referenceHeight = typeof innerHeight === 'number' && Number.isFinite(innerHeight) && innerHeight > 0
+    ? innerHeight
+    : fallbackHeight;
+  if (typeof referenceHeight !== 'number' || !Number.isFinite(referenceHeight) || referenceHeight <= 0) {
+    return;
+  }
+  const vhUnit = (referenceHeight * 0.01).toFixed(4);
+  style.setProperty(MINI_GAME_VIEWPORT_VAR, `${vhUnit}px`);
 }
 
 function setupViewportUnitListener() {
