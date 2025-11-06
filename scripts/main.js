@@ -3510,11 +3510,19 @@ initCardEditToggles();
 
 /* ========= viewport ========= */
 function setVh(){
+  const docEl = document && document.documentElement ? document.documentElement : null;
+  const style = docEl && docEl.style ? docEl.style : null;
+  if (!docEl || !style || typeof style.setProperty !== 'function') return;
   const viewport = window.visualViewport;
-  const fallback = window.innerHeight || document.documentElement.clientHeight || 0;
-  const height = viewport && viewport.height ? viewport.height : fallback;
-  const vh = Math.max(height || 0, fallback || 0) * 0.01;
-  document.documentElement.style.setProperty('--vh', `${vh}px`);
+  const fallback = window.innerHeight || docEl.clientHeight || 0;
+  const viewportHeight = viewport && typeof viewport.height === 'number' && Number.isFinite(viewport.height) && viewport.height > 0
+    ? viewport.height
+    : 0;
+  const fallbackHeight = typeof fallback === 'number' && Number.isFinite(fallback) && fallback > 0 ? fallback : 0;
+  const candidate = Math.max(viewportHeight, fallbackHeight);
+  if (!Number.isFinite(candidate) || candidate <= 0) return;
+  const vh = candidate * 0.01;
+  style.setProperty('--vh', `${vh}px`);
 }
 setVh();
 // Update the CSS viewport height variable on resize or orientation changes
