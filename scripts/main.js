@@ -1582,6 +1582,15 @@ function handleMiniGameReminderAction() {
   }
 }
 
+function getLocalStorageSafe() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage;
+  } catch (err) {
+    return null;
+  }
+}
+
 function resolveMiniGamePlayerName() {
   try {
     const current = sanitizeMiniGamePlayerName(typeof currentCharacter === 'function' ? currentCharacter() : '');
@@ -1594,11 +1603,14 @@ function resolveMiniGamePlayerName() {
       if (normalized) return normalized;
     }
   }
-  try {
-    const stored = localStorage.getItem('last-save');
-    const normalized = sanitizeMiniGamePlayerName(stored || '');
-    if (normalized) return normalized;
-  } catch {}
+  const storage = getLocalStorageSafe();
+  if (storage) {
+    try {
+      const stored = storage.getItem('last-save');
+      const normalized = sanitizeMiniGamePlayerName(stored || '');
+      if (normalized) return normalized;
+    } catch {}
+  }
   return '';
 }
 
@@ -1826,7 +1838,8 @@ function handleMiniGameDeployments(entries = []) {
 
 function persistMiniGameLaunch(entry) {
   if (!entry || !entry.id) return;
-  if (typeof localStorage === 'undefined') return;
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
   try {
     const payload = {
       id: entry.id,
@@ -1840,8 +1853,8 @@ function persistMiniGameLaunch(entry) {
       tagline: entry.tagline || '',
       storedAt: Date.now(),
     };
-    localStorage.setItem(`${MINI_GAME_STORAGE_KEY_PREFIX}${entry.id}`, JSON.stringify(payload));
-    localStorage.setItem(MINI_GAME_LAST_DEPLOYMENT_KEY, entry.id);
+    storage.setItem(`${MINI_GAME_STORAGE_KEY_PREFIX}${entry.id}`, JSON.stringify(payload));
+    storage.setItem(MINI_GAME_LAST_DEPLOYMENT_KEY, entry.id);
   } catch (err) {
     console.error('Failed to persist mini-game launch payload', err);
   }
@@ -2085,8 +2098,9 @@ function setPlayerToolsTabHidden(hidden) {
 }
 
 try {
-  if (typeof localStorage !== 'undefined') {
-    welcomeModalDismissed = localStorage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
+  const storage = getLocalStorageSafe();
+  if (storage) {
+    welcomeModalDismissed = storage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
   }
 } catch {}
 
@@ -3883,18 +3897,20 @@ function applyTheme(t, { animate = true } = {}){
   activeTheme = themeName;
 }
 function getStoredTheme(){
-  if (typeof localStorage === 'undefined') return null;
+  const storage = getLocalStorageSafe();
+  if (!storage) return null;
   try {
-    return localStorage.getItem('theme');
+    return storage.getItem('theme');
   } catch (error) {
     console.warn('Failed to read stored theme', error);
     return null;
   }
 }
 function setStoredTheme(value){
-  if (typeof localStorage === 'undefined') return;
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
   try {
-    localStorage.setItem('theme', value);
+    storage.setItem('theme', value);
   } catch (error) {
     console.warn('Failed to persist theme preference', error);
   }
@@ -6494,8 +6510,9 @@ const postPlayerCreditAcknowledgement = (signature) => {
 
 const readPlayerCreditAcknowledgedSignature = () => {
   try {
-    if (typeof localStorage === 'undefined') return '';
-    return localStorage.getItem(PLAYER_CREDIT_LAST_VIEWED_KEY) || '';
+    const storage = getLocalStorageSafe();
+    if (!storage) return '';
+    return storage.getItem(PLAYER_CREDIT_LAST_VIEWED_KEY) || '';
   } catch {
     return '';
   }
@@ -6503,11 +6520,12 @@ const readPlayerCreditAcknowledgedSignature = () => {
 
 const writePlayerCreditAcknowledgedSignature = (value) => {
   try {
-    if (typeof localStorage === 'undefined') return;
+    const storage = getLocalStorageSafe();
+    if (!storage) return;
     if (value) {
-      localStorage.setItem(PLAYER_CREDIT_LAST_VIEWED_KEY, value);
+      storage.setItem(PLAYER_CREDIT_LAST_VIEWED_KEY, value);
     } else {
-      localStorage.removeItem(PLAYER_CREDIT_LAST_VIEWED_KEY);
+      storage.removeItem(PLAYER_CREDIT_LAST_VIEWED_KEY);
     }
   } catch {
     /* ignore persistence errors */
@@ -6780,8 +6798,9 @@ let playerRewardHistory = [];
 let playerRewardLatestSignature = '';
 let playerRewardAcknowledgedSignature = (() => {
   try {
-    if (typeof localStorage === 'undefined') return '';
-    return localStorage.getItem(PLAYER_REWARD_LAST_VIEWED_KEY) || '';
+    const storage = getLocalStorageSafe();
+    if (!storage) return '';
+    return storage.getItem(PLAYER_REWARD_LAST_VIEWED_KEY) || '';
   } catch {
     return '';
   }
@@ -6889,9 +6908,10 @@ const playerRewardHistoryKey = (entry = {}) => {
 };
 
 const loadPlayerRewardHistory = () => {
-  if (typeof localStorage === 'undefined') return [];
+  const storage = getLocalStorageSafe();
+  if (!storage) return [];
   try {
-    const raw = localStorage.getItem(PLAYER_REWARD_HISTORY_STORAGE_KEY);
+    const raw = storage.getItem(PLAYER_REWARD_HISTORY_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     const list = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
@@ -6905,12 +6925,13 @@ const loadPlayerRewardHistory = () => {
 };
 
 const persistPlayerRewardHistory = (entries) => {
-  if (typeof localStorage === 'undefined') return;
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
   try {
     if (!entries || !entries.length) {
-      localStorage.removeItem(PLAYER_REWARD_HISTORY_STORAGE_KEY);
+      storage.removeItem(PLAYER_REWARD_HISTORY_STORAGE_KEY);
     } else {
-      localStorage.setItem(PLAYER_REWARD_HISTORY_STORAGE_KEY, JSON.stringify(entries));
+      storage.setItem(PLAYER_REWARD_HISTORY_STORAGE_KEY, JSON.stringify(entries));
     }
   } catch {
     /* ignore persistence failures */
@@ -6937,11 +6958,12 @@ const addPlayerRewardHistoryEntry = (entry, { persist = true } = {}) => {
 
 const writePlayerRewardAcknowledgedSignature = (value) => {
   try {
-    if (typeof localStorage === 'undefined') return;
+    const storage = getLocalStorageSafe();
+    if (!storage) return;
     if (value) {
-      localStorage.setItem(PLAYER_REWARD_LAST_VIEWED_KEY, value);
+      storage.setItem(PLAYER_REWARD_LAST_VIEWED_KEY, value);
     } else {
-      localStorage.removeItem(PLAYER_REWARD_LAST_VIEWED_KEY);
+      storage.removeItem(PLAYER_REWARD_LAST_VIEWED_KEY);
     }
   } catch {
     /* ignore persistence errors */
@@ -10251,9 +10273,10 @@ const CREDITS_LEDGER_MAX_ENTRIES = 200;
 let creditsLedgerEntries = [];
 
 function loadCreditsLedgerEntries() {
-  if (typeof localStorage === 'undefined') return [];
+  const storage = getLocalStorageSafe();
+  if (!storage) return [];
   try {
-    const stored = localStorage.getItem(CREDITS_LEDGER_STORAGE_KEY);
+    const stored = storage.getItem(CREDITS_LEDGER_STORAGE_KEY);
     if (!stored) return [];
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return [];
@@ -10276,9 +10299,10 @@ function loadCreditsLedgerEntries() {
 
 function persistCreditsLedgerEntries(entries) {
   creditsLedgerEntries = entries.slice(-CREDITS_LEDGER_MAX_ENTRIES);
-  if (typeof localStorage === 'undefined') return;
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
   try {
-    localStorage.setItem(CREDITS_LEDGER_STORAGE_KEY, JSON.stringify(creditsLedgerEntries));
+    storage.setItem(CREDITS_LEDGER_STORAGE_KEY, JSON.stringify(creditsLedgerEntries));
   } catch {}
 }
 
@@ -10692,7 +10716,17 @@ let lastLocalCampaignTimestamp = campaignLogEntries.length
   ? campaignLogEntries[campaignLogEntries.length - 1].t
   : 0;
 
-function pushLog(arr, entry, key){ arr.push(entry); if (arr.length>30) arr.splice(0, arr.length-30); localStorage.setItem(key, JSON.stringify(arr)); }
+function pushLog(arr, entry, key){
+  arr.push(entry);
+  if (arr.length>30) arr.splice(0, arr.length-30);
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  try {
+    storage.setItem(key, JSON.stringify(arr));
+  } catch (err) {
+    console.error('Failed to persist action log entry', err);
+  }
+}
 function renderLogs(){
   $('log-action').innerHTML = actionLog.slice(-10).reverse().map(e=>`<div class="catalog-item"><div>${fmt(e.t)}</div><div>${e.text}</div></div>`).join('');
 }
@@ -13499,16 +13533,12 @@ const powerEditorState = {
   initialData: null,
   isNew: false,
   bindingsInitialized: false,
-  steps: ['type-select', 'concept', 'details'],
+  steps: ['type-select', 'description', 'details'],
   stepIndex: 0,
   workingPower: null,
   moveType: null,
   subtype: null,
   wizardElements: {},
-  conceptResponses: {},
-  currentConceptQuestions: [],
-  detailsTouched: false,
-  conceptSeed: null,
 };
 let activeConcentrationEffect = null;
 const ongoingEffectTrackers = new Map();
@@ -15306,10 +15336,6 @@ function resetPowerEditorState() {
   powerEditorState.moveType = null;
   powerEditorState.subtype = null;
   powerEditorState.wizardElements = {};
-  powerEditorState.conceptResponses = {};
-  powerEditorState.currentConceptQuestions = [];
-  powerEditorState.detailsTouched = false;
-  powerEditorState.conceptSeed = null;
 }
 
 function handlePowerEditorSave(event) {
@@ -15427,10 +15453,6 @@ function openPowerEditor(card, { isNew = false, targetList = null } = {}) {
   applyMoveTypeDefaults(powerEditorState.moveType);
   applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
   powerEditorState.wizardElements = {};
-  powerEditorState.detailsTouched = false;
-  powerEditorState.conceptResponses = {};
-  powerEditorState.currentConceptQuestions = [];
-  powerEditorState.conceptSeed = extractConceptSeed(powerEditorState.workingPower);
   const steps = powerEditorState.steps || [];
   const startKey = isNew ? 'type-select' : 'details';
   const startIndex = steps.indexOf(startKey);
@@ -15612,7 +15634,7 @@ function renderPowerEditorStep() {
   powerEditorState.wizardElements.details = null;
   powerEditorState.wizardElements.detailsNavNext = null;
   powerEditorState.wizardElements.typeNavNext = null;
-  powerEditorState.wizardElements.conceptNavNext = null;
+  powerEditorState.wizardElements.descriptionNavNext = null;
   content.innerHTML = '';
   content.scrollTop = 0;
   const stepKey = steps?.[stepIndex] || 'type-select';
@@ -15620,8 +15642,8 @@ function renderPowerEditorStep() {
     case 'type-select':
       renderPowerWizardTypeSelect(content);
       break;
-    case 'concept':
-      renderPowerWizardConcept(content);
+    case 'description':
+      renderPowerWizardDescription(content);
       break;
     case 'details':
       renderPowerWizardDetails(content);
@@ -15640,7 +15662,7 @@ function renderPowerWizardTypeSelect(container) {
   heading.textContent = 'Power type setup';
   const intro = document.createElement('p');
   intro.className = 'power-editor__wizard-helper';
-  intro.textContent = 'Pick a primary power type and a complementary focus. These choices unlock tailored questions and presets on the next steps.';
+  intro.textContent = 'Pick a primary power type and a complementary focus. These choices unlock tailored guidance for describing your move and configuring its mechanics.';
 
   const form = document.createElement('div');
   form.className = 'power-editor__wizard-type-grid';
@@ -15680,7 +15702,6 @@ function renderPowerWizardTypeSelect(container) {
     nextLabel: 'Continue',
     nextDisabled: true,
     onNext: () => {
-      syncConceptResponsesToPower();
       goToWizardStep(powerEditorState.stepIndex + 1);
     },
   });
@@ -15749,10 +15770,6 @@ function renderPowerWizardTypeSelect(container) {
 
   primarySelect.addEventListener('change', () => {
     const primaryKey = primarySelect.value;
-    powerEditorState.conceptResponses = {};
-    powerEditorState.currentConceptQuestions = [];
-    powerEditorState.detailsTouched = false;
-    powerEditorState.conceptSeed = extractConceptSeed(powerEditorState.workingPower);
     if (primaryKey && POWER_WIZARD_TYPES[primaryKey]) {
       powerEditorState.moveType = primaryKey;
       applyMoveTypeDefaults(primaryKey);
@@ -15767,9 +15784,6 @@ function renderPowerWizardTypeSelect(container) {
 
   secondarySelect.addEventListener('change', () => {
     const subtypeKey = secondarySelect.value;
-    powerEditorState.conceptResponses = {};
-    powerEditorState.currentConceptQuestions = [];
-    powerEditorState.detailsTouched = false;
     powerEditorState.subtype = subtypeKey || null;
     if (powerEditorState.moveType && powerEditorState.subtype) {
       applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
@@ -15782,16 +15796,16 @@ function renderPowerWizardTypeSelect(container) {
   updateSummary();
 }
 
-function renderPowerWizardConcept(container) {
+function renderPowerWizardDescription(container) {
   const wrapper = document.createElement('div');
-  wrapper.className = 'power-editor__wizard-step power-editor__wizard-step--concept';
+  wrapper.className = 'power-editor__wizard-step power-editor__wizard-step--description';
   const moveType = powerEditorState.moveType;
   const subtype = powerEditorState.subtype;
   const moveConfig = getMoveTypeConfig(moveType);
   const subtypeConfig = getSubtypeConfig(moveType, subtype);
   if (!moveConfig || !subtypeConfig) {
     const info = document.createElement('p');
-    info.textContent = 'Select a primary and secondary type before outlining your concept.';
+    info.textContent = 'Choose a primary and secondary type before writing the description.';
     const nav = createWizardNav({
       showBack: true,
       onBack: () => goToWizardStep(Math.max(powerEditorState.stepIndex - 1, 0)),
@@ -15804,7 +15818,7 @@ function renderPowerWizardConcept(container) {
   }
 
   const heading = document.createElement('h4');
-  heading.textContent = 'Flesh out your power concept';
+  heading.textContent = 'Describe your power';
 
   const summaryBar = document.createElement('div');
   summaryBar.className = 'power-editor__wizard-summary-bar';
@@ -15826,54 +15840,42 @@ function renderPowerWizardConcept(container) {
 
   const intro = document.createElement('p');
   intro.className = 'power-editor__wizard-helper';
-  intro.textContent = 'Use these prompts to capture the visuals, tone, and costs of your move. Your answers flow into the detailed fields next.';
+  intro.textContent = 'Capture the cinematic beat your table should picture. This text appears on the power card to help everyone remember the story.';
 
-  const questionsWrap = document.createElement('div');
-  questionsWrap.className = 'power-editor__concept-list';
-  const questions = getConceptQuestionsForSelection(moveType, subtype);
-  powerEditorState.currentConceptQuestions = questions;
-  ensureConceptResponsesState(questions);
+  const working = powerEditorState.workingPower || {};
+  const fields = document.createElement('div');
+  fields.className = 'power-editor__wizard-description-fields';
+  fields.style.display = 'flex';
+  fields.style.flexDirection = 'column';
+  fields.style.gap = 'var(--control-gap, 12px)';
 
-  questions.forEach(question => {
-    const field = document.createElement('div');
-    field.className = 'power-editor__concept-field';
-    const textareaId = `concept-${question.id}`;
-    const label = document.createElement('label');
-    label.className = 'power-editor__concept-label';
-    label.setAttribute('for', textareaId);
-    label.textContent = question.prompt;
-    const helper = question.helper ? document.createElement('p') : null;
-    if (helper) {
-      helper.className = 'power-editor__field-helper';
-      helper.textContent = question.helper;
-    }
-    const textarea = document.createElement('textarea');
-    textarea.id = textareaId;
-    textarea.rows = 3;
-    textarea.placeholder = 'Describe the story beat...';
-    textarea.value = powerEditorState.conceptResponses?.[question.id] || '';
-    textarea.addEventListener('input', () => {
-      if (!powerEditorState.conceptResponses || typeof powerEditorState.conceptResponses !== 'object') {
-        powerEditorState.conceptResponses = {};
-      }
-      powerEditorState.conceptResponses[question.id] = textarea.value;
-      syncConceptResponsesToPower();
-      updatePowerEditorSaveState();
-    });
-    field.append(label);
-    if (helper) field.appendChild(helper);
-    field.appendChild(textarea);
-    questionsWrap.appendChild(field);
+  const descriptionArea = document.createElement('textarea');
+  descriptionArea.rows = 4;
+  descriptionArea.placeholder = 'What does unleashing this power look, sound, or feel like?';
+  descriptionArea.value = working.description || '';
+  descriptionArea.addEventListener('input', () => {
+    working.description = descriptionArea.value;
   });
+  const descriptionField = createFieldContainer('Description shown on the power card', descriptionArea, { minWidth: '100%' });
+  fields.appendChild(descriptionField.wrapper);
 
-  wrapper.append(heading, summaryBar, intro, questionsWrap);
+  const specialArea = document.createElement('textarea');
+  specialArea.rows = 3;
+  specialArea.placeholder = 'Optional notes, riders, or reminders to highlight (optional).';
+  specialArea.value = working.special || '';
+  specialArea.addEventListener('input', () => {
+    working.special = specialArea.value;
+  });
+  const specialField = createFieldContainer('Special notes (optional)', specialArea, { minWidth: '100%' });
+  fields.appendChild(specialField.wrapper);
+
+  wrapper.append(heading, summaryBar, intro, fields);
 
   const nav = createWizardNav({
     showBack: true,
     onBack: () => goToWizardStep(powerEditorState.stepIndex - 1),
-    nextLabel: 'Go to details',
+    nextLabel: 'Continue to mechanics',
     onNext: () => {
-      syncConceptResponsesToPower();
       goToWizardStep(powerEditorState.stepIndex + 1);
     },
   });
@@ -15881,91 +15883,7 @@ function renderPowerWizardConcept(container) {
   container.appendChild(wrapper);
 
   const navNext = nav.querySelector('[data-wizard-next]');
-  powerEditorState.wizardElements.conceptNavNext = navNext || null;
-
-  syncConceptResponsesToPower();
-}
-
-
-function getConceptQuestionsForSelection(moveType, subtype) {
-  const moveConfig = POWER_WIZARD_CONCEPT_QUESTIONS[moveType] || null;
-  const templates = moveConfig?.[subtype] || moveConfig?.default || POWER_WIZARD_CONCEPT_FALLBACK;
-  return Array.isArray(templates) ? templates.map(template => ({ ...template })) : POWER_WIZARD_CONCEPT_FALLBACK.map(template => ({ ...template }));
-}
-
-function ensureConceptResponsesState(questions) {
-  if (!Array.isArray(questions)) return;
-  if (!powerEditorState.conceptResponses || typeof powerEditorState.conceptResponses !== 'object') {
-    powerEditorState.conceptResponses = {};
-  }
-  const responses = powerEditorState.conceptResponses;
-  const hasExistingContent = Object.values(responses).some(value => typeof value === 'string' && value.trim());
-  if (!powerEditorState.conceptSeed) {
-    powerEditorState.conceptSeed = extractConceptSeed(powerEditorState.workingPower);
-  }
-  const seed = powerEditorState.conceptSeed || { description: [], special: [] };
-  let descriptionIndex = 0;
-  let specialIndex = 0;
-  questions.forEach(question => {
-    if (responses[question.id] !== undefined) return;
-    if (!hasExistingContent) {
-      if (question.assign === 'special') {
-        responses[question.id] = seed.special?.[specialIndex++] || '';
-      } else {
-        responses[question.id] = seed.description?.[descriptionIndex++] || '';
-      }
-    } else {
-      responses[question.id] = '';
-    }
-  });
-}
-
-function syncConceptResponsesToPower() {
-  const working = powerEditorState.workingPower;
-  if (!working) return;
-  const questions = Array.isArray(powerEditorState.currentConceptQuestions)
-    ? powerEditorState.currentConceptQuestions
-    : [];
-  const responses = powerEditorState.conceptResponses;
-  if (!responses || typeof responses !== 'object') return;
-  if (powerEditorState.detailsTouched) return;
-  const descriptionParts = [];
-  const specialParts = [];
-  questions.forEach(question => {
-    const raw = responses[question.id];
-    if (typeof raw !== 'string') return;
-    const value = raw.trim();
-    if (!value) return;
-    if (question.assign === 'special') {
-      specialParts.push(value);
-    } else {
-      descriptionParts.push(value);
-    }
-  });
-  if (descriptionParts.length) {
-    working.description = descriptionParts.join('\n\n');
-  }
-  if (specialParts.length) {
-    working.special = specialParts.join('\n\n');
-  }
-}
-
-function extractConceptSeed(power) {
-  const seed = { description: [], special: [] };
-  if (!power || typeof power !== 'object') return seed;
-  if (typeof power.description === 'string' && power.description.trim()) {
-    seed.description = power.description
-      .split(/\n\s*\n/)
-      .map(part => part.trim())
-      .filter(Boolean);
-  }
-  if (typeof power.special === 'string' && power.special.trim()) {
-    seed.special = power.special
-      .split(/\n+/)
-      .map(part => part.trim())
-      .filter(Boolean);
-  }
-  return seed;
+  powerEditorState.wizardElements.descriptionNavNext = navNext || null;
 }
 
 function renderPowerWizardDetails(container) {
@@ -15985,7 +15903,6 @@ function renderPowerWizardDetails(container) {
     container.appendChild(wrapper);
     return;
   }
-  syncConceptResponsesToPower();
   const working = powerEditorState.workingPower || {};
   const moveConfig = getMoveTypeConfig(powerEditorState.moveType);
   const summaryBar = document.createElement('div');
@@ -16003,19 +15920,19 @@ function renderPowerWizardDetails(container) {
     const typeIndex = (powerEditorState.steps || []).indexOf('type-select');
     if (typeIndex >= 0) goToWizardStep(typeIndex);
   });
-  const reviewConceptBtn = document.createElement('button');
-  reviewConceptBtn.type = 'button';
-  reviewConceptBtn.className = 'btn-sm';
-  reviewConceptBtn.textContent = 'Review prompts';
-  reviewConceptBtn.addEventListener('click', () => {
-    const conceptIndex = (powerEditorState.steps || []).indexOf('concept');
-    if (conceptIndex >= 0) goToWizardStep(conceptIndex);
+  const editDescriptionBtn = document.createElement('button');
+  editDescriptionBtn.type = 'button';
+  editDescriptionBtn.className = 'btn-sm';
+  editDescriptionBtn.textContent = 'Edit description';
+  editDescriptionBtn.addEventListener('click', () => {
+    const descriptionIndex = (powerEditorState.steps || []).indexOf('description');
+    if (descriptionIndex >= 0) goToWizardStep(descriptionIndex);
   });
-  summaryActions.append(changeTypesBtn, reviewConceptBtn);
+  summaryActions.append(changeTypesBtn, editDescriptionBtn);
   summaryBar.append(summaryText, summaryActions);
   const helperText = document.createElement('p');
   helperText.className = 'power-editor__wizard-helper';
-  helperText.textContent = 'Adjust your selections above or fine-tune the mechanical details below.';
+  helperText.textContent = 'Lock in the mechanical pieces: choose effects, dial in damage, and configure saves or resource costs.';
   wrapper.append(summaryBar, helperText);
   const fields = document.createElement('div');
   fields.className = 'power-editor__details-grid';
@@ -16247,24 +16164,6 @@ function renderPowerWizardDetails(container) {
     working.scaling = scalingSelect.value;
   });
   fields.appendChild(createFieldContainer('Scaling', scalingSelect, { minWidth: '160px' }).wrapper);
-
-  const descriptionArea = document.createElement('textarea');
-  descriptionArea.rows = 3;
-  descriptionArea.value = working.description || '';
-  descriptionArea.addEventListener('input', () => {
-    powerEditorState.detailsTouched = true;
-    working.description = descriptionArea.value;
-  });
-  fields.appendChild(createFieldContainer('Description', descriptionArea, { minWidth: '100%' }).wrapper);
-
-  const specialArea = document.createElement('textarea');
-  specialArea.rows = 2;
-  specialArea.value = working.special || '';
-  specialArea.addEventListener('input', () => {
-    powerEditorState.detailsTouched = true;
-    working.special = specialArea.value;
-  });
-  fields.appendChild(createFieldContainer('Special Notes', specialArea, { minWidth: '100%' }).wrapper);
 
   wrapper.appendChild(fields);
 
@@ -19099,9 +18998,10 @@ function normalizeCustomCatalogEntry(raw = {}){
 }
 
 function loadCustomCatalogEntries(){
-  if (typeof localStorage === 'undefined') return [];
+  const storage = getLocalStorageSafe();
+  if (!storage) return [];
   try {
-    const raw = localStorage.getItem(CUSTOM_CATALOG_KEY);
+    const raw = storage.getItem(CUSTOM_CATALOG_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -19124,7 +19024,8 @@ function getAllCatalogEntries(){
 }
 
 function saveCustomCatalogEntries(){
-  if (typeof localStorage !== 'undefined') {
+  const storage = getLocalStorageSafe();
+  if (storage) {
     try {
       const toSave = customCatalogEntries
         .filter(entry => !entry.hidden && entry.name && entry.name.trim())
@@ -19148,7 +19049,7 @@ function saveCustomCatalogEntries(){
           bonus: entry.bonus,
           qty: entry.qty
         }));
-      localStorage.setItem(CUSTOM_CATALOG_KEY, JSON.stringify(toSave));
+      storage.setItem(CUSTOM_CATALOG_KEY, JSON.stringify(toSave));
     } catch (err) {
       console.error('Failed to save custom catalog entries', err);
     }
@@ -19973,9 +19874,10 @@ const ENCOUNTER_ROUND_STORAGE_KEY = 'enc-round';
 const ENCOUNTER_TURN_STORAGE_KEY = 'enc-turn';
 
 function readEncounterNumber(key, fallback){
-  if (typeof localStorage === 'undefined') return fallback;
+  const storage = getLocalStorageSafe();
+  if (!storage) return fallback;
   try {
-    const value = Number(localStorage.getItem(key));
+    const value = Number(storage.getItem(key));
     return Number.isFinite(value) ? value : fallback;
   } catch (error) {
     console.warn('Failed to read encounter value from storage', error);
@@ -19988,9 +19890,10 @@ let turn = readEncounterNumber(ENCOUNTER_TURN_STORAGE_KEY, 0);
 if (!Number.isFinite(turn) || turn < 0) turn = 0;
 
 function writeEncounterValue(key, value){
-  if (typeof localStorage === 'undefined') return;
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
   try {
-    localStorage.setItem(key, value);
+    storage.setItem(key, value);
   } catch (error) {
     console.warn('Failed to persist encounter value', error);
   }
@@ -21997,12 +21900,13 @@ if (welcomeHideToggle) {
   welcomeHideToggle.addEventListener('change', () => {
     const shouldHide = welcomeHideToggle.checked;
     welcomeModalDismissed = shouldHide;
-    if (typeof localStorage !== 'undefined') {
+    const storage = getLocalStorageSafe();
+    if (storage) {
       try {
         if (shouldHide) {
-          localStorage.setItem(WELCOME_MODAL_PREFERENCE_KEY, 'true');
+          storage.setItem(WELCOME_MODAL_PREFERENCE_KEY, 'true');
         } else {
-          localStorage.removeItem(WELCOME_MODAL_PREFERENCE_KEY);
+          storage.removeItem(WELCOME_MODAL_PREFERENCE_KEY);
         }
       } catch {}
     }

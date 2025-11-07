@@ -132,11 +132,15 @@ describe('power editor accessibility', () => {
     expect(typeNext.disabled).toBe(false);
     typeNext.click();
 
-    const conceptStep = content.querySelector('.power-editor__wizard-step--concept');
-    expect(conceptStep).not.toBeNull();
-    const conceptNext = conceptStep.querySelector('[data-wizard-next]');
-    expect(conceptNext).not.toBeNull();
-    conceptNext.click();
+    const descriptionStep = content.querySelector('.power-editor__wizard-step--description');
+    expect(descriptionStep).not.toBeNull();
+    const descriptionArea = descriptionStep.querySelector('textarea');
+    expect(descriptionArea).not.toBeNull();
+    descriptionArea.value = 'A crushing melee blow.';
+    descriptionArea.dispatchEvent(new Event('input', { bubbles: true }));
+    const descriptionNext = descriptionStep.querySelector('[data-wizard-next]');
+    expect(descriptionNext).not.toBeNull();
+    descriptionNext.click();
 
     const detailStep = content.querySelector('.power-editor__wizard-step--details');
     expect(detailStep).not.toBeNull();
@@ -180,11 +184,15 @@ describe('power editor accessibility', () => {
     expect(typeNext).not.toBeNull();
     typeNext.click();
 
-    const conceptStep = content.querySelector('.power-editor__wizard-step--concept');
-    expect(conceptStep).not.toBeNull();
-    const conceptNext = conceptStep.querySelector('[data-wizard-next]');
-    expect(conceptNext).not.toBeNull();
-    conceptNext.click();
+    const descriptionStep = content.querySelector('.power-editor__wizard-step--description');
+    expect(descriptionStep).not.toBeNull();
+    const descriptionArea = descriptionStep.querySelector('textarea');
+    expect(descriptionArea).not.toBeNull();
+    descriptionArea.value = 'Signature flourish.';
+    descriptionArea.dispatchEvent(new Event('input', { bubbles: true }));
+    const descriptionNext = descriptionStep.querySelector('[data-wizard-next]');
+    expect(descriptionNext).not.toBeNull();
+    descriptionNext.click();
 
     const detailStep = content.querySelector('.power-editor__wizard-step--details');
     expect(detailStep).not.toBeNull();
@@ -195,8 +203,8 @@ describe('power editor accessibility', () => {
     expect(nameInput).not.toBeNull();
     const intensitySelect = Array.from(detailStep.querySelectorAll('select')).find(sel => Array.from(sel.options).some(opt => opt.value === 'Ultimate'));
     expect(intensitySelect).toBeDefined();
-    const descriptionArea = detailStep.querySelector('textarea');
-    expect(descriptionArea).not.toBeNull();
+    const damageFields = detailStep.querySelector('.power-editor__damage-fields');
+    expect(damageFields).not.toBeNull();
 
     overlay.querySelector('[data-power-editor-cancel]').click();
     expect(overlay.classList.contains('hidden')).toBe(true);

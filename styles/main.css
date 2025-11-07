@@ -5723,7 +5723,7 @@ body:not(.no-hover) .power-card__summary-edit:hover,.power-card__summary-edit:fo
 .power-editor__content{flex:1 1 auto;overflow:auto;padding:0 12px 0 0;margin-right:-12px}
 .power-editor__content>.power-card__body{padding-right:12px}
 .power-editor__actions{display:flex;justify-content:flex-end;gap:var(--control-gap);padding-top:4px;border-top:1px solid var(--line)}
-.power-editor__wizard-step--types,.power-editor__wizard-step--concept{display:flex;flex-direction:column;gap:var(--control-gap)}
+.power-editor__wizard-step--types,.power-editor__wizard-step--description{display:flex;flex-direction:column;gap:var(--control-gap)}
 .power-editor__wizard-type-grid{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--control-gap)}
 .power-editor__wizard-summary-card{display:flex;flex-direction:column;gap:6px;padding:16px;border-radius:var(--radius);border:1px solid var(--line);background:rgba(148,163,184,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.02)}
 .power-editor__wizard-summary-card strong{font-size:.9rem;letter-spacing:.02em}
