@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import DecryptedText from './DecryptedText.jsx';
 
 const TITLE_TEXT = 'Catalyst Core';
+const TEXT_NODE_TYPE = typeof Node === 'undefined' ? 3 : Node.TEXT_NODE;
+
+const isTextNode = node => node?.nodeType === TEXT_NODE_TYPE;
 
 function HeaderTitle() {
   return (
@@ -36,7 +39,7 @@ function renderHeaderTitle() {
     }
   }
 
-  const textNodes = Array.from(titleEl.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+  const textNodes = Array.from(titleEl.childNodes).filter(isTextNode);
   textNodes.forEach(node => titleEl.removeChild(node));
 
   const legacyLabels = titleEl.querySelectorAll('.tabs-title__label');

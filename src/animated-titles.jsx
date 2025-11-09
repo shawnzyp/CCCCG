@@ -13,6 +13,9 @@ function AnimatedTitle({ text, playIndex }) {
   );
 }
 
+const TEXT_NODE_TYPE = typeof Node === 'undefined' ? 3 : Node.TEXT_NODE;
+const isTextNode = node => node?.nodeType === TEXT_NODE_TYPE;
+
 const animatedTitles = new Map();
 let currentActiveGroup = null;
 
@@ -34,7 +37,7 @@ function getGroupKey(element) {
 }
 
 function stripTextNodes(element) {
-  const textNodes = Array.from(element.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+  const textNodes = Array.from(element.childNodes).filter(isTextNode);
   textNodes.forEach(node => element.removeChild(node));
 }
 
