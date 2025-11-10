@@ -591,4 +591,168 @@ describe('Catalyst Core master application experience', () => {
       throw new Error(`Detected issues while exercising interactive elements: ${capturedErrors.map(String).join('\n')}`);
     }
   });
+
+  test('stress tests interactive controls under rapid repeated interactions', async () => {
+    const capturedErrors = [];
+    const errorHandler = event => {
+      const detail = event?.error ?? event?.message ?? event?.reason ?? event;
+      capturedErrors.push(detail);
+    };
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', errorHandler);
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
+      capturedErrors.push(args.join(' '));
+    });
+
+    await importAllApplicationScripts();
+    dispatchAppReadyEvents();
+    const skipLaunchButton = document.querySelector('[data-skip-launch]');
+    if (skipLaunchButton) {
+      skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    } else {
+      window.dispatchEvent(new Event('launch-animation-skip'));
+    }
+    await advanceAppTime(1000);
+
+    const interactiveElements = Array.from(
+      document.querySelectorAll(
+        'button, [role="button"], input, select, textarea, summary, details, a[href], [contenteditable=""], [contenteditable="true"]',
+      ),
+    );
+
+    const stressIterations = 4;
+
+    for (const element of interactiveElements) {
+      if (!(element instanceof Element)) {
+        continue;
+      }
+      if (shouldSkipElement(element)) {
+        continue;
+      }
+      if (isElementHidden(element)) {
+        continue;
+      }
+      if (!element.isConnected) {
+        continue;
+      }
+      if ('disabled' in element && element.disabled) {
+        continue;
+      }
+
+      const tagName = element.tagName.toLowerCase();
+      for (let iteration = 0; iteration < stressIterations; iteration += 1) {
+        try {
+          if (element instanceof HTMLElement) {
+            element.focus?.();
+          }
+
+          switch (tagName) {
+            case 'input': {
+              const input = element;
+              if (input.type === 'checkbox' || input.type === 'radio') {
+                input.checked = !input.checked;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+              } else {
+                input.value = `Stress ${iteration}`;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+              break;
+            }
+            case 'select': {
+              const select = element;
+              if (select.options.length > 0) {
+                const nextIndex = (select.selectedIndex + 1) % select.options.length;
+                select.selectedIndex = nextIndex;
+              }
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+              break;
+            }
+            case 'textarea': {
+              const textarea = element;
+              textarea.value = `Multiline stress iteration ${iteration}`;
+              textarea.dispatchEvent(new Event('input', { bubbles: true }));
+              textarea.dispatchEvent(new Event('change', { bubbles: true }));
+              break;
+            }
+            case 'details': {
+              const details = element;
+              details.open = !details.open;
+              details.dispatchEvent(new Event('toggle'));
+              break;
+            }
+            default: {
+              const pointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
+              const pointerUp = new Event('pointerup', { bubbles: true, cancelable: true });
+              const clickEvent = new Event('click', { bubbles: true, cancelable: true });
+              element.dispatchEvent(pointerDown);
+              element.dispatchEvent(clickEvent);
+              element.dispatchEvent(pointerUp);
+              if (element instanceof HTMLElement) {
+                element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+                element.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+              }
+              break;
+            }
+          }
+        } catch (err) {
+          capturedErrors.push(err);
+        }
+
+        await advanceAppTime(0);
+      }
+    }
+
+    const tabLists = Array.from(document.querySelectorAll('[role="tablist"]'));
+    for (const tabList of tabLists) {
+      const tabs = Array.from(tabList.querySelectorAll('[role="tab"]')).filter(
+        tab => tab instanceof HTMLElement && !isElementHidden(tab) && !shouldSkipElement(tab),
+      );
+      if (tabs.length < 2) {
+        continue;
+      }
+
+      for (let cycle = 0; cycle < stressIterations; cycle += 1) {
+        for (const tab of tabs) {
+          try {
+            tab.focus?.();
+            tab.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
+            tab.dispatchEvent(new Event('click', { bubbles: true, cancelable: true }));
+            tab.dispatchEvent(new Event('pointerup', { bubbles: true, cancelable: true }));
+            tab.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+            tab.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+          } catch (err) {
+            capturedErrors.push(err);
+          }
+          await advanceAppTime(0);
+        }
+        for (const tab of [...tabs].reverse()) {
+          try {
+            tab.focus?.();
+            tab.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
+            tab.dispatchEvent(new Event('click', { bubbles: true, cancelable: true }));
+            tab.dispatchEvent(new Event('pointerup', { bubbles: true, cancelable: true }));
+            tab.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true }));
+            tab.dispatchEvent(new KeyboardEvent('keyup', { key: ' ', code: 'Space', bubbles: true }));
+          } catch (err) {
+            capturedErrors.push(err);
+          }
+          await advanceAppTime(0);
+        }
+      }
+    }
+
+    window.removeEventListener('error', errorHandler);
+    window.removeEventListener('unhandledrejection', errorHandler);
+    consoleErrorSpy.mockRestore();
+
+    await advanceAppTime(4000);
+    jest.clearAllTimers();
+
+    if (capturedErrors.length > 0) {
+      throw new Error(`Detected issues while stress testing interactive elements: ${capturedErrors.map(String).join('\n')}`);
+    }
+  });
 });
