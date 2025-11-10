@@ -28,24 +28,21 @@ describe('DM credential hashing fallbacks', () => {
       globalThis.crypto = undefined;
     }
 
-    const derivedBuffer = Buffer.alloc(16, 7);
-    const pbkdf2Sync = jest.fn(() => derivedBuffer);
-    const randomBytes = jest.fn(length => Buffer.alloc(length, 1));
+    let setNodeCryptoOverride;
+    try {
+      const derivedBuffer = Buffer.alloc(16, 7);
+      const pbkdf2Sync = jest.fn(() => derivedBuffer);
+      const randomBytes = jest.fn(length => Buffer.alloc(length, 1));
 
-    jest.unstable_mockModule('node:crypto', () => ({
-      __esModule: true,
-      default: {
+      const { deriveDmPinHash, __setNodeCryptoModuleOverride } = await import('../scripts/dm-pin.js');
+
+      setNodeCryptoOverride = __setNodeCryptoModuleOverride;
+
+      __setNodeCryptoModuleOverride({
         pbkdf2Sync,
         randomBytes,
         webcrypto: {},
-      },
-      pbkdf2Sync,
-      randomBytes,
-      webcrypto: {},
-    }));
-
-    try {
-      const { deriveDmPinHash } = await import('../scripts/dm-pin.js');
+      });
 
       const salt = createBase64('saltysalt');
       const hash = await deriveDmPinHash('1234', {
@@ -64,6 +61,7 @@ describe('DM credential hashing fallbacks', () => {
       );
       expect(hash).toBe(derivedBuffer.toString('base64'));
     } finally {
+      setNodeCryptoOverride?.(null);
       restoreCrypto();
     }
   });

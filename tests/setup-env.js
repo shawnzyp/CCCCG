@@ -1,3 +1,9 @@
+import { TestResponse } from './test-response.js';
+
+if (typeof globalThis.Response !== 'function') {
+  globalThis.Response = TestResponse;
+}
+
 if (typeof globalThis.IntersectionObserver !== 'function') {
   class IntersectionObserverMock {
     constructor() {}
@@ -13,10 +19,9 @@ if (typeof globalThis.IntersectionObserver !== 'function') {
 }
 
 if (typeof globalThis.fetch !== 'function') {
-  globalThis.fetch = async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({}),
-    text: async () => '',
-  });
+  globalThis.fetch = async (_input, init = {}) => {
+    const { status = 200, statusText = '', headers = {} } = init ?? {};
+    const body = init && Object.prototype.hasOwnProperty.call(init, 'body') ? init.body : '{}';
+    return new TestResponse(body, { status, statusText, headers });
+  };
 }
