@@ -22282,14 +22282,12 @@ const welcomeOverlayIsElement = Boolean(
 if (welcomeOverlayIsElement) {
   welcomeOverlay.addEventListener('click', event => {
     if (event.target === welcomeOverlay) {
-      welcomeModalDismissed = true;
-      markWelcomeSequenceComplete();
+      dismissWelcomeModal();
     }
   }, { capture: true });
   qsa('#modal-welcome [data-close]').forEach(btn => {
     btn.addEventListener('click', () => {
-      welcomeModalDismissed = true;
-      markWelcomeSequenceComplete();
+      dismissWelcomeModal();
     }, { capture: true });
   });
   const updatePlayerToolsTabForWelcome = () => {
@@ -22326,8 +22324,7 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     const modal = getWelcomeModal();
     if (modal && !modal.classList.contains('hidden')) {
-      welcomeModalDismissed = true;
-      markWelcomeSequenceComplete();
+      dismissWelcomeModal();
     }
   }
 });
