@@ -16635,12 +16635,18 @@ function compilePowerEditorResult() {
   const working = powerEditorState.workingPower;
   if (!working) return null;
   const cloned = clonePowerForEditor(working);
-  if (cloned.damage) {
+  if (cloned.damage && typeof cloned.damage === 'object') {
     cloned.damage = { ...cloned.damage };
+    if (cloned.damageOptIn !== false) {
+      cloned.damageOptIn = true;
+    }
+  } else if (cloned.damageOptIn === false) {
+    delete cloned.damage;
+    cloned.damageOptIn = false;
   } else {
     delete cloned.damage;
+    delete cloned.damageOptIn;
   }
-  delete cloned.damageOptIn;
   if (!cloned.secondaryTag) {
     delete cloned.secondaryTag;
   }
