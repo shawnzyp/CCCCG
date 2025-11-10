@@ -185,10 +185,20 @@ function sanitizeUsername(value) {
 }
 
 function normalizeDigest(value) {
-  if (typeof value !== 'string' || !value) return DM_PIN_DEFAULT_DIGEST;
-  const normalized = value.toUpperCase();
-  if (normalized === 'SHA-256') return 'SHA-256';
+  if (typeof value !== 'string') return DM_PIN_DEFAULT_DIGEST;
+  const trimmed = value.trim();
+  if (!trimmed) return DM_PIN_DEFAULT_DIGEST;
+  const normalized = trimmed.toUpperCase();
+  if (normalized === 'SHA-256' || normalized === 'SHA256') return 'SHA-256';
   throw new Error(`Unsupported DM PIN digest: ${value}`);
+}
+
+function getNodeDigestIdentifier(digest) {
+  if (typeof digest !== 'string' || !digest) {
+    return '';
+  }
+  const normalized = digest.replace(/-/g, '').trim().toLowerCase();
+  return normalized;
 }
 
 function normalizeIterations(value) {
@@ -432,10 +442,11 @@ async function derivePinHash(pin, { salt, iterations, keyLength, digest }) {
   }
   const nodeCrypto = await getNodeCryptoModule();
   if (nodeCrypto?.pbkdf2Sync || nodeCrypto?.pbkdf2) {
+    const digestForNode = getNodeDigestIdentifier(normalizedDigest) || normalizedDigest.toLowerCase();
     const fn = nodeCrypto.pbkdf2Sync || nodeCrypto.pbkdf2;
     if (fn === nodeCrypto.pbkdf2) {
       const derived = await new Promise((resolve, reject) => {
-        nodeCrypto.pbkdf2(pin, Buffer.from(saltBytes), normalizedIterations, normalizedKeyLength, normalizedDigest.toLowerCase(), (err, result) => {
+        nodeCrypto.pbkdf2(pin, Buffer.from(saltBytes), normalizedIterations, normalizedKeyLength, digestForNode, (err, result) => {
           if (err) {
             reject(err);
             return;
@@ -445,7 +456,7 @@ async function derivePinHash(pin, { salt, iterations, keyLength, digest }) {
       });
       return Buffer.from(derived).toString('base64');
     }
-    const derived = nodeCrypto.pbkdf2Sync(pin, Buffer.from(saltBytes), normalizedIterations, normalizedKeyLength, normalizedDigest.toLowerCase());
+    const derived = nodeCrypto.pbkdf2Sync(pin, Buffer.from(saltBytes), normalizedIterations, normalizedKeyLength, digestForNode);
     return Buffer.from(derived).toString('base64');
   }
   throw new Error('PBKDF2 not available');
