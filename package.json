@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js",
+    "test": "jest",
     "build:levels": "node tools/build-levels.mjs",
     "build:catalog": "node tools/build-catalog.mjs",
     "build:media": "node tools/transcode-launch-animation.mjs",
@@ -15,22 +15,14 @@
     "build:fonts": "node tools/generate-fonts.mjs"
   },
   "devDependencies": {
+    "@swc/core": "^1.15.1",
+    "@swc/jest": "^0.2.39",
     "esbuild": "^0.25.10",
     "ffmpeg-static": "^5.2.0",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
     "mime-types": "^3.0.1",
-    "node-fetch": "^3.3.2",
     "ttf2woff2": "^8.0.0"
-  },
-  "jest": {
-    "testEnvironment": "jsdom",
-    "extensionsToTreatAsEsm": [
-      ".jsx"
-    ],
-    "setupFilesAfterEnv": [
-      "<rootDir>/tests/setup-env.js"
-    ]
   },
   "dependencies": {
     "motion": "^12.23.18",

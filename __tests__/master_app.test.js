@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { jest } from '@jest/globals';
 import mime from 'mime-types';
-import { Response } from 'node-fetch';
+import { TestResponse as Response } from '../tests/test-response.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const TEST_DIR = path.dirname(__filename);

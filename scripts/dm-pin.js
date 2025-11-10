@@ -9,6 +9,7 @@ const DM_PIN_SALT_BYTES = 16;
 let credentialCache = null;
 let credentialCachePromise = null;
 let nodeCryptoModulePromise = null;
+let nodeCryptoModuleOverride = null;
 
 function now() {
   return Date.now();
@@ -22,6 +23,9 @@ function getGlobalCrypto() {
 }
 
 async function getNodeCryptoModule() {
+  if (nodeCryptoModuleOverride !== null) {
+    return nodeCryptoModuleOverride;
+  }
   if (nodeCryptoModulePromise) {
     return nodeCryptoModulePromise;
   }
@@ -525,6 +529,11 @@ export function resetDmCredentialCache() {
   credentialCache = null;
   credentialCachePromise = null;
   safeLocalStorageRemove(DM_CREDENTIAL_CACHE_KEY);
+}
+
+export function __setNodeCryptoModuleOverride(module) {
+  nodeCryptoModuleOverride = module ?? null;
+  nodeCryptoModulePromise = null;
 }
 
 export {
