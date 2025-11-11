@@ -9,27 +9,6 @@ module.exports = {
   extensionsToTreatAsEsm: ['.jsx'],
   setupFilesAfterEnv: fs.existsSync(setupFile) ? [setupFile] : [],
   transform: {
-    '^.+\\.[jt]sx?$': [
-      '@swc/jest',
-      {
-        sourceMaps: 'inline',
-        jsc: {
-          target: 'es2021',
-          parser: {
-            syntax: 'ecmascript',
-            jsx: true,
-            dynamicImport: true,
-          },
-          transform: {
-            react: {
-              runtime: 'automatic',
-            },
-          },
-        },
-        module: {
-          type: 'es6',
-        },
-      },
-    ],
+    '^.+\\.[jt]sx?$': [path.resolve(__dirname, 'tests', 'swc-transformer.cjs'), {}],
   },
 };
