@@ -14645,7 +14645,17 @@ function updatePowerCardDerived(card) {
   if (elements.secondaryHint) {
     elements.secondaryHint.textContent = power.secondaryTag ? 'Consider +1 SP for secondary effect' : '';
   }
-  const hasDamage = !!power.damage;
+  let hasDamage = !!power.damage;
+  if (!hasDamage && power.effectTag === 'Damage') {
+    power.damage = {
+      dice: POWER_DAMAGE_DICE[0],
+      type: defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0],
+      onSave: suggestOnSaveBehavior(power.effectTag),
+    };
+    hasDamage = true;
+  }
+  const saveEnabled = !!power.requiresSave;
+  const showOnSave = hasDamage && saveEnabled;
   if (elements.damageFields) {
     elements.damageFields.style.display = hasDamage ? 'flex' : 'none';
   }
@@ -14676,8 +14686,11 @@ function updatePowerCardDerived(card) {
     if (elements.damageTypeSelect && elements.damageTypeSelect.value !== power.damage.type) {
       elements.damageTypeSelect.value = power.damage.type;
     }
-    if (elements.damageSaveSelect && elements.damageSaveSelect.value !== power.damage.onSave) {
-      elements.damageSaveSelect.value = power.damage.onSave;
+    if (elements.damageSaveSelect) {
+      if (showOnSave && elements.damageSaveSelect.value !== power.damage.onSave) {
+        elements.damageSaveSelect.value = power.damage.onSave;
+      }
+      elements.damageSaveSelect.disabled = !showOnSave;
     }
   } else {
     if (elements.damageDiceSelect) {
@@ -14689,13 +14702,17 @@ function updatePowerCardDerived(card) {
     }
     if (elements.damageSaveSelect) {
       elements.damageSaveSelect.value = 'Half';
+      elements.damageSaveSelect.disabled = true;
     }
   }
   if (elements.damageToggle) {
     elements.damageToggle.checked = hasDamage;
   }
   if (elements.damageSaveHint) {
-    elements.damageSaveHint.textContent = hasDamage ? `Suggested: ${onSaveSuggestion}` : '';
+    elements.damageSaveHint.textContent = showOnSave ? `Suggested: ${onSaveSuggestion}` : '';
+  }
+  if (elements.damageSaveField?.wrapper) {
+    elements.damageSaveField.wrapper.style.display = showOnSave ? '' : 'none';
   }
 
   state.lastEffectTag = power.effectTag;
@@ -14785,10 +14802,11 @@ function updatePowerCardDerived(card) {
   }
   if (elements.quickOnSaveSelect) {
     if (elements.quickOnSaveField) {
-      elements.quickOnSaveField.style.display = hasDamage ? '' : 'none';
+      elements.quickOnSaveField.style.display = showOnSave ? '' : 'none';
     }
-    if (hasDamage) {
-      setSelectOptions(elements.quickOnSaveSelect, POWER_ON_SAVE_OPTIONS, power.damage?.onSave || 'Half');
+    if (showOnSave) {
+      const quickOnSaveValue = power.damage?.onSave || suggestOnSaveBehavior(power.effectTag);
+      setSelectOptions(elements.quickOnSaveSelect, POWER_ON_SAVE_OPTIONS, quickOnSaveValue);
       elements.quickOnSaveSelect.disabled = false;
     } else {
       elements.quickOnSaveSelect.disabled = true;
@@ -14811,7 +14829,6 @@ function updatePowerCardDerived(card) {
     elements.summaryDamageResult,
     hasDamage,
   );
-  const saveEnabled = !!power.requiresSave;
   setButtonDisabled(elements.summaryRollSave, !saveEnabled);
   setSummaryRollVisibility(
     elements.summaryRollSaveWrapper,
@@ -15132,7 +15149,7 @@ function updatePowerCardSummary(card, power, settings) {
       const dmg = power.damage;
       const dmgText = `${dmg.dice} ${dmg.type || ''}`.trim();
       stats.push(['Damage', dmgText]);
-      if (dmg.onSave) stats.push(['On Save', dmg.onSave]);
+      if (power.requiresSave && dmg.onSave) stats.push(['On Save', dmg.onSave]);
     }
     if (power.requiresSave) {
       const dc = computeSaveDc(settings);
@@ -16097,6 +16114,9 @@ function renderPowerWizardDetails(container) {
     if (typeof updateDetailsDamageFields === 'function') {
       updateDetailsDamageFields();
     }
+    if (typeof updateSaveVisibility === 'function') {
+      updateSaveVisibility();
+    }
     updatePowerEditorSaveState();
   });
   fields.appendChild(createFieldContainer('Primary Effect', effectSelect, { minWidth: '180px' }).wrapper);
@@ -16125,6 +16145,8 @@ function renderPowerWizardDetails(container) {
   let damageDiceSelect = null;
   let damageTypeSelect = null;
   let damageSaveSelect = null;
+  let damageSaveHint = null;
+  let damageSaveField = null;
   let damageToggleControl = null;
 
   if (config.showDamage) {
@@ -16178,14 +16200,6 @@ function renderPowerWizardDetails(container) {
     });
     damageFieldsWrapper.appendChild(createFieldContainer('Damage Type', damageTypeSelect, { minWidth: '160px' }).wrapper);
 
-    damageSaveSelect = document.createElement('select');
-    setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, working.damage?.onSave || 'Half');
-    damageSaveSelect.addEventListener('change', () => {
-      if (!working.damage) working.damage = {};
-      working.damage.onSave = damageSaveSelect.value;
-    });
-    damageFieldsWrapper.appendChild(createFieldContainer('On Save', damageSaveSelect, { minWidth: '140px' }).wrapper);
-
     damageSection.appendChild(damageFieldsWrapper);
     fields.appendChild(damageSection);
   }
@@ -16220,6 +16234,34 @@ function renderPowerWizardDetails(container) {
     const saveAbilityField = createFieldContainer('Save Ability', saveAbilitySelect, { minWidth: '160px' });
     saveAbilityField.wrapper.dataset.powerEditorSaveAbility = 'true';
     fields.appendChild(saveAbilityField.wrapper);
+
+    damageSaveSelect = document.createElement('select');
+    const initialOnSave = working.damage?.onSave || suggestOnSaveBehavior(working.effectTag);
+    setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, initialOnSave);
+    damageSaveSelect.addEventListener('change', () => {
+      if (!working.damage || typeof working.damage !== 'object') {
+        working.damage = {
+          dice: working.damage?.dice || POWER_DAMAGE_DICE[0],
+          type: working.damage?.type || defaultDamageType(working.style) || POWER_DAMAGE_TYPES[0],
+          onSave: damageSaveSelect.value,
+        };
+        working.damageOptIn = true;
+        if (typeof updateDetailsDamageFields === 'function') {
+          updateDetailsDamageFields();
+        }
+      } else {
+        working.damage.onSave = damageSaveSelect.value;
+      }
+    });
+    const damageSaveFieldContainer = createFieldContainer('On Save Effect', damageSaveSelect, { minWidth: '180px' });
+    damageSaveFieldContainer.wrapper.dataset.powerEditorSaveOnEffect = 'true';
+    damageSaveHint = document.createElement('div');
+    damageSaveHint.style.fontSize = '12px';
+    damageSaveHint.style.opacity = '0.8';
+    damageSaveHint.style.minHeight = '14px';
+    damageSaveFieldContainer.wrapper.appendChild(damageSaveHint);
+    fields.appendChild(damageSaveFieldContainer.wrapper);
+    damageSaveField = damageSaveFieldContainer;
   } else {
     working.requiresSave = false;
     delete working.saveAbilityTarget;
@@ -16313,6 +16355,8 @@ function renderPowerWizardDetails(container) {
     damageDiceSelect,
     damageTypeSelect,
     damageSaveSelect,
+    damageSaveHint,
+    damageSaveField,
     damageToggle: damageToggleControl,
     rangeQuickButtons,
     updateRangeQuickActive,
@@ -16328,12 +16372,46 @@ function renderPowerWizardDetails(container) {
         field.style.display = requiresSave ? '' : 'none';
       }
     }
+    const hasDamage = working.damageOptIn !== false && !!working.damage;
+    const showOnSave = requiresSave && hasDamage;
+    if (details.damageSaveField?.wrapper) {
+      details.damageSaveField.wrapper.style.display = showOnSave ? '' : 'none';
+    } else if (details.damageSaveSelect) {
+      const field = details.damageSaveSelect.closest('[data-power-editor-save-on-effect]') || details.damageSaveSelect.parentElement;
+      if (field) {
+        field.style.display = showOnSave ? '' : 'none';
+      }
+    }
+    if (details.damageSaveSelect) {
+      details.damageSaveSelect.disabled = !showOnSave;
+      if (showOnSave) {
+        const suggestion = suggestOnSaveBehavior(working.effectTag);
+        if (!working.damage || typeof working.damage !== 'object') {
+          working.damage = {
+            dice: working.damage?.dice || POWER_DAMAGE_DICE[0],
+            type: working.damage?.type || defaultDamageType(working.style) || POWER_DAMAGE_TYPES[0],
+            onSave: suggestion,
+          };
+        } else if (!POWER_ON_SAVE_OPTIONS.includes(working.damage.onSave)) {
+          working.damage.onSave = suggestion;
+        }
+        details.damageSaveSelect.value = working.damage.onSave || suggestion;
+        if (details.damageSaveHint) {
+          details.damageSaveHint.textContent = `Suggested: ${suggestion}`;
+        }
+      } else if (details.damageSaveHint) {
+        details.damageSaveHint.textContent = '';
+      }
+    }
   }
 
   function updateDetailsDamageFields() {
     if (!config.showDamage) return;
     const { details } = powerEditorState.wizardElements;
     if (!details) return;
+    if (working.effectTag === 'Damage' && working.damageOptIn === false) {
+      working.damageOptIn = true;
+    }
     const enabled = working.damageOptIn !== false;
     if (details.damageFieldsWrapper) {
       details.damageFieldsWrapper.style.display = enabled ? '' : 'none';
@@ -16342,6 +16420,9 @@ function renderPowerWizardDetails(container) {
       details.damageToggle.checked = enabled;
     }
     if (!enabled) {
+      if (typeof updateSaveVisibility === 'function') {
+        updateSaveVisibility();
+      }
       return;
     }
     if (!working.damage || typeof working.damage !== 'object') {
@@ -16364,15 +16445,18 @@ function renderPowerWizardDetails(container) {
       }
       details.damageTypeSelect.value = working.damage.type;
     }
-    if (details.damageSaveSelect && working.damage?.onSave) {
-      if (!POWER_ON_SAVE_OPTIONS.includes(working.damage.onSave)) {
-        working.damage.onSave = suggestOnSaveBehavior(working.effectTag);
-      }
+    const onSaveSuggestion = suggestOnSaveBehavior(working.effectTag);
+    if (!POWER_ON_SAVE_OPTIONS.includes(working.damage.onSave)) {
+      working.damage.onSave = onSaveSuggestion;
+    }
+    if (details.damageSaveSelect) {
       details.damageSaveSelect.value = working.damage.onSave;
+    }
+    if (typeof updateSaveVisibility === 'function') {
+      updateSaveVisibility();
     }
   }
 
-  updateSaveVisibility();
   updateDetailsDamageFields();
 
   powerEditorState.wizardElements.updateSaveVisibility = updateSaveVisibility;
@@ -16470,7 +16554,8 @@ function renderPowerWizardReview(container) {
     addStat('Saving Throw', `${compiled.saveAbilityTarget} Save`);
   }
   if (compiled.damage) {
-    const saveText = compiled.damage.onSave ? ` (${compiled.damage.onSave} on Save)` : '';
+    const includeSaveText = compiled.requiresSave && compiled.damage.onSave;
+    const saveText = includeSaveText ? ` (${compiled.damage.onSave} on Save)` : '';
     addStat('Damage Package', `${compiled.damage.dice} ${compiled.damage.type}${saveText}`);
   } else if (working.damageOptIn === false) {
     addStat('Damage Package', 'Not included');
@@ -16979,6 +17064,33 @@ function createPowerCard(pref = {}, options = {}) {
   const saveBonusField = createFieldContainer('Target Save Bonus', saveBonusInput, { flex: '1', minWidth: '120px' });
   saveRow.appendChild(saveBonusField.wrapper);
 
+  const damageSaveSelect = document.createElement('select');
+  const initialOnSave = power.damage?.onSave || suggestOnSaveBehavior(power.effectTag);
+  setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, initialOnSave);
+  const damageSaveField = createFieldContainer('On Save Effect', damageSaveSelect, { flex: '1', minWidth: '140px' });
+  const damageSaveHint = document.createElement('div');
+  damageSaveHint.style.fontSize = '12px';
+  damageSaveHint.style.opacity = '0.8';
+  damageSaveHint.style.minHeight = '14px';
+  damageSaveField.wrapper.appendChild(damageSaveHint);
+  saveRow.appendChild(damageSaveField.wrapper);
+
+  damageSaveSelect.addEventListener('change', () => {
+    if (!power.damage) {
+      power.damage = {
+        dice: damageDiceSelect.value || POWER_DAMAGE_DICE[0],
+        type: damageTypeSelect.value || defaultDamageType(power.style) || POWER_DAMAGE_TYPES[0],
+        onSave: damageSaveSelect.value,
+      };
+      damageToggle.checked = true;
+      damageFields.style.display = 'flex';
+    } else {
+      power.damage.onSave = damageSaveSelect.value;
+    }
+    state.manualOnSave = true;
+    updatePowerCardDerived(card);
+  });
+
   const durationSelect = document.createElement('select');
   setSelectOptions(durationSelect, POWER_DURATIONS, power.duration);
   const durationField = createFieldContainer('Duration', durationSelect, { flex: '1', minWidth: '160px' });
@@ -17160,16 +17272,6 @@ function createPowerCard(pref = {}, options = {}) {
   const damageTypeField = createFieldContainer('Damage Type', damageTypeSelect, { flex: '1', minWidth: '140px' });
   damageFields.appendChild(damageTypeField.wrapper);
 
-  const damageSaveSelect = document.createElement('select');
-  setSelectOptions(damageSaveSelect, POWER_ON_SAVE_OPTIONS, power.damage?.onSave || 'Half');
-  const damageSaveField = createFieldContainer('On Save', damageSaveSelect, { flex: '1', minWidth: '140px' });
-  const damageSaveHint = document.createElement('div');
-  damageSaveHint.style.fontSize = '12px';
-  damageSaveHint.style.opacity = '0.8';
-  damageSaveHint.style.minHeight = '14px';
-  damageSaveField.wrapper.appendChild(damageSaveHint);
-  damageFields.appendChild(damageSaveField.wrapper);
-
   damageSection.appendChild(damageFields);
   if (!power.damage) damageFields.style.display = 'none';
   card.appendChild(damageSection);
@@ -17265,7 +17367,7 @@ function createPowerCard(pref = {}, options = {}) {
   const rangeQuick = createQuickField('Quick Range');
   const durationQuick = createQuickField('Duration');
   const saveQuick = createQuickField('Save Ability');
-  const onSaveQuick = createQuickField('On Save');
+  const onSaveQuick = createQuickField('On Save Effect');
   const diceQuick = createQuickField('Damage Dice');
 
   quickControls.append(spQuickField, rangeQuick.field, durationQuick.field, saveQuick.field, onSaveQuick.field, diceQuick.field);
@@ -17302,6 +17404,10 @@ function createPowerCard(pref = {}, options = {}) {
 
   onSaveQuick.select.addEventListener('change', () => {
     if (!power.damage) return;
+    if (!power.requiresSave) {
+      power.requiresSave = true;
+      requiresSaveToggle.checked = true;
+    }
     power.damage.onSave = onSaveQuick.select.value;
     damageSaveSelect.value = power.damage.onSave;
     state.manualOnSave = true;
@@ -17486,6 +17592,7 @@ function createPowerCard(pref = {}, options = {}) {
   elements.damageTypeSelect = damageTypeSelect;
   elements.damageSaveSelect = damageSaveSelect;
   elements.damageSaveHint = damageSaveHint;
+  elements.damageSaveField = damageSaveField;
   elements.damageSection = damageSection;
   elements.saveDcOutput = saveDcInput;
   elements.saveDcField = saveDcField;
