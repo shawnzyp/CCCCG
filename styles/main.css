@@ -6672,6 +6672,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-glass-radius: 30px;
   --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(0px, 1.2vw, 14px));
   --player-tools-tray-inline-gap: clamp(8px, 1.2vw, 12px);
+  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
+  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
 }
 @media(max-width:600px){
   :root{
@@ -6725,8 +6727,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   padding-block: clamp(18px, 4vw, 32px);
-  padding-inline-start: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
-  padding-inline-end: var(--player-tools-tray-inline-gap);
+  padding-inline-start: calc(
+    max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding)) +
+    var(--player-tools-tray-inline-gap)
+  );
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -6801,8 +6806,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   scrollbar-width: none;
   -ms-overflow-style: none;
   padding-block: clamp(12px, 2.4vw, 20px);
-  padding-inline-start: clamp(10px, 2.2vw, 20px);
-  padding-inline-end: clamp(10px, 2.2vw, 20px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -7243,6 +7248,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-transition-timing: cubic-bezier(0.24, 0.82, 0.28, 1);
   --player-tools-open-progress: 0;
   --player-tools-glass-radius: 30px;
+  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
+  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
 }
 
 .player-tools-drawer {
@@ -7288,7 +7295,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   z-index: 1;
   inline-size: 100%;
   block-size: 100%;
-  padding: clamp(18px, 4vw, 32px) clamp(16px, 4vw, 28px);
+  padding-block: clamp(18px, 4vw, 32px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -7357,7 +7366,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   overflow: visible;
-  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  padding-block: clamp(12px, 2.4vw, 20px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -7669,6 +7680,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-transition-timing: cubic-bezier(0.24, 0.82, 0.28, 1);
   --player-tools-open-progress: 0;
   --player-tools-glass-radius: 30px;
+  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
+  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
 }
 
 .player-tools-drawer {
@@ -7714,7 +7727,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   z-index: 1;
   inline-size: 100%;
   block-size: 100%;
-  padding: clamp(18px, 4vw, 32px) clamp(16px, 4vw, 28px);
+  padding-block: clamp(18px, 4vw, 32px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -7783,7 +7798,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   overflow: visible;
-  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  padding-block: clamp(12px, 2.4vw, 20px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8005,6 +8022,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-transition-timing: cubic-bezier(0.24, 0.82, 0.28, 1);
   --player-tools-open-progress: 0;
   --player-tools-glass-radius: 30px;
+  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
+  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
 }
 
 .player-tools-drawer {
@@ -8050,7 +8069,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   z-index: 1;
   inline-size: 100%;
   block-size: 100%;
-  padding: clamp(18px, 4vw, 32px) clamp(16px, 4vw, 28px);
+  padding-block: clamp(18px, 4vw, 32px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -8119,7 +8140,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   overflow: visible;
-  padding: clamp(12px, 2.4vw, 20px) clamp(12px, 2.8vw, 20px);
+  padding-block: clamp(12px, 2.4vw, 20px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -8601,12 +8624,13 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 
   .player-tools-drawer__inner {
-    padding-inline-start: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
-    padding-inline-end: var(--player-tools-tray-inline-gap);
+    padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+    padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   }
 
   .player-tools-drawer__content {
-    padding-inline-start: clamp(6px, 4vw, 18px);
+    padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
+    padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
   }
 
   .player-tools-phone,
@@ -8623,11 +8647,14 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --drawer-width: clamp(320px, 48vw, 560px);
   --player-tools-left-gutter: clamp(12px, 4vw, 28px);
   --player-tools-glass-radius: 36px;
+  --player-tools-drawer-inline-padding: clamp(12px, 4.6vw, 24px);
+  --player-tools-content-inline-padding: clamp(12px, 4.4vw, 24px);
 }
 
 .player-tools-drawer__inner {
   padding-block: clamp(22px, 6vw, 38px);
-  padding-inline: clamp(18px, 6vw, 34px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   justify-content: center;
   align-items: center;
 }
@@ -8647,7 +8674,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-drawer__content {
-  padding: clamp(22px, 5vw, 34px);
+  padding-block: clamp(22px, 5vw, 34px);
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
+  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
   max-inline-size: min(100%, 520px);
   margin-inline: auto;
   border-radius: clamp(30px, 6.6vw, 42px);
@@ -8662,7 +8691,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-phone {
   --player-tools-frame-radius: clamp(34px, 8vw, 44px);
-  --player-tools-frame-padding: clamp(12px, 3vw, 18px);
+  --player-tools-frame-padding: clamp(8px, 2.6vw, 16px);
   --player-tools-safe-area-top: max(10px, env(safe-area-inset-top));
   --player-tools-status-bar-height: clamp(54px, 13vw, 70px);
   --player-tools-status-bar-offset: calc(
@@ -8822,10 +8851,18 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 @media (max-width: 720px) {
   :root {
     --drawer-width: min(100vw, 440px);
+    --player-tools-drawer-inline-padding: clamp(12px, 5vw, 20px);
+    --player-tools-content-inline-padding: clamp(12px, 5vw, 20px);
   }
 
   .player-tools-drawer__inner {
-    padding-inline: clamp(14px, 5vw, 28px);
+    padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+    padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
+  }
+
+  .player-tools-drawer__content {
+    padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
+    padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
   }
 
   .player-tools-phone {
@@ -8853,13 +8890,15 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
     gap: clamp(16px, 5vw, 22px);
   }
 }
-@media(max-width:600px){
-  .player-tools-drawer__inner{
-    padding-inline-start: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
+@media (max-width: 600px) {
+  .player-tools-drawer__inner {
+    padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+    padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   }
-  .player-tools-drawer__panel{
-    left: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
-    right: var(--player-tools-tray-inline-gap);
+
+  .player-tools-drawer__panel {
+    left: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+    right: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   }
 }
 
