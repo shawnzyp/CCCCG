@@ -6670,11 +6670,13 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-transition-timing: cubic-bezier(0.24, 0.82, 0.28, 1);
   --player-tools-open-progress: 0;
   --player-tools-glass-radius: 30px;
-  --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(0px, 1.8vw, 18px));
+  --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(0px, 1.2vw, 14px));
+  --player-tools-tray-inline-gap: clamp(8px, 1.2vw, 12px);
 }
 @media(max-width:600px){
   :root{
     --player-tools-left-gutter:max(env(safe-area-inset-left,0px),4px);
+    --player-tools-tray-inline-gap:clamp(6px,3vw,12px);
   }
 }
 
@@ -6723,8 +6725,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   padding-block: clamp(18px, 4vw, 32px);
-  padding-inline-start: var(--player-tools-left-gutter);
-  padding-inline-end: clamp(8px, 2.6vw, 18px);
+  padding-inline-start: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
+  padding-inline-end: var(--player-tools-tray-inline-gap);
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
@@ -6734,8 +6736,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   position: absolute;
   top: clamp(14px, 4vw, 24px);
   bottom: clamp(14px, 4vw, 24px);
-  right: clamp(10px, 4vw, 18px);
-  left: calc(var(--player-tools-left-gutter) + clamp(6px, 2.4vw, 20px));
+  right: var(--player-tools-tray-inline-gap);
+  left: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
   border-radius: calc(var(--player-tools-glass-radius, 30px) + 10px);
   background: linear-gradient(165deg, rgba(88, 160, 255, 0.28), rgba(11, 18, 30, 0.95) 38%, rgba(6, 10, 18, 0.98) 88%);
   box-shadow:
@@ -8404,7 +8406,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-tab-height: clamp(88px, 18vw, 116px);
   position: fixed;
   top: calc(var(--player-tools-tab-top, 50vh));
-  left: 0;
+  left: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
   transform: translate3d(calc(var(--player-tools-tab-offset, 0px) * var(--player-tools-open-progress, 0)), 0, 0)
     translateY(-50%);
   transition:
@@ -8669,7 +8671,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  inline-size: min(100%, 440px);
+  inline-size: min(100%, 470px);
   margin-inline: auto;
   padding: var(--player-tools-frame-padding);
   border-radius: var(--player-tools-frame-radius);
