@@ -6663,7 +6663,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 :root {
-  --drawer-width: clamp(360px, 56vw, 640px);
+  --drawer-width: clamp(420px, 60vw, 720px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 360ms;
@@ -6671,7 +6671,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-open-progress: 0;
   --player-tools-glass-radius: 30px;
   --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(0px, 1.2vw, 14px));
-  --player-tools-tray-inline-gap: clamp(8px, 1.2vw, 12px);
+  --player-tools-tray-inline-gap: clamp(0px, 0.8vw, 8px);
   --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
   --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
 }
@@ -6727,13 +6727,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   padding-block: clamp(18px, 4vw, 32px);
-  padding-inline-start: calc(
-    max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding)) +
-    var(--player-tools-tray-inline-gap)
-  );
+  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
   padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   justify-content: flex-start;
 }
 
@@ -6741,8 +6738,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   position: absolute;
   top: clamp(14px, 4vw, 24px);
   bottom: clamp(14px, 4vw, 24px);
-  right: var(--player-tools-tray-inline-gap);
-  left: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
+  right: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
+  left: max(env(safe-area-inset-left, 0px), var(--player-tools-left-gutter));
   border-radius: calc(var(--player-tools-glass-radius, 30px) + 10px);
   background: linear-gradient(165deg, rgba(88, 160, 255, 0.28), rgba(11, 18, 30, 0.95) 38%, rgba(6, 10, 18, 0.98) 88%);
   box-shadow:
@@ -8700,7 +8697,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  inline-size: min(100%, 470px);
+  inline-size: min(100%, max(520px, max-content));
+  min-inline-size: max-content;
   margin-inline: auto;
   padding: var(--player-tools-frame-padding);
   border-radius: var(--player-tools-frame-radius);
@@ -8755,7 +8753,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   top: 0;
   z-index: 2;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: minmax(max-content, auto) 1fr minmax(max-content, auto);
   align-items: center;
   gap: clamp(12px, 3vw, 18px);
   padding-inline: var(--player-tools-screen-padding);
@@ -8850,7 +8848,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 @media (max-width: 720px) {
   :root {
-    --drawer-width: min(100vw, 440px);
+    --drawer-width: min(100vw, 540px);
     --player-tools-drawer-inline-padding: clamp(12px, 5vw, 20px);
     --player-tools-content-inline-padding: clamp(12px, 5vw, 20px);
   }
@@ -8866,7 +8864,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 
   .player-tools-phone {
-    inline-size: 100%;
+    inline-size: min(100%, max(420px, max-content));
+    min-inline-size: min(100%, max-content);
   }
 }
 
@@ -8897,7 +8896,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 
   .player-tools-drawer__panel {
-    left: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
+    left: max(env(safe-area-inset-left, 0px), var(--player-tools-left-gutter));
     right: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
   }
 }
