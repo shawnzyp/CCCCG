@@ -5230,9 +5230,6 @@ const activeStatuses = new Set();
 const statusEffectOwners = new Map();
 const statusModifierDescriptions = new Map();
 const STATUS_INFO_TOAST_SOURCE = 'status-info';
-const statusInfoLayoutQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(max-width: 600px)')
-  : null;
 const statusInfoPointerDismissEvents = typeof window !== 'undefined'
   ? ('PointerEvent' in window ? ['pointerdown'] : ['touchstart', 'mousedown'])
   : [];
@@ -5264,10 +5261,6 @@ const toastHistoryTimeFormatter =
   typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function'
     ? new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' })
     : null;
-
-function isStatusInfoToastMode() {
-  return statusInfoLayoutQuery ? statusInfoLayoutQuery.matches : false;
-}
 
 function detachStatusInfoPointerDismiss() {
   if (!statusInfoPointerDismissListener || typeof window === 'undefined') return;
@@ -5563,6 +5556,12 @@ if (typeof window !== 'undefined') {
     const detail = event?.detail || {};
     const options = detail.options || {};
     const source = options?.meta?.source;
+    const toastEl = typeof document !== 'undefined' ? document.getElementById('toast') : null;
+    if (toastEl) {
+      const isStatusInfo = source === STATUS_INFO_TOAST_SOURCE;
+      toastEl.classList.add('toast--speech-bubble');
+      toastEl.classList.toggle('toast--status-info', isStatusInfo);
+    }
     if (source === STATUS_INFO_TOAST_SOURCE) {
       statusInfoToastActive = true;
       setTimeout(() => {
@@ -5577,6 +5576,10 @@ if (typeof window !== 'undefined') {
   window.addEventListener('cc:toast-dismissed', () => {
     statusInfoToastActive = false;
     detachStatusInfoPointerDismiss();
+    const toastEl = typeof document !== 'undefined' ? document.getElementById('toast') : null;
+    if (toastEl) {
+      toastEl.classList.remove('toast--status-info');
+    }
     handleToastHistoryDismissed();
   });
 }
@@ -5595,7 +5598,7 @@ function showStatusInfoToast(status) {
   });
   const html = `<div class="toast-body toast-status"><strong class="toast-status__name">${name}</strong>${details}</div>`;
   statusInfoToastActive = true;
-  toast('', { type: 'info', duration: 15000, html, meta: { source: STATUS_INFO_TOAST_SOURCE } });
+  toast('', { type: 'info', duration: 15000, html, icon: 'none', meta: { source: STATUS_INFO_TOAST_SOURCE } });
 }
 
 function getStatusEffectOwner(id) {
@@ -5664,8 +5667,7 @@ if (statusGrid) {
           <button
             type="button"
             class="status-option__toggle"
-            aria-expanded="false"
-            aria-controls="${descriptionId}"
+            aria-haspopup="dialog"
             aria-label="Show details for ${s.name}"
             data-status-toggle="${s.id}"
           >
@@ -5678,7 +5680,7 @@ if (statusGrid) {
           class="status-option__description"
           hidden
           aria-hidden="true"
-          tabindex="-1"
+          data-status-description
         >${renderStatusDetailsHtml(s, {
           descClass: 'status-option__desc',
           listClass: 'status-option__list',
@@ -5696,59 +5698,22 @@ if (statusGrid) {
     const cb = $('status-' + s.id);
     const toggle = statusGrid.querySelector(`[data-status-toggle="${s.id}"]`);
     const desc = $('status-' + s.id + '-desc');
-    const toggleLabel = toggle?.querySelector('[data-status-toggle-label]');
-    const setDescriptionVisibility = expanded => {
-      if (!toggle || !desc) return;
-      const isExpanded = Boolean(expanded);
-      toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
-      toggle.setAttribute('aria-label', `${isExpanded ? 'Hide' : 'Show'} details for ${s.name}`);
-      if (toggleLabel) toggleLabel.textContent = isExpanded ? 'Hide' : 'Info';
-      desc.hidden = !isExpanded;
-      desc.setAttribute('aria-hidden', isExpanded ? 'false' : 'true');
-      if (cb) {
-        if (isExpanded) {
-          cb.setAttribute('aria-describedby', desc.id);
-        } else {
-          cb.removeAttribute('aria-describedby');
-        }
-      }
-    };
     if (desc) {
+      desc.hidden = true;
       desc.setAttribute('aria-hidden', 'true');
-      desc.addEventListener('keydown', event => {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          setDescriptionVisibility(false);
-          toggle?.focus();
-        }
-      });
+      desc.removeAttribute('tabindex');
     }
-    if (toggle && desc) {
+    if (toggle) {
       toggle.addEventListener('click', event => {
-        if (isStatusInfoToastMode()) {
-          event.preventDefault();
-          setDescriptionVisibility(false);
-          showStatusInfoToast(s);
-          return;
-        }
-        const nextExpanded = toggle.getAttribute('aria-expanded') !== 'true';
-        setDescriptionVisibility(nextExpanded);
-        if (nextExpanded && event.detail === 0) {
-          desc.focus({ preventScroll: true });
-        }
-      });
-      toggle.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
-          event.preventDefault();
-          setDescriptionVisibility(false);
-        }
+        event.preventDefault();
+        showStatusInfoToast(s);
       });
     }
     if (cb) {
       cb.addEventListener('change', () => {
         if (cb.checked) {
           activeStatuses.add(s.name);
-          toast(`${s.name} gained. Toggle the info button for mechanics.`, { type: 'info', duration: 4000 });
+          toast(`${s.name} gained. Tap the info button for mechanics.`, { type: 'info', duration: 4000 });
           logAction(`Status effect gained: ${s.name}`);
           applyStatusEffectBonuses(s.id, true);
         } else {
@@ -5757,9 +5722,6 @@ if (statusGrid) {
           applyStatusEffectBonuses(s.id, false);
         }
       });
-      if (desc && toggle) {
-        setDescriptionVisibility(false);
-      }
     }
   });
   setTimeout(() => {

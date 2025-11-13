@@ -4688,30 +4688,36 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 #somf-confirm-draw .modal{transition:transform .3s ease-in-out,opacity .3s ease-in-out}
 
 #rules-text{white-space:pre-wrap}
-.toast{position:fixed;bottom:18px;right:18px;background:var(--surface);border:1px solid var(--accent);padding:10px 12px;border-radius:var(--radius);opacity:0;transform:translateY(8px);transition:opacity .3s ease-in-out,transform .3s ease-in-out;z-index:2000;display:flex;align-items:center;gap:6px;pointer-events:none;will-change:transform,opacity;--toast-icon-image:none}
-.toast::before{content:"";width:16px;height:16px;flex-shrink:0;background-size:contain;background-repeat:no-repeat;background-image:var(--toast-icon-image)}
-.toast.toast--no-icon::before{display:none}
+.toast{position:fixed;bottom:18px;right:18px;z-index:2000;opacity:0;transform:translateY(8px);transition:opacity .3s ease-in-out,transform .3s ease-in-out;pointer-events:none;max-width:calc(100vw - 32px)}
 .toast.show{opacity:1;transform:translateY(0);pointer-events:auto}
-.toast.success{border-color:var(--success);color:var(--success);--toast-icon-image:var(--icon-success)}
-.toast.error{border-color:var(--error);color:var(--error);--toast-icon-image:var(--icon-error)}
 .toast:focus{outline:2px solid var(--accent);outline-offset:2px}
-.toast__body{flex:1;display:flex;flex-direction:column;gap:4px}
-.toast__message{font-size:.95em;line-height:1.4}
-.toast__actions{margin-left:auto;display:flex;align-items:center}
-.toast__actionButton{border:1px solid currentColor;border-radius:var(--radius);background:transparent;color:inherit;font:inherit;font-size:.85em;padding:4px 10px;cursor:pointer;transition:background-color .2s ease,color .2s ease}
-.toast__actionButton:hover{background-color:currentColor;color:var(--surface)}
-.toast__actionButton:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+.toast.toast--speech-bubble{--toast-border-color:var(--accent);--toast-heading-color:var(--accent);--toast-bubble-shadow:6px 6px 0 rgba(0,0,0,.18),0 18px 28px -12px rgba(0,0,0,.4)}
+.toast.toast--speech-bubble.success{--toast-border-color:var(--success);--toast-heading-color:var(--success)}
+.toast.toast--speech-bubble.error,.toast.toast--speech-bubble.danger,.toast.toast--speech-bubble.failure{--toast-border-color:var(--error);--toast-heading-color:var(--error)}
+.toast.toast--speech-bubble.warning{--toast-border-color:var(--warning,#f59e0b);--toast-heading-color:var(--warning,#f59e0b)}
+.toast.toast--speech-bubble .toast__bubble{position:relative;display:flex;align-items:flex-start;gap:14px;padding:18px 20px;border:3px solid var(--toast-border-color);border-radius:18px;background:var(--surface);box-shadow:var(--toast-bubble-shadow);color:var(--text);max-width:min(420px,calc(100vw - 32px))}
+.toast.toast--speech-bubble .toast__bubble::after,.toast.toast--speech-bubble .toast__bubble::before{content:"";position:absolute;pointer-events:none;bottom:-18px;right:30px;width:0;height:0}
+.toast.toast--speech-bubble .toast__bubble::after{border-width:18px 16px 0 16px;border-style:solid;border-color:var(--toast-border-color) transparent transparent transparent}
+.toast.toast--speech-bubble .toast__bubble::before{border-width:16px 14px 0 14px;border-style:solid;border-color:var(--surface) transparent transparent transparent;bottom:-16px;right:32px}
+.toast.toast--speech-bubble .toast__icon{width:42px;height:42px;flex:0 0 auto;background-image:var(--toast-icon-image,none);background-repeat:no-repeat;background-position:center;background-size:contain;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.25))}
+.toast.toast--speech-bubble .toast__content{display:flex;flex-direction:column;gap:10px;flex:1;min-width:0}
+.toast__body{display:flex;flex-direction:column;gap:4px}
+.toast__message{font-size:.95em;line-height:1.5}
+.toast.toast--speech-bubble .toast__body strong{display:block;margin-bottom:2px;color:var(--toast-heading-color);font-size:1.05em;text-transform:uppercase;letter-spacing:.06em;font-family:'Race Sport','Bangers','Comic Sans MS','Trebuchet MS',sans-serif;text-shadow:2px 2px 0 rgba(0,0,0,.18)}
+.toast__actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;align-self:flex-end;margin-top:6px}
+.toast__actionButton{border:2px solid var(--toast-heading-color);border-radius:var(--radius);background:transparent;color:var(--toast-heading-color);font:inherit;font-size:.85em;padding:6px 14px;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;transition:background-color .2s ease,color .2s ease}
+.toast__actionButton:hover{background-color:var(--toast-heading-color);color:var(--surface)}
+.toast__actionButton:focus-visible{outline:2px solid var(--toast-heading-color);outline-offset:2px}
 .toast .toast-body{display:flex;flex-direction:column;gap:2px}
-.toast .toast-body strong{font-size:1.05em}
 .toast .toast-body .toast-subtitle{font-size:.9em;font-style:italic}
 .toast .toast-body .toast-line{font-size:.85em}
-.toast-status{display:flex;flex-direction:column;gap:4px}
-.toast-status__name{font-size:1.05em}
-.toast-status__desc{margin:0;font-size:.85em;line-height:1.4}
-.toast-status__list{margin:0;padding-left:1.25em;font-size:.85em;line-height:1.4;list-style:disc}
-.toast-status__list-item{margin:.25em 0}
-.toast-status__section{margin-top:6px}
-.toast-status__section-label{display:block;margin-bottom:4px;font-size:.7rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.toast-status{display:flex;flex-direction:column;gap:10px;line-height:1.5}
+.toast-status__name{font-size:1.15em;text-transform:uppercase;letter-spacing:.08em;font-family:'Race Sport','Bangers','Comic Sans MS','Trebuchet MS',sans-serif;color:var(--toast-heading-color);text-shadow:2px 2px 0 rgba(0,0,0,.18)}
+.toast-status__desc{margin:0;font-size:.9em;line-height:1.5}
+.toast-status__list{margin:0;padding-left:1.25em;font-size:.9em;line-height:1.5;list-style:square}
+.toast-status__list-item{margin:.3em 0}
+.toast-status__section{margin-top:10px;padding-top:4px;border-top:1px solid color-mix(in srgb,var(--toast-heading-color) 28%,transparent)}
+.toast-status__section-label{display:block;margin-bottom:4px;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--toast-heading-color);text-shadow:1px 1px 0 rgba(0,0,0,.1)}
 .status-info__desc{margin:0}
 .status-info__list{margin:0;padding-left:1.25em;list-style:disc}
 .status-info__list-item{margin:.25em 0}
@@ -5613,14 +5619,17 @@ body:not(.no-hover) .somf-dm__link:hover{color:#cfe7ff}
 .somf-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .somf-rolls{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .somf-tag{font-size:12px;padding:2px 6px;border:1px solid #1b2532;border-radius:4px;background:#0b1119}
-.somf-dm__toasts{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:8px;z-index:9999}
-.somf-dm__toast{background:rgba(10,16,27,.92);border:1px solid #27364b;border-radius:10px;padding:10px 12px;color:#e7f2ff;font-size:14px;line-height:1.4;max-width:320px;box-shadow:0 8px 18px rgba(7,12,20,.5);opacity:0;transform:translateY(6px);transition:opacity .18s ease,transform .18s ease}
-.somf-dm__toast strong{color:#fff}
+.somf-dm__toasts{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;gap:28px;z-index:9999}
+.somf-dm__toast{position:relative;padding:18px 20px;border:3px solid var(--somf-toast-border,var(--accent));border-radius:18px;background:var(--surface);box-shadow:6px 6px 0 rgba(0,0,0,.18),0 18px 28px -12px rgba(0,0,0,.4);color:var(--text);font-size:.95rem;line-height:1.5;max-width:min(420px,calc(100vw - 32px));opacity:0;transform:translateY(8px);transition:opacity .3s ease,transform .3s ease;cursor:pointer}
+.somf-dm__toast::after,.somf-dm__toast::before{content:"";position:absolute;pointer-events:none;bottom:-18px;right:26px;width:0;height:0}
+.somf-dm__toast::after{border-width:18px 16px 0 16px;border-style:solid;border-color:var(--somf-toast-border,var(--accent)) transparent transparent transparent}
+.somf-dm__toast::before{border-width:16px 14px 0 14px;border-style:solid;border-color:var(--surface) transparent transparent transparent;bottom:-16px;right:28px}
+.somf-dm__toast strong{text-transform:uppercase;letter-spacing:.08em;font-family:'Race Sport','Bangers','Comic Sans MS','Trebuchet MS',sans-serif;color:var(--somf-toast-border,var(--accent));text-shadow:2px 2px 0 rgba(0,0,0,.18)}
 .somf-dm__toast--show{opacity:1;transform:translateY(0)}
-.somf-dm__toast--hide{opacity:0;transform:translateY(6px)}
-.somf-dm__toast--success{border-color:#2d9c61}
-.somf-dm__toast--error{border-color:#c75656}
-.somf-dm__toast--warning{border-color:#c99944}
+.somf-dm__toast--hide{opacity:0;transform:translateY(8px)}
+.somf-dm__toast--success{--somf-toast-border:var(--success)}
+.somf-dm__toast--error{--somf-toast-border:var(--error)}
+.somf-dm__toast--warning{--somf-toast-border:var(--warning,#f59e0b)}
 .somf-dm__queue{position:fixed;right:12px;bottom:60px;margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;z-index:9998}
 .somf-dm__queue li{background:#0b1119;color:#e6f1ff;border:1px solid #1b2532;border-radius:8px;padding:6px 10px;cursor:pointer;min-width:200px}
 #modal-somf-dm{padding:0}
