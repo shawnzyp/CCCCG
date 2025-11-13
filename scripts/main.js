@@ -5558,7 +5558,9 @@ if (typeof window !== 'undefined') {
     const source = options?.meta?.source;
     const toastEl = typeof document !== 'undefined' ? document.getElementById('toast') : null;
     if (toastEl) {
-      toastEl.classList.toggle('toast--status-bubble', source === STATUS_INFO_TOAST_SOURCE);
+      const isStatusInfo = source === STATUS_INFO_TOAST_SOURCE;
+      toastEl.classList.add('toast--speech-bubble');
+      toastEl.classList.toggle('toast--status-info', isStatusInfo);
     }
     if (source === STATUS_INFO_TOAST_SOURCE) {
       statusInfoToastActive = true;
@@ -5576,7 +5578,7 @@ if (typeof window !== 'undefined') {
     detachStatusInfoPointerDismiss();
     const toastEl = typeof document !== 'undefined' ? document.getElementById('toast') : null;
     if (toastEl) {
-      toastEl.classList.remove('toast--status-bubble');
+      toastEl.classList.remove('toast--status-info');
     }
     handleToastHistoryDismissed();
   });

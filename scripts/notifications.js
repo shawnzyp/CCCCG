@@ -10984,16 +10984,14 @@ function renderToastRequest(request) {
   const icon = typeof options.icon === 'string' ? options.icon : 'none';
   const action = options.action;
 
-  t.className = toastType ? `toast ${toastType}` : 'toast';
-  if (icon && icon !== 'none') {
-    t.style.setProperty('--toast-icon-image', icon);
-    t.classList.remove('toast--no-icon');
-  } else {
-    t.style.setProperty('--toast-icon-image', 'none');
-    t.classList.add('toast--no-icon');
-  }
-
+  t.className = toastType ? `toast toast--speech-bubble ${toastType}` : 'toast toast--speech-bubble';
   t.innerHTML = '';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'toast__bubble';
+  const content = document.createElement('div');
+  content.className = 'toast__content';
+
   const body = document.createElement('div');
   body.className = 'toast__body';
   if (html) {
@@ -11004,7 +11002,7 @@ function renderToastRequest(request) {
     messageEl.textContent = message ?? '';
     body.appendChild(messageEl);
   }
-  t.appendChild(body);
+  content.appendChild(body);
 
   if (action) {
     const actions = document.createElement('div');
@@ -11028,8 +11026,19 @@ function renderToastRequest(request) {
       }
     });
     actions.appendChild(button);
-    t.appendChild(actions);
+    content.appendChild(actions);
   }
+
+  if (icon && icon !== 'none') {
+    const iconEl = document.createElement('span');
+    iconEl.className = 'toast__icon';
+    iconEl.style.setProperty('--toast-icon-image', icon);
+    iconEl.setAttribute('aria-hidden', 'true');
+    bubble.appendChild(iconEl);
+  }
+
+  bubble.appendChild(content);
+  t.appendChild(bubble);
 
   t.classList.add('show');
   playTone(toastType);
