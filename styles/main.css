@@ -8601,8 +8601,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 
   .player-tools-drawer__inner {
-    padding-inline-start: max(env(safe-area-inset-left, 0px), 12px);
-    padding-inline-end: clamp(14px, 6vw, 28px);
+    padding-inline-start: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
+    padding-inline-end: var(--player-tools-tray-inline-gap);
   }
 
   .player-tools-drawer__content {
@@ -8855,10 +8855,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 @media(max-width:600px){
   .player-tools-drawer__inner{
-    padding-inline-start:max(env(safe-area-inset-left,0px),6px);
+    padding-inline-start: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
   }
   .player-tools-drawer__panel{
-    left:max(env(safe-area-inset-left,0px),4px);
+    left: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
+    right: var(--player-tools-tray-inline-gap);
   }
 }
 
