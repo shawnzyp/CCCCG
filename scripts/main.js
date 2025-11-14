@@ -1016,7 +1016,7 @@ function getCasterAbilitySuggestions(primaryStyle, secondaryStyle) {
   return unique.length ? unique : ['WIS'];
 }
 // Global CC object for cross-module state
-window.CC = window.CC || {};
+const CC = (window.CC = window.CC || {});
 CC.partials = CC.partials || {};
 CC.savePartial = (k, d) => { CC.partials[k] = d; };
 CC.loadPartial = k => CC.partials[k];
