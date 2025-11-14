@@ -23,8 +23,20 @@ import {
   isAutoSaveDirty,
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
-import { activateTab, getActiveTab, getNavigationType, onTabChange, scrollToTopOfCombat, triggerTabIconAnimation } from './tabs.js';
-import { subscribe as subscribePlayerToolsDrawer, onDrawerChange as onPlayerToolsDrawerChange } from './player-tools-drawer.js';
+import {
+  activateTab,
+  getActiveTab,
+  getNavigationType,
+  onTabChange,
+  scrollToTopOfCombat,
+  triggerTabIconAnimation
+} from './tabs.js';
+import {
+  subscribe as subscribePlayerToolsDrawer,
+  onDrawerChange as onPlayerToolsDrawerChange,
+  open as openPlayerToolsDrawer,
+  close as closePlayerToolsDrawer
+} from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
@@ -54,6 +66,7 @@ import {
   subscribeSyncQueue,
   getLastSyncActivity,
 } from './storage.js';
+import { collectSnapshotParticipants, applySnapshotParticipants } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import {
   buildPriceIndex,
@@ -1332,6 +1345,8 @@ let miniGameActivePlayer = '';
 let miniGameUnsubscribe = null;
 let miniGamePlayerCheckTimer = null;
 let isPlayerToolsDrawerOpen = false;
+let isTickerDrawerOpen = false;
+let setTickerDrawerOpen = () => {};
 const MINI_GAME_BROADCAST_CHANNEL = 'cc:mini-games';
 const miniGameKnownDeployments = new Map();
 const miniGamePromptedDeployments = new Set();
@@ -4353,6 +4368,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     && mobileDefaultState;
 
   let isOpen = tickerDrawer.getAttribute('data-state') !== 'closed';
+  isTickerDrawerOpen = isOpen;
   if(storedTickerPreference !== null){
     isOpen = storedTickerPreference;
     if(!preferenceInitialized){
@@ -4403,6 +4419,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
       tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
     }
     setPanelOffset();
+    isTickerDrawerOpen = isOpen;
     isAnimating = false;
   };
 
@@ -4418,6 +4435,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     tickerPanel.style.height = formatPanelHeight(startHeight);
     setPanelOffset(startHeight);
     isOpen = nextOpen;
+    isTickerDrawerOpen = isOpen;
     requestAnimationFrame(() => {
       tickerPanel.classList.add('is-animating');
       updateToggleState(nextOpen);
@@ -4445,6 +4463,30 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     animateDrawer(nextOpen);
     persistTickerPreference(nextOpen);
   });
+
+  setTickerDrawerOpen = nextOpen => {
+    if (typeof nextOpen !== 'boolean') {
+      return;
+    }
+    if (isAnimating) {
+      finalizeAnimation();
+    }
+    if (nextOpen === isOpen) {
+      persistTickerPreference(nextOpen);
+      setDrawerState(nextOpen ? 'open' : 'closed');
+      updateToggleState(nextOpen);
+      if (nextOpen) {
+        tickerPanel.style.height = '';
+      } else {
+        tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
+      }
+      setPanelOffset();
+      isTickerDrawerOpen = nextOpen;
+      return;
+    }
+    animateDrawer(nextOpen);
+    persistTickerPreference(nextOpen);
+  };
 
   setDrawerState(isOpen ? 'open' : 'closed');
   updateToggleState(isOpen);
@@ -6510,7 +6552,8 @@ const computePlayerCreditSignature = (detail) => {
 const elPlayerToolsTab = $('player-tools-tab');
 if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
-  setPlayerToolsTabHidden(elPlayerToolsTab.hidden);
+  const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
+  setPlayerToolsTabHidden(shouldHideTab);
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
@@ -12711,7 +12754,8 @@ async function doLoad(){
       : await loadCharacter(pendingLoad.name);
     deserialize(data);
     applyViewLockState();
-    if(previousMode === 'view'){
+    const savedViewMode = data?.uiState?.viewMode;
+    if(previousMode === 'view' && savedViewMode !== 'edit'){
       setMode('view', { skipPersist: true });
     }
     setCurrentCharacter(pendingLoad.name);
@@ -12750,7 +12794,8 @@ if (autoChar) {
       const data = await loadCharacter(autoChar);
       deserialize(data);
       applyViewLockState();
-      if (previousMode === 'view') {
+      const savedViewMode = data?.uiState?.viewMode;
+      if (previousMode === 'view' && savedViewMode !== 'edit') {
         setMode('view', { skipPersist: true });
       }
     } catch (e) {
@@ -20888,15 +20933,239 @@ if (encPresetList) {
 renderEncounterPresetList();
 
 /* ========= Save / Load ========= */
+const SNAPSHOT_FORM_VERSION = 1;
+
+function safeCssEscape(value) {
+  const raw = String(value ?? '');
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    try {
+      return CSS.escape(raw);
+    } catch (err) {
+      /* fall back to manual escaping */
+    }
+  }
+  return raw.replace(/([\0-\x1f\x7f"'\\])/g, '\\$1');
+}
+
+function buildFormFieldPath(el) {
+  if (!el || typeof el !== 'object') return null;
+  const segments = [];
+  let node = el;
+  while (node && node.nodeType === 1 && node !== document.documentElement) {
+    const tag = typeof node.tagName === 'string' ? node.tagName.toLowerCase() : '';
+    if (!tag) break;
+    let segment = tag;
+    if (node.id) {
+      segment += `#${safeCssEscape(node.id)}`;
+      segments.unshift(segment);
+      break;
+    }
+    if (node.hasAttribute && node.hasAttribute('name')) {
+      const nameAttr = node.getAttribute('name');
+      if (nameAttr) {
+        segment += `[name="${safeCssEscape(nameAttr)}"]`;
+      }
+    }
+    if (node.hasAttribute && node.hasAttribute('data-field')) {
+      const fieldAttr = node.getAttribute('data-field');
+      if (fieldAttr) {
+        segment += `[data-field="${safeCssEscape(fieldAttr)}"]`;
+      }
+    }
+    const parent = node.parentElement;
+    if (parent) {
+      const siblings = Array.from(parent.children).filter(sibling => sibling.tagName === node.tagName);
+      if (siblings.length > 1) {
+        const index = siblings.indexOf(node);
+        if (index >= 0) {
+          segment += `:nth-of-type(${index + 1})`;
+        }
+      }
+    }
+    segments.unshift(segment);
+    node = parent;
+    if (!node || node === document.body) {
+      break;
+    }
+  }
+  if (!segments.length) return null;
+  return segments.join(' > ');
+}
+
+function detectFormFieldKind(el) {
+  if (!el || typeof el !== 'object') return 'text';
+  const tag = (el.tagName || '').toLowerCase();
+  if (tag === 'select') {
+    return el.multiple ? 'select-multiple' : 'select-one';
+  }
+  if (tag === 'textarea') return 'textarea';
+  if (tag === 'progress') return 'progress';
+  if (tag === 'input') {
+    const type = (el.type || '').toLowerCase();
+    if (type === 'checkbox') return 'checkbox';
+    if (type === 'radio') return 'radio';
+    return 'input';
+  }
+  return tag || 'text';
+}
+
+function captureFormFieldSnapshot(el) {
+  if (!el || typeof el !== 'object') return null;
+  if (typeof el.matches === 'function' && el.matches('[data-snapshot-ignore]')) {
+    return null;
+  }
+  const path = buildFormFieldPath(el);
+  if (!path) return null;
+  const kind = detectFormFieldKind(el);
+  const snapshot = { path, kind };
+  if (typeof el.id === 'string' && el.id) {
+    snapshot.id = el.id;
+  }
+  if (typeof el.name === 'string' && el.name) {
+    snapshot.name = el.name;
+    try {
+      const matches = document?.querySelectorAll ? document.querySelectorAll(`[name="${safeCssEscape(el.name)}"]`) : [];
+      snapshot.nameIndex = matches ? Array.prototype.indexOf.call(matches, el) : -1;
+    } catch {}
+  }
+  if (typeof el.getAttribute === 'function') {
+    const fieldAttr = el.getAttribute('data-field');
+    if (fieldAttr) {
+      snapshot.field = fieldAttr;
+    }
+  }
+  if (kind === 'select-multiple') {
+    snapshot.values = Array.from(el.selectedOptions || []).map(option => option.value);
+  } else if (kind === 'checkbox' || kind === 'radio') {
+    snapshot.checked = el.checked === true;
+    snapshot.value = el.value;
+  } else if (kind === 'progress') {
+    const raw = typeof el.value === 'number' ? el.value : Number(el.getAttribute ? el.getAttribute('value') : NaN);
+    snapshot.value = Number.isFinite(raw) ? raw : 0;
+  } else {
+    snapshot.value = el.value ?? '';
+  }
+  return snapshot;
+}
+
+function resolveFormFieldFromSnapshot(record) {
+  if (!record || typeof record !== 'object') return null;
+  if (record.id) {
+    const byId = $(record.id);
+    if (byId) return byId;
+  }
+  if (record.path) {
+    try {
+      const fromPath = document.querySelector(record.path);
+      if (fromPath) return fromPath;
+    } catch {}
+  }
+  if (record.field) {
+    try {
+      const candidates = document.querySelectorAll(`[data-field="${safeCssEscape(record.field)}"]`);
+      if (candidates && candidates.length) {
+        const index = typeof record.nameIndex === 'number' && record.nameIndex >= 0 ? record.nameIndex : 0;
+        return candidates[index] || candidates[0];
+      }
+    } catch {}
+  }
+  if (record.name) {
+    try {
+      const candidates = document.querySelectorAll(`[name="${safeCssEscape(record.name)}"]`);
+      if (candidates && candidates.length) {
+        const index = typeof record.nameIndex === 'number' && record.nameIndex >= 0 ? record.nameIndex : 0;
+        return candidates[index] || candidates[0];
+      }
+    } catch {}
+  }
+  return null;
+}
+
+function applyFormFieldSnapshot(el, record) {
+  if (!el || !record) return false;
+  const kind = record.kind || detectFormFieldKind(el);
+  let changed = false;
+  if (kind === 'checkbox' || kind === 'radio') {
+    const next = record.checked === true || record.value === true;
+    if (el.checked !== next) {
+      el.checked = next;
+      changed = true;
+    }
+  } else if (kind === 'select-multiple' && Array.isArray(record.values)) {
+    const desired = record.values.map(value => String(value));
+    Array.from(el.options || []).forEach(option => {
+      const shouldSelect = desired.includes(option.value);
+      if (option.selected !== shouldSelect) {
+        option.selected = shouldSelect;
+        changed = true;
+      }
+    });
+  } else if (kind === 'progress') {
+    const numeric = Number(record.value);
+    if (Number.isFinite(numeric)) {
+      if (typeof el.value === 'number') {
+        if (el.value !== numeric) {
+          el.value = numeric;
+          changed = true;
+        }
+      } else if (typeof el.setAttribute === 'function') {
+        const currentAttr = Number(el.getAttribute('value'));
+        if (!Number.isFinite(currentAttr) || currentAttr !== numeric) {
+          el.setAttribute('value', String(numeric));
+          changed = true;
+        }
+      }
+    }
+  } else {
+    const value = record.value != null ? String(record.value) : '';
+    if (el.value !== value) {
+      el.value = value;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function applySerializedFormState(serialized) {
+  const restored = { ids: new Set(), paths: new Set(), names: new Set(), fields: new Set() };
+  if (!serialized || typeof serialized !== 'object') {
+    return restored;
+  }
+  const fields = Array.isArray(serialized.fields) ? serialized.fields : [];
+  fields.forEach(record => {
+    const el = resolveFormFieldFromSnapshot(record);
+    if (!el) return;
+    applyFormFieldSnapshot(el, record);
+    if (record.id) restored.ids.add(record.id);
+    if (record.path) restored.paths.add(record.path);
+    if (record.name) restored.names.add(record.name);
+    if (record.field) restored.fields.add(record.field);
+  });
+  return restored;
+}
 function serialize(){
   const data={};
   function getVal(sel, root){ const el = qs(sel, root); return el ? el.value : ''; }
   function getChecked(sel, root){ const el = qs(sel, root); return el ? el.checked : false; }
+  const formSnapshots = [];
   qsa('input,select,textarea,progress').forEach(el=>{
-    const id = el.id; if (!id) return;
-    if (id === 'xp-mode') return;
-    if (el.type==='checkbox') data[id] = !!el.checked; else data[id] = el.value;
+    const snapshot = captureFormFieldSnapshot(el);
+    if (!snapshot) return;
+    formSnapshots.push(snapshot);
+    if (!snapshot.id) return;
+    if (snapshot.kind === 'checkbox' || snapshot.kind === 'radio') {
+      data[snapshot.id] = snapshot.checked === true;
+    } else if (snapshot.kind === 'select-multiple') {
+      data[snapshot.id] = Array.isArray(snapshot.values) ? snapshot.values.slice() : [];
+    } else if (snapshot.kind === 'progress') {
+      data[snapshot.id] = snapshot.value;
+    } else {
+      data[snapshot.id] = snapshot.value;
+    }
   });
+  if (formSnapshots.length) {
+    data.formState = { version: SNAPSHOT_FORM_VERSION, fields: formSnapshots };
+  }
   data.powers = qsa("[data-kind='power']")
     .map(card => serializePowerCard(card))
     .filter(Boolean);
@@ -20991,6 +21260,32 @@ function serialize(){
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
+  const uiState = {};
+  try {
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (typeof activeTab === 'string' && activeTab) {
+      uiState.activeTab = activeTab;
+    }
+  } catch {}
+  if (mode === 'view' || mode === 'edit') {
+    uiState.viewMode = mode;
+  }
+  if (typeof activeTheme === 'string' && activeTheme) {
+    uiState.theme = activeTheme;
+  }
+  if (typeof isPlayerToolsDrawerOpen === 'boolean') {
+    uiState.playerToolsOpen = isPlayerToolsDrawerOpen;
+  }
+  if (typeof isTickerDrawerOpen === 'boolean') {
+    uiState.tickerOpen = isTickerDrawerOpen;
+  }
+  if (Object.keys(uiState).length > 0) {
+    data.uiState = uiState;
+  }
+  const participantState = collectSnapshotParticipants();
+  if (participantState && Object.keys(participantState).length > 0) {
+    data.appState = participantState;
+  }
   return data;
 }
 const DEFAULT_STATE = serialize();
@@ -21016,10 +21311,39 @@ function deserialize(data){
    }
  });
  Object.entries(data||{}).forEach(([k,v])=>{
-   if(perkSelects.includes(k) || k==='saveProfs' || k==='skillProfs' || k==='xp-mode') return;
+   if(perkSelects.includes(k) || k==='saveProfs' || k==='skillProfs' || k==='formState' || k==='appState') return;
    const el=$(k);
    if (!el) return;
-   if (el.type==='checkbox') el.checked=!!v; else el.value=v;
+   const tag = typeof el.tagName === 'string' ? el.tagName.toLowerCase() : '';
+   if (el.type==='checkbox') {
+     el.checked=!!v;
+     return;
+   }
+   if (el.type==='radio') {
+     el.checked=!!v;
+     return;
+   }
+   if (tag === 'select' && el.multiple && Array.isArray(v)) {
+     const desired = v.map(value => String(value));
+     Array.from(el.options || []).forEach(option => {
+       option.selected = desired.includes(option.value);
+     });
+     return;
+   }
+   if (tag === 'progress') {
+     const numeric = Number(v);
+     if (Number.isFinite(numeric)) {
+       if (typeof el.value === 'number') {
+         el.value = numeric;
+       } else if (typeof el.setAttribute === 'function') {
+         el.setAttribute('value', String(numeric));
+       }
+     }
+     return;
+   }
+   if (v !== undefined) {
+     el.value=v;
+   }
  });
  if (data?.powerSettings) {
    const casterAbility = typeof data.powerSettings.casterSaveAbility === 'string'
@@ -21051,6 +21375,7 @@ function deserialize(data){
   (data && data.medals ? data.medals : []).forEach(m=> $('medals').appendChild(createCard('medal', m)));
   updateMedalIndicators();
   refreshHammerspaceCards();
+  const restoredFormFields = applySerializedFormState(data?.formState);
   const restoredCampaignLog = Array.isArray(data?.campaignLog) ? data.campaignLog : [];
   campaignLogEntries = normalizeCampaignLogEntries(restoredCampaignLog);
   if(campaignLogEntries.length){
@@ -21061,7 +21386,9 @@ function deserialize(data){
   persistCampaignLog();
   updateCampaignLogViews();
   const xpModeEl = $('xp-mode');
-  if (xpModeEl) xpModeEl.value = 'add';
+  if (xpModeEl && !(restoredFormFields && restoredFormFields.ids && restoredFormFields.ids.has('xp-mode'))) {
+    xpModeEl.value = 'add';
+  }
   if (elXP) {
     const xp = Math.max(0, num(elXP.value));
     currentLevelIdx = getLevelIndex(xp);
@@ -21090,6 +21417,34 @@ function deserialize(data){
   updateDerived();
   updateFactionRep(handlePerkEffects);
   updateCreditsDisplay();
+  const uiState = data?.uiState && typeof data.uiState === 'object' ? data.uiState : null;
+  if (uiState) {
+    if (typeof uiState.theme === 'string' && uiState.theme) {
+      applyTheme(uiState.theme, { animate: false });
+      setStoredTheme(uiState.theme);
+    }
+    if (uiState.viewMode === 'view' || uiState.viewMode === 'edit') {
+      setMode(uiState.viewMode);
+    }
+    if (typeof uiState.activeTab === 'string' && uiState.activeTab) {
+      try {
+        localStorage.setItem('active-tab', uiState.activeTab);
+      } catch {}
+      if (qs(`.tab[data-go="${uiState.activeTab}"]`)) {
+        activateTab(uiState.activeTab);
+      }
+    }
+    if (typeof uiState.playerToolsOpen === 'boolean') {
+      if (uiState.playerToolsOpen) openPlayerToolsDrawer();
+      else closePlayerToolsDrawer();
+    }
+    if (typeof uiState.tickerOpen === 'boolean') {
+      setTickerDrawerOpen(uiState.tickerOpen);
+    }
+  }
+  if (data?.appState) {
+    applySnapshotParticipants(data.appState);
+  }
   if (mode === 'view') applyViewLockState();
 }
 
@@ -21354,7 +21709,8 @@ async function restoreLastLoadedCharacter(){
   syncMiniGamePlayerName();
   deserialize(data);
   applyViewLockState();
-  if (previousMode === 'view') {
+  const savedViewMode = data?.uiState?.viewMode;
+  if (previousMode === 'view' && savedViewMode !== 'edit') {
     setMode('view', { skipPersist: true });
   }
   history = [];
@@ -21514,7 +21870,8 @@ function applyPendingPinnedCharacter(payload){
   syncMiniGamePlayerName();
   deserialize(data);
   applyViewLockState();
-  if(previousMode === 'view'){
+  const savedViewMode = data?.uiState?.viewMode;
+  if(previousMode === 'view' && savedViewMode !== 'edit'){
     setMode('view', { skipPersist: true });
   }
   history = [];
