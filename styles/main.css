@@ -8354,9 +8354,14 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-tab {
   --player-tools-tab-size: clamp(46px, 8vw, 58px);
   --player-tools-tab-height: clamp(88px, 18vw, 116px);
+  --player-tools-tab-safe-area: max(env(safe-area-inset-left, 0px), 0px);
   position: fixed;
   top: calc(var(--player-tools-tab-top, 50vh));
-  left: calc(var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap));
+  left: calc(
+    var(--player-tools-tab-safe-area) +
+      (var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap) - var(--player-tools-tab-safe-area)) *
+        var(--player-tools-open-progress, 0)
+  );
   transform: translate3d(calc(var(--player-tools-tab-offset, 0px) * var(--player-tools-open-progress, 0)), 0, 0)
     translateY(-50%);
   transition:
@@ -8612,16 +8617,14 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   padding-block: clamp(22px, 5vw, 34px);
   padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
   padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
-  max-inline-size: min(100%, 520px);
-  margin-inline: auto;
+  inline-size: 100%;
+  max-inline-size: none;
+  margin-inline: 0;
   border-radius: clamp(30px, 6.6vw, 42px);
   align-items: center;
   gap: clamp(20px, 4vw, 28px);
   background: radial-gradient(150% 150% at 12% 18%, rgba(68, 120, 196, 0.16), rgba(12, 18, 30, 0.94) 46%, rgba(8, 10, 18, 0.98) 100%);
-  box-shadow:
-    inset 0 0 0 1px rgba(122, 186, 255, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 20px 44px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
 }
 
 .player-tools-phone {
@@ -8634,10 +8637,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   position: relative;
   display: flex;
   flex-direction: column;
-  inline-size: min(100%, clamp(280px, 88vw, 520px));
-  max-inline-size: clamp(280px, 88vw, 520px);
+  inline-size: 100%;
+  max-inline-size: none;
   min-inline-size: 0;
-  margin-inline: auto;
+  margin-inline: 0;
   border-radius: var(--player-tools-frame-radius);
   overflow: hidden;
   background: none;
@@ -8665,10 +8668,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: flex;
   border-radius: inherit;
   background: var(--player-tools-screen-glass);
-  box-shadow:
-    inset 0 0 0 1px rgba(118, 180, 255, 0.2),
-    inset 0 -1px 0 rgba(6, 10, 18, 0.55),
-    0 14px 30px rgba(2, 6, 18, 0.55);
+  box-shadow: 0 14px 30px rgba(2, 6, 18, 0.55);
   backdrop-filter: blur(22px) saturate(170%);
   overflow: hidden;
 }
@@ -8738,13 +8738,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   flex-direction: column;
   gap: clamp(16px, 2.8vw, 22px);
   padding: var(--player-tools-screen-padding);
+  padding-inline: 0;
   padding-block-start: calc(var(--player-tools-screen-padding) + var(--player-tools-status-bar-offset));
   overflow-y: auto;
   border-radius: clamp(18px, 4.6vw, 26px);
   background: linear-gradient(200deg, rgba(10, 16, 28, 0.68), rgba(10, 16, 26, 0.92));
-  box-shadow:
-    inset 0 0 0 1px rgba(112, 176, 255, 0.16),
-    inset 0 0 24px rgba(26, 42, 70, 0.28);
+  box-shadow: inset 0 0 24px rgba(26, 42, 70, 0.28);
   scroll-padding-top: calc(var(--player-tools-screen-padding) + var(--player-tools-status-bar-offset));
   backdrop-filter: blur(18px) saturate(160%);
   scrollbar-gutter: stable both-edges;
@@ -8792,8 +8791,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 
   .player-tools-phone {
-    inline-size: min(100%, clamp(280px, 88vw, 420px));
-    min-inline-size: 0;
+    inline-size: 100%;
+    max-inline-size: none;
   }
 }
 
