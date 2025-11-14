@@ -821,7 +821,7 @@ body:not(.no-hover) .sync-panel__close:hover,
 }
 
 .sync-panel__list-item--error{
-  border:1px solid color-mix(in srgb,var(--error) 55%, transparent);
+  border:4px solid color-mix(in srgb,var(--error) 55%, transparent);
   background:color-mix(in srgb,var(--error) 18%, transparent);
 }
 
@@ -2006,8 +2006,8 @@ fieldset[data-tab="combat"] .card{
 main>:last-child{margin-bottom:0}
 fieldset[data-tab].card.active{opacity:1;transform:translate3d(0,0,0);pointer-events:auto;visibility:visible;filter:blur(0)saturate(1);position:relative;inset:auto;margin-bottom:14px}
 fieldset[data-tab].card>legend{font-size:clamp(1rem,2.8vw,1.35rem);font-weight:600;color:var(--accent);margin:0 0 clamp(6px,1.5vw,10px);font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:calc(var(--title-letter-spacing) * .9);word-spacing:var(--title-word-spacing);text-shadow:0 0 14px color-mix(in srgb,var(--accent) 58%,transparent);position:relative;z-index:2}
-.card{--card-padding:clamp(12px,2.4vw,18px);--card-border-color:color-mix(in srgb,var(--accent) 28%,var(--line));--card-glass:color-mix(in srgb,var(--surface) 70%,transparent);--card-glass-strong:color-mix(in srgb,var(--surface-2) 86%,transparent);position:relative;margin-bottom:clamp(12px,2vw,18px);padding:var(--card-padding);border-radius:clamp(14px,3vw,20px);background:none;backdrop-filter:none;border:1px solid transparent;box-shadow:none;transition:border-color .3s ease,box-shadow .3s ease,transform .3s ease}
-.card:focus-within{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);transform:none;outline:none}
+.card{--card-padding:clamp(12px,2.4vw,18px);--card-border-color:color-mix(in srgb,var(--accent) 28%,var(--line));--card-glass:color-mix(in srgb,var(--surface) 70%,transparent);--card-glass-strong:color-mix(in srgb,var(--surface-2) 86%,transparent);position:relative;margin-bottom:clamp(12px,2vw,18px);padding:var(--card-padding);border-radius:clamp(14px,3vw,20px);background:none;backdrop-filter:none;border:4px solid transparent;box-shadow:none;transition:border-color .3s ease,box-shadow .3s ease,transform .3s ease}
+.card:focus-within{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent);transform:none;outline:none}
 body:not(.no-hover) .card:hover{border-color:transparent;box-shadow:none;transform:none}
 .card.card__glow::before{content:none}
 .card.card__glow::after{content:none}
