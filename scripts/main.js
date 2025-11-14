@@ -23,8 +23,20 @@ import {
   isAutoSaveDirty,
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
-import { activateTab, getActiveTab, getNavigationType, onTabChange, scrollToTopOfCombat, triggerTabIconAnimation } from './tabs.js';
-import { subscribe as subscribePlayerToolsDrawer, onDrawerChange as onPlayerToolsDrawerChange } from './player-tools-drawer.js';
+import {
+  activateTab,
+  getActiveTab,
+  getNavigationType,
+  onTabChange,
+  scrollToTopOfCombat,
+  triggerTabIconAnimation
+} from './tabs.js';
+import {
+  subscribe as subscribePlayerToolsDrawer,
+  onDrawerChange as onPlayerToolsDrawerChange,
+  open as openPlayerToolsDrawer,
+  close as closePlayerToolsDrawer
+} from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
@@ -1332,6 +1344,8 @@ let miniGameActivePlayer = '';
 let miniGameUnsubscribe = null;
 let miniGamePlayerCheckTimer = null;
 let isPlayerToolsDrawerOpen = false;
+let isTickerDrawerOpen = false;
+let setTickerDrawerOpen = () => {};
 const MINI_GAME_BROADCAST_CHANNEL = 'cc:mini-games';
 const miniGameKnownDeployments = new Map();
 const miniGamePromptedDeployments = new Set();
@@ -4353,6 +4367,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     && mobileDefaultState;
 
   let isOpen = tickerDrawer.getAttribute('data-state') !== 'closed';
+  isTickerDrawerOpen = isOpen;
   if(storedTickerPreference !== null){
     isOpen = storedTickerPreference;
     if(!preferenceInitialized){
@@ -4403,6 +4418,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
       tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
     }
     setPanelOffset();
+    isTickerDrawerOpen = isOpen;
     isAnimating = false;
   };
 
@@ -4418,6 +4434,7 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     tickerPanel.style.height = formatPanelHeight(startHeight);
     setPanelOffset(startHeight);
     isOpen = nextOpen;
+    isTickerDrawerOpen = isOpen;
     requestAnimationFrame(() => {
       tickerPanel.classList.add('is-animating');
       updateToggleState(nextOpen);
@@ -4445,6 +4462,30 @@ if(tickerDrawer && tickerPanel && tickerToggle){
     animateDrawer(nextOpen);
     persistTickerPreference(nextOpen);
   });
+
+  setTickerDrawerOpen = nextOpen => {
+    if (typeof nextOpen !== 'boolean') {
+      return;
+    }
+    if (isAnimating) {
+      finalizeAnimation();
+    }
+    if (nextOpen === isOpen) {
+      persistTickerPreference(nextOpen);
+      setDrawerState(nextOpen ? 'open' : 'closed');
+      updateToggleState(nextOpen);
+      if (nextOpen) {
+        tickerPanel.style.height = '';
+      } else {
+        tickerPanel.style.height = formatPanelHeight(getClosedPanelHeight());
+      }
+      setPanelOffset();
+      isTickerDrawerOpen = nextOpen;
+      return;
+    }
+    animateDrawer(nextOpen);
+    persistTickerPreference(nextOpen);
+  };
 
   setDrawerState(isOpen ? 'open' : 'closed');
   updateToggleState(isOpen);
@@ -6510,7 +6551,8 @@ const computePlayerCreditSignature = (detail) => {
 const elPlayerToolsTab = $('player-tools-tab');
 if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
-  setPlayerToolsTabHidden(elPlayerToolsTab.hidden);
+  const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
+  setPlayerToolsTabHidden(shouldHideTab);
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
@@ -12711,7 +12753,8 @@ async function doLoad(){
       : await loadCharacter(pendingLoad.name);
     deserialize(data);
     applyViewLockState();
-    if(previousMode === 'view'){
+    const savedViewMode = data?.uiState?.viewMode;
+    if(previousMode === 'view' && savedViewMode !== 'edit'){
       setMode('view', { skipPersist: true });
     }
     setCurrentCharacter(pendingLoad.name);
@@ -12750,7 +12793,8 @@ if (autoChar) {
       const data = await loadCharacter(autoChar);
       deserialize(data);
       applyViewLockState();
-      if (previousMode === 'view') {
+      const savedViewMode = data?.uiState?.viewMode;
+      if (previousMode === 'view' && savedViewMode !== 'edit') {
         setMode('view', { skipPersist: true });
       }
     } catch (e) {
@@ -20991,6 +21035,28 @@ function serialize(){
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
+  const uiState = {};
+  try {
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (typeof activeTab === 'string' && activeTab) {
+      uiState.activeTab = activeTab;
+    }
+  } catch {}
+  if (mode === 'view' || mode === 'edit') {
+    uiState.viewMode = mode;
+  }
+  if (typeof activeTheme === 'string' && activeTheme) {
+    uiState.theme = activeTheme;
+  }
+  if (typeof isPlayerToolsDrawerOpen === 'boolean') {
+    uiState.playerToolsOpen = isPlayerToolsDrawerOpen;
+  }
+  if (typeof isTickerDrawerOpen === 'boolean') {
+    uiState.tickerOpen = isTickerDrawerOpen;
+  }
+  if (Object.keys(uiState).length > 0) {
+    data.uiState = uiState;
+  }
   return data;
 }
 const DEFAULT_STATE = serialize();
@@ -21090,6 +21156,31 @@ function deserialize(data){
   updateDerived();
   updateFactionRep(handlePerkEffects);
   updateCreditsDisplay();
+  const uiState = data?.uiState && typeof data.uiState === 'object' ? data.uiState : null;
+  if (uiState) {
+    if (typeof uiState.theme === 'string' && uiState.theme) {
+      applyTheme(uiState.theme, { animate: false });
+      setStoredTheme(uiState.theme);
+    }
+    if (uiState.viewMode === 'view' || uiState.viewMode === 'edit') {
+      setMode(uiState.viewMode);
+    }
+    if (typeof uiState.activeTab === 'string' && uiState.activeTab) {
+      try {
+        localStorage.setItem('active-tab', uiState.activeTab);
+      } catch {}
+      if (qs(`.tab[data-go="${uiState.activeTab}"]`)) {
+        activateTab(uiState.activeTab);
+      }
+    }
+    if (typeof uiState.playerToolsOpen === 'boolean') {
+      if (uiState.playerToolsOpen) openPlayerToolsDrawer();
+      else closePlayerToolsDrawer();
+    }
+    if (typeof uiState.tickerOpen === 'boolean') {
+      setTickerDrawerOpen(uiState.tickerOpen);
+    }
+  }
   if (mode === 'view') applyViewLockState();
 }
 
@@ -21354,7 +21445,8 @@ async function restoreLastLoadedCharacter(){
   syncMiniGamePlayerName();
   deserialize(data);
   applyViewLockState();
-  if (previousMode === 'view') {
+  const savedViewMode = data?.uiState?.viewMode;
+  if (previousMode === 'view' && savedViewMode !== 'edit') {
     setMode('view', { skipPersist: true });
   }
   history = [];
@@ -21514,7 +21606,8 @@ function applyPendingPinnedCharacter(payload){
   syncMiniGamePlayerName();
   deserialize(data);
   applyViewLockState();
-  if(previousMode === 'view'){
+  const savedViewMode = data?.uiState?.viewMode;
+  if(previousMode === 'view' && savedViewMode !== 'edit'){
     setMode('view', { skipPersist: true });
   }
   history = [];
