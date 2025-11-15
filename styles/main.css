@@ -6613,7 +6613,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 :root {
-  --drawer-width: clamp(420px, 60vw, 720px);
+  --drawer-width: clamp(480px, 62vw, 780px);
   --drawer-z: 1200;
   --drawer-slide-direction: -1;
   --player-tools-transition-duration: 420ms;
@@ -6621,10 +6621,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-open-progress: 0;
   --player-tools-glass-radius: 30px;
   --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(0px, 1.2vw, 14px));
-  --player-tools-tray-inline-gap: clamp(0px, 0.8vw, 8px);
+  --player-tools-tray-inline-gap: clamp(0px, 0.35vw, 4px);
   --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
   --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-frame-padding: clamp(12px, 3vw, 18px);
+  --player-tools-frame-padding: clamp(14px, 3.2vw, 22px);
 }
 @media(max-width:600px){
   :root{
@@ -6814,7 +6814,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-phone {
   --player-tools-frame-radius: clamp(34px, 7.4vw, 44px);
   --player-tools-safe-area-top: max(10px, env(safe-area-inset-top));
-  --player-tools-status-bar-height: clamp(50px, 12vw, 66px);
+  --player-tools-status-bar-height: clamp(42px, 10vw, 56px);
   --player-tools-status-bar-offset: calc(
     var(--player-tools-status-bar-height) + var(--player-tools-safe-area-top)
   );
@@ -6825,7 +6825,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   min-block-size: 100%;
   flex: 1;
   inline-size: 100%;
-  max-inline-size: clamp(360px, 92vw, 560px);
+  max-inline-size: clamp(400px, 90vw, 600px);
   align-self: flex-start;
   margin-inline-start: 0;
   margin-inline-end: auto;
@@ -6867,10 +6867,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: clamp(12px, 3vw, 18px);
-  padding-inline: calc(var(--player-tools-screen-padding) - clamp(2px, 1vw, 6px));
-  padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(8px, 2.4vw, 14px));
-  padding-block-end: clamp(8px, 2.4vw, 14px);
+  gap: clamp(10px, 2.4vw, 16px);
+  padding-inline: calc(var(--player-tools-screen-padding) - clamp(0px, 0.8vw, 8px));
+  padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(6px, 2vw, 12px));
+  padding-block-end: clamp(6px, 2vw, 12px);
   min-block-size: calc(var(--player-tools-safe-area-top) + var(--player-tools-status-bar-height));
   color: rgba(255, 255, 255, 0.92);
   font-family: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -6890,7 +6890,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-phone__status-group {
   display: inline-flex;
   align-items: center;
-  gap: clamp(10px, 2.4vw, 16px);
+  gap: clamp(8px, 2vw, 14px);
   min-inline-size: 0;
 }
 
@@ -7447,8 +7447,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-status__icon {
   position: relative;
-  inline-size: clamp(20px, 3.6vw, 28px);
-  block-size: clamp(14px, 3.2vw, 18px);
+  inline-size: clamp(18px, 3.2vw, 24px);
+  block-size: clamp(12px, 2.8vw, 16px);
   display: inline-flex;
   align-items: flex-end;
   justify-content: center;
@@ -7461,7 +7461,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-status__icon--signal {
-  inline-size: clamp(20px, 3.4vw, 26px);
+  inline-size: clamp(18px, 3vw, 24px);
 }
 
 .player-tools-status__icon--signal::before {
@@ -7478,7 +7478,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-status__icon--wifi {
-  inline-size: clamp(24px, 4vw, 32px);
+  inline-size: clamp(20px, 3.6vw, 28px);
 }
 
 .player-tools-status__icon--wifi::before {
@@ -7495,11 +7495,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --battery-frame-color: rgba(255, 255, 255, 0.88);
   --battery-level-color: rgba(255, 255, 255, 0.9);
   --battery-level-opacity: 1;
-  --battery-cap-width: clamp(4px, 1vw, 6px);
+  --battery-cap-width: clamp(4px, 0.9vw, 5px);
   display: inline-flex;
   align-items: center;
-  gap: clamp(8px, 2.2vw, 12px);
-  padding: clamp(2px, 0.6vw, 4px) clamp(10px, 2.4vw, 14px);
+  gap: clamp(6px, 1.8vw, 10px);
+  padding: clamp(2px, 0.5vw, 4px) clamp(8px, 2vw, 12px);
   border-radius: 999px;
   background: transparent;
   box-shadow: none;
@@ -7532,8 +7532,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 }
 
 .player-tools-status__icon--battery {
-  inline-size: clamp(20px, 3.6vw, 26px);
-  block-size: clamp(12px, 2.8vw, 16px);
+  inline-size: clamp(18px, 3.2vw, 24px);
+  block-size: clamp(12px, 2.6vw, 15px);
   align-items: center;
   justify-content: center;
 }
@@ -8311,8 +8311,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   font-size: inherit;
 }
 .player-tools-tab {
-  --player-tools-tab-size: clamp(46px, 8vw, 58px);
-  --player-tools-tab-height: clamp(88px, 18vw, 116px);
+  --player-tools-tab-size: clamp(50px, 8.4vw, 64px);
+  --player-tools-tab-height: clamp(92px, 18.5vw, 124px);
   --player-tools-tab-safe-area: max(env(safe-area-inset-left, 0px), 0px);
   position: fixed;
   top: calc(var(--player-tools-tab-top, 50vh));
@@ -8706,11 +8706,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(12px, 3vw, 18px);
-  inline-size: clamp(114px, 30vw, 162px);
-  block-size: clamp(28px, 8vw, 38px);
+  gap: clamp(10px, 2.4vw, 16px);
+  inline-size: clamp(96px, 26vw, 148px);
+  block-size: clamp(24px, 7vw, 34px);
   border-radius: 999px;
-  padding-inline: clamp(20px, 5vw, 30px);
+  padding-inline: clamp(16px, 4.2vw, 26px);
   background: rgba(4, 6, 12, 0.96);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
@@ -8755,7 +8755,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 @media (max-width: 720px) {
   :root {
-    --drawer-width: min(100vw, 540px);
+    --drawer-width: min(100vw, 580px);
     --player-tools-drawer-inline-padding: clamp(12px, 5vw, 20px);
     --player-tools-content-inline-padding: clamp(12px, 5vw, 20px);
   }
@@ -8779,7 +8779,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 @media (max-width: 480px) {
   .player-tools-phone {
     --player-tools-frame-radius: clamp(24px, 11vw, 34px);
-    --player-tools-status-bar-height: clamp(36px, 12vw, 54px);
+    --player-tools-status-bar-height: clamp(34px, 11vw, 48px);
   }
 
   .player-tools-phone__screen {
@@ -8787,33 +8787,33 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 
   .player-tools-phone__status-bar {
-    gap: clamp(8px, 4vw, 16px);
-    padding-inline: clamp(14px, 6vw, 22px);
-    padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(8px, 5vw, 14px));
-    padding-block-end: clamp(8px, 5vw, 14px);
+    gap: clamp(6px, 3.6vw, 14px);
+    padding-inline: clamp(12px, 5.6vw, 20px);
+    padding-block-start: calc(var(--player-tools-safe-area-top) + clamp(6px, 4.6vw, 12px));
+    padding-block-end: clamp(6px, 4.6vw, 12px);
   }
 
   .player-tools-phone__clock {
-    font-size: clamp(0.94rem, 3.6vw, 1.16rem);
+    font-size: clamp(0.92rem, 3.4vw, 1.12rem);
   }
 
   .player-tools-phone__dynamic-island {
-    inline-size: clamp(68px, 42vw, 110px);
-    block-size: clamp(18px, 10vw, 26px);
+    inline-size: clamp(64px, 38vw, 104px);
+    block-size: clamp(18px, 9vw, 24px);
   }
 
   .player-tools-phone__camera {
-    inline-size: clamp(8px, 4.6vw, 12px);
-    block-size: clamp(8px, 4.6vw, 12px);
+    inline-size: clamp(7px, 4vw, 11px);
+    block-size: clamp(7px, 4vw, 11px);
   }
 
   .player-tools-status__icon {
-    inline-size: clamp(18px, 6vw, 24px);
-    block-size: clamp(14px, 5.2vw, 18px);
+    inline-size: clamp(16px, 5.4vw, 22px);
+    block-size: clamp(12px, 4.6vw, 16px);
   }
 
   .player-tools-status__icon--battery {
-    inline-size: clamp(32px, 9vw, 46px);
+    inline-size: clamp(26px, 8vw, 40px);
   }
 
   .player-tools-phone__viewport {
