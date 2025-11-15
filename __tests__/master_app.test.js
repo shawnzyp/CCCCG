@@ -592,6 +592,186 @@ describe('Catalyst Core master application experience', () => {
     }
   });
 
+  test('player tools drawer provides resilient interactions and status updates', async () => {
+    const capturedErrors = [];
+    const errorHandler = event => {
+      const detail = event?.error ?? event?.message ?? event?.reason ?? event;
+      capturedErrors.push(detail);
+    };
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', errorHandler);
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
+      capturedErrors.push(args.join(' '));
+    });
+
+    await importAllApplicationScripts();
+    dispatchAppReadyEvents();
+    const skipLaunchButton = document.querySelector('[data-skip-launch]');
+    if (skipLaunchButton) {
+      skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    } else {
+      window.dispatchEvent(new Event('launch-animation-skip'));
+    }
+
+    document.documentElement.style.setProperty('--player-tools-transition-duration', '0ms');
+
+    await advanceAppTime(1000);
+
+    const drawerModule = await import('../scripts/player-tools-drawer.js');
+
+    const tab = document.getElementById('player-tools-tab');
+    const drawer = document.getElementById('player-tools-drawer');
+    expect(tab).toBeTruthy();
+    expect(drawer).toBeTruthy();
+
+    const scrim = drawer.querySelector('.player-tools-drawer__scrim');
+    const content = drawer.querySelector('[data-player-tools-content]');
+    const batteryBadge = drawer.querySelector('[data-player-tools-battery]');
+    const batteryPercent = drawer.querySelector('[data-player-tools-battery-percent]');
+    const batteryLabel = drawer.querySelector('[data-player-tools-battery-label]');
+    const batteryText = drawer.querySelector('[data-player-tools-battery-text]');
+
+    expect(scrim).toBeTruthy();
+    expect(content).toBeTruthy();
+    expect(batteryBadge).toBeTruthy();
+
+    expect(drawer.classList.contains('is-open')).toBe(false);
+    expect(tab.getAttribute('aria-expanded')).toBe('false');
+    expect(drawer.getAttribute('aria-hidden')).toBe('true');
+    expect(drawer.hasAttribute('inert')).toBe(true);
+
+    const drawerEvents = [];
+    const registerEvent = (type) => {
+      const handler = event => {
+        drawerEvents.push({ type, detail: event?.detail ?? null });
+      };
+      document.addEventListener(type, handler);
+      return () => document.removeEventListener(type, handler);
+    };
+
+    const removeToggleListener = registerEvent('player-tools-drawer-toggle');
+    const removeOpenListener = registerEvent('player-tools-drawer-open');
+    const removeCloseListener = registerEvent('player-tools-drawer-close');
+    const removeChangeListener = registerEvent('cc:player-tools-drawer');
+
+    const stateLog = [];
+    const unsubscribe = drawerModule.subscribe(state => {
+      stateLog.push({ open: Boolean(state.open), progress: Number(state.progress) });
+    });
+
+    await advanceAppTime(0);
+
+    expect(stateLog.length).toBeGreaterThan(0);
+    expect(stateLog[0].open).toBe(false);
+    expect(stateLog[0].progress).toBeGreaterThanOrEqual(0);
+    expect(stateLog[0].progress).toBeLessThanOrEqual(1);
+
+    const pointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
+    pointerDown.pointerType = 'touch';
+    tab.dispatchEvent(pointerDown);
+
+    await advanceAppTime(200);
+
+    expect(drawer.classList.contains('is-open')).toBe(true);
+    expect(tab.getAttribute('aria-expanded')).toBe('true');
+    expect(drawer.getAttribute('aria-hidden')).toBe('false');
+    expect(scrim.hidden).toBe(false);
+    expect(document.body.classList.contains('player-tools-open')).toBe(true);
+    expect(document.documentElement.classList.contains('player-tools-open')).toBe(true);
+    expect(drawer.hasAttribute('inert')).toBe(false);
+
+    const externalInertTargets = Array.from(document.body.children).filter(element => {
+      if (element === drawer || element === tab) return false;
+      if (element.tagName === 'SCRIPT') return false;
+      return true;
+    });
+    expect(externalInertTargets.length).toBeGreaterThan(0);
+    expect(externalInertTargets.every(element => element.hasAttribute('inert'))).toBe(true);
+
+    const activeElement = document.activeElement;
+    const focusInsideDrawer = drawer.contains(activeElement) || tab === activeElement || content === activeElement;
+    expect(focusInsideDrawer).toBe(true);
+
+    expect(drawerEvents.some(event => event.type === 'player-tools-drawer-open')).toBe(true);
+    expect(drawerEvents.some(event => event.type === 'player-tools-drawer-toggle')).toBe(true);
+    expect(drawerEvents.some(event => event.type === 'cc:player-tools-drawer')).toBe(true);
+    expect(stateLog.some(state => state.open === true && state.progress >= 1)).toBe(true);
+
+    drawerModule.setBatteryStatus({ percent: 87, charging: true, text: 'Charging 87%', announcement: 'Battery at 87%' });
+    await advanceAppTime(0);
+
+    expect(batteryBadge.dataset.batteryState).toBe('green');
+    expect(batteryBadge.getAttribute('data-battery-charging')).toBe('true');
+    expect(batteryPercent.textContent).toBe('87');
+    expect(batteryText.textContent).toBe('Charging 87%');
+    expect(batteryLabel.textContent).toBe('Battery at 87%');
+
+    document.dispatchEvent(new CustomEvent('player-tools-battery-update', { detail: { percent: 5, charging: false } }));
+    await advanceAppTime(0);
+
+    expect(batteryBadge.dataset.batteryState).toBe('critical');
+    expect(batteryBadge.getAttribute('data-battery-charging')).toBe(null);
+    expect(batteryPercent.textContent).toBe('5');
+
+    const scrimPointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
+    scrimPointerDown.pointerType = 'touch';
+    scrim.dispatchEvent(scrimPointerDown);
+
+    await advanceAppTime(200);
+
+    expect(drawer.classList.contains('is-open')).toBe(false);
+    expect(tab.getAttribute('aria-expanded')).toBe('false');
+    expect(drawer.getAttribute('aria-hidden')).toBe('true');
+    expect(scrim.hidden).toBe(true);
+    expect(document.body.classList.contains('player-tools-open')).toBe(false);
+    expect(document.documentElement.classList.contains('player-tools-open')).toBe(false);
+    expect(drawer.hasAttribute('inert')).toBe(true);
+    expect(externalInertTargets.every(element => !element.hasAttribute('inert'))).toBe(true);
+    expect(document.activeElement).toBe(tab);
+
+    expect(drawerEvents.some(event => event.type === 'player-tools-drawer-close')).toBe(true);
+    expect(stateLog.some(state => state.open === false && state.progress <= 0)).toBe(true);
+
+    drawerModule.open();
+    await advanceAppTime(200);
+    drawerModule.close();
+    await advanceAppTime(200);
+
+    drawerModule.toggle();
+    await advanceAppTime(200);
+    drawerModule.toggle();
+    await advanceAppTime(200);
+
+    expect(drawerEvents.filter(event => event.type === 'player-tools-drawer-toggle').length).toBeGreaterThanOrEqual(3);
+
+    unsubscribe();
+    const loggedStatesBeforeFinalToggle = stateLog.slice();
+
+    drawerModule.open();
+    await advanceAppTime(200);
+    drawerModule.close();
+    await advanceAppTime(200);
+
+    expect(stateLog).toEqual(loggedStatesBeforeFinalToggle);
+
+    removeToggleListener();
+    removeOpenListener();
+    removeCloseListener();
+    removeChangeListener();
+
+    window.removeEventListener('error', errorHandler);
+    window.removeEventListener('unhandledrejection', errorHandler);
+    consoleErrorSpy.mockRestore();
+
+    await advanceAppTime(1000);
+    jest.clearAllTimers();
+
+    if (capturedErrors.length > 0) {
+      throw new Error(`Detected issues while verifying player tools drawer: ${capturedErrors.map(String).join('\n')}`);
+    }
+  });
+
   test('stress tests interactive controls under rapid repeated interactions', async () => {
     const capturedErrors = [];
     const errorHandler = event => {
