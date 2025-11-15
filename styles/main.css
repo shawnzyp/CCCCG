@@ -8821,6 +8821,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   }
 }
 @media (max-width: 600px) {
+  :root {
+    --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(4px, 2vw, 10px));
+    --player-tools-drawer-inline-padding: clamp(8px, 3.8vw, 14px);
+    --player-tools-content-inline-padding: clamp(6px, 3.2vw, 12px);
+  }
+
   .player-tools-drawer__inner {
     padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
     padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
