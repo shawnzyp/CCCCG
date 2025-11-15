@@ -6629,7 +6629,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 @media(max-width:600px){
   :root{
     --player-tools-left-gutter:max(env(safe-area-inset-left,0px),4px);
-    --player-tools-tray-inline-gap:clamp(6px,3vw,12px);
+    --player-tools-tray-inline-gap:0px;
   }
 }
 
