@@ -3073,52 +3073,51 @@
 
 <!-- Player Tools tab button -->
 <button
+  type="button"
   id="player-tools-tab"
   class="player-tools-tab"
-  type="button"
-  aria-controls="player-tools-drawer"
-  aria-expanded="false"
   aria-label="Open player tools"
+  aria-expanded="false"
 >
   <span class="player-tools-tab__icon" aria-hidden="true">
     <img src="images/player-tools-icon.png" alt="" />
   </span>
-  <span class="sr-only">Player tools</span>
 </button>
 
 <!-- Player Tools drawer -->
 <div
   id="player-tools-drawer"
   class="player-tools-drawer"
-  role="complementary"
-  aria-label="Player Tools"
   aria-hidden="true"
 >
   <div class="player-tools-drawer__scrim" data-player-tools-scrim></div>
 
-  <div class="player-tools-drawer__shell">
-    <div class="player-tools-drawer__inner">
-      <div class="player-tools-phone" data-player-tools-phone>
-        <!-- Screen content sits on top of the shell -->
-        <div class="player-tools-phone__screen">
-          <div class="player-tools-phone__screen-inner">
-            <!-- Status bar -->
-            <div class="phone-status-bar">
-              <span class="phone-status-bar__time" data-player-tools-clock>9:41</span>
-              <span class="phone-status-bar__icons">
-                <span aria-hidden="true">📶</span>
-                <span aria-hidden="true">◉</span>
-                <span aria-hidden="true">🔋</span>
-              </span>
-            </div>
+  <div class="player-tools-drawer__shell" role="dialog" aria-modal="true" aria-label="Player tools">
+    <div class="player-tools-phone">
+      <div class="player-tools-phone__screen">
+        <!-- STATUS BAR (time + icons) -->
+        <div class="player-tools-phone__status-bar">
+          <span id="player-tools-status-time" class="player-tools-phone__status-time">9:41</span>
+          <span class="player-tools-phone__status-icons">
+            <span class="status-icon status-icon--signal" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </span>
+            <span class="status-icon status-icon--wifi" aria-hidden="true"></span>
+            <span class="status-icon status-icon--battery" aria-hidden="true">
+              <span class="status-icon__battery-level"></span>
+            </span>
+          </span>
+        </div>
 
-            <!-- Header chip -->
-            <div class="phone-chip">
-              Player Tools · Session
-            </div>
+        <!-- MAIN TOOLS CONTENT (inside screen cutout) -->
+        <div class="player-tools-phone__content">
+          <!-- Header chip -->
+          <div class="phone-chip">
+            Player Tools · Session
+          </div>
 
-            <!-- Viewport with tools -->
-            <div class="player-tools-phone__viewport" aria-label="Player tools">
+          <!-- Viewport with tools -->
+          <div class="player-tools-phone__viewport" aria-label="Player tools">
 
               <!-- Level reward reminder -->
               <section
@@ -3312,15 +3311,15 @@
 
             </div>
 
-            <!-- Bottom gesture bar to close tools -->
-            <button
-              type="button"
-              id="player-tools-close-gesture"
-              class="phone-gesture-bar"
-              aria-label="Close player tools"
-            ></button>
-          </div>
         </div>
+
+        <!-- GESTURE BAR: CLOSES THE PHONE -->
+        <button
+          type="button"
+          id="player-tools-gesture-exit"
+          class="player-tools-phone__gesture-bar"
+          aria-label="Close player tools"
+        ></button>
       </div>
     </div>
   </div>

@@ -102,8 +102,8 @@ function createPlayerToolsDrawer() {
   }
 
   const scrim = drawer.querySelector('[data-player-tools-scrim]');
-  const closeGesture = doc.getElementById('player-tools-close-gesture');
-  const clockEl = drawer.querySelector('[data-player-tools-clock]');
+  const gestureExit = doc.getElementById('player-tools-gesture-exit');
+  const statusTime = doc.getElementById('player-tools-status-time');
 
   const initiativeBonusInput = doc.getElementById('initiative-bonus');
   const initiativeResultEl = doc.getElementById('initiative-roll-result');
@@ -137,10 +137,11 @@ function createPlayerToolsDrawer() {
   // ---- NEW: force a consistent starting state ----
   drawer.classList.remove('is-open');
   drawer.setAttribute('aria-hidden', 'true');
-  drawer.style.visibility = 'hidden';
 
+  tab.classList.remove('is-open');
   tab.setAttribute('aria-expanded', 'false');
   tab.removeAttribute('aria-hidden');
+  tab.disabled = false;
   // -----------------------------------------------
 
   const notifyState = () => {
@@ -155,21 +156,34 @@ function createPlayerToolsDrawer() {
     isOpen = next;
     drawer.classList.toggle('is-open', isOpen);
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-    drawer.style.visibility = isOpen ? 'visible' : 'hidden';
-    tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+
+    if (tab) {
+      tab.classList.toggle('is-open', isOpen);
+      tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+      tab.disabled = isOpen;
+    }
+
+    if (!isOpen && tab) {
+      tab.disabled = false;
+      try {
+        tab.focus();
+      } catch {
+        // ignore focus errors
+      }
+    }
 
     notifyState();
   };
 
-  tab.addEventListener('click', () => setDrawerOpen(!isOpen));
+  tab.addEventListener('click', () => setDrawerOpen(true));
 
   if (scrim) {
     scrim.addEventListener('click', () => setDrawerOpen(false));
   }
 
-  if (closeGesture) {
-    closeGesture.addEventListener('click', () => setDrawerOpen(false));
+  if (gestureExit) {
+    gestureExit.addEventListener('click', () => setDrawerOpen(false));
   }
 
   doc.addEventListener('keydown', (event) => {
@@ -180,18 +194,18 @@ function createPlayerToolsDrawer() {
     }
   });
 
-  const updateClock = () => {
-    if (!clockEl) return;
+  const updateStatusTime = () => {
+    if (!statusTime) return;
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes().toString().padStart(2, '0');
     const twelveHour = ((hours + 11) % 12) + 1;
-    clockEl.textContent = `${twelveHour}:${minutes}`;
+    statusTime.textContent = `${twelveHour}:${minutes}`;
   };
 
-  updateClock();
+  updateStatusTime();
   if (typeof setInterval === 'function') {
-    setInterval(updateClock, 30000);
+    setInterval(updateStatusTime, 60000);
   }
 
   const randomInt = (min, max) =>

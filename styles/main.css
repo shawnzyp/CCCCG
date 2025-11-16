@@ -8094,253 +8094,269 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
 }
 
-/* === Player Tools – tab + drawer positioning === */
+/* ---------- TOOLS TAB BUTTON (LEFT EDGE) ---------- */
 
-/* Small tab button anchored to left middle of the viewport */
 .player-tools-tab {
   position: fixed;
-  top: 50%;
   left: 0;
-  transform: translate(-40%, -50%);
-  z-index: 9999;
-
-  display: inline-flex;
+  top: 50%;
+  transform: translate(-35%, -50%);
+  z-index: 70;
+  width: 3.25rem;
+  height: 6rem;
+  padding: 0;
+  border: 1px solid rgba(0, 255, 255, 0.35);
+  border-radius: 0 999px 999px 0;
+  background: radial-gradient(circle at 20% 20%, rgba(0, 255, 255, 0.25), rgba(0, 10, 25, 0.9));
+  display: flex;
   align-items: center;
   justify-content: center;
-
-  padding: 0.35rem;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 229, 255, 0.7);
-  background: radial-gradient(circle at 30% 0, rgba(0, 229, 255, 0.45), rgba(0, 0, 0, 0.9));
-  box-shadow: 0 0 16px rgba(0, 229, 255, 0.7);
-
   cursor: pointer;
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-/* Make sure it never stretches full width */
-.player-tools-tab,
-.player-tools-tab__icon {
-  width: auto;
-  max-width: none;
-}
-
-/* Icon sizing */
-.player-tools-tab__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 0.7;
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out,
+    box-shadow 160ms ease-out;
 }
 
 .player-tools-tab__icon img {
   display: block;
-  width: 32px;
-  height: auto;
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
-/* Optional badge support */
-.player-tools-tab__badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  min-height: 18px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent, #38bdf8) 88%, transparent);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  display: grid;
-  place-items: center;
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-  pointer-events: none;
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
-}
-
-.player-tools-tab__badge:not([hidden]) {
+.player-tools-tab:hover {
   opacity: 1;
-  transform: scale(1);
+  box-shadow: 0 0 18px rgba(0, 255, 255, 0.45);
 }
 
-.player-tools-tab[data-player-credit='pending'] .player-tools-tab__badge,
-.player-tools-tab[data-player-reward='pending'] .player-tools-tab__badge {
-  display: grid;
+.player-tools-tab[aria-expanded="true"] {
+  opacity: 1;
 }
 
-.player-tools-tab:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent, #38bdf8) 70%, #fff 30%);
-  outline-offset: 3px;
-}
-
-/* Hide the tab when the drawer is open */
+/* Hide tab when the phone is open */
 .player-tools-tab[aria-hidden="true"] {
   opacity: 0;
   pointer-events: none;
-  transform: translate(-40%, -50%) translateX(-8px);
 }
 
-/* Drawer overlay anchored to the LEFT, phone tray slides in from left */
+/* ---------- DRAWER OVERLAY & SLIDE-IN FROM LEFT ---------- */
+
 .player-tools-drawer {
   position: fixed;
   inset: 0;
-  z-index: 9998;
-
-  display: flex;
-  justify-content: flex-start;
-  align-items: stretch;
-
+  z-index: 80;
   pointer-events: none;
+}
 
-  --player-tools-header-fill: color-mix(in srgb, var(--surface-2) 88%, var(--surface-3) 12%);
+/* Scrim covers whole viewport, only interactive when open */
+.player-tools-drawer__scrim {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(0, 255, 255, 0.12), rgba(0, 0, 0, 0.75));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
 }
 
 .player-tools-drawer.is-open {
   pointer-events: auto;
 }
 
-/* Dimmed background on the rest of the app */
-.player-tools-drawer__scrim {
-  flex: 1 1 auto;
-  background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent);
-  backdrop-filter: blur(2px);
-}
-
-/* The phone tray itself, living inside a shell on the left */
-.player-tools-drawer__shell {
-  flex: 0 0 auto;
-  width: min(380px, 90vw);
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  padding: 1.25rem 1rem;
-  transform: translateX(-100%);
-  transition: transform 0.25s ease;
-}
-
-/* When open, allow interaction and slide the shell into view */
-.player-tools-drawer.is-open .player-tools-drawer__shell {
-  transform: translateX(0);
-}
-
-/* === Player Tools: hard reset old drawer behavior === */
-
-.player-tools-drawer {
-  /* Kill old transform-based sliding */
-  transform: none !important;
-  left: 0 !important;
-  right: auto !important;
-
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-
-  display: flex;
-  justify-content: flex-start;  /* phone on the LEFT */
-  align-items: stretch;
-
-  pointer-events: none;
-  background: transparent;      /* no global background behind phone */
-}
-
-/* Scrim: keep it clickable, but invisible so you don't see a halo */
-.player-tools-drawer__scrim {
-  flex: 1 1 auto;
-  background: transparent;
-  backdrop-filter: none;
-}
-
-/* Shell: just holds the phone, no card background */
-.player-tools-drawer__shell {
-  flex: 0 0 auto;
-  width: min(380px, 90vw);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  padding: 0;                  /* no big padded box around it */
-  background: transparent;
-  box-shadow: none;
-
-  transform: translateX(-100%);  /* fully off-screen to LEFT */
-  transition: transform 0.25s ease;
-}
-
-/* Only slide into view when drawer has is-open */
-.player-tools-drawer.is-open {
+.player-tools-drawer.is-open .player-tools-drawer__scrim {
+  opacity: 1;
   pointer-events: auto;
 }
 
-.player-tools-drawer.is-open .player-tools-drawer__shell {
-  transform: translateX(0);
-}
-
-/* === Tab button: bigger and on the left edge === */
-
-.player-tools-tab {
+/* Shell that actually slides in from the left */
+.player-tools-drawer__shell {
   position: fixed;
-  top: 50%;
+  top: 0;
+  bottom: 0;
   left: 0;
-  transform: translate(-40%, -50%);
-  z-index: 9999;
-
-  display: inline-flex;
+  padding-left: 0.75rem;
+  padding-right: 1.5rem;
+  display: flex;
   align-items: center;
-  justify-content: center;
-
-  padding: 0.4rem;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 229, 255, 0.7);
-  background: radial-gradient(circle at 30% 0, rgba(0, 229, 255, 0.45), rgba(0, 0, 0, 0.9));
-  box-shadow: 0 0 16px rgba(0, 229, 255, 0.7);
-
-  cursor: pointer;
+  justify-content: flex-start;
+  transform: translateX(-100%);
+  transition: transform 260ms ease-out;
+  background: transparent;
 }
 
-.player-tools-tab__icon img {
-  display: block;
-  width: 40px;   /* bumped up so the icon looks right */
-  height: auto;
+.player-tools-drawer.is-open .player-tools-drawer__shell {
+  transform: translateX(0);
 }
 
-/* Hide tab when drawer is open (JS sets aria-hidden) */
-.player-tools-tab[aria-hidden="true"] {
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-40%, -50%) translateX(-8px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-/* === Phone shell: use phone.png, contents must fit inside === */
+/* ---------- PHONE SHELL USING Phone.png ---------- */
 
 .player-tools-phone {
   position: relative;
-  width: 320px;      /* adjust if your phone asset needs it */
-  height: 640px;
-
-  background-image: url("images/phone.png"); /* adjust path if needed */
-  background-size: contain;
+  width: min(22rem, 80vw);
+  aspect-ratio: 1037 / 2048;
+  background-image: url("images/Phone.png");
   background-repeat: no-repeat;
-  background-position: center;
-
-  /* remove any old gradients */
-  background-color: transparent;
-  box-shadow: none;
+  background-size: 100% 100%;
 }
 
-/* Screen area clipped inside the phone.png frame */
+/*
+  Screen cutout inside the shell.
+  Insets are in % of the full Phone.png, calculated from the
+  black screen area in your PNG:
+    top:    ~8.7%
+    bottom: ~5.0%
+    left:   ~5.8%
+    right:  ~5.9%
+*/
 .player-tools-phone__screen {
   position: absolute;
-  /* tweak these in devtools to line up with your phone PNG’s screen window */
-  inset: 72px 22px 84px 22px;
-
+  inset: 8.7% 5.9% 5% 5.8%;
+  border-radius: 1.5rem;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.95);
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
+  flex-direction: column;
+}
+
+/* ---------- STATUS BAR (TOP, AROUND THE NOTCH) ---------- */
+
+.player-tools-phone__status-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.6rem 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  color: #f8fbff;
+  letter-spacing: 0.05em;
+}
+
+.player-tools-phone__status-time {
+  font-weight: 500;
+}
+
+/* right-side icons wrapper */
+.player-tools-phone__status-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Simple little bar stack for signal */
+.status-icon--signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.status-icon--signal span {
+  width: 2px;
+  border-radius: 999px;
+  background: #f8fbff;
+}
+
+.status-icon--signal span:nth-child(1) { height: 4px;  opacity: 0.35; }
+.status-icon--signal span:nth-child(2) { height: 6px;  opacity: 0.55; }
+.status-icon--signal span:nth-child(3) { height: 8px;  opacity: 0.8;  }
+.status-icon--signal span:nth-child(4) { height: 10px; opacity: 1;    }
+
+/* Wifi: simple rounded “fan” */
+.status-icon--wifi {
+  width: 11px;
+  height: 7px;
+  border-radius: 50% 50% 0 0;
+  border: 2px solid #f8fbff;
+  border-bottom: none;
+  position: relative;
+}
+
+.status-icon--wifi::after {
+  content: "";
+  position: absolute;
+  inset: 2px 2px auto 2px;
+  border-radius: 50% 50% 0 0;
+  border-top: 2px solid #f8fbff;
+}
+
+/* Battery outline + fill */
+.status-icon--battery {
+  position: relative;
+  width: 18px;
+  height: 8px;
+  border-radius: 2px;
+  border: 1px solid #f8fbff;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px;
+}
+
+.status-icon--battery::after {
+  /* little battery nub */
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: 1px;
+  width: 2px;
+  height: 6px;
+  border-radius: 1px;
+  background: #f8fbff;
+}
+
+.status-icon__battery-level {
+  flex: 1;
+  height: 100%;
+  border-radius: 1px;
+  background: linear-gradient(to right, #6dff8c, #e9ff6d);
+}
+
+/* ---------- MAIN TOOLS CONTENT AREA ---------- */
+
+.player-tools-phone__content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem 1.5rem;
+  scrollbar-width: thin;
+}
+
+/* Optional: slim scrollbar for desktop */
+.player-tools-phone__content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.player-tools-phone__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.player-tools-phone__content::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 255, 0.4);
+  border-radius: 999px;
+}
+
+/* ---------- GESTURE BAR (BOTTOM, CLOSE BUTTON) ---------- */
+
+.player-tools-phone__gesture-bar {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-bottom: 0.35rem;
+  margin-top: 0.1rem;
+  width: 38%;
+  height: 0.3rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  position: relative;
+}
+
+.player-tools-phone__gesture-bar::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+/* subtle “pressed” feedback */
+.player-tools-phone__gesture-bar:active {
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(0.97);
 }
