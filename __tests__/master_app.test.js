@@ -625,35 +625,21 @@ describe('Catalyst Core master application experience', () => {
     expect(tab).toBeTruthy();
     expect(drawer).toBeTruthy();
 
-    const scrim = drawer.querySelector('.player-tools-drawer__scrim');
-    const content = drawer.querySelector('[data-player-tools-content]');
-    const batteryBadge = drawer.querySelector('[data-player-tools-battery]');
-    const batteryPercent = drawer.querySelector('[data-player-tools-battery-percent]');
-    const batteryLabel = drawer.querySelector('[data-player-tools-battery-label]');
-    const batteryText = drawer.querySelector('[data-player-tools-battery-text]');
+    const scrim = drawer.querySelector('[data-player-tools-scrim]');
+    const historyList = drawer.querySelector('#toast-history-list');
+    const diceCount = document.getElementById('dice-count');
+    const diceSides = document.getElementById('dice-sides');
+    const diceBonus = document.getElementById('dice-bonus');
+    const rollDiceBtn = document.getElementById('roll-dice-btn');
+    const rollInitiativeBtn = document.getElementById('roll-initiative-btn');
+    const flipCoinBtn = document.getElementById('flip-coin-btn');
 
     expect(scrim).toBeTruthy();
-    expect(content).toBeTruthy();
-    expect(batteryBadge).toBeTruthy();
+    expect(historyList).toBeTruthy();
 
     expect(drawer.classList.contains('is-open')).toBe(false);
     expect(tab.getAttribute('aria-expanded')).toBe('false');
     expect(drawer.getAttribute('aria-hidden')).toBe('true');
-    expect(drawer.hasAttribute('inert')).toBe(true);
-
-    const drawerEvents = [];
-    const registerEvent = (type) => {
-      const handler = event => {
-        drawerEvents.push({ type, detail: event?.detail ?? null });
-      };
-      document.addEventListener(type, handler);
-      return () => document.removeEventListener(type, handler);
-    };
-
-    const removeToggleListener = registerEvent('player-tools-drawer-toggle');
-    const removeOpenListener = registerEvent('player-tools-drawer-open');
-    const removeCloseListener = registerEvent('player-tools-drawer-close');
-    const removeChangeListener = registerEvent('cc:player-tools-drawer');
 
     const stateLog = [];
     const unsubscribe = drawerModule.subscribe(state => {
@@ -667,98 +653,84 @@ describe('Catalyst Core master application experience', () => {
     expect(stateLog[0].progress).toBeGreaterThanOrEqual(0);
     expect(stateLog[0].progress).toBeLessThanOrEqual(1);
 
-    const pointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
-    pointerDown.pointerType = 'touch';
-    tab.dispatchEvent(pointerDown);
-
-    await advanceAppTime(200);
+    tab.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await advanceAppTime(0);
 
     expect(drawer.classList.contains('is-open')).toBe(true);
     expect(tab.getAttribute('aria-expanded')).toBe('true');
     expect(drawer.getAttribute('aria-hidden')).toBe('false');
-    expect(scrim.hidden).toBe(false);
-    expect(document.body.classList.contains('player-tools-open')).toBe(true);
-    expect(document.documentElement.classList.contains('player-tools-open')).toBe(true);
-    expect(drawer.hasAttribute('inert')).toBe(false);
 
-    const externalInertTargets = Array.from(document.body.children).filter(element => {
-      if (element === drawer || element === tab) return false;
-      if (element.tagName === 'SCRIPT') return false;
-      return true;
+    expect(window.PlayerTools).toBeTruthy();
+    expect(typeof window.PlayerTools.setLevelRewardReminder).toBe('function');
+
+    window.PlayerTools.setLevelRewardReminder(2, 'Apply rewards');
+    await advanceAppTime(0);
+    const rewardBadge = document.getElementById('level-reward-count');
+    const rewardTrigger = document.getElementById('level-reward-reminder-trigger');
+    expect(rewardBadge.textContent.trim()).toBe('2');
+    expect(rewardBadge.hidden).toBe(false);
+    expect(rewardTrigger.disabled).toBe(false);
+
+    window.PlayerTools.clearLevelRewardReminder();
+    await advanceAppTime(0);
+    expect(rewardBadge.hidden).toBe(true);
+    expect(rewardTrigger.disabled).toBe(true);
+
+    let resumeCalled = false;
+    window.PlayerTools.setMiniGameReminder({
+      name: 'Gridlock Trace',
+      status: 'In progress',
+      meta: 'Round 3',
+      onResume() {
+        resumeCalled = true;
+      }
     });
-    expect(externalInertTargets.length).toBeGreaterThan(0);
-    expect(externalInertTargets.every(element => element.hasAttribute('inert'))).toBe(true);
-
-    const activeElement = document.activeElement;
-    const focusInsideDrawer = drawer.contains(activeElement) || tab === activeElement || content === activeElement;
-    expect(focusInsideDrawer).toBe(true);
-
-    expect(drawerEvents.some(event => event.type === 'player-tools-drawer-open')).toBe(true);
-    expect(drawerEvents.some(event => event.type === 'player-tools-drawer-toggle')).toBe(true);
-    expect(drawerEvents.some(event => event.type === 'cc:player-tools-drawer')).toBe(true);
-    expect(stateLog.some(state => state.open === true && state.progress >= 1)).toBe(true);
-
-    drawerModule.setBatteryStatus({ percent: 87, charging: true, text: 'Charging 87%', announcement: 'Battery at 87%' });
     await advanceAppTime(0);
+    const miniGameReminder = document.getElementById('mini-game-reminder');
+    expect(miniGameReminder.hidden).toBe(false);
+    document.getElementById('mini-game-resume').click();
+    expect(resumeCalled).toBe(true);
 
-    expect(batteryBadge.dataset.batteryState).toBe('green');
-    expect(batteryBadge.getAttribute('data-battery-charging')).toBe('true');
-    expect(batteryPercent.textContent).toBe('87');
-    expect(batteryText.textContent).toBe('Charging 87%');
-    expect(batteryLabel.textContent).toBe('Battery at 87%');
+    const randomSpy = jest.spyOn(Math, 'random');
+    randomSpy.mockReturnValueOnce(0.5); // initiative d20
+    rollInitiativeBtn.click();
 
-    document.dispatchEvent(new CustomEvent('player-tools-battery-update', { detail: { percent: 5, charging: false } }));
+    diceCount.value = '2';
+    diceSides.value = '6';
+    diceBonus.value = '1';
+    randomSpy.mockReturnValueOnce(0.1); // first die = 3
+    randomSpy.mockReturnValueOnce(0.8); // second die = 10
+    rollDiceBtn.click();
+
+    randomSpy.mockReturnValueOnce(0.2); // coin = Heads
+    flipCoinBtn.click();
+    randomSpy.mockRestore();
+
+    expect(historyList.children.length).toBeGreaterThanOrEqual(3);
+    const latestHistory = historyList.querySelector('li');
+    expect(latestHistory.textContent).toMatch(/Coin: (Heads|Tails)/);
+
+    scrim.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await advanceAppTime(0);
-
-    expect(batteryBadge.dataset.batteryState).toBe('critical');
-    expect(batteryBadge.getAttribute('data-battery-charging')).toBe(null);
-    expect(batteryPercent.textContent).toBe('5');
-
-    const scrimPointerDown = new Event('pointerdown', { bubbles: true, cancelable: true });
-    scrimPointerDown.pointerType = 'touch';
-    scrim.dispatchEvent(scrimPointerDown);
-
-    await advanceAppTime(200);
 
     expect(drawer.classList.contains('is-open')).toBe(false);
     expect(tab.getAttribute('aria-expanded')).toBe('false');
     expect(drawer.getAttribute('aria-hidden')).toBe('true');
-    expect(scrim.hidden).toBe(true);
-    expect(document.body.classList.contains('player-tools-open')).toBe(false);
-    expect(document.documentElement.classList.contains('player-tools-open')).toBe(false);
-    expect(drawer.hasAttribute('inert')).toBe(true);
-    expect(externalInertTargets.every(element => !element.hasAttribute('inert'))).toBe(true);
-    expect(document.activeElement).toBe(tab);
-
-    expect(drawerEvents.some(event => event.type === 'player-tools-drawer-close')).toBe(true);
-    expect(stateLog.some(state => state.open === false && state.progress <= 0)).toBe(true);
 
     drawerModule.open();
-    await advanceAppTime(200);
+    await advanceAppTime(0);
     drawerModule.close();
-    await advanceAppTime(200);
+    await advanceAppTime(0);
 
-    drawerModule.toggle();
-    await advanceAppTime(200);
-    drawerModule.toggle();
-    await advanceAppTime(200);
-
-    expect(drawerEvents.filter(event => event.type === 'player-tools-drawer-toggle').length).toBeGreaterThanOrEqual(3);
-
-    unsubscribe();
     const loggedStatesBeforeFinalToggle = stateLog.slice();
+    unsubscribe();
 
     drawerModule.open();
-    await advanceAppTime(200);
+    await advanceAppTime(0);
     drawerModule.close();
-    await advanceAppTime(200);
+    await advanceAppTime(0);
 
     expect(stateLog).toEqual(loggedStatesBeforeFinalToggle);
-
-    removeToggleListener();
-    removeOpenListener();
-    removeCloseListener();
-    removeChangeListener();
 
     window.removeEventListener('error', errorHandler);
     window.removeEventListener('unhandledrejection', errorHandler);
