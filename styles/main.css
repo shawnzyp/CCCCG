@@ -8532,7 +8532,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
     margin-inline-end: 0;
   }
 }
-/* Player Tools tray */
+/* Player Tools tray trigger */
 .player-tools-tab {
   position: fixed;
   right: 1rem;
@@ -8562,6 +8562,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   font-weight: 600;
 }
 
+/* Drawer chrome */
 .player-tools-drawer {
   position: fixed;
   inset: 0;
@@ -8607,11 +8608,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   justify-content: center;
 }
 
+/* Faux phone shell */
 .player-tools-phone {
   position: relative;
   width: 320px;
   height: 640px;
-  background-image: url('images/phone.png');
+  background-image: url("images/player-tools-phone-shell.png");
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
@@ -8639,17 +8641,17 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   box-shadow:
     inset 0 0 0 1px rgba(0, 229, 255, 0.3),
     0 0 25px rgba(0, 229, 255, 0.5);
-  overflow: hidden;
   padding: 0.4rem 0.45rem 0.5rem;
   display: flex;
   flex-direction: column;
 }
 
+/* Status bar */
 .phone-status-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
   font-size: 0.65rem;
   color: #c7f7ff;
   opacity: 0.9;
@@ -8660,6 +8662,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   margin-left: 0.25rem;
 }
 
+/* Header chip */
 .phone-chip {
   align-self: center;
   font-size: 0.7rem;
@@ -8674,6 +8677,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   margin-bottom: 0.35rem;
 }
 
+/* Scrollable tools viewport */
 .player-tools-phone__viewport {
   margin-top: 0.3rem;
   flex: 1 1 auto;
@@ -8697,6 +8701,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   border-radius: 999px;
 }
 
+/* Generic tool card */
 .tool-card {
   border-radius: 12px;
   background: linear-gradient(145deg, rgba(10, 25, 40, 0.95), rgba(3, 8, 18, 0.98));
@@ -8749,6 +8754,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   overflow-y: auto;
 }
 
+/* Fields */
 .tool-field {
   display: flex;
   flex-direction: column;
@@ -8769,6 +8775,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   color: #e5f9ff;
 }
 
+/* Buttons */
 .btn {
   font-size: 0.75rem;
   padding: 0.3rem 0.5rem;
@@ -8799,6 +8806,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   border-color: rgba(0, 229, 255, 0.4);
 }
 
+/* Reminders */
 .player-tools-reminder {
   border-radius: 12px;
   border: 1px solid rgba(0, 229, 255, 0.4);
@@ -8870,6 +8878,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   cursor: pointer;
 }
 
+/* History list */
 .toast-history-list {
   list-style: none;
   margin: 0;
@@ -8899,3 +8908,4 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
     bottom: 1rem;
   }
 }
+

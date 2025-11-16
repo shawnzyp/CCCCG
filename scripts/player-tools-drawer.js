@@ -24,32 +24,35 @@ const createDrawerChangeEvent = (detail) => {
   }
   try {
     return new CustomEventCtor(DRAWER_CHANGE_EVENT, { detail });
-  } catch (err) {
+  } catch {
     return { type: DRAWER_CHANGE_EVENT, detail };
   }
 };
 
 const dispatchChange = (detail) => {
+  // Notify JS subscribers
   changeListeners.forEach((listener) => {
     try {
       listener(detail);
-    } catch (err) {
-      /* swallow listener errors */
+    } catch {
+      // swallow listener errors
     }
   });
 
+  // Fire DOM event for any existing listeners
   const doc = getDocument();
   if (!doc || typeof doc.dispatchEvent !== 'function') return;
 
+  const event = createDrawerChangeEvent(detail);
   try {
-    doc.dispatchEvent(createDrawerChangeEvent(detail));
-  } catch (err) {
+    doc.dispatchEvent(event);
+  } catch {
     const fallback = doc[`on${DRAWER_CHANGE_EVENT}`];
     if (typeof fallback === 'function') {
       try {
-        fallback.call(doc, { type: DRAWER_CHANGE_EVENT, detail });
-      } catch (handlerErr) {
-        /* ignore handler failures */
+        fallback.call(doc, event);
+      } catch {
+        // ignore
       }
     }
   }
@@ -58,7 +61,22 @@ const dispatchChange = (detail) => {
 function createPlayerToolsDrawer() {
   const doc = getDocument();
   if (!doc) {
-    return null;
+    return {
+      open() {},
+      close() {},
+      toggle() {},
+      subscribe(listener) {
+        if (typeof listener === 'function') {
+          listener({ open: false, progress: 0 });
+        }
+        return () => {};
+      },
+      setLevelRewardReminder() {},
+      clearLevelRewardReminder() {},
+      setMiniGameReminder() {},
+      clearMiniGameReminder() {},
+      addHistoryEntry() {}
+    };
   }
 
   const drawer = doc.getElementById('player-tools-drawer');
@@ -85,25 +103,31 @@ function createPlayerToolsDrawer() {
 
   const scrim = drawer.querySelector('[data-player-tools-scrim]');
   const clockEl = drawer.querySelector('[data-player-tools-clock]');
+
   const initiativeBonusInput = doc.getElementById('initiative-bonus');
   const initiativeResultEl = doc.getElementById('initiative-roll-result');
   const rollInitiativeBtn = doc.getElementById('roll-initiative-btn');
+
   const diceCountInput = doc.getElementById('dice-count');
   const diceSidesInput = doc.getElementById('dice-sides');
   const diceBonusInput = doc.getElementById('dice-bonus');
   const rollDiceBtn = doc.getElementById('roll-dice-btn');
   const diceOutEl = doc.getElementById('dice-out');
+
   const flipCoinBtn = doc.getElementById('flip-coin-btn');
   const coinResultEl = doc.getElementById('coin-result');
+
   const levelRewardTrigger = doc.getElementById('level-reward-reminder-trigger');
   const levelRewardInfo = doc.getElementById('level-reward-info-trigger');
   const levelRewardText = doc.getElementById('level-reward-reminder-text');
   const levelRewardCount = doc.getElementById('level-reward-count');
+
   const miniGameReminder = doc.getElementById('mini-game-reminder');
   const miniGameName = doc.getElementById('mini-game-name');
   const miniGameStatus = doc.getElementById('mini-game-status');
   const miniGameMeta = doc.getElementById('mini-game-meta');
   const miniGameResume = doc.getElementById('mini-game-resume');
+
   const toastHistoryList = doc.getElementById('toast-history-list');
 
   let isOpen = false;
@@ -117,14 +141,17 @@ function createPlayerToolsDrawer() {
   const setDrawerOpen = (open) => {
     const next = typeof open === 'boolean' ? open : !isOpen;
     if (next === isOpen) return;
+
     isOpen = next;
     drawer.classList.toggle('is-open', isOpen);
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
     notifyState();
   };
 
   tab.addEventListener('click', () => setDrawerOpen(!isOpen));
+
   if (scrim) {
     scrim.addEventListener('click', () => setDrawerOpen(false));
   }
@@ -132,6 +159,7 @@ function createPlayerToolsDrawer() {
   doc.addEventListener('keydown', (event) => {
     if (!isOpen) return;
     if (event.key === 'Escape') {
+      event.preventDefault();
       setDrawerOpen(false);
     }
   });
@@ -146,42 +174,58 @@ function createPlayerToolsDrawer() {
   };
 
   updateClock();
-  setInterval(updateClock, 30000);
+  if (typeof setInterval === 'function') {
+    setInterval(updateClock, 30000);
+  }
 
-  const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+  const randomInt = (min, max) =>
+    Math.floor(Math.random() * (max - min + 1)) + min;
 
   const addHistoryEntry = (label, detail) => {
     if (!toastHistoryList) return;
     const li = doc.createElement('li');
+
     const timeSpan = doc.createElement('span');
     timeSpan.className = 'toast-history-list__time';
+
     const now = new Date();
     const h = now.getHours().toString().padStart(2, '0');
     const m = now.getMinutes().toString().padStart(2, '0');
     timeSpan.textContent = `[${h}:${m}]`;
+
     const textSpan = doc.createElement('span');
     textSpan.textContent = ` ${label}: ${detail}`;
+
     li.appendChild(timeSpan);
     li.appendChild(textSpan);
-    toastHistoryList.insertBefore(li, toastHistoryList.firstChild);
+
+    const first = toastHistoryList.firstElementChild;
+    toastHistoryList.insertBefore(li, first || null);
   };
 
   const rollInitiative = () => {
     if (!initiativeBonusInput || !initiativeResultEl) return;
-    const bonus = parseInt(initiativeBonusInput.value || '0', 10);
+    const bonus = parseInt(initiativeBonusInput.value || '0', 10) || 0;
     const die = randomInt(1, 20);
     const total = die + bonus;
-    initiativeResultEl.textContent = `${total} (${die}${bonus >= 0 ? '+' : ''}${bonus})`;
-    addHistoryEntry('Initiative', `d20=${die} bonus=${bonus} total=${total}`);
+
+    const bonusText = bonus === 0 ? '' : (bonus > 0 ? `+${bonus}` : `${bonus}`);
+    initiativeResultEl.textContent = `${total} (${die}${bonusText ? ` ${bonusText}` : ''})`;
+
+    addHistoryEntry('Initiative', `d20=${die}, bonus=${bonus}, total=${total}`);
   };
 
-  rollInitiativeBtn?.addEventListener('click', rollInitiative);
+  if (rollInitiativeBtn) {
+    rollInitiativeBtn.addEventListener('click', rollInitiative);
+  }
 
   const rollDice = () => {
     if (!diceCountInput || !diceSidesInput || !diceOutEl) return;
-    const count = Math.max(1, parseInt(diceCountInput.value || '1', 10));
-    const sides = Math.max(2, parseInt(diceSidesInput.value || '20', 10));
-    const bonus = diceBonusInput ? parseInt(diceBonusInput.value || '0', 10) : 0;
+
+    const count = Math.max(1, parseInt(diceCountInput.value || '1', 10) || 1);
+    const sides = Math.max(2, parseInt(diceSidesInput.value || '20', 10) || 20);
+    const bonus = diceBonusInput ? (parseInt(diceBonusInput.value || '0', 10) || 0) : 0;
+
     const rolls = [];
     let sum = 0;
     for (let i = 0; i < count; i += 1) {
@@ -189,14 +233,18 @@ function createPlayerToolsDrawer() {
       rolls.push(roll);
       sum += roll;
     }
+
     const total = sum + bonus;
-    const bonusText = bonus !== 0 ? (bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`) : '';
-    const result = `${total} = [${rolls.join(', ')}]${bonusText}`;
-    diceOutEl.textContent = result;
-    addHistoryEntry(`Roll ${count}d${sides}`, result);
+    const bonusText = bonus === 0 ? '' : (bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`);
+    const detail = `${total} = [${rolls.join(', ')}]${bonusText}`;
+
+    diceOutEl.textContent = detail;
+    addHistoryEntry(`Roll ${count}d${sides}`, detail);
   };
 
-  rollDiceBtn?.addEventListener('click', rollDice);
+  if (rollDiceBtn) {
+    rollDiceBtn.addEventListener('click', rollDice);
+  }
 
   const flipCoin = () => {
     if (!coinResultEl) return;
@@ -205,11 +253,14 @@ function createPlayerToolsDrawer() {
     addHistoryEntry('Coin', result);
   };
 
-  flipCoinBtn?.addEventListener('click', flipCoin);
+  if (flipCoinBtn) {
+    flipCoinBtn.addEventListener('click', flipCoin);
+  }
 
   const setLevelRewardReminder = (count, text) => {
     if (!levelRewardTrigger || !levelRewardText || !levelRewardCount) return;
-    const numeric = parseInt(count || '0', 10);
+
+    const numeric = parseInt(count || '0', 10) || 0;
     if (numeric <= 0) {
       levelRewardTrigger.disabled = true;
       levelRewardText.textContent = 'No pending rewards';
@@ -217,34 +268,44 @@ function createPlayerToolsDrawer() {
       levelRewardCount.textContent = '0';
       return;
     }
+
     levelRewardTrigger.disabled = false;
     levelRewardText.textContent = text || 'Rewards ready';
     levelRewardCount.hidden = false;
     levelRewardCount.textContent = String(numeric);
   };
 
-  const clearLevelRewardReminder = () => setLevelRewardReminder(0);
+  const clearLevelRewardReminder = () => {
+    setLevelRewardReminder(0);
+  };
 
-  levelRewardTrigger?.addEventListener('click', () => {
-    addHistoryEntry('Level rewards', 'Player opened reward reminder');
-  });
+  if (levelRewardTrigger) {
+    levelRewardTrigger.addEventListener('click', () => {
+      addHistoryEntry('Level rewards', 'Player opened level reward reminder');
+    });
+  }
 
-  levelRewardInfo?.addEventListener('click', () => {
-    addHistoryEntry('Info', 'Level rewards reminder info viewed');
-    if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-      window.alert('When your character hits a new level, this will light up with rewards to apply.');
-    }
-  });
+  if (levelRewardInfo) {
+    levelRewardInfo.addEventListener('click', () => {
+      addHistoryEntry('Info', 'Level reward reminder info viewed');
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert('When your character hits a new level, this reminder lets you apply level-up rewards.');
+      }
+    });
+  }
 
   const setMiniGameReminder = (options = {}) => {
     if (!miniGameReminder || !miniGameName || !miniGameStatus || !miniGameResume) return;
-    const name = options.name || 'Mini game';
+
+    const name = options.name || 'Mini game mission';
     const status = options.status || 'Pending';
     const meta = options.meta || '';
+
     miniGameName.textContent = name;
     miniGameStatus.textContent = `Status: ${status}`;
+
     if (miniGameMeta) {
-      if (meta && meta.trim().length > 0) {
+      if (meta && meta.trim()) {
         miniGameMeta.hidden = false;
         miniGameMeta.textContent = meta;
       } else {
@@ -252,6 +313,7 @@ function createPlayerToolsDrawer() {
         miniGameMeta.textContent = '';
       }
     }
+
     miniGameResumeHandler = typeof options.onResume === 'function' ? options.onResume : null;
     miniGameReminder.hidden = false;
   };
@@ -259,7 +321,7 @@ function createPlayerToolsDrawer() {
   const clearMiniGameReminder = () => {
     if (!miniGameReminder || !miniGameName || !miniGameStatus) return;
     miniGameReminder.hidden = true;
-    miniGameName.textContent = 'Mini game';
+    miniGameName.textContent = 'Mini game mission';
     miniGameStatus.textContent = 'Status: Pending';
     if (miniGameMeta) {
       miniGameMeta.hidden = true;
@@ -268,21 +330,24 @@ function createPlayerToolsDrawer() {
     miniGameResumeHandler = null;
   };
 
-  miniGameResume?.addEventListener('click', () => {
-    addHistoryEntry('Mini game', 'Resume tapped');
-    if (typeof miniGameResumeHandler === 'function') {
-      try {
-        miniGameResumeHandler();
-      } catch (err) {
-        /* ignore resume errors */
+  if (miniGameResume) {
+    miniGameResume.addEventListener('click', () => {
+      addHistoryEntry('Mini game', 'Resume pressed');
+      if (typeof miniGameResumeHandler === 'function') {
+        try {
+          miniGameResumeHandler();
+        } catch {
+          // ignore
+        }
       }
-    }
-  });
+    });
+  }
 
   const subscribe = (listener) => {
     if (typeof listener !== 'function') {
       return () => {};
     }
+    // immediate snapshot
     listener({ open: isOpen, progress: isOpen ? 1 : 0 });
     changeListeners.add(listener);
     return () => {
@@ -290,22 +355,11 @@ function createPlayerToolsDrawer() {
     };
   };
 
-  const api = {
-    open: () => setDrawerOpen(true),
-    close: () => setDrawerOpen(false),
-    toggle: () => setDrawerOpen(),
-    subscribe,
-    setBatteryStatus() {},
-    setLevelRewardReminder,
-    clearLevelRewardReminder,
-    setMiniGameReminder,
-    clearMiniGameReminder,
-    addHistoryEntry
-  };
-
+  // Global API for tests and app code
   const exposeApi = () => {
     const globalTarget = typeof window !== 'undefined' ? window : globalThis;
     if (!globalTarget) return;
+
     globalTarget.PlayerTools = {
       setLevelRewardReminder,
       clearLevelRewardReminder,
@@ -320,7 +374,19 @@ function createPlayerToolsDrawer() {
   exposeApi();
   notifyState();
 
-  return api;
+  return {
+    open: () => setDrawerOpen(true),
+    close: () => setDrawerOpen(false),
+    toggle: () => setDrawerOpen(),
+    subscribe,
+    // left as a no-op so other code can safely call it
+    setBatteryStatus() {},
+    setLevelRewardReminder,
+    clearLevelRewardReminder,
+    setMiniGameReminder,
+    clearMiniGameReminder,
+    addHistoryEntry
+  };
 }
 
 export function initializePlayerToolsDrawer() {
@@ -332,17 +398,17 @@ export function initializePlayerToolsDrawer() {
 
 export const open = () => {
   const controller = initializePlayerToolsDrawer();
-  controller?.open();
+  controller && controller.open();
 };
 
 export const close = () => {
   const controller = initializePlayerToolsDrawer();
-  controller?.close();
+  controller && controller.close();
 };
 
 export const toggle = () => {
   const controller = initializePlayerToolsDrawer();
-  controller?.toggle();
+  controller && controller.toggle();
 };
 
 export const setBatteryStatus = (detail) => {
@@ -371,19 +437,27 @@ export const onDrawerChange = (listener) => {
   initializePlayerToolsDrawer();
 
   const handler = (event) => {
-    const detail = event?.detail;
+    const detail = event && event.detail;
     if (detail && typeof detail.open === 'boolean') {
-      listener({ open: detail.open, progress: detail.open ? 1 : 0 });
+      const progress = typeof detail.progress === 'number' ? detail.progress : (detail.open ? 1 : 0);
+      listener({ open: detail.open, progress });
     }
   };
 
   const doc = getDocument();
   if (doc && typeof doc.addEventListener === 'function') {
     doc.addEventListener(DRAWER_CHANGE_EVENT, handler);
-    return () => doc.removeEventListener(DRAWER_CHANGE_EVENT, handler);
   }
 
-  return () => {};
+  // fire a snapshot
+  listener({ open: false, progress: 0 });
+
+  return () => {
+    if (doc && typeof doc.removeEventListener === 'function') {
+      doc.removeEventListener(DRAWER_CHANGE_EVENT, handler);
+    }
+  };
 };
 
+// Ensure auto-init when module loads
 initializePlayerToolsDrawer();
