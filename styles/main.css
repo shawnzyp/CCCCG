@@ -8310,47 +8310,34 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-status__text {
   font-size: inherit;
 }
+/* Player Tools tab button */
 .player-tools-tab {
-  --player-tools-tab-size: clamp(50px, 8.4vw, 64px);
-  --player-tools-tab-height: clamp(92px, 18.5vw, 124px);
-  --player-tools-tab-safe-area: max(env(safe-area-inset-left, 0px), 0px);
   position: fixed;
-  top: calc(var(--player-tools-tab-top, 50vh));
-  left: calc(
-    var(--player-tools-tab-safe-area) +
-      (var(--player-tools-left-gutter) + var(--player-tools-tray-inline-gap) - var(--player-tools-tab-safe-area)) *
-        var(--player-tools-open-progress, 0)
-  );
-  transform: translate3d(calc(var(--player-tools-tab-offset, 0px) * var(--player-tools-open-progress, 0)), 0, 0)
-    translateY(-50%);
-  transition:
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    border-color var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  inline-size: var(--player-tools-tab-size);
-  block-size: var(--player-tools-tab-height);
-  border-radius: 0 calc(var(--player-tools-glass-radius, 30px) * 0.9) calc(var(--player-tools-glass-radius, 30px) * 0.9) 0;
-  border: 1px solid rgba(120, 180, 255, 0.32);
-  background: linear-gradient(160deg, rgba(33, 47, 71, 0.75), rgba(15, 20, 33, 0.88));
-  color: var(--text, rgba(242, 244, 255, 0.92));
-  box-shadow:
-    0 14px 38px rgba(3, 6, 12, calc(0.52 + 0.24 * var(--player-tools-open-progress, 0))),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  display: flex;
+  left: 1rem;
+  right: auto;
+  bottom: 1.5rem;
+  z-index: 1500;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: clamp(2px, 0.6vw, 6px);
+  gap: 0.35rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  background: radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.35), rgba(0, 0, 0, 0.85));
+  color: #e5f9ff;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-  z-index: calc(var(--drawer-z, 1200) + 1);
-  pointer-events: auto;
-  backdrop-filter: blur(calc(10px + 6px * var(--player-tools-open-progress, 0))) saturate(160%);
-  overflow: hidden;
-  opacity: 0.25;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
-.player-tools-tab[aria-expanded='true'] {
-  opacity: 1;
+/* When the drawer is open we hide the Tools tab */
+.player-tools-tab[aria-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-10px);
 }
 
 .player-tools-tab[data-player-credit='pending'],
@@ -8567,13 +8554,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-drawer {
   position: fixed;
   inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
-  transform: none;
-  background: transparent;
   z-index: 1400;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: stretch;
   pointer-events: none;
   opacity: 0;
@@ -8598,7 +8581,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   justify-content: center;
   align-items: center;
   padding: 1.25rem 1rem;
-  transform: translateX(100%);
+  transform: translateX(-100%);
   transition: transform 0.25s ease;
 }
 
@@ -8613,32 +8596,25 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   justify-content: center;
 }
 
-/* Faux phone shell */
+/* Phone shell: width controls everything, height comes from image ratio */
 .player-tools-phone {
   position: relative;
-
-  /* Maintain the phone’s native aspect ratio and avoid distortion */
-  width: min(320px, 100%);
-  aspect-ratio: 320 / 640;
-  height: auto;
-
-  background-image: url("images/player-tools-phone-shell.png");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-
-  filter: drop-shadow(0 0 25px rgba(0, 229, 255, 0.8));
+  width: min(360px, 90vw);
 }
 
+/* phone.png preserves its natural aspect ratio */
+.player-tools-phone__shell {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Screen area anchored inside the shell image */
 .player-tools-phone__screen {
   position: absolute;
-
-  /* Proportional to the phone’s size so the contents stay inside the PNG screen */
-  inset: 11.25% 8.125% 12.5% 8.125%;
-
+  inset: 10% 8% 7% 8%;
   display: flex;
   align-items: stretch;
-  justify-content: stretch;
 }
 
 .player-tools-phone__screen-inner {
@@ -8699,6 +8675,25 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+.phone-gesture-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 0.35rem;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 4px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+}
+
+.phone-gesture-bar::after {
+  content: '';
+  position: absolute;
+  inset: -6px -10px;
 }
 
 .player-tools-phone__viewport::-webkit-scrollbar {
@@ -8917,7 +8912,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 @media (max-width: 480px) {
   .player-tools-tab {
-    right: 0.75rem;
+    left: 0.75rem;
     bottom: 1rem;
   }
 }

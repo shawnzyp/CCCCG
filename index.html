@@ -3097,6 +3097,14 @@
   <div class="player-tools-drawer__shell">
     <div class="player-tools-drawer__inner">
       <div class="player-tools-phone" data-player-tools-phone>
+        <!-- Shell image keeps the correct aspect ratio -->
+        <img
+          src="images/phone.png"
+          alt=""
+          class="player-tools-phone__shell"
+        />
+
+        <!-- Screen content sits on top of the shell -->
         <div class="player-tools-phone__screen">
           <div class="player-tools-phone__screen-inner">
             <!-- Status bar -->
@@ -3114,7 +3122,7 @@
               Player Tools · Session
             </div>
 
-            <!-- Viewport -->
+            <!-- Viewport with tools -->
             <div class="player-tools-phone__viewport" aria-label="Player tools">
 
               <!-- Level reward reminder -->
@@ -3308,6 +3316,14 @@
               </section>
 
             </div>
+
+            <!-- Bottom gesture bar to close tools -->
+            <button
+              type="button"
+              id="player-tools-close-gesture"
+              class="phone-gesture-bar"
+              aria-label="Close player tools"
+            ></button>
           </div>
         </div>
       </div>
