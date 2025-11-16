@@ -8228,3 +8228,119 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-drawer.is-open .player-tools-drawer__shell {
   transform: translateX(0);
 }
+
+/* === Player Tools: hard reset old drawer behavior === */
+
+.player-tools-drawer {
+  /* Kill old transform-based sliding */
+  transform: none !important;
+  left: 0 !important;
+  right: auto !important;
+
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+
+  display: flex;
+  justify-content: flex-start;  /* phone on the LEFT */
+  align-items: stretch;
+
+  pointer-events: none;
+  background: transparent;      /* no global background behind phone */
+}
+
+/* Scrim: keep it clickable, but invisible so you don't see a halo */
+.player-tools-drawer__scrim {
+  flex: 1 1 auto;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+/* Shell: just holds the phone, no card background */
+.player-tools-drawer__shell {
+  flex: 0 0 auto;
+  width: min(380px, 90vw);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 0;                  /* no big padded box around it */
+  background: transparent;
+  box-shadow: none;
+
+  transform: translateX(-100%);  /* fully off-screen to LEFT */
+  transition: transform 0.25s ease;
+}
+
+/* Only slide into view when drawer has is-open */
+.player-tools-drawer.is-open {
+  pointer-events: auto;
+}
+
+.player-tools-drawer.is-open .player-tools-drawer__shell {
+  transform: translateX(0);
+}
+
+/* === Tab button: bigger and on the left edge === */
+
+.player-tools-tab {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translate(-40%, -50%);
+  z-index: 9999;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 229, 255, 0.7);
+  background: radial-gradient(circle at 30% 0, rgba(0, 229, 255, 0.45), rgba(0, 0, 0, 0.9));
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.7);
+
+  cursor: pointer;
+}
+
+.player-tools-tab__icon img {
+  display: block;
+  width: 40px;   /* bumped up so the icon looks right */
+  height: auto;
+}
+
+/* Hide tab when drawer is open (JS sets aria-hidden) */
+.player-tools-tab[aria-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-40%, -50%) translateX(-8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+/* === Phone shell: use phone.png, contents must fit inside === */
+
+.player-tools-phone {
+  position: relative;
+  width: 320px;      /* adjust if your phone asset needs it */
+  height: 640px;
+
+  background-image: url("images/phone.png"); /* adjust path if needed */
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+
+  /* remove any old gradients */
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* Screen area clipped inside the phone.png frame */
+.player-tools-phone__screen {
+  position: absolute;
+  /* tweak these in devtools to line up with your phone PNG’s screen window */
+  inset: 72px 22px 84px 22px;
+
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}

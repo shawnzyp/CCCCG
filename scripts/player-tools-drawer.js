@@ -101,6 +101,7 @@ function createPlayerToolsDrawer() {
     };
   }
 
+  const scrim = drawer.querySelector('[data-player-tools-scrim]');
   const closeGesture = doc.getElementById('player-tools-close-gesture');
   const clockEl = drawer.querySelector('[data-player-tools-clock]');
 
@@ -133,6 +134,15 @@ function createPlayerToolsDrawer() {
   let isOpen = false;
   let miniGameResumeHandler = null;
 
+  // ---- NEW: force a consistent starting state ----
+  drawer.classList.remove('is-open');
+  drawer.setAttribute('aria-hidden', 'true');
+  drawer.style.visibility = 'hidden';
+
+  tab.setAttribute('aria-expanded', 'false');
+  tab.removeAttribute('aria-hidden');
+  // -----------------------------------------------
+
   const notifyState = () => {
     const detail = { open: isOpen, progress: isOpen ? 1 : 0 };
     dispatchChange(detail);
@@ -145,6 +155,7 @@ function createPlayerToolsDrawer() {
     isOpen = next;
     drawer.classList.toggle('is-open', isOpen);
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    drawer.style.visibility = isOpen ? 'visible' : 'hidden';
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 
@@ -153,7 +164,10 @@ function createPlayerToolsDrawer() {
 
   tab.addEventListener('click', () => setDrawerOpen(!isOpen));
 
-  // Scrim is visual only; closing is handled by the gesture bar.
+  if (scrim) {
+    scrim.addEventListener('click', () => setDrawerOpen(false));
+  }
+
   if (closeGesture) {
     closeGesture.addEventListener('click', () => setDrawerOpen(false));
   }
