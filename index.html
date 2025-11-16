@@ -3071,6 +3071,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
+<!-- Player Tools tab button -->
 <button
   id="player-tools-tab"
   class="player-tools-tab"
@@ -3079,256 +3080,241 @@
   aria-expanded="false"
   aria-label="Toggle player tools drawer"
 >
-  <span class="player-tools-tab__icon" aria-hidden="true">
-    <img src="images/player-tools-icon.png" alt="" />
-  </span>
+  <span class="player-tools-tab__icon" aria-hidden="true">☰</span>
+  <span class="player-tools-tab__label">Tools</span>
 </button>
 
+<!-- Player Tools drawer -->
 <div
   id="player-tools-drawer"
   class="player-tools-drawer"
   role="complementary"
   aria-label="Player Tools"
-  tabindex="-1"
   aria-hidden="true"
 >
-  <div class="player-tools-drawer__scrim" hidden></div>
-  <div class="player-tools-drawer__inner">
-    <div class="player-tools-drawer__panel" aria-hidden="true">
-      <div class="player-tools-drawer__decor">
-        <div class="player-tools-drawer__beam player-tools-drawer__beam--primary"></div>
-        <div class="player-tools-drawer__beam player-tools-drawer__beam--accent"></div>
-        <div class="player-tools-drawer__glow"></div>
-      </div>
-    </div>
-    <div class="player-tools-drawer__content" data-player-tools-content tabindex="-1">
+  <div class="player-tools-drawer__scrim" data-player-tools-scrim></div>
+
+  <div class="player-tools-drawer__shell">
+    <div class="player-tools-drawer__inner">
       <div class="player-tools-phone" data-player-tools-phone>
         <div class="player-tools-phone__screen">
-          <div class="player-tools-phone__status-bar" role="presentation">
-            <div class="player-tools-phone__status-group player-tools-phone__status-group--left">
-              <time class="player-tools-phone__clock" data-player-tools-clock aria-live="polite">12:00</time>
-            </div>
-            <div class="player-tools-phone__status-group player-tools-phone__status-group--center" aria-hidden="true">
-              <span class="player-tools-phone__dynamic-island" aria-hidden="true">
-                <span class="player-tools-phone__microphone" aria-hidden="true"></span>
-                <span class="player-tools-phone__camera" aria-hidden="true"></span>
+          <div class="player-tools-phone__screen-inner">
+            <!-- Status bar -->
+            <div class="phone-status-bar">
+              <span class="phone-status-bar__time" data-player-tools-clock>9:41</span>
+              <span class="phone-status-bar__icons">
+                <span aria-hidden="true">📶</span>
+                <span aria-hidden="true">◉</span>
+                <span aria-hidden="true">🔋</span>
               </span>
             </div>
-            <div class="player-tools-phone__status-group player-tools-phone__status-group--right">
-              <span class="player-tools-status player-tools-status--signal" role="img" aria-label="Cell signal strong">
-                <span class="sr-only">Cell signal strong</span>
-                <span class="player-tools-status__icon player-tools-status__icon--signal" aria-hidden="true"></span>
-              </span>
-              <span class="player-tools-status player-tools-status--wifi" role="img" aria-label="Wi-Fi signal strong">
-                <span class="sr-only">Wi-Fi signal strong</span>
-                <span class="player-tools-status__icon player-tools-status__icon--wifi" aria-hidden="true"></span>
-              </span>
-              <span
-                class="player-tools-status player-tools-status--battery"
-                data-player-tools-battery
-                aria-live="polite"
-                role="status"
+
+            <!-- Header chip -->
+            <div class="phone-chip">
+              Player Tools · Session
+            </div>
+
+            <!-- Viewport -->
+            <div class="player-tools-phone__viewport" aria-label="Player tools">
+
+              <!-- Level reward reminder -->
+              <section
+                id="level-reward-reminder"
+                class="player-tools-reminder"
+                aria-label="Level reward reminder"
               >
-                <span class="sr-only" data-player-tools-battery-label>Battery status unavailable</span>
-                <span class="player-tools-status__icon player-tools-status__icon--battery" aria-hidden="true">
-                  <span class="player-tools-status__battery">
+                <div class="player-tools-reminder__body">
+                  <button
+                    type="button"
+                    id="level-reward-reminder-trigger"
+                    class="player-tools-reminder__trigger"
+                    aria-label="View level up rewards"
+                    disabled
+                  >
+                    <div class="player-tools-reminder__content">
+                      <span class="player-tools-reminder__title">Level Rewards</span>
+                      <span class="player-tools-reminder__subtitle">
+                        <span id="level-reward-reminder-text">No pending rewards</span>
+                      </span>
+                    </div>
                     <span
-                      class="player-tools-status__battery-level"
-                      data-player-tools-battery-fill
-                    ></span>
+                      id="level-reward-count"
+                      class="player-tools-reminder__badge"
+                      hidden
+                    >
+                      0
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    id="level-reward-info-trigger"
+                    class="player-tools-reminder__info"
+                    aria-label="How level reward reminders work"
+                  >
+                    ?
+                  </button>
+                </div>
+              </section>
+
+              <!-- Mini-game reminder -->
+              <section
+                id="mini-game-reminder"
+                class="player-tools-reminder player-tools-reminder--mini-game"
+                aria-label="Mini game reminder"
+                hidden
+              >
+                <div class="player-tools-reminder__body">
+                  <div class="player-tools-reminder__content">
+                    <span class="player-tools-reminder__title" id="mini-game-name">
+                      Mini game mission
+                    </span>
+                    <span class="player-tools-reminder__subtitle">
+                      <span id="mini-game-status">Status: Pending</span>
+                      <span id="mini-game-meta" hidden></span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    id="mini-game-resume"
+                    class="btn btn-sm"
+                    aria-label="Resume mini game"
+                  >
+                    Resume
+                  </button>
+                </div>
+              </section>
+
+              <!-- Initiative -->
+              <section class="tool-card" aria-label="Initiative roller">
+                <header class="tool-card__header">
+                  <h3 class="tool-card__title">Initiative</h3>
+                  <span class="tool-card__result-shell">
                     <span
-                      class="player-tools-status__battery-warning"
-                      data-player-tools-battery-warning
-                      aria-hidden="true"
-                    ></span>
+                      id="initiative-roll-result"
+                      class="tool-card__result"
+                      data-placeholder="Roll"
+                    >
+                      Roll
+                    </span>
                   </span>
-                </span>
-                <span class="player-tools-status__percent" data-player-tools-battery-percent aria-hidden="true">100</span>
-                <span class="player-tools-status__text sr-only" data-player-tools-battery-text>Unavailable</span>
-              </span>
+                </header>
+                <div class="tool-card__body">
+                  <div class="tool-field">
+                    <label for="initiative-bonus">Bonus</label>
+                    <input
+                      id="initiative-bonus"
+                      type="number"
+                      step="1"
+                      value="0"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    id="roll-initiative-btn"
+                    class="btn btn-primary btn-block"
+                  >
+                    Roll d20 for Initiative
+                  </button>
+                </div>
+              </section>
+
+              <!-- Dice roller -->
+              <section class="tool-card" aria-label="Dice roller">
+                <header class="tool-card__header">
+                  <h3 class="tool-card__title">Dice Roller</h3>
+                  <span class="tool-card__result-shell">
+                    <span
+                      id="dice-out"
+                      class="tool-card__result"
+                      data-placeholder="Result"
+                    >
+                      Result
+                    </span>
+                  </span>
+                </header>
+                <div class="tool-card__body tool-card__body--grid">
+                  <div class="tool-field">
+                    <label for="dice-count">Dice</label>
+                    <input
+                      id="dice-count"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value="1"
+                    />
+                  </div>
+                  <div class="tool-field">
+                    <label for="dice-sides">Sides</label>
+                    <input
+                      id="dice-sides"
+                      type="number"
+                      min="2"
+                      step="1"
+                      value="20"
+                    />
+                  </div>
+                  <div class="tool-field">
+                    <label for="dice-bonus">Bonus</label>
+                    <input
+                      id="dice-bonus"
+                      type="number"
+                      step="1"
+                      value="0"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    id="roll-dice-btn"
+                    class="btn btn-primary btn-block"
+                  >
+                    Roll
+                  </button>
+                </div>
+              </section>
+
+              <!-- Coin flip -->
+              <section class="tool-card" aria-label="Coin flip">
+                <header class="tool-card__header">
+                  <h3 class="tool-card__title">Coin Flip</h3>
+                  <span class="tool-card__result-shell">
+                    <span
+                      id="coin-result"
+                      class="tool-card__result"
+                      data-placeholder="Flip"
+                    >
+                      Flip
+                    </span>
+                  </span>
+                </header>
+                <div class="tool-card__body">
+                  <button
+                    type="button"
+                    id="flip-coin-btn"
+                    class="btn btn-secondary btn-block"
+                  >
+                    Flip Coin
+                  </button>
+                </div>
+              </section>
+
+              <!-- History -->
+              <section class="tool-card tool-card--history" aria-label="Roll history">
+                <header class="tool-card__header">
+                  <h3 class="tool-card__title">History</h3>
+                </header>
+                <div class="tool-card__body tool-card__body--history">
+                  <ul id="toast-history-list" class="toast-history-list"></ul>
+                </div>
+              </section>
+
             </div>
-          </div>
-          <div class="player-tools-phone__viewport">
-            <fieldset class="card card__glow roll-tools-card">
-              <legend data-animate-title>Player Tools</legend>
-              <div class="roll-tools">
-                <div class="player-tools-reminder" data-level-reward-reminder>
-                  <div class="player-tools-reminder__actions">
-                    <button
-                      type="button"
-                      id="level-reward-reminder-trigger"
-                      class="player-tools-reminder__trigger"
-                      hidden
-                      disabled
-                      aria-disabled="true"
-                      aria-controls="modal-level-rewards"
-                    >
-                      <span class="player-tools-reminder__content">
-                        <span class="player-tools-reminder__title">Rewards</span>
-                        <span class="player-tools-reminder__subtitle">Level-up reminders ready</span>
-                      </span>
-                      <span class="player-tools-reminder__badge" data-level-reward-count hidden>0</span>
-                    </button>
-                    <button
-                      type="button"
-                      id="level-reward-info-trigger"
-                      class="player-tools-reminder__info"
-                      data-tip="How rewards reminders work"
-                      aria-label="How rewards reminders work"
-                      hidden
-                    >
-                      <span class="player-tools-reminder__info-icon" aria-hidden="true">i</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="player-tools-reminder player-tools-reminder--mini-game" data-mini-game-reminder hidden>
-                  <div class="player-tools-reminder__actions">
-                    <div
-                      class="player-tools-reminder__trigger"
-                      data-mini-game-reminder-summary
-                      role="group"
-                      aria-live="polite"
-                    >
-                      <span class="player-tools-reminder__content">
-                        <span class="player-tools-reminder__title" data-mini-game-reminder-game>
-                          Mini-game mission
-                        </span>
-                        <span class="player-tools-reminder__subtitle">
-                          <span data-mini-game-reminder-status>Status: Pending</span>
-                          <span data-mini-game-reminder-meta hidden></span>
-                        </span>
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      class="btn-sm"
-                      data-mini-game-reminder-action
-                      aria-label="Resume mini-game mission"
-                    >
-                      Resume
-                    </button>
-                  </div>
-                </div>
-                <section class="roll-tool roll-tool--initiative">
-                  <header class="roll-tool__header">
-                    <h3 class="roll-tool__heading">Initiative</h3>
-                    <span class="dice-result__shell">
-                      <span id="initiative-roll-result" class="pill result dice-result__value" data-placeholder="Roll"></span>
-                    </span>
-                  </header>
-                  <div class="roll-tool__body">
-                    <div class="roll-tool__field">
-                      <label for="initiative">Bonus to Initiative</label>
-                      <input
-                        id="initiative"
-                        type="text"
-                        inputmode="numeric"
-                        pattern="[0-9]*"
-                        placeholder="auto from DEX + bonuses"
-                        readonly
-                      />
-                    </div>
-                    <div class="roll-tool__field">
-                      <label for="initiative-bonus">Bonus</label>
-                      <input
-                        id="initiative-bonus"
-                        type="number"
-                        inputmode="numeric"
-                        step="1"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div class="roll-tool__actions">
-                      <button type="button" id="roll-initiative" class="btn-sm" aria-label="Roll Initiative">Roll</button>
-                    </div>
-                  </div>
-                </section>
-                <section class="roll-tool roll-tool--dice">
-                  <header class="roll-tool__header">
-                    <h3 class="roll-tool__heading">Dice Roll</h3>
-                    <span class="dice-result__shell">
-                      <span class="pill result dice-result__value" id="dice-out" data-placeholder="000"></span>
-                    </span>
-                  </header>
-                  <div class="roll-tool__body">
-                    <ul id="dice-breakdown" class="dice-breakdown" aria-live="polite" hidden></ul>
-                    <div class="roll-tool__grid">
-                      <label class="roll-tool__field">
-                        <span class="roll-tool__label">Sides</span>
-                        <select id="dice-sides" data-view-allow>
-                          <option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option>
-                        </select>
-                      </label>
-                      <label class="roll-tool__field">
-                        <span class="roll-tool__label">Count</span>
-                        <input id="dice-count" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" min="1" value="1"/>
-                      </label>
-                      <label class="roll-tool__field">
-                        <span class="roll-tool__label">Roll mode</span>
-                        <select id="dice-mode" data-view-allow>
-                          <option value="normal" selected>Normal</option>
-                          <option value="advantage">Advantage</option>
-                          <option value="disadvantage">Disadvantage</option>
-                        </select>
-                      </label>
-                      <label class="roll-tool__field">
-                        <span class="roll-tool__label">Modifier</span>
-                        <input id="dice-mod" data-view-allow type="number" inputmode="numeric" step="1"/>
-                      </label>
-                    </div>
-                    <div class="roll-tool__actions">
-                      <button id="roll-dice" class="btn-sm">Roll</button>
-                    </div>
-                  </div>
-                </section>
-                <section class="roll-tool roll-tool--coin">
-                  <header class="roll-tool__header">
-                    <h3 class="roll-tool__heading">Coin Flip</h3>
-                    <span class="dice-result__shell">
-                      <span class="pill result dice-result__value" id="flip-out" data-placeholder="Heads"></span>
-                    </span>
-                  </header>
-                  <div class="roll-tool__body">
-                    <div class="roll-tool__actions">
-                      <button id="flip" class="btn-sm">Flip</button>
-                    </div>
-                  </div>
-                </section>
-                <section class="roll-tool roll-tool--toast-history" data-toast-history hidden>
-                  <header class="roll-tool__header toast-history__header">
-                    <h3 class="roll-tool__heading">Notifications</h3>
-                    <div class="toast-history__actions" data-toast-history-actions hidden>
-                      <span class="toast-history__badge" data-toast-history-unread hidden>0</span>
-                      <button
-                        type="button"
-                        class="btn-sm"
-                        data-toast-history-mark-read
-                        hidden
-                        aria-label="Mark notifications as read"
-                      >
-                        Mark read
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-sm"
-                        data-toast-history-clear
-                        hidden
-                        aria-label="Clear notifications"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </header>
-                  <div class="roll-tool__body">
-                    <ul class="toast-history__list" data-toast-history-list></ul>
-                  </div>
-                </section>
-              </div>
-            </fieldset>
           </div>
         </div>
       </div>
     </div>
+  </div>
+</div>
+
 <script type="module" src="scripts/polyfills.js"></script>
 <script type="module" src="scripts/crash-handler.js"></script>
 <script type="module" src="scripts/header-title.js"></script>
