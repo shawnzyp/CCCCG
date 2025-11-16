@@ -101,7 +101,7 @@ function createPlayerToolsDrawer() {
     };
   }
 
-  const scrim = drawer.querySelector('[data-player-tools-scrim]');
+  const closeGesture = doc.getElementById('player-tools-close-gesture');
   const clockEl = drawer.querySelector('[data-player-tools-clock]');
 
   const initiativeBonusInput = doc.getElementById('initiative-bonus');
@@ -146,14 +146,16 @@ function createPlayerToolsDrawer() {
     drawer.classList.toggle('is-open', isOpen);
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 
     notifyState();
   };
 
   tab.addEventListener('click', () => setDrawerOpen(!isOpen));
 
-  if (scrim) {
-    scrim.addEventListener('click', () => setDrawerOpen(false));
+  // Scrim is visual only; closing is handled by the gesture bar.
+  if (closeGesture) {
+    closeGesture.addEventListener('click', () => setDrawerOpen(false));
   }
 
   doc.addEventListener('keydown', (event) => {
