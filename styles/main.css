@@ -8511,7 +8511,8 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 @media (max-width: 600px) {
   .player-tools-drawer {
-    inline-size: min(max(360px, 96vw), 100vw);
+    inline-size: 100%;
+    block-size: 100%;
   }
 
   .player-tools-drawer__inner {
@@ -8566,6 +8567,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-drawer {
   position: fixed;
   inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  transform: none;
+  background: transparent;
   z-index: 1400;
   display: flex;
   justify-content: flex-end;
