@@ -4650,7 +4650,20 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 @media(max-width:540px){.somf-confirm{padding:18px}.somf-confirm__actions{flex-direction:column}.somf-confirm__cancel,.somf-confirm__accept{flex:1 1 auto;width:100%}}
 #modal-help{align-items:flex-start;overflow-y:auto}
 #modal-help .modal{max-height:none}
-#modal-welcome .modal{font-size:.85rem;line-height:1.4}
+#modal-welcome .modal{
+  font-size:.85rem;
+  line-height:1.4;
+  --welcome-modal-bg:color-mix(in srgb,var(--surface) 92%,rgba(5,8,22,.92));
+  background:var(--welcome-modal-bg);
+  border:1px solid color-mix(in srgb,var(--surface) 38%,transparent);
+  box-shadow:var(--modal-shadow-edge),var(--modal-shadow-ambient);
+  backdrop-filter:blur(24px) saturate(140%);
+  -webkit-backdrop-filter:blur(24px) saturate(140%);
+}
+.theme-light #modal-welcome .modal{
+  --welcome-modal-bg:color-mix(in srgb,#fff 94%,rgba(255,255,255,.88));
+  border-color:color-mix(in srgb,var(--surface) 48%,rgba(0,0,0,.15));
+}
 #modal-welcome{align-items:center;justify-content:center}
 #modal-welcome .actions{justify-content:center;width:100%;flex-wrap:nowrap;gap:var(--control-gap)}
 #modal-welcome .actions button{font-size:.8rem;padding:8px 12px;white-space:nowrap;flex:0 0 auto;text-align:center}
