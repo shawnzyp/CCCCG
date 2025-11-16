@@ -6620,71 +6620,6 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display:flex;
   gap:8px;
 }
-.player-tools-drawer,
-.player-tools-tab {
-  contain: layout style paint;
-}
-
-:root {
-  --drawer-width: clamp(480px, 62vw, 780px);
-  --drawer-z: 1200;
-  --drawer-slide-direction: -1;
-  --player-tools-transition-duration: 420ms;
-  --player-tools-transition-timing: cubic-bezier(0.18, 0.9, 0.2, 1);
-  --player-tools-open-progress: 0;
-  --player-tools-glass-radius: 30px;
-  --player-tools-left-gutter: max(env(safe-area-inset-left, 0px), clamp(0px, 1.2vw, 14px));
-  --player-tools-tray-inline-gap: clamp(0px, 0.35vw, 4px);
-  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-frame-padding: clamp(14px, 3.2vw, 22px);
-}
-@media(max-width:600px){
-  :root{
-    --player-tools-left-gutter:max(env(safe-area-inset-left,0px),4px);
-    --player-tools-tray-inline-gap:0px;
-  }
-}
-
-.player-tools-drawer {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  inline-size: min(var(--drawer-width, 360px), 100vw);
-  display: flex;
-  --player-tools-header-fill: color-mix(in srgb, var(--surface-2) 88%, var(--surface-3) 12%);
-  pointer-events: none;
-  background: transparent;
-  z-index: var(--drawer-z, 1200);
-  transform: translate3d(
-    calc((1 - var(--player-tools-open-progress, 0)) * 100% * var(--drawer-slide-direction, -1)),
-    0,
-    0
-  );
-  transition:
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  will-change: transform;
-}
-
-.player-tools-drawer.is-open {
-  pointer-events: auto;
-}
-
-.player-tools-drawer__scrim {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(120% 120% at 12% 12%, rgba(20, 26, 38, 0.72), rgba(5, 8, 12, 0.85));
-  opacity: calc(var(--player-tools-open-progress, 0) * 0.85);
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  pointer-events: none;
-}
-
-.player-tools-drawer.is-open .player-tools-drawer__scrim {
-  pointer-events: auto;
-}
-
 .player-tools-drawer__inner {
   position: relative;
   z-index: 1;
@@ -6696,95 +6631,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-}
-
-.player-tools-drawer__panel {
-  position: absolute;
-  top: clamp(14px, 4vw, 24px);
-  bottom: clamp(14px, 4vw, 24px);
-  right: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
-  left: max(env(safe-area-inset-left, 0px), var(--player-tools-left-gutter));
-  border-radius: calc(var(--player-tools-glass-radius, 30px) + 10px);
-  background: none;
-  box-shadow: none;
-  filter: none;
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -18px), 0, 0);
-  transition:
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    background var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  overflow: hidden;
-}
-
-.player-tools-drawer__decor {
+}.player-tools-drawer__decor {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   overflow: hidden;
-}
-
-.player-tools-drawer__beam {
-  position: absolute;
-  inline-size: 180%;
-  block-size: 45%;
-  top: -35%;
-  left: -28%;
-  background: radial-gradient(120% 120% at 50% 50%, rgba(130, 200, 255, 0.52), rgba(130, 200, 255, 0) 75%);
-  opacity: calc(0.16 + 0.34 * var(--player-tools-open-progress, 0));
-  transform: rotate(12deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * -26%), 0);
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__beam--accent {
-  top: auto;
-  bottom: -40%;
-  left: -18%;
-  inline-size: 160%;
-  block-size: 44%;
-  background: radial-gradient(120% 120% at 40% 50%, rgba(72, 214, 255, 0.45), rgba(72, 214, 255, 0) 75%);
-  transform: rotate(6deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * 24%), 0);
-}
-
-.player-tools-drawer__glow {
-  position: absolute;
-  inset: -22% -12% 32%;
-  background: radial-gradient(90% 70% at 42% 24%, rgba(120, 215, 255, 0.3), rgba(120, 215, 255, 0) 68%);
-  opacity: calc(0.12 + 0.32 * var(--player-tools-open-progress, 0));
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  mix-blend-mode: screen;
-}
-
-.player-tools-drawer__content {
-  position: relative;
-  inline-size: 100%;
-  block-size: 100%;
-  overflow: visible;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  padding-block: clamp(12px, 2.4vw, 20px);
-  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
-  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  border-radius: var(--player-tools-glass-radius, 30px);
-  background: none;
-  box-shadow: none;
-  backdrop-filter: none;
-  color: var(--text, rgba(242, 244, 255, 0.92));
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -12px), 0, 0);
-  opacity: calc(0.55 + 0.45 * var(--player-tools-open-progress, 0));
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__content::-webkit-scrollbar {
+}.player-tools-drawer__content::-webkit-scrollbar {
   display: none;
   width: 0;
   height: 0;
@@ -7190,61 +7042,6 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-status__text {
   font-size: inherit;
 }
-.player-tools-tab {
-  contain: layout style paint;
-}
-
-:root {
-  --drawer-width: clamp(320px, 42vw, 520px);
-  --drawer-z: 1200;
-  --drawer-slide-direction: -1;
-  --player-tools-transition-duration: 420ms;
-  --player-tools-transition-timing: cubic-bezier(0.18, 0.9, 0.2, 1);
-  --player-tools-open-progress: 0;
-  --player-tools-glass-radius: 30px;
-  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-frame-padding: clamp(12px, 3vw, 18px);
-}
-
-.player-tools-drawer {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  inline-size: min(var(--drawer-width, 360px), 100vw);
-  display: flex;
-  pointer-events: none;
-  background: transparent;
-  z-index: var(--drawer-z, 1200);
-  transform: translate3d(
-    calc((1 - var(--player-tools-open-progress, 0)) * 100% * var(--drawer-slide-direction, -1)),
-    0,
-    0
-  );
-  transition:
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  will-change: transform;
-}
-
-.player-tools-drawer.is-open {
-  pointer-events: auto;
-}
-
-.player-tools-drawer__scrim {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(120% 120% at 12% 12%, rgba(20, 26, 38, 0.72), rgba(5, 8, 12, 0.85));
-  opacity: calc(var(--player-tools-open-progress, 0) * 0.85);
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  pointer-events: none;
-}
-
-.player-tools-drawer.is-open .player-tools-drawer__scrim {
-  pointer-events: auto;
-}
-
 .player-tools-drawer__inner {
   position: relative;
   z-index: 1;
@@ -7256,90 +7053,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-}
-
-.player-tools-drawer__panel {
-  position: absolute;
-  inset: clamp(14px, 4vw, 24px) clamp(10px, 4vw, 18px);
-  border-radius: calc(var(--player-tools-glass-radius, 30px) + 10px);
-  background: none;
-  box-shadow: none;
-  filter: none;
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -18px), 0, 0);
-  transition:
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    background var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  overflow: hidden;
-}
-
-.player-tools-drawer__decor {
+}.player-tools-drawer__decor {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   overflow: hidden;
-}
-
-.player-tools-drawer__beam {
-  position: absolute;
-  inline-size: 180%;
-  block-size: 45%;
-  top: -35%;
-  left: -28%;
-  background: radial-gradient(120% 120% at 50% 50%, rgba(130, 200, 255, 0.52), rgba(130, 200, 255, 0) 75%);
-  opacity: calc(0.16 + 0.34 * var(--player-tools-open-progress, 0));
-  transform: rotate(12deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * -26%), 0);
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__beam--accent {
-  top: auto;
-  bottom: -40%;
-  left: -18%;
-  inline-size: 160%;
-  block-size: 44%;
-  background: radial-gradient(120% 120% at 40% 50%, rgba(72, 214, 255, 0.45), rgba(72, 214, 255, 0) 75%);
-  transform: rotate(6deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * 24%), 0);
-}
-
-.player-tools-drawer__glow {
-  position: absolute;
-  inset: -22% -12% 32%;
-  background: radial-gradient(90% 70% at 42% 24%, rgba(120, 215, 255, 0.3), rgba(120, 215, 255, 0) 68%);
-  opacity: calc(0.12 + 0.32 * var(--player-tools-open-progress, 0));
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  mix-blend-mode: screen;
-}
-
-.player-tools-drawer__content {
-  position: relative;
-  inline-size: 100%;
-  block-size: 100%;
-  overflow: visible;
-  padding-block: clamp(12px, 2.4vw, 20px);
-  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
-  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border-radius: var(--player-tools-glass-radius, 30px);
-  background: none;
-  box-shadow: none;
-  backdrop-filter: none;
-  color: var(--text, rgba(242, 244, 255, 0.92));
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -12px), 0, 0);
-  opacity: calc(0.55 + 0.45 * var(--player-tools-open-progress, 0));
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__content:focus-visible {
+}.player-tools-drawer__content:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, #fff 40%);
   outline-offset: 0;
 }
@@ -7593,61 +7312,6 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-status__text {
   font-size: inherit;
 }
-.player-tools-tab {
-  contain: layout style paint;
-}
-
-:root {
-  --drawer-width: clamp(320px, 42vw, 520px);
-  --drawer-z: 1200;
-  --drawer-slide-direction: -1;
-  --player-tools-transition-duration: 420ms;
-  --player-tools-transition-timing: cubic-bezier(0.18, 0.9, 0.2, 1);
-  --player-tools-open-progress: 0;
-  --player-tools-glass-radius: 30px;
-  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-frame-padding: clamp(12px, 3vw, 18px);
-}
-
-.player-tools-drawer {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  inline-size: min(var(--drawer-width, 360px), 100vw);
-  display: flex;
-  pointer-events: none;
-  background: transparent;
-  z-index: var(--drawer-z, 1200);
-  transform: translate3d(
-    calc((1 - var(--player-tools-open-progress, 0)) * 100% * var(--drawer-slide-direction, -1)),
-    0,
-    0
-  );
-  transition:
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  will-change: transform;
-}
-
-.player-tools-drawer.is-open {
-  pointer-events: auto;
-}
-
-.player-tools-drawer__scrim {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(120% 120% at 12% 12%, rgba(20, 26, 38, 0.72), rgba(5, 8, 12, 0.85));
-  opacity: calc(var(--player-tools-open-progress, 0) * 0.85);
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  pointer-events: none;
-}
-
-.player-tools-drawer.is-open .player-tools-drawer__scrim {
-  pointer-events: auto;
-}
-
 .player-tools-drawer__inner {
   position: relative;
   z-index: 1;
@@ -7659,90 +7323,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-}
-
-.player-tools-drawer__panel {
-  position: absolute;
-  inset: clamp(14px, 4vw, 24px) clamp(10px, 4vw, 18px);
-  border-radius: calc(var(--player-tools-glass-radius, 30px) + 10px);
-  background: none;
-  box-shadow: none;
-  filter: none;
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -18px), 0, 0);
-  transition:
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    background var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  overflow: hidden;
-}
-
-.player-tools-drawer__decor {
+}.player-tools-drawer__decor {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   overflow: hidden;
-}
-
-.player-tools-drawer__beam {
-  position: absolute;
-  inline-size: 180%;
-  block-size: 45%;
-  top: -35%;
-  left: -28%;
-  background: radial-gradient(120% 120% at 50% 50%, rgba(130, 200, 255, 0.52), rgba(130, 200, 255, 0) 75%);
-  opacity: calc(0.16 + 0.34 * var(--player-tools-open-progress, 0));
-  transform: rotate(12deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * -26%), 0);
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__beam--accent {
-  top: auto;
-  bottom: -40%;
-  left: -18%;
-  inline-size: 160%;
-  block-size: 44%;
-  background: radial-gradient(120% 120% at 40% 50%, rgba(72, 214, 255, 0.45), rgba(72, 214, 255, 0) 75%);
-  transform: rotate(6deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * 24%), 0);
-}
-
-.player-tools-drawer__glow {
-  position: absolute;
-  inset: -22% -12% 32%;
-  background: radial-gradient(90% 70% at 42% 24%, rgba(120, 215, 255, 0.3), rgba(120, 215, 255, 0) 68%);
-  opacity: calc(0.12 + 0.32 * var(--player-tools-open-progress, 0));
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  mix-blend-mode: screen;
-}
-
-.player-tools-drawer__content {
-  position: relative;
-  inline-size: 100%;
-  block-size: 100%;
-  overflow: visible;
-  padding-block: clamp(12px, 2.4vw, 20px);
-  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
-  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border-radius: var(--player-tools-glass-radius, 30px);
-  background: none;
-  box-shadow: none;
-  backdrop-filter: none;
-  color: var(--text, rgba(242, 244, 255, 0.92));
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -12px), 0, 0);
-  opacity: calc(0.55 + 0.45 * var(--player-tools-open-progress, 0));
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__content:focus-visible {
+}.player-tools-drawer__content:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, #fff 40%);
   outline-offset: 0;
 }
@@ -7931,61 +7517,6 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-status__text {
   font-size: inherit;
 }
-.player-tools-tab {
-  contain: layout style paint;
-}
-
-:root {
-  --drawer-width: clamp(320px, 42vw, 520px);
-  --drawer-z: 1200;
-  --drawer-slide-direction: -1;
-  --player-tools-transition-duration: 420ms;
-  --player-tools-transition-timing: cubic-bezier(0.18, 0.9, 0.2, 1);
-  --player-tools-open-progress: 0;
-  --player-tools-glass-radius: 30px;
-  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-content-inline-padding: clamp(12px, 4vw, 24px);
-  --player-tools-frame-padding: clamp(12px, 3vw, 18px);
-}
-
-.player-tools-drawer {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  inline-size: min(var(--drawer-width, 360px), 100vw);
-  display: flex;
-  pointer-events: none;
-  background: transparent;
-  z-index: var(--drawer-z, 1200);
-  transform: translate3d(
-    calc((1 - var(--player-tools-open-progress, 0)) * 100% * var(--drawer-slide-direction, -1)),
-    0,
-    0
-  );
-  transition:
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  will-change: transform;
-}
-
-.player-tools-drawer.is-open {
-  pointer-events: auto;
-}
-
-.player-tools-drawer__scrim {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(120% 120% at 12% 12%, rgba(20, 26, 38, 0.72), rgba(5, 8, 12, 0.85));
-  opacity: calc(var(--player-tools-open-progress, 0) * 0.85);
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  pointer-events: none;
-}
-
-.player-tools-drawer.is-open .player-tools-drawer__scrim {
-  pointer-events: auto;
-}
-
 .player-tools-drawer__inner {
   position: relative;
   z-index: 1;
@@ -7997,90 +7528,12 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: flex;
   align-items: stretch;
   justify-content: flex-start;
-}
-
-.player-tools-drawer__panel {
-  position: absolute;
-  inset: clamp(14px, 4vw, 24px) clamp(10px, 4vw, 18px);
-  border-radius: calc(var(--player-tools-glass-radius, 30px) + 10px);
-  background: none;
-  box-shadow: none;
-  filter: none;
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -18px), 0, 0);
-  transition:
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    filter var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    background var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  overflow: hidden;
-}
-
-.player-tools-drawer__decor {
+}.player-tools-drawer__decor {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   overflow: hidden;
-}
-
-.player-tools-drawer__beam {
-  position: absolute;
-  inline-size: 180%;
-  block-size: 45%;
-  top: -35%;
-  left: -28%;
-  background: radial-gradient(120% 120% at 50% 50%, rgba(130, 200, 255, 0.52), rgba(130, 200, 255, 0) 75%);
-  opacity: calc(0.16 + 0.34 * var(--player-tools-open-progress, 0));
-  transform: rotate(12deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * -26%), 0);
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__beam--accent {
-  top: auto;
-  bottom: -40%;
-  left: -18%;
-  inline-size: 160%;
-  block-size: 44%;
-  background: radial-gradient(120% 120% at 40% 50%, rgba(72, 214, 255, 0.45), rgba(72, 214, 255, 0) 75%);
-  transform: rotate(6deg) translate3d(0, calc((1 - var(--player-tools-open-progress, 0)) * 24%), 0);
-}
-
-.player-tools-drawer__glow {
-  position: absolute;
-  inset: -22% -12% 32%;
-  background: radial-gradient(90% 70% at 42% 24%, rgba(120, 215, 255, 0.3), rgba(120, 215, 255, 0) 68%);
-  opacity: calc(0.12 + 0.32 * var(--player-tools-open-progress, 0));
-  transition: opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  mix-blend-mode: screen;
-}
-
-.player-tools-drawer__content {
-  position: relative;
-  inline-size: 100%;
-  block-size: 100%;
-  overflow: visible;
-  padding-block: clamp(12px, 2.4vw, 20px);
-  padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
-  padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border-radius: var(--player-tools-glass-radius, 30px);
-  background: none;
-  box-shadow: none;
-  backdrop-filter: none;
-  color: var(--text, rgba(242, 244, 255, 0.92));
-  transform: translate3d(calc((1 - var(--player-tools-open-progress, 0)) * -12px), 0, 0);
-  opacity: calc(0.55 + 0.45 * var(--player-tools-open-progress, 0));
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    box-shadow var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    backdrop-filter var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-}
-
-.player-tools-drawer__content:focus-visible {
+}.player-tools-drawer__content:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, #fff 40%);
   outline-offset: 0;
 }
@@ -8323,292 +7776,6 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-status__text {
   font-size: inherit;
 }
-/* Player Tools tab button */
-.player-tools-tab {
-  position: fixed;
-  left: 1rem;
-  right: auto;
-  bottom: 1.5rem;
-  z-index: 1500;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 229, 255, 0.5);
-  background: radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.35), rgba(0, 0, 0, 0.85));
-  color: #e5f9ff;
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-/* When the drawer is open we hide the Tools tab */
-.player-tools-tab[aria-hidden="true"] {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-10px);
-}
-
-.player-tools-tab[data-player-credit='pending'],
-.player-tools-tab[data-player-reward='pending'] {
-  border-color: color-mix(in srgb, var(--accent, #38bdf8) 55%, transparent);
-}
-
-.player-tools-tab::before {
-  content: "";
-  position: absolute;
-  inset: 6% 10% 6% -32%;
-  border-radius: 999px;
-  background: radial-gradient(120% 120% at 32% 48%, rgba(108, 190, 255, 0.4), rgba(108, 190, 255, 0) 70%);
-  opacity: calc(0.2 + 0.3 * var(--player-tools-open-progress, 0));
-  transform: translate3d(calc(-12px * (1 - var(--player-tools-open-progress, 0))), 0, 0);
-  transition:
-    opacity var(--player-tools-transition-duration) var(--player-tools-transition-timing),
-    transform var(--player-tools-transition-duration) var(--player-tools-transition-timing);
-  pointer-events: none;
-  mix-blend-mode: screen;
-}
-
-.player-tools-tab::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 65%);
-  opacity: calc(0.18 + 0.22 * var(--player-tools-open-progress, 0));
-  pointer-events: none;
-}
-
-.player-tools-tab__icon {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 100%;
-  block-size: 100%;
-}
-
-.player-tools-tab__badge {
-  position: absolute;
-  top: clamp(6px, 14%, 12px);
-  right: clamp(6px, 14%, 12px);
-  min-width: 18px;
-  min-height: 18px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--accent, #38bdf8) 88%, transparent);
-  color: #fff;
-  font-size: 0.65rem;
-  font-weight: 700;
-  line-height: 1;
-  display: none;
-  place-items: center;
-  box-shadow:
-    0 0 0 2px rgba(4, 9, 20, 0.78),
-    0 2px 6px rgba(0, 0, 0, 0.36);
-  pointer-events: none;
-}
-
-.player-tools-tab__badge:not([hidden]) {
-  display: grid;
-}
-
-.player-tools-tab[data-player-credit='pending'] .player-tools-tab__badge,
-.player-tools-tab[data-player-reward='pending'] .player-tools-tab__badge {
-  animation: playerToolsCreditPulse 1.8s ease-in-out infinite;
-}
-
-@keyframes playerToolsCreditPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow:
-      0 0 0 2px rgba(4, 9, 20, 0.78),
-      0 0 0 0 rgba(56, 189, 248, 0.45);
-  }
-  50% {
-    transform: scale(1.1);
-    box-shadow:
-      0 0 0 2px rgba(4, 9, 20, 0.78),
-      0 0 12px 4px rgba(56, 189, 248, 0.6);
-  }
-}
-
-.player-tools-tab__icon img {
-  display: block;
-  inline-size: 80%;
-  block-size: 80%;
-  margin: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.28));
-}
-
-.player-tools-tab:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 4px;
-}
-
-@keyframes playerToolsPulse {
-  0%,
-  100% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-
-  50% {
-    transform: scale(1.25);
-    opacity: 1;
-  }
-}
-
-@keyframes playerToolsWave {
-  0% {
-    transform: scaleY(0.4);
-    opacity: 0.45;
-  }
-
-  50% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scaleY(0.55);
-    opacity: 0.6;
-  }
-}
-
-@media (prefers-contrast: more) {
-  .player-tools-tab {
-    border-color: currentColor;
-    box-shadow: 0 0 0 2px currentColor;
-    background: #000;
-    color: #fff;
-  }
-
-  .player-tools-tab::before,
-  .player-tools-tab::after {
-    opacity: 0.1;
-  }
-
-  .player-tools-drawer__panel {
-    background: none;
-    box-shadow: none;
-    filter: none;
-  }
-
-  .player-tools-drawer__content {
-    background: none;
-    box-shadow: none;
-    backdrop-filter: none;
-  }
-}
-
-@media (max-width: 600px) {
-  .player-tools-drawer {
-    inline-size: 100%;
-    block-size: 100%;
-  }
-
-  .player-tools-drawer__inner {
-    padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-drawer-inline-padding));
-    padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-drawer-inline-padding));
-  }
-
-  .player-tools-drawer__content {
-    padding-inline-start: max(env(safe-area-inset-left, 0px), var(--player-tools-content-inline-padding));
-    padding-inline-end: max(env(safe-area-inset-right, 0px), var(--player-tools-content-inline-padding));
-  }
-
-  .player-tools-phone,
-  .player-tools-phone__status-bar {
-    inline-size: 100%;
-    max-inline-size: none;
-    margin-inline-start: 0;
-    margin-inline-end: 0;
-  }
-}
-/* Player Tools tray trigger */
-.player-tools-tab {
-  position: fixed;
-  right: 1rem;
-  bottom: 1.5rem;
-  z-index: 1500;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 229, 255, 0.5);
-  background: radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.35), rgba(0, 0, 0, 0.85));
-  color: #e5f9ff;
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
-}
-
-.player-tools-tab__icon {
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.player-tools-tab__label {
-  font-weight: 600;
-}
-
-/* Drawer chrome */
-.player-tools-drawer {
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  display: flex;
-  justify-content: flex-start;
-  align-items: stretch;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.player-tools-drawer.is-open {
-  pointer-events: auto;
-  opacity: 1;
-}
-
-.player-tools-drawer__scrim {
-  flex: 1 1 auto;
-  background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent);
-  backdrop-filter: blur(2px);
-}
-
-.player-tools-drawer__shell {
-  flex: 0 0 auto;
-  width: min(380px, 90vw);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 1.25rem 1rem;
-  transform: translateX(-100%);
-  transition: transform 0.25s ease;
-}
-
-.player-tools-drawer.is-open .player-tools-drawer__shell {
-  transform: translateX(0);
-}
-
-.player-tools-drawer__inner {
-  position: relative;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
 /* Phone shell: width controls everything, height comes from image ratio */
 .player-tools-phone {
   position: relative;
@@ -8923,10 +8090,141 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   margin-right: 0.25rem;
 }
 
-@media (max-width: 480px) {
-  .player-tools-tab {
-    left: 0.75rem;
-    bottom: 1rem;
-  }
+:root {
+  --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
 }
 
+/* === Player Tools – tab + drawer positioning === */
+
+/* Small tab button anchored to left middle of the viewport */
+.player-tools-tab {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translate(-40%, -50%);
+  z-index: 9999;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 229, 255, 0.7);
+  background: radial-gradient(circle at 30% 0, rgba(0, 229, 255, 0.45), rgba(0, 0, 0, 0.9));
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.7);
+
+  cursor: pointer;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+/* Make sure it never stretches full width */
+.player-tools-tab,
+.player-tools-tab__icon {
+  width: auto;
+  max-width: none;
+}
+
+/* Icon sizing */
+.player-tools-tab__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-tools-tab__icon img {
+  display: block;
+  width: 32px;
+  height: auto;
+}
+
+/* Optional badge support */
+.player-tools-tab__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #38bdf8) 88%, transparent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+
+.player-tools-tab__badge:not([hidden]) {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.player-tools-tab[data-player-credit='pending'] .player-tools-tab__badge,
+.player-tools-tab[data-player-reward='pending'] .player-tools-tab__badge {
+  display: grid;
+}
+
+.player-tools-tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #38bdf8) 70%, #fff 30%);
+  outline-offset: 3px;
+}
+
+/* Hide the tab when the drawer is open */
+.player-tools-tab[aria-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-40%, -50%) translateX(-8px);
+}
+
+/* Drawer overlay anchored to the LEFT, phone tray slides in from left */
+.player-tools-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+
+  display: flex;
+  justify-content: flex-start;
+  align-items: stretch;
+
+  pointer-events: none;
+
+  --player-tools-header-fill: color-mix(in srgb, var(--surface-2) 88%, var(--surface-3) 12%);
+}
+
+.player-tools-drawer.is-open {
+  pointer-events: auto;
+}
+
+/* Dimmed background on the rest of the app */
+.player-tools-drawer__scrim {
+  flex: 1 1 auto;
+  background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent);
+  backdrop-filter: blur(2px);
+}
+
+/* The phone tray itself, living inside a shell on the left */
+.player-tools-drawer__shell {
+  flex: 0 0 auto;
+  width: min(380px, 90vw);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 1.25rem 1rem;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+}
+
+/* When open, allow interaction and slide the shell into view */
+.player-tools-drawer.is-open .player-tools-drawer__shell {
+  transform: translateX(0);
+}
