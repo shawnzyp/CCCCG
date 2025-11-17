@@ -3247,13 +3247,16 @@
                   </div>
                   <div class="tool-field">
                     <label for="dice-sides">Sides</label>
-                    <input
-                      id="dice-sides"
-                      type="number"
-                      min="2"
-                      step="1"
-                      value="20"
-                    />
+                    <select id="dice-sides">
+                      <option value="4">d4</option>
+                      <option value="6">d6</option>
+                      <option value="8">d8</option>
+                      <option value="10">d10</option>
+                      <option value="10">d10 (percentile)</option>
+                      <option value="12">d12</option>
+                      <option value="20" selected>d20</option>
+                      <option value="100">d100</option>
+                    </select>
                   </div>
                   <div class="tool-field">
                     <label for="dice-bonus">Bonus</label>
