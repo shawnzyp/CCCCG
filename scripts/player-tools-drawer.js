@@ -102,6 +102,7 @@ function createPlayerToolsDrawer() {
   }
 
   const scrim = drawer.querySelector('[data-player-tools-scrim]');
+  const tray = drawer.querySelector('.player-tools-tray');
   const gestureExit = doc.getElementById('player-tools-gesture-exit');
   const statusTime = drawer.querySelector('[data-player-tools-clock]');
 
@@ -134,6 +135,11 @@ function createPlayerToolsDrawer() {
   let isOpen = false;
   let miniGameResumeHandler = null;
 
+  if (tray) {
+    tray.classList.add('is-closed');
+    tray.setAttribute('aria-hidden', 'true');
+  }
+
   const notifyState = () => {
     const detail = { open: isOpen, progress: isOpen ? 1 : 0 };
     dispatchChange(detail);
@@ -148,6 +154,12 @@ function createPlayerToolsDrawer() {
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+
+    if (tray) {
+      tray.classList.toggle('is-open', isOpen);
+      tray.classList.toggle('is-closed', !isOpen);
+      tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    }
 
     notifyState();
   };

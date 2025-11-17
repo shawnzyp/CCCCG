@@ -8162,6 +8162,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent 55%);
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
+  z-index: 30;
 }
 
 .player-tools-drawer__shell {
@@ -8201,7 +8202,25 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   background: none;
   box-shadow: none;
   border-radius: 0;
+  z-index: 40;
+  transition:
+    transform 200ms ease-out,
+    opacity 200ms ease-out,
+    visibility 200ms ease-out;
+}
+
+.player-tools-tray.is-closed {
+  transform: translateX(-120%);
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
+}
+
+.player-tools-tray.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .player-tools-shell {
