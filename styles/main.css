@@ -8208,6 +8208,15 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   flex: 1 1 auto;
   background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent);
   backdrop-filter: blur(2px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 160ms ease, visibility 0s linear 160ms;
+}
+
+.player-tools-drawer.is-open .player-tools-drawer__scrim {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 /* The phone tray itself, living inside a shell on the left */
