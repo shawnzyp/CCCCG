@@ -102,6 +102,7 @@ function createPlayerToolsDrawer() {
   }
 
   const closeGesture = doc.getElementById('player-tools-close-gesture');
+  const scrim = drawer.querySelector('[data-player-tools-scrim]');
   const clockEl = drawer.querySelector('[data-player-tools-clock]');
 
   const initiativeBonusInput = doc.getElementById('initiative-bonus');
@@ -153,7 +154,10 @@ function createPlayerToolsDrawer() {
 
   tab.addEventListener('click', () => setDrawerOpen(!isOpen));
 
-  // Scrim is visual only; closing is handled by the gesture bar.
+  if (scrim) {
+    scrim.addEventListener('click', () => setDrawerOpen(false));
+  }
+
   if (closeGesture) {
     closeGesture.addEventListener('click', () => setDrawerOpen(false));
   }
