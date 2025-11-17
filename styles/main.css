@@ -8094,93 +8094,75 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   --player-tools-drawer-inline-padding: clamp(12px, 4vw, 24px);
 }
 
-/* ---------- TOOLS TAB BUTTON (LEFT EDGE) ---------- */
-
+/* Player Tools tray trigger (vertical tab on the left edge) */
 .player-tools-tab {
   position: fixed;
-  left: 0;
-  top: 50%;
-  transform: translate(-35%, -50%);
-  z-index: 70;
-  width: 3.25rem;
-  height: 6rem;
-  padding: 0;
-  border: 1px solid rgba(0, 255, 255, 0.35);
-  border-radius: 0 999px 999px 0;
-  background: radial-gradient(circle at 20% 20%, rgba(0, 255, 255, 0.25), rgba(0, 10, 25, 0.9));
-  display: flex;
+  inset-block: 50%;
+  inset-inline-start: 0;
+  transform: translateY(-50%);
+  z-index: 1500;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  inline-size: 2.75rem;
+  block-size: 5.5rem;
+  padding: 0;
+  border-radius: 0 999px 999px 0;
+  border: 1px solid rgba(0, 229, 255, 0.55);
+  background: radial-gradient(circle at 0 50%, rgba(0, 229, 255, 0.35), rgba(0, 0, 0, 0.9));
   cursor: pointer;
-  opacity: 0.7;
-  transition:
-    opacity 160ms ease-out,
-    transform 160ms ease-out,
-    box-shadow 160ms ease-out;
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.6);
 }
 
 .player-tools-tab__icon img {
   display: block;
-  width: 2.25rem;
-  height: 2.25rem;
+  inline-size: 60%;
+  block-size: auto;
 }
 
-.player-tools-tab:hover {
-  opacity: 1;
-  box-shadow: 0 0 18px rgba(0, 255, 255, 0.45);
+.player-tools-tab__label {
+  display: none;
 }
 
-.player-tools-tab[aria-expanded="true"] {
-  opacity: 1;
-}
-
-/* Hide tab when the phone is open */
 .player-tools-tab[aria-hidden="true"] {
-  opacity: 0;
-  pointer-events: none;
+  display: none;
 }
 
-/* ---------- DRAWER OVERLAY & SLIDE-IN FROM LEFT ---------- */
-
+/* Drawer overlay – covers viewport, phone slides in from LEFT */
 .player-tools-drawer {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 1400;
   pointer-events: none;
-}
-
-/* Scrim covers whole viewport, only interactive when open */
-.player-tools-drawer__scrim {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(0, 255, 255, 0.12), rgba(0, 0, 0, 0.75));
   opacity: 0;
-  pointer-events: none;
   transition: opacity 200ms ease-out;
 }
 
 .player-tools-drawer.is-open {
   pointer-events: auto;
-}
-
-.player-tools-drawer.is-open .player-tools-drawer__scrim {
   opacity: 1;
-  pointer-events: auto;
 }
 
-/* Shell that actually slides in from the left */
+.player-tools-drawer__scrim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent 55%);
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
 .player-tools-drawer__shell {
-  position: fixed;
+  position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  padding-left: 0.75rem;
-  padding-right: 1.5rem;
+  padding-inline-start: 0.75rem;
+  padding-inline-end: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   transform: translateX(-100%);
-  transition: transform 260ms ease-out;
+  transition: transform 240ms ease-out;
   background: transparent;
 }
 
@@ -8188,175 +8170,298 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   transform: translateX(0);
 }
 
-/* ---------- PHONE SHELL USING Phone.png ---------- */
-
-.player-tools-phone {
-  position: relative;
-  width: min(22rem, 80vw);
-  aspect-ratio: 1037 / 2048;
-  background-image: url("images/Phone.png");
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
+.player-tools-drawer__inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/*
-  Screen cutout inside the shell.
-  Insets are in % of the full Phone.png, calculated from the
-  black screen area in your PNG:
-    top:    ~8.7%
-    bottom: ~5.0%
-    left:   ~5.8%
-    right:  ~5.9%
-*/
+/* Phone shell – use Phone.png, keep aspect ratio, no distortion */
+.player-tools-phone {
+  position: relative;
+  inline-size: min(320px, 80vw);
+  aspect-ratio: 375 / 812;
+  background-image: url("images/Phone.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
 .player-tools-phone__screen {
   position: absolute;
-  inset: 8.7% 5.9% 5% 5.8%;
-  border-radius: 1.5rem;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.95);
+  /* tuned for the inner black “screen” area of Phone.png */
+  top: 7.5%;
+  left: 7.5%;
+  right: 7.5%;
+  bottom: 7.5%;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0.4rem 0.45rem 0.55rem;
+}
+
+/* Inner screen chrome */
+.player-tools-phone__screen-inner {
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.3), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.08), transparent 55%),
+    rgba(3, 10, 20, 0.96);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 229, 255, 0.35),
+    0 0 25px rgba(0, 229, 255, 0.5);
+  padding: 0.35rem 0.4rem 0.45rem;
   display: flex;
   flex-direction: column;
 }
 
-/* ---------- STATUS BAR (TOP, AROUND THE NOTCH) ---------- */
-
-.player-tools-phone__status-bar {
-  flex: 0 0 auto;
+/* Status bar */
+.phone-status-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.25rem 0.6rem 0.35rem;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 0.65rem;
+  color: #c7f7ff;
+  margin-block-end: 0.25rem;
+  opacity: 0.9;
+}
+
+.phone-status-bar__icons span {
+  margin-inline-start: 0.25rem;
+}
+
+/* Header chip */
+.phone-chip {
+  align-self: center;
   font-size: 0.7rem;
-  line-height: 1;
-  color: #f8fbff;
-  letter-spacing: 0.05em;
-}
-
-.player-tools-phone__status-time {
-  font-weight: 500;
-}
-
-/* right-side icons wrapper */
-.player-tools-phone__status-icons {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-/* Simple little bar stack for signal */
-.status-icon--signal {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 1px;
-}
-
-.status-icon--signal span {
-  width: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  background: #f8fbff;
+  border: 1px solid rgba(0, 229, 255, 0.6);
+  color: #e5f9ff;
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.15), rgba(0, 255, 170, 0.08));
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+  margin-block-end: 0.35rem;
 }
 
-.status-icon--signal span:nth-child(1) { height: 4px;  opacity: 0.35; }
-.status-icon--signal span:nth-child(2) { height: 6px;  opacity: 0.55; }
-.status-icon--signal span:nth-child(3) { height: 8px;  opacity: 0.8;  }
-.status-icon--signal span:nth-child(4) { height: 10px; opacity: 1;    }
-
-/* Wifi: simple rounded “fan” */
-.status-icon--wifi {
-  width: 11px;
-  height: 7px;
-  border-radius: 50% 50% 0 0;
-  border: 2px solid #f8fbff;
-  border-bottom: none;
-  position: relative;
-}
-
-.status-icon--wifi::after {
-  content: "";
-  position: absolute;
-  inset: 2px 2px auto 2px;
-  border-radius: 50% 50% 0 0;
-  border-top: 2px solid #f8fbff;
-}
-
-/* Battery outline + fill */
-.status-icon--battery {
-  position: relative;
-  width: 18px;
-  height: 8px;
-  border-radius: 2px;
-  border: 1px solid #f8fbff;
-  display: inline-flex;
-  align-items: center;
-  padding: 1px;
-}
-
-.status-icon--battery::after {
-  /* little battery nub */
-  content: "";
-  position: absolute;
-  right: -3px;
-  top: 1px;
-  width: 2px;
-  height: 6px;
-  border-radius: 1px;
-  background: #f8fbff;
-}
-
-.status-icon__battery-level {
-  flex: 1;
-  height: 100%;
-  border-radius: 1px;
-  background: linear-gradient(to right, #6dff8c, #e9ff6d);
-}
-
-/* ---------- MAIN TOOLS CONTENT AREA ---------- */
-
-.player-tools-phone__content {
+/* Scrollable tools viewport */
+.player-tools-phone__viewport {
+  margin-block-start: 0.3rem;
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 0.5rem 0.75rem 1.5rem;
-  scrollbar-width: thin;
+  padding: 0.3rem 0.05rem 0.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
-/* Optional: slim scrollbar for desktop */
-.player-tools-phone__content::-webkit-scrollbar {
-  width: 6px;
+.player-tools-phone__viewport::-webkit-scrollbar {
+  inline-size: 4px;
 }
 
-.player-tools-phone__content::-webkit-scrollbar-track {
+.player-tools-phone__viewport::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.player-tools-phone__content::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 255, 0.4);
+.player-tools-phone__viewport::-webkit-scrollbar-thumb {
+  background: rgba(0, 229, 255, 0.4);
   border-radius: 999px;
 }
 
-/* ---------- GESTURE BAR (BOTTOM, CLOSE BUTTON) ---------- */
+/* Generic tool card */
+.tool-card {
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(10, 25, 40, 0.95), rgba(3, 8, 18, 0.98));
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  padding: 0.45rem 0.5rem;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
+}
 
-.player-tools-phone__gesture-bar {
-  flex: 0 0 auto;
-  align-self: center;
-  margin-bottom: 0.35rem;
-  margin-top: 0.1rem;
-  width: 38%;
-  height: 0.3rem;
+.tool-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-end: 0.35rem;
+}
+
+.tool-card__title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #e9fbff;
+}
+
+.tool-card__result-shell {
   border-radius: 999px;
-  border: none;
-  background: rgba(255, 255, 255, 0.45);
+  padding: 0.1rem 0.4rem;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  font-size: 0.75rem;
+  color: #00e5ff;
+}
+
+.tool-card__result[data-placeholder] {
+  opacity: 0.8;
+}
+
+.tool-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tool-card__body--grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.tool-card__body--history {
+  max-block-size: 100px;
+  overflow-y: auto;
+}
+
+/* Fields */
+.tool-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.tool-field label {
+  font-size: 0.65rem;
+  color: #c4f5ff;
+}
+
+.tool-field input {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  background: rgba(2, 8, 14, 0.95);
+  color: #e5f9ff;
+}
+
+/* Buttons */
+.btn {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
   cursor: pointer;
-  position: relative;
 }
 
-.player-tools-phone__gesture-bar::after {
-  content: "";
-  position: absolute;
-  inset: -6px;
+.btn-block {
+  inline-size: 100%;
 }
 
-/* subtle “pressed” feedback */
-.player-tools-phone__gesture-bar:active {
-  background: rgba(255, 255, 255, 0.9);
-  transform: scale(0.97);
+.btn-sm {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.45rem;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #00e5ff, #00ffa3);
+  color: #020609;
+  font-weight: 600;
+  border-color: rgba(0, 20, 30, 0.9);
+}
+
+.btn-secondary {
+  background: rgba(0, 229, 255, 0.1);
+  color: #e5f9ff;
+  border-color: rgba(0, 229, 255, 0.4);
+}
+
+/* Reminders */
+.player-tools-reminder {
+  border-radius: 12px;
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  background: radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.28), rgba(0, 0, 0, 0.9));
+  padding: 0.4rem 0.45rem;
+}
+
+.player-tools-reminder--mini-game {
+  background: radial-gradient(circle at 0 100%, rgba(255, 196, 0, 0.3), rgba(0, 0, 0, 0.9));
+}
+
+.player-tools-reminder__body {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: space-between;
+}
+
+.player-tools-reminder__trigger {
+  flex: 1 1 auto;
+  border: none;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.player-tools-reminder__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.player-tools-reminder__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.player-tools-reminder__subtitle {
+  font-size: 0.68rem;
+  color: #c4f5ff;
+}
+
+.player-tools-reminder__badge {
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  background: #ff6b81;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.player-tools-reminder__info {
+  border-radius: 999px;
+  inline-size: 1.3rem;
+  block-size: 1.3rem;
+  border: 1px solid rgba(0, 229, 255, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  color: #e5f9ff;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* History list */
+@media (max-width: 480px) {
+  .player-tools-tab {
+    inline-size: 2.25rem;
+    block-size: 4.75rem;
+  }
+
+  .player-tools-phone {
+    inline-size: min(280px, 90vw);
+  }
 }

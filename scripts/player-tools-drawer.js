@@ -103,7 +103,7 @@ function createPlayerToolsDrawer() {
 
   const scrim = drawer.querySelector('[data-player-tools-scrim]');
   const gestureExit = doc.getElementById('player-tools-gesture-exit');
-  const statusTime = doc.getElementById('player-tools-status-time');
+  const statusTime = drawer.querySelector('[data-player-tools-clock]');
 
   const initiativeBonusInput = doc.getElementById('initiative-bonus');
   const initiativeResultEl = doc.getElementById('initiative-roll-result');
@@ -134,16 +134,6 @@ function createPlayerToolsDrawer() {
   let isOpen = false;
   let miniGameResumeHandler = null;
 
-  // ---- NEW: force a consistent starting state ----
-  drawer.classList.remove('is-open');
-  drawer.setAttribute('aria-hidden', 'true');
-
-  tab.classList.remove('is-open');
-  tab.setAttribute('aria-expanded', 'false');
-  tab.removeAttribute('aria-hidden');
-  tab.disabled = false;
-  // -----------------------------------------------
-
   const notifyState = () => {
     const detail = { open: isOpen, progress: isOpen ? 1 : 0 };
     dispatchChange(detail);
@@ -156,22 +146,8 @@ function createPlayerToolsDrawer() {
     isOpen = next;
     drawer.classList.toggle('is-open', isOpen);
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-
-    if (tab) {
-      tab.classList.toggle('is-open', isOpen);
-      tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-      tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
-      tab.disabled = isOpen;
-    }
-
-    if (!isOpen && tab) {
-      tab.disabled = false;
-      try {
-        tab.focus();
-      } catch {
-        // ignore focus errors
-      }
-    }
+    tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 
     notifyState();
   };
@@ -402,6 +378,14 @@ function createPlayerToolsDrawer() {
   };
 
   exposeApi();
+
+  // Ensure drawer starts closed on load
+  isOpen = false;
+  drawer.classList.remove('is-open');
+  drawer.setAttribute('aria-hidden', 'true');
+  tab.setAttribute('aria-expanded', 'false');
+  tab.setAttribute('aria-hidden', 'false');
+
   notifyState();
 
   return {
