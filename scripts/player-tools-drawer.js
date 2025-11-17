@@ -101,8 +101,9 @@ function createPlayerToolsDrawer() {
     };
   }
 
-  const closeGesture = doc.getElementById('player-tools-close-gesture');
-  const clockEl = drawer.querySelector('[data-player-tools-clock]');
+  const scrim = drawer.querySelector('[data-player-tools-scrim]');
+  const gestureExit = doc.getElementById('player-tools-gesture-exit');
+  const statusTime = drawer.querySelector('[data-player-tools-clock]');
 
   const initiativeBonusInput = doc.getElementById('initiative-bonus');
   const initiativeResultEl = doc.getElementById('initiative-roll-result');
@@ -151,11 +152,14 @@ function createPlayerToolsDrawer() {
     notifyState();
   };
 
-  tab.addEventListener('click', () => setDrawerOpen(!isOpen));
+  tab.addEventListener('click', () => setDrawerOpen(true));
 
-  // Scrim is visual only; closing is handled by the gesture bar.
-  if (closeGesture) {
-    closeGesture.addEventListener('click', () => setDrawerOpen(false));
+  if (scrim) {
+    scrim.addEventListener('click', () => setDrawerOpen(false));
+  }
+
+  if (gestureExit) {
+    gestureExit.addEventListener('click', () => setDrawerOpen(false));
   }
 
   doc.addEventListener('keydown', (event) => {
@@ -166,18 +170,18 @@ function createPlayerToolsDrawer() {
     }
   });
 
-  const updateClock = () => {
-    if (!clockEl) return;
+  const updateStatusTime = () => {
+    if (!statusTime) return;
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes().toString().padStart(2, '0');
     const twelveHour = ((hours + 11) % 12) + 1;
-    clockEl.textContent = `${twelveHour}:${minutes}`;
+    statusTime.textContent = `${twelveHour}:${minutes}`;
   };
 
-  updateClock();
+  updateStatusTime();
   if (typeof setInterval === 'function') {
-    setInterval(updateClock, 30000);
+    setInterval(updateStatusTime, 60000);
   }
 
   const randomInt = (min, max) =>
@@ -374,6 +378,14 @@ function createPlayerToolsDrawer() {
   };
 
   exposeApi();
+
+  // Ensure drawer starts closed on load
+  isOpen = false;
+  drawer.classList.remove('is-open');
+  drawer.setAttribute('aria-hidden', 'true');
+  tab.setAttribute('aria-expanded', 'false');
+  tab.setAttribute('aria-hidden', 'false');
+
   notifyState();
 
   return {

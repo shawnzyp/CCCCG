@@ -3078,12 +3078,12 @@
   type="button"
   aria-controls="player-tools-drawer"
   aria-expanded="false"
-  aria-label="Open player tools"
+  aria-label="Toggle player tools drawer"
+  aria-hidden="false"
 >
   <span class="player-tools-tab__icon" aria-hidden="true">
     <img src="images/player-tools-icon.png" alt="" />
   </span>
-  <span class="sr-only">Player tools</span>
 </button>
 
 <!-- Player Tools drawer -->
@@ -3099,14 +3099,6 @@
   <div class="player-tools-drawer__shell">
     <div class="player-tools-drawer__inner">
       <div class="player-tools-phone" data-player-tools-phone>
-        <!-- Shell image keeps the correct aspect ratio -->
-        <img
-          src="images/phone.png"
-          alt=""
-          class="player-tools-phone__shell"
-        />
-
-        <!-- Screen content sits on top of the shell -->
         <div class="player-tools-phone__screen">
           <div class="player-tools-phone__screen-inner">
             <!-- Status bar -->
@@ -3114,7 +3106,7 @@
               <span class="phone-status-bar__time" data-player-tools-clock>9:41</span>
               <span class="phone-status-bar__icons">
                 <span aria-hidden="true">📶</span>
-                <span aria-hidden="true">◉</span>
+                <span aria-hidden="true">📡</span>
                 <span aria-hidden="true">🔋</span>
               </span>
             </div>
@@ -3124,7 +3116,7 @@
               Player Tools · Session
             </div>
 
-            <!-- Viewport with tools -->
+            <!-- Viewport -->
             <div class="player-tools-phone__viewport" aria-label="Player tools">
 
               <!-- Level reward reminder -->
@@ -3318,21 +3310,12 @@
               </section>
 
             </div>
-
-            <!-- Bottom gesture bar to close tools -->
-            <button
-              type="button"
-              id="player-tools-close-gesture"
-              class="phone-gesture-bar"
-              aria-label="Close player tools"
-            ></button>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
-
 <script type="module" src="scripts/polyfills.js"></script>
 <script type="module" src="scripts/crash-handler.js"></script>
 <script type="module" src="scripts/header-title.js"></script>
