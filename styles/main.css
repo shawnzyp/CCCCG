@@ -8178,6 +8178,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   transform: translateX(-100%);
   transition: transform 240ms ease-out;
   background: transparent;
+  z-index: 40;
 }
 
 .player-tools-drawer.is-open .player-tools-drawer__shell {
