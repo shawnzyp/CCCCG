@@ -8193,9 +8193,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 /* Tray wrapper – removes any card background so only the phone is visible */
 .player-tools-tray {
-  position: fixed;
-  inset-block: 0;
-  inset-inline-start: 0;
+  position: relative;
+  inline-size: min(340px, 90vw);
+  block-size: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
