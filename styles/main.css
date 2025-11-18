@@ -8226,9 +8226,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-shell {
   position: relative;
-  max-width: min(340px, 90vw);
+  max-width: min(348px, 90vw);
   width: 100%;
-  aspect-ratio: 9 / 19.5;
+  aspect-ratio: 1325 / 2616;
   display: block;
   background: none;
   box-shadow: none;
@@ -8249,10 +8249,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   position: absolute;
 
   /* tune these to match the visible screen area of Phone.png */
-  top: 5.5%;
-  bottom: 6.5%;
-  left: 6%;
-  right: 6%;
+  top: 8.9%;
+  bottom: 3.5%;
+  left: 7.6%;
+  right: 7.6%;
 
   border-radius: 28px;
   overflow: hidden;
