@@ -105,6 +105,7 @@ function createPlayerToolsDrawer() {
   const tray = drawer.querySelector('.player-tools-tray');
   const gestureExit = doc.getElementById('player-tools-gesture-exit');
   const statusTime = drawer.querySelector('[data-player-tools-clock]');
+  const batteryLevelEl = drawer.querySelector('[data-player-tools-battery-level]');
 
   const initiativeBonusInput = doc.getElementById('initiative-bonus');
   const initiativeResultEl = doc.getElementById('initiative-roll-result');
@@ -185,15 +186,30 @@ function createPlayerToolsDrawer() {
   const updateStatusTime = () => {
     if (!statusTime) return;
     const now = new Date();
-    const hours = now.getHours();
+    const hours24 = now.getHours();
     const minutes = now.getMinutes().toString().padStart(2, '0');
-    const twelveHour = ((hours + 11) % 12) + 1;
-    statusTime.textContent = `${twelveHour}:${minutes}`;
+    const hours12 = ((hours24 + 11) % 12) + 1;
+    statusTime.textContent = `${hours12}:${minutes}`;
   };
 
   updateStatusTime();
   if (typeof setInterval === 'function') {
-    setInterval(updateStatusTime, 60000);
+    setInterval(updateStatusTime, 30_000);
+  }
+
+  const updateBatteryLevel = (battery) => {
+    if (!batteryLevelEl) return;
+    const level = Math.round(battery.level * 100);
+    batteryLevelEl.style.setProperty('--battery-level', `${level}%`);
+  };
+
+  if (typeof navigator !== 'undefined' && 'getBattery' in navigator && batteryLevelEl) {
+    navigator.getBattery().then((battery) => {
+      updateBatteryLevel(battery);
+      battery.addEventListener('levelchange', () => updateBatteryLevel(battery));
+    }).catch(() => {
+      // Silent fail – keep default full battery icon
+    });
   }
 
   const randomInt = (min, max) =>

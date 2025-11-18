@@ -8278,6 +8278,123 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   border-radius: 0;
 }
 
+/* Status bar sitting in the gray strip around the notch */
+.player-tools-status-bar {
+  position: absolute;
+  top: 2.5%;
+  left: 8%;
+  right: 8%;
+  height: 4.5%;
+
+  display: flex;
+  align-items: center;
+
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #f5f5f5;
+
+  z-index: 3;
+  pointer-events: none;
+}
+
+.player-tools-status-bar__left,
+.player-tools-status-bar__right,
+.player-tools-status-bar__center {
+  display: flex;
+  align-items: center;
+}
+
+.player-tools-status-bar__left {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.player-tools-status-bar__center {
+  flex: 0 0 auto;
+  justify-content: center;
+}
+
+.player-tools-status-bar__right {
+  flex: 1;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+/* Time text */
+.player-tools-status-bar__time {
+  letter-spacing: 0.03em;
+}
+
+/* Simple “signal bars” icon */
+.player-tools-status-bar__icon {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.player-tools-status-bar__icon--signal::before {
+  content: "";
+  display: inline-block;
+  width: 13px;
+  height: 7px;
+  background:
+    linear-gradient(
+      to right,
+      currentColor 2px,
+      transparent 2px
+    );
+  background-repeat: repeat-x;
+  background-size: 3px 100%;
+  mask-image: linear-gradient(to top, transparent 0, black 40%, black 100%);
+}
+
+/* Simple “wifi” fan icon */
+.player-tools-status-bar__icon--wifi::before {
+  content: "";
+  display: inline-block;
+  width: 11px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  border-top-color: transparent;
+  border-left-color: transparent;
+  transform: rotate(45deg);
+}
+
+/* Battery icon */
+.player-tools-battery {
+  position: relative;
+  width: 18px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+  box-sizing: border-box;
+}
+
+.player-tools-battery::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: -3px;
+  width: 2px;
+  height: 5px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.player-tools-battery__level {
+  --battery-level: 100%;
+
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 1px;
+  width: var(--battery-level);
+  max-width: calc(100% - 2px);
+  border-radius: 1px;
+  background: #f5f5f5;
+}
+
 /* Phone shell – use Phone.png, keep aspect ratio, no distortion */
 .player-tools-phone {
   position: relative;
