@@ -8249,7 +8249,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 .player-tools-shell-screen {
   position: absolute;
   inset-block-start: 6.5%;  /* move up into the phone screen */
-  inset-block-end: 4%;      /* reduce to remove gap above gesture bar */
+  inset-block-end: 6.5%;    /* leave breathing room above the gesture bar */
   inset-inline-start: 5.5%;
   inset-inline-end: 5.5%;
   display: flex;
