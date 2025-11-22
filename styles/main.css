@@ -8248,10 +8248,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-shell-screen {
   position: absolute;
-  inset-block-start: 6.5%;  /* move up into the phone screen */
-  inset-block-end: 6.5%;    /* leave breathing room above the gesture bar */
-  inset-inline-start: 5.5%;
-  inset-inline-end: 5.5%;
+  inset-block-start: 5.6%;  /* align content with the glass edge */
+  inset-block-end: 7.4%;    /* keep clear of the bottom curve */
+  inset-inline-start: 5%;
+  inset-inline-end: 5%;
   display: flex;
 }
 
@@ -8436,7 +8436,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   justify-content: stretch;
   inline-size: 100%;
   block-size: 100%;
-  padding: 0.4rem 0.45rem 0.55rem;
+  padding: 0.55rem 0.55rem 0.68rem;
 }
 
 /* Inner screen chrome */
@@ -8453,7 +8453,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   box-shadow:
     inset 0 0 0 1px rgba(0, 229, 255, 0.35),
     0 0 25px rgba(0, 229, 255, 0.5);
-  padding: 0.35rem 0.4rem 0.45rem;
+  padding: 0.45rem 0.48rem 0.55rem;
   display: flex;
   flex-direction: column;
 }
@@ -8491,10 +8491,10 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 /* Scrollable tools viewport */
 .player-tools-phone__viewport {
-  margin-block-start: 0.3rem;
+  margin-block-start: 0.35rem;
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 0.3rem 0.05rem 0.1rem;
+  padding: 0.4rem 0.1rem 0.35rem;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
