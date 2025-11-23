@@ -8248,16 +8248,15 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 
 .player-tools-shell-screen {
   position: absolute;
-  inset: 0;
+  inset-block-start: 4.6%;
+  inset-block-end: 5.2%;
+  inset-inline-start: 5.8%;
+  inset-inline-end: 5.8%;
   display: flex;
-  background:
-    radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.3), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.08), transparent 55%),
-    rgba(3, 10, 20, 0.96);
-  border: 1px solid rgba(0, 229, 255, 0.4);
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 229, 255, 0.35),
-    0 0 25px rgba(0, 229, 255, 0.5);
+  flex-direction: column;
+  background: none;
+  border: none;
+  box-shadow: none;
 }
 
 /* Status bar: sit in the grey band, close to the notch */
@@ -8442,10 +8441,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   inline-size: 100%;
   block-size: 100%;
   padding: 0;
-  border-radius: 0;
+  border-radius: clamp(26px, 6vw, 34px);
   background: none;
   border: none;
   box-shadow: none;
+  overflow: hidden;
 }
 
 /* Inner screen chrome */
@@ -8453,11 +8453,18 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   position: relative;
   inline-size: 100%;
   block-size: 100%;
-  border-radius: 0;
-  background: none;
-  border: none;
-  box-shadow: none;
-  padding: 0;
+  --player-tools-screen-glass: linear-gradient(
+    205deg,
+    rgba(20, 32, 48, 0.5),
+    rgba(12, 18, 30, 0.55)
+  );
+  border-radius: clamp(22px, 5.4vw, 30px);
+  background: var(--player-tools-screen-glass);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 229, 255, 0.35),
+    0 0 25px rgba(0, 229, 255, 0.5);
+  padding: clamp(14px, 2.8vw, 22px) clamp(12px, 2.4vw, 20px) clamp(16px, 3vw, 24px);
   display: flex;
   flex-direction: column;
 }
