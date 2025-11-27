@@ -127,60 +127,81 @@ const ensurePlayerToolsHost = () => {
   const globalTarget = typeof window !== 'undefined' ? window : globalThis;
   if (!globalTarget) return null;
 
-  const existing = globalTarget.PlayerTools;
-  if (existing && typeof existing === 'object') {
-    return existing;
-  }
+  const host =
+    globalTarget.PlayerTools && typeof globalTarget.PlayerTools === 'object'
+      ? globalTarget.PlayerTools
+      : {};
 
-  const host = {
-    setLevelRewardReminder(count = 0, label = 'Rewards') {
-      const pendingCount = clampPendingCount(count);
-      const { trigger, badge, infoTrigger } = ensureLevelRewardUI();
-      if (badge) {
-        badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
-        badge.hidden = pendingCount <= 0;
-      }
-      if (trigger) {
-        const hasPending = pendingCount > 0;
-        trigger.hidden = !hasPending;
-        trigger.disabled = !hasPending;
-        trigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
-        trigger.setAttribute('aria-disabled', hasPending ? 'false' : 'true');
-        trigger.setAttribute('aria-label', label || 'Rewards');
-      }
-      if (infoTrigger) {
-        const hasPending = pendingCount > 0;
-        infoTrigger.hidden = !hasPending;
-        infoTrigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
-      }
-      return pendingCount;
-    },
-    clearLevelRewardReminder() {
-      return this.setLevelRewardReminder(0, 'Rewards');
-    },
-    setMiniGameReminder(config = {}) {
-      const {
-        name = 'Mini-Game',
-        status = 'Pending',
-        meta = '',
-        summary = 'Mini-game mission ready',
-        onResume,
-      } = config || {};
-
-      const { card, summary: summaryEl, game, status: statusEl, meta: metaEl, resumeBtn } = ensureMiniGameReminderUI();
-      if (summaryEl) summaryEl.textContent = summary || 'Mini-game mission ready';
-      if (game) game.textContent = name;
-      if (statusEl) statusEl.textContent = status;
-      if (metaEl) metaEl.textContent = meta;
-      if (resumeBtn) {
-        resumeBtn.onclick = typeof onResume === 'function' ? () => onResume() : null;
-      }
-      if (card) {
-        card.hidden = false;
-        card.setAttribute('aria-hidden', 'false');
-      }
-    },
+  const safeAssign = (key, value) => {
+    if (!(key in host)) host[key] = value;
   };
+
+  const setLevelRewardReminder = (count = 0, label = 'Rewards') => {
+    const pendingCount = clampPendingCount(count);
+    const { trigger, badge, infoTrigger } = ensureLevelRewardUI();
+    if (badge) {
+      badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
+      badge.hidden = pendingCount <= 0;
+    }
+    if (trigger) {
+      const hasPending = pendingCount > 0;
+      trigger.hidden = !hasPending;
+      trigger.disabled = !hasPending;
+      trigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
+      trigger.setAttribute('aria-disabled', hasPending ? 'false' : 'true');
+      trigger.setAttribute('aria-label', label || 'Rewards');
+    }
+    if (infoTrigger) {
+      const hasPending = pendingCount > 0;
+      infoTrigger.hidden = !hasPending;
+      infoTrigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
+    }
+    return pendingCount;
+  };
+
+  const clearLevelRewardReminder = () => setLevelRewardReminder(0, 'Rewards');
+
+  const setMiniGameReminder = (config = {}) => {
+    const {
+      name = 'Mini-Game',
+      status = 'Pending',
+      meta = '',
+      summary = 'Mini-game mission ready',
+      onResume,
+    } = config || {};
+
+    const { card, summary: summaryEl, game, status: statusEl, meta: metaEl, resumeBtn } =
+      ensureMiniGameReminderUI();
+    if (summaryEl) summaryEl.textContent = summary || 'Mini-game mission ready';
+    if (game) game.textContent = name;
+    if (statusEl) statusEl.textContent = status;
+    if (metaEl) metaEl.textContent = meta;
+    if (resumeBtn) {
+      resumeBtn.onclick = typeof onResume === 'function' ? () => onResume() : null;
+    }
+    if (card) {
+      card.hidden = false;
+      card.setAttribute('aria-hidden', 'false');
+    }
+  };
+
+  const clearMiniGameReminder = () => {
+    const { card, summary, game, status, meta, resumeBtn } = ensureMiniGameReminderUI();
+    if (summary) summary.textContent = '';
+    if (game) game.textContent = '';
+    if (status) status.textContent = '';
+    if (meta) meta.textContent = '';
+    if (resumeBtn) resumeBtn.onclick = null;
+    if (card) {
+      card.hidden = true;
+      card.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  safeAssign('setLevelRewardReminder', setLevelRewardReminder);
+  safeAssign('clearLevelRewardReminder', clearLevelRewardReminder);
+  safeAssign('setMiniGameReminder', setMiniGameReminder);
+  safeAssign('clearMiniGameReminder', clearMiniGameReminder);
 
   globalTarget.PlayerTools = host;
   return host;
@@ -471,6 +492,16 @@ function createPlayerToolsDrawer() {
 
   const open = () => setDrawerOpen(true);
   const close = () => setDrawerOpen(false);
+  const setBatteryStatus = (detail = {}) => setBatteryVisual(detail || {});
+
+  const addHistoryEntryLegacy = (labelOrEntry, detail) => {
+    const entry =
+      labelOrEntry && typeof labelOrEntry === 'object'
+        ? labelOrEntry
+        : { label: labelOrEntry, value: detail };
+    const { label, value = '' } = entry || {};
+    addHistoryEntry({ label, value });
+  };
 
   // DO NOT overwrite globals. Only attach hooks if PlayerTools already exists.
   try {
@@ -478,6 +509,10 @@ function createPlayerToolsDrawer() {
     if (host && (typeof host === 'object' || typeof host === 'function')) {
       if (!('openTray' in host)) host.openTray = open;
       if (!('closeTray' in host)) host.closeTray = close;
+      if (!('toggleTray' in host)) host.toggleTray = toggle;
+      if (!('subscribe' in host)) host.subscribe = subscribe;
+      if (!('setBatteryStatus' in host)) host.setBatteryStatus = setBatteryStatus;
+      if (!('addHistoryEntry' in host)) host.addHistoryEntry = addHistoryEntryLegacy;
     }
   } catch (_) {}
 
