@@ -4,517 +4,359 @@ const changeListeners = new Set();
 
 const getDocument = () => (typeof document !== 'undefined' ? document : null);
 
-const getCustomEventCtor = () => {
-  if (typeof window !== 'undefined' && typeof window.CustomEvent === 'function') {
-    return window.CustomEvent;
-  }
-  if (typeof globalThis !== 'undefined' && typeof globalThis.CustomEvent === 'function') {
-    return globalThis.CustomEvent;
-  }
-  if (typeof CustomEvent === 'function') {
-    return CustomEvent;
-  }
-  return null;
-};
-
-const createDrawerChangeEvent = (detail) => {
-  const CustomEventCtor = getCustomEventCtor();
-  if (!CustomEventCtor) {
-    return { type: DRAWER_CHANGE_EVENT, detail };
-  }
-  try {
-    return new CustomEventCtor(DRAWER_CHANGE_EVENT, { detail });
-  } catch {
-    return { type: DRAWER_CHANGE_EVENT, detail };
-  }
-};
-
 const dispatchChange = (detail) => {
-  // Notify JS subscribers
   changeListeners.forEach((listener) => {
     try {
       listener(detail);
-    } catch {
-      // swallow listener errors
-    }
+    } catch (_) {}
   });
 
-  // Fire DOM event for any existing listeners
   const doc = getDocument();
   if (!doc || typeof doc.dispatchEvent !== 'function') return;
-
-  const event = createDrawerChangeEvent(detail);
   try {
-    doc.dispatchEvent(event);
-  } catch {
-    const fallback = doc[`on${DRAWER_CHANGE_EVENT}`];
-    if (typeof fallback === 'function') {
-      try {
-        fallback.call(doc, event);
-      } catch {
-        // ignore
-      }
-    }
+    doc.dispatchEvent(new CustomEvent(DRAWER_CHANGE_EVENT, { detail }));
+  } catch (_) {
+    // ignore
   }
 };
 
 function createPlayerToolsDrawer() {
   const doc = getDocument();
-  if (!doc) {
-    return {
-      open() {},
-      close() {},
-      toggle() {},
-      subscribe(listener) {
-        if (typeof listener === 'function') {
-          listener({ open: false, progress: 0 });
-        }
-        return () => {};
-      },
-      setLevelRewardReminder() {},
-      clearLevelRewardReminder() {},
-      setMiniGameReminder() {},
-      clearMiniGameReminder() {},
-      addHistoryEntry() {}
-    };
-  }
+  if (!doc) return null;
 
   const drawer = doc.getElementById('player-tools-drawer');
   const tab = doc.getElementById('player-tools-tab');
+  const scrim = drawer ? drawer.querySelector('[data-pt-scrim]') : null;
+  const tray = drawer ? drawer.querySelector('.pt-tray') : null;
+  const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
+  const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
 
-  if (!drawer || !tab) {
-    return {
-      open() {},
-      close() {},
-      toggle() {},
-      subscribe(listener) {
-        if (typeof listener === 'function') {
-          listener({ open: false, progress: 0 });
-        }
-        return () => {};
-      },
-      setLevelRewardReminder() {},
-      clearLevelRewardReminder() {},
-      setMiniGameReminder() {},
-      clearMiniGameReminder() {},
-      addHistoryEntry() {}
-    };
-  }
+  const clockEl = drawer ? drawer.querySelector('[data-pt-clock]') : null;
+  const batteryEl = drawer ? drawer.querySelector('[data-pt-battery]') : null;
 
-  const scrim = drawer.querySelector('[data-player-tools-scrim]');
-  const tray = drawer.querySelector('.player-tools-tray');
   const gestureExit = doc.getElementById('player-tools-gesture-exit');
-  const statusTime = drawer.querySelector('[data-player-tools-clock]');
-  const batteryLevelEl = drawer.querySelector('[data-player-tools-battery-level]');
 
-  const initiativeBonusInput = doc.getElementById('initiative-bonus');
-  const initiativeResultEl = doc.getElementById('initiative-roll-result');
-  const rollInitiativeBtn = doc.getElementById('roll-initiative-btn');
+  const qs = (sel) => (drawer ? drawer.querySelector(sel) : null);
 
-  const diceCountInput = doc.getElementById('dice-count');
-  const diceSidesInput = doc.getElementById('dice-sides');
-  const diceBonusInput = doc.getElementById('dice-bonus');
-  const rollDiceBtn = doc.getElementById('roll-dice-btn');
-  const diceOutEl = doc.getElementById('dice-out');
+  const initiativeBonusInput = qs('#initiative-bonus');
+  const initiativeResultEl = qs('#initiative-roll-result');
+  const rollInitiativeBtn = qs('#roll-initiative-btn');
 
-  const flipCoinBtn = doc.getElementById('flip-coin-btn');
-  const coinResultEl = doc.getElementById('coin-result');
+  const diceCountInput = qs('#dice-count');
+  const diceSidesInput = qs('#dice-sides');
+  const diceBonusInput = qs('#dice-bonus');
+  const rollDiceBtn = qs('#roll-dice-btn');
+  const diceOutEl = qs('#dice-out');
 
-  const levelRewardTrigger = doc.getElementById('level-reward-reminder-trigger');
-  const levelRewardInfo = doc.getElementById('level-reward-info-trigger');
-  const levelRewardText = doc.getElementById('level-reward-reminder-text');
-  const levelRewardCount = doc.getElementById('level-reward-count');
+  const flipCoinBtn = qs('#flip-coin-btn');
+  const coinResultEl = qs('#coin-result');
 
-  const miniGameReminder = doc.getElementById('mini-game-reminder');
-  const miniGameName = doc.getElementById('mini-game-name');
-  const miniGameStatus = doc.getElementById('mini-game-status');
-  const miniGameMeta = doc.getElementById('mini-game-meta');
-  const miniGameResume = doc.getElementById('mini-game-resume');
+  const toastHistoryList = qs('#toast-history-list');
 
-  const toastHistoryList = doc.getElementById('toast-history-list');
+  if (!drawer || !tab) return null;
 
   let isOpen = false;
-  let miniGameResumeHandler = null;
+  let splashTimer = null;
+  let timeInterval = null;
+  let hpInterval = null;
+  let batteryObj = null;
 
-  if (tray) {
-    tray.classList.add('is-closed');
-    tray.setAttribute('aria-hidden', 'true');
-  }
+  const pad2 = (n) => String(n).padStart(2, '0');
 
-  const notifyState = () => {
-    const detail = { open: isOpen, progress: isOpen ? 1 : 0 };
-    dispatchChange(detail);
+  const getCurrentTimeString = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const h12 = hours % 12 || 12;
+    return `${h12}:${pad2(minutes)}`;
+  };
+
+  const updateClock = () => {
+    if (!clockEl) return;
+    clockEl.textContent = getCurrentTimeString();
+  };
+
+  const setBatteryVisual = ({ levelPercent = 75, charging = false, estimated = false } = {}) => {
+    const lvl = Math.max(0, Math.min(100, Number(levelPercent) || 75));
+    if (doc.documentElement) {
+      doc.documentElement.style.setProperty('--pt-battery-level', `${lvl}%`);
+    }
+
+    if (batteryEl) {
+      batteryEl.classList.toggle('is-charging', !!charging);
+      batteryEl.classList.toggle('is-estimated', !!estimated);
+      const label = estimated
+        ? 'Battery level unavailable (estimated display)'
+        : `Battery level ${lvl}%`;
+      batteryEl.setAttribute('aria-label', label);
+    }
+  };
+
+  const initBattery = async () => {
+    setBatteryVisual({ levelPercent: 75, charging: false, estimated: true });
+
+    if (!('getBattery' in navigator)) return;
+
+    try {
+      batteryObj = await navigator.getBattery();
+      const apply = () => {
+        const lvl = Math.round((batteryObj.level || 0) * 100);
+        setBatteryVisual({
+          levelPercent: lvl,
+          charging: !!batteryObj.charging,
+          estimated: false
+        });
+      };
+
+      apply();
+      batteryObj.addEventListener('levelchange', apply);
+      batteryObj.addEventListener('chargingchange', apply);
+    } catch (_) {
+      setBatteryVisual({ levelPercent: 75, charging: false, estimated: true });
+    }
+  };
+
+  const showSplashThenApp = () => {
+    if (!splash || !app) return;
+
+    splash.classList.add('is-visible');
+    splash.setAttribute('aria-hidden', 'false');
+    app.style.opacity = '0';
+    app.style.transition = 'opacity 220ms ease-out';
+
+    clearTimeout(splashTimer);
+    splashTimer = setTimeout(() => {
+      splash.classList.remove('is-visible');
+      splash.setAttribute('aria-hidden', 'true');
+      app.style.opacity = '1';
+    }, 2000);
   };
 
   const setDrawerOpen = (open) => {
-    const next = typeof open === 'boolean' ? open : !isOpen;
+    const next = !!open;
     if (next === isOpen) return;
-
     isOpen = next;
+
     drawer.classList.toggle('is-open', isOpen);
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 
-    if (tray) {
-      tray.classList.toggle('is-open', isOpen);
-      tray.classList.toggle('is-closed', !isOpen);
-      tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    if (tray) tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+
+    if (isOpen) {
+      updateClock();
+      showSplashThenApp();
+    } else {
+      if (splash) {
+        splash.classList.remove('is-visible');
+        splash.setAttribute('aria-hidden', 'true');
+      }
+      if (app) app.style.opacity = '1';
+      clearTimeout(splashTimer);
+      splashTimer = null;
     }
 
-    notifyState();
+    dispatchChange({ open: isOpen, progress: isOpen ? 1 : 0 });
   };
 
-  tab.addEventListener('click', () => setDrawerOpen(true));
+  const toggle = () => setDrawerOpen(!isOpen);
 
-  if (scrim) {
-    scrim.addEventListener('click', () => setDrawerOpen(false));
-  }
+  const updateResult = (el, value) => {
+    if (!el) return;
+    el.textContent = String(value);
+    el.removeAttribute('data-placeholder');
+  };
 
-  if (gestureExit) {
-    gestureExit.addEventListener('click', () => setDrawerOpen(false));
-  }
+  const addHistoryEntry = ({ label, value } = {}) => {
+    if (!toastHistoryList || !label) return;
+    const li = doc.createElement('li');
+    const now = new Date();
+    const time = `${now.getHours()}:${pad2(now.getMinutes())}`;
+    li.textContent = `${time}  ${label}: ${value}`;
+    toastHistoryList.prepend(li);
+  };
 
-  doc.addEventListener('keydown', (event) => {
+  const setupInitiative = () => {
+    if (!rollInitiativeBtn) return;
+    rollInitiativeBtn.addEventListener('click', () => {
+      const bonus = parseInt(initiativeBonusInput?.value ?? '0', 10) || 0;
+      const roll = Math.floor(Math.random() * 20) + 1;
+      const total = roll + bonus;
+      updateResult(initiativeResultEl, total);
+      addHistoryEntry({ label: 'Initiative', value: total });
+    });
+  };
+
+  const setupDiceRoller = () => {
+    if (!rollDiceBtn) return;
+    rollDiceBtn.addEventListener('click', () => {
+      const count = Math.max(1, parseInt(diceCountInput?.value ?? '1', 10) || 1);
+      const rawSides = diceSidesInput?.value ?? '20';
+      const sides = rawSides === '10p' ? 10 : Math.max(2, parseInt(rawSides, 10) || 20);
+      const bonus = parseInt(diceBonusInput?.value ?? '0', 10) || 0;
+
+      const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1);
+      const total = rolls.reduce((sum, n) => sum + n, 0) + bonus;
+
+      updateResult(diceOutEl, total);
+
+      const labelSides = rawSides === '10p' ? '10p' : String(sides);
+      const label = `${count}d${labelSides}${bonus ? `+${bonus}` : ''}`;
+      addHistoryEntry({ label, value: total });
+    });
+  };
+
+  const setupCoinFlip = () => {
+    if (!flipCoinBtn) return;
+    flipCoinBtn.addEventListener('click', () => {
+      const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
+      updateResult(coinResultEl, result);
+      addHistoryEntry({ label: 'Coin', value: result });
+    });
+  };
+
+  // HP detection for crack overlay (read-only)
+  const readNumberFromEl = (el) => {
+    if (!el) return null;
+    const v = el.value != null ? el.value : el.textContent;
+    const n = parseFloat(String(v).replace(/[^\d.]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const queryFirst = (selectors) => {
+    for (const sel of selectors) {
+      const found = doc.querySelector(sel);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const getHpPercent = () => {
+    const curEl = queryFirst([
+      '#hp-current',
+      '#current-hp',
+      '#hpCurrent',
+      '[data-hp-current]',
+      '.hp-current input',
+      '.hp-current',
+      '[name="hp-current"]'
+    ]);
+
+    const maxEl = queryFirst([
+      '#hp-max',
+      '#max-hp',
+      '#hpMax',
+      '[data-hp-max]',
+      '.hp-max input',
+      '.hp-max',
+      '[name="hp-max"]'
+    ]);
+
+    const cur = readNumberFromEl(curEl);
+    const max = readNumberFromEl(maxEl);
+
+    if (!Number.isFinite(cur) || !Number.isFinite(max) || max <= 0) return null;
+    return Math.max(0, Math.min(1, cur / max));
+  };
+
+  const updateCracks = () => {
+    const pct = getHpPercent();
+    if (pct == null) {
+      drawer.setAttribute('data-pt-crack', '0');
+      return;
+    }
+
+    let stage = 0;
+    if (pct < 0.15) stage = 3;
+    else if (pct < 0.40) stage = 2;
+    else if (pct < 0.70) stage = 1;
+
+    drawer.setAttribute('data-pt-crack', String(stage));
+  };
+
+  const handleKeydown = (event) => {
     if (!isOpen) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       setDrawerOpen(false);
     }
-  });
-
-  const updateStatusTime = () => {
-    if (!statusTime) return;
-    const now = new Date();
-    const hours24 = now.getHours();
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const hours12 = ((hours24 + 11) % 12) + 1;
-    statusTime.textContent = `${hours12}:${minutes}`;
   };
 
-  updateStatusTime();
-  if (typeof setInterval === 'function') {
-    setInterval(updateStatusTime, 30_000);
-  }
+  const handleScrimClick = () => setDrawerOpen(false);
+  const handleGestureExit = () => setDrawerOpen(false);
 
-  const setBatteryStatus = (detail = {}) => {
-    if (!batteryLevelEl) return;
-    const levelValue = typeof detail.level === 'number' && Number.isFinite(detail.level)
-      ? Math.max(0, Math.min(100, detail.level))
-      : null;
-    if (levelValue !== null) {
-      batteryLevelEl.style.setProperty('--battery-level', `${levelValue}%`);
-    }
+  const setupDrawer = () => {
+    tab.addEventListener('click', toggle);
+    scrim && scrim.addEventListener('click', handleScrimClick);
+    gestureExit && gestureExit.addEventListener('click', handleGestureExit);
+    doc.addEventListener('keydown', handleKeydown);
   };
-
-  const initBattery = async () => {
-    if (!batteryLevelEl) return;
-
-    // fallback if battery API unavailable
-    setBatteryStatus({ level: 100 });
-
-    if (typeof navigator === 'undefined' || !('getBattery' in navigator)) return;
-
-    try {
-      const batt = await navigator.getBattery();
-      const apply = () => setBatteryStatus({ level: Math.round(batt.level * 100) });
-      apply();
-      batt.addEventListener('levelchange', apply);
-      batt.addEventListener('chargingchange', apply);
-    } catch {
-      // keep fallback
-    }
-  };
-
-  initBattery();
-
-  const randomInt = (min, max) =>
-    Math.floor(Math.random() * (max - min + 1)) + min;
-
-  const addHistoryEntry = (label, detail) => {
-    if (!toastHistoryList) return;
-    const li = doc.createElement('li');
-
-    const timeSpan = doc.createElement('span');
-    timeSpan.className = 'toast-history-list__time';
-
-    const now = new Date();
-    const h = now.getHours().toString().padStart(2, '0');
-    const m = now.getMinutes().toString().padStart(2, '0');
-    timeSpan.textContent = `[${h}:${m}]`;
-
-    const textSpan = doc.createElement('span');
-    textSpan.textContent = ` ${label}: ${detail}`;
-
-    li.appendChild(timeSpan);
-    li.appendChild(textSpan);
-
-    const first = toastHistoryList.firstElementChild;
-    toastHistoryList.insertBefore(li, first || null);
-  };
-
-  const rollInitiative = () => {
-    if (!initiativeBonusInput || !initiativeResultEl) return;
-    const bonus = parseInt(initiativeBonusInput.value || '0', 10) || 0;
-    const die = randomInt(1, 20);
-    const total = die + bonus;
-
-    const bonusText = bonus === 0 ? '' : (bonus > 0 ? `+${bonus}` : `${bonus}`);
-    initiativeResultEl.textContent = `${total} (${die}${bonusText ? ` ${bonusText}` : ''})`;
-
-    addHistoryEntry('Initiative', `d20=${die}, bonus=${bonus}, total=${total}`);
-  };
-
-  if (rollInitiativeBtn) {
-    rollInitiativeBtn.addEventListener('click', rollInitiative);
-  }
-
-  const rollDice = () => {
-    if (!diceCountInput || !diceSidesInput || !diceOutEl) return;
-
-    const count = Math.max(1, parseInt(diceCountInput.value || '1', 10) || 1);
-    const sides = Math.max(2, parseInt(diceSidesInput.value || '20', 10) || 20);
-    const bonus = diceBonusInput ? (parseInt(diceBonusInput.value || '0', 10) || 0) : 0;
-
-    const rolls = [];
-    let sum = 0;
-    for (let i = 0; i < count; i += 1) {
-      const roll = randomInt(1, sides);
-      rolls.push(roll);
-      sum += roll;
-    }
-
-    const total = sum + bonus;
-    const bonusText = bonus === 0 ? '' : (bonus > 0 ? ` + ${bonus}` : ` - ${Math.abs(bonus)}`);
-    const detail = `${total} = [${rolls.join(', ')}]${bonusText}`;
-
-    diceOutEl.textContent = detail;
-    addHistoryEntry(`Roll ${count}d${sides}`, detail);
-  };
-
-  if (rollDiceBtn) {
-    rollDiceBtn.addEventListener('click', rollDice);
-  }
-
-  const flipCoin = () => {
-    if (!coinResultEl) return;
-    const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
-    coinResultEl.textContent = result;
-    addHistoryEntry('Coin', result);
-  };
-
-  if (flipCoinBtn) {
-    flipCoinBtn.addEventListener('click', flipCoin);
-  }
-
-  const setLevelRewardReminder = (count, text) => {
-    if (!levelRewardTrigger || !levelRewardText || !levelRewardCount) return;
-
-    const numeric = parseInt(count || '0', 10) || 0;
-    if (numeric <= 0) {
-      levelRewardTrigger.disabled = true;
-      levelRewardText.textContent = 'No pending rewards';
-      levelRewardCount.hidden = true;
-      levelRewardCount.textContent = '0';
-      return;
-    }
-
-    levelRewardTrigger.disabled = false;
-    levelRewardText.textContent = text || 'Rewards ready';
-    levelRewardCount.hidden = false;
-    levelRewardCount.textContent = String(numeric);
-  };
-
-  const clearLevelRewardReminder = () => {
-    setLevelRewardReminder(0);
-  };
-
-  if (levelRewardTrigger) {
-    levelRewardTrigger.addEventListener('click', () => {
-      addHistoryEntry('Level rewards', 'Player opened level reward reminder');
-    });
-  }
-
-  if (levelRewardInfo) {
-    levelRewardInfo.addEventListener('click', () => {
-      addHistoryEntry('Info', 'Level reward reminder info viewed');
-      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
-        window.alert('When your character hits a new level, this reminder lets you apply level-up rewards.');
-      }
-    });
-  }
-
-  const setMiniGameReminder = (options = {}) => {
-    if (!miniGameReminder || !miniGameName || !miniGameStatus || !miniGameResume) return;
-
-    const name = options.name || 'Mini game mission';
-    const status = options.status || 'Pending';
-    const meta = options.meta || '';
-
-    miniGameName.textContent = name;
-    miniGameStatus.textContent = `Status: ${status}`;
-
-    if (miniGameMeta) {
-      if (meta && meta.trim()) {
-        miniGameMeta.hidden = false;
-        miniGameMeta.textContent = meta;
-      } else {
-        miniGameMeta.hidden = true;
-        miniGameMeta.textContent = '';
-      }
-    }
-
-    miniGameResumeHandler = typeof options.onResume === 'function' ? options.onResume : null;
-    miniGameReminder.hidden = false;
-  };
-
-  const clearMiniGameReminder = () => {
-    if (!miniGameReminder || !miniGameName || !miniGameStatus) return;
-    miniGameReminder.hidden = true;
-    miniGameName.textContent = 'Mini game mission';
-    miniGameStatus.textContent = 'Status: Pending';
-    if (miniGameMeta) {
-      miniGameMeta.hidden = true;
-      miniGameMeta.textContent = '';
-    }
-    miniGameResumeHandler = null;
-  };
-
-  if (miniGameResume) {
-    miniGameResume.addEventListener('click', () => {
-      addHistoryEntry('Mini game', 'Resume pressed');
-      if (typeof miniGameResumeHandler === 'function') {
-        try {
-          miniGameResumeHandler();
-        } catch {
-          // ignore
-        }
-      }
-    });
-  }
 
   const subscribe = (listener) => {
-    if (typeof listener !== 'function') {
-      return () => {};
-    }
-    // immediate snapshot
+    if (typeof listener !== 'function') return () => {};
+    if (!changeListeners.has(listener)) changeListeners.add(listener);
     listener({ open: isOpen, progress: isOpen ? 1 : 0 });
-    changeListeners.add(listener);
-    return () => {
-      changeListeners.delete(listener);
-    };
+    return () => changeListeners.delete(listener);
   };
 
-  // Global API for tests and app code
-  const exposeApi = () => {
+  const open = () => setDrawerOpen(true);
+  const close = () => setDrawerOpen(false);
+
+  // DO NOT overwrite globals. Only attach hooks if PlayerTools already exists.
+  try {
     const globalTarget = typeof window !== 'undefined' ? window : globalThis;
-    if (!globalTarget) return;
+    const host = globalTarget && globalTarget.PlayerTools;
+    if (host && (typeof host === 'object' || typeof host === 'function')) {
+      if (!('openTray' in host)) host.openTray = open;
+      if (!('closeTray' in host)) host.closeTray = close;
+    }
+  } catch (_) {}
 
-    globalTarget.PlayerTools = {
-      setLevelRewardReminder,
-      clearLevelRewardReminder,
-      setMiniGameReminder,
-      clearMiniGameReminder,
-      addHistoryEntry,
-      openTray: () => setDrawerOpen(true),
-      closeTray: () => setDrawerOpen(false)
-    };
+  // init
+  setDrawerOpen(false);
+  updateClock();
+  initBattery();
+
+  timeInterval = setInterval(updateClock, 15_000);
+  updateCracks();
+  hpInterval = setInterval(updateCracks, 1_000);
+
+  setupDrawer();
+  setupInitiative();
+  setupDiceRoller();
+  setupCoinFlip();
+
+  const teardown = () => {
+    clearInterval(timeInterval);
+    clearInterval(hpInterval);
+    clearTimeout(splashTimer);
+
+    try {
+      if (batteryObj) {
+        batteryObj.onlevelchange = null;
+        batteryObj.onchargingchange = null;
+      }
+    } catch (_) {}
+
+    tab.removeEventListener('click', toggle);
+    scrim && scrim.removeEventListener('click', handleScrimClick);
+    gestureExit && gestureExit.removeEventListener('click', handleGestureExit);
+    doc.removeEventListener('keydown', handleKeydown);
   };
 
-  exposeApi();
-
-  // Ensure drawer starts closed on load
-  isOpen = false;
-  drawer.classList.remove('is-open');
-  drawer.setAttribute('aria-hidden', 'true');
-  tab.setAttribute('aria-expanded', 'false');
-  tab.setAttribute('aria-hidden', 'false');
-
-  notifyState();
-
-  return {
-    open: () => setDrawerOpen(true),
-    close: () => setDrawerOpen(false),
-    toggle: () => setDrawerOpen(),
-    subscribe,
-    setBatteryStatus,
-    setLevelRewardReminder,
-    clearLevelRewardReminder,
-    setMiniGameReminder,
-    clearMiniGameReminder,
-    addHistoryEntry
-  };
+  return { open, close, toggle, subscribe, teardown };
 }
 
 export function initializePlayerToolsDrawer() {
-  if (!controllerInstance) {
-    controllerInstance = createPlayerToolsDrawer();
-  }
+  if (!controllerInstance) controllerInstance = createPlayerToolsDrawer();
   return controllerInstance;
 }
 
-export const open = () => {
-  const controller = initializePlayerToolsDrawer();
-  controller && controller.open();
-};
+export const open = () => initializePlayerToolsDrawer()?.open();
+export const close = () => initializePlayerToolsDrawer()?.close();
+export const toggle = () => initializePlayerToolsDrawer()?.toggle();
+export const subscribe = (listener) => initializePlayerToolsDrawer()?.subscribe(listener) ?? (() => {});
 
-export const close = () => {
-  const controller = initializePlayerToolsDrawer();
-  controller && controller.close();
-};
-
-export const toggle = () => {
-  const controller = initializePlayerToolsDrawer();
-  controller && controller.toggle();
-};
-
-export const setBatteryStatus = (detail) => {
-  const controller = initializePlayerToolsDrawer();
-  if (controller && typeof controller.setBatteryStatus === 'function') {
-    controller.setBatteryStatus(detail);
-  }
-};
-
-export const subscribe = (listener) => {
-  const controller = initializePlayerToolsDrawer();
-  if (controller && typeof controller.subscribe === 'function') {
-    return controller.subscribe(listener);
-  }
-  if (typeof listener === 'function') {
-    listener({ open: false, progress: 0 });
-  }
-  return () => {};
-};
-
-export const onDrawerChange = (listener) => {
-  if (typeof listener !== 'function') {
-    return () => {};
-  }
-
-  initializePlayerToolsDrawer();
-
-  const handler = (event) => {
-    const detail = event && event.detail;
-    if (detail && typeof detail.open === 'boolean') {
-      const progress = typeof detail.progress === 'number' ? detail.progress : (detail.open ? 1 : 0);
-      listener({ open: detail.open, progress });
-    }
-  };
-
-  const doc = getDocument();
-  if (doc && typeof doc.addEventListener === 'function') {
-    doc.addEventListener(DRAWER_CHANGE_EVENT, handler);
-  }
-
-  // fire a snapshot
-  listener({ open: false, progress: 0 });
-
-  return () => {
-    if (doc && typeof doc.removeEventListener === 'function') {
-      doc.removeEventListener(DRAWER_CHANGE_EVENT, handler);
-    }
-  };
-};
-
-// Ensure auto-init when module loads
 initializePlayerToolsDrawer();
