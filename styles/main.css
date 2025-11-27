@@ -8697,6 +8697,9 @@ opacity: 1;
 pointer-events: auto;
 }
 
+#player-tools-drawer:not(.is-open) .pt-scrim{ pointer-events: none; }
+#player-tools-drawer .pt-scrim{ pointer-events: auto; }
+
 #player-tools-drawer .pt-scrim{
 position:absolute;
 inset:0;
