@@ -300,13 +300,10 @@ function createPlayerToolsDrawer() {
     }
   };
 
-  const handleScrimClick = () => setDrawerOpen(false);
-  const handleGestureExit = () => setDrawerOpen(false);
-
   const setupDrawer = () => {
     tab.addEventListener('click', toggle);
-    scrim && scrim.addEventListener('click', handleScrimClick);
-    gestureExit && gestureExit.addEventListener('click', handleGestureExit);
+    scrim && scrim.addEventListener('click', () => setDrawerOpen(false));
+    gestureExit && gestureExit.addEventListener('click', () => setDrawerOpen(false));
     doc.addEventListener('keydown', handleKeydown);
   };
 
@@ -364,8 +361,8 @@ function createPlayerToolsDrawer() {
     } catch (_) {}
 
     tab.removeEventListener('click', toggle);
-    scrim && scrim.removeEventListener('click', handleScrimClick);
-    gestureExit && gestureExit.removeEventListener('click', handleGestureExit);
+    scrim && scrim.removeEventListener('click', close);
+    gestureExit && gestureExit.removeEventListener('click', close);
     doc.removeEventListener('keydown', handleKeydown);
   };
 

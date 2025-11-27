@@ -6954,7 +6954,7 @@ body:not(.no-hover) .augment-picker-trigger:hover{
 }
 
 /* Legacy webpage tools */
-#player-tools-drawer .tool-card {
+.tool-card {
   border-radius: 12px;
   background: linear-gradient(145deg, rgba(10, 25, 40, 0.95), rgba(3, 8, 18, 0.98));
   border: 1px solid rgba(0, 229, 255, 0.3);
@@ -6962,7 +6962,7 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   box-shadow: 0 0 10px rgba(0, 229, 255, 0.25);
 }
 
-#player-tools-drawer .tool-card__header {
+.tool-card__header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -6970,14 +6970,14 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   margin-bottom: 0.35rem;
 }
 
-#player-tools-drawer .tool-card__title {
+.tool-card__title {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #e9fbff;
 }
 
-#player-tools-drawer .tool-card__result-shell {
+.tool-card__result-shell {
   border-radius: 999px;
   padding: 0.22rem 0.85rem;
   background: radial-gradient(circle at 0 50%, rgba(0, 229, 255, 0.4), rgba(0, 5, 15, 0.95));
@@ -6992,44 +6992,44 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   white-space: nowrap;
 }
 
-#player-tools-drawer .tool-card__result {
+.tool-card__result {
   display: inline-block;
 }
 
-#player-tools-drawer .tool-card__result[data-placeholder] {
+.tool-card__result[data-placeholder] {
   opacity: 0.8;
   font-weight: 500;
 }
 
-#player-tools-drawer .tool-card__body {
+.tool-card__body {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-#player-tools-drawer .tool-card__body--grid {
+.tool-card__body--grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.35rem;
 }
 
-#player-tools-drawer .tool-card__body--history {
+.tool-card__body--history {
   max-height: 100px;
   overflow-y: auto;
 }
 
-#player-tools-drawer .tool-field {
+.tool-field {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
 }
 
-#player-tools-drawer .tool-field label {
+.tool-field label {
   font-size: 0.65rem;
   color: #c4f5ff;
 }
 
-#player-tools-drawer .tool-field input {
+.tool-field input {
   font-size: 0.75rem;
   padding: 0.15rem 0.25rem;
   border-radius: 6px;
@@ -7038,7 +7038,7 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   color: #e5f9ff;
 }
 
-#player-tools-drawer .btn {
+.btn {
   font-size: 0.75rem;
   padding: 0.3rem 0.5rem;
   border-radius: 999px;
@@ -7046,47 +7046,47 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   cursor: pointer;
 }
 
-#player-tools-drawer .btn-block {
+.btn-block {
   width: 100%;
 }
 
-#player-tools-drawer .btn-sm {
+.btn-sm {
   font-size: 0.7rem;
   padding: 0.2rem 0.45rem;
 }
 
-#player-tools-drawer .btn-primary {
+.btn-primary {
   background: linear-gradient(135deg, #00e5ff, #00ffa3);
   color: #020609;
   font-weight: 600;
   border-color: rgba(0, 20, 30, 0.9);
 }
 
-#player-tools-drawer .btn-secondary {
+.btn-secondary {
   background: rgba(0, 229, 255, 0.1);
   color: #e5f9ff;
   border-color: rgba(0, 229, 255, 0.4);
 }
 
-#player-tools-drawer .player-tools-reminder {
+.player-tools-reminder {
   border-radius: 12px;
   border: 1px solid rgba(0, 229, 255, 0.4);
   background: radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.28), rgba(0, 0, 0, 0.9));
   padding: 0.4rem 0.45rem;
 }
 
-#player-tools-drawer .player-tools-reminder--mini-game {
+.player-tools-reminder--mini-game {
   background: radial-gradient(circle at 0 100%, rgba(255, 196, 0, 0.3), rgba(0, 0, 0, 0.9));
 }
 
-#player-tools-drawer .player-tools-reminder__body {
+.player-tools-reminder__body {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   justify-content: space-between;
 }
 
-#player-tools-drawer .player-tools-reminder__badge {
+.player-tools-reminder__badge {
   border-radius: 999px;
   padding: 0.05rem 0.35rem;
   background: #ff6b81;
@@ -7095,7 +7095,7 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   font-weight: 600;
 }
 
-#player-tools-drawer .player-tools-reminder__info {
+.player-tools-reminder__info {
   border-radius: 999px;
   width: 1.3rem;
   height: 1.3rem;
@@ -7109,7 +7109,7 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   cursor: pointer;
 }
 
-#player-tools-drawer .toast-history-list {
+.toast-history-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -7117,16 +7117,16 @@ body:not(.no-hover) .augment-picker-trigger:hover{
   color: #e5f9ff;
 }
 
-#player-tools-drawer .toast-history-list li {
+.toast-history-list li {
   padding: 0.15rem 0.1rem;
   border-bottom: 1px solid rgba(0, 229, 255, 0.16);
 }
 
-#player-tools-drawer .toast-history-list li:last-child {
+.toast-history-list li:last-child {
   border-bottom: none;
 }
 
-#player-tools-drawer .toast-history-list__time {
+.toast-history-list__time {
   opacity: 0.7;
   font-size: 0.6rem;
   margin-right: 0.25rem;
