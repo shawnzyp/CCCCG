@@ -197,20 +197,36 @@ function createPlayerToolsDrawer() {
     setInterval(updateStatusTime, 30_000);
   }
 
-  const updateBatteryLevel = (battery) => {
+  const setBatteryStatus = (detail = {}) => {
     if (!batteryLevelEl) return;
-    const level = Math.round(battery.level * 100);
-    batteryLevelEl.style.setProperty('--battery-level', `${level}%`);
+    const levelValue = typeof detail.level === 'number' && Number.isFinite(detail.level)
+      ? Math.max(0, Math.min(100, detail.level))
+      : null;
+    if (levelValue !== null) {
+      batteryLevelEl.style.setProperty('--battery-level', `${levelValue}%`);
+    }
   };
 
-  if (typeof navigator !== 'undefined' && 'getBattery' in navigator && batteryLevelEl) {
-    navigator.getBattery().then((battery) => {
-      updateBatteryLevel(battery);
-      battery.addEventListener('levelchange', () => updateBatteryLevel(battery));
-    }).catch(() => {
-      // Silent fail – keep default full battery icon
-    });
-  }
+  const initBattery = async () => {
+    if (!batteryLevelEl) return;
+
+    // fallback if battery API unavailable
+    setBatteryStatus({ level: 100 });
+
+    if (typeof navigator === 'undefined' || !('getBattery' in navigator)) return;
+
+    try {
+      const batt = await navigator.getBattery();
+      const apply = () => setBatteryStatus({ level: Math.round(batt.level * 100) });
+      apply();
+      batt.addEventListener('levelchange', apply);
+      batt.addEventListener('chargingchange', apply);
+    } catch {
+      // keep fallback
+    }
+  };
+
+  initBattery();
 
   const randomInt = (min, max) =>
     Math.floor(Math.random() * (max - min + 1)) + min;
@@ -421,8 +437,7 @@ function createPlayerToolsDrawer() {
     close: () => setDrawerOpen(false),
     toggle: () => setDrawerOpen(),
     subscribe,
-    // left as a no-op so other code can safely call it
-    setBatteryStatus() {},
+    setBatteryStatus,
     setLevelRewardReminder,
     clearLevelRewardReminder,
     setMiniGameReminder,
