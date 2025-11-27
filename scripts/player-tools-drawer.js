@@ -3,6 +3,16 @@ let controllerInstance = null;
 const changeListeners = new Set();
 
 const getDocument = () => (typeof document !== 'undefined' ? document : null);
+const getGlobal = () => {
+  try {
+    if (typeof window !== 'undefined') return window;
+    if (typeof globalThis !== 'undefined') return globalThis;
+  } catch (_) {}
+  return null;
+};
+
+// Global singleton key: prevents double-init if this module is loaded twice
+const GLOBAL_CONTROLLER_KEY = '__ccPlayerToolsDrawerController__';
 
 const dispatchChange = (detail) => {
   changeListeners.forEach((listener) => {
@@ -26,103 +36,6 @@ const clampPendingCount = (value) => {
   return Math.max(0, num);
 };
 
-const ensureLevelRewardUI = () => {
-  const doc = getDocument();
-  if (!doc) return {};
-
-  let trigger = doc.getElementById('level-reward-reminder-trigger');
-  if (!trigger) {
-    trigger = doc.createElement('button');
-    trigger.id = 'level-reward-reminder-trigger';
-    trigger.type = 'button';
-    trigger.hidden = true;
-    trigger.disabled = true;
-    trigger.setAttribute('aria-hidden', 'true');
-    trigger.setAttribute('aria-disabled', 'true');
-    trigger.textContent = 'Rewards';
-    trigger.dataset.playerToolsShim = 'true';
-    doc.body?.appendChild(trigger);
-  }
-
-  let badge = doc.getElementById('level-reward-count');
-  if (!badge) {
-    badge = doc.createElement('span');
-    badge.id = 'level-reward-count';
-    badge.hidden = true;
-    badge.dataset.playerToolsShim = 'true';
-    trigger.appendChild(badge);
-  }
-
-  let infoTrigger = doc.getElementById('level-reward-info-trigger');
-  if (!infoTrigger) {
-    infoTrigger = doc.createElement('button');
-    infoTrigger.id = 'level-reward-info-trigger';
-    infoTrigger.type = 'button';
-    infoTrigger.hidden = true;
-    infoTrigger.setAttribute('aria-hidden', 'true');
-    infoTrigger.textContent = 'Reward details';
-    infoTrigger.dataset.playerToolsShim = 'true';
-    doc.body?.appendChild(infoTrigger);
-  }
-
-  return { trigger, badge, infoTrigger };
-};
-
-const ensureMiniGameReminderUI = () => {
-  const doc = getDocument();
-  if (!doc) return {};
-
-  let card = doc.getElementById('mini-game-reminder');
-  if (!card) {
-    card = doc.createElement('section');
-    card.id = 'mini-game-reminder';
-    card.hidden = true;
-    card.setAttribute('data-mini-game-reminder', '');
-    card.dataset.playerToolsShim = 'true';
-    doc.body?.appendChild(card);
-  }
-
-  let summary = card.querySelector('[data-mini-game-reminder-summary]');
-  if (!summary) {
-    summary = doc.createElement('p');
-    summary.setAttribute('data-mini-game-reminder-summary', '');
-    card.appendChild(summary);
-  }
-
-  let game = card.querySelector('[data-mini-game-reminder-game]');
-  if (!game) {
-    game = doc.createElement('strong');
-    game.setAttribute('data-mini-game-reminder-game', '');
-    card.appendChild(game);
-  }
-
-  let status = card.querySelector('[data-mini-game-reminder-status]');
-  if (!status) {
-    status = doc.createElement('p');
-    status.setAttribute('data-mini-game-reminder-status', '');
-    card.appendChild(status);
-  }
-
-  let meta = card.querySelector('[data-mini-game-reminder-meta]');
-  if (!meta) {
-    meta = doc.createElement('p');
-    meta.setAttribute('data-mini-game-reminder-meta', '');
-    card.appendChild(meta);
-  }
-
-  let resumeBtn = card.querySelector('[data-mini-game-reminder-action]');
-  if (!resumeBtn) {
-    resumeBtn = doc.createElement('button');
-    resumeBtn.type = 'button';
-    resumeBtn.id = 'mini-game-resume';
-    resumeBtn.textContent = 'Resume mini-game';
-    resumeBtn.setAttribute('data-mini-game-reminder-action', '');
-    card.appendChild(resumeBtn);
-  }
-
-  return { card, summary, game, status, meta, resumeBtn };
-};
-
 const ensurePlayerToolsHost = () => {
   const globalTarget = typeof window !== 'undefined' ? window : globalThis;
   if (!globalTarget) return null;
@@ -136,23 +49,30 @@ const ensurePlayerToolsHost = () => {
     if (!(key in host)) host[key] = value;
   };
 
+  // Best-effort: real DOM lookup only. If legacy DOM doesn't exist, do nothing.
   const setLevelRewardReminder = (count = 0, label = 'Rewards') => {
     const pendingCount = clampPendingCount(count);
-    const { trigger, badge, infoTrigger } = ensureLevelRewardUI();
-    if (badge) {
+    const doc = getDocument();
+    if (!doc) return pendingCount;
+
+    const trigger = doc.getElementById('level-reward-reminder-trigger');
+    const badge = doc.getElementById('level-reward-count');
+    const infoTrigger = doc.getElementById('level-reward-info-trigger');
+
+    const hasPending = pendingCount > 0;
+
+    if (badge && typeof badge === 'object') {
       badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
-      badge.hidden = pendingCount <= 0;
+      badge.hidden = !hasPending;
     }
-    if (trigger) {
-      const hasPending = pendingCount > 0;
+    if (trigger && typeof trigger === 'object') {
       trigger.hidden = !hasPending;
       trigger.disabled = !hasPending;
       trigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
       trigger.setAttribute('aria-disabled', hasPending ? 'false' : 'true');
       trigger.setAttribute('aria-label', label || 'Rewards');
     }
-    if (infoTrigger) {
-      const hasPending = pendingCount > 0;
+    if (infoTrigger && typeof infoTrigger === 'object') {
       infoTrigger.hidden = !hasPending;
       infoTrigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
     }
@@ -166,16 +86,29 @@ const ensurePlayerToolsHost = () => {
       name = 'Mini-Game',
       status = 'Pending',
       meta = '',
-      summary = 'Mini-game mission ready',
       onResume,
     } = config || {};
 
-    const { card, summary: summaryEl, game, status: statusEl, meta: metaEl, resumeBtn } =
-      ensureMiniGameReminderUI();
-    if (summaryEl) summaryEl.textContent = summary || 'Mini-game mission ready';
-    if (game) game.textContent = name;
-    if (statusEl) statusEl.textContent = status;
-    if (metaEl) metaEl.textContent = meta;
+    const doc = getDocument();
+    if (!doc) return;
+
+    // Legacy IDs (may not exist anymore) - best effort only
+    const card = doc.getElementById('mini-game-reminder');
+    const nameEl = doc.getElementById('mini-game-name');
+    const statusEl = doc.getElementById('mini-game-status');
+    const metaEl = doc.getElementById('mini-game-meta');
+    const resumeBtn = doc.getElementById('mini-game-resume');
+
+    // If none exist, no-op.
+    if (!card && !nameEl && !statusEl && !metaEl && !resumeBtn) return;
+
+    if (nameEl) nameEl.textContent = name;
+    if (statusEl) statusEl.textContent = status ? `Status: ${status}` : 'Status: Pending';
+    if (metaEl) {
+      const trimmed = String(meta || '').trim();
+      metaEl.textContent = trimmed;
+      metaEl.hidden = !trimmed;
+    }
     if (resumeBtn) {
       resumeBtn.onclick = typeof onResume === 'function' ? () => onResume() : null;
     }
@@ -186,11 +119,19 @@ const ensurePlayerToolsHost = () => {
   };
 
   const clearMiniGameReminder = () => {
-    const { card, summary, game, status, meta, resumeBtn } = ensureMiniGameReminderUI();
-    if (summary) summary.textContent = '';
-    if (game) game.textContent = '';
-    if (status) status.textContent = '';
-    if (meta) meta.textContent = '';
+    const doc = getDocument();
+    if (!doc) return;
+    const card = doc.getElementById('mini-game-reminder');
+    const nameEl = doc.getElementById('mini-game-name');
+    const statusEl = doc.getElementById('mini-game-status');
+    const metaEl = doc.getElementById('mini-game-meta');
+    const resumeBtn = doc.getElementById('mini-game-resume');
+    if (nameEl) nameEl.textContent = '';
+    if (statusEl) statusEl.textContent = 'Status: Pending';
+    if (metaEl) {
+      metaEl.textContent = '';
+      metaEl.hidden = true;
+    }
     if (resumeBtn) resumeBtn.onclick = null;
     if (card) {
       card.hidden = true;
@@ -198,10 +139,73 @@ const ensurePlayerToolsHost = () => {
     }
   };
 
+  const addHistoryEntry = (label, detail) => {
+    try {
+      const doc = getDocument();
+      if (!doc) return;
+      const list =
+        doc.querySelector('#player-tools-drawer #toast-history-list') ||
+        doc.querySelector('#toast-history-list');
+      if (!list) return;
+      const li = doc.createElement('li');
+      const now = new Date();
+      const pad2 = (n) => String(n).padStart(2, '0');
+      const time = `${now.getHours()}:${pad2(now.getMinutes())}`;
+      li.textContent = `${time}  ${String(label ?? '')}: ${String(detail ?? '')}`;
+      if (typeof list.prepend === 'function') list.prepend(li);
+      else list.appendChild(li);
+    } catch (_) {
+      // no-throw
+    }
+  };
+
   safeAssign('setLevelRewardReminder', setLevelRewardReminder);
   safeAssign('clearLevelRewardReminder', clearLevelRewardReminder);
   safeAssign('setMiniGameReminder', setMiniGameReminder);
   safeAssign('clearMiniGameReminder', clearMiniGameReminder);
+  safeAssign('addHistoryEntry', addHistoryEntry);
+
+  // These delegate to the drawer controller if present; otherwise no-op.
+  // They must exist for legacy callers, and must never throw.
+  safeAssign('openTray', () => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.open === 'function') controller.open();
+    } catch (_) {}
+  });
+  safeAssign('closeTray', () => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.close === 'function') controller.close();
+    } catch (_) {}
+  });
+  safeAssign('toggleTray', () => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.toggle === 'function') controller.toggle();
+    } catch (_) {}
+  });
+  safeAssign('subscribe', (listener) => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.subscribe === 'function') {
+        return controller.subscribe(listener);
+      }
+    } catch (_) {}
+    return () => {};
+  });
+  safeAssign('setBatteryStatus', (detail = {}) => {
+    try {
+      const next = detail && typeof detail === 'object' ? { ...detail } : {};
+      if (!('levelPercent' in next) && typeof next.level === 'number' && Number.isFinite(next.level)) {
+        next.levelPercent = next.level;
+      }
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.setBatteryStatus === 'function') {
+        controller.setBatteryStatus(next);
+      }
+    } catch (_) {}
+  });
 
   globalTarget.PlayerTools = host;
   return host;
@@ -244,11 +248,18 @@ function createPlayerToolsDrawer() {
 
   if (!drawer || !tab) return null;
 
+  // Prevent double-binding, but ONLY if we actually have a controller already.
+  // (Avoid stale ptInit="1" causing a null controller return.)
+  if (drawer.dataset.ptInit === '1' && controllerInstance) return controllerInstance;
+  drawer.dataset.ptInit = '1';
+
   let isOpen = false;
   let splashTimer = null;
   let timeInterval = null;
   let hpInterval = null;
   let batteryObj = null;
+  let batteryApply = null;
+  let splashSeq = 0; // fixes splash replay if open triggers more than once
 
   const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -284,11 +295,11 @@ function createPlayerToolsDrawer() {
   const initBattery = async () => {
     setBatteryVisual({ levelPercent: 75, charging: false, estimated: true });
 
-    if (!('getBattery' in navigator)) return;
+    if (typeof navigator === 'undefined' || !('getBattery' in navigator)) return;
 
     try {
       batteryObj = await navigator.getBattery();
-      const apply = () => {
+      batteryApply = () => {
         const lvl = Math.round((batteryObj.level || 0) * 100);
         setBatteryVisual({
           levelPercent: lvl,
@@ -297,9 +308,9 @@ function createPlayerToolsDrawer() {
         });
       };
 
-      apply();
-      batteryObj.addEventListener('levelchange', apply);
-      batteryObj.addEventListener('chargingchange', apply);
+      batteryApply();
+      batteryObj.addEventListener('levelchange', batteryApply);
+      batteryObj.addEventListener('chargingchange', batteryApply);
     } catch (_) {
       setBatteryVisual({ levelPercent: 75, charging: false, estimated: true });
     }
@@ -308,6 +319,8 @@ function createPlayerToolsDrawer() {
   const showSplashThenApp = () => {
     if (!splash || !app) return;
 
+    const seq = ++splashSeq;
+
     splash.classList.add('is-visible');
     splash.setAttribute('aria-hidden', 'false');
     app.style.opacity = '0';
@@ -315,6 +328,7 @@ function createPlayerToolsDrawer() {
 
     clearTimeout(splashTimer);
     splashTimer = setTimeout(() => {
+      if (seq !== splashSeq) return;
       splash.classList.remove('is-visible');
       splash.setAttribute('aria-hidden', 'true');
       app.style.opacity = '1';
@@ -338,6 +352,7 @@ function createPlayerToolsDrawer() {
       updateClock();
       showSplashThenApp();
     } else {
+      splashSeq += 1; // cancel any in-flight splash finish
       if (splash) {
         splash.classList.remove('is-visible');
         splash.setAttribute('aria-hidden', 'true');
@@ -358,7 +373,7 @@ function createPlayerToolsDrawer() {
     el.removeAttribute('data-placeholder');
   };
 
-  const addHistoryEntry = ({ label, value } = {}) => {
+  const addHistoryEntryInternal = ({ label, value } = {}) => {
     if (!toastHistoryList || !label) return;
     const li = doc.createElement('li');
     const now = new Date();
@@ -374,7 +389,7 @@ function createPlayerToolsDrawer() {
       const roll = Math.floor(Math.random() * 20) + 1;
       const total = roll + bonus;
       updateResult(initiativeResultEl, total);
-      addHistoryEntry({ label: 'Initiative', value: total });
+      addHistoryEntryInternal({ label: 'Initiative', value: total });
     });
   };
 
@@ -393,7 +408,7 @@ function createPlayerToolsDrawer() {
 
       const labelSides = rawSides === '10p' ? '10p' : String(sides);
       const label = `${count}d${labelSides}${bonus ? `+${bonus}` : ''}`;
-      addHistoryEntry({ label, value: total });
+      addHistoryEntryInternal({ label, value: total });
     });
   };
 
@@ -402,7 +417,7 @@ function createPlayerToolsDrawer() {
     flipCoinBtn.addEventListener('click', () => {
       const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
       updateResult(coinResultEl, result);
-      addHistoryEntry({ label: 'Coin', value: result });
+      addHistoryEntryInternal({ label: 'Coin', value: result });
     });
   };
 
@@ -492,29 +507,13 @@ function createPlayerToolsDrawer() {
 
   const open = () => setDrawerOpen(true);
   const close = () => setDrawerOpen(false);
-  const setBatteryStatus = (detail = {}) => setBatteryVisual(detail || {});
-
-  const addHistoryEntryLegacy = (labelOrEntry, detail) => {
-    const entry =
-      labelOrEntry && typeof labelOrEntry === 'object'
-        ? labelOrEntry
-        : { label: labelOrEntry, value: detail };
-    const { label, value = '' } = entry || {};
-    addHistoryEntry({ label, value });
-  };
-
-  // DO NOT overwrite globals. Only attach hooks if PlayerTools already exists.
-  try {
-    const host = ensurePlayerToolsHost();
-    if (host && (typeof host === 'object' || typeof host === 'function')) {
-      if (!('openTray' in host)) host.openTray = open;
-      if (!('closeTray' in host)) host.closeTray = close;
-      if (!('toggleTray' in host)) host.toggleTray = toggle;
-      if (!('subscribe' in host)) host.subscribe = subscribe;
-      if (!('setBatteryStatus' in host)) host.setBatteryStatus = setBatteryStatus;
-      if (!('addHistoryEntry' in host)) host.addHistoryEntry = addHistoryEntryLegacy;
+  const setBatteryStatus = (detail = {}) => {
+    const next = detail && typeof detail === 'object' ? { ...detail } : {};
+    if (!('levelPercent' in next) && typeof next.level === 'number' && Number.isFinite(next.level)) {
+      next.levelPercent = next.level;
     }
-  } catch (_) {}
+    return setBatteryVisual(next || {});
+  };
 
   // init
   setDrawerOpen(false);
@@ -536,23 +535,55 @@ function createPlayerToolsDrawer() {
     clearTimeout(splashTimer);
 
     try {
-      if (batteryObj) {
-        batteryObj.onlevelchange = null;
-        batteryObj.onchargingchange = null;
+      if (batteryObj && batteryApply) {
+        batteryObj.removeEventListener('levelchange', batteryApply);
+        batteryObj.removeEventListener('chargingchange', batteryApply);
       }
     } catch (_) {}
+    batteryApply = null;
+    batteryObj = null;
 
     tab.removeEventListener('click', toggle);
     scrim && scrim.removeEventListener('click', handleScrimClick);
     gestureExit && gestureExit.removeEventListener('click', handleGestureExit);
     doc.removeEventListener('keydown', handleKeydown);
+
+    // Allow safe re-init (module re-eval / hot reload / duplicate load)
+    try { drawer.dataset.ptInit = '0'; } catch (_) {}
   };
 
-  return { open, close, toggle, subscribe, teardown };
+  return { open, close, toggle, subscribe, setBatteryStatus, teardown };
 }
 
 export function initializePlayerToolsDrawer() {
-  if (!controllerInstance) controllerInstance = createPlayerToolsDrawer();
+  const g = getGlobal();
+  ensurePlayerToolsHost();
+  const doc = getDocument();
+  const drawer = doc?.getElementById('player-tools-drawer');
+  const drawerInitialized = !!drawer && drawer.dataset.ptInit === '1';
+  const existing = g && g[GLOBAL_CONTROLLER_KEY];
+
+  // If a real controller exists and the drawer is already wired, reuse it.
+  if (existing && drawerInitialized) {
+    controllerInstance = existing;
+    return controllerInstance;
+  }
+
+  // DOM reloaded or stale state: teardown old wiring so we can rebind.
+  if (existing && !drawerInitialized) {
+    try {
+      existing.teardown?.();
+    } catch (_) {}
+  }
+
+  // No usable controller: clear stale init flag so we can build one.
+  if (drawer && drawer.dataset.ptInit === '1') {
+    try { drawer.dataset.ptInit = '0'; } catch (_) {}
+  }
+
+  controllerInstance = null;
+  controllerInstance = createPlayerToolsDrawer();
+  if (g && controllerInstance) g[GLOBAL_CONTROLLER_KEY] = controllerInstance;
   return controllerInstance;
 }
 
@@ -560,5 +591,7 @@ export const open = () => initializePlayerToolsDrawer()?.open();
 export const close = () => initializePlayerToolsDrawer()?.close();
 export const toggle = () => initializePlayerToolsDrawer()?.toggle();
 export const subscribe = (listener) => initializePlayerToolsDrawer()?.subscribe(listener) ?? (() => {});
+export const setBatteryStatus = (detail) => initializePlayerToolsDrawer()?.setBatteryStatus?.(detail);
 
+// Ensure auto-init when module loads
 initializePlayerToolsDrawer();

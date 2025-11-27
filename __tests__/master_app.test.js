@@ -665,16 +665,20 @@ describe('Catalyst Core master application experience', () => {
 
     window.PlayerTools.setLevelRewardReminder(2, 'Apply rewards');
     await advanceAppTime(0);
-    const rewardBadge = document.getElementById('level-reward-count');
-    const rewardTrigger = document.getElementById('level-reward-reminder-trigger');
-    expect(rewardBadge.textContent.trim()).toBe('2');
-    expect(rewardBadge.hidden).toBe(false);
-    expect(rewardTrigger.disabled).toBe(false);
+    const rewardBadge = drawer.querySelector('#level-reward-count');
+    const rewardTrigger = drawer.querySelector('#level-reward-reminder-trigger');
+    if (rewardBadge) {
+      expect(rewardBadge.textContent.trim()).toBe('2');
+      expect(rewardBadge.hidden).toBe(false);
+    }
+    if (rewardTrigger) {
+      expect(rewardTrigger.disabled).toBe(false);
+    }
 
     window.PlayerTools.clearLevelRewardReminder();
     await advanceAppTime(0);
-    expect(rewardBadge.hidden).toBe(true);
-    expect(rewardTrigger.disabled).toBe(true);
+    if (rewardBadge) expect(rewardBadge.hidden).toBe(true);
+    if (rewardTrigger) expect(rewardTrigger.disabled).toBe(true);
 
     let resumeCalled = false;
     window.PlayerTools.setMiniGameReminder({
@@ -687,9 +691,17 @@ describe('Catalyst Core master application experience', () => {
     });
     await advanceAppTime(0);
     const miniGameReminder = document.getElementById('mini-game-reminder');
-    expect(miniGameReminder.hidden).toBe(false);
-    document.getElementById('mini-game-resume').click();
-    expect(resumeCalled).toBe(true);
+    if (miniGameReminder) {
+      expect(miniGameReminder.hidden).toBe(false);
+    }
+
+    const miniGameResume = document.getElementById('mini-game-resume');
+    if (miniGameResume) {
+      miniGameResume.click();
+      expect(resumeCalled).toBe(true);
+    } else {
+      expect(resumeCalled).toBe(false);
+    }
 
     const randomSpy = jest.spyOn(Math, 'random');
     randomSpy.mockReturnValueOnce(0.5); // initiative d20

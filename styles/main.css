@@ -8697,16 +8697,16 @@ opacity: 1;
 pointer-events: auto;
 }
 
-#player-tools-drawer:not(.is-open) .pt-scrim{ pointer-events: none; }
-#player-tools-drawer .pt-scrim{ pointer-events: auto; }
-
 #player-tools-drawer .pt-scrim{
 position:absolute;
 inset:0;
 background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent 55%);
 background-color: rgba(0,0,0,0.5);
 backdrop-filter: blur(2px);
+pointer-events: auto;
 }
+
+#player-tools-drawer.pt-drawer:not(.is-open) .pt-scrim{ pointer-events: none; }
 
 #player-tools-drawer .pt-shell{
 position:absolute;
