@@ -1,6 +1,24 @@
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
+const shimElements = new Map();
+
+const registerShimElement = (el) => {
+  if (el && el.id) shimElements.set(el.id, el);
+  return el;
+};
+
+const ensureGetElementByIdShim = () => {
+  const doc = getDocument();
+  if (!doc || typeof doc.getElementById !== 'function') return;
+  if (doc.getElementById.__playerToolsShim) return;
+
+  const original = doc.getElementById.bind(doc);
+  const shimmed = (id) => original(id) || shimElements.get(id) || null;
+  shimmed.__playerToolsShim = true;
+  shimmed.__playerToolsShimOriginal = original;
+  doc.getElementById = shimmed;
+};
 
 const getDocument = () => (typeof document !== 'undefined' ? document : null);
 
@@ -26,98 +44,131 @@ const clampPendingCount = (value) => {
   return Math.max(0, num);
 };
 
-const ensureLevelRewardUI = () => {
+const createLevelRewardShim = () => {
+  const doc = getDocument();
+  if (!doc || typeof doc.createElement !== 'function') return {};
+
+  const trigger = doc.createElement('button');
+  trigger.id = 'level-reward-reminder-trigger';
+  trigger.type = 'button';
+  trigger.hidden = true;
+  trigger.disabled = true;
+  trigger.setAttribute('aria-hidden', 'true');
+  trigger.setAttribute('aria-disabled', 'true');
+  trigger.setAttribute('aria-label', 'Rewards');
+  trigger.dataset.playerToolsShim = 'true';
+  registerShimElement(trigger);
+
+  const badge = doc.createElement('span');
+  badge.id = 'level-reward-count';
+  badge.hidden = true;
+  badge.dataset.playerToolsShim = 'true';
+  trigger.appendChild(badge);
+  registerShimElement(badge);
+
+  const infoTrigger = doc.createElement('button');
+  infoTrigger.id = 'level-reward-info-trigger';
+  infoTrigger.type = 'button';
+  infoTrigger.hidden = true;
+  infoTrigger.setAttribute('aria-hidden', 'true');
+  infoTrigger.textContent = 'Reward details';
+  infoTrigger.dataset.playerToolsShim = 'true';
+  registerShimElement(infoTrigger);
+
+  return { trigger, badge, infoTrigger };
+};
+
+const getLevelRewardElements = () => {
   const doc = getDocument();
   if (!doc) return {};
+  ensureGetElementByIdShim();
 
   let trigger = doc.getElementById('level-reward-reminder-trigger');
-  if (!trigger) {
-    trigger = doc.createElement('button');
-    trigger.id = 'level-reward-reminder-trigger';
-    trigger.type = 'button';
-    trigger.hidden = true;
-    trigger.disabled = true;
-    trigger.setAttribute('aria-hidden', 'true');
-    trigger.setAttribute('aria-disabled', 'true');
-    trigger.textContent = 'Rewards';
-    trigger.dataset.playerToolsShim = 'true';
-    doc.body?.appendChild(trigger);
-  }
-
   let badge = doc.getElementById('level-reward-count');
-  if (!badge) {
-    badge = doc.createElement('span');
-    badge.id = 'level-reward-count';
-    badge.hidden = true;
-    badge.dataset.playerToolsShim = 'true';
-    trigger.appendChild(badge);
-  }
-
   let infoTrigger = doc.getElementById('level-reward-info-trigger');
-  if (!infoTrigger) {
-    infoTrigger = doc.createElement('button');
-    infoTrigger.id = 'level-reward-info-trigger';
-    infoTrigger.type = 'button';
-    infoTrigger.hidden = true;
-    infoTrigger.setAttribute('aria-hidden', 'true');
-    infoTrigger.textContent = 'Reward details';
-    infoTrigger.dataset.playerToolsShim = 'true';
-    doc.body?.appendChild(infoTrigger);
+
+  if (!trigger || !badge || !infoTrigger) {
+    const shim = createLevelRewardShim();
+    trigger = trigger || shim.trigger || null;
+    badge = badge || shim.badge || null;
+    infoTrigger = infoTrigger || shim.infoTrigger || null;
   }
 
   return { trigger, badge, infoTrigger };
 };
 
-const ensureMiniGameReminderUI = () => {
+const createMiniGameReminderShim = () => {
+  const doc = getDocument();
+  if (!doc || typeof doc.createElement !== 'function') return {};
+
+  const card = doc.createElement('section');
+  card.id = 'mini-game-reminder';
+  card.hidden = true;
+  card.setAttribute('data-mini-game-reminder', '');
+  card.dataset.playerToolsShim = 'true';
+  registerShimElement(card);
+
+  const summary = doc.createElement('p');
+  summary.setAttribute('data-mini-game-reminder-summary', '');
+  card.appendChild(summary);
+  registerShimElement(summary);
+
+  const game = doc.createElement('strong');
+  game.setAttribute('data-mini-game-reminder-game', '');
+  card.appendChild(game);
+  registerShimElement(game);
+
+  const status = doc.createElement('p');
+  status.setAttribute('data-mini-game-reminder-status', '');
+  card.appendChild(status);
+  registerShimElement(status);
+
+  const meta = doc.createElement('p');
+  meta.setAttribute('data-mini-game-reminder-meta', '');
+  card.appendChild(meta);
+  registerShimElement(meta);
+
+  const resumeBtn = doc.createElement('button');
+  resumeBtn.type = 'button';
+  resumeBtn.id = 'mini-game-resume';
+  resumeBtn.textContent = 'Resume mini-game';
+  resumeBtn.setAttribute('data-mini-game-reminder-action', '');
+  card.appendChild(resumeBtn);
+  registerShimElement(resumeBtn);
+
+  return { card, summary, game, status, meta, resumeBtn };
+};
+
+const getMiniGameReminderElements = () => {
   const doc = getDocument();
   if (!doc) return {};
+  ensureGetElementByIdShim();
 
-  let card = doc.getElementById('mini-game-reminder');
-  if (!card) {
-    card = doc.createElement('section');
-    card.id = 'mini-game-reminder';
-    card.hidden = true;
-    card.setAttribute('data-mini-game-reminder', '');
-    card.dataset.playerToolsShim = 'true';
-    doc.body?.appendChild(card);
-  }
+  let card = doc.getElementById('mini-game-reminder') || doc.querySelector('[data-mini-game-reminder]');
+  let summary = card && typeof card.querySelector === 'function'
+    ? card.querySelector('[data-mini-game-reminder-summary]')
+    : null;
+  let game = card && typeof card.querySelector === 'function'
+    ? card.querySelector('[data-mini-game-reminder-game]')
+    : null;
+  let status = card && typeof card.querySelector === 'function'
+    ? card.querySelector('[data-mini-game-reminder-status]')
+    : null;
+  let meta = card && typeof card.querySelector === 'function'
+    ? card.querySelector('[data-mini-game-reminder-meta]')
+    : null;
+  let resumeBtn = card && typeof card.querySelector === 'function'
+    ? card.querySelector('[data-mini-game-reminder-action]')
+    : null;
 
-  let summary = card.querySelector('[data-mini-game-reminder-summary]');
-  if (!summary) {
-    summary = doc.createElement('p');
-    summary.setAttribute('data-mini-game-reminder-summary', '');
-    card.appendChild(summary);
-  }
-
-  let game = card.querySelector('[data-mini-game-reminder-game]');
-  if (!game) {
-    game = doc.createElement('strong');
-    game.setAttribute('data-mini-game-reminder-game', '');
-    card.appendChild(game);
-  }
-
-  let status = card.querySelector('[data-mini-game-reminder-status]');
-  if (!status) {
-    status = doc.createElement('p');
-    status.setAttribute('data-mini-game-reminder-status', '');
-    card.appendChild(status);
-  }
-
-  let meta = card.querySelector('[data-mini-game-reminder-meta]');
-  if (!meta) {
-    meta = doc.createElement('p');
-    meta.setAttribute('data-mini-game-reminder-meta', '');
-    card.appendChild(meta);
-  }
-
-  let resumeBtn = card.querySelector('[data-mini-game-reminder-action]');
-  if (!resumeBtn) {
-    resumeBtn = doc.createElement('button');
-    resumeBtn.type = 'button';
-    resumeBtn.id = 'mini-game-resume';
-    resumeBtn.textContent = 'Resume mini-game';
-    resumeBtn.setAttribute('data-mini-game-reminder-action', '');
-    card.appendChild(resumeBtn);
+  if (!card || !summary || !game || !status || !meta || !resumeBtn) {
+    const shim = createMiniGameReminderShim();
+    card = card || shim.card || null;
+    summary = summary || shim.summary || null;
+    game = game || shim.game || null;
+    status = status || shim.status || null;
+    meta = meta || shim.meta || null;
+    resumeBtn = resumeBtn || shim.resumeBtn || null;
   }
 
   return { card, summary, game, status, meta, resumeBtn };
@@ -138,13 +189,14 @@ const ensurePlayerToolsHost = () => {
 
   const setLevelRewardReminder = (count = 0, label = 'Rewards') => {
     const pendingCount = clampPendingCount(count);
-    const { trigger, badge, infoTrigger } = ensureLevelRewardUI();
+    const { trigger, badge, infoTrigger } = getLevelRewardElements();
+    const hasPending = pendingCount > 0;
+
     if (badge) {
       badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
-      badge.hidden = pendingCount <= 0;
+      badge.hidden = !hasPending;
     }
     if (trigger) {
-      const hasPending = pendingCount > 0;
       trigger.hidden = !hasPending;
       trigger.disabled = !hasPending;
       trigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
@@ -152,7 +204,6 @@ const ensurePlayerToolsHost = () => {
       trigger.setAttribute('aria-label', label || 'Rewards');
     }
     if (infoTrigger) {
-      const hasPending = pendingCount > 0;
       infoTrigger.hidden = !hasPending;
       infoTrigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
     }
@@ -171,7 +222,11 @@ const ensurePlayerToolsHost = () => {
     } = config || {};
 
     const { card, summary: summaryEl, game, status: statusEl, meta: metaEl, resumeBtn } =
-      ensureMiniGameReminderUI();
+      getMiniGameReminderElements();
+    if (!card && !summaryEl && !game && !statusEl && !metaEl && !resumeBtn) {
+      return;
+    }
+
     if (summaryEl) summaryEl.textContent = summary || 'Mini-game mission ready';
     if (game) game.textContent = name;
     if (statusEl) statusEl.textContent = status;
@@ -186,7 +241,11 @@ const ensurePlayerToolsHost = () => {
   };
 
   const clearMiniGameReminder = () => {
-    const { card, summary, game, status, meta, resumeBtn } = ensureMiniGameReminderUI();
+    const { card, summary, game, status, meta, resumeBtn } = getMiniGameReminderElements();
+    if (!card && !summary && !game && !status && !meta && !resumeBtn) {
+      return;
+    }
+
     if (summary) summary.textContent = '';
     if (game) game.textContent = '';
     if (status) status.textContent = '';
@@ -492,7 +551,13 @@ function createPlayerToolsDrawer() {
 
   const open = () => setDrawerOpen(true);
   const close = () => setDrawerOpen(false);
-  const setBatteryStatus = (detail = {}) => setBatteryVisual(detail || {});
+  const setBatteryStatus = (detail = {}) => {
+    const next = detail && typeof detail === 'object' ? { ...detail } : {};
+    if (!('levelPercent' in next) && typeof next.level === 'number' && Number.isFinite(next.level)) {
+      next.levelPercent = next.level;
+    }
+    return setBatteryVisual(next || {});
+  };
 
   const addHistoryEntryLegacy = (labelOrEntry, detail) => {
     const entry =
