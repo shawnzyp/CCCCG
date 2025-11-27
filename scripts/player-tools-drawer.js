@@ -227,10 +227,9 @@ function createPlayerToolsDrawer() {
 
   if (!drawer || !tab) return null;
 
-  // Extra safety: prevent double-binding in the same runtime
-  if (drawer.dataset.ptInit === '1') {
-    return controllerInstance;
-  }
+  // Prevent double-binding, but ONLY if we actually have a controller already.
+  // (Avoid stale ptInit="1" causing a null controller return.)
+  if (drawer.dataset.ptInit === '1' && controllerInstance) return controllerInstance;
   drawer.dataset.ptInit = '1';
 
   let isOpen = false;
@@ -536,6 +535,9 @@ function createPlayerToolsDrawer() {
     scrim && scrim.removeEventListener('click', handleScrimClick);
     gestureExit && gestureExit.removeEventListener('click', handleGestureExit);
     doc.removeEventListener('keydown', handleKeydown);
+
+    // Allow safe re-init (module re-eval / hot reload / duplicate load)
+    try { drawer.dataset.ptInit = '0'; } catch (_) {}
   };
 
   return { open, close, toggle, subscribe, setBatteryStatus, teardown };
@@ -545,20 +547,29 @@ export function initializePlayerToolsDrawer() {
   const g = getGlobal();
   const doc = getDocument();
   const drawer = doc?.getElementById('player-tools-drawer');
-  const needsInit = drawer && drawer.dataset.ptInit !== '1';
+  const drawerInitialized = !!drawer && drawer.dataset.ptInit === '1';
   const existing = g && g[GLOBAL_CONTROLLER_KEY];
 
-  if (existing && !needsInit) {
+  // If a real controller exists and the drawer is already wired, reuse it.
+  if (existing && drawerInitialized) {
     controllerInstance = existing;
     return controllerInstance;
   }
 
-  try {
-    existing?.teardown?.();
-  } catch (_) {}
+  // DOM reloaded or stale state: teardown old wiring so we can rebind.
+  if (existing && !drawerInitialized) {
+    try {
+      existing.teardown?.();
+    } catch (_) {}
+  }
+
+  // No usable controller: clear stale init flag so we can build one.
+  if (drawer && drawer.dataset.ptInit === '1') {
+    try { drawer.dataset.ptInit = '0'; } catch (_) {}
+  }
 
   controllerInstance = null;
-  if (needsInit || !existing) controllerInstance = createPlayerToolsDrawer();
+  controllerInstance = createPlayerToolsDrawer();
   if (g && controllerInstance) g[GLOBAL_CONTROLLER_KEY] = controllerInstance;
   return controllerInstance;
 }
