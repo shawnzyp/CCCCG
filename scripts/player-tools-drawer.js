@@ -58,7 +58,6 @@ const ensurePlayerToolsHost = () => {
     const trigger = doc.getElementById('level-reward-reminder-trigger');
     const badge = doc.getElementById('level-reward-count');
     const infoTrigger = doc.getElementById('level-reward-info-trigger');
-    const textEl = doc.getElementById('level-reward-reminder-text');
 
     const hasPending = pendingCount > 0;
 
@@ -76,9 +75,6 @@ const ensurePlayerToolsHost = () => {
     if (infoTrigger && typeof infoTrigger === 'object') {
       infoTrigger.hidden = !hasPending;
       infoTrigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
-    }
-    if (textEl && typeof textEl === 'object') {
-      textEl.textContent = hasPending ? (label || 'Rewards ready') : 'No pending rewards';
     }
     return pendingCount;
   };
