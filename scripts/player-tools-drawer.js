@@ -35,20 +35,22 @@ function createPlayerToolsDrawer() {
 
   const gestureExit = doc.getElementById('player-tools-gesture-exit');
 
-  const initiativeBonusInput = doc.getElementById('initiative-bonus');
-  const initiativeResultEl = doc.getElementById('initiative-roll-result');
-  const rollInitiativeBtn = doc.getElementById('roll-initiative-btn');
+  const qs = (sel) => (drawer ? drawer.querySelector(sel) : null);
 
-  const diceCountInput = doc.getElementById('dice-count');
-  const diceSidesInput = doc.getElementById('dice-sides');
-  const diceBonusInput = doc.getElementById('dice-bonus');
-  const rollDiceBtn = doc.getElementById('roll-dice-btn');
-  const diceOutEl = doc.getElementById('dice-out');
+  const initiativeBonusInput = qs('#initiative-bonus');
+  const initiativeResultEl = qs('#initiative-roll-result');
+  const rollInitiativeBtn = qs('#roll-initiative-btn');
 
-  const flipCoinBtn = doc.getElementById('flip-coin-btn');
-  const coinResultEl = doc.getElementById('coin-result');
+  const diceCountInput = qs('#dice-count');
+  const diceSidesInput = qs('#dice-sides');
+  const diceBonusInput = qs('#dice-bonus');
+  const rollDiceBtn = qs('#roll-dice-btn');
+  const diceOutEl = qs('#dice-out');
 
-  const toastHistoryList = doc.getElementById('toast-history-list');
+  const flipCoinBtn = qs('#flip-coin-btn');
+  const coinResultEl = qs('#coin-result');
+
+  const toastHistoryList = qs('#toast-history-list');
 
   if (!drawer || !tab) return null;
 
@@ -314,6 +316,23 @@ function createPlayerToolsDrawer() {
 
   const open = () => setDrawerOpen(true);
   const close = () => setDrawerOpen(false);
+
+  try {
+    const globalTarget = typeof window !== 'undefined' ? window : globalThis;
+    if (globalTarget) {
+      globalTarget.PlayerTools = {
+        setLevelRewardReminder() {},
+        clearLevelRewardReminder() {},
+        setMiniGameReminder() {},
+        clearMiniGameReminder() {},
+        addHistoryEntry(label, value) {
+          addHistoryEntry({ label, value });
+        },
+        openTray: open,
+        closeTray: close
+      };
+    }
+  } catch (_) {}
 
   // init
   setDrawerOpen(false);
