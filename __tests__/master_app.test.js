@@ -665,8 +665,8 @@ describe('Catalyst Core master application experience', () => {
 
     window.PlayerTools.setLevelRewardReminder(2, 'Apply rewards');
     await advanceAppTime(0);
-    const rewardBadge = document.getElementById('level-reward-count');
-    const rewardTrigger = document.getElementById('level-reward-reminder-trigger');
+    const rewardBadge = drawer.querySelector('#level-reward-count');
+    const rewardTrigger = drawer.querySelector('#level-reward-reminder-trigger');
     if (rewardBadge) {
       expect(rewardBadge.textContent.trim()).toBe('2');
       expect(rewardBadge.hidden).toBe(false);
@@ -677,10 +677,8 @@ describe('Catalyst Core master application experience', () => {
 
     window.PlayerTools.clearLevelRewardReminder();
     await advanceAppTime(0);
-    if (rewardBadge && rewardTrigger) {
-      expect(rewardBadge.hidden).toBe(true);
-      expect(rewardTrigger.disabled).toBe(true);
-    }
+    if (rewardBadge) expect(rewardBadge.hidden).toBe(true);
+    if (rewardTrigger) expect(rewardTrigger.disabled).toBe(true);
 
     let resumeCalled = false;
     window.PlayerTools.setMiniGameReminder({

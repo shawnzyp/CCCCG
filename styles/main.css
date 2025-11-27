@@ -8684,18 +8684,18 @@ height:auto;
 #player-tools-tab[aria-hidden="true"]{ display:none; }
 
 #player-tools-drawer.pt-drawer{
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 200ms ease-out;
-  }
+position: fixed;
+inset: 0;
+z-index: 1400;
+opacity: 0;
+pointer-events: none;
+transition: opacity 200ms ease-out;
+}
 
 #player-tools-drawer.pt-drawer.is-open{
-  opacity: 1;
-  pointer-events: auto;
-  }
+opacity: 1;
+pointer-events: auto;
+}
 
 #player-tools-drawer .pt-scrim{
 position:absolute;
