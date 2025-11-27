@@ -86,7 +86,6 @@ const ensurePlayerToolsHost = () => {
       name = 'Mini-Game',
       status = 'Pending',
       meta = '',
-      summary = 'Mini-game mission ready',
       onResume,
     } = config || {};
 
@@ -168,10 +167,35 @@ const ensurePlayerToolsHost = () => {
 
   // These delegate to the drawer controller if present; otherwise no-op.
   // They must exist for legacy callers, and must never throw.
-  safeAssign('openTray', () => initializePlayerToolsDrawer()?.open?.());
-  safeAssign('closeTray', () => initializePlayerToolsDrawer()?.close?.());
-  safeAssign('toggleTray', () => initializePlayerToolsDrawer()?.toggle?.());
-  safeAssign('subscribe', (listener) => initializePlayerToolsDrawer()?.subscribe?.(listener) ?? (() => {}));
+  safeAssign('openTray', () => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.open === 'function') controller.open();
+    } catch (_) {}
+  });
+  safeAssign('closeTray', () => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.close === 'function') controller.close();
+    } catch (_) {}
+  });
+  safeAssign('toggleTray', () => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.toggle === 'function') controller.toggle();
+    } catch (_) {}
+  });
+  safeAssign('subscribe', (listener) => {
+    try {
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.subscribe === 'function') {
+        return controller.subscribe(listener);
+      }
+      return () => {};
+    } catch (_) {
+      return () => {};
+    }
+  });
   safeAssign('setBatteryStatus', (detail = {}) => {
     try {
       const next = detail && typeof detail === 'object' ? { ...detail } : {};
@@ -489,18 +513,6 @@ function createPlayerToolsDrawer() {
     return setBatteryVisual(next || {});
   };
 
-  // DO NOT overwrite globals. Only attach hooks if PlayerTools already exists.
-  try {
-    const host = ensurePlayerToolsHost();
-    if (host && (typeof host === 'object' || typeof host === 'function')) {
-      if (!('openTray' in host)) host.openTray = open;
-      if (!('closeTray' in host)) host.closeTray = close;
-      if (!('toggleTray' in host)) host.toggleTray = toggle;
-      if (!('subscribe' in host)) host.subscribe = subscribe;
-      if (!('setBatteryStatus' in host)) host.setBatteryStatus = setBatteryStatus;
-    }
-  } catch (_) {}
-
   // init
   setDrawerOpen(false);
   updateClock();
@@ -541,6 +553,7 @@ function createPlayerToolsDrawer() {
 
 export function initializePlayerToolsDrawer() {
   const g = getGlobal();
+  ensurePlayerToolsHost();
   const doc = getDocument();
   const drawer = doc?.getElementById('player-tools-drawer');
   const drawerInitialized = !!drawer && drawer.dataset.ptInit === '1';
