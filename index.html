@@ -3068,7 +3068,31 @@
     <button type="button" class="app-alert__button" data-app-alert-dismiss>ACKNOWLEDGE</button>
   </div>
 </div>
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <!-- Legacy reminder targets for compatibility -->
+  <section id="legacy-reminders" hidden aria-hidden="true">
+    <button
+      id="level-reward-reminder-trigger"
+      type="button"
+      hidden
+      aria-hidden="true"
+      aria-disabled="true"
+      aria-label="Rewards"
+    >
+      <span id="level-reward-count" hidden data-level-reward-count></span>
+    </button>
+    <button id="level-reward-info-trigger" type="button" hidden aria-hidden="true">
+      Reward details
+    </button>
+    <p id="level-reward-reminder-text" hidden>No pending rewards</p>
+
+    <section id="mini-game-reminder" hidden aria-hidden="true">
+      <p id="mini-game-name"></p>
+      <p id="mini-game-status">Status: Pending</p>
+      <p id="mini-game-meta" hidden></p>
+      <button id="mini-game-resume" type="button">Resume mini-game</button>
+    </section>
+  </section>
 </div>
 <!-- End app shell (main application wrapper) -->
 
