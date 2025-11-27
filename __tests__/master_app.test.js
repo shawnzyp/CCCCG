@@ -667,9 +667,11 @@ describe('Catalyst Core master application experience', () => {
     await advanceAppTime(0);
     const rewardBadge = document.getElementById('level-reward-count');
     const rewardTrigger = document.getElementById('level-reward-reminder-trigger');
-    if (rewardBadge && rewardTrigger) {
+    if (rewardBadge) {
       expect(rewardBadge.textContent.trim()).toBe('2');
       expect(rewardBadge.hidden).toBe(false);
+    }
+    if (rewardTrigger) {
       expect(rewardTrigger.disabled).toBe(false);
     }
 
@@ -694,9 +696,14 @@ describe('Catalyst Core master application experience', () => {
     if (miniGameReminder) {
       expect(miniGameReminder.hidden).toBe(false);
     }
+
     const miniGameResume = document.getElementById('mini-game-resume');
-    miniGameResume?.click();
-    expect(resumeCalled).toBe(miniGameResume ? true : false);
+    if (miniGameResume) {
+      miniGameResume.click();
+      expect(resumeCalled).toBe(true);
+    } else {
+      expect(resumeCalled).toBe(false);
+    }
 
     const randomSpy = jest.spyOn(Math, 'random');
     randomSpy.mockReturnValueOnce(0.5); // initiative d20

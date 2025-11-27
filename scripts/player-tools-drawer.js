@@ -191,10 +191,8 @@ const ensurePlayerToolsHost = () => {
       if (controller && typeof controller.subscribe === 'function') {
         return controller.subscribe(listener);
       }
-      return () => {};
-    } catch (_) {
-      return () => {};
-    }
+    } catch (_) {}
+    return () => {};
   });
   safeAssign('setBatteryStatus', (detail = {}) => {
     try {
@@ -202,7 +200,10 @@ const ensurePlayerToolsHost = () => {
       if (!('levelPercent' in next) && typeof next.level === 'number' && Number.isFinite(next.level)) {
         next.levelPercent = next.level;
       }
-      initializePlayerToolsDrawer()?.setBatteryStatus?.(next);
+      const controller = initializePlayerToolsDrawer();
+      if (controller && typeof controller.setBatteryStatus === 'function') {
+        controller.setBatteryStatus(next);
+      }
     } catch (_) {}
   });
 
@@ -257,6 +258,7 @@ function createPlayerToolsDrawer() {
   let timeInterval = null;
   let hpInterval = null;
   let batteryObj = null;
+  let batteryApply = null;
   let splashSeq = 0; // fixes splash replay if open triggers more than once
 
   const pad2 = (n) => String(n).padStart(2, '0');
@@ -297,7 +299,7 @@ function createPlayerToolsDrawer() {
 
     try {
       batteryObj = await navigator.getBattery();
-      const apply = () => {
+      batteryApply = () => {
         const lvl = Math.round((batteryObj.level || 0) * 100);
         setBatteryVisual({
           levelPercent: lvl,
@@ -306,9 +308,9 @@ function createPlayerToolsDrawer() {
         });
       };
 
-      apply();
-      batteryObj.addEventListener('levelchange', apply);
-      batteryObj.addEventListener('chargingchange', apply);
+      batteryApply();
+      batteryObj.addEventListener('levelchange', batteryApply);
+      batteryObj.addEventListener('chargingchange', batteryApply);
     } catch (_) {
       setBatteryVisual({ levelPercent: 75, charging: false, estimated: true });
     }
@@ -533,11 +535,13 @@ function createPlayerToolsDrawer() {
     clearTimeout(splashTimer);
 
     try {
-      if (batteryObj) {
-        batteryObj.onlevelchange = null;
-        batteryObj.onchargingchange = null;
+      if (batteryObj && batteryApply) {
+        batteryObj.removeEventListener('levelchange', batteryApply);
+        batteryObj.removeEventListener('chargingchange', batteryApply);
       }
     } catch (_) {}
+    batteryApply = null;
+    batteryObj = null;
 
     tab.removeEventListener('click', toggle);
     scrim && scrim.removeEventListener('click', handleScrimClick);
