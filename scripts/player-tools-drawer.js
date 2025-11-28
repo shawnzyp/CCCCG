@@ -110,7 +110,10 @@ const ensurePlayerToolsHost = () => {
       metaEl.hidden = !trimmed;
     }
     if (resumeBtn) {
-      resumeBtn.onclick = typeof onResume === 'function' ? () => onResume() : null;
+      const hasResumeHandler = typeof onResume === 'function';
+      resumeBtn.onclick = hasResumeHandler ? () => onResume() : null;
+      resumeBtn.disabled = !hasResumeHandler;
+      resumeBtn.setAttribute('aria-disabled', hasResumeHandler ? 'false' : 'true');
     }
     if (card) {
       card.hidden = false;
@@ -132,7 +135,11 @@ const ensurePlayerToolsHost = () => {
       metaEl.textContent = '';
       metaEl.hidden = true;
     }
-    if (resumeBtn) resumeBtn.onclick = null;
+    if (resumeBtn) {
+      resumeBtn.onclick = null;
+      resumeBtn.disabled = true;
+      resumeBtn.setAttribute('aria-disabled', 'true');
+    }
     if (card) {
       card.hidden = true;
       card.setAttribute('aria-hidden', 'true');
