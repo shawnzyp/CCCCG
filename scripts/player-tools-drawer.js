@@ -269,11 +269,16 @@ function createPlayerToolsDrawer() {
 
   let isOpen = false;
   let splashTimer = null;
+  let splashCleanupTimer = null;
   let timeInterval = null;
   let hpInterval = null;
   let batteryObj = null;
   let batteryApply = null;
   let splashSeq = 0; // fixes splash replay if open triggers more than once
+
+  if (splash) {
+    splash.style.display = 'none';
+  }
 
   const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -338,6 +343,13 @@ function createPlayerToolsDrawer() {
 
     const seq = ++splashSeq;
 
+    clearTimeout(splashCleanupTimer);
+    splashCleanupTimer = null;
+
+    splash.style.display = 'block';
+    // Force layout so the opacity transition plays after toggling visibility
+    void splash.offsetWidth;
+
     splash.classList.add('is-visible');
     splash.setAttribute('aria-hidden', 'false');
     app.style.opacity = '0';
@@ -349,6 +361,11 @@ function createPlayerToolsDrawer() {
       splash.classList.remove('is-visible');
       splash.setAttribute('aria-hidden', 'true');
       app.style.opacity = '1';
+      clearTimeout(splashCleanupTimer);
+      splashCleanupTimer = setTimeout(() => {
+        if (seq !== splashSeq) return;
+        splash.style.display = 'none';
+      }, 280);
     }, 2000);
   };
 
@@ -373,10 +390,13 @@ function createPlayerToolsDrawer() {
       if (splash) {
         splash.classList.remove('is-visible');
         splash.setAttribute('aria-hidden', 'true');
+        splash.style.display = 'none';
       }
       if (app) app.style.opacity = '1';
       clearTimeout(splashTimer);
       splashTimer = null;
+      clearTimeout(splashCleanupTimer);
+      splashCleanupTimer = null;
     }
 
     dispatchChange({ open: isOpen, progress: isOpen ? 1 : 0 });
