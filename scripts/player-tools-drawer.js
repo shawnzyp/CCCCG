@@ -110,7 +110,16 @@ const ensurePlayerToolsHost = () => {
       metaEl.hidden = !trimmed;
     }
     if (resumeBtn) {
-      resumeBtn.onclick = typeof onResume === 'function' ? () => onResume() : null;
+      const hasResumeHandler = typeof onResume === 'function';
+      resumeBtn.onclick = hasResumeHandler ? () => onResume() : null;
+      resumeBtn.disabled = !hasResumeHandler;
+      resumeBtn.setAttribute('aria-disabled', hasResumeHandler ? 'false' : 'true');
+
+      const label = String(name || '').trim();
+      const hasName = label.length > 0;
+      const baseLabel = 'Resume mini-game mission';
+      const ariaLabel = hasName ? `${baseLabel} — ${label}` : baseLabel;
+      resumeBtn.setAttribute('aria-label', ariaLabel);
     }
     if (card) {
       card.hidden = false;
@@ -132,7 +141,12 @@ const ensurePlayerToolsHost = () => {
       metaEl.textContent = '';
       metaEl.hidden = true;
     }
-    if (resumeBtn) resumeBtn.onclick = null;
+    if (resumeBtn) {
+      resumeBtn.onclick = null;
+      resumeBtn.disabled = true;
+      resumeBtn.setAttribute('aria-disabled', 'true');
+      resumeBtn.setAttribute('aria-label', 'Resume mini-game mission');
+    }
     if (card) {
       card.hidden = true;
       card.setAttribute('aria-hidden', 'true');
