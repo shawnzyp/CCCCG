@@ -8690,6 +8690,24 @@ width: 72%;
 height:auto;
 }
 
+#player-tools-tab .pt-tab__badge{
+position:absolute;
+top: 9%;
+right: -6px;
+min-width: 18px;
+min-height: 18px;
+padding: 2px 5px;
+border-radius: 14px;
+background: radial-gradient(circle at 40% 30%, rgba(0,255,163,0.9), rgba(0,229,255,0.75));
+color: rgba(6,14,18,0.95);
+font-size: 0.68rem;
+font-weight: 800;
+box-shadow: 0 0 12px rgba(0,229,255,0.75);
+text-align: center;
+line-height: 1;
+pointer-events: none;
+}
+
 #player-tools-tab[aria-hidden="true"]{ display:none; }
 
 #player-tools-drawer.pt-drawer{
@@ -8773,7 +8791,6 @@ right: var(--pt-screen-right);
 
 overflow: hidden;
 border-radius: 28px;
-z-index: 10;
 
 background:
 radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.16), transparent 55%),
@@ -8799,9 +8816,10 @@ font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-s
 font-size: 13px;
 font-weight: 700;
 color: rgba(255,255,255,0.92);
+text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
 
 pointer-events:none;
-z-index: 40;
+z-index: 60;
 }
 
 #player-tools-drawer .pt-status__left{ justify-self: start; }
@@ -9010,7 +9028,7 @@ z-index: 20;
 }
 
 #player-tools-drawer .pt-app__header{
-padding: 10px 10px 6px;
+padding: 10px 12px 6px;
 display:flex;
 justify-content:center;
 }
@@ -9030,10 +9048,11 @@ box-shadow: 0 0 12px rgba(0,229,255,0.25);
 #player-tools-drawer .pt-app__viewport{
 height: calc(100% - 44px);
 overflow-y: auto;
-padding: 8px 10px 54px;
+-webkit-overflow-scrolling: touch;
+padding: 14px 14px calc(112px + env(safe-area-inset-bottom, 0px));
 display:flex;
 flex-direction: column;
-gap: 10px;
+gap: 14px;
 }
 
 #player-tools-drawer .pt-card{
@@ -9041,14 +9060,16 @@ border-radius: 14px;
 background: linear-gradient(145deg, rgba(10,25,40,0.95), rgba(3,8,18,0.98));
 border: 1px solid rgba(0,229,255,0.26);
 box-shadow: 0 0 14px rgba(0,229,255,0.16);
-padding: 10px;
+padding: 12px;
+position: static;
 }
 
 #player-tools-drawer .pt-card__header{
 display:flex;
 align-items:center;
 justify-content: space-between;
-margin-bottom: 10px;
+margin-bottom: 12px;
+position: static;
 }
 
 #player-tools-drawer .pt-card__title{
@@ -9148,16 +9169,15 @@ opacity: 0.92;
 /* Player Tools: align faux gesture bar with the gesture bar drawn in phone.png */
 #player-tools-drawer{
   /* Increase to move the faux bar DOWN. Decrease to move it UP. */
-  --pt-gesture-bar-nudge-y: 12px;
+  --pt-gesture-bar-nudge-y: 18px;
 }
 
 #player-tools-drawer .pt-home-exit{
-position: sticky;
-bottom: 0;
+position: relative;
 left: 0;
 right: 0;
 width: 100%;
-padding: 10px 0 6px;
+padding: 18px 0 calc(16px + env(safe-area-inset-bottom, 0px));
 background: linear-gradient(180deg, transparent, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.6));
 border: none;
 cursor: pointer;

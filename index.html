@@ -3075,18 +3075,19 @@
 
 
 <button
-id="player-tools-tab"
-class="pt-tab"
-type="button"
-aria-expanded="false"
-aria-label="Open player tools"
-aria-hidden="false"
+  id="player-tools-tab"
+  class="pt-tab"
+  type="button"
+  aria-expanded="false"
+  aria-label="Open player tools"
+  aria-hidden="false"
 >
 
 
   <span class="pt-tab__icon" aria-hidden="true">
     <img src="images/player-tools-icon.png" alt="" />
   </span>
+  <span class="pt-tab__badge" id="player-tools-tab-badge" hidden aria-hidden="true"></span>
 </button>
 
 
@@ -3167,7 +3168,7 @@ aria-hidden="false"
             <div class="pt-splash__brand">
               <img
                 class="pt-splash__logo"
-                src="images/player-tools-icon.png"
+                src="images/logo.png"
                 alt="O.M.N.I."
               />
               <div class="pt-splash__title">CATALYST CORE</div>
@@ -3186,7 +3187,88 @@ aria-hidden="false"
             </header>
 
             <main class="pt-app__viewport" aria-label="Player tools">
-              <section class="pt-card" aria-label="Reminders">
+              <!-- Initiative -->
+              <section class="pt-card" aria-label="Initiative roller">
+                <header class="pt-card__header">
+                  <h3 class="pt-card__title">Initiative</h3>
+                  <span class="pt-result" id="initiative-roll-result" data-placeholder="Roll">Roll</span>
+                </header>
+
+                <div class="pt-card__body">
+                  <label class="pt-field" for="initiative-bonus">
+                    <span>Bonus</span>
+                    <input id="initiative-bonus" type="number" step="1" value="0" />
+                  </label>
+
+                  <button type="button" id="roll-initiative-btn" class="pt-btn pt-btn--primary">
+                    Roll d20 for Initiative
+                  </button>
+                </div>
+              </section>
+
+              <!-- Dice Roller -->
+              <section class="pt-card" aria-label="Dice roller">
+                <header class="pt-card__header">
+                  <h3 class="pt-card__title">Dice Roller</h3>
+                  <span class="pt-result" id="dice-out" data-placeholder="Result">Result</span>
+                </header>
+
+                <div class="pt-card__body pt-grid">
+                  <label class="pt-field" for="dice-count">
+                    <span>Dice</span>
+                    <input id="dice-count" type="number" min="1" step="1" value="1" />
+                  </label>
+
+                  <label class="pt-field" for="dice-sides">
+                    <span>Sides</span>
+                    <select id="dice-sides">
+                      <option value="4">d4</option>
+                      <option value="6">d6</option>
+                      <option value="8">d8</option>
+                      <option value="10">d10</option>
+                      <option value="10p">d10 (percentile)</option>
+                      <option value="12">d12</option>
+                      <option value="20" selected>d20</option>
+                      <option value="100">d100</option>
+                    </select>
+                  </label>
+
+                  <label class="pt-field" for="dice-bonus">
+                    <span>Bonus</span>
+                    <input id="dice-bonus" type="number" step="1" value="0" />
+                  </label>
+
+                  <button type="button" id="roll-dice-btn" class="pt-btn pt-btn--primary pt-btn--span">
+                    Roll
+                  </button>
+                </div>
+              </section>
+
+              <!-- Coin Flip -->
+              <section class="pt-card" aria-label="Coin flip">
+                <header class="pt-card__header">
+                  <h3 class="pt-card__title">Coin Flip</h3>
+                  <span class="pt-result" id="coin-result" data-placeholder="Flip">Flip</span>
+                </header>
+
+                <div class="pt-card__body">
+                  <button type="button" id="flip-coin-btn" class="pt-btn pt-btn--secondary">
+                    Flip Coin
+                  </button>
+                </div>
+              </section>
+
+              <!-- History -->
+              <section class="pt-card pt-card--history" aria-label="Roll history">
+                <header class="pt-card__header">
+                  <h3 class="pt-card__title">History</h3>
+                </header>
+                <div class="pt-card__body">
+                  <ul id="toast-history-list" class="pt-history"></ul>
+                </div>
+              </section>
+
+              <section class="pt-card" aria-label="Reminders" id="player-tools-reminders-card">
                 <div class="pt-card__body">
                   <div class="player-tools-reminder" id="level-reward-reminder">
                     <div class="player-tools-reminder__body">
@@ -3268,87 +3350,6 @@ aria-hidden="false"
                       </button>
                     </div>
                   </div>
-                </div>
-              </section>
-
-              <!-- Initiative -->
-              <section class="pt-card" aria-label="Initiative roller">
-                <header class="pt-card__header">
-                  <h3 class="pt-card__title">Initiative</h3>
-                  <span class="pt-result" id="initiative-roll-result" data-placeholder="Roll">Roll</span>
-                </header>
-
-                <div class="pt-card__body">
-                  <label class="pt-field" for="initiative-bonus">
-                    <span>Bonus</span>
-                    <input id="initiative-bonus" type="number" step="1" value="0" />
-                  </label>
-
-                  <button type="button" id="roll-initiative-btn" class="pt-btn pt-btn--primary">
-                    Roll d20 for Initiative
-                  </button>
-                </div>
-              </section>
-
-              <!-- Dice Roller -->
-              <section class="pt-card" aria-label="Dice roller">
-                <header class="pt-card__header">
-                  <h3 class="pt-card__title">Dice Roller</h3>
-                  <span class="pt-result" id="dice-out" data-placeholder="Result">Result</span>
-                </header>
-
-                <div class="pt-card__body pt-grid">
-                  <label class="pt-field" for="dice-count">
-                    <span>Dice</span>
-                    <input id="dice-count" type="number" min="1" step="1" value="1" />
-                  </label>
-
-                  <label class="pt-field" for="dice-sides">
-                    <span>Sides</span>
-                    <select id="dice-sides">
-                      <option value="4">d4</option>
-                      <option value="6">d6</option>
-                      <option value="8">d8</option>
-                      <option value="10">d10</option>
-                      <option value="10p">d10 (percentile)</option>
-                      <option value="12">d12</option>
-                      <option value="20" selected>d20</option>
-                      <option value="100">d100</option>
-                    </select>
-                  </label>
-
-                  <label class="pt-field" for="dice-bonus">
-                    <span>Bonus</span>
-                    <input id="dice-bonus" type="number" step="1" value="0" />
-                  </label>
-
-                  <button type="button" id="roll-dice-btn" class="pt-btn pt-btn--primary pt-btn--span">
-                    Roll
-                  </button>
-                </div>
-              </section>
-
-              <!-- Coin Flip -->
-              <section class="pt-card" aria-label="Coin flip">
-                <header class="pt-card__header">
-                  <h3 class="pt-card__title">Coin Flip</h3>
-                  <span class="pt-result" id="coin-result" data-placeholder="Flip">Flip</span>
-                </header>
-
-                <div class="pt-card__body">
-                  <button type="button" id="flip-coin-btn" class="pt-btn pt-btn--secondary">
-                    Flip Coin
-                  </button>
-                </div>
-              </section>
-
-              <!-- History -->
-              <section class="pt-card pt-card--history" aria-label="Roll history">
-                <header class="pt-card__header">
-                  <h3 class="pt-card__title">History</h3>
-                </header>
-                <div class="pt-card__body">
-                  <ul id="toast-history-list" class="pt-history"></ul>
                 </div>
               </section>
 
