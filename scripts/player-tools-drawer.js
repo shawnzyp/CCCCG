@@ -114,6 +114,12 @@ const ensurePlayerToolsHost = () => {
       resumeBtn.onclick = hasResumeHandler ? () => onResume() : null;
       resumeBtn.disabled = !hasResumeHandler;
       resumeBtn.setAttribute('aria-disabled', hasResumeHandler ? 'false' : 'true');
+
+      const label = String(name || '').trim();
+      const hasName = label.length > 0;
+      const baseLabel = 'Resume mini-game mission';
+      const ariaLabel = hasName ? `${baseLabel} — ${label}` : baseLabel;
+      resumeBtn.setAttribute('aria-label', ariaLabel);
     }
     if (card) {
       card.hidden = false;
@@ -139,6 +145,7 @@ const ensurePlayerToolsHost = () => {
       resumeBtn.onclick = null;
       resumeBtn.disabled = true;
       resumeBtn.setAttribute('aria-disabled', 'true');
+      resumeBtn.setAttribute('aria-label', 'Resume mini-game mission');
     }
     if (card) {
       card.hidden = true;
