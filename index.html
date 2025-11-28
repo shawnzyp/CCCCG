@@ -3162,6 +3162,91 @@ aria-hidden="false"
             </header>
 
             <main class="pt-app__viewport" aria-label="Player tools">
+              <section class="pt-card" aria-label="Reminders">
+                <div class="pt-card__body">
+                  <div class="player-tools-reminder" id="level-reward-reminder">
+                    <div class="player-tools-reminder__body">
+                      <button
+                        type="button"
+                        id="level-reward-reminder-trigger"
+                        class="player-tools-reminder__trigger"
+                        aria-label="Rewards"
+                        aria-hidden="true"
+                        disabled
+                        hidden
+                        aria-disabled="true"
+                      >
+                        <div class="player-tools-reminder__content">
+                          <span class="player-tools-reminder__title">Level Rewards</span>
+                          <span class="player-tools-reminder__subtitle">Apply your pending rewards</span>
+                        </div>
+                        <span
+                          id="level-reward-count"
+                          class="player-tools-reminder__badge"
+                          data-level-reward-count
+                          hidden
+                        >
+                          0
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        id="level-reward-info-trigger"
+                        class="player-tools-reminder__info"
+                        aria-label="Open level rewards"
+                        aria-hidden="true"
+                        hidden
+                      >
+                        i
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="player-tools-reminder player-tools-reminder--mini-game"
+                    id="mini-game-reminder"
+                    data-mini-game-reminder
+                    hidden
+                    aria-hidden="true"
+                  >
+                    <div class="player-tools-reminder__body" data-mini-game-reminder-summary>
+                      <div class="player-tools-reminder__content">
+                        <span
+                          id="mini-game-name"
+                          data-mini-game-reminder-game
+                          class="player-tools-reminder__title"
+                        >
+                          Mini-Game
+                        </span>
+                        <span
+                          id="mini-game-status"
+                          data-mini-game-reminder-status
+                          class="player-tools-reminder__subtitle"
+                        >
+                          Status: Pending
+                        </span>
+                        <span
+                          id="mini-game-meta"
+                          data-mini-game-reminder-meta
+                          class="player-tools-reminder__subtitle"
+                          hidden
+                        ></span>
+                      </div>
+                      <button
+                        id="mini-game-resume"
+                        data-mini-game-reminder-action
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        aria-label="Resume mini-game mission"
+                        disabled
+                      >
+                        Resume
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               <!-- Initiative -->
               <section class="pt-card" aria-label="Initiative roller">
                 <header class="pt-card__header">
