@@ -605,6 +605,7 @@ export const open = () => initializePlayerToolsDrawer()?.open();
 export const close = () => initializePlayerToolsDrawer()?.close();
 export const toggle = () => initializePlayerToolsDrawer()?.toggle();
 export const subscribe = (listener) => initializePlayerToolsDrawer()?.subscribe(listener) ?? (() => {});
+export const onDrawerChange = (listener) => subscribe(listener);
 export const setBatteryStatus = (detail) => initializePlayerToolsDrawer()?.setBatteryStatus?.(detail);
 
 // Ensure auto-init when module loads
