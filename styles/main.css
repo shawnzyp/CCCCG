@@ -2889,7 +2889,7 @@ body:not(.no-hover) .tracker-progress:hover::before{
   width:100%;
   justify-content:center;
   font-weight:700;
-  min-height:calc(var(--control-min-height) * 1.08);
+  min-height:clamp(74px,22vw,112px);
   padding:clamp(10px,3vw,14px) clamp(14px,4vw,18px);
   font-size:clamp(.85rem,2.6vw,1.02rem);
   letter-spacing:.04em;
