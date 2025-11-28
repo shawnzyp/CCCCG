@@ -335,9 +335,9 @@ function createPlayerToolsDrawer() {
     }, 2000);
   };
 
-  const setDrawerOpen = (open) => {
+  const setDrawerOpen = (open, { force = false } = {}) => {
     const next = !!open;
-    if (next === isOpen) return;
+    if (!force && next === isOpen) return;
     isOpen = next;
 
     drawer.classList.toggle('is-open', isOpen);
@@ -516,7 +516,7 @@ function createPlayerToolsDrawer() {
   };
 
   // init
-  setDrawerOpen(false);
+  setDrawerOpen(false, { force: true });
   updateClock();
   initBattery();
 

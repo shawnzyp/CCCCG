@@ -1495,7 +1495,12 @@ function formatMiniGameReminderMeta(entry) {
 }
 
 function updateMiniGameReminder() {
-  if (!miniGameReminderCard) return;
+  if (!miniGameReminderCard) {
+    miniGameReminderEntryId = '';
+    schedulePlayerToolsBadgeSync(() => removePlayerToolsBadgeReason('mini-game'));
+    return;
+  }
+
   const entry = findMiniGameReminderEntry();
   miniGameReminderEntryId = entry?.id || '';
   if (!entry) {
