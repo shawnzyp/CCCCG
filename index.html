@@ -3144,13 +3144,37 @@ aria-hidden="false"
           </div>
 
           <!-- Intro splash (2s on open) -->
-          <div class="pt-splash" data-pt-splash aria-hidden="true">
-            <div class="pt-splash__inner">
-              <div class="pt-splash__brand">CATALYST CORE</div>
-              <div class="pt-splash__sub">PLAYER TOOLS</div>
+          <section class="pt-splash" data-pt-splash aria-hidden="true">
+            <header class="pt-splash__status" aria-hidden="true">
+              <div class="pt-statusbar">
+                <span class="pt-statusbar__time" data-pt-clock>--:--</span>
+
+                <span class="pt-statusbar__spacer" aria-hidden="true"></span>
+
+                <span
+                  class="pt-statusbar__battery"
+                  data-pt-battery
+                  aria-label="Battery level unavailable (estimated display)"
+                >
+                  <span class="pt-battery">
+                    <span class="pt-battery__level" data-pt-battery-level></span>
+                    <span class="pt-battery__bolt" aria-hidden="true"></span>
+                  </span>
+                </span>
+              </div>
+            </header>
+
+            <div class="pt-splash__brand">
+              <img
+                class="pt-splash__logo"
+                src="images/player-tools-icon.png"
+                alt="O.M.N.I."
+              />
+              <div class="pt-splash__title">CATALYST CORE</div>
+              <div class="pt-splash__subtitle">PLAYER TOOLS</div>
               <div class="pt-splash__bar" aria-hidden="true"></div>
             </div>
-          </div>
+          </section>
 
           <!-- Cracked glass overlay (driven by HP) -->
           <div class="pt-cracks" aria-hidden="true"></div>

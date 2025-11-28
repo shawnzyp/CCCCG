@@ -238,8 +238,8 @@ function createPlayerToolsDrawer() {
   const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
   const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
 
-  const clockEl = drawer ? drawer.querySelector('[data-pt-clock]') : null;
-  const batteryEl = drawer ? drawer.querySelector('[data-pt-battery]') : null;
+  const clockEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-clock]')) : [];
+  const batteryEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-battery]')) : [];
 
   const gestureExit = doc.getElementById('player-tools-gesture-exit');
 
@@ -286,8 +286,10 @@ function createPlayerToolsDrawer() {
   };
 
   const updateClock = () => {
-    if (!clockEl) return;
-    clockEl.textContent = getCurrentTimeString();
+    const value = getCurrentTimeString();
+    for (const el of clockEls) {
+      if (el) el.textContent = value;
+    }
   };
 
   const setBatteryVisual = ({ levelPercent = 75, charging = false, estimated = false } = {}) => {
@@ -296,13 +298,14 @@ function createPlayerToolsDrawer() {
       doc.documentElement.style.setProperty('--pt-battery-level', `${lvl}%`);
     }
 
-    if (batteryEl) {
-      batteryEl.classList.toggle('is-charging', !!charging);
-      batteryEl.classList.toggle('is-estimated', !!estimated);
+    for (const el of batteryEls) {
+      if (!el) continue;
+      el.classList.toggle('is-charging', !!charging);
+      el.classList.toggle('is-estimated', !!estimated);
       const label = estimated
         ? 'Battery level unavailable (estimated display)'
         : `Battery level ${lvl}%`;
-      batteryEl.setAttribute('aria-label', label);
+      el.setAttribute('aria-label', label);
     }
   };
 
