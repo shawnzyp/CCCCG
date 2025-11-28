@@ -2836,11 +2836,12 @@ body:not(.no-hover) .tracker-progress:hover::before{
   display:flex;
   align-items:center;
   gap:clamp(8px,2.4vw,12px);
-  justify-content:flex-start;
+  justify-content:space-between;
   text-align:left;
   width:100%;
   align-self:center;
   justify-self:stretch;
+  padding-inline:clamp(10px,3vw,16px);
 }
 
 .hp-field__controls{
@@ -2888,6 +2889,10 @@ body:not(.no-hover) .tracker-progress:hover::before{
   width:100%;
   justify-content:center;
   font-weight:700;
+  min-height:calc(var(--control-min-height) * 1.08);
+  padding:clamp(10px,3vw,14px) clamp(14px,4vw,18px);
+  font-size:clamp(.85rem,2.6vw,1.02rem);
+  letter-spacing:.04em;
 }
 
 .hp-field__action--damage{
@@ -4041,13 +4046,15 @@ body:not(.no-hover) .credits-card__submit:hover,
 .hp-field__progress-label .tracker-progress__value,
 .sp-field__progress-label .tracker-progress__value{
   font-size:clamp(1.05rem,3vw,1.35rem);
+  flex:1 1 auto;
+  text-align:center;
 }
 .hp-field__progress-label .tracker-progress__status,
 .sp-field__progress-label .tracker-progress__status{
-  margin-left:auto;
   padding:clamp(2px,0.8vw,4px) clamp(6px,1.6vw,10px);
   font-size:clamp(.55rem,1.6vw,.7rem);
   white-space:nowrap;
+  margin-left:clamp(6px,1.8vw,12px);
 }
 
 .sp-field__controls{
