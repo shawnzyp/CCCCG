@@ -4023,11 +4023,12 @@ body:not(.no-hover) .credits-card__submit:hover,
   display:flex;
   align-items:center;
   gap:clamp(8px,2.4vw,12px);
-  justify-content:flex-start;
+  justify-content:space-between;
   text-align:left;
   width:100%;
   align-self:center;
   justify-self:stretch;
+  padding-inline:clamp(10px,3vw,16px);
 }
 
 .hp-field__progress-label .tracker-progress__label,
