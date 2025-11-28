@@ -238,8 +238,8 @@ function createPlayerToolsDrawer() {
   const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
   const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
 
-  const clockEl = drawer ? drawer.querySelector('[data-pt-clock]') : null;
-  const batteryEl = drawer ? drawer.querySelector('[data-pt-battery]') : null;
+  const clockEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-clock]')) : [];
+  const batteryEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-battery]')) : [];
 
   const gestureExit = doc.getElementById('player-tools-gesture-exit');
 
@@ -269,11 +269,16 @@ function createPlayerToolsDrawer() {
 
   let isOpen = false;
   let splashTimer = null;
+  let splashCleanupTimer = null;
   let timeInterval = null;
   let hpInterval = null;
   let batteryObj = null;
   let batteryApply = null;
   let splashSeq = 0; // fixes splash replay if open triggers more than once
+
+  if (splash) {
+    splash.style.display = 'none';
+  }
 
   const pad2 = (n) => String(n).padStart(2, '0');
 
@@ -286,8 +291,10 @@ function createPlayerToolsDrawer() {
   };
 
   const updateClock = () => {
-    if (!clockEl) return;
-    clockEl.textContent = getCurrentTimeString();
+    const value = getCurrentTimeString();
+    for (const el of clockEls) {
+      if (el) el.textContent = value;
+    }
   };
 
   const setBatteryVisual = ({ levelPercent = 75, charging = false, estimated = false } = {}) => {
@@ -296,13 +303,14 @@ function createPlayerToolsDrawer() {
       doc.documentElement.style.setProperty('--pt-battery-level', `${lvl}%`);
     }
 
-    if (batteryEl) {
-      batteryEl.classList.toggle('is-charging', !!charging);
-      batteryEl.classList.toggle('is-estimated', !!estimated);
+    for (const el of batteryEls) {
+      if (!el) continue;
+      el.classList.toggle('is-charging', !!charging);
+      el.classList.toggle('is-estimated', !!estimated);
       const label = estimated
         ? 'Battery level unavailable (estimated display)'
         : `Battery level ${lvl}%`;
-      batteryEl.setAttribute('aria-label', label);
+      el.setAttribute('aria-label', label);
     }
   };
 
@@ -335,6 +343,13 @@ function createPlayerToolsDrawer() {
 
     const seq = ++splashSeq;
 
+    clearTimeout(splashCleanupTimer);
+    splashCleanupTimer = null;
+
+    splash.style.display = 'block';
+    // Force layout so the opacity transition plays after toggling visibility
+    void splash.offsetWidth;
+
     splash.classList.add('is-visible');
     splash.setAttribute('aria-hidden', 'false');
     app.style.opacity = '0';
@@ -346,6 +361,11 @@ function createPlayerToolsDrawer() {
       splash.classList.remove('is-visible');
       splash.setAttribute('aria-hidden', 'true');
       app.style.opacity = '1';
+      clearTimeout(splashCleanupTimer);
+      splashCleanupTimer = setTimeout(() => {
+        if (seq !== splashSeq) return;
+        splash.style.display = 'none';
+      }, 280);
     }, 2000);
   };
 
@@ -370,10 +390,13 @@ function createPlayerToolsDrawer() {
       if (splash) {
         splash.classList.remove('is-visible');
         splash.setAttribute('aria-hidden', 'true');
+        splash.style.display = 'none';
       }
       if (app) app.style.opacity = '1';
       clearTimeout(splashTimer);
       splashTimer = null;
+      clearTimeout(splashCleanupTimer);
+      splashCleanupTimer = null;
     }
 
     dispatchChange({ open: isOpen, progress: isOpen ? 1 : 0 });

@@ -2836,11 +2836,12 @@ body:not(.no-hover) .tracker-progress:hover::before{
   display:flex;
   align-items:center;
   gap:clamp(8px,2.4vw,12px);
-  justify-content:flex-start;
+  justify-content:space-between;
   text-align:left;
   width:100%;
   align-self:center;
   justify-self:stretch;
+  padding-inline:clamp(10px,3vw,16px);
 }
 
 .hp-field__controls{
@@ -2888,6 +2889,10 @@ body:not(.no-hover) .tracker-progress:hover::before{
   width:100%;
   justify-content:center;
   font-weight:700;
+  min-height:clamp(74px,22vw,112px);
+  padding:clamp(10px,3vw,14px) clamp(14px,4vw,18px);
+  font-size:clamp(.85rem,2.6vw,1.02rem);
+  letter-spacing:.04em;
 }
 
 .hp-field__action--damage{
@@ -4018,11 +4023,12 @@ body:not(.no-hover) .credits-card__submit:hover,
   display:flex;
   align-items:center;
   gap:clamp(8px,2.4vw,12px);
-  justify-content:flex-start;
+  justify-content:space-between;
   text-align:left;
   width:100%;
   align-self:center;
   justify-self:stretch;
+  padding-inline:clamp(10px,3vw,16px);
 }
 
 .hp-field__progress-label .tracker-progress__label,
@@ -4041,13 +4047,15 @@ body:not(.no-hover) .credits-card__submit:hover,
 .hp-field__progress-label .tracker-progress__value,
 .sp-field__progress-label .tracker-progress__value{
   font-size:clamp(1.05rem,3vw,1.35rem);
+  flex:1 1 auto;
+  text-align:center;
 }
 .hp-field__progress-label .tracker-progress__status,
 .sp-field__progress-label .tracker-progress__status{
-  margin-left:auto;
   padding:clamp(2px,0.8vw,4px) clamp(6px,1.6vw,10px);
   font-size:clamp(.55rem,1.6vw,.7rem);
   white-space:nowrap;
+  margin-left:clamp(6px,1.8vw,12px);
 }
 
 .sp-field__controls{
@@ -8857,9 +8865,8 @@ opacity: 0.78;
 #player-tools-drawer .pt-splash{
 position:absolute;
 inset:0;
-display:flex;
-align-items:center;
-justify-content:center;
+width: 100%;
+height: 100%;
 z-index: 35;
 opacity: 0;
 pointer-events:none;
@@ -8873,34 +8880,60 @@ transition: opacity 260ms ease-out;
 
 #player-tools-drawer .pt-splash.is-visible{ opacity: 1; }
 
-#player-tools-drawer .pt-splash__inner{
-text-align:center;
-padding: 1.2rem 1rem;
-border-radius: 18px;
-border: 1px solid rgba(0,229,255,0.35);
-background: rgba(2,8,14,0.72);
-box-shadow: 0 0 24px rgba(0,229,255,0.2);
+#player-tools-drawer .pt-splash__status{
+position:absolute;
+top: 16px;
+left: 18px;
+right: 18px;
+pointer-events: none;
 }
+
+#player-tools-drawer .pt-statusbar{
+display:flex;
+align-items:center;
+justify-content:space-between;
+font-size: 0.95rem;
+letter-spacing: 0.02em;
+opacity: 0.9;
+}
+
+#player-tools-drawer .pt-statusbar__spacer{ flex: 1; }
 
 #player-tools-drawer .pt-splash__brand{
-font-size: 1.05rem;
-letter-spacing: 0.18em;
-text-transform: uppercase;
-color: rgba(229,249,255,0.95);
-font-weight: 800;
+position:absolute;
+inset:0;
+display:grid;
+place-content:center;
+text-align:center;
+gap: 10px;
 }
 
-#player-tools-drawer .pt-splash__sub{
-margin-top: 0.35rem;
-font-size: 0.8rem;
-letter-spacing: 0.12em;
-text-transform: uppercase;
-color: rgba(0,229,255,0.9);
+#player-tools-drawer .pt-splash__logo{
+width: 70px;
+height: 70px;
+object-fit: contain;
+margin: 0 auto;
+filter: drop-shadow(0 0 10px rgba(0, 229, 255, 0.35));
+}
+
+#player-tools-drawer .pt-splash__title{
 font-weight: 700;
+font-size: 1.15rem;
+letter-spacing: 0.16em;
+color: rgba(229,249,255,0.95);
+text-transform: uppercase;
+}
+
+#player-tools-drawer .pt-splash__subtitle{
+font-size: 0.9rem;
+letter-spacing: 0.22em;
+opacity: 0.85;
+color: rgba(0,229,255,0.9);
+text-transform: uppercase;
 }
 
 #player-tools-drawer .pt-splash__bar{
-margin: 0.85rem auto 0;
+margin: 0.35rem auto 0;
 width: 78%;
 height: 3px;
 border-radius: 999px;
