@@ -3145,25 +3145,7 @@ aria-hidden="false"
 
           <!-- Intro splash (2s on open) -->
           <section class="pt-splash" data-pt-splash aria-hidden="true">
-            <header class="pt-splash__status" aria-hidden="true">
-              <div class="pt-statusbar">
-                <span class="pt-statusbar__time" data-pt-clock>--:--</span>
-
-                <span class="pt-statusbar__spacer" aria-hidden="true"></span>
-
-                <span
-                  class="pt-statusbar__battery"
-                  data-pt-battery
-                  aria-label="Battery level unavailable (estimated display)"
-                >
-                  <span class="pt-battery">
-                    <span class="pt-battery__level" data-pt-battery-level></span>
-                    <span class="pt-battery__bolt" aria-hidden="true"></span>
-                  </span>
-                </span>
-              </div>
-            </header>
-
+            <!-- Splash inherits the always-on tray status bar; avoid rendering a duplicate during loading. -->
             <div class="pt-splash__brand">
               <img
                 class="pt-splash__logo"
