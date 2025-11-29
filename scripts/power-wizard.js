@@ -416,7 +416,27 @@ function renderSteps() {
   });
 }
 
+function preflightCleanup() {
+  // If anything went wrong previously, do not allow a stale overlay to block the app.
+  try { document.documentElement.classList.remove('power-wizard-open'); } catch (_) {}
+  try {
+    document.querySelectorAll('.power-wizard__overlay').forEach((ov) => {
+      try {
+        ov.hidden = true;
+        ov.style.display = 'none';
+        ov.style.pointerEvents = 'none';
+        try { ov.inert = true; } catch (_) {}
+      } catch (_) {}
+      try { ov.remove(); } catch (_) {}
+    });
+  } catch (_) {}
+  // Also reset internal refs if DOM was out of sync.
+  wizardState.els = null;
+  wizardState.isOpen = false;
+}
+
 function openOverlay() {
+  preflightCleanup();
   const els = buildModalOnce();
   wizardState.lastFocus = document.activeElement;
   els.overlay.hidden = false;
@@ -1463,6 +1483,7 @@ function renderReview(forceIssuesOpen) {
 }
 
 export function openPowerWizard(options = {}) {
+  if (wizardState.isOpen) return;
   const opts = options && typeof options === 'object' ? options : {};
   wizardState.options = opts;
 
