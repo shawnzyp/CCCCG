@@ -89,9 +89,18 @@ function escapeHtml(str) {
 }
 
 /* Best-effort access to existing repo helpers/constants */
-function readConst(name, fallback) {
-  if (PowerMeta && name in PowerMeta) return PowerMeta[name];
+function getPowerMeta() {
   const g = getGlobal();
+  const meta = (g && typeof g.PowerMeta === 'object' && g.PowerMeta) || PowerMeta || {};
+  if (meta && meta !== PowerMeta) PowerMeta = meta;
+  return meta;
+}
+
+function readConst(name, fallback) {
+  const meta = getPowerMeta();
+  if (meta && name in meta) return meta[name];
+  const g = getGlobal();
+  if (g?.PowerMeta && name in g.PowerMeta) return g.PowerMeta[name];
   if (g && name in g) return g[name];
   try {
     if (typeof window !== 'undefined' && window[name] != null) return window[name];
@@ -100,8 +109,10 @@ function readConst(name, fallback) {
 }
 
 function readFn(name, fallback) {
-  if (PowerMeta && typeof PowerMeta[name] === 'function') return PowerMeta[name];
+  const meta = getPowerMeta();
+  if (meta && typeof meta[name] === 'function') return meta[name];
   const g = getGlobal();
+  if (g?.PowerMeta && typeof g.PowerMeta[name] === 'function') return g.PowerMeta[name];
   const fn = g && typeof g[name] === 'function' ? g[name] : null;
   return fn || fallback;
 }
