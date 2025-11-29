@@ -146,6 +146,18 @@ const suggestOnSaveBehavior = readFn('suggestOnSaveBehavior', (_effectTag) => PO
 const getCharacterPowerSettings = readFn('getCharacterPowerSettings', () => null);
 const formatPowerRange = readFn('formatPowerRange', (compiled, _settings) => compiled.range || '—');
 
+function getEffectiveSubtypeConfig(moveType, subtype) {
+  const subtypeCfg = getSubtypeConfig(moveType, subtype);
+  const types = POWER_WIZARD_TYPES() || {};
+  const fallbackSubtypeCfg =
+    moveType && subtype && types[moveType]?.subtypes?.[subtype]
+      ? types[moveType].subtypes[subtype]
+      : null;
+
+  if (fallbackSubtypeCfg) return { ...fallbackSubtypeCfg, ...(subtypeCfg || {}) };
+  return subtypeCfg || {};
+}
+
 function rangeOptionsForShape(shape) {
   const s = String(shape || '');
   if (s === 'Melee') return ['Melee', '5 ft', '10 ft'];
@@ -217,7 +229,7 @@ function compileDraft(draft) {
     damage: null,
     signature: d.signature === true,
   };
-  const subtypeCfg = getSubtypeConfig(compiled.moveType, compiled.subtype);
+  const subtypeCfg = getEffectiveSubtypeConfig(compiled.moveType, compiled.subtype);
   const showDamage = !!subtypeCfg && !!subtypeCfg.showDamage;
   const wantsDamage = showDamage && d.damageOptIn !== false;
   if (wantsDamage) {
@@ -244,7 +256,7 @@ function isValid(draft) {
   if (!d.moveType || !d.subtype) issues.push('Select a primary type and secondary focus.');
   if (!d.effectTag) issues.push('Choose a primary effect.');
   if (!d.shape || !d.range) issues.push('Confirm target shape and range.');
-  const subtypeCfg = getSubtypeConfig(d.moveType, d.subtype);
+  const subtypeCfg = getEffectiveSubtypeConfig(d.moveType, d.subtype);
   const showDamage = !!subtypeCfg && !!subtypeCfg.showDamage;
   if (showDamage && d.damageOptIn !== false) {
     const diceList = POWER_DAMAGE_DICE();
@@ -709,7 +721,7 @@ function renderPreview() {
   const els = wizardState.els;
   if (!els) return;
   const compiled = compileDraft(wizardState.draft);
-  const subtypeCfg = getSubtypeConfig(compiled.moveType, compiled.subtype) || {};
+  const subtypeCfg = getEffectiveSubtypeConfig(compiled.moveType, compiled.subtype) || {};
 
   els.preview.innerHTML = `
     <div class="pw-card">
@@ -868,7 +880,7 @@ function renderPick() {
       const meta = document.createElement('div');
       meta.className = 'power-wizard__list-meta';
       const typeLabel = getMoveTypeConfig(pp.moveType)?.label || pp.moveType || '—';
-      const subtypeLabel = getSubtypeConfig(pp.moveType, pp.subtype)?.label || pp.subtype || '—';
+      const subtypeLabel = getEffectiveSubtypeConfig(pp.moveType, pp.subtype)?.label || pp.subtype || '—';
       meta.textContent = `${typeLabel} • ${subtypeLabel} • ${pp.effectTag || '—'}`;
 
       const pillRow = document.createElement('div');
@@ -1022,7 +1034,7 @@ function renderIdentity() {
     try { applySubtypeDefaults(moveType, finalPick); } catch (_) {}
 
     const moveCfg = getMoveTypeConfig(moveType);
-    const subCfg = getSubtypeConfig(moveType, finalPick);
+    const subCfg = getEffectiveSubtypeConfig(moveType, finalPick);
     primaryHelper.textContent = moveCfg?.description || types?.[moveType]?.description || '';
     secondaryHelper.textContent = subCfg?.description || (types?.[moveType]?.subtypes?.[finalPick]?.description || '');
     renderPreview();
@@ -1241,7 +1253,7 @@ function renderShape() {
   grid.appendChild(fieldRow('Usage', usesSelect, 'How often it can be used.'));
   grid.appendChild(fieldRow('Cooldown (rounds)', cooldownInput, 'Only used when Usage is set to Cooldown.'));
 
-  const subtypeCfg = getSubtypeConfig(wizardState.draft.moveType, wizardState.draft.subtype) || {};
+  const subtypeCfg = getEffectiveSubtypeConfig(wizardState.draft.moveType, wizardState.draft.subtype) || {};
   const allowSave = !!subtypeCfg.allowSave;
 
   const saveToggle = makeToggle(!!wizardState.draft.requiresSave, 'Requires a saving throw');
@@ -1312,7 +1324,7 @@ function renderEffects() {
   grid.appendChild(fieldRow('Primary Effect', effectSelect, 'Broad category: damage, control, support, etc.'));
   grid.appendChild(fieldRow('Secondary Effect (optional)', secondarySelect, 'If this power has a secondary rider category.'));
 
-  const subtypeCfg = getSubtypeConfig(wizardState.draft.moveType, wizardState.draft.subtype) || {};
+  const subtypeCfg = getEffectiveSubtypeConfig(wizardState.draft.moveType, wizardState.draft.subtype) || {};
   const showDamage = !!subtypeCfg.showDamage;
 
   if (showDamage) {
@@ -1436,7 +1448,7 @@ function renderReview(forceIssuesOpen) {
   summary.className = 'power-wizard__summary';
 
   const typeLabel = getMoveTypeConfig(compiled.moveType)?.label || compiled.moveType || '—';
-  const subtypeLabel = getSubtypeConfig(compiled.moveType, compiled.subtype)?.label || compiled.subtype || '—';
+  const subtypeLabel = getEffectiveSubtypeConfig(compiled.moveType, compiled.subtype)?.label || compiled.subtype || '—';
 
   summary.innerHTML = `
     <div class="power-wizard__summary-grid">
