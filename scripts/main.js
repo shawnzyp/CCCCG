@@ -68,6 +68,7 @@ import {
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
+import { openPowerWizard } from './power-wizard.js';
 import {
   buildPriceIndex,
   decodeCatalogBuffer,
@@ -13533,28 +13534,104 @@ function parseDurationTracker(duration) {
 }
 
 const powerCardStates = new WeakMap();
-const powerEditorState = {
-  overlay: null,
-  modal: null,
-  content: null,
-  title: null,
-  saveButton: null,
-  cancelButton: null,
-  card: null,
-  targetList: null,
-  initialData: null,
-  isNew: false,
-  bindingsInitialized: false,
-  steps: ['type-select', 'description', 'details', 'review'],
-  stepIndex: 0,
-  workingPower: null,
-  moveType: null,
-  subtype: null,
-  wizardElements: {},
-};
 let activeConcentrationEffect = null;
 const ongoingEffectTrackers = new Map();
 let ongoingEffectCounter = 0;
+
+function ensurePowerId(power) {
+  if (!power || typeof power !== 'object') {
+    const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `pw_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+    return { id };
+  }
+  if (power.id) return power;
+  const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `pw_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+  return { ...power, id };
+}
+
+function getCurrentPowersArray() {
+  const list = $('powers');
+  if (!list) return [];
+  return Array.from(list.querySelectorAll("[data-kind='power']"))
+    .map(card => serializePowerCard(card))
+    .filter(Boolean);
+}
+
+function getCurrentSignaturesArray() {
+  const list = $('sigs');
+  if (!list) return [];
+  return Array.from(list.querySelectorAll("[data-kind='sig']"))
+    .map(card => {
+      const sig = serializePowerCard(card);
+      if (!sig) return null;
+      return { ...sig, signature: true };
+    })
+    .filter(Boolean);
+}
+
+function setCurrentPowersArray(nextPowers) {
+  const list = $('powers');
+  if (!list) return;
+  Array.from(list.querySelectorAll("[data-kind='power']")).forEach(card => {
+    activePowerCards.delete(card);
+    powerCardStates.delete(card);
+  });
+  list.innerHTML = '';
+  (Array.isArray(nextPowers) ? nextPowers : []).forEach(power => {
+    const card = createCard('power', power);
+    list.appendChild(card);
+  });
+}
+
+function setCurrentSignaturesArray(nextSignatures) {
+  const list = $('sigs');
+  if (!list) return;
+  Array.from(list.querySelectorAll("[data-kind='sig']")).forEach(card => {
+    activePowerCards.delete(card);
+    powerCardStates.delete(card);
+  });
+  list.innerHTML = '';
+  (Array.isArray(nextSignatures) ? nextSignatures : []).forEach(sig => {
+    const card = createCard('sig', { ...sig, signature: true });
+    list.appendChild(card);
+  });
+}
+
+function persistAndRerender() {
+  activePowerCards.forEach(card => updatePowerCardDerived(card));
+  pushHistory();
+}
+
+function openPowerCreationWizard({ mode = 'create', power = null, target = 'powers' } = {}) {
+  const isSignature = target === 'sigs' || power?.signature === true;
+  const current = isSignature ? getCurrentSignaturesArray() : getCurrentPowersArray();
+  const initialPower = power ? { ...power, signature: isSignature ? true : power.signature } : (isSignature ? { signature: true } : null);
+
+  openPowerWizard({
+    mode,
+    power: initialPower || undefined,
+    powers: current,
+    onPowersUpdated(nextPowers) {
+      const normalized = (Array.isArray(nextPowers) ? nextPowers : [])
+        .map(entry => ensurePowerId(entry))
+        .map(entry => (isSignature ? { ...entry, signature: true } : entry));
+      if (isSignature) setCurrentSignaturesArray(normalized);
+      else setCurrentPowersArray(normalized);
+      persistAndRerender();
+    },
+    onSave() {
+      persistAndRerender();
+    },
+    onCancel() {},
+  });
+}
+
+const powerEditorState = {};
+function restorePowerEditorCard() {}
+function resetPowerEditorState() {}
 
 const POWER_WIZARD_TYPES = {
   attack: {
@@ -15404,99 +15481,14 @@ function handlePowerEditorCancel(event) {
   if (event && typeof event.preventDefault === 'function') {
     event.preventDefault();
   }
-  const { card, isNew, initialData } = powerEditorState;
-  if (!card) {
-    hide('modal-power-editor');
-    return;
-  }
-  if (isNew) {
-    activePowerCards.delete(card);
-    powerCardStates.delete(card);
-    if (card.parentNode) {
-      card.parentNode.removeChild(card);
-    }
-  } else if (initialData) {
-    applyPowerDataToCard(card, initialData);
-  }
-  restorePowerEditorCard();
   hide('modal-power-editor');
-  resetPowerEditorState();
 }
 
 function openPowerEditor(card, { isNew = false, targetList = null } = {}) {
   if (!card) return false;
-  if (!ensurePowerEditorElements()) {
-    console.warn('Power editor modal unavailable.');
-    return false;
-  }
-  const cardState = powerCardStates.get(card);
-  if (!cardState) return false;
-  if (!card._powerQuerySelector) {
-    const originalQuerySelector = card.querySelector.bind(card);
-    const originalQuerySelectorAll = card.querySelectorAll.bind(card);
-    Object.defineProperty(card, '_powerQuerySelector', {
-      value: {
-        query: originalQuerySelector,
-        queryAll: originalQuerySelectorAll,
-      },
-      configurable: true,
-      writable: true,
-    });
-    card.querySelector = function powerCardQuerySelector(selector) {
-      const direct = card._powerQuerySelector.query(selector);
-      if (direct) return direct;
-      if (powerEditorState.card === card && powerEditorState.content) {
-        return powerEditorState.content.querySelector(selector);
-      }
-      return null;
-    };
-    card.querySelectorAll = function powerCardQuerySelectorAll(selector) {
-      const combined = Array.from(card._powerQuerySelector.queryAll(selector));
-      if (powerEditorState.card === card && powerEditorState.content) {
-        const overlayMatches = powerEditorState.content.querySelectorAll(selector);
-        overlayMatches.forEach(node => {
-          if (!combined.includes(node)) {
-            combined.push(node);
-          }
-        });
-      }
-      if (typeof combined.item !== 'function') {
-        combined.item = index => combined[index] ?? null;
-      }
-      return combined;
-    };
-  }
-  if (powerEditorState.card && powerEditorState.card !== card) {
-    handlePowerEditorCancel();
-  }
-  const isSignature = card?.dataset?.kind === 'sig';
-  const label = isSignature ? 'Signature Move' : 'Power';
-  card.classList.add('power-card--editing');
-  powerEditorState.card = card;
-  powerEditorState.targetList = targetList || card.parentNode;
-  powerEditorState.isNew = !!isNew;
-  powerEditorState.initialData = serializePowerCard(card);
-  powerEditorState.workingPower = clonePowerForEditor(cardState.power);
-  powerEditorState.moveType = inferPowerMoveType(card, powerEditorState.workingPower);
-  powerEditorState.subtype = inferPowerSubtype(powerEditorState.moveType, powerEditorState.workingPower);
-  applyMoveTypeDefaults(powerEditorState.moveType);
-  applySubtypeDefaults(powerEditorState.moveType, powerEditorState.subtype);
-  powerEditorState.wizardElements = {};
-  const steps = powerEditorState.steps || [];
-  const startKey = isNew ? 'type-select' : 'details';
-  const startIndex = steps.indexOf(startKey);
-  powerEditorState.stepIndex = startIndex >= 0 ? startIndex : 0;
-  if (cardState?.elements?.summaryEdit) {
-    cardState.elements.summaryEdit.disabled = true;
-  }
-  if (powerEditorState.title) {
-    powerEditorState.title.textContent = `${isNew ? 'Create' : 'Edit'} ${label}`;
-  }
-  if (powerEditorState.saveButton) {
-    powerEditorState.saveButton.textContent = isNew ? `Save ${label}` : 'Save Changes';
-  }
-  renderPowerEditorStep();
-  show('modal-power-editor');
+  const power = serializePowerCard(card);
+  const target = card?.dataset?.kind === 'sig' ? 'sigs' : 'powers';
+  openPowerCreationWizard({ mode: isNew ? 'create' : 'edit', power, target });
   return true;
 }
 
@@ -17998,15 +17990,8 @@ function setupPowerPresetMenu() {
         toast('This power is locked by the DM.', 'error');
         return;
       }
-      const card = createCard('power', clonePresetData(data));
-      if (list && !card.isConnected) {
-        list.appendChild(card);
-      }
       hideMenu();
-      const opened = openPowerEditor(card, { isNew: true, targetList: list });
-      if (!opened) {
-        pushHistory();
-      }
+      openPowerCreationWizard({ mode: 'create', power: clonePresetData(data), target: 'powers' });
       try { addBtn.focus(); } catch {}
     });
     return optionBtn;
@@ -18924,16 +18909,7 @@ function createCard(kind, pref = {}) {
 
 $('add-sig').addEventListener('click', event => {
   if (event && typeof event.preventDefault === 'function') event.preventDefault();
-  const list = $('sigs');
-  if (!list) return;
-  const card = createCard('sig');
-  if (!card.isConnected) {
-    list.appendChild(card);
-  }
-  const opened = openPowerEditor(card, { isNew: true, targetList: list });
-  if (!opened) {
-    pushHistory();
-  }
+  openPowerCreationWizard({ mode: 'create', power: { signature: true }, target: 'sigs' });
 });
 
 /* ========= Gear ========= */
