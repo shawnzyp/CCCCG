@@ -13630,8 +13630,6 @@ function openPowerCreationWizard({ mode = 'create', power = null, target = 'powe
 }
 
 const powerEditorState = {};
-function restorePowerEditorCard() {}
-function resetPowerEditorState() {}
 
 const POWER_WIZARD_TYPES = {
   attack: {
