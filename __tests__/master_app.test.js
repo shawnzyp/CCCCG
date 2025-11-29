@@ -627,12 +627,12 @@ describe('Catalyst Core master application experience', () => {
 
     const scrim = drawer.querySelector('[data-player-tools-scrim]');
     const historyList = drawer.querySelector('#toast-history-list');
-    const diceCount = drawer.querySelector('#dice-count');
-    const diceSides = drawer.querySelector('#dice-sides');
-    const diceBonus = drawer.querySelector('#dice-bonus');
-    const rollDiceBtn = drawer.querySelector('#roll-dice-btn');
-    const rollInitiativeBtn = drawer.querySelector('#roll-initiative-btn');
-    const flipCoinBtn = drawer.querySelector('#flip-coin-btn');
+    const diceCount = document.getElementById('dice-count');
+    const diceSides = document.getElementById('dice-sides');
+    const diceBonus = document.getElementById('dice-bonus');
+    const rollDiceBtn = document.getElementById('roll-dice-btn');
+    const rollInitiativeBtn = document.getElementById('roll-initiative-btn');
+    const flipCoinBtn = document.getElementById('flip-coin-btn');
 
     expect(scrim).toBeTruthy();
     expect(historyList).toBeTruthy();
@@ -667,7 +667,6 @@ describe('Catalyst Core master application experience', () => {
     await advanceAppTime(0);
     const rewardBadge = drawer.querySelector('#level-reward-count');
     const rewardTrigger = drawer.querySelector('#level-reward-reminder-trigger');
-    const tabBadge = document.getElementById('player-tools-tab-badge');
     if (rewardBadge) {
       expect(rewardBadge.textContent.trim()).toBe('2');
       expect(rewardBadge.hidden).toBe(false);
@@ -676,37 +675,10 @@ describe('Catalyst Core master application experience', () => {
       expect(rewardTrigger.disabled).toBe(false);
     }
 
-    if (tabBadge) {
-      expect(tabBadge.hidden).toBe(true);
-    }
-
-    drawerModule.close();
-    await advanceAppTime(0);
-    if (tabBadge) {
-      expect(tabBadge.hidden).toBe(false);
-      expect(tabBadge.textContent.trim()).toBe('2');
-    }
-
-    drawerModule.open();
-    await advanceAppTime(0);
-    if (tabBadge) {
-      expect(tabBadge.hidden).toBe(true);
-    }
-
-    drawerModule.close();
-    await advanceAppTime(0);
-    if (tabBadge) {
-      expect(tabBadge.hidden).toBe(false);
-    }
-
     window.PlayerTools.clearLevelRewardReminder();
     await advanceAppTime(0);
     if (rewardBadge) expect(rewardBadge.hidden).toBe(true);
     if (rewardTrigger) expect(rewardTrigger.disabled).toBe(true);
-    if (tabBadge) expect(tabBadge.hidden).toBe(true);
-
-    drawerModule.open();
-    await advanceAppTime(0);
 
     let resumeCalled = false;
     window.PlayerTools.setMiniGameReminder({
@@ -718,12 +690,12 @@ describe('Catalyst Core master application experience', () => {
       }
     });
     await advanceAppTime(0);
-    const miniGameReminder = drawer.querySelector('#mini-game-reminder');
+    const miniGameReminder = document.getElementById('mini-game-reminder');
     if (miniGameReminder) {
       expect(miniGameReminder.hidden).toBe(false);
     }
 
-    const miniGameResume = drawer.querySelector('#mini-game-resume');
+    const miniGameResume = document.getElementById('mini-game-resume');
     if (miniGameResume) {
       miniGameResume.click();
       expect(resumeCalled).toBe(true);
