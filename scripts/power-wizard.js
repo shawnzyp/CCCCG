@@ -5,7 +5,19 @@
    This module is self-contained and best-effort reuses repo helpers/constants if present.
 */
 
-import * as PowerMeta from './power-metadata.js';
+// IMPORTANT:
+// Do NOT hard-import any optional metadata module here.
+// If an import 404s or throws, the browser aborts module evaluation and your whole app can become unresponsive.
+// Instead, we read from globals (window/globalThis) when available.
+let PowerMeta = {};
+try {
+  const g = (typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null));
+  // Optional: if your app defines a global metadata object, we’ll use it.
+  // Example: window.PowerMeta = { POWER_WIZARD_TYPES, POWER_EFFECT_TAGS, ... }
+  if (g && g.PowerMeta && typeof g.PowerMeta === 'object') PowerMeta = g.PowerMeta;
+} catch (_) {
+  PowerMeta = {};
+}
 
 let wizardState = {
   isOpen: false,
