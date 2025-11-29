@@ -15642,6 +15642,39 @@ function applySubtypeDefaults(moveType, subtype) {
   }
 }
 
+function exposePowerMeta() {
+  const meta = {
+    POWER_WIZARD_TYPES,
+    POWER_EFFECT_TAGS,
+    POWER_DAMAGE_DICE,
+    POWER_DAMAGE_TYPES,
+    POWER_ON_SAVE_OPTIONS,
+    POWER_SAVE_ABILITIES,
+    POWER_TARGET_SHAPES,
+    POWER_DURATIONS,
+    POWER_USES,
+    POWER_ACTION_TYPES,
+    POWER_INTENSITIES,
+    POWER_RANGE_QUICK_VALUES,
+    getMoveTypeConfig,
+    getSubtypeConfig,
+    inferPowerSubtype,
+    applyMoveTypeDefaults,
+    applySubtypeDefaults,
+    suggestSpCost,
+    defaultDamageType,
+    suggestOnSaveBehavior,
+    getCharacterPowerSettings,
+    formatPowerRange,
+  };
+  try {
+    const g = typeof globalThis !== 'undefined' ? globalThis : window;
+    g.PowerMeta = { ...(g.PowerMeta || {}), ...meta };
+  } catch (_) {}
+}
+
+exposePowerMeta();
+
 function goToWizardStep(step) {
   const steps = powerEditorState.steps || [];
   const maxIndex = Math.max(0, steps.length - 1);
