@@ -9183,6 +9183,17 @@ html.power-wizard-open body {
   overflow: hidden;
 }
 
+/* IMPORTANT: ensure the wizard overlay truly disappears when hidden.
+   Author CSS can override the UA [hidden]{display:none} rule. */
+.power-wizard__overlay[hidden] {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+.power-wizard__modal[hidden] {
+  display: none !important;
+}
+
 .power-wizard__overlay {
   position: fixed;
   inset: 0;
