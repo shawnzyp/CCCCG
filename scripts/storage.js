@@ -1210,6 +1210,9 @@ export async function loadCloud(name, { signal } = {}) {
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {
+    if (e?.name === 'AbortError') {
+      throw e;
+    }
     if (e && e.message !== 'fetch not supported') {
       console.error('Cloud load failed', e);
     }
@@ -1452,6 +1455,9 @@ export async function cacheCloudSaves(
             if (e && e.message === 'fetch not supported') {
               throw e;
             }
+            if (e && e.message === 'No save found') {
+              return;
+            }
             console.error('Failed to cache', k, e);
           }
         })
@@ -1471,6 +1477,9 @@ export async function cacheCloudSaves(
     }
     if (e && e.message === 'fetch not supported') {
       throw e;
+    }
+    if (e && e.message === 'No save found') {
+      return;
     }
     console.error('Failed to cache cloud saves', e);
     emitSyncError({
