@@ -1,30 +1,14 @@
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
-const BASE_TAB_LABEL = 'Open player tools';
 
-function getDocument() {
-  return typeof document !== 'undefined' ? document : null;
-}
-
-function getGlobal() {
+const getDocument = () => (typeof document !== 'undefined' ? document : null);
+const getGlobal = () => {
   try {
     if (typeof window !== 'undefined') return window;
     if (typeof globalThis !== 'undefined') return globalThis;
   } catch (_) {}
   return null;
-}
-
-const fallbackState = { pendingRewardCount: 0, hasMiniGamePending: false };
-const getSharedState = () => {
-  const g = getGlobal();
-  if (g) {
-    if (!g.__ccPlayerToolsDrawerState) {
-      g.__ccPlayerToolsDrawerState = { pendingRewardCount: 0, hasMiniGamePending: false };
-    }
-    return g.__ccPlayerToolsDrawerState;
-  }
-  return fallbackState;
 };
 
 // Global singleton key: prevents double-init if this module is loaded twice
@@ -52,61 +36,6 @@ const clampPendingCount = (value) => {
   return Math.max(0, num);
 };
 
-const updateRemindersCardVisibility = () => {
-  const doc = getDocument();
-  if (!doc) return;
-
-  const remindersCard = doc.getElementById('player-tools-reminders-card');
-  if (!remindersCard) return;
-
-  const rewardTrigger = doc.getElementById('level-reward-reminder-trigger');
-  const rewardInfo = doc.getElementById('level-reward-info-trigger');
-  const miniGameCard = doc.getElementById('mini-game-reminder');
-
-  const rewardVisible = !!(rewardTrigger && !rewardTrigger.hidden);
-  const infoVisible = !!(rewardInfo && !rewardInfo.hidden);
-  const miniVisible = !!(miniGameCard && !miniGameCard.hidden);
-
-  const shouldShow = rewardVisible || infoVisible || miniVisible;
-  remindersCard.hidden = !shouldShow;
-  remindersCard.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
-};
-
-const updateTabBadge = () => {
-  const doc = getDocument();
-  if (!doc) return;
-
-  const tab = doc.getElementById('player-tools-tab');
-  const badge = doc.getElementById('player-tools-tab-badge');
-  const drawer = doc.getElementById('player-tools-drawer');
-
-  if (!tab || !badge) return;
-
-  const state = getSharedState();
-  const drawerOpen = !!(drawer && drawer.classList.contains('is-open'));
-  const hasRewards = state.pendingRewardCount > 0;
-  const hasMini = !!state.hasMiniGamePending;
-  const hasPending = !drawerOpen && (hasRewards || hasMini);
-
-  if (hasPending) {
-    const showCount = hasRewards;
-    const countText = showCount
-      ? (state.pendingRewardCount > 99 ? '99+' : String(state.pendingRewardCount))
-      : '•';
-    badge.textContent = countText;
-    badge.hidden = false;
-    badge.setAttribute('aria-hidden', 'false');
-    const pendingTotal = hasRewards ? state.pendingRewardCount : 1;
-    const descriptor = pendingTotal > 1 ? `${pendingTotal} notifications.` : '1 notification.';
-    tab.setAttribute('aria-label', `${BASE_TAB_LABEL}. ${descriptor}`);
-  } else {
-    badge.textContent = '';
-    badge.hidden = true;
-    badge.setAttribute('aria-hidden', 'true');
-    tab.setAttribute('aria-label', BASE_TAB_LABEL);
-  }
-};
-
 const ensurePlayerToolsHost = () => {
   const globalTarget = typeof window !== 'undefined' ? window : globalThis;
   if (!globalTarget) return null;
@@ -124,34 +53,29 @@ const ensurePlayerToolsHost = () => {
   const setLevelRewardReminder = (count = 0, label = 'Rewards') => {
     const pendingCount = clampPendingCount(count);
     const doc = getDocument();
-    const state = getSharedState();
-    state.pendingRewardCount = pendingCount;
-    if (doc) {
-      const trigger = doc.getElementById('level-reward-reminder-trigger');
-      const badge = doc.getElementById('level-reward-count');
-      const infoTrigger = doc.getElementById('level-reward-info-trigger');
+    if (!doc) return pendingCount;
 
-      const hasPending = pendingCount > 0;
+    const trigger = doc.getElementById('level-reward-reminder-trigger');
+    const badge = doc.getElementById('level-reward-count');
+    const infoTrigger = doc.getElementById('level-reward-info-trigger');
 
-      if (badge && typeof badge === 'object') {
-        badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
-        badge.hidden = !hasPending;
-        badge.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
-      }
-      if (trigger && typeof trigger === 'object') {
-        trigger.hidden = !hasPending;
-        trigger.disabled = !hasPending;
-        trigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
-        trigger.setAttribute('aria-disabled', hasPending ? 'false' : 'true');
-        trigger.setAttribute('aria-label', label || 'Rewards');
-      }
-      if (infoTrigger && typeof infoTrigger === 'object') {
-        infoTrigger.hidden = !hasPending;
-        infoTrigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
-      }
-      updateRemindersCardVisibility();
+    const hasPending = pendingCount > 0;
+
+    if (badge && typeof badge === 'object') {
+      badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
+      badge.hidden = !hasPending;
     }
-    updateTabBadge();
+    if (trigger && typeof trigger === 'object') {
+      trigger.hidden = !hasPending;
+      trigger.disabled = !hasPending;
+      trigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
+      trigger.setAttribute('aria-disabled', hasPending ? 'false' : 'true');
+      trigger.setAttribute('aria-label', label || 'Rewards');
+    }
+    if (infoTrigger && typeof infoTrigger === 'object') {
+      infoTrigger.hidden = !hasPending;
+      infoTrigger.setAttribute('aria-hidden', hasPending ? 'false' : 'true');
+    }
     return pendingCount;
   };
 
@@ -166,12 +90,7 @@ const ensurePlayerToolsHost = () => {
     } = config || {};
 
     const doc = getDocument();
-    const state = getSharedState();
-    state.hasMiniGamePending = true;
-    if (!doc) {
-      updateTabBadge();
-      return;
-    }
+    if (!doc) return;
 
     // Legacy IDs (may not exist anymore) - best effort only
     const card = doc.getElementById('mini-game-reminder');
@@ -181,10 +100,7 @@ const ensurePlayerToolsHost = () => {
     const resumeBtn = doc.getElementById('mini-game-resume');
 
     // If none exist, no-op.
-    if (!card && !nameEl && !statusEl && !metaEl && !resumeBtn) {
-      updateTabBadge();
-      return;
-    }
+    if (!card && !nameEl && !statusEl && !metaEl && !resumeBtn) return;
 
     if (nameEl) nameEl.textContent = name;
     if (statusEl) statusEl.textContent = status ? `Status: ${status}` : 'Status: Pending';
@@ -209,18 +125,11 @@ const ensurePlayerToolsHost = () => {
       card.hidden = false;
       card.setAttribute('aria-hidden', 'false');
     }
-    updateRemindersCardVisibility();
-    updateTabBadge();
   };
 
   const clearMiniGameReminder = () => {
     const doc = getDocument();
-    const state = getSharedState();
-    state.hasMiniGamePending = false;
-    if (!doc) {
-      updateTabBadge();
-      return;
-    }
+    if (!doc) return;
     const card = doc.getElementById('mini-game-reminder');
     const nameEl = doc.getElementById('mini-game-name');
     const statusEl = doc.getElementById('mini-game-status');
@@ -242,8 +151,6 @@ const ensurePlayerToolsHost = () => {
       card.hidden = true;
       card.setAttribute('aria-hidden', 'true');
     }
-    updateRemindersCardVisibility();
-    updateTabBadge();
   };
 
   const addHistoryEntry = (label, detail) => {
@@ -492,7 +399,6 @@ function createPlayerToolsDrawer() {
       splashCleanupTimer = null;
     }
 
-    updateTabBadge();
     dispatchChange({ open: isOpen, progress: isOpen ? 1 : 0 });
   };
 
@@ -648,8 +554,6 @@ function createPlayerToolsDrawer() {
 
   // init
   setDrawerOpen(false, { force: true });
-  updateRemindersCardVisibility();
-  updateTabBadge();
   updateClock();
   initBattery();
 
@@ -666,9 +570,6 @@ function createPlayerToolsDrawer() {
     clearInterval(timeInterval);
     clearInterval(hpInterval);
     clearTimeout(splashTimer);
-    clearTimeout(splashCleanupTimer);
-    splashCleanupTimer = null;
-    splashTimer = null;
 
     try {
       if (batteryObj && batteryApply) {
