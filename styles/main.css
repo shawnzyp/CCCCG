@@ -312,7 +312,7 @@ h1{font-size:clamp(1.75rem,4.6vw,2rem);font-weight:700;color:var(--accent)}
 h2{font-size:clamp(1.35rem,3.8vw,1.5rem);font-weight:600;color:var(--accent)}
 h3{font-size:clamp(1.1rem,3.2vw,1.25rem);font-weight:600}
 h4{font-size:clamp(1rem,2.8vw,1.1rem);font-weight:600}
-header{
+.app-shell > header{
   --header-padding-block:calc(4px * 1.15);
   position:sticky;
   top:0;
@@ -331,12 +331,12 @@ header{
   max-width:100%;
   flex:0 0 auto;
 }
-header > .top{margin-bottom:calc(6px * 1.15);}
-header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-10px * 1.15))}
-header::before{content:none}
+.app-shell > header > .top{margin-bottom:calc(6px * 1.15);}
+.app-shell > header.hide-tabs .tabs{opacity:0;pointer-events:none;transform:translateY(calc(-10px * 1.15))}
+.app-shell > header::before{content:none}
 @supports ((-webkit-backdrop-filter:blur(0)) or (backdrop-filter:blur(0))){
-  header{background:color-mix(in srgb,var(--surface) 92%, transparent)}
-  header::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--surface) 92%, transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);pointer-events:none;z-index:-1}
+  .app-shell > header{background:color-mix(in srgb,var(--surface) 92%, transparent)}
+  .app-shell > header::before{content:"";position:absolute;inset:0;background:color-mix(in srgb,var(--surface) 92%, transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);pointer-events:none;z-index:-1}
 }
 .actions{display:flex;gap:var(--control-gap);flex-wrap:wrap}
 .actions.actions--center{justify-content:center}
