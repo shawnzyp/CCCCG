@@ -243,6 +243,7 @@ function buildModalOnce() {
   overlay.className = 'power-wizard__overlay';
   overlay.setAttribute('role', 'presentation');
   overlay.hidden = true;
+  overlay.style.pointerEvents = 'none';
 
   const modal = document.createElement('section');
   modal.className = 'power-wizard__modal';
@@ -341,6 +342,27 @@ function buildModalOnce() {
   return els;
 }
 
+function setOverlayInteractive(on) {
+  const els = wizardState.els;
+  if (!els?.overlay) return;
+  els.overlay.style.pointerEvents = on ? 'auto' : 'none';
+  try {
+    els.overlay.inert = !on;
+  } catch (_) {}
+}
+
+function destroyOverlay() {
+  const els = wizardState.els;
+  if (!els?.overlay) return;
+  try {
+    els.overlay.hidden = true;
+    els.overlay.style.display = 'none';
+    setOverlayInteractive(false);
+    els.overlay.remove();
+  } catch (_) {}
+  wizardState.els = null;
+}
+
 function trapFocus(event, modal) {
   const focusable = $all(
     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
@@ -398,6 +420,7 @@ function openOverlay() {
   const els = buildModalOnce();
   wizardState.lastFocus = document.activeElement;
   els.overlay.hidden = false;
+  setOverlayInteractive(true);
   document.documentElement.classList.add('power-wizard-open');
   wizardState.isOpen = true;
 
@@ -412,17 +435,26 @@ function openOverlay() {
 }
 
 function closeOverlay() {
-  const els = wizardState.els;
-  if (!els) return;
-  els.overlay.hidden = true;
-  document.documentElement.classList.remove('power-wizard-open');
+  try {
+    document.documentElement.classList.remove('power-wizard-open');
+  } catch (_) {}
   wizardState.isOpen = false;
+
+  destroyOverlay();
 
   try {
     if (wizardState.lastFocus && typeof wizardState.lastFocus.focus === 'function') {
       wizardState.lastFocus.focus();
     }
   } catch (_) {}
+}
+
+function hardCleanup() {
+  try {
+    document.documentElement.classList.remove('power-wizard-open');
+  } catch (_) {}
+  destroyOverlay();
+  wizardState.isOpen = false;
 }
 
 function isDirty() {
@@ -444,7 +476,11 @@ function requestClose() {
   try {
     if (typeof onCancel === 'function') onCancel({ dirty, draftPower: deepClone(wizardState.draft) });
   } catch (_) {}
-  closeOverlay();
+  try {
+    closeOverlay();
+  } catch (_) {
+    hardCleanup();
+  }
 }
 
 function startOver() {
@@ -1468,5 +1504,23 @@ try {
     g.PowerWizard.openPowerWizard = openPowerWizard;
     g.PowerWizard.closePowerWizard = closePowerWizard;
     g.PowerWizard.isPowerWizardOpen = isPowerWizardOpen;
+
+    if (!g.__PW_UNLOCK_INSTALLED__) {
+      g.__PW_UNLOCK_INSTALLED__ = true;
+      const unlock = () => {
+        try { document.documentElement.classList.remove('power-wizard-open'); } catch (_) {}
+        try {
+          const ov = document.querySelector('.power-wizard__overlay');
+          if (ov) {
+            ov.hidden = true;
+            ov.style.display = 'none';
+            ov.style.pointerEvents = 'none';
+            try { ov.inert = true; } catch (_) {}
+          }
+        } catch (_) {}
+      };
+      g.addEventListener('error', unlock);
+      g.addEventListener('unhandledrejection', unlock);
+    }
   }
 } catch (_) {}
