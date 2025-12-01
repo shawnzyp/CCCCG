@@ -3745,10 +3745,10 @@ function applyEditIcons(root=document){
   qsa('button[data-act="edit"]', root).forEach(applyEditIcon);
 }
 
-async function applyLockIcon(btn){
+async function applyLockIcon(btn, { force = false } = {}){
   if(!btn) return;
   const name = btn.dataset.lock;
-  const status = await ensureAuthoritativePinState(name, { force: true });
+  const status = await ensureAuthoritativePinState(name, { force });
   btn.innerHTML = status.pinned ? ICON_LOCK : ICON_UNLOCK;
   btn.setAttribute('aria-label','Toggle PIN');
   Object.assign(btn.style, DELETE_ICON_STYLE);
@@ -12824,10 +12824,10 @@ if(newCharBtn){
     if(!clean) return toast('Name required','error');
     setCurrentCharacter(clean);
     syncMiniGamePlayerName();
-    applyAppSnapshot(DEFAULT_SNAPSHOT);
+    applyAppSnapshot(createDefaultSnapshot());
     setMode('edit');
     hide('modal-load-list');
-    queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${DEFAULT_SNAPSHOT_META.savedAt}` });
+    queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
     toast(`Switched to ${clean}`,'success');
   });
 }
@@ -21458,23 +21458,33 @@ function serialize(){
   return data;
 }
 const DEFAULT_STATE = serialize();
-const DEFAULT_SNAPSHOT_META = {
-  schemaVersion: SAVE_SCHEMA_VERSION,
-  uiVersion: UI_STATE_VERSION,
-  appVersion: APP_VERSION,
-  savedAt: Date.now(),
-};
-const DEFAULT_CHECKSUM = calculateSnapshotChecksum({ character: DEFAULT_STATE, ui: null });
-const DEFAULT_SNAPSHOT = {
-  meta: { ...DEFAULT_SNAPSHOT_META, checksum: DEFAULT_CHECKSUM },
-  schemaVersion: SAVE_SCHEMA_VERSION,
-  uiVersion: UI_STATE_VERSION,
-  savedAt: DEFAULT_SNAPSHOT_META.savedAt,
-  appVersion: APP_VERSION,
-  character: DEFAULT_STATE,
-  ui: null,
-  checksum: DEFAULT_CHECKSUM,
-};
+
+function createDefaultSnapshot() {
+  let character;
+  try {
+    character = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  } catch {
+    character = DEFAULT_STATE;
+  }
+  const ui = null;
+  const meta = {
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    uiVersion: UI_STATE_VERSION,
+    appVersion: APP_VERSION,
+    savedAt: Date.now(),
+  };
+  const checksum = calculateSnapshotChecksum({ character, ui });
+  return {
+    meta: { ...meta, checksum },
+    schemaVersion: meta.schemaVersion,
+    uiVersion: meta.uiVersion,
+    savedAt: meta.savedAt,
+    appVersion: meta.appVersion,
+    character,
+    ui,
+    checksum,
+  };
+}
 
 const UI_SNAPSHOT_INPUT_SELECTORS = [
   '#augment-search',
@@ -21686,6 +21696,11 @@ function applyUiSnapshot(ui) {
   try {
     if (typeof ui.route === 'string' && ui.route) {
       setNavigationTypeOverride(ui.route);
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          try { setNavigationTypeOverride(null); } catch {}
+        });
+      }
     }
   } catch (err) {
     console.error('Failed to apply route from snapshot', err);
@@ -22180,7 +22195,7 @@ function redo(){
   try{ localStorage.removeItem(AUTO_KEY); }catch{}
   const startingSnapshot = forcedRefreshResume && forcedRefreshResume.data
     ? migrateSavePayload(forcedRefreshResume.data)
-    : DEFAULT_SNAPSHOT;
+    : createDefaultSnapshot();
   applyAppSnapshot(startingSnapshot);
   history = [];
   histIdx = -1;

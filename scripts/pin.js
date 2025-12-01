@@ -293,6 +293,9 @@ export async function ensureAuthoritativePinState(name, { force = false } = {}) 
   const displayName = friendlyCharacterName(name);
   if (!normalized) return { pinned: false, source: 'local-fallback' };
   name = normalized;
+  if (!force) {
+    return { pinned: hasPin(name), source: 'local-cache', name: displayName || name };
+  }
   const fallback = () => ({ pinned: hasPin(name), source: 'local-fallback', name: displayName || name });
   try {
     const record = await loadCloudPin(name);

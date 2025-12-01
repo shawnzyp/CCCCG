@@ -754,7 +754,7 @@ export function migrateSavePayload(payload) {
   return migrated;
 }
 
-function buildCanonicalPayload(migrated) {
+export function buildCanonicalPayload(migrated) {
   const workingUi = migrated.ui && typeof migrated.ui === 'object' ? { ...migrated.ui } : null;
   const { data: normalized, changed } = normalizeCharacterData({ ...migrated.character });
   const cleanedCharacter = { ...normalized };
