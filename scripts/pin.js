@@ -1,8 +1,10 @@
+import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
+
 const KEY_PREFIX = 'pin:';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
 
 function key(name) {
-  return KEY_PREFIX + name;
+  return KEY_PREFIX + canonicalCharacterKey(name);
 }
 
 function safeLocalStorageGet(itemKey) {
@@ -69,8 +71,10 @@ async function hashPin(pin) {
 }
 
 async function saveCloudPin(name, hash) {
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) throw new Error('Missing pin name');
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(name)}.json`, {
+  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(normalized)}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(hash)
@@ -82,8 +86,13 @@ async function saveCloudPin(name, hash) {
 }
 
 async function loadCloudPin(name) {
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) throw new Error('Missing pin name');
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(name)}.json`);
+  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(normalized)}.json`, {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' },
+  });
   if (!res || typeof res.ok !== 'boolean') {
     throw new TypeError('invalid response');
   }
@@ -92,8 +101,10 @@ async function loadCloudPin(name) {
 }
 
 async function deleteCloudPin(name) {
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) throw new Error('Missing pin name');
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(name)}.json`, { method: 'DELETE' });
+  const res = await fetch(`${CLOUD_PINS_URL}/${encodeName(normalized)}.json`, { method: 'DELETE' });
   if (!res || typeof res.ok !== 'boolean') {
     throw new TypeError('invalid response');
   }
@@ -140,18 +151,22 @@ function shouldQueuePinError(err) {
 }
 
 function parseCloudPinRecord(record) {
-  if (!record || typeof record === 'boolean') return { hash: null, revoked: true };
-  if (typeof record === 'string') return { hash: record, revoked: false };
+  if (record === false || record == null) return { hash: null, revoked: true };
+  if (record === true) return { hash: null, revoked: false, exists: true };
+  if (typeof record === 'string') return { hash: record, revoked: false, exists: true };
   if (typeof record === 'object') {
     const hash = typeof record.hash === 'string' && record.hash ? record.hash : null;
     const revoked = record.revokedAt !== undefined && record.revokedAt !== null;
-    return { hash, revoked };
+    const exists = record.exists === true || revoked || !!hash;
+    return { hash, revoked, exists };
   }
   return { hash: null, revoked: true };
 }
 
 export async function syncPin(name, { force = false } = {}) {
-  if (!name) return false;
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) return false;
+  name = normalized;
   if (!force && hasPin(name)) return true;
   try {
     const record = await loadCloudPin(name);
@@ -170,6 +185,9 @@ export async function syncPin(name, { force = false } = {}) {
 }
 
 export async function setPin(name, pin) {
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) return false;
+  name = normalized;
   try {
     const hash = await hashPin(pin);
     const stored = safeLocalStorageSet(key(name), hash);
@@ -190,11 +208,15 @@ export async function setPin(name, pin) {
 }
 
 export function hasPin(name) {
-  return safeLocalStorageGet(key(name)) !== null;
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) return false;
+  return safeLocalStorageGet(key(normalized)) !== null;
 }
 
 export async function verifyPin(name, pin) {
-  const stored = safeLocalStorageGet(key(name));
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) return false;
+  const stored = safeLocalStorageGet(key(normalized));
   if (!stored) return false;
   try {
     const hash = await hashPin(pin);
@@ -206,9 +228,11 @@ export async function verifyPin(name, pin) {
 }
 
 export async function clearPin(name) {
-  const removed = safeLocalStorageRemove(key(name));
+  const normalized = canonicalCharacterKey(name);
+  if (!normalized) return false;
+  const removed = safeLocalStorageRemove(key(normalized));
   try {
-    await deleteCloudPin(name);
+    await deleteCloudPin(normalized);
   } catch (e) {
     if (e && e.message === 'fetch not supported') return removed;
     const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', name));
@@ -220,6 +244,11 @@ export async function clearPin(name) {
 }
 
 export async function movePin(oldName, newName) {
+  const normalizedOld = canonicalCharacterKey(oldName);
+  const normalizedNew = canonicalCharacterKey(newName);
+  if (!normalizedOld || !normalizedNew) return false;
+  oldName = normalizedOld;
+  newName = normalizedNew;
   try {
     await syncPin(oldName);
     const oldKey = key(oldName);
@@ -260,19 +289,25 @@ export async function movePin(oldName, newName) {
 }
 
 export async function ensureAuthoritativePinState(name, { force = false } = {}) {
-  if (!name) return { pinned: false, source: 'local-fallback' };
-  const fallback = () => ({ pinned: hasPin(name), source: 'local-fallback' });
+  const normalized = canonicalCharacterKey(name);
+  const displayName = friendlyCharacterName(name);
+  if (!normalized) return { pinned: false, source: 'local-fallback' };
+  name = normalized;
+  const fallback = () => ({ pinned: hasPin(name), source: 'local-fallback', name: displayName || name });
   try {
     const record = await loadCloudPin(name);
-    const { hash, revoked } = parseCloudPinRecord(record);
-    if (revoked || !hash) {
+    const { hash, revoked, exists } = parseCloudPinRecord(record);
+    if (revoked || (!hash && exists !== true)) {
       safeLocalStorageRemove(key(name));
-      return { pinned: false, source: 'cloud' };
+      return { pinned: false, source: 'cloud', name: displayName || name };
     }
-    if (force || !hasPin(name)) {
+    if (hash && (force || !hasPin(name))) {
       safeLocalStorageSet(key(name), hash);
     }
-    return { pinned: true, source: 'cloud' };
+    if (hash) {
+      return { pinned: true, source: 'cloud', name: displayName || name };
+    }
+    return fallback();
   } catch (err) {
     if (err && err.message !== 'fetch not supported' && err.name !== 'TypeError') {
       console.error('Authoritative PIN sync failed', err);

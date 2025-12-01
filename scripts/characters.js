@@ -17,6 +17,7 @@ import {
 } from './storage.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin, ensureAuthoritativePinState } from './pin.js';
 import { toast, dismissToast } from './notifications.js';
+import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
 
 function safeToast(message, type = 'error', options = {}) {
   if (!message) return;
@@ -38,6 +39,19 @@ const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
 export const SAVE_SCHEMA_VERSION = 2;
 export const UI_STATE_VERSION = 2;
 export const APP_VERSION = '1.0.0';
+
+function normalizedCharacterName(name) {
+  const canonical = canonicalCharacterKey(name);
+  if (canonical) return canonical;
+  return typeof name === 'string' ? name.trim() : '';
+}
+
+function displayCharacterName(name) {
+  const friendly = friendlyCharacterName(name);
+  if (friendly) return friendly;
+  const canonical = canonicalCharacterKey(name);
+  return friendlyCharacterName(canonical || name || '') || '';
+}
 
 function reportCharacterError(err, contextMessage) {
   const baseError = err instanceof Error ? err : new Error(String(err));
@@ -593,8 +607,9 @@ function normalizeCharacterData(data) {
   return { data, changed };
 }
 
-const AUTOSAVE_LATEST_KEY = (name = '') => `autosave:${name || '__global'}:latest`;
-const AUTOSAVE_PREVIOUS_KEY = (name = '') => `autosave:${name || '__global'}:previous`;
+const normalizedAutosaveName = (name = '') => normalizedCharacterName(name) || '__global';
+const AUTOSAVE_LATEST_KEY = (name = '') => `autosave:${normalizedAutosaveName(name)}:latest`;
+const AUTOSAVE_PREVIOUS_KEY = (name = '') => `autosave:${normalizedAutosaveName(name)}:previous`;
 
 export function calculateSnapshotChecksum(payload = {}) {
   try {
@@ -823,19 +838,22 @@ export function currentCharacter() {
 }
 
 export function setCurrentCharacter(name) {
-  currentName = name;
+  const displayName = name === null ? null : displayCharacterName(name);
+  currentName = displayName;
   try {
-    if (name === null) {
+    if (displayName === null || displayName === '') {
       localStorage.removeItem('last-save');
     } else {
-      localStorage.setItem('last-save', name);
+      localStorage.setItem('last-save', displayName);
     }
   } catch {}
 }
 
 export async function listCharacters() {
   try {
-    const cloud = (await listCloudSaves()).map((n) => (n === 'DM' ? 'The DM' : n));
+    const cloud = (await listCloudSaves())
+      .map(displayCharacterName)
+      .filter(Boolean);
     return cloud.sort((a, b) => a.localeCompare(b));
   } catch (e) {
     console.error('Failed to list cloud saves', e);
@@ -846,8 +864,8 @@ export async function listCharacters() {
 export async function listRecoverableCharacters() {
   try {
     const saves = await listCharacters();
-    const backups = (await listCloudBackupNames()).map(n => (n === 'DM' ? 'The DM' : n));
-    const autos = (await listCloudAutosaveNames()).map(n => (n === 'DM' ? 'The DM' : n));
+    const backups = (await listCloudBackupNames()).map(displayCharacterName).filter(Boolean);
+    const autos = (await listCloudAutosaveNames()).map(displayCharacterName).filter(Boolean);
     const set = new Set([...saves, ...backups, ...autos]);
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   } catch (e) {
@@ -858,25 +876,46 @@ export async function listRecoverableCharacters() {
 
 export async function loadCharacter(name, { bypassPin = false } = {}) {
   try {
+    const storageName = normalizedCharacterName(name);
+    const displayName = displayCharacterName(name || storageName);
+    const lookupNames = Array.from(new Set([storageName, typeof name === 'string' ? name.trim() : '']))
+      .filter(Boolean);
     let data = null;
+    let loadedFrom = null;
     try {
-      data = await loadLocal(name);
+      for (const candidate of lookupNames) {
+        try {
+          data = await loadLocal(candidate);
+          loadedFrom = candidate;
+          break;
+        } catch (err) {
+          console.error(`Failed to load local data for ${candidate}`, err);
+        }
+      }
     } catch (err) {
-      console.error(`Failed to load local data for ${name}`, err);
+      console.error(`Failed to load local data for ${storageName || name}`, err);
     }
 
     if (!data) {
       try {
-        data = await loadCloud(name);
+        for (const candidate of lookupNames) {
+          try {
+            data = await loadCloud(candidate);
+            loadedFrom = candidate;
+            if (data) break;
+          } catch (err) {
+            console.error(`Failed to load cloud data for ${candidate}`, err);
+          }
+        }
       } catch (err) {
-        console.error(`Failed to load cloud data for ${name}`, err);
+        console.error(`Failed to load cloud data for ${storageName || name}`, err);
         throw err;
       }
       if (data) {
         try {
-          await saveLocal(name, data);
+          await saveLocal(storageName || loadedFrom || name, data);
         } catch (err) {
-          console.error(`Failed to persist cloud data locally for ${name}`, err);
+          console.error(`Failed to persist cloud data locally for ${storageName || name}`, err);
         }
       }
     }
@@ -886,14 +925,14 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
     }
 
     try {
-      window.dmNotify?.(`Loaded character ${name}`);
+      window.dmNotify?.(`Loaded character ${displayName || storageName || name}`);
     } catch (err) {
       console.error('Failed to notify DM about character load', err);
     }
 
-    const { payload, recovered, changed } = preflightSnapshotForLoad(name, data);
+    const { payload, recovered, changed } = preflightSnapshotForLoad(storageName || name, data);
     if (!bypassPin) {
-      await verifyPin(name);
+      await verifyPin(displayName || storageName || name);
     }
     const needsSchemaUpdate =
       recovered ||
@@ -904,12 +943,12 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
       !isSnapshotChecksumValid(payload);
     if (needsSchemaUpdate) {
       try {
-        await saveLocal(name, payload);
+        await saveLocal(storageName || name, payload);
       } catch (err) {
-        console.error(`Failed to normalize local data for ${name}`, err);
+        console.error(`Failed to normalize local data for ${storageName || name}`, err);
       }
       try {
-        await saveCloud(name, payload);
+        await saveCloud(storageName || name, payload);
       } catch (err) {
         console.error('Cloud save failed', err);
       }
@@ -923,25 +962,26 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
 
 export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
+  const storageName = normalizedCharacterName(name) || name;
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
-    await verifyPin(name);
+    await verifyPin(displayCharacterName(name));
     try {
-      await saveLocal(name, payload);
+      await saveLocal(storageName, payload);
     } catch (err) {
-      console.error(`Failed to persist local save for ${name}`, err);
+      console.error(`Failed to persist local save for ${storageName}`, err);
       throw normalizeLocalSaveError(err);
     }
     try {
-      persistLocalAutosaveSnapshot(name, payload, serializedPayload);
+      persistLocalAutosaveSnapshot(storageName, payload, serializedPayload);
     } catch (err) {
       console.error('Failed to update local recovery snapshot', err);
     }
     try {
-      await saveCloud(name, payload);
+      await saveCloud(storageName, payload);
     } catch (err) {
       console.error('Cloud save failed', err);
     }
@@ -958,30 +998,32 @@ export async function saveCharacter(data, name = currentCharacter()) {
 
 export async function renameCharacter(oldName, newName, data) {
   try {
+    const storageOldName = normalizedCharacterName(oldName) || oldName;
+    const storageNewName = normalizedCharacterName(newName) || newName;
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
     let serializedPayload = null;
     try { serializedPayload = JSON.stringify(payload); } catch {}
-    if (!oldName || oldName === newName) {
+    if (!storageOldName || storageOldName === storageNewName) {
       setCurrentCharacter(newName);
-      await saveCharacter(payload, newName);
+      await saveCharacter(payload, storageNewName);
       return true;
     }
-    await verifyPin(oldName);
+    await verifyPin(displayCharacterName(oldName));
     try {
-      await saveLocal(newName, payload);
+      await saveLocal(storageNewName, payload);
     } catch (err) {
-      console.error(`Failed to persist renamed character ${newName} locally`, err);
+      console.error(`Failed to persist renamed character ${storageNewName} locally`, err);
       throw err;
     }
     try {
-      persistLocalAutosaveSnapshot(newName, payload, serializedPayload);
+      persistLocalAutosaveSnapshot(storageNewName, payload, serializedPayload);
     } catch (err) {
       console.error('Failed to refresh local recovery snapshot during rename', err);
     }
     let cloudStatus;
     try {
-      const result = await saveCloud(newName, payload);
+      const result = await saveCloud(storageNewName, payload);
       if (result !== 'saved' && result !== 'queued' && result !== 'disabled') {
         throw new Error(`Unexpected cloud save status: ${result ?? 'unknown'}`);
       }
@@ -1003,22 +1045,22 @@ export async function renameCharacter(oldName, newName, data) {
       throw err;
     }
     if (cloudStatus === 'saved' || cloudStatus === 'queued' || cloudStatus === 'disabled') {
-      const moved = await movePin(oldName, newName);
+      const moved = await movePin(storageOldName, storageNewName);
       if (!moved) {
         console.warn(`PIN move skipped for ${oldName} -> ${newName}`);
       }
-      await deleteSave(oldName);
+      await deleteSave(storageOldName);
       if (cloudStatus === 'saved' || cloudStatus === 'queued') {
         try {
-          await deleteCloud(oldName);
+          await deleteCloud(storageOldName);
         } catch (err) {
           console.error('Cloud delete failed', err);
         }
       }
     }
-    setCurrentCharacter(newName);
+    setCurrentCharacter(storageNewName);
     try {
-      document.dispatchEvent(new CustomEvent('character-saved', { detail: newName }));
+      document.dispatchEvent(new CustomEvent('character-saved', { detail: storageNewName }));
     } catch (err) {
       console.error('Failed to dispatch character-saved event after rename', err);
     }
@@ -1033,39 +1075,40 @@ export async function deleteCharacter(name) {
     throw new Error('Cannot delete The DM');
   }
   try {
-    await verifyPin(name);
+    const storageName = normalizedCharacterName(name) || name;
+    await verifyPin(displayCharacterName(name));
     let data = null;
     try {
-      data = await loadLocal(name);
+      data = await loadLocal(storageName);
     } catch (err) {
-      console.error(`Failed to read local data before deleting ${name}`, err);
+      console.error(`Failed to read local data before deleting ${storageName}`, err);
     }
     if (data === null) {
       try {
-        data = await loadCloud(name);
+        data = await loadCloud(storageName);
       } catch (err) {
-        console.error(`Failed to read cloud data before deleting ${name}`, err);
+        console.error(`Failed to read cloud data before deleting ${storageName}`, err);
       }
     }
     if (data !== null) {
       try {
-        await saveCloud(name, data);
+        await saveCloud(storageName, data);
       } catch (err) {
         console.error('Cloud backup failed', err);
       }
     }
-    await deleteSave(name);
-    const cleared = await clearPin(name);
+    await deleteSave(storageName);
+    const cleared = await clearPin(storageName);
     if (!cleared) {
-      console.warn(`PIN clear skipped for ${name}`);
+      console.warn(`PIN clear skipped for ${storageName}`);
     }
     try {
-      await deleteCloud(name);
+      await deleteCloud(storageName);
     } catch (err) {
       console.error('Cloud delete failed', err);
     }
     try {
-      document.dispatchEvent(new CustomEvent('character-deleted', { detail: name }));
+      document.dispatchEvent(new CustomEvent('character-deleted', { detail: storageName }));
     } catch (err) {
       console.error('Failed to dispatch character-deleted event', err);
     }
@@ -1076,15 +1119,16 @@ export async function deleteCharacter(name) {
 }
 
 export async function listBackups(name) {
+  const storageName = normalizedCharacterName(name) || name;
   let manual = [];
   let autos = [];
   try {
-    manual = await listCloudBackups(name);
+    manual = await listCloudBackups(storageName);
   } catch (e) {
     console.error('Failed to list backups', e);
   }
   try {
-    autos = await listCloudAutosaves(name);
+    autos = await listCloudAutosaves(storageName);
   } catch (e) {
     console.error('Failed to list autosaves', e);
   }
@@ -1096,21 +1140,22 @@ export async function listBackups(name) {
 
 export async function loadBackup(name, ts, type = 'manual', { bypassPin = false } = {}) {
   try {
+    const storageName = normalizedCharacterName(name) || name;
     const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
-    const data = await loader(name, ts);
-    const { payload, recovered, changed } = preflightSnapshotForLoad(name, data, { showRecoveryToast: false });
+    const data = await loader(storageName, ts);
+    const { payload, recovered, changed } = preflightSnapshotForLoad(storageName, data, { showRecoveryToast: false });
     if (!bypassPin) {
-      await verifyPin(name);
+      await verifyPin(displayCharacterName(name));
     }
     const needsSchemaUpdate = recovered || changed || payload.schemaVersion !== SAVE_SCHEMA_VERSION || payload.character?.uiState || !isSnapshotChecksumValid(payload);
     try {
-      await saveLocal(name, payload);
+      await saveLocal(storageName, payload);
     } catch (err) {
-      console.error(`Failed to persist recovered data for ${name}`, err);
+      console.error(`Failed to persist recovered data for ${storageName}`, err);
     }
     if (changed || needsSchemaUpdate) {
       try {
-        await saveCloud(name, payload);
+        await saveCloud(storageName, payload);
       } catch (err) {
         console.error('Cloud save failed', err);
       }
@@ -1145,20 +1190,21 @@ function buildAutosaveErrorKey(err, contextMessage) {
 
 export async function saveAutoBackup(data, name = currentCharacter()) {
   if (!name) return null;
+  const storageName = normalizedCharacterName(name) || name;
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
-    const ts = await saveCloudAutosave(name, payload);
+    const ts = await saveCloudAutosave(storageName, payload);
     lastAutosaveErrorKey = null;
     lastAutosaveErrorTime = 0;
     try {
-      document.dispatchEvent(new CustomEvent('character-autosaved', { detail: { name, ts } }));
+      document.dispatchEvent(new CustomEvent('character-autosaved', { detail: { name: storageName, ts } }));
     } catch (err) {
       console.error('Failed to dispatch character-autosaved event', err);
     }
     return ts;
   } catch (err) {
-    const contextMessage = `Failed to autosave character "${name}"`;
+    const contextMessage = `Failed to autosave character "${storageName}"`;
     const errorKey = buildAutosaveErrorKey(err, contextMessage);
     const now = Date.now();
     if (lastAutosaveErrorKey !== errorKey || now - lastAutosaveErrorTime > AUTOSAVE_ERROR_THROTTLE_MS) {
