@@ -35,6 +35,7 @@ function safeToast(message, type = 'error', options = {}) {
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
+export const SAVE_SCHEMA_VERSION = 2;
 
 function reportCharacterError(err, contextMessage) {
   const baseError = err instanceof Error ? err : new Error(String(err));
@@ -590,6 +591,34 @@ function normalizeCharacterData(data) {
   return { data, changed };
 }
 
+export function migrateSavePayload(payload) {
+  const base = {
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    savedAt: Date.now(),
+    character: {},
+    ui: null,
+  };
+  if (!payload || typeof payload !== 'object') {
+    return { ...base, character: payload ?? {} };
+  }
+  const hasStructuredFields = 'character' in payload || 'ui' in payload || typeof payload.schemaVersion === 'number';
+  const character = hasStructuredFields
+    ? (payload.character && typeof payload.character === 'object' ? payload.character : {})
+    : payload;
+  const legacyUiState = payload?.uiState && typeof payload.uiState === 'object' ? payload.uiState : null;
+  const characterUiState = character?.uiState && typeof character.uiState === 'object' ? character.uiState : null;
+  const migrated = {
+    schemaVersion: typeof payload.schemaVersion === 'number' ? payload.schemaVersion : 1,
+    savedAt: Number.isFinite(payload.savedAt) ? payload.savedAt : Date.now(),
+    character,
+    ui: (payload.ui && typeof payload.ui === 'object') ? payload.ui : (characterUiState || legacyUiState || null),
+  };
+  return {
+    ...base,
+    ...migrated,
+  };
+}
+
 function getPinPrompt(message) {
   if (typeof window !== 'undefined' && typeof window.pinPrompt === 'function') {
     return window.pinPrompt(message);
@@ -718,21 +747,33 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
       console.error('Failed to notify DM about character load', err);
     }
 
-    const { data: normalized, changed } = normalizeCharacterData(data);
-    if (changed) {
+    const migrated = migrateSavePayload(data);
+    const { data: normalized, changed } = normalizeCharacterData({ ...migrated.character });
+    const cleanedCharacter = { ...normalized };
+    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
+      delete cleanedCharacter.uiState;
+    }
+    const payload = {
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      savedAt: migrated.savedAt || Date.now(),
+      character: cleanedCharacter,
+      ui: migrated.ui || null,
+    };
+    const needsSchemaUpdate = migrated.schemaVersion !== SAVE_SCHEMA_VERSION || migrated.character?.uiState;
+    if (changed || needsSchemaUpdate) {
       try {
-        await saveLocal(name, normalized);
+        await saveLocal(name, payload);
       } catch (err) {
         console.error(`Failed to normalize local data for ${name}`, err);
       }
       try {
-        await saveCloud(name, normalized);
+        await saveCloud(name, payload);
       } catch (err) {
         console.error('Cloud save failed', err);
       }
     }
 
-    return normalized;
+    return payload;
   } catch (err) {
     throw reportCharacterError(err, `Failed to load character "${name}"`);
   }
@@ -741,16 +782,27 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
 export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
   try {
-    const { data: normalized } = normalizeCharacterData(data);
+    const migrated = migrateSavePayload(data);
+    const { data: normalized } = normalizeCharacterData({ ...migrated.character });
+    const cleanedCharacter = { ...normalized };
+    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
+      delete cleanedCharacter.uiState;
+    }
+    const payload = {
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      savedAt: migrated.savedAt || Date.now(),
+      character: cleanedCharacter,
+      ui: migrated.ui || null,
+    };
     await verifyPin(name);
     try {
-      await saveLocal(name, normalized);
+      await saveLocal(name, payload);
     } catch (err) {
       console.error(`Failed to persist local save for ${name}`, err);
       throw normalizeLocalSaveError(err);
     }
     try {
-      await saveCloud(name, normalized);
+      await saveCloud(name, payload);
     } catch (err) {
       console.error('Cloud save failed', err);
     }
@@ -767,22 +819,33 @@ export async function saveCharacter(data, name = currentCharacter()) {
 
 export async function renameCharacter(oldName, newName, data) {
   try {
-    const { data: normalized } = normalizeCharacterData(data);
+    const migrated = migrateSavePayload(data);
+    const { data: normalized } = normalizeCharacterData({ ...migrated.character });
+    const cleanedCharacter = { ...normalized };
+    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
+      delete cleanedCharacter.uiState;
+    }
+    const payload = {
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      savedAt: migrated.savedAt || Date.now(),
+      character: cleanedCharacter,
+      ui: migrated.ui || null,
+    };
     if (!oldName || oldName === newName) {
       setCurrentCharacter(newName);
-      await saveCharacter(normalized, newName);
+      await saveCharacter(payload, newName);
       return true;
     }
     await verifyPin(oldName);
     try {
-      await saveLocal(newName, normalized);
+      await saveLocal(newName, payload);
     } catch (err) {
       console.error(`Failed to persist renamed character ${newName} locally`, err);
       throw err;
     }
     let cloudStatus;
     try {
-      const result = await saveCloud(newName, normalized);
+      const result = await saveCloud(newName, payload);
       if (result !== 'saved' && result !== 'queued' && result !== 'disabled') {
         throw new Error(`Unexpected cloud save status: ${result ?? 'unknown'}`);
       }
@@ -899,20 +962,32 @@ export async function loadBackup(name, ts, type = 'manual') {
   try {
     const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
     const data = await loader(name, ts);
-    const { data: normalized, changed } = normalizeCharacterData(data);
+    const migrated = migrateSavePayload(data);
+    const { data: normalized, changed } = normalizeCharacterData({ ...migrated.character });
+    const cleanedCharacter = { ...normalized };
+    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
+      delete cleanedCharacter.uiState;
+    }
+    const payload = {
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      savedAt: migrated.savedAt || Date.now(),
+      character: cleanedCharacter,
+      ui: migrated.ui || null,
+    };
+    const needsSchemaUpdate = migrated.schemaVersion !== SAVE_SCHEMA_VERSION || migrated.character?.uiState;
     try {
-      await saveLocal(name, normalized);
+      await saveLocal(name, payload);
     } catch (err) {
       console.error(`Failed to persist recovered data for ${name}`, err);
     }
-    if (changed) {
+    if (changed || needsSchemaUpdate) {
       try {
-        await saveCloud(name, normalized);
+        await saveCloud(name, payload);
       } catch (err) {
         console.error('Cloud save failed', err);
       }
     }
-    return normalized;
+    return payload;
   } catch (err) {
     throw reportCharacterError(err, `Failed to load backup for "${name}"`);
   }
@@ -943,7 +1018,19 @@ function buildAutosaveErrorKey(err, contextMessage) {
 export async function saveAutoBackup(data, name = currentCharacter()) {
   if (!name) return null;
   try {
-    const ts = await saveCloudAutosave(name, data);
+    const migrated = migrateSavePayload(data);
+    const { data: normalized } = normalizeCharacterData({ ...migrated.character });
+    const cleanedCharacter = { ...normalized };
+    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
+      delete cleanedCharacter.uiState;
+    }
+    const payload = {
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      savedAt: migrated.savedAt || Date.now(),
+      character: cleanedCharacter,
+      ui: migrated.ui || null,
+    };
+    const ts = await saveCloudAutosave(name, payload);
     lastAutosaveErrorKey = null;
     lastAutosaveErrorTime = 0;
     try {

@@ -14,6 +14,8 @@ import {
   renameCharacter,
   listRecoverableCharacters,
   saveAutoBackup,
+  migrateSavePayload,
+  SAVE_SCHEMA_VERSION,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -10406,7 +10408,7 @@ function setCredits(v, options = {}){
     const name = currentCharacter();
     if (name) {
       playStatusCue('credits-save');
-      saveCharacter(serialize(), name).catch(e => {
+      saveCharacter(createAppSnapshot(), name).catch(e => {
         console.error('Credits cloud save failed', e);
       });
     }
@@ -10990,7 +10992,7 @@ function queueDmNotification(message, meta = {}) {
 function stashForcedRefreshState() {
   let snapshot = null;
   try {
-    snapshot = serialize();
+    snapshot = createAppSnapshot();
   } catch (err) {
     // ignore serialization errors
   }
@@ -12722,7 +12724,7 @@ if(newCharBtn){
     if(!clean) return toast('Name required','error');
     setCurrentCharacter(clean);
     syncMiniGamePlayerName();
-    deserialize(DEFAULT_STATE);
+    applyAppSnapshot(DEFAULT_SNAPSHOT);
     setMode('edit');
     hide('modal-load-list');
     toast(`Switched to ${clean}`,'success');
@@ -12755,12 +12757,12 @@ async function doLoad(){
   if(!pendingLoad) return;
   const previousMode = useViewMode();
   try{
-    const data = pendingLoad.ts
+    const snapshot = pendingLoad.ts
       ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
       : await loadCharacter(pendingLoad.name);
-    deserialize(data);
+    const applied = applyAppSnapshot(snapshot);
     applyViewLockState();
-    const savedViewMode = data?.uiState?.viewMode;
+    const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
     if(previousMode === 'view' && savedViewMode !== 'edit'){
       setMode('view', { skipPersist: true });
     }
@@ -12797,10 +12799,10 @@ if (autoChar) {
     try {
       setCurrentCharacter(autoChar);
       syncMiniGamePlayerName();
-      const data = await loadCharacter(autoChar);
-      deserialize(data);
+      const snapshot = await loadCharacter(autoChar);
+      const applied = applyAppSnapshot(snapshot);
       applyViewLockState();
-      const savedViewMode = data?.uiState?.viewMode;
+      const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
       if (previousMode === 'view' && savedViewMode !== 'edit') {
         setMode('view', { skipPersist: true });
       }
@@ -21155,6 +21157,9 @@ function applySerializedFormState(serialized) {
   });
   return restored;
 }
+const SNAPSHOT_DEBUG = false;
+const UI_RESTORE_MAX_ATTEMPTS = 10;
+
 function serialize(){
   const data={};
   function getVal(sel, root){ const el = qs(sel, root); return el ? el.value : ''; }
@@ -21272,28 +21277,6 @@ function serialize(){
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
-  const uiState = {};
-  try {
-    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
-    if (typeof activeTab === 'string' && activeTab) {
-      uiState.activeTab = activeTab;
-    }
-  } catch {}
-  if (mode === 'view' || mode === 'edit') {
-    uiState.viewMode = mode;
-  }
-  if (typeof activeTheme === 'string' && activeTheme) {
-    uiState.theme = activeTheme;
-  }
-  if (typeof isPlayerToolsDrawerOpen === 'boolean') {
-    uiState.playerToolsOpen = isPlayerToolsDrawerOpen;
-  }
-  if (typeof isTickerDrawerOpen === 'boolean') {
-    uiState.tickerOpen = isTickerDrawerOpen;
-  }
-  if (Object.keys(uiState).length > 0) {
-    data.uiState = uiState;
-  }
   const participantState = collectSnapshotParticipants();
   if (participantState && Object.keys(participantState).length > 0) {
     data.appState = participantState;
@@ -21301,6 +21284,197 @@ function serialize(){
   return data;
 }
 const DEFAULT_STATE = serialize();
+const DEFAULT_SNAPSHOT = {
+  schemaVersion: SAVE_SCHEMA_VERSION,
+  savedAt: Date.now(),
+  character: DEFAULT_STATE,
+  ui: null,
+};
+
+function createUiSnapshot() {
+  const ui = {};
+  try {
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (typeof activeTab === 'string' && activeTab) {
+      ui.activeTabId = activeTab;
+    }
+  } catch {}
+  if (mode === 'view' || mode === 'edit') {
+    ui.viewMode = mode;
+  }
+  if (typeof activeTheme === 'string' && activeTheme) {
+    ui.theme = activeTheme;
+  }
+  const openDrawers = {};
+  if (typeof isPlayerToolsDrawerOpen === 'boolean') {
+    openDrawers.playerTools = isPlayerToolsDrawerOpen;
+  }
+  if (typeof isTickerDrawerOpen === 'boolean') {
+    openDrawers.ticker = isTickerDrawerOpen;
+  }
+  if (Object.keys(openDrawers).length) {
+    ui.openDrawers = openDrawers;
+  }
+  const scroll = { panels: {} };
+  if (typeof window !== 'undefined') {
+    scroll.windowY = Number.isFinite(window.scrollY) ? window.scrollY : 0;
+  }
+  try {
+    const playerToolsViewport = document.querySelector('#player-tools-drawer .pt-app__viewport');
+    if (playerToolsViewport) {
+      scroll.panels['#player-tools-drawer .pt-app__viewport'] = playerToolsViewport.scrollTop || 0;
+    }
+    const phoneViewport = document.querySelector('.player-tools-phone__viewport');
+    if (phoneViewport) {
+      scroll.panels['.player-tools-phone__viewport'] = phoneViewport.scrollTop || 0;
+    }
+  } catch {}
+  if (scroll.windowY || Object.keys(scroll.panels).length) {
+    ui.scroll = scroll;
+  }
+  const collapsed = {};
+  try {
+    qsa('details[id]').forEach(detail => {
+      collapsed[detail.id] = detail.open === true || detail.getAttribute('open') === '';
+    });
+  } catch {}
+  if (Object.keys(collapsed).length) {
+    ui.collapsed = collapsed;
+  }
+  if (SNAPSHOT_DEBUG) {
+    console.debug('snapshot created', ui);
+  }
+  return ui;
+}
+
+function createAppSnapshot() {
+  const snapshot = {
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    savedAt: Date.now(),
+    character: serialize(),
+    ui: createUiSnapshot(),
+  };
+  if (SNAPSHOT_DEBUG) {
+    console.debug('app snapshot created', snapshot);
+  }
+  return snapshot;
+}
+
+function isUiRestoreReady() {
+  if (typeof document === 'undefined') return false;
+  if (document.readyState === 'loading') return false;
+  if (!document.body) return false;
+  return !!document.getElementById('powers');
+}
+
+function applyUiSnapshot(ui) {
+  if (!ui || typeof ui !== 'object') return;
+  try {
+    if (typeof ui.theme === 'string' && ui.theme) {
+      applyTheme(ui.theme, { animate: false });
+      setStoredTheme(ui.theme);
+    }
+  } catch (err) {
+    console.error('Failed to apply theme from snapshot', err);
+  }
+  try {
+    if (ui.viewMode === 'view' || ui.viewMode === 'edit') {
+      setMode(ui.viewMode, { skipPersist: true });
+    }
+  } catch (err) {
+    console.error('Failed to apply view mode from snapshot', err);
+  }
+  try {
+    const tabId = ui.activeTabId || ui.activeTab;
+    if (typeof tabId === 'string' && tabId) {
+      try { localStorage.setItem('active-tab', tabId); } catch {}
+      if (qs(`.tab[data-go="${tabId}"]`)) {
+        activateTab(tabId);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to apply active tab from snapshot', err);
+  }
+  try {
+    const drawers = ui.openDrawers && typeof ui.openDrawers === 'object' ? ui.openDrawers : {};
+    if ('playerTools' in drawers) {
+      if (drawers.playerTools) openPlayerToolsDrawer();
+      else closePlayerToolsDrawer();
+    }
+    if ('ticker' in drawers) {
+      setTickerDrawerOpen(drawers.ticker);
+    }
+  } catch (err) {
+    console.error('Failed to apply drawer state from snapshot', err);
+  }
+  try {
+    const collapsed = ui.collapsed || ui.collapsedSections || {};
+    Object.entries(collapsed).forEach(([id, isOpen]) => {
+      if (!id) return;
+      const detail = document.getElementById(id);
+      if (!detail || detail.tagName !== 'DETAILS') return;
+      detail.open = isOpen === true;
+    });
+  } catch (err) {
+    console.error('Failed to apply collapsed state from snapshot', err);
+  }
+  try {
+    const scroll = ui.scroll || {};
+    if (typeof scroll.windowY === 'number' && typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        try {
+          window.scrollTo({ top: scroll.windowY, behavior: 'auto' });
+        } catch (err) {
+          window.scrollTo(0, scroll.windowY);
+        }
+      });
+    }
+    const panels = scroll.panels && typeof scroll.panels === 'object' ? scroll.panels : {};
+    Object.entries(panels).forEach(([selector, value]) => {
+      if (typeof value !== 'number') return;
+      requestAnimationFrame(() => {
+        try {
+          const el = document.querySelector(selector);
+          if (el && typeof el.scrollTop === 'number') {
+            el.scrollTop = value;
+          }
+        } catch {}
+      });
+    });
+  } catch (err) {
+    console.error('Failed to apply scroll state from snapshot', err);
+  }
+  if (SNAPSHOT_DEBUG) {
+    console.debug('ui snapshot applied', ui);
+  }
+}
+
+function applyUiSnapshotWithRetry(ui, attempt = 0) {
+  if (!ui) return;
+  if (isUiRestoreReady()) {
+    applyUiSnapshot(ui);
+    return;
+  }
+  if (attempt >= UI_RESTORE_MAX_ATTEMPTS) {
+    console.warn('UI restore skipped after retries');
+    return;
+  }
+  requestAnimationFrame(() => applyUiSnapshotWithRetry(ui, attempt + 1));
+}
+
+function applyAppSnapshot(snapshot) {
+  const migrated = migrateSavePayload(snapshot);
+  deserialize(migrated.character || {});
+  const uiState = migrated.ui || (migrated.character && migrated.character.uiState ? migrated.character.uiState : null);
+  if (uiState) {
+    applyUiSnapshotWithRetry(uiState);
+  }
+  if (SNAPSHOT_DEBUG) {
+    console.debug('app snapshot applied', migrated);
+  }
+  return migrated;
+}
+
 function deserialize(data){
   migratePublicOpinionSnapshot(data);
   const storedLevelProgress = data && (data.levelProgressState || data.levelProgress);
@@ -21568,7 +21742,7 @@ function captureAutosaveSnapshot(options = {}) {
   const { markSynced = false } = options;
   let snapshot;
   try {
-    snapshot = serialize();
+    snapshot = createAppSnapshot();
   } catch (err) {
     console.error('Failed to capture autosave snapshot', err);
     return null;
@@ -21643,19 +21817,18 @@ if (typeof window !== 'undefined') {
 }
 
 function undo(){
-  if(histIdx > 0){ histIdx--; deserialize(history[histIdx]); }
+  if(histIdx > 0){ histIdx--; applyAppSnapshot(history[histIdx]); }
 }
 function redo(){
-  if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
+  if(histIdx < history.length - 1){ histIdx++; applyAppSnapshot(history[histIdx]); }
 }
 
 (function(){
   try{ localStorage.removeItem(AUTO_KEY); }catch{}
-  if(forcedRefreshResume && forcedRefreshResume.data){
-    deserialize(forcedRefreshResume.data);
-  } else {
-    deserialize(DEFAULT_STATE);
-  }
+  const startingSnapshot = forcedRefreshResume && forcedRefreshResume.data
+    ? migrateSavePayload(forcedRefreshResume.data)
+    : DEFAULT_SNAPSHOT;
+  applyAppSnapshot(startingSnapshot);
   history = [];
   histIdx = -1;
   const initialCapture = captureAutosaveSnapshot({ markSynced: true });
@@ -21706,6 +21879,7 @@ async function restoreLastLoadedCharacter(){
     return;
   }
   if (!data) return;
+  const snapshot = migrateSavePayload(data);
   const previousMode = useViewMode();
   try {
     await syncPin(storedName);
@@ -21713,15 +21887,15 @@ async function restoreLastLoadedCharacter(){
     console.error('Failed to sync PIN before auto-restore', err);
   }
   if (hasPin(storedName)) {
-    pendingPinnedAutoLoad = { name: storedName, data, previousMode };
+    pendingPinnedAutoLoad = { name: storedName, data: snapshot, previousMode };
     attemptPendingPinPrompt();
     return;
   }
   setCurrentCharacter(storedName);
   syncMiniGamePlayerName();
-  deserialize(data);
+  const applied = applyAppSnapshot(snapshot);
   applyViewLockState();
-  const savedViewMode = data?.uiState?.viewMode;
+  const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
   if (previousMode === 'view' && savedViewMode !== 'edit') {
     setMode('view', { skipPersist: true });
   }
@@ -21880,9 +22054,9 @@ function applyPendingPinnedCharacter(payload){
   if(!name || !data) return;
   setCurrentCharacter(name);
   syncMiniGamePlayerName();
-  deserialize(data);
+  const applied = applyAppSnapshot(data);
   applyViewLockState();
-  const savedViewMode = data?.uiState?.viewMode;
+  const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
   if(previousMode === 'view' && savedViewMode !== 'edit'){
     setMode('view', { skipPersist: true });
   }
@@ -22594,7 +22768,7 @@ $('btn-save').addEventListener('click', async () => {
   if (!confirm(`Save current progress for ${target}?`)) return;
   btn.classList.add('loading'); btn.disabled = true;
   try {
-    const data = serialize();
+    const data = createAppSnapshot();
     const serialized = JSON.stringify(data);
     if (oldChar && vig && vig !== oldChar) {
       await renameCharacter(oldChar, vig, data);
@@ -22634,7 +22808,7 @@ if (heroInput) {
       setCurrentCharacter(name);
       syncMiniGamePlayerName();
       try {
-        const data = serialize();
+        const data = createAppSnapshot();
         await saveCharacter(data, name);
         cueSuccessfulSave();
         markAutoSaveSynced(data);
