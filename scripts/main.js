@@ -35,6 +35,7 @@ import {
   activateTab,
   getActiveTab,
   getNavigationType,
+  setNavigationTypeOverride,
   onTabChange,
   scrollToTopOfCombat,
   triggerTabIconAnimation
@@ -21683,6 +21684,13 @@ function applyUiSnapshot(ui) {
     console.error('Failed to apply theme from snapshot', err);
   }
   try {
+    if (typeof ui.route === 'string' && ui.route) {
+      setNavigationTypeOverride(ui.route);
+    }
+  } catch (err) {
+    console.error('Failed to apply route from snapshot', err);
+  }
+  try {
     if (ui.viewMode === 'view' || ui.viewMode === 'edit') {
       setMode(ui.viewMode, { skipPersist: true });
     }
@@ -23150,6 +23158,14 @@ $('btn-save').addEventListener('click', async () => {
       await saveCharacter(data, target);
     }
     markAutoSaveSynced(data, serialized);
+    if (oldChar && vig && vig !== oldChar) {
+      queueCharacterConfirmation({
+        name: target,
+        variant: 'loaded',
+        key: `rename:${oldChar}:${target}:${data?.meta?.savedAt ?? Date.now()}`,
+        meta: data?.meta,
+      });
+    }
     cueSuccessfulSave();
     toast('Save successful', 'success');
   } catch (e) {
