@@ -16,6 +16,10 @@ import {
   saveAutoBackup,
   migrateSavePayload,
   SAVE_SCHEMA_VERSION,
+  UI_STATE_VERSION,
+  APP_VERSION,
+  calculateSnapshotChecksum,
+  persistLocalAutosaveSnapshot,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -21277,18 +21281,24 @@ function serialize(){
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
-  const participantState = collectSnapshotParticipants();
-  if (participantState && Object.keys(participantState).length > 0) {
-    data.appState = participantState;
-  }
   return data;
 }
 const DEFAULT_STATE = serialize();
-const DEFAULT_SNAPSHOT = {
+const DEFAULT_SNAPSHOT_META = {
   schemaVersion: SAVE_SCHEMA_VERSION,
+  uiVersion: UI_STATE_VERSION,
+  appVersion: APP_VERSION,
   savedAt: Date.now(),
+};
+const DEFAULT_SNAPSHOT = {
+  meta: { ...DEFAULT_SNAPSHOT_META, checksum: calculateSnapshotChecksum({ character: DEFAULT_STATE, ui: null }) },
+  schemaVersion: SAVE_SCHEMA_VERSION,
+  uiVersion: UI_STATE_VERSION,
+  savedAt: DEFAULT_SNAPSHOT_META.savedAt,
+  appVersion: APP_VERSION,
   character: DEFAULT_STATE,
   ui: null,
+  checksum: calculateSnapshotChecksum({ character: DEFAULT_STATE, ui: null }),
 };
 
 function createUiSnapshot() {
@@ -21297,6 +21307,12 @@ function createUiSnapshot() {
     const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
     if (typeof activeTab === 'string' && activeTab) {
       ui.activeTabId = activeTab;
+    }
+  } catch {}
+  try {
+    const route = typeof getNavigationType === 'function' ? getNavigationType() : null;
+    if (typeof route === 'string' && route) {
+      ui.route = route;
     }
   } catch {}
   if (mode === 'view' || mode === 'edit') {
@@ -21341,6 +21357,12 @@ function createUiSnapshot() {
   if (Object.keys(collapsed).length) {
     ui.collapsed = collapsed;
   }
+  try {
+    const participantState = collectSnapshotParticipants();
+    if (participantState && Object.keys(participantState).length > 0) {
+      ui.participants = participantState;
+    }
+  } catch {}
   if (SNAPSHOT_DEBUG) {
     console.debug('snapshot created', ui);
   }
@@ -21348,11 +21370,25 @@ function createUiSnapshot() {
 }
 
 function createAppSnapshot() {
-  const snapshot = {
+  const character = serialize();
+  const ui = createUiSnapshot();
+  const meta = {
     schemaVersion: SAVE_SCHEMA_VERSION,
+    uiVersion: UI_STATE_VERSION,
+    appVersion: APP_VERSION,
     savedAt: Date.now(),
-    character: serialize(),
-    ui: createUiSnapshot(),
+  };
+  const checksum = calculateSnapshotChecksum({ character, ui });
+  meta.checksum = checksum;
+  const snapshot = {
+    meta,
+    schemaVersion: meta.schemaVersion,
+    uiVersion: meta.uiVersion,
+    savedAt: meta.savedAt,
+    appVersion: meta.appVersion,
+    checksum,
+    character,
+    ui,
   };
   if (SNAPSHOT_DEBUG) {
     console.debug('app snapshot created', snapshot);
@@ -21417,6 +21453,13 @@ function applyUiSnapshot(ui) {
     });
   } catch (err) {
     console.error('Failed to apply collapsed state from snapshot', err);
+  }
+  try {
+    if (ui.participants && typeof ui.participants === 'object') {
+      applySnapshotParticipants(ui.participants);
+    }
+  } catch (err) {
+    console.error('Failed to apply participant state from snapshot', err);
   }
   try {
     const scroll = ui.scroll || {};
@@ -21777,6 +21820,11 @@ function captureAutosaveSnapshot(options = {}) {
   if (localPersisted) {
     lastAutosaveStorageErrorToastAt = 0;
     lastAutosaveStorageErrorLogAt = 0;
+    try {
+      persistLocalAutosaveSnapshot(currentCharacter(), snapshot, serialized);
+    } catch (err) {
+      console.error('Failed to persist rolling autosave snapshots', err);
+    }
   }
 
   if (markSynced && localPersisted) {

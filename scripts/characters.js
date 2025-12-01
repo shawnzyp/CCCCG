@@ -36,6 +36,8 @@ function safeToast(message, type = 'error', options = {}) {
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
 export const SAVE_SCHEMA_VERSION = 2;
+export const UI_STATE_VERSION = 1;
+export const APP_VERSION = '1.0.0';
 
 function reportCharacterError(err, contextMessage) {
   const baseError = err instanceof Error ? err : new Error(String(err));
@@ -591,32 +593,150 @@ function normalizeCharacterData(data) {
   return { data, changed };
 }
 
-export function migrateSavePayload(payload) {
-  const base = {
-    schemaVersion: SAVE_SCHEMA_VERSION,
-    savedAt: Date.now(),
-    character: {},
-    ui: null,
+const AUTOSAVE_LATEST_KEY = (name = '') => `autosave:${name || '__global'}:latest`;
+const AUTOSAVE_PREVIOUS_KEY = (name = '') => `autosave:${name || '__global'}:previous`;
+
+export function calculateSnapshotChecksum(payload = {}) {
+  try {
+    const json = JSON.stringify({ character: payload.character ?? {}, ui: payload.ui ?? null });
+    let hash = 0;
+    for (let i = 0; i < json.length; i += 1) {
+      hash = ((hash << 5) - hash + json.charCodeAt(i)) | 0;
+    }
+    return `c${Math.abs(hash)}`;
+  } catch (err) {
+    console.error('Failed to compute snapshot checksum', err);
+    return null;
+  }
+}
+
+function normalizeSnapshotMeta(meta = {}, character = {}, ui = null, fallback = {}) {
+  const schemaVersion = typeof meta.schemaVersion === 'number' ? meta.schemaVersion : fallback.schemaVersion;
+  const uiVersion = typeof meta.uiVersion === 'number' ? meta.uiVersion : fallback.uiVersion;
+  const savedAt = Number.isFinite(meta.savedAt) ? meta.savedAt : Date.now();
+  const appVersion = typeof meta.appVersion === 'string' && meta.appVersion ? meta.appVersion : APP_VERSION;
+  const checksum = typeof meta.checksum === 'string' && meta.checksum
+    ? meta.checksum
+    : calculateSnapshotChecksum({ character, ui }) || fallback.checksum || null;
+  return {
+    schemaVersion: typeof schemaVersion === 'number' ? schemaVersion : SAVE_SCHEMA_VERSION,
+    uiVersion: typeof uiVersion === 'number' ? uiVersion : UI_STATE_VERSION,
+    savedAt,
+    appVersion,
+    checksum,
   };
+}
+
+export function isSnapshotChecksumValid(snapshot = {}) {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  const expected = snapshot.meta?.checksum || snapshot.checksum || null;
+  if (!expected) return true;
+  const actual = calculateSnapshotChecksum(snapshot);
+  return expected === actual;
+}
+
+export function loadLocalAutosaveSnapshot(name) {
+  if (typeof localStorage === 'undefined') return { latest: null, previous: null };
+  const readSnapshot = (key) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      return migrateSavePayload(JSON.parse(raw));
+    } catch (err) {
+      console.error('Failed to read autosave snapshot', err);
+      return null;
+    }
+  };
+  return {
+    latest: readSnapshot(AUTOSAVE_LATEST_KEY(name)),
+    previous: readSnapshot(AUTOSAVE_PREVIOUS_KEY(name)),
+  };
+}
+
+export function persistLocalAutosaveSnapshot(name, snapshot, serialized) {
+  if (typeof localStorage === 'undefined' || !snapshot) return;
+  const latestKey = AUTOSAVE_LATEST_KEY(name);
+  const previousKey = AUTOSAVE_PREVIOUS_KEY(name);
+  try {
+    const latestSerialized = serialized || JSON.stringify(snapshot);
+    const existing = localStorage.getItem(latestKey);
+    if (existing) {
+      localStorage.setItem(previousKey, existing);
+    }
+    localStorage.setItem(latestKey, latestSerialized);
+  } catch (err) {
+    console.error('Failed to persist autosave snapshots', err);
+  }
+}
+
+export function migrateSavePayload(payload) {
+  const baseMeta = { schemaVersion: SAVE_SCHEMA_VERSION, uiVersion: UI_STATE_VERSION, savedAt: Date.now(), appVersion: APP_VERSION, checksum: null };
   if (!payload || typeof payload !== 'object') {
-    return { ...base, character: payload ?? {} };
+    const meta = normalizeSnapshotMeta({}, payload ?? {}, null, baseMeta);
+    return { character: payload ?? {}, ui: null, meta, schemaVersion: meta.schemaVersion, uiVersion: meta.uiVersion, savedAt: meta.savedAt, appVersion: meta.appVersion, checksum: meta.checksum };
   }
   const hasStructuredFields = 'character' in payload || 'ui' in payload || typeof payload.schemaVersion === 'number';
   const character = hasStructuredFields
-    ? (payload.character && typeof payload.character === 'object' ? payload.character : {})
-    : payload;
+    ? (payload.character && typeof payload.character === 'object' ? { ...payload.character } : {})
+    : { ...payload };
   const legacyUiState = payload?.uiState && typeof payload.uiState === 'object' ? payload.uiState : null;
   const characterUiState = character?.uiState && typeof character.uiState === 'object' ? character.uiState : null;
+  const participantState = character && typeof character === 'object' && character.appState && typeof character.appState === 'object'
+    ? character.appState
+    : null;
+  if (character && typeof character === 'object') {
+    delete character.uiState;
+    delete character.appState;
+  }
+  let uiState = (payload.ui && typeof payload.ui === 'object') ? { ...payload.ui } : (characterUiState || legacyUiState || null);
+  if (participantState) {
+    if (uiState && typeof uiState === 'object') {
+      uiState = { ...uiState, participants: uiState.participants || participantState };
+    } else {
+      uiState = { participants: participantState };
+    }
+  }
+  const metaSource = payload.meta && typeof payload.meta === 'object' ? payload.meta : payload;
+  const meta = normalizeSnapshotMeta(metaSource, character, uiState, baseMeta);
   const migrated = {
-    schemaVersion: typeof payload.schemaVersion === 'number' ? payload.schemaVersion : 1,
-    savedAt: Number.isFinite(payload.savedAt) ? payload.savedAt : Date.now(),
     character,
-    ui: (payload.ui && typeof payload.ui === 'object') ? payload.ui : (characterUiState || legacyUiState || null),
+    ui: uiState,
+    meta,
+    schemaVersion: meta.schemaVersion,
+    uiVersion: meta.uiVersion,
+    savedAt: meta.savedAt,
+    appVersion: meta.appVersion,
+    checksum: meta.checksum,
   };
-  return {
-    ...base,
-    ...migrated,
+  return migrated;
+}
+
+function buildCanonicalPayload(migrated) {
+  const workingUi = migrated.ui && typeof migrated.ui === 'object' ? { ...migrated.ui } : null;
+  const { data: normalized, changed } = normalizeCharacterData({ ...migrated.character });
+  const cleanedCharacter = { ...normalized };
+  if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
+    delete cleanedCharacter.uiState;
+  }
+  const meta = normalizeSnapshotMeta(migrated.meta || {}, cleanedCharacter, workingUi, {
+    schemaVersion: migrated.schemaVersion ?? SAVE_SCHEMA_VERSION,
+    uiVersion: migrated.uiVersion ?? UI_STATE_VERSION,
+    savedAt: migrated.savedAt ?? Date.now(),
+    appVersion: migrated.appVersion ?? APP_VERSION,
+    checksum: migrated.checksum,
+  });
+  const checksum = meta.checksum || calculateSnapshotChecksum({ character: cleanedCharacter, ui: workingUi });
+  const payload = {
+    meta: { ...meta, checksum },
+    schemaVersion: meta.schemaVersion,
+    uiVersion: meta.uiVersion,
+    savedAt: meta.savedAt,
+    appVersion: meta.appVersion,
+    checksum,
+    character: cleanedCharacter,
+    ui: workingUi,
   };
+  return { payload, changed };
 }
 
 function getPinPrompt(message) {
@@ -747,20 +867,22 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
       console.error('Failed to notify DM about character load', err);
     }
 
-    const migrated = migrateSavePayload(data);
-    const { data: normalized, changed } = normalizeCharacterData({ ...migrated.character });
-    const cleanedCharacter = { ...normalized };
-    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
-      delete cleanedCharacter.uiState;
+    let migrated = migrateSavePayload(data);
+    if (!isSnapshotChecksumValid(migrated)) {
+      const autosaves = loadLocalAutosaveSnapshot(name);
+      const fallback = [autosaves.latest, autosaves.previous].find(candidate => isSnapshotChecksumValid(candidate));
+      if (fallback) {
+        migrated = fallback;
+        safeToast('Primary save looked corrupted. Recovered from autosave.', 'warning', { duration: 4000 });
+      }
     }
-    const payload = {
-      schemaVersion: SAVE_SCHEMA_VERSION,
-      savedAt: migrated.savedAt || Date.now(),
-      character: cleanedCharacter,
-      ui: migrated.ui || null,
-    };
-    const needsSchemaUpdate = migrated.schemaVersion !== SAVE_SCHEMA_VERSION || migrated.character?.uiState;
-    if (changed || needsSchemaUpdate) {
+    const { payload, changed } = buildCanonicalPayload(migrated);
+    const needsSchemaUpdate =
+      changed ||
+      migrated.schemaVersion !== SAVE_SCHEMA_VERSION ||
+      migrated.character?.uiState ||
+      !isSnapshotChecksumValid(payload);
+    if (needsSchemaUpdate) {
       try {
         await saveLocal(name, payload);
       } catch (err) {
@@ -783,23 +905,18 @@ export async function saveCharacter(data, name = currentCharacter()) {
   if (!name) throw new Error('No character selected');
   try {
     const migrated = migrateSavePayload(data);
-    const { data: normalized } = normalizeCharacterData({ ...migrated.character });
-    const cleanedCharacter = { ...normalized };
-    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
-      delete cleanedCharacter.uiState;
-    }
-    const payload = {
-      schemaVersion: SAVE_SCHEMA_VERSION,
-      savedAt: migrated.savedAt || Date.now(),
-      character: cleanedCharacter,
-      ui: migrated.ui || null,
-    };
+    const { payload } = buildCanonicalPayload(migrated);
     await verifyPin(name);
     try {
       await saveLocal(name, payload);
     } catch (err) {
       console.error(`Failed to persist local save for ${name}`, err);
       throw normalizeLocalSaveError(err);
+    }
+    try {
+      persistLocalAutosaveSnapshot(name, payload);
+    } catch (err) {
+      console.error('Failed to update local recovery snapshot', err);
     }
     try {
       await saveCloud(name, payload);
@@ -820,17 +937,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
 export async function renameCharacter(oldName, newName, data) {
   try {
     const migrated = migrateSavePayload(data);
-    const { data: normalized } = normalizeCharacterData({ ...migrated.character });
-    const cleanedCharacter = { ...normalized };
-    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
-      delete cleanedCharacter.uiState;
-    }
-    const payload = {
-      schemaVersion: SAVE_SCHEMA_VERSION,
-      savedAt: migrated.savedAt || Date.now(),
-      character: cleanedCharacter,
-      ui: migrated.ui || null,
-    };
+    const { payload } = buildCanonicalPayload(migrated);
     if (!oldName || oldName === newName) {
       setCurrentCharacter(newName);
       await saveCharacter(payload, newName);
@@ -842,6 +949,11 @@ export async function renameCharacter(oldName, newName, data) {
     } catch (err) {
       console.error(`Failed to persist renamed character ${newName} locally`, err);
       throw err;
+    }
+    try {
+      persistLocalAutosaveSnapshot(newName, payload);
+    } catch (err) {
+      console.error('Failed to refresh local recovery snapshot during rename', err);
     }
     let cloudStatus;
     try {
@@ -963,18 +1075,8 @@ export async function loadBackup(name, ts, type = 'manual') {
     const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
     const data = await loader(name, ts);
     const migrated = migrateSavePayload(data);
-    const { data: normalized, changed } = normalizeCharacterData({ ...migrated.character });
-    const cleanedCharacter = { ...normalized };
-    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
-      delete cleanedCharacter.uiState;
-    }
-    const payload = {
-      schemaVersion: SAVE_SCHEMA_VERSION,
-      savedAt: migrated.savedAt || Date.now(),
-      character: cleanedCharacter,
-      ui: migrated.ui || null,
-    };
-    const needsSchemaUpdate = migrated.schemaVersion !== SAVE_SCHEMA_VERSION || migrated.character?.uiState;
+    const { payload, changed } = buildCanonicalPayload(migrated);
+    const needsSchemaUpdate = migrated.schemaVersion !== SAVE_SCHEMA_VERSION || migrated.character?.uiState || !isSnapshotChecksumValid(payload);
     try {
       await saveLocal(name, payload);
     } catch (err) {
@@ -1019,17 +1121,7 @@ export async function saveAutoBackup(data, name = currentCharacter()) {
   if (!name) return null;
   try {
     const migrated = migrateSavePayload(data);
-    const { data: normalized } = normalizeCharacterData({ ...migrated.character });
-    const cleanedCharacter = { ...normalized };
-    if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
-      delete cleanedCharacter.uiState;
-    }
-    const payload = {
-      schemaVersion: SAVE_SCHEMA_VERSION,
-      savedAt: migrated.savedAt || Date.now(),
-      character: cleanedCharacter,
-      ui: migrated.ui || null,
-    };
+    const { payload } = buildCanonicalPayload(migrated);
     const ts = await saveCloudAutosave(name, payload);
     lastAutosaveErrorKey = null;
     lastAutosaveErrorTime = 0;
