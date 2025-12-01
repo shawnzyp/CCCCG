@@ -72,7 +72,7 @@ import {
   subscribeSyncQueue,
   getLastSyncActivity,
 } from './storage.js';
-import { collectSnapshotParticipants, applySnapshotParticipants } from './snapshot-registry.js';
+import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
@@ -15448,6 +15448,72 @@ function resetPowerEditorState() {
   powerEditorState.wizardElements = {};
 }
 
+function isPowerWizardOpen() {
+  const overlay = powerEditorState.overlay || document.getElementById('modal-power-editor');
+  if (!overlay) return false;
+  const hiddenByClass = typeof overlay.classList !== 'undefined' && overlay.classList.contains('hidden');
+  const ariaHidden = overlay.getAttribute && overlay.getAttribute('aria-hidden') === 'true';
+  const hiddenByStyle = overlay.style && overlay.style.display === 'none';
+  return !(hiddenByClass || ariaHidden || hiddenByStyle);
+}
+
+function capturePowerWizardSnapshot() {
+  if (!isPowerWizardOpen()) return null;
+  const snapshot = {
+    open: true,
+    stepIndex: Number.isFinite(powerEditorState.stepIndex) ? powerEditorState.stepIndex : 0,
+    isNew: !!powerEditorState.isNew,
+    target: powerEditorState.targetList?.id === 'sigs' ? 'sigs' : 'powers',
+    moveType: powerEditorState.moveType || null,
+    subtype: powerEditorState.subtype || null,
+  };
+  const workingPower = powerEditorState.workingPower || (powerEditorState.card ? serializePowerCard(powerEditorState.card) : null);
+  if (workingPower && typeof workingPower === 'object') {
+    try {
+      snapshot.power = JSON.parse(JSON.stringify(workingPower));
+    } catch {
+      snapshot.power = { ...workingPower };
+    }
+  }
+  return snapshot;
+}
+
+function applyPowerWizardSnapshot(state) {
+  if (!state || typeof state !== 'object' || !state.open) return;
+  try {
+    const target = state.target === 'sigs' ? 'sigs' : 'powers';
+    const power = state.power && typeof state.power === 'object' ? { ...state.power } : null;
+    openPowerCreationWizard({ mode: state.isNew ? 'create' : 'edit', power, target });
+    requestAnimationFrame(() => {
+      try {
+        if (power && !powerEditorState.workingPower) {
+          powerEditorState.workingPower = { ...power };
+        }
+        if (state.moveType) powerEditorState.moveType = state.moveType;
+        if (state.subtype) powerEditorState.subtype = state.subtype;
+        if (Number.isFinite(state.stepIndex)) {
+          const desiredIndex = Math.max(0, Math.min(state.stepIndex, (powerEditorState.steps || []).length - 1));
+          goToWizardStep(desiredIndex);
+        }
+        if (typeof updatePowerEditorSaveState === 'function') {
+          updatePowerEditorSaveState();
+        }
+      } catch (err) {
+        console.error('Failed to finalize power wizard restore', err);
+      }
+    });
+  } catch (err) {
+    console.error('Failed to restore power wizard state', err);
+  }
+}
+
+registerSnapshotParticipant({
+  key: 'powerWizard',
+  capture: capturePowerWizardSnapshot,
+  apply: applyPowerWizardSnapshot,
+  priority: 5,
+});
+
 function handlePowerEditorSave(event) {
   if (event && typeof event.preventDefault === 'function') {
     event.preventDefault();
@@ -21162,7 +21228,7 @@ function applySerializedFormState(serialized) {
   return restored;
 }
 const SNAPSHOT_DEBUG = false;
-const UI_RESTORE_MAX_ATTEMPTS = 10;
+const UI_RESTORE_MAX_ATTEMPTS = 30;
 
 function serialize(){
   const data={};
@@ -21290,15 +21356,16 @@ const DEFAULT_SNAPSHOT_META = {
   appVersion: APP_VERSION,
   savedAt: Date.now(),
 };
+const DEFAULT_CHECKSUM = calculateSnapshotChecksum({ character: DEFAULT_STATE, ui: null });
 const DEFAULT_SNAPSHOT = {
-  meta: { ...DEFAULT_SNAPSHOT_META, checksum: calculateSnapshotChecksum({ character: DEFAULT_STATE, ui: null }) },
+  meta: { ...DEFAULT_SNAPSHOT_META, checksum: DEFAULT_CHECKSUM },
   schemaVersion: SAVE_SCHEMA_VERSION,
   uiVersion: UI_STATE_VERSION,
   savedAt: DEFAULT_SNAPSHOT_META.savedAt,
   appVersion: APP_VERSION,
   character: DEFAULT_STATE,
   ui: null,
-  checksum: calculateSnapshotChecksum({ character: DEFAULT_STATE, ui: null }),
+  checksum: DEFAULT_CHECKSUM,
 };
 
 function createUiSnapshot() {
@@ -21400,7 +21467,9 @@ function isUiRestoreReady() {
   if (typeof document === 'undefined') return false;
   if (document.readyState === 'loading') return false;
   if (!document.body) return false;
-  return !!document.getElementById('powers');
+  const hasPowers = !!document.getElementById('powers');
+  const hasTabs = !!document.querySelector('.tab[data-go]');
+  return hasPowers && hasTabs;
 }
 
 function applyUiSnapshot(ui) {
@@ -21821,7 +21890,10 @@ function captureAutosaveSnapshot(options = {}) {
     lastAutosaveStorageErrorToastAt = 0;
     lastAutosaveStorageErrorLogAt = 0;
     try {
-      persistLocalAutosaveSnapshot(currentCharacter(), snapshot, serialized);
+      const name = currentCharacter();
+      if (name) {
+        persistLocalAutosaveSnapshot(name, snapshot, serialized);
+      }
     } catch (err) {
       console.error('Failed to persist rolling autosave snapshots', err);
     }

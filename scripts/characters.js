@@ -631,7 +631,7 @@ export function isSnapshotChecksumValid(snapshot = {}) {
   if (!snapshot || typeof snapshot !== 'object') return false;
   const expected = snapshot.meta?.checksum || snapshot.checksum || null;
   if (!expected) return true;
-  const actual = calculateSnapshotChecksum(snapshot);
+  const actual = calculateSnapshotChecksum({ character: snapshot.character, ui: snapshot.ui });
   return expected === actual;
 }
 
@@ -654,7 +654,7 @@ export function loadLocalAutosaveSnapshot(name) {
 }
 
 export function persistLocalAutosaveSnapshot(name, snapshot, serialized) {
-  if (typeof localStorage === 'undefined' || !snapshot) return;
+  if (typeof localStorage === 'undefined' || !snapshot || !name) return;
   const latestKey = AUTOSAVE_LATEST_KEY(name);
   const previousKey = AUTOSAVE_PREVIOUS_KEY(name);
   try {
@@ -906,6 +906,8 @@ export async function saveCharacter(data, name = currentCharacter()) {
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    let serializedPayload = null;
+    try { serializedPayload = JSON.stringify(payload); } catch {}
     await verifyPin(name);
     try {
       await saveLocal(name, payload);
@@ -914,7 +916,7 @@ export async function saveCharacter(data, name = currentCharacter()) {
       throw normalizeLocalSaveError(err);
     }
     try {
-      persistLocalAutosaveSnapshot(name, payload);
+      persistLocalAutosaveSnapshot(name, payload, serializedPayload);
     } catch (err) {
       console.error('Failed to update local recovery snapshot', err);
     }
@@ -938,6 +940,8 @@ export async function renameCharacter(oldName, newName, data) {
   try {
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
+    let serializedPayload = null;
+    try { serializedPayload = JSON.stringify(payload); } catch {}
     if (!oldName || oldName === newName) {
       setCurrentCharacter(newName);
       await saveCharacter(payload, newName);
@@ -951,7 +955,7 @@ export async function renameCharacter(oldName, newName, data) {
       throw err;
     }
     try {
-      persistLocalAutosaveSnapshot(newName, payload);
+      persistLocalAutosaveSnapshot(newName, payload, serializedPayload);
     } catch (err) {
       console.error('Failed to refresh local recovery snapshot during rename', err);
     }
