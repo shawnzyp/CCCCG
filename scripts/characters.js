@@ -15,7 +15,7 @@ import {
   loadCloudAutosave,
   deleteCloud,
 } from './storage.js';
-import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin } from './pin.js';
+import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin, ensureAuthoritativePinState } from './pin.js';
 import { toast, dismissToast } from './notifications.js';
 
 function safeToast(message, type = 'error', options = {}) {
@@ -635,6 +635,12 @@ export function isSnapshotChecksumValid(snapshot = {}) {
   return expected === actual;
 }
 
+function isCharacterPayloadValid(snapshot = {}) {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  const character = snapshot.character;
+  return !!(character && typeof character === 'object' && !Array.isArray(character));
+}
+
 export function loadLocalAutosaveSnapshot(name) {
   if (typeof localStorage === 'undefined') return { latest: null, previous: null };
   const readSnapshot = (key) => {
@@ -667,6 +673,28 @@ export function persistLocalAutosaveSnapshot(name, snapshot, serialized) {
   } catch (err) {
     console.error('Failed to persist autosave snapshots', err);
   }
+}
+
+export function preflightSnapshotForLoad(name, snapshot, { showRecoveryToast = true } = {}) {
+  const migrated = migrateSavePayload(snapshot);
+  const isValid = isSnapshotChecksumValid(migrated) && isCharacterPayloadValid(migrated);
+  if (isValid) {
+    const { payload, changed } = buildCanonicalPayload(migrated);
+    return { payload, recovered: false, changed };
+  }
+  const autosaves = loadLocalAutosaveSnapshot(name);
+  const fallback = [autosaves.latest, autosaves.previous]
+    .find(candidate => isSnapshotChecksumValid(candidate) && isCharacterPayloadValid(candidate));
+  if (fallback) {
+    if (showRecoveryToast) {
+      safeToast('Primary save looked corrupted. Recovered from autosave.', 'warning', { duration: 4000 });
+    }
+    const { payload, changed } = buildCanonicalPayload(fallback);
+    return { payload, recovered: true, changed };
+  }
+  const err = new Error('Character data is corrupted or incomplete. Please try a backup or another autosave.');
+  err.toastShown = true;
+  throw err;
 }
 
 export function migrateSavePayload(payload) {
@@ -750,8 +778,8 @@ function getPinPrompt(message) {
 }
 
 async function verifyPin(name) {
-  await syncPin(name);
-  if (!hasPin(name)) return;
+  const authoritative = await ensureAuthoritativePinState(name, { force: true });
+  if (!authoritative.pinned) return;
 
   let showedToast = false;
 
@@ -830,10 +858,6 @@ export async function listRecoverableCharacters() {
 
 export async function loadCharacter(name, { bypassPin = false } = {}) {
   try {
-    if (!bypassPin) {
-      await verifyPin(name);
-    }
-
     let data = null;
     try {
       data = await loadLocal(name);
@@ -867,20 +891,15 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
       console.error('Failed to notify DM about character load', err);
     }
 
-    let migrated = migrateSavePayload(data);
-    if (!isSnapshotChecksumValid(migrated)) {
-      const autosaves = loadLocalAutosaveSnapshot(name);
-      const fallback = [autosaves.latest, autosaves.previous].find(candidate => isSnapshotChecksumValid(candidate));
-      if (fallback) {
-        migrated = fallback;
-        safeToast('Primary save looked corrupted. Recovered from autosave.', 'warning', { duration: 4000 });
-      }
+    const { payload, recovered, changed } = preflightSnapshotForLoad(name, data);
+    if (!bypassPin) {
+      await verifyPin(name);
     }
-    const { payload, changed } = buildCanonicalPayload(migrated);
     const needsSchemaUpdate =
+      recovered ||
       changed ||
-      migrated.schemaVersion !== SAVE_SCHEMA_VERSION ||
-      migrated.character?.uiState ||
+      payload.schemaVersion !== SAVE_SCHEMA_VERSION ||
+      payload.character?.uiState ||
       !isSnapshotChecksumValid(payload);
     if (needsSchemaUpdate) {
       try {
@@ -1074,13 +1093,15 @@ export async function listBackups(name) {
   ];
 }
 
-export async function loadBackup(name, ts, type = 'manual') {
+export async function loadBackup(name, ts, type = 'manual', { bypassPin = false } = {}) {
   try {
     const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
     const data = await loader(name, ts);
-    const migrated = migrateSavePayload(data);
-    const { payload, changed } = buildCanonicalPayload(migrated);
-    const needsSchemaUpdate = migrated.schemaVersion !== SAVE_SCHEMA_VERSION || migrated.character?.uiState || !isSnapshotChecksumValid(payload);
+    const { payload, recovered, changed } = preflightSnapshotForLoad(name, data, { showRecoveryToast: false });
+    if (!bypassPin) {
+      await verifyPin(name);
+    }
+    const needsSchemaUpdate = recovered || changed || payload.schemaVersion !== SAVE_SCHEMA_VERSION || payload.character?.uiState || !isSnapshotChecksumValid(payload);
     try {
       await saveLocal(name, payload);
     } catch (err) {

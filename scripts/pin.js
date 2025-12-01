@@ -139,13 +139,28 @@ function shouldQueuePinError(err) {
   return isNavigatorOffline() || err?.name === 'TypeError';
 }
 
-export async function syncPin(name) {
-  if (hasPin(name)) return true;
+function parseCloudPinRecord(record) {
+  if (!record || typeof record === 'boolean') return { hash: null, revoked: true };
+  if (typeof record === 'string') return { hash: record, revoked: false };
+  if (typeof record === 'object') {
+    const hash = typeof record.hash === 'string' && record.hash ? record.hash : null;
+    const revoked = record.revokedAt !== undefined && record.revokedAt !== null;
+    return { hash, revoked };
+  }
+  return { hash: null, revoked: true };
+}
+
+export async function syncPin(name, { force = false } = {}) {
+  if (!name) return false;
+  if (!force && hasPin(name)) return true;
   try {
-    const hash = await loadCloudPin(name);
-    if (typeof hash === 'string' && hash) {
-      return safeLocalStorageSet(key(name), hash);
+    const record = await loadCloudPin(name);
+    const { hash, revoked } = parseCloudPinRecord(record);
+    if (revoked || !hash) {
+      safeLocalStorageRemove(key(name));
+      return false;
     }
+    return safeLocalStorageSet(key(name), hash);
   } catch (e) {
     if (e && e.message !== 'fetch not supported' && e.name !== 'TypeError') {
       console.error('Cloud pin load failed', e);
@@ -241,5 +256,27 @@ export async function movePin(oldName, newName) {
   } catch (err) {
     console.error(`Failed to move PIN from ${oldName} to ${newName}`, err);
     return false;
+  }
+}
+
+export async function ensureAuthoritativePinState(name, { force = false } = {}) {
+  if (!name) return { pinned: false, source: 'local-fallback' };
+  const fallback = () => ({ pinned: hasPin(name), source: 'local-fallback' });
+  try {
+    const record = await loadCloudPin(name);
+    const { hash, revoked } = parseCloudPinRecord(record);
+    if (revoked || !hash) {
+      safeLocalStorageRemove(key(name));
+      return { pinned: false, source: 'cloud' };
+    }
+    if (force || !hasPin(name)) {
+      safeLocalStorageSet(key(name), hash);
+    }
+    return { pinned: true, source: 'cloud' };
+  } catch (err) {
+    if (err && err.message !== 'fetch not supported' && err.name !== 'TypeError') {
+      console.error('Authoritative PIN sync failed', err);
+    }
+    return fallback();
   }
 }

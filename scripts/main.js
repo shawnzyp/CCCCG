@@ -15,6 +15,7 @@ import {
   listRecoverableCharacters,
   saveAutoBackup,
   migrateSavePayload,
+  preflightSnapshotForLoad,
   SAVE_SCHEMA_VERSION,
   UI_STATE_VERSION,
   APP_VERSION,
@@ -73,7 +74,7 @@ import {
   getLastSyncActivity,
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
-import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
+import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
   buildPriceIndex,
@@ -3652,8 +3653,8 @@ function applyEditIcons(root=document){
 async function applyLockIcon(btn){
   if(!btn) return;
   const name = btn.dataset.lock;
-  await syncPin(name);
-  btn.innerHTML = hasPin(name) ? ICON_LOCK : ICON_UNLOCK;
+  const status = await ensureAuthoritativePinState(name, { force: true });
+  btn.innerHTML = status.pinned ? ICON_LOCK : ICON_UNLOCK;
   btn.setAttribute('aria-label','Toggle PIN');
   Object.assign(btn.style, DELETE_ICON_STYLE);
 }
@@ -12649,8 +12650,8 @@ if(charList){
       show('modal-load');
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
-      await syncPin(ch);
-      if(hasPin(ch)){
+      const status = await ensureAuthoritativePinState(ch, { force: true });
+      if(status.pinned){
         const pin = await pinPrompt('Enter PIN to disable protection');
         if(pin !== null){
           const ok = await verifyStoredPin(ch, pin);
@@ -21999,14 +22000,21 @@ async function restoreLastLoadedCharacter(){
     return;
   }
   if (!data) return;
-  const snapshot = migrateSavePayload(data);
-  const previousMode = useViewMode();
+  let snapshot;
   try {
-    await syncPin(storedName);
+    ({ payload: snapshot } = preflightSnapshotForLoad(storedName, data));
+  } catch (err) {
+    console.error('Auto-restore validation failed', err);
+    return;
+  }
+  const previousMode = useViewMode();
+  let authoritativePin = { pinned: hasPin(storedName), source: 'local-fallback' };
+  try {
+    authoritativePin = await ensureAuthoritativePinState(storedName, { force: true });
   } catch (err) {
     console.error('Failed to sync PIN before auto-restore', err);
   }
-  if (hasPin(storedName)) {
+  if (authoritativePin.pinned) {
     pendingPinnedAutoLoad = { name: storedName, data: snapshot, previousMode };
     attemptPendingPinPrompt();
     return;
@@ -22089,17 +22097,21 @@ async function promptForPendingPinnedCharacter(){
   if(!payload) return;
   const { name } = payload;
   try {
-    await syncPin(name);
+    const authoritative = await ensureAuthoritativePinState(name, { force: true });
+    if(!authoritative.pinned){
+      if(!pendingPinnedAutoLoad || pendingPinnedAutoLoad.name !== name){
+        return;
+      }
+      const unlocked = pendingPinnedAutoLoad;
+      pendingPinnedAutoLoad = null;
+      applyPendingPinnedCharacter(unlocked);
+      return;
+    }
   } catch (err) {
     console.error('Failed to sync PIN for auto-restore', err);
   }
+
   if(!pendingPinnedAutoLoad || pendingPinnedAutoLoad.name !== name){
-    return;
-  }
-  if(!hasPin(name)){
-    const unlocked = pendingPinnedAutoLoad;
-    pendingPinnedAutoLoad = null;
-    applyPendingPinnedCharacter(unlocked);
     return;
   }
 
