@@ -840,11 +840,12 @@ export function currentCharacter() {
 export function setCurrentCharacter(name) {
   const displayName = name === null ? null : displayCharacterName(name);
   currentName = displayName;
+  const storageName = name === null ? null : normalizedCharacterName(name);
   try {
-    if (displayName === null || displayName === '') {
+    if (!storageName) {
       localStorage.removeItem('last-save');
     } else {
-      localStorage.setItem('last-save', displayName);
+      localStorage.setItem('last-save', storageName);
     }
   } catch {}
 }
@@ -1071,11 +1072,12 @@ export async function renameCharacter(oldName, newName, data) {
 }
 
 export async function deleteCharacter(name) {
-  if (name === 'The DM') {
+  const canonical = normalizedCharacterName(name) || name;
+  if (canonical === 'DM') {
     throw new Error('Cannot delete The DM');
   }
   try {
-    const storageName = normalizedCharacterName(name) || name;
+    const storageName = canonical;
     await verifyPin(displayCharacterName(name));
     let data = null;
     try {

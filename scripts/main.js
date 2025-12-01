@@ -31,6 +31,7 @@ import {
   isAutoSaveDirty,
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
+import { canonicalCharacterKey } from './character-keys.js';
 import {
   activateTab,
   getActiveTab,
@@ -21833,6 +21834,10 @@ function applyAppSnapshot(snapshot) {
 }
 
 function deserialize(data){
+  if (data && typeof data === 'object' && data.character && data.meta) {
+    applyAppSnapshot(data);
+    return;
+  }
   migratePublicOpinionSnapshot(data);
   const storedLevelProgress = data && (data.levelProgressState || data.levelProgress);
   const storedAugments = data && data.augmentState;
@@ -22241,7 +22246,11 @@ async function restoreLastLoadedCharacter(){
   if (typeof loadLocalFn !== 'function') return;
   let data = null;
   try {
-    data = await loadLocalFn(storedName);
+    const canonical = canonicalCharacterKey(storedName) || storedName;
+    data = await loadLocalFn(canonical);
+    if (!data && canonical !== storedName) {
+      data = await loadLocalFn(storedName);
+    }
   } catch (err) {
     console.error('Failed to load stored character for auto-restore', err);
     return;

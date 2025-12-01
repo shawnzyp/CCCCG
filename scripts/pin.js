@@ -4,10 +4,12 @@ const KEY_PREFIX = 'pin:';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
 
 function key(name) {
-  return KEY_PREFIX + canonicalCharacterKey(name);
+  const n = canonicalCharacterKey(name);
+  return n ? KEY_PREFIX + n : null;
 }
 
 function safeLocalStorageGet(itemKey) {
+  if (!itemKey) return null;
   try {
     if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') {
       return null;
@@ -20,6 +22,7 @@ function safeLocalStorageGet(itemKey) {
 }
 
 function safeLocalStorageSet(itemKey, value) {
+  if (!itemKey) return false;
   try {
     if (typeof localStorage === 'undefined' || typeof localStorage.setItem !== 'function') {
       return false;
@@ -33,6 +36,7 @@ function safeLocalStorageSet(itemKey, value) {
 }
 
 function safeLocalStorageRemove(itemKey) {
+  if (!itemKey) return false;
   try {
     if (typeof localStorage === 'undefined' || typeof localStorage.removeItem !== 'function') {
       return false;
