@@ -3756,7 +3756,9 @@ async function applyLockIcon(btn, { force = false } = {}){
 }
 
 function applyLockIcons(root=document){
-  qsa('button[data-lock]', root).forEach(btn=>{ applyLockIcon(btn); });
+  qsa('button[data-lock]', root).forEach(btn=>{
+    applyLockIcon(btn).catch(err => console.error('Failed to apply lock icon', err));
+  });
 }
 
 

@@ -715,8 +715,9 @@ export function preflightSnapshotForLoad(name, snapshot, { showRecoveryToast = t
 export function migrateSavePayload(payload) {
   const baseMeta = { schemaVersion: SAVE_SCHEMA_VERSION, uiVersion: UI_STATE_VERSION, savedAt: Date.now(), appVersion: APP_VERSION, checksum: null };
   if (!payload || typeof payload !== 'object') {
-    const meta = normalizeSnapshotMeta({}, payload ?? {}, null, baseMeta);
-    return { character: payload ?? {}, ui: null, meta, schemaVersion: meta.schemaVersion, uiVersion: meta.uiVersion, savedAt: meta.savedAt, appVersion: meta.appVersion, checksum: meta.checksum };
+    const character = {};
+    const meta = normalizeSnapshotMeta({}, character, null, baseMeta);
+    return { character, ui: null, meta, schemaVersion: meta.schemaVersion, uiVersion: meta.uiVersion, savedAt: meta.savedAt, appVersion: meta.appVersion, checksum: meta.checksum };
   }
   const hasStructuredFields = 'character' in payload || 'ui' in payload || typeof payload.schemaVersion === 'number';
   const character = hasStructuredFields

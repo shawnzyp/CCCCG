@@ -234,9 +234,10 @@ export async function verifyPin(name, pin) {
 export async function clearPin(name) {
   const normalized = canonicalCharacterKey(name);
   if (!normalized) return false;
-  const removed = safeLocalStorageRemove(key(normalized));
+  name = normalized;
+  const removed = safeLocalStorageRemove(key(name));
   try {
-    await deleteCloudPin(normalized);
+    await deleteCloudPin(name);
   } catch (e) {
     if (e && e.message === 'fetch not supported') return removed;
     const queued = shouldQueuePinError(e) && (await enqueueCloudPin('delete', name));
