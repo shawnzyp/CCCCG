@@ -8710,8 +8710,9 @@ pointer-events: auto;
 }
 
 #player-tools-drawer .pt-scrim{
-position:absolute;
+position:fixed;
 inset:0;
+z-index:1;
 background: radial-gradient(circle at 10% 10%, rgba(0, 229, 255, 0.18), transparent 55%);
 background-color: rgba(0,0,0,0.5);
 backdrop-filter: blur(2px);
@@ -8722,6 +8723,7 @@ pointer-events: auto;
 
 #player-tools-drawer .pt-shell{
 position:absolute;
+z-index:2;
 inset-block: 0;
 left: 0;
 display:flex;

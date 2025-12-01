@@ -369,6 +369,33 @@ function createPlayerToolsDrawer() {
     }, 2000);
   };
 
+  let removeOutsideCloseListeners = null;
+
+  const addOutsideCloseListeners = () => {
+    if (removeOutsideCloseListeners) return;
+
+    const handlePointerDown = (event) => {
+      if (!isOpen) return;
+      if (tray && tray.contains(event.target)) return;
+      setDrawerOpen(false);
+    };
+
+    const handleClick = (event) => {
+      if (!isOpen) return;
+      if (tray && tray.contains(event.target)) return;
+      setDrawerOpen(false);
+    };
+
+    doc.addEventListener('pointerdown', handlePointerDown, true);
+    doc.addEventListener('click', handleClick, true);
+
+    removeOutsideCloseListeners = () => {
+      doc.removeEventListener('pointerdown', handlePointerDown, true);
+      doc.removeEventListener('click', handleClick, true);
+      removeOutsideCloseListeners = null;
+    };
+  };
+
   const setDrawerOpen = (open, { force = false } = {}) => {
     const next = !!open;
     if (!force && next === isOpen) return;
@@ -381,11 +408,17 @@ function createPlayerToolsDrawer() {
     tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
 
     if (tray) tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+    if (scrim) {
+      if (isOpen) scrim.removeAttribute('hidden');
+      else scrim.setAttribute('hidden', '');
+    }
 
     if (isOpen) {
       updateClock();
       showSplashThenApp();
+      addOutsideCloseListeners();
     } else {
+      if (removeOutsideCloseListeners) removeOutsideCloseListeners();
       splashSeq += 1; // cancel any in-flight splash finish
       if (splash) {
         splash.classList.remove('is-visible');
@@ -579,6 +612,8 @@ function createPlayerToolsDrawer() {
     } catch (_) {}
     batteryApply = null;
     batteryObj = null;
+
+    if (removeOutsideCloseListeners) removeOutsideCloseListeners();
 
     tab.removeEventListener('click', toggle);
     scrim && scrim.removeEventListener('click', handleScrimClick);
