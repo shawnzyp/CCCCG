@@ -1528,6 +1528,7 @@ body:not(.no-hover) .ticker-drawer__pull:hover{
   --pennant-gap:clamp(10px,2.6vw,18px);
   --pennant-overlap:calc(var(--pennant-point) + var(--pennant-gap));
   --ticker-duration:18s;
+  --ticker-text-color:color-mix(in srgb,var(--text) 82%, var(--accent) 18%);
   position:relative;
   overflow:hidden;
   background:color-mix(in srgb,var(--surface) 92%, transparent);
@@ -1637,7 +1638,8 @@ body:not(.no-hover) .ticker-drawer__pull:hover{
   letter-spacing:.1em;
   text-transform:uppercase;
   font-size:.78rem;
-  color:var(--accent);
+  color:var(--ticker-text-color);
+  text-shadow:0 1px 6px color-mix(in srgb,var(--surface) 48%, transparent);
 }
 @media(max-width:540px){
   .news-ticker{
@@ -1704,6 +1706,7 @@ body:not(.no-hover) .ticker-drawer__pull:hover{
   --m24n-primary:#1f2a44;
   --m24n-highlight:#e84561;
   --m24n-text:#f4f6ff;
+  --m24n-text-strong:color-mix(in srgb,var(--m24n-text) 72%, var(--text) 28%);
   --m24n-line-width:2px;
   --m24n-line-gap:clamp(4px,1.4vw,10px);
   --m24n-line-color:color-mix(in srgb,var(--m24n-highlight) 90%, rgba(7,11,19,.65));
@@ -1844,10 +1847,10 @@ body:not(.no-hover) .ticker-drawer__pull:hover{
   animation:ticker-scroll-m24n var(--ticker-duration) linear forwards;
 }
 .news-ticker__text--m24n{
-  color:var(--m24n-text);
+  color:var(--m24n-text-strong);
   font-size:.8rem;
   letter-spacing:.12em;
-  text-shadow:0 1px 6px rgba(0,0,0,.35);
+  text-shadow:0 1px 8px rgba(0,0,0,.38);
 }
 @keyframes ticker-scroll-m24n{
   from{transform:translate3d(100%,0,0)}
