@@ -15,6 +15,7 @@ import {
   listRecoverableCharacters,
   saveAutoBackup,
   migrateSavePayload,
+  buildCanonicalPayload,
   preflightSnapshotForLoad,
   SAVE_SCHEMA_VERSION,
   UI_STATE_VERSION,
@@ -2099,6 +2100,99 @@ let launchSequenceComplete = false;
 let welcomeSequenceComplete = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
+
+const CHARACTER_CONFIRMATION_MODAL_ID = 'modal-character-confirmation';
+const CHARACTER_CONFIRMATION_TIMEOUT_MS = 3200;
+let characterConfirmationQueue = [];
+let characterConfirmationActive = null;
+let characterConfirmationTimer = null;
+let characterConfirmationPreviousFocus = null;
+
+function isCharacterConfirmationBlocked() {
+  const body = typeof document !== 'undefined' ? document.body : null;
+  const launching = !!(body && body.classList.contains('launching'));
+  if (launching || !launchSequenceComplete) return true;
+  const welcomeModal = getWelcomeModal();
+  const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
+  if (welcomeVisible || !welcomeSequenceComplete) return true;
+  return false;
+}
+
+function describeCharacterConfirmation(entry) {
+  const variant = entry?.variant || 'loaded';
+  const name = entry?.name || 'Character';
+  const copy = {
+    loaded: { title: 'Character Loaded', prefix: 'Loaded character' },
+    recovered: { title: 'Character Recovered', prefix: 'Recovered character' },
+    created: { title: 'Character Created', prefix: 'Created character' },
+    unlocked: { title: 'Character Unlocked', prefix: 'Loaded character' },
+  };
+  const chosen = copy[variant] || copy.loaded;
+  return {
+    title: chosen.title,
+    message: `${chosen.prefix}: ${name}`,
+  };
+}
+
+function clearCharacterConfirmationTimer() {
+  if (characterConfirmationTimer) {
+    clearTimeout(characterConfirmationTimer);
+    characterConfirmationTimer = null;
+  }
+}
+
+function dismissCharacterConfirmation() {
+  if (!characterConfirmationActive) return;
+  clearCharacterConfirmationTimer();
+  hide(CHARACTER_CONFIRMATION_MODAL_ID);
+  const restoreTarget = characterConfirmationPreviousFocus;
+  characterConfirmationActive = null;
+  characterConfirmationPreviousFocus = null;
+  if (restoreTarget && typeof restoreTarget.focus === 'function' && restoreTarget.isConnected) {
+    try { restoreTarget.focus(); } catch {}
+  }
+  requestAnimationFrame(() => flushCharacterConfirmationQueue());
+}
+
+function showCharacterConfirmation(entry) {
+  const modal = document.getElementById(CHARACTER_CONFIRMATION_MODAL_ID);
+  if (!modal) return;
+  const titleEl = document.getElementById('character-confirmation-title');
+  const messageEl = document.getElementById('character-confirmation-message');
+  const continueBtn = document.getElementById('character-confirmation-continue');
+  const description = describeCharacterConfirmation(entry);
+  if (titleEl) titleEl.textContent = description.title;
+  if (messageEl) messageEl.textContent = description.message;
+  characterConfirmationActive = entry;
+  characterConfirmationPreviousFocus = document.activeElement || null;
+  clearCharacterConfirmationTimer();
+  show(CHARACTER_CONFIRMATION_MODAL_ID);
+  requestAnimationFrame(() => {
+    try {
+      if (continueBtn) continueBtn.focus();
+    } catch {}
+  });
+  characterConfirmationTimer = setTimeout(() => {
+    dismissCharacterConfirmation();
+  }, CHARACTER_CONFIRMATION_TIMEOUT_MS);
+}
+
+function flushCharacterConfirmationQueue() {
+  if (characterConfirmationActive) return;
+  if (isCharacterConfirmationBlocked()) return;
+  const next = characterConfirmationQueue.shift();
+  if (!next) return;
+  showCharacterConfirmation(next);
+}
+
+function queueCharacterConfirmation({ name, variant = 'loaded', key, meta } = {}) {
+  const normalizedName = typeof name === 'string' && name.trim() ? name.trim() : 'Character';
+  const dedupeKey = key || `${variant}:${normalizedName}:${meta?.savedAt ?? Date.now()}`;
+  if (characterConfirmationActive?.key === dedupeKey) return;
+  if (characterConfirmationQueue.some(entry => entry.key === dedupeKey)) return;
+  characterConfirmationQueue.push({ key: dedupeKey, name: normalizedName, variant, meta });
+  flushCharacterConfirmationQueue();
+}
 
 let playerToolsTabElement = null;
 
@@ -12732,6 +12826,7 @@ if(newCharBtn){
     applyAppSnapshot(DEFAULT_SNAPSHOT);
     setMode('edit');
     hide('modal-load-list');
+    queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${DEFAULT_SNAPSHOT_META.savedAt}` });
     toast(`Switched to ${clean}`,'success');
   });
 }
@@ -12773,6 +12868,11 @@ async function doLoad(){
     }
     setCurrentCharacter(pendingLoad.name);
     syncMiniGamePlayerName();
+    const variant = pendingLoad.ts ? 'recovered' : 'loaded';
+    const key = pendingLoad.ts
+      ? `${variant}:${pendingLoad.name}:${pendingLoad.ts}`
+      : `${variant}:${pendingLoad.name}:${applied?.meta?.savedAt ?? Date.now()}`;
+    queueCharacterConfirmation({ name: pendingLoad.name, variant, key, meta: applied?.meta });
     hide('modal-load');
     hide('modal-load-list');
     toast(`Loaded ${pendingLoad.name}`,'success');
@@ -12811,6 +12911,12 @@ if (autoChar) {
       if (previousMode === 'view' && savedViewMode !== 'edit') {
         setMode('view', { skipPersist: true });
       }
+      queueCharacterConfirmation({
+        name: autoChar,
+        variant: 'loaded',
+        key: `url:${autoChar}:${applied?.meta?.savedAt ?? Date.now()}`,
+        meta: applied?.meta,
+      });
     } catch (e) {
       console.error('Failed to load character from URL', e);
     } finally {
@@ -21369,6 +21475,87 @@ const DEFAULT_SNAPSHOT = {
   checksum: DEFAULT_CHECKSUM,
 };
 
+const UI_SNAPSHOT_INPUT_SELECTORS = [
+  '#augment-search',
+  '#dm-notifications-filter-character',
+  '#dm-notifications-filter-severity',
+  '#dm-notifications-filter-resolved',
+  '#dm-notifications-filter-search',
+  '#dm-characters-search',
+];
+
+const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
+  WELCOME_MODAL_ID,
+  'modal-pin',
+  'modal-character-confirmation',
+  'launch-animation',
+]);
+
+function captureUiFormInputs() {
+  const inputs = {};
+  if (typeof document === 'undefined') return inputs;
+  UI_SNAPSHOT_INPUT_SELECTORS.forEach(selector => {
+    try {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      const snapshot = captureFormFieldSnapshot(el);
+      if (!snapshot) return;
+      inputs[selector] = snapshot;
+    } catch (err) {
+      console.error('Failed to capture UI filter input for snapshot', err);
+    }
+  });
+  return inputs;
+}
+
+function applyUiFormInputs(inputs = {}) {
+  if (typeof document === 'undefined' || !inputs || typeof inputs !== 'object') return;
+  Object.entries(inputs).forEach(([selector, record]) => {
+    try {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      const applied = applyFormFieldSnapshot(el, record);
+      if (!applied) return;
+      ['change', 'input'].forEach(type => {
+        try {
+          el.dispatchEvent(new Event(type, { bubbles: true }));
+        } catch {}
+      });
+    } catch (err) {
+      console.error('Failed to apply UI filter input from snapshot', err);
+    }
+  });
+}
+
+function captureOpenModalIds() {
+  if (typeof document === 'undefined') return [];
+  try {
+    return Array.from(document.querySelectorAll('.overlay'))
+      .filter(modal => !modal.classList.contains('hidden'))
+      .map(modal => modal.id)
+      .filter(id => id && !UI_SNAPSHOT_MODAL_BLOCKLIST.has(id));
+  } catch (err) {
+    console.error('Failed to capture open modals for snapshot', err);
+    return [];
+  }
+}
+
+function applyOpenModalIds(ids = []) {
+  if (!Array.isArray(ids) || typeof document === 'undefined') return;
+  ids.forEach(id => {
+    if (!id || UI_SNAPSHOT_MODAL_BLOCKLIST.has(id)) return;
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    try {
+      if (modal.classList.contains('hidden')) {
+        show(id);
+      }
+    } catch (err) {
+      console.error('Failed to reopen modal during snapshot restore', err);
+    }
+  });
+}
+
 function createUiSnapshot() {
   const ui = {};
   try {
@@ -21416,6 +21603,12 @@ function createUiSnapshot() {
   if (scroll.windowY || Object.keys(scroll.panels).length) {
     ui.scroll = scroll;
   }
+  try {
+    const inputs = captureUiFormInputs();
+    if (inputs && Object.keys(inputs).length) {
+      ui.inputs = inputs;
+    }
+  } catch {}
   const collapsed = {};
   try {
     qsa('details[id]').forEach(detail => {
@@ -21425,6 +21618,12 @@ function createUiSnapshot() {
   if (Object.keys(collapsed).length) {
     ui.collapsed = collapsed;
   }
+  try {
+    const openModals = captureOpenModalIds();
+    if (openModals.length) {
+      ui.openModals = openModals;
+    }
+  } catch {}
   try {
     const participantState = collectSnapshotParticipants();
     if (participantState && Object.keys(participantState).length > 0) {
@@ -21514,6 +21713,20 @@ function applyUiSnapshot(ui) {
     console.error('Failed to apply drawer state from snapshot', err);
   }
   try {
+    if (ui.participants && typeof ui.participants === 'object') {
+      applySnapshotParticipants(ui.participants);
+    }
+  } catch (err) {
+    console.error('Failed to apply participant state from snapshot', err);
+  }
+  try {
+    if (ui.inputs && typeof ui.inputs === 'object') {
+      applyUiFormInputs(ui.inputs);
+    }
+  } catch (err) {
+    console.error('Failed to apply UI filter state from snapshot', err);
+  }
+  try {
     const collapsed = ui.collapsed || ui.collapsedSections || {};
     Object.entries(collapsed).forEach(([id, isOpen]) => {
       if (!id) return;
@@ -21525,11 +21738,11 @@ function applyUiSnapshot(ui) {
     console.error('Failed to apply collapsed state from snapshot', err);
   }
   try {
-    if (ui.participants && typeof ui.participants === 'object') {
-      applySnapshotParticipants(ui.participants);
+    if (Array.isArray(ui.openModals) && ui.openModals.length) {
+      applyOpenModalIds(ui.openModals);
     }
   } catch (err) {
-    console.error('Failed to apply participant state from snapshot', err);
+    console.error('Failed to apply open modal state from snapshot', err);
   }
   try {
     const scroll = ui.scroll || {};
@@ -21568,6 +21781,13 @@ function applyUiSnapshotWithRetry(ui, attempt = 0) {
     applyUiSnapshot(ui);
     return;
   }
+  if (attempt === 0 && typeof document !== 'undefined') {
+    const nextAttempt = Math.max(attempt + 1, 1);
+    const onReady = () => {
+      requestAnimationFrame(() => applyUiSnapshotWithRetry(ui, nextAttempt));
+    };
+    document.addEventListener('app-render-complete', onReady, { once: true });
+  }
   if (attempt >= UI_RESTORE_MAX_ATTEMPTS) {
     console.warn('UI restore skipped after retries');
     return;
@@ -21577,15 +21797,16 @@ function applyUiSnapshotWithRetry(ui, attempt = 0) {
 
 function applyAppSnapshot(snapshot) {
   const migrated = migrateSavePayload(snapshot);
-  deserialize(migrated.character || {});
-  const uiState = migrated.ui || (migrated.character && migrated.character.uiState ? migrated.character.uiState : null);
+  const { payload } = buildCanonicalPayload(migrated);
+  deserialize(payload.character || {});
+  const uiState = payload.ui || (payload.character && payload.character.uiState ? payload.character.uiState : null);
   if (uiState) {
     applyUiSnapshotWithRetry(uiState);
   }
   if (SNAPSHOT_DEBUG) {
-    console.debug('app snapshot applied', migrated);
+    console.debug('app snapshot applied', payload);
   }
-  return migrated;
+  return payload;
 }
 
 function deserialize(data){
@@ -21745,6 +21966,9 @@ function deserialize(data){
     applySnapshotParticipants(data.appState);
   }
   if (mode === 'view') applyViewLockState();
+  try {
+    document.dispatchEvent(new CustomEvent('app-render-complete'));
+  } catch {}
 }
 
 /* ========= autosave + history ========= */
@@ -22027,6 +22251,12 @@ async function restoreLastLoadedCharacter(){
   if (previousMode === 'view' && savedViewMode !== 'edit') {
     setMode('view', { skipPersist: true });
   }
+  queueCharacterConfirmation({
+    name: storedName,
+    variant: 'loaded',
+    key: `auto-restore:${storedName}:${applied?.meta?.savedAt ?? snapshot?.meta?.savedAt ?? Date.now()}`,
+    meta: applied?.meta || snapshot?.meta,
+  });
   history = [];
   histIdx = -1;
   captureAutosaveSnapshot({ markSynced: true });
@@ -22070,12 +22300,14 @@ function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
   launchSequenceComplete = true;
   attemptPendingPinPrompt();
+  flushCharacterConfirmationQueue();
 }
 
 function markWelcomeSequenceComplete(){
   if(welcomeSequenceComplete) return;
   welcomeSequenceComplete = true;
   attemptPendingPinPrompt();
+  flushCharacterConfirmationQueue();
 }
 
 async function attemptPendingPinPrompt(){
@@ -22192,6 +22424,12 @@ function applyPendingPinnedCharacter(payload){
   if(previousMode === 'view' && savedViewMode !== 'edit'){
     setMode('view', { skipPersist: true });
   }
+  queueCharacterConfirmation({
+    name,
+    variant: 'unlocked',
+    key: `pin-unlock:${name}:${applied?.meta?.savedAt ?? data?.meta?.savedAt ?? Date.now()}`,
+    meta: applied?.meta || data?.meta,
+  });
   history = [];
   histIdx = -1;
   captureAutosaveSnapshot({ markSynced: true });
@@ -22944,6 +23182,7 @@ if (heroInput) {
         await saveCharacter(data, name);
         cueSuccessfulSave();
         markAutoSaveSynced(data);
+        queueCharacterConfirmation({ name, variant: 'created', key: `create:${name}:${data?.meta?.savedAt ?? Date.now()}`, meta: data?.meta });
       } catch (e) {
         console.error('Autosave failed', e);
       }
@@ -23064,6 +23303,32 @@ if (welcomeOverlayIsElement) {
     });
   }
 }
+
+const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
+const characterConfirmationContinue = $('character-confirmation-continue');
+const characterConfirmationClose = $('character-confirmation-close');
+if (characterConfirmationModal) {
+  characterConfirmationModal.addEventListener('click', event => {
+    if (event.target === characterConfirmationModal) {
+      dismissCharacterConfirmation();
+    }
+  }, { capture: true });
+}
+if (characterConfirmationContinue) {
+  characterConfirmationContinue.addEventListener('click', () => {
+    dismissCharacterConfirmation();
+  });
+}
+if (characterConfirmationClose) {
+  characterConfirmationClose.addEventListener('click', () => {
+    dismissCharacterConfirmation();
+  });
+}
+document.addEventListener('keydown', event => {
+  if (event?.key === 'Escape' && characterConfirmationActive) {
+    dismissCharacterConfirmation();
+  }
+});
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     const modal = getWelcomeModal();

@@ -36,7 +36,7 @@ function safeToast(message, type = 'error', options = {}) {
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const CHARACTER_SAVE_QUOTA_ERROR_CODE = 'character-save-quota-exceeded';
 export const SAVE_SCHEMA_VERSION = 2;
-export const UI_STATE_VERSION = 1;
+export const UI_STATE_VERSION = 2;
 export const APP_VERSION = '1.0.0';
 
 function reportCharacterError(err, contextMessage) {
@@ -899,6 +899,7 @@ export async function loadCharacter(name, { bypassPin = false } = {}) {
       recovered ||
       changed ||
       payload.schemaVersion !== SAVE_SCHEMA_VERSION ||
+      payload.uiVersion !== UI_STATE_VERSION ||
       payload.character?.uiState ||
       !isSnapshotChecksumValid(payload);
     if (needsSchemaUpdate) {
