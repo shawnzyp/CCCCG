@@ -2201,8 +2201,9 @@ function initDMLogin(){
   async function loadSelectedCreditBalance(player, requestId) {
     try {
       const data = await loadCharacter(player, { bypassPin: true });
+      const character = data && typeof data === 'object' && data.character ? data.character : data;
       if (creditBalanceRequestId !== requestId) return;
-      const normalized = normalizeCreditBalance(parseStoredCredits(data?.credits));
+      const normalized = normalizeCreditBalance(parseStoredCredits(character?.credits));
       creditSelectedPlayerBalance = typeof normalized === 'number' ? normalized : null;
       if (creditSelectedPlayerBalance == null) {
         updateCreditBalanceDisplays({ current: '—' });
@@ -4220,7 +4221,10 @@ function initDMLogin(){
       ? operations.filter(op => op && typeof op.type === 'string')
       : [];
     if (!normalizedOps.length) throw new Error('No reward operations specified');
-    const save = await loadCharacter(target, { bypassPin: true });
+    const savePayload = await loadCharacter(target, { bypassPin: true });
+    const save = savePayload && typeof savePayload === 'object' && savePayload.character
+      ? savePayload.character
+      : savePayload;
     const now = Date.now();
     const timestampIso = new Date(now).toISOString();
     const logEntries = [];
@@ -10316,8 +10320,9 @@ function initDMLogin(){
       if (!name || !charView) return;
       try {
         const data = await loadCharacter(name, { bypassPin: true });
+        const character = data && typeof data === 'object' && data.character ? data.character : data;
         charView.innerHTML='';
-        charView.appendChild(characterCard(data, name));
+        charView.appendChild(characterCard(character, name));
         openCharacterView();
       } catch (err) {
         console.error('Failed to load character', err);

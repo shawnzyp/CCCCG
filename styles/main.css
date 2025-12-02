@@ -9715,3 +9715,13 @@ html.power-wizard-open body {
     grid-template-columns: 1fr;
   }
 }
+
+.modal-frame--character-confirmation{max-width:520px;margin:0 auto}
+.modal--character-confirmation{display:flex;flex-direction:column;gap:16px;align-items:flex-start;text-align:left;background:linear-gradient(135deg,color-mix(in srgb,var(--surface-3) 80%,var(--accent) 8%),color-mix(in srgb,var(--surface-2) 92%,transparent));border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:0 18px 40px rgba(0,0,0,.35),0 0 0 1px color-mix(in srgb,var(--accent) 12%,transparent)}
+.modal--character-confirmation .x{top:14px;right:14px}
+.character-confirmation__content{display:flex;flex-direction:column;gap:6px}
+.character-confirmation__eyebrow{margin:0;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--accent) 86%,var(--text-muted));font-weight:700}
+.character-confirmation__title{margin:0;font-size:1.5rem;line-height:1.2}
+.character-confirmation__message{margin:0;font-size:1rem;line-height:1.4;color:var(--text-muted)}
+.character-confirmation__actions{width:100%;display:flex;justify-content:flex-end}
+.modal-frame--character-confirmation .modal-frame__halo{background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--accent) 40%,transparent),transparent 55%),radial-gradient(circle at 80% 60%,color-mix(in srgb,var(--accent) 30%,transparent),transparent 65%)}

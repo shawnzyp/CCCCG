@@ -344,7 +344,18 @@ function setTab(name) {
   notifyTabChange(previousTab, name);
 }
 
+let navigationTypeOverride = null;
+
+const setNavigationTypeOverride = (type) => {
+  if (typeof type === 'string' && type.trim()) {
+    navigationTypeOverride = type.trim();
+  } else {
+    navigationTypeOverride = null;
+  }
+};
+
 const getNavigationType = () => {
+  if (navigationTypeOverride) return navigationTypeOverride;
   if (typeof performance === 'undefined') return null;
   if (typeof performance.getEntriesByType === 'function') {
     const entries = performance.getEntriesByType('navigation');
@@ -659,6 +670,7 @@ export {
   getActiveTab,
   getAdjacentTab,
   getNavigationType,
+  setNavigationTypeOverride,
   onTabChange,
   scrollToTopOfCombat,
   triggerTabIconAnimation,

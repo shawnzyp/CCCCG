@@ -1567,6 +1567,27 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="modal-character-confirmation" aria-hidden="true" data-modal-accent-hue="212deg" data-modal-glow-strength="0.5">
+  <div class="modal-frame modal-frame--character-confirmation">
+    <section class="modal modal--character-confirmation" role="dialog" aria-modal="true" aria-labelledby="character-confirmation-title" tabindex="-1">
+      <button class="x" aria-label="Close" id="character-confirmation-close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <div class="character-confirmation__content">
+        <p class="character-confirmation__eyebrow">All systems synced</p>
+        <h3 id="character-confirmation-title" class="character-confirmation__title">Character Loaded</h3>
+        <p id="character-confirmation-message" class="character-confirmation__message">Loaded character: </p>
+      </div>
+      <div class="actions character-confirmation__actions">
+        <button type="button" id="character-confirmation-continue" class="btn">Continue</button>
+      </div>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
 <div class="overlay hidden" id="modal-level-rewards" aria-hidden="true" data-modal-accent-hue="42deg" data-modal-glow-strength="0.55">
   <div class="modal-frame">
     <div class="modal modal--level-rewards" role="dialog" aria-modal="true" aria-labelledby="level-reward-modal-title" tabindex="-1">

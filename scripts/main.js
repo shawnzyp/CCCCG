@@ -14,6 +14,14 @@ import {
   renameCharacter,
   listRecoverableCharacters,
   saveAutoBackup,
+  migrateSavePayload,
+  buildCanonicalPayload,
+  preflightSnapshotForLoad,
+  SAVE_SCHEMA_VERSION,
+  UI_STATE_VERSION,
+  APP_VERSION,
+  calculateSnapshotChecksum,
+  persistLocalAutosaveSnapshot,
 } from './characters.js';
 import {
   initializeAutosaveController,
@@ -23,10 +31,12 @@ import {
   isAutoSaveDirty,
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
+import { canonicalCharacterKey } from './character-keys.js';
 import {
   activateTab,
   getActiveTab,
   getNavigationType,
+  setNavigationTypeOverride,
   onTabChange,
   scrollToTopOfCombat,
   triggerTabIconAnimation
@@ -66,8 +76,8 @@ import {
   subscribeSyncQueue,
   getLastSyncActivity,
 } from './storage.js';
-import { collectSnapshotParticipants, applySnapshotParticipants } from './snapshot-registry.js';
-import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin } from './pin.js';
+import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
+import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
   buildPriceIndex,
@@ -2093,6 +2103,99 @@ let welcomeSequenceComplete = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 
+const CHARACTER_CONFIRMATION_MODAL_ID = 'modal-character-confirmation';
+const CHARACTER_CONFIRMATION_TIMEOUT_MS = 3200;
+let characterConfirmationQueue = [];
+let characterConfirmationActive = null;
+let characterConfirmationTimer = null;
+let characterConfirmationPreviousFocus = null;
+
+function isCharacterConfirmationBlocked() {
+  const body = typeof document !== 'undefined' ? document.body : null;
+  const launching = !!(body && body.classList.contains('launching'));
+  if (launching || !launchSequenceComplete) return true;
+  const welcomeModal = getWelcomeModal();
+  const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
+  if (welcomeVisible || !welcomeSequenceComplete) return true;
+  return false;
+}
+
+function describeCharacterConfirmation(entry) {
+  const variant = entry?.variant || 'loaded';
+  const name = entry?.name || 'Character';
+  const copy = {
+    loaded: { title: 'Character Loaded', prefix: 'Loaded character' },
+    recovered: { title: 'Character Recovered', prefix: 'Recovered character' },
+    created: { title: 'Character Created', prefix: 'Created character' },
+    unlocked: { title: 'Character Unlocked', prefix: 'Loaded character' },
+  };
+  const chosen = copy[variant] || copy.loaded;
+  return {
+    title: chosen.title,
+    message: `${chosen.prefix}: ${name}`,
+  };
+}
+
+function clearCharacterConfirmationTimer() {
+  if (characterConfirmationTimer) {
+    clearTimeout(characterConfirmationTimer);
+    characterConfirmationTimer = null;
+  }
+}
+
+function dismissCharacterConfirmation() {
+  if (!characterConfirmationActive) return;
+  clearCharacterConfirmationTimer();
+  hide(CHARACTER_CONFIRMATION_MODAL_ID);
+  const restoreTarget = characterConfirmationPreviousFocus;
+  characterConfirmationActive = null;
+  characterConfirmationPreviousFocus = null;
+  if (restoreTarget && typeof restoreTarget.focus === 'function' && restoreTarget.isConnected) {
+    try { restoreTarget.focus(); } catch {}
+  }
+  requestAnimationFrame(() => flushCharacterConfirmationQueue());
+}
+
+function showCharacterConfirmation(entry) {
+  const modal = document.getElementById(CHARACTER_CONFIRMATION_MODAL_ID);
+  if (!modal) return;
+  const titleEl = document.getElementById('character-confirmation-title');
+  const messageEl = document.getElementById('character-confirmation-message');
+  const continueBtn = document.getElementById('character-confirmation-continue');
+  const description = describeCharacterConfirmation(entry);
+  if (titleEl) titleEl.textContent = description.title;
+  if (messageEl) messageEl.textContent = description.message;
+  characterConfirmationActive = entry;
+  characterConfirmationPreviousFocus = document.activeElement || null;
+  clearCharacterConfirmationTimer();
+  show(CHARACTER_CONFIRMATION_MODAL_ID);
+  requestAnimationFrame(() => {
+    try {
+      if (continueBtn) continueBtn.focus();
+    } catch {}
+  });
+  characterConfirmationTimer = setTimeout(() => {
+    dismissCharacterConfirmation();
+  }, CHARACTER_CONFIRMATION_TIMEOUT_MS);
+}
+
+function flushCharacterConfirmationQueue() {
+  if (characterConfirmationActive) return;
+  if (isCharacterConfirmationBlocked()) return;
+  const next = characterConfirmationQueue.shift();
+  if (!next) return;
+  showCharacterConfirmation(next);
+}
+
+function queueCharacterConfirmation({ name, variant = 'loaded', key, meta } = {}) {
+  const normalizedName = typeof name === 'string' && name.trim() ? name.trim() : 'Character';
+  const dedupeKey = key || `${variant}:${normalizedName}:${meta?.savedAt ?? Date.now()}`;
+  if (characterConfirmationActive?.key === dedupeKey) return;
+  if (characterConfirmationQueue.some(entry => entry.key === dedupeKey)) return;
+  characterConfirmationQueue.push({ key: dedupeKey, name: normalizedName, variant, meta });
+  flushCharacterConfirmationQueue();
+}
+
 let playerToolsTabElement = null;
 
 function getPlayerToolsTabElement() {
@@ -3643,17 +3746,19 @@ function applyEditIcons(root=document){
   qsa('button[data-act="edit"]', root).forEach(applyEditIcon);
 }
 
-async function applyLockIcon(btn){
+async function applyLockIcon(btn, { force = false } = {}){
   if(!btn) return;
   const name = btn.dataset.lock;
-  await syncPin(name);
-  btn.innerHTML = hasPin(name) ? ICON_LOCK : ICON_UNLOCK;
+  const status = await ensureAuthoritativePinState(name, { force });
+  btn.innerHTML = status.pinned ? ICON_LOCK : ICON_UNLOCK;
   btn.setAttribute('aria-label','Toggle PIN');
   Object.assign(btn.style, DELETE_ICON_STYLE);
 }
 
 function applyLockIcons(root=document){
-  qsa('button[data-lock]', root).forEach(btn=>{ applyLockIcon(btn); });
+  qsa('button[data-lock]', root).forEach(btn=>{
+    applyLockIcon(btn).catch(err => console.error('Failed to apply lock icon', err));
+  });
 }
 
 
@@ -10406,7 +10511,7 @@ function setCredits(v, options = {}){
     const name = currentCharacter();
     if (name) {
       playStatusCue('credits-save');
-      saveCharacter(serialize(), name).catch(e => {
+      saveCharacter(createAppSnapshot(), name).catch(e => {
         console.error('Credits cloud save failed', e);
       });
     }
@@ -10990,7 +11095,7 @@ function queueDmNotification(message, meta = {}) {
 function stashForcedRefreshState() {
   let snapshot = null;
   try {
-    snapshot = serialize();
+    snapshot = createAppSnapshot();
   } catch (err) {
     // ignore serialization errors
   }
@@ -12643,8 +12748,8 @@ if(charList){
       show('modal-load');
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
-      await syncPin(ch);
-      if(hasPin(ch)){
+      const status = await ensureAuthoritativePinState(ch, { force: true });
+      if(status.pinned){
         const pin = await pinPrompt('Enter PIN to disable protection');
         if(pin !== null){
           const ok = await verifyStoredPin(ch, pin);
@@ -12722,9 +12827,10 @@ if(newCharBtn){
     if(!clean) return toast('Name required','error');
     setCurrentCharacter(clean);
     syncMiniGamePlayerName();
-    deserialize(DEFAULT_STATE);
+    applyAppSnapshot(createDefaultSnapshot());
     setMode('edit');
     hide('modal-load-list');
+    queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
     toast(`Switched to ${clean}`,'success');
   });
 }
@@ -12755,17 +12861,22 @@ async function doLoad(){
   if(!pendingLoad) return;
   const previousMode = useViewMode();
   try{
-    const data = pendingLoad.ts
+    const snapshot = pendingLoad.ts
       ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
       : await loadCharacter(pendingLoad.name);
-    deserialize(data);
+    const applied = applyAppSnapshot(snapshot);
     applyViewLockState();
-    const savedViewMode = data?.uiState?.viewMode;
+    const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
     if(previousMode === 'view' && savedViewMode !== 'edit'){
       setMode('view', { skipPersist: true });
     }
     setCurrentCharacter(pendingLoad.name);
     syncMiniGamePlayerName();
+    const variant = pendingLoad.ts ? 'recovered' : 'loaded';
+    const key = pendingLoad.ts
+      ? `${variant}:${pendingLoad.name}:${pendingLoad.ts}`
+      : `${variant}:${pendingLoad.name}:${applied?.meta?.savedAt ?? Date.now()}`;
+    queueCharacterConfirmation({ name: pendingLoad.name, variant, key, meta: applied?.meta });
     hide('modal-load');
     hide('modal-load-list');
     toast(`Loaded ${pendingLoad.name}`,'success');
@@ -12797,13 +12908,19 @@ if (autoChar) {
     try {
       setCurrentCharacter(autoChar);
       syncMiniGamePlayerName();
-      const data = await loadCharacter(autoChar);
-      deserialize(data);
+      const snapshot = await loadCharacter(autoChar);
+      const applied = applyAppSnapshot(snapshot);
       applyViewLockState();
-      const savedViewMode = data?.uiState?.viewMode;
+      const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
       if (previousMode === 'view' && savedViewMode !== 'edit') {
         setMode('view', { skipPersist: true });
       }
+      queueCharacterConfirmation({
+        name: autoChar,
+        variant: 'loaded',
+        key: `url:${autoChar}:${applied?.meta?.savedAt ?? Date.now()}`,
+        meta: applied?.meta,
+      });
     } catch (e) {
       console.error('Failed to load character from URL', e);
     } finally {
@@ -15441,6 +15558,72 @@ function resetPowerEditorState() {
   powerEditorState.subtype = null;
   powerEditorState.wizardElements = {};
 }
+
+function isPowerWizardOpen() {
+  const overlay = powerEditorState.overlay || document.getElementById('modal-power-editor');
+  if (!overlay) return false;
+  const hiddenByClass = typeof overlay.classList !== 'undefined' && overlay.classList.contains('hidden');
+  const ariaHidden = overlay.getAttribute && overlay.getAttribute('aria-hidden') === 'true';
+  const hiddenByStyle = overlay.style && overlay.style.display === 'none';
+  return !(hiddenByClass || ariaHidden || hiddenByStyle);
+}
+
+function capturePowerWizardSnapshot() {
+  if (!isPowerWizardOpen()) return null;
+  const snapshot = {
+    open: true,
+    stepIndex: Number.isFinite(powerEditorState.stepIndex) ? powerEditorState.stepIndex : 0,
+    isNew: !!powerEditorState.isNew,
+    target: powerEditorState.targetList?.id === 'sigs' ? 'sigs' : 'powers',
+    moveType: powerEditorState.moveType || null,
+    subtype: powerEditorState.subtype || null,
+  };
+  const workingPower = powerEditorState.workingPower || (powerEditorState.card ? serializePowerCard(powerEditorState.card) : null);
+  if (workingPower && typeof workingPower === 'object') {
+    try {
+      snapshot.power = JSON.parse(JSON.stringify(workingPower));
+    } catch {
+      snapshot.power = { ...workingPower };
+    }
+  }
+  return snapshot;
+}
+
+function applyPowerWizardSnapshot(state) {
+  if (!state || typeof state !== 'object' || !state.open) return;
+  try {
+    const target = state.target === 'sigs' ? 'sigs' : 'powers';
+    const power = state.power && typeof state.power === 'object' ? { ...state.power } : null;
+    openPowerCreationWizard({ mode: state.isNew ? 'create' : 'edit', power, target });
+    requestAnimationFrame(() => {
+      try {
+        if (power && !powerEditorState.workingPower) {
+          powerEditorState.workingPower = { ...power };
+        }
+        if (state.moveType) powerEditorState.moveType = state.moveType;
+        if (state.subtype) powerEditorState.subtype = state.subtype;
+        if (Number.isFinite(state.stepIndex)) {
+          const desiredIndex = Math.max(0, Math.min(state.stepIndex, (powerEditorState.steps || []).length - 1));
+          goToWizardStep(desiredIndex);
+        }
+        if (typeof updatePowerEditorSaveState === 'function') {
+          updatePowerEditorSaveState();
+        }
+      } catch (err) {
+        console.error('Failed to finalize power wizard restore', err);
+      }
+    });
+  } catch (err) {
+    console.error('Failed to restore power wizard state', err);
+  }
+}
+
+registerSnapshotParticipant({
+  key: 'powerWizard',
+  capture: capturePowerWizardSnapshot,
+  apply: applyPowerWizardSnapshot,
+  priority: 5,
+});
 
 function handlePowerEditorSave(event) {
   if (event && typeof event.preventDefault === 'function') {
@@ -21155,6 +21338,9 @@ function applySerializedFormState(serialized) {
   });
   return restored;
 }
+const SNAPSHOT_DEBUG = false;
+const UI_RESTORE_MAX_ATTEMPTS = 30;
+
 function serialize(){
   const data={};
   function getVal(sel, root){ const el = qs(sel, root); return el ? el.value : ''; }
@@ -21272,36 +21458,388 @@ function serialize(){
   if (window.CC && CC.partials && Object.keys(CC.partials).length) {
     try { data.partials = JSON.parse(JSON.stringify(CC.partials)); } catch { data.partials = {}; }
   }
-  const uiState = {};
-  try {
-    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
-    if (typeof activeTab === 'string' && activeTab) {
-      uiState.activeTab = activeTab;
-    }
-  } catch {}
-  if (mode === 'view' || mode === 'edit') {
-    uiState.viewMode = mode;
-  }
-  if (typeof activeTheme === 'string' && activeTheme) {
-    uiState.theme = activeTheme;
-  }
-  if (typeof isPlayerToolsDrawerOpen === 'boolean') {
-    uiState.playerToolsOpen = isPlayerToolsDrawerOpen;
-  }
-  if (typeof isTickerDrawerOpen === 'boolean') {
-    uiState.tickerOpen = isTickerDrawerOpen;
-  }
-  if (Object.keys(uiState).length > 0) {
-    data.uiState = uiState;
-  }
-  const participantState = collectSnapshotParticipants();
-  if (participantState && Object.keys(participantState).length > 0) {
-    data.appState = participantState;
-  }
   return data;
 }
 const DEFAULT_STATE = serialize();
+
+function createDefaultSnapshot() {
+  let character;
+  try {
+    character = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  } catch {
+    character = DEFAULT_STATE;
+  }
+  const ui = null;
+  const meta = {
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    uiVersion: UI_STATE_VERSION,
+    appVersion: APP_VERSION,
+    savedAt: Date.now(),
+  };
+  const checksum = calculateSnapshotChecksum({ character, ui });
+  return {
+    meta: { ...meta, checksum },
+    schemaVersion: meta.schemaVersion,
+    uiVersion: meta.uiVersion,
+    savedAt: meta.savedAt,
+    appVersion: meta.appVersion,
+    character,
+    ui,
+    checksum,
+  };
+}
+
+const UI_SNAPSHOT_INPUT_SELECTORS = [
+  '#augment-search',
+  '#dm-notifications-filter-character',
+  '#dm-notifications-filter-severity',
+  '#dm-notifications-filter-resolved',
+  '#dm-notifications-filter-search',
+  '#dm-characters-search',
+];
+
+const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
+  WELCOME_MODAL_ID,
+  'modal-pin',
+  'modal-character-confirmation',
+  'launch-animation',
+]);
+
+function captureUiFormInputs() {
+  const inputs = {};
+  if (typeof document === 'undefined') return inputs;
+  UI_SNAPSHOT_INPUT_SELECTORS.forEach(selector => {
+    try {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      const snapshot = captureFormFieldSnapshot(el);
+      if (!snapshot) return;
+      inputs[selector] = snapshot;
+    } catch (err) {
+      console.error('Failed to capture UI filter input for snapshot', err);
+    }
+  });
+  return inputs;
+}
+
+function applyUiFormInputs(inputs = {}) {
+  if (typeof document === 'undefined' || !inputs || typeof inputs !== 'object') return;
+  Object.entries(inputs).forEach(([selector, record]) => {
+    try {
+      const el = document.querySelector(selector);
+      if (!el) return;
+      const applied = applyFormFieldSnapshot(el, record);
+      if (!applied) return;
+      ['change', 'input'].forEach(type => {
+        try {
+          el.dispatchEvent(new Event(type, { bubbles: true }));
+        } catch {}
+      });
+    } catch (err) {
+      console.error('Failed to apply UI filter input from snapshot', err);
+    }
+  });
+}
+
+function captureOpenModalIds() {
+  if (typeof document === 'undefined') return [];
+  try {
+    return Array.from(document.querySelectorAll('.overlay'))
+      .filter(modal => !modal.classList.contains('hidden'))
+      .map(modal => modal.id)
+      .filter(id => id && !UI_SNAPSHOT_MODAL_BLOCKLIST.has(id));
+  } catch (err) {
+    console.error('Failed to capture open modals for snapshot', err);
+    return [];
+  }
+}
+
+function applyOpenModalIds(ids = []) {
+  if (!Array.isArray(ids) || typeof document === 'undefined') return;
+  ids.forEach(id => {
+    if (!id || UI_SNAPSHOT_MODAL_BLOCKLIST.has(id)) return;
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    try {
+      if (modal.classList.contains('hidden')) {
+        show(id);
+      }
+    } catch (err) {
+      console.error('Failed to reopen modal during snapshot restore', err);
+    }
+  });
+}
+
+function createUiSnapshot() {
+  const ui = {};
+  try {
+    const activeTab = typeof getActiveTab === 'function' ? getActiveTab() : null;
+    if (typeof activeTab === 'string' && activeTab) {
+      ui.activeTabId = activeTab;
+    }
+  } catch {}
+  try {
+    const route = typeof getNavigationType === 'function' ? getNavigationType() : null;
+    if (typeof route === 'string' && route) {
+      ui.route = route;
+    }
+  } catch {}
+  if (mode === 'view' || mode === 'edit') {
+    ui.viewMode = mode;
+  }
+  if (typeof activeTheme === 'string' && activeTheme) {
+    ui.theme = activeTheme;
+  }
+  const openDrawers = {};
+  if (typeof isPlayerToolsDrawerOpen === 'boolean') {
+    openDrawers.playerTools = isPlayerToolsDrawerOpen;
+  }
+  if (typeof isTickerDrawerOpen === 'boolean') {
+    openDrawers.ticker = isTickerDrawerOpen;
+  }
+  if (Object.keys(openDrawers).length) {
+    ui.openDrawers = openDrawers;
+  }
+  const scroll = { panels: {} };
+  if (typeof window !== 'undefined') {
+    scroll.windowY = Number.isFinite(window.scrollY) ? window.scrollY : 0;
+  }
+  try {
+    const playerToolsViewport = document.querySelector('#player-tools-drawer .pt-app__viewport');
+    if (playerToolsViewport) {
+      scroll.panels['#player-tools-drawer .pt-app__viewport'] = playerToolsViewport.scrollTop || 0;
+    }
+    const phoneViewport = document.querySelector('.player-tools-phone__viewport');
+    if (phoneViewport) {
+      scroll.panels['.player-tools-phone__viewport'] = phoneViewport.scrollTop || 0;
+    }
+  } catch {}
+  if (scroll.windowY || Object.keys(scroll.panels).length) {
+    ui.scroll = scroll;
+  }
+  try {
+    const inputs = captureUiFormInputs();
+    if (inputs && Object.keys(inputs).length) {
+      ui.inputs = inputs;
+    }
+  } catch {}
+  const collapsed = {};
+  try {
+    qsa('details[id]').forEach(detail => {
+      collapsed[detail.id] = detail.open === true || detail.getAttribute('open') === '';
+    });
+  } catch {}
+  if (Object.keys(collapsed).length) {
+    ui.collapsed = collapsed;
+  }
+  try {
+    const openModals = captureOpenModalIds();
+    if (openModals.length) {
+      ui.openModals = openModals;
+    }
+  } catch {}
+  try {
+    const participantState = collectSnapshotParticipants();
+    if (participantState && Object.keys(participantState).length > 0) {
+      ui.participants = participantState;
+    }
+  } catch {}
+  if (SNAPSHOT_DEBUG) {
+    console.debug('snapshot created', ui);
+  }
+  return ui;
+}
+
+function createAppSnapshot() {
+  const character = serialize();
+  const ui = createUiSnapshot();
+  const meta = {
+    schemaVersion: SAVE_SCHEMA_VERSION,
+    uiVersion: UI_STATE_VERSION,
+    appVersion: APP_VERSION,
+    savedAt: Date.now(),
+  };
+  const checksum = calculateSnapshotChecksum({ character, ui });
+  meta.checksum = checksum;
+  const snapshot = {
+    meta,
+    schemaVersion: meta.schemaVersion,
+    uiVersion: meta.uiVersion,
+    savedAt: meta.savedAt,
+    appVersion: meta.appVersion,
+    checksum,
+    character,
+    ui,
+  };
+  if (SNAPSHOT_DEBUG) {
+    console.debug('app snapshot created', snapshot);
+  }
+  return snapshot;
+}
+
+function isUiRestoreReady() {
+  if (typeof document === 'undefined') return false;
+  if (document.readyState === 'loading') return false;
+  if (!document.body) return false;
+  const hasPowers = !!document.getElementById('powers');
+  const hasTabs = !!document.querySelector('.tab[data-go]');
+  return hasPowers && hasTabs;
+}
+
+function applyUiSnapshot(ui) {
+  if (!ui || typeof ui !== 'object') return;
+  try {
+    if (typeof ui.theme === 'string' && ui.theme) {
+      applyTheme(ui.theme, { animate: false });
+      setStoredTheme(ui.theme);
+    }
+  } catch (err) {
+    console.error('Failed to apply theme from snapshot', err);
+  }
+  try {
+    if (typeof ui.route === 'string' && ui.route) {
+      setNavigationTypeOverride(ui.route);
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(() => {
+          try { setNavigationTypeOverride(null); } catch {}
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to apply route from snapshot', err);
+  }
+  try {
+    if (ui.viewMode === 'view' || ui.viewMode === 'edit') {
+      setMode(ui.viewMode, { skipPersist: true });
+    }
+  } catch (err) {
+    console.error('Failed to apply view mode from snapshot', err);
+  }
+  try {
+    const tabId = ui.activeTabId || ui.activeTab;
+    if (typeof tabId === 'string' && tabId) {
+      try { localStorage.setItem('active-tab', tabId); } catch {}
+      if (qs(`.tab[data-go="${tabId}"]`)) {
+        activateTab(tabId);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to apply active tab from snapshot', err);
+  }
+  try {
+    const drawers = ui.openDrawers && typeof ui.openDrawers === 'object' ? ui.openDrawers : {};
+    if ('playerTools' in drawers) {
+      if (drawers.playerTools) openPlayerToolsDrawer();
+      else closePlayerToolsDrawer();
+    }
+    if ('ticker' in drawers) {
+      setTickerDrawerOpen(drawers.ticker);
+    }
+  } catch (err) {
+    console.error('Failed to apply drawer state from snapshot', err);
+  }
+  try {
+    if (ui.participants && typeof ui.participants === 'object') {
+      applySnapshotParticipants(ui.participants);
+    }
+  } catch (err) {
+    console.error('Failed to apply participant state from snapshot', err);
+  }
+  try {
+    if (ui.inputs && typeof ui.inputs === 'object') {
+      applyUiFormInputs(ui.inputs);
+    }
+  } catch (err) {
+    console.error('Failed to apply UI filter state from snapshot', err);
+  }
+  try {
+    const collapsed = ui.collapsed || ui.collapsedSections || {};
+    Object.entries(collapsed).forEach(([id, isOpen]) => {
+      if (!id) return;
+      const detail = document.getElementById(id);
+      if (!detail || detail.tagName !== 'DETAILS') return;
+      detail.open = isOpen === true;
+    });
+  } catch (err) {
+    console.error('Failed to apply collapsed state from snapshot', err);
+  }
+  try {
+    if (Array.isArray(ui.openModals) && ui.openModals.length) {
+      applyOpenModalIds(ui.openModals);
+    }
+  } catch (err) {
+    console.error('Failed to apply open modal state from snapshot', err);
+  }
+  try {
+    const scroll = ui.scroll || {};
+    if (typeof scroll.windowY === 'number' && typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        try {
+          window.scrollTo({ top: scroll.windowY, behavior: 'auto' });
+        } catch (err) {
+          window.scrollTo(0, scroll.windowY);
+        }
+      });
+    }
+    const panels = scroll.panels && typeof scroll.panels === 'object' ? scroll.panels : {};
+    Object.entries(panels).forEach(([selector, value]) => {
+      if (typeof value !== 'number') return;
+      requestAnimationFrame(() => {
+        try {
+          const el = document.querySelector(selector);
+          if (el && typeof el.scrollTop === 'number') {
+            el.scrollTop = value;
+          }
+        } catch {}
+      });
+    });
+  } catch (err) {
+    console.error('Failed to apply scroll state from snapshot', err);
+  }
+  if (SNAPSHOT_DEBUG) {
+    console.debug('ui snapshot applied', ui);
+  }
+}
+
+function applyUiSnapshotWithRetry(ui, attempt = 0) {
+  if (!ui) return;
+  if (isUiRestoreReady()) {
+    applyUiSnapshot(ui);
+    return;
+  }
+  if (attempt === 0 && typeof document !== 'undefined') {
+    const nextAttempt = Math.max(attempt + 1, 1);
+    const onReady = () => {
+      requestAnimationFrame(() => applyUiSnapshotWithRetry(ui, nextAttempt));
+    };
+    document.addEventListener('app-render-complete', onReady, { once: true });
+  }
+  if (attempt >= UI_RESTORE_MAX_ATTEMPTS) {
+    console.warn('UI restore skipped after retries');
+    return;
+  }
+  requestAnimationFrame(() => applyUiSnapshotWithRetry(ui, attempt + 1));
+}
+
+function applyAppSnapshot(snapshot) {
+  const migrated = migrateSavePayload(snapshot);
+  const { payload } = buildCanonicalPayload(migrated);
+  deserialize(payload.character || {});
+  const uiState = payload.ui || (payload.character && payload.character.uiState ? payload.character.uiState : null);
+  if (uiState) {
+    applyUiSnapshotWithRetry(uiState);
+  }
+  if (SNAPSHOT_DEBUG) {
+    console.debug('app snapshot applied', payload);
+  }
+  return payload;
+}
+
 function deserialize(data){
+  if (data && typeof data === 'object' && data.character && data.meta) {
+    applyAppSnapshot(data);
+    return;
+  }
   migratePublicOpinionSnapshot(data);
   const storedLevelProgress = data && (data.levelProgressState || data.levelProgress);
   const storedAugments = data && data.augmentState;
@@ -21458,6 +21996,9 @@ function deserialize(data){
     applySnapshotParticipants(data.appState);
   }
   if (mode === 'view') applyViewLockState();
+  try {
+    document.dispatchEvent(new CustomEvent('app-render-complete'));
+  } catch {}
 }
 
 /* ========= autosave + history ========= */
@@ -21568,7 +22109,7 @@ function captureAutosaveSnapshot(options = {}) {
   const { markSynced = false } = options;
   let snapshot;
   try {
-    snapshot = serialize();
+    snapshot = createAppSnapshot();
   } catch (err) {
     console.error('Failed to capture autosave snapshot', err);
     return null;
@@ -21603,6 +22144,14 @@ function captureAutosaveSnapshot(options = {}) {
   if (localPersisted) {
     lastAutosaveStorageErrorToastAt = 0;
     lastAutosaveStorageErrorLogAt = 0;
+    try {
+      const name = currentCharacter();
+      if (name) {
+        persistLocalAutosaveSnapshot(name, snapshot, serialized);
+      }
+    } catch (err) {
+      console.error('Failed to persist rolling autosave snapshots', err);
+    }
   }
 
   if (markSynced && localPersisted) {
@@ -21643,19 +22192,18 @@ if (typeof window !== 'undefined') {
 }
 
 function undo(){
-  if(histIdx > 0){ histIdx--; deserialize(history[histIdx]); }
+  if(histIdx > 0){ histIdx--; applyAppSnapshot(history[histIdx]); }
 }
 function redo(){
-  if(histIdx < history.length - 1){ histIdx++; deserialize(history[histIdx]); }
+  if(histIdx < history.length - 1){ histIdx++; applyAppSnapshot(history[histIdx]); }
 }
 
 (function(){
   try{ localStorage.removeItem(AUTO_KEY); }catch{}
-  if(forcedRefreshResume && forcedRefreshResume.data){
-    deserialize(forcedRefreshResume.data);
-  } else {
-    deserialize(DEFAULT_STATE);
-  }
+  const startingSnapshot = forcedRefreshResume && forcedRefreshResume.data
+    ? migrateSavePayload(forcedRefreshResume.data)
+    : createDefaultSnapshot();
+  applyAppSnapshot(startingSnapshot);
   history = [];
   histIdx = -1;
   const initialCapture = captureAutosaveSnapshot({ markSynced: true });
@@ -21700,31 +22248,49 @@ async function restoreLastLoadedCharacter(){
   if (typeof loadLocalFn !== 'function') return;
   let data = null;
   try {
-    data = await loadLocalFn(storedName);
+    const canonical = canonicalCharacterKey(storedName) || storedName;
+    data = await loadLocalFn(canonical);
+    if (!data && canonical !== storedName) {
+      data = await loadLocalFn(storedName);
+    }
   } catch (err) {
     console.error('Failed to load stored character for auto-restore', err);
     return;
   }
   if (!data) return;
-  const previousMode = useViewMode();
+  let snapshot;
   try {
-    await syncPin(storedName);
+    ({ payload: snapshot } = preflightSnapshotForLoad(storedName, data));
+  } catch (err) {
+    console.error('Auto-restore validation failed', err);
+    return;
+  }
+  const previousMode = useViewMode();
+  let authoritativePin = { pinned: hasPin(storedName), source: 'local-fallback' };
+  try {
+    authoritativePin = await ensureAuthoritativePinState(storedName, { force: true });
   } catch (err) {
     console.error('Failed to sync PIN before auto-restore', err);
   }
-  if (hasPin(storedName)) {
-    pendingPinnedAutoLoad = { name: storedName, data, previousMode };
+  if (authoritativePin.pinned) {
+    pendingPinnedAutoLoad = { name: storedName, data: snapshot, previousMode };
     attemptPendingPinPrompt();
     return;
   }
   setCurrentCharacter(storedName);
   syncMiniGamePlayerName();
-  deserialize(data);
+  const applied = applyAppSnapshot(snapshot);
   applyViewLockState();
-  const savedViewMode = data?.uiState?.viewMode;
+  const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
   if (previousMode === 'view' && savedViewMode !== 'edit') {
     setMode('view', { skipPersist: true });
   }
+  queueCharacterConfirmation({
+    name: storedName,
+    variant: 'loaded',
+    key: `auto-restore:${storedName}:${applied?.meta?.savedAt ?? snapshot?.meta?.savedAt ?? Date.now()}`,
+    meta: applied?.meta || snapshot?.meta,
+  });
   history = [];
   histIdx = -1;
   captureAutosaveSnapshot({ markSynced: true });
@@ -21768,12 +22334,14 @@ function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
   launchSequenceComplete = true;
   attemptPendingPinPrompt();
+  flushCharacterConfirmationQueue();
 }
 
 function markWelcomeSequenceComplete(){
   if(welcomeSequenceComplete) return;
   welcomeSequenceComplete = true;
   attemptPendingPinPrompt();
+  flushCharacterConfirmationQueue();
 }
 
 async function attemptPendingPinPrompt(){
@@ -21795,17 +22363,21 @@ async function promptForPendingPinnedCharacter(){
   if(!payload) return;
   const { name } = payload;
   try {
-    await syncPin(name);
+    const authoritative = await ensureAuthoritativePinState(name, { force: true });
+    if(!authoritative.pinned){
+      if(!pendingPinnedAutoLoad || pendingPinnedAutoLoad.name !== name){
+        return;
+      }
+      const unlocked = pendingPinnedAutoLoad;
+      pendingPinnedAutoLoad = null;
+      applyPendingPinnedCharacter(unlocked);
+      return;
+    }
   } catch (err) {
     console.error('Failed to sync PIN for auto-restore', err);
   }
+
   if(!pendingPinnedAutoLoad || pendingPinnedAutoLoad.name !== name){
-    return;
-  }
-  if(!hasPin(name)){
-    const unlocked = pendingPinnedAutoLoad;
-    pendingPinnedAutoLoad = null;
-    applyPendingPinnedCharacter(unlocked);
     return;
   }
 
@@ -21880,12 +22452,18 @@ function applyPendingPinnedCharacter(payload){
   if(!name || !data) return;
   setCurrentCharacter(name);
   syncMiniGamePlayerName();
-  deserialize(data);
+  const applied = applyAppSnapshot(data);
   applyViewLockState();
-  const savedViewMode = data?.uiState?.viewMode;
+  const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
   if(previousMode === 'view' && savedViewMode !== 'edit'){
     setMode('view', { skipPersist: true });
   }
+  queueCharacterConfirmation({
+    name,
+    variant: 'unlocked',
+    key: `pin-unlock:${name}:${applied?.meta?.savedAt ?? data?.meta?.savedAt ?? Date.now()}`,
+    meta: applied?.meta || data?.meta,
+  });
   history = [];
   histIdx = -1;
   captureAutosaveSnapshot({ markSynced: true });
@@ -22594,7 +23172,7 @@ $('btn-save').addEventListener('click', async () => {
   if (!confirm(`Save current progress for ${target}?`)) return;
   btn.classList.add('loading'); btn.disabled = true;
   try {
-    const data = serialize();
+    const data = createAppSnapshot();
     const serialized = JSON.stringify(data);
     if (oldChar && vig && vig !== oldChar) {
       await renameCharacter(oldChar, vig, data);
@@ -22606,6 +23184,14 @@ $('btn-save').addEventListener('click', async () => {
       await saveCharacter(data, target);
     }
     markAutoSaveSynced(data, serialized);
+    if (oldChar && vig && vig !== oldChar) {
+      queueCharacterConfirmation({
+        name: target,
+        variant: 'loaded',
+        key: `rename:${oldChar}:${target}:${data?.meta?.savedAt ?? Date.now()}`,
+        meta: data?.meta,
+      });
+    }
     cueSuccessfulSave();
     toast('Save successful', 'success');
   } catch (e) {
@@ -22634,10 +23220,11 @@ if (heroInput) {
       setCurrentCharacter(name);
       syncMiniGamePlayerName();
       try {
-        const data = serialize();
+        const data = createAppSnapshot();
         await saveCharacter(data, name);
         cueSuccessfulSave();
         markAutoSaveSynced(data);
+        queueCharacterConfirmation({ name, variant: 'created', key: `create:${name}:${data?.meta?.savedAt ?? Date.now()}`, meta: data?.meta });
       } catch (e) {
         console.error('Autosave failed', e);
       }
@@ -22758,6 +23345,32 @@ if (welcomeOverlayIsElement) {
     });
   }
 }
+
+const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
+const characterConfirmationContinue = $('character-confirmation-continue');
+const characterConfirmationClose = $('character-confirmation-close');
+if (characterConfirmationModal) {
+  characterConfirmationModal.addEventListener('click', event => {
+    if (event.target === characterConfirmationModal) {
+      dismissCharacterConfirmation();
+    }
+  }, { capture: true });
+}
+if (characterConfirmationContinue) {
+  characterConfirmationContinue.addEventListener('click', () => {
+    dismissCharacterConfirmation();
+  });
+}
+if (characterConfirmationClose) {
+  characterConfirmationClose.addEventListener('click', () => {
+    dismissCharacterConfirmation();
+  });
+}
+document.addEventListener('keydown', event => {
+  if (event?.key === 'Escape' && characterConfirmationActive) {
+    dismissCharacterConfirmation();
+  }
+});
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') {
     const modal = getWelcomeModal();
