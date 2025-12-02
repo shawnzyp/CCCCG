@@ -3555,9 +3555,11 @@ body:not(.no-hover) .credits-card__submit:hover,
   position:fixed;
   inset:0;
   pointer-events:none;
-  z-index:9999;
+  z-index:2500;
   opacity:0;
   transition:opacity 120ms linear;
+  backdrop-filter:blur(calc(var(--damage, 0) * 0.6px));
+  -webkit-backdrop-filter:blur(calc(var(--damage, 0) * 0.6px));
 }
 #damage-overlay.is-on{
   opacity:clamp(0,calc(var(--damage, 0) * 0.95),0.95);
@@ -3574,13 +3576,18 @@ body:not(.no-hover) .credits-card__submit:hover,
       rgba(0,0,0,0) 45%,
       rgba(0,0,0,0.25) 70%,
       rgba(0,0,0,0.55) 100%),
+    radial-gradient(circle at 10% 12%, rgba(110,240,255,0.22), rgba(0,0,0,0) 55%),
+    radial-gradient(circle at 92% 18%, rgba(110,240,255,0.18), rgba(0,0,0,0) 60%),
+    radial-gradient(circle at 85% 92%, rgba(110,240,255,0.14), rgba(0,0,0,0) 62%),
     radial-gradient(circle at 10% 12%, color-mix(in srgb, var(--accent, #6ef0ff) 28%, transparent), transparent 55%),
     radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--accent, #6ef0ff) 22%, transparent), transparent 60%),
     radial-gradient(circle at 85% 92%, color-mix(in srgb, var(--accent, #6ef0ff) 18%, transparent), transparent 62%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800'%3E%3Cg fill='none' stroke='black' stroke-opacity='0.35' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M760 30 L690 110 L720 170 L640 260 L700 310 L620 410 L700 520 L650 590 L720 680 L680 800'/%3E%3Cpath d='M690 110 L600 90 L520 140 L450 120 L380 180 L300 170 L210 240 L120 220 L40 260'/%3E%3Cpath d='M720 170 L820 210 L900 190 L1010 260 L1120 250 L1200 290'/%3E%3Cpath d='M640 260 L560 290 L500 350 L420 380 L360 450 L280 480 L210 560 L140 600 L60 690'/%3E%3Cpath d='M700 310 L780 360 L830 430 L920 470 L980 540 L1060 590 L1140 680'/%3E%3Cpath d='M620 410 L560 460 L520 540 L450 610 L420 690'/%3E%3Cpath d='M700 520 L780 560 L850 640 L930 700'/%3E%3C/g%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 800'%3E%3Cg fill='none' stroke='white' stroke-opacity='0.75' stroke-width='2'%3E%3Cpath d='M760 30 L690 110 L720 170 L640 260 L700 310 L620 410 L700 520 L650 590 L720 680 L680 800'/%3E%3Cpath d='M690 110 L600 90 L520 140 L450 120 L380 180 L300 170 L210 240 L120 220 L40 260'/%3E%3Cpath d='M720 170 L820 210 L900 190 L1010 260 L1120 250 L1200 290'/%3E%3Cpath d='M640 260 L560 290 L500 350 L420 380 L360 450 L280 480 L210 560 L140 600 L60 690'/%3E%3Cpath d='M700 310 L780 360 L830 430 L920 470 L980 540 L1060 590 L1140 680'/%3E%3Cpath d='M620 410 L560 460 L520 540 L450 610 L420 690'/%3E%3Cpath d='M700 520 L780 560 L850 640 L930 700'/%3E%3C/g%3E%3C/svg%3E");
-  background-repeat:no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
-  background-size:cover, 70% 70%, 65% 65%, 60% 60%, cover;
-  background-position:center, 0% 0%, 100% 0%, 100% 100%, center;
+  background-repeat:no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-size:cover, 70% 70%, 65% 65%, 60% 60%, 70% 70%, 65% 65%, 60% 60%, cover, cover;
+  background-position:center, 0% 0%, 100% 0%, 100% 100%, 0% 0%, 100% 0%, 100% 100%, center, center;
+  background-blend-mode:normal, screen, screen, screen, screen, screen, screen, multiply, screen;
   filter:
     contrast(calc(1 + var(--damage, 0) * 0.6))
     brightness(calc(1 + var(--damage, 0) * 0.05));

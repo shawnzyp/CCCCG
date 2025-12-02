@@ -11576,8 +11576,9 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   overlay.style.setProperty('--damage', `${intensity}`);
   overlay.classList.add('is-on', 'impact');
 
-  clearTimeout(overlay._damageTimer);
-  overlay._damageTimer = setTimeout(() => {
+  overlay.__ccDamageTimer = overlay.__ccDamageTimer || null;
+  clearTimeout(overlay.__ccDamageTimer);
+  overlay.__ccDamageTimer = setTimeout(() => {
     overlay.classList.remove('impact');
     overlay.style.setProperty('--damage', '0');
     overlay.classList.remove('is-on');
@@ -11586,7 +11587,9 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
 
 function playDamageAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
-  triggerDamageOverlay(Math.abs(amount), { max: elHPBar ? num(elHPBar.max) : 20 });
+  const maxHp = elHPBar ? num(elHPBar.max) : 20;
+  const scale = Math.max(12, Math.round(maxHp * 0.25));
+  triggerDamageOverlay(Math.abs(amount), { max: scale, lingerMs: 900 });
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=String(amount);
