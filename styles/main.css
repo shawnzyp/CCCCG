@@ -3632,9 +3632,9 @@ body:not(.no-hover) .credits-card__submit:hover,
 }
 @keyframes damage-pop{
   0%{ transform:translate(0,0); }
-  20%{ transform:translate(-2px, 1px); }
-  45%{ transform:translate(2px, -1px); }
-  70%{ transform:translate(-1px, 0px); }
+  20%{ transform:translate(calc(var(--shake, 2px) * -1), calc(var(--shake, 2px) * 0.5)); }
+  45%{ transform:translate(var(--shake, 2px), calc(var(--shake, 2px) * -0.5)); }
+  70%{ transform:translate(calc(var(--shake, 2px) * -0.5), 0px); }
   100%{ transform:translate(0,0); }
 }
 @media (prefers-reduced-motion: reduce){

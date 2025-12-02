@@ -11569,22 +11569,40 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   if (!animationsEnabled) return;
   const overlay = $('damage-overlay');
   if (!overlay) return;
+
   const safeMax = Number.isFinite(max) && max > 0 ? max : 20;
   const magnitude = Number.isFinite(amount) ? Math.abs(amount) : 0;
   const intensity = Math.max(0, Math.min(1, magnitude / safeMax));
+
+  // 0..4 tiers at 0%, 25%, 50%, 75%, 100%
+  const tier = Math.min(4, Math.floor(intensity / 0.25));
+  const prevTier = overlay.__ccDamageTier || 0;
 
   overlay.style.setProperty('--crackRot', `${(Math.random() * 8 - 4).toFixed(2)}deg`);
   overlay.style.setProperty('--crackX', `${(Math.random() * 10 - 5).toFixed(1)}px`);
   overlay.style.setProperty('--crackY', `${(Math.random() * 10 - 5).toFixed(1)}px`);
   overlay.style.setProperty('--damage', `${intensity}`);
-  overlay.classList.add('is-on', 'impact');
 
-  overlay.__ccDamageTimer = overlay.__ccDamageTimer || null;
+  // optional: scale shake strength by tier (px)
+  overlay.style.setProperty('--shake', `${Math.max(1, tier) * 2}px`);
+
+  overlay.classList.add('is-on');
+
+  // Only shake when we CROSS UP into a higher tier
+  if (tier > prevTier) {
+    overlay.__ccDamageTier = tier;
+
+    overlay.classList.remove('impact');
+    void overlay.offsetWidth; // restart animation reliably
+    overlay.classList.add('impact');
+  }
+
   clearTimeout(overlay.__ccDamageTimer);
   overlay.__ccDamageTimer = setTimeout(() => {
     overlay.classList.remove('impact');
     overlay.style.setProperty('--damage', '0');
     overlay.classList.remove('is-on');
+    overlay.__ccDamageTier = 0; // reset tiers when overlay clears
   }, lingerMs);
 }
 
