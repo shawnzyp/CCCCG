@@ -11565,16 +11565,19 @@ if (dmRollButton && dmRollButton !== rollDiceButton) {
   });
 }
 
-function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
-  if (!animationsEnabled) return;
-  const overlay = $('damage-overlay');
-  if (!overlay) return;
-  const safeMax = Number.isFinite(max) && max > 0 ? max : 20;
-  const magnitude = Number.isFinite(amount) ? Math.abs(amount) : 0;
-  const intensity = Math.max(0, Math.min(1, magnitude / safeMax));
+  function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
+    if (!animationsEnabled) return;
+    const overlay = $('damage-overlay');
+    if (!overlay) return;
+    const safeMax = Number.isFinite(max) && max > 0 ? max : 20;
+    const magnitude = Number.isFinite(amount) ? Math.abs(amount) : 0;
+    const intensity = Math.max(0, Math.min(1, magnitude / safeMax));
 
-  overlay.style.setProperty('--damage', `${intensity}`);
-  overlay.classList.add('is-on', 'impact');
+    overlay.style.setProperty('--crackRot', `${(Math.random() * 8 - 4).toFixed(2)}deg`);
+    overlay.style.setProperty('--crackX', `${(Math.random() * 10 - 5).toFixed(1)}px`);
+    overlay.style.setProperty('--crackY', `${(Math.random() * 10 - 5).toFixed(1)}px`);
+    overlay.style.setProperty('--damage', `${intensity}`);
+    overlay.classList.add('is-on', 'impact');
 
   overlay.__ccDamageTimer = overlay.__ccDamageTimer || null;
   clearTimeout(overlay.__ccDamageTimer);
