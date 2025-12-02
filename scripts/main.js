@@ -11565,8 +11565,28 @@ if (dmRollButton && dmRollButton !== rollDiceButton) {
   });
 }
 
+function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
+  if (!animationsEnabled) return;
+  const overlay = $('damage-overlay');
+  if (!overlay) return;
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 20;
+  const magnitude = Number.isFinite(amount) ? Math.abs(amount) : 0;
+  const intensity = Math.max(0, Math.min(1, magnitude / safeMax));
+
+  overlay.style.setProperty('--damage', `${intensity}`);
+  overlay.classList.add('is-on', 'impact');
+
+  clearTimeout(overlay._damageTimer);
+  overlay._damageTimer = setTimeout(() => {
+    overlay.classList.remove('impact');
+    overlay.style.setProperty('--damage', '0');
+    overlay.classList.remove('is-on');
+  }, lingerMs);
+}
+
 function playDamageAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
+  triggerDamageOverlay(Math.abs(amount), { max: elHPBar ? num(elHPBar.max) : 20 });
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=String(amount);
