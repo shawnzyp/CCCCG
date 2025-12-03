@@ -1,6 +1,7 @@
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
+const CRACK_LEVELS = [0, 0.28, 0.45, 0.62];
 
 const getDocument = () => (typeof document !== 'undefined' ? document : null);
 const getGlobal = () => {
@@ -225,6 +226,48 @@ const ensurePlayerToolsHost = () => {
   return host;
 };
 
+const clampCrackStage = (stage = 0) => {
+  const normalized = Number(stage);
+  if (!Number.isFinite(normalized)) return 0;
+  return Math.max(0, Math.min(CRACK_LEVELS.length - 1, Math.round(normalized)));
+};
+
+const getCrackLevel = (stage = 0) => CRACK_LEVELS[clampCrackStage(stage)] || 0;
+
+export const applyPlayerToolsCrackEffect = (detail = {}) => {
+  const doc = getDocument();
+  const drawer = doc?.getElementById('player-tools-drawer');
+  const cracks = drawer?.querySelector('.pt-cracks');
+  if (!drawer || !cracks) return;
+
+  const {
+    intensity = 0,
+    rotation = '0deg',
+    x = '0px',
+    y = '0px',
+    lingerMs = 900,
+  } = detail || {};
+
+  const clampedIntensity = Math.max(0, Math.min(1, Number(intensity) || 0));
+  const baseLevel = Number.parseFloat(drawer.style.getPropertyValue?.('--pt-damage-level'))
+    || getCrackLevel(drawer.getAttribute('data-pt-crack'))
+    || 0;
+  const visibleLevel = Math.max(baseLevel, clampedIntensity);
+
+  cracks.style.setProperty('--pt-crack-rot', rotation);
+  cracks.style.setProperty('--pt-crack-x', x);
+  cracks.style.setProperty('--pt-crack-y', y);
+  cracks.style.setProperty('--pt-damage-visible', `${visibleLevel}`);
+  cracks.classList.add('pt-cracks--impact');
+
+  clearTimeout(cracks.__ccPtDamageTimer);
+  const safeLinger = Math.max(0, Number(lingerMs) || 0);
+  cracks.__ccPtDamageTimer = setTimeout(() => {
+    cracks.classList.remove('pt-cracks--impact');
+    cracks.style.removeProperty('--pt-damage-visible');
+  }, safeLinger);
+};
+
 function createPlayerToolsDrawer() {
   const doc = getDocument();
   if (!doc) return null;
@@ -237,6 +280,7 @@ function createPlayerToolsDrawer() {
   const tray = drawer ? drawer.querySelector('.pt-tray') : null;
   const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
   const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
+  const cracks = drawer ? drawer.querySelector('.pt-cracks') : null;
 
   const clockEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-clock]')) : [];
   const batteryEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-battery]')) : [];
@@ -539,6 +583,7 @@ function createPlayerToolsDrawer() {
     const pct = getHpPercent();
     if (pct == null) {
       drawer.setAttribute('data-pt-crack', '0');
+      if (drawer.style?.setProperty) drawer.style.setProperty('--pt-damage-level', '0');
       return;
     }
 
@@ -548,6 +593,11 @@ function createPlayerToolsDrawer() {
     else if (pct < 0.70) stage = 1;
 
     drawer.setAttribute('data-pt-crack', String(stage));
+    if (drawer.style?.setProperty) drawer.style.setProperty('--pt-damage-level', `${getCrackLevel(stage)}`);
+    if (!stage && cracks) {
+      cracks.classList.remove('pt-cracks--impact');
+      cracks.style.removeProperty('--pt-damage-visible');
+    }
   };
 
   const handleKeydown = (event) => {

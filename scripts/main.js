@@ -45,7 +45,8 @@ import {
   subscribe as subscribePlayerToolsDrawer,
   onDrawerChange as onPlayerToolsDrawerChange,
   open as openPlayerToolsDrawer,
-  close as closePlayerToolsDrawer
+  close as closePlayerToolsDrawer,
+  applyPlayerToolsCrackEffect,
 } from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
@@ -11567,20 +11568,32 @@ if (dmRollButton && dmRollButton !== rollDiceButton) {
 
 function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   if (!animationsEnabled) return;
-  const overlay = $('damage-overlay');
-  if (!overlay) return;
-
   const safeMax = Number.isFinite(max) && max > 0 ? max : 20;
   const magnitude = Number.isFinite(amount) ? Math.abs(amount) : 0;
   const intensity = Math.max(0, Math.min(1, magnitude / safeMax));
+
+  const crackRot = `${(Math.random() * 8 - 4).toFixed(2)}deg`;
+  const crackX = `${(Math.random() * 10 - 5).toFixed(1)}px`;
+  const crackY = `${(Math.random() * 10 - 5).toFixed(1)}px`;
+
+  applyPlayerToolsCrackEffect({
+    intensity,
+    rotation: crackRot,
+    x: crackX,
+    y: crackY,
+    lingerMs,
+  });
+
+  const overlay = $('damage-overlay');
+  if (!overlay) return;
 
   // 0..4 tiers at 0%, 25%, 50%, 75%, 100%
   const tier = Math.min(4, Math.floor(intensity / 0.25));
   const prevTier = overlay.__ccDamageTier || 0;
 
-  overlay.style.setProperty('--crackRot', `${(Math.random() * 8 - 4).toFixed(2)}deg`);
-  overlay.style.setProperty('--crackX', `${(Math.random() * 10 - 5).toFixed(1)}px`);
-  overlay.style.setProperty('--crackY', `${(Math.random() * 10 - 5).toFixed(1)}px`);
+  overlay.style.setProperty('--crackRot', crackRot);
+  overlay.style.setProperty('--crackX', crackX);
+  overlay.style.setProperty('--crackY', crackY);
   overlay.style.setProperty('--damage', `${intensity}`);
 
   // optional: scale shake strength by tier (px)
