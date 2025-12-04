@@ -302,6 +302,11 @@ function createPlayerToolsDrawer() {
   const flipCoinBtn = qs('#flip-coin-btn');
   const coinResultEl = qs('#coin-result');
 
+  const deathSaveCard = qs('#pt-death-saves');
+  if (deathSaveCard) {
+    deathSaveCard.dataset.ptTool = 'death-saves';
+  }
+
   const toastHistoryList = qs('#toast-history-list');
 
   if (!drawer || !tab) return null;
@@ -318,6 +323,7 @@ function createPlayerToolsDrawer() {
   let hpInterval = null;
   let batteryObj = null;
   let batteryApply = null;
+  let removeBatteryBridge = null;
   let splashSeq = 0; // fixes splash replay if open triggers more than once
 
   if (splash) {
@@ -361,7 +367,30 @@ function createPlayerToolsDrawer() {
   const initBattery = async () => {
     setBatteryVisual({ levelPercent: 75, charging: false, estimated: true });
 
-    if (typeof navigator === 'undefined' || !('getBattery' in navigator)) return;
+    if (typeof navigator === 'undefined' || !('getBattery' in navigator)) {
+      const win = doc?.defaultView;
+      const handleBatteryBridge = (event) => {
+        if (!event?.detail) return;
+        const detail = event.detail || {};
+        const level = Number.isFinite(Number(detail.levelPercent))
+          ? Number(detail.levelPercent)
+          : Number.isFinite(Number(detail.level))
+            ? Number(detail.level)
+            : Number.isFinite(Number(detail.percentage))
+              ? Number(detail.percentage)
+              : 75;
+        setBatteryVisual({
+          levelPercent: level,
+          charging: !!detail.charging,
+          estimated: detail.estimated !== undefined ? !!detail.estimated : true,
+        });
+      };
+      if (win && typeof win.addEventListener === 'function') {
+        win.addEventListener('player-tools:battery', handleBatteryBridge);
+        removeBatteryBridge = () => win.removeEventListener('player-tools:battery', handleBatteryBridge);
+      }
+      return;
+    }
 
     try {
       batteryObj = await navigator.getBattery();
@@ -660,8 +689,12 @@ function createPlayerToolsDrawer() {
         batteryObj.removeEventListener('chargingchange', batteryApply);
       }
     } catch (_) {}
+    if (typeof removeBatteryBridge === 'function') {
+      try { removeBatteryBridge(); } catch (_) {}
+    }
     batteryApply = null;
     batteryObj = null;
+    removeBatteryBridge = null;
 
     if (removeOutsideCloseListeners) removeOutsideCloseListeners();
 

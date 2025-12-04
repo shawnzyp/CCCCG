@@ -3092,53 +3092,54 @@ aria-hidden="false"
 
         <!-- Screen cut-out area -->
         <div class="pt-screen" data-pt-screen>
-          <!-- Faux status bar (time + battery only) -->
-          <div class="pt-status" aria-hidden="true">
-            <div class="pt-status__left">
-              <span class="pt-status__time" data-pt-clock></span>
+          <div class="pt-screen__glass">
+            <!-- Faux status bar (time + battery only) -->
+            <div class="pt-status" aria-hidden="true">
+              <div class="pt-status__left">
+                <span class="pt-status__time" data-pt-clock></span>
+              </div>
+
+              <!-- Spacer represents the notch area -->
+              <div class="pt-status__notch-gap" aria-hidden="true"></div>
+
+              <div class="pt-status__right">
+                <span
+                  class="pt-battery"
+                  data-pt-battery
+                  aria-label="Battery"
+                  role="img"
+                >
+                  <span class="pt-battery__level" data-pt-battery-level></span>
+                  <span class="pt-battery__bolt" aria-hidden="true"></span>
+                </span>
+              </div>
             </div>
 
-            <!-- Spacer represents the notch area -->
-            <div class="pt-status__notch-gap" aria-hidden="true"></div>
+            <!-- Intro splash (2s on open) -->
+            <section class="pt-splash" data-pt-splash aria-hidden="true">
+              <!-- Splash inherits the always-on tray status bar; avoid rendering a duplicate during loading. -->
+              <div class="pt-splash__brand">
+                <img
+                  class="pt-splash__logo"
+                  src="images/player-tools-icon.png"
+                  alt="O.M.N.I."
+                />
+                <div class="pt-splash__title">CATALYST CORE</div>
+                <div class="pt-splash__subtitle">PLAYER TOOLS</div>
+                <div class="pt-splash__bar" aria-hidden="true"></div>
+              </div>
+            </section>
 
-            <div class="pt-status__right">
-              <span
-                class="pt-battery"
-                data-pt-battery
-                aria-label="Battery"
-                role="img"
-              >
-                <span class="pt-battery__level" data-pt-battery-level></span>
-                <span class="pt-battery__bolt" aria-hidden="true"></span>
-              </span>
-            </div>
-          </div>
+            <!-- Cracked glass overlay (driven by HP) -->
+            <div class="pt-cracks" aria-hidden="true"></div>
 
-          <!-- Intro splash (2s on open) -->
-          <section class="pt-splash" data-pt-splash aria-hidden="true">
-            <!-- Splash inherits the always-on tray status bar; avoid rendering a duplicate during loading. -->
-            <div class="pt-splash__brand">
-              <img
-                class="pt-splash__logo"
-                src="images/player-tools-icon.png"
-                alt="O.M.N.I."
-              />
-              <div class="pt-splash__title">CATALYST CORE</div>
-              <div class="pt-splash__subtitle">PLAYER TOOLS</div>
-              <div class="pt-splash__bar" aria-hidden="true"></div>
-            </div>
-          </section>
+            <!-- App viewport -->
+            <div class="pt-app" data-pt-app>
+              <header class="pt-app__header">
+                <div class="pt-chip">Player Tools · Session</div>
+              </header>
 
-          <!-- Cracked glass overlay (driven by HP) -->
-          <div class="pt-cracks" aria-hidden="true"></div>
-
-          <!-- App viewport -->
-          <div class="pt-app" data-pt-app>
-            <header class="pt-app__header">
-              <div class="pt-chip">Player Tools · Session</div>
-            </header>
-
-            <main class="pt-app__viewport" aria-label="Player tools">
+              <main class="pt-app__viewport" aria-label="Player tools">
               <section class="pt-card" aria-label="Reminders">
                 <div class="pt-card__body">
                   <div class="player-tools-reminder" id="level-reward-reminder">
@@ -3296,11 +3297,11 @@ aria-hidden="false"
               </section>
 
               <!-- Death Saves -->
-              <section class="pt-card pt-card--death-saves" id="death-saves" aria-label="Death saves">
+              <section class="pt-card pt-card--death-saves" id="pt-death-saves" aria-label="Death saves">
                 <header class="pt-card__header">
                   <h3 class="pt-card__title">Death Saves</h3>
                   <span
-                    id="death-save-out"
+                    id="pt-death-save-out"
                     class="pt-result death-save-result"
                     data-placeholder="Roll"
                     role="status"
@@ -3312,42 +3313,42 @@ aria-hidden="false"
                     <div class="death-save-tracks">
                       <div class="death-save-group">
                         <span>Successes</span>
-                        <label for="death-success-1" class="sr-only">Success 1</label>
-                        <input type="checkbox" id="death-success-1" />
-                        <label for="death-success-2" class="sr-only">Success 2</label>
-                        <input type="checkbox" id="death-success-2" />
-                        <label for="death-success-3" class="sr-only">Success 3</label>
-                        <input type="checkbox" id="death-success-3" />
+                        <label for="pt-death-success-1" class="sr-only">Success 1</label>
+                        <input type="checkbox" id="pt-death-success-1" />
+                        <label for="pt-death-success-2" class="sr-only">Success 2</label>
+                        <input type="checkbox" id="pt-death-success-2" />
+                        <label for="pt-death-success-3" class="sr-only">Success 3</label>
+                        <input type="checkbox" id="pt-death-success-3" />
                       </div>
                       <div class="death-save-group">
                         <span>Failures</span>
-                        <label for="death-fail-1" class="sr-only">Failure 1</label>
-                        <input type="checkbox" id="death-fail-1" />
-                        <label for="death-fail-2" class="sr-only">Failure 2</label>
-                        <input type="checkbox" id="death-fail-2" />
-                        <label for="death-fail-3" class="sr-only">Failure 3</label>
-                        <input type="checkbox" id="death-fail-3" />
+                        <label for="pt-death-fail-1" class="sr-only">Failure 1</label>
+                        <input type="checkbox" id="pt-death-fail-1" />
+                        <label for="pt-death-fail-2" class="sr-only">Failure 2</label>
+                        <input type="checkbox" id="pt-death-fail-2" />
+                        <label for="pt-death-fail-3" class="sr-only">Failure 3</label>
+                        <input type="checkbox" id="pt-death-fail-3" />
                       </div>
                     </div>
 
                     <div class="death-save-buttons">
                       <div class="death-save-controls">
                         <div class="death-save-control">
-                          <label for="death-save-mode">Roll mode</label>
-                          <select id="death-save-mode">
+                          <label for="pt-death-save-mode">Roll mode</label>
+                          <select id="pt-death-save-mode">
                             <option value="normal">Normal</option>
                             <option value="advantage">Advantage</option>
                             <option value="disadvantage">Disadvantage</option>
                           </select>
                         </div>
                         <div class="death-save-control">
-                          <label for="death-save-mod">Modifier</label>
-                          <input id="death-save-mod" type="number" inputmode="numeric" step="1" />
+                          <label for="pt-death-save-mod">Modifier</label>
+                          <input id="pt-death-save-mod" type="number" inputmode="numeric" step="1" />
                         </div>
                       </div>
                       <div class="pt-death-save-actions">
-                        <button id="roll-death-save" class="pt-btn pt-btn--primary" type="button">Roll</button>
-                        <button id="death-save-reset" class="pt-btn pt-btn--secondary" type="button">Reset</button>
+                        <button id="pt-roll-death-save" class="pt-btn pt-btn--primary" type="button">Roll</button>
+                        <button id="pt-death-save-reset" class="pt-btn pt-btn--secondary" type="button">Reset</button>
                       </div>
                     </div>
                   </div>

@@ -7611,7 +7611,7 @@ const elTierNumberValue = $('tier-number');
 const elTierGains = $('tier-gains');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
-const elDeathSaves = $('death-saves');
+const elDeathSaves = $('pt-death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
 const elCreditsGearTotal = $('credits-gear-total');
@@ -10693,7 +10693,7 @@ $('long-rest').addEventListener('click', ()=>{
   if (elSPTemp) elSPTemp.value='';
   // clear combat-related checkbox states only
   const combatCheckboxes = [
-    ...qsa('#death-saves input[type="checkbox"]'),
+    ...qsa('#pt-death-saves input[type="checkbox"]'),
     ...qsa('#statuses input[type="checkbox"]'),
     ...qsa('#ongoing-effects input[type="checkbox"]'),
   ];
@@ -12180,12 +12180,12 @@ function playLoadAnimation(){
   });
 }
 
-const deathSuccesses = ['death-success-1','death-success-2','death-success-3'].map(id=>$(id));
-const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(id));
-const deathOut = $('death-save-out');
+const deathSuccesses = ['pt-death-success-1','pt-death-success-2','pt-death-success-3'].map(id=>$(id));
+const deathFailures = ['pt-death-fail-1','pt-death-fail-2','pt-death-fail-3'].map(id=>$(id));
+const deathOut = $('pt-death-save-out');
 const deathSaveResultRenderer = deathOut ? ensureDiceResultRenderer(deathOut) : null;
-const deathRollMode = $('death-save-mode');
-const deathModifierInput = $('death-save-mod');
+const deathRollMode = $('pt-death-save-mode');
+const deathModifierInput = $('pt-death-save-mod');
 let deathState = null; // null, 'stable', 'dead'
 const deathOutAnimationClass = 'death-save-result--pulse';
 
@@ -12370,7 +12370,7 @@ function resetDeathSaves(){
   }
   syncDeathSaveGauge();
 }
-$('death-save-reset')?.addEventListener('click', resetDeathSaves);
+$('pt-death-save-reset')?.addEventListener('click', resetDeathSaves);
 
 async function checkDeathProgress(){
   if(deathFailures.every(b=>b.checked)){
@@ -12394,7 +12394,7 @@ async function checkDeathProgress(){
 [...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
 syncDeathSaveGauge();
 
-$('roll-death-save')?.addEventListener('click', ()=>{
+$('pt-roll-death-save')?.addEventListener('click', ()=>{
   const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';
   const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
   const manualInputRaw = deathModifierInput ? deathModifierInput.value : '';
