@@ -3570,6 +3570,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   opacity:0;
   will-change:opacity,transform,filter;
   contain:none;
+  isolation:isolate;
   transform:translateZ(0);
   background:radial-gradient(circle at 50% 50%,
     rgba(0,0,0,0) 40%,
@@ -3627,30 +3628,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   transform:translateX(calc(var(--damage, 0) * 1.5px));
   filter:saturate(calc(1 + var(--damage, 0) * 0.35));
 }
-#damage-animation{
-  position:fixed;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding-bottom:12vh;
-  box-sizing:border-box;
-  font-weight:800;
-  letter-spacing:0.02em;
-  font-size:clamp(2rem, 10vw, 4rem);
-  color:var(--error);
-  text-shadow:0 10px 24px rgba(0,0,0,0.45);
-  pointer-events:none;
-  opacity:0;
-  z-index:9100;
-  will-change:transform,opacity;
-  gap:.25em;
-}
-#damage-animation::before{
-  content:"";width:1em;height:1em;
-  background:currentColor;
-  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
-}
+#damage-animation,
 #heal-animation{
   position:fixed;
   inset:0;
@@ -3662,15 +3640,30 @@ body:not(.no-hover) .credits-card__submit:hover,
   font-weight:800;
   letter-spacing:0.02em;
   font-size:clamp(2rem, 10vw, 4rem);
-  color:var(--success);
-  text-shadow:0 10px 24px rgba(0,0,0,0.45);
   pointer-events:none;
   opacity:0;
   z-index:9100;
   will-change:transform,opacity;
-  gap:.25em;
 }
-#heal-animation::before{
+
+#damage-animation{ color:var(--error); }
+#heal-animation{ color:var(--success); }
+
+#damage-animation .fx-float,
+#heal-animation .fx-float{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.25em;
+  text-shadow:0 10px 24px rgba(0,0,0,0.45);
+}
+
+#damage-animation .fx-float::before{
+  content:"";width:1em;height:1em;
+  background:currentColor;
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
+}
+#heal-animation .fx-float::before{
   content:"";width:1em;height:1em;background:currentColor;
   clip-path:polygon(50% 0%,61% 19%,78% 19%,100% 41%,100% 68%,50% 100%,0 68%,0 41%,22% 19%,39% 19%);
 }

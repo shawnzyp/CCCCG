@@ -31,7 +31,7 @@ import {
   isAutoSaveDirty,
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
-import { animate, fadeOut, fadePop, easing as easingVar, motion } from './anim.js';
+import { animate, fadeOut, easing as easingVar, motion } from './anim.js';
 import { canonicalCharacterKey } from './character-keys.js';
 import {
   activateTab,
@@ -11618,8 +11618,8 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   overlay.__pop = animate(
     overlay,
     [
-      { opacity: peakOpacity * 0.4, filter: 'blur(2px)', transform: 'translateZ(0) scale(0.98)' },
-      { opacity: peakOpacity, filter: 'blur(0px)', transform: 'translateZ(0) scale(1)' },
+      { opacity: peakOpacity * 0.4, filter: 'blur(2px)' },
+      { opacity: peakOpacity, filter: 'blur(0px)' },
     ],
     {
       duration: motion('--motion-fast', 140),
@@ -11684,42 +11684,21 @@ function playDamageAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const maxHp = elHPBar ? num(elHPBar.max) : 20;
   const scale = Math.max(12, Math.round(maxHp * 0.25));
-  const damageIntensity = Math.max(0, Math.min(1, Math.abs(amount) / scale));
   triggerDamageOverlay(Math.abs(amount), { max: scale, lingerMs: 900 });
   playStatusCue('damage');
 
   const anim=$('damage-animation');
+  const float = anim?.querySelector('.fx-float') || anim;
   cancelFx(anim);
+  cancelFx(float);
   if(!anim) return Promise.resolve();
-  anim.textContent=String(amount);
+  float.textContent=String(amount);
   anim.setAttribute('aria-hidden','true');
 
-  const pop = fadePop(anim, {
-    duration: motion('--motion-med', 240),
-    easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
-    scaleFrom: 0.9,
-    scaleTo: 1.05,
-    blurFrom: 3,
-  });
-
-  const drift = animate(
+  const opacityTrack = animate(
     anim,
     [
-      { transform: 'translateY(0) scale(1)' },
-      { transform: 'translateY(-6px) scale(0.98)' },
-      { transform: 'translateY(-24px) scale(0.9)' },
-    ],
-    {
-      duration: Math.max(motion('--motion-slow', 520), 520),
-      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
-      fill: 'forwards',
-      delay: motion('--motion-fast', 140) * 0.5,
-    }
-  );
-
-  const fade = animate(
-    anim,
-    [
+      { opacity: 0 },
       { opacity: 1 },
       { opacity: 0 },
     ],
@@ -11727,12 +11706,27 @@ function playDamageAnimation(amount){
       duration: Math.max(motion('--motion-slow', 520), 520),
       easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
       fill: 'forwards',
-      delay: motion('--motion-fast', 140) * 0.5,
+    }
+  );
+
+  const motionTrack = animate(
+    float,
+    [
+      { offset: 0, transform: 'translateY(0) scale(0.9)', filter: 'blur(3px)' },
+      { offset: 0.25, transform: 'translateY(-4px) scale(1.05)', filter: 'blur(0px)' },
+      { offset: 0.6, transform: 'translateY(-12px) scale(0.98)', filter: 'blur(0px)' },
+      { offset: 1, transform: 'translateY(-24px) scale(0.9)', filter: 'blur(0.5px)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 620),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.35,
     }
   );
 
   const glow = animate(
-    anim,
+    float,
     [
       { textShadow: '0 0 1rem currentColor' },
       { textShadow: '0 0 0.2rem currentColor' },
@@ -11745,14 +11739,19 @@ function playDamageAnimation(amount){
     }
   );
 
-  return Promise.all([pop?.finished, drift?.finished, fade?.finished, glow?.finished].filter(Boolean))
+  return Promise.all([opacityTrack?.finished, motionTrack?.finished, glow?.finished].filter(Boolean))
     .catch(()=>{})
     .finally(() => {
       if (anim && anim.style) {
         anim.style.opacity = '';
         anim.style.transform = '';
         anim.style.filter = '';
-        anim.style.textShadow = '';
+      }
+      if (float && float.style) {
+        float.style.opacity = '';
+        float.style.transform = '';
+        float.style.filter = '';
+        float.style.textShadow = '';
       }
     });
 }
@@ -12246,13 +12245,15 @@ function playDeathAnimation(){
 function playHealAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('heal-animation');
+  const float = anim?.querySelector('.fx-float') || anim;
   const healOverlay = $('heal-overlay');
   const bloom = healOverlay?.querySelector('svg');
   cancelFx(healOverlay);
   cancelFx(anim);
   cancelFx(bloom);
+  cancelFx(float);
   if(anim) {
-    anim.textContent=`+${amount}`;
+    float.textContent=`+${amount}`;
     anim.setAttribute('aria-hidden','true');
   }
   playStatusCue('heal');
@@ -12285,32 +12286,10 @@ function playHealAnimation(amount){
     }
   ) : null;
 
-  const pop = anim ? fadePop(anim, {
-    duration: motion('--motion-med', 240),
-    easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
-    scaleFrom: 0.92,
-    scaleTo: 1.08,
-    blurFrom: 1.5,
-  }) : null;
-
-  const float = anim ? animate(
+  const opacityTrack = anim ? animate(
     anim,
     [
-      { transform: 'translateY(2px) scale(1)' },
-      { transform: 'translateY(-6px) scale(0.99)' },
-      { transform: 'translateY(-22px) scale(0.96)' },
-    ],
-    {
-      duration: Math.max(motion('--motion-slow', 520), 720),
-      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
-      fill: 'forwards',
-      delay: motion('--motion-fast', 140) * 0.35,
-    }
-  ) : null;
-
-  const fade = anim ? animate(
-    anim,
-    [
+      { opacity: 0 },
       { opacity: 1 },
       { opacity: 0 },
     ],
@@ -12318,11 +12297,26 @@ function playHealAnimation(amount){
       duration: Math.max(motion('--motion-slow', 520), 720),
       easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
       fill: 'forwards',
-      delay: motion('--motion-fast', 140) * 0.35,
     }
   ) : null;
 
-  return Promise.all([bloomWave?.finished, shimmer?.finished, pop?.finished, float?.finished, fade?.finished].filter(Boolean))
+  const motionTrack = anim ? animate(
+    float,
+    [
+      { offset: 0, transform: 'translateY(2px) scale(0.94)', filter: 'blur(1.5px)' },
+      { offset: 0.22, transform: 'translateY(-4px) scale(1.08)', filter: 'blur(0px)' },
+      { offset: 0.6, transform: 'translateY(-12px) scale(1)', filter: 'blur(0px)' },
+      { offset: 1, transform: 'translateY(-22px) scale(0.96)', filter: 'blur(0.4px)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 720),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.25,
+    }
+  ) : null;
+
+  return Promise.all([bloomWave?.finished, shimmer?.finished, opacityTrack?.finished, motionTrack?.finished].filter(Boolean))
     .catch(()=>{})
     .finally(() => {
       if (healOverlay?.style) {
@@ -12339,6 +12333,11 @@ function playHealAnimation(amount){
         anim.style.opacity = '';
         anim.style.transform = '';
         anim.style.filter = '';
+      }
+      if (float?.style) {
+        float.style.opacity = '';
+        float.style.transform = '';
+        float.style.filter = '';
       }
     });
 }
