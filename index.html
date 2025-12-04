@@ -3297,13 +3297,19 @@ aria-hidden="false"
               </section>
 
               <!-- Death Saves -->
-              <fieldset class="pt-card pt-card--death-saves" id="pt-death-saves" aria-label="Death saves">
+              <fieldset
+                class="pt-card pt-card--death-saves"
+                id="pt-death-saves"
+                aria-label="Death saves"
+                hidden
+                disabled
+              >
                 <legend class="sr-only">Death Saves</legend>
                 <header class="pt-card__header">
                   <h3 class="pt-card__title">Death Saves</h3>
                   <span
                     id="pt-death-save-out"
-                    class="pt-result death-save-result"
+                    class="pt-result death-save-result dice-result__value"
                     data-placeholder="Roll"
                     role="status"
                   ></span>

@@ -265,6 +265,7 @@ export const applyPlayerToolsCrackEffect = (detail = {}) => {
   cracks.__ccPtDamageTimer = setTimeout(() => {
     cracks.classList.remove('pt-cracks--impact');
     cracks.style.removeProperty('--pt-damage-visible');
+    cracks.__ccPtDamageTimer = null;
   }, safeLinger);
 };
 
@@ -624,8 +625,11 @@ function createPlayerToolsDrawer() {
     drawer.setAttribute('data-pt-crack', String(stage));
     if (drawer.style?.setProperty) drawer.style.setProperty('--pt-damage-level', `${getCrackLevel(stage)}`);
     if (!stage && cracks) {
-      cracks.classList.remove('pt-cracks--impact');
-      cracks.style.removeProperty('--pt-damage-visible');
+      const hasActiveImpact = !!cracks.__ccPtDamageTimer || cracks.classList.contains('pt-cracks--impact');
+      if (!hasActiveImpact) {
+        cracks.classList.remove('pt-cracks--impact');
+        cracks.style.removeProperty('--pt-damage-visible');
+      }
     }
   };
 

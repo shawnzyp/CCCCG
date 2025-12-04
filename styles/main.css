@@ -3591,7 +3591,7 @@ body:not(.no-hover) .credits-card__submit:hover,
     background-repeat:no-repeat, no-repeat;
     background-size:cover, cover;
     background-position:center, center;
-    background-blend-mode:screen, multiply;
+    background-blend-mode:multiply, screen;
     filter:
       contrast(calc(1 + var(--damage, 0) * 0.6))
       brightness(calc(1 + var(--damage, 0) * 0.05));
@@ -9082,7 +9082,7 @@ animation: pt-splash-scan 1.05s linear infinite;
   background-repeat:no-repeat, no-repeat;
   background-size:cover, cover;
   background-position:center, center;
-  background-blend-mode:screen, multiply;
+  background-blend-mode:multiply, screen;
   filter:
     contrast(calc(1 + var(--pt-damage-visible, 0) * 0.6))
     brightness(calc(1 + var(--pt-damage-visible, 0) * 0.05));
