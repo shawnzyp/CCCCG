@@ -3503,7 +3503,6 @@ body:not(.no-hover) .credits-card__submit:hover,
   mix-blend-mode:screen;
   filter:drop-shadow(0 0 1.2rem rgba(102, 255, 204, 0.4));
 }
-#heal-overlay svg{opacity:0;}
 #heal-overlay .heal-overlay__bloom{fill:url(#heal-bloom-gradient);}
 #heal-overlay .heal-overlay__spark{fill:rgba(144,255,220,.6);mix-blend-mode:screen;}
 #heal-overlay .heal-overlay__halo{fill:rgba(90,200,255,.28);filter:blur(12px);}
@@ -3628,18 +3627,12 @@ body:not(.no-hover) .credits-card__submit:hover,
   transform:translateX(calc(var(--damage, 0) * 1.5px));
   filter:saturate(calc(1 + var(--damage, 0) * 0.35));
 }
-#damage-overlay.impact{
-  animation:damage-pop 220ms ease-out 1;
-}
 @keyframes damage-pop{
   0%{ transform:translate(0,0); }
   20%{ transform:translate(calc(var(--shake, 2px) * -1), calc(var(--shake, 2px) * 0.5)); }
   45%{ transform:translate(var(--shake, 2px), calc(var(--shake, 2px) * -0.5)); }
   70%{ transform:translate(calc(var(--shake, 2px) * -0.5), 0px); }
   100%{ transform:translate(0,0); }
-}
-@media (prefers-reduced-motion: reduce){
-  #damage-overlay.impact{ animation:none; }
 }
 #damage-animation{
   position:fixed;
@@ -3660,19 +3653,10 @@ body:not(.no-hover) .credits-card__submit:hover,
   will-change:transform,opacity;
   gap:.25em;
 }
-#damage-animation.show{
-  animation:damagePop 1s ease-in-out forwards;
-}
 #damage-animation::before{
   content:"";width:1em;height:1em;
   background:currentColor;
   clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);
-}
-@keyframes damagePop{
-  0%{transform:scale(0) rotate(-45deg);opacity:0;}
-  30%{transform:scale(1.4) rotate(0);opacity:1;}
-  60%{transform:scale(1.2) rotate(10deg);opacity:1;}
-  100%{transform:scale(0.5) rotate(20deg);opacity:0;}
 }
 #heal-animation{
   position:fixed;
@@ -3693,18 +3677,9 @@ body:not(.no-hover) .credits-card__submit:hover,
   will-change:transform,opacity;
   gap:.25em;
 }
-#heal-animation.show{
-  animation:healRise 1s ease-in-out forwards;
-}
 #heal-animation::before{
   content:"";width:1em;height:1em;background:currentColor;
   clip-path:polygon(50% 0%,61% 19%,78% 19%,100% 41%,100% 68%,50% 100%,0 68%,0 41%,22% 19%,39% 19%);
-}
-@keyframes healRise{
-  0%{transform:translateY(20px) scale(0);opacity:0;}
-  30%{transform:translateY(0) scale(1.2);opacity:1;}
-  60%{transform:translateY(-10px) scale(1);opacity:1;}
-  100%{transform:translateY(-40px) scale(0.8);opacity:0;}
 }
 #save-animation{
   position:fixed;

@@ -11708,7 +11708,16 @@ function playDamageAnimation(amount){
     }
   );
 
-  return Promise.all([pop?.finished, drift?.finished, glow?.finished].filter(Boolean)).catch(()=>{});
+  return Promise.all([pop?.finished, drift?.finished, glow?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (anim && anim.style) {
+        anim.style.opacity = '0';
+        anim.style.transform = 'translateZ(0)';
+        anim.style.filter = 'none';
+        anim.style.textShadow = '';
+      }
+    });
 }
 
 const AUDIO_CUE_SETTINGS = {
@@ -12125,7 +12134,20 @@ function playDownAnimation(){
     }
   );
 
-  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean)).catch(()=>{});
+  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (anim?.style) {
+        anim.style.opacity = '0';
+        anim.style.transform = 'translateZ(0)';
+        anim.style.filter = 'none';
+      }
+      if (image?.style) {
+        image.style.opacity = '0';
+        image.style.transform = 'translateZ(0)';
+        image.style.filter = 'none';
+      }
+    });
 }
 
 function playDeathAnimation(){
@@ -12168,7 +12190,20 @@ function playDeathAnimation(){
     }
   );
 
-  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean)).catch(()=>{});
+  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (anim?.style) {
+        anim.style.opacity = '0';
+        anim.style.transform = 'translateZ(0)';
+        anim.style.filter = 'none';
+      }
+      if (image?.style) {
+        image.style.opacity = '0';
+        image.style.transform = 'translateZ(0)';
+        image.style.filter = 'none';
+      }
+    });
 }
 
 function playHealAnimation(amount){
@@ -12236,7 +12271,25 @@ function playHealAnimation(amount){
     }
   ) : null;
 
-  return Promise.all([bloomWave?.finished, shimmer?.finished, pop?.finished, float?.finished].filter(Boolean)).catch(()=>{});
+  return Promise.all([bloomWave?.finished, shimmer?.finished, pop?.finished, float?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (healOverlay?.style) {
+        healOverlay.style.opacity = '0';
+        healOverlay.style.transform = 'translateZ(0) scale(1)';
+        healOverlay.style.filter = 'none';
+      }
+      if (bloom?.style) {
+        bloom.style.opacity = '1';
+        bloom.style.transform = 'scale(1)';
+        bloom.style.filter = 'none';
+      }
+      if (anim?.style) {
+        anim.style.opacity = '0';
+        anim.style.transform = 'translateZ(0)';
+        anim.style.filter = 'none';
+      }
+    });
 }
 
 function playSaveAnimation(){
