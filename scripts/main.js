@@ -45,7 +45,8 @@ import {
   subscribe as subscribePlayerToolsDrawer,
   onDrawerChange as onPlayerToolsDrawerChange,
   open as openPlayerToolsDrawer,
-  close as closePlayerToolsDrawer
+  close as closePlayerToolsDrawer,
+  applyPlayerToolsCrackEffect,
 } from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
@@ -7610,7 +7611,7 @@ const elTierNumberValue = $('tier-number');
 const elTierGains = $('tier-gains');
 const elCAPCheck = $('cap-check');
 const elCAPStatus = $('cap-status');
-const elDeathSaves = $('death-saves');
+const elDeathSaves = $('pt-death-saves');
 const elCredits = $('credits');
 const elCreditsPill = $('credits-total-pill');
 const elCreditsGearTotal = $('credits-gear-total');
@@ -10038,13 +10039,7 @@ function updateSP(){
 
 function updateDeathSaveAvailability(){
   if(!elDeathSaves) return;
-  const atZero = num(elHPBar.value) === 0;
-  elDeathSaves.disabled = !atZero;
-  if (atZero) {
-    elDeathSaves.removeAttribute('hidden');
-  } else {
-    elDeathSaves.setAttribute('hidden', '');
-  }
+  setDeathSavesVisible(num(elHPBar.value) === 0);
   syncDeathSaveGauge();
 }
 
@@ -10569,28 +10564,37 @@ if (isElement(elCreditsModeToggle, HTMLElement) && isElement(elCreditsModeSelect
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
+  if (deathState === 'dead') return false;
   const prev = num(elHPBar.value);
-  elHPBar.value = Math.max(0, Math.min(num(elHPBar.max), v));
+  const next = Math.max(0, Math.min(num(elHPBar.max), v));
+  const wasAboveZero = prev > 0;
+  elHPBar.value = next;
   const current = num(elHPBar.value);
   updateHPDisplay({ current, max: num(elHPBar.max) });
-  updateDeathSaveAvailability();
   const diff = current - prev;
   if(diff !== 0){
     if(diff < 0){
       playActionCue('hp-damage');
+      if (typeof playDamageAnimation === 'function') {
+        void playDamageAnimation(diff);
+      }
     }else{
       playActionCue('hp-heal');
+      if (typeof playHealAnimation === 'function') {
+        void playHealAnimation(diff);
+      }
     }
     window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`, { actionScope: 'minor' });
     logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
   }
-  const down = prev > 0 && current === 0;
+  const down = wasAboveZero && current === 0;
   if(down){
     playActionCue('hp-down');
+    if (typeof playDownAnimation === 'function') {
+      void playDownAnimation();
+    }
   }
-  if(current > 0){
-    try { resetDeathSaves(); } catch {}
-  }
+  updateDeathSaveAvailability();
   return down;
 }
 function notifyInsufficientSp(message = "You don't have enough SP for that.") {
@@ -10642,9 +10646,7 @@ $('hp-dmg').addEventListener('click', async ()=>{
     d-=use;
   }
   const down = setHP(num(elHPBar.value)-d);
-  await playDamageAnimation(-d);
   if(down){
-    await playDownAnimation();
     toast('Player is down', 'warning');
     logAction('Player is down.');
   }
@@ -10652,11 +10654,9 @@ $('hp-dmg').addEventListener('click', async ()=>{
 $('hp-heal').addEventListener('click', async ()=>{
   const d=num(elHPAmt ? elHPAmt.value : 0)||0;
   setHP(num(elHPBar.value)+d);
-  if(d>0) await playHealAnimation(d);
 });
 $('hp-full').addEventListener('click', async ()=>{
   const diff = num(elHPBar.max) - num(elHPBar.value);
-  if(diff>0) await playHealAnimation(diff);
   setHP(num(elHPBar.max));
 });
 $('sp-full').addEventListener('click', ()=> setSP(num(elSPBar.max)));
@@ -10692,7 +10692,7 @@ $('long-rest').addEventListener('click', ()=>{
   if (elSPTemp) elSPTemp.value='';
   // clear combat-related checkbox states only
   const combatCheckboxes = [
-    ...qsa('#death-saves input[type="checkbox"]'),
+    ...qsa('#pt-death-saves input[type="checkbox"]'),
     ...qsa('#statuses input[type="checkbox"]'),
     ...qsa('#ongoing-effects input[type="checkbox"]'),
   ];
@@ -11567,20 +11567,32 @@ if (dmRollButton && dmRollButton !== rollDiceButton) {
 
 function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   if (!animationsEnabled) return;
-  const overlay = $('damage-overlay');
-  if (!overlay) return;
-
   const safeMax = Number.isFinite(max) && max > 0 ? max : 20;
   const magnitude = Number.isFinite(amount) ? Math.abs(amount) : 0;
   const intensity = Math.max(0, Math.min(1, magnitude / safeMax));
+
+  const crackRot = `${(Math.random() * 8 - 4).toFixed(2)}deg`;
+  const crackX = `${(Math.random() * 10 - 5).toFixed(1)}px`;
+  const crackY = `${(Math.random() * 10 - 5).toFixed(1)}px`;
+
+  if (typeof applyPlayerToolsCrackEffect === 'function') applyPlayerToolsCrackEffect({
+    intensity,
+    rotation: crackRot,
+    x: crackX,
+    y: crackY,
+    lingerMs,
+  });
+
+  const overlay = $('damage-overlay');
+  if (!overlay) return;
 
   // 0..4 tiers at 0%, 25%, 50%, 75%, 100%
   const tier = Math.min(4, Math.floor(intensity / 0.25));
   const prevTier = overlay.__ccDamageTier || 0;
 
-  overlay.style.setProperty('--crackRot', `${(Math.random() * 8 - 4).toFixed(2)}deg`);
-  overlay.style.setProperty('--crackX', `${(Math.random() * 10 - 5).toFixed(1)}px`);
-  overlay.style.setProperty('--crackY', `${(Math.random() * 10 - 5).toFixed(1)}px`);
+  overlay.style.setProperty('--crackRot', crackRot);
+  overlay.style.setProperty('--crackX', crackX);
+  overlay.style.setProperty('--crackY', crackY);
   overlay.style.setProperty('--damage', `${intensity}`);
 
   // optional: scale shake strength by tier (px)
@@ -12167,12 +12179,17 @@ function playLoadAnimation(){
   });
 }
 
-const deathSuccesses = ['death-success-1','death-success-2','death-success-3'].map(id=>$(id));
-const deathFailures = ['death-fail-1','death-fail-2','death-fail-3'].map(id=>$(id));
-const deathOut = $('death-save-out');
+const deathSuccesses = ['pt-death-success-1','pt-death-success-2','pt-death-success-3']
+  .map(id => $(id))
+  .filter(Boolean);
+const deathFailures = ['pt-death-fail-1','pt-death-fail-2','pt-death-fail-3']
+  .map(id => $(id))
+  .filter(Boolean);
+const deathCheckboxes = [...deathSuccesses, ...deathFailures];
+const deathOut = $('pt-death-save-out');
 const deathSaveResultRenderer = deathOut ? ensureDiceResultRenderer(deathOut) : null;
-const deathRollMode = $('death-save-mode');
-const deathModifierInput = $('death-save-mod');
+const deathRollMode = $('pt-death-save-mode');
+const deathModifierInput = $('pt-death-save-mod');
 let deathState = null; // null, 'stable', 'dead'
 const deathOutAnimationClass = 'death-save-result--pulse';
 
@@ -12186,6 +12203,17 @@ function getDeathSaveCounts(){
     successes: countChecked(deathSuccesses),
     failures: countChecked(deathFailures),
   };
+}
+
+function setDeathSavesVisible(isVisible) {
+  if (!elDeathSaves) return;
+  const visible = !!isVisible;
+
+  elDeathSaves.hidden = !visible;
+  elDeathSaves.disabled = !visible;
+  elDeathSaves.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+  if (!visible) resetDeathSaves();
 }
 
 function overridesEqual(a, b){
@@ -12357,31 +12385,39 @@ function resetDeathSaves(){
   }
   syncDeathSaveGauge();
 }
-$('death-save-reset')?.addEventListener('click', resetDeathSaves);
+$('pt-death-save-reset')?.addEventListener('click', resetDeathSaves);
 
 async function checkDeathProgress(){
+  if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
   if(deathFailures.every(b=>b.checked)){
     if(deathState!=='dead'){
       deathState='dead';
       await playDeathAnimation();
       toast('You have fallen, your sacrifice will be remembered.', 'error');
       logAction('Death save failed: character has fallen.');
+      if (elDeathSaves) elDeathSaves.disabled = true;
     }
   }else if(deathSuccesses.every(b=>b.checked)){
     if(deathState!=='stable'){
       deathState='stable';
-      toast('You are stable at 0 HP.', 'success');
-      logAction('Death saves complete: character is stable at 0 HP.');
+      setHP(1);
+      toast('Stabilized. You regain 1 HP.', 'success');
+      logAction('Death saves complete: stabilized at 1 HP.');
+      updateDeathSaveAvailability();
     }
   }else{
     deathState=null;
   }
   syncDeathSaveGauge();
 }
-[...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
+if (deathCheckboxes.length) {
+  deathCheckboxes.forEach(box => box.addEventListener('change', checkDeathProgress));
+}
 syncDeathSaveGauge();
+updateDeathSaveAvailability();
 
-$('roll-death-save')?.addEventListener('click', ()=>{
+$('pt-roll-death-save')?.addEventListener('click', ()=>{
+  if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
   const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';
   const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
   const manualInputRaw = deathModifierInput ? deathModifierInput.value : '';
@@ -12428,24 +12464,37 @@ $('roll-death-save')?.addEventListener('click', ()=>{
   }
   logAction(message);
 
+  const rawRoll = chosenRoll;
   let rollOutcome = total >= 10 ? 'success' : 'failure';
-  if (chosenRoll === 20) {
+  let failIncrements = 0;
+  let successIncrements = 0;
+
+  if (rawRoll === 1) {
+    rollOutcome = 'critical-failure';
+    failIncrements = 2;
+  } else if (rawRoll === 20) {
     rollOutcome = 'critical-success';
-    resetDeathSaves();
-    toast('Critical success! You regain 1 HP and awaken.', 'success');
-    logAction('Death save critical success: regain 1 HP and awaken.');
+    setHP(1);
+    toast('Natural 20. You stabilize and regain 1 HP.', 'success');
+    logAction('Death save: natural 20, stabilized to 1 HP.');
+    updateDeathSaveAvailability();
     syncDeathSaveGauge({ lastRoll: rollOutcome });
     return;
-  }
-  if (chosenRoll === 1) {
-    rollOutcome = 'critical-failure';
-    markBoxes(deathFailures, 2);
   } else if (total >= 10) {
     rollOutcome = 'success';
-    markBoxes(deathSuccesses, 1);
+    successIncrements = 1;
   } else {
     rollOutcome = 'failure';
-    markBoxes(deathFailures, 1);
+    failIncrements = 1;
+  }
+
+  if (successIncrements) {
+    const { successes } = getDeathSaveCounts();
+    markBoxes(deathSuccesses, successes + successIncrements);
+  }
+  if (failIncrements) {
+    const { failures } = getDeathSaveCounts();
+    markBoxes(deathFailures, failures + failIncrements);
   }
   checkDeathProgress();
   syncDeathSaveGauge({ lastRoll: rollOutcome });

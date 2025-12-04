@@ -1,6 +1,7 @@
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
+const CRACK_LEVELS = [0, 0.28, 0.45, 0.62];
 
 const getDocument = () => (typeof document !== 'undefined' ? document : null);
 const getGlobal = () => {
@@ -225,6 +226,50 @@ const ensurePlayerToolsHost = () => {
   return host;
 };
 
+const clampCrackStage = (stage = 0) => {
+  const normalized = Number(stage);
+  if (!Number.isFinite(normalized)) return 0;
+  return Math.max(0, Math.min(CRACK_LEVELS.length - 1, Math.round(normalized)));
+};
+
+const getCrackLevel = (stage = 0) => CRACK_LEVELS[clampCrackStage(stage)] || 0;
+
+export const applyPlayerToolsCrackEffect = (detail = {}) => {
+  const doc = getDocument();
+  const drawer = doc?.getElementById('player-tools-drawer');
+  const cracks = drawer?.querySelector('.pt-cracks');
+  if (!drawer || !cracks) return;
+
+  const isHidden = drawer.getAttribute('aria-hidden') === 'true';
+  if (isHidden) return;
+
+  const {
+    intensity = 0,
+    rotation = '0deg',
+    x = '0px',
+    y = '0px',
+    lingerMs = 900,
+  } = detail || {};
+
+  const clampedIntensity = Math.max(0, Math.min(1, Number(intensity) || 0));
+  const baseLevel = getCrackLevel(drawer.getAttribute('data-pt-crack')) || 0;
+  const visibleLevel = Math.max(baseLevel, clampedIntensity);
+
+  cracks.style.setProperty('--pt-crack-rot', rotation);
+  cracks.style.setProperty('--pt-crack-x', x);
+  cracks.style.setProperty('--pt-crack-y', y);
+  cracks.style.setProperty('--pt-damage-visible', `${visibleLevel}`);
+  cracks.classList.add('pt-cracks--impact');
+
+  clearTimeout(cracks.__ccPtDamageTimer);
+  const safeLinger = Math.max(0, Number(lingerMs) || 0);
+  cracks.__ccPtDamageTimer = setTimeout(() => {
+    cracks.classList.remove('pt-cracks--impact');
+    cracks.style.removeProperty('--pt-damage-visible');
+    cracks.__ccPtDamageTimer = null;
+  }, safeLinger);
+};
+
 function createPlayerToolsDrawer() {
   const doc = getDocument();
   if (!doc) return null;
@@ -237,6 +282,7 @@ function createPlayerToolsDrawer() {
   const tray = drawer ? drawer.querySelector('.pt-tray') : null;
   const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
   const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
+  const cracks = drawer ? drawer.querySelector('.pt-cracks') : null;
 
   const clockEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-clock]')) : [];
   const batteryEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-battery]')) : [];
@@ -258,6 +304,11 @@ function createPlayerToolsDrawer() {
   const flipCoinBtn = qs('#flip-coin-btn');
   const coinResultEl = qs('#coin-result');
 
+  const deathSaveCard = qs('#pt-death-saves');
+  if (deathSaveCard) {
+    deathSaveCard.dataset.ptTool = 'death-saves';
+  }
+
   const toastHistoryList = qs('#toast-history-list');
 
   if (!drawer || !tab) return null;
@@ -274,6 +325,7 @@ function createPlayerToolsDrawer() {
   let hpInterval = null;
   let batteryObj = null;
   let batteryApply = null;
+  let removeBatteryBridge = null;
   let splashSeq = 0; // fixes splash replay if open triggers more than once
 
   if (splash) {
@@ -317,7 +369,30 @@ function createPlayerToolsDrawer() {
   const initBattery = async () => {
     setBatteryVisual({ levelPercent: 75, charging: false, estimated: true });
 
-    if (typeof navigator === 'undefined' || !('getBattery' in navigator)) return;
+    if (typeof navigator === 'undefined' || !('getBattery' in navigator)) {
+      const win = doc?.defaultView;
+      const handleBatteryBridge = (event) => {
+        if (!event?.detail) return;
+        const detail = event.detail || {};
+        const level = Number.isFinite(Number(detail.levelPercent))
+          ? Number(detail.levelPercent)
+          : Number.isFinite(Number(detail.level))
+            ? Number(detail.level)
+            : Number.isFinite(Number(detail.percentage))
+              ? Number(detail.percentage)
+              : 75;
+        setBatteryVisual({
+          levelPercent: level,
+          charging: !!detail.charging,
+          estimated: detail.estimated !== undefined ? !!detail.estimated : true,
+        });
+      };
+      if (win && typeof win.addEventListener === 'function') {
+        win.addEventListener('player-tools:battery', handleBatteryBridge);
+        removeBatteryBridge = () => win.removeEventListener('player-tools:battery', handleBatteryBridge);
+      }
+      return;
+    }
 
     try {
       batteryObj = await navigator.getBattery();
@@ -548,6 +623,13 @@ function createPlayerToolsDrawer() {
     else if (pct < 0.70) stage = 1;
 
     drawer.setAttribute('data-pt-crack', String(stage));
+    if (!stage && cracks) {
+      const hasActiveImpact = !!cracks.__ccPtDamageTimer || cracks.classList.contains('pt-cracks--impact');
+      if (!hasActiveImpact) {
+        cracks.classList.remove('pt-cracks--impact');
+        cracks.style.removeProperty('--pt-damage-visible');
+      }
+    }
   };
 
   const handleKeydown = (event) => {
@@ -610,8 +692,12 @@ function createPlayerToolsDrawer() {
         batteryObj.removeEventListener('chargingchange', batteryApply);
       }
     } catch (_) {}
+    if (typeof removeBatteryBridge === 'function') {
+      try { removeBatteryBridge(); } catch (_) {}
+    }
     batteryApply = null;
     batteryObj = null;
+    removeBatteryBridge = null;
 
     if (removeOutsideCloseListeners) removeOutsideCloseListeners();
 
