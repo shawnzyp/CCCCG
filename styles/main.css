@@ -3504,7 +3504,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   filter:drop-shadow(0 0 1.2rem rgba(102, 255, 204, 0.4));
 }
 #heal-overlay svg{opacity:0;}
-#heal-overlay .heal-overlay__bloom{fill:url("#heal-bloom-gradient");}
+#heal-overlay .heal-overlay__bloom{fill:url(#heal-bloom-gradient);}
 #heal-overlay .heal-overlay__spark{fill:rgba(144,255,220,.6);mix-blend-mode:screen;}
 #heal-overlay .heal-overlay__halo{fill:rgba(90,200,255,.28);filter:blur(12px);}
 #down-animation{
@@ -3530,25 +3530,6 @@ body:not(.no-hover) .credits-card__submit:hover,
   transform:scale(0.6) rotate(-12deg);
   filter:drop-shadow(0 0 1.5rem rgba(120,0,0,.6));
   will-change:transform,opacity;
-}
-#down-animation.show{
-  animation:downVeil 1.8s ease-in-out forwards;
-}
-#down-animation.show img{
-  animation:downPulse 1.8s ease-in-out forwards;
-}
-@keyframes downVeil{
-  0%{opacity:0;}
-  12%{opacity:1;}
-  70%{opacity:.9;}
-  100%{opacity:0;}
-}
-@keyframes downPulse{
-  0%{opacity:0;transform:scale(0.55) rotate(-18deg);}
-  20%{opacity:1;transform:scale(1.05) rotate(-4deg);}
-  55%{opacity:1;transform:scale(1) rotate(0deg);}
-  80%{opacity:.9;transform:scale(0.92) rotate(-6deg);}
-  100%{opacity:0;transform:scale(0.85) rotate(-10deg);}
 }
 #death-animation{
   position:fixed;
@@ -3582,32 +3563,12 @@ body:not(.no-hover) .credits-card__submit:hover,
   filter:drop-shadow(0 0 1.5rem rgba(136,0,0,0.55));
   will-change:transform,opacity;
 }
-#death-animation.show{
-  animation:deathVeil 2.4s ease-in-out forwards;
-}
-#death-animation.show img{
-  animation:deathPulse 2.4s ease-in-out forwards;
-}
-@keyframes deathVeil{
-  0%{opacity:0;}
-  18%{opacity:1;}
-  60%{opacity:.95;}
-  100%{opacity:0;}
-}
-@keyframes deathPulse{
-  0%{opacity:0;transform:scale(0.5) rotate(-18deg);}
-  20%{opacity:1;transform:scale(1.15) rotate(3deg);}
-  55%{opacity:1;transform:scale(1) rotate(0);}
-  80%{opacity:.9;transform:scale(0.95) rotate(-2deg);}
-  100%{opacity:0;transform:scale(0.85) rotate(-8deg);}
-}
 #damage-overlay{
   position:fixed;
   inset:0;
   pointer-events:none;
   z-index:9000;
   opacity:0;
-  transition:opacity var(--motion-fast,120ms) linear;
   will-change:opacity,transform,filter;
   contain:paint;
   transform:translateZ(0);

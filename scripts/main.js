@@ -135,6 +135,13 @@ const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
 
+function cancelFx(el) {
+  if (!el) return;
+  try {
+    el.getAnimations().forEach(a => a.cancel());
+  } catch {}
+}
+
 function isCharacterSaveQuotaError(err) {
   if (!err) return false;
   if (err.code === 'character-save-quota-exceeded') return true;
@@ -11659,6 +11666,7 @@ function playDamageAnimation(amount){
   playStatusCue('damage');
 
   const anim=$('damage-animation');
+  cancelFx(anim);
   if(!anim) return Promise.resolve();
   anim.textContent=String(amount);
   anim.ariaHidden = 'true';
@@ -12082,6 +12090,8 @@ function playDownAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('down-animation');
   const image = anim?.querySelector('img');
+  cancelFx(anim);
+  cancelFx(image);
   if(!anim || !image) return Promise.resolve();
   playStatusCue('down');
   anim.ariaHidden = 'true';
@@ -12122,6 +12132,8 @@ function playDeathAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('death-animation');
   const image = anim?.querySelector('img');
+  cancelFx(anim);
+  cancelFx(image);
   if(!anim || !image) return Promise.resolve();
   playStatusCue('death');
   anim.ariaHidden = 'true';
@@ -12164,6 +12176,9 @@ function playHealAnimation(amount){
   const anim=$('heal-animation');
   const healOverlay = $('heal-overlay');
   const bloom = healOverlay?.querySelector('svg');
+  cancelFx(healOverlay);
+  cancelFx(anim);
+  cancelFx(bloom);
   if(anim) {
     anim.textContent=`+${amount}`;
     anim.ariaHidden = 'true';
