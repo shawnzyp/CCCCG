@@ -1,8 +1,6 @@
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
-const CRACK_LEVELS = [0, 0.28, 0.45, 0.62];
-
 const getDocument = () => (typeof document !== 'undefined' ? document : null);
 const getGlobal = () => {
   try {
@@ -224,71 +222,6 @@ const ensurePlayerToolsHost = () => {
 
   globalTarget.PlayerTools = host;
   return host;
-};
-
-const clampCrackStage = (stage = 0) => {
-  const normalized = Number(stage);
-  if (!Number.isFinite(normalized)) return 0;
-  return Math.max(0, Math.min(CRACK_LEVELS.length - 1, Math.round(normalized)));
-};
-
-const getCrackLevel = (stage = 0) => CRACK_LEVELS[clampCrackStage(stage)] || 0;
-
-export const applyPlayerToolsCrackEffect = (detail = {}) => {
-  const doc = getDocument();
-  const drawer = doc?.getElementById('player-tools-drawer');
-  const cracks = drawer?.querySelector('.pt-cracks');
-  if (!drawer || !cracks) return;
-
-  const isHidden = drawer.getAttribute('aria-hidden') === 'true';
-  if (isHidden) return;
-
-  const {
-    intensity = 0,
-    rotation = '0deg',
-    x = '0px',
-    y = '0px',
-    lingerMs = 900,
-  } = detail || {};
-
-  const clampedIntensity = Math.max(0, Math.min(1, Number(intensity) || 0));
-  const baseLevel = getCrackLevel(drawer.getAttribute('data-pt-crack')) || 0;
-  const visibleLevel = Math.max(baseLevel, clampedIntensity);
-
-  cracks.style.setProperty('--pt-crack-rot', rotation);
-  cracks.style.setProperty('--pt-crack-x', x);
-  cracks.style.setProperty('--pt-crack-y', y);
-  cracks.style.setProperty('--pt-damage-visible', `${visibleLevel}`);
-  if (typeof cracks.getAnimations === 'function') {
-    try {
-      cracks.getAnimations().forEach(anim => anim.cancel());
-    } catch (_) {}
-  }
-
-  try {
-    const impact = cracks.animate(
-      [
-        { transform: 'translate(0px, 0px)' },
-        { transform: 'translate(-2px, 1px)' },
-        { transform: 'translate(2px, -1px)' },
-        { transform: 'translate(-1px, 0px)' },
-        { transform: 'translate(0px, 0px)' },
-      ],
-      {
-        duration: 220,
-        easing: 'ease-out',
-        fill: 'none',
-      }
-    );
-    impact?.finished?.catch(() => {});
-  } catch (_) {}
-
-  clearTimeout(cracks.__ccPtDamageTimer);
-  const safeLinger = Math.max(0, Number(lingerMs) || 0);
-  cracks.__ccPtDamageTimer = setTimeout(() => {
-    cracks.style.removeProperty('--pt-damage-visible');
-    cracks.__ccPtDamageTimer = null;
-  }, safeLinger);
 };
 
 function createPlayerToolsDrawer() {
@@ -603,7 +536,7 @@ function createPlayerToolsDrawer() {
     return null;
   };
 
-  const getHpPercent = () => {
+  const getHpState = () => {
     const curEl = queryFirst([
       '#hp-current',
       '#current-hp',
@@ -628,30 +561,28 @@ function createPlayerToolsDrawer() {
     const max = readNumberFromEl(maxEl);
 
     if (!Number.isFinite(cur) || !Number.isFinite(max) || max <= 0) return null;
-    return Math.max(0, Math.min(1, cur / max));
+    const pct = Math.max(0, Math.min(1, cur / max));
+    return { cur, max, pct };
   };
 
   const updateCracks = () => {
-    const pct = getHpPercent();
-    if (pct == null) {
+    const hpState = getHpState();
+    if (!hpState) {
       drawer.setAttribute('data-pt-crack', '0');
       return;
     }
 
+    const { cur, max, pct } = hpState;
     let stage = 0;
-    if (pct < 0.15) stage = 3;
-    else if (pct < 0.40) stage = 2;
-    else if (pct < 0.70) stage = 1;
+
+    if (cur < max) {
+      if (pct >= 0.85) stage = 1;
+      else if (pct >= 0.65) stage = 2;
+      else if (pct >= 0.35) stage = 3;
+      else stage = 4;
+    }
 
     drawer.setAttribute('data-pt-crack', String(stage));
-    if (!stage && cracks) {
-      const hasActiveImpact = !!cracks.__ccPtDamageTimer
-        || (typeof cracks.getAnimations === 'function'
-          && cracks.getAnimations().some(anim => anim.playState === 'running' || anim.playState === 'pending'));
-      if (!hasActiveImpact) {
-        cracks.style.removeProperty('--pt-damage-visible');
-      }
-    }
   };
 
   const handleKeydown = (event) => {

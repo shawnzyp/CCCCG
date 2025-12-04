@@ -47,7 +47,6 @@ import {
   onDrawerChange as onPlayerToolsDrawerChange,
   open as openPlayerToolsDrawer,
   close as closePlayerToolsDrawer,
-  applyPlayerToolsCrackEffect,
 } from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
@@ -11582,14 +11581,6 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   const crackRot = `${(Math.random() * 8 - 4).toFixed(2)}deg`;
   const crackX = `${(Math.random() * 10 - 5).toFixed(1)}px`;
   const crackY = `${(Math.random() * 10 - 5).toFixed(1)}px`;
-
-  if (typeof applyPlayerToolsCrackEffect === 'function') applyPlayerToolsCrackEffect({
-    intensity,
-    rotation: crackRot,
-    x: crackX,
-    y: crackY,
-    lingerMs,
-  });
 
   const overlay = $('damage-overlay');
   if (!overlay) return;
