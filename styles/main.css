@@ -3528,7 +3528,7 @@ body:not(.no-hover) .credits-card__submit:hover,
       rgba(0,0,0,0) 38%,
       rgba(0,0,0,0.22) 64%,
       rgba(0,0,0,0.5) 100%),
-    url("images/cracked-glass-texture.svg");
+    url("../images/cracked-glass-texture.svg");
 }
 
 #death-animation img{
@@ -3606,7 +3606,7 @@ body:not(.no-hover) .credits-card__submit:hover,
         rgba(0,0,0,0) 38%,
         color-mix(in srgb, black 22%, transparent) 64%,
         color-mix(in srgb, black 50%, transparent) 100%),
-      url("images/cracked-glass-texture.svg");
+      url("../images/cracked-glass-texture.svg");
   }
 }
 #damage-overlay::after{
