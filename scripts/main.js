@@ -11650,6 +11650,7 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
     duration: motion('--motion-slow', 520),
     easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
     delay: Math.max(120, lingerMs * 0.25),
+    from: peakOpacity,
   });
   overlay.__fadeOut?.finished?.then(() => {
     overlay.style.setProperty('--damage', '0');
@@ -11682,9 +11683,9 @@ function playDamageAnimation(amount){
   const drift = animate(
     anim,
     [
-      { opacity: 1, transform: 'translateY(0) scale(1)' },
-      { opacity: 1, transform: 'translateY(-6px) scale(0.98)' },
-      { opacity: 0, transform: 'translateY(-24px) scale(0.9)', filter: 'blur(0.5px)' },
+      { transform: 'translateY(0) scale(1)' },
+      { transform: 'translateY(-6px) scale(0.98)' },
+      { transform: 'translateY(-24px) scale(0.9)' },
     ],
     {
       duration: Math.max(motion('--motion-slow', 520), 520),
@@ -11694,12 +11695,26 @@ function playDamageAnimation(amount){
     }
   );
 
+  const fade = animate(
+    anim,
+    [
+      { opacity: 1 },
+      { opacity: 0 },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 520),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.5,
+    }
+  );
+
   const glow = animate(
     anim,
     [
-      { textShadow: '0 0 1rem currentColor', opacity: 1 },
-      { textShadow: '0 0 0.2rem currentColor', opacity: Math.min(1, damageIntensity + 0.2) },
-      { textShadow: '0 0 0rem currentColor', opacity: 0 },
+      { textShadow: '0 0 1rem currentColor' },
+      { textShadow: '0 0 0.2rem currentColor' },
+      { textShadow: '0 0 0rem currentColor' },
     ],
     {
       duration: Math.max(motion('--motion-slow', 520), 520),
@@ -11708,7 +11723,7 @@ function playDamageAnimation(amount){
     }
   );
 
-  return Promise.all([pop?.finished, drift?.finished, glow?.finished].filter(Boolean))
+  return Promise.all([pop?.finished, drift?.finished, fade?.finished, glow?.finished].filter(Boolean))
     .catch(()=>{})
     .finally(() => {
       if (anim && anim.style) {
@@ -12259,9 +12274,9 @@ function playHealAnimation(amount){
   const float = anim ? animate(
     anim,
     [
-      { opacity: 1, transform: 'translateY(2px) scale(1)' },
-      { opacity: 0.9, transform: 'translateY(-6px) scale(0.99)' },
-      { opacity: 0, transform: 'translateY(-22px) scale(0.96)' },
+      { transform: 'translateY(2px) scale(1)' },
+      { transform: 'translateY(-6px) scale(0.99)' },
+      { transform: 'translateY(-22px) scale(0.96)' },
     ],
     {
       duration: Math.max(motion('--motion-slow', 520), 720),
@@ -12271,7 +12286,21 @@ function playHealAnimation(amount){
     }
   ) : null;
 
-  return Promise.all([bloomWave?.finished, shimmer?.finished, pop?.finished, float?.finished].filter(Boolean))
+  const fade = anim ? animate(
+    anim,
+    [
+      { opacity: 1 },
+      { opacity: 0 },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 720),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.35,
+    }
+  ) : null;
+
+  return Promise.all([bloomWave?.finished, shimmer?.finished, pop?.finished, float?.finished, fade?.finished].filter(Boolean))
     .catch(()=>{})
     .finally(() => {
       if (healOverlay?.style) {

@@ -54,12 +54,15 @@ export function fadePop(
   );
 }
 
-export function fadeOut(el, { duration = 240, easing: ease = 'linear', delay = 0 } = {}) {
-  const currentOpacity = Number.parseFloat(getComputedStyle(el).opacity) || 0;
+export function fadeOut(el, { duration = 240, easing: ease = 'linear', delay = 0, from } = {}) {
+  const currentOpacity = Number.isFinite(from)
+    ? from
+    : (Number.parseFloat(getComputedStyle(el).opacity) || 1);
+
   return animate(
     el,
     [
-      { opacity: currentOpacity || 1 },
+      { opacity: currentOpacity },
       { opacity: 0 },
     ],
     { duration, easing: ease, fill: 'forwards', delay }
