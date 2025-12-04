@@ -10564,6 +10564,7 @@ if (isElement(elCreditsModeToggle, HTMLElement) && isElement(elCreditsModeSelect
 
 /* ========= HP/SP controls ========= */
 function setHP(v){
+  if (deathState === 'dead') return false;
   const prev = num(elHPBar.value);
   const next = Math.max(0, Math.min(num(elHPBar.max), v));
   const wasAboveZero = prev > 0;
@@ -10575,7 +10576,7 @@ function setHP(v){
     if(diff < 0){
       playActionCue('hp-damage');
       if (typeof playDamageAnimation === 'function') {
-        void playDamageAnimation(Math.abs(diff));
+        void playDamageAnimation(diff);
       }
     }else{
       playActionCue('hp-heal');
@@ -10594,7 +10595,6 @@ function setHP(v){
     }
   }
   updateDeathSaveAvailability();
-  syncDeathSavesVisibility();
   return down;
 }
 function notifyInsufficientSp(message = "You don't have enough SP for that.") {
@@ -12205,15 +12205,6 @@ function getDeathSaveCounts(){
   };
 }
 
-function getCurrentHpValue() {
-  if (hpGaugeMetrics && Number.isFinite(hpGaugeMetrics.current)) {
-    return hpGaugeMetrics.current;
-  }
-  const raw = $('hp-current')?.textContent ?? '';
-  const n = Number(String(raw).trim());
-  return Number.isFinite(n) ? n : null;
-}
-
 function setDeathSavesVisible(isVisible) {
   if (!elDeathSaves) return;
   const visible = !!isVisible;
@@ -12223,13 +12214,6 @@ function setDeathSavesVisible(isVisible) {
   elDeathSaves.setAttribute('aria-hidden', visible ? 'false' : 'true');
 
   if (!visible) resetDeathSaves();
-}
-
-function syncDeathSavesVisibility() {
-  const hp = getCurrentHpValue();
-  if (hp == null) return;
-
-  setDeathSavesVisible(hp === 0);
 }
 
 function overridesEqual(a, b){
@@ -12404,6 +12388,7 @@ function resetDeathSaves(){
 $('pt-death-save-reset')?.addEventListener('click', resetDeathSaves);
 
 async function checkDeathProgress(){
+  if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
   if(deathFailures.every(b=>b.checked)){
     if(deathState!=='dead'){
       deathState='dead';
@@ -12418,7 +12403,7 @@ async function checkDeathProgress(){
       setHP(1);
       toast('Stabilized. You regain 1 HP.', 'success');
       logAction('Death saves complete: stabilized at 1 HP.');
-      syncDeathSavesVisibility();
+      updateDeathSaveAvailability();
     }
   }else{
     deathState=null;
@@ -12429,9 +12414,10 @@ if (deathCheckboxes.length) {
   deathCheckboxes.forEach(box => box.addEventListener('change', checkDeathProgress));
 }
 syncDeathSaveGauge();
-syncDeathSavesVisibility();
+updateDeathSaveAvailability();
 
 $('pt-roll-death-save')?.addEventListener('click', ()=>{
+  if (deathSuccesses.length !== 3 || deathFailures.length !== 3) return;
   const modeRaw = typeof deathRollMode?.value === 'string' ? deathRollMode.value : 'normal';
   const normalizedMode = modeRaw === 'advantage' || modeRaw === 'disadvantage' ? modeRaw : 'normal';
   const manualInputRaw = deathModifierInput ? deathModifierInput.value : '';
@@ -12491,7 +12477,7 @@ $('pt-roll-death-save')?.addEventListener('click', ()=>{
     setHP(1);
     toast('Natural 20. You stabilize and regain 1 HP.', 'success');
     logAction('Death save: natural 20, stabilized to 1 HP.');
-    syncDeathSavesVisibility();
+    updateDeathSaveAvailability();
     syncDeathSaveGauge({ lastRoll: rollOutcome });
     return;
   } else if (total >= 10) {
