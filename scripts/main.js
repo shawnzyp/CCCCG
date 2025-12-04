@@ -31,6 +31,7 @@ import {
   isAutoSaveDirty,
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
+import { animate, fadeOut, fadePop, easing as easingVar, motion } from './anim.js';
 import { canonicalCharacterKey } from './character-keys.js';
 import {
   activateTab,
@@ -11598,46 +11599,108 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   // optional: scale shake strength by tier (px)
   overlay.style.setProperty('--shake', `${Math.max(1, tier) * 2}px`);
 
-  overlay.classList.add('is-on');
+  const peakOpacity = Math.min(0.95, intensity * 0.95);
+
+  overlay.__fadeOut?.cancel?.();
+  overlay.__pop?.cancel?.();
+
+  overlay.__pop = animate(
+    overlay,
+    [
+      { opacity: peakOpacity * 0.4, filter: 'blur(2px)', transform: 'translateZ(0) scale(0.98)' },
+      { opacity: peakOpacity, filter: 'blur(0px)', transform: 'translateZ(0) scale(1)' },
+    ],
+    {
+      duration: motion('--motion-fast', 140),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  );
 
   // Only shake when we CROSS UP into a higher tier
   if (tier > prevTier) {
     overlay.__ccDamageTier = tier;
 
-    overlay.classList.remove('impact');
-    void overlay.offsetWidth; // restart animation reliably
-    overlay.classList.add('impact');
+    overlay.__shake?.cancel?.();
+    overlay.__shake = animate(
+      overlay,
+      [
+        { transform: 'translate(0, 0)' },
+        { transform: `translate(calc(var(--shake, 2px) * -1), calc(var(--shake, 2px) * 0.5))` },
+        { transform: `translate(var(--shake, 2px), calc(var(--shake, 2px) * -0.5))` },
+        { transform: `translate(calc(var(--shake, 2px) * -0.5), 0px)` },
+        { transform: 'translate(0, 0)' },
+      ],
+      {
+        duration: motion('--motion-med', 240),
+        easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+        fill: 'forwards',
+      }
+    );
   }
 
-  clearTimeout(overlay.__ccDamageTimer);
-  overlay.__ccDamageTimer = setTimeout(() => {
-    overlay.classList.remove('impact');
+  overlay.__fadeOut = fadeOut(overlay, {
+    duration: motion('--motion-slow', 520),
+    easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+    delay: Math.max(120, lingerMs * 0.25),
+  });
+  overlay.__fadeOut?.finished?.then(() => {
     overlay.style.setProperty('--damage', '0');
-    overlay.classList.remove('is-on');
     overlay.__ccDamageTier = 0; // reset tiers when overlay clears
-  }, lingerMs);
+  }).catch(()=>{});
 }
 
 function playDamageAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const maxHp = elHPBar ? num(elHPBar.max) : 20;
   const scale = Math.max(12, Math.round(maxHp * 0.25));
+  const damageIntensity = Math.max(0, Math.min(1, Math.abs(amount) / scale));
   triggerDamageOverlay(Math.abs(amount), { max: scale, lingerMs: 900 });
+  playStatusCue('damage');
+
   const anim=$('damage-animation');
   if(!anim) return Promise.resolve();
   anim.textContent=String(amount);
-  anim.hidden=false;
-  playStatusCue('damage');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
+  anim.ariaHidden = 'true';
+
+  const pop = fadePop(anim, {
+    duration: motion('--motion-med', 240),
+    easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+    scaleFrom: 0.9,
+    scaleTo: 1.05,
+    blurFrom: 3,
   });
+
+  const drift = animate(
+    anim,
+    [
+      { opacity: 1, transform: 'translateY(0) scale(1)' },
+      { opacity: 1, transform: 'translateY(-6px) scale(0.98)' },
+      { opacity: 0, transform: 'translateY(-24px) scale(0.9)', filter: 'blur(0.5px)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 520),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.5,
+    }
+  );
+
+  const glow = animate(
+    anim,
+    [
+      { textShadow: '0 0 1rem currentColor', opacity: 1 },
+      { textShadow: '0 0 0.2rem currentColor', opacity: Math.min(1, damageIntensity + 0.2) },
+      { textShadow: '0 0 0rem currentColor', opacity: 0 },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 520),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  return Promise.all([pop?.finished, drift?.finished, glow?.finished].filter(Boolean)).catch(()=>{});
 }
 
 const AUDIO_CUE_SETTINGS = {
@@ -12018,56 +12081,147 @@ function playStatusCue(name){
 function playDownAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('down-animation');
-  if(!anim) return Promise.resolve();
-  anim.hidden=false;
+  const image = anim?.querySelector('img');
+  if(!anim || !image) return Promise.resolve();
   playStatusCue('down');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
-  });
+  anim.ariaHidden = 'true';
+  image.ariaHidden = 'true';
+
+  const veil = animate(
+    anim,
+    [
+      { opacity: 0, filter: 'blur(6px)', transform: 'translateZ(0)' },
+      { opacity: 0.92, filter: 'blur(1px)', transform: 'translateZ(0)' },
+      { opacity: 0, filter: 'blur(3px)', transform: 'translateZ(0)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 900),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  const pulse = animate(
+    image,
+    [
+      { opacity: 0, transform: 'scale(0.85) rotate(-16deg)', filter: 'drop-shadow(0 0 1.5rem rgba(120,0,0,.65))' },
+      { opacity: 1, transform: 'scale(1.05) rotate(-4deg)', filter: 'drop-shadow(0 0 1.25rem rgba(120,0,0,.7))' },
+      { opacity: 0.4, transform: 'scale(0.92) rotate(-8deg)', filter: 'drop-shadow(0 0 0.75rem rgba(120,0,0,.4))' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 980),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean)).catch(()=>{});
 }
 
 function playDeathAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('death-animation');
-  if(!anim) return Promise.resolve();
-  anim.hidden=false;
+  const image = anim?.querySelector('img');
+  if(!anim || !image) return Promise.resolve();
   playStatusCue('death');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
-  });
+  anim.ariaHidden = 'true';
+  image.ariaHidden = 'true';
+
+  const veil = animate(
+    anim,
+    [
+      { opacity: 0, filter: 'blur(8px)', transform: 'translateZ(0) scale(0.96)' },
+      { opacity: 0.95, filter: 'blur(1px)', transform: 'translateZ(0) scale(1)' },
+      { opacity: 0, filter: 'blur(3px)', transform: 'translateZ(0) scale(1.04)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 1300),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  const pulse = animate(
+    image,
+    [
+      { opacity: 0, transform: 'scale(0.82) rotate(-18deg)', filter: 'drop-shadow(0 0 1.5rem rgba(136,0,0,0.65))' },
+      { opacity: 1, transform: 'scale(1.08) rotate(2deg)', filter: 'drop-shadow(0 0 1.3rem rgba(136,0,0,0.6))' },
+      { opacity: 0.5, transform: 'scale(0.95) rotate(-6deg)', filter: 'drop-shadow(0 0 0.9rem rgba(136,0,0,0.4))' },
+      { opacity: 0, transform: 'scale(0.9) rotate(-10deg)', filter: 'drop-shadow(0 0 0.4rem rgba(136,0,0,0.35))' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 1400),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean)).catch(()=>{});
 }
 
 function playHealAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('heal-animation');
-  if(!anim) return Promise.resolve();
-  anim.textContent=`+${amount}`;
-  anim.hidden=false;
+  const healOverlay = $('heal-overlay');
+  const bloom = healOverlay?.querySelector('svg');
+  if(anim) {
+    anim.textContent=`+${amount}`;
+    anim.ariaHidden = 'true';
+  }
   playStatusCue('heal');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
-  });
+
+  const bloomWave = healOverlay ? animate(
+    healOverlay,
+    [
+      { opacity: 0, transform: 'scale(0.96)', filter: 'blur(8px)' },
+      { opacity: 0.85, transform: 'scale(1.03)', filter: 'blur(1px)' },
+      { opacity: 0, transform: 'scale(1.06)', filter: 'blur(6px)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 820),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  ) : null;
+
+  const shimmer = bloom ? animate(
+    bloom,
+    [
+      { opacity: 0.2, transform: 'scale(0.92) rotate(-4deg)' },
+      { opacity: 0.8, transform: 'scale(1.05) rotate(2deg)' },
+      { opacity: 0.6, transform: 'scale(1) rotate(0deg)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-med', 240), 420),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  ) : null;
+
+  const pop = anim ? fadePop(anim, {
+    duration: motion('--motion-med', 240),
+    easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+    scaleFrom: 0.92,
+    scaleTo: 1.08,
+    blurFrom: 1.5,
+  }) : null;
+
+  const float = anim ? animate(
+    anim,
+    [
+      { opacity: 1, transform: 'translateY(2px) scale(1)' },
+      { opacity: 0.9, transform: 'translateY(-6px) scale(0.99)' },
+      { opacity: 0, transform: 'translateY(-22px) scale(0.96)' },
+    ],
+    {
+      duration: Math.max(motion('--motion-slow', 520), 720),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.35,
+    }
+  ) : null;
+
+  return Promise.all([bloomWave?.finished, shimmer?.finished, pop?.finished, float?.finished].filter(Boolean)).catch(()=>{});
 }
 
 function playSaveAnimation(){

@@ -2983,17 +2983,31 @@
 <div id="somfDM-toasts" class="somf-dm__toasts"></div>
 <audio id="somfDM-ping" preload="auto"></audio>
 
-<div id="down-animation" aria-hidden="true" hidden>
+<div id="down-animation" class="fx-layer" aria-hidden="true">
   <img src="images/skull.png" alt="" decoding="async" loading="eager" />
 </div>
-<div id="death-animation" aria-hidden="true" hidden>
+<div id="death-animation" class="fx-layer" aria-hidden="true">
   <img src="images/death-animation.png" alt="" decoding="async" loading="eager" />
 </div>
-<div id="damage-overlay" aria-hidden="true"></div>
-<div id="damage-animation" aria-hidden="true" hidden></div>
-<div id="heal-animation" aria-hidden="true" hidden></div>
-<div id="save-animation" aria-hidden="true" hidden></div>
-<div id="coin-animation" aria-hidden="true" hidden data-heads="Heads" data-tails="Tails">
+<div id="heal-overlay" class="fx-layer" aria-hidden="true">
+  <svg viewBox="0 0 800 800" role="presentation" aria-hidden="true" focusable="false">
+    <defs>
+      <radialGradient id="heal-bloom-gradient" cx="50%" cy="50%" r="55%">
+        <stop offset="0%" stop-color="rgba(175,255,232,0.8)" />
+        <stop offset="45%" stop-color="rgba(140,255,214,0.6)" />
+        <stop offset="100%" stop-color="rgba(120,255,200,0)" />
+      </radialGradient>
+    </defs>
+    <circle class="heal-overlay__halo" cx="400" cy="400" r="360"></circle>
+    <circle class="heal-overlay__bloom" cx="400" cy="400" r="280"></circle>
+    <path class="heal-overlay__spark" d="M400 140l38 132 130-46-84 110 106 78-132 4 16 134-74-114-112 84 44-132-134-14 118-64-60-120 122 68z"></path>
+  </svg>
+</div>
+<div id="damage-overlay" class="fx-layer" aria-hidden="true"></div>
+<div id="damage-animation" class="fx-layer" aria-hidden="true"></div>
+<div id="heal-animation" class="fx-layer" aria-hidden="true"></div>
+<div id="save-animation" class="fx-layer" aria-hidden="true"></div>
+<div id="coin-animation" class="fx-layer" aria-hidden="true" data-heads="Heads" data-tails="Tails">
   <span class="coin-result"></span>
   <span class="coin-face coin-face--heads" aria-hidden="true"></span>
   <span class="coin-face coin-face--tails" aria-hidden="true"></span>
