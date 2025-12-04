@@ -3587,11 +3587,14 @@ body:not(.no-hover) .credits-card__submit:hover,
   inset:0;
 }
 #damage-overlay::before{
-  background-image: var(--damage-overlay-cracks);
-    background-repeat:no-repeat, no-repeat;
-    background-size:cover, cover;
-    background-position:center, center;
-    background-blend-mode:normal, screen;
+  background-image:
+    radial-gradient(circle at 10% 12%, rgba(110,240,255,0.22), transparent 55%),
+    radial-gradient(circle at 92% 18%, rgba(110,240,255,0.18), transparent 60%),
+    var(--damage-overlay-cracks);
+    background-repeat:no-repeat;
+    background-size:cover;
+    background-position:center;
+    background-blend-mode:screen, screen, normal, screen;
     filter:
       contrast(calc(1 + var(--damage, 0) * 0.6))
       brightness(calc(1 + var(--damage, 0) * 0.05));
@@ -9078,11 +9081,14 @@ animation: pt-splash-scan 1.05s linear infinite;
 }
 
 #player-tools-drawer .pt-cracks::before{
-  background-image: var(--damage-overlay-cracks);
-  background-repeat:no-repeat, no-repeat;
-  background-size:cover, cover;
-  background-position:center, center;
-  background-blend-mode:normal, screen;
+  background-image:
+    radial-gradient(circle at 10% 12%, rgba(110,240,255,0.22), transparent 55%),
+    radial-gradient(circle at 92% 18%, rgba(110,240,255,0.18), transparent 60%),
+    var(--damage-overlay-cracks);
+  background-repeat:no-repeat;
+  background-size:cover;
+  background-position:center;
+  background-blend-mode:screen, screen, normal, screen;
   filter:
     contrast(calc(1 + var(--pt-damage-visible, 0) * 0.6))
     brightness(calc(1 + var(--pt-damage-visible, 0) * 0.05));
