@@ -11576,7 +11576,7 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   const crackX = `${(Math.random() * 10 - 5).toFixed(1)}px`;
   const crackY = `${(Math.random() * 10 - 5).toFixed(1)}px`;
 
-  applyPlayerToolsCrackEffect({
+  if (typeof applyPlayerToolsCrackEffect === 'function') applyPlayerToolsCrackEffect({
     intensity,
     rotation: crackRot,
     x: crackX,
@@ -12180,8 +12180,12 @@ function playLoadAnimation(){
   });
 }
 
-const deathSuccesses = ['pt-death-success-1','pt-death-success-2','pt-death-success-3'].map(id=>$(id));
-const deathFailures = ['pt-death-fail-1','pt-death-fail-2','pt-death-fail-3'].map(id=>$(id));
+const deathSuccesses = ['pt-death-success-1','pt-death-success-2','pt-death-success-3']
+  .map(id => $(id))
+  .filter(Boolean);
+const deathFailures = ['pt-death-fail-1','pt-death-fail-2','pt-death-fail-3']
+  .map(id => $(id))
+  .filter(Boolean);
 const deathOut = $('pt-death-save-out');
 const deathSaveResultRenderer = deathOut ? ensureDiceResultRenderer(deathOut) : null;
 const deathRollMode = $('pt-death-save-mode');
