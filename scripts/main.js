@@ -11608,6 +11608,10 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
 
   const peakOpacity = Math.min(0.95, intensity * 0.95);
 
+  if (overlay.__ccDamageTimer) {
+    clearTimeout(overlay.__ccDamageTimer);
+    overlay.__ccDamageTimer = null;
+  }
   overlay.__fadeOut?.cancel?.();
   overlay.__pop?.cancel?.();
 
@@ -11623,6 +11627,16 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
       fill: 'forwards',
     }
   );
+
+  if (!overlay.__pop) {
+    overlay.style.opacity = `${peakOpacity}`;
+    overlay.__ccDamageTimer = setTimeout(() => {
+      overlay.style.opacity = '0';
+      overlay.style.setProperty('--damage', '0');
+      overlay.__ccDamageTier = 0;
+    }, lingerMs);
+    return;
+  }
 
   // Only shake when we CROSS UP into a higher tier
   if (tier > prevTier) {
@@ -11652,6 +11666,14 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
     delay: Math.max(120, lingerMs * 0.25),
     from: peakOpacity,
   });
+  if (!overlay.__fadeOut) {
+    overlay.__ccDamageTimer = setTimeout(() => {
+      overlay.style.opacity = '0';
+      overlay.style.setProperty('--damage', '0');
+      overlay.__ccDamageTier = 0;
+    }, lingerMs);
+    return;
+  }
   overlay.__fadeOut?.finished?.then(() => {
     overlay.style.setProperty('--damage', '0');
     overlay.__ccDamageTier = 0; // reset tiers when overlay clears

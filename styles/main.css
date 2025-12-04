@@ -3569,7 +3569,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   z-index:9000;
   opacity:0;
   will-change:opacity,transform,filter;
-  contain:paint;
+  contain:none;
   transform:translateZ(0);
   background:radial-gradient(circle at 50% 50%,
     rgba(0,0,0,0) 40%,
