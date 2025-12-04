@@ -12186,6 +12186,7 @@ const deathSuccesses = ['pt-death-success-1','pt-death-success-2','pt-death-succ
 const deathFailures = ['pt-death-fail-1','pt-death-fail-2','pt-death-fail-3']
   .map(id => $(id))
   .filter(Boolean);
+const deathCheckboxes = [...deathSuccesses, ...deathFailures];
 const deathOut = $('pt-death-save-out');
 const deathSaveResultRenderer = deathOut ? ensureDiceResultRenderer(deathOut) : null;
 const deathRollMode = $('pt-death-save-mode');
@@ -12395,7 +12396,9 @@ async function checkDeathProgress(){
   }
   syncDeathSaveGauge();
 }
-[...deathSuccesses, ...deathFailures].forEach(box=> box.addEventListener('change', checkDeathProgress));
+if (deathCheckboxes.length) {
+  deathCheckboxes.forEach(box => box.addEventListener('change', checkDeathProgress));
+}
 syncDeathSaveGauge();
 
 $('pt-roll-death-save')?.addEventListener('click', ()=>{
