@@ -55,9 +55,18 @@ export function fadePop(
 }
 
 export function fadeOut(el, { duration = 240, easing: ease = 'linear', delay = 0, from } = {}) {
-  const currentOpacity = Number.isFinite(from)
-    ? from
-    : (Number.parseFloat(getComputedStyle(el).opacity) || 1);
+  if (!el) return null;
+
+  let currentOpacity = 1;
+  if (Number.isFinite(from)) {
+    currentOpacity = from;
+  } else {
+    try {
+      currentOpacity = Number.parseFloat(getComputedStyle(el).opacity) || 1;
+    } catch (_) {
+      currentOpacity = 1;
+    }
+  }
 
   return animate(
     el,

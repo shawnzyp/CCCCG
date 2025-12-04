@@ -11703,7 +11703,7 @@ function playDamageAnimation(amount){
       { opacity: 0 },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 520),
+      duration: Math.max(1, motion('--motion-slow', 520)),
       easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
       fill: 'forwards',
     }
@@ -11718,7 +11718,7 @@ function playDamageAnimation(amount){
       { offset: 1, transform: 'translateY(-24px) scale(0.9)', filter: 'blur(0.5px)' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 620),
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.2),
       easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
       fill: 'forwards',
       delay: motion('--motion-fast', 140) * 0.35,
@@ -11733,7 +11733,7 @@ function playDamageAnimation(amount){
       { textShadow: '0 0 0rem currentColor' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 520),
+      duration: Math.max(1, motion('--motion-slow', 520)),
       easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
       fill: 'forwards',
     }
@@ -12150,7 +12150,7 @@ function playDownAnimation(){
       { opacity: 0, filter: 'blur(3px)', transform: 'translateZ(0)' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 900),
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.73),
       easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
       fill: 'forwards',
     }
@@ -12164,7 +12164,7 @@ function playDownAnimation(){
       { opacity: 0.4, transform: 'scale(0.92) rotate(-8deg)', filter: 'drop-shadow(0 0 0.75rem rgba(120,0,0,.4))' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 980),
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.88),
       easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
       fill: 'forwards',
     }
@@ -12205,7 +12205,7 @@ function playDeathAnimation(){
       { opacity: 0, filter: 'blur(3px)', transform: 'translateZ(0) scale(1.04)' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 1300),
+      duration: Math.max(1, motion('--motion-slow', 520) * 2.5),
       easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
       fill: 'forwards',
     }
@@ -12220,7 +12220,7 @@ function playDeathAnimation(){
       { opacity: 0, transform: 'scale(0.9) rotate(-10deg)', filter: 'drop-shadow(0 0 0.4rem rgba(136,0,0,0.35))' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 1400),
+      duration: Math.max(1, motion('--motion-slow', 520) * 2.7),
       easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
       fill: 'forwards',
     }
@@ -12266,7 +12266,7 @@ function playHealAnimation(amount){
       { opacity: 0, transform: 'scale(1.06)', filter: 'blur(6px)' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 820),
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.58),
       easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
       fill: 'forwards',
     }
@@ -12280,7 +12280,7 @@ function playHealAnimation(amount){
       { opacity: 0.6, transform: 'scale(1) rotate(0deg)' },
     ],
     {
-      duration: Math.max(motion('--motion-med', 240), 420),
+      duration: Math.max(1, motion('--motion-med', 240) * 1.75),
       easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
       fill: 'forwards',
     }
@@ -12294,7 +12294,7 @@ function playHealAnimation(amount){
       { opacity: 0 },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 720),
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.38),
       easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
       fill: 'forwards',
     }
@@ -12309,7 +12309,7 @@ function playHealAnimation(amount){
       { offset: 1, transform: 'translateY(-22px) scale(0.96)', filter: 'blur(0.4px)' },
     ],
     {
-      duration: Math.max(motion('--motion-slow', 520), 720),
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.38),
       easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
       fill: 'forwards',
       delay: motion('--motion-fast', 140) * 0.25,
