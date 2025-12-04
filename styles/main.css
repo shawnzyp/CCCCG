@@ -3627,13 +3627,6 @@ body:not(.no-hover) .credits-card__submit:hover,
   transform:translateX(calc(var(--damage, 0) * 1.5px));
   filter:saturate(calc(1 + var(--damage, 0) * 0.35));
 }
-@keyframes damage-pop{
-  0%{ transform:translate(0,0); }
-  20%{ transform:translate(calc(var(--shake, 2px) * -1), calc(var(--shake, 2px) * 0.5)); }
-  45%{ transform:translate(var(--shake, 2px), calc(var(--shake, 2px) * -0.5)); }
-  70%{ transform:translate(calc(var(--shake, 2px) * -0.5), 0px); }
-  100%{ transform:translate(0,0); }
-}
 #damage-animation{
   position:fixed;
   inset:0;
@@ -9095,10 +9088,6 @@ animation: pt-splash-scan 1.05s linear infinite;
   mix-blend-mode:overlay;
   transform:translateX(calc(var(--pt-damage-visible, 0) * 1.5px));
   filter:saturate(calc(1 + var(--pt-damage-visible, 0) * 0.35));
-}
-
-#player-tools-drawer .pt-cracks.pt-cracks--impact{
-  animation:damage-pop 220ms ease-out 1;
 }
 
 /* App UI */

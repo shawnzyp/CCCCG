@@ -259,12 +259,31 @@ export const applyPlayerToolsCrackEffect = (detail = {}) => {
   cracks.style.setProperty('--pt-crack-x', x);
   cracks.style.setProperty('--pt-crack-y', y);
   cracks.style.setProperty('--pt-damage-visible', `${visibleLevel}`);
-  cracks.classList.add('pt-cracks--impact');
+  if (typeof cracks.getAnimations === 'function') {
+    try {
+      cracks.getAnimations().forEach(anim => anim.cancel());
+    } catch (_) {}
+  }
+
+  try {
+    const base = 'translate(var(--pt-crack-x, 0px), var(--pt-crack-y, 0px)) rotate(var(--pt-crack-rot, 0deg))';
+    const impact = cracks.animate([
+      { transform: base },
+      { transform: 'translate(calc(var(--pt-crack-x, 0px) - 2px), calc(var(--pt-crack-y, 0px) + 1px)) rotate(var(--pt-crack-rot, 0deg))' },
+      { transform: 'translate(calc(var(--pt-crack-x, 0px) + 2px), calc(var(--pt-crack-y, 0px) - 1px)) rotate(var(--pt-crack-rot, 0deg))' },
+      { transform: 'translate(calc(var(--pt-crack-x, 0px) - 1px), var(--pt-crack-y, 0px)) rotate(var(--pt-crack-rot, 0deg))' },
+      { transform: base },
+    ], {
+      duration: 220,
+      easing: 'ease-out',
+      fill: 'none',
+    });
+    impact?.finished?.catch(() => {});
+  } catch (_) {}
 
   clearTimeout(cracks.__ccPtDamageTimer);
   const safeLinger = Math.max(0, Number(lingerMs) || 0);
   cracks.__ccPtDamageTimer = setTimeout(() => {
-    cracks.classList.remove('pt-cracks--impact');
     cracks.style.removeProperty('--pt-damage-visible');
     cracks.__ccPtDamageTimer = null;
   }, safeLinger);
@@ -624,9 +643,10 @@ function createPlayerToolsDrawer() {
 
     drawer.setAttribute('data-pt-crack', String(stage));
     if (!stage && cracks) {
-      const hasActiveImpact = !!cracks.__ccPtDamageTimer || cracks.classList.contains('pt-cracks--impact');
+      const hasActiveImpact = !!cracks.__ccPtDamageTimer
+        || (typeof cracks.getAnimations === 'function'
+          && cracks.getAnimations().some(anim => anim.playState === 'running'));
       if (!hasActiveImpact) {
-        cracks.classList.remove('pt-cracks--impact');
         cracks.style.removeProperty('--pt-damage-visible');
       }
     }

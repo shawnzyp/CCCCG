@@ -11712,9 +11712,9 @@ function playDamageAnimation(amount){
     .catch(()=>{})
     .finally(() => {
       if (anim && anim.style) {
-        anim.style.opacity = '0';
-        anim.style.transform = 'translateZ(0)';
-        anim.style.filter = 'none';
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
         anim.style.textShadow = '';
       }
     });
@@ -12138,14 +12138,14 @@ function playDownAnimation(){
     .catch(()=>{})
     .finally(() => {
       if (anim?.style) {
-        anim.style.opacity = '0';
-        anim.style.transform = 'translateZ(0)';
-        anim.style.filter = 'none';
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
       }
       if (image?.style) {
-        image.style.opacity = '0';
-        image.style.transform = 'translateZ(0)';
-        image.style.filter = 'none';
+        image.style.opacity = '';
+        image.style.transform = '';
+        image.style.filter = '';
       }
     });
 }
@@ -12194,14 +12194,14 @@ function playDeathAnimation(){
     .catch(()=>{})
     .finally(() => {
       if (anim?.style) {
-        anim.style.opacity = '0';
-        anim.style.transform = 'translateZ(0)';
-        anim.style.filter = 'none';
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
       }
       if (image?.style) {
-        image.style.opacity = '0';
-        image.style.transform = 'translateZ(0)';
-        image.style.filter = 'none';
+        image.style.opacity = '';
+        image.style.transform = '';
+        image.style.filter = '';
       }
     });
 }
@@ -12275,19 +12275,19 @@ function playHealAnimation(amount){
     .catch(()=>{})
     .finally(() => {
       if (healOverlay?.style) {
-        healOverlay.style.opacity = '0';
-        healOverlay.style.transform = 'translateZ(0) scale(1)';
-        healOverlay.style.filter = 'none';
+        healOverlay.style.opacity = '';
+        healOverlay.style.transform = '';
+        healOverlay.style.filter = '';
       }
       if (bloom?.style) {
-        bloom.style.opacity = '1';
-        bloom.style.transform = 'scale(1)';
-        bloom.style.filter = 'none';
+        bloom.style.opacity = '';
+        bloom.style.transform = '';
+        bloom.style.filter = '';
       }
       if (anim?.style) {
-        anim.style.opacity = '0';
-        anim.style.transform = 'translateZ(0)';
-        anim.style.filter = 'none';
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
       }
     });
 }
