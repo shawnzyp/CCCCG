@@ -266,18 +266,20 @@ export const applyPlayerToolsCrackEffect = (detail = {}) => {
   }
 
   try {
-    const base = 'translate(var(--pt-crack-x, 0px), var(--pt-crack-y, 0px)) rotate(var(--pt-crack-rot, 0deg))';
-    const impact = cracks.animate([
-      { transform: base },
-      { transform: 'translate(calc(var(--pt-crack-x, 0px) - 2px), calc(var(--pt-crack-y, 0px) + 1px)) rotate(var(--pt-crack-rot, 0deg))' },
-      { transform: 'translate(calc(var(--pt-crack-x, 0px) + 2px), calc(var(--pt-crack-y, 0px) - 1px)) rotate(var(--pt-crack-rot, 0deg))' },
-      { transform: 'translate(calc(var(--pt-crack-x, 0px) - 1px), var(--pt-crack-y, 0px)) rotate(var(--pt-crack-rot, 0deg))' },
-      { transform: base },
-    ], {
-      duration: 220,
-      easing: 'ease-out',
-      fill: 'none',
-    });
+    const impact = cracks.animate(
+      [
+        { transform: 'translate(0px, 0px)' },
+        { transform: 'translate(-2px, 1px)' },
+        { transform: 'translate(2px, -1px)' },
+        { transform: 'translate(-1px, 0px)' },
+        { transform: 'translate(0px, 0px)' },
+      ],
+      {
+        duration: 220,
+        easing: 'ease-out',
+        fill: 'none',
+      }
+    );
     impact?.finished?.catch(() => {});
   } catch (_) {}
 
@@ -645,7 +647,7 @@ function createPlayerToolsDrawer() {
     if (!stage && cracks) {
       const hasActiveImpact = !!cracks.__ccPtDamageTimer
         || (typeof cracks.getAnimations === 'function'
-          && cracks.getAnimations().some(anim => anim.playState === 'running'));
+          && cracks.getAnimations().some(anim => anim.playState === 'running' || anim.playState === 'pending'));
       if (!hasActiveImpact) {
         cracks.style.removeProperty('--pt-damage-visible');
       }
