@@ -3582,9 +3582,6 @@ body:not(.no-hover) .credits-card__submit:hover,
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
   #damage-overlay{ backdrop-filter:none; -webkit-backdrop-filter:none; }
 }
-#damage-overlay.is-on{
-  opacity:clamp(0,calc(var(--damage, 0) * 0.95),0.95);
-}
 #damage-overlay::before,
 #damage-overlay::after{
   content:"";
@@ -3650,9 +3647,13 @@ body:not(.no-hover) .credits-card__submit:hover,
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:8rem;
+  padding-bottom:12vh;
+  box-sizing:border-box;
+  font-weight:800;
+  letter-spacing:0.02em;
+  font-size:clamp(2rem, 10vw, 4rem);
   color:var(--error);
-  text-shadow:0 0 1rem currentColor;
+  text-shadow:0 10px 24px rgba(0,0,0,0.45);
   pointer-events:none;
   opacity:0;
   z-index:9100;
@@ -3679,12 +3680,16 @@ body:not(.no-hover) .credits-card__submit:hover,
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:8rem;
+  padding-bottom:12vh;
+  box-sizing:border-box;
+  font-weight:800;
+  letter-spacing:0.02em;
+  font-size:clamp(2rem, 10vw, 4rem);
   color:var(--success);
-  text-shadow:0 0 1rem currentColor;
+  text-shadow:0 10px 24px rgba(0,0,0,0.45);
   pointer-events:none;
   opacity:0;
-  z-index:3000;
+  z-index:9100;
   will-change:transform,opacity;
   gap:.25em;
 }
@@ -3712,7 +3717,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   text-shadow:0 0 1rem currentColor;
   pointer-events:none;
   opacity:0;
-  z-index:3000;
+  z-index:9100;
   will-change:transform,opacity;
 }
 #save-animation.show{
@@ -3738,7 +3743,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   color:var(--accent);
   pointer-events:none;
   opacity:0;
-  z-index:3000;
+  z-index:9100;
   will-change:transform,opacity;
   transform-style:preserve-3d;
   --coin-thickness:0.08em;

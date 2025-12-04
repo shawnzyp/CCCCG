@@ -11669,7 +11669,7 @@ function playDamageAnimation(amount){
   cancelFx(anim);
   if(!anim) return Promise.resolve();
   anim.textContent=String(amount);
-  anim.ariaHidden = 'true';
+  anim.setAttribute('aria-hidden','true');
 
   const pop = fadePop(anim, {
     duration: motion('--motion-med', 240),
@@ -12094,8 +12094,8 @@ function playDownAnimation(){
   cancelFx(image);
   if(!anim || !image) return Promise.resolve();
   playStatusCue('down');
-  anim.ariaHidden = 'true';
-  image.ariaHidden = 'true';
+  anim.setAttribute('aria-hidden','true');
+  image.setAttribute('aria-hidden','true');
 
   const veil = animate(
     anim,
@@ -12136,8 +12136,8 @@ function playDeathAnimation(){
   cancelFx(image);
   if(!anim || !image) return Promise.resolve();
   playStatusCue('death');
-  anim.ariaHidden = 'true';
-  image.ariaHidden = 'true';
+  anim.setAttribute('aria-hidden','true');
+  image.setAttribute('aria-hidden','true');
 
   const veil = animate(
     anim,
@@ -12181,7 +12181,7 @@ function playHealAnimation(amount){
   cancelFx(bloom);
   if(anim) {
     anim.textContent=`+${amount}`;
-    anim.ariaHidden = 'true';
+    anim.setAttribute('aria-hidden','true');
   }
   playStatusCue('heal');
 
