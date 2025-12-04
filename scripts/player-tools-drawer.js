@@ -573,13 +573,17 @@ function createPlayerToolsDrawer() {
     }
 
     const { cur, max, pct } = hpState;
+    const missing = Math.max(0, max - cur);
+
     let stage = 0;
 
-    if (cur < max) {
-      if (pct >= 0.85) stage = 1;
-      else if (pct >= 0.65) stage = 2;
-      else if (pct >= 0.35) stage = 3;
-      else stage = 4;
+    if (missing === 1) {
+      stage = 1;
+    } else if (missing > 1) {
+      if (pct >= 0.85) stage = 2;
+      else if (pct >= 0.65) stage = 3;
+      else if (pct >= 0.35) stage = 4;
+      else stage = 5;
     }
 
     drawer.setAttribute('data-pt-crack', String(stage));
