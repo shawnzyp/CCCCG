@@ -565,44 +565,112 @@ function createPlayerToolsDrawer() {
     return { cur, max, pct };
   };
 
-  const randomPct = (min = 0, max = 100) =>
-    `${Math.floor(min + Math.random() * (max - min))}%`;
+  // Crack layering utilities
+  const MAX_CRACK_LAYERS = 5;
 
-  const randomPos = () => `${randomPct()} ${randomPct()}`;
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  const rand = (min, max) => min + Math.random() * (max - min);
 
-  const setCrackSizes = (stage) => {
-    if (!cracks) return;
+  const ensureCrackLayers = () => {
+    if (!cracks) return [];
+    let layers = cracks.querySelectorAll('.pt-crack-layer');
+    if (layers && layers.length) return Array.from(layers);
 
-    cracks.style.setProperty('--pt-crack-size-1', `${150 + stage * 10}% ${150 + stage * 10}%`);
-    cracks.style.setProperty('--pt-crack-size-2', `${200 + stage * 12}% ${200 + stage * 12}%`);
-    cracks.style.setProperty('--pt-crack-size-3', `${250 + stage * 14}% ${250 + stage * 14}%`);
+    cracks.textContent = '';
+    for (let i = 0; i < MAX_CRACK_LAYERS; i++) {
+      const layer = doc.createElement('span');
+      layer.className = 'pt-crack-layer';
+      layer.setAttribute('aria-hidden', 'true');
+      cracks.appendChild(layer);
+    }
+    return Array.from(cracks.querySelectorAll('.pt-crack-layer'));
   };
 
-  // Spread grows with stage so severe damage looks more chaotic
-  const randomizeCracks = (stage) => {
-    if (!cracks) return;
+  const parsePos = (posStr) => {
+    const m = String(posStr || '').match(/(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/);
+    if (!m) return null;
+    return { x: Number(m[1]), y: Number(m[2]) };
+  };
 
-    // Keep the first layer loosely around center, but not pinned to it
-    const spread = Math.min(18 + stage * 10, 90);
-    const half = spread / 2;
+  const dist = (a, b) => {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
 
-    cracks.style.setProperty('--pt-crack-pos-1', `${randomPct(50 - half, 50 + half)} ${randomPct(50 - half, 50 + half)}`);
-    cracks.style.setProperty('--pt-crack-pos-2', randomPos());
-    cracks.style.setProperty('--pt-crack-pos-3', randomPos());
-
-    setCrackSizes(stage);
+  const pickPos = (existing, minDist = 24, tries = 14) => {
+    // existing: array of {x,y}
+    for (let t = 0; t < tries; t++) {
+      const candidate = { x: rand(6, 94), y: rand(6, 94) };
+      if (!existing.length || existing.every((p) => dist(p, candidate) >= minDist)) return candidate;
+    }
+    // fallback if we fail to find a far-enough spot quickly
+    return { x: rand(6, 94), y: rand(6, 94) };
   };
 
   const clearCrackSeed = () => {
     if (!cracks) return;
-    [
-      '--pt-crack-pos-1',
-      '--pt-crack-pos-2',
-      '--pt-crack-pos-3',
-      '--pt-crack-size-1',
-      '--pt-crack-size-2',
-      '--pt-crack-size-3'
-    ].forEach((prop) => cracks.style.removeProperty(prop));
+    const layers = cracks.querySelectorAll('.pt-crack-layer');
+    if (!layers || !layers.length) return;
+    layers.forEach((layer) => {
+      layer.style.removeProperty('background-position');
+      layer.style.removeProperty('background-size');
+      layer.style.removeProperty('transform');
+    });
+  };
+
+  const seedCrackLayer = (layer, index, stage, usedPositions) => {
+    // index is 0-based, stage is 1..5
+    // Make later layers a little bigger and blurrier so it feels "spread out"
+    const base = 150 + index * 40 + stage * 10;
+    const size = clamp(base, 140, 340);
+
+    let pos;
+    if (index === 0) {
+      // First damage zone loosely around center (not pinned to it)
+      const spread = clamp(18 + stage * 10, 18, 90);
+      const half = spread / 2;
+      pos = {
+        x: rand(50 - half, 50 + half),
+        y: rand(50 - half, 50 + half)
+      };
+    } else {
+      // New zones appear elsewhere as damage increases
+      pos = pickPos(usedPositions, 24 - index * 2);
+    }
+
+    usedPositions.push(pos);
+
+    layer.style.backgroundPosition = `${pos.x.toFixed(1)}% ${pos.y.toFixed(1)}%`;
+    layer.style.backgroundSize = `${size.toFixed(0)}% ${size.toFixed(0)}%`;
+
+    // Tiny per-layer nudge so repeated SVGs don’t look duplicated
+    const rot = rand(-6, 6);
+    const sx = rand(-2, 2);
+    const sy = rand(-2, 2);
+    layer.style.transform = `rotate(${rot.toFixed(1)}deg) translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
+  };
+
+  const randomizeCracks = (stage, prevStage = 0) => {
+    if (!cracks) return;
+    const layers = ensureCrackLayers();
+
+    // Collect already-used positions so new layers don’t stack on top of old layers
+    const used = [];
+    layers.forEach((layer) => {
+      const p = parsePos(layer.style.backgroundPosition);
+      if (p) used.push(p);
+    });
+
+    // Only seed newly-revealed layers so earlier damage does not “teleport”
+    const start = clamp(prevStage, 0, MAX_CRACK_LAYERS);
+    const end = clamp(stage, 0, MAX_CRACK_LAYERS);
+
+    for (let i = start; i < end; i++) {
+      // Do not overwrite an existing seed so hidden layers return in the same spot
+      if (parsePos(layers[i].style.backgroundPosition)) continue;
+      seedCrackLayer(layers[i], i, stage, used);
+    }
   };
 
   const updateCracks = () => {
@@ -629,6 +697,7 @@ function createPlayerToolsDrawer() {
       else stage = 5;
     }
 
+    const prevStage = Number(drawer.getAttribute('data-pt-crack') || '0');
     drawer.setAttribute('data-pt-crack', String(stage));
 
     if (stage === 0) {
@@ -636,17 +705,19 @@ function createPlayerToolsDrawer() {
       return;
     }
 
-    const hasSeed =
+    const hasAnySeed =
       cracks &&
-      cracks.style.getPropertyValue('--pt-crack-pos-2') &&
-      cracks.style.getPropertyValue('--pt-crack-size-2');
+      Array.from(cracks.querySelectorAll('.pt-crack-layer')).some((layer) =>
+        Boolean(parsePos(layer.style.backgroundPosition))
+      );
 
-    if (stage > 0) {
-      if (!hasSeed) {
-        randomizeCracks(stage);
-      } else {
-        setCrackSizes(stage);
-      }
+    if (!hasAnySeed) {
+      randomizeCracks(stage, 0);
+    } else if (stage > prevStage) {
+      randomizeCracks(stage, prevStage);
+    } else if (stage < prevStage) {
+      // Healing: keep existing seeds intact so damage returns in familiar spots
+      // (optional: clearCrackSeed() here if you prefer fresh cracks after heals)
     }
   };
 

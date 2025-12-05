@@ -9034,58 +9034,24 @@ animation: pt-splash-scan 1.05s linear infinite;
 
 @keyframes pt-splash-scan{ to{ transform: translateX(280%); } }
 
-/* Cracks overlay */
+/* Cracks overlay container */
 #player-tools-drawer .pt-cracks{
   position:absolute;
   inset:0;
   z-index: 999;
   pointer-events:none;
-  filter:none;
   transform: translateZ(0);
   opacity: 0;
   --pt-crack-texture-opacity: 0;
   transition: opacity 200ms ease-out;
 }
 
-#player-tools-drawer[data-pt-crack="0"] .pt-cracks{
-  opacity: 0;
-  --pt-crack-texture-opacity: 0;
-}
-
-#player-tools-drawer[data-pt-crack="1"] .pt-cracks{
-  opacity: 1;
-  --pt-crack-texture-opacity: 0;
-}
-
-#player-tools-drawer[data-pt-crack="2"] .pt-cracks{
-  opacity: 1;
-  --pt-crack-texture-opacity: 0.25;
-}
-
-#player-tools-drawer[data-pt-crack="3"] .pt-cracks{
-  opacity: 1;
-  --pt-crack-texture-opacity: 0.55;
-}
-
-#player-tools-drawer[data-pt-crack="4"] .pt-cracks{
-  opacity: 1;
-  --pt-crack-texture-opacity: 0.9;
-}
-
-#player-tools-drawer[data-pt-crack="5"] .pt-cracks{
-  opacity: 1;
-  --pt-crack-texture-opacity: 1;
-}
-
-#player-tools-drawer .pt-cracks::before,
-#player-tools-drawer .pt-cracks::after{
+/* keep your glow mist if you like */
+#player-tools-drawer .pt-cracks::before{
   content:"";
   position:absolute;
   inset:0;
   pointer-events:none;
-}
-
-#player-tools-drawer .pt-cracks::before{
   opacity: 1;
   background-image:
     radial-gradient(circle at 10% 12%, rgba(110,240,255,0.18), transparent 55%),
@@ -9097,25 +9063,47 @@ animation: pt-splash-scan 1.05s linear infinite;
   mix-blend-mode:screen;
 }
 
-#player-tools-drawer .pt-cracks::after{
-  background-image:
-    url("../images/cracked-glass-texture.svg"),
-    url("../images/cracked-glass-texture.svg"),
-    url("../images/cracked-glass-texture.svg");
+/* Individual damage zones (stacked) */
+#player-tools-drawer .pt-crack-layer{
+  position:absolute;
+  inset:0;
+  background-image: url("../images/cracked-glass-texture.svg");
   background-repeat:no-repeat;
-  background-size:
-    var(--pt-crack-size-1, 160% 160%),
-    var(--pt-crack-size-2, 210% 210%),
-    var(--pt-crack-size-3, 260% 260%);
-  background-position:
-    var(--pt-crack-pos-1, 50% 50%),
-    var(--pt-crack-pos-2, 18% 72%),
-    var(--pt-crack-pos-3, 84% 26%);
-  opacity: var(--pt-crack-texture-opacity, 0);
+  opacity: 0;
   background-blend-mode: screen;
   mix-blend-mode: screen;
   filter: blur(0.6px) contrast(1.08) brightness(0.92);
+  transform: translateZ(0);
+  transition: opacity 160ms ease-out;
 }
+
+/* Stage visibility: each stage ADDS more areas */
+#player-tools-drawer[data-pt-crack="0"] .pt-cracks{ opacity: 0; }
+
+#player-tools-drawer[data-pt-crack="1"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="1"] .pt-crack-layer:nth-child(1){ opacity: 0.35; }
+
+#player-tools-drawer[data-pt-crack="2"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="2"] .pt-crack-layer:nth-child(1){ opacity: 0.55; }
+#player-tools-drawer[data-pt-crack="2"] .pt-crack-layer:nth-child(2){ opacity: 0.30; }
+
+#player-tools-drawer[data-pt-crack="3"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(1){ opacity: 0.70; }
+#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(2){ opacity: 0.45; }
+#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(3){ opacity: 0.28; }
+
+#player-tools-drawer[data-pt-crack="4"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(1){ opacity: 0.85; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(2){ opacity: 0.60; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(3){ opacity: 0.40; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(4){ opacity: 0.25; }
+
+#player-tools-drawer[data-pt-crack="5"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(1){ opacity: 1; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(2){ opacity: 0.75; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(3){ opacity: 0.55; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(4){ opacity: 0.40; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(5){ opacity: 0.28; }
 
 /* App UI */
 #player-tools-drawer .pt-app{
