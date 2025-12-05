@@ -9843,3 +9843,77 @@ html.power-wizard-open body {
 .character-confirmation__message{margin:0;font-size:1rem;line-height:1.4;color:var(--text-muted)}
 .character-confirmation__actions{width:100%;display:flex;justify-content:flex-end}
 .modal-frame--character-confirmation .modal-frame__halo{background:radial-gradient(circle at 30% 20%,color-mix(in srgb,var(--accent) 40%,transparent),transparent 55%),radial-gradient(circle at 80% 60%,color-mix(in srgb,var(--accent) 30%,transparent),transparent 65%)}
+/* Full-screen hit FX (separate from Player Tools drawer cracks) */
+#cccg-hit-fx{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  opacity: 0;
+  transform: translateZ(0);
+}
+
+/* When active, run a flash + glitch combo */
+html.cccg-hit-active #cccg-hit-fx{
+  opacity: 1;
+  animation: cccg-hit-fade var(--cccg-hit-dur, 2200ms) ease-out both;
+}
+
+html.cccg-hit-active #cccg-hit-fx::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(255,255,255, calc(var(--cccg-hit-alpha, 0.55) * 0.75)),
+      rgba(110,240,255, calc(var(--cccg-hit-alpha, 0.55) * 0.35)) 38%,
+      transparent 68%),
+    linear-gradient(180deg,
+      rgba(255,255,255, calc(var(--cccg-hit-alpha, 0.55) * 0.18)),
+      transparent 42%,
+      rgba(0,0,0, calc(var(--cccg-hit-alpha, 0.55) * 0.28)));
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: cccg-hit-flash var(--cccg-hit-dur, 2200ms) ease-out both;
+}
+
+html.cccg-hit-active #cccg-hit-fx::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255,255,255, calc(var(--cccg-hit-glow, 0.35) * 0.10)) 0px,
+      rgba(255,255,255, 0) 2px,
+      rgba(0,0,0, calc(var(--cccg-hit-glow, 0.35) * 0.12)) 3px
+    );
+  mix-blend-mode: overlay;
+  filter: blur(var(--cccg-hit-blur, 1.2px));
+  opacity: 0;
+  animation: cccg-hit-glitch var(--cccg-hit-dur, 2200ms) linear both;
+}
+
+@keyframes cccg-hit-fade{
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes cccg-hit-flash{
+  0%   { opacity: 0; }
+  8%   { opacity: 1; }
+  22%  { opacity: 0.25; }
+  55%  { opacity: 0.12; }
+  100% { opacity: 0; }
+}
+
+@keyframes cccg-hit-glitch{
+  0%   { opacity: 0; transform: translate3d(0,0,0) skewX(0deg); }
+  10%  { opacity: 1; transform: translate3d(2px,-1px,0) skewX(-1deg); }
+  18%  { opacity: 0.55; transform: translate3d(-2px,1px,0) skewX(1deg); }
+  30%  { opacity: 0.35; transform: translate3d(1px,0,0) skewX(-0.5deg); }
+  55%  { opacity: 0.22; transform: translate3d(-1px,0,0) skewX(0.35deg); }
+  100% { opacity: 0; transform: translate3d(0,0,0) skewX(0deg); }
+}
+
