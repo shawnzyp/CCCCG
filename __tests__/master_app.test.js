@@ -919,4 +919,100 @@ describe('Catalyst Core master application experience', () => {
       throw new Error(`Detected issues while stress testing interactive elements: ${capturedErrors.map(String).join('\n')}`);
     }
   });
+
+  test('handles offline caching workflows and floating launcher coverage', async () => {
+    const capturedErrors = [];
+    const errorHandler = event => {
+      const detail = event?.error ?? event?.message ?? event?.reason ?? event;
+      capturedErrors.push(detail);
+    };
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', errorHandler);
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
+      capturedErrors.push(args.join(' '));
+    });
+
+    const manifest = {
+      version: 'v-test-offline',
+      assets: ['/media/launch.mp4', '/scripts/main.js', '/styles/app.css'],
+    };
+
+    const baseFetch = globalThis.fetch;
+    const cachePutCalls = [];
+    const mockCache = {
+      match: jest.fn().mockResolvedValue(null),
+      put: jest.fn(async (url, response) => {
+        cachePutCalls.push([url, response]);
+      }),
+    };
+    const mockCaches = {
+      open: jest.fn().mockResolvedValue(mockCache),
+    };
+    globalThis.caches = mockCaches;
+
+    globalThis.fetch = jest.fn(async resource => {
+      const url = typeof resource === 'string' ? resource : resource?.url;
+      if (typeof url === 'string' && url.includes('asset-manifest.json')) {
+        return new Response(JSON.stringify(manifest), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 200,
+        });
+      }
+      if (typeof url === 'string' && manifest.assets.some(asset => url.includes(asset))) {
+        return new Response('ok', { status: 200 });
+      }
+      return baseFetch(resource);
+    });
+
+    await importAllApplicationScripts();
+    dispatchAppReadyEvents();
+    const skipLaunchButton = document.querySelector('[data-skip-launch]');
+    if (skipLaunchButton) {
+      skipLaunchButton.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    } else {
+      window.dispatchEvent(new Event('launch-animation-skip'));
+    }
+    await advanceAppTime(1500);
+
+    const offlineButton = document.querySelector('[data-sync-prefetch]');
+    const offlineStatus = document.querySelector('[data-sync-prefetch-status]');
+    expect(offlineButton).toBeTruthy();
+    expect(offlineStatus).toBeTruthy();
+
+    offlineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await advanceAppTime(0);
+    await advanceAppTime(0);
+
+    expect(mockCaches.open).toHaveBeenCalledWith(manifest.version);
+    expect(cachePutCalls.length).toBeGreaterThanOrEqual(manifest.assets.length);
+    expect(offlineStatus.textContent).toMatch(/Offline ready/i);
+    expect(localStorage.getItem('cccg.offlineManifestVersion')).toBe(manifest.version);
+
+    window.navigator.onLine = false;
+    offlineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    await advanceAppTime(0);
+    expect(offlineStatus.textContent).toMatch(/Connect to the internet/i);
+
+    expect(document.body.classList.contains('dm-floating-covered')).toBe(false);
+    const coverCount = window.coverFloatingLauncher?.();
+    await advanceAppTime(0);
+    expect(coverCount).toBeGreaterThanOrEqual(1);
+    expect(document.body.getAttribute('data-floating-covered')).toBe('true');
+    const releaseCount = window.releaseFloatingLauncher?.();
+    await advanceAppTime(0);
+    expect(releaseCount).toBe(0);
+    expect(document.body.hasAttribute('data-floating-covered')).toBe(false);
+
+    window.removeEventListener('error', errorHandler);
+    window.removeEventListener('unhandledrejection', errorHandler);
+    consoleErrorSpy.mockRestore();
+
+    await advanceAppTime(1000);
+    jest.clearAllTimers();
+
+    if (capturedErrors.length > 0) {
+      throw new Error(`Detected issues while validating offline caching and floating launcher coverage: ${capturedErrors.map(String).join('\n')}`);
+    }
+  });
 });
