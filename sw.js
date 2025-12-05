@@ -17,7 +17,7 @@ if (!OUTBOX_DB_NAME || !openOutboxDb) {
   throw new Error('Cloud outbox helpers unavailable in service worker');
 }
 
-const MANIFEST_PATH = 'asset-manifest.json';
+const MANIFEST_PATH = './asset-manifest.json';
 const ESSENTIAL_RUNTIME_ASSETS = ['./scripts/anim.js'];
 
 function resolveAssetUrl(pathname) {
@@ -132,9 +132,13 @@ async function precacheAll(cache, manifest) {
     })
   );
 
-  if (skippedAssets.length && typeof console !== 'undefined' && console?.warn) {
+  if (skippedAssets.length && typeof console !== 'undefined') {
     const failed = skippedAssets.map(entry => entry.asset);
-    console.warn('Skipped precaching assets due to fetch failures:', failed);
+    if (!isSwOffline() && console?.warn) {
+      console.warn('Skipped precaching assets due to fetch failures:', failed);
+    } else if (console?.info) {
+      console.info('Skipped precaching assets while offline:', failed);
+    }
   }
 }
 
