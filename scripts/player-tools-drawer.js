@@ -588,18 +588,23 @@ function createPlayerToolsDrawer() {
     cracks.style.setProperty('--pt-crack-size-3', `${250 + stage * 14}% ${250 + stage * 14}%`);
   };
 
+  const clearCrackSeed = () => {
+    if (!cracks) return;
+    [
+      '--pt-crack-pos-1',
+      '--pt-crack-pos-2',
+      '--pt-crack-pos-3',
+      '--pt-crack-size-1',
+      '--pt-crack-size-2',
+      '--pt-crack-size-3'
+    ].forEach((prop) => cracks.style.removeProperty(prop));
+  };
+
   const updateCracks = () => {
     const hpState = getHpState();
     if (!hpState) {
       drawer.setAttribute('data-pt-crack', '0');
-      if (cracks) {
-        cracks.style.removeProperty('--pt-crack-pos-1');
-        cracks.style.removeProperty('--pt-crack-pos-2');
-        cracks.style.removeProperty('--pt-crack-pos-3');
-        cracks.style.removeProperty('--pt-crack-size-1');
-        cracks.style.removeProperty('--pt-crack-size-2');
-        cracks.style.removeProperty('--pt-crack-size-3');
-      }
+      clearCrackSeed();
       return;
     }
 
@@ -623,14 +628,7 @@ function createPlayerToolsDrawer() {
     drawer.setAttribute('data-pt-crack', String(stage));
 
     if (stage === 0) {
-      if (cracks) {
-        cracks.style.removeProperty('--pt-crack-pos-1');
-        cracks.style.removeProperty('--pt-crack-pos-2');
-        cracks.style.removeProperty('--pt-crack-pos-3');
-        cracks.style.removeProperty('--pt-crack-size-1');
-        cracks.style.removeProperty('--pt-crack-size-2');
-        cracks.style.removeProperty('--pt-crack-size-3');
-      }
+      clearCrackSeed();
       return;
     }
 

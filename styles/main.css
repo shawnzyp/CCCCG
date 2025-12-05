@@ -9112,6 +9112,7 @@ animation: pt-splash-scan 1.05s linear infinite;
     var(--pt-crack-pos-2, 18% 72%),
     var(--pt-crack-pos-3, 84% 26%);
   opacity: var(--pt-crack-texture-opacity, 0);
+  background-blend-mode: screen;
   mix-blend-mode: screen;
   filter: blur(0.6px) contrast(1.08) brightness(0.92);
 }
