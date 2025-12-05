@@ -94,6 +94,16 @@
       document.querySelector('#player-tools-drawer[data-state="open"]');
     if (drawerOpen) return;
 
+    const drawer = document.getElementById('player-tools-drawer');
+    if (drawer) {
+      const style = getComputedStyle(drawer);
+      const drawerVisible =
+        style.display !== 'none' && style.visibility !== 'hidden' && drawer.offsetParent !== null;
+      if (drawerVisible && (drawer.classList.contains('open') || drawer.getAttribute('data-open') === 'true')) {
+        return;
+      }
+    }
+
     const s = clamp(severity, 0, 1);
 
     // Drive intensity via CSS variables
@@ -142,12 +152,23 @@
   };
 
   // Start after DOM ready
+  let intervalId = null;
+
   const start = () => {
     // Only start once body exists
     if (!document.body) return;
     ensureHitFxEl();
-    setInterval(tick, 220);
+    if (intervalId) return;
+    intervalId = setInterval(tick, 220);
   };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    if (!document.hidden) start();
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start, { once: true });
