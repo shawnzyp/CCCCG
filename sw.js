@@ -155,12 +155,7 @@ function encodePath(name) {
     .split('/')
     .map(segment => (typeof segment === 'string' ? segment : ''))
     .filter(segment => segment.length > 0)
-    .map(segment => {
-      if (segment === '.' || segment === '..') {
-        return encodeURIComponent(segment.replace(/\./g, '%2E'));
-      }
-      return encodeURIComponent(segment);
-    })
+    .map(segment => encodeURIComponent(segment).replace(/\./g, '%2E'))
     .join('/');
 }
 
