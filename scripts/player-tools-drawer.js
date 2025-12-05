@@ -706,8 +706,9 @@ function createPlayerToolsDrawer() {
 
     const hasAnySeed =
       cracks &&
-      cracks.querySelector('.pt-crack-layer') &&
-      cracks.querySelector('.pt-crack-layer').style.backgroundPosition;
+      Array.from(cracks.querySelectorAll('.pt-crack-layer')).some((layer) =>
+        Boolean(parsePos(layer.style.backgroundPosition))
+      );
 
     if (!hasAnySeed) {
       randomizeCracks(stage, 0);
