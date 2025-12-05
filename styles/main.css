@@ -9074,6 +9074,7 @@ animation: pt-splash-scan 1.05s linear infinite;
   mix-blend-mode: screen;
   filter: blur(0.6px) contrast(1.08) brightness(0.92);
   transform: translateZ(0);
+  transition: opacity 160ms ease-out;
 }
 
 /* Stage visibility: each stage ADDS more areas */

@@ -707,8 +707,13 @@ function createPlayerToolsDrawer() {
       cracks.querySelector('.pt-crack-layer') &&
       cracks.querySelector('.pt-crack-layer').style.backgroundPosition;
 
-    if (!hasAnySeed || stage !== prevStage) {
+    if (!hasAnySeed) {
+      randomizeCracks(stage, 0);
+    } else if (stage > prevStage) {
       randomizeCracks(stage, prevStage);
+    } else if (stage < prevStage) {
+      // Healing: keep existing seeds intact so damage returns in familiar spots
+      // (optional: clearCrackSeed() here if you prefer fresh cracks after heals)
     }
   };
 
