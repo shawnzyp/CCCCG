@@ -565,10 +565,51 @@ function createPlayerToolsDrawer() {
     return { cur, max, pct };
   };
 
+  const randomPct = (min = 0, max = 100) =>
+    `${Math.floor(min + Math.random() * (max - min))}%`;
+
+  const randomPos = () => `${randomPct()} ${randomPct()}`;
+
+  const setCrackSizes = (stage) => {
+    if (!cracks) return;
+
+    cracks.style.setProperty('--pt-crack-size-1', `${150 + stage * 10}% ${150 + stage * 10}%`);
+    cracks.style.setProperty('--pt-crack-size-2', `${200 + stage * 12}% ${200 + stage * 12}%`);
+    cracks.style.setProperty('--pt-crack-size-3', `${250 + stage * 14}% ${250 + stage * 14}%`);
+  };
+
+  // Spread grows with stage so severe damage looks more chaotic
+  const randomizeCracks = (stage) => {
+    if (!cracks) return;
+
+    // Keep the first layer loosely around center, but not pinned to it
+    const spread = Math.min(18 + stage * 10, 90);
+    const half = spread / 2;
+
+    cracks.style.setProperty('--pt-crack-pos-1', `${randomPct(50 - half, 50 + half)} ${randomPct(50 - half, 50 + half)}`);
+    cracks.style.setProperty('--pt-crack-pos-2', randomPos());
+    cracks.style.setProperty('--pt-crack-pos-3', randomPos());
+
+    setCrackSizes(stage);
+  };
+
+  const clearCrackSeed = () => {
+    if (!cracks) return;
+    [
+      '--pt-crack-pos-1',
+      '--pt-crack-pos-2',
+      '--pt-crack-pos-3',
+      '--pt-crack-size-1',
+      '--pt-crack-size-2',
+      '--pt-crack-size-3'
+    ].forEach((prop) => cracks.style.removeProperty(prop));
+  };
+
   const updateCracks = () => {
     const hpState = getHpState();
     if (!hpState) {
       drawer.setAttribute('data-pt-crack', '0');
+      clearCrackSeed();
       return;
     }
 
@@ -589,6 +630,24 @@ function createPlayerToolsDrawer() {
     }
 
     drawer.setAttribute('data-pt-crack', String(stage));
+
+    if (stage === 0) {
+      clearCrackSeed();
+      return;
+    }
+
+    const hasSeed =
+      cracks &&
+      cracks.style.getPropertyValue('--pt-crack-pos-2') &&
+      cracks.style.getPropertyValue('--pt-crack-size-2');
+
+    if (stage > 0) {
+      if (!hasSeed) {
+        randomizeCracks(stage);
+      } else {
+        setCrackSizes(stage);
+      }
+    }
   };
 
   const handleKeydown = (event) => {
