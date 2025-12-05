@@ -3503,7 +3503,7 @@ body:not(.no-hover) .credits-card__submit:hover,
   mix-blend-mode:screen;
   filter:drop-shadow(0 0 1.2rem rgba(102, 255, 204, 0.4));
 }
-#heal-overlay .heal-overlay__bloom{fill:url(#heal-bloom-gradient);}
+#heal-overlay .heal-overlay__bloom{fill:url(#cc-heal-bloom-gradient);}
 #heal-overlay .heal-overlay__spark{fill:rgba(144,255,220,.6);mix-blend-mode:screen;}
 #heal-overlay .heal-overlay__halo{fill:rgba(90,200,255,.28);filter:blur(12px);}
 #down-animation{

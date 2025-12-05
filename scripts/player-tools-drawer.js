@@ -577,12 +577,14 @@ function createPlayerToolsDrawer() {
 
     let stage = 0;
 
-    if (missing === 1) {
+    if (missing === 0) {
+      stage = 0;
+    } else if (missing === 1) {
       stage = 1;
-    } else if (missing > 1) {
+    } else {
       if (pct >= 0.85) stage = 2;
       else if (pct >= 0.65) stage = 3;
-      else if (pct > 0.15) stage = 4;
+      else if (pct >= 0.35) stage = 4;
       else stage = 5;
     }
 
