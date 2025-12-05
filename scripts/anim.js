@@ -1,6 +1,8 @@
 // Full-screen hit FX (separate from Player Tools drawer cracks)
 (() => {
   if (typeof document === 'undefined') return;
+  // Avoid side effects in environments that don't have a body yet.
+  // (anim.js is also imported for helper exports)
 
   const HIT_FX_ID = 'cccg-hit-fx';
   const HIT_FX_CLASS = 'cccg-hit-active';
@@ -63,6 +65,7 @@
   const ensureHitFxEl = () => {
     let el = document.getElementById(HIT_FX_ID);
     if (el) return el;
+    if (!document.body) return null;
     el = document.createElement('div');
     el.id = HIT_FX_ID;
     el.setAttribute('aria-hidden', 'true');
@@ -81,6 +84,16 @@
     lastFxAt = now;
 
     const el = ensureHitFxEl();
+    if (!el) return;
+
+    // Don't blast the screen while the player is inside the drawer UI
+    const drawerOpen =
+      document.querySelector('#player-tools-drawer[data-open="true"]') ||
+      document.querySelector('#player-tools-drawer[aria-hidden="false"]') ||
+      document.querySelector('#player-tools-drawer.pt-open') ||
+      document.querySelector('#player-tools-drawer[data-state="open"]');
+    if (drawerOpen) return;
+
     const s = clamp(severity, 0, 1);
 
     // Drive intensity via CSS variables
@@ -89,6 +102,10 @@
     el.style.setProperty('--cccg-hit-blur', `${0.6 + s * 1.2}px`);
     el.style.setProperty('--cccg-hit-dur', `${HIT_FX_DURATION_MS}ms`);
 
+    // Force restart even if already active
+    document.documentElement.classList.remove(HIT_FX_CLASS);
+    // reflow to restart animations
+    void el.offsetHeight;
     document.documentElement.classList.add(HIT_FX_CLASS);
 
     if (clearTimer) clearTimeout(clearTimer);
@@ -126,6 +143,8 @@
 
   // Start after DOM ready
   const start = () => {
+    // Only start once body exists
+    if (!document.body) return;
     ensureHitFxEl();
     setInterval(tick, 220);
   };
