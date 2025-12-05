@@ -17,7 +17,8 @@ if (!OUTBOX_DB_NAME || !openOutboxDb) {
   throw new Error('Cloud outbox helpers unavailable in service worker');
 }
 
-const MANIFEST_PATH = 'asset-manifest.json';
+const MANIFEST_PATH = './asset-manifest.json';
+const ESSENTIAL_RUNTIME_ASSETS = ['./scripts/anim.js'];
 
 function resolveAssetUrl(pathname) {
   try {
@@ -93,18 +94,36 @@ async function loadManifest() {
 
 async function getCacheAndManifest() {
   const manifest = await loadManifest();
+  if (!isValidManifest(manifest)) {
+    throw new Error('Invalid manifest');
+  }
   const cache = await caches.open(manifest.version);
   return { cache, manifest };
 }
 
-async function precacheManifestAssets(cache, manifest) {
-  if (!manifest || !Array.isArray(manifest.assets) || !cache) return;
+async function precacheAll(cache, manifest) {
+  if (!cache) return;
+
+  const assetSet = new Set(
+    Array.isArray(manifest?.assets)
+      ? manifest.assets.filter(asset => typeof asset === 'string' && asset)
+      : []
+  );
+
+  ESSENTIAL_RUNTIME_ASSETS.forEach(asset => {
+    if (typeof asset === 'string' && asset) {
+      assetSet.add(asset);
+    }
+  });
+
+  if (typeof MANIFEST_PATH === 'string' && MANIFEST_PATH) {
+    assetSet.add(MANIFEST_PATH);
+  }
 
   const skippedAssets = [];
-  const assets = manifest.assets.filter(asset => typeof asset === 'string' && asset);
 
   await Promise.all(
-    assets.map(async asset => {
+    [...assetSet].map(async asset => {
       try {
         await cache.add(asset);
       } catch (err) {
@@ -113,9 +132,13 @@ async function precacheManifestAssets(cache, manifest) {
     })
   );
 
-  if (skippedAssets.length && typeof console !== 'undefined' && console?.warn) {
+  if (skippedAssets.length && typeof console !== 'undefined') {
     const failed = skippedAssets.map(entry => entry.asset);
-    console.warn('Skipped precaching assets due to fetch failures:', failed);
+    if (!isSwOffline() && console?.warn) {
+      console.warn('Skipped precaching assets due to cache.add failures:', failed);
+    } else if (console?.info) {
+      console.info('Skipped precaching assets while offline:', failed);
+    }
   }
 }
 
@@ -332,7 +355,7 @@ self.addEventListener('install', e => {
   e.waitUntil(
     (async () => {
       const { cache, manifest } = await getCacheAndManifest();
-      await precacheManifestAssets(cache, manifest);
+      await precacheAll(cache, manifest);
     })()
   );
 });
@@ -343,7 +366,9 @@ self.addEventListener('activate', e => {
       let activeCacheName = null;
       try {
         const manifest = await loadManifest();
-        activeCacheName = manifest.version;
+        if (isValidManifest(manifest)) {
+          activeCacheName = manifest.version;
+        }
       } catch (err) {}
 
       const cacheCleanup = activeCacheName
