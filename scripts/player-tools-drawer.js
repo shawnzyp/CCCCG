@@ -570,6 +570,14 @@ function createPlayerToolsDrawer() {
 
   const randomPos = () => `${randomPct()} ${randomPct()}`;
 
+  const setCrackSizes = (stage) => {
+    if (!cracks) return;
+
+    cracks.style.setProperty('--pt-crack-size-1', `${150 + stage * 10}% ${150 + stage * 10}%`);
+    cracks.style.setProperty('--pt-crack-size-2', `${200 + stage * 12}% ${200 + stage * 12}%`);
+    cracks.style.setProperty('--pt-crack-size-3', `${250 + stage * 14}% ${250 + stage * 14}%`);
+  };
+
   // Spread grows with stage so severe damage looks more chaotic
   const randomizeCracks = (stage) => {
     if (!cracks) return;
@@ -582,10 +590,7 @@ function createPlayerToolsDrawer() {
     cracks.style.setProperty('--pt-crack-pos-2', randomPos());
     cracks.style.setProperty('--pt-crack-pos-3', randomPos());
 
-    // Nudge sizes so layers feel different
-    cracks.style.setProperty('--pt-crack-size-1', `${150 + stage * 10}% ${150 + stage * 10}%`);
-    cracks.style.setProperty('--pt-crack-size-2', `${200 + stage * 12}% ${200 + stage * 12}%`);
-    cracks.style.setProperty('--pt-crack-size-3', `${250 + stage * 14}% ${250 + stage * 14}%`);
+    setCrackSizes(stage);
   };
 
   const clearCrackSeed = () => {
@@ -624,7 +629,6 @@ function createPlayerToolsDrawer() {
       else stage = 5;
     }
 
-    const prevStage = Number(drawer.getAttribute('data-pt-crack') || '0');
     drawer.setAttribute('data-pt-crack', String(stage));
 
     if (stage === 0) {
@@ -637,8 +641,12 @@ function createPlayerToolsDrawer() {
       cracks.style.getPropertyValue('--pt-crack-pos-2') &&
       cracks.style.getPropertyValue('--pt-crack-size-2');
 
-    if (stage > 0 && (!hasSeed || stage !== prevStage)) {
-      randomizeCracks(stage);
+    if (stage > 0) {
+      if (!hasSeed) {
+        randomizeCracks(stage);
+      } else {
+        setCrackSizes(stage);
+      }
     }
   };
 
