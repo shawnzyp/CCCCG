@@ -666,6 +666,8 @@ function createPlayerToolsDrawer() {
     const end = clamp(stage, 0, MAX_CRACK_LAYERS);
 
     for (let i = start; i < end; i++) {
+      // Do not overwrite an existing seed so hidden layers return in the same spot
+      if (parsePos(layers[i].style.backgroundPosition)) continue;
       seedCrackLayer(layers[i], i, stage, used);
     }
   };
