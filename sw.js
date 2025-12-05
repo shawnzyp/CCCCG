@@ -135,7 +135,7 @@ async function precacheAll(cache, manifest) {
   if (skippedAssets.length && typeof console !== 'undefined') {
     const failed = skippedAssets.map(entry => entry.asset);
     if (!isSwOffline() && console?.warn) {
-      console.warn('Skipped precaching assets due to fetch failures:', failed);
+      console.warn('Skipped precaching assets due to cache.add failures:', failed);
     } else if (console?.info) {
       console.info('Skipped precaching assets while offline:', failed);
     }
@@ -366,7 +366,9 @@ self.addEventListener('activate', e => {
       let activeCacheName = null;
       try {
         const manifest = await loadManifest();
-        activeCacheName = manifest.version;
+        if (isValidManifest(manifest)) {
+          activeCacheName = manifest.version;
+        }
       } catch (err) {}
 
       const cacheCleanup = activeCacheName
