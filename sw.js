@@ -94,6 +94,9 @@ async function loadManifest() {
 
 async function getCacheAndManifest() {
   const manifest = await loadManifest();
+  if (!isValidManifest(manifest)) {
+    throw new Error('Invalid manifest');
+  }
   const cache = await caches.open(manifest.version);
   return { cache, manifest };
 }
@@ -112,6 +115,10 @@ async function precacheAll(cache, manifest) {
       assetSet.add(asset);
     }
   });
+
+  if (typeof MANIFEST_PATH === 'string' && MANIFEST_PATH) {
+    assetSet.add(MANIFEST_PATH);
+  }
 
   const skippedAssets = [];
 
