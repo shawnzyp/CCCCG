@@ -1,5 +1,7 @@
 // Full-screen hit FX (separate from Player Tools drawer cracks)
 (() => {
+  if (typeof document === 'undefined') return;
+
   const HIT_FX_ID = 'cccg-hit-fx';
   const HIT_FX_CLASS = 'cccg-hit-active';
 
@@ -71,6 +73,7 @@
   let lastFxAt = 0;
   let clearTimer = null;
   let lastHpCur = null;
+  let primed = false;
 
   const playHitFx = (severity = 0.5) => {
     const now = Date.now();
@@ -98,7 +101,18 @@
   // This is intentionally decoupled from the Player Tools drawer cracks.
   const tick = () => {
     const hp = getHpState();
-    if (!hp) return;
+    if (!hp) {
+      // If HP UI disappears, reset so we don't "fake" damage on re-render.
+      lastHpCur = null;
+      primed = false;
+      return;
+    }
+
+    if (!primed) {
+      lastHpCur = hp.cur;
+      primed = true;
+      return;
+    }
 
     if (typeof lastHpCur === 'number' && hp.cur < lastHpCur) {
       const delta = lastHpCur - hp.cur;

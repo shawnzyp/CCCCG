@@ -9917,3 +9917,12 @@ html.cccg-hit-active #cccg-hit-fx::after{
   100% { opacity: 0; transform: translate3d(0,0,0) skewX(0deg); }
 }
 
+@media (prefers-reduced-motion: reduce){
+  html.cccg-hit-active #cccg-hit-fx,
+  html.cccg-hit-active #cccg-hit-fx::before,
+  html.cccg-hit-active #cccg-hit-fx::after{
+    animation: none;
+    opacity: 0;
+  }
+}
+
