@@ -9043,44 +9043,37 @@ animation: pt-splash-scan 1.05s linear infinite;
   filter:none;
   transform: translateZ(0);
   opacity: 0;
-  --pt-crack-line-opacity: 0;
   --pt-crack-texture-opacity: 0;
   transition: opacity 200ms ease-out;
 }
 
 #player-tools-drawer[data-pt-crack="0"] .pt-cracks{
   opacity: 0;
-  --pt-crack-line-opacity: 0;
   --pt-crack-texture-opacity: 0;
 }
 
 #player-tools-drawer[data-pt-crack="1"] .pt-cracks{
   opacity: 1;
-  --pt-crack-line-opacity: 0.85;
   --pt-crack-texture-opacity: 0;
 }
 
 #player-tools-drawer[data-pt-crack="2"] .pt-cracks{
   opacity: 1;
-  --pt-crack-line-opacity: 0.9;
   --pt-crack-texture-opacity: 0.25;
 }
 
 #player-tools-drawer[data-pt-crack="3"] .pt-cracks{
   opacity: 1;
-  --pt-crack-line-opacity: 1;
   --pt-crack-texture-opacity: 0.55;
 }
 
 #player-tools-drawer[data-pt-crack="4"] .pt-cracks{
   opacity: 1;
-  --pt-crack-line-opacity: 1;
   --pt-crack-texture-opacity: 0.9;
 }
 
 #player-tools-drawer[data-pt-crack="5"] .pt-cracks{
   opacity: 1;
-  --pt-crack-line-opacity: 1;
   --pt-crack-texture-opacity: 1;
 }
 

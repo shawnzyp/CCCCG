@@ -592,6 +592,14 @@ function createPlayerToolsDrawer() {
     const hpState = getHpState();
     if (!hpState) {
       drawer.setAttribute('data-pt-crack', '0');
+      if (cracks) {
+        cracks.style.removeProperty('--pt-crack-pos-1');
+        cracks.style.removeProperty('--pt-crack-pos-2');
+        cracks.style.removeProperty('--pt-crack-pos-3');
+        cracks.style.removeProperty('--pt-crack-size-1');
+        cracks.style.removeProperty('--pt-crack-size-2');
+        cracks.style.removeProperty('--pt-crack-size-3');
+      }
       return;
     }
 
@@ -614,7 +622,24 @@ function createPlayerToolsDrawer() {
     const prevStage = Number(drawer.getAttribute('data-pt-crack') || '0');
     drawer.setAttribute('data-pt-crack', String(stage));
 
-    if (stage > 0 && stage !== prevStage) {
+    if (stage === 0) {
+      if (cracks) {
+        cracks.style.removeProperty('--pt-crack-pos-1');
+        cracks.style.removeProperty('--pt-crack-pos-2');
+        cracks.style.removeProperty('--pt-crack-pos-3');
+        cracks.style.removeProperty('--pt-crack-size-1');
+        cracks.style.removeProperty('--pt-crack-size-2');
+        cracks.style.removeProperty('--pt-crack-size-3');
+      }
+      return;
+    }
+
+    const hasSeed =
+      cracks &&
+      cracks.style.getPropertyValue('--pt-crack-pos-2') &&
+      cracks.style.getPropertyValue('--pt-crack-size-2');
+
+    if (stage > 0 && (!hasSeed || stage !== prevStage)) {
       randomizeCracks(stage);
     }
   };
