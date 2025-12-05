@@ -18,6 +18,7 @@ if (!OUTBOX_DB_NAME || !openOutboxDb) {
 }
 
 const MANIFEST_PATH = 'asset-manifest.json';
+const ESSENTIAL_RUNTIME_ASSETS = ['./scripts/anim.js'];
 
 function resolveAssetUrl(pathname) {
   try {
@@ -97,14 +98,25 @@ async function getCacheAndManifest() {
   return { cache, manifest };
 }
 
-async function precacheManifestAssets(cache, manifest) {
-  if (!manifest || !Array.isArray(manifest.assets) || !cache) return;
+async function precacheAll(cache, manifest) {
+  if (!cache) return;
+
+  const assetSet = new Set(
+    Array.isArray(manifest?.assets)
+      ? manifest.assets.filter(asset => typeof asset === 'string' && asset)
+      : []
+  );
+
+  ESSENTIAL_RUNTIME_ASSETS.forEach(asset => {
+    if (typeof asset === 'string' && asset) {
+      assetSet.add(asset);
+    }
+  });
 
   const skippedAssets = [];
-  const assets = manifest.assets.filter(asset => typeof asset === 'string' && asset);
 
   await Promise.all(
-    assets.map(async asset => {
+    [...assetSet].map(async asset => {
       try {
         await cache.add(asset);
       } catch (err) {
@@ -332,7 +344,7 @@ self.addEventListener('install', e => {
   e.waitUntil(
     (async () => {
       const { cache, manifest } = await getCacheAndManifest();
-      await precacheManifestAssets(cache, manifest);
+      await precacheAll(cache, manifest);
     })()
   );
 });
