@@ -119,6 +119,8 @@ async function precacheManifestAssets(cache, manifest) {
   }
 }
 
+const ESSENTIAL_RUNTIME_ASSETS = ['./scripts/anim.js'];
+
 const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
@@ -333,6 +335,20 @@ self.addEventListener('install', e => {
     (async () => {
       const { cache, manifest } = await getCacheAndManifest();
       await precacheManifestAssets(cache, manifest);
+      if (cache) {
+        await Promise.all(
+          ESSENTIAL_RUNTIME_ASSETS.map(async asset => {
+            if (!asset) return;
+            try {
+              await cache.add(asset);
+            } catch (err) {
+              if (typeof console !== 'undefined' && console?.warn) {
+                console.warn('Skipped precaching essential asset:', asset, err);
+              }
+            }
+          })
+        );
+      }
     })()
   );
 });
