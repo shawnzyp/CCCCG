@@ -31,7 +31,6 @@ import {
   isAutoSaveDirty,
 } from './autosave-controller.js';
 import { show, hide } from './modal.js';
-import { animate, fadeOut, easing as easingVar, motion } from './anim.js';
 import { canonicalCharacterKey } from './character-keys.js';
 import {
   activateTab,
@@ -126,6 +125,27 @@ import {
   supportsOfflineCaching,
 } from './offline-cache.js';
 import { createVirtualizedList } from './virtualized-list.js';
+
+let animate = () => null;
+let fadeOut = () => null;
+let fadePop = () => null;
+let motion = (_token, fallback) => fallback;
+let easingVar = (_token, fallback) => fallback;
+
+(async () => {
+  try {
+    const anim = await import('./anim.js');
+    animate = anim.animate || animate;
+    fadeOut = anim.fadeOut || fadeOut;
+    fadePop = anim.fadePop || fadePop;
+    motion = anim.motion || motion;
+    easingVar = anim.easing || easingVar;
+  } catch (err) {
+    try {
+      console.error('Failed to load animation helpers', err);
+    } catch (logErr) {}
+  }
+})();
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
