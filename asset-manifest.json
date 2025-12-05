@@ -1,6 +1,6 @@
 {
-  "version": "cccg-cache-959310379560a23c",
-  "generatedAt": "2025-10-23T10:54:48.962Z",
+  "version": "cccg-cache-20251204",
+  "generatedAt": "2025-12-04T20:06:25Z",
   "assets": [
     "./",
     "./Augments.txt",
@@ -102,6 +102,7 @@
     "./ruleshelp.txt",
     "./scripts/animated-title-spacing.js",
     "./scripts/animated-titles.js",
+    "./scripts/anim.js",
     "./scripts/catalog-utils.js",
     "./scripts/characters.js",
     "./scripts/dice-result.js",

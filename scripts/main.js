@@ -46,7 +46,6 @@ import {
   onDrawerChange as onPlayerToolsDrawerChange,
   open as openPlayerToolsDrawer,
   close as closePlayerToolsDrawer,
-  applyPlayerToolsCrackEffect,
 } from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
@@ -127,12 +126,43 @@ import {
 } from './offline-cache.js';
 import { createVirtualizedList } from './virtualized-list.js';
 
+let animate = () => null;
+let fadeOut = () => null;
+let fadePop = () => null;
+let motion = (_token, fallback) => fallback;
+let easingVar = (_token, fallback) => fallback;
+
+(async () => {
+  try {
+    const anim = await import('./anim.js');
+    animate = anim.animate || animate;
+    fadeOut = anim.fadeOut || fadeOut;
+    fadePop = anim.fadePop || fadePop;
+    motion = anim.motion || motion;
+    easingVar = anim.easing || easingVar;
+  } catch (err) {
+    try {
+      console.error('Failed to load animation helpers', err);
+    } catch (logErr) {}
+  }
+})();
+
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
 const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+
+function cancelFx(el) {
+  if (!el) return;
+  try {
+    (el.getAnimations?.() || []).forEach(a => a.cancel());
+    if (typeof el.getAnimations === 'function') {
+      (el.getAnimations({ subtree: true }) || []).forEach(a => a.cancel());
+    }
+  } catch {}
+}
 
 function isCharacterSaveQuotaError(err) {
   if (!err) return false;
@@ -11575,14 +11605,6 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   const crackX = `${(Math.random() * 10 - 5).toFixed(1)}px`;
   const crackY = `${(Math.random() * 10 - 5).toFixed(1)}px`;
 
-  if (typeof applyPlayerToolsCrackEffect === 'function') applyPlayerToolsCrackEffect({
-    intensity,
-    rotation: crackRot,
-    x: crackX,
-    y: crackY,
-    lingerMs,
-  });
-
   const overlay = $('damage-overlay');
   if (!overlay) return;
 
@@ -11598,24 +11620,78 @@ function triggerDamageOverlay(amount = 1, { max = 20, lingerMs = 900 } = {}) {
   // optional: scale shake strength by tier (px)
   overlay.style.setProperty('--shake', `${Math.max(1, tier) * 2}px`);
 
-  overlay.classList.add('is-on');
+  const peakOpacity = Math.min(0.95, intensity * 0.95);
+
+  if (overlay.__ccDamageTimer) {
+    clearTimeout(overlay.__ccDamageTimer);
+    overlay.__ccDamageTimer = null;
+  }
+  overlay.__fadeOut?.cancel?.();
+  overlay.__pop?.cancel?.();
+
+  overlay.__pop = animate(
+    overlay,
+    [
+      { opacity: peakOpacity * 0.4, filter: 'blur(2px)' },
+      { opacity: peakOpacity, filter: 'blur(0px)' },
+    ],
+    {
+      duration: motion('--motion-fast', 140),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  if (!overlay.__pop) {
+    overlay.style.opacity = `${peakOpacity}`;
+    overlay.__ccDamageTimer = setTimeout(() => {
+      overlay.style.opacity = '0';
+      overlay.style.setProperty('--damage', '0');
+      overlay.__ccDamageTier = 0;
+    }, lingerMs);
+    return;
+  }
 
   // Only shake when we CROSS UP into a higher tier
   if (tier > prevTier) {
     overlay.__ccDamageTier = tier;
 
-    overlay.classList.remove('impact');
-    void overlay.offsetWidth; // restart animation reliably
-    overlay.classList.add('impact');
+    overlay.__shake?.cancel?.();
+    overlay.__shake = animate(
+      overlay,
+      [
+        { transform: 'translate(0, 0)' },
+        { transform: `translate(calc(var(--shake, 2px) * -1), calc(var(--shake, 2px) * 0.5))` },
+        { transform: `translate(var(--shake, 2px), calc(var(--shake, 2px) * -0.5))` },
+        { transform: `translate(calc(var(--shake, 2px) * -0.5), 0px)` },
+        { transform: 'translate(0, 0)' },
+      ],
+      {
+        duration: motion('--motion-med', 240),
+        easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+        fill: 'forwards',
+      }
+    );
   }
 
-  clearTimeout(overlay.__ccDamageTimer);
-  overlay.__ccDamageTimer = setTimeout(() => {
-    overlay.classList.remove('impact');
+  overlay.__fadeOut = fadeOut(overlay, {
+    duration: motion('--motion-slow', 520),
+    easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+    delay: Math.max(120, lingerMs * 0.25),
+    from: peakOpacity,
+  });
+  if (!overlay.__fadeOut) {
+    overlay.__ccDamageTimer = setTimeout(() => {
+      overlay.style.opacity = '0';
+      overlay.style.setProperty('--damage', '0');
+      overlay.__ccDamageTier = 0;
+    }, lingerMs);
+    return;
+  }
+  overlay.__fadeOut?.finished?.then(() => {
     overlay.style.setProperty('--damage', '0');
-    overlay.classList.remove('is-on');
     overlay.__ccDamageTier = 0; // reset tiers when overlay clears
-  }, lingerMs);
+  }).catch(()=>{});
 }
 
 function playDamageAnimation(amount){
@@ -11623,21 +11699,75 @@ function playDamageAnimation(amount){
   const maxHp = elHPBar ? num(elHPBar.max) : 20;
   const scale = Math.max(12, Math.round(maxHp * 0.25));
   triggerDamageOverlay(Math.abs(amount), { max: scale, lingerMs: 900 });
-  const anim=$('damage-animation');
-  if(!anim) return Promise.resolve();
-  anim.textContent=String(amount);
-  anim.hidden=false;
   playStatusCue('damage');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
-  });
+
+  const anim=$('damage-animation');
+  const float = anim?.querySelector('.fx-float') || anim;
+  cancelFx(anim);
+  cancelFx(float);
+  if(!anim) return Promise.resolve();
+  float.textContent=String(amount);
+  anim.setAttribute('aria-hidden','true');
+
+  const opacityTrack = animate(
+    anim,
+    [
+      { opacity: 0 },
+      { opacity: 1 },
+      { opacity: 0 },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520)),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  const motionTrack = animate(
+    float,
+    [
+      { offset: 0, transform: 'translateY(0) scale(0.9)', filter: 'blur(3px)' },
+      { offset: 0.25, transform: 'translateY(-4px) scale(1.05)', filter: 'blur(0px)' },
+      { offset: 0.6, transform: 'translateY(-12px) scale(0.98)', filter: 'blur(0px)' },
+      { offset: 1, transform: 'translateY(-24px) scale(0.9)', filter: 'blur(0.5px)' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.2),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.35,
+    }
+  );
+
+  const glow = animate(
+    float,
+    [
+      { textShadow: '0 0 1rem currentColor' },
+      { textShadow: '0 0 0.2rem currentColor' },
+      { textShadow: '0 0 0rem currentColor' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520)),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  return Promise.all([opacityTrack?.finished, motionTrack?.finished, glow?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (anim && anim.style) {
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
+      }
+      if (float && float.style) {
+        float.style.opacity = '';
+        float.style.transform = '';
+        float.style.filter = '';
+        float.style.textShadow = '';
+      }
+    });
 }
 
 const AUDIO_CUE_SETTINGS = {
@@ -12018,56 +12148,212 @@ function playStatusCue(name){
 function playDownAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('down-animation');
-  if(!anim) return Promise.resolve();
-  anim.hidden=false;
+  const image = anim?.querySelector('img');
+  cancelFx(anim);
+  cancelFx(image);
+  if(!anim || !image) return Promise.resolve();
   playStatusCue('down');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
-  });
+  anim.setAttribute('aria-hidden','true');
+  image.setAttribute('aria-hidden','true');
+
+  const veil = animate(
+    anim,
+    [
+      { opacity: 0, filter: 'blur(6px)', transform: 'translateZ(0)' },
+      { opacity: 0.92, filter: 'blur(1px)', transform: 'translateZ(0)' },
+      { opacity: 0, filter: 'blur(3px)', transform: 'translateZ(0)' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.73),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  const pulse = animate(
+    image,
+    [
+      { opacity: 0, transform: 'scale(0.85) rotate(-16deg)', filter: 'drop-shadow(0 0 1.5rem rgba(120,0,0,.65))' },
+      { opacity: 1, transform: 'scale(1.05) rotate(-4deg)', filter: 'drop-shadow(0 0 1.25rem rgba(120,0,0,.7))' },
+      { opacity: 0.4, transform: 'scale(0.92) rotate(-8deg)', filter: 'drop-shadow(0 0 0.75rem rgba(120,0,0,.4))' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.88),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (anim?.style) {
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
+      }
+      if (image?.style) {
+        image.style.opacity = '';
+        image.style.transform = '';
+        image.style.filter = '';
+      }
+    });
 }
 
 function playDeathAnimation(){
   if(!animationsEnabled) return Promise.resolve();
   const anim = $('death-animation');
-  if(!anim) return Promise.resolve();
-  anim.hidden=false;
+  const image = anim?.querySelector('img');
+  cancelFx(anim);
+  cancelFx(image);
+  if(!anim || !image) return Promise.resolve();
   playStatusCue('death');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
-  });
+  anim.setAttribute('aria-hidden','true');
+  image.setAttribute('aria-hidden','true');
+
+  const veil = animate(
+    anim,
+    [
+      { opacity: 0, filter: 'blur(8px)', transform: 'translateZ(0) scale(0.96)' },
+      { opacity: 0.95, filter: 'blur(1px)', transform: 'translateZ(0) scale(1)' },
+      { opacity: 0, filter: 'blur(3px)', transform: 'translateZ(0) scale(1.04)' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 2.5),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  const pulse = animate(
+    image,
+    [
+      { opacity: 0, transform: 'scale(0.82) rotate(-18deg)', filter: 'drop-shadow(0 0 1.5rem rgba(136,0,0,0.65))' },
+      { opacity: 1, transform: 'scale(1.08) rotate(2deg)', filter: 'drop-shadow(0 0 1.3rem rgba(136,0,0,0.6))' },
+      { opacity: 0.5, transform: 'scale(0.95) rotate(-6deg)', filter: 'drop-shadow(0 0 0.9rem rgba(136,0,0,0.4))' },
+      { opacity: 0, transform: 'scale(0.9) rotate(-10deg)', filter: 'drop-shadow(0 0 0.4rem rgba(136,0,0,0.35))' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 2.7),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  );
+
+  return Promise.all([veil?.finished, pulse?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (anim?.style) {
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
+      }
+      if (image?.style) {
+        image.style.opacity = '';
+        image.style.transform = '';
+        image.style.filter = '';
+      }
+    });
 }
 
 function playHealAnimation(amount){
   if(!animationsEnabled) return Promise.resolve();
   const anim=$('heal-animation');
-  if(!anim) return Promise.resolve();
-  anim.textContent=`+${amount}`;
-  anim.hidden=false;
+  const float = anim?.querySelector('.fx-float') || anim;
+  const healOverlay = $('heal-overlay');
+  const bloom = healOverlay?.querySelector('svg');
+  cancelFx(healOverlay);
+  cancelFx(anim);
+  cancelFx(bloom);
+  cancelFx(float);
+  if(anim) {
+    float.textContent=`+${amount}`;
+    anim.setAttribute('aria-hidden','true');
+  }
   playStatusCue('heal');
-  return new Promise(res=>{
-    anim.classList.add('show');
-    const done=()=>{
-      anim.classList.remove('show');
-      anim.hidden=true;
-      anim.removeEventListener('animationend', done);
-      res();
-    };
-    anim.addEventListener('animationend', done);
-  });
+
+  const bloomWave = healOverlay ? animate(
+    healOverlay,
+    [
+      { opacity: 0, transform: 'scale(0.96)', filter: 'blur(8px)' },
+      { opacity: 0.85, transform: 'scale(1.03)', filter: 'blur(1px)' },
+      { opacity: 0, transform: 'scale(1.06)', filter: 'blur(6px)' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.58),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  ) : null;
+
+  const shimmer = bloom ? animate(
+    bloom,
+    [
+      { opacity: 0.2, transform: 'scale(0.92) rotate(-4deg)' },
+      { opacity: 0.8, transform: 'scale(1.05) rotate(2deg)' },
+      { opacity: 0.6, transform: 'scale(1) rotate(0deg)' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-med', 240) * 1.75),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+    }
+  ) : null;
+
+  const opacityTrack = anim ? animate(
+    anim,
+    [
+      { opacity: 0 },
+      { opacity: 1 },
+      { opacity: 0 },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.38),
+      easing: easingVar('--ease-out', 'cubic-bezier(.16,1,.3,1)'),
+      fill: 'forwards',
+    }
+  ) : null;
+
+  const motionTrack = anim ? animate(
+    float,
+    [
+      { offset: 0, transform: 'translateY(2px) scale(0.94)', filter: 'blur(1.5px)' },
+      { offset: 0.22, transform: 'translateY(-4px) scale(1.08)', filter: 'blur(0px)' },
+      { offset: 0.6, transform: 'translateY(-12px) scale(1)', filter: 'blur(0px)' },
+      { offset: 1, transform: 'translateY(-22px) scale(0.96)', filter: 'blur(0.4px)' },
+    ],
+    {
+      duration: Math.max(1, motion('--motion-slow', 520) * 1.38),
+      easing: easingVar('--ease-in-out', 'cubic-bezier(.4,0,.2,1)'),
+      fill: 'forwards',
+      delay: motion('--motion-fast', 140) * 0.25,
+    }
+  ) : null;
+
+  return Promise.all([bloomWave?.finished, shimmer?.finished, opacityTrack?.finished, motionTrack?.finished].filter(Boolean))
+    .catch(()=>{})
+    .finally(() => {
+      if (healOverlay?.style) {
+        healOverlay.style.opacity = '';
+        healOverlay.style.transform = '';
+        healOverlay.style.filter = '';
+      }
+      if (bloom?.style) {
+        bloom.style.opacity = '';
+        bloom.style.transform = '';
+        bloom.style.filter = '';
+      }
+      if (anim?.style) {
+        anim.style.opacity = '';
+        anim.style.transform = '';
+        anim.style.filter = '';
+      }
+      if (float?.style) {
+        float.style.opacity = '';
+        float.style.transform = '';
+        float.style.filter = '';
+      }
+    });
 }
 
 function playSaveAnimation(){
