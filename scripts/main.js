@@ -137,7 +137,10 @@ const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator
 function cancelFx(el) {
   if (!el) return;
   try {
-    el.getAnimations().forEach(a => a.cancel());
+    (el.getAnimations?.() || []).forEach(a => a.cancel());
+    if (typeof el.getAnimations === 'function') {
+      (el.getAnimations({ subtree: true }) || []).forEach(a => a.cancel());
+    }
   } catch {}
 }
 
