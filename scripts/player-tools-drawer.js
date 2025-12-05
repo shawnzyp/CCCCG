@@ -610,7 +610,8 @@ function createPlayerToolsDrawer() {
 
   const clearCrackSeed = () => {
     if (!cracks) return;
-    const layers = ensureCrackLayers();
+    const layers = cracks.querySelectorAll('.pt-crack-layer');
+    if (!layers || !layers.length) return;
     layers.forEach((layer) => {
       layer.style.removeProperty('background-position');
       layer.style.removeProperty('background-size');
