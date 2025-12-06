@@ -114,8 +114,8 @@
 
     // Force restart even if already active
     document.documentElement.classList.remove(HIT_FX_CLASS);
-    // reflow to restart animations
-    void el.offsetHeight;
+    // reflow to restart animations (read on <html> so the class toggle is flushed)
+    void document.documentElement.offsetWidth;
     document.documentElement.classList.add(HIT_FX_CLASS);
 
     if (clearTimer) clearTimeout(clearTimer);
