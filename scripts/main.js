@@ -2133,6 +2133,8 @@ let launchSequenceComplete = false;
 let welcomeSequenceComplete = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
+let pinInteractionGuard = null;
+let pinUnlockInProgress = false;
 
 const CHARACTER_CONFIRMATION_MODAL_ID = 'modal-character-confirmation';
 const CHARACTER_CONFIRMATION_TIMEOUT_MS = 3200;
@@ -13206,6 +13208,7 @@ if(newCharBtn){
     if(!clean) return toast('Name required','error');
     setCurrentCharacter(clean);
     syncMiniGamePlayerName();
+    setPinInteractionGuard('', { locked: false });
     applyAppSnapshot(createDefaultSnapshot());
     setMode('edit');
     hide('modal-load-list');
@@ -13239,10 +13242,16 @@ const loadAcceptBtn = $('load-accept');
 async function doLoad(){
   if(!pendingLoad) return;
   const previousMode = useViewMode();
+  let loadedPinState = { pinned: hasPin(pendingLoad.name), source: 'local-fallback' };
+  try {
+    loadedPinState = await ensureAuthoritativePinState(pendingLoad.name, { force: true });
+  } catch (err) {
+    console.error('Failed to sync PIN for load', err);
+  }
   try{
     const snapshot = pendingLoad.ts
-      ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
-      : await loadCharacter(pendingLoad.name);
+      ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type, { bypassPin: true })
+      : await loadCharacter(pendingLoad.name, { bypassPin: true });
     const applied = applyAppSnapshot(snapshot);
     applyViewLockState();
     const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
@@ -13251,6 +13260,7 @@ async function doLoad(){
     }
     setCurrentCharacter(pendingLoad.name);
     syncMiniGamePlayerName();
+    setPinInteractionGuard(pendingLoad.name, { locked: loadedPinState.pinned });
     const variant = pendingLoad.ts ? 'recovered' : 'loaded';
     const key = pendingLoad.ts
       ? `${variant}:${pendingLoad.name}:${pendingLoad.ts}`
@@ -22597,6 +22607,131 @@ function redo(){
   }
 })();
 
+const PIN_INTERACTION_SELECTOR = [
+  'button',
+  'input',
+  'select',
+  'textarea',
+  'option',
+  '[contenteditable="true"]',
+  '[role="button"]',
+  '[role="switch"]',
+  '[role="checkbox"]',
+  '[role="menuitem"]',
+  '[tabindex]:not([tabindex="-1"])',
+  '[data-act]',
+  '[data-action]',
+].join(',');
+
+const cssEscape = (value) => {
+  if (typeof window !== 'undefined' && window.CSS && typeof window.CSS.escape === 'function') {
+    return window.CSS.escape(value);
+  }
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
+};
+
+function updatePinGuardClass() {
+  const body = typeof document !== 'undefined' ? document.body : null;
+  if (!body) return;
+  body.classList.toggle('pin-locked', !!(pinInteractionGuard && !pinInteractionGuard.unlocked));
+}
+
+function setPinInteractionGuard(name, { locked = false } = {}) {
+  const normalized = canonicalCharacterKey(name || '');
+  if (!locked || !normalized) {
+    pinInteractionGuard = null;
+    updatePinGuardClass();
+    return;
+  }
+  pinInteractionGuard = { name: normalized, unlocked: false };
+  updatePinGuardClass();
+}
+
+function isPinGuardLocked() {
+  if (!pinInteractionGuard || pinInteractionGuard.unlocked) return false;
+  const current = canonicalCharacterKey(currentCharacter() || '');
+  if (current && pinInteractionGuard.name && current !== pinInteractionGuard.name) return false;
+  return true;
+}
+
+function shouldGuardInteraction(target) {
+  if (!isPinGuardLocked()) return false;
+  if (!target || typeof target.closest !== 'function') return false;
+
+  if (target.closest('#player-tools-drawer')) return false;
+  if (target.closest('#main-menu, .main-menu, [data-main-menu]')) return false;
+  if (target.closest('.overlay, .modal, [role="dialog"], [aria-modal="true"]')) return false;
+
+  const tabScope = target.closest('fieldset[data-tab]');
+  if (!tabScope) return false;
+
+  const label = target.closest('label');
+  if (label) {
+    const forId = label.getAttribute('for');
+    if (forId) {
+      try {
+        if (tabScope.querySelector(`#${cssEscape(forId)}`)) return true;
+      } catch {}
+    }
+  }
+
+  const interactive = target.closest(PIN_INTERACTION_SELECTOR);
+  return !!interactive;
+}
+
+async function requestPinUnlock() {
+  if (!pinInteractionGuard || pinInteractionGuard.unlocked) return true;
+  if (pinUnlockInProgress) return false;
+  pinUnlockInProgress = true;
+  try {
+    const name = pinInteractionGuard.name;
+    const pin = await pinPrompt('Enter PIN');
+    if (pin === null) return false;
+    let verified = false;
+    try {
+      verified = await verifyStoredPin(name, pin);
+    } catch (err) {
+      console.error('Failed to verify PIN', err);
+    }
+    if (verified) {
+      pinInteractionGuard.unlocked = true;
+      updatePinGuardClass();
+      const keyName = currentCharacter() || name;
+      queueCharacterConfirmation({
+        name: keyName,
+        variant: 'unlocked',
+        key: `pin-unlock:${keyName}:${Date.now()}`,
+      });
+      return true;
+    }
+    toast('Invalid PIN', 'error');
+    return false;
+  } finally {
+    pinUnlockInProgress = false;
+  }
+}
+
+function handlePinGuard(event) {
+  if (pinUnlockInProgress) return;
+  if (!shouldGuardInteraction(event.target)) return;
+  if (event.type === 'keydown' && event.key && !['Enter', ' ', 'Spacebar'].includes(event.key)) {
+    return;
+  }
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  event.stopPropagation();
+  if (event.type === 'focusin' && event.target && typeof event.target.blur === 'function') {
+    event.target.blur();
+  }
+  requestPinUnlock();
+}
+
+if (typeof document !== 'undefined') {
+  ['pointerdown', 'click', 'keydown', 'focusin'].forEach(type => {
+    document.addEventListener(type, handlePinGuard, true);
+  });
+}
+
 async function restoreLastLoadedCharacter(){
   if(forcedRefreshResume && forcedRefreshResume.data) return;
   if (typeof window === 'undefined') return;
@@ -22617,31 +22752,11 @@ async function restoreLastLoadedCharacter(){
       return;
     }
   } catch {}
-  let loadLocalFn = null;
-  try {
-    ({ loadLocal: loadLocalFn } = await import('./storage.js'));
-  } catch (err) {
-    console.error('Failed to access storage module for auto-restore', err);
-    return;
-  }
-  if (typeof loadLocalFn !== 'function') return;
-  let data = null;
-  try {
-    const canonical = canonicalCharacterKey(storedName) || storedName;
-    data = await loadLocalFn(canonical);
-    if (!data && canonical !== storedName) {
-      data = await loadLocalFn(storedName);
-    }
-  } catch (err) {
-    console.error('Failed to load stored character for auto-restore', err);
-    return;
-  }
-  if (!data) return;
   let snapshot;
   try {
-    ({ payload: snapshot } = preflightSnapshotForLoad(storedName, data));
+    snapshot = await loadCharacter(storedName, { bypassPin: true });
   } catch (err) {
-    console.error('Auto-restore validation failed', err);
+    console.error('Failed to load stored character for auto-restore', err);
     return;
   }
   const previousMode = useViewMode();
@@ -22651,13 +22766,9 @@ async function restoreLastLoadedCharacter(){
   } catch (err) {
     console.error('Failed to sync PIN before auto-restore', err);
   }
-  if (authoritativePin.pinned) {
-    pendingPinnedAutoLoad = { name: storedName, data: snapshot, previousMode };
-    attemptPendingPinPrompt();
-    return;
-  }
   setCurrentCharacter(storedName);
   syncMiniGamePlayerName();
+  setPinInteractionGuard(storedName, { locked: authoritativePin.pinned });
   const applied = applyAppSnapshot(snapshot);
   applyViewLockState();
   const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
@@ -22829,6 +22940,7 @@ function applyPendingPinnedCharacter(payload){
   if(!payload) return;
   const { name, data, previousMode } = payload;
   if(!name || !data) return;
+  setPinInteractionGuard(name, { locked: false });
   setCurrentCharacter(name);
   syncMiniGamePlayerName();
   const applied = applyAppSnapshot(data);

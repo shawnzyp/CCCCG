@@ -876,7 +876,8 @@ export async function listRecoverableCharacters() {
   }
 }
 
-export async function loadCharacter(name, { bypassPin = false } = {}) {
+export async function loadCharacter(name, options = {}) {
+  const { bypassPin = false } = options || {};
   try {
     const storageName = normalizedCharacterName(name);
     const displayName = displayCharacterName(name || storageName);
@@ -1141,7 +1142,8 @@ export async function listBackups(name) {
   ];
 }
 
-export async function loadBackup(name, ts, type = 'manual', { bypassPin = false } = {}) {
+export async function loadBackup(name, ts, type = 'manual', options = {}) {
+  const { bypassPin = false } = options || {};
   try {
     const storageName = normalizedCharacterName(name) || name;
     const loader = type === 'auto' ? loadCloudAutosave : loadCloudBackup;
