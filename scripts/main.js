@@ -22617,6 +22617,7 @@ const PIN_INTERACTION_SELECTOR = [
   '[role="switch"]',
   '[role="checkbox"]',
   '[role="menuitem"]',
+  '[tabindex]:not([tabindex="-1"])',
   '[data-act]',
   '[data-action]',
 ].join(',');
@@ -22648,8 +22649,19 @@ function isPinGuardLocked() {
 function shouldGuardInteraction(target) {
   if (!isPinGuardLocked()) return false;
   if (!target || typeof target.closest !== 'function') return false;
+
+  if (target.closest('#player-tools-drawer')) return false;
+  if (target.closest('#main-menu, .main-menu, [data-main-menu]')) return false;
+
   const tabScope = target.closest('fieldset[data-tab]');
   if (!tabScope) return false;
+
+  const label = target.closest('label');
+  if (label) {
+    const forId = label.getAttribute('for');
+    if (forId && tabScope.querySelector(`#${CSS.escape(forId)}`)) return true;
+  }
+
   const interactive = target.closest(PIN_INTERACTION_SELECTOR);
   return !!interactive;
 }
