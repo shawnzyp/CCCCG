@@ -13208,6 +13208,7 @@ if(newCharBtn){
     if(!clean) return toast('Name required','error');
     setCurrentCharacter(clean);
     syncMiniGamePlayerName();
+    setPinInteractionGuard('', { locked: false });
     applyAppSnapshot(createDefaultSnapshot());
     setMode('edit');
     hide('modal-load-list');
