@@ -13249,8 +13249,8 @@ async function doLoad(){
   }
   try{
     const snapshot = pendingLoad.ts
-      ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type)
-      : await loadCharacter(pendingLoad.name);
+      ? await loadBackup(pendingLoad.name, pendingLoad.ts, pendingLoad.type, { bypassPin: true })
+      : await loadCharacter(pendingLoad.name, { bypassPin: true });
     const applied = applyAppSnapshot(snapshot);
     applyViewLockState();
     const savedViewMode = applied?.ui?.viewMode || applied?.character?.uiState?.viewMode;
@@ -22617,7 +22617,6 @@ const PIN_INTERACTION_SELECTOR = [
   '[role="switch"]',
   '[role="checkbox"]',
   '[role="menuitem"]',
-  '[role="tab"]',
   '[data-act]',
   '[data-action]',
 ].join(',');
