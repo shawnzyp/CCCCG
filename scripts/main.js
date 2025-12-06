@@ -22622,10 +22622,12 @@ const PIN_INTERACTION_SELECTOR = [
   '[data-action]',
 ].join(',');
 
-const cssEscape = (value) =>
-  window.CSS && typeof CSS.escape === 'function'
-    ? CSS.escape(value)
-    : String(value).replace(/"/g, '\\"');
+const cssEscape = (value) => {
+  if (typeof window !== 'undefined' && window.CSS && typeof window.CSS.escape === 'function') {
+    return window.CSS.escape(value);
+  }
+  return String(value).replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
+};
 
 function updatePinGuardClass() {
   const body = typeof document !== 'undefined' ? document.body : null;
