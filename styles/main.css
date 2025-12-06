@@ -9067,6 +9067,7 @@ animation: pt-splash-scan 1.05s linear infinite;
 #player-tools-drawer .pt-crack-layer{
   position:absolute;
   inset:0;
+  pointer-events: none;
   background-image: url("../images/cracked-glass-texture.svg");
   background-repeat:no-repeat;
   opacity: 0;
