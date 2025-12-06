@@ -22667,7 +22667,11 @@ function shouldGuardInteraction(target) {
   const label = target.closest('label');
   if (label) {
     const forId = label.getAttribute('for');
-    if (forId && tabScope.querySelector(`#${cssEscape(forId)}`)) return true;
+    if (forId) {
+      try {
+        if (tabScope.querySelector(`#${cssEscape(forId)}`)) return true;
+      } catch {}
+    }
   }
 
   const interactive = target.closest(PIN_INTERACTION_SELECTOR);
@@ -22707,6 +22711,7 @@ async function requestPinUnlock() {
 }
 
 function handlePinGuard(event) {
+  if (pinUnlockInProgress) return;
   if (!shouldGuardInteraction(event.target)) return;
   if (event.type === 'keydown' && event.key && !['Enter', ' ', 'Spacebar'].includes(event.key)) {
     return;
