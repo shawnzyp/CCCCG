@@ -22622,6 +22622,11 @@ const PIN_INTERACTION_SELECTOR = [
   '[data-action]',
 ].join(',');
 
+const cssEscape = (value) =>
+  window.CSS && typeof CSS.escape === 'function'
+    ? CSS.escape(value)
+    : String(value).replace(/"/g, '\\"');
+
 function updatePinGuardClass() {
   const body = typeof document !== 'undefined' ? document.body : null;
   if (!body) return;
@@ -22652,6 +22657,7 @@ function shouldGuardInteraction(target) {
 
   if (target.closest('#player-tools-drawer')) return false;
   if (target.closest('#main-menu, .main-menu, [data-main-menu]')) return false;
+  if (target.closest('.overlay, .modal, [role="dialog"], [aria-modal="true"]')) return false;
 
   const tabScope = target.closest('fieldset[data-tab]');
   if (!tabScope) return false;
@@ -22659,7 +22665,7 @@ function shouldGuardInteraction(target) {
   const label = target.closest('label');
   if (label) {
     const forId = label.getAttribute('for');
-    if (forId && tabScope.querySelector(`#${CSS.escape(forId)}`)) return true;
+    if (forId && tabScope.querySelector(`#${cssEscape(forId)}`)) return true;
   }
 
   const interactive = target.closest(PIN_INTERACTION_SELECTOR);
