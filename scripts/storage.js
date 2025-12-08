@@ -715,11 +715,16 @@ async function cloudFetch(url, options = {}) {
 
 // Encode each path segment separately so callers can supply hierarchical
 // keys like `Alice/hero1` without worrying about Firebase escaping.
+function sanitizePathSegment(segment) {
+  if (typeof segment !== 'string') return '';
+  return segment.replace(/[#\$\[\]]/g, '_');
+}
+
 function encodePath(name) {
   if (typeof name !== 'string' || !name) return '';
   return name
     .split('/')
-    .map(segment => (typeof segment === 'string' ? segment : ''))
+    .map(segment => sanitizePathSegment(typeof segment === 'string' ? segment : ''))
     .filter(segment => segment.length > 0)
     .map(segment => encodeURIComponent(segment).replace(/\./g, '%2E'))
     .join('/');

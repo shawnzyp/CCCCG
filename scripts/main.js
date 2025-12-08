@@ -7704,10 +7704,27 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
     const additionalBonuses = Number.isFinite(manualBonus) && manualBonus !== 0
       ? [{ label: 'Bonus', value: manualBonus }]
       : [];
+
+    const resolvedInitiative = resolveRollBonus(base, {
+      type: 'initiative',
+      baseBonuses,
+    });
+
+    const resolvedModifier = Number.isFinite(resolvedInitiative?.modifier)
+      ? resolvedInitiative.modifier
+      : base;
+    const resolvedBreakdown = Array.isArray(resolvedInitiative?.breakdown)
+      ? resolvedInitiative.breakdown
+      : baseBonuses
+        .map(part => formatBreakdown(part.label, part.value, { includeZero: part.includeZero }))
+        .filter(Boolean);
+
     rollWithBonus('Initiative', base, elInitiativeRollResult, {
       type: 'initiative',
       baseBonuses,
       additionalBonuses,
+      resolvedModifier,
+      resolvedBreakdown,
       resultRenderer: initiativeRollResultRenderer,
       onRoll: details => {
         rollDetails = details;
@@ -11277,9 +11294,11 @@ function getRollSides(opts = {}) {
 
 function rollWithBonus(name, bonus, out, opts = {}){
   const options = opts && typeof opts === 'object' ? opts : {};
-  const { resultRenderer, ...rollOptions } = options;
+  const { resultRenderer, resolvedModifier, resolvedBreakdown, ...rollOptions } = options;
   const sides = getRollSides(rollOptions);
-  const resolution = resolveRollBonus(bonus, rollOptions);
+  const resolution = Number.isFinite(resolvedModifier)
+    ? { modifier: resolvedModifier, breakdown: resolvedBreakdown }
+    : resolveRollBonus(bonus, rollOptions);
   const numericBonus = Number(bonus);
   const fallbackBonus = Number.isFinite(numericBonus) ? numericBonus : 0;
   const modifier = resolution && Number.isFinite(resolution.modifier)

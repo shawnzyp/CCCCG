@@ -8716,6 +8716,9 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
 --pt-tray-nudge-x: -8px;
 --pt-tray-nudge-y: -8px;
 
+/* Desktop gutter to keep UI off the viewport edge */
+--pt-desktop-gutter: clamp(14px, 1.8vw, 26px);
+
 /* Notch gap width in the status bar grid */
 --pt-notch-gap: 44%;
 
@@ -8744,6 +8747,12 @@ border: 1px solid rgba(0,229,255,0.55);
 background: radial-gradient(circle at 0 50%, rgba(0,229,255,0.35), rgba(0,0,0,0.9));
 box-shadow: 0 0 18px rgba(0,229,255,0.6);
 cursor: pointer;
+}
+
+@media (min-width: 900px) {
+  #player-tools-tab.pt-tab {
+    left: var(--pt-desktop-gutter);
+  }
 }
 
 #player-tools-tab .pt-tab__icon img{
@@ -8791,6 +8800,12 @@ justify-content:flex-start;
 
 transform: translateX(-110%);
 transition: transform 240ms ease-out;
+}
+
+@media (min-width: 900px) {
+  #player-tools-drawer .pt-shell {
+    left: var(--pt-desktop-gutter);
+  }
 }
 
 #player-tools-drawer.pt-drawer.is-open .pt-shell{ transform: translateX(0); }
