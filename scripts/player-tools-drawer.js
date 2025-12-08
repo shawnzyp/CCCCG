@@ -1,3 +1,6 @@
+import { currentCharacter } from './characters.js';
+import { emitDiceRollMessage, emitInitiativeRollMessage } from './discord-webhooks.js';
+
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
@@ -8,6 +11,26 @@ const getGlobal = () => {
     if (typeof globalThis !== 'undefined') return globalThis;
   } catch (_) {}
   return null;
+};
+
+const formatBonus = (value = 0) => {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num === 0) return '';
+  return num > 0 ? `+${num}` : String(num);
+};
+
+const formatDiceBreakdown = (rolls = [], bonus = 0) => {
+  const base = rolls.length ? rolls.join(' + ') : '0';
+  const modifier = Number(bonus) ? ` ${formatBonus(bonus)}` : '';
+  return `${base}${modifier}`;
+};
+
+const getActiveCharacterName = () => {
+  try {
+    const name = currentCharacter()?.name;
+    if (name && String(name).trim().length) return String(name).trim();
+  } catch (_) {}
+  return 'Player';
 };
 
 // Global singleton key: prevents double-init if this module is loaded twice
@@ -489,6 +512,13 @@ function createPlayerToolsDrawer() {
       const total = roll + bonus;
       updateResult(initiativeResultEl, total);
       addHistoryEntryInternal({ label: 'Initiative', value: total });
+
+      emitInitiativeRollMessage({
+        who: getActiveCharacterName(),
+        formula: `1d20${formatBonus(bonus)}`.trim(),
+        total,
+        breakdown: `d20 (${roll})${bonus ? ` + bonus (${bonus})` : ''}`,
+      });
     });
   };
 
@@ -508,6 +538,14 @@ function createPlayerToolsDrawer() {
       const labelSides = rawSides === '10p' ? '10p' : String(sides);
       const label = `${count}d${labelSides}${bonus ? `+${bonus}` : ''}`;
       addHistoryEntryInternal({ label, value: total });
+
+      emitDiceRollMessage({
+        who: getActiveCharacterName(),
+        rollType: `${count}d${labelSides}`,
+        formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
+        total,
+        breakdown: formatDiceBreakdown(rolls, bonus),
+      });
     });
   };
 
