@@ -517,7 +517,7 @@ function createPlayerToolsDrawer() {
         who: getActiveCharacterName(),
         formula: `1d20${formatBonus(bonus)}`.trim(),
         total,
-        breakdown: `d20 (${roll})${bonus ? ` + bonus (${bonus})` : ''}`,
+        breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
       });
     });
   };

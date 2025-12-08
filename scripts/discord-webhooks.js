@@ -12,12 +12,16 @@ const readMeta = (name) => {
   }
 };
 
-const proxyUrl = readMeta('discord-proxy-url');
-const proxyKey = readMeta('discord-proxy-key');
+const getProxyConfig = () => {
+  const proxyUrl = readMeta('discord-proxy-url');
+  const proxyKey = readMeta('discord-proxy-key');
 
-const maybeHeaders = proxyKey
-  ? { ...DEFAULT_HEADERS, 'X-App-Key': proxyKey }
-  : DEFAULT_HEADERS;
+  const headers = proxyKey
+    ? { ...DEFAULT_HEADERS, 'X-App-Key': proxyKey }
+    : DEFAULT_HEADERS;
+
+  return { proxyUrl, headers };
+};
 
 const asEventEnvelope = (event, payload = {}) => ({
   event,
@@ -44,19 +48,30 @@ const chunkText = (text, max = 1800) => {
   return chunks;
 };
 
+const lastDispatchByEvent = new Map();
+const DISPATCH_THROTTLE_MS = 300;
+
 // Note: the proxy endpoint must extract `payload` from the envelope and forward
 // it to the actual Discord webhook URL.
 const sendWebhook = async (event, payloadBuilder) => {
+  const { proxyUrl, headers } = getProxyConfig();
   if (!proxyUrl || typeof fetch !== 'function') return false;
   const body = typeof payloadBuilder === 'function'
     ? payloadBuilder()
     : payloadBuilder;
   if (!body) return false;
 
+  const now = Date.now();
+  const last = lastDispatchByEvent.get(event);
+  if (Number.isFinite(last) && now - last < DISPATCH_THROTTLE_MS) {
+    return false;
+  }
+  lastDispatchByEvent.set(event, now);
+
   try {
     const res = await fetch(proxyUrl, {
       method: 'POST',
-      headers: maybeHeaders,
+      headers,
       body: JSON.stringify(asEventEnvelope(event, body)),
     });
     if (!res.ok) {
@@ -166,9 +181,10 @@ export const emitLootDropMessage = (detail = {}) =>
 export const emitSessionHeaderMessage = (detail = {}) =>
   sendWebhook('SESSION_HEADER', sessionHeaderPayload(detail));
 
-export const emitSessionLogMessages = (detail = {}) => {
+export const emitSessionLogMessages = async (detail = {}) => {
   const payloads = sessionLogPayloads(detail);
-  return Promise.all(payloads.map((payload) => sendWebhook('SESSION_LOG', payload)));
+  const results = await Promise.all(payloads.map((payload) => sendWebhook('SESSION_LOG', payload)));
+  return results.some(Boolean);
 };
 
-export const hasDiscordProxy = () => Boolean(proxyUrl);
+export const hasDiscordProxy = () => Boolean(getProxyConfig().proxyUrl);
