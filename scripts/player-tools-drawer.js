@@ -27,7 +27,7 @@ const formatDiceBreakdown = (rolls = [], bonus = 0) => {
 
 const getActiveCharacterName = () => {
   try {
-    const name = currentCharacter()?.name;
+    const name = currentCharacter();
     if (name && String(name).trim().length) return String(name).trim();
   } catch (_) {}
   return 'Player';
@@ -536,7 +536,7 @@ function createPlayerToolsDrawer() {
       updateResult(diceOutEl, total);
 
       const labelSides = rawSides === '10p' ? '10p' : String(sides);
-      const label = `${count}d${labelSides}${bonus ? `+${bonus}` : ''}`;
+      const label = `${count}d${labelSides}${formatBonus(bonus)}`;
       addHistoryEntryInternal({ label, value: total });
 
       emitDiceRollMessage({

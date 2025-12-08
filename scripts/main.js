@@ -7709,6 +7709,7 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
     const resolvedInitiative = resolveRollBonus(base, {
       type: 'initiative',
       baseBonuses,
+      additionalBonuses,
     });
 
     const resolvedModifier = Number.isFinite(resolvedInitiative?.modifier)

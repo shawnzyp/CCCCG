@@ -67,8 +67,23 @@ export function readLastSaveName() {
   if (!storage) return '';
   const key = getLastSaveKey(storage);
   try {
-    const raw = storage.getItem(key) || storage.getItem(LAST_SAVE_LEGACY_KEY) || '';
-    return typeof raw === 'string' ? raw.trim() : '';
+    const current = storage.getItem(key);
+    if (typeof current === 'string' && current.trim()) {
+      return current.trim();
+    }
+
+    const legacy = storage.getItem(LAST_SAVE_LEGACY_KEY);
+    if (typeof legacy === 'string' && legacy.trim()) {
+      const normalized = legacy.trim();
+      if (key !== LAST_SAVE_LEGACY_KEY) {
+        try {
+          storage.setItem(key, normalized);
+          storage.removeItem(LAST_SAVE_LEGACY_KEY);
+        } catch {}
+      }
+      return normalized;
+    }
+    return '';
   } catch {
     return '';
   }

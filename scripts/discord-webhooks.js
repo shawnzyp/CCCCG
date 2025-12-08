@@ -44,6 +44,8 @@ const chunkText = (text, max = 1800) => {
   return chunks;
 };
 
+// Note: the proxy endpoint must extract `payload` from the envelope and forward
+// it to the actual Discord webhook URL.
 const sendWebhook = async (event, payloadBuilder) => {
   if (!proxyUrl || typeof fetch !== 'function') return false;
   const body = typeof payloadBuilder === 'function'
@@ -52,11 +54,15 @@ const sendWebhook = async (event, payloadBuilder) => {
   if (!body) return false;
 
   try {
-    await fetch(proxyUrl, {
+    const res = await fetch(proxyUrl, {
       method: 'POST',
       headers: maybeHeaders,
       body: JSON.stringify(asEventEnvelope(event, body)),
     });
+    if (!res.ok) {
+      console.warn('Discord proxy returned', res.status);
+      return false;
+    }
     return true;
   } catch (err) {
     console.warn('Failed to dispatch Discord webhook event', err);
