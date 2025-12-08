@@ -718,7 +718,9 @@ async function cloudFetch(url, options = {}) {
 // keys like `Alice/hero1` without worrying about Firebase escaping.
 function sanitizePathSegment(segment) {
   if (typeof segment !== 'string') return '';
-  return segment.replace(/[#\$\[\]]/g, '_');
+  return segment
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[#$\[\]]/g, '_');
 }
 
 function encodePath(name) {

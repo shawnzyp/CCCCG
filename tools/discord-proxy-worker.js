@@ -13,8 +13,19 @@
  */
 export default {
   async fetch(request, env) {
+    const origin = request.headers.get('Origin');
+    const allowlist = (env?.ALLOWED_ORIGINS || env?.ALLOWED_ORIGIN || '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    const allowedOrigin = allowlist.length
+      ? allowlist.includes(origin)
+        ? origin
+        : allowlist[0]
+      : '*';
+
     const cors = {
-      'Access-Control-Allow-Origin': env?.ALLOWED_ORIGIN || '*',
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'POST,OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type,X-App-Key',
       'Access-Control-Max-Age': '86400',
@@ -57,10 +68,13 @@ export default {
       body: JSON.stringify(payload),
     });
 
+    const retryAfter = res.headers?.get?.('Retry-After');
+    const responseHeaders = retryAfter ? { ...cors, 'Retry-After': retryAfter } : cors;
+
     if (!res.ok) {
-      return new Response('Discord rejected payload', { status: res.status, headers: cors });
+      return new Response('Discord rejected payload', { status: res.status, headers: responseHeaders });
     }
 
-    return new Response('ok', { status: 200, headers: cors });
+    return new Response('ok', { status: 200, headers: responseHeaders });
   },
 };

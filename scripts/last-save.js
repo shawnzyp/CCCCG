@@ -11,11 +11,24 @@ function getLocalStorageSafe() {
   }
 }
 
+function hashNamespace(ns) {
+  if (typeof ns !== 'string' || !ns) return '';
+  let hash = 0;
+  for (let i = 0; i < ns.length; i++) {
+    hash = (hash << 5) - hash + ns.charCodeAt(i);
+    hash |= 0; // Keep as 32-bit int
+  }
+  return Math.abs(hash >>> 0).toString(36);
+}
+
 function sanitizeNamespace(ns) {
   if (typeof ns !== 'string') return '';
-  const trimmed = ns.trim().toLowerCase();
-  const normalized = trimmed.replace(/[^a-z0-9_-]/g, '');
-  return normalized.slice(0, 64);
+  const trimmed = ns.trim();
+  if (!trimmed) return '';
+  const normalized = trimmed.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 48);
+  const hashed = hashNamespace(trimmed);
+  const segments = [normalized || 'user', hashed].filter(Boolean);
+  return segments.join('-').slice(0, 64);
 }
 
 function generateAnonId() {
