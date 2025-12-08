@@ -61,12 +61,13 @@ const sendWebhook = async (event, payloadBuilder) => {
     : payloadBuilder;
   if (!body) return false;
 
+  const throttleKey = `${event}:${body?.embeds?.[0]?.title || ''}`;
   const now = Date.now();
-  const last = lastDispatchByEvent.get(event);
+  const last = lastDispatchByEvent.get(throttleKey);
   if (Number.isFinite(last) && now - last < DISPATCH_THROTTLE_MS) {
     return false;
   }
-  lastDispatchByEvent.set(event, now);
+  lastDispatchByEvent.set(throttleKey, now);
 
   try {
     const res = await fetch(proxyUrl, {

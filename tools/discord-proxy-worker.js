@@ -13,31 +13,42 @@
  */
 export default {
   async fetch(request, env) {
+    const cors = {
+      'Access-Control-Allow-Origin': env?.ALLOWED_ORIGIN || '*',
+      'Access-Control-Allow-Methods': 'POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type,X-App-Key',
+      'Access-Control-Max-Age': '86400',
+    };
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: cors });
+    }
+
     if (request.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response('Method not allowed', { status: 405, headers: cors });
     }
 
     const requiredKey = env?.APP_KEY;
     const providedKey = request.headers.get('X-App-Key');
     if (requiredKey && requiredKey !== providedKey) {
-      return new Response('Unauthorized', { status: 401 });
+      return new Response('Unauthorized', { status: 401, headers: cors });
     }
 
     let envelope;
     try {
       envelope = await request.json();
     } catch (err) {
-      return new Response('Invalid JSON', { status: 400 });
+      return new Response('Invalid JSON', { status: 400, headers: cors });
     }
 
     const payload = envelope?.payload;
     if (!payload) {
-      return new Response('Missing payload', { status: 400 });
+      return new Response('Missing payload', { status: 400, headers: cors });
     }
 
     const webhookUrl = env?.DISCORD_WEBHOOK_URL;
     if (!webhookUrl) {
-      return new Response('Webhook URL not configured', { status: 500 });
+      return new Response('Webhook URL not configured', { status: 500, headers: cors });
     }
 
     const res = await fetch(webhookUrl, {
@@ -47,9 +58,9 @@ export default {
     });
 
     if (!res.ok) {
-      return new Response('Discord rejected payload', { status: res.status });
+      return new Response('Discord rejected payload', { status: res.status, headers: cors });
     }
 
-    return new Response('ok', { status: 200 });
+    return new Response('ok', { status: 200, headers: cors });
   },
 };
