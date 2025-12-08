@@ -20,6 +20,7 @@ import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
 import { toast, dismissToast } from './notifications.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
+import { readLastSaveName } from './last-save.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -864,7 +865,7 @@ function deriveNotificationChar() {
   try {
     return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1'
       ? 'DM'
-      : localStorage.getItem('last-save') || '';
+      : readLastSaveName();
   } catch {
     return '';
   }

@@ -1,4 +1,5 @@
 import { toast } from './notifications.js';
+import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
 import {
   addOutboxEntry,
   createCloudSaveOutboxEntry,
@@ -71,8 +72,8 @@ function pruneOldestLocalSave({ excludeKeys = new Set() } = {}) {
     return null;
   }
   try {
-    if (localStorage.getItem('last-save') === target.name) {
-      localStorage.removeItem('last-save');
+    if (readLastSaveName() === target.name) {
+      clearLastSaveName(target.name);
     }
   } catch (err) {
     console.error('Failed to update last-save after pruning', err);
@@ -92,7 +93,7 @@ export async function saveLocal(name, payload) {
   const attemptPersist = () => {
     localStorage.setItem(storageKey, serialized);
     try {
-      localStorage.setItem('last-save', name);
+      writeLastSaveName(name);
     } catch (err) {
       console.warn('Failed to update last-save pointer', err);
     }
@@ -169,8 +170,8 @@ export async function loadLocal(name) {
 export async function deleteSave(name) {
   try {
     localStorage.removeItem('save:' + name);
-    if (localStorage.getItem('last-save') === name) {
-      localStorage.removeItem('last-save');
+    if (readLastSaveName() === name) {
+      clearLastSaveName(name);
     }
   } catch (e) {
     console.error('Local delete failed', e);
@@ -821,9 +822,7 @@ async function attemptCloudSave(name, payload, ts) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
   try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('last-save', name);
-    }
+    writeLastSaveName(name);
   } catch (err) {
     console.warn('Failed to update last-save pointer after cloud save', err);
     emitSyncError({
@@ -1227,8 +1226,8 @@ export async function deleteCloud(name) {
       method: 'DELETE'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    if (localStorage.getItem('last-save') === name) {
-      localStorage.removeItem('last-save');
+    if (readLastSaveName() === name) {
+      clearLastSaveName(name);
     }
   } catch (e) {
     if (e && e.message === 'fetch not supported') {

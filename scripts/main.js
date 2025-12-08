@@ -78,6 +78,7 @@ import {
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
+import { readLastSaveName } from './last-save.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
   buildPriceIndex,
@@ -1668,8 +1669,8 @@ function resolveMiniGamePlayerName() {
   const storage = getLocalStorageSafe();
   if (storage) {
     try {
-      const stored = storage.getItem('last-save');
-      const normalized = sanitizeMiniGamePlayerName(stored || '');
+      const stored = readLastSaveName();
+      const normalized = sanitizeMiniGamePlayerName(stored);
       if (normalized) return normalized;
     } catch {}
   }
@@ -22756,14 +22757,7 @@ async function restoreLastLoadedCharacter(){
   if (typeof window === 'undefined') return;
   if (currentCharacter()) return;
   let storedName = '';
-  try {
-    const raw = localStorage.getItem('last-save');
-    if (typeof raw === 'string') {
-      storedName = raw.trim();
-    }
-  } catch {
-    storedName = '';
-  }
+  storedName = readLastSaveName();
   if (!storedName) return;
   try {
     const params = new URLSearchParams(window.location.search || '');
@@ -23665,10 +23659,8 @@ $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
   let oldChar = currentCharacter();
   if(!oldChar){
-    try{
-      const stored = localStorage.getItem('last-save');
-      if(stored && stored.trim()) oldChar = stored.trim();
-    }catch{}
+    const stored = readLastSaveName();
+    if(stored && stored.trim()) oldChar = stored.trim();
   }
   const vig = $('superhero')?.value.trim();
   const real = $('secret')?.value.trim();

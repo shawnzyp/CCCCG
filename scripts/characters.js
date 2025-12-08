@@ -15,6 +15,7 @@ import {
   loadCloudAutosave,
   deleteCloud,
 } from './storage.js';
+import { clearLastSaveName, readLastSaveName, writeLastSaveName } from './last-save.js';
 import { hasPin, verifyPin as verifyStoredPin, clearPin, movePin, syncPin, ensureAuthoritativePinState } from './pin.js';
 import { toast, dismissToast } from './notifications.js';
 import { canonicalCharacterKey, friendlyCharacterName } from './character-keys.js';
@@ -122,8 +123,8 @@ try {
       localStorage.setItem('save:The DM', legacy);
     }
     localStorage.removeItem(`save:${name}`);
-    if (localStorage.getItem('last-save') === name) {
-      localStorage.setItem('last-save', 'The DM');
+    if (readLastSaveName() === name) {
+      writeLastSaveName('The DM');
     }
   }
 } catch {}
@@ -844,9 +845,9 @@ export function setCurrentCharacter(name) {
   const storageName = name === null ? null : normalizedCharacterName(name);
   try {
     if (!storageName) {
-      localStorage.removeItem('last-save');
+      clearLastSaveName();
     } else {
-      localStorage.setItem('last-save', storageName);
+      writeLastSaveName(storageName);
     }
   } catch {}
 }
@@ -1040,7 +1041,7 @@ export async function renameCharacter(oldName, newName, data) {
       }
       if (oldName) {
         try {
-          localStorage.setItem('last-save', oldName);
+          writeLastSaveName(oldName);
         } catch (restoreErr) {
           console.error('Failed to restore last save after rename failure', restoreErr);
         }
