@@ -10,8 +10,9 @@
  *
  * The proxy unwraps `payload` and forwards it to the Discord webhook URL stored
  * in DISCORD_WEBHOOK_URL or a route-specific mapping in DISCORD_WEBHOOK_ROUTES_JSON.
- * An optional APP_KEY header can be required for simple shared-secret auth.
- */
+ * An APP_KEY header is required for simple shared-secret auth; the worker
+ * fails closed if the secret is not configured.
+*/
 
 const safeRoute = (value) =>
   typeof value === 'string' && /^[a-z0-9_-]{1,32}$/i.test(value) ? value : '';
@@ -71,7 +72,11 @@ export default {
     const requiredKey = env?.APP_KEY;
     const providedKey = request.headers.get('X-App-Key');
 
-    if (allowlist.length && !origin && !requiredKey) {
+    if (!requiredKey) {
+      return new Response('Webhook proxy not initialized', { status: 503, headers: cors });
+    }
+
+    if (allowlist.length && !origin) {
       return new Response('Forbidden', { status: 403, headers: cors });
     }
 
@@ -83,7 +88,7 @@ export default {
       return new Response('Method not allowed', { status: 405, headers: cors });
     }
 
-    if (requiredKey && requiredKey !== providedKey) {
+    if (requiredKey !== providedKey) {
       return new Response('Unauthorized', { status: 401, headers: cors });
     }
 
