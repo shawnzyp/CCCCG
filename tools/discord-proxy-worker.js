@@ -16,22 +16,33 @@
 const safeRoute = (value) =>
   typeof value === 'string' && /^[a-z0-9_-]{1,32}$/i.test(value) ? value : '';
 
+const looksLikeDiscordWebhook = (url) =>
+  typeof url === 'string'
+  && /^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\//.test(url);
+
 function getWebhookUrl(env, route) {
   const raw = env?.DISCORD_WEBHOOK_ROUTES_JSON;
-  if (raw) {
+  const key = safeRoute(route);
+
+  if (key && raw) {
     try {
       const map = JSON.parse(raw);
-      const key = safeRoute(route);
-      const candidate = key ? map?.[key] : null;
-      if (typeof candidate === 'string' && candidate.trim()) {
-        return candidate.trim();
+      const candidate = map?.[key];
+      if (looksLikeDiscordWebhook(candidate?.trim?.())) {
+        return { url: candidate.trim(), routeMatched: true };
       }
+      return { url: '', routeMatched: false };
     } catch {
       /* ignore */
     }
   }
+
   const fallback = env?.DISCORD_WEBHOOK_URL;
-  return typeof fallback === 'string' ? fallback : '';
+  if (looksLikeDiscordWebhook(fallback?.trim?.())) {
+    return { url: fallback.trim(), routeMatched: !key };
+  }
+
+  return { url: '', routeMatched: false };
 }
 
 export default {
@@ -84,7 +95,10 @@ export default {
     }
 
     const route = envelope?.route;
-    const webhookUrl = getWebhookUrl(env, route);
+    const { url: webhookUrl, routeMatched } = getWebhookUrl(env, route);
+    if (route && !routeMatched) {
+      return new Response('Unknown route', { status: 400, headers: cors });
+    }
     if (!webhookUrl) {
       return new Response('Webhook URL not configured', { status: 500, headers: cors });
     }
