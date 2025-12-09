@@ -21,7 +21,14 @@ import { saveCloud } from './storage.js';
 import { toast, dismissToast } from './notifications.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
 import { readLastSaveName } from './last-save.js';
-import { getDiscordRoute, isDiscordEnabled, setDiscordEnabled, setDiscordRoute } from './discord-settings.js';
+import {
+  getDiscordProxyKey,
+  getDiscordRoute,
+  isDiscordEnabled,
+  setDiscordEnabled,
+  setDiscordProxyKey,
+  setDiscordRoute,
+} from './discord-settings.js';
 import { emitDiceRollMessage, hasDiscordProxy } from './discord-webhooks.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
@@ -1849,6 +1856,7 @@ function initDMLogin(){
   const discordModal = document.getElementById('dm-discord-modal');
   const discordClose = document.getElementById('dm-discord-close');
   const discordEnabledInput = document.getElementById('dm-discord-enabled');
+  const discordKeyInput = document.getElementById('dm-discord-key');
   const discordRouteSelect = document.getElementById('dm-discord-route');
   const discordTestBtn = document.getElementById('dm-discord-test');
   const rewardsTabButtons = new Map();
@@ -5262,6 +5270,10 @@ function initDMLogin(){
       if (discordEnabledInput) {
         discordEnabledInput.checked = enabled;
         discordEnabledInput.disabled = !proxyReady;
+      }
+      if (discordKeyInput) {
+        discordKeyInput.value = getDiscordProxyKey();
+        discordKeyInput.disabled = !proxyReady;
       }
       if (discordRouteSelect) {
         const storedRoute = getDiscordRoute() || 'dice';
@@ -10772,6 +10784,10 @@ function initDMLogin(){
     discordEnabledInput?.addEventListener('change', () => {
       setDiscordEnabled(discordEnabledInput.checked);
       syncDiscordSettingsUi();
+    });
+
+    discordKeyInput?.addEventListener('input', () => {
+      setDiscordProxyKey(discordKeyInput.value);
     });
 
     discordRouteSelect?.addEventListener('change', () => {

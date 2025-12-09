@@ -1,4 +1,4 @@
-import { getDiscordRoute, isDiscordEnabled } from './discord-settings.js';
+import { getDiscordProxyKey, getDiscordRoute, isDiscordEnabled } from './discord-settings.js';
 
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
 
@@ -16,7 +16,7 @@ const readMeta = (name) => {
 
 const getProxyConfig = () => {
   const proxyUrl = readMeta('discord-proxy-url');
-  const proxyKey = readMeta('discord-proxy-key');
+  const proxyKey = getDiscordProxyKey();
 
   const headers = proxyKey
     ? { ...DEFAULT_HEADERS, 'X-App-Key': proxyKey }
@@ -144,7 +144,7 @@ const lootDropPayload = ({ crateName, location, itemsByRarity = {} }) => {
     .filter((rarity) => (itemsByRarity[rarity] || []).length)
     .map((rarity) => ({
       name: rarity,
-      value: itemsByRarity[rarity].map((item) => `• ${item}`).join('\n'),
+      value: clampFieldValue(itemsByRarity[rarity].map((item) => `• ${item}`).join('\n')),
       inline: false,
     }));
 
