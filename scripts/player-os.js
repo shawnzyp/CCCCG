@@ -3,7 +3,7 @@ import { open as openPlayerToolsDrawer } from './player-tools-drawer.js';
 const doc = typeof document !== 'undefined' ? document : null;
 const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
-const phoneShell =
+const getPhoneShell = () =>
   doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell]') || null;
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
@@ -58,6 +58,7 @@ const perms = {
 
 const mountLauncher = () => {
   if (!launcher) return false;
+  const phoneShell = getPhoneShell();
   if (!phoneShell) return false;
 
   if (launcher.parentElement !== phoneShell) {
@@ -253,6 +254,10 @@ const closeLauncher = () => {
 };
 
 const openLauncher = (nextApp = 'home') => {
+  // Ensure we're mounted in the faux phone before opening.
+  if (launcher?.dataset?.ptMount !== 'phone') {
+    if (!mountLauncher()) return;
+  }
   const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   if (!launcher || state.open) {
     setAppView(target);
@@ -379,8 +384,8 @@ const wireActions = () => {
 };
 
 const init = () => {
-  const mounted = mountLauncher();
-  if (!mounted) return;
+  // Do not return early. The phone shell may be injected after scripts load.
+  mountLauncher();
   syncSettings();
   perms.shardsUnlocked = readBool(PERM_KEYS.shardsUnlocked, false);
   applyPermsUI();
