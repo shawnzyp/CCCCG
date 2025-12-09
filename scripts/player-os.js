@@ -3,6 +3,7 @@ import { open as openPlayerToolsDrawer } from './player-tools-drawer.js';
 const doc = typeof document !== 'undefined' ? document : null;
 const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
+const phoneShell = doc?.querySelector('[data-phone-shell]') || null;
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
 const appView = launcher?.querySelector('[data-pt-launcher-app]') || null;
@@ -44,6 +45,18 @@ const state = {
     reduceMotion: false,
     hideTickers: false,
   },
+};
+
+const mountLauncher = () => {
+  if (!launcher) return;
+  if (phoneShell) {
+    if (launcher.parentElement !== phoneShell) {
+      phoneShell.appendChild(launcher);
+    }
+    launcher.dataset.ptMount = 'phone';
+    return;
+  }
+  launcher.dataset.ptMount = 'viewport';
 };
 
 const getStorage = () => {
@@ -310,6 +323,7 @@ const wireActions = () => {
 };
 
 const init = () => {
+  mountLauncher();
   syncSettings();
   wireAppButtons();
   wireActions();

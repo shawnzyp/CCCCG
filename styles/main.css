@@ -9953,12 +9953,12 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 
 /* Player OS launcher */
-.pt-launcher{position:fixed;inset:0;z-index:120;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.pt-launcher{position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
 .pt-launcher:focus{outline:none}
 .pt-launcher[aria-hidden="true"]{display:none}
 .pt-launcher__scrim{position:absolute;inset:0;background:color-mix(in srgb, #050914 80%, rgba(0,0,0,.65));backdrop-filter:blur(3px);opacity:0;transition:opacity 150ms ease;pointer-events:auto}
 .pt-launcher.is-open .pt-launcher__scrim{opacity:.9}
-.pt-launcher__panel[data-pt-launcher-panel]{position:relative;width:min(1080px, 96vw);height:min(820px, 90vh);background:var(--panel);border:1px solid color-mix(in srgb, var(--accent) 36%, rgba(255,255,255,.12));border-radius:24px;box-shadow:0 18px 54px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.06);display:flex;flex-direction:column;overflow:hidden;transform:translateY(8px) scale(.98);opacity:0;transition:transform 180ms ease,opacity 160ms ease;pointer-events:auto}
+.pt-launcher__panel[data-pt-launcher-panel]{position:relative;width:100%;height:100%;background:var(--panel);border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;overflow:hidden;transform:translateY(8px) scale(.98);opacity:0;transition:transform 180ms ease,opacity 160ms ease;pointer-events:auto}
 .pt-launcher.is-open .pt-launcher__panel[data-pt-launcher-panel]{transform:translateY(0) scale(1);opacity:1}
 .pt-launcher__header{display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 10px) 16px 10px 16px;background:transparent;border-bottom:none;position:absolute;top:0;left:0;right:0;z-index:2}
 .pt-launcher__title{display:flex;align-items:center;gap:10px;color:var(--text)}
@@ -10014,7 +10014,10 @@ html.ccHideTickers .ticker-drawer,html.ccHideTickers .news-ticker,html.ccHideTic
 .pt-launcher__home{padding:12px 18px calc(env(safe-area-inset-bottom) + 18px) 18px;padding-top:54px;display:flex;flex-direction:column;gap:18px}
 .pt-launcher__app-view{padding-top:54px}
 @media (max-width: 900px){
-  .pt-launcher{align-items:stretch;justify-content:stretch}
   .pt-launcher__scrim{opacity:0 !important;background:transparent !important;backdrop-filter:none !important}
   .pt-launcher__panel[data-pt-launcher-panel]{width:100dvw;height:100dvh;border-radius:0;box-shadow:none;border:none;transform:none;background:transparent}
 }
+
+[data-phone-shell]{position:relative;overflow:hidden}
+
+.pt-launcher[data-pt-mount="viewport"]{position:fixed}
