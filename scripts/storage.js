@@ -742,13 +742,7 @@ function decodePath(name) {
         return null;
       }
       try {
-        let decoded = decodeURIComponent(segment);
-        if (decoded === '%2E' || decoded === '%2E%2E') {
-          try {
-            decoded = decodeURIComponent(decoded);
-          } catch {}
-        }
-        return decoded;
+        return decodeURIComponent(segment);
       } catch {
         return segment;
       }
