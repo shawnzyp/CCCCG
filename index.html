@@ -3151,7 +3151,7 @@
             <span class="pt-launcher__app-label">Arcade</span>
           </button>
         </div>
-        <div class="pt-launcher__dock" aria-label="Quick launch">
+        <nav class="pt-launcher__dock" aria-label="Quick launch">
           <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="playerTools">
             <span aria-hidden="true">🛠️</span>
             <span class="sr-only">Player Tools</span>
@@ -3164,7 +3164,7 @@
             <span aria-hidden="true">⚙️</span>
             <span class="sr-only">Settings</span>
           </button>
-        </div>
+        </nav>
       </div>
       <div class="pt-launcher__app-view" data-pt-launcher-app hidden>
         <header class="pt-launcher__app-header">
@@ -3175,21 +3175,21 @@
           <div class="pt-launcher__app-title" data-pt-launcher-app-title></div>
         </header>
         <div class="pt-launcher__app-content">
-          <section class="pt-launcher__panel" data-pt-view="playerTools" hidden>
+          <section class="pt-launcher__card" data-pt-view="playerTools" hidden>
             <h3 class="pt-launcher__panel-title">Player Tools</h3>
             <p class="pt-launcher__panel-text">Launch the quick tray for dice, status, and utilities.</p>
             <button type="button" class="pt-launcher__primary" data-pt-open-quick-tray>Open Quick Tray</button>
           </section>
-          <section class="pt-launcher__panel" data-pt-view="shards" hidden>
+          <section class="pt-launcher__card" data-pt-view="shards" hidden>
             <h3 class="pt-launcher__panel-title">Shards of Many Fates</h3>
             <p class="pt-launcher__panel-text">Summon the Shards draw flow.</p>
             <button type="button" class="pt-launcher__primary" data-pt-open-shards>Draw Shards</button>
           </section>
-          <section class="pt-launcher__panel" data-pt-view="messages" hidden>
+          <section class="pt-launcher__card" data-pt-view="messages" hidden>
             <h3 class="pt-launcher__panel-title">Director’s Messages</h3>
             <p class="pt-launcher__panel-text">Awaiting next directive. Check back soon.</p>
           </section>
-          <section class="pt-launcher__panel" data-pt-view="settings" hidden>
+          <section class="pt-launcher__card" data-pt-view="settings" hidden>
             <h3 class="pt-launcher__panel-title">Settings</h3>
             <div class="pt-launcher__setting">
               <div>
@@ -3213,7 +3213,7 @@
               <input type="checkbox" data-pt-hide-tickers />
             </label>
           </section>
-          <section class="pt-launcher__panel" data-pt-view="locked" hidden>
+          <section class="pt-launcher__card" data-pt-view="locked" hidden>
             <h3 class="pt-launcher__panel-title">Access Restricted</h3>
             <p class="pt-launcher__panel-text">This app is locked. Return to the home screen to pick another.</p>
           </section>

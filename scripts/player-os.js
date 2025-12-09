@@ -126,7 +126,6 @@ const focusFirstElement = () => {
 const enforceFocus = (event) => {
   if (!state.open || !launcher) return;
   if (launcher.contains(event.target)) return;
-  event.stopPropagation();
   focusFirstElement();
 };
 
@@ -284,7 +283,9 @@ const wireActions = () => {
   const themeBtn = launcher?.querySelector('[data-pt-theme-next]');
   if (themeBtn) {
     themeBtn.addEventListener('click', () => {
-      const themeToggle = doc?.querySelector('[data-theme-toggle]');
+      const themeToggle =
+        doc?.querySelector('[data-theme-toggle]') ||
+        doc?.querySelector('.logo-button');
       if (themeToggle && typeof themeToggle.click === 'function') {
         themeToggle.click();
       }
@@ -293,13 +294,13 @@ const wireActions = () => {
   const reduceMotionToggle = launcher?.querySelector('[data-pt-reduce-motion]');
   if (reduceMotionToggle) {
     reduceMotionToggle.addEventListener('change', (event) => {
-      setSetting('reduceMotion', event.target.checked);
+      setSetting('reduceMotion', event.currentTarget.checked);
     });
   }
   const hideTickerToggle = launcher?.querySelector('[data-pt-hide-tickers]');
   if (hideTickerToggle) {
     hideTickerToggle.addEventListener('change', (event) => {
-      setSetting('hideTickers', event.target.checked);
+      setSetting('hideTickers', event.currentTarget.checked);
     });
   }
 };
