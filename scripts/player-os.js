@@ -3,7 +3,8 @@ import { open as openPlayerToolsDrawer } from './player-tools-drawer.js';
 const doc = typeof document !== 'undefined' ? document : null;
 const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
-const phoneShell = doc?.querySelector('#player-tools-drawer [data-phone-shell]') || null;
+const phoneShell =
+  doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell]') || null;
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
 const appView = launcher?.querySelector('[data-pt-launcher-app]') || null;
