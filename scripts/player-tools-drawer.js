@@ -1,4 +1,4 @@
-import { currentCharacter } from './characters.js';
+import * as Characters from './characters.js';
 import { emitDiceRollMessage, emitInitiativeRollMessage } from './discord-webhooks.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
@@ -19,15 +19,32 @@ const formatBonus = (value = 0) => {
   return num > 0 ? `+${num}` : String(num);
 };
 
+const MAX_BREAKDOWN_ROLLS = 50;
+
 const formatDiceBreakdown = (rolls = [], bonus = 0) => {
-  const base = rolls.length ? rolls.join(' + ') : '0';
+  const list = Array.isArray(rolls) ? rolls : [];
+  const shown = list.slice(0, MAX_BREAKDOWN_ROLLS);
+  const hiddenCount = list.length - shown.length;
+  const base = shown.length ? shown.join(' + ') : '0';
+  const overflow = hiddenCount > 0 ? ` … (+${hiddenCount} more)` : '';
   const modifier = Number(bonus) ? ` ${formatBonus(bonus)}` : '';
-  return `${base}${modifier}`;
+  return `${base}${overflow}${modifier}`;
+};
+
+const getCurrentCharacterFn = () => {
+  try {
+    if (typeof Characters?.currentCharacter === 'function') return Characters.currentCharacter;
+  } catch (_) {}
+
+  const global = getGlobal();
+  if (global && typeof global.currentCharacter === 'function') return global.currentCharacter;
+  return null;
 };
 
 const getActiveCharacterName = () => {
   try {
-    const name = currentCharacter();
+    const resolver = getCurrentCharacterFn();
+    const name = resolver ? resolver() : null;
     if (name && String(name).trim().length) return String(name).trim();
   } catch (_) {}
   return 'Player';

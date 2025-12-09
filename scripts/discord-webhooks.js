@@ -50,6 +50,17 @@ const chunkText = (text, max = 1800) => {
 
 const lastDispatchByEvent = new Map();
 const DISPATCH_THROTTLE_MS = 300;
+const DISCORD_FIELD_LIMIT = 1024;
+const FIELD_SAFETY_MARGIN = 40;
+
+const clampFieldValue = (value) => {
+  if (typeof value !== 'string') return value;
+  if (value.length <= DISCORD_FIELD_LIMIT - FIELD_SAFETY_MARGIN) return value;
+  const maxLen = DISCORD_FIELD_LIMIT - FIELD_SAFETY_MARGIN;
+  const trimmed = value.slice(0, Math.max(0, maxLen - 20));
+  const omitted = value.length - trimmed.length;
+  return `${trimmed}… (+${omitted} more)`;
+};
 
 // Note: the proxy endpoint must extract `payload` from the envelope and forward
 // it to the actual Discord webhook URL.
@@ -93,7 +104,7 @@ const diceRollPayload = ({ who, rollType, formula, total, breakdown, target, out
     description: formula ? `${formula} = **${total ?? '?'}**` : `Total: **${total ?? '?'}**`,
     color: outcome === 'HIT' ? 65280 : outcome === 'MISS' ? 16711680 : 16753920,
     fields: [
-      breakdown ? { name: 'Breakdown', value: breakdown, inline: false } : null,
+      breakdown ? { name: 'Breakdown', value: clampFieldValue(breakdown), inline: false } : null,
       target ? { name: 'Target', value: target, inline: true } : null,
       outcome ? { name: 'Outcome', value: outcome, inline: true } : null,
     ].filter(Boolean),
