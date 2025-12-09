@@ -5,6 +5,11 @@ const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
 const getPhoneShell = () =>
   doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell]') || null;
+const setPhoneOwnedByOS = (owned) => {
+  const shell = getPhoneShell();
+  if (!shell) return;
+  shell.classList.toggle('pt-os-active', !!owned);
+};
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
 const appView = launcher?.querySelector('[data-pt-launcher-app]') || null;
@@ -234,6 +239,7 @@ const setAppView = (nextApp = 'home') => {
 const closeLauncher = () => {
   if (!launcher || !state.open) return;
   state.open = false;
+  setPhoneOwnedByOS(false);
   launcher.setAttribute('aria-hidden', 'true');
   launcher.hidden = true;
   launcher.classList.remove('is-open');
@@ -254,10 +260,11 @@ const closeLauncher = () => {
 };
 
 const openLauncher = (nextApp = 'home') => {
-  // Ensure we're mounted in the faux phone before opening.
+  // Ensure we're mounted in the phone before opening
   if (launcher?.dataset?.ptMount !== 'phone') {
     if (!mountLauncher()) return;
   }
+  setPhoneOwnedByOS(true);
   const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   if (!launcher || state.open) {
     setAppView(target);

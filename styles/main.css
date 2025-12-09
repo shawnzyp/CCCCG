@@ -10021,4 +10021,6 @@ html.ccHideTickers .ticker-drawer,html.ccHideTickers .news-ticker,html.ccHideTic
 }
 
 [data-phone-shell]{position:relative;overflow:hidden}
+[data-phone-shell].pt-os-active .pt-screen__glass{opacity:0;pointer-events:none}
+[data-phone-shell] .pt-screen__glass{transition:opacity 120ms ease}
 
