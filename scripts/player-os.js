@@ -7,6 +7,7 @@ const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
 const appView = launcher?.querySelector('[data-pt-launcher-app]') || null;
 const appTitle = launcher?.querySelector('[data-pt-launcher-app-title]') || null;
+const headerTitle = launcher?.querySelector('#ptLauncherTitle') || null;
 const backButton = launcher?.querySelector('[data-pt-launcher-back]') || null;
 const closeButton = launcher?.querySelector('[data-pt-launcher-close]') || null;
 
@@ -164,6 +165,9 @@ const setAppView = (nextApp = 'home') => {
   appView.hidden = isHome;
   if (appTitle) {
     appTitle.textContent = isHome ? '' : APP_LABELS[nextApp] || nextApp;
+  }
+  if (headerTitle) {
+    headerTitle.textContent = APP_LABELS[nextApp] || 'Player OS';
   }
   const panels = Array.from(appView.querySelectorAll('[data-pt-view]'));
   panels.forEach((panel) => {
