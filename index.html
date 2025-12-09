@@ -3102,6 +3102,127 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
+<!-- Player OS launcher overlay -->
+<section
+  id="ptLauncher"
+  class="pt-launcher"
+  hidden
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="ptLauncherTitle"
+  tabindex="-1"
+>
+  <div class="pt-launcher__scrim" data-pt-launcher-scrim></div>
+  <div class="pt-launcher__panel" data-pt-launcher-panel>
+    <header class="pt-launcher__header">
+      <div class="pt-launcher__title">
+        <span class="pt-launcher__glyph" aria-hidden="true">◎</span>
+        <h2 id="ptLauncherTitle">Player OS</h2>
+      </div>
+      <button type="button" class="pt-launcher__close" data-pt-launcher-close aria-label="Close Player OS">
+        <span aria-hidden="true">✕</span>
+      </button>
+    </header>
+    <div class="pt-launcher__body">
+      <div class="pt-launcher__home" data-pt-launcher-home>
+        <div class="pt-launcher__apps" role="list">
+          <button class="pt-launcher__app-card" type="button" data-pt-app-target="playerTools" role="listitem">
+            <span class="pt-launcher__app-icon" aria-hidden="true">🛠️</span>
+            <span class="pt-launcher__app-label">Player Tools</span>
+          </button>
+          <button class="pt-launcher__app-card" type="button" data-pt-app-target="shards" role="listitem">
+            <span class="pt-launcher__app-icon" aria-hidden="true">♦️</span>
+            <span class="pt-launcher__app-label">Shards of Many Fates</span>
+          </button>
+          <button class="pt-launcher__app-card" type="button" data-pt-app-target="messages" role="listitem">
+            <span class="pt-launcher__app-icon" aria-hidden="true">📡</span>
+            <span class="pt-launcher__app-label">Director’s Messages</span>
+          </button>
+          <button class="pt-launcher__app-card" type="button" data-pt-app-target="settings" role="listitem">
+            <span class="pt-launcher__app-icon" aria-hidden="true">⚙️</span>
+            <span class="pt-launcher__app-label">Settings</span>
+          </button>
+          <button class="pt-launcher__app-card pt-launcher__app-card--locked" type="button" data-pt-app-target="locked" role="listitem">
+            <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
+            <span class="pt-launcher__app-label">OMNI Vault</span>
+          </button>
+          <button class="pt-launcher__app-card pt-launcher__app-card--locked" type="button" data-pt-app-target="locked" role="listitem">
+            <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
+            <span class="pt-launcher__app-label">Arcade</span>
+          </button>
+        </div>
+        <nav class="pt-launcher__dock" aria-label="Quick launch">
+          <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="playerTools">
+            <span aria-hidden="true">🛠️</span>
+            <span class="sr-only">Player Tools</span>
+          </button>
+          <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="shards">
+            <span aria-hidden="true">♦️</span>
+            <span class="sr-only">Shards of Many Fates</span>
+          </button>
+          <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="settings">
+            <span aria-hidden="true">⚙️</span>
+            <span class="sr-only">Settings</span>
+          </button>
+        </nav>
+      </div>
+      <div class="pt-launcher__app-view" data-pt-launcher-app hidden>
+        <header class="pt-launcher__app-header">
+          <button type="button" class="pt-launcher__back" data-pt-launcher-back>
+            <span aria-hidden="true">←</span>
+            <span class="pt-launcher__back-label">Back</span>
+          </button>
+          <div class="pt-launcher__app-title" data-pt-launcher-app-title></div>
+        </header>
+        <div class="pt-launcher__app-content">
+          <section class="pt-launcher__card" data-pt-view="playerTools" hidden>
+            <h3 class="pt-launcher__panel-title">Player Tools</h3>
+            <p class="pt-launcher__panel-text">Launch the quick tray for dice, status, and utilities.</p>
+            <button type="button" class="pt-launcher__primary" data-pt-open-quick-tray>Open Quick Tray</button>
+          </section>
+          <section class="pt-launcher__card" data-pt-view="shards" hidden>
+            <h3 class="pt-launcher__panel-title">Shards of Many Fates</h3>
+            <p class="pt-launcher__panel-text">Summon the Shards draw flow.</p>
+            <button type="button" class="pt-launcher__primary" data-pt-open-shards>Draw Shards</button>
+          </section>
+          <section class="pt-launcher__card" data-pt-view="messages" hidden>
+            <h3 class="pt-launcher__panel-title">Director’s Messages</h3>
+            <p class="pt-launcher__panel-text">Awaiting next directive. Check back soon.</p>
+          </section>
+          <section class="pt-launcher__card" data-pt-view="settings" hidden>
+            <h3 class="pt-launcher__panel-title">Settings</h3>
+            <div class="pt-launcher__setting">
+              <div>
+                <div class="pt-launcher__setting-label">Theme</div>
+                <div class="pt-launcher__setting-hint">Cycle through available themes.</div>
+              </div>
+              <button type="button" class="pt-launcher__secondary" data-pt-theme-next>Next Theme</button>
+            </div>
+            <label class="pt-launcher__setting">
+              <span>
+                <span class="pt-launcher__setting-label">Reduce motion</span>
+                <span class="pt-launcher__setting-hint">Minimize launcher and page animations.</span>
+              </span>
+              <input type="checkbox" data-pt-reduce-motion />
+            </label>
+            <label class="pt-launcher__setting">
+              <span>
+                <span class="pt-launcher__setting-label">Hide live tickers</span>
+                <span class="pt-launcher__setting-hint">Remove scrolling news ribbons.</span>
+              </span>
+              <input type="checkbox" data-pt-hide-tickers />
+            </label>
+          </section>
+          <section class="pt-launcher__card" data-pt-view="locked" hidden>
+            <h3 class="pt-launcher__panel-title">Access Restricted</h3>
+            <p class="pt-launcher__panel-text">This app is locked. Return to the home screen to pick another.</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- Player Tools tab (left-edge vertical pill) -->
 
 
@@ -3452,6 +3573,7 @@ aria-hidden="false"
 <script type="module" src="scripts/animated-titles.js"></script>
 <script type="module" src="scripts/animated-title-spacing.js"></script>
 <script type="module" src="scripts/player-tools-drawer.js"></script>
+<script type="module" src="scripts/player-os.js"></script>
 <script type="module" src="scripts/player-credit-modal.js"></script>
 <script type="module" src="scripts/main.js"></script>
 <script src="shard-of-many-fates.js"></script>
