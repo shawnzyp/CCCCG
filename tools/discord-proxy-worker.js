@@ -52,7 +52,7 @@ export default {
       .split(',')
       .map((entry) => entry.trim())
       .filter(Boolean);
-    const isAllowedOrigin = !allowlist.length || !origin || allowlist.includes(origin);
+    const isAllowedOrigin = allowlist.length ? !!origin && allowlist.includes(origin) : true;
     const allowedOrigin = isAllowedOrigin
       ? origin || allowlist[0] || '*'
       : allowlist[0] || '*';
@@ -68,6 +68,13 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
 
+    const requiredKey = env?.APP_KEY;
+    const providedKey = request.headers.get('X-App-Key');
+
+    if (allowlist.length && !origin && !requiredKey) {
+      return new Response('Forbidden', { status: 403, headers: cors });
+    }
+
     if (allowlist.length && origin && !allowlist.includes(origin)) {
       return new Response('Forbidden', { status: 403, headers: cors });
     }
@@ -76,8 +83,6 @@ export default {
       return new Response('Method not allowed', { status: 405, headers: cors });
     }
 
-    const requiredKey = env?.APP_KEY;
-    const providedKey = request.headers.get('X-App-Key');
     if (requiredKey && requiredKey !== providedKey) {
       return new Response('Unauthorized', { status: 401, headers: cors });
     }

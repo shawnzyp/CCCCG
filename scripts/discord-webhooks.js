@@ -14,6 +14,11 @@ const readMeta = (name) => {
   }
 };
 
+const isValidProxyUrl = (url) =>
+  typeof url === 'string'
+  && /^https:\/\//i.test(url)
+  && !/YOUR-WORKER/i.test(url);
+
 const getProxyConfig = () => {
   const proxyUrl = readMeta('discord-proxy-url');
   const proxyKey = getDiscordProxyKey();
@@ -71,7 +76,7 @@ const sendWebhook = async (event, payloadBuilder) => {
   if (!isDiscordEnabled()) return false;
 
   const { proxyUrl, headers } = getProxyConfig();
-  if (!proxyUrl || typeof fetch !== 'function') return false;
+  if (!isValidProxyUrl(proxyUrl) || typeof fetch !== 'function') return false;
   const body = typeof payloadBuilder === 'function'
     ? payloadBuilder()
     : payloadBuilder;
@@ -204,4 +209,4 @@ export const emitSessionLogMessages = async (detail = {}) => {
   return results.some(Boolean);
 };
 
-export const hasDiscordProxy = () => Boolean(getProxyConfig().proxyUrl);
+export const hasDiscordProxy = () => isValidProxyUrl(getProxyConfig().proxyUrl);
