@@ -93,15 +93,18 @@ function getLastSaveKey(storage = getLocalStorageSafe()) {
 export function readLastSaveName() {
   const storage = getLocalStorageSafe();
   if (!storage) return '';
+  const key = getLastSaveKey(storage);
 
   try {
     const deviceScoped = storage.getItem(LAST_SAVE_DEVICE_KEY);
-    if (typeof deviceScoped === 'string' && deviceScoped.trim()) {
-      return deviceScoped.trim();
+    const normalized = typeof deviceScoped === 'string' ? deviceScoped.trim() : '';
+    if (normalized) {
+      try { storage.removeItem(key); } catch {}
+      try { storage.removeItem(LAST_SAVE_LEGACY_KEY); } catch {}
+      return normalized;
     }
   } catch {}
 
-  const key = getLastSaveKey(storage);
   try {
     const current = storage.getItem(key);
     if (typeof current === 'string' && current.trim()) {
