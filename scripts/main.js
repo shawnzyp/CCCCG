@@ -78,6 +78,7 @@ import {
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
+import { readLastSaveName } from './last-save.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
   buildPriceIndex,
@@ -1668,8 +1669,8 @@ function resolveMiniGamePlayerName() {
   const storage = getLocalStorageSafe();
   if (storage) {
     try {
-      const stored = storage.getItem('last-save');
-      const normalized = sanitizeMiniGamePlayerName(stored || '');
+      const stored = readLastSaveName();
+      const normalized = sanitizeMiniGamePlayerName(stored);
       if (normalized) return normalized;
     } catch {}
   }
@@ -7704,10 +7705,28 @@ if (elInitiativeRollBtn && elInitiativeRollResult) {
     const additionalBonuses = Number.isFinite(manualBonus) && manualBonus !== 0
       ? [{ label: 'Bonus', value: manualBonus }]
       : [];
+
+    const resolvedInitiative = resolveRollBonus(base, {
+      type: 'initiative',
+      baseBonuses,
+      additionalBonuses,
+    });
+
+    const resolvedModifier = Number.isFinite(resolvedInitiative?.modifier)
+      ? resolvedInitiative.modifier
+      : base;
+    const resolvedBreakdown = Array.isArray(resolvedInitiative?.breakdown)
+      ? resolvedInitiative.breakdown
+      : baseBonuses
+        .map(part => formatBreakdown(part.label, part.value, { includeZero: part.includeZero }))
+        .filter(Boolean);
+
     rollWithBonus('Initiative', base, elInitiativeRollResult, {
       type: 'initiative',
       baseBonuses,
       additionalBonuses,
+      resolvedModifier,
+      resolvedBreakdown,
       resultRenderer: initiativeRollResultRenderer,
       onRoll: details => {
         rollDetails = details;
@@ -11277,9 +11296,11 @@ function getRollSides(opts = {}) {
 
 function rollWithBonus(name, bonus, out, opts = {}){
   const options = opts && typeof opts === 'object' ? opts : {};
-  const { resultRenderer, ...rollOptions } = options;
+  const { resultRenderer, resolvedModifier, resolvedBreakdown, ...rollOptions } = options;
   const sides = getRollSides(rollOptions);
-  const resolution = resolveRollBonus(bonus, rollOptions);
+  const resolution = Number.isFinite(resolvedModifier)
+    ? { modifier: resolvedModifier, breakdown: resolvedBreakdown }
+    : resolveRollBonus(bonus, rollOptions);
   const numericBonus = Number(bonus);
   const fallbackBonus = Number.isFinite(numericBonus) ? numericBonus : 0;
   const modifier = resolution && Number.isFinite(resolution.modifier)
@@ -22737,14 +22758,7 @@ async function restoreLastLoadedCharacter(){
   if (typeof window === 'undefined') return;
   if (currentCharacter()) return;
   let storedName = '';
-  try {
-    const raw = localStorage.getItem('last-save');
-    if (typeof raw === 'string') {
-      storedName = raw.trim();
-    }
-  } catch {
-    storedName = '';
-  }
+  storedName = readLastSaveName();
   if (!storedName) return;
   try {
     const params = new URLSearchParams(window.location.search || '');
@@ -23646,10 +23660,8 @@ $('btn-save').addEventListener('click', async () => {
   const btn = $('btn-save');
   let oldChar = currentCharacter();
   if(!oldChar){
-    try{
-      const stored = localStorage.getItem('last-save');
-      if(stored && stored.trim()) oldChar = stored.trim();
-    }catch{}
+    const stored = readLastSaveName();
+    if(stored && stored.trim()) oldChar = stored.trim();
   }
   const vig = $('superhero')?.value.trim();
   const real = $('secret')?.value.trim();

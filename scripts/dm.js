@@ -20,6 +20,16 @@ import { storeDmCatalogPayload } from './dm-catalog-sync.js';
 import { saveCloud } from './storage.js';
 import { toast, dismissToast } from './notifications.js';
 import { FACTIONS, FACTION_NAME_MAP } from './faction.js';
+import { readLastSaveName } from './last-save.js';
+import {
+  getDiscordProxyKey,
+  getDiscordRoute,
+  isDiscordEnabled,
+  setDiscordEnabled,
+  setDiscordProxyKey,
+  setDiscordRoute,
+} from './discord-settings.js';
+import { emitDiceRollMessage, hasDiscordProxy } from './discord-webhooks.js';
 const DM_NOTIFICATIONS_KEY = 'dm-notifications-log';
 const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 const MAX_STORED_NOTIFICATIONS = 100;
@@ -864,7 +874,7 @@ function deriveNotificationChar() {
   try {
     return sessionStorage.getItem(DM_LOGIN_FLAG_KEY) === '1'
       ? 'DM'
-      : localStorage.getItem('last-save') || '';
+      : readLastSaveName();
   } catch {
     return '';
   }
@@ -1778,6 +1788,7 @@ function initDMLogin(){
   const miniGamesFilterAssignee = document.getElementById('dm-mini-games-filter-assignee');
   const miniGamesFilterSearch = document.getElementById('dm-mini-games-filter-search');
   const rewardsBtn = document.getElementById('dm-tools-rewards');
+  const discordBtn = document.getElementById('dm-tools-discord');
   const rewardsModal = document.getElementById('dm-rewards-modal');
   const rewardsClose = document.getElementById('dm-rewards-close');
   const rewardsTabs = document.getElementById('dm-rewards-tabs');
@@ -1842,6 +1853,12 @@ function initDMLogin(){
   const quickFactionPresetSelect = document.getElementById('dm-reward-faction-preset');
   const quickFactionPresetSaveBtn = document.getElementById('dm-reward-faction-preset-save');
   const quickFactionPresetDeleteBtn = document.getElementById('dm-reward-faction-preset-delete');
+  const discordModal = document.getElementById('dm-discord-modal');
+  const discordClose = document.getElementById('dm-discord-close');
+  const discordEnabledInput = document.getElementById('dm-discord-enabled');
+  const discordKeyInput = document.getElementById('dm-discord-key');
+  const discordRouteSelect = document.getElementById('dm-discord-route');
+  const discordTestBtn = document.getElementById('dm-discord-test');
   const rewardsTabButtons = new Map();
   const rewardsPanelMap = new Map();
   let activeRewardsTab = 'resource';
@@ -5245,6 +5262,71 @@ function initDMLogin(){
     function closeRewards() {
       if (!rewardsModal) return;
       hide('dm-rewards-modal');
+    }
+
+    function syncDiscordSettingsUi() {
+      const proxyReady = hasDiscordProxy();
+      const enabled = proxyReady && isDiscordEnabled();
+      if (discordEnabledInput) {
+        discordEnabledInput.checked = enabled;
+        discordEnabledInput.disabled = !proxyReady;
+      }
+      if (discordKeyInput) {
+        discordKeyInput.value = getDiscordProxyKey();
+        discordKeyInput.disabled = !proxyReady;
+      }
+      if (discordRouteSelect) {
+        const storedRoute = getDiscordRoute() || 'dice';
+        if (!getDiscordRoute()) {
+          setDiscordRoute(storedRoute);
+        }
+        discordRouteSelect.value = storedRoute;
+        discordRouteSelect.disabled = !proxyReady;
+      }
+      if (discordTestBtn) {
+        discordTestBtn.disabled = !proxyReady || !enabled;
+      }
+    }
+
+    function openDiscordSettings() {
+      if (!discordModal) return;
+      syncDiscordSettingsUi();
+      show('dm-discord-modal');
+      if (typeof discordModal.scrollTo === 'function') {
+        discordModal.scrollTo({ top: 0 });
+      } else {
+        discordModal.scrollTop = 0;
+      }
+      Promise.resolve().then(() => {
+        if (discordEnabledInput && typeof discordEnabledInput.focus === 'function') {
+          try { discordEnabledInput.focus({ preventScroll: true }); } catch {}
+        }
+      });
+    }
+
+    function closeDiscordSettings() {
+      if (!discordModal) return;
+      hide('dm-discord-modal');
+    }
+
+    async function sendDiscordTestMessage() {
+      if (!hasDiscordProxy()) {
+        toast('Discord proxy not configured.', 'warn');
+        return;
+      }
+      if (!isDiscordEnabled()) {
+        toast('Enable Discord telemetry before sending a test.', 'warn');
+        return;
+      }
+      const ok = await emitDiceRollMessage({
+        who: 'System',
+        rollType: 'Test',
+        formula: '1d20',
+        total: 20,
+        breakdown: 'd20 (20)',
+        outcome: 'HIT',
+      });
+      toast(ok ? 'Test message sent to Discord.' : 'Discord test failed to send.', ok ? 'success' : 'warn');
     }
 
   const catalogTypeLookup = new Map(CATALOG_TYPES.map(type => [type.id, type]));
@@ -10689,6 +10771,35 @@ function initDMLogin(){
         }
       });
     }
+
+    if (discordBtn) {
+      discordBtn.addEventListener('click', () => {
+        closeMenu();
+        openDiscordSettings();
+      });
+    }
+
+    discordClose?.addEventListener('click', closeDiscordSettings);
+
+    discordEnabledInput?.addEventListener('change', () => {
+      setDiscordEnabled(discordEnabledInput.checked);
+      syncDiscordSettingsUi();
+    });
+
+    discordKeyInput?.addEventListener('input', () => {
+      setDiscordProxyKey(discordKeyInput.value);
+    });
+
+    discordRouteSelect?.addEventListener('change', () => {
+      setDiscordRoute(discordRouteSelect.value);
+      syncDiscordSettingsUi();
+    });
+
+    discordTestBtn?.addEventListener('click', () => {
+      sendDiscordTestMessage();
+    });
+
+    syncDiscordSettingsUi();
 
     miniGamesClose?.addEventListener('click', closeMiniGames);
     rewardsClose?.addEventListener('click', closeRewards);

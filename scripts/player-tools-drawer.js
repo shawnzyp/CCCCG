@@ -1,3 +1,6 @@
+import * as Characters from './characters.js';
+import { emitDiceRollMessage, emitInitiativeRollMessage } from './discord-webhooks.js';
+
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
 const changeListeners = new Set();
@@ -8,6 +11,43 @@ const getGlobal = () => {
     if (typeof globalThis !== 'undefined') return globalThis;
   } catch (_) {}
   return null;
+};
+
+const formatBonus = (value = 0) => {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num === 0) return '';
+  return num > 0 ? `+${num}` : String(num);
+};
+
+const MAX_BREAKDOWN_ROLLS = 50;
+
+const formatDiceBreakdown = (rolls = [], bonus = 0) => {
+  const list = Array.isArray(rolls) ? rolls : [];
+  const shown = list.slice(0, MAX_BREAKDOWN_ROLLS);
+  const hiddenCount = list.length - shown.length;
+  const base = shown.length ? shown.join(' + ') : '0';
+  const overflow = hiddenCount > 0 ? ` … (+${hiddenCount} more)` : '';
+  const modifier = Number(bonus) ? ` ${formatBonus(bonus)}` : '';
+  return `${base}${overflow}${modifier}`;
+};
+
+const getCurrentCharacterFn = () => {
+  try {
+    if (typeof Characters?.currentCharacter === 'function') return Characters.currentCharacter;
+  } catch (_) {}
+
+  const global = getGlobal();
+  if (global && typeof global.currentCharacter === 'function') return global.currentCharacter;
+  return null;
+};
+
+const getActiveCharacterName = () => {
+  try {
+    const resolver = getCurrentCharacterFn();
+    const name = resolver ? resolver() : null;
+    if (name && String(name).trim().length) return String(name).trim();
+  } catch (_) {}
+  return 'Player';
 };
 
 // Global singleton key: prevents double-init if this module is loaded twice
@@ -489,6 +529,13 @@ function createPlayerToolsDrawer() {
       const total = roll + bonus;
       updateResult(initiativeResultEl, total);
       addHistoryEntryInternal({ label: 'Initiative', value: total });
+
+      emitInitiativeRollMessage({
+        who: getActiveCharacterName(),
+        formula: `1d20${formatBonus(bonus)}`.trim(),
+        total,
+        breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
+      });
     });
   };
 
@@ -506,8 +553,16 @@ function createPlayerToolsDrawer() {
       updateResult(diceOutEl, total);
 
       const labelSides = rawSides === '10p' ? '10p' : String(sides);
-      const label = `${count}d${labelSides}${bonus ? `+${bonus}` : ''}`;
+      const label = `${count}d${labelSides}${formatBonus(bonus)}`;
       addHistoryEntryInternal({ label, value: total });
+
+      emitDiceRollMessage({
+        who: getActiveCharacterName(),
+        rollType: `${count}d${labelSides}`,
+        formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
+        total,
+        breakdown: formatDiceBreakdown(rolls, bonus),
+      });
     });
   };
 

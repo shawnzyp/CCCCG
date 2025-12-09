@@ -16,6 +16,10 @@
 <meta name="twitter:image" content="images/logo.png"/>
 <meta name="theme-color" content="#0e1117"/>
 <meta name="color-scheme" content="dark light"/>
+<meta
+  name="discord-proxy-url"
+  content="https://YOUR-WORKER.yourdomain.workers.dev"
+/>
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
@@ -2173,6 +2177,7 @@
         <span class="dm-tools-badge dm-tools-menu__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
       </button>
       <button id="dm-tools-rewards" class="btn-sm">Rewards &amp; Catalog</button>
+      <button id="dm-tools-discord" class="btn-sm">Discord Telemetry</button>
       <button id="dm-tools-characters" class="btn-sm">Characters</button>
       <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
       <button id="dm-tools-logout" class="btn-sm">Logout</button>
@@ -2350,6 +2355,47 @@
       </button>
       <h3 id="dm-character-title" class="sr-only">Character Sheet</h3>
       <div id="dm-character-sheet" class="dm-character-sheet" role="document"></div>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+<div class="overlay hidden" id="dm-discord-modal" aria-hidden="true">
+  <div class="modal-frame">
+    <section class="modal dm-discord" role="dialog" aria-modal="true" aria-labelledby="dm-discord-title">
+      <button id="dm-discord-close" class="x" aria-label="Close">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <header class="dm-discord__header">
+        <p class="dm-discord__eyebrow">Telemetry Routes</p>
+        <h3 id="dm-discord-title">Discord Broadcast</h3>
+        <p class="dm-discord__intro">Choose which Discord route to use for telemetry and send a quick test post.</p>
+      </header>
+      <div class="dm-discord__grid">
+        <label class="dm-discord__field">
+          <span class="dm-discord__label">Enable Discord telemetry</span>
+          <input type="checkbox" id="dm-discord-enabled" />
+        </label>
+        <label class="dm-discord__field" for="dm-discord-key">
+          <span class="dm-discord__label">Proxy key</span>
+          <input type="password" id="dm-discord-key" autocomplete="off" spellcheck="false" />
+          <p class="dm-discord__hint">Required when your proxy enforces an app key (recommended). Stored only for this session.</p>
+        </label>
+        <label class="dm-discord__field" for="dm-discord-route">
+          <span class="dm-discord__label">Route</span>
+          <select id="dm-discord-route">
+            <option value="dice">Dice</option>
+            <option value="session">Session Log</option>
+            <option value="loot">Loot</option>
+          </select>
+          <p class="dm-discord__hint">Routes map to server-side webhooks so URLs stay hidden from players.</p>
+        </label>
+        <div class="dm-discord__field dm-discord__actions" role="group" aria-label="Discord telemetry actions">
+          <button type="button" id="dm-discord-test" class="btn-sm">Send test message</button>
+          <p class="dm-discord__hint">Posts a single test roll to verify the configured route.</p>
+        </div>
+      </div>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
