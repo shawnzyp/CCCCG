@@ -9941,3 +9941,13 @@ html.cccg-hit-active #cccg-hit-fx::after{
   }
 }
 
+.dm-discord{max-width:520px;width:100%;display:flex;flex-direction:column;gap:16px;padding:20px}
+.dm-discord__header{display:flex;flex-direction:column;gap:6px}
+.dm-discord__eyebrow{font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0}
+.dm-discord__intro{margin:0;color:var(--muted)}
+.dm-discord__grid{display:flex;flex-direction:column;gap:12px}
+.dm-discord__field{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.dm-discord__label{font-weight:600}
+.dm-discord__hint{margin:0;color:var(--muted);font-size:.9rem}
+.dm-discord__actions{gap:10px}
+

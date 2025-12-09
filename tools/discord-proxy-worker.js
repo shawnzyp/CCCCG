@@ -4,13 +4,36 @@
  * Expected request body: {
  *   event: 'DICE_ROLL' | 'LOOT_DROP' | ...,
  *   payload: { username, embeds, ... },
+ *   route?: string,
  *   timestamp: string
  * }
  *
  * The proxy unwraps `payload` and forwards it to the Discord webhook URL stored
- * in DISCORD_WEBHOOK_URL. An optional APP_KEY header can be required for simple
- * shared-secret auth.
+ * in DISCORD_WEBHOOK_URL or a route-specific mapping in DISCORD_WEBHOOK_ROUTES_JSON.
+ * An optional APP_KEY header can be required for simple shared-secret auth.
  */
+
+const safeRoute = (value) =>
+  typeof value === 'string' && /^[a-z0-9_-]{1,32}$/i.test(value) ? value : '';
+
+function getWebhookUrl(env, route) {
+  const raw = env?.DISCORD_WEBHOOK_ROUTES_JSON;
+  if (raw) {
+    try {
+      const map = JSON.parse(raw);
+      const key = safeRoute(route);
+      const candidate = key ? map?.[key] : null;
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim();
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const fallback = env?.DISCORD_WEBHOOK_URL;
+  return typeof fallback === 'string' ? fallback : '';
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin');
@@ -60,7 +83,8 @@ export default {
       return new Response('Missing payload', { status: 400, headers: cors });
     }
 
-    const webhookUrl = env?.DISCORD_WEBHOOK_URL;
+    const route = envelope?.route;
+    const webhookUrl = getWebhookUrl(env, route);
     if (!webhookUrl) {
       return new Response('Webhook URL not configured', { status: 500, headers: cors });
     }

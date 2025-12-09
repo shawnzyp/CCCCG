@@ -1,3 +1,5 @@
+import { getDiscordRoute, isDiscordEnabled } from './discord-settings.js';
+
 const DEFAULT_HEADERS = { 'Content-Type': 'application/json' };
 
 const readMeta = (name) => {
@@ -26,6 +28,7 @@ const getProxyConfig = () => {
 const asEventEnvelope = (event, payload = {}) => ({
   event,
   payload,
+  route: getDiscordRoute(),
   timestamp: new Date().toISOString(),
 });
 
@@ -65,6 +68,8 @@ const clampFieldValue = (value) => {
 // Note: the proxy endpoint must extract `payload` from the envelope and forward
 // it to the actual Discord webhook URL.
 const sendWebhook = async (event, payloadBuilder) => {
+  if (!isDiscordEnabled()) return false;
+
   const { proxyUrl, headers } = getProxyConfig();
   if (!proxyUrl || typeof fetch !== 'function') return false;
   const body = typeof payloadBuilder === 'function'
