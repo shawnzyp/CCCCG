@@ -42,7 +42,22 @@ const chunkText = (text, max = 1800) => {
   const chunks = [];
   let buf = '';
 
-  for (const line of lines) {
+  for (const rawLine of lines) {
+    const line = String(rawLine ?? '');
+    if (line.length > max) {
+      if (buf) {
+        chunks.push(buf);
+        buf = '';
+      }
+      let remaining = line;
+      while (remaining.length > max) {
+        chunks.push(remaining.slice(0, max));
+        remaining = remaining.slice(max);
+      }
+      buf = remaining;
+      continue;
+    }
+
     const next = buf ? `${buf}\n${line}` : line;
     if (next.length > max) {
       if (buf) chunks.push(buf);
