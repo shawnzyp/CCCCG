@@ -9970,7 +9970,9 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .pt-launcher__home[hidden],.pt-launcher__app-view[hidden]{display:none}
 .pt-launcher__apps{margin:0;display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:18px 14px;padding-top:10px;padding-bottom:18px}
 .pt-launcher__app-card{display:flex;flex-direction:column;align-items:center;gap:10px;min-height:auto;padding:0;border-radius:16px;background:transparent;border:none;color:var(--text);text-align:center;box-shadow:none}
-.pt-launcher__app-card--locked{opacity:.6}
+.pt-launcher__app-card--locked{opacity:.6;pointer-events:auto}
+.pt-launcher__app-card--locked .pt-launcher__app-icon{filter:grayscale(.2) brightness(.9)}
+.pt-launcher__app-card[aria-disabled="true"]{opacity:.55}
 .pt-launcher__app-card:active .pt-launcher__app-icon{transform:scale(.96);filter:brightness(1.05)}
 .pt-launcher__app-card,.pt-launcher__dock-btn,.pt-launcher__close{cursor:pointer}
 .pt-launcher__app-icon{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb, var(--panel) 55%, rgba(255,255,255,.10));border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(10px);font-size:26px;transition:transform 120ms ease,filter 120ms ease}
@@ -10020,4 +10022,3 @@ html.ccHideTickers .ticker-drawer,html.ccHideTickers .news-ticker,html.ccHideTic
 
 [data-phone-shell]{position:relative;overflow:hidden}
 
-.pt-launcher[data-pt-mount="viewport"]{position:fixed}

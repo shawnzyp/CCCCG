@@ -31,6 +31,9 @@
     hiddenSignal: cid => `somf_hidden_signal__${cid}`,
     itemGifts: cid => `somf_item_gifts__${cid}`,
   };
+  const PERMISSION_KEYS = Object.freeze({
+    shardsUnlocked: 'cc:perm:shards-unlocked',
+  });
   const MAX_LOCAL_RECORDS = 120;
 
   const SHARDS_OF_MANY_FATES = [
@@ -1228,6 +1231,15 @@
       localStorage.setItem(key, JSON.stringify(value));
     } catch {
       /* ignore quota errors */
+    }
+  }
+
+  function shardsUnlocked() {
+    try {
+      const raw = localStorage.getItem(PERMISSION_KEYS.shardsUnlocked);
+      return raw === '1' || raw === 'true';
+    } catch {
+      return false;
     }
   }
 
@@ -3756,6 +3768,12 @@
     }
 
     async onDraw() {
+      if (!shardsUnlocked()) {
+        if (window.PlayerOS?.openLauncher) {
+          window.PlayerOS.openLauncher('locked');
+        }
+        return;
+      }
       if (this.dom.count) this.dom.count.blur();
       const count = Math.max(1, Math.min(PLATES.length, Number(this.dom.count?.value) || 1));
       const confirmed = await this.showDrawConfirmation(count);

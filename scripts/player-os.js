@@ -28,6 +28,10 @@ const SETTINGS_KEYS = Object.freeze({
   hideTickers: 'cc:settings:hide-tickers',
 });
 
+const PERM_KEYS = Object.freeze({
+  shardsUnlocked: 'cc:perm:shards-unlocked',
+});
+
 const APP_LABELS = Object.freeze({
   playerTools: 'Player Tools',
   shards: 'Shards of Many Fates',
@@ -47,16 +51,19 @@ const state = {
   },
 };
 
+const perms = {
+  shardsUnlocked: false,
+};
+
 const mountLauncher = () => {
-  if (!launcher) return;
-  if (phoneShell) {
-    if (launcher.parentElement !== phoneShell) {
-      phoneShell.appendChild(launcher);
-    }
-    launcher.dataset.ptMount = 'phone';
-    return;
+  if (!launcher) return false;
+  if (!phoneShell) return false;
+
+  if (launcher.parentElement !== phoneShell) {
+    phoneShell.appendChild(launcher);
   }
-  launcher.dataset.ptMount = 'viewport';
+  launcher.dataset.ptMount = 'phone';
+  return true;
 };
 
 const getStorage = () => {
@@ -80,6 +87,28 @@ const readSetting = (key, fallback = false) => {
 };
 
 const persistSetting = (key, value) => {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(key, value ? '1' : '0');
+  } catch (_) {
+    /* ignore */
+  }
+};
+
+const readBool = (key, fallback = false) => {
+  const storage = getStorage();
+  if (!storage) return fallback;
+  try {
+    const value = storage.getItem(key);
+    if (value === null) return fallback;
+    return value === '1' || value === 'true';
+  } catch (_) {
+    return fallback;
+  }
+};
+
+const writeBool = (key, value) => {
   const storage = getStorage();
   if (!storage) return;
   try {
@@ -170,21 +199,33 @@ const handleKeydown = (event) => {
   }
 };
 
+const applyPermsUI = () => {
+  if (!launcher) return;
+
+  const shardCards = launcher.querySelectorAll('[data-pt-app-target="shards"]');
+  shardCards.forEach((btn) => {
+    const locked = !perms.shardsUnlocked;
+    btn.classList.toggle('pt-launcher__app-card--locked', locked);
+    btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
+  });
+};
+
 const setAppView = (nextApp = 'home') => {
-  state.app = nextApp;
+  const normalized = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+  state.app = normalized;
   if (!homeView || !appView) return;
-  const isHome = nextApp === 'home';
+  const isHome = normalized === 'home';
   homeView.hidden = !isHome;
   appView.hidden = isHome;
   if (appTitle) {
-    appTitle.textContent = isHome ? '' : APP_LABELS[nextApp] || nextApp;
+    appTitle.textContent = isHome ? '' : APP_LABELS[normalized] || normalized;
   }
   if (headerTitle) {
-    headerTitle.textContent = APP_LABELS[nextApp] || 'Player OS';
+    headerTitle.textContent = APP_LABELS[normalized] || 'Player OS';
   }
   const panels = Array.from(appView.querySelectorAll('[data-pt-view]'));
   panels.forEach((panel) => {
-    panel.hidden = panel.getAttribute('data-pt-view') !== nextApp;
+    panel.hidden = panel.getAttribute('data-pt-view') !== normalized;
   });
 };
 
@@ -211,13 +252,14 @@ const closeLauncher = () => {
 };
 
 const openLauncher = (nextApp = 'home') => {
+  const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   if (!launcher || state.open) {
-    setAppView(nextApp);
+    setAppView(target);
     return;
   }
   state.lastFocused = doc?.activeElement || null;
   state.open = true;
-  setAppView(nextApp);
+  setAppView(target);
   launcher.hidden = false;
   launcher.setAttribute('aria-hidden', 'false');
   launcher.classList.add('is-open');
@@ -249,6 +291,11 @@ const wireAppButtons = () => {
   appButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
+      if (target === 'shards' && !perms.shardsUnlocked) {
+        setAppView('locked');
+        if (!state.open) openLauncher('locked');
+        return;
+      }
       if (target === 'home') {
         setAppView('home');
       } else {
@@ -290,6 +337,11 @@ const wireActions = () => {
   const shardBtn = launcher?.querySelector('[data-pt-open-shards]');
   if (shardBtn) {
     shardBtn.addEventListener('click', () => {
+      if (!perms.shardsUnlocked) {
+        setAppView('locked');
+        if (!state.open) openLauncher('locked');
+        return;
+      }
       closeLauncher();
       const drawBtn = doc?.getElementById('somf-min-draw');
       if (drawBtn && typeof drawBtn.click === 'function') {
@@ -323,11 +375,26 @@ const wireActions = () => {
 };
 
 const init = () => {
-  mountLauncher();
+  const mounted = mountLauncher();
+  if (!mounted) return;
   syncSettings();
+  perms.shardsUnlocked = readBool(PERM_KEYS.shardsUnlocked, false);
+  applyPermsUI();
   wireAppButtons();
   wireActions();
-  window.PlayerOS = Object.assign(window.PlayerOS || {}, { openLauncher });
+  window.PlayerOS = Object.assign(window.PlayerOS || {}, {
+    openLauncher,
+    unlockShards() {
+      perms.shardsUnlocked = true;
+      writeBool(PERM_KEYS.shardsUnlocked, true);
+      applyPermsUI();
+    },
+    lockShards() {
+      perms.shardsUnlocked = false;
+      writeBool(PERM_KEYS.shardsUnlocked, false);
+      applyPermsUI();
+    },
+  });
 };
 
 if (launcher && doc) {
