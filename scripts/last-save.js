@@ -31,6 +31,20 @@ function sanitizeNamespace(ns) {
   return segments.join('-').slice(0, 64);
 }
 
+function isValidStoredNamespaceToken(ns) {
+  return typeof ns === 'string' && /^[a-z0-9_-]{1,64}$/.test(ns);
+}
+
+function readStoredNamespace(storage, key) {
+  if (!storage) return '';
+  try {
+    const raw = storage.getItem(key);
+    return isValidStoredNamespaceToken(raw) ? raw : '';
+  } catch {
+    return '';
+  }
+}
+
 function generateAnonId() {
   try {
     if (typeof crypto === 'object' && crypto && typeof crypto.randomUUID === 'function') {
@@ -59,7 +73,7 @@ function resolveNamespace(storage) {
   } catch {}
 
   try {
-    let anon = sanitizeNamespace(storage.getItem(ANON_NAMESPACE_KEY) || '');
+    let anon = readStoredNamespace(storage, ANON_NAMESPACE_KEY);
     if (!anon) {
       anon = sanitizeNamespace(generateAnonId());
       if (anon) storage.setItem(ANON_NAMESPACE_KEY, anon);

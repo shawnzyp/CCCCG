@@ -18,11 +18,10 @@ export default {
       .split(',')
       .map((entry) => entry.trim())
       .filter(Boolean);
-    const allowedOrigin = allowlist.length
-      ? allowlist.includes(origin)
-        ? origin
-        : allowlist[0]
-      : '*';
+    const isAllowedOrigin = !allowlist.length || !origin || allowlist.includes(origin);
+    const allowedOrigin = isAllowedOrigin
+      ? origin || allowlist[0] || '*'
+      : allowlist[0] || '*';
 
     const cors = {
       'Access-Control-Allow-Origin': allowedOrigin,
@@ -33,6 +32,10 @@ export default {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
+    }
+
+    if (allowlist.length && origin && !allowlist.includes(origin)) {
+      return new Response('Forbidden', { status: 403, headers: cors });
     }
 
     if (request.method !== 'POST') {
