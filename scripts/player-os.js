@@ -39,6 +39,7 @@ let unlockCleanupTimer = null;
 let toastPrevFocus = null;
 let lockGestureCleanup = null;
 let launcherWired = false;
+let lastLauncherActivationTs = 0;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -108,6 +109,7 @@ const canOpenApp = (app) => {
 // Keep fade duration just above the longest lock transition (opacity 160ms, transform 240ms).
 const LOCK_FADE_MS = 260;
 const LOCK_SWIPE_THRESHOLD = 40;
+const LAUNCHER_ACTIVATE_DEBOUNCE_MS = 250;
 
 const portal = doc ? createPortal(doc) : null;
 
@@ -323,6 +325,7 @@ const showLockedToast = (msg = 'This app is locked.') => {
 const hideToast = (restoreFocus = true) => {
   if (toastTimer) window.clearTimeout(toastTimer);
   toastTimer = null;
+  if (launcher) launcher.classList.remove('is-toast-open');
   if (!toast) {
     toastPrevFocus = null;
     return;
@@ -332,7 +335,6 @@ const hideToast = (restoreFocus = true) => {
   toast.hidden = true;
   toast.setAttribute('aria-hidden', 'true');
   toast.removeAttribute('tabindex');
-  launcher?.classList.remove('is-toast-open');
 
   if (restoreFocus && wasVisible) {
     const focusTarget = toastPrevFocus && doc?.contains(toastPrevFocus) ? toastPrevFocus : launcher;
@@ -719,6 +721,8 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
 
   ensureLauncherWired();
 
+  launcher.classList.remove('is-toast-open');
+
   setPhoneOwnedByOS(true);
 
   const target = normalizeAppId(nextApp);
@@ -788,6 +792,13 @@ const handleLauncherActivate = (event) => {
   const targetEl = event?.target?.closest?.('[data-pt-app-target]');
   if (!targetEl || !launcher.contains(targetEl)) return;
 
+  const eventTs = event?.timeStamp ?? Date.now();
+  if (event?.type === 'click' && eventTs - lastLauncherActivationTs < LAUNCHER_ACTIVATE_DEBOUNCE_MS) {
+    return;
+  }
+
+  lastLauncherActivationTs = eventTs;
+
   event.preventDefault();
   event.stopPropagation();
 
@@ -819,8 +830,9 @@ const wireAppButtons = () => {
     }
   });
 
-  launcher.addEventListener('click', handleLauncherActivate);
-  launcher.addEventListener('keydown', handleLauncherKeyActivate);
+  launcher.addEventListener('click', handleLauncherActivate, true);
+  launcher.addEventListener('pointerup', handleLauncherActivate, true);
+  launcher.addEventListener('keydown', handleLauncherKeyActivate, true);
 
   if (backButton) backButton.addEventListener('click', () => openApp('home'));
 };
