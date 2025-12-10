@@ -7417,7 +7417,7 @@ const collapseOverlaysForDrawer = () => {
 };
 
 if (typeof onPlayerToolsDrawerChange === 'function') {
-  onPlayerToolsDrawerChange(({ open }) => {
+  const handleDrawerChange = ({ open }) => {
     if (open) {
       addPlayerToolsTabSuppression('player-tools-drawer');
     } else {
@@ -7429,7 +7429,18 @@ if (typeof onPlayerToolsDrawerChange === 'function') {
       collapseOverlaysForDrawer();
     }
     updateMiniGameReminder();
-  });
+  };
+
+  onPlayerToolsDrawerChange(handleDrawerChange);
+
+  // Sync initial state in case the drawer opens before listeners attach.
+  const drawerEl = typeof document !== 'undefined' ? document.getElementById('player-tools-drawer') : null;
+  if (drawerEl) {
+    const drawerOpen =
+      drawerEl.classList.contains('is-open') ||
+      drawerEl.getAttribute('aria-hidden') === 'false';
+    handleDrawerChange({ open: drawerOpen });
+  }
 }
 
 let casterAbilityManuallySet = false;
