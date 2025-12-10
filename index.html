@@ -3145,10 +3145,19 @@
       </div>
 
       <!-- Auto-dismiss locked modal -->
-      <div class="pt-toast" data-pt-toast hidden aria-hidden="true" role="status">
+      <div
+        class="pt-toast"
+        data-pt-toast
+        hidden
+        aria-hidden="true"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="pt-toast-title"
+        aria-describedby="pt-toast-msg"
+      >
         <div class="pt-toast__card">
-          <div class="pt-toast__title">Access Restricted</div>
-          <div class="pt-toast__msg" data-pt-toast-msg></div>
+          <div class="pt-toast__title" id="pt-toast-title">Access Restricted</div>
+          <div class="pt-toast__msg" data-pt-toast-msg id="pt-toast-msg"></div>
         </div>
       </div>
       <div class="pt-launcher__body">

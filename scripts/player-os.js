@@ -30,6 +30,8 @@ const lockDate = launcher?.querySelector('[data-pt-lock-date]') || null;
 let toastTimer = null;
 let bootTimer = null;
 let lockTimer = null;
+let lockResolve = null;
+let toastPrevFocus = null;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -233,13 +235,32 @@ const applyPermsUI = () => {
 const showLockedToast = (msg = 'This app is locked.') => {
   if (!toast || !toastMsg) return;
   toastMsg.textContent = msg;
+  toastPrevFocus = doc?.activeElement || null;
   toast.hidden = false;
   toast.setAttribute('aria-hidden', 'false');
+  toast.setAttribute('tabindex', '-1');
+
+  requestAnimationFrame(() => {
+    try {
+      toast.focus({ preventScroll: true });
+    } catch (_) {
+      toast.focus();
+    }
+  });
 
   if (toastTimer) window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => {
     toast.hidden = true;
     toast.setAttribute('aria-hidden', 'true');
+    const focusTarget = toastPrevFocus && doc?.contains(toastPrevFocus) ? toastPrevFocus : launcher;
+    if (focusTarget && typeof focusTarget.focus === 'function') {
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch (_) {
+        focusTarget.focus();
+      }
+    }
+    toastPrevFocus = null;
   }, 4000);
 };
 
@@ -295,7 +316,7 @@ const updateLockText = () => {
 };
 
 const runUnlockSequence = (ms = 1500) => {
-  if (!launcher || !lock) return;
+  if (!launcher || !lock) return Promise.resolve();
 
   updateLockText();
 
@@ -311,18 +332,27 @@ const runUnlockSequence = (ms = 1500) => {
   const outAt = Math.max(0, ms - 350);
 
   if (lockTimer) window.clearTimeout(lockTimer);
-  lockTimer = null;
-  lockTimer = window.setTimeout(() => {
-    lock.classList.add('is-off');
-    lock.classList.remove('is-on');
+  if (lockResolve) {
+    lockResolve();
+    lockResolve = null;
+  }
 
-    window.setTimeout(() => {
-      lock.hidden = true;
-      lock.setAttribute('aria-hidden', 'true');
-      launcher.classList.remove('is-locking');
-      lockTimer = null;
-    }, 360);
-  }, outAt);
+  return new Promise((resolve) => {
+    lockResolve = resolve;
+    lockTimer = window.setTimeout(() => {
+      lock.classList.add('is-off');
+      lock.classList.remove('is-on');
+
+      lockTimer = window.setTimeout(() => {
+        lock.hidden = true;
+        lock.setAttribute('aria-hidden', 'true');
+        launcher.classList.remove('is-locking');
+        lockTimer = null;
+        lockResolve = null;
+        resolve();
+      }, 360);
+    }, outAt);
+  });
 };
 
 const setAppView = (nextApp = 'home') => {
@@ -350,6 +380,7 @@ const closeLauncher = () => {
   setPhoneOwnedByOS(false);
   if (toastTimer) window.clearTimeout(toastTimer);
   toastTimer = null;
+  toastPrevFocus = null;
   if (toast) {
     toast.hidden = true;
     toast.setAttribute('aria-hidden', 'true');
@@ -362,6 +393,10 @@ const closeLauncher = () => {
   }
   if (lockTimer) window.clearTimeout(lockTimer);
   lockTimer = null;
+  if (lockResolve) {
+    lockResolve();
+    lockResolve = null;
+  }
   if (lock) {
     lock.hidden = true;
     lock.setAttribute('aria-hidden', 'true');
@@ -398,7 +433,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   const shouldUnlock = wasClosed && opts.unlock !== false;
   if (!launcher || state.open) {
     setAppView(target);
-    return;
+    return Promise.resolve();
   }
   state.lastFocused = doc?.activeElement || null;
   state.open = true;
@@ -414,9 +449,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   if (tab) tab.setAttribute('aria-expanded', 'true');
 
   const unlockDelay = shouldUnlock ? 1500 : 0;
-  if (unlockDelay) {
-    runUnlockSequence(unlockDelay);
-  }
+  const unlockPromise = shouldUnlock ? runUnlockSequence(unlockDelay) : Promise.resolve();
   requestAnimationFrame(() => {
     if (launcher) {
       try {
@@ -425,12 +458,15 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
         launcher.focus();
       }
     }
-    if (unlockDelay) {
-      window.setTimeout(() => focusFirstElement(), unlockDelay);
+    if (shouldUnlock) {
+      unlockPromise.then(() => {
+        if (state.open) focusFirstElement();
+      });
     } else {
       focusFirstElement();
     }
   });
+  return unlockPromise;
 };
 
 const handleScrimClick = (event) => {
@@ -454,9 +490,11 @@ const wireAppButtons = () => {
         return;
       }
 
+      let unlockPromise = Promise.resolve();
       if (!state.open) {
-        openLauncher('home');
+        unlockPromise = openLauncher('home');
         await new Promise((resolve) => requestAnimationFrame(resolve));
+        await unlockPromise;
       }
 
       const label = APP_LABELS[target] || target;
