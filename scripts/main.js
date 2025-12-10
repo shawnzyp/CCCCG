@@ -2144,10 +2144,18 @@ let characterConfirmationActive = null;
 let characterConfirmationTimer = null;
 let characterConfirmationPreviousFocus = null;
 
+function hasLaunchSequenceCompleted() {
+  if (typeof launchSequenceComplete === 'boolean') return launchSequenceComplete;
+  if (typeof window !== 'undefined' && typeof window.launchSequenceComplete === 'boolean') {
+    return window.launchSequenceComplete;
+  }
+  return false;
+}
+
 function isCharacterConfirmationBlocked() {
   const body = typeof document !== 'undefined' ? document.body : null;
   const launching = !!(body && body.classList.contains('launching'));
-  if (launching || !launchSequenceComplete) return true;
+  if (launching || !hasLaunchSequenceCompleted()) return true;
   const welcomeModal = getWelcomeModal();
   const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
   if (welcomeVisible || !welcomeSequenceComplete) return true;
@@ -2249,10 +2257,34 @@ function getPlayerToolsTabElement() {
 function setPlayerToolsTabHidden(hidden) {
   const tab = getPlayerToolsTabElement();
   if (!tab) return;
-  if (tab.hidden !== hidden) {
-    tab.hidden = hidden;
+  // Native `hidden` is forbidden here so CSS/JS suppression remains the single authority.
+  if (tab.hasAttribute('hidden')) {
+    try {
+      tab.removeAttribute('hidden');
+    } catch {}
   }
   tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  tab.classList.toggle('is-suppressed', hidden);
+  if (hidden) tab.setAttribute('tabindex', '-1');
+  else tab.removeAttribute('tabindex');
+}
+
+const playerToolsTabSuppressionReasons = new Set();
+
+const syncPlayerToolsTabHidden = () => {
+  setPlayerToolsTabHidden(playerToolsTabSuppressionReasons.size > 0);
+};
+
+function addPlayerToolsTabSuppression(reason) {
+  if (!reason) return;
+  playerToolsTabSuppressionReasons.add(reason);
+  syncPlayerToolsTabHidden();
+}
+
+function removePlayerToolsTabSuppression(reason) {
+  if (!reason) return;
+  if (!playerToolsTabSuppressionReasons.delete(reason)) return;
+  syncPlayerToolsTabHidden();
 }
 
 try {
@@ -2367,7 +2399,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   const isLaunching = !!(body && body.classList.contains('launching'));
   show(WELCOME_MODAL_ID);
   if (wasHidden) {
-    setPlayerToolsTabHidden(true);
+    addPlayerToolsTabSuppression('welcome-modal');
   }
 
   if (isLaunching) {
@@ -2392,7 +2424,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hide(WELCOME_MODAL_ID);
-  setPlayerToolsTabHidden(false);
+  removePlayerToolsTabSuppression('welcome-modal');
   unlockTouchControls();
   markWelcomeSequenceComplete();
 }
@@ -4145,145 +4177,62 @@ function bindClassificationTheme(id){
 }
 bindClassificationTheme('classification');
 
-const btnMenu = $('btn-menu');
-const menuActions = $('menu-actions');
-if (btnMenu && menuActions) {
-  let hideMenuTimer = null;
-  let pendingHideListener = null;
-  let isMenuOpen = !menuActions.hidden;
-  const menuToggleContainer =
-    typeof btnMenu.closest === 'function' ? btnMenu.closest('.menu-toggle') : null;
-  const menuSurfaceContainer =
-    typeof menuActions.closest === 'function' ? menuActions.closest('.menu-surface') : null;
-
-  const setMenuState = state => {
-    [menuToggleContainer, menuSurfaceContainer, menuActions].forEach(el => {
-      if (!el || typeof el !== 'object') return;
-      if (el.dataset) {
-        el.dataset.state = state;
-      }
-      if ((state === 'open' || state === 'closed') && typeof el.removeAttribute === 'function') {
-        el.removeAttribute('data-loading');
-      }
-    });
-  };
-
-  setMenuState(isMenuOpen ? 'open' : 'closed');
-
-  const clearHideMenuCleanup = () => {
-    if (pendingHideListener) {
-      try {
-        menuActions.removeEventListener('transitionend', pendingHideListener);
-      } catch (err) {}
-      pendingHideListener = null;
+const MENU_ACTION_HANDLERS = {
+  'load-save': () => openCharacterList(),
+  encounter: () => {
+    renderEnc();
+    show('modal-enc');
+  },
+  'action-log': () => {
+    renderLogs();
+    show('modal-log');
+  },
+  'credits-ledger': () => {
+    setCreditsLedgerFilter('all');
+    show('modal-credits-ledger');
+  },
+  'campaign-log': () => {
+    updateCampaignLogViews();
+    show('modal-campaign');
+  },
+  rules: () => {
+    hasOpenedRulesModal = true;
+    const loadRules = renderRules();
+    show('modal-rules');
+    if (loadRules && typeof loadRules.then === 'function') {
+      loadRules.finally(() => queueRulesIdlePrefetch());
+    } else {
+      queueRulesIdlePrefetch();
     }
-    if (hideMenuTimer) {
-      window.clearTimeout(hideMenuTimer);
-      hideMenuTimer = null;
-    }
-  };
+  },
+  help: () => show('modal-help'),
+};
 
-  const finalizeHide = () => {
-    const shouldRestoreFocus = menuActions.contains(document.activeElement);
-    clearHideMenuCleanup();
-    menuActions.hidden = true;
-    btnMenu.setAttribute('aria-expanded', 'false');
-    btnMenu.classList.remove('open');
-    setMenuState('closed');
-    if (shouldRestoreFocus && typeof btnMenu.focus === 'function') {
-      try {
-        btnMenu.focus({ preventScroll: true });
-      } catch {
-        btnMenu.focus();
-      }
-    }
-  };
+const isMenuActionBlocked = () => {
+  const body = typeof document !== 'undefined' ? document.body : null;
+  const launching = !!(body && body.classList.contains('launching'));
+  if (launching || !hasLaunchSequenceCompleted()) return true;
+  const welcomeModal = getWelcomeModal();
+  const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
+  if (welcomeVisible && !welcomeModalDismissed) return true;
+  return false;
+};
 
-  const resetMenuButtonDelays = () => {
-    const buttons = menuActions.querySelectorAll('button');
-    buttons.forEach(btn => {
-      btn.style.removeProperty('--menu-item-index');
-      btn.style.removeProperty('animation-delay');
-    });
-  };
+const handleMenuActionRequest = (event) => {
+  const actionId = event?.detail?.action;
+  if (event?.defaultPrevented) return;
+  if (!actionId || !(actionId in MENU_ACTION_HANDLERS)) return;
+  if (isMenuActionBlocked()) {
+    toast('Finish setup before opening tools.');
+    return;
+  }
+  const handler = MENU_ACTION_HANDLERS[actionId];
+  if (typeof handler === 'function') {
+    handler();
+  }
+};
 
-  const hideMenu = (options = {}) => {
-    const immediate = options === true || options.immediate === true;
-    if (!isMenuOpen && menuActions.hidden && !menuActions.classList.contains('show')) {
-      return;
-    }
-    isMenuOpen = false;
-    resetMenuButtonDelays();
-    setMenuState(immediate ? 'closed' : 'closing');
-    const onTransitionEnd = event => {
-      if (event.target === menuActions) finalizeHide();
-    };
-    clearHideMenuCleanup();
-    if (immediate) {
-      menuActions.classList.remove('show');
-      finalizeHide();
-      return;
-    }
-    pendingHideListener = onTransitionEnd;
-    menuActions.classList.remove('show');
-    menuActions.addEventListener('transitionend', onTransitionEnd, { once: true });
-    hideMenuTimer = window.setTimeout(finalizeHide, 400);
-  };
-
-  const showMenu = () => {
-    if (isMenuOpen && menuActions.classList.contains('show')) return;
-    clearHideMenuCleanup();
-    isMenuOpen = true;
-    menuActions.hidden = false;
-    setMenuState('opening');
-    const shouldFocusFirst = document.activeElement === btnMenu;
-    requestAnimationFrame(() => {
-      const buttons = Array.from(menuActions.querySelectorAll('button')).filter(btn => {
-        if (btn.hidden) return false;
-        if (btn.getAttribute('aria-hidden') === 'true') return false;
-        const display = window.getComputedStyle(btn).display;
-        return display !== 'none';
-      });
-      buttons.forEach((btn, index) => {
-        btn.style.setProperty('--menu-item-index', index);
-      });
-      menuActions.classList.add('show');
-      requestAnimationFrame(() => {
-        if (!isMenuOpen) return;
-        setMenuState('open');
-      });
-      if (shouldFocusFirst) {
-        const firstFocusable = menuActions.querySelector('button, [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
-        if (firstFocusable && typeof firstFocusable.focus === 'function') {
-          try {
-            firstFocusable.focus({ preventScroll: true });
-          } catch {
-            firstFocusable.focus();
-          }
-        }
-      }
-    });
-    btnMenu.setAttribute('aria-expanded', 'true');
-    btnMenu.classList.add('open');
-  };
-
-  btnMenu.addEventListener('click', () => {
-    if (isMenuOpen && !menuActions.hidden) hideMenu();
-    else showMenu();
-  });
-
-  document.addEventListener('click', e => {
-    if (!btnMenu.contains(e.target) && !menuActions.contains(e.target)) hideMenu();
-  });
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') hideMenu();
-  });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') hideMenu({ immediate: true });
-  });
-}
+window.addEventListener('cc:menu-action', handleMenuActionRequest);
 
 /* ========= header ========= */
 if (themeToggleEl) {
@@ -6702,8 +6651,10 @@ const computePlayerCreditSignature = (detail) => {
 const elPlayerToolsTab = $('player-tools-tab');
 if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
-  const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
-  setPlayerToolsTabHidden(shouldHideTab);
+  if (!welcomeModalDismissed) {
+    addPlayerToolsTabSuppression('welcome-modal');
+  }
+  syncPlayerToolsTabHidden();
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
@@ -7466,14 +7417,21 @@ const collapseOverlaysForDrawer = () => {
 };
 
 if (typeof onPlayerToolsDrawerChange === 'function') {
-  onPlayerToolsDrawerChange(({ open }) => {
+  const handleDrawerChange = ({ open }) => {
+    if (open) {
+      addPlayerToolsTabSuppression('player-tools-drawer');
+    } else {
+      removePlayerToolsTabSuppression('player-tools-drawer');
+    }
     updateDrawerLiveRegionState(open);
     if (open) {
       pauseActiveTabIconAnimations();
       collapseOverlaysForDrawer();
     }
     updateMiniGameReminder();
-  });
+  };
+
+  onPlayerToolsDrawerChange(handleDrawerChange);
 }
 
 let casterAbilityManuallySet = false;
@@ -12963,10 +12921,6 @@ if(btnCampaignBacklog){
 
 subscribeCampaignLog(refreshCampaignLogFromCloud);
 refreshCampaignLogFromCloud();
-const btnLog = $('btn-log');
-if (btnLog) {
-  btnLog.addEventListener('click', ()=>{ renderLogs(); show('modal-log'); });
-}
 const btnLogFull = $('log-full');
 if (btnLogFull) {
   btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
@@ -13025,33 +12979,12 @@ creditsLedgerFilterButtons.forEach(btn => {
   });
 });
 
-const btnCreditsLedger = $('btn-credits-ledger');
-if (btnCreditsLedger) {
-  btnCreditsLedger.addEventListener('click', () => {
-    setCreditsLedgerFilter('all');
-    show('modal-credits-ledger');
-  });
-}
-
 document.addEventListener('credits-ledger-updated', () => {
   renderCreditsLedger();
 });
-
-const btnCampaign = $('btn-campaign');
-if (btnCampaign) {
-  btnCampaign.addEventListener('click', ()=>{ updateCampaignLogViews(); show('modal-campaign'); });
-}
-const btnHelp = $('btn-help');
-if (btnHelp) {
-  btnHelp.addEventListener('click', ()=>{ show('modal-help'); });
-}
-const btnLoad = $('btn-load');
 async function openCharacterList(){
   await renderCharacterList();
   show('modal-load-list');
-}
-if (btnLoad) {
-  btnLoad.addEventListener('click', openCharacterList);
 }
 window.openCharacterList = openCharacterList;
 
@@ -21389,7 +21322,6 @@ function renderEnc(){
   }
   updateCombatantActiveDisplay();
 }
-$('btn-enc').addEventListener('click', ()=>{ renderEnc(); show('modal-enc'); });
 $('enc-add').addEventListener('click', ()=>{
   const name=$('enc-name').value.trim();
   const initValue=Number($('enc-init').value);
@@ -23751,20 +23683,6 @@ if (secretInput) {
 
 
 /* ========= Rules ========= */
-const btnRules = $('btn-rules');
-if (btnRules) {
-  btnRules.addEventListener('click', () => {
-    hasOpenedRulesModal = true;
-    const loadRules = renderRules();
-    show('modal-rules');
-    if (loadRules && typeof loadRules.then === 'function') {
-      loadRules.finally(() => queueRulesIdlePrefetch());
-    } else {
-      queueRulesIdlePrefetch();
-    }
-  });
-}
-
 /* ========= Close + click-outside ========= */
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
 const welcomeHideToggle = $('welcome-hide-toggle');
@@ -23827,7 +23745,11 @@ if (welcomeOverlayIsElement) {
   });
   const updatePlayerToolsTabForWelcome = () => {
     const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
-    setPlayerToolsTabHidden(shouldHideTab);
+    if (shouldHideTab) {
+      addPlayerToolsTabSuppression('welcome-modal');
+    } else {
+      removePlayerToolsTabSuppression('welcome-modal');
+    }
   };
   updatePlayerToolsTabForWelcome();
   if (typeof MutationObserver === 'function') {

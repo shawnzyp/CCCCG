@@ -6,7 +6,9 @@ const doc = typeof document !== 'undefined' ? document : null;
 const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
 const getPhoneShell = () =>
-  doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell]') || null;
+  launcher?.closest?.('[data-pt-phone-shell]') ||
+  doc?.querySelector('[data-pt-phone-shell]') ||
+  null;
 const setPhoneOwnedByOS = (owned) => {
   const shell = getPhoneShell();
   if (!shell) return;
@@ -58,6 +60,13 @@ const PERM_KEYS = Object.freeze({
 });
 
 const APP_LABELS = Object.freeze({
+  loadSave: 'Load / Save',
+  encounter: 'Encounter / Initiative',
+  actionLog: 'Action Log',
+  creditsLedger: 'Credits Ledger',
+  campaignLog: 'Campaign Log',
+  rules: 'Rules',
+  help: 'Help',
   playerTools: 'Player Tools',
   shards: 'TSoMF',
   messages: 'Director’s Messages',
@@ -100,6 +109,15 @@ const LOCKSCREEN_DURATION_MS = 2500;
 const LOCK_FADE_MS = 260;
 
 const portal = doc ? createPortal(doc) : null;
+
+const dispatchMenuAction = (actionId) => {
+  if (!actionId || typeof window === 'undefined') return false;
+  const event = new CustomEvent('cc:menu-action', {
+    detail: { action: actionId, source: 'player-os' },
+    cancelable: true,
+  });
+  return window.dispatchEvent(event);
+};
 
 let mountedFragment = null;
 let mountedAppId = null;
@@ -413,8 +431,10 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
 
   if (!launcher || !lock) return Promise.resolve();
 
+  const hardEnd = () => endLockSequence(lock, launcher);
+
   // hard reset so we never get stuck non-interactive
-  endLockSequence(lock, launcher);
+  hardEnd();
 
   // Cancel any previous in-flight sequence
   if (unlockTimer) clearTimeout(unlockTimer);
@@ -429,7 +449,7 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
   lock.setAttribute('aria-hidden', 'false');
 
   requestAnimationFrame(() => {
-    if (token !== unlockToken) return;
+    if (token !== unlockToken) return hardEnd();
     lock.classList.add('is-on');
   });
 
@@ -439,7 +459,7 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
 
   return new Promise((resolve) => {
     unlockTimer = setTimeout(() => {
-      if (token !== unlockToken) return resolve(); // superseded
+      if (token !== unlockToken) { hardEnd(); return resolve(); } // superseded
 
       // animate away
       lock.classList.remove('is-on');
@@ -447,8 +467,8 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
 
       // give the CSS transition time, then hard cleanup no matter what
       unlockCleanupTimer = setTimeout(() => {
-        if (token !== unlockToken) return resolve();
-        endLockSequence(lock, launcher);
+        if (token !== unlockToken) { hardEnd(); return resolve(); }
+        hardEnd();
         resolve();
       }, fadeDuration || 0);
     }, visibleDuration);
@@ -476,6 +496,20 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     if (!state.open) await openLauncher('home', { unlock: false });
     if (token === navToken) showLockedToast('App content not found.');
     return false;
+  }
+
+  if (targetApp.action) {
+    if (!state.open) {
+      const unlockPromise = openLauncher('home', { unlock: opts.unlock });
+      await Promise.resolve(unlockPromise);
+    }
+
+    if (token !== navToken) return false;
+
+    setAppView('home');
+    closeLauncher();
+    requestAnimationFrame(() => dispatchMenuAction(targetApp.action));
+    return true;
   }
 
   if (!canOpenApp(targetApp)) {
