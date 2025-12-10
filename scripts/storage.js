@@ -582,7 +582,7 @@ async function pushQueuedAutosaveLocally({ name, payload, ts }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await httpErrorFromResponse(res);
 }
 
 async function flushLocalCloudOutbox() {
@@ -714,6 +714,24 @@ async function cloudFetch(url, options = {}) {
   return normalized;
 }
 
+// Build a more descriptive error when Firebase returns a non-OK response.
+async function httpErrorFromResponse(res) {
+  const status = typeof res?.status === 'number' ? res.status : 'unknown';
+  let detail = '';
+  try {
+    if (typeof res?.text === 'function') {
+      const body = await res.text();
+      const trimmed = typeof body === 'string' ? body.trim() : '';
+      if (trimmed) {
+        detail = `: ${trimmed.slice(0, 500)}`;
+      }
+    }
+  } catch {
+    // Ignore body parsing errors and fall back to status-only messaging.
+  }
+  return new Error(`HTTP ${status}${detail}`);
+}
+
 // Encode each path segment separately so callers can supply hierarchical
 // keys like `Alice/hero1` without worrying about Firebase escaping.
 function sanitizePathSegment(segment) {
@@ -762,7 +780,7 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
       body: JSON.stringify(payload),
     }
   );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await httpErrorFromResponse(res);
 
   const parseKeys = (val) =>
     val
@@ -780,7 +798,7 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
       { method: 'GET' }
     );
     if (!limitedRes.ok) {
-      throw new Error(`HTTP ${limitedRes.status}`);
+      throw await httpErrorFromResponse(limitedRes);
     }
     const val = await limitedRes.json();
     keys = parseKeys(val);
@@ -815,7 +833,7 @@ async function attemptCloudSave(name, payload, ts) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await httpErrorFromResponse(res);
 
   try {
     writeLastSaveName(name);
@@ -869,7 +887,7 @@ export async function appendCampaignLogEntry(entry = {}) {
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await httpErrorFromResponse(res);
 
   return { ...payload, id };
 }
@@ -878,13 +896,13 @@ export async function deleteCampaignLogEntry(id) {
   if (typeof id !== 'string' || !id) return;
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}/${encodePath(id)}.json`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await httpErrorFromResponse(res);
 }
 
 export async function fetchCampaignLogEntries() {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}.json`, { method: 'GET' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw await httpErrorFromResponse(res);
   const data = await res.json();
   if (!data) return [];
   const entries = Object.entries(data).map(([id, value]) => {
@@ -1201,7 +1219,7 @@ export async function loadCloud(name, { signal } = {}) {
       `${CLOUD_SAVES_URL}/${encodePath(name)}.json`,
       { method: 'GET', signal }
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {
@@ -1221,7 +1239,7 @@ export async function deleteCloud(name) {
     const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
       method: 'DELETE'
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     if (readLastSaveName() === name) {
       clearLastSaveName(name);
     }
@@ -1237,7 +1255,7 @@ export async function listCloudSaves() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await cloudFetch(`${CLOUD_SAVES_URL}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     // Keys in the realtime database are URL-encoded because we escape them when
     // saving. Decode them here so callers receive the original character names.
@@ -1257,7 +1275,7 @@ export async function listCloudBackups(name) {
     const res = await cloudFetch(
       `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     return val
       ? Object.keys(val)
@@ -1280,7 +1298,7 @@ export async function listCloudAutosaves(name) {
     const res = await cloudFetch(
       `${CLOUD_AUTOSAVES_URL}/${encodePath(name)}.json`
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     return val
       ? Object.keys(val)
@@ -1301,7 +1319,7 @@ export async function listCloudBackupNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await cloudFetch(`${CLOUD_HISTORY_URL}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
@@ -1317,7 +1335,7 @@ export async function listCloudAutosaveNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await cloudFetch(`${CLOUD_AUTOSAVES_URL}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
@@ -1336,7 +1354,7 @@ export async function loadCloudBackup(name, ts) {
       `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
       { method: 'GET' }
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {
@@ -1354,7 +1372,7 @@ export async function loadCloudAutosave(name, ts) {
       `${CLOUD_AUTOSAVES_URL}/${encodePath(name)}/${ts}.json`,
       { method: 'GET' }
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await httpErrorFromResponse(res);
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {
