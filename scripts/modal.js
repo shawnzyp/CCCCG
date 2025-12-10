@@ -245,7 +245,12 @@ export function hide(id) {
       el.inert = true;
       el.setAttribute('inert', '');
     } catch (_) {}
-    if (lastFocus && typeof lastFocus.focus === 'function') {
+    if (
+      lastFocus &&
+      typeof lastFocus.focus === 'function' &&
+      lastFocus.isConnected &&
+      !el.contains(lastFocus)
+    ) {
       try {
         lastFocus.focus();
       } catch (err) {
