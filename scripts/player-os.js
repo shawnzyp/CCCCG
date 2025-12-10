@@ -6,8 +6,8 @@ const doc = typeof document !== 'undefined' ? document : null;
 const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
 const getPhoneShell = () =>
-  launcher?.closest?.('[data-phone-shell]') ||
-  doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell], [data-phone-shell]') ||
+  launcher?.closest?.('[data-pt-phone-shell]') ||
+  doc?.querySelector('[data-pt-phone-shell]') ||
   null;
 const setPhoneOwnedByOS = (owned) => {
   const shell = getPhoneShell();
