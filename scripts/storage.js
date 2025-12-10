@@ -723,20 +723,59 @@ async function cloudFetch(url, options = {}) {
 // Build a more descriptive error when Firebase returns a non-OK response.
 async function httpErrorFromResponse(res) {
   const status = typeof res?.status === 'number' ? res.status : 'unknown';
+  const url = typeof res?.url === 'string'
+    ? res.url
+    : typeof res?.raw?.url === 'string'
+      ? res.raw.url
+      : '';
   let detail = '';
+
   try {
-    if (typeof res?.text === 'function') {
-      const body = await res.text();
-      const trimmed = typeof body === 'string' ? body.trim() : '';
-      if (trimmed) {
-        detail = `: ${trimmed.slice(0, 500)}`;
+    const raw = res?.raw;
+    const reader = raw && typeof raw.clone === 'function' ? raw.clone() : raw;
+    const headers = reader?.headers;
+    const contentType =
+      (typeof headers?.get === 'function' ? headers.get('content-type') : '') || '';
+
+    if (reader) {
+      if (contentType.includes('application/json')) {
+        const body = await reader.json().catch(() => null);
+        if (body && typeof body === 'object') {
+          if (typeof body.error === 'string' && body.error.trim()) {
+            detail = `: ${body.error.trim().slice(0, 500)}`;
+          } else {
+            const serialized = JSON.stringify(body);
+            if (serialized && serialized !== '{}') {
+              detail = `: ${serialized.slice(0, 500)}`;
+            }
+          }
+        }
+      } else {
+        const bodyText = await reader.text().catch(() => '');
+        const trimmed = typeof bodyText === 'string' ? bodyText.trim() : '';
+        if (trimmed) {
+          detail = `: ${trimmed.slice(0, 500)}`;
+        }
       }
     }
   } catch {
     // Ignore body parsing errors and fall back to status-only messaging.
   }
-  const url = typeof res?.url === 'string' ? ` ${res.url}` : '';
-  return new Error(`HTTP ${status}${detail}${url}`);
+
+  if (!detail && typeof res?.text === 'function') {
+    try {
+      const fallbackBody = await res.text();
+      const trimmed = typeof fallbackBody === 'string' ? fallbackBody.trim() : '';
+      if (trimmed) {
+        detail = `: ${trimmed.slice(0, 500)}`;
+      }
+    } catch {
+      // Ignore fallback parse issues.
+    }
+  }
+
+  const urlSuffix = url ? ` (${url})` : '';
+  return new Error(`HTTP ${status}${detail}${urlSuffix}`);
 }
 
 // Encode each path segment separately so callers can supply hierarchical
@@ -776,7 +815,33 @@ function decodePath(name) {
     .join('/');
 }
 
+function findInvalidFirebaseKeys(value, path = '') {
+  const bad = [];
+  if (!value || typeof value !== 'object') return bad;
+
+  for (const [k, v] of Object.entries(value)) {
+    const key = String(k);
+    const nextPath = path ? `${path}.${key}` : key;
+
+    if (/[.#$\[\]\/]/.test(key)) bad.push(nextPath);
+    if (/[\u0000-\u001F\u007F]/.test(key)) bad.push(nextPath);
+
+    if (v && typeof v === 'object') bad.push(...findInvalidFirebaseKeys(v, nextPath));
+  }
+  return bad;
+}
+
+function assertValidFirebasePayload(payload) {
+  const invalid = findInvalidFirebaseKeys(payload);
+  if (invalid.length) {
+    const summary = invalid.slice(0, 10).join(', ');
+    const suffix = invalid.length > 10 ? '...' : '';
+    throw new Error(`Invalid Firebase keys in payload: ${summary}${suffix}`);
+  }
+}
+
 async function saveHistoryEntry(baseUrl, name, payload, ts) {
+  assertValidFirebasePayload(payload);
   const encodedName = encodePath(name);
 
   const res = await cloudFetch(
@@ -839,6 +904,7 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
 
 async function attemptCloudSave(name, payload, ts) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  assertValidFirebasePayload(payload);
   const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
