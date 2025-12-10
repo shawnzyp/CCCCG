@@ -10049,7 +10049,7 @@ html.ccHideTickers .ticker-drawer,html.ccHideTickers .news-ticker,html.ccHideTic
 }
 
 [data-phone-shell]{position:relative;overflow:hidden}
-[data-phone-shell].pt-os-active .pt-screen__glass{opacity:1;pointer-events:auto}
+[data-phone-shell].pt-os-active .pt-screen__glass{opacity:0;pointer-events:none}
 [data-phone-shell] .pt-screen__glass{transition:opacity 120ms ease;pointer-events:auto}
 .pt-screen__glass::before,
 .pt-screen__glass::after{pointer-events:none}

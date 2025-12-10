@@ -506,10 +506,10 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
 
     if (token !== navToken) return false;
 
-    const handled = dispatchMenuAction(targetApp.action);
     setAppView('home');
     closeLauncher();
-    return handled;
+    requestAnimationFrame(() => dispatchMenuAction(targetApp.action));
+    return true;
   }
 
   if (!canOpenApp(targetApp)) {

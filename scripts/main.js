@@ -4200,9 +4200,23 @@ const MENU_ACTION_HANDLERS = {
   help: () => show('modal-help'),
 };
 
+const isMenuActionBlocked = () => {
+  const body = typeof document !== 'undefined' ? document.body : null;
+  const launching = !!(body && body.classList.contains('launching'));
+  if (launching || !launchSequenceComplete) return true;
+  const welcomeModal = getWelcomeModal();
+  const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
+  if (welcomeVisible && !welcomeModalDismissed) return true;
+  return false;
+};
+
 const handleMenuActionRequest = (event) => {
   const actionId = event?.detail?.action;
   if (!actionId || !(actionId in MENU_ACTION_HANDLERS)) return;
+  if (isMenuActionBlocked()) {
+    toast('Finish setup before opening tools.');
+    return;
+  }
   const handler = MENU_ACTION_HANDLERS[actionId];
   if (typeof handler === 'function') {
     handler();
