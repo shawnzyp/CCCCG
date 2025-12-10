@@ -10022,9 +10022,9 @@ body:not(.no-hover) .pt-launcher__secondary:hover{border-color:var(--accent);col
 .pt-launcher__setting-hint{display:block;font-size:12px;color:var(--text-muted)}
 .pt-launcher__back-label{font-weight:700}
 .pt-launcher__card[hidden]{display:none}
-.pt-launcher__home::-webkit-scrollbar,.pt-launcher__app-view::-webkit-scrollbar{width:8px}
-.pt-launcher__home::-webkit-scrollbar-thumb,.pt-launcher__app-view::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--accent) 30%, rgba(255,255,255,.12));border-radius:999px}
-.pt-launcher__home::-webkit-scrollbar-track,.pt-launcher__app-view::-webkit-scrollbar-track{background:transparent}
+.pt-launcher__home::-webkit-scrollbar,.pt-launcher__app-view::-webkit-scrollbar,.pt-app-host::-webkit-scrollbar{width:8px}
+.pt-launcher__home::-webkit-scrollbar-thumb,.pt-launcher__app-view::-webkit-scrollbar-thumb,.pt-app-host::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--accent) 30%, rgba(255,255,255,.12));border-radius:999px}
+.pt-launcher__home::-webkit-scrollbar-track,.pt-launcher__app-view::-webkit-scrollbar-track,.pt-app-host::-webkit-scrollbar-track{background:transparent}
 @media (max-width: 768px){
   .pt-launcher__card{min-height:220px}
   .pt-launcher__apps{grid-template-columns:repeat(4, minmax(0, 1fr))}

@@ -15,6 +15,9 @@ export function createPortal(doc) {
   function restore(node) {
     const info = original.get(node);
     if (!info) return;
+    if (doc?.activeElement && node.contains(doc.activeElement)) {
+      doc.activeElement.blur?.();
+    }
     const { parent, nextSibling } = info;
     if (!parent) return;
     if (nextSibling && nextSibling.parentNode === parent) {

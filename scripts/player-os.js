@@ -98,6 +98,7 @@ const portal = doc ? createPortal(doc) : null;
 
 let mountedFragment = null;
 let mountedAppId = null;
+let navToken = 0;
 
 const restoreMountedApp = () => {
   if (mountedFragment && portal) {
@@ -422,13 +423,18 @@ const runUnlockSequence = (ms = 1500) => {
 };
 
 const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
+  const token = ++navToken;
+
   if (appId === 'home') {
     setAppView('home');
-    if (!state.open) await openLauncher('home');
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
     return;
   }
 
   if (appId === 'locked') {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
     showLockedToast('Access Restricted.');
     return;
   }
@@ -436,11 +442,15 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   const targetApp = getAppMeta(appId);
 
   if (!targetApp) {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
     showLockedToast('App content not found.');
     return;
   }
 
   if (!canOpenApp(targetApp)) {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
     showLockedToast('That app is locked. Ask your DM to enable it.');
     return;
   }
@@ -451,11 +461,17 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     await Promise.resolve(unlockPromise);
   }
 
+  if (token !== navToken) return;
+
   await new Promise((resolve) => requestAnimationFrame(resolve));
   await unlockPromise;
 
+  if (token !== navToken) return;
+
   const label = getAppLabel(appId);
   await runBoot(sourceButton, label);
+
+  if (token !== navToken) return;
 
   if (mountedFragment && portal) {
     portal.restore(mountedFragment);
@@ -468,6 +484,8 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   const fragment = doc?.querySelector(`[data-pt-app-fragment="${fragmentId}"]`);
 
   if (!fragment || !appHost || !portal) {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
     showLockedToast('App content not found.');
     setAppView('home');
     return;
@@ -475,6 +493,10 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
 
   mountedFragment = portal.moveToHost(fragment, appHost);
   mountedAppId = appId;
+  if (appId === 'settings') {
+    syncSettings();
+    applyPermsUI();
+  }
   setAppView(appId);
 
   requestAnimationFrame(() => {
@@ -605,7 +627,7 @@ const wireAppButtons = () => {
     });
   });
   if (backButton) {
-    backButton.addEventListener('click', () => setAppView('home'));
+    backButton.addEventListener('click', () => openApp('home'));
   }
 };
 
