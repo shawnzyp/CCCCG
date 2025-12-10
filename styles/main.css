@@ -10046,7 +10046,7 @@ html.ccHideTickers .ticker-drawer,html.ccHideTickers .news-ticker,html.ccHideTic
 .pt-launcher__app-view{padding-top:calc(var(--pt-safe-top, 28px) + var(--pt-header-offset))}
 @media (max-width: 900px){
   .pt-launcher__scrim{opacity:0 !important;background:transparent !important;backdrop-filter:none !important}
-  .pt-launcher__panel[data-pt-launcher-panel]{width:100%;height:100%;border-radius:0;box-shadow:none;border:none;transform:none;background:transparent}
+  .pt-launcher__panel[data-pt-launcher-panel]{width:100%;height:100%;border-radius:0;box-shadow:none;border:none;transform:none;background:#050914}
 }
 
 [data-phone-shell]{position:relative;overflow:hidden}
