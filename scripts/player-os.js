@@ -583,7 +583,7 @@ const closeLauncher = () => {
 
 const openLauncher = (nextApp = 'home', opts = {}) => {
   if (launcher?.dataset?.ptMount !== 'phone') {
-    if (!mountLauncher()) return false;
+    if (!mountLauncher()) return Promise.resolve(false);
   }
 
   setPhoneOwnedByOS(true);
@@ -594,7 +594,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
 
   if (!launcher || state.open) {
     setAppView(target);
-    return true;
+    return Promise.resolve(true);
   }
 
   state.lastFocused = doc?.activeElement || null;
@@ -630,7 +630,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
     }
   });
 
-  return unlockPromise;
+  return unlockPromise.then(() => true);
 };
 
 const handleScrimClick = (event) => {
