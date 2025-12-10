@@ -23,7 +23,7 @@ describe('Firebase payload UI stripping', () => {
         json: async () => ({}),
         text: async () => '',
         arrayBuffer: async () => new ArrayBuffer(0),
-        blob: async () => new Blob(),
+        blob: async () => ({}),
         clone() {
           return this;
         },
@@ -42,7 +42,7 @@ describe('Firebase payload UI stripping', () => {
 
     await expect(saveCloudAutosave('Tester', payload)).resolves.toBeTruthy();
 
-    const body = bodies[0];
+    const body = bodies.find(Boolean);
     expect(body.ui).toBeUndefined();
     expect(body.stats).toEqual({ hp: 10 });
   });

@@ -515,6 +515,8 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   requestAnimationFrame(() => {
     focusFirstElement();
   });
+
+  return true;
 };
 
 const normalizeAppId = (nextApp = 'home') =>
@@ -752,6 +754,10 @@ const init = () => {
   });
 };
 
-if (launcher && doc) {
-  init();
+if (doc) {
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 }
