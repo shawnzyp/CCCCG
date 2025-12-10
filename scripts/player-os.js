@@ -96,6 +96,7 @@ const canOpenApp = (app) => {
 };
 
 const LOCKSCREEN_DURATION_MS = 2500;
+const LOCK_FADE_MS = 300;
 
 const portal = doc ? createPortal(doc) : null;
 
@@ -406,7 +407,7 @@ const endLockSequence = (lockEl, launcherEl) => {
   launcherEl.classList.remove('is-locking');
 };
 
-const runUnlockSequence = (durationMs = 1500) => {
+const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
   const token = ++unlockToken;
 
   if (!launcher || !lock) return Promise.resolve();
@@ -419,10 +420,18 @@ const runUnlockSequence = (durationMs = 1500) => {
 
   launcher.classList.add('is-locking');
 
+  lock.classList.remove('is-on', 'is-off');
   lock.hidden = false;
   lock.setAttribute('aria-hidden', 'false');
-  lock.classList.remove('is-off');
-  lock.classList.add('is-on');
+
+  requestAnimationFrame(() => {
+    if (token !== unlockToken) return;
+    lock.classList.add('is-on');
+  });
+
+  const totalDuration = Math.max(0, Number(durationMs) || 0);
+  const fadeDuration = Math.min(totalDuration, Math.max(0, Number(LOCK_FADE_MS) || 0));
+  const visibleDuration = Math.max(0, totalDuration - fadeDuration);
 
   return new Promise((resolve) => {
     unlockTimer = setTimeout(() => {
@@ -437,8 +446,8 @@ const runUnlockSequence = (durationMs = 1500) => {
         if (token !== unlockToken) return resolve();
         endLockSequence(lock, launcher);
         resolve();
-      }, 300);
-    }, Math.max(0, Number(durationMs) || 0));
+      }, fadeDuration || 0);
+    }, visibleDuration);
   });
 };
 

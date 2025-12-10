@@ -9954,6 +9954,8 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 /* Player OS launcher */
 .pt-device{--pt-safe-top: 0px;--pt-safe-bottom: 0px}
+.pt-launcher{--pt-safe-top: 0px;--pt-safe-bottom: 0px}
+[data-phone-shell]{--pt-safe-top: 0px;--pt-safe-bottom: 0px}
 .pt-launcher{position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
 .pt-launcher:focus{outline:none}
 .pt-launcher[aria-hidden="true"]{display:none}
