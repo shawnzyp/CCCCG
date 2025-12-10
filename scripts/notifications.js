@@ -10631,9 +10631,12 @@ function preloadAudioCues(){
 preloadAudioCues();
 
 let cueAudioCtx = null;
+let cueAudioPrimed = false;
 
-function ensureCueAudioContext(){
+function ensureCueAudioContext(options = {}){
+  const { allowCreation = false } = options || {};
   if (cueAudioCtx) return cueAudioCtx;
+  if (!allowCreation) return null;
   const Ctor = window?.AudioContext || window?.webkitAudioContext;
   if (!Ctor) return null;
   try {
@@ -10642,6 +10645,22 @@ function ensureCueAudioContext(){
     cueAudioCtx = null;
   }
   return cueAudioCtx;
+}
+
+function primeCueAudioContextFromGesture(){
+  if (cueAudioPrimed) return;
+  cueAudioPrimed = true;
+  document.removeEventListener('pointerdown', primeCueAudioContextFromGesture, true);
+  document.removeEventListener('keydown', primeCueAudioContextFromGesture, true);
+  const ctx = ensureCueAudioContext({ allowCreation: true });
+  if (ctx && typeof ctx.resume === 'function') {
+    try { ctx.resume(); } catch {}
+  }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', primeCueAudioContextFromGesture, true);
+  document.addEventListener('keydown', primeCueAudioContextFromGesture, true);
 }
 
 function resolveAudioCueType(type){
@@ -10708,7 +10727,7 @@ document.addEventListener('visibilitychange', () => {
 });
 function playToneFallback(type){
   try {
-    const ctx = ensureCueAudioContext();
+    const ctx = ensureCueAudioContext({ allowCreation: cueAudioPrimed });
     if (!ctx) return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -10732,7 +10751,7 @@ function playToneFallback(type){
 
 function realPlayTone(type){
   const cue = resolveAudioCueType(type);
-  const ctx = ensureCueAudioContext();
+  const ctx = ensureCueAudioContext({ allowCreation: cueAudioPrimed });
   if (ctx && audioCueData.has(cue)) {
     if (typeof ctx.resume === 'function') {
       try { ctx.resume(); } catch {}

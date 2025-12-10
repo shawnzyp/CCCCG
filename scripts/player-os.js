@@ -198,6 +198,17 @@ const setSetting = (key, value) => {
 };
 
 const isToastVisible = () => toast && !toast.hidden && toast.getAttribute('aria-hidden') !== 'true';
+const getGlobalToastElement = () => doc?.getElementById('toast') || null;
+const isGlobalToastTarget = (el) => {
+  const globalToast = getGlobalToastElement();
+  return !!(globalToast && el && globalToast.contains(el));
+};
+const isToastFocus = (el) =>
+  !!(
+    el?.closest?.(
+      '.toast, .toast-container, [data-toast], [data-toast-root], [role="status"], [aria-live]'
+    ) || isGlobalToastTarget(el)
+  );
 
 const getFocusable = () => {
   if (!launcher) return [];
@@ -215,27 +226,29 @@ const getFocusable = () => {
 };
 
 const focusFirstElement = () => {
-  const target =
-    (isToastVisible() && toast) ||
-    launcher?.querySelector('[data-pt-app-target]') ||
-    launcher?.querySelector('[data-pt-launcher-close]') ||
-    launcher;
-  if (target && typeof target.focus === 'function') {
-    try {
-      target.focus({ preventScroll: true });
-    } catch (_) {
-      target.focus();
-    }
+  const focusables = getFocusable();
+  const first = focusables[0];
+
+  if (!first) return;
+  if (doc?.activeElement === first) return;
+
+  try {
+    first.focus({ preventScroll: true });
+  } catch (_) {
+    first.focus();
   }
 };
 
 const enforceFocus = (event) => {
   if (!state.open || !launcher) return;
-  if (isToastVisible() && toast && !toast.contains(event.target)) {
+  const target = event?.target;
+  if (!target) return;
+  if (launcher.contains(target)) return;
+  if (isToastFocus(target)) return;
+  if (isToastVisible() && toast && !toast.contains(target)) {
     focusFirstElement();
     return;
   }
-  if (launcher.contains(event.target)) return;
   focusFirstElement();
 };
 
@@ -428,31 +441,28 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   if (appId === 'home') {
     setAppView('home');
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    return;
+    return token === navToken;
   }
 
   if (appId === 'locked') {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('Access Restricted.');
-    return;
+    if (token === navToken) showLockedToast('Access Restricted.');
+    return false;
   }
 
   const targetApp = getAppMeta(appId);
 
   if (!targetApp) {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('App content not found.');
-    return;
+    if (token === navToken) showLockedToast('App content not found.');
+    return false;
   }
 
   if (!canOpenApp(targetApp)) {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('That app is locked. Ask your DM to enable it.');
-    return;
+    if (token === navToken)
+      showLockedToast('That app is locked. Ask your DM to enable it.');
+    return false;
   }
 
   let unlockPromise = Promise.resolve();
@@ -461,17 +471,17 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     await Promise.resolve(unlockPromise);
   }
 
-  if (token !== navToken) return;
+  if (token !== navToken) return false;
 
   await new Promise((resolve) => requestAnimationFrame(resolve));
   await unlockPromise;
 
-  if (token !== navToken) return;
+  if (token !== navToken) return false;
 
   const label = getAppLabel(appId);
   await runBoot(sourceButton, label);
 
-  if (token !== navToken) return;
+  if (token !== navToken) return false;
 
   if (mountedFragment && portal) {
     portal.restore(mountedFragment);
@@ -485,10 +495,11 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
 
   if (!fragment || !appHost || !portal) {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('App content not found.');
-    setAppView('home');
-    return;
+    if (token === navToken) {
+      showLockedToast('App content not found.');
+      setAppView('home');
+    }
+    return false;
   }
 
   mountedFragment = portal.moveToHost(fragment, appHost);
@@ -502,6 +513,8 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   requestAnimationFrame(() => {
     focusFirstElement();
   });
+
+  return true;
 };
 
 const normalizeAppId = (nextApp = 'home') =>
@@ -543,6 +556,15 @@ const closeLauncher = () => {
     lockResolve();
     lockResolve = null;
   }
+  const tab = doc?.getElementById('player-tools-tab');
+  const focusTarget = state.lastFocused && doc?.contains(state.lastFocused) ? state.lastFocused : tab;
+  if (focusTarget && typeof focusTarget.focus === 'function') {
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch (_) {
+      focusTarget.focus();
+    }
+  }
   if (lock) {
     lock.hidden = true;
     lock.setAttribute('aria-hidden', 'true');
@@ -556,37 +578,25 @@ const closeLauncher = () => {
   doc?.removeEventListener('focusin', enforceFocus, true);
   if (backButton) backButton.setAttribute('tabindex', '-1');
   if (closeButton) closeButton.setAttribute('tabindex', '-1');
-  const tab = doc?.getElementById('player-tools-tab');
   if (tab) tab.setAttribute('aria-expanded', 'false');
-  const focusTarget = state.lastFocused && doc?.contains(state.lastFocused) ? state.lastFocused : tab;
-  if (focusTarget && typeof focusTarget.focus === 'function') {
-    try {
-      focusTarget.focus({ preventScroll: true });
-    } catch (_) {
-      focusTarget.focus();
-    }
-  }
 };
 
-const openLauncher = async (nextApp = 'home') => {
-  // Ensure we're mounted in the faux phone before opening.
 const openLauncher = (nextApp = 'home', opts = {}) => {
-  // Ensure we're mounted in the phone before opening
   if (launcher?.dataset?.ptMount !== 'phone') {
-    if (!mountLauncher()) return false;
+    if (!mountLauncher()) return Promise.resolve(false);
   }
-  const target = normalizeAppId(nextApp);
-  if (!launcher || state.open) {
-    setAppView(target);
-    return true;
+
   setPhoneOwnedByOS(true);
-  const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+
+  const target = normalizeAppId(nextApp);
   const wasClosed = !state.open;
   const shouldUnlock = wasClosed && opts.unlock !== false;
+
   if (!launcher || state.open) {
     setAppView(target);
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
+
   state.lastFocused = doc?.activeElement || null;
   state.open = true;
   setAppView(target);
@@ -602,6 +612,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
 
   const unlockDelay = shouldUnlock ? 1500 : 0;
   const unlockPromise = shouldUnlock ? runUnlockSequence(unlockDelay) : Promise.resolve();
+
   requestAnimationFrame(() => {
     if (launcher) {
       try {
@@ -618,19 +629,8 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
       focusFirstElement();
     }
   });
-  return true;
-};
 
-const openApp = async (appId = 'home') => {
-  const target = normalizeAppId(appId);
-  if (target === 'settings') {
-    syncSettings();
-    applyPermsUI();
-  }
-  const ok = await openLauncher(target);
-  if (ok === false) return false;
-  return true;
-  return unlockPromise;
+  return unlockPromise.then(() => true);
 };
 
 const handleScrimClick = (event) => {
@@ -644,14 +644,6 @@ const wireAppButtons = () => {
     btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
       openApp(target);
-    });
-  });
-  if (backButton) {
-    backButton.addEventListener('click', () => {
-      openApp('home');
-    });
-
-      await openApp(target, btn);
     });
   });
   if (backButton) {
@@ -746,7 +738,6 @@ const init = () => {
   window.PlayerOS = Object.assign(window.PlayerOS || {}, {
     openApp,
     openLauncher,
-    openApp,
     showLockedToast,
     unlockShards() {
       perms.shardsUnlocked = true;
@@ -761,6 +752,21 @@ const init = () => {
   });
 };
 
-if (launcher && doc) {
+const start = () => {
+  if (window.PlayerOS?.openLauncher) return;
   init();
+};
+
+if (doc) {
+  if (doc.readyState === 'loading') {
+    doc.addEventListener('DOMContentLoaded', start, { once: true });
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(start);
+    } else {
+      Promise.resolve().then(start);
+    }
+    setTimeout(start, 0);
+  } else {
+    start();
+  }
 }
