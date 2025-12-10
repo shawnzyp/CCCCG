@@ -752,10 +752,21 @@ const init = () => {
   });
 };
 
+const start = () => {
+  if (window.PlayerOS?.openLauncher) return;
+  init();
+};
+
 if (doc) {
   if (doc.readyState === 'loading') {
-    doc.addEventListener('DOMContentLoaded', init, { once: true });
+    doc.addEventListener('DOMContentLoaded', start, { once: true });
+    if (typeof queueMicrotask === 'function') {
+      queueMicrotask(start);
+    } else {
+      Promise.resolve().then(start);
+    }
+    setTimeout(start, 0);
   } else {
-    init();
+    start();
   }
 }

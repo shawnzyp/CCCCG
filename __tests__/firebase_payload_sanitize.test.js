@@ -42,7 +42,8 @@ describe('Firebase payload UI stripping', () => {
 
     await expect(saveCloudAutosave('Tester', payload)).resolves.toBeTruthy();
 
-    const body = bodies.find(Boolean);
+    const body = bodies.find((entry) => entry && entry.stats);
+    expect(body).toBeDefined();
     expect(body.ui).toBeUndefined();
     expect(body.stats).toEqual({ hp: 10 });
   });
