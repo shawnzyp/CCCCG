@@ -247,7 +247,9 @@ const runBoot = (sourceButton, labelText) =>
   new Promise((resolve) => {
     if (!boot || !bootIcon || !bootLabel || !bootFill) return resolve();
 
-    const iconEl = sourceButton?.querySelector?.('.pt-launcher__app-icon');
+    const iconEl =
+      sourceButton?.querySelector?.('.pt-launcher__app-icon') ||
+      sourceButton?.querySelector?.('span[aria-hidden="true"]');
     bootIcon.innerHTML = iconEl ? iconEl.innerHTML : '';
     bootLabel.textContent = labelText || 'Launching';
 
@@ -346,7 +348,20 @@ const closeLauncher = () => {
   if (!launcher || !state.open) return;
   state.open = false;
   setPhoneOwnedByOS(false);
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = null;
+  if (toast) {
+    toast.hidden = true;
+    toast.setAttribute('aria-hidden', 'true');
+  }
+  if (bootTimer) window.clearTimeout(bootTimer);
+  bootTimer = null;
+  if (boot) {
+    boot.hidden = true;
+    boot.setAttribute('aria-hidden', 'true');
+  }
   if (lockTimer) window.clearTimeout(lockTimer);
+  lockTimer = null;
   if (lock) {
     lock.hidden = true;
     lock.setAttribute('aria-hidden', 'true');
@@ -423,19 +438,22 @@ const wireAppButtons = () => {
     btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
 
+      if (target === 'locked') {
+        showLockedToast('Access Restricted.');
+        return;
+      }
+
       if (target === 'shards' && !perms.shardsUnlocked) {
         showLockedToast('TSoMF is locked. Ask your DM to enable it.');
         return;
       }
 
-      const label = target === 'shards' ? 'TSoMF' : APP_LABELS[target] || target;
+      if (!state.open) openLauncher('home');
 
+      const label = APP_LABELS[target] || target;
       await runBoot(btn, label);
 
-      if (target === 'home') setAppView('home');
-      else setAppView(target);
-
-      if (!state.open) openLauncher(target);
+      setAppView(target);
     });
   });
   if (backButton) {
