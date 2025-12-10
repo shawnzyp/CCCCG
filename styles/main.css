@@ -9988,7 +9988,8 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .pt-toast__msg{margin-top:6px;color:rgba(255,255,255,.82);font-size:13px;line-height:1.25}
 .pt-launcher.is-toast-open [data-pt-launcher-panel]>:not(.pt-toast){pointer-events:none}
 .pt-launcher.is-toast-open .pt-launcher__scrim{pointer-events:none}
-.pt-launcher__home,.pt-launcher__app-view{position:absolute;inset:0;overflow:auto}
+.pt-launcher__home{position:absolute;inset:0;overflow:auto}
+.pt-launcher__app-view{position:absolute;inset:0;overflow:hidden}
 .pt-launcher__home[hidden],.pt-launcher__app-view[hidden]{display:none}
 .pt-launcher__apps{margin:0;display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:18px 14px;padding-top:10px;padding-bottom:18px}
 .pt-launcher__app-card{display:flex;flex-direction:column;align-items:center;gap:10px;min-height:auto;padding:0;border-radius:16px;background:transparent;border:none;color:var(--text);text-align:center;box-shadow:none}
@@ -10005,7 +10006,9 @@ body:not(.no-hover) .pt-launcher__dock-btn:hover{filter:brightness(1.06);border-
 .pt-launcher__app-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .pt-launcher__back{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid color-mix(in srgb, var(--accent) 28%, rgba(255,255,255,.1));background:color-mix(in srgb, var(--panel) 80%, rgba(255,255,255,.05));color:var(--text)}
 .pt-launcher__app-title{font-weight:700;text-transform:capitalize;color:var(--text)}
-.pt-launcher__app-content{display:grid;grid-template-columns:1fr;align-items:start;gap:12px}
+.pt-launcher__app-view{display:flex;flex-direction:column;gap:12px}
+.pt-app-host{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:0 18px calc(env(safe-area-inset-bottom) + 18px)}
+.pt-app-fragments{display:none}
 .pt-launcher__card{padding:18px;border-radius:16px;background:color-mix(in srgb, var(--panel) 82%, rgba(255,255,255,.06));border:1px solid color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,.08));box-shadow:0 10px 30px rgba(0,0,0,.2)}
 .pt-launcher__panel-title{margin:0 0 6px;font-size:18px;color:var(--text)}
 .pt-launcher__panel-text{margin:0 0 12px;color:var(--text-muted)}

@@ -1,3 +1,5 @@
+import { createPortal } from './app-portal.js';
+import { APPS } from './player-os-apps.js';
 import { open as openPlayerToolsDrawer } from './player-tools-drawer.js';
 
 const doc = typeof document !== 'undefined' ? document : null;
@@ -13,6 +15,7 @@ const setPhoneOwnedByOS = (owned) => {
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
 const appView = launcher?.querySelector('[data-pt-launcher-app]') || null;
+const appHost = launcher?.querySelector('[data-pt-app-host]') || null;
 const appTitle = launcher?.querySelector('[data-pt-launcher-app-title]') || null;
 const headerTitle = launcher?.querySelector('#ptLauncherTitle') || null;
 const backButton = launcher?.querySelector('[data-pt-launcher-back]') || null;
@@ -58,6 +61,9 @@ const APP_LABELS = Object.freeze({
   shards: 'TSoMF',
   messages: 'Director’s Messages',
   settings: 'Settings',
+  initiative: 'Initiative',
+  codex: 'Codex',
+  missions: 'Missions',
   locked: 'Access Restricted',
   home: 'Player OS',
 });
@@ -74,6 +80,31 @@ const state = {
 
 const perms = {
   shardsUnlocked: false,
+};
+
+const getAppMeta = (id) => APPS.find((app) => app.id === id) || null;
+const getAppLabel = (id) => {
+  const meta = getAppMeta(id);
+  if (meta?.title) return meta.title;
+  return APP_LABELS[id] || id;
+};
+const canOpenApp = (app) => {
+  if (!app) return false;
+  if (app.perm === 'shardsUnlocked' && !perms.shardsUnlocked) return false;
+  return true;
+};
+
+const portal = doc ? createPortal(doc) : null;
+
+let mountedFragment = null;
+let mountedAppId = null;
+
+const restoreMountedApp = () => {
+  if (mountedFragment && portal) {
+    portal.restore(mountedFragment);
+  }
+  mountedFragment = null;
+  mountedAppId = null;
 };
 
 const mountLauncher = () => {
@@ -390,6 +421,67 @@ const runUnlockSequence = (ms = 1500) => {
   });
 };
 
+const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
+  if (appId === 'home') {
+    setAppView('home');
+    if (!state.open) await openLauncher('home');
+    return;
+  }
+
+  if (appId === 'locked') {
+    showLockedToast('Access Restricted.');
+    return;
+  }
+
+  const targetApp = getAppMeta(appId);
+
+  if (!targetApp) {
+    showLockedToast('App content not found.');
+    return;
+  }
+
+  if (!canOpenApp(targetApp)) {
+    showLockedToast('That app is locked. Ask your DM to enable it.');
+    return;
+  }
+
+  let unlockPromise = Promise.resolve();
+  if (!state.open) {
+    unlockPromise = openLauncher('home', { unlock: opts.unlock });
+    await Promise.resolve(unlockPromise);
+  }
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  await unlockPromise;
+
+  const label = getAppLabel(appId);
+  await runBoot(sourceButton, label);
+
+  if (mountedFragment && portal) {
+    portal.restore(mountedFragment);
+  }
+
+  mountedFragment = null;
+  mountedAppId = null;
+
+  const fragmentId = targetApp?.fragment || appId;
+  const fragment = doc?.querySelector(`[data-pt-app-fragment="${fragmentId}"]`);
+
+  if (!fragment || !appHost || !portal) {
+    showLockedToast('App content not found.');
+    setAppView('home');
+    return;
+  }
+
+  mountedFragment = portal.moveToHost(fragment, appHost);
+  mountedAppId = appId;
+  setAppView(appId);
+
+  requestAnimationFrame(() => {
+    focusFirstElement();
+  });
+};
+
 const setAppView = (nextApp = 'home') => {
   const normalized = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   state.app = normalized;
@@ -397,22 +489,22 @@ const setAppView = (nextApp = 'home') => {
   const isHome = normalized === 'home';
   homeView.hidden = !isHome;
   appView.hidden = isHome;
+  if (isHome) {
+    restoreMountedApp();
+  }
   if (appTitle) {
-    appTitle.textContent = isHome ? '' : APP_LABELS[normalized] || normalized;
+    appTitle.textContent = isHome ? '' : getAppLabel(normalized);
   }
   if (headerTitle) {
-    headerTitle.textContent = APP_LABELS[normalized] || 'Player OS';
+    headerTitle.textContent = getAppLabel(normalized) || 'Player OS';
   }
-  const panels = Array.from(appView.querySelectorAll('[data-pt-view]'));
-  panels.forEach((panel) => {
-    panel.hidden = panel.getAttribute('data-pt-view') !== normalized;
-  });
 };
 
 const closeLauncher = () => {
   if (!launcher || !state.open) return;
   state.open = false;
   setPhoneOwnedByOS(false);
+  restoreMountedApp();
   hideToast(false);
   if (bootTimer) window.clearTimeout(bootTimer);
   bootTimer = null;
@@ -509,27 +601,7 @@ const wireAppButtons = () => {
     btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
 
-      if (target === 'locked') {
-        showLockedToast('Access Restricted.');
-        return;
-      }
-
-      if (target === 'shards' && !perms.shardsUnlocked) {
-        showLockedToast('TSoMF is locked. Ask your DM to enable it.');
-        return;
-      }
-
-      let unlockPromise = Promise.resolve();
-      if (!state.open) {
-        unlockPromise = openLauncher('home');
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        await unlockPromise;
-      }
-
-      const label = APP_LABELS[target] || target;
-      await runBoot(btn, label);
-
-      setAppView(target);
+      await openApp(target, btn);
     });
   });
   if (backButton) {
@@ -558,19 +630,19 @@ const wireActions = () => {
   }
   if (scrim) scrim.addEventListener('click', handleScrimClick);
   if (closeButton) closeButton.addEventListener('click', closeLauncher);
-  const quickTrayBtn = launcher?.querySelector('[data-pt-open-quick-tray]');
-  if (quickTrayBtn) {
-    quickTrayBtn.addEventListener('click', () => {
+  const quickTrayBtns = doc?.querySelectorAll('[data-pt-open-quick-tray]') || [];
+  quickTrayBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
       closeLauncher();
       setTimeout(() => openPlayerToolsDrawer(), 50);
     });
-  }
-  const shardBtn = launcher?.querySelector('[data-pt-open-shards]');
-  if (shardBtn) {
-    shardBtn.addEventListener('click', () => {
+  });
+  const shardBtns = doc?.querySelectorAll('[data-pt-open-shards]') || [];
+  shardBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
       if (!perms.shardsUnlocked) {
-        setAppView('locked');
-        if (!state.open) openLauncher('locked');
+        showLockedToast('TSoMF is locked. Ask your DM to enable it.');
+        if (!state.open) openLauncher('home');
         return;
       }
       closeLauncher();
@@ -579,10 +651,10 @@ const wireActions = () => {
         drawBtn.click();
       }
     });
-  }
-  const themeBtn = launcher?.querySelector('[data-pt-theme-next]');
-  if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
+  });
+  const themeBtns = doc?.querySelectorAll('[data-pt-theme-next]') || [];
+  themeBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
       const themeToggle =
         doc?.querySelector('[data-theme-toggle]') ||
         doc?.querySelector('.logo-button');
@@ -590,19 +662,19 @@ const wireActions = () => {
         themeToggle.click();
       }
     });
-  }
-  const reduceMotionToggle = launcher?.querySelector('[data-pt-reduce-motion]');
-  if (reduceMotionToggle) {
-    reduceMotionToggle.addEventListener('change', (event) => {
+  });
+  const reduceMotionToggles = doc?.querySelectorAll('[data-pt-reduce-motion]') || [];
+  reduceMotionToggles.forEach((toggle) => {
+    toggle.addEventListener('change', (event) => {
       setSetting('reduceMotion', event.currentTarget.checked);
     });
-  }
-  const hideTickerToggle = launcher?.querySelector('[data-pt-hide-tickers]');
-  if (hideTickerToggle) {
-    hideTickerToggle.addEventListener('change', (event) => {
+  });
+  const hideTickerToggles = doc?.querySelectorAll('[data-pt-hide-tickers]') || [];
+  hideTickerToggles.forEach((toggle) => {
+    toggle.addEventListener('change', (event) => {
       setSetting('hideTickers', event.currentTarget.checked);
     });
-  }
+  });
 };
 
 const init = () => {
@@ -613,8 +685,16 @@ const init = () => {
   applyPermsUI();
   wireAppButtons();
   wireActions();
+  const shouldAutoOpen =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(max-width: 900px)').matches;
+  if (shouldAutoOpen && !state.open) {
+    openLauncher('home', { unlock: false });
+  }
   window.PlayerOS = Object.assign(window.PlayerOS || {}, {
     openLauncher,
+    openApp,
     showLockedToast,
     unlockShards() {
       perms.shardsUnlocked = true;
