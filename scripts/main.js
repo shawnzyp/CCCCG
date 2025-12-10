@@ -2598,12 +2598,11 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       let ok = false;
       if(canProbe){
         try {
-          const response = await fetch(url, { method: 'HEAD' });
-          ok = response && (response.ok || response.status === 405);
-          if(!ok){
-            const fallbackResponse = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
-            ok = !!(fallbackResponse && (fallbackResponse.ok || fallbackResponse.status === 206));
-          }
+          const probeResponse = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+          ok = !!(
+            probeResponse &&
+            (probeResponse.ok || probeResponse.status === 206 || probeResponse.status === 200)
+          );
         } catch (err) {
           ok = false;
         }
@@ -2977,6 +2976,7 @@ document.addEventListener('click', e=>{
 
 let audioContextPrimed = false;
 let audioContextPrimedOnce = false;
+let audioContextCreationAllowed = false;
 function handleAudioContextPriming(e){
   if(audioContextPrimed) return;
   if(e.type==='pointerdown'){
@@ -2984,6 +2984,7 @@ function handleAudioContextPriming(e){
     if(!interactive) return;
   }
   audioContextPrimed = true;
+  audioContextCreationAllowed = true;
   document.removeEventListener('pointerdown', handleAudioContextPriming, true);
   document.removeEventListener('keydown', handleAudioContextPriming, true);
   try {
@@ -12027,6 +12028,7 @@ let audioContext;
 const audioCueCache = new Map();
 
 function primeAudioContext(){
+  if(!audioContextCreationAllowed) return null;
   if(audioContextPrimedOnce){
     const existing = ensureAudioContext();
     if(existing) existing.__ccPrimed = true;
@@ -12069,13 +12071,14 @@ function primeAudioContext(){
 }
 
 function ensureAudioContext(){
+  if(!audioContextCreationAllowed && !audioContext) return null;
   if(typeof window === 'undefined') return null;
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if(!Ctx) return null;
   if(!audioContext){
     audioContext = new Ctx();
   }
-  if(audioContext?.state === 'suspended'){
+  if(audioContext?.state === 'suspended' && audioContextCreationAllowed){
     audioContext.resume?.().catch(()=>{});
   }
   return audioContext;
