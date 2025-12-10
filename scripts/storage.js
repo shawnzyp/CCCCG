@@ -831,6 +831,52 @@ function findInvalidFirebaseKeys(value, path = '') {
   return bad;
 }
 
+function firebaseSafeKey(key) {
+  return String(key)
+    .replace(/[.#$\[\]\/]/g, '_')
+    .replace(/\s+/g, '_')
+    .slice(0, 200);
+}
+
+function sanitizeUiForFirebase(ui = {}) {
+  const next = { ...ui };
+
+  if (next.inputs && typeof next.inputs === 'object') {
+    const fixed = {};
+    for (const [k, v] of Object.entries(next.inputs)) {
+      fixed[firebaseSafeKey(k)] = v;
+    }
+    next.inputs = fixed;
+  }
+
+  if (next.scroll?.panels && typeof next.scroll.panels === 'object') {
+    const fixed = {};
+    for (const [k, v] of Object.entries(next.scroll.panels)) {
+      fixed[firebaseSafeKey(k)] = v;
+    }
+    next.scroll = { ...(next.scroll || {}), panels: fixed };
+  }
+
+  return next;
+}
+
+function sanitizePayloadForFirebase(payload) {
+  if (!payload || typeof payload !== 'object') return payload;
+
+  let clone;
+  try {
+    clone = typeof structuredClone === 'function' ? structuredClone(payload) : JSON.parse(JSON.stringify(payload));
+  } catch {
+    clone = JSON.parse(JSON.stringify(payload));
+  }
+
+  if (clone.ui && typeof clone.ui === 'object') {
+    clone.ui = sanitizeUiForFirebase(clone.ui);
+  }
+
+  return clone;
+}
+
 function assertValidFirebasePayload(payload) {
   const invalid = findInvalidFirebaseKeys(payload);
   if (invalid.length) {
@@ -841,7 +887,8 @@ function assertValidFirebasePayload(payload) {
 }
 
 async function saveHistoryEntry(baseUrl, name, payload, ts) {
-  assertValidFirebasePayload(payload);
+  const sanitizedPayload = sanitizePayloadForFirebase(payload);
+  assertValidFirebasePayload(sanitizedPayload);
   const encodedName = encodePath(name);
 
   const res = await cloudFetch(
@@ -849,7 +896,7 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(sanitizedPayload),
     }
   );
   if (!res.ok) {
@@ -903,12 +950,13 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
 }
 
 async function attemptCloudSave(name, payload, ts) {
+  const sanitizedPayload = sanitizePayloadForFirebase(payload);
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
-  assertValidFirebasePayload(payload);
+  assertValidFirebasePayload(sanitizedPayload);
   const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(sanitizedPayload),
   });
   if (!res.ok) {
     const err = await httpErrorFromResponse(res);
@@ -929,7 +977,7 @@ async function attemptCloudSave(name, payload, ts) {
   }
 
   try {
-    await saveHistoryEntry(CLOUD_HISTORY_URL, name, payload, ts);
+    await saveHistoryEntry(CLOUD_HISTORY_URL, name, sanitizedPayload, ts);
   } catch (err) {
     console.warn('Failed to update cloud save history after successful save', err);
     emitSyncError({
@@ -1235,10 +1283,11 @@ export async function saveCloud(name, payload) {
     offlineQueueToastShown = false;
   }
   const ts = nextHistoryTimestamp();
+  const sanitizedPayload = sanitizePayloadForFirebase(payload);
   const previousStatus = lastSyncStatus;
   setSyncStatus('syncing');
   try {
-    await attemptCloudSave(name, payload, ts);
+    await attemptCloudSave(name, sanitizedPayload, ts);
     resetOfflineNotices();
     emitSyncActivity({ type: 'cloud-save', name, queued: false, timestamp: Date.now() });
     emitSyncQueueUpdate();
@@ -1249,7 +1298,7 @@ export async function saveCloud(name, payload) {
       return 'disabled';
     }
     const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
-    if (shouldQueue && (await enqueueCloudSave(name, payload, ts))) {
+    if (shouldQueue && (await enqueueCloudSave(name, sanitizedPayload, ts))) {
       notifySaveQueued();
       return 'queued';
     }
@@ -1279,8 +1328,9 @@ export async function saveCloudAutosave(name, payload) {
     return null;
   }
   const ts = nextHistoryTimestamp();
+  const sanitizedPayload = sanitizePayloadForFirebase(payload);
   try {
-    await saveHistoryEntry(CLOUD_AUTOSAVES_URL, name, payload, ts);
+    await saveHistoryEntry(CLOUD_AUTOSAVES_URL, name, sanitizedPayload, ts);
     resetOfflineNotices();
     emitSyncActivity({ type: 'cloud-autosave', name, queued: false, timestamp: Date.now() });
     emitSyncQueueUpdate();
@@ -1291,7 +1341,7 @@ export async function saveCloudAutosave(name, payload) {
       return null;
     }
     const shouldQueue = isNavigatorOffline() || e?.name === 'TypeError';
-    if (shouldQueue && (await enqueueCloudSave(name, payload, ts, { kind: 'autosave' }))) {
+    if (shouldQueue && (await enqueueCloudSave(name, sanitizedPayload, ts, { kind: 'autosave' }))) {
       notifySaveQueued();
       emitSyncActivity({ type: 'cloud-autosave', name, queued: true, timestamp: Date.now() });
       return ts;

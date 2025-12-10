@@ -561,19 +561,30 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
   }
   let active = true;
   let timer = null;
+  let pollDelay = Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS);
+  const MAX_DELAY = 30000;
 
   const poll = async () => {
     if (!active) return;
     try {
       const entries = await fetchPlayerDeployments(trimmed);
       callback(entries);
+      pollDelay = Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS);
     } catch (err) {
       if (!err || (err.message !== 'fetch not supported' && err.name !== 'TypeError')) {
         console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
       }
+      const offlineish =
+        navigator.onLine === false ||
+        err?.name === 'TypeError' ||
+        String(err?.message || '').includes('Failed to fetch');
+
+      if (offlineish) {
+        pollDelay = Math.min(MAX_DELAY, pollDelay * 2);
+      }
     } finally {
       if (!active) return;
-      timer = setTimeout(poll, Math.max(1000, Number(intervalMs) || PLAYER_POLL_INTERVAL_MS));
+      timer = setTimeout(poll, pollDelay);
     }
   };
 
