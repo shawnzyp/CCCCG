@@ -9953,12 +9953,13 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 
 /* Player OS launcher */
-.pt-device{--pt-safe-top: 0px;--pt-safe-bottom: 0px}
-.pt-launcher{--pt-safe-top: 0px;--pt-safe-bottom: 0px;--pt-header-offset: 60px}
-[data-phone-shell]{--pt-safe-top: 0px;--pt-safe-bottom: 0px}
+.pt-device{--pt-safe-top: max(env(safe-area-inset-top, 0px), 14px);--pt-safe-bottom: max(env(safe-area-inset-bottom, 0px), 8px)}
+.pt-launcher{--pt-safe-top: max(env(safe-area-inset-top, 0px), 14px);--pt-safe-bottom: max(env(safe-area-inset-bottom, 0px), 8px);--pt-header-offset: 60px}
+[data-phone-shell]{--pt-safe-top: max(env(safe-area-inset-top, 0px), 14px);--pt-safe-bottom: max(env(safe-area-inset-bottom, 0px), 8px)}
 .pt-launcher{position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
 .pt-launcher.is-open{pointer-events:auto}
 .pt-launcher:focus{outline:none}
+.pt-launcher[aria-hidden="false"]{pointer-events:auto}
 .pt-launcher[aria-hidden="true"]{display:none}
 .pt-launcher__scrim{position:absolute;inset:0;background:color-mix(in srgb, #050914 80%, rgba(0,0,0,.65));backdrop-filter:blur(3px);opacity:0;transition:opacity 150ms ease;pointer-events:auto;z-index:0}
 .pt-launcher.is-open .pt-launcher__scrim{opacity:.9}
