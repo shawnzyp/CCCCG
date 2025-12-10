@@ -549,6 +549,15 @@ const closeLauncher = () => {
     lockResolve();
     lockResolve = null;
   }
+  const tab = doc?.getElementById('player-tools-tab');
+  const focusTarget = state.lastFocused && doc?.contains(state.lastFocused) ? state.lastFocused : tab;
+  if (focusTarget && typeof focusTarget.focus === 'function') {
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch (_) {
+      focusTarget.focus();
+    }
+  }
   if (lock) {
     lock.hidden = true;
     lock.setAttribute('aria-hidden', 'true');
@@ -562,37 +571,25 @@ const closeLauncher = () => {
   doc?.removeEventListener('focusin', enforceFocus, true);
   if (backButton) backButton.setAttribute('tabindex', '-1');
   if (closeButton) closeButton.setAttribute('tabindex', '-1');
-  const tab = doc?.getElementById('player-tools-tab');
   if (tab) tab.setAttribute('aria-expanded', 'false');
-  const focusTarget = state.lastFocused && doc?.contains(state.lastFocused) ? state.lastFocused : tab;
-  if (focusTarget && typeof focusTarget.focus === 'function') {
-    try {
-      focusTarget.focus({ preventScroll: true });
-    } catch (_) {
-      focusTarget.focus();
-    }
-  }
 };
 
-const openLauncher = async (nextApp = 'home') => {
-  // Ensure we're mounted in the faux phone before opening.
-const openLauncher = (nextApp = 'home', opts = {}) => {
-  // Ensure we're mounted in the phone before opening
+const openLauncher = async (nextApp = 'home', opts = {}) => {
   if (launcher?.dataset?.ptMount !== 'phone') {
     if (!mountLauncher()) return false;
   }
+
+  setPhoneOwnedByOS(true);
+
   const target = normalizeAppId(nextApp);
+  const wasClosed = !state.open;
+  const shouldUnlock = wasClosed && opts.unlock !== false;
+
   if (!launcher || state.open) {
     setAppView(target);
     return true;
-  setPhoneOwnedByOS(true);
-  const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
-  const wasClosed = !state.open;
-  const shouldUnlock = wasClosed && opts.unlock !== false;
-  if (!launcher || state.open) {
-    setAppView(target);
-    return Promise.resolve();
   }
+
   state.lastFocused = doc?.activeElement || null;
   state.open = true;
   setAppView(target);
@@ -608,6 +605,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
 
   const unlockDelay = shouldUnlock ? 1500 : 0;
   const unlockPromise = shouldUnlock ? runUnlockSequence(unlockDelay) : Promise.resolve();
+
   requestAnimationFrame(() => {
     if (launcher) {
       try {
@@ -624,18 +622,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
       focusFirstElement();
     }
   });
-  return true;
-};
 
-const openApp = async (appId = 'home') => {
-  const target = normalizeAppId(appId);
-  if (target === 'settings') {
-    syncSettings();
-    applyPermsUI();
-  }
-  const ok = await openLauncher(target);
-  if (ok === false) return false;
-  return true;
   return unlockPromise;
 };
 
@@ -650,14 +637,6 @@ const wireAppButtons = () => {
     btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
       openApp(target);
-    });
-  });
-  if (backButton) {
-    backButton.addEventListener('click', () => {
-      openApp('home');
-    });
-
-      await openApp(target, btn);
     });
   });
   if (backButton) {
