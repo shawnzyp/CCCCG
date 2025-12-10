@@ -2249,6 +2249,11 @@ function getPlayerToolsTabElement() {
 function setPlayerToolsTabHidden(hidden) {
   const tab = getPlayerToolsTabElement();
   if (!tab) return;
+  if (tab.hasAttribute('hidden')) {
+    try {
+      tab.removeAttribute('hidden');
+    } catch {}
+  }
   tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
   tab.classList.toggle('is-suppressed', hidden);
   if (hidden) tab.setAttribute('tabindex', '-1');
@@ -6720,9 +6725,6 @@ const computePlayerCreditSignature = (detail) => {
 const elPlayerToolsTab = $('player-tools-tab');
 if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
-  if (elPlayerToolsTab.hidden) {
-    addPlayerToolsTabSuppression('tab-hidden');
-  }
   if (!welcomeModalDismissed) {
     addPlayerToolsTabSuppression('welcome-modal');
   }
