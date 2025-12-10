@@ -212,8 +212,11 @@ const applyPermsUI = () => {
   });
 };
 
+const normalizeAppId = (nextApp = 'home') =>
+  nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+
 const setAppView = (nextApp = 'home') => {
-  const normalized = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+  const normalized = normalizeAppId(nextApp);
   state.app = normalized;
   if (!homeView || !appView) return;
   const isHome = normalized === 'home';
@@ -253,15 +256,15 @@ const closeLauncher = () => {
   }
 };
 
-const openLauncher = (nextApp = 'home') => {
+const openLauncher = async (nextApp = 'home') => {
   // Ensure we're mounted in the faux phone before opening.
   if (launcher?.dataset?.ptMount !== 'phone') {
-    if (!mountLauncher()) return;
+    if (!mountLauncher()) return false;
   }
-  const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+  const target = normalizeAppId(nextApp);
   if (!launcher || state.open) {
     setAppView(target);
-    return;
+    return true;
   }
   state.lastFocused = doc?.activeElement || null;
   state.open = true;
@@ -285,6 +288,19 @@ const openLauncher = (nextApp = 'home') => {
     }
     focusFirstElement();
   });
+  return true;
+};
+
+const openApp = async (appId = 'home', options = {}) => {
+  const target = normalizeAppId(appId);
+  if (target === 'settings') {
+    syncSettings();
+    applyPermsUI();
+  }
+  const ok = await openLauncher(target, options);
+  if (ok === false) return false;
+  setAppView(target);
+  return true;
 };
 
 const handleScrimClick = (event) => {
@@ -297,21 +313,13 @@ const wireAppButtons = () => {
   appButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
-      if (target === 'shards' && !perms.shardsUnlocked) {
-        setAppView('locked');
-        if (!state.open) openLauncher('locked');
-        return;
-      }
-      if (target === 'home') {
-        setAppView('home');
-      } else {
-        setAppView(target);
-      }
-      if (!state.open) openLauncher(target);
+      openApp(target);
     });
   });
   if (backButton) {
-    backButton.addEventListener('click', () => setAppView('home'));
+    backButton.addEventListener('click', () => {
+      openApp('home');
+    });
   }
 };
 
@@ -347,8 +355,7 @@ const wireActions = () => {
   if (shardBtn) {
     shardBtn.addEventListener('click', () => {
       if (!perms.shardsUnlocked) {
-        setAppView('locked');
-        if (!state.open) openLauncher('locked');
+        openApp('locked');
         return;
       }
       closeLauncher();
@@ -392,6 +399,7 @@ const init = () => {
   wireAppButtons();
   wireActions();
   window.PlayerOS = Object.assign(window.PlayerOS || {}, {
+    openApp,
     openLauncher,
     unlockShards() {
       perms.shardsUnlocked = true;
