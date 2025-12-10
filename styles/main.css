@@ -9986,7 +9986,8 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .pt-toast__card{width:100%;padding:12px 14px;border-radius:16px;background:color-mix(in srgb, #070b16 75%, rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.12);box-shadow:0 18px 50px rgba(0,0,0,.45);pointer-events:auto}
 .pt-toast__title{font-weight:900;letter-spacing:.06em;text-transform:uppercase;font-size:12px}
 .pt-toast__msg{margin-top:6px;color:rgba(255,255,255,.82);font-size:13px;line-height:1.25}
-.pt-launcher.is-toast-open>:not(.pt-toast){pointer-events:none}
+.pt-launcher.is-toast-open [data-pt-launcher-panel]>:not(.pt-toast){pointer-events:none}
+.pt-launcher.is-toast-open .pt-launcher__scrim{pointer-events:none}
 .pt-launcher__home,.pt-launcher__app-view{position:absolute;inset:0;overflow:auto}
 .pt-launcher__home[hidden],.pt-launcher__app-view[hidden]{display:none}
 .pt-launcher__apps{margin:0;display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:18px 14px;padding-top:10px;padding-bottom:18px}

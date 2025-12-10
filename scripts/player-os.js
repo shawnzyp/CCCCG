@@ -207,33 +207,6 @@ const enforceFocus = (event) => {
   focusFirstElement();
 };
 
-const handleKeydown = (event) => {
-  if (!state.open) return;
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    closeLauncher();
-    return;
-  }
-  if (event.key !== 'Tab') return;
-  const focusable = getFocusable();
-  if (!focusable.length) {
-    event.preventDefault();
-    if (launcher) launcher.focus();
-    return;
-  }
-  const currentIndex = focusable.indexOf(doc?.activeElement);
-  const lastIndex = focusable.length - 1;
-  if (event.shiftKey) {
-    if (doc?.activeElement === focusable[0] || currentIndex === 0) {
-      event.preventDefault();
-      focusable[lastIndex].focus();
-    }
-  } else if (doc?.activeElement === focusable[lastIndex] || currentIndex === lastIndex) {
-    event.preventDefault();
-    focusable[0].focus();
-  }
-};
-
 const applyPermsUI = () => {
   if (!launcher) return;
 
@@ -264,10 +237,24 @@ const showLockedToast = (msg = 'This app is locked.') => {
   });
 
   if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => {
-    toast.hidden = true;
-    toast.setAttribute('aria-hidden', 'true');
-    launcher?.classList.remove('is-toast-open');
+  toastTimer = window.setTimeout(() => hideToast(), 4000);
+};
+
+const hideToast = (restoreFocus = true) => {
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = null;
+  if (!toast) {
+    toastPrevFocus = null;
+    return;
+  }
+
+  const wasVisible = isToastVisible();
+  toast.hidden = true;
+  toast.setAttribute('aria-hidden', 'true');
+  toast.removeAttribute('tabindex');
+  launcher?.classList.remove('is-toast-open');
+
+  if (restoreFocus && wasVisible) {
     const focusTarget = toastPrevFocus && doc?.contains(toastPrevFocus) ? toastPrevFocus : launcher;
     if (focusTarget && typeof focusTarget.focus === 'function') {
       try {
@@ -276,8 +263,40 @@ const showLockedToast = (msg = 'This app is locked.') => {
         focusTarget.focus();
       }
     }
-    toastPrevFocus = null;
-  }, 4000);
+  }
+
+  toastPrevFocus = null;
+};
+
+const handleKeydown = (event) => {
+  if (!state.open) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    if (isToastVisible()) {
+      hideToast();
+      return;
+    }
+    closeLauncher();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusable = getFocusable();
+  if (!focusable.length) {
+    event.preventDefault();
+    if (launcher) launcher.focus();
+    return;
+  }
+  const currentIndex = focusable.indexOf(doc?.activeElement);
+  const lastIndex = focusable.length - 1;
+  if (event.shiftKey) {
+    if (doc?.activeElement === focusable[0] || currentIndex === 0) {
+      event.preventDefault();
+      focusable[lastIndex].focus();
+    }
+  } else if (doc?.activeElement === focusable[lastIndex] || currentIndex === lastIndex) {
+    event.preventDefault();
+    focusable[0].focus();
+  }
 };
 
 const runBoot = (sourceButton, labelText) =>
@@ -394,14 +413,7 @@ const closeLauncher = () => {
   if (!launcher || !state.open) return;
   state.open = false;
   setPhoneOwnedByOS(false);
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = null;
-  toastPrevFocus = null;
-  if (toast) {
-    toast.hidden = true;
-    toast.setAttribute('aria-hidden', 'true');
-    launcher?.classList.remove('is-toast-open');
-  }
+  hideToast(false);
   if (bootTimer) window.clearTimeout(bootTimer);
   bootTimer = null;
   if (boot) {
