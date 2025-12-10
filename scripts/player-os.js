@@ -23,9 +23,13 @@ const bootLabel = launcher?.querySelector('[data-pt-boot-label]') || null;
 const bootFill = launcher?.querySelector('[data-pt-boot-fill]') || null;
 const toast = launcher?.querySelector('[data-pt-toast]') || null;
 const toastMsg = launcher?.querySelector('[data-pt-toast-msg]') || null;
+const lock = launcher?.querySelector('[data-pt-lock]') || null;
+const lockTime = launcher?.querySelector('[data-pt-lock-time]') || null;
+const lockDate = launcher?.querySelector('[data-pt-lock-date]') || null;
 
 let toastTimer = null;
 let bootTimer = null;
+let lockTimer = null;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -272,6 +276,53 @@ const runBoot = (sourceButton, labelText) =>
     tick();
   });
 
+const updateLockText = () => {
+  if (!lockTime || !lockDate) return;
+  const now = new Date();
+
+  lockTime.textContent = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(now);
+
+  lockDate.textContent = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  }).format(now);
+};
+
+const runUnlockSequence = (ms = 1500) => {
+  if (!launcher || !lock) return;
+
+  updateLockText();
+
+  lock.hidden = false;
+  lock.setAttribute('aria-hidden', 'false');
+  lock.classList.remove('is-off');
+  launcher.classList.add('is-locking');
+
+  requestAnimationFrame(() => {
+    lock.classList.add('is-on');
+  });
+
+  const outAt = Math.max(0, ms - 350);
+
+  if (lockTimer) window.clearTimeout(lockTimer);
+  lockTimer = null;
+  lockTimer = window.setTimeout(() => {
+    lock.classList.add('is-off');
+    lock.classList.remove('is-on');
+
+    window.setTimeout(() => {
+      lock.hidden = true;
+      lock.setAttribute('aria-hidden', 'true');
+      launcher.classList.remove('is-locking');
+      lockTimer = null;
+    }, 360);
+  }, outAt);
+};
+
 const setAppView = (nextApp = 'home') => {
   const normalized = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   state.app = normalized;
@@ -295,6 +346,13 @@ const closeLauncher = () => {
   if (!launcher || !state.open) return;
   state.open = false;
   setPhoneOwnedByOS(false);
+  if (lockTimer) window.clearTimeout(lockTimer);
+  if (lock) {
+    lock.hidden = true;
+    lock.setAttribute('aria-hidden', 'true');
+    lock.classList.remove('is-on', 'is-off');
+  }
+  launcher.classList.remove('is-locking');
   launcher.setAttribute('aria-hidden', 'true');
   launcher.hidden = true;
   launcher.classList.remove('is-open');
@@ -314,13 +372,14 @@ const closeLauncher = () => {
   }
 };
 
-const openLauncher = (nextApp = 'home') => {
+const openLauncher = (nextApp = 'home', opts = {}) => {
   // Ensure we're mounted in the phone before opening
   if (launcher?.dataset?.ptMount !== 'phone') {
     if (!mountLauncher()) return;
   }
   setPhoneOwnedByOS(true);
   const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+  const wasClosed = !state.open;
   if (!launcher || state.open) {
     setAppView(target);
     return;
@@ -337,6 +396,10 @@ const openLauncher = (nextApp = 'home') => {
   if (closeButton) closeButton.removeAttribute('tabindex');
   const tab = doc?.getElementById('player-tools-tab');
   if (tab) tab.setAttribute('aria-expanded', 'true');
+
+  if (wasClosed && opts.unlock === true) {
+    runUnlockSequence(1500);
+  }
   requestAnimationFrame(() => {
     if (launcher) {
       try {
@@ -393,7 +456,7 @@ const wireActions = () => {
         }
         openPlayerToolsDrawer();
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => openLauncher('home'));
+          requestAnimationFrame(() => openLauncher('home', { unlock: true }));
         });
       },
       true
