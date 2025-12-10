@@ -7432,15 +7432,6 @@ if (typeof onPlayerToolsDrawerChange === 'function') {
   };
 
   onPlayerToolsDrawerChange(handleDrawerChange);
-
-  // Sync initial state in case the drawer opens before listeners attach.
-  const drawerEl = typeof document !== 'undefined' ? document.getElementById('player-tools-drawer') : null;
-  if (drawerEl) {
-    const drawerOpen =
-      drawerEl.classList.contains('is-open') ||
-      drawerEl.getAttribute('aria-hidden') === 'false';
-    handleDrawerChange({ open: drawerOpen });
-  }
 }
 
 let casterAbilityManuallySet = false;
