@@ -450,11 +450,13 @@ const endLockSequence = (lockEl, launcherEl) => {
   lockEl.hidden = true;
   lockEl.setAttribute('aria-hidden', 'true');
   lockEl.classList.remove('is-on', 'is-off');
+  lockEl.removeAttribute('tabindex');
   launcherEl.classList.remove('is-locking');
 };
 
 const attachLockGesture = (lockEl, resolve) => {
   let startY = null;
+  const usePointer = typeof window !== 'undefined' && 'PointerEvent' in window;
 
   const onPointerDown = (event) => {
     if (event.pointerType === 'mouse' && event.buttons === 0) return;
@@ -482,17 +484,23 @@ const attachLockGesture = (lockEl, resolve) => {
 
   const cleanup = () => {
     startY = null;
-    lockEl.removeEventListener('pointerdown', onPointerDown);
-    lockEl.removeEventListener('pointerup', onPointerUp);
-    lockEl.removeEventListener('touchstart', onPointerDown);
-    lockEl.removeEventListener('touchend', onPointerUp);
+    if (usePointer) {
+      lockEl.removeEventListener('pointerdown', onPointerDown);
+      lockEl.removeEventListener('pointerup', onPointerUp);
+    } else {
+      lockEl.removeEventListener('touchstart', onPointerDown);
+      lockEl.removeEventListener('touchend', onPointerUp);
+    }
     lockEl.removeEventListener('keydown', onKeyDown);
   };
 
-  lockEl.addEventListener('pointerdown', onPointerDown);
-  lockEl.addEventListener('pointerup', onPointerUp);
-  lockEl.addEventListener('touchstart', onPointerDown, { passive: true });
-  lockEl.addEventListener('touchend', onPointerUp);
+  if (usePointer) {
+    lockEl.addEventListener('pointerdown', onPointerDown);
+    lockEl.addEventListener('pointerup', onPointerUp);
+  } else {
+    lockEl.addEventListener('touchstart', onPointerDown, { passive: true });
+    lockEl.addEventListener('touchend', onPointerUp);
+  }
   lockEl.addEventListener('keydown', onKeyDown);
 
   return cleanup;
@@ -806,7 +814,9 @@ const handleLauncherActivate = (event) => {
   if (!targetEl || !launcher.contains(targetEl)) return;
 
   const eventTs = event?.timeStamp ?? Date.now();
-  if (event?.type === 'click' && eventTs - lastLauncherActivationTs < LAUNCHER_ACTIVATE_DEBOUNCE_MS) {
+  const isActivationEvent =
+    event?.type === 'click' || event?.type === 'pointerdown' || event?.type === 'pointerup';
+  if (isActivationEvent && eventTs - lastLauncherActivationTs < LAUNCHER_ACTIVATE_DEBOUNCE_MS) {
     return;
   }
 
@@ -843,8 +853,7 @@ const wireAppButtons = () => {
     }
   });
 
-  launcher.addEventListener('click', handleLauncherActivate, true);
-  launcher.addEventListener('pointerdown', handleLauncherActivate, true);
+  launcher.addEventListener('pointerup', handleLauncherActivate, true);
   launcher.addEventListener('keydown', handleLauncherKeyActivate, true);
 
   if (backButton) backButton.addEventListener('click', () => openApp('home'));
