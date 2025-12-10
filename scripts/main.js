@@ -2249,6 +2249,7 @@ function getPlayerToolsTabElement() {
 function setPlayerToolsTabHidden(hidden) {
   const tab = getPlayerToolsTabElement();
   if (!tab) return;
+  // Native `hidden` is forbidden here so CSS/JS suppression remains the single authority.
   if (tab.hasAttribute('hidden')) {
     try {
       tab.removeAttribute('hidden');
@@ -2274,7 +2275,7 @@ function addPlayerToolsTabSuppression(reason) {
 
 function removePlayerToolsTabSuppression(reason) {
   if (!reason) return;
-  playerToolsTabSuppressionReasons.delete(reason);
+  if (!playerToolsTabSuppressionReasons.delete(reason)) return;
   syncPlayerToolsTabHidden();
 }
 
