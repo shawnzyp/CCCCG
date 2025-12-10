@@ -96,7 +96,8 @@ const canOpenApp = (app) => {
 };
 
 const LOCKSCREEN_DURATION_MS = 2500;
-const LOCK_FADE_MS = 300;
+// Keep fade duration just above the longest lock transition (opacity 160ms, transform 240ms).
+const LOCK_FADE_MS = 260;
 
 const portal = doc ? createPortal(doc) : null;
 
