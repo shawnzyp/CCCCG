@@ -3112,32 +3112,50 @@
   aria-labelledby="ptLauncherTitle"
   tabindex="-1"
 >
-  <div class="pt-launcher__scrim" data-pt-launcher-scrim></div>
-  <div class="pt-launcher__panel" data-pt-launcher-panel>
-    <header class="pt-launcher__header">
-      <div class="pt-launcher__title">
-        <span class="pt-launcher__glyph" aria-hidden="true">◎</span>
-        <h2 id="ptLauncherTitle">Player OS</h2>
+    <div class="pt-launcher__scrim" data-pt-launcher-scrim></div>
+    <div class="pt-launcher__panel" data-pt-launcher-panel>
+      <header class="pt-launcher__header">
+        <div class="pt-launcher__title">
+          <span class="pt-launcher__glyph" aria-hidden="true">◎</span>
+          <h2 id="ptLauncherTitle">Player OS</h2>
+        </div>
+        <button type="button" class="pt-launcher__close" data-pt-launcher-close aria-label="Close Player OS">
+          <span aria-hidden="true">✕</span>
+        </button>
+      </header>
+      <!-- Faux boot overlay -->
+      <div class="pt-boot" data-pt-boot hidden aria-hidden="true">
+        <div class="pt-boot__inner">
+          <div class="pt-boot__icon" data-pt-boot-icon aria-hidden="true"></div>
+          <div class="pt-boot__label" data-pt-boot-label></div>
+          <div class="pt-boot__bar" role="progressbar" aria-label="Launching">
+            <span class="pt-boot__barFill" data-pt-boot-fill></span>
+          </div>
+        </div>
       </div>
-      <button type="button" class="pt-launcher__close" data-pt-launcher-close aria-label="Close Player OS">
-        <span aria-hidden="true">✕</span>
-      </button>
-    </header>
-    <div class="pt-launcher__body">
-      <div class="pt-launcher__home" data-pt-launcher-home>
-        <div class="pt-launcher__apps" role="list">
-          <button class="pt-launcher__app-card" type="button" data-pt-app-target="playerTools" role="listitem">
-            <span class="pt-launcher__app-icon" aria-hidden="true">🛠️</span>
-            <span class="pt-launcher__app-label">Player Tools</span>
-          </button>
-          <button class="pt-launcher__app-card" type="button" data-pt-app-target="shards" role="listitem">
-            <span class="pt-launcher__app-icon" aria-hidden="true">♦️</span>
-            <span class="pt-launcher__app-label">Shards of Many Fates</span>
-          </button>
-          <button class="pt-launcher__app-card" type="button" data-pt-app-target="messages" role="listitem">
-            <span class="pt-launcher__app-icon" aria-hidden="true">📡</span>
-            <span class="pt-launcher__app-label">Director’s Messages</span>
-          </button>
+
+      <!-- Auto-dismiss locked modal -->
+      <div class="pt-toast" data-pt-toast hidden aria-hidden="true" role="status">
+        <div class="pt-toast__card">
+          <div class="pt-toast__title">Access Restricted</div>
+          <div class="pt-toast__msg" data-pt-toast-msg></div>
+        </div>
+      </div>
+      <div class="pt-launcher__body">
+        <div class="pt-launcher__home" data-pt-launcher-home>
+          <div class="pt-launcher__apps" role="list">
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="playerTools" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">🛠️</span>
+              <span class="pt-launcher__app-label">Player Tools</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="shards" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">♦️</span>
+              <span class="pt-launcher__app-label">TSoMF</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="messages" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">📡</span>
+              <span class="pt-launcher__app-label">Director’s Messages</span>
+            </button>
           <button class="pt-launcher__app-card" type="button" data-pt-app-target="settings" role="listitem">
             <span class="pt-launcher__app-icon" aria-hidden="true">⚙️</span>
             <span class="pt-launcher__app-label">Settings</span>
@@ -3158,7 +3176,7 @@
           </button>
           <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="shards">
             <span aria-hidden="true">♦️</span>
-            <span class="sr-only">Shards of Many Fates</span>
+            <span class="sr-only">TSoMF</span>
           </button>
           <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="settings">
             <span aria-hidden="true">⚙️</span>
@@ -3181,7 +3199,7 @@
             <button type="button" class="pt-launcher__primary" data-pt-open-quick-tray>Open Quick Tray</button>
           </section>
           <section class="pt-launcher__card" data-pt-view="shards" hidden>
-            <h3 class="pt-launcher__panel-title">Shards of Many Fates</h3>
+            <h3 class="pt-launcher__panel-title">TSoMF</h3>
             <p class="pt-launcher__panel-text">Summon the Shards draw flow.</p>
             <button type="button" class="pt-launcher__primary" data-pt-open-shards>Draw Shards</button>
           </section>

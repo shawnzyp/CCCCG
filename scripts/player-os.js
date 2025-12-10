@@ -17,6 +17,15 @@ const appTitle = launcher?.querySelector('[data-pt-launcher-app-title]') || null
 const headerTitle = launcher?.querySelector('#ptLauncherTitle') || null;
 const backButton = launcher?.querySelector('[data-pt-launcher-back]') || null;
 const closeButton = launcher?.querySelector('[data-pt-launcher-close]') || null;
+const boot = launcher?.querySelector('[data-pt-boot]') || null;
+const bootIcon = launcher?.querySelector('[data-pt-boot-icon]') || null;
+const bootLabel = launcher?.querySelector('[data-pt-boot-label]') || null;
+const bootFill = launcher?.querySelector('[data-pt-boot-fill]') || null;
+const toast = launcher?.querySelector('[data-pt-toast]') || null;
+const toastMsg = launcher?.querySelector('[data-pt-toast-msg]') || null;
+
+let toastTimer = null;
+let bootTimer = null;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -40,7 +49,7 @@ const PERM_KEYS = Object.freeze({
 
 const APP_LABELS = Object.freeze({
   playerTools: 'Player Tools',
-  shards: 'Shards of Many Fates',
+  shards: 'TSoMF',
   messages: 'Director’s Messages',
   settings: 'Settings',
   locked: 'Access Restricted',
@@ -217,6 +226,52 @@ const applyPermsUI = () => {
   });
 };
 
+const showLockedToast = (msg = 'This app is locked.') => {
+  if (!toast || !toastMsg) return;
+  toastMsg.textContent = msg;
+  toast.hidden = false;
+  toast.setAttribute('aria-hidden', 'false');
+
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => {
+    toast.hidden = true;
+    toast.setAttribute('aria-hidden', 'true');
+  }, 4000);
+};
+
+const runBoot = (sourceButton, labelText) =>
+  new Promise((resolve) => {
+    if (!boot || !bootIcon || !bootLabel || !bootFill) return resolve();
+
+    const iconEl = sourceButton?.querySelector?.('.pt-launcher__app-icon');
+    bootIcon.innerHTML = iconEl ? iconEl.innerHTML : '';
+    bootLabel.textContent = labelText || 'Launching';
+
+    bootFill.style.width = '0%';
+    boot.hidden = false;
+    boot.setAttribute('aria-hidden', 'false');
+
+    const steps = [18, 42, 68, 86, 100];
+    let i = 0;
+
+    const tick = () => {
+      bootFill.style.width = `${steps[i]}%`;
+      i += 1;
+      if (i >= steps.length) {
+        bootTimer = window.setTimeout(() => {
+          boot.hidden = true;
+          boot.setAttribute('aria-hidden', 'true');
+          resolve();
+        }, 120);
+        return;
+      }
+      bootTimer = window.setTimeout(tick, 110 + Math.floor(Math.random() * 90));
+    };
+
+    if (bootTimer) window.clearTimeout(bootTimer);
+    tick();
+  });
+
 const setAppView = (nextApp = 'home') => {
   const normalized = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   state.app = normalized;
@@ -302,18 +357,21 @@ const wireAppButtons = () => {
   if (!launcher) return;
   const appButtons = launcher.querySelectorAll('[data-pt-app-target]');
   appButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
+
       if (target === 'shards' && !perms.shardsUnlocked) {
-        setAppView('locked');
-        if (!state.open) openLauncher('locked');
+        showLockedToast('TSoMF is locked. Ask your DM to enable it.');
         return;
       }
-      if (target === 'home') {
-        setAppView('home');
-      } else {
-        setAppView(target);
-      }
+
+      const label = target === 'shards' ? 'TSoMF' : APP_LABELS[target] || target;
+
+      await runBoot(btn, label);
+
+      if (target === 'home') setAppView('home');
+      else setAppView(target);
+
       if (!state.open) openLauncher(target);
     });
   });
@@ -400,6 +458,7 @@ const init = () => {
   wireActions();
   window.PlayerOS = Object.assign(window.PlayerOS || {}, {
     openLauncher,
+    showLockedToast,
     unlockShards() {
       perms.shardsUnlocked = true;
       writeBool(PERM_KEYS.shardsUnlocked, true);
