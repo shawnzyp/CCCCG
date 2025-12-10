@@ -38,6 +38,7 @@ let unlockToken = 0;
 let unlockCleanupTimer = null;
 let toastPrevFocus = null;
 let lockGestureCleanup = null;
+let launcherWired = false;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -703,7 +704,7 @@ const closeLauncher = () => {
   if (lock) endLockSequence(lock, launcher);
   launcher.setAttribute('aria-hidden', 'true');
   launcher.hidden = true;
-  launcher.classList.remove('is-open');
+  launcher.classList.remove('is-open', 'is-locking', 'is-toast-open');
   doc?.removeEventListener('keydown', handleKeydown, true);
   doc?.removeEventListener('focusin', enforceFocus, true);
   if (backButton) backButton.setAttribute('tabindex', '-1');
@@ -715,6 +716,8 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   if (launcher?.dataset?.ptMount !== 'phone') {
     if (!mountLauncher()) return Promise.resolve(false);
   }
+
+  ensureLauncherWired();
 
   setPhoneOwnedByOS(true);
 
@@ -779,31 +782,54 @@ const handleScrimClick = (event) => {
   if (event?.target === scrim) closeLauncher();
 };
 
+const handleLauncherActivate = (event) => {
+  if (!launcher) return;
+
+  const targetEl = event?.target?.closest?.('[data-pt-app-target]');
+  if (!targetEl || !launcher.contains(targetEl)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const target = targetEl.getAttribute('data-pt-app-target') || 'home';
+  openApp(target, targetEl);
+};
+
+const handleLauncherKeyActivate = (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const targetEl = event?.target?.closest?.('[data-pt-app-target]');
+  if (!targetEl) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const target = targetEl.getAttribute('data-pt-app-target') || 'home';
+  openApp(target, targetEl);
+};
+
 const wireAppButtons = () => {
   if (!launcher) return;
-  const appButtons = launcher.querySelectorAll('[data-pt-app-target]');
-  appButtons.forEach((btn) => {
-    const target = btn.getAttribute('data-pt-app-target') || 'home';
-    const tag = btn.tagName?.toLowerCase?.() || '';
-    const isNativeButton = tag === 'button' || tag === 'a';
-    if (!isNativeButton) {
-      btn.setAttribute('role', 'button');
-      if (!btn.hasAttribute('tabindex')) btn.setAttribute('tabindex', '0');
+
+  launcher.querySelectorAll('[data-pt-app-target]').forEach((el) => {
+    const tag = (el.tagName || '').toLowerCase();
+    const isNative = tag === 'button' || tag === 'a';
+    if (!isNative) {
+      el.setAttribute('role', 'button');
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
     }
-    btn.addEventListener('click', async (event) => {
-      event.preventDefault();
-      openApp(target, btn);
-    });
-    btn.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openApp(target, btn);
-      }
-    });
   });
-  if (backButton) {
-    backButton.addEventListener('click', () => openApp('home'));
-  }
+
+  launcher.addEventListener('click', handleLauncherActivate);
+  launcher.addEventListener('keydown', handleLauncherKeyActivate);
+
+  if (backButton) backButton.addEventListener('click', () => openApp('home'));
+};
+
+const ensureLauncherWired = () => {
+  if (!launcher || launcherWired) return;
+  wireActions();
+  wireAppButtons();
+  launcherWired = true;
 };
 
 const wireActions = () => {
@@ -878,8 +904,7 @@ const init = () => {
   syncSettings();
   perms.shardsUnlocked = readBool(PERM_KEYS.shardsUnlocked, false);
   applyPermsUI();
-  wireAppButtons();
-  wireActions();
+  ensureLauncherWired();
   const shouldAutoOpen =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
