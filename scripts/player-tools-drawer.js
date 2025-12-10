@@ -506,6 +506,13 @@ function createPlayerToolsDrawer() {
     } catch (_) {}
 
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    if (isOpen) {
+      tab.setAttribute('hidden', '');
+      tab.setAttribute('tabindex', '-1');
+    } else {
+      tab.removeAttribute('hidden');
+      tab.removeAttribute('tabindex');
+    }
 
     if (tray) tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     if (scrim) {
@@ -517,6 +524,9 @@ function createPlayerToolsDrawer() {
       updateClock();
       showSplashThenApp();
       addOutsideCloseListeners();
+      try {
+        window.dispatchEvent(new CustomEvent('cc:player-tools-drawer-open'));
+      } catch (_) {}
     } else {
       if (removeOutsideCloseListeners) removeOutsideCloseListeners();
       splashSeq += 1; // cancel any in-flight splash finish

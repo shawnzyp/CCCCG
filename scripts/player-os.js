@@ -32,8 +32,9 @@ const lockDate = launcher?.querySelector('[data-pt-lock-date]') || null;
 
 let toastTimer = null;
 let bootTimer = null;
-let lockTimer = null;
-let lockResolve = null;
+let unlockToken = 0;
+let unlockTimer = null;
+let unlockCleanupTimer = null;
 let toastPrevFocus = null;
 
 const focusableSelector = [
@@ -94,7 +95,7 @@ const canOpenApp = (app) => {
   return true;
 };
 
-const LOCKSCREEN_DURATION_MS = 3500;
+const LOCKSCREEN_DURATION_MS = 2500;
 
 const portal = doc ? createPortal(doc) : null;
 
@@ -397,43 +398,47 @@ const updateLockText = () => {
   }).format(now);
 };
 
-const runUnlockSequence = (ms = 1500) => {
+const endLockSequence = (lockEl, launcherEl) => {
+  if (!lockEl || !launcherEl) return;
+  lockEl.hidden = true;
+  lockEl.setAttribute('aria-hidden', 'true');
+  lockEl.classList.remove('is-on', 'is-off');
+  launcherEl.classList.remove('is-locking');
+};
+
+const runUnlockSequence = (durationMs = 1500) => {
+  const token = ++unlockToken;
+
   if (!launcher || !lock) return Promise.resolve();
 
+  // Cancel any previous in-flight sequence
+  if (unlockTimer) clearTimeout(unlockTimer);
+  if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
+
   updateLockText();
+
+  launcher.classList.add('is-locking');
 
   lock.hidden = false;
   lock.setAttribute('aria-hidden', 'false');
   lock.classList.remove('is-off');
-  launcher.classList.add('is-locking');
-
-  requestAnimationFrame(() => {
-    lock.classList.add('is-on');
-  });
-
-  const outAt = Math.max(0, ms - 350);
-
-  if (lockTimer) window.clearTimeout(lockTimer);
-  if (lockResolve) {
-    lockResolve();
-    lockResolve = null;
-  }
+  lock.classList.add('is-on');
 
   return new Promise((resolve) => {
-    lockResolve = resolve;
-    lockTimer = window.setTimeout(() => {
-      lock.classList.add('is-off');
-      lock.classList.remove('is-on');
+    unlockTimer = setTimeout(() => {
+      if (token !== unlockToken) return resolve(); // superseded
 
-      lockTimer = window.setTimeout(() => {
-        lock.hidden = true;
-        lock.setAttribute('aria-hidden', 'true');
-        launcher.classList.remove('is-locking');
-        lockTimer = null;
-        lockResolve = null;
+      // animate away
+      lock.classList.remove('is-on');
+      lock.classList.add('is-off');
+
+      // give the CSS transition time, then hard cleanup no matter what
+      unlockCleanupTimer = setTimeout(() => {
+        if (token !== unlockToken) return resolve();
+        endLockSequence(lock, launcher);
         resolve();
-      }, 360);
-    }, outAt);
+      }, 300);
+    }, Math.max(0, Number(durationMs) || 0));
   });
 };
 
@@ -552,12 +557,11 @@ const closeLauncher = () => {
     boot.hidden = true;
     boot.setAttribute('aria-hidden', 'true');
   }
-  if (lockTimer) window.clearTimeout(lockTimer);
-  lockTimer = null;
-  if (lockResolve) {
-    lockResolve();
-    lockResolve = null;
-  }
+  if (unlockTimer) clearTimeout(unlockTimer);
+  if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
+  unlockToken += 1;
+  unlockTimer = null;
+  unlockCleanupTimer = null;
   const tab = doc?.getElementById('player-tools-tab');
   const focusTarget = state.lastFocused && doc?.contains(state.lastFocused) ? state.lastFocused : tab;
   if (focusTarget && typeof focusTarget.focus === 'function') {
@@ -567,12 +571,7 @@ const closeLauncher = () => {
       focusTarget.focus();
     }
   }
-  if (lock) {
-    lock.hidden = true;
-    lock.setAttribute('aria-hidden', 'true');
-    lock.classList.remove('is-on', 'is-off');
-  }
-  launcher.classList.remove('is-locking');
+  if (lock) endLockSequence(lock, launcher);
   launcher.setAttribute('aria-hidden', 'true');
   launcher.hidden = true;
   launcher.classList.remove('is-open');
@@ -641,6 +640,13 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   return unlockPromise.then(() => true);
 };
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('cc:player-tools-drawer-open', () => {
+    // Show lockscreen every time tray opens, without changing the current faux app.
+    openLauncher(state.app || 'home', { unlock: true });
+  });
+}
+
 const handleScrimClick = (event) => {
   if (event?.target === scrim) closeLauncher();
 };
@@ -671,9 +677,6 @@ const wireActions = () => {
           event.stopImmediatePropagation();
         }
         openPlayerToolsDrawer();
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => openLauncher('home', { unlock: true }));
-        });
       },
       true
     );
