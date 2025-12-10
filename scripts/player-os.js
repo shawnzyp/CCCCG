@@ -413,6 +413,9 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
 
   if (!launcher || !lock) return Promise.resolve();
 
+  // hard reset so we never get stuck non-interactive
+  endLockSequence(lock, launcher);
+
   // Cancel any previous in-flight sequence
   if (unlockTimer) clearTimeout(unlockTimer);
   if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
