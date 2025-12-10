@@ -165,9 +165,17 @@ const setSetting = (key, value) => {
   }
 };
 
+const isToastVisible = () => toast && !toast.hidden && toast.getAttribute('aria-hidden') !== 'true';
+
 const getFocusable = () => {
   if (!launcher) return [];
-  return Array.from(launcher.querySelectorAll(focusableSelector)).filter((el) => {
+  const scope = isToastVisible() ? toast : launcher;
+  if (!scope) return [];
+  const focusables = Array.from(scope.querySelectorAll(focusableSelector));
+  if (isToastVisible() && !focusables.includes(toast)) {
+    focusables.unshift(toast);
+  }
+  return focusables.filter((el) => {
     if (el.closest('[hidden]')) return false;
     if (el.getAttribute('aria-hidden') === 'true') return false;
     return true;
@@ -176,6 +184,7 @@ const getFocusable = () => {
 
 const focusFirstElement = () => {
   const target =
+    (isToastVisible() && toast) ||
     launcher?.querySelector('[data-pt-app-target]') ||
     launcher?.querySelector('[data-pt-launcher-close]') ||
     launcher;
@@ -190,6 +199,10 @@ const focusFirstElement = () => {
 
 const enforceFocus = (event) => {
   if (!state.open || !launcher) return;
+  if (isToastVisible() && toast && !toast.contains(event.target)) {
+    focusFirstElement();
+    return;
+  }
   if (launcher.contains(event.target)) return;
   focusFirstElement();
 };
@@ -235,10 +248,12 @@ const applyPermsUI = () => {
 const showLockedToast = (msg = 'This app is locked.') => {
   if (!toast || !toastMsg) return;
   toastMsg.textContent = msg;
-  toastPrevFocus = doc?.activeElement || null;
+  const active = doc?.activeElement || null;
+  toastPrevFocus = active && toast.contains(active) ? launcher : active;
   toast.hidden = false;
   toast.setAttribute('aria-hidden', 'false');
   toast.setAttribute('tabindex', '-1');
+  launcher?.classList.add('is-toast-open');
 
   requestAnimationFrame(() => {
     try {
@@ -252,6 +267,7 @@ const showLockedToast = (msg = 'This app is locked.') => {
   toastTimer = window.setTimeout(() => {
     toast.hidden = true;
     toast.setAttribute('aria-hidden', 'true');
+    launcher?.classList.remove('is-toast-open');
     const focusTarget = toastPrevFocus && doc?.contains(toastPrevFocus) ? toastPrevFocus : launcher;
     if (focusTarget && typeof focusTarget.focus === 'function') {
       try {
@@ -384,6 +400,7 @@ const closeLauncher = () => {
   if (toast) {
     toast.hidden = true;
     toast.setAttribute('aria-hidden', 'true');
+    launcher?.classList.remove('is-toast-open');
   }
   if (bootTimer) window.clearTimeout(bootTimer);
   bootTimer = null;
