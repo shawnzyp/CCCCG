@@ -6,7 +6,9 @@ const doc = typeof document !== 'undefined' ? document : null;
 const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
 const getPhoneShell = () =>
-  doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell]') || null;
+  launcher?.closest?.('[data-phone-shell]') ||
+  doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell], [data-phone-shell]') ||
+  null;
 const setPhoneOwnedByOS = (owned) => {
   const shell = getPhoneShell();
   if (!shell) return;
@@ -414,7 +416,10 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
   if (!launcher || !lock) return Promise.resolve();
 
   // hard reset so we never get stuck non-interactive
-  endLockSequence(lock, launcher);
+  launcher.classList.remove('is-locking');
+  lock.hidden = true;
+  lock.setAttribute('aria-hidden', 'true');
+  lock.classList.remove('is-on', 'is-off');
 
   // Cancel any previous in-flight sequence
   if (unlockTimer) clearTimeout(unlockTimer);
