@@ -37,6 +37,7 @@ let bootTimer = null;
 let unlockToken = 0;
 let unlockCleanupTimer = null;
 let toastPrevFocus = null;
+let lockGestureCleanup = null;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -477,6 +478,8 @@ const attachLockGesture = (lockEl, resolve) => {
   lockEl.addEventListener('touchstart', onPointerDown, { passive: true });
   lockEl.addEventListener('touchend', onPointerUp);
   lockEl.addEventListener('keydown', onKeyDown);
+
+  return cleanup;
 };
 
 const runUnlockSequence = () => {
@@ -484,7 +487,13 @@ const runUnlockSequence = () => {
 
   if (!launcher || !lock) return Promise.resolve();
 
-  const hardEnd = () => endLockSequence(lock, launcher);
+  const hardEnd = () => {
+    if (lockGestureCleanup) {
+      lockGestureCleanup();
+      lockGestureCleanup = null;
+    }
+    endLockSequence(lock, launcher);
+  };
 
   // hard reset so we never get stuck non-interactive
   hardEnd();
@@ -506,6 +515,10 @@ const runUnlockSequence = () => {
     const finish = () => {
       if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
       unlockCleanupTimer = null;
+      if (lockGestureCleanup) {
+        lockGestureCleanup();
+        lockGestureCleanup = null;
+      }
       endLockSequence(lock, launcher);
       resolve();
     };
@@ -521,7 +534,7 @@ const runUnlockSequence = () => {
       unlockCleanupTimer = setTimeout(finish, LOCK_FADE_MS + 60);
     };
 
-    attachLockGesture(lock, startFade);
+    lockGestureCleanup = attachLockGesture(lock, startFade);
 
     requestAnimationFrame(() => {
       if (token !== unlockToken) return hardEnd();
@@ -671,6 +684,10 @@ const closeLauncher = () => {
     boot.hidden = true;
     boot.setAttribute('aria-hidden', 'true');
   }
+  if (lockGestureCleanup) {
+    lockGestureCleanup();
+    lockGestureCleanup = null;
+  }
   if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
   unlockToken += 1;
   unlockCleanupTimer = null;
@@ -767,7 +784,14 @@ const wireAppButtons = () => {
   const appButtons = launcher.querySelectorAll('[data-pt-app-target]');
   appButtons.forEach((btn) => {
     const target = btn.getAttribute('data-pt-app-target') || 'home';
-    btn.addEventListener('click', async () => {
+    const tag = btn.tagName?.toLowerCase?.() || '';
+    const isNativeButton = tag === 'button' || tag === 'a';
+    if (!isNativeButton) {
+      btn.setAttribute('role', 'button');
+      if (!btn.hasAttribute('tabindex')) btn.setAttribute('tabindex', '0');
+    }
+    btn.addEventListener('click', async (event) => {
+      event.preventDefault();
       openApp(target, btn);
     });
     btn.addEventListener('keydown', (event) => {
