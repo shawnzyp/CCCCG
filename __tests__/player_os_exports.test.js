@@ -31,6 +31,7 @@ describe('Player OS exports', () => {
 
   test('openApp is available for launcher button handlers', async () => {
     await import('../scripts/player-os.js');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
     expect(typeof window.PlayerOS?.openApp).toBe('function');
     expect(typeof window.PlayerOS?.openLauncher).toBe('function');
   });

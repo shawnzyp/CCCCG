@@ -10658,8 +10658,10 @@ function primeCueAudioContextFromGesture(){
   }
 }
 
-document.addEventListener('pointerdown', primeCueAudioContextFromGesture, true);
-document.addEventListener('keydown', primeCueAudioContextFromGesture, true);
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', primeCueAudioContextFromGesture, true);
+  document.addEventListener('keydown', primeCueAudioContextFromGesture, true);
+}
 
 function resolveAudioCueType(type){
   if (typeof type !== 'string') return 'success';
