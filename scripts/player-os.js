@@ -1,3 +1,5 @@
+import { createPortal } from './app-portal.js';
+import { APPS } from './player-os-apps.js';
 import { open as openPlayerToolsDrawer } from './player-tools-drawer.js';
 
 const doc = typeof document !== 'undefined' ? document : null;
@@ -5,13 +7,34 @@ const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
 const getPhoneShell = () =>
   doc?.querySelector('#player-tools-drawer [data-phone-shell], .pt-drawer [data-phone-shell]') || null;
+const setPhoneOwnedByOS = (owned) => {
+  const shell = getPhoneShell();
+  if (!shell) return;
+  shell.classList.toggle('pt-os-active', !!owned);
+};
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
 const appView = launcher?.querySelector('[data-pt-launcher-app]') || null;
+const appHost = launcher?.querySelector('[data-pt-app-host]') || null;
 const appTitle = launcher?.querySelector('[data-pt-launcher-app-title]') || null;
 const headerTitle = launcher?.querySelector('#ptLauncherTitle') || null;
 const backButton = launcher?.querySelector('[data-pt-launcher-back]') || null;
 const closeButton = launcher?.querySelector('[data-pt-launcher-close]') || null;
+const boot = launcher?.querySelector('[data-pt-boot]') || null;
+const bootIcon = launcher?.querySelector('[data-pt-boot-icon]') || null;
+const bootLabel = launcher?.querySelector('[data-pt-boot-label]') || null;
+const bootFill = launcher?.querySelector('[data-pt-boot-fill]') || null;
+const toast = launcher?.querySelector('[data-pt-toast]') || null;
+const toastMsg = launcher?.querySelector('[data-pt-toast-msg]') || null;
+const lock = launcher?.querySelector('[data-pt-lock]') || null;
+const lockTime = launcher?.querySelector('[data-pt-lock-time]') || null;
+const lockDate = launcher?.querySelector('[data-pt-lock-date]') || null;
+
+let toastTimer = null;
+let bootTimer = null;
+let lockTimer = null;
+let lockResolve = null;
+let toastPrevFocus = null;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -35,9 +58,12 @@ const PERM_KEYS = Object.freeze({
 
 const APP_LABELS = Object.freeze({
   playerTools: 'Player Tools',
-  shards: 'Shards of Many Fates',
+  shards: 'TSoMF',
   messages: 'Director’s Messages',
   settings: 'Settings',
+  initiative: 'Initiative',
+  codex: 'Codex',
+  missions: 'Missions',
   locked: 'Access Restricted',
   home: 'Player OS',
 });
@@ -54,6 +80,32 @@ const state = {
 
 const perms = {
   shardsUnlocked: false,
+};
+
+const getAppMeta = (id) => APPS.find((app) => app.id === id) || null;
+const getAppLabel = (id) => {
+  const meta = getAppMeta(id);
+  if (meta?.title) return meta.title;
+  return APP_LABELS[id] || id;
+};
+const canOpenApp = (app) => {
+  if (!app) return false;
+  if (app.perm === 'shardsUnlocked' && !perms.shardsUnlocked) return false;
+  return true;
+};
+
+const portal = doc ? createPortal(doc) : null;
+
+let mountedFragment = null;
+let mountedAppId = null;
+let navToken = 0;
+
+const restoreMountedApp = () => {
+  if (mountedFragment && portal) {
+    portal.restore(mountedFragment);
+  }
+  mountedFragment = null;
+  mountedAppId = null;
 };
 
 const mountLauncher = () => {
@@ -145,9 +197,17 @@ const setSetting = (key, value) => {
   }
 };
 
+const isToastVisible = () => toast && !toast.hidden && toast.getAttribute('aria-hidden') !== 'true';
+
 const getFocusable = () => {
   if (!launcher) return [];
-  return Array.from(launcher.querySelectorAll(focusableSelector)).filter((el) => {
+  const scope = isToastVisible() ? toast : launcher;
+  if (!scope) return [];
+  const focusables = Array.from(scope.querySelectorAll(focusableSelector));
+  if (isToastVisible() && !focusables.includes(toast)) {
+    focusables.unshift(toast);
+  }
+  return focusables.filter((el) => {
     if (el.closest('[hidden]')) return false;
     if (el.getAttribute('aria-hidden') === 'true') return false;
     return true;
@@ -156,6 +216,7 @@ const getFocusable = () => {
 
 const focusFirstElement = () => {
   const target =
+    (isToastVisible() && toast) ||
     launcher?.querySelector('[data-pt-app-target]') ||
     launcher?.querySelector('[data-pt-launcher-close]') ||
     launcher;
@@ -170,14 +231,83 @@ const focusFirstElement = () => {
 
 const enforceFocus = (event) => {
   if (!state.open || !launcher) return;
+  if (isToastVisible() && toast && !toast.contains(event.target)) {
+    focusFirstElement();
+    return;
+  }
   if (launcher.contains(event.target)) return;
   focusFirstElement();
+};
+
+const applyPermsUI = () => {
+  if (!launcher) return;
+
+  const shardCards = launcher.querySelectorAll('[data-pt-app-target="shards"]');
+  shardCards.forEach((btn) => {
+    const locked = !perms.shardsUnlocked;
+    btn.classList.toggle('pt-launcher__app-card--locked', locked);
+    btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
+  });
+};
+
+const showLockedToast = (msg = 'This app is locked.') => {
+  if (!toast || !toastMsg) return;
+  toastMsg.textContent = msg;
+  const active = doc?.activeElement || null;
+  toastPrevFocus = active && toast.contains(active) ? launcher : active;
+  toast.hidden = false;
+  toast.setAttribute('aria-hidden', 'false');
+  toast.setAttribute('tabindex', '-1');
+  launcher?.classList.add('is-toast-open');
+
+  requestAnimationFrame(() => {
+    try {
+      toast.focus({ preventScroll: true });
+    } catch (_) {
+      toast.focus();
+    }
+  });
+
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => hideToast(), 4000);
+};
+
+const hideToast = (restoreFocus = true) => {
+  if (toastTimer) window.clearTimeout(toastTimer);
+  toastTimer = null;
+  if (!toast) {
+    toastPrevFocus = null;
+    return;
+  }
+
+  const wasVisible = isToastVisible();
+  toast.hidden = true;
+  toast.setAttribute('aria-hidden', 'true');
+  toast.removeAttribute('tabindex');
+  launcher?.classList.remove('is-toast-open');
+
+  if (restoreFocus && wasVisible) {
+    const focusTarget = toastPrevFocus && doc?.contains(toastPrevFocus) ? toastPrevFocus : launcher;
+    if (focusTarget && typeof focusTarget.focus === 'function') {
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch (_) {
+        focusTarget.focus();
+      }
+    }
+  }
+
+  toastPrevFocus = null;
 };
 
 const handleKeydown = (event) => {
   if (!state.open) return;
   if (event.key === 'Escape') {
     event.preventDefault();
+    if (isToastVisible()) {
+      hideToast();
+      return;
+    }
     closeLauncher();
     return;
   }
@@ -201,14 +331,176 @@ const handleKeydown = (event) => {
   }
 };
 
-const applyPermsUI = () => {
-  if (!launcher) return;
+const runBoot = (sourceButton, labelText) =>
+  new Promise((resolve) => {
+    if (!boot || !bootIcon || !bootLabel || !bootFill) return resolve();
 
-  const shardCards = launcher.querySelectorAll('[data-pt-app-target="shards"]');
-  shardCards.forEach((btn) => {
-    const locked = !perms.shardsUnlocked;
-    btn.classList.toggle('pt-launcher__app-card--locked', locked);
-    btn.setAttribute('aria-disabled', locked ? 'true' : 'false');
+    const iconEl =
+      sourceButton?.querySelector?.('.pt-launcher__app-icon') ||
+      sourceButton?.querySelector?.('span[aria-hidden="true"]');
+    bootIcon.innerHTML = iconEl ? iconEl.innerHTML : '';
+    bootLabel.textContent = labelText || 'Launching';
+
+    bootFill.style.width = '0%';
+    boot.hidden = false;
+    boot.setAttribute('aria-hidden', 'false');
+
+    const steps = [18, 42, 68, 86, 100];
+    let i = 0;
+
+    const tick = () => {
+      bootFill.style.width = `${steps[i]}%`;
+      i += 1;
+      if (i >= steps.length) {
+        bootTimer = window.setTimeout(() => {
+          boot.hidden = true;
+          boot.setAttribute('aria-hidden', 'true');
+          resolve();
+        }, 120);
+        return;
+      }
+      bootTimer = window.setTimeout(tick, 110 + Math.floor(Math.random() * 90));
+    };
+
+    if (bootTimer) window.clearTimeout(bootTimer);
+    tick();
+  });
+
+const updateLockText = () => {
+  if (!lockTime || !lockDate) return;
+  const now = new Date();
+
+  lockTime.textContent = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(now);
+
+  lockDate.textContent = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  }).format(now);
+};
+
+const runUnlockSequence = (ms = 1500) => {
+  if (!launcher || !lock) return Promise.resolve();
+
+  updateLockText();
+
+  lock.hidden = false;
+  lock.setAttribute('aria-hidden', 'false');
+  lock.classList.remove('is-off');
+  launcher.classList.add('is-locking');
+
+  requestAnimationFrame(() => {
+    lock.classList.add('is-on');
+  });
+
+  const outAt = Math.max(0, ms - 350);
+
+  if (lockTimer) window.clearTimeout(lockTimer);
+  if (lockResolve) {
+    lockResolve();
+    lockResolve = null;
+  }
+
+  return new Promise((resolve) => {
+    lockResolve = resolve;
+    lockTimer = window.setTimeout(() => {
+      lock.classList.add('is-off');
+      lock.classList.remove('is-on');
+
+      lockTimer = window.setTimeout(() => {
+        lock.hidden = true;
+        lock.setAttribute('aria-hidden', 'true');
+        launcher.classList.remove('is-locking');
+        lockTimer = null;
+        lockResolve = null;
+        resolve();
+      }, 360);
+    }, outAt);
+  });
+};
+
+const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
+  const token = ++navToken;
+
+  if (appId === 'home') {
+    setAppView('home');
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
+    return;
+  }
+
+  if (appId === 'locked') {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
+    showLockedToast('Access Restricted.');
+    return;
+  }
+
+  const targetApp = getAppMeta(appId);
+
+  if (!targetApp) {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
+    showLockedToast('App content not found.');
+    return;
+  }
+
+  if (!canOpenApp(targetApp)) {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
+    showLockedToast('That app is locked. Ask your DM to enable it.');
+    return;
+  }
+
+  let unlockPromise = Promise.resolve();
+  if (!state.open) {
+    unlockPromise = openLauncher('home', { unlock: opts.unlock });
+    await Promise.resolve(unlockPromise);
+  }
+
+  if (token !== navToken) return;
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  await unlockPromise;
+
+  if (token !== navToken) return;
+
+  const label = getAppLabel(appId);
+  await runBoot(sourceButton, label);
+
+  if (token !== navToken) return;
+
+  if (mountedFragment && portal) {
+    portal.restore(mountedFragment);
+  }
+
+  mountedFragment = null;
+  mountedAppId = null;
+
+  const fragmentId = targetApp?.fragment || appId;
+  const fragment = doc?.querySelector(`[data-pt-app-fragment="${fragmentId}"]`);
+
+  if (!fragment || !appHost || !portal) {
+    if (!state.open) await openLauncher('home', { unlock: false });
+    if (token !== navToken) return;
+    showLockedToast('App content not found.');
+    setAppView('home');
+    return;
+  }
+
+  mountedFragment = portal.moveToHost(fragment, appHost);
+  mountedAppId = appId;
+  if (appId === 'settings') {
+    syncSettings();
+    applyPermsUI();
+  }
+  setAppView(appId);
+
+  requestAnimationFrame(() => {
+    focusFirstElement();
   });
 };
 
@@ -219,21 +511,41 @@ const setAppView = (nextApp = 'home') => {
   const isHome = normalized === 'home';
   homeView.hidden = !isHome;
   appView.hidden = isHome;
+  if (isHome) {
+    restoreMountedApp();
+  }
   if (appTitle) {
-    appTitle.textContent = isHome ? '' : APP_LABELS[normalized] || normalized;
+    appTitle.textContent = isHome ? '' : getAppLabel(normalized);
   }
   if (headerTitle) {
-    headerTitle.textContent = APP_LABELS[normalized] || 'Player OS';
+    headerTitle.textContent = getAppLabel(normalized) || 'Player OS';
   }
-  const panels = Array.from(appView.querySelectorAll('[data-pt-view]'));
-  panels.forEach((panel) => {
-    panel.hidden = panel.getAttribute('data-pt-view') !== normalized;
-  });
 };
 
 const closeLauncher = () => {
   if (!launcher || !state.open) return;
   state.open = false;
+  setPhoneOwnedByOS(false);
+  restoreMountedApp();
+  hideToast(false);
+  if (bootTimer) window.clearTimeout(bootTimer);
+  bootTimer = null;
+  if (boot) {
+    boot.hidden = true;
+    boot.setAttribute('aria-hidden', 'true');
+  }
+  if (lockTimer) window.clearTimeout(lockTimer);
+  lockTimer = null;
+  if (lockResolve) {
+    lockResolve();
+    lockResolve = null;
+  }
+  if (lock) {
+    lock.hidden = true;
+    lock.setAttribute('aria-hidden', 'true');
+    lock.classList.remove('is-on', 'is-off');
+  }
+  launcher.classList.remove('is-locking');
   launcher.setAttribute('aria-hidden', 'true');
   launcher.hidden = true;
   launcher.classList.remove('is-open');
@@ -253,15 +565,18 @@ const closeLauncher = () => {
   }
 };
 
-const openLauncher = (nextApp = 'home') => {
-  // Ensure we're mounted in the faux phone before opening.
+const openLauncher = (nextApp = 'home', opts = {}) => {
+  // Ensure we're mounted in the phone before opening
   if (launcher?.dataset?.ptMount !== 'phone') {
     if (!mountLauncher()) return;
   }
+  setPhoneOwnedByOS(true);
   const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+  const wasClosed = !state.open;
+  const shouldUnlock = wasClosed && opts.unlock !== false;
   if (!launcher || state.open) {
     setAppView(target);
-    return;
+    return Promise.resolve();
   }
   state.lastFocused = doc?.activeElement || null;
   state.open = true;
@@ -275,6 +590,9 @@ const openLauncher = (nextApp = 'home') => {
   if (closeButton) closeButton.removeAttribute('tabindex');
   const tab = doc?.getElementById('player-tools-tab');
   if (tab) tab.setAttribute('aria-expanded', 'true');
+
+  const unlockDelay = shouldUnlock ? 1500 : 0;
+  const unlockPromise = shouldUnlock ? runUnlockSequence(unlockDelay) : Promise.resolve();
   requestAnimationFrame(() => {
     if (launcher) {
       try {
@@ -283,8 +601,15 @@ const openLauncher = (nextApp = 'home') => {
         launcher.focus();
       }
     }
-    focusFirstElement();
+    if (shouldUnlock) {
+      unlockPromise.then(() => {
+        if (state.open) focusFirstElement();
+      });
+    } else {
+      focusFirstElement();
+    }
   });
+  return unlockPromise;
 };
 
 const handleScrimClick = (event) => {
@@ -295,23 +620,14 @@ const wireAppButtons = () => {
   if (!launcher) return;
   const appButtons = launcher.querySelectorAll('[data-pt-app-target]');
   appButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
-      if (target === 'shards' && !perms.shardsUnlocked) {
-        setAppView('locked');
-        if (!state.open) openLauncher('locked');
-        return;
-      }
-      if (target === 'home') {
-        setAppView('home');
-      } else {
-        setAppView(target);
-      }
-      if (!state.open) openLauncher(target);
+
+      await openApp(target, btn);
     });
   });
   if (backButton) {
-    backButton.addEventListener('click', () => setAppView('home'));
+    backButton.addEventListener('click', () => openApp('home'));
   }
 };
 
@@ -328,7 +644,7 @@ const wireActions = () => {
         }
         openPlayerToolsDrawer();
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => openLauncher('home'));
+          requestAnimationFrame(() => openLauncher('home', { unlock: true }));
         });
       },
       true
@@ -336,19 +652,19 @@ const wireActions = () => {
   }
   if (scrim) scrim.addEventListener('click', handleScrimClick);
   if (closeButton) closeButton.addEventListener('click', closeLauncher);
-  const quickTrayBtn = launcher?.querySelector('[data-pt-open-quick-tray]');
-  if (quickTrayBtn) {
-    quickTrayBtn.addEventListener('click', () => {
+  const quickTrayBtns = doc?.querySelectorAll('[data-pt-open-quick-tray]') || [];
+  quickTrayBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
       closeLauncher();
       setTimeout(() => openPlayerToolsDrawer(), 50);
     });
-  }
-  const shardBtn = launcher?.querySelector('[data-pt-open-shards]');
-  if (shardBtn) {
-    shardBtn.addEventListener('click', () => {
+  });
+  const shardBtns = doc?.querySelectorAll('[data-pt-open-shards]') || [];
+  shardBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
       if (!perms.shardsUnlocked) {
-        setAppView('locked');
-        if (!state.open) openLauncher('locked');
+        showLockedToast('TSoMF is locked. Ask your DM to enable it.');
+        if (!state.open) openLauncher('home');
         return;
       }
       closeLauncher();
@@ -357,10 +673,10 @@ const wireActions = () => {
         drawBtn.click();
       }
     });
-  }
-  const themeBtn = launcher?.querySelector('[data-pt-theme-next]');
-  if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
+  });
+  const themeBtns = doc?.querySelectorAll('[data-pt-theme-next]') || [];
+  themeBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
       const themeToggle =
         doc?.querySelector('[data-theme-toggle]') ||
         doc?.querySelector('.logo-button');
@@ -368,19 +684,19 @@ const wireActions = () => {
         themeToggle.click();
       }
     });
-  }
-  const reduceMotionToggle = launcher?.querySelector('[data-pt-reduce-motion]');
-  if (reduceMotionToggle) {
-    reduceMotionToggle.addEventListener('change', (event) => {
+  });
+  const reduceMotionToggles = doc?.querySelectorAll('[data-pt-reduce-motion]') || [];
+  reduceMotionToggles.forEach((toggle) => {
+    toggle.addEventListener('change', (event) => {
       setSetting('reduceMotion', event.currentTarget.checked);
     });
-  }
-  const hideTickerToggle = launcher?.querySelector('[data-pt-hide-tickers]');
-  if (hideTickerToggle) {
-    hideTickerToggle.addEventListener('change', (event) => {
+  });
+  const hideTickerToggles = doc?.querySelectorAll('[data-pt-hide-tickers]') || [];
+  hideTickerToggles.forEach((toggle) => {
+    toggle.addEventListener('change', (event) => {
       setSetting('hideTickers', event.currentTarget.checked);
     });
-  }
+  });
 };
 
 const init = () => {
@@ -391,8 +707,17 @@ const init = () => {
   applyPermsUI();
   wireAppButtons();
   wireActions();
+  const shouldAutoOpen =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(max-width: 900px)').matches;
+  if (shouldAutoOpen && !state.open) {
+    openLauncher('home', { unlock: false });
+  }
   window.PlayerOS = Object.assign(window.PlayerOS || {}, {
     openLauncher,
+    openApp,
+    showLockedToast,
     unlockShards() {
       perms.shardsUnlocked = true;
       writeBool(PERM_KEYS.shardsUnlocked, true);
