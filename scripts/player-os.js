@@ -738,7 +738,6 @@ const init = () => {
   window.PlayerOS = Object.assign(window.PlayerOS || {}, {
     openApp,
     openLauncher,
-    openApp,
     showLockedToast,
     unlockShards() {
       perms.shardsUnlocked = true;
