@@ -291,15 +291,14 @@ const openLauncher = async (nextApp = 'home') => {
   return true;
 };
 
-const openApp = async (appId = 'home', options = {}) => {
+const openApp = async (appId = 'home') => {
   const target = normalizeAppId(appId);
   if (target === 'settings') {
     syncSettings();
     applyPermsUI();
   }
-  const ok = await openLauncher(target, options);
+  const ok = await openLauncher(target);
   if (ok === false) return false;
-  setAppView(target);
   return true;
 };
 

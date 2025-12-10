@@ -4,7 +4,7 @@ const noopResponse = {
   json: async () => ({}),
   text: async () => '',
   arrayBuffer: async () => new ArrayBuffer(0),
-  blob: async () => new Blob(),
+  blob: async () => (typeof Blob === 'function' ? new Blob() : null),
   clone() {
     return this;
   },
