@@ -2255,6 +2255,24 @@ function setPlayerToolsTabHidden(hidden) {
   else tab.removeAttribute('tabindex');
 }
 
+const playerToolsTabSuppressionReasons = new Set();
+
+const syncPlayerToolsTabHidden = () => {
+  setPlayerToolsTabHidden(playerToolsTabSuppressionReasons.size > 0);
+};
+
+function addPlayerToolsTabSuppression(reason) {
+  if (!reason) return;
+  playerToolsTabSuppressionReasons.add(reason);
+  syncPlayerToolsTabHidden();
+}
+
+function removePlayerToolsTabSuppression(reason) {
+  if (!reason) return;
+  playerToolsTabSuppressionReasons.delete(reason);
+  syncPlayerToolsTabHidden();
+}
+
 try {
   const storage = getLocalStorageSafe();
   if (storage) {
@@ -2367,7 +2385,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   const isLaunching = !!(body && body.classList.contains('launching'));
   show(WELCOME_MODAL_ID);
   if (wasHidden) {
-    setPlayerToolsTabHidden(true);
+    addPlayerToolsTabSuppression('welcome-modal');
   }
 
   if (isLaunching) {
@@ -2392,7 +2410,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hide(WELCOME_MODAL_ID);
-  setPlayerToolsTabHidden(false);
+  removePlayerToolsTabSuppression('welcome-modal');
   unlockTouchControls();
   markWelcomeSequenceComplete();
 }
@@ -6702,8 +6720,13 @@ const computePlayerCreditSignature = (detail) => {
 const elPlayerToolsTab = $('player-tools-tab');
 if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
-  const shouldHideTab = !welcomeModalDismissed || elPlayerToolsTab.hidden;
-  setPlayerToolsTabHidden(shouldHideTab);
+  if (elPlayerToolsTab.hidden) {
+    addPlayerToolsTabSuppression('tab-hidden');
+  }
+  if (!welcomeModalDismissed) {
+    addPlayerToolsTabSuppression('welcome-modal');
+  }
+  syncPlayerToolsTabHidden();
 }
 
 const getPlayerToolsTabAttribute = (name, fallback = null) => {
@@ -7467,6 +7490,11 @@ const collapseOverlaysForDrawer = () => {
 
 if (typeof onPlayerToolsDrawerChange === 'function') {
   onPlayerToolsDrawerChange(({ open }) => {
+    if (open) {
+      addPlayerToolsTabSuppression('player-tools-drawer');
+    } else {
+      removePlayerToolsTabSuppression('player-tools-drawer');
+    }
     updateDrawerLiveRegionState(open);
     if (open) {
       pauseActiveTabIconAnimations();
@@ -23827,7 +23855,11 @@ if (welcomeOverlayIsElement) {
   });
   const updatePlayerToolsTabForWelcome = () => {
     const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
-    setPlayerToolsTabHidden(shouldHideTab);
+    if (shouldHideTab) {
+      addPlayerToolsTabSuppression('welcome-modal');
+    } else {
+      removePlayerToolsTabSuppression('welcome-modal');
+    }
   };
   updatePlayerToolsTabForWelcome();
   if (typeof MutationObserver === 'function') {

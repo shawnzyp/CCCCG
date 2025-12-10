@@ -506,13 +506,6 @@ function createPlayerToolsDrawer() {
     } catch (_) {}
 
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-    tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
-    tab.classList.toggle('is-suppressed', isOpen);
-    if (isOpen) {
-      tab.setAttribute('tabindex', '-1');
-    } else {
-      tab.removeAttribute('tabindex');
-    }
 
     if (tray) tray.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
     if (scrim) {
