@@ -582,7 +582,10 @@ async function pushQueuedAutosaveLocally({ name, payload, ts }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await httpErrorFromResponse(res);
+    throw err;
+  }
 }
 
 async function flushLocalCloudOutbox() {
@@ -700,7 +703,10 @@ async function cloudFetch(url, options = {}) {
   const text = typeof res?.text === 'function' ? res.text.bind(res) : async () => '';
   const arrayBuffer =
     typeof res?.arrayBuffer === 'function' ? res.arrayBuffer.bind(res) : async () => new ArrayBuffer(0);
-  const blob = typeof res?.blob === 'function' ? res.blob.bind(res) : async () => new Blob();
+  const blob =
+    typeof res?.blob === 'function'
+      ? res.blob.bind(res)
+      : async () => (typeof Blob === 'function' ? new Blob() : null);
   const clone = typeof res?.clone === 'function' ? res.clone.bind(res) : undefined;
   const headers = res?.headers ?? null;
 
@@ -712,6 +718,64 @@ async function cloudFetch(url, options = {}) {
     normalized.url = res.url;
   }
   return normalized;
+}
+
+// Build a more descriptive error when Firebase returns a non-OK response.
+async function httpErrorFromResponse(res) {
+  const status = typeof res?.status === 'number' ? res.status : 'unknown';
+  const url = typeof res?.url === 'string'
+    ? res.url
+    : typeof res?.raw?.url === 'string'
+      ? res.raw.url
+      : '';
+  let detail = '';
+
+  try {
+    const raw = res?.raw;
+    const reader = raw && typeof raw.clone === 'function' ? raw.clone() : raw;
+    const headers = reader?.headers;
+    const contentType =
+      (typeof headers?.get === 'function' ? headers.get('content-type') : '') || '';
+
+    if (reader) {
+      if (contentType.includes('application/json')) {
+        const body = await reader.json().catch(() => null);
+        if (body && typeof body === 'object') {
+          if (typeof body.error === 'string' && body.error.trim()) {
+            detail = `: ${body.error.trim().slice(0, 500)}`;
+          } else {
+            const serialized = JSON.stringify(body);
+            if (serialized && serialized !== '{}') {
+              detail = `: ${serialized.slice(0, 500)}`;
+            }
+          }
+        }
+      } else {
+        const bodyText = await reader.text().catch(() => '');
+        const trimmed = typeof bodyText === 'string' ? bodyText.trim() : '';
+        if (trimmed) {
+          detail = `: ${trimmed.slice(0, 500)}`;
+        }
+      }
+    }
+  } catch {
+    // Ignore body parsing errors and fall back to status-only messaging.
+  }
+
+  if (!detail && typeof res?.text === 'function') {
+    try {
+      const fallbackBody = await res.text();
+      const trimmed = typeof fallbackBody === 'string' ? fallbackBody.trim() : '';
+      if (trimmed) {
+        detail = `: ${trimmed.slice(0, 500)}`;
+      }
+    } catch {
+      // Ignore fallback parse issues.
+    }
+  }
+
+  const urlSuffix = url ? ` (${url})` : '';
+  return new Error(`HTTP ${status}${detail}${urlSuffix}`);
 }
 
 // Encode each path segment separately so callers can supply hierarchical
@@ -751,7 +815,33 @@ function decodePath(name) {
     .join('/');
 }
 
+function findInvalidFirebaseKeys(value, path = '') {
+  const bad = [];
+  if (!value || typeof value !== 'object') return bad;
+
+  for (const [k, v] of Object.entries(value)) {
+    const key = String(k);
+    const nextPath = path ? `${path}.${key}` : key;
+
+    if (/[.#$\[\]\/]/.test(key)) bad.push(nextPath);
+    if (/[\u0000-\u001F\u007F]/.test(key)) bad.push(nextPath);
+
+    if (v && typeof v === 'object') bad.push(...findInvalidFirebaseKeys(v, nextPath));
+  }
+  return bad;
+}
+
+function assertValidFirebasePayload(payload) {
+  const invalid = findInvalidFirebaseKeys(payload);
+  if (invalid.length) {
+    const summary = invalid.slice(0, 10).join(', ');
+    const suffix = invalid.length > 10 ? '...' : '';
+    throw new Error(`Invalid Firebase keys in payload: ${summary}${suffix}`);
+  }
+}
+
 async function saveHistoryEntry(baseUrl, name, payload, ts) {
+  assertValidFirebasePayload(payload);
   const encodedName = encodePath(name);
 
   const res = await cloudFetch(
@@ -762,7 +852,10 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
       body: JSON.stringify(payload),
     }
   );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await httpErrorFromResponse(res);
+    throw err;
+  }
 
   const parseKeys = (val) =>
     val
@@ -780,7 +873,8 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
       { method: 'GET' }
     );
     if (!limitedRes.ok) {
-      throw new Error(`HTTP ${limitedRes.status}`);
+      const err = await httpErrorFromResponse(limitedRes);
+      throw err;
     }
     const val = await limitedRes.json();
     keys = parseKeys(val);
@@ -810,12 +904,16 @@ async function saveHistoryEntry(baseUrl, name, payload, ts) {
 
 async function attemptCloudSave(name, payload, ts) {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
+  assertValidFirebasePayload(payload);
   const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await httpErrorFromResponse(res);
+    throw err;
+  }
 
   try {
     writeLastSaveName(name);
@@ -869,7 +967,10 @@ export async function appendCampaignLogEntry(entry = {}) {
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await httpErrorFromResponse(res);
+    throw err;
+  }
 
   return { ...payload, id };
 }
@@ -878,13 +979,19 @@ export async function deleteCampaignLogEntry(id) {
   if (typeof id !== 'string' || !id) return;
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}/${encodePath(id)}.json`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await httpErrorFromResponse(res);
+    throw err;
+  }
 }
 
 export async function fetchCampaignLogEntries() {
   if (typeof fetch !== 'function') throw new Error('fetch not supported');
   const res = await cloudFetch(`${CLOUD_CAMPAIGN_LOG_URL}.json`, { method: 'GET' });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = await httpErrorFromResponse(res);
+    throw err;
+  }
   const data = await res.json();
   if (!data) return [];
   const entries = Object.entries(data).map(([id, value]) => {
@@ -1201,7 +1308,10 @@ export async function loadCloud(name, { signal } = {}) {
       `${CLOUD_SAVES_URL}/${encodePath(name)}.json`,
       { method: 'GET', signal }
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {
@@ -1221,7 +1331,10 @@ export async function deleteCloud(name) {
     const res = await cloudFetch(`${CLOUD_SAVES_URL}/${encodePath(name)}.json`, {
       method: 'DELETE'
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     if (readLastSaveName() === name) {
       clearLastSaveName(name);
     }
@@ -1237,7 +1350,10 @@ export async function listCloudSaves() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await cloudFetch(`${CLOUD_SAVES_URL}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     // Keys in the realtime database are URL-encoded because we escape them when
     // saving. Decode them here so callers receive the original character names.
@@ -1257,7 +1373,10 @@ export async function listCloudBackups(name) {
     const res = await cloudFetch(
       `${CLOUD_HISTORY_URL}/${encodePath(name)}.json`
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     return val
       ? Object.keys(val)
@@ -1280,7 +1399,10 @@ export async function listCloudAutosaves(name) {
     const res = await cloudFetch(
       `${CLOUD_AUTOSAVES_URL}/${encodePath(name)}.json`
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     return val
       ? Object.keys(val)
@@ -1301,7 +1423,10 @@ export async function listCloudBackupNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await cloudFetch(`${CLOUD_HISTORY_URL}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
@@ -1317,7 +1442,10 @@ export async function listCloudAutosaveNames() {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
     const res = await cloudFetch(`${CLOUD_AUTOSAVES_URL}.json`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     return val ? Object.keys(val).map(k => decodePath(k)) : [];
   } catch (e) {
@@ -1336,7 +1464,10 @@ export async function loadCloudBackup(name, ts) {
       `${CLOUD_HISTORY_URL}/${encodePath(name)}/${ts}.json`,
       { method: 'GET' }
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {
@@ -1354,7 +1485,10 @@ export async function loadCloudAutosave(name, ts) {
       `${CLOUD_AUTOSAVES_URL}/${encodePath(name)}/${ts}.json`,
       { method: 'GET' }
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const err = await httpErrorFromResponse(res);
+      throw err;
+    }
     const val = await res.json();
     if (val !== null) return val;
   } catch (e) {

@@ -504,8 +504,11 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   });
 };
 
+const normalizeAppId = (nextApp = 'home') =>
+  nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+
 const setAppView = (nextApp = 'home') => {
-  const normalized = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
+  const normalized = normalizeAppId(nextApp);
   state.app = normalized;
   if (!homeView || !appView) return;
   const isHome = normalized === 'home';
@@ -565,11 +568,17 @@ const closeLauncher = () => {
   }
 };
 
+const openLauncher = async (nextApp = 'home') => {
+  // Ensure we're mounted in the faux phone before opening.
 const openLauncher = (nextApp = 'home', opts = {}) => {
   // Ensure we're mounted in the phone before opening
   if (launcher?.dataset?.ptMount !== 'phone') {
-    if (!mountLauncher()) return;
+    if (!mountLauncher()) return false;
   }
+  const target = normalizeAppId(nextApp);
+  if (!launcher || state.open) {
+    setAppView(target);
+    return true;
   setPhoneOwnedByOS(true);
   const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   const wasClosed = !state.open;
@@ -609,6 +618,18 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
       focusFirstElement();
     }
   });
+  return true;
+};
+
+const openApp = async (appId = 'home') => {
+  const target = normalizeAppId(appId);
+  if (target === 'settings') {
+    syncSettings();
+    applyPermsUI();
+  }
+  const ok = await openLauncher(target);
+  if (ok === false) return false;
+  return true;
   return unlockPromise;
 };
 
@@ -622,6 +643,13 @@ const wireAppButtons = () => {
   appButtons.forEach((btn) => {
     btn.addEventListener('click', async () => {
       const target = btn.getAttribute('data-pt-app-target') || 'home';
+      openApp(target);
+    });
+  });
+  if (backButton) {
+    backButton.addEventListener('click', () => {
+      openApp('home');
+    });
 
       await openApp(target, btn);
     });
@@ -663,6 +691,7 @@ const wireActions = () => {
   shardBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       if (!perms.shardsUnlocked) {
+        openApp('locked');
         showLockedToast('TSoMF is locked. Ask your DM to enable it.');
         if (!state.open) openLauncher('home');
         return;
@@ -715,6 +744,7 @@ const init = () => {
     openLauncher('home', { unlock: false });
   }
   window.PlayerOS = Object.assign(window.PlayerOS || {}, {
+    openApp,
     openLauncher,
     openApp,
     showLockedToast,
