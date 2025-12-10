@@ -575,7 +575,7 @@ export function subscribePlayerDeployments(player, callback, { intervalMs = PLAY
         console.error(`Failed to load mini-game deployments for ${trimmed}`, err);
       }
       const offlineish =
-        navigator.onLine === false ||
+        (typeof navigator !== 'undefined' && navigator.onLine === false) ||
         err?.name === 'TypeError' ||
         String(err?.message || '').includes('Failed to fetch');
 

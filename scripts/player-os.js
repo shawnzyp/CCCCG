@@ -441,31 +441,28 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   if (appId === 'home') {
     setAppView('home');
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    return;
+    return token === navToken;
   }
 
   if (appId === 'locked') {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('Access Restricted.');
-    return;
+    if (token === navToken) showLockedToast('Access Restricted.');
+    return false;
   }
 
   const targetApp = getAppMeta(appId);
 
   if (!targetApp) {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('App content not found.');
-    return;
+    if (token === navToken) showLockedToast('App content not found.');
+    return false;
   }
 
   if (!canOpenApp(targetApp)) {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('That app is locked. Ask your DM to enable it.');
-    return;
+    if (token === navToken)
+      showLockedToast('That app is locked. Ask your DM to enable it.');
+    return false;
   }
 
   let unlockPromise = Promise.resolve();
@@ -474,17 +471,17 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     await Promise.resolve(unlockPromise);
   }
 
-  if (token !== navToken) return;
+  if (token !== navToken) return false;
 
   await new Promise((resolve) => requestAnimationFrame(resolve));
   await unlockPromise;
 
-  if (token !== navToken) return;
+  if (token !== navToken) return false;
 
   const label = getAppLabel(appId);
   await runBoot(sourceButton, label);
 
-  if (token !== navToken) return;
+  if (token !== navToken) return false;
 
   if (mountedFragment && portal) {
     portal.restore(mountedFragment);
@@ -498,10 +495,11 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
 
   if (!fragment || !appHost || !portal) {
     if (!state.open) await openLauncher('home', { unlock: false });
-    if (token !== navToken) return;
-    showLockedToast('App content not found.');
-    setAppView('home');
-    return;
+    if (token === navToken) {
+      showLockedToast('App content not found.');
+      setAppView('home');
+    }
+    return false;
   }
 
   mountedFragment = portal.moveToHost(fragment, appHost);
