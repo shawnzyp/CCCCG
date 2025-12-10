@@ -395,6 +395,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   setPhoneOwnedByOS(true);
   const target = nextApp === 'shards' && !perms.shardsUnlocked ? 'locked' : nextApp;
   const wasClosed = !state.open;
+  const shouldUnlock = wasClosed && opts.unlock !== false;
   if (!launcher || state.open) {
     setAppView(target);
     return;
@@ -412,8 +413,9 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   const tab = doc?.getElementById('player-tools-tab');
   if (tab) tab.setAttribute('aria-expanded', 'true');
 
-  if (wasClosed && opts.unlock === true) {
-    runUnlockSequence(1500);
+  const unlockDelay = shouldUnlock ? 1500 : 0;
+  if (unlockDelay) {
+    runUnlockSequence(unlockDelay);
   }
   requestAnimationFrame(() => {
     if (launcher) {
@@ -423,7 +425,11 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
         launcher.focus();
       }
     }
-    focusFirstElement();
+    if (unlockDelay) {
+      window.setTimeout(() => focusFirstElement(), unlockDelay);
+    } else {
+      focusFirstElement();
+    }
   });
 };
 
@@ -448,7 +454,10 @@ const wireAppButtons = () => {
         return;
       }
 
-      if (!state.open) openLauncher('home');
+      if (!state.open) {
+        openLauncher('home');
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
 
       const label = APP_LABELS[target] || target;
       await runBoot(btn, label);
