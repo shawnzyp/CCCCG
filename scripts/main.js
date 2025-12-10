@@ -4218,6 +4218,10 @@ const isMenuActionBlocked = () => {
   return false;
 };
 
+if (typeof window !== 'undefined') {
+  window.isMenuActionBlocked = isMenuActionBlocked;
+}
+
 const handleMenuActionRequest = (event) => {
   const actionId = event?.detail?.action;
   if (event?.defaultPrevented) return;
