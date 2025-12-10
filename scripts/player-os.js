@@ -203,6 +203,12 @@ const isGlobalToastTarget = (el) => {
   const globalToast = getGlobalToastElement();
   return !!(globalToast && el && globalToast.contains(el));
 };
+const isToastFocus = (el) =>
+  !!(
+    el?.closest?.(
+      '.toast, .toast-container, [data-toast], [data-toast-root], [role="status"], [aria-live]'
+    ) || isGlobalToastTarget(el)
+  );
 
 const getFocusable = () => {
   if (!launcher) return [];
@@ -220,28 +226,29 @@ const getFocusable = () => {
 };
 
 const focusFirstElement = () => {
-  const target =
-    (isToastVisible() && toast) ||
-    launcher?.querySelector('[data-pt-app-target]') ||
-    launcher?.querySelector('[data-pt-launcher-close]') ||
-    launcher;
-  if (target && typeof target.focus === 'function') {
-    try {
-      target.focus({ preventScroll: true });
-    } catch (_) {
-      target.focus();
-    }
+  const focusables = getFocusable();
+  const first = focusables[0];
+
+  if (!first) return;
+  if (doc?.activeElement === first) return;
+
+  try {
+    first.focus({ preventScroll: true });
+  } catch (_) {
+    first.focus();
   }
 };
 
 const enforceFocus = (event) => {
   if (!state.open || !launcher) return;
-  if (isGlobalToastTarget(event.target)) return;
-  if (isToastVisible() && toast && !toast.contains(event.target)) {
+  const target = event?.target;
+  if (!target) return;
+  if (launcher.contains(target)) return;
+  if (isToastFocus(target)) return;
+  if (isToastVisible() && toast && !toast.contains(target)) {
     focusFirstElement();
     return;
   }
-  if (launcher.contains(event.target)) return;
   focusFirstElement();
 };
 
@@ -574,7 +581,7 @@ const closeLauncher = () => {
   if (tab) tab.setAttribute('aria-expanded', 'false');
 };
 
-const openLauncher = async (nextApp = 'home', opts = {}) => {
+const openLauncher = (nextApp = 'home', opts = {}) => {
   if (launcher?.dataset?.ptMount !== 'phone') {
     if (!mountLauncher()) return false;
   }

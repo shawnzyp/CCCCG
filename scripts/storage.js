@@ -831,34 +831,23 @@ function findInvalidFirebaseKeys(value, path = '') {
   return bad;
 }
 
-function firebaseSafeKey(key) {
-  return String(key)
-    .replace(/[.#$\[\]\/]/g, '_')
-    .replace(/\s+/g, '_')
-    .slice(0, 200);
-}
+  function sanitizeUiForFirebase(ui = {}) {
+    const next = { ...ui };
 
-function sanitizeUiForFirebase(ui = {}) {
-  const next = { ...ui };
+    if ('inputs' in next) delete next.inputs;
 
-  if (next.inputs && typeof next.inputs === 'object') {
-    const fixed = {};
-    for (const [k, v] of Object.entries(next.inputs)) {
-      fixed[firebaseSafeKey(k)] = v;
+    if (next.scroll && typeof next.scroll === 'object') {
+      const scroll = { ...next.scroll };
+      if ('panels' in scroll) delete scroll.panels;
+      if (Object.keys(scroll).length) {
+        next.scroll = scroll;
+      } else {
+        delete next.scroll;
+      }
     }
-    next.inputs = fixed;
-  }
 
-  if (next.scroll?.panels && typeof next.scroll.panels === 'object') {
-    const fixed = {};
-    for (const [k, v] of Object.entries(next.scroll.panels)) {
-      fixed[firebaseSafeKey(k)] = v;
-    }
-    next.scroll = { ...(next.scroll || {}), panels: fixed };
+    return Object.keys(next).length ? next : undefined;
   }
-
-  return next;
-}
 
 function sanitizePayloadForFirebase(payload) {
   if (!payload || typeof payload !== 'object') return payload;
@@ -870,9 +859,10 @@ function sanitizePayloadForFirebase(payload) {
     clone = JSON.parse(JSON.stringify(payload));
   }
 
-  if (clone.ui && typeof clone.ui === 'object') {
-    clone.ui = sanitizeUiForFirebase(clone.ui);
-  }
+    if (clone.ui && typeof clone.ui === 'object') {
+      clone.ui = sanitizeUiForFirebase(clone.ui);
+      if (!clone.ui) delete clone.ui;
+    }
 
   return clone;
 }
