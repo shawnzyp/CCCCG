@@ -415,8 +415,10 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
 
   if (!launcher || !lock) return Promise.resolve();
 
+  const hardEnd = () => endLockSequence(lock, launcher);
+
   // hard reset so we never get stuck non-interactive
-  endLockSequence(lock, launcher);
+  hardEnd();
 
   // Cancel any previous in-flight sequence
   if (unlockTimer) clearTimeout(unlockTimer);
@@ -431,7 +433,7 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
   lock.setAttribute('aria-hidden', 'false');
 
   requestAnimationFrame(() => {
-    if (token !== unlockToken) return;
+    if (token !== unlockToken) return hardEnd();
     lock.classList.add('is-on');
   });
 
@@ -441,7 +443,7 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
 
   return new Promise((resolve) => {
     unlockTimer = setTimeout(() => {
-      if (token !== unlockToken) return resolve(); // superseded
+      if (token !== unlockToken) { hardEnd(); return resolve(); } // superseded
 
       // animate away
       lock.classList.remove('is-on');
@@ -449,8 +451,8 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
 
       // give the CSS transition time, then hard cleanup no matter what
       unlockCleanupTimer = setTimeout(() => {
-        if (token !== unlockToken) return resolve();
-        endLockSequence(lock, launcher);
+        if (token !== unlockToken) { hardEnd(); return resolve(); }
+        hardEnd();
         resolve();
       }, fadeDuration || 0);
     }, visibleDuration);

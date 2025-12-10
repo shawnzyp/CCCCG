@@ -2249,10 +2249,10 @@ function getPlayerToolsTabElement() {
 function setPlayerToolsTabHidden(hidden) {
   const tab = getPlayerToolsTabElement();
   if (!tab) return;
-  if (tab.hidden !== hidden) {
-    tab.hidden = hidden;
-  }
   tab.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+  tab.classList.toggle('is-suppressed', hidden);
+  if (hidden) tab.setAttribute('tabindex', '-1');
+  else tab.removeAttribute('tabindex');
 }
 
 try {

@@ -8208,8 +8208,11 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   display: none;
 }
 
-.player-tools-tab[aria-hidden="true"] {
-  display: none;
+.player-tools-tab[aria-hidden="true"],
+.player-tools-tab.is-suppressed {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 /* Drawer overlay – covers viewport, phone slides in from LEFT */
@@ -8761,7 +8764,7 @@ width: 72%;
 height:auto;
 }
 
-#player-tools-tab[aria-hidden="true"]{ display:none; }
+#player-tools-tab[aria-hidden="true"]{ opacity:0; pointer-events:none; visibility:hidden; }
 
 #player-tools-drawer.pt-drawer{
 position: fixed;
@@ -9953,7 +9956,7 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 
 /* Player OS launcher */
-[data-phone-shell]{--pt-safe-top: max(env(safe-area-inset-top, 0px), 28px);--pt-safe-bottom: max(env(safe-area-inset-bottom, 0px), 8px)}
+[data-phone-shell]{--pt-safe-top: 28px;--pt-safe-bottom: 8px}
 .pt-launcher{--pt-header-offset: 60px;position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
 .pt-launcher.is-open{pointer-events:auto}
 .pt-launcher:focus{outline:none}
