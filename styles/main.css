@@ -9976,6 +9976,7 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .pt-lock__hint{font-size:12px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(255,255,255,.62);padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);position:relative;z-index:1}
 .pt-launcher.is-locking *{pointer-events:none}
 .pt-launcher.is-locking .pt-lock{pointer-events:auto}
+.pt-launcher.is-locking .pt-lock *{pointer-events:auto}
 .pt-boot{position:absolute;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);opacity:0;transition:opacity 140ms ease;pointer-events:auto}
 .pt-boot:not([hidden]){opacity:1}
 .pt-boot__inner{width:min(320px, 82%);text-align:center}

@@ -94,6 +94,8 @@ const canOpenApp = (app) => {
   return true;
 };
 
+const LOCKSCREEN_DURATION_MS = 3500;
+
 const portal = doc ? createPortal(doc) : null;
 
 let mountedFragment = null;
@@ -589,13 +591,19 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   setPhoneOwnedByOS(true);
 
   const target = normalizeAppId(nextApp);
-  const wasClosed = !state.open;
-  const shouldUnlock = wasClosed && opts.unlock !== false;
+  const shouldUnlock = opts?.unlock === true;
 
-  if (!launcher || state.open) {
+  // If already open, still show lockscreen when explicitly requested (Player Tools tray).
+  if (launcher && state.open) {
     setAppView(target);
-    return Promise.resolve(true);
+    if (!shouldUnlock) return Promise.resolve(true);
+    return runUnlockSequence(LOCKSCREEN_DURATION_MS).then(() => {
+      if (state.open) focusFirstElement();
+      return true;
+    });
   }
+
+  if (!launcher) return Promise.resolve(false);
 
   state.lastFocused = doc?.activeElement || null;
   state.open = true;
@@ -610,7 +618,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   const tab = doc?.getElementById('player-tools-tab');
   if (tab) tab.setAttribute('aria-expanded', 'true');
 
-  const unlockDelay = shouldUnlock ? 1500 : 0;
+  const unlockDelay = shouldUnlock ? LOCKSCREEN_DURATION_MS : 0;
   const unlockPromise = shouldUnlock ? runUnlockSequence(unlockDelay) : Promise.resolve();
 
   requestAnimationFrame(() => {
