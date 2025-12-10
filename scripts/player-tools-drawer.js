@@ -465,13 +465,45 @@ function createPlayerToolsDrawer() {
     };
   };
 
+  const shiftFocusAwayFromDrawer = () => {
+    const active = doc?.activeElement;
+    if (!active || !drawer || !drawer.contains(active)) return;
+
+    const candidates = [
+      tab && tab.isConnected ? tab : null,
+      doc?.querySelector?.('#character-name') || null,
+      doc?.querySelector?.('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') || null,
+    ].filter(Boolean);
+
+    const target = candidates.find(el => el && typeof el.focus === 'function' && !drawer.contains(el));
+    if (target) {
+      try {
+        target.focus({ preventScroll: true });
+      } catch (err) {
+        try { target.focus(); } catch (_) {}
+      }
+    } else if (typeof active.blur === 'function') {
+      try { active.blur(); } catch (_) {}
+    }
+  };
+
   const setDrawerOpen = (open, { force = false } = {}) => {
     const next = !!open;
     if (!force && next === isOpen) return;
     isOpen = next;
 
+    if (!isOpen) {
+      shiftFocusAwayFromDrawer();
+    }
+
     drawer.classList.toggle('is-open', isOpen);
     drawer.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+
+    try {
+      drawer.inert = !isOpen;
+      if (isOpen) drawer.removeAttribute('inert');
+      else drawer.setAttribute('inert', '');
+    } catch (_) {}
 
     tab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     tab.setAttribute('aria-hidden', isOpen ? 'true' : 'false');

@@ -126,6 +126,35 @@ function removeTrapFocus(el) {
   }
 }
 
+function focusFallbackOutsideOverlay(overlay) {
+  if (!overlay || typeof overlay.contains !== 'function') return;
+  const doc = overlay.ownerDocument || (typeof document !== 'undefined' ? document : null);
+  if (!doc) return;
+  const active = doc.activeElement;
+  if (!active || !overlay.contains(active)) return;
+
+  const candidates = [
+    lastFocus && lastFocus.isConnected && !overlay.contains(lastFocus) ? lastFocus : null,
+    doc.querySelector('#character-name'),
+    doc.querySelector('#player-tools-tab'),
+    doc.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+  ].filter(el => el && !overlay.contains(el));
+
+  const focusTarget = candidates.find(target => target && typeof target.focus === 'function');
+  if (focusTarget) {
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch (err) {
+      try { focusTarget.focus(); } catch (_) {}
+    }
+    return;
+  }
+
+  if (typeof active.blur === 'function') {
+    try { active.blur(); } catch (_) {}
+  }
+}
+
 // Ensure hidden overlays are not focusable on load
 qsa('.overlay.hidden').forEach(ov => { ov.style.display = 'none'; });
 
@@ -170,6 +199,10 @@ export function show(id) {
     el.style.display = 'flex';
     el.classList.remove('hidden');
     el.setAttribute('aria-hidden', 'false');
+    try {
+      el.inert = false;
+      el.removeAttribute('inert');
+    } catch (_) {}
     trapFocus(el);
     const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
     if (focusEl && typeof focusEl.focus === 'function') {
@@ -204,9 +237,14 @@ export function hide(id) {
       clearModalStyles(el);
       cancelModalStyleReset(el);
     }, 400);
+    removeTrapFocus(el);
+    focusFallbackOutsideOverlay(el);
     el.classList.add('hidden');
     el.setAttribute('aria-hidden', 'true');
-    removeTrapFocus(el);
+    try {
+      el.inert = true;
+      el.setAttribute('inert', '');
+    } catch (_) {}
     if (lastFocus && typeof lastFocus.focus === 'function') {
       try {
         lastFocus.focus();
