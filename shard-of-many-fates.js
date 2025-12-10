@@ -3770,7 +3770,10 @@
     async onDraw() {
       if (!shardsUnlocked()) {
         if (window.PlayerOS?.openLauncher) {
-          window.PlayerOS.openLauncher('locked');
+          window.PlayerOS.openLauncher('home');
+        }
+        if (window.PlayerOS?.showLockedToast) {
+          window.PlayerOS.showLockedToast('TSoMF is locked. Ask your DM to enable it.');
         }
         return;
       }
