@@ -382,14 +382,7 @@
       <span class="theme-toggle__label sr-only">Theme</span>
     </button>
     <span class="tabs-title"><span class="tabs-title__label">Catalyst Core</span></span>
-    <div class="dropdown">
-      <div class="menu-toggle" data-state="closed">
-        <button id="btn-menu" class="icon" aria-label="Menu" title="Menu" aria-haspopup="true" aria-expanded="false" aria-controls="menu-actions" type="button">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15m-15 5.25h15m-15 5.25h15"/>
-          </svg>
-        </button>
-      </div>
+    <div class="top-actions" aria-label="Session tools">
       <button
         id="cloud-sync-status"
         class="sync-status-indicator"
@@ -407,17 +400,6 @@
           <span data-sync-status-label>Online</span>
         </span>
       </button>
-      <div class="menu-surface" data-state="closed">
-        <div id="menu-actions" class="menu" hidden data-state="closed">
-          <button id="btn-load" class="btn-sm">Load / Save</button>
-          <button id="btn-enc" class="btn-sm" aria-label="Encounter / Initiative" title="Encounter / Initiative">Encounter / Initiative</button>
-          <button id="btn-log" class="btn-sm">Action Log</button>
-          <button id="btn-credits-ledger" class="btn-sm">Credits Ledger</button>
-          <button id="btn-campaign" class="btn-sm">Campaign Log</button>
-          <button id="btn-rules" class="btn-sm">Rules</button>
-          <button id="btn-help" class="btn-sm">Help</button>
-        </div>
-      </div>
     </div>
   </div>
   <nav class="tabs" role="tablist" aria-label="Primary">
@@ -1617,8 +1599,8 @@
       </li>
       <li>
         <b>Create or Load</b>
-        Start from the welcome modal or open <i>Load / Save</i> from the menu to create a new hero, switch between existing records,
-        or recover a backup.
+        Start from the welcome modal or tap <i>Load / Save</i> on the Player OS Home Screen to create a new hero, switch between
+        existing records, or recover a backup.
       </li>
       <li>
         <b>Offline Ready</b>
@@ -1637,9 +1619,9 @@
       </li>
       <li>
         <b>Main Menu</b>
-        The header menu button opens overlays for Load / Save, Encounter / Initiative, Action Log, Campaign Log, Rules,
-        and this Help screen. Each modal floats above the sheet so you never lose context, and you can close any of them with Esc
-        or by tapping outside.
+        Open the Player OS faux phone and use the Home Screen app icons for Load / Save, Encounter / Initiative, Action Log,
+        Campaign Log, Rules, and Help. Each modal floats above the sheet so you never lose context, and you can close any of them
+        with Esc or by tapping outside.
       </li>
       <li>
         <b>Themes &amp; Visibility</b>
@@ -1729,7 +1711,7 @@
       </li>
       <li>
         <b>Player Follow-Up</b>
-        Players can confirm new credits from the Gear tab with <a href="#btn-credits-ledger">Credits Ledger</a> or open the
+        Players can confirm new credits from the Gear tab with the Credits Ledger app or open the
         <a href="#player-tools-tab">Player Tools tab</a> when a badge appears to read the deposit card right away.
       </li>
     </ul>
@@ -3204,19 +3186,57 @@
               <span class="pt-launcher__app-icon" aria-hidden="true">📡</span>
               <span class="pt-launcher__app-label">Director’s Messages</span>
             </button>
-          <button class="pt-launcher__app-card" type="button" data-pt-app-target="settings" role="listitem">
-            <span class="pt-launcher__app-icon" aria-hidden="true">⚙️</span>
-            <span class="pt-launcher__app-label">Settings</span>
-          </button>
-          <button class="pt-launcher__app-card pt-launcher__app-card--locked" type="button" data-pt-app-target="locked" role="listitem">
-            <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
-            <span class="pt-launcher__app-label">OMNI Vault</span>
-          </button>
-          <button class="pt-launcher__app-card pt-launcher__app-card--locked" type="button" data-pt-app-target="locked" role="listitem">
-            <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
-            <span class="pt-launcher__app-label">Arcade</span>
-          </button>
-        </div>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="settings" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">⚙️</span>
+              <span class="pt-launcher__app-label">Settings</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="loadSave" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">💾</span>
+              <span class="pt-launcher__app-label">Load / Save</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="encounter" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">⚔️</span>
+              <span class="pt-launcher__app-label">Encounter / Initiative</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="actionLog" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">📝</span>
+              <span class="pt-launcher__app-label">Action Log</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="creditsLedger" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">💳</span>
+              <span class="pt-launcher__app-label">Credits Ledger</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="campaignLog" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">📓</span>
+              <span class="pt-launcher__app-label">Campaign Log</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="rules" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">📖</span>
+              <span class="pt-launcher__app-label">Rules</span>
+            </button>
+            <button class="pt-launcher__app-card" type="button" data-pt-app-target="help" role="listitem">
+              <span class="pt-launcher__app-icon" aria-hidden="true">❔</span>
+              <span class="pt-launcher__app-label">Help</span>
+            </button>
+            <button
+              class="pt-launcher__app-card pt-launcher__app-card--locked"
+              type="button"
+              data-pt-app-target="locked"
+              role="listitem"
+            >
+              <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
+              <span class="pt-launcher__app-label">OMNI Vault</span>
+            </button>
+            <button
+              class="pt-launcher__app-card pt-launcher__app-card--locked"
+              type="button"
+              data-pt-app-target="locked"
+              role="listitem"
+            >
+              <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
+              <span class="pt-launcher__app-label">Arcade</span>
+            </button>
+          </div>
         <nav class="pt-launcher__dock" aria-label="Quick launch">
           <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="playerTools">
             <span aria-hidden="true">🛠️</span>

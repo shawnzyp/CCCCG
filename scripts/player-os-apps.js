@@ -1,4 +1,11 @@
 export const APPS = Object.freeze([
+  { id: 'loadSave', title: 'Load / Save', icon: '💾', action: 'load-save' },
+  { id: 'encounter', title: 'Encounter / Initiative', icon: '⚔️', action: 'encounter' },
+  { id: 'actionLog', title: 'Action Log', icon: '📝', action: 'action-log' },
+  { id: 'creditsLedger', title: 'Credits Ledger', icon: '💳', action: 'credits-ledger' },
+  { id: 'campaignLog', title: 'Campaign Log', icon: '📓', action: 'campaign-log' },
+  { id: 'rules', title: 'Rules', icon: '📖', action: 'rules' },
+  { id: 'help', title: 'Help', icon: '❔', action: 'help' },
   { id: 'playerTools', title: 'Player Tools', icon: '🛠️', fragment: 'playerTools' },
   { id: 'shards', title: 'TSoMF', icon: '♦️', fragment: 'shards', perm: 'shardsUnlocked' },
   { id: 'messages', title: 'Director’s Messages', icon: '📡', fragment: 'messages' },

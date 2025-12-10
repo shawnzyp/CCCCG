@@ -60,6 +60,13 @@ const PERM_KEYS = Object.freeze({
 });
 
 const APP_LABELS = Object.freeze({
+  loadSave: 'Load / Save',
+  encounter: 'Encounter / Initiative',
+  actionLog: 'Action Log',
+  creditsLedger: 'Credits Ledger',
+  campaignLog: 'Campaign Log',
+  rules: 'Rules',
+  help: 'Help',
   playerTools: 'Player Tools',
   shards: 'TSoMF',
   messages: 'Director’s Messages',
@@ -102,6 +109,15 @@ const LOCKSCREEN_DURATION_MS = 2500;
 const LOCK_FADE_MS = 260;
 
 const portal = doc ? createPortal(doc) : null;
+
+const dispatchMenuAction = (actionId) => {
+  if (!actionId || typeof window === 'undefined') return false;
+  const event = new CustomEvent('cc:menu-action', {
+    detail: { action: actionId, source: 'player-os' },
+    cancelable: true,
+  });
+  return window.dispatchEvent(event);
+};
 
 let mountedFragment = null;
 let mountedAppId = null;
@@ -480,6 +496,20 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     if (!state.open) await openLauncher('home', { unlock: false });
     if (token === navToken) showLockedToast('App content not found.');
     return false;
+  }
+
+  if (targetApp.action) {
+    if (!state.open) {
+      const unlockPromise = openLauncher('home', { unlock: opts.unlock });
+      await Promise.resolve(unlockPromise);
+    }
+
+    if (token !== navToken) return false;
+
+    const handled = dispatchMenuAction(targetApp.action);
+    setAppView('home');
+    closeLauncher();
+    return handled;
   }
 
   if (!canOpenApp(targetApp)) {
