@@ -13,6 +13,19 @@ const setPhoneOwnedByOS = (owned) => {
   const shell = getPhoneShell();
   if (!shell) return;
   shell.classList.toggle('pt-os-active', !!owned);
+
+  // Safety: never let the faux glass intercept taps while Player OS is open.
+  const glass =
+    shell.querySelector?.('.pt-screen__glass, [data-pt-screen-glass], [data-screen-glass]') || null;
+  if (glass) {
+    if (owned) {
+      glass.style.pointerEvents = 'none';
+      glass.style.opacity = '0';
+    } else {
+      glass.style.pointerEvents = '';
+      glass.style.opacity = '';
+    }
+  }
 };
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
@@ -721,7 +734,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
 
   ensureLauncherWired();
 
-  launcher.classList.remove('is-toast-open');
+  launcher.classList.remove('is-locking', 'is-toast-open');
 
   setPhoneOwnedByOS(true);
 
@@ -831,7 +844,7 @@ const wireAppButtons = () => {
   });
 
   launcher.addEventListener('click', handleLauncherActivate, true);
-  launcher.addEventListener('pointerup', handleLauncherActivate, true);
+  launcher.addEventListener('pointerdown', handleLauncherActivate, true);
   launcher.addEventListener('keydown', handleLauncherKeyActivate, true);
 
   if (backButton) backButton.addEventListener('click', () => openApp('home'));

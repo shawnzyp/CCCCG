@@ -9963,6 +9963,7 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .pt-launcher__panel[data-pt-launcher-panel]::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 30% 20%,color-mix(in srgb, var(--accent) 18%, transparent),transparent 55%),radial-gradient(circle at 80% 80%,rgba(0,229,255,.12),transparent 55%),linear-gradient(180deg,#050914,#02040a);opacity:.96;pointer-events:none;z-index:0}
 .pt-launcher__panel[data-pt-launcher-panel]>*{position:relative;z-index:1}
 .pt-launcher.is-open .pt-launcher__panel[data-pt-launcher-panel]{transform:translateY(0) scale(1);opacity:1}
+[data-pt-app-target]{touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .pt-launcher__header{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--pt-safe-top) + 10px) 16px 10px 16px;background:transparent;border-bottom:none;position:absolute;top:0;left:0;right:0;z-index:2}
 .pt-launcher__title{display:flex;align-items:center;gap:10px;color:var(--text)}
 .pt-launcher__title h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin:0}
