@@ -2600,6 +2600,10 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
         try {
           const response = await fetch(url, { method: 'HEAD' });
           ok = response && (response.ok || response.status === 405);
+          if(!ok){
+            const fallbackResponse = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
+            ok = !!(fallbackResponse && (fallbackResponse.ok || fallbackResponse.status === 206));
+          }
         } catch (err) {
           ok = false;
         }

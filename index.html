@@ -124,6 +124,21 @@
         window.clearTimeout(playRetryTimer);
         playRetryTimer = null;
       }
+      if(launchEl && launchEl.contains(document.activeElement)){
+        const fallback =
+          document.querySelector('#character-name') ||
+          document.querySelector('#player-tools-tab') ||
+          document.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if(fallback){
+          try {
+            fallback.focus({ preventScroll: true });
+          } catch (err) {
+            try { fallback.focus(); } catch (err2) {}
+          }
+        } else if(document.activeElement && typeof document.activeElement.blur === 'function'){
+          try { document.activeElement.blur(); } catch (err) {}
+        }
+      }
       try { if(video) video.pause(); } catch (err) {}
       body.classList.remove('launching');
       launchEl.setAttribute('data-hidden', 'true');
