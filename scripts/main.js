@@ -2144,10 +2144,18 @@ let characterConfirmationActive = null;
 let characterConfirmationTimer = null;
 let characterConfirmationPreviousFocus = null;
 
+function hasLaunchSequenceCompleted() {
+  if (typeof launchSequenceComplete === 'boolean') return launchSequenceComplete;
+  if (typeof window !== 'undefined' && typeof window.launchSequenceComplete === 'boolean') {
+    return window.launchSequenceComplete;
+  }
+  return false;
+}
+
 function isCharacterConfirmationBlocked() {
   const body = typeof document !== 'undefined' ? document.body : null;
   const launching = !!(body && body.classList.contains('launching'));
-  if (launching || !launchSequenceComplete) return true;
+  if (launching || !hasLaunchSequenceCompleted()) return true;
   const welcomeModal = getWelcomeModal();
   const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
   if (welcomeVisible || !welcomeSequenceComplete) return true;
@@ -4203,7 +4211,7 @@ const MENU_ACTION_HANDLERS = {
 const isMenuActionBlocked = () => {
   const body = typeof document !== 'undefined' ? document.body : null;
   const launching = !!(body && body.classList.contains('launching'));
-  if (launching || !launchSequenceComplete) return true;
+  if (launching || !hasLaunchSequenceCompleted()) return true;
   const welcomeModal = getWelcomeModal();
   const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
   if (welcomeVisible && !welcomeModalDismissed) return true;
@@ -4212,6 +4220,7 @@ const isMenuActionBlocked = () => {
 
 const handleMenuActionRequest = (event) => {
   const actionId = event?.detail?.action;
+  if (event?.defaultPrevented) return;
   if (!actionId || !(actionId in MENU_ACTION_HANDLERS)) return;
   if (isMenuActionBlocked()) {
     toast('Finish setup before opening tools.');
