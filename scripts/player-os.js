@@ -198,6 +198,11 @@ const setSetting = (key, value) => {
 };
 
 const isToastVisible = () => toast && !toast.hidden && toast.getAttribute('aria-hidden') !== 'true';
+const getGlobalToastElement = () => doc?.getElementById('toast') || null;
+const isGlobalToastTarget = (el) => {
+  const globalToast = getGlobalToastElement();
+  return !!(globalToast && el && globalToast.contains(el));
+};
 
 const getFocusable = () => {
   if (!launcher) return [];
@@ -231,6 +236,7 @@ const focusFirstElement = () => {
 
 const enforceFocus = (event) => {
   if (!state.open || !launcher) return;
+  if (isGlobalToastTarget(event.target)) return;
   if (isToastVisible() && toast && !toast.contains(event.target)) {
     focusFirstElement();
     return;
