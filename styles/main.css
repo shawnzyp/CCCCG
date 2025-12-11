@@ -9968,13 +9968,13 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .pt-launcher__panel[data-pt-launcher-panel]>*{position:relative;z-index:1}
 .pt-launcher.is-open .pt-launcher__panel[data-pt-launcher-panel]{transform:translateY(0) scale(1);opacity:1}
 [data-pt-app-target]{touch-action:manipulation;-webkit-user-select:none;user-select:none}
-.pt-launcher__header{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--pt-safe-top) + 10px) 16px 10px 16px;background:transparent;border-bottom:none;position:absolute;top:0;left:0;right:0;z-index:2}
+.pt-launcher__header{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--pt-safe-top, 28px) + 10px) 16px 10px 16px;background:transparent;border-bottom:none;position:absolute;top:0;left:0;right:0;z-index:2}
 .pt-launcher__title{display:flex;align-items:center;gap:10px;color:var(--text)}
 .pt-launcher__title h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.85;margin:0}
 .pt-launcher__glyph{display:none}
 .pt-launcher__close{width:38px;height:38px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10)}
 .pt-launcher__body{display:grid;grid-template-columns:1fr;grid-template-rows:1fr;flex:1;position:relative;background:transparent}
-.pt-lock{position:absolute;inset:0;z-index:250;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(var(--pt-safe-top) + 28px) 18px calc(var(--pt-safe-bottom) + 22px);background-image:radial-gradient(circle at 30% 15%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 45%), linear-gradient(180deg, rgba(5,8,18,.72), rgba(0,0,0,.78)), url("../images/IMG_3591.jpeg");background-size:cover,cover,cover;background-position:center,center,center;background-repeat:no-repeat,no-repeat,no-repeat;opacity:0;transform:translateY(8px);transition:opacity 160ms ease,transform 240ms ease;pointer-events:none;box-sizing:border-box;max-height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none}
+.pt-lock{position:absolute;inset:0;z-index:250;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(var(--pt-safe-top, 28px) + 28px) 18px calc(var(--pt-safe-bottom, 8px) + 22px);background-image:radial-gradient(circle at 30% 15%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 45%), linear-gradient(180deg, rgba(5,8,18,.72), rgba(0,0,0,.78)), url("../images/IMG_3591.jpeg");background-size:cover,cover,cover;background-position:center,center,center;background-repeat:no-repeat,no-repeat,no-repeat;opacity:0;transform:translateY(8px);transition:opacity 160ms ease,transform 240ms ease;pointer-events:none;box-sizing:border-box;max-height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none}
 .pt-lock::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.65));pointer-events:none}
 .pt-lock.is-on{opacity:1;transform:translateY(0);pointer-events:auto}
 .pt-lock.is-off{opacity:0;transform:translateY(-26px) scale(.995);pointer-events:none}
@@ -10014,7 +10014,7 @@ body:not(.no-hover) .pt-launcher__dock-btn:hover{filter:brightness(1.06);border-
 .pt-launcher__back{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid color-mix(in srgb, var(--accent) 28%, rgba(255,255,255,.1));background:color-mix(in srgb, var(--panel) 80%, rgba(255,255,255,.05));color:var(--text)}
 .pt-launcher__app-title{font-weight:700;text-transform:capitalize;color:var(--text)}
 .pt-launcher__app-view{display:flex;flex-direction:column;gap:12px}
-.pt-app-host{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:0 18px calc(var(--pt-safe-bottom) + 18px)}
+.pt-app-host{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:0 18px calc(var(--pt-safe-bottom, 8px) + 18px)}
 .pt-app-fragments{display:none}
 .pt-launcher__card{padding:18px;border-radius:16px;background:color-mix(in srgb, var(--panel) 82%, rgba(255,255,255,.06));border:1px solid color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,.08));box-shadow:0 10px 30px rgba(0,0,0,.2)}
 .pt-launcher__panel-title{margin:0 0 6px;font-size:18px;color:var(--text)}
