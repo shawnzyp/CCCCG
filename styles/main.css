@@ -9122,7 +9122,7 @@ animation: pt-splash-scan 1.05s linear infinite;
 #player-tools-drawer .pt-app{
 position: relative;
 height: 100%;
-padding-top: 34px;
+padding-top: calc(var(--pt-safe-top, 28px) + var(--pt-header-offset));
 z-index: 20;
 }
 
@@ -9951,8 +9951,12 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 
 /* Player OS launcher */
-[data-phone-shell]{--pt-safe-top: 28px;--pt-safe-bottom: 8px}
-.pt-launcher{--pt-header-offset: 60px;position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
+[data-phone-shell]{
+--pt-safe-top: 28px;
+--pt-safe-bottom: 8px;
+--pt-header-offset: 60px;
+}
+.pt-launcher{position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
 .pt-launcher.is-open{pointer-events:auto}
 .pt-launcher.is-locking{pointer-events:auto}
 .pt-launcher:focus{outline:none}
