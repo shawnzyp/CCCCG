@@ -823,8 +823,14 @@ function createPlayerToolsDrawer() {
     }
 
     const prevStage = Number(drawer.getAttribute('data-pt-crack') || '0');
-    drawer.setAttribute('data-pt-crack', String(stage));
-    if (rootEl) rootEl.setAttribute('data-pt-crack', String(stage));
+    const crackValue = String(stage);
+    drawer.setAttribute('data-pt-crack', crackValue);
+    if (rootEl) rootEl.setAttribute('data-pt-crack', crackValue);
+
+    const phoneShell = drawer.closest('[data-phone-shell]');
+    if (phoneShell) {
+      phoneShell.setAttribute('data-pt-crack', crackValue);
+    }
 
     if (stage === 0) {
       clearCrackSeed();

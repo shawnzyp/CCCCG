@@ -9045,10 +9045,11 @@ animation: pt-splash-scan 1.05s linear infinite;
 @keyframes pt-splash-scan{ to{ transform: translateX(280%); } }
 
 /* Cracks overlay container */
-#player-tools-drawer .pt-cracks{
+#player-tools-drawer .pt-cracks,
+[data-phone-shell] .pt-cracks{
   position:absolute;
   inset:0;
-  z-index: 999;
+  z-index: 260;
   pointer-events:none;
   transform: translateZ(0);
   opacity: 0;
@@ -9057,6 +9058,7 @@ animation: pt-splash-scan 1.05s linear infinite;
 }
 
 /* keep your glow mist if you like */
+[data-phone-shell] .pt-cracks::before,
 #player-tools-drawer .pt-cracks::before{
   content:"";
   position:absolute;
@@ -9074,6 +9076,7 @@ animation: pt-splash-scan 1.05s linear infinite;
 }
 
 /* Individual damage zones (stacked) */
+[data-phone-shell] .pt-crack-layer,
 #player-tools-drawer .pt-crack-layer{
   position:absolute;
   inset:0;
@@ -9090,30 +9093,50 @@ animation: pt-splash-scan 1.05s linear infinite;
 /* Stage visibility: each stage ADDS more areas */
 [data-pt-crack="0"] .pt-cracks{ opacity: 0; }
 
-[data-pt-crack="1"] .pt-cracks{ opacity: 1; }
-[data-pt-crack="1"] .pt-crack-layer:nth-child(1){ opacity: 0.35; }
+#player-tools-drawer[data-pt-crack="1"] .pt-cracks,
+[data-phone-shell][data-pt-crack="1"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="1"] .pt-crack-layer:nth-child(1),
+[data-phone-shell][data-pt-crack="1"] .pt-crack-layer:nth-child(1){ opacity: 0.35; }
 
-[data-pt-crack="2"] .pt-cracks{ opacity: 1; }
-[data-pt-crack="2"] .pt-crack-layer:nth-child(1){ opacity: 0.55; }
-[data-pt-crack="2"] .pt-crack-layer:nth-child(2){ opacity: 0.30; }
+#player-tools-drawer[data-pt-crack="2"] .pt-cracks,
+[data-phone-shell][data-pt-crack="2"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="2"] .pt-crack-layer:nth-child(1),
+[data-phone-shell][data-pt-crack="2"] .pt-crack-layer:nth-child(1){ opacity: 0.55; }
+#player-tools-drawer[data-pt-crack="2"] .pt-crack-layer:nth-child(2),
+[data-phone-shell][data-pt-crack="2"] .pt-crack-layer:nth-child(2){ opacity: 0.30; }
 
-[data-pt-crack="3"] .pt-cracks{ opacity: 1; }
-[data-pt-crack="3"] .pt-crack-layer:nth-child(1){ opacity: 0.70; }
-[data-pt-crack="3"] .pt-crack-layer:nth-child(2){ opacity: 0.45; }
-[data-pt-crack="3"] .pt-crack-layer:nth-child(3){ opacity: 0.28; }
+#player-tools-drawer[data-pt-crack="3"] .pt-cracks,
+[data-phone-shell][data-pt-crack="3"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(1),
+[data-phone-shell][data-pt-crack="3"] .pt-crack-layer:nth-child(1){ opacity: 0.70; }
+#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(2),
+[data-phone-shell][data-pt-crack="3"] .pt-crack-layer:nth-child(2){ opacity: 0.45; }
+#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(3),
+[data-phone-shell][data-pt-crack="3"] .pt-crack-layer:nth-child(3){ opacity: 0.28; }
 
-[data-pt-crack="4"] .pt-cracks{ opacity: 1; }
-[data-pt-crack="4"] .pt-crack-layer:nth-child(1){ opacity: 0.85; }
-[data-pt-crack="4"] .pt-crack-layer:nth-child(2){ opacity: 0.60; }
-[data-pt-crack="4"] .pt-crack-layer:nth-child(3){ opacity: 0.40; }
-[data-pt-crack="4"] .pt-crack-layer:nth-child(4){ opacity: 0.25; }
+#player-tools-drawer[data-pt-crack="4"] .pt-cracks,
+[data-phone-shell][data-pt-crack="4"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(1),
+[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(1){ opacity: 0.85; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(2),
+[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(2){ opacity: 0.60; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(3),
+[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(3){ opacity: 0.40; }
+#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(4),
+[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(4){ opacity: 0.25; }
 
-[data-pt-crack="5"] .pt-cracks{ opacity: 1; }
-[data-pt-crack="5"] .pt-crack-layer:nth-child(1){ opacity: 1; }
-[data-pt-crack="5"] .pt-crack-layer:nth-child(2){ opacity: 0.75; }
-[data-pt-crack="5"] .pt-crack-layer:nth-child(3){ opacity: 0.55; }
-[data-pt-crack="5"] .pt-crack-layer:nth-child(4){ opacity: 0.40; }
-[data-pt-crack="5"] .pt-crack-layer:nth-child(5){ opacity: 0.28; }
+#player-tools-drawer[data-pt-crack="5"] .pt-cracks,
+[data-phone-shell][data-pt-crack="5"] .pt-cracks{ opacity: 1; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(1),
+[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(1){ opacity: 1; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(2),
+[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(2){ opacity: 0.75; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(3),
+[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(3){ opacity: 0.55; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(4),
+[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(4){ opacity: 0.40; }
+#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(5),
+[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(5){ opacity: 0.28; }
 
 /* App UI */
 #player-tools-drawer .pt-app{
@@ -9949,11 +9972,13 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 /* Player OS launcher */
 [data-phone-shell]{
+position:relative;
+overflow:hidden;
 --pt-safe-top: 28px;
 --pt-safe-bottom: 8px;
 --pt-header-offset: 60px;
 }
-.pt-launcher{position:fixed;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
+.pt-launcher{position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
 .pt-launcher.is-open{pointer-events:auto}
 .pt-launcher.is-locking{pointer-events:auto}
 .pt-launcher:focus{outline:none}
@@ -10059,7 +10084,6 @@ html.ccHideTickers .ticker-drawer,html.ccHideTickers .news-ticker,html.ccHideTic
   }
 }
 
-[data-phone-shell]{position:relative;overflow:hidden}
 [data-phone-shell].pt-os-active .pt-screen__glass{opacity:0;pointer-events:none}
 [data-phone-shell] .pt-screen__glass{transition:opacity 120ms ease;pointer-events:auto}
 .pt-screen__glass::before,

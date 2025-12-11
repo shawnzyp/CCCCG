@@ -596,17 +596,20 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     return false;
   }
 
+  // Special bridge: "Player Tools" faux app should open the existing tray
   if (targetApp.id === 'playerTools') {
-    if (!state.open) {
-      const unlockPromise = openLauncher('home', { unlock: opts.unlock });
-      await Promise.resolve(unlockPromise);
-    }
-
-    if (token !== navToken) return false;
-
-    setAppView('home');
     closeLauncher();
-    requestAnimationFrame(() => openPlayerToolsDrawer());
+    window.setTimeout(() => {
+      try {
+        if (typeof window.openPlayerToolsDrawer === 'function') {
+          window.openPlayerToolsDrawer();
+        } else if (typeof openPlayerToolsDrawer === 'function') {
+          openPlayerToolsDrawer();
+        }
+      } catch (_) {
+        // Fail silently – worst case the user hits the original tab
+      }
+    }, 80);
     return true;
   }
 
