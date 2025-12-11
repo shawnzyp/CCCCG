@@ -533,6 +533,8 @@ const runUnlockSequence = () => {
   // hard reset so we never get stuck non-interactive
   hardEnd();
 
+  hideToast(false);
+
   // Cancel any previous in-flight sequence
   if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
   unlockCleanupTimer = null;
