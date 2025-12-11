@@ -8649,9 +8649,14 @@ function initDMLogin(){
       }
     }
     if (dmToggleBtn) {
-      dmToggleBtn.hidden = !loggedIn;
+      dmToggleBtn.hidden = false;
+      dmToggleBtn.setAttribute('aria-hidden', 'false');
       const expanded = loggedIn && menu && menu.classList.contains(MENU_OPEN_CLASS);
       dmToggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      if (dmToggleBaseLabel) {
+        const label = loggedIn ? dmToggleBaseLabel : `${dmToggleBaseLabel} (login required)`;
+        dmToggleBtn.setAttribute('aria-label', label);
+      }
     }
   }
 

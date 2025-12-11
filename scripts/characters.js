@@ -693,11 +693,15 @@ export function persistLocalAutosaveSnapshot(name, snapshot, serialized) {
 
 export function preflightSnapshotForLoad(name, snapshot, { showRecoveryToast = true } = {}) {
   const migrated = migrateSavePayload(snapshot);
-  const isValid = isSnapshotChecksumValid(migrated) && isCharacterPayloadValid(migrated);
-  if (isValid) {
+  const hasPayload = isCharacterPayloadValid(migrated);
+  const checksumValid = isSnapshotChecksumValid(migrated);
+
+  if (hasPayload) {
     const { payload, changed } = buildCanonicalPayload(migrated);
-    return { payload, recovered: false, changed };
+    const needsResave = changed || !checksumValid;
+    return { payload, recovered: false, changed: needsResave };
   }
+
   const autosaves = loadLocalAutosaveSnapshot(name);
   const fallback = [autosaves.latest, autosaves.previous]
     .find(candidate => isSnapshotChecksumValid(candidate) && isCharacterPayloadValid(candidate));
@@ -763,14 +767,16 @@ export function buildCanonicalPayload(migrated) {
   if (cleanedCharacter && typeof cleanedCharacter === 'object' && 'uiState' in cleanedCharacter) {
     delete cleanedCharacter.uiState;
   }
-  const meta = normalizeSnapshotMeta(migrated.meta || {}, cleanedCharacter, workingUi, {
+  const checksum = calculateSnapshotChecksum({ character: cleanedCharacter, ui: workingUi });
+  const meta = normalizeSnapshotMeta({ ...(migrated.meta || {}), checksum }, cleanedCharacter, workingUi, {
     schemaVersion: migrated.schemaVersion ?? SAVE_SCHEMA_VERSION,
     uiVersion: migrated.uiVersion ?? UI_STATE_VERSION,
     savedAt: migrated.savedAt ?? Date.now(),
     appVersion: migrated.appVersion ?? APP_VERSION,
-    checksum: migrated.checksum,
+    checksum,
   });
-  const checksum = meta.checksum || calculateSnapshotChecksum({ character: cleanedCharacter, ui: workingUi });
+  const previousChecksum = migrated.meta?.checksum || migrated.checksum || null;
+  const checksumChanged = Boolean(previousChecksum && meta.checksum && previousChecksum !== meta.checksum);
   const payload = {
     meta: { ...meta, checksum },
     schemaVersion: meta.schemaVersion,
@@ -781,7 +787,7 @@ export function buildCanonicalPayload(migrated) {
     character: cleanedCharacter,
     ui: workingUi,
   };
-  return { payload, changed };
+  return { payload, changed: changed || checksumChanged };
 }
 
 function getPinPrompt(message) {
