@@ -3114,209 +3114,210 @@
 </div>
 
 <!-- Player OS launcher overlay -->
-<section
-  id="ptLauncher"
-  class="pt-launcher"
-  hidden
-  role="dialog"
-  aria-modal="true"
-  tabindex="-1"
->
-    <div class="pt-launcher__scrim" data-pt-launcher-scrim></div>
-    <div class="pt-launcher__panel" data-pt-launcher-panel>
-      <div class="pt-cracks pt-cracks--launcher" aria-hidden="true" data-pt-cracks></div>
-      <!-- Faux boot overlay -->
-      <div class="pt-boot" data-pt-boot hidden aria-hidden="true">
-        <div class="pt-boot__inner">
-          <div class="pt-boot__icon" data-pt-boot-icon aria-hidden="true"></div>
-          <div class="pt-boot__label" data-pt-boot-label></div>
-          <div class="pt-boot__bar" role="progressbar" aria-label="Launching">
-            <span class="pt-boot__barFill" data-pt-boot-fill></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Faux lockscreen -->
-      <div class="pt-lock" data-pt-lock hidden aria-hidden="true">
-        <div class="pt-lock__top">
-          <div class="pt-lock__time" data-pt-lock-time>9:41</div>
-          <div class="pt-lock__date" data-pt-lock-date>Tuesday, Dec 9</div>
-        </div>
-
-        <div class="pt-lock__hint">Swipe up to unlock</div>
-      </div>
-
-      <!-- Auto-dismiss locked modal -->
-      <div
-        class="pt-toast"
-        data-pt-toast
-        hidden
-        aria-hidden="true"
-        role="status"
-        aria-live="polite"
-      >
-        <div class="pt-toast__card">
-          <div class="pt-toast__msg" data-pt-toast-msg></div>
-        </div>
-      </div>
-      <div class="pt-launcher__body">
-        <div class="pt-launcher__home" data-pt-launcher-home>
-          <div class="pt-launcher__apps" role="list">
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="playerTools" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">🛠️</span>
-              <span class="pt-launcher__app-label">Player Tools</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="shards" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">♦️</span>
-              <span class="pt-launcher__app-label">TSoMF</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="messages" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">📡</span>
-              <span class="pt-launcher__app-label">Director’s Messages</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="settings" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">⚙️</span>
-              <span class="pt-launcher__app-label">Settings</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="loadSave" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">💾</span>
-              <span class="pt-launcher__app-label">Load / Save</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="encounter" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">⚔️</span>
-              <span class="pt-launcher__app-label">Encounter / Initiative</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="actionLog" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">📝</span>
-              <span class="pt-launcher__app-label">Action Log</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="creditsLedger" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">💳</span>
-              <span class="pt-launcher__app-label">Credits Ledger</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="campaignLog" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">📓</span>
-              <span class="pt-launcher__app-label">Campaign Log</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="rules" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">📖</span>
-              <span class="pt-launcher__app-label">Rules</span>
-            </button>
-            <button class="pt-launcher__app-card" type="button" data-pt-app-target="help" role="listitem">
-              <span class="pt-launcher__app-icon" aria-hidden="true">❔</span>
-              <span class="pt-launcher__app-label">Help</span>
-            </button>
-            <button
-              class="pt-launcher__app-card pt-launcher__app-card--locked"
-              type="button"
-              data-pt-app-target="locked"
-              role="listitem"
-            >
-              <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
-              <span class="pt-launcher__app-label">OMNI Vault</span>
-            </button>
-            <button
-              class="pt-launcher__app-card pt-launcher__app-card--locked"
-              type="button"
-              data-pt-app-target="locked"
-              role="listitem"
-            >
-              <span class="pt-launcher__app-icon" aria-hidden="true">🔒</span>
-              <span class="pt-launcher__app-label">Arcade</span>
-            </button>
-          </div>
-        <nav class="pt-launcher__dock" aria-label="Quick launch">
-          <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="playerTools">
-            <span aria-hidden="true">🛠️</span>
-            <span class="sr-only">Player Tools</span>
-          </button>
-          <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="shards">
-            <span aria-hidden="true">♦️</span>
-            <span class="sr-only">TSoMF</span>
-          </button>
-          <button type="button" class="pt-launcher__dock-btn" data-pt-app-target="settings">
-            <span aria-hidden="true">⚙️</span>
-            <span class="sr-only">Settings</span>
-          </button>
-        </nav>
-      </div>
-      <div class="pt-launcher__app-view" data-pt-launcher-app hidden>
-        <header class="pt-launcher__app-header">
-          <button type="button" class="pt-launcher__back" data-pt-launcher-back>
-            <span aria-hidden="true">←</span>
-            <span class="pt-launcher__back-label">Back</span>
-          </button>
-          <div class="pt-launcher__app-title" data-pt-launcher-app-title></div>
-        </header>
-        <div class="pt-app-host" data-pt-app-host></div>
-      </div>
+<section data-pt-launcher class="pt-launcher" aria-hidden="false">
+  <div class="pt-lock-screen" data-pt-lock-screen>
+    <div class="pt-lock-inner">
+      <div class="pt-lock-time">09:41</div>
+      <div class="pt-lock-date">Tuesday, Dec 9</div>
+      <button type="button" class="pt-lock-unlock" data-pt-lock-unlock>Swipe up to unlock</button>
     </div>
   </div>
-</section>
 
-<div class="pt-app-fragments" data-pt-app-fragments hidden aria-hidden="true">
-  <section class="pt-launcher__card" data-pt-app-fragment="playerTools" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">Player Tools</h3>
-    <p class="pt-launcher__panel-text">Launch the quick tray for dice, status, and utilities.</p>
-    <button type="button" class="pt-launcher__primary" data-pt-open-quick-tray>Open Quick Tray</button>
-  </section>
-
-  <section class="pt-launcher__card" data-pt-app-fragment="shards" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">TSoMF</h3>
-    <p class="pt-launcher__panel-text">Summon the Shards draw flow.</p>
-    <button type="button" class="pt-launcher__primary" data-pt-open-shards>Draw Shards</button>
-  </section>
-
-  <section class="pt-launcher__card" data-pt-app-fragment="messages" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">Director’s Messages</h3>
-    <p class="pt-launcher__panel-text">Awaiting next directive. Check back soon.</p>
-  </section>
-
-  <section class="pt-launcher__card" data-pt-app-fragment="settings" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">Settings</h3>
-    <div class="pt-launcher__setting">
-      <div>
-        <div class="pt-launcher__setting-label">Theme</div>
-        <div class="pt-launcher__setting-hint">Cycle through available themes.</div>
-      </div>
-      <button type="button" class="pt-launcher__secondary" data-pt-theme-next>Next Theme</button>
+  <div class="pt-home" data-pt-launcher-home hidden aria-hidden="true">
+    <div class="pt-home-grid" role="list">
+      <button class="pt-home-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem">
+        <span class="icon" aria-hidden="true">🛠️</span>
+        <span class="label">Player Tools</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="shards" data-pt-app-label="Shards of Many Fates" role="listitem">
+        <span class="icon" aria-hidden="true">♦️</span>
+        <span class="label">Shards</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem">
+        <span class="icon" aria-hidden="true">📡</span>
+        <span class="label">Messages</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="settings" data-pt-app-label="Settings" role="listitem">
+        <span class="icon" aria-hidden="true">⚙️</span>
+        <span class="label">Settings</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="loadSave" data-pt-app-label="Load / Save" role="listitem">
+        <span class="icon" aria-hidden="true">💾</span>
+        <span class="label">Load / Save</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="encounter" data-pt-app-label="Encounter / Initiative" role="listitem">
+        <span class="icon" aria-hidden="true">⚔️</span>
+        <span class="label">Encounter</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="actionLog" data-pt-app-label="Action Log" role="listitem">
+        <span class="icon" aria-hidden="true">📝</span>
+        <span class="label">Action Log</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="creditsLedger" data-pt-app-label="Credits Ledger" role="listitem">
+        <span class="icon" aria-hidden="true">💳</span>
+        <span class="label">Credits</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem">
+        <span class="icon" aria-hidden="true">📓</span>
+        <span class="label">Campaign</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="rules" data-pt-app-label="Rules" role="listitem">
+        <span class="icon" aria-hidden="true">📖</span>
+        <span class="label">Rules</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="help" data-pt-app-label="Help" role="listitem">
+        <span class="icon" aria-hidden="true">❔</span>
+        <span class="label">Help</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="OMNI Vault" role="listitem">
+        <span class="icon" aria-hidden="true">🔒</span>
+        <span class="label">OMNI Vault</span>
+      </button>
+      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="Arcade" role="listitem">
+        <span class="icon" aria-hidden="true">🔒</span>
+        <span class="label">Arcade</span>
+      </button>
     </div>
-    <label class="pt-launcher__setting">
-      <span>
-        <span class="pt-launcher__setting-label">Reduce motion</span>
-        <span class="pt-launcher__setting-hint">Minimize launcher and page animations.</span>
-      </span>
-      <input type="checkbox" data-pt-reduce-motion />
-    </label>
-    <label class="pt-launcher__setting">
-      <span>
-        <span class="pt-launcher__setting-label">Hide live tickers</span>
-        <span class="pt-launcher__setting-hint">Remove scrolling news ribbons.</span>
-      </span>
-      <input type="checkbox" data-pt-hide-tickers />
-    </label>
-  </section>
+  </div>
 
-  <section class="pt-launcher__card" data-pt-app-fragment="initiative" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">Initiative</h3>
-    <p class="pt-launcher__panel-text">Manage turn order without leaving the faux phone.</p>
-  </section>
+  <div class="pt-app" data-pt-launcher-app hidden aria-hidden="true">
+    <header class="pt-app-header">
+      <button type="button" class="pt-back" data-pt-launcher-back aria-label="Back to home">‹</button>
+      <div class="pt-app-titles">
+        <div id="ptLauncherTitle" class="pt-app-title">Player OS</div>
+        <div data-pt-launcher-app-title class="pt-app-subtitle"></div>
+      </div>
+    </header>
+    <main class="pt-app-host" data-pt-app-host></main>
+  </div>
 
-  <section class="pt-launcher__card" data-pt-app-fragment="codex" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">Codex</h3>
-    <p class="pt-launcher__panel-text">Lookup lore and rules references from the phone shell.</p>
-  </section>
+  <template data-pt-app="playerTools">
+    <section class="pt-card">
+      <h3>Player Tools</h3>
+      <p>Launch the quick tray for dice, status, and utilities.</p>
+      <button type="button" class="pt-btn" data-pt-open-quick-tray>Open Quick Tray</button>
+    </section>
+  </template>
 
-  <section class="pt-launcher__card" data-pt-app-fragment="missions" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">Missions</h3>
-    <p class="pt-launcher__panel-text">Review mission briefs and objectives in a dedicated view.</p>
-  </section>
+  <template data-pt-app="shards">
+    <section class="pt-card">
+      <h3>The Shards of Many Fates</h3>
+      <p>Summon the draw flow and tempt fate.</p>
+      <button type="button" class="pt-btn" data-pt-open-shards>Draw Shards</button>
+    </section>
+  </template>
 
-  <section class="pt-launcher__card" data-pt-app-fragment="locked" hidden aria-hidden="true">
-    <h3 class="pt-launcher__panel-title">Access Restricted</h3>
-    <p class="pt-launcher__panel-text">This app is locked. Return to the home screen to pick another.</p>
-  </section>
-</div>
+  <template data-pt-app="messages">
+    <section class="pt-card">
+      <h3>Director’s Messages</h3>
+      <p>Awaiting next directive. Check back soon.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="settings">
+    <section class="pt-card">
+      <h3>Settings</h3>
+      <div class="pt-setting">
+        <div>
+          <div class="pt-setting__label">Theme</div>
+          <div class="pt-setting__hint">Cycle through available themes.</div>
+        </div>
+        <button type="button" class="pt-btn pt-btn--ghost" data-pt-theme-next>Next Theme</button>
+      </div>
+      <label class="pt-setting">
+        <span>
+          <span class="pt-setting__label">Reduce motion</span>
+          <span class="pt-setting__hint">Minimize launcher and page animations.</span>
+        </span>
+        <input type="checkbox" data-pt-reduce-motion />
+      </label>
+      <label class="pt-setting">
+        <span>
+          <span class="pt-setting__label">Hide live tickers</span>
+          <span class="pt-setting__hint">Remove scrolling news ribbons.</span>
+        </span>
+        <input type="checkbox" data-pt-hide-tickers />
+      </label>
+    </section>
+  </template>
+
+  <template data-pt-app="loadSave">
+    <section class="pt-card">
+      <h3>Load / Save</h3>
+      <p>Manage campaign save files from the phone shell.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="encounter">
+    <section class="pt-card">
+      <h3>Encounter / Initiative</h3>
+      <p>Manage turn order without leaving the faux phone.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="actionLog">
+    <section class="pt-card">
+      <h3>Action Log</h3>
+      <p>Review the latest table actions at a glance.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="creditsLedger">
+    <section class="pt-card">
+      <h3>Credits Ledger</h3>
+      <p>Track and reconcile all credit transfers.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="campaignLog">
+    <section class="pt-card">
+      <h3>Campaign Log</h3>
+      <p>Keep a running record of the campaign’s events.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="rules">
+    <section class="pt-card">
+      <h3>Rules</h3>
+      <p>Lookup lore and rules references from the phone shell.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="help">
+    <section class="pt-card">
+      <h3>Help</h3>
+      <p>Find quick assistance for the table.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="locked">
+    <section class="pt-card">
+      <h3>Access Restricted</h3>
+      <p>This app is locked. Return to the home screen to pick another.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="initiative">
+    <section class="pt-card">
+      <h3>Initiative</h3>
+      <p>Track encounters inside the faux OS.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="codex">
+    <section class="pt-card">
+      <h3>Codex</h3>
+      <p>Browse key lore in a focused view.</p>
+    </section>
+  </template>
+
+  <template data-pt-app="missions">
+    <section class="pt-card">
+      <h3>Missions</h3>
+      <p>Review mission briefs and objectives.</p>
+    </section>
+  </template>
+</section>
 
 <!-- Player Tools tab (left-edge vertical pill) -->
 
