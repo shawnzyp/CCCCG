@@ -269,6 +269,7 @@ function createPlayerToolsDrawer() {
   if (!doc) return null;
 
   const drawer = doc.getElementById('player-tools-drawer');
+  const rootEl = doc.documentElement || null;
   const tab = doc.getElementById('player-tools-tab');
   const scrim = drawer
     ? drawer.querySelector('[data-player-tools-scrim], [data-pt-scrim]')
@@ -276,7 +277,8 @@ function createPlayerToolsDrawer() {
   const tray = drawer ? drawer.querySelector('.pt-tray') : null;
   const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
   const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
-  const cracks = drawer ? drawer.querySelector('.pt-cracks') : null;
+  const crackOverlays = doc ? Array.from(doc.querySelectorAll('[data-pt-cracks]')) : [];
+  const cracks = crackOverlays[0] || null;
 
   const clockEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-clock]')) : [];
   const batteryEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-battery]')) : [];
@@ -661,18 +663,49 @@ function createPlayerToolsDrawer() {
   const rand = (min, max) => min + Math.random() * (max - min);
 
   const ensureCrackLayers = () => {
-    if (!cracks) return [];
+    if (!crackOverlays.length || !cracks) return [];
     let layers = cracks.querySelectorAll('.pt-crack-layer');
-    if (layers && layers.length) return Array.from(layers);
-
-    cracks.textContent = '';
-    for (let i = 0; i < MAX_CRACK_LAYERS; i++) {
-      const layer = doc.createElement('span');
-      layer.className = 'pt-crack-layer';
-      layer.setAttribute('aria-hidden', 'true');
-      cracks.appendChild(layer);
+    if (!layers || !layers.length) {
+      cracks.textContent = '';
+      for (let i = 0; i < MAX_CRACK_LAYERS; i++) {
+        const layer = doc.createElement('span');
+        layer.className = 'pt-crack-layer';
+        layer.setAttribute('aria-hidden', 'true');
+        cracks.appendChild(layer);
+      }
+      layers = cracks.querySelectorAll('.pt-crack-layer');
     }
-    return Array.from(cracks.querySelectorAll('.pt-crack-layer'));
+
+    crackOverlays.forEach((overlay) => {
+      if (!overlay || overlay === cracks) return;
+      let overlayLayers = overlay.querySelectorAll('.pt-crack-layer');
+      if (!overlayLayers || overlayLayers.length !== MAX_CRACK_LAYERS) {
+        overlay.textContent = '';
+        for (let i = 0; i < MAX_CRACK_LAYERS; i++) {
+          const layer = doc.createElement('span');
+          layer.className = 'pt-crack-layer';
+          layer.setAttribute('aria-hidden', 'true');
+          overlay.appendChild(layer);
+        }
+        overlayLayers = overlay.querySelectorAll('.pt-crack-layer');
+      }
+    });
+
+    return Array.from(layers);
+  };
+
+  const syncCrackStyles = () => {
+    if (crackOverlays.length <= 1 || !cracks) return;
+    const sourceLayers = ensureCrackLayers();
+    const snapshots = sourceLayers.map((layer) => layer.getAttribute('style') || '');
+
+    crackOverlays.forEach((overlay) => {
+      if (!overlay || overlay === cracks) return;
+      const layers = Array.from(overlay.querySelectorAll('.pt-crack-layer'));
+      snapshots.forEach((style, index) => {
+        if (layers[index]) layers[index].setAttribute('style', style);
+      });
+    });
   };
 
   const parsePos = (posStr) => {
@@ -698,13 +731,15 @@ function createPlayerToolsDrawer() {
   };
 
   const clearCrackSeed = () => {
-    if (!cracks) return;
-    const layers = cracks.querySelectorAll('.pt-crack-layer');
-    if (!layers || !layers.length) return;
-    layers.forEach((layer) => {
-      layer.style.removeProperty('background-position');
-      layer.style.removeProperty('background-size');
-      layer.style.removeProperty('transform');
+    if (!crackOverlays.length) return;
+    crackOverlays.forEach((overlay) => {
+      const layers = overlay.querySelectorAll('.pt-crack-layer');
+      if (!layers || !layers.length) return;
+      layers.forEach((layer) => {
+        layer.style.removeProperty('background-position');
+        layer.style.removeProperty('background-size');
+        layer.style.removeProperty('transform');
+      });
     });
   };
 
@@ -766,6 +801,7 @@ function createPlayerToolsDrawer() {
     const hpState = getHpState();
     if (!hpState) {
       drawer.setAttribute('data-pt-crack', '0');
+      if (rootEl) rootEl.setAttribute('data-pt-crack', '0');
       clearCrackSeed();
       return;
     }
@@ -788,6 +824,7 @@ function createPlayerToolsDrawer() {
 
     const prevStage = Number(drawer.getAttribute('data-pt-crack') || '0');
     drawer.setAttribute('data-pt-crack', String(stage));
+    if (rootEl) rootEl.setAttribute('data-pt-crack', String(stage));
 
     if (stage === 0) {
       clearCrackSeed();
@@ -808,6 +845,8 @@ function createPlayerToolsDrawer() {
       // Healing: keep existing seeds intact so damage returns in familiar spots
       // (optional: clearCrackSeed() here if you prefer fresh cracks after heals)
     }
+
+    syncCrackStyles();
   };
 
   const handleKeydown = (event) => {

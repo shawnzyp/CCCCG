@@ -596,6 +596,20 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     return false;
   }
 
+  if (targetApp.id === 'playerTools') {
+    if (!state.open) {
+      const unlockPromise = openLauncher('home', { unlock: opts.unlock });
+      await Promise.resolve(unlockPromise);
+    }
+
+    if (token !== navToken) return false;
+
+    setAppView('home');
+    closeLauncher();
+    requestAnimationFrame(() => openPlayerToolsDrawer());
+    return true;
+  }
+
   if (targetApp.action) {
     if (!state.open) {
       const unlockPromise = openLauncher('home', { unlock: opts.unlock });
