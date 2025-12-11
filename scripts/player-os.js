@@ -156,9 +156,9 @@
     },
   };
 
-  window.PlayerLauncher = Object.assign({}, playerApi);
+  window.PlayerLauncher = playerApi;
 
-  window.PlayerOS = Object.assign({}, playerApi, {
+  window.PlayerOS = Object.assign(Object.create(playerApi), {
     openLauncher: openLauncher,
     closeLauncher: closeLauncher,
   });
