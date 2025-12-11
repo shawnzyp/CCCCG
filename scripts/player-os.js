@@ -13,6 +13,19 @@ const setPhoneOwnedByOS = (owned) => {
   const shell = getPhoneShell();
   if (!shell) return;
   shell.classList.toggle('pt-os-active', !!owned);
+
+  // Safety: never let the faux glass intercept taps while Player OS is open.
+  const glass =
+    shell.querySelector?.('.pt-screen__glass, [data-pt-screen-glass], [data-screen-glass]') || null;
+  if (glass) {
+    if (owned) {
+      glass.style.pointerEvents = 'none';
+      glass.style.opacity = '0';
+    } else {
+      glass.style.pointerEvents = '';
+      glass.style.opacity = '';
+    }
+  }
 };
 const scrim = launcher?.querySelector('[data-pt-launcher-scrim]') || null;
 const homeView = launcher?.querySelector('[data-pt-launcher-home]') || null;
@@ -35,9 +48,11 @@ const lockDate = launcher?.querySelector('[data-pt-lock-date]') || null;
 let toastTimer = null;
 let bootTimer = null;
 let unlockToken = 0;
-let unlockTimer = null;
 let unlockCleanupTimer = null;
 let toastPrevFocus = null;
+let lockGestureCleanup = null;
+let launcherWired = false;
+let lastLauncherActivationTs = 0;
 
 const focusableSelector = [
   'button:not([disabled])',
@@ -104,9 +119,15 @@ const canOpenApp = (app) => {
   return true;
 };
 
-const LOCKSCREEN_DURATION_MS = 2500;
 // Keep fade duration just above the longest lock transition (opacity 160ms, transform 240ms).
 const LOCK_FADE_MS = 260;
+const LOCK_SWIPE_THRESHOLD = 40;
+const LAUNCHER_ACTIVATE_DEBOUNCE_MS = 250;
+
+const nowTs = () =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
 
 const portal = doc ? createPortal(doc) : null;
 
@@ -117,6 +138,17 @@ const dispatchMenuAction = (actionId) => {
     cancelable: true,
   });
   return window.dispatchEvent(event);
+};
+
+const isMenuActionBlocked = () => {
+  if (typeof window !== 'undefined' && typeof window.isMenuActionBlocked === 'function') {
+    return window.isMenuActionBlocked();
+  }
+  const body = doc?.body || null;
+  const launching = !!(body && body.classList.contains('launching'));
+  const welcomeModal = doc?.getElementById('modal-welcome') || null;
+  const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
+  return launching || welcomeVisible;
 };
 
 let mountedFragment = null;
@@ -311,6 +343,7 @@ const showLockedToast = (msg = 'This app is locked.') => {
 const hideToast = (restoreFocus = true) => {
   if (toastTimer) window.clearTimeout(toastTimer);
   toastTimer = null;
+  if (launcher) launcher.classList.remove('is-toast-open');
   if (!toast) {
     toastPrevFocus = null;
     return;
@@ -320,7 +353,6 @@ const hideToast = (restoreFocus = true) => {
   toast.hidden = true;
   toast.setAttribute('aria-hidden', 'true');
   toast.removeAttribute('tabindex');
-  launcher?.classList.remove('is-toast-open');
 
   if (restoreFocus && wasVisible) {
     const focusTarget = toastPrevFocus && doc?.contains(toastPrevFocus) ? toastPrevFocus : launcher;
@@ -423,22 +455,87 @@ const endLockSequence = (lockEl, launcherEl) => {
   lockEl.hidden = true;
   lockEl.setAttribute('aria-hidden', 'true');
   lockEl.classList.remove('is-on', 'is-off');
+  lockEl.removeAttribute('tabindex');
   launcherEl.classList.remove('is-locking');
 };
 
-const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
+const attachLockGesture = (lockEl, resolve) => {
+  let startY = null;
+  const usePointer = typeof window !== 'undefined' && 'PointerEvent' in window;
+
+  const onPointerDown = (event) => {
+    if (event.pointerType === 'mouse' && event.buttons === 0) return;
+    startY = event.clientY ?? event.touches?.[0]?.clientY ?? null;
+  };
+
+  const onPointerUp = (event) => {
+    if (startY == null) return;
+    const endY = event.clientY ?? event.changedTouches?.[0]?.clientY ?? null;
+    if (endY == null) return;
+    const delta = startY - endY;
+    if (delta >= LOCK_SWIPE_THRESHOLD) {
+      cleanup();
+      resolve();
+    }
+  };
+
+  const onPointerCancel = () => {
+    startY = null;
+  };
+
+  const onKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      cleanup();
+      resolve();
+    }
+  };
+
+  const cleanup = () => {
+    startY = null;
+    if (usePointer) {
+      lockEl.removeEventListener('pointerdown', onPointerDown);
+      lockEl.removeEventListener('pointerup', onPointerUp);
+      lockEl.removeEventListener('pointercancel', onPointerCancel);
+    } else {
+      lockEl.removeEventListener('touchstart', onPointerDown);
+      lockEl.removeEventListener('touchend', onPointerUp);
+    }
+    lockEl.removeEventListener('keydown', onKeyDown);
+  };
+
+  if (usePointer) {
+    lockEl.addEventListener('pointerdown', onPointerDown);
+    lockEl.addEventListener('pointerup', onPointerUp);
+    lockEl.addEventListener('pointercancel', onPointerCancel);
+  } else {
+    lockEl.addEventListener('touchstart', onPointerDown, { passive: true });
+    lockEl.addEventListener('touchend', onPointerUp);
+  }
+  lockEl.addEventListener('keydown', onKeyDown);
+
+  return cleanup;
+};
+
+const runUnlockSequence = () => {
   const token = ++unlockToken;
 
   if (!launcher || !lock) return Promise.resolve();
 
-  const hardEnd = () => endLockSequence(lock, launcher);
+  const hardEnd = () => {
+    if (lockGestureCleanup) {
+      lockGestureCleanup();
+      lockGestureCleanup = null;
+    }
+    endLockSequence(lock, launcher);
+  };
 
   // hard reset so we never get stuck non-interactive
   hardEnd();
 
   // Cancel any previous in-flight sequence
-  if (unlockTimer) clearTimeout(unlockTimer);
   if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
+  unlockCleanupTimer = null;
 
   updateLockText();
 
@@ -447,31 +544,44 @@ const runUnlockSequence = (durationMs = LOCKSCREEN_DURATION_MS) => {
   lock.classList.remove('is-on', 'is-off');
   lock.hidden = false;
   lock.setAttribute('aria-hidden', 'false');
-
-  requestAnimationFrame(() => {
-    if (token !== unlockToken) return hardEnd();
-    lock.classList.add('is-on');
-  });
-
-  const totalDuration = Math.max(0, Number(durationMs) || 0);
-  const fadeDuration = Math.min(totalDuration, Math.max(0, Number(LOCK_FADE_MS) || 0));
-  const visibleDuration = Math.max(0, totalDuration - fadeDuration);
+  lock.setAttribute('tabindex', '0');
 
   return new Promise((resolve) => {
-    unlockTimer = setTimeout(() => {
-      if (token !== unlockToken) { hardEnd(); return resolve(); } // superseded
+    const finish = () => {
+      if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
+      unlockCleanupTimer = null;
+      if (lockGestureCleanup) {
+        lockGestureCleanup();
+        lockGestureCleanup = null;
+      }
+      endLockSequence(lock, launcher);
+      resolve();
+    };
 
-      // animate away
+    const startFade = () => {
+      if (token !== unlockToken) return hardEnd();
       lock.classList.remove('is-on');
       lock.classList.add('is-off');
+      lock.addEventListener('transitionend', (event) => {
+        if (event.target !== lock) return;
+        finish();
+      }, { once: true });
+      unlockCleanupTimer = setTimeout(finish, LOCK_FADE_MS + 60);
+    };
 
-      // give the CSS transition time, then hard cleanup no matter what
-      unlockCleanupTimer = setTimeout(() => {
-        if (token !== unlockToken) { hardEnd(); return resolve(); }
-        hardEnd();
-        resolve();
-      }, fadeDuration || 0);
-    }, visibleDuration);
+    lockGestureCleanup = attachLockGesture(lock, startFade);
+
+    requestAnimationFrame(() => {
+      if (token !== unlockToken) return hardEnd();
+      lock.classList.add('is-on');
+      try {
+        lock.focus({ preventScroll: true });
+      } catch (err) {
+        try {
+          lock.focus();
+        } catch (err2) {}
+      }
+    });
   });
 };
 
@@ -505,6 +615,11 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
     }
 
     if (token !== navToken) return false;
+
+    if (isMenuActionBlocked()) {
+      showLockedToast('Finish setup before opening tools.');
+      return false;
+    }
 
     setAppView('home');
     closeLauncher();
@@ -604,10 +719,12 @@ const closeLauncher = () => {
     boot.hidden = true;
     boot.setAttribute('aria-hidden', 'true');
   }
-  if (unlockTimer) clearTimeout(unlockTimer);
+  if (lockGestureCleanup) {
+    lockGestureCleanup();
+    lockGestureCleanup = null;
+  }
   if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
   unlockToken += 1;
-  unlockTimer = null;
   unlockCleanupTimer = null;
   const tab = doc?.getElementById('player-tools-tab');
   const focusTarget = state.lastFocused && doc?.contains(state.lastFocused) ? state.lastFocused : tab;
@@ -621,7 +738,7 @@ const closeLauncher = () => {
   if (lock) endLockSequence(lock, launcher);
   launcher.setAttribute('aria-hidden', 'true');
   launcher.hidden = true;
-  launcher.classList.remove('is-open');
+  launcher.classList.remove('is-open', 'is-locking', 'is-toast-open');
   doc?.removeEventListener('keydown', handleKeydown, true);
   doc?.removeEventListener('focusin', enforceFocus, true);
   if (backButton) backButton.setAttribute('tabindex', '-1');
@@ -634,6 +751,10 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
     if (!mountLauncher()) return Promise.resolve(false);
   }
 
+  ensureLauncherWired();
+
+  launcher.classList.remove('is-locking', 'is-toast-open');
+
   setPhoneOwnedByOS(true);
 
   const target = normalizeAppId(nextApp);
@@ -643,7 +764,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   if (launcher && state.open) {
     setAppView(target);
     if (!shouldUnlock) return Promise.resolve(true);
-    return runUnlockSequence(LOCKSCREEN_DURATION_MS).then(() => {
+    return runUnlockSequence().then(() => {
       if (state.open) focusFirstElement();
       return true;
     });
@@ -664,8 +785,7 @@ const openLauncher = (nextApp = 'home', opts = {}) => {
   const tab = doc?.getElementById('player-tools-tab');
   if (tab) tab.setAttribute('aria-expanded', 'true');
 
-  const unlockDelay = shouldUnlock ? LOCKSCREEN_DURATION_MS : 0;
-  const unlockPromise = shouldUnlock ? runUnlockSequence(unlockDelay) : Promise.resolve();
+  const unlockPromise = shouldUnlock ? runUnlockSequence() : Promise.resolve();
 
   requestAnimationFrame(() => {
     if (launcher) {
@@ -698,18 +818,60 @@ const handleScrimClick = (event) => {
   if (event?.target === scrim) closeLauncher();
 };
 
+const handleLauncherActivate = (event) => {
+  if (!launcher) return;
+
+  const targetEl = event?.target?.closest?.('[data-pt-app-target]');
+  if (!targetEl || !launcher.contains(targetEl)) return;
+
+  const eventTs =
+    typeof event?.timeStamp === 'number' && event.timeStamp > 0 ? event.timeStamp : nowTs();
+  if (eventTs - lastLauncherActivationTs < LAUNCHER_ACTIVATE_DEBOUNCE_MS) return;
+
+  lastLauncherActivationTs = eventTs;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const target = targetEl.getAttribute('data-pt-app-target') || 'home';
+  openApp(target, targetEl);
+};
+
+const handleLauncherKeyActivate = (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const targetEl = event?.target?.closest?.('[data-pt-app-target]');
+  if (!targetEl) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const target = targetEl.getAttribute('data-pt-app-target') || 'home';
+  openApp(target, targetEl);
+};
+
 const wireAppButtons = () => {
   if (!launcher) return;
-  const appButtons = launcher.querySelectorAll('[data-pt-app-target]');
-  appButtons.forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const target = btn.getAttribute('data-pt-app-target') || 'home';
-      openApp(target);
-    });
+
+  launcher.querySelectorAll('[data-pt-app-target]').forEach((el) => {
+    const tag = (el.tagName || '').toLowerCase();
+    const isNative = tag === 'button' || tag === 'a';
+    if (!isNative) {
+      el.setAttribute('role', 'button');
+      if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+    }
   });
-  if (backButton) {
-    backButton.addEventListener('click', () => openApp('home'));
-  }
+
+  launcher.addEventListener('pointerup', handleLauncherActivate, true);
+  launcher.addEventListener('keydown', handleLauncherKeyActivate, true);
+
+  if (backButton) backButton.addEventListener('click', () => openApp('home'));
+};
+
+const ensureLauncherWired = () => {
+  if (!launcher || launcherWired) return;
+  wireActions();
+  wireAppButtons();
+  launcherWired = true;
 };
 
 const wireActions = () => {
@@ -784,8 +946,7 @@ const init = () => {
   syncSettings();
   perms.shardsUnlocked = readBool(PERM_KEYS.shardsUnlocked, false);
   applyPermsUI();
-  wireAppButtons();
-  wireActions();
+  ensureLauncherWired();
   const shouldAutoOpen =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
