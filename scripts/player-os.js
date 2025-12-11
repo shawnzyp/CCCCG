@@ -124,6 +124,11 @@ const LOCK_FADE_MS = 260;
 const LOCK_SWIPE_THRESHOLD = 40;
 const LAUNCHER_ACTIVATE_DEBOUNCE_MS = 250;
 
+const nowTs = () =>
+  typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+
 const portal = doc ? createPortal(doc) : null;
 
 const dispatchMenuAction = (actionId) => {
@@ -474,6 +479,10 @@ const attachLockGesture = (lockEl, resolve) => {
     }
   };
 
+  const onPointerCancel = () => {
+    startY = null;
+  };
+
   const onKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -487,6 +496,7 @@ const attachLockGesture = (lockEl, resolve) => {
     if (usePointer) {
       lockEl.removeEventListener('pointerdown', onPointerDown);
       lockEl.removeEventListener('pointerup', onPointerUp);
+      lockEl.removeEventListener('pointercancel', onPointerCancel);
     } else {
       lockEl.removeEventListener('touchstart', onPointerDown);
       lockEl.removeEventListener('touchend', onPointerUp);
@@ -497,6 +507,7 @@ const attachLockGesture = (lockEl, resolve) => {
   if (usePointer) {
     lockEl.addEventListener('pointerdown', onPointerDown);
     lockEl.addEventListener('pointerup', onPointerUp);
+    lockEl.addEventListener('pointercancel', onPointerCancel);
   } else {
     lockEl.addEventListener('touchstart', onPointerDown, { passive: true });
     lockEl.addEventListener('touchend', onPointerUp);
@@ -813,12 +824,9 @@ const handleLauncherActivate = (event) => {
   const targetEl = event?.target?.closest?.('[data-pt-app-target]');
   if (!targetEl || !launcher.contains(targetEl)) return;
 
-  const eventTs = event?.timeStamp ?? Date.now();
-  const isActivationEvent =
-    event?.type === 'click' || event?.type === 'pointerdown' || event?.type === 'pointerup';
-  if (isActivationEvent && eventTs - lastLauncherActivationTs < LAUNCHER_ACTIVATE_DEBOUNCE_MS) {
-    return;
-  }
+  const eventTs =
+    typeof event?.timeStamp === 'number' && event.timeStamp > 0 ? event.timeStamp : nowTs();
+  if (eventTs - lastLauncherActivationTs < LAUNCHER_ACTIVATE_DEBOUNCE_MS) return;
 
   lastLauncherActivationTs = eventTs;
 
