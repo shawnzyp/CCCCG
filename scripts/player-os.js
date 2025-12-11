@@ -119,8 +119,7 @@ const canOpenApp = (app) => {
   return true;
 };
 
-// Keep fade duration just above the longest lock transition (opacity 160ms, transform 240ms).
-const LOCK_FADE_MS = 260;
+const LOCKSCREEN_DURATION_MS = 2500;
 const LOCK_SWIPE_THRESHOLD = 40;
 const LAUNCHER_ACTIVATE_DEBOUNCE_MS = 250;
 
@@ -518,29 +517,22 @@ const attachLockGesture = (lockEl, resolve) => {
 };
 
 const runUnlockSequence = () => {
-  ++unlockToken;
+  const token = ++unlockToken;
 
   if (!launcher || !lock) return Promise.resolve();
 
-  const hardEnd = () => {
-    if (lockGestureCleanup) {
-      lockGestureCleanup();
-      lockGestureCleanup = null;
-    }
-    endLockSequence(lock, launcher);
-  };
-
-  // hard reset so we never get stuck non-interactive
-  hardEnd();
-
-  // bump token again so any old in-flight finishers no-op
-  const localToken = ++unlockToken;
+  // Kill any previous gesture / timers and clear stale classes.
+  if (lockGestureCleanup) {
+    lockGestureCleanup();
+    lockGestureCleanup = null;
+  }
+  if (unlockCleanupTimer) {
+    clearTimeout(unlockCleanupTimer);
+    unlockCleanupTimer = null;
+  }
 
   hideToast(false);
-
-  // Cancel any previous in-flight sequence
-  if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
-  unlockCleanupTimer = null;
+  endLockSequence(lock, launcher); // ensure no stale is-locking/visibility
 
   updateLockText();
 
@@ -551,11 +543,14 @@ const runUnlockSequence = () => {
   lock.setAttribute('aria-hidden', 'false');
   lock.setAttribute('tabindex', '0');
 
+  // Slight async to let styles apply before we flip it "on"
   return new Promise((resolve) => {
     const finish = () => {
-      if (localToken !== unlockToken) return resolve(); // superseded by a newer sequence
-      if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
-      unlockCleanupTimer = null;
+      if (token !== unlockToken) return; // superseded by a newer run
+      if (unlockCleanupTimer) {
+        clearTimeout(unlockCleanupTimer);
+        unlockCleanupTimer = null;
+      }
       if (lockGestureCleanup) {
         lockGestureCleanup();
         lockGestureCleanup = null;
@@ -564,29 +559,16 @@ const runUnlockSequence = () => {
       resolve();
     };
 
-    const startFade = () => {
-      if (localToken !== unlockToken) return hardEnd();
-      lock.classList.remove('is-on');
-      lock.classList.add('is-off');
-      lock.addEventListener('transitionend', (event) => {
-        if (event.target !== lock) return;
-        finish();
-      }, { once: true });
-      unlockCleanupTimer = setTimeout(finish, LOCK_FADE_MS + 60);
-    };
+    // Attach gesture (swipe up / keyboard) that calls finish() when it succeeds.
+    lockGestureCleanup = attachLockGesture(lock, finish);
 
-    lockGestureCleanup = attachLockGesture(lock, startFade);
+    // Auto-unlock after the configured duration as a safety + spec match.
+    unlockCleanupTimer = window.setTimeout(finish, LOCKSCREEN_DURATION_MS);
 
+    // Turn the lock "on" for real.
     requestAnimationFrame(() => {
-      if (localToken !== unlockToken) return hardEnd();
+      if (token !== unlockToken) return;
       lock.classList.add('is-on');
-      try {
-        lock.focus({ preventScroll: true });
-      } catch (err) {
-        try {
-          lock.focus();
-        } catch (err2) {}
-      }
     });
   });
 };
