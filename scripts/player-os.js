@@ -725,7 +725,13 @@ const setAppView = (nextApp = 'home') => {
   if (!homeView || !appView) return;
   const isHome = normalized === 'home';
   homeView.hidden = !isHome;
+  homeView.setAttribute('aria-hidden', isHome ? 'false' : 'true');
+
   appView.hidden = isHome;
+  appView.setAttribute('aria-hidden', isHome ? 'true' : 'false');
+  if (appHost) {
+    appHost.setAttribute('aria-hidden', isHome ? 'true' : 'false');
+  }
   if (isHome) {
     restoreMountedApp();
   }
