@@ -703,7 +703,8 @@ export function preflightSnapshotForLoad(name, snapshot, { showRecoveryToast = t
   }
 
   const autosaves = loadLocalAutosaveSnapshot(name);
-  const fallback = [autosaves.latest, autosaves.previous]
+  const candidates = [autosaves.latest, autosaves.previous].filter(Boolean);
+  const fallback = candidates
     .find(candidate => isSnapshotChecksumValid(candidate) && isCharacterPayloadValid(candidate));
   if (fallback) {
     if (showRecoveryToast) {
