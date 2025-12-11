@@ -722,15 +722,40 @@ const normalizeAppId = (nextApp = 'home') =>
 const setAppView = (nextApp = 'home') => {
   const normalized = normalizeAppId(nextApp);
   state.app = normalized;
-  if (!homeView || !appView) return;
-  const isHome = normalized === 'home';
-  homeView.hidden = !isHome;
-  appView.hidden = isHome;
-  if (isHome) {
+
+  const hasHome = !!homeView;
+  const hasApp = !!appView;
+
+  if (!hasHome && !hasApp) {
+    console.warn('Player OS: no launcher home/app views found');
+    return;
+  }
+
+  const targetIsHome = normalized === 'home';
+  const showHome = targetIsHome || !hasApp;
+  const showApp = !targetIsHome && hasApp;
+
+  if (!hasHome || !hasApp) {
+    console.warn('Player OS: missing launcher view(s)', { home: hasHome, app: hasApp });
+  }
+
+  if (homeView) {
+    homeView.hidden = !showHome;
+    homeView.setAttribute('aria-hidden', showHome ? 'false' : 'true');
+    homeView.style.display = showHome ? '' : 'none';
+  }
+
+  if (appView) {
+    appView.hidden = !showApp;
+    appView.setAttribute('aria-hidden', showApp ? 'false' : 'true');
+    appView.style.display = showApp ? '' : 'none';
+  }
+
+  if (showHome) {
     restoreMountedApp();
   }
   if (appTitle) {
-    appTitle.textContent = isHome ? '' : getAppLabel(normalized);
+    appTitle.textContent = showHome ? '' : getAppLabel(normalized);
   }
   if (headerTitle) {
     headerTitle.textContent = getAppLabel(normalized) || 'Player OS';
