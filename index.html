@@ -3125,6 +3125,7 @@
 >
     <div class="pt-launcher__scrim" data-pt-launcher-scrim></div>
     <div class="pt-launcher__panel" data-pt-launcher-panel>
+      <div class="pt-cracks pt-cracks--launcher" aria-hidden="true" data-pt-cracks></div>
       <header class="pt-launcher__header">
         <div class="pt-launcher__title">
           <span class="pt-launcher__glyph" aria-hidden="true">◎</span>
@@ -3338,13 +3339,18 @@ id="player-tools-tab"
 class="pt-tab"
 type="button"
 aria-expanded="false"
-aria-label="Open player tools"
+aria-label="Open Player OS main menu"
 aria-hidden="false"
 >
 
 
   <span class="pt-tab__icon" aria-hidden="true">
-    <img src="images/player-tools-icon.png" alt="" />
+    <svg class="pt-tab__glyph" viewBox="0 0 24 24" role="img" aria-hidden="true">
+      <path
+        d="M4 6.5c0-.83.67-1.5 1.5-1.5h13a1.5 1.5 0 1 1 0 3h-13A1.5 1.5 0 0 1 4 6.5Zm0 5c0-.83.67-1.5 1.5-1.5h13a1.5 1.5 0 1 1 0 3h-13A1.5 1.5 0 0 1 4 11.5Zm0 5c0-.83.67-1.5 1.5-1.5h13a1.5 1.5 0 1 1 0 3h-13A1.5 1.5 0 0 1 4 16.5Z"
+        fill="currentColor"
+      />
+    </svg>
   </span>
 </button>
 
@@ -3419,7 +3425,7 @@ aria-hidden="false"
             </section>
 
             <!-- Cracked glass overlay (driven by HP) -->
-            <div class="pt-cracks" aria-hidden="true"></div>
+            <div class="pt-cracks" aria-hidden="true" data-pt-cracks></div>
 
             <!-- App viewport -->
             <div class="pt-app" data-pt-app>
