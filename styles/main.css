@@ -4776,6 +4776,9 @@ body:not(.no-hover) .theme-light .somf-confirm__cancel:hover{background:rgba(0,0
 .toast__message{font-size:.95em;line-height:1.5}
 .toast.toast--speech-bubble .toast__body strong{display:block;margin-bottom:2px;color:var(--toast-heading-color);font-size:1.05em;text-transform:uppercase;letter-spacing:.06em;font-family:'Race Sport','Bangers','Comic Sans MS','Trebuchet MS',sans-serif;text-shadow:2px 2px 0 rgba(0,0,0,.18)}
 .toast__actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;align-self:flex-end;margin-top:6px}
+/* Global app toast – keep it inside safe areas */
+#toast.toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top, 0px) + 16px);right:auto;max-width:min(520px,calc(100vw - 32px));padding-inline:16px;box-sizing:border-box;z-index:1600}
+#toast.toast > *{max-width:100%}
 .toast__actionButton{border:2px solid var(--toast-heading-color);border-radius:var(--radius);background:transparent;color:var(--toast-heading-color);font:inherit;font-size:.85em;padding:6px 14px;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;transition:background-color .2s ease,color .2s ease}
 .toast__actionButton:hover{background-color:var(--toast-heading-color);color:var(--surface)}
 .toast__actionButton:focus-visible{outline:2px solid var(--toast-heading-color);outline-offset:2px}

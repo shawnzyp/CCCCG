@@ -48,6 +48,7 @@ const lockDate = launcher?.querySelector('[data-pt-lock-date]') || null;
 let toastTimer = null;
 let bootTimer = null;
 let unlockToken = 0;
+let unlockCleanupTimer = null;
 let toastPrevFocus = null;
 let lockGestureCleanup = null;
 let launcherWired = false;
@@ -119,6 +120,8 @@ const canOpenApp = (app) => {
 };
 
 const LOCK_SWIPE_THRESHOLD = 40;
+const LOCK_FADE_MS = 260;
+const LOCKSCREEN_DURATION_MS = 2500;
 const LAUNCHER_ACTIVATE_DEBOUNCE_MS = 250;
 
 const nowTs = () =>
@@ -519,15 +522,18 @@ const runUnlockSequence = () => {
 
   if (!launcher || !lock) return Promise.resolve();
 
-  // Kill any previous gesture / timers and clear stale classes.
+  // Clear any previous gesture / timers so we never get stuck
   if (lockGestureCleanup) {
     lockGestureCleanup();
     lockGestureCleanup = null;
   }
-  // No timers to cancel: unlocking now waits for user input.
+  if (unlockCleanupTimer) {
+    clearTimeout(unlockCleanupTimer);
+    unlockCleanupTimer = null;
+  }
 
+  // Make sure any in-launcher toasts aren’t blocking clicks
   hideToast(false);
-  endLockSequence(lock, launcher); // ensure no stale is-locking/visibility
 
   updateLockText();
 
@@ -538,22 +544,53 @@ const runUnlockSequence = () => {
   lock.setAttribute('aria-hidden', 'false');
   lock.setAttribute('tabindex', '0');
 
-  // Slight async to let styles apply before we flip it "on"
   return new Promise((resolve) => {
     const finish = () => {
-      if (token !== unlockToken) return; // superseded by a newer run
+      // If a newer unlock run started, bail
+      if (token !== unlockToken) return;
+
+      if (unlockCleanupTimer) {
+        clearTimeout(unlockCleanupTimer);
+        unlockCleanupTimer = null;
+      }
       if (lockGestureCleanup) {
         lockGestureCleanup();
         lockGestureCleanup = null;
       }
+
+      // Hand control back to the launcher (reveals faux home)
       endLockSequence(lock, launcher);
       resolve();
     };
 
-    // Attach gesture (swipe up / keyboard) that calls finish() when it succeeds.
-    lockGestureCleanup = attachLockGesture(lock, finish);
+    const startFade = () => {
+      if (token !== unlockToken) return;
 
-    // Turn the lock "on" for real.
+      lock.classList.remove('is-on');
+      lock.classList.add('is-off');
+
+      const onTransitionEnd = (event) => {
+        if (event.target !== lock) return;
+        lock.removeEventListener('transitionend', onTransitionEnd);
+        finish();
+      };
+
+      lock.addEventListener('transitionend', onTransitionEnd);
+
+      // Failsafe: if the transition never fires, still finish
+      unlockCleanupTimer = window.setTimeout(() => {
+        lock.removeEventListener('transitionend', onTransitionEnd);
+        finish();
+      }, LOCK_FADE_MS + 80);
+    };
+
+    // Swipe / keyboard gesture triggers the fade
+    lockGestureCleanup = attachLockGesture(lock, startFade);
+
+    // Auto-unlock after the configured lockscreen duration
+    unlockCleanupTimer = window.setTimeout(startFade, LOCKSCREEN_DURATION_MS);
+
+    // Turn the lock "on" for real (so the user sees it)
     requestAnimationFrame(() => {
       if (token !== unlockToken) return;
       lock.classList.add('is-on');
