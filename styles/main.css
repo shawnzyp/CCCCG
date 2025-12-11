@@ -9974,6 +9974,23 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 
 /* Player OS launcher */
+html,body{
+margin:0;
+padding:0;
+height:100%;
+}
+[data-pt-launcher] {
+position:relative;
+width:100%;
+height:100%;
+overflow:hidden;
+}
+[data-pt-lock],
+[data-pt-launcher-home],
+[data-pt-launcher-app] {
+position:absolute;
+inset:0;
+}
 [data-phone-shell]{
 position:relative;
 overflow:hidden;
