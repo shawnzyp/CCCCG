@@ -696,7 +696,7 @@ export function preflightSnapshotForLoad(name, snapshot, { showRecoveryToast = t
   const hasPayload = isCharacterPayloadValid(migrated);
   const checksumValid = isSnapshotChecksumValid(migrated);
 
-  if (hasPayload) {
+  if (hasPayload && checksumValid) {
     const { payload, changed } = buildCanonicalPayload(migrated);
     const needsResave = changed || !checksumValid;
     return { payload, recovered: false, changed: needsResave };
@@ -712,6 +712,10 @@ export function preflightSnapshotForLoad(name, snapshot, { showRecoveryToast = t
     }
     const { payload, changed } = buildCanonicalPayload(fallback);
     return { payload, recovered: true, changed };
+  }
+  if (hasPayload) {
+    const { payload, changed } = buildCanonicalPayload(migrated);
+    return { payload, recovered: false, changed: true };
   }
   const err = new Error('Character data is corrupted or incomplete. Please try a backup or another autosave.');
   err.toastShown = true;
