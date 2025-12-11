@@ -5,10 +5,13 @@ import { open as openPlayerToolsDrawer } from './player-tools-drawer.js';
 const doc = typeof document !== 'undefined' ? document : null;
 const root = doc?.documentElement || null;
 const launcher = doc?.getElementById('ptLauncher') || null;
-const getPhoneShell = () =>
-  launcher?.closest?.('[data-pt-phone-shell]') ||
-  doc?.querySelector('[data-pt-phone-shell]') ||
-  null;
+const getPhoneShell = () => {
+  const nearestShell = launcher?.closest?.('[data-pt-phone-shell]');
+  if (nearestShell) return nearestShell;
+  const docShell = doc?.querySelector?.('[data-pt-phone-shell]');
+  if (docShell) return docShell;
+  return doc?.body || null;
+};
 const setPhoneOwnedByOS = (owned) => {
   const shell = getPhoneShell();
   if (!shell) return;
@@ -164,14 +167,17 @@ const restoreMountedApp = () => {
 };
 
 const mountLauncher = () => {
-  if (!launcher) return false;
-  const phoneShell = getPhoneShell();
-  if (!phoneShell) return false;
+  if (!launcher || !doc) return false;
 
-  if (launcher.parentElement !== phoneShell) {
-    phoneShell.appendChild(launcher);
+  const host = getPhoneShell();
+  if (!host) return false;
+
+  if (launcher.parentElement !== host) {
+    host.appendChild(launcher);
   }
-  launcher.dataset.ptMount = 'phone';
+
+  const mountedToShell = host?.hasAttribute?.('data-pt-phone-shell');
+  launcher.dataset.ptMount = mountedToShell ? 'phone' : 'body';
   return true;
 };
 
@@ -790,7 +796,7 @@ const closeLauncher = () => {
 };
 
 const openLauncher = (nextApp = 'home', opts = {}) => {
-  if (launcher?.dataset?.ptMount !== 'phone') {
+  if (!launcher?.dataset?.ptMount) {
     if (!mountLauncher()) return Promise.resolve(false);
   }
 
