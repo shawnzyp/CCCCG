@@ -600,20 +600,31 @@ const runUnlockSequence = () => {
 
 const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   const token = ++navToken;
+  const normalized = normalizeAppId(appId);
 
-  if (appId === 'home') {
-    setAppView('home');
+  if (normalized === 'home') {
     if (!state.open) await openLauncher('home', { unlock: false });
+    if (appHost) appHost.innerHTML = '';
+    if (mountedFragment && portal) {
+      try {
+        portal.restore(mountedFragment);
+      } catch (err) {
+        console.warn('Player OS: failed to restore home fragment', err);
+      }
+    }
+    mountedFragment = null;
+    mountedAppId = null;
+    setAppView('home');
     return token === navToken;
   }
 
-  if (appId === 'locked') {
+  if (normalized === 'locked') {
     if (!state.open) await openLauncher('home', { unlock: false });
     if (token === navToken) showLockedToast('Access Restricted.');
     return false;
   }
 
-  const targetApp = getAppMeta(appId);
+  const targetApp = getAppMeta(normalized);
 
   if (!targetApp) {
     if (!state.open) await openLauncher('home', { unlock: false });
@@ -677,7 +688,7 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
 
   if (token !== navToken) return false;
 
-  const label = getAppLabel(appId);
+  const label = getAppLabel(normalized);
   await runBoot(sourceButton, label);
 
   if (token !== navToken) return false;
@@ -689,7 +700,7 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   mountedFragment = null;
   mountedAppId = null;
 
-  const fragmentId = targetApp?.fragment || appId;
+  const fragmentId = targetApp?.fragment || normalized;
   const fragment = doc?.querySelector(`[data-pt-app-fragment="${fragmentId}"]`);
 
   if (!fragment || !appHost || !portal) {
@@ -702,12 +713,12 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   }
 
   mountedFragment = portal.moveToHost(fragment, appHost);
-  mountedAppId = appId;
-  if (appId === 'settings') {
+  mountedAppId = normalized;
+  if (normalized === 'settings') {
     syncSettings();
     applyPermsUI();
   }
-  setAppView(appId);
+  setAppView(normalized);
 
   requestAnimationFrame(() => {
     focusFirstElement();
@@ -722,12 +733,26 @@ const normalizeAppId = (nextApp = 'home') =>
 const setAppView = (nextApp = 'home') => {
   const normalized = normalizeAppId(nextApp);
   state.app = normalized;
-  if (!homeView || !appView) return;
+
+  if (!homeView && !appView) {
+    console.warn('Player OS: no launcher home/app views found');
+    return;
+  }
+
   const isHome = normalized === 'home';
-  homeView.hidden = !isHome;
-  appView.hidden = isHome;
-  if (isHome) {
-    restoreMountedApp();
+
+  if (homeView) {
+    homeView.hidden = !isHome;
+    homeView.removeAttribute('hidden');
+    homeView.setAttribute('aria-hidden', isHome ? 'false' : 'true');
+    homeView.style.display = isHome ? '' : 'none';
+  }
+
+  if (appView) {
+    appView.hidden = isHome;
+    appView.removeAttribute('hidden');
+    appView.setAttribute('aria-hidden', isHome ? 'true' : 'false');
+    appView.style.display = isHome ? 'none' : '';
   }
   if (appTitle) {
     appTitle.textContent = isHome ? '' : getAppLabel(normalized);

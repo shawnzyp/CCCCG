@@ -9974,6 +9974,7 @@ html.cccg-hit-active #cccg-hit-fx::after{
 
 
 /* Player OS launcher */
+html,body{margin:0;padding:0;height:100%}
 [data-phone-shell]{
 position:relative;
 overflow:hidden;
@@ -9981,7 +9982,7 @@ overflow:hidden;
 --pt-safe-bottom: 8px;
 --pt-header-offset: 0px;
 }
-.pt-launcher{position:absolute;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none}
+.pt-launcher{position:fixed;inset:0;z-index:120;display:flex;align-items:stretch;justify-content:stretch;pointer-events:none;width:100%;height:100%;min-height:100dvh;overflow:hidden}
 .pt-launcher.is-open{pointer-events:auto}
 .pt-launcher.is-locking{pointer-events:auto}
 .pt-launcher:focus{outline:none}
@@ -10002,7 +10003,7 @@ overflow:hidden;
 .pt-launcher__close{width:38px;height:38px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10)}
 .pt-launcher__body{display:grid;grid-template-columns:1fr;grid-template-rows:1fr;flex:1;position:relative;background:transparent;min-height:100%}
 .pt-launcher__home,.pt-launcher__app-view{height:100%}
-.pt-lock{position:absolute;inset:0;z-index:250;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(var(--pt-safe-top, 28px) + 28px) 18px calc(var(--pt-safe-bottom, 8px) + 22px);background-image:radial-gradient(circle at 30% 15%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 45%), linear-gradient(180deg, rgba(5,8,18,.72), rgba(0,0,0,.78)), url("../images/IMG_3591.jpeg");background-size:cover,cover,cover;background-position:center,center,center;background-repeat:no-repeat,no-repeat,no-repeat;opacity:0;transform:translateY(8px);transition:opacity 160ms ease,transform 240ms ease;pointer-events:none;box-sizing:border-box;max-height:100%;min-height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none}
+.pt-lock{position:absolute;inset:0;z-index:250;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:calc(var(--pt-safe-top, 28px) + 28px) 18px calc(var(--pt-safe-bottom, 8px) + 22px);background-image:radial-gradient(circle at 30% 15%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 45%), linear-gradient(180deg, rgba(5,8,18,.72), rgba(0,0,0,.78)), url("../images/IMG_3591.jpeg");background-size:cover,cover,cover;background-position:center,center,center;background-repeat:no-repeat,no-repeat,no-repeat;opacity:0;transform:translateY(8px);transition:opacity 160ms ease,transform 240ms ease;pointer-events:none;box-sizing:border-box;max-height:100%;min-height:100%;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:none}
 .pt-lock::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.65));pointer-events:none}
 .pt-lock.is-on{opacity:1;transform:translateY(0);pointer-events:auto}
 .pt-lock.is-off{opacity:0;transform:translateY(-26px) scale(.995);pointer-events:none}
