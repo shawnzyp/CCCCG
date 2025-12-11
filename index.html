@@ -3120,7 +3120,6 @@
   hidden
   role="dialog"
   aria-modal="true"
-  aria-label="Player OS"
   tabindex="-1"
 >
     <div class="pt-launcher__scrim" data-pt-launcher-scrim></div>
@@ -3153,14 +3152,11 @@
         data-pt-toast
         hidden
         aria-hidden="true"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="pt-toast-title"
-        aria-describedby="pt-toast-msg"
+        role="status"
+        aria-live="polite"
       >
         <div class="pt-toast__card">
-          <div class="pt-toast__title" id="pt-toast-title">Access Restricted</div>
-          <div class="pt-toast__msg" data-pt-toast-msg id="pt-toast-msg"></div>
+          <div class="pt-toast__msg" data-pt-toast-msg></div>
         </div>
       </div>
       <div class="pt-launcher__body">
