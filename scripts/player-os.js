@@ -518,7 +518,7 @@ const attachLockGesture = (lockEl, resolve) => {
 };
 
 const runUnlockSequence = () => {
-  const token = ++unlockToken;
+  ++unlockToken;
 
   if (!launcher || !lock) return Promise.resolve();
 
@@ -532,6 +532,9 @@ const runUnlockSequence = () => {
 
   // hard reset so we never get stuck non-interactive
   hardEnd();
+
+  // bump token again so any old in-flight finishers no-op
+  const localToken = ++unlockToken;
 
   hideToast(false);
 
@@ -550,6 +553,7 @@ const runUnlockSequence = () => {
 
   return new Promise((resolve) => {
     const finish = () => {
+      if (localToken !== unlockToken) return resolve(); // superseded by a newer sequence
       if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
       unlockCleanupTimer = null;
       if (lockGestureCleanup) {
@@ -561,7 +565,7 @@ const runUnlockSequence = () => {
     };
 
     const startFade = () => {
-      if (token !== unlockToken) return hardEnd();
+      if (localToken !== unlockToken) return hardEnd();
       lock.classList.remove('is-on');
       lock.classList.add('is-off');
       lock.addEventListener('transitionend', (event) => {
@@ -574,7 +578,7 @@ const runUnlockSequence = () => {
     lockGestureCleanup = attachLockGesture(lock, startFade);
 
     requestAnimationFrame(() => {
-      if (token !== unlockToken) return hardEnd();
+      if (localToken !== unlockToken) return hardEnd();
       lock.classList.add('is-on');
       try {
         lock.focus({ preventScroll: true });
