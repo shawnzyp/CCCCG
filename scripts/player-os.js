@@ -131,15 +131,37 @@
     setView('app', normalized);
   }
 
-  window.PlayerLauncher = {
+  function showLockedToast(message) {
+    const text = message || 'This feature is locked.';
+    try {
+      if (typeof window.toast === 'function') {
+        window.toast(text, 'warning');
+        return;
+      }
+    } catch (_) {}
+
+    try {
+      console.warn(text);
+    } catch (_) {}
+  }
+
+  const playerApi = {
     open: openLauncher,
     close: closeLauncher,
     openApp: openApp,
     setView: setView,
+    showLockedToast,
     get state() {
       return Object.assign({}, state);
     },
   };
+
+  window.PlayerLauncher = Object.assign({}, playerApi);
+
+  window.PlayerOS = Object.assign({}, playerApi, {
+    openLauncher: openLauncher,
+    closeLauncher: closeLauncher,
+  });
 
   // ---- EVENT BINDINGS -----------------------------------------------------
 
