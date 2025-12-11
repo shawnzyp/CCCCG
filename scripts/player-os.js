@@ -48,7 +48,6 @@ const lockDate = launcher?.querySelector('[data-pt-lock-date]') || null;
 let toastTimer = null;
 let bootTimer = null;
 let unlockToken = 0;
-let unlockCleanupTimer = null;
 let toastPrevFocus = null;
 let lockGestureCleanup = null;
 let launcherWired = false;
@@ -119,7 +118,6 @@ const canOpenApp = (app) => {
   return true;
 };
 
-const LOCKSCREEN_DURATION_MS = 2500;
 const LOCK_SWIPE_THRESHOLD = 40;
 const LAUNCHER_ACTIVATE_DEBOUNCE_MS = 250;
 
@@ -526,10 +524,7 @@ const runUnlockSequence = () => {
     lockGestureCleanup();
     lockGestureCleanup = null;
   }
-  if (unlockCleanupTimer) {
-    clearTimeout(unlockCleanupTimer);
-    unlockCleanupTimer = null;
-  }
+  // No timers to cancel: unlocking now waits for user input.
 
   hideToast(false);
   endLockSequence(lock, launcher); // ensure no stale is-locking/visibility
@@ -547,10 +542,6 @@ const runUnlockSequence = () => {
   return new Promise((resolve) => {
     const finish = () => {
       if (token !== unlockToken) return; // superseded by a newer run
-      if (unlockCleanupTimer) {
-        clearTimeout(unlockCleanupTimer);
-        unlockCleanupTimer = null;
-      }
       if (lockGestureCleanup) {
         lockGestureCleanup();
         lockGestureCleanup = null;
@@ -561,9 +552,6 @@ const runUnlockSequence = () => {
 
     // Attach gesture (swipe up / keyboard) that calls finish() when it succeeds.
     lockGestureCleanup = attachLockGesture(lock, finish);
-
-    // Auto-unlock after the configured duration as a safety + spec match.
-    unlockCleanupTimer = window.setTimeout(finish, LOCKSCREEN_DURATION_MS);
 
     // Turn the lock "on" for real.
     requestAnimationFrame(() => {
@@ -728,9 +716,7 @@ const closeLauncher = () => {
     lockGestureCleanup();
     lockGestureCleanup = null;
   }
-  if (unlockCleanupTimer) clearTimeout(unlockCleanupTimer);
   unlockToken += 1;
-  unlockCleanupTimer = null;
   const tab = doc?.getElementById('player-tools-tab');
   const focusTarget = state.lastFocused && doc?.contains(state.lastFocused) ? state.lastFocused : tab;
   if (focusTarget && typeof focusTarget.focus === 'function') {
