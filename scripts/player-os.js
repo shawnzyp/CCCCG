@@ -600,20 +600,25 @@ const runUnlockSequence = () => {
 
 const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   const token = ++navToken;
+  const normalized = normalizeAppId(appId);
 
-  if (appId === 'home') {
+  if (normalized === 'home') {
+    if (appHost) {
+      appHost.innerHTML = '';
+    }
+    restoreMountedApp();
     setAppView('home');
     if (!state.open) await openLauncher('home', { unlock: false });
     return token === navToken;
   }
 
-  if (appId === 'locked') {
+  if (normalized === 'locked') {
     if (!state.open) await openLauncher('home', { unlock: false });
     if (token === navToken) showLockedToast('Access Restricted.');
     return false;
   }
 
-  const targetApp = getAppMeta(appId);
+  const targetApp = getAppMeta(normalized);
 
   if (!targetApp) {
     if (!state.open) await openLauncher('home', { unlock: false });
@@ -677,7 +682,7 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
 
   if (token !== navToken) return false;
 
-  const label = getAppLabel(appId);
+  const label = getAppLabel(normalized);
   await runBoot(sourceButton, label);
 
   if (token !== navToken) return false;
@@ -689,7 +694,7 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   mountedFragment = null;
   mountedAppId = null;
 
-  const fragmentId = targetApp?.fragment || appId;
+  const fragmentId = targetApp?.fragment || normalized;
   const fragment = doc?.querySelector(`[data-pt-app-fragment="${fragmentId}"]`);
 
   if (!fragment || !appHost || !portal) {
@@ -702,12 +707,12 @@ const openApp = async (appId = 'home', sourceButton = null, opts = {}) => {
   }
 
   mountedFragment = portal.moveToHost(fragment, appHost);
-  mountedAppId = appId;
-  if (appId === 'settings') {
+  mountedAppId = normalized;
+  if (normalized === 'settings') {
     syncSettings();
     applyPermsUI();
   }
-  setAppView(appId);
+  setAppView(normalized);
 
   requestAnimationFrame(() => {
     focusFirstElement();
@@ -723,39 +728,24 @@ const setAppView = (nextApp = 'home') => {
   const normalized = normalizeAppId(nextApp);
   state.app = normalized;
 
-  const hasHome = !!homeView;
-  const hasApp = !!appView;
+  const isHome = normalized === 'home';
 
-  if (!hasHome && !hasApp) {
-    console.warn('Player OS: no launcher home/app views found');
+  if (!homeView || !appView) {
+    console.warn('Player OS: homeView or appView missing');
     return;
   }
 
-  const targetIsHome = normalized === 'home';
-  const showHome = targetIsHome || !hasApp;
-  const showApp = !targetIsHome && hasApp;
+  homeView.removeAttribute('hidden');
+  homeView.hidden = !isHome;
+  homeView.setAttribute('aria-hidden', isHome ? 'false' : 'true');
+  homeView.style.display = isHome ? '' : 'none';
 
-  if (!hasHome || !hasApp) {
-    console.warn('Player OS: missing launcher view(s)', { home: hasHome, app: hasApp });
-  }
-
-  if (homeView) {
-    homeView.hidden = !showHome;
-    homeView.setAttribute('aria-hidden', showHome ? 'false' : 'true');
-    homeView.style.display = showHome ? '' : 'none';
-  }
-
-  if (appView) {
-    appView.hidden = !showApp;
-    appView.setAttribute('aria-hidden', showApp ? 'false' : 'true');
-    appView.style.display = showApp ? '' : 'none';
-  }
-
-  if (showHome) {
-    restoreMountedApp();
-  }
+  appView.removeAttribute('hidden');
+  appView.hidden = isHome;
+  appView.setAttribute('aria-hidden', isHome ? 'true' : 'false');
+  appView.style.display = isHome ? 'none' : '';
   if (appTitle) {
-    appTitle.textContent = showHome ? '' : getAppLabel(normalized);
+    appTitle.textContent = isHome ? '' : getAppLabel(normalized);
   }
   if (headerTitle) {
     headerTitle.textContent = getAppLabel(normalized) || 'Player OS';
