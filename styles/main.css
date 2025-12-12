@@ -10193,6 +10193,10 @@ body {
   opacity: 0.75;
 }
 
+.pt-screen__glass {
+  position: relative;
+}
+
 [data-phone-shell].pt-os-active .pt-screen__glass {
   opacity: 0;
   pointer-events: none;
