@@ -494,6 +494,20 @@ function createPlayerToolsDrawer() {
     if (!force && next === isOpen) return;
     isOpen = next;
 
+    // Lock interaction behind the phone
+    try {
+      const hasOpenModal = !!doc.querySelector('[data-pt-modal-open="1"]');
+      doc.documentElement.classList.toggle('pt-os-lock', isOpen || hasOpenModal);
+    } catch (_) {}
+
+    // Grab focus into the phone shell when opening
+    if (isOpen) {
+      try {
+        const phone = drawer.querySelector('[data-pt-phone-shell]') || drawer.querySelector('.pt-tray') || drawer;
+        if (phone && typeof phone.focus === 'function') phone.focus({ preventScroll: true });
+      } catch (_) {}
+    }
+
     if (!isOpen) {
       shiftFocusAwayFromDrawer();
     }

@@ -5,6 +5,24 @@
   const LOCK_CLASS = 'pt-os-lock';
   const OPEN_ATTR = 'data-pt-modal-open';
 
+  const getPhoneToast = () => doc.querySelector('[data-pt-launcher] [data-pt-ios-toast]');
+  let toastTimer = null;
+  const showPhoneToast = (msg, ms = 1600) => {
+    const el = getPhoneToast();
+    if (!el) return;
+    clearTimeout(toastTimer);
+    el.textContent = String(msg || '').trim();
+    el.hidden = false;
+    el.classList.add('is-visible');
+    toastTimer = setTimeout(() => {
+      el.classList.remove('is-visible');
+      toastTimer = setTimeout(() => {
+        el.hidden = true;
+        el.textContent = '';
+      }, 160);
+    }, ms);
+  };
+
   const focusFirst = root => {
     const el = root.querySelector(
       'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'
@@ -57,12 +75,6 @@
   window.addEventListener('cc:pt-launch', e => {
     const appId = String(e?.detail?.appId || '').trim();
 
-    const emit = (name, detail = {}) => {
-      try {
-        window.dispatchEvent(new CustomEvent(name, { detail }));
-      } catch (_) {}
-    };
-
     switch (appId) {
       case 'shards':
         openModal('somf-reveal-alert') || openModal('somf-confirm');
@@ -75,28 +87,11 @@
           window.PlayerTools?.openTray?.();
         } catch (_) {}
         break;
-      case 'loadSave':
-        emit('cc:open-load-save');
-        break;
-      case 'encounter':
-        emit('cc:open-encounter');
-        break;
-      case 'actionLog':
-        emit('cc:open-action-log');
-        break;
-      case 'creditsLedger':
-        emit('cc:open-credits-ledger');
-        break;
-      case 'campaignLog':
-        emit('cc:open-campaign-log');
-        break;
-      case 'rules':
-        emit('cc:open-rules');
-        break;
-      case 'help':
-        emit('cc:open-help');
+      case 'locked':
+        showPhoneToast('Access denied');
         break;
       default:
+        showPhoneToast('Coming soon');
         break;
     }
   });

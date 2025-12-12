@@ -3168,18 +3168,23 @@
 
 
         <!-- Screen cut-out area -->
-        <div class="pt-screen" data-pt-screen data-phone-shell data-pt-phone-shell>
+        <div class="pt-screen" data-pt-screen data-phone-shell data-pt-phone-shell tabindex="-1">
           <div class="pt-screen__glass">
 
             <!-- Player OS launcher overlay (inside phone screen) -->
             <div data-pt-launcher class="pt-launcher" aria-hidden="true" hidden>
-              <div class="pt-wallpaper" aria-hidden="true"></div>
-              <div class="pt-wallpaper pt-wallpaper--blur" aria-hidden="true"></div>
+              <!-- in-phone toast (access denied, coming soon, etc) -->
+              <div class="pt-ios-toast" data-pt-ios-toast hidden role="status" aria-live="polite"></div>
+
               <section class="pt-lock-screen" data-pt-lock-screen aria-hidden="false">
-                <div class="pt-lock-inner">
-                  <div class="pt-lock-time">09:41</div>
-                  <div class="pt-lock-date">Tuesday, Dec 9</div>
-                  <button type="button" class="pt-lock-unlock" data-pt-lock-unlock>Swipe up to unlock</button>
+                <div class="pt-ios-lock">
+                  <div class="pt-ios-lock__date" data-pt-ios-date>Tuesday, Dec 9</div>
+                  <div class="pt-ios-lock__time" data-pt-ios-time>09:41</div>
+
+                  <button type="button" class="pt-ios-lock__swipe" data-pt-lock-unlock aria-label="Swipe up to unlock">
+                    <span class="pt-ios-lock__chev" aria-hidden="true"></span>
+                    <span class="pt-ios-lock__label">Swipe up to open</span>
+                  </button>
                 </div>
               </section>
 

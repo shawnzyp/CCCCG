@@ -16,6 +16,7 @@
     return;
   }
 
+  const toastEl     = q('[data-pt-ios-toast]', launcher);
   const lockView    = q('[data-pt-lock-screen]', launcher);
   const homeView    = q('[data-pt-launcher-home]', launcher);
   const appView     = q('[data-pt-launcher-app]', launcher);
@@ -25,6 +26,8 @@
   const appTitleEl  = q('[data-pt-launcher-app-title]', launcher);
   const headerTitle = document.getElementById('ptLauncherTitle');
   const launcherTab = document.getElementById('player-tools-tab');
+  const iosTimeEl   = q('[data-pt-ios-time]', launcher);
+  const iosDateEl   = q('[data-pt-ios-date]', launcher);
 
   // Map of appId -> element inside appHost
   const appScreensById = {};
@@ -51,6 +54,39 @@
     try {
       window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId } }));
     } catch (_) {}
+  }
+
+  let toastTimer = null;
+  function showToast(message = '', ms = 1600) {
+    if (!toastEl) return;
+    clearTimeout(toastTimer);
+    toastEl.textContent = String(message || '').trim();
+    toastEl.hidden = false;
+    toastEl.classList.add('is-visible');
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove('is-visible');
+      toastTimer = setTimeout(() => {
+        toastEl.hidden = true;
+        toastEl.textContent = '';
+      }, 160);
+    }, ms);
+  }
+
+  function updateLockTime() {
+    const now = new Date();
+    const pad2 = n => String(n).padStart(2, '0');
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const h12 = hours % 12 || 12;
+    const time = `${pad2(h12)}:${pad2(minutes)}`;
+
+    const weekday = now.toLocaleDateString(undefined, { weekday: 'long' });
+    const month = now.toLocaleDateString(undefined, { month: 'short' });
+    const day = now.getDate();
+    const date = `${weekday}, ${month} ${day}`;
+
+    if (iosTimeEl) iosTimeEl.textContent = time;
+    if (iosDateEl) iosDateEl.textContent = date;
   }
 
   function isLauncherHidden() {
@@ -99,6 +135,8 @@
     state.view = view;
     state.app = appId || null;
 
+    updateLockTime();
+
     launcher.setAttribute('data-view', view);
 
     const isLock = view === 'lock';
@@ -134,9 +172,20 @@
       return;
     }
 
+    if (normalized === 'locked') {
+      showToast('Access denied');
+      setView('home', null);
+      return;
+    }
+
+    if (normalized === 'playerTools' || normalized === 'shards' || normalized === 'messages') {
+      handleHomeIconPress(normalized);
+      return;
+    }
+
     const screen = appScreensById[normalized];
     if (!screen) {
-      console.warn('Player OS: no [data-pt-app-screen="' + normalized + '"] found');
+      showToast('Coming soon');
       setView('home', null);
       return;
     }
@@ -155,7 +204,28 @@
   }
 
   function handleBack() {
-    openApp('home');
+    setView('home', null);
+  }
+
+  function handleHomeIconPress(rawAppId) {
+    const normalized = normalizeAppId(rawAppId);
+
+    if (normalized === 'locked') {
+      showToast('Access denied');
+      return;
+    }
+
+    if (normalized === 'playerTools' || normalized === 'shards' || normalized === 'messages') {
+      emitLaunch(normalized);
+      return;
+    }
+
+    if (normalized === 'settings') {
+      openApp('settings');
+      return;
+    }
+
+    showToast('Coming soon');
   }
 
   function bindEvents() {
@@ -172,8 +242,7 @@
       btn.addEventListener('click', function () {
         const appId = btn.getAttribute('data-pt-open-app');
         if (!appId) return;
-        emitLaunch(appId);
-        closeLauncher();
+        handleHomeIconPress(appId);
       });
     });
 
@@ -207,6 +276,7 @@
   function openLauncher(nextView) {
     showLauncher();
     setView('lock', null);
+    updateLockTime();
     if (nextView && nextView !== 'lock') {
       openApp(nextView);
     }
@@ -229,6 +299,8 @@
 
     // Start on lock screen
     setView('lock', null);
+    updateLockTime();
+    setInterval(updateLockTime, 15000);
     bindEvents();
 
     // Expose a small debug API if you want it
