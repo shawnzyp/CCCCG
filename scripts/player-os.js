@@ -47,6 +47,12 @@
     return appId;
   }
 
+  function emitLaunch(appId) {
+    try {
+      window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId } }));
+    } catch (_) {}
+  }
+
   function isLauncherHidden() {
     return launcher.getAttribute('aria-hidden') === 'true' || launcher.hidden || launcher.style.display === 'none';
   }
@@ -92,6 +98,8 @@
   function setView(view, appId) {
     state.view = view;
     state.app = appId || null;
+
+    launcher.setAttribute('data-view', view);
 
     const isLock = view === 'lock';
     const isHome = view === 'home';
@@ -164,7 +172,8 @@
       btn.addEventListener('click', function () {
         const appId = btn.getAttribute('data-pt-open-app');
         if (!appId) return;
-        openApp(appId);
+        emitLaunch(appId);
+        closeLauncher();
       });
     });
 

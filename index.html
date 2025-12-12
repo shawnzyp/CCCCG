@@ -3173,6 +3173,8 @@
 
             <!-- Player OS launcher overlay (inside phone screen) -->
             <div data-pt-launcher class="pt-launcher" aria-hidden="true" hidden>
+              <div class="pt-wallpaper" aria-hidden="true"></div>
+              <div class="pt-wallpaper pt-wallpaper--blur" aria-hidden="true"></div>
               <section class="pt-lock-screen" data-pt-lock-screen aria-hidden="false">
                 <div class="pt-lock-inner">
                   <div class="pt-lock-time">09:41</div>
@@ -3247,18 +3249,6 @@
                   </div>
                 </header>
                 <main class="pt-app-host" data-pt-app-host>
-                  <section class="pt-card" data-pt-app-screen="playerTools" hidden>
-                    <h3>Player Tools</h3>
-                    <p>Launch the quick tray for dice, status, and utilities.</p>
-                    <button type="button" class="pt-btn" data-pt-open-quick-tray>Open Quick Tray</button>
-                  </section>
-
-                  <section class="pt-card" data-pt-app-screen="shards" hidden>
-                    <h3>The Shards of Many Fates</h3>
-                    <p>Summon the draw flow and tempt fate.</p>
-                    <button type="button" class="pt-btn" data-pt-open-shards>Draw Shards</button>
-                  </section>
-
                   <section class="pt-card" data-pt-app-screen="messages" hidden>
                     <h3>Director’s Messages</h3>
                     <p>Awaiting next directive. Check back soon.</p>
@@ -3647,6 +3637,7 @@
 <script type="module" src="scripts/animated-title-spacing.js"></script>
 <script type="module" src="scripts/player-tools-drawer.js"></script>
 <script type="module" src="scripts/player-os.js"></script>
+<script type="module" src="scripts/pt-launch-bridge.js"></script>
 <script type="module" src="scripts/player-credit-modal.js"></script>
 <script type="module" src="scripts/main.js"></script>
 <script src="shard-of-many-fates.js"></script>

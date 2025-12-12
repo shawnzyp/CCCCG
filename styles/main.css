@@ -10193,6 +10193,24 @@ body {
   opacity: 0.75;
 }
 
+.pt-os-lock,
+.pt-os-lock body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.pt-os-lock body > *:not(#player-tools-drawer):not(#somf-reveal-alert):not(#somf-confirm):not(#app-alert) {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+#player-tools-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+}
+
 .pt-screen__glass {
   position: relative;
   overflow: hidden;
@@ -10209,6 +10227,24 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: auto;
+}
+
+.pt-wallpaper {
+  position: absolute;
+  inset: 0;
+  background: var(--pt-wallpaper, url("images/IMG_3591.jpeg")) center/cover no-repeat;
+  z-index: 0;
+}
+
+.pt-wallpaper--blur {
+  filter: blur(18px) saturate(1.15);
+  transform: scale(1.08);
+  opacity: 0;
+}
+
+.pt-home[aria-hidden="false"] ~ .pt-wallpaper--blur,
+.pt-launcher[data-view="home"] .pt-wallpaper--blur {
+  opacity: 1;
 }
 
 [data-phone-shell] .pt-screen__glass {
