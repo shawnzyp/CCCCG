@@ -24,6 +24,7 @@
   const backButton  = q('[data-pt-launcher-back]', launcher);
   const appTitleEl  = q('[data-pt-launcher-app-title]', launcher);
   const headerTitle = document.getElementById('ptLauncherTitle');
+  const launcherTab = document.getElementById('player-tools-tab');
 
   // Map of appId -> element inside appHost
   const appScreensById = {};
@@ -50,16 +51,23 @@
     return launcher.getAttribute('aria-hidden') === 'true' || launcher.hidden || launcher.style.display === 'none';
   }
 
+  function setTabExpanded(isOpen) {
+    if (!launcherTab) return;
+    launcherTab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
   function showLauncher() {
     launcher.hidden = false;
     launcher.style.display = 'block';
     launcher.setAttribute('aria-hidden', 'false');
+    setTabExpanded(true);
   }
 
   function hideLauncher() {
     launcher.setAttribute('aria-hidden', 'true');
     launcher.style.display = 'none';
     launcher.hidden = true;
+    setTabExpanded(false);
   }
 
   function setLayerVisible(el, visible) {
