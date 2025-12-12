@@ -58,7 +58,7 @@
 
   function showLauncher() {
     launcher.hidden = false;
-    launcher.style.display = 'block';
+    launcher.style.removeProperty('display');
     launcher.setAttribute('aria-hidden', 'false');
     setTabExpanded(true);
   }

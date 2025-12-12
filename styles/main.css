@@ -10193,9 +10193,8 @@ body {
   opacity: 0.75;
 }
 
-[data-phone-shell].pt-os-active .pt-screen__glass {
-  opacity: 0;
-  pointer-events: none;
+.pt-screen__glass {
+  position: relative;
 }
 
 [data-phone-shell] .pt-screen__glass {
