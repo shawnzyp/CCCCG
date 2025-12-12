@@ -183,9 +183,7 @@
 
   function openLauncher(nextView) {
     showLauncher();
-    if (state.view === 'lock') {
-      setView('lock', null);
-    }
+    setView('lock', null);
     if (nextView && nextView !== 'lock') {
       openApp(nextView);
     }
