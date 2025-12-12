@@ -10198,8 +10198,8 @@ body {
 }
 
 [data-phone-shell].pt-os-active .pt-screen__glass {
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 [data-phone-shell] .pt-screen__glass {
