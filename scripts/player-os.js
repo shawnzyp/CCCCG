@@ -151,6 +151,11 @@
   }
 
   function bindEvents() {
+    // Always show the launcher (starting at lock) when the drawer opens
+    window.addEventListener('cc:player-tools-drawer-open', () => {
+      openLauncher();
+    });
+
     if (unlockEl) {
       unlockEl.addEventListener('click', handleUnlock);
     }

@@ -10205,6 +10205,12 @@ body {
   z-index: 999;
 }
 
+.pt-launcher {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
 [data-phone-shell] .pt-screen__glass {
   transition: opacity 120ms ease;
   pointer-events: auto;
