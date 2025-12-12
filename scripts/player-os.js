@@ -50,6 +50,8 @@
     return appId;
   }
 
+  const isLocked = id => String(id || '').trim() === 'locked';
+
   function emitLaunch(appId) {
     try {
       window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId } }));
@@ -172,14 +174,15 @@
       return;
     }
 
-    if (normalized === 'locked') {
-      showToast('Access denied');
+    if (isLocked(normalized)) {
+      emitLaunch('locked');
       setView('home', null);
       return;
     }
 
     if (normalized === 'playerTools' || normalized === 'shards' || normalized === 'messages') {
-      handleHomeIconPress(normalized);
+      emitLaunch(normalized);
+      closeLauncher();
       return;
     }
 
@@ -207,16 +210,11 @@
     setView('home', null);
   }
 
-  function handleHomeIconPress(rawAppId) {
+  function launchFromHome(rawAppId) {
     const normalized = normalizeAppId(rawAppId);
 
-    if (normalized === 'locked') {
-      showToast('Access denied');
-      return;
-    }
-
-    if (normalized === 'playerTools' || normalized === 'shards' || normalized === 'messages') {
-      emitLaunch(normalized);
+    if (isLocked(normalized)) {
+      emitLaunch('locked');
       return;
     }
 
@@ -225,7 +223,8 @@
       return;
     }
 
-    showToast('Coming soon');
+    emitLaunch(normalized);
+    closeLauncher();
   }
 
   function bindEvents() {
@@ -242,7 +241,7 @@
       btn.addEventListener('click', function () {
         const appId = btn.getAttribute('data-pt-open-app');
         if (!appId) return;
-        handleHomeIconPress(appId);
+        launchFromHome(appId);
       });
     });
 
