@@ -3168,74 +3168,111 @@
 
 
         <!-- Screen cut-out area -->
-        <div class="pt-screen" data-pt-screen data-phone-shell data-pt-phone-shell>
+        <div class="pt-screen" data-pt-screen data-phone-shell data-pt-phone-shell tabindex="-1">
           <div class="pt-screen__glass">
 
             <!-- Player OS launcher overlay (inside phone screen) -->
             <div data-pt-launcher class="pt-launcher" aria-hidden="true" hidden>
-              <div class="pt-wallpaper" aria-hidden="true"></div>
-              <div class="pt-wallpaper pt-wallpaper--blur" aria-hidden="true"></div>
+              <!-- in-phone toast (access denied, coming soon, etc) -->
+              <div class="pt-ios-toast" data-pt-ios-toast hidden role="status" aria-live="polite"></div>
+
               <section class="pt-lock-screen" data-pt-lock-screen aria-hidden="false">
-                <div class="pt-lock-inner">
-                  <div class="pt-lock-time">09:41</div>
-                  <div class="pt-lock-date">Tuesday, Dec 9</div>
-                  <button type="button" class="pt-lock-unlock" data-pt-lock-unlock>Swipe up to unlock</button>
+                <div class="pt-ios-lock">
+                  <div class="pt-ios-lock__date" data-pt-ios-date>Tuesday, Dec 9</div>
+                  <div class="pt-ios-lock__time" data-pt-ios-time>09:41</div>
+
+                  <button type="button" class="pt-ios-lock__swipe" data-pt-lock-unlock aria-label="Swipe up to unlock">
+                    <span class="pt-ios-lock__chev" aria-hidden="true"></span>
+                    <span class="pt-ios-lock__label">Swipe up to open</span>
+                  </button>
                 </div>
               </section>
 
               <section class="pt-home" data-pt-launcher-home hidden aria-hidden="true">
-                <div class="pt-home-grid" role="list">
-                  <button class="pt-home-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem">
-                    <span class="icon" aria-hidden="true">🛠️</span>
-                    <span class="label">Player Tools</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="shards" data-pt-app-label="Shards of Many Fates" role="listitem">
-                    <span class="icon" aria-hidden="true">♦️</span>
-                    <span class="label">Shards</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem">
-                    <span class="icon" aria-hidden="true">📡</span>
-                    <span class="label">Messages</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="settings" data-pt-app-label="Settings" role="listitem">
-                    <span class="icon" aria-hidden="true">⚙️</span>
-                    <span class="label">Settings</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="loadSave" data-pt-app-label="Load / Save" role="listitem">
-                    <span class="icon" aria-hidden="true">💾</span>
-                    <span class="label">Load / Save</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="encounter" data-pt-app-label="Encounter / Initiative" role="listitem">
-                    <span class="icon" aria-hidden="true">⚔️</span>
-                    <span class="label">Encounter</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="actionLog" data-pt-app-label="Action Log" role="listitem">
-                    <span class="icon" aria-hidden="true">📝</span>
-                    <span class="label">Action Log</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="creditsLedger" data-pt-app-label="Credits Ledger" role="listitem">
-                    <span class="icon" aria-hidden="true">💳</span>
-                    <span class="label">Credits</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem">
+                <div class="pt-home-wallpaper" aria-hidden="true"></div>
+
+                <div class="pt-home-pages" data-pt-home-pages>
+                  <div class="pt-home-page is-active" data-pt-home-page="0">
+                    <div class="pt-home-grid" role="list">
+                      <button class="pt-home-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem">
+                        <span class="icon" aria-hidden="true">🛠️</span>
+                        <span class="label">Player Tools</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="shards" data-pt-app-label="Shards of Many Fates" role="listitem">
+                        <span class="icon" aria-hidden="true">♦️</span>
+                        <span class="label">Shards</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem">
+                        <span class="icon" aria-hidden="true">📡</span>
+                        <span class="label">Messages</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="settings" data-pt-app-label="Settings" role="listitem">
+                        <span class="icon" aria-hidden="true">⚙️</span>
+                        <span class="label">Settings</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="loadSave" data-pt-app-label="Load / Save" role="listitem">
+                        <span class="icon" aria-hidden="true">💾</span>
+                        <span class="label">Load / Save</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="encounter" data-pt-app-label="Encounter / Initiative" role="listitem">
+                        <span class="icon" aria-hidden="true">⚔️</span>
+                        <span class="label">Encounter</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="actionLog" data-pt-app-label="Action Log" role="listitem">
+                        <span class="icon" aria-hidden="true">📝</span>
+                        <span class="label">Action Log</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="creditsLedger" data-pt-app-label="Credits Ledger" role="listitem">
+                        <span class="icon" aria-hidden="true">💳</span>
+                        <span class="label">Credits</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem">
+                        <span class="icon" aria-hidden="true">📓</span>
+                        <span class="label">Campaign</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="rules" data-pt-app-label="Rules" role="listitem">
+                        <span class="icon" aria-hidden="true">📖</span>
+                        <span class="label">Rules</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="help" data-pt-app-label="Help" role="listitem">
+                        <span class="icon" aria-hidden="true">❔</span>
+                        <span class="label">Help</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="OMNI Vault" role="listitem">
+                        <span class="icon" aria-hidden="true">🔒</span>
+                        <span class="label">OMNI Vault</span>
+                      </button>
+                      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="Arcade" role="listitem">
+                        <span class="icon" aria-hidden="true">🔒</span>
+                        <span class="label">Arcade</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="pt-home-page" data-pt-home-page="1" aria-hidden="true">
+                    <div class="pt-home-grid" role="list">
+                      <!-- future icons go here -->
+                    </div>
+                  </div>
+                </div>
+
+                <div class="pt-home-dots" data-pt-home-dots aria-label="Home pages" role="tablist">
+                  <button type="button" class="pt-dot is-active" data-pt-dot="0" aria-label="Page 1" aria-selected="true"></button>
+                  <button type="button" class="pt-dot" data-pt-dot="1" aria-label="Page 2" aria-selected="false"></button>
+                </div>
+
+                <div class="pt-home-dock" role="list" aria-label="Dock">
+                  <button class="pt-dock-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem">
                     <span class="icon" aria-hidden="true">📓</span>
                     <span class="label">Campaign</span>
                   </button>
-                  <button class="pt-home-icon" data-pt-open-app="rules" data-pt-app-label="Rules" role="listitem">
-                    <span class="icon" aria-hidden="true">📖</span>
-                    <span class="label">Rules</span>
+                  <button class="pt-dock-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem">
+                    <span class="icon" aria-hidden="true">📡</span>
+                    <span class="label">Messages</span>
                   </button>
-                  <button class="pt-home-icon" data-pt-open-app="help" data-pt-app-label="Help" role="listitem">
-                    <span class="icon" aria-hidden="true">❔</span>
-                    <span class="label">Help</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="OMNI Vault" role="listitem">
-                    <span class="icon" aria-hidden="true">🔒</span>
-                    <span class="label">OMNI Vault</span>
-                  </button>
-                  <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="Arcade" role="listitem">
-                    <span class="icon" aria-hidden="true">🔒</span>
-                    <span class="label">Arcade</span>
+                  <button class="pt-dock-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem">
+                    <span class="icon" aria-hidden="true">🛠️</span>
+                    <span class="label">Tools</span>
                   </button>
                 </div>
               </section>
@@ -3638,6 +3675,7 @@
 <script type="module" src="scripts/player-tools-drawer.js"></script>
 <script type="module" src="scripts/player-os.js"></script>
 <script type="module" src="scripts/pt-launch-bridge.js"></script>
+<script type="module" src="scripts/pt-ios-interactions.js"></script>
 <script type="module" src="scripts/player-credit-modal.js"></script>
 <script type="module" src="scripts/main.js"></script>
 <script src="shard-of-many-fates.js"></script>
