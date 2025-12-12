@@ -10201,7 +10201,7 @@ html.pt-os-lock body {
   touch-action: none;
 }
 
-.pt-os-lock body > *:not(#player-tools-drawer):not(#somf-reveal-alert):not(#somf-confirm):not(#app-alert) {
+.pt-os-lock body > *:not(#player-tools-drawer):not([data-pt-modal-open="1"]) {
   pointer-events: none !important;
   user-select: none !important;
 }
@@ -10312,7 +10312,7 @@ html.pt-os-lock body {
 .pt-home {
   position: relative;
   height: 100%;
-  padding: 64px 18px 110px;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -10457,11 +10457,13 @@ html.pt-os-lock body {
   position: relative;
   z-index: 1;
   height: 100%;
+  padding: 64px 18px 110px;
+  box-sizing: border-box;
 }
 
 .pt-home-page {
   position: absolute;
-  inset: 64px 18px 110px 18px;
+  inset: 0;
   opacity: 0;
   transform: translateX(10px);
   transition: opacity 220ms ease, transform 220ms ease;
