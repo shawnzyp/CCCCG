@@ -10195,6 +10195,14 @@ body {
 
 .pt-screen__glass {
   position: relative;
+  overflow: hidden;
+}
+
+/* Keep the launcher on top of all other phone UI layers */
+.pt-screen__glass > [data-pt-launcher] {
+  position: absolute;
+  inset: 0;
+  z-index: 999;
 }
 
 [data-phone-shell] .pt-screen__glass {

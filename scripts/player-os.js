@@ -169,15 +169,24 @@
 
     // Optional external triggers
     qa('[data-pt-launcher-open]').forEach(btn => {
-      btn.addEventListener('click', function () {
-        openLauncher();
-      });
+      btn.addEventListener(
+        'pointerdown',
+        function () {
+          // Let any drawer animations start, then show the launcher above them.
+          requestAnimationFrame(() => openLauncher());
+        },
+        { capture: true }
+      );
     });
 
     qa('[data-pt-launcher-close]').forEach(btn => {
-      btn.addEventListener('click', function () {
-        closeLauncher();
-      });
+      btn.addEventListener(
+        'pointerdown',
+        function () {
+          requestAnimationFrame(() => closeLauncher());
+        },
+        { capture: true }
+      );
     });
   }
 
