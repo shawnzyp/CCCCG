@@ -99,6 +99,8 @@
     state.view = view;
     state.app = appId || null;
 
+    launcher.setAttribute('data-view', view);
+
     const isLock = view === 'lock';
     const isHome = view === 'home';
     const isApp  = view === 'app';
