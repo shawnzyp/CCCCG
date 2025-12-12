@@ -39,6 +39,29 @@
     app: null
   };
 
+  function normalizeAppId(appId) {
+    if (appId === 'shards' && window.perms && window.perms.shardsUnlocked === false) {
+      return 'locked';
+    }
+    return appId;
+  }
+
+  function isLauncherHidden() {
+    return launcher.getAttribute('aria-hidden') === 'true' || launcher.hidden || launcher.style.display === 'none';
+  }
+
+  function showLauncher() {
+    launcher.hidden = false;
+    launcher.style.display = 'block';
+    launcher.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideLauncher() {
+    launcher.setAttribute('aria-hidden', 'true');
+    launcher.style.display = 'none';
+    launcher.hidden = true;
+  }
+
   function setLayerVisible(el, visible) {
     if (!el) return;
     el.hidden = !visible;
@@ -86,25 +109,29 @@
   }
 
   function openApp(appId) {
-    if (!appId || appId === 'home') {
+    const normalized = normalizeAppId(appId || 'home');
+
+    if (!normalized || normalized === 'home') {
       // Clear any active app and go back to home
       setView('home', null);
+      if (isLauncherHidden()) showLauncher();
       return;
     }
 
-    const screen = appScreensById[appId];
+    const screen = appScreensById[normalized];
     if (!screen) {
-      console.warn('Player OS: no [data-pt-app-screen="' + appId + '"] found');
+      console.warn('Player OS: no [data-pt-app-screen="' + normalized + '"] found');
       setView('home', null);
       return;
     }
 
     // Hide all other app screens, show this one
     Object.entries(appScreensById).forEach(([id, el]) => {
-      setLayerVisible(el, id === appId);
+      setLayerVisible(el, id === normalized);
     });
 
-    setView('app', appId);
+    showLauncher();
+    setView('app', normalized);
   }
 
   function handleUnlock() {
@@ -135,38 +162,57 @@
     // Optional external triggers
     qa('[data-pt-launcher-open]').forEach(btn => {
       btn.addEventListener('click', function () {
-        launcher.setAttribute('aria-hidden', 'false');
-        launcher.style.display = '';
-        if (state.view === 'lock') {
-          setView('lock', null);
-        }
+        openLauncher();
       });
     });
 
     qa('[data-pt-launcher-close]').forEach(btn => {
       btn.addEventListener('click', function () {
-        launcher.setAttribute('aria-hidden', 'true');
-        launcher.style.display = 'none';
+        closeLauncher();
       });
     });
   }
 
+  function openLauncher(nextView) {
+    showLauncher();
+    if (state.view === 'lock') {
+      setView('lock', null);
+    }
+    if (nextView && nextView !== 'lock') {
+      openApp(nextView);
+    }
+  }
+
+  function closeLauncher() {
+    hideLauncher();
+  }
+
+  function getState() {
+    return { view: state.view, app: state.app };
+  }
+
   function initLauncher() {
-    launcher.setAttribute('aria-hidden', 'false');
-    launcher.style.display = '';
+    if (isLauncherHidden()) {
+      hideLauncher();
+    } else {
+      showLauncher();
+    }
 
     // Start on lock screen
     setView('lock', null);
     bindEvents();
 
     // Expose a small debug API if you want it
-    window.PlayerOS = {
+    const api = {
+      openLauncher,
+      closeLauncher,
       openApp,
       setView,
-      getState() {
-        return { view: state.view, app: state.app };
-      }
+      getState
     };
+
+    window.PlayerOS = api;
+    window.PlayerLauncher = api; // backwards compatibility
   }
 
   if (document.readyState === 'loading') {

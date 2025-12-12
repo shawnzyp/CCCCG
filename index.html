@@ -3114,7 +3114,7 @@
 </div>
 
 <!-- Player OS launcher overlay -->
-<div data-pt-launcher class="pt-launcher" aria-hidden="false">
+<div data-pt-launcher class="pt-launcher" aria-hidden="true" hidden>
   <section class="pt-lock-screen" data-pt-lock-screen aria-hidden="false">
     <div class="pt-lock-inner">
       <div class="pt-lock-time">09:41</div>
@@ -3293,12 +3293,13 @@
 
 
 <button
-id="player-tools-tab"
-class="pt-tab"
-type="button"
-aria-expanded="false"
-aria-label="Open Player OS main menu"
-aria-hidden="false"
+  id="player-tools-tab"
+  class="pt-tab"
+  type="button"
+  aria-expanded="false"
+  aria-label="Open Player OS main menu"
+  aria-hidden="false"
+  data-pt-launcher-open
 >
 
 
@@ -3324,7 +3325,7 @@ aria-hidden="false"
   aria-hidden="true"
   data-pt-crack="0"
 >
-  <div class="pt-scrim" data-pt-scrim data-player-tools-scrim></div>
+  <div class="pt-scrim" data-pt-scrim data-player-tools-scrim data-pt-launcher-close></div>
 
 
   <!-- Slides in from the left -->
