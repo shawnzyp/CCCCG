@@ -3114,16 +3114,16 @@
 </div>
 
 <!-- Player OS launcher overlay -->
-<section data-pt-launcher class="pt-launcher" aria-hidden="false">
-  <div class="pt-lock-screen" data-pt-lock-screen>
+<div data-pt-launcher class="pt-launcher" aria-hidden="true" hidden>
+  <section class="pt-lock-screen" data-pt-lock-screen aria-hidden="false">
     <div class="pt-lock-inner">
       <div class="pt-lock-time">09:41</div>
       <div class="pt-lock-date">Tuesday, Dec 9</div>
       <button type="button" class="pt-lock-unlock" data-pt-lock-unlock>Swipe up to unlock</button>
     </div>
-  </div>
+  </section>
 
-  <div class="pt-home" data-pt-launcher-home hidden aria-hidden="true">
+  <section class="pt-home" data-pt-launcher-home hidden aria-hidden="true">
     <div class="pt-home-grid" role="list">
       <button class="pt-home-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem">
         <span class="icon" aria-hidden="true">🛠️</span>
@@ -3178,9 +3178,9 @@
         <span class="label">Arcade</span>
       </button>
     </div>
-  </div>
+  </section>
 
-  <div class="pt-app" data-pt-launcher-app hidden aria-hidden="true">
+  <section class="pt-app" data-pt-launcher-app hidden aria-hidden="true">
     <header class="pt-app-header">
       <button type="button" class="pt-back" data-pt-launcher-back aria-label="Back to home">‹</button>
       <div class="pt-app-titles">
@@ -3188,147 +3188,118 @@
         <div data-pt-launcher-app-title class="pt-app-subtitle"></div>
       </div>
     </header>
-    <main class="pt-app-host" data-pt-app-host></main>
-  </div>
+    <main class="pt-app-host" data-pt-app-host>
+      <section class="pt-card" data-pt-app-screen="playerTools" hidden>
+        <h3>Player Tools</h3>
+        <p>Launch the quick tray for dice, status, and utilities.</p>
+        <button type="button" class="pt-btn" data-pt-open-quick-tray>Open Quick Tray</button>
+      </section>
 
-  <template data-pt-app="playerTools">
-    <section class="pt-card">
-      <h3>Player Tools</h3>
-      <p>Launch the quick tray for dice, status, and utilities.</p>
-      <button type="button" class="pt-btn" data-pt-open-quick-tray>Open Quick Tray</button>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="shards" hidden>
+        <h3>The Shards of Many Fates</h3>
+        <p>Summon the draw flow and tempt fate.</p>
+        <button type="button" class="pt-btn" data-pt-open-shards>Draw Shards</button>
+      </section>
 
-  <template data-pt-app="shards">
-    <section class="pt-card">
-      <h3>The Shards of Many Fates</h3>
-      <p>Summon the draw flow and tempt fate.</p>
-      <button type="button" class="pt-btn" data-pt-open-shards>Draw Shards</button>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="messages" hidden>
+        <h3>Director’s Messages</h3>
+        <p>Awaiting next directive. Check back soon.</p>
+      </section>
 
-  <template data-pt-app="messages">
-    <section class="pt-card">
-      <h3>Director’s Messages</h3>
-      <p>Awaiting next directive. Check back soon.</p>
-    </section>
-  </template>
-
-  <template data-pt-app="settings">
-    <section class="pt-card">
-      <h3>Settings</h3>
-      <div class="pt-setting">
-        <div>
-          <div class="pt-setting__label">Theme</div>
-          <div class="pt-setting__hint">Cycle through available themes.</div>
+      <section class="pt-card" data-pt-app-screen="settings" hidden>
+        <h3>Settings</h3>
+        <div class="pt-setting">
+          <div>
+            <div class="pt-setting__label">Theme</div>
+            <div class="pt-setting__hint">Cycle through available themes.</div>
+          </div>
+          <button type="button" class="pt-btn pt-btn--ghost" data-pt-theme-next>Next Theme</button>
         </div>
-        <button type="button" class="pt-btn pt-btn--ghost" data-pt-theme-next>Next Theme</button>
-      </div>
-      <label class="pt-setting">
-        <span>
-          <span class="pt-setting__label">Reduce motion</span>
-          <span class="pt-setting__hint">Minimize launcher and page animations.</span>
-        </span>
-        <input type="checkbox" data-pt-reduce-motion />
-      </label>
-      <label class="pt-setting">
-        <span>
-          <span class="pt-setting__label">Hide live tickers</span>
-          <span class="pt-setting__hint">Remove scrolling news ribbons.</span>
-        </span>
-        <input type="checkbox" data-pt-hide-tickers />
-      </label>
-    </section>
-  </template>
+        <label class="pt-setting">
+          <span>
+            <span class="pt-setting__label">Reduce motion</span>
+            <span class="pt-setting__hint">Minimize launcher and page animations.</span>
+          </span>
+          <input type="checkbox" data-pt-reduce-motion />
+        </label>
+        <label class="pt-setting">
+          <span>
+            <span class="pt-setting__label">Hide live tickers</span>
+            <span class="pt-setting__hint">Remove scrolling news ribbons.</span>
+          </span>
+          <input type="checkbox" data-pt-hide-tickers />
+        </label>
+      </section>
 
-  <template data-pt-app="loadSave">
-    <section class="pt-card">
-      <h3>Load / Save</h3>
-      <p>Manage campaign save files from the phone shell.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="loadSave" hidden>
+        <h3>Load / Save</h3>
+        <p>Manage campaign save files from the phone shell.</p>
+      </section>
 
-  <template data-pt-app="encounter">
-    <section class="pt-card">
-      <h3>Encounter / Initiative</h3>
-      <p>Manage turn order without leaving the faux phone.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="encounter" hidden>
+        <h3>Encounter / Initiative</h3>
+        <p>Manage turn order without leaving the faux phone.</p>
+      </section>
 
-  <template data-pt-app="actionLog">
-    <section class="pt-card">
-      <h3>Action Log</h3>
-      <p>Review the latest table actions at a glance.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="actionLog" hidden>
+        <h3>Action Log</h3>
+        <p>Review the latest table actions at a glance.</p>
+      </section>
 
-  <template data-pt-app="creditsLedger">
-    <section class="pt-card">
-      <h3>Credits Ledger</h3>
-      <p>Track and reconcile all credit transfers.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="creditsLedger" hidden>
+        <h3>Credits Ledger</h3>
+        <p>Track and reconcile all credit transfers.</p>
+      </section>
 
-  <template data-pt-app="campaignLog">
-    <section class="pt-card">
-      <h3>Campaign Log</h3>
-      <p>Keep a running record of the campaign’s events.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="campaignLog" hidden>
+        <h3>Campaign Log</h3>
+        <p>Keep a running record of the campaign’s events.</p>
+      </section>
 
-  <template data-pt-app="rules">
-    <section class="pt-card">
-      <h3>Rules</h3>
-      <p>Lookup lore and rules references from the phone shell.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="rules" hidden>
+        <h3>Rules</h3>
+        <p>Lookup lore and rules references from the phone shell.</p>
+      </section>
 
-  <template data-pt-app="help">
-    <section class="pt-card">
-      <h3>Help</h3>
-      <p>Find quick assistance for the table.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="help" hidden>
+        <h3>Help</h3>
+        <p>Find quick assistance for the table.</p>
+      </section>
 
-  <template data-pt-app="locked">
-    <section class="pt-card">
-      <h3>Access Restricted</h3>
-      <p>This app is locked. Return to the home screen to pick another.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="locked" hidden>
+        <h3>Access Restricted</h3>
+        <p>This app is locked. Return to the home screen to pick another.</p>
+      </section>
 
-  <template data-pt-app="initiative">
-    <section class="pt-card">
-      <h3>Initiative</h3>
-      <p>Track encounters inside the faux OS.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="initiative" hidden>
+        <h3>Initiative</h3>
+        <p>Track encounters inside the faux OS.</p>
+      </section>
 
-  <template data-pt-app="codex">
-    <section class="pt-card">
-      <h3>Codex</h3>
-      <p>Browse key lore in a focused view.</p>
-    </section>
-  </template>
+      <section class="pt-card" data-pt-app-screen="codex" hidden>
+        <h3>Codex</h3>
+        <p>Browse key lore in a focused view.</p>
+      </section>
 
-  <template data-pt-app="missions">
-    <section class="pt-card">
-      <h3>Missions</h3>
-      <p>Review mission briefs and objectives.</p>
-    </section>
-  </template>
-</section>
+      <section class="pt-card" data-pt-app-screen="missions" hidden>
+        <h3>Missions</h3>
+        <p>Review mission briefs and objectives.</p>
+      </section>
+    </main>
+  </section>
+</div>
 
 <!-- Player Tools tab (left-edge vertical pill) -->
 
 
 <button
-id="player-tools-tab"
-class="pt-tab"
-type="button"
-aria-expanded="false"
-aria-label="Open Player OS main menu"
-aria-hidden="false"
+  id="player-tools-tab"
+  class="pt-tab"
+  type="button"
+  aria-expanded="false"
+  aria-label="Open Player OS main menu"
+  aria-hidden="false"
+  data-pt-launcher-open
 >
 
 
@@ -3354,7 +3325,7 @@ aria-hidden="false"
   aria-hidden="true"
   data-pt-crack="0"
 >
-  <div class="pt-scrim" data-pt-scrim data-player-tools-scrim></div>
+  <div class="pt-scrim" data-pt-scrim data-player-tools-scrim data-pt-launcher-close></div>
 
 
   <!-- Slides in from the left -->
