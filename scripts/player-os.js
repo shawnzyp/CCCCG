@@ -233,6 +233,11 @@
       openLauncher();
     });
 
+    window.addEventListener('cc:pt-show-toast', (e) => {
+      const msg = String(e?.detail?.message || '').trim();
+      if (msg) showToast(msg);
+    });
+
     if (unlockEl) {
       unlockEl.addEventListener('click', handleUnlock);
     }

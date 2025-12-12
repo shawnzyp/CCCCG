@@ -10411,6 +10411,132 @@ html.pt-os-lock body {
   border-radius: 18px;
 }
 
+/* Tap press animation */
+.pt-home-icon,
+.pt-dock-icon {
+  transform: translateZ(0);
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.pt-home-icon.is-pressed,
+.pt-dock-icon.is-pressed {
+  transform: scale(0.93);
+  filter: brightness(1.06);
+}
+
+.pt-home-icon .icon,
+.pt-dock-icon .icon {
+  position: relative;
+}
+
+/* Badge counts */
+.pt-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 59, 48, 0.95);
+  color: white;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.pt-badge[hidden] {
+  display: none;
+}
+
+/* Home pages */
+.pt-home-pages {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+.pt-home-page {
+  position: absolute;
+  inset: 64px 18px 110px 18px;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+
+.pt-home-page.is-active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.pt-home-dots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 92px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.pt-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.pt-dot.is-active {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* Context menu */
+.pt-context-menu {
+  position: absolute;
+  z-index: 1010;
+  min-width: 210px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(20, 20, 24, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  transform: scale(0.98);
+  opacity: 0;
+  transition: opacity 120ms ease, transform 120ms ease;
+  pointer-events: none;
+}
+
+.pt-context-menu.is-open {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.pt-context-menu button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  padding: 10px 10px;
+  border-radius: 12px;
+}
+
+.pt-context-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* In-phone toast */
 .pt-ios-toast {
   position: absolute;
