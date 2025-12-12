@@ -531,11 +531,10 @@ function createPlayerToolsDrawer() {
 
     if (isOpen) {
       updateClock();
-      showSplashThenApp();
+      // Do not auto-launch the Player Tools tray anymore.
+      // The phone should open to the Player OS lock screen only.
+      try { window.dispatchEvent(new CustomEvent('cc:player-tools-drawer-open')); } catch (_) {}
       addOutsideCloseListeners();
-      try {
-        window.dispatchEvent(new CustomEvent('cc:player-tools-drawer-open'));
-      } catch (_) {}
     } else {
       if (removeOutsideCloseListeners) removeOutsideCloseListeners();
       splashSeq += 1; // cancel any in-flight splash finish

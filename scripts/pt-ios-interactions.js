@@ -93,13 +93,14 @@
     let startX = null;
     let startY = null;
 
-    homeView.addEventListener('pointerdown', (e) => {
+    pagesRoot.addEventListener('pointerdown', (e) => {
       if (!isHomeVisible()) return;
+      if (e.target.closest('.pt-home-icon, .pt-dock-icon, .pt-context-menu')) return;
       startX = e.clientX;
       startY = e.clientY;
     }, { passive: true });
 
-    homeView.addEventListener('pointerup', (e) => {
+    pagesRoot.addEventListener('pointerup', (e) => {
       if (!isHomeVisible()) return;
       if (startX == null || startY == null) return;
 
@@ -266,6 +267,36 @@
       badge.textContent = count > 99 ? '99+' : String(count);
     });
   };
+
+  /* ---------------------------
+     5) OMNI Uplink widget
+  ----------------------------*/
+  const btnMsg = launcher.querySelector('[data-pt-uplink-open-messages]');
+  btnMsg?.addEventListener('click', () => {
+    try { window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId: 'messages' } })); } catch (_) {}
+  });
+
+  const elSignal = launcher.querySelector('[data-pt-uplink-signal]');
+  const elThreat = launcher.querySelector('[data-pt-uplink-threat]');
+  const elLock   = launcher.querySelector('[data-pt-uplink-lock]');
+  const elLast   = launcher.querySelector('[data-pt-uplink-last]');
+
+  const threatCycle = ['GREEN', 'AMBER', 'RED'];
+  const lockCycle = ['LOCKED', 'SEARCHING', 'LOST'];
+
+  const updateUplink = () => {
+    const now = new Date();
+    if (elSignal) {
+      const pct = 70 + Math.floor(Math.random() * 30);
+      elSignal.textContent = `Signal: ${pct}%`;
+    }
+    if (elThreat) elThreat.textContent = threatCycle[Math.floor(Math.random() * threatCycle.length)];
+    if (elLock)   elLock.textContent   = lockCycle[Math.floor(Math.random() * lockCycle.length)];
+    if (elLast)   elLast.textContent   = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  };
+
+  updateUplink();
+  setInterval(updateUplink, 15000);
 
   window.PlayerOS = window.PlayerOS || {};
   window.PlayerOSBadges = { setBadge };

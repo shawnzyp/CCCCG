@@ -16,6 +16,8 @@
     return;
   }
 
+  const glass = launcher.closest('.pt-screen__glass') || launcher.parentElement;
+
   const toastEl     = q('[data-pt-ios-toast]', launcher);
   const lockView    = q('[data-pt-lock-screen]', launcher);
   const homeView    = q('[data-pt-launcher-home]', launcher);
@@ -105,6 +107,7 @@
     launcher.style.removeProperty('display');
     launcher.setAttribute('aria-hidden', 'false');
     setTabExpanded(true);
+    if (glass) glass.setAttribute('data-pt-launcher-visible', '1');
   }
 
   function hideLauncher() {
@@ -112,6 +115,7 @@
     launcher.style.display = 'none';
     launcher.hidden = true;
     setTabExpanded(false);
+    if (glass) glass.removeAttribute('data-pt-launcher-visible');
   }
 
   function setLayerVisible(el, visible) {
