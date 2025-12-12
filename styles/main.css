@@ -10050,7 +10050,9 @@ body {
 .pt-home {
   background: rgba(5, 9, 20, 0.94);
   padding: 1.25rem;
-  overflow: auto;
+  overflow: hidden;
+  touch-action: pan-x;
+  overscroll-behavior: none;
 }
 
 .pt-home-grid {
@@ -10224,6 +10226,12 @@ html.pt-os-lock body {
   z-index: 999;
 }
 
+/* When the Player OS launcher is up, hide any underlying tray/app UI */
+.pt-screen__glass[data-pt-launcher-visible="1"] > :not([data-pt-launcher]) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .pt-launcher {
   position: absolute;
   inset: 0;
@@ -10329,6 +10337,11 @@ html.pt-os-lock body {
   z-index: 0;
 }
 
+.pt-home-pages,
+.pt-home-page {
+  overflow: hidden;
+}
+
 .pt-home-grid {
   position: relative;
   z-index: 1;
@@ -10336,13 +10349,6 @@ html.pt-os-lock body {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px 14px;
   align-content: start;
-}
-
-/* Hide duplicates in the grid for the three dock apps */
-.pt-home-grid .pt-home-icon[data-pt-open-app="campaignLog"],
-.pt-home-grid .pt-home-icon[data-pt-open-app="messages"],
-.pt-home-grid .pt-home-icon[data-pt-open-app="playerTools"] {
-  display: none;
 }
 
 /* Icon button styling */
@@ -10356,6 +10362,7 @@ html.pt-os-lock body {
   text-align: center;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .pt-home-icon .icon,
@@ -10409,6 +10416,62 @@ html.pt-os-lock body {
   height: 58px;
   margin-bottom: 6px;
   border-radius: 18px;
+}
+
+.pt-widget {
+  grid-column: 1 / -1;
+  border-radius: 18px;
+  padding: 14px 14px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+
+.pt-widget__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.pt-widget__title {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  opacity: 0.92;
+}
+
+.pt-widget__pill {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.pt-widget__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pt-widget__row strong {
+  letter-spacing: 0.04em;
+}
+
+.pt-widget__btn {
+  width: 100%;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(0, 229, 255, 0.18);
+  color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 229, 255, 0.22);
 }
 
 /* Tap press animation */
