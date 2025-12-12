@@ -10197,11 +10197,6 @@ body {
   position: relative;
 }
 
-[data-phone-shell].pt-os-active .pt-screen__glass {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 [data-phone-shell] .pt-screen__glass {
   transition: opacity 120ms ease;
   pointer-events: auto;
