@@ -151,6 +151,11 @@
   }
 
   function bindEvents() {
+    // Always show the launcher (starting at lock) when the drawer opens
+    window.addEventListener('cc:player-tools-drawer-open', () => {
+      openLauncher();
+    });
+
     if (unlockEl) {
       unlockEl.addEventListener('click', handleUnlock);
     }
@@ -169,15 +174,24 @@
 
     // Optional external triggers
     qa('[data-pt-launcher-open]').forEach(btn => {
-      btn.addEventListener('click', function () {
-        openLauncher();
-      });
+      btn.addEventListener(
+        'pointerdown',
+        function () {
+          // Let any drawer animations start, then show the launcher above them.
+          requestAnimationFrame(() => openLauncher());
+        },
+        { capture: true }
+      );
     });
 
     qa('[data-pt-launcher-close]').forEach(btn => {
-      btn.addEventListener('click', function () {
-        closeLauncher();
-      });
+      btn.addEventListener(
+        'pointerdown',
+        function () {
+          requestAnimationFrame(() => closeLauncher());
+        },
+        { capture: true }
+      );
     });
   }
 
