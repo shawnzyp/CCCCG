@@ -20,12 +20,12 @@
 
   const toastEl     = q('[data-pt-ios-toast]', launcher);
   const lockView    = q('[data-pt-lock-screen]', launcher);
-  const homeView    = q('[data-pt-launcher-home]', launcher);
+  const homeView    = q('section[data-pt-launcher-home]', launcher);
   const appView     = q('[data-pt-launcher-app]', launcher);
   const appHost     = q('[data-pt-app-host]', launcher);
   const unlockEl    = q('[data-pt-lock-unlock]', launcher) || lockView;
   const backButton  = q('[data-pt-launcher-back]', launcher);
-  const homeButton  = q('[data-pt-launcher-home]', launcher);
+  const homeButton  = q('[data-pt-launcher-home-btn]', launcher);
   const appTitleEl  = q('[data-pt-launcher-app-title]', launcher);
   const headerTitle = document.getElementById('ptLauncherTitle');
   const launcherTab = document.getElementById('player-tools-tab');

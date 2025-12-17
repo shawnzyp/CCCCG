@@ -5,7 +5,7 @@
   const launcher = doc.querySelector('[data-pt-launcher]');
   if (!launcher) return;
 
-  const homeView = launcher.querySelector('[data-pt-launcher-home]');
+  const homeView = launcher.querySelector('section[data-pt-launcher-home]');
   const pagesRoot = launcher.querySelector('[data-pt-home-pages]');
   const dotsRoot = launcher.querySelector('[data-pt-home-dots]');
 

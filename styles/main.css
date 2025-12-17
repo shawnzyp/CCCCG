@@ -10381,11 +10381,11 @@ html.pt-os-lock body {
 }
 
 .pt-home-page {
-  position: relative;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   min-height: 0;
   padding: 0.25rem 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .pt-home-grid {
