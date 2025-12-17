@@ -5,6 +5,16 @@
   const LOCK_CLASS = 'pt-os-lock';
   const OPEN_ATTR = 'data-pt-modal-open';
 
+  const launcher = doc.querySelector('[data-pt-launcher]');
+  const modalHost = launcher?.querySelector('[data-pt-modal-host]');
+  const qInLauncher = (sel) => (launcher ? launcher.querySelector(sel) : null);
+  const safeEscape = (id) => {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+      try { return CSS.escape(id); } catch (_) { /* noop */ }
+    }
+    return String(id || '').replace(/[^\w-]/g, '\\$&');
+  };
+
   const getPhoneToast = () => doc.querySelector('[data-pt-launcher] [data-pt-ios-toast]');
   let toastTimer = null;
   const showPhoneToast = (msg, ms = 1600) => {
@@ -35,16 +45,38 @@
   };
 
   const anyOpenModal = () => {
-    return !!doc.querySelector(`[${OPEN_ATTR}="1"]`);
+    const inLauncher = launcher?.querySelector(`.pt-modal[${OPEN_ATTR}="1"]`);
+    if (inLauncher) return true;
+    return !!doc.querySelector(`.pt-modal[${OPEN_ATTR}="1"]`);
+  };
+
+  const getModalById = (id) => qInLauncher(`#${safeEscape(id)}`) || doc.getElementById(id);
+
+  const setModalHostOpen = (open) => {
+    if (!modalHost) return;
+    if (open) {
+      modalHost.setAttribute('data-pt-modal-open', '1');
+      modalHost.setAttribute('aria-hidden', 'false');
+      launcher?.setAttribute('data-pt-modal-lock', '1');
+    } else {
+      modalHost.removeAttribute('data-pt-modal-open');
+      modalHost.setAttribute('aria-hidden', 'true');
+      launcher?.removeAttribute('data-pt-modal-lock');
+    }
   };
 
   const openModal = id => {
-    const modal = doc.getElementById(id);
+    const modal = getModalById(id);
     if (!modal) return false;
+
+    const inLauncher = launcher && launcher.contains(modal);
 
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
     modal.setAttribute(OPEN_ATTR, '1');
+    if (inLauncher) {
+      setModalHostOpen(true);
+    }
     setLocked(true);
     requestAnimationFrame(() => focusFirst(modal));
     return true;
@@ -136,14 +168,66 @@
   };
 
   const closeModal = id => {
-    const modal = doc.getElementById(id);
+    const modal = getModalById(id);
     if (!modal) return false;
     modal.hidden = true;
     modal.setAttribute('aria-hidden', 'true');
     modal.removeAttribute(OPEN_ATTR);
-    setLocked(anyOpenModal());
+    const hasOpen = anyOpenModal();
+    setModalHostOpen(hasOpen);
+    setLocked(hasOpen);
     return true;
   };
+
+  const getFocusables = (root) => {
+    if (!root) return [];
+    return Array.from(root.querySelectorAll(
+      'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'
+    )).filter((el) => !el.disabled && el.getAttribute('aria-hidden') !== 'true');
+  };
+
+  doc.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const openModals = launcher ? Array.from(launcher.querySelectorAll(`.pt-modal[${OPEN_ATTR}="1"]`)) : [];
+    const modal = openModals.length ? openModals[openModals.length - 1] : null;
+    if (!modal) return;
+
+    const focusables = getFocusables(modal);
+    if (!focusables.length) {
+      e.preventDefault();
+      return;
+    }
+
+    const current = doc.activeElement;
+    const idx = focusables.indexOf(current);
+    const lastIndex = focusables.length - 1;
+
+    let nextIndex = 0;
+    if (e.shiftKey) {
+      nextIndex = idx <= 0 ? lastIndex : idx - 1;
+    } else {
+      nextIndex = idx === lastIndex ? 0 : idx + 1;
+    }
+
+    e.preventDefault();
+    const next = focusables[nextIndex] || focusables[0];
+    if (next && typeof next.focus === 'function') {
+      next.focus();
+    }
+  }, true);
+
+  doc.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-pt-modal-close]');
+    if (!btn) return;
+    const modal = e.target.closest('.pt-modal');
+    if (!modal || (launcher && !launcher.contains(modal))) return;
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
+    modal.removeAttribute(OPEN_ATTR);
+    const hasOpen = anyOpenModal();
+    setModalHostOpen(hasOpen);
+    setLocked(hasOpen);
+  });
 
   const wireDismiss = (selector, modalId) => {
     const btn = doc.querySelector(selector);

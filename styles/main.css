@@ -10247,6 +10247,105 @@ html.pt-os-lock body {
   pointer-events: none !important;
 }
 
+[data-pt-launcher] {
+  position: absolute;
+  inset: 0;
+}
+
+.pt-modal-host {
+  position: absolute;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+.pt-modal-host[data-pt-modal-open="1"] {
+  pointer-events: auto;
+}
+
+.pt-modal-host:not([data-pt-modal-open="1"]) .pt-modal {
+  display: none;
+}
+
+.pt-modal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+}
+
+.pt-modal__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.pt-modal__panel {
+  position: relative;
+  width: min(520px, calc(100% - 2rem));
+  max-height: calc(100% - 2.5rem);
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgba(10, 12, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+
+.pt-modal__header,
+.pt-modal__footer {
+  padding: 0.9rem 1.1rem;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pt-modal__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.pt-modal__close {
+  margin-left: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.pt-modal__body {
+  overflow: auto;
+  padding: 1rem 1.1rem;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pt-modal__body p {
+  margin: 0;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.pt-modal__footer {
+  justify-content: flex-end;
+}
+
+[data-pt-launcher][data-pt-modal-lock="1"] .pt-home,
+[data-pt-launcher][data-pt-modal-lock="1"] .pt-app-host {
+  overflow: hidden;
+}
+
 .pt-launcher {
   position: absolute;
   inset: 0;
