@@ -10409,6 +10409,24 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   background-repeat: no-repeat;
 }
 
+/* Anything decorative should never intercept input */
+.pt-glass-cracks,
+.pt-glass-cracks * ,
+.pt-ios-toast,
+.pt-home-wallpaper {
+  pointer-events: none;
+}
+
+/* Make lock screen reliably tappable */
+.pt-lock-screen {
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+.pt-ios-lock,
+.pt-ios-lock__swipe {
+  pointer-events: auto;
+}
+
 /* iOS-style lock screen */
 .pt-lock-screen {
   position: absolute;

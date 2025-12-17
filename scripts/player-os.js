@@ -313,6 +313,20 @@
   }
 
   function bindEvents() {
+    // Always allow unlocking from the lock view, even if click does not synthesize
+    if (lockView) {
+      lockView.addEventListener(
+        'pointerdown',
+        (e) => {
+          if (state.view !== 'lock') return;
+          // Prevent weird layering/click synthesis issues
+          e.preventDefault?.();
+          handleUnlock();
+        },
+        { capture: true }
+      );
+    }
+
     // Always show the launcher (starting at lock) when the drawer opens
     window.addEventListener('cc:player-tools-drawer-open', () => {
       openLauncher();
@@ -328,10 +342,6 @@
         e.stopPropagation();
         handleUnlock();
       });
-    }
-
-    if (lockView) {
-      lockView.addEventListener('click', handleUnlock);
     }
 
     enableSwipeUnlock();
