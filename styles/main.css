@@ -10465,24 +10465,15 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   align-self: end;
   margin: clamp(0.75rem, 2.5vh, 1.35rem) auto 0;
   width: max-content;
-  display: grid;
-  justify-items: center;
-  gap: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 999px;
   color: inherit;
   padding: 0.5rem 1.15rem;
   backdrop-filter: blur(10px);
-}
-
-.pt-ios-lock__chev {
-  width: 18px;
-  height: 18px;
-  border-left: 2px solid rgba(255, 255, 255, 0.9);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.9);
-  transform: rotate(45deg);
-  opacity: 0.9;
 }
 
 .pt-ios-lock__label {
