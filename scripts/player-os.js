@@ -225,6 +225,59 @@
     setView('home', null);
   }
 
+  function enableSwipeUnlock() {
+    if (!lockView) return;
+
+    const threshold = 45;
+    let startY = null;
+    let active = false;
+
+    const getY = (e) => {
+      if (e.touches && e.touches.length) return e.touches[0].clientY;
+      if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientY;
+      return e.clientY;
+    };
+
+    const reset = () => {
+      startY = null;
+      active = false;
+    };
+
+    const start = (e) => {
+      if (state.view !== 'lock') return;
+      startY = getY(e);
+      active = true;
+    };
+
+    const move = (e) => {
+      if (!active || startY === null) return;
+      const currentY = getY(e);
+      if (typeof currentY !== 'number') return;
+
+      const delta = startY - currentY;
+      if (delta >= threshold) {
+        reset();
+        handleUnlock();
+      }
+    };
+
+    const end = reset;
+
+    const options = { passive: true };
+
+    lockView.addEventListener('pointerdown', start, options);
+    lockView.addEventListener('pointermove', move, options);
+    lockView.addEventListener('pointerup', end, options);
+    lockView.addEventListener('pointercancel', end, options);
+
+    if (!('PointerEvent' in window)) {
+      lockView.addEventListener('touchstart', start, options);
+      lockView.addEventListener('touchmove', move, options);
+      lockView.addEventListener('touchend', end, options);
+      lockView.addEventListener('touchcancel', end, options);
+    }
+  }
+
   function launchFromHome(rawAppId) {
     const normalized = normalizeAppId(rawAppId);
 
@@ -261,6 +314,8 @@
     if (unlockEl) {
       unlockEl.addEventListener('click', handleUnlock);
     }
+
+    enableSwipeUnlock();
 
     qa('[data-pt-open-app]', launcher).forEach(btn => {
       btn.addEventListener('click', function () {
