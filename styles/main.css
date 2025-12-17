@@ -10186,8 +10186,9 @@ html[data-pt-phone-open="1"] body {
   touch-action: none;
 }
 
-html[data-pt-phone-open="1"] body * {
+html[data-pt-phone-open="1"] body > *:not(#player-tools-drawer) {
   pointer-events: none !important;
+  user-select: none !important;
 }
 
 html[data-pt-phone-open="1"] #player-tools-drawer,
