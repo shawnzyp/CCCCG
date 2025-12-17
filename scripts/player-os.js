@@ -217,6 +217,9 @@
 
   function handleHome() {
     state.app = null;
+
+    Object.values(appScreensById).forEach((el) => setLayerVisible(el, false));
+
     if (appTitleEl) appTitleEl.textContent = '';
     if (headerTitle) headerTitle.textContent = 'Player OS';
     setView('home', null);

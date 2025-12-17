@@ -117,8 +117,9 @@
       else setPage(activePage - 1);
     }, { passive: true });
 
-    setPage(0);
   }
+
+  if (pagesRoot) setPage(0);
 
   /* ---------------------------
      3) Long-press context menus
