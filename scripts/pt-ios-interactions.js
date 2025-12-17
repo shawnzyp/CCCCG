@@ -71,6 +71,7 @@
     pages.forEach((page, i) => {
       const on = i === next;
       page.classList.toggle('is-active', on);
+      page.hidden = !on;
       page.setAttribute('aria-hidden', on ? 'false' : 'true');
     });
 

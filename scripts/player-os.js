@@ -216,6 +216,9 @@
   }
 
   function handleHome() {
+    state.app = null;
+    if (appTitleEl) appTitleEl.textContent = '';
+    if (headerTitle) headerTitle.textContent = 'Player OS';
     setView('home', null);
   }
 
@@ -264,7 +267,11 @@
     }
 
     if (homeButton) {
-      homeButton.addEventListener('click', handleHome);
+      homeButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleHome();
+      });
     }
 
     // Optional external triggers
