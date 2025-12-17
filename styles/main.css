@@ -10401,12 +10401,19 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   position: absolute;
   inset: 0;
   pointer-events: auto;
+  touch-action: manipulation;
   /* Use your existing wallpaper. If you already set it elsewhere as a var, hook into it here. */
   --pt-wallpaper: var(--pt-os-wallpaper, url("../images/IMG_3591.jpeg"));
   background-image: var(--pt-wallpaper);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+/* If any higher layer exists, make sure the launcher itself can still receive taps */
+.pt-screen,
+.pt-screen__glass {
+  pointer-events: auto;
 }
 
 /* Anything decorative should never intercept input */

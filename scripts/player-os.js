@@ -313,18 +313,25 @@
   }
 
   function bindEvents() {
-    // Always allow unlocking from the lock view, even if click does not synthesize
-    if (lockView) {
-      lockView.addEventListener(
-        'pointerdown',
-        (e) => {
-          if (state.view !== 'lock') return;
-          // Prevent weird layering/click synthesis issues
-          e.preventDefault?.();
-          handleUnlock();
-        },
-        { capture: true }
-      );
+    // Hard-lock unlock handler: catch input at the launcher root (capture phase)
+    // so overlays cannot block the lock screen from receiving taps.
+    const unlockFromEvent = (e) => {
+      if (state.view !== 'lock') return;
+      // If the user tapped a real interactive control on the lock screen,
+      // let that control handle it (the button still unlocks anyway).
+      const t = e && e.target;
+      if (t && typeof t.closest === 'function' && t.closest('[data-pt-lock-unlock]')) {
+        return;
+      }
+      // Prevent scroll/select quirks on mobile browsers
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      handleUnlock();
+    };
+
+    if (launcher) {
+      launcher.addEventListener('pointerdown', unlockFromEvent, { capture: true, passive: false });
+      launcher.addEventListener('mousedown', unlockFromEvent, { capture: true });
+      launcher.addEventListener('touchstart', unlockFromEvent, { capture: true, passive: false });
     }
 
     // Always show the launcher (starting at lock) when the drawer opens
@@ -340,6 +347,7 @@
     if (unlockEl) {
       unlockEl.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
         handleUnlock();
       });
     }
