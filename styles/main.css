@@ -9086,11 +9086,11 @@ html[data-pt-reduce-motion="1"] .pt-crack { transition: none; }
 .pt-glass-cracks[data-pt-stage="5"] .pt-crack--4 { opacity: 0.28; }
 .pt-glass-cracks[data-pt-stage="5"] .pt-crack--5 { opacity: 0.30; }
 
-.pt-crack--1 { background-image: url("images/cracks/crack-01.svg"); background-position: 15% 20%; }
-.pt-crack--2 { background-image: url("images/cracks/crack-02.svg"); background-position: 85% 18%; }
-.pt-crack--3 { background-image: url("images/cracks/crack-03.svg"); background-position: 25% 75%; }
-.pt-crack--4 { background-image: url("images/cracks/crack-04.svg"); background-position: 80% 70%; }
-.pt-crack--5 { background-image: url("images/cracks/crack-05.svg"); background-position: 50% 45%; }
+.pt-crack--1 { background-image: url("../images/cracks/crack-01.svg"); background-position: 15% 20%; }
+.pt-crack--2 { background-image: url("../images/cracks/crack-02.svg"); background-position: 85% 18%; }
+.pt-crack--3 { background-image: url("../images/cracks/crack-03.svg"); background-position: 25% 75%; }
+.pt-crack--4 { background-image: url("../images/cracks/crack-04.svg"); background-position: 80% 70%; }
+.pt-crack--5 { background-image: url("../images/cracks/crack-05.svg"); background-position: 50% 45%; }
 
 /* App UI */
 #player-tools-drawer .pt-app{
@@ -10398,7 +10398,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   inset: 0;
   pointer-events: auto;
   /* Use your existing wallpaper. If you already set it elsewhere as a var, hook into it here. */
-  --pt-wallpaper: var(--pt-os-wallpaper, url("images/IMG_3591.jpeg"));
+  --pt-wallpaper: var(--pt-os-wallpaper, url("../images/IMG_3591.jpeg"));
   background-image: var(--pt-wallpaper);
   background-size: cover;
   background-position: center;

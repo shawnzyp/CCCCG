@@ -639,6 +639,7 @@ function createPlayerToolsDrawer() {
 
     if (isOpen) {
       updateClock();
+      updateCracks();
       // Do not auto-launch the Player Tools tray anymore.
       // The phone should open to the Player OS lock screen only.
       try { window.dispatchEvent(new CustomEvent('cc:player-tools-drawer-open')); } catch (_) {}
@@ -819,6 +820,28 @@ function createPlayerToolsDrawer() {
     setCrackStage(stage);
   };
 
+  const bindHpCrackListeners = () => {
+    const curEl = queryFirst([
+      '#hpCurrent',
+      '#hp-current',
+      '#current-hp',
+      '[data-hp-current]',
+      '[name="hp-current"]',
+    ]);
+
+    const maxEl = queryFirst([
+      '#hpMax',
+      '#hp-max',
+      '[data-hp-max]',
+      '[name="hp-max"]',
+    ]);
+
+    [curEl, maxEl].filter(Boolean).forEach((el) => {
+      el.addEventListener('input', () => updateCracks(), { passive: true });
+      el.addEventListener('change', () => updateCracks(), { passive: true });
+    });
+  };
+
   window.addEventListener('cc:player-damage', (e) => {
     const hpPct = Number(e?.detail?.hpPct);
     if (!Number.isFinite(hpPct)) return;
@@ -864,6 +887,7 @@ function createPlayerToolsDrawer() {
   setDrawerOpen(false, { force: true });
   updateClock();
   initBattery();
+  bindHpCrackListeners();
 
   timeInterval = setInterval(updateClock, 15_000);
   updateCracks();

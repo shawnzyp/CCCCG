@@ -285,6 +285,8 @@
   window.addEventListener('cc:pt-open-modal', (e) => {
     const id = e?.detail?.id;
     if (!id) return;
+    const drawerOpen = document.getElementById('player-tools-drawer')?.classList.contains('is-open');
+    if (!drawerOpen) return;
     openModal(id);
   });
 })();
