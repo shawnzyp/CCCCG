@@ -20,11 +20,12 @@
 
   const toastEl     = q('[data-pt-ios-toast]', launcher);
   const lockView    = q('[data-pt-lock-screen]', launcher);
-  const homeView    = q('[data-pt-launcher-home]', launcher);
+  const homeView    = q('section[data-pt-launcher-home]', launcher);
   const appView     = q('[data-pt-launcher-app]', launcher);
   const appHost     = q('[data-pt-app-host]', launcher);
   const unlockEl    = q('[data-pt-lock-unlock]', launcher) || lockView;
   const backButton  = q('[data-pt-launcher-back]', launcher);
+  const homeButton  = q('[data-pt-launcher-home-btn]', launcher);
   const appTitleEl  = q('[data-pt-launcher-app-title]', launcher);
   const headerTitle = document.getElementById('ptLauncherTitle');
   const launcherTab = document.getElementById('player-tools-tab');
@@ -214,6 +215,16 @@
     setView('home', null);
   }
 
+  function handleHome() {
+    state.app = null;
+
+    Object.values(appScreensById).forEach((el) => setLayerVisible(el, false));
+
+    if (appTitleEl) appTitleEl.textContent = '';
+    if (headerTitle) headerTitle.textContent = 'Player OS';
+    setView('home', null);
+  }
+
   function launchFromHome(rawAppId) {
     const normalized = normalizeAppId(rawAppId);
 
@@ -224,6 +235,11 @@
 
     if (normalized === 'settings') {
       openApp('settings');
+      return;
+    }
+
+    if (normalized === 'minigames') {
+      openApp('minigames');
       return;
     }
 
@@ -254,8 +270,26 @@
       });
     });
 
+    qa('[data-pt-open-game]', launcher).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-pt-open-game');
+        if (!id) return;
+        try {
+          window.dispatchEvent(new CustomEvent('cc:pt-open-modal', { detail: { id: `modal-game-${id}` } }));
+        } catch (_) {}
+      });
+    });
+
     if (backButton) {
       backButton.addEventListener('click', handleBack);
+    }
+
+    if (homeButton) {
+      homeButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleHome();
+      });
     }
 
     // Optional external triggers
@@ -317,11 +351,14 @@
       closeLauncher,
       openApp,
       setView,
-      getState
+      getState,
+      goHome: handleHome
     };
 
-    window.PlayerOS = api;
-    window.PlayerLauncher = api; // backwards compatibility
+    const mergedApi = { ...(window.PlayerOS || {}), ...api };
+
+    window.PlayerOS = mergedApi;
+    window.PlayerLauncher = mergedApi; // backwards compatibility
   }
 
   if (document.readyState === 'loading') {

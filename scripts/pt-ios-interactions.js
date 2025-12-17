@@ -5,7 +5,7 @@
   const launcher = doc.querySelector('[data-pt-launcher]');
   if (!launcher) return;
 
-  const homeView = launcher.querySelector('[data-pt-launcher-home]');
+  const homeView = launcher.querySelector('section[data-pt-launcher-home]');
   const pagesRoot = launcher.querySelector('[data-pt-home-pages]');
   const dotsRoot = launcher.querySelector('[data-pt-home-dots]');
 
@@ -71,6 +71,7 @@
     pages.forEach((page, i) => {
       const on = i === next;
       page.classList.toggle('is-active', on);
+      page.hidden = !on;
       page.setAttribute('aria-hidden', on ? 'false' : 'true');
     });
 
@@ -116,8 +117,9 @@
       else setPage(activePage - 1);
     }, { passive: true });
 
-    setPage(0);
   }
+
+  if (pagesRoot) setPage(0);
 
   /* ---------------------------
      3) Long-press context menus

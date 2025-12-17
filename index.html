@@ -3141,13 +3141,12 @@
 <!-- Player Tools drawer -->
 
 
-<div
+  <div
   id="player-tools-drawer"
   class="pt-drawer"
   role="complementary"
   aria-label="Player Tools"
   aria-hidden="true"
-  data-pt-crack="0"
 >
   <div class="pt-scrim" data-pt-scrim data-player-tools-scrim data-pt-launcher-close></div>
 
@@ -3175,6 +3174,14 @@
             <div data-pt-launcher class="pt-launcher" aria-hidden="true" hidden>
               <!-- in-phone toast (access denied, coming soon, etc) -->
               <div class="pt-ios-toast" data-pt-ios-toast hidden role="status" aria-live="polite"></div>
+
+              <div class="pt-glass-cracks" data-pt-cracks data-pt-stage="0" aria-hidden="true">
+                <i class="pt-crack pt-crack--1" data-pt-crack="1"></i>
+                <i class="pt-crack pt-crack--2" data-pt-crack="2"></i>
+                <i class="pt-crack pt-crack--3" data-pt-crack="3"></i>
+                <i class="pt-crack pt-crack--4" data-pt-crack="4"></i>
+                <i class="pt-crack pt-crack--5" data-pt-crack="5"></i>
+              </div>
 
               <section class="pt-lock-screen" data-pt-lock-screen aria-hidden="false">
                 <div class="pt-ios-lock">
@@ -3242,9 +3249,9 @@
                         <span class="icon" aria-hidden="true">🔒</span>
                         <span class="label">OMNI Vault</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="Arcade" role="listitem">
-                        <span class="icon" aria-hidden="true">🔒</span>
-                        <span class="label">Arcade</span>
+                      <button class="pt-home-icon" data-pt-open-app="minigames" data-pt-app-label="Minigames" role="listitem">
+                        <span class="icon" aria-hidden="true">🎮</span>
+                        <span class="label">Minigames</span>
                       </button>
                     </div>
                   </div>
@@ -3308,6 +3315,13 @@
                     <div id="ptLauncherTitle" class="pt-app-title">Player OS</div>
                     <div data-pt-launcher-app-title class="pt-app-subtitle"></div>
                   </div>
+                  <button
+                    type="button"
+                    class="pt-home-link"
+                    data-pt-launcher-home-btn
+                    aria-label="Return to the Player OS home screen"
+                    title="Home"
+                  >⌂</button>
                 </header>
                 <main class="pt-app-host" data-pt-app-host>
                   <section class="pt-card" data-pt-app-screen="messages" hidden>
@@ -3394,8 +3408,499 @@
                     <h3>Missions</h3>
                     <p>Review mission briefs and objectives.</p>
                   </section>
+
+                  <section class="pt-card" data-pt-app-screen="minigames" hidden>
+                    <h3>Minigames</h3>
+                    <p>Select a challenge to run inside the faux viewport.</p>
+                    <div class="pt-list">
+                      <button class="pt-list-item" data-pt-open-game="gridlock">GRIDLOCK</button>
+                      <button class="pt-list-item" data-pt-open-game="logic">LOGIC</button>
+                      <button class="pt-list-item" data-pt-open-game="codebreaker">CODEBREAKER</button>
+                    </div>
+                  </section>
                 </main>
               </section>
+
+              <div class="pt-modal-host" data-pt-modal-host aria-hidden="true">
+                <section
+                  id="modal-help"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-help-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-help-title" class="pt-modal__title">Help</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Quick guidance for running the table.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-rules"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-rules-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-rules-title" class="pt-modal__title">Rules</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Consult the core rules without leaving the faux OS.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-enc"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-enc-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-enc-title" class="pt-modal__title">Encounter</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Manage turn order and combat rounds.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-load"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-load-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-load-title" class="pt-modal__title">Load Save</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Choose a save file to restore.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-modal-close>Continue</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-load-list"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-load-list-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-load-list-title" class="pt-modal__title">Save Library</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Browse available saves inside the faux phone.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-recover-char"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-recover-char-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-recover-char-title" class="pt-modal__title">Recover Character</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Restore a character profile stored in the OS.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-modal-close>Recover</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-recover-list"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-recover-list-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-recover-list-title" class="pt-modal__title">Recovery Library</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Select a backup to restore.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-augment-picker"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-augment-picker-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-augment-picker-title" class="pt-modal__title">Augment Picker</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Slot and manage augments from within the launcher.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-modal-close>Done</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-welcome"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-welcome-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-welcome-title" class="pt-modal__title">Welcome</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Get started inside the Player OS shell.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-modal-close>Begin</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-pin"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-pin-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-pin-title" class="pt-modal__title">PIN Entry</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Verify access before proceeding.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
+                      <button type="button" class="pt-btn" data-pt-modal-close>Submit</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-log"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-log-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-log-title" class="pt-modal__title">Action Log</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Review the most recent table events.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-credits-ledger"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-credits-ledger-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-credits-ledger-title" class="pt-modal__title">Credits Ledger</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Track credits and transactions.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-campaign"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-campaign-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-campaign-title" class="pt-modal__title">Campaign Log</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Capture key notes for the campaign.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="app-alert"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="app-alert-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="app-alert-title" class="pt-modal__title">Director’s Message</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p>Your latest directive will appear here.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-modal-close>OK</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-somf-reveal"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-somf-reveal-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel pt-modal__panel--sheet" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-somf-reveal-title" class="pt-modal__title">Shards of Many Fates</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <div class="pt-somf-card">
+                        <div class="pt-somf-card__face" data-somf-card-face>
+                          <div class="pt-somf-card__name" data-somf-card-name>Unknown</div>
+                          <div class="pt-somf-card__tag" data-somf-card-tag>Fate awaits</div>
+                        </div>
+                        <div class="pt-somf-card__text" data-somf-card-text>
+                          Draw to reveal the consequence.
+                        </div>
+                      </div>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-somf-draw>Draw</button>
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Not now</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-somf-confirm"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-somf-confirm-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-somf-confirm-title" class="pt-modal__title">Confirm draw</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body">
+                      <p class="pt-muted">This will apply the effect to the current session.</p>
+                    </div>
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-somf-confirm>Confirm</button>
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-game-gridlock"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-game-gridlock-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel pt-modal__panel--game" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-game-gridlock-title" class="pt-modal__title">GRIDLOCK</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body pt-modal__body--game">
+                      <div class="pt-game" data-pt-game="gridlock">
+                        <canvas class="pt-game__canvas" data-pt-game-canvas></canvas>
+                        <div class="pt-game__hud" data-pt-game-hud></div>
+                      </div>
+                    </div>
+                    <footer class="pt-modal__footer pt-modal__footer--game">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-game-reset>Reset</button>
+                      <button type="button" class="pt-btn" data-pt-game-exit data-pt-modal-close>Exit</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-game-logic"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-game-logic-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel pt-modal__panel--game" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-game-logic-title" class="pt-modal__title">LOGIC</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body pt-modal__body--game">
+                      <div class="pt-game" data-pt-game="logic">
+                        <canvas class="pt-game__canvas" data-pt-game-canvas></canvas>
+                        <div class="pt-game__hud" data-pt-game-hud></div>
+                      </div>
+                    </div>
+                    <footer class="pt-modal__footer pt-modal__footer--game">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-game-reset>Reset</button>
+                      <button type="button" class="pt-btn" data-pt-game-exit data-pt-modal-close>Exit</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-game-codebreaker"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-game-codebreaker-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel pt-modal__panel--game" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-game-codebreaker-title" class="pt-modal__title">CODEBREAKER</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body pt-modal__body--game">
+                      <div class="pt-game" data-pt-game="codebreaker">
+                        <canvas class="pt-game__canvas" data-pt-game-canvas></canvas>
+                        <div class="pt-game__hud" data-pt-game-hud></div>
+                      </div>
+                    </div>
+                    <footer class="pt-modal__footer pt-modal__footer--game">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-game-reset>Reset</button>
+                      <button type="button" class="pt-btn" data-pt-game-exit data-pt-modal-close>Exit</button>
+                    </footer>
+                  </div>
+                </section>
+              </div>
             </div>
 
             <!-- Faux status bar (time + battery only) -->
@@ -3434,9 +3939,6 @@
                 <div class="pt-splash__bar" aria-hidden="true"></div>
               </div>
             </section>
-
-            <!-- Cracked glass overlay (driven by HP) -->
-            <div class="pt-cracks" aria-hidden="true" data-pt-cracks></div>
 
             <!-- App viewport -->
             <div class="pt-app" data-pt-app>
@@ -3698,6 +4200,7 @@
 <script type="module" src="scripts/animated-title-spacing.js"></script>
 <script type="module" src="scripts/player-tools-drawer.js"></script>
 <script type="module" src="scripts/player-os.js"></script>
+<script type="module" src="scripts/pt-games.js"></script>
 <script type="module" src="scripts/pt-launch-bridge.js"></script>
 <script type="module" src="scripts/pt-ios-interactions.js"></script>
 <script type="module" src="scripts/player-credit-modal.js"></script>
