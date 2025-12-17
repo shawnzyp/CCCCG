@@ -10106,6 +10106,7 @@ body {
 }
 
 .pt-app-host {
+  position: relative;
   padding: 1.25rem;
   flex: 1;
   overflow: auto;
@@ -10421,6 +10422,16 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   z-index: 30;
 }
 
+.pt-lock-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 18%, rgba(0, 0, 0, 0.35), transparent 55%),
+    radial-gradient(ellipse at 50% 88%, rgba(0, 0, 0, 0.35), transparent 55%);
+}
+
 .pt-ios-lock {
   position: relative;
   inset: 0;
@@ -10452,6 +10463,9 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.92;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .pt-ios-lock__time {
@@ -10461,6 +10475,9 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   letter-spacing: -0.02em;
   line-height: 1;
   margin-top: 0.35rem;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .pt-ios-lock__swipe {

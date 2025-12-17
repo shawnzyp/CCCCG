@@ -124,6 +124,7 @@
     // Use deterministic visibility to avoid invisible overlays intercepting input
     el.hidden = !visible;
     el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    el.style.display = visible ? '' : 'none';
     el.style.pointerEvents = visible ? 'auto' : 'none';
   }
 
@@ -323,7 +324,10 @@
     });
 
     if (unlockEl) {
-      unlockEl.addEventListener('click', handleUnlock);
+      unlockEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleUnlock();
+      });
     }
 
     if (lockView) {
