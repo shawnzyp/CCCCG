@@ -10106,11 +10106,13 @@ body {
 }
 
 .pt-app-host {
+  position: relative;
   padding: 1.25rem;
   flex: 1;
   overflow: auto;
   display: grid;
   gap: 1rem;
+  z-index: 10;
 }
 
 .pt-card {
@@ -10417,6 +10419,17 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   justify-items: center;
   padding: clamp(2.5rem, 6vh, 3.75rem) 1.25rem clamp(3.25rem, 9vh, 4.5rem);
   text-align: center;
+  z-index: 30;
+}
+
+.pt-lock-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 18%, rgba(0, 0, 0, 0.35), transparent 55%),
+    radial-gradient(ellipse at 50% 88%, rgba(0, 0, 0, 0.35), transparent 55%);
 }
 
 .pt-ios-lock {
@@ -10450,6 +10463,9 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.92;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .pt-ios-lock__time {
@@ -10459,6 +10475,9 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   letter-spacing: -0.02em;
   line-height: 1;
   margin-top: 0.35rem;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .pt-ios-lock__swipe {
@@ -10492,6 +10511,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   grid-template-rows: 1fr auto auto;
   gap: clamp(0.75rem, 2vh, 1.1rem);
   background: transparent;
+  z-index: 20;
 }
 
 /* Blurred wallpaper layer (use your already-specified background image via CSS var) */
