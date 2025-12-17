@@ -376,8 +376,7 @@ function createPlayerToolsDrawer() {
   const tray = drawer ? drawer.querySelector('.pt-tray') : null;
   const splash = drawer ? drawer.querySelector('[data-pt-splash]') : null;
   const app = drawer ? drawer.querySelector('[data-pt-app]') : null;
-  const crackOverlays = doc ? Array.from(doc.querySelectorAll('[data-pt-cracks]')) : [];
-  const cracks = crackOverlays[0] || null;
+  const cracks = drawer ? drawer.querySelector('[data-pt-cracks]') : null;
 
   const clockEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-clock]')) : [];
   const batteryEls = drawer ? Array.from(drawer.querySelectorAll('[data-pt-battery]')) : [];
@@ -788,204 +787,43 @@ function createPlayerToolsDrawer() {
     return { cur, max, pct };
   };
 
-  // Crack layering utilities
-  const MAX_CRACK_LAYERS = 5;
-
+  // Crack stages map HP to discrete overlays
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const rand = (min, max) => min + Math.random() * (max - min);
 
-  const ensureCrackLayers = () => {
-    if (!crackOverlays.length || !cracks) return [];
-    let layers = cracks.querySelectorAll('.pt-crack-layer');
-    if (!layers || !layers.length) {
-      cracks.textContent = '';
-      for (let i = 0; i < MAX_CRACK_LAYERS; i++) {
-        const layer = doc.createElement('span');
-        layer.className = 'pt-crack-layer';
-        layer.setAttribute('aria-hidden', 'true');
-        cracks.appendChild(layer);
-      }
-      layers = cracks.querySelectorAll('.pt-crack-layer');
-    }
-
-    crackOverlays.forEach((overlay) => {
-      if (!overlay || overlay === cracks) return;
-      let overlayLayers = overlay.querySelectorAll('.pt-crack-layer');
-      if (!overlayLayers || overlayLayers.length !== MAX_CRACK_LAYERS) {
-        overlay.textContent = '';
-        for (let i = 0; i < MAX_CRACK_LAYERS; i++) {
-          const layer = doc.createElement('span');
-          layer.className = 'pt-crack-layer';
-          layer.setAttribute('aria-hidden', 'true');
-          overlay.appendChild(layer);
-        }
-        overlayLayers = overlay.querySelectorAll('.pt-crack-layer');
-      }
-    });
-
-    return Array.from(layers);
+  const hpToStage = (hpPct) => {
+    const p = clamp(Number(hpPct), 0, 100);
+    if (p >= 85) return 0;
+    if (p >= 70) return 1;
+    if (p >= 50) return 2;
+    if (p >= 30) return 3;
+    if (p >= 15) return 4;
+    return 5;
   };
 
-  const syncCrackStyles = () => {
-    if (crackOverlays.length <= 1 || !cracks) return;
-    const sourceLayers = ensureCrackLayers();
-    const snapshots = sourceLayers.map((layer) => layer.getAttribute('style') || '');
-
-    crackOverlays.forEach((overlay) => {
-      if (!overlay || overlay === cracks) return;
-      const layers = Array.from(overlay.querySelectorAll('.pt-crack-layer'));
-      snapshots.forEach((style, index) => {
-        if (layers[index]) layers[index].setAttribute('style', style);
-      });
-    });
-  };
-
-  const parsePos = (posStr) => {
-    const m = String(posStr || '').match(/(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/);
-    if (!m) return null;
-    return { x: Number(m[1]), y: Number(m[2]) };
-  };
-
-  const dist = (a, b) => {
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  const pickPos = (existing, minDist = 24, tries = 14) => {
-    // existing: array of {x,y}
-    for (let t = 0; t < tries; t++) {
-      const candidate = { x: rand(6, 94), y: rand(6, 94) };
-      if (!existing.length || existing.every((p) => dist(p, candidate) >= minDist)) return candidate;
-    }
-    // fallback if we fail to find a far-enough spot quickly
-    return { x: rand(6, 94), y: rand(6, 94) };
-  };
-
-  const clearCrackSeed = () => {
-    if (!crackOverlays.length) return;
-    crackOverlays.forEach((overlay) => {
-      const layers = overlay.querySelectorAll('.pt-crack-layer');
-      if (!layers || !layers.length) return;
-      layers.forEach((layer) => {
-        layer.style.removeProperty('background-position');
-        layer.style.removeProperty('background-size');
-        layer.style.removeProperty('transform');
-      });
-    });
-  };
-
-  const seedCrackLayer = (layer, index, stage, usedPositions) => {
-    // index is 0-based, stage is 1..5
-    // Make later layers a little bigger and blurrier so it feels "spread out"
-    const base = 150 + index * 40 + stage * 10;
-    const size = clamp(base, 140, 340);
-
-    let pos;
-    if (index === 0) {
-      // First damage zone loosely around center (not pinned to it)
-      const spread = clamp(18 + stage * 10, 18, 90);
-      const half = spread / 2;
-      pos = {
-        x: rand(50 - half, 50 + half),
-        y: rand(50 - half, 50 + half)
-      };
-    } else {
-      // New zones appear elsewhere as damage increases
-      pos = pickPos(usedPositions, 24 - index * 2);
-    }
-
-    usedPositions.push(pos);
-
-    layer.style.backgroundPosition = `${pos.x.toFixed(1)}% ${pos.y.toFixed(1)}%`;
-    layer.style.backgroundSize = `${size.toFixed(0)}% ${size.toFixed(0)}%`;
-
-    // Tiny per-layer nudge so repeated SVGs don’t look duplicated
-    const rot = rand(-6, 6);
-    const sx = rand(-2, 2);
-    const sy = rand(-2, 2);
-    layer.style.transform = `rotate(${rot.toFixed(1)}deg) translate(${sx.toFixed(1)}px, ${sy.toFixed(1)}px)`;
-  };
-
-  const randomizeCracks = (stage, prevStage = 0) => {
+  const setCrackStage = (stage) => {
     if (!cracks) return;
-    const layers = ensureCrackLayers();
-
-    // Collect already-used positions so new layers don’t stack on top of old layers
-    const used = [];
-    layers.forEach((layer) => {
-      const p = parsePos(layer.style.backgroundPosition);
-      if (p) used.push(p);
-    });
-
-    // Only seed newly-revealed layers so earlier damage does not “teleport”
-    const start = clamp(prevStage, 0, MAX_CRACK_LAYERS);
-    const end = clamp(stage, 0, MAX_CRACK_LAYERS);
-
-    for (let i = start; i < end; i++) {
-      // Do not overwrite an existing seed so hidden layers return in the same spot
-      if (parsePos(layers[i].style.backgroundPosition)) continue;
-      seedCrackLayer(layers[i], i, stage, used);
-    }
+    cracks.setAttribute('data-pt-stage', String(clamp(stage, 0, 5)));
   };
 
-  const updateCracks = () => {
-    const hpState = getHpState();
-    if (!hpState) {
-      drawer.setAttribute('data-pt-crack', '0');
-      if (rootEl) rootEl.setAttribute('data-pt-crack', '0');
-      clearCrackSeed();
-      return;
-    }
-
-    const { cur, max, pct } = hpState;
-    const missing = Math.max(0, max - cur);
-
+  const updateCracks = (hpPctOverride = null) => {
+    if (!cracks) return;
     let stage = 0;
 
-    if (missing === 0) {
-      stage = 0;
-    } else if (missing === 1) {
-      stage = 1;
+    if (Number.isFinite(hpPctOverride)) {
+      stage = hpToStage(hpPctOverride);
     } else {
-      if (pct >= 0.85) stage = 2;
-      else if (pct >= 0.65) stage = 3;
-      else if (pct >= 0.15) stage = 4;
-      else stage = 5;
+      const hpState = getHpState();
+      stage = hpState ? hpToStage(hpState.pct * 100) : 0;
     }
 
-    const prevStage = Number(drawer.getAttribute('data-pt-crack') || '0');
-    const crackValue = String(stage);
-    drawer.setAttribute('data-pt-crack', crackValue);
-    if (rootEl) rootEl.setAttribute('data-pt-crack', crackValue);
-
-    const phoneShell = drawer.closest('[data-phone-shell]');
-    if (phoneShell) {
-      phoneShell.setAttribute('data-pt-crack', crackValue);
-    }
-
-    if (stage === 0) {
-      clearCrackSeed();
-      return;
-    }
-
-    const hasAnySeed =
-      cracks &&
-      Array.from(cracks.querySelectorAll('.pt-crack-layer')).some((layer) =>
-        Boolean(parsePos(layer.style.backgroundPosition))
-      );
-
-    if (!hasAnySeed) {
-      randomizeCracks(stage, 0);
-    } else if (stage > prevStage) {
-      randomizeCracks(stage, prevStage);
-    } else if (stage < prevStage) {
-      // Healing: keep existing seeds intact so damage returns in familiar spots
-      // (optional: clearCrackSeed() here if you prefer fresh cracks after heals)
-    }
-
-    syncCrackStyles();
+    setCrackStage(stage);
   };
+
+  window.addEventListener('cc:player-damage', (e) => {
+    const hpPct = Number(e?.detail?.hpPct);
+    if (!Number.isFinite(hpPct)) return;
+    updateCracks(hpPct);
+  });
 
   const handleKeydown = (event) => {
     if (!isOpen) return;

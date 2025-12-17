@@ -9044,99 +9044,53 @@ animation: pt-splash-scan 1.05s linear infinite;
 
 @keyframes pt-splash-scan{ to{ transform: translateX(280%); } }
 
-/* Cracks overlay container */
-#player-tools-drawer .pt-cracks,
-[data-phone-shell] .pt-cracks{
-  position:absolute;
-  inset:0;
-  z-index: 260;
-  pointer-events:none;
+/* Crack overlay stack */
+#player-tools-drawer .pt-screen__glass { position: relative; }
+
+.pt-glass-cracks {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.pt-crack {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
   transform: translateZ(0);
-  opacity: 0;
-  --pt-crack-texture-opacity: 0;
-  transition: opacity 200ms ease-out;
-}
-
-/* keep your glow mist if you like */
-[data-phone-shell] .pt-cracks::before,
-#player-tools-drawer .pt-cracks::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  opacity: 1;
-  background-image:
-    radial-gradient(circle at 10% 12%, rgba(110,240,255,0.18), transparent 55%),
-    radial-gradient(circle at 92% 18%, rgba(110,240,255,0.14), transparent 60%);
-  background-repeat:no-repeat;
-  background-size:cover;
-  background-position:center;
-  background-blend-mode:screen;
-  mix-blend-mode:screen;
-}
-
-/* Individual damage zones (stacked) */
-[data-phone-shell] .pt-crack-layer,
-#player-tools-drawer .pt-crack-layer{
-  position:absolute;
-  inset:0;
-  background-image: url("../images/cracked-glass-texture.svg");
-  background-repeat:no-repeat;
-  opacity: 0;
-  background-blend-mode: screen;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
   mix-blend-mode: screen;
-  filter: blur(0.6px) contrast(1.08) brightness(0.92);
-  transform: translateZ(0);
-  transition: opacity 160ms ease-out;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.12));
+  transition: opacity 160ms ease;
 }
 
-/* Stage visibility: each stage ADDS more areas */
-[data-pt-crack="0"] .pt-cracks{ opacity: 0; }
+html[data-pt-reduce-motion="1"] .pt-crack { transition: none; }
 
-#player-tools-drawer[data-pt-crack="1"] .pt-cracks,
-[data-phone-shell][data-pt-crack="1"] .pt-cracks{ opacity: 1; }
-#player-tools-drawer[data-pt-crack="1"] .pt-crack-layer:nth-child(1),
-[data-phone-shell][data-pt-crack="1"] .pt-crack-layer:nth-child(1){ opacity: 0.35; }
+.pt-glass-cracks[data-pt-stage="0"] .pt-crack { opacity: 0; }
+.pt-glass-cracks[data-pt-stage="1"] .pt-crack--1 { opacity: 0.22; }
+.pt-glass-cracks[data-pt-stage="2"] .pt-crack--1 { opacity: 0.22; }
+.pt-glass-cracks[data-pt-stage="2"] .pt-crack--2 { opacity: 0.22; }
+.pt-glass-cracks[data-pt-stage="3"] .pt-crack--1,
+.pt-glass-cracks[data-pt-stage="3"] .pt-crack--2 { opacity: 0.24; }
+.pt-glass-cracks[data-pt-stage="3"] .pt-crack--3 { opacity: 0.24; }
+.pt-glass-cracks[data-pt-stage="4"] .pt-crack--1,
+.pt-glass-cracks[data-pt-stage="4"] .pt-crack--2,
+.pt-glass-cracks[data-pt-stage="4"] .pt-crack--3 { opacity: 0.26; }
+.pt-glass-cracks[data-pt-stage="4"] .pt-crack--4 { opacity: 0.26; }
+.pt-glass-cracks[data-pt-stage="5"] .pt-crack--1,
+.pt-glass-cracks[data-pt-stage="5"] .pt-crack--2,
+.pt-glass-cracks[data-pt-stage="5"] .pt-crack--3,
+.pt-glass-cracks[data-pt-stage="5"] .pt-crack--4 { opacity: 0.28; }
+.pt-glass-cracks[data-pt-stage="5"] .pt-crack--5 { opacity: 0.30; }
 
-#player-tools-drawer[data-pt-crack="2"] .pt-cracks,
-[data-phone-shell][data-pt-crack="2"] .pt-cracks{ opacity: 1; }
-#player-tools-drawer[data-pt-crack="2"] .pt-crack-layer:nth-child(1),
-[data-phone-shell][data-pt-crack="2"] .pt-crack-layer:nth-child(1){ opacity: 0.55; }
-#player-tools-drawer[data-pt-crack="2"] .pt-crack-layer:nth-child(2),
-[data-phone-shell][data-pt-crack="2"] .pt-crack-layer:nth-child(2){ opacity: 0.30; }
-
-#player-tools-drawer[data-pt-crack="3"] .pt-cracks,
-[data-phone-shell][data-pt-crack="3"] .pt-cracks{ opacity: 1; }
-#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(1),
-[data-phone-shell][data-pt-crack="3"] .pt-crack-layer:nth-child(1){ opacity: 0.70; }
-#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(2),
-[data-phone-shell][data-pt-crack="3"] .pt-crack-layer:nth-child(2){ opacity: 0.45; }
-#player-tools-drawer[data-pt-crack="3"] .pt-crack-layer:nth-child(3),
-[data-phone-shell][data-pt-crack="3"] .pt-crack-layer:nth-child(3){ opacity: 0.28; }
-
-#player-tools-drawer[data-pt-crack="4"] .pt-cracks,
-[data-phone-shell][data-pt-crack="4"] .pt-cracks{ opacity: 1; }
-#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(1),
-[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(1){ opacity: 0.85; }
-#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(2),
-[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(2){ opacity: 0.60; }
-#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(3),
-[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(3){ opacity: 0.40; }
-#player-tools-drawer[data-pt-crack="4"] .pt-crack-layer:nth-child(4),
-[data-phone-shell][data-pt-crack="4"] .pt-crack-layer:nth-child(4){ opacity: 0.25; }
-
-#player-tools-drawer[data-pt-crack="5"] .pt-cracks,
-[data-phone-shell][data-pt-crack="5"] .pt-cracks{ opacity: 1; }
-#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(1),
-[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(1){ opacity: 1; }
-#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(2),
-[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(2){ opacity: 0.75; }
-#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(3),
-[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(3){ opacity: 0.55; }
-#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(4),
-[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(4){ opacity: 0.40; }
-#player-tools-drawer[data-pt-crack="5"] .pt-crack-layer:nth-child(5),
-[data-phone-shell][data-pt-crack="5"] .pt-crack-layer:nth-child(5){ opacity: 0.28; }
+.pt-crack--1 { background-image: url("images/cracks/crack-01.svg"); background-position: 15% 20%; }
+.pt-crack--2 { background-image: url("images/cracks/crack-02.svg"); background-position: 85% 18%; }
+.pt-crack--3 { background-image: url("images/cracks/crack-03.svg"); background-position: 25% 75%; }
+.pt-crack--4 { background-image: url("images/cracks/crack-04.svg"); background-position: 80% 70%; }
+.pt-crack--5 { background-image: url("images/cracks/crack-05.svg"); background-position: 50% 45%; }
 
 /* App UI */
 #player-tools-drawer .pt-app{
@@ -9147,9 +9101,11 @@ z-index: 20;
 }
 
 #player-tools-drawer .pt-app__header{
-padding: 10px 10px 6px;
-display:flex;
-justify-content:center;
+  padding: 10px 10px 6px;
+  display:flex;
+  justify-content:center;
+  position: relative;
+  z-index: 30;
 }
 
 #player-tools-drawer .pt-chip{
@@ -10255,11 +10211,10 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
 .pt-screen__glass > [data-pt-launcher] {
   position: absolute;
   inset: 0;
-  z-index: 999;
 }
 
 /* When the Player OS launcher is up, hide any underlying tray/app UI */
-.pt-screen__glass[data-pt-launcher-visible="1"] > :not([data-pt-launcher]) {
+.pt-screen__glass[data-pt-launcher-visible="1"] > :not([data-pt-launcher]):not(.pt-glass-cracks) {
   opacity: 0 !important;
   pointer-events: none !important;
 }
@@ -10640,7 +10595,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   left: 14px;
   right: 14px;
   bottom: 22px;
-  z-index: 2;
+  z-index: 30;
   padding: 12px 14px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -3141,13 +3141,12 @@
 <!-- Player Tools drawer -->
 
 
-<div
+  <div
   id="player-tools-drawer"
   class="pt-drawer"
   role="complementary"
   aria-label="Player Tools"
   aria-hidden="true"
-  data-pt-crack="0"
 >
   <div class="pt-scrim" data-pt-scrim data-player-tools-scrim data-pt-launcher-close></div>
 
@@ -3170,6 +3169,14 @@
         <!-- Screen cut-out area -->
         <div class="pt-screen" data-pt-screen data-phone-shell data-pt-phone-shell tabindex="-1">
           <div class="pt-screen__glass">
+
+            <div class="pt-glass-cracks" data-pt-cracks data-pt-stage="0" aria-hidden="true">
+              <i class="pt-crack pt-crack--1" data-pt-crack="1"></i>
+              <i class="pt-crack pt-crack--2" data-pt-crack="2"></i>
+              <i class="pt-crack pt-crack--3" data-pt-crack="3"></i>
+              <i class="pt-crack pt-crack--4" data-pt-crack="4"></i>
+              <i class="pt-crack pt-crack--5" data-pt-crack="5"></i>
+            </div>
 
             <!-- Player OS launcher overlay (inside phone screen) -->
             <div data-pt-launcher class="pt-launcher" aria-hidden="true" hidden>
@@ -3932,9 +3939,6 @@
                 <div class="pt-splash__bar" aria-hidden="true"></div>
               </div>
             </section>
-
-            <!-- Cracked glass overlay (driven by HP) -->
-            <div class="pt-cracks" aria-hidden="true" data-pt-cracks></div>
 
             <!-- App viewport -->
             <div class="pt-app" data-pt-app>
