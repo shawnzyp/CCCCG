@@ -10412,10 +10412,10 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-rows: min-content min-content 1fr min-content;
-  align-content: start;
+  grid-template-rows: 1fr;
+  align-content: stretch;
   justify-items: center;
-  padding: clamp(2.5rem, 6vh, 3.75rem) 1.25rem clamp(2.5rem, 7vh, 3.5rem);
+  padding: clamp(2.5rem, 6vh, 3.75rem) 1.25rem clamp(3.25rem, 9vh, 4.5rem);
   text-align: center;
 }
 
@@ -10423,8 +10423,9 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   position: relative;
   inset: 0;
   display: grid;
+  grid-template-rows: min-content min-content 1fr min-content;
   justify-items: center;
-  align-content: start;
+  align-content: stretch;
   width: min(460px, 100%);
   gap: 0.45rem;
 }
@@ -10462,7 +10463,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
 
 .pt-ios-lock__swipe {
   align-self: end;
-  margin: clamp(1.4rem, 3vh, 2rem) auto 0;
+  margin: clamp(0.75rem, 2.5vh, 1.35rem) auto 0;
   width: max-content;
   display: grid;
   justify-items: center;

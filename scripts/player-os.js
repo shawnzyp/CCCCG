@@ -315,6 +315,10 @@
       unlockEl.addEventListener('click', handleUnlock);
     }
 
+    if (lockView) {
+      lockView.addEventListener('click', handleUnlock);
+    }
+
     enableSwipeUnlock();
 
     qa('[data-pt-open-app]', launcher).forEach(btn => {
