@@ -79,6 +79,9 @@
     }
     setLocked(true);
     requestAnimationFrame(() => focusFirst(modal));
+    try {
+      window.dispatchEvent(new CustomEvent('cc:pt-modal-opened', { detail: { id, modal } }));
+    } catch (_) {}
     return true;
   };
 
@@ -106,7 +109,7 @@
   };
 
   const OPENERS = {
-    shards: () => openFirstModal(['somf-reveal-alert', 'somf-confirm']),
+    shards: () => openFirstModal(['modal-somf-reveal', 'modal-somf-confirm']),
     messages: () => openFirstModal(['app-alert']),
     playerTools: () => {
       try {
@@ -129,6 +132,13 @@
         '[data-pt-open-encounter]',
         '#open-encounter'
       ]),
+    minigames: () => {
+      try {
+        window.PlayerOS?.openApp?.('minigames');
+        return true;
+      } catch (_) {}
+      return false;
+    },
     loadSave: () =>
       openFirstModal([
         'modal-load',
@@ -176,6 +186,9 @@
     const hasOpen = anyOpenModal();
     setModalHostOpen(hasOpen);
     setLocked(hasOpen);
+    try {
+      window.dispatchEvent(new CustomEvent('cc:pt-modal-closed', { detail: { id, modal } }));
+    } catch (_) {}
     return true;
   };
 
@@ -227,6 +240,25 @@
     const hasOpen = anyOpenModal();
     setModalHostOpen(hasOpen);
     setLocked(hasOpen);
+    const id = modal.getAttribute('id') || '';
+    try {
+      window.dispatchEvent(new CustomEvent('cc:pt-modal-closed', { detail: { id, modal } }));
+    } catch (_) {}
+  });
+
+  doc.addEventListener('click', (e) => {
+    const draw = e.target.closest('[data-somf-draw]');
+    if (draw) {
+      closeModal('modal-somf-reveal');
+      openModal('modal-somf-confirm');
+      return;
+    }
+
+    const confirm = e.target.closest('[data-somf-confirm]');
+    if (confirm) {
+      closeModal('modal-somf-confirm');
+      return;
+    }
   });
 
   const wireDismiss = (selector, modalId) => {
@@ -235,8 +267,8 @@
     btn.addEventListener('click', () => closeModal(modalId));
   };
 
-  wireDismiss('[data-somf-reveal-dismiss]', 'somf-reveal-alert');
-  wireDismiss('[data-somf-confirm-cancel]', 'somf-confirm');
+  wireDismiss('[data-somf-reveal-dismiss]', 'modal-somf-reveal');
+  wireDismiss('[data-somf-confirm-cancel]', 'modal-somf-confirm');
   // Accept may open other flows; avoid auto-closing unless desired.
   // wireDismiss('[data-somf-confirm-accept]', 'somf-confirm');
   wireDismiss('[data-app-alert-dismiss]', 'app-alert');
@@ -248,5 +280,11 @@
     if (!ok) {
       showPhoneToast('Coming soon');
     }
+  });
+
+  window.addEventListener('cc:pt-open-modal', (e) => {
+    const id = e?.detail?.id;
+    if (!id) return;
+    openModal(id);
   });
 })();

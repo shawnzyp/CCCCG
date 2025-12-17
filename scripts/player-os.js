@@ -265,6 +265,16 @@
       });
     });
 
+    qa('[data-pt-open-game]', launcher).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-pt-open-game');
+        if (!id) return;
+        try {
+          window.dispatchEvent(new CustomEvent('cc:pt-open-modal', { detail: { id: `modal-game-${id}` } }));
+        } catch (_) {}
+      });
+    });
+
     if (backButton) {
       backButton.addEventListener('click', handleBack);
     }

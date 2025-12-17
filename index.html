@@ -3242,9 +3242,9 @@
                         <span class="icon" aria-hidden="true">🔒</span>
                         <span class="label">OMNI Vault</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="Arcade" role="listitem">
-                        <span class="icon" aria-hidden="true">🔒</span>
-                        <span class="label">Arcade</span>
+                      <button class="pt-home-icon" data-pt-open-app="minigames" data-pt-app-label="Minigames" role="listitem">
+                        <span class="icon" aria-hidden="true">🎮</span>
+                        <span class="label">Minigames</span>
                       </button>
                     </div>
                   </div>
@@ -3400,6 +3400,16 @@
                   <section class="pt-card" data-pt-app-screen="missions" hidden>
                     <h3>Missions</h3>
                     <p>Review mission briefs and objectives.</p>
+                  </section>
+
+                  <section class="pt-card" data-pt-app-screen="minigames" hidden>
+                    <h3>Minigames</h3>
+                    <p>Select a challenge to run inside the faux viewport.</p>
+                    <div class="pt-list">
+                      <button class="pt-list-item" data-pt-open-game="gridlock">GRIDLOCK</button>
+                      <button class="pt-list-item" data-pt-open-game="logic">LOGIC</button>
+                      <button class="pt-list-item" data-pt-open-game="codebreaker">CODEBREAKER</button>
+                    </div>
                   </section>
                 </main>
               </section>
@@ -3743,50 +3753,143 @@
                 </section>
 
                 <section
-                  id="somf-reveal-alert"
+                  id="modal-somf-reveal"
                   class="pt-modal"
                   hidden
                   aria-hidden="true"
                   role="dialog"
                   aria-modal="true"
-                  aria-labelledby="somf-reveal-title"
+                  aria-labelledby="modal-somf-reveal-title"
                 >
                   <div class="pt-modal__scrim" data-pt-modal-close></div>
-                  <div class="pt-modal__panel" role="document">
+                  <div class="pt-modal__panel pt-modal__panel--sheet" role="document">
                     <header class="pt-modal__header">
-                      <h2 id="somf-reveal-title" class="pt-modal__title">Shards of Many Fates</h2>
+                      <h2 id="modal-somf-reveal-title" class="pt-modal__title">Shards of Many Fates</h2>
                       <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
                     </header>
                     <div class="pt-modal__body">
-                      <p>Reveal a shard card inside the faux viewport.</p>
+                      <div class="pt-somf-card">
+                        <div class="pt-somf-card__face" data-somf-card-face>
+                          <div class="pt-somf-card__name" data-somf-card-name>Unknown</div>
+                          <div class="pt-somf-card__tag" data-somf-card-tag>Fate awaits</div>
+                        </div>
+                        <div class="pt-somf-card__text" data-somf-card-text>
+                          Draw to reveal the consequence.
+                        </div>
+                      </div>
                     </div>
                     <footer class="pt-modal__footer">
-                      <button type="button" class="pt-btn" data-pt-modal-close>Reveal</button>
+                      <button type="button" class="pt-btn" data-somf-draw>Draw</button>
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Not now</button>
                     </footer>
                   </div>
                 </section>
 
                 <section
-                  id="somf-confirm"
+                  id="modal-somf-confirm"
                   class="pt-modal"
                   hidden
                   aria-hidden="true"
                   role="dialog"
                   aria-modal="true"
-                  aria-labelledby="somf-confirm-title"
+                  aria-labelledby="modal-somf-confirm-title"
                 >
                   <div class="pt-modal__scrim" data-pt-modal-close></div>
                   <div class="pt-modal__panel" role="document">
                     <header class="pt-modal__header">
-                      <h2 id="somf-confirm-title" class="pt-modal__title">Confirm Draw</h2>
+                      <h2 id="modal-somf-confirm-title" class="pt-modal__title">Confirm draw</h2>
                       <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
                     </header>
                     <div class="pt-modal__body">
-                      <p>Confirm shard selection before proceeding.</p>
+                      <p class="pt-muted">This will apply the effect to the current session.</p>
                     </div>
                     <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-somf-confirm>Confirm</button>
                       <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
-                      <button type="button" class="pt-btn" data-pt-modal-close>Confirm</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-game-gridlock"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-game-gridlock-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel pt-modal__panel--game" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-game-gridlock-title" class="pt-modal__title">GRIDLOCK</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body pt-modal__body--game">
+                      <div class="pt-game" data-pt-game="gridlock">
+                        <canvas class="pt-game__canvas" data-pt-game-canvas></canvas>
+                        <div class="pt-game__hud" data-pt-game-hud></div>
+                      </div>
+                    </div>
+                    <footer class="pt-modal__footer pt-modal__footer--game">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-game-reset>Reset</button>
+                      <button type="button" class="pt-btn" data-pt-game-exit data-pt-modal-close>Exit</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-game-logic"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-game-logic-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel pt-modal__panel--game" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-game-logic-title" class="pt-modal__title">LOGIC</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body pt-modal__body--game">
+                      <div class="pt-game" data-pt-game="logic">
+                        <canvas class="pt-game__canvas" data-pt-game-canvas></canvas>
+                        <div class="pt-game__hud" data-pt-game-hud></div>
+                      </div>
+                    </div>
+                    <footer class="pt-modal__footer pt-modal__footer--game">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-game-reset>Reset</button>
+                      <button type="button" class="pt-btn" data-pt-game-exit data-pt-modal-close>Exit</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-game-codebreaker"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-game-codebreaker-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel pt-modal__panel--game" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-game-codebreaker-title" class="pt-modal__title">CODEBREAKER</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+                    <div class="pt-modal__body pt-modal__body--game">
+                      <div class="pt-game" data-pt-game="codebreaker">
+                        <canvas class="pt-game__canvas" data-pt-game-canvas></canvas>
+                        <div class="pt-game__hud" data-pt-game-hud></div>
+                      </div>
+                    </div>
+                    <footer class="pt-modal__footer pt-modal__footer--game">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-game-reset>Reset</button>
+                      <button type="button" class="pt-btn" data-pt-game-exit data-pt-modal-close>Exit</button>
                     </footer>
                   </div>
                 </section>
@@ -4093,6 +4196,7 @@
 <script type="module" src="scripts/animated-title-spacing.js"></script>
 <script type="module" src="scripts/player-tools-drawer.js"></script>
 <script type="module" src="scripts/player-os.js"></script>
+<script type="module" src="scripts/pt-games.js"></script>
 <script type="module" src="scripts/pt-launch-bridge.js"></script>
 <script type="module" src="scripts/pt-ios-interactions.js"></script>
 <script type="module" src="scripts/player-credit-modal.js"></script>
