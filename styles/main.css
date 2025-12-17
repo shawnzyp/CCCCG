@@ -10111,6 +10111,7 @@ body {
   overflow: auto;
   display: grid;
   gap: 1rem;
+  z-index: 10;
 }
 
 .pt-card {
@@ -10417,6 +10418,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   justify-items: center;
   padding: clamp(2.5rem, 6vh, 3.75rem) 1.25rem clamp(3.25rem, 9vh, 4.5rem);
   text-align: center;
+  z-index: 30;
 }
 
 .pt-ios-lock {
@@ -10492,6 +10494,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   grid-template-rows: 1fr auto auto;
   gap: clamp(0.75rem, 2vh, 1.1rem);
   background: transparent;
+  z-index: 20;
 }
 
 /* Blurred wallpaper layer (use your already-specified background image via CSS var) */

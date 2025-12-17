@@ -121,9 +121,10 @@
 
   function setLayerVisible(el, visible) {
     if (!el) return;
+    // Use deterministic visibility to avoid invisible overlays intercepting input
     el.hidden = !visible;
     el.setAttribute('aria-hidden', visible ? 'false' : 'true');
-    el.style.display = visible ? '' : 'none';
+    el.style.pointerEvents = visible ? 'auto' : 'none';
   }
 
   function getAppLabel(appId) {
@@ -208,7 +209,6 @@
   }
 
   function handleUnlock() {
-    if (state.view !== 'lock') return;
     setView('home', null);
   }
 
@@ -388,10 +388,15 @@
   function openLauncher(nextView) {
     showLauncher();
     setView('lock', null);
-    updateLockTime();
-    if (nextView && nextView !== 'lock') {
-      openApp(nextView);
+
+    if (!nextView || nextView === 'lock') return;
+
+    if (nextView === 'home') {
+      setView('home', null);
+      return;
     }
+
+    openApp(nextView);
   }
 
   function closeLauncher() {
