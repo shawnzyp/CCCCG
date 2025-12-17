@@ -8866,13 +8866,10 @@ z-index: 50;
   overflow: hidden;
   border-radius: inherit;
 
-  background:
-  radial-gradient(circle at 0 0, rgba(0, 229, 255, 0.16), transparent 55%),
-  radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.06), transparent 55%),
-  rgba(3,10,20,0.92);
+  background: rgba(0, 0, 0, 0.32);
   filter: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 /* Status bar */
@@ -9988,8 +9985,10 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--accent, #6ef) 12%, transparent), transparent 45%),
-    linear-gradient(180deg, #050914, #04060e);
+  background-image: var(--pt-os-wallpaper, url("images/IMG_3591.jpeg"));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   color: #fff;
 }
 
@@ -10249,16 +10248,26 @@ html.pt-os-lock body {
   position: absolute;
   inset: 0;
   display: grid;
+  grid-template-rows: min-content min-content 1fr min-content;
+  align-content: start;
+  justify-items: center;
+  padding: clamp(2.5rem, 6vh, 3.75rem) 1.25rem clamp(2.5rem, 7vh, 3.5rem);
+  text-align: center;
 }
 
 .pt-ios-lock {
   position: relative;
   inset: 0;
   display: grid;
-  align-content: start;
   justify-items: center;
-  padding-top: 3.25rem;
-  gap: 0.35rem;
+  align-content: start;
+  width: min(460px, 100%);
+  gap: 0.45rem;
+}
+
+.pt-ios-lock > * {
+  position: relative;
+  z-index: 1;
 }
 
 .pt-ios-lock::before {
@@ -10283,31 +10292,30 @@ html.pt-os-lock body {
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
 }
 
 .pt-ios-lock__swipe {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 1.2rem;
-  margin: 0 auto;
+  align-self: end;
+  margin: clamp(1.4rem, 3vh, 2rem) auto 0;
   width: max-content;
   display: grid;
   justify-items: center;
-  gap: 0.4rem;
-  background: transparent;
-  border: 0;
+  gap: 0.45rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
   color: inherit;
-  padding: 0.4rem 0.75rem;
+  padding: 0.5rem 1.15rem;
+  backdrop-filter: blur(10px);
 }
 
 .pt-ios-lock__chev {
-  width: 26px;
-  height: 10px;
-  border-left: 2px solid rgba(255, 255, 255, 0.85);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.85);
-  transform: rotate(135deg);
+  width: 18px;
+  height: 18px;
+  border-left: 2px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.9);
+  transform: rotate(45deg);
   opacity: 0.9;
 }
 
@@ -10320,8 +10328,13 @@ html.pt-os-lock body {
 .pt-home {
   position: relative;
   height: 100%;
-  padding: 0;
+  width: 100%;
+  padding: 1.25rem 1.05rem 1.35rem;
   box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: clamp(0.75rem, 2vh, 1.1rem);
+  background: transparent;
 }
 
 /* Blurred wallpaper layer (use your already-specified background image via CSS var) */
@@ -10340,6 +10353,19 @@ html.pt-os-lock body {
 .pt-home-pages,
 .pt-home-page {
   overflow: hidden;
+}
+
+.pt-home-pages {
+  position: relative;
+  min-height: 0;
+}
+
+.pt-home-page {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 0.25rem 0;
+  overflow-y: auto;
 }
 
 .pt-home-grid {
