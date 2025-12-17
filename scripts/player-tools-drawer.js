@@ -21,6 +21,105 @@ const formatBonus = (value = 0) => {
 
 const MAX_BREAKDOWN_ROLLS = 50;
 
+const PHONE_OPEN_ATTR = 'data-pt-phone-open';
+let lockedScrollY = 0;
+let lastPhoneOpener = null;
+
+const setPhoneGlobalLock = (on) => {
+  const doc = getDocument();
+  const root = doc?.documentElement;
+  if (!root) return;
+  if (on) root.setAttribute(PHONE_OPEN_ATTR, '1');
+  else root.removeAttribute(PHONE_OPEN_ATTR);
+};
+
+const lockPageScroll = () => {
+  const doc = getDocument();
+  const body = doc?.body;
+  if (!doc || !body) return;
+  lockedScrollY = doc.defaultView?.scrollY || doc.documentElement?.scrollTop || body.scrollTop || 0;
+  body.style.position = 'fixed';
+  body.style.top = `-${lockedScrollY}px`;
+  body.style.left = '0';
+  body.style.right = '0';
+  body.style.width = '100%';
+};
+
+const unlockPageScroll = () => {
+  const doc = getDocument();
+  const body = doc?.body;
+  if (!doc || !body) return;
+  body.style.position = '';
+  body.style.top = '';
+  body.style.left = '';
+  body.style.right = '';
+  body.style.width = '';
+  try {
+    doc.defaultView?.scrollTo?.(0, lockedScrollY || 0);
+  } catch (_) {}
+};
+
+const isPhoneOpen = () => {
+  const doc = getDocument();
+  return doc?.documentElement?.getAttribute(PHONE_OPEN_ATTR) === '1';
+};
+
+const applyGlobalPhoneLock = (on) => {
+  setPhoneGlobalLock(on);
+  if (on) lockPageScroll();
+  else unlockPageScroll();
+};
+
+const getPhoneRoot = () => {
+  const doc = getDocument();
+  return doc?.getElementById('player-tools-drawer') || null;
+};
+
+const isInsidePhone = (target) => {
+  const root = getPhoneRoot();
+  return !!(root && target && typeof root.contains === 'function' && root.contains(target));
+};
+
+const blockIfOutsidePhone = (e) => {
+  if (!isPhoneOpen()) return;
+  if (isInsidePhone(e.target)) return;
+  try { e.preventDefault(); } catch (_) {}
+  try { e.stopPropagation(); } catch (_) {}
+};
+
+if (typeof window !== 'undefined') {
+  try {
+    window.addEventListener('wheel', blockIfOutsidePhone, { capture: true, passive: false });
+    window.addEventListener('touchmove', blockIfOutsidePhone, { capture: true, passive: false });
+    window.addEventListener('pointerdown', blockIfOutsidePhone, { capture: true });
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (!isPhoneOpen()) return;
+        if (isInsidePhone(e.target)) return;
+
+        const keysToBlock = [
+          'ArrowUp',
+          'ArrowDown',
+          'ArrowLeft',
+          'ArrowRight',
+          'PageUp',
+          'PageDown',
+          'Home',
+          'End',
+          ' ',
+          'Tab',
+        ];
+        if (keysToBlock.includes(e.key)) {
+          try { e.preventDefault(); } catch (_) {}
+          try { e.stopPropagation(); } catch (_) {}
+        }
+      },
+      { capture: true }
+    );
+  } catch (_) {}
+}
+
 const formatDiceBreakdown = (rolls = [], bonus = 0) => {
   const list = Array.isArray(rolls) ? rolls : [];
   const shown = list.slice(0, MAX_BREAKDOWN_ROLLS);
@@ -492,7 +591,17 @@ function createPlayerToolsDrawer() {
   const setDrawerOpen = (open, { force = false } = {}) => {
     const next = !!open;
     if (!force && next === isOpen) return;
+
+    if (next && !isOpen) {
+      const active = doc?.activeElement;
+      if (active && (!drawer || !drawer.contains(active))) {
+        lastPhoneOpener = active;
+      }
+    }
+
     isOpen = next;
+
+    applyGlobalPhoneLock(isOpen);
 
     // Lock interaction behind the phone
     try {
@@ -548,6 +657,16 @@ function createPlayerToolsDrawer() {
       splashTimer = null;
       clearTimeout(splashCleanupTimer);
       splashCleanupTimer = null;
+
+      try { window.dispatchEvent(new CustomEvent('cc:player-tools-drawer-close')); } catch (_) {}
+      if (lastPhoneOpener && typeof lastPhoneOpener.focus === 'function') {
+        try {
+          lastPhoneOpener.focus({ preventScroll: true });
+        } catch (_) {
+          try { lastPhoneOpener.focus(); } catch (_) {}
+        }
+      }
+      lastPhoneOpener = null;
     }
 
     dispatchChange({ open: isOpen, progress: isOpen ? 1 : 0 });

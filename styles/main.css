@@ -10223,6 +10223,23 @@ html.pt-os-lock body {
   user-select: none !important;
 }
 
+html[data-pt-phone-open="1"] body {
+  overflow: hidden;
+  height: 100%;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+html[data-pt-phone-open="1"] body * {
+  pointer-events: none !important;
+}
+
+html[data-pt-phone-open="1"] #player-tools-drawer,
+html[data-pt-phone-open="1"] #player-tools-drawer * {
+  pointer-events: auto !important;
+  touch-action: auto;
+}
+
 #player-tools-drawer {
   position: fixed;
   inset: 0;
