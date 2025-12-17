@@ -23,7 +23,6 @@
   const homeView    = q('section[data-pt-launcher-home]', launcher);
   const appView     = q('[data-pt-launcher-app]', launcher);
   const appHost     = q('[data-pt-app-host]', launcher);
-  const unlockEl    = q('[data-pt-lock-unlock]', launcher) || lockView;
   const backButton  = q('[data-pt-launcher-back]', launcher);
   const homeButton  = q('[data-pt-launcher-home-btn]', launcher);
   const appTitleEl  = q('[data-pt-launcher-app-title]', launcher);
@@ -43,7 +42,8 @@
 
   const state = {
     view: 'lock',     // "lock" | "home" | "app"
-    app: null
+    app: null,
+    _lockTimer: null
   };
 
   function normalizeAppId(appId) {
@@ -156,6 +156,18 @@
     setLayerVisible(homeView, isHome);
     setLayerVisible(appView, isApp);
 
+    // Auto-dismiss lock screen after 1.75s
+    if (isLock) {
+      clearTimeout(state._lockTimer);
+      state._lockTimer = setTimeout(() => {
+        if (state.view === 'lock') {
+          setView('home', null);
+        }
+      }, 1750);
+    } else {
+      clearTimeout(state._lockTimer);
+    }
+
     // Hide all app screens whenever we are not in "app" view
     if (!isApp) {
       Object.keys(appScreensById).forEach(id => {
@@ -209,10 +221,6 @@
     setView('app', normalized);
   }
 
-  function handleUnlock() {
-    setView('home', null);
-  }
-
   function handleBack() {
     setView('home', null);
   }
@@ -225,69 +233,6 @@
     if (appTitleEl) appTitleEl.textContent = '';
     if (headerTitle) headerTitle.textContent = 'Player OS';
     setView('home', null);
-  }
-
-  function enableSwipeUnlock() {
-    if (!lockView) return;
-
-    const threshold = 45;
-    let startY = null;
-    let active = false;
-    let unlockedDuringGesture = false;
-
-    const getY = (e) => {
-      if (e.touches && e.touches.length) return e.touches[0].clientY;
-      if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientY;
-      return e.clientY;
-    };
-
-    const reset = () => {
-      startY = null;
-      active = false;
-      unlockedDuringGesture = false;
-    };
-
-    const start = (e) => {
-      if (state.view !== 'lock') return;
-      startY = getY(e);
-      active = true;
-    };
-
-    const move = (e) => {
-      if (!active || startY === null) return;
-      const currentY = getY(e);
-      if (typeof currentY !== 'number') return;
-
-      const delta = startY - currentY;
-      if (delta >= threshold) {
-        unlockedDuringGesture = true;
-        reset();
-        handleUnlock();
-      }
-    };
-
-    const end = (e) => {
-      const currentY = getY(e);
-      const delta = startY !== null && typeof currentY === 'number' ? startY - currentY : 0;
-      if (!unlockedDuringGesture && active && state.view === 'lock' && Math.abs(delta) < threshold) {
-        handleUnlock();
-      }
-      reset();
-    };
-
-    const options = { passive: true };
-
-    lockView.addEventListener('pointerdown', start, options);
-    lockView.addEventListener('pointermove', move, options);
-    lockView.addEventListener('pointerup', end, options);
-    lockView.addEventListener('pointercancel', end, options);
-
-    if (!('PointerEvent' in window)) {
-      lockView.addEventListener('touchstart', start, options);
-      lockView.addEventListener('touchmove', move, options);
-      lockView.addEventListener('touchend', end, options);
-      lockView.addEventListener('touchcancel', end, options);
-    }
   }
 
   function launchFromHome(rawAppId) {
@@ -313,27 +258,6 @@
   }
 
   function bindEvents() {
-    // Hard-lock unlock handler: catch input at the launcher root (capture phase)
-    // so overlays cannot block the lock screen from receiving taps.
-    const unlockFromEvent = (e) => {
-      if (state.view !== 'lock') return;
-      // If the user tapped a real interactive control on the lock screen,
-      // let that control handle it (the button still unlocks anyway).
-      const t = e && e.target;
-      if (t && typeof t.closest === 'function' && t.closest('[data-pt-lock-unlock]')) {
-        return;
-      }
-      // Prevent scroll/select quirks on mobile browsers
-      if (e && typeof e.preventDefault === 'function') e.preventDefault();
-      handleUnlock();
-    };
-
-    if (launcher) {
-      launcher.addEventListener('pointerdown', unlockFromEvent, { capture: true, passive: false });
-      launcher.addEventListener('mousedown', unlockFromEvent, { capture: true });
-      launcher.addEventListener('touchstart', unlockFromEvent, { capture: true, passive: false });
-    }
-
     // Always show the launcher (starting at lock) when the drawer opens
     window.addEventListener('cc:player-tools-drawer-open', () => {
       openLauncher();
@@ -343,16 +267,6 @@
       const msg = String(e?.detail?.message || '').trim();
       if (msg) showToast(msg);
     });
-
-    if (unlockEl) {
-      unlockEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (e && typeof e.preventDefault === 'function') e.preventDefault();
-        handleUnlock();
-      });
-    }
-
-    enableSwipeUnlock();
 
     qa('[data-pt-open-app]', launcher).forEach(btn => {
       btn.addEventListener('click', function () {

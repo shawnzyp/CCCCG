@@ -10445,6 +10445,11 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
   padding: clamp(2.5rem, 6vh, 3.75rem) 1.25rem clamp(3.25rem, 9vh, 4.5rem);
   text-align: center;
   z-index: 30;
+  transition: opacity 280ms ease;
+}
+
+[data-view="home"] .pt-lock-screen {
+  opacity: 0;
 }
 
 .pt-lock-screen::before {
