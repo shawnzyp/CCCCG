@@ -416,7 +416,6 @@ function createPlayerToolsDrawer() {
   let splashTimer = null;
   let splashCleanupTimer = null;
   let timeInterval = null;
-  let hpInterval = null;
   let batteryObj = null;
   let batteryApply = null;
   let removeBatteryBridge = null;
@@ -892,7 +891,6 @@ function createPlayerToolsDrawer() {
 
   timeInterval = setInterval(updateClock, 15_000);
   updateCracks();
-  hpInterval = setInterval(updateCracks, 1_000);
 
   setupDrawer();
   setupInitiative();
@@ -901,7 +899,6 @@ function createPlayerToolsDrawer() {
 
   const teardown = () => {
     clearInterval(timeInterval);
-    clearInterval(hpInterval);
     clearTimeout(splashTimer);
 
     try {

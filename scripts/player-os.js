@@ -351,11 +351,14 @@
       closeLauncher,
       openApp,
       setView,
-      getState
+      getState,
+      goHome: handleHome
     };
 
-    window.PlayerOS = api;
-    window.PlayerLauncher = api; // backwards compatibility
+    const mergedApi = { ...(window.PlayerOS || {}), ...api };
+
+    window.PlayerOS = mergedApi;
+    window.PlayerLauncher = mergedApi; // backwards compatibility
   }
 
   if (document.readyState === 'loading') {

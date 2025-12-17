@@ -10216,7 +10216,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
 }
 
 /* When the Player OS launcher is up, hide any underlying tray/app UI */
-.pt-screen__glass[data-pt-launcher-visible="1"] > :not([data-pt-launcher]):not(.pt-glass-cracks) {
+.pt-screen__glass[data-pt-launcher-visible="1"] > :not([data-pt-launcher]) {
   opacity: 0 !important;
   pointer-events: none !important;
 }
