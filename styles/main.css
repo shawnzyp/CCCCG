@@ -9050,7 +9050,7 @@ animation: pt-splash-scan 1.05s linear infinite;
 .pt-glass-cracks {
   position: absolute;
   inset: 0;
-  z-index: 15;
+  z-index: 20;
   pointer-events: none;
 }
 
@@ -10211,6 +10211,7 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
 .pt-screen__glass > [data-pt-launcher] {
   position: absolute;
   inset: 0;
+  z-index: 10;
 }
 
 /* When the Player OS launcher is up, hide any underlying tray/app UI */

@@ -18,7 +18,8 @@
       canvas.height = height;
       canvas.style.width = `${rect.width}px`;
       canvas.style.height = `${rect.height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
       return { width: rect.width, height: rect.height, ctx };
     };
     return { ctx, resize };

@@ -811,7 +811,8 @@ function createPlayerToolsDrawer() {
     let stage = 0;
 
     if (Number.isFinite(hpPctOverride)) {
-      stage = hpToStage(hpPctOverride);
+      const pct100 = hpPctOverride <= 1 ? hpPctOverride * 100 : hpPctOverride;
+      stage = hpToStage(pct100);
     } else {
       const hpState = getHpState();
       stage = hpState ? hpToStage(hpState.pct * 100) : 0;

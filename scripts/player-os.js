@@ -238,6 +238,11 @@
       return;
     }
 
+    if (normalized === 'minigames') {
+      openApp('minigames');
+      return;
+    }
+
     emitLaunch(normalized);
     closeLauncher();
   }
