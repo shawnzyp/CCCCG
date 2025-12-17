@@ -208,6 +208,7 @@
   }
 
   function handleUnlock() {
+    if (state.view !== 'lock') return;
     setView('home', null);
   }
 
@@ -231,6 +232,7 @@
     const threshold = 45;
     let startY = null;
     let active = false;
+    let unlockedDuringGesture = false;
 
     const getY = (e) => {
       if (e.touches && e.touches.length) return e.touches[0].clientY;
@@ -241,6 +243,7 @@
     const reset = () => {
       startY = null;
       active = false;
+      unlockedDuringGesture = false;
     };
 
     const start = (e) => {
@@ -256,12 +259,20 @@
 
       const delta = startY - currentY;
       if (delta >= threshold) {
+        unlockedDuringGesture = true;
         reset();
         handleUnlock();
       }
     };
 
-    const end = reset;
+    const end = (e) => {
+      const currentY = getY(e);
+      const delta = startY !== null && typeof currentY === 'number' ? startY - currentY : 0;
+      if (!unlockedDuringGesture && active && state.view === 'lock' && Math.abs(delta) < threshold) {
+        handleUnlock();
+      }
+      reset();
+    };
 
     const options = { passive: true };
 
@@ -313,6 +324,10 @@
 
     if (unlockEl) {
       unlockEl.addEventListener('click', handleUnlock);
+    }
+
+    if (lockView) {
+      lockView.addEventListener('click', handleUnlock);
     }
 
     enableSwipeUnlock();
