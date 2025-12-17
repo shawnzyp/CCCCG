@@ -84,13 +84,13 @@
       return false;
     },
     help: () =>
-      openFirstModal(['help-modal', 'pt-help-modal', 'rules-help-modal']) ||
+      openFirstModal(['modal-help', 'help-modal', 'pt-help-modal', 'rules-help-modal']) ||
       clickFirst(['[data-open-help]', '[data-pt-open-help]', '#open-help']),
     rules: () =>
-      openFirstModal(['rules-modal', 'pt-rules-modal']) ||
+      openFirstModal(['modal-rules', 'rules-modal', 'pt-rules-modal']) ||
       clickFirst(['[data-open-rules]', '[data-pt-open-rules]', '#open-rules']),
     encounter: () =>
-      openFirstModal(['encounter-modal', 'initiative-modal', 'pt-encounter-modal']) ||
+      openFirstModal(['modal-enc', 'encounter-modal', 'initiative-modal', 'pt-encounter-modal']) ||
       clickFirst([
         '[data-open-encounter]',
         '[data-open-initiative]',
@@ -98,7 +98,15 @@
         '#open-encounter'
       ]),
     loadSave: () =>
-      openFirstModal(['load-save-modal', 'save-load-modal', 'pt-load-save-modal']) ||
+      openFirstModal([
+        'modal-load',
+        'modal-load-list',
+        'modal-recover-char',
+        'modal-recover-list',
+        'modal-augment-picker',
+        'modal-welcome',
+        'modal-pin'
+      ]) ||
       clickFirst([
         '[data-open-load-save]',
         '[data-open-save-load]',
@@ -106,14 +114,21 @@
         '#open-load-save'
       ]),
     actionLog: () =>
-      openFirstModal(['action-log-modal', 'pt-action-log-modal']) ||
+      openFirstModal(['modal-log', 'action-log-modal', 'pt-action-log-modal']) ||
       clickFirst(['[data-open-action-log]', '[data-pt-open-action-log]', '#open-action-log']),
     creditsLedger: () =>
-      openFirstModal(['player-credit-modal', 'credits-ledger-modal', 'pt-credits-modal']) ||
+      openFirstModal(['modal-credits-ledger', 'player-credit-modal', 'credits-ledger-modal', 'pt-credits-modal']) ||
       clickFirst(['[data-open-credits]', '[data-open-credit-modal]', '[data-pt-open-credits]', '#open-credits']),
     campaignLog: () =>
-      openFirstModal(['campaign-log-modal', 'pt-campaign-log-modal']) ||
+      openFirstModal(['modal-campaign', 'campaign-log-modal', 'pt-campaign-log-modal']) ||
       clickFirst(['[data-open-campaign-log]', '[data-pt-open-campaign-log]', '#open-campaign-log']),
+    initiative: () =>
+      openFirstModal(['modal-enc', 'initiative-modal', 'pt-encounter-modal']) ||
+      clickFirst([
+        '[data-open-initiative]',
+        '[data-pt-open-encounter]',
+        '#open-encounter'
+      ]),
     locked: () => {
       showPhoneToast('Access denied');
       return true;

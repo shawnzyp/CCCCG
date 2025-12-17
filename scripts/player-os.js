@@ -25,6 +25,7 @@
   const appHost     = q('[data-pt-app-host]', launcher);
   const unlockEl    = q('[data-pt-lock-unlock]', launcher) || lockView;
   const backButton  = q('[data-pt-launcher-back]', launcher);
+  const homeButton  = q('[data-pt-launcher-home]', launcher);
   const appTitleEl  = q('[data-pt-launcher-app-title]', launcher);
   const headerTitle = document.getElementById('ptLauncherTitle');
   const launcherTab = document.getElementById('player-tools-tab');
@@ -214,6 +215,10 @@
     setView('home', null);
   }
 
+  function handleHome() {
+    setView('home', null);
+  }
+
   function launchFromHome(rawAppId) {
     const normalized = normalizeAppId(rawAppId);
 
@@ -256,6 +261,10 @@
 
     if (backButton) {
       backButton.addEventListener('click', handleBack);
+    }
+
+    if (homeButton) {
+      homeButton.addEventListener('click', handleHome);
     }
 
     // Optional external triggers

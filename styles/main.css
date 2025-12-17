@@ -10115,6 +10115,26 @@ body {
   cursor: pointer;
 }
 
+.pt-home-link {
+  margin-left: auto;
+  min-width: 42px;
+  height: 42px;
+  padding: 0 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.pt-home-link:active {
+  transform: translateY(1px) scale(0.98);
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .pt-app-titles {
   display: flex;
   flex-direction: column;
