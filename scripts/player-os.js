@@ -43,8 +43,11 @@
   const state = {
     view: 'lock',     // "lock" | "home" | "app"
     app: null,
-    _lockTimer: null
   };
+
+  // Auto-dismiss lock after a short delay (since input is unreliable in your embed)
+  let autoUnlockTimer = null;
+  const AUTO_UNLOCK_MS = 1750;
 
   function normalizeAppId(appId) {
     if (appId === 'shards' && window.perms && window.perms.shardsUnlocked === false) {
@@ -128,6 +131,24 @@
     el.style.pointerEvents = visible ? 'auto' : 'none';
   }
 
+  function clearAutoUnlock() {
+    if (autoUnlockTimer) {
+      clearTimeout(autoUnlockTimer);
+      autoUnlockTimer = null;
+    }
+  }
+
+  function scheduleAutoUnlock() {
+    clearAutoUnlock();
+    autoUnlockTimer = setTimeout(() => {
+      autoUnlockTimer = null;
+      // Only unlock if we're still on lock view and launcher is visible
+      if (state.view !== 'lock') return;
+      if (launcher?.hidden) return;
+      setView('home', null);
+    }, AUTO_UNLOCK_MS);
+  }
+
   function getAppLabel(appId) {
     if (!appId) return '';
     const icon = launcher.querySelector('[data-pt-open-app="' + appId + '"]');
@@ -148,6 +169,9 @@
 
     launcher.setAttribute('data-view', view);
 
+    // If we leave lock, never allow a pending timer to flip views later
+    if (view !== 'lock') clearAutoUnlock();
+
     const isLock = view === 'lock';
     const isHome = view === 'home';
     const isApp  = view === 'app';
@@ -155,18 +179,6 @@
     setLayerVisible(lockView, isLock);
     setLayerVisible(homeView, isHome);
     setLayerVisible(appView, isApp);
-
-    // Auto-dismiss lock screen after 1.75s
-    if (isLock) {
-      clearTimeout(state._lockTimer);
-      state._lockTimer = setTimeout(() => {
-        if (state.view === 'lock') {
-          setView('home', null);
-        }
-      }, 1750);
-    } else {
-      clearTimeout(state._lockTimer);
-    }
 
     // Hide all app screens whenever we are not in "app" view
     if (!isApp) {
@@ -324,6 +336,8 @@
   function openLauncher(nextView) {
     showLauncher();
     setView('lock', null);
+    // Always auto-dismiss to home after 1.75s
+    scheduleAutoUnlock();
 
     if (!nextView || nextView === 'lock') return;
 
@@ -336,6 +350,7 @@
   }
 
   function closeLauncher() {
+    clearAutoUnlock();
     hideLauncher();
   }
 
@@ -352,6 +367,7 @@
 
     // Start on lock screen
     setView('lock', null);
+    scheduleAutoUnlock();
     updateLockTime();
     setInterval(updateLockTime, 15000);
     bindEvents();
