@@ -24,13 +24,14 @@
 
   const isWelcomeBlocking = () => {
     if (!welcomeModal) return false;
-    if (welcomeModal.hidden === false) return true;
-    const aria = welcomeModal.getAttribute('aria-hidden');
-    return aria !== 'true';
+    // Block only when the welcome modal is explicitly open/visible
+    if (welcomeModal.getAttribute('data-pt-modal-open') === '1') return true;
+    if (welcomeModal.hidden === false && welcomeModal.getAttribute('aria-hidden') === 'false') return true;
+    return false;
   };
 
   let openModalId = null;
-  let ptReady = false;
+  let ptReady = !isWelcomeBlocking();
   let queuedOpen = false;
   let queuedNextView = null;
 
@@ -460,7 +461,9 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
+      if (e.key !== 'Escape') return;
+      if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;
+      closeModal();
     });
 
     window.addEventListener('cc:pt-show-toast', (e) => {
