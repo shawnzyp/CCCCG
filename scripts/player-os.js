@@ -543,6 +543,11 @@
   }
 
   function initLauncher() {
+    // If welcome was already dismissed before Player OS loaded, unlock readiness now.
+    if (!ptReady && !isWelcomeBlocking()) {
+      markWelcomeDismissed();
+    }
+
     // Never allow the phone to appear until welcome is dismissed
     if (!ptReady) {
       hideLauncher();

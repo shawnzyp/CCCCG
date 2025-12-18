@@ -2345,8 +2345,10 @@ function safeUnlockTouchControls({ immediate = false } = {}) {
   const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
   const drawer = document.getElementById('player-tools-drawer');
   const drawerOpen = drawer ? drawer.getAttribute('aria-hidden') !== 'true' : false;
+  const welcomeVisible =
+    !welcomeModalDismissed && !document.getElementById('modal-welcome')?.classList.contains('hidden');
   // If the Player Tools overlay is open, it is safe to unlock because CSS blocks the page behind it.
-  if (phoneOpen || drawerOpen) {
+  if ((phoneOpen || drawerOpen) && !welcomeVisible) {
     unlockTouchControls({ immediate: true });
     return;
   }
