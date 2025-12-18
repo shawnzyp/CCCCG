@@ -2343,8 +2343,19 @@ function lockTouchControls() {
 function safeUnlockTouchControls({ immediate = false } = {}) {
   if (typeof document === 'undefined') return;
   const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-  const drawerOpen = document.getElementById('player-tools-drawer')?.getAttribute('aria-hidden') !== 'true';
-  if (phoneOpen || drawerOpen) return;
+  const drawer = document.getElementById('player-tools-drawer');
+  const drawerOpen = drawer ? drawer.getAttribute('aria-hidden') !== 'true' : false;
+  const welcomeModal = document.getElementById('modal-welcome');
+  const welcomeAria = welcomeModal?.getAttribute('aria-hidden');
+  const welcomeVisible =
+    !welcomeModalDismissed &&
+    welcomeModal &&
+    (welcomeModal.hidden === false || welcomeAria === 'false');
+  // If the Player Tools overlay is open, it is safe to unlock because CSS blocks the page behind it.
+  if ((phoneOpen || drawerOpen) && !welcomeVisible) {
+    unlockTouchControls({ immediate: true });
+    return;
+  }
   unlockTouchControls({ immediate });
 }
 
@@ -2433,7 +2444,8 @@ function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hide(WELCOME_MODAL_ID);
   removePlayerToolsTabSuppression('welcome-modal');
-  unlockTouchControls();
+  safeUnlockTouchControls({ immediate: true });
+  try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
   markWelcomeSequenceComplete();
 }
 
