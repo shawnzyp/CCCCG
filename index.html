@@ -76,14 +76,68 @@
 </div>
 <script>
   (function(){
-    const DEFAULT_FALLBACK = 8000;
-    const MIN_VISIBLE = 8000;
-    const body = document.body;
-    const launchEl = document.getElementById('launch-animation');
-    const video = launchEl ? launchEl.querySelector('video') : null;
-    if(!body || !launchEl){
-      return;
-    }
+    try {
+      const DEFAULT_FALLBACK = 8000;
+      const MIN_VISIBLE = 8000;
+      const body = document.body;
+      const launchEl = document.getElementById('launch-animation');
+      const video = launchEl ? launchEl.querySelector('video') : null;
+      if(!body || !launchEl){
+        return;
+      }
+
+      if(video){
+        // Hard disable any controls, always
+        try {
+          video.controls = false;
+          video.removeAttribute('controls');
+          video.setAttribute('controls', '');
+          video.setAttribute('controlslist', 'nodownload noplaybackrate noremoteplayback nofullscreen');
+          video.setAttribute('disablepictureinpicture', '');
+          video.setAttribute('disableremoteplayback', '');
+          video.setAttribute('playsinline', '');
+          video.setAttribute('webkit-playsinline', '');
+          video.muted = true;
+          video.setAttribute('muted', '');
+          video.autoplay = true;
+          video.setAttribute('autoplay', '');
+        } catch (e) {}
+
+        // Ensure src gets set only when launching and then force playback
+        const setLaunchSrcIfMissing = () => {
+          try {
+            const src = video.getAttribute('data-src-mp4');
+            if (!src) return;
+            if (!video.src) video.src = src;
+          } catch (e) {}
+        };
+
+        const forcePlay = () => {
+          try {
+            setLaunchSrcIfMissing();
+            video.load();
+            const p = video.play();
+            if (p && typeof p.catch === 'function') {
+              p.catch(() => {
+                // Autoplay blocked. We still keep controls removed.
+                // Next user gesture (Skip button) will implicitly allow playback if you want to retry.
+              });
+            }
+          } catch (e) {}
+        };
+
+        // Try immediately and again after a tick (Safari timing quirk)
+        forcePlay();
+        setTimeout(forcePlay, 50);
+
+        // Optional: if user taps Skip, do not allow Safari to hijack with play controls
+        const skipBtn = launchEl.querySelector('[data-skip-launch]');
+        if (skipBtn) {
+          skipBtn.addEventListener('click', () => {
+            try { video.pause(); } catch (e) {}
+          }, { capture: true });
+        }
+      }
 
     const disableSaveDataPreference = () => {
       try {
@@ -362,6 +416,13 @@
       } else {
         window.addEventListener('load', () => scheduleFallback(), { once: true });
       }
+    }
+    } catch (err) {
+      try {
+        const launchEl = document.getElementById('launch-animation');
+        if (launchEl) launchEl.setAttribute('data-hidden', 'true');
+        if (document.body) document.body.classList.remove('launching');
+      } catch (e) {}
     }
   })();
 </script>
