@@ -242,6 +242,11 @@
     setView('app', normalized);
   }
 
+  function handleUnlock() {
+    clearAutoUnlock();
+    setView('home', null);
+  }
+
   function handleBack() {
     setView('home', null);
   }
