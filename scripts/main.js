@@ -22780,6 +22780,7 @@ if(typeof window !== 'undefined'){
 function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
   launchSequenceComplete = true;
+  unlockTouchControls({ immediate: true });
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
 }
@@ -22787,6 +22788,7 @@ function markLaunchSequenceComplete(){
 function markWelcomeSequenceComplete(){
   if(welcomeSequenceComplete) return;
   welcomeSequenceComplete = true;
+  unlockTouchControls({ immediate: true });
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
 }
