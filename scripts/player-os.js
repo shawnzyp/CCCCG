@@ -132,6 +132,7 @@
 
     // Make the "phone open" interaction rules kick in
     document.documentElement.setAttribute('data-pt-phone-open', '1');
+    document.documentElement.setAttribute('data-pt-drawer-open', '1');
     document.documentElement.classList.remove('pt-os-lock');
 
     setTabExpanded(true);
@@ -145,6 +146,7 @@
 
     // Restore normal page interaction rules
     document.documentElement.removeAttribute('data-pt-phone-open');
+    document.documentElement.removeAttribute('data-pt-drawer-open');
 
     setTabExpanded(false);
     if (glass) glass.removeAttribute('data-pt-launcher-visible');
