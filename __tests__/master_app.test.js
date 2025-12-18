@@ -102,7 +102,18 @@ function installCoreMocks() {
       window.location.replace = jest.fn();
     } catch (err) {}
   }
+  try {
+    Object.defineProperty(window.location, 'reload', { configurable: true, value: jest.fn() });
+    Object.defineProperty(window.location, 'assign', { configurable: true, value: jest.fn() });
+    Object.defineProperty(window.location, 'replace', { configurable: true, value: jest.fn() });
+  } catch (err) {}
   globalThis.location = window.location;
+
+  globalThis.prefersReducedMotion = () => false;
+  window.confirm = jest.fn(() => true);
+  globalThis.confirm = window.confirm;
+  window.prompt = jest.fn(() => '');
+  globalThis.prompt = window.prompt;
 
   const raf = cb => setTimeout(() => cb(Date.now()), 0);
   const caf = id => clearTimeout(id);
@@ -114,13 +125,23 @@ function installCoreMocks() {
   global.cancelAnimationFrame = caf;
 
   let isOnline = true;
-  Object.defineProperty(window.navigator, 'onLine', {
-    configurable: true,
-    get: () => isOnline,
-    set: value => {
-      isOnline = Boolean(value);
-    },
-  });
+  const navigatorProto = Object.getPrototypeOf(window.navigator);
+  const defineOnline = target => {
+    Object.defineProperty(target, 'onLine', {
+      configurable: true,
+      get: () => isOnline,
+      set: value => {
+        isOnline = Boolean(value);
+      },
+    });
+  };
+
+  try {
+    if (navigatorProto) defineOnline(navigatorProto);
+  } catch (err) {}
+  try {
+    defineOnline(window.navigator);
+  } catch (err) {}
   window.requestIdleCallback = cb => setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 2 }), 0);
   window.cancelIdleCallback = id => clearTimeout(id);
   window.matchMedia = jest.fn().mockImplementation(() => ({
@@ -304,6 +325,21 @@ function installCoreMocks() {
   window.MutationObserver = MutationObserverMock;
   globalThis.MutationObserver = MutationObserverMock;
 
+  if (typeof HTMLCanvasElement !== 'undefined') {
+    HTMLCanvasElement.prototype.getContext = jest.fn(() => ({
+      clearRect: jest.fn(),
+      fillRect: jest.fn(),
+      drawImage: jest.fn(),
+      beginPath: jest.fn(),
+      moveTo: jest.fn(),
+      lineTo: jest.fn(),
+      stroke: jest.fn(),
+      closePath: jest.fn(),
+      save: jest.fn(),
+      restore: jest.fn(),
+    }));
+  }
+
   if (typeof globalThis.crypto !== 'object') {
     globalThis.crypto = {};
   }
@@ -344,7 +380,7 @@ function installCoreMocks() {
   window.Option = globalThis.Option;
 }
 
-async function readResourceFromDisk(url) {
+function toDiskPath(url) {
   const parsed = (() => {
     try {
       return new URL(url, 'http://localhost');
@@ -352,20 +388,36 @@ async function readResourceFromDisk(url) {
       return null;
     }
   })();
-  const pathname = parsed ? parsed.pathname : url;
-  const cleanPath = pathname.replace(/^\//, '');
-  const candidatePaths = [
-    path.resolve(ROOT_DIR, cleanPath),
-    path.resolve(ROOT_DIR, pathname),
-  ];
-  for (const candidate of candidatePaths) {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-      const buffer = fs.readFileSync(candidate);
-      const type = mime.lookup(candidate) || 'application/octet-stream';
-      return new Response(buffer, {
-        headers: { 'Content-Type': type },
-      });
+
+  const pathname = parsed ? parsed.pathname : String(url || '');
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(pathname);
+    } catch {
+      return pathname;
     }
+  })();
+
+  const normalizedRoot = ROOT_DIR.replace(/\\/g, '/');
+  const normalizedDecoded = decoded.replace(/\\/g, '/');
+
+  if (normalizedDecoded.startsWith(normalizedRoot)) {
+    return normalizedDecoded.slice(normalizedRoot.length).replace(/^\//, '');
+  }
+
+  return decoded.replace(/^\//, '');
+}
+
+async function readResourceFromDisk(url) {
+  const pathname = toDiskPath(url);
+  const candidate = path.resolve(ROOT_DIR, pathname);
+
+  if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+    const buffer = fs.readFileSync(candidate);
+    const type = mime.lookup(candidate) || 'application/octet-stream';
+    return new Response(buffer, {
+      headers: { 'Content-Type': type },
+    });
   }
 
   if (pathname.endsWith('asset-manifest.json')) {
@@ -470,6 +522,193 @@ function shouldSkipElement(element) {
   return skipSelectors.some(sel => element.matches(sel) || element.closest(sel));
 }
 
+const allowedConsolePatterns = [
+  /Not implemented: window\.confirm/i,
+  /Not implemented: HTMLCanvasElement\.prototype\.getContext/i,
+  /navigation.*not implemented/i,
+];
+
+function shouldAllowCapturedError(detail) {
+  const text = String(detail ?? '');
+  return allowedConsolePatterns.some(pattern => pattern.test(text));
+}
+
+function collectDomAssetUrls() {
+  const urls = new Set();
+
+  document.querySelectorAll('link[href]').forEach(link => {
+    const href = link.getAttribute('href');
+    if (href && !href.startsWith('http') && !href.startsWith('data:')) urls.add(href);
+  });
+
+  document.querySelectorAll('script[src]').forEach(script => {
+    const src = script.getAttribute('src');
+    if (src && !src.startsWith('http') && !src.startsWith('data:')) urls.add(src);
+  });
+
+  document.querySelectorAll('img[src]').forEach(img => {
+    const src = img.getAttribute('src');
+    if (src && !src.startsWith('http') && !src.startsWith('data:')) urls.add(src);
+  });
+
+  document.querySelectorAll('use[href], use[xlink\\:href]').forEach(use => {
+    const href = use.getAttribute('href') || use.getAttribute('xlink:href');
+    if (href && href.includes('#')) {
+      const [path] = href.split('#');
+      if (path && !path.startsWith('http') && !path.startsWith('data:')) urls.add(path);
+    }
+  });
+
+  return [...urls];
+}
+
+async function expectAssetsReadable(urls) {
+  const failures = [];
+  for (const url of urls) {
+    try {
+      const diskPath = path.resolve(ROOT_DIR, toDiskPath(url));
+      if (!fs.existsSync(diskPath) || !fs.statSync(diskPath).isFile()) {
+        failures.push(`${url}: not found on disk`);
+        continue;
+      }
+
+      const stats = fs.statSync(diskPath);
+      if (stats.size <= 0) {
+        failures.push(`${url}: empty file`);
+        continue;
+      }
+
+      const response = await readResourceFromDisk(url);
+      if (!response.ok) {
+        failures.push(`${url}: status ${response.status}`);
+        continue;
+      }
+      const buf = await response.arrayBuffer();
+      if (!(buf?.byteLength > 0)) {
+        failures.push(`${url}: empty response`);
+      }
+    } catch (err) {
+      failures.push(`${url}: ${String(err)}`);
+    }
+  }
+
+  if (failures.length) {
+    throw new Error(`Asset failures:\n${failures.join('\n')}`);
+  }
+}
+
+function getLauncherButtons() {
+  return [...document.querySelectorAll('[data-pt-open-app]')].filter(btn => !btn.disabled);
+}
+
+async function openAndCloseEveryApp({ advanceAppTime: tick, cycles = 1 } = {}) {
+  const buttons = getLauncherButtons();
+  expect(buttons.length).toBeGreaterThan(0);
+
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    for (const btn of buttons) {
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      await tick(0);
+
+      expect(document.body).toBeTruthy();
+      expect(document.documentElement).toBeTruthy();
+
+      const back = document.querySelector('[data-pt-launcher-back]');
+      const close = document.querySelector('[data-pt-launcher-close]');
+      if (back) back.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      else if (close) close.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+      await tick(0);
+    }
+  }
+}
+
+function isSafeTarget(el) {
+  if (!el) return false;
+  if (el.disabled) return false;
+  const text = (el.textContent || '').toLowerCase();
+  if (/(delete|remove|wipe|reset all|clear all|factory)/i.test(text)) return false;
+  return true;
+}
+
+async function fuzzClickInteractiveElements({ advanceAppTime: tick, iterations = 250 } = {}) {
+  let candidates = [
+    ...document.querySelectorAll('button, [role="button"], a[href], summary'),
+  ].filter(el => !isElementHidden(el) && !shouldSkipElement(el) && isSafeTarget(el));
+
+  expect(candidates.length).toBeGreaterThan(0);
+
+  for (let i = 0; i < iterations; i += 1) {
+    if (i % 25 === 0) {
+      candidates = [
+        ...document.querySelectorAll('button, [role="button"], a[href], summary'),
+      ].filter(el => !isElementHidden(el) && !shouldSkipElement(el) && isSafeTarget(el));
+      if (candidates.length === 0) break;
+    }
+
+    const el = candidates[i % candidates.length];
+    if (!el?.isConnected) continue;
+    if (isElementHidden(el)) continue;
+    if (shouldSkipElement(el)) continue;
+    if (!isSafeTarget(el)) continue;
+    if ('disabled' in el && el.disabled) continue;
+
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    await tick(0);
+  }
+}
+
+async function fuzzForms({ advanceAppTime: tick } = {}) {
+  const inputs = [...document.querySelectorAll('input, textarea, select')].filter(
+    el => !el.disabled && !isElementHidden(el) && !shouldSkipElement(el),
+  );
+
+  for (const el of inputs) {
+    if (el.tagName === 'SELECT') {
+      if (el.options.length > 0) el.selectedIndex = 0;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    } else if (el.type === 'checkbox' || el.type === 'radio') {
+      el.click();
+    } else {
+      el.focus?.();
+      el.value = `${el.value || ''}x`;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    await tick(0);
+  }
+}
+
+async function stressGlobalEvents({ advanceAppTime: tick } = {}) {
+  window.dispatchEvent(new Event('resize'));
+  window.dispatchEvent(new Event('orientationchange'));
+
+  try {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  } catch (err) {}
+
+  window.navigator.onLine = false;
+  window.dispatchEvent(new Event('offline'));
+  await tick(0);
+
+  window.navigator.onLine = true;
+  window.dispatchEvent(new Event('online'));
+  await tick(0);
+
+  window.dispatchEvent(new Event('scroll'));
+
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+  await tick(0);
+}
+
 describe('Catalyst Core master application experience', () => {
   jest.setTimeout(60000);
 
@@ -491,16 +730,26 @@ describe('Catalyst Core master application experience', () => {
 
   test('launches the full application and exercises all interactive controls', async () => {
     const capturedErrors = [];
+    const captureError = detail => {
+      if (shouldAllowCapturedError(detail)) return;
+      capturedErrors.push(detail);
+    };
     const errorHandler = event => {
       const detail = event?.error ?? event?.message ?? event?.reason ?? event;
-      capturedErrors.push(detail);
+      captureError(detail);
     };
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', errorHandler);
 
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
-      capturedErrors.push(args.join(' '));
+      captureError(args.join(' '));
     });
+
+    const assertNoCapturedErrors = stage => {
+      if (capturedErrors.length > 0) {
+        throw new Error(`Detected issues during ${stage}: ${capturedErrors.map(String).join('\n')}`);
+      }
+    };
 
     await importAllApplicationScripts();
     dispatchAppReadyEvents();
@@ -512,79 +761,36 @@ describe('Catalyst Core master application experience', () => {
     }
     await advanceAppTime(1000);
 
+    const manifestResponse = await fetch('/offline-manifest.json');
+    const manifest = manifestResponse?.json ? await manifestResponse.json() : {};
+    const domAssets = collectDomAssetUrls();
+    const manifestAssets = Array.isArray(manifest.assets) ? manifest.assets : [];
+    const duplicateManifestAssets = manifestAssets.filter(
+      (url, idx) => manifestAssets.indexOf(url) !== idx,
+    );
+    expect(duplicateManifestAssets).toHaveLength(0);
+
+    const allAssets = [...new Set([...domAssets, ...manifestAssets])];
+    expect(allAssets.length).toBeGreaterThan(0);
+    await expectAssetsReadable(allAssets);
+    assertNoCapturedErrors('asset readability');
+
     const rootApp = document.getElementById('app') || document.body;
     expect(rootApp).toBeTruthy();
 
-    const interactiveElements = Array.from(
-      document.querySelectorAll(
-        'button, [role="button"], input, select, textarea, summary, details, a[href], [contenteditable=""], [contenteditable="true"]',
-      ),
-    );
+    await openAndCloseEveryApp({ advanceAppTime, cycles: 3 });
+    assertNoCapturedErrors('app launch cycles');
 
-    expect(interactiveElements.length).toBeGreaterThan(0);
+    await fuzzForms({ advanceAppTime });
+    assertNoCapturedErrors('form fuzzing');
 
-    for (const element of interactiveElements) {
-      if (!(element instanceof Element)) {
-        continue;
-      }
-      if (shouldSkipElement(element)) {
-        continue;
-      }
-      if (isElementHidden(element)) {
-        continue;
-      }
-      if (!element.isConnected) {
-        continue;
-      }
-      if ('disabled' in element && element.disabled) {
-        continue;
-      }
-
-      const tagName = element.tagName.toLowerCase();
-      try {
-        switch (tagName) {
-          case 'input': {
-            const input = element;
-            if (input.type === 'checkbox' || input.type === 'radio') {
-              input.checked = !input.checked;
-              input.dispatchEvent(new Event('input', { bubbles: true }));
-              input.dispatchEvent(new Event('change', { bubbles: true }));
-            } else {
-              input.value = 'Test Value';
-              input.dispatchEvent(new Event('input', { bubbles: true }));
-              input.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-            break;
-          }
-          case 'select': {
-            const select = element;
-            if (select.options.length > 1) {
-              select.selectedIndex = select.selectedIndex === 0 ? 1 : 0;
-            }
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-            break;
-          }
-          case 'textarea': {
-            const textarea = element;
-            textarea.value = 'Lorem ipsum dolor sit amet';
-            textarea.dispatchEvent(new Event('input', { bubbles: true }));
-            textarea.dispatchEvent(new Event('change', { bubbles: true }));
-            break;
-          }
-          case 'summary':
-          case 'details':
-          case 'button':
-          default: {
-            element.dispatchEvent(new Event('pointerdown', { bubbles: true }));
-            element.dispatchEvent(new Event('click', { bubbles: true }));
-            element.dispatchEvent(new Event('pointerup', { bubbles: true }));
-            break;
-          }
-        }
-      } catch (err) {
-        capturedErrors.push(err);
-      }
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await stressGlobalEvents({ advanceAppTime });
+      assertNoCapturedErrors(`global event cycle ${cycle + 1}`);
     }
+
+    await fuzzClickInteractiveElements({ advanceAppTime, iterations: 400 });
+    assertNoCapturedErrors('click fuzzing');
 
     const toastElement = document.getElementById('toast');
     if (toastElement) {
@@ -594,6 +800,15 @@ describe('Catalyst Core master application experience', () => {
       window.dismissToast?.();
       await advanceAppTime(0);
     }
+
+    if (typeof window.resetFloatingLauncherCoverage === 'function') {
+      window.resetFloatingLauncherCoverage();
+      await advanceAppTime(0);
+    }
+
+    expect(document.body.classList.contains('dm-floating-covered')).toBe(false);
+    expect(document.body.hasAttribute('data-floating-covered')).toBe(false);
+    expect(jest.getTimerCount()).toBeLessThan(500);
 
     window.removeEventListener('error', errorHandler);
     window.removeEventListener('unhandledrejection', errorHandler);
@@ -609,15 +824,19 @@ describe('Catalyst Core master application experience', () => {
 
   test('player tools drawer provides resilient interactions and status updates', async () => {
     const capturedErrors = [];
+    const captureError = detail => {
+      if (shouldAllowCapturedError(detail)) return;
+      capturedErrors.push(detail);
+    };
     const errorHandler = event => {
       const detail = event?.error ?? event?.message ?? event?.reason ?? event;
-      capturedErrors.push(detail);
+      captureError(detail);
     };
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', errorHandler);
 
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
-      capturedErrors.push(args.join(' '));
+      captureError(args.join(' '));
     });
 
     await importAllApplicationScripts();
@@ -773,15 +992,19 @@ describe('Catalyst Core master application experience', () => {
 
   test('stress tests interactive controls under rapid repeated interactions', async () => {
     const capturedErrors = [];
+    const captureError = detail => {
+      if (shouldAllowCapturedError(detail)) return;
+      capturedErrors.push(detail);
+    };
     const errorHandler = event => {
       const detail = event?.error ?? event?.message ?? event?.reason ?? event;
-      capturedErrors.push(detail);
+      captureError(detail);
     };
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', errorHandler);
 
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
-      capturedErrors.push(args.join(' '));
+      captureError(args.join(' '));
     });
 
     await importAllApplicationScripts();
@@ -937,15 +1160,19 @@ describe('Catalyst Core master application experience', () => {
 
   test('handles offline caching workflows and floating launcher coverage', async () => {
     const capturedErrors = [];
+    const captureError = detail => {
+      if (shouldAllowCapturedError(detail)) return;
+      capturedErrors.push(detail);
+    };
     const errorHandler = event => {
       const detail = event?.error ?? event?.message ?? event?.reason ?? event;
-      capturedErrors.push(detail);
+      captureError(detail);
     };
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', errorHandler);
 
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((...args) => {
-      capturedErrors.push(args.join(' '));
+      captureError(args.join(' '));
     });
 
     const manifest = {
