@@ -112,6 +112,15 @@ function installCoreMocks() {
   globalThis.cancelAnimationFrame = caf;
   global.requestAnimationFrame = raf;
   global.cancelAnimationFrame = caf;
+
+  let isOnline = true;
+  Object.defineProperty(window.navigator, 'onLine', {
+    configurable: true,
+    get: () => isOnline,
+    set: value => {
+      isOnline = Boolean(value);
+    },
+  });
   window.requestIdleCallback = cb => setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 2 }), 0);
   window.cancelIdleCallback = id => clearTimeout(id);
   window.matchMedia = jest.fn().mockImplementation(() => ({
@@ -174,8 +183,8 @@ function installCoreMocks() {
       };
     }
     createBufferSource() {
-      return {
-        connect: () => {},
+      const node = {
+        connect: target => target ?? node,
         disconnect: () => {},
         start: () => {},
         stop: () => {},
@@ -183,6 +192,7 @@ function installCoreMocks() {
         loop: false,
         playbackRate: { value: 1 },
       };
+      return node;
     }
     decodeAudioData(buffer, success) {
       const data = this.createBuffer(1, 1, 44100);
@@ -408,6 +418,9 @@ async function importAllApplicationScripts() {
   for (const script of scripts) {
     await import(script);
   }
+  if (typeof window !== 'undefined' && typeof window.resetFloatingLauncherCoverage === 'function') {
+    window.resetFloatingLauncherCoverage();
+  }
 }
 
 function dispatchAppReadyEvents() {
@@ -417,6 +430,8 @@ function dispatchAppReadyEvents() {
 
 async function advanceAppTime(ms = 0) {
   jest.advanceTimersByTime(ms);
+  await Promise.resolve();
+  await Promise.resolve();
   await Promise.resolve();
 }
 
@@ -993,7 +1008,6 @@ describe('Catalyst Core master application experience', () => {
     offlineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await advanceAppTime(0);
     expect(offlineStatus.textContent).toMatch(/Connect to the internet/i);
-
     expect(document.body.classList.contains('dm-floating-covered')).toBe(false);
     const coverCount = window.coverFloatingLauncher?.();
     await advanceAppTime(0);

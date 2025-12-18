@@ -3,6 +3,7 @@ const ATTRIBUTE_NAME = 'data-floating-covered';
 let coverCount = 0;
 
 function applyState() {
+  if (typeof document === 'undefined') return;
   const body = document.body;
   if (!body) return;
   if (coverCount > 0) {
@@ -30,8 +31,15 @@ export function isFloatingLauncherCovered() {
   return coverCount > 0;
 }
 
+export function resetFloatingLauncherCoverage() {
+  coverCount = 0;
+  applyState();
+  return coverCount;
+}
+
 if (typeof window !== 'undefined') {
   window.coverFloatingLauncher = coverFloatingLauncher;
   window.releaseFloatingLauncher = releaseFloatingLauncher;
   window.isFloatingLauncherCovered = isFloatingLauncherCovered;
+  window.resetFloatingLauncherCoverage = resetFloatingLauncherCoverage;
 }

@@ -126,12 +126,17 @@ import {
   supportsOfflineCaching,
 } from './offline-cache.js';
 import { createVirtualizedList } from './virtualized-list.js';
+import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 
 let animate = () => null;
 let fadeOut = () => null;
 let fadePop = () => null;
 let motion = (_token, fallback) => fallback;
 let easingVar = (_token, fallback) => fallback;
+
+if (typeof window !== 'undefined') {
+  resetFloatingLauncherCoverage();
+}
 
 (async () => {
   try {
@@ -23121,6 +23126,9 @@ async function runOfflineDownload({ forceReload = false, triggeredByUser = false
       syncPanelOfflineBtn.title = 'Offline caching is not supported on this browser.';
     }
     return;
+  }
+  if (typeof window !== 'undefined' && window.isFloatingLauncherCovered?.()) {
+    resetFloatingLauncherCoverage();
   }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     offlineDownloadRetryPending = true;
