@@ -461,7 +461,9 @@
     });
 
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
+      if (e.key !== 'Escape') return;
+      if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;
+      closeModal();
     });
 
     window.addEventListener('cc:pt-show-toast', (e) => {
