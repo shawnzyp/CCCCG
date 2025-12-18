@@ -279,6 +279,52 @@
   }
 
   function bindEvents() {
+    // Delegate all taps inside the launcher to avoid click synthesis issues in embeds.
+    if (launcher) {
+      launcher.addEventListener(
+        'pointerup',
+        (e) => {
+          // Only respond when launcher is visible
+          if (launcher.hidden || launcher.getAttribute('aria-hidden') === 'true') return;
+
+          const t = e.target;
+          if (!t || typeof t.closest !== 'function') return;
+
+          // Unlock button (lock screen)
+          const unlockBtn = t.closest('[data-pt-lock-unlock]');
+          if (unlockBtn) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+            handleUnlock();
+            return;
+          }
+
+          // Home icons
+          const appBtn = t.closest('[data-pt-open-app]');
+          if (appBtn) {
+            e.preventDefault?.();
+            const appId = appBtn.getAttribute('data-pt-open-app');
+            if (!appId) return;
+            launchFromHome(appId);
+            return;
+          }
+
+          // Minigames / modal game buttons
+          const gameBtn = t.closest('[data-pt-open-game]');
+          if (gameBtn) {
+            e.preventDefault?.();
+            const id = gameBtn.getAttribute('data-pt-open-game');
+            if (!id) return;
+            try {
+              window.dispatchEvent(new CustomEvent('cc:pt-open-modal', { detail: { id: `modal-game-${id}` } }));
+            } catch (_) {}
+            return;
+          }
+        },
+        { capture: true }
+      );
+    }
+
     // Always show the launcher (starting at lock) when the drawer opens
     window.addEventListener('cc:player-tools-drawer-open', () => {
       openLauncher();
@@ -287,24 +333,6 @@
     window.addEventListener('cc:pt-show-toast', (e) => {
       const msg = String(e?.detail?.message || '').trim();
       if (msg) showToast(msg);
-    });
-
-    qa('[data-pt-open-app]', launcher).forEach(btn => {
-      btn.addEventListener('click', function () {
-        const appId = btn.getAttribute('data-pt-open-app');
-        if (!appId) return;
-        launchFromHome(appId);
-      });
-    });
-
-    qa('[data-pt-open-game]', launcher).forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-pt-open-game');
-        if (!id) return;
-        try {
-          window.dispatchEvent(new CustomEvent('cc:pt-open-modal', { detail: { id: `modal-game-${id}` } }));
-        } catch (_) {}
-      });
     });
 
     if (backButton) {

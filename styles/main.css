@@ -10185,8 +10185,8 @@ html[data-pt-phone-open="1"] body {
   overflow: hidden;
   height: 100%;
   overscroll-behavior: none;
-  touch-action: none;
-  pointer-events: none;
+  /* Don't kill input at the BODY level; it can break hit-testing in embeds */
+  touch-action: auto;
 }
 
 html[data-pt-phone-open="1"] body > *:not(#player-tools-drawer) {
