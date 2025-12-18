@@ -3328,29 +3328,44 @@
                     <p>Awaiting next directive. Check back soon.</p>
                   </section>
 
-                  <section class="pt-card" data-pt-app-screen="settings" hidden>
-                    <h3>Settings</h3>
-                    <div class="pt-setting">
-                      <div>
-                        <div class="pt-setting__label">Theme</div>
-                        <div class="pt-setting__hint">Cycle through available themes.</div>
-                      </div>
-                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-theme-next>Next Theme</button>
+                  <section class="pt-app-page" data-pt-app-screen="settings" hidden aria-hidden="true">
+                    <header class="pt-page-head">
+                      <h3 class="pt-page-title">Settings</h3>
+                      <p class="pt-page-subtitle">Player OS preferences for this device.</p>
+                    </header>
+
+                    <div class="pt-section">
+                      <div class="pt-section__title">Appearance</div>
+
+                      <button type="button" class="pt-row pt-row--button" data-pt-open-modal="modal-settings-theme">
+                        <span class="pt-row__label">Theme</span>
+                        <span class="pt-row__value" data-pt-theme-label>Default</span>
+                        <span class="pt-row__chev">›</span>
+                      </button>
                     </div>
-                    <label class="pt-setting">
-                      <span>
-                        <span class="pt-setting__label">Reduce motion</span>
-                        <span class="pt-setting__hint">Minimize launcher and page animations.</span>
-                      </span>
-                      <input type="checkbox" data-pt-reduce-motion />
-                    </label>
-                    <label class="pt-setting">
-                      <span>
-                        <span class="pt-setting__label">Hide live tickers</span>
-                        <span class="pt-setting__hint">Remove scrolling news ribbons.</span>
-                      </span>
-                      <input type="checkbox" data-pt-hide-tickers />
-                    </label>
+
+                    <div class="pt-section">
+                      <div class="pt-section__title">Accessibility</div>
+
+                      <label class="pt-row pt-row--toggle">
+                        <span class="pt-row__label">Reduce motion</span>
+                        <input type="checkbox" class="pt-toggle" data-pt-reduce-motion />
+                      </label>
+
+                      <label class="pt-row pt-row--toggle">
+                        <span class="pt-row__label">Hide live tickers</span>
+                        <input type="checkbox" class="pt-toggle" data-pt-hide-tickers />
+                      </label>
+                    </div>
+
+                    <div class="pt-section">
+                      <div class="pt-section__title">System</div>
+
+                      <button type="button" class="pt-row pt-row--button" data-pt-open-modal="modal-settings-about">
+                        <span class="pt-row__label">About Player OS</span>
+                        <span class="pt-row__chev">›</span>
+                      </button>
+                    </div>
                   </section>
 
                   <section class="pt-card" data-pt-app-screen="loadSave" hidden>
@@ -3408,13 +3423,38 @@
                     <p>Review mission briefs and objectives.</p>
                   </section>
 
-                  <section class="pt-card" data-pt-app-screen="minigames" hidden>
-                    <h3>Minigames</h3>
-                    <p>Select a challenge to run inside the faux viewport.</p>
-                    <div class="pt-list">
-                      <button class="pt-list-item" data-pt-open-game="gridlock">GRIDLOCK</button>
-                      <button class="pt-list-item" data-pt-open-game="logic">LOGIC</button>
-                      <button class="pt-list-item" data-pt-open-game="codebreaker">CODEBREAKER</button>
+                  <section class="pt-app-page" data-pt-app-screen="minigames" hidden aria-hidden="true">
+                    <header class="pt-page-head">
+                      <h3 class="pt-page-title">Minigames</h3>
+                      <p class="pt-page-subtitle">Run table challenges inside the phone shell.</p>
+                    </header>
+
+                    <div class="pt-section">
+                      <div class="pt-section__title">Available</div>
+
+                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-gridlock">
+                        <span class="pt-row__label">GRIDLOCK</span>
+                        <span class="pt-row__meta">Tactical grid puzzle</span>
+                        <span class="pt-row__chev">›</span>
+                      </button>
+
+                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-logic">
+                        <span class="pt-row__label">LOGIC</span>
+                        <span class="pt-row__meta">Deduction constraints</span>
+                        <span class="pt-row__chev">›</span>
+                      </button>
+
+                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-codebreaker">
+                        <span class="pt-row__label">CODEBREAKER</span>
+                        <span class="pt-row__meta">Cipher challenge</span>
+                        <span class="pt-row__chev">›</span>
+                      </button>
+                    </div>
+
+                    <div class="pt-section">
+                      <button class="pt-btn pt-btn--ghost" type="button" data-pt-open-modal="modal-minigames-help">
+                        How minigames work
+                      </button>
                     </div>
                   </section>
                 </main>
@@ -3658,6 +3698,187 @@
                     <footer class="pt-modal__footer">
                       <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
                       <button type="button" class="pt-btn" data-pt-modal-close>Submit</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-settings-theme"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-settings-theme-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-settings-theme-title" class="pt-modal__title">Theme</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+
+                    <div class="pt-modal__body">
+                      <p class="pt-muted">Choose how Player OS looks on this device.</p>
+                    </div>
+
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-theme-next>Cycle theme</button>
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-settings-about"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-settings-about-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-settings-about-title" class="pt-modal__title">About Player OS</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+
+                    <div class="pt-modal__body">
+                      <p class="pt-muted">Player OS is a focused overlay for running the table without leaving the story.</p>
+                      <p class="pt-muted">Version 1.0 · Designed for Catalyst Core sessions.</p>
+                    </div>
+
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-minigame-gridlock"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-minigame-gridlock-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-minigame-gridlock-title" class="pt-modal__title">GRIDLOCK</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+
+                    <div class="pt-modal__body">
+                      <p class="pt-muted">A tactical grid puzzle that rewards coordination.</p>
+                      <ul class="pt-bullets">
+                        <li>Best for 2 to 5 players</li>
+                        <li>Typical duration: 5 to 12 minutes</li>
+                        <li>Use Reset if the table derails</li>
+                      </ul>
+                    </div>
+
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-launch-game="gridlock">Launch</button>
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-minigame-logic"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-minigame-logic-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-minigame-logic-title" class="pt-modal__title">LOGIC</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+
+                    <div class="pt-modal__body">
+                      <p class="pt-muted">A constraints puzzle that rewards deduction.</p>
+                      <ul class="pt-bullets">
+                        <li>Solo or collaborative play</li>
+                        <li>End conditions vary by puzzle</li>
+                        <li>Communicate your reasoning aloud</li>
+                      </ul>
+                    </div>
+
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-launch-game="logic">Launch</button>
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-minigame-codebreaker"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-minigame-codebreaker-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-minigame-codebreaker-title" class="pt-modal__title">CODEBREAKER</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+
+                    <div class="pt-modal__body">
+                      <p class="pt-muted">Crack ciphers and coordinate with the table.</p>
+                      <ul class="pt-bullets">
+                        <li>Best with 2+ players trading clues</li>
+                        <li>Speed matters; share partial solves</li>
+                        <li>Use Reset between rounds</li>
+                      </ul>
+                    </div>
+
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn" data-pt-launch-game="codebreaker">Launch</button>
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Cancel</button>
+                    </footer>
+                  </div>
+                </section>
+
+                <section
+                  id="modal-minigames-help"
+                  class="pt-modal"
+                  hidden
+                  aria-hidden="true"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="modal-minigames-help-title"
+                >
+                  <div class="pt-modal__scrim" data-pt-modal-close></div>
+                  <div class="pt-modal__panel" role="document">
+                    <header class="pt-modal__header">
+                      <h2 id="modal-minigames-help-title" class="pt-modal__title">Minigames</h2>
+                      <button type="button" class="pt-modal__close" data-pt-modal-close aria-label="Close">×</button>
+                    </header>
+
+                    <div class="pt-modal__body">
+                      <p class="pt-muted">Run each challenge inside the faux phone. Launch buttons open the interactive canvas.</p>
+                      <ul class="pt-bullets">
+                        <li>Only one game runs at a time inside the shell</li>
+                        <li>Use the Exit button in the game HUD to return</li>
+                        <li>Reset wipes the current state for that game</li>
+                      </ul>
+                    </div>
+
+                    <footer class="pt-modal__footer">
+                      <button type="button" class="pt-btn pt-btn--ghost" data-pt-modal-close>Close</button>
                     </footer>
                   </div>
                 </section>

@@ -18,37 +18,22 @@
 
   const glass = launcher.closest('.pt-screen__glass') || launcher.parentElement;
 
-  const modalHost = q('[data-pt-modal-host]', launcher) || null;
+  const modalHost = q('[data-pt-modal-host]', launcher) || q('[data-pt-modal-host]');
   const welcomeModal = document.getElementById('modal-welcome');
 
-  function isWelcomeBlocking() {
+  const isWelcomeBlocking = () => {
     if (!welcomeModal) return false;
-    // If it isn't hidden or aria-hidden isn't true, treat it as blocking.
     if (welcomeModal.hidden === false) return true;
     const aria = welcomeModal.getAttribute('aria-hidden');
     return aria !== 'true';
-  }
+  };
 
-  function waitForWelcomeClose(cb) {
-    // If there's no modalHost, just run.
-    if (!modalHost) return cb();
+  let openModalId = null;
+  let ptReady = false;
+  let queuedOpen = false;
+  let queuedNextView = null;
 
-    // If welcome isn't blocking, run immediately.
-    if (!isWelcomeBlocking()) return cb();
-
-    // Observe until welcome becomes hidden/aria-hidden true
-    const obs = new MutationObserver(() => {
-      if (!isWelcomeBlocking()) {
-        obs.disconnect();
-        cb();
-      }
-    });
-
-    if (welcomeModal) {
-      obs.observe(welcomeModal, { attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'style', 'class'] });
-    }
-    obs.observe(modalHost, { attributes: true, attributeFilter: ['data-pt-modal-open'] });
-  }
+  window.PlayerOSReady = ptReady;
 
   const toastEl     = q('[data-pt-ios-toast]', launcher);
   const lockView    = q('[data-pt-lock-screen]', launcher);
@@ -171,6 +156,83 @@
     el.style.display = visible ? '' : 'none';
     el.style.pointerEvents = visible ? 'auto' : 'none';
   }
+
+  function setModalHostActive(active) {
+    if (!modalHost) return;
+    if (active) {
+      modalHost.setAttribute('data-pt-modal-open', '1');
+      modalHost.setAttribute('aria-hidden', 'false');
+    } else {
+      modalHost.removeAttribute('data-pt-modal-open');
+      modalHost.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function getModalById(id) {
+    if (!id) return null;
+    return document.getElementById(id);
+  }
+
+  function markWelcomeDismissed() {
+    if (ptReady) return;
+    ptReady = true;
+    window.PlayerOSReady = true;
+    window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed'));
+
+    if (queuedOpen) {
+      const next = queuedNextView;
+      queuedOpen = false;
+      queuedNextView = null;
+      openLauncher(next);
+    }
+  }
+
+  function closeModal() {
+    if (!openModalId) return;
+    const modal = getModalById(openModalId);
+    const closedId = openModalId;
+    openModalId = null;
+
+    if (modal) setLayerVisible(modal, false);
+    setModalHostActive(false);
+    launcher?.removeAttribute('data-pt-modal-lock');
+
+    if (closedId === 'modal-welcome') {
+      markWelcomeDismissed();
+    }
+  }
+
+  function openModal(id) {
+    if (!id) return;
+    if (openModalId && openModalId !== id) {
+      closeModal();
+    }
+
+    const modal = getModalById(id);
+    if (!modal) return;
+
+    openModalId = id;
+    setModalHostActive(true);
+    launcher?.setAttribute('data-pt-modal-lock', '1');
+    setLayerVisible(modal, true);
+  }
+
+  if (!isWelcomeBlocking()) {
+    markWelcomeDismissed();
+  }
+
+  if (welcomeModal) {
+    const welcomeObserver = new MutationObserver(() => {
+      if (!isWelcomeBlocking()) {
+        markWelcomeDismissed();
+        welcomeObserver.disconnect();
+      }
+    });
+
+    welcomeObserver.observe(welcomeModal, { attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'class', 'style'] });
+  }
+
+  window.addEventListener('cc:pt-welcome-dismissed', markWelcomeDismissed);
 
   function clearAutoUnlock() {
     if (autoUnlockTimer) {
@@ -345,26 +407,52 @@
             launchFromHome(appId);
             return;
           }
-
-          // Minigames / modal game buttons
-          const gameBtn = t.closest('[data-pt-open-game]');
-          if (gameBtn) {
-            e.preventDefault?.();
-            const id = gameBtn.getAttribute('data-pt-open-game');
-            if (!id) return;
-            try {
-              window.dispatchEvent(new CustomEvent('cc:pt-open-modal', { detail: { id: `modal-game-${id}` } }));
-            } catch (_) {}
-            return;
-          }
         },
         { capture: true }
       );
     }
 
+    document.addEventListener('pointerup', (e) => {
+      const t = e.target;
+      if (!t || typeof t.closest !== 'function') return;
+
+      const openBtn = t.closest('[data-pt-open-modal]');
+      if (openBtn) {
+        e.preventDefault?.();
+        const id = openBtn.getAttribute('data-pt-open-modal');
+        if (id) openModal(id);
+        return;
+      }
+
+      const closeBtn = t.closest('[data-pt-modal-close]');
+      if (closeBtn) {
+        e.preventDefault?.();
+        closeModal();
+        return;
+      }
+
+      const launchBtn = t.closest('[data-pt-launch-game]');
+      if (launchBtn) {
+        e.preventDefault?.();
+        const game = launchBtn.getAttribute('data-pt-launch-game');
+        closeModal();
+        if (game) openModal(`modal-game-${game}`);
+        return;
+      }
+    }, { capture: true });
+
     // Always show the launcher (starting at lock) when the drawer opens
     window.addEventListener('cc:player-tools-drawer-open', () => {
       openLauncher();
+    });
+
+    window.addEventListener('cc:pt-open-modal', (e) => {
+      const id = String(e?.detail?.id || '').trim();
+      if (id) openModal(id);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
     });
 
     window.addEventListener('cc:pt-show-toast', (e) => {
@@ -407,22 +495,30 @@
     });
   }
 
+  function performOpenLauncher(nextView) {
+    showLauncher();
+    setView('lock', null);
+    // Always auto-dismiss to home after 1.75s
+    scheduleAutoUnlock();
+
+    if (!nextView || nextView === 'lock') return;
+
+    if (nextView === 'home') {
+      setView('home', null);
+      return;
+    }
+
+    openApp(nextView);
+  }
+
   function openLauncher(nextView) {
-    waitForWelcomeClose(() => {
-      showLauncher();
-      setView('lock', null);
-      // Always auto-dismiss to home after 1.75s
-      scheduleAutoUnlock();
+    if (!ptReady) {
+      queuedOpen = true;
+      queuedNextView = nextView || null;
+      return;
+    }
 
-      if (!nextView || nextView === 'lock') return;
-
-      if (nextView === 'home') {
-        setView('home', null);
-        return;
-      }
-
-      openApp(nextView);
-    });
+    performOpenLauncher(nextView);
   }
 
   function closeLauncher() {
@@ -443,7 +539,6 @@
 
     // Start on lock screen
     setView('lock', null);
-    scheduleAutoUnlock();
     updateLockTime();
     setInterval(updateLockTime, 15000);
     bindEvents();
