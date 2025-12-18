@@ -18,6 +18,38 @@
 
   const glass = launcher.closest('.pt-screen__glass') || launcher.parentElement;
 
+  const modalHost = q('[data-pt-modal-host]', launcher) || null;
+  const welcomeModal = document.getElementById('modal-welcome');
+
+  function isWelcomeBlocking() {
+    if (!welcomeModal) return false;
+    // If it isn't hidden or aria-hidden isn't true, treat it as blocking.
+    if (welcomeModal.hidden === false) return true;
+    const aria = welcomeModal.getAttribute('aria-hidden');
+    return aria !== 'true';
+  }
+
+  function waitForWelcomeClose(cb) {
+    // If there's no modalHost, just run.
+    if (!modalHost) return cb();
+
+    // If welcome isn't blocking, run immediately.
+    if (!isWelcomeBlocking()) return cb();
+
+    // Observe until welcome becomes hidden/aria-hidden true
+    const obs = new MutationObserver(() => {
+      if (!isWelcomeBlocking()) {
+        obs.disconnect();
+        cb();
+      }
+    });
+
+    if (welcomeModal) {
+      obs.observe(welcomeModal, { attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'style', 'class'] });
+    }
+    obs.observe(modalHost, { attributes: true, attributeFilter: ['data-pt-modal-open'] });
+  }
+
   const toastEl     = q('[data-pt-ios-toast]', launcher);
   const lockView    = q('[data-pt-lock-screen]', launcher);
   const homeView    = q('section[data-pt-launcher-home]', launcher);
@@ -376,19 +408,21 @@
   }
 
   function openLauncher(nextView) {
-    showLauncher();
-    setView('lock', null);
-    // Always auto-dismiss to home after 1.75s
-    scheduleAutoUnlock();
+    waitForWelcomeClose(() => {
+      showLauncher();
+      setView('lock', null);
+      // Always auto-dismiss to home after 1.75s
+      scheduleAutoUnlock();
 
-    if (!nextView || nextView === 'lock') return;
+      if (!nextView || nextView === 'lock') return;
 
-    if (nextView === 'home') {
-      setView('home', null);
-      return;
-    }
+      if (nextView === 'home') {
+        setView('home', null);
+        return;
+      }
 
-    openApp(nextView);
+      openApp(nextView);
+    });
   }
 
   function closeLauncher() {
