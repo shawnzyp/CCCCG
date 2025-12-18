@@ -120,40 +120,19 @@
     return launcher.getAttribute('aria-hidden') === 'true' || launcher.hidden || launcher.style.display === 'none';
   }
 
-  function isLauncherActuallyVisible(el) {
-    if (!el) return false;
-    if (el.hidden) return false;
-    if (el.getAttribute('aria-hidden') === 'true') return false;
-    const cs = window.getComputedStyle ? window.getComputedStyle(el) : null;
-    if (cs && (cs.display === 'none' || cs.visibility === 'hidden' || cs.pointerEvents === 'none')) return false;
-    return true;
-  }
-
   function setTabExpanded(isOpen) {
     if (!launcherTab) return;
     launcherTab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   }
 
-  function syncPhoneOpenFlags() {
-    const isOpen = isLauncherActuallyVisible(launcher);
-    if (isOpen) {
-      document.documentElement.setAttribute('data-pt-phone-open', '1');
-      document.documentElement.setAttribute('data-pt-drawer-open', '1');
-    } else {
-      document.documentElement.removeAttribute('data-pt-phone-open');
-      document.documentElement.removeAttribute('data-pt-drawer-open');
-    }
-  }
-
-  syncPhoneOpenFlags();
-
   function showLauncher() {
     launcher.hidden = false;
     launcher.style.removeProperty('display');
     launcher.setAttribute('aria-hidden', 'false');
-    launcher.setAttribute('data-pt-launcher-visible', '1');
 
-    syncPhoneOpenFlags();
+    // Make the "phone open" interaction rules kick in
+    document.documentElement.setAttribute('data-pt-phone-open', '1');
+    document.documentElement.setAttribute('data-pt-drawer-open', '1');
     document.documentElement.classList.remove('pt-os-lock');
 
     setTabExpanded(true);
@@ -164,9 +143,10 @@
     launcher.setAttribute('aria-hidden', 'true');
     launcher.style.display = 'none';
     launcher.hidden = true;
-    launcher.removeAttribute('data-pt-launcher-visible');
 
-    syncPhoneOpenFlags();
+    // Restore normal page interaction rules
+    document.documentElement.removeAttribute('data-pt-phone-open');
+    document.documentElement.removeAttribute('data-pt-drawer-open');
 
     setTabExpanded(false);
     if (glass) glass.removeAttribute('data-pt-launcher-visible');
@@ -261,9 +241,6 @@
   }
 
   window.addEventListener('cc:pt-welcome-dismissed', markWelcomeDismissed);
-  window.addEventListener('cc:pt-welcome-dismissed', () => {
-    syncPhoneOpenFlags();
-  }, { passive: true });
 
   function clearAutoUnlock() {
     if (autoUnlockTimer) {
