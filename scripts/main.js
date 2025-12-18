@@ -134,7 +134,9 @@ let fadePop = () => null;
 let motion = (_token, fallback) => fallback;
 let easingVar = (_token, fallback) => fallback;
 
-resetFloatingLauncherCoverage();
+if (typeof window !== 'undefined') {
+  resetFloatingLauncherCoverage();
+}
 
 (async () => {
   try {
@@ -23125,7 +23127,9 @@ async function runOfflineDownload({ forceReload = false, triggeredByUser = false
     }
     return;
   }
-  resetFloatingLauncherCoverage();
+  if (typeof window !== 'undefined' && window.isFloatingLauncherCovered?.()) {
+    resetFloatingLauncherCoverage();
+  }
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     offlineDownloadRetryPending = true;
     updateOfflineDownloadStatus('Connect to the internet to download offline assets.', 'error');

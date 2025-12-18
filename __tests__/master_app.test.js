@@ -183,8 +183,8 @@ function installCoreMocks() {
       };
     }
     createBufferSource() {
-      return {
-        connect: () => {},
+      const node = {
+        connect: target => target ?? node,
         disconnect: () => {},
         start: () => {},
         stop: () => {},
@@ -192,6 +192,7 @@ function installCoreMocks() {
         loop: false,
         playbackRate: { value: 1 },
       };
+      return node;
     }
     decodeAudioData(buffer, success) {
       const data = this.createBuffer(1, 1, 44100);
@@ -416,6 +417,9 @@ async function importAllApplicationScripts() {
   ];
   for (const script of scripts) {
     await import(script);
+  }
+  if (typeof window !== 'undefined' && typeof window.resetFloatingLauncherCoverage === 'function') {
+    window.resetFloatingLauncherCoverage();
   }
 }
 
