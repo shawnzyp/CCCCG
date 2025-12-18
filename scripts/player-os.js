@@ -524,6 +524,7 @@
 
   function openLauncher(nextView) {
     if (!ptReady) {
+      hideLauncher(); // defensive: keep it invisible until ready
       queuedOpen = true;
       queuedNextView = nextView || null;
       return;
@@ -542,7 +543,10 @@
   }
 
   function initLauncher() {
-    if (isLauncherHidden()) {
+    // Never allow the phone to appear until welcome is dismissed
+    if (!ptReady) {
+      hideLauncher();
+    } else if (isLauncherHidden()) {
       hideLauncher();
     } else {
       showLauncher();
