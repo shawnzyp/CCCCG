@@ -24,13 +24,14 @@
 
   const isWelcomeBlocking = () => {
     if (!welcomeModal) return false;
-    if (welcomeModal.hidden === false) return true;
-    const aria = welcomeModal.getAttribute('aria-hidden');
-    return aria !== 'true';
+    // Block only when the welcome modal is explicitly open/visible
+    if (welcomeModal.getAttribute('data-pt-modal-open') === '1') return true;
+    if (welcomeModal.hidden === false && welcomeModal.getAttribute('aria-hidden') === 'false') return true;
+    return false;
   };
 
   let openModalId = null;
-  let ptReady = false;
+  let ptReady = !isWelcomeBlocking();
   let queuedOpen = false;
   let queuedNextView = null;
 
