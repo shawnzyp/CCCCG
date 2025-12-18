@@ -112,6 +112,15 @@ function installCoreMocks() {
   globalThis.cancelAnimationFrame = caf;
   global.requestAnimationFrame = raf;
   global.cancelAnimationFrame = caf;
+
+  let isOnline = true;
+  Object.defineProperty(window.navigator, 'onLine', {
+    configurable: true,
+    get: () => isOnline,
+    set: value => {
+      isOnline = Boolean(value);
+    },
+  });
   window.requestIdleCallback = cb => setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 2 }), 0);
   window.cancelIdleCallback = id => clearTimeout(id);
   window.matchMedia = jest.fn().mockImplementation(() => ({
@@ -417,6 +426,8 @@ function dispatchAppReadyEvents() {
 
 async function advanceAppTime(ms = 0) {
   jest.advanceTimersByTime(ms);
+  await Promise.resolve();
+  await Promise.resolve();
   await Promise.resolve();
 }
 
@@ -993,7 +1004,6 @@ describe('Catalyst Core master application experience', () => {
     offlineButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await advanceAppTime(0);
     expect(offlineStatus.textContent).toMatch(/Connect to the internet/i);
-
     expect(document.body.classList.contains('dm-floating-covered')).toBe(false);
     const coverCount = window.coverFloatingLauncher?.();
     await advanceAppTime(0);

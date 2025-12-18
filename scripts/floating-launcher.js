@@ -30,8 +30,15 @@ export function isFloatingLauncherCovered() {
   return coverCount > 0;
 }
 
+export function resetFloatingLauncherCoverage() {
+  coverCount = 0;
+  applyState();
+  return coverCount;
+}
+
 if (typeof window !== 'undefined') {
   window.coverFloatingLauncher = coverFloatingLauncher;
   window.releaseFloatingLauncher = releaseFloatingLauncher;
   window.isFloatingLauncherCovered = isFloatingLauncherCovered;
+  window.resetFloatingLauncherCoverage = resetFloatingLauncherCoverage;
 }

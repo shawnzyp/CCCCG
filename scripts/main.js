@@ -126,12 +126,15 @@ import {
   supportsOfflineCaching,
 } from './offline-cache.js';
 import { createVirtualizedList } from './virtualized-list.js';
+import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 
 let animate = () => null;
 let fadeOut = () => null;
 let fadePop = () => null;
 let motion = (_token, fallback) => fallback;
 let easingVar = (_token, fallback) => fallback;
+
+resetFloatingLauncherCoverage();
 
 (async () => {
   try {
@@ -23122,6 +23125,7 @@ async function runOfflineDownload({ forceReload = false, triggeredByUser = false
     }
     return;
   }
+  resetFloatingLauncherCoverage();
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     offlineDownloadRetryPending = true;
     updateOfflineDownloadStatus('Connect to the internet to download offline assets.', 'error');
