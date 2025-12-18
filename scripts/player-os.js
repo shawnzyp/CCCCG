@@ -16,6 +16,7 @@
     return;
   }
 
+  const drawer = document.getElementById('player-tools-drawer');
   const glass = launcher.closest('.pt-screen__glass') || launcher.parentElement;
 
   const modalHost = q('[data-pt-modal-host]', launcher) || q('[data-pt-modal-host]');
@@ -183,7 +184,7 @@
       const next = queuedNextView;
       queuedOpen = false;
       queuedNextView = null;
-      openLauncher(next);
+      performOpenLauncher(next);
     }
   }
 
@@ -417,8 +418,11 @@
     }
 
     document.addEventListener('pointerup', (e) => {
+      if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;
+
       const t = e.target;
       if (!t || typeof t.closest !== 'function') return;
+      if (drawer && !drawer.contains(t)) return;
 
       const openBtn = t.closest('[data-pt-open-modal]');
       if (openBtn) {

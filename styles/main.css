@@ -10222,7 +10222,7 @@ body {
 }
 
 .pt-row__chev {
-  margin-left: auto;
+  margin-left: 8px;
   opacity: 0.7;
 }
 
@@ -10357,6 +10357,10 @@ html[data-pt-phone-open="1"] [data-pt-launcher] * {
 
 .pt-modal-host[data-pt-modal-open="1"] {
   pointer-events: auto;
+}
+
+[data-pt-launcher][data-pt-modal-lock="1"] .pt-app-host {
+  overflow: hidden;
 }
 
 .pt-modal-host:not([data-pt-modal-open="1"]) .pt-modal {
