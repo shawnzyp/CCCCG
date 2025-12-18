@@ -110,6 +110,11 @@
     launcher.hidden = false;
     launcher.style.removeProperty('display');
     launcher.setAttribute('aria-hidden', 'false');
+
+    // Make the "phone open" interaction rules kick in
+    document.documentElement.setAttribute('data-pt-phone-open', '1');
+    document.documentElement.classList.remove('pt-os-lock');
+
     setTabExpanded(true);
     if (glass) glass.setAttribute('data-pt-launcher-visible', '1');
   }
@@ -118,6 +123,10 @@
     launcher.setAttribute('aria-hidden', 'true');
     launcher.style.display = 'none';
     launcher.hidden = true;
+
+    // Restore normal page interaction rules
+    document.documentElement.removeAttribute('data-pt-phone-open');
+
     setTabExpanded(false);
     if (glass) glass.removeAttribute('data-pt-launcher-visible');
   }
