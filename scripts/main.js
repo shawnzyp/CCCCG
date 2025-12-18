@@ -2343,7 +2343,8 @@ function lockTouchControls() {
 function safeUnlockTouchControls({ immediate = false } = {}) {
   if (typeof document === 'undefined') return;
   const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-  const drawerOpen = document.getElementById('player-tools-drawer')?.getAttribute('aria-hidden') !== 'true';
+  const drawer = document.getElementById('player-tools-drawer');
+  const drawerOpen = drawer ? drawer.getAttribute('aria-hidden') !== 'true' : false;
   if (phoneOpen || drawerOpen) return;
   unlockTouchControls({ immediate });
 }
