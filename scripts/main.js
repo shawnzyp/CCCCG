@@ -2340,6 +2340,14 @@ function lockTouchControls() {
   }
 }
 
+function safeUnlockTouchControls({ immediate = false } = {}) {
+  if (typeof document === 'undefined') return;
+  const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
+  const drawerOpen = document.getElementById('player-tools-drawer')?.getAttribute('aria-hidden') !== 'true';
+  if (phoneOpen || drawerOpen) return;
+  unlockTouchControls({ immediate });
+}
+
 function unlockTouchControls({ immediate = false } = {}) {
   if (typeof document === 'undefined') return;
   const { body } = document;
@@ -2382,12 +2390,12 @@ function unlockTouchControls({ immediate = false } = {}) {
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   const modal = prepareWelcomeModal();
   if (!modal) {
-    unlockTouchControls({ immediate: true });
+    safeUnlockTouchControls({ immediate: true });
     markWelcomeSequenceComplete();
     return;
   }
   if (welcomeModalDismissed) {
-    unlockTouchControls({ immediate: true });
+    safeUnlockTouchControls({ immediate: true });
     markWelcomeSequenceComplete();
     return;
   }
@@ -2415,10 +2423,10 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   }
 
   if (!wasHidden) {
-    unlockTouchControls();
+    safeUnlockTouchControls();
     return;
   }
-  unlockTouchControls();
+  safeUnlockTouchControls();
 }
 
 function dismissWelcomeModal() {
@@ -22780,7 +22788,7 @@ if(typeof window !== 'undefined'){
 function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
   launchSequenceComplete = true;
-  unlockTouchControls({ immediate: true });
+  safeUnlockTouchControls({ immediate: true });
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
 }
@@ -22788,7 +22796,7 @@ function markLaunchSequenceComplete(){
 function markWelcomeSequenceComplete(){
   if(welcomeSequenceComplete) return;
   welcomeSequenceComplete = true;
-  unlockTouchControls({ immediate: true });
+  safeUnlockTouchControls({ immediate: true });
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
 }
