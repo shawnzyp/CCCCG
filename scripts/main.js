@@ -2452,8 +2452,13 @@ function dismissWelcomeModal() {
   try { document.body.classList.remove('touch-controls-disabled'); } catch {}
   try { document.body.classList.remove('modal-open'); } catch {}
   try {
-    document.documentElement.removeAttribute('data-pt-phone-open');
-    document.documentElement.removeAttribute('data-pt-drawer-open');
+    const launcher = document.querySelector('[data-pt-launcher]');
+    const cs = launcher && window.getComputedStyle ? window.getComputedStyle(launcher) : null;
+    const launcherVisible = !!(launcher && !launcher.hidden && launcher.getAttribute('aria-hidden') !== 'true' && cs && cs.display !== 'none' && cs.visibility !== 'hidden');
+    if (!launcherVisible) {
+      document.documentElement.removeAttribute('data-pt-phone-open');
+      document.documentElement.removeAttribute('data-pt-drawer-open');
+    }
   } catch {}
   safeUnlockTouchControls({ immediate: true });
   try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
