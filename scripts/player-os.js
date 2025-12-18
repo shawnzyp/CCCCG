@@ -193,7 +193,10 @@
     const closedId = openModalId;
     openModalId = null;
 
-    if (modal) setLayerVisible(modal, false);
+    if (modal) {
+      modal.removeAttribute('data-pt-modal-open');
+      setLayerVisible(modal, false);
+    }
     setModalHostActive(false);
     launcher?.removeAttribute('data-pt-modal-lock');
 
@@ -214,6 +217,7 @@
     openModalId = id;
     setModalHostActive(true);
     launcher?.setAttribute('data-pt-modal-lock', '1');
+    modal.setAttribute('data-pt-modal-open', '1');
     setLayerVisible(modal, true);
   }
 
