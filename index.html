@@ -86,12 +86,6 @@
         return;
       }
 
-      const hardHideLaunch = () => {
-        launchEl.setAttribute('data-hidden', 'true');
-        launchEl.style.display = 'none';
-        launchEl.style.pointerEvents = 'none';
-      };
-
       if(video){
         // Hard disable any controls, always
         try {
@@ -119,22 +113,16 @@
         };
 
         const forcePlay = () => {
-          const failFastHide = () => {
-            hardHideLaunch();
-            body.classList.remove('launching');
-          };
           try {
             setLaunchSrcIfMissing();
             video.load();
             const p = video.play();
             if (p && typeof p.catch === 'function') {
-              p.catch(() => failFastHide());
+              p.catch(() => {
+                // Autoplay blocked. We still keep controls removed.
+                // Next user gesture (Skip button) will implicitly allow playback if you want to retry.
+              });
             }
-            window.setTimeout(() => {
-              if(video.paused || video.ended){
-                failFastHide();
-              }
-            }, 250);
           } catch (e) {}
         };
 
@@ -217,7 +205,6 @@
       try { if(video) video.pause(); } catch (err) {}
       body.classList.remove('launching');
       launchEl.setAttribute('data-hidden', 'true');
-      hardHideLaunch();
       launchEl.addEventListener('transitionend', () => {
         if(launchEl.parentNode){
           launchEl.parentNode.removeChild(launchEl);
