@@ -125,14 +125,25 @@
     launcherTab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
   }
 
+  function syncPhoneOpenFlags() {
+    const isOpen = launcher && launcher.getAttribute('aria-hidden') !== 'true' && launcher.hidden !== true && launcher.style.display !== 'none';
+    if (isOpen) {
+      document.documentElement.setAttribute('data-pt-phone-open', '1');
+      document.documentElement.setAttribute('data-pt-drawer-open', '1');
+    } else {
+      document.documentElement.removeAttribute('data-pt-phone-open');
+      document.documentElement.removeAttribute('data-pt-drawer-open');
+    }
+  }
+
+  syncPhoneOpenFlags();
+
   function showLauncher() {
     launcher.hidden = false;
     launcher.style.removeProperty('display');
     launcher.setAttribute('aria-hidden', 'false');
 
-    // Make the "phone open" interaction rules kick in
-    document.documentElement.setAttribute('data-pt-phone-open', '1');
-    document.documentElement.setAttribute('data-pt-drawer-open', '1');
+    syncPhoneOpenFlags();
     document.documentElement.classList.remove('pt-os-lock');
 
     setTabExpanded(true);
@@ -144,9 +155,7 @@
     launcher.style.display = 'none';
     launcher.hidden = true;
 
-    // Restore normal page interaction rules
-    document.documentElement.removeAttribute('data-pt-phone-open');
-    document.documentElement.removeAttribute('data-pt-drawer-open');
+    syncPhoneOpenFlags();
 
     setTabExpanded(false);
     if (glass) glass.removeAttribute('data-pt-launcher-visible');
@@ -241,6 +250,9 @@
   }
 
   window.addEventListener('cc:pt-welcome-dismissed', markWelcomeDismissed);
+  window.addEventListener('cc:pt-welcome-dismissed', () => {
+    syncPhoneOpenFlags();
+  }, { passive: true });
 
   function clearAutoUnlock() {
     if (autoUnlockTimer) {
