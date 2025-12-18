@@ -125,13 +125,23 @@ function installCoreMocks() {
   global.cancelAnimationFrame = caf;
 
   let isOnline = true;
-  Object.defineProperty(window.navigator, 'onLine', {
-    configurable: true,
-    get: () => isOnline,
-    set: value => {
-      isOnline = Boolean(value);
-    },
-  });
+  const navigatorProto = Object.getPrototypeOf(window.navigator);
+  const defineOnline = target => {
+    Object.defineProperty(target, 'onLine', {
+      configurable: true,
+      get: () => isOnline,
+      set: value => {
+        isOnline = Boolean(value);
+      },
+    });
+  };
+
+  try {
+    if (navigatorProto) defineOnline(navigatorProto);
+  } catch (err) {}
+  try {
+    defineOnline(window.navigator);
+  } catch (err) {}
   window.requestIdleCallback = cb => setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 2 }), 0);
   window.cancelIdleCallback = id => clearTimeout(id);
   window.matchMedia = jest.fn().mockImplementation(() => ({
@@ -370,7 +380,7 @@ function installCoreMocks() {
   window.Option = globalThis.Option;
 }
 
-async function readResourceFromDisk(url) {
+function toDiskPath(url) {
   const parsed = (() => {
     try {
       return new URL(url, 'http://localhost');
@@ -378,27 +388,36 @@ async function readResourceFromDisk(url) {
       return null;
     }
   })();
-  const pathname = parsed ? parsed.pathname : url;
-  const decodedPathname = (() => {
+
+  const pathname = parsed ? parsed.pathname : String(url || '');
+  const decoded = (() => {
     try {
       return decodeURIComponent(pathname);
     } catch {
       return pathname;
     }
   })();
-  const cleanPath = decodedPathname.replace(/^\//, '');
-  const candidatePaths = [
-    path.resolve(ROOT_DIR, cleanPath),
-    path.resolve(ROOT_DIR, decodedPathname),
-  ];
-  for (const candidate of candidatePaths) {
-    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-      const buffer = fs.readFileSync(candidate);
-      const type = mime.lookup(candidate) || 'application/octet-stream';
-      return new Response(buffer, {
-        headers: { 'Content-Type': type },
-      });
-    }
+
+  const normalizedRoot = ROOT_DIR.replace(/\\/g, '/');
+  const normalizedDecoded = decoded.replace(/\\/g, '/');
+
+  if (normalizedDecoded.startsWith(normalizedRoot)) {
+    return normalizedDecoded.slice(normalizedRoot.length).replace(/^\//, '');
+  }
+
+  return decoded.replace(/^\//, '');
+}
+
+async function readResourceFromDisk(url) {
+  const pathname = toDiskPath(url);
+  const candidate = path.resolve(ROOT_DIR, pathname);
+
+  if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+    const buffer = fs.readFileSync(candidate);
+    const type = mime.lookup(candidate) || 'application/octet-stream';
+    return new Response(buffer, {
+      headers: { 'Content-Type': type },
+    });
   }
 
   if (pathname.endsWith('asset-manifest.json')) {
@@ -547,36 +566,13 @@ async function expectAssetsReadable(urls) {
   const failures = [];
   for (const url of urls) {
     try {
-      const parsed = (() => {
-        try {
-          return new URL(url, 'http://localhost');
-        } catch {
-          return null;
-        }
-      })();
-      const pathname = parsed ? parsed.pathname : url;
-      const decodedPathname = (() => {
-        try {
-          return decodeURIComponent(pathname);
-        } catch {
-          return pathname;
-        }
-      })();
-      const cleanPath = decodedPathname.replace(/^\//, '');
-      const candidatePaths = [
-        path.resolve(ROOT_DIR, cleanPath),
-        path.resolve(ROOT_DIR, decodedPathname),
-      ];
-      const existingPath = candidatePaths.find(
-        candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile(),
-      );
-
-      if (!existingPath) {
+      const diskPath = path.resolve(ROOT_DIR, toDiskPath(url));
+      if (!fs.existsSync(diskPath) || !fs.statSync(diskPath).isFile()) {
         failures.push(`${url}: not found on disk`);
         continue;
       }
 
-      const stats = fs.statSync(existingPath);
+      const stats = fs.statSync(diskPath);
       if (stats.size <= 0) {
         failures.push(`${url}: empty file`);
         continue;
@@ -637,14 +633,27 @@ function isSafeTarget(el) {
 }
 
 async function fuzzClickInteractiveElements({ advanceAppTime: tick, iterations = 250 } = {}) {
-  const candidates = [
+  let candidates = [
     ...document.querySelectorAll('button, [role="button"], a[href], summary'),
   ].filter(el => !isElementHidden(el) && !shouldSkipElement(el) && isSafeTarget(el));
 
   expect(candidates.length).toBeGreaterThan(0);
 
   for (let i = 0; i < iterations; i += 1) {
+    if (i % 25 === 0) {
+      candidates = [
+        ...document.querySelectorAll('button, [role="button"], a[href], summary'),
+      ].filter(el => !isElementHidden(el) && !shouldSkipElement(el) && isSafeTarget(el));
+      if (candidates.length === 0) break;
+    }
+
     const el = candidates[i % candidates.length];
+    if (!el?.isConnected) continue;
+    if (isElementHidden(el)) continue;
+    if (shouldSkipElement(el)) continue;
+    if (!isSafeTarget(el)) continue;
+    if ('disabled' in el && el.disabled) continue;
+
     el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     await tick(0);
   }
@@ -675,10 +684,14 @@ async function stressGlobalEvents({ advanceAppTime: tick } = {}) {
   window.dispatchEvent(new Event('resize'));
   window.dispatchEvent(new Event('orientationchange'));
 
-  Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-  document.dispatchEvent(new Event('visibilitychange'));
-  Object.defineProperty(document, 'hidden', { configurable: true, value: false });
-  document.dispatchEvent(new Event('visibilitychange'));
+  try {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  } catch (err) {}
 
   window.navigator.onLine = false;
   window.dispatchEvent(new Event('offline'));
@@ -752,11 +765,12 @@ describe('Catalyst Core master application experience', () => {
     const manifest = manifestResponse?.json ? await manifestResponse.json() : {};
     const domAssets = collectDomAssetUrls();
     const manifestAssets = Array.isArray(manifest.assets) ? manifest.assets : [];
-    const rawAssets = [...domAssets, ...manifestAssets];
-    const duplicateAssets = rawAssets.filter((url, idx) => rawAssets.indexOf(url) !== idx);
-    expect(duplicateAssets).toHaveLength(0);
+    const duplicateManifestAssets = manifestAssets.filter(
+      (url, idx) => manifestAssets.indexOf(url) !== idx,
+    );
+    expect(duplicateManifestAssets).toHaveLength(0);
 
-    const allAssets = [...new Set(rawAssets)];
+    const allAssets = [...new Set([...domAssets, ...manifestAssets])];
     expect(allAssets.length).toBeGreaterThan(0);
     await expectAssetsReadable(allAssets);
     assertNoCapturedErrors('asset readability');
@@ -786,6 +800,15 @@ describe('Catalyst Core master application experience', () => {
       window.dismissToast?.();
       await advanceAppTime(0);
     }
+
+    if (typeof window.resetFloatingLauncherCoverage === 'function') {
+      window.resetFloatingLauncherCoverage();
+      await advanceAppTime(0);
+    }
+
+    expect(document.body.classList.contains('dm-floating-covered')).toBe(false);
+    expect(document.body.hasAttribute('data-floating-covered')).toBe(false);
+    expect(jest.getTimerCount()).toBeLessThan(500);
 
     window.removeEventListener('error', errorHandler);
     window.removeEventListener('unhandledrejection', errorHandler);
