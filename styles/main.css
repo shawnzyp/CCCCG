@@ -9999,11 +9999,21 @@ body {
 }
 
 .pt-home {
+  position: relative;
   background: rgba(5, 9, 20, 0.94);
   padding: 1.25rem;
   overflow: hidden;
   touch-action: pan-x;
   overscroll-behavior: none;
+}
+
+.pt-home::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 9, 20, 0.52), rgba(5, 9, 20, 0.78));
+  pointer-events: none;
+  z-index: 0;
 }
 
 .pt-home-grid {
@@ -10018,11 +10028,12 @@ body {
   align-items: center;
   gap: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 18px;
   padding: 1rem 0.75rem;
   color: inherit;
   cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
 .pt-home-icon .icon {
@@ -10032,13 +10043,15 @@ body {
   display: grid;
   place-items: center;
   font-size: 1.6rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
 }
 
 .pt-home-icon .label {
   font-weight: 700;
   font-size: 0.95rem;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .pt-app {
@@ -10107,11 +10120,10 @@ body {
 
 .pt-app-host {
   position: relative;
-  padding: 1.25rem;
+  padding: 0;
   flex: 1;
   overflow: auto;
-  display: grid;
-  gap: 1rem;
+  display: block;
   z-index: 10;
 }
 
@@ -10129,6 +10141,105 @@ body {
 .pt-card p {
   margin: 0 0 0.75rem;
   color: rgba(255, 255, 255, 0.82);
+}
+
+/* App screens become full pages inside pt-app-host */
+.pt-app-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+}
+
+.pt-page-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pt-page-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.pt-page-subtitle {
+  margin: 0;
+  opacity: 0.8;
+  font-size: 0.92rem;
+}
+
+.pt-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.pt-section__title {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* Rows */
+.pt-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: inherit;
+}
+
+.pt-row--button {
+  cursor: pointer;
+  text-align: left;
+}
+
+.pt-row__label {
+  font-weight: 700;
+}
+
+.pt-row__meta {
+  opacity: 0.78;
+  font-size: 0.9rem;
+  margin-left: auto;
+}
+
+.pt-row__value {
+  opacity: 0.85;
+  margin-left: auto;
+}
+
+.pt-row__chev {
+  margin-left: 8px;
+  opacity: 0.7;
+}
+
+/* Toggle input */
+.pt-toggle {
+  margin-left: auto;
+  width: 44px;
+  height: 26px;
+}
+
+/* Modal body lists */
+.pt-bullets {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .pt-btn {
@@ -10185,7 +10296,8 @@ html[data-pt-phone-open="1"] body {
   overflow: hidden;
   height: 100%;
   overscroll-behavior: none;
-  touch-action: none;
+  /* Don't kill input at the BODY level; it can break hit-testing in embeds */
+  touch-action: auto;
 }
 
 html[data-pt-phone-open="1"] body > *:not(#player-tools-drawer) {
@@ -10197,6 +10309,14 @@ html[data-pt-phone-open="1"] #player-tools-drawer,
 html[data-pt-phone-open="1"] #player-tools-drawer * {
   pointer-events: auto !important;
   touch-action: auto;
+}
+
+/* When phone is open, explicitly re-enable interaction inside the faux phone */
+html[data-pt-phone-open="1"] .pt-screen,
+html[data-pt-phone-open="1"] .pt-screen *,
+html[data-pt-phone-open="1"] [data-pt-launcher],
+html[data-pt-phone-open="1"] [data-pt-launcher] * {
+  pointer-events: auto !important;
 }
 
 #player-tools-drawer {
@@ -10237,6 +10357,10 @@ html[data-pt-phone-open="1"] #player-tools-drawer * {
 
 .pt-modal-host[data-pt-modal-open="1"] {
   pointer-events: auto;
+}
+
+[data-pt-launcher][data-pt-modal-lock="1"] .pt-app-host {
+  overflow: hidden;
 }
 
 .pt-modal-host:not([data-pt-modal-open="1"]) .pt-modal {

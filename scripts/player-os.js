@@ -16,7 +16,25 @@
     return;
   }
 
+  const drawer = document.getElementById('player-tools-drawer');
   const glass = launcher.closest('.pt-screen__glass') || launcher.parentElement;
+
+  const modalHost = q('[data-pt-modal-host]', launcher) || q('[data-pt-modal-host]');
+  const welcomeModal = document.getElementById('modal-welcome');
+
+  const isWelcomeBlocking = () => {
+    if (!welcomeModal) return false;
+    if (welcomeModal.hidden === false) return true;
+    const aria = welcomeModal.getAttribute('aria-hidden');
+    return aria !== 'true';
+  };
+
+  let openModalId = null;
+  let ptReady = false;
+  let queuedOpen = false;
+  let queuedNextView = null;
+
+  window.PlayerOSReady = ptReady;
 
   const toastEl     = q('[data-pt-ios-toast]', launcher);
   const lockView    = q('[data-pt-lock-screen]', launcher);
@@ -43,8 +61,11 @@
   const state = {
     view: 'lock',     // "lock" | "home" | "app"
     app: null,
-    _lockTimer: null
   };
+
+  // Auto-dismiss lock after a short delay (since input is unreliable in your embed)
+  let autoUnlockTimer = null;
+  const AUTO_UNLOCK_MS = 1750;
 
   function normalizeAppId(appId) {
     if (appId === 'shards' && window.perms && window.perms.shardsUnlocked === false) {
@@ -107,6 +128,11 @@
     launcher.hidden = false;
     launcher.style.removeProperty('display');
     launcher.setAttribute('aria-hidden', 'false');
+
+    // Make the "phone open" interaction rules kick in
+    document.documentElement.setAttribute('data-pt-phone-open', '1');
+    document.documentElement.classList.remove('pt-os-lock');
+
     setTabExpanded(true);
     if (glass) glass.setAttribute('data-pt-launcher-visible', '1');
   }
@@ -115,6 +141,10 @@
     launcher.setAttribute('aria-hidden', 'true');
     launcher.style.display = 'none';
     launcher.hidden = true;
+
+    // Restore normal page interaction rules
+    document.documentElement.removeAttribute('data-pt-phone-open');
+
     setTabExpanded(false);
     if (glass) glass.removeAttribute('data-pt-launcher-visible');
   }
@@ -126,6 +156,105 @@
     el.setAttribute('aria-hidden', visible ? 'false' : 'true');
     el.style.display = visible ? '' : 'none';
     el.style.pointerEvents = visible ? 'auto' : 'none';
+  }
+
+  function setModalHostActive(active) {
+    if (!modalHost) return;
+    if (active) {
+      modalHost.setAttribute('data-pt-modal-open', '1');
+      modalHost.setAttribute('aria-hidden', 'false');
+    } else {
+      modalHost.removeAttribute('data-pt-modal-open');
+      modalHost.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function getModalById(id) {
+    if (!id) return null;
+    return document.getElementById(id);
+  }
+
+  function markWelcomeDismissed() {
+    if (ptReady) return;
+    ptReady = true;
+    window.PlayerOSReady = true;
+    window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed'));
+
+    if (queuedOpen) {
+      const next = queuedNextView;
+      queuedOpen = false;
+      queuedNextView = null;
+      performOpenLauncher(next);
+    }
+  }
+
+  function closeModal() {
+    if (!openModalId) return;
+    const modal = getModalById(openModalId);
+    const closedId = openModalId;
+    openModalId = null;
+
+    if (modal) {
+      modal.removeAttribute('data-pt-modal-open');
+      setLayerVisible(modal, false);
+    }
+    setModalHostActive(false);
+    launcher?.removeAttribute('data-pt-modal-lock');
+
+    if (closedId === 'modal-welcome') {
+      markWelcomeDismissed();
+    }
+  }
+
+  function openModal(id) {
+    if (!id) return;
+    if (openModalId && openModalId !== id) {
+      closeModal();
+    }
+
+    const modal = getModalById(id);
+    if (!modal) return;
+
+    openModalId = id;
+    setModalHostActive(true);
+    launcher?.setAttribute('data-pt-modal-lock', '1');
+    modal.setAttribute('data-pt-modal-open', '1');
+    setLayerVisible(modal, true);
+  }
+
+  if (!isWelcomeBlocking()) {
+    markWelcomeDismissed();
+  }
+
+  if (welcomeModal) {
+    const welcomeObserver = new MutationObserver(() => {
+      if (!isWelcomeBlocking()) {
+        markWelcomeDismissed();
+        welcomeObserver.disconnect();
+      }
+    });
+
+    welcomeObserver.observe(welcomeModal, { attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'class', 'style'] });
+  }
+
+  window.addEventListener('cc:pt-welcome-dismissed', markWelcomeDismissed);
+
+  function clearAutoUnlock() {
+    if (autoUnlockTimer) {
+      clearTimeout(autoUnlockTimer);
+      autoUnlockTimer = null;
+    }
+  }
+
+  function scheduleAutoUnlock() {
+    clearAutoUnlock();
+    autoUnlockTimer = setTimeout(() => {
+      autoUnlockTimer = null;
+      // Only unlock if we're still on lock view and launcher is visible
+      if (state.view !== 'lock') return;
+      if (launcher?.hidden) return;
+      setView('home', null);
+    }, AUTO_UNLOCK_MS);
   }
 
   function getAppLabel(appId) {
@@ -148,6 +277,9 @@
 
     launcher.setAttribute('data-view', view);
 
+    // If we leave lock, never allow a pending timer to flip views later
+    if (view !== 'lock') clearAutoUnlock();
+
     const isLock = view === 'lock';
     const isHome = view === 'home';
     const isApp  = view === 'app';
@@ -155,18 +287,6 @@
     setLayerVisible(lockView, isLock);
     setLayerVisible(homeView, isHome);
     setLayerVisible(appView, isApp);
-
-    // Auto-dismiss lock screen after 1.75s
-    if (isLock) {
-      clearTimeout(state._lockTimer);
-      state._lockTimer = setTimeout(() => {
-        if (state.view === 'lock') {
-          setView('home', null);
-        }
-      }, 1750);
-    } else {
-      clearTimeout(state._lockTimer);
-    }
 
     // Hide all app screens whenever we are not in "app" view
     if (!isApp) {
@@ -221,6 +341,11 @@
     setView('app', normalized);
   }
 
+  function handleUnlock() {
+    clearAutoUnlock();
+    setView('home', null);
+  }
+
   function handleBack() {
     setView('home', null);
   }
@@ -258,32 +383,89 @@
   }
 
   function bindEvents() {
+    // Delegate all taps inside the launcher to avoid click synthesis issues in embeds.
+    if (launcher) {
+      launcher.addEventListener(
+        'pointerup',
+        (e) => {
+          // Only respond when launcher is visible
+          if (launcher.hidden || launcher.getAttribute('aria-hidden') === 'true') return;
+
+          const t = e.target;
+          if (!t || typeof t.closest !== 'function') return;
+
+          // Unlock button (lock screen)
+          const unlockBtn = t.closest('[data-pt-lock-unlock]');
+          if (unlockBtn) {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+            handleUnlock();
+            return;
+          }
+
+          // Home icons
+          const appBtn = t.closest('[data-pt-open-app]');
+          if (appBtn) {
+            e.preventDefault?.();
+            const appId = appBtn.getAttribute('data-pt-open-app');
+            if (!appId) return;
+            launchFromHome(appId);
+            return;
+          }
+        },
+        { capture: true }
+      );
+    }
+
+    document.addEventListener('pointerup', (e) => {
+      if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;
+
+      const t = e.target;
+      if (!t || typeof t.closest !== 'function') return;
+      if (drawer && !drawer.contains(t)) return;
+
+      const openBtn = t.closest('[data-pt-open-modal]');
+      if (openBtn) {
+        e.preventDefault?.();
+        const id = openBtn.getAttribute('data-pt-open-modal');
+        if (id) openModal(id);
+        return;
+      }
+
+      const closeBtn = t.closest('[data-pt-modal-close]');
+      if (closeBtn) {
+        e.preventDefault?.();
+        closeModal();
+        return;
+      }
+
+      const launchBtn = t.closest('[data-pt-launch-game]');
+      if (launchBtn) {
+        e.preventDefault?.();
+        const game = launchBtn.getAttribute('data-pt-launch-game');
+        closeModal();
+        if (game) openModal(`modal-game-${game}`);
+        return;
+      }
+    }, { capture: true });
+
     // Always show the launcher (starting at lock) when the drawer opens
     window.addEventListener('cc:player-tools-drawer-open', () => {
       openLauncher();
     });
 
+    window.addEventListener('cc:pt-open-modal', (e) => {
+      const id = String(e?.detail?.id || '').trim();
+      if (id) openModal(id);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
     window.addEventListener('cc:pt-show-toast', (e) => {
       const msg = String(e?.detail?.message || '').trim();
       if (msg) showToast(msg);
-    });
-
-    qa('[data-pt-open-app]', launcher).forEach(btn => {
-      btn.addEventListener('click', function () {
-        const appId = btn.getAttribute('data-pt-open-app');
-        if (!appId) return;
-        launchFromHome(appId);
-      });
-    });
-
-    qa('[data-pt-open-game]', launcher).forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-pt-open-game');
-        if (!id) return;
-        try {
-          window.dispatchEvent(new CustomEvent('cc:pt-open-modal', { detail: { id: `modal-game-${id}` } }));
-        } catch (_) {}
-      });
     });
 
     if (backButton) {
@@ -321,9 +503,11 @@
     });
   }
 
-  function openLauncher(nextView) {
+  function performOpenLauncher(nextView) {
     showLauncher();
     setView('lock', null);
+    // Always auto-dismiss to home after 1.75s
+    scheduleAutoUnlock();
 
     if (!nextView || nextView === 'lock') return;
 
@@ -335,7 +519,18 @@
     openApp(nextView);
   }
 
+  function openLauncher(nextView) {
+    if (!ptReady) {
+      queuedOpen = true;
+      queuedNextView = nextView || null;
+      return;
+    }
+
+    performOpenLauncher(nextView);
+  }
+
   function closeLauncher() {
+    clearAutoUnlock();
     hideLauncher();
   }
 
