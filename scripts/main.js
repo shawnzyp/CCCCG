@@ -2524,7 +2524,15 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   let awaitingGesture = false;
   let cleanupMessaging = null;
   let bypassLaunchMinimum = false;
+  let launchForceHidden = false;
   const userGestureListeners = [];
+
+  const hardHideLaunch = () => {
+    if(!launchEl) return;
+    launchEl.setAttribute('data-hidden', 'true');
+    launchEl.style.display = 'none';
+    launchEl.style.pointerEvents = 'none';
+  };
 
   const clearTimer = timer => {
     if(timer){
@@ -2563,6 +2571,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   };
 
   const finalizeReveal = () => {
+    hardHideLaunch();
     body.classList.remove('launching');
     markLaunchSequenceComplete();
     queueWelcomeModal({ immediate: true });
@@ -2705,12 +2714,14 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   };
 
   if(!video){
+    hardHideLaunch();
     revealApp();
     return;
   }
 
   const hasLaunchVideo = await ensureLaunchVideoSources(video);
   if(!hasLaunchVideo){
+    hardHideLaunch();
     revealApp();
     return;
   }
@@ -2820,7 +2831,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   const finalizeLaunch = () => {
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
     if(!IS_JSDOM_ENV){
       try {
         video.pause();
@@ -2830,6 +2840,13 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       notifyServiceWorkerVideoPlayed();
     }
     revealApp();
+  };
+
+  const dropLaunchOnFailure = () => {
+    if(launchForceHidden) return;
+    launchForceHidden = true;
+    hardHideLaunch();
+    finalizeLaunch();
   };
 
   if(skipButton){
@@ -2852,40 +2869,31 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     fallbackTimer = window.setTimeout(finalizeLaunch, clampedDelay);
   };
 
-  let playbackRetryTimer = null;
-  const schedulePlaybackRetry = () => {
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
-    playbackRetryTimer = window.setTimeout(() => {
-      playbackRetryTimer = clearTimer(playbackRetryTimer);
-      attemptPlayback();
-    }, 250);
-  };
-
   function attemptPlayback(){
     ensureLaunchVideoAttributes(video);
+    const verifyPlaybackStart = () => {
+      window.setTimeout(() => {
+        if(revealCalled || launchForceHidden) return;
+        if(video.paused || video.ended){
+          dropLaunchOnFailure();
+        }
+      }, 250);
+    };
     try {
       const playAttempt = video.play();
       if(playAttempt && typeof playAttempt.then === 'function'){
         playAttempt.then(() => {
-          playbackRetryTimer = clearTimer(playbackRetryTimer);
+          verifyPlaybackStart();
         }).catch(() => {
-          if(video.paused){
-            schedulePlaybackRetry();
-          } else {
-            playbackRetryTimer = clearTimer(playbackRetryTimer);
-          }
+          dropLaunchOnFailure();
         });
       } else if(video.paused){
-        schedulePlaybackRetry();
+        dropLaunchOnFailure();
       } else {
-        playbackRetryTimer = clearTimer(playbackRetryTimer);
+        verifyPlaybackStart();
       }
     } catch (err) {
-      if(video.paused){
-        schedulePlaybackRetry();
-      } else {
-        playbackRetryTimer = clearTimer(playbackRetryTimer);
-      }
+      dropLaunchOnFailure();
     }
   }
 
