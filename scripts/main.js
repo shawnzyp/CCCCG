@@ -2382,6 +2382,10 @@ if (typeof window !== 'undefined') {
     const reason = e && e.detail && e.detail.reason ? String(e.detail.reason) : 'ended';
     markLaunchComplete(reason);
   }, { passive: true });
+  try {
+    const prior = window.__ccLaunchComplete;
+    if (prior && !launchComplete) markLaunchComplete(prior.reason || 'ended');
+  } catch {}
 }
 
 function lockTouchControls() {
@@ -2525,6 +2529,10 @@ function dismissWelcomeModal() {
 // ---------------------------------------------------------------------------
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
+let launcherMenuWired = false;
+let launcherMenuDelegationWired = false;
+let launcherMenuObserverWired = false;
+
 function getLauncherMainMenu() {
   try { return document.getElementById('pt-main-menu'); } catch { return null; }
 }
@@ -2544,35 +2552,43 @@ function hideLauncherMainMenu() {
 }
 
 function wireLauncherMainMenu() {
+  if (launcherMenuWired) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
+  launcherMenuWired = true;
 
   // Close button inside menu
   const closeBtn = menu.querySelector('[data-pt-menu-close]');
-  if (closeBtn && !closeBtn.__ptHook) {
+  if (closeBtn) {
     closeBtn.addEventListener('click', () => {
-      // If you have an existing "close launcher" function, call it here.
-      // Otherwise, just hide the menu and rely on existing launcher close UI.
+      const homeBtn = document.querySelector('[data-pt-launcher-home-btn]');
+      if (homeBtn && typeof homeBtn.click === 'function') {
+        homeBtn.click();
+        return;
+      }
+      const closeLauncher = document.querySelector('[data-pt-launcher-close]');
+      if (closeLauncher && typeof closeLauncher.click === 'function') {
+        closeLauncher.click();
+        return;
+      }
       hideLauncherMainMenu();
-      safeUnlockTouchControls({ immediate: true });
     });
-    closeBtn.__ptHook = true;
   }
 
   // Any menu item that opens an app should hide the menu.
   // The actual app open routing remains whatever your existing launcher code does with data-pt-open-app.
-  if (!menu.__ptDelegation) {
+  if (!launcherMenuDelegationWired) {
     menu.addEventListener('click', (e) => {
       const btn = e.target && e.target.closest ? e.target.closest('[data-pt-open-app]') : null;
       if (!btn) return;
       hideLauncherMainMenu();
     });
-    menu.__ptDelegation = true;
+    launcherMenuDelegationWired = true;
   }
 
   // When the launcher becomes visible, show the menu by default.
   // This relies on your existing attribute that marks the phone as open.
-  if (!document.documentElement.__ptMenuAttrHook) {
+  if (!launcherMenuObserverWired) {
     const root = document.documentElement;
     const obs = new MutationObserver(() => {
       const open = root.getAttribute('data-pt-phone-open') === '1';
@@ -2580,7 +2596,7 @@ function wireLauncherMainMenu() {
       else hideLauncherMainMenu();
     });
     obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
-    document.documentElement.__ptMenuAttrHook = true;
+    launcherMenuObserverWired = true;
   }
 }
 

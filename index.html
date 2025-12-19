@@ -148,11 +148,10 @@
         mp4 = source ? source.getAttribute('data-src') : null;
       }
       if (!mp4) return false;
-      if (video.src && video.src.indexOf(mp4) !== -1) return true;
-
-      // Ensure a consistent source without forcing an extra reset each launch
-      try { video.pause(); } catch (e) {}
-      try { video.src = mp4; } catch (e) {}
+      var sourceEl = video.querySelector('source[data-src]');
+      if (sourceEl && !sourceEl.getAttribute('src')) {
+        try { sourceEl.setAttribute('src', mp4); } catch (e) {}
+      }
       try { video.load(); } catch (e) {}
       return true;
     }
@@ -163,6 +162,7 @@
       try {
         var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
         if (c && c.saveData) return;
+        if (c && (c.effectiveType === 'slow-2g' || c.effectiveType === '2g')) return;
         if (!url || typeof fetch !== 'function') return;
         // Avoid duplicating a request if the browser already preloaded it.
         fetch(url, { method: 'GET', cache: 'force-cache', credentials: 'same-origin' })
@@ -180,6 +180,7 @@
       try { launchEl.setAttribute('data-hidden', 'true'); } catch (e) {}
       try { launchEl.setAttribute('aria-hidden', 'true'); } catch (e) {}
       setSkipVisible(false);
+      try { window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() }; } catch (e) {}
       safeDispatch('cc:launch-complete', { reason: reason || 'ended' });
 
       // HARD REMOVE so it can never eat clicks later (even if CSS/attrs get weird)
@@ -197,12 +198,6 @@
 
     hardenVideoEl();
     (function () {
-      var mp4 = video.getAttribute('data-src-mp4');
-      if (!mp4) {
-        var source = video.querySelector('source[data-src]');
-        mp4 = source ? source.getAttribute('data-src') : null;
-      }
-      if (mp4) primeMp4Cache(mp4);
       setVideoSrcFromData();
     })();
 
@@ -221,7 +216,7 @@
       skipButton.addEventListener('click', function () {
         try { video.pause(); } catch (e) {}
         endLaunch('skipped');
-      }, { passive: true });
+      });
     }
 
     // End on natural finish or error
@@ -232,6 +227,19 @@
     video.addEventListener('playing', function () {
       if (ended) return;
       markVideoPlaying();
+      try {
+        if (!video.__ccCachePrimed) {
+          var mp4 = video.getAttribute('data-src-mp4');
+          if (!mp4) {
+            var source = video.querySelector('source[data-src]');
+            mp4 = source ? source.getAttribute('data-src') : null;
+          }
+          if (mp4) {
+            video.__ccCachePrimed = true;
+            primeMp4Cache(mp4);
+          }
+        }
+      } catch (e) {}
     }, { passive: true });
 
     video.addEventListener('timeupdate', function () {
