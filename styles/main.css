@@ -328,23 +328,29 @@ body.launching #launch-animation{opacity:1;visibility:visible}
 #launch-animation video::-webkit-media-controls-current-time-display{display:none!important}
 #launch-animation video::-webkit-media-controls-time-remaining-display{display:none!important}
 #launch-animation video::-webkit-media-controls-mute-button{display:none!important}
-.launch-animation__skip{position:fixed;left:50%;bottom:20px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:none;border:none;color:rgba(255,255,255,.85);font:inherit;text-transform:none;letter-spacing:normal;text-shadow:none;text-decoration:underline;text-decoration-thickness:.08em;text-underline-offset:.2em;padding:0;cursor:pointer;pointer-events:none!important;z-index:1;touch-action:manipulation;-webkit-appearance:none;appearance:none;border-radius:0;-webkit-tap-highlight-color:transparent;opacity:0;transition:opacity 260ms ease}
-.launch-animation__skip.is-visible{opacity:1;pointer-events:auto!important}
+.launch-animation__skip{position:fixed;left:50%;bottom:20px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:none;border:none;color:rgba(255,255,255,.85);font:inherit;text-transform:none;letter-spacing:normal;text-shadow:none;text-decoration:underline;text-decoration-thickness:.08em;text-underline-offset:.2em;padding:0;cursor:pointer;pointer-events:none!important;z-index:1;touch-action:manipulation;-webkit-appearance:none;appearance:none;border-radius:0;-webkit-tap-highlight-color:transparent;opacity:0;visibility:hidden;transition:opacity 260ms ease}
+.launch-animation__skip.is-visible{opacity:1;pointer-events:auto!important;visibility:visible}
 .launch-animation__skip:focus-visible{outline:none;text-decoration-thickness:.12em;text-underline-offset:.18em;color:var(--accent)}
 body:not(.no-hover) .launch-animation__skip:hover{color:var(--accent)}
-/* Explicitly allow Skip to be clickable */
-#launch-animation .launch-animation__skip{pointer-events:auto!important}
+/* Skip becomes clickable only when it is visible */
 
 /* -------------------------------------------------------------------------- */
 /* Welcome modal redesign for the new launcher                                */
 /* Keeps existing text + buttons, rebuilds the look via CSS + light structure  */
 /* -------------------------------------------------------------------------- */
 /* Overlay container (this is the backdrop in your modal system) */
+#modal-welcome.hidden,
+#modal-welcome[aria-hidden="true"]{
+  display:none !important;
+}
+#modal-welcome:not(.hidden)[aria-hidden="false"]{
+  display:flex;
+}
+
 #modal-welcome.overlay{
   position:fixed;
   inset:0;
   z-index:2200;
-  display:flex;
   align-items:center;
   justify-content:center;
   padding:16px;
