@@ -96,6 +96,29 @@
 
     if (!body || !launchEl || !video) return;
 
+    function assetUrl(path) {
+      try {
+        return new URL(path, document.baseURI).toString();
+      } catch (e) {
+        return path;
+      }
+    }
+
+    function normalizeVideoAssetUrls() {
+      var mp4Rel = video.getAttribute('data-src-mp4');
+      if (!mp4Rel) return;
+      var mp4 = assetUrl(mp4Rel);
+      try { video.setAttribute('data-src-mp4', mp4); } catch (e) {}
+      var source = video.querySelector('source[data-src]');
+      if (source) {
+        try { source.setAttribute('data-src', mp4); } catch (e) {}
+      }
+      var preload = document.querySelector('link[rel="preload"][as="video"]');
+      if (preload && preload.getAttribute('href')) {
+        try { preload.setAttribute('href', mp4); } catch (e) {}
+      }
+    }
+
     function safeDispatch(name, detail) {
       try {
         window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
@@ -198,6 +221,7 @@
 
     hardenVideoEl();
     (function () {
+      normalizeVideoAssetUrls();
       setVideoSrcFromData();
     })();
 
