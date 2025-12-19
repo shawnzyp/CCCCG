@@ -1,6 +1,7 @@
 const DM_PERSISTENT_SESSION_KEY = 'cc:dm:persistent-session';
 const ANON_NAMESPACE_KEY = 'cc:last-save:anon-id';
 const LAST_SAVE_LEGACY_KEY = 'last-save';
+const LAST_SAVE_DEVICE_KEY = 'cc:last-save:device';
 
 function getLocalStorageSafe() {
   if (typeof localStorage === 'undefined') return null;
@@ -93,6 +94,17 @@ export function readLastSaveName() {
   const storage = getLocalStorageSafe();
   if (!storage) return '';
   const key = getLastSaveKey(storage);
+
+  try {
+    const deviceScoped = storage.getItem(LAST_SAVE_DEVICE_KEY);
+    const normalized = typeof deviceScoped === 'string' ? deviceScoped.trim() : '';
+    if (normalized) {
+      try { storage.removeItem(key); } catch {}
+      try { storage.removeItem(LAST_SAVE_LEGACY_KEY); } catch {}
+      return normalized;
+    }
+  } catch {}
+
   try {
     const current = storage.getItem(key);
     if (typeof current === 'string' && current.trim()) {
@@ -126,6 +138,7 @@ export function writeLastSaveName(name) {
   }
   const key = getLastSaveKey(storage);
   try {
+    storage.setItem(LAST_SAVE_DEVICE_KEY, normalized);
     storage.setItem(key, normalized);
     if (key !== LAST_SAVE_LEGACY_KEY) {
       storage.removeItem(LAST_SAVE_LEGACY_KEY);
@@ -140,6 +153,11 @@ export function clearLastSaveName(targetName = '') {
   try {
     if (!targetName || storage.getItem(key) === targetName) {
       storage.removeItem(key);
+    }
+  } catch {}
+  try {
+    if (!targetName || storage.getItem(LAST_SAVE_DEVICE_KEY) === targetName) {
+      storage.removeItem(LAST_SAVE_DEVICE_KEY);
     }
   } catch {}
   try {
