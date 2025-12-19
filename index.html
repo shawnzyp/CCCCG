@@ -32,9 +32,6 @@
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
-<!-- Prime the intro asset for quicker repeat launches (HTTP cache). -->
-<!-- Keep this as preload, not autoplay or it will fight the boot controller on iOS. -->
-<link rel="preload" as="video" href="images/images_b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
 </head>
 <body class="launching no-hover">
 <svg
@@ -95,6 +92,42 @@
     var skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
 
     if (!body || !launchEl || !video) return;
+
+    function assetUrl(path) {
+      try {
+        return new URL(path, document.baseURI).toString();
+      } catch (e) {
+        return path;
+      }
+    }
+
+    function ensureVideoPreload(url) {
+      try {
+        var head = document.head || document.getElementsByTagName('head')[0];
+        if (!head || !url) return;
+        var existing = document.querySelector('link[data-cc-preload="intro-video"]');
+        if (existing) return;
+        var link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'video';
+        link.href = url;
+        link.type = 'video/mp4';
+        link.setAttribute('data-cc-preload', 'intro-video');
+        head.appendChild(link);
+      } catch (e) {}
+    }
+
+    function normalizeVideoAssetUrls() {
+      var mp4Rel = video.getAttribute('data-src-mp4');
+      if (!mp4Rel) return;
+      var mp4 = assetUrl(mp4Rel);
+      try { video.setAttribute('data-src-mp4', mp4); } catch (e) {}
+      var source = video.querySelector('source[data-src]');
+      if (source) {
+        try { source.setAttribute('data-src', mp4); } catch (e) {}
+      }
+      ensureVideoPreload(mp4);
+    }
 
     function safeDispatch(name, detail) {
       try {
@@ -198,6 +231,7 @@
 
     hardenVideoEl();
     (function () {
+      normalizeVideoAssetUrls();
       setVideoSrcFromData();
     })();
 
