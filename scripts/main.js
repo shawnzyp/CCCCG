@@ -2522,6 +2522,84 @@ function dismissWelcomeModal() {
   } catch {}
 }
 
+// ---------------------------------------------------------------------------
+// Launcher Main Menu integration
+// ---------------------------------------------------------------------------
+function getLauncherMainMenu() {
+  try { return document.getElementById('pt-main-menu'); } catch { return null; }
+}
+
+function showLauncherMainMenu() {
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+  try { menu.setAttribute('aria-hidden', 'false'); } catch {}
+}
+
+function hideLauncherMainMenu() {
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+  try { menu.setAttribute('aria-hidden', 'true'); } catch {}
+}
+
+function wireLauncherMainMenu() {
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+
+  // Close button inside menu
+  const closeBtn = menu.querySelector('[data-pt-menu-close]');
+  if (closeBtn && !closeBtn.__ptHook) {
+    closeBtn.addEventListener('click', () => {
+      // If you have an existing "close launcher" function, call it here.
+      // Otherwise, just hide the menu and rely on existing launcher close UI.
+      hideLauncherMainMenu();
+      safeUnlockTouchControls({ immediate: true });
+    });
+    closeBtn.__ptHook = true;
+  }
+
+  // Any menu item that opens an app should hide the menu.
+  // The actual app open routing remains whatever your existing launcher code does with data-pt-open-app.
+  if (!menu.__ptDelegation) {
+    menu.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('[data-pt-open-app]') : null;
+      if (!btn) return;
+      hideLauncherMainMenu();
+    });
+    menu.__ptDelegation = true;
+  }
+
+  // When the launcher becomes visible, show the menu by default.
+  // This relies on your existing attribute that marks the phone as open.
+  if (!document.documentElement.__ptMenuAttrHook) {
+    const root = document.documentElement;
+    const obs = new MutationObserver(() => {
+      const open = root.getAttribute('data-pt-phone-open') === '1';
+      if (open) showLauncherMainMenu();
+    });
+    obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
+    document.documentElement.__ptMenuAttrHook = true;
+  }
+}
+
+// Ensure menu wiring happens once DOM is ready.
+try {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireLauncherMainMenu, { once: true });
+  } else {
+    wireLauncherMainMenu();
+  }
+} catch {}
+
+// After welcome is dismissed, if the launcher is open, show the menu.
+if (typeof window !== 'undefined') {
+  window.addEventListener('cc:pt-welcome-dismissed', () => {
+    try {
+      const open = document.documentElement.getAttribute('data-pt-phone-open') === '1';
+      if (open) showLauncherMainMenu();
+    } catch {}
+  }, { passive: true });
+}
+
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   if (welcomeModalDismissed) {
     const body = typeof document !== 'undefined' ? document.body : null;

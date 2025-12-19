@@ -10318,6 +10318,110 @@ body {
   z-index: 10;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Launcher Main Menu (integrated)                                            */
+/* -------------------------------------------------------------------------- */
+.pt-main-menu{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  padding:14px;
+  padding-top:calc(14px + env(safe-area-inset-top, 0px));
+  padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity 160ms ease, transform 160ms ease;
+}
+
+html[data-pt-phone-open="1"] .pt-main-menu[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
+  transform:translateY(0);
+}
+
+.pt-main-menu__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 10px 12px;
+  border-radius:16px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.10);
+  box-shadow:0 10px 30px rgba(0,0,0,0.35);
+}
+
+.pt-main-menu__brand{display:flex;align-items:center;gap:10px;min-width:0}
+.pt-main-menu__logo{width:34px;height:34px;border-radius:10px;display:block}
+.pt-main-menu__titles{min-width:0}
+.pt-main-menu__title{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);color:var(--accent);font-weight:700;line-height:1.1}
+.pt-main-menu__subtitle{font-size:0.9rem;color:color-mix(in oklab, var(--text) 70%, rgba(255,255,255,0.35) 30%)}
+
+.pt-main-menu__close{
+  width:40px;height:40px;border-radius:14px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.88);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.pt-main-menu__content{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:10px;
+}
+
+.pt-main-menu__item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 12px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.05);
+  color:var(--text);
+  cursor:pointer;
+  text-align:left;
+  touch-action:manipulation;
+}
+
+.pt-main-menu__icon{width:28px;height:28px;display:grid;place-items:center;font-size:1.1rem;flex:0 0 auto}
+.pt-main-menu__text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pt-main-menu__name{font-weight:700}
+.pt-main-menu__desc{font-size:0.9rem;color:color-mix(in oklab, var(--text) 70%, rgba(255,255,255,0.35) 30%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.pt-main-menu__footer{
+  margin-top:auto;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  padding-top:10px;
+}
+
+.pt-main-menu__footer-btn{
+  border-radius:14px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06);
+  color:var(--text);
+  cursor:pointer;
+  touch-action:manipulation;
+}
+
+.pt-main-menu__item:focus-visible,
+.pt-main-menu__close:focus-visible,
+.pt-main-menu__footer-btn:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent 45%), 0 0 0 6px rgba(0,0,0,0.35);
+}
+
 .pt-card {
   padding: 1.25rem;
   border-radius: 18px;
