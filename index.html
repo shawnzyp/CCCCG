@@ -127,7 +127,6 @@
     function hardenVideoEl() {
       // Eliminate controls and interactive surfaces
       try { video.controls = false; } catch (e) {}
-      try { video.setAttribute('controls', 'false'); } catch (e) {}
       try { video.removeAttribute('controls'); } catch (e) {}
       try { video.disablePictureInPicture = true; } catch (e) {}
       try { video.setAttribute('disablepictureinpicture', ''); } catch (e) {}
@@ -149,11 +148,10 @@
         mp4 = source ? source.getAttribute('data-src') : null;
       }
       if (!mp4) return false;
+      if (video.src && video.src.indexOf(mp4) !== -1) return true;
 
-      // Force a clean reload each launch so autoplay is deterministic
+      // Ensure a consistent source without forcing an extra reset each launch
       try { video.pause(); } catch (e) {}
-      try { video.removeAttribute('src'); } catch (e) {}
-      try { video.load(); } catch (e) {}
       try { video.src = mp4; } catch (e) {}
       try { video.load(); } catch (e) {}
       return true;
@@ -163,6 +161,8 @@
       // Best-effort: warm the HTTP cache so repeat launches load faster.
       // No service worker required.
       try {
+        var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (c && c.saveData) return;
         if (!url || typeof fetch !== 'function') return;
         // Avoid duplicating a request if the browser already preloaded it.
         fetch(url, { method: 'GET', cache: 'force-cache', credentials: 'same-origin' })
@@ -174,6 +174,7 @@
     function endLaunch(reason) {
       if (ended) return;
       ended = true;
+      try { clearTimeout(skipTimer); } catch (e) {}
       // Hide launch overlay and request the welcome modal while app finishes
       try { body.classList.remove('launching'); } catch (e) {}
       try { launchEl.setAttribute('data-hidden', 'true'); } catch (e) {}
@@ -210,7 +211,8 @@
     try { video.currentTime = 0; } catch (e) {}
 
     // Skip appears after 2 seconds
-    setTimeout(function () {
+    var skipTimer = setTimeout(function () {
+      if (ended) return;
       setSkipVisible(true);
     }, SKIP_DELAY_MS);
 
@@ -3232,7 +3234,7 @@
                 </header>
                 <main class="pt-app-host" data-pt-app-host>
                   <!-- Launcher Main Menu (integrated, not a separate overlay) -->
-                  <section class="pt-main-menu" id="pt-main-menu" aria-label="Main Menu" aria-hidden="true">
+                  <section class="pt-main-menu" id="pt-main-menu" aria-label="Main Menu" aria-hidden="true" hidden>
                     <header class="pt-main-menu__header">
                       <div class="pt-main-menu__brand">
                         <img class="pt-main-menu__logo" src="images/logo.png" alt="" aria-hidden="true">

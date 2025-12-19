@@ -2532,6 +2532,7 @@ function getLauncherMainMenu() {
 function showLauncherMainMenu() {
   const menu = getLauncherMainMenu();
   if (!menu) return;
+  try { menu.hidden = false; } catch {}
   try { menu.setAttribute('aria-hidden', 'false'); } catch {}
 }
 
@@ -2539,6 +2540,7 @@ function hideLauncherMainMenu() {
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.setAttribute('aria-hidden', 'true'); } catch {}
+  try { menu.hidden = true; } catch {}
 }
 
 function wireLauncherMainMenu() {
@@ -2575,6 +2577,7 @@ function wireLauncherMainMenu() {
     const obs = new MutationObserver(() => {
       const open = root.getAttribute('data-pt-phone-open') === '1';
       if (open) showLauncherMainMenu();
+      else hideLauncherMainMenu();
     });
     obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
     document.documentElement.__ptMenuAttrHook = true;
