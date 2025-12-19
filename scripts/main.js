@@ -2557,19 +2557,21 @@ function hideLauncherMainMenu() {
 let tickerMountState = null;
 
 function findMainTickers() {
+  const drawer = document.querySelector('[data-ticker-drawer]') || null;
+  const root = drawer || document;
   const primary =
-    document.querySelector('.news-ticker:not(.news-ticker--m24n)') ||
-    document.querySelector('[data-ticker="primary"]') ||
-    document.querySelector('#ticker-primary') ||
-    document.querySelector('.ticker--primary') ||
-    document.querySelector('.ticker[data-kind="primary"]') ||
+    (drawer && drawer.querySelector('.news-ticker:not(.news-ticker--m24n)')) ||
+    root.querySelector('[data-ticker="primary"]') ||
+    root.querySelector('#ticker-primary') ||
+    root.querySelector('.ticker--primary') ||
+    root.querySelector('.ticker[data-kind="primary"]') ||
     null;
   const secondary =
-    document.querySelector('.news-ticker--m24n') ||
-    document.querySelector('[data-ticker="secondary"]') ||
-    document.querySelector('#ticker-secondary') ||
-    document.querySelector('.ticker--secondary') ||
-    document.querySelector('.ticker[data-kind="secondary"]') ||
+    (drawer && drawer.querySelector('.news-ticker--m24n')) ||
+    root.querySelector('[data-ticker="secondary"]') ||
+    root.querySelector('#ticker-secondary') ||
+    root.querySelector('.ticker--secondary') ||
+    root.querySelector('.ticker[data-kind="secondary"]') ||
     null;
   return { primary, secondary };
 }
