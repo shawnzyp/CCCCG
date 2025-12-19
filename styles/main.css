@@ -339,140 +339,159 @@ body:not(.no-hover) .launch-animation__skip:hover{color:var(--accent)}
 /* Welcome modal redesign for the new launcher                                */
 /* Keeps existing text + buttons, rebuilds the look via CSS + light structure  */
 /* -------------------------------------------------------------------------- */
-
-/* Target your existing welcome modal id. No rename sweeps. */
-#modal-welcome {
-  /* Ensure it sits above other overlays consistently */
-  z-index: 2200;
+/* Overlay container (this is the backdrop in your modal system) */
+#modal-welcome.overlay{
+  position:fixed;
+  inset:0;
+  z-index:2200;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  padding-top:calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+  background:radial-gradient(1200px 700px at 50% 30%, rgba(0,0,0,0.18), rgba(0,0,0,0.78));
+  backdrop-filter:blur(10px) saturate(1.15);
+  -webkit-backdrop-filter:blur(10px) saturate(1.15);
 }
 
-/* When welcome is shown as part of launch flow, theme it like the launcher */
-html.cc-welcome-from-launch #modal-welcome {
+/* Launch-themed tokens */
+html.cc-welcome-from-launch #modal-welcome{
   --welcome-surface: color-mix(in oklab, var(--surface, rgba(20,20,28,0.92)) 78%, #000 22%);
   --welcome-border: color-mix(in oklab, var(--accent, #00e5ff) 35%, rgba(255,255,255,0.15) 65%);
   --welcome-glow: color-mix(in oklab, var(--accent, #00e5ff) 22%, transparent 78%);
 }
 
-/* Generic modal fallbacks (works with most of your modal systems) */
-#modal-welcome[aria-hidden="false"],
-#modal-welcome:not(.hidden) {
-  display: block;
+/* Frame and panel */
+#modal-welcome .modal-frame{
+  width:min(560px, calc(100vw - 32px));
+  max-height:min(82vh, calc(100dvh - 56px));
+  position:relative;
+  display:block;
 }
 
-/* If you already have an overlay element, style it without requiring a rename */
-#modal-welcome .modal__overlay,
-#modal-welcome .overlay,
-#modal-welcome [data-modal-overlay] {
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(1200px 700px at 50% 30%, rgba(0,0,0,0.18), rgba(0,0,0,0.78));
-  backdrop-filter: blur(10px) saturate(1.15);
-  -webkit-backdrop-filter: blur(10px) saturate(1.15);
-}
-
-/* Panel */
-#modal-welcome .modal__dialog,
-#modal-welcome .modal__panel,
-#modal-welcome .modal__content,
-#modal-welcome .panel,
-#modal-welcome [data-modal-panel] {
-  position: fixed;
-  left: 50%;
-  top: calc(50% + env(safe-area-inset-top, 0px) * 0.25);
-  transform: translate(-50%, -50%);
-  width: min(560px, calc(100vw - 32px));
-  max-height: min(82vh, calc(100dvh - 56px));
-  overflow: hidden;
-  border-radius: 18px;
-  background: var(--welcome-surface, rgba(20,20,28,0.92));
-  border: 1px solid var(--welcome-border, rgba(255,255,255,0.16));
+#modal-welcome .modal-frame > .modal{
+  width:100%;
+  max-height:inherit;
+  overflow:hidden;
+  border-radius:18px;
+  background:var(--welcome-surface, rgba(20,20,28,0.92));
+  border:1px solid var(--welcome-border, rgba(255,255,255,0.16));
   box-shadow:
     0 20px 60px rgba(0,0,0,0.55),
     0 0 0 1px rgba(255,255,255,0.06) inset,
     0 0 40px var(--welcome-glow, rgba(0,229,255,0.12));
 }
 
-/* Header bar that feels like the launcher system UI */
-#modal-welcome .welcome__header,
-#modal-welcome .modal__header,
-#modal-welcome header {
-  padding: 14px 16px 10px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.00));
-  border-bottom: 1px solid rgba(255,255,255,0.10);
+/* Close button: keep it, but make it feel like the launcher chrome */
+#modal-welcome .modal > .x{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.88);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
 }
 
-#modal-welcome .welcome__title,
-#modal-welcome .modal__title,
-#modal-welcome h1,
-#modal-welcome h2 {
-  margin: 0;
-  font-family: 'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
-  letter-spacing: var(--title-letter-spacing);
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--accent);
-  text-transform: none;
+/* Header */
+#modal-welcome .welcome__header{
+  padding:14px 16px 10px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.00));
+  border-bottom:1px solid rgba(255,255,255,0.10);
 }
 
-#modal-welcome .welcome__sub,
-#modal-welcome .modal__subtitle,
-#modal-welcome .sub,
-#modal-welcome p {
-  color: color-mix(in oklab, var(--text) 84%, rgba(255,255,255,0.55) 16%);
+#modal-welcome .welcome-modal__title{
+  margin:0;
+  font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+  letter-spacing:var(--title-letter-spacing);
+  font-weight:700;
+  font-size:1.15rem;
+  line-height:1.15;
+  color:var(--accent);
 }
 
-/* Body scroll region */
-#modal-welcome .welcome__body,
-#modal-welcome .modal__body,
-#modal-welcome .content,
-#modal-welcome main {
-  padding: 14px 16px 12px;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  max-height: calc(min(82vh, 100dvh) - 120px);
+/* Body */
+#modal-welcome .welcome__body{
+  padding:14px 16px 12px;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  max-height:calc(min(82vh, 100dvh) - 132px);
 }
 
-/* Turn existing options into a “system list” */
-#modal-welcome .welcome__options,
-#modal-welcome .modal__actions,
-#modal-welcome .actions,
-#modal-welcome footer {
-  padding: 12px 16px 16px;
-  border-top: 1px solid rgba(255,255,255,0.10);
-  background: linear-gradient(180deg, rgba(255,255,255,0.00), rgba(0,0,0,0.14));
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-end;
+#modal-welcome .welcome__body p{
+  color:color-mix(in oklab, var(--text) 88%, rgba(255,255,255,0.45) 12%);
+  margin:0 0 10px;
 }
 
-/* Make existing buttons look like launcher-native controls without changing their classes */
-#modal-welcome button,
-#modal-welcome [role="button"],
-#modal-welcome .btn {
-  border-radius: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: var(--text);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.25) inset;
-  cursor: pointer;
-  touch-action: manipulation;
+#modal-welcome .welcome-modal__tab-label{
+  color:color-mix(in oklab, var(--accent) 70%, var(--text) 30%);
+  font-weight:600;
 }
 
-#modal-welcome button.primary,
-#modal-welcome .btn-primary,
-#modal-welcome [data-primary-action] {
-  border-color: color-mix(in oklab, var(--accent) 55%, rgba(255,255,255,0.20) 45%);
-  background: color-mix(in oklab, var(--accent) 22%, rgba(255,255,255,0.06) 78%);
+/* Preference row */
+#modal-welcome .welcome-modal__preference{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(255,255,255,0.10);
+}
+
+#modal-welcome .welcome-modal__preference-label{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  user-select:none;
+  cursor:pointer;
+  color:color-mix(in oklab, var(--text) 88%, rgba(255,255,255,0.35) 12%);
+}
+
+#modal-welcome #welcome-hide-toggle{
+  width:18px;
+  height:18px;
+  accent-color:var(--accent);
+}
+
+/* Actions row */
+#modal-welcome .welcome__options.actions{
+  padding:12px 16px 16px;
+  border-top:1px solid rgba(255,255,255,0.10);
+  background:linear-gradient(180deg, rgba(255,255,255,0.00), rgba(0,0,0,0.14));
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  justify-content:flex-end;
+}
+
+/* Buttons: launcher-native look without changing ids/classes */
+#modal-welcome .welcome__options.actions button{
+  border-radius:12px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.06);
+  color:var(--text);
+  box-shadow:0 0 0 1px rgba(0,0,0,0.25) inset;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+
+/* Make “Create” read as primary without renaming anything */
+#modal-welcome #welcome-create-character{
+  border-color:color-mix(in oklab, var(--accent) 55%, rgba(255,255,255,0.20) 45%);
+  background:color-mix(in oklab, var(--accent) 22%, rgba(255,255,255,0.06) 78%);
   box-shadow:
     0 0 0 1px rgba(0,0,0,0.25) inset,
     0 0 22px color-mix(in oklab, var(--accent) 25%, transparent 75%);
 }
 
-#modal-welcome button:focus-visible {
-  outline: none;
+#modal-welcome .welcome__options.actions button:focus-visible,
+#modal-welcome .modal > .x:focus-visible{
+  outline:none;
   box-shadow:
     0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent 45%),
     0 0 0 6px rgba(0,0,0,0.35);
