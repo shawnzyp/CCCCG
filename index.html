@@ -32,6 +32,9 @@
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
+<!-- Prime the intro asset for quicker repeat launches (HTTP cache). -->
+<!-- Keep this as preload, not autoplay or it will fight the boot controller on iOS. -->
+<link rel="preload" as="video" href="images/images_b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
 </head>
 <body class="launching no-hover">
 <svg
@@ -55,6 +58,7 @@
 <noscript>This app requires JavaScript to run properly.</noscript>
 
 <div id="launch-animation" role="presentation" aria-hidden="true">
+  <!-- Intro video is controlled by launch boot script for reliable autoplay and zero controls -->
   <video
     autoplay
     muted
@@ -75,368 +79,204 @@
   <button type="button" class="launch-animation__skip" data-skip-launch>Skip</button>
 </div>
 <script>
-  (function(){
-    try {
-      const DEFAULT_FALLBACK = 8000;
-      const MIN_VISIBLE = 8000;
-      const body = document.body;
-      const launchEl = document.getElementById('launch-animation');
-      const video = launchEl ? launchEl.querySelector('video') : null;
-      if(!body || !launchEl){
-        return;
-      }
+  (function () {
+    var ended = false;
+    // Launch Boot Controller
+    // Goals:
+    // - Always show intro video with no visible controls or play UI
+    // - "Skip" fades in after 2s and skips remaining intro
+    // - While intro plays, the app can load in parallel
+    // - After intro finishes or skip, request welcome modal display while app finishes warming
 
-      const hardHideLaunch = () => {
-        launchEl.setAttribute('data-hidden', 'true');
-        launchEl.style.display = 'none';
-        launchEl.style.pointerEvents = 'none';
-      };
+    var SKIP_DELAY_MS = 2000;
+    var body = document.body;
+    var launchEl = document.getElementById('launch-animation');
+    var video = launchEl ? launchEl.querySelector('video') : null;
+    var skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
 
-      if(video){
-        // Hard disable any controls, always
-        try {
-          video.controls = false;
-          video.removeAttribute('controls');
-          video.setAttribute('controls', '');
-          video.setAttribute('controlslist', 'nodownload noplaybackrate noremoteplayback nofullscreen');
-          video.setAttribute('disablepictureinpicture', '');
-          video.setAttribute('disableremoteplayback', '');
-          video.setAttribute('playsinline', '');
-          video.setAttribute('webkit-playsinline', '');
-          video.muted = true;
-          video.setAttribute('muted', '');
-          video.autoplay = true;
-          video.setAttribute('autoplay', '');
-        } catch (e) {}
+    if (!body || !launchEl || !video) return;
 
-        // Ensure src gets set only when launching and then force playback
-        const setLaunchSrcIfMissing = () => {
-          try {
-            const src = video.getAttribute('data-src-mp4');
-            if (!src) return;
-            if (!video.src) video.src = src;
-          } catch (e) {}
-        };
-
-        const forcePlay = () => {
-          const failFastHide = () => {
-            hardHideLaunch();
-            body.classList.remove('launching');
-          };
-          try {
-            setLaunchSrcIfMissing();
-            video.load();
-            const p = video.play();
-            if (p && typeof p.catch === 'function') {
-              p.catch(() => failFastHide());
-            }
-            window.setTimeout(() => {
-              if(video.paused || video.ended){
-                failFastHide();
-              }
-            }, 250);
-          } catch (e) {}
-        };
-
-        // Try immediately and again after a tick (Safari timing quirk)
-        forcePlay();
-        setTimeout(forcePlay, 50);
-
-        // Optional: if user taps Skip, do not allow Safari to hijack with play controls
-        const skipBtn = launchEl.querySelector('[data-skip-launch]');
-        if (skipBtn) {
-          skipBtn.addEventListener('click', () => {
-            try { video.pause(); } catch (e) {}
-          }, { capture: true });
-        }
-      }
-
-    const disableSaveDataPreference = () => {
+    function safeDispatch(name, detail) {
       try {
-        if (typeof navigator === 'undefined') {
-          return;
-        }
-        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-        if (!connection) {
-          return;
-        }
-        const forceValue = target => {
-          try {
-            Object.defineProperty(target, 'saveData', { configurable: true, enumerable: true, value: false, writable: true });
-          } catch (err) {
-            try {
-              target.saveData = false;
-            } catch (err2) {}
-          }
-        };
-        forceValue(connection);
-        if (typeof connection.addEventListener === 'function') {
-          const handler = () => forceValue(connection);
-          try {
-            connection.addEventListener('change', handler);
-          } catch (err) {}
-        }
-      } catch (err) {}
-    };
-
-    disableSaveDataPreference();
-
-    let fallbackTimer = null;
-    let playRetryTimer = null;
-    const clearFallback = () => {
-      if(fallbackTimer){
-        window.clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-    };
-
-    const hideLaunch = () => {
-      if(!body.classList.contains('launching')){
-        return;
-      }
-      clearFallback();
-      if(playRetryTimer){
-        window.clearTimeout(playRetryTimer);
-        playRetryTimer = null;
-      }
-      if(launchEl && launchEl.contains(document.activeElement)){
-        const fallback =
-          document.querySelector('#character-name') ||
-          document.querySelector('#player-tools-tab') ||
-          document.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        if(fallback){
-          try {
-            fallback.focus({ preventScroll: true });
-          } catch (err) {
-            try { fallback.focus(); } catch (err2) {}
-          }
-        } else if(document.activeElement && typeof document.activeElement.blur === 'function'){
-          try { document.activeElement.blur(); } catch (err) {}
-        }
-      }
-      try { if(video) video.pause(); } catch (err) {}
-      body.classList.remove('launching');
-      launchEl.setAttribute('data-hidden', 'true');
-      hardHideLaunch();
-      launchEl.addEventListener('transitionend', () => {
-        if(launchEl.parentNode){
-          launchEl.parentNode.removeChild(launchEl);
-        }
-      }, { once: true });
-      window.setTimeout(() => {
-        if(launchEl.parentNode){
-          launchEl.parentNode.removeChild(launchEl);
-        }
-      }, 800);
-    };
-
-    const scheduleFallback = (delay = DEFAULT_FALLBACK) => {
-      clearFallback();
-      const requested = typeof delay === 'number' && Number.isFinite(delay) ? delay : MIN_VISIBLE;
-      const timeout = Math.min(Math.max(requested, MIN_VISIBLE), DEFAULT_FALLBACK);
-      fallbackTimer = window.setTimeout(() => {
-        if(body.classList.contains('launching')){
-          hideLaunch();
-        }
-      }, timeout);
-    };
-
-    const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-
-    if(skipButton){
-      skipButton.addEventListener('click', event => {
-        event.preventDefault();
-        window.dispatchEvent(new CustomEvent('launch-animation-skip'));
-        hideLaunch();
-      });
-    }
-
-    if(video){
-      const ensureAttributes = () => {
-        try { video.setAttribute('playsinline', ''); } catch (err) {}
-        try { video.setAttribute('webkit-playsinline', ''); } catch (err) {}
-        try { video.playsInline = true; } catch (err) {}
-        try { video.webkitPlaysInline = true; } catch (err) {}
-        try { video.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback noplaybackrate'); } catch (err) {}
+        window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+      } catch (e) {
         try {
-          if (video.controlsList && typeof video.controlsList.add === 'function') {
-            ['nodownload','nofullscreen','noremoteplayback','noplaybackrate'].forEach(token => {
-              try {
-                video.controlsList.add(token);
-              } catch (tokenErr) {}
-            });
-          }
-        } catch (err) {}
-        try { video.setAttribute('disableremoteplayback', ''); } catch (err) {}
-        try { video.disableRemotePlayback = true; } catch (err) {}
-        try { video.setAttribute('disablepictureinpicture', ''); } catch (err) {}
-        try { video.disablePictureInPicture = true; } catch (err) {}
-        try { video.setAttribute('preload', 'auto'); } catch (err) {}
-        try { video.preload = 'auto'; } catch (err) {}
-        try {
-          if(!video.hasAttribute('muted')){
-            video.setAttribute('muted', '');
-          }
-          video.muted = true;
-          video.defaultMuted = true;
-        } catch (err) {}
-        try { if(!video.hasAttribute('autoplay')){ video.setAttribute('autoplay', ''); } } catch (err) {}
-        try { video.autoplay = true; } catch (err) {}
-        try { video.volume = 0; } catch (err) {}
-        try { video.removeAttribute('controls'); video.controls = false; } catch (err) {}
-      };
-      ensureAttributes();
-      const schedulePlayRetry = () => {
-        if(playRetryTimer){
-          window.clearTimeout(playRetryTimer);
-        }
-        playRetryTimer = window.setTimeout(() => {
-          playRetryTimer = null;
-          attemptPlay();
-        }, 250);
-      };
-      const attemptPlay = () => {
-        ensureAttributes();
-        if(typeof video.play === 'function'){
-          const playAttempt = video.play();
-          if(playAttempt && typeof playAttempt.catch === 'function'){
-            playAttempt.then(() => {
-              if(playRetryTimer){
-                window.clearTimeout(playRetryTimer);
-                playRetryTimer = null;
-              }
-            }).catch(() => {
-              if(video.paused){
-                schedulePlayRetry();
-              } else if(playRetryTimer){
-                window.clearTimeout(playRetryTimer);
-                playRetryTimer = null;
-              }
-            });
-          } else if(video.paused){
-            schedulePlayRetry();
-          } else if(playRetryTimer){
-            window.clearTimeout(playRetryTimer);
-            playRetryTimer = null;
-          }
-        } else if(video.paused){
-          schedulePlayRetry();
-        } else if(playRetryTimer){
-          window.clearTimeout(playRetryTimer);
-          playRetryTimer = null;
-        }
-      };
-      const handleReady = () => {
-        attemptPlay();
-        const durationMs = Number.isFinite(video.duration) && video.duration > 0
-          ? (video.duration * 1000) + 500
-          : DEFAULT_FALLBACK;
-        scheduleFallback(durationMs);
-      };
-
-      let sourcesAssigned = false;
-      const assignVideoSources = () => {
-        if(sourcesAssigned){
-          return true;
-        }
-        let assigned = false;
-        const existingSources = Array.from(video.querySelectorAll('source'));
-        existingSources.forEach(source => {
-          const dataSrc = source.getAttribute('data-src');
-          if(dataSrc && source.getAttribute('src') !== dataSrc){
-            source.setAttribute('src', dataSrc);
-            assigned = true;
-          }
-        });
-        const webmSrc = video.getAttribute('data-src-webm');
-        if(webmSrc){
-          const hasWebm = existingSources.some(source => {
-            const type = source.getAttribute('type');
-            return type ? type.toLowerCase() === 'video/webm' : false;
-          });
-          if(!hasWebm){
-            const webmSource = document.createElement('source');
-            webmSource.setAttribute('src', webmSrc);
-            webmSource.setAttribute('type', 'video/webm');
-            video.insertBefore(webmSource, existingSources.length ? existingSources[0] : video.firstChild);
-            assigned = true;
-          }
-        }
-        const mp4Src = video.getAttribute('data-src-mp4');
-        if(mp4Src && !assigned){
-          video.setAttribute('src', mp4Src);
-          assigned = true;
-        }
-        sourcesAssigned = assigned;
-        return assigned;
-      };
-
-      let startedPlayback = false;
-      const startPlayback = () => {
-        if(startedPlayback){
-          return;
-        }
-        const assigned = assignVideoSources();
-        startedPlayback = true;
-        if(!assigned){
-          scheduleFallback(MIN_VISIBLE);
-          return;
-        }
-        ensureAttributes();
-        video.addEventListener('loadeddata', ensureAttributes, { once: true });
-        if(playRetryTimer){
-          window.clearTimeout(playRetryTimer);
-          playRetryTimer = null;
-        }
-        if(video.readyState >= 1){
-          handleReady();
-          return;
-        }
-        video.addEventListener('loadedmetadata', handleReady, { once: true });
-        scheduleFallback(DEFAULT_FALLBACK);
-        try { video.load(); } catch (err) {}
-      };
-
-      video.addEventListener('ended', hideLaunch, { once: true });
-      video.addEventListener('playing', () => {
-        if(playRetryTimer){
-          window.clearTimeout(playRetryTimer);
-          playRetryTimer = null;
-        }
-      });
-      ['error','abort','stalled','suspend'].forEach(evt => {
-        video.addEventListener(evt, () => scheduleFallback(MIN_VISIBLE), { once: true });
-      });
-
-      const requestStart = () => {
-        if(typeof window.requestAnimationFrame === 'function'){
-          window.requestAnimationFrame(() => startPlayback());
-        } else {
-          startPlayback();
-        }
-      };
-
-      if(document.readyState === 'complete' || document.readyState === 'interactive'){
-        requestStart();
-      } else {
-        window.addEventListener('DOMContentLoaded', requestStart, { once: true });
+          var evt = document.createEvent('CustomEvent');
+          evt.initCustomEvent(name, false, false, detail || {});
+          window.dispatchEvent(evt);
+        } catch (e2) {}
       }
     }
 
-    if(!video){
-      if(document.readyState === 'complete'){
-        scheduleFallback();
-      } else {
-        window.addEventListener('load', () => scheduleFallback(), { once: true });
-      }
+    function setSkipVisible(visible) {
+      if (!skipButton) return;
+      if (visible) skipButton.classList.add('is-visible');
+      else skipButton.classList.remove('is-visible');
     }
-    } catch (err) {
+
+    function markVideoPlaying() {
+      try { launchEl.classList.add('is-playing'); } catch (e) {}
+      try { video.classList.add('is-playing'); } catch (e) {}
+    }
+
+    function markVideoNotPlaying() {
+      try { launchEl.classList.remove('is-playing'); } catch (e) {}
+      try { video.classList.remove('is-playing'); } catch (e) {}
+    }
+
+    function hardenVideoEl() {
+      // Eliminate controls and interactive surfaces
+      try { video.controls = false; } catch (e) {}
+      try { video.removeAttribute('controls'); } catch (e) {}
+      try { video.disablePictureInPicture = true; } catch (e) {}
+      try { video.setAttribute('disablepictureinpicture', ''); } catch (e) {}
+      try { video.setAttribute('disableremoteplayback', ''); } catch (e) {}
+      try { video.setAttribute('playsinline', ''); } catch (e) {}
+      try { video.setAttribute('webkit-playsinline', ''); } catch (e) {}
+      try { video.muted = true; } catch (e) {}
+      try { video.defaultMuted = true; } catch (e) {}
+      try { video.autoplay = true; } catch (e) {}
+      try { video.setAttribute('muted', ''); } catch (e) {}
+      try { video.setAttribute('autoplay', ''); } catch (e) {}
+      try { video.playsInline = true; } catch (e) {}
+    }
+
+    function setVideoSrcFromData() {
+      var mp4 = video.getAttribute('data-src-mp4');
+      if (!mp4) {
+        var source = video.querySelector('source[data-src]');
+        mp4 = source ? source.getAttribute('data-src') : null;
+      }
+      if (!mp4) return false;
+      var sourceEl = video.querySelector('source[data-src]');
+      if (sourceEl && !sourceEl.getAttribute('src')) {
+        try { sourceEl.setAttribute('src', mp4); } catch (e) {}
+      }
+      try { video.load(); } catch (e) {}
+      return true;
+    }
+
+    function primeMp4Cache(url) {
+      // Best-effort: warm the HTTP cache so repeat launches load faster.
+      // No service worker required.
       try {
-        const launchEl = document.getElementById('launch-animation');
-        if (launchEl) launchEl.setAttribute('data-hidden', 'true');
-        if (document.body) document.body.classList.remove('launching');
+        var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (c && c.saveData) return;
+        if (c && (c.effectiveType === 'slow-2g' || c.effectiveType === '2g')) return;
+        if (!url || typeof fetch !== 'function') return;
+        // Avoid duplicating a request if the browser already preloaded it.
+        fetch(url, { method: 'GET', cache: 'force-cache', credentials: 'same-origin' })
+          .then(function () { /* ignore */ })
+          .catch(function () { /* ignore */ });
       } catch (e) {}
     }
+
+    function endLaunch(reason) {
+      if (ended) return;
+      ended = true;
+      try { clearTimeout(skipTimer); } catch (e) {}
+      // Hide launch overlay and request the welcome modal while app finishes
+      try { body.classList.remove('launching'); } catch (e) {}
+      try { launchEl.setAttribute('data-hidden', 'true'); } catch (e) {}
+      try { launchEl.setAttribute('aria-hidden', 'true'); } catch (e) {}
+      setSkipVisible(false);
+      try { window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() }; } catch (e) {}
+      safeDispatch('cc:launch-complete', { reason: reason || 'ended' });
+
+      // HARD REMOVE so it can never eat clicks later (even if CSS/attrs get weird)
+      try {
+        if (launchEl && launchEl.parentNode) launchEl.parentNode.removeChild(launchEl);
+      } catch (e) {}
+    }
+
+    // Start launch overlay immediately
+    try { body.classList.add('launching'); } catch (e) {}
+    try { launchEl.setAttribute('aria-hidden', 'false'); } catch (e) {}
+    try { launchEl.removeAttribute('data-hidden'); } catch (e) {}
+    setSkipVisible(false);
+    markVideoNotPlaying();
+
+    hardenVideoEl();
+    (function () {
+      setVideoSrcFromData();
+    })();
+
+    // Keep the video visually hidden until Safari confirms playback.
+    // This prevents the iOS “play” glyph from ever being visible.
+    try { video.currentTime = 0; } catch (e) {}
+
+    // Skip appears after 2 seconds
+    var skipTimer = setTimeout(function () {
+      if (ended) return;
+      setSkipVisible(true);
+    }, SKIP_DELAY_MS);
+
+    // Wire Skip
+    if (skipButton) {
+      skipButton.addEventListener('click', function () {
+        try { video.pause(); } catch (e) {}
+        endLaunch('skipped');
+      });
+    }
+
+    // End on natural finish or error
+    video.addEventListener('ended', function () { endLaunch('ended'); }, { passive: true });
+    video.addEventListener('error', function () { endLaunch('error'); }, { passive: true });
+
+    // If playback starts (or even begins time advancing), reveal video.
+    video.addEventListener('playing', function () {
+      if (ended) return;
+      markVideoPlaying();
+      try {
+        if (!video.__ccCachePrimed) {
+          var mp4 = video.getAttribute('data-src-mp4');
+          if (!mp4) {
+            var source = video.querySelector('source[data-src]');
+            mp4 = source ? source.getAttribute('data-src') : null;
+          }
+          if (mp4) {
+            video.__ccCachePrimed = true;
+            primeMp4Cache(mp4);
+          }
+        }
+      } catch (e) {}
+    }, { passive: true });
+
+    video.addEventListener('timeupdate', function () {
+      if (ended) return;
+      // Some Safari builds fire timeupdate before playing; treat that as “good enough”
+      try {
+        if (video.currentTime > 0.05) markVideoPlaying();
+      } catch (e) {}
+    }, { passive: true });
+
+    // If Safari pauses itself, re-hide video to avoid showing the play glyph.
+    video.addEventListener('pause', function () {
+      if (ended) return;
+      // Only re-hide if we are still launching (during intro)
+      try {
+        if (body.classList.contains('launching')) markVideoNotPlaying();
+      } catch (e) {}
+    }, { passive: true });
+
+    // Attempt autoplay; if blocked, still allow skip and proceed when user taps skip
+    try {
+      // Safari timing quirks: try now + next frame
+      var attempt = function () {
+        try {
+          var p = video.play();
+          if (p && typeof p.catch === 'function') p.catch(function () {});
+        } catch (e) {}
+      };
+      attempt();
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(attempt);
+    } catch (e) {}
+
+    // Safety fallback so we never trap the user forever
+    setTimeout(function () {
+      // If still launching after a long time, end it.
+      if (body.classList.contains('launching')) endLaunch('fallback');
+    }, 20000);
   })();
 </script>
 
@@ -1567,34 +1407,38 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-    <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
-    <p><u>Create or Load Your Hero Profile</u><br>
-    This is your Vigilante record. Without it, you don’t exist in the Core.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Use the Tabs</u><br>
-    <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
-    <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
-    <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
-    <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
-    <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Save &amp; Sync</u><br>
-    Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><strong>O.M.N.I. Command</strong></p>
-    <div class="welcome-modal__preference">
-      <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
-        <input type="checkbox" id="welcome-hide-toggle">
-        Don't show this again
-      </label>
-    </div>
-    <div class="actions">
-      <button id="welcome-create-character" type="button">Create New Character</button>
-      <button id="welcome-load-character" type="button">Load Character</button>
-      <button id="welcome-skip" type="button">Skip</button>
-    </div>
+      <div class="welcome__header">
+        <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
+      </div>
+      <div class="welcome__body">
+        <p><u>Create or Load Your Hero Profile</u><br>
+        This is your Vigilante record. Without it, you don’t exist in the Core.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p><u>Use the Tabs</u><br>
+        <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
+        <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
+        <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
+        <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
+        <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p><u>Save &amp; Sync</u><br>
+        Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p><strong>O.M.N.I. Command</strong></p>
+        <div class="welcome-modal__preference">
+          <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
+            <input type="checkbox" id="welcome-hide-toggle">
+            Don't show this again
+          </label>
+        </div>
+      </div>
+      <div class="welcome__options actions">
+        <button id="welcome-create-character" type="button">Create New Character</button>
+        <button id="welcome-load-character" type="button">Load Character</button>
+        <button id="welcome-skip" type="button">Skip</button>
+      </div>
     </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
@@ -3397,6 +3241,96 @@
                   >⌂</button>
                 </header>
                 <main class="pt-app-host" data-pt-app-host>
+                  <!-- Launcher Main Menu (integrated, not a separate overlay) -->
+                  <section class="pt-main-menu" id="pt-main-menu" aria-label="Main Menu" aria-hidden="true" hidden>
+                    <header class="pt-main-menu__header">
+                      <div class="pt-main-menu__brand">
+                        <img class="pt-main-menu__logo" src="images/logo.png" alt="" aria-hidden="true">
+                        <div class="pt-main-menu__titles">
+                          <div class="pt-main-menu__title">Catalyst Core</div>
+                          <div class="pt-main-menu__subtitle">Player OS</div>
+                        </div>
+                      </div>
+                      <button type="button" class="pt-main-menu__close" data-pt-menu-close aria-label="Close menu">
+                        <span aria-hidden="true">✕</span>
+                      </button>
+                    </header>
+
+                    <!-- Launcher Tickers (mounted from the main app tickers when phone opens) -->
+                    <section class="pt-main-menu__tickers" aria-label="Live Tickers">
+                      <div class="pt-ticker-slot" data-pt-ticker-slot="primary">
+                        <div class="pt-ticker-slot__label">Live</div>
+                        <div class="pt-ticker-slot__rail" data-pt-ticker-rail="primary"></div>
+                      </div>
+                      <div class="pt-ticker-slot" data-pt-ticker-slot="secondary">
+                        <div class="pt-ticker-slot__label">Intel</div>
+                        <div class="pt-ticker-slot__rail" data-pt-ticker-rail="secondary"></div>
+                      </div>
+                    </section>
+
+                    <div class="pt-main-menu__content" role="list">
+                      <button class="pt-main-menu__item" role="listitem" type="button" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log">
+                        <span class="pt-main-menu__icon" aria-hidden="true">📓</span>
+                        <span class="pt-main-menu__text">
+                          <span class="pt-main-menu__name">Campaign Log</span>
+                          <span class="pt-main-menu__desc">Briefings, events, and mission notes.</span>
+                        </span>
+                      </button>
+
+                      <button class="pt-main-menu__item" role="listitem" type="button" data-pt-open-app="messages" data-pt-app-label="Director’s Messages">
+                        <span class="pt-main-menu__icon" aria-hidden="true">📡</span>
+                        <span class="pt-main-menu__text">
+                          <span class="pt-main-menu__name">Director’s Messages</span>
+                          <span class="pt-main-menu__desc">Encrypted updates and intel drops.</span>
+                        </span>
+                      </button>
+
+                      <button class="pt-main-menu__item" role="listitem" type="button" data-pt-open-app="combat" data-pt-app-label="Combat">
+                        <span class="pt-main-menu__icon" aria-hidden="true">⚔️</span>
+                        <span class="pt-main-menu__text">
+                          <span class="pt-main-menu__name">Combat</span>
+                          <span class="pt-main-menu__desc">HP, SP, conditions, and encounter flow.</span>
+                        </span>
+                      </button>
+
+                      <button class="pt-main-menu__item" role="listitem" type="button" data-pt-open-app="stats" data-pt-app-label="Stats">
+                        <span class="pt-main-menu__icon" aria-hidden="true">📊</span>
+                        <span class="pt-main-menu__text">
+                          <span class="pt-main-menu__name">Stats</span>
+                          <span class="pt-main-menu__desc">Abilities, saves, skills, and checks.</span>
+                        </span>
+                      </button>
+
+                      <button class="pt-main-menu__item" role="listitem" type="button" data-pt-open-app="powers" data-pt-app-label="Powers">
+                        <span class="pt-main-menu__icon" aria-hidden="true">⚡</span>
+                        <span class="pt-main-menu__text">
+                          <span class="pt-main-menu__name">Powers</span>
+                          <span class="pt-main-menu__desc">Suit, signature moves, cooldowns.</span>
+                        </span>
+                      </button>
+
+                      <button class="pt-main-menu__item" role="listitem" type="button" data-pt-open-app="gear" data-pt-app-label="Gear">
+                        <span class="pt-main-menu__icon" aria-hidden="true">🧰</span>
+                        <span class="pt-main-menu__text">
+                          <span class="pt-main-menu__name">Gear</span>
+                          <span class="pt-main-menu__desc">Requisition, equip, and upgrades.</span>
+                        </span>
+                      </button>
+
+                      <button class="pt-main-menu__item" role="listitem" type="button" data-pt-open-app="details" data-pt-app-label="Personal Details">
+                        <span class="pt-main-menu__icon" aria-hidden="true">🪪</span>
+                        <span class="pt-main-menu__text">
+                          <span class="pt-main-menu__name">Personal Details</span>
+                          <span class="pt-main-menu__desc">Identity, notes, and mission profile.</span>
+                        </span>
+                      </button>
+                    </div>
+
+                    <footer class="pt-main-menu__footer">
+                      <button class="pt-main-menu__footer-btn" type="button" data-pt-open-app="settings" data-pt-app-label="Settings">Settings</button>
+                      <button class="pt-main-menu__footer-btn" type="button" data-pt-open-app="sync" data-pt-app-label="Sync">Sync</button>
+                    </footer>
+                  </section>
                   <section class="pt-app-page" data-pt-app-screen="messages" hidden aria-hidden="true">
                     <header class="pt-page-head">
                       <h3 class="pt-page-title">Director’s Messages</h3>

@@ -2336,6 +2336,58 @@ function prepareWelcomeModal() {
   return modal;
 }
 
+// Launch gating:
+// - Intro video overlay runs before this file finishes initializing
+// - When intro completes (or user skips), we show the Welcome modal while the app finishes wiring up
+// - Only after Welcome is dismissed do we release interaction
+let launchComplete = false;
+let welcomeShownFromLaunch = false;
+
+function markLaunchComplete(reason = 'ended') {
+  launchComplete = true;
+  try { document.documentElement.setAttribute('data-cc-launch-complete', '1'); } catch {}
+  try {
+    document.documentElement.classList.add('cc-launch-complete');
+  } catch {}
+  // If welcome is not dismissed yet, ensure it is visible now (during app warmup)
+  tryShowWelcomeForLaunch(reason);
+}
+
+function tryShowWelcomeForLaunch(reason = '') {
+  if (welcomeShownFromLaunch) return;
+  if (welcomeModalDismissed) return;
+
+  // If the app is still in "launching" we want the welcome modal on top once intro ends.
+  // We do not depend on pointer-events hacks; just ensure modal is shown and touch remains locked.
+  welcomeShownFromLaunch = true;
+  try {
+    lockTouchControls();
+  } catch {}
+
+  // Mark this as a launch-driven welcome so CSS can theme it to match the launcher.
+  try { document.documentElement.classList.add('cc-welcome-from-launch'); } catch {}
+
+  // Queue welcome ASAP; it can still decide to background-only when launching
+  try {
+    queueWelcomeModal({ immediate: true, preload: false });
+  } catch (err) {
+    // Last resort: attempt direct show
+    try { maybeShowWelcomeModal({ backgroundOnly: false }); } catch {}
+  }
+}
+
+// Listen to the boot controller in index.html
+if (typeof window !== 'undefined') {
+  window.addEventListener('cc:launch-complete', (e) => {
+    const reason = e && e.detail && e.detail.reason ? String(e.detail.reason) : 'ended';
+    markLaunchComplete(reason);
+  }, { passive: true });
+  try {
+    const prior = window.__ccLaunchComplete;
+    if (prior && !launchComplete) markLaunchComplete(prior.reason || 'ended');
+  } catch {}
+}
+
 function lockTouchControls() {
   if (typeof document === 'undefined') return;
   clearTouchUnlockTimer();
@@ -2427,6 +2479,8 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   }
 
   if (isLaunching) {
+    // While intro overlay is active, we avoid forcing welcome visible.
+    // The boot controller will request welcome once intro is done.
     if (wasHidden) {
       const skipButton = body ? body.querySelector('[data-skip-launch]') : null;
       if (skipButton && typeof skipButton.focus === 'function') {
@@ -2449,6 +2503,7 @@ function dismissWelcomeModal() {
   welcomeModalDismissed = true;
   hide(WELCOME_MODAL_ID);
   removePlayerToolsTabSuppression('welcome-modal');
+  // Defensive cleanup: ensure we never leave interaction locks behind
   try { document.body.classList.remove('touch-controls-disabled'); } catch {}
   try { document.body.classList.remove('modal-open'); } catch {}
   try {
@@ -2463,6 +2518,204 @@ function dismissWelcomeModal() {
   safeUnlockTouchControls({ immediate: true });
   try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
   markWelcomeSequenceComplete();
+
+  // If intro already completed, we can safely begin offline prefetch after the user lands
+  try {
+    try { document.documentElement.classList.remove('cc-welcome-from-launch'); } catch {}
+    if (launchComplete) scheduleOfflinePrefetch(1200);
+  } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Launcher Main Menu integration
+// ---------------------------------------------------------------------------
+let launcherMenuWired = false;
+let launcherMenuDelegationWired = false;
+let launcherMenuObserverWired = false;
+
+function getLauncherMainMenu() {
+  try { return document.getElementById('pt-main-menu'); } catch { return null; }
+}
+
+function showLauncherMainMenu() {
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+  try { menu.hidden = false; } catch {}
+  try { menu.setAttribute('aria-hidden', 'false'); } catch {}
+}
+
+function hideLauncherMainMenu() {
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+  try { menu.setAttribute('aria-hidden', 'true'); } catch {}
+  try { menu.hidden = true; } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Ticker mounting (move existing tickers into Player OS menu while open)
+// ---------------------------------------------------------------------------
+let tickerMountState = null;
+
+function findMainTickers() {
+  const drawer = document.querySelector('[data-ticker-drawer]') || null;
+  const root = drawer || document;
+  const primary =
+    (drawer && drawer.querySelector('.news-ticker:not(.news-ticker--m24n)')) ||
+    root.querySelector('[data-ticker="primary"]') ||
+    root.querySelector('#ticker-primary') ||
+    root.querySelector('.ticker--primary') ||
+    root.querySelector('.ticker[data-kind="primary"]') ||
+    null;
+  const secondary =
+    (drawer && drawer.querySelector('.news-ticker--m24n')) ||
+    root.querySelector('[data-ticker="secondary"]') ||
+    root.querySelector('#ticker-secondary') ||
+    root.querySelector('.ticker--secondary') ||
+    root.querySelector('.ticker[data-kind="secondary"]') ||
+    null;
+  return { primary, secondary };
+}
+
+function getLauncherTickerRail(kind) {
+  try { return document.querySelector('[data-pt-ticker-rail="' + kind + '"]'); } catch { return null; }
+}
+
+function makeAnchorBefore(node) {
+  if (!node || !node.parentNode) return null;
+  const anchor = document.createComment('cc:ticker-anchor');
+  try { node.parentNode.insertBefore(anchor, node); } catch {}
+  return anchor;
+}
+
+function captureTickerMountStateOnce(primary, secondary) {
+  if (tickerMountState) return;
+  tickerMountState = {
+    primary: primary ? { node: primary, anchor: makeAnchorBefore(primary) } : null,
+    secondary: secondary ? { node: secondary, anchor: makeAnchorBefore(secondary) } : null,
+  };
+}
+
+function mountTickersIntoLauncher({ allowRetry = true } = {}) {
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+
+  const railPrimary = getLauncherTickerRail('primary');
+  const railSecondary = getLauncherTickerRail('secondary');
+  const { primary, secondary } = findMainTickers();
+
+  if (allowRetry && !primary && !secondary) {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => mountTickersIntoLauncher({ allowRetry: false }));
+    }
+    return;
+  }
+
+  if (!railPrimary && !railSecondary) return;
+  if (!primary && !secondary) return;
+
+  captureTickerMountStateOnce(primary, secondary);
+
+  try { if (primary && railPrimary && primary.parentNode !== railPrimary) railPrimary.appendChild(primary); } catch {}
+  try { if (secondary && railSecondary && secondary.parentNode !== railSecondary) railSecondary.appendChild(secondary); } catch {}
+
+  try { menu.classList.add('pt-main-menu--has-tickers'); } catch {}
+}
+
+function restoreTickersFromLauncher() {
+  const state = tickerMountState;
+  if (!state) return;
+  const menu = getLauncherMainMenu();
+
+  function restore(entry) {
+    if (!entry || !entry.node) return;
+    if (entry.anchor && entry.anchor.parentNode) {
+      try { entry.anchor.parentNode.insertBefore(entry.node, entry.anchor); } catch {}
+      try { entry.anchor.parentNode.removeChild(entry.anchor); } catch {}
+      return;
+    }
+  }
+
+  restore(state.primary);
+  restore(state.secondary);
+
+  tickerMountState = null;
+  try { if (menu) menu.classList.remove('pt-main-menu--has-tickers'); } catch {}
+}
+
+function wireLauncherMainMenu() {
+  if (launcherMenuWired) return;
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+  launcherMenuWired = true;
+
+  // Close button inside menu
+  const closeBtn = menu.querySelector('[data-pt-menu-close]');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      const homeBtn = document.querySelector('[data-pt-launcher-home-btn]');
+      if (homeBtn && typeof homeBtn.click === 'function') {
+        homeBtn.click();
+        return;
+      }
+      const closeLauncher = document.querySelector('[data-pt-launcher-close]');
+      if (closeLauncher && typeof closeLauncher.click === 'function') {
+        closeLauncher.click();
+        return;
+      }
+      hideLauncherMainMenu();
+    });
+  }
+
+  // Any menu item that opens an app should hide the menu.
+  // The actual app open routing remains whatever your existing launcher code does with data-pt-open-app.
+  if (!launcherMenuDelegationWired) {
+    menu.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('[data-pt-open-app]') : null;
+      if (!btn) return;
+      hideLauncherMainMenu();
+    });
+    launcherMenuDelegationWired = true;
+  }
+
+  // When the launcher becomes visible, show the menu by default.
+  // This relies on your existing attribute that marks the phone as open.
+  if (!launcherMenuObserverWired) {
+    const root = document.documentElement;
+    const obs = new MutationObserver(() => {
+      const open = root.getAttribute('data-pt-phone-open') === '1';
+      if (open) {
+        showLauncherMainMenu();
+        mountTickersIntoLauncher();
+      } else {
+        hideLauncherMainMenu();
+        restoreTickersFromLauncher();
+      }
+    });
+    obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
+    launcherMenuObserverWired = true;
+  }
+}
+
+// Ensure menu wiring happens once DOM is ready.
+try {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireLauncherMainMenu, { once: true });
+  } else {
+    wireLauncherMainMenu();
+  }
+} catch {}
+
+// After welcome is dismissed, if the launcher is open, show the menu.
+if (typeof window !== 'undefined') {
+  window.addEventListener('cc:pt-welcome-dismissed', () => {
+    try {
+      const open = document.documentElement.getAttribute('data-pt-phone-open') === '1';
+      if (open) {
+        showLauncherMainMenu();
+        mountTickersIntoLauncher();
+      }
+    } catch {}
+  }, { passive: true });
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
@@ -23146,9 +23399,11 @@ async function runOfflineDownload({ forceReload = false, triggeredByUser = false
     }
     return;
   }
-  if (typeof window !== 'undefined' && window.isFloatingLauncherCovered?.()) {
-    resetFloatingLauncherCoverage();
-  }
+  // Launch stability: do not let offline download logic leave the page in a covered state.
+  // If something previously covered the floating launcher, reset it when starting a download.
+  try {
+    if (typeof window !== 'undefined' && typeof window.resetFloatingLauncherCoverage === 'function') window.resetFloatingLauncherCoverage();
+  } catch {}
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     offlineDownloadRetryPending = true;
     updateOfflineDownloadStatus('Connect to the internet to download offline assets.', 'error');
@@ -24361,4 +24616,3 @@ CC.RP = (function () {
   }
   return api;
 })();
-

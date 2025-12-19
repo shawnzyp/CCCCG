@@ -302,14 +302,23 @@ body.player-tools-open{overflow:hidden}
 body.player-tools-open .app-shell{touch-action:none}
 body.player-tools-open .player-tools-drawer,
 body.player-tools-open .player-tools-drawer__content{touch-action:pan-y}
-#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:#000;z-index:2000;opacity:0;pointer-events:none!important;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;width:100vw;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box}
+/* Launch overlay should block the page during launch (prevents stray taps behind it). */
+#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:#000;z-index:2000;opacity:0;pointer-events:auto;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;width:100vw;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box}
 body.launching #launch-animation{opacity:1;visibility:visible}
+#launch-animation{touch-action:none}
 #launch-animation[data-hidden="true"]{opacity:0;visibility:hidden;pointer-events:none!important;display:none !important}
-#launch-animation video{width:calc(100% + constant(safe-area-inset-left) + constant(safe-area-inset-right));height:calc(100% + constant(safe-area-inset-top) + constant(safe-area-inset-bottom));margin-left:calc(-1 * constant(safe-area-inset-left));margin-right:calc(-1 * constant(safe-area-inset-right));margin-top:calc(-1 * constant(safe-area-inset-top));margin-bottom:calc(-1 * constant(safe-area-inset-bottom));width:calc(100% + env(safe-area-inset-left) + env(safe-area-inset-right));height:calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));margin-left:calc(-1 * env(safe-area-inset-left));margin-right:calc(-1 * env(safe-area-inset-right));margin-top:calc(-1 * env(safe-area-inset-top));margin-bottom:calc(-1 * env(safe-area-inset-bottom));max-width:100%;max-height:100%;display:block;object-fit:contain;background-color:#000;pointer-events:none!important;-webkit-appearance:none;appearance:none}
-#launch-animation *{pointer-events:none!important}
-#launch-animation video::-webkit-media-controls{display:none!important}
-#launch-animation video::-webkit-media-controls-start-playback-button{display:none!important}
-#launch-animation video::-webkit-media-controls-overlay-play-button{display:none!important}
+#launch-animation video{width:calc(100% + constant(safe-area-inset-left) + constant(safe-area-inset-right));height:calc(100% + constant(safe-area-inset-top) + constant(safe-area-inset-bottom));margin-left:calc(-1 * constant(safe-area-inset-left));margin-right:calc(-1 * constant(safe-area-inset-right));margin-top:calc(-1 * constant(safe-area-inset-top));margin-bottom:calc(-1 * constant(safe-area-inset-bottom));width:calc(100% + env(safe-area-inset-left) + env(safe-area-inset-right));height:calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));margin-left:calc(-1 * env(safe-area-inset-left));margin-right:calc(-1 * env(safe-area-inset-right));margin-top:calc(-1 * env(safe-area-inset-top));margin-bottom:calc(-1 * env(safe-area-inset-bottom));max-width:100%;max-height:100%;display:block;object-fit:contain;background-color:#000;pointer-events:none!important;-webkit-appearance:none;appearance:none;opacity:0;transition:opacity 140ms ease;z-index:1}
+
+/* Only reveal the video once playback is confirmed (prevents iOS “play” glyph showing) */
+#launch-animation.is-playing video{opacity:1}
+
+/* Default: nothing inside launch overlay is clickable except Skip */
+#launch-animation *{pointer-events:none}
+/* Kill all iOS media UI surfaces */
+#launch-animation video::-webkit-media-controls,
+#launch-animation video::-webkit-media-controls-panel,
+#launch-animation video::-webkit-media-controls-start-playback-button,
+#launch-animation video::-webkit-media-controls-overlay-play-button{display:none!important;opacity:0!important}
 #launch-animation video::-webkit-media-controls-panel{display:none!important}
 #launch-animation video::-webkit-media-controls-enclosure{display:none!important}
 #launch-animation video::-webkit-media-controls-play-button{display:none!important}
@@ -320,9 +329,180 @@ body.launching #launch-animation{opacity:1;visibility:visible}
 #launch-animation video::-webkit-media-controls-current-time-display{display:none!important}
 #launch-animation video::-webkit-media-controls-time-remaining-display{display:none!important}
 #launch-animation video::-webkit-media-controls-mute-button{display:none!important}
-.launch-animation__skip{position:fixed;left:50%;bottom:20px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:none;border:none;color:rgba(255,255,255,.85);font:inherit;text-transform:none;letter-spacing:normal;text-shadow:none;text-decoration:underline;text-decoration-thickness:.08em;text-underline-offset:.2em;padding:0;cursor:pointer;pointer-events:auto!important;z-index:1;touch-action:manipulation;-webkit-appearance:none;appearance:none;border-radius:0;-webkit-tap-highlight-color:transparent}
+.launch-animation__skip{position:fixed;left:50%;bottom:20px;bottom:calc(20px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:none;border:none;color:rgba(255,255,255,.85);font:inherit;text-transform:none;letter-spacing:normal;text-shadow:none;text-decoration:underline;text-decoration-thickness:.08em;text-underline-offset:.2em;padding:0;cursor:pointer;pointer-events:none!important;z-index:5;touch-action:manipulation;-webkit-appearance:none;appearance:none;border-radius:0;-webkit-tap-highlight-color:transparent;opacity:0;visibility:hidden;transition:opacity 260ms ease}
+.launch-animation__skip.is-visible{opacity:1;pointer-events:auto!important;visibility:visible}
 .launch-animation__skip:focus-visible{outline:none;text-decoration-thickness:.12em;text-underline-offset:.18em;color:var(--accent)}
 body:not(.no-hover) .launch-animation__skip:hover{color:var(--accent)}
+/* Skip becomes clickable only when it is visible */
+
+/* -------------------------------------------------------------------------- */
+/* Welcome modal redesign for the new launcher                                */
+/* Keeps existing text + buttons, rebuilds the look via CSS + light structure  */
+/* -------------------------------------------------------------------------- */
+/* Overlay container (this is the backdrop in your modal system) */
+#modal-welcome.hidden,
+#modal-welcome[aria-hidden="true"]{
+  display:none !important;
+}
+#modal-welcome:not(.hidden)[aria-hidden="false"]{
+  display:flex;
+}
+
+#modal-welcome.overlay{
+  position:fixed;
+  inset:0;
+  z-index:2200;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  padding-top:calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+  background:radial-gradient(1200px 700px at 50% 30%, rgba(0,0,0,0.18), rgba(0,0,0,0.78));
+  backdrop-filter:blur(10px) saturate(1.15);
+  -webkit-backdrop-filter:blur(10px) saturate(1.15);
+}
+
+/* Launch-themed tokens */
+html.cc-welcome-from-launch #modal-welcome{
+  --welcome-surface: color-mix(in oklab, var(--surface, rgba(20,20,28,0.92)) 78%, #000 22%);
+  --welcome-border: color-mix(in oklab, var(--accent, #00e5ff) 35%, rgba(255,255,255,0.15) 65%);
+  --welcome-glow: color-mix(in oklab, var(--accent, #00e5ff) 22%, transparent 78%);
+}
+
+/* Frame and panel */
+#modal-welcome .modal-frame{
+  width:min(560px, calc(100vw - 32px));
+  max-height:min(82vh, calc(100dvh - 56px));
+  position:relative;
+  display:block;
+}
+
+#modal-welcome .modal-frame > .modal{
+  width:100%;
+  max-height:inherit;
+  overflow:hidden;
+  border-radius:18px;
+  background:var(--welcome-surface, rgba(20,20,28,0.92));
+  border:1px solid var(--welcome-border, rgba(255,255,255,0.16));
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(255,255,255,0.06) inset,
+    0 0 40px var(--welcome-glow, rgba(0,229,255,0.12));
+}
+
+/* Close button: keep it, but make it feel like the launcher chrome */
+#modal-welcome .modal > .x{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.88);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* Header */
+#modal-welcome .welcome__header{
+  padding:14px 16px 10px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.00));
+  border-bottom:1px solid rgba(255,255,255,0.10);
+}
+
+#modal-welcome .welcome-modal__title{
+  margin:0;
+  font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+  letter-spacing:var(--title-letter-spacing);
+  font-weight:700;
+  font-size:1.15rem;
+  line-height:1.15;
+  color:var(--accent);
+}
+
+/* Body */
+#modal-welcome .welcome__body{
+  padding:14px 16px 12px;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  max-height:calc(min(82vh, 100dvh) - 132px);
+}
+
+#modal-welcome .welcome__body p{
+  color:color-mix(in oklab, var(--text) 88%, rgba(255,255,255,0.45) 12%);
+  margin:0 0 10px;
+}
+
+#modal-welcome .welcome-modal__tab-label{
+  color:color-mix(in oklab, var(--accent) 70%, var(--text) 30%);
+  font-weight:600;
+}
+
+/* Preference row */
+#modal-welcome .welcome-modal__preference{
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid rgba(255,255,255,0.10);
+}
+
+#modal-welcome .welcome-modal__preference-label{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  user-select:none;
+  cursor:pointer;
+  color:color-mix(in oklab, var(--text) 88%, rgba(255,255,255,0.35) 12%);
+}
+
+#modal-welcome #welcome-hide-toggle{
+  width:18px;
+  height:18px;
+  accent-color:var(--accent);
+}
+
+/* Actions row */
+#modal-welcome .welcome__options.actions{
+  padding:12px 16px 16px;
+  border-top:1px solid rgba(255,255,255,0.10);
+  background:linear-gradient(180deg, rgba(255,255,255,0.00), rgba(0,0,0,0.14));
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  justify-content:flex-end;
+}
+
+/* Buttons: launcher-native look without changing ids/classes */
+#modal-welcome .welcome__options.actions button{
+  border-radius:12px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.06);
+  color:var(--text);
+  box-shadow:0 0 0 1px rgba(0,0,0,0.25) inset;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+
+/* Make “Create” read as primary without renaming anything */
+#modal-welcome #welcome-create-character{
+  border-color:color-mix(in oklab, var(--accent) 55%, rgba(255,255,255,0.20) 45%);
+  background:color-mix(in oklab, var(--accent) 22%, rgba(255,255,255,0.06) 78%);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.25) inset,
+    0 0 22px color-mix(in oklab, var(--accent) 25%, transparent 75%);
+}
+
+#modal-welcome .welcome__options.actions button:focus-visible,
+#modal-welcome .modal > .x:focus-visible{
+  outline:none;
+  box-shadow:
+    0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent 45%),
+    0 0 0 6px rgba(0,0,0,0.35);
+}
 ::selection{background:var(--accent);color:var(--text-on-accent)}
 h1,h2,h3,h4{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);word-spacing:var(--title-word-spacing);line-height:1.25;margin:0 0 .5em}
 h1{font-size:clamp(1.75rem,4.6vw,2rem);font-weight:700;color:var(--accent)}
@@ -10139,6 +10319,161 @@ body {
   z-index: 10;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Launcher Main Menu (integrated)                                            */
+/* -------------------------------------------------------------------------- */
+.pt-main-menu{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  padding:14px;
+  padding-top:calc(14px + env(safe-area-inset-top, 0px));
+  padding-bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity 160ms ease, transform 160ms ease;
+}
+
+html[data-pt-phone-open="1"] .pt-main-menu[aria-hidden="false"]{
+  opacity:1;
+  pointer-events:auto;
+  transform:translateY(0);
+}
+
+.pt-main-menu__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 10px 12px;
+  border-radius:16px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.10);
+  box-shadow:0 10px 30px rgba(0,0,0,0.35);
+}
+
+.pt-main-menu__brand{display:flex;align-items:center;gap:10px;min-width:0}
+.pt-main-menu__logo{width:34px;height:34px;border-radius:10px;display:block}
+.pt-main-menu__titles{min-width:0}
+.pt-main-menu__title{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);color:var(--accent);font-weight:700;line-height:1.1}
+.pt-main-menu__subtitle{font-size:0.9rem;color:color-mix(in oklab, var(--text) 70%, rgba(255,255,255,0.35) 30%)}
+
+.pt-main-menu__close{
+  width:40px;height:40px;border-radius:14px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06);
+  color:rgba(255,255,255,0.88);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.pt-main-menu__content{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:10px;
+}
+
+/* Launcher ticker slots */
+.pt-main-menu__tickers{
+  margin-top:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.pt-ticker-slot{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.05);
+  box-shadow:0 10px 30px rgba(0,0,0,0.25);
+  overflow:hidden;
+}
+
+.pt-ticker-slot__label{
+  flex:0 0 auto;
+  font-size:0.75rem;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  opacity:0.75;
+  color:color-mix(in oklab, var(--text) 85%, rgba(255,255,255,0.25) 15%);
+}
+
+.pt-ticker-slot__rail{
+  flex:1 1 auto;
+  min-width:0;
+  min-height:1.6em;
+  overflow:hidden;
+  display:block;
+}
+
+.pt-ticker-slot__rail > *{
+  max-width:100%;
+}
+
+.pt-main-menu__item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 12px;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.05);
+  color:var(--text);
+  cursor:pointer;
+  text-align:left;
+  touch-action:manipulation;
+}
+
+.pt-main-menu__icon{width:28px;height:28px;display:grid;place-items:center;font-size:1.1rem;flex:0 0 auto}
+.pt-main-menu__text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pt-main-menu__name{font-weight:700}
+.pt-main-menu__desc{font-size:0.9rem;color:color-mix(in oklab, var(--text) 70%, rgba(255,255,255,0.35) 30%);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.pt-main-menu__footer{
+  margin-top:auto;
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  padding-top:10px;
+}
+
+.pt-main-menu__footer-btn{
+  border-radius:14px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06);
+  color:var(--text);
+  cursor:pointer;
+  touch-action:manipulation;
+}
+
+.pt-main-menu__item:focus-visible,
+.pt-main-menu__close:focus-visible,
+.pt-main-menu__footer-btn:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent 45%), 0 0 0 6px rgba(0,0,0,0.35);
+}
+
+html[data-pt-phone-open="1"] [data-pt-launcher] #pt-main-menu{
+  pointer-events:auto;
+}
+
+html[data-pt-phone-open="1"] [data-pt-launcher] #pt-main-menu .pt-main-menu__item,
+html[data-pt-phone-open="1"] [data-pt-launcher] #pt-main-menu .pt-main-menu__close,
+html[data-pt-phone-open="1"] [data-pt-launcher] #pt-main-menu .pt-main-menu__footer-btn{
+  pointer-events:auto;
+}
+
 .pt-card {
   padding: 1.25rem;
   border-radius: 18px;
@@ -11061,10 +11396,6 @@ html[data-pt-phone-open="1"] [data-pt-launcher] * {
 html,body{min-height:100%;}
 body{background:var(--bg);background-size:cover;background-repeat:no-repeat;background-position:center;}
 #launch-animation video::-webkit-media-controls-start-playback-button,#launch-animation video::-webkit-media-controls{display:none!important;}
-#launch-animation{pointer-events:none!important;}
-#launch-animation video{pointer-events:none!important;}
-#launch-animation *{pointer-events:none!important;}
-#launch-animation .launch-animation__skip{pointer-events:auto!important;touch-action:manipulation;}
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) header .tabs,
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) header .ticker-drawer__pull,
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) #player-tools-tab{pointer-events:auto;touch-action:manipulation;}
