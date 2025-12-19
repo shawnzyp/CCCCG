@@ -302,14 +302,17 @@ body.player-tools-open{overflow:hidden}
 body.player-tools-open .app-shell{touch-action:none}
 body.player-tools-open .player-tools-drawer,
 body.player-tools-open .player-tools-drawer__content{touch-action:pan-y}
-#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:#000;z-index:2000;opacity:0;pointer-events:none!important;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;width:100vw;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box}
+/* Launch overlay should block the page during launch (prevents stray taps behind it). */
+#launch-animation{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:0;background:#000;z-index:2000;opacity:0;pointer-events:auto;transition:opacity .6s ease,visibility .6s ease;visibility:hidden;width:100vw;height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;box-sizing:border-box}
 body.launching #launch-animation{opacity:1;visibility:visible}
 #launch-animation[data-hidden="true"]{opacity:0;visibility:hidden;pointer-events:none!important;display:none !important}
 #launch-animation video{width:calc(100% + constant(safe-area-inset-left) + constant(safe-area-inset-right));height:calc(100% + constant(safe-area-inset-top) + constant(safe-area-inset-bottom));margin-left:calc(-1 * constant(safe-area-inset-left));margin-right:calc(-1 * constant(safe-area-inset-right));margin-top:calc(-1 * constant(safe-area-inset-top));margin-bottom:calc(-1 * constant(safe-area-inset-bottom));width:calc(100% + env(safe-area-inset-left) + env(safe-area-inset-right));height:calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));margin-left:calc(-1 * env(safe-area-inset-left));margin-right:calc(-1 * env(safe-area-inset-right));margin-top:calc(-1 * env(safe-area-inset-top));margin-bottom:calc(-1 * env(safe-area-inset-bottom));max-width:100%;max-height:100%;display:block;object-fit:contain;background-color:#000;pointer-events:none!important;-webkit-appearance:none;appearance:none;opacity:0;transition:opacity 140ms ease}
 
 /* Only reveal the video once playback is confirmed (prevents iOS “play” glyph showing) */
 #launch-animation.is-playing video{opacity:1}
-#launch-animation *{pointer-events:none!important}
+
+/* Default: nothing inside launch overlay is clickable except Skip */
+#launch-animation *{pointer-events:none}
 /* Kill all iOS media UI surfaces */
 #launch-animation video::-webkit-media-controls,
 #launch-animation video::-webkit-media-controls-panel,
@@ -329,8 +332,7 @@ body.launching #launch-animation{opacity:1;visibility:visible}
 .launch-animation__skip.is-visible{opacity:1;pointer-events:auto!important}
 .launch-animation__skip:focus-visible{outline:none;text-decoration-thickness:.12em;text-underline-offset:.18em;color:var(--accent)}
 body:not(.no-hover) .launch-animation__skip:hover{color:var(--accent)}
-/* Ensure the launch overlay never eats clicks except Skip */
-#launch-animation{pointer-events:none!important}
+/* Explicitly allow Skip to be clickable */
 #launch-animation .launch-animation__skip{pointer-events:auto!important}
 ::selection{background:var(--accent);color:var(--text-on-accent)}
 h1,h2,h3,h4{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);word-spacing:var(--title-word-spacing);line-height:1.25;margin:0 0 .5em}
@@ -11070,11 +11072,6 @@ html[data-pt-phone-open="1"] [data-pt-launcher] * {
 html,body{min-height:100%;}
 body{background:var(--bg);background-size:cover;background-repeat:no-repeat;background-position:center;}
 #launch-animation video::-webkit-media-controls-start-playback-button,#launch-animation video::-webkit-media-controls{display:none!important;}
-#launch-animation{pointer-events:none!important;}
-#launch-animation video{pointer-events:none!important;}
-#launch-animation *{pointer-events:none!important;}
-#launch-animation .launch-animation__skip{pointer-events:none!important;touch-action:manipulation;}
-#launch-animation .launch-animation__skip.is-visible{pointer-events:auto!important;}
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) header .tabs,
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) header .ticker-drawer__pull,
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) #player-tools-tab{pointer-events:auto;touch-action:manipulation;}
