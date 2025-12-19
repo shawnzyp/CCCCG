@@ -2346,6 +2346,9 @@ let welcomeShownFromLaunch = false;
 function markLaunchComplete(reason = 'ended') {
   launchComplete = true;
   try { document.documentElement.setAttribute('data-cc-launch-complete', '1'); } catch {}
+  try {
+    document.documentElement.classList.add('cc-launch-complete');
+  } catch {}
   // If welcome is not dismissed yet, ensure it is visible now (during app warmup)
   tryShowWelcomeForLaunch(reason);
 }
@@ -2360,6 +2363,9 @@ function tryShowWelcomeForLaunch(reason = '') {
   try {
     lockTouchControls();
   } catch {}
+
+  // Mark this as a launch-driven welcome so CSS can theme it to match the launcher.
+  try { document.documentElement.classList.add('cc-welcome-from-launch'); } catch {}
 
   // Queue welcome ASAP; it can still decide to background-only when launching
   try {
@@ -2511,6 +2517,7 @@ function dismissWelcomeModal() {
 
   // If intro already completed, we can safely begin offline prefetch after the user lands
   try {
+    try { document.documentElement.classList.remove('cc-welcome-from-launch'); } catch {}
     if (launchComplete) scheduleOfflinePrefetch(1200);
   } catch {}
 }

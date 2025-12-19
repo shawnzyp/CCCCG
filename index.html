@@ -32,6 +32,9 @@
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
+<!-- Prime the intro asset for quicker repeat launches (HTTP cache). -->
+<!-- Keep this as preload, not autoplay or it will fight the boot controller on iOS. -->
+<link rel="preload" as="video" href="images/images_b02fb7b3-095b-4e40-9e4e-20fb5ee3b4b9.mp4" type="video/mp4"/>
 </head>
 <body class="launching no-hover">
 <svg
@@ -77,6 +80,7 @@
 </div>
 <script>
   (function () {
+    var ended = false;
     // Launch Boot Controller
     // Goals:
     // - Always show intro video with no visible controls or play UI
@@ -155,7 +159,21 @@
       return true;
     }
 
+    function primeMp4Cache(url) {
+      // Best-effort: warm the HTTP cache so repeat launches load faster.
+      // No service worker required.
+      try {
+        if (!url || typeof fetch !== 'function') return;
+        // Avoid duplicating a request if the browser already preloaded it.
+        fetch(url, { method: 'GET', cache: 'force-cache', credentials: 'same-origin' })
+          .then(function () { /* ignore */ })
+          .catch(function () { /* ignore */ });
+      } catch (e) {}
+    }
+
     function endLaunch(reason) {
+      if (ended) return;
+      ended = true;
       // Hide launch overlay and request the welcome modal while app finishes
       try { body.classList.remove('launching'); } catch (e) {}
       try { launchEl.setAttribute('data-hidden', 'true'); } catch (e) {}
@@ -177,7 +195,15 @@
     markVideoNotPlaying();
 
     hardenVideoEl();
-    setVideoSrcFromData();
+    (function () {
+      var mp4 = video.getAttribute('data-src-mp4');
+      if (!mp4) {
+        var source = video.querySelector('source[data-src]');
+        mp4 = source ? source.getAttribute('data-src') : null;
+      }
+      if (mp4) primeMp4Cache(mp4);
+      setVideoSrcFromData();
+    })();
 
     // Keep the video visually hidden until Safari confirms playback.
     // This prevents the iOS “play” glyph from ever being visible.
@@ -202,10 +228,12 @@
 
     // If playback starts (or even begins time advancing), reveal video.
     video.addEventListener('playing', function () {
+      if (ended) return;
       markVideoPlaying();
     }, { passive: true });
 
     video.addEventListener('timeupdate', function () {
+      if (ended) return;
       // Some Safari builds fire timeupdate before playing; treat that as “good enough”
       try {
         if (video.currentTime > 0.05) markVideoPlaying();
@@ -214,6 +242,7 @@
 
     // If Safari pauses itself, re-hide video to avoid showing the play glyph.
     video.addEventListener('pause', function () {
+      if (ended) return;
       // Only re-hide if we are still launching (during intro)
       try {
         if (body.classList.contains('launching')) markVideoNotPlaying();
@@ -1368,34 +1397,38 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-    <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
-    <p><u>Create or Load Your Hero Profile</u><br>
-    This is your Vigilante record. Without it, you don’t exist in the Core.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Use the Tabs</u><br>
-    <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
-    <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
-    <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
-    <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
-    <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Save &amp; Sync</u><br>
-    Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><strong>O.M.N.I. Command</strong></p>
-    <div class="welcome-modal__preference">
-      <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
-        <input type="checkbox" id="welcome-hide-toggle">
-        Don't show this again
-      </label>
-    </div>
-    <div class="actions">
-      <button id="welcome-create-character" type="button">Create New Character</button>
-      <button id="welcome-load-character" type="button">Load Character</button>
-      <button id="welcome-skip" type="button">Skip</button>
-    </div>
+      <div class="welcome__header">
+        <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
+      </div>
+      <div class="welcome__body">
+        <p><u>Create or Load Your Hero Profile</u><br>
+        This is your Vigilante record. Without it, you don’t exist in the Core.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p><u>Use the Tabs</u><br>
+        <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
+        <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
+        <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
+        <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
+        <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p><u>Save &amp; Sync</u><br>
+        Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
+        <p aria-hidden="true">&nbsp;</p>
+        <p><strong>O.M.N.I. Command</strong></p>
+        <div class="welcome-modal__preference">
+          <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
+            <input type="checkbox" id="welcome-hide-toggle">
+            Don't show this again
+          </label>
+        </div>
+      </div>
+      <div class="welcome__options actions">
+        <button id="welcome-create-character" type="button">Create New Character</button>
+        <button id="welcome-load-character" type="button">Load Character</button>
+        <button id="welcome-skip" type="button">Skip</button>
+      </div>
     </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
