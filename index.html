@@ -208,7 +208,16 @@
       if (ended) return;
       ended = true;
       try { clearTimeout(skipTimer); } catch (e) {}
-      // Hide launch overlay and request the welcome modal while app finishes
+      // Disarm video activity before hiding the overlay.
+      try { video.pause(); } catch (e) {}
+      try { video.removeAttribute('src'); } catch (e) {}
+      try {
+        var sourceEl = video.querySelector('source');
+        if (sourceEl) sourceEl.removeAttribute('src');
+        video.load();
+      } catch (e) {}
+
+      // Hide launch overlay and request the welcome modal while app finishes.
       try { body.classList.remove('launching'); } catch (e) {}
       try { launchEl.setAttribute('data-hidden', 'true'); } catch (e) {}
       try { launchEl.setAttribute('aria-hidden', 'true'); } catch (e) {}
@@ -216,9 +225,9 @@
       try { window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() }; } catch (e) {}
       safeDispatch('cc:launch-complete', { reason: reason || 'ended' });
 
-      // HARD REMOVE so it can never eat clicks later (even if CSS/attrs get weird)
+      // Keep the overlay in the DOM; iOS can still dispatch video events after teardown.
       try {
-        if (launchEl && launchEl.parentNode) launchEl.parentNode.removeChild(launchEl);
+        launchEl.setAttribute('data-launch-disarmed', 'true');
       } catch (e) {}
     }
 

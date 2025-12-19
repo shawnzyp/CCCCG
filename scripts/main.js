@@ -2393,7 +2393,7 @@ function tryShowWelcomeForLaunch(reason = '') {
 if (typeof window !== 'undefined') {
   window.addEventListener('cc:launch-complete', (e) => {
     const reason = e && e.detail && e.detail.reason ? String(e.detail.reason) : 'ended';
-    markLaunchComplete(reason);
+    setTimeout(() => markLaunchComplete(reason), 0);
   }, { passive: true });
   try {
     const prior = window.__ccLaunchComplete;
@@ -2694,18 +2694,20 @@ function wireLauncherMainMenu() {
   // This relies on your existing attribute that marks the phone as open.
   if (!launcherMenuObserverWired) {
     const root = document.documentElement;
-    const obs = new MutationObserver(() => {
-      const open = root.getAttribute('data-pt-phone-open') === '1';
-      if (open) {
-        showLauncherMainMenu();
-        mountTickersIntoLauncher();
-      } else {
-        hideLauncherMainMenu();
-        restoreTickersFromLauncher();
-      }
-    });
-    obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
-    launcherMenuObserverWired = true;
+    if (typeof MutationObserver === 'function') {
+      const obs = new MutationObserver(() => {
+        const open = root.getAttribute('data-pt-phone-open') === '1';
+        if (open) {
+          showLauncherMainMenu();
+          mountTickersIntoLauncher();
+        } else {
+          hideLauncherMainMenu();
+          restoreTickersFromLauncher();
+        }
+      });
+      obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
+      launcherMenuObserverWired = true;
+    }
   }
 }
 

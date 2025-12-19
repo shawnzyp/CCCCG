@@ -371,16 +371,18 @@ html.cc-welcome-from-launch #modal-welcome{
 
 /* Frame and panel */
 #modal-welcome .modal-frame{
-  width:min(560px, calc(100vw - 32px));
-  max-height:min(82vh, calc(100dvh - 56px));
+  width:min(520px, calc(100vw - 24px));
+  max-height:calc(100dvh - 24px);
   position:relative;
   display:block;
 }
 
 #modal-welcome .modal-frame > .modal{
   width:100%;
-  max-height:inherit;
-  overflow:hidden;
+  max-height:calc(100dvh - 24px);
+  display:flex;
+  flex-direction:column;
+  overflow:visible;
   border-radius:18px;
   background:var(--welcome-surface, rgba(20,20,28,0.92));
   border:1px solid var(--welcome-border, rgba(255,255,255,0.16));
@@ -426,15 +428,19 @@ html.cc-welcome-from-launch #modal-welcome{
 
 /* Body */
 #modal-welcome .welcome__body{
-  padding:14px 16px 12px;
-  overflow:auto;
-  -webkit-overflow-scrolling:touch;
-  max-height:calc(min(82vh, 100dvh) - 132px);
+  padding:12px 14px 10px;
+  overflow:visible;
+  -webkit-overflow-scrolling:auto;
+  max-height:none;
 }
 
 #modal-welcome .welcome__body p{
   color:color-mix(in oklab, var(--text) 88%, rgba(255,255,255,0.45) 12%);
   margin:0 0 10px;
+}
+
+#modal-welcome .welcome__body p[aria-hidden="true"]{
+  display:none;
 }
 
 #modal-welcome .welcome-modal__tab-label{
@@ -473,6 +479,13 @@ html.cc-welcome-from-launch #modal-welcome{
   flex-wrap:wrap;
   gap:10px;
   justify-content:flex-end;
+}
+
+@media (max-height:760px){
+  #modal-welcome .welcome__header{padding:10px 12px 8px}
+  #modal-welcome .welcome-modal__title{font-size:1.02rem}
+  #modal-welcome .welcome__body p{margin:0 0 6px;font-size:.92rem;line-height:1.35}
+  #modal-welcome .welcome__options.actions{padding:10px 12px 12px;gap:8px}
 }
 
 /* Buttons: launcher-native look without changing ids/classes */
