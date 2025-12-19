@@ -2551,6 +2551,95 @@ function hideLauncherMainMenu() {
   try { menu.hidden = true; } catch {}
 }
 
+// ---------------------------------------------------------------------------
+// Ticker mounting (move existing tickers into Player OS menu while open)
+// ---------------------------------------------------------------------------
+let tickerMountState = null;
+
+function findMainTickers() {
+  const primary =
+    document.querySelector('.news-ticker:not(.news-ticker--m24n)') ||
+    document.querySelector('[data-ticker="primary"]') ||
+    document.querySelector('#ticker-primary') ||
+    document.querySelector('.ticker--primary') ||
+    document.querySelector('.ticker[data-kind="primary"]') ||
+    null;
+  const secondary =
+    document.querySelector('.news-ticker--m24n') ||
+    document.querySelector('[data-ticker="secondary"]') ||
+    document.querySelector('#ticker-secondary') ||
+    document.querySelector('.ticker--secondary') ||
+    document.querySelector('.ticker[data-kind="secondary"]') ||
+    null;
+  return { primary, secondary };
+}
+
+function getLauncherTickerRail(kind) {
+  try { return document.querySelector('[data-pt-ticker-rail="' + kind + '"]'); } catch { return null; }
+}
+
+function makeAnchorBefore(node) {
+  if (!node || !node.parentNode) return null;
+  const anchor = document.createComment('cc:ticker-anchor');
+  try { node.parentNode.insertBefore(anchor, node); } catch {}
+  return anchor;
+}
+
+function captureTickerMountStateOnce(primary, secondary) {
+  if (tickerMountState) return;
+  tickerMountState = {
+    primary: primary ? { node: primary, anchor: makeAnchorBefore(primary) } : null,
+    secondary: secondary ? { node: secondary, anchor: makeAnchorBefore(secondary) } : null,
+  };
+}
+
+function mountTickersIntoLauncher({ allowRetry = true } = {}) {
+  const menu = getLauncherMainMenu();
+  if (!menu) return;
+
+  const railPrimary = getLauncherTickerRail('primary');
+  const railSecondary = getLauncherTickerRail('secondary');
+  const { primary, secondary } = findMainTickers();
+
+  if (allowRetry && !primary && !secondary) {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => mountTickersIntoLauncher({ allowRetry: false }));
+    }
+    return;
+  }
+
+  if (!railPrimary && !railSecondary) return;
+  if (!primary && !secondary) return;
+
+  captureTickerMountStateOnce(primary, secondary);
+
+  try { if (primary && railPrimary && primary.parentNode !== railPrimary) railPrimary.appendChild(primary); } catch {}
+  try { if (secondary && railSecondary && secondary.parentNode !== railSecondary) railSecondary.appendChild(secondary); } catch {}
+
+  try { menu.classList.add('pt-main-menu--has-tickers'); } catch {}
+}
+
+function restoreTickersFromLauncher() {
+  const state = tickerMountState;
+  if (!state) return;
+  const menu = getLauncherMainMenu();
+
+  function restore(entry) {
+    if (!entry || !entry.node) return;
+    if (entry.anchor && entry.anchor.parentNode) {
+      try { entry.anchor.parentNode.insertBefore(entry.node, entry.anchor); } catch {}
+      try { entry.anchor.parentNode.removeChild(entry.anchor); } catch {}
+      return;
+    }
+  }
+
+  restore(state.primary);
+  restore(state.secondary);
+
+  tickerMountState = null;
+  try { if (menu) menu.classList.remove('pt-main-menu--has-tickers'); } catch {}
+}
+
 function wireLauncherMainMenu() {
   if (launcherMenuWired) return;
   const menu = getLauncherMainMenu();
@@ -2592,8 +2681,13 @@ function wireLauncherMainMenu() {
     const root = document.documentElement;
     const obs = new MutationObserver(() => {
       const open = root.getAttribute('data-pt-phone-open') === '1';
-      if (open) showLauncherMainMenu();
-      else hideLauncherMainMenu();
+      if (open) {
+        showLauncherMainMenu();
+        mountTickersIntoLauncher();
+      } else {
+        hideLauncherMainMenu();
+        restoreTickersFromLauncher();
+      }
     });
     obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
     launcherMenuObserverWired = true;
@@ -2614,7 +2708,10 @@ if (typeof window !== 'undefined') {
   window.addEventListener('cc:pt-welcome-dismissed', () => {
     try {
       const open = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-      if (open) showLauncherMainMenu();
+      if (open) {
+        showLauncherMainMenu();
+        mountTickersIntoLauncher();
+      }
     } catch {}
   }, { passive: true });
 }
