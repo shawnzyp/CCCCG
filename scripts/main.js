@@ -130,6 +130,8 @@ import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
 
 installGlobalErrorInbox();
+performance.mark('cc:main:top');
+window.__cccgBreadcrumb?.('boot', 'main.js start');
 window.__cccgBreadcrumb?.('boot', 'main.js imported');
 
 const MENU_MODAL_STATE = new Map();
@@ -202,6 +204,18 @@ const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+
+function runWhenIdle(cb, timeout = 2000) {
+  try {
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => cb(), { timeout });
+    } else {
+      setTimeout(() => cb(), 50);
+    }
+  } catch {
+    setTimeout(() => cb(), 50);
+  }
+}
 
 function cancelFx(el) {
   if (!el) return;
@@ -24734,15 +24748,23 @@ if (!document.body?.classList?.contains('launching')) {
 }
 
 /* ========= boot ========= */
-setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
-setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
-setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
-setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
-setupFactionRepTracker(handlePerkEffects, pushHistory);
 updateDerived();
-applyEditIcons();
-applyDeleteIcons();
-applyLockIcons();
+runWhenIdle(() => {
+  try { setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS); } catch (e) { console.error(e); }
+  try { setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS); } catch (e) { console.error(e); }
+  try { setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS); } catch (e) { console.error(e); }
+  try { setupPerkSelect('origin','origin-perks', ORIGIN_PERKS); } catch (e) { console.error(e); }
+  try { setupFactionRepTracker(handlePerkEffects, pushHistory); } catch (e) { console.error(e); }
+
+  try { applyEditIcons(); } catch (e) { console.error(e); }
+  try { applyDeleteIcons(); } catch (e) { console.error(e); }
+  try { applyLockIcons(); } catch (e) { console.error(e); }
+
+  window.__cccgBreadcrumb?.('boot', 'idle init complete');
+});
+performance.mark('cc:boot:done');
+performance.measure('cc:boot', 'cc:main:top', 'cc:boot:done');
+console.warn('[BootTiming] cc:boot ms =', performance.getEntriesByName('cc:boot').slice(-1)[0]?.duration);
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';
