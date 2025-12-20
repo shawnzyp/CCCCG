@@ -2791,7 +2791,11 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     try { document.body?.classList.remove('launching'); } catch {}
     markLaunchSequenceComplete();
     queueWelcomeModal({ immediate: true });
-    safeUnlockTouchControls({ immediate: true });
+    if (typeof safeUnlockTouchControls === 'function') {
+      safeUnlockTouchControls({ immediate: true });
+    } else {
+      unlockTouchControls();
+    }
     return;
   }
 

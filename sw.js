@@ -56,16 +56,7 @@ async function fetchManifestFromNetwork() {
   if (!isValidManifest(manifest)) {
     throw new Error('Invalid asset manifest received');
   }
-  try {
-    const cache = await caches.open(MANIFEST_CACHE);
-    await cache.put(MANIFEST_URL, response.clone());
-    await cache.put(
-      resolveAssetUrl(MANIFEST_META_URL),
-      new Response(JSON.stringify({ cachedAt: Date.now() }), {
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-  } catch (err) {}
+  await cacheManifestResponse(response);
   return manifest;
 }
 

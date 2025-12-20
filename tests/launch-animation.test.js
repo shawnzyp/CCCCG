@@ -15,9 +15,6 @@ describe('launch animation early exits', () => {
     document.documentElement.setAttribute('data-pt-phone-open', '0');
     delete window.__ccLaunchComplete;
     window.scrollTo = () => {};
-    if (!HTMLElement.prototype.add) {
-      HTMLElement.prototype.add = () => {};
-    }
     Object.defineProperty(window.navigator, 'userAgent', {
       value: 'Mozilla/5.0',
       configurable: true,
@@ -26,7 +23,10 @@ describe('launch animation early exits', () => {
     document.getElementById = id => {
       const existing = originalGetElementById(id);
       if (existing) return existing;
-      const fallback = document.createElement('div');
+      // NOTE: fallback elements are generated to let the full script import run in JSDOM.
+      // This can hide missing-element bugs, so keep these tests focused on launch flow only.
+      const fallback = document.createElement('select');
+      fallback.value = '';
       fallback.id = id;
       document.body.appendChild(fallback);
       return fallback;
