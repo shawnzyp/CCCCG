@@ -8,6 +8,8 @@ async function loadMain() {
 }
 
 describe('main.js import safety', () => {
+  let originalGetElementById;
+
   beforeEach(() => {
     jest.resetModules();
     document.body.className = 'launching touch-controls-disabled';
@@ -15,7 +17,7 @@ describe('main.js import safety', () => {
     document.documentElement.setAttribute('data-pt-phone-open', '0');
     delete window.__ccLaunchComplete;
     window.scrollTo = () => {};
-    const originalGetElementById = document.getElementById.bind(document);
+    originalGetElementById = document.getElementById.bind(document);
     document.getElementById = id => {
       const existing = originalGetElementById(id);
       if (existing) return existing;
@@ -25,6 +27,12 @@ describe('main.js import safety', () => {
       document.body.appendChild(fallback);
       return fallback;
     };
+  });
+
+  afterEach(() => {
+    if (originalGetElementById) {
+      document.getElementById = originalGetElementById;
+    }
   });
 
   test('imports without ReferenceError from window/document', async () => {

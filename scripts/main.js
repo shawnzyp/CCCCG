@@ -250,9 +250,6 @@ try {
     scheduleAnimLoad();
   }
 } catch {}
-if (typeof window !== 'undefined') {
-  setTimeout(() => scheduleAnimLoad(), 8000);
-}
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
@@ -260,6 +257,10 @@ const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+
+if (!IS_JSDOM_ENV && typeof window !== 'undefined') {
+  setTimeout(() => scheduleAnimLoad(), 8000);
+}
 
 function cancelFx(el) {
   if (!el) return;
@@ -24804,7 +24805,7 @@ const scheduleNonCriticalBoot = () => runWhenIdle(() => {
   try { applyDeleteIcons(); } catch (e) { console.error(e); }
   try { applyLockIcons(); } catch (e) { console.error(e); }
 
-  window.__cccgBreadcrumb?.('boot', 'idle init complete');
+  globalThis.__cccgBreadcrumb?.('boot', 'idle init complete');
 }, 2000);
 if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
   document.addEventListener('visibilitychange', () => {
@@ -24838,11 +24839,11 @@ if (!IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navi
   }
   if (typeof localStorage !== 'undefined' && localStorage.getItem('cc:disable-sw') === '1') {
     console.warn('[SW] Disabled by cc:disable-sw=1');
-    window.__cccgBreadcrumb?.('sw', 'service worker disabled');
+    globalThis.__cccgBreadcrumb?.('sw', 'service worker disabled');
   } else {
     setTimeout(() => {
       navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
-      window.__cccgBreadcrumb?.('sw', 'service worker register requested (delayed)');
+      globalThis.__cccgBreadcrumb?.('sw', 'service worker register requested (delayed)');
     }, 2500);
   }
   console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
