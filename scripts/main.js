@@ -11885,7 +11885,9 @@ function initPhoneRouter() {
     } catch {}
 
     try {
-      globalThis.__cccgBreadcrumb?.('phone', `screen:${nextId}`);
+      if (typeof globalThis.__cccgBreadcrumb === 'function') {
+        globalThis.__cccgBreadcrumb('phone', `screen:${nextId}`);
+      }
     } catch {}
 
     return true;
@@ -11916,10 +11918,13 @@ function initPhoneRouter() {
 
     const openBtn = target.closest('[data-pt-open-app]');
     if (openBtn) {
+      const phoneShell = document.querySelector('[data-pt-phone-shell]');
+      const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
+      if (!phoneShell || !phoneShell.contains(openBtn) || !phoneOpen) return;
+
       const id = openBtn.getAttribute('data-pt-open-app');
-      if (id) {
+      if (id && setActiveScreen(id, { push: true })) {
         event.preventDefault?.();
-        setActiveScreen(id, { push: true });
       }
       return;
     }
@@ -11941,7 +11946,9 @@ function initPhoneRouter() {
     const recentsBtn = target.closest('[data-pt-phone-recents]');
     if (recentsBtn) {
       event.preventDefault?.();
-      toast('Recents is coming soon.', 'info');
+      if (typeof toast === 'function') {
+        toast('Recents is coming soon.', 'info');
+      }
     }
   }, { passive: false });
 
