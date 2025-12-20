@@ -13298,7 +13298,24 @@ creditsLedgerFilterButtons.forEach(btn => {
 document.addEventListener('credits-ledger-updated', () => {
   renderCreditsLedger();
 });
+function prepareForModalOpen() {
+  try { hideLauncherMainMenu(); } catch {}
+  try {
+    const welcome = document.getElementById('modal-welcome');
+    if (welcome && welcome.getAttribute('aria-hidden') === 'false') {
+      hide('modal-welcome');
+      removePlayerToolsTabSuppression('welcome-modal');
+    }
+  } catch {}
+  try { lockTouchControls(); } catch {}
+}
+
+function finalizeModalClose() {
+  try { safeUnlockTouchControls({ immediate: true }); } catch {}
+}
+
 async function openCharacterList(){
+  prepareForModalOpen();
   await renderCharacterList();
   show('modal-load-list');
 }
@@ -13403,6 +13420,7 @@ if(charList){
       pendingLoad = { name: selectedChar };
       const text = $('load-confirm-text');
       if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
+      prepareForModalOpen();
       show('modal-load');
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
@@ -13471,6 +13489,7 @@ if(recoverBtn){
   recoverBtn.addEventListener('click', async ()=>{
     hide('modal-load-list');
     await renderRecoverCharList();
+    prepareForModalOpen();
     show('modal-recover-char');
   });
 }
@@ -13509,6 +13528,7 @@ if(recoverListEl){
         text.textContent = `Are you sure you would like to recover ${pendingLoad.name} from the ${descriptor} ${new Date(pendingLoad.ts).toLocaleString()}? All current progress will be lost if you haven't saved yet.`;
       }
       hide('modal-recover-list');
+      prepareForModalOpen();
       show('modal-load');
     }
   });
@@ -13545,6 +13565,7 @@ async function doLoad(){
     queueCharacterConfirmation({ name: pendingLoad.name, variant, key, meta: applied?.meta });
     hide('modal-load');
     hide('modal-load-list');
+    finalizeModalClose();
     toast(`Loaded ${pendingLoad.name}`,'success');
     playLoadAnimation();
   }catch(e){
@@ -13552,8 +13573,12 @@ async function doLoad(){
   }
 }
 if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
-if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); }); }
-qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
+if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); finalizeModalClose(); }); }
+qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{
+  const ov = b.closest('.overlay');
+  if(ov) hide(ov.id);
+  if(ov && (ov.id === 'modal-load' || ov.id === 'modal-load-list')) finalizeModalClose();
+}));
 
 function openCharacterModalByName(name){
   if(!name) return;
@@ -13561,6 +13586,7 @@ function openCharacterModalByName(name){
   pendingLoad = { name };
   const text = $('load-confirm-text');
   if(text) text.textContent = `Are you sure you would like to load this character: ${name}. All current progress will be lost if you haven't saved yet.`;
+  prepareForModalOpen();
   show('modal-load');
 }
 window.openCharacterModal = openCharacterModalByName;

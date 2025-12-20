@@ -1357,22 +1357,27 @@
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-load-list" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-load-list" aria-hidden="true" aria-labelledby="modal-load-list-title">
   <div class="modal-frame">
-    <div class="modal modal--load-save" role="dialog" aria-modal="true" tabindex="-1">
+    <section class="modal modal--load-save modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
       <button class="x" data-close aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <h3>All Characters</h3>
-      <div id="char-list" class="catalog"></div>
-      <div class="actions actions--center modal--load-save__actions">
+      <header class="modal-sheet__header">
+        <h3 id="modal-load-list-title" class="modal-sheet__title">All Characters</h3>
+        <p class="modal-sheet__subtitle">Choose a profile slot to load or manage.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <div id="char-list" class="catalog"></div>
+      </div>
+      <footer class="modal-sheet__footer actions actions--center modal--load-save__actions">
         <button id="btn-save" class="btn-sm" type="button">Save</button>
         <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
         <button id="create-character" class="btn-sm" type="button">Create New</button>
-      </div>
-    </div>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
@@ -1407,20 +1412,26 @@
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-load" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-load" aria-hidden="true" aria-labelledby="modal-load-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
       <button class="x" data-close aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <p id="load-confirm-text"></p>
-      <div class="actions">
-        <button id="load-cancel" class="btn-sm">Cancel</button>
-        <button id="load-accept" class="btn-sm">Accept</button>
+      <header class="modal-sheet__header">
+        <h3 id="modal-load-title" class="modal-sheet__title">Load Save</h3>
+        <p class="modal-sheet__subtitle">Confirm before replacing your current progress.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <p id="load-confirm-text"></p>
       </div>
-    </div>
+      <footer class="modal-sheet__footer actions">
+        <button id="load-cancel" class="btn-sm" type="button">Cancel</button>
+        <button id="load-accept" class="btn-sm" type="button">Accept</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
