@@ -1382,32 +1382,48 @@
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-recover-char" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-recover-char" aria-hidden="true" aria-labelledby="modal-recover-char-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
       <button class="x" data-close aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <h3>Select Character</h3>
-      <div id="recover-char-list" class="catalog"></div>
-    </div>
+      <header class="modal-sheet__header">
+        <h3 id="modal-recover-char-title" class="modal-sheet__title">Select Character</h3>
+        <p class="modal-sheet__subtitle">Pick a hero to browse their backups.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <div id="recover-char-list" class="catalog"></div>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-recover-list" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-recover-list" aria-hidden="true" aria-labelledby="modal-recover-list-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
       <button class="x" data-close aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <h3>Recover Backup</h3>
-      <div id="recover-list" class="catalog"></div>
-    </div>
+      <header class="modal-sheet__header">
+        <h3 id="modal-recover-list-title" class="modal-sheet__title">Recover Backup</h3>
+        <p class="modal-sheet__subtitle">Choose an auto or manual save to restore.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <div id="recover-list" class="catalog"></div>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>

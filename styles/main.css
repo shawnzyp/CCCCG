@@ -516,7 +516,7 @@ html.cc-welcome-from-launch #modal-welcome{
     0 0 0 2px color-mix(in oklab, var(--accent) 55%, transparent 45%),
     0 0 0 6px rgba(0,0,0,0.35);
 }
-/* Save/Load sheet modal layout */
+/* Universal modal sheet layout */
 .overlay.modal-sheet{
   position:fixed;
   inset:0;
@@ -532,14 +532,12 @@ html.cc-welcome-from-launch #modal-welcome{
   -webkit-backdrop-filter:blur(10px) saturate(1.1);
 }
 
-#modal-load-list .modal-frame,
-#modal-load .modal-frame{
+.overlay.modal-sheet .modal-frame{
   width:min(560px, calc(100vw - 24px));
   max-height:calc(100dvh - 24px);
 }
 
-#modal-load-list .modal,
-#modal-load .modal{
+.overlay.modal-sheet .modal--sheet{
   width:100%;
   max-height:calc(100dvh - 24px);
   display:flex;
@@ -551,30 +549,26 @@ html.cc-welcome-from-launch #modal-welcome{
   box-shadow:0 20px 60px rgba(0,0,0,0.55);
 }
 
-#modal-load-list .modal-sheet__header,
-#modal-load .modal-sheet__header{
+.overlay.modal-sheet .modal-sheet__header{
   padding:12px 14px 10px;
   border-bottom:1px solid rgba(255,255,255,0.10);
   background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.00));
 }
 
-#modal-load-list .modal-sheet__title,
-#modal-load .modal-sheet__title{
+.overlay.modal-sheet .modal-sheet__title{
   margin:0;
   font-size:1.05rem;
   line-height:1.15;
   color:var(--accent);
 }
 
-#modal-load-list .modal-sheet__subtitle,
-#modal-load .modal-sheet__subtitle{
+.overlay.modal-sheet .modal-sheet__subtitle{
   margin:6px 0 0;
   opacity:0.8;
   font-size:0.92rem;
 }
 
-#modal-load-list .modal-sheet__body,
-#modal-load .modal-sheet__body{
+.overlay.modal-sheet .modal-sheet__body{
   padding:12px 14px;
   overflow:auto;
   -webkit-overflow-scrolling:touch;
@@ -582,8 +576,7 @@ html.cc-welcome-from-launch #modal-welcome{
   min-height:0;
 }
 
-#modal-load-list .modal-sheet__footer,
-#modal-load .modal-sheet__footer{
+.overlay.modal-sheet .modal-sheet__footer{
   padding:10px 14px 14px;
   border-top:1px solid rgba(255,255,255,0.10);
   display:flex;
@@ -593,16 +586,11 @@ html.cc-welcome-from-launch #modal-welcome{
 }
 
 @media (max-height:760px){
-  #modal-load-list .modal-sheet__header,
-  #modal-load .modal-sheet__header{padding:10px 12px 8px}
-  #modal-load-list .modal-sheet__body,
-  #modal-load .modal-sheet__body{padding:10px 12px}
-  #modal-load-list .modal-sheet__footer,
-  #modal-load .modal-sheet__footer{padding:10px 12px 12px}
-  #modal-load-list .modal-sheet__title,
-  #modal-load .modal-sheet__title{font-size:1.0rem}
-  #modal-load-list .modal-sheet__subtitle,
-  #modal-load .modal-sheet__subtitle{font-size:0.88rem}
+  .overlay.modal-sheet .modal-sheet__header{padding:10px 12px 8px}
+  .overlay.modal-sheet .modal-sheet__body{padding:10px 12px}
+  .overlay.modal-sheet .modal-sheet__footer{padding:10px 12px 12px}
+  .overlay.modal-sheet .modal-sheet__title{font-size:1.0rem}
+  .overlay.modal-sheet .modal-sheet__subtitle{font-size:0.88rem}
 }
 ::selection{background:var(--accent);color:var(--text-on-accent)}
 h1,h2,h3,h4{font-family:'CFTechnoMania Slanted','Inter',system-ui,-apple-system,Segoe UI,Arial,sans-serif;letter-spacing:var(--title-letter-spacing);word-spacing:var(--title-word-spacing);line-height:1.25;margin:0 0 .5em}
