@@ -128,6 +128,7 @@ import {
 import { createVirtualizedList } from './virtualized-list.js';
 import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
+import { getDiscordAuthKey, getDiscordProxyUrl, logActivity, sendDiscordLog, setDiscordAuthKey } from './discord-activity.js';
 
 installGlobalErrorInbox();
 if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
@@ -11495,6 +11496,14 @@ function setHP(v){
     }
     window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`, { actionScope: 'minor' });
     logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
+    void logActivity({
+      type: 'hp',
+      actor: resolveActorName(),
+      before: prev,
+      after: current,
+      delta: diff,
+      max: num(elHPBar.max),
+    });
   }
   const down = wasAboveZero && current === 0;
   if(down){
@@ -11534,6 +11543,14 @@ async function setSP(v){
     }
     window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`, { actionScope: 'minor' });
     logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
+    void logActivity({
+      type: 'sp',
+      actor: resolveActorName(),
+      before: prev,
+      after: current,
+      delta: diff,
+      max: num(elSPBar.max),
+    });
     await playSPAnimation(diff);
     pushHistory();
   }
@@ -11771,6 +11788,46 @@ function logAction(text){
 window.logAction = logAction;
 window.queueCampaignLogEntry = queueCampaignLogEntry;
 
+function initDiscordLogSettings() {
+  const keyInput = $('discord-log-key');
+  const testButton = $('discord-log-test');
+  const statusEl = $('discord-log-status');
+  const proxyUrl = getDiscordProxyUrl();
+
+  const setStatus = (message) => {
+    if (!statusEl) return;
+    statusEl.textContent = message || '';
+  };
+
+  if (keyInput) {
+    keyInput.value = getDiscordAuthKey();
+    keyInput.addEventListener('input', () => {
+      setDiscordAuthKey(keyInput.value.trim());
+      setStatus(keyInput.value.trim() ? 'Key saved locally.' : 'Key cleared.');
+    });
+    keyInput.disabled = !proxyUrl;
+  }
+
+  if (testButton) {
+    testButton.disabled = !proxyUrl;
+    testButton.addEventListener('click', async () => {
+      if (!proxyUrl) {
+        toast('Discord proxy not configured.', 'warn');
+        return;
+      }
+      const ok = await sendDiscordLog(
+        { content: 'CCCG Discord log test: pipeline online.' },
+        { allowInSafeMode: true }
+      );
+      toast(ok ? 'Discord test sent.' : 'Discord test failed.', ok ? 'success' : 'warn');
+    });
+  }
+
+  if (!proxyUrl) {
+    setStatus('Proxy not configured.');
+  }
+}
+
 function resolveActorName(name = currentCharacter()){
   if(typeof name === 'string'){
     const trimmed = name.trim();
@@ -11921,6 +11978,12 @@ function queueCampaignLogEntry(text, options = {}){
   if (typeof text !== 'string' || !text.trim()) return null;
   const entry = createCampaignEntry(text, options);
   mergeCampaignEntry(entry);
+  void logActivity({
+    type: 'campaign',
+    actor: entry.name,
+    text: entry.text,
+    timestamp: entry.t,
+  });
   if (options.sync === false) return entry;
   (async () => {
     try{
@@ -12311,6 +12374,16 @@ function rollWithBonus(name, bonus, out, opts = {}){
     message += ` [${metaSections.join(' | ')}]`;
   }
   logAction(message);
+  void logActivity({
+    type: 'roll',
+    actor: resolveActorName(),
+    name,
+    total,
+    rollTotal,
+    modifier,
+    breakdown: diceSummary,
+    rollMode,
+  });
 
   if (typeof rollOptions.onRoll === 'function') {
     try {
@@ -12343,6 +12416,7 @@ function rollWithBonus(name, bonus, out, opts = {}){
 }
 renderLogs();
 renderFullLogs();
+initDiscordLogSettings();
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
 const diceSidesSelect = $('dice-sides');

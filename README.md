@@ -50,6 +50,26 @@ configure the database:
 
 The application communicates with the database using its public REST API.
 
+## Discord activity log proxy
+
+The app can post campaign/action events (rolls, HP/SP changes, campaign log entries) to Discord via a proxy Worker so webhook URLs stay private.
+
+### Deploy the Worker
+
+1. Create the Worker from `workers/cccg-discord-log`.
+2. Set secrets in the Worker environment:
+   - `DISCORD_WEBHOOK_URL` (Discord webhook URL)
+   - `CCCG_AUTH` (random long token)
+3. Deploy the Worker and note the base URL (e.g., `https://your-worker.yourdomain.workers.dev`).
+
+### Configure the client
+
+1. Update the `<meta name="discord-proxy-url">` tag in `index.html` to the Worker base URL.
+2. In the Settings screen, enter the **Discord Log Key** (the `CCCG_AUTH` token). This is stored locally as `cccg:discord-auth`.
+3. Use **Send test message** to verify the pipeline.
+
+Safe Mode disables automatic posting; the test button still works so you can verify the proxy without generating activity spam.
+
 ## DM tools access
 
 The DM tools are protected by a shared PIN represented as a salted PBKDF2 hash
@@ -99,4 +119,3 @@ duration (in milliseconds) or an options object with the following properties:
 
 The convenience method `dismissToast()` immediately hides the active toast and advances
 the queue.
-

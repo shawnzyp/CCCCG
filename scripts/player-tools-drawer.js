@@ -1,4 +1,5 @@
 import * as Characters from './characters.js';
+import { logActivity } from './discord-activity.js';
 import { emitDiceRollMessage, emitInitiativeRollMessage } from './discord-webhooks.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
@@ -703,6 +704,15 @@ function createPlayerToolsDrawer() {
         total,
         breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
       });
+      void logActivity({
+        type: 'roll',
+        actor: getActiveCharacterName(),
+        name: 'Initiative',
+        total,
+        rollTotal: roll,
+        modifier: bonus,
+        breakdown: `d20: ${roll}${bonus ? ` ${formatBonus(bonus)}` : ''}`,
+      });
     });
   };
 
@@ -728,6 +738,15 @@ function createPlayerToolsDrawer() {
         rollType: `${count}d${labelSides}`,
         formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
         total,
+        breakdown: formatDiceBreakdown(rolls, bonus),
+      });
+      void logActivity({
+        type: 'roll',
+        actor: getActiveCharacterName(),
+        name: `${count}d${labelSides}`,
+        total,
+        rollTotal: rolls.reduce((sum, value) => sum + value, 0),
+        modifier: bonus,
         breakdown: formatDiceBreakdown(rolls, bonus),
       });
     });

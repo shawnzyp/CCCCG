@@ -228,6 +228,15 @@ export function installGlobalErrorInbox() {
       copyButton.textContent = 'Copy crash report';
       copyButton.style.marginRight = '8px';
       copyButton.addEventListener('click', () => copyCrashReport(snapshot));
+      const retryButton = document.createElement('button');
+      retryButton.type = 'button';
+      retryButton.textContent = 'Retry launch';
+      retryButton.style.marginRight = '8px';
+      retryButton.addEventListener('click', () => {
+        try {
+          location.reload();
+        } catch {}
+      });
       const note = document.createElement('div');
       note.style.marginTop = '12px';
       note.textContent = 'Open DevTools Console. A report was sent (or attempted).';
@@ -235,6 +244,7 @@ export function installGlobalErrorInbox() {
       el.appendChild(line);
       el.appendChild(details);
       el.appendChild(copyButton);
+      el.appendChild(retryButton);
       el.appendChild(note);
       document.documentElement.appendChild(el);
     } catch {}

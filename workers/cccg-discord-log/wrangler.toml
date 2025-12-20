@@ -1,0 +1,6 @@
+name = "cccg-discord-log"
+main = "src/index.js"
+compatibility_date = "2024-05-01"
+
+[vars]
+# Set CCCG_AUTH and DISCORD_WEBHOOK_URL as secrets in the Worker environment.
