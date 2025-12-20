@@ -19,6 +19,13 @@ function safeString(x, max = 2000) {
   }
 }
 
+function isIgnorableErrorMessage(message) {
+  if (!message) return false;
+  const text = String(message);
+  return text.includes('ResizeObserver loop limit exceeded')
+    || text.includes('ResizeObserver loop completed with undelivered notifications');
+}
+
 function addBreadcrumb(type, data) {
   try {
     const raw = sessionStorage.getItem(BREADCRUMB_KEY);
@@ -308,6 +315,7 @@ export function installGlobalErrorInbox() {
     const message = isResourceError
       ? `Resource failed to load: ${event.target?.tagName} ${event.target?.src || event.target?.href || ''}`
       : (event?.message || 'Unknown error');
+    if (!isResourceError && isIgnorableErrorMessage(message)) return;
     const error = event?.error instanceof Error ? event.error : new Error(message);
     const stack = error?.stack || '';
     const snapshot = collectCrashSnapshot({
