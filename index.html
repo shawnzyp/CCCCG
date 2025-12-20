@@ -4,6 +4,25 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <meta name="description" content="Mobile-optimized character tracker for the Catalyst Core RPG."/>
+<script>
+  (function(){
+    try {
+      window.addEventListener('error', function(e){
+        var t = e && e.target;
+        if (!t) return;
+        var tag = t.tagName;
+        if (tag !== 'SCRIPT' && tag !== 'LINK') return;
+        var src = t.src || t.href || '';
+        localStorage.setItem('cccg:last-resource-fail', JSON.stringify({
+          ts: Date.now(),
+          tag: tag,
+          src: String(src).slice(0, 2000),
+          url: location.href
+        }));
+      }, true);
+    } catch {}
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link

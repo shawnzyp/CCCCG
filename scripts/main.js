@@ -130,6 +130,7 @@ import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
 
 installGlobalErrorInbox();
+window.__cccgBreadcrumb?.('boot', 'main.js imported');
 
 (function bootWatchdogEarly() {
   if (typeof window === 'undefined') return;
@@ -148,6 +149,19 @@ installGlobalErrorInbox();
         lastUpdate: window.__ccLastContentUpdate,
         uptimeMs: Date.now() - startedAt,
       });
+      try {
+        window.dispatchEvent(new CustomEvent('cccg:report', {
+          detail: {
+            kind: 'boot-stuck',
+            message: 'Boot watchdog fired',
+            extra: {
+              launching: body?.classList.contains('launching'),
+              touchLocked: body?.classList.contains('touch-controls-disabled'),
+              phoneOpen: root?.getAttribute('data-pt-phone-open'),
+            },
+          },
+        }));
+      } catch {}
 
       body?.classList.remove('launching');
       body?.classList.remove('touch-controls-disabled');
@@ -2731,6 +2745,7 @@ function prepareWelcomeModal() {
     } catch {
       /* ignore reflow errors */
     }
+    window.__cccgBreadcrumb?.('boot', 'welcome modal prepared');
   }
   return modal;
 }
@@ -8127,6 +8142,7 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
     }
     updateMiniGameReminder();
   });
+  window.__cccgBreadcrumb?.('boot', 'player tools drawer initialized');
 }
 
 const pauseActiveTabIconAnimations = () => {
@@ -23223,6 +23239,10 @@ function deserialize(data){
   }
   if (mode === 'view') applyViewLockState();
   try {
+    if (typeof window !== 'undefined' && !window.__cccgFirstRenderReported) {
+      window.__cccgFirstRenderReported = true;
+      window.__cccgBreadcrumb?.('render', 'app-render-complete');
+    }
     document.dispatchEvent(new CustomEvent('app-render-complete'));
   } catch {}
 }
@@ -24728,8 +24748,10 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   }
   if (typeof localStorage !== 'undefined' && localStorage.getItem('cc:disable-sw') === '1') {
     console.warn('[SW] Disabled by cc:disable-sw=1');
+    window.__cccgBreadcrumb?.('sw', 'service worker disabled');
   } else {
     navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+    window.__cccgBreadcrumb?.('sw', 'service worker register requested');
   }
   console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
   let hadController = Boolean(navigator.serviceWorker.controller);
