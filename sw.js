@@ -19,6 +19,8 @@ if (!OUTBOX_DB_NAME || !openOutboxDb) {
 
 const MANIFEST_PATH = './asset-manifest.json';
 const MANIFEST_CACHE = 'cccg-manifest';
+const MANIFEST_META_URL = `${MANIFEST_PATH}?meta=1`;
+const MANIFEST_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const ESSENTIAL_RUNTIME_ASSETS = ['./scripts/anim.js'];
 const SHELL_ASSETS = ['./', './index.html'];
 
@@ -57,6 +59,12 @@ async function fetchManifestFromNetwork() {
   try {
     const cache = await caches.open(MANIFEST_CACHE);
     await cache.put(MANIFEST_URL, response.clone());
+    await cache.put(
+      resolveAssetUrl(MANIFEST_META_URL),
+      new Response(JSON.stringify({ cachedAt: Date.now() }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
   } catch (err) {}
   return manifest;
 }
@@ -64,6 +72,18 @@ async function fetchManifestFromNetwork() {
 async function fetchManifestFromCache() {
   const cache = await caches.open(MANIFEST_CACHE);
   const cachedResponse = await cache.match(MANIFEST_URL);
+  const metaResponse = await cache.match(resolveAssetUrl(MANIFEST_META_URL));
+  if (metaResponse) {
+    try {
+      const meta = await metaResponse.clone().json();
+      const cachedAt = Number(meta?.cachedAt);
+      if (!Number.isFinite(cachedAt) || Date.now() - cachedAt > MANIFEST_MAX_AGE_MS) {
+        return null;
+      }
+    } catch (err) {
+      return null;
+    }
+  }
   if (!cachedResponse) return null;
   try {
     const manifest = await cachedResponse.clone().json();
@@ -137,10 +157,11 @@ async function precacheAll(cache, manifest) {
 
   await Promise.all(
     [...assetSet].map(async asset => {
+      const resolvedAsset = resolveAssetUrl(asset);
       try {
-        await cache.add(asset);
+        await cache.add(resolvedAsset);
       } catch (err) {
-        skippedAssets.push({ asset, error: err });
+        skippedAssets.push({ asset: resolvedAsset, error: err });
       }
     })
   );
@@ -187,22 +208,17 @@ async function broadcast(message) {
   });
   clients.forEach(client => client.postMessage(message));
 }
-
-async function ensureLaunchVideoReset(videoUrl) {
-  const normalizedUrl = (typeof videoUrl === 'string' && videoUrl) ? resolveAssetUrl(videoUrl) : null;
-  if (normalizedUrl) {
-    try {
-      const { cache } = await getCacheAndManifest();
-      await cache.delete(normalizedUrl);
-    } catch (cacheDeleteError) {
-      // ignore cache cleanup failures
-    }
-  }
+async function cacheManifestResponse(response) {
   try {
-    await broadcast({ type: 'reset-launch-video' });
-  } catch (err) {
-    // ignore broadcast failures
-  }
+    const cache = await caches.open(MANIFEST_CACHE);
+    await cache.put(MANIFEST_URL, response.clone());
+    await cache.put(
+      resolveAssetUrl(MANIFEST_META_URL),
+      new Response(JSON.stringify({ cachedAt: Date.now() }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+  } catch (err) {}
 }
 
 async function pushQueuedSave({ name, payload, ts, kind }) {
@@ -394,6 +410,28 @@ self.addEventListener('fetch', e => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (request.url === MANIFEST_URL) {
+    e.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(MANIFEST_URL, { cache: 'no-store' });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch asset manifest: HTTP ${response.status}`);
+          }
+          await cacheManifestResponse(response);
+          return response;
+        } catch (err) {
+          const manifestCache = await caches.open(MANIFEST_CACHE);
+          const cached = await manifestCache.match(MANIFEST_URL);
+          if (cached) {
+            return cached;
+          }
+          throw err;
+        }
+      })()
+    );
+    return;
+  }
 
   const notifyClient = () => {
     if (e.clientId) {
@@ -549,8 +587,6 @@ self.addEventListener('message', event => {
     );
   } else if (data.type === 'flush-cloud-saves') {
     event.waitUntil(flushOutbox());
-  } else if (data.type === 'launch-video-played') {
-    // No-op: playback succeeded. Keep message type for telemetry.
   }
 });
 

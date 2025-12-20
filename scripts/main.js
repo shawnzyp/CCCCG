@@ -11433,6 +11433,7 @@ window.updateCampaignLogEntry = updateCampaignLogEntry;
 updateCampaignLogViews();
 const CONTENT_UPDATE_EVENT = 'cc:content-updated';
 const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
+// Intentionally handle only one service worker update per page load to avoid repeated reload prompts.
 let serviceWorkerUpdateHandled = false;
 
 function queueDmNotification(message, meta = {}) {
@@ -11525,7 +11526,10 @@ function consumeForcedRefreshState() {
 function announceContentUpdate(payload = {}) {
   if (serviceWorkerUpdateHandled) return;
   serviceWorkerUpdateHandled = true;
-  const safePayload = payload && typeof payload === 'object' ? { ...payload } : {};
+  const safePayload =
+    payload && typeof payload === 'object'
+      ? Object.assign(Object.create(null), payload)
+      : Object.create(null);
   const baseMessage =
     typeof safePayload.message === 'string' && safePayload.message.trim()
       ? safePayload.message.trim()
@@ -11534,11 +11538,15 @@ function announceContentUpdate(payload = {}) {
   const message = /background|apply|update/i.test(normalizedMessage)
     ? normalizedMessage
     : `${normalizedMessage} Applying updates in the background.`;
+  const MAX_UPDATE_MESSAGE_LENGTH = 200;
+  const safeMessage = message.length > MAX_UPDATE_MESSAGE_LENGTH
+    ? `${message.slice(0, MAX_UPDATE_MESSAGE_LENGTH - 1)}…`
+    : message;
   const updatedAt = typeof safePayload.updatedAt === 'number' ? safePayload.updatedAt : Date.now();
   const detail = {
     ...safePayload,
     payload: safePayload,
-    message,
+    message: safeMessage,
     updatedAt,
     source: safePayload.source || 'service-worker',
   };
@@ -11546,13 +11554,13 @@ function announceContentUpdate(payload = {}) {
     window.__ccLastContentUpdate = detail;
   }
   try {
-    logAction(message);
+    logAction(safeMessage);
   } catch {
     /* ignore logging errors */
   }
-  queueDmNotification(message, { ts: updatedAt, char: detail.char || 'System' });
+  queueDmNotification(safeMessage, { ts: updatedAt, char: detail.char || 'System' });
   try {
-    toast(message, 'info');
+    toast(safeMessage, 'info');
   } catch {
     /* ignore toast errors */
   }
@@ -23247,6 +23255,11 @@ if(typeof window !== 'undefined'){
 function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
   launchSequenceComplete = true;
+  if (typeof window !== 'undefined') {
+    try {
+      window.__ccLaunchComplete = { reason: 'complete', ts: Date.now() };
+    } catch {}
+  }
   safeUnlockTouchControls({ immediate: true });
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
