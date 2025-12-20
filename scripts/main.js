@@ -4178,6 +4178,7 @@ async function pinPrompt(message){
   title.textContent = message;
   return new Promise(resolve => {
     function cleanup(result){
+      try { input.value = ''; } catch {}
       submit.removeEventListener('click', onSubmit);
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
