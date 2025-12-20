@@ -4168,7 +4168,7 @@ async function ensureFunTips(){
 
 async function pinPrompt(message){
   const modal = $('modal-pin');
-  const title = $('pin-title');
+  const title = $('modal-pin-title-main');
   const input = $('pin-input');
   const submit = $('pin-submit');
   const close = $('pin-close');
@@ -4182,7 +4182,7 @@ async function pinPrompt(message){
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
       modal.removeEventListener('click', onOverlay);
-      hide('modal-pin');
+      closeMenuModal('modal-pin');
       resolve(result);
     }
     function onSubmit(){ cleanup(input.value); }
@@ -4193,7 +4193,7 @@ async function pinPrompt(message){
     input.addEventListener('keydown', onKey);
     close.addEventListener('click', onCancel);
     modal.addEventListener('click', onOverlay);
-    show('modal-pin');
+    openMenuModal('modal-pin');
     input.value='';
     input.focus();
   });
@@ -13322,6 +13322,13 @@ function finalizeModalClose() {
 function openMenuModal(id) {
   prepareForModalOpen();
   show(id);
+  try {
+    const overlay = document.getElementById(id);
+    const modal = overlay ? overlay.querySelector('.modal') : null;
+    if (modal && typeof modal.focus === 'function') {
+      modal.focus({ preventScroll: true });
+    }
+  } catch {}
 }
 
 function closeMenuModal(id) {
@@ -22267,6 +22274,13 @@ function applyOpenModalIds(ids = []) {
     try {
       if (modal.classList.contains('hidden')) {
         show(id);
+  try {
+    const overlay = document.getElementById(id);
+    const modal = overlay ? overlay.querySelector('.modal') : null;
+    if (modal && typeof modal.focus === 'function') {
+      modal.focus({ preventScroll: true });
+    }
+  } catch {}
       }
     } catch (err) {
       console.error('Failed to reopen modal during snapshot restore', err);
