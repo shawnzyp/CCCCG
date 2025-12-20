@@ -2789,6 +2789,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   let revealCalled = false;
   let playbackStartedAt = null;
   let fallbackTimer = null;
+  let playbackRetryTimer = null;
   let awaitingGesture = false;
   let cleanupMessaging = null;
   let bypassLaunchMinimum = false;
