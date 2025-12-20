@@ -1,5 +1,5 @@
-const ERROR_INBOX_BASE = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
-const OWNER_TOKEN = '123451234512345123451234511111';
+const ERROR_INBOX_URL = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
+const LOCAL_LOG_KEY = 'cccg:last-error-report';
 
 function safeString(x, max = 2000) {
   try {
@@ -22,8 +22,7 @@ async function sendReport(kind, message, detail = {}) {
       extra: detail.extra && typeof detail.extra === 'object' ? detail.extra : undefined,
     };
 
-    const url = `${ERROR_INBOX_BASE}?t=${encodeURIComponent(OWNER_TOKEN)}`;
-    await fetch(url, {
+    await fetch(ERROR_INBOX_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -32,7 +31,10 @@ async function sendReport(kind, message, detail = {}) {
       credentials: 'omit',
     });
   } catch {
-    // never throw from reporter
+    try {
+      const record = { ts: Date.now(), kind, message: safeString(message, 500) };
+      localStorage.setItem(LOCAL_LOG_KEY, JSON.stringify(record));
+    } catch {}
   }
 }
 
@@ -40,17 +42,41 @@ export function installGlobalErrorInbox() {
   if (window.__ccErrorInboxInstalled) return;
   window.__ccErrorInboxInstalled = true;
 
+  function showPanicOverlay(title, detail) {
+    try {
+      if (document.getElementById('cccg-panic-overlay')) return;
+      const el = document.createElement('div');
+      el.id = 'cccg-panic-overlay';
+      el.style.position = 'fixed';
+      el.style.inset = '0';
+      el.style.zIndex = '999999';
+      el.style.background = '#0b0f1a';
+      el.style.color = '#e6e6e6';
+      el.style.padding = '16px';
+      el.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+      el.style.whiteSpace = 'pre-wrap';
+      el.style.overflow = 'auto';
+      el.innerText = `${title}\n\n${detail || ''}\n\nOpen DevTools Console. A report was sent (or attempted).`;
+      document.documentElement.appendChild(el);
+    } catch {}
+  }
+
   window.addEventListener('error', (event) => {
-    const message = event?.message || 'Unknown error';
+    const isResourceError = event?.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK');
+    const message = isResourceError
+      ? `Resource failed to load: ${event.target?.tagName} ${event.target?.src || event.target?.href || ''}`
+      : (event?.message || 'Unknown error');
     const stack = event?.error?.stack || '';
     sendReport('error', message, { stack });
-  });
+    showPanicOverlay('CCCG crashed with a runtime error.', `${message}\n\n${stack}`);
+  }, true);
 
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event?.reason;
     const message = safeString(reason?.message || reason || 'Unhandled rejection');
     const stack = reason?.stack || '';
     sendReport('unhandledrejection', message, { stack });
+    showPanicOverlay('CCCG crashed with an unhandled promise rejection.', `${message}\n\n${stack}`);
   });
 
   const origError = console.error.bind(console);
@@ -64,5 +90,13 @@ export function installGlobalErrorInbox() {
   console.warn = (...args) => {
     try { sendReport('console.warn', safeString(args, 2000)); } catch {}
     return origWarn(...args);
+  };
+
+  window.__cccgLastErrorReport = () => {
+    try {
+      return JSON.parse(localStorage.getItem(LOCAL_LOG_KEY) || 'null');
+    } catch {
+      return null;
+    }
   };
 }

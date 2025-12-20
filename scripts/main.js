@@ -131,6 +131,30 @@ import { installGlobalErrorInbox } from './error-inbox.js';
 
 installGlobalErrorInbox();
 
+(function bootWatchdogEarly() {
+  if (typeof window === 'undefined') return;
+  const startedAt = Date.now();
+  setTimeout(() => {
+    try {
+      const body = document.body;
+      const root = document.documentElement;
+      const stuck = body?.classList.contains('launching') || body?.classList.contains('touch-controls-disabled');
+      if (!stuck) return;
+
+      console.warn('[BootWatchdog] Boot appears stuck.', {
+        launching: body?.classList.contains('launching'),
+        touchLocked: body?.classList.contains('touch-controls-disabled'),
+        phoneOpen: root?.getAttribute('data-pt-phone-open'),
+        lastUpdate: window.__ccLastContentUpdate,
+        uptimeMs: Date.now() - startedAt,
+      });
+
+      body?.classList.remove('launching');
+      body?.classList.remove('touch-controls-disabled');
+    } catch {}
+  }, 6000);
+})();
+
 let animate = () => null;
 let fadeOut = () => null;
 let fadePop = () => null;
@@ -24680,32 +24704,6 @@ if (!document.body?.classList?.contains('launching')) {
   queueWelcomeModal({ immediate: true });
 }
 
-function bootWatchdog() {
-  if (typeof window === 'undefined') return;
-  const startedAt = Date.now();
-  setTimeout(() => {
-    const body = document.body;
-    const root = document.documentElement;
-    try {
-      console.warn('[BootWatchdog] Boot appears stuck.', {
-        launching: body?.classList.contains('launching'),
-        touchLocked: body?.classList.contains('touch-controls-disabled'),
-        phoneOpen: root?.getAttribute('data-pt-phone-open'),
-        lastLaunch: window.__ccLastAppLaunch,
-        lastUpdate: window.__ccLastContentUpdate,
-        uptimeMs: Date.now() - startedAt,
-      });
-    } catch {}
-    try { body?.classList.remove('launching'); } catch {}
-    try { body?.classList.remove('touch-controls-disabled'); } catch {}
-    try {
-      if (typeof queueWelcomeModal === 'function') queueWelcomeModal({ immediate: true });
-    } catch {}
-  }, 6000);
-}
-
-bootWatchdog();
-
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
 setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
@@ -24728,9 +24726,15 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   } catch (error) {
     swUrl = 'sw.js';
   }
-  navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('cc:disable-sw') === '1') {
+    console.warn('[SW] Disabled by cc:disable-sw=1');
+  } else {
+    navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+  }
+  console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
   let hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.warn('[SW] controllerchange');
     if (serviceWorkerUpdateHandled) return;
     if (!hadController) {
       hadController = true;
@@ -24744,6 +24748,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     scheduleOfflinePrefetch(1500);
   });
   navigator.serviceWorker.addEventListener('message', e => {
+    console.warn('[SW] message', e?.data);
     const { data } = e;
     const payload = (data && typeof data === 'object') ? data : { type: data };
     const type = typeof payload.type === 'string' ? payload.type : undefined;
