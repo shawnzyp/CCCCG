@@ -2788,6 +2788,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   const launchEl = document.getElementById('launch-animation');
   if (window.__ccLaunchComplete || launchEl?.getAttribute('data-launch-disarmed') === 'true') {
+    try { document.body?.classList.remove('launching'); } catch {}
     markLaunchSequenceComplete();
     queueWelcomeModal({ immediate: true });
     safeUnlockTouchControls({ immediate: true });
@@ -11524,20 +11525,22 @@ function consumeForcedRefreshState() {
 function announceContentUpdate(payload = {}) {
   if (serviceWorkerUpdateHandled) return;
   serviceWorkerUpdateHandled = true;
+  const safePayload = payload && typeof payload === 'object' ? { ...payload } : {};
   const baseMessage =
-    typeof payload.message === 'string' && payload.message.trim()
-      ? payload.message.trim()
+    typeof safePayload.message === 'string' && safePayload.message.trim()
+      ? safePayload.message.trim()
       : 'New Codex content is available.';
   const normalizedMessage = baseMessage.replace(/\s+/g, ' ').trim();
   const message = /background|apply|update/i.test(normalizedMessage)
     ? normalizedMessage
     : `${normalizedMessage} Applying updates in the background.`;
-  const updatedAt = typeof payload.updatedAt === 'number' ? payload.updatedAt : Date.now();
+  const updatedAt = typeof safePayload.updatedAt === 'number' ? safePayload.updatedAt : Date.now();
   const detail = {
-    payload: payload && typeof payload === 'object' ? { ...payload } : {},
+    ...safePayload,
+    payload: safePayload,
     message,
     updatedAt,
-    source: (payload && payload.source) || 'service-worker',
+    source: safePayload.source || 'service-worker',
   };
   if (typeof window !== 'undefined') {
     window.__ccLastContentUpdate = detail;
