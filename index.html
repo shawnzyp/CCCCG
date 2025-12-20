@@ -30,12 +30,14 @@
   href="images/6a78d5b9-619a-4670-a141-271387532fdb.svg"
   as="image"
   type="image/svg+xml"
+  crossorigin="anonymous"
 />
 <link
   rel="preload"
   href="images/player-tools-icon.png"
   as="image"
   type="image/png"
+  crossorigin="anonymous"
 />
 <link rel="icon" type="image/png" sizes="1024x1024" href="images/logo.png"/>
 <link rel="apple-touch-icon" sizes="180x180" href="images/logo.png"/>
@@ -131,6 +133,7 @@
         link.as = 'video';
         link.href = url;
         link.type = 'video/mp4';
+        link.crossOrigin = 'anonymous';
         link.setAttribute('data-cc-preload', 'intro-video');
         head.appendChild(link);
       } catch (e) {}
