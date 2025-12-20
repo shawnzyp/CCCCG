@@ -199,6 +199,28 @@ export function installGlobalErrorInbox() {
   if (window.__ccErrorInboxInstalled) return;
   window.__ccErrorInboxInstalled = true;
   globalThis.__cccgBreadcrumb = addBreadcrumb;
+  const SAFE_MODE_CLEAR_AFTER_MS = 15000;
+  let crashThisSession = false;
+
+  function clearSafeMode() {
+    try { localStorage.removeItem(SAFE_MODE_KEY); } catch {}
+    try { localStorage.removeItem(CRASH_COUNT_KEY); } catch {}
+    try { localStorage.removeItem(LAST_CRASH_KEY); } catch {}
+  }
+
+  try {
+    const safeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
+    if (safeMode) {
+      const raw = readLocalStorage(CRASH_COUNT_KEY);
+      const state = raw ? JSON.parse(raw) : null;
+      const firstAt = Number(state?.firstAt);
+      const count = Number(state?.count);
+      const now = Date.now();
+      const expired = !Number.isFinite(firstAt) || (now - firstAt > CRASH_WINDOW_MS);
+      const notLooping = !Number.isFinite(count) || count < 2;
+      if (expired || notLooping) clearSafeMode();
+    }
+  } catch {}
 
   try {
     const raw = localStorage.getItem('cccg:last-resource-fail');
@@ -314,7 +336,7 @@ export function installGlobalErrorInbox() {
     const isResourceError = event?.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK');
     const message = isResourceError
       ? `Resource failed to load: ${event.target?.tagName} ${event.target?.src || event.target?.href || ''}`
-      : (event?.message || 'Unknown error');
+      : (event?.message || event?.error?.message || 'Unknown error');
     if (!isResourceError && isIgnorableErrorMessage(message)) return;
     const error = event?.error instanceof Error ? event.error : new Error(message);
     const stack = error?.stack || '';
@@ -328,6 +350,7 @@ export function installGlobalErrorInbox() {
     sendReport('error', message, { stack, extra: { snapshot } });
     if (!isResourceError) {
       recordCrashSnapshot(snapshot);
+      crashThisSession = true;
       trackCrashCount();
       appendErrorReport({ ts: Date.now(), message, stack, snapshot });
       showPanicOverlay(error, snapshot);
@@ -345,6 +368,7 @@ export function installGlobalErrorInbox() {
       reason: reason instanceof Error ? reason.message : safeString(reason, 2000),
     });
     recordCrashSnapshot(snapshot);
+    crashThisSession = true;
     trackCrashCount();
     appendErrorReport({ ts: Date.now(), message, stack, snapshot });
     sendReport('unhandledrejection', message, { stack, extra: { snapshot } });
@@ -397,4 +421,11 @@ export function installGlobalErrorInbox() {
       return { ok: true, count: sent };
     },
   };
+
+  setTimeout(() => {
+    if (!crashThisSession) {
+      clearSafeMode();
+      try { location.reload(); } catch {}
+    }
+  }, SAFE_MODE_CLEAR_AFTER_MS);
 }
