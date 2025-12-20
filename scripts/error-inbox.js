@@ -1,5 +1,7 @@
 const ERROR_INBOX_URL = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
 const LOCAL_LOG_KEY = 'cccg:last-error-report';
+const BREADCRUMB_KEY = 'cccg:breadcrumbs';
+const MAX_BREADCRUMBS = 50;
 
 function safeString(x, max = 2000) {
   try {
@@ -7,6 +9,31 @@ function safeString(x, max = 2000) {
     return String(s || '').slice(0, max);
   } catch {
     return String(x || '').slice(0, max);
+  }
+}
+
+function addBreadcrumb(type, data) {
+  try {
+    const raw = sessionStorage.getItem(BREADCRUMB_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    const next = Array.isArray(list) ? list : [];
+    next.push({
+      ts: Date.now(),
+      type: String(type || 'log'),
+      data: safeString(data, 500),
+    });
+    while (next.length > MAX_BREADCRUMBS) next.shift();
+    sessionStorage.setItem(BREADCRUMB_KEY, JSON.stringify(next));
+  } catch {}
+}
+
+function readBreadcrumbs() {
+  try {
+    const raw = sessionStorage.getItem(BREADCRUMB_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
   }
 }
 
@@ -20,6 +47,7 @@ async function sendReport(kind, message, detail = {}) {
       ua: safeString(navigator.userAgent, 400),
       build: safeString(window.__ccBuildVersion || '', 200),
       extra: detail.extra && typeof detail.extra === 'object' ? detail.extra : undefined,
+      breadcrumbs: readBreadcrumbs(),
     };
 
     await fetch(ERROR_INBOX_URL, {
@@ -41,6 +69,18 @@ async function sendReport(kind, message, detail = {}) {
 export function installGlobalErrorInbox() {
   if (window.__ccErrorInboxInstalled) return;
   window.__ccErrorInboxInstalled = true;
+  window.__cccgBreadcrumb = addBreadcrumb;
+
+  try {
+    const raw = localStorage.getItem('cccg:last-resource-fail');
+    if (raw) {
+      localStorage.removeItem('cccg:last-resource-fail');
+      const payload = JSON.parse(raw);
+      sendReport('resource-fail', 'Resource failed before main booted', {
+        extra: payload && typeof payload === 'object' ? payload : undefined,
+      });
+    }
+  } catch {}
 
   function showPanicOverlay(title, detail) {
     try {
@@ -68,7 +108,9 @@ export function installGlobalErrorInbox() {
       : (event?.message || 'Unknown error');
     const stack = event?.error?.stack || '';
     sendReport('error', message, { stack });
-    showPanicOverlay('CCCG crashed with a runtime error.', `${message}\n\n${stack}`);
+    if (!isResourceError) {
+      showPanicOverlay('CCCG crashed with a runtime error.', `${message}\n\n${stack}`);
+    }
   }, true);
 
   window.addEventListener('unhandledrejection', (event) => {
@@ -77,6 +119,13 @@ export function installGlobalErrorInbox() {
     const stack = reason?.stack || '';
     sendReport('unhandledrejection', message, { stack });
     showPanicOverlay('CCCG crashed with an unhandled promise rejection.', `${message}\n\n${stack}`);
+  });
+
+  window.addEventListener('cccg:report', (event) => {
+    const kind = event?.detail?.kind || 'custom';
+    const message = event?.detail?.message || 'custom report';
+    const extra = event?.detail?.extra || {};
+    sendReport(kind, message, { extra });
   });
 
   const origError = console.error.bind(console);
