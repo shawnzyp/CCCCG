@@ -1,93 +1,66 @@
-const ERROR_INBOX_BASE = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
-const OWNER_TOKEN = 'YOUR_OWNER_TOKEN_HERE';
+const ERROR_INBOX_URL = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
 
 function safeString(x, max = 2000) {
-  const s = String(x ?? '');
-  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
-}
-
-function toStack(err) {
-  if (!err) return '';
-  if (typeof err === 'string') return err;
-  return safeString(err.stack || err.stacktrace || '', 8000);
-}
-
-function post(entry, context = {}) {
-  const url = `${ERROR_INBOX_BASE}?t=${encodeURIComponent(OWNER_TOKEN)}`;
-  const payload = {
-    v: 1,
-    sentAt: Date.now(),
-    href: location.href,
-    release: window.__ccRelease || null,
-    context,
-    entry: {
-      ts: Date.now(),
-      level: entry.level || 'error',
-      domain: entry.domain || 'runtime',
-      code: entry.code || 'unknown',
-      message: safeString(entry.message || ''),
-      stack: safeString(entry.stack || ''),
-      data: entry.data && typeof entry.data === 'object' ? entry.data : null,
-    },
-  };
-
   try {
-    const body = JSON.stringify(payload);
+    const s = typeof x === 'string' ? x : JSON.stringify(x);
+    return String(s || '').slice(0, max);
+  } catch {
+    return String(x || '').slice(0, max);
+  }
+}
 
-    if (navigator.sendBeacon) {
-      const blob = new Blob([body], { type: 'application/json' });
-      navigator.sendBeacon(url, blob);
-      return;
-    }
+async function sendReport(kind, message, detail = {}) {
+  try {
+    const payload = {
+      kind,
+      message: safeString(message, 2000),
+      stack: safeString(detail.stack || '', 8000),
+      url: safeString(location.href, 2000),
+      ua: safeString(navigator.userAgent, 400),
+      build: safeString(window.__ccBuildVersion || '', 200),
+      extra: detail.extra && typeof detail.extra === 'object' ? detail.extra : undefined,
+    };
 
-    fetch(url, {
+    await fetch(ERROR_INBOX_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body,
+      body: JSON.stringify(payload),
       keepalive: true,
-    }).catch(() => {});
-  } catch {}
+      mode: 'cors',
+      credentials: 'omit',
+    });
+  } catch {
+    // never throw from reporter
+  }
 }
 
 export function installGlobalErrorInbox() {
-  window.__ccBootState = window.__ccBootState || { phase: 'unknown', ts: Date.now() };
+  if (window.__ccErrorInboxInstalled) return;
+  window.__ccErrorInboxInstalled = true;
 
-  window.addEventListener('error', (e) => {
-    post({
-      level: 'error',
-      domain: 'runtime',
-      code: 'window.error',
-      message: safeString(e.message || 'Script error'),
-      stack: e.error ? toStack(e.error) : '',
-      data: { filename: e.filename || null, lineno: e.lineno || null, colno: e.colno || null },
-    }, { phase: window.__ccBootState?.phase || null });
+  window.addEventListener('error', (event) => {
+    const message = event?.message || 'Unknown error';
+    const stack = event?.error?.stack || '';
+    sendReport('error', message, { stack });
   });
 
-  window.addEventListener('unhandledrejection', (e) => {
-    const r = e.reason;
-    post({
-      level: 'error',
-      domain: 'runtime',
-      code: 'unhandledrejection',
-      message: safeString(r?.message || r || 'Unhandled rejection'),
-      stack: toStack(r),
-    }, { phase: window.__ccBootState?.phase || null });
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    const message = safeString(reason?.message || reason || 'Unhandled rejection');
+    const stack = reason?.stack || '';
+    sendReport('unhandledrejection', message, { stack });
   });
 
-  const orig = console.error?.bind(console);
-  if (orig) {
-    console.error = (...args) => {
-      try {
-        const errObj = args.find(a => a instanceof Error);
-        post({
-          level: 'error',
-          domain: 'console',
-          code: 'console.error',
-          message: safeString(args.map(a => (a instanceof Error ? a.message : String(a))).join(' | ')),
-          stack: errObj ? toStack(errObj) : '',
-        }, { phase: window.__ccBootState?.phase || null });
-      } catch {}
-      return orig(...args);
-    };
-  }
+  const origError = console.error.bind(console);
+  const origWarn = console.warn.bind(console);
+
+  console.error = (...args) => {
+    try { sendReport('console.error', safeString(args, 2000)); } catch {}
+    return origError(...args);
+  };
+
+  console.warn = (...args) => {
+    try { sendReport('console.warn', safeString(args, 2000)); } catch {}
+    return origWarn(...args);
+  };
 }

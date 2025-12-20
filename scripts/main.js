@@ -129,10 +129,6 @@ import { createVirtualizedList } from './virtualized-list.js';
 import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
 
-try {
-  window.__ccBootState = { phase: 'import-main', ts: Date.now() };
-} catch {}
-
 installGlobalErrorInbox();
 
 let animate = () => null;
@@ -2859,7 +2855,6 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   }
   const body = typeof document !== 'undefined' ? document.body : null;
   const isLaunching = !!(body && body.classList.contains('launching'));
-  try { window.__ccBootState.phase = 'welcome-modal'; } catch {}
   show(WELCOME_MODAL_ID);
   if (wasHidden) {
     addPlayerToolsTabSuppression('welcome-modal');
@@ -3147,8 +3142,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     return;
   }
 
-  try { window.__ccBootState.phase = 'before-launch'; } catch {}
-
   const launchEl = document.getElementById('launch-animation');
   if (window.__ccLaunchComplete || launchEl?.getAttribute('data-launch-disarmed') === 'true') {
     try { document.body?.classList.remove('launching'); } catch {}
@@ -3261,7 +3254,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     try { body.classList.remove('launching'); } catch {}
     safeUnlockTouchControls({ immediate: true });
     markLaunchSequenceComplete();
-    try { window.__ccBootState.phase = 'after-launch'; } catch {}
     queueWelcomeModal({ immediate: true });
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
@@ -3274,7 +3266,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     body.classList.remove('launching');
     safeUnlockTouchControls({ immediate: true });
     markLaunchSequenceComplete();
-    try { window.__ccBootState.phase = 'after-launch'; } catch {}
     queueWelcomeModal({ immediate: true });
     if(launchEl){
       launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
