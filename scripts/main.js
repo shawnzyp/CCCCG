@@ -78,6 +78,9 @@ import {
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
+
+const DEFAULT_PHONE_HOME_SCREEN = 'home';
+const PHONE_ACTIVE_APP_KEY = 'cccg:pt-active-app';
 import { readLastSaveName } from './last-save.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
@@ -2332,6 +2335,7 @@ export const APP_REGISTRY = Object.freeze({
   messages: { label: 'Messages', icon: '📡', open: () => openPlayerOsApp('messages') },
   playerTools: { label: 'Player Tools', icon: '🧰', open: () => openPlayerOsApp('playerTools'), route: 'drawer:player-tools' },
   shards: { label: 'Shards of Many Fates', icon: '🧩', open: () => openPlayerOsApp('shards'), requiresUnlock: true, route: 'modal:shards' },
+  errorReports: { label: 'Error Reports', icon: '🛰️', open: () => openPlayerOsApp('errorReports') },
   settings: { label: 'Settings', icon: '⚙️', open: () => openPlayerOsApp('settings') },
   loadSave: { label: 'Load / Save', icon: '💾', open: () => openPlayerOsApp('loadSave') },
   encounter: { label: 'Encounter / Initiative', icon: '⚔️', open: () => openPlayerOsApp('encounter') },
@@ -11840,6 +11844,306 @@ function resolveActorName(name = currentCharacter()){
   return FALLBACK_ACTOR_NAME;
 }
 
+function initPhoneRouter() {
+  if (typeof document === 'undefined') return;
+
+  const root = document.documentElement;
+  const screenSelector = '[data-pt-app-screen]';
+
+  const getScreens = () => Array.from(document.querySelectorAll(screenSelector));
+  const getScreenEl = (id) => {
+    if (!id) return null;
+    try {
+      const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id);
+      return document.querySelector(`[data-pt-app-screen="${safe}"]`);
+    } catch {
+      return null;
+    }
+  };
+
+  let activeScreen = null;
+  const history = [];
+  const HISTORY_MAX = 25;
+
+  const setActiveScreen = (id, { push = true } = {}) => {
+    const el = getScreenEl(id);
+    if (!el) {
+      if (typeof toast === 'function') {
+        toast(`App screen not found: ${String(id)}`, 'warning');
+      }
+      return false;
+    }
+
+    const nextId = String(id);
+    if (activeScreen && push && activeScreen !== nextId) {
+      history.push(activeScreen);
+      while (history.length > HISTORY_MAX) history.shift();
+    }
+
+    getScreens().forEach((screen) => {
+      const isActive = screen === el;
+      screen.hidden = !isActive;
+      screen.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+
+    activeScreen = nextId;
+    try {
+      root.setAttribute('data-pt-active-app', nextId);
+    } catch {}
+
+    try {
+      localStorage.setItem(PHONE_ACTIVE_APP_KEY, nextId);
+    } catch {}
+
+    try {
+      if (typeof globalThis.__cccgBreadcrumb === 'function') {
+        globalThis.__cccgBreadcrumb('phone', `screen:${nextId}`);
+      }
+    } catch {}
+
+    return true;
+  };
+
+  const goHome = () => {
+    history.length = 0;
+    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+  };
+
+  const goBack = () => {
+    const prev = history.pop();
+    if (prev) setActiveScreen(prev, { push: false });
+    else goHome();
+  };
+
+  // Public hooks for other modules
+  try {
+    window.ptOpenApp = (id) => setActiveScreen(id, { push: true });
+    window.ptGoHome = () => goHome();
+    window.ptBack = () => goBack();
+  } catch {}
+
+  // Delegate: open app from any button with data-pt-open-app
+  document.addEventListener('click', (event) => {
+    const target = event?.target;
+    if (!target || typeof target.closest !== 'function') return;
+
+    const openBtn = target.closest('[data-pt-open-app]');
+    if (openBtn) {
+      const phoneShell = document.querySelector('[data-pt-phone-shell]');
+      const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
+      if (!phoneShell || !phoneShell.contains(openBtn) || !phoneOpen) return;
+
+      const id = openBtn.getAttribute('data-pt-open-app');
+      if (id) {
+        if (getScreenEl(id) && setActiveScreen(id, { push: true })) {
+          event.preventDefault?.();
+          return;
+        }
+        const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function'
+          ? window.openApp
+          : null;
+        if (launchFn) {
+          launchFn(id, { source: 'phone-router', element: openBtn });
+        }
+      }
+      return;
+    }
+
+    const backBtn = target.closest('[data-pt-phone-back]');
+    if (backBtn) {
+      event.preventDefault?.();
+      goBack();
+      return;
+    }
+
+    const homeBtn = target.closest('[data-pt-phone-home]');
+    if (homeBtn) {
+      event.preventDefault?.();
+      goHome();
+      return;
+    }
+
+    const recentsBtn = target.closest('[data-pt-phone-recents]');
+    if (recentsBtn) {
+      event.preventDefault?.();
+      if (typeof toast === 'function') {
+        toast('Recents is coming soon.', 'info');
+      }
+    }
+  }, { passive: false });
+
+  // If the phone opens and no screen is active, land on Home.
+  // Also tolerate reloads where the current screen DOM is present but hidden flags are stale.
+  const ensureInitialScreen = () => {
+    const screens = getScreens();
+    if (!screens.length) return;
+
+    const visible = screens.filter(s => !s.hidden && s.getAttribute('aria-hidden') !== 'true');
+    if (visible.length === 1) {
+      activeScreen = visible[0].getAttribute('data-pt-app-screen') || DEFAULT_PHONE_HOME_SCREEN;
+      return;
+    }
+
+    try {
+      const last = localStorage.getItem(PHONE_ACTIVE_APP_KEY);
+      if (last && getScreenEl(last)) {
+        setActiveScreen(last, { push: false });
+        return;
+      }
+    } catch {}
+
+    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+  };
+
+  ensureInitialScreen();
+}
+
+function initHomeClock() {
+  if (typeof document === 'undefined') return;
+  const el = document.querySelector('[data-pt-home-time]');
+  if (!el) return;
+
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const tick = () => {
+    try {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes();
+      // 12-hour clock with leading hour (looks more "phone")
+      const hh = ((h + 11) % 12) + 1;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      el.textContent = `${hh}:${pad2(m)} ${ampm}`;
+    } catch {}
+  };
+
+  tick();
+  setInterval(tick, 1000 * 15);
+}
+
+function initPhoneBadges() {
+  if (typeof document === 'undefined') return;
+
+  const setBadge = (id, count) => {
+    const n = Math.max(0, Number(count) || 0);
+    const badge = document.querySelector(`[data-pt-badge="${id}"]`);
+    if (!badge) return;
+    if (n <= 0) {
+      badge.hidden = true;
+      badge.textContent = '';
+      return;
+    }
+    badge.hidden = false;
+    badge.textContent = n > 99 ? '99+' : String(n);
+  };
+
+  // Public API: other features can call this when they add unread logic.
+  try {
+    window.ptSetBadge = (id, count) => setBadge(id, count);
+  } catch {}
+
+  // Default: clear everything at boot to avoid weird stale UI.
+  setBadge('messages', 0);
+  setBadge('campaignLog', 0);
+}
+
+function initErrorReportsApp() {
+  if (typeof document === 'undefined') return;
+  const listEl = document.querySelector('[data-pt-error-list]');
+  if (!listEl) return;
+
+  const countEl = document.querySelector('[data-pt-error-count]');
+  const statusEl = document.querySelector('[data-pt-error-status]');
+  const sendBtn = document.querySelector('[data-pt-error-send]');
+  const clearBtn = document.querySelector('[data-pt-error-clear]');
+
+  const getInbox = () => window.__cccgErrorInbox;
+  const formatTime = (ts) => {
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return 'Unknown time';
+    }
+  };
+
+  const setStatus = (text) => {
+    if (statusEl) statusEl.textContent = text;
+  };
+
+  const render = () => {
+    const reports = getInbox()?.list?.() || [];
+    if (countEl) countEl.textContent = String(reports.length);
+
+    listEl.innerHTML = '';
+    if (!reports.length) {
+      const row = document.createElement('div');
+      row.className = 'pt-row pt-row--field';
+      const label = document.createElement('span');
+      label.className = 'pt-row__label';
+      label.textContent = 'No reports stored.';
+      row.appendChild(label);
+      listEl.appendChild(row);
+      return;
+    }
+
+    reports
+      .slice()
+      .reverse()
+      .forEach((report) => {
+        const row = document.createElement('div');
+        row.className = 'pt-row pt-row--field';
+        const label = document.createElement('span');
+        label.className = 'pt-row__label';
+        label.textContent = report?.message || 'Unknown error';
+        const meta = document.createElement('span');
+        meta.className = 'pt-row__meta';
+        meta.textContent = formatTime(report?.ts);
+        row.appendChild(label);
+        row.appendChild(meta);
+        listEl.appendChild(row);
+      });
+  };
+
+  if (sendBtn) {
+    sendBtn.addEventListener('click', async () => {
+      const inbox = getInbox();
+      if (!inbox?.sendAll) {
+        setStatus('Error inbox unavailable.');
+        return;
+      }
+      sendBtn.disabled = true;
+      setStatus('Sending reports...');
+      try {
+        const result = await inbox.sendAll();
+        setStatus(`Sent ${result?.count ?? 0} report(s).`);
+      } catch {
+        setStatus('Failed to send reports.');
+      } finally {
+        sendBtn.disabled = false;
+        render();
+      }
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const inbox = getInbox();
+      if (!inbox?.clear) {
+        setStatus('Error inbox unavailable.');
+        return;
+      }
+      inbox.clear();
+      setStatus('Cleared stored reports.');
+      render();
+    });
+  }
+
+  window.addEventListener('cccg:error-report', () => {
+    render();
+  });
+
+  render();
+}
+
 function nextLocalCampaignTimestamp(){
   const now = Date.now();
   if(now <= lastLocalCampaignTimestamp){
@@ -12421,6 +12725,10 @@ function rollWithBonus(name, bonus, out, opts = {}){
 renderLogs();
 renderFullLogs();
 initDiscordLogSettings();
+initPhoneRouter();
+initHomeClock();
+initPhoneBadges();
+initErrorReportsApp();
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
 const diceSidesSelect = $('dice-sides');

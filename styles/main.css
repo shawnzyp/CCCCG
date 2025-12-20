@@ -10679,6 +10679,148 @@ html[data-pt-phone-open="1"] [data-pt-launcher] #pt-main-menu .pt-main-menu__foo
   opacity: 0.7;
 }
 
+.pt-app-home {
+  padding-bottom: 80px; /* space for bottom nav */
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.pt-app-home__head {
+  margin-bottom: 10px;
+}
+
+.pt-app-home__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pt-app-home__title {
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.pt-app-home__meta {
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.pt-app-home__subtitle {
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.pt-app-home__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 8px 2px 14px;
+}
+
+@media (max-width: 380px) {
+  .pt-app-home__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.pt-app-icon {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  border-radius: 16px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  cursor: pointer;
+  text-align: center;
+}
+
+.pt-app-icon:active {
+  transform: scale(0.98);
+}
+
+.pt-app-icon__glyph {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 22px;
+}
+
+.pt-app-icon__label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  opacity: 0.95;
+}
+
+.pt-app-icon__badge {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 18px;
+  background: rgba(255, 70, 70, 0.95);
+  color: #0b0f1a;
+}
+
+.pt-app-home__dock {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.pt-app-home__dock .pt-dock-icon {
+  flex: 1;
+}
+
+.pt-phone-nav {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 14px env(safe-area-inset-bottom);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: rgba(10, 12, 18, 0.78);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pt-phone-nav__btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border-radius: 14px;
+  width: 54px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.pt-phone-nav__btn--home {
+  width: 74px;
+}
+
 /* Toggle input */
 .pt-toggle {
   margin-left: auto;

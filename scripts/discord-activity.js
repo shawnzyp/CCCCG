@@ -58,8 +58,10 @@ export async function sendDiscordLog({ content, embeds } = {}, { allowInSafeMode
   const auth = getDiscordAuthKey();
   if (!auth) return false;
 
+  const endpoint = /\/(log|discord\/log)$/i.test(proxy) ? proxy : `${proxy}/log`;
+
   try {
-    const res = await fetch(`${proxy}/discord/log`, {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
