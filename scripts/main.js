@@ -4182,7 +4182,7 @@ async function pinPrompt(message){
       submit.removeEventListener('click', onSubmit);
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
-      modal.removeEventListener('pointerdown', onOverlay);
+      modal.removeEventListener('pointerup', onOverlay);
       closeMenuModal('modal-pin');
       resolve(result);
     }
@@ -4196,7 +4196,7 @@ async function pinPrompt(message){
     submit.addEventListener('click', onSubmit);
     input.addEventListener('keydown', onKey);
     close.addEventListener('click', onCancel);
-    modal.addEventListener('pointerdown', onOverlay);
+    modal.addEventListener('pointerup', onOverlay, { passive: true });
     openMenuModal('modal-pin');
     input.value='';
     input.focus();
@@ -13331,6 +13331,7 @@ function openMenuModal(id) {
   }
   show(id);
   try {
+    const overlay = document.getElementById(id);
     const modal = overlay ? overlay.querySelector('.modal') : null;
     if (modal && typeof modal.focus === 'function') {
       modal.focus({ preventScroll: true });
