@@ -2104,12 +2104,20 @@ function setupMiniGamePlayerSync() {
   }
 }
 
-if (typeof document !== 'undefined') {
+function initMiniGameSync() {
   setupMiniGamePlayerSync();
   if (miniGameReminderAction) {
     miniGameReminderAction.addEventListener('click', handleMiniGameReminderAction);
   }
   updateMiniGameReminder();
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMiniGameSync, { once: true });
+  } else {
+    initMiniGameSync();
+  }
 }
 
 function detectPlatform(){
@@ -13774,6 +13782,14 @@ creditsLedgerFilterButtons.forEach(btn => {
 document.addEventListener('credits-ledger-updated', () => {
   renderCreditsLedger();
 });
+let MENU_MODAL_STATE = null;
+
+function getMenuModalState() {
+  if (MENU_MODAL_STATE) return MENU_MODAL_STATE;
+  MENU_MODAL_STATE = new Map();
+  return MENU_MODAL_STATE;
+}
+
 function prepareForModalOpen() {
   try { hideLauncherMainMenu(); } catch {}
   try {
@@ -13795,12 +13811,10 @@ function finalizeModalClose() {
   } catch {}
 }
 
-const MENU_MODAL_STATE = new Map();
-
 function openMenuModal(id) {
-  const state = MENU_MODAL_STATE.get(id);
+  const state = getMenuModalState().get(id);
   if (state === 'opening' || state === 'open') return;
-  MENU_MODAL_STATE.set(id, 'opening');
+  getMenuModalState().set(id, 'opening');
   const overlay = typeof document !== 'undefined' ? document.getElementById(id) : null;
   const isSheet = !!(overlay && overlay.classList.contains('modal-sheet'));
   if (isSheet) {
@@ -13816,16 +13830,16 @@ function openMenuModal(id) {
   } catch {}
   const currentOverlay = document.getElementById(id);
   const isHidden = currentOverlay ? currentOverlay.classList.contains('hidden') : true;
-  MENU_MODAL_STATE.set(id, isHidden ? 'closed' : 'open');
+  getMenuModalState().set(id, isHidden ? 'closed' : 'open');
 }
 
 function closeMenuModal(id) {
-  const state = MENU_MODAL_STATE.get(id);
+  const state = getMenuModalState().get(id);
   if (state === 'closing' || state === 'closed') return;
-  MENU_MODAL_STATE.set(id, 'closing');
+  getMenuModalState().set(id, 'closing');
   hide(id);
   finalizeModalClose();
-  MENU_MODAL_STATE.set(id, 'closed');
+  getMenuModalState().set(id, 'closed');
 }
 
 async function openCharacterList(){
