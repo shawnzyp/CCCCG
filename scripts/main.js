@@ -134,6 +134,64 @@ if (typeof performance !== 'undefined' && typeof performance.mark === 'function'
   performance.mark('cc:main:top');
 }
 globalThis.__cccgBreadcrumb?.('boot', 'main.js start');
+const SAFE_MODE_KEY = 'cc:safe-mode';
+const isSafeMode = (() => {
+  try {
+    return localStorage.getItem(SAFE_MODE_KEY) === '1';
+  } catch {
+    return false;
+  }
+})();
+function showSafeModeBanner() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('cccg-safe-mode-banner')) return;
+  const mount = () => {
+    const banner = document.createElement('div');
+    banner.id = 'cccg-safe-mode-banner';
+    banner.style.position = 'fixed';
+    banner.style.inset = '0 auto auto 0';
+    banner.style.zIndex = '999998';
+    banner.style.background = '#1d2230';
+    banner.style.color = '#f8f8f8';
+    banner.style.padding = '10px 16px';
+    banner.style.borderRadius = '0 0 12px 0';
+    banner.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)';
+    banner.style.fontFamily = 'system-ui, sans-serif';
+    banner.style.display = 'flex';
+    banner.style.alignItems = 'center';
+    banner.style.gap = '12px';
+    const label = document.createElement('div');
+    label.textContent = 'Safe Mode enabled';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Exit Safe Mode';
+    button.style.border = '1px solid rgba(255,255,255,0.35)';
+    button.style.background = 'transparent';
+    button.style.color = 'inherit';
+    button.style.padding = '6px 10px';
+    button.style.borderRadius = '8px';
+    button.addEventListener('click', () => {
+      try {
+        localStorage.removeItem(SAFE_MODE_KEY);
+      } catch {}
+      try {
+        location.reload();
+      } catch {}
+    });
+    banner.appendChild(label);
+    banner.appendChild(button);
+    document.body.appendChild(banner);
+  };
+  if (document.body) {
+    mount();
+  } else if (document.addEventListener) {
+    document.addEventListener('DOMContentLoaded', mount, { once: true });
+  }
+}
+if (isSafeMode) {
+  showSafeModeBanner();
+  globalThis.__cccgBreadcrumb?.('boot', 'safe mode enabled');
+}
 function reportTimeToRender() {
   try {
     if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
@@ -2814,7 +2872,7 @@ function prepareWelcomeModal() {
     } catch {
       /* ignore reflow errors */
     }
-    window.__cccgBreadcrumb?.('boot', 'welcome modal prepared');
+    globalThis.__cccgBreadcrumb?.('boot', 'welcome modal prepared');
   }
   return modal;
 }
@@ -8211,7 +8269,7 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
     }
     updateMiniGameReminder();
   });
-  window.__cccgBreadcrumb?.('boot', 'player tools drawer initialized');
+  globalThis.__cccgBreadcrumb?.('boot', 'player tools drawer initialized');
 }
 
 const pauseActiveTabIconAnimations = () => {
@@ -24041,6 +24099,7 @@ function updateOfflineDownloadStatus(message, state) {
 }
 
 function scheduleOfflinePrefetch(delay = 2000) {
+  if (isSafeMode) return;
   if (!supportsOfflineCaching()) return;
   if (offlineDownloadInProgress || offlineDownloadScheduled) return;
   offlineDownloadScheduled = true;
@@ -24058,6 +24117,10 @@ function scheduleOfflinePrefetch(delay = 2000) {
 }
 
 async function runOfflineDownload({ forceReload = false, triggeredByUser = false } = {}) {
+  if (isSafeMode) {
+    updateOfflineDownloadStatus('Safe mode enabled. Offline caching is disabled.', 'error');
+    return;
+  }
   if (offlineDownloadInProgress) return;
   if (!supportsOfflineCaching()) {
     updateOfflineDownloadStatus('Offline caching is not supported on this browser.', 'error');
@@ -24171,6 +24234,15 @@ if (syncPanelOfflineBtn) {
 }
 
 (function initOfflineCacheStatus() {
+  if (isSafeMode) {
+    updateOfflineDownloadStatus('Safe mode enabled. Offline caching is disabled.', 'error');
+    if (syncPanelOfflineBtn) {
+      syncPanelOfflineBtn.disabled = true;
+      syncPanelOfflineBtn.setAttribute('aria-disabled', 'true');
+      syncPanelOfflineBtn.title = 'Safe mode enabled. Offline caching is disabled.';
+    }
+    return;
+  }
   const storedVersion = getStoredOfflineManifestVersion();
   const storedTimestamp = getStoredOfflineManifestTimestamp();
   if (storedVersion && syncPanelOfflineStatusEl) {
@@ -24807,14 +24879,18 @@ const scheduleNonCriticalBoot = () => runWhenIdle(() => {
 
   globalThis.__cccgBreadcrumb?.('boot', 'idle init complete');
 }, 2000);
-if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      scheduleNonCriticalBoot();
-    }
-  }, { once: true });
+if (!isSafeMode) {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        scheduleNonCriticalBoot();
+      }
+    }, { once: true });
+  } else {
+    scheduleNonCriticalBoot();
+  }
 } else {
-  scheduleNonCriticalBoot();
+  globalThis.__cccgBreadcrumb?.('boot', 'safe mode skipped idle init');
 }
 if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
   performance.mark('cc:boot:done');
@@ -24825,7 +24901,17 @@ if (typeof performance !== 'undefined' && typeof performance.measure === 'functi
     console.warn('[BootTiming] cc:boot ms =', performance.getEntriesByName('cc:boot').slice(-1)[0]?.duration);
   }
 }
-if (!IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+if (typeof window !== 'undefined') {
+  try {
+    const params = new URLSearchParams(window.location?.search || '');
+    if (params.get('crashTest') === '1') {
+      setTimeout(() => {
+        throw new Error('Crash test triggered via ?crashTest=1');
+      }, 0);
+    }
+  } catch {}
+}
+if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';
   try {
