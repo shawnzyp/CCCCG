@@ -386,28 +386,6 @@
     setView('home', null);
   }
 
-  function launchFromHome(rawAppId) {
-    const normalized = normalizeAppId(rawAppId);
-
-    if (isLocked(normalized)) {
-      emitLaunch('locked');
-      return;
-    }
-
-    if (normalized === 'settings') {
-      openApp('settings');
-      return;
-    }
-
-    if (normalized === 'minigames') {
-      openApp('minigames');
-      return;
-    }
-
-    emitLaunch(normalized);
-    closeLauncher();
-  }
-
   function bindEvents() {
     // Delegate all taps inside the launcher to avoid click synthesis issues in embeds.
     if (launcher) {
@@ -426,16 +404,6 @@
             e.preventDefault?.();
             e.stopPropagation?.();
             handleUnlock();
-            return;
-          }
-
-          // Home icons
-          const appBtn = t.closest('[data-pt-open-app]');
-          if (appBtn) {
-            e.preventDefault?.();
-            const appId = appBtn.getAttribute('data-pt-open-app');
-            if (!appId) return;
-            launchFromHome(appId);
             return;
           }
         },
