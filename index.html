@@ -3625,6 +3625,57 @@
                     </div>
                   </section>
 
+                  <section class="pt-app-page pt-app-home" data-pt-app-screen="home" hidden aria-hidden="true">
+                    <header class="pt-page-head pt-app-home__head">
+                      <div class="pt-app-home__top">
+                        <div class="pt-app-home__title">Player OS</div>
+                        <div class="pt-app-home__meta">
+                          <span data-pt-home-time>--:--</span>
+                        </div>
+                      </div>
+                      <div class="pt-app-home__subtitle">Catalyst Core</div>
+                    </header>
+
+                    <div class="pt-app-home__grid" role="list" aria-label="Apps">
+                      <button class="pt-app-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem" type="button">
+                        <span class="pt-app-icon__glyph" aria-hidden="true">📓</span>
+                        <span class="pt-app-icon__label">Campaign</span>
+                        <span class="pt-app-icon__badge" data-pt-badge="campaignLog" hidden></span>
+                      </button>
+
+                      <button class="pt-app-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem" type="button">
+                        <span class="pt-app-icon__glyph" aria-hidden="true">📡</span>
+                        <span class="pt-app-icon__label">Messages</span>
+                        <span class="pt-app-icon__badge" data-pt-badge="messages" hidden></span>
+                      </button>
+
+                      <button class="pt-app-icon" data-pt-open-app="loadSave" data-pt-app-label="Load / Save" role="listitem" type="button">
+                        <span class="pt-app-icon__glyph" aria-hidden="true">💾</span>
+                        <span class="pt-app-icon__label">Saves</span>
+                      </button>
+
+                      <button class="pt-app-icon" data-pt-open-app="settings" data-pt-app-label="Settings" role="listitem" type="button">
+                        <span class="pt-app-icon__glyph" aria-hidden="true">⚙️</span>
+                        <span class="pt-app-icon__label">Settings</span>
+                      </button>
+                    </div>
+
+                    <div class="pt-app-home__dock" role="list" aria-label="Dock">
+                      <button class="pt-dock-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem" type="button">
+                        <span class="icon" aria-hidden="true">🧰</span>
+                        <span class="label">Tools</span>
+                      </button>
+                      <button class="pt-dock-icon" data-pt-open-app="codex" data-pt-app-label="Codex" role="listitem" type="button">
+                        <span class="icon" aria-hidden="true">📚</span>
+                        <span class="label">Codex</span>
+                      </button>
+                      <button class="pt-dock-icon" data-pt-open-app="initiative" data-pt-app-label="Initiative" role="listitem" type="button">
+                        <span class="icon" aria-hidden="true">🎯</span>
+                        <span class="label">Initiative</span>
+                      </button>
+                    </div>
+                  </section>
+
                   <section class="pt-app-page" data-pt-app-screen="settings" hidden aria-hidden="true">
                     <header class="pt-page-head">
                       <h3 class="pt-page-title">Settings</h3>
@@ -3929,6 +3980,18 @@
                       </button>
                     </div>
                   </section>
+
+                  <nav class="pt-phone-nav" aria-label="Phone navigation">
+                    <button type="button" class="pt-phone-nav__btn" data-pt-phone-back aria-label="Back">
+                      <span aria-hidden="true">‹</span>
+                    </button>
+                    <button type="button" class="pt-phone-nav__btn pt-phone-nav__btn--home" data-pt-phone-home aria-label="Home">
+                      <span aria-hidden="true">●</span>
+                    </button>
+                    <button type="button" class="pt-phone-nav__btn" data-pt-phone-recents aria-label="Recents">
+                      <span aria-hidden="true">▢</span>
+                    </button>
+                  </nav>
                 </main>
               </section>
 

@@ -78,6 +78,8 @@ import {
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
+
+const DEFAULT_PHONE_HOME_SCREEN = 'home';
 import { readLastSaveName } from './last-save.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
@@ -11840,6 +11842,174 @@ function resolveActorName(name = currentCharacter()){
   return FALLBACK_ACTOR_NAME;
 }
 
+function initPhoneRouter() {
+  if (typeof document === 'undefined') return;
+
+  const root = document.documentElement;
+  const screenSelector = '[data-pt-app-screen]';
+
+  const getScreens = () => Array.from(document.querySelectorAll(screenSelector));
+  const getScreenEl = (id) => {
+    if (!id) return null;
+    try {
+      const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id);
+      return document.querySelector(`[data-pt-app-screen="${safe}"]`);
+    } catch {
+      return null;
+    }
+  };
+
+  let activeScreen = null;
+  const history = [];
+  const HISTORY_MAX = 25;
+
+  const setActiveScreen = (id, { push = true } = {}) => {
+    const el = getScreenEl(id);
+    if (!el) return false;
+
+    const nextId = String(id);
+    if (activeScreen && push && activeScreen !== nextId) {
+      history.push(activeScreen);
+      while (history.length > HISTORY_MAX) history.shift();
+    }
+
+    getScreens().forEach((screen) => {
+      const isActive = screen === el;
+      screen.hidden = !isActive;
+      screen.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+
+    activeScreen = nextId;
+    try {
+      root.setAttribute('data-pt-active-app', nextId);
+    } catch {}
+
+    try {
+      globalThis.__cccgBreadcrumb?.('phone', `screen:${nextId}`);
+    } catch {}
+
+    return true;
+  };
+
+  const goHome = () => {
+    history.length = 0;
+    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+  };
+
+  const goBack = () => {
+    const prev = history.pop();
+    if (prev) setActiveScreen(prev, { push: false });
+    else goHome();
+  };
+
+  // Public hooks for other modules
+  try {
+    window.ptOpenApp = (id) => setActiveScreen(id, { push: true });
+    window.ptGoHome = () => goHome();
+    window.ptBack = () => goBack();
+  } catch {}
+
+  // Delegate: open app from any button with data-pt-open-app
+  document.addEventListener('click', (event) => {
+    const target = event?.target;
+    if (!target || typeof target.closest !== 'function') return;
+
+    const openBtn = target.closest('[data-pt-open-app]');
+    if (openBtn) {
+      const id = openBtn.getAttribute('data-pt-open-app');
+      if (id) {
+        event.preventDefault?.();
+        setActiveScreen(id, { push: true });
+      }
+      return;
+    }
+
+    const backBtn = target.closest('[data-pt-phone-back]');
+    if (backBtn) {
+      event.preventDefault?.();
+      goBack();
+      return;
+    }
+
+    const homeBtn = target.closest('[data-pt-phone-home]');
+    if (homeBtn) {
+      event.preventDefault?.();
+      goHome();
+      return;
+    }
+
+    const recentsBtn = target.closest('[data-pt-phone-recents]');
+    if (recentsBtn) {
+      event.preventDefault?.();
+      toast('Recents is coming soon.', 'info');
+    }
+  }, { passive: false });
+
+  // If the phone opens and no screen is active, land on Home.
+  // Also tolerate reloads where the current screen DOM is present but hidden flags are stale.
+  const ensureInitialScreen = () => {
+    const screens = getScreens();
+    if (!screens.length) return;
+
+    const visible = screens.find(s => !s.hidden && s.getAttribute('aria-hidden') !== 'true');
+    if (visible) {
+      activeScreen = visible.getAttribute('data-pt-app-screen') || DEFAULT_PHONE_HOME_SCREEN;
+      return;
+    }
+    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+  };
+
+  ensureInitialScreen();
+}
+
+function initHomeClock() {
+  if (typeof document === 'undefined') return;
+  const el = document.querySelector('[data-pt-home-time]');
+  if (!el) return;
+
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const tick = () => {
+    try {
+      const now = new Date();
+      const h = now.getHours();
+      const m = now.getMinutes();
+      // 12-hour clock with leading hour (looks more "phone")
+      const hh = ((h + 11) % 12) + 1;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      el.textContent = `${hh}:${pad2(m)} ${ampm}`;
+    } catch {}
+  };
+
+  tick();
+  setInterval(tick, 1000 * 15);
+}
+
+function initPhoneBadges() {
+  if (typeof document === 'undefined') return;
+
+  const setBadge = (id, count) => {
+    const n = Math.max(0, Number(count) || 0);
+    const badge = document.querySelector(`[data-pt-badge="${id}"]`);
+    if (!badge) return;
+    if (n <= 0) {
+      badge.hidden = true;
+      badge.textContent = '';
+      return;
+    }
+    badge.hidden = false;
+    badge.textContent = n > 99 ? '99+' : String(n);
+  };
+
+  // Public API: other features can call this when they add unread logic.
+  try {
+    window.ptSetBadge = (id, count) => setBadge(id, count);
+  } catch {}
+
+  // Default: clear everything at boot to avoid weird stale UI.
+  setBadge('messages', 0);
+  setBadge('campaignLog', 0);
+}
+
 function nextLocalCampaignTimestamp(){
   const now = Date.now();
   if(now <= lastLocalCampaignTimestamp){
@@ -12421,6 +12591,9 @@ function rollWithBonus(name, bonus, out, opts = {}){
 renderLogs();
 renderFullLogs();
 initDiscordLogSettings();
+initPhoneRouter();
+initHomeClock();
+initPhoneBadges();
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
 const diceSidesSelect = $('dice-sides');
