@@ -1987,24 +1987,33 @@
 </div>
 
 
-<div class="overlay hidden" id="modal-campaign" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-campaign" aria-hidden="true" aria-labelledby="modal-campaign-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Campaign Log</h3>
-    <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
-    <textarea id="campaign-entry" data-view-allow rows="2" placeholder="Session notes..."></textarea>
-    <div class="actions">
-      <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
-    </div>
-    <div id="campaign-log" class="catalog"></div>
-    <div class="actions actions--center"><button id="campaign-view-backlog" class="btn-sm" type="button" disabled aria-disabled="true">View Backlog</button></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
-    </div>
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="modal-sheet__header">
+        <h3 id="modal-campaign-title" class="modal-sheet__title">Campaign Log</h3>
+        <p class="modal-sheet__subtitle">Capture session notes and review your history.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
+        <textarea id="campaign-entry" data-view-allow rows="2" placeholder="Session notes..."></textarea>
+        <div class="actions">
+          <button id="campaign-add" class="btn-sm" type="button" style="max-width:140px">Add Entry</button>
+        </div>
+        <div id="campaign-log" class="catalog"></div>
+        <div class="actions actions--center">
+          <button id="campaign-view-backlog" class="btn-sm" type="button" disabled aria-disabled="true">View Backlog</button>
+        </div>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>

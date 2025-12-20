@@ -4181,7 +4181,7 @@ async function pinPrompt(message){
       submit.removeEventListener('click', onSubmit);
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
-      modal.removeEventListener('pointerup', onOverlay);
+      modal.removeEventListener('pointerdown', onOverlay);
       closeMenuModal('modal-pin');
       resolve(result);
     }
@@ -4195,7 +4195,7 @@ async function pinPrompt(message){
     submit.addEventListener('click', onSubmit);
     input.addEventListener('keydown', onKey);
     close.addEventListener('click', onCancel);
-    modal.addEventListener('pointerup', onOverlay, { passive: true });
+    modal.addEventListener('pointerdown', onOverlay);
     openMenuModal('modal-pin');
     input.value='';
     input.focus();
@@ -4508,7 +4508,7 @@ const MENU_ACTION_HANDLERS = {
   },
   'campaign-log': () => {
     updateCampaignLogViews();
-    show('modal-campaign');
+    openMenuModal('modal-campaign');
   },
   rules: () => {
     hasOpenedRulesModal = true;
