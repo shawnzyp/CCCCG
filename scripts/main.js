@@ -3128,37 +3128,9 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       }
     };
 
-  const notifyServiceWorkerVideoPlayed = () => {
-    if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
-      return;
-    }
-    const videoUrl = video.currentSrc || video.getAttribute('src') || null;
-    const payload = { type: 'launch-video-played', videoUrl };
-    const postToWorker = worker => {
-      if(!worker) return;
-      try {
-        worker.postMessage(payload);
-      } catch (err) {
-        // ignore messaging failures
-      }
-    };
-    postToWorker(navigator.serviceWorker.controller);
-    navigator.serviceWorker.ready
-      .then(reg => {
-        const worker = navigator.serviceWorker.controller || reg.active;
-        if(worker){
-          postToWorker(worker);
-        }
-      })
-      .catch(() => {});
-  };
-
   const finalizeLaunch = () => {
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
-    if(!IS_JSDOM_ENV){
-      notifyServiceWorkerVideoPlayed();
-    }
     revealApp();
   };
 
