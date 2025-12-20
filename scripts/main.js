@@ -128,9 +128,97 @@ import {
 import { createVirtualizedList } from './virtualized-list.js';
 import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
+import { getDiscordAuthKey, getDiscordProxyUrl, logActivity, sendDiscordLog, setDiscordAuthKey } from './discord-activity.js';
 
 installGlobalErrorInbox();
-window.__cccgBreadcrumb?.('boot', 'main.js imported');
+if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
+  performance.mark('cc:main:top');
+}
+globalThis.__cccgBreadcrumb?.('boot', 'main.js start');
+const SAFE_MODE_KEY = 'cc:safe-mode';
+const isSafeMode = (() => {
+  try {
+    return localStorage.getItem(SAFE_MODE_KEY) === '1';
+  } catch {
+    return false;
+  }
+})();
+function showSafeModeBanner() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('cccg-safe-mode-banner')) return;
+  const mount = () => {
+    const banner = document.createElement('div');
+    banner.id = 'cccg-safe-mode-banner';
+    banner.style.position = 'fixed';
+    banner.style.inset = '0 auto auto 0';
+    banner.style.zIndex = '999998';
+    banner.style.background = '#1d2230';
+    banner.style.color = '#f8f8f8';
+    banner.style.padding = '10px 16px';
+    banner.style.borderRadius = '0 0 12px 0';
+    banner.style.boxShadow = '0 4px 16px rgba(0,0,0,0.3)';
+    banner.style.fontFamily = 'system-ui, sans-serif';
+    banner.style.display = 'flex';
+    banner.style.alignItems = 'center';
+    banner.style.gap = '12px';
+    const label = document.createElement('div');
+    label.textContent = 'Safe Mode enabled';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Exit Safe Mode';
+    button.style.border = '1px solid rgba(255,255,255,0.35)';
+    button.style.background = 'transparent';
+    button.style.color = 'inherit';
+    button.style.padding = '6px 10px';
+    button.style.borderRadius = '8px';
+    button.addEventListener('click', () => {
+      try {
+        localStorage.removeItem(SAFE_MODE_KEY);
+      } catch {}
+      try {
+        location.reload();
+      } catch {}
+    });
+    banner.appendChild(label);
+    banner.appendChild(button);
+    document.body.appendChild(banner);
+  };
+  if (document.body) {
+    mount();
+  } else if (document.addEventListener) {
+    document.addEventListener('DOMContentLoaded', mount, { once: true });
+  }
+}
+if (isSafeMode) {
+  showSafeModeBanner();
+  globalThis.__cccgBreadcrumb?.('boot', 'safe mode enabled');
+}
+function reportTimeToRender() {
+  try {
+    if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
+      performance.mark('cc:render:done');
+    }
+    if (typeof performance !== 'undefined' && typeof performance.measure === 'function') {
+      performance.measure('cc:time-to-render', 'cc:main:top', 'cc:render:done');
+      if (typeof performance.getEntriesByName === 'function') {
+        console.warn(
+          '[BootTiming] cc:time-to-render ms =',
+          performance.getEntriesByName('cc:time-to-render').slice(-1)[0]?.duration
+        );
+      }
+    }
+  } catch {}
+}
+
+if (typeof document !== 'undefined' && document?.addEventListener) {
+  document.addEventListener('app-render-complete', reportTimeToRender, { once: true });
+}
+try {
+  if (globalThis.__cccgFirstRenderReported) {
+    reportTimeToRender();
+  }
+} catch {}
+globalThis.__cccgBreadcrumb?.('boot', 'main.js imported');
 
 const MENU_MODAL_STATE = new Map();
 
@@ -176,25 +264,51 @@ let fadeOut = () => null;
 let fadePop = () => null;
 let motion = (_token, fallback) => fallback;
 let easingVar = (_token, fallback) => fallback;
+let animLoadScheduled = false;
+let animLoaded = false;
+
+function runWhenIdle(cb, timeout = 2000) {
+  try {
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => cb(), { timeout });
+    } else {
+      setTimeout(() => cb(), 50);
+    }
+  } catch {
+    setTimeout(() => cb(), 50);
+  }
+}
 
 if (typeof window !== 'undefined') {
   resetFloatingLauncherCoverage();
 }
 
-(async () => {
-  try {
-    const anim = await import('./anim.js');
-    animate = anim.animate || animate;
-    fadeOut = anim.fadeOut || fadeOut;
-    fadePop = anim.fadePop || fadePop;
-    motion = anim.motion || motion;
-    easingVar = anim.easing || easingVar;
-  } catch (err) {
+function scheduleAnimLoad() {
+  if (animLoadScheduled || animLoaded) return;
+  animLoadScheduled = true;
+  runWhenIdle(async () => {
     try {
+      const anim = await import('./anim.js');
+      animate = anim.animate || animate;
+      fadeOut = anim.fadeOut || fadeOut;
+      fadePop = anim.fadePop || fadePop;
+      motion = anim.motion || motion;
+      easingVar = anim.easing || easingVar;
+      animLoaded = true;
+      globalThis.__cccgBreadcrumb?.('boot', 'anim helpers loaded');
+    } catch (err) {
       console.error('Failed to load animation helpers', err);
-    } catch (logErr) {}
+    }
+  }, 2000);
+}
+if (typeof document !== 'undefined' && document?.addEventListener) {
+  document.addEventListener('app-render-complete', scheduleAnimLoad, { once: true });
+}
+try {
+  if (globalThis.__cccgFirstRenderReported) {
+    scheduleAnimLoad();
   }
-})();
+} catch {}
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
@@ -202,6 +316,10 @@ const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
 const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
 const SAVE_DATA_TOKEN = 'save-data';
 const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
+
+if (!IS_JSDOM_ENV && typeof window !== 'undefined') {
+  setTimeout(() => scheduleAnimLoad(), 8000);
+}
 
 function cancelFx(el) {
   if (!el) return;
@@ -2755,7 +2873,7 @@ function prepareWelcomeModal() {
     } catch {
       /* ignore reflow errors */
     }
-    window.__cccgBreadcrumb?.('boot', 'welcome modal prepared');
+    globalThis.__cccgBreadcrumb?.('boot', 'welcome modal prepared');
   }
   return modal;
 }
@@ -8152,7 +8270,7 @@ if (typeof subscribePlayerToolsDrawer === 'function') {
     }
     updateMiniGameReminder();
   });
-  window.__cccgBreadcrumb?.('boot', 'player tools drawer initialized');
+  globalThis.__cccgBreadcrumb?.('boot', 'player tools drawer initialized');
 }
 
 const pauseActiveTabIconAnimations = () => {
@@ -11378,6 +11496,14 @@ function setHP(v){
     }
     window.dmNotify?.(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`, { actionScope: 'minor' });
     logAction(`HP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elHPBar.value}/${elHPBar.max})`);
+    void logActivity({
+      type: 'hp',
+      actor: resolveActorName(),
+      before: prev,
+      after: current,
+      delta: diff,
+      max: num(elHPBar.max),
+    });
   }
   const down = wasAboveZero && current === 0;
   if(down){
@@ -11417,6 +11543,14 @@ async function setSP(v){
     }
     window.dmNotify?.(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`, { actionScope: 'minor' });
     logAction(`SP ${diff>0?'gained':'lost'} ${Math.abs(diff)} (now ${elSPBar.value}/${elSPBar.max})`);
+    void logActivity({
+      type: 'sp',
+      actor: resolveActorName(),
+      before: prev,
+      after: current,
+      delta: diff,
+      max: num(elSPBar.max),
+    });
     await playSPAnimation(diff);
     pushHistory();
   }
@@ -11654,6 +11788,50 @@ function logAction(text){
 window.logAction = logAction;
 window.queueCampaignLogEntry = queueCampaignLogEntry;
 
+function initDiscordLogSettings() {
+  const keyInput = $('discord-log-key');
+  const testButton = $('discord-log-test');
+  const statusEl = $('discord-log-status');
+  const proxyUrl = getDiscordProxyUrl();
+
+  const setStatus = (message) => {
+    if (!statusEl) return;
+    statusEl.textContent = message || '';
+  };
+
+  if (isSafeMode) {
+    setStatus('Safe Mode is on. Auto posting disabled.');
+  }
+
+  if (keyInput) {
+    keyInput.value = getDiscordAuthKey();
+    keyInput.addEventListener('input', () => {
+      setDiscordAuthKey(keyInput.value.trim());
+      setStatus(keyInput.value.trim() ? 'Key saved locally.' : 'Key cleared.');
+    });
+    keyInput.disabled = !proxyUrl;
+  }
+
+  if (testButton) {
+    testButton.disabled = !proxyUrl;
+    testButton.addEventListener('click', async () => {
+      if (!proxyUrl) {
+        toast('Discord proxy not configured.', 'warning');
+        return;
+      }
+      const ok = await sendDiscordLog(
+        { content: 'CCCG Discord log test: pipeline online.' },
+        { allowInSafeMode: true }
+      );
+      toast(ok ? 'Discord test sent.' : 'Discord test failed.', ok ? 'success' : 'warn');
+    });
+  }
+
+  if (!proxyUrl) {
+    setStatus('Proxy not configured.');
+  }
+}
+
 function resolveActorName(name = currentCharacter()){
   if(typeof name === 'string'){
     const trimmed = name.trim();
@@ -11804,6 +11982,12 @@ function queueCampaignLogEntry(text, options = {}){
   if (typeof text !== 'string' || !text.trim()) return null;
   const entry = createCampaignEntry(text, options);
   mergeCampaignEntry(entry);
+  void logActivity({
+    type: 'campaign',
+    actor: entry.name,
+    text: entry.text,
+    timestamp: entry.t,
+  });
   if (options.sync === false) return entry;
   (async () => {
     try{
@@ -12194,6 +12378,16 @@ function rollWithBonus(name, bonus, out, opts = {}){
     message += ` [${metaSections.join(' | ')}]`;
   }
   logAction(message);
+  void logActivity({
+    type: 'roll',
+    actor: resolveActorName(),
+    name,
+    total,
+    rollTotal,
+    modifier,
+    breakdown: diceSummary,
+    rollMode,
+  });
 
   if (typeof rollOptions.onRoll === 'function') {
     try {
@@ -12226,6 +12420,7 @@ function rollWithBonus(name, bonus, out, opts = {}){
 }
 renderLogs();
 renderFullLogs();
+initDiscordLogSettings();
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
 const diceSidesSelect = $('dice-sides');
@@ -23248,9 +23443,9 @@ function deserialize(data){
   }
   if (mode === 'view') applyViewLockState();
   try {
-    if (typeof window !== 'undefined' && !window.__cccgFirstRenderReported) {
-      window.__cccgFirstRenderReported = true;
-      window.__cccgBreadcrumb?.('render', 'app-render-complete');
+    if (!globalThis.__cccgFirstRenderReported) {
+      globalThis.__cccgFirstRenderReported = true;
+      globalThis.__cccgBreadcrumb?.('render', 'app-render-complete');
     }
     document.dispatchEvent(new CustomEvent('app-render-complete'));
   } catch {}
@@ -23982,6 +24177,7 @@ function updateOfflineDownloadStatus(message, state) {
 }
 
 function scheduleOfflinePrefetch(delay = 2000) {
+  if (isSafeMode) return;
   if (!supportsOfflineCaching()) return;
   if (offlineDownloadInProgress || offlineDownloadScheduled) return;
   offlineDownloadScheduled = true;
@@ -23999,6 +24195,10 @@ function scheduleOfflinePrefetch(delay = 2000) {
 }
 
 async function runOfflineDownload({ forceReload = false, triggeredByUser = false } = {}) {
+  if (isSafeMode) {
+    updateOfflineDownloadStatus('Safe mode enabled. Offline caching is disabled.', 'error');
+    return;
+  }
   if (offlineDownloadInProgress) return;
   if (!supportsOfflineCaching()) {
     updateOfflineDownloadStatus('Offline caching is not supported on this browser.', 'error');
@@ -24112,6 +24312,15 @@ if (syncPanelOfflineBtn) {
 }
 
 (function initOfflineCacheStatus() {
+  if (isSafeMode) {
+    updateOfflineDownloadStatus('Safe mode enabled. Offline caching is disabled.', 'error');
+    if (syncPanelOfflineBtn) {
+      syncPanelOfflineBtn.disabled = true;
+      syncPanelOfflineBtn.setAttribute('aria-disabled', 'true');
+      syncPanelOfflineBtn.title = 'Safe mode enabled. Offline caching is disabled.';
+    }
+    return;
+  }
   const storedVersion = getStoredOfflineManifestVersion();
   const storedTimestamp = getStoredOfflineManifestTimestamp();
   if (storedVersion && syncPanelOfflineStatusEl) {
@@ -24734,16 +24943,43 @@ if (!document.body?.classList?.contains('launching')) {
 }
 
 /* ========= boot ========= */
-setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
-setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
-setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS);
-setupPerkSelect('origin','origin-perks', ORIGIN_PERKS);
-setupFactionRepTracker(handlePerkEffects, pushHistory);
 updateDerived();
-applyEditIcons();
-applyDeleteIcons();
-applyLockIcons();
-if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+const scheduleNonCriticalBoot = () => runWhenIdle(() => {
+  try { setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS); } catch (e) { console.error(e); }
+  try { setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS); } catch (e) { console.error(e); }
+  try { setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS); } catch (e) { console.error(e); }
+  try { setupPerkSelect('origin','origin-perks', ORIGIN_PERKS); } catch (e) { console.error(e); }
+  try { setupFactionRepTracker(handlePerkEffects, pushHistory); } catch (e) { console.error(e); }
+
+  try { applyEditIcons(); } catch (e) { console.error(e); }
+  try { applyDeleteIcons(); } catch (e) { console.error(e); }
+  try { applyLockIcons(); } catch (e) { console.error(e); }
+
+  globalThis.__cccgBreadcrumb?.('boot', 'idle init complete');
+}, 2000);
+if (!isSafeMode) {
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        scheduleNonCriticalBoot();
+      }
+    }, { once: true });
+  } else {
+    scheduleNonCriticalBoot();
+  }
+} else {
+  globalThis.__cccgBreadcrumb?.('boot', 'safe mode skipped idle init');
+}
+if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
+  performance.mark('cc:boot:done');
+}
+if (typeof performance !== 'undefined' && typeof performance.measure === 'function') {
+  performance.measure('cc:boot', 'cc:main:top', 'cc:boot:done');
+  if (typeof performance.getEntriesByName === 'function') {
+    console.warn('[BootTiming] cc:boot ms =', performance.getEntriesByName('cc:boot').slice(-1)[0]?.duration);
+  }
+}
+if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';
   try {
@@ -24757,10 +24993,12 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   }
   if (typeof localStorage !== 'undefined' && localStorage.getItem('cc:disable-sw') === '1') {
     console.warn('[SW] Disabled by cc:disable-sw=1');
-    window.__cccgBreadcrumb?.('sw', 'service worker disabled');
+    globalThis.__cccgBreadcrumb?.('sw', 'service worker disabled');
   } else {
-    navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
-    window.__cccgBreadcrumb?.('sw', 'service worker register requested');
+    setTimeout(() => {
+      navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+      globalThis.__cccgBreadcrumb?.('sw', 'service worker register requested (delayed)');
+    }, 2500);
   }
   console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
   let hadController = Boolean(navigator.serviceWorker.controller);
