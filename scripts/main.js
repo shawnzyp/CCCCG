@@ -2399,6 +2399,13 @@ if (typeof window !== 'undefined') {
     const prior = window.__ccLaunchComplete;
     if (prior && !launchComplete) markLaunchComplete(prior.reason || 'ended');
   } catch {}
+
+  window.addEventListener('unhandledrejection', (e) => {
+    try { console.error('Unhandled rejection', e.reason); } catch {}
+  });
+  window.addEventListener('error', (e) => {
+    try { console.error('Window error', e.error || e.message); } catch {}
+  });
 }
 
 function lockTouchControls() {
@@ -2789,11 +2796,15 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   let revealCalled = false;
   let playbackStartedAt = null;
   let fallbackTimer = null;
+  let playbackRetryTimer = null;
+  let destroyed = false;
   let awaitingGesture = false;
   let cleanupMessaging = null;
   let bypassLaunchMinimum = false;
   let launchForceHidden = false;
   const userGestureListeners = [];
+  let playAttempts = 0;
+  const MAX_PLAY_ATTEMPTS = 6;
 
   const hardHideLaunch = () => {
     if(!launchEl) return;
@@ -2838,9 +2849,54 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     cleanupMessaging = null;
   };
 
+  const cleanupLaunch = ({ keepElement = false } = {}) => {
+    if(destroyed) return;
+    destroyed = true;
+    fallbackTimer = clearTimer(fallbackTimer);
+    playbackRetryTimer = clearTimer(playbackRetryTimer);
+    detachMessaging();
+    cleanupUserGestures();
+    if(!IS_JSDOM_ENV && video){
+      try {
+        video.pause();
+      } catch {
+        /* ignore inability to pause */
+      }
+    }
+    if(video){
+      try { video.removeAttribute('src'); } catch {}
+      try {
+        const sources = video.querySelectorAll('source');
+        sources.forEach(source => {
+          try { source.removeAttribute('src'); } catch {}
+        });
+      } catch {}
+      try { video.load(); } catch {}
+    }
+    if(!keepElement){
+      hardHideLaunch();
+    }
+  };
+
+  const failOpenLaunch = reason => {
+    if(revealCalled) return;
+    revealCalled = true;
+    try { console.warn('Fail-open launch:', reason); } catch {}
+    cleanupLaunch();
+    try { body.classList.remove('launching'); } catch {}
+    safeUnlockTouchControls({ immediate: true });
+    markLaunchSequenceComplete();
+    queueWelcomeModal({ immediate: true });
+    if(launchEl){
+      launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
+      window.setTimeout(cleanupLaunchShell, 1000);
+    }
+  };
+
   const finalizeReveal = () => {
-    hardHideLaunch();
+    cleanupLaunch();
     body.classList.remove('launching');
+    safeUnlockTouchControls({ immediate: true });
     markLaunchSequenceComplete();
     queueWelcomeModal({ immediate: true });
     if(launchEl){
@@ -2981,95 +3037,96 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     return hasExistingSource || appended || modified;
   };
 
-  if(!video){
-    hardHideLaunch();
-    revealApp();
-    return;
-  }
+  try {
+    if(!video){
+      hardHideLaunch();
+      revealApp();
+      return;
+    }
 
-  const hasLaunchVideo = await ensureLaunchVideoSources(video);
-  if(!hasLaunchVideo){
-    hardHideLaunch();
-    revealApp();
-    return;
-  }
+    const hasLaunchVideo = await ensureLaunchVideoSources(video);
+    if(!hasLaunchVideo){
+      hardHideLaunch();
+      revealApp();
+      return;
+    }
 
-  const ensureLaunchVideoAttributes = vid => {
-    try {
-      vid.setAttribute('playsinline', '');
-      vid.setAttribute('webkit-playsinline', '');
-    } catch (err) {
-      // ignore attribute failures
-    }
-    try {
-      vid.playsInline = true;
-    } catch (err) {
-      // ignore inability to set playsInline property
-    }
-    try {
-      vid.webkitPlaysInline = true;
-    } catch (err) {
-      // ignore inability to set legacy inline playback
-    }
-    try {
-      if(!vid.hasAttribute('muted')){
-        vid.setAttribute('muted', '');
+    const ensureLaunchVideoAttributes = vid => {
+      try {
+        vid.setAttribute('playsinline', '');
+        vid.setAttribute('webkit-playsinline', '');
+      } catch (err) {
+        // ignore attribute failures
       }
-      vid.muted = true;
-      vid.defaultMuted = true;
-    } catch (err) {
-      // ignore inability to force muted playback
-    }
-    try {
-      vid.autoplay = true;
-      if(!vid.hasAttribute('autoplay')){
-        vid.setAttribute('autoplay', '');
+      try {
+        vid.playsInline = true;
+      } catch (err) {
+        // ignore inability to set playsInline property
       }
-    } catch (err) {
-      // ignore inability to set autoplay
-    }
-    try {
-      vid.volume = 0;
-    } catch (err) {
-      // ignore inability to adjust volume
-    }
-    try {
-      vid.setAttribute('disablepictureinpicture', '');
-      vid.disablePictureInPicture = true;
-    } catch (err) {
-      // ignore inability to disable picture-in-picture
-    }
-    try {
-      vid.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback noplaybackrate');
-    } catch (err) {
-      // ignore inability to set the controls list attribute
-    }
-    try {
-      if (vid.controlsList && typeof vid.controlsList.add === 'function') {
-        ['nodownload', 'nofullscreen', 'noremoteplayback', 'noplaybackrate'].forEach(token => {
-          try {
-            vid.controlsList.add(token);
-          } catch (errToken) {
-            // ignore failures to register token
-          }
-        });
+      try {
+        vid.webkitPlaysInline = true;
+      } catch (err) {
+        // ignore inability to set legacy inline playback
       }
-    } catch (err) {
-      // ignore inability to manipulate the controlsList API
-    }
-    try {
-      vid.setAttribute('disableremoteplayback', '');
-      vid.disableRemotePlayback = true;
-    } catch (err) {
-      // ignore inability to disable remote playback
-    }
-    try {
-      vid.removeAttribute('controls');
-      vid.controls = false;
-    } catch (err) {
-      // ignore inability to disable controls
-    }
-  };
+      try {
+        if(!vid.hasAttribute('muted')){
+          vid.setAttribute('muted', '');
+        }
+        vid.muted = true;
+        vid.defaultMuted = true;
+      } catch (err) {
+        // ignore inability to force muted playback
+      }
+      try {
+        vid.autoplay = true;
+        if(!vid.hasAttribute('autoplay')){
+          vid.setAttribute('autoplay', '');
+        }
+      } catch (err) {
+        // ignore inability to set autoplay
+      }
+      try {
+        vid.volume = 0;
+      } catch (err) {
+        // ignore inability to adjust volume
+      }
+      try {
+        vid.setAttribute('disablepictureinpicture', '');
+        vid.disablePictureInPicture = true;
+      } catch (err) {
+        // ignore inability to disable picture-in-picture
+      }
+      try {
+        vid.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback noplaybackrate');
+      } catch (err) {
+        // ignore inability to set the controls list attribute
+      }
+      try {
+        if (vid.controlsList && typeof vid.controlsList.add === 'function') {
+          ['nodownload', 'nofullscreen', 'noremoteplayback', 'noplaybackrate'].forEach(token => {
+            try {
+              vid.controlsList.add(token);
+            } catch (errToken) {
+              // ignore failures to register token
+            }
+          });
+        }
+      } catch (err) {
+        // ignore inability to manipulate the controlsList API
+      }
+      try {
+        vid.setAttribute('disableremoteplayback', '');
+        vid.disableRemotePlayback = true;
+      } catch (err) {
+        // ignore inability to disable remote playback
+      }
+      try {
+        vid.removeAttribute('controls');
+        vid.controls = false;
+      } catch (err) {
+        // ignore inability to disable controls
+      }
+    };
 
   const notifyServiceWorkerVideoPlayed = () => {
     if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
@@ -3100,11 +3157,6 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
     if(!IS_JSDOM_ENV){
-      try {
-        video.pause();
-      } catch {
-        /* ignore inability to pause */
-      }
       notifyServiceWorkerVideoPlayed();
     }
     revealApp();
@@ -3113,7 +3165,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   const dropLaunchOnFailure = () => {
     if(launchForceHidden) return;
     launchForceHidden = true;
-    hardHideLaunch();
+    cleanupLaunch();
     finalizeLaunch();
   };
 
@@ -3137,13 +3189,26 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     fallbackTimer = window.setTimeout(finalizeLaunch, clampedDelay);
   };
 
-  function attemptPlayback(){
+  const schedulePlaybackRetry = () => {
+    playbackRetryTimer = clearTimer(playbackRetryTimer);
+    playbackRetryTimer = window.setTimeout(() => {
+      tryStartPlayback();
+    }, 350);
+  };
+
+  function tryStartPlayback(){
+    if(destroyed || revealCalled || awaitingGesture) return;
+    if(playAttempts >= MAX_PLAY_ATTEMPTS){
+      failOpenLaunch('launch video failed to start after retries');
+      return;
+    }
+    playAttempts += 1;
     ensureLaunchVideoAttributes(video);
     const verifyPlaybackStart = () => {
       window.setTimeout(() => {
         if(revealCalled || launchForceHidden) return;
         if(video.paused || video.ended){
-          dropLaunchOnFailure();
+          schedulePlaybackRetry();
         }
       }, 250);
     };
@@ -3153,15 +3218,15 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
         playAttempt.then(() => {
           verifyPlaybackStart();
         }).catch(() => {
-          dropLaunchOnFailure();
+          schedulePlaybackRetry();
         });
       } else if(video.paused){
-        dropLaunchOnFailure();
+        schedulePlaybackRetry();
       } else {
         verifyPlaybackStart();
       }
     } catch (err) {
-      dropLaunchOnFailure();
+      schedulePlaybackRetry();
     }
   }
 
@@ -3203,7 +3268,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   const handlePause = () => {
     if(revealCalled || video.ended) return;
-    attemptPlayback();
+    tryStartPlayback();
   };
 
   const setupServiceWorkerMessaging = () => {
@@ -3217,7 +3282,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       }
       if(payload.type === 'reset-launch-video'){
         resetPlayback();
-        attemptPlayback();
+        tryStartPlayback();
       }
     };
     navigator.serviceWorker.addEventListener('message', handler);
@@ -3235,7 +3300,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   window.__resetLaunchVideo = () => {
     if(revealCalled) return;
     resetPlayback();
-    attemptPlayback();
+    tryStartPlayback();
   };
 
   video.addEventListener('playing', handlePlaying);
@@ -3247,20 +3312,23 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
 
   const beginPlayback = () => {
     resetPlayback();
-    attemptPlayback();
+    tryStartPlayback();
     scheduleFallback(LAUNCH_MAX_WAIT);
   };
 
-  if(video.readyState >= 1){
-    beginPlayback();
-  } else {
-    video.addEventListener('loadedmetadata', beginPlayback, { once: true });
-    try {
-      video.load();
-    } catch (err) {
-      // ignore load failures while waiting for metadata
+    if(video.readyState >= 1){
+      beginPlayback();
+    } else {
+      video.addEventListener('loadedmetadata', beginPlayback, { once: true });
+      try {
+        video.load();
+      } catch (err) {
+        // ignore load failures while waiting for metadata
+      }
+      scheduleFallback(LAUNCH_MAX_WAIT);
     }
-    scheduleFallback(LAUNCH_MAX_WAIT);
+  } catch (err) {
+    failOpenLaunch(err);
   }
 })();
 
@@ -13323,7 +13391,12 @@ function finalizeModalClose() {
   } catch {}
 }
 
+const MENU_MODAL_STATE = new Map();
+
 function openMenuModal(id) {
+  const state = MENU_MODAL_STATE.get(id);
+  if (state === 'opening' || state === 'open') return;
+  MENU_MODAL_STATE.set(id, 'opening');
   const overlay = typeof document !== 'undefined' ? document.getElementById(id) : null;
   const isSheet = !!(overlay && overlay.classList.contains('modal-sheet'));
   if (isSheet) {
@@ -13337,11 +13410,18 @@ function openMenuModal(id) {
       modal.focus({ preventScroll: true });
     }
   } catch {}
+  const currentOverlay = document.getElementById(id);
+  const isHidden = currentOverlay ? currentOverlay.classList.contains('hidden') : true;
+  MENU_MODAL_STATE.set(id, isHidden ? 'closed' : 'open');
 }
 
 function closeMenuModal(id) {
+  const state = MENU_MODAL_STATE.get(id);
+  if (state === 'closing' || state === 'closed') return;
+  MENU_MODAL_STATE.set(id, 'closing');
   hide(id);
   finalizeModalClose();
+  MENU_MODAL_STATE.set(id, 'closed');
 }
 
 async function openCharacterList(){
@@ -13604,6 +13684,10 @@ document.addEventListener('click', (e) => {
   if (!btn) return;
   const ov = btn.closest('.overlay');
   if (!ov || !ov.id) return;
+  try {
+    e.preventDefault();
+    e.stopPropagation();
+  } catch {}
   if (ov.classList.contains('modal-sheet')) {
     closeMenuModal(ov.id);
     return;
@@ -13617,6 +13701,11 @@ document.addEventListener('pointerdown', (e) => {
   if (!ov.classList.contains('modal-sheet')) return;
   if (ov.classList.contains('hidden')) return;
   if (ov.hasAttribute('data-modal-static')) return;
+  if (e.target !== ov) return;
+  try {
+    e.preventDefault();
+    e.stopPropagation();
+  } catch {}
   closeMenuModal(ov.id);
 });
 
@@ -22295,6 +22384,8 @@ function captureOpenModalIds() {
 
 function applyOpenModalIds(ids = []) {
   if (!Array.isArray(ids) || typeof document === 'undefined') return;
+  if (!hasLaunchSequenceCompleted()) return;
+  if (document.body && document.body.classList.contains('launching')) return;
   ids.forEach(id => {
     if (!id || UI_SNAPSHOT_MODAL_BLOCKLIST.has(id)) return;
     const modal = document.getElementById(id);
