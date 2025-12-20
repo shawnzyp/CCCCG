@@ -1,4 +1,5 @@
-const ERROR_INBOX_URL = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
+const ERROR_INBOX_BASE = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
+const OWNER_TOKEN = '123451234512345123451234511111';
 
 function safeString(x, max = 2000) {
   try {
@@ -21,7 +22,8 @@ async function sendReport(kind, message, detail = {}) {
       extra: detail.extra && typeof detail.extra === 'object' ? detail.extra : undefined,
     };
 
-    await fetch(ERROR_INBOX_URL, {
+    const url = `${ERROR_INBOX_BASE}?t=${encodeURIComponent(OWNER_TOKEN)}`;
+    await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
