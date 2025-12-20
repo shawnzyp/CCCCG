@@ -194,7 +194,7 @@ if (typeof window !== 'undefined') {
       removeListener: noop,
       dispatchEvent: () => false,
     });
-    window.matchMedia = query => {
+    const patchedMatchMedia = query => {
       if (typeof query === 'string') {
         const normalizedQuery = query.toLowerCase();
         if (normalizedQuery.includes(REDUCED_MOTION_TOKEN)) {
@@ -212,6 +212,19 @@ if (typeof window !== 'undefined') {
         return createSuppressedMediaQueryList(query, false);
       }
     };
+    try {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: patchedMatchMedia,
+      });
+    } catch (err) {
+      try {
+        window.matchMedia = patchedMatchMedia;
+      } catch (assignErr) {
+        console.warn('Unable to override matchMedia; reduced-data suppression disabled.', assignErr);
+      }
+    }
   }
 
   const disableSaveDataPreference = () => {
@@ -2380,7 +2393,7 @@ function tryShowWelcomeForLaunch(reason = '') {
 if (typeof window !== 'undefined') {
   window.addEventListener('cc:launch-complete', (e) => {
     const reason = e && e.detail && e.detail.reason ? String(e.detail.reason) : 'ended';
-    markLaunchComplete(reason);
+    setTimeout(() => markLaunchComplete(reason), 0);
   }, { passive: true });
   try {
     const prior = window.__ccLaunchComplete;
@@ -2681,18 +2694,20 @@ function wireLauncherMainMenu() {
   // This relies on your existing attribute that marks the phone as open.
   if (!launcherMenuObserverWired) {
     const root = document.documentElement;
-    const obs = new MutationObserver(() => {
-      const open = root.getAttribute('data-pt-phone-open') === '1';
-      if (open) {
-        showLauncherMainMenu();
-        mountTickersIntoLauncher();
-      } else {
-        hideLauncherMainMenu();
-        restoreTickersFromLauncher();
-      }
-    });
-    obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
-    launcherMenuObserverWired = true;
+    if (typeof MutationObserver === 'function') {
+      const obs = new MutationObserver(() => {
+        const open = root.getAttribute('data-pt-phone-open') === '1';
+        if (open) {
+          showLauncherMainMenu();
+          mountTickersIntoLauncher();
+        } else {
+          hideLauncherMainMenu();
+          restoreTickersFromLauncher();
+        }
+      });
+      obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
+      launcherMenuObserverWired = true;
+    }
   }
 }
 
@@ -13283,9 +13298,40 @@ creditsLedgerFilterButtons.forEach(btn => {
 document.addEventListener('credits-ledger-updated', () => {
   renderCreditsLedger();
 });
+function prepareForModalOpen() {
+  try { hideLauncherMainMenu(); } catch {}
+  try {
+    const welcome = document.getElementById('modal-welcome');
+    if (welcome && welcome.getAttribute('aria-hidden') === 'false') {
+      hide('modal-welcome');
+      removePlayerToolsTabSuppression('welcome-modal');
+    }
+  } catch {}
+  try { lockTouchControls(); } catch {}
+}
+
+function finalizeModalClose() {
+  try {
+    const openSheet = document.querySelector('.overlay.modal-sheet:not(.hidden)[aria-hidden="false"]');
+    if (!openSheet) {
+      safeUnlockTouchControls({ immediate: true });
+    }
+  } catch {}
+}
+
+function openMenuModal(id) {
+  prepareForModalOpen();
+  show(id);
+}
+
+function closeMenuModal(id) {
+  hide(id);
+  finalizeModalClose();
+}
+
 async function openCharacterList(){
   await renderCharacterList();
-  show('modal-load-list');
+  openMenuModal('modal-load-list');
 }
 window.openCharacterList = openCharacterList;
 
@@ -13367,7 +13413,7 @@ async function renderRecoverList(name){
   } else {
     list.innerHTML = `${renderGroup('Auto Saves', autos, 'auto')}${renderGroup('Manual Saves', manual, 'manual')}`;
   }
-  show('modal-recover-list');
+  openMenuModal('modal-recover-list');
 }
 
 let pendingLoad = null;
@@ -13388,7 +13434,7 @@ if(charList){
       pendingLoad = { name: selectedChar };
       const text = $('load-confirm-text');
       if(text) text.textContent = `Are you sure you would like to load this character: ${pendingLoad.name}. All current progress will be lost if you haven't saved yet.`;
-      show('modal-load');
+      openMenuModal('modal-load');
     } else if(lockBtn){
       const ch = lockBtn.dataset.lock;
       const status = await ensureAuthoritativePinState(ch, { force: true });
@@ -13456,7 +13502,7 @@ if(recoverBtn){
   recoverBtn.addEventListener('click', async ()=>{
     hide('modal-load-list');
     await renderRecoverCharList();
-    show('modal-recover-char');
+    openMenuModal('modal-recover-char');
   });
 }
 
@@ -13494,7 +13540,7 @@ if(recoverListEl){
         text.textContent = `Are you sure you would like to recover ${pendingLoad.name} from the ${descriptor} ${new Date(pendingLoad.ts).toLocaleString()}? All current progress will be lost if you haven't saved yet.`;
       }
       hide('modal-recover-list');
-      show('modal-load');
+      openMenuModal('modal-load');
     }
   });
 }
@@ -13528,8 +13574,8 @@ async function doLoad(){
       ? `${variant}:${pendingLoad.name}:${pendingLoad.ts}`
       : `${variant}:${pendingLoad.name}:${applied?.meta?.savedAt ?? Date.now()}`;
     queueCharacterConfirmation({ name: pendingLoad.name, variant, key, meta: applied?.meta });
-    hide('modal-load');
-    hide('modal-load-list');
+    closeMenuModal('modal-load');
+    closeMenuModal('modal-load-list');
     toast(`Loaded ${pendingLoad.name}`,'success');
     playLoadAnimation();
   }catch(e){
@@ -13537,8 +13583,16 @@ async function doLoad(){
   }
 }
 if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
-if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ hide('modal-load'); }); }
-qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{ const ov=b.closest('.overlay'); if(ov) hide(ov.id); }));
+if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ closeMenuModal('modal-load'); }); }
+qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{
+  const ov = b.closest('.overlay');
+  if(!ov) return;
+  if(ov.classList.contains('modal-sheet')) {
+    closeMenuModal(ov.id);
+    return;
+  }
+  hide(ov.id);
+}));
 
 function openCharacterModalByName(name){
   if(!name) return;
@@ -13546,7 +13600,7 @@ function openCharacterModalByName(name){
   pendingLoad = { name };
   const text = $('load-confirm-text');
   if(text) text.textContent = `Are you sure you would like to load this character: ${name}. All current progress will be lost if you haven't saved yet.`;
-  show('modal-load');
+  openMenuModal('modal-load');
 }
 window.openCharacterModal = openCharacterModalByName;
 
