@@ -41,8 +41,8 @@ describe('launcher registry', () => {
     installDomScaffolding();
     installEventSourceMock();
     installScrollMock();
-
     await import('../scripts/main.js');
+    document.documentElement.setAttribute('data-pt-phone-open', '1');
 
     const openSpy = jest.fn().mockResolvedValue({ ok: true });
     window.openApp = openSpy;

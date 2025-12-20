@@ -153,14 +153,6 @@ if (typeof window !== 'undefined') {
   }
 })();
 
-export {
-  APP_REGISTRY,
-  getAppMeta,
-  openApp,
-  waitForUiIdle,
-  runLauncherHealthCheck,
-};
-
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
 const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
@@ -2166,7 +2158,7 @@ let pinUnlockInProgress = false;
 // ---------------------------------------------------------------------------
 // App registry + launcher reliability helpers
 // ---------------------------------------------------------------------------
-const APP_REGISTRY = Object.freeze({
+export const APP_REGISTRY = Object.freeze({
   campaignLog: { label: 'Campaign Log', icon: '📓', open: () => openPlayerOsApp('campaignLog') },
   messages: { label: 'Messages', icon: '📡', open: () => openPlayerOsApp('messages') },
   playerTools: { label: 'Player Tools', icon: '🧰', open: () => openPlayerOsApp('playerTools'), route: 'drawer:player-tools' },
@@ -2191,7 +2183,7 @@ const APP_REGISTRY = Object.freeze({
   sync: { label: 'Sync', icon: '🔄', open: () => openSyncPanel(), route: 'panel:sync' },
 });
 
-function getAppMeta(appId) {
+export function getAppMeta(appId) {
   if (!appId) return null;
   return APP_REGISTRY[appId] || null;
 }
@@ -2248,7 +2240,7 @@ function isLauncherUiBusy() {
   return launching || touchLocked || modalOpen || phoneLocked;
 }
 
-function waitForUiIdle({ timeout = 800 } = {}) {
+export function waitForUiIdle({ timeout = 800 } = {}) {
   const start = Date.now();
   return new Promise(resolve => {
     const step = () => {
@@ -2293,7 +2285,7 @@ function ensureFocusableTarget(target) {
   return true;
 }
 
-async function openApp(appId, opts = {}) {
+export async function openApp(appId, opts = {}) {
   const meta = getAppMeta(appId);
   if (!meta) {
     try { toast(`Unknown app: ${appId}`, 'error'); } catch {}
@@ -2395,6 +2387,9 @@ function wireLauncherDelegation() {
   document.addEventListener(
     'pointerup',
     (e) => {
+      // Only respond when Player OS is open
+      if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;
+
       const btn = e.target?.closest?.('[data-pt-open-app]');
       if (!btn) return;
       if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
@@ -2421,7 +2416,7 @@ function wireLauncherDelegation() {
   );
 }
 
-function runLauncherHealthCheck({ logToConsole = true } = {}) {
+export function runLauncherHealthCheck({ logToConsole = true } = {}) {
   if (typeof document === 'undefined') return { ok: true, missingRegistry: [], missingTargets: [] };
   const launcherButtons = [...document.querySelectorAll('[data-pt-open-app]')];
   const buttonAppIds = launcherButtons
@@ -2435,14 +2430,13 @@ function runLauncherHealthCheck({ logToConsole = true } = {}) {
       .filter(Boolean)
   );
 
-  const missingTargets = appScreens.size
-    ? Object.keys(APP_REGISTRY).filter((id) => {
-      const meta = APP_REGISTRY[id];
-      if (appScreens.has(id)) return false;
-      if (meta?.route) return false;
-      return true;
-    })
-    : [];
+  const skippedTargetsCheck = appScreens.size === 0;
+  const missingTargets = skippedTargetsCheck ? [] : Object.keys(APP_REGISTRY).filter((id) => {
+    const meta = APP_REGISTRY[id];
+    if (appScreens.has(id)) return false;
+    if (meta?.route) return false;
+    return true;
+  });
 
   const ok = missingRegistry.length === 0 && missingTargets.length === 0;
   if (!ok && logToConsole) {
@@ -2454,7 +2448,7 @@ function runLauncherHealthCheck({ logToConsole = true } = {}) {
     }
   }
 
-  return { ok, missingRegistry, missingTargets };
+  return { ok, missingRegistry, missingTargets, skippedTargetsCheck };
 }
 
 try {
