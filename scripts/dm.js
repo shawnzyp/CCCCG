@@ -5239,7 +5239,7 @@ function initDMLogin(){
       const defaultTab = rewardsTabButtons.keys().next().value || 'resource';
       const targetTab = rewardsTabButtons.has(tab) ? tab : defaultTab;
       await activateRewardsTab(targetTab, { force: true });
-      show('dm-rewards-modal');
+      openMenuModal('dm-rewards-modal');
       if (typeof rewardsModal.scrollTo === 'function') {
         rewardsModal.scrollTo({ top: 0 });
       } else {
@@ -5261,7 +5261,7 @@ function initDMLogin(){
 
     function closeRewards() {
       if (!rewardsModal) return;
-      hide('dm-rewards-modal');
+      closeMenuModal('dm-rewards-modal');
     }
 
     function syncDiscordSettingsUi() {
@@ -5291,7 +5291,7 @@ function initDMLogin(){
     function openDiscordSettings() {
       if (!discordModal) return;
       syncDiscordSettingsUi();
-      show('dm-discord-modal');
+      openMenuModal('dm-discord-modal');
       if (typeof discordModal.scrollTo === 'function') {
         discordModal.scrollTo({ top: 0 });
       } else {
@@ -5306,7 +5306,7 @@ function initDMLogin(){
 
     function closeDiscordSettings() {
       if (!discordModal) return;
-      hide('dm-discord-modal');
+      closeMenuModal('dm-discord-modal');
     }
 
     async function sendDiscordTestMessage() {
@@ -7168,7 +7168,7 @@ function initDMLogin(){
     renderMiniGameDetails();
     await refreshMiniGameCharacters();
     renderMiniGameDeployments(miniGameDeploymentsCache);
-    show('dm-mini-games-modal');
+    openMenuModal('dm-mini-games-modal');
     if (typeof miniGamesModal?.scrollTo === 'function') {
       miniGamesModal.scrollTo({ top: 0 });
     } else if (miniGamesModal) {
@@ -7190,7 +7190,7 @@ function initDMLogin(){
 
   function closeMiniGames() {
     if (!miniGamesModal) return;
-    hide('dm-mini-games-modal');
+    closeMenuModal('dm-mini-games-modal');
   }
 
   function getCatalogFieldSets(typeId) {
@@ -8685,7 +8685,7 @@ function initDMLogin(){
 
   function openLogin(){
     if(!loginModal) return;
-    show('dm-login-modal');
+    openMenuModal('dm-login-modal');
     if (loginUsername) {
       loginUsername.value = sanitizeDmUsername(loginUsername.value || '');
     }
@@ -8698,7 +8698,7 @@ function initDMLogin(){
   function closeLogin(){
     if(!loginModal) return;
     resetLoginFlow({ focus: false });
-    hide('dm-login-modal');
+    closeMenuModal('dm-login-modal');
   }
 
   function requireLogin(){
@@ -8996,14 +8996,14 @@ function initDMLogin(){
     resetUnreadCountValue();
     renderStoredNotifications();
     updateNotificationActionState();
-    show('dm-notifications-modal');
+    openMenuModal('dm-notifications-modal');
   }
 
   function closeNotifications(){
     if(!notifyModal) return;
     resetUnreadCountValue();
     updateNotificationActionState();
-    hide('dm-notifications-modal');
+    closeMenuModal('dm-notifications-modal');
   }
 
   function onLoginSuccess({ username } = {}){
@@ -9136,7 +9136,7 @@ function initDMLogin(){
     async function openCharacters(){
       if(!charModal || !charList) return;
       closeCharacterView();
-      show('dm-characters-modal');
+      openMenuModal('dm-characters-modal');
       charList.innerHTML = '<li class="dm-characters__placeholder">Loading characters…</li>';
       let names = [];
       try {
@@ -9183,17 +9183,17 @@ function initDMLogin(){
 
   function closeCharacters(){
     if(!charModal) return;
-    hide('dm-characters-modal');
+    closeMenuModal('dm-characters-modal');
   }
 
   function openCharacterView(){
     if(!charViewModal) return;
-    show('dm-character-modal');
+    openMenuModal('dm-character-modal');
   }
 
   function closeCharacterView(){
     if(!charViewModal) return;
-    hide('dm-character-modal');
+    closeMenuModal('dm-character-modal');
   }
 
 

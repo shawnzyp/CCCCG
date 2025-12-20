@@ -573,8 +573,8 @@
               <input id="hp-amt" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Amount"/>
             </div>
             <div class="hp-field__actions">
-              <button id="hp-dmg" class="btn-sm hp-field__action hp-field__action--damage">Damage</button>
-              <button id="hp-heal" class="btn-sm hp-field__action hp-field__action--heal">Heal</button>
+              <button id="hp-dmg" class="btn-sm hp-field__action hp-field__action--damage" type="button">Damage</button>
+              <button id="hp-heal" class="btn-sm hp-field__action hp-field__action--heal" type="button">Heal</button>
             </div>
           </div>
         </div>
@@ -853,7 +853,7 @@
     <h2 class="card-title card__frame">Powers</h2>
     <div class="card-toolbar card__frame">
       <div class="card-toolbar__actions card__frame">
-        <button id="add-power" style="max-width:180px">
+        <button id="add-power" style="max-width:180px" type="button">
           <span class="btn-icon" aria-hidden="true">➕</span>
           <span class="btn-label">Add Power</span>
         </button>
@@ -864,7 +864,7 @@
     <h3 style="margin:16px 0 8px">Signature Moves</h3>
     <div class="card-toolbar card__frame">
       <div class="card-toolbar__actions card__frame">
-        <button id="add-sig" style="max-width:200px">
+        <button id="add-sig" style="max-width:200px" type="button">
           <span class="btn-icon" aria-hidden="true">➕</span>
           <span class="btn-label">Add Signature Move</span>
         </button>
@@ -881,7 +881,7 @@
         <div class="card-toolbar card__frame">
           <h3 class="gear-card-title card-toolbar__title card__frame">Weapons</h3>
           <div class="card-toolbar__actions card__frame">
-            <button id="add-weapon" class="btn-sm gear-card-action" style="max-width:140px">
+            <button id="add-weapon" class="btn-sm gear-card-action" style="max-width:140px" type="button">
               <span class="btn-icon" aria-hidden="true">➕</span>
               <span class="btn-label">Add Weapon</span>
             </button>
@@ -893,7 +893,7 @@
         <div class="card-toolbar card__frame">
           <h3 class="gear-card-title card-toolbar__title card__frame">Armor and Protection</h3>
           <div class="card-toolbar__actions card__frame">
-            <button id="add-armor" class="btn-sm gear-card-action" style="max-width:160px">
+            <button id="add-armor" class="btn-sm gear-card-action" style="max-width:160px" type="button">
               <span class="btn-icon" aria-hidden="true">➕</span>
               <span class="btn-label">Add Armor</span>
             </button>
@@ -905,11 +905,11 @@
         <div class="card-toolbar card__frame">
           <h3 class="card-toolbar__title card__frame">Gear and Items</h3>
           <div class="card-toolbar__actions card__frame">
-            <button id="add-item" class="btn-sm" style="max-width:140px">
+            <button id="add-item" class="btn-sm" style="max-width:140px" type="button">
               <span class="btn-icon" aria-hidden="true">➕</span>
               <span class="btn-label">Add Item</span>
             </button>
-            <button id="open-catalog" class="btn-sm" style="max-width:160px">
+            <button id="open-catalog" class="btn-sm" style="max-width:160px" type="button">
               <span class="btn-icon" aria-hidden="true">📚</span>
               <span class="btn-label">Open Gear Catalog</span>
             </button>
@@ -1189,8 +1189,8 @@
             </div>
             <progress id="omni-rep-bar" max="100" value="0"></progress>
             <div class="inline">
-              <button id="omni-rep-gain" class="btn-sm">Gain</button>
-              <button id="omni-rep-lose" class="btn-sm">Lose</button>
+              <button id="omni-rep-gain" class="btn-sm" type="button">Gain</button>
+              <button id="omni-rep-lose" class="btn-sm" type="button">Lose</button>
             </div>
             <input type="hidden" id="omni-rep" value="200"/>
             <div class="faction-rep__perk">
@@ -1205,8 +1205,8 @@
             </div>
             <progress id="pfv-rep-bar" max="100" value="0"></progress>
             <div class="inline">
-              <button id="pfv-rep-gain" class="btn-sm">Gain</button>
-              <button id="pfv-rep-lose" class="btn-sm">Lose</button>
+              <button id="pfv-rep-gain" class="btn-sm" type="button">Gain</button>
+              <button id="pfv-rep-lose" class="btn-sm" type="button">Lose</button>
             </div>
             <input type="hidden" id="pfv-rep" value="200"/>
             <div class="faction-rep__perk">
@@ -1221,8 +1221,8 @@
             </div>
             <progress id="conclave-rep-bar" max="100" value="0"></progress>
             <div class="inline">
-              <button id="conclave-rep-gain" class="btn-sm">Gain</button>
-              <button id="conclave-rep-lose" class="btn-sm">Lose</button>
+              <button id="conclave-rep-gain" class="btn-sm" type="button">Gain</button>
+              <button id="conclave-rep-lose" class="btn-sm" type="button">Lose</button>
             </div>
             <input type="hidden" id="conclave-rep" value="200"/>
             <div class="faction-rep__perk">
@@ -1237,8 +1237,8 @@
             </div>
             <progress id="greyline-rep-bar" max="100" value="0"></progress>
             <div class="inline">
-              <button id="greyline-rep-gain" class="btn-sm">Gain</button>
-              <button id="greyline-rep-lose" class="btn-sm">Lose</button>
+              <button id="greyline-rep-gain" class="btn-sm" type="button">Gain</button>
+              <button id="greyline-rep-lose" class="btn-sm" type="button">Lose</button>
             </div>
             <input type="hidden" id="greyline-rep" value="200"/>
             <div class="faction-rep__perk">
@@ -1253,8 +1253,8 @@
             </div>
             <progress id="government-rep-bar" max="100" value="0"></progress>
             <div class="inline">
-              <button id="government-rep-gain" class="btn-sm">Gain</button>
-              <button id="government-rep-lose" class="btn-sm">Lose</button>
+              <button id="government-rep-gain" class="btn-sm" type="button">Gain</button>
+              <button id="government-rep-lose" class="btn-sm" type="button">Lose</button>
             </div>
             <input type="hidden" id="government-rep" value="200"/>
             <div class="faction-rep__perk">
@@ -1269,8 +1269,8 @@
             </div>
             <progress id="public-rep-bar" max="100" value="0"></progress>
             <div class="inline">
-              <button id="public-rep-gain" class="btn-sm">Gain</button>
-              <button id="public-rep-lose" class="btn-sm">Lose</button>
+              <button id="public-rep-gain" class="btn-sm" type="button">Gain</button>
+              <button id="public-rep-lose" class="btn-sm" type="button">Lose</button>
             </div>
             <input type="hidden" id="public-rep" value="200"/>
             <div class="faction-rep__perk">
@@ -1313,17 +1313,19 @@
 </main>
 
 
-<div class="overlay hidden" id="modal-augment-picker" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-augment-picker" aria-hidden="true" aria-labelledby="modal-augment-picker-title">
   <div class="modal-frame">
-    <section class="modal modal--augment-picker" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+    <section class="modal modal--augment-picker modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <h3>Manage Augments</h3>
-      <p class="modal--augment-picker__subtitle">Search, filter, and slot the tech that defines your hero.</p>
-      <div class="modal--augment-picker__content">
+      <header class="modal-sheet__header">
+        <h3 id="modal-augment-picker-title" class="modal-sheet__title">Manage Augments</h3>
+        <p class="modal-sheet__subtitle">Search, filter, and slot the tech that defines your hero.</p>
+      </header>
+      <div class="modal-sheet__body modal--augment-picker__content">
         <div class="augment-picker" data-view-allow>
           <div class="augment-picker__controls">
             <label for="augment-search" class="sr-only">Search augments</label>
@@ -1352,6 +1354,9 @@
           </p>
         </div>
       </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
@@ -1360,7 +1365,7 @@
 <div class="overlay hidden modal-sheet" id="modal-load-list" aria-hidden="true" aria-labelledby="modal-load-list-title">
   <div class="modal-frame">
     <section class="modal modal--load-save modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+      <button class="x" data-close aria-label="Close" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
@@ -1385,7 +1390,7 @@
 <div class="overlay hidden modal-sheet" id="modal-recover-char" aria-hidden="true" aria-labelledby="modal-recover-char-title">
   <div class="modal-frame">
     <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+      <button class="x" data-close aria-label="Close" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
@@ -1408,7 +1413,7 @@
 <div class="overlay hidden modal-sheet" id="modal-recover-list" aria-hidden="true" aria-labelledby="modal-recover-list-title">
   <div class="modal-frame">
     <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+      <button class="x" data-close aria-label="Close" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
@@ -1476,18 +1481,18 @@
 </div>
 
 <!-- WELCOME MODAL -->
-<div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="288deg" data-modal-glow-strength="0.6">
+<div class="overlay hidden modal-sheet" id="modal-welcome" aria-hidden="true" aria-labelledby="modal-welcome-title" data-modal-accent-hue="288deg" data-modal-glow-strength="0.6">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <div class="welcome__header">
-        <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
+      <div class="welcome__header modal-sheet__header">
+        <h3 id="modal-welcome-title" class="welcome-modal__title modal-sheet__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
       </div>
-      <div class="welcome__body">
+      <div class="welcome__body modal-sheet__body">
         <p><u>Create or Load Your Hero Profile</u><br>
         This is your Vigilante record. Without it, you don’t exist in the Core.</p>
         <p aria-hidden="true">&nbsp;</p>
@@ -1511,80 +1516,89 @@
           </label>
         </div>
       </div>
-      <div class="welcome__options actions">
+      <div class="welcome__options actions modal-sheet__footer">
         <button id="welcome-create-character" type="button">Create New Character</button>
         <button id="welcome-load-character" type="button">Load Character</button>
         <button id="welcome-skip" type="button">Skip</button>
-      </div>
-    </div>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
-  </div>
-</div>
-
-<div class="overlay hidden" id="modal-character-confirmation" aria-hidden="true" data-modal-accent-hue="212deg" data-modal-glow-strength="0.5">
-  <div class="modal-frame modal-frame--character-confirmation">
-    <section class="modal modal--character-confirmation" role="dialog" aria-modal="true" aria-labelledby="character-confirmation-title" tabindex="-1">
-      <button class="x" aria-label="Close" id="character-confirmation-close">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-        </svg>
-      </button>
-      <div class="character-confirmation__content">
-        <p class="character-confirmation__eyebrow">All systems synced</p>
-        <h3 id="character-confirmation-title" class="character-confirmation__title">Character Loaded</h3>
-        <p id="character-confirmation-message" class="character-confirmation__message">Loaded character: </p>
-      </div>
-      <div class="actions character-confirmation__actions">
-        <button type="button" id="character-confirmation-continue" class="btn">Continue</button>
       </div>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-level-rewards" aria-hidden="true" data-modal-accent-hue="42deg" data-modal-glow-strength="0.55">
-  <div class="modal-frame">
-    <div class="modal modal--level-rewards" role="dialog" aria-modal="true" aria-labelledby="level-reward-modal-title" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+<div class="overlay hidden modal-sheet" id="modal-character-confirmation" aria-hidden="true" aria-labelledby="character-confirmation-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.5">
+  <div class="modal-frame modal-frame--character-confirmation">
+    <section class="modal modal--character-confirmation modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" aria-label="Close" id="character-confirmation-close" data-close type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <h3 id="level-reward-modal-title">Level Rewards</h3>
-      <p class="level-reward-modal__intro">
-        Review your newly unlocked upgrades and mark them complete so the tracker can stay in sync with your character sheet.
-      </p>
-      <ul id="level-reward-reminders" class="level-reward-list" data-view-allow></ul>
-      <p
-        id="level-reward-empty"
-        class="empty-state level-reward-empty"
-        data-empty-for="level-reward-reminders"
-        aria-live="polite"
-      >
-        You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
-      </p>
-      <div class="level-reward-modal__actions">
-        <button type="button" id="level-reward-acknowledge" class="btn">Acknowledged</button>
+      <header class="character-confirmation__content modal-sheet__header">
+        <p class="character-confirmation__eyebrow">All systems synced</p>
+        <h3 id="character-confirmation-title" class="character-confirmation__title modal-sheet__title">Character Loaded</h3>
+      </header>
+      <div class="character-confirmation__content modal-sheet__body">
+        <p id="character-confirmation-message" class="character-confirmation__message">Loaded character: </p>
       </div>
-    </div>
+      <footer class="actions character-confirmation__actions modal-sheet__footer">
+        <button type="button" id="character-confirmation-continue" class="btn">Continue</button>
+      </footer>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="overlay hidden modal-sheet" id="modal-level-rewards" aria-hidden="true" aria-labelledby="level-reward-modal-title" data-modal-accent-hue="42deg" data-modal-glow-strength="0.55">
+  <div class="modal-frame">
+    <section class="modal modal--level-rewards modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="modal-sheet__header">
+        <h3 id="level-reward-modal-title" class="modal-sheet__title">Level Rewards</h3>
+        <p class="modal-sheet__subtitle level-reward-modal__intro">
+          Review your newly unlocked upgrades and mark them complete so the tracker can stay in sync with your character sheet.
+        </p>
+      </header>
+      <div class="modal-sheet__body">
+        <ul id="level-reward-reminders" class="level-reward-list" data-view-allow></ul>
+        <p
+          id="level-reward-empty"
+          class="empty-state level-reward-empty"
+          data-empty-for="level-reward-reminders"
+          aria-live="polite"
+        >
+          You're all caught up on level rewards. When you level up, record the upgrades here so nothing slips through.
+        </p>
+      </div>
+      <footer class="modal-sheet__footer actions level-reward-modal__actions">
+        <button type="button" id="level-reward-acknowledge" class="btn">Acknowledged</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <!-- HELP MODAL -->
-<div class="overlay hidden" id="modal-help" aria-hidden="true" data-modal-accent-hue="210deg" data-modal-glow-strength="0.5">
+<div class="overlay hidden modal-sheet" id="modal-help" aria-hidden="true" aria-labelledby="modal-help-title" data-modal-accent-hue="210deg" data-modal-glow-strength="0.5">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-    <h3>Catalyst Core Help</h3>
-    <p>
-      Keep this reference open while you play to understand what each tab, modal, and control in the current build is designed to
-      do.
-    </p>
+    <header class="modal-sheet__header">
+      <h3 id="modal-help-title" class="modal-sheet__title">Catalyst Core Help</h3>
+      <p class="modal-sheet__subtitle">
+        Keep this reference open while you play to understand what each tab, modal, and control in the current build is designed to
+        do.
+      </p>
+    </header>
+    <div class="modal-sheet__body">
     <h4>Getting Started</h4>
     <ul class="feature-list">
       <li>
@@ -1768,28 +1782,35 @@
         Set a PIN in Load / Save. The sheet asks for that code before someone can open or edit the character.
       </li>
     </ul>
-  </div>
-  <div class="modal-frame__halo" aria-hidden="true"></div>
-  </div>
+    </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </section>
 </div>
 
 <!-- INITIATIVE MODAL -->
-<div class="overlay hidden" id="modal-enc" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-enc" aria-hidden="true" aria-labelledby="modal-enc-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Encounter Tracker</h3>
+    <header class="modal-sheet__header">
+      <h3 id="modal-enc-title" class="modal-sheet__title">Encounter Tracker</h3>
+      <p class="modal-sheet__subtitle">Add combatants, track rounds, and cycle turns.</p>
+    </header>
+    <div class="modal-sheet__body">
     <fieldset class="inline">
       <legend class="sr-only">Add Combatant</legend>
       <label for="enc-name" class="sr-only">Name</label>
       <input id="enc-name" data-view-allow placeholder="Name"/>
       <label for="enc-init" class="sr-only">Init</label>
       <input id="enc-init" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Init"/>
-      <button id="enc-add" class="btn-sm">Add</button>
+      <button id="enc-add" class="btn-sm" type="button">Add</button>
     </fieldset>
     <div class="encounter-readouts">
       <div class="encounter-readout">
@@ -1865,25 +1886,31 @@
         </details>
       </div>
     </template>
-    <div class="actions">
-      <button id="enc-prev" class="btn-sm">Prev Turn</button>
-      <button id="enc-next" class="btn-sm">Next Turn</button>
-      <button id="enc-reset" class="btn-sm">Reset</button>
     </div>
-    </div>
+    <footer class="modal-sheet__footer actions">
+      <button id="enc-prev" class="btn-sm" type="button">Prev Turn</button>
+      <button id="enc-next" class="btn-sm" type="button">Next Turn</button>
+      <button id="enc-reset" class="btn-sm" type="button">Reset</button>
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-hp-settings" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-hp-settings" aria-hidden="true" aria-labelledby="modal-hp-settings-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>HP Options</h3>
+    <header class="modal-sheet__header">
+      <h3 id="modal-hp-settings-title" class="modal-sheet__title">HP Options</h3>
+      <p class="modal-sheet__subtitle">Track temporary HP and tier bonuses.</p>
+    </header>
+    <div class="modal-sheet__body">
     <div class="hp-settings__section">
       <label for="hp-temp">Temporary HP</label>
       <input id="hp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp HP"/>
@@ -1899,35 +1926,41 @@
         No tier bonuses logged yet. Hit Add after each roll to keep your total current.
       </p>
     </div>
-    <div class="actions hp-settings__actions">
-      <button id="hp-full" class="btn-sm">Reset HP</button>
-      <button class="btn-sm" data-close>Close</button>
     </div>
-    </div>
+    <footer class="modal-sheet__footer actions hp-settings__actions">
+      <button id="hp-full" class="btn-sm" type="button">Reset HP</button>
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 
-<div class="overlay hidden" id="modal-sp-settings" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-sp-settings" aria-hidden="true" aria-labelledby="modal-sp-settings-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>SP Options</h3>
+    <header class="modal-sheet__header">
+      <h3 id="modal-sp-settings-title" class="modal-sheet__title">SP Options</h3>
+      <p class="modal-sheet__subtitle">Set temporary SP values and save changes.</p>
+    </header>
+    <div class="modal-sheet__body">
     <div class="hp-settings__section">
       <label for="sp-temp">Temporary SP</label>
       <input id="sp-temp" data-view-allow type="number" inputmode="numeric" pattern="[0-9]*" placeholder="Temp SP"/>
     </div>
-    <div class="actions hp-settings__actions">
+    </div>
+    <footer class="modal-sheet__footer actions hp-settings__actions">
       <button id="long-rest" class="btn-sm" type="button">Long Rest</button>
       <button id="sp-settings-save" class="btn-sm" type="button">Save</button>
-      <button class="btn-sm" data-close>Close</button>
-    </div>
-    </div>
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
@@ -1987,107 +2020,146 @@
 </div>
 
 
-<div class="overlay hidden" id="modal-campaign" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-campaign" aria-hidden="true" aria-labelledby="modal-campaign-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Campaign Log</h3>
-    <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
-    <textarea id="campaign-entry" data-view-allow rows="2" placeholder="Session notes..."></textarea>
-    <div class="actions">
-      <button id="campaign-add" class="btn-sm" style="max-width:140px">Add Entry</button>
-    </div>
-    <div id="campaign-log" class="catalog"></div>
-    <div class="actions actions--center"><button id="campaign-view-backlog" class="btn-sm" type="button" disabled aria-disabled="true">View Backlog</button></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
-    </div>
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="modal-sheet__header">
+        <h3 id="modal-campaign-title" class="modal-sheet__title">Campaign Log</h3>
+        <p class="modal-sheet__subtitle">Capture session notes and review your history.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <label for="campaign-entry" class="sr-only">Campaign Log Entry</label>
+        <textarea id="campaign-entry" data-view-allow rows="2" placeholder="Session notes..."></textarea>
+        <div class="actions">
+          <button id="campaign-add" class="btn-sm" type="button" style="max-width:140px">Add Entry</button>
+        </div>
+        <div id="campaign-log" class="catalog"></div>
+        <div class="actions actions--center">
+          <button id="campaign-view-backlog" class="btn-sm" type="button" disabled aria-disabled="true">View Backlog</button>
+        </div>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-campaign-edit" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-campaign-edit" aria-hidden="true" aria-labelledby="modal-campaign-edit-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Edit Campaign Entry</h3>
-    <div id="campaign-edit-meta" class="campaign-edit-meta" aria-live="polite"></div>
-    <label for="campaign-edit-text" class="sr-only">Campaign log entry text</label>
-    <textarea id="campaign-edit-text" data-view-allow rows="3"></textarea>
-    <div class="actions">
+    <header class="modal-sheet__header">
+      <h3 id="modal-campaign-edit-title" class="modal-sheet__title">Edit Campaign Entry</h3>
+      <p id="campaign-edit-meta" class="campaign-edit-meta modal-sheet__subtitle" aria-live="polite"></p>
+    </header>
+    <div class="modal-sheet__body">
+      <label for="campaign-edit-text" class="sr-only">Campaign log entry text</label>
+      <textarea id="campaign-edit-text" data-view-allow rows="3"></textarea>
+    </div>
+    <footer class="modal-sheet__footer actions">
       <button id="campaign-edit-save" class="btn-sm" type="button">Save Changes</button>
       <button class="btn-sm" type="button" data-close>Cancel</button>
-    </div>
-    </div>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-campaign-backlog" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-campaign-backlog" aria-hidden="true" aria-labelledby="modal-campaign-backlog-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Campaign Log Backlog</h3>
-    <div id="campaign-backlog" class="catalog"></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    <header class="modal-sheet__header">
+      <h3 id="modal-campaign-backlog-title" class="modal-sheet__title">Campaign Log Backlog</h3>
+      <p class="modal-sheet__subtitle">Browse older entries for the current campaign.</p>
+    </header>
+    <div class="modal-sheet__body">
+      <div id="campaign-backlog" class="catalog"></div>
     </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-log-full" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-log-full" aria-hidden="true" aria-labelledby="modal-log-full-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Full Action Log</h3>
-    <div id="full-log-action" class="catalog"></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
+    <header class="modal-sheet__header">
+      <h3 id="modal-log-full-title" class="modal-sheet__title">Full Action Log</h3>
+      <p class="modal-sheet__subtitle">Review the complete event history.</p>
+    </header>
+    <div class="modal-sheet__body">
+      <div id="full-log-action" class="catalog"></div>
     </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-faction-perk" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-faction-perk" aria-hidden="true" aria-labelledby="modal-faction-perk-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" aria-label="Faction Perk" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Faction Perk</h3>
-    <ul id="modal-faction-perk-list" class="perk-list"></ul>
+    <header class="modal-sheet__header">
+      <h3 id="modal-faction-perk-title" class="modal-sheet__title">Faction Perk</h3>
+      <p class="modal-sheet__subtitle">Review perks unlocked by reputation.</p>
+    </header>
+    <div class="modal-sheet__body">
+      <ul id="modal-faction-perk-list" class="perk-list"></ul>
     </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 
 <!-- GEAR CATALOG -->
-<div class="overlay hidden" id="modal-catalog" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-catalog" aria-hidden="true" aria-labelledby="modal-catalog-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Gear Catalog</h3>
+    <header class="modal-sheet__header">
+      <h3 id="modal-catalog-title" class="modal-sheet__title">Gear Catalog</h3>
+      <p class="modal-sheet__subtitle">Filter, browse, and add gear to your loadout.</p>
+    </header>
+    <div class="modal-sheet__body">
     <fieldset class="inline" style="margin:6px 0">
       <legend class="sr-only">Filters</legend>
       <label for="catalog-filter-style" class="sr-only">Style</label>
@@ -2099,66 +2171,88 @@
       <button id="catalog-add-custom" class="btn-sm" type="button" data-view-allow>Add Custom Item</button>
     </fieldset>
     <div id="catalog-list" class="catalog"></div>
-</div>
-</div>
-
-<div class="overlay hidden" id="modal-custom-item" aria-hidden="true">
-  <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Create Custom Item</h3>
-    <p>Select the type of custom item to add.</p>
-    <div class="custom-type-grid">
-      <button class="btn-sm" type="button" data-custom-type="weapon">Weapon</button>
-      <button class="btn-sm" type="button" data-custom-type="armor">Armor</button>
-      <button class="btn-sm" type="button" data-custom-type="shield">Shield</button>
-      <button class="btn-sm" type="button" data-custom-type="utility">Utility</button>
-      <button class="btn-sm" type="button" data-custom-type="item">Item</button>
     </div>
-    <div class="actions">
-      <button class="btn-sm" type="button" data-close>Cancel</button>
-    </div>
-    </div>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
-    </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="overlay hidden" id="modal-power-editor" aria-hidden="true" data-modal-static data-view-allow>
+<div class="overlay hidden modal-sheet" id="modal-custom-item" aria-hidden="true" aria-labelledby="modal-custom-item-title">
   <div class="modal-frame">
-    <div class="modal modal-power-editor" role="dialog" aria-modal="true" aria-labelledby="power-editor-title" tabindex="-1" data-view-allow>
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button class="x" data-close aria-label="Close" type="button">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <header class="modal-sheet__header">
+      <h3 id="modal-custom-item-title" class="modal-sheet__title">Create Custom Item</h3>
+      <p class="modal-sheet__subtitle">Select the type of custom item to add.</p>
+    </header>
+    <div class="modal-sheet__body">
+      <div class="custom-type-grid">
+        <button class="btn-sm" type="button" data-custom-type="weapon">Weapon</button>
+        <button class="btn-sm" type="button" data-custom-type="armor">Armor</button>
+        <button class="btn-sm" type="button" data-custom-type="shield">Shield</button>
+        <button class="btn-sm" type="button" data-custom-type="utility">Utility</button>
+        <button class="btn-sm" type="button" data-custom-type="item">Item</button>
+      </div>
+    </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Cancel</button>
+    </footer>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<div class="overlay hidden modal-sheet" id="modal-power-editor" aria-hidden="true" aria-labelledby="power-editor-title" data-modal-static data-view-allow>
+  <div class="modal-frame">
+    <section class="modal modal-power-editor modal--sheet" role="dialog" aria-modal="true" tabindex="-1" data-view-allow>
     <button class="x" type="button" data-power-editor-dismiss aria-label="Close">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3 id="power-editor-title">Edit Power</h3>
-    <div class="power-editor__content" data-role="power-editor-content" data-view-allow></div>
-    <div class="actions power-editor__actions">
+    <header class="modal-sheet__header">
+      <h3 id="power-editor-title" class="modal-sheet__title">Edit Power</h3>
+      <p class="modal-sheet__subtitle">Update the details for this power card.</p>
+    </header>
+    <div class="modal-sheet__body">
+      <div class="power-editor__content" data-role="power-editor-content" data-view-allow></div>
+    </div>
+    <footer class="modal-sheet__footer actions power-editor__actions">
       <button class="btn-sm" type="button" data-power-editor-cancel>Cancel</button>
       <button class="btn-sm btn-primary" type="button" data-power-editor-save>Save</button>
-    </div>
-    </div>
+    </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
 
 <!-- RULES -->
-<div class="overlay hidden" id="modal-rules" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-rules" aria-hidden="true" aria-labelledby="modal-rules-title">
   <div class="modal-frame">
-    <div class="modal modal-rules" role="dialog" aria-modal="true" aria-label="Rules Help" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
+    <section class="modal modal-rules modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <pre id="rules-text"></pre>
-    </div>
+      <header class="modal-sheet__header">
+        <h3 id="modal-rules-title" class="modal-sheet__title">Rules Reference</h3>
+        <p class="modal-sheet__subtitle">Quick summaries for core mechanics.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <pre id="rules-text"></pre>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
@@ -2166,7 +2260,7 @@
 <div id="somf-min-modal" class="somf-modal" hidden>
   <div class="somf-modal__backdrop" data-somf-dismiss></div>
   <div class="somf-modal__card somf-modal__card--image">
-    <button id="somf-min-close" class="somf-modal__x" aria-label="Close">
+    <button id="somf-min-close" class="somf-modal__x" aria-label="Close" type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
@@ -2187,16 +2281,16 @@
   </button>
   <div class="dm-tools-portal">
     <div id="dm-tools-menu" class="dm-tools-menu" hidden>
-      <button id="dm-tools-tsomf" class="btn-sm">TSoMF</button>
-      <button id="dm-tools-notifications" class="btn-sm" data-unread="0">
+      <button id="dm-tools-tsomf" class="btn-sm" type="button">TSoMF</button>
+      <button id="dm-tools-notifications" class="btn-sm" data-unread="0" type="button">
         Notifications
         <span class="dm-tools-badge dm-tools-menu__badge" data-role="dm-unread-badge" aria-hidden="true" hidden>0</span>
       </button>
-      <button id="dm-tools-rewards" class="btn-sm">Rewards &amp; Catalog</button>
-      <button id="dm-tools-discord" class="btn-sm">Discord Telemetry</button>
-      <button id="dm-tools-characters" class="btn-sm">Characters</button>
-      <button id="dm-tools-mini-games" class="btn-sm">Mini-Games</button>
-      <button id="dm-tools-logout" class="btn-sm">Logout</button>
+      <button id="dm-tools-rewards" class="btn-sm" type="button">Rewards &amp; Catalog</button>
+      <button id="dm-tools-discord" class="btn-sm" type="button">Discord Telemetry</button>
+      <button id="dm-tools-characters" class="btn-sm" type="button">Characters</button>
+      <button id="dm-tools-mini-games" class="btn-sm" type="button">Mini-Games</button>
+      <button id="dm-tools-logout" class="btn-sm" type="button">Logout</button>
     </div>
     <button id="dm-tools-toggle" class="dm-tools-toggle" type="button" hidden aria-haspopup="true" aria-controls="dm-tools-menu" aria-expanded="false" aria-label="DM tools menu" data-unread="0">
       <img class="dm-tools-toggle__icon" src="images/settings.png" alt="" aria-hidden="true" />
@@ -2205,17 +2299,21 @@
     </button>
   </div>
 </footer>
-<div class="overlay hidden" id="dm-login-modal" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="dm-login-modal" aria-hidden="true" aria-labelledby="dm-login-title">
   <div class="modal-frame">
-    <section class="modal dm-login" role="dialog" aria-modal="true" aria-labelledby="dm-login-title">
-      <button id="dm-login-close" class="x" aria-label="Close">
+    <section class="modal dm-login modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button id="dm-login-close" class="x" aria-label="Close" data-close type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-      <div class="dm-login__content">
+      <header class="modal-sheet__header">
+        <h3 id="dm-login-title" class="modal-sheet__title">DM Login</h3>
+        <p class="modal-sheet__subtitle">Access the DM tools dashboard.</p>
+      </header>
+      <div class="dm-login__content modal-sheet__body">
         <div class="dm-login__view" data-login-view="login">
-          <h3 id="dm-login-title">DM Login</h3>
+          <h3>DM Login</h3>
           <p class="dm-login__description">Enter your DM username and 4-digit PIN to access the tools.</p>
           <label class="sr-only" for="dm-login-username">DM Username</label>
           <input id="dm-login-username" data-view-allow type="text" autocomplete="username">
@@ -2278,19 +2376,26 @@
         <p class="dm-login__error" data-login-error hidden role="alert"></p>
         <p class="dm-login__wait" data-login-wait hidden></p>
       </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
-<div class="overlay hidden" id="dm-notifications-modal" aria-hidden="true" data-modal-accent-hue="164deg" data-modal-glow-strength="0.5">
+<div class="overlay hidden modal-sheet" id="dm-notifications-modal" aria-hidden="true" aria-labelledby="dm-notifications-title" data-modal-accent-hue="164deg" data-modal-glow-strength="0.5">
   <div class="modal-frame">
-    <section class="modal" role="dialog" aria-modal="true">
-    <button id="dm-notifications-close" class="x" aria-label="Close">
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button id="dm-notifications-close" class="x" aria-label="Close" data-close type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <h3>Notifications</h3>
+    <header class="modal-sheet__header">
+      <h3 id="dm-notifications-title" class="modal-sheet__title">Notifications</h3>
+      <p class="modal-sheet__subtitle">Filter, export, and manage DM alerts.</p>
+    </header>
+    <div class="modal-sheet__body">
     <div class="dm-notifications__actions" role="group" aria-label="Notification log actions">
       <div class="dm-notifications__exportControls">
         <button id="dm-notifications-export" class="btn-sm" type="button" disabled>Copy / Export</button>
@@ -2333,20 +2438,24 @@
       </label>
     </form>
     <ol id="dm-notifications-list"></ol>
+    </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
-<div class="overlay hidden" id="dm-characters-modal" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="dm-characters-modal" aria-hidden="true" aria-labelledby="dm-characters-title">
   <div class="modal-frame">
-    <section class="modal dm-characters" role="dialog" aria-modal="true" aria-labelledby="dm-characters-title">
-    <button id="dm-characters-close" class="x" aria-label="Close">
+    <section class="modal dm-characters modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button id="dm-characters-close" class="x" aria-label="Close" data-close type="button">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <header class="dm-characters__header">
-      <h3 id="dm-characters-title">Character Roster</h3>
+    <header class="dm-characters__header modal-sheet__header">
+      <h3 id="dm-characters-title" class="modal-sheet__title">Character Roster</h3>
       <div class="dm-characters__controls">
         <label class="sr-only" for="dm-characters-search">Search characters</label>
         <input id="dm-characters-search" class="dm-characters__search" type="search" placeholder="Search characters" autocomplete="off">
@@ -2356,39 +2465,52 @@
         </div>
       </div>
     </header>
-    <ul id="dm-characters-list" class="dm-characters-list"></ul>
+    <div class="modal-sheet__body">
+      <ul id="dm-characters-list" class="dm-characters-list"></ul>
+    </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
-<div class="overlay hidden" id="dm-character-modal" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="dm-character-modal" aria-hidden="true" aria-labelledby="dm-character-title">
   <div class="modal-frame">
-    <section class="modal dm-character" role="dialog" aria-modal="true" aria-labelledby="dm-character-title">
-      <button id="dm-character-close" class="x" aria-label="Close">
+    <section class="modal dm-character modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button id="dm-character-close" class="x" aria-label="Close" data-close type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
         </svg>
       </button>
-      <h3 id="dm-character-title" class="sr-only">Character Sheet</h3>
-      <div id="dm-character-sheet" class="dm-character-sheet" role="document"></div>
+      <header class="modal-sheet__header">
+        <h3 id="dm-character-title" class="modal-sheet__title">Character Sheet</h3>
+        <p class="modal-sheet__subtitle">Review a player character snapshot.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <div id="dm-character-sheet" class="dm-character-sheet" role="document"></div>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
-<div class="overlay hidden" id="dm-discord-modal" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="dm-discord-modal" aria-hidden="true" aria-labelledby="dm-discord-title">
   <div class="modal-frame">
-    <section class="modal dm-discord" role="dialog" aria-modal="true" aria-labelledby="dm-discord-title">
-      <button id="dm-discord-close" class="x" aria-label="Close">
+    <section class="modal dm-discord modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button id="dm-discord-close" class="x" aria-label="Close" data-close type="button">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
         </svg>
       </button>
-      <header class="dm-discord__header">
+      <header class="dm-discord__header modal-sheet__header">
         <p class="dm-discord__eyebrow">Telemetry Routes</p>
-        <h3 id="dm-discord-title">Discord Broadcast</h3>
+        <h3 id="dm-discord-title" class="modal-sheet__title">Discord Broadcast</h3>
         <p class="dm-discord__intro">Choose which Discord route to use for telemetry and send a quick test post.</p>
       </header>
-      <div class="dm-discord__grid">
+      <div class="dm-discord__grid modal-sheet__body">
         <label class="dm-discord__field">
           <span class="dm-discord__label">Enable Discord telemetry</span>
           <input type="checkbox" id="dm-discord-enabled" />
@@ -2412,22 +2534,26 @@
           <p class="dm-discord__hint">Posts a single test roll to verify the configured route.</p>
         </div>
       </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
-<div class="overlay hidden" id="dm-rewards-modal" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="dm-rewards-modal" aria-hidden="true" aria-labelledby="dm-rewards-title">
   <div class="modal-frame">
-    <section class="modal dm-rewards" role="dialog" aria-modal="true" aria-labelledby="dm-rewards-title" data-view-allow>
-    <button id="dm-rewards-close" class="x" type="button" aria-label="Close">
+    <section class="modal dm-rewards modal--sheet" role="dialog" aria-modal="true" tabindex="-1" data-view-allow>
+    <button id="dm-rewards-close" class="x" type="button" aria-label="Close" data-close>
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <header class="dm-rewards__header">
-      <h3 id="dm-rewards-title">Rewards Hub</h3>
+    <header class="dm-rewards__header modal-sheet__header">
+      <h3 id="dm-rewards-title" class="modal-sheet__title">Rewards Hub</h3>
       <p class="dm-rewards__intro">Deliver resource drops or stage catalog-driven gear for your table.</p>
     </header>
+    <div class="modal-sheet__body">
     <nav id="dm-rewards-tabs" class="dm-rewards__tabs" role="tablist" aria-label="Reward tools">
       <button id="dm-rewards-tab-resource" class="dm-rewards__tab is-active" type="button" role="tab" aria-selected="true" aria-controls="dm-rewards-panel-resource" data-tab="resource" tabindex="0">Resource Rewards</button>
       <button id="dm-rewards-tab-catalog" class="dm-rewards__tab" type="button" role="tab" aria-selected="false" aria-controls="dm-rewards-panel-catalog" data-tab="catalog" tabindex="-1">Catalog Builder</button>
@@ -2838,44 +2964,50 @@
         </div>
       </section>
     </div>
-    </section>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
-  </div>
-</div>
-<div class="overlay hidden" id="mini-game-invite" aria-hidden="true" data-modal-static data-modal-accent-hue="128deg" data-modal-glow-strength="0.65">
-  <div class="modal-frame">
-    <section class="modal mini-game-invite" role="dialog" aria-modal="true" aria-labelledby="mini-game-invite-title">
-    <header class="mini-game-invite__header">
-      <h3 id="mini-game-invite-title" class="mini-game-invite__title">Incoming Mini-Game Assignment</h3>
-      <p id="mini-game-invite-message" class="mini-game-invite__message"></p>
-    </header>
-    <div class="mini-game-invite__game">
-      <div id="mini-game-invite-game" class="mini-game-invite__name"></div>
-      <p id="mini-game-invite-tagline" class="mini-game-invite__tagline"></p>
     </div>
-    <div id="mini-game-invite-summary" class="mini-game-invite__summary"></div>
-    <div id="mini-game-invite-notes" class="mini-game-invite__notes" hidden>
-      <h4 class="mini-game-invite__notes-title">Briefing</h4>
-      <p id="mini-game-invite-notes-text" class="mini-game-invite__notes-text"></p>
-    </div>
-    <footer class="mini-game-invite__actions">
-      <button id="mini-game-invite-decline" type="button" class="btn-sm mini-game-invite__decline">Not Now</button>
-      <button id="mini-game-invite-accept" type="button" class="somf-btn somf-primary mini-game-invite__accept">Start Mission</button>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
     </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
-<div class="overlay hidden" id="modal-somf-dm" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="mini-game-invite" aria-hidden="true" aria-labelledby="mini-game-invite-title" data-modal-static data-modal-accent-hue="128deg" data-modal-glow-strength="0.65">
   <div class="modal-frame">
-    <section id="somf-dm" class="modal somf-dm" role="dialog" aria-modal="true">
-    <button id="somfDM-close" class="x" aria-label="Close">
+    <section class="modal mini-game-invite modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <header class="mini-game-invite__header modal-sheet__header">
+      <h3 id="mini-game-invite-title" class="mini-game-invite__title modal-sheet__title">Incoming Mini-Game Assignment</h3>
+      <p id="mini-game-invite-message" class="mini-game-invite__message modal-sheet__subtitle"></p>
+    </header>
+    <div class="modal-sheet__body">
+      <div class="mini-game-invite__game">
+        <div id="mini-game-invite-game" class="mini-game-invite__name"></div>
+        <p id="mini-game-invite-tagline" class="mini-game-invite__tagline"></p>
+      </div>
+      <div id="mini-game-invite-summary" class="mini-game-invite__summary"></div>
+      <div id="mini-game-invite-notes" class="mini-game-invite__notes" hidden>
+        <h4 class="mini-game-invite__notes-title">Briefing</h4>
+        <p id="mini-game-invite-notes-text" class="mini-game-invite__notes-text"></p>
+      </div>
+    </div>
+    <footer class="mini-game-invite__actions modal-sheet__footer actions">
+      <button id="mini-game-invite-decline" class="btn-sm mini-game-invite__decline">Not Now</button>
+      <button id="mini-game-invite-accept" class="somf-btn somf-primary mini-game-invite__accept">Start Mission</button>
+    </footer>
+    </section>
+    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+<div class="overlay hidden modal-sheet" id="modal-somf-dm" aria-hidden="true" aria-labelledby="somfDM-title">
+  <div class="modal-frame">
+    <section id="somf-dm" class="modal somf-dm modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <button id="somfDM-close" class="x" aria-label="Close" type="button" data-close>
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
       </svg>
     </button>
-    <header class="somf-dm__hdr">
-      <h3>DM • Shards <span id="somfDM-cardCount"></span></h3>
+    <header class="somf-dm__hdr modal-sheet__header">
+      <h3 id="somfDM-title" class="modal-sheet__title">DM • Shards <span id="somfDM-cardCount"></span></h3>
       <div class="somf-dm__hdr-controls">
         <div class="somf-dm__toggles">
           <label for="somfDM-inviteTargets" class="somf-dm__inviteLabel">Invite players to reveal</label>
@@ -2887,23 +3019,24 @@
             list="somfDM-inviteOptions"
           >
           <span id="somfDM-inviteSelected" class="somf-dm__inviteSelected" aria-live="polite">No players selected</span>
-          <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend">Send Invite</button>
-          <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll">Conceal All</button>
+          <button id="somfDM-sendInvite" class="somf-btn somf-primary somf-dm__inviteSend" type="button">Send Invite</button>
+          <button id="somfDM-concealAll" class="somf-btn somf-ghost somf-dm__concealAll" type="button">Conceal All</button>
           <span id="somfDM-hiddenStatus" class="somf-dm__hiddenStatus">Concealed</span>
         </div>
         <datalist id="somfDM-inviteOptions"></datalist>
         <div id="somfDM-inviteRoster" class="somf-dm__inviteRoster" aria-live="polite"></div>
         <div class="somf-dm__actions">
-          <button id="somfDM-reset" class="somf-btn">Reset</button>
+          <button id="somfDM-reset" class="somf-btn" type="button">Reset</button>
         </div>
       </div>
     </header>
 
+    <div class="modal-sheet__body">
     <nav class="somf-dm__tabs">
-      <button data-tab="cards" class="somf-dm-tabbtn active">Shards List</button>
-      <button data-tab="resolve" class="somf-dm-tabbtn">Resolve</button>
-      <button data-tab="npcs" class="somf-dm-tabbtn">NPCs</button>
-      <button data-tab="items" class="somf-dm-tabbtn">Items</button>
+      <button data-tab="cards" class="somf-dm-tabbtn active" type="button">Shards List</button>
+      <button data-tab="resolve" class="somf-dm-tabbtn" type="button">Resolve</button>
+      <button data-tab="npcs" class="somf-dm-tabbtn" type="button">NPCs</button>
+      <button data-tab="items" class="somf-dm-tabbtn" type="button">Items</button>
     </nav>
 
     <section id="somfDM-tab-cards" class="somf-dm-tab somf-dm__tab active"></section>
@@ -2917,8 +3050,8 @@
         <main class="somf-dm__main">
           <div id="somfDM-noticeView" class="somf-dm__card"></div>
           <div class="somf-dm__actions">
-            <button id="somfDM-markResolved" class="somf-btn somf-primary" disabled>Mark Resolved</button>
-            <button id="somfDM-spawnNPC" class="somf-btn" disabled>Spawn Related NPC</button>
+            <button id="somfDM-markResolved" class="somf-btn somf-primary" disabled type="button">Mark Resolved</button>
+            <button id="somfDM-spawnNPC" class="somf-btn" disabled type="button">Spawn Related NPC</button>
           </div>
         </main>
       </div>
@@ -2975,6 +3108,10 @@
       </div>
       <ul id="somfDM-itemList" class="somf-dm__list somf-dm__list--actions"></ul>
     </section>
+    </div>
+    <footer class="modal-sheet__footer actions">
+      <button class="btn-sm" type="button" data-close>Close</button>
+    </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
@@ -3033,9 +3170,17 @@
   </div>
 </section>
 
-<div class="overlay hidden" id="somfDM-npcModal" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="somfDM-npcModal" aria-hidden="true" aria-labelledby="somfDM-npcModal-title">
   <div class="modal-frame">
-    <section id="somfDM-npcModalCard" class="modal somf-dm" role="dialog" aria-modal="true"></section>
+    <section id="somfDM-npcModalCard" class="modal somf-dm modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <header class="modal-sheet__header">
+        <h3 id="somfDM-npcModal-title" class="modal-sheet__title">NPC Details</h3>
+      </header>
+      <div class="modal-sheet__body"></div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
@@ -3085,22 +3230,24 @@
 <div id="load-animation" aria-hidden="true" hidden></div>
 <div id="draw-lightning" aria-hidden="true" hidden></div>
 <div id="draw-flash" aria-hidden="true" hidden></div>
-<div class="overlay hidden" id="somf-confirm-draw" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="somf-confirm-draw" aria-hidden="true" aria-labelledby="somf-confirm-title" aria-describedby="somf-confirm-description somf-confirm-count somf-confirm-consequence-label">
   <div class="modal-frame">
-    <section class="modal somf-confirm" role="dialog" aria-modal="true" aria-labelledby="somf-confirm-title" aria-describedby="somf-confirm-description somf-confirm-count somf-confirm-consequence-label" tabindex="-1">
-    <header class="somf-confirm__header">
-      <h3 id="somf-confirm-title" class="somf-confirm__title">Tempt Fate?</h3>
-      <p id="somf-confirm-description" class="somf-confirm__description">Drawing from the Shards of Many Fates invites unpredictable magic.</p>
+    <section class="modal somf-confirm modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+    <header class="somf-confirm__header modal-sheet__header">
+      <h3 id="somf-confirm-title" class="somf-confirm__title modal-sheet__title">Tempt Fate?</h3>
+      <p id="somf-confirm-description" class="somf-confirm__description modal-sheet__subtitle">Drawing from the Shards of Many Fates invites unpredictable magic.</p>
     </header>
-    <p id="somf-confirm-count" class="somf-confirm__count">You are about to draw 1 Shard.</p>
-    <p id="somf-confirm-consequence-label" class="somf-confirm__label">If you proceed, remember:</p>
-    <ul id="somf-confirm-consequences" class="somf-confirm__list">
-      <li>The Fates are fickle—outcomes may bless or curse.</li>
-      <li>Draws are permanent and cannot be undone.</li>
-    </ul>
-    <footer class="somf-confirm__actions">
-      <button type="button" class="btn-sm somf-confirm__cancel" data-somf-confirm-cancel>Not Now</button>
-      <button type="button" class="somf-btn somf-primary somf-confirm__accept" data-somf-confirm-accept>Draw 1 Shard</button>
+    <div class="modal-sheet__body">
+      <p id="somf-confirm-count" class="somf-confirm__count">You are about to draw 1 Shard.</p>
+      <p id="somf-confirm-consequence-label" class="somf-confirm__label">If you proceed, remember:</p>
+      <ul id="somf-confirm-consequences" class="somf-confirm__list">
+        <li>The Fates are fickle—outcomes may bless or curse.</li>
+        <li>Draws are permanent and cannot be undone.</li>
+      </ul>
+    </div>
+    <footer class="somf-confirm__actions modal-sheet__footer actions">
+      <button class="btn-sm somf-confirm__cancel" data-somf-confirm-cancel>Not Now</button>
+      <button class="somf-btn somf-primary somf-confirm__accept" data-somf-confirm-accept>Draw 1 Shard</button>
     </footer>
     </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
@@ -3210,55 +3357,55 @@
                 <div class="pt-home-pages" data-pt-home-pages>
                   <div class="pt-home-page is-active" data-pt-home-page="0">
                     <div class="pt-home-grid" role="list">
-                      <button class="pt-home-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">🛠️</span>
                         <span class="label">Player Tools</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="shards" data-pt-app-label="Shards of Many Fates" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="shards" data-pt-app-label="Shards of Many Fates" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">♦️</span>
                         <span class="label">Shards</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">📡</span>
                         <span class="label">Messages</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="settings" data-pt-app-label="Settings" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="settings" data-pt-app-label="Settings" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">⚙️</span>
                         <span class="label">Settings</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="loadSave" data-pt-app-label="Load / Save" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="loadSave" data-pt-app-label="Load / Save" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">💾</span>
                         <span class="label">Load / Save</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="encounter" data-pt-app-label="Encounter / Initiative" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="encounter" data-pt-app-label="Encounter / Initiative" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">⚔️</span>
                         <span class="label">Encounter</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="actionLog" data-pt-app-label="Action Log" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="actionLog" data-pt-app-label="Action Log" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">📝</span>
                         <span class="label">Action Log</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="creditsLedger" data-pt-app-label="Credits Ledger" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="creditsLedger" data-pt-app-label="Credits Ledger" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">💳</span>
                         <span class="label">Credits</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">📓</span>
                         <span class="label">Campaign</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="rules" data-pt-app-label="Rules" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="rules" data-pt-app-label="Rules" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">📖</span>
                         <span class="label">Rules</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="help" data-pt-app-label="Help" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="help" data-pt-app-label="Help" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">❔</span>
                         <span class="label">Help</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="OMNI Vault" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="locked" data-pt-app-label="OMNI Vault" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">🔒</span>
                         <span class="label">OMNI Vault</span>
                       </button>
-                      <button class="pt-home-icon" data-pt-open-app="minigames" data-pt-app-label="Minigames" role="listitem">
+                      <button class="pt-home-icon" data-pt-open-app="minigames" data-pt-app-label="Minigames" role="listitem" type="button">
                         <span class="icon" aria-hidden="true">🎮</span>
                         <span class="label">Minigames</span>
                       </button>
@@ -3302,15 +3449,15 @@
                 </div>
 
                 <div class="pt-home-dock" role="list" aria-label="Dock">
-                  <button class="pt-dock-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem">
+                  <button class="pt-dock-icon" data-pt-open-app="campaignLog" data-pt-app-label="Campaign Log" role="listitem" type="button">
                     <span class="icon" aria-hidden="true">📓</span>
                     <span class="label">Campaign</span>
                   </button>
-                  <button class="pt-dock-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem">
+                  <button class="pt-dock-icon" data-pt-open-app="messages" data-pt-app-label="Director’s Messages" role="listitem" type="button">
                     <span class="icon" aria-hidden="true">📡</span>
                     <span class="label">Messages</span>
                   </button>
-                  <button class="pt-dock-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem">
+                  <button class="pt-dock-icon" data-pt-open-app="playerTools" data-pt-app-label="Player Tools" role="listitem" type="button">
                     <span class="icon" aria-hidden="true">🛠️</span>
                     <span class="label">Tools</span>
                   </button>
@@ -3719,19 +3866,19 @@
                     <div class="pt-section">
                       <div class="pt-section__title">Available</div>
 
-                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-gridlock">
+                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-gridlock" type="button">
                         <span class="pt-row__label">GRIDLOCK</span>
                         <span class="pt-row__meta">Tactical grid puzzle</span>
                         <span class="pt-row__chev">›</span>
                       </button>
 
-                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-logic">
+                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-logic" type="button">
                         <span class="pt-row__label">LOGIC</span>
                         <span class="pt-row__meta">Deduction constraints</span>
                         <span class="pt-row__chev">›</span>
                       </button>
 
-                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-codebreaker">
+                      <button class="pt-row pt-row--button" data-pt-open-modal="modal-minigame-codebreaker" type="button">
                         <span class="pt-row__label">CODEBREAKER</span>
                         <span class="pt-row__meta">Cipher challenge</span>
                         <span class="pt-row__chev">›</span>

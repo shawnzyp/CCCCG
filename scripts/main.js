@@ -1653,7 +1653,7 @@ function handleMiniGameReminderAction() {
     removeMiniGameQueueEntry(entry.id);
     populateMiniGameInvite(entry);
     prepareMiniGameInviteAnimation();
-    show('mini-game-invite');
+    openMenuModal('mini-game-invite');
     updateMiniGameReminder();
     return;
   }
@@ -1716,7 +1716,7 @@ function resetMiniGameInvites() {
   miniGameActiveInvite = null;
   if (hasMiniGameInviteUi) {
     clearMiniGameInviteAnimation();
-    hide('mini-game-invite');
+    closeMenuModal('mini-game-invite');
   }
   updateMiniGameReminder();
 }
@@ -1836,7 +1836,7 @@ function showNextMiniGameInvite() {
   miniGameActiveInvite = next;
   populateMiniGameInvite(next);
   prepareMiniGameInviteAnimation();
-  show('mini-game-invite');
+  openMenuModal('mini-game-invite');
   const gameLabel = next.gameName || getMiniGameDefinition(next.gameId)?.name || 'Mini-game';
   toast(`Incoming mini-game: ${gameLabel}`, {
     type: 'info',
@@ -1853,7 +1853,7 @@ function showNextMiniGameInvite() {
 function closeMiniGameInvite(updatedEntry) {
   if (!hasMiniGameInviteUi) return;
   clearMiniGameInviteAnimation();
-  hide('mini-game-invite');
+  closeMenuModal('mini-game-invite');
   if (updatedEntry?.id) {
     miniGameKnownDeployments.set(updatedEntry.id, updatedEntry);
   }
@@ -1995,7 +1995,7 @@ async function respondToMiniGameInvite(action) {
   if (acceptBtn) acceptBtn.disabled = false;
   if (declineBtn) declineBtn.disabled = false;
   clearMiniGameInviteAnimation();
-  hide('mini-game-invite');
+  closeMenuModal('mini-game-invite');
   miniGameActiveInvite = null;
   let hadToastContent = false;
   if (typeof document !== 'undefined') {
@@ -4178,6 +4178,7 @@ async function pinPrompt(message){
   title.textContent = message;
   return new Promise(resolve => {
     function cleanup(result){
+      try { input.value = ''; } catch {}
       submit.removeEventListener('click', onSubmit);
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
@@ -4191,7 +4192,7 @@ async function pinPrompt(message){
       cleanup(null);
     }
     function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); onSubmit(); } }
-    function onOverlay(e){ if(e.target===modal) onCancel(); }
+    function onOverlay(e){ if(e.target===modal) onCancel(e); }
     submit.addEventListener('click', onSubmit);
     input.addEventListener('keydown', onKey);
     close.addEventListener('click', onCancel);
@@ -4496,7 +4497,7 @@ const MENU_ACTION_HANDLERS = {
   'load-save': () => openCharacterList(),
   encounter: () => {
     renderEnc();
-    show('modal-enc');
+    openMenuModal('modal-enc');
   },
   'action-log': () => {
     renderLogs();
@@ -4508,19 +4509,19 @@ const MENU_ACTION_HANDLERS = {
   },
   'campaign-log': () => {
     updateCampaignLogViews();
-    show('modal-campaign');
+    openMenuModal('modal-campaign');
   },
   rules: () => {
     hasOpenedRulesModal = true;
     const loadRules = renderRules();
-    show('modal-rules');
+    openMenuModal('modal-rules');
     if (loadRules && typeof loadRules.then === 'function') {
       loadRules.finally(() => queueRulesIdlePrefetch());
     } else {
       queueRulesIdlePrefetch();
     }
   },
-  help: () => show('modal-help'),
+  help: () => openMenuModal('modal-help'),
 };
 
 const isMenuActionBlocked = () => {
@@ -7614,14 +7615,14 @@ augmentFilterButtons.forEach(button => {
 
 if (augmentPickerTrigger) {
   augmentPickerTrigger.addEventListener('click', () => {
-    show('modal-augment-picker');
+    openMenuModal('modal-augment-picker');
   });
 }
 
 if (elLevelRewardReminderTrigger) {
   elLevelRewardReminderTrigger.addEventListener('click', () => {
     renderLevelRewardReminders();
-    show('modal-level-rewards');
+    openMenuModal('modal-level-rewards');
   });
 }
 
@@ -7637,7 +7638,7 @@ if (elLevelRewardInfoTrigger) {
           label: 'Review rewards',
           callback: () => {
             renderLevelRewardReminders();
-            show('modal-level-rewards');
+            openMenuModal('modal-level-rewards');
           },
         },
       },
@@ -9491,7 +9492,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
     toast(slotLabel, 'success');
     window.dmNotify?.(slotLabel, { actionScope: 'major' });
     logAction(`Augment slots unlocked: ${previousSlots} -> ${nextState.augmentSlotsEarned}`);
-    show('modal-augment-picker');
+    openMenuModal('modal-augment-picker');
   }
   if (slotsDiff < 0 && !opts.suppressNotifications) {
     const selectedCount = Array.isArray(augmentState?.selected) ? augmentState.selected.length : 0;
@@ -9506,7 +9507,7 @@ function applyLevelProgress(targetLevel, opts = {}) {
       .filter(task => !completed.has(task.id));
     if (unlocked.length) {
       renderLevelRewardReminders();
-      show('modal-level-rewards');
+      openMenuModal('modal-level-rewards');
       const summary = unlocked.map(task => task.label).join('; ');
       window.dmNotify?.(`Level rewards unlocked: ${summary}`, { actionScope: 'major' });
       logAction(`Level rewards unlocked: ${summary}`);
@@ -10201,7 +10202,7 @@ function acknowledgePendingLevelRewards() {
     persistLevelProgressState();
   }
   renderLevelRewardReminders();
-  hide('modal-level-rewards');
+  closeMenuModal('modal-level-rewards');
 }
 
 function handleAugmentAdd(id) {
@@ -11072,11 +11073,11 @@ function setHpSettingsExpanded(expanded){
 function openHpSettings(){
   if (elHPRollInput) elHPRollInput.value='';
   renderHPRollList();
-  show('modal-hp-settings');
+  openMenuModal('modal-hp-settings');
   setHpSettingsExpanded(true);
 }
 function closeHpSettings(){
-  hide('modal-hp-settings');
+  closeMenuModal('modal-hp-settings');
   setHpSettingsExpanded(false);
 }
 if (elHPSettingsToggle) {
@@ -11114,14 +11115,14 @@ function setSpSettingsExpanded(expanded){
   elSPSettingsToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
 }
 function openSpSettings(){
-  show('modal-sp-settings');
+  openMenuModal('modal-sp-settings');
   setSpSettingsExpanded(true);
   if (elSPTemp && typeof elSPTemp.focus === 'function') {
     requestAnimationFrame(()=> elSPTemp.focus({ preventScroll: true }));
   }
 }
 function closeSpSettings(){
-  hide('modal-sp-settings');
+  closeMenuModal('modal-sp-settings');
   setSpSettingsExpanded(false);
   if (elSPSettingsToggle && typeof elSPSettingsToggle.focus === 'function') {
     requestAnimationFrame(()=> elSPSettingsToggle.focus({ preventScroll: true }));
@@ -13118,7 +13119,7 @@ function openCampaignLogEditor(id){
   if(meta){
     meta.textContent = `${fmt(entry.t)} ${entry.name}`;
   }
-  show('modal-campaign-edit');
+  openMenuModal('modal-campaign-edit');
   if(typeof requestAnimationFrame === 'function'){
     requestAnimationFrame(()=>{
       const textarea = $('campaign-edit-text');
@@ -13200,19 +13201,19 @@ if(campaignEditSave){
     }
     const current = campaignLogEntries.find(entry => entry.id === activeCampaignEditEntryId);
     if(!current){
-      hide('modal-campaign-edit');
+      closeMenuModal('modal-campaign-edit');
       resetCampaignLogEditor();
       return;
     }
     if(current.text === text){
-      hide('modal-campaign-edit');
+      closeMenuModal('modal-campaign-edit');
       resetCampaignLogEditor();
       return;
     }
     updateCampaignLogEntry(activeCampaignEditEntryId, text);
     pushHistory();
     try{ toast('Campaign log entry updated', 'success'); }catch{}
-    hide('modal-campaign-edit');
+    closeMenuModal('modal-campaign-edit');
     resetCampaignLogEditor();
   });
 }
@@ -13234,7 +13235,7 @@ const btnCampaignBacklog = $('campaign-view-backlog');
 if(btnCampaignBacklog){
   btnCampaignBacklog.addEventListener('click', ()=>{
     updateCampaignLogViews();
-    show('modal-campaign-backlog');
+    openMenuModal('modal-campaign-backlog');
   });
 }
 
@@ -13242,7 +13243,7 @@ subscribeCampaignLog(refreshCampaignLogFromCloud);
 refreshCampaignLogFromCloud();
 const btnLogFull = $('log-full');
 if (btnLogFull) {
-  btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); hide('modal-log'); show('modal-log-full'); });
+  btnLogFull.addEventListener('click', ()=>{ renderFullLogs(); closeMenuModal('modal-log'); openMenuModal('modal-log-full'); });
 }
 const creditsLedgerList = $('credits-ledger-list');
 const creditsLedgerFilterButtons = Array.from(qsa('[data-ledger-filter]'));
@@ -13306,7 +13307,7 @@ function prepareForModalOpen() {
   try {
     const welcome = document.getElementById('modal-welcome');
     if (welcome && welcome.getAttribute('aria-hidden') === 'false') {
-      hide('modal-welcome');
+      closeMenuModal('modal-welcome');
       removePlayerToolsTabSuppression('welcome-modal');
     }
   } catch {}
@@ -13323,7 +13324,11 @@ function finalizeModalClose() {
 }
 
 function openMenuModal(id) {
-  prepareForModalOpen();
+  const overlay = typeof document !== 'undefined' ? document.getElementById(id) : null;
+  const isSheet = !!(overlay && overlay.classList.contains('modal-sheet'));
+  if (isSheet) {
+    prepareForModalOpen();
+  }
   show(id);
   try {
     const overlay = document.getElementById(id);
@@ -13501,7 +13506,7 @@ if(recoverCharListEl){
     const btn = e.target.closest('button[data-char]');
     if(btn){
       recoverTarget = btn.dataset.char;
-      hide('modal-recover-char');
+      closeMenuModal('modal-recover-char');
       renderRecoverList(recoverTarget);
     }
   });
@@ -13510,7 +13515,7 @@ if(recoverCharListEl){
 const recoverBtn = $('recover-save');
 if(recoverBtn){
   recoverBtn.addEventListener('click', async ()=>{
-    hide('modal-load-list');
+    closeMenuModal('modal-load-list');
     await renderRecoverCharList();
     openMenuModal('modal-recover-char');
   });
@@ -13529,7 +13534,7 @@ if(newCharBtn){
     setPinInteractionGuard('', { locked: false });
     applyAppSnapshot(createDefaultSnapshot());
     setMode('edit');
-    hide('modal-load-list');
+    closeMenuModal('modal-load-list');
     queueCharacterConfirmation({ name: clean, variant: 'created', key: `create:${clean}:${Date.now()}` });
     toast(`Switched to ${clean}`,'success');
   });
@@ -13549,7 +13554,7 @@ if(recoverListEl){
         const descriptor = type === 'auto' ? 'auto save created on' : 'manual save from';
         text.textContent = `Are you sure you would like to recover ${pendingLoad.name} from the ${descriptor} ${new Date(pendingLoad.ts).toLocaleString()}? All current progress will be lost if you haven't saved yet.`;
       }
-      hide('modal-recover-list');
+      closeMenuModal('modal-recover-list');
       openMenuModal('modal-load');
     }
   });
@@ -13594,15 +13599,26 @@ async function doLoad(){
 }
 if(loadAcceptBtn){ loadAcceptBtn.addEventListener('click', doLoad); }
 if(loadCancelBtn){ loadCancelBtn.addEventListener('click', ()=>{ closeMenuModal('modal-load'); }); }
-qsa('[data-close]').forEach(b=> b.addEventListener('click', ()=>{
-  const ov = b.closest('.overlay');
-  if(!ov) return;
-  if(ov.classList.contains('modal-sheet')) {
+document.addEventListener('click', (e) => {
+  const btn = e.target && e.target.closest ? e.target.closest('[data-close]') : null;
+  if (!btn) return;
+  const ov = btn.closest('.overlay');
+  if (!ov || !ov.id) return;
+  if (ov.classList.contains('modal-sheet')) {
     closeMenuModal(ov.id);
     return;
   }
   hide(ov.id);
-}));
+});
+
+document.addEventListener('pointerdown', (e) => {
+  const ov = e.target && e.target.classList && e.target.classList.contains('overlay') ? e.target : null;
+  if (!ov || !ov.id) return;
+  if (!ov.classList.contains('modal-sheet')) return;
+  if (ov.classList.contains('hidden')) return;
+  if (ov.hasAttribute('data-modal-static')) return;
+  closeMenuModal(ov.id);
+});
 
 function openCharacterModalByName(name){
   if(!name) return;
@@ -16118,7 +16134,7 @@ function handleDeletePower(card) {
   }
   if (powerEditorState.card === card) {
     restorePowerEditorCard();
-    hide('modal-power-editor');
+    closeMenuModal('modal-power-editor');
     resetPowerEditorState();
   }
   activePowerCards.delete(card);
@@ -16148,17 +16164,17 @@ function createPowerEditorOverlay() {
   if (!body) return null;
   const overlay = document.createElement('div');
   overlay.id = 'modal-power-editor';
-  overlay.className = 'overlay hidden';
+  overlay.className = 'overlay hidden modal-sheet';
   overlay.setAttribute('aria-hidden', 'true');
+  overlay.setAttribute('aria-labelledby', 'power-editor-title');
   overlay.setAttribute('data-modal-static', '');
   overlay.setAttribute('data-view-allow', '');
   overlay.style.display = 'none';
 
   const modal = document.createElement('div');
-  modal.className = 'modal modal-power-editor';
+  modal.className = 'modal modal-power-editor modal--sheet';
   modal.setAttribute('role', 'dialog');
   modal.setAttribute('aria-modal', 'true');
-  modal.setAttribute('aria-labelledby', 'power-editor-title');
   modal.tabIndex = -1;
   modal.setAttribute('data-view-allow', '');
 
@@ -16169,17 +16185,27 @@ function createPowerEditorOverlay() {
   dismissButton.setAttribute('data-power-editor-dismiss', '');
   dismissButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>';
 
+  const header = document.createElement('header');
+  header.className = 'modal-sheet__header';
+
   const title = document.createElement('h3');
   title.id = 'power-editor-title';
+  title.className = 'modal-sheet__title';
   title.textContent = 'Edit Power';
 
+  const subtitle = document.createElement('p');
+  subtitle.className = 'modal-sheet__subtitle';
+  subtitle.textContent = 'Update the details for this power card.';
+
+  header.append(title, subtitle);
+
   const content = document.createElement('div');
-  content.className = 'power-editor__content';
+  content.className = 'power-editor__content modal-sheet__body';
   content.setAttribute('data-role', 'power-editor-content');
   content.setAttribute('data-view-allow', '');
 
   const actions = document.createElement('div');
-  actions.className = 'actions power-editor__actions';
+  actions.className = 'actions power-editor__actions modal-sheet__footer';
 
   const cancelButton = document.createElement('button');
   cancelButton.type = 'button';
@@ -16194,7 +16220,7 @@ function createPowerEditorOverlay() {
   saveButton.textContent = 'Save';
 
   actions.append(cancelButton, saveButton);
-  modal.append(dismissButton, title, content, actions);
+  modal.append(dismissButton, header, content, actions);
   overlay.appendChild(modal);
   body.appendChild(overlay);
   return overlay;
@@ -16346,7 +16372,7 @@ function handlePowerEditorSave(event) {
   }
   const { card, targetList, isNew } = powerEditorState;
   if (!card) {
-    hide('modal-power-editor');
+    closeMenuModal('modal-power-editor');
     return;
   }
   if (!isPowerEditorValid()) {
@@ -16364,7 +16390,7 @@ function handlePowerEditorSave(event) {
   }
   updatePowerCardDerived(card);
   restorePowerEditorCard();
-  hide('modal-power-editor');
+  closeMenuModal('modal-power-editor');
   if (typeof pushHistory === 'function') pushHistory();
   const editButton = powerCardStates.get(card)?.elements?.summaryEdit;
   resetPowerEditorState();
@@ -16377,7 +16403,7 @@ function handlePowerEditorCancel(event) {
   if (event && typeof event.preventDefault === 'function') {
     event.preventDefault();
   }
-  hide('modal-power-editor');
+  closeMenuModal('modal-power-editor');
 }
 
 function openPowerEditor(card, { isNew = false, targetList = null } = {}) {
@@ -21050,7 +21076,7 @@ if (customTypeButtons.length) {
 function openCatalogWithFilters(filters = {}){
   pendingCatalogFilters = filters;
   hasOpenedCatalogModal = true;
-  show('modal-catalog');
+  openMenuModal('modal-catalog');
   renderCatalog();
   ensureCatalog().then(() => {
     applyPendingCatalogFilters();
@@ -21076,9 +21102,9 @@ async function handleAddCustomCatalogItem(){
     toast('Failed to load gear catalog', 'error');
     renderCatalog();
   }
-  hide('modal-catalog');
+  closeMenuModal('modal-catalog');
   if (customTypeModal) {
-    show('modal-custom-item');
+    openMenuModal('modal-custom-item');
   }
 }
 
@@ -21089,7 +21115,7 @@ function handleCustomItemTypeSelection(typeKey){
     toast('Unknown item type. Try Weapon, Armor, Shield, Utility, or Item.', 'error');
     return;
   }
-  hide('modal-custom-item');
+  closeMenuModal('modal-custom-item');
   const list = $(config.listId);
   if (!list) return;
   const entry = createCustomCatalogEntry(config);
@@ -21722,7 +21748,6 @@ $('enc-reset').addEventListener('click', ()=>{
   renderEnc();
   saveEnc();
 });
-qsa('#modal-enc [data-close]').forEach(b=> b.addEventListener('click', ()=> hide('modal-enc')));
 
 const encPresetNameInput = $('enc-preset-name');
 const encPresetSaveButton = $('enc-preset-save');
