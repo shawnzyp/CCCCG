@@ -24901,16 +24901,6 @@ if (typeof performance !== 'undefined' && typeof performance.measure === 'functi
     console.warn('[BootTiming] cc:boot ms =', performance.getEntriesByName('cc:boot').slice(-1)[0]?.duration);
   }
 }
-if (typeof window !== 'undefined') {
-  try {
-    const params = new URLSearchParams(window.location?.search || '');
-    if (params.get('crashTest') === '1') {
-      setTimeout(() => {
-        throw new Error('Crash test triggered via ?crashTest=1');
-      }, 0);
-    }
-  } catch {}
-}
 if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';

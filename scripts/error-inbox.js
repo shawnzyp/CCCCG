@@ -65,6 +65,8 @@ function getVisibilityState() {
 }
 
 function collectCrashSnapshot({ error, eventType, source, lineno, colno, reason }) {
+  const href = (typeof location !== 'undefined' && location?.href) ? location.href : '';
+  const ua = (typeof navigator !== 'undefined' && navigator?.userAgent) ? navigator.userAgent : '';
   const stack = safeString(error?.stack || '', MAX_STACK_CHARS);
   const snapshot = {
     ts: Date.now(),
@@ -78,8 +80,8 @@ function collectCrashSnapshot({ error, eventType, source, lineno, colno, reason 
     source: safeString(source || '', 2000),
     lineno: Number.isFinite(lineno) ? lineno : undefined,
     colno: Number.isFinite(colno) ? colno : undefined,
-    url: safeString(location?.href || '', 2000),
-    userAgent: safeString(navigator?.userAgent || '', 400),
+    url: safeString(href, 2000),
+    userAgent: safeString(ua, 400),
     visibility: getVisibilityState(),
     breadcrumbs: readBreadcrumbs(),
     lastResourceFail: readLocalStorage('cccg:last-resource-fail'),
@@ -120,13 +122,15 @@ function trackCrashCount() {
 
 async function sendReport(kind, message, detail = {}) {
   try {
+    const href = (typeof location !== 'undefined' && location?.href) ? location.href : '';
+    const ua = (typeof navigator !== 'undefined' && navigator?.userAgent) ? navigator.userAgent : '';
     const payload = {
       kind,
       message: safeString(message, 2000),
       stack: safeString(detail.stack || '', 8000),
-      url: safeString(location.href, 2000),
-      ua: safeString(navigator.userAgent, 400),
-      build: safeString(window.__ccBuildVersion || '', 200),
+      url: safeString(href, 2000),
+      ua: safeString(ua, 400),
+      build: safeString(globalThis.__ccBuildVersion || '', 200),
       extra: detail.extra && typeof detail.extra === 'object' ? detail.extra : undefined,
       breadcrumbs: readBreadcrumbs(),
     };
@@ -148,6 +152,7 @@ async function sendReport(kind, message, detail = {}) {
 }
 
 export function installGlobalErrorInbox() {
+  if (typeof window === 'undefined') return;
   if (window.__ccErrorInboxInstalled) return;
   window.__ccErrorInboxInstalled = true;
   globalThis.__cccgBreadcrumb = addBreadcrumb;
@@ -167,7 +172,7 @@ export function installGlobalErrorInbox() {
     try {
       const data = snapshot || readLocalStorage(LAST_CRASH_KEY) || '';
       const json = typeof data === 'string' ? data : JSON.stringify(data);
-      if (navigator?.clipboard?.writeText) {
+      if (typeof navigator !== 'undefined' && navigator?.clipboard?.writeText) {
         navigator.clipboard.writeText(json);
         return;
       }
