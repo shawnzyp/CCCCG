@@ -127,6 +127,33 @@ import {
 } from './offline-cache.js';
 import { createVirtualizedList } from './virtualized-list.js';
 import { resetFloatingLauncherCoverage } from './floating-launcher.js';
+import { installGlobalErrorInbox } from './error-inbox.js';
+
+installGlobalErrorInbox();
+
+(function bootWatchdogEarly() {
+  if (typeof window === 'undefined') return;
+  const startedAt = Date.now();
+  setTimeout(() => {
+    try {
+      const body = document.body;
+      const root = document.documentElement;
+      const stuck = body?.classList.contains('launching') || body?.classList.contains('touch-controls-disabled');
+      if (!stuck) return;
+
+      console.warn('[BootWatchdog] Boot appears stuck.', {
+        launching: body?.classList.contains('launching'),
+        touchLocked: body?.classList.contains('touch-controls-disabled'),
+        phoneOpen: root?.getAttribute('data-pt-phone-open'),
+        lastUpdate: window.__ccLastContentUpdate,
+        uptimeMs: Date.now() - startedAt,
+      });
+
+      body?.classList.remove('launching');
+      body?.classList.remove('touch-controls-disabled');
+    } catch {}
+  }, 6000);
+})();
 
 let animate = () => null;
 let fadeOut = () => null;
@@ -11792,6 +11819,20 @@ const CONTENT_UPDATE_EVENT = 'cc:content-updated';
 const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 // Intentionally handle only one service worker update per page load to avoid repeated reload prompts.
 let serviceWorkerUpdateHandled = false;
+
+function wireServiceWorkerReloadGuard() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  if (typeof window !== 'undefined' && window.__ccSwReloadGuardWired) return;
+  if (typeof window !== 'undefined') window.__ccSwReloadGuardWired = true;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    reloaded = true;
+    if (typeof window !== 'undefined' && window.__ccSwForceReload === true) {
+      try { window.location.reload(); } catch {}
+    }
+  });
+}
 
 function queueDmNotification(message, meta = {}) {
   if (typeof window === 'undefined') return;
@@ -24674,6 +24715,7 @@ applyEditIcons();
 applyDeleteIcons();
 applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';
   try {
     if (typeof document !== 'undefined' && document.baseURI) {
@@ -24684,9 +24726,15 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   } catch (error) {
     swUrl = 'sw.js';
   }
-  navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('cc:disable-sw') === '1') {
+    console.warn('[SW] Disabled by cc:disable-sw=1');
+  } else {
+    navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+  }
+  console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
   let hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.warn('[SW] controllerchange');
     if (serviceWorkerUpdateHandled) return;
     if (!hadController) {
       hadController = true;
@@ -24697,8 +24745,10 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       updatedAt: Date.now(),
       source: 'controllerchange',
     });
+    scheduleOfflinePrefetch(1500);
   });
   navigator.serviceWorker.addEventListener('message', e => {
+    console.warn('[SW] message', e?.data);
     const { data } = e;
     const payload = (data && typeof data === 'object') ? data : { type: data };
     const type = typeof payload.type === 'string' ? payload.type : undefined;
