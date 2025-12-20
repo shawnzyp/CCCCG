@@ -88,6 +88,20 @@ function formatTimestamp(ts = Date.now()) {
   }
 }
 
+const clampText = (value, max) => {
+  if (typeof value !== 'string') return value;
+  if (!Number.isFinite(max) || max <= 0) return value;
+  return value.length > max ? value.slice(0, Math.max(0, max - 1)) + '…' : value;
+};
+
+const clampField = (field) => {
+  if (!field || typeof field !== 'object') return null;
+  const name = clampText(String(field.name || ''), 256);
+  const value = clampText(String(field.value || ''), 1024);
+  if (!name || !value) return null;
+  return { ...field, name, value };
+};
+
 export async function logActivity(event = {}) {
   if (!event || typeof event !== 'object') return false;
   if (isSafeModeEnabled()) return false;
@@ -140,8 +154,8 @@ export async function logActivity(event = {}) {
 
   const embeds = [{
     title: 'Campaign + Action Log',
-    description: content,
-    fields: fields.filter(Boolean),
+    description: clampText(content, 2048),
+    fields: fields.map(clampField).filter(Boolean).slice(0, 20),
     timestamp,
     color: 3447003,
   }];

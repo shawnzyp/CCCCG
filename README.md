@@ -69,6 +69,7 @@ The app can post campaign/action events (rolls, HP/SP changes, campaign log entr
 3. Use **Send test message** to verify the pipeline.
 
 Safe Mode disables automatic posting; the test button still works so you can verify the proxy without generating activity spam.
+Rotate the Discord webhook if it was ever exposed in logs, commits, or chat.
 
 ## DM tools access
 

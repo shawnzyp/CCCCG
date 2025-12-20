@@ -1,6 +1,5 @@
 import * as Characters from './characters.js';
 import { logActivity } from './discord-activity.js';
-import { emitDiceRollMessage, emitInitiativeRollMessage } from './discord-webhooks.js';
 
 const DRAWER_CHANGE_EVENT = 'cc:player-tools-drawer';
 let controllerInstance = null;
@@ -698,12 +697,6 @@ function createPlayerToolsDrawer() {
       updateResult(initiativeResultEl, total);
       addHistoryEntryInternal({ label: 'Initiative', value: total });
 
-      emitInitiativeRollMessage({
-        who: getActiveCharacterName(),
-        formula: `1d20${formatBonus(bonus)}`.trim(),
-        total,
-        breakdown: `d20 (${roll})${bonus ? ` ${formatBonus(bonus)} (bonus)` : ''}`,
-      });
       void logActivity({
         type: 'roll',
         actor: getActiveCharacterName(),
@@ -733,13 +726,6 @@ function createPlayerToolsDrawer() {
       const label = `${count}d${labelSides}${formatBonus(bonus)}`;
       addHistoryEntryInternal({ label, value: total });
 
-      emitDiceRollMessage({
-        who: getActiveCharacterName(),
-        rollType: `${count}d${labelSides}`,
-        formula: `${count}d${labelSides}${formatBonus(bonus)}`.trim(),
-        total,
-        breakdown: formatDiceBreakdown(rolls, bonus),
-      });
       void logActivity({
         type: 'roll',
         actor: getActiveCharacterName(),

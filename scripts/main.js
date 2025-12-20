@@ -11799,6 +11799,10 @@ function initDiscordLogSettings() {
     statusEl.textContent = message || '';
   };
 
+  if (isSafeMode) {
+    setStatus('Safe Mode is on. Auto posting disabled.');
+  }
+
   if (keyInput) {
     keyInput.value = getDiscordAuthKey();
     keyInput.addEventListener('input', () => {
@@ -11812,7 +11816,7 @@ function initDiscordLogSettings() {
     testButton.disabled = !proxyUrl;
     testButton.addEventListener('click', async () => {
       if (!proxyUrl) {
-        toast('Discord proxy not configured.', 'warn');
+        toast('Discord proxy not configured.', 'warning');
         return;
       }
       const ok = await sendDiscordLog(
