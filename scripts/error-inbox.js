@@ -79,6 +79,11 @@ function appendErrorReport(entry) {
     list.push(entry);
     while (list.length > 50) list.shift();
     writeErrorReports(list);
+    try {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('cccg:error-report', { detail: entry }));
+      }
+    } catch {}
   } catch {}
 }
 

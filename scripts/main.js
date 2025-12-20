@@ -11934,8 +11934,17 @@ function initPhoneRouter() {
       if (!phoneShell || !phoneShell.contains(openBtn) || !phoneOpen) return;
 
       const id = openBtn.getAttribute('data-pt-open-app');
-      if (id && setActiveScreen(id, { push: true })) {
-        event.preventDefault?.();
+      if (id) {
+        if (getScreenEl(id) && setActiveScreen(id, { push: true })) {
+          event.preventDefault?.();
+          return;
+        }
+        const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function'
+          ? window.openApp
+          : null;
+        if (launchFn) {
+          launchFn(id, { source: 'phone-router', element: openBtn });
+        }
       }
       return;
     }
@@ -12127,6 +12136,10 @@ function initErrorReportsApp() {
       render();
     });
   }
+
+  window.addEventListener('cccg:error-report', () => {
+    render();
+  });
 
   render();
 }
