@@ -4501,7 +4501,7 @@ const MENU_ACTION_HANDLERS = {
   },
   'credits-ledger': () => {
     setCreditsLedgerFilter('all');
-    show('modal-credits-ledger');
+    openMenuModal('modal-credits-ledger');
   },
   'campaign-log': () => {
     updateCampaignLogViews();

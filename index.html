@@ -1950,23 +1950,30 @@
 </div>
 
 
-<div class="overlay hidden" id="modal-credits-ledger" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-credits-ledger" aria-hidden="true" aria-labelledby="modal-credits-ledger-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Credits Ledger</h3>
-    <div class="credits-ledger__filters" role="group" aria-label="Filter credits ledger entries">
-      <button class="btn-sm" type="button" data-ledger-filter="all" aria-pressed="true">All</button>
-      <button class="btn-sm" type="button" data-ledger-filter="gain" aria-pressed="false">Gains</button>
-      <button class="btn-sm" type="button" data-ledger-filter="spend" aria-pressed="false">Spends</button>
-    </div>
-    <div id="credits-ledger-list" class="catalog" aria-live="polite"></div>
-    <div class="actions"><button class="btn-sm" data-close>Close</button></div>
-    </div>
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="modal-sheet__header">
+        <h3 id="modal-credits-ledger-title" class="modal-sheet__title">Credits Ledger</h3>
+        <p class="modal-sheet__subtitle">Review recent gains and spends.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <div class="credits-ledger__filters" role="group" aria-label="Filter credits ledger entries">
+          <button class="btn-sm" type="button" data-ledger-filter="all" aria-pressed="true">All</button>
+          <button class="btn-sm" type="button" data-ledger-filter="gain" aria-pressed="false">Gains</button>
+          <button class="btn-sm" type="button" data-ledger-filter="spend" aria-pressed="false">Spends</button>
+        </div>
+        <div id="credits-ledger-list" class="catalog" aria-live="polite"></div>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
