@@ -172,7 +172,6 @@ const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/histo
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
 let flushPromise = null;
-let notifyClientsOnActivate = false;
 
 function encodePath(name) {
   if (typeof name !== 'string' || !name) return '';
@@ -352,7 +351,6 @@ async function flushOutbox() {
 }
 
 self.addEventListener('install', e => {
-  notifyClientsOnActivate = Boolean(self.registration?.active);
   self.skipWaiting();
   e.waitUntil(
     (async () => {
@@ -387,10 +385,6 @@ self.addEventListener('activate', e => {
 
       await Promise.all([cacheCleanup, flushOutbox().catch(() => {})]);
       await self.clients.claim();
-      if (notifyClientsOnActivate) {
-        await broadcast({ type: 'sw-updated', message: 'New Codex content is available.', updatedAt: Date.now(), source: 'service-worker' });
-        notifyClientsOnActivate = false;
-      }
     })()
   );
 });

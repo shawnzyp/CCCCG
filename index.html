@@ -32,6 +32,35 @@
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
+<script>
+  (function () {
+    const logs = [];
+    function show(msg) {
+      logs.push(msg);
+      let box = document.getElementById('__cc_crash_overlay');
+      if (!box) {
+        box = document.createElement('pre');
+        box.id = '__cc_crash_overlay';
+        box.style.cssText = [
+          'position:fixed','inset:0','z-index:999999','margin:0','padding:12px',
+          'background:#0b0b0f','color:#ffb3b3','font:12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+          'white-space:pre-wrap','overflow:auto'
+        ].join(';');
+        box.textContent = 'Crash overlay active.\n';
+        document.documentElement.appendChild(box);
+      }
+      box.textContent = 'Crash overlay active.\n\n' + logs.join('\n\n');
+    }
+
+    window.addEventListener('error', function (e) {
+      show('ERROR: ' + (e.message || e.error || 'unknown') + '\n' + (e.filename || '') + ':' + (e.lineno || 0) + ':' + (e.colno || 0));
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      show('UNHANDLED REJECTION: ' + String(e.reason && (e.reason.stack || e.reason.message) || e.reason || 'unknown'));
+    });
+  })();
+</script>
 </head>
 <body class="launching no-hover">
 <svg

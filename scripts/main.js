@@ -11793,6 +11793,20 @@ const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
 // Intentionally handle only one service worker update per page load to avoid repeated reload prompts.
 let serviceWorkerUpdateHandled = false;
 
+function wireServiceWorkerReloadGuard() {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  if (typeof window !== 'undefined' && window.__ccSwReloadGuardWired) return;
+  if (typeof window !== 'undefined') window.__ccSwReloadGuardWired = true;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    reloaded = true;
+    if (typeof window !== 'undefined' && window.__ccSwForceReload === true) {
+      try { window.location.reload(); } catch {}
+    }
+  });
+}
+
 function queueDmNotification(message, meta = {}) {
   if (typeof window === 'undefined') return;
   const text = typeof message === 'string' ? message : String(message ?? '');
@@ -24663,6 +24677,32 @@ if (!document.body?.classList?.contains('launching')) {
   queueWelcomeModal({ immediate: true });
 }
 
+function bootWatchdog() {
+  if (typeof window === 'undefined') return;
+  const startedAt = Date.now();
+  setTimeout(() => {
+    const body = document.body;
+    const root = document.documentElement;
+    try {
+      console.warn('[BootWatchdog] Boot appears stuck.', {
+        launching: body?.classList.contains('launching'),
+        touchLocked: body?.classList.contains('touch-controls-disabled'),
+        phoneOpen: root?.getAttribute('data-pt-phone-open'),
+        lastLaunch: window.__ccLastAppLaunch,
+        lastUpdate: window.__ccLastContentUpdate,
+        uptimeMs: Date.now() - startedAt,
+      });
+    } catch {}
+    try { body?.classList.remove('launching'); } catch {}
+    try { body?.classList.remove('touch-controls-disabled'); } catch {}
+    try {
+      if (typeof queueWelcomeModal === 'function') queueWelcomeModal({ immediate: true });
+    } catch {}
+  }, 6000);
+}
+
+bootWatchdog();
+
 /* ========= boot ========= */
 setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS);
 setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS);
@@ -24674,6 +24714,7 @@ applyEditIcons();
 applyDeleteIcons();
 applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';
   try {
     if (typeof document !== 'undefined' && document.baseURI) {
@@ -24697,6 +24738,7 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       updatedAt: Date.now(),
       source: 'controllerchange',
     });
+    scheduleOfflinePrefetch(1500);
   });
   navigator.serviceWorker.addEventListener('message', e => {
     const { data } = e;
