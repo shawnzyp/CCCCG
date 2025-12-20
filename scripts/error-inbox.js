@@ -201,6 +201,7 @@ export function installGlobalErrorInbox() {
   globalThis.__cccgBreadcrumb = addBreadcrumb;
   const SAFE_MODE_CLEAR_AFTER_MS = 15000;
   let crashThisSession = false;
+  const startedInSafeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
 
   function clearSafeMode() {
     try { localStorage.removeItem(SAFE_MODE_KEY); } catch {}
@@ -422,10 +423,12 @@ export function installGlobalErrorInbox() {
     },
   };
 
-  setTimeout(() => {
-    if (!crashThisSession) {
-      clearSafeMode();
-      try { location.reload(); } catch {}
-    }
-  }, SAFE_MODE_CLEAR_AFTER_MS);
+  if (startedInSafeMode) {
+    setTimeout(() => {
+      if (!crashThisSession) {
+        clearSafeMode();
+        try { location.reload(); } catch {}
+      }
+    }, SAFE_MODE_CLEAR_AFTER_MS);
+  }
 }
