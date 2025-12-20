@@ -2786,11 +2786,18 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     return;
   }
 
+  const launchEl = document.getElementById('launch-animation');
+  if (window.__ccLaunchComplete || launchEl?.getAttribute('data-launch-disarmed') === 'true') {
+    markLaunchSequenceComplete();
+    queueWelcomeModal({ immediate: true });
+    safeUnlockTouchControls({ immediate: true });
+    return;
+  }
+
   lockTouchControls();
   queueWelcomeModal({ preload: true });
   queueWelcomeModal({ immediate: true });
 
-  const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
   const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
   let revealCalled = false;
@@ -11527,10 +11534,10 @@ function announceContentUpdate(payload = {}) {
     : `${normalizedMessage} Applying updates in the background.`;
   const updatedAt = typeof payload.updatedAt === 'number' ? payload.updatedAt : Date.now();
   const detail = {
-    ...payload,
+    payload: payload && typeof payload === 'object' ? { ...payload } : {},
     message,
     updatedAt,
-    source: payload.source || 'service-worker',
+    source: (payload && payload.source) || 'service-worker',
   };
   if (typeof window !== 'undefined') {
     window.__ccLastContentUpdate = detail;
