@@ -2285,6 +2285,35 @@ function ensureFocusableTarget(target) {
   return true;
 }
 
+function waitForAppOpened(appId, timeout = 500) {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  return new Promise(resolve => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('cc:pt-app-opened', handler);
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const handler = (e) => {
+      const openedId = String(e?.detail?.appId || '').trim();
+      if (openedId && openedId === appId) {
+        done(true);
+      }
+    };
+    const timer = setTimeout(() => done(false), timeout);
+    window.addEventListener('cc:pt-app-opened', handler);
+  });
+}
+
+function nextFrame() {
+  if (typeof requestAnimationFrame === 'function') {
+    return new Promise(resolve => requestAnimationFrame(() => resolve()));
+  }
+  return new Promise(resolve => setTimeout(resolve, 16));
+}
+
 function isElementVisible(el) {
   if (!el) return false;
   if (el.hidden) return false;
@@ -2385,6 +2414,14 @@ export async function openApp(appId, opts = {}) {
   }
 
   // Soft verification: if we have a focus target, it should now be visible.
+  if (focusTarget) {
+    const openedSignal = await waitForAppOpened(appId, opts.openedTimeout ?? 500);
+    if (!openedSignal) {
+      await nextFrame();
+      await nextFrame();
+    }
+  }
+
   if (focusTarget && !isElementVisible(focusTarget) && !opts.force) {
     window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'did-not-open' };
     try { console.warn('App launch did not result in visible target:', appId); } catch {}

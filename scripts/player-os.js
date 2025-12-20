@@ -79,7 +79,7 @@
 
   function emitLaunch(appId) {
     try {
-      window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId, source: 'player-os' } }));
+      window.dispatchEvent(new CustomEvent('cc:pt-launched', { detail: { appId, source: 'player-os' } }));
     } catch (_) {}
   }
 
@@ -365,6 +365,9 @@
 
     showLauncher();
     setView('app', normalized);
+    try {
+      window.dispatchEvent(new CustomEvent('cc:pt-app-opened', { detail: { appId: normalized } }));
+    } catch (_) {}
   }
 
   function handleUnlock() {
@@ -467,7 +470,6 @@
     // External launcher bridge (main menu, dock, etc.)
     try {
       window.addEventListener('cc:pt-launch', (e) => {
-        if (e?.detail?.source === 'player-os') return;
         const rawAppId = String(e?.detail?.appId || '').trim();
         if (!rawAppId) return;
         const normalized = normalizeAppId(rawAppId);
