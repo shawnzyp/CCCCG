@@ -4181,18 +4181,21 @@ async function pinPrompt(message){
       submit.removeEventListener('click', onSubmit);
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
-      modal.removeEventListener('pointerdown', onOverlay);
+      modal.removeEventListener('pointerup', onOverlay);
       closeMenuModal('modal-pin');
       resolve(result);
     }
     function onSubmit(){ cleanup(input.value); }
-    function onCancel(){ cleanup(null); }
+    function onCancel(e){
+      try { if (e && typeof e.stopPropagation === 'function') e.stopPropagation(); } catch {}
+      cleanup(null);
+    }
     function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); onSubmit(); } }
     function onOverlay(e){ if(e.target===modal) onCancel(); }
     submit.addEventListener('click', onSubmit);
     input.addEventListener('keydown', onKey);
     close.addEventListener('click', onCancel);
-    modal.addEventListener('pointerdown', onOverlay);
+    modal.addEventListener('pointerup', onOverlay, { passive: true });
     openMenuModal('modal-pin');
     input.value='';
     input.focus();
@@ -4497,7 +4500,7 @@ const MENU_ACTION_HANDLERS = {
   },
   'action-log': () => {
     renderLogs();
-    show('modal-log');
+    openMenuModal('modal-log');
   },
   'credits-ledger': () => {
     setCreditsLedgerFilter('all');

@@ -1933,18 +1933,26 @@
 </div>
 
 <!-- LOG MODAL -->
-<div class="overlay hidden" id="modal-log" aria-hidden="true">
+<div class="overlay hidden modal-sheet" id="modal-log" aria-hidden="true" aria-labelledby="modal-log-title">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-    <button class="x" data-close aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <h3>Action Log</h3>
-    <div id="log-action" class="catalog"></div>
-    <div class="actions"><button id="log-full" class="btn-sm">Full Log</button><button class="btn-sm" data-close>Close</button></div>
-    </div>
+    <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
+      <button class="x" data-close aria-label="Close" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+        </svg>
+      </button>
+      <header class="modal-sheet__header">
+        <h3 id="modal-log-title" class="modal-sheet__title">Action Log</h3>
+        <p class="modal-sheet__subtitle">Review recent actions and events.</p>
+      </header>
+      <div class="modal-sheet__body">
+        <div id="log-action" class="catalog"></div>
+      </div>
+      <footer class="modal-sheet__footer actions">
+        <button id="log-full" class="btn-sm" type="button">Full Log</button>
+        <button class="btn-sm" type="button" data-close>Close</button>
+      </footer>
+    </section>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
 </div>
