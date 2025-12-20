@@ -4,6 +4,7 @@ const BREADCRUMB_KEY = 'cccg:breadcrumbs';
 const LAST_CRASH_KEY = 'cccg:last-crash';
 const CRASH_COUNT_KEY = 'cccg:crash-count';
 const SAFE_MODE_KEY = 'cc:safe-mode';
+const ERROR_REPORTS_KEY = 'cccg:error-reports';
 const MAX_BREADCRUMBS = 50;
 const MAX_STACK_CHARS = 12000;
 const CRASH_WINDOW_MS = 60000;
@@ -53,6 +54,31 @@ function readLocalStorage(key) {
 function writeLocalStorage(key, value) {
   try {
     localStorage.setItem(key, value);
+  } catch {}
+}
+
+function readErrorReports() {
+  try {
+    const raw = localStorage.getItem(ERROR_REPORTS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeErrorReports(list) {
+  try {
+    localStorage.setItem(ERROR_REPORTS_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+function appendErrorReport(entry) {
+  try {
+    const list = readErrorReports();
+    list.push(entry);
+    while (list.length > 50) list.shift();
+    writeErrorReports(list);
   } catch {}
 }
 
@@ -197,14 +223,22 @@ export function installGlobalErrorInbox() {
       const el = document.createElement('div');
       el.id = 'cccg-panic-overlay';
       el.style.position = 'fixed';
-      el.style.inset = '0';
+      el.style.right = '16px';
+      el.style.bottom = '16px';
       el.style.zIndex = '999999';
+      el.style.maxWidth = '420px';
+      el.style.width = 'min(92vw, 420px)';
+      el.style.maxHeight = '70vh';
       el.style.background = '#0b0f1a';
+      el.style.border = '1px solid rgba(255, 255, 255, 0.12)';
+      el.style.borderRadius = '12px';
+      el.style.boxShadow = '0 18px 40px rgba(0, 0, 0, 0.45)';
       el.style.color = '#e6e6e6';
       el.style.padding = '16px';
       el.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
       el.style.whiteSpace = 'normal';
       el.style.overflow = 'auto';
+      el.style.pointerEvents = 'auto';
       const title = document.createElement('div');
       title.style.fontSize = '18px';
       title.style.fontWeight = '700';
@@ -237,14 +271,23 @@ export function installGlobalErrorInbox() {
           location.reload();
         } catch {}
       });
+      const closeButton = document.createElement('button');
+      closeButton.type = 'button';
+      closeButton.textContent = 'Dismiss';
+      closeButton.addEventListener('click', () => {
+        try {
+          el.remove();
+        } catch {}
+      });
       const note = document.createElement('div');
       note.style.marginTop = '12px';
-      note.textContent = 'Open DevTools Console. A report was sent (or attempted).';
+      note.textContent = 'Report queued. You can keep using the app.';
       el.appendChild(title);
       el.appendChild(line);
       el.appendChild(details);
       el.appendChild(copyButton);
       el.appendChild(retryButton);
+      el.appendChild(closeButton);
       el.appendChild(note);
       document.documentElement.appendChild(el);
     } catch {}
@@ -268,6 +311,7 @@ export function installGlobalErrorInbox() {
     if (!isResourceError) {
       recordCrashSnapshot(snapshot);
       trackCrashCount();
+      appendErrorReport({ ts: Date.now(), message, stack, snapshot });
       showPanicOverlay(error, snapshot);
     }
   }, true);
@@ -284,6 +328,7 @@ export function installGlobalErrorInbox() {
     });
     recordCrashSnapshot(snapshot);
     trackCrashCount();
+    appendErrorReport({ ts: Date.now(), message, stack, snapshot });
     sendReport('unhandledrejection', message, { stack, extra: { snapshot } });
     showPanicOverlay(error, snapshot);
   });
@@ -314,5 +359,24 @@ export function installGlobalErrorInbox() {
     } catch {
       return null;
     }
+  };
+
+  window.__cccgErrorInbox = {
+    list: () => readErrorReports(),
+    clear: () => writeErrorReports([]),
+    sendAll: async () => {
+      const reports = readErrorReports();
+      if (!reports.length) return { ok: true, count: 0 };
+      let sent = 0;
+      for (const report of reports) {
+        await sendReport('manual', report.message || 'Manual error report', {
+          stack: report.stack || '',
+          extra: { snapshot: report.snapshot, manual: true },
+        });
+        sent += 1;
+      }
+      writeErrorReports([]);
+      return { ok: true, count: sent };
+    },
   };
 }

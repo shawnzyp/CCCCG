@@ -80,6 +80,7 @@ import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapsho
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 
 const DEFAULT_PHONE_HOME_SCREEN = 'home';
+const PHONE_ACTIVE_APP_KEY = 'cccg:pt-active-app';
 import { readLastSaveName } from './last-save.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
@@ -2334,6 +2335,7 @@ export const APP_REGISTRY = Object.freeze({
   messages: { label: 'Messages', icon: '📡', open: () => openPlayerOsApp('messages') },
   playerTools: { label: 'Player Tools', icon: '🧰', open: () => openPlayerOsApp('playerTools'), route: 'drawer:player-tools' },
   shards: { label: 'Shards of Many Fates', icon: '🧩', open: () => openPlayerOsApp('shards'), requiresUnlock: true, route: 'modal:shards' },
+  errorReports: { label: 'Error Reports', icon: '🛰️', open: () => openPlayerOsApp('errorReports') },
   settings: { label: 'Settings', icon: '⚙️', open: () => openPlayerOsApp('settings') },
   loadSave: { label: 'Load / Save', icon: '💾', open: () => openPlayerOsApp('loadSave') },
   encounter: { label: 'Encounter / Initiative', icon: '⚔️', open: () => openPlayerOsApp('encounter') },
@@ -11865,7 +11867,12 @@ function initPhoneRouter() {
 
   const setActiveScreen = (id, { push = true } = {}) => {
     const el = getScreenEl(id);
-    if (!el) return false;
+    if (!el) {
+      if (typeof toast === 'function') {
+        toast(`App screen not found: ${String(id)}`, 'warning');
+      }
+      return false;
+    }
 
     const nextId = String(id);
     if (activeScreen && push && activeScreen !== nextId) {
@@ -11882,6 +11889,10 @@ function initPhoneRouter() {
     activeScreen = nextId;
     try {
       root.setAttribute('data-pt-active-app', nextId);
+    } catch {}
+
+    try {
+      localStorage.setItem(PHONE_ACTIVE_APP_KEY, nextId);
     } catch {}
 
     try {
@@ -11958,11 +11969,20 @@ function initPhoneRouter() {
     const screens = getScreens();
     if (!screens.length) return;
 
-    const visible = screens.find(s => !s.hidden && s.getAttribute('aria-hidden') !== 'true');
-    if (visible) {
-      activeScreen = visible.getAttribute('data-pt-app-screen') || DEFAULT_PHONE_HOME_SCREEN;
+    const visible = screens.filter(s => !s.hidden && s.getAttribute('aria-hidden') !== 'true');
+    if (visible.length === 1) {
+      activeScreen = visible[0].getAttribute('data-pt-app-screen') || DEFAULT_PHONE_HOME_SCREEN;
       return;
     }
+
+    try {
+      const last = localStorage.getItem(PHONE_ACTIVE_APP_KEY);
+      if (last && getScreenEl(last)) {
+        setActiveScreen(last, { push: false });
+        return;
+      }
+    } catch {}
+
     setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
   };
 
@@ -12015,6 +12035,100 @@ function initPhoneBadges() {
   // Default: clear everything at boot to avoid weird stale UI.
   setBadge('messages', 0);
   setBadge('campaignLog', 0);
+}
+
+function initErrorReportsApp() {
+  if (typeof document === 'undefined') return;
+  const listEl = document.querySelector('[data-pt-error-list]');
+  if (!listEl) return;
+
+  const countEl = document.querySelector('[data-pt-error-count]');
+  const statusEl = document.querySelector('[data-pt-error-status]');
+  const sendBtn = document.querySelector('[data-pt-error-send]');
+  const clearBtn = document.querySelector('[data-pt-error-clear]');
+
+  const getInbox = () => window.__cccgErrorInbox;
+  const formatTime = (ts) => {
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return 'Unknown time';
+    }
+  };
+
+  const setStatus = (text) => {
+    if (statusEl) statusEl.textContent = text;
+  };
+
+  const render = () => {
+    const reports = getInbox()?.list?.() || [];
+    if (countEl) countEl.textContent = String(reports.length);
+
+    listEl.innerHTML = '';
+    if (!reports.length) {
+      const row = document.createElement('div');
+      row.className = 'pt-row pt-row--field';
+      const label = document.createElement('span');
+      label.className = 'pt-row__label';
+      label.textContent = 'No reports stored.';
+      row.appendChild(label);
+      listEl.appendChild(row);
+      return;
+    }
+
+    reports
+      .slice()
+      .reverse()
+      .forEach((report) => {
+        const row = document.createElement('div');
+        row.className = 'pt-row pt-row--field';
+        const label = document.createElement('span');
+        label.className = 'pt-row__label';
+        label.textContent = report?.message || 'Unknown error';
+        const meta = document.createElement('span');
+        meta.className = 'pt-row__meta';
+        meta.textContent = formatTime(report?.ts);
+        row.appendChild(label);
+        row.appendChild(meta);
+        listEl.appendChild(row);
+      });
+  };
+
+  if (sendBtn) {
+    sendBtn.addEventListener('click', async () => {
+      const inbox = getInbox();
+      if (!inbox?.sendAll) {
+        setStatus('Error inbox unavailable.');
+        return;
+      }
+      sendBtn.disabled = true;
+      setStatus('Sending reports...');
+      try {
+        const result = await inbox.sendAll();
+        setStatus(`Sent ${result?.count ?? 0} report(s).`);
+      } catch {
+        setStatus('Failed to send reports.');
+      } finally {
+        sendBtn.disabled = false;
+        render();
+      }
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const inbox = getInbox();
+      if (!inbox?.clear) {
+        setStatus('Error inbox unavailable.');
+        return;
+      }
+      inbox.clear();
+      setStatus('Cleared stored reports.');
+      render();
+    });
+  }
+
+  render();
 }
 
 function nextLocalCampaignTimestamp(){
@@ -12601,6 +12715,7 @@ initDiscordLogSettings();
 initPhoneRouter();
 initHomeClock();
 initPhoneBadges();
+initErrorReportsApp();
 const rollDiceButton = $('roll-dice');
 const diceOutput = $('dice-out');
 const diceSidesSelect = $('dice-sides');
