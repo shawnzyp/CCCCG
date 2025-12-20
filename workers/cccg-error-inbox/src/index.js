@@ -104,31 +104,34 @@ export default {
 };
 
 function clampText(value, max) {
-  if (typeof value !== "string") return "";
-  if (!Number.isFinite(max) || max <= 0) return value;
-  return value.length > max ? value.slice(0, Math.max(0, max - 1)) + "…" : value;
+  const text = typeof value === "string" ? value : String(value ?? "");
+  if (!Number.isFinite(max) || max <= 0) return text;
+  return text.length > max ? text.slice(0, Math.max(0, max - 1)) + "…" : text;
 }
 
 function buildErrorPayload(payload = {}) {
   const kind = clampText(String(payload.kind || "error"), 100);
-  const message = clampText(String(payload.message || "Unknown error"), 2000);
-  const url = clampText(String(payload.url || ""), 2000);
-  const stack = clampText(String(payload.stack || ""), 4000);
+  const message = clampText(String(payload.message || "Unknown error"), 240);
+  const url = clampText(String(payload.url || ""), 1024);
   const ua = clampText(String(payload.ua || ""), 300);
   const build = clampText(String(payload.build || ""), 100);
   const extra = payload.extra && typeof payload.extra === "object"
     ? clampText(JSON.stringify(payload.extra), 1000)
     : "";
+  const rawStack = typeof payload.stack === "string" ? payload.stack : "";
+  const stackSnippet = clampText(rawStack, 1600);
 
   const fields = [];
   if (url) fields.push({ name: "URL", value: url });
-  if (build) fields.push({ name: "Build", value: build, inline: true });
-  if (ua) fields.push({ name: "User Agent", value: ua });
-  if (extra) fields.push({ name: "Extra", value: extra });
-  if (stack) fields.push({ name: "Stack", value: `\`\`\`\n${stack}\n\`\`\`` });
+  if (build) fields.push({ name: "Build", value: clampText(build, 1024), inline: true });
+  if (ua) fields.push({ name: "User Agent", value: clampText(ua, 1024) });
+  if (extra) fields.push({ name: "Extra", value: clampText(extra, 1024) });
+
+  const contentParts = [`Error report: ${kind}`];
+  if (stackSnippet) contentParts.push(`\`\`\`\n${stackSnippet}\n\`\`\``);
 
   return {
-    content: `Error report: ${kind}`,
+    content: contentParts.join("\n"),
     embeds: [
       {
         title: message,

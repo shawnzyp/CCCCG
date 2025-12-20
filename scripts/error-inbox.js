@@ -5,6 +5,7 @@ const LAST_CRASH_KEY = 'cccg:last-crash';
 const CRASH_COUNT_KEY = 'cccg:crash-count';
 const SAFE_MODE_KEY = 'cc:safe-mode';
 const ERROR_REPORTS_KEY = 'cccg:error-reports';
+const AUTH_KEY = 'cccg:discord-auth';
 const MAX_BREADCRUMBS = 50;
 const MAX_STACK_CHARS = 12000;
 const CRASH_WINDOW_MS = 60000;
@@ -155,6 +156,7 @@ async function sendReport(kind, message, detail = {}) {
   try {
     const href = (typeof location !== 'undefined' && location?.href) ? location.href : '';
     const ua = (typeof navigator !== 'undefined' && navigator?.userAgent) ? navigator.userAgent : '';
+    const auth = readLocalStorage(AUTH_KEY);
     const payload = {
       kind,
       message: safeString(message, 2000),
@@ -168,7 +170,10 @@ async function sendReport(kind, message, detail = {}) {
 
     await fetch(ERROR_INBOX_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(auth ? { 'X-CCCG-Auth': auth } : {}),
+      },
       body: JSON.stringify(payload),
       keepalive: true,
       mode: 'cors',
