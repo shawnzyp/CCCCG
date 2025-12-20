@@ -151,11 +151,11 @@ function reportTimeToRender() {
   } catch {}
 }
 
-if (typeof document !== 'undefined') {
+if (typeof document !== 'undefined' && document?.addEventListener) {
   document.addEventListener('app-render-complete', reportTimeToRender, { once: true });
 }
 try {
-  if (typeof window !== 'undefined' && window.__cccgFirstRenderReported) {
+  if (globalThis.__cccgFirstRenderReported) {
     reportTimeToRender();
   }
 } catch {}
@@ -205,6 +205,8 @@ let fadeOut = () => null;
 let fadePop = () => null;
 let motion = (_token, fallback) => fallback;
 let easingVar = (_token, fallback) => fallback;
+let animLoadScheduled = false;
+let animLoaded = false;
 
 function runWhenIdle(cb, timeout = 2000) {
   try {
@@ -222,7 +224,9 @@ if (typeof window !== 'undefined') {
   resetFloatingLauncherCoverage();
 }
 
-const scheduleAnimLoad = () => {
+function scheduleAnimLoad() {
+  if (animLoadScheduled || animLoaded) return;
+  animLoadScheduled = true;
   runWhenIdle(async () => {
     try {
       const anim = await import('./anim.js');
@@ -231,30 +235,24 @@ const scheduleAnimLoad = () => {
       fadePop = anim.fadePop || fadePop;
       motion = anim.motion || motion;
       easingVar = anim.easing || easingVar;
-      window.__cccgAnimHelpersLoaded = true;
+      animLoaded = true;
       globalThis.__cccgBreadcrumb?.('boot', 'anim helpers loaded');
     } catch (err) {
-      try {
-        console.error('Failed to load animation helpers', err);
-      } catch (logErr) {}
+      console.error('Failed to load animation helpers', err);
     }
   }, 2000);
-};
-if (typeof document !== 'undefined') {
+}
+if (typeof document !== 'undefined' && document?.addEventListener) {
   document.addEventListener('app-render-complete', scheduleAnimLoad, { once: true });
 }
 try {
-  if (typeof window !== 'undefined' && window.__cccgFirstRenderReported) {
+  if (globalThis.__cccgFirstRenderReported) {
     scheduleAnimLoad();
   }
 } catch {}
-setTimeout(() => {
-  try {
-    if (!window.__cccgAnimHelpersLoaded) {
-      scheduleAnimLoad();
-    }
-  } catch {}
-}, 8000);
+if (typeof window !== 'undefined') {
+  setTimeout(() => scheduleAnimLoad(), 8000);
+}
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
@@ -23308,9 +23306,9 @@ function deserialize(data){
   }
   if (mode === 'view') applyViewLockState();
   try {
-    if (typeof window !== 'undefined' && !window.__cccgFirstRenderReported) {
-      window.__cccgFirstRenderReported = true;
-      window.__cccgBreadcrumb?.('render', 'app-render-complete');
+    if (!globalThis.__cccgFirstRenderReported) {
+      globalThis.__cccgFirstRenderReported = true;
+      globalThis.__cccgBreadcrumb?.('render', 'app-render-complete');
     }
     document.dispatchEvent(new CustomEvent('app-render-complete'));
   } catch {}
@@ -24826,7 +24824,7 @@ if (typeof performance !== 'undefined' && typeof performance.measure === 'functi
     console.warn('[BootTiming] cc:boot ms =', performance.getEntriesByName('cc:boot').slice(-1)[0]?.duration);
   }
 }
-if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+if (!IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';
   try {
