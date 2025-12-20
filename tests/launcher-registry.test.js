@@ -80,4 +80,32 @@ describe('launcher registry', () => {
     expect(result.missingRegistry).toContain('ghostApp');
     expect(warnSpy).toHaveBeenCalled();
   });
+
+  test('all launcher buttons map to registry', async () => {
+    installDomScaffolding();
+    installEventSourceMock();
+    installScrollMock();
+
+    const { APP_REGISTRY } = await import('../scripts/main.js');
+
+    const ids = [...document.querySelectorAll('[data-pt-open-app]')]
+      .map((b) => b.getAttribute('data-pt-open-app'))
+      .filter(Boolean);
+
+    const missing = ids.filter((id) => !APP_REGISTRY[id]);
+    expect(missing).toEqual([]);
+  });
+
+  test('registry apps have targets or routes', async () => {
+    installDomScaffolding();
+    installEventSourceMock();
+    installScrollMock();
+
+    const { runLauncherHealthCheck } = await import('../scripts/main.js');
+    const result = runLauncherHealthCheck();
+
+    if (!result.skippedTargetsCheck) {
+      expect(result.missingTargets).toEqual([]);
+    }
+  });
 });

@@ -2200,7 +2200,7 @@ function openPlayerOsApp(appId) {
 
 function dispatchLauncherEvent(appId) {
   try {
-    window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId } }));
+    window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId, source: 'main-launcher' } }));
     return true;
   } catch (_) {}
   return false;
@@ -2282,6 +2282,18 @@ function ensureFocusableTarget(target) {
   if (!isFocusable) {
     try { target.setAttribute('tabindex', '-1'); } catch {}
   }
+  return true;
+}
+
+function isElementVisible(el) {
+  if (!el) return false;
+  if (el.hidden) return false;
+  const ariaHidden = el.getAttribute?.('aria-hidden');
+  if (ariaHidden === 'true') return false;
+  try {
+    const cs = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    if (cs && (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0')) return false;
+  } catch {}
   return true;
 }
 
@@ -2370,6 +2382,13 @@ export async function openApp(appId, opts = {}) {
       });
       focusTarget.focus?.({ preventScroll: true });
     } catch {}
+  }
+
+  // Soft verification: if we have a focus target, it should now be visible.
+  if (focusTarget && !isElementVisible(focusTarget) && !opts.force) {
+    window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'did-not-open' };
+    try { console.warn('App launch did not result in visible target:', appId); } catch {}
+    return { ok: false, reason: 'did-not-open' };
   }
 
   window.__ccLastAppLaunch = { appId, ok: true, ts: Date.now(), source: opts.source || 'launcher' };

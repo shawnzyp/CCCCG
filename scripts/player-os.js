@@ -79,7 +79,7 @@
 
   function emitLaunch(appId) {
     try {
-      window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId } }));
+      window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId, source: 'player-os' } }));
     } catch (_) {}
   }
 
@@ -463,6 +463,22 @@
       const msg = String(e?.detail?.message || '').trim();
       if (msg) showToast(msg);
     });
+
+    // External launcher bridge (main menu, dock, etc.)
+    try {
+      window.addEventListener('cc:pt-launch', (e) => {
+        if (e?.detail?.source === 'player-os') return;
+        const rawAppId = String(e?.detail?.appId || '').trim();
+        if (!rawAppId) return;
+        const normalized = normalizeAppId(rawAppId);
+        if (isLocked(normalized)) {
+          emitLaunch('locked');
+          return;
+        }
+        openApp(normalized);
+        closeLauncher();
+      });
+    } catch {}
 
     if (backButton) {
       backButton.addEventListener('click', handleBack);
