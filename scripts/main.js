@@ -130,8 +130,26 @@ import { resetFloatingLauncherCoverage } from './floating-launcher.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
 
 installGlobalErrorInbox();
-performance.mark('cc:main:top');
+if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
+  performance.mark('cc:main:top');
+}
 window.__cccgBreadcrumb?.('boot', 'main.js start');
+document.addEventListener('app-render-complete', () => {
+  try {
+    if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
+      performance.mark('cc:render:done');
+    }
+    if (typeof performance !== 'undefined' && typeof performance.measure === 'function') {
+      performance.measure('cc:time-to-render', 'cc:main:top', 'cc:render:done');
+      if (typeof performance.getEntriesByName === 'function') {
+        console.warn(
+          '[BootTiming] cc:time-to-render ms =',
+          performance.getEntriesByName('cc:time-to-render').slice(-1)[0]?.duration
+        );
+      }
+    }
+  } catch {}
+}, { once: true });
 window.__cccgBreadcrumb?.('boot', 'main.js imported');
 
 const MENU_MODAL_STATE = new Map();
@@ -24762,9 +24780,15 @@ runWhenIdle(() => {
 
   window.__cccgBreadcrumb?.('boot', 'idle init complete');
 });
-performance.mark('cc:boot:done');
-performance.measure('cc:boot', 'cc:main:top', 'cc:boot:done');
-console.warn('[BootTiming] cc:boot ms =', performance.getEntriesByName('cc:boot').slice(-1)[0]?.duration);
+if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
+  performance.mark('cc:boot:done');
+}
+if (typeof performance !== 'undefined' && typeof performance.measure === 'function') {
+  performance.measure('cc:boot', 'cc:main:top', 'cc:boot:done');
+  if (typeof performance.getEntriesByName === 'function') {
+    console.warn('[BootTiming] cc:boot ms =', performance.getEntriesByName('cc:boot').slice(-1)[0]?.duration);
+  }
+}
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
   let swUrl = 'sw.js';
@@ -24781,8 +24805,10 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     console.warn('[SW] Disabled by cc:disable-sw=1');
     window.__cccgBreadcrumb?.('sw', 'service worker disabled');
   } else {
-    navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
-    window.__cccgBreadcrumb?.('sw', 'service worker register requested');
+    setTimeout(() => {
+      navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
+      window.__cccgBreadcrumb?.('sw', 'service worker register requested (delayed)');
+    }, 2500);
   }
   console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
   let hadController = Boolean(navigator.serviceWorker.controller);
