@@ -2155,6 +2155,365 @@ let pendingPinPromptActive = false;
 let pinInteractionGuard = null;
 let pinUnlockInProgress = false;
 
+// ---------------------------------------------------------------------------
+// App registry + launcher reliability helpers
+// ---------------------------------------------------------------------------
+export const APP_REGISTRY = Object.freeze({
+  campaignLog: { label: 'Campaign Log', icon: '📓', open: () => openPlayerOsApp('campaignLog') },
+  messages: { label: 'Messages', icon: '📡', open: () => openPlayerOsApp('messages') },
+  playerTools: { label: 'Player Tools', icon: '🧰', open: () => openPlayerOsApp('playerTools'), route: 'drawer:player-tools' },
+  shards: { label: 'Shards of Many Fates', icon: '🧩', open: () => openPlayerOsApp('shards'), requiresUnlock: true, route: 'modal:shards' },
+  settings: { label: 'Settings', icon: '⚙️', open: () => openPlayerOsApp('settings') },
+  loadSave: { label: 'Load / Save', icon: '💾', open: () => openPlayerOsApp('loadSave') },
+  encounter: { label: 'Encounter / Initiative', icon: '⚔️', open: () => openPlayerOsApp('encounter') },
+  actionLog: { label: 'Action Log', icon: '🧾', open: () => openPlayerOsApp('actionLog') },
+  creditsLedger: { label: 'Credits Ledger', icon: '💳', open: () => openPlayerOsApp('creditsLedger') },
+  rules: { label: 'Rules', icon: '📜', open: () => openPlayerOsApp('rules') },
+  help: { label: 'Help', icon: '❓', open: () => openPlayerOsApp('help') },
+  locked: { label: 'OMNI Vault', icon: '🔒', open: () => openPlayerOsApp('locked'), requiresUnlock: true },
+  minigames: { label: 'Minigames', icon: '🎮', open: () => openPlayerOsApp('minigames') },
+  initiative: { label: 'Initiative', icon: '🎯', open: () => openPlayerOsApp('initiative') },
+  codex: { label: 'Codex', icon: '📚', open: () => openPlayerOsApp('codex') },
+  missions: { label: 'Missions', icon: '🧭', open: () => openPlayerOsApp('missions') },
+  combat: { label: 'Combat', icon: '⚔️', open: () => openTabApp('combat'), route: 'tab:combat' },
+  stats: { label: 'Stats', icon: '📊', open: () => openTabApp('stats'), route: 'tab:stats' },
+  powers: { label: 'Powers', icon: '✨', open: () => openTabApp('powers'), route: 'tab:powers' },
+  gear: { label: 'Gear', icon: '🧰', open: () => openTabApp('gear'), route: 'tab:gear' },
+  details: { label: 'Personal Details', icon: '🧾', open: () => openTabApp('details'), route: 'tab:details' },
+  sync: { label: 'Sync', icon: '🔄', open: () => openSyncPanel(), route: 'panel:sync' },
+});
+
+export function getAppMeta(appId) {
+  if (!appId) return null;
+  return APP_REGISTRY[appId] || null;
+}
+
+function openPlayerOsApp(appId) {
+  try {
+    if (window.PlayerOS?.openApp) {
+      window.PlayerOS.openApp(appId);
+      return true;
+    }
+  } catch (_) {}
+  return dispatchLauncherEvent(appId);
+}
+
+function dispatchLauncherEvent(appId) {
+  try {
+    window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId, source: 'main-launcher' } }));
+    return true;
+  } catch (_) {}
+  return false;
+}
+
+function openTabApp(tabId) {
+  if (!tabId) return false;
+  const opened = activateTab(tabId);
+  if (opened) {
+    try { triggerTabIconAnimation(tabId); } catch {}
+  }
+  return !!opened;
+}
+
+function openSyncPanel() {
+  try {
+    if (typeof toggleSyncPanel === 'function') {
+      toggleSyncPanel(true);
+      return true;
+    }
+  } catch (_) {}
+  const trigger = document.querySelector('[data-sync-status-trigger]') || document.getElementById('sync-status-trigger');
+  if (trigger && typeof trigger.click === 'function') {
+    trigger.click();
+    return true;
+  }
+  return false;
+}
+
+function isLauncherUiBusy() {
+  const body = typeof document !== 'undefined' ? document.body : null;
+  const root = typeof document !== 'undefined' ? document.documentElement : null;
+  const launching = !!(body && body.classList.contains('launching'));
+  const touchLocked = !!(body && body.classList.contains(TOUCH_LOCK_CLASS));
+  const modalOpen = !!(root && root.classList.contains('modal-open'));
+  const phoneLocked = !!(root && root.classList.contains('pt-os-lock'));
+  return launching || touchLocked || modalOpen || phoneLocked;
+}
+
+export function waitForUiIdle({ timeout = 800 } = {}) {
+  const start = Date.now();
+  return new Promise(resolve => {
+    const step = () => {
+      const elapsed = Date.now() - start;
+      if (!isLauncherUiBusy() || elapsed >= timeout) {
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => setTimeout(resolve, 0));
+        } else {
+          setTimeout(resolve, 0);
+        }
+        return;
+      }
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(step);
+      } else {
+        setTimeout(step, 16);
+      }
+    };
+    step();
+  });
+}
+
+function getAppFocusTarget(appId, meta) {
+  if (typeof document === 'undefined') return null;
+  const screen = document.querySelector(`[data-pt-app-screen="${appId}"]`);
+  if (screen) return screen;
+  if (meta?.route && typeof meta.route === 'string') {
+    if (meta.route.startsWith('#') || meta.route.startsWith('.') || meta.route.startsWith('[')) {
+      return document.querySelector(meta.route);
+    }
+  }
+  return null;
+}
+
+function ensureFocusableTarget(target) {
+  if (!target) return false;
+  const focusableTags = ['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA'];
+  const isFocusable = focusableTags.includes(target.tagName) || target.hasAttribute('tabindex') || target.isContentEditable;
+  if (!isFocusable) {
+    try { target.setAttribute('tabindex', '-1'); } catch {}
+  }
+  return true;
+}
+
+function waitForAppOpened(appId, timeout = 500) {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  return new Promise(resolve => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('cc:pt-app-opened', handler);
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const handler = (e) => {
+      const openedId = String(e?.detail?.appId || '').trim();
+      if (openedId && openedId === appId) {
+        done(true);
+      }
+    };
+    const timer = setTimeout(() => done(false), timeout);
+    window.addEventListener('cc:pt-app-opened', handler);
+  });
+}
+
+function nextFrame() {
+  if (typeof requestAnimationFrame === 'function') {
+    return new Promise(resolve => requestAnimationFrame(() => resolve()));
+  }
+  return new Promise(resolve => setTimeout(resolve, 16));
+}
+
+function isElementVisible(el) {
+  if (!el) return false;
+  if (el.hidden) return false;
+  const ariaHidden = el.getAttribute?.('aria-hidden');
+  if (ariaHidden === 'true') return false;
+  try {
+    const cs = window.getComputedStyle ? window.getComputedStyle(el) : null;
+    if (cs && (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0')) return false;
+  } catch {}
+  return true;
+}
+
+export async function openApp(appId, opts = {}) {
+  const meta = getAppMeta(appId);
+  if (!meta) {
+    try { toast(`Unknown app: ${appId}`, 'error'); } catch {}
+    try { console.warn('Unknown app launch requested:', appId); } catch {}
+    window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'unknown-app' };
+    return { ok: false, reason: 'unknown-app' };
+  }
+
+  if (meta.requiresCharacter) {
+    const activeCharacter = typeof currentCharacter === 'function' ? currentCharacter() : currentCharacter;
+    if (!activeCharacter) {
+      try { toast(`Load a character to open ${meta.label}`, 'error'); } catch {}
+      window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'missing-character' };
+      return { ok: false, reason: 'missing-character' };
+    }
+  }
+
+  if (meta.requiresUnlock && !opts.force) {
+    const locked = document.documentElement?.classList?.contains('pt-os-lock');
+    if (locked) {
+      try { toast(`Unlock to open ${meta.label}`, 'error'); } catch {}
+      window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'locked' };
+      return { ok: false, reason: 'locked' };
+    }
+  }
+
+  if (!opts.force && (!hasLaunchSequenceCompleted() || !welcomeSequenceComplete)) {
+    window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'launch-blocked' };
+    return { ok: false, reason: 'launch-blocked' };
+  }
+
+  await waitForUiIdle({ timeout: opts.timeout ?? 800 });
+
+  const focusTarget = getAppFocusTarget(appId, meta);
+  if (!focusTarget && !meta.route) {
+    window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'missing-target' };
+    try { console.warn('Missing app target for launch:', appId); } catch {}
+    return { ok: false, reason: 'missing-target' };
+  }
+  if (focusTarget && !ensureFocusableTarget(focusTarget)) {
+    window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'focus-target-missing' };
+    return { ok: false, reason: 'focus-target-missing' };
+  }
+
+  const attemptOpen = () => {
+    const result = meta.open?.(opts);
+    if (result === false) {
+      throw new Error('App opener returned false');
+    }
+    return result;
+  };
+
+  try {
+    attemptOpen();
+  } catch (err) {
+    try {
+      await new Promise(resolve => {
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => setTimeout(resolve, 0));
+        } else {
+          setTimeout(resolve, 0);
+        }
+      });
+      attemptOpen();
+    } catch (retryErr) {
+      const errorMessage = String(retryErr?.message || retryErr);
+      window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'exception', error: errorMessage };
+      try { toast(`Failed to open ${meta.label}`, 'error'); } catch {}
+      try { console.error('openApp failed:', appId, retryErr); } catch {}
+      return { ok: false, reason: 'exception', error: retryErr };
+    }
+  }
+
+  if (focusTarget) {
+    try {
+      await new Promise(resolve => {
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => setTimeout(resolve, 0));
+        } else {
+          setTimeout(resolve, 0);
+        }
+      });
+      focusTarget.focus?.({ preventScroll: true });
+    } catch {}
+  }
+
+  // Soft verification: if we have a focus target, it should now be visible.
+  if (focusTarget) {
+    const openedSignal = await waitForAppOpened(appId, opts.openedTimeout ?? 500);
+    if (!openedSignal) {
+      await nextFrame();
+      await nextFrame();
+    }
+  }
+
+  if (focusTarget && !isElementVisible(focusTarget) && !opts.force) {
+    window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'did-not-open' };
+    try { console.warn('App launch did not result in visible target:', appId); } catch {}
+    return { ok: false, reason: 'did-not-open' };
+  }
+
+  window.__ccLastAppLaunch = { appId, ok: true, ts: Date.now(), source: opts.source || 'launcher' };
+  return { ok: true };
+}
+
+let launcherDelegationWired = false;
+function wireLauncherDelegation() {
+  if (launcherDelegationWired || typeof document === 'undefined') return;
+  launcherDelegationWired = true;
+
+  let lastLaunchAt = 0;
+  let lastLaunchApp = null;
+
+  document.addEventListener(
+    'pointerup',
+    (e) => {
+      // Only respond when Player OS is open
+      if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;
+
+      const btn = e.target?.closest?.('[data-pt-open-app]');
+      if (!btn) return;
+      if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+
+      const appId = btn.getAttribute('data-pt-open-app');
+      if (!appId) return;
+
+      const now = Date.now();
+      if (lastLaunchApp === appId && now - lastLaunchAt < 300) return;
+      lastLaunchApp = appId;
+      lastLaunchAt = now;
+
+      e.preventDefault?.();
+      e.stopPropagation?.();
+
+      if (btn.closest?.('#pt-main-menu')) {
+        hideLauncherMainMenu();
+      }
+
+      const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function' ? window.openApp : openApp;
+      launchFn(appId, { source: 'launcher', element: btn });
+    },
+    { capture: true }
+  );
+}
+
+export function runLauncherHealthCheck({ logToConsole = true } = {}) {
+  if (typeof document === 'undefined') return { ok: true, missingRegistry: [], missingTargets: [] };
+  const launcherButtons = [...document.querySelectorAll('[data-pt-open-app]')];
+  const buttonAppIds = launcherButtons
+    .map(btn => btn.getAttribute('data-pt-open-app'))
+    .filter(Boolean);
+  const missingRegistry = buttonAppIds.filter(id => !APP_REGISTRY[id]);
+
+  const appScreens = new Set(
+    [...document.querySelectorAll('[data-pt-app-screen]')]
+      .map(el => el.getAttribute('data-pt-app-screen'))
+      .filter(Boolean)
+  );
+
+  const skippedTargetsCheck = appScreens.size === 0;
+  const missingTargets = skippedTargetsCheck ? [] : Object.keys(APP_REGISTRY).filter((id) => {
+    const meta = APP_REGISTRY[id];
+    if (appScreens.has(id)) return false;
+    if (meta?.route) return false;
+    return true;
+  });
+
+  const ok = missingRegistry.length === 0 && missingTargets.length === 0;
+  if (!ok && logToConsole) {
+    if (missingRegistry.length) {
+      console.warn('[Launcher] Unknown app IDs in DOM:', missingRegistry);
+    }
+    if (missingTargets.length) {
+      console.warn('[Launcher] Registry apps missing panel/route:', missingTargets);
+    }
+  }
+
+  return { ok, missingRegistry, missingTargets, skippedTargetsCheck };
+}
+
+try {
+  if (typeof window !== 'undefined') {
+    window.APP_REGISTRY = APP_REGISTRY;
+    window.openApp = openApp;
+  }
+} catch {}
+
 const CHARACTER_CONFIRMATION_MODAL_ID = 'modal-character-confirmation';
 const CHARACTER_CONFIRMATION_TIMEOUT_MS = 3200;
 let characterConfirmationQueue = [];
@@ -2550,7 +2909,6 @@ function dismissWelcomeModal() {
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
 let launcherMenuWired = false;
-let launcherMenuDelegationWired = false;
 let launcherMenuObserverWired = false;
 
 function getLauncherMainMenu() {
@@ -2686,17 +3044,6 @@ function wireLauncherMainMenu() {
     });
   }
 
-  // Any menu item that opens an app should hide the menu.
-  // The actual app open routing remains whatever your existing launcher code does with data-pt-open-app.
-  if (!launcherMenuDelegationWired) {
-    menu.addEventListener('click', (e) => {
-      const btn = e.target && e.target.closest ? e.target.closest('[data-pt-open-app]') : null;
-      if (!btn) return;
-      hideLauncherMainMenu();
-    });
-    launcherMenuDelegationWired = true;
-  }
-
   // When the launcher becomes visible, show the menu by default.
   // This relies on your existing attribute that marks the phone as open.
   if (!launcherMenuObserverWired) {
@@ -2721,9 +3068,15 @@ function wireLauncherMainMenu() {
 // Ensure menu wiring happens once DOM is ready.
 try {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', wireLauncherMainMenu, { once: true });
+    document.addEventListener('DOMContentLoaded', () => {
+      wireLauncherMainMenu();
+      wireLauncherDelegation();
+      runLauncherHealthCheck();
+    }, { once: true });
   } else {
     wireLauncherMainMenu();
+    wireLauncherDelegation();
+    runLauncherHealthCheck();
   }
 } catch {}
 

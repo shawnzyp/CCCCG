@@ -79,7 +79,7 @@
 
   function emitLaunch(appId) {
     try {
-      window.dispatchEvent(new CustomEvent('cc:pt-launch', { detail: { appId } }));
+      window.dispatchEvent(new CustomEvent('cc:pt-launched', { detail: { appId, source: 'player-os' } }));
     } catch (_) {}
   }
 
@@ -365,6 +365,9 @@
 
     showLauncher();
     setView('app', normalized);
+    try {
+      window.dispatchEvent(new CustomEvent('cc:pt-app-opened', { detail: { appId: normalized } }));
+    } catch (_) {}
   }
 
   function handleUnlock() {
@@ -386,28 +389,6 @@
     setView('home', null);
   }
 
-  function launchFromHome(rawAppId) {
-    const normalized = normalizeAppId(rawAppId);
-
-    if (isLocked(normalized)) {
-      emitLaunch('locked');
-      return;
-    }
-
-    if (normalized === 'settings') {
-      openApp('settings');
-      return;
-    }
-
-    if (normalized === 'minigames') {
-      openApp('minigames');
-      return;
-    }
-
-    emitLaunch(normalized);
-    closeLauncher();
-  }
-
   function bindEvents() {
     // Delegate all taps inside the launcher to avoid click synthesis issues in embeds.
     if (launcher) {
@@ -426,16 +407,6 @@
             e.preventDefault?.();
             e.stopPropagation?.();
             handleUnlock();
-            return;
-          }
-
-          // Home icons
-          const appBtn = t.closest('[data-pt-open-app]');
-          if (appBtn) {
-            e.preventDefault?.();
-            const appId = appBtn.getAttribute('data-pt-open-app');
-            if (!appId) return;
-            launchFromHome(appId);
             return;
           }
         },
@@ -495,6 +466,21 @@
       const msg = String(e?.detail?.message || '').trim();
       if (msg) showToast(msg);
     });
+
+    // External launcher bridge (main menu, dock, etc.)
+    try {
+      window.addEventListener('cc:pt-launch', (e) => {
+        const rawAppId = String(e?.detail?.appId || '').trim();
+        if (!rawAppId) return;
+        const normalized = normalizeAppId(rawAppId);
+        if (isLocked(normalized)) {
+          emitLaunch('locked');
+          return;
+        }
+        openApp(normalized);
+        closeLauncher();
+      });
+    } catch {}
 
     if (backButton) {
       backButton.addEventListener('click', handleBack);
