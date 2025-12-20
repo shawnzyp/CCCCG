@@ -2786,11 +2786,23 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     return;
   }
 
+  const launchEl = document.getElementById('launch-animation');
+  if (window.__ccLaunchComplete || launchEl?.getAttribute('data-launch-disarmed') === 'true') {
+    try { document.body?.classList.remove('launching'); } catch {}
+    markLaunchSequenceComplete();
+    queueWelcomeModal({ immediate: true });
+    if (typeof safeUnlockTouchControls === 'function') {
+      safeUnlockTouchControls({ immediate: true });
+    } else {
+      unlockTouchControls();
+    }
+    return;
+  }
+
   lockTouchControls();
   queueWelcomeModal({ preload: true });
   queueWelcomeModal({ immediate: true });
 
-  const launchEl = document.getElementById('launch-animation');
   const video = launchEl ? launchEl.querySelector('video') : null;
   const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
   let revealCalled = false;
@@ -3128,37 +3140,9 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       }
     };
 
-  const notifyServiceWorkerVideoPlayed = () => {
-    if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
-      return;
-    }
-    const videoUrl = video.currentSrc || video.getAttribute('src') || null;
-    const payload = { type: 'launch-video-played', videoUrl };
-    const postToWorker = worker => {
-      if(!worker) return;
-      try {
-        worker.postMessage(payload);
-      } catch (err) {
-        // ignore messaging failures
-      }
-    };
-    postToWorker(navigator.serviceWorker.controller);
-    navigator.serviceWorker.ready
-      .then(reg => {
-        const worker = navigator.serviceWorker.controller || reg.active;
-        if(worker){
-          postToWorker(worker);
-        }
-      })
-      .catch(() => {});
-  };
-
   const finalizeLaunch = () => {
     if(revealCalled) return;
     fallbackTimer = clearTimer(fallbackTimer);
-    if(!IS_JSDOM_ENV){
-      notifyServiceWorkerVideoPlayed();
-    }
     revealApp();
   };
 
@@ -11453,6 +11437,7 @@ window.updateCampaignLogEntry = updateCampaignLogEntry;
 updateCampaignLogViews();
 const CONTENT_UPDATE_EVENT = 'cc:content-updated';
 const DM_PENDING_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
+// Intentionally handle only one service worker update per page load to avoid repeated reload prompts.
 let serviceWorkerUpdateHandled = false;
 
 function queueDmNotification(message, meta = {}) {
@@ -11545,32 +11530,41 @@ function consumeForcedRefreshState() {
 function announceContentUpdate(payload = {}) {
   if (serviceWorkerUpdateHandled) return;
   serviceWorkerUpdateHandled = true;
+  const safePayload =
+    payload && typeof payload === 'object'
+      ? Object.assign(Object.create(null), payload)
+      : Object.create(null);
   const baseMessage =
-    typeof payload.message === 'string' && payload.message.trim()
-      ? payload.message.trim()
+    typeof safePayload.message === 'string' && safePayload.message.trim()
+      ? safePayload.message.trim()
       : 'New Codex content is available.';
   const normalizedMessage = baseMessage.replace(/\s+/g, ' ').trim();
   const message = /background|apply|update/i.test(normalizedMessage)
     ? normalizedMessage
     : `${normalizedMessage} Applying updates in the background.`;
-  const updatedAt = typeof payload.updatedAt === 'number' ? payload.updatedAt : Date.now();
+  const MAX_UPDATE_MESSAGE_LENGTH = 200;
+  const safeMessage = message.length > MAX_UPDATE_MESSAGE_LENGTH
+    ? `${message.slice(0, MAX_UPDATE_MESSAGE_LENGTH - 1)}…`
+    : message;
+  const updatedAt = typeof safePayload.updatedAt === 'number' ? safePayload.updatedAt : Date.now();
   const detail = {
-    ...payload,
-    message,
+    ...safePayload,
+    payload: safePayload,
+    message: safeMessage,
     updatedAt,
-    source: payload.source || 'service-worker',
+    source: safePayload.source || 'service-worker',
   };
   if (typeof window !== 'undefined') {
     window.__ccLastContentUpdate = detail;
   }
   try {
-    logAction(message);
+    logAction(safeMessage);
   } catch {
     /* ignore logging errors */
   }
-  queueDmNotification(message, { ts: updatedAt, char: detail.char || 'System' });
+  queueDmNotification(safeMessage, { ts: updatedAt, char: detail.char || 'System' });
   try {
-    toast(message, 'info');
+    toast(safeMessage, 'info');
   } catch {
     /* ignore toast errors */
   }
@@ -23265,6 +23259,11 @@ if(typeof window !== 'undefined'){
 function markLaunchSequenceComplete(){
   if(launchSequenceComplete) return;
   launchSequenceComplete = true;
+  if (typeof window !== 'undefined') {
+    try {
+      window.__ccLaunchComplete = { reason: 'complete', ts: Date.now() };
+    } catch {}
+  }
   safeUnlockTouchControls({ immediate: true });
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
