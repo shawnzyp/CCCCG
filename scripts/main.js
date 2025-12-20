@@ -134,7 +134,7 @@ if (typeof performance !== 'undefined' && typeof performance.mark === 'function'
   performance.mark('cc:main:top');
 }
 window.__cccgBreadcrumb?.('boot', 'main.js start');
-document.addEventListener('app-render-complete', () => {
+function reportTimeToRender() {
   try {
     if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
       performance.mark('cc:render:done');
@@ -149,7 +149,14 @@ document.addEventListener('app-render-complete', () => {
       }
     }
   } catch {}
-}, { once: true });
+}
+
+document.addEventListener('app-render-complete', reportTimeToRender, { once: true });
+try {
+  if (typeof window !== 'undefined' && window.__cccgFirstRenderReported) {
+    reportTimeToRender();
+  }
+} catch {}
 window.__cccgBreadcrumb?.('boot', 'main.js imported');
 
 const MENU_MODAL_STATE = new Map();
@@ -197,32 +204,6 @@ let fadePop = () => null;
 let motion = (_token, fallback) => fallback;
 let easingVar = (_token, fallback) => fallback;
 
-if (typeof window !== 'undefined') {
-  resetFloatingLauncherCoverage();
-}
-
-(async () => {
-  try {
-    const anim = await import('./anim.js');
-    animate = anim.animate || animate;
-    fadeOut = anim.fadeOut || fadeOut;
-    fadePop = anim.fadePop || fadePop;
-    motion = anim.motion || motion;
-    easingVar = anim.easing || easingVar;
-  } catch (err) {
-    try {
-      console.error('Failed to load animation helpers', err);
-    } catch (logErr) {}
-  }
-})();
-
-const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
-const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
-const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
-const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
-const SAVE_DATA_TOKEN = 'save-data';
-const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
-
 function runWhenIdle(cb, timeout = 2000) {
   try {
     if (typeof requestIdleCallback === 'function') {
@@ -234,6 +215,41 @@ function runWhenIdle(cb, timeout = 2000) {
     setTimeout(() => cb(), 50);
   }
 }
+
+if (typeof window !== 'undefined') {
+  resetFloatingLauncherCoverage();
+}
+
+const scheduleAnimLoad = () => {
+  runWhenIdle(async () => {
+    try {
+      const anim = await import('./anim.js');
+      animate = anim.animate || animate;
+      fadeOut = anim.fadeOut || fadeOut;
+      fadePop = anim.fadePop || fadePop;
+      motion = anim.motion || motion;
+      easingVar = anim.easing || easingVar;
+      window.__cccgBreadcrumb?.('boot', 'anim helpers loaded');
+    } catch (err) {
+      try {
+        console.error('Failed to load animation helpers', err);
+      } catch (logErr) {}
+    }
+  }, 2000);
+};
+document.addEventListener('app-render-complete', scheduleAnimLoad, { once: true });
+try {
+  if (typeof window !== 'undefined' && window.__cccgFirstRenderReported) {
+    scheduleAnimLoad();
+  }
+} catch {}
+
+const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
+const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
+const REDUCED_MOTION_REDUCE_PATTERN = /prefers-reduced-motion\s*:\s*reduce/;
+const REDUCED_DATA_TOKEN = 'prefers-reduced-data';
+const SAVE_DATA_TOKEN = 'save-data';
+const IS_JSDOM_ENV = typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent || '');
 
 function cancelFx(el) {
   if (!el) return;
@@ -24767,7 +24783,7 @@ if (!document.body?.classList?.contains('launching')) {
 
 /* ========= boot ========= */
 updateDerived();
-runWhenIdle(() => {
+const scheduleNonCriticalBoot = () => runWhenIdle(() => {
   try { setupPerkSelect('alignment','alignment-perks', ALIGNMENT_PERKS); } catch (e) { console.error(e); }
   try { setupPerkSelect('classification','classification-perks', CLASSIFICATION_PERKS); } catch (e) { console.error(e); }
   try { setupPerkSelect('power-style','power-style-perks', POWER_STYLE_PERKS); } catch (e) { console.error(e); }
@@ -24779,7 +24795,16 @@ runWhenIdle(() => {
   try { applyLockIcons(); } catch (e) { console.error(e); }
 
   window.__cccgBreadcrumb?.('boot', 'idle init complete');
-});
+}, 2000);
+if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      scheduleNonCriticalBoot();
+    }
+  }, { once: true });
+} else {
+  scheduleNonCriticalBoot();
+}
 if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
   performance.mark('cc:boot:done');
 }
