@@ -4168,7 +4168,7 @@ async function ensureFunTips(){
 
 async function pinPrompt(message){
   const modal = $('modal-pin');
-  const title = $('pin-title');
+  const title = $('modal-pin-title-main');
   const input = $('pin-input');
   const submit = $('pin-submit');
   const close = $('pin-close');
@@ -4181,19 +4181,22 @@ async function pinPrompt(message){
       submit.removeEventListener('click', onSubmit);
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
-      modal.removeEventListener('click', onOverlay);
-      hide('modal-pin');
+      modal.removeEventListener('pointerup', onOverlay);
+      closeMenuModal('modal-pin');
       resolve(result);
     }
     function onSubmit(){ cleanup(input.value); }
-    function onCancel(){ cleanup(null); }
+    function onCancel(e){
+      try { if (e && typeof e.stopPropagation === 'function') e.stopPropagation(); } catch {}
+      cleanup(null);
+    }
     function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); onSubmit(); } }
-    function onOverlay(e){ if(e.target===modal) onCancel(); }
+    function onOverlay(e){ if(e.target===modal) onCancel(e); }
     submit.addEventListener('click', onSubmit);
     input.addEventListener('keydown', onKey);
     close.addEventListener('click', onCancel);
-    modal.addEventListener('click', onOverlay);
-    show('modal-pin');
+    modal.addEventListener('pointerup', onOverlay, { passive: true });
+    openMenuModal('modal-pin');
     input.value='';
     input.focus();
   });
@@ -4497,11 +4500,11 @@ const MENU_ACTION_HANDLERS = {
   },
   'action-log': () => {
     renderLogs();
-    show('modal-log');
+    openMenuModal('modal-log');
   },
   'credits-ledger': () => {
     setCreditsLedgerFilter('all');
-    show('modal-credits-ledger');
+    openMenuModal('modal-credits-ledger');
   },
   'campaign-log': () => {
     updateCampaignLogViews();
@@ -13320,8 +13323,18 @@ function finalizeModalClose() {
 }
 
 function openMenuModal(id) {
-  prepareForModalOpen();
+  const overlay = typeof document !== 'undefined' ? document.getElementById(id) : null;
+  const isSheet = !!(overlay && overlay.classList.contains('modal-sheet'));
+  if (isSheet) {
+    prepareForModalOpen();
+  }
   show(id);
+  try {
+    const modal = overlay ? overlay.querySelector('.modal') : null;
+    if (modal && typeof modal.focus === 'function') {
+      modal.focus({ preventScroll: true });
+    }
+  } catch {}
 }
 
 function closeMenuModal(id) {
@@ -22266,7 +22279,15 @@ function applyOpenModalIds(ids = []) {
     if (!modal) return;
     try {
       if (modal.classList.contains('hidden')) {
-        show(id);
+        if (modal.classList.contains('modal-sheet')) {
+          openMenuModal(id);
+        } else {
+          show(id);
+          try {
+            const inner = modal.querySelector('.modal');
+            if (inner && typeof inner.focus === 'function') inner.focus({ preventScroll: true });
+          } catch {}
+        }
       }
     } catch (err) {
       console.error('Failed to reopen modal during snapshot restore', err);
