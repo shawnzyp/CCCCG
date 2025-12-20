@@ -133,7 +133,7 @@ installGlobalErrorInbox();
 if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
   performance.mark('cc:main:top');
 }
-window.__cccgBreadcrumb?.('boot', 'main.js start');
+globalThis.__cccgBreadcrumb?.('boot', 'main.js start');
 function reportTimeToRender() {
   try {
     if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
@@ -151,13 +151,15 @@ function reportTimeToRender() {
   } catch {}
 }
 
-document.addEventListener('app-render-complete', reportTimeToRender, { once: true });
+if (typeof document !== 'undefined') {
+  document.addEventListener('app-render-complete', reportTimeToRender, { once: true });
+}
 try {
   if (typeof window !== 'undefined' && window.__cccgFirstRenderReported) {
     reportTimeToRender();
   }
 } catch {}
-window.__cccgBreadcrumb?.('boot', 'main.js imported');
+globalThis.__cccgBreadcrumb?.('boot', 'main.js imported');
 
 const MENU_MODAL_STATE = new Map();
 
@@ -229,7 +231,8 @@ const scheduleAnimLoad = () => {
       fadePop = anim.fadePop || fadePop;
       motion = anim.motion || motion;
       easingVar = anim.easing || easingVar;
-      window.__cccgBreadcrumb?.('boot', 'anim helpers loaded');
+      window.__cccgAnimHelpersLoaded = true;
+      globalThis.__cccgBreadcrumb?.('boot', 'anim helpers loaded');
     } catch (err) {
       try {
         console.error('Failed to load animation helpers', err);
@@ -237,12 +240,21 @@ const scheduleAnimLoad = () => {
     }
   }, 2000);
 };
-document.addEventListener('app-render-complete', scheduleAnimLoad, { once: true });
+if (typeof document !== 'undefined') {
+  document.addEventListener('app-render-complete', scheduleAnimLoad, { once: true });
+}
 try {
   if (typeof window !== 'undefined' && window.__cccgFirstRenderReported) {
     scheduleAnimLoad();
   }
 } catch {}
+setTimeout(() => {
+  try {
+    if (!window.__cccgAnimHelpersLoaded) {
+      scheduleAnimLoad();
+    }
+  } catch {}
+}, 8000);
 
 const REDUCED_MOTION_TOKEN = 'prefers-reduced-motion';
 const REDUCED_MOTION_NO_PREFERENCE_PATTERN = /prefers-reduced-motion\s*:\s*no-preference/;
