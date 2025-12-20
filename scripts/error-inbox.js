@@ -108,7 +108,9 @@ export function installGlobalErrorInbox() {
       : (event?.message || 'Unknown error');
     const stack = event?.error?.stack || '';
     sendReport('error', message, { stack });
-    showPanicOverlay('CCCG crashed with a runtime error.', `${message}\n\n${stack}`);
+    if (!isResourceError) {
+      showPanicOverlay('CCCG crashed with a runtime error.', `${message}\n\n${stack}`);
+    }
   }, true);
 
   window.addEventListener('unhandledrejection', (event) => {
