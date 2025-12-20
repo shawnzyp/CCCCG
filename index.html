@@ -1452,7 +1452,7 @@
   </div>
 </div>
 
-<div class="overlay hidden modal-sheet" id="modal-pin" aria-hidden="true" aria-labelledby="modal-pin-title-main" data-modal-accent-hue="32deg" data-modal-glow-strength="0.45">
+<div class="overlay hidden modal-sheet" id="modal-pin" aria-hidden="true" aria-labelledby="modal-pin-title-main" aria-describedby="modal-pin-desc" data-modal-accent-hue="32deg" data-modal-glow-strength="0.45">
   <div class="modal-frame">
     <section class="modal modal--sheet" role="dialog" aria-modal="true" tabindex="-1">
       <button id="pin-close" class="x" data-close aria-label="Close" type="button">
@@ -1462,7 +1462,7 @@
       </button>
       <header class="modal-sheet__header">
         <h3 id="modal-pin-title-main" class="modal-sheet__title">Enter PIN</h3>
-        <p class="modal-sheet__subtitle">Use the PIN linked to this character.</p>
+        <p id="modal-pin-desc" class="modal-sheet__subtitle">Use the PIN linked to this character.</p>
       </header>
       <div class="modal-sheet__body">
         <input id="pin-input" data-view-allow type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">

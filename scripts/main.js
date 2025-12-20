@@ -4181,7 +4181,7 @@ async function pinPrompt(message){
       submit.removeEventListener('click', onSubmit);
       input.removeEventListener('keydown', onKey);
       close.removeEventListener('click', onCancel);
-      modal.removeEventListener('click', onOverlay);
+      modal.removeEventListener('pointerdown', onOverlay);
       closeMenuModal('modal-pin');
       resolve(result);
     }
@@ -4192,7 +4192,7 @@ async function pinPrompt(message){
     submit.addEventListener('click', onSubmit);
     input.addEventListener('keydown', onKey);
     close.addEventListener('click', onCancel);
-    modal.addEventListener('click', onOverlay);
+    modal.addEventListener('pointerdown', onOverlay);
     openMenuModal('modal-pin');
     input.value='';
     input.focus();
@@ -22273,14 +22273,15 @@ function applyOpenModalIds(ids = []) {
     if (!modal) return;
     try {
       if (modal.classList.contains('hidden')) {
-        show(id);
-  try {
-    const overlay = document.getElementById(id);
-    const modal = overlay ? overlay.querySelector('.modal') : null;
-    if (modal && typeof modal.focus === 'function') {
-      modal.focus({ preventScroll: true });
-    }
-  } catch {}
+        if (modal.classList.contains('modal-sheet')) {
+          openMenuModal(id);
+        } else {
+          show(id);
+          try {
+            const inner = modal.querySelector('.modal');
+            if (inner && typeof inner.focus === 'function') inner.focus({ preventScroll: true });
+          } catch {}
+        }
       }
     } catch (err) {
       console.error('Failed to reopen modal during snapshot restore', err);
