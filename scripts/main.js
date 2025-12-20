@@ -3199,8 +3199,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   function tryStartPlayback(){
     if(destroyed || revealCalled || awaitingGesture) return;
     if(playAttempts >= MAX_PLAY_ATTEMPTS){
-      awaitingGesture = true;
-      dropLaunchOnFailure();
+      failOpenLaunch('launch video failed to start after retries');
       return;
     }
     playAttempts += 1;
@@ -3283,7 +3282,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
       }
       if(payload.type === 'reset-launch-video'){
         resetPlayback();
-        attemptPlayback();
+        tryStartPlayback();
       }
     };
     navigator.serviceWorker.addEventListener('message', handler);
@@ -13403,7 +13402,7 @@ function openMenuModal(id) {
   if (isSheet) {
     prepareForModalOpen();
   }
-  const shown = show(id);
+  show(id);
   try {
     const overlay = document.getElementById(id);
     const modal = overlay ? overlay.querySelector('.modal') : null;
@@ -13411,7 +13410,9 @@ function openMenuModal(id) {
       modal.focus({ preventScroll: true });
     }
   } catch {}
-  MENU_MODAL_STATE.set(id, shown ? 'open' : 'closed');
+  const currentOverlay = document.getElementById(id);
+  const isHidden = currentOverlay ? currentOverlay.classList.contains('hidden') : true;
+  MENU_MODAL_STATE.set(id, isHidden ? 'closed' : 'open');
 }
 
 function closeMenuModal(id) {
@@ -13683,6 +13684,10 @@ document.addEventListener('click', (e) => {
   if (!btn) return;
   const ov = btn.closest('.overlay');
   if (!ov || !ov.id) return;
+  try {
+    e.preventDefault();
+    e.stopPropagation();
+  } catch {}
   if (ov.classList.contains('modal-sheet')) {
     closeMenuModal(ov.id);
     return;
