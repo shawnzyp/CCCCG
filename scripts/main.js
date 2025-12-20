@@ -132,6 +132,8 @@ import { installGlobalErrorInbox } from './error-inbox.js';
 installGlobalErrorInbox();
 window.__cccgBreadcrumb?.('boot', 'main.js imported');
 
+const MENU_MODAL_STATE = new Map();
+
 (function bootWatchdogEarly() {
   if (typeof window === 'undefined') return;
   const startedAt = Date.now();
@@ -13782,13 +13784,6 @@ creditsLedgerFilterButtons.forEach(btn => {
 document.addEventListener('credits-ledger-updated', () => {
   renderCreditsLedger();
 });
-let MENU_MODAL_STATE = null;
-
-function getMenuModalState() {
-  if (MENU_MODAL_STATE) return MENU_MODAL_STATE;
-  MENU_MODAL_STATE = new Map();
-  return MENU_MODAL_STATE;
-}
 
 function prepareForModalOpen() {
   try { hideLauncherMainMenu(); } catch {}
@@ -13812,9 +13807,9 @@ function finalizeModalClose() {
 }
 
 function openMenuModal(id) {
-  const state = getMenuModalState().get(id);
+  const state = MENU_MODAL_STATE.get(id);
   if (state === 'opening' || state === 'open') return;
-  getMenuModalState().set(id, 'opening');
+  MENU_MODAL_STATE.set(id, 'opening');
   const overlay = typeof document !== 'undefined' ? document.getElementById(id) : null;
   const isSheet = !!(overlay && overlay.classList.contains('modal-sheet'));
   if (isSheet) {
@@ -13830,16 +13825,16 @@ function openMenuModal(id) {
   } catch {}
   const currentOverlay = document.getElementById(id);
   const isHidden = currentOverlay ? currentOverlay.classList.contains('hidden') : true;
-  getMenuModalState().set(id, isHidden ? 'closed' : 'open');
+  MENU_MODAL_STATE.set(id, isHidden ? 'closed' : 'open');
 }
 
 function closeMenuModal(id) {
-  const state = getMenuModalState().get(id);
+  const state = MENU_MODAL_STATE.get(id);
   if (state === 'closing' || state === 'closed') return;
-  getMenuModalState().set(id, 'closing');
+  MENU_MODAL_STATE.set(id, 'closing');
   hide(id);
   finalizeModalClose();
-  getMenuModalState().set(id, 'closed');
+  MENU_MODAL_STATE.set(id, 'closed');
 }
 
 async function openCharacterList(){
