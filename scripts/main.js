@@ -271,6 +271,17 @@ const MENU_MODAL_STATE = new Map();
   }, 6000);
 })();
 
+function markBootProgress(tag) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.__ccLastContentUpdate = Date.now();
+    }
+  } catch {}
+  try {
+    globalThis.__cccgBreadcrumb?.('boot', `progress:${tag}`);
+  } catch {}
+}
+
 let animate = () => null;
 let fadeOut = () => null;
 let fadePop = () => null;
@@ -2985,6 +2996,7 @@ function unlockTouchControls({ immediate = false } = {}) {
     if (immediate || !body.classList.contains('launching')) {
       clearTouchUnlockTimer();
       body.classList.remove(TOUCH_LOCK_CLASS);
+      markBootProgress('touch-unlock');
       return;
     }
 
@@ -3002,6 +3014,7 @@ function unlockTouchControls({ immediate = false } = {}) {
     const release = () => {
       touchUnlockTimer = null;
       body.classList.remove(TOUCH_LOCK_CLASS);
+      markBootProgress('touch-unlock');
     };
 
     const waitForLaunchEnd = () => {
@@ -12081,6 +12094,7 @@ function initPhoneRouter() {
       onActivate(event);
     }, true);
 
+    markBootProgress('phone-router-ready');
     return true;
   };
 
@@ -23707,6 +23721,7 @@ function applyAppSnapshot(snapshot) {
   if (SNAPSHOT_DEBUG) {
     console.debug('app snapshot applied', payload);
   }
+  markBootProgress('apply-snapshot');
   return payload;
 }
 
@@ -23871,6 +23886,7 @@ function deserialize(data){
     applySnapshotParticipants(data.appState);
   }
   if (mode === 'view') applyViewLockState();
+  markBootProgress('deserialize-done');
   try {
     if (!globalThis.__cccgFirstRenderReported) {
       globalThis.__cccgFirstRenderReported = true;
@@ -23878,6 +23894,7 @@ function deserialize(data){
     }
     document.dispatchEvent(new CustomEvent('app-render-complete'));
   } catch {}
+  markBootProgress('render-complete');
 }
 
 /* ========= autosave + history ========= */

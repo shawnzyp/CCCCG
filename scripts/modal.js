@@ -135,6 +135,8 @@ function focusFallbackOutsideOverlay(overlay) {
 
   const candidates = [
     lastFocus && lastFocus.isConnected && !overlay.contains(lastFocus) ? lastFocus : null,
+    doc.querySelector('[data-pt-phone-home]'),
+    doc.querySelector('[data-skip-launch]'),
     doc.querySelector('#character-name'),
     doc.querySelector('#player-tools-tab'),
     doc.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
@@ -152,6 +154,25 @@ function focusFallbackOutsideOverlay(overlay) {
 
   if (typeof active.blur === 'function') {
     try { active.blur(); } catch (_) {}
+  }
+}
+
+function forceBlurIfInside(container) {
+  if (!container || typeof container.contains !== 'function') return;
+  const doc = container.ownerDocument || (typeof document !== 'undefined' ? document : null);
+  if (!doc) return;
+  const active = doc.activeElement;
+  if (!active || active === doc.body || !container.contains(active)) return;
+
+  if (typeof active.blur === 'function') {
+    try { active.blur(); } catch (_) {}
+  }
+
+  focusFallbackOutsideOverlay(container);
+
+  const after = doc.activeElement;
+  if (after && container.contains(after) && typeof after.blur === 'function') {
+    try { after.blur(); } catch (_) {}
   }
 }
 
@@ -238,6 +259,7 @@ export function hide(id) {
       cancelModalStyleReset(el);
     }, 400);
     removeTrapFocus(el);
+    forceBlurIfInside(el);
     focusFallbackOutsideOverlay(el);
     el.classList.add('hidden');
     el.setAttribute('aria-hidden', 'true');
