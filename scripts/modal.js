@@ -71,10 +71,32 @@ function getInertTargets(activeModalEl) {
   return Array.from(targets);
 }
 
+function isLaunchShellNode(node) {
+  try {
+    if (!node || !node.matches) return false;
+    return node.matches('[data-launch-shell], [data-launch-shell] *');
+  } catch (_) {
+    return false;
+  }
+}
+
+function isLaunchingNow() {
+  try {
+    return !!(document.body && document.body.classList && document.body.classList.contains('launching'));
+  } catch (_) {
+    return false;
+  }
+}
+
 function markAndInert(node) {
   if (!node) return;
   try {
-    const prev = wasNodeInert(node) ? '1' : '0';
+    // If the app is done launching, never preserve a stale inert on the launch shell.
+    // This prevents the "sometimes everything freezes" race where the shell stays inert forever.
+    const prev =
+      (!isLaunchingNow() && isLaunchShellNode(node))
+        ? '0'
+        : (wasNodeInert(node) ? '1' : '0');
     node.setAttribute(INERT_MARK, '1');
     node.setAttribute(INERT_PREV, prev);
     if (prev !== '1') setNodeInert(node, true);
@@ -399,6 +421,13 @@ export function hide(id) {
     if (openModals === 0) {
       releaseFloatingLauncher();
       restoreMarkedInert();
+      // Extra safety: if launch is complete, ensure shell is interactive even if some earlier path left inert behind.
+      try {
+        if (!isLaunchingNow()) {
+          const shell = document.querySelector('[data-launch-shell]');
+          if (shell) setNodeInert(shell, false);
+        }
+      } catch (_) {}
       try { document.body.classList.remove('modal-open'); } catch (err) {
         console.error('Failed to update body class when hiding modal', err);
       }

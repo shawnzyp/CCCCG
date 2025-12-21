@@ -11681,3 +11681,16 @@ html.cc-welcome-open #modal-welcome{
   visibility:visible !important;
   pointer-events:auto !important;
 }
+
+/* Prevent launcher shell flash during launch and welcome handoff */
+body.launching [data-launch-shell]{
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+html.cc-welcome-from-launch [data-launch-shell]{
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
