@@ -3056,17 +3056,25 @@ function unlockTouchControls({ immediate = false } = {}) {
 function forceInteractionUnlock(reason = 'unknown') {
   try { markBootProgress(`force-unlock:${reason}`); } catch {}
 
-  try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
-  try { document.body?.classList?.remove('modal-open'); } catch {}
-  try { document.body?.classList?.remove('launching'); } catch {}
+  const doc = typeof document !== 'undefined' ? document : null;
+  const body = doc ? doc.body : null;
+  const anyOpenOverlay = !!(doc && doc.querySelector('.overlay:not(.hidden)'));
+
+  try { body?.classList?.remove('touch-controls-disabled'); } catch {}
+  if (!anyOpenOverlay) {
+    try { body?.classList?.remove('modal-open'); } catch {}
+  }
+  try { body?.classList?.remove('launching'); } catch {}
   try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
 
-  try {
-    document.querySelectorAll('[inert]').forEach((el) => {
-      try { el.inert = false; } catch {}
-      try { el.removeAttribute('inert'); } catch {}
-    });
-  } catch {}
+  if (!anyOpenOverlay && doc) {
+    try {
+      doc.querySelectorAll('[inert]').forEach((el) => {
+        try { el.inert = false; } catch {}
+        try { el.removeAttribute('inert'); } catch {}
+      });
+    } catch {}
+  }
 
   try {
     if (typeof unlockTouchControls === 'function') {
@@ -3093,12 +3101,6 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   }
   const body = typeof document !== 'undefined' ? document.body : null;
   const isLaunching = !!(body && body.classList.contains('launching'));
-  show(WELCOME_MODAL_ID);
-  if (wasHidden) {
-    addPlayerToolsTabSuppression('welcome-modal');
-  }
-  forceInteractionUnlock('welcome-show');
-
   if (isLaunching) {
     // While intro overlay is active, we avoid forcing welcome visible.
     // The boot controller will request welcome once intro is done.
@@ -3111,6 +3113,11 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
       }
     }
     return;
+  }
+
+  show(WELCOME_MODAL_ID);
+  if (wasHidden) {
+    addPlayerToolsTabSuppression('welcome-modal');
   }
 
   if (!wasHidden) {
