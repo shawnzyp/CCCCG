@@ -92,9 +92,16 @@ function restoreMarkedInert() {
   try {
     document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
       const prev = node.getAttribute(INERT_PREV) || '0';
+      if (prev !== '1') setNodeInert(node, false);
+    });
+  } catch (_) {}
+}
+
+function cleanupMarkedInert() {
+  try {
+    document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
       try { node.removeAttribute(INERT_MARK); } catch (_) {}
       try { node.removeAttribute(INERT_PREV); } catch (_) {}
-      if (prev !== '1') setNodeInert(node, false);
     });
   } catch (_) {}
 }
@@ -360,12 +367,6 @@ export function hide(id) {
           el.style.pointerEvents = 'none';
         }
       } catch (_) {}
-      try {
-        if (el.classList.contains('hidden')) {
-          el.style.display = 'none';
-          el.style.pointerEvents = 'none';
-        }
-      } catch (_) {}
       clearModalStyles(el);
       cancelModalStyleReset(el);
     }, 450);
@@ -404,9 +405,11 @@ export function hide(id) {
       }
       try {
         getInertTargets(null).forEach((node) => {
-          if (wasNodeInert(node)) setNodeInert(node, false);
+          const prev = node.getAttribute && node.getAttribute(INERT_PREV);
+          if (prev === '0' && wasNodeInert(node)) setNodeInert(node, false);
         });
       } catch (_) {}
+      cleanupMarkedInert();
     } else {
       try { document.body.classList.add('modal-open'); } catch (_) {}
     }
