@@ -3783,6 +3783,33 @@
                     </div>
                   </section>
 
+                  <section class="pt-app-page" data-pt-app-screen="errorReports" hidden aria-hidden="true">
+                    <header class="pt-page-head">
+                      <h3 class="pt-page-title">Error Reports</h3>
+                      <p class="pt-page-subtitle">Stored on this device. Send to Discord when ready.</p>
+                    </header>
+
+                    <div class="pt-section">
+                      <div class="pt-row pt-row--field">
+                        <span class="pt-row__label">Stored Reports</span>
+                        <span class="pt-row__meta" data-pt-error-count>0</span>
+                      </div>
+                      <div class="pt-row pt-row--field">
+                        <span class="pt-row__label">Status</span>
+                        <span class="pt-row__meta" data-pt-error-status>Idle</span>
+                      </div>
+
+                      <div class="pt-actions">
+                        <button class="pt-btn" type="button" data-pt-error-send>Send All</button>
+                        <button class="pt-btn pt-btn--ghost" type="button" data-pt-error-clear>Clear</button>
+                      </div>
+                    </div>
+
+                    <div class="pt-section">
+                      <div data-pt-error-list></div>
+                    </div>
+                  </section>
+
                   <section class="pt-app-page" data-pt-app-screen="loadSave" hidden aria-hidden="true">
                     <header class="pt-page-head">
                       <h3 class="pt-page-title">Load / Save</h3>

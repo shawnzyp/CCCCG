@@ -356,7 +356,10 @@ export function installGlobalErrorInbox() {
     if (!isResourceError) {
       recordCrashSnapshot(snapshot);
       crashThisSession = true;
-      trackCrashCount();
+      try {
+        const inLaunch = document?.body?.classList?.contains('launching');
+        if (inLaunch) trackCrashCount();
+      } catch {}
       appendErrorReport({ ts: Date.now(), message, stack, snapshot });
     }
   }, true);
@@ -374,7 +377,10 @@ export function installGlobalErrorInbox() {
     });
     recordCrashSnapshot(snapshot);
     crashThisSession = true;
-    trackCrashCount();
+    try {
+      const inLaunch = document?.body?.classList?.contains('launching');
+      if (inLaunch) trackCrashCount();
+    } catch {}
     appendErrorReport({ ts: Date.now(), message, stack, snapshot });
     sendReport('unhandledrejection', message, { stack, extra: { snapshot } });
   });

@@ -3068,6 +3068,7 @@ function dismissWelcomeModal() {
       document.documentElement.removeAttribute('data-pt-drawer-open');
     }
   } catch {}
+  try { markLaunchSequenceComplete(); } catch {}
   safeUnlockTouchControls({ immediate: true });
   try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
   markWelcomeSequenceComplete();
@@ -3299,6 +3300,16 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   });
 }
 (async function setupLaunchAnimation(){
+  const LAUNCH_FAILSAFE_MS = 8000;
+  try {
+    setTimeout(() => {
+      try {
+        if (document?.body?.classList?.contains('launching')) {
+          markLaunchSequenceComplete();
+        }
+      } catch {}
+    }, LAUNCH_FAILSAFE_MS);
+  } catch {}
   if (typeof document === 'undefined' || IS_JSDOM_ENV) {
     unlockTouchControls();
     queueWelcomeModal({ immediate: true });
@@ -12047,7 +12058,13 @@ function initPhoneBadges() {
   // Default: clear everything at boot to avoid weird stale UI.
   setBadge('messages', 0);
   setBadge('campaignLog', 0);
-  setBadge('errorReports', 0);
+  try {
+    const raw = localStorage.getItem('cccg:error-reports') || '[]';
+    const list = JSON.parse(raw);
+    setBadge('errorReports', Array.isArray(list) ? list.length : 0);
+  } catch {
+    setBadge('errorReports', 0);
+  }
 }
 
 function initErrorReportsApp() {
