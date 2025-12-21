@@ -11667,3 +11667,17 @@ body{background:var(--bg);background-size:cover;background-repeat:no-repeat;back
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) header .tabs,
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) header .ticker-drawer__pull,
 html:not([data-pt-phone-open="1"]) body:not(.touch-controls-disabled) #player-tools-tab{pointer-events:auto;touch-action:manipulation;}
+
+/* Hide the launcher shell while the welcome modal is open */
+html.cc-welcome-open [data-launch-shell]{
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+/* Ensure the welcome overlay itself stays interactive */
+html.cc-welcome-open #modal-welcome{
+  opacity:1 !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
