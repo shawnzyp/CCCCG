@@ -285,10 +285,15 @@ export function hide(id) {
     };
     el.addEventListener('transitionend', onEnd);
     el._modalStyleTimer = setTimeout(() => {
-      try { el.style.display = 'none'; } catch (_) {}
+      try {
+        if (el.classList.contains('hidden')) {
+          el.style.display = 'none';
+          el.style.pointerEvents = 'none';
+        }
+      } catch (_) {}
       clearModalStyles(el);
       cancelModalStyleReset(el);
-    }, 400);
+    }, 450);
     removeTrapFocus(el);
     forceBlurIfInside(el);
     const sink = el.ownerDocument?.getElementById?.('cc-focus-sink');
