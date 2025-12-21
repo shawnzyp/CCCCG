@@ -3059,15 +3059,7 @@ function dismissWelcomeModal() {
   // Defensive cleanup: ensure we never leave interaction locks behind
   try { document.body.classList.remove('touch-controls-disabled'); } catch {}
   try { document.body.classList.remove('modal-open'); } catch {}
-  try {
-    const launcher = document.querySelector('[data-pt-launcher]');
-    const cs = launcher && window.getComputedStyle ? window.getComputedStyle(launcher) : null;
-    const launcherVisible = !!(launcher && !launcher.hidden && launcher.getAttribute('aria-hidden') !== 'true' && cs && cs.display !== 'none' && cs.visibility !== 'hidden');
-    if (!launcherVisible) {
-      document.documentElement.removeAttribute('data-pt-phone-open');
-      document.documentElement.removeAttribute('data-pt-drawer-open');
-    }
-  } catch {}
+  try { document.documentElement.removeAttribute('data-pt-drawer-open'); } catch {}
   try { markLaunchSequenceComplete(); } catch {}
   safeUnlockTouchControls({ immediate: true });
   try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
@@ -12147,6 +12139,12 @@ function initErrorReportsApp() {
     try {
       if (typeof window.ptSetBadge === 'function') window.ptSetBadge('errorReports', reports.length);
     } catch {}
+    try {
+      const remote = getInbox()?.remote?.();
+      if (remote?.remoteDisabled && statusEl) {
+        statusEl.textContent = 'Remote disabled (auth). Set Discord Log Key in Settings.';
+      }
+    } catch {}
 
     listEl.innerHTML = '';
     if (!reports.length) {
@@ -12189,7 +12187,13 @@ function initErrorReportsApp() {
       setStatus('Sending reports...');
       try {
         const result = await inbox.sendAll();
-        setStatus(`Sent ${result?.count ?? 0} report(s).`);
+        if (result?.ok) {
+          setStatus(`Sent ${result?.count ?? 0} report(s).`);
+        } else if (result?.remoteDisabled) {
+          setStatus('Send blocked (auth). Set Discord Log Key in Settings.');
+        } else {
+          setStatus(`Partial send. Sent ${result?.count ?? 0}. Remaining ${result?.remaining ?? 0}.`);
+        }
       } catch {
         setStatus('Failed to send reports.');
       } finally {

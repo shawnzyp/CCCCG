@@ -6,9 +6,25 @@ const CRASH_COUNT_KEY = 'cccg:crash-count';
 const SAFE_MODE_KEY = 'cc:safe-mode';
 const ERROR_REPORTS_KEY = 'cccg:error-reports';
 const AUTH_KEY = 'cccg:discord-auth';
+const AUTH_STATE_KEY = 'cccg:discord-auth-state';
 const MAX_BREADCRUMBS = 50;
 const MAX_STACK_CHARS = 12000;
 const CRASH_WINDOW_MS = 60000;
+
+let remoteDisabled = false;
+let remoteDisabledReason = '';
+
+function markRemoteDisabled(reason, status) {
+  remoteDisabled = true;
+  remoteDisabledReason = String(reason || 'disabled');
+  try {
+    localStorage.setItem(AUTH_STATE_KEY, JSON.stringify({
+      ts: Date.now(),
+      reason: remoteDisabledReason,
+      status: Number(status) || 0,
+    }));
+  } catch {}
+}
 
 function safeString(x, max = 2000) {
   try {
@@ -161,6 +177,9 @@ function trackCrashCount() {
 
 async function sendReport(kind, message, detail = {}) {
   try {
+    if (remoteDisabled) {
+      throw new Error(`remote_disabled:${remoteDisabledReason || 'unknown'}`);
+    }
     const href = (typeof location !== 'undefined' && location?.href) ? location.href : '';
     const ua = (typeof navigator !== 'undefined' && navigator?.userAgent) ? navigator.userAgent : '';
     const auth = readLocalStorage(AUTH_KEY);
@@ -175,7 +194,7 @@ async function sendReport(kind, message, detail = {}) {
       breadcrumbs: readBreadcrumbs(),
     };
 
-    await fetch(ERROR_INBOX_URL, {
+    const res = await fetch(ERROR_INBOX_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -186,11 +205,22 @@ async function sendReport(kind, message, detail = {}) {
       mode: 'cors',
       credentials: 'omit',
     });
+    if (!res || !res.ok) {
+      const status = Number(res?.status) || 0;
+      if (status === 401 || status === 403) {
+        markRemoteDisabled('unauthorized', status);
+      } else if (status) {
+        markRemoteDisabled('remote_error', status);
+      }
+      throw new Error(`report_failed:${status || 'no_status'}`);
+    }
+    return { ok: true, status: res.status };
   } catch {
     try {
       const record = { ts: Date.now(), kind, message: safeString(message, 500) };
       localStorage.setItem(LOCAL_LOG_KEY, JSON.stringify(record));
     } catch {}
+    return { ok: false, status: 0, reason: remoteDisabledReason || 'local_fallback' };
   }
 }
 
@@ -200,6 +230,13 @@ export function installGlobalErrorInbox() {
   window.__ccErrorInboxInstalled = true;
   globalThis.__cccgBreadcrumb = addBreadcrumb;
   const SHOW_PANIC_OVERLAY = false;
+  try {
+    const raw = localStorage.getItem(AUTH_STATE_KEY);
+    if (raw) {
+      const state = JSON.parse(raw);
+      if (state?.reason === 'unauthorized') remoteDisabled = true;
+    }
+  } catch {}
   const SAFE_MODE_CLEAR_AFTER_MS = 15000;
   const startedInSafeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
   let crashThisSession = false;
@@ -400,10 +437,7 @@ export function installGlobalErrorInbox() {
     return origError(...args);
   };
 
-  console.warn = (...args) => {
-    try { sendReport('console.warn', safeString(args, 2000)); } catch {}
-    return origWarn(...args);
-  };
+  console.warn = (...args) => origWarn(...args);
 
   window.__cccgLastErrorReport = () => {
     try {
@@ -420,16 +454,25 @@ export function installGlobalErrorInbox() {
       const reports = readErrorReports();
       if (!reports.length) return { ok: true, count: 0 };
       let sent = 0;
+      const remaining = [];
       for (const report of reports) {
-        await sendReport('manual', report.message || 'Manual error report', {
+        const res = await sendReport('manual', report.message || 'Manual error report', {
           stack: report.stack || '',
           extra: { snapshot: report.snapshot, manual: true },
         });
-        sent += 1;
+        if (res && res.ok) sent += 1;
+        else remaining.push(report);
       }
-      writeErrorReports([]);
-      return { ok: true, count: sent };
+      writeErrorReports(remaining);
+      return {
+        ok: remaining.length === 0,
+        count: sent,
+        remaining: remaining.length,
+        remoteDisabled,
+        remoteDisabledReason,
+      };
     },
+    remote: () => ({ remoteDisabled, remoteDisabledReason }),
   };
 
   if (startedInSafeMode) {
