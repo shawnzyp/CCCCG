@@ -3078,15 +3078,20 @@ function forceInteractionUnlock(reason = 'unknown') {
   const doc = typeof document !== 'undefined' ? document : null;
   const body = doc ? doc.body : null;
   const anyOpenOverlay = !!(doc && doc.querySelector('.overlay:not(.hidden)'));
+  const root = doc ? doc.documentElement : null;
+  const phoneOpen = !!(root && root.getAttribute('data-pt-phone-open') === '1');
+  const drawerOpen = !!(root && root.getAttribute('data-pt-drawer-open') === '1')
+    || !!(doc && doc.documentElement?.hasAttribute?.('data-pt-drawer-open'));
+  const blockingUiOpen = anyOpenOverlay || phoneOpen || drawerOpen;
 
   try { body?.classList?.remove('touch-controls-disabled'); } catch {}
-  if (!anyOpenOverlay) {
+  if (!blockingUiOpen) {
     try { body?.classList?.remove('modal-open'); } catch {}
   }
   try { body?.classList?.remove('launching'); } catch {}
   try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
 
-  if (!anyOpenOverlay && doc) {
+  if (!blockingUiOpen && doc) {
     try {
       doc.querySelectorAll('[inert]').forEach((el) => {
         try { el.inert = false; } catch {}
@@ -3138,6 +3143,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   if (wasHidden) {
     addPlayerToolsTabSuppression('welcome-modal');
   }
+  try { forceInteractionUnlock('welcome-show'); } catch {}
 
   if (!wasHidden) {
     return;
@@ -12129,6 +12135,7 @@ function initPhoneRouter() {
         if (!shell || !shell.contains(openBtn)) return;
 
         ensurePhoneOpen();
+        try { forceInteractionUnlock('phone-open'); } catch {}
 
         const id = openBtn.getAttribute('data-pt-open-app');
         if (id) {
@@ -12162,6 +12169,7 @@ function initPhoneRouter() {
         if (!shell || !shell.contains(homeBtn)) return;
         event.preventDefault?.();
         ensurePhoneOpen();
+        try { forceInteractionUnlock('phone-home'); } catch {}
         goHome();
         return;
       }
@@ -12171,6 +12179,8 @@ function initPhoneRouter() {
         const shell = getPhoneShell();
         if (!shell || !shell.contains(recentsBtn)) return;
         event.preventDefault?.();
+        ensurePhoneOpen();
+        try { forceInteractionUnlock('phone-recents'); } catch {}
         if (typeof toast === 'function') {
           toast('Recents is coming soon.', 'info');
         }
