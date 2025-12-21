@@ -200,8 +200,8 @@ export function installGlobalErrorInbox() {
   window.__ccErrorInboxInstalled = true;
   globalThis.__cccgBreadcrumb = addBreadcrumb;
   const SAFE_MODE_CLEAR_AFTER_MS = 15000;
-  let crashThisSession = false;
   const startedInSafeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
+  let crashThisSession = false;
 
   function clearSafeMode() {
     try { localStorage.removeItem(SAFE_MODE_KEY); } catch {}
@@ -210,16 +210,18 @@ export function installGlobalErrorInbox() {
   }
 
   try {
-    const safeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
-    if (safeMode) {
+    if (startedInSafeMode) {
       const raw = readLocalStorage(CRASH_COUNT_KEY);
       const state = raw ? JSON.parse(raw) : null;
       const firstAt = Number(state?.firstAt);
+      const lastAt = Number(state?.lastAt);
       const count = Number(state?.count);
       const now = Date.now();
-      const expired = !Number.isFinite(firstAt) || (now - firstAt > CRASH_WINDOW_MS);
+      const invalid = !state || typeof state !== 'object';
+      const stale = !Number.isFinite(lastAt) || (now - lastAt > CRASH_WINDOW_MS);
       const notLooping = !Number.isFinite(count) || count < 2;
-      if (expired || notLooping) clearSafeMode();
+      const expired = !Number.isFinite(firstAt) || (now - firstAt > CRASH_WINDOW_MS);
+      if (invalid || stale || notLooping || expired) clearSafeMode();
     }
   } catch {}
 
@@ -362,6 +364,7 @@ export function installGlobalErrorInbox() {
     const reason = event?.reason;
     const error = reason instanceof Error ? reason : new Error(String(reason || 'Unhandled rejection'));
     const message = safeString(error?.message || 'Unhandled rejection');
+    if (isIgnorableErrorMessage(message)) return;
     const stack = error?.stack || '';
     const snapshot = collectCrashSnapshot({
       error,
