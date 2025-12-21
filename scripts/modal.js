@@ -242,6 +242,7 @@ export function show(id) {
       }
       getInertTargets(el).forEach(e => {
         try {
+          if (e.hasAttribute('inert')) return;
           e.setAttribute(INERT_MARK, '1');
           setNodeInert(e, true);
         } catch (err) {
