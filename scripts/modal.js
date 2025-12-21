@@ -3,9 +3,19 @@ import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launc
 
 const INERT_MARK = 'data-cc-inert-by-modal';
 
-function isOverlayOpen(node) {
+function isModalOverlay(node) {
   try {
     if (!node || !node.classList || !node.classList.contains('overlay')) return false;
+    const id = node.id || '';
+    return id.startsWith('modal-');
+  } catch (_) {
+    return false;
+  }
+}
+
+function isOverlayOpen(node) {
+  try {
+    if (!isModalOverlay(node)) return false;
     if (node.classList.contains('hidden')) return false;
     if (node.getAttribute('aria-hidden') === 'true') return false;
     if (node.style && node.style.display === 'none') return false;
@@ -17,7 +27,7 @@ function isOverlayOpen(node) {
 
 function hasAnyOpenOverlays() {
   try {
-    return qsa('.overlay').some(isOverlayOpen);
+    return qsa('.overlay[id^="modal-"]').some(isOverlayOpen);
   } catch (_) {
     return false;
   }
@@ -35,12 +45,12 @@ function setNodeInert(node, on) {
 function getInertTargets(activeModalEl) {
   const targets = new Set();
 
-  qsa('body > :not(.overlay):not([data-launch-shell]):not(#launch-animation):not(#cc-focus-sink)')
+  qsa('body > :not(.overlay[id^="modal-"]):not([data-launch-shell]):not(#launch-animation):not(#cc-focus-sink)')
     .forEach(el => targets.add(el));
 
   const shell = document.querySelector('[data-launch-shell]');
   if (shell) {
-    qsa(':scope > :not(.overlay):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
+    qsa(':scope > :not(.overlay[id^="modal-"]):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
   }
 
   if (activeModalEl) {
@@ -221,10 +231,10 @@ function forceBlurIfInside(container) {
 }
 
 // Ensure hidden overlays are not focusable on load
-qsa('.overlay.hidden').forEach(ov => { ov.style.display = 'none'; });
+qsa('.overlay[id^="modal-"].hidden').forEach(ov => { ov.style.display = 'none'; });
 
 // Close modal on overlay click
-qsa('.overlay').forEach(ov => {
+qsa('.overlay[id^="modal-"]').forEach(ov => {
   ov.addEventListener('click', e => {
     if (e.target === ov && !ov.hasAttribute('data-modal-static')) hide(ov.id);
   });
@@ -233,7 +243,7 @@ qsa('.overlay').forEach(ov => {
 // Allow closing with Escape key
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && hasAnyOpenOverlays()) {
-    const open = qsa('.overlay').find(o => !o.classList.contains('hidden') && !o.hasAttribute('data-modal-static'));
+    const open = qsa('.overlay[id^="modal-"]').find(o => !o.classList.contains('hidden') && !o.hasAttribute('data-modal-static'));
     if (open) hide(open.id);
   }
 });
