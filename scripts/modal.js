@@ -198,6 +198,10 @@ export function show(id) {
   try {
     const el = $(id);
     if (!el || !el.classList.contains('hidden')) return false;
+    try {
+      el.inert = false;
+      el.removeAttribute('inert');
+    } catch (_) {}
     lastFocus = document.activeElement;
     if (openModals === 0) {
       coverFloatingLauncher();
@@ -220,10 +224,6 @@ export function show(id) {
     el.style.display = 'flex';
     el.classList.remove('hidden');
     el.setAttribute('aria-hidden', 'false');
-    try {
-      el.inert = false;
-      el.removeAttribute('inert');
-    } catch (_) {}
     trapFocus(el);
     const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
     if (focusEl && typeof focusEl.focus === 'function') {
@@ -260,13 +260,12 @@ export function hide(id) {
     }, 400);
     removeTrapFocus(el);
     forceBlurIfInside(el);
-    focusFallbackOutsideOverlay(el);
-    el.classList.add('hidden');
-    el.setAttribute('aria-hidden', 'true');
     try {
       el.inert = true;
       el.setAttribute('inert', '');
     } catch (_) {}
+    el.setAttribute('aria-hidden', 'true');
+    el.classList.add('hidden');
     if (
       lastFocus &&
       typeof lastFocus.focus === 'function' &&
