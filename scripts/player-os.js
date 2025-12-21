@@ -1,6 +1,7 @@
 import { createAppController } from './core/appController.js';
 
 const init = () => {
+  let readyFired = false;
   const launcher = document.querySelector('[data-pt-launcher]');
   if (!launcher) {
     console.warn('Player OS: [data-pt-launcher] not found in DOM');
@@ -13,6 +14,9 @@ const init = () => {
   window.__APP_STORE__ = controller.store;
   window.__CCCG_APP_CONTROLLER__ = controller;
   window.PlayerOSReady = false;
+  try {
+    window.dispatchEvent(new CustomEvent('cc:pt-controller-ready'));
+  } catch {}
 
   controller.store.dispatch({ type: 'BOOT_DONE' });
 
@@ -43,9 +47,12 @@ const init = () => {
   controller.store.subscribe((state) => {
     if (state.phase === 'PHONE_OS') {
       window.PlayerOSReady = true;
-      try {
-        window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed'));
-      } catch {}
+      if (!readyFired) {
+        readyFired = true;
+        try {
+          window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed'));
+        } catch {}
+      }
     }
   });
 };
