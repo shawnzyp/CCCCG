@@ -2,17 +2,27 @@ import { $, qsa } from './helpers.js';
 import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
 function getInertTargets(activeModalEl) {
-  const body = document.body;
-  if (!body) return [];
-  const nodes = Array.from(body.children);
-  return nodes.filter((node) => {
-    if (!node || node.nodeType !== 1) return false;
-    if (node.id === 'cc-focus-sink') return false;
-    if (node.id === 'launch-animation') return false;
-    if (node.classList && node.classList.contains('overlay')) return false;
-    if (activeModalEl && (node === activeModalEl || node.contains(activeModalEl))) return false;
-    return true;
-  });
+  const targets = new Set();
+
+  qsa('body > :not(.overlay):not([data-launch-shell]):not(#launch-animation):not(#cc-focus-sink)')
+    .forEach(el => targets.add(el));
+
+  const shell = document.querySelector('[data-launch-shell]');
+  if (shell) {
+    qsa(':scope > :not(.overlay):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
+  }
+
+  if (activeModalEl) {
+    for (const el of Array.from(targets)) {
+      try {
+        if (el === activeModalEl || (typeof el.contains === 'function' && el.contains(activeModalEl))) {
+          targets.delete(el);
+        }
+      } catch (_) {}
+    }
+  }
+
+  return Array.from(targets);
 }
 
 let lastFocus = null;
