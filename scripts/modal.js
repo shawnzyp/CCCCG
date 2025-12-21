@@ -268,6 +268,7 @@ export function hide(id) {
         try { sink.focus(); } catch (_) {}
       }
     }
+    // Now it is safe to hide from AT and lock focus.
     try {
       el.inert = true;
       el.setAttribute('inert', '');

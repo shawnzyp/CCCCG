@@ -3046,6 +3046,28 @@ function unlockTouchControls({ immediate = false } = {}) {
   }
 }
 
+function forceInteractionUnlock(reason = 'unknown') {
+  try { markBootProgress(`force-unlock:${reason}`); } catch {}
+
+  try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
+  try { document.body?.classList?.remove('modal-open'); } catch {}
+  try { document.body?.classList?.remove('launching'); } catch {}
+  try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
+
+  try {
+    document.querySelectorAll('[inert]').forEach((el) => {
+      try { el.inert = false; } catch {}
+      try { el.removeAttribute('inert'); } catch {}
+    });
+  } catch {}
+
+  try {
+    if (typeof unlockTouchControls === 'function') {
+      unlockTouchControls({ immediate: true });
+    }
+  } catch {}
+}
+
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   const modal = prepareWelcomeModal();
   if (!modal) {
@@ -3068,6 +3090,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   if (wasHidden) {
     addPlayerToolsTabSuppression('welcome-modal');
   }
+  forceInteractionUnlock('welcome-show');
 
   if (isLaunching) {
     // While intro overlay is active, we avoid forcing welcome visible.
@@ -3084,10 +3107,8 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   }
 
   if (!wasHidden) {
-    safeUnlockTouchControls();
     return;
   }
-  safeUnlockTouchControls();
 }
 
 function hardEndLaunchUI() {
@@ -3113,6 +3134,7 @@ function dismissWelcomeModal() {
   try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
   try { document.documentElement.removeAttribute('data-pt-drawer-open'); } catch {}
   try { markLaunchSequenceComplete(); } catch {}
+  try { forceInteractionUnlock('welcome-dismiss'); } catch {}
   try { hardEndLaunchUI(); } catch {}
   try {
     if (typeof safeUnlockTouchControls === 'function') {
@@ -3353,6 +3375,24 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   });
 }
 (async function setupLaunchAnimation(){
+  if (typeof window !== 'undefined' && window.__ccInlineLaunchControllerInstalled) {
+    try {
+      if (window.__ccLaunchComplete) {
+        markLaunchSequenceComplete();
+        queueWelcomeModal({ immediate: true });
+        hardEndLaunchUI();
+        forceInteractionUnlock('inline-launch-complete');
+        return;
+      }
+      window.addEventListener('cc:launch:done', () => {
+        try { markLaunchSequenceComplete(); } catch {}
+        try { queueWelcomeModal({ immediate: true }); } catch {}
+        try { hardEndLaunchUI(); } catch {}
+        try { forceInteractionUnlock('launch-done'); } catch {}
+      }, { once: true });
+    } catch {}
+    return;
+  }
   const LAUNCH_FAILSAFE_MS = 8000;
   try {
     setTimeout(() => {
