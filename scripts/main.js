@@ -79,6 +79,12 @@ import {
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 
+try {
+  if (typeof window !== 'undefined') {
+    window.__ccLastContentUpdate = Date.now();
+  }
+} catch {}
+
 const DEFAULT_PHONE_HOME_SCREEN = 'home';
 const PHONE_ACTIVE_APP_KEY = 'cccg:pt-active-app';
 import { readLastSaveName } from './last-save.js';
@@ -270,6 +276,26 @@ const MENU_MODAL_STATE = new Map();
     } catch {}
   }, 6000);
 })();
+
+function markBootProgress(tag) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.__ccLastContentUpdate = Date.now();
+    }
+  } catch {}
+  try {
+    globalThis.__cccgBreadcrumb?.('boot', `progress:${tag}`);
+  } catch {}
+}
+
+markBootProgress('main-start');
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => markBootProgress('dom-ready'), { once: true });
+  } else {
+    markBootProgress('dom-ready');
+  }
+}
 
 let animate = () => null;
 let fadeOut = () => null;
@@ -2351,6 +2377,7 @@ export const APP_REGISTRY = Object.freeze({
   actionLog: { label: 'Action Log', icon: '🧾', open: () => openPlayerOsApp('actionLog') },
   creditsLedger: { label: 'Credits Ledger', icon: '💳', open: () => openPlayerOsApp('creditsLedger') },
   rules: { label: 'Rules', icon: '📜', open: () => openPlayerOsApp('rules') },
+  discord: { label: 'Discord', icon: '💬', open: () => openPlayerOsApp('discord') },
   help: { label: 'Help', icon: '❓', open: () => openPlayerOsApp('help') },
   locked: { label: 'OMNI Vault', icon: '🔒', open: () => openPlayerOsApp('locked'), requiresUnlock: true },
   minigames: { label: 'Minigames', icon: '🎮', open: () => openPlayerOsApp('minigames') },
@@ -2985,6 +3012,7 @@ function unlockTouchControls({ immediate = false } = {}) {
     if (immediate || !body.classList.contains('launching')) {
       clearTouchUnlockTimer();
       body.classList.remove(TOUCH_LOCK_CLASS);
+      markBootProgress('touch-unlock');
       return;
     }
 
@@ -3002,6 +3030,7 @@ function unlockTouchControls({ immediate = false } = {}) {
     const release = () => {
       touchUnlockTimer = null;
       body.classList.remove(TOUCH_LOCK_CLASS);
+      markBootProgress('touch-unlock');
     };
 
     const waitForLaunchEnd = () => {
@@ -12081,6 +12110,7 @@ function initPhoneRouter() {
       onActivate(event);
     }, true);
 
+    markBootProgress('phone-router-ready');
     return true;
   };
 
@@ -23707,6 +23737,7 @@ function applyAppSnapshot(snapshot) {
   if (SNAPSHOT_DEBUG) {
     console.debug('app snapshot applied', payload);
   }
+  markBootProgress('apply-snapshot');
   return payload;
 }
 
@@ -23871,6 +23902,7 @@ function deserialize(data){
     applySnapshotParticipants(data.appState);
   }
   if (mode === 'view') applyViewLockState();
+  markBootProgress('deserialize-done');
   try {
     if (!globalThis.__cccgFirstRenderReported) {
       globalThis.__cccgFirstRenderReported = true;
@@ -23878,6 +23910,7 @@ function deserialize(data){
     }
     document.dispatchEvent(new CustomEvent('app-render-complete'));
   } catch {}
+  markBootProgress('render-complete');
 }
 
 /* ========= autosave + history ========= */

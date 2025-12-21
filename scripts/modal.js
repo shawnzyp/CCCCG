@@ -135,6 +135,8 @@ function focusFallbackOutsideOverlay(overlay) {
 
   const candidates = [
     lastFocus && lastFocus.isConnected && !overlay.contains(lastFocus) ? lastFocus : null,
+    doc.querySelector('[data-pt-phone-home]'),
+    doc.querySelector('[data-skip-launch]'),
     doc.querySelector('#character-name'),
     doc.querySelector('#player-tools-tab'),
     doc.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
@@ -152,6 +154,25 @@ function focusFallbackOutsideOverlay(overlay) {
 
   if (typeof active.blur === 'function') {
     try { active.blur(); } catch (_) {}
+  }
+}
+
+function forceBlurIfInside(container) {
+  if (!container || typeof container.contains !== 'function') return;
+  const doc = container.ownerDocument || (typeof document !== 'undefined' ? document : null);
+  if (!doc) return;
+  const active = doc.activeElement;
+  if (!active || active === doc.body || !container.contains(active)) return;
+
+  if (typeof active.blur === 'function') {
+    try { active.blur(); } catch (_) {}
+  }
+
+  focusFallbackOutsideOverlay(container);
+
+  const after = doc.activeElement;
+  if (after && container.contains(after) && typeof after.blur === 'function') {
+    try { after.blur(); } catch (_) {}
   }
 }
 
@@ -177,6 +198,10 @@ export function show(id) {
   try {
     const el = $(id);
     if (!el || !el.classList.contains('hidden')) return false;
+    try {
+      el.inert = false;
+      el.removeAttribute('inert');
+    } catch (_) {}
     lastFocus = document.activeElement;
     if (openModals === 0) {
       coverFloatingLauncher();
@@ -199,10 +224,6 @@ export function show(id) {
     el.style.display = 'flex';
     el.classList.remove('hidden');
     el.setAttribute('aria-hidden', 'false');
-    try {
-      el.inert = false;
-      el.removeAttribute('inert');
-    } catch (_) {}
     trapFocus(el);
     const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
     if (focusEl && typeof focusEl.focus === 'function') {
@@ -238,13 +259,21 @@ export function hide(id) {
       cancelModalStyleReset(el);
     }, 400);
     removeTrapFocus(el);
-    focusFallbackOutsideOverlay(el);
-    el.classList.add('hidden');
-    el.setAttribute('aria-hidden', 'true');
+    forceBlurIfInside(el);
+    const sink = el.ownerDocument?.getElementById?.('cc-focus-sink');
+    if (sink && typeof sink.focus === 'function') {
+      try {
+        sink.focus({ preventScroll: true });
+      } catch (err) {
+        try { sink.focus(); } catch (_) {}
+      }
+    }
     try {
       el.inert = true;
       el.setAttribute('inert', '');
     } catch (_) {}
+    el.setAttribute('aria-hidden', 'true');
+    el.classList.add('hidden');
     if (
       lastFocus &&
       typeof lastFocus.focus === 'function' &&
