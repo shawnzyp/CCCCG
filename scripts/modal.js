@@ -2,6 +2,7 @@ import { $, qsa } from './helpers.js';
 import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
 const INERT_MARK = 'data-cc-inert-by-modal';
+const INERT_PREV = 'data-cc-inert-prev';
 
 function isModalOverlay(node) {
   try {
@@ -28,6 +29,17 @@ function isOverlayOpen(node) {
 function hasAnyOpenOverlays() {
   try {
     return qsa('.overlay[id^="modal-"]').some(isOverlayOpen);
+  } catch (_) {
+    return false;
+  }
+}
+
+function wasNodeInert(node) {
+  try {
+    if (!node) return false;
+    if (node.hasAttribute && node.hasAttribute('inert')) return true;
+    if ('inert' in node && node.inert === true) return true;
+    return false;
   } catch (_) {
     return false;
   }
@@ -64,6 +76,27 @@ function getInertTargets(activeModalEl) {
   }
 
   return Array.from(targets);
+}
+
+function markAndInert(node) {
+  if (!node) return;
+  try {
+    const prev = wasNodeInert(node) ? '1' : '0';
+    node.setAttribute(INERT_MARK, '1');
+    node.setAttribute(INERT_PREV, prev);
+    if (prev !== '1') setNodeInert(node, true);
+  } catch (_) {}
+}
+
+function restoreMarkedInert() {
+  try {
+    document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
+      const prev = node.getAttribute(INERT_PREV) || '0';
+      try { node.removeAttribute(INERT_MARK); } catch (_) {}
+      try { node.removeAttribute(INERT_PREV); } catch (_) {}
+      if (prev !== '1') setNodeInert(node, false);
+    });
+  } catch (_) {}
 }
 
 let lastFocus = null;
@@ -272,9 +305,7 @@ export function show(id) {
       }
       getInertTargets(el).forEach(e => {
         try {
-          if (e.hasAttribute('inert')) return;
-          e.setAttribute(INERT_MARK, '1');
-          setNodeInert(e, true);
+          markAndInert(e);
         } catch (err) {
           console.error('Failed to set inert attribute', err);
         }
@@ -329,6 +360,12 @@ export function hide(id) {
           el.style.pointerEvents = 'none';
         }
       } catch (_) {}
+      try {
+        if (el.classList.contains('hidden')) {
+          el.style.display = 'none';
+          el.style.pointerEvents = 'none';
+        }
+      } catch (_) {}
       clearModalStyles(el);
       cancelModalStyleReset(el);
     }, 450);
@@ -361,15 +398,15 @@ export function hide(id) {
     const anyStillOpen = hasAnyOpenOverlays();
     if (!anyStillOpen) {
       releaseFloatingLauncher();
-      try {
-        document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
-          try { node.removeAttribute(INERT_MARK); } catch (_) {}
-          setNodeInert(node, false);
-        });
-      } catch (_) {}
+      restoreMarkedInert();
       try { document.body.classList.remove('modal-open'); } catch (err) {
         console.error('Failed to update body class when hiding modal', err);
       }
+      try {
+        getInertTargets(null).forEach((node) => {
+          if (wasNodeInert(node)) setNodeInert(node, false);
+        });
+      } catch (_) {}
     } else {
       try { document.body.classList.add('modal-open'); } catch (_) {}
     }
