@@ -245,7 +245,7 @@ const MENU_MODAL_STATE = new Map();
       try {
         window.dispatchEvent(new CustomEvent('cccg:report', {
           detail: {
-            kind: 'boot-stuck',
+            kind: 'boot-watchdog',
             message: 'Boot watchdog fired',
             extra: {
               launching: body?.classList.contains('launching'),
@@ -258,6 +258,15 @@ const MENU_MODAL_STATE = new Map();
 
       body?.classList.remove('launching');
       body?.classList.remove('touch-controls-disabled');
+      body?.classList.remove('modal-open');
+      try { markLaunchSequenceComplete(); } catch {}
+      try {
+        if (typeof safeUnlockTouchControls === 'function') {
+          safeUnlockTouchControls({ immediate: true });
+        } else if (typeof unlockTouchControls === 'function') {
+          unlockTouchControls({ immediate: true });
+        }
+      } catch {}
     } catch {}
   }, 6000);
 })();
@@ -3052,25 +3061,41 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   safeUnlockTouchControls();
 }
 
-function dismissWelcomeModal() {
-  welcomeModalDismissed = true;
-  hide(WELCOME_MODAL_ID);
-  removePlayerToolsTabSuppression('welcome-modal');
-  // Defensive cleanup: ensure we never leave interaction locks behind
-  try { document.body.classList.remove('touch-controls-disabled'); } catch {}
-  try { document.body.classList.remove('modal-open'); } catch {}
+function hardEndLaunchUI() {
+  try { document.body?.classList?.remove('launching'); } catch {}
   try {
-    const launcher = document.querySelector('[data-pt-launcher]');
-    const cs = launcher && window.getComputedStyle ? window.getComputedStyle(launcher) : null;
-    const launcherVisible = !!(launcher && !launcher.hidden && launcher.getAttribute('aria-hidden') !== 'true' && cs && cs.display !== 'none' && cs.visibility !== 'hidden');
-    if (!launcherVisible) {
-      document.documentElement.removeAttribute('data-pt-phone-open');
-      document.documentElement.removeAttribute('data-pt-drawer-open');
+    const launchEl = document.getElementById('launch-animation');
+    if (launchEl) {
+      try { launchEl.setAttribute('data-launch-disarmed', 'true'); } catch {}
+      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
+      try { launchEl.hidden = true; } catch {}
+      try { launchEl.style.display = 'none'; } catch {}
+      try { launchEl.style.pointerEvents = 'none'; } catch {}
     }
   } catch {}
-  safeUnlockTouchControls({ immediate: true });
+  try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
+  try { document.body?.classList?.remove('modal-open'); } catch {}
+  try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
+}
+
+function dismissWelcomeModal() {
+  welcomeModalDismissed = true;
+  try { hide(WELCOME_MODAL_ID); } catch {}
+  try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
+  try { document.documentElement.removeAttribute('data-pt-drawer-open'); } catch {}
+  try { markLaunchSequenceComplete(); } catch {}
+  try { hardEndLaunchUI(); } catch {}
+  try {
+    if (typeof safeUnlockTouchControls === 'function') {
+      safeUnlockTouchControls({ immediate: true });
+    } else if (typeof unlockTouchControls === 'function') {
+      unlockTouchControls({ immediate: true });
+    }
+  } catch {
+    try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
+  }
   try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
-  markWelcomeSequenceComplete();
+  try { markWelcomeSequenceComplete(); } catch {}
 
   // If intro already completed, we can safely begin offline prefetch after the user lands
   try {
@@ -3299,6 +3324,16 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   });
 }
 (async function setupLaunchAnimation(){
+  const LAUNCH_FAILSAFE_MS = 8000;
+  try {
+    setTimeout(() => {
+      try {
+        if (document?.body?.classList?.contains('launching')) {
+          markLaunchSequenceComplete();
+        }
+      } catch {}
+    }, LAUNCH_FAILSAFE_MS);
+  } catch {}
   if (typeof document === 'undefined' || IS_JSDOM_ENV) {
     unlockTouchControls();
     queueWelcomeModal({ immediate: true });
@@ -11811,6 +11846,12 @@ function initDiscordLogSettings() {
     keyInput.value = getDiscordAuthKey();
     keyInput.addEventListener('input', () => {
       setDiscordAuthKey(keyInput.value.trim());
+      try {
+        const inbox = window.__cccgErrorInbox;
+        if (inbox && typeof inbox.resetRemote === 'function') {
+          inbox.resetRemote();
+        }
+      } catch {}
       setStatus(keyInput.value.trim() ? 'Key saved locally.' : 'Key cleared.');
     });
     keyInput.disabled = !proxyUrl;
@@ -11846,35 +11887,67 @@ function resolveActorName(name = currentCharacter()){
 
 function initPhoneRouter() {
   if (typeof document === 'undefined') return;
+  try {
+    if (window.__ptPhoneRouterInstalled) return;
+    window.__ptPhoneRouterInstalled = true;
+  } catch {}
 
   const root = document.documentElement;
   const screenSelector = '[data-pt-app-screen]';
+  const HOME_SCREEN = (typeof DEFAULT_PHONE_HOME_SCREEN === 'string' && DEFAULT_PHONE_HOME_SCREEN.trim())
+    ? DEFAULT_PHONE_HOME_SCREEN.trim()
+    : 'home';
 
-  const getScreens = () => Array.from(document.querySelectorAll(screenSelector));
-  const getScreenEl = (id) => {
-    if (!id) return null;
+  let phoneShell = null;
+  let activeScreen = null;
+  const history = [];
+  const HISTORY_MAX = 25;
+
+  const getPhoneShell = () => {
     try {
-      const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id);
-      return document.querySelector(`[data-pt-app-screen="${safe}"]`);
+      return phoneShell || document.querySelector('[data-pt-phone-shell]');
     } catch {
       return null;
     }
   };
 
-  let activeScreen = null;
-  const history = [];
-  const HISTORY_MAX = 25;
+  const ensurePhoneOpen = () => {
+    try {
+      root.setAttribute('data-pt-phone-open', '1');
+      root.removeAttribute('data-pt-drawer-open');
+    } catch {}
+  };
+
+  const getScreens = () => {
+    const shell = getPhoneShell();
+    if (!shell) return [];
+    return Array.from(shell.querySelectorAll(screenSelector));
+  };
+  const getScreenEl = (id) => {
+    const shell = getPhoneShell();
+    if (!shell || !id) return null;
+    try {
+      const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id);
+      return shell.querySelector(`[data-pt-app-screen="${safe}"]`);
+    } catch {
+      return null;
+    }
+  };
 
   const setActiveScreen = (id, { push = true } = {}) => {
-    const el = getScreenEl(id);
+    const nextId = String(id || '').trim();
+    if (!nextId) return false;
+
+    const el = getScreenEl(nextId);
     if (!el) {
       if (typeof toast === 'function') {
-        toast(`App screen not found: ${String(id)}`, 'warning');
+        toast(`App screen not found: ${nextId}`, 'warning');
       }
       return false;
     }
 
-    const nextId = String(id);
+    ensurePhoneOpen();
+
     if (activeScreen && push && activeScreen !== nextId) {
       history.push(activeScreen);
       while (history.length > HISTORY_MAX) history.shift();
@@ -11882,11 +11955,14 @@ function initPhoneRouter() {
 
     getScreens().forEach((screen) => {
       const isActive = screen === el;
-      screen.hidden = !isActive;
-      screen.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      try { screen.hidden = !isActive; } catch {}
+      try { screen.setAttribute('aria-hidden', isActive ? 'false' : 'true'); } catch {}
     });
 
     activeScreen = nextId;
+    try {
+      root.setAttribute('data-pt-active-screen', nextId);
+    } catch {}
     try {
       root.setAttribute('data-pt-active-app', nextId);
     } catch {}
@@ -11906,7 +11982,7 @@ function initPhoneRouter() {
 
   const goHome = () => {
     history.length = 0;
-    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+    setActiveScreen(HOME_SCREEN, { push: false });
   };
 
   const goBack = () => {
@@ -11915,87 +11991,110 @@ function initPhoneRouter() {
     else goHome();
   };
 
-  // Public hooks for other modules
-  try {
-    window.ptOpenApp = (id) => setActiveScreen(id, { push: true });
-    window.ptGoHome = () => goHome();
-    window.ptBack = () => goBack();
-  } catch {}
-
-  // Delegate: open app from any button with data-pt-open-app
-  document.addEventListener('click', (event) => {
-    const target = event?.target;
-    if (!target || typeof target.closest !== 'function') return;
-
-    const openBtn = target.closest('[data-pt-open-app]');
-    if (openBtn) {
-      const phoneShell = document.querySelector('[data-pt-phone-shell]');
-      const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-      if (!phoneShell || !phoneShell.contains(openBtn) || !phoneOpen) return;
-
-      const id = openBtn.getAttribute('data-pt-open-app');
-      if (id) {
-        if (getScreenEl(id) && setActiveScreen(id, { push: true })) {
-          event.preventDefault?.();
-          return;
-        }
-        const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function'
-          ? window.openApp
-          : null;
-        if (launchFn) {
-          launchFn(id, { source: 'phone-router', element: openBtn });
-        }
-      }
-      return;
-    }
-
-    const backBtn = target.closest('[data-pt-phone-back]');
-    if (backBtn) {
-      event.preventDefault?.();
-      goBack();
-      return;
-    }
-
-    const homeBtn = target.closest('[data-pt-phone-home]');
-    if (homeBtn) {
-      event.preventDefault?.();
-      goHome();
-      return;
-    }
-
-    const recentsBtn = target.closest('[data-pt-phone-recents]');
-    if (recentsBtn) {
-      event.preventDefault?.();
-      if (typeof toast === 'function') {
-        toast('Recents is coming soon.', 'info');
-      }
-    }
-  }, { passive: false });
-
-  // If the phone opens and no screen is active, land on Home.
-  // Also tolerate reloads where the current screen DOM is present but hidden flags are stale.
-  const ensureInitialScreen = () => {
-    const screens = getScreens();
-    if (!screens.length) return;
-
-    const visible = screens.filter(s => !s.hidden && s.getAttribute('aria-hidden') !== 'true');
-    if (visible.length === 1) {
-      activeScreen = visible[0].getAttribute('data-pt-app-screen') || DEFAULT_PHONE_HOME_SCREEN;
-      return;
-    }
+  const bootstrap = () => {
+    phoneShell = getPhoneShell();
+    if (!phoneShell) return false;
 
     try {
-      const last = localStorage.getItem(PHONE_ACTIVE_APP_KEY);
-      if (last && getScreenEl(last)) {
-        setActiveScreen(last, { push: false });
-        return;
+      const screens = getScreens();
+      if (!screens.length) return false;
+      const visible = screens.find((screen) => !screen.hidden && screen.getAttribute('aria-hidden') !== 'true');
+      if (visible) {
+        const id = visible.getAttribute('data-pt-app-screen');
+        activeScreen = id ? String(id) : null;
+      } else {
+        goHome();
       }
+    } catch {
+      goHome();
+    }
+
+    // Public hooks for other modules
+    try {
+      window.ptOpenApp = (id) => setActiveScreen(id, { push: true });
+      window.ptGoHome = () => goHome();
+      window.ptBack = () => goBack();
+      window.ptEnsurePhoneOpen = () => ensurePhoneOpen();
     } catch {}
 
-    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+    const onActivate = (event) => {
+      const target = event?.target;
+      if (!target || typeof target.closest !== 'function') return;
+
+      const openBtn = target.closest('[data-pt-open-app]');
+      if (openBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(openBtn)) return;
+
+        ensurePhoneOpen();
+
+        const id = openBtn.getAttribute('data-pt-open-app');
+        if (id) {
+          if (getScreenEl(id) && setActiveScreen(id, { push: true })) {
+            event.preventDefault?.();
+            return;
+          }
+          const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function'
+            ? window.openApp
+            : null;
+          if (launchFn) {
+            launchFn(id, { source: 'phone-router', element: openBtn });
+          }
+        }
+        return;
+      }
+
+      const backBtn = target.closest('[data-pt-phone-back]');
+      if (backBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(backBtn)) return;
+        event.preventDefault?.();
+        ensurePhoneOpen();
+        goBack();
+        return;
+      }
+
+      const homeBtn = target.closest('[data-pt-phone-home]');
+      if (homeBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(homeBtn)) return;
+        event.preventDefault?.();
+        ensurePhoneOpen();
+        goHome();
+        return;
+      }
+
+      const recentsBtn = target.closest('[data-pt-phone-recents]');
+      if (recentsBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(recentsBtn)) return;
+        event.preventDefault?.();
+        if (typeof toast === 'function') {
+          toast('Recents is coming soon.', 'info');
+        }
+      }
+    };
+
+    document.addEventListener('click', onActivate, true);
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      onActivate(event);
+    }, true);
+
+    return true;
   };
 
-  ensureInitialScreen();
+  if (bootstrap()) return;
+  try {
+    let tries = 0;
+    const MAX_TRIES = 60;
+    const tick = () => {
+      tries += 1;
+      if (bootstrap()) return;
+      if (tries < MAX_TRIES) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  } catch {}
 }
 
 function initHomeClock() {
@@ -12044,6 +12143,13 @@ function initPhoneBadges() {
   // Default: clear everything at boot to avoid weird stale UI.
   setBadge('messages', 0);
   setBadge('campaignLog', 0);
+  try {
+    const raw = localStorage.getItem('cccg:error-reports') || '[]';
+    const list = JSON.parse(raw);
+    setBadge('errorReports', Array.isArray(list) ? list.length : 0);
+  } catch {
+    setBadge('errorReports', 0);
+  }
 }
 
 function initErrorReportsApp() {
@@ -12072,6 +12178,15 @@ function initErrorReportsApp() {
   const render = () => {
     const reports = getInbox()?.list?.() || [];
     if (countEl) countEl.textContent = String(reports.length);
+    try {
+      if (typeof window.ptSetBadge === 'function') window.ptSetBadge('errorReports', reports.length);
+    } catch {}
+    try {
+      const remote = getInbox()?.remote?.();
+      if (remote?.remoteDisabled && statusEl) {
+        statusEl.textContent = 'Remote disabled (auth). Set Discord Log Key in Settings.';
+      }
+    } catch {}
 
     listEl.innerHTML = '';
     if (!reports.length) {
@@ -12114,7 +12229,13 @@ function initErrorReportsApp() {
       setStatus('Sending reports...');
       try {
         const result = await inbox.sendAll();
-        setStatus(`Sent ${result?.count ?? 0} report(s).`);
+        if (result?.ok) {
+          setStatus(`Sent ${result?.count ?? 0} report(s).`);
+        } else if (result?.remoteDisabled) {
+          setStatus('Send blocked (auth). Set Discord Log Key in Settings.');
+        } else {
+          setStatus(`Partial send. Sent ${result?.count ?? 0}. Remaining ${result?.remaining ?? 0}.`);
+        }
       } catch {
         setStatus('Failed to send reports.');
       } finally {
@@ -24190,7 +24311,27 @@ function markLaunchSequenceComplete(){
       window.__ccLaunchComplete = { reason: 'complete', ts: Date.now() };
     } catch {}
   }
-  safeUnlockTouchControls({ immediate: true });
+  try { document.body?.classList?.remove('launching'); } catch {}
+  try {
+    const launchEl = document.getElementById('launch-animation');
+    if (launchEl) {
+      try { launchEl.setAttribute('data-launch-disarmed', 'true'); } catch {}
+      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
+      try { launchEl.hidden = true; } catch {}
+      try { launchEl.style.display = 'none'; } catch {}
+      try { launchEl.style.pointerEvents = 'none'; } catch {}
+    }
+  } catch {}
+  try {
+    if (typeof safeUnlockTouchControls === 'function') {
+      safeUnlockTouchControls({ immediate: true });
+    } else if (typeof unlockTouchControls === 'function') {
+      unlockTouchControls({ immediate: true });
+    } else {
+      try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
+      try { document.body?.classList?.remove('modal-open'); } catch {}
+    }
+  } catch {}
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
 }

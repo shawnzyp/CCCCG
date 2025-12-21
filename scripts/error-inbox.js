@@ -6,9 +6,34 @@ const CRASH_COUNT_KEY = 'cccg:crash-count';
 const SAFE_MODE_KEY = 'cc:safe-mode';
 const ERROR_REPORTS_KEY = 'cccg:error-reports';
 const AUTH_KEY = 'cccg:discord-auth';
+const AUTH_STATE_KEY = 'cccg:discord-auth-state';
 const MAX_BREADCRUMBS = 50;
 const MAX_STACK_CHARS = 12000;
 const CRASH_WINDOW_MS = 60000;
+
+let remoteDisabled = false;
+let remoteDisabledReason = '';
+
+function hasAuthKey() {
+  try {
+    const value = localStorage.getItem(AUTH_KEY);
+    return !!(typeof value === 'string' && value.trim());
+  } catch {
+    return false;
+  }
+}
+
+function markRemoteDisabled(reason, status) {
+  remoteDisabled = true;
+  remoteDisabledReason = String(reason || 'disabled');
+  try {
+    localStorage.setItem(AUTH_STATE_KEY, JSON.stringify({
+      ts: Date.now(),
+      reason: remoteDisabledReason,
+      status: Number(status) || 0,
+    }));
+  } catch {}
+}
 
 function safeString(x, max = 2000) {
   try {
@@ -159,11 +184,26 @@ function trackCrashCount() {
   } catch {}
 }
 
+function resetRemoteStateIfAuthed() {
+  if (!hasAuthKey()) return false;
+  remoteDisabled = false;
+  remoteDisabledReason = '';
+  try { localStorage.removeItem(AUTH_STATE_KEY); } catch {}
+  return true;
+}
+
 async function sendReport(kind, message, detail = {}) {
   try {
     const href = (typeof location !== 'undefined' && location?.href) ? location.href : '';
     const ua = (typeof navigator !== 'undefined' && navigator?.userAgent) ? navigator.userAgent : '';
     const auth = readLocalStorage(AUTH_KEY);
+    const authed = !!(typeof auth === 'string' && auth.trim());
+    if (!authed) {
+      throw new Error('missing_auth');
+    }
+    if (remoteDisabled) {
+      throw new Error(`remote_disabled:${remoteDisabledReason || 'unknown'}`);
+    }
     const payload = {
       kind,
       message: safeString(message, 2000),
@@ -175,7 +215,7 @@ async function sendReport(kind, message, detail = {}) {
       breadcrumbs: readBreadcrumbs(),
     };
 
-    await fetch(ERROR_INBOX_URL, {
+    const res = await fetch(ERROR_INBOX_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -186,11 +226,24 @@ async function sendReport(kind, message, detail = {}) {
       mode: 'cors',
       credentials: 'omit',
     });
-  } catch {
+    if (!res || !res.ok) {
+      const status = Number(res?.status) || 0;
+      if (status === 401 || status === 403) {
+        markRemoteDisabled('unauthorized', status);
+      } else if (status) {
+        markRemoteDisabled('remote_error', status);
+      }
+      throw new Error(`report_failed:${status || 'no_status'}`);
+    }
+    return { ok: true, status: res.status };
+  } catch (err) {
     try {
       const record = { ts: Date.now(), kind, message: safeString(message, 500) };
       localStorage.setItem(LOCAL_LOG_KEY, JSON.stringify(record));
     } catch {}
+    const msg = String(err?.message || err || '');
+    const reason = msg.includes('missing_auth') ? 'missing_auth' : (remoteDisabledReason || 'local_fallback');
+    return { ok: false, status: 0, reason };
   }
 }
 
@@ -199,9 +252,18 @@ export function installGlobalErrorInbox() {
   if (window.__ccErrorInboxInstalled) return;
   window.__ccErrorInboxInstalled = true;
   globalThis.__cccgBreadcrumb = addBreadcrumb;
+  const SHOW_PANIC_OVERLAY = false;
+  try {
+    const raw = localStorage.getItem(AUTH_STATE_KEY);
+    if (raw) {
+      const state = JSON.parse(raw);
+      if (state?.reason === 'unauthorized') remoteDisabled = true;
+    }
+  } catch {}
+  try { resetRemoteStateIfAuthed(); } catch {}
   const SAFE_MODE_CLEAR_AFTER_MS = 15000;
-  let crashThisSession = false;
   const startedInSafeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
+  let crashThisSession = false;
 
   function clearSafeMode() {
     try { localStorage.removeItem(SAFE_MODE_KEY); } catch {}
@@ -210,16 +272,18 @@ export function installGlobalErrorInbox() {
   }
 
   try {
-    const safeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
-    if (safeMode) {
+    if (startedInSafeMode) {
       const raw = readLocalStorage(CRASH_COUNT_KEY);
       const state = raw ? JSON.parse(raw) : null;
       const firstAt = Number(state?.firstAt);
+      const lastAt = Number(state?.lastAt);
       const count = Number(state?.count);
       const now = Date.now();
-      const expired = !Number.isFinite(firstAt) || (now - firstAt > CRASH_WINDOW_MS);
+      const invalid = !state || typeof state !== 'object';
+      const stale = !Number.isFinite(lastAt) || (now - lastAt > CRASH_WINDOW_MS);
       const notLooping = !Number.isFinite(count) || count < 2;
-      if (expired || notLooping) clearSafeMode();
+      const expired = !Number.isFinite(firstAt) || (now - firstAt > CRASH_WINDOW_MS);
+      if (invalid || stale || notLooping || expired) clearSafeMode();
     }
   } catch {}
 
@@ -255,6 +319,7 @@ export function installGlobalErrorInbox() {
   }
 
   function showPanicOverlay(error, snapshot) {
+    if (!SHOW_PANIC_OVERLAY) return;
     try {
       if (document.getElementById('cccg-panic-overlay')) return;
       const name = error?.name || 'Runtime error';
@@ -352,9 +417,11 @@ export function installGlobalErrorInbox() {
     if (!isResourceError) {
       recordCrashSnapshot(snapshot);
       crashThisSession = true;
-      trackCrashCount();
+      try {
+        const inLaunch = document?.body?.classList?.contains('launching');
+        if (inLaunch) trackCrashCount();
+      } catch {}
       appendErrorReport({ ts: Date.now(), message, stack, snapshot });
-      showPanicOverlay(error, snapshot);
     }
   }, true);
 
@@ -362,6 +429,7 @@ export function installGlobalErrorInbox() {
     const reason = event?.reason;
     const error = reason instanceof Error ? reason : new Error(String(reason || 'Unhandled rejection'));
     const message = safeString(error?.message || 'Unhandled rejection');
+    if (isIgnorableErrorMessage(message)) return;
     const stack = error?.stack || '';
     const snapshot = collectCrashSnapshot({
       error,
@@ -370,10 +438,12 @@ export function installGlobalErrorInbox() {
     });
     recordCrashSnapshot(snapshot);
     crashThisSession = true;
-    trackCrashCount();
+    try {
+      const inLaunch = document?.body?.classList?.contains('launching');
+      if (inLaunch) trackCrashCount();
+    } catch {}
     appendErrorReport({ ts: Date.now(), message, stack, snapshot });
     sendReport('unhandledrejection', message, { stack, extra: { snapshot } });
-    showPanicOverlay(error, snapshot);
   });
 
   window.addEventListener('cccg:report', (event) => {
@@ -381,6 +451,17 @@ export function installGlobalErrorInbox() {
     const message = event?.detail?.message || 'custom report';
     const extra = event?.detail?.extra || {};
     sendReport(kind, message, { extra });
+    try {
+      if (kind === 'boot-watchdog') {
+        appendErrorReport({
+          ts: Date.now(),
+          message: safeString(message, 500),
+          stack: '',
+          snapshot: { kind, extra, via: 'cccg:report' },
+        });
+        window.dispatchEvent(new CustomEvent('cccg:error-report'));
+      }
+    } catch {}
   });
 
   const origError = console.error.bind(console);
@@ -391,10 +472,7 @@ export function installGlobalErrorInbox() {
     return origError(...args);
   };
 
-  console.warn = (...args) => {
-    try { sendReport('console.warn', safeString(args, 2000)); } catch {}
-    return origWarn(...args);
-  };
+  console.warn = (...args) => origWarn(...args);
 
   window.__cccgLastErrorReport = () => {
     try {
@@ -411,16 +489,26 @@ export function installGlobalErrorInbox() {
       const reports = readErrorReports();
       if (!reports.length) return { ok: true, count: 0 };
       let sent = 0;
+      const remaining = [];
       for (const report of reports) {
-        await sendReport('manual', report.message || 'Manual error report', {
+        const res = await sendReport('manual', report.message || 'Manual error report', {
           stack: report.stack || '',
           extra: { snapshot: report.snapshot, manual: true },
         });
-        sent += 1;
+        if (res && res.ok) sent += 1;
+        else remaining.push(report);
       }
-      writeErrorReports([]);
-      return { ok: true, count: sent };
+      writeErrorReports(remaining);
+      return {
+        ok: remaining.length === 0,
+        count: sent,
+        remaining: remaining.length,
+        remoteDisabled,
+        remoteDisabledReason,
+      };
     },
+    remote: () => ({ remoteDisabled, remoteDisabledReason }),
+    resetRemote: () => resetRemoteStateIfAuthed(),
   };
 
   if (startedInSafeMode) {
