@@ -245,7 +245,7 @@ const MENU_MODAL_STATE = new Map();
       try {
         window.dispatchEvent(new CustomEvent('cccg:report', {
           detail: {
-            kind: 'boot-stuck',
+            kind: 'boot-watchdog',
             message: 'Boot watchdog fired',
             extra: {
               launching: body?.classList.contains('launching'),
@@ -258,6 +258,15 @@ const MENU_MODAL_STATE = new Map();
 
       body?.classList.remove('launching');
       body?.classList.remove('touch-controls-disabled');
+      body?.classList.remove('modal-open');
+      try { markLaunchSequenceComplete(); } catch {}
+      try {
+        if (typeof safeUnlockTouchControls === 'function') {
+          safeUnlockTouchControls({ immediate: true });
+        } else if (typeof unlockTouchControls === 'function') {
+          unlockTouchControls({ immediate: true });
+        }
+      } catch {}
     } catch {}
   }, 6000);
 })();
@@ -3052,18 +3061,41 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   safeUnlockTouchControls();
 }
 
+function hardEndLaunchUI() {
+  try { document.body?.classList?.remove('launching'); } catch {}
+  try {
+    const launchEl = document.getElementById('launch-animation');
+    if (launchEl) {
+      try { launchEl.setAttribute('data-launch-disarmed', 'true'); } catch {}
+      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
+      try { launchEl.hidden = true; } catch {}
+      try { launchEl.style.display = 'none'; } catch {}
+      try { launchEl.style.pointerEvents = 'none'; } catch {}
+    }
+  } catch {}
+  try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
+  try { document.body?.classList?.remove('modal-open'); } catch {}
+  try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
+}
+
 function dismissWelcomeModal() {
   welcomeModalDismissed = true;
-  hide(WELCOME_MODAL_ID);
-  removePlayerToolsTabSuppression('welcome-modal');
-  // Defensive cleanup: ensure we never leave interaction locks behind
-  try { document.body.classList.remove('touch-controls-disabled'); } catch {}
-  try { document.body.classList.remove('modal-open'); } catch {}
+  try { hide(WELCOME_MODAL_ID); } catch {}
+  try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
   try { document.documentElement.removeAttribute('data-pt-drawer-open'); } catch {}
   try { markLaunchSequenceComplete(); } catch {}
-  safeUnlockTouchControls({ immediate: true });
+  try { hardEndLaunchUI(); } catch {}
+  try {
+    if (typeof safeUnlockTouchControls === 'function') {
+      safeUnlockTouchControls({ immediate: true });
+    } else if (typeof unlockTouchControls === 'function') {
+      unlockTouchControls({ immediate: true });
+    }
+  } catch {
+    try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
+  }
   try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
-  markWelcomeSequenceComplete();
+  try { markWelcomeSequenceComplete(); } catch {}
 
   // If intro already completed, we can safely begin offline prefetch after the user lands
   try {
@@ -11849,6 +11881,10 @@ function resolveActorName(name = currentCharacter()){
 
 function initPhoneRouter() {
   if (typeof document === 'undefined') return;
+  try {
+    if (window.__ptPhoneRouterInstalled) return;
+    window.__ptPhoneRouterInstalled = true;
+  } catch {}
 
   const root = document.documentElement;
   const screenSelector = '[data-pt-app-screen]';
@@ -24269,6 +24305,17 @@ function markLaunchSequenceComplete(){
       window.__ccLaunchComplete = { reason: 'complete', ts: Date.now() };
     } catch {}
   }
+  try { document.body?.classList?.remove('launching'); } catch {}
+  try {
+    const launchEl = document.getElementById('launch-animation');
+    if (launchEl) {
+      try { launchEl.setAttribute('data-launch-disarmed', 'true'); } catch {}
+      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
+      try { launchEl.hidden = true; } catch {}
+      try { launchEl.style.display = 'none'; } catch {}
+      try { launchEl.style.pointerEvents = 'none'; } catch {}
+    }
+  } catch {}
   safeUnlockTouchControls({ immediate: true });
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();

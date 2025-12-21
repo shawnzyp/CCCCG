@@ -427,6 +427,17 @@ export function installGlobalErrorInbox() {
     const message = event?.detail?.message || 'custom report';
     const extra = event?.detail?.extra || {};
     sendReport(kind, message, { extra });
+    try {
+      if (kind === 'boot-watchdog') {
+        appendErrorReport({
+          ts: Date.now(),
+          message: safeString(message, 500),
+          stack: '',
+          snapshot: { kind, extra, via: 'cccg:report' },
+        });
+        window.dispatchEvent(new CustomEvent('cccg:error-report'));
+      }
+    } catch {}
   });
 
   const origError = console.error.bind(console);
