@@ -240,6 +240,9 @@ const MENU_MODAL_STATE = new Map();
       const root = document.documentElement;
       const stuck = body?.classList.contains('launching') || body?.classList.contains('touch-controls-disabled');
       if (!stuck) return;
+      const now = Date.now();
+      const last = typeof window !== 'undefined' ? window.__ccLastContentUpdate : null;
+      if (last && (now - last) < 4000) return;
 
       console.warn('[BootWatchdog] Boot appears stuck.', {
         launching: body?.classList.contains('launching'),
