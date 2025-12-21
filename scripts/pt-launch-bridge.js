@@ -146,7 +146,7 @@
         'modal-recover-char',
         'modal-recover-list',
         'modal-augment-picker',
-        'modal-welcome',
+        'modal-pt-welcome',
         'modal-pin'
       ]) ||
       clickFirst([
