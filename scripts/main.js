@@ -11846,6 +11846,12 @@ function initDiscordLogSettings() {
     keyInput.value = getDiscordAuthKey();
     keyInput.addEventListener('input', () => {
       setDiscordAuthKey(keyInput.value.trim());
+      try {
+        const inbox = window.__cccgErrorInbox;
+        if (inbox && typeof inbox.resetRemote === 'function') {
+          inbox.resetRemote();
+        }
+      } catch {}
       setStatus(keyInput.value.trim() ? 'Key saved locally.' : 'Key cleared.');
     });
     keyInput.disabled = !proxyUrl;
@@ -24316,7 +24322,16 @@ function markLaunchSequenceComplete(){
       try { launchEl.style.pointerEvents = 'none'; } catch {}
     }
   } catch {}
-  safeUnlockTouchControls({ immediate: true });
+  try {
+    if (typeof safeUnlockTouchControls === 'function') {
+      safeUnlockTouchControls({ immediate: true });
+    } else if (typeof unlockTouchControls === 'function') {
+      unlockTouchControls({ immediate: true });
+    } else {
+      try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
+      try { document.body?.classList?.remove('modal-open'); } catch {}
+    }
+  } catch {}
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
 }

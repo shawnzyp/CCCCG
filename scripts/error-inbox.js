@@ -14,6 +14,15 @@ const CRASH_WINDOW_MS = 60000;
 let remoteDisabled = false;
 let remoteDisabledReason = '';
 
+function hasAuthKey() {
+  try {
+    const value = localStorage.getItem(AUTH_KEY);
+    return !!(typeof value === 'string' && value.trim());
+  } catch {
+    return false;
+  }
+}
+
 function markRemoteDisabled(reason, status) {
   remoteDisabled = true;
   remoteDisabledReason = String(reason || 'disabled');
@@ -175,14 +184,26 @@ function trackCrashCount() {
   } catch {}
 }
 
+function resetRemoteStateIfAuthed() {
+  if (!hasAuthKey()) return false;
+  remoteDisabled = false;
+  remoteDisabledReason = '';
+  try { localStorage.removeItem(AUTH_STATE_KEY); } catch {}
+  return true;
+}
+
 async function sendReport(kind, message, detail = {}) {
   try {
-    if (remoteDisabled) {
-      throw new Error(`remote_disabled:${remoteDisabledReason || 'unknown'}`);
-    }
     const href = (typeof location !== 'undefined' && location?.href) ? location.href : '';
     const ua = (typeof navigator !== 'undefined' && navigator?.userAgent) ? navigator.userAgent : '';
     const auth = readLocalStorage(AUTH_KEY);
+    const authed = !!(typeof auth === 'string' && auth.trim());
+    if (!authed) {
+      throw new Error('missing_auth');
+    }
+    if (remoteDisabled) {
+      throw new Error(`remote_disabled:${remoteDisabledReason || 'unknown'}`);
+    }
     const payload = {
       kind,
       message: safeString(message, 2000),
@@ -215,12 +236,14 @@ async function sendReport(kind, message, detail = {}) {
       throw new Error(`report_failed:${status || 'no_status'}`);
     }
     return { ok: true, status: res.status };
-  } catch {
+  } catch (err) {
     try {
       const record = { ts: Date.now(), kind, message: safeString(message, 500) };
       localStorage.setItem(LOCAL_LOG_KEY, JSON.stringify(record));
     } catch {}
-    return { ok: false, status: 0, reason: remoteDisabledReason || 'local_fallback' };
+    const msg = String(err?.message || err || '');
+    const reason = msg.includes('missing_auth') ? 'missing_auth' : (remoteDisabledReason || 'local_fallback');
+    return { ok: false, status: 0, reason };
   }
 }
 
@@ -237,6 +260,7 @@ export function installGlobalErrorInbox() {
       if (state?.reason === 'unauthorized') remoteDisabled = true;
     }
   } catch {}
+  try { resetRemoteStateIfAuthed(); } catch {}
   const SAFE_MODE_CLEAR_AFTER_MS = 15000;
   const startedInSafeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
   let crashThisSession = false;
@@ -484,6 +508,7 @@ export function installGlobalErrorInbox() {
       };
     },
     remote: () => ({ remoteDisabled, remoteDisabledReason }),
+    resetRemote: () => resetRemoteStateIfAuthed(),
   };
 
   if (startedInSafeMode) {
