@@ -20,7 +20,7 @@
   const glass = launcher.closest('.pt-screen__glass') || launcher.parentElement;
 
   const modalHost = q('[data-pt-modal-host]', launcher) || q('[data-pt-modal-host]');
-  const welcomeModal = document.getElementById('modal-welcome');
+  const welcomeModal = document.getElementById('modal-pt-welcome');
 
   const isWelcomeBlocking = () => {
     if (!welcomeModal) return false;
@@ -224,7 +224,7 @@
     setModalHostActive(false);
     launcher?.removeAttribute('data-pt-modal-lock');
 
-    if (closedId === 'modal-welcome') {
+    if (closedId === 'modal-pt-welcome') {
       markWelcomeDismissed();
     }
   }
