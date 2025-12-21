@@ -2950,6 +2950,7 @@ function prepareWelcomeModal() {
 // - Only after Welcome is dismissed do we release interaction
 let launchComplete = false;
 let welcomeShownFromLaunch = false;
+let launchRecoveryScheduled = false;
 
 function markLaunchComplete(reason = 'ended') {
   launchComplete = true;
@@ -2959,6 +2960,7 @@ function markLaunchComplete(reason = 'ended') {
   } catch {}
   // If welcome is not dismissed yet, ensure it is visible now (during app warmup)
   tryShowWelcomeForLaunch(reason);
+  scheduleLaunchRecovery();
 }
 
 function tryShowWelcomeForLaunch(reason = '') {
@@ -2982,6 +2984,48 @@ function tryShowWelcomeForLaunch(reason = '') {
     // Last resort: attempt direct show
     try { maybeShowWelcomeModal({ backgroundOnly: false }); } catch {}
   }
+}
+
+function forceRecoverFromBlankScreen() {
+  try {
+    const doc = typeof document !== 'undefined' ? document : null;
+    if (!doc) return;
+
+    const welcome = doc.getElementById(WELCOME_MODAL_ID);
+    const welcomeVisible = !!(
+      welcome &&
+      !welcome.classList.contains('hidden') &&
+      welcome.getAttribute('aria-hidden') !== 'true' &&
+      welcome.style.display !== 'none' &&
+      welcome.hidden !== true
+    );
+
+    if (welcomeVisible) return;
+
+    doc.body?.classList?.remove('launching');
+    doc.documentElement?.classList?.remove('cc-welcome-from-launch');
+    doc.documentElement?.classList?.remove('cc-welcome-open');
+
+    const shell = doc.querySelector('[data-launch-shell]');
+    if (shell) {
+      shell.style.opacity = '';
+      shell.style.visibility = '';
+      shell.style.pointerEvents = '';
+      try { shell.inert = false; } catch {}
+      try { shell.removeAttribute('inert'); } catch {}
+    }
+  } catch {}
+}
+
+function scheduleLaunchRecovery() {
+  if (launchRecoveryScheduled) return;
+  launchRecoveryScheduled = true;
+  const setTimer = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
+    ? window.setTimeout.bind(window)
+    : ((cb, ms) => setTimeout(cb, ms));
+
+  setTimer(forceRecoverFromBlankScreen, 250);
+  setTimer(forceRecoverFromBlankScreen, 1200);
 }
 
 // Listen to the boot controller in index.html
@@ -24457,6 +24501,7 @@ function markLaunchSequenceComplete(){
       try { document.body?.classList?.remove('modal-open'); } catch {}
     }
   } catch {}
+  scheduleLaunchRecovery();
   attemptPendingPinPrompt();
   flushCharacterConfirmationQueue();
 }

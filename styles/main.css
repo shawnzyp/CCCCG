@@ -11695,6 +11695,13 @@ html.cc-welcome-from-launch [data-launch-shell]{
   pointer-events:none !important;
 }
 
+/* If launch is over and welcome isn't open, ensure shell is visible */
+html:not(.cc-welcome-open):not(.cc-welcome-from-launch) body:not(.launching) [data-launch-shell]{
+  opacity:1 !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+
 /* Prewarm blur backdrop during launch -> welcome handoff */
 html.cc-welcome-from-launch body::before{
   content:"";
