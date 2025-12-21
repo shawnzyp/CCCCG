@@ -2669,6 +2669,7 @@ export async function openApp(appId, opts = {}) {
 
 let launcherDelegationWired = false;
 function wireLauncherDelegation() {
+  if (hasAppController()) return;
   if (launcherDelegationWired || typeof document === 'undefined') return;
   launcherDelegationWired = true;
 
@@ -3250,6 +3251,9 @@ function dismissWelcomeModal() {
 // ---------------------------------------------------------------------------
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
+function hasAppController() {
+  return typeof window !== 'undefined' && !!window.__CCCG_APP_CONTROLLER__;
+}
 let launcherMenuWired = false;
 let launcherMenuObserverWired = false;
 
@@ -3258,6 +3262,7 @@ function getLauncherMainMenu() {
 }
 
 function showLauncherMainMenu() {
+  if (hasAppController()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.hidden = false; } catch {}
@@ -3265,6 +3270,7 @@ function showLauncherMainMenu() {
 }
 
 function hideLauncherMainMenu() {
+  if (hasAppController()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.setAttribute('aria-hidden', 'true'); } catch {}
@@ -3363,6 +3369,7 @@ function restoreTickersFromLauncher() {
 }
 
 function wireLauncherMainMenu() {
+  if (hasAppController()) return;
   if (launcherMenuWired) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
@@ -3409,22 +3416,30 @@ function wireLauncherMainMenu() {
 
 // Ensure menu wiring happens once DOM is ready.
 try {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      wireLauncherMainMenu();
-      wireLauncherDelegation();
-      runLauncherHealthCheck();
-    }, { once: true });
-  } else {
+  function wireLegacyIfNoController() {
+    if (hasAppController()) return;
     wireLauncherMainMenu();
     wireLauncherDelegation();
     runLauncherHealthCheck();
   }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      queueMicrotask(wireLegacyIfNoController);
+    }, { once: true });
+  } else {
+    queueMicrotask(wireLegacyIfNoController);
+  }
+
+  window.addEventListener('cc:pt-controller-ready', () => {
+    try { hideLauncherMainMenu(); } catch {}
+  }, { once: true });
 } catch {}
 
 // After welcome is dismissed, if the launcher is open, show the menu.
 if (typeof window !== 'undefined') {
   window.addEventListener('cc:pt-welcome-dismissed', () => {
+    if (hasAppController()) return;
     try {
       const open = document.documentElement.getAttribute('data-pt-phone-open') === '1';
       if (open) {
