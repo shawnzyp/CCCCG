@@ -11694,3 +11694,22 @@ html.cc-welcome-from-launch [data-launch-shell]{
   visibility:hidden !important;
   pointer-events:none !important;
 }
+
+/* Prewarm blur backdrop during launch -> welcome handoff */
+html.cc-welcome-from-launch body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:2190;
+  background:radial-gradient(1200px 700px at 50% 30%, rgba(0,0,0,0.18), rgba(0,0,0,0.78));
+  backdrop-filter:blur(10px) saturate(1.15);
+  -webkit-backdrop-filter:blur(10px) saturate(1.15);
+  pointer-events:none;
+  opacity:1;
+  transition:opacity 180ms ease;
+}
+
+/* Once the actual welcome modal is open, fade out the prewarm layer */
+html.cc-welcome-open body::before{
+  opacity:0;
+}

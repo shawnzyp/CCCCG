@@ -50,12 +50,12 @@ function setNodeInert(node, on) {
 function getInertTargets(activeModalEl) {
   const targets = new Set();
 
-  qsa('body > :not(#launch-animation):not(#cc-focus-sink)')
+  qsa('body > :not(.overlay[id^="modal-"]):not(#launch-animation):not(#cc-focus-sink)')
     .forEach(el => targets.add(el));
 
   const shell = document.querySelector('[data-launch-shell]');
   if (shell) {
-    qsa(':scope > :not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
+    qsa(':scope > :not(.overlay[id^="modal-"]):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
   }
 
   if (activeModalEl) {
@@ -312,6 +312,7 @@ export function show(id) {
     try { el.style.visibility = 'visible'; } catch (_) {}
     setNodeInert(el, false);
     try { el.removeAttribute(INERT_MARK); } catch (_) {}
+    try { el.removeAttribute(INERT_PREV); } catch (_) {}
     try {
       el.querySelectorAll('[inert]').forEach(node => {
         setNodeInert(node, false);
