@@ -11858,37 +11858,62 @@ function resolveActorName(name = currentCharacter()){
 function initPhoneRouter() {
   if (typeof document === 'undefined') return;
 
-  const phoneShell = document.querySelector('[data-pt-phone-shell]');
-  if (!phoneShell) return;
-
   const root = document.documentElement;
   const screenSelector = '[data-pt-app-screen]';
+  const HOME_SCREEN = (typeof DEFAULT_PHONE_HOME_SCREEN === 'string' && DEFAULT_PHONE_HOME_SCREEN.trim())
+    ? DEFAULT_PHONE_HOME_SCREEN.trim()
+    : 'home';
 
-  const getScreens = () => Array.from(phoneShell.querySelectorAll(screenSelector));
-  const getScreenEl = (id) => {
-    if (!id) return null;
+  let phoneShell = null;
+  let activeScreen = null;
+  const history = [];
+  const HISTORY_MAX = 25;
+
+  const getPhoneShell = () => {
     try {
-      const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id);
-      return phoneShell.querySelector(`[data-pt-app-screen="${safe}"]`);
+      return phoneShell || document.querySelector('[data-pt-phone-shell]');
     } catch {
       return null;
     }
   };
 
-  let activeScreen = null;
-  const history = [];
-  const HISTORY_MAX = 25;
+  const ensurePhoneOpen = () => {
+    try {
+      root.setAttribute('data-pt-phone-open', '1');
+      root.removeAttribute('data-pt-drawer-open');
+    } catch {}
+  };
+
+  const getScreens = () => {
+    const shell = getPhoneShell();
+    if (!shell) return [];
+    return Array.from(shell.querySelectorAll(screenSelector));
+  };
+  const getScreenEl = (id) => {
+    const shell = getPhoneShell();
+    if (!shell || !id) return null;
+    try {
+      const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id);
+      return shell.querySelector(`[data-pt-app-screen="${safe}"]`);
+    } catch {
+      return null;
+    }
+  };
 
   const setActiveScreen = (id, { push = true } = {}) => {
-    const el = getScreenEl(id);
+    const nextId = String(id || '').trim();
+    if (!nextId) return false;
+
+    const el = getScreenEl(nextId);
     if (!el) {
       if (typeof toast === 'function') {
-        toast(`App screen not found: ${String(id)}`, 'warning');
+        toast(`App screen not found: ${nextId}`, 'warning');
       }
       return false;
     }
 
-    const nextId = String(id);
+    ensurePhoneOpen();
+
     if (activeScreen && push && activeScreen !== nextId) {
       history.push(activeScreen);
       while (history.length > HISTORY_MAX) history.shift();
@@ -11896,11 +11921,14 @@ function initPhoneRouter() {
 
     getScreens().forEach((screen) => {
       const isActive = screen === el;
-      screen.hidden = !isActive;
-      screen.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      try { screen.hidden = !isActive; } catch {}
+      try { screen.setAttribute('aria-hidden', isActive ? 'false' : 'true'); } catch {}
     });
 
     activeScreen = nextId;
+    try {
+      root.setAttribute('data-pt-active-screen', nextId);
+    } catch {}
     try {
       root.setAttribute('data-pt-active-app', nextId);
     } catch {}
@@ -11920,7 +11948,7 @@ function initPhoneRouter() {
 
   const goHome = () => {
     history.length = 0;
-    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+    setActiveScreen(HOME_SCREEN, { push: false });
   };
 
   const goBack = () => {
@@ -11929,87 +11957,110 @@ function initPhoneRouter() {
     else goHome();
   };
 
-  // Public hooks for other modules
-  try {
-    window.ptOpenApp = (id) => setActiveScreen(id, { push: true });
-    window.ptGoHome = () => goHome();
-    window.ptBack = () => goBack();
-  } catch {}
-
-  // Delegate: open app from any button with data-pt-open-app
-  document.addEventListener('click', (event) => {
-    const target = event?.target;
-    if (!target || typeof target.closest !== 'function') return;
-
-    const openBtn = target.closest('[data-pt-open-app]');
-    if (openBtn) {
-      const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-      if (!phoneOpen) return;
-      if (!phoneShell.contains(openBtn)) return;
-
-      const id = openBtn.getAttribute('data-pt-open-app');
-      if (id) {
-        if (getScreenEl(id) && setActiveScreen(id, { push: true })) {
-          event.preventDefault?.();
-          return;
-        }
-        const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function'
-          ? window.openApp
-          : null;
-        if (launchFn) {
-          launchFn(id, { source: 'phone-router', element: openBtn });
-        }
-      }
-      return;
-    }
-
-    const backBtn = target.closest('[data-pt-phone-back]');
-    if (backBtn) {
-      event.preventDefault?.();
-      goBack();
-      return;
-    }
-
-    const homeBtn = target.closest('[data-pt-phone-home]');
-    if (homeBtn) {
-      event.preventDefault?.();
-      goHome();
-      return;
-    }
-
-    const recentsBtn = target.closest('[data-pt-phone-recents]');
-    if (recentsBtn) {
-      event.preventDefault?.();
-      if (typeof toast === 'function') {
-        toast('Recents is coming soon.', 'info');
-      }
-    }
-  }, { passive: false });
-
-  // If the phone opens and no screen is active, land on Home.
-  // Also tolerate reloads where the current screen DOM is present but hidden flags are stale.
-  const ensureInitialScreen = () => {
-    const screens = getScreens();
-    if (!screens.length) return;
-
-    const visible = screens.filter(s => !s.hidden && s.getAttribute('aria-hidden') !== 'true');
-    if (visible.length === 1) {
-      activeScreen = visible[0].getAttribute('data-pt-app-screen') || DEFAULT_PHONE_HOME_SCREEN;
-      return;
-    }
+  const bootstrap = () => {
+    phoneShell = getPhoneShell();
+    if (!phoneShell) return false;
 
     try {
-      const last = localStorage.getItem(PHONE_ACTIVE_APP_KEY);
-      if (last && getScreenEl(last)) {
-        setActiveScreen(last, { push: false });
-        return;
+      const screens = getScreens();
+      if (!screens.length) return false;
+      const visible = screens.find((screen) => !screen.hidden && screen.getAttribute('aria-hidden') !== 'true');
+      if (visible) {
+        const id = visible.getAttribute('data-pt-app-screen');
+        activeScreen = id ? String(id) : null;
+      } else {
+        goHome();
       }
+    } catch {
+      goHome();
+    }
+
+    // Public hooks for other modules
+    try {
+      window.ptOpenApp = (id) => setActiveScreen(id, { push: true });
+      window.ptGoHome = () => goHome();
+      window.ptBack = () => goBack();
+      window.ptEnsurePhoneOpen = () => ensurePhoneOpen();
     } catch {}
 
-    setActiveScreen(DEFAULT_PHONE_HOME_SCREEN, { push: false });
+    const onActivate = (event) => {
+      const target = event?.target;
+      if (!target || typeof target.closest !== 'function') return;
+
+      const openBtn = target.closest('[data-pt-open-app]');
+      if (openBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(openBtn)) return;
+
+        ensurePhoneOpen();
+
+        const id = openBtn.getAttribute('data-pt-open-app');
+        if (id) {
+          if (getScreenEl(id) && setActiveScreen(id, { push: true })) {
+            event.preventDefault?.();
+            return;
+          }
+          const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function'
+            ? window.openApp
+            : null;
+          if (launchFn) {
+            launchFn(id, { source: 'phone-router', element: openBtn });
+          }
+        }
+        return;
+      }
+
+      const backBtn = target.closest('[data-pt-phone-back]');
+      if (backBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(backBtn)) return;
+        event.preventDefault?.();
+        ensurePhoneOpen();
+        goBack();
+        return;
+      }
+
+      const homeBtn = target.closest('[data-pt-phone-home]');
+      if (homeBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(homeBtn)) return;
+        event.preventDefault?.();
+        ensurePhoneOpen();
+        goHome();
+        return;
+      }
+
+      const recentsBtn = target.closest('[data-pt-phone-recents]');
+      if (recentsBtn) {
+        const shell = getPhoneShell();
+        if (!shell || !shell.contains(recentsBtn)) return;
+        event.preventDefault?.();
+        if (typeof toast === 'function') {
+          toast('Recents is coming soon.', 'info');
+        }
+      }
+    };
+
+    document.addEventListener('click', onActivate, true);
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      onActivate(event);
+    }, true);
+
+    return true;
   };
 
-  ensureInitialScreen();
+  if (bootstrap()) return;
+  try {
+    let tries = 0;
+    const MAX_TRIES = 60;
+    const tick = () => {
+      tries += 1;
+      if (bootstrap()) return;
+      if (tries < MAX_TRIES) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  } catch {}
 }
 
 function initHomeClock() {
