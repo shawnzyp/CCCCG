@@ -89,7 +89,9 @@ export class PhoneOS {
       { capture: true }
     );
 
-    this.root.addEventListener('click', (event) => {
+    this.root.addEventListener(
+      'pointerup',
+      (event) => {
       const target = event.target;
       if (!target || typeof target.closest !== 'function') return;
 
@@ -108,7 +110,9 @@ export class PhoneOS {
         event.preventDefault?.();
         this.store?.dispatch({ type: 'OPEN_MAIN_MENU' });
       }
-    });
+      },
+      { capture: true }
+    );
 
     document.addEventListener('pointerup', (event) => {
       if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;

@@ -86,6 +86,10 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     const allowPhone = state.phase === 'PHONE_OS';
     phone.setInteractive(allowPhone);
 
+    if (state.phase === 'WELCOME_MODAL') {
+      overlays.ensureBackdropPrepaint();
+    }
+
     overlays.render(state.overlays, store);
 
     if (allowPhone) {
@@ -96,12 +100,13 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
       }
     } else {
       phone.hideMainMenu();
-      phone.hideLauncher?.();
       phone.setView?.('lock', null);
+      if (state.phase !== 'WELCOME_MODAL') {
+        phone.hideLauncher?.();
+      }
     }
 
     if (state.phase === 'WELCOME_MODAL') {
-      overlays.ensureBackdropPrepaint();
       if (!document.getElementById('modal-pt-welcome')) {
         store.dispatch({ type: 'WELCOME_ACCEPT' });
       }

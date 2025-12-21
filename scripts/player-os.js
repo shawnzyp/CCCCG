@@ -8,7 +8,7 @@ const init = () => {
     return;
   }
 
-  const overlayRoot = launcher.querySelector('[data-pt-modal-host]') || document.querySelector('[data-pt-modal-host]');
+  const overlayRoot = document.querySelector('[data-pt-modal-host]') || launcher.querySelector('[data-pt-modal-host]');
   const controller = createAppController({ appRoot: launcher, overlayRoot });
 
   window.__APP_STORE__ = controller.store;
