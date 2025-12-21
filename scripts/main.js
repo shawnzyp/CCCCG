@@ -2669,6 +2669,7 @@ export async function openApp(appId, opts = {}) {
 
 let launcherDelegationWired = false;
 function wireLauncherDelegation() {
+  if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER__) return;
   if (launcherDelegationWired || typeof document === 'undefined') return;
   launcherDelegationWired = true;
 
@@ -3250,6 +3251,7 @@ function dismissWelcomeModal() {
 // ---------------------------------------------------------------------------
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
+const hasAppController = typeof window !== 'undefined' && !!window.__CCCG_APP_CONTROLLER__;
 let launcherMenuWired = false;
 let launcherMenuObserverWired = false;
 
@@ -3258,6 +3260,7 @@ function getLauncherMainMenu() {
 }
 
 function showLauncherMainMenu() {
+  if (hasAppController) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.hidden = false; } catch {}
@@ -3265,6 +3268,7 @@ function showLauncherMainMenu() {
 }
 
 function hideLauncherMainMenu() {
+  if (hasAppController) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.setAttribute('aria-hidden', 'true'); } catch {}
@@ -3363,6 +3367,7 @@ function restoreTickersFromLauncher() {
 }
 
 function wireLauncherMainMenu() {
+  if (hasAppController) return;
   if (launcherMenuWired) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
@@ -3423,7 +3428,7 @@ try {
 } catch {}
 
 // After welcome is dismissed, if the launcher is open, show the menu.
-if (typeof window !== 'undefined') {
+if (!hasAppController && typeof window !== 'undefined') {
   window.addEventListener('cc:pt-welcome-dismissed', () => {
     try {
       const open = document.documentElement.getAttribute('data-pt-phone-open') === '1';
