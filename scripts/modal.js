@@ -1,14 +1,18 @@
 import { $, qsa } from './helpers.js';
 import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
-function getInertTargets() {
-  const targets = new Set();
-  qsa('body > :not(.overlay):not([data-launch-shell]):not(#launch-animation)').forEach(el => targets.add(el));
-  const shell = document.querySelector('[data-launch-shell]');
-  if (shell) {
-    qsa(':scope > :not(.overlay):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
-  }
-  return Array.from(targets);
+function getInertTargets(activeModalEl) {
+  const body = document.body;
+  if (!body) return [];
+  const nodes = Array.from(body.children);
+  return nodes.filter((node) => {
+    if (!node || node.nodeType !== 1) return false;
+    if (node.id === 'cc-focus-sink') return false;
+    if (node.id === 'launch-animation') return false;
+    if (node.classList && node.classList.contains('overlay')) return false;
+    if (activeModalEl && (node === activeModalEl || node.contains(activeModalEl))) return false;
+    return true;
+  });
 }
 
 let lastFocus = null;
@@ -216,13 +220,15 @@ export function show(id) {
       } catch (err) {
         console.error('Failed to update body class when showing modal', err);
       }
-      getInertTargets().forEach(e => {
+      getInertTargets(el).forEach(e => {
         try {
           e.setAttribute('inert', '');
         } catch (err) {
           console.error('Failed to set inert attribute', err);
         }
       });
+      try { el.inert = false; } catch (_) {}
+      try { el.removeAttribute('inert'); } catch (_) {}
     }
     openModals++;
     cancelModalStyleReset(el);
