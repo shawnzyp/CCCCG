@@ -79,6 +79,12 @@ import {
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 
+try {
+  if (typeof window !== 'undefined') {
+    window.__ccLastContentUpdate = Date.now();
+  }
+} catch {}
+
 const DEFAULT_PHONE_HOME_SCREEN = 'home';
 const PHONE_ACTIVE_APP_KEY = 'cccg:pt-active-app';
 import { readLastSaveName } from './last-save.js';
@@ -280,6 +286,15 @@ function markBootProgress(tag) {
   try {
     globalThis.__cccgBreadcrumb?.('boot', `progress:${tag}`);
   } catch {}
+}
+
+markBootProgress('main-start');
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => markBootProgress('dom-ready'), { once: true });
+  } else {
+    markBootProgress('dom-ready');
+  }
 }
 
 let animate = () => null;
@@ -2362,6 +2377,7 @@ export const APP_REGISTRY = Object.freeze({
   actionLog: { label: 'Action Log', icon: '🧾', open: () => openPlayerOsApp('actionLog') },
   creditsLedger: { label: 'Credits Ledger', icon: '💳', open: () => openPlayerOsApp('creditsLedger') },
   rules: { label: 'Rules', icon: '📜', open: () => openPlayerOsApp('rules') },
+  discord: { label: 'Discord', icon: '💬', open: () => openPlayerOsApp('discord') },
   help: { label: 'Help', icon: '❓', open: () => openPlayerOsApp('help') },
   locked: { label: 'OMNI Vault', icon: '🔒', open: () => openPlayerOsApp('locked'), requiresUnlock: true },
   minigames: { label: 'Minigames', icon: '🎮', open: () => openPlayerOsApp('minigames') },

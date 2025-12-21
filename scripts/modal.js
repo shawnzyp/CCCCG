@@ -260,6 +260,14 @@ export function hide(id) {
     }, 400);
     removeTrapFocus(el);
     forceBlurIfInside(el);
+    const sink = el.ownerDocument?.getElementById?.('cc-focus-sink');
+    if (sink && typeof sink.focus === 'function') {
+      try {
+        sink.focus({ preventScroll: true });
+      } catch (err) {
+        try { sink.focus(); } catch (_) {}
+      }
+    }
     try {
       el.inert = true;
       el.setAttribute('inert', '');

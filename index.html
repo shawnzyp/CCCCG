@@ -54,6 +54,13 @@
 <link rel="stylesheet" href="styles/main.css"/>
 </head>
 <body class="launching no-hover">
+<button
+  id="cc-focus-sink"
+  type="button"
+  style="position:fixed;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden"
+  aria-hidden="true"
+  tabindex="-1"
+></button>
 <svg
   xmlns="http://www.w3.org/2000/svg"
   aria-hidden="true"
@@ -121,17 +128,39 @@
       }
     }
 
+    function getPreloadMeta(url) {
+      if (!url) return null;
+      var lower = String(url).toLowerCase();
+      if (lower.endsWith('.mp4')) {
+        return { as: 'video', type: 'video/mp4' };
+      }
+      if (lower.endsWith('.webm')) {
+        return { as: 'video', type: 'video/webm' };
+      }
+      if (lower.endsWith('.mp3')) {
+        return { as: 'audio', type: 'audio/mpeg' };
+      }
+      if (lower.endsWith('.wav')) {
+        return { as: 'audio', type: 'audio/wav' };
+      }
+      return { as: 'video' };
+    }
+
     function ensureVideoPreload(url) {
       try {
         var head = document.head || document.getElementsByTagName('head')[0];
         if (!head || !url) return;
         var existing = document.querySelector('link[data-cc-preload="intro-video"]');
         if (existing) return;
+        var meta = getPreloadMeta(url);
+        if (!meta || !meta.as) return;
         var link = document.createElement('link');
         link.rel = 'preload';
-        link.as = 'video';
+        link.as = meta.as;
         link.href = url;
-        link.type = 'video/mp4';
+        if (meta.type) {
+          link.type = meta.type;
+        }
         link.crossOrigin = 'anonymous';
         link.setAttribute('data-cc-preload', 'intro-video');
         head.appendChild(link);
