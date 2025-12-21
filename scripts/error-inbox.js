@@ -199,6 +199,7 @@ export function installGlobalErrorInbox() {
   if (window.__ccErrorInboxInstalled) return;
   window.__ccErrorInboxInstalled = true;
   globalThis.__cccgBreadcrumb = addBreadcrumb;
+  const SHOW_PANIC_OVERLAY = false;
   const SAFE_MODE_CLEAR_AFTER_MS = 15000;
   const startedInSafeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
   let crashThisSession = false;
@@ -257,6 +258,7 @@ export function installGlobalErrorInbox() {
   }
 
   function showPanicOverlay(error, snapshot) {
+    if (!SHOW_PANIC_OVERLAY) return;
     try {
       if (document.getElementById('cccg-panic-overlay')) return;
       const name = error?.name || 'Runtime error';
@@ -356,7 +358,6 @@ export function installGlobalErrorInbox() {
       crashThisSession = true;
       trackCrashCount();
       appendErrorReport({ ts: Date.now(), message, stack, snapshot });
-      showPanicOverlay(error, snapshot);
     }
   }, true);
 
@@ -376,7 +377,6 @@ export function installGlobalErrorInbox() {
     trackCrashCount();
     appendErrorReport({ ts: Date.now(), message, stack, snapshot });
     sendReport('unhandledrejection', message, { stack, extra: { snapshot } });
-    showPanicOverlay(error, snapshot);
   });
 
   window.addEventListener('cccg:report', (event) => {

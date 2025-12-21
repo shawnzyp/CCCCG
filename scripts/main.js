@@ -11847,15 +11847,18 @@ function resolveActorName(name = currentCharacter()){
 function initPhoneRouter() {
   if (typeof document === 'undefined') return;
 
+  const phoneShell = document.querySelector('[data-pt-phone-shell]');
+  if (!phoneShell) return;
+
   const root = document.documentElement;
   const screenSelector = '[data-pt-app-screen]';
 
-  const getScreens = () => Array.from(document.querySelectorAll(screenSelector));
+  const getScreens = () => Array.from(phoneShell.querySelectorAll(screenSelector));
   const getScreenEl = (id) => {
     if (!id) return null;
     try {
       const safe = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(String(id)) : String(id);
-      return document.querySelector(`[data-pt-app-screen="${safe}"]`);
+      return phoneShell.querySelector(`[data-pt-app-screen="${safe}"]`);
     } catch {
       return null;
     }
@@ -11929,9 +11932,9 @@ function initPhoneRouter() {
 
     const openBtn = target.closest('[data-pt-open-app]');
     if (openBtn) {
-      const phoneShell = document.querySelector('[data-pt-phone-shell]');
       const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-      if (!phoneShell || !phoneShell.contains(openBtn) || !phoneOpen) return;
+      if (!phoneOpen) return;
+      if (!phoneShell.contains(openBtn)) return;
 
       const id = openBtn.getAttribute('data-pt-open-app');
       if (id) {
@@ -12044,6 +12047,7 @@ function initPhoneBadges() {
   // Default: clear everything at boot to avoid weird stale UI.
   setBadge('messages', 0);
   setBadge('campaignLog', 0);
+  setBadge('errorReports', 0);
 }
 
 function initErrorReportsApp() {
@@ -12072,6 +12076,9 @@ function initErrorReportsApp() {
   const render = () => {
     const reports = getInbox()?.list?.() || [];
     if (countEl) countEl.textContent = String(reports.length);
+    try {
+      if (typeof window.ptSetBadge === 'function') window.ptSetBadge('errorReports', reports.length);
+    } catch {}
 
     listEl.innerHTML = '';
     if (!reports.length) {
