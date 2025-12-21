@@ -21,6 +21,7 @@ const init = () => {
   controller.store.dispatch({ type: 'BOOT_DONE' });
 
   const scheduleIntroDone = () => {
+    controller.overlays?.ensureBackdropPrepaint?.();
     controller.store.dispatch({ type: 'INTRO_DONE' });
     if (!document.getElementById('modal-pt-welcome')) {
       controller.store.dispatch({ type: 'WELCOME_ACCEPT' });
