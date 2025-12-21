@@ -340,6 +340,10 @@ body:not(.no-hover) .launch-animation__skip:hover{color:var(--accent)}
 /* Keeps existing text + buttons, rebuilds the look via CSS + light structure  */
 /* -------------------------------------------------------------------------- */
 /* Overlay container (this is the backdrop in your modal system) */
+.overlay.hidden{
+  pointer-events:none;
+}
+
 #modal-welcome.hidden,
 #modal-welcome[aria-hidden="true"]{
   display:none !important;
