@@ -3,6 +3,7 @@ import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launc
 
 const INERT_MARK = 'data-cc-inert-by-modal';
 const INERT_PREV = 'data-cc-inert-prev';
+let openModals = 0;
 
 function isModalOverlay(node) {
   try {
@@ -21,14 +22,6 @@ function isOverlayOpen(node) {
     if (node.getAttribute('aria-hidden') === 'true') return false;
     if (node.style && node.style.display === 'none') return false;
     return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-function hasAnyOpenOverlays() {
-  try {
-    return qsa('.overlay[id^="modal-"]').some(isOverlayOpen);
   } catch (_) {
     return false;
   }
@@ -57,7 +50,7 @@ function setNodeInert(node, on) {
 function getInertTargets(activeModalEl) {
   const targets = new Set();
 
-  qsa('body > :not(.overlay[id^="modal-"]):not([data-launch-shell]):not(#launch-animation):not(#cc-focus-sink)')
+  qsa('body > :not(.overlay[id^="modal-"]):not(#launch-animation):not(#cc-focus-sink)')
     .forEach(el => targets.add(el));
 
   const shell = document.querySelector('[data-launch-shell]');
@@ -78,10 +71,32 @@ function getInertTargets(activeModalEl) {
   return Array.from(targets);
 }
 
+function isLaunchShellNode(node) {
+  try {
+    if (!node || !node.matches) return false;
+    return node.matches('[data-launch-shell], [data-launch-shell] *');
+  } catch (_) {
+    return false;
+  }
+}
+
+function isLaunchingNow() {
+  try {
+    return !!(document.body && document.body.classList && document.body.classList.contains('launching'));
+  } catch (_) {
+    return false;
+  }
+}
+
 function markAndInert(node) {
   if (!node) return;
   try {
-    const prev = wasNodeInert(node) ? '1' : '0';
+    // If the app is done launching, never preserve a stale inert on the launch shell.
+    // This prevents the "sometimes everything freezes" race where the shell stays inert forever.
+    const prev =
+      (!isLaunchingNow() && isLaunchShellNode(node))
+        ? '0'
+        : (wasNodeInert(node) ? '1' : '0');
     node.setAttribute(INERT_MARK, '1');
     node.setAttribute(INERT_PREV, prev);
     if (prev !== '1') setNodeInert(node, true);
@@ -282,7 +297,7 @@ qsa('.overlay[id^="modal-"]').forEach(ov => {
 
 // Allow closing with Escape key
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && hasAnyOpenOverlays()) {
+  if (e.key === 'Escape' && openModals > 0) {
     const open = qsa('.overlay[id^="modal-"]').find(o => !o.classList.contains('hidden') && !o.hasAttribute('data-modal-static'));
     if (open) hide(open.id);
   }
@@ -292,11 +307,12 @@ export function show(id) {
   try {
     const el = $(id);
     if (!el || !el.classList.contains('hidden')) return false;
-    const wasFirstModal = !hasAnyOpenOverlays();
+    const wasFirstModal = (openModals === 0);
     try { el.style.pointerEvents = 'auto'; } catch (_) {}
     try { el.style.visibility = 'visible'; } catch (_) {}
     setNodeInert(el, false);
     try { el.removeAttribute(INERT_MARK); } catch (_) {}
+    try { el.removeAttribute(INERT_PREV); } catch (_) {}
     try {
       el.querySelectorAll('[inert]').forEach(node => {
         setNodeInert(node, false);
@@ -319,6 +335,11 @@ export function show(id) {
       });
       setNodeInert(el, false);
     }
+    openModals++;
+    // Special case: welcome modal controls a global class for styling (phone hide, prewarm, etc).
+    try {
+      if (el.id === 'modal-welcome') document.documentElement.classList.add('cc-welcome-open');
+    } catch (_) {}
     cancelModalStyleReset(el);
     applyModalStyles(el);
     el.style.display = 'flex';
@@ -333,9 +354,6 @@ export function show(id) {
         console.error('Failed to focus modal element', err);
       }
     }
-    try {
-      if (hasAnyOpenOverlays()) document.body.classList.add('modal-open');
-    } catch (_) {}
     return true;
   } catch (err) {
     console.error(`Failed to show modal ${id}`, err);
@@ -384,6 +402,10 @@ export function hide(id) {
     setNodeInert(el, true);
     el.setAttribute('aria-hidden', 'true');
     el.classList.add('hidden');
+    // Remove welcome class early so UI does not stay hidden if anything goes sideways.
+    try {
+      if (el.id === 'modal-welcome') document.documentElement.classList.remove('cc-welcome-open');
+    } catch (_) {}
     if (
       lastFocus &&
       typeof lastFocus.focus === 'function' &&
@@ -396,19 +418,20 @@ export function hide(id) {
         console.error('Failed to restore focus after closing modal', err);
       }
     }
-    const anyStillOpen = hasAnyOpenOverlays();
-    if (!anyStillOpen) {
+    openModals = Math.max(0, openModals - 1);
+    if (openModals === 0) {
       releaseFloatingLauncher();
       restoreMarkedInert();
+      // Extra safety: if launch is complete, ensure shell is interactive even if some earlier path left inert behind.
+      try {
+        if (!isLaunchingNow()) {
+          const shell = document.querySelector('[data-launch-shell]');
+          if (shell) setNodeInert(shell, false);
+        }
+      } catch (_) {}
       try { document.body.classList.remove('modal-open'); } catch (err) {
         console.error('Failed to update body class when hiding modal', err);
       }
-      try {
-        getInertTargets(null).forEach((node) => {
-          const prev = node.getAttribute && node.getAttribute(INERT_PREV);
-          if (prev === '0' && wasNodeInert(node)) setNodeInert(node, false);
-        });
-      } catch (_) {}
       cleanupMarkedInert();
     } else {
       try { document.body.classList.add('modal-open'); } catch (_) {}
