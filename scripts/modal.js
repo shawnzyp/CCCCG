@@ -1,6 +1,8 @@
 import { $, qsa } from './helpers.js';
 import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
+let inertedNodes = [];
+
 function getInertTargets(activeModalEl) {
   const targets = new Set();
 
@@ -212,6 +214,8 @@ export function show(id) {
   try {
     const el = $(id);
     if (!el || !el.classList.contains('hidden')) return false;
+    try { el.style.pointerEvents = 'auto'; } catch (_) {}
+    try { el.style.visibility = 'visible'; } catch (_) {}
     try {
       el.inert = false;
       el.removeAttribute('inert');
@@ -225,6 +229,7 @@ export function show(id) {
     lastFocus = document.activeElement;
     if (openModals === 0) {
       coverFloatingLauncher();
+      inertedNodes = [];
       try {
         document.body.classList.add('modal-open');
       } catch (err) {
@@ -233,6 +238,7 @@ export function show(id) {
       getInertTargets(el).forEach(e => {
         try {
           e.setAttribute('inert', '');
+          inertedNodes.push(e);
         } catch (err) {
           console.error('Failed to set inert attribute', err);
         }
@@ -266,6 +272,8 @@ export function hide(id) {
   try {
     const el = $(id);
     if (!el || el.classList.contains('hidden')) return false;
+    try { el.style.pointerEvents = 'none'; } catch (_) {}
+    try { el.style.visibility = 'hidden'; } catch (_) {}
     cancelModalStyleReset(el);
     const onEnd = (e) => {
       if (e.target === el && e.propertyName === 'opacity') {
@@ -277,6 +285,7 @@ export function hide(id) {
     };
     el.addEventListener('transitionend', onEnd);
     el._modalStyleTimer = setTimeout(() => {
+      try { el.style.display = 'none'; } catch (_) {}
       clearModalStyles(el);
       cancelModalStyleReset(el);
     }, 400);
@@ -312,6 +321,13 @@ export function hide(id) {
     openModals = Math.max(0, openModals - 1);
     if (openModals === 0) {
       releaseFloatingLauncher();
+      try {
+        (inertedNodes || []).forEach((node) => {
+          try { node.inert = false; } catch (_) {}
+          try { node.removeAttribute('inert'); } catch (_) {}
+        });
+      } catch (_) {}
+      inertedNodes = [];
       try {
         document.body.classList.remove('modal-open');
       } catch (err) {
