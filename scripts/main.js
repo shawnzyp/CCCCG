@@ -229,6 +229,15 @@ try {
 } catch {}
 globalThis.__cccgBreadcrumb?.('boot', 'main.js imported');
 
+try {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('app-render-complete', () => {
+      try { window.__cccgBootComplete = true; } catch {}
+      try { markBootProgress('boot-complete'); } catch {}
+    }, { once: true });
+  }
+} catch {}
+
 const MENU_MODAL_STATE = new Map();
 
 (function bootWatchdogEarly() {
@@ -238,15 +247,14 @@ const MENU_MODAL_STATE = new Map();
     try {
       const body = document.body;
       const root = document.documentElement;
-      const stuck = body?.classList.contains('launching') || body?.classList.contains('touch-controls-disabled');
-      if (!stuck) return;
-      const now = Date.now();
-      const last = typeof window !== 'undefined' ? window.__ccLastContentUpdate : null;
-      if (last && (now - last) < 4000) return;
+      const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
+      const launching = !!body?.classList.contains('launching');
+      const touchLocked = !!body?.classList.contains('touch-controls-disabled');
+      if (bootComplete && !launching && !touchLocked) return;
 
       console.warn('[BootWatchdog] Boot appears stuck.', {
-        launching: body?.classList.contains('launching'),
-        touchLocked: body?.classList.contains('touch-controls-disabled'),
+        launching,
+        touchLocked,
         phoneOpen: root?.getAttribute('data-pt-phone-open'),
         lastUpdate: window.__ccLastContentUpdate,
         uptimeMs: Date.now() - startedAt,
@@ -264,6 +272,14 @@ const MENU_MODAL_STATE = new Map();
           },
         }));
       } catch {}
+
+      if (bootComplete && (launching || touchLocked)) {
+        try { hardEndLaunchUI(); } catch {}
+        try { forceInteractionUnlock('boot-watchdog'); } catch {}
+        return;
+      }
+
+      if (!launching && !touchLocked) return;
 
       body?.classList.remove('launching');
       body?.classList.remove('touch-controls-disabled');

@@ -129,8 +129,7 @@
     function getPreloadMeta(url) {
       if (!url) return null;
       var lower = String(url).toLowerCase();
-      // Use as="fetch" for maximum compatibility (Safari can warn on as="video").
-      var meta = { as: 'fetch' };
+      var meta = { as: 'video' };
       if (lower.endsWith('.mp4')) {
         meta.type = 'video/mp4';
         return meta;
@@ -140,10 +139,12 @@
         return meta;
       }
       if (lower.endsWith('.mp3')) {
+        meta.as = 'audio';
         meta.type = 'audio/mpeg';
         return meta;
       }
       if (lower.endsWith('.wav')) {
+        meta.as = 'audio';
         meta.type = 'audio/wav';
         return meta;
       }
@@ -168,6 +169,25 @@
         }
         link.crossOrigin = 'anonymous';
         link.setAttribute('data-cc-preload', 'intro-video');
+        var asVal = (link.getAttribute('as') || link.as || '').toLowerCase();
+        var supported = {
+          audio: 1,
+          document: 1,
+          embed: 1,
+          fetch: 1,
+          font: 1,
+          image: 1,
+          object: 1,
+          script: 1,
+          style: 1,
+          track: 1,
+          video: 1,
+          worker: 1
+        };
+        if (!supported[asVal]) {
+          link.rel = 'prefetch';
+          try { link.removeAttribute('as'); } catch (e) {}
+        }
         head.appendChild(link);
       } catch (e) {}
     }
