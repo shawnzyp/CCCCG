@@ -265,6 +265,13 @@ const MENU_MODAL_STATE = new Map();
       body?.classList.remove('launching');
       body?.classList.remove('touch-controls-disabled');
       body?.classList.remove('modal-open');
+      try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
+      try {
+        document.querySelectorAll('[inert]').forEach((el) => {
+          try { el.inert = false; } catch {}
+          try { el.removeAttribute('inert'); } catch {}
+        });
+      } catch {}
       try { markLaunchSequenceComplete(); } catch {}
       try {
         if (typeof safeUnlockTouchControls === 'function') {

@@ -26,11 +26,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link
-  rel="preload"
+  rel="prefetch"
   href="images/6a78d5b9-619a-4670-a141-271387532fdb.svg"
-  as="image"
-  type="image/svg+xml"
-  fetchpriority="low"
 />
 <link
   rel="preload"
@@ -58,7 +55,6 @@
   id="cc-focus-sink"
   type="button"
   style="position:fixed;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden"
-  aria-hidden="true"
   tabindex="-1"
 ></button>
 <svg
@@ -133,19 +129,25 @@
     function getPreloadMeta(url) {
       if (!url) return null;
       var lower = String(url).toLowerCase();
+      // Use as="fetch" for maximum compatibility (Safari can warn on as="video").
+      var meta = { as: 'fetch' };
       if (lower.endsWith('.mp4')) {
-        return { as: 'video', type: 'video/mp4' };
+        meta.type = 'video/mp4';
+        return meta;
       }
       if (lower.endsWith('.webm')) {
-        return { as: 'video', type: 'video/webm' };
+        meta.type = 'video/webm';
+        return meta;
       }
       if (lower.endsWith('.mp3')) {
-        return { as: 'audio', type: 'audio/mpeg' };
+        meta.type = 'audio/mpeg';
+        return meta;
       }
       if (lower.endsWith('.wav')) {
-        return { as: 'audio', type: 'audio/wav' };
+        meta.type = 'audio/wav';
+        return meta;
       }
-      return { as: 'video' };
+      return meta;
     }
 
     function ensureVideoPreload(url) {
@@ -159,6 +161,7 @@
         var link = document.createElement('link');
         link.rel = 'preload';
         link.as = meta.as;
+        link.setAttribute('as', meta.as);
         link.href = url;
         if (meta.type) {
           link.type = meta.type;
