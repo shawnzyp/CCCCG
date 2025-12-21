@@ -1,7 +1,16 @@
 import { $, qsa } from './helpers.js';
 import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
-let inertedNodes = [];
+const INERT_MARK = 'data-cc-inert-by-modal';
+
+function setNodeInert(node, on) {
+  if (!node) return;
+  try { node.inert = !!on; } catch (_) {}
+  try {
+    if (on) node.setAttribute('inert', '');
+    else node.removeAttribute('inert');
+  } catch (_) {}
+}
 
 function getInertTargets(activeModalEl) {
   const targets = new Set();
@@ -216,20 +225,16 @@ export function show(id) {
     if (!el || !el.classList.contains('hidden')) return false;
     try { el.style.pointerEvents = 'auto'; } catch (_) {}
     try { el.style.visibility = 'visible'; } catch (_) {}
-    try {
-      el.inert = false;
-      el.removeAttribute('inert');
-    } catch (_) {}
+    setNodeInert(el, false);
+    try { el.removeAttribute(INERT_MARK); } catch (_) {}
     try {
       el.querySelectorAll('[inert]').forEach(node => {
-        try { node.inert = false; } catch (_) {}
-        try { node.removeAttribute('inert'); } catch (_) {}
+        setNodeInert(node, false);
       });
     } catch (_) {}
     lastFocus = document.activeElement;
     if (openModals === 0) {
       coverFloatingLauncher();
-      inertedNodes = [];
       try {
         document.body.classList.add('modal-open');
       } catch (err) {
@@ -237,14 +242,13 @@ export function show(id) {
       }
       getInertTargets(el).forEach(e => {
         try {
-          e.setAttribute('inert', '');
-          inertedNodes.push(e);
+          e.setAttribute(INERT_MARK, '1');
+          setNodeInert(e, true);
         } catch (err) {
           console.error('Failed to set inert attribute', err);
         }
       });
-      try { el.inert = false; } catch (_) {}
-      try { el.removeAttribute('inert'); } catch (_) {}
+      setNodeInert(el, false);
     }
     openModals++;
     cancelModalStyleReset(el);
@@ -285,6 +289,7 @@ export function hide(id) {
     };
     el.addEventListener('transitionend', onEnd);
     el._modalStyleTimer = setTimeout(() => {
+      try { el.removeEventListener('transitionend', onEnd); } catch (_) {}
       try {
         if (el.classList.contains('hidden')) {
           el.style.display = 'none';
@@ -305,10 +310,7 @@ export function hide(id) {
       }
     }
     // Now it is safe to hide from AT and lock focus.
-    try {
-      el.inert = true;
-      el.setAttribute('inert', '');
-    } catch (_) {}
+    setNodeInert(el, true);
     el.setAttribute('aria-hidden', 'true');
     el.classList.add('hidden');
     if (
@@ -327,24 +329,16 @@ export function hide(id) {
     if (openModals === 0) {
       releaseFloatingLauncher();
       try {
-        (inertedNodes || []).forEach((node) => {
-          try { node.inert = false; } catch (_) {}
-          try { node.removeAttribute('inert'); } catch (_) {}
+        document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
+          try { node.removeAttribute(INERT_MARK); } catch (_) {}
+          setNodeInert(node, false);
         });
       } catch (_) {}
-      inertedNodes = [];
       try {
         document.body.classList.remove('modal-open');
       } catch (err) {
         console.error('Failed to update body class when hiding modal', err);
       }
-      getInertTargets().forEach(e => {
-        try {
-          e.removeAttribute('inert');
-        } catch (err) {
-          console.error('Failed to remove inert attribute', err);
-        }
-      });
     }
     return true;
   } catch (err) {
