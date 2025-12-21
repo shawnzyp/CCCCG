@@ -2,6 +2,48 @@ import { $, qsa } from './helpers.js';
 import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
 const INERT_MARK = 'data-cc-inert-by-modal';
+const INERT_PREV = 'data-cc-inert-prev';
+
+function isModalOverlay(node) {
+  try {
+    if (!node || !node.classList || !node.classList.contains('overlay')) return false;
+    const id = node.id || '';
+    return id.startsWith('modal-');
+  } catch (_) {
+    return false;
+  }
+}
+
+function isOverlayOpen(node) {
+  try {
+    if (!isModalOverlay(node)) return false;
+    if (node.classList.contains('hidden')) return false;
+    if (node.getAttribute('aria-hidden') === 'true') return false;
+    if (node.style && node.style.display === 'none') return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function hasAnyOpenOverlays() {
+  try {
+    return qsa('.overlay[id^="modal-"]').some(isOverlayOpen);
+  } catch (_) {
+    return false;
+  }
+}
+
+function wasNodeInert(node) {
+  try {
+    if (!node) return false;
+    if (node.hasAttribute && node.hasAttribute('inert')) return true;
+    if ('inert' in node && node.inert === true) return true;
+    return false;
+  } catch (_) {
+    return false;
+  }
+}
 
 function setNodeInert(node, on) {
   if (!node) return;
@@ -15,12 +57,12 @@ function setNodeInert(node, on) {
 function getInertTargets(activeModalEl) {
   const targets = new Set();
 
-  qsa('body > :not(.overlay):not([data-launch-shell]):not(#launch-animation):not(#cc-focus-sink)')
+  qsa('body > :not(.overlay[id^="modal-"]):not([data-launch-shell]):not(#launch-animation):not(#cc-focus-sink)')
     .forEach(el => targets.add(el));
 
   const shell = document.querySelector('[data-launch-shell]');
   if (shell) {
-    qsa(':scope > :not(.overlay):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
+    qsa(':scope > :not(.overlay[id^="modal-"]):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
   }
 
   if (activeModalEl) {
@@ -36,8 +78,35 @@ function getInertTargets(activeModalEl) {
   return Array.from(targets);
 }
 
+function markAndInert(node) {
+  if (!node) return;
+  try {
+    const prev = wasNodeInert(node) ? '1' : '0';
+    node.setAttribute(INERT_MARK, '1');
+    node.setAttribute(INERT_PREV, prev);
+    if (prev !== '1') setNodeInert(node, true);
+  } catch (_) {}
+}
+
+function restoreMarkedInert() {
+  try {
+    document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
+      const prev = node.getAttribute(INERT_PREV) || '0';
+      if (prev !== '1') setNodeInert(node, false);
+    });
+  } catch (_) {}
+}
+
+function cleanupMarkedInert() {
+  try {
+    document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
+      try { node.removeAttribute(INERT_MARK); } catch (_) {}
+      try { node.removeAttribute(INERT_PREV); } catch (_) {}
+    });
+  } catch (_) {}
+}
+
 let lastFocus = null;
-let openModals = 0;
 
 const MODAL_STYLE_PROPS = [
   ['modalAccentHue', '--modal-accent-hue'],
@@ -202,10 +271,10 @@ function forceBlurIfInside(container) {
 }
 
 // Ensure hidden overlays are not focusable on load
-qsa('.overlay.hidden').forEach(ov => { ov.style.display = 'none'; });
+qsa('.overlay[id^="modal-"].hidden').forEach(ov => { ov.style.display = 'none'; });
 
 // Close modal on overlay click
-qsa('.overlay').forEach(ov => {
+qsa('.overlay[id^="modal-"]').forEach(ov => {
   ov.addEventListener('click', e => {
     if (e.target === ov && !ov.hasAttribute('data-modal-static')) hide(ov.id);
   });
@@ -213,8 +282,8 @@ qsa('.overlay').forEach(ov => {
 
 // Allow closing with Escape key
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && openModals > 0) {
-    const open = qsa('.overlay').find(o => !o.classList.contains('hidden') && !o.hasAttribute('data-modal-static'));
+  if (e.key === 'Escape' && hasAnyOpenOverlays()) {
+    const open = qsa('.overlay[id^="modal-"]').find(o => !o.classList.contains('hidden') && !o.hasAttribute('data-modal-static'));
     if (open) hide(open.id);
   }
 });
@@ -223,6 +292,7 @@ export function show(id) {
   try {
     const el = $(id);
     if (!el || !el.classList.contains('hidden')) return false;
+    const wasFirstModal = !hasAnyOpenOverlays();
     try { el.style.pointerEvents = 'auto'; } catch (_) {}
     try { el.style.visibility = 'visible'; } catch (_) {}
     setNodeInert(el, false);
@@ -233,7 +303,7 @@ export function show(id) {
       });
     } catch (_) {}
     lastFocus = document.activeElement;
-    if (openModals === 0) {
+    if (wasFirstModal) {
       coverFloatingLauncher();
       try {
         document.body.classList.add('modal-open');
@@ -242,16 +312,13 @@ export function show(id) {
       }
       getInertTargets(el).forEach(e => {
         try {
-          if (e.hasAttribute('inert')) return;
-          e.setAttribute(INERT_MARK, '1');
-          setNodeInert(e, true);
+          markAndInert(e);
         } catch (err) {
           console.error('Failed to set inert attribute', err);
         }
       });
       setNodeInert(el, false);
     }
-    openModals++;
     cancelModalStyleReset(el);
     applyModalStyles(el);
     el.style.display = 'flex';
@@ -266,6 +333,9 @@ export function show(id) {
         console.error('Failed to focus modal element', err);
       }
     }
+    try {
+      if (hasAnyOpenOverlays()) document.body.classList.add('modal-open');
+    } catch (_) {}
     return true;
   } catch (err) {
     console.error(`Failed to show modal ${id}`, err);
@@ -326,20 +396,22 @@ export function hide(id) {
         console.error('Failed to restore focus after closing modal', err);
       }
     }
-    openModals = Math.max(0, openModals - 1);
-    if (openModals === 0) {
+    const anyStillOpen = hasAnyOpenOverlays();
+    if (!anyStillOpen) {
       releaseFloatingLauncher();
-      try {
-        document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
-          try { node.removeAttribute(INERT_MARK); } catch (_) {}
-          setNodeInert(node, false);
-        });
-      } catch (_) {}
-      try {
-        document.body.classList.remove('modal-open');
-      } catch (err) {
+      restoreMarkedInert();
+      try { document.body.classList.remove('modal-open'); } catch (err) {
         console.error('Failed to update body class when hiding modal', err);
       }
+      try {
+        getInertTargets(null).forEach((node) => {
+          const prev = node.getAttribute && node.getAttribute(INERT_PREV);
+          if (prev === '0' && wasNodeInert(node)) setNodeInert(node, false);
+        });
+      } catch (_) {}
+      cleanupMarkedInert();
+    } else {
+      try { document.body.classList.add('modal-open'); } catch (_) {}
     }
     return true;
   } catch (err) {
