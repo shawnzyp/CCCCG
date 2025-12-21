@@ -3,6 +3,26 @@ import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launc
 
 const INERT_MARK = 'data-cc-inert-by-modal';
 
+function isOverlayOpen(node) {
+  try {
+    if (!node || !node.classList || !node.classList.contains('overlay')) return false;
+    if (node.classList.contains('hidden')) return false;
+    if (node.getAttribute('aria-hidden') === 'true') return false;
+    if (node.style && node.style.display === 'none') return false;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function hasAnyOpenOverlays() {
+  try {
+    return qsa('.overlay').some(isOverlayOpen);
+  } catch (_) {
+    return false;
+  }
+}
+
 function setNodeInert(node, on) {
   if (!node) return;
   try { node.inert = !!on; } catch (_) {}
@@ -37,7 +57,6 @@ function getInertTargets(activeModalEl) {
 }
 
 let lastFocus = null;
-let openModals = 0;
 
 const MODAL_STYLE_PROPS = [
   ['modalAccentHue', '--modal-accent-hue'],
@@ -213,7 +232,7 @@ qsa('.overlay').forEach(ov => {
 
 // Allow closing with Escape key
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && openModals > 0) {
+  if (e.key === 'Escape' && hasAnyOpenOverlays()) {
     const open = qsa('.overlay').find(o => !o.classList.contains('hidden') && !o.hasAttribute('data-modal-static'));
     if (open) hide(open.id);
   }
@@ -223,6 +242,7 @@ export function show(id) {
   try {
     const el = $(id);
     if (!el || !el.classList.contains('hidden')) return false;
+    const wasFirstModal = !hasAnyOpenOverlays();
     try { el.style.pointerEvents = 'auto'; } catch (_) {}
     try { el.style.visibility = 'visible'; } catch (_) {}
     setNodeInert(el, false);
@@ -233,7 +253,7 @@ export function show(id) {
       });
     } catch (_) {}
     lastFocus = document.activeElement;
-    if (openModals === 0) {
+    if (wasFirstModal) {
       coverFloatingLauncher();
       try {
         document.body.classList.add('modal-open');
@@ -251,7 +271,6 @@ export function show(id) {
       });
       setNodeInert(el, false);
     }
-    openModals++;
     cancelModalStyleReset(el);
     applyModalStyles(el);
     el.style.display = 'flex';
@@ -266,6 +285,9 @@ export function show(id) {
         console.error('Failed to focus modal element', err);
       }
     }
+    try {
+      if (hasAnyOpenOverlays()) document.body.classList.add('modal-open');
+    } catch (_) {}
     return true;
   } catch (err) {
     console.error(`Failed to show modal ${id}`, err);
@@ -326,8 +348,8 @@ export function hide(id) {
         console.error('Failed to restore focus after closing modal', err);
       }
     }
-    openModals = Math.max(0, openModals - 1);
-    if (openModals === 0) {
+    const anyStillOpen = hasAnyOpenOverlays();
+    if (!anyStillOpen) {
       releaseFloatingLauncher();
       try {
         document.querySelectorAll(`[${INERT_MARK}]`).forEach((node) => {
@@ -335,11 +357,11 @@ export function hide(id) {
           setNodeInert(node, false);
         });
       } catch (_) {}
-      try {
-        document.body.classList.remove('modal-open');
-      } catch (err) {
+      try { document.body.classList.remove('modal-open'); } catch (err) {
         console.error('Failed to update body class when hiding modal', err);
       }
+    } else {
+      try { document.body.classList.add('modal-open'); } catch (_) {}
     }
     return true;
   } catch (err) {
