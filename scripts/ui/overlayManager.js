@@ -59,6 +59,11 @@ export class OverlayManager {
     if (!changed) return;
     this.active = stack;
 
+    if (this.focusTrapCleanup) {
+      this.focusTrapCleanup();
+      this.focusTrapCleanup = null;
+    }
+
     Object.values(this.overlays).forEach((overlay) => {
       overlay.hide?.();
     });

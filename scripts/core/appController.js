@@ -88,10 +88,16 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
 
     overlays.render(state.overlays, store);
 
-    const hasMainMenu = state.overlays.some((entry) => entry.type === 'mainMenu');
-    if (!hasMainMenu) {
+    if (allowPhone) {
+      const hasMainMenu = state.overlays.some((entry) => entry.type === 'mainMenu');
+      if (!hasMainMenu) {
+        phone.hideMainMenu();
+        phone.navigate(state.route);
+      }
+    } else {
       phone.hideMainMenu();
-      phone.navigate(state.route);
+      phone.hideLauncher?.();
+      phone.setView?.('lock', null);
     }
 
     if (state.phase === 'WELCOME_MODAL') {
