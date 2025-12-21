@@ -1,13 +1,27 @@
 import { $, qsa } from './helpers.js';
 import { coverFloatingLauncher, releaseFloatingLauncher } from './floating-launcher.js';
 
-function getInertTargets() {
+function getInertTargets(activeModalEl) {
   const targets = new Set();
-  qsa('body > :not(.overlay):not([data-launch-shell]):not(#launch-animation)').forEach(el => targets.add(el));
+
+  qsa('body > :not(.overlay):not([data-launch-shell]):not(#launch-animation):not(#cc-focus-sink)')
+    .forEach(el => targets.add(el));
+
   const shell = document.querySelector('[data-launch-shell]');
   if (shell) {
     qsa(':scope > :not(.overlay):not(#somf-reveal-alert)', shell).forEach(el => targets.add(el));
   }
+
+  if (activeModalEl) {
+    for (const el of Array.from(targets)) {
+      try {
+        if (el === activeModalEl || (typeof el.contains === 'function' && el.contains(activeModalEl))) {
+          targets.delete(el);
+        }
+      } catch (_) {}
+    }
+  }
+
   return Array.from(targets);
 }
 
@@ -202,6 +216,12 @@ export function show(id) {
       el.inert = false;
       el.removeAttribute('inert');
     } catch (_) {}
+    try {
+      el.querySelectorAll('[inert]').forEach(node => {
+        try { node.inert = false; } catch (_) {}
+        try { node.removeAttribute('inert'); } catch (_) {}
+      });
+    } catch (_) {}
     lastFocus = document.activeElement;
     if (openModals === 0) {
       coverFloatingLauncher();
@@ -210,13 +230,15 @@ export function show(id) {
       } catch (err) {
         console.error('Failed to update body class when showing modal', err);
       }
-      getInertTargets().forEach(e => {
+      getInertTargets(el).forEach(e => {
         try {
           e.setAttribute('inert', '');
         } catch (err) {
           console.error('Failed to set inert attribute', err);
         }
       });
+      try { el.inert = false; } catch (_) {}
+      try { el.removeAttribute('inert'); } catch (_) {}
     }
     openModals++;
     cancelModalStyleReset(el);
@@ -268,6 +290,7 @@ export function hide(id) {
         try { sink.focus(); } catch (_) {}
       }
     }
+    // Now it is safe to hide from AT and lock focus.
     try {
       el.inert = true;
       el.setAttribute('inert', '');

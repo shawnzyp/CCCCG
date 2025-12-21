@@ -229,6 +229,15 @@ try {
 } catch {}
 globalThis.__cccgBreadcrumb?.('boot', 'main.js imported');
 
+try {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('app-render-complete', () => {
+      try { window.__cccgBootComplete = true; } catch {}
+      try { markBootProgress('boot-complete'); } catch {}
+    }, { once: true });
+  }
+} catch {}
+
 const MENU_MODAL_STATE = new Map();
 
 (function bootWatchdogEarly() {
@@ -238,12 +247,14 @@ const MENU_MODAL_STATE = new Map();
     try {
       const body = document.body;
       const root = document.documentElement;
-      const stuck = body?.classList.contains('launching') || body?.classList.contains('touch-controls-disabled');
-      if (!stuck) return;
+      const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
+      const launching = !!body?.classList.contains('launching');
+      const touchLocked = !!body?.classList.contains('touch-controls-disabled');
+      if (bootComplete && !launching && !touchLocked) return;
 
       console.warn('[BootWatchdog] Boot appears stuck.', {
-        launching: body?.classList.contains('launching'),
-        touchLocked: body?.classList.contains('touch-controls-disabled'),
+        launching,
+        touchLocked,
         phoneOpen: root?.getAttribute('data-pt-phone-open'),
         lastUpdate: window.__ccLastContentUpdate,
         uptimeMs: Date.now() - startedAt,
@@ -262,9 +273,24 @@ const MENU_MODAL_STATE = new Map();
         }));
       } catch {}
 
+      if (bootComplete && (launching || touchLocked)) {
+        try { hardEndLaunchUI(); } catch {}
+        try { forceInteractionUnlock('boot-watchdog'); } catch {}
+        return;
+      }
+
+      if (!launching && !touchLocked) return;
+
       body?.classList.remove('launching');
       body?.classList.remove('touch-controls-disabled');
       body?.classList.remove('modal-open');
+      try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
+      try {
+        document.querySelectorAll('[inert]').forEach((el) => {
+          try { el.inert = false; } catch {}
+          try { el.removeAttribute('inert'); } catch {}
+        });
+      } catch {}
       try { markLaunchSequenceComplete(); } catch {}
       try {
         if (typeof safeUnlockTouchControls === 'function') {
@@ -3046,6 +3072,50 @@ function unlockTouchControls({ immediate = false } = {}) {
   }
 }
 
+function forceInteractionUnlock(reason = 'unknown') {
+  try { markBootProgress(`force-unlock:${reason}`); } catch {}
+
+  const doc = typeof document !== 'undefined' ? document : null;
+  const body = doc ? doc.body : null;
+  const anyOpenOverlay = !!(doc && doc.querySelector('.overlay:not(.hidden)'));
+  const root = doc ? doc.documentElement : null;
+  const phoneOpen = !!(root && root.getAttribute('data-pt-phone-open') === '1');
+  const drawerOpen = !!(root && root.getAttribute('data-pt-drawer-open') === '1')
+    || !!(doc && doc.documentElement?.hasAttribute?.('data-pt-drawer-open'));
+  const blockingUiOpen = anyOpenOverlay || phoneOpen || drawerOpen;
+
+  try {
+    if (doc) {
+      doc.querySelectorAll('.overlay:not(.hidden), [role="dialog"]:not(.hidden)').forEach((el) => {
+        try { el.inert = false; } catch {}
+        try { el.removeAttribute('inert'); } catch {}
+      });
+    }
+  } catch {}
+
+  try { body?.classList?.remove('touch-controls-disabled'); } catch {}
+  if (!blockingUiOpen) {
+    try { body?.classList?.remove('modal-open'); } catch {}
+  }
+  try { body?.classList?.remove('launching'); } catch {}
+  try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
+
+  if (!blockingUiOpen && doc) {
+    try {
+      doc.querySelectorAll('[inert]').forEach((el) => {
+        try { el.inert = false; } catch {}
+        try { el.removeAttribute('inert'); } catch {}
+      });
+    } catch {}
+  }
+
+  try {
+    if (typeof unlockTouchControls === 'function') {
+      unlockTouchControls({ immediate: true });
+    }
+  } catch {}
+}
+
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   const modal = prepareWelcomeModal();
   if (!modal) {
@@ -3064,11 +3134,6 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   }
   const body = typeof document !== 'undefined' ? document.body : null;
   const isLaunching = !!(body && body.classList.contains('launching'));
-  show(WELCOME_MODAL_ID);
-  if (wasHidden) {
-    addPlayerToolsTabSuppression('welcome-modal');
-  }
-
   if (isLaunching) {
     // While intro overlay is active, we avoid forcing welcome visible.
     // The boot controller will request welcome once intro is done.
@@ -3083,11 +3148,15 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
     return;
   }
 
+  show(WELCOME_MODAL_ID);
+  if (wasHidden) {
+    addPlayerToolsTabSuppression('welcome-modal');
+  }
+  try { forceInteractionUnlock('welcome-show'); } catch {}
+
   if (!wasHidden) {
-    safeUnlockTouchControls();
     return;
   }
-  safeUnlockTouchControls();
 }
 
 function hardEndLaunchUI() {
@@ -3113,6 +3182,7 @@ function dismissWelcomeModal() {
   try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
   try { document.documentElement.removeAttribute('data-pt-drawer-open'); } catch {}
   try { markLaunchSequenceComplete(); } catch {}
+  try { forceInteractionUnlock('welcome-dismiss'); } catch {}
   try { hardEndLaunchUI(); } catch {}
   try {
     if (typeof safeUnlockTouchControls === 'function') {
@@ -3353,6 +3423,24 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   });
 }
 (async function setupLaunchAnimation(){
+  if (typeof window !== 'undefined' && window.__ccInlineLaunchControllerInstalled) {
+    try {
+      if (window.__ccLaunchComplete) {
+        markLaunchSequenceComplete();
+        queueWelcomeModal({ immediate: true });
+        hardEndLaunchUI();
+        forceInteractionUnlock('inline-launch-complete');
+        return;
+      }
+      window.addEventListener('cc:launch:done', () => {
+        try { markLaunchSequenceComplete(); } catch {}
+        try { queueWelcomeModal({ immediate: true }); } catch {}
+        try { hardEndLaunchUI(); } catch {}
+        try { forceInteractionUnlock('launch-done'); } catch {}
+      }, { once: true });
+    } catch {}
+    return;
+  }
   const LAUNCH_FAILSAFE_MS = 8000;
   try {
     setTimeout(() => {
@@ -12056,6 +12144,7 @@ function initPhoneRouter() {
         if (!shell || !shell.contains(openBtn)) return;
 
         ensurePhoneOpen();
+        try { forceInteractionUnlock('phone-open'); } catch {}
 
         const id = openBtn.getAttribute('data-pt-open-app');
         if (id) {
@@ -12089,6 +12178,7 @@ function initPhoneRouter() {
         if (!shell || !shell.contains(homeBtn)) return;
         event.preventDefault?.();
         ensurePhoneOpen();
+        try { forceInteractionUnlock('phone-home'); } catch {}
         goHome();
         return;
       }
@@ -12098,6 +12188,8 @@ function initPhoneRouter() {
         const shell = getPhoneShell();
         if (!shell || !shell.contains(recentsBtn)) return;
         event.preventDefault?.();
+        ensurePhoneOpen();
+        try { forceInteractionUnlock('phone-recents'); } catch {}
         if (typeof toast === 'function') {
           toast('Recents is coming soon.', 'info');
         }
