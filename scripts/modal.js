@@ -202,6 +202,12 @@ export function show(id) {
       el.inert = false;
       el.removeAttribute('inert');
     } catch (_) {}
+    try {
+      el.querySelectorAll('[inert]').forEach(node => {
+        try { node.inert = false; } catch (_) {}
+        try { node.removeAttribute('inert'); } catch (_) {}
+      });
+    } catch (_) {}
     lastFocus = document.activeElement;
     if (openModals === 0) {
       coverFloatingLauncher();

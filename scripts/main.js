@@ -3084,6 +3084,15 @@ function forceInteractionUnlock(reason = 'unknown') {
     || !!(doc && doc.documentElement?.hasAttribute?.('data-pt-drawer-open'));
   const blockingUiOpen = anyOpenOverlay || phoneOpen || drawerOpen;
 
+  try {
+    if (doc) {
+      doc.querySelectorAll('.overlay:not(.hidden), [role="dialog"]:not(.hidden)').forEach((el) => {
+        try { el.inert = false; } catch {}
+        try { el.removeAttribute('inert'); } catch {}
+      });
+    }
+  } catch {}
+
   try { body?.classList?.remove('touch-controls-disabled'); } catch {}
   if (!blockingUiOpen) {
     try { body?.classList?.remove('modal-open'); } catch {}
