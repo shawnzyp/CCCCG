@@ -101,7 +101,9 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     } else {
       phone.hideMainMenu();
       phone.setView?.('lock', null);
-      if (state.phase !== 'WELCOME_MODAL') {
+      if (state.phase === 'WELCOME_MODAL') {
+        phone.showLauncher?.();
+      } else {
         phone.hideLauncher?.();
       }
     }
