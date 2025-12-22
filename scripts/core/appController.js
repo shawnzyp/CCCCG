@@ -21,6 +21,10 @@ function reducer(state, action) {
       if (state.overlays[state.overlays.length - 1]?.type === 'mainMenu') return state;
       return { ...state, overlays: [...state.overlays, { type: 'mainMenu' }] };
     case 'CLOSE_OVERLAY':
+      if (state.overlays.length === 0) return state;
+      if (state.overlays[state.overlays.length - 1]?.type === 'welcome') {
+        return { ...state, phase: 'PHONE_OS', overlays: [] };
+      }
       return { ...state, overlays: state.overlays.slice(0, -1) };
     case 'NAVIGATE':
       if (state.phase !== 'PHONE_OS') return state;
