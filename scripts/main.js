@@ -3072,35 +3072,38 @@ function unlockTouchControls({ immediate = false } = {}) {
   }
 }
 
-function forceInteractionUnlock(reason = 'unknown') {
+function forceInteractionUnlock(reason = 'unknown', { preserveModalLock = false } = {}) {
   try { markBootProgress(`force-unlock:${reason}`); } catch {}
 
   const doc = typeof document !== 'undefined' ? document : null;
   const body = doc ? doc.body : null;
   const anyOpenOverlay = !!(doc && doc.querySelector('.overlay:not(.hidden)'));
+  const anyOpenModal = !!(doc && doc.querySelector('[role="dialog"]:not(.hidden)'));
   const root = doc ? doc.documentElement : null;
   const phoneOpen = !!(root && root.getAttribute('data-pt-phone-open') === '1');
   const drawerOpen = !!(root && root.getAttribute('data-pt-drawer-open') === '1')
     || !!(doc && doc.documentElement?.hasAttribute?.('data-pt-drawer-open'));
-  const blockingUiOpen = anyOpenOverlay || phoneOpen || drawerOpen;
+  const blockingUiOpen = anyOpenOverlay || phoneOpen || drawerOpen || anyOpenModal;
 
-  try {
-    if (doc) {
-      doc.querySelectorAll('.overlay:not(.hidden), [role="dialog"]:not(.hidden)').forEach((el) => {
-        try { el.inert = false; } catch {}
-        try { el.removeAttribute('inert'); } catch {}
-      });
-    }
-  } catch {}
+  if (!preserveModalLock) {
+    try {
+      if (doc) {
+        doc.querySelectorAll('.overlay:not(.hidden), [role="dialog"]:not(.hidden)').forEach((el) => {
+          try { el.inert = false; } catch {}
+          try { el.removeAttribute('inert'); } catch {}
+        });
+      }
+    } catch {}
+  }
 
   try { body?.classList?.remove('touch-controls-disabled'); } catch {}
-  if (!blockingUiOpen) {
+  if (!blockingUiOpen && !preserveModalLock) {
     try { body?.classList?.remove('modal-open'); } catch {}
   }
   try { body?.classList?.remove('launching'); } catch {}
   try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
 
-  if (!blockingUiOpen && doc) {
+  if (!blockingUiOpen && !preserveModalLock && doc) {
     try {
       doc.querySelectorAll('[inert]').forEach((el) => {
         try { el.inert = false; } catch {}
@@ -3152,7 +3155,7 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   if (wasHidden) {
     addPlayerToolsTabSuppression('welcome-modal');
   }
-  try { forceInteractionUnlock('welcome-show'); } catch {}
+  try { forceInteractionUnlock('welcome-show', { preserveModalLock: true }); } catch {}
 
   if (!wasHidden) {
     return;
@@ -3423,25 +3426,32 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
   });
 }
 (async function setupLaunchAnimation(){
+  const LAUNCH_FAILSAFE_MS = 8000;
+  const finalizeInlineLaunch = (reason) => {
+    try { markLaunchSequenceComplete(); } catch {}
+    try { queueWelcomeModal({ immediate: true }); } catch {}
+    try { hardEndLaunchUI(); } catch {}
+    try { forceInteractionUnlock(reason); } catch {}
+  };
   if (typeof window !== 'undefined' && window.__ccInlineLaunchControllerInstalled) {
     try {
       if (window.__ccLaunchComplete) {
-        markLaunchSequenceComplete();
-        queueWelcomeModal({ immediate: true });
-        hardEndLaunchUI();
-        forceInteractionUnlock('inline-launch-complete');
+        finalizeInlineLaunch('inline-launch-complete');
         return;
       }
       window.addEventListener('cc:launch:done', () => {
-        try { markLaunchSequenceComplete(); } catch {}
-        try { queueWelcomeModal({ immediate: true }); } catch {}
-        try { hardEndLaunchUI(); } catch {}
-        try { forceInteractionUnlock('launch-done'); } catch {}
+        finalizeInlineLaunch('launch-done');
       }, { once: true });
+      setTimeout(() => {
+        try {
+          if (document?.body?.classList?.contains('launching')) {
+            finalizeInlineLaunch('launch-failsafe');
+          }
+        } catch {}
+      }, LAUNCH_FAILSAFE_MS);
     } catch {}
     return;
   }
-  const LAUNCH_FAILSAFE_MS = 8000;
   try {
     setTimeout(() => {
       try {
