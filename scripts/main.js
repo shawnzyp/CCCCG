@@ -93,9 +93,18 @@ try {
   if (window.__CCCG_DEBUG_HUD__) return;
   window.__CCCG_DEBUG_HUD__ = true;
 
+  const trace = (window.__CCCG_BOOT_TRACE__ = window.__CCCG_BOOT_TRACE__ || []);
+  const pushTrace = (message) => {
+    try {
+      trace.push({ ts: Date.now(), msg: String(message || '') });
+      if (trace.length > 80) trace.shift();
+    } catch {}
+  };
+
   let lastErr = '';
   function setErr(message) {
     lastErr = String(message || '').slice(0, 220);
+    pushTrace(`ERR ${lastErr}`);
   }
 
   window.addEventListener('error', (event) => setErr(event?.message || event), true);
@@ -114,15 +123,16 @@ try {
   hud.style.maxWidth = '92vw';
   hud.style.fontFamily =
     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-  hud.style.fontSize = '11px';
+  hud.style.fontSize = '12px';
   hud.style.lineHeight = '1.25';
   hud.style.padding = '8px';
   hud.style.borderRadius = '8px';
-  hud.style.background = 'rgba(0,0,0,0.55)';
+  hud.style.background = 'rgba(0,0,0,0.72)';
   hud.style.color = '#fff';
   hud.style.whiteSpace = 'pre-wrap';
   hud.style.pointerEvents = 'none';
   hud.style.opacity = '0.92';
+  hud.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
 
   function readLauncher() {
     const launcher = document.querySelector('[data-pt-launcher]');
@@ -149,6 +159,9 @@ try {
 
   function tick() {
     const controller = readController();
+    pushTrace(
+      `TICK ctrl=${controller.has ? '1' : '0'} phase=${controller.phase || ''} overlays=${controller.overlays || ''}`
+    );
     const launcherState = readLauncher();
     const bodyClass = document.body?.className || '';
     const html = document.documentElement;
@@ -171,6 +184,7 @@ try {
       const launcher = document.querySelector('[data-pt-launcher]');
       const shouldForce = glassVisible === '1' || phoneOpen === '1' || drawerOpen === '1';
       if (launcher && shouldForce) {
+        pushTrace('FORCE launcher visible');
         launcher.hidden = false;
         launcher.style.removeProperty('display');
         launcher.setAttribute('aria-hidden', 'false');

@@ -21,6 +21,8 @@ export function initPlayerOSModule() {
   try { window.dispatchEvent(new CustomEvent('cc:pt-controller-ready')); } catch {}
 
   controller.store.dispatch({ type: 'BOOT_DONE' });
+  try { controller.phone?.showLauncher?.(); } catch {}
+  try { controller.phone?.setView?.('lock', null); } catch {}
 
   let introDoneScheduled = false;
   const scheduleIntroDone = () => {
@@ -62,6 +64,29 @@ export function initPlayerOSModule() {
       if (!launching) scheduleIntroDone();
     } catch {}
   }, 2500);
+
+  setTimeout(() => {
+    try {
+      const state = controller.store.getState?.();
+      const phase = state?.phase;
+      if (!phase) return;
+
+      if (phase === 'INTRO') {
+        scheduleIntroDone();
+        return;
+      }
+
+      if (phase === 'WELCOME_MODAL') {
+        const modal = document.getElementById('modal-pt-welcome');
+        const hidden =
+          !modal ||
+          modal.hidden ||
+          modal.classList.contains('hidden') ||
+          modal.getAttribute('aria-hidden') === 'true';
+        if (hidden) controller.store.dispatch({ type: 'WELCOME_ACCEPT' });
+      }
+    } catch {}
+  }, 6000);
 
   const welcomeModal = document.getElementById('modal-pt-welcome');
   if (welcomeModal) {
