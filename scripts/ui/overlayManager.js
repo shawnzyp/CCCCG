@@ -37,11 +37,13 @@ function trapFocus(root) {
 }
 
 export class OverlayManager {
-  constructor({ appRoot, overlayRoot, overlays } = {}) {
+  constructor({ appRoot, overlayRoot, overlays, store } = {}) {
     this.appRoot = appRoot || null;
     this.overlayRoot = overlayRoot || null;
     this.overlays = overlays || {};
+    this.store = store || null;
     this.active = [];
+    this.activeSig = '';
     this.focusTrapCleanup = null;
     this.onKey = this.onKey.bind(this);
   }
@@ -54,10 +56,18 @@ export class OverlayManager {
     });
   }
 
+  signature(stack) {
+    if (!Array.isArray(stack) || !stack.length) return '';
+    // Stable, cheap change detection.
+    return stack.map((s) => String(s?.type || '')).join('|');
+  }
+
   render(stack, store) {
-    const changed = JSON.stringify(stack) !== JSON.stringify(this.active);
+    const nextSig = this.signature(stack);
+    const changed = nextSig !== this.activeSig;
     if (!changed) return;
     this.active = stack;
+    this.activeSig = nextSig;
 
     if (this.focusTrapCleanup) {
       this.focusTrapCleanup();
@@ -89,16 +99,17 @@ export class OverlayManager {
     if (!overlay) return;
 
     overlay.show?.(store);
-    if (overlay.focusRoot) {
-      focusFirst(overlay.focusRoot);
-      this.focusTrapCleanup = trapFocus(overlay.focusRoot);
+    const focusRoot = typeof overlay.focusRoot === 'function' ? overlay.focusRoot() : overlay.focusRoot;
+    if (focusRoot) {
+      focusFirst(focusRoot);
+      this.focusTrapCleanup = trapFocus(focusRoot);
     }
   }
 
   onKey(event) {
     if (event.key !== 'Escape') return;
     event.preventDefault();
-    const store = globalThis.__APP_STORE__;
+    const store = this.store || globalThis.__APP_STORE__;
     store?.dispatch?.({ type: 'CLOSE_OVERLAY' });
   }
 }

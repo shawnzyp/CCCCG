@@ -3318,7 +3318,8 @@ function dismissWelcomeModal() {
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
 function hasAppController() {
-  return typeof window !== 'undefined' && !!window.__CCCG_APP_CONTROLLER__;
+  if (typeof window === 'undefined') return false;
+  return !!window.__CCCG_APP_CONTROLLER__ || !!window.__CCCG_APP_CONTROLLER_BOOTING__;
 }
 let launcherMenuWired = false;
 let launcherMenuObserverWired = false;
@@ -3495,6 +3496,16 @@ try {
     }, { once: true });
   } else {
     queueMicrotask(wireLegacyIfNoController);
+  }
+
+  // If controller is booting, do not wire legacy immediately.
+  // As a last resort, if controller never appears, wire legacy later.
+  if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER_BOOTING__) {
+    setTimeout(() => {
+      try {
+        if (!window.__CCCG_APP_CONTROLLER__) wireLegacyIfNoController();
+      } catch {}
+    }, 4000);
   }
 
   window.addEventListener('cc:pt-controller-ready', () => {
