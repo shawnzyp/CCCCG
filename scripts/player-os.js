@@ -20,7 +20,10 @@ const init = () => {
 
   controller.store.dispatch({ type: 'BOOT_DONE' });
 
+  let introDoneScheduled = false;
   const scheduleIntroDone = () => {
+    if (introDoneScheduled) return;
+    introDoneScheduled = true;
     controller.overlays?.ensureBackdropPrepaint?.();
     controller.store.dispatch({ type: 'INTRO_DONE' });
     if (!document.getElementById('modal-pt-welcome')) {
@@ -34,6 +37,17 @@ const init = () => {
   } else {
     window.addEventListener('cc:launch:done', scheduleIntroDone, { once: true });
   }
+
+  setTimeout(() => {
+    try {
+      const state = controller.store.getState?.();
+      if (!state || state.phase !== 'INTRO') return;
+      const launching = !!document.body?.classList?.contains('launching');
+      if (!launching) {
+        scheduleIntroDone();
+      }
+    } catch {}
+  }, 2500);
 
   const welcomeModal = document.getElementById('modal-pt-welcome');
   if (welcomeModal) {
