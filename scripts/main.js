@@ -3490,6 +3490,28 @@ try {
     runLauncherHealthCheck();
   }
 
+  // If module boot fails, immediately allow legacy wiring to run.
+  window.addEventListener('cc:pt-controller-failed', () => {
+    try {
+      // Clear the booting flag so hasAppController() stops blocking.
+      window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
+    } catch {}
+    try {
+      queueMicrotask(wireLegacyIfNoController);
+    } catch {}
+    // Also force a minimal visual recovery so user isn't staring at nothing.
+    try {
+      const launcher = document.querySelector('[data-pt-launcher]');
+      if (launcher) {
+        launcher.hidden = false;
+        launcher.style.removeProperty('display');
+        launcher.setAttribute('aria-hidden', 'false');
+        document.documentElement.setAttribute('data-pt-phone-open', '1');
+        document.documentElement.setAttribute('data-pt-drawer-open', '1');
+      }
+    } catch {}
+  }, { passive: true });
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       queueMicrotask(wireLegacyIfNoController);
