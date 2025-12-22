@@ -2,6 +2,22 @@ import { createStore } from './store.js';
 import { OverlayManager } from '../ui/overlayManager.js';
 import { PhoneOS } from '../os/phoneOS.js';
 
+function showNode(node) {
+  if (!node) return false;
+  node.classList.remove('hidden');
+  node.hidden = false;
+  node.style.display = '';
+  node.setAttribute('aria-hidden', 'false');
+  return true;
+}
+
+function hideNode(node) {
+  if (!node) return;
+  node.classList.add('hidden');
+  node.hidden = true;
+  node.setAttribute('aria-hidden', 'true');
+}
+
 const initialState = {
   phase: 'BOOT',
   overlays: [],
@@ -43,18 +59,14 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
           modalHost.setAttribute('data-pt-modal-open', '1');
           modalHost.setAttribute('aria-hidden', 'false');
         }
-        modal.hidden = false;
-        modal.setAttribute('aria-hidden', 'false');
+        showNode(modal);
         modal.setAttribute('data-pt-modal-open', '1');
       },
       hide: () => {
         const modal = document.getElementById('modal-pt-welcome');
         const modalHost = overlayRoot || modal?.closest('[data-pt-modal-host]');
-        if (modal) {
-          modal.hidden = true;
-          modal.setAttribute('aria-hidden', 'true');
-          modal.removeAttribute('data-pt-modal-open');
-        }
+        if (modal) hideNode(modal);
+        modal?.removeAttribute('data-pt-modal-open');
         if (modalHost) {
           modalHost.removeAttribute('data-pt-modal-open');
           modalHost.setAttribute('aria-hidden', 'true');
@@ -101,7 +113,7 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     } else {
       phone.hideMainMenu();
       phone.setView?.('lock', null);
-      if (state.phase === 'WELCOME_MODAL') {
+      if (state.phase === 'WELCOME_MODAL' || state.phase === 'INTRO' || state.phase === 'BOOT') {
         phone.showLauncher?.();
       } else {
         phone.hideLauncher?.();
