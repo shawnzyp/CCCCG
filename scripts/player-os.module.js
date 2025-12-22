@@ -1,6 +1,7 @@
 import { createAppController } from './core/appController.js';
 
 export function initPlayerOSModule() {
+  try { window.__CCCG_APP_CONTROLLER_BOOTING__ = true; } catch {}
   let readyFired = false;
   const launcher = document.querySelector('[data-pt-launcher]');
   if (!launcher) {
@@ -16,6 +17,7 @@ export function initPlayerOSModule() {
   const controller = createAppController({ appRoot: launcher, overlayRoot });
   window.__APP_STORE__ = controller.store;
   window.__CCCG_APP_CONTROLLER__ = controller;
+  try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
   window.PlayerOSReady = false;
 
   try { window.dispatchEvent(new CustomEvent('cc:pt-controller-ready')); } catch {}

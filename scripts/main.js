@@ -3113,13 +3113,13 @@ function tryShowWelcomeForLaunch(reason = '') {
 }
 
 function forceRecoverFromBlankScreen() {
-  if (hasControllerOrBooting()) return;
   try {
     const controller = typeof window !== 'undefined' ? window.__CCCG_APP_CONTROLLER__ : null;
     const store = controller?.store;
     const phone = controller?.phone;
     if (store && phone) {
       try { phone.showLauncher?.(); } catch {}
+      try { phone.syncPhoneOpenFlags?.(); } catch {}
       const state = store.getState?.();
       const phase = state?.phase;
       if (!phase || phase === 'BOOT') {
@@ -3147,6 +3147,7 @@ function forceRecoverFromBlankScreen() {
       return;
     }
 
+    if (hasControllerOrBooting()) return;
     const doc = typeof document !== 'undefined' ? document : null;
     if (!doc) return;
 
