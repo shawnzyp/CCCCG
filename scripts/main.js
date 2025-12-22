@@ -2996,6 +2996,10 @@ function forceRecoverFromBlankScreen() {
       try { phone.showLauncher?.(); } catch {}
       const state = store.getState?.();
       const phase = state?.phase;
+      if (!phase || phase === 'BOOT') {
+        try { store.dispatch({ type: 'BOOT_DONE' }); } catch {}
+        return;
+      }
       if (phase === 'WELCOME_MODAL') {
         try {
           const modal = document.getElementById('modal-pt-welcome');
