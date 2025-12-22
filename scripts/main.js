@@ -2989,6 +2989,38 @@ function tryShowWelcomeForLaunch(reason = '') {
 
 function forceRecoverFromBlankScreen() {
   try {
+    const controller = typeof window !== 'undefined' ? window.__CCCG_APP_CONTROLLER__ : null;
+    const store = controller?.store;
+    const phone = controller?.phone;
+    if (store && phone) {
+      try { phone.showLauncher?.(); } catch {}
+      const state = store.getState?.();
+      const phase = state?.phase;
+      if (!phase || phase === 'BOOT') {
+        try { store.dispatch({ type: 'BOOT_DONE' }); } catch {}
+        return;
+      }
+      if (phase === 'WELCOME_MODAL') {
+        try {
+          const modal = document.getElementById('modal-pt-welcome');
+          const hidden =
+            !modal ||
+            modal.hidden ||
+            modal.classList.contains('hidden') ||
+            modal.getAttribute('aria-hidden') === 'true';
+          if (hidden) {
+            store.dispatch({ type: 'WELCOME_ACCEPT' });
+            return;
+          }
+        } catch {}
+      }
+      if (phase === 'INTRO') {
+        try { store.dispatch({ type: 'INTRO_DONE' }); } catch {}
+        return;
+      }
+      return;
+    }
+
     const doc = typeof document !== 'undefined' ? document : null;
     if (!doc) return;
 
@@ -3014,6 +3046,16 @@ function forceRecoverFromBlankScreen() {
       shell.style.pointerEvents = '';
       try { shell.inert = false; } catch {}
       try { shell.removeAttribute('inert'); } catch {}
+    }
+
+    const launcher = doc.querySelector('[data-pt-launcher]');
+    if (launcher) {
+      try { launcher.hidden = false; } catch {}
+      try { launcher.style.removeProperty('display'); } catch {}
+      try { launcher.setAttribute('aria-hidden', 'false'); } catch {}
+      try { launcher.setAttribute('data-pt-launcher-visible', '1'); } catch {}
+      try { doc.documentElement?.setAttribute('data-pt-phone-open', '1'); } catch {}
+      try { doc.documentElement?.setAttribute('data-pt-drawer-open', '1'); } catch {}
     }
   } catch {}
 }
@@ -3162,15 +3204,22 @@ function forceInteractionUnlock(reason = 'unknown') {
 }
 
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
+  try {
+    if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER__) {
+      return;
+    }
+  } catch {}
   const modal = prepareWelcomeModal();
   if (!modal) {
     safeUnlockTouchControls({ immediate: true });
     markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
     return;
   }
   if (welcomeModalDismissed) {
     safeUnlockTouchControls({ immediate: true });
     markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
     return;
   }
   const wasHidden = modal.classList.contains('hidden');
@@ -3193,7 +3242,24 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
     return;
   }
 
-  show(WELCOME_MODAL_ID);
+  let didShow = false;
+  try {
+    didShow = show(WELCOME_MODAL_ID);
+  } catch {}
+  const stillHidden =
+    modal.hidden ||
+    modal.classList.contains('hidden') ||
+    modal.getAttribute('aria-hidden') === 'true';
+  if (!didShow && stillHidden) {
+    markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
+    return;
+  }
+  if (stillHidden) {
+    markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
+    return;
+  }
   if (wasHidden) {
     addPlayerToolsTabSuppression('welcome-modal');
   }
