@@ -3166,11 +3166,13 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
   if (!modal) {
     safeUnlockTouchControls({ immediate: true });
     markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
     return;
   }
   if (welcomeModalDismissed) {
     safeUnlockTouchControls({ immediate: true });
     markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
     return;
   }
   const wasHidden = modal.classList.contains('hidden');
@@ -3193,7 +3195,22 @@ function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
     return;
   }
 
-  show(WELCOME_MODAL_ID);
+  let didShow = false;
+  try {
+    didShow = show(WELCOME_MODAL_ID);
+  } catch {}
+  const stillHidden =
+    modal.classList.contains('hidden') || modal.getAttribute('aria-hidden') === 'true';
+  if (!didShow && stillHidden) {
+    markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
+    return;
+  }
+  if (stillHidden) {
+    markWelcomeSequenceComplete();
+    forceRecoverFromBlankScreen();
+    return;
+  }
   if (wasHidden) {
     addPlayerToolsTabSuppression('welcome-modal');
   }
