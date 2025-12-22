@@ -25,6 +25,7 @@ export class PhoneOS {
   constructor({ appRoot, store } = {}) {
     this.root = appRoot || null;
     this.store = store || null;
+    this.glass = this.root?.closest?.('.pt-screen__glass') || null;
     this.view = 'lock';
     this.app = null;
     this.autoUnlockTimer = null;
@@ -256,8 +257,10 @@ export class PhoneOS {
     document.documentElement.classList.remove('pt-os-lock');
     this.setTabExpanded(true);
 
-    const glass = this.root.closest('.pt-screen__glass') || this.root.parentElement;
-    if (glass) glass.setAttribute('data-pt-launcher-visible', '1');
+    if (this.glass) this.glass.setAttribute('data-pt-launcher-visible', '1');
+    document.querySelectorAll('.pt-screen__glass[data-pt-launcher-visible=\"1\"]').forEach((node) => {
+      if (node !== this.glass) node.removeAttribute('data-pt-launcher-visible');
+    });
   }
 
   hideLauncher() {
@@ -269,8 +272,10 @@ export class PhoneOS {
     this.syncPhoneOpenFlags();
     this.setTabExpanded(false);
 
-    const glass = this.root.closest('.pt-screen__glass') || this.root.parentElement;
-    if (glass) glass.removeAttribute('data-pt-launcher-visible');
+    if (this.glass) this.glass.removeAttribute('data-pt-launcher-visible');
+    document.querySelectorAll('.pt-screen__glass[data-pt-launcher-visible=\"1\"]').forEach((node) => {
+      node.removeAttribute('data-pt-launcher-visible');
+    });
   }
 
   setTabExpanded(isOpen) {

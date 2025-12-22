@@ -85,6 +85,113 @@ try {
   }
 } catch {}
 
+// ---------------------------------------------------------------------------
+// Boot Debug HUD + Void Watchdog (temporary but extremely useful on iOS)
+// ---------------------------------------------------------------------------
+(() => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__CCCG_DEBUG_HUD__) return;
+  window.__CCCG_DEBUG_HUD__ = true;
+
+  let lastErr = '';
+  function setErr(message) {
+    lastErr = String(message || '').slice(0, 220);
+  }
+
+  window.addEventListener('error', (event) => setErr(event?.message || event), true);
+  window.addEventListener(
+    'unhandledrejection',
+    (event) => setErr(event?.reason?.message || event?.reason || event),
+    true
+  );
+
+  const hud = document.createElement('div');
+  hud.id = 'cccg-debug-hud';
+  hud.style.position = 'fixed';
+  hud.style.left = '8px';
+  hud.style.bottom = '8px';
+  hud.style.zIndex = '999999';
+  hud.style.maxWidth = '92vw';
+  hud.style.fontFamily =
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+  hud.style.fontSize = '11px';
+  hud.style.lineHeight = '1.25';
+  hud.style.padding = '8px';
+  hud.style.borderRadius = '8px';
+  hud.style.background = 'rgba(0,0,0,0.55)';
+  hud.style.color = '#fff';
+  hud.style.whiteSpace = 'pre-wrap';
+  hud.style.pointerEvents = 'none';
+  hud.style.opacity = '0.92';
+
+  function readLauncher() {
+    const launcher = document.querySelector('[data-pt-launcher]');
+    const styles = launcher && window.getComputedStyle ? getComputedStyle(launcher) : null;
+    return {
+      exists: Boolean(launcher),
+      hiddenProp: Boolean(launcher?.hidden),
+      ariaHidden: launcher?.getAttribute?.('aria-hidden'),
+      display: styles?.display,
+      visibility: styles?.visibility,
+    };
+  }
+
+  function readController() {
+    const controller = window.__CCCG_APP_CONTROLLER__;
+    const state = controller?.store?.getState?.();
+    return {
+      has: Boolean(controller),
+      phase: state?.phase,
+      overlays: Array.isArray(state?.overlays) ? state.overlays.map((overlay) => overlay?.type).join('|') : '',
+      route: state?.route,
+    };
+  }
+
+  function tick() {
+    const controller = readController();
+    const launcherState = readLauncher();
+    const bodyClass = document.body?.className || '';
+    const html = document.documentElement;
+    const phoneOpen = html?.getAttribute?.('data-pt-phone-open');
+    const drawerOpen = html?.getAttribute?.('data-pt-drawer-open');
+    const glassVisible = document.querySelector('.pt-screen__glass[data-pt-launcher-visible="1"]') ? '1' : '0';
+
+    hud.textContent =
+      `CTRL has=${controller.has} phase=${controller.phase || ''} overlays=${controller.overlays || ''} route=${
+        controller.route || ''
+      }\n` +
+      `LAUNCHER exists=${launcherState.exists} hidden=${launcherState.hiddenProp} aria=${
+        launcherState.ariaHidden || ''
+      } display=${launcherState.display || ''} vis=${launcherState.visibility || ''}\n` +
+      `HTML phoneOpen=${phoneOpen || '0'} drawerOpen=${drawerOpen || '0'} glassLauncherVisible=${glassVisible}\n` +
+      `BODY class=${bodyClass}\n` +
+      `ERR ${lastErr || ''}`;
+
+    try {
+      const launcher = document.querySelector('[data-pt-launcher]');
+      const shouldForce = glassVisible === '1' || phoneOpen === '1' || drawerOpen === '1';
+      if (launcher && shouldForce) {
+        launcher.hidden = false;
+        launcher.style.removeProperty('display');
+        launcher.setAttribute('aria-hidden', 'false');
+        launcher.setAttribute('data-pt-launcher-visible', '1');
+        html?.setAttribute?.('data-pt-phone-open', '1');
+        html?.setAttribute?.('data-pt-drawer-open', '1');
+      }
+    } catch {}
+  }
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    () => {
+      document.body.appendChild(hud);
+      tick();
+      setInterval(tick, 350);
+    },
+    { once: true }
+  );
+})();
+
 const DEFAULT_PHONE_HOME_SCREEN = 'home';
 const PHONE_ACTIVE_APP_KEY = 'cccg:pt-active-app';
 import { readLastSaveName } from './last-save.js';

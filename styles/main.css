@@ -10957,12 +10957,6 @@ html[data-pt-phone-open="1"] [data-pt-launcher] * {
   z-index: 10;
 }
 
-/* When the Player OS launcher is up, hide any underlying tray/app UI */
-.pt-screen__glass[data-pt-launcher-visible="1"] > :not([data-pt-launcher]) {
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
 [data-pt-launcher] {
   position: absolute;
   inset: 0;
