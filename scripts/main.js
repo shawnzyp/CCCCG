@@ -151,6 +151,7 @@ try {
     const state = controller?.store?.getState?.();
     return {
       has: Boolean(controller),
+      booting: Boolean(window.__CCCG_APP_CONTROLLER_BOOTING__),
       phase: state?.phase,
       overlays: Array.isArray(state?.overlays) ? state.overlays.map((overlay) => overlay?.type).join('|') : '',
       route: state?.route,
@@ -182,7 +183,10 @@ try {
 
     try {
       const launcher = document.querySelector('[data-pt-launcher]');
-      const shouldForce = glassVisible === '1' || phoneOpen === '1' || drawerOpen === '1';
+    const shouldForce =
+        !controller.has &&
+        !controller.booting &&
+        (glassVisible === '1' || phoneOpen === '1' || drawerOpen === '1');
       if (launcher && shouldForce) {
         pushTrace('FORCE launcher visible');
         launcher.hidden = false;
@@ -2790,7 +2794,7 @@ export async function openApp(appId, opts = {}) {
 
 let launcherDelegationWired = false;
 function wireLauncherDelegation() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   if (launcherDelegationWired || typeof document === 'undefined') return;
   launcherDelegationWired = true;
 
@@ -3109,6 +3113,7 @@ function tryShowWelcomeForLaunch(reason = '') {
 }
 
 function forceRecoverFromBlankScreen() {
+  if (hasControllerOrBooting()) return;
   try {
     const controller = typeof window !== 'undefined' ? window.__CCCG_APP_CONTROLLER__ : null;
     const store = controller?.store;
@@ -3438,9 +3443,12 @@ function dismissWelcomeModal() {
 // ---------------------------------------------------------------------------
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
-function hasAppController() {
+function hasControllerOrBooting() {
   if (typeof window === 'undefined') return false;
   return !!window.__CCCG_APP_CONTROLLER__ || !!window.__CCCG_APP_CONTROLLER_BOOTING__;
+}
+function hasAppController() {
+  return hasControllerOrBooting();
 }
 let launcherMenuWired = false;
 let launcherMenuObserverWired = false;
@@ -3450,7 +3458,7 @@ function getLauncherMainMenu() {
 }
 
 function showLauncherMainMenu() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.hidden = false; } catch {}
@@ -3458,7 +3466,7 @@ function showLauncherMainMenu() {
 }
 
 function hideLauncherMainMenu() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.setAttribute('aria-hidden', 'true'); } catch {}
@@ -3557,7 +3565,7 @@ function restoreTickersFromLauncher() {
 }
 
 function wireLauncherMainMenu() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   if (launcherMenuWired) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
