@@ -3318,7 +3318,8 @@ function dismissWelcomeModal() {
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
 function hasAppController() {
-  return typeof window !== 'undefined' && !!window.__CCCG_APP_CONTROLLER__;
+  if (typeof window === 'undefined') return false;
+  return !!window.__CCCG_APP_CONTROLLER__ || !!window.__CCCG_APP_CONTROLLER_BOOTING__;
 }
 let launcherMenuWired = false;
 let launcherMenuObserverWired = false;
@@ -3489,12 +3490,44 @@ try {
     runLauncherHealthCheck();
   }
 
+  // If module boot fails, immediately allow legacy wiring to run.
+  window.addEventListener('cc:pt-controller-failed', () => {
+    try {
+      // Clear the booting flag so hasAppController() stops blocking.
+      window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
+    } catch {}
+    try {
+      queueMicrotask(wireLegacyIfNoController);
+    } catch {}
+    // Also force a minimal visual recovery so user isn't staring at nothing.
+    try {
+      const launcher = document.querySelector('[data-pt-launcher]');
+      if (launcher) {
+        launcher.hidden = false;
+        launcher.style.removeProperty('display');
+        launcher.setAttribute('aria-hidden', 'false');
+        document.documentElement.setAttribute('data-pt-phone-open', '1');
+        document.documentElement.setAttribute('data-pt-drawer-open', '1');
+      }
+    } catch {}
+  }, { passive: true });
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       queueMicrotask(wireLegacyIfNoController);
     }, { once: true });
   } else {
     queueMicrotask(wireLegacyIfNoController);
+  }
+
+  // If controller is booting, do not wire legacy immediately.
+  // As a last resort, if controller never appears, wire legacy later.
+  if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER_BOOTING__) {
+    setTimeout(() => {
+      try {
+        if (!window.__CCCG_APP_CONTROLLER__) wireLegacyIfNoController();
+      } catch {}
+    }, 4000);
   }
 
   window.addEventListener('cc:pt-controller-ready', () => {

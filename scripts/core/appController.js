@@ -2,6 +2,32 @@ import { createStore } from './store.js';
 import { OverlayManager } from '../ui/overlayManager.js';
 import { PhoneOS } from '../os/phoneOS.js';
 
+function showNode(node) {
+  if (!node) return false;
+  try { node.classList.remove('hidden'); } catch {}
+  try { node.hidden = false; } catch {}
+  try { node.style.display = ''; } catch {}
+  try { node.style.removeProperty('display'); } catch {}
+  try { node.setAttribute('aria-hidden', 'false'); } catch {}
+  return true;
+}
+
+function hideNode(node) {
+  if (!node) return;
+  try { node.classList.add('hidden'); } catch {}
+  try { node.hidden = true; } catch {}
+  try { node.setAttribute('aria-hidden', 'true'); } catch {}
+}
+
+function resolveModalHost({ overlayRoot, modal }) {
+  const nearestHost = modal?.closest?.('[data-pt-modal-host]') || null;
+  // Only trust overlayRoot if it actually contains the modal.
+  if (overlayRoot && modal && typeof overlayRoot.contains === 'function') {
+    if (overlayRoot.contains(modal)) return overlayRoot;
+  }
+  return nearestHost || overlayRoot || null;
+}
+
 const initialState = {
   phase: 'BOOT',
   overlays: [],
@@ -37,30 +63,29 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     welcome: {
       show: () => {
         const modal = document.getElementById('modal-pt-welcome');
-        const modalHost = overlayRoot || modal?.closest('[data-pt-modal-host]');
         if (!modal) return;
+        const modalHost = resolveModalHost({ overlayRoot, modal });
         if (modalHost) {
           modalHost.setAttribute('data-pt-modal-open', '1');
           modalHost.setAttribute('aria-hidden', 'false');
         }
-        modal.hidden = false;
-        modal.setAttribute('aria-hidden', 'false');
+        showNode(modal);
         modal.setAttribute('data-pt-modal-open', '1');
       },
       hide: () => {
         const modal = document.getElementById('modal-pt-welcome');
-        const modalHost = overlayRoot || modal?.closest('[data-pt-modal-host]');
+        const modalHost = resolveModalHost({ overlayRoot, modal });
         if (modal) {
-          modal.hidden = true;
-          modal.setAttribute('aria-hidden', 'true');
-          modal.removeAttribute('data-pt-modal-open');
+          hideNode(modal);
+          try { modal.removeAttribute('data-pt-modal-open'); } catch {}
         }
         if (modalHost) {
           modalHost.removeAttribute('data-pt-modal-open');
           modalHost.setAttribute('aria-hidden', 'true');
         }
       },
-      focusRoot: overlayRoot?.querySelector('#modal-pt-welcome') || document.getElementById('modal-pt-welcome'),
+      // Resolve focus root at render-time to avoid stale references.
+      focusRoot: () => document.getElementById('modal-pt-welcome'),
     },
     mainMenu: {
       show: () => {
@@ -69,11 +94,11 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
       hide: () => {
         phone.hideMainMenu();
       },
-      focusRoot: appRoot?.querySelector('#pt-main-menu') || document.getElementById('pt-main-menu'),
+      focusRoot: () => appRoot?.querySelector?.('#pt-main-menu') || document.getElementById('pt-main-menu'),
     },
   };
 
-  const overlays = new OverlayManager({ appRoot, overlayRoot, overlays: overlayRegistry });
+  const overlays = new OverlayManager({ appRoot, overlayRoot, overlays: overlayRegistry, store });
 
   let phoneMounted = false;
 
@@ -86,7 +111,8 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     const allowPhone = state.phase === 'PHONE_OS';
     phone.setInteractive(allowPhone);
 
-    if (state.phase === 'WELCOME_MODAL') {
+    // Prepaint blur as early as possible so it never "pops" in.
+    if (state.phase === 'WELCOME_MODAL' || state.phase === 'INTRO') {
       overlays.ensureBackdropPrepaint();
     }
 
@@ -101,7 +127,7 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     } else {
       phone.hideMainMenu();
       phone.setView?.('lock', null);
-      if (state.phase === 'WELCOME_MODAL') {
+      if (state.phase === 'WELCOME_MODAL' || state.phase === 'INTRO' || state.phase === 'BOOT') {
         phone.showLauncher?.();
       } else {
         phone.hideLauncher?.();
