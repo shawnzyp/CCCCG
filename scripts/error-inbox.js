@@ -202,6 +202,7 @@ export function installGlobalErrorInbox() {
   const SAFE_MODE_CLEAR_AFTER_MS = 15000;
   let crashThisSession = false;
   const startedInSafeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
+  let shouldAutoClearSafeMode = startedInSafeMode;
 
   function clearSafeMode() {
     try { localStorage.removeItem(SAFE_MODE_KEY); } catch {}
@@ -219,7 +220,10 @@ export function installGlobalErrorInbox() {
       const now = Date.now();
       const expired = !Number.isFinite(firstAt) || (now - firstAt > CRASH_WINDOW_MS);
       const notLooping = !Number.isFinite(count) || count < 2;
-      if (expired || notLooping) clearSafeMode();
+      if (expired || notLooping) {
+        clearSafeMode();
+        shouldAutoClearSafeMode = false;
+      }
     }
   } catch {}
 
@@ -423,9 +427,10 @@ export function installGlobalErrorInbox() {
     },
   };
 
-  if (startedInSafeMode) {
+  if (shouldAutoClearSafeMode) {
     setTimeout(() => {
-      if (!crashThisSession) {
+      const safeMode = readLocalStorage(SAFE_MODE_KEY) === '1';
+      if (safeMode && !crashThisSession) {
         clearSafeMode();
         try { location.reload(); } catch {}
       }
