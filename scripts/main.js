@@ -85,6 +85,131 @@ try {
   }
 } catch {}
 
+// ---------------------------------------------------------------------------
+// Boot Debug HUD + Void Watchdog (temporary but extremely useful on iOS)
+// ---------------------------------------------------------------------------
+(() => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__CCCG_DEBUG_HUD__) return;
+  window.__CCCG_DEBUG_HUD__ = true;
+
+  const trace = (window.__CCCG_BOOT_TRACE__ = window.__CCCG_BOOT_TRACE__ || []);
+  const pushTrace = (message) => {
+    try {
+      trace.push({ ts: Date.now(), msg: String(message || '') });
+      if (trace.length > 80) trace.shift();
+    } catch {}
+  };
+
+  let lastErr = '';
+  function setErr(message) {
+    lastErr = String(message || '').slice(0, 220);
+    pushTrace(`ERR ${lastErr}`);
+  }
+
+  window.addEventListener('error', (event) => setErr(event?.message || event), true);
+  window.addEventListener(
+    'unhandledrejection',
+    (event) => setErr(event?.reason?.message || event?.reason || event),
+    true
+  );
+
+  const hud = document.createElement('div');
+  hud.id = 'cccg-debug-hud';
+  hud.style.position = 'fixed';
+  hud.style.left = '8px';
+  hud.style.bottom = '8px';
+  hud.style.zIndex = '999999';
+  hud.style.maxWidth = '92vw';
+  hud.style.fontFamily =
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+  hud.style.fontSize = '12px';
+  hud.style.lineHeight = '1.25';
+  hud.style.padding = '8px';
+  hud.style.borderRadius = '8px';
+  hud.style.background = 'rgba(0,0,0,0.72)';
+  hud.style.color = '#fff';
+  hud.style.whiteSpace = 'pre-wrap';
+  hud.style.pointerEvents = 'none';
+  hud.style.opacity = '0.92';
+  hud.style.boxShadow = '0 10px 30px rgba(0,0,0,0.35)';
+
+  function readLauncher() {
+    const launcher = document.querySelector('[data-pt-launcher]');
+    const styles = launcher && window.getComputedStyle ? getComputedStyle(launcher) : null;
+    return {
+      exists: Boolean(launcher),
+      hiddenProp: Boolean(launcher?.hidden),
+      ariaHidden: launcher?.getAttribute?.('aria-hidden'),
+      display: styles?.display,
+      visibility: styles?.visibility,
+    };
+  }
+
+  function readController() {
+    const controller = window.__CCCG_APP_CONTROLLER__;
+    const state = controller?.store?.getState?.();
+    return {
+      has: Boolean(controller),
+      booting: Boolean(window.__CCCG_APP_CONTROLLER_BOOTING__),
+      phase: state?.phase,
+      overlays: Array.isArray(state?.overlays) ? state.overlays.map((overlay) => overlay?.type).join('|') : '',
+      route: state?.route,
+    };
+  }
+
+  function tick() {
+    const controller = readController();
+    pushTrace(
+      `TICK ctrl=${controller.has ? '1' : '0'} phase=${controller.phase || ''} overlays=${controller.overlays || ''}`
+    );
+    const launcherState = readLauncher();
+    const bodyClass = document.body?.className || '';
+    const html = document.documentElement;
+    const phoneOpen = html?.getAttribute?.('data-pt-phone-open');
+    const drawerOpen = html?.getAttribute?.('data-pt-drawer-open');
+    const glassVisible = document.querySelector('.pt-screen__glass[data-pt-launcher-visible="1"]') ? '1' : '0';
+
+    hud.textContent =
+      `CTRL has=${controller.has} phase=${controller.phase || ''} overlays=${controller.overlays || ''} route=${
+        controller.route || ''
+      }\n` +
+      `LAUNCHER exists=${launcherState.exists} hidden=${launcherState.hiddenProp} aria=${
+        launcherState.ariaHidden || ''
+      } display=${launcherState.display || ''} vis=${launcherState.visibility || ''}\n` +
+      `HTML phoneOpen=${phoneOpen || '0'} drawerOpen=${drawerOpen || '0'} glassLauncherVisible=${glassVisible}\n` +
+      `BODY class=${bodyClass}\n` +
+      `ERR ${lastErr || ''}`;
+
+    try {
+      const launcher = document.querySelector('[data-pt-launcher]');
+    const shouldForce =
+        !controller.has &&
+        !controller.booting &&
+        (glassVisible === '1' || phoneOpen === '1' || drawerOpen === '1');
+      if (launcher && shouldForce) {
+        pushTrace('FORCE launcher visible');
+        launcher.hidden = false;
+        launcher.style.removeProperty('display');
+        launcher.setAttribute('aria-hidden', 'false');
+        launcher.setAttribute('data-pt-launcher-visible', '1');
+        html?.setAttribute?.('data-pt-phone-open', '1');
+        html?.setAttribute?.('data-pt-drawer-open', '1');
+      }
+    } catch {}
+  }
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    () => {
+      document.body.appendChild(hud);
+      tick();
+      setInterval(tick, 350);
+    },
+    { once: true }
+  );
+})();
+
 const DEFAULT_PHONE_HOME_SCREEN = 'home';
 const PHONE_ACTIVE_APP_KEY = 'cccg:pt-active-app';
 import { readLastSaveName } from './last-save.js';
@@ -2669,7 +2794,7 @@ export async function openApp(appId, opts = {}) {
 
 let launcherDelegationWired = false;
 function wireLauncherDelegation() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   if (launcherDelegationWired || typeof document === 'undefined') return;
   launcherDelegationWired = true;
 
@@ -2994,6 +3119,7 @@ function forceRecoverFromBlankScreen() {
     const phone = controller?.phone;
     if (store && phone) {
       try { phone.showLauncher?.(); } catch {}
+      try { phone.syncPhoneOpenFlags?.(); } catch {}
       const state = store.getState?.();
       const phase = state?.phase;
       if (!phase || phase === 'BOOT') {
@@ -3021,6 +3147,7 @@ function forceRecoverFromBlankScreen() {
       return;
     }
 
+    if (hasControllerOrBooting()) return;
     const doc = typeof document !== 'undefined' ? document : null;
     if (!doc) return;
 
@@ -3317,9 +3444,12 @@ function dismissWelcomeModal() {
 // ---------------------------------------------------------------------------
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
-function hasAppController() {
+function hasControllerOrBooting() {
   if (typeof window === 'undefined') return false;
   return !!window.__CCCG_APP_CONTROLLER__ || !!window.__CCCG_APP_CONTROLLER_BOOTING__;
+}
+function hasAppController() {
+  return hasControllerOrBooting();
 }
 let launcherMenuWired = false;
 let launcherMenuObserverWired = false;
@@ -3329,7 +3459,7 @@ function getLauncherMainMenu() {
 }
 
 function showLauncherMainMenu() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.hidden = false; } catch {}
@@ -3337,7 +3467,7 @@ function showLauncherMainMenu() {
 }
 
 function hideLauncherMainMenu() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
   try { menu.setAttribute('aria-hidden', 'true'); } catch {}
@@ -3436,7 +3566,7 @@ function restoreTickersFromLauncher() {
 }
 
 function wireLauncherMainMenu() {
-  if (hasAppController()) return;
+  if (hasControllerOrBooting()) return;
   if (launcherMenuWired) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
