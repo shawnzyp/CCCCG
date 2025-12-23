@@ -3093,6 +3093,15 @@ function tryShowWelcomeForLaunch(reason = '') {
   if (welcomeShownFromLaunch) return;
   if (welcomeModalDismissed) return;
 
+  try {
+    if (typeof window !== 'undefined') {
+      if (window.__CCCG_APP_CONTROLLER__ || window.__CCCG_APP_CONTROLLER_BOOTING__) {
+        welcomeShownFromLaunch = true;
+        return;
+      }
+    }
+  } catch {}
+
   // If the app is still in "launching" we want the welcome modal on top once intro ends.
   // We do not depend on pointer-events hacks; just ensure modal is shown and touch remains locked.
   welcomeShownFromLaunch = true;
@@ -25844,6 +25853,9 @@ if (typeof performance !== 'undefined' && typeof performance.measure === 'functi
 }
 if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
+  try {
+    navigator.serviceWorker.getRegistration?.().then((reg) => reg?.update?.()).catch(() => {});
+  } catch {}
   let swUrl = 'sw.js';
   try {
     if (typeof document !== 'undefined' && document.baseURI) {
@@ -25865,12 +25877,17 @@ if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'service
   }
   console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
   let hadController = Boolean(navigator.serviceWorker.controller);
+  let swReloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     console.warn('[SW] controllerchange');
     if (serviceWorkerUpdateHandled) return;
     if (!hadController) {
       hadController = true;
       return;
+    }
+    if (!swReloaded) {
+      swReloaded = true;
+      try { window.location.reload(); } catch {}
     }
     announceContentUpdate({
       message: 'New Codex content is available.',
