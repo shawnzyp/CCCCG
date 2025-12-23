@@ -2,6 +2,7 @@
 (function () {
   'use strict';
   try { window.__CCCG_APP_CONTROLLER_BOOTING__ = true; } catch {}
+  try { window.__CCCG_MODE__ = 'controller'; } catch {}
 
   function fail(err) {
     try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}

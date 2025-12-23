@@ -6,8 +6,15 @@ export function initPlayerOSModule() {
   const launcher = document.querySelector('[data-pt-launcher]');
   if (!launcher) {
     try { console.warn('Player OS: [data-pt-launcher] not found in DOM'); } catch {}
+    try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
     return;
   }
+  try {
+    launcher.hidden = false;
+    launcher.classList?.remove?.('hidden');
+    launcher.style?.removeProperty?.('display');
+    launcher.setAttribute?.('aria-hidden', 'false');
+  } catch {}
 
   // Prefer the modal host inside the launcher first (critical).
   const overlayRoot =
@@ -21,6 +28,18 @@ export function initPlayerOSModule() {
   window.PlayerOSReady = false;
 
   try { window.dispatchEvent(new CustomEvent('cc:pt-controller-ready')); } catch {}
+
+  try {
+    launcher.addEventListener('click', (e) => {
+      const btn = e.target?.closest?.('[data-pt-open-app]');
+      if (!btn) return;
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      const appId = btn.getAttribute('data-pt-open-app');
+      if (!appId) return;
+      controller.store.dispatch({ type: 'NAVIGATE', route: appId });
+    }, { capture: true });
+  } catch {}
 
   controller.store.dispatch({ type: 'BOOT_DONE' });
   try { controller.phone?.showLauncher?.(); } catch {}
@@ -41,9 +60,7 @@ export function initPlayerOSModule() {
   if (launchComplete || !document.body?.classList?.contains('launching')) {
     scheduleIntroDone();
   } else {
-    window.addEventListener('cc:launch:done', scheduleIntroDone, { once: true });
     window.addEventListener('cc:launch-complete', scheduleIntroDone, { once: true });
-    window.addEventListener('cc:launch:complete', scheduleIntroDone, { once: true });
     try {
       const body = document.body;
       if (body && typeof MutationObserver === 'function') {

@@ -370,6 +370,21 @@ const MENU_MODAL_STATE = new Map();
   const startedAt = Date.now();
   setTimeout(() => {
     try {
+      if (isControllerMode()) {
+        const ready = !!window.__CCCG_APP_CONTROLLER__;
+        if (!ready) {
+          if (!window.__cccgControllerFailFired) {
+            window.__cccgControllerFailFired = true;
+            try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
+            try {
+              window.dispatchEvent(new CustomEvent('cc:pt-controller-failed', {
+                detail: { message: 'Boot watchdog timeout (controller not ready)' },
+              }));
+            } catch {}
+          }
+        }
+        return;
+      }
       const body = document.body;
       const root = document.documentElement;
       const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
@@ -384,6 +399,15 @@ const MENU_MODAL_STATE = new Map();
         lastUpdate: window.__ccLastContentUpdate,
         uptimeMs: Date.now() - startedAt,
       });
+      try { forceRecoverFromBlankScreen(); } catch {}
+      try {
+        document.body?.classList?.remove('touch-controls-disabled', 'modal-open', 'launching');
+        document.documentElement?.setAttribute?.('data-pt-touch-locked', '0');
+        document.querySelectorAll?.('[inert]').forEach((el) => {
+          try { el.inert = false; } catch {}
+          try { el.removeAttribute('inert'); } catch {}
+        });
+      } catch {}
       try {
         window.dispatchEvent(new CustomEvent('cccg:report', {
           detail: {
@@ -2834,6 +2858,9 @@ function wireLauncherDelegation() {
 }
 
 export function runLauncherHealthCheck({ logToConsole = true } = {}) {
+  if (isControllerBootingOrReady()) {
+    return { ok: true, missingRegistry: [], missingTargets: [], skippedTargetsCheck: true };
+  }
   if (typeof document === 'undefined') return { ok: true, missingRegistry: [], missingTargets: [] };
   const launcherButtons = [...document.querySelectorAll('[data-pt-open-app]')];
   const buttonAppIds = launcherButtons
@@ -3093,6 +3120,11 @@ function tryShowWelcomeForLaunch(reason = '') {
   if (welcomeShownFromLaunch) return;
   if (welcomeModalDismissed) return;
 
+  if (isControllerBootingOrReady()) {
+    welcomeShownFromLaunch = true;
+    return;
+  }
+
   // If the app is still in "launching" we want the welcome modal on top once intro ends.
   // We do not depend on pointer-events hacks; just ensure modal is shown and touch remains locked.
   welcomeShownFromLaunch = true;
@@ -3147,7 +3179,7 @@ function forceRecoverFromBlankScreen() {
       return;
     }
 
-    if (hasControllerOrBooting()) return;
+    if (isControllerBootingOrReady()) return;
     const doc = typeof document !== 'undefined' ? document : null;
     if (!doc) return;
 
@@ -3189,6 +3221,10 @@ function forceRecoverFromBlankScreen() {
 
 function scheduleLaunchRecovery() {
   if (launchRecoveryScheduled) return;
+  if (isControllerBootingOrReady()) {
+    try { forceRecoverFromBlankScreen(); } catch {}
+    return;
+  }
   launchRecoveryScheduled = true;
   const setTimer = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
     ? window.setTimeout.bind(window)
@@ -3218,6 +3254,7 @@ if (typeof window !== 'undefined') {
 }
 
 function lockTouchControls() {
+  if (isControllerMode()) return;
   if (typeof document === 'undefined') return;
   clearTouchUnlockTimer();
   const { body } = document;
@@ -3227,6 +3264,7 @@ function lockTouchControls() {
 }
 
 function safeUnlockTouchControls({ immediate = false } = {}) {
+  if (isControllerMode()) return;
   if (typeof document === 'undefined') return;
   const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
   const drawer = document.getElementById('player-tools-drawer');
@@ -3246,6 +3284,7 @@ function safeUnlockTouchControls({ immediate = false } = {}) {
 }
 
 function unlockTouchControls({ immediate = false } = {}) {
+  if (isControllerMode()) return;
   if (typeof document === 'undefined') return;
   const { body } = document;
   if (body) {
@@ -3287,6 +3326,7 @@ function unlockTouchControls({ immediate = false } = {}) {
 }
 
 function forceInteractionUnlock(reason = 'unknown') {
+  if (isControllerMode()) return;
   try { markBootProgress(`force-unlock:${reason}`); } catch {}
 
   const doc = typeof document !== 'undefined' ? document : null;
@@ -3331,11 +3371,7 @@ function forceInteractionUnlock(reason = 'unknown') {
 }
 
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
-  try {
-    if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER__) {
-      return;
-    }
-  } catch {}
+  if (isControllerMode()) return;
   const modal = prepareWelcomeModal();
   if (!modal) {
     safeUnlockTouchControls({ immediate: true });
@@ -3415,6 +3451,7 @@ function hardEndLaunchUI() {
 }
 
 function dismissWelcomeModal() {
+  if (isControllerMode()) return;
   welcomeModalDismissed = true;
   try { hide(WELCOME_MODAL_ID); } catch {}
   try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
@@ -3445,8 +3482,24 @@ function dismissWelcomeModal() {
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
 function hasControllerOrBooting() {
-  if (typeof window === 'undefined') return false;
-  return !!window.__CCCG_APP_CONTROLLER__ || !!window.__CCCG_APP_CONTROLLER_BOOTING__;
+  return isControllerBootingOrReady();
+}
+function isControllerBootingOrReady() {
+  try {
+    if (typeof window === 'undefined') return false;
+    return !!(window.__CCCG_APP_CONTROLLER__ || window.__CCCG_APP_CONTROLLER_BOOTING__);
+  } catch {
+    return false;
+  }
+}
+function isControllerMode() {
+  try {
+    if (typeof window === 'undefined') return false;
+    if (window.__CCCG_APP_CONTROLLER__) return true;
+    return window.__CCCG_MODE__ === 'controller';
+  } catch {
+    return false;
+  }
 }
 function hasAppController() {
   return hasControllerOrBooting();
@@ -3614,6 +3667,7 @@ function wireLauncherMainMenu() {
 // Ensure menu wiring happens once DOM is ready.
 try {
   function wireLegacyIfNoController() {
+    if (isControllerMode()) return;
     if (hasAppController()) return;
     wireLauncherMainMenu();
     wireLauncherDelegation();
@@ -3625,6 +3679,9 @@ try {
     try {
       // Clear the booting flag so hasAppController() stops blocking.
       window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
+    } catch {}
+    try {
+      window.__CCCG_MODE__ = 'legacy';
     } catch {}
     try {
       queueMicrotask(wireLegacyIfNoController);
@@ -3655,9 +3712,12 @@ try {
   if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER_BOOTING__) {
     setTimeout(() => {
       try {
-        if (!window.__CCCG_APP_CONTROLLER__) wireLegacyIfNoController();
+        if (!window.__CCCG_APP_CONTROLLER__) {
+          window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
+          wireLegacyIfNoController();
+        }
       } catch {}
-    }, 4000);
+    }, 6000);
   }
 
   window.addEventListener('cc:pt-controller-ready', () => {
@@ -3680,6 +3740,7 @@ if (typeof window !== 'undefined') {
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
+  if (isControllerMode()) return;
   if (welcomeModalDismissed) {
     const body = typeof document !== 'undefined' ? document.body : null;
     if (!body || !body.classList.contains('launching')) {
@@ -25844,6 +25905,9 @@ if (typeof performance !== 'undefined' && typeof performance.measure === 'functi
 }
 if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   wireServiceWorkerReloadGuard();
+  try {
+    navigator.serviceWorker.getRegistration?.().then((reg) => reg?.update?.()).catch(() => {});
+  } catch {}
   let swUrl = 'sw.js';
   try {
     if (typeof document !== 'undefined' && document.baseURI) {
@@ -25865,12 +25929,22 @@ if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'service
   }
   console.warn('[SW]', 'controller', !!navigator.serviceWorker.controller);
   let hadController = Boolean(navigator.serviceWorker.controller);
+  let swReloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     console.warn('[SW] controllerchange');
     if (serviceWorkerUpdateHandled) return;
     if (!hadController) {
       hadController = true;
       return;
+    }
+    if (!swReloaded) {
+      swReloaded = true;
+      try {
+        const key = 'cc:sw-reloaded';
+        if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key) === '1') return;
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, '1');
+      } catch {}
+      try { window.location.reload(); } catch {}
     }
     announceContentUpdate({
       message: 'New Codex content is available.',
