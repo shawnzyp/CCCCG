@@ -373,13 +373,15 @@ const MENU_MODAL_STATE = new Map();
       if (isControllerMode()) {
         const ready = !!window.__CCCG_APP_CONTROLLER__;
         if (!ready) {
-          try { window.__CCCG_MODE__ = 'legacy'; } catch {}
-          try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
-          try { forceRecoverFromBlankScreen(); } catch {}
-          try {
-            document.body?.classList?.remove('touch-controls-disabled', 'modal-open', 'launching');
-            document.documentElement?.setAttribute?.('data-pt-touch-locked', '0');
-          } catch {}
+          if (!window.__cccgControllerFailFired) {
+            window.__cccgControllerFailFired = true;
+            try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
+            try {
+              window.dispatchEvent(new CustomEvent('cc:pt-controller-failed', {
+                detail: { message: 'Boot watchdog timeout (controller not ready)' },
+              }));
+            } catch {}
+          }
         }
         return;
       }
@@ -3492,7 +3494,9 @@ function isControllerBootingOrReady() {
 }
 function isControllerMode() {
   try {
-    return typeof window !== 'undefined' && window.__CCCG_MODE__ === 'controller';
+    if (typeof window === 'undefined') return false;
+    if (window.__CCCG_APP_CONTROLLER__) return true;
+    return window.__CCCG_MODE__ === 'controller';
   } catch {
     return false;
   }
@@ -3675,6 +3679,9 @@ try {
     try {
       // Clear the booting flag so hasAppController() stops blocking.
       window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
+    } catch {}
+    try {
+      window.__CCCG_MODE__ = 'legacy';
     } catch {}
     try {
       queueMicrotask(wireLegacyIfNoController);
@@ -25932,6 +25939,11 @@ if (!isSafeMode && !IS_JSDOM_ENV && typeof navigator !== 'undefined' && 'service
     }
     if (!swReloaded) {
       swReloaded = true;
+      try {
+        const key = 'cc:sw-reloaded';
+        if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key) === '1') return;
+        if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, '1');
+      } catch {}
       try { window.location.reload(); } catch {}
     }
     announceContentUpdate({

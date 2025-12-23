@@ -114,6 +114,7 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
         if (modalHost) {
           modalHost.removeAttribute('data-pt-modal-open');
           modalHost.setAttribute('aria-hidden', 'true');
+          hideNode(modalHost);
         }
       },
       // Resolve focus root at render-time to avoid stale references.
