@@ -78,6 +78,7 @@ function reducer(state, action) {
 export function createAppController({ appRoot, overlayRoot } = {}) {
   const store = createStore(initialState, reducer);
   const phone = new PhoneOS({ appRoot, store });
+  try { showNode(appRoot); } catch {}
   const overlayRegistry = {
     welcome: {
       show: () => {
@@ -85,9 +86,11 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
         if (!modal) return;
         const modalHost = resolveModalHost({ overlayRoot, modal });
         if (modalHost) {
+          showNode(modalHost);
           modalHost.setAttribute('data-pt-modal-open', '1');
           modalHost.setAttribute('aria-hidden', 'false');
         }
+        showNode(appRoot);
         showNode(modal);
         modal.setAttribute('data-pt-modal-open', '1');
       },

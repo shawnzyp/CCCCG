@@ -370,10 +370,6 @@ const MENU_MODAL_STATE = new Map();
   const startedAt = Date.now();
   setTimeout(() => {
     try {
-      if (isControllerBootingOrReady()) {
-        try { forceRecoverFromBlankScreen(); } catch {}
-        return;
-      }
       const body = document.body;
       const root = document.documentElement;
       const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
@@ -388,6 +384,15 @@ const MENU_MODAL_STATE = new Map();
         lastUpdate: window.__ccLastContentUpdate,
         uptimeMs: Date.now() - startedAt,
       });
+      try { forceRecoverFromBlankScreen(); } catch {}
+      try {
+        document.body?.classList?.remove('touch-controls-disabled', 'modal-open', 'launching');
+        document.documentElement?.setAttribute?.('data-pt-touch-locked', '0');
+        document.querySelectorAll?.('[inert]').forEach((el) => {
+          try { el.inert = false; } catch {}
+          try { el.removeAttribute('inert'); } catch {}
+        });
+      } catch {}
       try {
         window.dispatchEvent(new CustomEvent('cccg:report', {
           detail: {

@@ -6,8 +6,15 @@ export function initPlayerOSModule() {
   const launcher = document.querySelector('[data-pt-launcher]');
   if (!launcher) {
     try { console.warn('Player OS: [data-pt-launcher] not found in DOM'); } catch {}
+    try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
     return;
   }
+  try {
+    launcher.hidden = false;
+    launcher.classList?.remove?.('hidden');
+    launcher.style?.removeProperty?.('display');
+    launcher.setAttribute?.('aria-hidden', 'false');
+  } catch {}
 
   // Prefer the modal host inside the launcher first (critical).
   const overlayRoot =
