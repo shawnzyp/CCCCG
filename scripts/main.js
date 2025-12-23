@@ -370,6 +370,19 @@ const MENU_MODAL_STATE = new Map();
   const startedAt = Date.now();
   setTimeout(() => {
     try {
+      if (isControllerMode()) {
+        const ready = !!window.__CCCG_APP_CONTROLLER__;
+        if (!ready) {
+          try { window.__CCCG_MODE__ = 'legacy'; } catch {}
+          try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
+          try { forceRecoverFromBlankScreen(); } catch {}
+          try {
+            document.body?.classList?.remove('touch-controls-disabled', 'modal-open', 'launching');
+            document.documentElement?.setAttribute?.('data-pt-touch-locked', '0');
+          } catch {}
+        }
+        return;
+      }
       const body = document.body;
       const root = document.documentElement;
       const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
@@ -3239,7 +3252,7 @@ if (typeof window !== 'undefined') {
 }
 
 function lockTouchControls() {
-  if (isControllerBootingOrReady()) return;
+  if (isControllerMode()) return;
   if (typeof document === 'undefined') return;
   clearTouchUnlockTimer();
   const { body } = document;
@@ -3249,7 +3262,7 @@ function lockTouchControls() {
 }
 
 function safeUnlockTouchControls({ immediate = false } = {}) {
-  if (isControllerBootingOrReady()) return;
+  if (isControllerMode()) return;
   if (typeof document === 'undefined') return;
   const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
   const drawer = document.getElementById('player-tools-drawer');
@@ -3269,7 +3282,7 @@ function safeUnlockTouchControls({ immediate = false } = {}) {
 }
 
 function unlockTouchControls({ immediate = false } = {}) {
-  if (isControllerBootingOrReady()) return;
+  if (isControllerMode()) return;
   if (typeof document === 'undefined') return;
   const { body } = document;
   if (body) {
@@ -3311,7 +3324,7 @@ function unlockTouchControls({ immediate = false } = {}) {
 }
 
 function forceInteractionUnlock(reason = 'unknown') {
-  if (isControllerBootingOrReady()) return;
+  if (isControllerMode()) return;
   try { markBootProgress(`force-unlock:${reason}`); } catch {}
 
   const doc = typeof document !== 'undefined' ? document : null;
@@ -3356,7 +3369,7 @@ function forceInteractionUnlock(reason = 'unknown') {
 }
 
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
-  if (isControllerBootingOrReady()) return;
+  if (isControllerMode()) return;
   const modal = prepareWelcomeModal();
   if (!modal) {
     safeUnlockTouchControls({ immediate: true });
@@ -3436,7 +3449,7 @@ function hardEndLaunchUI() {
 }
 
 function dismissWelcomeModal() {
-  if (isControllerBootingOrReady()) return;
+  if (isControllerMode()) return;
   welcomeModalDismissed = true;
   try { hide(WELCOME_MODAL_ID); } catch {}
   try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
@@ -3473,6 +3486,13 @@ function isControllerBootingOrReady() {
   try {
     if (typeof window === 'undefined') return false;
     return !!(window.__CCCG_APP_CONTROLLER__ || window.__CCCG_APP_CONTROLLER_BOOTING__);
+  } catch {
+    return false;
+  }
+}
+function isControllerMode() {
+  try {
+    return typeof window !== 'undefined' && window.__CCCG_MODE__ === 'controller';
   } catch {
     return false;
   }
@@ -3643,6 +3663,7 @@ function wireLauncherMainMenu() {
 // Ensure menu wiring happens once DOM is ready.
 try {
   function wireLegacyIfNoController() {
+    if (isControllerMode()) return;
     if (hasAppController()) return;
     wireLauncherMainMenu();
     wireLauncherDelegation();
@@ -3712,7 +3733,7 @@ if (typeof window !== 'undefined') {
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
-  if (isControllerBootingOrReady()) return;
+  if (isControllerMode()) return;
   if (welcomeModalDismissed) {
     const body = typeof document !== 'undefined' ? document.body : null;
     if (!body || !body.classList.contains('launching')) {

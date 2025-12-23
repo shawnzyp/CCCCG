@@ -29,6 +29,18 @@ export function initPlayerOSModule() {
 
   try { window.dispatchEvent(new CustomEvent('cc:pt-controller-ready')); } catch {}
 
+  try {
+    launcher.addEventListener('click', (e) => {
+      const btn = e.target?.closest?.('[data-pt-open-app]');
+      if (!btn) return;
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      const appId = btn.getAttribute('data-pt-open-app');
+      if (!appId) return;
+      controller.store.dispatch({ type: 'NAVIGATE', route: appId });
+    }, { capture: true });
+  } catch {}
+
   controller.store.dispatch({ type: 'BOOT_DONE' });
   try { controller.phone?.showLauncher?.(); } catch {}
   try { controller.phone?.setView?.('lock', null); } catch {}
@@ -48,9 +60,7 @@ export function initPlayerOSModule() {
   if (launchComplete || !document.body?.classList?.contains('launching')) {
     scheduleIntroDone();
   } else {
-    window.addEventListener('cc:launch:done', scheduleIntroDone, { once: true });
     window.addEventListener('cc:launch-complete', scheduleIntroDone, { once: true });
-    window.addEventListener('cc:launch:complete', scheduleIntroDone, { once: true });
     try {
       const body = document.body;
       if (body && typeof MutationObserver === 'function') {

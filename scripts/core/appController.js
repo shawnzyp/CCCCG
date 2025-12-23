@@ -21,6 +21,16 @@ function unlockGlobalTouch(reason = 'controller') {
   } catch {}
 }
 
+function lockGlobalTouch(reason = 'controller') {
+  try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '1'); } catch {}
+  try { document.body?.classList?.add?.('touch-controls-disabled'); } catch {}
+  try {
+    if (typeof globalThis.lockTouchControls === 'function') {
+      globalThis.lockTouchControls({ reason });
+    }
+  } catch {}
+}
+
 function showNode(node) {
   if (!node) return false;
   try { node.classList.remove('hidden'); } catch {}
@@ -134,7 +144,9 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     const allowPhone = state.phase === 'PHONE_OS';
     phone.setInteractive(allowPhone);
 
-    if (state.phase === 'WELCOME_MODAL' || state.phase === 'PHONE_OS') {
+    if (state.phase === 'BOOT' || state.phase === 'INTRO') {
+      lockGlobalTouch(state.phase.toLowerCase());
+    } else {
       unlockGlobalTouch(state.phase.toLowerCase());
     }
 
