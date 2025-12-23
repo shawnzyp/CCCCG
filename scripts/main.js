@@ -370,6 +370,10 @@ const MENU_MODAL_STATE = new Map();
   const startedAt = Date.now();
   setTimeout(() => {
     try {
+      if (isControllerBootingOrReady()) {
+        try { forceRecoverFromBlankScreen(); } catch {}
+        return;
+      }
       const body = document.body;
       const root = document.documentElement;
       const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
@@ -2834,6 +2838,9 @@ function wireLauncherDelegation() {
 }
 
 export function runLauncherHealthCheck({ logToConsole = true } = {}) {
+  if (isControllerBootingOrReady()) {
+    return { ok: true, missingRegistry: [], missingTargets: [], skippedTargetsCheck: true };
+  }
   if (typeof document === 'undefined') return { ok: true, missingRegistry: [], missingTargets: [] };
   const launcherButtons = [...document.querySelectorAll('[data-pt-open-app]')];
   const buttonAppIds = launcherButtons
@@ -3093,14 +3100,10 @@ function tryShowWelcomeForLaunch(reason = '') {
   if (welcomeShownFromLaunch) return;
   if (welcomeModalDismissed) return;
 
-  try {
-    if (typeof window !== 'undefined') {
-      if (window.__CCCG_APP_CONTROLLER__ || window.__CCCG_APP_CONTROLLER_BOOTING__) {
-        welcomeShownFromLaunch = true;
-        return;
-      }
-    }
-  } catch {}
+  if (isControllerBootingOrReady()) {
+    welcomeShownFromLaunch = true;
+    return;
+  }
 
   // If the app is still in "launching" we want the welcome modal on top once intro ends.
   // We do not depend on pointer-events hacks; just ensure modal is shown and touch remains locked.
@@ -3156,7 +3159,7 @@ function forceRecoverFromBlankScreen() {
       return;
     }
 
-    if (hasControllerOrBooting()) return;
+    if (isControllerBootingOrReady()) return;
     const doc = typeof document !== 'undefined' ? document : null;
     if (!doc) return;
 
@@ -3198,6 +3201,10 @@ function forceRecoverFromBlankScreen() {
 
 function scheduleLaunchRecovery() {
   if (launchRecoveryScheduled) return;
+  if (isControllerBootingOrReady()) {
+    try { forceRecoverFromBlankScreen(); } catch {}
+    return;
+  }
   launchRecoveryScheduled = true;
   const setTimer = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
     ? window.setTimeout.bind(window)
@@ -3227,6 +3234,7 @@ if (typeof window !== 'undefined') {
 }
 
 function lockTouchControls() {
+  if (isControllerBootingOrReady()) return;
   if (typeof document === 'undefined') return;
   clearTouchUnlockTimer();
   const { body } = document;
@@ -3236,6 +3244,7 @@ function lockTouchControls() {
 }
 
 function safeUnlockTouchControls({ immediate = false } = {}) {
+  if (isControllerBootingOrReady()) return;
   if (typeof document === 'undefined') return;
   const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
   const drawer = document.getElementById('player-tools-drawer');
@@ -3255,6 +3264,7 @@ function safeUnlockTouchControls({ immediate = false } = {}) {
 }
 
 function unlockTouchControls({ immediate = false } = {}) {
+  if (isControllerBootingOrReady()) return;
   if (typeof document === 'undefined') return;
   const { body } = document;
   if (body) {
@@ -3296,6 +3306,7 @@ function unlockTouchControls({ immediate = false } = {}) {
 }
 
 function forceInteractionUnlock(reason = 'unknown') {
+  if (isControllerBootingOrReady()) return;
   try { markBootProgress(`force-unlock:${reason}`); } catch {}
 
   const doc = typeof document !== 'undefined' ? document : null;
@@ -3340,11 +3351,7 @@ function forceInteractionUnlock(reason = 'unknown') {
 }
 
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
-  try {
-    if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER__) {
-      return;
-    }
-  } catch {}
+  if (isControllerBootingOrReady()) return;
   const modal = prepareWelcomeModal();
   if (!modal) {
     safeUnlockTouchControls({ immediate: true });
@@ -3424,6 +3431,7 @@ function hardEndLaunchUI() {
 }
 
 function dismissWelcomeModal() {
+  if (isControllerBootingOrReady()) return;
   welcomeModalDismissed = true;
   try { hide(WELCOME_MODAL_ID); } catch {}
   try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
@@ -3454,8 +3462,15 @@ function dismissWelcomeModal() {
 // Launcher Main Menu integration
 // ---------------------------------------------------------------------------
 function hasControllerOrBooting() {
-  if (typeof window === 'undefined') return false;
-  return !!window.__CCCG_APP_CONTROLLER__ || !!window.__CCCG_APP_CONTROLLER_BOOTING__;
+  return isControllerBootingOrReady();
+}
+function isControllerBootingOrReady() {
+  try {
+    if (typeof window === 'undefined') return false;
+    return !!(window.__CCCG_APP_CONTROLLER__ || window.__CCCG_APP_CONTROLLER_BOOTING__);
+  } catch {
+    return false;
+  }
 }
 function hasAppController() {
   return hasControllerOrBooting();
@@ -3664,9 +3679,12 @@ try {
   if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER_BOOTING__) {
     setTimeout(() => {
       try {
-        if (!window.__CCCG_APP_CONTROLLER__) wireLegacyIfNoController();
+        if (!window.__CCCG_APP_CONTROLLER__) {
+          window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
+          wireLegacyIfNoController();
+        }
       } catch {}
-    }, 4000);
+    }, 6000);
   }
 
   window.addEventListener('cc:pt-controller-ready', () => {
@@ -3689,6 +3707,7 @@ if (typeof window !== 'undefined') {
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
+  if (isControllerBootingOrReady()) return;
   if (welcomeModalDismissed) {
     const body = typeof document !== 'undefined' ? document.body : null;
     if (!body || !body.classList.contains('launching')) {
