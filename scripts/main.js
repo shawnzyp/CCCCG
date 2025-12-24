@@ -2596,7 +2596,7 @@ function isLauncherUiBusy() {
   const body = typeof document !== 'undefined' ? document.body : null;
   const root = typeof document !== 'undefined' ? document.documentElement : null;
   const launching = !!(body && body.classList.contains('launching'));
-  const modalOpen = !!(root && root.classList.contains('modal-open'));
+  const modalOpen = !!(body && body.classList.contains('modal-open'));
   const phoneLocked = !!(root && root.classList.contains('pt-os-lock'));
   return launching || modalOpen || phoneLocked;
 }
