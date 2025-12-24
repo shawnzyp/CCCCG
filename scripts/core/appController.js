@@ -2,15 +2,35 @@ import { createStore } from './store.js';
 import { OverlayManager } from '../ui/overlayManager.js';
 import { PhoneOS } from '../os/phoneOS.js';
 
-function unlockGlobalTouch(reason = 'controller') {
+function hardUnlockUI(reason = 'controller') {
+  try { document.body?.classList?.remove?.('touch-controls-disabled', 'modal-open', 'launching'); } catch {}
   try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '0'); } catch {}
-  try { document.body?.classList?.remove?.('touch-controls-disabled'); } catch {}
-  try { document.body?.classList?.remove?.('modal-open'); } catch {}
+  try { document.documentElement?.setAttribute?.('data-pt-drawer-open', '0'); } catch {}
+  try { document.documentElement?.removeAttribute?.('data-pt-drawer-open'); } catch {}
   try {
     document.querySelectorAll?.('[inert]').forEach((el) => {
       try { el.inert = false; } catch {}
       try { el.removeAttribute('inert'); } catch {}
     });
+  } catch {}
+  try {
+    const launchEl = document.getElementById('launch-animation');
+    if (launchEl) {
+      try { launchEl.hidden = true; } catch {}
+      try { launchEl.style.display = 'none'; } catch {}
+      try { launchEl.style.pointerEvents = 'none'; } catch {}
+      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
+    }
+  } catch {}
+  try {
+    const shell = document.querySelector?.('[data-launch-shell]');
+    if (shell) {
+      try { shell.style.pointerEvents = ''; } catch {}
+      try { shell.style.visibility = ''; } catch {}
+      try { shell.style.opacity = ''; } catch {}
+      try { shell.inert = false; } catch {}
+      try { shell.removeAttribute('inert'); } catch {}
+    }
   } catch {}
   try {
     if (typeof globalThis.safeUnlockTouchControls === 'function') {
@@ -21,15 +41,7 @@ function unlockGlobalTouch(reason = 'controller') {
   } catch {}
 }
 
-function lockGlobalTouch(reason = 'controller') {
-  try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '1'); } catch {}
-  try { document.body?.classList?.add?.('touch-controls-disabled'); } catch {}
-  try {
-    if (typeof globalThis.lockTouchControls === 'function') {
-      globalThis.lockTouchControls({ reason });
-    }
-  } catch {}
-}
+// Controller mode should always force the UI usable.
 
 function showNode(node) {
   if (!node) return false;
@@ -41,36 +53,10 @@ function showNode(node) {
   return true;
 }
 
-function hideNode(node) {
-  if (!node) return;
-  try { node.classList.add('hidden'); } catch {}
-  try { node.hidden = true; } catch {}
-  try { node.setAttribute('aria-hidden', 'true'); } catch {}
-}
-
-function resolveModalHost({ overlayRoot, modal }) {
-  const nearestHost = modal?.closest?.('[data-pt-modal-host]') || null;
-  // Only trust overlayRoot if it actually contains the modal.
-  if (overlayRoot && modal && typeof overlayRoot.contains === 'function') {
-    if (overlayRoot.contains(modal)) return overlayRoot;
-  }
-  return nearestHost || overlayRoot || null;
-}
-
-const initialState = {
-  phase: 'BOOT',
-  overlays: [],
-  route: 'home',
-};
+const initialState = { phase: 'PHONE_OS', overlays: [], route: 'home' };
 
 function reducer(state, action) {
   switch (action.type) {
-    case 'BOOT_DONE':
-      return { ...state, phase: 'INTRO' };
-    case 'INTRO_DONE':
-      return { ...state, phase: 'WELCOME_MODAL', overlays: [{ type: 'welcome' }] };
-    case 'WELCOME_ACCEPT':
-      return { ...state, phase: 'PHONE_OS', overlays: [] };
     case 'OPEN_MAIN_MENU':
       if (state.phase !== 'PHONE_OS') return state;
       if (state.overlays[state.overlays.length - 1]?.type === 'mainMenu') return state;
@@ -88,38 +74,9 @@ function reducer(state, action) {
 export function createAppController({ appRoot, overlayRoot } = {}) {
   const store = createStore(initialState, reducer);
   const phone = new PhoneOS({ appRoot, store });
+  hardUnlockUI('controller-init');
   try { showNode(appRoot); } catch {}
   const overlayRegistry = {
-    welcome: {
-      show: () => {
-        const modal = document.getElementById('modal-pt-welcome');
-        if (!modal) return;
-        const modalHost = resolveModalHost({ overlayRoot, modal });
-        if (modalHost) {
-          showNode(modalHost);
-          modalHost.setAttribute('data-pt-modal-open', '1');
-          modalHost.setAttribute('aria-hidden', 'false');
-        }
-        showNode(appRoot);
-        showNode(modal);
-        modal.setAttribute('data-pt-modal-open', '1');
-      },
-      hide: () => {
-        const modal = document.getElementById('modal-pt-welcome');
-        const modalHost = resolveModalHost({ overlayRoot, modal });
-        if (modal) {
-          hideNode(modal);
-          try { modal.removeAttribute('data-pt-modal-open'); } catch {}
-        }
-        if (modalHost) {
-          modalHost.removeAttribute('data-pt-modal-open');
-          modalHost.setAttribute('aria-hidden', 'true');
-          hideNode(modalHost);
-        }
-      },
-      // Resolve focus root at render-time to avoid stale references.
-      focusRoot: () => document.getElementById('modal-pt-welcome'),
-    },
     mainMenu: {
       show: () => {
         phone.showMainMenu();
@@ -134,7 +91,6 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
   const overlays = new OverlayManager({ appRoot, overlayRoot, overlays: overlayRegistry, store });
 
   let phoneMounted = false;
-  let lastPhase = null;
 
   store.subscribe((state) => {
     if (!phoneMounted) {
@@ -142,48 +98,18 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
       phoneMounted = true;
     }
 
-    const allowPhone = state.phase === 'PHONE_OS';
-    phone.setInteractive(allowPhone);
-
-    if (state.phase === 'BOOT' || state.phase === 'INTRO') {
-      lockGlobalTouch(state.phase.toLowerCase());
-    } else {
-      unlockGlobalTouch(state.phase.toLowerCase());
-    }
-
-    if (state.phase === 'WELCOME_MODAL' && lastPhase !== 'WELCOME_MODAL') {
-      try { phone.showLauncher?.(); } catch {}
-    }
-    lastPhase = state.phase;
-
-    // Prepaint blur as early as possible so it never "pops" in.
-    if (state.phase === 'WELCOME_MODAL' || state.phase === 'INTRO') {
-      overlays.ensureBackdropPrepaint();
-    }
+    phone.setInteractive(true);
+    hardUnlockUI('controller-tick');
 
     overlays.render(state.overlays, store);
+    hardUnlockUI('controller-post-render');
 
-    if (allowPhone) {
-      const hasMainMenu = state.overlays.some((entry) => entry.type === 'mainMenu');
-      if (!hasMainMenu) {
-        phone.hideMainMenu();
-        phone.navigate(state.route);
-      }
-    } else {
+    const hasMainMenu = state.overlays.some((entry) => entry.type === 'mainMenu');
+    if (!hasMainMenu) {
       phone.hideMainMenu();
-      phone.setView?.('lock', null);
-      if (state.phase === 'WELCOME_MODAL' || state.phase === 'INTRO' || state.phase === 'BOOT') {
-        phone.showLauncher?.();
-      } else {
-        phone.hideLauncher?.();
-      }
+      phone.navigate(state.route);
     }
 
-    if (state.phase === 'WELCOME_MODAL') {
-      if (!document.getElementById('modal-pt-welcome')) {
-        store.dispatch({ type: 'WELCOME_ACCEPT' });
-      }
-    }
   });
 
   return { store, phone, overlays };
