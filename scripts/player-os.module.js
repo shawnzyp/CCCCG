@@ -44,6 +44,27 @@ export function initPlayerOSModule() {
     }, { capture: true });
   } catch {}
 
+  // Route legacy menu-action events into controller navigation.
+  try {
+    window.addEventListener('cc:menu-action', (event) => {
+      const action = event?.detail?.action;
+      if (!action) return;
+      const map = {
+        'campaign-log': 'campaignLog',
+        'credits-ledger': 'creditsLedger',
+        rules: 'rules',
+        help: 'help',
+        messages: 'messages',
+        'load-save': 'loadSave',
+        settings: 'settings',
+        'player-tools': 'playerTools',
+      };
+      const route = map[action] || action;
+      controller.store.dispatch({ type: 'NAVIGATE', route });
+      try { event.preventDefault?.(); } catch {}
+    }, true);
+  } catch {}
+
   try {
     launcher.addEventListener('click', (e) => {
       const btn = e.target?.closest?.('[data-pt-open-app]');

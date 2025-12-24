@@ -205,8 +205,9 @@ export class PhoneOS {
   showMainMenu() {
     if (!this.appView) return;
     this.clearAutoUnlock();
-    this.setView('app', null);
-    this.mainMenu.show();
+    try { document.documentElement.setAttribute('data-pt-phone-open', '1'); } catch {}
+    this.showLauncher();
+    this.setView('home', null);
   }
 
   hideMainMenu() {

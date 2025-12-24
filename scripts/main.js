@@ -2516,7 +2516,7 @@ let pinUnlockInProgress = false;
 export const APP_REGISTRY = Object.freeze({
   campaignLog: { label: 'Campaign Log', icon: '📓', open: () => openPlayerOsApp('campaignLog') },
   messages: { label: 'Messages', icon: '📡', open: () => openPlayerOsApp('messages') },
-  playerTools: { label: 'Player Tools', icon: '🧰', open: () => openPlayerOsApp('playerTools'), route: 'drawer:player-tools' },
+  playerTools: { label: 'Player Tools', icon: '🧰', open: () => openPlayerOsApp('playerTools'), route: 'playerTools' },
   shards: { label: 'Shards of Many Fates', icon: '🧩', open: () => openPlayerOsApp('shards'), requiresUnlock: true, route: 'modal:shards' },
   errorReports: { label: 'Error Reports', icon: '🛰️', open: () => openPlayerOsApp('errorReports') },
   settings: { label: 'Settings', icon: '⚙️', open: () => openPlayerOsApp('settings') },
@@ -2545,7 +2545,16 @@ export function getAppMeta(appId) {
   return APP_REGISTRY[appId] || null;
 }
 
+function getController() {
+  try { return window.__CCCG_APP_CONTROLLER__ || null; } catch { return null; }
+}
+
 function openPlayerOsApp(appId) {
+  const controller = getController();
+  if (IS_CONTROLLER_MODE && controller?.store?.dispatch) {
+    controller.store.dispatch({ type: 'NAVIGATE', route: String(appId || '') });
+    return true;
+  }
   try {
     if (window.PlayerOS?.openApp) {
       window.PlayerOS.openApp(appId);
@@ -10926,6 +10935,8 @@ function resolveActorName(name = currentCharacter()){
 }
 
 function initPhoneRouter() {
+  // Controller owns the PhoneOS. Legacy router must not attach listeners.
+  if (IS_CONTROLLER_MODE || isControllerMode()) return false;
   if (typeof document === 'undefined') return;
   try {
     if (window.__ptPhoneRouterInstalled) return;
