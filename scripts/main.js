@@ -41,12 +41,6 @@ import {
   scrollToTopOfCombat,
   triggerTabIconAnimation
 } from './tabs.js';
-import {
-  subscribe as subscribePlayerToolsDrawer,
-  onDrawerChange as onPlayerToolsDrawerChange,
-  open as openPlayerToolsDrawer,
-  close as closePlayerToolsDrawer,
-} from './player-tools-drawer.js';
 import { PLAYER_CREDIT_EVENTS } from './player-credit-events.js';
 import {
   formatKnobValue as formatMiniGameKnobValue,
@@ -397,8 +391,8 @@ const MENU_MODAL_STATE = new Map();
       const root = document.documentElement;
       const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
       const launching = !!body?.classList.contains('launching');
-      const touchLocked = !!body?.classList.contains('touch-controls-disabled');
-      if (bootComplete && !launching && !touchLocked) return;
+      const touchLocked = false;
+      if (bootComplete && !launching) return;
 
       console.warn('[BootWatchdog] Boot appears stuck.', {
         launching,
@@ -407,7 +401,6 @@ const MENU_MODAL_STATE = new Map();
         lastUpdate: window.__ccLastContentUpdate,
         uptimeMs: Date.now() - startedAt,
       });
-      try { forceRecoverFromBlankScreen(); } catch {}
       try {
         document.body?.classList?.remove('touch-controls-disabled', 'modal-open', 'launching');
         document.documentElement?.setAttribute?.('data-pt-touch-locked', '0');
@@ -430,13 +423,7 @@ const MENU_MODAL_STATE = new Map();
         }));
       } catch {}
 
-      if (bootComplete && (launching || touchLocked)) {
-        try { hardEndLaunchUI(); } catch {}
-        try { forceInteractionUnlock('boot-watchdog'); } catch {}
-        return;
-      }
-
-      if (!launching && !touchLocked) return;
+      if (!launching) return;
 
       body?.classList.remove('launching');
       body?.classList.remove('touch-controls-disabled');
@@ -448,14 +435,7 @@ const MENU_MODAL_STATE = new Map();
           try { el.removeAttribute('inert'); } catch {}
         });
       } catch {}
-      try { markLaunchSequenceComplete(); } catch {}
-      try {
-        if (typeof safeUnlockTouchControls === 'function') {
-          safeUnlockTouchControls({ immediate: true });
-        } else if (typeof unlockTouchControls === 'function') {
-          unlockTouchControls({ immediate: true });
-        }
-      } catch {}
+      // Legacy touch unlock removed.
     } catch {}
   }, 6000);
 })();
@@ -2525,21 +2505,6 @@ const FUN_TICKER_DURATION_MS = Math.round(BASE_TICKER_DURATION_MS * FUN_TICKER_S
 
 const FORCED_REFRESH_STATE_KEY = 'cc:forced-refresh-state';
 
-const LAUNCH_DURATION_MS = 8000;
-const LAUNCH_MIN_VISIBLE = LAUNCH_DURATION_MS;
-const LAUNCH_MAX_WAIT = LAUNCH_DURATION_MS;
-
-const WELCOME_MODAL_ID = 'modal-welcome';
-const WELCOME_MODAL_PREFERENCE_KEY = 'cc:welcome-modal:hidden';
-const TOUCH_LOCK_CLASS = 'touch-controls-disabled';
-const TOUCH_UNLOCK_DELAY_MS = 250;
-let welcomeModalDismissed = false;
-let welcomeModalQueued = false;
-let welcomeModalPrepared = false;
-let touchUnlockTimer = null;
-let waitingForTouchUnlock = false;
-let launchSequenceComplete = false;
-let welcomeSequenceComplete = false;
 let pendingPinnedAutoLoad = null;
 let pendingPinPromptActive = false;
 let pinInteractionGuard = null;
@@ -2626,10 +2591,9 @@ function isLauncherUiBusy() {
   const body = typeof document !== 'undefined' ? document.body : null;
   const root = typeof document !== 'undefined' ? document.documentElement : null;
   const launching = !!(body && body.classList.contains('launching'));
-  const touchLocked = !!(body && body.classList.contains(TOUCH_LOCK_CLASS));
   const modalOpen = !!(root && root.classList.contains('modal-open'));
   const phoneLocked = !!(root && root.classList.contains('pt-os-lock'));
-  return launching || touchLocked || modalOpen || phoneLocked;
+  return launching || modalOpen || phoneLocked;
 }
 
 export function waitForUiIdle({ timeout = 800 } = {}) {
@@ -2745,11 +2709,6 @@ export async function openApp(appId, opts = {}) {
     }
   }
 
-  if (!opts.force && (!hasLaunchSequenceCompleted() || !welcomeSequenceComplete)) {
-    window.__ccLastAppLaunch = { appId, ok: false, ts: Date.now(), reason: 'launch-blocked' };
-    return { ok: false, reason: 'launch-blocked' };
-  }
-
   await waitForUiIdle({ timeout: opts.timeout ?? 800 });
 
   const focusTarget = getAppFocusTarget(appId, meta);
@@ -2824,89 +2783,6 @@ export async function openApp(appId, opts = {}) {
   return { ok: true };
 }
 
-let launcherDelegationWired = false;
-function wireLauncherDelegation() {
-  if (IS_CONTROLLER_MODE) return;
-  if (hasControllerOrBooting()) return;
-  if (launcherDelegationWired || typeof document === 'undefined') return;
-  launcherDelegationWired = true;
-
-  let lastLaunchAt = 0;
-  let lastLaunchApp = null;
-
-  document.addEventListener(
-    'pointerup',
-    (e) => {
-      // Only respond when Player OS is open
-      if (document.documentElement.getAttribute('data-pt-phone-open') !== '1') return;
-
-      const btn = e.target?.closest?.('[data-pt-open-app]');
-      if (!btn) return;
-      if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
-
-      const appId = btn.getAttribute('data-pt-open-app');
-      if (!appId) return;
-
-      const now = Date.now();
-      if (lastLaunchApp === appId && now - lastLaunchAt < 300) return;
-      lastLaunchApp = appId;
-      lastLaunchAt = now;
-
-      e.preventDefault?.();
-      e.stopPropagation?.();
-
-      if (btn.closest?.('#pt-main-menu')) {
-        hideLauncherMainMenu();
-      }
-
-      const launchFn = typeof window !== 'undefined' && typeof window.openApp === 'function' ? window.openApp : openApp;
-      launchFn(appId, { source: 'launcher', element: btn });
-    },
-    { capture: true }
-  );
-}
-
-export function runLauncherHealthCheck({ logToConsole = true } = {}) {
-  if (IS_CONTROLLER_MODE) {
-    return { ok: true, missingRegistry: [], missingTargets: [], skippedTargetsCheck: true };
-  }
-  if (isControllerBootingOrReady()) {
-    return { ok: true, missingRegistry: [], missingTargets: [], skippedTargetsCheck: true };
-  }
-  if (typeof document === 'undefined') return { ok: true, missingRegistry: [], missingTargets: [] };
-  const launcherButtons = [...document.querySelectorAll('[data-pt-open-app]')];
-  const buttonAppIds = launcherButtons
-    .map(btn => btn.getAttribute('data-pt-open-app'))
-    .filter(Boolean);
-  const missingRegistry = buttonAppIds.filter(id => !APP_REGISTRY[id]);
-
-  const appScreens = new Set(
-    [...document.querySelectorAll('[data-pt-app-screen]')]
-      .map(el => el.getAttribute('data-pt-app-screen'))
-      .filter(Boolean)
-  );
-
-  const skippedTargetsCheck = appScreens.size === 0;
-  const missingTargets = skippedTargetsCheck ? [] : Object.keys(APP_REGISTRY).filter((id) => {
-    const meta = APP_REGISTRY[id];
-    if (appScreens.has(id)) return false;
-    if (meta?.route) return false;
-    return true;
-  });
-
-  const ok = missingRegistry.length === 0 && missingTargets.length === 0;
-  if (!ok && logToConsole) {
-    if (missingRegistry.length) {
-      console.warn('[Launcher] Unknown app IDs in DOM:', missingRegistry);
-    }
-    if (missingTargets.length) {
-      console.warn('[Launcher] Registry apps missing panel/route:', missingTargets);
-    }
-  }
-
-  return { ok, missingRegistry, missingTargets, skippedTargetsCheck };
-}
-
 try {
   if (typeof window !== 'undefined') {
     window.APP_REGISTRY = APP_REGISTRY;
@@ -2921,22 +2797,10 @@ let characterConfirmationActive = null;
 let characterConfirmationTimer = null;
 let characterConfirmationPreviousFocus = null;
 
-function hasLaunchSequenceCompleted() {
-  if (typeof launchSequenceComplete === 'boolean') return launchSequenceComplete;
-  if (typeof window !== 'undefined' && typeof window.launchSequenceComplete === 'boolean') {
-    return window.launchSequenceComplete;
-  }
-  return false;
-}
-
 function isCharacterConfirmationBlocked() {
   const body = typeof document !== 'undefined' ? document.body : null;
   const launching = !!(body && body.classList.contains('launching'));
-  if (launching || !hasLaunchSequenceCompleted()) return true;
-  const welcomeModal = getWelcomeModal();
-  const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
-  if (welcomeVisible || !welcomeSequenceComplete) return true;
-  return false;
+  return launching;
 }
 
 function describeCharacterConfirmation(entry) {
@@ -3064,435 +2928,6 @@ function removePlayerToolsTabSuppression(reason) {
   syncPlayerToolsTabHidden();
 }
 
-try {
-  const storage = getLocalStorageSafe();
-  if (storage) {
-    welcomeModalDismissed = storage.getItem(WELCOME_MODAL_PREFERENCE_KEY) === 'true';
-  }
-} catch {}
-
-welcomeSequenceComplete = welcomeModalDismissed;
-
-function clearTouchUnlockTimer() {
-  if (touchUnlockTimer) {
-    try {
-      clearTimeout(touchUnlockTimer);
-    } catch (err) {
-      // ignore inability to clear timer
-    }
-    touchUnlockTimer = null;
-  }
-  waitingForTouchUnlock = false;
-}
-
-function getWelcomeModal() {
-  if (typeof document === 'undefined' || !document) return null;
-  try {
-    return document.getElementById(WELCOME_MODAL_ID);
-  } catch {
-    return null;
-  }
-}
-
-function prepareWelcomeModal() {
-  const modal = getWelcomeModal();
-  if (!modal) return null;
-  if (!welcomeModalPrepared) {
-    welcomeModalPrepared = true;
-    try {
-      void modal.offsetHeight;
-    } catch {
-      /* ignore reflow errors */
-    }
-    globalThis.__cccgBreadcrumb?.('boot', 'welcome modal prepared');
-  }
-  return modal;
-}
-
-// Launch gating:
-// - Intro video overlay runs before this file finishes initializing
-// - When intro completes (or user skips), we show the Welcome modal while the app finishes wiring up
-// - Only after Welcome is dismissed do we release interaction
-let launchComplete = false;
-let welcomeShownFromLaunch = false;
-let launchRecoveryScheduled = false;
-
-function markLaunchComplete(reason = 'ended') {
-  launchComplete = true;
-  try { document.documentElement.setAttribute('data-cc-launch-complete', '1'); } catch {}
-  try {
-    document.documentElement.classList.add('cc-launch-complete');
-  } catch {}
-  // If welcome is not dismissed yet, ensure it is visible now (during app warmup)
-  tryShowWelcomeForLaunch(reason);
-  scheduleLaunchRecovery();
-}
-
-function tryShowWelcomeForLaunch(reason = '') {
-  if (IS_CONTROLLER_MODE) return;
-  if (welcomeShownFromLaunch) return;
-  if (welcomeModalDismissed) return;
-
-  if (isControllerBootingOrReady()) {
-    welcomeShownFromLaunch = true;
-    return;
-  }
-
-  // If the app is still in "launching" we want the welcome modal on top once intro ends.
-  // We do not depend on pointer-events hacks; just ensure modal is shown and touch remains locked.
-  welcomeShownFromLaunch = true;
-  try {
-    lockTouchControls();
-  } catch {}
-
-  // Mark this as a launch-driven welcome so CSS can theme it to match the launcher.
-  try { document.documentElement.classList.add('cc-welcome-from-launch'); } catch {}
-
-  // Queue welcome ASAP; it can still decide to background-only when launching
-  try {
-    queueWelcomeModal({ immediate: true, preload: false });
-  } catch (err) {
-    // Last resort: attempt direct show
-    try { maybeShowWelcomeModal({ backgroundOnly: false }); } catch {}
-  }
-}
-
-function forceRecoverFromBlankScreen() {
-  try {
-    const controller = typeof window !== 'undefined' ? window.__CCCG_APP_CONTROLLER__ : null;
-    const store = controller?.store;
-    const phone = controller?.phone;
-    if (store && phone) {
-      try { phone.showLauncher?.(); } catch {}
-      try { phone.syncPhoneOpenFlags?.(); } catch {}
-      const state = store.getState?.();
-      const phase = state?.phase;
-      if (!phase || phase === 'BOOT') {
-        try { store.dispatch({ type: 'BOOT_DONE' }); } catch {}
-        return;
-      }
-      if (phase === 'WELCOME_MODAL') {
-        try {
-          const modal = document.getElementById('modal-pt-welcome');
-          const hidden =
-            !modal ||
-            modal.hidden ||
-            modal.classList.contains('hidden') ||
-            modal.getAttribute('aria-hidden') === 'true';
-          if (hidden) {
-            store.dispatch({ type: 'WELCOME_ACCEPT' });
-            return;
-          }
-        } catch {}
-      }
-      if (phase === 'INTRO') {
-        try { store.dispatch({ type: 'INTRO_DONE' }); } catch {}
-        return;
-      }
-      return;
-    }
-
-    if (isControllerBootingOrReady()) return;
-    const doc = typeof document !== 'undefined' ? document : null;
-    if (!doc) return;
-
-    const welcome = doc.getElementById(WELCOME_MODAL_ID);
-    const welcomeVisible = !!(
-      welcome &&
-      !welcome.classList.contains('hidden') &&
-      welcome.getAttribute('aria-hidden') !== 'true' &&
-      welcome.style.display !== 'none' &&
-      welcome.hidden !== true
-    );
-
-    if (welcomeVisible) return;
-
-    doc.body?.classList?.remove('launching');
-    doc.documentElement?.classList?.remove('cc-welcome-from-launch');
-    doc.documentElement?.classList?.remove('cc-welcome-open');
-
-    const shell = doc.querySelector('[data-launch-shell]');
-    if (shell) {
-      shell.style.opacity = '';
-      shell.style.visibility = '';
-      shell.style.pointerEvents = '';
-      try { shell.inert = false; } catch {}
-      try { shell.removeAttribute('inert'); } catch {}
-    }
-
-    const launcher = doc.querySelector('[data-pt-launcher]');
-    if (launcher) {
-      try { launcher.hidden = false; } catch {}
-      try { launcher.style.removeProperty('display'); } catch {}
-      try { launcher.setAttribute('aria-hidden', 'false'); } catch {}
-      try { launcher.setAttribute('data-pt-launcher-visible', '1'); } catch {}
-      try { doc.documentElement?.setAttribute('data-pt-phone-open', '1'); } catch {}
-      try { doc.documentElement?.setAttribute('data-pt-drawer-open', '1'); } catch {}
-    }
-  } catch {}
-}
-
-function scheduleLaunchRecovery() {
-  if (launchRecoveryScheduled) return;
-  if (isControllerBootingOrReady()) {
-    try { forceRecoverFromBlankScreen(); } catch {}
-    return;
-  }
-  launchRecoveryScheduled = true;
-  const setTimer = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
-    ? window.setTimeout.bind(window)
-    : ((cb, ms) => setTimeout(cb, ms));
-
-  setTimer(forceRecoverFromBlankScreen, 250);
-  setTimer(forceRecoverFromBlankScreen, 1200);
-}
-
-// Listen to the boot controller in index.html
-if (typeof window !== 'undefined') {
-  window.addEventListener('cc:launch-complete', (e) => {
-    const reason = e && e.detail && e.detail.reason ? String(e.detail.reason) : 'ended';
-    setTimeout(() => markLaunchComplete(reason), 0);
-  }, { passive: true });
-  try {
-    const prior = window.__ccLaunchComplete;
-    if (prior && !launchComplete) markLaunchComplete(prior.reason || 'ended');
-  } catch {}
-
-  window.addEventListener('unhandledrejection', (e) => {
-    try { console.error('Unhandled rejection', e.reason); } catch {}
-  });
-  window.addEventListener('error', (e) => {
-    try { console.error('Window error', e.error || e.message); } catch {}
-  });
-}
-
-function lockTouchControls() {
-  if (isControllerMode()) return;
-  if (typeof document === 'undefined') return;
-  clearTouchUnlockTimer();
-  const { body } = document;
-  if (body) {
-    body.classList.add(TOUCH_LOCK_CLASS);
-  }
-}
-
-function safeUnlockTouchControls({ immediate = false } = {}) {
-  if (isControllerMode()) return;
-  if (typeof document === 'undefined') return;
-  const phoneOpen = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-  const drawer = document.getElementById('player-tools-drawer');
-  const drawerOpen = drawer ? drawer.getAttribute('aria-hidden') !== 'true' : false;
-  const welcomeModal = document.getElementById('modal-welcome');
-  const welcomeAria = welcomeModal?.getAttribute('aria-hidden');
-  const welcomeVisible =
-    !welcomeModalDismissed &&
-    welcomeModal &&
-    (welcomeModal.hidden === false || welcomeAria === 'false');
-  // If the Player Tools overlay is open, it is safe to unlock because CSS blocks the page behind it.
-  if ((phoneOpen || drawerOpen) && !welcomeVisible) {
-    unlockTouchControls({ immediate: true });
-    return;
-  }
-  unlockTouchControls({ immediate });
-}
-
-function unlockTouchControls({ immediate = false } = {}) {
-  if (isControllerMode()) return;
-  if (typeof document === 'undefined') return;
-  const { body } = document;
-  if (body) {
-    if (immediate || !body.classList.contains('launching')) {
-      clearTouchUnlockTimer();
-      body.classList.remove(TOUCH_LOCK_CLASS);
-      markBootProgress('touch-unlock');
-      return;
-    }
-
-    if (touchUnlockTimer || waitingForTouchUnlock) return;
-    waitingForTouchUnlock = true;
-
-    const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-      ? window.requestAnimationFrame.bind(window)
-      : (cb => setTimeout(cb, 16));
-
-    const setTimer = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
-      ? window.setTimeout.bind(window)
-      : ((cb, ms) => setTimeout(cb, ms));
-
-    const release = () => {
-      touchUnlockTimer = null;
-      body.classList.remove(TOUCH_LOCK_CLASS);
-      markBootProgress('touch-unlock');
-    };
-
-    const waitForLaunchEnd = () => {
-      if (!body.classList.contains('launching')) {
-        waitingForTouchUnlock = false;
-        touchUnlockTimer = setTimer(release, TOUCH_UNLOCK_DELAY_MS);
-        return;
-      }
-      schedule(waitForLaunchEnd);
-    };
-
-    schedule(waitForLaunchEnd);
-  }
-}
-
-function forceInteractionUnlock(reason = 'unknown') {
-  if (isControllerMode()) return;
-  try { markBootProgress(`force-unlock:${reason}`); } catch {}
-
-  const doc = typeof document !== 'undefined' ? document : null;
-  const body = doc ? doc.body : null;
-  const anyOpenOverlay = !!(doc && doc.querySelector('.overlay:not(.hidden)'));
-  const root = doc ? doc.documentElement : null;
-  const phoneOpen = !!(root && root.getAttribute('data-pt-phone-open') === '1');
-  const drawerOpen = !!(root && root.getAttribute('data-pt-drawer-open') === '1')
-    || !!(doc && doc.documentElement?.hasAttribute?.('data-pt-drawer-open'));
-  const blockingUiOpen = anyOpenOverlay || phoneOpen || drawerOpen;
-
-  try {
-    if (doc) {
-      doc.querySelectorAll('.overlay:not(.hidden), [role="dialog"]:not(.hidden)').forEach((el) => {
-        try { el.inert = false; } catch {}
-        try { el.removeAttribute('inert'); } catch {}
-      });
-    }
-  } catch {}
-
-  try { body?.classList?.remove('touch-controls-disabled'); } catch {}
-  if (!blockingUiOpen) {
-    try { body?.classList?.remove('modal-open'); } catch {}
-  }
-  try { body?.classList?.remove('launching'); } catch {}
-  try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
-
-  if (!blockingUiOpen && doc) {
-    try {
-      doc.querySelectorAll('[inert]').forEach((el) => {
-        try { el.inert = false; } catch {}
-        try { el.removeAttribute('inert'); } catch {}
-      });
-    } catch {}
-  }
-
-  try {
-    if (typeof unlockTouchControls === 'function') {
-      unlockTouchControls({ immediate: true });
-    }
-  } catch {}
-}
-
-function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
-  if (IS_CONTROLLER_MODE) return;
-  if (isControllerMode()) return;
-  const modal = prepareWelcomeModal();
-  if (!modal) {
-    safeUnlockTouchControls({ immediate: true });
-    markWelcomeSequenceComplete();
-    forceRecoverFromBlankScreen();
-    return;
-  }
-  if (welcomeModalDismissed) {
-    safeUnlockTouchControls({ immediate: true });
-    markWelcomeSequenceComplete();
-    forceRecoverFromBlankScreen();
-    return;
-  }
-  const wasHidden = modal.classList.contains('hidden');
-  if (backgroundOnly) {
-    return;
-  }
-  const body = typeof document !== 'undefined' ? document.body : null;
-  const isLaunching = !!(body && body.classList.contains('launching'));
-  if (isLaunching) {
-    // While intro overlay is active, we avoid forcing welcome visible.
-    // The boot controller will request welcome once intro is done.
-    if (wasHidden) {
-      const skipButton = body ? body.querySelector('[data-skip-launch]') : null;
-      if (skipButton && typeof skipButton.focus === 'function') {
-        try {
-          skipButton.focus();
-        } catch {}
-      }
-    }
-    return;
-  }
-
-  let didShow = false;
-  try {
-    didShow = show(WELCOME_MODAL_ID);
-  } catch {}
-  const stillHidden =
-    modal.hidden ||
-    modal.classList.contains('hidden') ||
-    modal.getAttribute('aria-hidden') === 'true';
-  if (!didShow && stillHidden) {
-    markWelcomeSequenceComplete();
-    forceRecoverFromBlankScreen();
-    return;
-  }
-  if (stillHidden) {
-    markWelcomeSequenceComplete();
-    forceRecoverFromBlankScreen();
-    return;
-  }
-  if (wasHidden) {
-    addPlayerToolsTabSuppression('welcome-modal');
-  }
-  try { forceInteractionUnlock('welcome-show'); } catch {}
-
-  if (!wasHidden) {
-    return;
-  }
-}
-
-function hardEndLaunchUI() {
-  try { document.body?.classList?.remove('launching'); } catch {}
-  try {
-    const launchEl = document.getElementById('launch-animation');
-    if (launchEl) {
-      try { launchEl.setAttribute('data-launch-disarmed', 'true'); } catch {}
-      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
-      try { launchEl.hidden = true; } catch {}
-      try { launchEl.style.display = 'none'; } catch {}
-      try { launchEl.style.pointerEvents = 'none'; } catch {}
-    }
-  } catch {}
-  try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
-  try { document.body?.classList?.remove('modal-open'); } catch {}
-  try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
-}
-
-function dismissWelcomeModal() {
-  if (IS_CONTROLLER_MODE) return;
-  if (isControllerMode()) return;
-  welcomeModalDismissed = true;
-  try { hide(WELCOME_MODAL_ID); } catch {}
-  try { removePlayerToolsTabSuppression('welcome-modal'); } catch {}
-  try { document.documentElement.removeAttribute('data-pt-drawer-open'); } catch {}
-  try { markLaunchSequenceComplete(); } catch {}
-  try { forceInteractionUnlock('welcome-dismiss'); } catch {}
-  try { hardEndLaunchUI(); } catch {}
-  try {
-    if (typeof safeUnlockTouchControls === 'function') {
-      safeUnlockTouchControls({ immediate: true });
-    } else if (typeof unlockTouchControls === 'function') {
-      unlockTouchControls({ immediate: true });
-    }
-  } catch {
-    try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
-  }
-  try { window.dispatchEvent(new CustomEvent('cc:pt-welcome-dismissed')); } catch {}
-  try { markWelcomeSequenceComplete(); } catch {}
-
-  // If intro already completed, we can safely begin offline prefetch after the user lands
-  try {
-    try { document.documentElement.classList.remove('cc-welcome-from-launch'); } catch {}
-    if (launchComplete) scheduleOfflinePrefetch(1200);
-  } catch {}
-}
-
 function showControllerFailureOverlay(message = '') {
   if (typeof document === 'undefined') return;
   if (document.getElementById('cccg-controller-fail')) return;
@@ -3547,7 +2982,6 @@ function showControllerFailureOverlay(message = '') {
 if (typeof window !== 'undefined') {
   window.addEventListener('cc:pt-controller-failed', (event) => {
     if (!IS_CONTROLLER_MODE) return;
-    try { document.body?.classList?.remove(TOUCH_LOCK_CLASS); } catch {}
     showControllerFailureOverlay(event?.detail?.message || '');
   }, { passive: true });
 }
@@ -3574,834 +3008,6 @@ function isControllerMode() {
 }
 function hasAppController() {
   return hasControllerOrBooting();
-}
-
-// ---------------------------------------------------------------------------
-// Launcher Main Menu integration (legacy)
-// ---------------------------------------------------------------------------
-let launcherMenuWired = false;
-let launcherMenuObserverWired = false;
-
-function getLauncherMainMenu() {
-  try { return document.getElementById('pt-main-menu'); } catch { return null; }
-}
-
-function showLauncherMainMenu() {
-  if (IS_CONTROLLER_MODE) return;
-  if (hasControllerOrBooting()) return;
-  const menu = getLauncherMainMenu();
-  if (!menu) return;
-  try { menu.hidden = false; } catch {}
-  try { menu.setAttribute('aria-hidden', 'false'); } catch {}
-}
-
-function hideLauncherMainMenu() {
-  if (IS_CONTROLLER_MODE) return;
-  if (hasControllerOrBooting()) return;
-  const menu = getLauncherMainMenu();
-  if (!menu) return;
-  try { menu.setAttribute('aria-hidden', 'true'); } catch {}
-  try { menu.hidden = true; } catch {}
-}
-
-// ---------------------------------------------------------------------------
-// Ticker mounting (move existing tickers into Player OS menu while open)
-// ---------------------------------------------------------------------------
-let tickerMountState = null;
-
-function findMainTickers() {
-  const drawer = document.querySelector('[data-ticker-drawer]') || null;
-  const root = drawer || document;
-  const primary =
-    (drawer && drawer.querySelector('.news-ticker:not(.news-ticker--m24n)')) ||
-    root.querySelector('[data-ticker="primary"]') ||
-    root.querySelector('#ticker-primary') ||
-    root.querySelector('.ticker--primary') ||
-    root.querySelector('.ticker[data-kind="primary"]') ||
-    null;
-  const secondary =
-    (drawer && drawer.querySelector('.news-ticker--m24n')) ||
-    root.querySelector('[data-ticker="secondary"]') ||
-    root.querySelector('#ticker-secondary') ||
-    root.querySelector('.ticker--secondary') ||
-    root.querySelector('.ticker[data-kind="secondary"]') ||
-    null;
-  return { primary, secondary };
-}
-
-function getLauncherTickerRail(kind) {
-  try { return document.querySelector('[data-pt-ticker-rail="' + kind + '"]'); } catch { return null; }
-}
-
-function makeAnchorBefore(node) {
-  if (!node || !node.parentNode) return null;
-  const anchor = document.createComment('cc:ticker-anchor');
-  try { node.parentNode.insertBefore(anchor, node); } catch {}
-  return anchor;
-}
-
-function captureTickerMountStateOnce(primary, secondary) {
-  if (tickerMountState) return;
-  tickerMountState = {
-    primary: primary ? { node: primary, anchor: makeAnchorBefore(primary) } : null,
-    secondary: secondary ? { node: secondary, anchor: makeAnchorBefore(secondary) } : null,
-  };
-}
-
-function mountTickersIntoLauncher({ allowRetry = true } = {}) {
-  if (IS_CONTROLLER_MODE) return;
-  const menu = getLauncherMainMenu();
-  if (!menu) return;
-
-  const railPrimary = getLauncherTickerRail('primary');
-  const railSecondary = getLauncherTickerRail('secondary');
-  const { primary, secondary } = findMainTickers();
-
-  if (allowRetry && !primary && !secondary) {
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(() => mountTickersIntoLauncher({ allowRetry: false }));
-    }
-    return;
-  }
-
-  if (!railPrimary && !railSecondary) return;
-  if (!primary && !secondary) return;
-
-  captureTickerMountStateOnce(primary, secondary);
-
-  try { if (primary && railPrimary && primary.parentNode !== railPrimary) railPrimary.appendChild(primary); } catch {}
-  try { if (secondary && railSecondary && secondary.parentNode !== railSecondary) railSecondary.appendChild(secondary); } catch {}
-
-  try { menu.classList.add('pt-main-menu--has-tickers'); } catch {}
-}
-
-function restoreTickersFromLauncher() {
-  if (IS_CONTROLLER_MODE) return;
-  const state = tickerMountState;
-  if (!state) return;
-  const menu = getLauncherMainMenu();
-
-  function restore(entry) {
-    if (!entry || !entry.node) return;
-    if (entry.anchor && entry.anchor.parentNode) {
-      try { entry.anchor.parentNode.insertBefore(entry.node, entry.anchor); } catch {}
-      try { entry.anchor.parentNode.removeChild(entry.anchor); } catch {}
-      return;
-    }
-  }
-
-  restore(state.primary);
-  restore(state.secondary);
-
-  tickerMountState = null;
-  try { if (menu) menu.classList.remove('pt-main-menu--has-tickers'); } catch {}
-}
-
-function wireLauncherMainMenu() {
-  if (IS_CONTROLLER_MODE) return;
-  if (hasControllerOrBooting()) return;
-  if (launcherMenuWired) return;
-  const menu = getLauncherMainMenu();
-  if (!menu) return;
-  launcherMenuWired = true;
-
-  // Close button inside menu
-  const closeBtn = menu.querySelector('[data-pt-menu-close]');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      const homeBtn = document.querySelector('[data-pt-launcher-home-btn]');
-      if (homeBtn && typeof homeBtn.click === 'function') {
-        homeBtn.click();
-        return;
-      }
-      const closeLauncher = document.querySelector('[data-pt-launcher-close]');
-      if (closeLauncher && typeof closeLauncher.click === 'function') {
-        closeLauncher.click();
-        return;
-      }
-      hideLauncherMainMenu();
-    });
-  }
-
-  // When the launcher becomes visible, show the menu by default.
-  // This relies on your existing attribute that marks the phone as open.
-  if (!launcherMenuObserverWired) {
-    const root = document.documentElement;
-    if (typeof MutationObserver === 'function') {
-      const obs = new MutationObserver(() => {
-        const open = root.getAttribute('data-pt-phone-open') === '1';
-        if (open) {
-          showLauncherMainMenu();
-          mountTickersIntoLauncher();
-        } else {
-          hideLauncherMainMenu();
-          restoreTickersFromLauncher();
-        }
-      });
-      obs.observe(root, { attributes: true, attributeFilter: ['data-pt-phone-open'] });
-      launcherMenuObserverWired = true;
-    }
-  }
-}
-
-// Ensure menu wiring happens once DOM is ready.
-if (!IS_CONTROLLER_MODE) {
-  try {
-    function wireLegacyIfNoController() {
-      if (isControllerMode()) return;
-      if (hasAppController()) return;
-      wireLauncherMainMenu();
-      wireLauncherDelegation();
-      runLauncherHealthCheck();
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        queueMicrotask(wireLegacyIfNoController);
-      }, { once: true });
-    } else {
-      queueMicrotask(wireLegacyIfNoController);
-    }
-
-    // If controller is booting, do not wire legacy immediately.
-    // As a last resort, if controller never appears, wire legacy later.
-    if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER_BOOTING__) {
-      setTimeout(() => {
-        try {
-          if (!window.__CCCG_APP_CONTROLLER__) {
-            window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
-            wireLegacyIfNoController();
-          }
-        } catch {}
-      }, 6000);
-    }
-
-    window.addEventListener('cc:pt-controller-ready', () => {
-      try { hideLauncherMainMenu(); } catch {}
-    }, { once: true });
-  } catch {}
-}
-
-// After welcome is dismissed, if the launcher is open, show the menu.
-if (!IS_CONTROLLER_MODE && typeof window !== 'undefined') {
-  window.addEventListener('cc:pt-welcome-dismissed', () => {
-    if (hasAppController()) return;
-    try {
-      const open = document.documentElement.getAttribute('data-pt-phone-open') === '1';
-      if (open) {
-        showLauncherMainMenu();
-        mountTickersIntoLauncher();
-      }
-    } catch {}
-  }, { passive: true });
-}
-
-function queueWelcomeModal({ immediate = false, preload = false } = {}) {
-  if (IS_CONTROLLER_MODE) return;
-  if (isControllerMode()) return;
-  if (welcomeModalDismissed) {
-    const body = typeof document !== 'undefined' ? document.body : null;
-    if (!body || !body.classList.contains('launching')) {
-      unlockTouchControls();
-    }
-    return;
-  }
-
-  if (preload) {
-    maybeShowWelcomeModal({ backgroundOnly: true });
-    if (!immediate) {
-      return;
-    }
-  }
-
-  if (immediate) {
-    maybeShowWelcomeModal();
-    return;
-  }
-
-  if (welcomeModalQueued) return;
-  welcomeModalQueued = true;
-  const schedule = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-    ? window.requestAnimationFrame
-    : (cb => setTimeout(cb, 0));
-  schedule(() => {
-    welcomeModalQueued = false;
-    maybeShowWelcomeModal();
-  });
-}
-if (!IS_CONTROLLER_MODE) {
-(async function setupLaunchAnimation(){
-  if (typeof window !== 'undefined' && window.__ccInlineLaunchControllerInstalled) {
-    try {
-      if (window.__ccLaunchComplete) {
-        markLaunchSequenceComplete();
-        queueWelcomeModal({ immediate: true });
-        hardEndLaunchUI();
-        forceInteractionUnlock('inline-launch-complete');
-        return;
-      }
-      window.addEventListener('cc:launch:done', () => {
-        try { markLaunchSequenceComplete(); } catch {}
-        try { queueWelcomeModal({ immediate: true }); } catch {}
-        try { hardEndLaunchUI(); } catch {}
-        try { forceInteractionUnlock('launch-done'); } catch {}
-      }, { once: true });
-    } catch {}
-    return;
-  }
-  const LAUNCH_FAILSAFE_MS = 8000;
-  try {
-    setTimeout(() => {
-      try {
-        if (document?.body?.classList?.contains('launching')) {
-          markLaunchSequenceComplete();
-        }
-      } catch {}
-    }, LAUNCH_FAILSAFE_MS);
-  } catch {}
-  if (typeof document === 'undefined' || IS_JSDOM_ENV) {
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
-  const body = document.body;
-  if(!body || !body.classList.contains('launching')){
-    unlockTouchControls();
-    queueWelcomeModal({ immediate: true });
-    markLaunchSequenceComplete();
-    return;
-  }
-
-  const launchEl = document.getElementById('launch-animation');
-  if (window.__ccLaunchComplete || launchEl?.getAttribute('data-launch-disarmed') === 'true') {
-    try { document.body?.classList.remove('launching'); } catch {}
-    markLaunchSequenceComplete();
-    queueWelcomeModal({ immediate: true });
-    if (typeof safeUnlockTouchControls === 'function') {
-      safeUnlockTouchControls({ immediate: true });
-    } else {
-      unlockTouchControls();
-    }
-    return;
-  }
-
-  lockTouchControls();
-  queueWelcomeModal({ preload: true });
-  queueWelcomeModal({ immediate: true });
-
-  const video = launchEl ? launchEl.querySelector('video') : null;
-  const skipButton = launchEl ? launchEl.querySelector('[data-skip-launch]') : null;
-  let revealCalled = false;
-  let playbackStartedAt = null;
-  let fallbackTimer = null;
-  let playbackRetryTimer = null;
-  let destroyed = false;
-  let awaitingGesture = false;
-  let cleanupMessaging = null;
-  let bypassLaunchMinimum = false;
-  let launchForceHidden = false;
-  const userGestureListeners = [];
-  let playAttempts = 0;
-  const MAX_PLAY_ATTEMPTS = 6;
-
-  const hardHideLaunch = () => {
-    if(!launchEl) return;
-    launchEl.setAttribute('data-hidden', 'true');
-    launchEl.style.display = 'none';
-    launchEl.style.pointerEvents = 'none';
-  };
-
-  const clearTimer = timer => {
-    if(timer){
-      window.clearTimeout(timer);
-    }
-    return null;
-  };
-
-  const cleanupUserGestures = () => {
-    while(userGestureListeners.length){
-      const { target, event, handler, capture } = userGestureListeners.pop();
-      try {
-        target.removeEventListener(event, handler, capture);
-      } catch (err) {
-        // ignore removal failures
-      }
-    }
-    awaitingGesture = false;
-  };
-
-  const cleanupLaunchShell = () => {
-    if(launchEl && launchEl.parentNode){
-      launchEl.parentNode.removeChild(launchEl);
-    }
-  };
-
-  const detachMessaging = () => {
-    if(typeof cleanupMessaging === 'function'){
-      try {
-        cleanupMessaging();
-      } catch (err) {
-        // ignore cleanup failures
-      }
-    }
-    cleanupMessaging = null;
-  };
-
-  const cleanupLaunch = ({ keepElement = false } = {}) => {
-    if(destroyed) return;
-    destroyed = true;
-    fallbackTimer = clearTimer(fallbackTimer);
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
-    detachMessaging();
-    cleanupUserGestures();
-    if(!IS_JSDOM_ENV && video){
-      try {
-        video.pause();
-      } catch {
-        /* ignore inability to pause */
-      }
-    }
-    if(video){
-      try { video.removeAttribute('src'); } catch {}
-      try {
-        const sources = video.querySelectorAll('source');
-        sources.forEach(source => {
-          try { source.removeAttribute('src'); } catch {}
-        });
-      } catch {}
-      try { video.load(); } catch {}
-    }
-    if(!keepElement){
-      hardHideLaunch();
-    }
-  };
-
-  const failOpenLaunch = reason => {
-    if(revealCalled) return;
-    revealCalled = true;
-    try { console.warn('Fail-open launch:', reason); } catch {}
-    cleanupLaunch();
-    try { body.classList.remove('launching'); } catch {}
-    safeUnlockTouchControls({ immediate: true });
-    markLaunchSequenceComplete();
-    queueWelcomeModal({ immediate: true });
-    if(launchEl){
-      launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
-      window.setTimeout(cleanupLaunchShell, 1000);
-    }
-  };
-
-  const finalizeReveal = () => {
-    cleanupLaunch();
-    body.classList.remove('launching');
-    safeUnlockTouchControls({ immediate: true });
-    markLaunchSequenceComplete();
-    queueWelcomeModal({ immediate: true });
-    if(launchEl){
-      launchEl.addEventListener('transitionend', cleanupLaunchShell, { once: true });
-      window.setTimeout(cleanupLaunchShell, 1000);
-    }
-  };
-
-  const revealApp = () => {
-    if(revealCalled) return;
-    revealCalled = true;
-    detachMessaging();
-    cleanupUserGestures();
-    if(typeof window !== 'undefined' && Object.prototype.hasOwnProperty.call(window, '__resetLaunchVideo')){
-      try {
-        delete window.__resetLaunchVideo;
-      } catch (err) {
-        window.__resetLaunchVideo = undefined;
-      }
-    }
-    if(!bypassLaunchMinimum && playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
-      const elapsed = performance.now() - playbackStartedAt;
-      const remaining = Math.max(0, LAUNCH_MIN_VISIBLE - elapsed);
-      if(remaining > 0){
-        window.setTimeout(finalizeReveal, remaining);
-        return;
-      }
-    }
-    finalizeReveal();
-  };
-
-  let manifestAssetsPromise = null;
-  const getManifestAssets = async () => {
-    if(manifestAssetsPromise) return manifestAssetsPromise;
-    if(typeof fetch !== 'function') return null;
-    manifestAssetsPromise = (async () => {
-      try {
-        const response = await fetch('asset-manifest.json', { cache: 'no-cache' });
-        if(!response || !response.ok) return null;
-        const data = await response.json();
-        if(Array.isArray(data?.assets)){
-          return new Set(data.assets);
-        }
-      } catch (err) {
-        // ignore manifest lookup failures
-      }
-      return null;
-    })();
-    return manifestAssetsPromise;
-  };
-
-  const ensureLaunchVideoSources = async vid => {
-    if(!vid) return false;
-
-    let modified = false;
-    const normalizeDataSource = source => {
-      const dataSrc = source.getAttribute('data-src');
-      if(!dataSrc) return;
-      if(source.getAttribute('src') === dataSrc) return;
-      source.setAttribute('src', dataSrc);
-      modified = true;
-    };
-
-    const existingSources = vid.querySelectorAll('source');
-    existingSources.forEach(normalizeDataSource);
-
-    if(!vid.getAttribute('src')){
-      const inlineSrc = vid.getAttribute('data-src');
-      if(inlineSrc){
-        vid.setAttribute('src', inlineSrc);
-        modified = true;
-      }
-    }
-
-    const hasExistingSource = !!vid.querySelector('source[src]');
-    let appended = false;
-    const canProbe = typeof fetch === 'function';
-    const manifestAssets = canProbe ? await getManifestAssets() : null;
-
-    const candidates = [
-      { key: 'srcWebm', type: 'video/webm' },
-      { key: 'srcMp4', type: 'video/mp4' }
-    ];
-
-    for (const { key, type } of candidates) {
-      const url = vid.dataset?.[key];
-      if(!url) continue;
-
-      let manifestMissing = false;
-      if(manifestAssets && manifestAssets.size > 0){
-        const normalized = url.replace(/^\.\//, '').replace(/^\//, '');
-        const manifestKey = `./${normalized}`;
-        manifestMissing = !manifestAssets.has(manifestKey);
-      }
-
-      if(manifestMissing && !canProbe){
-        continue;
-      }
-
-      let ok = false;
-      if(canProbe){
-        try {
-          const probeResponse = await fetch(url, { method: 'GET', headers: { Range: 'bytes=0-0' } });
-          ok = !!(
-            probeResponse &&
-            (probeResponse.ok || probeResponse.status === 206 || probeResponse.status === 200)
-          );
-        } catch (err) {
-          ok = false;
-        }
-      } else if(!manifestMissing){
-        ok = true;
-      }
-
-      if(!ok) continue;
-
-      const doc = vid.ownerDocument || (typeof document !== 'undefined' ? document : null);
-      if(!doc || typeof doc.createElement !== 'function'){
-        continue;
-      }
-      const source = doc.createElement('source');
-      source.src = url;
-      if(type){
-        source.type = type;
-      }
-      vid.appendChild(source);
-      appended = true;
-    }
-
-    if((modified || appended) && !IS_JSDOM_ENV && typeof vid.load === 'function'){
-      try {
-        vid.load();
-      } catch (err) {
-        // ignore inability to reload with new sources
-      }
-    }
-
-    return hasExistingSource || appended || modified;
-  };
-
-  try {
-    if(!video){
-      hardHideLaunch();
-      revealApp();
-      return;
-    }
-
-    const hasLaunchVideo = await ensureLaunchVideoSources(video);
-    if(!hasLaunchVideo){
-      hardHideLaunch();
-      revealApp();
-      return;
-    }
-
-    const ensureLaunchVideoAttributes = vid => {
-      try {
-        vid.setAttribute('playsinline', '');
-        vid.setAttribute('webkit-playsinline', '');
-      } catch (err) {
-        // ignore attribute failures
-      }
-      try {
-        vid.playsInline = true;
-      } catch (err) {
-        // ignore inability to set playsInline property
-      }
-      try {
-        vid.webkitPlaysInline = true;
-      } catch (err) {
-        // ignore inability to set legacy inline playback
-      }
-      try {
-        if(!vid.hasAttribute('muted')){
-          vid.setAttribute('muted', '');
-        }
-        vid.muted = true;
-        vid.defaultMuted = true;
-      } catch (err) {
-        // ignore inability to force muted playback
-      }
-      try {
-        vid.autoplay = true;
-        if(!vid.hasAttribute('autoplay')){
-          vid.setAttribute('autoplay', '');
-        }
-      } catch (err) {
-        // ignore inability to set autoplay
-      }
-      try {
-        vid.volume = 0;
-      } catch (err) {
-        // ignore inability to adjust volume
-      }
-      try {
-        vid.setAttribute('disablepictureinpicture', '');
-        vid.disablePictureInPicture = true;
-      } catch (err) {
-        // ignore inability to disable picture-in-picture
-      }
-      try {
-        vid.setAttribute('controlslist', 'nodownload nofullscreen noremoteplayback noplaybackrate');
-      } catch (err) {
-        // ignore inability to set the controls list attribute
-      }
-      try {
-        if (vid.controlsList && typeof vid.controlsList.add === 'function') {
-          ['nodownload', 'nofullscreen', 'noremoteplayback', 'noplaybackrate'].forEach(token => {
-            try {
-              vid.controlsList.add(token);
-            } catch (errToken) {
-              // ignore failures to register token
-            }
-          });
-        }
-      } catch (err) {
-        // ignore inability to manipulate the controlsList API
-      }
-      try {
-        vid.setAttribute('disableremoteplayback', '');
-        vid.disableRemotePlayback = true;
-      } catch (err) {
-        // ignore inability to disable remote playback
-      }
-      try {
-        vid.removeAttribute('controls');
-        vid.controls = false;
-      } catch (err) {
-        // ignore inability to disable controls
-      }
-    };
-
-  const finalizeLaunch = () => {
-    if(revealCalled) return;
-    fallbackTimer = clearTimer(fallbackTimer);
-    revealApp();
-  };
-
-  const dropLaunchOnFailure = () => {
-    if(launchForceHidden) return;
-    launchForceHidden = true;
-    cleanupLaunch();
-    finalizeLaunch();
-  };
-
-  if(skipButton){
-    skipButton.addEventListener('click', event => {
-      event.preventDefault();
-      bypassLaunchMinimum = true;
-      finalizeLaunch();
-    });
-  }
-
-  window.addEventListener('launch-animation-skip', () => {
-    bypassLaunchMinimum = true;
-    finalizeLaunch();
-  }, { once: true });
-
-  const scheduleFallback = delay => {
-    const rawDelay = typeof delay === 'number' && Number.isFinite(delay) ? delay : LAUNCH_MIN_VISIBLE;
-    const clampedDelay = Math.min(Math.max(rawDelay, LAUNCH_MIN_VISIBLE), LAUNCH_MAX_WAIT);
-    fallbackTimer = clearTimer(fallbackTimer);
-    fallbackTimer = window.setTimeout(finalizeLaunch, clampedDelay);
-  };
-
-  const schedulePlaybackRetry = () => {
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
-    playbackRetryTimer = window.setTimeout(() => {
-      tryStartPlayback();
-    }, 350);
-  };
-
-  function tryStartPlayback(){
-    if(destroyed || revealCalled || awaitingGesture) return;
-    if(playAttempts >= MAX_PLAY_ATTEMPTS){
-      failOpenLaunch('launch video failed to start after retries');
-      return;
-    }
-    playAttempts += 1;
-    ensureLaunchVideoAttributes(video);
-    const verifyPlaybackStart = () => {
-      window.setTimeout(() => {
-        if(revealCalled || launchForceHidden) return;
-        if(video.paused || video.ended){
-          schedulePlaybackRetry();
-        }
-      }, 250);
-    };
-    try {
-      const playAttempt = video.play();
-      if(playAttempt && typeof playAttempt.then === 'function'){
-        playAttempt.then(() => {
-          verifyPlaybackStart();
-        }).catch(() => {
-          schedulePlaybackRetry();
-        });
-      } else if(video.paused){
-        schedulePlaybackRetry();
-      } else {
-        verifyPlaybackStart();
-      }
-    } catch (err) {
-      schedulePlaybackRetry();
-    }
-  }
-
-  const resetPlayback = () => {
-    if(!IS_JSDOM_ENV){
-      try {
-        video.pause();
-      } catch (err) {
-        // ignore inability to pause
-      }
-    }
-    try {
-      if(video.readyState > 0){
-        video.currentTime = 0;
-      }
-    } catch (err) {
-      // ignore inability to seek
-    }
-    if(video.readyState === 0){
-      try {
-        video.load();
-      } catch (err) {
-        // ignore load failures
-      }
-    }
-  };
-
-  const handlePlaying = () => {
-    if(!playbackStartedAt && typeof performance !== 'undefined' && typeof performance.now === 'function'){
-      playbackStartedAt = performance.now();
-    }
-    cleanupUserGestures();
-    playbackRetryTimer = clearTimer(playbackRetryTimer);
-    const naturalDuration = Number.isFinite(video.duration) && video.duration > 0
-      ? (video.duration * 1000) + 500
-      : LAUNCH_MAX_WAIT;
-    scheduleFallback(naturalDuration);
-  };
-
-  const handlePause = () => {
-    if(revealCalled || video.ended) return;
-    tryStartPlayback();
-  };
-
-  const setupServiceWorkerMessaging = () => {
-    if(typeof navigator === 'undefined' || !('serviceWorker' in navigator)){
-      return () => {};
-    }
-    const handler = event => {
-      const payload = event?.data && typeof event.data === 'object' ? event.data : { type: event?.data };
-      if(!payload || typeof payload.type !== 'string'){
-        return;
-      }
-      if(payload.type === 'reset-launch-video'){
-        resetPlayback();
-        tryStartPlayback();
-      }
-    };
-    navigator.serviceWorker.addEventListener('message', handler);
-    return () => {
-      try {
-        navigator.serviceWorker.removeEventListener('message', handler);
-      } catch (err) {
-        // ignore removal failures
-      }
-    };
-  };
-
-  cleanupMessaging = setupServiceWorkerMessaging();
-
-  window.__resetLaunchVideo = () => {
-    if(revealCalled) return;
-    resetPlayback();
-    tryStartPlayback();
-  };
-
-  video.addEventListener('playing', handlePlaying);
-  video.addEventListener('timeupdate', handlePlaying, { once: true });
-  video.addEventListener('pause', handlePause);
-  video.addEventListener('ended', finalizeLaunch, { once: true });
-  video.addEventListener('error', finalizeLaunch, { once: true });
-  ['stalled','suspend','abort'].forEach(evt => video.addEventListener(evt, () => scheduleFallback(LAUNCH_MAX_WAIT)));
-
-  const beginPlayback = () => {
-    resetPlayback();
-    tryStartPlayback();
-    scheduleFallback(LAUNCH_MAX_WAIT);
-  };
-
-    if(video.readyState >= 1){
-      beginPlayback();
-    } else {
-      video.addEventListener('loadedmetadata', beginPlayback, { once: true });
-      try {
-        video.load();
-      } catch (err) {
-        // ignore load failures while waiting for metadata
-      }
-      scheduleFallback(LAUNCH_MAX_WAIT);
-    }
-  } catch (err) {
-    failOpenLaunch(err);
-  }
-})();
 }
 
 // Ensure numeric inputs accept only digits and trigger numeric keypad
@@ -5667,11 +4273,7 @@ const MENU_ACTION_HANDLERS = {
 const isMenuActionBlocked = () => {
   const body = typeof document !== 'undefined' ? document.body : null;
   const launching = !!(body && body.classList.contains('launching'));
-  if (launching || !hasLaunchSequenceCompleted()) return true;
-  const welcomeModal = getWelcomeModal();
-  const welcomeVisible = welcomeModal && !welcomeModal.classList.contains('hidden');
-  if (welcomeVisible && !welcomeModalDismissed) return true;
-  return false;
+  return launching;
 };
 
 if (typeof window !== 'undefined') {
@@ -8111,9 +6713,6 @@ const computePlayerCreditSignature = (detail) => {
 const elPlayerToolsTab = $('player-tools-tab');
 if (elPlayerToolsTab) {
   playerToolsTabElement = elPlayerToolsTab;
-  if (!welcomeModalDismissed) {
-    addPlayerToolsTabSuppression('welcome-modal');
-  }
   syncPlayerToolsTabHidden();
 }
 
@@ -8808,91 +7407,6 @@ if (elCombatRewardReminderButton) {
   elCombatRewardReminderButton.addEventListener('click', () => {
     showLevelRewardReminderToast('combat');
   });
-}
-
-if (typeof subscribePlayerToolsDrawer === 'function') {
-  subscribePlayerToolsDrawer(({ open }) => {
-    isPlayerToolsDrawerOpen = Boolean(open);
-    if (elLevelRewardReminderTrigger) {
-      if (open && levelRewardPendingCount > 0) {
-        if (typeof elLevelRewardReminderTrigger.setAttribute === 'function') {
-          elLevelRewardReminderTrigger.setAttribute('data-drawer-open', 'true');
-        } else if (elLevelRewardReminderTrigger.dataset) {
-          elLevelRewardReminderTrigger.dataset.drawerOpen = 'true';
-        }
-      } else {
-        if (typeof elLevelRewardReminderTrigger.removeAttribute === 'function') {
-          elLevelRewardReminderTrigger.removeAttribute('data-drawer-open');
-        } else if (elLevelRewardReminderTrigger?.dataset) {
-          delete elLevelRewardReminderTrigger.dataset.drawerOpen;
-        }
-      }
-    }
-    syncLevelRewardReminderAnimation();
-    if (open) {
-      acknowledgePlayerCredit();
-      acknowledgePlayerReward();
-    }
-    updateMiniGameReminder();
-  });
-  globalThis.__cccgBreadcrumb?.('boot', 'player tools drawer initialized');
-}
-
-const pauseActiveTabIconAnimations = () => {
-  if (typeof document === 'undefined') return;
-  document.querySelectorAll('.tab__icon--animating').forEach(container => {
-    container.classList.remove('tab__icon--animating');
-  });
-};
-
-let modeLiveRegionAriaLiveDefault = null;
-
-const updateDrawerLiveRegionState = (isOpen) => {
-  if (!modeLiveRegion || !modeLiveRegion.isConnected) return;
-  if (modeLiveRegionAriaLiveDefault === null) {
-    modeLiveRegionAriaLiveDefault = modeLiveRegion.getAttribute('aria-live');
-  }
-  if (isOpen) {
-    modeLiveRegion.setAttribute('aria-live', 'off');
-  } else if (modeLiveRegionAriaLiveDefault && modeLiveRegionAriaLiveDefault.length > 0) {
-    modeLiveRegion.setAttribute('aria-live', modeLiveRegionAriaLiveDefault);
-  } else {
-    modeLiveRegion.removeAttribute('aria-live');
-  }
-};
-
-const collapseOverlaysForDrawer = () => {
-  const overlayIds = [
-    hpSettingsOverlay?.id,
-    spSettingsOverlay?.id,
-    augmentPickerOverlay?.id,
-    miniGameInviteOverlay?.id,
-    'modal-campaign-edit',
-    'modal-catalog',
-  ].filter(Boolean);
-  overlayIds.forEach(id => {
-    const overlay = $(id);
-    if (!overlay || overlay.classList.contains('hidden')) return;
-    hide(id);
-  });
-};
-
-if (typeof onPlayerToolsDrawerChange === 'function') {
-  const handleDrawerChange = ({ open }) => {
-    if (open) {
-      addPlayerToolsTabSuppression('player-tools-drawer');
-    } else {
-      removePlayerToolsTabSuppression('player-tools-drawer');
-    }
-    updateDrawerLiveRegionState(open);
-    if (open) {
-      pauseActiveTabIconAnimations();
-      collapseOverlaysForDrawer();
-    }
-    updateMiniGameReminder();
-  };
-
-  onPlayerToolsDrawerChange(handleDrawerChange);
 }
 
 let casterAbilityManuallySet = false;
@@ -12553,7 +11067,6 @@ function initPhoneRouter() {
         if (!shell || !shell.contains(openBtn)) return;
 
         ensurePhoneOpen();
-        try { forceInteractionUnlock('phone-open'); } catch {}
 
         const id = openBtn.getAttribute('data-pt-open-app');
         if (id) {
@@ -12587,7 +11100,6 @@ function initPhoneRouter() {
         if (!shell || !shell.contains(homeBtn)) return;
         event.preventDefault?.();
         ensurePhoneOpen();
-        try { forceInteractionUnlock('phone-home'); } catch {}
         goHome();
         return;
       }
@@ -12598,7 +11110,6 @@ function initPhoneRouter() {
         if (!shell || !shell.contains(recentsBtn)) return;
         event.preventDefault?.();
         ensurePhoneOpen();
-        try { forceInteractionUnlock('phone-recents'); } catch {}
         if (typeof toast === 'function') {
           toast('Recents is coming soon.', 'info');
         }
@@ -14941,24 +13452,11 @@ document.addEventListener('credits-ledger-updated', () => {
 });
 
 function prepareForModalOpen() {
-  try { hideLauncherMainMenu(); } catch {}
-  try {
-    const welcome = document.getElementById('modal-welcome');
-    if (welcome && welcome.getAttribute('aria-hidden') === 'false') {
-      closeMenuModal('modal-welcome');
-      removePlayerToolsTabSuppression('welcome-modal');
-    }
-  } catch {}
-  try { lockTouchControls(); } catch {}
+  // Legacy launcher/touch locking removed.
 }
 
 function finalizeModalClose() {
-  try {
-    const openSheet = document.querySelector('.overlay.modal-sheet:not(.hidden)[aria-hidden="false"]');
-    if (!openSheet) {
-      safeUnlockTouchControls({ immediate: true });
-    }
-  } catch {}
+  // Legacy touch locking removed.
 }
 
 function openMenuModal(id) {
@@ -23895,7 +22393,7 @@ const UI_SNAPSHOT_INPUT_SELECTORS = [
 ];
 
 const UI_SNAPSHOT_MODAL_BLOCKLIST = new Set([
-  WELCOME_MODAL_ID,
+  'modal-welcome',
   'modal-pin',
   'modal-character-confirmation',
   'launch-animation',
@@ -23952,7 +22450,6 @@ function captureOpenModalIds() {
 
 function applyOpenModalIds(ids = []) {
   if (!Array.isArray(ids) || typeof document === 'undefined') return;
-  if (!hasLaunchSequenceCompleted()) return;
   if (document.body && document.body.classList.contains('launching')) return;
   ids.forEach(id => {
     if (!id || UI_SNAPSHOT_MODAL_BLOCKLIST.has(id)) return;
@@ -23997,9 +22494,6 @@ function createUiSnapshot() {
     ui.theme = activeTheme;
   }
   const openDrawers = {};
-  if (typeof isPlayerToolsDrawerOpen === 'boolean') {
-    openDrawers.playerTools = isPlayerToolsDrawerOpen;
-  }
   if (typeof isTickerDrawerOpen === 'boolean') {
     openDrawers.ticker = isTickerDrawerOpen;
   }
@@ -24011,10 +22505,6 @@ function createUiSnapshot() {
     scroll.windowY = Number.isFinite(window.scrollY) ? window.scrollY : 0;
   }
   try {
-    const playerToolsViewport = document.querySelector('#player-tools-drawer .pt-app__viewport');
-    if (playerToolsViewport) {
-      scroll.panels['#player-tools-drawer .pt-app__viewport'] = playerToolsViewport.scrollTop || 0;
-    }
     const phoneViewport = document.querySelector('.player-tools-phone__viewport');
     if (phoneViewport) {
       scroll.panels['.player-tools-phone__viewport'] = phoneViewport.scrollTop || 0;
@@ -24134,10 +22624,6 @@ function applyUiSnapshot(ui) {
   }
   try {
     const drawers = ui.openDrawers && typeof ui.openDrawers === 'object' ? ui.openDrawers : {};
-    if ('playerTools' in drawers) {
-      if (drawers.playerTools) openPlayerToolsDrawer();
-      else closePlayerToolsDrawer();
-    }
     if ('ticker' in drawers) {
       setTickerDrawerOpen(drawers.ticker);
     }
@@ -24390,10 +22876,6 @@ function deserialize(data){
       if (qs(`.tab[data-go="${uiState.activeTab}"]`)) {
         activateTab(uiState.activeTab);
       }
-    }
-    if (typeof uiState.playerToolsOpen === 'boolean') {
-      if (uiState.playerToolsOpen) openPlayerToolsDrawer();
-      else closePlayerToolsDrawer();
     }
     if (typeof uiState.tickerOpen === 'boolean') {
       setTickerDrawerOpen(uiState.tickerOpen);
@@ -24682,7 +23164,6 @@ function shouldGuardInteraction(target) {
   if (!isPinGuardLocked()) return false;
   if (!target || typeof target.closest !== 'function') return false;
 
-  if (target.closest('#player-tools-drawer')) return false;
   if (target.closest('#main-menu, .main-menu, [data-main-menu]')) return false;
   if (target.closest('.overlay, .modal, [role="dialog"], [aria-modal="true"]')) return false;
 
@@ -24837,52 +23318,9 @@ if(typeof window !== 'undefined'){
   }, { passive: true });
 }
 
-function markLaunchSequenceComplete(){
-  if(launchSequenceComplete) return;
-  launchSequenceComplete = true;
-  if (typeof window !== 'undefined') {
-    try {
-      window.__ccLaunchComplete = { reason: 'complete', ts: Date.now() };
-    } catch {}
-  }
-  try { document.body?.classList?.remove('launching'); } catch {}
-  try {
-    const launchEl = document.getElementById('launch-animation');
-    if (launchEl) {
-      try { launchEl.setAttribute('data-launch-disarmed', 'true'); } catch {}
-      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
-      try { launchEl.hidden = true; } catch {}
-      try { launchEl.style.display = 'none'; } catch {}
-      try { launchEl.style.pointerEvents = 'none'; } catch {}
-    }
-  } catch {}
-  try {
-    if (typeof safeUnlockTouchControls === 'function') {
-      safeUnlockTouchControls({ immediate: true });
-    } else if (typeof unlockTouchControls === 'function') {
-      unlockTouchControls({ immediate: true });
-    } else {
-      try { document.body?.classList?.remove('touch-controls-disabled'); } catch {}
-      try { document.body?.classList?.remove('modal-open'); } catch {}
-    }
-  } catch {}
-  scheduleLaunchRecovery();
-  attemptPendingPinPrompt();
-  flushCharacterConfirmationQueue();
-}
-
-function markWelcomeSequenceComplete(){
-  if(welcomeSequenceComplete) return;
-  welcomeSequenceComplete = true;
-  safeUnlockTouchControls({ immediate: true });
-  attemptPendingPinPrompt();
-  flushCharacterConfirmationQueue();
-}
-
 async function attemptPendingPinPrompt(){
   if(pendingPinPromptActive) return;
   if(!pendingPinnedAutoLoad) return;
-  if(!launchSequenceComplete || !welcomeSequenceComplete) return;
   pendingPinPromptActive = true;
   try {
     await promptForPendingPinnedCharacter();
@@ -25796,99 +24234,6 @@ if (secretInput) {
 /* ========= Rules ========= */
 /* ========= Close + click-outside ========= */
 qsa('.overlay').forEach(ov=> ov.addEventListener('click', (e)=>{ if (e.target===ov) hide(ov.id); }));
-const welcomeHideToggle = $('welcome-hide-toggle');
-if (welcomeHideToggle) {
-  welcomeHideToggle.checked = welcomeModalDismissed;
-  welcomeHideToggle.addEventListener('change', () => {
-    const shouldHide = welcomeHideToggle.checked;
-    welcomeModalDismissed = shouldHide;
-    const storage = getLocalStorageSafe();
-    if (storage) {
-      try {
-        if (shouldHide) {
-          storage.setItem(WELCOME_MODAL_PREFERENCE_KEY, 'true');
-        } else {
-          storage.removeItem(WELCOME_MODAL_PREFERENCE_KEY);
-        }
-      } catch {}
-    }
-  });
-}
-const welcomeCreate = $('welcome-create-character');
-if (welcomeCreate) {
-  welcomeCreate.addEventListener('click', () => {
-    dismissWelcomeModal();
-    const newCharBtn = $('create-character');
-    if (newCharBtn) newCharBtn.click();
-  });
-}
-const welcomeLoad = $('welcome-load-character');
-if (welcomeLoad) {
-  welcomeLoad.addEventListener('click', () => {
-    dismissWelcomeModal();
-    window.requestAnimationFrame(() => {
-      openCharacterList().catch(err => console.error('Failed to open load list from welcome', err));
-    });
-  });
-}
-const welcomeSkip = $('welcome-skip');
-if (welcomeSkip) {
-  welcomeSkip.addEventListener('click', () => { dismissWelcomeModal(); });
-}
-const welcomeOverlay = getWelcomeModal();
-const welcomeOverlayIsElement = Boolean(
-  welcomeOverlay &&
-  typeof welcomeOverlay === 'object' &&
-  typeof welcomeOverlay.addEventListener === 'function' &&
-  typeof welcomeOverlay.classList?.contains === 'function' &&
-  typeof welcomeOverlay.nodeType === 'number'
-);
-if (welcomeOverlayIsElement) {
-  welcomeOverlay.addEventListener('click', event => {
-    if (event.target === welcomeOverlay) {
-      dismissWelcomeModal();
-    }
-  }, { capture: true });
-  qsa('#modal-welcome [data-close]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      dismissWelcomeModal();
-    }, { capture: true });
-  });
-  const updatePlayerToolsTabForWelcome = () => {
-    const shouldHideTab = !welcomeOverlay.classList.contains('hidden');
-    if (shouldHideTab) {
-      addPlayerToolsTabSuppression('welcome-modal');
-    } else {
-      removePlayerToolsTabSuppression('welcome-modal');
-    }
-  };
-  updatePlayerToolsTabForWelcome();
-  if (typeof MutationObserver === 'function') {
-    const welcomeModalObserver = new MutationObserver(mutations => {
-      if (mutations.some(mutation => mutation.type === 'attributes')) {
-        updatePlayerToolsTabForWelcome();
-      }
-    });
-    try {
-      welcomeModalObserver.observe(welcomeOverlay, { attributes: true, attributeFilter: ['class', 'hidden'] });
-    } catch (err) {
-      // jsdom may provide a mock that is not a fully qualified Node instance
-      console.warn('Unable to observe welcome overlay mutations; falling back to transition listener.', err);
-      welcomeOverlay.addEventListener('transitionend', event => {
-        if (event.target === welcomeOverlay) {
-          updatePlayerToolsTabForWelcome();
-        }
-      });
-    }
-  } else {
-    welcomeOverlay.addEventListener('transitionend', event => {
-      if (event.target === welcomeOverlay) {
-        updatePlayerToolsTabForWelcome();
-      }
-    });
-  }
-}
-
 const characterConfirmationModal = $(CHARACTER_CONFIRMATION_MODAL_ID);
 const characterConfirmationContinue = $('character-confirmation-continue');
 const characterConfirmationClose = $('character-confirmation-close');
@@ -25914,17 +24259,6 @@ document.addEventListener('keydown', event => {
     dismissCharacterConfirmation();
   }
 });
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') {
-    const modal = getWelcomeModal();
-    if (modal && !modal.classList.contains('hidden')) {
-      dismissWelcomeModal();
-    }
-  }
-});
-if (!document.body?.classList?.contains('launching')) {
-  queueWelcomeModal({ immediate: true });
-}
 
 /* ========= boot ========= */
 updateDerived();
