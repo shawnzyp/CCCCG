@@ -2,6 +2,33 @@ import { createStore } from './store.js';
 import { OverlayManager } from '../ui/overlayManager.js';
 import { PhoneOS } from '../os/phoneOS.js';
 
+function hardUnlockUI(reason = 'controller') {
+  try { document.body?.classList?.remove?.('touch-controls-disabled', 'modal-open', 'launching'); } catch {}
+  try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '0'); } catch {}
+  try {
+    document.querySelectorAll?.('[inert]').forEach((el) => {
+      try { el.inert = false; } catch {}
+      try { el.removeAttribute('inert'); } catch {}
+    });
+  } catch {}
+  try {
+    const launchEl = document.getElementById('launch-animation');
+    if (launchEl) {
+      try { launchEl.hidden = true; } catch {}
+      try { launchEl.style.display = 'none'; } catch {}
+      try { launchEl.style.pointerEvents = 'none'; } catch {}
+      try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
+    }
+  } catch {}
+  try {
+    if (typeof globalThis.safeUnlockTouchControls === 'function') {
+      globalThis.safeUnlockTouchControls({ immediate: true, reason });
+    } else if (typeof globalThis.unlockTouchControls === 'function') {
+      globalThis.unlockTouchControls({ immediate: true, reason });
+    }
+  } catch {}
+}
+
 function unlockGlobalTouch(reason = 'controller') {
   try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '0'); } catch {}
   try { document.body?.classList?.remove?.('touch-controls-disabled'); } catch {}
@@ -68,7 +95,7 @@ function reducer(state, action) {
     case 'BOOT_DONE':
       return { ...state, phase: 'INTRO' };
     case 'INTRO_DONE':
-      return { ...state, phase: 'WELCOME_MODAL', overlays: [{ type: 'welcome' }] };
+      return { ...state, phase: 'PHONE_OS', overlays: [] };
     case 'WELCOME_ACCEPT':
       return { ...state, phase: 'PHONE_OS', overlays: [] };
     case 'OPEN_MAIN_MENU':
@@ -88,6 +115,7 @@ function reducer(state, action) {
 export function createAppController({ appRoot, overlayRoot } = {}) {
   const store = createStore(initialState, reducer);
   const phone = new PhoneOS({ appRoot, store });
+  hardUnlockUI('controller-init');
   try { showNode(appRoot); } catch {}
   const overlayRegistry = {
     welcome: {
@@ -145,7 +173,9 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     const allowPhone = state.phase === 'PHONE_OS';
     phone.setInteractive(allowPhone);
 
-    if (state.phase === 'BOOT' || state.phase === 'INTRO') {
+    if (state.phase === 'PHONE_OS') {
+      hardUnlockUI('phone-os');
+    } else if (state.phase === 'BOOT' || state.phase === 'INTRO') {
       lockGlobalTouch(state.phase.toLowerCase());
     } else {
       unlockGlobalTouch(state.phase.toLowerCase());
@@ -157,7 +187,7 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     lastPhase = state.phase;
 
     // Prepaint blur as early as possible so it never "pops" in.
-    if (state.phase === 'WELCOME_MODAL' || state.phase === 'INTRO') {
+    if (state.phase === 'INTRO') {
       overlays.ensureBackdropPrepaint();
     }
 
@@ -179,11 +209,6 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
       }
     }
 
-    if (state.phase === 'WELCOME_MODAL') {
-      if (!document.getElementById('modal-pt-welcome')) {
-        store.dispatch({ type: 'WELCOME_ACCEPT' });
-      }
-    }
   });
 
   return { store, phone, overlays };

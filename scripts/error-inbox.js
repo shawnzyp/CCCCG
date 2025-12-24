@@ -252,7 +252,9 @@ export function installGlobalErrorInbox() {
   if (window.__ccErrorInboxInstalled) return;
   window.__ccErrorInboxInstalled = true;
   globalThis.__cccgBreadcrumb = addBreadcrumb;
-  const SHOW_PANIC_OVERLAY = false;
+  const DEBUG_OVERLAY_ENABLED = (new URLSearchParams(location.search).get('debugOverlay') === '1')
+    || (localStorage.getItem('cc:debugOverlay') === '1');
+  const SHOW_PANIC_OVERLAY = DEBUG_OVERLAY_ENABLED;
   try {
     const raw = localStorage.getItem(AUTH_STATE_KEY);
     if (raw) {
