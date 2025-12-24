@@ -29,6 +29,21 @@ export function initPlayerOSModule() {
 
   try { window.dispatchEvent(new CustomEvent('cc:pt-controller-ready')); } catch {}
 
+  // Consolidation: Main Menu opens PhoneOS menu only, never legacy drawer.
+  try {
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!target) return;
+      const opener = target.closest?.(
+        '[aria-controls="player-tools-drawer"], [data-pt-open-drawer], #player-tools-toggle, #player-tools-button'
+      );
+      if (!opener) return;
+      e.preventDefault?.();
+      e.stopPropagation?.();
+      controller.store.dispatch({ type: 'OPEN_MAIN_MENU' });
+    }, { capture: true });
+  } catch {}
+
   try {
     launcher.addEventListener('click', (e) => {
       const btn = e.target?.closest?.('[data-pt-open-app]');

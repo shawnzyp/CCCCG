@@ -85,6 +85,9 @@ try {
   }
 } catch {}
 
+const IS_CONTROLLER_MODE =
+  typeof window !== 'undefined' && window.__CCCG_MODE__ === 'controller';
+
 // ---------------------------------------------------------------------------
 // Boot Debug HUD + Void Watchdog (temporary but extremely useful on iOS)
 // ---------------------------------------------------------------------------
@@ -2823,6 +2826,7 @@ export async function openApp(appId, opts = {}) {
 
 let launcherDelegationWired = false;
 function wireLauncherDelegation() {
+  if (IS_CONTROLLER_MODE) return;
   if (hasControllerOrBooting()) return;
   if (launcherDelegationWired || typeof document === 'undefined') return;
   launcherDelegationWired = true;
@@ -2863,6 +2867,9 @@ function wireLauncherDelegation() {
 }
 
 export function runLauncherHealthCheck({ logToConsole = true } = {}) {
+  if (IS_CONTROLLER_MODE) {
+    return { ok: true, missingRegistry: [], missingTargets: [], skippedTargetsCheck: true };
+  }
   if (isControllerBootingOrReady()) {
     return { ok: true, missingRegistry: [], missingTargets: [], skippedTargetsCheck: true };
   }
@@ -3122,6 +3129,7 @@ function markLaunchComplete(reason = 'ended') {
 }
 
 function tryShowWelcomeForLaunch(reason = '') {
+  if (IS_CONTROLLER_MODE) return;
   if (welcomeShownFromLaunch) return;
   if (welcomeModalDismissed) return;
 
@@ -3376,6 +3384,7 @@ function forceInteractionUnlock(reason = 'unknown') {
 }
 
 function maybeShowWelcomeModal({ backgroundOnly = false } = {}) {
+  if (IS_CONTROLLER_MODE) return;
   if (isControllerMode()) return;
   const modal = prepareWelcomeModal();
   if (!modal) {
@@ -3456,6 +3465,7 @@ function hardEndLaunchUI() {
 }
 
 function dismissWelcomeModal() {
+  if (IS_CONTROLLER_MODE) return;
   if (isControllerMode()) return;
   welcomeModalDismissed = true;
   try { hide(WELCOME_MODAL_ID); } catch {}
@@ -3483,9 +3493,65 @@ function dismissWelcomeModal() {
   } catch {}
 }
 
-// ---------------------------------------------------------------------------
-// Launcher Main Menu integration
-// ---------------------------------------------------------------------------
+function showControllerFailureOverlay(message = '') {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('cccg-controller-fail')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cccg-controller-fail';
+  overlay.setAttribute('role', 'status');
+  overlay.style.position = 'fixed';
+  overlay.style.right = '16px';
+  overlay.style.bottom = '16px';
+  overlay.style.zIndex = '1000000';
+  overlay.style.maxWidth = '320px';
+  overlay.style.padding = '12px 14px';
+  overlay.style.borderRadius = '12px';
+  overlay.style.background = 'rgba(0, 0, 0, 0.85)';
+  overlay.style.color = '#fff';
+  overlay.style.font = '14px/1.4 system-ui, -apple-system, Segoe UI, sans-serif';
+  overlay.style.boxShadow = '0 12px 30px rgba(0,0,0,0.35)';
+
+  const title = document.createElement('div');
+  title.textContent = 'Controller failed to start.';
+  title.style.fontWeight = '600';
+  title.style.marginBottom = '6px';
+  overlay.appendChild(title);
+
+  if (message) {
+    const detail = document.createElement('div');
+    detail.textContent = message;
+    detail.style.opacity = '0.8';
+    detail.style.fontSize = '12px';
+    detail.style.marginBottom = '10px';
+    overlay.appendChild(detail);
+  }
+
+  const reloadBtn = document.createElement('button');
+  reloadBtn.type = 'button';
+  reloadBtn.textContent = 'Reload';
+  reloadBtn.style.border = '0';
+  reloadBtn.style.borderRadius = '999px';
+  reloadBtn.style.padding = '6px 12px';
+  reloadBtn.style.background = '#fff';
+  reloadBtn.style.color = '#111';
+  reloadBtn.style.cursor = 'pointer';
+  reloadBtn.addEventListener('click', () => {
+    try { window.location.reload(); } catch {}
+  });
+  overlay.appendChild(reloadBtn);
+
+  document.body?.appendChild?.(overlay);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('cc:pt-controller-failed', (event) => {
+    if (!IS_CONTROLLER_MODE) return;
+    try { document.body?.classList?.remove(TOUCH_LOCK_CLASS); } catch {}
+    showControllerFailureOverlay(event?.detail?.message || '');
+  }, { passive: true });
+}
+
 function hasControllerOrBooting() {
   return isControllerBootingOrReady();
 }
@@ -3509,6 +3575,10 @@ function isControllerMode() {
 function hasAppController() {
   return hasControllerOrBooting();
 }
+
+// ---------------------------------------------------------------------------
+// Launcher Main Menu integration (legacy)
+// ---------------------------------------------------------------------------
 let launcherMenuWired = false;
 let launcherMenuObserverWired = false;
 
@@ -3517,6 +3587,7 @@ function getLauncherMainMenu() {
 }
 
 function showLauncherMainMenu() {
+  if (IS_CONTROLLER_MODE) return;
   if (hasControllerOrBooting()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
@@ -3525,6 +3596,7 @@ function showLauncherMainMenu() {
 }
 
 function hideLauncherMainMenu() {
+  if (IS_CONTROLLER_MODE) return;
   if (hasControllerOrBooting()) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
@@ -3577,6 +3649,7 @@ function captureTickerMountStateOnce(primary, secondary) {
 }
 
 function mountTickersIntoLauncher({ allowRetry = true } = {}) {
+  if (IS_CONTROLLER_MODE) return;
   const menu = getLauncherMainMenu();
   if (!menu) return;
 
@@ -3603,6 +3676,7 @@ function mountTickersIntoLauncher({ allowRetry = true } = {}) {
 }
 
 function restoreTickersFromLauncher() {
+  if (IS_CONTROLLER_MODE) return;
   const state = tickerMountState;
   if (!state) return;
   const menu = getLauncherMainMenu();
@@ -3624,6 +3698,7 @@ function restoreTickersFromLauncher() {
 }
 
 function wireLauncherMainMenu() {
+  if (IS_CONTROLLER_MODE) return;
   if (hasControllerOrBooting()) return;
   if (launcherMenuWired) return;
   const menu = getLauncherMainMenu();
@@ -3670,68 +3745,45 @@ function wireLauncherMainMenu() {
 }
 
 // Ensure menu wiring happens once DOM is ready.
-try {
-  function wireLegacyIfNoController() {
-    if (isControllerMode()) return;
-    if (hasAppController()) return;
-    wireLauncherMainMenu();
-    wireLauncherDelegation();
-    runLauncherHealthCheck();
-  }
+if (!IS_CONTROLLER_MODE) {
+  try {
+    function wireLegacyIfNoController() {
+      if (isControllerMode()) return;
+      if (hasAppController()) return;
+      wireLauncherMainMenu();
+      wireLauncherDelegation();
+      runLauncherHealthCheck();
+    }
 
-  // If module boot fails, immediately allow legacy wiring to run.
-  window.addEventListener('cc:pt-controller-failed', () => {
-    try {
-      // Clear the booting flag so hasAppController() stops blocking.
-      window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
-    } catch {}
-    try {
-      window.__CCCG_MODE__ = 'legacy';
-    } catch {}
-    try {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        queueMicrotask(wireLegacyIfNoController);
+      }, { once: true });
+    } else {
       queueMicrotask(wireLegacyIfNoController);
-    } catch {}
-    // Also force a minimal visual recovery so user isn't staring at nothing.
-    try {
-      const launcher = document.querySelector('[data-pt-launcher]');
-      if (launcher) {
-        launcher.hidden = false;
-        launcher.style.removeProperty('display');
-        launcher.setAttribute('aria-hidden', 'false');
-        document.documentElement.setAttribute('data-pt-phone-open', '1');
-        document.documentElement.setAttribute('data-pt-drawer-open', '1');
-      }
-    } catch {}
-  }, { passive: true });
+    }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      queueMicrotask(wireLegacyIfNoController);
+    // If controller is booting, do not wire legacy immediately.
+    // As a last resort, if controller never appears, wire legacy later.
+    if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER_BOOTING__) {
+      setTimeout(() => {
+        try {
+          if (!window.__CCCG_APP_CONTROLLER__) {
+            window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
+            wireLegacyIfNoController();
+          }
+        } catch {}
+      }, 6000);
+    }
+
+    window.addEventListener('cc:pt-controller-ready', () => {
+      try { hideLauncherMainMenu(); } catch {}
     }, { once: true });
-  } else {
-    queueMicrotask(wireLegacyIfNoController);
-  }
-
-  // If controller is booting, do not wire legacy immediately.
-  // As a last resort, if controller never appears, wire legacy later.
-  if (typeof window !== 'undefined' && window.__CCCG_APP_CONTROLLER_BOOTING__) {
-    setTimeout(() => {
-      try {
-        if (!window.__CCCG_APP_CONTROLLER__) {
-          window.__CCCG_APP_CONTROLLER_BOOTING__ = false;
-          wireLegacyIfNoController();
-        }
-      } catch {}
-    }, 6000);
-  }
-
-  window.addEventListener('cc:pt-controller-ready', () => {
-    try { hideLauncherMainMenu(); } catch {}
-  }, { once: true });
-} catch {}
+  } catch {}
+}
 
 // After welcome is dismissed, if the launcher is open, show the menu.
-if (typeof window !== 'undefined') {
+if (!IS_CONTROLLER_MODE && typeof window !== 'undefined') {
   window.addEventListener('cc:pt-welcome-dismissed', () => {
     if (hasAppController()) return;
     try {
@@ -3745,6 +3797,7 @@ if (typeof window !== 'undefined') {
 }
 
 function queueWelcomeModal({ immediate = false, preload = false } = {}) {
+  if (IS_CONTROLLER_MODE) return;
   if (isControllerMode()) return;
   if (welcomeModalDismissed) {
     const body = typeof document !== 'undefined' ? document.body : null;
@@ -3776,6 +3829,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     maybeShowWelcomeModal();
   });
 }
+if (!IS_CONTROLLER_MODE) {
 (async function setupLaunchAnimation(){
   if (typeof window !== 'undefined' && window.__ccInlineLaunchControllerInstalled) {
     try {
@@ -4348,6 +4402,7 @@ function queueWelcomeModal({ immediate = false, preload = false } = {}) {
     failOpenLaunch(err);
   }
 })();
+}
 
 // Ensure numeric inputs accept only digits and trigger numeric keypad
 document.addEventListener('input', e => {
