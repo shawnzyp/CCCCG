@@ -254,7 +254,6 @@ export function installGlobalErrorInbox() {
   globalThis.__cccgBreadcrumb = addBreadcrumb;
   const DEBUG_OVERLAY_ENABLED = (new URLSearchParams(location.search).get('debugOverlay') === '1')
     || (localStorage.getItem('cc:debugOverlay') === '1');
-  const SHOW_PANIC_OVERLAY = DEBUG_OVERLAY_ENABLED;
   try {
     const raw = localStorage.getItem(AUTH_STATE_KEY);
     if (raw) {
@@ -321,7 +320,7 @@ export function installGlobalErrorInbox() {
   }
 
   function showPanicOverlay(error, snapshot) {
-    if (!SHOW_PANIC_OVERLAY) return;
+    if (!DEBUG_OVERLAY_ENABLED) return;
     try {
       if (document.getElementById('cccg-panic-overlay')) return;
       const name = error?.name || 'Runtime error';

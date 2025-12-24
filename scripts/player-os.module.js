@@ -51,9 +51,6 @@ export function initPlayerOSModule() {
     introDoneScheduled = true;
     controller.overlays?.ensureBackdropPrepaint?.();
     controller.store.dispatch({ type: 'INTRO_DONE' });
-    if (!document.getElementById('modal-pt-welcome')) {
-      controller.store.dispatch({ type: 'WELCOME_ACCEPT' });
-    }
   };
 
   const launchComplete = window.__ccLaunchComplete;
@@ -89,31 +86,11 @@ export function initPlayerOSModule() {
       const state = controller.store.getState?.();
       const phase = state?.phase;
       if (!phase) return;
-
       if (phase === 'INTRO') {
         scheduleIntroDone();
-        return;
-      }
-
-      if (phase === 'WELCOME_MODAL') {
-        const modal = document.getElementById('modal-pt-welcome');
-        const hidden =
-          !modal ||
-          modal.hidden ||
-          modal.classList.contains('hidden') ||
-          modal.getAttribute('aria-hidden') === 'true';
-        if (hidden) controller.store.dispatch({ type: 'WELCOME_ACCEPT' });
       }
     } catch {}
   }, 6000);
-
-  const welcomeModal = document.getElementById('modal-pt-welcome');
-  if (welcomeModal) {
-    welcomeModal.addEventListener('click', (event) => {
-      const action = event.target.closest('[data-pt-modal-close]');
-      if (action) controller.store.dispatch({ type: 'WELCOME_ACCEPT' });
-    });
-  }
 
   controller.store.subscribe((state) => {
     if (state.phase === 'PHONE_OS') {

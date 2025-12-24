@@ -68,22 +68,6 @@ function showNode(node) {
   return true;
 }
 
-function hideNode(node) {
-  if (!node) return;
-  try { node.classList.add('hidden'); } catch {}
-  try { node.hidden = true; } catch {}
-  try { node.setAttribute('aria-hidden', 'true'); } catch {}
-}
-
-function resolveModalHost({ overlayRoot, modal }) {
-  const nearestHost = modal?.closest?.('[data-pt-modal-host]') || null;
-  // Only trust overlayRoot if it actually contains the modal.
-  if (overlayRoot && modal && typeof overlayRoot.contains === 'function') {
-    if (overlayRoot.contains(modal)) return overlayRoot;
-  }
-  return nearestHost || overlayRoot || null;
-}
-
 const initialState = {
   phase: 'BOOT',
   overlays: [],
@@ -118,36 +102,6 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
   hardUnlockUI('controller-init');
   try { showNode(appRoot); } catch {}
   const overlayRegistry = {
-    welcome: {
-      show: () => {
-        const modal = document.getElementById('modal-pt-welcome');
-        if (!modal) return;
-        const modalHost = resolveModalHost({ overlayRoot, modal });
-        if (modalHost) {
-          showNode(modalHost);
-          modalHost.setAttribute('data-pt-modal-open', '1');
-          modalHost.setAttribute('aria-hidden', 'false');
-        }
-        showNode(appRoot);
-        showNode(modal);
-        modal.setAttribute('data-pt-modal-open', '1');
-      },
-      hide: () => {
-        const modal = document.getElementById('modal-pt-welcome');
-        const modalHost = resolveModalHost({ overlayRoot, modal });
-        if (modal) {
-          hideNode(modal);
-          try { modal.removeAttribute('data-pt-modal-open'); } catch {}
-        }
-        if (modalHost) {
-          modalHost.removeAttribute('data-pt-modal-open');
-          modalHost.setAttribute('aria-hidden', 'true');
-          hideNode(modalHost);
-        }
-      },
-      // Resolve focus root at render-time to avoid stale references.
-      focusRoot: () => document.getElementById('modal-pt-welcome'),
-    },
     mainMenu: {
       show: () => {
         phone.showMainMenu();
@@ -162,7 +116,6 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
   const overlays = new OverlayManager({ appRoot, overlayRoot, overlays: overlayRegistry, store });
 
   let phoneMounted = false;
-  let lastPhase = null;
 
   store.subscribe((state) => {
     if (!phoneMounted) {
@@ -181,11 +134,6 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
       unlockGlobalTouch(state.phase.toLowerCase());
     }
 
-    if (state.phase === 'WELCOME_MODAL' && lastPhase !== 'WELCOME_MODAL') {
-      try { phone.showLauncher?.(); } catch {}
-    }
-    lastPhase = state.phase;
-
     // Prepaint blur as early as possible so it never "pops" in.
     if (state.phase === 'INTRO') {
       overlays.ensureBackdropPrepaint();
@@ -202,7 +150,7 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     } else {
       phone.hideMainMenu();
       phone.setView?.('lock', null);
-      if (state.phase === 'WELCOME_MODAL' || state.phase === 'INTRO' || state.phase === 'BOOT') {
+      if (state.phase === 'INTRO' || state.phase === 'BOOT') {
         phone.showLauncher?.();
       } else {
         phone.hideLauncher?.();
