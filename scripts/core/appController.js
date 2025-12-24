@@ -5,6 +5,8 @@ import { PhoneOS } from '../os/phoneOS.js';
 function hardUnlockUI(reason = 'controller') {
   try { document.body?.classList?.remove?.('touch-controls-disabled', 'modal-open', 'launching'); } catch {}
   try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '0'); } catch {}
+  try { document.documentElement?.setAttribute?.('data-pt-drawer-open', '0'); } catch {}
+  try { document.documentElement?.removeAttribute?.('data-pt-drawer-open'); } catch {}
   try {
     document.querySelectorAll?.('[inert]').forEach((el) => {
       try { el.inert = false; } catch {}
@@ -18,6 +20,16 @@ function hardUnlockUI(reason = 'controller') {
       try { launchEl.style.display = 'none'; } catch {}
       try { launchEl.style.pointerEvents = 'none'; } catch {}
       try { launchEl.setAttribute('aria-hidden', 'true'); } catch {}
+    }
+  } catch {}
+  try {
+    const shell = document.querySelector?.('[data-launch-shell]');
+    if (shell) {
+      try { shell.style.pointerEvents = ''; } catch {}
+      try { shell.style.visibility = ''; } catch {}
+      try { shell.style.opacity = ''; } catch {}
+      try { shell.inert = false; } catch {}
+      try { shell.removeAttribute('inert'); } catch {}
     }
   } catch {}
   try {
@@ -41,20 +53,10 @@ function showNode(node) {
   return true;
 }
 
-const initialState = {
-  phase: 'BOOT',
-  overlays: [],
-  route: 'home',
-};
+const initialState = { phase: 'PHONE_OS', overlays: [], route: 'home' };
 
 function reducer(state, action) {
   switch (action.type) {
-    case 'BOOT_DONE':
-      return { ...state, phase: 'INTRO' };
-    case 'INTRO_DONE':
-      return { ...state, phase: 'PHONE_OS', overlays: [] };
-    case 'WELCOME_ACCEPT':
-      return { ...state, phase: 'PHONE_OS', overlays: [] };
     case 'OPEN_MAIN_MENU':
       if (state.phase !== 'PHONE_OS') return state;
       if (state.overlays[state.overlays.length - 1]?.type === 'mainMenu') return state;
@@ -96,32 +98,16 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
       phoneMounted = true;
     }
 
-    const allowPhone = state.phase === 'PHONE_OS';
-    phone.setInteractive(allowPhone);
-
-    hardUnlockUI(state.phase.toLowerCase());
-
-    // Prepaint blur as early as possible so it never "pops" in.
-    if (state.phase === 'INTRO') {
-      overlays.ensureBackdropPrepaint();
-    }
+    phone.setInteractive(true);
+    hardUnlockUI('controller-tick');
 
     overlays.render(state.overlays, store);
+    hardUnlockUI('controller-post-render');
 
-    if (allowPhone) {
-      const hasMainMenu = state.overlays.some((entry) => entry.type === 'mainMenu');
-      if (!hasMainMenu) {
-        phone.hideMainMenu();
-        phone.navigate(state.route);
-      }
-    } else {
+    const hasMainMenu = state.overlays.some((entry) => entry.type === 'mainMenu');
+    if (!hasMainMenu) {
       phone.hideMainMenu();
-      phone.setView?.('lock', null);
-      if (state.phase === 'INTRO' || state.phase === 'BOOT') {
-        phone.showLauncher?.();
-      } else {
-        phone.hideLauncher?.();
-      }
+      phone.navigate(state.route);
     }
 
   });

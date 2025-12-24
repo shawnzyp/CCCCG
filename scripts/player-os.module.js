@@ -41,7 +41,6 @@ export function initPlayerOSModule() {
     }, { capture: true });
   } catch {}
 
-  controller.store.dispatch({ type: 'BOOT_DONE' });
   try { controller.phone?.showLauncher?.(); } catch {}
   try { controller.phone?.setView?.('lock', null); } catch {}
 

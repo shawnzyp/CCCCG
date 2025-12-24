@@ -90,7 +90,11 @@ try {
 // ---------------------------------------------------------------------------
 (() => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  if (!window.__CCCG_DEBUG_UI__) return;
+  if (!window.__CCCG_DEBUG_UI__) {
+    try { document.getElementById('cccg-panic-overlay')?.remove?.(); } catch {}
+    try { document.getElementById('cccg-debug-hud')?.remove?.(); } catch {}
+    return;
+  }
   if (window.__CCCG_DEBUG_HUD__) return;
   window.__CCCG_DEBUG_HUD__ = true;
 
