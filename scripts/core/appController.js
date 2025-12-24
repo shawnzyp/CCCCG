@@ -29,34 +29,7 @@ function hardUnlockUI(reason = 'controller') {
   } catch {}
 }
 
-function unlockGlobalTouch(reason = 'controller') {
-  try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '0'); } catch {}
-  try { document.body?.classList?.remove?.('touch-controls-disabled'); } catch {}
-  try { document.body?.classList?.remove?.('modal-open'); } catch {}
-  try {
-    document.querySelectorAll?.('[inert]').forEach((el) => {
-      try { el.inert = false; } catch {}
-      try { el.removeAttribute('inert'); } catch {}
-    });
-  } catch {}
-  try {
-    if (typeof globalThis.safeUnlockTouchControls === 'function') {
-      globalThis.safeUnlockTouchControls({ immediate: true, reason });
-    } else if (typeof globalThis.unlockTouchControls === 'function') {
-      globalThis.unlockTouchControls({ immediate: true, reason });
-    }
-  } catch {}
-}
-
-function lockGlobalTouch(reason = 'controller') {
-  try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '1'); } catch {}
-  try { document.body?.classList?.add?.('touch-controls-disabled'); } catch {}
-  try {
-    if (typeof globalThis.lockTouchControls === 'function') {
-      globalThis.lockTouchControls({ reason });
-    }
-  } catch {}
-}
+// Controller mode should always force the UI usable.
 
 function showNode(node) {
   if (!node) return false;
@@ -126,13 +99,7 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
     const allowPhone = state.phase === 'PHONE_OS';
     phone.setInteractive(allowPhone);
 
-    if (state.phase === 'PHONE_OS') {
-      hardUnlockUI('phone-os');
-    } else if (state.phase === 'BOOT' || state.phase === 'INTRO') {
-      lockGlobalTouch(state.phase.toLowerCase());
-    } else {
-      unlockGlobalTouch(state.phase.toLowerCase());
-    }
+    hardUnlockUI(state.phase.toLowerCase());
 
     // Prepaint blur as early as possible so it never "pops" in.
     if (state.phase === 'INTRO') {

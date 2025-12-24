@@ -90,6 +90,7 @@ try {
 // ---------------------------------------------------------------------------
 (() => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (!window.__CCCG_DEBUG_UI__) return;
   if (window.__CCCG_DEBUG_HUD__) return;
   window.__CCCG_DEBUG_HUD__ = true;
 
