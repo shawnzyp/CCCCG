@@ -2993,6 +2993,15 @@ if (typeof window !== 'undefined') {
   window.addEventListener('cc:pt-controller-failed', (event) => {
     if (!IS_CONTROLLER_MODE) return;
     showControllerFailureOverlay(event?.detail?.message || '');
+    try {
+      const launcher = document.querySelector('[data-pt-launcher]');
+      if (launcher) {
+        launcher.hidden = false;
+        launcher.style.removeProperty('display');
+        launcher.setAttribute('aria-hidden', 'false');
+        document.documentElement.setAttribute('data-pt-phone-open', '1');
+      }
+    } catch {}
   }, { passive: true });
 }
 
