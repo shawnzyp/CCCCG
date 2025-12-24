@@ -4496,17 +4496,10 @@ body:not(.no-hover) .sp-field .sp-keypad__reset:hover{background:color-mix(in sr
 body.modal-open{overflow:hidden}
 body.modal-open> :not(.overlay):not([data-launch-shell]){pointer-events:none;user-select:none}
 body.modal-open [data-launch-shell]> :not(.overlay):not(.somf-reveal-alert){pointer-events:none;user-select:none}
-body.touch-controls-disabled{touch-action:none}
-body.touch-controls-disabled .app-shell{pointer-events:none}
-/* Ensure the Player Tools drawer remains interactive even while touch controls are locked */
-body.touch-controls-disabled #player-tools-drawer,
-body.touch-controls-disabled #player-tools-drawer *{pointer-events:auto !important;touch-action:auto !important}
 /* Prevent the page behind the phone from receiving input while the phone is open */
 html[data-pt-phone-open="1"] body:not(:has([data-pt-launcher][data-pt-launcher-visible="1"]))> *{pointer-events:auto !important;user-select:auto !important}
-html[data-pt-phone-open="1"] body:has([data-pt-launcher][data-pt-launcher-visible="1"])> *:not(#player-tools-drawer){pointer-events:none !important;user-select:none !important}
-/* Also block background interaction whenever the drawer is explicitly marked open */
-html[data-pt-phone-open="1"] body:not(:has([data-pt-launcher][data-pt-launcher-visible="1"]))> *{pointer-events:auto !important;user-select:auto !important}
-html[data-pt-phone-open="1"] body:has([data-pt-launcher][data-pt-launcher-visible="1"])> *:not(#player-tools-drawer){pointer-events:none !important;user-select:none !important}
+html[data-pt-phone-open="1"] body:has([data-pt-launcher][data-pt-launcher-visible="1"])> *:not([data-pt-launcher]):not([data-launch-shell]):not(.overlay){pointer-events:none !important;user-select:none !important}
+html[data-pt-phone-open="1"] [data-pt-launcher][data-pt-launcher-visible="1"]{pointer-events:auto !important;user-select:auto !important}
 .modal h3{margin:0 0 4px;color:var(--modal-accent-color,var(--accent));font-size:.9rem;line-height:1.2;font-weight:600}
 .modal .x{position:sticky;top:max(4px,calc(var(--modal-padding-block,14px) - (var(--modal-padding-top-offset,10px) + 6px)));margin-left:auto;margin-right:6px;background:color-mix(in srgb,var(--modal-bg,rgba(255,255,255,.08)) 55%,transparent);border-radius:999px;color:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;width:30px;height:30px;transition:box-shadow .28s ease,color .28s ease,transform .28s ease,background .28s ease;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 4px 18px -12px rgba(0,0,0,.65);z-index:2}
 body:not(.no-hover) .modal .x:hover{color:var(--modal-accent-color,var(--accent));background:color-mix(in srgb,var(--modal-accent-color) 22%,transparent);box-shadow:0 8px 22px -12px color-mix(in srgb,var(--modal-accent-color) 60%,transparent);transform:translateY(-1px)}
