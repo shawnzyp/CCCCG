@@ -88,7 +88,9 @@ export function initPlayerOSModule() {
       e.stopPropagation?.();
       const appId = btn.getAttribute('data-pt-open-app');
       if (!appId) return;
-      controller.store.dispatch({ type: 'NAVIGATE', route: appId });
+      const meta = window.APP_REGISTRY ? window.APP_REGISTRY[appId] : null;
+      const route = meta?.route ? String(meta.route) : String(appId);
+      controller.store.dispatch({ type: 'NAVIGATE', route });
     }, { capture: true });
   } catch {}
 
