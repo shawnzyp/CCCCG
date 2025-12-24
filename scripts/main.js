@@ -2546,7 +2546,9 @@ function getController() {
 function openPlayerOsApp(appId) {
   const controller = getController();
   if (IS_CONTROLLER_MODE && controller?.store?.dispatch) {
-    controller.store.dispatch({ type: 'NAVIGATE', route: String(appId || '') });
+    const meta = getAppMeta(appId);
+    const route = meta?.route ? String(meta.route) : String(appId || '');
+    controller.store.dispatch({ type: 'NAVIGATE', route });
     return true;
   }
   try {
@@ -2696,7 +2698,8 @@ export async function openApp(appId, opts = {}) {
 
   const controller = getController();
   if ((IS_CONTROLLER_MODE || isControllerMode()) && controller?.store?.dispatch) {
-    controller.store.dispatch({ type: 'NAVIGATE', route: String(appId || '') });
+    const route = meta.route ? String(meta.route) : String(appId || '');
+    controller.store.dispatch({ type: 'NAVIGATE', route });
     window.__ccLastAppLaunch = { appId, ok: true, ts: Date.now(), source: opts.source || 'controller' };
     return { ok: true };
   }
