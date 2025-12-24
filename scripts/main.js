@@ -2695,6 +2695,13 @@ export async function openApp(appId, opts = {}) {
     return { ok: false, reason: 'unknown-app' };
   }
 
+  const controller = getController();
+  if ((IS_CONTROLLER_MODE || isControllerMode()) && controller?.store?.dispatch) {
+    controller.store.dispatch({ type: 'NAVIGATE', route: String(appId || '') });
+    window.__ccLastAppLaunch = { appId, ok: true, ts: Date.now(), source: opts.source || 'controller' };
+    return { ok: true };
+  }
+
   if (meta.requiresCharacter) {
     const activeCharacter = typeof currentCharacter === 'function' ? currentCharacter() : currentCharacter;
     if (!activeCharacter) {
@@ -4286,7 +4293,6 @@ if (typeof window !== 'undefined') {
 
 const handleMenuActionRequest = (event) => {
   const actionId = event?.detail?.action;
-  if (event?.defaultPrevented) return;
   if (!actionId || !(actionId in MENU_ACTION_HANDLERS)) return;
   if (IS_CONTROLLER_MODE || isControllerMode()) {
     const controller = getController();
@@ -4306,6 +4312,7 @@ const handleMenuActionRequest = (event) => {
       return;
     }
   }
+  if (event?.defaultPrevented) return;
   if (isMenuActionBlocked()) {
     toast('Finish setup before opening tools.');
     return;

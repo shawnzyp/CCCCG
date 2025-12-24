@@ -41,6 +41,12 @@ export function initPlayerOSModule() {
     document.addEventListener('click', (e) => {
       const target = e.target;
       if (!target) return;
+      if (target.closest?.('#player-tools-gesture-exit')) {
+        e.preventDefault?.();
+        e.stopPropagation?.();
+        controller.store.dispatch({ type: 'NAVIGATE', route: 'home' });
+        return;
+      }
       const opener = target.closest?.(
         '[aria-controls="player-tools-drawer"], [data-pt-open-drawer], #player-tools-toggle, #player-tools-button'
       );
@@ -69,6 +75,8 @@ export function initPlayerOSModule() {
       const route = map[action] || action;
       controller.store.dispatch({ type: 'NAVIGATE', route });
       try { event.preventDefault?.(); } catch {}
+      try { event.stopImmediatePropagation?.(); } catch {}
+      try { event.stopPropagation?.(); } catch {}
     }, true);
   } catch {}
 
