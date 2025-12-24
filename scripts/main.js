@@ -393,7 +393,6 @@ const MENU_MODAL_STATE = new Map();
 
       console.warn('[BootWatchdog] Boot appears stuck.', {
         launching,
-        touchLocked,
         phoneOpen: root?.getAttribute('data-pt-phone-open'),
         lastUpdate: window.__ccLastContentUpdate,
         uptimeMs: Date.now() - startedAt,
