@@ -169,7 +169,6 @@ const IS_CONTROLLER_MODE =
     const bodyClass = document.body?.className || '';
     const html = document.documentElement;
     const phoneOpen = html?.getAttribute?.('data-pt-phone-open');
-    const drawerOpen = html?.getAttribute?.('data-pt-drawer-open');
     const glassVisible = document.querySelector('.pt-screen__glass[data-pt-launcher-visible="1"]') ? '1' : '0';
 
     hud.textContent =
@@ -179,7 +178,7 @@ const IS_CONTROLLER_MODE =
       `LAUNCHER exists=${launcherState.exists} hidden=${launcherState.hiddenProp} aria=${
         launcherState.ariaHidden || ''
       } display=${launcherState.display || ''} vis=${launcherState.visibility || ''}\n` +
-      `HTML phoneOpen=${phoneOpen || '0'} drawerOpen=${drawerOpen || '0'} glassLauncherVisible=${glassVisible}\n` +
+      `HTML phoneOpen=${phoneOpen || '0'} glassLauncherVisible=${glassVisible}\n` +
       `BODY class=${bodyClass}\n` +
       `ERR ${lastErr || ''}`;
 
@@ -188,7 +187,7 @@ const IS_CONTROLLER_MODE =
     const shouldForce =
         !controller.has &&
         !controller.booting &&
-        (glassVisible === '1' || phoneOpen === '1' || drawerOpen === '1');
+        (glassVisible === '1' || phoneOpen === '1');
       if (launcher && shouldForce) {
         pushTrace('FORCE launcher visible');
         launcher.hidden = false;
@@ -196,7 +195,6 @@ const IS_CONTROLLER_MODE =
         launcher.setAttribute('aria-hidden', 'false');
         launcher.setAttribute('data-pt-launcher-visible', '1');
         html?.setAttribute?.('data-pt-phone-open', '1');
-        html?.setAttribute?.('data-pt-drawer-open', '1');
       }
     } catch {}
   }
@@ -391,7 +389,6 @@ const MENU_MODAL_STATE = new Map();
       const root = document.documentElement;
       const bootComplete = !!(typeof window !== 'undefined' && window.__cccgBootComplete);
       const launching = !!body?.classList.contains('launching');
-      const touchLocked = false;
       if (bootComplete && !launching) return;
 
       console.warn('[BootWatchdog] Boot appears stuck.', {
@@ -402,7 +399,7 @@ const MENU_MODAL_STATE = new Map();
         uptimeMs: Date.now() - startedAt,
       });
       try {
-        document.body?.classList?.remove('touch-controls-disabled', 'modal-open', 'launching');
+        document.body?.classList?.remove('modal-open', 'launching');
         document.documentElement?.setAttribute?.('data-pt-touch-locked', '0');
         document.querySelectorAll?.('[inert]').forEach((el) => {
           try { el.inert = false; } catch {}
@@ -416,7 +413,6 @@ const MENU_MODAL_STATE = new Map();
             message: 'Boot watchdog fired',
             extra: {
               launching: body?.classList.contains('launching'),
-              touchLocked: body?.classList.contains('touch-controls-disabled'),
               phoneOpen: root?.getAttribute('data-pt-phone-open'),
             },
           },
@@ -426,7 +422,6 @@ const MENU_MODAL_STATE = new Map();
       if (!launching) return;
 
       body?.classList.remove('launching');
-      body?.classList.remove('touch-controls-disabled');
       body?.classList.remove('modal-open');
       try { document.documentElement?.setAttribute('data-pt-touch-locked', '0'); } catch {}
       try {
@@ -4293,6 +4288,24 @@ const handleMenuActionRequest = (event) => {
   const actionId = event?.detail?.action;
   if (event?.defaultPrevented) return;
   if (!actionId || !(actionId in MENU_ACTION_HANDLERS)) return;
+  if (IS_CONTROLLER_MODE || isControllerMode()) {
+    const controller = getController();
+    if (controller?.store?.dispatch) {
+      const map = {
+        'campaign-log': 'campaignLog',
+        'credits-ledger': 'creditsLedger',
+        rules: 'rules',
+        help: 'help',
+        messages: 'messages',
+        settings: 'settings',
+        'load-save': 'loadSave',
+        'player-tools': 'playerTools',
+      };
+      controller.store.dispatch({ type: 'NAVIGATE', route: map[actionId] || actionId });
+      try { event.preventDefault?.(); } catch {}
+      return;
+    }
+  }
   if (isMenuActionBlocked()) {
     toast('Finish setup before opening tools.');
     return;
@@ -10965,7 +10978,6 @@ function initPhoneRouter() {
   const ensurePhoneOpen = () => {
     try {
       root.setAttribute('data-pt-phone-open', '1');
-      root.removeAttribute('data-pt-drawer-open');
     } catch {}
   };
 

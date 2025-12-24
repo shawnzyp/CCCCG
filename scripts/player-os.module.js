@@ -29,6 +29,13 @@ export function initPlayerOSModule() {
 
   try { window.dispatchEvent(new CustomEvent('cc:pt-controller-ready')); } catch {}
 
+  // Legacy drawer API compatibility (no crashes, route into controller).
+  try {
+    window.openPlayerToolsDrawer = () => controller.store.dispatch({ type: 'NAVIGATE', route: 'playerTools' });
+    window.closePlayerToolsDrawer = () => controller.store.dispatch({ type: 'NAVIGATE', route: 'home' });
+    window.subscribePlayerToolsDrawer = () => () => {};
+  } catch {}
+
   // Consolidation: Main Menu opens PhoneOS menu only, never legacy drawer.
   try {
     document.addEventListener('click', (e) => {

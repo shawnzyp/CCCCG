@@ -294,7 +294,6 @@
 
       // Hide launch overlay and request the welcome modal while app finishes.
       try { body.classList.remove('launching'); } catch (e) {}
-      try { body.classList.remove('touch-controls-disabled'); } catch (e) {}
       try { body.classList.remove('modal-open'); } catch (e) {}
       try { launchEl.setAttribute('data-hidden', 'true'); } catch (e) {}
       try { launchEl.setAttribute('aria-hidden', 'true'); } catch (e) {}

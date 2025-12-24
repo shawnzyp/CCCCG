@@ -134,10 +134,6 @@ export class PhoneOS {
       }
     }, { capture: true });
 
-    window.addEventListener('cc:player-tools-drawer-open', () => {
-      this.openLauncher();
-    });
-
     window.addEventListener('cc:pt-launch', (event) => {
       const rawAppId = String(event?.detail?.appId || '').trim();
       if (!rawAppId) return;
@@ -289,10 +285,8 @@ export class PhoneOS {
     const isOpen = this.isLauncherActuallyVisible(this.root);
     if (isOpen) {
       document.documentElement.setAttribute('data-pt-phone-open', '1');
-      document.documentElement.setAttribute('data-pt-drawer-open', '1');
     } else {
       document.documentElement.removeAttribute('data-pt-phone-open');
-      document.documentElement.removeAttribute('data-pt-drawer-open');
     }
   }
 
