@@ -4302,6 +4302,26 @@ if (typeof window !== 'undefined') {
   window.isMenuActionBlocked = isMenuActionBlocked;
 }
 
+// ---------------------------------------------------------------------------
+// Legacy API no-ops (safety net)
+// ---------------------------------------------------------------------------
+(function installLegacyNoops() {
+  if (typeof window === 'undefined') return;
+  const noop = () => {};
+  const setIfMissing = (name, value) => {
+    try {
+      if (typeof window[name] === 'undefined') window[name] = value;
+    } catch {}
+  };
+  setIfMissing('lockTouchControls', noop);
+  setIfMissing('unlockTouchControls', noop);
+  setIfMissing('safeUnlockTouchControls', noop);
+  setIfMissing('forceInteractionUnlock', noop);
+  setIfMissing('openPlayerToolsDrawer', noop);
+  setIfMissing('closePlayerToolsDrawer', noop);
+  setIfMissing('subscribePlayerToolsDrawer', () => () => {});
+})();
+
 const handleMenuActionRequest = (event) => {
   const actionId = event?.detail?.action;
   if (!actionId || !(actionId in MENU_ACTION_HANDLERS)) return;
@@ -4320,6 +4340,8 @@ const handleMenuActionRequest = (event) => {
       };
       controller.store.dispatch({ type: 'NAVIGATE', route: map[actionId] || actionId });
       try { event.preventDefault?.(); } catch {}
+      try { event.stopImmediatePropagation?.(); } catch {}
+      try { event.stopPropagation?.(); } catch {}
       return;
     }
   }

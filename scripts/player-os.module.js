@@ -1,6 +1,11 @@
 import { createAppController } from './core/appController.js';
 
 export function initPlayerOSModule() {
+  // Guard against accidental re-entry.
+  try {
+    if (window.__ccPlayerOSModuleInstalled) return;
+    window.__ccPlayerOSModuleInstalled = true;
+  } catch {}
   try { window.__CCCG_APP_CONTROLLER_BOOTING__ = true; } catch {}
   let readyFired = false;
   const launcher = document.querySelector('[data-pt-launcher]');
@@ -21,11 +26,23 @@ export function initPlayerOSModule() {
     launcher.querySelector('[data-pt-modal-host]') ||
     document.querySelector('[data-pt-modal-host]');
 
-  const controller = createAppController({ appRoot: launcher, overlayRoot });
-  window.__APP_STORE__ = controller.store;
-  window.__CCCG_APP_CONTROLLER__ = controller;
+  let controller = null;
+  try {
+    controller = createAppController({ appRoot: launcher, overlayRoot });
+    window.__APP_STORE__ = controller.store;
+    window.__CCCG_APP_CONTROLLER__ = controller;
+    window.PlayerOSReady = false;
+  } catch (err) {
+    try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('cc:pt-controller-failed', {
+        detail: { message: err?.message ? String(err.message) : 'createAppController failed' },
+      }));
+    } catch {}
+    try { console.error('Player OS controller init failed', err); } catch {}
+    return;
+  }
   try { window.__CCCG_APP_CONTROLLER_BOOTING__ = false; } catch {}
-  window.PlayerOSReady = false;
 
   try { window.dispatchEvent(new CustomEvent('cc:pt-controller-ready')); } catch {}
 

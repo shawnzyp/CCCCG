@@ -5,6 +5,8 @@ import { PhoneOS } from '../os/phoneOS.js';
 function hardUnlockUI(reason = 'controller') {
   try { document.body?.classList?.remove?.('touch-controls-disabled', 'modal-open', 'launching'); } catch {}
   try { document.documentElement?.setAttribute?.('data-pt-touch-locked', '0'); } catch {}
+  // Clean up any stale legacy marker that might remain in cached DOM sessions.
+  try { document.documentElement?.removeAttribute?.('data-pt-drawer-open'); } catch {}
   try {
     document.querySelectorAll?.('[inert]').forEach((el) => {
       try { el.inert = false; } catch {}
