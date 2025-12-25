@@ -1,18 +1,30 @@
-export function createStore(initialState, reducer) {
-  let state = initialState;
+export function createStore(reducer, preloadedState) {
+  let state = preloadedState;
   const listeners = new Set();
 
-  return {
-    getState: () => state,
-    dispatch: (action) => {
-      const next = reducer(state, action);
-      if (next === state) return;
-      state = next;
-      listeners.forEach((fn) => fn(state, action));
-    },
-    subscribe: (fn) => {
-      listeners.add(fn);
-      return () => listeners.delete(fn);
-    },
-  };
+  function getState() {
+    return state;
+  }
+
+  function dispatch(action) {
+    state = reducer(state, action);
+    for (const listener of listeners) {
+      try {
+        listener();
+      } catch (_) {
+        // Listener errors should not crash the app.
+      }
+    }
+    return action;
+  }
+
+  function subscribe(listener) {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  }
+
+  // Initialize.
+  dispatch({ type: '@@INIT' });
+
+  return { getState, dispatch, subscribe };
 }

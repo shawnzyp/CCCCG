@@ -72,7 +72,7 @@ function reducer(state, action) {
 }
 
 export function createAppController({ appRoot, overlayRoot } = {}) {
-  const store = createStore(initialState, reducer);
+  const store = createStore(reducer, initialState);
   const phone = new PhoneOS({ appRoot, store });
   hardUnlockUI('controller-init');
   try { showNode(appRoot); } catch {}
