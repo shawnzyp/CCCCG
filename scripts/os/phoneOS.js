@@ -212,7 +212,58 @@ export class PhoneOS {
   }
 
   navigate(route) {
-    const normalized = normalizeAppId(route || 'home');
+    const raw = String(route || 'home').trim();
+
+    if (!raw || raw === 'home') {
+      this.setView('home', null);
+      if (this.isLauncherHidden()) this.showLauncher();
+      return;
+    }
+
+    if (raw.startsWith('tab:')) {
+      const tabId = raw.slice(4).trim();
+      if (tabId) {
+        const selector = typeof CSS !== 'undefined' && CSS.escape
+          ? `.tab[data-go="${CSS.escape(tabId)}"]`
+          : `.tab[data-go="${tabId}"]`;
+        const tab = document.querySelector(selector);
+        if (tab && typeof tab.click === 'function') {
+          tab.click();
+        }
+      }
+      this.closeLauncher();
+      return;
+    }
+
+    if (raw.startsWith('panel:')) {
+      const panel = raw.slice(6).trim();
+      if (panel === 'sync') {
+        const trigger = document.querySelector('[data-sync-status-trigger]') || document.getElementById('sync-status-trigger');
+        if (trigger && typeof trigger.click === 'function') {
+          trigger.click();
+        }
+        this.closeLauncher();
+        return;
+      }
+    }
+
+    if (raw.startsWith('modal:')) {
+      const modal = raw.slice(6).trim();
+      if (modal === 'shards') {
+        emitLaunch('shards');
+        this.closeLauncher();
+        return;
+      }
+      if (modal) {
+        try {
+          window.dispatchEvent(new CustomEvent('cc:pt-open-modal', { detail: { id: `modal-${modal}` } }));
+        } catch {}
+      }
+      this.closeLauncher();
+      return;
+    }
+
+    const normalized = normalizeAppId(raw);
 
     if (!normalized || normalized === 'home') {
       this.setView('home', null);
