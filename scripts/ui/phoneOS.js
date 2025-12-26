@@ -1,6 +1,7 @@
 import { Router } from '../core/router.js';
 import { createHomeScreen, updateLockTime } from './homeScreen.js';
 import { MainMenu } from './mainMenu.js';
+import { AppModal } from './appModal.js';
 
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(() => resolve()));
@@ -23,6 +24,7 @@ export class PhoneOS {
     this.router = null;
     this.homeScreen = null;
     this.mainMenu = new MainMenu(this.store);
+    this.appModal = new AppModal(this.store);
     this.ptReady = !shouldStartLocked();
     this.queuedOpen = false;
 
@@ -83,7 +85,7 @@ export class PhoneOS {
     `;
 
     content.append(lockView, homeView, appView);
-    this.root.append(status, pill, content, this.mainMenu.el, this.buildBezel());
+    this.root.append(status, pill, content, this.appModal.el, this.mainMenu.el, this.buildBezel());
 
     this.lockView = lockView;
     this.homeView = homeView;
@@ -93,6 +95,7 @@ export class PhoneOS {
     this.router = new Router(this.appHost);
 
     this.mainMenu.mount();
+    this.appModal.mount();
     this.bindEvents();
     this.setView('lock');
     this.syncClock();
@@ -132,7 +135,15 @@ export class PhoneOS {
       const open = target.closest('[data-pt-open-app]')?.getAttribute('data-pt-open-app');
       if (open) {
         event.preventDefault();
-        this.store?.dispatch?.({ type: 'NAVIGATE', payload: { route: open } });
+        if (open === 'logout') {
+          this.store?.dispatch?.({ type: 'CLOSE_OVERLAY' });
+          this.setView('lock');
+          return;
+        }
+        const label =
+          target.closest('[data-pt-open-app]')?.getAttribute('data-pt-app-label') ||
+          this.labelForRoute(open);
+        this.store?.dispatch?.({ type: 'OPEN_APP_MODAL', payload: { appId: open, label } });
         return;
       }
 
@@ -218,9 +229,32 @@ export class PhoneOS {
     return route.charAt(0).toUpperCase() + route.slice(1);
   }
 
+  // Controller compatibility: OverlayManager may call these directly.
+  showMainMenu() {
+    this.mainMenu.open();
+    this.glass?.classList?.add('on');
+  }
+
+  hideMainMenu() {
+    this.mainMenu.close();
+    this.glass?.classList?.remove('on');
+  }
+
   updateOverlays() {
     const overlays = this.store?.getState?.().overlays || [];
     const hasMenu = overlays.some((entry) => entry.type === 'mainMenu');
+    const appModal = overlays.slice().reverse().find((entry) => entry.type === 'appModal');
+    const hasAnyOverlay = overlays.length > 0;
+
+    if (appModal) {
+      if (!this.ptReady) {
+        this.queuedOpen = true;
+      } else {
+        this.appModal.open(appModal);
+      }
+    } else {
+      this.appModal.close();
+    }
 
     if (hasMenu) {
       if (!this.ptReady) {
@@ -228,10 +262,11 @@ export class PhoneOS {
         return;
       }
       this.mainMenu.open();
-      this.glass?.classList?.add('on');
     } else {
       this.mainMenu.close();
-      this.glass?.classList?.remove('on');
     }
+
+    if (hasAnyOverlay) this.glass?.classList?.add('on');
+    else this.glass?.classList?.remove('on');
   }
 }

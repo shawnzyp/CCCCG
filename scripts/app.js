@@ -6,6 +6,13 @@ function reducer(state, action) {
   switch (action.type) {
     case 'OPEN_MAIN_MENU':
       return { ...state, overlays: [{ type: 'mainMenu' }] };
+    case 'OPEN_APP_MODAL': {
+      const appId = action.payload?.appId;
+      if (!appId) return state;
+      const next = { type: 'appModal', appId, label: action.payload?.label || appId };
+      const kept = (state.overlays || []).filter((o) => o.type !== 'appModal');
+      return { ...state, overlays: [...kept, next] };
+    }
     case 'CLOSE_OVERLAY':
       return { ...state, overlays: [] };
     case 'NAVIGATE': {

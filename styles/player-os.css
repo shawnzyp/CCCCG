@@ -249,6 +249,50 @@ body{
 .pt-card h2{margin:0 0 6px;font-size:14px}
 .pt-card p{margin:0;color:rgba(229,231,235,.82);font-size:13px;line-height:1.35}
 
+.pt-app-modal{
+  position:absolute;
+  inset:0;
+  z-index:25;
+  background:rgba(0,0,0,.40);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display:flex;
+  align-items:flex-end;
+}
+
+.pt-app-modal__sheet{
+  width:100%;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  background:rgba(17,24,39,.86);
+  border:1px solid rgba(255,255,255,.12);
+  border-bottom:0;
+  padding:14px;
+  max-height:78%;
+  overflow:auto;
+}
+
+.pt-app-modal__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+
+.pt-app-modal__header .title{
+  font-size:13px;
+  color:rgba(229,231,235,.92);
+}
+
+.pt-app-modal__header button{
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(0,0,0,.35);
+  color:var(--text);
+  padding:8px 10px;
+  border-radius:12px;
+  cursor:pointer;
+}
+
 .pt-main-menu{
   position:absolute;
   inset:0;
