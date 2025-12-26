@@ -61,11 +61,19 @@ function reducer(state, action) {
       if (state.phase !== 'PHONE_OS') return state;
       if (state.overlays[state.overlays.length - 1]?.type === 'mainMenu') return state;
       return { ...state, overlays: [...state.overlays, { type: 'mainMenu' }] };
+    case 'OPEN_APP_MODAL': {
+      if (state.phase !== 'PHONE_OS') return state;
+      const appId = action.payload?.appId;
+      if (!appId) return state;
+      const next = { type: 'appModal', appId, label: action.payload?.label || appId };
+      // Make app modal exclusive (matches demo behavior; prevents stacking behind menu).
+      return { ...state, overlays: [next] };
+    }
     case 'CLOSE_OVERLAY':
       return { ...state, overlays: state.overlays.slice(0, -1) };
     case 'NAVIGATE':
       if (state.phase !== 'PHONE_OS') return state;
-      return { ...state, route: action.route };
+      return { ...state, route: action.payload?.route || action.route };
     default:
       return state;
   }
@@ -85,6 +93,16 @@ export function createAppController({ appRoot, overlayRoot } = {}) {
         phone.hideMainMenu();
       },
       focusRoot: () => appRoot?.querySelector?.('#pt-main-menu') || document.getElementById('pt-main-menu'),
+    },
+    appModal: {
+      // OverlayManager may pass the overlay entry into show()
+      show: (entry) => {
+        phone.showAppModal(entry);
+      },
+      hide: () => {
+        phone.hideAppModal();
+      },
+      focusRoot: () => appRoot?.querySelector?.('#pt-app-modal') || document.getElementById('pt-app-modal'),
     },
   };
 

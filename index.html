@@ -305,6 +305,7 @@
       try { window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() }; } catch (e) {}
       safeDispatch('cc:launch-complete', { reason: reason || 'ended' });
       safeDispatch('cc:launch:done', { reason: reason || 'ended' });
+      safeDispatch('cc:launch-sequence-complete', { reason: reason || 'ended' });
 
       // Keep the overlay in the DOM; iOS can still dispatch video events after teardown.
       try {
