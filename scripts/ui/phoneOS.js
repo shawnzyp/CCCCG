@@ -26,7 +26,7 @@ export class PhoneOS {
     this.mainMenu = new MainMenu(this.store);
     this.appModal = new AppModal(this.store);
     this.ptReady = !shouldStartLocked();
-    this.queuedOpen = false;
+    this.needsOverlaySync = false;
 
     this.glass = document.querySelector('.pt-screen__glass');
     this.lockView = null;
@@ -99,6 +99,8 @@ export class PhoneOS {
     this.bindEvents();
     this.setView('lock');
     this.syncClock();
+    // Ensure we start inert if the body is launching.
+    this.setInteractive(this.ptReady);
 
     // Readiness signals: keep PhoneOS inert during the launch animation, then unlock.
     window.addEventListener('cc:pt-ready', () => this.setInteractive(true));
@@ -192,9 +194,16 @@ export class PhoneOS {
       node.style.pointerEvents = on ? 'auto' : 'none';
     });
 
-    if (on && this.queuedOpen) {
-      this.queuedOpen = false;
-      this.store?.dispatch?.({ type: 'OPEN_MAIN_MENU' });
+    const floatingTab = document.getElementById('player-tools-tab');
+    if (floatingTab) {
+      floatingTab.style.pointerEvents = on ? 'auto' : 'none';
+      floatingTab.toggleAttribute('disabled', !on);
+    }
+
+    // When we become interactive, render whatever overlays already exist in state.
+    if (on && this.needsOverlaySync) {
+      this.needsOverlaySync = false;
+      this.updateOverlays();
     }
   }
 
@@ -258,21 +267,18 @@ export class PhoneOS {
     const appModal = overlays.slice().reverse().find((entry) => entry.type === 'appModal');
     const hasAnyOverlay = overlays.length > 0;
 
+    if (!this.ptReady && hasAnyOverlay) {
+      this.needsOverlaySync = true;
+      return;
+    }
+
     if (appModal) {
-      if (!this.ptReady) {
-        this.queuedOpen = true;
-      } else {
-        this.appModal.open(appModal);
-      }
+      this.appModal.open(appModal);
     } else {
       this.appModal.close();
     }
 
     if (hasMenu) {
-      if (!this.ptReady) {
-        this.queuedOpen = true;
-        return;
-      }
       this.mainMenu.open();
     } else {
       this.mainMenu.close();
