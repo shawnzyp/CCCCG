@@ -48,6 +48,7 @@ export class AppModal {
   constructor(store) {
     this.store = store;
     this.el = document.createElement('div');
+    this.el.id = 'pt-app-modal';
     this.el.className = 'pt-app-modal';
     this.el.hidden = true;
     this.el.setAttribute('aria-hidden', 'true');

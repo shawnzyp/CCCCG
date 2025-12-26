@@ -8,6 +8,7 @@ export class MainMenu {
   constructor(store) {
     this.store = store;
     this.el = document.createElement('div');
+    this.el.id = 'pt-main-menu';
     this.el.className = 'pt-main-menu';
     this.el.hidden = true;
     this.el.setAttribute('aria-hidden', 'true');

@@ -135,8 +135,10 @@ export class PhoneOS {
       const open = target.closest('[data-pt-open-app]')?.getAttribute('data-pt-open-app');
       if (open) {
         event.preventDefault();
+        // If user is selecting an app from the menu, close the menu first
+        // so app modal never opens "behind" it.
+        this.store?.dispatch?.({ type: 'CLOSE_OVERLAY' });
         if (open === 'logout') {
-          this.store?.dispatch?.({ type: 'CLOSE_OVERLAY' });
           this.setView('lock');
           return;
         }
@@ -238,6 +240,16 @@ export class PhoneOS {
   hideMainMenu() {
     this.mainMenu.close();
     this.glass?.classList?.remove('on');
+  }
+
+  showAppModal(entry) {
+    if (!this.ptReady) return;
+    this.appModal.open(entry || {});
+    this.glass?.classList?.add('on');
+  }
+
+  hideAppModal() {
+    this.appModal.close();
   }
 
   updateOverlays() {
