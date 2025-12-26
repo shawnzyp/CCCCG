@@ -71,6 +71,7 @@ body{
     rgba(17,24,39,.6);
   box-shadow: var(--shadow);
   position:relative;
+  z-index:45;
   overflow:hidden;
   border:1px solid rgba(255,255,255,.12);
 }

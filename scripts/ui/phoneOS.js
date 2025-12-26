@@ -194,6 +194,12 @@ export class PhoneOS {
       node.style.pointerEvents = on ? 'auto' : 'none';
     });
 
+    // Also gate overlays themselves.
+    [this.appModal?.el, this.mainMenu?.el].forEach((node) => {
+      if (!node) return;
+      node.style.pointerEvents = on ? 'auto' : 'none';
+    });
+
     const floatingTab = document.getElementById('player-tools-tab');
     if (floatingTab) {
       floatingTab.style.pointerEvents = on ? 'auto' : 'none';
@@ -240,6 +246,11 @@ export class PhoneOS {
     return route.charAt(0).toUpperCase() + route.slice(1);
   }
 
+  hasAnyOverlay() {
+    const overlays = this.store?.getState?.().overlays || [];
+    return overlays.length > 0;
+  }
+
   // Controller compatibility: OverlayManager may call these directly.
   showMainMenu() {
     this.mainMenu.open();
@@ -248,7 +259,7 @@ export class PhoneOS {
 
   hideMainMenu() {
     this.mainMenu.close();
-    this.glass?.classList?.remove('on');
+    if (!this.hasAnyOverlay()) this.glass?.classList?.remove('on');
   }
 
   showAppModal(entry) {
@@ -259,6 +270,7 @@ export class PhoneOS {
 
   hideAppModal() {
     this.appModal.close();
+    if (!this.hasAnyOverlay()) this.glass?.classList?.remove('on');
   }
 
   updateOverlays() {
