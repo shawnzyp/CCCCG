@@ -11,13 +11,18 @@ function shouldStartLocked() {
 }
 
 export class PhoneOS {
-  constructor(store) {
-    this.store = store;
+  constructor(arg) {
+    // Support both:
+    // - new PhoneOS(store)
+    // - new PhoneOS({ appRoot, store })
+    const isOptions = arg && typeof arg === 'object' && 'store' in arg;
+    this.store = isOptions ? arg.store : arg;
+    this.appRoot = isOptions ? arg.appRoot : null;
     this.root = null;
     this.view = 'lock';
     this.router = null;
     this.homeScreen = null;
-    this.mainMenu = new MainMenu(store);
+    this.mainMenu = new MainMenu(this.store);
     this.ptReady = !shouldStartLocked();
     this.queuedOpen = false;
 
@@ -30,8 +35,9 @@ export class PhoneOS {
   }
 
   mount(mountNode) {
-    if (!mountNode) return;
-    this.root = mountNode;
+    const node = mountNode || this.appRoot || document.getElementById('pt-root');
+    if (!node) return;
+    this.root = node;
     this.root.innerHTML = '';
 
     const status = document.createElement('div');

@@ -65,14 +65,14 @@ function reducer(state, action) {
       return { ...state, overlays: state.overlays.slice(0, -1) };
     case 'NAVIGATE':
       if (state.phase !== 'PHONE_OS') return state;
-      return { ...state, route: action.route };
+      return { ...state, route: action.payload?.route || action.route };
     default:
       return state;
   }
 }
 
 export function createAppController({ appRoot, overlayRoot } = {}) {
-  const store = createStore(reducer, initialState);
+  const store = createStore(initialState, reducer);
   const phone = new PhoneOS({ appRoot, store });
   hardUnlockUI('controller-init');
   try { showNode(appRoot); } catch {}

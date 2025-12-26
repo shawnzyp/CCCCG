@@ -1,4 +1,15 @@
-export function createStore(reducer, preloadedState) {
+export function createStore(arg1, arg2) {
+  // Backward compatible:
+  // - createStore(initialState, reducer)  (legacy)
+  // - createStore(reducer, preloadedState) (redux-like)
+  const isReduxLike = typeof arg1 === 'function';
+  const reducer = isReduxLike ? arg1 : arg2;
+  const preloadedState = isReduxLike ? arg2 : arg1;
+
+  if (typeof reducer !== 'function') {
+    throw new Error('createStore requires a reducer function');
+  }
+
   let state = preloadedState;
   const listeners = new Set();
 
@@ -7,10 +18,13 @@ export function createStore(reducer, preloadedState) {
   }
 
   function dispatch(action) {
-    state = reducer(state, action);
+    const next = reducer(state, action);
+    if (next === state) return action;
+    state = next;
     for (const listener of listeners) {
       try {
-        listener();
+        // Pass args for legacy subscribers; extra args are harmless.
+        listener(state, action);
       } catch (_) {
         // Listener errors should not crash the app.
       }
