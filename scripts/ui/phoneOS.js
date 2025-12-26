@@ -259,7 +259,9 @@ export class PhoneOS {
 
   hideMainMenu() {
     this.mainMenu.close();
-    if (!this.hasAnyOverlay()) this.glass?.classList?.remove('on');
+    requestAnimationFrame(() => {
+      if (!this.hasAnyOverlay()) this.glass?.classList?.remove('on');
+    });
   }
 
   showAppModal(entry) {
@@ -270,7 +272,9 @@ export class PhoneOS {
 
   hideAppModal() {
     this.appModal.close();
-    if (!this.hasAnyOverlay()) this.glass?.classList?.remove('on');
+    requestAnimationFrame(() => {
+      if (!this.hasAnyOverlay()) this.glass?.classList?.remove('on');
+    });
   }
 
   updateOverlays() {

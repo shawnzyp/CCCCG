@@ -66,7 +66,8 @@ function reducer(state, action) {
       const appId = action.payload?.appId;
       if (!appId) return state;
       const next = { type: 'appModal', appId, label: action.payload?.label || appId };
-      return { ...state, overlays: [...state.overlays, next] };
+      // Make app modal exclusive (matches demo behavior; prevents stacking behind menu).
+      return { ...state, overlays: [next] };
     }
     case 'CLOSE_OVERLAY':
       return { ...state, overlays: state.overlays.slice(0, -1) };
