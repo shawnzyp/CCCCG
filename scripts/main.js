@@ -84,8 +84,6 @@ function ccOverlayLooksHidden(el) {
   try {
     if (el.hidden) return true;
     if (el.classList && el.classList.contains('hidden')) return true;
-    const aria = el.getAttribute && el.getAttribute('aria-hidden');
-    if (aria === 'true') return true;
     if (typeof getComputedStyle === 'function') {
       const cs = getComputedStyle(el);
       if (cs) {
@@ -100,13 +98,11 @@ function ccOverlayLooksHidden(el) {
 function ccForceOverlayClosed(el, reason = 'force-close') {
   if (!el) return;
   try { el.style.pointerEvents = 'none'; } catch {}
-  try { el.style.display = 'none'; } catch {}
   try { el.dataset.ccForceClosed = reason; } catch {}
 }
 
 function ccForceOverlayOpen(el, reason = 'force-open') {
   if (!el) return;
-  try { el.style.display = ''; } catch {}
   try { el.style.pointerEvents = ''; } catch {}
   try { el.dataset.ccForceOpen = reason; } catch {}
 }
@@ -13736,6 +13732,7 @@ function openMenuModal(id) {
     if (post) ccForceOverlayOpen(post, `openMenuModal:post:${id}`);
   } catch {}
   try { ccApplyOverlayHitboxSafety(`openMenuModal:${id}`); } catch {}
+  try { setTimeout(() => ccApplyOverlayHitboxSafety(`openMenuModal:posttick:${id}`), 0); } catch {}
   try {
     const overlay = document.getElementById(id);
     const modal = overlay ? overlay.querySelector('.modal') : null;
