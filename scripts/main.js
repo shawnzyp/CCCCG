@@ -82,6 +82,22 @@ try {
 const IS_CONTROLLER_MODE =
   typeof window !== 'undefined' && window.__CCCG_MODE__ === 'controller';
 
+(() => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+  const sw = navigator.serviceWorker;
+  if (!sw) return;
+  try {
+    const RELOAD_KEY = 'cccg:sw:controllerchange:reloaded';
+    sw.addEventListener('controllerchange', () => {
+      try {
+        if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
+        sessionStorage.setItem(RELOAD_KEY, '1');
+      } catch {}
+      try { window.location.reload(); } catch {}
+    });
+  } catch {}
+})();
+
 // ---------------------------------------------------------------------------
 // Boot Debug HUD + Void Watchdog (temporary but extremely useful on iOS)
 // ---------------------------------------------------------------------------
@@ -105,7 +121,9 @@ const IS_CONTROLLER_MODE =
 
   let lastErr = '';
   function setErr(message) {
-    lastErr = String(message || '').slice(0, 220);
+    const text = String(message || '');
+    if (text.includes('ResizeObserver loop')) return;
+    lastErr = text.slice(0, 220);
     pushTrace(`ERR ${lastErr}`);
   }
 
