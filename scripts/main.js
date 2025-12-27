@@ -13553,6 +13553,63 @@ function closeMenuModal(id) {
   MENU_MODAL_STATE.set(id, 'closed');
 }
 
+const WELCOME_MODAL_ID = 'modal-welcome';
+let welcomeQueued = false;
+
+function requestWelcomeModal(options = {}) {
+  if (typeof document === 'undefined') return;
+  const modal = document.getElementById(WELCOME_MODAL_ID);
+  if (!modal || !modal.classList.contains('hidden')) return;
+  try { document.documentElement.classList.add('cc-welcome-from-launch'); } catch {}
+  openMenuModal(WELCOME_MODAL_ID);
+  try {
+    if (!modal.classList.contains('hidden')) {
+      document.documentElement.classList.remove('cc-welcome-from-launch');
+    }
+  } catch {}
+}
+
+function queueWelcomeModal(options = {}) {
+  if (welcomeQueued) return;
+  welcomeQueued = true;
+  const run = () => requestWelcomeModal(options);
+  if (options.immediate) {
+    run();
+    return;
+  }
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(run);
+  } else {
+    setTimeout(run, 0);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.queueWelcomeModal = queueWelcomeModal;
+}
+
+function onLaunchReady() {
+  try {
+    if (typeof window !== 'undefined' && typeof window.unlockTouchControls === 'function') {
+      window.unlockTouchControls({ immediate: true, reason: 'launch-ready' });
+    }
+  } catch {}
+  try {
+    queueWelcomeModal({ immediate: true, preload: false });
+  } catch {}
+}
+
+if (typeof window !== 'undefined') {
+  try {
+    if (window.__ccLaunchComplete || window.__ccLaunchSequenceComplete || window.__ccWelcomeRequested) {
+      onLaunchReady();
+    } else {
+      window.addEventListener('cc:launch-sequence-complete', onLaunchReady, { once: true });
+      document.addEventListener('cc:launch-sequence-complete', onLaunchReady, { once: true });
+    }
+  } catch {}
+}
+
 async function openCharacterList(){
   await renderCharacterList();
   openMenuModal('modal-load-list');

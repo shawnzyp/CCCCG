@@ -111,6 +111,8 @@
     // - After intro finishes or skip, request welcome modal display while app finishes warming
 
     var SKIP_DELAY_MS = 2000;
+    var introStartTs = Date.now();
+    var sawPlaying = false;
     var body = document.body;
     var launchEl = document.getElementById('launch-animation');
     var video = launchEl ? launchEl.querySelector('video') : null;
@@ -279,8 +281,15 @@
       } catch (e) {}
     }
 
+    function shouldIgnoreEarly(reason) {
+      var elapsed = Date.now() - introStartTs;
+      if (!sawPlaying && elapsed < 1500 && (reason === 'ended' || reason === 'error')) return true;
+      return false;
+    }
+
     function endLaunch(reason) {
       if (ended) return;
+      if (shouldIgnoreEarly(reason)) return;
       ended = true;
       try { clearTimeout(skipTimer); } catch (e) {}
       // Disarm video activity before hiding the overlay.
@@ -302,10 +311,31 @@
       try { launchEl.style.display = 'none'; } catch (e) {}
       try { launchEl.style.pointerEvents = 'none'; } catch (e) {}
       setSkipVisible(false);
-      try { window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() }; } catch (e) {}
+      try {
+        window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() };
+        window.__ccLaunchSequenceComplete = true;
+        window.__ccWelcomeRequested = true;
+      } catch (e) {}
       safeDispatch('cc:launch-complete', { reason: reason || 'ended' });
       safeDispatch('cc:launch:done', { reason: reason || 'ended' });
       safeDispatch('cc:launch-sequence-complete', { reason: reason || 'ended' });
+      try { document.dispatchEvent(new CustomEvent('cc:launch-complete', { detail: { reason: reason || 'ended' } })); } catch (e) {}
+      try { document.dispatchEvent(new CustomEvent('cc:launch:done', { detail: { reason: reason || 'ended' } })); } catch (e) {}
+      try {
+        document.dispatchEvent(new CustomEvent('cc:launch-sequence-complete', {
+          detail: { reason: reason || 'ended' },
+        }));
+      } catch (e) {}
+      try {
+        if (typeof window.unlockTouchControls === 'function') {
+          window.unlockTouchControls({ immediate: true, reason: 'launch-complete' });
+        }
+      } catch (e) {}
+      try {
+        if (typeof window.queueWelcomeModal === 'function') {
+          window.queueWelcomeModal({ immediate: true, preload: false });
+        }
+      } catch (e) {}
 
       // Keep the overlay in the DOM; iOS can still dispatch video events after teardown.
       try {
@@ -351,6 +381,7 @@
     // If playback starts (or even begins time advancing), reveal video.
     video.addEventListener('playing', function () {
       if (ended) return;
+      sawPlaying = true;
       markVideoPlaying();
       try {
         if (!video.__ccCachePrimed) {
@@ -371,7 +402,10 @@
       if (ended) return;
       // Some Safari builds fire timeupdate before playing; treat that as “good enough”
       try {
-        if (video.currentTime > 0.05) markVideoPlaying();
+        if (video.currentTime > 0.05) {
+          sawPlaying = true;
+          markVideoPlaying();
+        }
       } catch (e) {}
     }, { passive: true });
 
