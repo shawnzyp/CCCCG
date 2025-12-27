@@ -395,6 +395,36 @@ self.addEventListener('fetch', e => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  const notifyClient = () => {
+    if (e.clientId) {
+      self.clients.get(e.clientId).then(client => {
+        if (client) client.postMessage('cacheCloudSaves');
+      });
+    }
+  };
+
+  if (request.mode === 'navigate') {
+    e.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(request, { cache: 'no-store' });
+          notifyClient();
+          return response;
+        } catch (networkError) {
+          try {
+            const { cache } = await getCacheAndManifest();
+            const cachedShell = await cache.match(resolveAssetUrl('./index.html'));
+            if (cachedShell) {
+              return cachedShell;
+            }
+          } catch (err) {}
+          throw networkError;
+        }
+      })()
+    );
+    return;
+  }
   if (request.url === MANIFEST_URL) {
     e.respondWith(
       (async () => {
@@ -418,15 +448,7 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  const notifyClient = () => {
-    if (e.clientId) {
-      self.clients.get(e.clientId).then(client => {
-        if (client) client.postMessage('cacheCloudSaves');
-      });
-    }
-  };
-
-  const cacheKey = request.url.split('?')[0];
+  const cacheKey = request.url;
   const isRangeRequest = request.headers.has('range');
   const isMediaRequest = request.destination === 'video' || request.destination === 'audio';
 
@@ -449,17 +471,8 @@ self.addEventListener('fetch', e => {
           const copy = response.clone();
           cache.put(cacheKey, copy).catch(() => {});
         }
-        if (request.mode === 'navigate') {
-          notifyClient();
-        }
         return response;
       } catch (networkError) {
-        if (request.mode === 'navigate') {
-          const cachedShell = await cache.match(resolveAssetUrl('./index.html'));
-          if (cachedShell) {
-            return cachedShell;
-          }
-        }
         if (!isRangeRequest) {
           const cached = await cache.match(cacheKey);
           if (cached) {

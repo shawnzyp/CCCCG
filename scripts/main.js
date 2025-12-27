@@ -105,7 +105,9 @@ const IS_CONTROLLER_MODE =
 
   let lastErr = '';
   function setErr(message) {
-    lastErr = String(message || '').slice(0, 220);
+    const text = String(message || '');
+    if (text.includes('ResizeObserver loop')) return;
+    lastErr = text.slice(0, 220);
     pushTrace(`ERR ${lastErr}`);
   }
 

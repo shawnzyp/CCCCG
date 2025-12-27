@@ -147,6 +147,37 @@ function createVirtualizedList(container, options = {}) {
   let messageState = null;
   let metrics = null;
 
+  const sizeUpdates = new Map();
+  let sizeFlushHandle = null;
+  let sizeFlushUsesRaf = false;
+
+  const scheduleSizeFlush = () => {
+    if (sizeFlushHandle) return;
+    if (typeof requestAnimationFrame === 'function' && typeof cancelAnimationFrame === 'function') {
+      sizeFlushUsesRaf = true;
+      sizeFlushHandle = requestAnimationFrame(() => {
+        sizeFlushHandle = null;
+        sizeUpdates.forEach((height, record) => {
+          if (!record || !record.placeholder) return;
+          if (record.placeholder.__virtualRecord !== record) return;
+          updateRecordHeight(record, height);
+        });
+        sizeUpdates.clear();
+      });
+      return;
+    }
+    sizeFlushUsesRaf = false;
+    sizeFlushHandle = setTimeout(() => {
+      sizeFlushHandle = null;
+      sizeUpdates.forEach((height, record) => {
+        if (!record || !record.placeholder) return;
+        if (record.placeholder.__virtualRecord !== record) return;
+        updateRecordHeight(record, height);
+      });
+      sizeUpdates.clear();
+    }, 0);
+  };
+
   const resizeObserver = hasResizeObserver
     ? new ResizeObserver(entries => {
       entries.forEach(entry => {
@@ -155,8 +186,9 @@ function createVirtualizedList(container, options = {}) {
         const rect = entry.contentRect;
         const height = Math.max(1, Math.round(rect?.height || placeholder.offsetHeight || 0));
         if (!height) return;
-        updateRecordHeight(placeholder.__virtualRecord, height);
+        sizeUpdates.set(placeholder.__virtualRecord, height);
       });
+      scheduleSizeFlush();
     })
     : null;
 
@@ -517,6 +549,15 @@ function createVirtualizedList(container, options = {}) {
     if (resizeObserver) {
       resizeObserver.disconnect();
     }
+    if (sizeFlushHandle) {
+      if (sizeFlushUsesRaf && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(sizeFlushHandle);
+      } else {
+        clearTimeout(sizeFlushHandle);
+      }
+      sizeFlushHandle = null;
+    }
+    sizeUpdates.clear();
     clearRecords();
   }
 
@@ -534,4 +575,3 @@ function createVirtualizedList(container, options = {}) {
 }
 
 export { createVirtualizedList };
-
