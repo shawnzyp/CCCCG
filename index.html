@@ -83,6 +83,37 @@
         } catch (e) {}
       });
       el.appendChild(btn);
+      const resetBtn = document.createElement('button');
+      resetBtn.type = 'button';
+      resetBtn.textContent = 'Reset SW + Caches (Reload)';
+      resetBtn.style.cssText =
+        'display:block;margin:0 0 10px 0;padding:10px 12px;border-radius:10px;border:0;' +
+        'background:#fffa;color:#000;font-weight:700;';
+      resetBtn.addEventListener('click', async function () {
+        try { logLine('[reset] starting…'); } catch (e) {}
+        try {
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) {
+              try { await r.unregister(); } catch (e) {}
+            }
+            logLine('[reset] unregistered service workers: ' + regs.length);
+          }
+        } catch (e) { try { logLine('[reset] sw unregister error: ' + String(e)); } catch (e2) {} }
+
+        try {
+          if (window.caches && caches.keys) {
+            const keys = await caches.keys();
+            for (const k of keys) {
+              try { await caches.delete(k); } catch (e) {}
+            }
+            logLine('[reset] deleted caches: ' + keys.join(', '));
+          }
+        } catch (e) { try { logLine('[reset] cache delete error: ' + String(e)); } catch (e2) {} }
+
+        try { location.reload(); } catch (e) {}
+      });
+      el.appendChild(resetBtn);
       document.documentElement.appendChild(el);
       return el;
     }
@@ -185,6 +216,19 @@
 
     if (!body || !launchEl || !video) return;
 
+    function supportsPreloadAsVideo() {
+      try {
+        var link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'video';
+        return link.as === 'video';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    var PRELOAD_AS_VIDEO_OK = supportsPreloadAsVideo();
+
     function assetUrl(path) {
       try {
         return new URL(path, document.baseURI).toString();
@@ -196,7 +240,7 @@
     function getPreloadMeta(url) {
       if (!url) return null;
       var lower = String(url).toLowerCase();
-      var meta = { as: 'video' };
+      var meta = { as: PRELOAD_AS_VIDEO_OK ? 'video' : 'fetch' };
       if (lower.endsWith('.mp4')) {
         meta.type = 'video/mp4';
         return meta;
@@ -215,7 +259,7 @@
         meta.type = 'audio/wav';
         return meta;
       }
-      return meta;
+      return null;
     }
 
     function ensureVideoPreload(url) {
@@ -410,6 +454,20 @@
       } catch (e) {}
     }
 
+    function diag(msg) {
+      try {
+        var panel = document.getElementById('cc-boot-diag');
+        if (panel) {
+          var pre = document.createElement('pre');
+          pre.style.cssText = 'margin:0 0 8px 0;white-space:pre-wrap;';
+          pre.textContent = '[launch] ' + msg;
+          panel.appendChild(pre);
+          return;
+        }
+      } catch (e) {}
+      try { console.log('[launch]', msg); } catch (e) {}
+    }
+
     // Start launch overlay immediately
     try { body.classList.add('launching'); } catch (e) {}
     try { launchEl.setAttribute('aria-hidden', 'false'); } catch (e) {}
@@ -443,7 +501,20 @@
 
     // End on natural finish or error
     video.addEventListener('ended', function () { endLaunch('ended'); }, { passive: true });
-    video.addEventListener('error', function () { endLaunch('error'); }, { passive: true });
+    video.addEventListener('error', function () {
+      try {
+        var err = video.error;
+        diag(
+          'video error. code=' + (err ? err.code : 0) +
+          ' networkState=' + video.networkState +
+          ' readyState=' + video.readyState +
+          ' currentSrc=' + (video.currentSrc || '(none)')
+        );
+      } catch (e) {
+        diag('video error (could not read details): ' + String(e));
+      }
+      endLaunch('error');
+    }, { passive: true });
 
     // If playback starts (or even begins time advancing), reveal video.
     video.addEventListener('playing', function () {
