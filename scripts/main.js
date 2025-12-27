@@ -73,11 +73,150 @@ import {
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 
+let __ccOverlaySafetyApplying = false;
+const __ccZero = (value) => String(value || '').trim() === '0' || String(value || '').trim() === '0.0';
+
+// ---------------------------------------------------------------------------
+// Overlay hitbox safety
+// Goal: a hidden overlay must never intercept taps/clicks.
+// ---------------------------------------------------------------------------
+function ccOverlayLooksHidden(el) {
+  if (!el) return true;
+  try {
+    if (el.hidden) return true;
+    if (el.classList && el.classList.contains('hidden')) return true;
+    if (typeof getComputedStyle === 'function') {
+      const cs = getComputedStyle(el);
+      if (cs) {
+        if (cs.display === 'none') return true;
+        if (cs.visibility === 'hidden') return true;
+        if (__ccZero(cs.opacity) && cs.pointerEvents === 'none') return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
+function ccForceOverlayClosed(el, reason = 'force-close') {
+  if (!el) return;
+  try { el.style.pointerEvents = 'none'; } catch {}
+  try { el.style.display = 'none'; } catch {}
+  try { el.dataset.ccForceClosed = reason; } catch {}
+}
+
+function ccForceOverlayOpen(el, reason = 'force-open') {
+  if (!el) return;
+  try { el.style.display = ''; } catch {}
+  try { el.style.pointerEvents = ''; } catch {}
+  try { el.dataset.ccForceOpen = reason; } catch {}
+}
+
+function ccApplyOverlayHitboxSafety(reason = 'unknown') {
+  if (__ccOverlaySafetyApplying) return;
+  __ccOverlaySafetyApplying = true;
+  try {
+    const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
+    if (overlays && overlays.length) {
+      overlays.forEach((el) => {
+        const hidden = ccOverlayLooksHidden(el);
+        try {
+          if (hidden) {
+            ccForceOverlayClosed(el, `hitbox:${reason}`);
+          } else {
+            ccForceOverlayOpen(el, `hitbox:${reason}`);
+          }
+        } catch {}
+      });
+    }
+  } catch {}
+  try { window.__ccOverlaySafety = { ts: Date.now(), reason }; } catch {}
+  try {
+    setTimeout(() => { __ccOverlaySafetyApplying = false; }, 0);
+  } catch {
+    __ccOverlaySafetyApplying = false;
+  }
+}
+
+(() => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__ccOverlaySafetyBooted) return;
+  window.__ccOverlaySafetyBooted = true;
+  try { setTimeout(() => ccApplyOverlayHitboxSafety('boot'), 0); } catch {}
+})();
+
 try {
   if (typeof window !== 'undefined') {
     window.__ccLastContentUpdate = Date.now();
   }
 } catch {}
+
+// ---------------------------------------------------------------------------
+// Modal state failsafes (iOS + backdrop-close resilience)
+// ---------------------------------------------------------------------------
+function ccIsOverlayOpen(node) {
+  return !ccOverlayLooksHidden(node);
+}
+
+function ccAnyModalOverlayOpen() {
+  try {
+    const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
+    if (!overlays || !overlays.length) return false;
+    for (let i = 0; i < overlays.length; i += 1) {
+      if (ccIsOverlayOpen(overlays[i])) return true;
+    }
+  } catch {}
+  return false;
+}
+
+function ccSyncModalState(reason = 'sync') {
+  // If no modals are open, we must not leave the UI inert or pointer-locked.
+  try {
+    if (ccAnyModalOverlayOpen()) return;
+  } catch {}
+
+  try { document.body?.classList?.remove?.('modal-open'); } catch {}
+  try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
+  try { document.body.style.pointerEvents = 'auto'; } catch {}
+  try { ccApplyOverlayHitboxSafety(`sync:${reason}`); } catch {}
+
+  // Clear only nodes that were marked by the modal system.
+  try {
+    const stuck = document.querySelectorAll?.('[data-cc-inert-by-modal],[inert]');
+    if (stuck && stuck.length) {
+      stuck.forEach((n) => {
+        try { n.removeAttribute('inert'); } catch {}
+        try { n.removeAttribute('data-cc-inert-by-modal'); } catch {}
+        try { n.removeAttribute('data-cc-inert-prev'); } catch {}
+      });
+    }
+  } catch {}
+
+  try { window.__ccModalSync = { ts: Date.now(), reason }; } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Unified overlay open/close helpers (ensures modal contract is honored)
+// ---------------------------------------------------------------------------
+function ccShowOverlay(id, reason = 'show') {
+  try { prepareForModalOpen(); } catch {}
+  try {
+    const el = document.getElementById(id);
+    if (el) ccForceOverlayOpen(el, `ccShowOverlay:${reason}:${id}`);
+  } catch {}
+  try { show(id); } catch {}
+  try { ccApplyOverlayHitboxSafety(`ccShowOverlay:${reason}:${id}`); } catch {}
+}
+
+function ccHideOverlay(id, reason = 'hide') {
+  try { hide(id); } catch {}
+  try {
+    const el = document.getElementById(id);
+    if (el) ccForceOverlayClosed(el, `ccHideOverlay:${reason}:${id}`);
+  } catch {}
+  try { finalizeModalClose(); } catch {}
+  try { setTimeout(() => ccSyncModalState(`ccHideOverlay:${reason}:${id}`), 0); } catch {}
+  try { setTimeout(() => ccApplyOverlayHitboxSafety(`ccHideOverlay:${reason}:${id}`), 0); } catch {}
+}
 
 const IS_CONTROLLER_MODE =
   typeof window !== 'undefined' && window.__CCCG_MODE__ === 'controller';
@@ -86,6 +225,7 @@ function ccHardUnlockUI(reason = 'unknown') {
   try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
   try { document.body.style.pointerEvents = 'auto'; } catch {}
   try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch {}
+  try { ccApplyOverlayHitboxSafety(`hard-unlock:${reason}`); } catch {}
 
   try {
     const stuck = document.querySelectorAll('[inert],[data-cc-inert-by-modal],[data-cc-inert-prev]');
@@ -97,10 +237,7 @@ function ccHardUnlockUI(reason = 'unknown') {
   } catch {}
 
   try {
-    const anyOpen = document.querySelector(
-      '.overlay:not(.hidden):not([hidden])[aria-hidden="false"], .overlay:not(.hidden):not([hidden]):not([aria-hidden])'
-    );
-    if (!anyOpen) document.body.classList.remove('modal-open');
+    if (!ccAnyModalOverlayOpen()) document.body.classList.remove('modal-open');
   } catch {}
 
   try {
@@ -116,6 +253,11 @@ function ccHardUnlockUI(reason = 'unknown') {
   try {
     window.__ccHardUnlock = { ts: Date.now(), reason };
   } catch {}
+
+  // Also sync modal state in case a modal close path skipped finalizeModalClose().
+  try {
+    ccSyncModalState(`hard-unlock:${reason}`);
+  } catch {}
 }
 
 if (typeof window !== 'undefined') {
@@ -127,13 +269,14 @@ if (typeof window !== 'undefined') {
   const sw = navigator.serviceWorker;
   if (!sw) return;
   try {
-    const RELOAD_KEY = 'cccg:sw:controllerchange:reloaded';
     sw.addEventListener('controllerchange', () => {
-      try {
-        if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
-        sessionStorage.setItem(RELOAD_KEY, '1');
-      } catch {}
-      try { window.location.reload(); } catch {}
+      // iOS can fire controllerchange during boot. Auto reload here can:
+      // - interrupt the intro video (looks like it "ends instantly")
+      // - strand the UI in an inert state
+      // - produce blank modal backdrops
+      // We do not auto reload. We just record it and notify listeners.
+      try { window.__ccSwControllerChangedAt = Date.now(); } catch {}
+      try { window.dispatchEvent(new CustomEvent('cc:sw-controllerchange')); } catch {}
     });
   } catch {}
 })();
@@ -13573,23 +13716,44 @@ document.addEventListener('credits-ledger-updated', () => {
 });
 
 function prepareForModalOpen() {
-  // Legacy launcher/touch locking removed.
+  // Minimal contract restored:
+  // - body.modal-open is often used by CSS to correctly render modal content
+  // - ensure hidden overlays cannot block input
+  try { document.body.classList.add('modal-open'); } catch {}
+  try { ccApplyOverlayHitboxSafety('prepareForModalOpen'); } catch {}
 }
 
 function finalizeModalClose() {
-  // Legacy touch locking removed.
+  // When no overlays are open, remove modal-open and ensure no hidden overlay hitboxes remain.
+  try {
+    // Defer so hide() has applied classes/attrs first.
+    setTimeout(() => {
+      try {
+        if (!ccAnyModalOverlayOpen()) {
+          document.body.classList.remove('modal-open');
+        }
+      } catch {}
+      try { ccApplyOverlayHitboxSafety('finalizeModalClose'); } catch {}
+      try { ccSyncModalState('finalizeModalClose'); } catch {}
+    }, 0);
+  } catch {}
 }
 
 function openMenuModal(id) {
   const state = MENU_MODAL_STATE.get(id);
   if (state === 'opening' || state === 'open') return;
   MENU_MODAL_STATE.set(id, 'opening');
-  const overlay = typeof document !== 'undefined' ? document.getElementById(id) : null;
-  const isSheet = !!(overlay && overlay.classList.contains('modal-sheet'));
-  if (isSheet) {
-    prepareForModalOpen();
-  }
-  show(id);
+  try {
+    const pre = document.getElementById(id);
+    if (pre) ccForceOverlayOpen(pre, `openMenuModal:pre:${id}`);
+  } catch {}
+  ccShowOverlay(id, 'menu');
+  try {
+    const post = document.getElementById(id);
+    if (post) ccForceOverlayOpen(post, `openMenuModal:post:${id}`);
+  } catch {}
+  try { ccApplyOverlayHitboxSafety(`openMenuModal:${id}`); } catch {}
+  try { setTimeout(() => ccApplyOverlayHitboxSafety(`openMenuModal:posttick:${id}`), 0); } catch {}
   try {
     const overlay = document.getElementById(id);
     const modal = overlay ? overlay.querySelector('.modal') : null;
@@ -13598,7 +13762,7 @@ function openMenuModal(id) {
     }
   } catch {}
   const currentOverlay = document.getElementById(id);
-  const isHidden = currentOverlay ? currentOverlay.classList.contains('hidden') : true;
+  const isHidden = currentOverlay ? !ccIsOverlayOpen(currentOverlay) : true;
   MENU_MODAL_STATE.set(id, isHidden ? 'closed' : 'open');
 }
 
@@ -13606,10 +13770,46 @@ function closeMenuModal(id) {
   const state = MENU_MODAL_STATE.get(id);
   if (state === 'closing' || state === 'closed') return;
   MENU_MODAL_STATE.set(id, 'closing');
-  hide(id);
-  finalizeModalClose();
+  ccHideOverlay(id, 'menu');
+  try {
+    const overlay = document.getElementById(id);
+    if (overlay) ccForceOverlayClosed(overlay, `closeMenuModal:${id}`);
+  } catch {}
   MENU_MODAL_STATE.set(id, 'closed');
+
+  // If any close path skipped finalizeModalClose (backdrop-tap, iOS quirks),
+  // this will clean up once everything is actually closed.
+  try { setTimeout(() => ccSyncModalState(`closeMenuModal:${id}`), 0); } catch {}
+  try { setTimeout(() => ccApplyOverlayHitboxSafety(`closeMenuModal:${id}`), 0); } catch {}
 }
+
+// Global failsafe: any time an overlay changes visibility, resync state.
+(() => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__ccModalSyncObserverInstalled) return;
+  window.__ccModalSyncObserverInstalled = true;
+  try {
+    const obs = new MutationObserver((mutations) => {
+      if (__ccOverlaySafetyApplying) return;
+      for (let i = 0; i < mutations.length; i += 1) {
+        const m = mutations[i];
+        const t = m && m.target;
+        if (!t || !t.getAttribute) continue;
+        const id = (t.id || '');
+        if (!id || !id.startsWith('modal-')) continue;
+        // Defer so show/hide/finalize can run first, then we reconcile.
+        setTimeout(() => ccSyncModalState('mutation'), 0);
+        setTimeout(() => ccApplyOverlayHitboxSafety('mutation'), 0);
+        break;
+      }
+    });
+    obs.observe(document.documentElement, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'hidden', 'aria-hidden'],
+    });
+  } catch {}
+})();
 
 // --- CC launch -> welcome bridge (collision-proof) ---
 (function () {
@@ -13618,14 +13818,8 @@ function closeMenuModal(id) {
   window.__ccLaunchWelcomeBridgeInstalled = true;
 
   function isHidden(node) {
-    if (!node) return true;
-    try {
-      if (node.hidden) return true;
-      if (node.classList && node.classList.contains('hidden')) return true;
-      const aria = node.getAttribute && node.getAttribute('aria-hidden');
-      if (aria === 'true') return true;
-    } catch {}
-    return false;
+    try { return ccOverlayLooksHidden(node); } catch {}
+    return true;
   }
 
   function findWelcomeId() {
@@ -13650,8 +13844,7 @@ function closeMenuModal(id) {
     const overlay = document.getElementById(id);
     if (!overlay) return false;
     if (!isHidden(overlay)) return true;
-    try { prepareForModalOpen(); } catch {}
-    try { openMenuModal(id); } catch { return false; }
+    try { ccShowOverlay(id, 'welcome-bridge'); } catch { return false; }
     return !isHidden(overlay);
   }
 
