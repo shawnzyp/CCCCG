@@ -13556,7 +13556,7 @@ function closeMenuModal(id) {
 const WELCOME_MODAL_ID = 'modal-welcome';
 let welcomeQueued = false;
 
-function requestWelcomeModal(options = {}) {
+function ccRequestWelcomeModal(options = {}) {
   if (typeof document === 'undefined') return false;
   const modal = document.getElementById(WELCOME_MODAL_ID);
   if (!modal) return false;
@@ -13571,10 +13571,10 @@ function requestWelcomeModal(options = {}) {
   return !modal.classList.contains('hidden');
 }
 
-function queueWelcomeModal(options = {}) {
+function ccQueueWelcomeModal(options = {}) {
   if (welcomeQueued) return;
   const runWithRetry = () => {
-    const opened = requestWelcomeModal(options);
+    const opened = ccRequestWelcomeModal(options);
     if (opened) {
       welcomeQueued = true;
       return;
@@ -13582,7 +13582,7 @@ function queueWelcomeModal(options = {}) {
     try {
       if ((options.__tries || 0) < 10) {
         const nextOpts = { ...options, __tries: (options.__tries || 0) + 1 };
-        setTimeout(() => queueWelcomeModal(nextOpts), 150);
+        setTimeout(() => ccQueueWelcomeModal(nextOpts), 150);
       }
     } catch {}
   };
@@ -13598,7 +13598,10 @@ function queueWelcomeModal(options = {}) {
 }
 
 if (typeof window !== 'undefined') {
-  window.queueWelcomeModal = queueWelcomeModal;
+  // Do not stomp an existing implementation.
+  if (typeof window.queueWelcomeModal !== 'function') {
+    window.queueWelcomeModal = ccQueueWelcomeModal;
+  }
 }
 
 function onLaunchReady() {
@@ -13609,7 +13612,10 @@ function onLaunchReady() {
     }
   } catch {}
   try {
-    queueWelcomeModal({ immediate: true, preload: false });
+    const fn = (typeof window !== 'undefined' && typeof window.queueWelcomeModal === 'function')
+      ? window.queueWelcomeModal
+      : ccQueueWelcomeModal;
+    fn({ immediate: true, preload: false });
   } catch {}
 }
 

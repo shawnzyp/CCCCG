@@ -113,6 +113,7 @@
     var SKIP_DELAY_MS = 2000;
     var introStartTs = Date.now();
     var sawPlaying = false;
+    // Baseline, will be extended once we know video duration.
     var HARD_END_MS = 12000;
     var hardEndTimer = null;
     var body = document.body;
@@ -433,6 +434,26 @@
       attempt();
       if (typeof requestAnimationFrame === 'function') requestAnimationFrame(attempt);
     } catch (e) {}
+
+    // If we learn the real duration, extend the hard timeout so we don't truncate.
+    video.addEventListener('loadedmetadata', function () {
+      try {
+        var d = Number(video.duration);
+        if (!isFinite(d) || d <= 0) return;
+        // duration + buffer, capped to avoid absurd hangs
+        var derived = Math.round(d * 1000) + 1200;
+        HARD_END_MS = Math.min(60000, Math.max(HARD_END_MS, derived));
+        if (!ended) {
+          try { if (hardEndTimer) clearTimeout(hardEndTimer); } catch (e) {}
+          try {
+            hardEndTimer = setTimeout(function () {
+              if (ended) return;
+              if (body.classList.contains('launching')) endLaunch('timeout');
+            }, HARD_END_MS);
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }, { passive: true });
 
     // Safety fallback so we never trap the user forever
     setTimeout(function () {
