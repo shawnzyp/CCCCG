@@ -79,6 +79,56 @@ try {
   }
 } catch {}
 
+// ---------------------------------------------------------------------------
+// Modal state failsafes (iOS + backdrop-close resilience)
+// ---------------------------------------------------------------------------
+function ccIsOverlayOpen(node) {
+  if (!node) return false;
+  try {
+    if (node.hidden) return false;
+    if (node.classList && node.classList.contains('hidden')) return false;
+    const aria = node.getAttribute && node.getAttribute('aria-hidden');
+    if (aria === 'true') return false;
+  } catch {}
+  return true;
+}
+
+function ccAnyModalOverlayOpen() {
+  try {
+    const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
+    if (!overlays || !overlays.length) return false;
+    for (let i = 0; i < overlays.length; i += 1) {
+      if (ccIsOverlayOpen(overlays[i])) return true;
+    }
+  } catch {}
+  return false;
+}
+
+function ccSyncModalState(reason = 'sync') {
+  // If no modals are open, we must not leave the UI inert or pointer-locked.
+  try {
+    if (ccAnyModalOverlayOpen()) return;
+  } catch {}
+
+  try { document.body?.classList?.remove?.('modal-open'); } catch {}
+  try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
+  try { document.body.style.pointerEvents = 'auto'; } catch {}
+
+  // Clear only nodes that were marked by the modal system.
+  try {
+    const stuck = document.querySelectorAll?.('[data-cc-inert-by-modal],[inert]');
+    if (stuck && stuck.length) {
+      stuck.forEach((n) => {
+        try { n.removeAttribute('inert'); } catch {}
+        try { n.removeAttribute('data-cc-inert-by-modal'); } catch {}
+        try { n.removeAttribute('data-cc-inert-prev'); } catch {}
+      });
+    }
+  } catch {}
+
+  try { window.__ccModalSync = { ts: Date.now(), reason }; } catch {}
+}
+
 const IS_CONTROLLER_MODE =
   typeof window !== 'undefined' && window.__CCCG_MODE__ === 'controller';
 
@@ -115,6 +165,11 @@ function ccHardUnlockUI(reason = 'unknown') {
 
   try {
     window.__ccHardUnlock = { ts: Date.now(), reason };
+  } catch {}
+
+  // Also sync modal state in case a modal close path skipped finalizeModalClose().
+  try {
+    ccSyncModalState(`hard-unlock:${reason}`);
   } catch {}
 }
 
@@ -13585,11 +13640,11 @@ function openMenuModal(id) {
   const state = MENU_MODAL_STATE.get(id);
   if (state === 'opening' || state === 'open') return;
   MENU_MODAL_STATE.set(id, 'opening');
-  const overlay = typeof document !== 'undefined' ? document.getElementById(id) : null;
-  const isSheet = !!(overlay && overlay.classList.contains('modal-sheet'));
-  if (isSheet) {
-    prepareForModalOpen();
-  }
+  // IMPORTANT:
+  // prepareForModalOpen() must run for normal modals too.
+  // It is responsible for body.modal-open and inert behavior.
+  // If we skip it, overlays can show a blank backdrop and the UI can get stuck inert.
+  prepareForModalOpen();
   show(id);
   try {
     const overlay = document.getElementById(id);
@@ -13610,7 +13665,37 @@ function closeMenuModal(id) {
   hide(id);
   finalizeModalClose();
   MENU_MODAL_STATE.set(id, 'closed');
+
+  // If any close path skipped finalizeModalClose (backdrop-tap, iOS quirks),
+  // this will clean up once everything is actually closed.
+  try { setTimeout(() => ccSyncModalState(`closeMenuModal:${id}`), 0); } catch {}
 }
+
+// Global failsafe: any time an overlay changes visibility, resync state.
+(() => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__ccModalSyncObserverInstalled) return;
+  window.__ccModalSyncObserverInstalled = true;
+  try {
+    const obs = new MutationObserver((mutations) => {
+      for (let i = 0; i < mutations.length; i += 1) {
+        const m = mutations[i];
+        const t = m && m.target;
+        if (!t || !t.getAttribute) continue;
+        const id = (t.id || '');
+        if (!id || !id.startsWith('modal-')) continue;
+        // Defer so show/hide/finalize can run first, then we reconcile.
+        setTimeout(() => ccSyncModalState('mutation'), 0);
+        break;
+      }
+    });
+    obs.observe(document.documentElement, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'hidden', 'aria-hidden', 'style'],
+    });
+  } catch {}
+})();
 
 // --- CC launch -> welcome bridge (collision-proof) ---
 (function () {
