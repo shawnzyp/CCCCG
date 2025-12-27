@@ -116,17 +116,18 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
   __ccOverlaySafetyApplying = true;
   try {
     const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
-    if (!overlays || !overlays.length) return;
-    overlays.forEach((el) => {
-      const hidden = ccOverlayLooksHidden(el);
-      try {
-        if (hidden) {
-          ccForceOverlayClosed(el, `hitbox:${reason}`);
-        } else {
-          ccForceOverlayOpen(el, `hitbox:${reason}`);
-        }
-      } catch {}
-    });
+    if (overlays && overlays.length) {
+      overlays.forEach((el) => {
+        const hidden = ccOverlayLooksHidden(el);
+        try {
+          if (hidden) {
+            ccForceOverlayClosed(el, `hitbox:${reason}`);
+          } else {
+            ccForceOverlayOpen(el, `hitbox:${reason}`);
+          }
+        } catch {}
+      });
+    }
   } catch {}
   try { window.__ccOverlaySafety = { ts: Date.now(), reason }; } catch {}
   try {
@@ -13817,19 +13818,8 @@ function closeMenuModal(id) {
   window.__ccLaunchWelcomeBridgeInstalled = true;
 
   function isHidden(node) {
-    if (!node) return true;
-    try {
-      if (node.hidden) return true;
-      if (node.classList && node.classList.contains('hidden')) return true;
-      if (typeof getComputedStyle === 'function') {
-        const cs = getComputedStyle(node);
-        if (cs) {
-          if (cs.display === 'none') return true;
-          if (cs.visibility === 'hidden') return true;
-        }
-      }
-    } catch {}
-    return false;
+    try { return ccOverlayLooksHidden(node); } catch {}
+    return true;
   }
 
   function findWelcomeId() {
@@ -13854,8 +13844,7 @@ function closeMenuModal(id) {
     const overlay = document.getElementById(id);
     if (!overlay) return false;
     if (!isHidden(overlay)) return true;
-    try { prepareForModalOpen(); } catch {}
-    try { openMenuModal(id); } catch { return false; }
+    try { ccShowOverlay(id, 'welcome-bridge'); } catch { return false; }
     return !isHidden(overlay);
   }
 
