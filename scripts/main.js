@@ -127,13 +127,14 @@ if (typeof window !== 'undefined') {
   const sw = navigator.serviceWorker;
   if (!sw) return;
   try {
-    const RELOAD_KEY = 'cccg:sw:controllerchange:reloaded';
     sw.addEventListener('controllerchange', () => {
-      try {
-        if (sessionStorage.getItem(RELOAD_KEY) === '1') return;
-        sessionStorage.setItem(RELOAD_KEY, '1');
-      } catch {}
-      try { window.location.reload(); } catch {}
+      // iOS can fire controllerchange during boot. Auto reload here can:
+      // - interrupt the intro video (looks like it "ends instantly")
+      // - strand the UI in an inert state
+      // - produce blank modal backdrops
+      // We do not auto reload. We just record it and notify listeners.
+      try { window.__ccSwControllerChangedAt = Date.now(); } catch {}
+      try { window.dispatchEvent(new CustomEvent('cc:sw-controllerchange')); } catch {}
     });
   } catch {}
 })();
