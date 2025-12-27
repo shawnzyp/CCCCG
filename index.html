@@ -114,8 +114,11 @@
     var introStartTs = Date.now();
     var sawPlaying = false;
     // Baseline, will be extended once we know video duration.
-    var HARD_END_MS = 12000;
+    // IMPORTANT: baseline must not be shorter than your actual intro.
+    // If metadata does not arrive in time, this is what prevents truncation.
+    var HARD_END_MS = 45000;
     var hardEndTimer = null;
+    var fallbackTimer = null;
     var body = document.body;
     var launchEl = document.getElementById('launch-animation');
     var video = launchEl ? launchEl.querySelector('video') : null;
@@ -295,6 +298,7 @@
       if (shouldIgnoreEarly(reason)) return;
       ended = true;
       try { if (hardEndTimer) clearTimeout(hardEndTimer); } catch (e) {}
+      try { if (fallbackTimer) clearTimeout(fallbackTimer); } catch (e) {}
       try { clearTimeout(skipTimer); } catch (e) {}
       // Disarm video activity before hiding the overlay.
       try { video.pause(); } catch (e) {}
@@ -452,11 +456,24 @@
             }, HARD_END_MS);
           } catch (e) {}
         }
+
+        // Also move the fallback out past the expected end.
+        // Prevents the fixed 20s timer from cutting long intros.
+        var fallbackMs = Math.min(90000, Math.max(20000, Math.round(d * 1000) + 6000));
+        if (!ended) {
+          try { if (fallbackTimer) clearTimeout(fallbackTimer); } catch (e) {}
+          try {
+            fallbackTimer = setTimeout(function () {
+              if (ended) return;
+              if (body.classList.contains('launching')) endLaunch('fallback');
+            }, fallbackMs);
+          } catch (e) {}
+        }
       } catch (e) {}
     }, { passive: true });
 
     // Safety fallback so we never trap the user forever
-    setTimeout(function () {
+    fallbackTimer = setTimeout(function () {
       // If still launching after a long time, end it.
       if (body.classList.contains('launching')) endLaunch('fallback');
     }, 20000);

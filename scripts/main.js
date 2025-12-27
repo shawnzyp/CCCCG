@@ -13556,19 +13556,30 @@ function closeMenuModal(id) {
 const WELCOME_MODAL_ID = 'modal-welcome';
 let welcomeQueued = false;
 
+function ccIsHidden(node) {
+  if (!node) return true;
+  try {
+    if (node.hidden) return true;
+    if (node.classList && node.classList.contains('hidden')) return true;
+    const aria = node.getAttribute && node.getAttribute('aria-hidden');
+    if (aria === 'true') return true;
+  } catch {}
+  return false;
+}
+
 function ccRequestWelcomeModal(options = {}) {
   if (typeof document === 'undefined') return false;
   const modal = document.getElementById(WELCOME_MODAL_ID);
   if (!modal) return false;
-  if (!modal.classList.contains('hidden')) return true;
+  if (!ccIsHidden(modal)) return true;
   try { document.documentElement.classList.add('cc-welcome-from-launch'); } catch {}
   openMenuModal(WELCOME_MODAL_ID);
   try {
-    const opened = !modal.classList.contains('hidden');
+    const opened = !ccIsHidden(modal);
     if (opened) document.documentElement.classList.remove('cc-welcome-from-launch');
     return opened;
   } catch {}
-  return !modal.classList.contains('hidden');
+  return !ccIsHidden(modal);
 }
 
 function ccQueueWelcomeModal(options = {}) {
@@ -13607,6 +13618,18 @@ if (typeof window !== 'undefined') {
 function onLaunchReady() {
   try {
     document.body?.classList?.remove?.('launching', 'touch-controls-disabled');
+    document.body?.classList?.remove?.('modal-open');
+    // Clear only nodes we previously marked as inert-by-modal.
+    try {
+      const stuck = document.querySelectorAll?.('[data-cc-inert-by-modal]');
+      if (stuck && stuck.length) {
+        stuck.forEach((n) => {
+          try { n.removeAttribute('inert'); } catch {}
+          try { n.removeAttribute('data-cc-inert-by-modal'); } catch {}
+          try { n.removeAttribute('data-cc-inert-prev'); } catch {}
+        });
+      }
+    } catch {}
     if (typeof window !== 'undefined' && typeof window.unlockTouchControls === 'function') {
       window.unlockTouchControls({ immediate: true, reason: 'launch-ready' });
     }
