@@ -192,6 +192,33 @@
   (function () {
     if (window.__ccInlineLaunchControllerInstalled) return;
     window.__ccInlineLaunchControllerInstalled = true;
+
+    if (typeof window.ccHardUnlockUI !== 'function') {
+      window.ccHardUnlockUI = function ccHardUnlockUI(reason) {
+        try { document.documentElement.style.pointerEvents = 'auto'; } catch (e) {}
+        try { document.body.style.pointerEvents = 'auto'; } catch (e) {}
+        try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch (e) {}
+        try {
+          var stuck = document.querySelectorAll('[inert],[data-cc-inert-by-modal],[data-cc-inert-prev]');
+          for (var i = 0; i < stuck.length; i += 1) {
+            var n = stuck[i];
+            try { n.removeAttribute('inert'); } catch (e1) {}
+            try { n.removeAttribute('data-cc-inert-by-modal'); } catch (e2) {}
+            try { n.removeAttribute('data-cc-inert-prev'); } catch (e3) {}
+          }
+        } catch (e) {}
+        try {
+          var launchEl = document.getElementById('launch-animation');
+          if (launchEl) {
+            launchEl.hidden = true;
+            launchEl.setAttribute('aria-hidden', 'true');
+            launchEl.style.display = 'none';
+            launchEl.style.pointerEvents = 'none';
+          }
+        } catch (e) {}
+        try { window.__ccHardUnlock = { ts: Date.now(), reason: String(reason || 'inline') }; } catch (e) {}
+      };
+    }
     var ended = false;
     // Launch Boot Controller
     // Goals:
@@ -359,11 +386,7 @@
     function shouldIgnoreEarly(reason) {
       var elapsed = Date.now() - introStartTs;
 
-      if (!sawTimeAdvance) {
-        if (reason === 'ended' || reason === 'error') {
-          if (elapsed < 4000) return true;
-        }
-      }
+      if (!sawTimeAdvance && (reason === 'ended' || reason === 'error')) return true;
 
       if (!sawMetadata && reason === 'ended') return true;
 
@@ -558,6 +581,19 @@
       attempt();
       if (typeof requestAnimationFrame === 'function') requestAnimationFrame(attempt);
     } catch (e) {}
+
+    (function () {
+      var tries = 0;
+      var t = setInterval(function () {
+        if (ended) { try { clearInterval(t); } catch (e) {} return; }
+        tries += 1;
+        if (sawTimeAdvance || tries > 10) { try { clearInterval(t); } catch (e) {} return; }
+        try {
+          var p = video.play();
+          if (p && typeof p.catch === 'function') p.catch(function () {});
+        } catch (e) {}
+      }, 350);
+    })();
 
     // If we learn the real duration, extend the hard timeout so we don't truncate.
     video.addEventListener('loadedmetadata', function () {

@@ -97,6 +97,13 @@ function ccHardUnlockUI(reason = 'unknown') {
   } catch {}
 
   try {
+    const anyOpen = document.querySelector(
+      '.overlay:not(.hidden):not([hidden])[aria-hidden="false"], .overlay:not(.hidden):not([hidden]):not([aria-hidden])'
+    );
+    if (!anyOpen) document.body.classList.remove('modal-open');
+  } catch {}
+
+  try {
     const launchEl = document.getElementById('launch-animation');
     if (launchEl) {
       launchEl.hidden = true;
@@ -13643,6 +13650,7 @@ function closeMenuModal(id) {
     const overlay = document.getElementById(id);
     if (!overlay) return false;
     if (!isHidden(overlay)) return true;
+    try { prepareForModalOpen(); } catch {}
     try { openMenuModal(id); } catch { return false; }
     return !isHidden(overlay);
   }
