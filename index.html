@@ -111,6 +111,14 @@
     // - After intro finishes or skip, request welcome modal display while app finishes warming
 
     var SKIP_DELAY_MS = 2000;
+    var introStartTs = Date.now();
+    var sawPlaying = false;
+    // Baseline, will be extended once we know video duration.
+    // IMPORTANT: baseline must not be shorter than your actual intro.
+    // If metadata does not arrive in time, this is what prevents truncation.
+    var HARD_END_MS = 45000;
+    var hardEndTimer = null;
+    var fallbackTimer = null;
     var body = document.body;
     var launchEl = document.getElementById('launch-animation');
     var video = launchEl ? launchEl.querySelector('video') : null;
@@ -279,9 +287,18 @@
       } catch (e) {}
     }
 
+    function shouldIgnoreEarly(reason) {
+      var elapsed = Date.now() - introStartTs;
+      if (!sawPlaying && elapsed < 1500 && (reason === 'ended' || reason === 'error')) return true;
+      return false;
+    }
+
     function endLaunch(reason) {
       if (ended) return;
+      if (shouldIgnoreEarly(reason)) return;
       ended = true;
+      try { if (hardEndTimer) clearTimeout(hardEndTimer); } catch (e) {}
+      try { if (fallbackTimer) clearTimeout(fallbackTimer); } catch (e) {}
       try { clearTimeout(skipTimer); } catch (e) {}
       // Disarm video activity before hiding the overlay.
       try { video.pause(); } catch (e) {}
@@ -302,10 +319,31 @@
       try { launchEl.style.display = 'none'; } catch (e) {}
       try { launchEl.style.pointerEvents = 'none'; } catch (e) {}
       setSkipVisible(false);
-      try { window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() }; } catch (e) {}
+      try {
+        window.__ccLaunchComplete = { reason: reason || 'ended', ts: Date.now() };
+        window.__ccLaunchSequenceComplete = true;
+        window.__ccWelcomeRequested = true;
+      } catch (e) {}
       safeDispatch('cc:launch-complete', { reason: reason || 'ended' });
       safeDispatch('cc:launch:done', { reason: reason || 'ended' });
       safeDispatch('cc:launch-sequence-complete', { reason: reason || 'ended' });
+      try { document.dispatchEvent(new CustomEvent('cc:launch-complete', { detail: { reason: reason || 'ended' } })); } catch (e) {}
+      try { document.dispatchEvent(new CustomEvent('cc:launch:done', { detail: { reason: reason || 'ended' } })); } catch (e) {}
+      try {
+        document.dispatchEvent(new CustomEvent('cc:launch-sequence-complete', {
+          detail: { reason: reason || 'ended' },
+        }));
+      } catch (e) {}
+      try {
+        if (typeof window.unlockTouchControls === 'function') {
+          window.unlockTouchControls({ immediate: true, reason: 'launch-complete' });
+        }
+      } catch (e) {}
+      try {
+        if (typeof window.queueWelcomeModal === 'function') {
+          window.queueWelcomeModal({ immediate: true, preload: false });
+        }
+      } catch (e) {}
 
       // Keep the overlay in the DOM; iOS can still dispatch video events after teardown.
       try {
@@ -351,6 +389,7 @@
     // If playback starts (or even begins time advancing), reveal video.
     video.addEventListener('playing', function () {
       if (ended) return;
+      sawPlaying = true;
       markVideoPlaying();
       try {
         if (!video.__ccCachePrimed) {
@@ -371,7 +410,10 @@
       if (ended) return;
       // Some Safari builds fire timeupdate before playing; treat that as “good enough”
       try {
-        if (video.currentTime > 0.05) markVideoPlaying();
+        if (video.currentTime > 0.05) {
+          sawPlaying = true;
+          markVideoPlaying();
+        }
       } catch (e) {}
     }, { passive: true });
 
@@ -397,11 +439,51 @@
       if (typeof requestAnimationFrame === 'function') requestAnimationFrame(attempt);
     } catch (e) {}
 
-    // Safety fallback so we never trap the user forever
-    setTimeout(function () {
+    // If we learn the real duration, extend the hard timeout so we don't truncate.
+    video.addEventListener('loadedmetadata', function () {
+      try {
+        var d = Number(video.duration);
+        if (!isFinite(d) || d <= 0) return;
+        // duration + buffer, capped to avoid absurd hangs
+        var derived = Math.round(d * 1000) + 1200;
+        HARD_END_MS = Math.min(60000, Math.max(HARD_END_MS, derived));
+        if (!ended) {
+          try { if (hardEndTimer) clearTimeout(hardEndTimer); } catch (e) {}
+          try {
+            hardEndTimer = setTimeout(function () {
+              if (ended) return;
+              if (body.classList.contains('launching')) endLaunch('timeout');
+            }, HARD_END_MS);
+          } catch (e) {}
+        }
+
+        // Also move the fallback out past the expected end.
+        // Prevents the fixed 20s timer from cutting long intros.
+        var fallbackMs = Math.min(90000, Math.max(20000, Math.round(d * 1000) + 6000));
+        if (!ended) {
+          try { if (fallbackTimer) clearTimeout(fallbackTimer); } catch (e) {}
+          try {
+            fallbackTimer = setTimeout(function () {
+              if (ended) return;
+              if (body.classList.contains('launching')) endLaunch('fallback');
+            }, fallbackMs);
+          } catch (e) {}
+        }
+      } catch (e) {}
+    }, { passive: true });
+
+    // Safety fallback so we never trap the user forever.
+    // IMPORTANT: do NOT start at a fixed 20s, or long intros get chopped before metadata arrives.
+    var initialFallbackMs = Math.min(90000, Math.max(20000, HARD_END_MS + 6000));
+    fallbackTimer = setTimeout(function () {
       // If still launching after a long time, end it.
       if (body.classList.contains('launching')) endLaunch('fallback');
-    }, 20000);
+    }, initialFallbackMs);
+
+    // Hard fail-safe: if autoplay never really starts, we still end.
+    try {
+      hardEndTimer = setTimeout(function () { endLaunch('timeout'); }, HARD_END_MS);
+    } catch (e) {}
   })();
 </script>
 
