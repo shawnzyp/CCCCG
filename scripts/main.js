@@ -74,6 +74,7 @@ import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapsho
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 
 let __ccOverlaySafetyApplying = false;
+const __ccZero = (value) => String(value || '').trim() === '0' || String(value || '').trim() === '0.0';
 
 // ---------------------------------------------------------------------------
 // Overlay hitbox safety
@@ -89,6 +90,7 @@ function ccOverlayLooksHidden(el) {
       if (cs) {
         if (cs.display === 'none') return true;
         if (cs.visibility === 'hidden') return true;
+        if (__ccZero(cs.opacity) && cs.pointerEvents === 'none') return true;
       }
     }
   } catch {}
@@ -98,11 +100,13 @@ function ccOverlayLooksHidden(el) {
 function ccForceOverlayClosed(el, reason = 'force-close') {
   if (!el) return;
   try { el.style.pointerEvents = 'none'; } catch {}
+  try { el.style.display = 'none'; } catch {}
   try { el.dataset.ccForceClosed = reason; } catch {}
 }
 
 function ccForceOverlayOpen(el, reason = 'force-open') {
   if (!el) return;
+  try { el.style.display = ''; } catch {}
   try { el.style.pointerEvents = ''; } catch {}
   try { el.dataset.ccForceOpen = reason; } catch {}
 }
@@ -187,6 +191,30 @@ function ccSyncModalState(reason = 'sync') {
   } catch {}
 
   try { window.__ccModalSync = { ts: Date.now(), reason }; } catch {}
+}
+
+// ---------------------------------------------------------------------------
+// Unified overlay open/close helpers (ensures modal contract is honored)
+// ---------------------------------------------------------------------------
+function ccShowOverlay(id, reason = 'show') {
+  try { prepareForModalOpen(); } catch {}
+  try {
+    const el = document.getElementById(id);
+    if (el) ccForceOverlayOpen(el, `ccShowOverlay:${reason}:${id}`);
+  } catch {}
+  try { show(id); } catch {}
+  try { ccApplyOverlayHitboxSafety(`ccShowOverlay:${reason}:${id}`); } catch {}
+}
+
+function ccHideOverlay(id, reason = 'hide') {
+  try { hide(id); } catch {}
+  try {
+    const el = document.getElementById(id);
+    if (el) ccForceOverlayClosed(el, `ccHideOverlay:${reason}:${id}`);
+  } catch {}
+  try { finalizeModalClose(); } catch {}
+  try { setTimeout(() => ccSyncModalState(`ccHideOverlay:${reason}:${id}`), 0); } catch {}
+  try { setTimeout(() => ccApplyOverlayHitboxSafety(`ccHideOverlay:${reason}:${id}`), 0); } catch {}
 }
 
 const IS_CONTROLLER_MODE =
@@ -13714,16 +13742,11 @@ function openMenuModal(id) {
   const state = MENU_MODAL_STATE.get(id);
   if (state === 'opening' || state === 'open') return;
   MENU_MODAL_STATE.set(id, 'opening');
-  // IMPORTANT:
-  // prepareForModalOpen() must run for normal modals too.
-  // It is responsible for body.modal-open and inert behavior.
-  // If we skip it, overlays can show a blank backdrop and the UI can get stuck inert.
-  prepareForModalOpen();
   try {
     const pre = document.getElementById(id);
     if (pre) ccForceOverlayOpen(pre, `openMenuModal:pre:${id}`);
   } catch {}
-  show(id);
+  ccShowOverlay(id, 'menu');
   try {
     const post = document.getElementById(id);
     if (post) ccForceOverlayOpen(post, `openMenuModal:post:${id}`);
@@ -13746,12 +13769,11 @@ function closeMenuModal(id) {
   const state = MENU_MODAL_STATE.get(id);
   if (state === 'closing' || state === 'closed') return;
   MENU_MODAL_STATE.set(id, 'closing');
-  hide(id);
+  ccHideOverlay(id, 'menu');
   try {
     const overlay = document.getElementById(id);
     if (overlay) ccForceOverlayClosed(overlay, `closeMenuModal:${id}`);
   } catch {}
-  finalizeModalClose();
   MENU_MODAL_STATE.set(id, 'closed');
 
   // If any close path skipped finalizeModalClose (backdrop-tap, iOS quirks),
