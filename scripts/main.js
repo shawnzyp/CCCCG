@@ -208,10 +208,7 @@ function ccHardUnlockUI(reason = 'unknown') {
   } catch {}
 
   try {
-    const anyOpen = document.querySelector(
-      '.overlay:not(.hidden):not([hidden])[aria-hidden="false"], .overlay:not(.hidden):not([hidden]):not([aria-hidden])'
-    );
-    if (!anyOpen) document.body.classList.remove('modal-open');
+    if (!ccAnyModalOverlayOpen()) document.body.classList.remove('modal-open');
   } catch {}
 
   try {
@@ -13802,8 +13799,13 @@ function closeMenuModal(id) {
     try {
       if (node.hidden) return true;
       if (node.classList && node.classList.contains('hidden')) return true;
-      const aria = node.getAttribute && node.getAttribute('aria-hidden');
-      if (aria === 'true') return true;
+      if (typeof getComputedStyle === 'function') {
+        const cs = getComputedStyle(node);
+        if (cs) {
+          if (cs.display === 'none') return true;
+          if (cs.visibility === 'hidden') return true;
+        }
+      }
     } catch {}
     return false;
   }
