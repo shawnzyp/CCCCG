@@ -84,8 +84,35 @@ function ccOverlayLooksHidden(el) {
     if (el.classList && el.classList.contains('hidden')) return true;
     const aria = el.getAttribute && el.getAttribute('aria-hidden');
     if (aria === 'true') return true;
+    if (typeof getComputedStyle === 'function') {
+      const cs = getComputedStyle(el);
+      if (cs) {
+        if (cs.display === 'none') return true;
+        if (cs.visibility === 'hidden') return true;
+      }
+    }
   } catch {}
   return false;
+}
+
+function ccForceOverlayClosed(el, reason = 'force-close') {
+  if (!el) return;
+  try { el.setAttribute('aria-hidden', 'true'); } catch {}
+  try { el.classList.add('hidden'); } catch {}
+  try { el.hidden = true; } catch {}
+  try { el.style.pointerEvents = 'none'; } catch {}
+  try { el.style.display = 'none'; } catch {}
+  try { el.dataset.ccForceClosed = reason; } catch {}
+}
+
+function ccForceOverlayOpen(el, reason = 'force-open') {
+  if (!el) return;
+  try { el.style.display = ''; } catch {}
+  try { el.style.pointerEvents = ''; } catch {}
+  try { el.hidden = false; } catch {}
+  try { el.classList.remove('hidden'); } catch {}
+  try { el.setAttribute('aria-hidden', 'false'); } catch {}
+  try { el.dataset.ccForceOpen = reason; } catch {}
 }
 
 function ccApplyOverlayHitboxSafety(reason = 'unknown') {
@@ -96,19 +123,22 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
       const hidden = ccOverlayLooksHidden(el);
       try {
         if (hidden) {
-          // The important part: do not intercept any input while "hidden".
-          el.style.pointerEvents = 'none';
-          el.style.display = 'none';
+          ccForceOverlayClosed(el, `hitbox:${reason}`);
         } else {
-          // Allow normal interaction when open.
-          el.style.display = '';
-          el.style.pointerEvents = '';
+          ccForceOverlayOpen(el, `hitbox:${reason}`);
         }
       } catch {}
     });
   } catch {}
   try { window.__ccOverlaySafety = { ts: Date.now(), reason }; } catch {}
 }
+
+(() => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__ccOverlaySafetyBooted) return;
+  window.__ccOverlaySafetyBooted = true;
+  try { setTimeout(() => ccApplyOverlayHitboxSafety('boot'), 0); } catch {}
+})();
 
 try {
   if (typeof window !== 'undefined') {
@@ -120,14 +150,7 @@ try {
 // Modal state failsafes (iOS + backdrop-close resilience)
 // ---------------------------------------------------------------------------
 function ccIsOverlayOpen(node) {
-  if (!node) return false;
-  try {
-    if (node.hidden) return false;
-    if (node.classList && node.classList.contains('hidden')) return false;
-    const aria = node.getAttribute && node.getAttribute('aria-hidden');
-    if (aria === 'true') return false;
-  } catch {}
-  return true;
+  return !ccOverlayLooksHidden(node);
 }
 
 function ccAnyModalOverlayOpen() {
@@ -13700,7 +13723,15 @@ function openMenuModal(id) {
   // It is responsible for body.modal-open and inert behavior.
   // If we skip it, overlays can show a blank backdrop and the UI can get stuck inert.
   prepareForModalOpen();
+  try {
+    const pre = document.getElementById(id);
+    if (pre) ccForceOverlayOpen(pre, `openMenuModal:pre:${id}`);
+  } catch {}
   show(id);
+  try {
+    const post = document.getElementById(id);
+    if (post) ccForceOverlayOpen(post, `openMenuModal:post:${id}`);
+  } catch {}
   try { ccApplyOverlayHitboxSafety(`openMenuModal:${id}`); } catch {}
   try {
     const overlay = document.getElementById(id);
@@ -13710,7 +13741,7 @@ function openMenuModal(id) {
     }
   } catch {}
   const currentOverlay = document.getElementById(id);
-  const isHidden = currentOverlay ? currentOverlay.classList.contains('hidden') : true;
+  const isHidden = currentOverlay ? !ccIsOverlayOpen(currentOverlay) : true;
   MENU_MODAL_STATE.set(id, isHidden ? 'closed' : 'open');
 }
 
@@ -13719,6 +13750,10 @@ function closeMenuModal(id) {
   if (state === 'closing' || state === 'closed') return;
   MENU_MODAL_STATE.set(id, 'closing');
   hide(id);
+  try {
+    const overlay = document.getElementById(id);
+    if (overlay) ccForceOverlayClosed(overlay, `closeMenuModal:${id}`);
+  } catch {}
   finalizeModalClose();
   MENU_MODAL_STATE.set(id, 'closed');
 
