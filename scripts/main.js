@@ -13553,105 +13553,76 @@ function closeMenuModal(id) {
   MENU_MODAL_STATE.set(id, 'closed');
 }
 
-const WELCOME_MODAL_ID = 'modal-welcome';
-let welcomeQueued = false;
+// --- CC launch -> welcome bridge (collision-proof) ---
+(function () {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (window.__ccLaunchWelcomeBridgeInstalled) return;
+  window.__ccLaunchWelcomeBridgeInstalled = true;
 
-function ccIsHidden(node) {
-  if (!node) return true;
-  try {
-    if (node.hidden) return true;
-    if (node.classList && node.classList.contains('hidden')) return true;
-    const aria = node.getAttribute && node.getAttribute('aria-hidden');
-    if (aria === 'true') return true;
-  } catch {}
-  return false;
-}
-
-function ccRequestWelcomeModal(options = {}) {
-  if (typeof document === 'undefined') return false;
-  const modal = document.getElementById(WELCOME_MODAL_ID);
-  if (!modal) return false;
-  if (!ccIsHidden(modal)) return true;
-  try { document.documentElement.classList.add('cc-welcome-from-launch'); } catch {}
-  openMenuModal(WELCOME_MODAL_ID);
-  try {
-    const opened = !ccIsHidden(modal);
-    if (opened) document.documentElement.classList.remove('cc-welcome-from-launch');
-    return opened;
-  } catch {}
-  return !ccIsHidden(modal);
-}
-
-function ccQueueWelcomeModal(options = {}) {
-  if (welcomeQueued) return;
-  const runWithRetry = () => {
-    const opened = ccRequestWelcomeModal(options);
-    if (opened) {
-      welcomeQueued = true;
-      return;
-    }
+  function isHidden(node) {
+    if (!node) return true;
     try {
-      if ((options.__tries || 0) < 10) {
-        const nextOpts = { ...options, __tries: (options.__tries || 0) + 1 };
-        setTimeout(() => ccQueueWelcomeModal(nextOpts), 150);
-      }
+      if (node.hidden) return true;
+      if (node.classList && node.classList.contains('hidden')) return true;
+      const aria = node.getAttribute && node.getAttribute('aria-hidden');
+      if (aria === 'true') return true;
     } catch {}
-  };
-  if (options.immediate) {
-    runWithRetry();
-    return;
+    return false;
   }
-  if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(runWithRetry);
-  } else {
-    setTimeout(runWithRetry, 0);
-  }
-}
 
-if (typeof window !== 'undefined') {
-  // Do not stomp an existing implementation.
-  if (typeof window.queueWelcomeModal !== 'function') {
-    window.queueWelcomeModal = ccQueueWelcomeModal;
+  function findWelcomeId() {
+    const candidates = ['modal-welcome', 'welcome-modal', 'modal-intro'];
+    for (let i = 0; i < candidates.length; i += 1) {
+      if (document.getElementById(candidates[i])) return candidates[i];
+    }
+    const overlays = document.querySelectorAll('.overlay[id^="modal-"]');
+    for (let j = 0; j < overlays.length; j += 1) {
+      const id = (overlays[j].id || '').toLowerCase();
+      if (id.includes('welcome')) return overlays[j].id;
+    }
+    return 'modal-welcome';
   }
-}
 
-function onLaunchReady() {
-  try {
-    document.body?.classList?.remove?.('launching', 'touch-controls-disabled');
-    document.body?.classList?.remove?.('modal-open');
-    // Clear only nodes we previously marked as inert-by-modal.
+  function clearStuckLocks() {
+    try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch {}
+    // Important: do NOT remove 'modal-open' here; it can break your modal rendering
     try {
-      const stuck = document.querySelectorAll?.('[data-cc-inert-by-modal]');
-      if (stuck && stuck.length) {
-        stuck.forEach((n) => {
-          try { n.removeAttribute('inert'); } catch {}
-          try { n.removeAttribute('data-cc-inert-by-modal'); } catch {}
-          try { n.removeAttribute('data-cc-inert-prev'); } catch {}
-        });
-      }
+      const stuck = document.querySelectorAll('[data-cc-inert-by-modal]');
+      stuck.forEach((n) => {
+        try { n.removeAttribute('inert'); } catch {}
+        try { n.removeAttribute('data-cc-inert-by-modal'); } catch {}
+        try { n.removeAttribute('data-cc-inert-prev'); } catch {}
+      });
     } catch {}
-    if (typeof window !== 'undefined' && typeof window.unlockTouchControls === 'function') {
-      window.unlockTouchControls({ immediate: true, reason: 'launch-ready' });
-    }
-  } catch {}
-  try {
-    const fn = (typeof window !== 'undefined' && typeof window.queueWelcomeModal === 'function')
-      ? window.queueWelcomeModal
-      : ccQueueWelcomeModal;
-    fn({ immediate: true, preload: false });
-  } catch {}
-}
+    try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
+    try { document.body.style.pointerEvents = 'auto'; } catch {}
+  }
 
-if (typeof window !== 'undefined') {
+  function requestWelcome() {
+    const id = findWelcomeId();
+    const overlay = document.getElementById(id);
+    if (!overlay) return false;
+    if (!isHidden(overlay)) return true;
+    try { openMenuModal(id); } catch { return false; }
+    return !isHidden(overlay);
+  }
+
+  function onLaunchDone() {
+    clearStuckLocks();
+    // Try immediately, then retry briefly while the DOM finishes warming
+    let tries = 0;
+    const t = setInterval(() => {
+      tries += 1;
+      if (requestWelcome() || tries > 25) clearInterval(t);
+    }, 150);
+  }
+
   try {
-    if (window.__ccLaunchComplete || window.__ccLaunchSequenceComplete || window.__ccWelcomeRequested) {
-      onLaunchReady();
-    } else {
-      window.addEventListener('cc:launch-sequence-complete', onLaunchReady, { once: true });
-      document.addEventListener('cc:launch-sequence-complete', onLaunchReady, { once: true });
-    }
+    window.addEventListener('cc:launch-sequence-complete', onLaunchDone, { once: true });
+    // If the inline controller already ended before main.js loaded:
+    if (window.__ccLaunchSequenceComplete || window.__ccLaunchComplete) onLaunchDone();
   } catch {}
-}
+})();
 
 async function openCharacterList(){
   await renderCharacterList();

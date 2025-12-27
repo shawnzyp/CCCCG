@@ -49,6 +49,65 @@
 <title>Catalyst Core</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles/main.css"/>
+<script>
+  (function () {
+    if (window.__ccBootDiagInstalled) return;
+    window.__ccBootDiagInstalled = true;
+
+    function ensurePanel() {
+      let el = document.getElementById('cc-boot-diag');
+      if (el) return el;
+      el = document.createElement('div');
+      el.id = 'cc-boot-diag';
+      el.style.cssText =
+        'position:fixed;z-index:999999;left:10px;right:10px;bottom:10px;' +
+        'max-height:45vh;overflow:auto;background:rgba(0,0,0,.88);color:#fff;' +
+        'padding:12px;border-radius:12px;font:12px/1.4 -apple-system,system-ui,Segoe UI,Roboto,Helvetica,Arial;';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Panic Unlock UI';
+      btn.style.cssText =
+        'display:block;margin:0 0 10px 0;padding:10px 12px;border-radius:10px;border:0;' +
+        'background:#fff;color:#000;font-weight:600;';
+      btn.addEventListener('click', function () {
+        try { document.documentElement.style.pointerEvents = 'auto'; } catch (e) {}
+        try { document.body.style.pointerEvents = 'auto'; } catch (e) {}
+        try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch (e) {}
+        try {
+          const nodes = document.querySelectorAll('[inert],[data-cc-inert-by-modal]');
+          nodes.forEach(function (n) {
+            try { n.removeAttribute('inert'); } catch (e) {}
+            try { n.removeAttribute('data-cc-inert-by-modal'); } catch (e) {}
+            try { n.removeAttribute('data-cc-inert-prev'); } catch (e) {}
+          });
+        } catch (e) {}
+      });
+      el.appendChild(btn);
+      document.documentElement.appendChild(el);
+      return el;
+    }
+
+    function logLine(msg) {
+      const panel = ensurePanel();
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'margin:0 0 8px 0;white-space:pre-wrap;';
+      pre.textContent = msg;
+      panel.appendChild(pre);
+    }
+
+    window.addEventListener('error', function (e) {
+      try {
+        logLine('[error] ' + (e.message || 'Unknown error') +
+          '\nfile: ' + (e.filename || '(unknown)') +
+          '\nline: ' + (e.lineno || '?') + ':' + (e.colno || '?'));
+      } catch (e2) {}
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      try { logLine('[rejection] ' + String(e.reason || 'Unknown rejection')); } catch (e2) {}
+    });
+  })();
+</script>
 </head>
 <body class="launching no-hover">
 <button
