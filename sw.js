@@ -396,6 +396,27 @@ self.addEventListener('fetch', e => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  const isMedia = request.destination === 'video' || request.destination === 'audio'
+    || url.pathname.endsWith('.mp4') || url.pathname.endsWith('.webm')
+    || url.pathname.endsWith('.mp3') || url.pathname.endsWith('.wav');
+
+  if (isMedia) {
+    e.respondWith(
+      (async () => {
+        try {
+          return await fetch(request, { cache: 'no-store' });
+        } catch (err) {
+          try {
+            const cached = await caches.match(request.url);
+            if (cached) return cached;
+          } catch (e2) {}
+          throw err;
+        }
+      })()
+    );
+    return;
+  }
+
   const notifyClient = () => {
     if (e.clientId) {
       self.clients.get(e.clientId).then(client => {

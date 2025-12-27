@@ -192,6 +192,33 @@
   (function () {
     if (window.__ccInlineLaunchControllerInstalled) return;
     window.__ccInlineLaunchControllerInstalled = true;
+
+    if (typeof window.ccHardUnlockUI !== 'function') {
+      window.ccHardUnlockUI = function ccHardUnlockUI(reason) {
+        try { document.documentElement.style.pointerEvents = 'auto'; } catch (e) {}
+        try { document.body.style.pointerEvents = 'auto'; } catch (e) {}
+        try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch (e) {}
+        try {
+          var stuck = document.querySelectorAll('[inert],[data-cc-inert-by-modal],[data-cc-inert-prev]');
+          for (var i = 0; i < stuck.length; i += 1) {
+            var n = stuck[i];
+            try { n.removeAttribute('inert'); } catch (e1) {}
+            try { n.removeAttribute('data-cc-inert-by-modal'); } catch (e2) {}
+            try { n.removeAttribute('data-cc-inert-prev'); } catch (e3) {}
+          }
+        } catch (e) {}
+        try {
+          var launchEl = document.getElementById('launch-animation');
+          if (launchEl) {
+            launchEl.hidden = true;
+            launchEl.setAttribute('aria-hidden', 'true');
+            launchEl.style.display = 'none';
+            launchEl.style.pointerEvents = 'none';
+          }
+        } catch (e) {}
+        try { window.__ccHardUnlock = { ts: Date.now(), reason: String(reason || 'inline') }; } catch (e) {}
+      };
+    }
     var ended = false;
     // Launch Boot Controller
     // Goals:
@@ -203,6 +230,9 @@
     var SKIP_DELAY_MS = 2000;
     var introStartTs = Date.now();
     var sawPlaying = false;
+    var sawTimeAdvance = false;
+    var sawMetadata = false;
+    var durationMs = 0;
     // Baseline, will be extended once we know video duration.
     // IMPORTANT: baseline must not be shorter than your actual intro.
     // If metadata does not arrive in time, this is what prevents truncation.
@@ -262,45 +292,8 @@
       return null;
     }
 
-    function ensureVideoPreload(url) {
-      try {
-        var head = document.head || document.getElementsByTagName('head')[0];
-        if (!head || !url) return;
-        var existing = document.querySelector('link[data-cc-preload="intro-video"]');
-        if (existing) return;
-        var meta = getPreloadMeta(url);
-        if (!meta || !meta.as) return;
-        var link = document.createElement('link');
-        link.rel = 'preload';
-        link.as = meta.as;
-        link.setAttribute('as', meta.as);
-        link.href = url;
-        if (meta.type) {
-          link.type = meta.type;
-        }
-        link.crossOrigin = 'anonymous';
-        link.setAttribute('data-cc-preload', 'intro-video');
-        var asVal = (link.getAttribute('as') || link.as || '').toLowerCase();
-        var supported = {
-          audio: 1,
-          document: 1,
-          embed: 1,
-          fetch: 1,
-          font: 1,
-          image: 1,
-          object: 1,
-          script: 1,
-          style: 1,
-          track: 1,
-          video: 1,
-          worker: 1
-        };
-        if (!supported[asVal]) {
-          link.rel = 'prefetch';
-          try { link.removeAttribute('as'); } catch (e) {}
-        }
-        head.appendChild(link);
-      } catch (e) {}
+    function ensureVideoPreload() {
+      return;
     }
 
     function normalizeVideoAssetUrls() {
@@ -392,7 +385,11 @@
 
     function shouldIgnoreEarly(reason) {
       var elapsed = Date.now() - introStartTs;
-      if (!sawPlaying && elapsed < 1500 && (reason === 'ended' || reason === 'error')) return true;
+
+      if (!sawTimeAdvance && (reason === 'ended' || reason === 'error')) return true;
+
+      if (!sawMetadata && reason === 'ended') return true;
+
       return false;
     }
 
@@ -415,7 +412,6 @@
       // Hide launch overlay and request the welcome modal while app finishes.
       try { body.classList.remove('launching'); } catch (e) {}
       try { body.classList.remove('touch-controls-disabled'); } catch (e) {}
-      try { body.classList.remove('modal-open'); } catch (e) {}
       try { launchEl.setAttribute('data-hidden', 'true'); } catch (e) {}
       try { launchEl.setAttribute('aria-hidden', 'true'); } catch (e) {}
       try { launchEl.hidden = true; } catch (e) {}
@@ -445,6 +441,11 @@
       try {
         if (typeof window.queueWelcomeModal === 'function') {
           window.queueWelcomeModal({ immediate: true, preload: false });
+        }
+      } catch (e) {}
+      try {
+        if (typeof window.ccHardUnlockUI === 'function') {
+          window.ccHardUnlockUI('inline-endLaunch');
         }
       } catch (e) {}
 
@@ -500,7 +501,18 @@
     }
 
     // End on natural finish or error
-    video.addEventListener('ended', function () { endLaunch('ended'); }, { passive: true });
+    video.addEventListener('ended', function () {
+      try {
+        if (durationMs > 0) {
+          var ct = Number(video.currentTime || 0);
+          var d = Number(video.duration || 0);
+          if (isFinite(d) && d > 0 && ct < Math.max(0.25, d - 0.25)) {
+            return;
+          }
+        }
+      } catch (e) {}
+      endLaunch('ended');
+    }, { passive: true });
     video.addEventListener('error', function () {
       try {
         var err = video.error;
@@ -540,8 +552,9 @@
       if (ended) return;
       // Some Safari builds fire timeupdate before playing; treat that as “good enough”
       try {
-        if (video.currentTime > 0.05) {
+        if (video.currentTime > 0.10) {
           sawPlaying = true;
+          sawTimeAdvance = true;
           markVideoPlaying();
         }
       } catch (e) {}
@@ -569,11 +582,26 @@
       if (typeof requestAnimationFrame === 'function') requestAnimationFrame(attempt);
     } catch (e) {}
 
+    (function () {
+      var tries = 0;
+      var t = setInterval(function () {
+        if (ended) { try { clearInterval(t); } catch (e) {} return; }
+        tries += 1;
+        if (sawTimeAdvance || tries > 10) { try { clearInterval(t); } catch (e) {} return; }
+        try {
+          var p = video.play();
+          if (p && typeof p.catch === 'function') p.catch(function () {});
+        } catch (e) {}
+      }, 350);
+    })();
+
     // If we learn the real duration, extend the hard timeout so we don't truncate.
     video.addEventListener('loadedmetadata', function () {
       try {
+        sawMetadata = true;
         var d = Number(video.duration);
         if (!isFinite(d) || d <= 0) return;
+        durationMs = Math.round(d * 1000);
         // duration + buffer, capped to avoid absurd hangs
         var derived = Math.round(d * 1000) + 1200;
         HARD_END_MS = Math.min(60000, Math.max(HARD_END_MS, derived));

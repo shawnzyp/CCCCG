@@ -82,6 +82,46 @@ try {
 const IS_CONTROLLER_MODE =
   typeof window !== 'undefined' && window.__CCCG_MODE__ === 'controller';
 
+function ccHardUnlockUI(reason = 'unknown') {
+  try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
+  try { document.body.style.pointerEvents = 'auto'; } catch {}
+  try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch {}
+
+  try {
+    const stuck = document.querySelectorAll('[inert],[data-cc-inert-by-modal],[data-cc-inert-prev]');
+    stuck.forEach((node) => {
+      try { node.removeAttribute('inert'); } catch {}
+      try { node.removeAttribute('data-cc-inert-by-modal'); } catch {}
+      try { node.removeAttribute('data-cc-inert-prev'); } catch {}
+    });
+  } catch {}
+
+  try {
+    const anyOpen = document.querySelector(
+      '.overlay:not(.hidden):not([hidden])[aria-hidden="false"], .overlay:not(.hidden):not([hidden]):not([aria-hidden])'
+    );
+    if (!anyOpen) document.body.classList.remove('modal-open');
+  } catch {}
+
+  try {
+    const launchEl = document.getElementById('launch-animation');
+    if (launchEl) {
+      launchEl.hidden = true;
+      launchEl.setAttribute('aria-hidden', 'true');
+      launchEl.style.display = 'none';
+      launchEl.style.pointerEvents = 'none';
+    }
+  } catch {}
+
+  try {
+    window.__ccHardUnlock = { ts: Date.now(), reason };
+  } catch {}
+}
+
+if (typeof window !== 'undefined') {
+  window.ccHardUnlockUI = ccHardUnlockUI;
+}
+
 (() => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
   const sw = navigator.serviceWorker;
@@ -13602,18 +13642,7 @@ function closeMenuModal(id) {
   }
 
   function clearStuckLocks() {
-    try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch {}
-    // Important: do NOT remove 'modal-open' here; it can break your modal rendering
-    try {
-      const stuck = document.querySelectorAll('[data-cc-inert-by-modal]');
-      stuck.forEach((n) => {
-        try { n.removeAttribute('inert'); } catch {}
-        try { n.removeAttribute('data-cc-inert-by-modal'); } catch {}
-        try { n.removeAttribute('data-cc-inert-prev'); } catch {}
-      });
-    } catch {}
-    try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
-    try { document.body.style.pointerEvents = 'auto'; } catch {}
+    ccHardUnlockUI('launch-welcome-bridge');
   }
 
   function requestWelcome() {
@@ -13621,11 +13650,13 @@ function closeMenuModal(id) {
     const overlay = document.getElementById(id);
     if (!overlay) return false;
     if (!isHidden(overlay)) return true;
+    try { prepareForModalOpen(); } catch {}
     try { openMenuModal(id); } catch { return false; }
     return !isHidden(overlay);
   }
 
   function onLaunchDone() {
+    ccHardUnlockUI('launch-sequence-complete');
     clearStuckLocks();
     // Try immediately, then retry briefly while the DOM finishes warming
     let tries = 0;

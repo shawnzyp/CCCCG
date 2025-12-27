@@ -8,6 +8,12 @@ if (typeof window !== 'undefined' && !window[CRASH_HANDLER_KEY]) {
     'ResizeObserver loop completed with undelivered notifications.',
   ]);
 
+  function ccIsBenignBrowserNoise(message) {
+    const text = String(message || '');
+    return text.includes('ResizeObserver loop completed with undelivered notifications')
+      || text.includes('ResizeObserver loop limit exceeded');
+  }
+
   const PENDING_DM_NOTIFICATIONS_KEY = 'cc:pending-dm-notifications';
   const CRASH_RELOAD_STATE_KEY = 'cc:crash-reload-state';
   const CRASH_RELOAD_WINDOW_MS = 5 * 60 * 1000;
@@ -308,7 +314,7 @@ if (typeof window !== 'undefined' && !window[CRASH_HANDLER_KEY]) {
     if (!event || crashHandled) {
       return;
     }
-    if (event.message && NON_FATAL_MESSAGES.has(event.message)) {
+    if (event.message && (NON_FATAL_MESSAGES.has(event.message) || ccIsBenignBrowserNoise(event.message))) {
       return;
     }
     const message = event.message || event.error?.message || 'Unhandled error';
@@ -332,6 +338,9 @@ if (typeof window !== 'undefined' && !window[CRASH_HANDLER_KEY]) {
       return;
     }
     const reason = event.reason;
+    if (ccIsBenignBrowserNoise(reason?.message || reason)) {
+      return;
+    }
     let message = '';
     let stack = '';
     let reasonSummary = '';
