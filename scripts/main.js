@@ -73,6 +73,43 @@ import {
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 
+// ---------------------------------------------------------------------------
+// Overlay hitbox safety
+// Goal: a hidden overlay must never intercept taps/clicks.
+// ---------------------------------------------------------------------------
+function ccOverlayLooksHidden(el) {
+  if (!el) return true;
+  try {
+    if (el.hidden) return true;
+    if (el.classList && el.classList.contains('hidden')) return true;
+    const aria = el.getAttribute && el.getAttribute('aria-hidden');
+    if (aria === 'true') return true;
+  } catch {}
+  return false;
+}
+
+function ccApplyOverlayHitboxSafety(reason = 'unknown') {
+  try {
+    const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
+    if (!overlays || !overlays.length) return;
+    overlays.forEach((el) => {
+      const hidden = ccOverlayLooksHidden(el);
+      try {
+        if (hidden) {
+          // The important part: do not intercept any input while "hidden".
+          el.style.pointerEvents = 'none';
+          el.style.display = 'none';
+        } else {
+          // Allow normal interaction when open.
+          el.style.display = '';
+          el.style.pointerEvents = '';
+        }
+      } catch {}
+    });
+  } catch {}
+  try { window.__ccOverlaySafety = { ts: Date.now(), reason }; } catch {}
+}
+
 try {
   if (typeof window !== 'undefined') {
     window.__ccLastContentUpdate = Date.now();
@@ -113,6 +150,7 @@ function ccSyncModalState(reason = 'sync') {
   try { document.body?.classList?.remove?.('modal-open'); } catch {}
   try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
   try { document.body.style.pointerEvents = 'auto'; } catch {}
+  try { ccApplyOverlayHitboxSafety(`sync:${reason}`); } catch {}
 
   // Clear only nodes that were marked by the modal system.
   try {
@@ -136,6 +174,7 @@ function ccHardUnlockUI(reason = 'unknown') {
   try { document.documentElement.style.pointerEvents = 'auto'; } catch {}
   try { document.body.style.pointerEvents = 'auto'; } catch {}
   try { document.body.classList.remove('launching', 'touch-controls-disabled'); } catch {}
+  try { ccApplyOverlayHitboxSafety(`hard-unlock:${reason}`); } catch {}
 
   try {
     const stuck = document.querySelectorAll('[inert],[data-cc-inert-by-modal],[data-cc-inert-prev]');
@@ -13629,11 +13668,27 @@ document.addEventListener('credits-ledger-updated', () => {
 });
 
 function prepareForModalOpen() {
-  // Legacy launcher/touch locking removed.
+  // Minimal contract restored:
+  // - body.modal-open is often used by CSS to correctly render modal content
+  // - ensure hidden overlays cannot block input
+  try { document.body.classList.add('modal-open'); } catch {}
+  try { ccApplyOverlayHitboxSafety('prepareForModalOpen'); } catch {}
 }
 
 function finalizeModalClose() {
-  // Legacy touch locking removed.
+  // When no overlays are open, remove modal-open and ensure no hidden overlay hitboxes remain.
+  try {
+    // Defer so hide() has applied classes/attrs first.
+    setTimeout(() => {
+      try {
+        if (!ccAnyModalOverlayOpen()) {
+          document.body.classList.remove('modal-open');
+        }
+      } catch {}
+      try { ccApplyOverlayHitboxSafety('finalizeModalClose'); } catch {}
+      try { ccSyncModalState('finalizeModalClose'); } catch {}
+    }, 0);
+  } catch {}
 }
 
 function openMenuModal(id) {
@@ -13646,6 +13701,7 @@ function openMenuModal(id) {
   // If we skip it, overlays can show a blank backdrop and the UI can get stuck inert.
   prepareForModalOpen();
   show(id);
+  try { ccApplyOverlayHitboxSafety(`openMenuModal:${id}`); } catch {}
   try {
     const overlay = document.getElementById(id);
     const modal = overlay ? overlay.querySelector('.modal') : null;
@@ -13669,6 +13725,7 @@ function closeMenuModal(id) {
   // If any close path skipped finalizeModalClose (backdrop-tap, iOS quirks),
   // this will clean up once everything is actually closed.
   try { setTimeout(() => ccSyncModalState(`closeMenuModal:${id}`), 0); } catch {}
+  try { setTimeout(() => ccApplyOverlayHitboxSafety(`closeMenuModal:${id}`), 0); } catch {}
 }
 
 // Global failsafe: any time an overlay changes visibility, resync state.
@@ -13686,6 +13743,7 @@ function closeMenuModal(id) {
         if (!id || !id.startsWith('modal-')) continue;
         // Defer so show/hide/finalize can run first, then we reconcile.
         setTimeout(() => ccSyncModalState('mutation'), 0);
+        setTimeout(() => ccApplyOverlayHitboxSafety('mutation'), 0);
         break;
       }
     });
