@@ -472,11 +472,13 @@
       } catch (e) {}
     }, { passive: true });
 
-    // Safety fallback so we never trap the user forever
+    // Safety fallback so we never trap the user forever.
+    // IMPORTANT: do NOT start at a fixed 20s, or long intros get chopped before metadata arrives.
+    var initialFallbackMs = Math.min(90000, Math.max(20000, HARD_END_MS + 6000));
     fallbackTimer = setTimeout(function () {
       // If still launching after a long time, end it.
       if (body.classList.contains('launching')) endLaunch('fallback');
-    }, 20000);
+    }, initialFallbackMs);
 
     // Hard fail-safe: if autoplay never really starts, we still end.
     try {
