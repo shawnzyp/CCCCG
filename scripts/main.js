@@ -462,8 +462,38 @@ import {
 } from './offline-cache.js';
 import { createVirtualizedList } from './virtualized-list.js';
 import { resetFloatingLauncherCoverage } from './floating-launcher.js';
+import { installResizeObserverSafety } from './safe-resize-observer.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
 import { getDiscordAuthKey, getDiscordProxyUrl, logActivity, sendDiscordLog, setDiscordAuthKey } from './discord-activity.js';
+
+// ---------------------------------------------------------------------------
+// ResizeObserver loop safety
+// Fixes "ResizeObserver loop completed with undelivered notifications."
+// by batching RO callbacks and optionally suppressing the known-benign warning.
+// Must run very early, before any UI widgets construct ResizeObservers.
+// ---------------------------------------------------------------------------
+(() => {
+  try {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    // Allow opt-out switches for troubleshooting.
+    // window.__CCCG_DISABLE_RO_PATCH__ = true
+    // window.__CCCG_DISABLE_RO_SUPPRESS__ = true
+    const disablePatch = !!window.__CCCG_DISABLE_RO_PATCH__;
+    const disableSuppress = !!window.__CCCG_DISABLE_RO_SUPPRESS__;
+    installResizeObserverSafety({
+      patchResizeObserver: !disablePatch,
+      suppressConsole: !disableSuppress,
+      suppressWindowError: !disableSuppress,
+    });
+    window.__ccROSafety = {
+      ts: Date.now(),
+      patch: !disablePatch,
+      suppress: !disableSuppress,
+    };
+  } catch {
+    // never block boot
+  }
+})();
 
 installGlobalErrorInbox();
 if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {
