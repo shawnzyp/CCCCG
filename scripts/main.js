@@ -73,6 +73,8 @@ import {
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
 
+let __ccOverlaySafetyApplying = false;
+
 // ---------------------------------------------------------------------------
 // Overlay hitbox safety
 // Goal: a hidden overlay must never intercept taps/clicks.
@@ -97,9 +99,6 @@ function ccOverlayLooksHidden(el) {
 
 function ccForceOverlayClosed(el, reason = 'force-close') {
   if (!el) return;
-  try { el.setAttribute('aria-hidden', 'true'); } catch {}
-  try { el.classList.add('hidden'); } catch {}
-  try { el.hidden = true; } catch {}
   try { el.style.pointerEvents = 'none'; } catch {}
   try { el.style.display = 'none'; } catch {}
   try { el.dataset.ccForceClosed = reason; } catch {}
@@ -109,13 +108,12 @@ function ccForceOverlayOpen(el, reason = 'force-open') {
   if (!el) return;
   try { el.style.display = ''; } catch {}
   try { el.style.pointerEvents = ''; } catch {}
-  try { el.hidden = false; } catch {}
-  try { el.classList.remove('hidden'); } catch {}
-  try { el.setAttribute('aria-hidden', 'false'); } catch {}
   try { el.dataset.ccForceOpen = reason; } catch {}
 }
 
 function ccApplyOverlayHitboxSafety(reason = 'unknown') {
+  if (__ccOverlaySafetyApplying) return;
+  __ccOverlaySafetyApplying = true;
   try {
     const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
     if (!overlays || !overlays.length) return;
@@ -131,6 +129,11 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
     });
   } catch {}
   try { window.__ccOverlaySafety = { ts: Date.now(), reason }; } catch {}
+  try {
+    setTimeout(() => { __ccOverlaySafetyApplying = false; }, 0);
+  } catch {
+    __ccOverlaySafetyApplying = false;
+  }
 }
 
 (() => {
@@ -13770,6 +13773,7 @@ function closeMenuModal(id) {
   window.__ccModalSyncObserverInstalled = true;
   try {
     const obs = new MutationObserver((mutations) => {
+      if (__ccOverlaySafetyApplying) return;
       for (let i = 0; i < mutations.length; i += 1) {
         const m = mutations[i];
         const t = m && m.target;
@@ -13785,7 +13789,7 @@ function closeMenuModal(id) {
     obs.observe(document.documentElement, {
       subtree: true,
       attributes: true,
-      attributeFilter: ['class', 'hidden', 'aria-hidden', 'style'],
+      attributeFilter: ['class', 'hidden', 'aria-hidden'],
     });
   } catch {}
 })();
