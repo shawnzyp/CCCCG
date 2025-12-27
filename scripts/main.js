@@ -13557,30 +13557,43 @@ const WELCOME_MODAL_ID = 'modal-welcome';
 let welcomeQueued = false;
 
 function requestWelcomeModal(options = {}) {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined') return false;
   const modal = document.getElementById(WELCOME_MODAL_ID);
-  if (!modal || !modal.classList.contains('hidden')) return;
+  if (!modal) return false;
+  if (!modal.classList.contains('hidden')) return true;
   try { document.documentElement.classList.add('cc-welcome-from-launch'); } catch {}
   openMenuModal(WELCOME_MODAL_ID);
   try {
-    if (!modal.classList.contains('hidden')) {
-      document.documentElement.classList.remove('cc-welcome-from-launch');
-    }
+    const opened = !modal.classList.contains('hidden');
+    if (opened) document.documentElement.classList.remove('cc-welcome-from-launch');
+    return opened;
   } catch {}
+  return !modal.classList.contains('hidden');
 }
 
 function queueWelcomeModal(options = {}) {
   if (welcomeQueued) return;
-  welcomeQueued = true;
-  const run = () => requestWelcomeModal(options);
+  const runWithRetry = () => {
+    const opened = requestWelcomeModal(options);
+    if (opened) {
+      welcomeQueued = true;
+      return;
+    }
+    try {
+      if ((options.__tries || 0) < 10) {
+        const nextOpts = { ...options, __tries: (options.__tries || 0) + 1 };
+        setTimeout(() => queueWelcomeModal(nextOpts), 150);
+      }
+    } catch {}
+  };
   if (options.immediate) {
-    run();
+    runWithRetry();
     return;
   }
   if (typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(run);
+    requestAnimationFrame(runWithRetry);
   } else {
-    setTimeout(run, 0);
+    setTimeout(runWithRetry, 0);
   }
 }
 
@@ -13590,6 +13603,7 @@ if (typeof window !== 'undefined') {
 
 function onLaunchReady() {
   try {
+    document.body?.classList?.remove?.('launching', 'touch-controls-disabled');
     if (typeof window !== 'undefined' && typeof window.unlockTouchControls === 'function') {
       window.unlockTouchControls({ immediate: true, reason: 'launch-ready' });
     }

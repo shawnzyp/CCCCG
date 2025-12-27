@@ -113,6 +113,8 @@
     var SKIP_DELAY_MS = 2000;
     var introStartTs = Date.now();
     var sawPlaying = false;
+    var HARD_END_MS = 12000;
+    var hardEndTimer = null;
     var body = document.body;
     var launchEl = document.getElementById('launch-animation');
     var video = launchEl ? launchEl.querySelector('video') : null;
@@ -291,6 +293,7 @@
       if (ended) return;
       if (shouldIgnoreEarly(reason)) return;
       ended = true;
+      try { if (hardEndTimer) clearTimeout(hardEndTimer); } catch (e) {}
       try { clearTimeout(skipTimer); } catch (e) {}
       // Disarm video activity before hiding the overlay.
       try { video.pause(); } catch (e) {}
@@ -436,6 +439,11 @@
       // If still launching after a long time, end it.
       if (body.classList.contains('launching')) endLaunch('fallback');
     }, 20000);
+
+    // Hard fail-safe: if autoplay never really starts, we still end.
+    try {
+      hardEndTimer = setTimeout(function () { endLaunch('timeout'); }, HARD_END_MS);
+    } catch (e) {}
   })();
 </script>
 
