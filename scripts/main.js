@@ -137,6 +137,48 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
   }
 }
 
+function ccDescribeEl(el) {
+  try {
+    if (!el) return null;
+    const cs = window.getComputedStyle?.(el);
+    return {
+      tag: el.tagName,
+      id: el.id || '',
+      cls: String(el.className || ''),
+      role: el.getAttribute?.('role') || '',
+      pe: cs?.pointerEvents || '',
+      pos: cs?.position || '',
+      z: cs?.zIndex || '',
+      op: cs?.opacity || '',
+      vis: cs?.visibility || '',
+      disp: cs?.display || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function ccSnapshotTopAt(x, y, reason = 'snapshot') {
+  try {
+    const stack = document.elementsFromPoint?.(x, y) || [];
+    const top = stack[0] || null;
+    window.__ccTopHit = {
+      ts: Date.now(),
+      reason,
+      x, y,
+      top: ccDescribeEl(top),
+      stack: stack.slice(0, 8).map(ccDescribeEl),
+    };
+  } catch {}
+}
+
+try {
+  // Capture what is actually receiving the tap/click.
+  window.addEventListener('pointerdown', (e) => {
+    try { ccSnapshotTopAt(e.clientX, e.clientY, 'pointerdown'); } catch {}
+  }, true);
+} catch {}
+
 function ccUnblockFullscreenHitboxes(reason = 'unblock') {
   try {
     if (typeof document === 'undefined' || typeof window === 'undefined') return;
@@ -180,8 +222,20 @@ function ccUnblockFullscreenHitboxes(reason = 'unblock') {
         el.classList.contains('hidden') ||
         el.getAttribute('aria-hidden') === 'true';
 
-      // Only kill hitboxes that are functionally invisible/hidden.
-      if (!hidden) continue;
+      // Also kill hitboxes that are "visually transparent" but still intercept taps.
+      // Common for splash/intro layers that fade out but remain positioned over the app.
+      let transparent = false;
+      try {
+        const bg = cs.backgroundColor || '';
+        const hasBgAlpha0 = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)/i.test(bg) || bg === 'transparent';
+        const noBorder = (cs.borderStyle === 'none' || cs.borderWidth === '0px');
+        const noOutline = (cs.outlineStyle === 'none' || cs.outlineWidth === '0px');
+        const noShadow = (!cs.boxShadow || cs.boxShadow === 'none');
+        // If it covers the whole screen and has no visual chrome, treat as a tap-eater.
+        transparent = opacity >= 0.01 && hasBgAlpha0 && noBorder && noOutline && noShadow;
+      } catch {}
+
+      if (!hidden && !transparent) continue;
 
       candidates.push(el);
     }
@@ -223,6 +277,7 @@ function ccFinalizeBootUI(reason = 'finalize') {
     try { repairModalInertState(); } catch (_) {}
     try { ccApplyOverlayHitboxSafety(`finalize:${reason}`); } catch (_) {}
     try { ccUnblockFullscreenHitboxes(`finalize:${reason}`); } catch (_) {}
+    try { ccSnapshotTopAt((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize:${reason}`); } catch (_) {}
 
     // If any modal overlays are still "open" but hidden state is inconsistent, hard-close them.
     try {
