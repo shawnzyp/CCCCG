@@ -131,6 +131,15 @@ export function repairModalInertState() {
       if (prev === '1') setNodeInert(node, true);
       else setNodeInert(node, false);
     });
+
+    // If no modals are open, ensure the main shell is interactive.
+    try {
+      if (typeof openModals === 'number' && openModals === 0) {
+        const shell = document.querySelector('[data-launch-shell]') || document.getElementById('app');
+        if (shell) setNodeInert(shell, false);
+        try { document.body.classList.remove('modal-open'); } catch (_) {}
+      }
+    } catch (_) {}
   } catch (_) {}
 }
 
@@ -435,6 +444,8 @@ export function hide(id) {
     if (openModals === 0) {
       releaseFloatingLauncher();
       restoreMarkedInert();
+      // Repair before cleanup so we can still read data-cc-inert-prev.
+      repairModalInertState();
       // Extra safety: if launch is complete, ensure shell is interactive even if some earlier path left inert behind.
       try {
         if (!isLaunchingNow()) {
@@ -446,7 +457,6 @@ export function hide(id) {
         console.error('Failed to update body class when hiding modal', err);
       }
       cleanupMarkedInert();
-      repairModalInertState();
     } else {
       try { document.body.classList.add('modal-open'); } catch (_) {}
     }
