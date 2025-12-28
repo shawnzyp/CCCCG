@@ -159,6 +159,34 @@ function ccDescribeEl(el) {
   }
 }
 
+function ccIsTapEaterInvisible(el, cs) {
+  try {
+    if (!el || !cs) return false;
+    const opacity = Number(cs.opacity || '1');
+    const hidden =
+      cs.display === 'none' ||
+      cs.visibility === 'hidden' ||
+      opacity < 0.01 ||
+      el.classList.contains('hidden') ||
+      el.getAttribute('aria-hidden') === 'true';
+
+    // “Visually transparent but still intercepting taps” case.
+    let transparent = false;
+    try {
+      const bg = cs.backgroundColor || '';
+      const hasBgAlpha0 = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)/i.test(bg) || bg === 'transparent';
+      const noBorder = (cs.borderStyle === 'none' || cs.borderWidth === '0px');
+      const noOutline = (cs.outlineStyle === 'none' || cs.outlineWidth === '0px');
+      const noShadow = (!cs.boxShadow || cs.boxShadow === 'none');
+      transparent = opacity >= 0.01 && hasBgAlpha0 && noBorder && noOutline && noShadow;
+    } catch {}
+
+    return hidden || transparent;
+  } catch (_) {
+    return false;
+  }
+}
+
 function ccSnapshotTopAt(x, y, reason = 'snapshot') {
   try {
     const stack = document.elementsFromPoint?.(x, y) || [];
@@ -196,6 +224,9 @@ function ccNukeTapEaterAtPoint(x, y, reason = 'nuke') {
       if (cs.pointerEvents === 'none') continue;
       const pos = cs.position;
       if (pos !== 'fixed' && pos !== 'absolute') continue;
+
+      // Only nuke if it’s actually invisible/transparent.
+      if (!ccIsTapEaterInvisible(el, cs)) continue;
 
       let r;
       try { r = el.getBoundingClientRect(); } catch { r = null; }
