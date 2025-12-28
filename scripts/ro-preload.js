@@ -12,7 +12,7 @@
     if (window.__ccROPreloadInstalled) return;
     window.__ccROPreloadInstalled = true;
 
-    console.log('[ROPreload] build', '2025-12-28-v3');
+    console.log('[ROPreload] build', '2025-12-28-v4');
 
     var MSG_1 = 'ResizeObserver loop completed with undelivered notifications';
     var MSG_2 = 'ResizeObserver loop limit exceeded';
