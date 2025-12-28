@@ -121,8 +121,72 @@ function cleanupMarkedInert() {
   } catch (_) {}
 }
 
+function countOpenModalsInDom() {
+  try {
+    const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
+    if (!overlays || !overlays.length) return 0;
+    let n = 0;
+    overlays.forEach((el) => {
+      try {
+        const hidden =
+          el.classList.contains('hidden') ||
+          el.getAttribute('aria-hidden') === 'true' ||
+          el.style.display === 'none';
+        if (!hidden) n += 1;
+      } catch (_) {}
+    });
+    return n;
+  } catch (_) {
+    return 0;
+  }
+}
+
+export function syncOpenModalsFromDom(reason = 'sync') {
+  try {
+    if (typeof document === 'undefined') return 0;
+    const n = countOpenModalsInDom();
+    openModals = n;
+
+    // Keep body class and launcher consistent with reality.
+    try {
+      if (n > 0) {
+        document.body.classList.add('modal-open');
+        coverFloatingLauncher();
+      } else {
+        document.body.classList.remove('modal-open');
+        releaseFloatingLauncher();
+      }
+    } catch (_) {}
+
+    // Ensure hidden overlays never intercept input.
+    try {
+      const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
+      overlays?.forEach((el) => {
+        const isHidden = el.classList.contains('hidden') || el.getAttribute('aria-hidden') === 'true';
+        el.style.pointerEvents = isHidden ? 'none' : 'auto';
+      });
+    } catch (_) {}
+
+    try { window.__ccModalSync = { ts: Date.now(), reason, open: n }; } catch (_) {}
+    return n;
+  } catch (_) {
+    return 0;
+  }
+}
+
 export function repairModalInertState() {
   try {
+    // First, sync reality. If a modal is actually open, do not rip out inert bookkeeping.
+    const n = syncOpenModalsFromDom('repair');
+    if (n > 0) {
+      // Still enforce that the visible overlays are clickable.
+      try {
+        const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]:not(.hidden)');
+        overlays?.forEach((el) => { try { el.style.pointerEvents = 'auto'; } catch (_) {} });
+      } catch (_) {}
+      return;
+    }
+
     const nodes = document.querySelectorAll(`[${INERT_MARK}],[${INERT_PREV}]`);
     nodes.forEach((node) => {
       const prev = node.getAttribute(INERT_PREV) || '0';
@@ -134,11 +198,9 @@ export function repairModalInertState() {
 
     // If no modals are open, ensure the main shell is interactive.
     try {
-      if (typeof openModals === 'number' && openModals === 0) {
-        const shell = document.querySelector('[data-launch-shell]') || document.getElementById('app');
-        if (shell) setNodeInert(shell, false);
-        try { document.body.classList.remove('modal-open'); } catch (_) {}
-      }
+      const shell = document.querySelector('[data-launch-shell]') || document.getElementById('app');
+      if (shell) setNodeInert(shell, false);
+      try { document.body.classList.remove('modal-open'); } catch (_) {}
     } catch (_) {}
   } catch (_) {}
 }
@@ -368,6 +430,12 @@ export function show(id) {
     el.classList.remove('hidden');
     el.setAttribute('aria-hidden', 'false');
     trapFocus(el);
+    // Critical: never let a visually hidden overlay eat taps.
+    try { el.style.pointerEvents = 'auto'; } catch (_) {}
+
+    try {
+      window.dispatchEvent(new CustomEvent('cc:modal:shown', { detail: { id: el.id } }));
+    } catch (_) {}
     const focusEl = el.querySelector('[autofocus],input,select,textarea,button');
     if (focusEl && typeof focusEl.focus === 'function') {
       try {
@@ -424,6 +492,12 @@ export function hide(id) {
     setNodeInert(el, true);
     el.setAttribute('aria-hidden', 'true');
     el.classList.add('hidden');
+    // Critical: hidden overlays must not intercept input.
+    try { el.style.pointerEvents = 'none'; } catch (_) {}
+
+    try {
+      window.dispatchEvent(new CustomEvent('cc:modal:hidden', { detail: { id: el.id } }));
+    } catch (_) {}
     // Remove welcome class early so UI does not stay hidden if anything goes sideways.
     try {
       if (el.id === 'modal-welcome') document.documentElement.classList.remove('cc-welcome-open');
@@ -445,7 +519,7 @@ export function hide(id) {
       releaseFloatingLauncher();
       restoreMarkedInert();
       // Repair before cleanup so we can still read data-cc-inert-prev.
-      repairModalInertState();
+      try { repairModalInertState(); } catch (_) {}
       // Extra safety: if launch is complete, ensure shell is interactive even if some earlier path left inert behind.
       try {
         if (!isLaunchingNow()) {
@@ -457,6 +531,8 @@ export function hide(id) {
         console.error('Failed to update body class when hiding modal', err);
       }
       cleanupMarkedInert();
+      // Keep counter honest.
+      try { syncOpenModalsFromDom('hide-last'); } catch (_) {}
     } else {
       try { document.body.classList.add('modal-open'); } catch (_) {}
     }

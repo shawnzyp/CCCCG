@@ -30,7 +30,7 @@ import {
   performScheduledAutoSave,
   isAutoSaveDirty,
 } from './autosave-controller.js';
-import { show, hide, repairModalInertState } from './modal.js';
+import { show, hide, repairModalInertState, syncOpenModalsFromDom } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
 import {
   activateTab,
@@ -144,9 +144,54 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
   try { setTimeout(() => ccApplyOverlayHitboxSafety('boot'), 0); } catch {}
 })();
 
+function ccFinalizeBootUI(reason = 'finalize') {
+  try {
+    // Absolute "make the page clickable again" pass.
+    try { document.body.classList.remove('launching'); } catch (_) {}
+    try { document.documentElement.classList.remove('launching'); } catch (_) {}
+    try { document.documentElement.classList.remove('cc-welcome-open'); } catch (_) {}
+
+    // Kill any invisible modal hitboxes and stale inert.
+    try { syncOpenModalsFromDom(`finalize:${reason}`); } catch (_) {}
+    try { repairModalInertState(); } catch (_) {}
+    try { ccApplyOverlayHitboxSafety(`finalize:${reason}`); } catch (_) {}
+
+    // If any modal overlays are still "open" but hidden state is inconsistent, hard-close them.
+    try {
+      const overlays = document.querySelectorAll?.('.overlay[id^="modal-"]');
+      overlays?.forEach((el) => {
+        const looksOpen = !el.classList.contains('hidden') && el.getAttribute('aria-hidden') !== 'true';
+        if (looksOpen && el.id !== 'modal-welcome') {
+          try { hide(el.id); } catch (_) {}
+        }
+      });
+    } catch (_) {}
+
+    // One more microtask later, because Safari sometimes commits inert/pointer changes late.
+    try {
+      setTimeout(() => {
+        try { syncOpenModalsFromDom(`finalize2:${reason}`); } catch (_) {}
+        try { repairModalInertState(); } catch (_) {}
+        try { ccApplyOverlayHitboxSafety(`finalize2:${reason}`); } catch (_) {}
+      }, 0);
+    } catch (_) {}
+
+    try { window.__ccBootFinalized = { ts: Date.now(), reason }; } catch (_) {}
+  } catch (_) {}
+}
+
+try {
+  window.addEventListener('cc:modal:hidden', (e) => {
+    const id = e?.detail?.id;
+    if (id === 'modal-welcome') ccFinalizeBootUI('welcome-hidden');
+  });
+} catch (_) {}
+
 try {
   // If a prior session crashed mid-modal, restore inert state on boot.
+  syncOpenModalsFromDom('boot');
   repairModalInertState();
+  ccApplyOverlayHitboxSafety('boot-after-modal-repair');
 } catch {}
 
 try {
@@ -155,6 +200,16 @@ try {
   }
 } catch {}
 
+// Safety net: if launch finishes but welcome modal never fires, do not leave the UI inert.
+try {
+  setTimeout(() => {
+    try {
+      const open = syncOpenModalsFromDom('boot-net');
+      const launching = !!document.body?.classList?.contains('launching');
+      if (!launching && open === 0) ccFinalizeBootUI('boot-net');
+    } catch (_) {}
+  }, 1500);
+} catch (_) {}
 // ---------------------------------------------------------------------------
 // Modal state failsafes (iOS + backdrop-close resilience)
 // ---------------------------------------------------------------------------
