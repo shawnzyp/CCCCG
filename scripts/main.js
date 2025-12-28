@@ -1,3 +1,4 @@
+/* global innerWidth, innerHeight */
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, revertAbilityScore } from './helpers.js';
 import { ensureDiceResultRenderer } from './dice-result.js';
@@ -172,10 +173,63 @@ function ccSnapshotTopAt(x, y, reason = 'snapshot') {
   } catch {}
 }
 
+function ccNukeTapEaterAtPoint(x, y, reason = 'nuke') {
+  try {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return false;
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    if (!w || !h) return false;
+
+    const stack = document.elementsFromPoint?.(x, y) || [];
+    if (!stack.length) return false;
+
+    for (let i = 0; i < Math.min(stack.length, 12); i += 1) {
+      const el = stack[i];
+      if (!el || !(el instanceof Element)) continue;
+      if (el === document.body || el === document.documentElement) continue;
+      // Do not mess with actual modals, those have their own logic.
+      if (el.classList?.contains('overlay') && String(el.id || '').startsWith('modal-')) continue;
+
+      let cs;
+      try { cs = window.getComputedStyle(el); } catch { cs = null; }
+      if (!cs) continue;
+      if (cs.pointerEvents === 'none') continue;
+      const pos = cs.position;
+      if (pos !== 'fixed' && pos !== 'absolute') continue;
+
+      let r;
+      try { r = el.getBoundingClientRect(); } catch { r = null; }
+      if (!r) continue;
+
+      const covers =
+        r.width >= w * 0.95 &&
+        r.height >= h * 0.95 &&
+        r.left <= w * 0.05 &&
+        r.top <= h * 0.05;
+      if (!covers) continue;
+
+      // Kill it.
+      try { el.style.pointerEvents = 'none'; } catch (_) {}
+      try { el.setAttribute('data-cc-nuked-hitbox', reason); } catch (_) {}
+      try {
+        window.__ccTapEaterNuked = {
+          ts: Date.now(),
+          reason,
+          el: ccDescribeEl(el),
+          at: { x, y },
+        };
+      } catch (_) {}
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 try {
   // Capture what is actually receiving the tap/click.
   window.addEventListener('pointerdown', (e) => {
     try { ccSnapshotTopAt(e.clientX, e.clientY, 'pointerdown'); } catch {}
+    try { ccNukeTapEaterAtPoint(e.clientX, e.clientY, 'pointerdown'); } catch {}
   }, true);
 } catch {}
 
@@ -278,6 +332,7 @@ function ccFinalizeBootUI(reason = 'finalize') {
     try { ccApplyOverlayHitboxSafety(`finalize:${reason}`); } catch (_) {}
     try { ccUnblockFullscreenHitboxes(`finalize:${reason}`); } catch (_) {}
     try { ccSnapshotTopAt((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize:${reason}`); } catch (_) {}
+    try { ccNukeTapEaterAtPoint((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize:${reason}`); } catch (_) {}
 
     // If any modal overlays are still "open" but hidden state is inconsistent, hard-close them.
     try {
@@ -297,6 +352,7 @@ function ccFinalizeBootUI(reason = 'finalize') {
         try { repairModalInertState(); } catch (_) {}
         try { ccApplyOverlayHitboxSafety(`finalize2:${reason}`); } catch (_) {}
         try { ccUnblockFullscreenHitboxes(`finalize2:${reason}`); } catch (_) {}
+        try { ccNukeTapEaterAtPoint((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize2:${reason}`); } catch (_) {}
       }, 0);
     } catch (_) {}
 
