@@ -23,6 +23,13 @@ function isLikelyJsdom() {
   }
 }
 
+function trySetDisableRO(reason) {
+  try {
+    localStorage.setItem('cc:disable-ro', '1');
+    sessionStorage.setItem('cc:disable-ro:reason', String(reason || 'storm'));
+  } catch {}
+}
+
 function now() {
   try {
     return typeof performance !== 'undefined' && typeof performance.now === 'function'
@@ -65,6 +72,8 @@ export function installResizeObserverSafety(options = {}) {
     disableResizeObserver = false,
     // Prevent later scripts from overwriting the patched ResizeObserver.
     lockResizeObserver = true,
+    // Circuit breaker: if we detect a delivery storm, degrade to Noop and persist a disable flag.
+    enableCircuitBreaker = true,
   } = options || {};
 
   window.__ccResizeObserverSafetyInstalled = true;
@@ -88,6 +97,8 @@ export function installResizeObserverSafety(options = {}) {
     try {
       window.ResizeObserver = NoopResizeObserver;
       window.__ccResizeObserverDisabled = { ts: Date.now() };
+      // Do not lock in disabled mode.
+      window.__ccResizeObserverLocked = null;
     } catch {}
   }
 
@@ -108,10 +119,47 @@ export function installResizeObserverSafety(options = {}) {
         frameId: 0,
         deliveriesThisFrame: 0,
         lastFrameAt: 0,
+        stormFrames: 0,
+        degraded: false,
       });
 
       const MAX_DELIVERIES_PER_FRAME = 2; // conservative
       const MAX_TOTAL_ENTRIES_PER_DELIVERY = 500; // safety cap
+      const STORM_FRAME_LIMIT = 60; // about one second at 60fps
+
+      function degrade(reason) {
+        if (!enableCircuitBreaker) return;
+        try {
+          GLOBAL.degraded = true;
+        } catch {}
+        try {
+          GLOBAL.pending.clear();
+        } catch {}
+        try {
+          // Persist a disable switch so the preload can hard-stop on next load.
+          trySetDisableRO(reason || 'storm');
+        } catch {}
+        try {
+          class NoopResizeObserver {
+            observe() {}
+            unobserve() {}
+            disconnect() {}
+          }
+          // Use defineProperty so it works even if something made it non-writable.
+          try {
+            Object.defineProperty(window, 'ResizeObserver', {
+              configurable: true,
+              writable: true,
+              value: NoopResizeObserver,
+            });
+          } catch {
+            try {
+              window.ResizeObserver = NoopResizeObserver;
+            } catch {}
+          }
+          window.__ccResizeObserverDegraded = { ts: Date.now(), reason: String(reason || 'storm') };
+        } catch {}
+      }
 
       function requestGlobalFlush(reason) {
         try {
@@ -131,6 +179,7 @@ export function installResizeObserverSafety(options = {}) {
       }
 
       function flushGlobal(phase) {
+        if (GLOBAL.degraded) return;
         // Prevent re-entrant delivery storms.
         if (GLOBAL.delivering) return;
         if (!GLOBAL.pending.size) return;
@@ -145,6 +194,8 @@ export function installResizeObserverSafety(options = {}) {
         }
         if (GLOBAL.deliveriesThisFrame >= MAX_DELIVERIES_PER_FRAME) {
           // Too much in one frame. Defer to next frame.
+          GLOBAL.stormFrames += 1;
+          if (GLOBAL.stormFrames > STORM_FRAME_LIMIT) degrade(`cap:${phase}`);
           requestGlobalFlush(`cap:${phase}`);
           return;
         }
@@ -172,7 +223,16 @@ export function installResizeObserverSafety(options = {}) {
         }
 
         // If more arrived during delivery, schedule again.
-        if (GLOBAL.pending.size) requestGlobalFlush(`again:${phase}`);
+        if (GLOBAL.pending.size) {
+          GLOBAL.stormFrames += 1;
+          if (GLOBAL.stormFrames > STORM_FRAME_LIMIT) {
+            degrade(`pending:${phase}`);
+            return;
+          }
+          requestGlobalFlush(`again:${phase}`);
+        } else {
+          GLOBAL.stormFrames = 0;
+        }
       }
 
       class SafeResizeObserver {
@@ -263,7 +323,9 @@ export function installResizeObserverSafety(options = {}) {
       if (lockResizeObserver) {
         try {
           Object.defineProperty(window, 'ResizeObserver', {
-            configurable: false,
+            // Soft lock: keep configurable so we can still replace it via defineProperty
+            // (for disable mode or circuit breaker). Writable false blocks casual reassignment.
+            configurable: true,
             writable: false,
             value: SafeResizeObserver,
           });

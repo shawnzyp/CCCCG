@@ -509,6 +509,13 @@ function __ccIsLikelySafari() {
     const disableSuppress = !!window.__CCCG_DISABLE_RO_SUPPRESS__;
     const hardDisable =
       !!window.__CCCG_DISABLE_RESIZE_OBSERVER__ ||
+      (() => {
+        try {
+          return localStorage.getItem('cc:disable-ro') === '1';
+        } catch {
+          return false;
+        }
+      })() ||
       // If we are in safe-mode and on iOS Safari, be extra conservative.
       ((() => {
         try {

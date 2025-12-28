@@ -4,6 +4,27 @@
 /* They are safe in modern browsers and tend to reduce "RO loop" warnings.     */
 /* -------------------------------------------------------------------------- */
 
+/* iOS Safari and background-attachment: fixed can cause repaint and measure churn. */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --bg-attachment: scroll;
+  }
+  body {
+    background-attachment: scroll !important;
+  }
+}
+
+/* Prefer stable vertical scrollbar behavior where supported. */
+html {
+  overflow-y: scroll;
+}
+
+/* Avoid scroll anchoring jitter in long dynamic pages. */
+html,
+body {
+  overflow-anchor: none;
+}
+
 /* Modals and overlays can cause repeated measure/write cycles. */
 .overlay,
 .modal,

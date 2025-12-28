@@ -14,6 +14,15 @@
 
     var MSG_1 = 'ResizeObserver loop completed with undelivered notifications';
     var MSG_2 = 'ResizeObserver loop limit exceeded';
+    var STORAGE_DISABLE_KEY = 'cc:disable-ro';
+
+    function trySetDisableRO(reason) {
+      try {
+        // Persist a conservative switch if we detect storms.
+        localStorage.setItem(STORAGE_DISABLE_KEY, '1');
+        sessionStorage.setItem(STORAGE_DISABLE_KEY + ':reason', String(reason || 'storm'));
+      } catch (e) {}
+    }
 
     function isIOS() {
       try {
@@ -51,6 +60,22 @@
       }
     }
 
+    // Some environments emit the warning via reportError, not console.*.
+    // Wrap it so the benign message does not surface as a fatal error.
+    try {
+      if (typeof window.reportError === 'function' && !window.__ccROReportErrorWrapped) {
+        window.__ccROReportErrorWrapped = true;
+        var __origReportError = window.reportError.bind(window);
+        window.reportError = function (err) {
+          try {
+            var msg = String(err && (err.message || err) || '');
+            if (includesROMessage(msg)) return;
+          } catch (e) {}
+          return __origReportError(err);
+        };
+      }
+    } catch (e) {}
+
     // ------------------------------------------------------------
     // 1) Suppress known benign message from window error plumbing
     // ------------------------------------------------------------
@@ -62,6 +87,11 @@
             if (includesROMessage(msg)) {
               if (e && typeof e.preventDefault === 'function') e.preventDefault();
               if (e && typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+              // If we are seeing this as an actual ErrorEvent repeatedly, consider disabling RO next load.
+              try {
+                window.__ccROWarnCount = (window.__ccROWarnCount || 0) + 1;
+                if (window.__ccROWarnCount >= 3) trySetDisableRO('error-event');
+              } catch (x) {}
               return false;
             }
           } catch (err) {}
@@ -75,6 +105,10 @@
             var msg = String(e && (e.reason && e.reason.message || e.reason) || '');
             if (includesROMessage(msg)) {
               if (e && typeof e.preventDefault === 'function') e.preventDefault();
+              try {
+                window.__ccROWarnCount = (window.__ccROWarnCount || 0) + 1;
+                if (window.__ccROWarnCount >= 3) trySetDisableRO('unhandledrejection');
+              } catch (x) {}
               return false;
             }
           } catch (err) {}
@@ -126,6 +160,20 @@
     // ------------------------------------------------------------
     if (!window.__CCCG_DISABLE_RO_PRELOAD_PATCH__) {
       try {
+        // Honor a persisted disable switch if we already detected storms.
+        // This is the "make it stop" lever for hostile browsers.
+        try {
+          if (localStorage.getItem(STORAGE_DISABLE_KEY) === '1') {
+            window.__ccROPreloadDisabled = true;
+            window.ResizeObserver = function () {
+              this.observe = function () {};
+              this.unobserve = function () {};
+              this.disconnect = function () {};
+            };
+            return;
+          }
+        } catch (e) {}
+
         var Native = window.ResizeObserver;
         if (typeof Native === 'function' && !window.__ccROPreloadPatched) {
           window.__ccROPreloadPatched = true;
@@ -137,10 +185,13 @@
             delivering: false,
             deliveriesThisFrame: 0,
             lastFrameAt: 0,
+            stormFrames: 0,
+            degraded: false,
           };
 
           var MAX_DELIVERIES_PER_FRAME = 2;
           var MAX_TOTAL_ENTRIES_PER_DELIVERY = 500;
+          var STORM_FRAME_LIMIT = 60; // about one second of continuous backlog
 
           function raf(fn) {
             try {
@@ -174,6 +225,7 @@
           }
 
           function flush(phase) {
+            if (GLOBAL.degraded) return;
             if (GLOBAL.delivering) return;
             if (!GLOBAL.pending.size) return;
 
@@ -185,6 +237,8 @@
             }
             if (GLOBAL.deliveriesThisFrame >= MAX_DELIVERIES_PER_FRAME) {
               requestFlush('cap:' + phase);
+              GLOBAL.stormFrames += 1;
+              if (GLOBAL.stormFrames > STORM_FRAME_LIMIT) degrade('flush-cap');
               return;
             }
             GLOBAL.deliveriesThisFrame += 1;
@@ -205,7 +259,35 @@
             } finally {
               GLOBAL.delivering = false;
             }
-            if (GLOBAL.pending.size) requestFlush('again:' + phase);
+            if (GLOBAL.pending.size) {
+              GLOBAL.stormFrames += 1;
+              if (GLOBAL.stormFrames > STORM_FRAME_LIMIT) {
+                degrade('pending-backlog');
+                return;
+              }
+              requestFlush('again:' + phase);
+            } else {
+              GLOBAL.stormFrames = 0;
+            }
+          }
+
+          function degrade(reason) {
+            try {
+              GLOBAL.degraded = true;
+            } catch (e) {}
+            try {
+              GLOBAL.pending && GLOBAL.pending.clear && GLOBAL.pending.clear();
+            } catch (e) {}
+            try {
+              // Disable RO on next load and keep this session quiet.
+              trySetDisableRO(reason || 'storm');
+              window.ResizeObserver = function () {
+                this.observe = function () {};
+                this.unobserve = function () {};
+                this.disconnect = function () {};
+              };
+              window.__ccROPreloadDegraded = { ts: Date.now(), reason: String(reason || 'storm') };
+            } catch (e) {}
           }
 
           function SafeResizeObserver(callback) {
@@ -257,8 +339,7 @@
           };
           SafeResizeObserver.prototype.unobserve = function (target) {
             try {
-              return this._native.unobserve(target);
-            } catch (e) {}
+              return this._native.unobserve(target); } catch (e) {}
           };
           SafeResizeObserver.prototype.disconnect = function () {
             this._disposed = true;
@@ -271,14 +352,8 @@
           // Replace global
           window.ResizeObserver = SafeResizeObserver;
 
-          // Lock it down so later scripts do not overwrite it.
-          try {
-            Object.defineProperty(window, 'ResizeObserver', {
-              configurable: false,
-              writable: false,
-              value: SafeResizeObserver,
-            });
-          } catch (e) {}
+          // Do NOT hard-lock here. main.js may intentionally disable RO in safe-mode.
+          // If you want a lock, safe-resize-observer.js does a "soft lock" that remains configurable.
 
           window.__ccROPreload = {
             ts: Date.now(),
