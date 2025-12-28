@@ -229,7 +229,16 @@ try {
   // Capture what is actually receiving the tap/click.
   window.addEventListener('pointerdown', (e) => {
     try { ccSnapshotTopAt(e.clientX, e.clientY, 'pointerdown'); } catch {}
-    try { ccNukeTapEaterAtPoint(e.clientX, e.clientY, 'pointerdown'); } catch {}
+    // Do NOT nuke during intro/welcome. Only nuke when we believe the UI should be interactive.
+    try {
+      const launching = !!document.body?.classList?.contains('launching');
+      const welcome = document.getElementById('modal-welcome');
+      const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+      const shouldBeInteractive = !!window.__ccBootFinalized || (!launching && !welcomeOpen);
+      if (shouldBeInteractive) {
+        ccNukeTapEaterAtPoint(e.clientX, e.clientY, 'pointerdown');
+      }
+    } catch {}
   }, true);
 } catch {}
 
@@ -309,6 +318,16 @@ function ccUnblockFullscreenHitboxes(reason = 'unblock') {
   } catch (_) {}
 }
 
+let __ccHitboxSweepTs = 0;
+function ccMaybeUnblockFullscreenHitboxes(reason = 'unblock') {
+  try {
+    const now = Date.now();
+    if (now - __ccHitboxSweepTs < 1000) return;
+    __ccHitboxSweepTs = now;
+    ccUnblockFullscreenHitboxes(reason);
+  } catch (_) {}
+}
+
 (() => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   if (window.__ccOverlaySafetyBooted) return;
@@ -330,7 +349,7 @@ function ccFinalizeBootUI(reason = 'finalize') {
     try { syncOpenModalsFromDom(`finalize:${reason}`); } catch (_) {}
     try { repairModalInertState(); } catch (_) {}
     try { ccApplyOverlayHitboxSafety(`finalize:${reason}`); } catch (_) {}
-    try { ccUnblockFullscreenHitboxes(`finalize:${reason}`); } catch (_) {}
+    try { ccMaybeUnblockFullscreenHitboxes(`finalize:${reason}`); } catch (_) {}
     try { ccSnapshotTopAt((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize:${reason}`); } catch (_) {}
     try { ccNukeTapEaterAtPoint((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize:${reason}`); } catch (_) {}
 
@@ -351,7 +370,7 @@ function ccFinalizeBootUI(reason = 'finalize') {
         try { syncOpenModalsFromDom(`finalize2:${reason}`); } catch (_) {}
         try { repairModalInertState(); } catch (_) {}
         try { ccApplyOverlayHitboxSafety(`finalize2:${reason}`); } catch (_) {}
-        try { ccUnblockFullscreenHitboxes(`finalize2:${reason}`); } catch (_) {}
+        try { ccMaybeUnblockFullscreenHitboxes(`finalize2:${reason}`); } catch (_) {}
         try { ccNukeTapEaterAtPoint((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize2:${reason}`); } catch (_) {}
       }, 0);
     } catch (_) {}
@@ -415,6 +434,33 @@ try {
       }
     } catch (_) {}
   }, 3500);
+} catch (_) {}
+
+// Deterministic welcome trigger: when intro finishes (body.launching removed), show welcome.
+try {
+  (function ccWatchLaunchEnd() {
+    const body = document.body;
+    if (!body || window.__ccLaunchWatchInstalled) return;
+    window.__ccLaunchWatchInstalled = true;
+    let last = body.classList.contains('launching');
+    const obs = new MutationObserver(() => {
+      try {
+        const cur = body.classList.contains('launching');
+        if (last && !cur) {
+          // launch just ended
+          const welcome = document.getElementById('modal-welcome');
+          const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+          const open = syncOpenModalsFromDom('launch-end');
+          if (welcome && !welcomeOpen && open === 0 && !window.__ccBootFinalized) {
+            try { show('modal-welcome'); } catch (_) {}
+          }
+          try { obs.disconnect(); } catch (_) {}
+        }
+        last = cur;
+      } catch (_) {}
+    });
+    obs.observe(body, { attributes: true, attributeFilter: ['class'] });
+  })();
 } catch (_) {}
 
 // Hard safety net: if launch class gets stuck, force interactivity after a grace period.
