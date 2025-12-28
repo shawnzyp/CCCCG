@@ -429,6 +429,8 @@ export function show(id) {
     el.style.display = 'flex';
     el.classList.remove('hidden');
     el.setAttribute('aria-hidden', 'false');
+    // If a prior hide() set visibility:hidden, make sure we restore it.
+    try { el.style.visibility = 'visible'; } catch (_) {}
     trapFocus(el);
     // Critical: never let a visually hidden overlay eat taps.
     try { el.style.pointerEvents = 'auto'; } catch (_) {}
@@ -456,7 +458,8 @@ export function hide(id) {
     const el = $(id);
     if (!el || el.classList.contains('hidden')) return false;
     try { el.style.pointerEvents = 'none'; } catch (_) {}
-    try { el.style.visibility = 'hidden'; } catch (_) {}
+    // Do NOT set visibility:hidden here. It can desync visual vs logical modal state.
+    // We'll let opacity/display handle the transition and final removal.
     cancelModalStyleReset(el);
     const onEnd = (e) => {
       if (e.target === el && e.propertyName === 'opacity') {
@@ -473,6 +476,8 @@ export function hide(id) {
         if (el.classList.contains('hidden')) {
           el.style.display = 'none';
           el.style.pointerEvents = 'none';
+          // Reset so future show() is never “invisible but open”.
+          try { el.style.visibility = 'visible'; } catch (_) {}
         }
       } catch (_) {}
       clearModalStyles(el);

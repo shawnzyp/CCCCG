@@ -210,6 +210,18 @@ try {
     } catch (_) {}
   }, 1500);
 } catch (_) {}
+
+// Hard safety net: if launch class gets stuck, force interactivity after a grace period.
+// This preserves your intended order when things work, but prevents permanent dead UI when they don't.
+try {
+  setTimeout(() => {
+    try {
+      const welcome = document.getElementById('modal-welcome');
+      const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+      if (!welcomeOpen) ccFinalizeBootUI('hard-net');
+    } catch (_) {}
+  }, 12000);
+} catch (_) {}
 // ---------------------------------------------------------------------------
 // Modal state failsafes (iOS + backdrop-close resilience)
 // ---------------------------------------------------------------------------
