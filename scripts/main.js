@@ -137,6 +137,70 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
   }
 }
 
+function ccUnblockFullscreenHitboxes(reason = 'unblock') {
+  try {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    if (!w || !h) return;
+
+    const candidates = [];
+    // Keep this relatively cheap: only elements that are likely to be overlays.
+    const nodes = document.querySelectorAll?.('body *');
+    if (!nodes || !nodes.length) return;
+
+    for (let i = 0; i < nodes.length; i += 1) {
+      const el = nodes[i];
+      if (!el || el === document.body) continue;
+      if (!(el instanceof Element)) continue;
+      let cs;
+      try { cs = window.getComputedStyle(el); } catch { cs = null; }
+      if (!cs) continue;
+
+      const pos = cs.position;
+      if (pos !== 'fixed' && pos !== 'absolute') continue;
+      if (cs.pointerEvents === 'none') continue;
+
+      let r;
+      try { r = el.getBoundingClientRect(); } catch { r = null; }
+      if (!r) continue;
+
+      const covers =
+        r.width >= w * 0.95 &&
+        r.height >= h * 0.95 &&
+        r.left <= w * 0.05 &&
+        r.top <= h * 0.05;
+      if (!covers) continue;
+
+      const opacity = Number(cs.opacity || '1');
+      const hidden =
+        cs.display === 'none' ||
+        cs.visibility === 'hidden' ||
+        opacity < 0.01 ||
+        el.classList.contains('hidden') ||
+        el.getAttribute('aria-hidden') === 'true';
+
+      // Only kill hitboxes that are functionally invisible/hidden.
+      if (!hidden) continue;
+
+      candidates.push(el);
+    }
+
+    candidates.forEach((el) => {
+      try { el.style.pointerEvents = 'none'; } catch (_) {}
+    });
+
+    try {
+      window.__ccHitboxUnblock = {
+        ts: Date.now(),
+        reason,
+        count: candidates.length,
+        sample: candidates.slice(0, 10).map(e => e.id || e.className || e.tagName),
+      };
+    } catch (_) {}
+  } catch (_) {}
+}
+
 (() => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   if (window.__ccOverlaySafetyBooted) return;
@@ -150,11 +214,15 @@ function ccFinalizeBootUI(reason = 'finalize') {
     try { document.body.classList.remove('launching'); } catch (_) {}
     try { document.documentElement.classList.remove('launching'); } catch (_) {}
     try { document.documentElement.classList.remove('cc-welcome-open'); } catch (_) {}
+    // In case any earlier path toggled pointer-events on the root.
+    try { document.documentElement.style.pointerEvents = 'auto'; } catch (_) {}
+    try { document.body.style.pointerEvents = 'auto'; } catch (_) {}
 
     // Kill any invisible modal hitboxes and stale inert.
     try { syncOpenModalsFromDom(`finalize:${reason}`); } catch (_) {}
     try { repairModalInertState(); } catch (_) {}
     try { ccApplyOverlayHitboxSafety(`finalize:${reason}`); } catch (_) {}
+    try { ccUnblockFullscreenHitboxes(`finalize:${reason}`); } catch (_) {}
 
     // If any modal overlays are still "open" but hidden state is inconsistent, hard-close them.
     try {
@@ -173,6 +241,7 @@ function ccFinalizeBootUI(reason = 'finalize') {
         try { syncOpenModalsFromDom(`finalize2:${reason}`); } catch (_) {}
         try { repairModalInertState(); } catch (_) {}
         try { ccApplyOverlayHitboxSafety(`finalize2:${reason}`); } catch (_) {}
+        try { ccUnblockFullscreenHitboxes(`finalize2:${reason}`); } catch (_) {}
       }, 0);
     } catch (_) {}
 
@@ -209,6 +278,32 @@ try {
       if (!launching && open === 0) ccFinalizeBootUI('boot-net');
     } catch (_) {}
   }, 1500);
+} catch (_) {}
+
+// Welcome enforcer: preserve the intended order (intro -> welcome -> main)
+// If the intro callback path breaks, we still show welcome instead of jumping straight to hard-net.
+try {
+  setTimeout(() => {
+    try {
+      if (window.__ccWelcomeForced) return;
+      if (window.__ccBootFinalized) return;
+
+      const welcome = document.getElementById('modal-welcome');
+      if (!welcome) return;
+
+      const welcomeOpen =
+        !welcome.classList.contains('hidden') &&
+        welcome.getAttribute('aria-hidden') !== 'true' &&
+        welcome.style.display !== 'none';
+
+      // If welcome is not open and no other modals are open, force it.
+      const open = syncOpenModalsFromDom('welcome-enforcer');
+      if (!welcomeOpen && open === 0) {
+        window.__ccWelcomeForced = true;
+        try { show('modal-welcome'); } catch (_) {}
+      }
+    } catch (_) {}
+  }, 3500);
 } catch (_) {}
 
 // Hard safety net: if launch class gets stuck, force interactivity after a grace period.
