@@ -313,28 +313,7 @@ function ccUnblockFullscreenHitboxes(reason = 'unblock') {
         r.top <= h * 0.05;
       if (!covers) continue;
 
-      const opacity = Number(cs.opacity || '1');
-      const hidden =
-        cs.display === 'none' ||
-        cs.visibility === 'hidden' ||
-        opacity < 0.01 ||
-        el.classList.contains('hidden') ||
-        el.getAttribute('aria-hidden') === 'true';
-
-      // Also kill hitboxes that are "visually transparent" but still intercept taps.
-      // Common for splash/intro layers that fade out but remain positioned over the app.
-      let transparent = false;
-      try {
-        const bg = cs.backgroundColor || '';
-        const hasBgAlpha0 = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)/i.test(bg) || bg === 'transparent';
-        const noBorder = (cs.borderStyle === 'none' || cs.borderWidth === '0px');
-        const noOutline = (cs.outlineStyle === 'none' || cs.outlineWidth === '0px');
-        const noShadow = (!cs.boxShadow || cs.boxShadow === 'none');
-        // If it covers the whole screen and has no visual chrome, treat as a tap-eater.
-        transparent = opacity >= 0.01 && hasBgAlpha0 && noBorder && noOutline && noShadow;
-      } catch {}
-
-      if (!hidden && !transparent) continue;
+      if (!ccIsTapEaterInvisible(el, cs)) continue;
 
       candidates.push(el);
     }
