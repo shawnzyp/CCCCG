@@ -1,3 +1,4 @@
+/* global innerWidth, innerHeight */
 /* ========= helpers ========= */
 import { $, qs, qsa, num, mod, calculateArmorBonus, revertAbilityScore } from './helpers.js';
 import { ensureDiceResultRenderer } from './dice-result.js';
@@ -137,6 +138,196 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
   }
 }
 
+function ccDescribeEl(el) {
+  try {
+    if (!el) return null;
+    const cs = window.getComputedStyle?.(el);
+    return {
+      tag: el.tagName,
+      id: el.id || '',
+      cls: String(el.className || ''),
+      role: el.getAttribute?.('role') || '',
+      pe: cs?.pointerEvents || '',
+      pos: cs?.position || '',
+      z: cs?.zIndex || '',
+      op: cs?.opacity || '',
+      vis: cs?.visibility || '',
+      disp: cs?.display || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function ccSnapshotTopAt(x, y, reason = 'snapshot') {
+  try {
+    const stack = document.elementsFromPoint?.(x, y) || [];
+    const top = stack[0] || null;
+    window.__ccTopHit = {
+      ts: Date.now(),
+      reason,
+      x, y,
+      top: ccDescribeEl(top),
+      stack: stack.slice(0, 8).map(ccDescribeEl),
+    };
+  } catch {}
+}
+
+function ccNukeTapEaterAtPoint(x, y, reason = 'nuke') {
+  try {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return false;
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    if (!w || !h) return false;
+
+    const stack = document.elementsFromPoint?.(x, y) || [];
+    if (!stack.length) return false;
+
+    for (let i = 0; i < Math.min(stack.length, 12); i += 1) {
+      const el = stack[i];
+      if (!el || !(el instanceof Element)) continue;
+      if (el === document.body || el === document.documentElement) continue;
+      // Do not mess with actual modals, those have their own logic.
+      if (el.classList?.contains('overlay') && String(el.id || '').startsWith('modal-')) continue;
+
+      let cs;
+      try { cs = window.getComputedStyle(el); } catch { cs = null; }
+      if (!cs) continue;
+      if (cs.pointerEvents === 'none') continue;
+      const pos = cs.position;
+      if (pos !== 'fixed' && pos !== 'absolute') continue;
+
+      let r;
+      try { r = el.getBoundingClientRect(); } catch { r = null; }
+      if (!r) continue;
+
+      const covers =
+        r.width >= w * 0.95 &&
+        r.height >= h * 0.95 &&
+        r.left <= w * 0.05 &&
+        r.top <= h * 0.05;
+      if (!covers) continue;
+
+      // Kill it.
+      try { el.style.pointerEvents = 'none'; } catch (_) {}
+      try { el.setAttribute('data-cc-nuked-hitbox', reason); } catch (_) {}
+      try {
+        window.__ccTapEaterNuked = {
+          ts: Date.now(),
+          reason,
+          el: ccDescribeEl(el),
+          at: { x, y },
+        };
+      } catch (_) {}
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+try {
+  // Capture what is actually receiving the tap/click.
+  window.addEventListener('pointerdown', (e) => {
+    try { ccSnapshotTopAt(e.clientX, e.clientY, 'pointerdown'); } catch {}
+    // Do NOT nuke during intro/welcome. Only nuke when we believe the UI should be interactive.
+    try {
+      const launching = !!document.body?.classList?.contains('launching');
+      const welcome = document.getElementById('modal-welcome');
+      const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+      const shouldBeInteractive = !!window.__ccBootFinalized || (!launching && !welcomeOpen);
+      if (shouldBeInteractive) {
+        ccNukeTapEaterAtPoint(e.clientX, e.clientY, 'pointerdown');
+      }
+    } catch {}
+  }, true);
+} catch {}
+
+function ccUnblockFullscreenHitboxes(reason = 'unblock') {
+  try {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    const w = window.innerWidth || 0;
+    const h = window.innerHeight || 0;
+    if (!w || !h) return;
+
+    const candidates = [];
+    // Keep this relatively cheap: only elements that are likely to be overlays.
+    const nodes = document.querySelectorAll?.('body *');
+    if (!nodes || !nodes.length) return;
+
+    for (let i = 0; i < nodes.length; i += 1) {
+      const el = nodes[i];
+      if (!el || el === document.body) continue;
+      if (!(el instanceof Element)) continue;
+      let cs;
+      try { cs = window.getComputedStyle(el); } catch { cs = null; }
+      if (!cs) continue;
+
+      const pos = cs.position;
+      if (pos !== 'fixed' && pos !== 'absolute') continue;
+      if (cs.pointerEvents === 'none') continue;
+
+      let r;
+      try { r = el.getBoundingClientRect(); } catch { r = null; }
+      if (!r) continue;
+
+      const covers =
+        r.width >= w * 0.95 &&
+        r.height >= h * 0.95 &&
+        r.left <= w * 0.05 &&
+        r.top <= h * 0.05;
+      if (!covers) continue;
+
+      const opacity = Number(cs.opacity || '1');
+      const hidden =
+        cs.display === 'none' ||
+        cs.visibility === 'hidden' ||
+        opacity < 0.01 ||
+        el.classList.contains('hidden') ||
+        el.getAttribute('aria-hidden') === 'true';
+
+      // Also kill hitboxes that are "visually transparent" but still intercept taps.
+      // Common for splash/intro layers that fade out but remain positioned over the app.
+      let transparent = false;
+      try {
+        const bg = cs.backgroundColor || '';
+        const hasBgAlpha0 = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)/i.test(bg) || bg === 'transparent';
+        const noBorder = (cs.borderStyle === 'none' || cs.borderWidth === '0px');
+        const noOutline = (cs.outlineStyle === 'none' || cs.outlineWidth === '0px');
+        const noShadow = (!cs.boxShadow || cs.boxShadow === 'none');
+        // If it covers the whole screen and has no visual chrome, treat as a tap-eater.
+        transparent = opacity >= 0.01 && hasBgAlpha0 && noBorder && noOutline && noShadow;
+      } catch {}
+
+      if (!hidden && !transparent) continue;
+
+      candidates.push(el);
+    }
+
+    candidates.forEach((el) => {
+      try { el.style.pointerEvents = 'none'; } catch (_) {}
+    });
+
+    try {
+      window.__ccHitboxUnblock = {
+        ts: Date.now(),
+        reason,
+        count: candidates.length,
+        sample: candidates.slice(0, 10).map(e => e.id || e.className || e.tagName),
+      };
+    } catch (_) {}
+  } catch (_) {}
+}
+
+let __ccHitboxSweepTs = 0;
+function ccMaybeUnblockFullscreenHitboxes(reason = 'unblock') {
+  try {
+    const now = Date.now();
+    if (now - __ccHitboxSweepTs < 1000) return;
+    __ccHitboxSweepTs = now;
+    ccUnblockFullscreenHitboxes(reason);
+  } catch (_) {}
+}
+
 (() => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   if (window.__ccOverlaySafetyBooted) return;
@@ -150,11 +341,17 @@ function ccFinalizeBootUI(reason = 'finalize') {
     try { document.body.classList.remove('launching'); } catch (_) {}
     try { document.documentElement.classList.remove('launching'); } catch (_) {}
     try { document.documentElement.classList.remove('cc-welcome-open'); } catch (_) {}
+    // In case any earlier path toggled pointer-events on the root.
+    try { document.documentElement.style.pointerEvents = 'auto'; } catch (_) {}
+    try { document.body.style.pointerEvents = 'auto'; } catch (_) {}
 
     // Kill any invisible modal hitboxes and stale inert.
     try { syncOpenModalsFromDom(`finalize:${reason}`); } catch (_) {}
     try { repairModalInertState(); } catch (_) {}
     try { ccApplyOverlayHitboxSafety(`finalize:${reason}`); } catch (_) {}
+    try { ccMaybeUnblockFullscreenHitboxes(`finalize:${reason}`); } catch (_) {}
+    try { ccSnapshotTopAt((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize:${reason}`); } catch (_) {}
+    try { ccNukeTapEaterAtPoint((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize:${reason}`); } catch (_) {}
 
     // If any modal overlays are still "open" but hidden state is inconsistent, hard-close them.
     try {
@@ -173,6 +370,8 @@ function ccFinalizeBootUI(reason = 'finalize') {
         try { syncOpenModalsFromDom(`finalize2:${reason}`); } catch (_) {}
         try { repairModalInertState(); } catch (_) {}
         try { ccApplyOverlayHitboxSafety(`finalize2:${reason}`); } catch (_) {}
+        try { ccMaybeUnblockFullscreenHitboxes(`finalize2:${reason}`); } catch (_) {}
+        try { ccNukeTapEaterAtPoint((innerWidth / 2) | 0, (innerHeight / 2) | 0, `finalize2:${reason}`); } catch (_) {}
       }, 0);
     } catch (_) {}
 
@@ -206,9 +405,76 @@ try {
     try {
       const open = syncOpenModalsFromDom('boot-net');
       const launching = !!document.body?.classList?.contains('launching');
-      if (!launching && open === 0) ccFinalizeBootUI('boot-net');
+      if (launching) return;
+
+      const welcome = document.getElementById('modal-welcome');
+      const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+
+      // Welcome-first: if welcome exists but is not open, force it before finalizing.
+      if (welcome && !welcomeOpen && open === 0 && !window.__ccBootFinalized) {
+        window.__ccWelcomeForced = true;
+        try { show('modal-welcome'); } catch (_) {}
+        return;
+      }
+
+      // If welcome is missing (or already open/handled), finalize.
+      if (open === 0 && !welcomeOpen) ccFinalizeBootUI('boot-net');
     } catch (_) {}
   }, 1500);
+} catch (_) {}
+
+// Welcome enforcer: preserve the intended order (intro -> welcome -> main)
+// If the intro callback path breaks, we still show welcome instead of jumping straight to hard-net.
+try {
+  setTimeout(() => {
+    try {
+      if (window.__ccWelcomeForced) return;
+      if (window.__ccBootFinalized) return;
+
+      const welcome = document.getElementById('modal-welcome');
+      if (!welcome) return;
+
+      const welcomeOpen =
+        !welcome.classList.contains('hidden') &&
+        welcome.getAttribute('aria-hidden') !== 'true' &&
+        welcome.style.display !== 'none';
+
+      // If welcome is not open and no other modals are open, force it.
+      const open = syncOpenModalsFromDom('welcome-enforcer');
+      if (!welcomeOpen && open === 0) {
+        window.__ccWelcomeForced = true;
+        try { show('modal-welcome'); } catch (_) {}
+      }
+    } catch (_) {}
+  }, 3500);
+} catch (_) {}
+
+// Deterministic welcome trigger: when intro finishes (body.launching removed), show welcome.
+try {
+  (function ccWatchLaunchEnd() {
+    const body = document.body;
+    if (!body || window.__ccLaunchWatchInstalled) return;
+    window.__ccLaunchWatchInstalled = true;
+    let last = body.classList.contains('launching');
+    const obs = new MutationObserver(() => {
+      try {
+        const cur = body.classList.contains('launching');
+        if (last && !cur) {
+          // launch just ended
+          const welcome = document.getElementById('modal-welcome');
+          const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+          const open = syncOpenModalsFromDom('launch-end');
+          if (welcome && !welcomeOpen && open === 0 && !window.__ccBootFinalized) {
+            window.__ccWelcomeForced = true;
+            try { show('modal-welcome'); } catch (_) {}
+          }
+          try { obs.disconnect(); } catch (_) {}
+        }
+        last = cur;
+      } catch (_) {}
+    });
+    obs.observe(body, { attributes: true, attributeFilter: ['class'] });
+  })();
 } catch (_) {}
 
 // Hard safety net: if launch class gets stuck, force interactivity after a grace period.
@@ -218,6 +484,15 @@ try {
     try {
       const welcome = document.getElementById('modal-welcome');
       const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+      // Welcome-first even on hard-net: try to show it once before skipping it.
+      if (welcome && !welcomeOpen && !window.__ccBootFinalized) {
+        window.__ccWelcomeForced = true;
+        try { show('modal-welcome'); } catch (_) {}
+        // Give it a beat. If it fails to appear, the next run of hard-net logic (or user reload)
+        // will still recover via finalize.
+        return;
+      }
+
       if (!welcomeOpen) ccFinalizeBootUI('hard-net');
     } catch (_) {}
   }, 12000);

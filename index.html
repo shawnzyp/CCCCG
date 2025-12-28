@@ -1,6 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+  // Early boot error recorder (before modules).
+  (function(){
+    try {
+      window.addEventListener('error', function(e){
+        try {
+          localStorage.setItem('cccg:last-boot-error', JSON.stringify({
+            ts: Date.now(),
+            msg: String(e && e.message || ''),
+            src: String(e && e.filename || ''),
+            line: e && e.lineno,
+            col: e && e.colno
+          }));
+        } catch {}
+      }, true);
+      window.addEventListener('unhandledrejection', function(e){
+        try {
+          localStorage.setItem('cccg:last-boot-rejection', JSON.stringify({ ts: Date.now(), reason: String(e && e.reason || '') }));
+        } catch {}
+      }, true);
+    } catch {}
+  })();
+</script>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <meta name="description" content="Mobile-optimized character tracker for the Catalyst Core RPG."/>
