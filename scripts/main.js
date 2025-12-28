@@ -30,7 +30,7 @@ import {
   performScheduledAutoSave,
   isAutoSaveDirty,
 } from './autosave-controller.js';
-import { show, hide } from './modal.js';
+import { show, hide, repairModalInertState } from './modal.js';
 import { canonicalCharacterKey } from './character-keys.js';
 import {
   activateTab,
@@ -143,6 +143,11 @@ function ccApplyOverlayHitboxSafety(reason = 'unknown') {
   window.__ccOverlaySafetyBooted = true;
   try { setTimeout(() => ccApplyOverlayHitboxSafety('boot'), 0); } catch {}
 })();
+
+try {
+  // If a prior session crashed mid-modal, restore inert state on boot.
+  repairModalInertState();
+} catch {}
 
 try {
   if (typeof window !== 'undefined') {

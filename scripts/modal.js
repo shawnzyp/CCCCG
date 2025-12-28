@@ -121,6 +121,19 @@ function cleanupMarkedInert() {
   } catch (_) {}
 }
 
+export function repairModalInertState() {
+  try {
+    const nodes = document.querySelectorAll(`[${INERT_MARK}],[${INERT_PREV}]`);
+    nodes.forEach((node) => {
+      const prev = node.getAttribute(INERT_PREV) || '0';
+      try { node.removeAttribute(INERT_MARK); } catch (_) {}
+      try { node.removeAttribute(INERT_PREV); } catch (_) {}
+      if (prev === '1') setNodeInert(node, true);
+      else setNodeInert(node, false);
+    });
+  } catch (_) {}
+}
+
 let lastFocus = null;
 
 const MODAL_STYLE_PROPS = [
@@ -433,6 +446,7 @@ export function hide(id) {
         console.error('Failed to update body class when hiding modal', err);
       }
       cleanupMarkedInert();
+      repairModalInertState();
     } else {
       try { document.body.classList.add('modal-open'); } catch (_) {}
     }
