@@ -175,10 +175,15 @@ function ccIsTapEaterInvisible(el, cs) {
     try {
       const bg = cs.backgroundColor || '';
       const hasBgAlpha0 = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)/i.test(bg) || bg === 'transparent';
+      const bgImgNone = !cs.backgroundImage || cs.backgroundImage === 'none';
       const noBorder = (cs.borderStyle === 'none' || cs.borderWidth === '0px');
       const noOutline = (cs.outlineStyle === 'none' || cs.outlineWidth === '0px');
       const noShadow = (!cs.boxShadow || cs.boxShadow === 'none');
+      const noKids = !el.children || el.children.length === 0;
+      const noText = !String(el.textContent || '').trim();
       transparent = opacity >= 0.01 && hasBgAlpha0 && noBorder && noOutline && noShadow;
+      // Only treat as tap-eater if it's basically an empty fullscreen sheet.
+      if (transparent) transparent = transparent && bgImgNone && noKids && noText;
     } catch {}
 
     return hidden || transparent;
