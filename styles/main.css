@@ -29,7 +29,8 @@ body {
 .overlay,
 .modal,
 .modal-sheet {
-  contain: layout paint;
+  /* Safer than layout+paint for overlays; reduces RO churn without changing layout containment behavior. */
+  contain: paint;
 }
 
 /* Virtualized lists and scroll regions are common offenders. */

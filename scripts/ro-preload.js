@@ -351,6 +351,8 @@
 
           // Replace global
           window.ResizeObserver = SafeResizeObserver;
+          // Marker so later code can detect we already wrapped it.
+          try { window.ResizeObserver.__ccROSafe = true; } catch (e) {}
 
           // Do NOT hard-lock here. main.js may intentionally disable RO in safe-mode.
           // If you want a lock, safe-resize-observer.js does a "soft lock" that remains configurable.

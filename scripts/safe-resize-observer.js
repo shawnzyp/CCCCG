@@ -57,6 +57,14 @@ function scheduleMicrotask(fn) {
   return setTimeout(fn, 0);
 }
 
+function isAlreadySafeResizeObserver() {
+  try {
+    return !!(window.ResizeObserver && window.ResizeObserver.__ccROSafe);
+  } catch {
+    return false;
+  }
+}
+
 export function installResizeObserverSafety(options = {}) {
   if (!isBrowser()) return;
   if (window.__ccResizeObserverSafetyInstalled) return;
@@ -104,11 +112,15 @@ export function installResizeObserverSafety(options = {}) {
 
   // 1) Patch ResizeObserver (prevention)
   if (patchResizeObserver && !disableResizeObserver) {
-    const Native = window.ResizeObserver;
+    // Prefer the real native if preload already saved it.
+    const Native = window.__ccNativeResizeObserver || window.ResizeObserver;
     // If browser does not support it or it was already patched, do nothing.
-    if (typeof Native === 'function' && !window.__ccResizeObserverPatched) {
+    if (typeof Native === 'function' && !window.__ccResizeObserverPatched && !isAlreadySafeResizeObserver()) {
       window.__ccResizeObserverPatched = true;
-      window.__ccNativeResizeObserver = Native;
+      // Do not clobber the real native reference if preload already stored it.
+      try {
+        window.__ccNativeResizeObserver = window.__ccNativeResizeObserver || Native;
+      } catch {}
 
       // Global batching across all observers.
       // This reduces layout thrash and prevents per-observer delivery storms.
@@ -318,6 +330,8 @@ export function installResizeObserverSafety(options = {}) {
 
       // Replace global class so all future usages are safe.
       window.ResizeObserver = SafeResizeObserver;
+      // Marker so other code can detect it is already safe-wrapped.
+      try { window.ResizeObserver.__ccROSafe = true; } catch {}
 
       // Optional: lock it so polyfills or late-loaded scripts cannot replace it.
       if (lockResizeObserver) {
