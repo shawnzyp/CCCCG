@@ -60,6 +60,18 @@
       }
     }
 
+    function bumpWarnWindow() {
+      try {
+        var t = Date.now();
+        var last = window.__ccROWarnLastTs || 0;
+        window.__ccROWarnLastTs = t;
+        window.__ccROWarnCount = (t - last < 2000) ? ((window.__ccROWarnCount || 0) + 1) : 1;
+        return window.__ccROWarnCount;
+      } catch (e) {
+        return 0;
+      }
+    }
+
     // Some environments emit the warning via reportError, not console.*.
     // Wrap it so the benign message does not surface as a fatal error.
     try {
@@ -89,8 +101,7 @@
               if (e && typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
               // If we are seeing this as an actual ErrorEvent repeatedly, consider disabling RO next load.
               try {
-                window.__ccROWarnCount = (window.__ccROWarnCount || 0) + 1;
-                if (window.__ccROWarnCount >= 3) trySetDisableRO('error-event');
+                if (bumpWarnWindow() >= 3) trySetDisableRO('error-event');
               } catch (x) {}
               return false;
             }
@@ -106,8 +117,7 @@
             if (includesROMessage(msg)) {
               if (e && typeof e.preventDefault === 'function') e.preventDefault();
               try {
-                window.__ccROWarnCount = (window.__ccROWarnCount || 0) + 1;
-                if (window.__ccROWarnCount >= 3) trySetDisableRO('unhandledrejection');
+                if (bumpWarnWindow() >= 3) trySetDisableRO('unhandledrejection');
               } catch (x) {}
               return false;
             }

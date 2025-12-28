@@ -65,6 +65,17 @@ function isAlreadySafeResizeObserver() {
   }
 }
 
+function preloadAlreadySuppressed() {
+  try {
+    return !!(
+      window.__ccROPreloadConsolePatched ||
+      window.__ccROReportErrorWrapped
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function installResizeObserverSafety(options = {}) {
   if (!isBrowser()) return;
   if (window.__ccResizeObserverSafetyInstalled) return;
@@ -350,7 +361,9 @@ export function installResizeObserverSafety(options = {}) {
   }
 
   // 2) Suppress the benign RO loop message at the window level (containment / noise)
-  if (suppressWindowError) {
+  // If preload already installed filters, avoid stacking listeners.
+  const skipExtraSuppress = preloadAlreadySuppressed();
+  if (suppressWindowError && !skipExtraSuppress) {
     try {
       // Some browsers report this via window.onerror.
       window.addEventListener(
@@ -393,7 +406,7 @@ export function installResizeObserverSafety(options = {}) {
 
   // 3) Console filtering (optional) so the app console stays useful
   // Only filters the single known message, leaves all other console noise intact.
-  if (suppressConsole && !isLikelyJsdom()) {
+  if (suppressConsole && !isLikelyJsdom() && !skipExtraSuppress) {
     try {
       if (!window.__ccConsolePatched) {
         window.__ccConsolePatched = true;
