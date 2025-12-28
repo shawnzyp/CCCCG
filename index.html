@@ -4,6 +4,17 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <meta name="description" content="Mobile-optimized character tracker for the Catalyst Core RPG."/>
+<!--
+  ResizeObserver loop mitigation MUST run before any module scripts.
+  This prevents RO feedback loops and suppresses the known benign warning.
+-->
+<script>
+  // Allow opt-out for troubleshooting:
+  // window.__CCCG_DISABLE_RO_PRELOAD__ = true
+  // window.__CCCG_DISABLE_RO_PRELOAD_PATCH__ = true
+  // window.__CCCG_DISABLE_RO_PRELOAD_SUPPRESS__ = true
+</script>
+<script src="./scripts/ro-preload.js?v=1" defer></script>
 <script>
   (function(){
     try {

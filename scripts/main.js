@@ -523,6 +523,7 @@ function __ccIsLikelySafari() {
       suppressConsole: !disableSuppress,
       suppressWindowError: !disableSuppress,
       disableResizeObserver: !!hardDisable,
+      lockResizeObserver: true,
     });
     window.__ccROSafety = {
       ts: Date.now(),

@@ -5,7 +5,10 @@
 // Also optionally suppress the known-benign warning text from window.onerror and console,
 // because some browsers surface it as an "error" even when nothing is actually broken.
 
-const RO_LOOP_MSG = 'ResizeObserver loop completed with undelivered notifications';
+const RO_LOOP_MSG_1 = 'ResizeObserver loop completed with undelivered notifications';
+const RO_LOOP_MSG_2 = 'ResizeObserver loop limit exceeded';
+const RO_LOOP_MSGS = [RO_LOOP_MSG_1, RO_LOOP_MSG_2];
+const RO_LOOP_LOWER = RO_LOOP_MSGS.map((s) => String(s).toLowerCase());
 
 function isBrowser() {
   return typeof window !== 'undefined' && typeof document !== 'undefined';
@@ -60,6 +63,8 @@ export function installResizeObserverSafety(options = {}) {
     suppressWindowError = true,
     // Most aggressive: disable ResizeObserver entirely (fallback/no-op).
     disableResizeObserver = false,
+    // Prevent later scripts from overwriting the patched ResizeObserver.
+    lockResizeObserver = true,
   } = options || {};
 
   window.__ccResizeObserverSafetyInstalled = true;
@@ -253,6 +258,18 @@ export function installResizeObserverSafety(options = {}) {
 
       // Replace global class so all future usages are safe.
       window.ResizeObserver = SafeResizeObserver;
+
+      // Optional: lock it so polyfills or late-loaded scripts cannot replace it.
+      if (lockResizeObserver) {
+        try {
+          Object.defineProperty(window, 'ResizeObserver', {
+            configurable: false,
+            writable: false,
+            value: SafeResizeObserver,
+          });
+          window.__ccResizeObserverLocked = { ts: Date.now() };
+        } catch {}
+      }
     }
   }
 
@@ -265,7 +282,8 @@ export function installResizeObserverSafety(options = {}) {
         (e) => {
           try {
             const msg = String(e?.message || '');
-            if (msg.includes(RO_LOOP_MSG)) {
+            const lower = msg.toLowerCase();
+            if (RO_LOOP_LOWER.some((s) => lower.includes(s))) {
               e.preventDefault?.();
               e.stopImmediatePropagation?.();
               return false;
@@ -284,7 +302,8 @@ export function installResizeObserverSafety(options = {}) {
         (e) => {
           try {
             const msg = String(e?.reason?.message || e?.reason || '');
-            if (msg.includes(RO_LOOP_MSG)) {
+            const lower = msg.toLowerCase();
+            if (RO_LOOP_LOWER.some((s) => lower.includes(s))) {
               e.preventDefault?.();
               return false;
             }
@@ -305,17 +324,22 @@ export function installResizeObserverSafety(options = {}) {
         const originalError = console.error?.bind(console);
         const originalWarn = console.warn?.bind(console);
         const originalLog = console.log?.bind(console);
+        const originalInfo = console.info?.bind(console);
+        const originalDebug = console.debug?.bind(console);
 
         window.__ccConsoleOriginal = window.__ccConsoleOriginal || {
           error: originalError,
           warn: originalWarn,
           log: originalLog,
+          info: originalInfo,
+          debug: originalDebug,
         };
 
         const shouldFilter = (args) => {
           try {
             const joined = args.map((a) => String(a)).join(' ');
-            return joined.includes(RO_LOOP_MSG);
+            const lower = joined.toLowerCase();
+            return RO_LOOP_LOWER.some((s) => lower.includes(s));
           } catch {
             return false;
           }
@@ -340,6 +364,20 @@ export function installResizeObserverSafety(options = {}) {
           console.log = (...args) => {
             if (shouldFilter(args)) return;
             return originalLog(...args);
+          };
+        }
+
+        if (typeof originalInfo === 'function') {
+          console.info = (...args) => {
+            if (shouldFilter(args)) return;
+            return originalInfo(...args);
+          };
+        }
+
+        if (typeof originalDebug === 'function') {
+          console.debug = (...args) => {
+            if (shouldFilter(args)) return;
+            return originalDebug(...args);
           };
         }
       }
