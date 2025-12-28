@@ -1,3 +1,29 @@
+// NOTE:
+// ResizeObserver loop warnings are often triggered by measure/write work happening
+// synchronously inside observer callbacks. This file ensures resize handling is
+// deferred into rAF and coalesced to a single pass.
+
+function __ccScheduleMeasure(fn) {
+  try {
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(fn);
+  } catch {}
+  return setTimeout(fn, 16);
+}
+
+function __ccCoalesce(fn) {
+  let scheduled = false;
+  return () => {
+    if (scheduled) return;
+    scheduled = true;
+    __ccScheduleMeasure(() => {
+      scheduled = false;
+      try {
+        fn();
+      } catch {}
+    });
+  };
+}
+
 const DEFAULT_ESTIMATE = 220;
 const DEFAULT_OVERSCAN_PX = 0;
 const MESSAGE_CLASS = 'virtualized-list__message';
@@ -177,6 +203,7 @@ function createVirtualizedList(container, options = {}) {
       sizeUpdates.clear();
     }, 0);
   };
+  const scheduleSizeFlushCoalesced = __ccCoalesce(scheduleSizeFlush);
 
   const resizeObserver = hasResizeObserver
     ? new ResizeObserver(entries => {
@@ -188,7 +215,7 @@ function createVirtualizedList(container, options = {}) {
         if (!height) return;
         sizeUpdates.set(placeholder.__virtualRecord, height);
       });
-      scheduleSizeFlush();
+      scheduleSizeFlushCoalesced();
     })
     : null;
 

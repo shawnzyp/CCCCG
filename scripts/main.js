@@ -462,8 +462,88 @@ import {
 } from './offline-cache.js';
 import { createVirtualizedList } from './virtualized-list.js';
 import { resetFloatingLauncherCoverage } from './floating-launcher.js';
+import { installResizeObserverSafety } from './safe-resize-observer.js';
 import { installGlobalErrorInbox } from './error-inbox.js';
 import { getDiscordAuthKey, getDiscordProxyUrl, logActivity, sendDiscordLog, setDiscordAuthKey } from './discord-activity.js';
+
+function __ccIsIOS() {
+  try {
+    const ua = String(navigator?.userAgent || '');
+    return /iPad|iPhone|iPod/i.test(ua);
+  } catch {
+    return false;
+  }
+}
+
+function __ccIsLikelySafari() {
+  try {
+    const ua = String(navigator?.userAgent || '');
+    const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS/i.test(ua);
+    return !!isSafari;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ResizeObserver loop safety
+// Fixes "ResizeObserver loop completed with undelivered notifications."
+// by batching RO callbacks and optionally suppressing the known-benign warning.
+// Must run very early, before any UI widgets construct ResizeObservers.
+// ---------------------------------------------------------------------------
+(() => {
+  try {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    // Allow opt-out switches for troubleshooting.
+    // window.__CCCG_DISABLE_RO_PATCH__ = true
+    // window.__CCCG_DISABLE_RO_SUPPRESS__ = true
+    // window.__CCCG_DISABLE_RESIZE_OBSERVER__ = true   (hard kill switch, uses fallback, most aggressive)
+    //
+    // Notes:
+    // Some browsers log the RO loop warning even if the app is fine.
+    // This install does 3 things:
+    // 1) Prevent loop by deferring RO callbacks into rAF and limiting per-frame delivery.
+    // 2) Suppress the known message from window.onerror and console (only that message).
+    // 3) Optional hard-disable of ResizeObserver for worst-case debugging.
+    const disablePatch = !!window.__CCCG_DISABLE_RO_PATCH__;
+    const disableSuppress = !!window.__CCCG_DISABLE_RO_SUPPRESS__;
+    const hardDisable =
+      !!window.__CCCG_DISABLE_RESIZE_OBSERVER__ ||
+      (() => {
+        try {
+          return localStorage.getItem('cc:disable-ro') === '1';
+        } catch {
+          return false;
+        }
+      })() ||
+      // If we are in safe-mode and on iOS Safari, be extra conservative.
+      ((() => {
+        try {
+          return localStorage.getItem('cc:safe-mode') === '1' && __ccIsIOS() && __ccIsLikelySafari();
+        } catch {
+          return false;
+        }
+      })());
+
+    installResizeObserverSafety({
+      patchResizeObserver: !disablePatch,
+      suppressConsole: !disableSuppress,
+      suppressWindowError: !disableSuppress,
+      disableResizeObserver: !!hardDisable,
+      lockResizeObserver: true,
+    });
+    window.__ccROSafety = {
+      ts: Date.now(),
+      patch: !disablePatch,
+      suppress: !disableSuppress,
+      hardDisable: !!hardDisable,
+      ios: __ccIsIOS(),
+      safari: __ccIsLikelySafari(),
+    };
+  } catch {
+    // never block boot
+  }
+})();
 
 installGlobalErrorInbox();
 if (typeof performance !== 'undefined' && typeof performance.mark === 'function') {

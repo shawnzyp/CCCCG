@@ -1,3 +1,5 @@
+const __CC_RO_MSG_1 = 'ResizeObserver loop completed with undelivered notifications';
+const __CC_RO_MSG_2 = 'ResizeObserver loop limit exceeded';
 const ERROR_INBOX_URL = 'https://cccg-error-inbox.shawnpeiris22.workers.dev/report';
 const LOCAL_LOG_KEY = 'cccg:last-error-report';
 const BREADCRUMB_KEY = 'cccg:breadcrumbs';
@@ -44,11 +46,27 @@ function safeString(x, max = 2000) {
   }
 }
 
+function __ccShouldIgnoreErrorMessage(msg) {
+  try {
+    const s = String(msg || '');
+    const lower = s.toLowerCase();
+    return lower.includes(__CC_RO_MSG_1.toLowerCase()) || lower.includes(__CC_RO_MSG_2.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 function isIgnorableErrorMessage(message) {
   if (!message) return false;
-  const text = String(message);
-  return text.includes('ResizeObserver loop limit exceeded')
-    || text.includes('ResizeObserver loop completed with undelivered notifications');
+  if (__ccShouldIgnoreErrorMessage(message)) return true;
+  try {
+    const list = window.__ccErrorInboxIgnore || [];
+    for (let i = 0; i < list.length; i += 1) {
+      const fn = list[i];
+      if (typeof fn === 'function' && fn(message)) return true;
+    }
+  } catch {}
+  return false;
 }
 
 function addBreadcrumb(type, data) {
@@ -521,3 +539,10 @@ export function installGlobalErrorInbox() {
     }, SAFE_MODE_CLEAR_AFTER_MS);
   }
 }
+
+// If this module records window errors, filter the known benign ResizeObserver warnings.
+// This is important because some browsers surface it as an "error" even when the UI is fine.
+try {
+  window.__ccErrorInboxIgnore = window.__ccErrorInboxIgnore || [];
+  window.__ccErrorInboxIgnore.push(__ccShouldIgnoreErrorMessage);
+} catch {}
