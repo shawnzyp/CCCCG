@@ -405,7 +405,20 @@ try {
     try {
       const open = syncOpenModalsFromDom('boot-net');
       const launching = !!document.body?.classList?.contains('launching');
-      if (!launching && open === 0) ccFinalizeBootUI('boot-net');
+      if (launching) return;
+
+      const welcome = document.getElementById('modal-welcome');
+      const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+
+      // Welcome-first: if welcome exists but is not open, force it before finalizing.
+      if (welcome && !welcomeOpen && open === 0 && !window.__ccBootFinalized) {
+        window.__ccWelcomeForced = true;
+        try { show('modal-welcome'); } catch (_) {}
+        return;
+      }
+
+      // If welcome is missing (or already open/handled), finalize.
+      if (open === 0 && !welcomeOpen) ccFinalizeBootUI('boot-net');
     } catch (_) {}
   }, 1500);
 } catch (_) {}
@@ -452,6 +465,7 @@ try {
           const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
           const open = syncOpenModalsFromDom('launch-end');
           if (welcome && !welcomeOpen && open === 0 && !window.__ccBootFinalized) {
+            window.__ccWelcomeForced = true;
             try { show('modal-welcome'); } catch (_) {}
           }
           try { obs.disconnect(); } catch (_) {}
@@ -470,6 +484,15 @@ try {
     try {
       const welcome = document.getElementById('modal-welcome');
       const welcomeOpen = !!(welcome && !welcome.classList.contains('hidden') && welcome.getAttribute('aria-hidden') !== 'true');
+      // Welcome-first even on hard-net: try to show it once before skipping it.
+      if (welcome && !welcomeOpen && !window.__ccBootFinalized) {
+        window.__ccWelcomeForced = true;
+        try { show('modal-welcome'); } catch (_) {}
+        // Give it a beat. If it fails to appear, the next run of hard-net logic (or user reload)
+        // will still recover via finalize.
+        return;
+      }
+
       if (!welcomeOpen) ccFinalizeBootUI('hard-net');
     } catch (_) {}
   }, 12000);
