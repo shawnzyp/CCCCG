@@ -49,6 +49,7 @@ import { claimCharacterLock } from './claim-utils.js';
 import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
 import { hasBootableLocalState } from './welcome-utils.js';
 import { shouldPullCloudCopy, detectSyncConflict } from './sync-utils.js';
+import { buildClaimRow, renderEmptyRow, renderCloudCharacterList } from './cloud-list-renderer.js';
 import {
   PASSWORD_POLICY,
   applyPasswordPolicyError,
@@ -61,7 +62,6 @@ import {
   saveLocal,
   saveCloud,
   saveCloudCharacter,
-  listCloudCharacters,
   listCharacterIndex,
   loadCloudCharacter,
   saveCharacterIndexEntry,
@@ -128,7 +128,7 @@ import {
 } from './storage.js';
 import { collectSnapshotParticipants, applySnapshotParticipants, registerSnapshotParticipant } from './snapshot-registry.js';
 import { hasPin, setPin, verifyPin as verifyStoredPin, clearPin, syncPin, ensureAuthoritativePinState } from './pin.js';
-import { readLastSaveName } from './last-save.js';
+import { readLastSaveName, writeLastSaveName } from './last-save.js';
 import { openPowerWizard } from './power-wizard.js';
 import {
   buildPriceIndex,
@@ -24041,7 +24041,7 @@ function getFriendlySignupError(error) {
   const code = error?.code || '';
   switch (code) {
     case 'auth/email-already-in-use':
-      return 'That username is already in use.';
+      return 'Username already taken.';
     case 'auth/invalid-email':
       return 'Enter a valid username.';
     case 'auth/network-request-failed':
@@ -24079,13 +24079,17 @@ function updateWelcomeContinue() {
   const lastSave = readLastSaveName();
   const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: lastSave, uid });
   const allowed = !!(uid || hasLocalSave);
-  welcomeContinue.hidden = !hasLocalSave;
+  welcomeContinue.hidden = !hasLocalSave && !uid;
   welcomeContinue.disabled = !allowed;
   welcomeContinue.setAttribute('aria-disabled', allowed ? 'false' : 'true');
 }
 
 async function rehydrateLocalCache(uid) {
   const entries = await listCharacterIndex(uid);
+  const storage = typeof localStorage !== 'undefined' ? localStorage : null;
+  const hadLocal = hasBootableLocalState({ storage, lastSaveName: readLastSaveName(), uid });
+  let restoredCount = 0;
+  let updatedCount = 0;
   const localUpdatedAt = payload => Number(payload?.meta?.updatedAt ?? payload?.updatedAt) || 0;
   for (const entry of entries) {
     const characterId = entry?.characterId || '';
@@ -24125,12 +24129,19 @@ async function rehydrateLocalCache(uid) {
       ensureCharacterId(cloudPayload, name);
       await saveLocal(name, cloudPayload, { characterId });
       writeLastSyncedAt(characterId, Number(cloudPayload?.meta?.updatedAt ?? cloudPayload?.updatedAt) || cloudUpdated);
-      if (localPayload && cloudUpdated > localUpdated) {
-        toast('Updated from cloud', 'info', { duration: 3000 });
+      if (!localPayload) {
+        restoredCount += 1;
+      } else if (cloudUpdated > localUpdated) {
+        updatedCount += 1;
       }
     } catch (err) {
       console.error('Failed to refresh local cache from cloud', err);
     }
+  }
+  if (!hadLocal && restoredCount > 0) {
+    toast(`Restored ${restoredCount} character(s) from cloud`, 'info', { duration: 3000 });
+  } else if (hadLocal && updatedCount > 0) {
+    toast(`Updated ${updatedCount} character(s) from cloud`, 'info', { duration: 3000 });
   }
 }
 
@@ -24353,33 +24364,6 @@ async function handlePasswordReset() {
   }
 }
 
-function buildClaimRow({ name, meta, actions = [] } = {}) {
-  const row = document.createElement('div');
-  row.className = 'claim-row';
-  row.setAttribute('role', 'listitem');
-  const main = document.createElement('div');
-  main.className = 'claim-row__main';
-  const nameEl = document.createElement('div');
-  nameEl.className = 'claim-row__name';
-  nameEl.textContent = name;
-  const metaEl = document.createElement('div');
-  metaEl.className = 'claim-row__meta';
-  metaEl.textContent = meta;
-  main.append(nameEl, metaEl);
-  const actionsEl = document.createElement('div');
-  actionsEl.className = 'claim-row__actions';
-  actions.forEach(btn => actionsEl.append(btn));
-  row.append(main, actionsEl);
-  return row;
-}
-
-function renderEmptyRow(container, message) {
-  if (!container) return;
-  const row = buildClaimRow({ name: message, meta: '' });
-  row.classList.add('claim-row--empty');
-  container.append(row);
-}
-
 function setClaimTokenAdminVisibility(isDm) {
   if (!claimTokenAdmin) return;
   claimTokenAdmin.hidden = !isDm;
@@ -24460,39 +24444,34 @@ async function handleClaimTokenGenerate() {
   }
 }
 
-function formatPostAuthUpdatedAt(updatedAt) {
-  const ts = Number(updatedAt);
-  if (!Number.isFinite(ts) || ts <= 0) return 'Updated time unknown';
-  try {
-    return `Updated ${new Date(ts).toLocaleString()}`;
-  } catch {
-    return 'Updated time unknown';
-  }
-}
-
 async function refreshPostAuthCloudList() {
   if (!postAuthCloudList) return;
   const { uid } = getAuthState();
-  postAuthCloudList.textContent = '';
   if (!uid) {
     renderEmptyRow(postAuthCloudList, 'Sign in to view cloud characters.');
     return;
   }
   const entries = await listCharacterIndex(uid);
-  if (!entries.length) {
-    renderEmptyRow(postAuthCloudList, 'No cloud characters found.');
-    return;
-  }
-  entries
-    .slice()
-    .sort((a, b) => (b?.updatedAt || 0) - (a?.updatedAt || 0))
-    .forEach(entry => {
-      const name = entry?.name || entry?.characterId || 'Unnamed character';
-      postAuthCloudList.append(buildClaimRow({
-        name,
-        meta: formatPostAuthUpdatedAt(entry?.updatedAt),
-      }));
-    });
+  renderCloudCharacterList(postAuthCloudList, entries, {
+    actionLabel: 'Open',
+    emptyMessage: 'No cloud characters found.',
+    onOpen: async (entry) => {
+      const characterId = entry?.characterId || '';
+      if (!characterId) return;
+      const name = entry?.name || characterId;
+      try {
+        const cloudPayload = await loadCloudCharacter(uid, characterId);
+        ensureCharacterId(cloudPayload, name);
+        await saveLocal(name, cloudPayload, { characterId });
+        writeLastSaveName(name);
+        closePostAuthChoice();
+        toast(`Opened ${name}.`, 'success');
+      } catch (err) {
+        console.error('Failed to open cloud character', err);
+        toast('Failed to open cloud character.', 'error');
+      }
+    },
+  });
 }
 
 async function handleLegacyClaim({ name, source }) {
@@ -24607,27 +24586,17 @@ async function refreshClaimModal() {
   if (!uid) return;
   if (claimCloudList) {
     claimCloudList.textContent = '';
-    const entries = await listCloudCharacters(uid);
-    if (!entries.length) {
-      renderEmptyRow(claimCloudList, 'No cloud characters found.');
-    } else {
-      entries.forEach(entry => {
-        const name = entry?.payload?.meta?.name || entry?.payload?.character?.name || entry.characterId;
-        const btn = document.createElement('button');
-        btn.className = 'cc-btn cc-btn--ghost';
-        btn.type = 'button';
-        btn.textContent = 'Load';
-        btn.addEventListener('click', () => {
-          openCharacterModalByName(name);
-          closeClaimModal();
-        });
-        claimCloudList.append(buildClaimRow({
-          name,
-          meta: 'Already in your cloud roster.',
-          actions: [btn],
-        }));
-      });
-    }
+    const entries = await listCharacterIndex(uid);
+    renderCloudCharacterList(claimCloudList, entries, {
+      actionLabel: 'Open',
+      emptyMessage: 'No cloud characters found.',
+      onOpen: (entry) => {
+        const name = entry?.name || entry?.characterId;
+        if (!name) return;
+        openCharacterModalByName(name);
+        closeClaimModal();
+      },
+    });
   }
 
   if (claimDeviceList) {

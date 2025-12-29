@@ -244,7 +244,7 @@ export async function createRecoveryCodes(db, uid, { count = 8 } = {}) {
 export async function signInWithUsernamePassword(username, password) {
   const auth = await initFirebaseAuth();
   const normalized = normalizeUsername(username);
-  const email = usernameToEmail(username);
+  const email = usernameToEmail(normalized);
   if (!email) {
     throw new Error('Username must be 3-20 characters using letters, numbers, or underscores.');
   }
@@ -279,7 +279,7 @@ export async function sendPasswordResetForUsername(username) {
 export async function createAccountWithUsernamePassword(username, password) {
   const auth = await initFirebaseAuth();
   const normalized = normalizeUsername(username);
-  const email = usernameToEmail(username);
+  const email = usernameToEmail(normalized);
   if (!email) {
     throw new Error('Username must be 3-20 characters using letters, numbers, or underscores.');
   }

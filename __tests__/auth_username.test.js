@@ -11,4 +11,11 @@ describe('usernameToEmail', () => {
     expect(usernameToEmail('ab')).toBe('');
     expect(usernameToEmail('ThisNameIsWayTooLongForPolicy')).toBe('');
   });
+
+  test('normalizes consistently for email mapping', () => {
+    const raw = '  Player Two ';
+    const normalized = normalizeUsername(raw);
+    expect(normalized).toBe('player_two');
+    expect(usernameToEmail(raw)).toBe(usernameToEmail(normalized));
+  });
 });
