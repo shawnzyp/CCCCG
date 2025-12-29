@@ -8325,6 +8325,7 @@ body:not(.no-hover) .player-tools-reminder__info:hover{
   box-shadow: none;
   border-radius: 46px;      /* match inner device radius */
   overflow: hidden;         /* clip tools to the phone screen shape */
+  /* Visual nudge lives on the phone shell to keep tray flush to the viewport. */
   transform: translate(clamp(-14px, -2vw, -8px), clamp(-12px, -1.5vh, -6px));
 }
 
