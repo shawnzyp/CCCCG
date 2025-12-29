@@ -31,14 +31,14 @@ Saved characters are stored locally in your browser using `localStorage` and syn
 
 Cloud-first records live in Firebase RTDB with these primary paths:
 
-* `/users/{uid}/profile`: `{ username, createdAt, recoveryEmail? }`
+* `/users/{uid}/profile`: `{ username, createdAt }`
 * `/users/{uid}/charactersIndex/{characterId}`: `{ name, updatedAt, updatedAtServer }`
 * `/users/{uid}/autosaves/{characterId}`: `{ latestTs, name, updatedAtServer }`
 * `/characters/{uid}/{characterId}`: full character payload including `meta.updatedAt`, `meta.updatedAtServer`, `schemaVersion`, and `meta.ownerUid`
 * `/history/{uid}/{characterId}/conflict/{ts}`: conflict backups before sync overwrites
 * `/claimTokens/{token}`: `{ sourceUid, characterId, targetUid, expiresAt, consumedAt }`
 
-Authentication is username and password only. The app does not support email-based account recovery. Account recovery is handled by logging in and migrating or claiming characters from cloud or legacy sources.
+Authentication is username and password only. No email-based account recovery exists. Recovery is handled by logging in and migrating or claiming characters from cloud or legacy sources.
 
 The app requires a Firebase Realtime Database for real-time updates. To
 configure the database:
@@ -82,7 +82,7 @@ configure the database:
     "claimTokens": {
       "$token": {
         ".read": "auth != null && (auth.token.admin === true || data.child('targetUid').val() === auth.uid)",
-        ".write": "auth != null && (auth.token.admin === true || (data.child('targetUid').val() === auth.uid && !data.child('consumedAt').exists() && newData.child('consumedAt').exists()))"
+        ".write": "auth != null && ((auth.token.admin === true && !data.exists() && !newData.child('consumedAt').exists() && newData.child('consumedBy').val() === null) || (auth.uid === data.child('targetUid').val() && !data.child('consumedAt').exists() && newData.child('consumedAt').exists() && newData.child('consumedBy').val() === auth.uid && newData.child('sourceUid').val() === data.child('sourceUid').val() && newData.child('characterId').val() === data.child('characterId').val() && newData.child('targetUid').val() === data.child('targetUid').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('createdAt').val() === data.child('createdAt').val()))"
       }
     },
     "autosaves": {

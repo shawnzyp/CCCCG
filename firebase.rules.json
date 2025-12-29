@@ -35,7 +35,7 @@
     "claimTokens": {
       "$token": {
         ".read": "auth != null && (auth.token.admin === true || data.child('targetUid').val() === auth.uid)",
-        ".write": "auth != null && (auth.token.admin === true || (data.child('targetUid').val() === auth.uid && !data.child('consumedAt').exists() && newData.child('consumedAt').exists()))"
+        ".write": "auth != null && ((auth.token.admin === true && !data.exists() && !newData.child('consumedAt').exists() && newData.child('consumedBy').val() === null) || (auth.uid === data.child('targetUid').val() && !data.child('consumedAt').exists() && newData.child('consumedAt').exists() && newData.child('consumedBy').val() === auth.uid && newData.child('sourceUid').val() === data.child('sourceUid').val() && newData.child('characterId').val() === data.child('characterId').val() && newData.child('targetUid').val() === data.child('targetUid').val() && newData.child('expiresAt').val() === data.child('expiresAt').val() && newData.child('createdAt').val() === data.child('createdAt').val()))"
       }
     },
     "autosaves": {

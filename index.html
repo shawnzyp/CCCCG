@@ -1529,8 +1529,6 @@
       <div id="auth-panel-create" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-create" hidden aria-hidden="true">
         <label class="sr-only" for="auth-create-username">Username</label>
         <input id="auth-create-username" type="text" autocomplete="username" placeholder="Username" required>
-        <label class="sr-only" for="auth-create-email">Recovery email (optional, not used for login)</label>
-        <input id="auth-create-email" type="email" autocomplete="email" placeholder="Recovery email (optional, not used for login)">
         <label class="sr-only" for="auth-create-password">Password</label>
         <input id="auth-create-password" type="password" autocomplete="new-password" placeholder="Password" required>
         <label class="sr-only" for="auth-create-confirm">Confirm password</label>
@@ -1568,29 +1566,6 @@
         <button id="post-auth-skip" class="cc-btn cc-btn--ghost" type="button">Skip</button>
         <div class="claim-cloud-list" id="post-auth-cloud-list" role="list" aria-label="Cloud characters"></div>
       </div>
-    </div>
-  </div>
-</div>
-
-<div class="overlay hidden" id="modal-recovery-codes" role="dialog" aria-modal="true" aria-labelledby="recovery-title" data-modal-accent-hue="198deg" data-modal-glow-strength="0.45">
-  <div class="modal modal--auth" role="document">
-    <button class="x" type="button" data-close="modal-recovery-codes" aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-      </svg>
-    </button>
-    <div class="modal__header">
-      <div class="modal__badge" aria-hidden="true">CC</div>
-      <div class="modal__titles">
-        <h2 id="recovery-title">Save your recovery codes</h2>
-        <p class="modal__subtitle">These codes are shown once. Store them somewhere safe.</p>
-      </div>
-    </div>
-    <div class="modal__body">
-      <ul id="recovery-code-list" class="recovery-codes" aria-live="polite"></ul>
-    </div>
-    <div class="modal__actions">
-      <button id="recovery-close" class="cc-btn cc-btn--primary" type="button" data-close="modal-recovery-codes">Done</button>
     </div>
   </div>
 </div>

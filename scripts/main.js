@@ -41,8 +41,6 @@ import {
   normalizeUsername,
   getAuthState,
   getFirebaseDatabase,
-  createRecoveryCodes,
-  saveRecoveryEmail,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
 import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
@@ -23928,7 +23926,6 @@ const authPanelCreate = $('auth-panel-create');
 const authLoginUsername = $('auth-login-username');
 const authLoginPassword = $('auth-login-password');
 const authCreateUsername = $('auth-create-username');
-const authCreateEmail = $('auth-create-email');
 const authCreatePassword = $('auth-create-password');
 const authCreateConfirm = $('auth-create-confirm');
 const authPasswordPolicy = $('auth-password-policy');
@@ -23936,9 +23933,6 @@ const authLoginSubmit = $('auth-login-submit');
 const authCreateSubmit = $('auth-create-submit');
 const authError = $('auth-error');
 const authCancel = $('auth-cancel');
-const recoveryCodesModal = $('modal-recovery-codes');
-const recoveryCodesList = $('recovery-code-list');
-const recoveryClose = $('recovery-close');
 const postAuthChoiceModal = $('modal-post-auth-choice');
 const postAuthImport = $('post-auth-import');
 const postAuthCreate = $('post-auth-create');
@@ -23992,38 +23986,6 @@ function setAuthError(message) {
   const text = typeof message === 'string' ? message.trim() : '';
   authError.textContent = text;
   authError.hidden = !text;
-}
-
-function renderRecoveryCodes(codes = []) {
-  if (!recoveryCodesList) return;
-  recoveryCodesList.textContent = '';
-  const normalized = Array.isArray(codes) ? codes : [];
-  if (!normalized.length) {
-    const item = document.createElement('li');
-    item.textContent = 'No recovery codes available.';
-    recoveryCodesList.append(item);
-    return;
-  }
-  const frag = document.createDocumentFragment();
-  normalized.forEach(code => {
-    const item = document.createElement('li');
-    item.textContent = code;
-    frag.appendChild(item);
-  });
-  recoveryCodesList.appendChild(frag);
-}
-
-function openRecoveryCodesModal(codes) {
-  if (!recoveryCodesModal) return;
-  renderRecoveryCodes(codes);
-  show('modal-recovery-codes');
-}
-
-function isValidRecoveryEmail(email) {
-  if (!email) return false;
-  const normalized = typeof email === 'string' ? email.trim() : '';
-  if (!normalized) return false;
-  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized);
 }
 
 function setAuthBusy(busy) {
@@ -24089,7 +24051,12 @@ async function rehydrateLocalCache(uid) {
   let restoredCount = 0;
   let updatedCount = 0;
   let firstRestoredName = '';
-  const localUpdatedAt = payload => Number(payload?.meta?.updatedAt ?? payload?.updatedAt) || 0;
+  const localUpdatedAt = payload => Number(
+    payload?.meta?.updatedAtServer ??
+    payload?.updatedAtServer ??
+    payload?.meta?.updatedAt ??
+    payload?.updatedAt
+  ) || 0;
   for (const entry of entries) {
     const characterId = entry?.characterId || '';
     if (!characterId) continue;
@@ -24269,7 +24236,6 @@ async function handleAuthSubmit(mode) {
     await initFirebaseAuth();
     if (mode === 'create') {
       const username = authCreateUsername?.value?.trim() || '';
-      const recoveryEmail = authCreateEmail?.value?.trim() || '';
       const password = authCreatePassword?.value || '';
       const confirm = authCreateConfirm?.value || '';
       const normalized = normalizeUsername(username);
@@ -24281,10 +24247,6 @@ async function handleAuthSubmit(mode) {
         setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
         return;
       }
-    if (recoveryEmail && !isValidRecoveryEmail(recoveryEmail)) {
-      setAuthError('Enter a valid recovery email or leave it blank.');
-      return;
-    }
       if (password !== confirm) {
         setAuthError('Passwords do not match.');
         return;
@@ -24296,24 +24258,7 @@ async function handleAuthSubmit(mode) {
         return;
       }
       pendingPostAuthChoice = true;
-      const credential = await createAccountWithUsernamePassword(username, password);
-      const uid = credential?.user?.uid || '';
-      if (uid) {
-        try {
-          if (recoveryEmail) {
-            await saveRecoveryEmail(uid, recoveryEmail);
-          }
-        } catch (err) {
-          console.error('Failed to save recovery email', err);
-        }
-        try {
-          const db = await getFirebaseDatabase();
-          const codes = await createRecoveryCodes(db, uid);
-          openRecoveryCodesModal(codes);
-        } catch (err) {
-          console.error('Failed to create recovery codes', err);
-        }
-      }
+      await createAccountWithUsernamePassword(username, password);
     } else {
       const username = authLoginUsername?.value?.trim() || '';
       const password = authLoginPassword?.value || '';

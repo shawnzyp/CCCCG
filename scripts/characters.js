@@ -1277,8 +1277,8 @@ export async function claimCharacterOwnership(name, ownerUid) {
   try {
     const uid = getActiveUserId();
     const authUid = getActiveAuthUserId();
-    const characterId = readCharacterIdForName(storageName);
-    const data = await loadLocal(storageName, { characterId });
+    const storedCharacterId = readCharacterIdForName(storageName);
+    const data = await loadLocal(storageName, { characterId: storedCharacterId });
     const migrated = migrateSavePayload(data);
     const { payload } = buildCanonicalPayload(migrated);
     const characterId = ensureCharacterId(payload, storageName);

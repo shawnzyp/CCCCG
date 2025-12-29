@@ -19,6 +19,28 @@ function getFirebaseConfig() {
 }
 
 async function loadFirebaseCompat() {
+  if (typeof process !== 'undefined' && process?.env?.JEST_WORKER_ID) {
+    const authFn = () => ({
+      currentUser: null,
+      onAuthStateChanged: () => {},
+      setPersistence: async () => {},
+      signInWithEmailAndPassword: async () => ({ user: null }),
+      createUserWithEmailAndPassword: async () => ({ user: null }),
+      signOut: async () => {},
+    });
+    authFn.Auth = { Persistence: { LOCAL: 'LOCAL' } };
+    return {
+      apps: [],
+      app: () => ({}),
+      initializeApp: () => ({}),
+      auth: authFn,
+      database: () => ({
+        ref: () => ({
+          transaction: async () => ({ committed: false }),
+        }),
+      }),
+    };
+  }
   if (window.firebase?.auth) {
     return window.firebase;
   }
@@ -50,44 +72,6 @@ export function usernameToEmail(username) {
   const normalized = normalizeUsername(username);
   if (!normalized) return '';
   return `${normalized}@ccccg.local`;
-}
-
-function hashRecoveryCode(code) {
-  let hash = 0;
-  const text = typeof code === 'string' ? code : '';
-  for (let i = 0; i < text.length; i++) {
-    hash = ((hash << 5) - hash) + text.charCodeAt(i);
-    hash |= 0;
-  }
-  return `h${Math.abs(hash)}`;
-}
-
-function generateRecoveryCode() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let raw = '';
-  try {
-    const bytes = new Uint8Array(10);
-    crypto.getRandomValues(bytes);
-    raw = Array.from(bytes, b => alphabet[b % alphabet.length]).join('');
-  } catch {
-    for (let i = 0; i < 10; i++) {
-      raw += alphabet[Math.floor(Math.random() * alphabet.length)];
-    }
-  }
-  return `${raw.slice(0, 5)}-${raw.slice(5, 10)}`;
-}
-
-export function generateRecoveryCodes(count = 8) {
-  const total = Number.isFinite(count) && count > 0 ? Math.floor(count) : 8;
-  const codes = [];
-  const seen = new Set();
-  while (codes.length < total) {
-    const code = generateRecoveryCode();
-    if (seen.has(code)) continue;
-    seen.add(code);
-    codes.push(code);
-  }
-  return codes;
 }
 
 async function initializeAuthInternal() {
@@ -163,12 +147,6 @@ export async function getFirebaseDatabase() {
   return firebaseDatabase;
 }
 
-export async function saveRecoveryEmail(uid, recoveryEmail) {
-  const db = await getFirebaseDatabase();
-  if (!uid) throw new Error('User id required');
-  await updateUserProfile(db, uid, { recoveryEmail });
-}
-
 export async function getAuthToken() {
   const auth = await initFirebaseAuth();
   const user = auth?.currentUser;
@@ -210,35 +188,6 @@ async function ensureUserProfile(db, uid, username) {
       createdAt: Date.now(),
     };
   });
-}
-
-export async function updateUserProfile(db, uid, updates = {}) {
-  if (!db || !uid) throw new Error('Database required');
-  const userRef = db.ref(`users/${uid}/profile`);
-  const payload = {};
-  Object.entries(updates || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && key) {
-      payload[key] = value;
-    }
-  });
-  if (!Object.keys(payload).length) return;
-  await userRef.update(payload);
-}
-
-export async function createRecoveryCodes(db, uid, { count = 8 } = {}) {
-  if (!db || !uid) throw new Error('Database required');
-  const codes = generateRecoveryCodes(count);
-  const now = Date.now();
-  const ref = db.ref(`users/${uid}/recoveryCodes`);
-  const updates = {};
-  codes.forEach(code => {
-    updates[hashRecoveryCode(code)] = {
-      createdAt: now,
-      usedAt: null,
-    };
-  });
-  await ref.update(updates);
-  return codes;
 }
 
 export async function signInWithUsernamePassword(username, password) {

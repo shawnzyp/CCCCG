@@ -10189,23 +10189,6 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .modal--auth .auth-panel{display:flex;flex-direction:column;gap:10px}
 .modal--auth .auth-panel input{width:100%}
 .modal--auth .auth-panel button{align-self:flex-start}
-.recovery-codes{
-  display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
-  gap:10px;
-  padding:0;
-  margin:0;
-  list-style:none;
-}
-.recovery-codes li{
-  padding:10px 12px;
-  border-radius:var(--radius);
-  border:1px dashed color-mix(in srgb, var(--line) 60%, transparent);
-  background:color-mix(in srgb, var(--surface-2) 85%, transparent);
-  font-weight:700;
-  letter-spacing:.08em;
-  text-align:center;
-}
 .password-policy{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:0.85rem;color:rgba(255,255,255,0.7)}
 .password-policy__item{display:flex;align-items:center;gap:8px}
 .password-policy__item::before{content:"✗";color:var(--red);font-weight:600}
