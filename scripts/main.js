@@ -23866,6 +23866,7 @@ const postAuthChoiceModal = $('modal-post-auth-choice');
 const postAuthImport = $('post-auth-import');
 const postAuthCreate = $('post-auth-create');
 const postAuthSkip = $('post-auth-skip');
+const postAuthCloudList = $('post-auth-cloud-list');
 const claimModal = $('modal-claim-characters');
 const claimCloudList = $('claim-cloud-list');
 const claimDeviceList = $('claim-device-list');
@@ -23949,7 +23950,9 @@ function updateWelcomeContinue() {
   const { uid } = getAuthState();
   const storage = typeof localStorage !== 'undefined' ? localStorage : null;
   const lastSave = readLastSaveName();
-  const allowed = !!(uid || hasBootableLocalState({ storage, lastSaveName: lastSave, uid }));
+  const hasLocalSave = hasBootableLocalState({ storage, lastSaveName: lastSave, uid });
+  const allowed = !!(uid || hasLocalSave);
+  welcomeContinue.hidden = !hasLocalSave;
   welcomeContinue.disabled = !allowed;
   welcomeContinue.setAttribute('aria-disabled', allowed ? 'false' : 'true');
 }
@@ -23993,6 +23996,9 @@ function openAuthModal(view = 'login') {
 function openPostAuthChoice() {
   if (!postAuthChoiceModal) return;
   show('modal-post-auth-choice');
+  refreshPostAuthCloudList().catch(err => {
+    console.error('Failed to refresh post-auth cloud list', err);
+  });
 }
 
 function closePostAuthChoice() {
@@ -24103,6 +24109,41 @@ function renderEmptyRow(container, message) {
   const row = buildClaimRow({ name: message, meta: '' });
   row.classList.add('claim-row--empty');
   container.append(row);
+}
+
+function formatPostAuthUpdatedAt(updatedAt) {
+  const ts = Number(updatedAt);
+  if (!Number.isFinite(ts) || ts <= 0) return 'Updated time unknown';
+  try {
+    return `Updated ${new Date(ts).toLocaleString()}`;
+  } catch {
+    return 'Updated time unknown';
+  }
+}
+
+async function refreshPostAuthCloudList() {
+  if (!postAuthCloudList) return;
+  const { uid } = getAuthState();
+  postAuthCloudList.textContent = '';
+  if (!uid) {
+    renderEmptyRow(postAuthCloudList, 'Sign in to view cloud characters.');
+    return;
+  }
+  const entries = await listCharacterIndex(uid);
+  if (!entries.length) {
+    renderEmptyRow(postAuthCloudList, 'No cloud characters found.');
+    return;
+  }
+  entries
+    .slice()
+    .sort((a, b) => (b?.updatedAt || 0) - (a?.updatedAt || 0))
+    .forEach(entry => {
+      const name = entry?.name || entry?.characterId || 'Unnamed character';
+      postAuthCloudList.append(buildClaimRow({
+        name,
+        meta: formatPostAuthUpdatedAt(entry?.updatedAt),
+      }));
+    });
 }
 
 async function handleLegacyClaim({ name, source }) {
