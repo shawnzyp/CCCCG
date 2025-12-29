@@ -12,6 +12,7 @@ import {
 
 const LOCAL_STORAGE_QUOTA_ERROR_CODE = 'local-storage-quota-exceeded';
 const DEVICE_ID_STORAGE_KEY = 'cc:device-id';
+const AUTOSAVE_DEBUG_KEY = 'cc:debug-autosave-url';
 const CLOUD_SYNC_SUPPORT_MESSAGE = 'Cloud sync requires a modern browser. Local saves will continue to work.';
 const FETCH_SUPPORTED = typeof fetch === 'function';
 const EVENTSOURCE_SUPPORTED = typeof EventSource === 'function';
@@ -570,6 +571,17 @@ function resetOfflineNotices() {
 let controllerFlushListenerAttached = false;
 let localOutboxFlushPromise = null;
 let localOutboxOnlineListenerAttached = false;
+let autosaveDebugLogged = false;
+
+function shouldLogAutosaveDebug() {
+  const storage = getLocalStorageSafe();
+  if (!storage) return false;
+  try {
+    return storage.getItem(AUTOSAVE_DEBUG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 function scheduleControllerFlush(registration) {
   if (typeof navigator === 'undefined' || !navigator.serviceWorker) return;
@@ -615,17 +627,11 @@ function scheduleControllerFlush(registration) {
   }
 }
 
-function resolveAutosaveKey({ name, deviceId, characterId }) {
+function resolveAutosaveKey({ deviceId, characterId }) {
   const trimmedDevice = typeof deviceId === 'string' ? deviceId.trim() : '';
   const trimmedCharacter = typeof characterId === 'string' ? characterId.trim() : '';
   if (trimmedDevice && trimmedCharacter) {
     return `${trimmedDevice}/${trimmedCharacter}`;
-  }
-  if (trimmedCharacter) {
-    return trimmedCharacter;
-  }
-  if (typeof name === 'string' && name.trim()) {
-    return name.trim();
   }
   return '';
 }
@@ -635,16 +641,21 @@ function normalizeAutosaveOutboxEntry(entry) {
     return { action: 'drop', reason: 'Invalid autosave outbox entry' };
   }
   const name = typeof entry.name === 'string' ? entry.name : '';
-  let characterId = typeof entry.characterId === 'string' && entry.characterId.trim()
+  const rawCharacterId = typeof entry.characterId === 'string' && entry.characterId.trim()
     ? entry.characterId.trim()
     : '';
+  let characterId = rawCharacterId;
   const payloadCharacterId = entry?.payload?.character?.characterId;
   if (!characterId && typeof payloadCharacterId === 'string' && payloadCharacterId.trim()) {
     characterId = payloadCharacterId.trim();
   }
-  let deviceId = typeof entry.deviceId === 'string' && entry.deviceId.trim()
+  const rawDeviceId = typeof entry.deviceId === 'string' && entry.deviceId.trim()
     ? entry.deviceId.trim()
     : '';
+  let deviceId = rawDeviceId;
+  if (!rawDeviceId && !rawCharacterId && !payloadCharacterId && name && !name.includes('/')) {
+    return { action: 'drop', reason: 'Legacy autosave entry missing identifiers' };
+  }
   if (!deviceId) {
     deviceId = getDeviceId();
   }
@@ -666,7 +677,7 @@ function normalizeAutosaveOutboxEntry(entry) {
 }
 
 async function pushQueuedAutosaveLocally({ name, payload, ts, deviceId, characterId }) {
-  const autosaveKey = resolveAutosaveKey({ name, deviceId, characterId });
+  const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
   if (!autosaveKey) {
     throw new Error('Invalid autosave key');
   }
@@ -1370,7 +1381,17 @@ export async function saveCloudAutosave(name, payload) {
   const ts = nextHistoryTimestamp();
   const deviceId = getDeviceId();
   const characterId = payload?.character?.characterId || payload?.characterId || '';
-  const autosaveKey = resolveAutosaveKey({ name, deviceId, characterId });
+  if (!characterId) {
+    const error = new Error('Autosave requires characterId');
+    error.name = 'InvalidAutosaveKey';
+    throw error;
+  }
+  if (!deviceId) {
+    const error = new Error('Autosave requires deviceId');
+    error.name = 'InvalidAutosaveKey';
+    throw error;
+  }
+  const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
   const autosavePath = autosaveKey
     ? `${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}/${ts}.json`
     : `${CLOUD_AUTOSAVES_URL}/.json`;
@@ -1385,8 +1406,9 @@ export async function saveCloudAutosave(name, payload) {
     if (!autosaveKey) {
       throw new Error('Invalid autosave key');
     }
-    if (!characterId) {
-      console.warn('Autosave missing characterId; falling back to sanitized name path');
+    if (!autosaveDebugLogged && shouldLogAutosaveDebug()) {
+      autosaveDebugLogged = true;
+      console.info('Autosave debug path', { autosaveKey, autosavePath });
     }
     await saveHistoryEntry(CLOUD_AUTOSAVES_URL, autosaveKey, payloadWithMeta, ts);
     resetOfflineNotices();
@@ -1492,7 +1514,7 @@ export async function listCloudBackups(name) {
 export async function listCloudAutosaves(name, { characterId = '' } = {}) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const autosaveKey = resolveAutosaveKey({ name, deviceId: getDeviceId(), characterId });
+    const autosaveKey = resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
     if (!autosaveKey) return [];
     const res = await cloudFetch(
       `${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}.json`
@@ -1583,7 +1605,7 @@ export async function loadCloudBackup(name, ts) {
 export async function loadCloudAutosave(name, ts, { characterId = '' } = {}) {
   try {
     if (typeof fetch !== 'function') throw new Error('fetch not supported');
-    const autosaveKey = resolveAutosaveKey({ name, deviceId: getDeviceId(), characterId });
+    const autosaveKey = resolveAutosaveKey({ deviceId: getDeviceId(), characterId });
     if (!autosaveKey) throw new Error('Invalid autosave key');
     const res = await cloudFetch(
       `${CLOUD_AUTOSAVES_URL}/${encodePath(autosaveKey)}/${ts}.json`,

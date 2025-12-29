@@ -146,6 +146,7 @@ const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
+const SW_BUILD = 'autosave-key-v2';
 let flushPromise = null;
 let notifyClientsOnActivate = false;
 
@@ -263,17 +264,11 @@ async function ensureLaunchVideoReset(videoUrl) {
   }
 }
 
-function resolveAutosaveKey({ name, deviceId, characterId }) {
+function resolveAutosaveKey({ deviceId, characterId }) {
   const trimmedDevice = typeof deviceId === 'string' ? deviceId.trim() : '';
   const trimmedCharacter = typeof characterId === 'string' ? characterId.trim() : '';
   if (trimmedDevice && trimmedCharacter) {
     return `${trimmedDevice}/${trimmedCharacter}`;
-  }
-  if (trimmedCharacter) {
-    return trimmedCharacter;
-  }
-  if (typeof name === 'string' && name.trim()) {
-    return name.trim();
   }
   return '';
 }
@@ -283,9 +278,10 @@ function normalizeAutosaveEntry(entry) {
     return { action: 'drop', reason: 'Invalid autosave outbox entry' };
   }
   const name = typeof entry.name === 'string' ? entry.name : '';
-  let characterId = typeof entry.characterId === 'string' && entry.characterId.trim()
+  const rawCharacterId = typeof entry.characterId === 'string' && entry.characterId.trim()
     ? entry.characterId.trim()
     : '';
+  let characterId = rawCharacterId;
   const payloadCharacterId = entry?.payload?.character?.characterId;
   if (!characterId && typeof payloadCharacterId === 'string' && payloadCharacterId.trim()) {
     characterId = payloadCharacterId.trim();
@@ -293,6 +289,9 @@ function normalizeAutosaveEntry(entry) {
   const deviceId = typeof entry.deviceId === 'string' && entry.deviceId.trim()
     ? entry.deviceId.trim()
     : '';
+  if (!deviceId && !rawCharacterId && !payloadCharacterId && name && !name.includes('/')) {
+    return { action: 'drop', reason: 'Legacy autosave entry missing identifiers' };
+  }
   if (!characterId) {
     return { action: 'drop', reason: 'Missing characterId for autosave outbox entry' };
   }
@@ -321,7 +320,7 @@ async function pushQueuedSave({ name, payload, ts, kind, deviceId, characterId }
   }
 
   if (entryKind === 'autosave') {
-    const autosaveKey = resolveAutosaveKey({ name, deviceId, characterId });
+    const autosaveKey = resolveAutosaveKey({ deviceId, characterId });
     if (!autosaveKey) {
       throw new Error('Invalid autosave key');
     }
@@ -510,6 +509,7 @@ self.addEventListener('activate', e => {
 
       await Promise.all([cacheCleanup, flushOutbox().catch(() => {})]);
       await self.clients.claim();
+      await broadcast({ type: 'sw-build', build: SW_BUILD, updatedAt: Date.now() });
       if (notifyClientsOnActivate) {
         await broadcast({ type: 'sw-updated', message: 'New Codex content is available.', updatedAt: Date.now(), source: 'service-worker' });
         notifyClientsOnActivate = false;

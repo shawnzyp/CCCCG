@@ -23898,6 +23898,7 @@ applyDeleteIcons();
 applyLockIcons();
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   let swUrl = 'sw.js';
+  const SW_BUILD_STORAGE_KEY = 'cc:sw-build';
   try {
     if (typeof document !== 'undefined' && document.baseURI) {
       swUrl = new URL('sw.js', document.baseURI).href;
@@ -23909,6 +23910,34 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
   }
   navigator.serviceWorker.register(swUrl).catch(e => console.error('SW reg failed', e));
   let hadController = Boolean(navigator.serviceWorker.controller);
+  const getLocalStorageSafe = () => {
+    try {
+      return localStorage;
+    } catch {
+      return null;
+    }
+  };
+  const handleSwBuild = payload => {
+    const build = typeof payload?.build === 'string' ? payload.build : '';
+    if (!build) return;
+    const storage = getLocalStorageSafe();
+    const previous = storage ? storage.getItem(SW_BUILD_STORAGE_KEY) : '';
+    if (previous && previous !== build) {
+      navigator.serviceWorker.ready
+        .then(reg => reg.update())
+        .catch(() => {});
+      announceContentUpdate({
+        message: 'New Codex content is available.',
+        updatedAt: Date.now(),
+        source: 'sw-build',
+      });
+    }
+    if (storage) {
+      try {
+        storage.setItem(SW_BUILD_STORAGE_KEY, build);
+      } catch {}
+    }
+  };
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (serviceWorkerUpdateHandled) return;
     if (!hadController) {
@@ -23947,6 +23976,10 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     if (type === 'sw-updated') {
       announceContentUpdate(payload);
       scheduleOfflinePrefetch(1500);
+      return;
+    }
+    if (type === 'sw-build') {
+      handleSwBuild(payload);
       return;
     }
   });
@@ -24379,4 +24412,3 @@ CC.RP = (function () {
   }
   return api;
 })();
-
