@@ -1479,44 +1479,127 @@
 </div>
 
 <!-- WELCOME MODAL -->
-<div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="288deg" data-modal-glow-strength="0.6">
-  <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
-      <button class="x" data-close aria-label="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
-    <p><u>Create or Load Your Hero Profile</u><br>
-    This is your Vigilante record. Without it, you don’t exist in the Core.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Use the Tabs</u><br>
-    <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
-    <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
-    <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
-    <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
-    <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Save &amp; Sync</u><br>
-    Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><strong>O.M.N.I. Command</strong></p>
-    <div class="welcome-modal__preference">
-      <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
-        <input type="checkbox" id="welcome-hide-toggle">
-        Don't show this again
-      </label>
+<div class="overlay hidden" id="modal-welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
+  <div class="modal modal--welcome" role="document">
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">CC</div>
+      <div class="modal__titles">
+        <h2 id="welcome-title">Welcome to Codex</h2>
+        <p class="modal__subtitle">Sign in to sync characters across devices.</p>
+      </div>
     </div>
-    <div class="actions">
-      <button id="welcome-create-character" type="button">Create New Character</button>
-      <button id="welcome-load-character" type="button">Load Character</button>
-      <button id="welcome-skip" type="button">Skip</button>
+    <div class="modal__body">
+      <p class="modal__lead">Cloud saves keep your roster safe and up to date.</p>
+      <p class="modal__hint">Continue is only available when a signed-in session already has local characters.</p>
     </div>
+    <div class="modal__actions modal__actions--two">
+      <button id="welcome-login" class="cc-btn cc-btn--primary" type="button">Login</button>
+      <button id="welcome-create" class="cc-btn cc-btn--ghost" type="button">Create Account</button>
+      <button id="welcome-continue" class="cc-btn cc-btn--ghost" type="button" disabled aria-disabled="true">Continue Offline</button>
     </div>
-    <div class="modal-frame__halo" aria-hidden="true"></div>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="overlay hidden" id="modal-auth" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-modal-accent-hue="212deg" data-modal-glow-strength="0.55" data-modal-static>
+  <div class="modal modal--auth" role="document">
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">CC</div>
+      <div class="modal__titles">
+        <h2 id="auth-title">Account Login</h2>
+        <p class="modal__subtitle">Use your Codex username and password.</p>
+      </div>
+    </div>
+    <div class="modal__body">
+      <div class="auth-tabs" role="tablist" aria-label="Authentication options">
+        <button id="auth-tab-login" class="cc-btn cc-btn--ghost" type="button" role="tab" aria-selected="true" aria-controls="auth-panel-login">Login</button>
+        <button id="auth-tab-create" class="cc-btn cc-btn--ghost" type="button" role="tab" aria-selected="false" aria-controls="auth-panel-create">Create Account</button>
+      </div>
+      <div id="auth-panel-login" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-login">
+        <label class="sr-only" for="auth-login-username">Username</label>
+        <input id="auth-login-username" type="text" autocomplete="username" placeholder="Username" required>
+        <label class="sr-only" for="auth-login-password">Password</label>
+        <input id="auth-login-password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <button id="auth-login-submit" class="cc-btn cc-btn--primary" type="button">Login</button>
+      </div>
+      <div id="auth-panel-create" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-create" hidden aria-hidden="true">
+        <label class="sr-only" for="auth-create-username">Username</label>
+        <input id="auth-create-username" type="text" autocomplete="username" placeholder="Username" required>
+        <label class="sr-only" for="auth-create-password">Password</label>
+        <input id="auth-create-password" type="password" autocomplete="new-password" placeholder="Password" required>
+        <label class="sr-only" for="auth-create-confirm">Confirm password</label>
+        <input id="auth-create-confirm" type="password" autocomplete="new-password" placeholder="Confirm password" required>
+        <ul id="auth-password-policy" class="password-policy" aria-live="polite"></ul>
+        <button id="auth-create-submit" class="cc-btn cc-btn--primary" type="button">Create Account</button>
+      </div>
+      <p id="auth-error" class="modal__hint" role="alert" hidden></p>
+    </div>
+    <div class="modal__actions modal__actions--two">
+      <button id="auth-cancel" class="cc-btn cc-btn--ghost" type="button" data-close="modal-auth">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- POST-AUTH CHOICE MODAL -->
+<div class="overlay hidden" id="modal-post-auth-choice" role="dialog" aria-modal="true" aria-labelledby="post-auth-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
+  <div class="modal modal--next-steps" role="document">
+    <button class="x" type="button" data-close="modal-post-auth-choice" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">CC</div>
+      <div class="modal__titles">
+        <h2 id="post-auth-title">What would you like to do?</h2>
+        <p class="modal__subtitle">Import existing data or start a new hero.</p>
+      </div>
+    </div>
+    <div class="modal__body">
+      <div class="next-steps-actions">
+        <button id="post-auth-import" class="cc-btn cc-btn--primary" type="button">Import / Claim</button>
+        <button id="post-auth-create" class="cc-btn cc-btn--ghost" type="button">Create New Character</button>
+        <button id="post-auth-skip" class="cc-btn cc-btn--ghost" type="button">Skip</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CLAIM CHARACTERS MODAL -->
+<div class="overlay hidden" id="modal-claim-characters" role="dialog" aria-modal="true" aria-labelledby="claim-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
+  <div class="modal modal--claim" role="document">
+    <button class="x" type="button" data-close="modal-claim-characters" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">CC</div>
+      <div class="modal__titles">
+        <h2 id="claim-title">Claim Characters</h2>
+        <p class="modal__subtitle">Import legacy data into your account.</p>
+      </div>
+    </div>
+    <div class="modal__body">
+      <section class="claim-section">
+        <h3 class="claim-section__title">Cloud Characters</h3>
+        <div class="claim-cloud-list" id="claim-cloud-list" role="list" aria-label="Cloud characters"></div>
+      </section>
+      <section class="claim-section">
+        <h3 class="claim-section__title">Found on This Device</h3>
+        <div class="claim-device-list" id="claim-device-list" role="list" aria-label="Local legacy saves"></div>
+      </section>
+      <section class="claim-section">
+        <h3 class="claim-section__title">Found in Old Cloud</h3>
+        <div class="claim-legacy-list" id="claim-legacy-list" role="list" aria-label="Legacy cloud saves"></div>
+      </section>
+      <section class="claim-section">
+        <h3 class="claim-section__title">Import from File</h3>
+        <label class="sr-only" for="claim-file-input">Import JSON save</label>
+        <input id="claim-file-input" type="file" accept="application/json">
+        <button id="claim-file-import" class="cc-btn cc-btn--ghost" type="button">Import File</button>
+      </section>
+    </div>
   </div>
 </div>
 
@@ -1571,7 +1654,7 @@
 </div>
 
 <!-- HELP MODAL -->
-<div class="overlay hidden" id="modal-help" aria-hidden="true" data-modal-accent-hue="210deg" data-modal-glow-strength="0.5">
+<div class="overlay hidden" id="modal-help" aria-hidden="true" data-modal-accent-hue="210deg" data-modal-glow-strength="0.5" data-dismiss-policy="soft">
   <div class="modal-frame">
     <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
       <button class="x" data-close aria-label="Close">

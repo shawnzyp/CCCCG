@@ -129,12 +129,19 @@ function removeTrapFocus(el) {
 // Ensure hidden overlays are not focusable on load
 qsa('.overlay.hidden').forEach(ov => { ov.style.display = 'none'; });
 
+function bindOverlayClickHandler(overlay) {
+  if (!overlay || overlay._overlayClickHandler) return;
+  const handler = (e) => {
+    if (e.target === overlay && !overlay.hasAttribute('data-modal-static')) {
+      hide(overlay.id);
+    }
+  };
+  overlay.addEventListener('click', handler);
+  overlay._overlayClickHandler = handler;
+}
+
 // Close modal on overlay click
-qsa('.overlay').forEach(ov => {
-  ov.addEventListener('click', e => {
-    if (e.target === ov && !ov.hasAttribute('data-modal-static')) hide(ov.id);
-  });
-});
+qsa('.overlay').forEach(bindOverlayClickHandler);
 
 // Allow closing with Escape key
 document.addEventListener('keydown', e => {
@@ -148,6 +155,7 @@ export function show(id) {
   try {
     const el = $(id);
     if (!el || !el.classList.contains('hidden')) return false;
+    bindOverlayClickHandler(el);
     lastFocus = document.activeElement;
     if (openModals === 0) {
       coverFloatingLauncher();

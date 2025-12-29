@@ -31,14 +31,40 @@ The app requires a Firebase Realtime Database for real-time updates. To
 configure the database:
 
 1. Create a Firebase project and enable the **Realtime Database**.
-2. Use the following database rules to allow read and write access:
+2. Use the following database rules to allow read and write access (DM override via `auth.token.dm`):
 
 ```json
 {
   "rules": {
-    "saves": {
-      ".read": true,
-      ".write": true
+    "characters": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+      }
+    },
+    "usernames": {
+      "$name": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "characterClaims": {
+      "$characterId": {
+        ".read": "auth != null && auth.token.dm === true",
+        ".write": "auth != null"
+      }
+    },
+    "autosaves": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+      }
     },
     "dm-notifications": {
       ".read": true,
@@ -47,6 +73,8 @@ configure the database:
   }
 }
 ```
+
+The rules above are also provided in `firebase.rules.json` for quick copying.
 
 The application communicates with the database using its public REST API.
 
@@ -99,4 +127,3 @@ duration (in milliseconds) or an options object with the following properties:
 
 The convenience method `dismissToast()` immediately hides the active toast and advances
 the queue.
-

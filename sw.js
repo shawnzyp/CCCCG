@@ -146,17 +146,76 @@ const CLOUD_SAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/saves';
 const CLOUD_HISTORY_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/history';
 const CLOUD_AUTOSAVES_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/autosaves';
 const CLOUD_PINS_URL = 'https://ccccg-7d6b6-default-rtdb.firebaseio.com/pins';
+const SW_BUILD = 'autosave-key-v2';
 let flushPromise = null;
 let notifyClientsOnActivate = false;
+
+function sanitizePathSegment(segment) {
+  if (typeof segment !== 'string') return '';
+  return segment
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[#$\[\]]/g, '_');
+}
 
 function encodePath(name) {
   if (typeof name !== 'string' || !name) return '';
   return name
     .split('/')
-    .map(segment => (typeof segment === 'string' ? segment : ''))
+    .map(segment => sanitizePathSegment(typeof segment === 'string' ? segment : ''))
     .filter(segment => segment.length > 0)
     .map(segment => encodeURIComponent(segment).replace(/\./g, '%2E'))
     .join('/');
+}
+
+function sanitizeForJson(value, seen = new WeakSet()) {
+  if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
+    return { value: undefined };
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    return { value: null };
+  }
+  if (value && typeof value === 'object') {
+    if (typeof value.toJSON === 'function') {
+      return sanitizeForJson(value.toJSON(), seen);
+    }
+    if (seen.has(value)) {
+      return { error: new Error('Circular JSON value detected') };
+    }
+    seen.add(value);
+    if (Array.isArray(value)) {
+      const next = [];
+      for (const entry of value) {
+        const result = sanitizeForJson(entry, seen);
+        if (result.error) return result;
+        next.push(result.value === undefined ? null : result.value);
+      }
+      seen.delete(value);
+      return { value: next };
+    }
+    const next = {};
+    for (const [key, entry] of Object.entries(value)) {
+      const result = sanitizeForJson(entry, seen);
+      if (result.error) return result;
+      if (result.value !== undefined) {
+        next[key] = result.value;
+      }
+    }
+    seen.delete(value);
+    return { value: next };
+  }
+  return { value };
+}
+
+function safeJsonStringify(value) {
+  const sanitized = sanitizeForJson(value);
+  if (sanitized.error) {
+    return { ok: false, error: sanitized.error, value: null, json: null };
+  }
+  try {
+    return { ok: true, value: sanitized.value, json: JSON.stringify(sanitized.value) };
+  } catch (err) {
+    return { ok: false, error: err, value: null, json: null };
+  }
 }
 
 function isSwOffline() {
@@ -205,42 +264,100 @@ async function ensureLaunchVideoReset(videoUrl) {
   }
 }
 
-async function pushQueuedSave({ name, payload, ts, kind }) {
-  const encoded = encodePath(name);
-  const body = JSON.stringify(payload);
+function resolveAutosaveKey({ uid, characterId }) {
+  const trimmedUid = typeof uid === 'string' ? uid.trim() : '';
+  const trimmedCharacter = typeof characterId === 'string' ? characterId.trim() : '';
+  if (trimmedUid && trimmedCharacter) {
+    return `${trimmedUid}/${trimmedCharacter}`;
+  }
+  return '';
+}
+
+function normalizeAutosaveEntry(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return { action: 'drop', reason: 'Invalid autosave outbox entry' };
+  }
+  const name = typeof entry.name === 'string' ? entry.name : '';
+  const rawCharacterId = typeof entry.characterId === 'string' && entry.characterId.trim()
+    ? entry.characterId.trim()
+    : '';
+  let characterId = rawCharacterId;
+  const payloadCharacterId = entry?.payload?.character?.characterId;
+  if (!characterId && typeof payloadCharacterId === 'string' && payloadCharacterId.trim()) {
+    characterId = payloadCharacterId.trim();
+  }
+  const uid = typeof entry.uid === 'string' && entry.uid.trim()
+    ? entry.uid.trim()
+    : '';
+  if (!uid && !rawCharacterId && !payloadCharacterId && name && !name.includes('/')) {
+    return { action: 'drop', reason: 'Legacy autosave entry missing identifiers' };
+  }
+  if (!characterId) {
+    return { action: 'drop', reason: 'Missing characterId for autosave outbox entry' };
+  }
+  if (!uid) {
+    return { action: 'drop', reason: 'Missing uid for autosave outbox entry' };
+  }
+  return {
+    action: 'keep',
+    entry: {
+      ...entry,
+      name,
+      uid,
+      characterId,
+    },
+  };
+}
+
+async function pushQueuedSave({ name, payload, ts, kind, uid, characterId, cloudUrls }) {
   const entryKind = kind === 'autosave' ? 'autosave' : 'manual';
+  const serialized = safeJsonStringify(payload);
+  if (!serialized.ok) {
+    const error = new Error('Invalid JSON payload for cloud save');
+    error.name = 'InvalidPayloadError';
+    error.cause = serialized.error;
+    throw error;
+  }
 
   if (entryKind === 'autosave') {
-    const autosaveRes = await fetch(`${CLOUD_AUTOSAVES_URL}/${encoded}/${ts}.json`, {
+    const autosaveKey = resolveAutosaveKey({ uid, characterId });
+    if (!autosaveKey) {
+      throw new Error('Invalid autosave key');
+    }
+    const autosaveBase = cloudUrls?.autosavesUrl || CLOUD_AUTOSAVES_URL;
+    const autosaveRes = await fetch(`${autosaveBase}/${encodePath(autosaveKey)}/${ts}.json`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body,
+      body: serialized.json,
     });
     if (!autosaveRes.ok) throw new Error(`HTTP ${autosaveRes.status}`);
     return;
   }
 
-  const res = await fetch(`${CLOUD_SAVES_URL}/${encoded}.json`, {
+  const encoded = encodePath(name);
+  const savesBase = cloudUrls?.savesUrl || CLOUD_SAVES_URL;
+  const historyBase = cloudUrls?.historyUrl || CLOUD_HISTORY_URL;
+  const res = await fetch(`${savesBase}/${encoded}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body,
+    body: serialized.json,
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  await fetch(`${CLOUD_HISTORY_URL}/${encoded}/${ts}.json`, {
+  await fetch(`${historyBase}/${encoded}/${ts}.json`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body,
+    body: serialized.json,
   });
 
-  const listRes = await fetch(`${CLOUD_HISTORY_URL}/${encoded}.json`, { method: 'GET' });
+  const listRes = await fetch(`${historyBase}/${encoded}.json`, { method: 'GET' });
   if (listRes.ok) {
     const val = await listRes.json();
     const keys = val ? Object.keys(val).map(k => Number(k)).sort((a, b) => b - a) : [];
     const excess = keys.slice(3);
     await Promise.all(
       excess.map(k =>
-        fetch(`${CLOUD_HISTORY_URL}/${encoded}/${k}.json`, { method: 'DELETE' })
+        fetch(`${historyBase}/${encoded}/${k}.json`, { method: 'DELETE' })
       )
     );
   }
@@ -291,12 +408,31 @@ async function flushOutbox() {
     let synced = false;
     for (const entry of entries) {
       try {
-        await pushQueuedSave(entry);
+        if (entry?.kind === 'autosave') {
+          const normalized = normalizeAutosaveEntry(entry);
+          if (normalized.action === 'drop') {
+            console.warn('Dropping legacy autosave outbox entry', normalized.reason, entry);
+            if (entry.id !== undefined) {
+              await deleteOutboxEntry(entry.id);
+            }
+            continue;
+          }
+          await pushQueuedSave(normalized.entry);
+        } else {
+          await pushQueuedSave(entry);
+        }
         if (entry.id !== undefined) {
           await deleteOutboxEntry(entry.id);
         }
         synced = true;
       } catch (err) {
+        if (err?.name === 'InvalidPayloadError') {
+          console.warn('Dropping outbox entry with invalid payload', err, entry);
+          if (entry.id !== undefined) {
+            await deleteOutboxEntry(entry.id);
+          }
+          continue;
+        }
         console.error('Cloud outbox flush failed', err);
         if (self.registration?.sync && typeof self.registration.sync.register === 'function') {
           try {
@@ -376,6 +512,7 @@ self.addEventListener('activate', e => {
 
       await Promise.all([cacheCleanup, flushOutbox().catch(() => {})]);
       await self.clients.claim();
+      await broadcast({ type: 'sw-build', build: SW_BUILD, updatedAt: Date.now() });
       if (notifyClientsOnActivate) {
         await broadcast({ type: 'sw-updated', message: 'New Codex content is available.', updatedAt: Date.now(), source: 'service-worker' });
         notifyClientsOnActivate = false;
@@ -449,7 +586,7 @@ self.addEventListener('message', event => {
   const data = event.data;
   if (!data || typeof data !== 'object') return;
   if (data.type === 'queue-cloud-save') {
-    const { name, payload, ts, requestId = null } = data;
+    const { name, payload, ts, uid = '', characterId = '', requestId = null } = data;
     const port = Array.isArray(event.ports) && event.ports.length ? event.ports[0] : null;
     const respond = message => {
       if (!message || typeof message !== 'object') return;
@@ -498,6 +635,8 @@ self.addEventListener('message', event => {
         payload,
         ts,
         kind: data.kind === 'autosave' ? 'autosave' : 'manual',
+        uid,
+        characterId,
         queuedAt: data.queuedAt,
       });
     } catch (err) {
