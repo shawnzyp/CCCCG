@@ -1479,42 +1479,55 @@
 </div>
 
 <!-- WELCOME MODAL -->
-<div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="288deg" data-modal-glow-strength="0.6">
+<div class="overlay hidden" id="modal-welcome" aria-hidden="true" data-modal-accent-hue="288deg" data-modal-glow-strength="0.6" data-dismiss-policy="soft">
   <div class="modal-frame">
-    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="modal modal--welcome" role="dialog" aria-modal="true" tabindex="-1">
       <button class="x" data-close aria-label="Close">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
         </svg>
       </button>
-    <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core!</span></h3>
-    <p><u>Create or Load Your Hero Profile</u><br>
-    This is your Vigilante record. Without it, you don’t exist in the Core.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Use the Tabs</u><br>
-    <span class="welcome-modal__tab-label">Combat:</span> Track your combat stats.<br>
-    <span class="welcome-modal__tab-label">Stats:</span> Track your abilities, and skills.<br>
-    <span class="welcome-modal__tab-label">Powers:</span> Track your powers and signature moves.<br>
-    <span class="welcome-modal__tab-label">Gear:</span> Requisition, equip, upgrade and update your arsenal.<br>
-    <span class="welcome-modal__tab-label">Personal Details:</span> Log your mission details and personal intel.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><u>Save &amp; Sync</u><br>
-    Auto-Save every 2 minutes to O.M.N.I.’s network. No excuses for lost data.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p>This isn’t a toy. It’s your mission log, your survival plan, and the record of the legacy you’ll leave behind. Use it well.</p>
-    <p aria-hidden="true">&nbsp;</p>
-    <p><strong>O.M.N.I. Command</strong></p>
-    <div class="welcome-modal__preference">
-      <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
-        <input type="checkbox" id="welcome-hide-toggle">
-        Don't show this again
-      </label>
-    </div>
-    <div class="actions">
-      <button id="welcome-create-character" type="button">Create New Character</button>
-      <button id="welcome-load-character" type="button">Load Character</button>
-      <button id="welcome-skip" type="button">Skip</button>
-    </div>
+      <div class="welcome-modal__layout">
+        <header class="welcome-modal__header">
+          <h3 class="welcome-modal__title">Welcome to the <span class="welcome-modal__title-break">Catalyst Core</span></h3>
+          <p class="welcome-modal__subtitle">Your mission log and survival plan.<br>Start by creating or loading a hero profile.</p>
+        </header>
+        <div class="welcome-modal__body">
+          <details class="welcome-modal__section" open>
+            <summary>Create or load your hero profile</summary>
+            <p>This is your vigilante record. Without it, you do not exist in the Core.</p>
+          </details>
+          <details class="welcome-modal__section">
+            <summary>Use the tabs</summary>
+            <p><span class="welcome-modal__tab-label">Combat:</span> Track combat stats.</p>
+            <p><span class="welcome-modal__tab-label">Stats:</span> Track abilities and skills.</p>
+            <p><span class="welcome-modal__tab-label">Powers:</span> Track powers and signature moves.</p>
+            <p><span class="welcome-modal__tab-label">Gear:</span> Manage loadouts and upgrades.</p>
+            <p><span class="welcome-modal__tab-label">Personal Details:</span> Log mission details and intel.</p>
+          </details>
+          <details class="welcome-modal__section">
+            <summary>Save and sync</summary>
+            <p>Auto save runs every two minutes in the O.M.N.I. network. Make manual saves any time.</p>
+          </details>
+          <details class="welcome-modal__section">
+            <summary>Command briefing</summary>
+            <p>This is your mission log and record of legacy. Use it well.</p>
+          </details>
+        </div>
+        <div class="welcome-modal__footer">
+          <div class="welcome-modal__preference">
+            <label class="welcome-modal__preference-label" for="welcome-hide-toggle">
+              <input type="checkbox" id="welcome-hide-toggle">
+              Do not show this again
+            </label>
+          </div>
+          <div class="actions welcome-modal__actions">
+            <button id="welcome-create-character" type="button">Create New Character</button>
+            <button id="welcome-load-character" type="button">Load Character</button>
+            <button id="welcome-skip" type="button">Skip</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
   </div>
@@ -1571,7 +1584,7 @@
 </div>
 
 <!-- HELP MODAL -->
-<div class="overlay hidden" id="modal-help" aria-hidden="true" data-modal-accent-hue="210deg" data-modal-glow-strength="0.5">
+<div class="overlay hidden" id="modal-help" aria-hidden="true" data-modal-accent-hue="210deg" data-modal-glow-strength="0.5" data-dismiss-policy="soft">
   <div class="modal-frame">
     <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
       <button class="x" data-close aria-label="Close">
