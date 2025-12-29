@@ -8,6 +8,12 @@
         ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     },
+    "history": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+      }
+    },
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
@@ -24,6 +30,12 @@
       "$characterId": {
         ".read": "auth != null && auth.token.admin === true",
         ".write": "auth != null"
+      }
+    },
+    "claimTokens": {
+      "$token": {
+        ".read": "auth != null && (auth.token.admin === true || data.child('targetUid').val() === auth.uid)",
+        ".write": "auth != null && (auth.token.admin === true || (data.child('targetUid').val() === auth.uid && !data.child('consumedAt').exists() && newData.child('consumedAt').exists()))"
       }
     },
     "autosaves": {

@@ -27,11 +27,22 @@ Saved characters are stored locally in your browser using `localStorage` and syn
 
 ### Cloud saves
 
+#### Data model
+
+Cloud-first records live in Firebase RTDB with these primary paths:
+
+* `/users/{uid}/profile`: `{ username, createdAt, recoveryEmail? }`
+* `/users/{uid}/charactersIndex/{characterId}`: `{ name, updatedAt, updatedAtServer }`
+* `/users/{uid}/autosaves/{characterId}`: `{ latestTs, name, updatedAtServer }`
+* `/characters/{uid}/{characterId}`: full character payload including `meta.updatedAt`, `meta.updatedAtServer`, `schemaVersion`, and `meta.ownerUid`
+* `/history/{uid}/{characterId}/conflict/{ts}`: conflict backups before sync overwrites
+* `/claimTokens/{token}`: `{ sourceUid, characterId, targetUid, expiresAt, consumedAt }`
+
 The app requires a Firebase Realtime Database for real-time updates. To
 configure the database:
 
 1. Create a Firebase project and enable the **Realtime Database**.
-2. Use the following database rules to allow read and write access (DM override via `auth.token.dm`):
+2. Use the following database rules to allow read and write access (admin override via `auth.token.admin`):
 
 ```json
 {
@@ -44,8 +55,14 @@ configure the database:
     },
     "users": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
+      }
+    },
+    "history": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     },
     "usernames": {
@@ -56,14 +73,20 @@ configure the database:
     },
     "characterClaims": {
       "$characterId": {
-        ".read": "auth != null && auth.token.dm === true",
+        ".read": "auth != null && auth.token.admin === true",
         ".write": "auth != null"
+      }
+    },
+    "claimTokens": {
+      "$token": {
+        ".read": "auth != null && (auth.token.admin === true || data.child('targetUid').val() === auth.uid)",
+        ".write": "auth != null && (auth.token.admin === true || (data.child('targetUid').val() === auth.uid && !data.child('consumedAt').exists() && newData.child('consumedAt').exists()))"
       }
     },
     "autosaves": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     },
     "dm-notifications": {

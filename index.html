@@ -1408,6 +1408,10 @@
         <button id="btn-save" class="btn-sm" type="button">Save</button>
         <button id="recover-save" class="btn-sm" type="button">Recover Save</button>
         <button id="create-character" class="btn-sm" type="button">Create New</button>
+        <button id="export-character" class="btn-sm" type="button">Export JSON</button>
+        <label class="sr-only" for="import-character-file">Import JSON</label>
+        <input id="import-character-file" type="file" accept="application/json" hidden>
+        <button id="import-character" class="btn-sm" type="button">Import JSON</button>
       </div>
     </div>
     <div class="modal-frame__halo" aria-hidden="true"></div>
@@ -1521,10 +1525,13 @@
         <label class="sr-only" for="auth-login-password">Password</label>
         <input id="auth-login-password" type="password" autocomplete="current-password" placeholder="Password" required>
         <button id="auth-login-submit" class="cc-btn cc-btn--primary" type="button">Login</button>
+        <button id="auth-reset-password" class="cc-btn cc-btn--ghost" type="button">Reset Password</button>
       </div>
       <div id="auth-panel-create" class="auth-panel" role="tabpanel" aria-labelledby="auth-tab-create" hidden aria-hidden="true">
         <label class="sr-only" for="auth-create-username">Username</label>
         <input id="auth-create-username" type="text" autocomplete="username" placeholder="Username" required>
+        <label class="sr-only" for="auth-create-email">Recovery email (optional)</label>
+        <input id="auth-create-email" type="email" autocomplete="email" placeholder="Recovery email (optional)">
         <label class="sr-only" for="auth-create-password">Password</label>
         <input id="auth-create-password" type="password" autocomplete="new-password" placeholder="Password" required>
         <label class="sr-only" for="auth-create-confirm">Confirm password</label>
@@ -1566,6 +1573,29 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="modal-recovery-codes" role="dialog" aria-modal="true" aria-labelledby="recovery-title" data-modal-accent-hue="198deg" data-modal-glow-strength="0.45">
+  <div class="modal modal--auth" role="document">
+    <button class="x" type="button" data-close="modal-recovery-codes" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">CC</div>
+      <div class="modal__titles">
+        <h2 id="recovery-title">Save your recovery codes</h2>
+        <p class="modal__subtitle">These codes are shown once. Store them somewhere safe.</p>
+      </div>
+    </div>
+    <div class="modal__body">
+      <ul id="recovery-code-list" class="recovery-codes" aria-live="polite"></ul>
+    </div>
+    <div class="modal__actions">
+      <button id="recovery-close" class="cc-btn cc-btn--primary" type="button" data-close="modal-recovery-codes">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- CLAIM CHARACTERS MODAL -->
 <div class="overlay hidden" id="modal-claim-characters" role="dialog" aria-modal="true" aria-labelledby="claim-title" data-modal-accent-hue="168deg" data-modal-glow-strength="0.45">
   <div class="modal modal--claim" role="document">
@@ -1587,6 +1617,32 @@
         <div class="claim-cloud-list" id="claim-cloud-list" role="list" aria-label="Cloud characters"></div>
       </section>
       <section class="claim-section">
+        <h3 class="claim-section__title">Claim with Token</h3>
+        <p class="claim-section__hint">Paste a one-time claim token to import a character.</p>
+        <div class="claim-recovery">
+          <label class="sr-only" for="claim-token-input">Claim token</label>
+          <input id="claim-token-input" type="text" placeholder="Enter claim token">
+          <button id="claim-token-submit" class="cc-btn cc-btn--primary" type="button">Claim Token</button>
+        </div>
+        <div class="claim-token-admin" id="claim-token-admin" hidden>
+          <p class="claim-section__hint">DMs can generate a token for a specific character and target UID.</p>
+          <div class="claim-recovery">
+            <label class="sr-only" for="claim-token-source-uid">Source UID</label>
+            <input id="claim-token-source-uid" type="text" placeholder="Source UID">
+            <label class="sr-only" for="claim-token-character-id">Character ID</label>
+            <input id="claim-token-character-id" type="text" placeholder="Character ID">
+            <label class="sr-only" for="claim-token-target-uid">Target UID</label>
+            <input id="claim-token-target-uid" type="text" placeholder="Target UID">
+          </div>
+          <div class="claim-recovery">
+            <label class="sr-only" for="claim-token-expiry">Expiry (hours)</label>
+            <input id="claim-token-expiry" type="number" min="1" max="168" value="24">
+            <button id="claim-token-generate" class="cc-btn cc-btn--ghost" type="button">Generate Token</button>
+          </div>
+          <p id="claim-token-output" class="modal__hint" role="status" hidden></p>
+        </div>
+      </section>
+      <section class="claim-section">
         <h3 class="claim-section__title">Found on This Device</h3>
         <div class="claim-device-list" id="claim-device-list" role="list" aria-label="Local legacy saves"></div>
       </section>
@@ -1600,6 +1656,28 @@
         <input id="claim-file-input" type="file" accept="application/json">
         <button id="claim-file-import" class="cc-btn cc-btn--ghost" type="button">Import File</button>
       </section>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="modal-sync-conflict" role="dialog" aria-modal="true" aria-labelledby="conflict-title" data-modal-accent-hue="12deg" data-modal-glow-strength="0.45">
+  <div class="modal modal--auth" role="document">
+    <button class="x" type="button" data-close="modal-sync-conflict" aria-label="Close">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+      </svg>
+    </button>
+    <div class="modal__header">
+      <div class="modal__badge" aria-hidden="true">!</div>
+      <div class="modal__titles">
+        <h2 id="conflict-title">Sync conflict detected</h2>
+        <p id="conflict-description" class="modal__subtitle"></p>
+      </div>
+    </div>
+    <div class="modal__actions">
+      <button id="conflict-keep-cloud" class="cc-btn cc-btn--primary" type="button">Keep Cloud</button>
+      <button id="conflict-keep-local" class="cc-btn cc-btn--ghost" type="button">Keep Local</button>
+      <button id="conflict-merge-later" class="cc-btn cc-btn--ghost" type="button">Merge Later</button>
     </div>
   </div>
 </div>

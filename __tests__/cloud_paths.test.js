@@ -1,4 +1,4 @@
-import { buildUserCharacterPath, buildUserCharacterIndexPath } from '../scripts/storage.js';
+import { buildUserCharacterPath, buildUserCharacterIndexPath, buildUserAutosaveIndexPath } from '../scripts/storage.js';
 
 describe('cloud paths', () => {
   test('builds user character paths with uid and characterId', () => {
@@ -6,5 +6,7 @@ describe('cloud paths', () => {
       .toBe('https://ccccg-7d6b6-default-rtdb.firebaseio.com/characters/user-1/char-1');
     expect(buildUserCharacterIndexPath('user-1', 'char-1'))
       .toBe('https://ccccg-7d6b6-default-rtdb.firebaseio.com/users/user-1/charactersIndex/char-1');
+    expect(buildUserAutosaveIndexPath('user-1', 'char-1'))
+      .toBe('https://ccccg-7d6b6-default-rtdb.firebaseio.com/users/user-1/autosaves/char-1');
   });
 });

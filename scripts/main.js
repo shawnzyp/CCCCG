@@ -41,10 +41,14 @@ import {
   normalizeUsername,
   getAuthState,
   getFirebaseDatabase,
+  createRecoveryCodes,
+  saveRecoveryEmail,
+  sendPasswordResetForUsername,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
+import { createClaimToken, consumeClaimToken } from './claim-tokens.js';
 import { hasBootableLocalState } from './welcome-utils.js';
-import { shouldPullCloudCopy } from './sync-utils.js';
+import { shouldPullCloudCopy, detectSyncConflict } from './sync-utils.js';
 import {
   PASSWORD_POLICY,
   applyPasswordPolicyError,
@@ -61,6 +65,10 @@ import {
   listCharacterIndex,
   loadCloudCharacter,
   saveCharacterIndexEntry,
+  readLastSyncedAt,
+  writeLastSyncedAt,
+  storeConflictSnapshot,
+  saveCloudConflictBackup,
   getDeviceId,
   getActiveUserId,
   setActiveUserId,
@@ -13289,6 +13297,72 @@ if(recoverBtn){
   });
 }
 
+const exportCharacterBtn = $('export-character');
+const importCharacterBtn = $('import-character');
+const importCharacterFile = $('import-character-file');
+
+if (exportCharacterBtn) {
+  exportCharacterBtn.addEventListener('click', async () => {
+    try {
+      const name = currentCharacter() || readLastSaveName();
+      if (!name) {
+        toast('Select a character to export.', 'info');
+        return;
+      }
+      const payload = await loadLocal(name);
+      const migrated = migrateSavePayload(payload);
+      const { payload: canonical } = buildCanonicalPayload(migrated);
+      const serialized = JSON.stringify(canonical, null, 2);
+      const blob = new Blob([serialized], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${canonicalCharacterKey(name) || 'character'}-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast('Exported character JSON.', 'success');
+    } catch (err) {
+      console.error('Failed to export character', err);
+      toast('Failed to export character.', 'error');
+    }
+  });
+}
+
+if (importCharacterBtn && importCharacterFile) {
+  importCharacterBtn.addEventListener('click', () => {
+    importCharacterFile.click();
+  });
+  importCharacterFile.addEventListener('change', async () => {
+    const file = importCharacterFile.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const migrated = migrateSavePayload(parsed);
+      const { payload } = buildCanonicalPayload(migrated);
+      const name = payload?.meta?.name || payload?.character?.name || '';
+      if (!name) {
+        toast('Imported file missing character name.', 'error');
+        return;
+      }
+      const characterId = ensureCharacterId(payload, name);
+      await saveLocal(name, payload, { characterId });
+      setCurrentCharacter(name);
+      syncMiniGamePlayerName();
+      applyAppSnapshot(payload);
+      setMode('edit');
+      toast(`Imported ${name}.`, 'success');
+    } catch (err) {
+      console.error('Failed to import character JSON', err);
+      toast('Failed to import character JSON.', 'error');
+    } finally {
+      importCharacterFile.value = '';
+    }
+  });
+}
+
 const newCharBtn = $('create-character');
 if(newCharBtn){
   newCharBtn.addEventListener('click', ()=>{
@@ -23854,7 +23928,9 @@ const authPanelLogin = $('auth-panel-login');
 const authPanelCreate = $('auth-panel-create');
 const authLoginUsername = $('auth-login-username');
 const authLoginPassword = $('auth-login-password');
+const authResetPassword = $('auth-reset-password');
 const authCreateUsername = $('auth-create-username');
+const authCreateEmail = $('auth-create-email');
 const authCreatePassword = $('auth-create-password');
 const authCreateConfirm = $('auth-create-confirm');
 const authPasswordPolicy = $('auth-password-policy');
@@ -23862,6 +23938,9 @@ const authLoginSubmit = $('auth-login-submit');
 const authCreateSubmit = $('auth-create-submit');
 const authError = $('auth-error');
 const authCancel = $('auth-cancel');
+const recoveryCodesModal = $('modal-recovery-codes');
+const recoveryCodesList = $('recovery-code-list');
+const recoveryClose = $('recovery-close');
 const postAuthChoiceModal = $('modal-post-auth-choice');
 const postAuthImport = $('post-auth-import');
 const postAuthCreate = $('post-auth-create');
@@ -23873,9 +23952,25 @@ const claimDeviceList = $('claim-device-list');
 const claimLegacyList = $('claim-legacy-list');
 const claimFileInput = $('claim-file-input');
 const claimFileImport = $('claim-file-import');
+const claimTokenInput = $('claim-token-input');
+const claimTokenSubmit = $('claim-token-submit');
+const claimTokenAdmin = $('claim-token-admin');
+const claimTokenSourceUid = $('claim-token-source-uid');
+const claimTokenCharacterId = $('claim-token-character-id');
+const claimTokenTargetUid = $('claim-token-target-uid');
+const claimTokenExpiry = $('claim-token-expiry');
+const claimTokenGenerate = $('claim-token-generate');
+const claimTokenOutput = $('claim-token-output');
+const conflictModal = $('modal-sync-conflict');
+const conflictDescription = $('conflict-description');
+const conflictKeepCloud = $('conflict-keep-cloud');
+const conflictKeepLocal = $('conflict-keep-local');
+const conflictMergeLater = $('conflict-merge-later');
 
 let pendingPostAuthChoice = false;
 const passwordPolicy = { ...PASSWORD_POLICY };
+const syncConflictQueue = [];
+let activeSyncConflict = null;
 
 function setAuthView(view) {
   const isLogin = view === 'login';
@@ -23901,9 +23996,41 @@ function setAuthError(message) {
   authError.hidden = !text;
 }
 
+function renderRecoveryCodes(codes = []) {
+  if (!recoveryCodesList) return;
+  recoveryCodesList.textContent = '';
+  const normalized = Array.isArray(codes) ? codes : [];
+  if (!normalized.length) {
+    const item = document.createElement('li');
+    item.textContent = 'No recovery codes available.';
+    recoveryCodesList.append(item);
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  normalized.forEach(code => {
+    const item = document.createElement('li');
+    item.textContent = code;
+    frag.appendChild(item);
+  });
+  recoveryCodesList.appendChild(frag);
+}
+
+function openRecoveryCodesModal(codes) {
+  if (!recoveryCodesModal) return;
+  renderRecoveryCodes(codes);
+  show('modal-recovery-codes');
+}
+
+function isValidRecoveryEmail(email) {
+  if (!email) return false;
+  const normalized = typeof email === 'string' ? email.trim() : '';
+  if (!normalized) return false;
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized);
+}
+
 function setAuthBusy(busy) {
   const disabled = !!busy;
-  [authLoginSubmit, authCreateSubmit, authTabLogin, authTabCreate].forEach(btn => {
+  [authLoginSubmit, authCreateSubmit, authTabLogin, authTabCreate, authResetPassword].forEach(btn => {
     if (!btn) return;
     btn.disabled = disabled;
     btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
@@ -23969,19 +24096,118 @@ async function rehydrateLocalCache(uid) {
       localPayload = await loadLocal(name, { characterId });
     } catch {}
     const localUpdated = localPayload ? localUpdatedAt(localPayload) : 0;
-    const cloudUpdated = Number(entry?.updatedAt) || 0;
+    const cloudUpdated = Number(entry?.updatedAtServer || entry?.updatedAt) || 0;
+    const lastSyncedAt = readLastSyncedAt(characterId);
+    if (!lastSyncedAt && localUpdated && cloudUpdated && localUpdated === cloudUpdated) {
+      writeLastSyncedAt(characterId, localUpdated);
+    }
+    if (detectSyncConflict({ localUpdatedAt: localUpdated, cloudUpdatedAt: cloudUpdated, lastSyncedAt })) {
+      try {
+        const cloudPayload = await loadCloudCharacter(uid, characterId);
+        queueSyncConflict({
+          uid,
+          name,
+          characterId,
+          localPayload,
+          cloudPayload,
+          localUpdatedAt: localUpdated,
+          cloudUpdatedAt: cloudUpdated,
+        });
+      } catch (err) {
+        console.error('Failed to load cloud data for conflict detection', err);
+      }
+      continue;
+    }
     const shouldPull = !localPayload || shouldPullCloudCopy(localUpdated, cloudUpdated);
     if (!shouldPull) continue;
     try {
       const cloudPayload = await loadCloudCharacter(uid, characterId);
       ensureCharacterId(cloudPayload, name);
       await saveLocal(name, cloudPayload, { characterId });
+      writeLastSyncedAt(characterId, Number(cloudPayload?.meta?.updatedAt ?? cloudPayload?.updatedAt) || cloudUpdated);
       if (localPayload && cloudUpdated > localUpdated) {
         toast('Updated from cloud', 'info', { duration: 3000 });
       }
     } catch (err) {
       console.error('Failed to refresh local cache from cloud', err);
     }
+  }
+}
+
+function queueSyncConflict(conflict) {
+  syncConflictQueue.push(conflict);
+  if (!activeSyncConflict) {
+    openNextSyncConflict();
+  }
+}
+
+function openNextSyncConflict() {
+  if (activeSyncConflict || !syncConflictQueue.length || !conflictModal) return;
+  activeSyncConflict = syncConflictQueue.shift();
+  const name = activeSyncConflict?.name || 'This character';
+  if (conflictDescription) {
+    conflictDescription.textContent = `${name} was edited locally and in the cloud since the last sync. Choose which version to keep.`;
+  }
+  show('modal-sync-conflict');
+}
+
+async function recordConflictBackups(conflict) {
+  const { uid, characterId, localPayload, cloudPayload } = conflict || {};
+  if (!characterId) return;
+  try {
+    if (localPayload) {
+      storeConflictSnapshot(characterId, localPayload, { label: 'local' });
+      if (uid) {
+        await saveCloudConflictBackup(uid, characterId, localPayload, { label: 'local' });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to store local conflict backup', err);
+  }
+  try {
+    if (cloudPayload) {
+      storeConflictSnapshot(characterId, cloudPayload, { label: 'cloud' });
+      if (uid) {
+        await saveCloudConflictBackup(uid, characterId, cloudPayload, { label: 'cloud' });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to store cloud conflict backup', err);
+  }
+}
+
+async function resolveSyncConflict(action) {
+  if (!activeSyncConflict) return;
+  const conflict = activeSyncConflict;
+  activeSyncConflict = null;
+  hide('modal-sync-conflict');
+  await recordConflictBackups(conflict);
+  const { uid, name, characterId, localPayload, cloudPayload, localUpdatedAt, cloudUpdatedAt } = conflict;
+  try {
+    if (action === 'keep-cloud' && cloudPayload) {
+      await saveLocal(name, cloudPayload, { characterId });
+      writeLastSyncedAt(characterId, cloudUpdatedAt);
+      toast('Kept cloud version.', 'info');
+    } else if (action === 'keep-local' && localPayload && uid) {
+      await saveCloudCharacter(uid, characterId, localPayload);
+      await saveCharacterIndexEntry(uid, characterId, {
+        name: localPayload?.meta?.name || name,
+        updatedAt: localUpdatedAt,
+      });
+      writeLastSyncedAt(characterId, localUpdatedAt);
+      toast('Kept local version.', 'info');
+    } else {
+      const resolved = Math.max(localUpdatedAt || 0, cloudUpdatedAt || 0);
+      if (resolved) {
+        writeLastSyncedAt(characterId, resolved);
+      }
+      toast('Saved both versions for later merge.', 'info');
+    }
+  } catch (err) {
+    console.error('Failed to resolve sync conflict', err);
+    toast('Failed to resolve conflict.', 'error');
+  } finally {
+    openNextSyncConflict();
   }
 }
 
@@ -24008,6 +24234,10 @@ function closePostAuthChoice() {
 function openClaimModal() {
   if (!claimModal) return;
   show('modal-claim-characters');
+  if (claimTokenOutput) {
+    claimTokenOutput.textContent = '';
+    claimTokenOutput.hidden = true;
+  }
   refreshClaimModal().catch(err => console.error('Failed to refresh claim modal', err));
 }
 
@@ -24022,6 +24252,7 @@ async function handleAuthSubmit(mode) {
     await initFirebaseAuth();
     if (mode === 'create') {
       const username = authCreateUsername?.value?.trim() || '';
+      const recoveryEmail = authCreateEmail?.value?.trim() || '';
       const password = authCreatePassword?.value || '';
       const confirm = authCreateConfirm?.value || '';
       const normalized = normalizeUsername(username);
@@ -24031,6 +24262,10 @@ async function handleAuthSubmit(mode) {
       }
       if (!normalized) {
         setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
+        return;
+      }
+      if (recoveryEmail && !isValidRecoveryEmail(recoveryEmail)) {
+        setAuthError('Enter a valid recovery email or leave it blank.');
         return;
       }
       if (password !== confirm) {
@@ -24044,7 +24279,24 @@ async function handleAuthSubmit(mode) {
         return;
       }
       pendingPostAuthChoice = true;
-      await createAccountWithUsernamePassword(username, password);
+      const credential = await createAccountWithUsernamePassword(username, password);
+      const uid = credential?.user?.uid || '';
+      if (uid) {
+        try {
+          if (recoveryEmail) {
+            await saveRecoveryEmail(uid, recoveryEmail);
+          }
+        } catch (err) {
+          console.error('Failed to save recovery email', err);
+        }
+        try {
+          const db = await getFirebaseDatabase();
+          const codes = await createRecoveryCodes(db, uid);
+          openRecoveryCodesModal(codes);
+        } catch (err) {
+          console.error('Failed to create recovery codes', err);
+        }
+      }
     } else {
       const username = authLoginUsername?.value?.trim() || '';
       const password = authLoginPassword?.value || '';
@@ -24084,6 +24336,23 @@ async function handleAuthSubmit(mode) {
   }
 }
 
+async function handlePasswordReset() {
+  try {
+    setAuthError('');
+    const username = authLoginUsername?.value?.trim() || '';
+    const resolved = username || (typeof prompt === 'function' ? prompt('Enter your username to reset your password:') : '');
+    if (!resolved) {
+      setAuthError('Username required to reset password.');
+      return;
+    }
+    await sendPasswordResetForUsername(resolved);
+    toast('Password reset email sent.', 'success');
+  } catch (err) {
+    console.error('Failed to send password reset', err);
+    setAuthError(err?.message || 'Unable to send reset email.');
+  }
+}
+
 function buildClaimRow({ name, meta, actions = [] } = {}) {
   const row = document.createElement('div');
   row.className = 'claim-row';
@@ -24109,6 +24378,86 @@ function renderEmptyRow(container, message) {
   const row = buildClaimRow({ name: message, meta: '' });
   row.classList.add('claim-row--empty');
   container.append(row);
+}
+
+function setClaimTokenAdminVisibility(isDm) {
+  if (!claimTokenAdmin) return;
+  claimTokenAdmin.hidden = !isDm;
+}
+
+async function handleClaimTokenSubmit() {
+  const token = claimTokenInput?.value?.trim() || '';
+  if (!token) {
+    toast('Enter a claim token.', 'info');
+    return;
+  }
+  const { uid } = getAuthState();
+  if (!uid) {
+    toast('Login required to claim a token.', 'error');
+    return;
+  }
+  try {
+    const db = await getFirebaseDatabase();
+    const tokenData = await consumeClaimToken(db, token, uid);
+    const sourceUid = tokenData?.sourceUid || '';
+    const characterId = tokenData?.characterId || '';
+    if (!sourceUid || !characterId) {
+      throw new Error('Invalid claim token payload.');
+    }
+    const cloudPayload = await loadCloudCharacter(sourceUid, characterId);
+    const migrated = migrateSavePayload(cloudPayload);
+    const { payload } = buildCanonicalPayload(migrated);
+    payload.meta = {
+      ...(payload.meta && typeof payload.meta === 'object' ? payload.meta : {}),
+      ownerUid: uid,
+      uid,
+      deviceId: getDeviceId(),
+      updatedAt: Date.now(),
+    };
+    payload.updatedAt = payload.meta.updatedAt;
+    await saveCloudCharacter(uid, characterId, payload);
+    await saveCharacterIndexEntry(uid, characterId, {
+      name: payload?.meta?.name || payload?.character?.name || characterId,
+      updatedAt: payload.meta.updatedAt,
+    });
+    writeLastSyncedAt(characterId, payload.meta.updatedAt);
+    await saveLocal(payload?.meta?.name || characterId, payload, { characterId });
+    toast('Character claimed from token.', 'success');
+    claimTokenInput.value = '';
+    await refreshClaimModal();
+  } catch (err) {
+    console.error('Failed to claim token', err);
+    toast(err?.message || 'Failed to claim token.', 'error');
+  }
+}
+
+async function handleClaimTokenGenerate() {
+  const sourceUid = claimTokenSourceUid?.value?.trim() || '';
+  const characterId = claimTokenCharacterId?.value?.trim() || '';
+  const targetUid = claimTokenTargetUid?.value?.trim() || '';
+  const expiryHours = Number(claimTokenExpiry?.value) || 24;
+  if (!sourceUid || !characterId || !targetUid) {
+    toast('Enter source UID, character ID, and target UID.', 'info');
+    return;
+  }
+  try {
+    const db = await getFirebaseDatabase();
+    const expiresAt = Date.now() + Math.max(1, expiryHours) * 60 * 60 * 1000;
+    const token = await createClaimToken(db, {
+      sourceUid,
+      characterId,
+      targetUid,
+      expiresAt,
+    });
+    if (claimTokenOutput) {
+      claimTokenOutput.textContent = `Token: ${token}`;
+      claimTokenOutput.hidden = false;
+    }
+    toast('Claim token generated.', 'success');
+  } catch (err) {
+    console.error('Failed to generate claim token', err);
+    toast(err?.message || 'Failed to generate token.', 'error');
+  }
 }
 
 function formatPostAuthUpdatedAt(updatedAt) {
@@ -24355,6 +24704,7 @@ function createNewCharacterFromModal() {
 
 function handleAuthStateChange({ uid, isDm } = {}) {
   setDmVisibility(!!isDm);
+  setClaimTokenAdminVisibility(!!isDm);
   if (uid) {
     setActiveUserId(uid);
     setActiveAuthUserId(uid);
@@ -24411,6 +24761,11 @@ if (authTabCreate) {
 if (authLoginSubmit) {
   authLoginSubmit.addEventListener('click', () => handleAuthSubmit('login'));
 }
+if (authResetPassword) {
+  authResetPassword.addEventListener('click', () => {
+    handlePasswordReset();
+  });
+}
 if (authCreateSubmit) {
   authCreateSubmit.addEventListener('click', () => handleAuthSubmit('create'));
 }
@@ -24445,6 +24800,31 @@ if (claimFileImport) {
       console.error('Failed to import file', err);
       toast('Failed to import file.', 'error');
     });
+  });
+}
+if (claimTokenSubmit) {
+  claimTokenSubmit.addEventListener('click', () => {
+    handleClaimTokenSubmit();
+  });
+}
+if (claimTokenGenerate) {
+  claimTokenGenerate.addEventListener('click', () => {
+    handleClaimTokenGenerate();
+  });
+}
+if (conflictKeepCloud) {
+  conflictKeepCloud.addEventListener('click', () => {
+    resolveSyncConflict('keep-cloud');
+  });
+}
+if (conflictKeepLocal) {
+  conflictKeepLocal.addEventListener('click', () => {
+    resolveSyncConflict('keep-local');
+  });
+}
+if (conflictMergeLater) {
+  conflictMergeLater.addEventListener('click', () => {
+    resolveSyncConflict('merge-later');
   });
 }
 
