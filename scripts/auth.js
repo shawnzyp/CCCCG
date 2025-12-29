@@ -33,9 +33,17 @@ async function loadFirebaseCompat() {
   return window.firebase;
 }
 
-function normalizeUsername(username) {
+export function normalizeUsername(username) {
   if (typeof username !== 'string') return '';
-  return username.trim().toLowerCase();
+  const normalized = username
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+  if (normalized.length < 3 || normalized.length > 20) {
+    return '';
+  }
+  return normalized;
 }
 
 export function usernameToEmail(username) {
@@ -62,7 +70,10 @@ async function initializeAuthInternal() {
     if (user && typeof user.getIdTokenResult === 'function') {
       try {
         const tokenResult = await user.getIdTokenResult(true);
-        isDm = !!(tokenResult?.claims?.token?.dm === true || tokenResult?.claims?.dm === true);
+        isDm = !!(
+          tokenResult?.claims?.token?.admin === true ||
+          tokenResult?.claims?.admin === true
+        );
       } catch (err) {
         console.warn('Failed to read auth claims', err);
       }
@@ -114,6 +125,18 @@ export async function getFirebaseDatabase() {
   return firebaseDatabase;
 }
 
+export async function getAuthToken() {
+  const auth = await initFirebaseAuth();
+  const user = auth?.currentUser;
+  if (!user || typeof user.getIdToken !== 'function') return '';
+  try {
+    return await user.getIdToken();
+  } catch (err) {
+    console.warn('Failed to fetch auth token', err);
+    return '';
+  }
+}
+
 export async function claimUsernameTransaction(db, normalizedUsername, uid) {
   if (!db) throw new Error('Database required');
   if (!normalizedUsername) throw new Error('Username required');
@@ -133,7 +156,7 @@ export async function claimUsernameTransaction(db, normalizedUsername, uid) {
 
 async function ensureUserProfile(db, uid, username) {
   if (!db || !uid || !username) return;
-  const userRef = db.ref(`users/${uid}`);
+  const userRef = db.ref(`users/${uid}/profile`);
   await userRef.transaction(current => {
     if (current && current.username) {
       return current;
@@ -147,13 +170,13 @@ async function ensureUserProfile(db, uid, username) {
 
 export async function signInWithUsernamePassword(username, password) {
   const auth = await initFirebaseAuth();
+  const normalized = normalizeUsername(username);
   const email = usernameToEmail(username);
   if (!email) {
-    throw new Error('Username required');
+    throw new Error('Username must be 3-20 characters using letters, numbers, or underscores.');
   }
   const credential = await auth.signInWithEmailAndPassword(email, password);
   const uid = credential?.user?.uid || '';
-  const normalized = normalizeUsername(username);
   const db = await getFirebaseDatabase();
   if (!uid) throw new Error('Login failed');
   const ref = db.ref(`usernames/${normalized}`);
@@ -173,11 +196,11 @@ export async function signInWithUsernamePassword(username, password) {
 
 export async function createAccountWithUsernamePassword(username, password) {
   const auth = await initFirebaseAuth();
+  const normalized = normalizeUsername(username);
   const email = usernameToEmail(username);
   if (!email) {
-    throw new Error('Username required');
+    throw new Error('Username must be 3-20 characters using letters, numbers, or underscores.');
   }
-  const normalized = normalizeUsername(username);
   const credential = await auth.createUserWithEmailAndPassword(email, password);
   const uid = credential?.user?.uid || '';
   if (!uid) throw new Error('Account creation failed');

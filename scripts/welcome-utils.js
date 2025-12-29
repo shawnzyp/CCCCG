@@ -2,7 +2,8 @@ export function hasBootableLocalState({ storage, lastSaveName, uid } = {}) {
   if (!storage) return false;
   const name = typeof lastSaveName === 'string' ? lastSaveName.trim() : '';
   if (name) {
-    if (uid && storage.getItem(`save:${uid}:${name}`)) {
+    const mappedId = storage.getItem(`cc:character-id:${name}`);
+    if (mappedId && storage.getItem(`save:${mappedId}`)) {
       return true;
     }
     if (storage.getItem(`save:${name}`)) {

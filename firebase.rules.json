@@ -4,14 +4,14 @@
     ".write": false,
     "characters": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     },
     "users": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     },
     "usernames": {
@@ -22,14 +22,14 @@
     },
     "characterClaims": {
       "$characterId": {
-        ".read": "auth != null && auth.token.dm === true",
+        ".read": "auth != null && auth.token.admin === true",
         ".write": "auth != null"
       }
     },
     "autosaves": {
       "$uid": {
-        ".read": "auth != null && (auth.uid === $uid || auth.token.dm === true)",
-        ".write": "auth != null && (auth.uid === $uid || auth.token.dm === true)"
+        ".read": "auth != null && (auth.uid === $uid || auth.token.admin === true)",
+        ".write": "auth != null && (auth.uid === $uid || auth.token.admin === true)"
       }
     }
   }

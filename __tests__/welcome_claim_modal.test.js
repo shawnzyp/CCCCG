@@ -19,9 +19,11 @@ describe('welcome modal layout', () => {
 
   test('renders login and continue actions', () => {
     const login = document.getElementById('welcome-login');
+    const create = document.getElementById('welcome-create');
     const cont = document.getElementById('welcome-continue');
 
     expect(login).not.toBeNull();
+    expect(create).not.toBeNull();
     expect(cont).not.toBeNull();
     expect(cont.hasAttribute('disabled')).toBe(true);
   });

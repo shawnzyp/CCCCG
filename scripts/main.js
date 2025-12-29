@@ -38,11 +38,13 @@ import {
   onAuthStateChanged,
   signInWithUsernamePassword,
   createAccountWithUsernamePassword,
+  normalizeUsername,
   getAuthState,
   getFirebaseDatabase,
 } from './auth.js';
 import { claimCharacterLock } from './claim-utils.js';
 import { hasBootableLocalState } from './welcome-utils.js';
+import { shouldPullCloudCopy } from './sync-utils.js';
 import {
   PASSWORD_POLICY,
   applyPasswordPolicyError,
@@ -56,6 +58,9 @@ import {
   saveCloud,
   saveCloudCharacter,
   listCloudCharacters,
+  listCharacterIndex,
+  loadCloudCharacter,
+  saveCharacterIndexEntry,
   getDeviceId,
   getActiveUserId,
   setActiveUserId,
@@ -23841,6 +23846,7 @@ if (btnRules) {
 /* ========= Auth ========= */
 const welcomeLogin = $('welcome-login');
 const welcomeContinue = $('welcome-continue');
+const welcomeCreate = $('welcome-create');
 const authModal = $('modal-auth');
 const authTabLogin = $('auth-tab-login');
 const authTabCreate = $('auth-tab-create');
@@ -23949,21 +23955,37 @@ function updateWelcomeContinue() {
 }
 
 async function rehydrateLocalCache(uid) {
-  const entries = await listCloudCharacters(uid);
+  const entries = await listCharacterIndex(uid);
+  const localUpdatedAt = payload => Number(payload?.meta?.updatedAt ?? payload?.updatedAt) || 0;
   for (const entry of entries) {
-    if (!entry?.payload) continue;
-    const payload = entry.payload;
-    const name = payload?.meta?.name || payload?.character?.name || entry.characterId;
-    if (!name) continue;
-    ensureCharacterId(payload, name);
-    await saveLocal(name, payload, { uid });
+    const characterId = entry?.characterId || '';
+    if (!characterId) continue;
+    const name = entry?.name || characterId;
+    let localPayload = null;
+    try {
+      localPayload = await loadLocal(name, { characterId });
+    } catch {}
+    const localUpdated = localPayload ? localUpdatedAt(localPayload) : 0;
+    const cloudUpdated = Number(entry?.updatedAt) || 0;
+    const shouldPull = !localPayload || shouldPullCloudCopy(localUpdated, cloudUpdated);
+    if (!shouldPull) continue;
+    try {
+      const cloudPayload = await loadCloudCharacter(uid, characterId);
+      ensureCharacterId(cloudPayload, name);
+      await saveLocal(name, cloudPayload, { characterId });
+      if (localPayload && cloudUpdated > localUpdated) {
+        toast('Updated from cloud', 'info', { duration: 3000 });
+      }
+    } catch (err) {
+      console.error('Failed to refresh local cache from cloud', err);
+    }
   }
 }
 
-function openAuthModal() {
+function openAuthModal(view = 'login') {
   if (!authModal) return;
   setAuthError('');
-  setAuthView('login');
+  setAuthView(view);
   hide(WELCOME_MODAL_ID);
   show('modal-auth');
 }
@@ -23996,8 +24018,13 @@ async function handleAuthSubmit(mode) {
       const username = authCreateUsername?.value?.trim() || '';
       const password = authCreatePassword?.value || '';
       const confirm = authCreateConfirm?.value || '';
+      const normalized = normalizeUsername(username);
       if (!username || !password) {
         setAuthError('Enter a username and password to continue.');
+        return;
+      }
+      if (!normalized) {
+        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
         return;
       }
       if (password !== confirm) {
@@ -24015,8 +24042,13 @@ async function handleAuthSubmit(mode) {
     } else {
       const username = authLoginUsername?.value?.trim() || '';
       const password = authLoginPassword?.value || '';
+      const normalized = normalizeUsername(username);
       if (!username || !password) {
         setAuthError('Enter your username and password to continue.');
+        return;
+      }
+      if (!normalized) {
+        setAuthError('Username must be 3-20 characters using letters, numbers, or underscores.');
         return;
       }
       pendingPostAuthChoice = true;
@@ -24107,7 +24139,11 @@ async function handleLegacyClaim({ name, source }) {
   };
   payload.updatedAt = payload.meta.updatedAt;
   await saveCloudCharacter(uid, characterId, payload);
-  await saveLocal(name, payload, { uid });
+  await saveCharacterIndexEntry(uid, characterId, {
+    name,
+    updatedAt: payload.meta.updatedAt,
+  });
+  await saveLocal(name, payload, { characterId });
   setCurrentCharacter(name);
   syncMiniGamePlayerName();
   applyAppSnapshot(payload);
@@ -24162,7 +24198,11 @@ async function handleFileImport() {
   };
   payload.updatedAt = payload.meta.updatedAt;
   await saveCloudCharacter(uid, characterId, payload);
-  await saveLocal(name, payload, { uid });
+  await saveCharacterIndexEntry(uid, characterId, {
+    name,
+    updatedAt: payload.meta.updatedAt,
+  });
+  await saveLocal(name, payload, { characterId });
   setCurrentCharacter(name);
   syncMiniGamePlayerName();
   applyAppSnapshot(payload);
@@ -24283,6 +24323,9 @@ function handleAuthStateChange({ uid, isDm } = {}) {
     updateWelcomeContinue();
     rehydrateLocalCache(uid)
       .then(() => {
+        restoreLastLoadedCharacter().catch(err => {
+          console.error('Failed to restore last loaded character', err);
+        });
         if (pendingPostAuthChoice) {
           pendingPostAuthChoice = false;
           openPostAuthChoice();
@@ -24300,7 +24343,10 @@ function handleAuthStateChange({ uid, isDm } = {}) {
 }
 
 if (welcomeLogin) {
-  welcomeLogin.addEventListener('click', () => openAuthModal());
+  welcomeLogin.addEventListener('click', () => openAuthModal('login'));
+}
+if (welcomeCreate) {
+  welcomeCreate.addEventListener('click', () => openAuthModal('create'));
 }
 if (welcomeContinue) {
   welcomeContinue.addEventListener('click', () => {
