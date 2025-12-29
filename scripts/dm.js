@@ -1,6 +1,7 @@
 import { listCharacters, loadCharacter } from './characters.js';
 import { verifyDmCredential, upsertDmCredentialPin, getDmCredential } from './dm-pin.js';
-import { show, hide } from './modal.js';
+import { show, hide, openDmAuthModal } from './modal.js';
+import { dmIsUnlocked, dmLock, getDmUsername } from './dm-auth.js';
 import {
   listMiniGames,
   getMiniGame,
@@ -8705,142 +8706,23 @@ function initDMLogin(){
       };
 
       const startInteractiveFlow = () => {
-        // If the modal elements are missing, fall back to a simple prompt so
-        // the promise always resolves and loading doesn't hang.
-        if (!loginModal || !loginPin || !loginSubmit || !loginUsername) {
-          const remaining = getLoginCooldownRemainingMs();
-          if (remaining > 0) {
-            notifyLoginCooldown(remaining);
-            reject(new Error('throttled'));
-            return;
-          }
-          (async () => {
-            const usernamePrompt = typeof window.dmUsernamePrompt === 'function'
-              ? window.dmUsernamePrompt
-              : null;
-            const enteredUsername = usernamePrompt
-              ? await usernamePrompt('Enter DM username')
-              : (typeof prompt === 'function' ? prompt('Enter DM username') : null);
-            const pinPrompt = typeof window.pinPrompt === 'function'
-              ? window.pinPrompt
-              : null;
-            const enteredPin = pinPrompt
-              ? await pinPrompt('Enter DM PIN (4 digits)')
-              : (typeof prompt === 'function' ? prompt('Enter DM PIN (4 digits)') : null);
-            const sanitizedUsername = sanitizeDmUsername(enteredUsername || '');
-            const sanitizedPin = sanitizeDmPin(enteredPin || '');
-            if (await verifyDmCredentials({ username: sanitizedUsername, pin: sanitizedPin })) {
-              resetLoginFailureState();
-              clearLoginCooldownTimer();
-              clearLoginCooldownUI();
-              onLoginSuccess({ username: sanitizedUsername });
-              dismissToast();
-              toast('DM tools unlocked','success');
-              resolve(true);
-            } else {
-              recordLoginFailure();
-              toast('Invalid username or PIN','error');
-              const cooldown = getLoginCooldownRemainingMs();
-              if (cooldown > 0) {
-                notifyLoginCooldown(cooldown);
-              }
-              reject(new Error('Invalid PIN'));
-            }
-          })();
+        if (dmIsUnlocked()) {
+          onLoginSuccess({ username: getDmUsername() });
+          completeWithActiveSession();
           return;
         }
-
-        resetLoginFlow({ focus: false });
-        openLogin();
-        const initialRemaining = getLoginCooldownRemainingMs();
-        if (initialRemaining > 0) {
-          startLoginCooldownCountdown(initialRemaining);
-          notifyLoginCooldown(initialRemaining);
-        } else {
-          clearLoginCooldownUI();
-          toast('Enter DM username and PIN','info');
+        const opened = openDmAuthModal({
+          onAuthed: () => {
+            onLoginSuccess({ username: getDmUsername() });
+            completeWithActiveSession();
+          },
+          onClosed: () => {
+            reject(new Error('cancel'));
+          },
+        });
+        if (!opened) {
+          reject(new Error('DM auth unavailable'));
         }
-        function cleanup(){
-          loginSubmit?.removeEventListener('click', onSubmit);
-          loginUsername?.removeEventListener('keydown', onKey);
-          loginPin?.removeEventListener('keydown', onKey);
-          loginModal?.removeEventListener('click', onOverlay);
-          loginClose?.removeEventListener('click', onCancel);
-          clearLoginCooldownTimer();
-        }
-        async function onSubmit(){
-          const activeCooldown = getLoginCooldownRemainingMs();
-          if (activeCooldown > 0) {
-            startLoginCooldownCountdown(activeCooldown);
-            notifyLoginCooldown(activeCooldown);
-            return;
-          }
-          const usernameValue = sanitizeDmUsername(loginUsername?.value || '');
-          const pinValue = sanitizeDmPin(loginPin?.value || '');
-          if (loginUsername) {
-            loginUsername.value = usernameValue;
-          }
-          if (loginPin) {
-            loginPin.value = pinValue;
-          }
-          if (!isValidDmUsername(usernameValue)) {
-            showLoginError('Enter your DM username.');
-            queueLoginFocus(loginUsername);
-            return;
-          }
-          if (!isValidDmPinFormat(pinValue)) {
-            showLoginError('Enter your 4-digit PIN.');
-            queueLoginFocus(loginPin);
-            return;
-          }
-          clearLoginError();
-          lockLoginControls();
-          let isValid = false;
-          try {
-            isValid = await verifyDmCredentials({ username: usernameValue, pin: pinValue });
-          } catch (error) {
-            console.error('Failed to verify DM credentials', error);
-            showLoginError('Unable to verify credentials. Check your connection and try again.');
-            clearLoginCooldownUI();
-            queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
-            return;
-          }
-          if(isValid){
-            resetLoginFailureState();
-            clearLoginCooldownTimer();
-            clearLoginCooldownUI();
-            onLoginSuccess({ username: usernameValue });
-            closeLogin();
-            dismissToast();
-            toast('DM tools unlocked','success');
-            cleanup();
-            resolve(true);
-          } else {
-            if (loginPin) {
-              loginPin.value='';
-            }
-            queueLoginFocus(getDefaultFocusForView(LOGIN_VIEW_LOGIN));
-            toast('Invalid username or PIN','error');
-            const failureState = recordLoginFailure();
-            const cooldown = failureState.lockUntil > Date.now()
-              ? failureState.lockUntil - Date.now()
-              : getLoginCooldownRemainingMs();
-            if (cooldown > 0) {
-              startLoginCooldownCountdown(cooldown);
-              notifyLoginCooldown(cooldown);
-            } else {
-              clearLoginCooldownUI();
-            }
-          }
-        }
-        function onKey(e){ if(e.key==='Enter') onSubmit(); }
-        function onCancel(){ closeLogin(); cleanup(); reject(new Error('cancel')); }
-        function onOverlay(e){ if(e.target===loginModal) onCancel(); }
-        loginSubmit?.addEventListener('click', onSubmit);
-        loginUsername?.addEventListener('keydown', onKey);
-        loginPin?.addEventListener('keydown', onKey);
-        loginModal?.addEventListener('click', onOverlay);
-        loginClose?.addEventListener('click', onCancel);
       };
 
       if (isLoggedIn()) {
@@ -8883,6 +8765,7 @@ function initDMLogin(){
         ? reason.reason
         : null;
     invalidatePersistentSession({ reason: cause || 'logout' });
+    dmLock();
     clearLoggedIn();
     teardownPlayerBroadcastChannels();
     teardownMiniGameSubscription();
