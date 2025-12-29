@@ -44,6 +44,13 @@ import {
 import { claimCharacterLock } from './claim-utils.js';
 import { hasBootableLocalState } from './welcome-utils.js';
 import {
+  PASSWORD_POLICY,
+  applyPasswordPolicyError,
+  getPasswordLengthError,
+  renderPasswordPolicyChecklist,
+  updatePasswordPolicyChecklist,
+} from './password-policy.js';
+import {
   loadLocal,
   saveLocal,
   saveCloud,
@@ -23844,6 +23851,7 @@ const authLoginPassword = $('auth-login-password');
 const authCreateUsername = $('auth-create-username');
 const authCreatePassword = $('auth-create-password');
 const authCreateConfirm = $('auth-create-confirm');
+const authPasswordPolicy = $('auth-password-policy');
 const authLoginSubmit = $('auth-login-submit');
 const authCreateSubmit = $('auth-create-submit');
 const authError = $('auth-error');
@@ -23860,6 +23868,7 @@ const claimFileInput = $('claim-file-input');
 const claimFileImport = $('claim-file-import');
 
 let pendingPostAuthChoice = false;
+const passwordPolicy = { ...PASSWORD_POLICY };
 
 function setAuthView(view) {
   const isLogin = view === 'login';
@@ -23872,6 +23881,9 @@ function setAuthView(view) {
   if (authPanelCreate) {
     authPanelCreate.hidden = isLogin;
     authPanelCreate.setAttribute('aria-hidden', isLogin ? 'true' : 'false');
+  }
+  if (!isLogin) {
+    updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
   }
 }
 
@@ -23888,6 +23900,31 @@ function setAuthBusy(busy) {
     if (!btn) return;
     btn.disabled = disabled;
     btn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
+}
+
+function getFriendlySignupError(error) {
+  const code = error?.code || '';
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'That username is already in use.';
+    case 'auth/invalid-email':
+      return 'Enter a valid username.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please try again.';
+    default:
+      return 'Unable to create account. Please try again.';
+  }
+}
+
+if (authPasswordPolicy) {
+  renderPasswordPolicyChecklist(authPasswordPolicy, passwordPolicy);
+  updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword?.value || '', passwordPolicy);
+}
+
+if (authCreatePassword) {
+  authCreatePassword.addEventListener('input', () => {
+    updatePasswordPolicyChecklist(authPasswordPolicy, authCreatePassword.value || '', passwordPolicy);
   });
 }
 
@@ -23967,6 +24004,12 @@ async function handleAuthSubmit(mode) {
         setAuthError('Passwords do not match.');
         return;
       }
+      const lengthError = getPasswordLengthError(password, passwordPolicy);
+      if (lengthError) {
+        updatePasswordPolicyChecklist(authPasswordPolicy, password, passwordPolicy);
+        setAuthError(lengthError);
+        return;
+      }
       pendingPostAuthChoice = true;
       await createAccountWithUsernamePassword(username, password);
     } else {
@@ -23982,7 +24025,22 @@ async function handleAuthSubmit(mode) {
     hide('modal-auth');
   } catch (err) {
     console.error('Auth failed', err);
-    setAuthError(err?.message || 'Unable to sign in.');
+    if (mode === 'create') {
+      const password = authCreatePassword?.value || '';
+      const policyFeedback = applyPasswordPolicyError({
+        container: authPasswordPolicy,
+        password,
+        policy: passwordPolicy,
+        error: err,
+      });
+      if (policyFeedback) {
+        setAuthError(policyFeedback.message);
+      } else {
+        setAuthError(getFriendlySignupError(err));
+      }
+    } else {
+      setAuthError(err?.message || 'Unable to sign in.');
+    }
   } finally {
     setAuthBusy(false);
   }

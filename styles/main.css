@@ -10189,6 +10189,11 @@ html.cccg-hit-active #cccg-hit-fx::after{
 .modal--auth .auth-panel{display:flex;flex-direction:column;gap:10px}
 .modal--auth .auth-panel input{width:100%}
 .modal--auth .auth-panel button{align-self:flex-start}
+.password-policy{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:0.85rem;color:rgba(255,255,255,0.7)}
+.password-policy__item{display:flex;align-items:center;gap:8px}
+.password-policy__item::before{content:"✗";color:var(--red);font-weight:600}
+.password-policy__item.is-met{color:rgba(255,255,255,0.9)}
+.password-policy__item.is-met::before{content:"✓";color:var(--green);font-weight:700}
 .modal--migration .migration-actions{display:flex;flex-direction:column;gap:14px}
 .modal--migration .migration-legacy{display:flex;flex-direction:column;gap:8px}
 .modal--migration .migration-legacy input{width:100%}
